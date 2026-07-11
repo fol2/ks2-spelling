@@ -15,6 +15,7 @@ coverage/
 *.mobileprovision
 
 # Native generated and machine-local outputs
+.native-build/
 android/.gradle/
 android/**/build/
 android/local.properties

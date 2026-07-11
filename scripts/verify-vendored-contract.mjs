@@ -55,6 +55,33 @@ const EXPECTED_PROVENANCE = Object.freeze({
     extraction:
       'Exact bytes extracted from the frozen commit with git archive; no upstream worktree files are used.',
   },
+  producerTests: {
+    root: 'vendor/ks2-mastery',
+    fileCount: 9,
+    runtimeAuthority: false,
+    source:
+      'Exact bytes extracted from the frozen Gate A commit for downstream contract testing.',
+    files: {
+      'tests/spelling-mobile-a3-command-contracts.test.js':
+        'd4d6eb6032f9022161c6ad6d109e20a7edb575c9edbf085c191d60f16366f93e',
+      'tests/spelling-mobile-a3-command-planner.test.js':
+        '5d26781a4fc32e84290215f25016927eb3a500ad433c6e90a782ea87fdf12cda',
+      'tests/spelling-mobile-a3-command-repository.test.js':
+        'efabf2976cbe696cb5986491c4fc0ba8acf57fd5ee356124a92061d7c9cc0fbd',
+      'tests/spelling-mobile-a3-atomicity.test.js':
+        'aa43b0e113397d544b9d0d1cd900f01744673e8e150cc852594b7edef14357b2',
+      'tests/spelling-mobile-a3-monster-projection.test.js':
+        'c995de43c6ab5c3741c2c3ea7904240aebb82e930eeec6a521b1da1a29f4d1ec',
+      'tests/spelling-mobile-a3-camp-projection.test.js':
+        '741190527be9a76ffcd8d4d33180981844700f16318e7aa72dc16bdb6bc1bae7',
+      'tests/spelling-mobile-a3-revision-projection.test.js':
+        '996c5708d7a0b0167ed9f178f972f9d39f7e4d90bf66c9dd9ded09600141f8ce',
+      'tests/spelling-mobile-a3-parent-projection.test.js':
+        '7cb95867ee9762fdf6088bc4191a8ae0362677e8d849559e649c41838d3a9d86',
+      'tests/spelling-mobile-a3-profile-repository.test.js':
+        '696bdbf6c98f8361bc7270b3538dce0528e1be380066fa767b3976280bda2482',
+    },
+  },
 });
 
 function sha256(bytes) {
@@ -408,18 +435,57 @@ export async function verifyVendoredContract({ rootDir = DEFAULT_ROOT } = {}) {
     ...Object.values(EXPECTED_PROVENANCE.catalogues).map(({ path }) => path),
     ...runtimePaths,
   ].sort();
+  const producerTestFiles = Object.keys(EXPECTED_PROVENANCE.producerTests.files);
+  if (
+    producerTestFiles.length !== EXPECTED_PROVENANCE.producerTests.fileCount ||
+    producerTestFiles.some(
+      (path) =>
+        !path.startsWith('tests/spelling-mobile-a3-') ||
+        !path.endsWith('.test.js') ||
+        posix.normalize(path) !== path ||
+        path.includes('..'),
+    )
+  ) {
+    recordIssue(issues, 'producer test provenance contains an unsafe path or count drift');
+  }
+  if (expectedVendorFiles.length !== EXPECTED_PROVENANCE.vendor.expectedFileCount) {
+    recordIssue(
+      issues,
+      `runtime/content authority count drift: expected 29, received ${expectedVendorFiles.length}`,
+    );
+  }
+  const expectedAllVendorFiles = [...expectedVendorFiles, ...producerTestFiles].sort();
+  const producerTestPathSet = new Set(producerTestFiles);
   const actualVendorFiles = await listVendorFiles(vendorRoot, issues);
   compareExactSet(
     actualVendorFiles,
-    expectedVendorFiles,
-    (path) => recordIssue(issues, `missing runtime/evidence file: ${path}`),
+    expectedAllVendorFiles,
+    (path) =>
+      recordIssue(
+        issues,
+        producerTestPathSet.has(path)
+          ? `missing producer test: ${path}`
+          : `missing runtime/evidence file: ${path}`,
+      ),
     (path) => recordIssue(issues, `unexpected vendored file: ${path}`),
   );
-  if (actualVendorFiles.length !== EXPECTED_PROVENANCE.vendor.expectedFileCount) {
+  const actualRuntimeAuthorityCount = actualVendorFiles.filter((path) =>
+    expectedVendorFiles.includes(path),
+  ).length;
+  if (actualRuntimeAuthorityCount !== EXPECTED_PROVENANCE.vendor.expectedFileCount) {
     recordIssue(
       issues,
-      `unexpected vendored file count: expected 29, received ${actualVendorFiles.length}`,
+      `runtime/content authority count drift: expected 29, received ${actualRuntimeAuthorityCount}`,
     );
+  }
+
+  for (const [path, expectedHash] of Object.entries(
+    EXPECTED_PROVENANCE.producerTests.files,
+  )) {
+    const bytes = await readBytes(resolve(vendorRoot, path), `producer test ${path}`, issues);
+    if (bytes && sha256(bytes) !== expectedHash) {
+      recordIssue(issues, `producer test hash mismatch for ${path}`);
+    }
   }
 
   const sourceByPath = new Map();
@@ -528,6 +594,8 @@ export async function verifyVendoredContract({ rootDir = DEFAULT_ROOT } = {}) {
   if (issues.length > 0) throw new VendoredContractVerificationError(issues);
   return {
     runtimeFilesVerified: runtimeFiles.length,
+    runtimeAuthorityFilesVerified: expectedVendorFiles.length,
+    producerTestFilesVerified: producerTestFiles.length,
     importRecordsVerified: certifiedExpectedRecords.length,
     starterItemsVerified: EXPECTED_PROVENANCE.catalogues.starter.itemCount,
     fullItemsVerified: EXPECTED_PROVENANCE.catalogues.full.itemCount,
@@ -540,6 +608,8 @@ if (invokedPath === import.meta.url) {
     const result = await verifyVendoredContract();
     process.stdout.write(
       `Gate A vendored contract verified: ${result.runtimeFilesVerified}/24 runtime hashes verified; ` +
+        `${result.runtimeAuthorityFilesVerified}/29 runtime/content authority files verified; ` +
+        `${result.producerTestFilesVerified}/9 producer test hashes verified; ` +
         `Starter ${result.starterItemsVerified}; Full ${result.fullItemsVerified}; ` +
         `${result.importRecordsVerified} A3 import records verified.\n`,
     );

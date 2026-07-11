@@ -46,6 +46,18 @@ const EXPECTED = Object.freeze({
   fullCount: 213,
 });
 
+const EXPECTED_A3_PRODUCER_TESTS = Object.freeze({
+  'tests/spelling-mobile-a3-command-contracts.test.js': 'd4d6eb6032f9022161c6ad6d109e20a7edb575c9edbf085c191d60f16366f93e',
+  'tests/spelling-mobile-a3-command-planner.test.js': '5d26781a4fc32e84290215f25016927eb3a500ad433c6e90a782ea87fdf12cda',
+  'tests/spelling-mobile-a3-command-repository.test.js': 'efabf2976cbe696cb5986491c4fc0ba8acf57fd5ee356124a92061d7c9cc0fbd',
+  'tests/spelling-mobile-a3-atomicity.test.js': 'aa43b0e113397d544b9d0d1cd900f01744673e8e150cc852594b7edef14357b2',
+  'tests/spelling-mobile-a3-monster-projection.test.js': 'c995de43c6ab5c3741c2c3ea7904240aebb82e930eeec6a521b1da1a29f4d1ec',
+  'tests/spelling-mobile-a3-camp-projection.test.js': '741190527be9a76ffcd8d4d33180981844700f16318e7aa72dc16bdb6bc1bae7',
+  'tests/spelling-mobile-a3-revision-projection.test.js': '996c5708d7a0b0167ed9f178f972f9d39f7e4d90bf66c9dd9ded09600141f8ce',
+  'tests/spelling-mobile-a3-parent-projection.test.js': '7cb95867ee9762fdf6088bc4191a8ae0362677e8d849559e649c41838d3a9d86',
+  'tests/spelling-mobile-a3-profile-repository.test.js': '696bdbf6c98f8361bc7270b3538dce0528e1be380066fa767b3976280bda2482',
+});
+
 async function copyRepository() {
   const parent = await mkdtemp(join(tmpdir(), 'ks2-spelling-vendor-test-'));
   const copyRoot = join(parent, 'isolated-mobile-repository');
@@ -104,6 +116,15 @@ test('the frozen Gate A spelling runtime is vendored and certified', async () =>
   assert.equal(provenance.evidence.a3Manifest.sha256, EXPECTED.manifestSha256);
   assert.equal(provenance.runtime.entry, EXPECTED.runtimeEntry);
   assert.equal(provenance.runtime.fileCount, EXPECTED.runtimeFileCount);
+  assert.equal(provenance.vendor.expectedFileCount, 29);
+  assert.deepEqual(provenance.producerTests, {
+    root: 'vendor/ks2-mastery',
+    fileCount: 9,
+    runtimeAuthority: false,
+    source:
+      'Exact bytes extracted from the frozen Gate A commit for downstream contract testing.',
+    files: EXPECTED_A3_PRODUCER_TESTS,
+  });
   assert.equal(provenance.catalogues.starter.sha256, EXPECTED.starterSha256);
   assert.equal(provenance.catalogues.starter.itemCount, EXPECTED.starterCount);
   assert.equal(provenance.catalogues.full.sha256, EXPECTED.fullSha256);
@@ -117,6 +138,8 @@ test('the frozen Gate A spelling runtime is vendored and certified', async () =>
   const result = await verifyVendoredContract({ rootDir: ROOT });
   assert.deepEqual(result, {
     runtimeFilesVerified: 24,
+    runtimeAuthorityFilesVerified: 29,
+    producerTestFilesVerified: 9,
     importRecordsVerified: a3Manifest.runtime.importPolicy.records.length,
     starterItemsVerified: 20,
     fullItemsVerified: 213,
@@ -129,6 +152,8 @@ test('the frozen Gate A spelling runtime is vendored and certified', async () =>
   });
   assert.equal(cli.status, 0, cli.stderr);
   assert.match(cli.stdout, /24\/24 runtime hashes verified/);
+  assert.match(cli.stdout, /29\/29 runtime\/content authority files verified/);
+  assert.match(cli.stdout, /9\/9 producer test hashes verified/);
   assert.match(cli.stdout, /Starter 20; Full 213/);
 });
 
@@ -220,6 +245,49 @@ test('verification fails closed for representative tampering', async (t) => {
       );
       await writeFile(target, `${await readFile(target, 'utf8')}\n// tampered\n`);
     }, /hash mismatch.*shared\/spelling\/mobile\/a3\/index\.js/is);
+  });
+
+  await t.test('a missing producer test', async () => {
+    await expectVerificationFailure(async (copyRoot) => {
+      await rm(
+        join(
+          copyRoot,
+          'vendor/ks2-mastery/tests/spelling-mobile-a3-command-contracts.test.js',
+        ),
+      );
+    }, /missing producer test.*spelling-mobile-a3-command-contracts\.test\.js/is);
+  });
+
+  await t.test('producer test hash drift', async () => {
+    await expectVerificationFailure(async (copyRoot) => {
+      const target = join(
+        copyRoot,
+        'vendor/ks2-mastery/tests/spelling-mobile-a3-command-planner.test.js',
+      );
+      await writeFile(target, `${await readFile(target, 'utf8')}\n// tampered\n`);
+    }, /producer test hash mismatch.*spelling-mobile-a3-command-planner\.test\.js/is);
+  });
+
+  await t.test('an unexpected producer test', async () => {
+    await expectVerificationFailure(async (copyRoot) => {
+      const target = join(
+        copyRoot,
+        'vendor/ks2-mastery/tests/spelling-mobile-a3-unexpected.test.js',
+      );
+      await writeFile(target, "import test from 'node:test';\ntest('unexpected', () => {});\n");
+    }, /unexpected vendored file.*spelling-mobile-a3-unexpected\.test\.js/is);
+  });
+
+  await t.test('a producer test is replaced with a symlink', async () => {
+    await expectVerificationFailure(async (copyRoot) => {
+      const target = join(
+        copyRoot,
+        'vendor/ks2-mastery/tests/spelling-mobile-a3-atomicity.test.js',
+      );
+      const relocated = join(copyRoot, 'relocated-producer-test.js');
+      await rename(target, relocated);
+      await symlink(relocated, target, 'file');
+    }, /unexpected vendored symlink.*spelling-mobile-a3-atomicity\.test\.js/is);
   });
 
   await t.test('an unexpected vendored file', async () => {

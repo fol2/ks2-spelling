@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { lstat, readFile, readdir } from 'node:fs/promises';
+import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -305,12 +305,36 @@ export class VendoredContractVerificationError extends Error {
 export async function verifyVendoredContract({ rootDir = DEFAULT_ROOT } = {}) {
   const root = resolve(rootDir);
   const issues = [];
+  const vendorRoot = resolve(root, EXPECTED_PROVENANCE.vendor.root);
+  try {
+    const vendorRootStats = await lstat(vendorRoot);
+    if (vendorRootStats.isSymbolicLink()) {
+      recordIssue(issues, 'vendor root is a symlink');
+    } else if (!vendorRootStats.isDirectory()) {
+      recordIssue(issues, 'vendor root is not a directory');
+    } else {
+      const resolvedRoot = await realpath(root);
+      const resolvedVendorRoot = await realpath(vendorRoot);
+      const vendorPathFromRoot = relative(resolvedRoot, resolvedVendorRoot);
+      if (
+        vendorPathFromRoot === '' ||
+        vendorPathFromRoot === '..' ||
+        vendorPathFromRoot.startsWith(`..${sep}`) ||
+        isAbsolute(vendorPathFromRoot)
+      ) {
+        recordIssue(issues, 'vendor root escapes repository');
+      }
+    }
+  } catch (error) {
+    recordIssue(issues, `invalid vendor root: ${vendorRoot} (${error.code ?? error.message})`);
+  }
+  if (issues.length > 0) throw new VendoredContractVerificationError(issues);
+
   const provenancePath = resolve(root, 'provenance/ks2-mastery-gate-a.json');
   const provenanceBytes = await readBytes(provenancePath, 'provenance record', issues);
   const provenance = parseJson(provenanceBytes, 'provenance record', issues);
   authorityChecks(provenance, issues);
 
-  const vendorRoot = resolve(root, EXPECTED_PROVENANCE.vendor.root);
   const evidenceBytes = {};
   const evidenceManifests = {};
   for (const [label, record] of Object.entries(EXPECTED_PROVENANCE.evidence)) {

@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, cp, mkdir } from 'node:fs/promises';
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rename,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -132,6 +140,15 @@ test('the app-owned façade exposes only the certified runtime and read-only cat
 });
 
 test('verification fails closed for representative tampering', async (t) => {
+  await t.test('the vendored root is replaced with a directory symlink', async () => {
+    await expectVerificationFailure(async (copyRoot) => {
+      const vendorRoot = join(copyRoot, 'vendor/ks2-mastery');
+      const relocatedVendorRoot = join(copyRoot, 'vendor/ks2-mastery-relocated');
+      await rename(vendorRoot, relocatedVendorRoot);
+      await symlink(relocatedVendorRoot, vendorRoot, 'dir');
+    }, /vendor root is a symlink/i);
+  });
+
   await t.test('recorded runtime hash drift', async () => {
     await expectVerificationFailure(async (copyRoot) => {
       const target = join(

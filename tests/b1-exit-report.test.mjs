@@ -35,6 +35,14 @@ async function createMinimalApplicationTree() {
     ['index.html', '<main>fixture</main>\n'],
     ['vite.config.js', 'export default {};\n'],
     ['capacitor.config.json', '{"webDir":"dist"}\n'],
+    ['ios/App/App/public/index.html', '<main>fixture</main>\n'],
+    ['ios/App/App/capacitor.config.json', '{"webDir":"public"}\n'],
+    ['ios/App/App/config.xml', '<widget id="fixture" />\n'],
+    ['android/app/src/main/assets/public/index.html', '<main>fixture</main>\n'],
+    ['android/app/src/main/assets/capacitor.config.json', '{"webDir":"public"}\n'],
+    ['android/app/src/main/res/xml/config.xml', '<widget id="fixture" />\n'],
+    ['android/capacitor-cordova-android-plugins/build.gradle', 'dependencies {}\n'],
+    ['ios/capacitor-cordova-ios-plugins/CordovaPluginsResources.podspec', 'Pod::Spec.new\n'],
     ['src/main.js', 'export const value = 1;\n'],
     ['src/content.md', '# Bundled content\n'],
     ['scripts/build/tool.mjs', 'export const built = true;\n'],
@@ -85,11 +93,41 @@ test('application fingerprint is deterministic and covers nested build inputs', 
     assert.ok(first.files.some(({ path }) => path === 'src/main.js'));
     assert.ok(first.files.some(({ path }) => path === 'src/content.md'));
     assert.ok(first.files.some(({ path }) => path === 'scripts/build/tool.mjs'));
+    assert.ok(first.files.some(({ path }) => path === 'ios/App/App/public/index.html'));
+    assert.ok(
+      first.files.some(
+        ({ path }) => path === 'android/app/src/main/assets/public/index.html',
+      ),
+    );
     assert.ok(first.files.some(({ path }) => path === 'scripts/test-native.mjs'));
 
     await writeFile(join(root, 'src/main.js'), 'export const value = 2;\n', 'utf8');
     const changed = await fingerprintB1Application({ root });
     assert.notEqual(changed.sha256, first.sha256);
+    await writeFile(join(root, 'src/main.js'), 'export const value = 1;\n', 'utf8');
+    await writeFile(join(root, 'ios/App/App/public/index.html'), '<main>changed</main>\n', 'utf8');
+    const changedIosBundle = await fingerprintB1Application({ root });
+    assert.notEqual(changedIosBundle.sha256, first.sha256);
+    await writeFile(join(root, 'ios/App/App/public/index.html'), '<main>fixture</main>\n', 'utf8');
+    await writeFile(
+      join(root, 'android/app/src/main/assets/public/index.html'),
+      '<main>changed</main>\n',
+      'utf8',
+    );
+    const changedAndroidBundle = await fingerprintB1Application({ root });
+    assert.notEqual(changedAndroidBundle.sha256, first.sha256);
+    await writeFile(
+      join(root, 'android/app/src/main/assets/public/index.html'),
+      '<main>fixture</main>\n',
+      'utf8',
+    );
+    await writeFile(
+      join(root, 'ios/App/App/capacitor.config.json'),
+      '{"server":{"url":"https://example.test"}}\n',
+      'utf8',
+    );
+    const changedNativeConfig = await fingerprintB1Application({ root });
+    assert.notEqual(changedNativeConfig.sha256, first.sha256);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -116,6 +154,15 @@ test('every fingerprinted application byte matches the exact clean Task 8 commit
   const { fingerprintB1Application } = await importFingerprint();
   const fingerprint = await fingerprintB1Application({ root: ROOT });
   for (const file of fingerprint.files) {
+    const derivedNativeInput =
+      file.path.startsWith('ios/App/App/public/') ||
+      file.path === 'ios/App/App/capacitor.config.json' ||
+      file.path === 'ios/App/App/config.xml' ||
+      file.path.startsWith('ios/capacitor-cordova-ios-plugins/') ||
+      file.path.startsWith('android/app/src/main/assets/') ||
+      file.path === 'android/app/src/main/res/xml/config.xml' ||
+      file.path.startsWith('android/capacitor-cordova-android-plugins/');
+    if (derivedNativeInput) continue;
     const { stdout } = await execFileAsync(
       'git',
       ['show', `${TESTED_APPLICATION_COMMIT}:${file.path}`],
@@ -136,20 +183,43 @@ test('native capture parsers fail closed on exact foreground and installation ev
     parseIosHostProcess,
     parseIosLaunchProcess,
     parseIosRuntimeVersion,
+    runWithIosCaptureCleanup,
   } = await import(
     pathToFileURL(join(ROOT, 'scripts/launch-ios-simulator.mjs'))
   );
   const {
     assertAndroidBundledShellHierarchy,
+    assertStartedAndroidEmulatorProcess,
     clearAndroidCaptureEvidence,
+    createAndroidCaptureCleanupPlan,
+    createAndroidLaunchPlan,
     parseAndroidInstalledApkPath,
     parseAndroidPackageMetadata,
     parseAndroidResumedActivity,
+    runAndroidCaptureCleanup,
     waitForAndroidProcess,
     waitForAndroidBundledShell,
   } = await import(
     pathToFileURL(join(ROOT, 'scripts/launch-android-emulator.mjs'))
   );
+  const { createIosLaunchPlan } = await import(
+    pathToFileURL(join(ROOT, 'scripts/launch-ios-simulator.mjs'))
+  );
+  for (const plan of [
+    createIosLaunchPlan({ udid: 'existing-ios' }),
+    createAndroidLaunchPlan({ avdExists: true }),
+  ]) {
+    const syncIndex = plan.findIndex(
+      ({ command, args }) =>
+        command === process.execPath && args.includes('scripts/native-sync-check.mjs'),
+    );
+    const buildIndex = plan.findIndex(
+      ({ command, args }) =>
+        command === process.execPath &&
+        args.some((argument) => /^scripts\/test-(?:ios|android)\.mjs$/.test(argument)),
+    );
+    assert.ok(syncIndex >= 0 && buildIndex === syncIndex + 1);
+  }
   assert.equal(
     parseIosLaunchProcess('uk.eugnel.ks2spelling: 4321\n'),
     '4321',
@@ -293,6 +363,68 @@ test('native capture parsers fail closed on exact foreground and installation ev
     }),
     '2040',
   );
+  const iosShutdowns = [];
+  await assert.rejects(
+    () =>
+      runWithIosCaptureCleanup({
+        capture: true,
+        device: { udid: 'exact-b1-ios' },
+        work: async () => {
+          throw new Error('bootstatus timeout');
+        },
+        shutdown: async (udid) => iosShutdowns.push(udid),
+      }),
+    /bootstatus timeout/,
+  );
+  assert.deepEqual(iosShutdowns, ['exact-b1-ios']);
+  assert.deepEqual(
+    createAndroidCaptureCleanupPlan({
+      capture: true,
+      ownsB1Serial: false,
+      startedDetachedPid: 4321,
+    }),
+    [{ type: 'terminate-started-process-group', pid: 4321 }],
+  );
+  assert.deepEqual(
+    createAndroidCaptureCleanupPlan({
+      capture: true,
+      ownsB1Serial: true,
+      startedDetachedPid: 4321,
+    }),
+    [{ type: 'kill-owned-b1-serial', serial: 'emulator-5580' }],
+  );
+  assert.deepEqual(
+    createAndroidCaptureCleanupPlan({
+      capture: true,
+      ownsB1Serial: false,
+      startedDetachedPid: null,
+    }),
+    [],
+  );
+  assert.equal(
+    assertStartedAndroidEmulatorProcess(
+      '/Users/test/Android/sdk/emulator/qemu/darwin-aarch64/qemu-system-aarch64 -avd KS2_Spelling_API_36 -port 5580 -no-snapshot-save',
+    ),
+    'owned-b1-emulator-process',
+  );
+  assert.throws(
+    () =>
+      assertStartedAndroidEmulatorProcess(
+        '/Users/test/Android/sdk/emulator/qemu/darwin-aarch64/qemu-system-aarch64 -avd Some_Other_AVD -port 5580',
+      ),
+    ({ code }) => code === 'android_capture_invalid',
+  );
+  const androidCleanupCalls = [];
+  await runAndroidCaptureCleanup({
+    plan: createAndroidCaptureCleanupPlan({
+      capture: true,
+      ownsB1Serial: false,
+      startedDetachedPid: 4321,
+    }),
+    killOwnedSerial: async () => androidCleanupCalls.push('serial'),
+    terminateProcessGroup: async (pid) => androidCleanupCalls.push(`pid:${pid}`),
+  });
+  assert.deepEqual(androidCleanupCalls, ['pid:4321']);
 
   const evidenceRoot = await mkdtemp(join(tmpdir(), 'ks2-spelling-capture-cleanup-'));
   try {

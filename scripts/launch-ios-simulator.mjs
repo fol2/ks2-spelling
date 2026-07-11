@@ -113,6 +113,19 @@ export async function clearIosCaptureEvidence({ root = ROOT } = {}) {
   );
 }
 
+export async function runWithIosCaptureCleanup({
+  capture,
+  device,
+  work,
+  shutdown,
+}) {
+  try {
+    return await work();
+  } finally {
+    if (capture && device) await shutdown(device.udid);
+  }
+}
+
 export function createIosLaunchPlan({ udid }) {
   const deviceId = udid ?? '$CREATED_UDID';
   const commands = [];
@@ -125,6 +138,7 @@ export function createIosLaunchPlan({ udid }) {
   commands.push(
     { command: 'xcrun', args: ['simctl', 'boot', deviceId] },
     { command: 'xcrun', args: ['simctl', 'bootstatus', deviceId, '-b'] },
+    { command: process.execPath, args: ['scripts/native-sync-check.mjs'] },
     { command: process.execPath, args: ['scripts/test-ios.mjs'] },
     { command: 'xcrun', args: ['simctl', 'install', deviceId, APP_PATH] },
     { command: 'xcrun', args: ['simctl', 'launch', deviceId, IOS_DEVICE.bundleId] },
@@ -318,7 +332,6 @@ async function captureIosEvidence({ device, launchOutput }) {
 export async function main(args = process.argv.slice(2)) {
   const capture = args.includes('--capture');
   if (capture) await clearIosCaptureEvidence();
-  let captureDevice = null;
   try {
     const listed = await runRequired('xcrun', ['simctl', 'list', 'devices', '-j']);
     const devicesByRuntime = JSON.parse(listed.stdout).devices ?? {};
@@ -335,32 +348,40 @@ export async function main(args = process.argv.slice(2)) {
       device = { udid: createdResult.stdout.trim(), name: IOS_DEVICE.name, state: 'Shutdown' };
       created = true;
     }
-    if (device.state !== 'Booted') {
-      await runRequired('xcrun', ['simctl', 'boot', device.udid]);
-    }
-    await runRequired('xcrun', ['simctl', 'bootstatus', device.udid, '-b']);
-    captureDevice = device;
-    await runRequired(process.execPath, ['scripts/test-ios.mjs']);
-    await runRequired('xcrun', ['simctl', 'install', device.udid, APP_PATH]);
-    const launch = await runRequired('xcrun', [
-      'simctl',
-      'launch',
-      device.udid,
-      IOS_DEVICE.bundleId,
-    ]);
-    const evidence = capture
-      ? await captureIosEvidence({ device, launchOutput: launch.stdout })
-      : null;
-    printJson({
-      ok: true,
-      platform: 'ios',
-      device: { name: IOS_DEVICE.name, udid: device.udid, created },
-      bundleId: IOS_DEVICE.bundleId,
-      appPath: APP_PATH,
-      launch: launch.stdout.trim(),
-      evidence: evidence ? REPORT_PATH : null,
+    return await runWithIosCaptureCleanup({
+      capture,
+      device,
+      shutdown: (udid) =>
+        runCommand('xcrun', ['simctl', 'shutdown', udid], { cwd: ROOT }),
+      work: async () => {
+        if (device.state !== 'Booted') {
+          await runRequired('xcrun', ['simctl', 'boot', device.udid]);
+        }
+        await runRequired('xcrun', ['simctl', 'bootstatus', device.udid, '-b']);
+        await runRequired(process.execPath, ['scripts/native-sync-check.mjs']);
+        await runRequired(process.execPath, ['scripts/test-ios.mjs']);
+        await runRequired('xcrun', ['simctl', 'install', device.udid, APP_PATH]);
+        const launch = await runRequired('xcrun', [
+          'simctl',
+          'launch',
+          device.udid,
+          IOS_DEVICE.bundleId,
+        ]);
+        const evidence = capture
+          ? await captureIosEvidence({ device, launchOutput: launch.stdout })
+          : null;
+        printJson({
+          ok: true,
+          platform: 'ios',
+          device: { name: IOS_DEVICE.name, udid: device.udid, created },
+          bundleId: IOS_DEVICE.bundleId,
+          appPath: APP_PATH,
+          launch: launch.stdout.trim(),
+          evidence: evidence ? REPORT_PATH : null,
+        });
+        return EXIT_CODES.success;
+      },
     });
-    return EXIT_CODES.success;
   } catch (error) {
     if (capture) await clearIosCaptureEvidence();
     const collision = error.code === 'ios_device_collision';
@@ -373,10 +394,6 @@ export async function main(args = process.argv.slice(2)) {
       process.stderr,
     );
     return collision ? EXIT_CODES.stateMismatch : EXIT_CODES.commandFailed;
-  } finally {
-    if (capture && captureDevice) {
-      await runCommand('xcrun', ['simctl', 'shutdown', captureDevice.udid], { cwd: ROOT });
-    }
   }
 }
 

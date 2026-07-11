@@ -4,8 +4,8 @@
   "testedApplicationCommit": "66a6deee66672d13d98efd12ab13ff0f3e32ff57",
   "applicationFingerprint": {
     "algorithm": "sha256",
-    "sha256": "fa517da8f41201f7df7bdc1e3999066bdf9f95f9b635d946dc015d691f0eb304",
-    "fileCount": 130,
+    "sha256": "2465ce979c191a359cd60bf0fa62ffd09c28c331adfe5f01e50a020f7029b566",
+    "fileCount": 153,
     "files": [
       {
         "path": ".npmrc",
@@ -30,6 +30,34 @@
       {
         "path": "android/app/src/main/AndroidManifest.xml",
         "sha256": "205609dab1747b623e93331302d2fed218de9461acedf929847a68aa817080df"
+      },
+      {
+        "path": "android/app/src/main/assets/capacitor.config.json",
+        "sha256": "d516b17323b5b112b4951b8d2cdb4c64f954cfb724cede6596fd5980741b003c"
+      },
+      {
+        "path": "android/app/src/main/assets/capacitor.plugins.json",
+        "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+      },
+      {
+        "path": "android/app/src/main/assets/public/assets/index-BOyz-jJw.js",
+        "sha256": "c64613f2d7d0a065dfe643fa625d6545d41f447ca9c5d7bbeafc162bfd413073"
+      },
+      {
+        "path": "android/app/src/main/assets/public/assets/index-BvnBxf-p.css",
+        "sha256": "51a4b88cdf1cc34e3c6874089fdcd49ad2fbaf17c71b8ff55768ef572160c267"
+      },
+      {
+        "path": "android/app/src/main/assets/public/cordova.js",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "android/app/src/main/assets/public/cordova_plugins.js",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "android/app/src/main/assets/public/index.html",
+        "sha256": "61f2b23306dbc5980d8ad53e42853afe6c1691440b4f8ae63c55461abbd313db"
       },
       {
         "path": "android/app/src/main/java/uk/eugnel/ks2spelling/MainActivity.java",
@@ -172,12 +200,36 @@
         "sha256": "d96794f351069af11d3bc2458738a9cadb6ff765760076bcf76ebc7be65b32f0"
       },
       {
+        "path": "android/app/src/main/res/xml/config.xml",
+        "sha256": "e9dcda493e663c5c4db9e3cb3bd968477a6e90aa8840bcbba40d72ed54b767ce"
+      },
+      {
         "path": "android/app/src/main/res/xml/file_paths.xml",
         "sha256": "a46ed43ef65c90cb6778f4581decf3556e3f0055aad8f36d69dae16f9a0e99aa"
       },
       {
         "path": "android/build.gradle",
         "sha256": "766958866c15eeda5c88bfdbccfd5346a73fb68f29a4441206b472805176552b"
+      },
+      {
+        "path": "android/capacitor-cordova-android-plugins/build.gradle",
+        "sha256": "28e3fa281f4d1e388bf98abc7f5bb31e672516e385c165c719d201ed54b8236e"
+      },
+      {
+        "path": "android/capacitor-cordova-android-plugins/cordova.variables.gradle",
+        "sha256": "b13104b34f7738abceec358ae8226ba5e64855e97babde54a115880e9b9bd47b"
+      },
+      {
+        "path": "android/capacitor-cordova-android-plugins/src/main/AndroidManifest.xml",
+        "sha256": "2e3e383475f0e6cb76f0a7b46017a546663fba8e5bd1ef2a537412afac2ee9b5"
+      },
+      {
+        "path": "android/capacitor-cordova-android-plugins/src/main/java/.gitkeep",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "android/capacitor-cordova-android-plugins/src/main/res/.gitkeep",
+        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
       },
       {
         "path": "android/capacitor.settings.gradle",
@@ -312,12 +364,52 @@
         "sha256": "814d5298220cbcd1032f9f3b5d6ae8beafa7364ea8c297194917e767f0e829a6"
       },
       {
+        "path": "ios/App/App/capacitor.config.json",
+        "sha256": "438b0a648bf7d657c1471d9bc2c822d741ef5b087352d32e80ae244bb18af38b"
+      },
+      {
+        "path": "ios/App/App/config.xml",
+        "sha256": "e9dcda493e663c5c4db9e3cb3bd968477a6e90aa8840bcbba40d72ed54b767ce"
+      },
+      {
+        "path": "ios/App/App/public/assets/index-BOyz-jJw.js",
+        "sha256": "c64613f2d7d0a065dfe643fa625d6545d41f447ca9c5d7bbeafc162bfd413073"
+      },
+      {
+        "path": "ios/App/App/public/assets/index-BvnBxf-p.css",
+        "sha256": "51a4b88cdf1cc34e3c6874089fdcd49ad2fbaf17c71b8ff55768ef572160c267"
+      },
+      {
+        "path": "ios/App/App/public/cordova.js",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "ios/App/App/public/cordova_plugins.js",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "ios/App/App/public/index.html",
+        "sha256": "61f2b23306dbc5980d8ad53e42853afe6c1691440b4f8ae63c55461abbd313db"
+      },
+      {
         "path": "ios/App/CapApp-SPM/Package.swift",
         "sha256": "06237d85875aebc03b0753984e4159a756600a70f1551fd915385133b58b1c50"
       },
       {
         "path": "ios/App/CapApp-SPM/Sources/CapApp-SPM/CapApp-SPM.swift",
         "sha256": "70bf9dafddc35e3877dfb133a996f5be7ccd1e132897a98fdbf4869ff605ece9"
+      },
+      {
+        "path": "ios/capacitor-cordova-ios-plugins/CordovaPluginsResources.podspec",
+        "sha256": "6ace787f88f8c8da88526ed2ecdf0b9bd659cdb64f56bd5e73a684e0d26b7e06"
+      },
+      {
+        "path": "ios/capacitor-cordova-ios-plugins/resources/.gitkeep",
+        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+      },
+      {
+        "path": "ios/capacitor-cordova-ios-plugins/sources/.gitkeep",
+        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
       },
       {
         "path": "ios/debug.xcconfig",
@@ -551,12 +643,12 @@
   },
   "installation": {
     "buildApkPath": ".native-build/android/build/app/outputs/apk/debug/app-debug.apk",
-    "installedApkPath": "/data/app/~~RV2Ry7OqUij_nUuE9GbcsQ==/uk.eugnel.ks2spelling-4NiYZKKbGzGf2raUgVVX6A==/base.apk",
+    "installedApkPath": "/data/app/~~fe3WHg9KieNLofCUjyTeYg==/uk.eugnel.ks2spelling-WIfqzkHOKxc07FuHPwkV-g==/base.apk",
     "versionName": "1.0",
     "versionCode": "1"
   },
   "foreground": {
-    "processIdentifier": "2202",
+    "processIdentifier": "1985",
     "resumedActivity": "uk.eugnel.ks2spelling/.MainActivity",
     "processState": "running"
   },
@@ -581,6 +673,6 @@
   },
   "screenshot": {
     "path": "reports/b1/android-emulator.png",
-    "sha256": "a1e506cd811473dfe82e102784014e2cb7ff886dbe350c4970c14fd9f530e3c6"
+    "sha256": "49f8089b6730fa332b07b9ab38dce59042c488b43a825b2c5bdbd3f085d012d3"
   }
 }

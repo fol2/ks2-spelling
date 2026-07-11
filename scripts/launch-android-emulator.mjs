@@ -103,6 +103,36 @@ export async function clearAndroidCaptureEvidence({ root = ROOT } = {}) {
   );
 }
 
+export function createAndroidCaptureCleanupPlan({
+  capture,
+  ownsB1Serial,
+  startedDetachedPid,
+}) {
+  if (!capture) return [];
+  if (ownsB1Serial) {
+    return [{ type: 'kill-owned-b1-serial', serial: ANDROID_DEVICE.serial }];
+  }
+  if (Number.isInteger(startedDetachedPid) && startedDetachedPid > 0) {
+    return [{ type: 'terminate-started-process-group', pid: startedDetachedPid }];
+  }
+  return [];
+}
+
+export async function runAndroidCaptureCleanup({
+  plan,
+  killOwnedSerial,
+  terminateProcessGroup,
+}) {
+  for (const step of plan) {
+    if (step.type === 'kill-owned-b1-serial') await killOwnedSerial(step.serial);
+    else if (step.type === 'terminate-started-process-group') {
+      await terminateProcessGroup(step.pid);
+    } else {
+      throw androidCaptureError(`Unknown Android cleanup step: ${step.type}`);
+    }
+  }
+}
+
 export function assertAndroidBundledShellHierarchy(output) {
   if (!BUNDLED_SHELL_TEXT.every((text) => output.includes(text))) {
     throw androidCaptureError('Android UI hierarchy does not show the bundled B1 shell');
@@ -157,6 +187,7 @@ export function createAndroidLaunchPlan({ avdExists }) {
     });
   }
   commands.push(
+    { command: process.execPath, args: ['scripts/native-sync-check.mjs'] },
     { command: process.execPath, args: ['scripts/test-android.mjs'] },
     {
       command: 'emulator',
@@ -186,6 +217,19 @@ export function assertAndroidSerialOwnership(avdNameOutput) {
     collision.code = 'android_serial_collision';
     throw collision;
   }
+}
+
+export function assertStartedAndroidEmulatorProcess(commandLine) {
+  if (
+    !/(?:^|\/)(?:emulator|qemu-system-[^/\s]+)(?:\s|$)/.test(commandLine) ||
+    !/(?:^|\s)-avd\s+KS2_Spelling_API_36(?:\s|$)/.test(commandLine) ||
+    !/(?:^|\s)-port\s+5580(?:\s|$)/.test(commandLine)
+  ) {
+    throw androidCaptureError(
+      'Detached process no longer proves the exact B1 Android emulator',
+    );
+  }
+  return 'owned-b1-emulator-process';
 }
 
 function androidAvdIdentityError(detail) {
@@ -512,6 +556,7 @@ export async function main(args = process.argv.slice(2)) {
     ANDROID_HOME: sdkRoot,
   };
   let ownsB1Serial = false;
+  let startedDetachedPid = null;
 
   try {
     const avds = await runRequired(emulator, ['-list-avds'], { env });
@@ -533,6 +578,7 @@ export async function main(args = process.argv.slice(2)) {
       );
     }
     await verifyAndroidAvdIdentity();
+    await runRequired(process.execPath, ['scripts/native-sync-check.mjs'], { env });
     await runRequired(process.execPath, ['scripts/test-android.mjs'], { env });
     const serialState = await runCommand(adb, ['-s', ANDROID_DEVICE.serial, 'get-state'], {
       cwd: ROOT,
@@ -546,6 +592,7 @@ export async function main(args = process.argv.slice(2)) {
         { env },
       );
       assertAndroidSerialOwnership(avdName.stdout);
+      ownsB1Serial = true;
     } else {
       detached = startDetached(
         emulator,
@@ -559,6 +606,7 @@ export async function main(args = process.argv.slice(2)) {
         ],
         { cwd: ROOT, env },
       );
+      startedDetachedPid = detached.pid;
     }
     await waitForBoot(adb, env);
     const bootedAvdName = await runRequired(
@@ -625,12 +673,32 @@ export async function main(args = process.argv.slice(2)) {
     );
     return stateMismatch ? EXIT_CODES.stateMismatch : EXIT_CODES.commandFailed;
   } finally {
-    if (capture && ownsB1Serial) {
-      await runCommand(adb, ['-s', ANDROID_DEVICE.serial, 'emu', 'kill'], {
-        cwd: ROOT,
-        env,
-      });
-    }
+    await runAndroidCaptureCleanup({
+      plan: createAndroidCaptureCleanupPlan({
+        capture,
+        ownsB1Serial,
+        startedDetachedPid,
+      }),
+      killOwnedSerial: () =>
+        runCommand(adb, ['-s', ANDROID_DEVICE.serial, 'emu', 'kill'], {
+          cwd: ROOT,
+          env,
+        }),
+      terminateProcessGroup: async (pid) => {
+        const processIdentity = await runCommand(
+          '/bin/ps',
+          ['-p', String(pid), '-o', 'command='],
+          { cwd: ROOT, env },
+        );
+        if (processIdentity.exitCode !== 0) return;
+        assertStartedAndroidEmulatorProcess(processIdentity.stdout.trim());
+        try {
+          process.kill(-pid, 'SIGTERM');
+        } catch (error) {
+          if (error.code !== 'ESRCH') throw error;
+        }
+      },
+    });
   }
 }
 

@@ -53,21 +53,14 @@ function isExcludedNestedPath(path) {
     path === 'scripts/launch-android-emulator.mjs' ||
     path === 'scripts/launch-ios-simulator.mjs' ||
     path.endsWith('/.gitignore') ||
-    // Capacitor/Gradle/Xcode recreate only these exact generated native paths.
+    // Exclude exact caches/build/test outputs; synced native packaging inputs stay included.
     path === 'ios/App/CapApp-SPM/README.md' ||
     path.startsWith('android/.gradle/') ||
     path.startsWith('android/build/') ||
     path.startsWith('android/app/build/') ||
     path.startsWith('android/app/src/test/') ||
     path.startsWith('android/app/src/androidTest/') ||
-    path.startsWith('android/app/src/main/assets/') ||
-    path === 'android/app/src/main/res/xml/config.xml' ||
-    path.startsWith('android/capacitor-cordova-android-plugins/') ||
-    path.startsWith('ios/App/App/public/') ||
-    path === 'ios/App/App/capacitor.config.json' ||
-    path === 'ios/App/App/config.xml' ||
-    path.startsWith('ios/App/CapApp-SPM/.swiftpm/') ||
-    path.startsWith('ios/capacitor-cordova-ios-plugins/')
+    path.startsWith('ios/App/CapApp-SPM/.swiftpm/')
   );
 }
 

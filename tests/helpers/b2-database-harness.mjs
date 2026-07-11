@@ -1,3 +1,8 @@
+import { createHash } from 'node:crypto';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import {
   loadStarterSpellingCatalogue,
   validateSpellingCommandSnapshotV1,
@@ -7,10 +12,49 @@ import { seedB2Learners } from '../../src/platform/database/b2-seed.js';
 import { createDatabaseCommandGate } from '../../src/platform/database/database-command-gate.js';
 import { createSQLiteSpellingCommandRepository } from '../../src/platform/database/sqlite-spelling-command-repository.js';
 import { createSQLiteSpellingSnapshotStore } from '../../src/platform/database/sqlite-spelling-snapshot-store.js';
+import { canonicalJson } from '../../src/platform/database/canonical-json.js';
 
 import { createNodeSqliteConnection } from './node-sqlite-connection.mjs';
 
 export const B2_NOW_MS = 1_768_478_400_000;
+
+export function logicalSnapshotDigest(snapshot) {
+  return createHash('sha256').update(canonicalJson(snapshot)).digest('hex');
+}
+
+const B2_LOGICAL_TABLES = Object.freeze([
+  Object.freeze({ name: 'app_metadata', orderBy: 'key' }),
+  Object.freeze({ name: 'learner_profiles', orderBy: 'learner_id' }),
+  Object.freeze({ name: 'spelling_aggregates', orderBy: 'learner_id' }),
+  Object.freeze({ name: 'spelling_subject_states', orderBy: 'learner_id' }),
+  Object.freeze({ name: 'spelling_practice_sessions', orderBy: 'learner_id' }),
+  Object.freeze({ name: 'spelling_events', orderBy: 'learner_id, sequence_no' }),
+  Object.freeze({
+    name: 'spelling_monster_states',
+    orderBy: 'learner_id, reward_track_id',
+  }),
+  Object.freeze({ name: 'spelling_camp_states', orderBy: 'learner_id, pack_id' }),
+]);
+
+export async function databaseLogicalState(connection) {
+  const schema = await connection.query(
+    'SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY type, name',
+  );
+  const userVersion = await connection.query('PRAGMA user_version');
+  const tables = {};
+  for (const { name, orderBy } of B2_LOGICAL_TABLES) {
+    tables[name] = await connection.query(
+      `SELECT * FROM ${name} ORDER BY ${orderBy}`,
+    );
+  }
+  return { schema, tables, userVersion };
+}
+
+export async function databaseLogicalDigest(connection) {
+  return createHash('sha256')
+    .update(canonicalJson(await databaseLogicalState(connection)))
+    .digest('hex');
+}
 
 export function expectedB2Snapshot(learnerId) {
   const catalogue = loadStarterSpellingCatalogue();
@@ -126,6 +170,3 @@ export async function persistPlanWithStore({
     throw error;
   }
 }
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';

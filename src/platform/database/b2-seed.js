@@ -40,7 +40,7 @@ const INITIAL_SUBJECT_STATE = Object.freeze({
 const EMPTY_ENTITLEMENTS_JSON = canonicalJson([]);
 const INITIAL_SUBJECT_STATE_JSON = canonicalJson(INITIAL_SUBJECT_STATE);
 const SEED_METADATA_JSON = canonicalJson({
-  learners: B2_LEARNERS,
+  learnerIds: B2_LEARNERS.map(({ learnerId }) => learnerId),
   snapshot: {
     schemaVersion: 1,
     revision: 0,

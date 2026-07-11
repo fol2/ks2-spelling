@@ -37,6 +37,17 @@ const CHECKPOINTS = Object.freeze([
   'before-commit',
 ]);
 const CAS_CONFLICT = Symbol('sqlite-spelling-cas-conflict');
+const OPTION_REQUIRED_KEYS = Object.freeze([
+  'connection',
+  'gate',
+  'store',
+  'cataloguesById',
+  'now',
+]);
+const OPTION_KEYS = Object.freeze([
+  ...OPTION_REQUIRED_KEYS,
+  'failureInjector',
+]);
 
 function repositoryError(code, message = code, options) {
   const error = new Error(message, options);
@@ -80,6 +91,48 @@ function requireExactMethods(value, methods, label) {
     }
   }
   return value;
+}
+
+function readRepositoryOptions(options) {
+  if (!options || typeof options !== 'object' || Array.isArray(options)) {
+    throw new TypeError('SQLite Spelling repository options must be an object.');
+  }
+  const prototype = Object.getPrototypeOf(options);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError(
+      'SQLite Spelling repository options must have a plain object prototype.',
+    );
+  }
+  const keys = Reflect.ownKeys(options);
+  if (
+    keys.some(
+      (key) => typeof key !== 'string' || !OPTION_KEYS.includes(key),
+    )
+  ) {
+    throw new TypeError('SQLite Spelling repository options contain an unknown key.');
+  }
+  for (const required of OPTION_REQUIRED_KEYS) {
+    if (!keys.includes(required)) {
+      throw new TypeError(
+        `SQLite Spelling repository options require ${required}.`,
+      );
+    }
+  }
+  const values = Object.create(null);
+  for (const key of keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(options, key);
+    if (
+      !descriptor ||
+      !Object.hasOwn(descriptor, 'value') ||
+      !descriptor.enumerable
+    ) {
+      throw new TypeError(
+        `SQLite Spelling repository option ${key} must be an enumerable own data property.`,
+      );
+    }
+    values[key] = descriptor.value;
+  }
+  return values;
 }
 
 function createCatalogueRegistry(cataloguesById) {
@@ -152,66 +205,137 @@ function isCasConflict(error) {
   return Boolean(error?.[CAS_CONFLICT]);
 }
 
-function rollbackIncompleteError() {
+function transactionStateError(code, message) {
+  return repositoryError(code, message);
+}
+
+function diagnosticError(value, code, message) {
+  if (value instanceof Error) return value;
+  return repositoryError(code, message, { cause: value });
+}
+
+function rollbackIncompleteError(issues) {
   return repositoryError(
     'sqlite_transaction_rollback_incomplete',
-    'SQLite transaction remained active after rollback.',
+    'SQLite transaction inactivity could not be proven after rollback.',
+    {
+      cause: new AggregateError(
+        issues,
+        'SQLite rollback and inactive-state proof failed.',
+      ),
+    },
   );
 }
 
 function attachRollbackCause(original, rollbackCause) {
   if (!rollbackCause) return original;
   const error = original instanceof Error ? original : new Error(String(original));
+  const existingCauseDescriptor = Object.getOwnPropertyDescriptor(error, 'cause');
+  const existingCause =
+    existingCauseDescriptor && Object.hasOwn(existingCauseDescriptor, 'value')
+      ? existingCauseDescriptor.value
+      : undefined;
+  const combinedCause = existingCause === undefined
+    ? rollbackCause
+    : new AggregateError(
+        [existingCause, rollbackCause],
+        'Original and SQLite rollback causes.',
+      );
   try {
-    if (!Object.hasOwn(error, 'cause')) {
-      Object.defineProperty(error, 'cause', {
-        configurable: true,
-        value: rollbackCause,
-      });
-      return error;
-    }
+    Object.defineProperty(error, 'cause', {
+      configurable: true,
+      value: combinedCause,
+    });
+    return error;
   } catch {
     // Fall through to a stable-code wrapper when the original error is frozen.
   }
-  const wrapped = new Error(error.message, { cause: rollbackCause });
+  const wrapped = new Error(error.message, { cause: combinedCause });
   wrapped.name = error.name;
   if (error.code !== undefined) wrapped.code = error.code;
   return wrapped;
 }
 
 async function rollbackIfActive(connection) {
-  let rollbackCause = null;
-  let active;
+  const issues = [];
+  let shouldRollback = false;
   try {
-    active = await connection.isTransactionActive();
+    const initialState = await connection.isTransactionActive();
+    if (initialState === true) {
+      shouldRollback = true;
+    } else if (initialState !== false) {
+      shouldRollback = true;
+      issues.push(
+        transactionStateError(
+          'sqlite_transaction_state_invalid',
+          'Initial SQLite transaction state was not exactly boolean.',
+        ),
+      );
+    }
   } catch (error) {
-    return error;
+    shouldRollback = true;
+    issues.push(
+      diagnosticError(
+        error,
+        'sqlite_transaction_state_check_failed',
+        'Initial SQLite transaction state check failed.',
+      ),
+    );
   }
-  if (active === true) {
+  if (shouldRollback) {
     try {
       await connection.rollback();
     } catch (error) {
-      rollbackCause = error;
+      issues.push(
+        diagnosticError(
+          error,
+          'sqlite_transaction_rollback_failed',
+          'SQLite transaction rollback failed.',
+        ),
+      );
     }
   }
   try {
-    if ((await connection.isTransactionActive()) === true) {
-      rollbackCause ??= rollbackIncompleteError();
+    const finalState = await connection.isTransactionActive();
+    if (finalState !== false) {
+      issues.push(
+        transactionStateError(
+          finalState === true
+            ? 'sqlite_transaction_still_active'
+            : 'sqlite_transaction_state_invalid',
+          finalState === true
+            ? 'SQLite transaction remained active after rollback.'
+            : 'Final SQLite transaction state was not exactly boolean.',
+        ),
+      );
+      return rollbackIncompleteError(issues);
     }
   } catch (error) {
-    rollbackCause ??= error;
+    issues.push(
+      diagnosticError(
+        error,
+        'sqlite_transaction_state_check_failed',
+        'Final SQLite transaction state check failed.',
+      ),
+    );
+    return rollbackIncompleteError(issues);
   }
-  return rollbackCause;
+  if (issues.length === 0) return null;
+  if (issues.length === 1) return issues[0];
+  return new AggregateError(
+    issues,
+    'SQLite rollback recovered with diagnostic failures.',
+  );
 }
 
-export function createSQLiteSpellingCommandRepository({
-  connection,
-  gate,
-  store,
-  cataloguesById,
-  now,
-  failureInjector,
-} = {}) {
+export function createSQLiteSpellingCommandRepository(options) {
+  const values = readRepositoryOptions(options);
+  const connection = values.connection;
+  const gate = values.gate;
+  const store = values.store;
+  const cataloguesById = values.cataloguesById;
+  const now = values.now;
+  const failureInjector = values.failureInjector;
   assertSqlConnection(connection);
   requireExactMethods(gate, GATE_METHODS, 'Database command gate');
   requireExactMethods(store, STORE_METHODS, 'SQLite Spelling snapshot store');

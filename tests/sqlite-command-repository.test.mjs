@@ -7,12 +7,15 @@ import {
   canonicalGuardianDay,
   validateSpellingCommandRepository,
 } from '../src/domain/spelling/index.js';
+import { createDatabaseCommandGate } from '../src/platform/database/database-command-gate.js';
 import { canonicalJson } from '../src/platform/database/canonical-json.js';
+import { createSQLiteSpellingCommandRepository } from '../src/platform/database/sqlite-spelling-command-repository.js';
 
 import {
   B2_NOW_MS,
   createB2DatabaseHarness,
   expectedB2Snapshot,
+  persistPlanWithStore,
   snapshotAfterPlan,
 } from './helpers/b2-database-harness.mjs';
 
@@ -137,6 +140,72 @@ function wrapConnection(connection, overrides) {
     ),
   );
 }
+
+function repositoryOptions(harness, overrides = {}) {
+  return {
+    connection: harness.connection,
+    gate: createDatabaseCommandGate(),
+    store: harness.store,
+    cataloguesById: harness.cataloguesById,
+    now: () => B2_NOW_MS,
+    ...overrides,
+  };
+}
+
+function assertRollbackIncomplete(error, originalCode, expectedIssues = []) {
+  assert.equal(error?.code, originalCode);
+  assert.equal(error?.cause?.code, 'sqlite_transaction_rollback_incomplete');
+  assert.equal(error.cause.cause instanceof AggregateError, true);
+  for (const issue of expectedIssues) {
+    assert.equal(error.cause.cause.errors.includes(issue), true);
+  }
+  return true;
+}
+
+test('factory validates the exact plain options surface without invoking accessors', async (t) => {
+  const harness = await createB2DatabaseHarness();
+  t.after(() => harness.close());
+  const valid = repositoryOptions(harness);
+  assert.deepEqual(Object.keys(valid).sort(), [
+    'cataloguesById',
+    'connection',
+    'gate',
+    'now',
+    'store',
+  ]);
+  assert.deepEqual(Object.keys(createSQLiteSpellingCommandRepository(valid)), [
+    'runCommandTransaction',
+  ]);
+
+  let getterCalls = 0;
+  const hostile = { ...valid };
+  Object.defineProperty(hostile, 'connection', {
+    enumerable: true,
+    get() {
+      getterCalls += 1;
+      throw new Error('options_getter_invoked');
+    },
+  });
+  assert.throws(
+    () => createSQLiteSpellingCommandRepository(hostile),
+    /options|data propert|accessor/i,
+  );
+  assert.equal(getterCalls, 0);
+
+  const hidden = { ...valid };
+  Object.defineProperty(hidden, 'extra', { value: true });
+  const symbol = { ...valid, [Symbol('extra')]: true };
+  const extra = { ...valid, extra: true };
+  const customPrototype = Object.assign(Object.create({ inherited: true }), valid);
+  const missing = { ...valid };
+  delete missing.now;
+  for (const invalid of [hidden, symbol, extra, customPrototype, missing, null, []]) {
+    assert.throws(
+      () => createSQLiteSpellingCommandRepository(invalid),
+      /options|unknown|required|plain|prototyp|object/i,
+    );
+  }
+});
 
 test('repository exposes only the frozen A3 transaction and certifies one clock', async (t) => {
   const harness = await createB2DatabaseHarness();
@@ -274,38 +343,76 @@ test('event replay is idempotent and different bytes collide before mutation', a
   assert.equal(await harness.connection.isTransactionActive(), false);
 });
 
-test('zero-row CAS retries a fresh read exactly three times', async (t) => {
+test('zero-row CAS retries from a real post-rollback state change', async (t) => {
   const harness = await createB2DatabaseHarness();
   t.after(() => harness.close());
   let casCalls = 0;
   let plannerCalls = 0;
   let clockCalls = 0;
+  let rollbackCalls = 0;
   const store = wrapStore(harness.store, {
     async compareAndSetAggregate(...args) {
       casCalls += 1;
-      if (casCalls < 3) return 0;
+      if (casCalls === 1) return 0;
       return harness.store.compareAndSetAggregate(...args);
     },
   });
+  const connection = wrapConnection(harness.connection, {
+    async rollback() {
+      rollbackCalls += 1;
+      await harness.connection.rollback();
+      if (rollbackCalls === 1) {
+        const current = await harness.store.read('learner-a');
+        const externalPlan = applyAt(
+          current,
+          SMART_START,
+          harness.catalogue,
+          B2_NOW_MS,
+        );
+        await persistPlanWithStore({
+          ...harness,
+          current,
+          plan: externalPlan,
+          nowMs: B2_NOW_MS,
+        });
+      }
+    },
+  });
   const repository = createRepository(harness, {
+    connection,
     store,
     now() {
       clockCalls += 1;
-      return B2_NOW_MS;
+      return B2_NOW_MS + clockCalls - 1;
     },
   });
 
-  const result = await repository.runCommandTransaction('learner-a', (fresh) => {
+  const seen = [];
+  const result = await repository.runCommandTransaction('learner-a', (fresh, context) => {
     plannerCalls += 1;
-    assert.equal(fresh.revision, 0);
-    return applyAt(fresh, SMART_START, harness.catalogue, B2_NOW_MS);
+    seen.push({
+      revision: fresh.revision,
+      phase: fresh.practiceSession?.state?.session?.phase ?? null,
+      autoSpeak: fresh.subjectState.data.prefs.autoSpeak,
+    });
+    const command = fresh.revision === 0
+      ? SMART_START
+      : SMART_ROUND_COMMANDS[1];
+    return applyAt(fresh, command, harness.catalogue, context.nowMs);
   });
 
-  assert.equal(result.nextRevision, 1);
-  assert.equal(casCalls, 3);
-  assert.equal(plannerCalls, 3);
-  assert.equal(clockCalls, 3);
-  assert.equal((await harness.store.read('learner-a')).revision, 1);
+  assert.equal(result.nextRevision, 2);
+  assert.equal(casCalls, 2);
+  assert.equal(plannerCalls, 2);
+  assert.equal(clockCalls, 2);
+  assert.equal(rollbackCalls, 1);
+  assert.deepEqual(seen, [
+    { revision: 0, phase: null, autoSpeak: false },
+    { revision: 1, phase: 'question', autoSpeak: false },
+  ]);
+  const committed = await harness.store.read('learner-a');
+  assert.equal(committed.revision, 2);
+  assert.equal(committed.practiceSession.state.session.phase, 'retry');
   assert.equal(await harness.connection.isTransactionActive(), false);
 
   casCalls = 0;
@@ -419,6 +526,204 @@ test('rollback failure remains the cause without replacing the original code', a
   );
   assert.equal(await harness.connection.isTransactionActive(), false);
   assert.deepEqual(await harness.store.read('learner-a'), expectedB2Snapshot('learner-a'));
+});
+
+test('rollback that does not clear the transaction is reported as incomplete', async (t) => {
+  const harness = await createB2DatabaseHarness();
+  t.after(async () => {
+    if (await harness.connection.isTransactionActive()) {
+      await harness.connection.rollback();
+    }
+    await harness.close();
+  });
+  const originalCause = new Error('original_nested_cause');
+  const rollbackFailure = new Error('rollback_did_not_clear');
+  const connection = wrapConnection(harness.connection, {
+    async rollback() {
+      throw rollbackFailure;
+    },
+  });
+  const repository = createRepository(harness, {
+    connection,
+    async failureInjector(checkpoint) {
+      if (checkpoint === 'after-subject-state') {
+        const error = new Error('poisoned_transaction', { cause: originalCause });
+        error.code = 'poisoned_transaction';
+        throw error;
+      }
+    },
+  });
+
+  await assert.rejects(
+    repository.runCommandTransaction('learner-a', (fresh, { nowMs }) =>
+      applyAt(fresh, SMART_START, harness.catalogue, nowMs),
+    ),
+    (error) => {
+      assert.equal(error?.code, 'poisoned_transaction');
+      assert.equal(error?.message, 'poisoned_transaction');
+      assert.equal(error?.cause instanceof AggregateError, true);
+      assert.equal(error.cause.errors.includes(originalCause), true);
+      const incomplete = error.cause.errors.find(
+        (candidate) => candidate?.code === 'sqlite_transaction_rollback_incomplete',
+      );
+      assert.ok(incomplete);
+      assert.equal(incomplete.cause instanceof AggregateError, true);
+      assert.equal(incomplete.cause.errors.includes(rollbackFailure), true);
+      return true;
+    },
+  );
+  assert.equal(await harness.connection.isTransactionActive(), true);
+});
+
+test('failed transaction-state probes cannot silently claim rollback safety', async () => {
+  const cases = [
+    {
+      label: 'initial probe fails but rollback clears the transaction',
+      initialIssue: new Error('initial_state_unobservable'),
+      throwInitial: true,
+      finalIssue: null,
+      expectIncomplete: false,
+    },
+    {
+      label: 'initial probe throws a primitive but rollback clears the transaction',
+      initialIssue: undefined,
+      throwInitial: true,
+      finalIssue: null,
+      expectIncomplete: false,
+    },
+    {
+      label: 'final probe throws after rollback',
+      initialIssue: null,
+      finalIssue: new Error('final_state_unobservable'),
+      expectIncomplete: true,
+    },
+    {
+      label: 'final probe returns a non-boolean state',
+      initialIssue: null,
+      finalIssue: 'unknown',
+      expectIncomplete: true,
+    },
+  ];
+
+  for (const testCase of cases) {
+    const harness = await createB2DatabaseHarness();
+    try {
+      let stateCalls = 0;
+      const connection = wrapConnection(harness.connection, {
+        async isTransactionActive() {
+          stateCalls += 1;
+          if (stateCalls === 1 && testCase.throwInitial) {
+            throw testCase.initialIssue;
+          }
+          if (stateCalls === 2 && testCase.finalIssue instanceof Error) {
+            throw testCase.finalIssue;
+          }
+          if (stateCalls === 2 && testCase.finalIssue !== null) {
+            return testCase.finalIssue;
+          }
+          return harness.connection.isTransactionActive();
+        },
+      });
+      const repository = createRepository(harness, {
+        connection,
+        async failureInjector(checkpoint) {
+          if (checkpoint === 'after-subject-state') {
+            const error = new Error('state_probe_case');
+            error.code = 'state_probe_case';
+            throw error;
+          }
+        },
+      });
+
+      await assert.rejects(
+        repository.runCommandTransaction('learner-a', (fresh, { nowMs }) =>
+          applyAt(fresh, SMART_START, harness.catalogue, nowMs),
+        ),
+        (error) => {
+          assert.equal(error?.code, 'state_probe_case', testCase.label);
+          if (testCase.expectIncomplete) {
+            assertRollbackIncomplete(
+              error,
+              'state_probe_case',
+              testCase.finalIssue instanceof Error ? [testCase.finalIssue] : [],
+            );
+          } else {
+            if (testCase.initialIssue instanceof Error) {
+              assert.equal(error?.cause, testCase.initialIssue, testCase.label);
+            } else {
+              assert.equal(
+                error?.cause?.code,
+                'sqlite_transaction_state_check_failed',
+                testCase.label,
+              );
+            }
+          }
+          return true;
+        },
+      );
+      assert.equal(
+        await harness.connection.isTransactionActive(),
+        false,
+        testCase.label,
+      );
+    } finally {
+      await harness.close();
+    }
+  }
+});
+
+test('commit failures distinguish recovered, poisoned and already-committed states', async () => {
+  const cases = [
+    { label: 'active commit failure is rolled back', commitFirst: false, poison: false },
+    { label: 'active commit failure remains poisoned', commitFirst: false, poison: true },
+    { label: 'commit failure after commit reports an inactive connection', commitFirst: true, poison: false },
+  ];
+
+  for (const testCase of cases) {
+    const harness = await createB2DatabaseHarness();
+    try {
+      const commitFailure = new Error(`commit_failure_${testCase.label}`);
+      commitFailure.code = 'sqlite_commit_failed';
+      const rollbackFailure = new Error('commit_recovery_failed');
+      const connection = wrapConnection(harness.connection, {
+        async commit() {
+          if (testCase.commitFirst) await harness.connection.commit();
+          throw commitFailure;
+        },
+        async rollback() {
+          if (testCase.poison) throw rollbackFailure;
+          await harness.connection.rollback();
+        },
+      });
+      const repository = createRepository(harness, { connection });
+
+      await assert.rejects(
+        repository.runCommandTransaction('learner-a', (fresh, { nowMs }) =>
+          applyAt(fresh, SMART_START, harness.catalogue, nowMs),
+        ),
+        (error) => {
+          assert.equal(error?.code, 'sqlite_commit_failed', testCase.label);
+          assert.equal(error?.message, commitFailure.message, testCase.label);
+          if (testCase.poison) {
+            assertRollbackIncomplete(error, 'sqlite_commit_failed', [rollbackFailure]);
+          } else {
+            assert.equal(error?.cause, undefined, testCase.label);
+          }
+          return true;
+        },
+      );
+      assert.equal(
+        await harness.connection.isTransactionActive(),
+        testCase.poison,
+        testCase.label,
+      );
+      if (testCase.poison) await harness.connection.rollback();
+      const after = await harness.store.read('learner-a');
+      assert.equal(after.revision, testCase.commitFirst ? 1 : 0, testCase.label);
+    } finally {
+      await harness.close();
+    }
+  }
 });
 
 test('staged canonical mismatch and invalid plans fail closed', async (t) => {

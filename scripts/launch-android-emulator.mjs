@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { readdir } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
   EXIT_CODES,
@@ -16,6 +16,7 @@ const APK_PATH = '.native-build/android/build/app/outputs/apk/debug/app-debug.ap
 export const ANDROID_DEVICE = Object.freeze({
   name: 'KS2_Spelling_API_36',
   image: 'system-images;android-36;google_apis;arm64-v8a',
+  device: 'pixel_9',
   port: '5580',
   serial: 'emulator-5580',
   packageId: 'uk.eugnel.ks2spelling',
@@ -34,6 +35,8 @@ export function createAndroidLaunchPlan({ avdExists }) {
         ANDROID_DEVICE.name,
         '--package',
         ANDROID_DEVICE.image,
+        '--device',
+        ANDROID_DEVICE.device,
       ],
       input: 'no\n',
     });
@@ -67,6 +70,51 @@ export function assertAndroidSerialOwnership(avdNameOutput) {
     );
     collision.code = 'android_serial_collision';
     throw collision;
+  }
+}
+
+function androidAvdIdentityError(detail) {
+  const mismatch = new Error(`Android virtual device identity mismatch: ${detail}`);
+  mismatch.code = 'android_avd_identity_mismatch';
+  return mismatch;
+}
+
+export function assertAndroidAvdIdentity(configText) {
+  if (typeof configText !== 'string') {
+    throw androidAvdIdentityError('config.ini is unavailable');
+  }
+  const expected = new Map([
+    ['AvdId', ANDROID_DEVICE.name],
+    ['abi.type', ANDROID_DEVICE.image.split(';').at(-1)],
+    ['hw.device.name', ANDROID_DEVICE.device],
+    ['image.sysdir.1', `${ANDROID_DEVICE.image.replaceAll(';', '/')}/`],
+    ['tag.id', ANDROID_DEVICE.image.split(';')[2]],
+  ]);
+  const actual = new Map();
+  for (const line of configText.split(/\r?\n/)) {
+    const separator = line.indexOf('=');
+    if (separator <= 0) continue;
+    const key = line.slice(0, separator).trim();
+    if (!expected.has(key)) continue;
+    if (actual.has(key)) throw androidAvdIdentityError(`duplicate ${key}`);
+    actual.set(key, line.slice(separator + 1).trim());
+  }
+  for (const [key, value] of expected) {
+    if (actual.get(key) !== value) {
+      throw androidAvdIdentityError(`${key} must equal ${value}`);
+    }
+  }
+}
+
+async function verifyAndroidAvdIdentity() {
+  const home = process.env.HOME;
+  if (!home) throw androidAvdIdentityError('HOME is unavailable');
+  const configPath = join(home, '.android/avd', `${ANDROID_DEVICE.name}.avd`, 'config.ini');
+  try {
+    assertAndroidAvdIdentity(await readFile(configPath, 'utf8'));
+  } catch (error) {
+    if (error.code === 'android_avd_identity_mismatch') throw error;
+    throw androidAvdIdentityError('config.ini cannot be read');
   }
 }
 
@@ -138,10 +186,13 @@ export async function main() {
           ANDROID_DEVICE.name,
           '--package',
           ANDROID_DEVICE.image,
+          '--device',
+          ANDROID_DEVICE.device,
         ],
         { env, input: 'no\n' },
       );
     }
+    await verifyAndroidAvdIdentity();
     await runRequired(process.execPath, ['scripts/test-android.mjs'], { env });
     const serialState = await runCommand(adb, ['-s', ANDROID_DEVICE.serial, 'get-state'], {
       cwd: ROOT,
@@ -204,16 +255,19 @@ export async function main() {
     });
     return EXIT_CODES.success;
   } catch (error) {
-    const collision = error.code === 'android_serial_collision';
+    const stateMismatch = [
+      'android_serial_collision',
+      'android_avd_identity_mismatch',
+    ].includes(error.code);
     printJson(
       {
         ok: false,
-        code: collision ? error.code : 'android_launch_failed',
+        code: stateMismatch ? error.code : 'android_launch_failed',
         message: error.message,
       },
       process.stderr,
     );
-    return collision ? EXIT_CODES.stateMismatch : EXIT_CODES.commandFailed;
+    return stateMismatch ? EXIT_CODES.stateMismatch : EXIT_CODES.commandFailed;
   }
 }
 

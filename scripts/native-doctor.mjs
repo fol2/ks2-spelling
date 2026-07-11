@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { readdir } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
   EXIT_CODES,
@@ -8,10 +8,13 @@ import {
   runCommand,
 } from './lib/run-command.mjs';
 import { resolveAndroidEnvironment } from './test-android.mjs';
+import {
+  ANDROID_DEVICE,
+  assertAndroidAvdIdentity,
+} from './launch-android-emulator.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const IOS_DEVICE_NAME = 'KS2 Spelling iPhone 17';
-const ANDROID_AVD_NAME = 'KS2_Spelling_API_36';
 const MINIMUM_FREE_BYTES = 25 * 1024 ** 3;
 
 export const DOCTOR_COMMANDS = Object.freeze([
@@ -47,6 +50,25 @@ function parseAvailableBytes(dfOutput) {
   return Number.isFinite(blocks) ? blocks * 1024 : null;
 }
 
+export async function hasExpectedAndroidAvd({
+  home = process.env.HOME,
+  readText = readFile,
+} = {}) {
+  if (!home) return false;
+  const configPath = join(
+    home,
+    '.android/avd',
+    `${ANDROID_DEVICE.name}.avd`,
+    'config.ini',
+  );
+  try {
+    assertAndroidAvdIdentity(await readText(configPath, 'utf8'));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function collectNativeDoctor() {
   const results = [];
   for (const [command, args] of DOCTOR_COMMANDS) {
@@ -65,6 +87,7 @@ export async function collectNativeDoctor() {
 
   const androidResolution = resolveAndroidEnvironment();
   const sdkRoot = androidResolution.androidSdkRoot;
+  const androidAvd = await hasExpectedAndroidAvd();
   const android = {
     studio: existsSync('/Applications/Android Studio.app'),
     javaHome: androidResolution.javaHome,
@@ -73,7 +96,7 @@ export async function collectNativeDoctor() {
     buildTools36: await hasBuildTools36(sdkRoot),
     adb: Boolean(sdkRoot && existsSync(join(sdkRoot, 'platform-tools/adb'))),
     emulator: Boolean(sdkRoot && existsSync(join(sdkRoot, 'emulator/emulator'))),
-    avd: existsSync(join(process.env.HOME ?? '', `.android/avd/${ANDROID_AVD_NAME}.avd`)),
+    avd: androidAvd,
   };
   const missing = [];
   if (npm.exitCode !== 0) missing.push('npm');

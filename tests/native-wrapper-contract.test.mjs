@@ -96,7 +96,9 @@ test('command results use stable exit codes and redact signing or environment se
 });
 
 test('doctor probes are read-only and Android absence is deterministic', async () => {
-  const { DOCTOR_COMMANDS } = await importScript('scripts/native-doctor.mjs');
+  const { DOCTOR_COMMANDS, hasExpectedAndroidAvd } = await importScript(
+    'scripts/native-doctor.mjs',
+  );
   const { resolveAndroidEnvironment } = await importScript('scripts/test-android.mjs');
 
   const serialised = JSON.stringify(DOCTOR_COMMANDS);
@@ -113,6 +115,37 @@ test('doctor probes are read-only and Android absence is deterministic', async (
   assert.deepEqual(resolution.missing, ['jbr', 'androidSdk']);
   assert.equal(resolution.javaHome, null);
   assert.equal(resolution.androidSdkRoot, null);
+
+  const validAvdConfig = `AvdId=KS2_Spelling_API_36
+abi.type=arm64-v8a
+hw.device.name=pixel_9
+image.sysdir.1=system-images/android-36/google_apis/arm64-v8a/
+tag.id=google_apis
+`;
+  assert.equal(
+    await hasExpectedAndroidAvd({
+      home: '/test-home',
+      readText: async (path) => {
+        assert.equal(
+          path,
+          '/test-home/.android/avd/KS2_Spelling_API_36.avd/config.ini',
+        );
+        return validAvdConfig;
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    await hasExpectedAndroidAvd({
+      home: '/test-home',
+      readText: async () => validAvdConfig.replace('pixel_9', 'pixel_8'),
+    }),
+    false,
+  );
+  assert.equal(
+    await hasExpectedAndroidAvd({ home: null, readText: async () => validAvdConfig }),
+    false,
+  );
 });
 
 test('native build and sync commands freeze identity and derived outputs', async () => {
@@ -179,8 +212,12 @@ test('launch plans target only the named B1 virtual devices and exact app identi
   const { IOS_DEVICE, createIosLaunchPlan, selectExistingIosDevice } = await importScript(
     'scripts/launch-ios-simulator.mjs',
   );
-  const { ANDROID_DEVICE, assertAndroidSerialOwnership, createAndroidLaunchPlan } =
-    await importScript('scripts/launch-android-emulator.mjs');
+  const {
+    ANDROID_DEVICE,
+    assertAndroidAvdIdentity,
+    assertAndroidSerialOwnership,
+    createAndroidLaunchPlan,
+  } = await importScript('scripts/launch-android-emulator.mjs');
 
   assert.deepEqual(IOS_DEVICE, {
     name: 'KS2 Spelling iPhone 17',
@@ -221,6 +258,7 @@ test('launch plans target only the named B1 virtual devices and exact app identi
   assert.deepEqual(ANDROID_DEVICE, {
     name: 'KS2_Spelling_API_36',
     image: 'system-images;android-36;google_apis;arm64-v8a',
+    device: 'pixel_9',
     port: '5580',
     serial: 'emulator-5580',
     packageId: 'uk.eugnel.ks2spelling',
@@ -262,9 +300,39 @@ test('launch plans target only the named B1 virtual devices and exact app identi
       'KS2_Spelling_API_36',
       '--package',
       'system-images;android-36;google_apis;arm64-v8a',
+      '--device',
+      'pixel_9',
     ],
     input: 'no\n',
   });
+  const expectedAvdConfig = `AvdId=KS2_Spelling_API_36
+abi.type=arm64-v8a
+hw.device.name=pixel_9
+image.sysdir.1=system-images/android-36/google_apis/arm64-v8a/
+tag.id=google_apis
+`;
+  assert.doesNotThrow(() => assertAndroidAvdIdentity(expectedAvdConfig));
+  for (const [field, value] of [
+    ['AvdId', 'Some_Other_AVD'],
+    ['abi.type', 'x86_64'],
+    ['hw.device.name', 'pixel_8'],
+    ['image.sysdir.1', 'system-images/android-35/google_apis/arm64-v8a/'],
+    ['tag.id', 'google_apis_playstore'],
+  ]) {
+    assert.throws(
+      () =>
+        assertAndroidAvdIdentity(
+          expectedAvdConfig.replace(new RegExp(`^${field}=.*$`, 'm'), `${field}=${value}`),
+        ),
+      ({ code }) => code === 'android_avd_identity_mismatch',
+      field,
+    );
+  }
+  assert.throws(
+    () => assertAndroidAvdIdentity(expectedAvdConfig.replace(/^hw\.device\.name=.*\n/m, '')),
+    ({ code }) => code === 'android_avd_identity_mismatch',
+    'missing hardware profile',
+  );
   assert.doesNotThrow(() => assertAndroidSerialOwnership('KS2_Spelling_API_36\nOK\n'));
   assert.throws(
     () => assertAndroidSerialOwnership('Some_Other_AVD\nOK\n'),

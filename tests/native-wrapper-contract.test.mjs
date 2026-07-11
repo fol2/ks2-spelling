@@ -1,0 +1,280 @@
+import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import test from 'node:test';
+
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const SCRIPT_FILES = [
+  'scripts/lib/run-command.mjs',
+  'scripts/native-doctor.mjs',
+  'scripts/native-sync-check.mjs',
+  'scripts/test-ios.mjs',
+  'scripts/test-android.mjs',
+  'scripts/launch-ios-simulator.mjs',
+  'scripts/launch-android-emulator.mjs',
+];
+
+async function importScript(path) {
+  return import(pathToFileURL(join(ROOT, path)));
+}
+
+test('package scripts expose every deterministic native wrapper', async () => {
+  assert.ok(
+    SCRIPT_FILES.every((path) => existsSync(join(ROOT, path))),
+    'missing native wrapper implementation',
+  );
+
+  const packageJson = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
+  assert.deepEqual(
+    Object.fromEntries(
+      [
+        'verify:vendor',
+        'native:doctor',
+        'native:sync:check',
+        'test:ios',
+        'test:android',
+        'launch:ios',
+        'launch:android',
+      ].map((name) => [name, packageJson.scripts[name]]),
+    ),
+    {
+      'verify:vendor': 'node scripts/verify-vendored-contract.mjs',
+      'native:doctor': 'node scripts/native-doctor.mjs',
+      'native:sync:check': 'node scripts/native-sync-check.mjs',
+      'test:ios': 'node scripts/test-ios.mjs',
+      'test:android': 'node scripts/test-android.mjs',
+      'launch:ios': 'node scripts/launch-ios-simulator.mjs',
+      'launch:android': 'node scripts/launch-android-emulator.mjs',
+    },
+  );
+});
+
+test('command results use stable exit codes and redact signing or environment secrets', async () => {
+  assert.ok(existsSync(join(ROOT, 'scripts/lib/run-command.mjs')));
+  const { EXIT_CODES, redactText, runCommand } = await importScript(
+    'scripts/lib/run-command.mjs',
+  );
+
+  assert.deepEqual(EXIT_CODES, {
+    success: 0,
+    usage: 2,
+    missingTool: 3,
+    commandFailed: 4,
+    stateMismatch: 5,
+  });
+  const env = {
+    OPENAI_API_KEY: 'top-secret-value',
+    SIGNING_PASSWORD: 'signing-secret-value',
+    PROVISIONING_PROFILE_SPECIFIER: 'private-profile-name',
+  };
+  assert.equal(
+    redactText(
+      'OPENAI_API_KEY=top-secret-value --password=signing-secret-value',
+      env,
+    ),
+    'OPENAI_API_KEY=[REDACTED] --password=[REDACTED]',
+  );
+  assert.equal(redactText('CODE_SIGNING_ALLOWED=NO', env), 'CODE_SIGNING_ALLOWED=NO');
+  assert.equal(
+    redactText('PROVISIONING_PROFILE_SPECIFIER=private-profile-name', env),
+    'PROVISIONING_PROFILE_SPECIFIER=[REDACTED]',
+  );
+
+  const result = await runCommand(
+    process.execPath,
+    ['-e', 'process.stdout.write(process.env.OPENAI_API_KEY)'],
+    { env: { ...process.env, ...env } },
+  );
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.stdout, '[REDACTED]');
+  assert.doesNotMatch(
+    JSON.stringify(result),
+    /top-secret-value|signing-secret-value|private-profile-name/,
+  );
+});
+
+test('doctor probes are read-only and Android absence is deterministic', async () => {
+  const { DOCTOR_COMMANDS } = await importScript('scripts/native-doctor.mjs');
+  const { resolveAndroidEnvironment } = await importScript('scripts/test-android.mjs');
+
+  const serialised = JSON.stringify(DOCTOR_COMMANDS);
+  assert.doesNotMatch(serialised, /\b(?:create|boot|install|delete|erase|license|accept)\b/i);
+  assert.match(serialised, /simctl/);
+  assert.match(serialised, /runtimes/);
+  assert.match(serialised, /devices/);
+
+  const resolution = resolveAndroidEnvironment({
+    env: { HOME: '/missing-home' },
+    pathExists: () => false,
+  });
+  assert.equal(resolution.ready, false);
+  assert.deepEqual(resolution.missing, ['jbr', 'androidSdk']);
+  assert.equal(resolution.javaHome, null);
+  assert.equal(resolution.androidSdkRoot, null);
+});
+
+test('native build and sync commands freeze identity and derived outputs', async () => {
+  const { SYNC_COMMANDS } = await importScript('scripts/native-sync-check.mjs');
+  const { IOS_BUILD_COMMAND } = await importScript('scripts/test-ios.mjs');
+  const { ANDROID_BUILD_COMMAND, ANDROID_BUILD_EVIDENCE, GRADLE_INIT_SCRIPT } =
+    await importScript('scripts/test-android.mjs');
+
+  assert.deepEqual(SYNC_COMMANDS, [
+    ['npm', ['run', 'build']],
+    ['npx', ['cap', 'sync']],
+    [
+      process.execPath,
+      [
+        '--test',
+        'tests/ios-project-contract.test.mjs',
+        'tests/android-project-contract.test.mjs',
+      ],
+    ],
+    ['git', ['diff', '--exit-code', '--', 'ios', 'android', 'capacitor.config.json']],
+  ]);
+  assert.deepEqual(IOS_BUILD_COMMAND, {
+    command: 'xcodebuild',
+    args: [
+      '-project',
+      'ios/App/App.xcodeproj',
+      '-scheme',
+      'KS2Spelling',
+      '-sdk',
+      'iphonesimulator',
+      '-configuration',
+      'Debug',
+      '-derivedDataPath',
+      '.native-build/ios',
+      'CODE_SIGNING_ALLOWED=NO',
+      'build',
+    ],
+  });
+  assert.deepEqual(ANDROID_BUILD_COMMAND, {
+    command: 'android/gradlew',
+    args: [
+      '--no-daemon',
+      '--project-dir',
+      'android',
+      '--project-cache-dir',
+      '.native-build/android/project-cache',
+      '--init-script',
+      '.native-build/android/native-output.init.gradle',
+      'testDebugUnitTest',
+      'assembleDebug',
+    ],
+  });
+  assert.match(GRADLE_INIT_SCRIPT, /\.native-build\/android\/build/);
+  assert.deepEqual(ANDROID_BUILD_EVIDENCE, {
+    ok: true,
+    platform: 'android',
+    variant: 'debug',
+    signing: 'debug',
+    releaseSigned: false,
+  });
+});
+
+test('launch plans target only the named B1 virtual devices and exact app identity', async () => {
+  const { IOS_DEVICE, createIosLaunchPlan, selectExistingIosDevice } = await importScript(
+    'scripts/launch-ios-simulator.mjs',
+  );
+  const { ANDROID_DEVICE, assertAndroidSerialOwnership, createAndroidLaunchPlan } =
+    await importScript('scripts/launch-android-emulator.mjs');
+
+  assert.deepEqual(IOS_DEVICE, {
+    name: 'KS2 Spelling iPhone 17',
+    type: 'com.apple.CoreSimulator.SimDeviceType.iPhone-17',
+    runtime: 'com.apple.CoreSimulator.SimRuntime.iOS-26-5',
+    bundleId: 'uk.eugnel.ks2spelling',
+  });
+  const existingIos = createIosLaunchPlan({ udid: 'existing-ios-udid' });
+  assert.equal(existingIos.some(({ args }) => args.includes('create')), false);
+  assert.deepEqual(existingIos.at(-1), {
+    command: 'xcrun',
+    args: ['simctl', 'launch', 'existing-ios-udid', 'uk.eugnel.ks2spelling'],
+  });
+  assert.deepEqual(createIosLaunchPlan({ udid: null })[0], {
+    command: 'xcrun',
+    args: [
+      'simctl',
+      'create',
+      'KS2 Spelling iPhone 17',
+      'com.apple.CoreSimulator.SimDeviceType.iPhone-17',
+      'com.apple.CoreSimulator.SimRuntime.iOS-26-5',
+    ],
+  });
+  assert.throws(
+    () =>
+      selectExistingIosDevice({
+        'com.apple.CoreSimulator.SimRuntime.iOS-25-0': [
+          {
+            name: 'KS2 Spelling iPhone 17',
+            udid: 'collision',
+            deviceTypeIdentifier: 'com.apple.CoreSimulator.SimDeviceType.iPhone-17',
+          },
+        ],
+      }),
+    ({ code }) => code === 'ios_device_collision',
+  );
+
+  assert.deepEqual(ANDROID_DEVICE, {
+    name: 'KS2_Spelling_API_36',
+    image: 'system-images;android-36;google_apis;arm64-v8a',
+    port: '5580',
+    serial: 'emulator-5580',
+    packageId: 'uk.eugnel.ks2spelling',
+    activity: 'uk.eugnel.ks2spelling/.MainActivity',
+  });
+  const existingAndroid = createAndroidLaunchPlan({ avdExists: true });
+  assert.equal(existingAndroid.some(({ args }) => args.includes('create')), false);
+  for (const { command, args } of existingAndroid.filter(({ command }) => command === 'adb')) {
+    assert.equal(command, 'adb');
+    assert.deepEqual(args.slice(0, 2), ['-s', 'emulator-5580']);
+  }
+  assert.ok(
+    existingAndroid.some(
+      ({ command, args }) =>
+        command === 'emulator' &&
+        args.includes('-port') &&
+        args.includes('5580') &&
+        args.includes('KS2_Spelling_API_36'),
+    ),
+  );
+  assert.deepEqual(existingAndroid.at(-1), {
+    command: 'adb',
+    args: [
+      '-s',
+      'emulator-5580',
+      'shell',
+      'am',
+      'start',
+      '-n',
+      'uk.eugnel.ks2spelling/.MainActivity',
+    ],
+  });
+  assert.deepEqual(createAndroidLaunchPlan({ avdExists: false })[0], {
+    command: 'avdmanager',
+    args: [
+      'create',
+      'avd',
+      '--name',
+      'KS2_Spelling_API_36',
+      '--package',
+      'system-images;android-36;google_apis;arm64-v8a',
+    ],
+    input: 'no\n',
+  });
+  assert.doesNotThrow(() => assertAndroidSerialOwnership('KS2_Spelling_API_36\nOK\n'));
+  assert.throws(
+    () => assertAndroidSerialOwnership('Some_Other_AVD\nOK\n'),
+    ({ code }) => code === 'android_serial_collision',
+  );
+
+  for (const path of [
+    'scripts/launch-ios-simulator.mjs',
+    'scripts/launch-android-emulator.mjs',
+  ]) {
+    assert.doesNotMatch(await readFile(join(ROOT, path), 'utf8'), /stream:\s*true/);
+  }
+});

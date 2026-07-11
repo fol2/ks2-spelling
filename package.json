@@ -10,7 +10,14 @@
   "scripts": {
     "build": "vite build",
     "lint": "oxlint src tests scripts vite.config.js",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "verify:vendor": "node scripts/verify-vendored-contract.mjs",
+    "native:doctor": "node scripts/native-doctor.mjs",
+    "native:sync:check": "node scripts/native-sync-check.mjs",
+    "test:ios": "node scripts/test-ios.mjs",
+    "test:android": "node scripts/test-android.mjs",
+    "launch:ios": "node scripts/launch-ios-simulator.mjs",
+    "launch:android": "node scripts/launch-android-emulator.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.4.1",

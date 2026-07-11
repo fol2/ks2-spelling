@@ -5,6 +5,7 @@ import {
   mkdtemp,
   readFile,
   rename,
+  rm,
   symlink,
   writeFile,
 } from 'node:fs/promises';
@@ -22,6 +23,12 @@ const A3_MANIFEST_PATH = join(
   ROOT,
   'vendor/ks2-mastery/content/spelling.mobile-a3-contract-manifest.json',
 );
+const TEMP_COPY_EXCLUDED_COMPONENTS = new Set([
+  '.git',
+  '.native-build',
+  'dist',
+  'node_modules',
+]);
 
 const EXPECTED = Object.freeze({
   repository: 'https://github.com/fol2/ks2-mastery.git',
@@ -42,24 +49,44 @@ const EXPECTED = Object.freeze({
 async function copyRepository() {
   const parent = await mkdtemp(join(tmpdir(), 'ks2-spelling-vendor-test-'));
   const copyRoot = join(parent, 'isolated-mobile-repository');
-  await cp(ROOT, copyRoot, {
-    recursive: true,
-    filter: (source) => !source.split('/').includes('.git'),
-  });
-  return copyRoot;
+  let cleaned = false;
+  const cleanup = async () => {
+    if (cleaned) return;
+    await rm(parent, { force: true, recursive: true });
+    cleaned = true;
+  };
+
+  try {
+    await cp(ROOT, copyRoot, {
+      recursive: true,
+      filter: (source) =>
+        !source
+          .split(/[\\/]/)
+          .some((component) => TEMP_COPY_EXCLUDED_COMPONENTS.has(component)),
+    });
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
+
+  return { cleanup, copyRoot, parent };
 }
 
 async function expectVerificationFailure(mutate, expectedPattern) {
-  const copyRoot = await copyRepository();
-  await mutate(copyRoot);
+  const { cleanup, copyRoot } = await copyRepository();
+  try {
+    await mutate(copyRoot);
 
-  const { verifyVendoredContract } = await import(
-    `${pathToFileURL(VERIFIER_PATH).href}?tamper=${crypto.randomUUID()}`
-  );
-  await assert.rejects(
-    () => verifyVendoredContract({ rootDir: copyRoot }),
-    expectedPattern,
-  );
+    const { verifyVendoredContract } = await import(
+      `${pathToFileURL(VERIFIER_PATH).href}?tamper=${crypto.randomUUID()}`
+    );
+    await assert.rejects(
+      () => verifyVendoredContract({ rootDir: copyRoot }),
+      expectedPattern,
+    );
+  } finally {
+    await cleanup();
+  }
 }
 
 test('the frozen Gate A spelling runtime is vendored and certified', async () => {
@@ -137,6 +164,33 @@ test('the app-owned façade exposes only the certified runtime and read-only cat
     0,
     'Starter and Full catalogues must not leak secure or Extra tier items',
   );
+});
+
+test('temporary tamper copies exclude ignored outputs and clean up their parent', async () => {
+  const { cleanup, copyRoot, parent } = await copyRepository();
+
+  try {
+    assert.equal(
+      existsSync(join(copyRoot, 'node_modules')),
+      false,
+      'temporary copies must not include node_modules',
+    );
+    assert.equal(
+      existsSync(join(copyRoot, 'dist')),
+      false,
+      'temporary copies must not include dist',
+    );
+    assert.equal(
+      existsSync(join(copyRoot, '.native-build')),
+      false,
+      'temporary copies must not include native build output',
+    );
+    assert.equal(typeof cleanup, 'function');
+  } finally {
+    await cleanup();
+  }
+
+  assert.equal(existsSync(parent), false, 'temporary copy parent must be removed');
 });
 
 test('verification fails closed for representative tampering', async (t) => {

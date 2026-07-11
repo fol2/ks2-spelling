@@ -139,6 +139,26 @@ function commandAttestation(command) {
   };
 }
 
+function assertOutputEntry(entry, expectedSourcePin) {
+  const expectedKeys = expectedSourcePin
+    ? ['bytes', 'path', 'sha256', 'sourcePin']
+    : ['bytes', 'path', 'sha256'];
+  if (
+    JSON.stringify(Object.keys(entry ?? {}).sort()) !== JSON.stringify(expectedKeys) ||
+    !Number.isSafeInteger(entry?.bytes) ||
+    entry.bytes <= 0 ||
+    !/^[a-f0-9]{64}$/.test(entry?.sha256 ?? '')
+  ) {
+    throw reportError(`Native output evidence is structurally invalid: ${entry?.path}`);
+  }
+  if (
+    expectedSourcePin &&
+    JSON.stringify(entry.sourcePin) !== JSON.stringify(expectedSourcePin)
+  ) {
+    throw reportError(`Native output source pin drifted: ${entry.path}`);
+  }
+}
+
 export async function assertB2NativePluginReportCurrent(report, options = {}) {
   if (report?.schemaVersion !== 2) throw reportError('Unsupported report schema');
   if (JSON.stringify(report.packages) !== JSON.stringify(EXPECTED_PLUGINS)) {
@@ -242,6 +262,17 @@ export async function assertB2NativePluginReportCurrent(report, options = {}) {
   ) {
     throw reportError('Native build output path inventory drifted');
   }
+  for (const entry of report.android.outputInventory) {
+    assertOutputEntry(entry, null);
+  }
+  const iosOutputByPath = new Map(
+    report.ios.outputInventory.map((entry) => [entry.path, entry]),
+  );
+  assertOutputEntry(iosOutputByPath.get(IOS_OUTPUTS[0]), null);
+  assertOutputEntry(iosOutputByPath.get(IOS_OUTPUTS[1]), EXPECTED_CAPACITOR_PIN);
+  assertOutputEntry(iosOutputByPath.get(IOS_OUTPUTS[2]), EXPECTED_CAPACITOR_PIN);
+  const sqlCipherPin = pins.find(({ identity }) => identity === 'sqlcipher.swift');
+  assertOutputEntry(iosOutputByPath.get(IOS_OUTPUTS[3]), sqlCipherPin);
   if (options.verifyLocalOutputs !== false) {
     const outputPaths = [...ANDROID_OUTPUTS, ...IOS_OUTPUTS];
     const present = outputPaths.filter((path) => existsSync(join(ROOT, path)));

@@ -47,30 +47,41 @@ export async function prepareNativeDependencies(options = {}) {
   const expectedPatchedSha256 =
     options.expectedPatchedSha256 ?? PATCHED_MANIFEST_SHA256;
   const packageRoot = join(root, 'node_modules/@capacitor-community/sqlite');
-  const packageJson = JSON.parse(
-    await readFile(join(packageRoot, 'package.json'), 'utf8'),
-  );
+  const manifestPath = join(root, MANIFEST_PATH);
+  let packageMetadataText;
+  let packageLockText;
+  let manifest;
+  try {
+    [packageMetadataText, packageLockText, manifest] = await Promise.all([
+      readFile(join(packageRoot, 'package.json'), 'utf8'),
+      readFile(join(root, 'package-lock.json'), 'utf8'),
+      readFile(manifestPath, 'utf8'),
+    ]);
+  } catch (error) {
+    throw driftError(`Native dependency input is missing or unreadable: ${error.code ?? 'read'}`);
+  }
+
+  let packageJson;
+  let packageLock;
+  try {
+    packageJson = JSON.parse(packageMetadataText);
+    packageLock = JSON.parse(packageLockText);
+  } catch {
+    throw driftError('Native dependency package metadata or lockfile is malformed');
+  }
   if (packageJson.name !== PACKAGE_NAME || packageJson.version !== PACKAGE_VERSION) {
     throw driftError(
       `Expected ${PACKAGE_NAME}@${PACKAGE_VERSION}; found ${packageJson.name}@${packageJson.version}`,
     );
   }
-
-  try {
-    const packageLock = JSON.parse(await readFile(join(root, 'package-lock.json'), 'utf8'));
-    const lockEntry = packageLock.packages?.[`node_modules/${PACKAGE_NAME}`];
-    if (
-      lockEntry?.version !== PACKAGE_VERSION ||
-      lockEntry?.integrity !== PACKAGE_INTEGRITY
-    ) {
-      throw driftError('SQLite package-lock identity or integrity drifted');
-    }
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
+  const lockEntry = packageLock.packages?.[`node_modules/${PACKAGE_NAME}`];
+  if (
+    lockEntry?.version !== PACKAGE_VERSION ||
+    lockEntry?.integrity !== PACKAGE_INTEGRITY
+  ) {
+    throw driftError('SQLite package-lock identity or integrity drifted');
   }
 
-  const manifestPath = join(root, MANIFEST_PATH);
-  const manifest = await readFile(manifestPath, 'utf8');
   const actualSha256 = sha256(manifest);
   let changed = false;
   if (actualSha256 === expectedOriginalSha256) {

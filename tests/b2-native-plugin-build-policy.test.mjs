@@ -161,6 +161,36 @@ test('native build report proves the B2 compile and packaged policy surface', as
       ),
     ({ code }) => code === 'b2_native_plugin_report_invalid',
   );
+  const rejectReportDrift = async (mutate) => {
+    const candidate = structuredClone(report);
+    mutate(candidate);
+    await assert.rejects(
+      () =>
+        assertB2NativePluginReportCurrent(candidate, {
+          verifyLocalOutputs: false,
+        }),
+      ({ code }) => code === 'b2_native_plugin_report_invalid',
+    );
+  };
+  await rejectReportDrift((candidate) => {
+    candidate.ios.outputInventory.find(({ path }) =>
+      path.endsWith('/Capacitor.framework/Capacitor'),
+    ).sourcePin.state.version = '8.0.0';
+  });
+  await rejectReportDrift((candidate) => {
+    delete candidate.ios.outputInventory.find(({ path }) =>
+      path.endsWith('/Cordova.framework/Cordova'),
+    ).sourcePin;
+  });
+  await rejectReportDrift((candidate) => {
+    candidate.ios.outputInventory.find(({ path }) => path.endsWith('/App')).sourcePin =
+      candidate.ios.spmPins[0];
+  });
+  await rejectReportDrift((candidate) => {
+    candidate.ios.outputInventory.find(({ path }) =>
+      path.endsWith('/SQLCipher.framework/SQLCipher'),
+    ).sourcePin = candidate.ios.spmPins[0];
+  });
   assert.equal(report.schemaVersion, 2);
   assert.deepEqual(report.packages, REQUIRED_PLUGINS);
   assert.equal(report.builds.ios.compiled, true);

@@ -150,33 +150,33 @@
     },
     {
       "path": "scripts/prepare-native-dependencies.mjs",
-      "bytes": 4528,
-      "sha256": "048c62b9724001d1cc0d668a0f2a8264667fa741589bdf3de13b4afdbf35e416"
+      "bytes": 4862,
+      "sha256": "eab951e7fe66defe22cc18e5823f37ba7441cac663b9d59286abc091c609ca58"
     },
     {
       "path": "scripts/build-b2-native-plugin-report.mjs",
-      "bytes": 13946,
-      "sha256": "c8eee698cef1c8c242c713795539974a1bc17d6d3c7a118ecf6f602402d8bdc2"
+      "bytes": 15214,
+      "sha256": "b94bcc08d962a4205aecb0447f88dab004f74adba973583f63c0201fc368f35d"
     },
     {
       "path": "scripts/test-ios.mjs",
-      "bytes": 2524,
-      "sha256": "04d91a6156fb16347a630721354ba517f296f912876d0ed362b2a41972592c12"
+      "bytes": 2768,
+      "sha256": "0f06b4834d18a8e8fd2ed14c07b5f07ddb8594198f4ef7429c04b90f408ca522"
     },
     {
       "path": "scripts/test-android.mjs",
-      "bytes": 14801,
-      "sha256": "1fb30a2e7a0db4444f924839d6966b642038be776a6536122923a7541ca16c98"
+      "bytes": 15053,
+      "sha256": "59b8e15f171325963921899fc4f1549b62c76d9f1997905cee31b6dbb1e3b5fd"
     },
     {
       "path": "tests/native-dependency-preparation.test.mjs",
-      "bytes": 5081,
-      "sha256": "56945aa70b26cf87a992f422b6113f8f3094de70e0b48e51b04174ba968f8374"
+      "bytes": 6292,
+      "sha256": "d36c59370f2db038f058322e5dcab62618e64cce6e4fe1d9bbff750c5585145e"
     },
     {
       "path": "tests/b2-native-plugin-build-policy.test.mjs",
-      "bytes": 9784,
-      "sha256": "c5c2bfb93941dcf9549427e8244fb00a081398a28c8f73e8abd331822bf1bd2b"
+      "bytes": 10865,
+      "sha256": "dd7126dc9660eeb3418a824cc01414f817f2969aacb99b30d2ac82452d8e25a4"
     },
     {
       "path": "tests/app-shell.test.mjs",
@@ -195,8 +195,8 @@
     },
     {
       "path": "tests/native-wrapper-contract.test.mjs",
-      "bytes": 18603,
-      "sha256": "263cab3fdebf4f7d330e4d4711009b5f1ddddf074936f3b9e1d2f7ee689fed7a"
+      "bytes": 19368,
+      "sha256": "8a96b4c78903483c3c2baa8bd2cb5700449afdc880007197825c058f862db33e"
     }
   ],
   "generatedNativeInputs": [

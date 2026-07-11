@@ -424,15 +424,24 @@ export async function buildAndroidApplication({ stream = true } = {}) {
   };
 }
 
+export function androidExitCodeForError(error) {
+  if (
+    error?.code === 'missing_android_toolchain' ||
+    error?.code === 'missing_android_sdk_packages'
+  ) {
+    return EXIT_CODES.missingTool;
+  }
+  if (error?.code === 'android_build_failed') return EXIT_CODES.commandFailed;
+  return EXIT_CODES.stateMismatch;
+}
+
 export async function main() {
   try {
     printJson(await buildAndroidApplication());
     return EXIT_CODES.success;
   } catch (error) {
     printJson({ ok: false, code: error.code, message: error.message }, process.stderr);
-    return error.code?.startsWith('missing_')
-      ? EXIT_CODES.missingTool
-      : EXIT_CODES.commandFailed;
+    return androidExitCodeForError(error);
   }
 }
 

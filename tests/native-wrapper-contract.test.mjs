@@ -240,7 +240,9 @@ test('Task 8 records exact local toolchain, licence gate and disk evidence', asy
 
 test('native build and sync commands freeze identity and derived outputs', async () => {
   const { SYNC_COMMANDS } = await importScript('scripts/native-sync-check.mjs');
-  const { IOS_BUILD_COMMAND } = await importScript('scripts/test-ios.mjs');
+  const { IOS_BUILD_COMMAND, iosExitCodeForError } = await importScript(
+    'scripts/test-ios.mjs',
+  );
   const {
     ANDROID_BUILD_COMMAND,
     ANDROID_BUILD_EVIDENCE,
@@ -248,6 +250,7 @@ test('native build and sync commands freeze identity and derived outputs', async
     parsePackagedAndroidBackupRules,
     parsePackagedAndroidDataExtractionRules,
     parsePackagedAndroidManifestPolicy,
+    androidExitCodeForError,
   } = await importScript('scripts/test-android.mjs');
 
   assert.deepEqual(SYNC_COMMANDS, [
@@ -302,6 +305,26 @@ test('native build and sync commands freeze identity and derived outputs', async
     variant: 'debug',
     signing: 'debug',
   });
+  for (const [code, expected] of [
+    ['missing_xcodebuild', 3],
+    ['ios_build_failed', 4],
+    ['native_dependency_upstream_drift', 5],
+    ['ios_build_output_invalid', 5],
+  ]) {
+    assert.equal(iosExitCodeForError({ code }), expected, code);
+  }
+  for (const [code, expected] of [
+    ['missing_android_toolchain', 3],
+    ['missing_android_sdk_packages', 3],
+    ['android_build_failed', 4],
+    ['native_dependency_upstream_drift', 5],
+    ['android_packaged_permission_detected', 5],
+    ['android_packaged_backup_policy_invalid', 5],
+    ['android_signing_evidence_invalid', 5],
+    ['android_release_missing', 5],
+  ]) {
+    assert.equal(androidExitCodeForError({ code }), expected, code);
+  }
   const { parsePackagedAndroidPermissions } = await importScript(
     'scripts/test-android.mjs',
   );

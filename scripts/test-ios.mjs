@@ -79,15 +79,24 @@ export async function buildIosApplication({ stream = true } = {}) {
   };
 }
 
+export function iosExitCodeForError(error) {
+  if (error?.code === 'missing_xcodebuild') return EXIT_CODES.missingTool;
+  if (
+    error?.code === 'native_dependency_upstream_drift' ||
+    error?.code === 'ios_build_output_invalid'
+  ) {
+    return EXIT_CODES.stateMismatch;
+  }
+  return EXIT_CODES.commandFailed;
+}
+
 export async function main() {
   try {
     printJson(await buildIosApplication());
     return EXIT_CODES.success;
   } catch (error) {
     printJson({ ok: false, code: error.code, message: error.message }, process.stderr);
-    return error.code === 'missing_xcodebuild'
-      ? EXIT_CODES.missingTool
-      : EXIT_CODES.commandFailed;
+    return iosExitCodeForError(error);
   }
 }
 

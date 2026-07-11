@@ -3,6 +3,9 @@ function canonicalJsonError(message) {
 }
 
 function encodeArray(value, activeObjects) {
+  if (Object.getPrototypeOf(value) !== Array.prototype) {
+    throw canonicalJsonError('supports only arrays with the standard prototype');
+  }
   const keys = Reflect.ownKeys(value);
   const expectedKeys = new Set([
     ...Array.from({ length: value.length }, (_, index) => String(index)),

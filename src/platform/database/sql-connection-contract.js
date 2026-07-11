@@ -15,6 +15,10 @@ export function assertSqlConnection(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError('SQL connection must be an object.');
   }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError('SQL connection must have a plain object prototype.');
+  }
 
   const keys = Reflect.ownKeys(value);
   if (

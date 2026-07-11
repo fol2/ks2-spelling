@@ -1,39 +1,41 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-function createFakeNativeDependencies({ native = true } = {}) {
+function createFakeNativeDependencies({ native = true, results = {} } = {}) {
   const calls = [];
+  const resultFor = (name, fallback) =>
+    Object.hasOwn(results, name) ? results[name] : fallback;
   const database = {
     async open() {
       calls.push(['database.open']);
     },
     async execute(sql, transaction) {
       calls.push(['database.execute', sql, transaction]);
-      return { changes: { changes: 0 } };
+      return resultFor('execute', { changes: { changes: 0 } });
     },
     async run(sql, values, transaction) {
       calls.push(['database.run', sql, values, transaction]);
-      return { changes: { changes: 1 } };
+      return resultFor('run', { changes: { changes: 1, lastId: 1 } });
     },
     async query(sql, values) {
       calls.push(['database.query', sql, values]);
-      return { values: [{ answer: 42 }] };
+      return resultFor('query', { values: [{ answer: 42 }] });
     },
     async beginTransaction() {
       calls.push(['database.beginTransaction']);
-      return { changes: { changes: 0 } };
+      return resultFor('begin', { changes: { changes: 0 } });
     },
     async commitTransaction() {
       calls.push(['database.commitTransaction']);
-      return { changes: { changes: 0 } };
+      return resultFor('commit', { changes: { changes: 0 } });
     },
     async rollbackTransaction() {
       calls.push(['database.rollbackTransaction']);
-      return { changes: { changes: 0 } };
+      return resultFor('rollback', { changes: { changes: 0 } });
     },
     async isTransactionActive() {
       calls.push(['database.isTransactionActive']);
-      return { result: true };
+      return resultFor('isTransactionActive', { result: true });
     },
     async close() {
       calls.push(['database.close']);
@@ -93,20 +95,20 @@ test('Capacitor SQLite adapter uses exact connection and statement arguments', a
   assert.equal(assertSqlConnection(connection), connection);
   await connection.open();
   assert.deepEqual(await connection.execute('PRAGMA foreign_keys = ON'), {
-    changes: { changes: 0 },
+    changes: 0,
   });
   assert.deepEqual(
     await connection.execute('INSERT INTO learner (id) VALUES (?)', ['ada']),
-    { changes: { changes: 1 } },
+    { changes: 1 },
   );
   assert.deepEqual(await connection.query('SELECT answer FROM facts WHERE id = ?', [1]), [
     { answer: 42 },
   ]);
-  await connection.begin();
+  assert.equal(await connection.begin(), undefined);
   assert.equal(await connection.isTransactionActive(), true);
-  await connection.commit();
-  await connection.begin();
-  await connection.rollback();
+  assert.equal(await connection.commit(), undefined);
+  assert.equal(await connection.begin(), undefined);
+  assert.equal(await connection.rollback(), undefined);
 
   assert.deepEqual(fake.calls, [
     ['manager.constructor', fake.dependencies.CapacitorSQLite],
@@ -138,4 +140,112 @@ test('Capacitor SQLite adapter closes through the manager exactly once', async (
   ]);
   assert.equal(fake.calls.filter(([name]) => name === 'manager.closeConnection').length, 1);
   assert.equal(fake.calls.some(([name]) => name === 'database.close'), false);
+});
+
+test('Capacitor SQLite adapter rejects malformed write result shapes', async () => {
+  const { createCapacitorSqliteConnection } = await import(
+    '../src/platform/database/capacitor-sqlite-connection.js'
+  );
+  const malformed = [
+    {},
+    { changes: 1 },
+    { changes: {} },
+    { changes: { changes: '1' } },
+    { changes: { changes: -1 } },
+    { changes: { changes: Number.MAX_SAFE_INTEGER + 1 } },
+  ];
+
+  for (const result of malformed) {
+    const executeFake = createFakeNativeDependencies({ results: { execute: result } });
+    const executeConnection = await createCapacitorSqliteConnection(
+      executeFake.dependencies,
+    );
+    await assert.rejects(
+      executeConnection.execute('PRAGMA foreign_keys = ON'),
+      /safe non-negative integer|native changes result/i,
+    );
+
+    const runFake = createFakeNativeDependencies({ results: { run: result } });
+    const runConnection = await createCapacitorSqliteConnection(runFake.dependencies);
+    await assert.rejects(
+      runConnection.execute('UPDATE learner SET score = ? WHERE id = ?', [8, 'ada']),
+      /safe non-negative integer|native changes result/i,
+    );
+  }
+});
+
+test('Capacitor SQLite adapter rejects malformed query and transaction-state results', async () => {
+  const { createCapacitorSqliteConnection } = await import(
+    '../src/platform/database/capacitor-sqlite-connection.js'
+  );
+
+  for (const result of [{}, { values: {} }, { values: [null] }]) {
+    const fake = createFakeNativeDependencies({ results: { query: result } });
+    const connection = await createCapacitorSqliteConnection(fake.dependencies);
+    await assert.rejects(connection.query('SELECT 1'), /native query result|row/i);
+  }
+
+  for (const result of [{}, { result: 'true' }]) {
+    const fake = createFakeNativeDependencies({
+      results: { isTransactionActive: result },
+    });
+    const connection = await createCapacitorSqliteConnection(fake.dependencies);
+    await assert.rejects(
+      connection.isTransactionActive(),
+      /native transaction state result/i,
+    );
+  }
+});
+
+test('Capacitor SQLite adapter validates every transaction operation result', async () => {
+  const { createCapacitorSqliteConnection } = await import(
+    '../src/platform/database/capacitor-sqlite-connection.js'
+  );
+
+  for (const method of ['begin', 'commit', 'rollback']) {
+    const fake = createFakeNativeDependencies({ results: { [method]: {} } });
+    const connection = await createCapacitorSqliteConnection(fake.dependencies);
+    await assert.rejects(connection[method](), /native changes result/i);
+  }
+});
+
+test('Capacitor SQLite result validation does not invoke hostile accessors', async () => {
+  const { createCapacitorSqliteConnection } = await import(
+    '../src/platform/database/capacitor-sqlite-connection.js'
+  );
+  let reads = 0;
+  const hostile = {};
+  Object.defineProperty(hostile, 'changes', {
+    enumerable: true,
+    get() {
+      reads += 1;
+      throw new Error('native_accessor_invoked');
+    },
+  });
+  const fake = createFakeNativeDependencies({ results: { execute: hostile } });
+  const connection = await createCapacitorSqliteConnection(fake.dependencies);
+
+  await assert.rejects(
+    connection.execute('PRAGMA foreign_keys = ON'),
+    /native changes result/i,
+  );
+  assert.equal(reads, 0);
+});
+
+test('Capacitor SQLite adapter clones __proto__ columns as safe own data', async () => {
+  const { createCapacitorSqliteConnection } = await import(
+    '../src/platform/database/capacitor-sqlite-connection.js'
+  );
+  const row = {};
+  Object.defineProperty(row, '__proto__', {
+    value: 'column-value',
+    enumerable: true,
+  });
+  const fake = createFakeNativeDependencies({ results: { query: { values: [row] } } });
+  const connection = await createCapacitorSqliteConnection(fake.dependencies);
+
+  const [cloned] = await connection.query('SELECT value AS __proto__ FROM facts');
+  assert.equal(Object.getPrototypeOf(cloned), Object.prototype);
+  assert.equal(Object.hasOwn(cloned, '__proto__'), true);
+  assert.equal(cloned.__proto__, 'column-value');
 });

@@ -57,6 +57,55 @@ test('canonical JSON rejects accessors without invoking them', async () => {
   assert.equal(reads, 0);
 });
 
+test('canonical JSON rejects hidden and symbol object properties', async () => {
+  const { canonicalJson } = await import('../src/platform/database/canonical-json.js');
+  const hidden = { visible: true };
+  Object.defineProperty(hidden, 'secret', { value: true });
+  const symbol = { visible: true, [Symbol('secret')]: true };
+
+  assert.throws(() => canonicalJson(hidden), /canonical JSON/i);
+  assert.throws(() => canonicalJson(symbol), /canonical JSON/i);
+});
+
+test('canonical JSON rejects sparse, decorated and custom-prototype arrays', async () => {
+  const { canonicalJson } = await import('../src/platform/database/canonical-json.js');
+  const sparse = Array(2);
+  sparse[1] = 'present';
+  const decorated = ['value'];
+  decorated.extra = true;
+  let inheritedReads = 0;
+  const hostilePrototype = Object.create(Array.prototype);
+  Object.defineProperty(hostilePrototype, 'secret', {
+    get() {
+      inheritedReads += 1;
+      throw new Error('inherited_accessor_invoked');
+    },
+  });
+  const customPrototype = ['value'];
+  Object.setPrototypeOf(customPrototype, hostilePrototype);
+
+  assert.throws(() => canonicalJson(sparse), /canonical JSON/i);
+  assert.throws(() => canonicalJson(decorated), /canonical JSON/i);
+  assert.throws(() => canonicalJson(customPrototype), /canonical JSON/i);
+  assert.equal(inheritedReads, 0);
+});
+
+test('canonical JSON rejects nested hostile descriptors without invoking them', async () => {
+  const { canonicalJson } = await import('../src/platform/database/canonical-json.js');
+  let reads = 0;
+  const nested = {};
+  Object.defineProperty(nested, 'answer', {
+    enumerable: true,
+    get() {
+      reads += 1;
+      throw new Error('nested_accessor_invoked');
+    },
+  });
+
+  assert.throws(() => canonicalJson({ safe: [{ nested }] }), /canonical JSON/i);
+  assert.equal(reads, 0);
+});
+
 test('canonical JSON permits repeated non-cyclic references', async () => {
   const { canonicalJson } = await import('../src/platform/database/canonical-json.js');
   const child = { answer: 42 };

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "status": "pass",
-  "testedApplicationCommit": "4719181301ca4d750b69041aad767355df9056d8",
+  "testedApplicationCommit": "c7828c2da84d5828f7e7640992c78d3203dd1170",
   "applicationFingerprint": {
     "algorithm": "sha256",
-    "sha256": "e09fdcb318f949e89bbfe3e61d9fe490219cfcd34ad654ff3247e5369267e6eb",
+    "sha256": "0755706083060caf3fa370d2abfd8acabefc0774ac45f3476edefe7b651125d6",
     "fileCount": 153,
     "files": [
       {
@@ -257,7 +257,7 @@
       },
       {
         "path": "android/gradle/verification-metadata.xml",
-        "sha256": "0dd08ee21ee61a2ffe5902080a09e255ee906b418554b97b40b462e6e2d7b1b0"
+        "sha256": "e96275562567df2b95d91d8b5f2adb2332350eefbdd6fc1fe861bb48d586a2b7"
       },
       {
         "path": "android/gradle/wrapper/gradle-wrapper.jar",
@@ -626,11 +626,11 @@
   "platforms": {
     "ios": {
       "report": "reports/b1/ios-simulator-launch.json",
-      "sha256": "ea4e7c999ceeb4d3e4bff18856d6896631d59254a7fa42d13606d1011e386186"
+      "sha256": "2772540fa32ba7a85bd7ce0397033ad180bce5d78d9c707a503792c52f9b003c"
     },
     "android": {
       "report": "reports/b1/android-emulator-launch.json",
-      "sha256": "27ffc1240021a2ebc93346d829664cecd2a790297109c58f005d022498da63b6"
+      "sha256": "ce5f62ef7f7c41dec32f614844c2e8e90b52cf2983ed1626a4714255f0327973"
     }
   },
   "visualReview": {

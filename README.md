@@ -44,3 +44,22 @@ the installed binary. Later work requires its own evidence and approval gates.
 
 The frozen upstream authority and import boundary are recorded in
 [`docs/architecture/b1-authority.md`](docs/architecture/b1-authority.md).
+
+## Development and verification
+
+Install the exact lockfile with `npm ci`, then verify the local native toolchain
+with `npm run native:doctor -- --strict`. The complete local gate, virtual-device
+lifecycle, disk requirements and unsigned-build boundary are documented in
+[`docs/operations/native-development.md`](docs/operations/native-development.md).
+
+CI has separate Ubuntu 24.04 domain/web and Android compile lanes plus an
+unsigned iOS Simulator lane on macOS 26. All third-party Actions are pinned to
+full commit SHAs. A workflow definition or local pass is not presented as a
+hosted CI result; the exact private-branch run must be observed first.
+
+## B1 evidence status
+
+B1 proves a local bundled shell, deterministic dependency governance and exact
+Simulator/Emulator launch evidence. It remains a prototype: SQLite durability,
+lifecycle recovery, billing and restore, signed pack downloads, physical-device
+quality, accessibility and store compliance remain later gated work.

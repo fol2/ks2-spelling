@@ -1,0 +1,113 @@
+name: B1 continuous integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - jamesto/mobile-b1-bootstrap
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: b1-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  domain-web:
+    name: Domain and web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install exact JavaScript dependencies
+        run: npm ci
+      - name: Run domain and contract tests
+        run: |
+          mapfile -t domain_test_files < <(
+            find tests -maxdepth 1 -name '*.test.mjs' ! -name 'b1-exit-report.test.mjs' -print | sort
+          )
+          node --test "${domain_test_files[@]}"
+      - name: Lint source and verification code
+        run: npm run lint
+      - name: Build bundled web application
+        run: npm run build
+      - name: Verify frozen spelling authority
+        run: npm run verify:vendor
+
+  android-compile:
+    name: Android unsigned debug compile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Set up Temurin 21 for CI only
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Set up committed Gradle wrapper
+        uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+        with:
+          validate-wrappers: true
+      - name: Require Android API and Build Tools 36
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          test -x "$ANDROID_HOME/platform-tools/adb"
+          test -x "$ANDROID_HOME/build-tools/36.0.0/aapt2"
+          test -f "$ANDROID_HOME/platforms/android-36/android.jar"
+      - name: Install exact JavaScript dependencies
+        run: npm ci
+      - name: Materialise and verify synced native bundle inputs
+        run: npm run native:sync:check
+      - name: Compile and test Android debug application
+        run: npm run test:android
+      - name: Verify resolved Android dependency policy
+        run: npm run audit:dependencies
+      - name: Verify committed B1 exit evidence
+        run: node --test tests/b1-exit-report.test.mjs
+
+  ios-compile:
+    name: iOS unsigned Simulator compile
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Require Xcode 26 or newer
+        run: |
+          xcodebuild -version
+          xcode_major="$(xcodebuild -version | awk '/^Xcode / { split($2, version, "."); print version[1] }')"
+          test -n "$xcode_major"
+          test "$xcode_major" -ge 26
+      - name: Install exact JavaScript dependencies
+        run: npm ci
+      - name: Materialise and verify synced native bundle inputs
+        run: npm run native:sync:check
+      - name: Compile unsigned iOS Simulator application
+        run: npm run test:ios
+      - name: Verify committed B1 exit evidence
+        run: node --test tests/b1-exit-report.test.mjs

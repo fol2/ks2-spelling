@@ -14,7 +14,7 @@ const APP_PATH = '.native-build/ios/Build/Products/Debug-iphonesimulator/App.app
 const REPORT_PATH = 'reports/b1/ios-simulator-launch.json';
 const SCREENSHOT_PATH = 'reports/b1/ios-simulator.png';
 const TESTED_APPLICATION_COMMIT =
-  '9c4891f20048080a7e6ea51bc6751a1ed28281dd';
+  '504f15bc3a8e43c52760655a8d7bb624d1df6a3d';
 
 export const IOS_DEVICE = Object.freeze({
   name: 'KS2 Spelling iPhone 17',
@@ -93,16 +93,41 @@ export function analyseIosScreenshotBmp(buffer) {
     throw iosCaptureError('iOS screenshot must be an exact 32-bit BMP');
   }
   let darkPixels = 0;
+  let brightPixels = 0;
+  let accentPixels = 0;
   for (let offset = pixelOffset; offset < buffer.length; offset += 4) {
-    if (buffer[offset] < 80 && buffer[offset + 1] < 80 && buffer[offset + 2] < 80) {
+    const blue = buffer[offset];
+    const green = buffer[offset + 1];
+    const red = buffer[offset + 2];
+    if (red < 80 && green < 80 && blue < 80) {
       darkPixels += 1;
     }
+    if (red >= 180 && green >= 180 && blue >= 160) {
+      brightPixels += 1;
+    }
+    if (red < 180 && green >= 120 && blue >= 110 && green - red >= 20) {
+      accentPixels += 1;
+    }
   }
-  const darkPixelRatio = darkPixels / (width * height);
+  const pixelCount = width * height;
+  const darkPixelRatio = darkPixels / pixelCount;
+  const brightPixelRatio = brightPixels / pixelCount;
+  const accentPixelRatio = accentPixels / pixelCount;
   if (darkPixelRatio < 0.3) {
     throw iosCaptureError('iOS screenshot does not show the dark bundled B1 shell');
   }
-  return { width, height, darkPixelRatio };
+  if (brightPixelRatio < 0.01 || accentPixelRatio < 0.005) {
+    throw iosCaptureError(
+      'iOS screenshot does not show the B1 shell text and accent surfaces',
+    );
+  }
+  return {
+    width,
+    height,
+    darkPixelRatio,
+    brightPixelRatio,
+    accentPixelRatio,
+  };
 }
 
 export async function clearIosCaptureEvidence({ root = ROOT } = {}) {
@@ -259,7 +284,7 @@ async function captureIosEvidence({ device, launchOutput }) {
       ]);
       try {
         uiReadiness = {
-          source: 'screenshot-bmp-dark-shell-ratio',
+          source: 'screenshot-bmp-shell-colour-populations',
           ...analyseIosScreenshotBmp(await readFile(readinessBmp)),
           attempts: attempt,
         };

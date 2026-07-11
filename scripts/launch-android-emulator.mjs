@@ -18,7 +18,7 @@ const APK_PATH = '.native-build/android/build/app/outputs/apk/debug/app-debug.ap
 const REPORT_PATH = 'reports/b1/android-emulator-launch.json';
 const SCREENSHOT_PATH = 'reports/b1/android-emulator.png';
 const TESTED_APPLICATION_COMMIT =
-  '9c4891f20048080a7e6ea51bc6751a1ed28281dd';
+  '504f15bc3a8e43c52760655a8d7bb624d1df6a3d';
 const BUNDLED_SHELL_TEXT = Object.freeze([
   'KS2 Spelling',
   'Starter content: 20 words',

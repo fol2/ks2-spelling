@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "platform": "ios-simulator",
-  "testedApplicationCommit": "9c4891f20048080a7e6ea51bc6751a1ed28281dd",
+  "testedApplicationCommit": "504f15bc3a8e43c52760655a8d7bb624d1df6a3d",
   "applicationFingerprint": {
     "algorithm": "sha256",
-    "sha256": "84c1fcb503f68505edd1bfa0ad68b139fbf2b8d64e1fabb33b07d9c430e5c015",
+    "sha256": "246c9a4d098d95247fd88431a8f172d13daa5d0a35e10f5cdfb8b5f10c698fba",
     "fileCount": 153,
     "files": [
       {
@@ -257,7 +257,7 @@
       },
       {
         "path": "android/gradle/verification-metadata.xml",
-        "sha256": "60e33c92c2749532e656ae5395d47f6eaacd487b548f9cb1e3d8b5cda31ff7f3"
+        "sha256": "0dd08ee21ee61a2ffe5902080a09e255ee906b418554b97b40b462e6e2d7b1b0"
       },
       {
         "path": "android/gradle/wrapper/gradle-wrapper.jar",
@@ -642,29 +642,31 @@
   },
   "installation": {
     "buildAppPath": ".native-build/ios/Build/Products/Debug-iphonesimulator/App.app",
-    "installedAppPath": "/Users/jamesto/Library/Developer/CoreSimulator/Devices/03B3849B-964C-410D-86DE-15D52BD95C93/data/Containers/Bundle/Application/3A0AC5DF-0F0E-4597-9F6F-EDBEF07DEC29/App.app",
+    "installedAppPath": "/Users/jamesto/Library/Developer/CoreSimulator/Devices/03B3849B-964C-410D-86DE-15D52BD95C93/data/Containers/Bundle/Application/D47C21FC-43DF-49F6-9FF7-E370DE7D752A/App.app",
     "bundleShortVersion": "1.0",
     "bundleVersion": "1"
   },
   "foreground": {
-    "processIdentifier": "41694",
+    "processIdentifier": "79152",
     "bundleId": "uk.eugnel.ks2spelling",
     "processState": "running"
   },
   "uiReadiness": {
-    "source": "screenshot-bmp-dark-shell-ratio",
+    "source": "screenshot-bmp-shell-colour-populations",
     "width": 1206,
     "height": 2622,
     "darkPixelRatio": 0.921349583129357,
-    "attempts": 5
+    "brightPixelRatio": 0.02504765771953859,
+    "accentPixelRatio": 0.012599727019618409,
+    "attempts": 2
   },
   "bundle": {
     "serverUrl": null,
-    "indexHtmlPath": "/Users/jamesto/Library/Developer/CoreSimulator/Devices/03B3849B-964C-410D-86DE-15D52BD95C93/data/Containers/Bundle/Application/3A0AC5DF-0F0E-4597-9F6F-EDBEF07DEC29/App.app/public/index.html",
+    "indexHtmlPath": "/Users/jamesto/Library/Developer/CoreSimulator/Devices/03B3849B-964C-410D-86DE-15D52BD95C93/data/Containers/Bundle/Application/D47C21FC-43DF-49F6-9FF7-E370DE7D752A/App.app/public/index.html",
     "indexHtmlSha256": "61f2b23306dbc5980d8ad53e42853afe6c1691440b4f8ae63c55461abbd313db"
   },
   "screenshot": {
     "path": "reports/b1/ios-simulator.png",
-    "sha256": "3fb3ef2984d70d83bd57dc7e8af69f3611ceb83d43d8691a5a3c0ab274578eb5"
+    "sha256": "724afccad11568a9b44d13d6c3705de5c1f038229b09c81ab8163be3dac094bd"
   }
 }

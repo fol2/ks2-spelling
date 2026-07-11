@@ -5,7 +5,7 @@ import { EXIT_CODES, isMain, printJson } from './lib/run-command.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const TESTED_APPLICATION_COMMIT =
-  '9c4891f20048080a7e6ea51bc6751a1ed28281dd';
+  '504f15bc3a8e43c52760655a8d7bb624d1df6a3d';
 const REQUIRED_ROOT_INPUTS = Object.freeze([
   '.npmrc',
   '.nvmrc',
@@ -197,10 +197,12 @@ export async function writeB1ExitReport({ visualReviewApproved = false } = {}) {
   if (
     ios.platform !== 'ios-simulator' ||
     android.platform !== 'android-emulator' ||
-    ios.uiReadiness?.source !== 'screenshot-bmp-dark-shell-ratio' ||
+    ios.uiReadiness?.source !== 'screenshot-bmp-shell-colour-populations' ||
     ios.uiReadiness?.width !== 1206 ||
     ios.uiReadiness?.height !== 2622 ||
     !(ios.uiReadiness?.darkPixelRatio >= 0.3) ||
+    !(ios.uiReadiness?.brightPixelRatio >= 0.01) ||
+    !(ios.uiReadiness?.accentPixelRatio >= 0.005) ||
     !Number.isInteger(ios.uiReadiness?.attempts) ||
     ios.uiReadiness.attempts < 1 ||
     ios.bundle.indexHtmlSha256 !== android.bundle.indexHtmlSha256 ||

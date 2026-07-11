@@ -11,7 +11,7 @@ import test from 'node:test';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TESTED_APPLICATION_COMMIT =
-  '9c4891f20048080a7e6ea51bc6751a1ed28281dd';
+  '504f15bc3a8e43c52760655a8d7bb624d1df6a3d';
 const SHA256 = /^[a-f0-9]{64}$/;
 const execFileAsync = promisify(execFile);
 
@@ -298,15 +298,62 @@ test('native capture parsers fail closed on exact foreground and installation ev
   );
   const white = { red: 255, green: 255, blue: 255 };
   const dark = { red: 13, green: 29, blue: 41 };
+  const teal = { red: 132, green: 210, blue: 195 };
+  const muted = { red: 90, green: 95, blue: 100 };
+  // A visually approved capture measured 0.921349583129357 dark,
+  // 0.025063469836173823 bright and 0.012600991988949229 accent pixels.
+  const validShellProfile = analyseIosScreenshotBmp(
+    create32BitBmp({
+      width: 10000,
+      height: 1,
+      pixels: [
+        ...Array(9213).fill(dark),
+        ...Array(251).fill(white),
+        ...Array(126).fill(teal),
+        ...Array(410).fill(muted),
+      ],
+    }),
+  );
+  assert.deepEqual(validShellProfile, {
+    width: 10000,
+    height: 1,
+    darkPixelRatio: 0.9213,
+    brightPixelRatio: 0.0251,
+    accentPixelRatio: 0.0126,
+  });
+  // The rejected 1206x2622 capture contained 3,005,374 dark pixels:
+  // 0.9504264844098855 dark, with only status chrome and no shell accent surface.
+  const rejectedBlankPixels = [
+    ...Array(9504).fill(dark),
+    ...Array(30).fill(white),
+    ...Array(466).fill(muted),
+  ];
+  assert.throws(
+    () =>
+      analyseIosScreenshotBmp(
+        create32BitBmp({
+          width: 10000,
+          height: 1,
+          pixels: rejectedBlankPixels,
+        }),
+      ),
+    ({ code }) => code === 'ios_capture_invalid',
+  );
   assert.deepEqual(
     analyseIosScreenshotBmp(
       create32BitBmp({
         width: 2,
         height: 2,
-        pixels: [dark, dark, dark, white],
+        pixels: [dark, dark, teal, white],
       }),
     ),
-    { width: 2, height: 2, darkPixelRatio: 0.75 },
+    {
+      width: 2,
+      height: 2,
+      darkPixelRatio: 0.5,
+      brightPixelRatio: 0.25,
+      accentPixelRatio: 0.25,
+    },
   );
   assert.throws(
     () =>
@@ -495,10 +542,12 @@ test('B1 exit evidence binds both installed native apps to the current applicati
   assert.equal(ios.installation.bundleVersion, '1');
   assert.match(ios.foreground.processIdentifier, /^[1-9][0-9]*$/);
   assert.equal(ios.foreground.bundleId, 'uk.eugnel.ks2spelling');
-  assert.equal(ios.uiReadiness.source, 'screenshot-bmp-dark-shell-ratio');
+  assert.equal(ios.uiReadiness.source, 'screenshot-bmp-shell-colour-populations');
   assert.equal(ios.uiReadiness.width, 1206);
   assert.equal(ios.uiReadiness.height, 2622);
   assert.ok(ios.uiReadiness.darkPixelRatio >= 0.3);
+  assert.ok(ios.uiReadiness.brightPixelRatio >= 0.01);
+  assert.ok(ios.uiReadiness.accentPixelRatio >= 0.005);
   assert.ok(Number.isInteger(ios.uiReadiness.attempts));
   assert.ok(ios.uiReadiness.attempts >= 1);
 

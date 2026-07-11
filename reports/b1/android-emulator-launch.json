@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "platform": "android-emulator",
-  "testedApplicationCommit": "9c4891f20048080a7e6ea51bc6751a1ed28281dd",
+  "testedApplicationCommit": "504f15bc3a8e43c52760655a8d7bb624d1df6a3d",
   "applicationFingerprint": {
     "algorithm": "sha256",
-    "sha256": "84c1fcb503f68505edd1bfa0ad68b139fbf2b8d64e1fabb33b07d9c430e5c015",
+    "sha256": "246c9a4d098d95247fd88431a8f172d13daa5d0a35e10f5cdfb8b5f10c698fba",
     "fileCount": 153,
     "files": [
       {
@@ -257,7 +257,7 @@
       },
       {
         "path": "android/gradle/verification-metadata.xml",
-        "sha256": "60e33c92c2749532e656ae5395d47f6eaacd487b548f9cb1e3d8b5cda31ff7f3"
+        "sha256": "0dd08ee21ee61a2ffe5902080a09e255ee906b418554b97b40b462e6e2d7b1b0"
       },
       {
         "path": "android/gradle/wrapper/gradle-wrapper.jar",
@@ -643,12 +643,12 @@
   },
   "installation": {
     "buildApkPath": ".native-build/android/build/app/outputs/apk/debug/app-debug.apk",
-    "installedApkPath": "/data/app/~~ugj9q1e5hf6-X0BgOexUug==/uk.eugnel.ks2spelling-1nQtJBRxtsugFthnrL0hqw==/base.apk",
+    "installedApkPath": "/data/app/~~JY_rlyVhDdDb_RJupg6ASA==/uk.eugnel.ks2spelling-CsUMqoZxisGzcF8ZTfG8ug==/base.apk",
     "versionName": "1.0",
     "versionCode": "1"
   },
   "foreground": {
-    "processIdentifier": "2148",
+    "processIdentifier": "2090",
     "resumedActivity": "uk.eugnel.ks2spelling/.MainActivity",
     "processState": "running"
   },
@@ -673,6 +673,6 @@
   },
   "screenshot": {
     "path": "reports/b1/android-emulator.png",
-    "sha256": "69571938dab2625e5e57136f0c8f7d580314e675f4b80d103be0d1902e8e8003"
+    "sha256": "4eb24755430e066e10a6732ec3fc3c7c1608d314a3b96e55811d8d71f02b4c3d"
   }
 }

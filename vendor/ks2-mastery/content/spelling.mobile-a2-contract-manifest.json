@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "authority": {
+    "a1MergedCommit": "05e01aaac47126ffcf840530f1cde230407fb9e5",
+    "a1ManifestSha256": "51af549ce31a30adc021d5fa0bd6a70ed9de2366887add0df3fc7f8f42dc312f",
+    "a0ManifestSha256": "7f22b840e15d605f0400a007deac6d70f0f6bbbd0d134f33ed9052025a812889",
+    "packConfigSha256": "70b5afa7e192a1f32a04a77f15859af34f09b863c80b6eb5ee2b1e869984f5d6"
+  },
+  "runtime": {
+    "entry": "shared/spelling/mobile/index.js",
+    "files": [
+      {
+        "path": "shared/spelling/mobile/identity.js",
+        "sha256": "d31755df90065291780f5bff6f2dfbe2305cb5d4379c0cb8537ccd10f4a2ef59"
+      },
+      {
+        "path": "shared/spelling/mobile/index.js",
+        "sha256": "f304e9b4ea1e046870c1d1209d285e9dc778a5340093097fd209592d77865ea8"
+      },
+      {
+        "path": "shared/spelling/mobile/pack-contracts.js",
+        "sha256": "9ce9b94e88d6e72ee9465fc99e593bb9b0173d65857a03d5871f81987f0cae04"
+      },
+      {
+        "path": "shared/spelling/mobile/runtime-catalogue.js",
+        "sha256": "18ee3791f1eb14ce646f484834946a504a9c380d1c22430003ff3d6b7316bc27"
+      },
+      {
+        "path": "shared/spelling/mobile/runtime-snapshot.js",
+        "sha256": "66bbdb49e77fbac539dc96ccdd60d6912ff57e562b073fac38b96cc63389161d"
+      }
+    ],
+    "publicExports": [
+      "MOBILE_AUDIO_KINDS",
+      "MOBILE_AUDIO_PROFILES",
+      "PACK_MANIFEST_SCHEMA_VERSION",
+      "assertNoDuplicateActiveTargets",
+      "createAudioKeyV1",
+      "createLegacyEngineContentSnapshot",
+      "createRuntimeItemId",
+      "createRuntimeItemReference",
+      "fromLegacyEngineSnapshot",
+      "normaliseMobileRuntimeSnapshot",
+      "normaliseSpellingTarget",
+      "parseRuntimeItemId",
+      "toLegacyEngineSnapshot",
+      "validateCatalogueV1",
+      "validatePackManifestV1",
+      "validateRewardTrackV1"
+    ]
+  },
+  "catalogues": {
+    "files": [
+      {
+        "path": "content/spelling.mobile-runtime-full.json",
+        "sha256": "50918c93043eba984cb2472238ac9370be4f46fb52a55c76cf5c469beb330d84"
+      },
+      {
+        "path": "content/spelling.mobile-runtime-starter.json",
+        "sha256": "a67317764d1bae4e1796e070fa8d482c0b4702451c63ba7cacf9470c5272eb34"
+      }
+    ],
+    "counts": {
+      "starter": 20,
+      "full": 213
+    },
+    "inventorySha256": {
+      "starter": "cf251437aef7598baf871c967a4bbd8dc60b12a7faff6ab3d4dbd74707563002",
+      "full": "f24755467f424b6a7d044ed7bbc7599cdbde0bdf8fa14c6e7fba77c3980fff06"
+    },
+    "sharedIdentityMismatchCount": 0,
+    "duplicateNormalisedTargetCount": 0,
+    "excludedTierLeakage": {
+      "secureExtension": 0,
+      "enrichmentExtra": 0
+    }
+  },
+  "hostileFixtures": {
+    "path": "tests/fixtures/spelling-a2/hostile-contracts.json",
+    "sha256": "a8f26cfce5d635e72602e131f49d05b1da9ac4dbe6c91144fadfad31edca8218"
+  }
+}

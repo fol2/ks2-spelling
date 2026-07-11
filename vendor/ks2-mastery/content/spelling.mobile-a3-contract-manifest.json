@@ -1,0 +1,509 @@
+{
+  "schemaVersion": 1,
+  "authority": {
+    "a2MergedCommit": "00cee5c4cfd520d583192222c95c994375ea6263",
+    "a2Manifest": {
+      "path": "content/spelling.mobile-a2-contract-manifest.json",
+      "sha256": "237b26b14e7506fa271bb3324f701d6205e6e0166d659a16789937478cc77b66"
+    },
+    "a1Manifest": {
+      "path": "content/spelling.mobile-a1-kernel-manifest.json",
+      "sha256": "51af549ce31a30adc021d5fa0bd6a70ed9de2366887add0df3fc7f8f42dc312f"
+    },
+    "catalogues": {
+      "starter": {
+        "path": "content/spelling.mobile-runtime-starter.json",
+        "sha256": "a67317764d1bae4e1796e070fa8d482c0b4702451c63ba7cacf9470c5272eb34"
+      },
+      "full": {
+        "path": "content/spelling.mobile-runtime-full.json",
+        "sha256": "50918c93043eba984cb2472238ac9370be4f46fb52a55c76cf5c469beb330d84"
+      }
+    }
+  },
+  "runtime": {
+    "root": "shared/spelling",
+    "entry": "shared/spelling/mobile/a3/index.js",
+    "files": [
+      {
+        "path": "shared/spelling/core/achievements.js",
+        "sha256": "2e76bf7dfe604314abd6084925bf827b84c6217e152bc9a762696db5a8f7a365"
+      },
+      {
+        "path": "shared/spelling/core/audio-preferences.js",
+        "sha256": "fd3fb13c9ec96ded2f3253a89c339580ba5ae4c91bc2a75f084d832fe940b058"
+      },
+      {
+        "path": "shared/spelling/core/content/patterns.js",
+        "sha256": "127319ac7c1ee5650a017cae3f1f38db2b1a58a7d832f01a301ce279dcb3bfd2"
+      },
+      {
+        "path": "shared/spelling/core/content/taxonomy.js",
+        "sha256": "19a40d332aecc22b6c2c91c8c0b612e35a9dc1233481164ed333d74979d2dbd1"
+      },
+      {
+        "path": "shared/spelling/core/events.js",
+        "sha256": "5c303f2827a591d4609b343e244369a6715b5cf46123cda17690a267dde84c22"
+      },
+      {
+        "path": "shared/spelling/core/index.js",
+        "sha256": "2fc2d5918884ecc01f98f0b0f8bf12b0443227f8ab4b23885a80636aa7e1f9dd"
+      },
+      {
+        "path": "shared/spelling/core/legacy-engine.js",
+        "sha256": "7b582b84333caa02d2fd89fd3517e4df2557e1219105ef3e59a8f91cbc6a0f14"
+      },
+      {
+        "path": "shared/spelling/core/service-contract.js",
+        "sha256": "c1a36906cc3aa049b56e2ab0965f979f3f5e73805ec676276ce1111b77adea1e"
+      },
+      {
+        "path": "shared/spelling/core/service.js",
+        "sha256": "783f68f4886eb19da22ffe572ebb14ee3c3b496c90a9385fefdf13ca12107127"
+      },
+      {
+        "path": "shared/spelling/mobile/a3/camp-projection.js",
+        "sha256": "b7851e4c1c9be7e7c02cc5f3a8ac4cfb74e28db7d156e05307727a9a6327ed25"
+      },
+      {
+        "path": "shared/spelling/mobile/a3/command-contracts.js",
+        "sha256": "194890a3d5b62c41df561bd64576dcf8efc31c77fbd4754a995a203e3bc5a5e9"
+      },
+      {
+        "path": "shared/spelling/mobile/a3/command-planner.js",
+        "sha256": "24ee82c5facff330c3330fecf817ff13b3e9b9adfb6346989ee7f752e856b0c3"
+      },
+      {
+        "path": "shared/spelling/mobile/a3/command-repository.js",
+        "sha256": "cda2729791a02f045d54f2358488d86fd881562af15ba32b7eac0079fa03406d"
+      },
+      {
+        "path": "shared/spelling/mobile/a3/index.js",
+        "sha256": "8ac3acc7f82eb680f53620e0abe904778bc60236b9cd036ed03affcd56ec0ddd"
+      },
+      {
+        "path": "shared/spelling/mobile/a3/monster-projection.js",
+        "sha256": "820743295407e04ceb7c7ff70f183d45ad5251c01576d04f76cc451d0616f074"
+      },
+      {
+        "path": "shared/spelling/mobile/a3/parent-projection.js",
+        "sha256": "952b5b5b853bf74bcf006fd04913c44a5d2099f111b380406a83aee172c8f0e7"
+      },
+      {
+        "path": "shared/spelling/mobile/a3/profile-repository.js",
+        "sha256": "3bb3c0cc8fa0adf561e253971d23f136bbf7c6475556da83a79261d58a8ce58e"
+      },
+      {
+        "path": "shared/spelling/mobile/a3/revision-authority.js",
+        "sha256": "384b477c925a7500fd6900bf73d1a471e903a9beb4e327bb94fb5ca8d3c2d571"
+      },
+      {
+        "path": "shared/spelling/mobile/a3/revision-projection.js",
+        "sha256": "78dabff89d293b14652fb794e0f784392dce0f7d6b86b5bf1bae70b0d220cdcb"
+      },
+      {
+        "path": "shared/spelling/mobile/identity.js",
+        "sha256": "d31755df90065291780f5bff6f2dfbe2305cb5d4379c0cb8537ccd10f4a2ef59"
+      },
+      {
+        "path": "shared/spelling/mobile/index.js",
+        "sha256": "f304e9b4ea1e046870c1d1209d285e9dc778a5340093097fd209592d77865ea8"
+      },
+      {
+        "path": "shared/spelling/mobile/pack-contracts.js",
+        "sha256": "9ce9b94e88d6e72ee9465fc99e593bb9b0173d65857a03d5871f81987f0cae04"
+      },
+      {
+        "path": "shared/spelling/mobile/runtime-catalogue.js",
+        "sha256": "18ee3791f1eb14ce646f484834946a504a9c380d1c22430003ff3d6b7316bc27"
+      },
+      {
+        "path": "shared/spelling/mobile/runtime-snapshot.js",
+        "sha256": "66bbdb49e77fbac539dc96ccdd60d6912ff57e562b073fac38b96cc63389161d"
+      }
+    ],
+    "publicExports": [
+      "MOBILE_AUDIO_KINDS",
+      "MOBILE_AUDIO_PROFILES",
+      "PACK_MANIFEST_SCHEMA_VERSION",
+      "SPELLING_COMMAND_MAX_CONFLICT_ATTEMPTS",
+      "SPELLING_COMMAND_PLAN_SCHEMA_VERSION",
+      "SPELLING_COMMAND_SNAPSHOT_SCHEMA_VERSION",
+      "SPELLING_MOBILE_COMMAND_TYPES",
+      "applySpellingCommand",
+      "assertNoDuplicateActiveTargets",
+      "assertParentProjectionRedacted",
+      "canonicalGuardianDay",
+      "createAudioKeyV1",
+      "createInMemorySpellingCommandRepository",
+      "createInMemorySpellingProfileRepository",
+      "createLegacyEngineContentSnapshot",
+      "createRuntimeItemId",
+      "createRuntimeItemReference",
+      "fromLegacyEngineSnapshot",
+      "normaliseMobileRuntimeSnapshot",
+      "normaliseSpellingTarget",
+      "parseRuntimeItemId",
+      "projectParentSpellingProgress",
+      "projectSpellingCampTransition",
+      "projectSpellingMonsters",
+      "projectSpellingRevisionMission",
+      "toLegacyEngineSnapshot",
+      "validateCatalogueV1",
+      "validatePackManifestV1",
+      "validateRewardTrackV1",
+      "validateSpellingCommandPlanV1",
+      "validateSpellingCommandRepository",
+      "validateSpellingCommandSnapshotV1",
+      "validateSpellingCommandV1",
+      "validateSpellingProfileRepository"
+    ],
+    "importPolicy": {
+      "allowedSpecifiers": [
+        "../../core/index.js",
+        "../index.js",
+        "./camp-projection.js",
+        "./command-contracts.js",
+        "./command-planner.js",
+        "./command-repository.js",
+        "./monster-projection.js",
+        "./parent-projection.js",
+        "./profile-repository.js",
+        "./revision-authority.js",
+        "./revision-projection.js"
+      ],
+      "records": [
+        {
+          "importer": "shared/spelling/mobile/a3/camp-projection.js",
+          "kind": "import-statement",
+          "specifier": "../index.js",
+          "resolved": "shared/spelling/mobile/index.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/camp-projection.js",
+          "kind": "import-statement",
+          "specifier": "./command-contracts.js",
+          "resolved": "shared/spelling/mobile/a3/command-contracts.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/command-contracts.js",
+          "kind": "import-statement",
+          "specifier": "../../core/index.js",
+          "resolved": "shared/spelling/core/index.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/command-contracts.js",
+          "kind": "import-statement",
+          "specifier": "../index.js",
+          "resolved": "shared/spelling/mobile/index.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/command-contracts.js",
+          "kind": "import-statement",
+          "specifier": "./revision-authority.js",
+          "resolved": "shared/spelling/mobile/a3/revision-authority.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/command-planner.js",
+          "kind": "import-statement",
+          "specifier": "../../core/index.js",
+          "resolved": "shared/spelling/core/index.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/command-planner.js",
+          "kind": "import-statement",
+          "specifier": "../index.js",
+          "resolved": "shared/spelling/mobile/index.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/command-planner.js",
+          "kind": "import-statement",
+          "specifier": "./camp-projection.js",
+          "resolved": "shared/spelling/mobile/a3/camp-projection.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/command-planner.js",
+          "kind": "import-statement",
+          "specifier": "./command-contracts.js",
+          "resolved": "shared/spelling/mobile/a3/command-contracts.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/command-planner.js",
+          "kind": "import-statement",
+          "specifier": "./monster-projection.js",
+          "resolved": "shared/spelling/mobile/a3/monster-projection.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/command-planner.js",
+          "kind": "import-statement",
+          "specifier": "./revision-projection.js",
+          "resolved": "shared/spelling/mobile/a3/revision-projection.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/command-repository.js",
+          "kind": "import-statement",
+          "specifier": "../index.js",
+          "resolved": "shared/spelling/mobile/index.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/command-repository.js",
+          "kind": "import-statement",
+          "specifier": "./command-contracts.js",
+          "resolved": "shared/spelling/mobile/a3/command-contracts.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/index.js",
+          "kind": "import-statement",
+          "specifier": "../index.js",
+          "resolved": "shared/spelling/mobile/index.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/index.js",
+          "kind": "import-statement",
+          "specifier": "./camp-projection.js",
+          "resolved": "shared/spelling/mobile/a3/camp-projection.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/index.js",
+          "kind": "import-statement",
+          "specifier": "./command-contracts.js",
+          "resolved": "shared/spelling/mobile/a3/command-contracts.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/index.js",
+          "kind": "import-statement",
+          "specifier": "./command-planner.js",
+          "resolved": "shared/spelling/mobile/a3/command-planner.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/index.js",
+          "kind": "import-statement",
+          "specifier": "./command-repository.js",
+          "resolved": "shared/spelling/mobile/a3/command-repository.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/index.js",
+          "kind": "import-statement",
+          "specifier": "./monster-projection.js",
+          "resolved": "shared/spelling/mobile/a3/monster-projection.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/index.js",
+          "kind": "import-statement",
+          "specifier": "./parent-projection.js",
+          "resolved": "shared/spelling/mobile/a3/parent-projection.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/index.js",
+          "kind": "import-statement",
+          "specifier": "./profile-repository.js",
+          "resolved": "shared/spelling/mobile/a3/profile-repository.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/index.js",
+          "kind": "import-statement",
+          "specifier": "./revision-projection.js",
+          "resolved": "shared/spelling/mobile/a3/revision-projection.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/monster-projection.js",
+          "kind": "import-statement",
+          "specifier": "../index.js",
+          "resolved": "shared/spelling/mobile/index.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/parent-projection.js",
+          "kind": "import-statement",
+          "specifier": "../../core/index.js",
+          "resolved": "shared/spelling/core/index.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/parent-projection.js",
+          "kind": "import-statement",
+          "specifier": "../index.js",
+          "resolved": "shared/spelling/mobile/index.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/parent-projection.js",
+          "kind": "import-statement",
+          "specifier": "./command-contracts.js",
+          "resolved": "shared/spelling/mobile/a3/command-contracts.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/parent-projection.js",
+          "kind": "import-statement",
+          "specifier": "./profile-repository.js",
+          "resolved": "shared/spelling/mobile/a3/profile-repository.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/parent-projection.js",
+          "kind": "import-statement",
+          "specifier": "./revision-projection.js",
+          "resolved": "shared/spelling/mobile/a3/revision-projection.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/revision-authority.js",
+          "kind": "import-statement",
+          "specifier": "../../core/index.js",
+          "resolved": "shared/spelling/core/index.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/revision-authority.js",
+          "kind": "import-statement",
+          "specifier": "../index.js",
+          "resolved": "shared/spelling/mobile/index.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/revision-projection.js",
+          "kind": "import-statement",
+          "specifier": "../index.js",
+          "resolved": "shared/spelling/mobile/index.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/revision-projection.js",
+          "kind": "import-statement",
+          "specifier": "./command-contracts.js",
+          "resolved": "shared/spelling/mobile/a3/command-contracts.js"
+        },
+        {
+          "importer": "shared/spelling/mobile/a3/revision-projection.js",
+          "kind": "import-statement",
+          "specifier": "./revision-authority.js",
+          "resolved": "shared/spelling/mobile/a3/revision-authority.js"
+        }
+      ],
+      "violationCount": 0
+    },
+    "boundary": {
+      "status": "pass",
+      "resolvedInputsOutsideCore": 0,
+      "issueCount": 0
+    }
+  },
+  "commands": {
+    "allowList": [
+      "start-session",
+      "submit-answer",
+      "continue-session",
+      "skip-word",
+      "end-session",
+      "save-prefs",
+      "acknowledge-persistence-warning"
+    ],
+    "commandCount": 7,
+    "parityFixture": {
+      "path": "tests/fixtures/spelling-a3/command-parity.json",
+      "sha256": "f772540f31880bae15b31e78e736d78dbab2d41e103482c7b91d525192b15ad3",
+      "scenarioCount": 9
+    }
+  },
+  "atomicity": {
+    "failureCheckpoints": [
+      "after-subject-state",
+      "after-practice-session",
+      "after-events",
+      "after-monster-state",
+      "after-camp-state",
+      "after-revision",
+      "before-commit"
+    ],
+    "failureCheckpointCount": 7,
+    "maximumConflictAttempts": 3,
+    "certifiedClock": {
+      "requiredPort": "now",
+      "samplesPerAttempt": 1,
+      "plannerContextKeys": [
+        "nowMs",
+        "todayGuardianDay"
+      ],
+      "validatorOption": "expectedNowMs",
+      "revisionEvidenceField": "projections.revisionMission.todayGuardianDay",
+      "appendedEventTimestampField": "appendedEvents[].createdAt",
+      "practiceSessionTimestampFields": [
+        "startedAt",
+        "updatedAt",
+        "completedAt"
+      ]
+    }
+  },
+  "monsters": {
+    "boundaryMatrix": [
+      {
+        "rewardTrackId": "spelling-core-inklet",
+        "packId": "ks2-core",
+        "monsterId": "inklet",
+        "yearBand": "3-4",
+        "thresholds": [
+          1,
+          10,
+          30,
+          60,
+          100
+        ]
+      },
+      {
+        "rewardTrackId": "spelling-core-glimmerbug",
+        "packId": "ks2-core",
+        "monsterId": "glimmerbug",
+        "yearBand": "5-6",
+        "thresholds": [
+          1,
+          10,
+          30,
+          60,
+          100
+        ]
+      },
+      {
+        "rewardTrackId": "spelling-core-phaeton",
+        "packId": "ks2-core",
+        "monsterId": "phaeton",
+        "sourceRewardTrackIds": [
+          "spelling-core-inklet",
+          "spelling-core-glimmerbug"
+        ],
+        "thresholds": [
+          3,
+          25,
+          95,
+          145,
+          213
+        ]
+      }
+    ]
+  },
+  "revision": {
+    "guardianIntervals": [
+      3,
+      7,
+      14,
+      30,
+      60,
+      90
+    ],
+    "eligibleMissionKinds": [
+      "first-patrol",
+      "wobbling",
+      "due"
+    ],
+    "optionalPatrolAllowed": false,
+    "campTupleFields": [
+      "learnerId",
+      "packId",
+      "canonicalGuardianDay"
+    ],
+    "campCreditDeltas": [
+      0,
+      1
+    ]
+  },
+  "parent": {
+    "forbiddenKeyRegex": "monster|camp|reward.?track|branch|high.?water",
+    "testedChildCount": 2
+  },
+  "exclusions": {
+    "crossSubjectLeakageCount": 0,
+    "extraLeakageCount": 0,
+    "vellhornLeakageCount": 0
+  }
+}

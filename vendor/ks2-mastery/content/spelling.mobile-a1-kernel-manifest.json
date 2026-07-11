@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "authority": {
+    "donorCommit": "8da3218a5077be24cabaf82031ade17d0389a958",
+    "a0MergedCommit": "93a505f42b19c519e3cb16e2d7cac026750743f8",
+    "characterisationSourceCommit": "b52a5b907ceb30b0aa0dca2da0a0f52d535ad99a",
+    "a0ManifestSha256": "7f22b840e15d605f0400a007deac6d70f0f6bbbd0d134f33ed9052025a812889"
+  },
+  "candidateReviews": [
+    {
+      "commit": "1faa55badb28dbe915b359a9ed473df4acf2eae5",
+      "disposition": "reviewed-not-ported",
+      "decision": "Keep the donor coverage taxonomy; exclude candidate setup copy, presentation metadata and analytics policy from the kernel."
+    },
+    {
+      "commit": "5c2e56ad720cae2ddbd6b832e1f3242ca1cf8033",
+      "disposition": "reviewed-code-rejected",
+      "decision": "Preserve complete local item access through characterisation; exclude Worker pagination constants and HTTP query construction."
+    }
+  ],
+  "core": {
+    "root": "shared/spelling/core",
+    "entry": "shared/spelling/core/index.js",
+    "files": [
+      {
+        "path": "shared/spelling/core/achievements.js",
+        "sha256": "2e76bf7dfe604314abd6084925bf827b84c6217e152bc9a762696db5a8f7a365"
+      },
+      {
+        "path": "shared/spelling/core/audio-preferences.js",
+        "sha256": "fd3fb13c9ec96ded2f3253a89c339580ba5ae4c91bc2a75f084d832fe940b058"
+      },
+      {
+        "path": "shared/spelling/core/content/patterns.js",
+        "sha256": "127319ac7c1ee5650a017cae3f1f38db2b1a58a7d832f01a301ce279dcb3bfd2"
+      },
+      {
+        "path": "shared/spelling/core/content/taxonomy.js",
+        "sha256": "19a40d332aecc22b6c2c91c8c0b612e35a9dc1233481164ed333d74979d2dbd1"
+      },
+      {
+        "path": "shared/spelling/core/events.js",
+        "sha256": "5c303f2827a591d4609b343e244369a6715b5cf46123cda17690a267dde84c22"
+      },
+      {
+        "path": "shared/spelling/core/index.js",
+        "sha256": "2fc2d5918884ecc01f98f0b0f8bf12b0443227f8ab4b23885a80636aa7e1f9dd"
+      },
+      {
+        "path": "shared/spelling/core/legacy-engine.js",
+        "sha256": "7b582b84333caa02d2fd89fd3517e4df2557e1219105ef3e59a8f91cbc6a0f14"
+      },
+      {
+        "path": "shared/spelling/core/service-contract.js",
+        "sha256": "c1a36906cc3aa049b56e2ab0965f979f3f5e73805ec676276ce1111b77adea1e"
+      },
+      {
+        "path": "shared/spelling/core/service.js",
+        "sha256": "783f68f4886eb19da22ffe572ebb14ee3c3b496c90a9385fefdf13ca12107127"
+      }
+    ],
+    "publicExports": [
+      "ACHIEVEMENT_DEFINITIONS",
+      "ACHIEVEMENT_IDS",
+      "ACHIEVEMENT_PROGRESS_KEYS",
+      "ACHIEVEMENT_PROGRESS_KEY_PREFIX",
+      "BOSS_CLEAN_SWEEP_CORRECT_RATIO",
+      "BOSS_DEFAULT_ROUND_LENGTH",
+      "BOSS_MAX_ROUND_LENGTH",
+      "BOSS_MIN_ROUND_LENGTH",
+      "BUFFERED_GEMINI_VOICE_OPTIONS",
+      "DEFAULT_BUFFERED_GEMINI_VOICE",
+      "DEFAULT_TTS_PROVIDER",
+      "GUARDIAN_DEFAULT_ROUND_LENGTH",
+      "GUARDIAN_INTERVALS",
+      "GUARDIAN_MAINTAINER_DAY_THRESHOLD",
+      "GUARDIAN_MAX_REVIEW_LEVEL",
+      "GUARDIAN_MAX_ROUND_LENGTH",
+      "GUARDIAN_MIN_ROUND_LENGTH",
+      "GUARDIAN_MISSION_STATES",
+      "GUARDIAN_SECURE_STAGE",
+      "LEGACY_SPELLING_YEAR_FILTER_ALIASES",
+      "PATTERN_LAUNCH_THRESHOLD",
+      "PATTERN_MASTERY_SPAN_DAYS",
+      "PATTERN_MASTERY_STREAK_LENGTH",
+      "PATTERN_QUEST_ROUND_LENGTH",
+      "RECOVERY_EXPERT_SLUG_THRESHOLD",
+      "SPELLING_CONTENT_RELEASE_ID",
+      "SPELLING_COVERAGE_TIER",
+      "SPELLING_COVERAGE_TIERS",
+      "SPELLING_DURABLE_PERSISTENCE_WARNING_COPY",
+      "SPELLING_EVENT_TYPES",
+      "SPELLING_FEEDBACK_KINDS",
+      "SPELLING_MASTERY_MILESTONES",
+      "SPELLING_MODES",
+      "SPELLING_PATTERNS",
+      "SPELLING_PATTERN_IDS",
+      "SPELLING_PERSISTENCE_WARNING_COPY",
+      "SPELLING_PERSISTENCE_WARNING_REASON",
+      "SPELLING_PERSISTENCE_WARNING_REASONS",
+      "SPELLING_ROOT_PHASES",
+      "SPELLING_SERVICE_STATE_VERSION",
+      "SPELLING_SESSION_PHASES",
+      "SPELLING_SESSION_TYPES",
+      "SPELLING_YEAR_FILTERS",
+      "TTS_PROVIDER_IDS",
+      "advanceGuardianOnCorrect",
+      "advanceGuardianOnWrong",
+      "aggregateAchievementState",
+      "bufferedVoiceById",
+      "cloneSerialisable",
+      "computeGuardianMissionState",
+      "computeLaunchedPatternIds",
+      "coverageTierCounts",
+      "coverageTierForWord",
+      "coverageTierFromSpellingPool",
+      "coverageTierLabel",
+      "createInitialSpellingState",
+      "createLegacySpellingEngine",
+      "createLockedPostMasteryState",
+      "createSpellingBossCompletedEvent",
+      "createSpellingGuardianMissionCompletedEvent",
+      "createSpellingGuardianRecoveredEvent",
+      "createSpellingGuardianRenewedEvent",
+      "createSpellingGuardianWobbledEvent",
+      "createSpellingMasteryMilestoneEvent",
+      "createSpellingPatternQuestCompletedEvent",
+      "createSpellingPostMegaUnlockedEvent",
+      "createSpellingRetryClearedEvent",
+      "createSpellingService",
+      "createSpellingSessionCompletedEvent",
+      "createSpellingWordSecuredEvent",
+      "defaultLearningStatus",
+      "defaultSpellingPrefs",
+      "deriveAchievementId",
+      "deriveGuardianAggregates",
+      "ensureGuardianRecord",
+      "evaluateAchievements",
+      "isAchievementProgressKey",
+      "isEnrichmentExtraWord",
+      "isGuardianEligibleSlug",
+      "isMegaSafeMode",
+      "isPatternEligibleSlug",
+      "isPostMasteryMode",
+      "isSecureExtensionWord",
+      "isSingleAttemptMegaSafeMode",
+      "isStatutoryCoreWord",
+      "normaliseAchievementRecord",
+      "normaliseAchievementsMap",
+      "normaliseBoolean",
+      "normaliseBufferedGeminiVoice",
+      "normaliseCoverageTier",
+      "normaliseDurablePersistenceWarning",
+      "normaliseFeedback",
+      "normaliseGuardianMap",
+      "normaliseGuardianRecord",
+      "normaliseMode",
+      "normaliseNonNegativeInteger",
+      "normaliseOptionalString",
+      "normalisePatternMap",
+      "normalisePatternWobbleRecord",
+      "normalisePostMegaRecord",
+      "normaliseRoundLength",
+      "normaliseStats",
+      "normaliseString",
+      "normaliseStringArray",
+      "normaliseSummary",
+      "normaliseSummaryCard",
+      "normaliseTimestamp",
+      "normaliseTtsProvider",
+      "normaliseYearFilter",
+      "readAggregateStateFromAchievements",
+      "selectBossWords",
+      "selectGuardianWords",
+      "selectPatternQuestCards",
+      "serialiseAggregateStateToProgressEntries"
+    ]
+  },
+  "golden": {
+    "path": "tests/fixtures/spelling-a1/golden-corpus.json",
+    "sha256": "aa55013b0b67b48cabf37e765b8428e1cf528bceeae8324d040923ad984a6f91",
+    "scenarioIds": [
+      "smart-retry-correction-secure",
+      "trouble-priority-and-fallback",
+      "test-core-only-single-attempt",
+      "single-practice-only",
+      "guardian-wobble-recover-and-skip",
+      "boss-seeded-selection-mega-safe",
+      "pattern-quest-wobble-and-complete",
+      "word-bank-item-after-row-250"
+    ]
+  },
+  "boundary": {
+    "status": "pass",
+    "resolvedInputsOutsideCore": 0,
+    "issueCount": 0
+  }
+}

@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
-import { readFile, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
   EXIT_CODES,
@@ -9,9 +10,20 @@ import {
   startDetached,
 } from './lib/run-command.mjs';
 import { resolveAndroidEnvironment } from './test-android.mjs';
+import { verifyPackagedAndroidPermissions } from './test-android.mjs';
+import { fingerprintB1Application } from './fingerprint-b1-application.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const APK_PATH = '.native-build/android/build/app/outputs/apk/debug/app-debug.apk';
+const REPORT_PATH = 'reports/b1/android-emulator-launch.json';
+const SCREENSHOT_PATH = 'reports/b1/android-emulator.png';
+const TESTED_APPLICATION_COMMIT =
+  '66a6deee66672d13d98efd12ab13ff0f3e32ff57';
+const BUNDLED_SHELL_TEXT = Object.freeze([
+  'KS2 Spelling',
+  'Starter content: 20 words',
+  'Bundled locally',
+]);
 
 export const ANDROID_DEVICE = Object.freeze({
   name: 'KS2_Spelling_API_36',
@@ -22,6 +34,109 @@ export const ANDROID_DEVICE = Object.freeze({
   packageId: 'uk.eugnel.ks2spelling',
   activity: 'uk.eugnel.ks2spelling/.MainActivity',
 });
+
+function androidCaptureError(message) {
+  const error = new Error(message);
+  error.code = 'android_capture_invalid';
+  return error;
+}
+
+export function parseAndroidInstalledApkPath(output) {
+  const lines = output.trim().split(/\r?\n/).filter(Boolean);
+  const expectedPrefix = 'package:/data/app/';
+  if (
+    lines.length !== 1 ||
+    !lines[0].startsWith(expectedPrefix) ||
+    !lines[0].includes(ANDROID_DEVICE.packageId) ||
+    !lines[0].endsWith('/base.apk')
+  ) {
+    throw androidCaptureError('Android package path does not prove the installed B1 APK');
+  }
+  return lines[0].slice('package:'.length);
+}
+
+export function parseAndroidPackageMetadata(output) {
+  const versionName = output.match(/\bversionName=([^\s]+)/)?.[1];
+  const versionCode = output.match(/\bversionCode=([0-9]+)/)?.[1];
+  if (!versionName || !versionCode) {
+    throw androidCaptureError('Installed Android package metadata is incomplete');
+  }
+  return { versionCode, versionName };
+}
+
+export function parseAndroidResumedActivity(output) {
+  const matches = [
+    ...output.matchAll(
+      /(?:mResumedActivity:\s+|topResumedActivity=)ActivityRecord\{[^\n]*\s+u\d+\s+([^\s}]+)\s+t\d+\}/g,
+    ),
+  ].map((match) => match[1]);
+  if (
+    matches.length !== 1 ||
+    matches[0] !== `${ANDROID_DEVICE.packageId}/.MainActivity`
+  ) {
+    throw androidCaptureError('Android resumed activity is not the B1 application');
+  }
+  return matches[0];
+}
+
+export async function waitForAndroidProcess({
+  probe,
+  attempts = 20,
+  delay = () => new Promise((completion) => setTimeout(completion, 250)),
+}) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const result = await probe();
+    const processIdentifier = result.stdout.trim();
+    if (result.exitCode === 0 && /^[1-9][0-9]*$/.test(processIdentifier)) {
+      return processIdentifier;
+    }
+    if (attempt < attempts - 1) await delay();
+  }
+  throw androidCaptureError('Android application process did not become ready');
+}
+
+export async function clearAndroidCaptureEvidence({ root = ROOT } = {}) {
+  await Promise.all(
+    [REPORT_PATH, SCREENSHOT_PATH, 'reports/b1/b1-exit-report.json'].map((path) =>
+      rm(join(root, path), { force: true }),
+    ),
+  );
+}
+
+export function assertAndroidBundledShellHierarchy(output) {
+  if (!BUNDLED_SHELL_TEXT.every((text) => output.includes(text))) {
+    throw androidCaptureError('Android UI hierarchy does not show the bundled B1 shell');
+  }
+  return 'ready';
+}
+
+export async function waitForAndroidBundledShell({
+  probe,
+  attempts = 60,
+  delay = () => new Promise((completion) => setTimeout(completion, 500)),
+}) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const result = await probe();
+    if (result.exitCode === 0) {
+      try {
+        const hierarchy = result.stderr
+          ? `${result.stdout}\n${result.stderr}`
+          : result.stdout;
+        assertAndroidBundledShellHierarchy(hierarchy);
+        return {
+          status: 'ready',
+          requiredTexts: [...BUNDLED_SHELL_TEXT],
+          hierarchySha256: sha256(Buffer.from(hierarchy, 'utf8')),
+          attempts: attempt + 1,
+        };
+      } catch (error) {
+        if (error.code !== 'android_capture_invalid') throw error;
+      }
+    }
+    if (attempt < attempts - 1) await delay();
+  }
+  throw androidCaptureError('Android bundled B1 shell did not become visible');
+}
 
 export function createAndroidLaunchPlan({ avdExists }) {
   const commands = [];
@@ -158,7 +273,9 @@ async function findAvdManager(sdkRoot) {
 
 async function runRequired(command, args, options = {}) {
   const result = await runCommand(command, args, { cwd: ROOT, ...options });
-  if (result.exitCode !== 0) throw new Error(`${command} failed with ${result.exitCode}`);
+  if (result.exitCode !== 0) {
+    throw new Error(`${command} ${args.join(' ')} failed with ${result.exitCode}`);
+  }
   return result;
 }
 
@@ -176,7 +293,203 @@ async function waitForBoot(adb, env) {
   throw new Error('Android emulator did not finish booting');
 }
 
-export async function main() {
+function sha256(content) {
+  return createHash('sha256').update(content).digest('hex');
+}
+
+async function captureAndroidEvidence({ adb, env, packageJson }) {
+  await new Promise((completion) => setTimeout(completion, 2000));
+  const remoteHierarchy = '/sdcard/ks2-spelling-b1-window.xml';
+  let uiReadiness;
+  try {
+    uiReadiness = await waitForAndroidBundledShell({
+      probe: async () => {
+        const dump = await runCommand(
+          adb,
+          [
+            '-s',
+            ANDROID_DEVICE.serial,
+            'shell',
+            'uiautomator',
+            'dump',
+            remoteHierarchy,
+          ],
+          { cwd: ROOT, env },
+        );
+        if (dump.exitCode !== 0) return dump;
+        return runCommand(
+          adb,
+          ['-s', ANDROID_DEVICE.serial, 'shell', 'cat', remoteHierarchy],
+          { cwd: ROOT, env },
+        );
+      },
+    });
+  } catch (error) {
+    const logcat = await runCommand(
+      adb,
+      ['-s', ANDROID_DEVICE.serial, 'logcat', '-d', '-t', '300'],
+      { cwd: ROOT, env },
+    );
+    const relevantLog = logcat.stdout
+      .split(/\r?\n/)
+      .filter((line) => /AndroidRuntime|Capacitor|chromium|WebView/i.test(line))
+      .slice(-20)
+      .join(' | ');
+    throw androidCaptureError(
+      `${error.message}; filteredLogcat=${relevantLog || 'none'}`,
+    );
+  } finally {
+    await runCommand(
+      adb,
+      ['-s', ANDROID_DEVICE.serial, 'shell', 'rm', '-f', remoteHierarchy],
+      { cwd: ROOT, env },
+    );
+  }
+  const [
+    packagePath,
+    resumedActivity,
+    processResult,
+    apiLevel,
+    osVersion,
+    packageMetadata,
+    packagedIndex,
+    packagedConfig,
+    permissionEvidence,
+  ] = await Promise.all([
+    runRequired(
+      adb,
+      ['-s', ANDROID_DEVICE.serial, 'shell', 'pm', 'path', ANDROID_DEVICE.packageId],
+      { env },
+    ),
+    runRequired(
+      adb,
+      ['-s', ANDROID_DEVICE.serial, 'shell', 'dumpsys', 'activity', 'activities'],
+      { env },
+    ),
+    runRequired(
+      adb,
+      ['-s', ANDROID_DEVICE.serial, 'shell', 'pidof', ANDROID_DEVICE.packageId],
+      { env },
+    ),
+    runRequired(
+      adb,
+      ['-s', ANDROID_DEVICE.serial, 'shell', 'getprop', 'ro.build.version.sdk'],
+      { env },
+    ),
+    runRequired(
+      adb,
+      ['-s', ANDROID_DEVICE.serial, 'shell', 'getprop', 'ro.build.version.release'],
+      { env },
+    ),
+    runRequired(
+      adb,
+      ['-s', ANDROID_DEVICE.serial, 'shell', 'dumpsys', 'package', ANDROID_DEVICE.packageId],
+      { env },
+    ),
+    runRequired('unzip', ['-p', APK_PATH, 'assets/public/index.html']),
+    runRequired('unzip', ['-p', APK_PATH, 'assets/capacitor.config.json']),
+    verifyPackagedAndroidPermissions(),
+  ]);
+  const installedApkPath = parseAndroidInstalledApkPath(packagePath.stdout);
+  const foregroundActivity = parseAndroidResumedActivity(resumedActivity.stdout);
+  const processIdentifier = processResult.stdout.trim();
+  if (!/^[1-9][0-9]*$/.test(processIdentifier)) {
+    throw androidCaptureError('Android process identifier is incomplete');
+  }
+  const { versionCode, versionName } = parseAndroidPackageMetadata(
+    packageMetadata.stdout,
+  );
+  const installedConfig = JSON.parse(packagedConfig.stdout);
+  const serverUrl = installedConfig.server?.url ?? null;
+  if (serverUrl !== null) {
+    throw androidCaptureError('Packaged Android application contains server.url');
+  }
+  if (
+    permissionEvidence.appIdentity !== ANDROID_DEVICE.packageId ||
+    permissionEvidence.declaredPermissions.length ||
+    permissionEvidence.requestedPermissions.length
+  ) {
+    throw androidCaptureError('Packaged Android permission surface is not empty');
+  }
+  await mkdir(join(ROOT, 'reports/b1'), { recursive: true });
+  const remoteScreenshot = '/sdcard/ks2-spelling-b1.png';
+  await runRequired(
+    adb,
+    ['-s', ANDROID_DEVICE.serial, 'shell', 'screencap', '-p', remoteScreenshot],
+    { env },
+  );
+  await runRequired(
+    adb,
+    ['-s', ANDROID_DEVICE.serial, 'pull', remoteScreenshot, join(ROOT, SCREENSHOT_PATH)],
+    { env },
+  );
+  await runRequired(
+    adb,
+    ['-s', ANDROID_DEVICE.serial, 'shell', 'rm', remoteScreenshot],
+    { env },
+  );
+  const screenshotSha256 = sha256(await readFile(join(ROOT, SCREENSHOT_PATH)));
+  const applicationFingerprint = await fingerprintB1Application({ root: ROOT });
+  const report = {
+    schemaVersion: 1,
+    platform: 'android-emulator',
+    testedApplicationCommit: TESTED_APPLICATION_COMMIT,
+    applicationFingerprint,
+    packageVersions: {
+      application: packageJson.version,
+      capacitorCore: packageJson.dependencies['@capacitor/core'],
+      capacitorPlatform: packageJson.dependencies['@capacitor/android'],
+    },
+    nativeVersions: {
+      buildTools: permissionEvidence.buildToolsVersion,
+      androidApi: Number(apiLevel.stdout.trim()),
+    },
+    identity: { packageId: ANDROID_DEVICE.packageId },
+    device: {
+      name: ANDROID_DEVICE.name,
+      serial: ANDROID_DEVICE.serial,
+      image: ANDROID_DEVICE.image,
+      hardwareProfile: ANDROID_DEVICE.device,
+      apiLevel: Number(apiLevel.stdout.trim()),
+      osVersion: osVersion.stdout.trim(),
+    },
+    installation: {
+      buildApkPath: APK_PATH,
+      installedApkPath,
+      versionName,
+      versionCode,
+    },
+    foreground: {
+      processIdentifier,
+      resumedActivity: foregroundActivity,
+      processState: 'running',
+    },
+    bundle: {
+      serverUrl,
+      indexHtmlPath: 'assets/public/index.html',
+      indexHtmlSha256: sha256(Buffer.from(packagedIndex.stdout, 'utf8')),
+    },
+    packagedPermissions: {
+      declared: permissionEvidence.declaredPermissions,
+      requested: permissionEvidence.requestedPermissions,
+    },
+    uiReadiness,
+    screenshot: {
+      path: SCREENSHOT_PATH,
+      sha256: screenshotSha256,
+    },
+  };
+  await writeFile(
+    join(ROOT, REPORT_PATH),
+    `${JSON.stringify(report, null, 2)}\n`,
+    'utf8',
+  );
+  return report;
+}
+
+export async function main(args = process.argv.slice(2)) {
+  const capture = args.includes('--capture');
+  if (capture) await clearAndroidCaptureEvidence();
   const resolution = resolveAndroidEnvironment();
   if (!resolution.ready) {
     printJson(
@@ -198,6 +511,7 @@ export async function main() {
     JAVA_HOME: resolution.javaHome,
     ANDROID_HOME: sdkRoot,
   };
+  let ownsB1Serial = false;
 
   try {
     const avds = await runRequired(emulator, ['-list-avds'], { env });
@@ -247,6 +561,13 @@ export async function main() {
       );
     }
     await waitForBoot(adb, env);
+    const bootedAvdName = await runRequired(
+      adb,
+      ['-s', ANDROID_DEVICE.serial, 'emu', 'avd', 'name'],
+      { env },
+    );
+    assertAndroidSerialOwnership(bootedAvdName.stdout);
+    ownsB1Serial = true;
     await runRequired(adb, ['-s', ANDROID_DEVICE.serial, 'install', '-r', APK_PATH], {
       env,
     });
@@ -263,11 +584,18 @@ export async function main() {
       ],
       { env },
     );
-    const processResult = await runRequired(
-      adb,
-      ['-s', ANDROID_DEVICE.serial, 'shell', 'pidof', ANDROID_DEVICE.packageId],
-      { env },
-    );
+    const appPid = await waitForAndroidProcess({
+      probe: () =>
+        runCommand(
+          adb,
+          ['-s', ANDROID_DEVICE.serial, 'shell', 'pidof', ANDROID_DEVICE.packageId],
+          { cwd: ROOT, env },
+        ),
+    });
+    const packageJson = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
+    const evidence = capture
+      ? await captureAndroidEvidence({ adb, env, packageJson })
+      : null;
     printJson({
       ok: true,
       platform: 'android',
@@ -276,11 +604,13 @@ export async function main() {
       activity: ANDROID_DEVICE.activity,
       apkPath: APK_PATH,
       emulatorPid: detached?.pid ?? null,
-      appPid: processResult.stdout.trim(),
+      appPid,
       launch: launch.stdout.trim(),
+      evidence: evidence ? REPORT_PATH : null,
     });
     return EXIT_CODES.success;
   } catch (error) {
+    if (capture) await clearAndroidCaptureEvidence();
     const stateMismatch = [
       'android_serial_collision',
       'android_avd_identity_mismatch',
@@ -294,6 +624,13 @@ export async function main() {
       process.stderr,
     );
     return stateMismatch ? EXIT_CODES.stateMismatch : EXIT_CODES.commandFailed;
+  } finally {
+    if (capture && ownsB1Serial) {
+      await runCommand(adb, ['-s', ANDROID_DEVICE.serial, 'emu', 'kill'], {
+        cwd: ROOT,
+        env,
+      });
+    }
   }
 }
 

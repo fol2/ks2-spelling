@@ -1,0 +1,578 @@
+{
+  "schemaVersion": 1,
+  "platform": "ios-simulator",
+  "testedApplicationCommit": "66a6deee66672d13d98efd12ab13ff0f3e32ff57",
+  "applicationFingerprint": {
+    "algorithm": "sha256",
+    "sha256": "fa517da8f41201f7df7bdc1e3999066bdf9f95f9b635d946dc015d691f0eb304",
+    "fileCount": 130,
+    "files": [
+      {
+        "path": ".npmrc",
+        "sha256": "be85cc462e740587626bbcbb1c3ed1c40b26e62ec072e8cbd2768f23915c28e6"
+      },
+      {
+        "path": ".nvmrc",
+        "sha256": "55075b5ec4e8b31936cbbc282b8829116d1fd48f2f2f1856dee592a6650700ce"
+      },
+      {
+        "path": "android/app/build.gradle",
+        "sha256": "b476a4b5b91e304b13124dcaee6ebba2fbe4c983f137fd799d666b76f4ea828c"
+      },
+      {
+        "path": "android/app/capacitor.build.gradle",
+        "sha256": "7051cadfdbc532197d2cfd4f8a11684d81367f23cf7952e5a208f7b6aa0833e0"
+      },
+      {
+        "path": "android/app/proguard-rules.pro",
+        "sha256": "1cf8c57e8f79c250b0af9c1a5a4edad71a5c348a79ab70243b6bae086c150ad2"
+      },
+      {
+        "path": "android/app/src/main/AndroidManifest.xml",
+        "sha256": "205609dab1747b623e93331302d2fed218de9461acedf929847a68aa817080df"
+      },
+      {
+        "path": "android/app/src/main/java/uk/eugnel/ks2spelling/MainActivity.java",
+        "sha256": "78e342d8079929bcef4f61ef4a3eea891a52b7e9b5839f2f737a2247d20dfbeb"
+      },
+      {
+        "path": "android/app/src/main/res/drawable-land-hdpi/splash.png",
+        "sha256": "08cc34ad7713fe7ed58bceaa37b2387b670c53cd60264b4bd6442db3098e75dc"
+      },
+      {
+        "path": "android/app/src/main/res/drawable-land-mdpi/splash.png",
+        "sha256": "5cf98b4451bd99b20df26f9e608a46946118be6b0ae90762f9ca1786a30c76ff"
+      },
+      {
+        "path": "android/app/src/main/res/drawable-land-xhdpi/splash.png",
+        "sha256": "22f87e1e3bc89aa01a7dbc39c9a4db058cd0bf4ad3fe9f55712bf69eb997f4bf"
+      },
+      {
+        "path": "android/app/src/main/res/drawable-land-xxhdpi/splash.png",
+        "sha256": "42aa26392546fcdee1b8d3ac6d4b41bfcceb41dc6a4f3a3c30c24a8a8f4db862"
+      },
+      {
+        "path": "android/app/src/main/res/drawable-land-xxxhdpi/splash.png",
+        "sha256": "60393ce8636fd263e4e1fea3fd4ab2de948c6295e898fda9b50ac4e5283be809"
+      },
+      {
+        "path": "android/app/src/main/res/drawable-port-hdpi/splash.png",
+        "sha256": "c5015f4ba3628392b538386c5e210f0b94f352a3160adab934fd0311972137ca"
+      },
+      {
+        "path": "android/app/src/main/res/drawable-port-mdpi/splash.png",
+        "sha256": "07fa579e1c83e04ba7f9cbcbfcf41b68e15fe3638f2c44a04e58b809103e6b69"
+      },
+      {
+        "path": "android/app/src/main/res/drawable-port-xhdpi/splash.png",
+        "sha256": "b73049cb37fe76d6c11b87a796766bf6af0c85483b31eb6a921657b0d764a4b9"
+      },
+      {
+        "path": "android/app/src/main/res/drawable-port-xxhdpi/splash.png",
+        "sha256": "0c7f1212f25b7b90e9a6e1d320013e4ff3d3e03e634cbb07b7b7981cac51627f"
+      },
+      {
+        "path": "android/app/src/main/res/drawable-port-xxxhdpi/splash.png",
+        "sha256": "3db071a03b2f8ffe0dfd4170fc59842d53cd15bba5e88af59401d58efabf7827"
+      },
+      {
+        "path": "android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml",
+        "sha256": "a8514094f754b099d3e55ce1d6e0b2de79db418b2eeacb0fc2a6bb0bfadef221"
+      },
+      {
+        "path": "android/app/src/main/res/drawable/ic_launcher_background.xml",
+        "sha256": "718ba51adf166bb55c3e9936bb8199a0148457f7f0191aaa2f37a94f3159d6ec"
+      },
+      {
+        "path": "android/app/src/main/res/drawable/splash.png",
+        "sha256": "5cf98b4451bd99b20df26f9e608a46946118be6b0ae90762f9ca1786a30c76ff"
+      },
+      {
+        "path": "android/app/src/main/res/layout/activity_main.xml",
+        "sha256": "5d770feb791313b947020cbfc57e5c733c556dac5e9e49261a1190e527073253"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+        "sha256": "9c3a7e0a6515c6e1a7ae834a9ae430311ebc3241f7b2e5e7f0460aa690709a7c"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+        "sha256": "9c3a7e0a6515c6e1a7ae834a9ae430311ebc3241f7b2e5e7f0460aa690709a7c"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+        "sha256": "72b71c3581ca3b5a23b1c168d69b9d855b3f184fa079902a01f088eb4f0607d5"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png",
+        "sha256": "32baa10d2632a4417454a579f992bd640e0a3cec79321423559b2c9940de58a9"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png",
+        "sha256": "bfcc1b0fa931b14bb241372c76ab4f04374b67d02363c98d9cb12edfdacdf5f3"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+        "sha256": "27ed3603010ebc278f64f8645741ab132ff517abb5308eb9df6c8e42a48956b2"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png",
+        "sha256": "58e78a618778926b1f6d9472a6468de878de8530970934e94aab5ba4ba08cc00"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png",
+        "sha256": "0166fc333074c373fbd0ce6b5defd71552166165ac778121ca9c9dff6b83f0fc"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+        "sha256": "d35dbfff175b83c13ef59cf924abfc810f7b6a158595d7417c5498ea8c7c7ed1"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png",
+        "sha256": "6f88083b8166cc559102f7044688de7525287632ebe09ac45d001ac8bf4b3eae"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png",
+        "sha256": "40911a00922868686854a4804b93fd6e56b503664696de03f450bff690affb6d"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+        "sha256": "ed346eb1e3f0280f15709393705899b3ff55c20b88f4e0308006b3c33cf5fe14"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png",
+        "sha256": "4a82bc1e9923576275869998925ce0ae021a79aa18b24a0dd87ad6b61ca85053"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
+        "sha256": "1ee4cd9ff371dcb2e3938097e434f6fb8731688ed7165e61fc63693ad5b2f455"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+        "sha256": "87cb2f2ffe992652bb4fa768c73719a37b5852ab17fbf8e170e888f7a42b0761"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
+        "sha256": "bd24fd383253bf8d43f0a81f11c071d76d1d555114376dd647cd9fb38fa0a9da"
+      },
+      {
+        "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+        "sha256": "ab93096331e7cd8ec379f73f1e9adcaaa9ee1115c9f4ff10411a811fb9700174"
+      },
+      {
+        "path": "android/app/src/main/res/values/ic_launcher_background.xml",
+        "sha256": "cd40bafe618ff506f4088778b135cb4faa15f25e0c9b475e22d730c74b7be115"
+      },
+      {
+        "path": "android/app/src/main/res/values/strings.xml",
+        "sha256": "64537318b1a4b356cb75353b06981d22c3cf1576e88ace6925ec845fe528b888"
+      },
+      {
+        "path": "android/app/src/main/res/values/styles.xml",
+        "sha256": "d96794f351069af11d3bc2458738a9cadb6ff765760076bcf76ebc7be65b32f0"
+      },
+      {
+        "path": "android/app/src/main/res/xml/file_paths.xml",
+        "sha256": "a46ed43ef65c90cb6778f4581decf3556e3f0055aad8f36d69dae16f9a0e99aa"
+      },
+      {
+        "path": "android/build.gradle",
+        "sha256": "766958866c15eeda5c88bfdbccfd5346a73fb68f29a4441206b472805176552b"
+      },
+      {
+        "path": "android/capacitor.settings.gradle",
+        "sha256": "b488e162f552d6efb8286793c7871bbc1061c9bf5ca3a6a495fdeb8988a541c7"
+      },
+      {
+        "path": "android/gradle.properties",
+        "sha256": "3bab15c5b8bc4c2f4b6cf525497d15ad4abca53a460e6dd2eb0f0135817d31e6"
+      },
+      {
+        "path": "android/gradle/b1-dependency-resolution.init.gradle",
+        "sha256": "2a38c13e917e3b68ae5918032a9c91cf58a4be094808cb020905fedc0e39d3c6"
+      },
+      {
+        "path": "android/gradle/dependency-locks/app.lockfile",
+        "sha256": "24fecaddb4a47766a7e0487de25195101d52ea0af8eaa006f1d8d949951768f1"
+      },
+      {
+        "path": "android/gradle/dependency-locks/capacitor-android.lockfile",
+        "sha256": "eef89092b9fec1019fc2c4e841a585faffd299b1705d49939215cc07932ed01c"
+      },
+      {
+        "path": "android/gradle/dependency-locks/capacitor-cordova-android-plugins.lockfile",
+        "sha256": "99f8abf8b6275a9cf85f335bfeef9510be1caad20ed07da2a82a938ccd0ae005"
+      },
+      {
+        "path": "android/gradle/verification-metadata.xml",
+        "sha256": "22873f65d6bd51c75cb173f97dd4c83cbc4e07320a3cf362be9d2fb4fdd3a9ec"
+      },
+      {
+        "path": "android/gradle/wrapper/gradle-wrapper.jar",
+        "sha256": "7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172"
+      },
+      {
+        "path": "android/gradle/wrapper/gradle-wrapper.properties",
+        "sha256": "9a479a85aa879bb55284fc16d0de5b81a745c3854f4e2d88c42e7debaf007435"
+      },
+      {
+        "path": "android/gradlew",
+        "sha256": "b187b4c52e749f5760afdd6fadc31b2a98ad35fb249bf0dff03b72650f320409"
+      },
+      {
+        "path": "android/gradlew.bat",
+        "sha256": "94102713eb8fb22d032397924c0f38ab2da783ba60d07054339f1190a0c4e2cd"
+      },
+      {
+        "path": "android/settings.gradle",
+        "sha256": "6ce098d15ebd69b44c4ecd786bca1bdc366340d2459b2af4d7bb0ab317aa9669"
+      },
+      {
+        "path": "android/variables.gradle",
+        "sha256": "8d751d59653784d338a1f7cb2f012832c31184635557b8196cdb90b90a8829eb"
+      },
+      {
+        "path": "capacitor.config.json",
+        "sha256": "5cdcdf9e86b791d96efdd5347a52f740fa33490b7c54edfcae80aa82e4daa9c4"
+      },
+      {
+        "path": "config/dependency-policy.json",
+        "sha256": "38e6a017b93ff5cd425f5bcbe7fa72a28ad9e9a20c2985247b9663fd2f8f9e6a"
+      },
+      {
+        "path": "config/maven-licence-policy.json",
+        "sha256": "622db772df285dcde4be3b0013e97e7653805f55b3db3b05dd8c6d9edcb1aa23"
+      },
+      {
+        "path": "config/mobile-identity.json",
+        "sha256": "0166dbd8bf0cc7526e80ba224e1bc7b452e45b5d5e5b0b827a14f0c4cc44f9d1"
+      },
+      {
+        "path": "index.html",
+        "sha256": "ef7c045b13d4d72bdb19fc8ee17918dce4385e511f0a72b3b54ac8bc9ad9de9d"
+      },
+      {
+        "path": "ios/App/App.xcodeproj/project.pbxproj",
+        "sha256": "982199cd8b7a92f7e253337bd57ce558e463a031fb82af35b122514cd0a9db31"
+      },
+      {
+        "path": "ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist",
+        "sha256": "dfa0f9bb85b95ccba9c6811adadf8cb407fb5d52088e89db83ebc308ec448542"
+      },
+      {
+        "path": "ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "sha256": "2f50a607bfb6f1755cc0458d97d8c8974b2df7280fcdfec86e0ceefec78f3ce7"
+      },
+      {
+        "path": "ios/App/App.xcodeproj/xcshareddata/xcschemes/KS2Spelling.xcscheme",
+        "sha256": "498a3d101e5ffc24578468180a68e0692949fd658bcedbb7cec298821c851fd8"
+      },
+      {
+        "path": "ios/App/App/AppDelegate.swift",
+        "sha256": "b284a13efef270a4f1bd6512d2f740031735aa13367845b3f77a9a95bb1307ab"
+      },
+      {
+        "path": "ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png",
+        "sha256": "29e4777e319de3ee5a52c3a8004ec19d0568414004257e36d7c94a077d71c93b"
+      },
+      {
+        "path": "ios/App/App/Assets.xcassets/AppIcon.appiconset/Contents.json",
+        "sha256": "5c09bec6eede599b14fa9e4c44b03e7febebc930615a0cd70f02981c09dfe48a"
+      },
+      {
+        "path": "ios/App/App/Assets.xcassets/Contents.json",
+        "sha256": "972ec1fd42325872438eb085ac29e94f51c10788ec18ec5549439950866c541d"
+      },
+      {
+        "path": "ios/App/App/Assets.xcassets/Splash.imageset/Contents.json",
+        "sha256": "041481917eb249533ac6dd63d283bc6190b2d0642a93deda11b2ed0f6f7b605a"
+      },
+      {
+        "path": "ios/App/App/Assets.xcassets/Splash.imageset/splash-2732x2732-1.png",
+        "sha256": "1b5002b74a5500e697298ced06ca2811ac33f2771f236f3c720ff23243890530"
+      },
+      {
+        "path": "ios/App/App/Assets.xcassets/Splash.imageset/splash-2732x2732-2.png",
+        "sha256": "1b5002b74a5500e697298ced06ca2811ac33f2771f236f3c720ff23243890530"
+      },
+      {
+        "path": "ios/App/App/Assets.xcassets/Splash.imageset/splash-2732x2732.png",
+        "sha256": "1b5002b74a5500e697298ced06ca2811ac33f2771f236f3c720ff23243890530"
+      },
+      {
+        "path": "ios/App/App/Base.lproj/LaunchScreen.storyboard",
+        "sha256": "87a42e842164d75f39cca56a2cf743652f4d8e858f2eba12ae21a8ddcd9a21c6"
+      },
+      {
+        "path": "ios/App/App/Base.lproj/Main.storyboard",
+        "sha256": "7b7dc7acc67134bfaa80e5ce9c9068ba53db5369b9b70248aa7439fc2b09daae"
+      },
+      {
+        "path": "ios/App/App/Info.plist",
+        "sha256": "814d5298220cbcd1032f9f3b5d6ae8beafa7364ea8c297194917e767f0e829a6"
+      },
+      {
+        "path": "ios/App/CapApp-SPM/Package.swift",
+        "sha256": "06237d85875aebc03b0753984e4159a756600a70f1551fd915385133b58b1c50"
+      },
+      {
+        "path": "ios/App/CapApp-SPM/Sources/CapApp-SPM/CapApp-SPM.swift",
+        "sha256": "70bf9dafddc35e3877dfb133a996f5be7ccd1e132897a98fdbf4869ff605ece9"
+      },
+      {
+        "path": "ios/debug.xcconfig",
+        "sha256": "4838938a72b913b99cfda54a43bbe73f05893071dc6e3702b0adc44794b64272"
+      },
+      {
+        "path": "package-lock.json",
+        "sha256": "d5ecf47e2b1730a3db193fd4188948b3189197aa08ff89a7eda8b5ccb413a8a0"
+      },
+      {
+        "path": "package.json",
+        "sha256": "aa7140be27304d3130b8a5dda1214e30f064c1d45c2e888935d88a7ceb4b8c10"
+      },
+      {
+        "path": "provenance/ks2-mastery-gate-a.json",
+        "sha256": "5f2e36b69188ace0646ba2a133052d66276b51402225dd29076b05b3e4309359"
+      },
+      {
+        "path": "scripts/audit-dependencies.mjs",
+        "sha256": "398a93cb10ee5732f483d882cf83ceb18357d2e51e71107e84133148d102207b"
+      },
+      {
+        "path": "scripts/certify-android-dependencies.mjs",
+        "sha256": "16586177ea72a250450ea83a40d43e3eb7db27ed51916ab75880615183cae9bc"
+      },
+      {
+        "path": "scripts/generate-third-party-notices.mjs",
+        "sha256": "900fb54a6b1df903449982f588fe132d87800715683bdd0cf98ef7f99d690364"
+      },
+      {
+        "path": "scripts/lib/maven-evidence.mjs",
+        "sha256": "46493b8e76a9d9bef2e1ea6959a4c3cba0d6d24e2dc8dfc2f5bf0eca657c4dfc"
+      },
+      {
+        "path": "scripts/lib/run-command.mjs",
+        "sha256": "c750a174391080d6b32a7603e9e4343b2951bcbb3fc693ae7cfcc7628c16d5c1"
+      },
+      {
+        "path": "scripts/native-doctor.mjs",
+        "sha256": "cc637b9e53f797ba5c6b7385fa7a6de4aff43da32acd8982716415b5a095906c"
+      },
+      {
+        "path": "scripts/native-sync-check.mjs",
+        "sha256": "89c4636461863c609418997a0ef50d999bc179564abc76f0713401be6ddac4d1"
+      },
+      {
+        "path": "scripts/resolve-android-dependencies.mjs",
+        "sha256": "1e26e657f09f159cc727c5039850c6809f8f7343e795adcd15930a1c2fc86799"
+      },
+      {
+        "path": "scripts/test-android.mjs",
+        "sha256": "7feb087a1fa231646a52c36d731f7c751d8483bfe46a546a44244b3d700942b7"
+      },
+      {
+        "path": "scripts/test-ios.mjs",
+        "sha256": "2b90175d97a018e8a240cdd1a0bb88123f465dd0a3400824f68aa0f6b9b540ff"
+      },
+      {
+        "path": "scripts/verify-vendored-contract.mjs",
+        "sha256": "5659d102d93de4c4d5d260be42c575a4c02e48ae05bb881a535762412b5552cf"
+      },
+      {
+        "path": "src/app/App.jsx",
+        "sha256": "f9271fffc9714cca81f9f8aa1a76b65460b1b512bc437bf0f12020ec6544a83d"
+      },
+      {
+        "path": "src/app/app.css",
+        "sha256": "9afeea97f8733a68ab03d091d3bbd22115feaab95d37d16cda08ae854b15ece4"
+      },
+      {
+        "path": "src/app/create-app-services.js",
+        "sha256": "36f027d35a7016870b6bea0e0303812f42aa1c3c9b5788e62ca5b61b6af55207"
+      },
+      {
+        "path": "src/domain/spelling/index.js",
+        "sha256": "0a2a2d26c0e97a72dba68004cfcbe4ab19509a7a2cacf5337b1f7df7e816e0b3"
+      },
+      {
+        "path": "src/main.jsx",
+        "sha256": "83c1210b4bf9b3ed2e344cf8b592cded3cddbd6377e497731fedf44395f2f43f"
+      },
+      {
+        "path": "src/platform/fakes/create-b1-fake-native-ports.js",
+        "sha256": "db9319da2c59ec72c519e0538b21df66ed41cab1391fd2d55510c27c615aea90"
+      },
+      {
+        "path": "src/platform/native-port-contract.js",
+        "sha256": "1673abb07d26dd2f4ad70e6262405988f021aa01ca70ad17feab982f11ce4a40"
+      },
+      {
+        "path": "vendor/ks2-mastery/content/spelling.mobile-a1-kernel-manifest.json",
+        "sha256": "51af549ce31a30adc021d5fa0bd6a70ed9de2366887add0df3fc7f8f42dc312f"
+      },
+      {
+        "path": "vendor/ks2-mastery/content/spelling.mobile-a2-contract-manifest.json",
+        "sha256": "237b26b14e7506fa271bb3324f701d6205e6e0166d659a16789937478cc77b66"
+      },
+      {
+        "path": "vendor/ks2-mastery/content/spelling.mobile-a3-contract-manifest.json",
+        "sha256": "7fea17613ee10f747c1cfa9d5c923da4e506e23e61d1530ca71c283c0ce39465"
+      },
+      {
+        "path": "vendor/ks2-mastery/content/spelling.mobile-runtime-full.json",
+        "sha256": "50918c93043eba984cb2472238ac9370be4f46fb52a55c76cf5c469beb330d84"
+      },
+      {
+        "path": "vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json",
+        "sha256": "a67317764d1bae4e1796e070fa8d482c0b4702451c63ba7cacf9470c5272eb34"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/core/achievements.js",
+        "sha256": "2e76bf7dfe604314abd6084925bf827b84c6217e152bc9a762696db5a8f7a365"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/core/audio-preferences.js",
+        "sha256": "fd3fb13c9ec96ded2f3253a89c339580ba5ae4c91bc2a75f084d832fe940b058"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/core/content/patterns.js",
+        "sha256": "127319ac7c1ee5650a017cae3f1f38db2b1a58a7d832f01a301ce279dcb3bfd2"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/core/content/taxonomy.js",
+        "sha256": "19a40d332aecc22b6c2c91c8c0b612e35a9dc1233481164ed333d74979d2dbd1"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/core/events.js",
+        "sha256": "5c303f2827a591d4609b343e244369a6715b5cf46123cda17690a267dde84c22"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/core/index.js",
+        "sha256": "2fc2d5918884ecc01f98f0b0f8bf12b0443227f8ab4b23885a80636aa7e1f9dd"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/core/legacy-engine.js",
+        "sha256": "7b582b84333caa02d2fd89fd3517e4df2557e1219105ef3e59a8f91cbc6a0f14"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/core/service-contract.js",
+        "sha256": "c1a36906cc3aa049b56e2ab0965f979f3f5e73805ec676276ce1111b77adea1e"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/core/service.js",
+        "sha256": "783f68f4886eb19da22ffe572ebb14ee3c3b496c90a9385fefdf13ca12107127"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/a3/camp-projection.js",
+        "sha256": "b7851e4c1c9be7e7c02cc5f3a8ac4cfb74e28db7d156e05307727a9a6327ed25"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/a3/command-contracts.js",
+        "sha256": "194890a3d5b62c41df561bd64576dcf8efc31c77fbd4754a995a203e3bc5a5e9"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/a3/command-planner.js",
+        "sha256": "24ee82c5facff330c3330fecf817ff13b3e9b9adfb6346989ee7f752e856b0c3"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/a3/command-repository.js",
+        "sha256": "cda2729791a02f045d54f2358488d86fd881562af15ba32b7eac0079fa03406d"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/a3/index.js",
+        "sha256": "8ac3acc7f82eb680f53620e0abe904778bc60236b9cd036ed03affcd56ec0ddd"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/a3/monster-projection.js",
+        "sha256": "820743295407e04ceb7c7ff70f183d45ad5251c01576d04f76cc451d0616f074"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/a3/parent-projection.js",
+        "sha256": "952b5b5b853bf74bcf006fd04913c44a5d2099f111b380406a83aee172c8f0e7"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/a3/profile-repository.js",
+        "sha256": "3bb3c0cc8fa0adf561e253971d23f136bbf7c6475556da83a79261d58a8ce58e"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/a3/revision-authority.js",
+        "sha256": "384b477c925a7500fd6900bf73d1a471e903a9beb4e327bb94fb5ca8d3c2d571"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/a3/revision-projection.js",
+        "sha256": "78dabff89d293b14652fb794e0f784392dce0f7d6b86b5bf1bae70b0d220cdcb"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/identity.js",
+        "sha256": "d31755df90065291780f5bff6f2dfbe2305cb5d4379c0cb8537ccd10f4a2ef59"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/index.js",
+        "sha256": "f304e9b4ea1e046870c1d1209d285e9dc778a5340093097fd209592d77865ea8"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/pack-contracts.js",
+        "sha256": "9ce9b94e88d6e72ee9465fc99e593bb9b0173d65857a03d5871f81987f0cae04"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/runtime-catalogue.js",
+        "sha256": "18ee3791f1eb14ce646f484834946a504a9c380d1c22430003ff3d6b7316bc27"
+      },
+      {
+        "path": "vendor/ks2-mastery/shared/spelling/mobile/runtime-snapshot.js",
+        "sha256": "66bbdb49e77fbac539dc96ccdd60d6912ff57e562b073fac38b96cc63389161d"
+      },
+      {
+        "path": "vite.config.js",
+        "sha256": "32ae85ece4bf4679c7e9c943df34c9d753fce0b1e6c0c2bcf649203968d31141"
+      }
+    ]
+  },
+  "packageVersions": {
+    "application": "0.0.0",
+    "capacitorCore": "8.4.1",
+    "capacitorPlatform": "8.4.1"
+  },
+  "nativeVersions": {
+    "xcode": "26.6 (17F113)",
+    "iosSdk": "26.5"
+  },
+  "identity": {
+    "bundleId": "uk.eugnel.ks2spelling"
+  },
+  "device": {
+    "name": "KS2 Spelling iPhone 17",
+    "udid": "03B3849B-964C-410D-86DE-15D52BD95C93",
+    "typeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17",
+    "runtimeIdentifier": "com.apple.CoreSimulator.SimRuntime.iOS-26-5",
+    "osVersion": "26.5"
+  },
+  "installation": {
+    "buildAppPath": ".native-build/ios/Build/Products/Debug-iphonesimulator/App.app",
+    "installedAppPath": "/Users/jamesto/Library/Developer/CoreSimulator/Devices/03B3849B-964C-410D-86DE-15D52BD95C93/data/Containers/Bundle/Application/4E906A17-8751-4799-ADEE-5111A3FE8B1E/App.app",
+    "bundleShortVersion": "1.0",
+    "bundleVersion": "1"
+  },
+  "foreground": {
+    "processIdentifier": "71193",
+    "bundleId": "uk.eugnel.ks2spelling",
+    "processState": "running"
+  },
+  "uiReadiness": {
+    "source": "screenshot-bmp-dark-shell-ratio",
+    "width": 1206,
+    "height": 2622,
+    "darkPixelRatio": 0.921349583129357,
+    "attempts": 1
+  },
+  "bundle": {
+    "serverUrl": null,
+    "indexHtmlPath": "/Users/jamesto/Library/Developer/CoreSimulator/Devices/03B3849B-964C-410D-86DE-15D52BD95C93/data/Containers/Bundle/Application/4E906A17-8751-4799-ADEE-5111A3FE8B1E/App.app/public/index.html",
+    "indexHtmlSha256": "61f2b23306dbc5980d8ad53e42853afe6c1691440b4f8ae63c55461abbd313db"
+  },
+  "screenshot": {
+    "path": "reports/b1/ios-simulator.png",
+    "sha256": "a445b1ff309b7d1273d51101b6de68e9037dd734fe6bfca181091b38f1681b48"
+  }
+}

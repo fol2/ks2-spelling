@@ -230,8 +230,14 @@ test('Task 8 records exact local toolchain, licence gate and disk evidence', asy
 test('native build and sync commands freeze identity and derived outputs', async () => {
   const { SYNC_COMMANDS } = await importScript('scripts/native-sync-check.mjs');
   const { IOS_BUILD_COMMAND } = await importScript('scripts/test-ios.mjs');
-  const { ANDROID_BUILD_COMMAND, ANDROID_BUILD_EVIDENCE, GRADLE_INIT_SCRIPT } =
-    await importScript('scripts/test-android.mjs');
+  const {
+    ANDROID_BUILD_COMMAND,
+    ANDROID_BUILD_EVIDENCE,
+    GRADLE_INIT_SCRIPT,
+    parsePackagedAndroidBackupRules,
+    parsePackagedAndroidDataExtractionRules,
+    parsePackagedAndroidManifestPolicy,
+  } = await importScript('scripts/test-android.mjs');
 
   assert.deepEqual(SYNC_COMMANDS, [
     ['npm', ['run', 'build']],
@@ -275,6 +281,7 @@ test('native build and sync commands freeze identity and derived outputs', async
       '../.native-build/android/native-output.init.gradle',
       'testDebugUnitTest',
       'assembleDebug',
+      'assembleRelease',
     ],
   });
   assert.match(GRADLE_INIT_SCRIPT, /\.native-build\/android\/build/);
@@ -283,6 +290,8 @@ test('native build and sync commands freeze identity and derived outputs', async
     platform: 'android',
     variant: 'debug',
     signing: 'debug',
+    debugCompiled: true,
+    releaseCompiled: true,
     releaseSigned: false,
     declaredPermissions: [],
     requestedPermissions: [],
@@ -315,6 +324,76 @@ test('native build and sync commands freeze identity and derived outputs', async
   assert.throws(
     () => parsePackagedAndroidPermissions('package: uk.eugnel.ks2spelling\nbare-junk\n'),
     ({ code }) => code === 'android_packaged_permission_detected',
+  );
+  assert.deepEqual(
+    parsePackagedAndroidManifestPolicy(`E: manifest
+  E: application
+    A: http://schemas.android.com/apk/res/android:allowBackup(0x01010280)=false
+    A: http://schemas.android.com/apk/res/android:fullBackupContent(0x010104eb)=@0x7f110000
+    A: http://schemas.android.com/apk/res/android:dataExtractionRules(0x0101063e)=@0x7f110002
+`),
+    {
+      allowBackup: false,
+      fullBackupContent: '@xml/backup_rules',
+      fullBackupContentResourceId: '@0x7f110000',
+      dataExtractionRules: '@xml/data_extraction_rules',
+      dataExtractionRulesResourceId: '@0x7f110002',
+    },
+  );
+  const legacyXmlTree = `E: full-backup-content
+  E: exclude
+    A: domain="root" (Raw: "root")
+    A: path="." (Raw: ".")
+  E: exclude
+    A: domain="file" (Raw: "file")
+    A: path="." (Raw: ".")
+  E: exclude
+    A: domain="database" (Raw: "database")
+    A: path="." (Raw: ".")
+  E: exclude
+    A: domain="sharedpref" (Raw: "sharedpref")
+    A: path="." (Raw: ".")
+  E: exclude
+    A: domain="external" (Raw: "external")
+    A: path="." (Raw: ".")
+`;
+  assert.deepEqual(parsePackagedAndroidBackupRules(legacyXmlTree), {
+    excludedDomains: ['root', 'file', 'database', 'sharedpref', 'external'],
+  });
+  const exclusions = (domains) =>
+    domains
+      .map(
+        (domain) => `    E: exclude
+      A: domain="${domain}" (Raw: "${domain}")
+      A: path="." (Raw: ".")`,
+      )
+      .join('\n');
+  const allDomains = [
+    'root',
+    'file',
+    'database',
+    'sharedpref',
+    'external',
+    'device_root',
+    'device_file',
+    'device_database',
+    'device_sharedpref',
+  ];
+  assert.deepEqual(
+    parsePackagedAndroidDataExtractionRules(`E: data-extraction-rules
+  E: cloud-backup
+${exclusions(allDomains)}
+  E: device-transfer
+${exclusions(allDomains)}
+`),
+    {
+      cloudBackupExcludedDomains: allDomains,
+      deviceTransferExcludedDomains: allDomains,
+    },
+  );
+  assert.throws(
+    () => parsePackagedAndroidBackupRules(legacyXmlTree.replace('external', 'cache')),
+    ({ code }) => code === 'android_packaged_backup_policy_invalid',
   );
 });
 

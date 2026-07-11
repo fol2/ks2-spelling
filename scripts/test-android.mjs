@@ -15,6 +15,20 @@ const DEBUG_APK = join(
   ROOT,
   '.native-build/android/build/app/outputs/apk/debug/app-debug.apk',
 );
+const BACKUP_DOMAINS = Object.freeze([
+  'root',
+  'file',
+  'database',
+  'sharedpref',
+  'external',
+]);
+const DATA_EXTRACTION_DOMAINS = Object.freeze([
+  ...BACKUP_DOMAINS,
+  'device_root',
+  'device_file',
+  'device_database',
+  'device_sharedpref',
+]);
 
 export const GRADLE_INIT_SCRIPT = `gradle.beforeProject { project ->
     def nativeRoot = new File(project.rootProject.projectDir, "../.native-build/android/build")
@@ -35,6 +49,7 @@ export const ANDROID_BUILD_COMMAND = Object.freeze({
     '../.native-build/android/native-output.init.gradle',
     'testDebugUnitTest',
     'assembleDebug',
+    'assembleRelease',
   ]),
 });
 
@@ -43,6 +58,8 @@ export const ANDROID_BUILD_EVIDENCE = Object.freeze({
   platform: 'android',
   variant: 'debug',
   signing: 'debug',
+  debugCompiled: true,
+  releaseCompiled: true,
   releaseSigned: false,
   declaredPermissions: [],
   requestedPermissions: [],
@@ -52,6 +69,140 @@ function packagedPermissionError(message) {
   const error = new Error(message);
   error.code = 'android_packaged_permission_detected';
   return error;
+}
+
+function packagedBackupPolicyError(message) {
+  const error = new Error(message);
+  error.code = 'android_packaged_backup_policy_invalid';
+  return error;
+}
+
+function requireExactDomains(actual, expected, label) {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw packagedBackupPolicyError(
+      `${label} exclusions differ; expected=${expected.join(',')}; actual=${actual.join(',')}`,
+    );
+  }
+  return actual;
+}
+
+function parseExclusionDomains(output, label) {
+  const exclusions = [
+    ...output.matchAll(
+      /E: exclude[^\n]*\n\s+A: domain="([^"]+)"[^\n]*\n\s+A: path="([^"]+)"/g,
+    ),
+  ].map(([, domain, path]) => ({ domain, path }));
+  if (exclusions.some(({ path }) => path !== '.')) {
+    throw packagedBackupPolicyError(`${label} contains a non-root exclusion path`);
+  }
+  const domains = exclusions.map(({ domain }) => domain);
+  if (new Set(domains).size !== domains.length) {
+    throw packagedBackupPolicyError(`${label} contains duplicate exclusions`);
+  }
+  return domains;
+}
+
+export function parsePackagedAndroidManifestPolicy(output) {
+  const allowBackup = output.match(/:allowBackup\([^)]*\)=(true|false)/)?.[1];
+  const fullBackupContentResourceId = output.match(
+    /:fullBackupContent\([^)]*\)=(@0x[a-f0-9]+)/,
+  )?.[1];
+  const dataExtractionRulesResourceId = output.match(
+    /:dataExtractionRules\([^)]*\)=(@0x[a-f0-9]+)/,
+  )?.[1];
+  if (
+    allowBackup !== 'false' ||
+    !fullBackupContentResourceId ||
+    !dataExtractionRulesResourceId
+  ) {
+    throw packagedBackupPolicyError(
+      'Packaged manifest does not disable backup with both exclusion resources',
+    );
+  }
+  return {
+    allowBackup: false,
+    fullBackupContent: '@xml/backup_rules',
+    fullBackupContentResourceId,
+    dataExtractionRules: '@xml/data_extraction_rules',
+    dataExtractionRulesResourceId,
+  };
+}
+
+export function parsePackagedAndroidBackupRules(output) {
+  if (!/^E: full-backup-content\b/m.test(output)) {
+    throw packagedBackupPolicyError('Packaged legacy backup rules root is missing');
+  }
+  return {
+    excludedDomains: requireExactDomains(
+      parseExclusionDomains(output, 'legacy backup'),
+      BACKUP_DOMAINS,
+      'legacy backup',
+    ),
+  };
+}
+
+export function parsePackagedAndroidDataExtractionRules(output) {
+  if (!/^E: data-extraction-rules\b/m.test(output)) {
+    throw packagedBackupPolicyError('Packaged data-extraction rules root is missing');
+  }
+  const cloudStart = output.search(/^\s*E: cloud-backup\b/m);
+  const transferStart = output.search(/^\s*E: device-transfer\b/m);
+  if (cloudStart < 0 || transferStart <= cloudStart) {
+    throw packagedBackupPolicyError('Packaged backup and transfer sections are missing');
+  }
+  return {
+    cloudBackupExcludedDomains: requireExactDomains(
+      parseExclusionDomains(output.slice(cloudStart, transferStart), 'cloud backup'),
+      DATA_EXTRACTION_DOMAINS,
+      'cloud backup',
+    ),
+    deviceTransferExcludedDomains: requireExactDomains(
+      parseExclusionDomains(output.slice(transferStart), 'device transfer'),
+      DATA_EXTRACTION_DOMAINS,
+      'device transfer',
+    ),
+  };
+}
+
+async function dumpPackagedXml(aapt2, apk, file) {
+  const result = await runCommand(aapt2, ['dump', 'xmltree', '--file', file, apk], {
+    cwd: ROOT,
+  });
+  if (result.exitCode !== 0 || !result.stdout.trim()) {
+    throw packagedBackupPolicyError(`aapt2 could not inspect packaged ${file}`);
+  }
+  return result.stdout;
+}
+
+export async function verifyPackagedAndroidBackupPolicy(options = {}) {
+  const resolution = resolveAndroidEnvironment();
+  const androidSdkRoot = options.androidSdkRoot ?? resolution.androidSdkRoot;
+  const buildTools36 =
+    options.buildTools36 ??
+    (androidSdkRoot ? await findBuildTools36(androidSdkRoot) : null);
+  if (!androidSdkRoot || !buildTools36 || !existsSync(DEBUG_APK)) {
+    throw packagedBackupPolicyError('Android APK inspection inputs are unavailable');
+  }
+  const aapt2 = join(androidSdkRoot, 'build-tools', buildTools36, 'aapt2');
+  const [manifestOutput, backupOutput, dataExtractionOutput] = await Promise.all([
+    dumpPackagedXml(aapt2, DEBUG_APK, 'AndroidManifest.xml'),
+    dumpPackagedXml(aapt2, DEBUG_APK, 'res/xml/backup_rules.xml'),
+    dumpPackagedXml(aapt2, DEBUG_APK, 'res/xml/data_extraction_rules.xml'),
+  ]);
+  return {
+    packagedManifest: {
+      ...parsePackagedAndroidManifestPolicy(manifestOutput),
+      xmlTreeSha256: createHash('sha256').update(manifestOutput).digest('hex'),
+    },
+    packagedBackupRules: {
+      ...parsePackagedAndroidBackupRules(backupOutput),
+      xmlTreeSha256: createHash('sha256').update(backupOutput).digest('hex'),
+    },
+    packagedDataExtractionRules: {
+      ...parsePackagedAndroidDataExtractionRules(dataExtractionOutput),
+      xmlTreeSha256: createHash('sha256').update(dataExtractionOutput).digest('hex'),
+    },
+  };
 }
 
 export function parsePackagedAndroidPermissions(output) {
@@ -202,8 +353,13 @@ export async function main() {
     return EXIT_CODES.commandFailed;
   }
   let permissionEvidence;
+  let backupEvidence;
   try {
     permissionEvidence = await verifyPackagedAndroidPermissions({
+      androidSdkRoot: resolution.androidSdkRoot,
+      buildTools36,
+    });
+    backupEvidence = await verifyPackagedAndroidBackupPolicy({
       androidSdkRoot: resolution.androidSdkRoot,
       buildTools36,
     });
@@ -217,6 +373,7 @@ export async function main() {
   printJson({
     ...ANDROID_BUILD_EVIDENCE,
     ...permissionEvidence,
+    ...backupEvidence,
     diagnosticApkSha256: createHash('sha256')
       .update(await readFile(DEBUG_APK))
       .digest('hex'),

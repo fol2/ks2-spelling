@@ -69,14 +69,50 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
     packageSwift,
     /\.package\(url: "https:\/\/github\.com\/ionic-team\/capacitor-swift-pm\.git", exact: "8\.4\.1"\)/,
   );
+  assert.match(
+    packageSwift,
+    /\.package\(name: "CapacitorCommunitySqlite", path: "\.\.\/\.\.\/\.\.\/node_modules\/@capacitor-community\/sqlite"\)/,
+  );
+  assert.match(
+    packageSwift,
+    /\.package\(name: "CapacitorApp", path: "\.\.\/\.\.\/\.\.\/node_modules\/@capacitor\/app"\)/,
+  );
+  assert.match(
+    packageSwift,
+    /\.product\(name: "CapacitorCommunitySqlite", package: "CapacitorCommunitySqlite"\)/,
+  );
+  assert.match(packageSwift, /\.product\(name: "CapacitorApp", package: "CapacitorApp"\)/);
   assert.equal(packageResolved.version, 3);
   assert.ok(Array.isArray(packageResolved.pins));
   const capacitorPin = packageResolved.pins.find(
     ({ identity }) => identity === 'capacitor-swift-pm',
   );
   assert.equal(capacitorPin?.location, 'https://github.com/ionic-team/capacitor-swift-pm.git');
-  assert.equal(capacitorPin?.state?.version, '8.4.1');
-  assert.match(capacitorPin?.state?.revision ?? '', /^[0-9a-f]{40}$/);
+  assert.deepEqual(capacitorPin?.state, {
+    branch: '8.0.0',
+    revision: '596259033e94829dffc552a40e7129262122995e',
+  });
+  assert.deepEqual(
+    packageResolved.pins
+      .filter(({ identity }) => identity !== 'capacitor-swift-pm')
+      .map(({ identity, state }) => ({ identity, state })),
+    [
+      {
+        identity: 'sqlcipher.swift',
+        state: {
+          revision: '205df55271aa1ba512a9bfe3fd1813bc9ac52a19',
+          version: '4.17.0',
+        },
+      },
+      {
+        identity: 'zipfoundation',
+        state: {
+          revision: '22787ffb59de99e5dc1fbfe80b19c97a904ad48d',
+          version: '0.9.20',
+        },
+      },
+    ],
+  );
 
   assert.equal(existsSync(join(IOS_ROOT, 'Podfile')), false);
   assert.equal(existsSync(join(IOS_ROOT, 'Podfile.lock')), false);
@@ -87,6 +123,15 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
     appId: 'uk.eugnel.ks2spelling',
     appName: 'KS2 Spelling',
     webDir: 'dist',
+    plugins: {
+      CapacitorSQLite: {
+        iosDatabaseLocation: 'Library/CapacitorDatabase',
+        iosIsEncryption: false,
+        iosBiometric: { biometricAuth: false },
+        androidIsEncryption: false,
+        androidBiometric: { biometricAuth: false },
+      },
+    },
   });
   const nativeConfigPath = join(IOS_ROOT, 'App/capacitor.config.json');
   if (existsSync(nativeConfigPath)) {

@@ -1,5 +1,14 @@
 {
   "appId": "uk.eugnel.ks2spelling",
   "appName": "KS2 Spelling",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "CapacitorSQLite": {
+      "iosDatabaseLocation": "Library/CapacitorDatabase",
+      "iosIsEncryption": false,
+      "iosBiometric": { "biometricAuth": false },
+      "androidIsEncryption": false,
+      "androidBiometric": { "biometricAuth": false }
+    }
+  }
 }

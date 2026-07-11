@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "packages": {
+    "@capacitor-community/sqlite": {
+      "version": "8.1.0",
+      "integrity": "sha512-yhKZDAVPDPcM3QE6UGB3LXyV25a6Rve1SjZ1aUpTE0E2isnYTVM0PG9+JOI241f+NdsHzPTE7ESJiYSqKsKnuA=="
+    },
+    "@capacitor/app": {
+      "version": "8.1.0",
+      "integrity": "sha512-MlmttTOWHDedr/G4SrhNRxsXMqY+R75S4MM4eIgzsgCzOYhb/MpCkA5Q3nuOCfL1oHm26xjUzqZ5aupbOwdfYg=="
+    }
+  },
+  "builds": {
+    "ios": {
+      "compiled": true,
+      "sdk": "iphonesimulator",
+      "configuration": "Debug",
+      "signed": false
+    },
+    "android": {
+      "unitTestsPassed": true,
+      "debugCompiled": true,
+      "debugSigned": true,
+      "releaseCompiled": true,
+      "releaseSigned": false
+    }
+  },
+  "android": {
+    "dependencyClosure": {
+      "componentCount": 314,
+      "scopeMembershipCount": 5452,
+      "lockfiles": [
+        {
+          "path": "android/gradle/dependency-locks/app.lockfile",
+          "sha256": "4f882450792e15efa1929efe7202beda696f8c02a9e495d1741af6d6244934a3"
+        },
+        {
+          "path": "android/gradle/dependency-locks/capacitor-android.lockfile",
+          "sha256": "f772b51ee2251036897ef5745a2206387ecb24b122b96d32b708618760cec538"
+        },
+        {
+          "path": "android/gradle/dependency-locks/capacitor-app.lockfile",
+          "sha256": "b708ea9120f6755c86584436c1c4effb2f211f91572bed950190377a7adc3f20"
+        },
+        {
+          "path": "android/gradle/dependency-locks/capacitor-community-sqlite.lockfile",
+          "sha256": "860cfe917ef9427212dd61ccbdd148593d8c5c721b58acc64471b15645b3b8cb"
+        },
+        {
+          "path": "android/gradle/dependency-locks/capacitor-cordova-android-plugins.lockfile",
+          "sha256": "f6c0d85caf74291d4c38291fcd433149947ffde25c9498e07e38a5409280204d"
+        }
+      ],
+      "verificationMetadataSha256": "1a3174dfe255c24dee97147174a3b96904de8b5e20611dcdb415bc710236b359"
+    },
+    "generatedInputs": {
+      "capacitorBuildGradleSha256": "7a9785a4abc7b6679e4823065fd73f10701d5cf8fdc63ab0403cb1bfa5bb4b95",
+      "capacitorSettingsGradleSha256": "02359897c4208fc356ab91c0c385a2160ec92299e94855ccbd380a6139ff3ff4"
+    },
+    "packagedPermissions": {
+      "appIdentity": "uk.eugnel.ks2spelling",
+      "buildToolsVersion": "36.0.0",
+      "permissionSurfaceSha256": "28845e13ab77dc0edab52ecea963c969397cd9dfa7a9964975c42ddf8ab54650",
+      "declaredPermissions": [],
+      "requestedPermissions": []
+    },
+    "packagedManifest": {
+      "allowBackup": false,
+      "fullBackupContent": "@xml/backup_rules",
+      "fullBackupContentResourceId": "@0x7f110000",
+      "dataExtractionRules": "@xml/data_extraction_rules",
+      "dataExtractionRulesResourceId": "@0x7f110002",
+      "xmlTreeSha256": "1a535dcf7188a2017b61f6f0b2593fff393f6245439d3c9e2c819d5893fa96dc"
+    },
+    "packagedBackupRules": {
+      "excludedDomains": [
+        "root",
+        "file",
+        "database",
+        "sharedpref",
+        "external"
+      ],
+      "xmlTreeSha256": "0d9990aea651376c460947c4b349b48c6dea1babfb268189732de71511d2b7e0"
+    },
+    "packagedDataExtractionRules": {
+      "cloudBackupExcludedDomains": [
+        "root",
+        "file",
+        "database",
+        "sharedpref",
+        "external",
+        "device_root",
+        "device_file",
+        "device_database",
+        "device_sharedpref"
+      ],
+      "deviceTransferExcludedDomains": [
+        "root",
+        "file",
+        "database",
+        "sharedpref",
+        "external",
+        "device_root",
+        "device_file",
+        "device_database",
+        "device_sharedpref"
+      ],
+      "xmlTreeSha256": "74d80216ccbc8774c3699ead4a8406fe2c404d8d33333538d65bdd856d178208"
+    }
+  },
+  "ios": {
+    "packageSwiftSha256": "1616fa9243faab36c75bc1ee6f70409f4b9a1d0dbed5c2c76e47db61e9635312",
+    "packageResolvedSha256": "f7ada51813b8ce6971185ff979c5b77521e54b6ecc416b925c07e930ec5f0633",
+    "infoPlistSha256": "814d5298220cbcd1032f9f3b5d6ae8beafa7364ea8c297194917e767f0e829a6",
+    "addedUsageDescriptionKeys": [],
+    "addedEntitlements": []
+  },
+  "nativeConfig": {
+    "capacitorConfigSha256": "81afd43851d3acc4bdac7b371ddcf0b867856e414f080d11050bd2c66a4ce3a4",
+    "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
+    "sqliteMode": "no-encryption",
+    "webFallbackInitialised": false,
+    "serverUrlConfigured": false
+  },
+  "approval": "build-proof-only",
+  "finalPrivacyApproval": false,
+  "finalExportApproval": false
+}

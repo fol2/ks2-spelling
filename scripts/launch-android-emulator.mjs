@@ -18,7 +18,7 @@ const APK_PATH = '.native-build/android/build/app/outputs/apk/debug/app-debug.ap
 const REPORT_PATH = 'reports/b1/android-emulator-launch.json';
 const SCREENSHOT_PATH = 'reports/b1/android-emulator.png';
 const TESTED_APPLICATION_COMMIT =
-  '504f15bc3a8e43c52760655a8d7bb624d1df6a3d';
+  '4719181301ca4d750b69041aad767355df9056d8';
 const BUNDLED_SHELL_TEXT = Object.freeze([
   'KS2 Spelling',
   'Starter content: 20 words',
@@ -39,6 +39,71 @@ function androidCaptureError(message) {
   const error = new Error(message);
   error.code = 'android_capture_invalid';
   return error;
+}
+
+export function analyseAndroidScreenshotBmp(buffer) {
+  if (
+    !Buffer.isBuffer(buffer) ||
+    buffer.length < 54 ||
+    buffer.toString('ascii', 0, 2) !== 'BM'
+  ) {
+    throw androidCaptureError('Android screenshot BMP header is invalid');
+  }
+  const pixelOffset = buffer.readUInt32LE(10);
+  const dibSize = buffer.readUInt32LE(14);
+  const width = buffer.readInt32LE(18);
+  const signedHeight = buffer.readInt32LE(22);
+  const height = Math.abs(signedHeight);
+  const planes = buffer.readUInt16LE(26);
+  const bitsPerPixel = buffer.readUInt16LE(28);
+  const compression = buffer.readUInt32LE(30);
+  const stride = width * 4;
+  if (
+    dibSize < 40 ||
+    width <= 0 ||
+    height <= 0 ||
+    planes !== 1 ||
+    bitsPerPixel !== 32 ||
+    ![0, 3].includes(compression) ||
+    pixelOffset < 54 ||
+    pixelOffset + stride * height !== buffer.length
+  ) {
+    throw androidCaptureError('Android screenshot must be an exact 32-bit BMP');
+  }
+  let darkPixels = 0;
+  let brightPixels = 0;
+  let accentPixels = 0;
+  for (let offset = pixelOffset; offset < buffer.length; offset += 4) {
+    const blue = buffer[offset];
+    const green = buffer[offset + 1];
+    const red = buffer[offset + 2];
+    if (red < 80 && green < 80 && blue < 80) darkPixels += 1;
+    if (red >= 180 && green >= 180 && blue >= 160) brightPixels += 1;
+    if (red < 180 && green >= 120 && blue >= 110 && green - red >= 20) {
+      accentPixels += 1;
+    }
+  }
+  const pixelCount = width * height;
+  const darkPixelRatio = darkPixels / pixelCount;
+  const brightPixelRatio = brightPixels / pixelCount;
+  const accentPixelRatio = accentPixels / pixelCount;
+  if (darkPixelRatio < 0.3) {
+    throw androidCaptureError(
+      'Android screenshot does not show the dark bundled B1 shell',
+    );
+  }
+  if (brightPixelRatio < 0.01 || accentPixelRatio < 0.005) {
+    throw androidCaptureError(
+      'Android screenshot does not show the B1 shell text and accent surfaces',
+    );
+  }
+  return {
+    width,
+    height,
+    darkPixelRatio,
+    brightPixelRatio,
+    accentPixelRatio,
+  };
 }
 
 export function parseAndroidInstalledApkPath(output) {
@@ -166,6 +231,26 @@ export async function waitForAndroidBundledShell({
     if (attempt < attempts - 1) await delay();
   }
   throw androidCaptureError('Android bundled B1 shell did not become visible');
+}
+
+export async function waitForAndroidScreenshotShell({
+  probe,
+  attempts = 60,
+  delay = () => new Promise((completion) => setTimeout(completion, 500)),
+}) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return {
+        source: 'screenshot-bmp-shell-colour-populations',
+        ...analyseAndroidScreenshotBmp(await probe()),
+        screenshotAttempts: attempt + 1,
+      };
+    } catch (error) {
+      if (error.code !== 'android_capture_invalid') throw error;
+    }
+    if (attempt < attempts - 1) await delay();
+  }
+  throw androidCaptureError('Android screenshot did not show the bundled B1 shell');
 }
 
 export function createAndroidLaunchPlan({ avdExists }) {
@@ -344,9 +429,9 @@ function sha256(content) {
 async function captureAndroidEvidence({ adb, env, packageJson }) {
   await new Promise((completion) => setTimeout(completion, 2000));
   const remoteHierarchy = '/sdcard/ks2-spelling-b1-window.xml';
-  let uiReadiness;
+  let hierarchyReadiness;
   try {
-    uiReadiness = await waitForAndroidBundledShell({
+    hierarchyReadiness = await waitForAndroidBundledShell({
       probe: async () => {
         const dump = await runCommand(
           adb,
@@ -457,21 +542,66 @@ async function captureAndroidEvidence({ adb, env, packageJson }) {
   }
   await mkdir(join(ROOT, 'reports/b1'), { recursive: true });
   const remoteScreenshot = '/sdcard/ks2-spelling-b1.png';
-  await runRequired(
-    adb,
-    ['-s', ANDROID_DEVICE.serial, 'shell', 'screencap', '-p', remoteScreenshot],
-    { env },
-  );
-  await runRequired(
-    adb,
-    ['-s', ANDROID_DEVICE.serial, 'pull', remoteScreenshot, join(ROOT, SCREENSHOT_PATH)],
-    { env },
-  );
-  await runRequired(
-    adb,
-    ['-s', ANDROID_DEVICE.serial, 'shell', 'rm', remoteScreenshot],
-    { env },
-  );
+  const readinessBmp = join(ROOT, '.native-build/android/android-readiness.bmp');
+  let screenshotReadiness;
+  try {
+    screenshotReadiness = await waitForAndroidScreenshotShell({
+      probe: async () => {
+        await runRequired(
+          adb,
+          ['-s', ANDROID_DEVICE.serial, 'shell', 'screencap', '-p', remoteScreenshot],
+          { env },
+        );
+        await runRequired(
+          adb,
+          [
+            '-s',
+            ANDROID_DEVICE.serial,
+            'pull',
+            remoteScreenshot,
+            join(ROOT, SCREENSHOT_PATH),
+          ],
+          { env },
+        );
+        await runRequired(
+          'sips',
+          [
+            '-s',
+            'format',
+            'bmp',
+            join(ROOT, SCREENSHOT_PATH),
+            '--out',
+            readinessBmp,
+          ],
+          { env },
+        );
+        return readFile(readinessBmp);
+      },
+    });
+  } finally {
+    await Promise.all([
+      runCommand(
+        adb,
+        ['-s', ANDROID_DEVICE.serial, 'shell', 'rm', '-f', remoteScreenshot],
+        { cwd: ROOT, env },
+      ),
+      rm(readinessBmp, { force: true }),
+    ]);
+  }
+  const uiReadiness = {
+    status: hierarchyReadiness.status,
+    source:
+      'uiautomator-required-texts-and-screenshot-bmp-shell-colour-populations',
+    requiredTexts: hierarchyReadiness.requiredTexts,
+    hierarchySha256: hierarchyReadiness.hierarchySha256,
+    hierarchyAttempts: hierarchyReadiness.attempts,
+    width: screenshotReadiness.width,
+    height: screenshotReadiness.height,
+    darkPixelRatio: screenshotReadiness.darkPixelRatio,
+    brightPixelRatio: screenshotReadiness.brightPixelRatio,
+    accentPixelRatio: screenshotReadiness.accentPixelRatio,
+    screenshotAttempts: screenshotReadiness.screenshotAttempts,
+  };
   const screenshotSha256 = sha256(await readFile(join(ROOT, SCREENSHOT_PATH)));
   const applicationFingerprint = await fingerprintB1Application({ root: ROOT });
   const report = {

@@ -5,7 +5,7 @@ import { EXIT_CODES, isMain, printJson } from './lib/run-command.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const TESTED_APPLICATION_COMMIT =
-  '504f15bc3a8e43c52760655a8d7bb624d1df6a3d';
+  '4719181301ca4d750b69041aad767355df9056d8';
 const REQUIRED_ROOT_INPUTS = Object.freeze([
   '.npmrc',
   '.nvmrc',
@@ -209,6 +209,8 @@ export async function writeB1ExitReport({ visualReviewApproved = false } = {}) {
     android.packagedPermissions?.declared?.length !== 0 ||
     android.packagedPermissions?.requested?.length !== 0 ||
     android.uiReadiness?.status !== 'ready' ||
+    android.uiReadiness?.source !==
+      'uiautomator-required-texts-and-screenshot-bmp-shell-colour-populations' ||
     JSON.stringify(android.uiReadiness?.requiredTexts) !==
       JSON.stringify([
         'KS2 Spelling',
@@ -216,8 +218,15 @@ export async function writeB1ExitReport({ visualReviewApproved = false } = {}) {
         'Bundled locally',
       ]) ||
     !/^[a-f0-9]{64}$/.test(android.uiReadiness?.hierarchySha256 ?? '') ||
-    !Number.isInteger(android.uiReadiness?.attempts) ||
-    android.uiReadiness.attempts < 1
+    !Number.isInteger(android.uiReadiness?.hierarchyAttempts) ||
+    android.uiReadiness.hierarchyAttempts < 1 ||
+    android.uiReadiness?.width !== 1080 ||
+    android.uiReadiness?.height !== 2424 ||
+    !(android.uiReadiness?.darkPixelRatio >= 0.3) ||
+    !(android.uiReadiness?.brightPixelRatio >= 0.01) ||
+    !(android.uiReadiness?.accentPixelRatio >= 0.005) ||
+    !Number.isInteger(android.uiReadiness?.screenshotAttempts) ||
+    android.uiReadiness.screenshotAttempts < 1
   ) {
     throw fingerprintError(
       'b1_launch_evidence_invalid',

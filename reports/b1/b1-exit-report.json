@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "status": "pass",
-  "testedApplicationCommit": "504f15bc3a8e43c52760655a8d7bb624d1df6a3d",
+  "testedApplicationCommit": "4719181301ca4d750b69041aad767355df9056d8",
   "applicationFingerprint": {
     "algorithm": "sha256",
-    "sha256": "246c9a4d098d95247fd88431a8f172d13daa5d0a35e10f5cdfb8b5f10c698fba",
+    "sha256": "e09fdcb318f949e89bbfe3e61d9fe490219cfcd34ad654ff3247e5369267e6eb",
     "fileCount": 153,
     "files": [
       {
@@ -449,11 +449,11 @@
       },
       {
         "path": "scripts/native-doctor.mjs",
-        "sha256": "cc637b9e53f797ba5c6b7385fa7a6de4aff43da32acd8982716415b5a095906c"
+        "sha256": "dfd7efcb152ee6544e2e76d964c678eb33ac22f34f46ad673795d2ffc07baa1c"
       },
       {
         "path": "scripts/native-sync-check.mjs",
-        "sha256": "89c4636461863c609418997a0ef50d999bc179564abc76f0713401be6ddac4d1"
+        "sha256": "dafdd18000a475a6f2558f76a66297f30295a90b3f5b8a4c54f6478042ae249c"
       },
       {
         "path": "scripts/resolve-android-dependencies.mjs",
@@ -461,7 +461,7 @@
       },
       {
         "path": "scripts/test-android.mjs",
-        "sha256": "7feb087a1fa231646a52c36d731f7c751d8483bfe46a546a44244b3d700942b7"
+        "sha256": "80e5c043ec848ee8a9acb3fa516d90ad6caa1a7090e849cd6f5feb21241b3442"
       },
       {
         "path": "scripts/test-ios.mjs",
@@ -626,11 +626,11 @@
   "platforms": {
     "ios": {
       "report": "reports/b1/ios-simulator-launch.json",
-      "sha256": "52ed052a52f6c482b5696b7c931795321ca38be3c265dd46d06224d77c42e9f8"
+      "sha256": "ea4e7c999ceeb4d3e4bff18856d6896631d59254a7fa42d13606d1011e386186"
     },
     "android": {
       "report": "reports/b1/android-emulator-launch.json",
-      "sha256": "a681827f8b7baae7f164f3582f80fe301a5fa42f02753919abd49fcafb8a4a2d"
+      "sha256": "27ffc1240021a2ebc93346d829664cecd2a790297109c58f005d022498da63b6"
     }
   },
   "visualReview": {

@@ -11,7 +11,7 @@ import test from 'node:test';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TESTED_APPLICATION_COMMIT =
-  '504f15bc3a8e43c52760655a8d7bb624d1df6a3d';
+  '4719181301ca4d750b69041aad767355df9056d8';
 const SHA256 = /^[a-f0-9]{64}$/;
 const execFileAsync = promisify(execFile);
 
@@ -188,6 +188,7 @@ test('native capture parsers fail closed on exact foreground and installation ev
     pathToFileURL(join(ROOT, 'scripts/launch-ios-simulator.mjs'))
   );
   const {
+    analyseAndroidScreenshotBmp,
     assertAndroidBundledShellHierarchy,
     assertStartedAndroidEmulatorProcess,
     clearAndroidCaptureEvidence,
@@ -199,6 +200,7 @@ test('native capture parsers fail closed on exact foreground and installation ev
     runAndroidCaptureCleanup,
     waitForAndroidProcess,
     waitForAndroidBundledShell,
+    waitForAndroidScreenshotShell,
   } = await import(
     pathToFileURL(join(ROOT, 'scripts/launch-android-emulator.mjs'))
   );
@@ -338,6 +340,65 @@ test('native capture parsers fail closed on exact foreground and installation ev
         }),
       ),
     ({ code }) => code === 'ios_capture_invalid',
+  );
+  assert.deepEqual(
+    analyseAndroidScreenshotBmp(
+      create32BitBmp({
+        width: 10000,
+        height: 1,
+        pixels: [
+          ...Array(9213).fill(dark),
+          ...Array(251).fill(white),
+          ...Array(126).fill(teal),
+          ...Array(410).fill(muted),
+        ],
+      }),
+    ),
+    validShellProfile,
+  );
+  assert.throws(
+    () =>
+      analyseAndroidScreenshotBmp(
+        create32BitBmp({
+          width: 10000,
+          height: 1,
+          pixels: rejectedBlankPixels,
+        }),
+      ),
+    ({ code }) => code === 'android_capture_invalid',
+  );
+  const screenshotProbes = [
+    create32BitBmp({
+      width: 10000,
+      height: 1,
+      pixels: rejectedBlankPixels,
+    }),
+    create32BitBmp({
+      width: 10000,
+      height: 1,
+      pixels: [
+        ...Array(9213).fill(dark),
+        ...Array(251).fill(white),
+        ...Array(126).fill(teal),
+        ...Array(410).fill(muted),
+      ],
+    }),
+  ];
+  assert.deepEqual(
+    await waitForAndroidScreenshotShell({
+      probe: async () => screenshotProbes.shift(),
+      attempts: 2,
+      delay: async () => {},
+    }),
+    {
+      source: 'screenshot-bmp-shell-colour-populations',
+      width: 10000,
+      height: 1,
+      darkPixelRatio: 0.9213,
+      brightPixelRatio: 0.0251,
+      accentPixelRatio: 0.0126,
+      screenshotAttempts: 2,
+    },
   );
   assert.deepEqual(
     analyseIosScreenshotBmp(
@@ -568,14 +629,25 @@ test('B1 exit evidence binds both installed native apps to the current applicati
     requested: [],
   });
   assert.equal(android.uiReadiness.status, 'ready');
+  assert.equal(
+    android.uiReadiness.source,
+    'uiautomator-required-texts-and-screenshot-bmp-shell-colour-populations',
+  );
   assert.deepEqual(android.uiReadiness.requiredTexts, [
     'KS2 Spelling',
     'Starter content: 20 words',
     'Bundled locally',
   ]);
   assert.match(android.uiReadiness.hierarchySha256, SHA256);
-  assert.ok(Number.isInteger(android.uiReadiness.attempts));
-  assert.ok(android.uiReadiness.attempts >= 1);
+  assert.ok(Number.isInteger(android.uiReadiness.hierarchyAttempts));
+  assert.ok(android.uiReadiness.hierarchyAttempts >= 1);
+  assert.equal(android.uiReadiness.width, 1080);
+  assert.equal(android.uiReadiness.height, 2424);
+  assert.ok(android.uiReadiness.darkPixelRatio >= 0.3);
+  assert.ok(android.uiReadiness.brightPixelRatio >= 0.01);
+  assert.ok(android.uiReadiness.accentPixelRatio >= 0.005);
+  assert.ok(Number.isInteger(android.uiReadiness.screenshotAttempts));
+  assert.ok(android.uiReadiness.screenshotAttempts >= 1);
 
   assert.equal(ios.bundle.indexHtmlSha256, android.bundle.indexHtmlSha256);
   assert.equal(exit.schemaVersion, 1);

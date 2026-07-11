@@ -84,6 +84,30 @@ function assertCanonicalJsonBytes(bytes, expected, label) {
   if (bytes !== expected) throw seedError(`${label} JSON bytes changed`);
 }
 
+function parseCanonicalSeedJson(bytes, label) {
+  if (typeof bytes !== 'string') throw seedError(`${label} JSON bytes are missing`);
+  let value;
+  try {
+    value = JSON.parse(bytes);
+  } catch {
+    throw seedError(`${label} JSON bytes are invalid`);
+  }
+  let encoded;
+  try {
+    encoded = canonicalJson(value);
+  } catch {
+    throw seedError(`${label} JSON value is unsupported`);
+  }
+  if (encoded !== bytes) throw seedError(`${label} JSON bytes are not canonical`);
+  return value;
+}
+
+function isPlainRecord(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
 async function assertMetadata(connection) {
   const row = exactSingleRow(
     await connection.query(
@@ -137,6 +161,56 @@ async function assertImmutableLearnerRows(connection, learner) {
     EMPTY_ENTITLEMENTS_JSON,
     `aggregate ${learner.learnerId} entitlement`,
   );
+  return aggregate;
+}
+
+async function assertSubjectState(connection, learnerId, revision) {
+  const row = exactSingleRow(
+    await connection.query(
+      'SELECT learner_id, state_json FROM spelling_subject_states WHERE learner_id = ?',
+      [learnerId],
+    ),
+    `subject ${learnerId}`,
+  );
+  if (row.learner_id !== learnerId) throw seedError(`subject ${learnerId} ownership changed`);
+  if (revision === 0) {
+    assertCanonicalJsonBytes(
+      row.state_json,
+      INITIAL_SUBJECT_STATE_JSON,
+      `subject ${learnerId}`,
+    );
+    return;
+  }
+
+  const value = parseCanonicalSeedJson(row.state_json, `subject ${learnerId}`);
+  if (
+    !isPlainRecord(value) ||
+    Reflect.ownKeys(value).length !== 2 ||
+    !Object.hasOwn(value, 'ui') ||
+    !Object.hasOwn(value, 'data') ||
+    !isPlainRecord(value.ui) ||
+    !isPlainRecord(value.data)
+  ) {
+    throw seedError(`subject ${learnerId} envelope is invalid`);
+  }
+}
+
+async function assertNoMutableRows(connection, learnerId) {
+  const tables = [
+    'spelling_practice_sessions',
+    'spelling_events',
+    'spelling_monster_states',
+    'spelling_camp_states',
+  ];
+  for (const table of tables) {
+    const rows = await connection.query(
+      `SELECT learner_id FROM ${table} WHERE learner_id = ?`,
+      [learnerId],
+    );
+    if (!Array.isArray(rows) || rows.length !== 0) {
+      throw seedError(`${table} contains revision-zero rows for ${learnerId}`);
+    }
+  }
 }
 
 async function insertInitialLearner(connection, learner) {
@@ -197,7 +271,14 @@ export async function seedB2Learners(connection) {
 
     for (const learner of B2_LEARNERS) {
       await insertInitialLearner(connection, learner);
-      await assertImmutableLearnerRows(connection, learner);
+      const aggregate = await assertImmutableLearnerRows(connection, learner);
+      await assertSubjectState(connection, learner.learnerId, aggregate.revision);
+      if (aggregate.revision === 0) {
+        if (aggregate.updated_at !== learner.updatedAt) {
+          throw seedError(`aggregate ${learner.learnerId} timestamp changed`);
+        }
+        await assertNoMutableRows(connection, learner.learnerId);
+      }
     }
     await connection.commit();
   } catch (error) {

@@ -73,6 +73,64 @@ test('pause rejects accepted queued work and drains only the active owner', asyn
   await gate.waitForIdle();
 });
 
+test('new active executor is invoked before run returns and cannot cross a same-turn pause', async () => {
+  const gate = createDatabaseCommandGate();
+  const releaseActive = deferred();
+  let starts = 0;
+
+  const active = gate.run(() => {
+    starts += 1;
+    return releaseActive.promise;
+  });
+  assert.equal(starts, 1, 'connection ownership must be linearised before run returns');
+
+  const draining = gate.pauseAndDrain();
+  assert.equal(starts, 1, 'pause must not allow a not-yet-invoked active executor to start');
+  releaseActive.resolve('done');
+  assert.equal(await active, 'done');
+  await draining;
+  assert.equal(starts, 1);
+});
+
+test('concurrent pauses reject every queued item once and share the active drain boundary', async () => {
+  const gate = createDatabaseCommandGate();
+  const releaseActive = deferred();
+  const order = [];
+  const active = gate.run(async () => {
+    order.push('active');
+    await releaseActive.promise;
+  });
+  const queued = Array.from({ length: 3 }, (_, index) =>
+    gate.run(async () => {
+      order.push(`queued-${index}`);
+    }),
+  );
+  const queuedRejections = queued.map((promise) => assert.rejects(promise, assertPaused));
+
+  const firstPause = gate.pauseAndDrain();
+  const secondPause = gate.pauseAndDrain();
+  await Promise.all(queuedRejections);
+  assert.deepEqual(order, ['active']);
+  assert.throws(() => gate.resume(), /sqlite_commands_not_idle/);
+
+  let firstSettled = false;
+  let secondSettled = false;
+  void firstPause.then(() => {
+    firstSettled = true;
+  });
+  void secondPause.then(() => {
+    secondSettled = true;
+  });
+  await Promise.resolve();
+  assert.deepEqual([firstSettled, secondSettled], [false, false]);
+
+  releaseActive.resolve();
+  await active;
+  await Promise.all([firstPause, secondPause]);
+  assert.deepEqual([firstSettled, secondSettled], [true, true]);
+  assert.deepEqual(order, ['active']);
+});
+
 test('a rejected active executor releases ownership and resume requires idle state', async () => {
   const gate = createDatabaseCommandGate();
   const activeStarted = deferred();
@@ -120,4 +178,45 @@ test('FIFO execution survives an earlier executor rejection', async () => {
   assert.equal(await third, 3);
   await gate.waitForIdle();
   assert.deepEqual(order, ['first', 'second', 'third']);
+});
+
+test('synchronous executor throw releases ownership for waitForIdle and later resume', async () => {
+  const gate = createDatabaseCommandGate();
+  const failed = gate.run(() => {
+    throw new Error('synchronous_failure');
+  });
+  const idle = gate.waitForIdle();
+
+  await assert.rejects(failed, /synchronous_failure/);
+  await idle;
+  await gate.pauseAndDrain();
+  gate.resume();
+  assert.equal(await gate.run(() => 'recovered'), 'recovered');
+  await gate.waitForIdle();
+});
+
+test('waitForIdle covers the active owner and the complete accepted FIFO queue', async () => {
+  const gate = createDatabaseCommandGate();
+  const releaseFirst = deferred();
+  const order = [];
+  const first = gate.run(async () => {
+    order.push('first-start');
+    await releaseFirst.promise;
+    order.push('first-end');
+  });
+  const second = gate.run(async () => {
+    order.push('second');
+  });
+  const idle = gate.waitForIdle();
+  let settled = false;
+  void idle.then(() => {
+    settled = true;
+  });
+  await Promise.resolve();
+  assert.equal(settled, false);
+
+  releaseFirst.resolve();
+  await Promise.all([first, second, idle]);
+  assert.deepEqual(order, ['first-start', 'first-end', 'second']);
+  assert.equal(settled, true);
 });

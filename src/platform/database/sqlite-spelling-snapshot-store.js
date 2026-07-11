@@ -39,6 +39,35 @@ function requireSafeNonNegativeInteger(value, label) {
   return value;
 }
 
+function canonicalDataClone(value, label) {
+  let bytes;
+  try {
+    bytes = canonicalJson(value);
+  } catch (cause) {
+    throw new TypeError(`${label} must contain canonical serialisable data.`, {
+      cause,
+    });
+  }
+  return JSON.parse(bytes);
+}
+
+function requireExactChanges(result, allowed, label) {
+  const value = requirePlainRecord(canonicalDataClone(result, label), label);
+  const keys = Reflect.ownKeys(value);
+  if (keys.length !== 1 || keys[0] !== 'changes') {
+    throw new TypeError(`${label} must expose exactly changes.`);
+  }
+  if (
+    !Number.isSafeInteger(value.changes) ||
+    !allowed.includes(value.changes)
+  ) {
+    throw new TypeError(
+      `${label} changes must be exactly ${allowed.join(' or ')}.`,
+    );
+  }
+  return value.changes;
+}
+
 function parseCanonicalJson(bytes, label) {
   if (typeof bytes !== 'string') {
     throw storeError('sqlite_json_bytes_invalid', `${label} must contain JSON bytes.`);
@@ -81,7 +110,10 @@ function exactRow(rows, label, { optional = false } = {}) {
 }
 
 function createCatalogueRegistry(cataloguesById) {
-  const source = requirePlainRecord(cataloguesById, 'cataloguesById');
+  const source = requirePlainRecord(
+    canonicalDataClone(cataloguesById, 'cataloguesById'),
+    'cataloguesById',
+  );
   const registry = new Map();
   for (const [catalogueId, rawCatalogue] of Object.entries(source)) {
     const catalogue = validateCatalogueV1(structuredClone(rawCatalogue));
@@ -304,7 +336,10 @@ export function createSQLiteSpellingSnapshotStore({ connection, cataloguesById }
       );
       return;
     }
-    const value = requirePlainRecord(session, 'practice session');
+    const value = requirePlainRecord(
+      canonicalDataClone(session, 'practice session'),
+      'practice session',
+    );
     if (value.learnerId !== learnerId) {
       throw new TypeError('Practice session belongs to another learner.');
     }
@@ -320,38 +355,108 @@ export function createSQLiteSpellingSnapshotStore({ connection, cataloguesById }
   async function appendEvents(learnerId, existingEventLog, appendedEvents) {
     await requireTransaction(connection);
     requireLearnerId(learnerId);
-    if (!Array.isArray(existingEventLog) || !Array.isArray(appendedEvents)) {
-      throw new TypeError('Spelling event logs must be arrays.');
+
+    function prepareEvents(candidate, label) {
+      const events = canonicalDataClone(candidate, label);
+      if (!Array.isArray(events)) throw new TypeError(`${label} must be an array.`);
+      const ids = new Set();
+      const prepared = events.map((event, index) => {
+        const value = requirePlainRecord(event, `${label}[${index}]`);
+        if (typeof value.id !== 'string' || value.id.length === 0) {
+          throw new TypeError(`${label}[${index}] event ID must be non-empty.`);
+        }
+        if (value.learnerId !== learnerId) {
+          throw new TypeError(`${label}[${index}] belongs to another learner.`);
+        }
+        requireSafeNonNegativeInteger(
+          value.createdAt,
+          `${label}[${index}] createdAt`,
+        );
+        if (ids.has(value.id)) {
+          throw storeError(
+            'spelling_event_id_collision',
+            `${label} contains a duplicate event ID.`,
+          );
+        }
+        ids.add(value.id);
+        return Object.freeze({
+          event: value,
+          eventJson: canonicalJson(value),
+        });
+      });
+      return { ids, prepared };
     }
-    for (const [index, event] of appendedEvents.entries()) {
-      const value = requirePlainRecord(event, `appended event ${index}`);
-      if (value.learnerId !== learnerId || typeof value.id !== 'string') {
-        throw new TypeError('Appended event identity is invalid.');
+
+    const existing = prepareEvents(existingEventLog, 'existingEventLog');
+    const appended = prepareEvents(appendedEvents, 'appendedEvents');
+    if ([...appended.ids].some((eventId) => existing.ids.has(eventId))) {
+      throw storeError(
+        'spelling_event_id_collision',
+        'Appended event ID collides with the stored prefix.',
+      );
+    }
+
+    const storedRows = await connection.query(
+      'SELECT learner_id, event_id, sequence_no, created_at, event_json FROM spelling_events WHERE learner_id = ? ORDER BY sequence_no ASC',
+      [learnerId],
+    );
+    if (
+      !Array.isArray(storedRows) ||
+      storedRows.length !== existing.prepared.length
+    ) {
+      throw storeError(
+        'sqlite_event_prefix_mismatch',
+        'Stored Spelling events do not match the supplied prefix.',
+      );
+    }
+    for (const [index, row] of storedRows.entries()) {
+      const expected = existing.prepared[index];
+      if (
+        row.learner_id !== learnerId ||
+        row.sequence_no !== index ||
+        row.event_id !== expected.event.id ||
+        row.created_at !== expected.event.createdAt ||
+        row.event_json !== expected.eventJson
+      ) {
+        throw storeError(
+          'sqlite_event_prefix_mismatch',
+          'Stored Spelling events are not the exact zero-based supplied prefix.',
+        );
       }
-      requireSafeNonNegativeInteger(value.createdAt, 'Appended event createdAt');
-      await connection.execute(
+    }
+
+    for (const [index, prepared] of appended.prepared.entries()) {
+      const result = await connection.execute(
         'INSERT INTO spelling_events (learner_id, event_id, sequence_no, created_at, event_json) VALUES (?, ?, ?, ?, ?)',
         [
           learnerId,
-          value.id,
-          existingEventLog.length + index,
-          value.createdAt,
-          canonicalJson(value),
+          prepared.event.id,
+          existing.prepared.length + index,
+          prepared.event.createdAt,
+          prepared.eventJson,
         ],
       );
+      requireExactChanges(result, [1], 'Spelling event insert result');
     }
   }
 
   async function syncRows({ learnerId, states, table, keyColumn, identityKey, label }) {
     await requireTransaction(connection);
     requireLearnerId(learnerId);
-    const values = requirePlainRecord(states, `${label} states`);
+    const values = requirePlainRecord(
+      canonicalDataClone(states, `${label} states`),
+      `${label} states`,
+    );
+    const prepared = Object.entries(values).map(([key, state]) => {
+      const value = assertOwned(state, learnerId, identityKey, key, `${label} ${key}`);
+      return Object.freeze({ key, stateJson: canonicalJson(value) });
+    });
     const currentRows = await connection.query(
       `SELECT ${keyColumn} AS state_key FROM ${table} WHERE learner_id = ?`,
       [learnerId],
     );
     if (!Array.isArray(currentRows)) throw storeError('sqlite_rows_invalid');
-    const wanted = new Set(Object.keys(values));
+    const wanted = new Set(prepared.map(({ key }) => key));
     for (const row of currentRows) {
       if (!wanted.has(row.state_key)) {
         await connection.execute(
@@ -360,11 +465,10 @@ export function createSQLiteSpellingSnapshotStore({ connection, cataloguesById }
         );
       }
     }
-    for (const [key, state] of Object.entries(values)) {
-      const value = assertOwned(state, learnerId, identityKey, key, `${label} ${key}`);
+    for (const { key, stateJson } of prepared) {
       await connection.execute(
         `INSERT INTO ${table} (learner_id, ${keyColumn}, state_json) VALUES (?, ?, ?) ON CONFLICT (learner_id, ${keyColumn}) DO UPDATE SET state_json = excluded.state_json`,
-        [learnerId, key, canonicalJson(value)],
+        [learnerId, key, stateJson],
       );
     }
   }
@@ -396,12 +500,15 @@ export function createSQLiteSpellingSnapshotStore({ connection, cataloguesById }
     requireLearnerId(learnerId);
     requireSafeNonNegativeInteger(expectedRevision, 'Expected revision');
     requireSafeNonNegativeInteger(nowMs, 'Aggregate timestamp');
-    const value = requirePlainRecord(plan, 'Spelling command plan');
+    const value = requirePlainRecord(
+      canonicalDataClone(plan, 'Spelling command plan'),
+      'Spelling command plan',
+    );
     if (
       value.learnerId !== learnerId ||
       value.expectedRevision !== expectedRevision ||
       !Number.isSafeInteger(value.nextRevision) ||
-      value.nextRevision < expectedRevision
+      value.nextRevision !== expectedRevision + 1
     ) {
       throw new TypeError('Spelling command plan revision identity is invalid.');
     }
@@ -409,7 +516,7 @@ export function createSQLiteSpellingSnapshotStore({ connection, cataloguesById }
       'UPDATE spelling_aggregates SET revision = ?, updated_at = ? WHERE learner_id = ? AND revision = ?',
       [value.nextRevision, nowMs, learnerId, expectedRevision],
     );
-    return result.changes;
+    return requireExactChanges(result, [0, 1], 'Aggregate compare-and-set result');
   }
 
   return Object.freeze({

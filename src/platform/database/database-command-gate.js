@@ -28,13 +28,27 @@ export function createDatabaseCommandGate() {
     }
 
     active = next;
-    Promise.resolve()
-      .then(next.executor)
-      .then(next.resolve, next.reject)
-      .finally(() => {
+    let result;
+    try {
+      result = next.executor();
+    } catch (error) {
+      next.reject(error);
+      if (active === next) active = null;
+      startNext();
+      return;
+    }
+    Promise.resolve(result).then(
+      (value) => {
+        next.resolve(value);
         if (active === next) active = null;
         startNext();
-      });
+      },
+      (error) => {
+        next.reject(error);
+        if (active === next) active = null;
+        startNext();
+      },
+    );
   }
 
   function run(executor) {

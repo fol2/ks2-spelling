@@ -4,21 +4,27 @@
   "generatedFrom": {
     "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "spmResolvedVersion": 3,
-    "nativePluginBuildSha256": "be2d277dd5b74f7c06a5a7c1f928045009682d6568a4d47fbf80cb22c44ef0ef",
-    "webViewBundleEvidenceSha256": "18699c4317501edc620901ad86a51a0b939388c252e435fdae1cf6ffa76393eb"
+    "nativePluginBuildSha256": "9bd9c841c192529d84b00d6f2e2eb53011528cf2d50fca0a0b931302a35bd970",
+    "webViewBundleEvidenceSha256": "d0a7ee712c8cb8ac6cfbe92463d1d867dbeca91fa8e7505a9bc4cc6c7e7a2bc0"
   },
   "npm": {
     "lockfileVersion": 3,
     "lockPackageCount": 189,
     "webViewBundle": {
       "mode": "vite-rollup-write-false",
-      "moduleCount": 45,
+      "moduleCount": 64,
       "packageNames": [
+        "@capacitor-community/sqlite",
+        "@capacitor/app",
+        "@capacitor/core",
         "react",
         "react-dom",
         "scheduler"
       ],
       "packageLocators": [
+        "node_modules/@capacitor-community/sqlite",
+        "node_modules/@capacitor/app",
+        "node_modules/@capacitor/core",
         "node_modules/react",
         "node_modules/react-dom",
         "node_modules/scheduler"
@@ -37,10 +43,52 @@
           "sha256": null
         },
         {
+          "id": "\u0000vite/preload-helper.js",
+          "kind": "virtual",
+          "npmLocator": null,
+          "sha256": null
+        },
+        {
           "id": "index.html",
           "kind": "file",
           "npmLocator": null,
           "sha256": "ef7c045b13d4d72bdb19fc8ee17918dce4385e511f0a72b3b54ac8bc9ad9de9d"
+        },
+        {
+          "id": "node_modules/@capacitor-community/sqlite/dist/esm/definitions.js",
+          "kind": "file",
+          "npmLocator": "node_modules/@capacitor-community/sqlite",
+          "sha256": "69a5acabdae902c4ca051cacf8b87e2fc18c6972ee3f4f500a7cdcfb788d07f6"
+        },
+        {
+          "id": "node_modules/@capacitor-community/sqlite/dist/esm/index.js",
+          "kind": "file",
+          "npmLocator": "node_modules/@capacitor-community/sqlite",
+          "sha256": "c58a6c463660d15d83f250820edc4168021a3da1a797883cb65be76453882a6f"
+        },
+        {
+          "id": "node_modules/@capacitor-community/sqlite/dist/esm/web.js",
+          "kind": "file",
+          "npmLocator": "node_modules/@capacitor-community/sqlite",
+          "sha256": "7106f87d637037ce448812f35d6ff193ebb3bd734794149f396b46f109ac3069"
+        },
+        {
+          "id": "node_modules/@capacitor/app/dist/esm/index.js",
+          "kind": "file",
+          "npmLocator": "node_modules/@capacitor/app",
+          "sha256": "6a8b5b04be5b1ccae38e5280da3122ee57b2cbf9f58c594a5f8476159885e00a"
+        },
+        {
+          "id": "node_modules/@capacitor/app/dist/esm/web.js",
+          "kind": "file",
+          "npmLocator": "node_modules/@capacitor/app",
+          "sha256": "d6b2ccfe0c4b80f87594ad98fcc10aa740e5a303a33a2217fc970e085a8000ee"
+        },
+        {
+          "id": "node_modules/@capacitor/core/dist/index.js",
+          "kind": "file",
+          "npmLocator": "node_modules/@capacitor/core",
+          "sha256": "b752d9e8c8a9943f3410c464a74a194deaa3665ba0e111979b68f00d4ce6daa8"
         },
         {
           "id": "node_modules/react-dom/cjs/react-dom-client.production.js",
@@ -106,19 +154,31 @@
           "id": "src/app/App.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "f9271fffc9714cca81f9f8aa1a76b65460b1b512bc437bf0f12020ec6544a83d"
+          "sha256": "beabb39e01f0062586931114f6a5a76beebe81d5a893a998aaee64675b990031"
         },
         {
           "id": "src/app/app.css",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "9afeea97f8733a68ab03d091d3bbd22115feaab95d37d16cda08ae854b15ece4"
+          "sha256": "4ae6e8d05384574a38be0828677fecdfb34de3fa5521c7d47bfbba3cae8de2e4"
         },
         {
-          "id": "src/app/create-app-services.js",
+          "id": "src/app/b2-proof-controller.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "36f027d35a7016870b6bea0e0303812f42aa1c3c9b5788e62ca5b61b6af55207"
+          "sha256": "7ddd86202a5314f71e0d5afabbd89706425e50d537399395f807adc1bbc64568"
+        },
+        {
+          "id": "src/app/create-b2-app-services.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "314781ceb7c245055dee2e2928b5df42484900e0145a1c0b7febb23fbf64afe6"
+        },
+        {
+          "id": "src/app/database-lifecycle-coordinator.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "76f6ce6a8b728a170b4792f484696c564eba5b4681c2526a2dce5412a20f150d"
         },
         {
           "id": "src/domain/spelling/index.js",
@@ -130,19 +190,73 @@
           "id": "src/main.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "83c1210b4bf9b3ed2e344cf8b592cded3cddbd6377e497731fedf44395f2f43f"
+          "sha256": "393548173c3da2fd3ca6c2dfe46dc34aa6a0de167e1ca2747496d452b75bd9e6"
         },
         {
-          "id": "src/platform/fakes/create-b1-fake-native-ports.js",
+          "id": "src/platform/database/b2-seed.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "db9319da2c59ec72c519e0538b21df66ed41cab1391fd2d55510c27c615aea90"
+          "sha256": "c4201a731fc5e40bca84481a6d90ac71b9c40d899c6739e9845a040d557ca3ad"
         },
         {
-          "id": "src/platform/native-port-contract.js",
+          "id": "src/platform/database/canonical-json.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "1673abb07d26dd2f4ad70e6262405988f021aa01ca70ad17feab982f11ce4a40"
+          "sha256": "6132cc9519a2f867ccbc11fb1603ae252d001a26bb0df906bd431bf637c433b6"
+        },
+        {
+          "id": "src/platform/database/capacitor-sqlite-connection.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "b63ea1e7f68f0cd0cff464670b16f3b81f5865f40a16d8c978c219ec56d4933f"
+        },
+        {
+          "id": "src/platform/database/database-command-gate.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "50c8dc5e6a42a3def97355fdabb1266bc8ed3506dbe00ab178662612654d5898"
+        },
+        {
+          "id": "src/platform/database/migrate-database.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "00029430d4df286ef37bfa1841ca5d85bc5ccd2057cb9e8713dce618e5902c59"
+        },
+        {
+          "id": "src/platform/database/schema-v1.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "e6b4afcfc3ab5a25f0c335f18e4f24fab6129d3836f997a272dcd4dc6a9235bb"
+        },
+        {
+          "id": "src/platform/database/sql-connection-contract.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "640e2f5238d55e732675017446eda9c7489b1f007bd48d505e59fac68e69c537"
+        },
+        {
+          "id": "src/platform/database/sqlite-spelling-command-repository.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "1d8ecbaca00211d625780e9a53ba41fe4917a2873820eadaad4f33e048d55a50"
+        },
+        {
+          "id": "src/platform/database/sqlite-spelling-snapshot-store.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "85122034257d23a3c56423ea5fedab5c188d52a590206607a5bf52edc40d0595"
+        },
+        {
+          "id": "src/platform/lifecycle/app-lifecycle-contract.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "8c3c51ec0ce33ab23a8cc287704a1d508999465f2e3e163cbfe48984d5faf641"
+        },
+        {
+          "id": "src/platform/lifecycle/capacitor-app-lifecycle.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "f779bceee5f3397dc2765d5768804338d2e292a255df7c154dd5933b8f468156"
         },
         {
           "id": "vendor/ks2-mastery/content/spelling.mobile-runtime-full.json",
@@ -271,6 +385,12 @@
           "sha256": "78dabff89d293b14652fb794e0f784392dce0f7d6b86b5bf1bae70b0d220cdcb"
         },
         {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/identity.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "d31755df90065291780f5bff6f2dfbe2305cb5d4379c0cb8537ccd10f4a2ef59"
+        },
+        {
           "id": "vendor/ks2-mastery/shared/spelling/mobile/index.js",
           "kind": "file",
           "npmLocator": null,
@@ -297,22 +417,32 @@
       ],
       "outputInventory": [
         {
-          "fileName": "assets/index-BOyz-jJw.js",
-          "kind": "chunk",
-          "sha256": "c64613f2d7d0a065dfe643fa625d6545d41f447ca9c5d7bbeafc162bfd413073"
+          "fileName": "assets/index-D-a1p2oZ.css",
+          "kind": "asset",
+          "sha256": "d165867cad3f680323a8562a7fc72d4d12ab84f28a3d6bf0ee2acc8cfd45855c"
         },
         {
-          "fileName": "assets/index-BvnBxf-p.css",
-          "kind": "asset",
-          "sha256": "51a4b88cdf1cc34e3c6874089fdcd49ad2fbaf17c71b8ff55768ef572160c267"
+          "fileName": "assets/index-DZWuISqR.js",
+          "kind": "chunk",
+          "sha256": "685a350e3ed21fbfa887fcf7ed917bc723b9708026620f92dabef7724bea4918"
+        },
+        {
+          "fileName": "assets/web-CCvQ96Vu.js",
+          "kind": "chunk",
+          "sha256": "7cd2dd0444a6559171a334cd3ab4881ecf9fae0e68dc360b449756839395506f"
+        },
+        {
+          "fileName": "assets/web-CloEs_zZ.js",
+          "kind": "chunk",
+          "sha256": "1b695c4eeeab02e015df8d91f8cc3b8959218c347315c5d56612522f69dc77c3"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "61f2b23306dbc5980d8ad53e42853afe6c1691440b4f8ae63c55461abbd313db"
+          "sha256": "d41f21eb83093650cab2782fc15bcd2a444851a14075eb7784faf7e1b196eb4d"
         }
       ],
-      "evidenceSha256": "18699c4317501edc620901ad86a51a0b939388c252e435fdae1cf6ffa76393eb"
+      "evidenceSha256": "d0a7ee712c8cb8ac6cfbe92463d1d867dbeca91fa8e7505a9bc4cc6c7e7a2bc0"
     },
     "allPackages": [
       {
@@ -324,11 +454,11 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": false,
-        "distribution": "native-build-source",
-        "role": "native build source that compiles into separately evidenced SwiftPM or Maven outputs",
-        "platform": "Native build input",
-        "privacyRole": "Source input only; resulting SwiftPM and Maven outputs are certified separately",
+        "packaged": true,
+        "distribution": "webview-bundle",
+        "role": "runtime code physically included by the deterministic Vite/Rollup build",
+        "platform": "WebView JavaScript bundle",
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
         "restrictedExportClassification": "SQLCipher is packaged; US export classification remains unresolved before store release",
         "restrictedClassification": "none",
         "exportClassification": "SQLCipher is packaged; US export classification remains unresolved before store release"
@@ -360,11 +490,11 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": false,
-        "distribution": "native-build-source",
-        "role": "native build source that compiles into separately evidenced SwiftPM or Maven outputs",
-        "platform": "Native build input",
-        "privacyRole": "Source input only; resulting SwiftPM and Maven outputs are certified separately",
+        "packaged": true,
+        "distribution": "webview-bundle",
+        "role": "runtime code physically included by the deterministic Vite/Rollup build",
+        "platform": "WebView JavaScript bundle",
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
         "restrictedExportClassification": "None identified",
         "restrictedClassification": "none",
         "exportClassification": "None identified"
@@ -396,11 +526,11 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": false,
-        "distribution": "installed-not-packaged",
-        "role": "installed optional dependency code absent from the WebView bundle and native source set",
-        "platform": "Installed dependency closure only",
-        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "packaged": true,
+        "distribution": "webview-bundle",
+        "role": "runtime code physically included by the deterministic Vite/Rollup build",
+        "platform": "WebView JavaScript bundle",
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
         "restrictedExportClassification": "None identified",
         "restrictedClassification": "none",
         "exportClassification": "none-identified"
@@ -3736,17 +3866,17 @@
         "integrity": "sha512-yhKZDAVPDPcM3QE6UGB3LXyV25a6Rve1SjZ1aUpTE0E2isnYTVM0PG9+JOI241f+NdsHzPTE7ESJiYSqKsKnuA==",
         "licence": "MIT",
         "declaredLicence": "MIT",
-        "role": "native build source that compiles into separately evidenced SwiftPM or Maven outputs",
-        "platform": "Native build input",
+        "role": "runtime code physically included by the deterministic Vite/Rollup build",
+        "platform": "WebView JavaScript bundle",
         "permissions": [],
         "dataAccess": [],
         "networkEndpoints": [],
         "applePrivacyManifest": "No app Required Reason API or usage-description key added in B2",
         "googleDataSafety": "Local database access only; no collection or transmission in B2",
         "sourceRepository": "https://github.com/capacitor-community/sqlite.git",
-        "packaged": false,
-        "distribution": "native-build-source",
-        "privacyRole": "Source input only; resulting SwiftPM and Maven outputs are certified separately",
+        "packaged": true,
+        "distribution": "webview-bundle",
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
         "restrictedExportClassification": "SQLCipher is packaged; US export classification remains unresolved before store release",
         "restrictedClassification": "none",
         "exportClassification": "SQLCipher is packaged; US export classification remains unresolved before store release",
@@ -3786,17 +3916,17 @@
         "integrity": "sha512-MlmttTOWHDedr/G4SrhNRxsXMqY+R75S4MM4eIgzsgCzOYhb/MpCkA5Q3nuOCfL1oHm26xjUzqZ5aupbOwdfYg==",
         "licence": "MIT",
         "declaredLicence": "MIT",
-        "role": "native build source that compiles into separately evidenced SwiftPM or Maven outputs",
-        "platform": "Native build input",
+        "role": "runtime code physically included by the deterministic Vite/Rollup build",
+        "platform": "WebView JavaScript bundle",
         "permissions": [],
         "dataAccess": [],
         "networkEndpoints": [],
         "applePrivacyManifest": "No app Required Reason API or usage-description key added in B2",
         "googleDataSafety": "Lifecycle notifications only; no collection or transmission in B2",
         "sourceRepository": "https://github.com/ionic-team/capacitor-plugins.git",
-        "packaged": false,
-        "distribution": "native-build-source",
-        "privacyRole": "Source input only; resulting SwiftPM and Maven outputs are certified separately",
+        "packaged": true,
+        "distribution": "webview-bundle",
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
         "restrictedExportClassification": "None identified",
         "restrictedClassification": "none",
         "exportClassification": "None identified",
@@ -3811,17 +3941,17 @@
         "integrity": "sha512-xqhOGLbTAYeOWK+IDUNSjQJAPapQjRHrIcgk9PYp52or9zFTaaMko31uNi16N6W+CRJ8VrRram6fOYILkBG2Hg==",
         "licence": "MIT",
         "declaredLicence": "MIT",
-        "role": "installed optional dependency code absent from the WebView bundle and native source set",
-        "platform": "Installed dependency closure only",
+        "role": "runtime code physically included by the deterministic Vite/Rollup build",
+        "platform": "WebView JavaScript bundle",
         "permissions": [],
         "dataAccess": [],
         "networkEndpoints": [],
         "applePrivacyManifest": "No app Required Reason API declared in B1",
         "googleDataSafety": "No app data collection or permission declared in B1",
         "sourceRepository": null,
-        "packaged": false,
-        "distribution": "installed-not-packaged",
-        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "packaged": true,
+        "distribution": "webview-bundle",
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
         "restrictedExportClassification": "None identified",
         "restrictedClassification": "none",
         "exportClassification": "none-identified",

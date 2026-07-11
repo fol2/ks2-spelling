@@ -39,7 +39,8 @@ select {
 
 .hero,
 .status-card,
-.boundary {
+.boundary,
+.evidence-grid {
   border: 1px solid rgb(255 255 255 / 12%);
   border-radius: 1.5rem;
   background: rgb(9 27 38 / 72%);
@@ -116,9 +117,52 @@ h1 {
   margin: 0;
 }
 
+.proof-status h2 {
+  color: #f5f1e8;
+}
+
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  overflow: hidden;
+}
+
+.evidence-grid div {
+  padding: 1.25rem;
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
+}
+
+.evidence-grid div:nth-child(odd) {
+  border-right: 1px solid rgb(255 255 255 / 10%);
+}
+
+.evidence-grid dt {
+  margin-bottom: 0.45rem;
+  color: #82d2bd;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.evidence-grid dd {
+  margin: 0;
+  color: #d7e0e3;
+  font-weight: 650;
+}
+
 @media (max-width: 34rem) {
   .status-card {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .evidence-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .evidence-grid div:nth-child(odd) {
+    border-right: 0;
   }
 }

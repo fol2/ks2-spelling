@@ -1,15 +1,48 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { Capacitor } from '@capacitor/core';
 import App from './app/App.jsx';
 import './app/app.css';
-import { createAppServices } from './app/create-app-services.js';
+import { createB2AppServices } from './app/create-b2-app-services.js';
 
 const root = document.getElementById('root');
 
 if (!root) throw new Error('KS2 Spelling root element is missing.');
 
-createRoot(root).render(
-  <StrictMode>
-    <App services={createAppServices()} />
-  </StrictMode>,
-);
+function failureServices() {
+  const state = Object.freeze({ status: 'B2 proof needs attention' });
+  return Object.freeze({
+    mode: 'b2-native-proof',
+    databaseName: 'ks2-spelling',
+    schemaVersion: 1,
+    learnerIsolation: 'not verified',
+    controller: Object.freeze({
+      getState: () => state,
+      subscribe(listener) {
+        listener(state);
+        return Object.freeze({ remove() {} });
+      },
+      start: () => Promise.reject(new Error('b2_native_startup_failed')),
+    }),
+  });
+}
+
+async function bootstrap() {
+  let services;
+  if (Capacitor.isNativePlatform()) {
+    try {
+      services = await createB2AppServices();
+    } catch {
+      services = failureServices();
+    }
+  } else {
+    services = failureServices();
+  }
+  createRoot(root).render(
+    <StrictMode>
+      <App services={services} />
+    </StrictMode>,
+  );
+}
+
+void bootstrap();

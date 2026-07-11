@@ -56,6 +56,9 @@ const EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS = Object.freeze([
   },
 ]);
 const EXPECTED_WEBVIEW_BUNDLE_PACKAGES = Object.freeze([
+  '@capacitor-community/sqlite',
+  '@capacitor/app',
+  '@capacitor/core',
   'react',
   'react-dom',
   'scheduler',

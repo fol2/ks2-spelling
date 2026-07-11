@@ -320,36 +320,47 @@ test('B2 audits the exact four packaged iOS privacy manifests and reasons', asyn
 test('B2 npm packaging comes only from the deterministic write-false bundle inventory', async () => {
   const audit = await readJson('reports/b2/dependency-audit.json');
   assert.deepEqual(audit.npm.webViewBundle.packageNames, [
+    '@capacitor-community/sqlite',
+    '@capacitor/app',
+    '@capacitor/core',
     'react',
     'react-dom',
     'scheduler',
   ]);
-  assert.equal(audit.npm.webViewBundle.moduleCount, 45);
+  assert.equal(audit.npm.webViewBundle.moduleCount, 64);
   assert.equal(audit.npm.webViewBundle.mode, 'vite-rollup-write-false');
   assert.match(audit.npm.webViewBundle.evidenceSha256, SHA256);
-  assert.ok(audit.npm.webViewBundle.modules.length === 45);
+  assert.ok(audit.npm.webViewBundle.modules.length === 64);
   const packaged = audit.npm.allPackages
     .filter((entry) => entry.packaged)
     .map(({ name }) => name)
     .sort();
-  assert.deepEqual(packaged, ['react', 'react-dom', 'scheduler']);
-  for (const packageName of [
+  assert.deepEqual(packaged, [
     '@capacitor-community/sqlite',
-    '@capacitor/android',
     '@capacitor/app',
-    '@capacitor/ios',
-  ]) {
+    '@capacitor/core',
+    'react',
+    'react-dom',
+    'scheduler',
+  ]);
+  for (const packageName of ['@capacitor/android', '@capacitor/ios']) {
     const entry = audit.npm.allPackages.find(
       (candidate) => candidate.name === packageName && candidate.locator === `node_modules/${packageName}`,
     );
     assert.equal(entry.packaged, false, packageName);
     assert.equal(entry.distribution, 'native-build-source', packageName);
   }
-  const capacitorCore = audit.npm.allPackages.find(
-    ({ locator }) => locator === 'node_modules/@capacitor/core',
-  );
-  assert.equal(capacitorCore.packaged, false);
-  assert.equal(capacitorCore.distribution, 'installed-not-packaged');
+  for (const packageName of [
+    '@capacitor-community/sqlite',
+    '@capacitor/app',
+    '@capacitor/core',
+  ]) {
+    const entry = audit.npm.allPackages.find(
+      ({ locator }) => locator === `node_modules/${packageName}`,
+    );
+    assert.equal(entry.packaged, true, packageName);
+    assert.equal(entry.distribution, 'webview-bundle', packageName);
+  }
   for (const packageName of ['jeep-sqlite', 'sql.js', '@stencil/core', 'localforage']) {
     const entries = audit.npm.allPackages.filter(({ name }) => name === packageName);
     assert.ok(entries.length > 0, packageName);
@@ -393,6 +404,6 @@ test('unpackaged npm identities never claim bundled or packaged artefact status'
       .filter(({ distribution }) => distribution === 'native-build-source')
       .map(({ name }) => name)
       .sort(),
-    ['@capacitor-community/sqlite', '@capacitor/android', '@capacitor/app', '@capacitor/ios'],
+    ['@capacitor/android', '@capacitor/ios'],
   );
 });

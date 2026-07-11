@@ -9,7 +9,7 @@ This is the deterministic dependency inventory for the B2 local persistence proo
 - Maven task-created build-tool identities: 12
 - Maven verification inventory: 427 components and 847 artefacts
 - Notice rows: 518
-- Physically bundled WebView npm packages: react, react-dom, scheduler
+- Physically bundled WebView npm packages: @capacitor-community/sqlite, @capacitor/app, @capacitor/core, react, react-dom, scheduler
 - Notice inclusion is deliberately conservative and does not mean an npm artefact is packaged
 - Runtime network endpoints: none
 - Native plugins: @capacitor-community/sqlite 8.1.0 and @capacitor/app 8.1.0, conditionally approved for B2 proof only
@@ -17,11 +17,11 @@ This is the deterministic dependency inventory for the B2 local persistence proo
 
 | Package | Version | Declared licence | Source type | Source | Locator | Distribution |
 |---|---:|---|---|---|---|---|
-| @capacitor-community/sqlite | 8.1.0 | MIT | npm | https://registry.npmjs.org/@capacitor-community/sqlite/-/sqlite-8.1.0.tgz | node_modules/@capacitor-community/sqlite | native-build-source; packaged=false |
+| @capacitor-community/sqlite | 8.1.0 | MIT | npm | https://registry.npmjs.org/@capacitor-community/sqlite/-/sqlite-8.1.0.tgz | node_modules/@capacitor-community/sqlite | webview-bundle; packaged=true |
 | @capacitor/android | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/android/-/android-8.4.1.tgz | node_modules/@capacitor/android | native-build-source; packaged=false |
-| @capacitor/app | 8.1.0 | MIT | npm | https://registry.npmjs.org/@capacitor/app/-/app-8.1.0.tgz | node_modules/@capacitor/app | native-build-source; packaged=false |
+| @capacitor/app | 8.1.0 | MIT | npm | https://registry.npmjs.org/@capacitor/app/-/app-8.1.0.tgz | node_modules/@capacitor/app | webview-bundle; packaged=true |
 | @capacitor/cli | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/cli/-/cli-8.4.1.tgz | node_modules/@capacitor/cli | build-tool-not-packaged; packaged=false |
-| @capacitor/core | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/core/-/core-8.4.1.tgz | node_modules/@capacitor/core | installed-not-packaged; packaged=false |
+| @capacitor/core | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/core/-/core-8.4.1.tgz | node_modules/@capacitor/core | webview-bundle; packaged=true |
 | @capacitor/ios | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/ios/-/ios-8.4.1.tgz | node_modules/@capacitor/ios | native-build-source; packaged=false |
 | @emnapi/core | 1.11.1 | MIT | npm | https://registry.npmjs.org/@emnapi/core/-/core-1.11.1.tgz | node_modules/@emnapi/core | build-tool-not-packaged; packaged=false |
 | @emnapi/runtime | 1.11.1 | MIT | npm | https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.11.1.tgz | node_modules/@emnapi/runtime | build-tool-not-packaged; packaged=false |

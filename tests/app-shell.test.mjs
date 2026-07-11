@@ -79,6 +79,69 @@ test('the local prototype shell renders its honest B1 capability boundary', asyn
   );
 });
 
+test('the B2 shell renders exact persistence diagnostics and sanitises failures', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { default: App } = await vite.ssrLoadModule('/src/app/App.jsx');
+  const controller = Object.freeze({
+    getState() {
+      return Object.freeze({ status: 'B2 proof complete' });
+    },
+    subscribe() {
+      return Object.freeze({ remove() {} });
+    },
+    async start() {},
+  });
+  const services = Object.freeze({
+    mode: 'b2-native-proof',
+    controller,
+    databaseName: 'ks2-spelling',
+    schemaVersion: 1,
+    learnerIsolation: 'verified',
+  });
+  const html = renderToStaticMarkup(React.createElement(App, { services }));
+
+  assert.match(html, /KS2 Spelling/);
+  assert.match(html, /B2 persistence proof/);
+  assert.match(html, /Database: ks2-spelling/);
+  assert.match(html, /SQLite schema: 1/);
+  assert.match(html, /Learner isolation: verified/);
+  assert.match(html, /Lifecycle: pause, resume and relaunch verified/);
+  assert.match(html, /B2 proof complete/);
+  assert.doesNotMatch(html, /monster|parent|purchase|commerce/i);
+
+  const failureHtml = renderToStaticMarkup(
+    React.createElement(App, {
+      services: Object.freeze({
+        ...services,
+        controller: Object.freeze({
+          ...controller,
+          getState() {
+            return Object.freeze({ status: 'B2 proof needs attention' });
+          },
+        }),
+      }),
+    }),
+  );
+  assert.match(failureHtml, /B2 proof needs attention/);
+  assert.doesNotMatch(failureHtml, /wrong|answer|subjectState|practiceSession/);
+});
+
+test('main selects native B2 composition without web SQLite fallback', async () => {
+  const main = await readFile(join(ROOT, 'src/main.jsx'), 'utf8');
+  assert.match(main, /Capacitor\.isNativePlatform\(\)/);
+  assert.match(main, /createB2AppServices/);
+  assert.match(main, /else\s*\{\s*services = failureServices\(\)/);
+  assert.doesNotMatch(main, /indexeddb|jeep-sqlite|wasm/i);
+});
+
 test('Capacitor and the built shell remain local-only', async () => {
   const { build } = await import('vite');
   const capacitorConfig = JSON.parse(

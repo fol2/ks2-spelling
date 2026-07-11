@@ -42,7 +42,7 @@ Direct build-only tools are `@capacitor/cli` 8.4.1, `@vitejs/plugin-react` 6.0.3
 
 ## Resolved Android Maven graph
 
-The Task 8 toolchain resolves 286 unique module-version nodes across 3,133 exact project, configuration and buildscript scope memberships. The actual test and assemble tasks add 12 exact host build-tool nodes. The committed certification records every selected POM source URL and SHA-256, selected and task-created binary artefact checksums, three project dependency lockfiles and the finite Gradle verification inventory of 392 components and 768 artefacts. Fifty modules are present in the packaged app release runtime.
+The Task 8 toolchain resolves 286 unique module-version nodes across 3,133 exact project, configuration and buildscript scope memberships. The actual test and assemble tasks add 12 exact host build-tool nodes. The committed certification records every selected POM source URL and SHA-256, selected and task-created macOS and Linux binary artefact checksums, three project dependency lockfiles and the finite Gradle verification inventory of 392 components and 769 artefacts. Fifty modules are present in the packaged app release runtime.
 
 Twenty-five non-standard or reciprocal licence expressions are restricted to the exact build, internal-tooling or test-only components recorded in `config/maven-licence-policy.json`. None appears in `:app` `releaseRuntimeClasspath`; the audit fails if one is promoted there. James personally accepted the Android SDK terms for local build tooling. That acceptance does not approve redistribution in the packaged app.
 

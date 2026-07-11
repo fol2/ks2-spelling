@@ -33,7 +33,7 @@
     },
     {
       "path": "android/gradle/verification-metadata.xml",
-      "sha256": "0dd08ee21ee61a2ffe5902080a09e255ee906b418554b97b40b462e6e2d7b1b0"
+      "sha256": "e96275562567df2b95d91d8b5f2adb2332350eefbdd6fc1fe861bb48d586a2b7"
     },
     {
       "path": "android/gradle/dependency-locks/app.lockfile",
@@ -28021,6 +28021,11 @@
       "scope": "task-created-build-tool",
       "artifacts": [
         {
+          "name": "aapt2-8.13.0-13719691-linux.jar",
+          "sha256": "c1aebd96a144313da65de675cc1f59041b41a52e844228d311bb580ed830b0d9",
+          "sourceUrl": "https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/8.13.0-13719691/aapt2-8.13.0-13719691-linux.jar"
+        },
+        {
           "name": "aapt2-8.13.0-13719691-osx.jar",
           "sha256": "29213e18381a5d8c72932f8bbd06349f99131ec3b13c14e8c0ec90738b865ca1",
           "sourceUrl": "https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/8.13.0-13719691/aapt2-8.13.0-13719691-osx.jar"
@@ -30846,7 +30851,7 @@
       "ignoredKeys": []
     },
     "componentCount": 392,
-    "artifactCount": 768,
+    "artifactCount": 769,
     "components": [
       {
         "coordinate": "androidx.activity:activity:1.11.0",
@@ -32612,6 +32617,10 @@
         "name": "aapt2",
         "version": "8.13.0-13719691",
         "artifacts": [
+          {
+            "name": "aapt2-8.13.0-13719691-linux.jar",
+            "sha256": "c1aebd96a144313da65de675cc1f59041b41a52e844228d311bb580ed830b0d9"
+          },
           {
             "name": "aapt2-8.13.0-13719691-osx.jar",
             "sha256": "29213e18381a5d8c72932f8bbd06349f99131ec3b13c14e8c0ec90738b865ca1"

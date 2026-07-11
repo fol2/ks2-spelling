@@ -179,7 +179,7 @@ test('default audit consumes the complete resolved Android certification', async
     },
   );
   assert.equal(report.androidResolution.verificationComponentCount, 392);
-  assert.equal(report.androidResolution.verificationArtifactCount, 768);
+  assert.equal(report.androidResolution.verificationArtifactCount, 769);
   const complianceRegister = await readFile(
     join(ROOT, 'docs/compliance/sdk-privacy-register.md'),
     'utf8',

@@ -192,6 +192,11 @@ test('committed verification metadata closes fresh-cache POM and module selectio
   );
   const freshCacheClosure = [
     {
+      coordinate: 'com.android.tools.build:aapt2:8.13.0-13719691',
+      name: 'aapt2-8.13.0-13719691-linux.jar',
+      sha256: 'c1aebd96a144313da65de675cc1f59041b41a52e844228d311bb580ed830b0d9',
+    },
+    {
       coordinate: 'com.google.guava:guava-parent:33.3.1-jre',
       name: 'guava-parent-33.3.1-jre.pom',
       sha256: '55441db27e8869dfefe053059bdf478bdc7e95585642bf391f0023345fd56287',
@@ -266,7 +271,7 @@ test('committed Android certification is bound to every resolver and policy inpu
   assert.equal(report.componentCount, 286);
   assert.equal(report.taskCreatedBuildToolCount, 12);
   assert.equal(report.verificationInventory.componentCount, 392);
-  assert.equal(report.verificationInventory.artifactCount, 768);
+  assert.equal(report.verificationInventory.artifactCount, 769);
   assert.equal(reportText.includes('/Users/'), false);
   const inputs = new Set(report.generatedFrom.map(({ path }) => path));
   for (const path of [

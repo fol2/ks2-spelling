@@ -4,7 +4,7 @@
   "appIdentity": "uk.eugnel.ks2spelling",
   "buildToolsVersion": "36.0.0",
   "permissionSurfaceSha256": "28845e13ab77dc0edab52ecea963c969397cd9dfa7a9964975c42ddf8ab54650",
-  "sourceBuildInputSha256": "8ddd557542754afc030117097993cd70ab40d6a849a81f7afd3aff992f17592d",
+  "sourceBuildInputSha256": "ea83fa9137b0352960b42e53812207d8d910359d0528be35760b9e2c6fbdae49",
   "declaredPermissions": [],
   "requestedPermissions": []
 }

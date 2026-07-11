@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { EXIT_CODES, isMain, printJson } from './lib/run-command.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -315,6 +315,50 @@ export function parseGradleEvidence(sources) {
       )) {
         recordDeclaration({ configuration: 'literal', raw, path });
       }
+      const mapDeclarations = [
+        ...dependencyBlock.matchAll(
+          /\bgroup\s*:\s*['"]([^'"]+)['"]\s*,\s*name\s*:\s*['"]([^'"]+)['"]\s*,\s*version\s*:\s*['"]([^'"]+)['"]/g,
+        ),
+      ];
+      for (const match of mapDeclarations) {
+        recordDeclaration({
+          configuration: 'map-literal',
+          raw: `${match[1]}:${match[2]}:${match[3]}`,
+          path,
+        });
+      }
+      if ([...dependencyBlock.matchAll(/\bgroup\s*:/g)].length !== mapDeclarations.length) {
+        throw policyError(
+          'gradle_declaration_drift',
+          `Dynamic Gradle map dependency is not permitted in ${path}`,
+        );
+      }
+      const projectDependencies = [
+        ...dependencyBlock.matchAll(/\bproject\s*\(\s*['"]([^'"]+)['"]\s*\)/g),
+      ];
+      for (const match of projectDependencies) {
+        localDependencies.add(`project:${match[1]}`);
+      }
+      if ([...dependencyBlock.matchAll(/\bproject\s*\(/g)].length !== projectDependencies.length) {
+        throw policyError(
+          'gradle_declaration_drift',
+          `Dynamic Gradle project dependency is not permitted in ${path}`,
+        );
+      }
+      const fileTreeDependencies = [...dependencyBlock.matchAll(/\bfileTree\s*\(([^)]*)\)/g)];
+      for (const match of fileTreeDependencies) {
+        const dir = match[1].match(/\bdir\s*:\s*['"]([^'"]+)['"]/)?.[1];
+        if (!dir) {
+          throw policyError('gradle_declaration_drift', `Unresolved fileTree in ${path}`);
+        }
+        localDependencies.add(`fileTree:${dir}`);
+      }
+      if ([...dependencyBlock.matchAll(/\bfileTree\s*\(/g)].length !== fileTreeDependencies.length) {
+        throw policyError(
+          'gradle_declaration_drift',
+          `Dynamic Gradle fileTree dependency is not permitted in ${path}`,
+        );
+      }
       if (/\badd\s*\(/.test(dependencyBlock) || /\blibs(?:\.|\[)/.test(dependencyBlock)) {
         throw policyError(
           'gradle_declaration_drift',
@@ -387,8 +431,14 @@ export function parseGradleEvidence(sources) {
         ),
       ].map(([, url]) => url);
       for (const url of urls) repositories.add(url);
-      const mavenBlocks = extractNamedBlocks(block, 'maven');
-      if (mavenBlocks.length > urls.length) repositories.add('maven:<missing-url>');
+      for (const repositoryType of ['maven', 'ivy']) {
+        for (const repositoryBlock of extractNamedBlocks(block, repositoryType)) {
+          const hasLiteralUrl = /(?:\burl\s*(?:=\s*)?(?:uri\s*\(\s*)?|\bsetUrl\s*\(\s*)['"][^'"]+['"]/.test(
+            repositoryBlock,
+          );
+          if (!hasLiteralUrl) repositories.add(`${repositoryType}:<missing-url>`);
+        }
+      }
       for (const flatDirBlock of extractNamedBlocks(block, 'flatDir')) {
         let literalCount = 0;
         for (const dirs of flatDirBlock.matchAll(/\bdirs\s*(?:\(\s*)?([^\n\r}]+)/g)) {
@@ -403,6 +453,12 @@ export function parseGradleEvidence(sources) {
   }
 
   return {
+    sourceFiles: sources
+      .map(({ path, text }) => ({
+        path,
+        sha256: createHash('sha256').update(text).digest('hex'),
+      }))
+      .sort((left, right) => left.path.localeCompare(right.path)),
     declarations: [...declarations.values()]
       .map((entry) => ({
         ...entry,
@@ -416,6 +472,65 @@ export function parseGradleEvidence(sources) {
     flatDirs: [...flatDirs].sort(),
     localDependencies: [...localDependencies].sort(),
   };
+}
+
+function isGradleInputPath(path) {
+  if (path.startsWith('android/capacitor-cordova-android-plugins/')) return false;
+  if (path.startsWith('android/.gradle/') || path.includes('/build/')) return false;
+  if (path.includes('/buildSrc/')) return true;
+  return (
+    /\.(?:gradle|gradle\.kts)$/.test(path) ||
+    /(?:^|\/)libs\.versions\.toml$/.test(path) ||
+    /(?:^|\/)gradle\.properties$/.test(path) ||
+    /(?:^|\/)gradle-wrapper\.(?:properties|jar)$/.test(path) ||
+    /(?:^|\/)gradlew(?:\.bat)?$/.test(path)
+  );
+}
+
+export async function discoverGradleInputs(root = ROOT) {
+  const androidRoot = resolve(root, 'android');
+  const androidPaths = (await listFiles(androidRoot))
+    .map((path) => relative(root, path))
+    .filter(isGradleInputPath);
+  const paths = [
+    ...androidPaths,
+    'node_modules/@capacitor/android/capacitor/build.gradle',
+  ].sort();
+  const entries = await Promise.all(
+    paths.map(async (path) => {
+      const content = await readFile(resolve(root, path));
+      return {
+        path,
+        sha256: createHash('sha256').update(content).digest('hex'),
+        content,
+      };
+    }),
+  );
+  return {
+    inventory: entries.map(({ path, sha256 }) => ({ path, sha256 })),
+    parserSources: entries
+      .filter(({ path }) => /\.(?:gradle|gradle\.kts)$/.test(path))
+      .map(({ path, content }) => ({ path, text: content.toString('utf8') })),
+  };
+}
+
+export function assertGradleInputInventoryMatchesPolicy(inventory, policy) {
+  const expected = policy.gradleInputFiles ?? [];
+  const actualByPath = new Map(inventory.map((entry) => [entry.path, entry.sha256]));
+  const expectedByPath = new Map(expected.map((entry) => [entry.path, entry.sha256]));
+  const duplicateActual = inventory.length !== actualByPath.size;
+  const duplicateExpected = expected.length !== expectedByPath.size;
+  const extra = [...actualByPath.keys()].filter((path) => !expectedByPath.has(path));
+  const missing = [...expectedByPath.keys()].filter((path) => !actualByPath.has(path));
+  const changed = [...actualByPath].flatMap(([path, sha256]) =>
+    expectedByPath.has(path) && expectedByPath.get(path) !== sha256 ? [path] : [],
+  );
+  if (duplicateActual || duplicateExpected || extra.length || missing.length || changed.length) {
+    throw policyError(
+      'gradle_input_drift',
+      `Gradle input allow-list drifted; extra=${extra.join(',')}; missing=${missing.join(',')}; changed=${changed.join(',')}`,
+    );
+  }
 }
 
 function exactSetDifference(actual, expected) {
@@ -477,18 +592,12 @@ export function assertGradleEvidenceMatchesPolicy(evidence, policy) {
 }
 
 async function verifyGradleDeclarations(policy) {
-  const sourcePaths = [
-    'android/build.gradle',
-    'android/app/build.gradle',
-    'android/variables.gradle',
-    'node_modules/@capacitor/android/capacitor/build.gradle',
-  ];
-  const sources = await Promise.all(
-    sourcePaths.map(async (path) => ({ path, text: await readFile(resolve(ROOT, path), 'utf8') })),
-  );
-  const evidence = parseGradleEvidence(sources);
+  const discovered = await discoverGradleInputs();
+  assertGradleInputInventoryMatchesPolicy(discovered.inventory, policy);
+  const evidence = parseGradleEvidence(discovered.parserSources);
   assertGradleEvidenceMatchesPolicy(evidence, policy);
   return {
+    inputs: discovered.inventory,
     declarations: policy.gradleDeclared.map((entry) => ({
       ...entry,
       resolution: 'pending-toolchain',
@@ -598,6 +707,7 @@ export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
     },
     spm,
     androidResolution: 'pending-toolchain',
+    gradleInputs: gradle.inputs,
     gradleRepositories: gradle.repositories,
     gradleFlatDirs: gradle.flatDirs,
     gradleLocalDependencies: gradle.localDependencies,

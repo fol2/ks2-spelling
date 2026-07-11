@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
@@ -160,20 +162,12 @@ test('future native candidates are explicit Not approved entries and remain unin
 });
 
 test('Gradle evidence rejects every unregistered coordinate, repository form and flat directory', async () => {
-  const { assertGradleEvidenceMatchesPolicy, parseGradleEvidence } = await importScript(
-    'scripts/audit-dependencies.mjs',
-  );
+  const { assertGradleEvidenceMatchesPolicy, discoverGradleInputs, parseGradleEvidence } =
+    await importScript('scripts/audit-dependencies.mjs');
   const policy = JSON.parse(
     await readFile(join(ROOT, 'config/dependency-policy.json'), 'utf8'),
   );
-  const sources = await Promise.all(
-    [
-      'android/build.gradle',
-      'android/app/build.gradle',
-      'android/variables.gradle',
-      'node_modules/@capacitor/android/capacitor/build.gradle',
-    ].map(async (path) => ({ path, text: await readFile(join(ROOT, path), 'utf8') })),
-  );
+  const sources = (await discoverGradleInputs()).parserSources;
   assert.doesNotThrow(() =>
     assertGradleEvidenceMatchesPolicy(parseGradleEvidence(sources), policy),
   );
@@ -184,6 +178,18 @@ test('Gradle evidence rejects every unregistered coordinate, repository form and
     [
       'inline conditional coordinate',
       'dependencies { if (true) implementation "evil.inline:sdk:4.0.0" }',
+    ],
+    [
+      'inline conditional map coordinate',
+      "dependencies { if (true) runtimeOnly group: 'evil.inline', name: 'map-sdk', version: '4.1.0' }",
+    ],
+    [
+      'inline conditional local project',
+      "dependencies { if (true) implementation project(':evil-inline-project') }",
+    ],
+    [
+      'inline conditional file tree',
+      "dependencies { if (true) implementation fileTree(dir: 'evil-inline-libs', include: ['*.jar']) }",
     ],
     [
       'dynamic add coordinate',
@@ -206,6 +212,10 @@ test('Gradle evidence rejects every unregistered coordinate, repository form and
     [
       'uri Maven URL',
       "repositories { maven { url = uri('https://evil.example/uri-m2') } }",
+    ],
+    [
+      'dynamic Ivy URL',
+      'repositories { ivy { url = providers.gradleProperty("evilRepo") } }',
     ],
     ['unexpected flat directory', "repositories { flatDir { dirs 'unregistered-libs' } }"],
     [
@@ -248,4 +258,121 @@ test('Gradle evidence rejects every unregistered coordinate, repository form and
     ({ code }) => code === 'gradle_declaration_drift',
     'commented-out coordinates cannot satisfy the exact set',
   );
+});
+
+test('Gradle input path and SHA-256 allow-list is an exact finite backstop', async () => {
+  const {
+    assertGradleInputInventoryMatchesPolicy,
+    discoverGradleInputs,
+    parseGradleEvidence,
+  } = await importScript('scripts/audit-dependencies.mjs');
+  const policy = JSON.parse(
+    await readFile(join(ROOT, 'config/dependency-policy.json'), 'utf8'),
+  );
+  const discovered = await discoverGradleInputs();
+
+  assert.doesNotThrow(() =>
+    assertGradleInputInventoryMatchesPolicy(discovered.inventory, policy),
+  );
+  assert.deepEqual(
+    policy.gradleInputFiles.map(({ path }) => path),
+    [
+      'android/app/build.gradle',
+      'android/app/capacitor.build.gradle',
+      'android/build.gradle',
+      'android/capacitor.settings.gradle',
+      'android/gradle.properties',
+      'android/gradle/wrapper/gradle-wrapper.jar',
+      'android/gradle/wrapper/gradle-wrapper.properties',
+      'android/gradlew',
+      'android/gradlew.bat',
+      'android/settings.gradle',
+      'android/variables.gradle',
+      'node_modules/@capacitor/android/capacitor/build.gradle',
+    ],
+  );
+  const parsed = parseGradleEvidence(discovered.parserSources);
+  const discoveredByPath = new Map(discovered.inventory.map((entry) => [entry.path, entry.sha256]));
+  for (const source of parsed.sourceFiles) {
+    assert.equal(source.sha256, discoveredByPath.get(source.path), source.path);
+  }
+
+  const appBuildPath = 'android/app/build.gradle';
+  const settingsPath = 'android/settings.gradle';
+  const appBuild = discovered.parserSources.find(({ path }) => path === appBuildPath).text;
+  const settings = discovered.parserSources.find(({ path }) => path === settingsPath).text;
+  const tamperCases = [
+    [
+      'inline map',
+      appBuildPath,
+      `${appBuild}\ndependencies { if (true) runtimeOnly group: 'evil.inline', name: 'map-sdk', version: '4.1.0' }\n`,
+    ],
+    [
+      'inline project',
+      appBuildPath,
+      `${appBuild}\ndependencies { if (true) implementation project(':evil-inline-project') }\n`,
+    ],
+    [
+      'inline fileTree',
+      appBuildPath,
+      `${appBuild}\ndependencies { if (true) implementation fileTree(dir: 'evil-inline-libs', include: ['*.jar']) }\n`,
+    ],
+    [
+      'dynamic Ivy provider',
+      settingsPath,
+      `${settings}\nrepositories { ivy { url = providers.gradleProperty("evilRepo") } }\n`,
+    ],
+  ];
+  for (const [name, path, text] of tamperCases) {
+    const tampered = discovered.inventory.map((entry) =>
+      entry.path === path
+        ? { ...entry, sha256: createHash('sha256').update(text).digest('hex') }
+        : entry,
+    );
+    assert.throws(
+      () => assertGradleInputInventoryMatchesPolicy(tampered, policy),
+      ({ code }) => code === 'gradle_input_drift',
+      name,
+    );
+  }
+
+  for (const path of [
+    'android/buildSrc/build.gradle',
+    'android/gradle/libs.versions.toml',
+  ]) {
+    assert.throws(
+      () =>
+        assertGradleInputInventoryMatchesPolicy(
+          [...discovered.inventory, { path, sha256: '0'.repeat(64) }],
+          policy,
+        ),
+      ({ code }) => code === 'gradle_input_drift',
+      path,
+    );
+  }
+  assert.throws(
+    () => assertGradleInputInventoryMatchesPolicy(discovered.inventory.slice(1), policy),
+    ({ code }) => code === 'gradle_input_drift',
+    'missing approved Gradle input',
+  );
+
+  const cleanRoot = await mkdtemp(join(tmpdir(), 'ks2-spelling-gradle-inputs-'));
+  try {
+    for (const { path } of policy.gradleInputFiles) {
+      await mkdir(dirname(join(cleanRoot, path)), { recursive: true });
+      await copyFile(join(ROOT, path), join(cleanRoot, path));
+    }
+    const cleanCheckoutInputs = await discoverGradleInputs(cleanRoot);
+    assert.equal(
+      cleanCheckoutInputs.inventory.some(({ path }) =>
+        path.startsWith('android/capacitor-cordova-android-plugins/'),
+      ),
+      false,
+    );
+    assert.doesNotThrow(() =>
+      assertGradleInputInventoryMatchesPolicy(cleanCheckoutInputs.inventory, policy),
+    );
+  } finally {
+    await rm(cleanRoot, { recursive: true, force: true });
+  }
 });

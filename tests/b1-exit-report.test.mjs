@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, posix } from 'node:path';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -12,6 +12,9 @@ import test from 'node:test';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TESTED_APPLICATION_COMMIT =
   'c7828c2da84d5828f7e7640992c78d3203dd1170';
+const TESTED_APPLICATION_FINGERPRINT_SHA256 =
+  '0755706083060caf3fa370d2abfd8acabefc0774ac45f3476edefe7b651125d6';
+const TESTED_APPLICATION_FILE_COUNT = 153;
 const SHA256 = /^[a-f0-9]{64}$/;
 const execFileAsync = promisify(execFile);
 
@@ -23,6 +26,100 @@ async function importFingerprint() {
 
 async function sha256(path) {
   return createHash('sha256').update(await readFile(path)).digest('hex');
+}
+
+function isDerivedNativeFingerprintPath(path) {
+  return (
+    path.startsWith('ios/App/App/public/') ||
+    path === 'ios/App/App/capacitor.config.json' ||
+    path === 'ios/App/App/config.xml' ||
+    path.startsWith('ios/capacitor-cordova-ios-plugins/') ||
+    path.startsWith('android/app/src/main/assets/') ||
+    path === 'android/app/src/main/res/xml/config.xml' ||
+    path.startsWith('android/capacitor-cordova-android-plugins/')
+  );
+}
+
+function assertSafeFingerprintPath(path) {
+  assert.equal(typeof path, 'string', 'fingerprint path must be a string');
+  assert.ok(path.length > 0, 'fingerprint path must not be empty');
+  assert.equal(path.includes('\\'), false, `unsafe fingerprint path: ${path}`);
+  assert.equal(path.includes('\0'), false, `unsafe fingerprint path: ${path}`);
+  assert.equal(path.includes(':'), false, `unsafe fingerprint path: ${path}`);
+  assert.equal(posix.isAbsolute(path), false, `unsafe fingerprint path: ${path}`);
+  assert.equal(posix.normalize(path), path, `unsafe fingerprint path: ${path}`);
+  assert.equal(path.startsWith('./'), false, `unsafe fingerprint path: ${path}`);
+  assert.equal(
+    path.split('/').some((component) => component === '.' || component === '..'),
+    false,
+    `unsafe fingerprint path: ${path}`,
+  );
+}
+
+function aggregateFingerprintFiles(files) {
+  const aggregate = createHash('sha256');
+  for (const file of files) {
+    aggregate.update(file.path);
+    aggregate.update('\0');
+    aggregate.update(file.sha256);
+    aggregate.update('\0');
+  }
+  return aggregate.digest('hex');
+}
+
+async function validateRecordedB1Fingerprint({ commit, fingerprint }) {
+  assert.equal(commit, TESTED_APPLICATION_COMMIT, 'unexpected tested application commit');
+  assert.equal(Object.getPrototypeOf(fingerprint), Object.prototype);
+  assert.deepEqual(Object.keys(fingerprint).toSorted(), [
+    'algorithm',
+    'fileCount',
+    'files',
+    'sha256',
+  ]);
+  assert.equal(fingerprint.algorithm, 'sha256');
+  assert.equal(fingerprint.fileCount, TESTED_APPLICATION_FILE_COUNT);
+  assert.equal(fingerprint.files.length, fingerprint.fileCount);
+  assert.equal(fingerprint.sha256, TESTED_APPLICATION_FINGERPRINT_SHA256);
+
+  const paths = [];
+  for (const file of fingerprint.files) {
+    assert.equal(Object.getPrototypeOf(file), Object.prototype);
+    assert.deepEqual(Object.keys(file).toSorted(), ['path', 'sha256']);
+    assertSafeFingerprintPath(file.path);
+    assert.match(file.sha256, SHA256, file.path);
+    paths.push(file.path);
+  }
+  assert.deepEqual(paths, paths.toSorted(), 'fingerprint paths must be sorted');
+  assert.equal(new Set(paths).size, paths.length, 'fingerprint paths must be unique');
+  assert.equal(
+    aggregateFingerprintFiles(fingerprint.files),
+    fingerprint.sha256,
+    'fingerprint aggregate SHA-256 mismatch',
+  );
+
+  for (const file of fingerprint.files) {
+    try {
+      const { stdout } = await execFileAsync(
+        'git',
+        ['show', `${commit}:${file.path}`],
+        { cwd: ROOT, encoding: 'buffer', maxBuffer: 20 * 1024 * 1024 },
+      );
+      assert.equal(
+        createHash('sha256').update(stdout).digest('hex'),
+        file.sha256,
+        file.path,
+      );
+    } catch (error) {
+      const stderr = error?.stderr?.toString('utf8') ?? '';
+      assert.ok(
+        isDerivedNativeFingerprintPath(file.path) &&
+          /exists on disk, but not in|does not exist in/.test(stderr),
+        `recorded fingerprint file is absent or mismatched at ${commit}: ${file.path}`,
+      );
+    }
+  }
+
+  return fingerprint;
 }
 
 async function createMinimalApplicationTree() {
@@ -151,27 +248,82 @@ test('application fingerprint rejects unregistered root inputs and environment f
 });
 
 test('every fingerprinted application byte matches the exact clean Task 8 commit', async () => {
-  const { fingerprintB1Application } = await importFingerprint();
-  const fingerprint = await fingerprintB1Application({ root: ROOT });
-  for (const file of fingerprint.files) {
-    const derivedNativeInput =
-      file.path.startsWith('ios/App/App/public/') ||
-      file.path === 'ios/App/App/capacitor.config.json' ||
-      file.path === 'ios/App/App/config.xml' ||
-      file.path.startsWith('ios/capacitor-cordova-ios-plugins/') ||
-      file.path.startsWith('android/app/src/main/assets/') ||
-      file.path === 'android/app/src/main/res/xml/config.xml' ||
-      file.path.startsWith('android/capacitor-cordova-android-plugins/');
-    if (derivedNativeInput) continue;
-    const { stdout } = await execFileAsync(
-      'git',
-      ['show', `${TESTED_APPLICATION_COMMIT}:${file.path}`],
-      { cwd: ROOT, encoding: 'buffer', maxBuffer: 20 * 1024 * 1024 },
-    );
-    assert.equal(
-      createHash('sha256').update(stdout).digest('hex'),
-      file.sha256,
-      file.path,
+  const exit = JSON.parse(
+    await readFile(join(ROOT, 'reports/b1/b1-exit-report.json'), 'utf8'),
+  );
+  assert.equal(exit.testedApplicationCommit, TESTED_APPLICATION_COMMIT);
+  assert.deepEqual(
+    await validateRecordedB1Fingerprint({
+      commit: TESTED_APPLICATION_COMMIT,
+      fingerprint: exit.applicationFingerprint,
+    }),
+    exit.applicationFingerprint,
+  );
+});
+
+test('recorded B1 fingerprint validation fails closed on structural drift', async () => {
+  const exit = JSON.parse(
+    await readFile(join(ROOT, 'reports/b1/b1-exit-report.json'), 'utf8'),
+  );
+  const cases = [
+    {
+      name: 'commit',
+      commit: '0000000000000000000000000000000000000000',
+      mutate: () => {},
+    },
+    {
+      name: 'file count',
+      commit: TESTED_APPLICATION_COMMIT,
+      mutate: (fingerprint) => {
+        fingerprint.fileCount -= 1;
+      },
+    },
+    {
+      name: 'unsafe path',
+      commit: TESTED_APPLICATION_COMMIT,
+      mutate: (fingerprint) => {
+        fingerprint.files[0].path = '../escape';
+      },
+    },
+    {
+      name: 'duplicate path',
+      commit: TESTED_APPLICATION_COMMIT,
+      mutate: (fingerprint) => {
+        fingerprint.files[1].path = fingerprint.files[0].path;
+      },
+    },
+    {
+      name: 'unsorted paths',
+      commit: TESTED_APPLICATION_COMMIT,
+      mutate: (fingerprint) => {
+        [fingerprint.files[0], fingerprint.files[1]] = [
+          fingerprint.files[1],
+          fingerprint.files[0],
+        ];
+      },
+    },
+    {
+      name: 'file hash',
+      commit: TESTED_APPLICATION_COMMIT,
+      mutate: (fingerprint) => {
+        fingerprint.files[0].sha256 = '0'.repeat(64);
+      },
+    },
+    {
+      name: 'aggregate hash',
+      commit: TESTED_APPLICATION_COMMIT,
+      mutate: (fingerprint) => {
+        fingerprint.sha256 = '0'.repeat(64);
+      },
+    },
+  ];
+
+  for (const fixture of cases) {
+    const fingerprint = structuredClone(exit.applicationFingerprint);
+    fixture.mutate(fingerprint);
+    await assert.rejects(
+      () => validateRecordedB1Fingerprint({ commit: fixture.commit, fingerprint }),
+      fixture.name,
     );
   }
 });
@@ -565,19 +717,21 @@ test('native capture parsers fail closed on exact foreground and installation ev
   }
 });
 
-test('B1 exit evidence binds both installed native apps to the current application tree', async () => {
-  const { fingerprintB1Application } = await importFingerprint();
-  const [ios, android, exit, currentFingerprint] = await Promise.all([
+test('B1 exit evidence binds both installed native apps to the frozen application', async () => {
+  const [ios, android, exit] = await Promise.all([
     readFile(join(ROOT, 'reports/b1/ios-simulator-launch.json'), 'utf8').then(JSON.parse),
     readFile(join(ROOT, 'reports/b1/android-emulator-launch.json'), 'utf8').then(JSON.parse),
     readFile(join(ROOT, 'reports/b1/b1-exit-report.json'), 'utf8').then(JSON.parse),
-    fingerprintB1Application({ root: ROOT }),
   ]);
+  const frozenFingerprint = await validateRecordedB1Fingerprint({
+    commit: TESTED_APPLICATION_COMMIT,
+    fingerprint: exit.applicationFingerprint,
+  });
 
   for (const report of [ios, android]) {
     assert.equal(report.schemaVersion, 1);
     assert.equal(report.testedApplicationCommit, TESTED_APPLICATION_COMMIT);
-    assert.deepEqual(report.applicationFingerprint, currentFingerprint);
+    assert.deepEqual(report.applicationFingerprint, frozenFingerprint);
     assert.deepEqual(report.packageVersions, {
       application: '0.0.0',
       capacitorCore: '8.4.1',
@@ -653,7 +807,7 @@ test('B1 exit evidence binds both installed native apps to the current applicati
   assert.equal(exit.schemaVersion, 1);
   assert.equal(exit.status, 'pass');
   assert.equal(exit.testedApplicationCommit, TESTED_APPLICATION_COMMIT);
-  assert.deepEqual(exit.applicationFingerprint, currentFingerprint);
+  assert.deepEqual(exit.applicationFingerprint, frozenFingerprint);
   assert.equal(exit.serverUrl, null);
   assert.deepEqual(exit.platforms, {
     ios: {

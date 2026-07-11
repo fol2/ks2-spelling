@@ -72,6 +72,65 @@ function forwardingConnection(connection, queryOverride) {
   });
 }
 
+const CONFIGURATION_RESULTS = Object.freeze({
+  'PRAGMA foreign_keys': [{ foreign_keys: 1 }],
+  'PRAGMA journal_mode': [{ journal_mode: 'wal' }],
+  'PRAGMA synchronous': [{ synchronous: 2 }],
+  'PRAGMA busy_timeout': [{ timeout: 5000 }],
+});
+
+function createFailureConnection({ begin, rollback, transactionStates } = {}) {
+  const calls = [];
+  let stateIndex = 0;
+  const connection = Object.freeze({
+    async open() {},
+    async close() {},
+    async execute(sql) {
+      calls.push(['execute', sql]);
+      if (sql.startsWith('CREATE TABLE')) {
+        throw new Error('migration_statement_failed');
+      }
+      return { changes: 0 };
+    },
+    async query(sql) {
+      calls.push(['query', sql]);
+      if (Object.hasOwn(CONFIGURATION_RESULTS, sql)) {
+        return CONFIGURATION_RESULTS[sql];
+      }
+      if (sql === 'PRAGMA user_version') return [{ user_version: 0 }];
+      throw new Error(`unexpected_query:${sql}`);
+    },
+    async begin() {
+      calls.push(['begin']);
+      if (begin) return begin();
+    },
+    async commit() {},
+    async rollback() {
+      calls.push(['rollback']);
+      if (rollback) return rollback();
+    },
+    async isTransactionActive() {
+      calls.push(['isTransactionActive']);
+      const result = transactionStates[stateIndex];
+      stateIndex += 1;
+      if (result instanceof Error) throw result;
+      return result;
+    },
+  });
+  return { calls, connection };
+}
+
+function assertAggregateMessages(error, messages) {
+  assert.equal(error.code, 'sqlite_migration_rollback_unverified');
+  assert.equal(error.message, 'sqlite_migration_rollback_unverified');
+  assert.equal(error.cause instanceof AggregateError, true);
+  assert.deepEqual(
+    error.cause.errors.map((cause) => cause.message),
+    messages,
+  );
+  return true;
+}
+
 test('fresh V0 migration exposes every deterministic failure checkpoint', async () => {
   const { SCHEMA_V1_STATEMENTS } = await import(
     '../src/platform/database/schema-v1.js'
@@ -102,13 +161,32 @@ test('fresh V0 migration exposes every deterministic failure checkpoint', async 
       ],
     );
     assert.deepEqual(
-      checkpoints.slice(0, SCHEMA_V1_STATEMENTS.length),
-      SCHEMA_V1_STATEMENTS.map((sql, statementIndex) => ({
-        phase: 'schema_statement',
-        sql,
-        statementIndex,
-      })),
+      checkpoints,
+      [
+        ...SCHEMA_V1_STATEMENTS.map((sql, statementIndex) => ({
+          phase: 'schema_statement',
+          sql,
+          statementIndex,
+        })),
+        {
+          phase: 'set_user_version',
+          sql: 'PRAGMA user_version = 1',
+          statementIndex: 8,
+        },
+        {
+          phase: 'foreign_key_check',
+          sql: 'PRAGMA foreign_key_check',
+          statementIndex: 9,
+        },
+        {
+          phase: 'integrity_check',
+          sql: 'PRAGMA integrity_check',
+          statementIndex: 10,
+        },
+        { phase: 'before_commit', sql: 'COMMIT', statementIndex: 11 },
+      ],
     );
+    assert.equal(checkpoints.every(Object.isFrozen), true);
     await connection.close();
   });
 });
@@ -124,8 +202,13 @@ test('every injected migration failure restores the exact V0 schema and data', a
 
   for (let failureIndex = 0; failureIndex < checkpointCount; failureIndex += 1) {
     await withDatabase(async (filename) => {
-      const connection = await createV0WithMarker(filename);
-      const before = await logicalDigest(connection);
+      const connection = createNodeSqliteConnection(filename);
+      await connection.open();
+      const before = {
+        transactionActive: false,
+        userVersion: [{ user_version: 0 }],
+        schema: [],
+      };
       let observedIndex = 0;
 
       await assert.rejects(
@@ -140,16 +223,66 @@ test('every injected migration failure restores the exact V0 schema and data', a
         new RegExp(`injected_migration_failure_${failureIndex}`),
       );
 
-      assert.deepEqual(await logicalDigest(connection), before);
+      assert.deepEqual(
+        {
+          transactionActive: await connection.isTransactionActive(),
+          userVersion: await connection.query('PRAGMA user_version'),
+          schema: await connection.query(
+            "SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name",
+          ),
+        },
+        before,
+      );
       assert.equal(await connection.isTransactionActive(), false);
       await connection.close();
 
       const reopened = createNodeSqliteConnection(filename);
       await reopened.open();
-      assert.deepEqual(await logicalDigest(reopened), before);
+      assert.deepEqual(await reopened.query('PRAGMA user_version'), [
+        { user_version: 0 },
+      ]);
+      assert.deepEqual(
+        await reopened.query(
+          "SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name",
+        ),
+        [],
+      );
       await reopened.close();
     });
   }
+});
+
+test('candidate schema drift rolls back exact V0 data and allows a clean retry', async () => {
+  const { configureAndMigrateDatabase } = await import(
+    '../src/platform/database/migrate-database.js'
+  );
+
+  await withDatabase(async (filename) => {
+    const connection = await createV0WithMarker(filename);
+    const before = await logicalDigest(connection);
+    const checkpoints = [];
+
+    await assert.rejects(
+      configureAndMigrateDatabase(connection, {
+        async afterMigrationStep(checkpoint) {
+          checkpoints.push(checkpoint);
+        },
+      }),
+      /sqlite_schema_v1_invalid/,
+    );
+    assert.deepEqual(await logicalDigest(connection), before);
+    assert.equal(
+      checkpoints.some(({ phase }) => phase === 'before_commit'),
+      false,
+    );
+
+    await connection.execute('DROP TABLE pre_migration_marker');
+    await configureAndMigrateDatabase(connection);
+    assert.deepEqual(await connection.query('PRAGMA user_version'), [
+      { user_version: 1 },
+    ]);
+    await connection.close();
+  });
 });
 
 test('failed foreign_key_check rolls back and does not reset the database', async () => {
@@ -216,8 +349,11 @@ test('migration verifies rollback leaves no transaction active', async () => {
     },
     async query(sql) {
       calls.push(['query', sql]);
+      if (Object.hasOwn(CONFIGURATION_RESULTS, sql)) {
+        return CONFIGURATION_RESULTS[sql];
+      }
       if (sql === 'PRAGMA user_version') return [{ user_version: 0 }];
-      return [];
+      throw new Error(`unexpected_query:${sql}`);
     },
     async begin() {
       active = true;
@@ -242,5 +378,95 @@ test('migration verifies rollback leaves no transaction active', async () => {
     ['isTransactionActive', true],
     ['rollback'],
     ['isTransactionActive', false],
+  ]);
+});
+
+test('rollback failure retains migration, rollback and remaining-active errors', async () => {
+  const { configureAndMigrateDatabase } = await import(
+    '../src/platform/database/migrate-database.js'
+  );
+  const probe = createFailureConnection({
+    rollback() {
+      throw new Error('native_rollback_failed');
+    },
+    transactionStates: [true, true],
+  });
+
+  await assert.rejects(configureAndMigrateDatabase(probe.connection), (error) =>
+    assertAggregateMessages(error, [
+      'migration_statement_failed',
+      'native_rollback_failed',
+      'sqlite_migration_transaction_still_active',
+    ]),
+  );
+});
+
+test('first transaction-state failure is retained after a final inactive proof', async () => {
+  const { configureAndMigrateDatabase } = await import(
+    '../src/platform/database/migrate-database.js'
+  );
+  const probe = createFailureConnection({
+    transactionStates: [new Error('initial_state_failed'), false],
+  });
+
+  await assert.rejects(configureAndMigrateDatabase(probe.connection), (error) =>
+    assertAggregateMessages(error, [
+      'migration_statement_failed',
+      'initial_state_failed',
+    ]),
+  );
+  assert.equal(probe.calls.some(([operation]) => operation === 'rollback'), true);
+});
+
+test('final transaction-state failure retains the original migration error', async () => {
+  const { configureAndMigrateDatabase } = await import(
+    '../src/platform/database/migrate-database.js'
+  );
+  const probe = createFailureConnection({
+    transactionStates: [true, new Error('final_state_failed')],
+  });
+
+  await assert.rejects(configureAndMigrateDatabase(probe.connection), (error) =>
+    assertAggregateMessages(error, [
+      'migration_statement_failed',
+      'final_state_failed',
+    ]),
+  );
+});
+
+test('remaining active transaction is a stable inspectable rollback failure', async () => {
+  const { configureAndMigrateDatabase } = await import(
+    '../src/platform/database/migrate-database.js'
+  );
+  const probe = createFailureConnection({ transactionStates: [true, true] });
+
+  await assert.rejects(configureAndMigrateDatabase(probe.connection), (error) =>
+    assertAggregateMessages(error, [
+      'migration_statement_failed',
+      'sqlite_migration_transaction_still_active',
+    ]),
+  );
+});
+
+test('begin failure that leaves a transaction active is rolled back and proved inactive', async () => {
+  const { configureAndMigrateDatabase } = await import(
+    '../src/platform/database/migrate-database.js'
+  );
+  const probe = createFailureConnection({
+    begin() {
+      throw new Error('native_begin_failed');
+    },
+    transactionStates: [true, false],
+  });
+
+  await assert.rejects(
+    configureAndMigrateDatabase(probe.connection),
+    /native_begin_failed/,
+  );
+  assert.deepEqual(probe.calls.slice(-4), [
+    ['begin'],
+    ['isTransactionActive'],
+    ['rollback'],
+    ['isTransactionActive'],
   ]);
 });

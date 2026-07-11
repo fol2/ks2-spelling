@@ -1,11 +1,31 @@
 import { assertSqlConnection } from './sql-connection-contract.js';
 import { SCHEMA_VERSION, SCHEMA_V1_STATEMENTS } from './schema-v1.js';
 
-const CONFIGURATION_STATEMENTS = Object.freeze([
-  'PRAGMA foreign_keys = ON',
-  'PRAGMA journal_mode = WAL',
-  'PRAGMA synchronous = FULL',
-  'PRAGMA busy_timeout = 5000',
+const CONFIGURATION_PRAGMAS = Object.freeze([
+  Object.freeze({
+    setSql: 'PRAGMA foreign_keys = ON',
+    readSql: 'PRAGMA foreign_keys',
+    property: 'foreign_keys',
+    expected: 1,
+  }),
+  Object.freeze({
+    setSql: 'PRAGMA journal_mode = WAL',
+    readSql: 'PRAGMA journal_mode',
+    property: 'journal_mode',
+    expected: 'wal',
+  }),
+  Object.freeze({
+    setSql: 'PRAGMA synchronous = FULL',
+    readSql: 'PRAGMA synchronous',
+    property: 'synchronous',
+    expected: 2,
+  }),
+  Object.freeze({
+    setSql: 'PRAGMA busy_timeout = 5000',
+    readSql: 'PRAGMA busy_timeout',
+    property: 'timeout',
+    expected: 5000,
+  }),
 ]);
 
 function createMigrationError(code, options) {
@@ -14,18 +34,37 @@ function createMigrationError(code, options) {
   return error;
 }
 
-function readSingleIntegerPragma(rows, property, code) {
+function readExactSingleValue(rows, property, code) {
   if (
     !Array.isArray(rows) ||
+    Object.getPrototypeOf(rows) !== Array.prototype ||
+    Reflect.ownKeys(rows).length !== 2 ||
+    !Reflect.ownKeys(rows).includes('0') ||
+    !Reflect.ownKeys(rows).includes('length') ||
     rows.length !== 1 ||
-    !rows[0] ||
-    typeof rows[0] !== 'object' ||
-    !Number.isSafeInteger(rows[0][property]) ||
-    rows[0][property] < 0
+    !Object.getOwnPropertyDescriptor(rows, '0')?.enumerable
   ) {
     throw createMigrationError(code);
   }
-  return rows[0][property];
+  const row = Object.getOwnPropertyDescriptor(rows, '0').value;
+  if (
+    !row ||
+    typeof row !== 'object' ||
+    Object.getPrototypeOf(row) !== Object.prototype ||
+    Reflect.ownKeys(row).length !== 1 ||
+    Reflect.ownKeys(row)[0] !== property
+  ) {
+    throw createMigrationError(code);
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(row, property);
+  if (
+    !descriptor ||
+    !Object.hasOwn(descriptor, 'value') ||
+    !descriptor.enumerable
+  ) {
+    throw createMigrationError(code);
+  }
+  return descriptor.value;
 }
 
 function normaliseSchemaSql(sql) {
@@ -54,23 +93,60 @@ async function assertIntegrityValid(connection) {
 
 async function assertSchemaV1(connection) {
   const actual = await connection.query(
-    "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+    'SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY type, name',
   );
   const expected = SCHEMA_V1_STATEMENTS.map((sql) => ({
+    type: 'table',
     name: /^CREATE TABLE ([a-z_]+) /.exec(sql)?.[1],
+    tbl_name: /^CREATE TABLE ([a-z_]+) /.exec(sql)?.[1],
     sql: normaliseSchemaSql(sql),
   })).toSorted((left, right) =>
     left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
   );
 
+  if (!Array.isArray(actual)) {
+    throw createMigrationError('sqlite_schema_v1_invalid');
+  }
+  const appOwned = [];
+  for (const row of actual) {
+    if (!row || typeof row !== 'object') {
+      throw createMigrationError('sqlite_schema_v1_invalid');
+    }
+    const keys = Reflect.ownKeys(row);
+    if (
+      keys.length !== 4 ||
+      ['type', 'name', 'tbl_name', 'sql'].some((key) => !keys.includes(key)) ||
+      keys.some((key) => {
+        const descriptor = Object.getOwnPropertyDescriptor(row, key);
+        return (
+          typeof key !== 'string' ||
+          !descriptor ||
+          !Object.hasOwn(descriptor, 'value') ||
+          !descriptor.enumerable
+        );
+      })
+    ) {
+      throw createMigrationError('sqlite_schema_v1_invalid');
+    }
+    const values = Object.fromEntries(
+      keys.map((key) => [key, Object.getOwnPropertyDescriptor(row, key).value]),
+    );
+    const internalAutoIndex =
+      values.type === 'index' &&
+      typeof values.name === 'string' &&
+      values.name.startsWith('sqlite_autoindex_') &&
+      expected.some(({ name }) => name === values.tbl_name) &&
+      values.sql === null;
+    if (!internalAutoIndex) appOwned.push(values);
+  }
+
   if (
-    !Array.isArray(actual) ||
-    actual.length !== expected.length ||
-    actual.some(
+    appOwned.length !== expected.length ||
+    appOwned.some(
       (row, index) =>
-        !row ||
-        typeof row !== 'object' ||
+        row.type !== expected[index].type ||
         row.name !== expected[index].name ||
+        row.tbl_name !== expected[index].tbl_name ||
         row.sql !== expected[index].sql,
     )
   ) {
@@ -94,30 +170,55 @@ function requireMigrationStepHook(options) {
 }
 
 async function rollbackAndProveInactive(connection, originalError) {
-  let rollbackError;
+  const errors = [originalError];
+  let initiallyActive;
+  let stateInspectionFailed = false;
   try {
-    if (await connection.isTransactionActive()) {
-      await connection.rollback();
+    initiallyActive = await connection.isTransactionActive();
+    if (typeof initiallyActive !== 'boolean') {
+      errors.push(
+        createMigrationError('sqlite_migration_transaction_state_invalid'),
+      );
+      stateInspectionFailed = true;
     }
   } catch (error) {
-    rollbackError = error;
+    errors.push(error);
+    stateInspectionFailed = true;
+  }
+
+  if (initiallyActive === true || stateInspectionFailed) {
+    try {
+      await connection.rollback();
+    } catch (error) {
+      errors.push(error);
+    }
   }
 
   let transactionActive;
   try {
     transactionActive = await connection.isTransactionActive();
   } catch (error) {
+    errors.push(error);
     throw createMigrationError('sqlite_migration_rollback_unverified', {
       cause: new AggregateError(
-        [originalError, rollbackError, error].filter(Boolean),
+        errors,
         'Migration rollback could not be verified.',
       ),
     });
   }
-  if (rollbackError || transactionActive !== false) {
+  if (transactionActive !== false) {
+    errors.push(
+      createMigrationError(
+        transactionActive === true
+          ? 'sqlite_migration_transaction_still_active'
+          : 'sqlite_migration_transaction_state_invalid',
+      ),
+    );
+  }
+  if (errors.length > 1) {
     throw createMigrationError('sqlite_migration_rollback_unverified', {
       cause: new AggregateError(
-        [originalError, rollbackError].filter(Boolean),
+        errors,
         'Migration rollback did not become inactive.',
       ),
     });
@@ -126,8 +227,8 @@ async function rollbackAndProveInactive(connection, originalError) {
 }
 
 async function migrateV0ToV1(connection, afterMigrationStep) {
-  await connection.begin();
   try {
+    await connection.begin();
     let statementIndex = 0;
     for (const sql of SCHEMA_V1_STATEMENTS) {
       await connection.execute(sql);
@@ -170,8 +271,9 @@ async function migrateV0ToV1(connection, afterMigrationStep) {
     );
     statementIndex += 1;
 
+    await assertSchemaV1(connection);
     await afterMigrationStep(
-      Object.freeze({ phase: 'before_commit', statementIndex }),
+      Object.freeze({ phase: 'before_commit', sql: 'COMMIT', statementIndex }),
     );
     await connection.commit();
   } catch (error) {
@@ -193,15 +295,28 @@ export async function configureAndMigrateDatabase(connection, options = {}) {
   assertSqlConnection(connection);
   const afterMigrationStep = requireMigrationStepHook(options);
 
-  for (const sql of CONFIGURATION_STATEMENTS) {
-    await connection.execute(sql);
+  for (const { setSql } of CONFIGURATION_PRAGMAS) {
+    await connection.execute(setSql);
+  }
+  for (const { readSql, property, expected } of CONFIGURATION_PRAGMAS) {
+    const actual = readExactSingleValue(
+      await connection.query(readSql),
+      property,
+      'sqlite_configuration_invalid',
+    );
+    if (actual !== expected) {
+      throw createMigrationError('sqlite_configuration_invalid');
+    }
   }
 
-  const userVersion = readSingleIntegerPragma(
+  const userVersion = readExactSingleValue(
     await connection.query('PRAGMA user_version'),
     'user_version',
     'sqlite_schema_version_invalid',
   );
+  if (!Number.isSafeInteger(userVersion) || userVersion < 0) {
+    throw createMigrationError('sqlite_schema_version_invalid');
+  }
   if (userVersion !== 0 && userVersion !== SCHEMA_VERSION) {
     await closeForUnsupportedVersion(connection);
   }

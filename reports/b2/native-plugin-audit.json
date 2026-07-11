@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "nativePluginBuildSha256": "be2d277dd5b74f7c06a5a7c1f928045009682d6568a4d47fbf80cb22c44ef0ef",
+  "dependencyAuditSha256": "1f8465c2fea2b6a642e004b7f9515e1e275995d95249e7b3221e1cd2b401105d",
+  "sqliteMode": "no-encryption",
+  "webFallbackInitialised": false,
+  "androidPackagedPermissions": [],
+  "iosAddedUsageDescriptionKeys": [],
+  "iosAddedEntitlements": [],
+  "androidBackupEnabled": false,
+  "androidDataExtraction": "all-domains-excluded-until-c2",
+  "androidBackupRulesSha256": "0d9990aea651376c460947c4b349b48c6dea1babfb268189732de71511d2b7e0",
+  "androidBackupExcludedDomains": [
+    "root",
+    "file",
+    "database",
+    "sharedpref",
+    "external"
+  ],
+  "androidDataExtractionRulesSha256": "74d80216ccbc8774c3699ead4a8406fe2c404d8d33333538d65bdd856d178208",
+  "androidCloudBackupExcludedDomains": [
+    "root",
+    "file",
+    "database",
+    "sharedpref",
+    "external",
+    "device_root",
+    "device_file",
+    "device_database",
+    "device_sharedpref"
+  ],
+  "androidDeviceTransferExcludedDomains": [
+    "root",
+    "file",
+    "database",
+    "sharedpref",
+    "external",
+    "device_root",
+    "device_file",
+    "device_database",
+    "device_sharedpref"
+  ],
+  "sqlCipherPackaged": true,
+  "applicationEncryptionAtRestProved": false,
+  "usEncryptionExportClassification": "unresolved-before-store-release",
+  "approval": "B2-proof-only"
+}

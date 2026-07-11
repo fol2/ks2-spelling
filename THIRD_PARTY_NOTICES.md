@@ -1,14 +1,23 @@
 # Third-party notices
 
-This is the deterministic dependency inventory for the B1 local prototype. It records package identity, source and declared licence; it is not a substitute for the full licence texts or final store disclosure review.
+This is the deterministic dependency inventory for the B2 local persistence proof. It records package identity, source and declared licence; it is not a substitute for the full licence texts or final store disclosure review.
 
 - Android resolution: `resolved-toolchain`
+- npm lock identities: 189
+- SwiftPM identities: 3
+- Maven selected module identities: 314
+- Maven task-created build-tool identities: 12
+- Maven verification inventory: 427 components and 847 artefacts
+- Notice rows: 518
 - Runtime network endpoints: none
-- Native plugins beyond Capacitor core/platform packages: none
+- Native plugins: @capacitor-community/sqlite 8.1.0 and @capacitor/app 8.1.0, conditionally approved for B2 proof only
+- SQLCipher is packaged even though B2 uses no-encryption mode; US export classification remains unresolved before store release
 
 | Package | Version | Declared licence | Source type | Source | Locator |
 |---|---:|---|---|---|---|
+| @capacitor-community/sqlite | 8.1.0 | MIT | npm | https://registry.npmjs.org/@capacitor-community/sqlite/-/sqlite-8.1.0.tgz | node_modules/@capacitor-community/sqlite |
 | @capacitor/android | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/android/-/android-8.4.1.tgz | node_modules/@capacitor/android |
+| @capacitor/app | 8.1.0 | MIT | npm | https://registry.npmjs.org/@capacitor/app/-/app-8.1.0.tgz | node_modules/@capacitor/app |
 | @capacitor/cli | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/cli/-/cli-8.4.1.tgz | node_modules/@capacitor/cli |
 | @capacitor/core | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/core/-/core-8.4.1.tgz | node_modules/@capacitor/core |
 | @capacitor/ios | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/ios/-/ios-8.4.1.tgz | node_modules/@capacitor/ios |
@@ -61,6 +70,15 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | @rolldown/binding-win32-arm64-msvc | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-1.1.5.tgz | node_modules/@rolldown/binding-win32-arm64-msvc |
 | @rolldown/binding-win32-x64-msvc | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-win32-x64-msvc/-/binding-win32-x64-msvc-1.1.5.tgz | node_modules/@rolldown/binding-win32-x64-msvc |
 | @rolldown/pluginutils | 1.0.1 | MIT | npm | https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz | node_modules/@rolldown/pluginutils |
+| @rollup/rollup-darwin-arm64 | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-darwin-arm64/-/rollup-darwin-arm64-4.44.0.tgz | node_modules/@rollup/rollup-darwin-arm64 |
+| @rollup/rollup-darwin-x64 | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-darwin-x64/-/rollup-darwin-x64-4.44.0.tgz | node_modules/@rollup/rollup-darwin-x64 |
+| @rollup/rollup-linux-arm64-gnu | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-linux-arm64-gnu/-/rollup-linux-arm64-gnu-4.44.0.tgz | node_modules/@rollup/rollup-linux-arm64-gnu |
+| @rollup/rollup-linux-arm64-musl | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-linux-arm64-musl/-/rollup-linux-arm64-musl-4.44.0.tgz | node_modules/@rollup/rollup-linux-arm64-musl |
+| @rollup/rollup-linux-x64-gnu | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.44.0.tgz | node_modules/@rollup/rollup-linux-x64-gnu |
+| @rollup/rollup-linux-x64-musl | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-linux-x64-musl/-/rollup-linux-x64-musl-4.44.0.tgz | node_modules/@rollup/rollup-linux-x64-musl |
+| @rollup/rollup-win32-arm64-msvc | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-win32-arm64-msvc/-/rollup-win32-arm64-msvc-4.44.0.tgz | node_modules/@rollup/rollup-win32-arm64-msvc |
+| @rollup/rollup-win32-x64-msvc | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.44.0.tgz | node_modules/@rollup/rollup-win32-x64-msvc |
+| @stencil/core | 4.43.5 | MIT | npm | https://registry.npmjs.org/@stencil/core/-/core-4.43.5.tgz | node_modules/@stencil/core |
 | @tybys/wasm-util | 0.10.3 | MIT | npm | https://registry.npmjs.org/@tybys/wasm-util/-/wasm-util-0.10.3.tgz | node_modules/@tybys/wasm-util |
 | @types/fs-extra | 8.1.5 | MIT | npm | https://registry.npmjs.org/@types/fs-extra/-/fs-extra-8.1.5.tgz | node_modules/@types/fs-extra |
 | @types/node | 26.1.1 | MIT | npm | https://registry.npmjs.org/@types/node/-/node-26.1.1.tgz | node_modules/@types/node |
@@ -76,11 +94,13 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | big-integer | 1.6.52 | Unlicense | npm | https://registry.npmjs.org/big-integer/-/big-integer-1.6.52.tgz | node_modules/big-integer |
 | bplist-parser | 0.3.2 | MIT | npm | https://registry.npmjs.org/bplist-parser/-/bplist-parser-0.3.2.tgz | node_modules/bplist-parser |
 | brace-expansion | 5.0.7 | MIT | npm | https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.7.tgz | node_modules/brace-expansion |
+| browser-fs-access | 0.35.0 | Apache-2.0 | npm | https://registry.npmjs.org/browser-fs-access/-/browser-fs-access-0.35.0.tgz | node_modules/browser-fs-access |
 | buffer-crc32 | 0.2.13 | MIT | npm | https://registry.npmjs.org/buffer-crc32/-/buffer-crc32-0.2.13.tgz | node_modules/buffer-crc32 |
 | chownr | 3.0.0 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/chownr/-/chownr-3.0.0.tgz | node_modules/chownr |
 | color-convert | 2.0.1 | MIT | npm | https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz | node_modules/color-convert |
 | color-name | 1.1.4 | MIT | npm | https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz | node_modules/color-name |
 | commander | 12.1.0 | MIT | npm | https://registry.npmjs.org/commander/-/commander-12.1.0.tgz | node_modules/commander |
+| core-util-is | 1.0.3 | MIT | npm | https://registry.npmjs.org/core-util-is/-/core-util-is-1.0.3.tgz | node_modules/core-util-is |
 | cross-spawn | 7.0.6 | MIT | npm | https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz | node_modules/cross-spawn |
 | debug | 4.4.3 | MIT | npm | https://registry.npmjs.org/debug/-/debug-4.4.3.tgz | node_modules/debug |
 | define-lazy-prop | 2.0.0 | MIT | npm | https://registry.npmjs.org/define-lazy-prop/-/define-lazy-prop-2.0.0.tgz | node_modules/define-lazy-prop |
@@ -95,15 +115,21 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | fsevents | 2.3.3 | MIT | npm | https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz | node_modules/fsevents |
 | glob | 13.0.6 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/glob/-/glob-13.0.6.tgz | node_modules/glob |
 | graceful-fs | 4.2.11 | ISC | npm | https://registry.npmjs.org/graceful-fs/-/graceful-fs-4.2.11.tgz | node_modules/graceful-fs |
+| immediate | 3.0.6 | MIT | npm | https://registry.npmjs.org/immediate/-/immediate-3.0.6.tgz | node_modules/immediate |
 | inherits | 2.0.4 | ISC | npm | https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz | node_modules/inherits |
 | ini | 4.1.3 | ISC | npm | https://registry.npmjs.org/ini/-/ini-4.1.3.tgz | node_modules/ini |
 | is-docker | 2.2.1 | MIT | npm | https://registry.npmjs.org/is-docker/-/is-docker-2.2.1.tgz | node_modules/is-docker |
 | is-fullwidth-code-point | 3.0.0 | MIT | npm | https://registry.npmjs.org/is-fullwidth-code-point/-/is-fullwidth-code-point-3.0.0.tgz | node_modules/is-fullwidth-code-point |
 | is-wsl | 2.2.0 | MIT | npm | https://registry.npmjs.org/is-wsl/-/is-wsl-2.2.0.tgz | node_modules/is-wsl |
+| isarray | 1.0.0 | MIT | npm | https://registry.npmjs.org/isarray/-/isarray-1.0.0.tgz | node_modules/isarray |
 | isexe | 2.0.0 | ISC | npm | https://registry.npmjs.org/isexe/-/isexe-2.0.0.tgz | node_modules/isexe |
+| jeep-sqlite | 2.8.0 | MIT | npm | https://registry.npmjs.org/jeep-sqlite/-/jeep-sqlite-2.8.0.tgz | node_modules/jeep-sqlite |
 | jsonfile | 6.2.1 | MIT | npm | https://registry.npmjs.org/jsonfile/-/jsonfile-6.2.1.tgz | node_modules/jsonfile |
+| jszip | 3.10.1 | MIT | npm | https://registry.npmjs.org/jszip/-/jszip-3.10.1.tgz | node_modules/jszip |
 | kleur | 3.0.3 | MIT | npm | https://registry.npmjs.org/kleur/-/kleur-3.0.3.tgz | node_modules/prompts/node_modules/kleur |
 | kleur | 4.1.5 | MIT | npm | https://registry.npmjs.org/kleur/-/kleur-4.1.5.tgz | node_modules/kleur |
+| lie | 3.1.1 | MIT | npm | https://registry.npmjs.org/lie/-/lie-3.1.1.tgz | node_modules/localforage/node_modules/lie |
+| lie | 3.3.0 | MIT | npm | https://registry.npmjs.org/lie/-/lie-3.3.0.tgz | node_modules/lie |
 | lightningcss-android-arm64 | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-android-arm64/-/lightningcss-android-arm64-1.32.0.tgz | node_modules/lightningcss-android-arm64 |
 | lightningcss-darwin-arm64 | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-darwin-arm64/-/lightningcss-darwin-arm64-1.32.0.tgz | node_modules/lightningcss-darwin-arm64 |
 | lightningcss-darwin-x64 | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-darwin-x64/-/lightningcss-darwin-x64-1.32.0.tgz | node_modules/lightningcss-darwin-x64 |
@@ -116,6 +142,7 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | lightningcss-win32-arm64-msvc | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-win32-arm64-msvc/-/lightningcss-win32-arm64-msvc-1.32.0.tgz | node_modules/lightningcss-win32-arm64-msvc |
 | lightningcss-win32-x64-msvc | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-win32-x64-msvc/-/lightningcss-win32-x64-msvc-1.32.0.tgz | node_modules/lightningcss-win32-x64-msvc |
 | lightningcss | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss/-/lightningcss-1.32.0.tgz | node_modules/lightningcss |
+| localforage | 1.10.0 | Apache-2.0 | npm | https://registry.npmjs.org/localforage/-/localforage-1.10.0.tgz | node_modules/localforage |
 | lru-cache | 11.5.2 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/lru-cache/-/lru-cache-11.5.2.tgz | node_modules/lru-cache |
 | minimatch | 10.2.5 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/minimatch/-/minimatch-10.2.5.tgz | node_modules/minimatch |
 | minipass | 7.1.3 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/minipass/-/minipass-7.1.3.tgz | node_modules/minipass |
@@ -126,6 +153,7 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | open | 8.4.2 | MIT | npm | https://registry.npmjs.org/open/-/open-8.4.2.tgz | node_modules/open |
 | oxlint | 1.71.0 | MIT | npm | https://registry.npmjs.org/oxlint/-/oxlint-1.71.0.tgz | node_modules/oxlint |
 | package-json-from-dist | 1.0.1 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/package-json-from-dist/-/package-json-from-dist-1.0.1.tgz | node_modules/package-json-from-dist |
+| pako | 1.0.11 | MIT AND Zlib | npm | https://registry.npmjs.org/pako/-/pako-1.0.11.tgz | node_modules/pako |
 | path-key | 3.1.1 | MIT | npm | https://registry.npmjs.org/path-key/-/path-key-3.1.1.tgz | node_modules/path-key |
 | path-scurry | 2.0.2 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/path-scurry/-/path-scurry-2.0.2.tgz | node_modules/path-scurry |
 | pend | 1.2.0 | MIT | npm | https://registry.npmjs.org/pend/-/pend-1.2.0.tgz | node_modules/pend |
@@ -133,16 +161,20 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | picomatch | 4.0.5 | MIT | npm | https://registry.npmjs.org/picomatch/-/picomatch-4.0.5.tgz | node_modules/picomatch |
 | plist | 3.1.1 | MIT | npm | https://registry.npmjs.org/plist/-/plist-3.1.1.tgz | node_modules/plist |
 | postcss | 8.5.16 | MIT | npm | https://registry.npmjs.org/postcss/-/postcss-8.5.16.tgz | node_modules/postcss |
+| process-nextick-args | 2.0.1 | MIT | npm | https://registry.npmjs.org/process-nextick-args/-/process-nextick-args-2.0.1.tgz | node_modules/process-nextick-args |
 | prompts | 2.4.2 | MIT | npm | https://registry.npmjs.org/prompts/-/prompts-2.4.2.tgz | node_modules/prompts |
 | react-dom | 19.2.7 | MIT | npm | https://registry.npmjs.org/react-dom/-/react-dom-19.2.7.tgz | node_modules/react-dom |
 | react | 19.2.7 | MIT | npm | https://registry.npmjs.org/react/-/react-19.2.7.tgz | node_modules/react |
+| readable-stream | 2.3.8 | MIT | npm | https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz | node_modules/jszip/node_modules/readable-stream |
 | readable-stream | 3.6.2 | MIT | npm | https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz | node_modules/readable-stream |
 | rimraf | 6.1.3 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/rimraf/-/rimraf-6.1.3.tgz | node_modules/rimraf |
 | rolldown | 1.1.5 | MIT | npm | https://registry.npmjs.org/rolldown/-/rolldown-1.1.5.tgz | node_modules/rolldown |
+| safe-buffer | 5.1.2 | MIT | npm | https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz | node_modules/jszip/node_modules/safe-buffer |
 | safe-buffer | 5.2.1 | MIT | npm | https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz | node_modules/safe-buffer |
 | sax | 1.1.4 | ISC | npm | https://registry.npmjs.org/sax/-/sax-1.1.4.tgz | node_modules/sax |
 | scheduler | 0.27.0 | MIT | npm | https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz | node_modules/scheduler |
 | semver | 7.8.5 | ISC | npm | https://registry.npmjs.org/semver/-/semver-7.8.5.tgz | node_modules/semver |
+| setimmediate | 1.0.5 | MIT | npm | https://registry.npmjs.org/setimmediate/-/setimmediate-1.0.5.tgz | node_modules/setimmediate |
 | shebang-command | 2.0.0 | MIT | npm | https://registry.npmjs.org/shebang-command/-/shebang-command-2.0.0.tgz | node_modules/shebang-command |
 | shebang-regex | 3.0.0 | MIT | npm | https://registry.npmjs.org/shebang-regex/-/shebang-regex-3.0.0.tgz | node_modules/shebang-regex |
 | signal-exit | 3.0.7 | ISC | npm | https://registry.npmjs.org/signal-exit/-/signal-exit-3.0.7.tgz | node_modules/signal-exit |
@@ -150,6 +182,8 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | slice-ansi | 4.0.0 | MIT | npm | https://registry.npmjs.org/slice-ansi/-/slice-ansi-4.0.0.tgz | node_modules/slice-ansi |
 | source-map-js | 1.2.1 | BSD-3-Clause | npm | https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz | node_modules/source-map-js |
 | split2 | 4.2.0 | ISC | npm | https://registry.npmjs.org/split2/-/split2-4.2.0.tgz | node_modules/split2 |
+| sql.js | 1.14.1 | MIT | npm | https://registry.npmjs.org/sql.js/-/sql.js-1.14.1.tgz | node_modules/sql.js |
+| string_decoder | 1.1.1 | MIT | npm | https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz | node_modules/jszip/node_modules/string_decoder |
 | string_decoder | 1.3.0 | MIT | npm | https://registry.npmjs.org/string_decoder/-/string_decoder-1.3.0.tgz | node_modules/string_decoder |
 | string-width | 4.2.3 | MIT | npm | https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz | node_modules/string-width |
 | strip-ansi | 6.0.1 | MIT | npm | https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz | node_modules/strip-ansi |
@@ -170,18 +204,22 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | xmlbuilder | 15.1.1 | MIT | npm | https://registry.npmjs.org/xmlbuilder/-/xmlbuilder-15.1.1.tgz | node_modules/xmlbuilder |
 | yallist | 5.0.0 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/yallist/-/yallist-5.0.0.tgz | node_modules/yallist |
 | yauzl | 2.10.0 | MIT | npm | https://registry.npmjs.org/yauzl/-/yauzl-2.10.0.tgz | node_modules/yauzl |
-| capacitor-swift-pm | 8.4.1 | MIT | SwiftPM | https://github.com/ionic-team/capacitor-swift-pm.git | revision 2231987d85b8b0b289320b1d0947b4ae8345cde4 |
+| capacitor-swift-pm | 8.4.1 | MIT | SwiftPM | https://github.com/ionic-team/capacitor-swift-pm.git | version 8.4.1; revision 2231987d85b8b0b289320b1d0947b4ae8345cde4 |
+| sqlcipher.swift | 4.17.0 | BSD-3-Clause | SwiftPM | https://github.com/sqlcipher/SQLCipher.swift.git | version 4.17.0; revision 205df55271aa1ba512a9bfe3fd1813bc9ac52a19 |
+| zipfoundation | 0.9.20 | MIT | SwiftPM | https://github.com/weichsel/ZIPFoundation.git | version 0.9.20; revision 22787ffb59de99e5dc1fbfe80b19c97a904ad48d |
 | androidx.activity:activity | 1.11.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.11.0/activity-1.11.0.pom | packaged-runtime |
 | androidx.activity:activity | 1.8.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.8.0/activity-1.8.0.pom | tooling-or-test-only |
 | androidx.annotation:annotation-experimental | 1.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-experimental/1.4.0/annotation-experimental-1.4.0.pom | tooling-or-test-only |
 | androidx.annotation:annotation-experimental | 1.4.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-experimental/1.4.1/annotation-experimental-1.4.1.pom | packaged-runtime |
 | androidx.annotation:annotation-jvm | 1.8.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-jvm/1.8.1/annotation-jvm-1.8.1.pom | packaged-runtime |
+| androidx.annotation:annotation | 1.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation/1.3.0/annotation-1.3.0.pom | tooling-or-test-only |
 | androidx.annotation:annotation | 1.8.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation/1.8.1/annotation-1.8.1.pom | packaged-runtime |
 | androidx.appcompat:appcompat-resources | 1.7.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat-resources/1.7.1/appcompat-resources-1.7.1.pom | packaged-runtime |
 | androidx.appcompat:appcompat | 1.7.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.7.1/appcompat-1.7.1.pom | packaged-runtime |
 | androidx.arch.core:core-common | 2.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/arch/core/core-common/2.2.0/core-common-2.2.0.pom | packaged-runtime |
 | androidx.arch.core:core-runtime | 2.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/arch/core/core-runtime/2.1.0/core-runtime-2.1.0.pom | tooling-or-test-only |
 | androidx.arch.core:core-runtime | 2.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/arch/core/core-runtime/2.2.0/core-runtime-2.2.0.pom | packaged-runtime |
+| androidx.biometric:biometric | 1.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/biometric/biometric/1.1.0/biometric-1.1.0.pom | packaged-runtime |
 | androidx.collection:collection-jvm | 1.4.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/collection/collection-jvm/1.4.2/collection-jvm-1.4.2.pom | packaged-runtime |
 | androidx.collection:collection | 1.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/collection/collection/1.1.0/collection-1.1.0.pom | tooling-or-test-only |
 | androidx.collection:collection | 1.4.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/collection/collection/1.4.2/collection-1.4.2.pom | packaged-runtime |
@@ -218,7 +256,15 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | androidx.profileinstaller:profileinstaller | 1.3.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/profileinstaller/profileinstaller/1.3.1/profileinstaller-1.3.1.pom | tooling-or-test-only |
 | androidx.profileinstaller:profileinstaller | 1.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/profileinstaller/profileinstaller/1.4.0/profileinstaller-1.4.0.pom | packaged-runtime |
 | androidx.resourceinspection:resourceinspection-annotation | 1.0.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/resourceinspection/resourceinspection-annotation/1.0.1/resourceinspection-annotation-1.0.1.pom | packaged-runtime |
+| androidx.room:room-common | 2.6.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-common/2.6.1/room-common-2.6.1.pom | packaged-runtime |
+| androidx.room:room-compiler-processing | 2.6.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-compiler-processing/2.6.1/room-compiler-processing-2.6.1.pom | tooling-or-test-only |
+| androidx.room:room-compiler | 2.6.1 | Apache-2.0 AND BSD-3-Clause | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-compiler/2.6.1/room-compiler-2.6.1.pom | tooling-or-test-only |
+| androidx.room:room-migration | 2.6.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-migration/2.6.1/room-migration-2.6.1.pom | tooling-or-test-only |
+| androidx.room:room-runtime | 2.6.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-runtime/2.6.1/room-runtime-2.6.1.pom | packaged-runtime |
 | androidx.savedstate:savedstate | 1.2.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate/1.2.1/savedstate-1.2.1.pom | packaged-runtime |
+| androidx.security:security-crypto | 1.1.0-alpha06 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/security/security-crypto/1.1.0-alpha06/security-crypto-1.1.0-alpha06.pom | packaged-runtime |
+| androidx.sqlite:sqlite-framework | 2.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/sqlite/sqlite-framework/2.4.0/sqlite-framework-2.4.0.pom | packaged-runtime |
+| androidx.sqlite:sqlite | 2.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/sqlite/sqlite/2.4.0/sqlite-2.4.0.pom | packaged-runtime |
 | androidx.startup:startup-runtime | 1.1.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/startup/startup-runtime/1.1.1/startup-runtime-1.1.1.pom | packaged-runtime |
 | androidx.test:core | 1.7.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/core/1.7.0/core-1.7.0.pom | tooling-or-test-only |
 | androidx.test:monitor | 1.8.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/monitor/1.8.0/monitor-1.8.0.pom | tooling-or-test-only |
@@ -292,17 +338,23 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | com.google.android.gms:strict-version-matcher-plugin | 1.2.4 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/android/gms/strict-version-matcher-plugin/1.2.4/strict-version-matcher-plugin-1.2.4.pom | tooling-or-test-only |
 | com.google.api.grpc:proto-google-common-protos | 2.17.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/api/grpc/proto-google-common-protos/2.17.0/proto-google-common-protos-2.17.0.pom | tooling-or-test-only |
 | com.google.api.grpc:proto-google-common-protos | 2.48.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/api/grpc/proto-google-common-protos/2.48.0/proto-google-common-protos-2.48.0.pom | tooling-or-test-only |
+| com.google.auto:auto-common | 0.11 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/auto-common/0.11/auto-common-0.11.pom | tooling-or-test-only |
 | com.google.auto:auto-common | 1.2.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/auto-common/1.2.1/auto-common-1.2.1.pom | tooling-or-test-only |
 | com.google.auto.service:auto-service-annotations | 1.1.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/service/auto-service-annotations/1.1.1/auto-service-annotations-1.1.1.pom | tooling-or-test-only |
 | com.google.auto.service:auto-service | 1.1.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/service/auto-service/1.1.1/auto-service-1.1.1.pom | tooling-or-test-only |
 | com.google.auto.value:auto-value-annotations | 1.6.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.pom | tooling-or-test-only |
+| com.google.auto.value:auto-value-annotations | 1.6.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.6.3/auto-value-annotations-1.6.3.pom | tooling-or-test-only |
 | com.google.code.findbugs:jsr305 | 3.0.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom | tooling-or-test-only |
 | com.google.code.gson:gson | 2.10.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom | tooling-or-test-only |
 | com.google.code.gson:gson | 2.11.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.11.0/gson-2.11.0.pom | tooling-or-test-only |
-| com.google.code.gson:gson | 2.8.9 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.8.9/gson-2.8.9.pom | tooling-or-test-only |
+| com.google.code.gson:gson | 2.8.9 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.8.9/gson-2.8.9.pom | packaged-runtime |
+| com.google.code.gson:gson | 2.9.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.9.0/gson-2.9.0.pom | tooling-or-test-only |
+| com.google.crypto.tink:tink-android | 1.8.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/crypto/tink/tink-android/1.8.0/tink-android-1.8.0.pom | packaged-runtime |
 | com.google.crypto.tink:tink | 1.7.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/crypto/tink/tink/1.7.0/tink-1.7.0.pom | tooling-or-test-only |
 | com.google.dagger:dagger | 2.28.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/dagger/dagger/2.28.3/dagger-2.28.3.pom | tooling-or-test-only |
 | com.google.dagger:dagger | 2.48 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/dagger/dagger/2.48/dagger-2.48.pom | tooling-or-test-only |
+| com.google.devtools.ksp:symbol-processing-api | 1.9.0-1.0.13 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/devtools/ksp/symbol-processing-api/1.9.0-1.0.13/symbol-processing-api-1.9.0-1.0.13.pom | tooling-or-test-only |
+| com.google.errorprone:error_prone_annotations | 2.11.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.11.0/error_prone_annotations-2.11.0.pom | tooling-or-test-only |
 | com.google.errorprone:error_prone_annotations | 2.23.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.23.0/error_prone_annotations-2.23.0.pom | tooling-or-test-only |
 | com.google.errorprone:error_prone_annotations | 2.28.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.28.0/error_prone_annotations-2.28.0.pom | tooling-or-test-only |
 | com.google.errorprone:error_prone_annotations | 2.30.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.30.0/error_prone_annotations-2.30.0.pom | tooling-or-test-only |
@@ -310,10 +362,12 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | com.google.gms:google-services | 4.4.4 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/gms/google-services/4.4.4/google-services-4.4.4.pom | tooling-or-test-only |
 | com.google.guava:failureaccess | 1.0.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.1/failureaccess-1.0.1.pom | tooling-or-test-only |
 | com.google.guava:failureaccess | 1.0.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.2/failureaccess-1.0.2.pom | tooling-or-test-only |
+| com.google.guava:guava | 31.1-jre | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/guava/31.1-jre/guava-31.1-jre.pom | tooling-or-test-only |
 | com.google.guava:guava | 32.0.1-jre | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/guava/32.0.1-jre/guava-32.0.1-jre.pom | tooling-or-test-only |
 | com.google.guava:guava | 33.3.1-jre | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/guava/33.3.1-jre/guava-33.3.1-jre.pom | tooling-or-test-only |
 | com.google.guava:listenablefuture | 1.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/1.0/listenablefuture-1.0.pom | packaged-runtime |
 | com.google.guava:listenablefuture | 9999.0-empty-to-avoid-conflict-with-guava | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.pom | tooling-or-test-only |
+| com.google.j2objc:j2objc-annotations | 1.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/1.3/j2objc-annotations-1.3.pom | tooling-or-test-only |
 | com.google.j2objc:j2objc-annotations | 2.8 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/2.8/j2objc-annotations-2.8.pom | tooling-or-test-only |
 | com.google.j2objc:j2objc-annotations | 3.0.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/3.0.0/j2objc-annotations-3.0.0.pom | tooling-or-test-only |
 | com.google.jimfs:jimfs | 1.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/jimfs/jimfs/1.1/jimfs-1.1.pom | tooling-or-test-only |
@@ -330,12 +384,17 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | com.google.testing.platform:core | 0.0.9-alpha03 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/core/0.0.9-alpha03/core-0.0.9-alpha03.pom | tooling-or-test-only |
 | com.google.testing.platform:launcher | 0.0.9-alpha03 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/launcher/0.0.9-alpha03/launcher-0.0.9-alpha03.pom | tooling-or-test-only |
 | com.googlecode.juniversalchardet:juniversalchardet | 1.0.3 | MPL-1.1 | Maven | https://repo.maven.apache.org/maven2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.pom | tooling-or-test-only |
+| com.intellij:annotations | 12.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/intellij/annotations/12.0/annotations-12.0.pom | tooling-or-test-only |
 | com.squareup:javapoet | 1.10.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.10.0/javapoet-1.10.0.pom | tooling-or-test-only |
+| com.squareup:javapoet | 1.13.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.13.0/javapoet-1.13.0.pom | tooling-or-test-only |
 | com.squareup:javawriter | 2.5.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom | tooling-or-test-only |
+| com.squareup:kotlinpoet-javapoet | 1.14.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/kotlinpoet-javapoet/1.14.2/kotlinpoet-javapoet-1.14.2.pom | tooling-or-test-only |
+| com.squareup:kotlinpoet | 1.14.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/kotlinpoet/1.14.2/kotlinpoet-1.14.2.pom | tooling-or-test-only |
 | com.sun.activation:javax.activation | 1.2.0 | CDDL-1.1 OR (GPL-2.0-only WITH Classpath-exception-2.0) | Maven | https://repo.maven.apache.org/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.pom | tooling-or-test-only |
 | com.sun.istack:istack-commons-runtime | 3.0.8 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/com/sun/istack/istack-commons-runtime/3.0.8/istack-commons-runtime-3.0.8.pom | tooling-or-test-only |
 | com.sun.xml.fastinfoset:FastInfoset | 1.2.16 | Apache-2.0 OR LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/com/sun/xml/fastinfoset/FastInfoset/1.2.16/FastInfoset-1.2.16.pom | tooling-or-test-only |
 | commons-codec:commons-codec | 1.11 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.11/commons-codec-1.11.pom | tooling-or-test-only |
+| commons-codec:commons-codec | 1.15 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.pom | tooling-or-test-only |
 | commons-io:commons-io | 2.16.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-io/commons-io/2.16.1/commons-io-2.16.1.pom | tooling-or-test-only |
 | commons-logging:commons-logging | 1.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-logging/commons-logging/1.2/commons-logging-1.2.pom | tooling-or-test-only |
 | io.grpc:grpc-api | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-api/1.57.2/grpc-api-1.57.2.pom | tooling-or-test-only |
@@ -392,6 +451,7 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | net.java.dev.jna:jna | 5.6.0 | Apache-2.0 OR LGPL-2.1-only | Maven | https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/5.6.0/jna-5.6.0.pom | tooling-or-test-only |
 | net.sf.jopt-simple:jopt-simple | 4.9 | MIT | Maven | https://repo.maven.apache.org/maven2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.pom | tooling-or-test-only |
 | net.sf.kxml:kxml2 | 2.3.0 | LicenseRef-kXML2-BSD-Style AND LicenseRef-kXML-XmlPull-Public-Domain | Maven | https://repo.maven.apache.org/maven2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.pom | tooling-or-test-only |
+| net.zetetic:sqlcipher-android | 4.10.0 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/net/zetetic/sqlcipher-android/4.10.0/sqlcipher-android-4.10.0.pom | packaged-runtime |
 | org.apache.commons:commons-compress | 1.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.21/commons-compress-1.21.pom | tooling-or-test-only |
 | org.apache.cordova:framework | 14.0.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/cordova/framework/14.0.1/framework-14.0.1.pom | packaged-runtime |
 | org.apache.httpcomponents:httpclient | 4.5.14 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom | tooling-or-test-only |
@@ -401,6 +461,7 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | org.bouncycastle:bcpkix-jdk18on | 1.79 | LicenseRef-Bouncy-Castle | Maven | https://repo.maven.apache.org/maven2/org/bouncycastle/bcpkix-jdk18on/1.79/bcpkix-jdk18on-1.79.pom | tooling-or-test-only |
 | org.bouncycastle:bcprov-jdk18on | 1.79 | LicenseRef-Bouncy-Castle | Maven | https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.79/bcprov-jdk18on-1.79.pom | tooling-or-test-only |
 | org.bouncycastle:bcutil-jdk18on | 1.79 | LicenseRef-Bouncy-Castle | Maven | https://repo.maven.apache.org/maven2/org/bouncycastle/bcutil-jdk18on/1.79/bcutil-jdk18on-1.79.pom | tooling-or-test-only |
+| org.checkerframework:checker-qual | 3.12.0 | MIT | Maven | https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.12.0/checker-qual-3.12.0.pom | tooling-or-test-only |
 | org.checkerframework:checker-qual | 3.33.0 | MIT | Maven | https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.33.0/checker-qual-3.33.0.pom | tooling-or-test-only |
 | org.checkerframework:checker-qual | 3.43.0 | MIT | Maven | https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.43.0/checker-qual-3.43.0.pom | tooling-or-test-only |
 | org.codehaus.mojo:animal-sniffer-annotations | 1.23 | MIT | Maven | https://repo.maven.apache.org/maven2/org/codehaus/mojo/animal-sniffer-annotations/1.23/animal-sniffer-annotations-1.23.pom | tooling-or-test-only |
@@ -420,9 +481,11 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | org.jetbrains.kotlin:kotlin-stdlib-common | 2.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-common/2.2.0/kotlin-stdlib-common-2.2.0.pom | tooling-or-test-only |
 | org.jetbrains.kotlin:kotlin-stdlib-jdk7 | 1.6.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.6.21/kotlin-stdlib-jdk7-1.6.21.pom | tooling-or-test-only |
 | org.jetbrains.kotlin:kotlin-stdlib-jdk7 | 1.8.20 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.8.20/kotlin-stdlib-jdk7-1.8.20.pom | tooling-or-test-only |
+| org.jetbrains.kotlin:kotlin-stdlib-jdk7 | 1.8.22 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.8.22/kotlin-stdlib-jdk7-1.8.22.pom | packaged-runtime |
 | org.jetbrains.kotlin:kotlin-stdlib-jdk7 | 2.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/2.2.0/kotlin-stdlib-jdk7-2.2.0.pom | tooling-or-test-only |
 | org.jetbrains.kotlin:kotlin-stdlib-jdk8 | 1.6.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.6.21/kotlin-stdlib-jdk8-1.6.21.pom | tooling-or-test-only |
 | org.jetbrains.kotlin:kotlin-stdlib-jdk8 | 1.8.20 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.8.20/kotlin-stdlib-jdk8-1.8.20.pom | tooling-or-test-only |
+| org.jetbrains.kotlin:kotlin-stdlib-jdk8 | 1.8.22 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.8.22/kotlin-stdlib-jdk8-1.8.22.pom | packaged-runtime |
 | org.jetbrains.kotlin:kotlin-stdlib-jdk8 | 2.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/2.2.0/kotlin-stdlib-jdk8-2.2.0.pom | tooling-or-test-only |
 | org.jetbrains.kotlin:kotlin-stdlib | 1.8.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.8.21/kotlin-stdlib-1.8.21.pom | tooling-or-test-only |
 | org.jetbrains.kotlin:kotlin-stdlib | 1.8.22 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.8.22/kotlin-stdlib-1.8.22.pom | tooling-or-test-only |
@@ -457,6 +520,7 @@ This is the deterministic dependency inventory for the B1 local prototype. It re
 | org.ow2.asm:asm | 9.8 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.8/asm-9.8.pom | tooling-or-test-only |
 | org.slf4j:slf4j-api | 1.7.30 | MIT | Maven | https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom | tooling-or-test-only |
 | org.tensorflow:tensorflow-lite-metadata | 0.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/tensorflow/tensorflow-lite-metadata/0.2.0/tensorflow-lite-metadata-0.2.0.pom | tooling-or-test-only |
+| org.xerial:sqlite-jdbc | 3.41.2.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/xerial/sqlite-jdbc/3.41.2.2/sqlite-jdbc-3.41.2.2.pom | tooling-or-test-only |
 | com.android.tools:play-sdk-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/play-sdk-proto/31.13.0/play-sdk-proto-31.13.0.pom | tooling-or-test-only |
 | com.android.tools.build:aapt2 | 8.13.0-13719691 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/8.13.0-13719691/aapt2-8.13.0-13719691.pom | tooling-or-test-only |
 | com.android.tools.external.com-intellij:intellij-core | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/external/com-intellij/intellij-core/31.13.0/intellij-core-31.13.0.pom | tooling-or-test-only |

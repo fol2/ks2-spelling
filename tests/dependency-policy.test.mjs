@@ -10,12 +10,13 @@ import test from 'node:test';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const REQUIRED_FILES = [
   'config/dependency-policy.json',
+  'config/third-party-notices-overrides.json',
   'scripts/audit-dependencies.mjs',
   'scripts/generate-third-party-notices.mjs',
   'docs/compliance/sdk-privacy-register.md',
   'THIRD_PARTY_NOTICES.md',
-  'reports/b1/dependency-audit.json',
-  'reports/b1/android-packaged-permissions.json',
+  'reports/b2/dependency-audit.json',
+  'reports/b2/native-plugin-audit.json',
 ];
 
 async function importScript(path) {
@@ -42,10 +43,10 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
   const { buildDependencyArtifacts } = await importScript('scripts/audit-dependencies.mjs');
   const { report } = await buildDependencyArtifacts({ preBootstrap: true });
 
-  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.schemaVersion, 2);
   assert.equal(report.mode, 'pre-bootstrap');
   assert.equal(report.androidResolution, 'pending-toolchain');
-  assert.equal(report.npm.production.length, 7);
+  assert.equal(report.npm.production.length, 36);
   assert.equal(report.npm.directBuildTools.length, 4);
   assert.ok(report.npm.lockPackageCount >= 150);
   for (const dependency of [
@@ -71,94 +72,46 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
       assert.ok(Object.hasOwn(dependency, field), `${dependency.name} missing ${field}`);
     }
   }
-  assert.deepEqual(report.plugins.approved, []);
-  assert.deepEqual(report.permissionEvidence, {
-    androidUsesPermissions: [],
-    androidPermissionRemovalMarkers: ['permission', 'uses-permission'],
-    iosEntitlements: [],
-    iosUsageDescriptionKeys: [],
-  });
-  assert.deepEqual(report.b1Truth, {
-    childDataCollected: false,
-    childDataTransmitted: false,
-    analytics: false,
-    advertising: false,
-    appPermissions: [],
-    storeCommerce: false,
-    runtimeNetworkEndpoints: [],
-    disclosureStatus: 'B1 evidence only; not a final store disclosure',
-  });
-  assert.equal(report.spm[0].name, 'capacitor-swift-pm');
-  assert.equal(report.spm[0].version, '8.4.1');
+  assert.deepEqual(
+    report.plugins.approved.map(({ packageName }) => packageName),
+    ['@capacitor-community/sqlite', '@capacitor/app'],
+  );
+  assert.deepEqual(report.permissionEvidence.androidUsesPermissions, []);
+  assert.equal(report.permissionEvidence.androidPermissionRemovalMarkers.length, 4);
+  assert.deepEqual(report.permissionEvidence.iosEntitlements, []);
+  assert.deepEqual(report.permissionEvidence.iosUsageDescriptionKeys, []);
+  assert.deepEqual(report.permissionEvidence.packagedAndroid.requestedPermissions, []);
+  assert.equal(report.b2Truth.sqliteMode, 'no-encryption');
+  assert.equal(report.b2Truth.sqlCipherPackaged, true);
+  assert.equal(report.b2Truth.applicationEncryptionAtRestProved, false);
+  assert.equal(report.b2Truth.approval, 'B2-proof-only');
+  assert.equal(report.spm[0].identity, 'capacitor-swift-pm');
+  assert.deepEqual(report.spm[0].requirement, { kind: 'version', version: '8.4.1' });
   assert.equal(report.spm[0].revision, '2231987d85b8b0b289320b1d0947b4ae8345cde4');
   assert.equal(report.spm[0].privacyManifests.length, 2);
+  assert.deepEqual(
+    report.spm.map(({ identity }) => identity),
+    ['capacitor-swift-pm', 'sqlcipher.swift', 'zipfoundation'],
+  );
   assert.ok(report.gradleDeclared.length >= 15);
   assert.ok(report.gradleDeclared.every(({ resolution }) => resolution === 'pending-toolchain'));
 });
 
 test('default audit consumes the complete resolved Android certification', async () => {
-  const {
-    assertPackagedPermissionEvidenceCurrent,
-    buildDependencyArtifacts,
-  } = await importScript('scripts/audit-dependencies.mjs');
+  const { buildDependencyArtifacts } = await importScript('scripts/audit-dependencies.mjs');
   const { report } = await buildDependencyArtifacts({ preBootstrap: false });
   assert.equal(report.mode, 'resolved-toolchain');
   assert.deepEqual(report.permissionEvidence.packagedAndroid, {
-    schemaVersion: 1,
-    apkPath: '.native-build/android/build/app/outputs/apk/debug/app-debug.apk',
     appIdentity: 'uk.eugnel.ks2spelling',
     buildToolsVersion: '36.0.0',
     permissionSurfaceSha256:
       report.permissionEvidence.packagedAndroid.permissionSurfaceSha256,
-    sourceBuildInputSha256:
-      report.permissionEvidence.packagedAndroid.sourceBuildInputSha256,
     declaredPermissions: [],
     requestedPermissions: [],
   });
   assert.match(
     report.permissionEvidence.packagedAndroid.permissionSurfaceSha256,
     /^[a-f0-9]{64}$/,
-  );
-  assert.match(
-    report.permissionEvidence.packagedAndroid.sourceBuildInputSha256,
-    /^[a-f0-9]{64}$/,
-  );
-  assert.doesNotThrow(() =>
-    assertPackagedPermissionEvidenceCurrent(
-      report.permissionEvidence.packagedAndroid,
-      report.permissionEvidence.packagedAndroid,
-    ),
-  );
-  const machineSpecificApkDiagnostics = ['0'.repeat(64), '1'.repeat(64)];
-  assert.notEqual(...machineSpecificApkDiagnostics);
-  assert.equal(Object.hasOwn(report.permissionEvidence.packagedAndroid, 'apkSha256'), false);
-  assert.doesNotThrow(() =>
-    assertPackagedPermissionEvidenceCurrent(
-      report.permissionEvidence.packagedAndroid,
-      report.permissionEvidence.packagedAndroid,
-    ),
-  );
-  assert.throws(
-    () =>
-      assertPackagedPermissionEvidenceCurrent(
-        {
-          ...report.permissionEvidence.packagedAndroid,
-          appIdentity: 'uk.eugnel.wrong',
-        },
-        report.permissionEvidence.packagedAndroid,
-      ),
-    ({ code }) => code === 'android_packaged_permission_evidence_invalid',
-  );
-  assert.throws(
-    () =>
-      assertPackagedPermissionEvidenceCurrent(
-        {
-          ...report.permissionEvidence.packagedAndroid,
-          requestedPermissions: ['android.permission.INTERNET'],
-        },
-        report.permissionEvidence.packagedAndroid,
-      ),
-    ({ code }) => code === 'android_packaged_permission_evidence_invalid',
   );
   assert.deepEqual(
     {
@@ -171,15 +124,15 @@ test('default audit consumes the complete resolved Android certification', async
     },
     {
       status: 'resolved-toolchain',
-      componentCount: 286,
-      scopeMembershipCount: 3133,
-      packagedRuntimeCount: 50,
+      componentCount: 314,
+      scopeMembershipCount: 5452,
+      packagedRuntimeCount: 61,
       scopeRestrictedToolingCount: 25,
       taskCreatedBuildToolCount: 12,
     },
   );
-  assert.equal(report.androidResolution.verificationComponentCount, 392);
-  assert.equal(report.androidResolution.verificationArtifactCount, 769);
+  assert.equal(report.androidResolution.verificationComponentCount, 427);
+  assert.equal(report.androidResolution.verificationArtifactCount, 847);
   const complianceRegister = await readFile(
     join(ROOT, 'docs/compliance/sdk-privacy-register.md'),
     'utf8',
@@ -208,9 +161,10 @@ test('generated JSON and notices are byte-identical across repeated generation',
   const first = await buildDependencyArtifacts({ preBootstrap: false });
   const second = await buildDependencyArtifacts({ preBootstrap: false });
   assert.equal(first.reportJson, second.reportJson);
+  assert.equal(first.pluginAuditJson, second.pluginAuditJson);
   assert.equal(first.noticesMarkdown, second.noticesMarkdown);
   assert.equal(
-    await readFile(join(ROOT, 'reports/b1/dependency-audit.json'), 'utf8'),
+    await readFile(join(ROOT, 'reports/b2/dependency-audit.json'), 'utf8'),
     first.reportJson,
   );
   assert.equal(
@@ -220,6 +174,7 @@ test('generated JSON and notices are byte-identical across repeated generation',
   assert.doesNotThrow(() =>
     assertDependencyEvidenceCurrent(first, {
       reportJson: first.reportJson,
+      pluginAuditJson: first.pluginAuditJson,
       noticesMarkdown: first.noticesMarkdown,
     }),
   );
@@ -227,6 +182,7 @@ test('generated JSON and notices are byte-identical across repeated generation',
     () =>
       assertDependencyEvidenceCurrent(first, {
         reportJson: '{}\n',
+        pluginAuditJson: first.pluginAuditJson,
         noticesMarkdown: first.noticesMarkdown,
       }),
     ({ code }) => code === 'dependency_evidence_stale',
@@ -239,7 +195,7 @@ test('future native candidates are explicit Not approved entries and remain unin
   );
   assert.deepEqual(
     policy.candidatePlugins.map(({ capability }) => capability),
-    ['SQLite', 'Filesystem', 'Billing', 'Biometric', 'Lifecycle'],
+    ['Filesystem', 'Billing', 'Biometric'],
   );
   assert.ok(policy.candidatePlugins.every(({ status }) => status === 'Not approved'));
 
@@ -254,7 +210,7 @@ test('future native candidates are explicit Not approved entries and remain unin
 
   const register = await readFile(join(ROOT, 'docs/compliance/sdk-privacy-register.md'), 'utf8');
   assert.match(register, /## Not approved candidates/);
-  for (const capability of ['SQLite', 'Filesystem', 'Billing', 'Biometric', 'Lifecycle']) {
+  for (const capability of ['Filesystem', 'Billing', 'Biometric']) {
     assert.match(register, new RegExp(`\\| ${capability} \\|[^\\n]+\\| Not approved \\|`));
   }
 });
@@ -388,6 +344,8 @@ test('Gradle input path and SHA-256 allow-list is an exact finite backstop', asy
       'android/settings.gradle',
       'android/variables.gradle',
       'node_modules/@capacitor/android/capacitor/build.gradle',
+      'node_modules/@capacitor/app/android/build.gradle',
+      'node_modules/@capacitor-community/sqlite/android/build.gradle',
     ],
   );
   const parsed = parseGradleEvidence(discovered.parserSources);

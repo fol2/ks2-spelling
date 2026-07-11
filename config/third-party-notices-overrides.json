@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "owner": "KS2 Spelling maintainer",
+  "reviewDate": "2026-07-11",
+  "npmLicenceExpressions": {
+    "jszip@3.10.1": {
+      "declared": "(MIT OR GPL-3.0-or-later)",
+      "approvedForNotice": "MIT",
+      "rationale": "The package offers an MIT licence option; B2 records and uses that option."
+    },
+    "pako@1.0.11": {
+      "declared": "(MIT AND Zlib)",
+      "approvedForNotice": "MIT AND Zlib",
+      "rationale": "Both permissive licence notices remain applicable and are retained."
+    }
+  },
+  "mavenPomLicenceNameOverrides": {
+    "net.zetetic:sqlcipher-android:4.10.0": {
+      "pomSha256": "3dc624df5ef996e7f64ed3a92d5eab19df057c98b8a0b39f5f61ae8efe379e8b",
+      "missingField": "name",
+      "name": "BSD-3-Clause",
+      "url": "https://www.zetetic.net/sqlcipher/license/",
+      "rationale": "The published POM omits the licence name; the linked SQLCipher Community Edition licence is the BSD 3-Clause licence."
+    }
+  },
+  "mavenLicenceClassifications": {
+    "sha256:46eaee72c84820dd35c32e53e0769b40975fc0215300e1dfae7a5e216b5698f5": {
+      "expression": "BSD-3-Clause",
+      "scopePolicy": "any"
+    },
+    "sha256:229185df144656034c477809ea9875d01e49cf05133f02230740db1efe1c790a": {
+      "expression": "BSD-3-Clause",
+      "scopePolicy": "any"
+    },
+    "sha256:2bc0d8cc19491a5f5dcbeec86fff241d7eb393b84ae7e47731abad24f39c1527": {
+      "expression": "Apache-2.0",
+      "scopePolicy": "any"
+    }
+  },
+  "mavenComponentLicenceOverrides": {
+    "androidx.room:room-compiler:2.6.1": "Apache-2.0 AND BSD-3-Clause"
+  }
+}

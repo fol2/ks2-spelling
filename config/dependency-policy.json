@@ -13,7 +13,9 @@
     "Unlicense"
   ],
   "directDependencies": {
+    "@capacitor-community/sqlite": "8.1.0",
     "@capacitor/android": "8.4.1",
+    "@capacitor/app": "8.1.0",
     "@capacitor/core": "8.4.1",
     "@capacitor/ios": "8.4.1",
     "react": "19.2.7",
@@ -26,6 +28,14 @@
     "vite": "8.1.4"
   },
   "npmClassifications": {
+    "@capacitor-community/sqlite": {
+      "role": "conditionally approved native SQLite bridge and bundled web fallback dependency",
+      "platform": "iOS, Android and bundled WebView JavaScript",
+      "applePrivacyManifest": "No app Required Reason API or usage-description key added in B2",
+      "googleDataSafety": "Local database access only; no collection or transmission in B2",
+      "sourceRepository": "https://github.com/capacitor-community/sqlite.git",
+      "restrictedExportClassification": "SQLCipher is packaged; US export classification remains unresolved before store release"
+    },
     "@capacitor/android": {
       "role": "native platform source",
       "platform": "Android",
@@ -37,6 +47,14 @@
       "platform": "Web, iOS and Android",
       "applePrivacyManifest": "No app Required Reason API declared in B1",
       "googleDataSafety": "No app data collection or permission declared in B1"
+    },
+    "@capacitor/app": {
+      "role": "conditionally approved native application lifecycle bridge",
+      "platform": "iOS, Android and bundled WebView JavaScript",
+      "applePrivacyManifest": "No app Required Reason API or usage-description key added in B2",
+      "googleDataSafety": "Lifecycle notifications only; no collection or transmission in B2",
+      "sourceRepository": "https://github.com/ionic-team/capacitor-plugins.git",
+      "restrictedExportClassification": "None identified"
     },
     "@capacitor/ios": {
       "role": "native platform source",
@@ -61,6 +79,170 @@
       "platform": "WebView",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No data access in B1"
+    },
+    "jeep-sqlite": {
+      "role": "bundled transitive web fallback code; not initialised in the native B2 application",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "Web fallback is not initialised in B2"
+    },
+    "@stencil/core": {
+      "role": "transitive web-component build and runtime support for the uninitialised SQLite web fallback",
+      "platform": "Bundled WebView JavaScript and build host",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "Web fallback is not initialised in B2"
+    },
+    "browser-fs-access": {
+      "role": "transitive browser file-access support for the uninitialised SQLite web fallback",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "Web fallback is not initialised in B2"
+    },
+    "core-util-is": {
+      "role": "transitive JavaScript stream utility",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No collection or transmission"
+    },
+    "immediate": {
+      "role": "transitive JavaScript scheduling utility",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No collection or transmission"
+    },
+    "inherits": {
+      "role": "transitive JavaScript inheritance utility",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No collection or transmission"
+    },
+    "isarray": {
+      "role": "transitive JavaScript type utility",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No collection or transmission"
+    },
+    "jszip": {
+      "role": "transitive archive support for the uninitialised SQLite web fallback",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "Web fallback is not initialised in B2"
+    },
+    "lie": {
+      "role": "transitive Promise implementation",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No collection or transmission"
+    },
+    "localforage": {
+      "role": "transitive browser storage support for the uninitialised SQLite web fallback",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "Web fallback is not initialised in B2"
+    },
+    "pako": {
+      "role": "transitive compression support for the uninitialised SQLite web fallback",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "Web fallback is not initialised in B2"
+    },
+    "process-nextick-args": {
+      "role": "transitive JavaScript stream scheduling utility",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No collection or transmission"
+    },
+    "readable-stream": {
+      "role": "transitive JavaScript stream implementation",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No collection or transmission"
+    },
+    "safe-buffer": {
+      "role": "transitive JavaScript buffer utility",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No collection or transmission"
+    },
+    "setimmediate": {
+      "role": "transitive JavaScript scheduling utility",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No collection or transmission"
+    },
+    "sql.js": {
+      "role": "transitive SQLite WebAssembly implementation for the uninitialised web fallback",
+      "platform": "Bundled WebView JavaScript and WebAssembly",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "Web fallback is not initialised in B2"
+    },
+    "string_decoder": {
+      "role": "transitive JavaScript stream decoding utility",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No collection or transmission"
+    },
+    "util-deprecate": {
+      "role": "transitive JavaScript compatibility utility",
+      "platform": "Bundled WebView JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No collection or transmission"
+    },
+    "@rollup/rollup-darwin-arm64": {
+      "role": "optional host-specific transitive build binary; not packaged",
+      "platform": "Build host",
+      "applePrivacyManifest": "Build-only",
+      "googleDataSafety": "Build-only",
+      "packaged": false
+    },
+    "@rollup/rollup-darwin-x64": {
+      "role": "optional host-specific transitive build binary; not packaged",
+      "platform": "Build host",
+      "applePrivacyManifest": "Build-only",
+      "googleDataSafety": "Build-only",
+      "packaged": false
+    },
+    "@rollup/rollup-linux-arm64-gnu": {
+      "role": "optional host-specific transitive build binary; not packaged",
+      "platform": "Build host",
+      "applePrivacyManifest": "Build-only",
+      "googleDataSafety": "Build-only",
+      "packaged": false
+    },
+    "@rollup/rollup-linux-arm64-musl": {
+      "role": "optional host-specific transitive build binary; not packaged",
+      "platform": "Build host",
+      "applePrivacyManifest": "Build-only",
+      "googleDataSafety": "Build-only",
+      "packaged": false
+    },
+    "@rollup/rollup-linux-x64-gnu": {
+      "role": "optional host-specific transitive build binary; not packaged",
+      "platform": "Build host",
+      "applePrivacyManifest": "Build-only",
+      "googleDataSafety": "Build-only",
+      "packaged": false
+    },
+    "@rollup/rollup-linux-x64-musl": {
+      "role": "optional host-specific transitive build binary; not packaged",
+      "platform": "Build host",
+      "applePrivacyManifest": "Build-only",
+      "googleDataSafety": "Build-only",
+      "packaged": false
+    },
+    "@rollup/rollup-win32-arm64-msvc": {
+      "role": "optional host-specific transitive build binary; not packaged",
+      "platform": "Build host",
+      "applePrivacyManifest": "Build-only",
+      "googleDataSafety": "Build-only",
+      "packaged": false
+    },
+    "@rollup/rollup-win32-x64-msvc": {
+      "role": "optional host-specific transitive build binary; not packaged",
+      "platform": "Build host",
+      "applePrivacyManifest": "Build-only",
+      "googleDataSafety": "Build-only",
+      "packaged": false
     },
     "tslib": {
       "role": "bundled transitive runtime",
@@ -93,15 +275,44 @@
       "googleDataSafety": "Build-only"
     }
   },
-  "spm": {
-    "name": "capacitor-swift-pm",
-    "version": "8.4.1",
-    "revision": "2231987d85b8b0b289320b1d0947b4ae8345cde4",
-    "source": "https://github.com/ionic-team/capacitor-swift-pm.git",
-    "licence": "MIT",
-    "role": "native runtime frameworks",
-    "platform": "iOS"
-  },
+  "spm": [
+    {
+      "identity": "capacitor-swift-pm",
+      "requirement": { "kind": "version", "version": "8.4.1" },
+      "revision": "2231987d85b8b0b289320b1d0947b4ae8345cde4",
+      "source": "https://github.com/ionic-team/capacitor-swift-pm.git",
+      "licence": "MIT",
+      "role": "native runtime frameworks",
+      "platform": "iOS",
+      "packaged": true,
+      "privacyRole": "Capacitor and Cordova framework privacy manifests supplied",
+      "restrictedExportClassification": "None identified"
+    },
+    {
+      "identity": "sqlcipher.swift",
+      "requirement": { "kind": "version", "version": "4.17.0" },
+      "revision": "205df55271aa1ba512a9bfe3fd1813bc9ac52a19",
+      "source": "https://github.com/sqlcipher/SQLCipher.swift.git",
+      "licence": "BSD-3-Clause",
+      "role": "packaged native SQLCipher framework",
+      "platform": "iOS",
+      "packaged": true,
+      "privacyRole": "Local database implementation; B2 opens it in no-encryption mode",
+      "restrictedExportClassification": "US encryption export classification remains unresolved before store release"
+    },
+    {
+      "identity": "zipfoundation",
+      "requirement": { "kind": "version", "version": "0.9.20" },
+      "revision": "22787ffb59de99e5dc1fbfe80b19c97a904ad48d",
+      "source": "https://github.com/weichsel/ZIPFoundation.git",
+      "licence": "MIT",
+      "role": "native archive support linked by the SQLite plugin",
+      "platform": "iOS",
+      "packaged": true,
+      "privacyRole": "No data collection or transmission",
+      "restrictedExportClassification": "None identified"
+    }
+  ],
   "gradleDeclared": [
     { "coordinate": "com.android.tools.build:gradle", "version": "8.13.0", "scope": "build" },
     { "coordinate": "com.google.gms:google-services", "version": "4.4.4", "scope": "dormant build plugin; no google-services.json" },
@@ -122,9 +333,9 @@
   ],
   "gradleInputFiles": [
     { "path": "android/app/build.gradle", "sha256": "b476a4b5b91e304b13124dcaee6ebba2fbe4c983f137fd799d666b76f4ea828c" },
-    { "path": "android/app/capacitor.build.gradle", "sha256": "7051cadfdbc532197d2cfd4f8a11684d81367f23cf7952e5a208f7b6aa0833e0" },
+    { "path": "android/app/capacitor.build.gradle", "sha256": "7a9785a4abc7b6679e4823065fd73f10701d5cf8fdc63ab0403cb1bfa5bb4b95" },
     { "path": "android/build.gradle", "sha256": "766958866c15eeda5c88bfdbccfd5346a73fb68f29a4441206b472805176552b" },
-    { "path": "android/capacitor.settings.gradle", "sha256": "b488e162f552d6efb8286793c7871bbc1061c9bf5ca3a6a495fdeb8988a541c7" },
+    { "path": "android/capacitor.settings.gradle", "sha256": "02359897c4208fc356ab91c0c385a2160ec92299e94855ccbd380a6139ff3ff4" },
     { "path": "android/gradle.properties", "sha256": "3bab15c5b8bc4c2f4b6cf525497d15ad4abca53a460e6dd2eb0f0135817d31e6" },
     { "path": "android/gradle/b1-dependency-resolution.init.gradle", "sha256": "2a38c13e917e3b68ae5918032a9c91cf58a4be094808cb020905fedc0e39d3c6" },
     { "path": "android/gradle/wrapper/gradle-wrapper.jar", "sha256": "7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172" },
@@ -133,19 +344,42 @@
     { "path": "android/gradlew.bat", "sha256": "94102713eb8fb22d032397924c0f38ab2da783ba60d07054339f1190a0c4e2cd" },
     { "path": "android/settings.gradle", "sha256": "6ce098d15ebd69b44c4ecd786bca1bdc366340d2459b2af4d7bb0ab317aa9669" },
     { "path": "android/variables.gradle", "sha256": "8d751d59653784d338a1f7cb2f012832c31184635557b8196cdb90b90a8829eb" },
-    { "path": "node_modules/@capacitor/android/capacitor/build.gradle", "sha256": "2b03df6b575178a8de490b4db114cc84647c06a580342046a2e5f9f797920717" }
+    { "path": "node_modules/@capacitor/android/capacitor/build.gradle", "sha256": "2b03df6b575178a8de490b4db114cc84647c06a580342046a2e5f9f797920717" },
+    { "path": "node_modules/@capacitor/app/android/build.gradle", "sha256": "f4f9b707e2619796f61babb4d5c13a8443b1a78bf380214ff7e413d51a4914ac" },
+    { "path": "node_modules/@capacitor-community/sqlite/android/build.gradle", "sha256": "6249a52bee0143a7d7995e4470e28fc808ad929ec6107c32dc25ea2b7081a51a" }
   ],
-  "approvedNativePlugins": [],
+  "approvedNativePlugins": [
+    {
+      "capability": "SQLite",
+      "packageName": "@capacitor-community/sqlite",
+      "version": "8.1.0",
+      "status": "B2 proof only",
+      "source": "https://github.com/capacitor-community/sqlite.git"
+    },
+    {
+      "capability": "Lifecycle",
+      "packageName": "@capacitor/app",
+      "version": "8.1.0",
+      "status": "B2 proof only",
+      "source": "https://github.com/ionic-team/capacitor-plugins.git"
+    }
+  ],
   "candidatePlugins": [
-    { "capability": "SQLite", "packageName": "@capacitor-community/sqlite", "status": "Not approved" },
     { "capability": "Filesystem", "packageName": "@capacitor/filesystem", "status": "Not approved" },
     { "capability": "Billing", "packageName": "@revenuecat/purchases-capacitor", "status": "Not approved" },
-    { "capability": "Biometric", "packageName": "capacitor-native-biometric", "status": "Not approved" },
-    { "capability": "Lifecycle", "packageName": "@capacitor/app", "status": "Not approved" }
+    { "capability": "Biometric", "packageName": "capacitor-native-biometric", "status": "Not approved" }
   ],
   "allowedSources": {
     "npm": "https://registry.npmjs.org/",
-    "spm": ["https://github.com/ionic-team/capacitor-swift-pm.git"],
+    "spm": [
+      "https://github.com/ionic-team/capacitor-swift-pm.git",
+      "https://github.com/sqlcipher/SQLCipher.swift.git",
+      "https://github.com/weichsel/ZIPFoundation.git"
+    ],
+    "nativePluginRepositories": [
+      "https://github.com/capacitor-community/sqlite.git",
+      "https://github.com/ionic-team/capacitor-plugins.git"
+    ],
     "gradleRepositories": ["google()", "mavenCentral()", "https://plugins.gradle.org/m2/"],
     "mavenRepositoryUrls": [
       "https://dl.google.com/dl/android/maven2/",
@@ -156,6 +390,8 @@
     "gradleLocalDependencies": [
       "fileTree:libs",
       "project::capacitor-android",
+      "project::capacitor-app",
+      "project::capacitor-community-sqlite",
       "project::capacitor-cordova-android-plugins"
     ]
   }

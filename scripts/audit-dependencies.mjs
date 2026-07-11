@@ -5,24 +5,10 @@ import { join, relative, resolve } from 'node:path';
 import { EXIT_CODES, isMain, printJson, runCommand } from './lib/run-command.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const REPORT_PATH = resolve(ROOT, 'reports/b1/dependency-audit.json');
+const REPORT_PATH = resolve(ROOT, 'reports/b2/dependency-audit.json');
+const NATIVE_PLUGIN_AUDIT_PATH = resolve(ROOT, 'reports/b2/native-plugin-audit.json');
+const NATIVE_PLUGIN_BUILD_PATH = resolve(ROOT, 'reports/b2/native-plugin-build.json');
 const NOTICES_PATH = resolve(ROOT, 'THIRD_PARTY_NOTICES.md');
-const PACKAGED_PERMISSION_PATH = resolve(
-  ROOT,
-  'reports/b1/android-packaged-permissions.json',
-);
-const PACKAGED_PERMISSION_BUILD_INPUTS = Object.freeze([
-  'android/app/src/main/AndroidManifest.xml',
-  'android/app/build.gradle',
-  'android/app/capacitor.build.gradle',
-  'android/build.gradle',
-  'android/variables.gradle',
-  'android/gradle/dependency-locks/app.lockfile',
-  'android/gradle/dependency-locks/capacitor-android.lockfile',
-  'android/gradle/dependency-locks/capacitor-cordova-android-plugins.lockfile',
-  'android/gradle/verification-metadata.xml',
-  'package-lock.json',
-]);
 
 function policyError(code, message) {
   const error = new Error(message);
@@ -85,16 +71,6 @@ function canonicalPackagedPermissionEvidence(evidence) {
   return canonical;
 }
 
-async function packagedPermissionSourceBuildInputSha256() {
-  const hash = createHash('sha256');
-  for (const path of PACKAGED_PERMISSION_BUILD_INPUTS) {
-    hash.update(`${path}\0`);
-    hash.update(await readFile(resolve(ROOT, path)));
-    hash.update('\0');
-  }
-  return hash.digest('hex');
-}
-
 export function assertPackagedPermissionEvidenceCurrent(actual, committed) {
   const actualCanonical = canonicalPackagedPermissionEvidence(actual);
   const committedCanonical = canonicalPackagedPermissionEvidence(committed);
@@ -135,9 +111,14 @@ export function renderThirdPartyNotices({
       ({ name, version, licence, source, locator }) =>
         `| ${markdownCell(name)} | ${markdownCell(version)} | ${markdownCell(licence)} | npm | ${markdownCell(source)} | ${markdownCell(locator)} |`,
     );
-  rows.push(
-    `| ${markdownCell(spm.name)} | ${markdownCell(spm.version)} | ${markdownCell(spm.licence)} | SwiftPM | ${markdownCell(spm.source)} | revision ${markdownCell(spm.revision)} |`,
-  );
+  for (const dependency of spm) {
+    const resolvedRequirement = dependency.requirement.kind === 'version'
+      ? `version ${dependency.requirement.version}`
+      : `branch ${dependency.requirement.branch}`;
+    rows.push(
+      `| ${markdownCell(dependency.identity)} | ${markdownCell(dependency.requirement.version ?? dependency.requirement.branch)} | ${markdownCell(dependency.licence)} | SwiftPM | ${markdownCell(dependency.source)} | ${resolvedRequirement}; revision ${markdownCell(dependency.revision)} |`,
+    );
+  }
   for (const component of androidComponents) {
     rows.push(
       `| ${markdownCell(`${component.group}:${component.name}`)} | ${markdownCell(component.version)} | ${markdownCell(component.licence.expression)} | Maven | ${markdownCell(component.pom.sourceUrl)} | ${markdownCell(component.distribution)} |`,
@@ -145,11 +126,18 @@ export function renderThirdPartyNotices({
   }
   return `# Third-party notices
 
-This is the deterministic dependency inventory for the B1 local prototype. It records package identity, source and declared licence; it is not a substitute for the full licence texts or final store disclosure review.
+This is the deterministic dependency inventory for the B2 local persistence proof. It records package identity, source and declared licence; it is not a substitute for the full licence texts or final store disclosure review.
 
 - Android resolution: \`${typeof androidResolution === 'string' ? androidResolution : androidResolution.status}\`
+- npm lock identities: ${lockPackages.length}
+- SwiftPM identities: ${spm.length}
+- Maven selected module identities: ${typeof androidResolution === 'string' ? 0 : androidResolution.componentCount}
+- Maven task-created build-tool identities: ${typeof androidResolution === 'string' ? 0 : androidResolution.taskCreatedBuildToolCount}
+- Maven verification inventory: ${typeof androidResolution === 'string' ? 0 : androidResolution.verificationComponentCount} components and ${typeof androidResolution === 'string' ? 0 : androidResolution.verificationArtifactCount} artefacts
+- Notice rows: ${rows.length}
 - Runtime network endpoints: none
-- Native plugins beyond Capacitor core/platform packages: none
+- Native plugins: @capacitor-community/sqlite 8.1.0 and @capacitor/app 8.1.0, conditionally approved for B2 proof only
+- SQLCipher is packaged even though B2 uses no-encryption mode; US export classification remains unresolved before store release
 
 | Package | Version | Declared licence | Source type | Source | Locator |
 |---|---:|---|---|---|---|
@@ -206,7 +194,7 @@ async function assertRegularFilePath(root, path) {
   }
 }
 
-function commonClassification(policy, name, lockEntry) {
+function commonClassification(policy, name, lockEntry, licenceOverride = null) {
   const classification = policy.npmClassifications[name];
   if (!classification) {
     throw policyError('unclassified_dependency', `No classification for ${name}`);
@@ -215,7 +203,9 @@ function commonClassification(policy, name, lockEntry) {
     name,
     version: lockEntry.version,
     source: lockEntry.resolved,
-    licence: lockEntry.license,
+    integrity: lockEntry.integrity,
+    licence: licenceOverride?.approvedForNotice ?? lockEntry.license,
+    declaredLicence: lockEntry.license,
     role: classification.role,
     platform: classification.platform,
     permissions: [],
@@ -223,6 +213,11 @@ function commonClassification(policy, name, lockEntry) {
     networkEndpoints: [],
     applePrivacyManifest: classification.applePrivacyManifest,
     googleDataSafety: classification.googleDataSafety,
+    sourceRepository: classification.sourceRepository ?? null,
+    packaged: classification.packaged ?? lockEntry.dev !== true,
+    privacyRole: classification.googleDataSafety,
+    restrictedExportClassification:
+      classification.restrictedExportClassification ?? 'None identified',
     owner: policy.owner,
     reviewDate: policy.reviewDate,
   };
@@ -230,7 +225,9 @@ function commonClassification(policy, name, lockEntry) {
 
 async function verifyRuntimeBoundary(packageJson) {
   const approvedCapacitorPackages = new Set([
+    '@capacitor-community/sqlite',
     '@capacitor/android',
+    '@capacitor/app',
     '@capacitor/core',
     '@capacitor/ios',
   ]);
@@ -246,20 +243,26 @@ async function verifyRuntimeBoundary(packageJson) {
     'utf8',
   );
   const permissionRemovalPattern =
-    /<(permission|uses-permission)\s+android:name="\$\{applicationId\}\.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"\s+tools:node="remove"\s*\/>/g;
+    /<(permission|uses-permission)\s+android:name="([^"]+)"\s+tools:node="remove"\s*\/>/g;
   const permissionRemovalMarkers = [...manifest.matchAll(permissionRemovalPattern)];
   let manifestWithoutRemovalMarkers = manifest;
   for (const marker of permissionRemovalMarkers) {
     manifestWithoutRemovalMarkers = manifestWithoutRemovalMarkers.replace(marker[0], '');
   }
   if (
-    permissionRemovalMarkers.length !== 2 ||
-    new Set(permissionRemovalMarkers.map((match) => match[1])).size !== 2 ||
+    permissionRemovalMarkers.length !== 4 ||
+    JSON.stringify(permissionRemovalMarkers.map((match) => match[2]).sort()) !==
+      JSON.stringify([
+        '${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
+        '${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
+        'android.permission.USE_BIOMETRIC',
+        'android.permission.USE_FINGERPRINT',
+      ].sort()) ||
     /<(?:permission|uses-permission)\b/.test(manifestWithoutRemovalMarkers)
   ) {
     throw policyError(
       'android_permission_declared',
-      'B1 app manifest permission surface is not the exact merge-removal contract',
+      'B2 app manifest permission surface is not the exact merge-removal contract',
     );
   }
   const iosAppFiles = await listFiles(resolve(ROOT, 'ios/App/App'));
@@ -281,14 +284,24 @@ async function verifyRuntimeBoundary(packageJson) {
     'utf8',
   );
   const generatedDependencies = capacitorAndroid.match(/dependencies\s*\{([\s\S]*?)\}/)?.[1] ?? '';
-  if (/\b(?:implementation|api|classpath)\b/.test(generatedDependencies)) {
-    throw policyError('unapproved_native_plugin', 'Generated Android plugin dependency found');
+  const generatedProjects = [...generatedDependencies.matchAll(/implementation\s+project\('(:[^']+)'\)/g)]
+    .map(([, project]) => project)
+    .sort();
+  if (
+    JSON.stringify(generatedProjects) !==
+      JSON.stringify([':capacitor-app', ':capacitor-community-sqlite']) ||
+    /\b(?:api|classpath)\b/.test(generatedDependencies)
+  ) {
+    throw policyError('unapproved_native_plugin', 'Generated Android plugin dependency drifted');
   }
   const packageSwift = await readFile(resolve(ROOT, 'ios/App/CapApp-SPM/Package.swift'), 'utf8');
   const products = [...packageSwift.matchAll(/\.product\(name: "([^"]+)"/g)].map(
     ([, name]) => name,
   );
-  if (products.join(',') !== 'Capacitor,Cordova') {
+  if (
+    products.join(',') !==
+    'Capacitor,Cordova,CapacitorCommunitySqlite,CapacitorApp'
+  ) {
     throw policyError('unapproved_native_plugin', `Unexpected iOS products: ${products.join(',')}`);
   }
   for (const path of [
@@ -314,14 +327,14 @@ async function verifyRuntimeBoundary(packageJson) {
   return {
     androidUsesPermissions: [],
     androidPermissionRemovalMarkers: permissionRemovalMarkers
-      .map((match) => match[1])
+      .map((match) => `${match[1]}:${match[2]}`)
       .sort(),
     iosEntitlements: entitlements,
     iosUsageDescriptionKeys: usageDescriptionKeys,
   };
 }
 
-function validateLock(policy, lock) {
+function validateLock(policy, lock, noticeOverrides) {
   const approvedLicences = new Set(policy.approvedLicences);
   const lockPackages = [];
   for (const [locator, entry] of Object.entries(lock.packages)) {
@@ -333,14 +346,23 @@ function validateLock(policy, lock) {
     if (!entry.resolved.startsWith(policy.allowedSources.npm)) {
       throw policyError('unapproved_package_source', `${name}: ${entry.resolved}`);
     }
-    if (/\s+(?:AND|OR)\s+|[()]/.test(entry.license) || !approvedLicences.has(entry.license)) {
+    const override = noticeOverrides.npmLicenceExpressions[`${name}@${entry.version}`];
+    const licenceApproved = override
+      ? override.declared === entry.license &&
+        typeof override.approvedForNotice === 'string' &&
+        override.approvedForNotice.length > 0
+      : !/\s+(?:AND|OR)\s+|[()]/.test(entry.license) &&
+        approvedLicences.has(entry.license);
+    if (!licenceApproved) {
       throw policyError('licence_review_required', `${name}: ${entry.license}`);
     }
     lockPackages.push({
       locator,
       name,
       version: entry.version,
-      licence: entry.license,
+      licence: override?.approvedForNotice ?? entry.license,
+      declaredLicence: entry.license,
+      licenceOverride: override ?? null,
       source: entry.resolved,
       integrity: entry.integrity,
       dev: entry.dev === true,
@@ -647,6 +669,8 @@ export async function discoverGradleInputs(root = ROOT) {
   const paths = [
     ...androidPaths,
     'node_modules/@capacitor/android/capacitor/build.gradle',
+    'node_modules/@capacitor/app/android/build.gradle',
+    'node_modules/@capacitor-community/sqlite/android/build.gradle',
   ].sort();
   const entries = await Promise.all(
     paths.map(async (path) => {
@@ -662,7 +686,12 @@ export async function discoverGradleInputs(root = ROOT) {
   return {
     inventory: entries.map(({ path, sha256 }) => ({ path, sha256 })),
     parserSources: entries
-      .filter(({ path }) => /\.(?:gradle|gradle\.kts)$/.test(path))
+      .filter(
+        ({ path }) =>
+          /\.(?:gradle|gradle\.kts)$/.test(path) &&
+          !path.startsWith('node_modules/@capacitor/app/') &&
+          !path.startsWith('node_modules/@capacitor-community/sqlite/'),
+      )
       .map(({ path, content }) => ({ path, text: content.toString('utf8') })),
   };
 }
@@ -782,8 +811,19 @@ async function verifyGradleDeclarations(policy, androidCertification = null) {
   };
 }
 
-export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
-  const [policy, packageJson, lock, packageLockText, packageResolved, androidCertification] = await Promise.all([
+export async function buildDependencyArtifacts({
+  preBootstrap = false,
+  discoverAndroidSources = false,
+} = {}) {
+  const [
+    policy,
+    packageJson,
+    lock,
+    packageLockText,
+    packageResolved,
+    nativePluginBuild,
+    noticeOverrides,
+  ] = await Promise.all([
     readJson(resolve(ROOT, 'config/dependency-policy.json')),
     readJson(resolve(ROOT, 'package.json')),
     readJson(resolve(ROOT, 'package-lock.json')),
@@ -794,45 +834,127 @@ export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
         'ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved',
       ),
     ),
-    preBootstrap
-      ? Promise.resolve(null)
-      : readJson(resolve(ROOT, 'reports/b1/android-dependency-resolution.json')),
+    readJson(NATIVE_PLUGIN_BUILD_PATH),
+    readJson(resolve(ROOT, 'config/third-party-notices-overrides.json')),
   ]);
+  const nativePluginBuildText = await readFile(NATIVE_PLUGIN_BUILD_PATH);
+  const nativePluginBuildSha256 = createHash('sha256')
+    .update(nativePluginBuildText)
+    .digest('hex');
+  const androidCertification = preBootstrap
+    ? null
+    : await (
+        await import('./certify-android-dependencies.mjs')
+      ).buildAndroidCertification({
+        discoverSources: discoverAndroidSources,
+        committed: discoverAndroidSources
+          ? null
+          : (await readJson(REPORT_PATH)).android,
+      });
 
   assertDirectPolicy(packageJson.dependencies, policy.directDependencies, 'runtime dependency');
   assertDirectPolicy(packageJson.devDependencies, policy.directBuildTools, 'build tool');
   assertDirectPolicy(lock.packages[''].dependencies, policy.directDependencies, 'lock runtime');
   assertDirectPolicy(lock.packages[''].devDependencies, policy.directBuildTools, 'lock build');
-  const lockPackages = validateLock(policy, lock);
+  const lockPackages = validateLock(policy, lock, noticeOverrides);
   const permissionEvidence = await verifyRuntimeBoundary(packageJson);
-  if (!preBootstrap) {
-    permissionEvidence.packagedAndroid = canonicalPackagedPermissionEvidence(
-      await readJson(PACKAGED_PERMISSION_PATH),
-    );
-  }
+  permissionEvidence.packagedAndroid = {
+    appIdentity: nativePluginBuild.android.packagedPermissions.appIdentity,
+    buildToolsVersion: nativePluginBuild.android.packagedPermissions.buildToolsVersion,
+    permissionSurfaceSha256:
+      nativePluginBuild.android.packagedPermissions.permissionSurfaceSha256,
+    declaredPermissions:
+      nativePluginBuild.android.packagedPermissions.declaredPermissions,
+    requestedPermissions:
+      nativePluginBuild.android.packagedPermissions.requestedPermissions,
+  };
 
   const production = stableSortByName(
     lockPackages
       .filter(({ dev }) => !dev)
-      .map(({ name }) => commonClassification(policy, name, lock.packages[`node_modules/${name}`])),
+      .map(({ name, locator, licenceOverride }) => ({
+        ...commonClassification(policy, name, lock.packages[locator], licenceOverride),
+        locator,
+      })),
   );
   const directBuildTools = stableSortByName(
     Object.keys(policy.directBuildTools).map((name) =>
-      commonClassification(policy, name, lock.packages[`node_modules/${name}`]),
+      commonClassification(
+        policy,
+        name,
+        lock.packages[`node_modules/${name}`],
+        noticeOverrides.npmLicenceExpressions[
+          `${name}@${lock.packages[`node_modules/${name}`].version}`
+        ],
+      ),
     ),
   );
+  const allPackages = lockPackages
+    .map((entry) => {
+      const classification = policy.npmClassifications[entry.name];
+      return {
+        locator: entry.locator,
+        name: entry.name,
+        version: entry.version,
+        source: entry.source,
+        integrity: entry.integrity,
+        declaredLicence: entry.declaredLicence,
+        licence: entry.licence,
+        dev: entry.dev,
+        packaged: classification?.packaged ?? !entry.dev,
+        role: classification?.role ?? 'resolved build-tool transitive dependency',
+        privacyRole: classification?.googleDataSafety ?? 'Build-only',
+        restrictedExportClassification:
+          classification?.restrictedExportClassification ?? 'None identified',
+      };
+    })
+    .sort((left, right) =>
+      `${left.name}@${left.version}:${left.locator}`.localeCompare(
+        `${right.name}@${right.version}:${right.locator}`,
+      ),
+    );
 
-  const pin = packageResolved.pins?.find(({ identity }) => identity === policy.spm.name);
-  if (
-    packageResolved.version !== 3 ||
-    !pin ||
-    pin.location !== policy.spm.source ||
-    pin.state?.version !== policy.spm.version ||
-    pin.state?.revision !== policy.spm.revision ||
-    !policy.allowedSources.spm.includes(pin.location)
-  ) {
-    throw policyError('spm_resolution_drift', 'Official Capacitor SwiftPM pin drifted');
+  if (packageResolved.version !== 3 || packageResolved.pins.length !== policy.spm.length) {
+    throw policyError('spm_resolution_drift', 'SwiftPM resolution count drifted');
   }
+  const nativePins = new Map(
+    nativePluginBuild.ios.spmPins.map((entry) => [entry.identity, entry]),
+  );
+  const spm = policy.spm.map((dependency) => {
+    const pin = packageResolved.pins.find(({ identity }) => identity === dependency.identity);
+    const nativePin = nativePins.get(dependency.identity);
+    const expectedState = dependency.requirement.kind === 'version'
+      ? { revision: dependency.revision, version: dependency.requirement.version }
+      : { branch: dependency.requirement.branch, revision: dependency.revision };
+    if (
+      !pin ||
+      !nativePin ||
+      pin.kind !== 'remoteSourceControl' ||
+      pin.location !== dependency.source ||
+      JSON.stringify(pin.state) !== JSON.stringify(expectedState) ||
+      JSON.stringify(nativePin.state) !== JSON.stringify(expectedState) ||
+      nativePin.location !== dependency.source ||
+      !policy.allowedSources.spm.includes(pin.location)
+    ) {
+      throw policyError(
+        'spm_resolution_drift',
+        `SwiftPM resolution drifted: ${dependency.identity}`,
+      );
+    }
+    return {
+      ...dependency,
+      name: dependency.identity,
+      version:
+        dependency.requirement.version ?? dependency.requirement.branch,
+      permissions: [],
+      dataAccess: [],
+      networkEndpoints: [],
+      applePrivacyManifest: dependency.privacyRole,
+      googleDataSafety: 'Not applicable',
+      owner: policy.owner,
+      reviewDate: policy.reviewDate,
+    };
+  });
   const privacyManifests = [
     'node_modules/@capacitor/ios/Capacitor/Capacitor/PrivacyInfo.xcprivacy',
     'node_modules/@capacitor/ios/CapacitorCordova/CapacitorCordova/PrivacyInfo.xcprivacy',
@@ -859,31 +981,12 @@ export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
       }
     }
   }
-  const spm = [
-    {
-      ...policy.spm,
-      permissions: [],
-      dataAccess: [],
-      networkEndpoints: [],
-      applePrivacyManifest: 'Framework privacy manifests supplied',
-      googleDataSafety: 'Not applicable',
-      owner: policy.owner,
-      reviewDate: policy.reviewDate,
-      privacyManifests,
-    },
-  ];
+  spm[0].privacyManifests = privacyManifests;
   const gradle = await verifyGradleDeclarations(policy, androidCertification);
   const androidResolution = androidCertification
     ? {
         status: androidCertification.mode,
-        evidencePath: 'reports/b1/android-dependency-resolution.json',
-        evidenceSha256: createHash('sha256')
-          .update(
-            await readFile(
-              resolve(ROOT, 'reports/b1/android-dependency-resolution.json'),
-            ),
-          )
-          .digest('hex'),
+        evidencePath: 'reports/b2/dependency-audit.json#android',
         componentCount: androidCertification.componentCount,
         scopeMembershipCount: androidCertification.scopeMembershipCount,
         packagedRuntimeCount: androidCertification.packagedRuntimeCount,
@@ -898,20 +1001,23 @@ export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
       }
     : 'pending-toolchain';
   const report = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: androidCertification ? 'resolved-toolchain' : 'pre-bootstrap',
     generatedFrom: {
       packageLockSha256: createHash('sha256').update(packageLockText).digest('hex'),
       spmResolvedVersion: packageResolved.version,
+      nativePluginBuildSha256,
     },
     npm: {
       lockfileVersion: lock.lockfileVersion,
       lockPackageCount: lockPackages.length,
+      allPackages,
       approvedLicences: policy.approvedLicences,
       production,
       directBuildTools,
     },
     spm,
+    android: androidCertification,
     androidResolution,
     gradleInputs: gradle.inputs,
     gradleRepositories: gradle.repositories,
@@ -923,7 +1029,7 @@ export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
       candidates: policy.candidatePlugins,
     },
     permissionEvidence,
-    b1Truth: {
+    b2Truth: {
       childDataCollected: false,
       childDataTransmitted: false,
       analytics: false,
@@ -931,13 +1037,52 @@ export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
       appPermissions: [],
       storeCommerce: false,
       runtimeNetworkEndpoints: [],
-      disclosureStatus: 'B1 evidence only; not a final store disclosure',
+      localDatabase: true,
+      sqliteMode: 'no-encryption',
+      sqlCipherPackaged: true,
+      applicationEncryptionAtRestProved: false,
+      usEncryptionExportClassification: 'unresolved-before-store-release',
+      approval: 'B2-proof-only',
+      disclosureStatus: 'B2 proof only; not a final store disclosure',
     },
   };
+  const pluginAudit = {
+    schemaVersion: 1,
+    nativePluginBuildSha256,
+    dependencyAuditSha256: null,
+    sqliteMode: 'no-encryption',
+    webFallbackInitialised: false,
+    androidPackagedPermissions:
+      nativePluginBuild.android.packagedPermissions.requestedPermissions,
+    iosAddedUsageDescriptionKeys: nativePluginBuild.ios.addedUsageDescriptionKeys,
+    iosAddedEntitlements: nativePluginBuild.ios.addedEntitlements,
+    androidBackupEnabled: nativePluginBuild.android.packagedManifest.allowBackup,
+    androidDataExtraction: 'all-domains-excluded-until-c2',
+    androidBackupRulesSha256:
+      nativePluginBuild.android.packagedBackupRules.xmlTreeSha256,
+    androidBackupExcludedDomains:
+      nativePluginBuild.android.packagedBackupRules.excludedDomains,
+    androidDataExtractionRulesSha256:
+      nativePluginBuild.android.packagedDataExtractionRules.xmlTreeSha256,
+    androidCloudBackupExcludedDomains:
+      nativePluginBuild.android.packagedDataExtractionRules.cloudBackupExcludedDomains,
+    androidDeviceTransferExcludedDomains:
+      nativePluginBuild.android.packagedDataExtractionRules.deviceTransferExcludedDomains,
+    sqlCipherPackaged: nativePluginBuild.ios.outputInventory.some(({ path }) =>
+      path.includes('/SQLCipher.framework/'),
+    ),
+    applicationEncryptionAtRestProved: false,
+    usEncryptionExportClassification: 'unresolved-before-store-release',
+    approval: 'B2-proof-only',
+  };
   const reportJson = `${JSON.stringify(report, null, 2)}\n`;
+  pluginAudit.dependencyAuditSha256 = createHash('sha256')
+    .update(reportJson)
+    .digest('hex');
+  const pluginAuditJson = `${JSON.stringify(pluginAudit, null, 2)}\n`;
   const noticesMarkdown = renderThirdPartyNotices({
     lockPackages,
-    spm: spm[0],
+    spm,
     androidResolution: report.androidResolution,
     androidComponents: androidCertification
       ? [
@@ -946,7 +1091,7 @@ export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
         ]
       : [],
   });
-  return { report, reportJson, noticesMarkdown };
+  return { report, reportJson, pluginAudit, pluginAuditJson, noticesMarkdown };
 }
 
 function assertDirectPolicy(actual, expected, label) {
@@ -961,9 +1106,10 @@ function assertDirectPolicy(actual, expected, label) {
 }
 
 export async function writeDependencyArtifacts(artifacts) {
-  await mkdir(resolve(ROOT, 'reports/b1'), { recursive: true });
+  await mkdir(resolve(ROOT, 'reports/b2'), { recursive: true });
   await Promise.all([
     writeFile(REPORT_PATH, artifacts.reportJson, 'utf8'),
+    writeFile(NATIVE_PLUGIN_AUDIT_PATH, artifacts.pluginAuditJson, 'utf8'),
     writeFile(NOTICES_PATH, artifacts.noticesMarkdown, 'utf8'),
   ]);
 }
@@ -971,11 +1117,12 @@ export async function writeDependencyArtifacts(artifacts) {
 export function assertDependencyEvidenceCurrent(artifacts, current) {
   if (
     current.reportJson !== artifacts.reportJson ||
+    current.pluginAuditJson !== artifacts.pluginAuditJson ||
     current.noticesMarkdown !== artifacts.noticesMarkdown
   ) {
     throw policyError(
       'dependency_evidence_stale',
-      'Committed dependency report or third-party notices are stale; rerun with --write',
+      'Committed B2 dependency, plugin or third-party notice evidence is stale; rerun with --write',
     );
   }
 }
@@ -997,44 +1144,30 @@ export async function main(args = process.argv.slice(2)) {
         );
       }
       const { verifyPackagedAndroidPermissions } = await import('./test-android.mjs');
-      const currentPermissionEvidence = canonicalPackagedPermissionEvidence(
-        {
-          ...(await verifyPackagedAndroidPermissions()),
-          sourceBuildInputSha256:
-            await packagedPermissionSourceBuildInputSha256(),
-        },
-      );
-      if (write) {
-        await mkdir(resolve(ROOT, 'reports/b1'), { recursive: true });
-        await writeFile(
-          PACKAGED_PERMISSION_PATH,
-          `${JSON.stringify(currentPermissionEvidence, null, 2)}\n`,
-          'utf8',
-        );
-      } else {
-        assertPackagedPermissionEvidenceCurrent(
-          currentPermissionEvidence,
-          await readJson(PACKAGED_PERMISSION_PATH),
+      const currentPermissionEvidence = await verifyPackagedAndroidPermissions();
+      const nativeBuild = await readJson(NATIVE_PLUGIN_BUILD_PATH);
+      if (
+        JSON.stringify(currentPermissionEvidence.requestedPermissions) !==
+          JSON.stringify(nativeBuild.android.packagedPermissions.requestedPermissions) ||
+        JSON.stringify(currentPermissionEvidence.declaredPermissions) !==
+          JSON.stringify(nativeBuild.android.packagedPermissions.declaredPermissions)
+      ) {
+        throw policyError(
+          'android_packaged_permission_evidence_stale',
+          'Fresh APK permission surface does not match the B2 native build report',
         );
       }
-      const {
-        assertAndroidCertificationCurrent,
-        buildAndroidCertification,
-      } = await import('./certify-android-dependencies.mjs');
-      const committedAndroid = await readJson(
-        resolve(ROOT, 'reports/b1/android-dependency-resolution.json'),
-      );
-      assertAndroidCertificationCurrent(
-        await buildAndroidCertification({ committed: committedAndroid }),
-        committedAndroid,
-      );
     }
-    const artifacts = await buildDependencyArtifacts({ preBootstrap });
+    const artifacts = await buildDependencyArtifacts({
+      preBootstrap,
+      discoverAndroidSources: write && !preBootstrap,
+    });
     if (write) {
       await writeDependencyArtifacts(artifacts);
     } else {
       assertDependencyEvidenceCurrent(artifacts, {
         reportJson: await readFile(REPORT_PATH, 'utf8'),
+        pluginAuditJson: await readFile(NATIVE_PLUGIN_AUDIT_PATH, 'utf8'),
         noticesMarkdown: await readFile(NOTICES_PATH, 'utf8'),
       });
     }

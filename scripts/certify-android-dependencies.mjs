@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
   classifyAndroidDistribution,
@@ -16,7 +16,7 @@ import {
 } from './resolve-android-dependencies.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const REPORT_PATH = join(ROOT, 'reports/b1/android-dependency-resolution.json');
+const REPORT_PATH = join(ROOT, 'reports/b2/dependency-audit.json');
 const VERIFICATION_PATH = join(ROOT, 'android/gradle/verification-metadata.xml');
 const GRADLE_USER_HOME = join(ROOT, '.native-build/android/gradle-user-home');
 
@@ -32,6 +32,37 @@ async function readJson(path) {
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function classifyB2AndroidDistribution(component) {
+  const normalised = {
+    ...component,
+    scopes: component.scopes.map((scope) => ({
+      ...scope,
+      configuration: /^(?:debug|release)AnnotationProcessorClasspath$/.test(
+        scope.configuration,
+      )
+        ? scope.configuration.replace('AnnotationProcessor', 'Compile')
+        : scope.configuration,
+    })),
+  };
+  return classifyAndroidDistribution(normalised);
+}
+
+function b2MavenComplianceFields(coordinate, distribution, classification) {
+  const sqlCipher = coordinate === 'net.zetetic:sqlcipher-android:4.10.0';
+  return {
+    packaged: distribution === 'packaged-runtime',
+    privacyRole: sqlCipher
+      ? 'Local database implementation; B2 opens it in no-encryption mode'
+      : distribution === 'packaged-runtime'
+        ? 'Native application dependency; no collection or transmission declared in B2'
+        : 'Build or test only',
+    restrictedClassification: classification.scopePolicy,
+    exportClassification: sqlCipher
+      ? 'unresolved-before-store-release'
+      : 'none-identified',
+  };
 }
 
 export function applyMavenLicencePolicy({
@@ -88,14 +119,41 @@ export function assertAndroidCertificationCurrent(actual, committed) {
   }
 }
 
-async function collectPomClosure(resolution, extraCoordinates = []) {
+async function collectPomClosure(
+  resolution,
+  extraCoordinates = [],
+  licenceNameOverrides = {},
+) {
   const records = new Map();
   const selected = new Set(resolution.components.map(({ coordinate }) => coordinate));
   async function load(coordinate) {
     if (records.has(coordinate)) return records.get(coordinate);
     const cached = await readCachedMavenPom(GRADLE_USER_HOME, coordinate);
-    const parsed = parseMavenPom(cached.text);
-    const record = { coordinate, ...cached, parsed };
+    let evidenceText = cached.text;
+    let parsed;
+    try {
+      parsed = parseMavenPom(evidenceText);
+    } catch (error) {
+      const override = licenceNameOverrides[coordinate];
+      if (
+        error.code !== 'maven_licence_unknown' ||
+        !override ||
+        override.missingField !== 'name' ||
+        override.pomSha256 !== cached.sha256 ||
+        !cached.text.includes(`<url>${override.url}</url>`)
+      ) {
+        throw certificationError(
+          error.code ?? 'maven_licence_unknown',
+          `${coordinate}: ${error.message}`,
+        );
+      }
+      evidenceText = cached.text.replace(
+        `<url>${override.url}</url>`,
+        `<name>${override.name}</name>\n      <url>${override.url}</url>`,
+      );
+      parsed = parseMavenPom(evidenceText);
+    }
+    const record = { coordinate, ...cached, text: evidenceText, parsed };
     records.set(coordinate, record);
     if (!parsed.licences.length) {
       if (!parsed.parentCoordinate || parsed.parentCoordinate.includes('${')) {
@@ -234,13 +292,31 @@ export async function buildAndroidCertification({
   discoverSources = false,
   committed = null,
 } = {}) {
-  const [resolution, dependencyPolicy, licencePolicy, verificationXml] = await Promise.all([
+  const [
+    resolution,
+    dependencyPolicy,
+    licencePolicy,
+    noticeOverrides,
+    verificationXml,
+  ] = await Promise.all([
     resolveAndroidDependencies(),
     readJson(join(ROOT, 'config/dependency-policy.json')),
     readJson(join(ROOT, 'config/maven-licence-policy.json')),
+    readJson(join(ROOT, 'config/third-party-notices-overrides.json')),
     readFile(VERIFICATION_PATH, 'utf8'),
   ]);
   const rawVerificationInventory = parseVerificationMetadataInventory(verificationXml);
+  const b2LicencePolicy = {
+    ...licencePolicy,
+    classifications: {
+      ...licencePolicy.classifications,
+      ...noticeOverrides.mavenLicenceClassifications,
+    },
+    componentOverrides: {
+      ...licencePolicy.componentOverrides,
+      ...noticeOverrides.mavenComponentLicenceOverrides,
+    },
+  };
   const selectedCoordinates = new Set(
     resolution.components.map(({ coordinate }) => coordinate),
   );
@@ -254,6 +330,7 @@ export async function buildAndroidCertification({
   const { records, selected } = await collectPomClosure(
     resolution,
     taskCreatedVerificationComponents.map(({ coordinate }) => coordinate),
+    noticeOverrides.mavenPomLicenceNameOverrides,
   );
   const repositoryBases = dependencyPolicy.allowedSources.mavenRepositoryUrls;
   const sources = discoverSources
@@ -283,7 +360,7 @@ export async function buildAndroidCertification({
   const components = resolution.components.map((component) => {
     const source = sources.get(component.coordinate);
     const effective = effectiveLicences.get(component.coordinate);
-    const distribution = classifyAndroidDistribution(component);
+    const distribution = classifyB2AndroidDistribution(component);
     const signatures = effective.licences.map((licence) =>
       mavenLicenceSignature([licence]),
     );
@@ -292,12 +369,17 @@ export async function buildAndroidCertification({
       distribution,
       signatures,
       effective,
-      policy: licencePolicy,
+      policy: b2LicencePolicy,
     });
     const effectiveSource = sources.get(effective.declaredBy);
     return {
       ...component,
       distribution,
+      ...b2MavenComplianceFields(
+        component.coordinate,
+        distribution,
+        classification,
+      ),
       artifacts: component.artifacts.map((artifact) => ({
         ...artifact,
         sourceUrl: source.sourceUrl.replace(
@@ -328,7 +410,7 @@ export async function buildAndroidCertification({
       distribution: 'tooling-or-test-only',
       signatures,
       effective,
-      policy: licencePolicy,
+      policy: b2LicencePolicy,
     });
     const effectiveSource = sources.get(effective.declaredBy);
     const pomName = `${component.name}-${component.version}.pom`;
@@ -345,6 +427,11 @@ export async function buildAndroidCertification({
       name: component.name,
       version: component.version,
       distribution: 'tooling-or-test-only',
+      ...b2MavenComplianceFields(
+        component.coordinate,
+        'tooling-or-test-only',
+        classification,
+      ),
       scope: 'task-created-build-tool',
       artifacts: component.artifacts
         .filter(({ name }) => name !== pomName && !name.endsWith('.module'))
@@ -367,7 +454,7 @@ export async function buildAndroidCertification({
     .filter(({ licence }) => licence.scopePolicy === 'tooling-or-test-only')
     .map(({ coordinate }) => coordinate)
     .sort();
-  const restrictedExpected = Object.keys(licencePolicy.scopeRestrictedComponents).sort();
+  const restrictedExpected = Object.keys(b2LicencePolicy.scopeRestrictedComponents).sort();
   if (JSON.stringify(restrictedActual) !== JSON.stringify(restrictedExpected)) {
     throw certificationError(
       'maven_licence_policy_violation',
@@ -388,6 +475,13 @@ export async function buildAndroidCertification({
     pomClosure,
     taskCreatedBuildTools,
   );
+  const lockfilePaths = [
+    'android/gradle/dependency-locks/app.lockfile',
+    'android/gradle/dependency-locks/capacitor-android.lockfile',
+    'android/gradle/dependency-locks/capacitor-app.lockfile',
+    'android/gradle/dependency-locks/capacitor-community-sqlite.lockfile',
+    'android/gradle/dependency-locks/capacitor-cordova-android-plugins.lockfile',
+  ];
   const inputs = await Promise.all(
     [
       'package.json',
@@ -396,10 +490,9 @@ export async function buildAndroidCertification({
       'scripts/lib/maven-evidence.mjs',
       'config/dependency-policy.json',
       'config/maven-licence-policy.json',
+      'config/third-party-notices-overrides.json',
       'android/gradle/verification-metadata.xml',
-      'android/gradle/dependency-locks/app.lockfile',
-      'android/gradle/dependency-locks/capacitor-android.lockfile',
-      'android/gradle/dependency-locks/capacitor-cordova-android-plugins.lockfile',
+      ...lockfilePaths,
     ].map(async (path) => ({
       path,
       sha256: sha256(await readFile(join(ROOT, path))),
@@ -416,6 +509,7 @@ export async function buildAndroidCertification({
     scopeRestrictedToolingCount: restrictedActual.length,
     taskCreatedBuildToolCount: taskCreatedBuildTools.length,
     generatedFrom: inputs,
+    lockfiles: inputs.filter(({ path }) => lockfilePaths.includes(path)),
     components,
     taskCreatedBuildTools,
     pomClosure,
@@ -425,6 +519,8 @@ export async function buildAndroidCertification({
       reviewDate: licencePolicy.reviewDate,
       scopeRestrictedRationale: licencePolicy.scopeRestrictedRationale,
       androidSdkAcceptance: licencePolicy.androidSdkAcceptance,
+      b2NoticeOverrideOwner: noticeOverrides.owner,
+      b2NoticeOverrideReviewDate: noticeOverrides.reviewDate,
     },
   };
 }
@@ -432,23 +528,25 @@ export async function buildAndroidCertification({
 export async function main(args = process.argv.slice(2)) {
   const write = args.includes('--write');
   try {
-    const committed = write ? null : await readJson(REPORT_PATH);
+    if (write) {
+      throw certificationError(
+        'android_certification_write_forbidden',
+        'Task 3 audits Task 2 locks without rewriting them; use audit:dependencies --write',
+      );
+    }
+    const committed = (await readJson(REPORT_PATH)).android;
     const certification = await buildAndroidCertification({
-      discoverSources: write,
+      discoverSources: false,
       committed,
     });
-    if (write) {
-      await writeFile(REPORT_PATH, `${JSON.stringify(certification, null, 2)}\n`, 'utf8');
-    } else {
-      assertAndroidCertificationCurrent(certification, committed);
-    }
+    assertAndroidCertificationCurrent(certification, committed);
     printJson({
       ok: true,
       mode: certification.mode,
       components: certification.componentCount,
       packagedRuntime: certification.packagedRuntimeCount,
       scopeRestrictedTooling: certification.scopeRestrictedToolingCount,
-      evidence: write ? 'written' : 'current',
+      evidence: 'current',
     });
     return EXIT_CODES.success;
   } catch (error) {

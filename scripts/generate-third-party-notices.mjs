@@ -18,7 +18,15 @@ export async function main(args = process.argv.slice(2)) {
       stale.code = 'dependency_evidence_stale';
       throw stale;
     }
-    printJson({ ok: true, file: 'THIRD_PARTY_NOTICES.md', evidence: write ? 'written' : 'current' });
+    printJson({
+      ok: true,
+      file: 'THIRD_PARTY_NOTICES.md',
+      evidence: write ? 'written' : 'current',
+      npmPackages: artifacts.report.npm.lockPackageCount,
+      spmIdentities: artifacts.report.spm.length,
+      mavenComponents: artifacts.report.android?.componentCount ?? 0,
+      approval: artifacts.pluginAudit.approval,
+    });
     return EXIT_CODES.success;
   } catch (error) {
     printJson(

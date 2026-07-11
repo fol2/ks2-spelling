@@ -164,7 +164,15 @@ export async function createCapacitorSqliteConnection(options = {}) {
         await database.open();
       },
       async close() {
-        closePromise ??= manager.closeConnection(DATABASE_NAME, false);
+        if (!closePromise) {
+          const attempt = Promise.resolve().then(() =>
+            manager.closeConnection(DATABASE_NAME, false),
+          );
+          closePromise = attempt;
+          void attempt.catch(() => {
+            if (closePromise === attempt) closePromise = undefined;
+          });
+        }
         await closePromise;
       },
       async execute(sql, values) {

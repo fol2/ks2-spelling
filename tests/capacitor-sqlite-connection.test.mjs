@@ -125,14 +125,14 @@ test('Capacitor SQLite adapter uses exact connection and statement arguments', a
   ]);
 });
 
-test('Capacitor SQLite adapter closes through the manager exactly once', async () => {
+test('Capacitor SQLite adapter shares concurrent close and memoises success', async () => {
   const { createCapacitorSqliteConnection } = await import(
     '../src/platform/database/capacitor-sqlite-connection.js'
   );
   const fake = createFakeNativeDependencies();
   const connection = await createCapacitorSqliteConnection(fake.dependencies);
 
-  await connection.close();
+  await Promise.all([connection.close(), connection.close()]);
   await connection.close();
 
   assert.deepEqual(fake.calls.slice(-1), [
@@ -140,6 +140,32 @@ test('Capacitor SQLite adapter closes through the manager exactly once', async (
   ]);
   assert.equal(fake.calls.filter(([name]) => name === 'manager.closeConnection').length, 1);
   assert.equal(fake.calls.some(([name]) => name === 'database.close'), false);
+});
+
+test('Capacitor SQLite adapter retries the exact native close after rejection', async () => {
+  const { createCapacitorSqliteConnection } = await import(
+    '../src/platform/database/capacitor-sqlite-connection.js'
+  );
+  const fake = createFakeNativeDependencies();
+  const prototype = fake.dependencies.SQLiteConnection.prototype;
+  const nativeClose = prototype.closeConnection;
+  let attempts = 0;
+  prototype.closeConnection = async function closeConnection(...args) {
+    attempts += 1;
+    await nativeClose.apply(this, args);
+    if (attempts === 1) throw new Error('native_close_uncertain');
+  };
+  const connection = await createCapacitorSqliteConnection(fake.dependencies);
+
+  await assert.rejects(connection.close(), /native_close_uncertain/);
+  await connection.close();
+  await connection.close();
+
+  assert.equal(attempts, 2);
+  assert.equal(
+    fake.calls.filter(([name]) => name === 'manager.closeConnection').length,
+    2,
+  );
 });
 
 test('Capacitor SQLite adapter rejects malformed write result shapes', async () => {

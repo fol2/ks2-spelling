@@ -87,6 +87,70 @@ function createConnectionProbe(name, failures = {}) {
   return { calls, connection, failures, isOpen: () => open, name };
 }
 
+function createRetryingNativeSqliteProbe(closeFailures = 2) {
+  const calls = [];
+  let remainingCloseFailures = closeFailures;
+  let databaseSequence = 0;
+  const CapacitorSQLite = Object.freeze({ plugin: 'fake-native-sqlite' });
+
+  class SQLiteConnection {
+    constructor(plugin) {
+      assert.equal(plugin, CapacitorSQLite);
+      calls.push(['manager.constructor']);
+    }
+
+    async createConnection(...args) {
+      databaseSequence += 1;
+      const databaseId = databaseSequence;
+      calls.push(['manager.createConnection', databaseId, ...args]);
+      return {
+        async open() {
+          calls.push(['database.open', databaseId]);
+        },
+        async execute() {
+          return { changes: { changes: 0 } };
+        },
+        async run() {
+          return { changes: { changes: 0 } };
+        },
+        async query(sql) {
+          calls.push(['database.query', databaseId, sql]);
+          return { values: [] };
+        },
+        async beginTransaction() {
+          return { changes: { changes: 0 } };
+        },
+        async commitTransaction() {
+          return { changes: { changes: 0 } };
+        },
+        async rollbackTransaction() {
+          return { changes: { changes: 0 } };
+        },
+        async isTransactionActive() {
+          return { result: false };
+        },
+      };
+    }
+
+    async closeConnection(...args) {
+      calls.push(['manager.closeConnection', ...args]);
+      if (remainingCloseFailures > 0) {
+        remainingCloseFailures -= 1;
+        throw new Error('native_close_uncertain');
+      }
+    }
+  }
+
+  return {
+    calls,
+    dependencies: {
+      Capacitor: { isNativePlatform: () => true },
+      CapacitorSQLite,
+      SQLiteConnection,
+    },
+  };
+}
+
 function createHarness({ connections, migrationFailureAt = -1 } = {}) {
   const lifecycle = createLifecycleProbe();
   const gate = createDatabaseCommandGate();
@@ -354,6 +418,62 @@ test('dispose retries the retained exact connection after a pause close failure'
   assert.equal(first.isOpen(), false);
   assert.equal(harness.created.length, 1);
   assert.equal(coordinator.getDiagnosticState().state, 'disposed');
+});
+
+test('coordinator retries the real Capacitor adapter close before replacement', async () => {
+  const { createDatabaseLifecycleCoordinator } = await import(
+    '../src/app/database-lifecycle-coordinator.js'
+  );
+  const { createCapacitorSqliteConnection } = await import(
+    '../src/platform/database/capacitor-sqlite-connection.js'
+  );
+  const lifecycle = createLifecycleProbe();
+  const commandGate = createDatabaseCommandGate();
+  const native = createRetryingNativeSqliteProbe(2);
+  const createdConnections = [];
+  const coordinator = createDatabaseLifecycleCoordinator({
+    lifecycle: lifecycle.lifecycle,
+    commandGate,
+    selectedLearnerId: 'learner-a',
+    async createConnection() {
+      const connection = await createCapacitorSqliteConnection(
+        native.dependencies,
+      );
+      createdConnections.push(connection);
+      return connection;
+    },
+    async migrate() {},
+    async rehydrateSelectedLearner() {},
+  });
+  await coordinator.start();
+  lifecycle.emit('pause');
+  await waitForState(coordinator, 'failed');
+
+  lifecycle.emit('resume');
+  await waitFor(
+    () => coordinator.getDiagnosticState().failures.length === 2,
+    'second native close rejection',
+  );
+  assert.equal(createdConnections.length, 1);
+  assert.equal(
+    native.calls.filter(([name]) => name === 'manager.createConnection').length,
+    1,
+  );
+
+  lifecycle.emit('resume');
+  await waitForState(coordinator, 'active');
+  assert.equal(createdConnections.length, 2);
+  const createIndexes = native.calls
+    .map(([name], index) => (name === 'manager.createConnection' ? index : -1))
+    .filter((index) => index !== -1);
+  const closeIndexes = native.calls
+    .map(([name], index) => (name === 'manager.closeConnection' ? index : -1))
+    .filter((index) => index !== -1);
+  assert.equal(closeIndexes.length, 3);
+  assert.equal(closeIndexes.every((index) => index < createIndexes[1]), true);
+  assert.equal(coordinator.getDiagnosticState().failures.length, 2);
+  assert.equal(commandGate.isAccepting(), true);
+  await coordinator.dispose();
 });
 
 test('a later resume retries after migration failure without clearing failure history or bytes', async () => {

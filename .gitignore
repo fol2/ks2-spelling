@@ -1,0 +1,29 @@
+# JavaScript outputs
+node_modules/
+dist/
+coverage/
+.vite/
+*.log
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+
+# Native generated and machine-local outputs
+android/.gradle/
+android/**/build/
+android/local.properties
+android/app/src/main/assets/public/
+ios/DerivedData/
+ios/App/App/public/
+**/xcuserdata/
+*.xcuserstate
+
+# Editor and operating-system files
+.idea/
+.DS_Store

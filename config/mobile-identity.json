@@ -1,0 +1,17 @@
+{
+  "repositoryName": "ks2-spelling",
+  "localRepositoryPath": "/Users/jamesto/Coding/ks2-spelling",
+  "productDisplayName": "KS2 Spelling",
+  "javascriptPackageName": "ks2-spelling",
+  "capacitorAppId": "uk.eugnel.ks2spelling",
+  "iosBundleIdentifier": "uk.eugnel.ks2spelling",
+  "androidApplicationId": "uk.eugnel.ks2spelling",
+  "androidNamespace": "uk.eugnel.ks2spelling",
+  "sharedXcodeScheme": "KS2Spelling",
+  "appleDevelopmentTeam": "V45S7U2LZB",
+  "iosDependencyManager": "Swift Package Manager",
+  "androidB1Signing": "Local debug signing only; no release key or Play App Signing enrolment in B1",
+  "defaultBranch": "main",
+  "b1ImplementationBranch": "jamesto/mobile-b1-bootstrap",
+  "nodeVersion": "24.18.0"
+}

@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "owner": "KS2 Spelling maintainer",
+  "reviewDate": "2026-07-11",
+  "approvedLicences": [
+    "0BSD",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "BlueOak-1.0.0",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "Unlicense"
+  ],
+  "directDependencies": {
+    "@capacitor/android": "8.4.1",
+    "@capacitor/core": "8.4.1",
+    "@capacitor/ios": "8.4.1",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "directBuildTools": {
+    "@capacitor/cli": "8.4.1",
+    "@vitejs/plugin-react": "6.0.3",
+    "oxlint": "1.71.0",
+    "vite": "8.1.4"
+  },
+  "npmClassifications": {
+    "@capacitor/android": {
+      "role": "native platform source",
+      "platform": "Android",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No app data collection or permission declared in B1"
+    },
+    "@capacitor/core": {
+      "role": "bundled and native bridge runtime",
+      "platform": "Web, iOS and Android",
+      "applePrivacyManifest": "No app Required Reason API declared in B1",
+      "googleDataSafety": "No app data collection or permission declared in B1"
+    },
+    "@capacitor/ios": {
+      "role": "native platform source",
+      "platform": "iOS",
+      "applePrivacyManifest": "Capacitor and Cordova framework manifests supplied",
+      "googleDataSafety": "Not applicable"
+    },
+    "react": {
+      "role": "bundled runtime",
+      "platform": "WebView",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No data access in B1"
+    },
+    "react-dom": {
+      "role": "bundled runtime",
+      "platform": "WebView",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No data access in B1"
+    },
+    "scheduler": {
+      "role": "bundled transitive runtime",
+      "platform": "WebView",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No data access in B1"
+    },
+    "tslib": {
+      "role": "bundled transitive runtime",
+      "platform": "WebView and native bridge JavaScript",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No data access in B1"
+    },
+    "@capacitor/cli": {
+      "role": "build-only native project tooling",
+      "platform": "Build host",
+      "applePrivacyManifest": "Build-only",
+      "googleDataSafety": "Build-only"
+    },
+    "@vitejs/plugin-react": {
+      "role": "build-only JSX transform",
+      "platform": "Build host",
+      "applePrivacyManifest": "Build-only",
+      "googleDataSafety": "Build-only"
+    },
+    "oxlint": {
+      "role": "build-only static analysis",
+      "platform": "Build host",
+      "applePrivacyManifest": "Build-only",
+      "googleDataSafety": "Build-only"
+    },
+    "vite": {
+      "role": "build-only web bundler",
+      "platform": "Build host",
+      "applePrivacyManifest": "Build-only",
+      "googleDataSafety": "Build-only"
+    }
+  },
+  "spm": {
+    "name": "capacitor-swift-pm",
+    "version": "8.4.1",
+    "revision": "2231987d85b8b0b289320b1d0947b4ae8345cde4",
+    "source": "https://github.com/ionic-team/capacitor-swift-pm.git",
+    "licence": "MIT",
+    "role": "native runtime frameworks",
+    "platform": "iOS"
+  },
+  "gradleDeclared": [
+    { "coordinate": "com.android.tools.build:gradle", "version": "8.13.0", "scope": "build" },
+    { "coordinate": "com.google.gms:google-services", "version": "4.4.4", "scope": "dormant build plugin; no google-services.json" },
+    { "coordinate": "io.github.gradle-nexus:publish-plugin", "version": "1.3.0", "scope": "conditional publish-only; CAP_PUBLISH is not enabled" },
+    { "coordinate": "androidx.activity:activity", "version": "1.11.0", "scope": "runtime declaration" },
+    { "coordinate": "androidx.appcompat:appcompat", "version": "1.7.1", "scope": "runtime declaration" },
+    { "coordinate": "androidx.coordinatorlayout:coordinatorlayout", "version": "1.3.0", "scope": "runtime declaration" },
+    { "coordinate": "androidx.core:core", "version": "1.17.0", "scope": "runtime declaration" },
+    { "coordinate": "androidx.core:core-splashscreen", "version": "1.2.0", "scope": "runtime declaration" },
+    { "coordinate": "androidx.fragment:fragment", "version": "1.8.9", "scope": "runtime declaration" },
+    { "coordinate": "androidx.webkit:webkit", "version": "1.14.0", "scope": "runtime declaration" },
+    { "coordinate": "org.apache.cordova:framework", "version": "14.0.1", "scope": "runtime declaration" },
+    { "coordinate": "junit:junit", "version": "4.13.2", "scope": "test declaration" },
+    { "coordinate": "androidx.test.ext:junit", "version": "1.3.0", "scope": "instrumented test declaration" },
+    { "coordinate": "androidx.test.espresso:espresso-core", "version": "3.7.0", "scope": "instrumented test declaration" },
+    { "coordinate": "org.json:json", "version": "20250517", "scope": "test declaration" },
+    { "coordinate": "org.mockito:mockito-core", "version": "5.20.0", "scope": "test declaration" }
+  ],
+  "approvedNativePlugins": [],
+  "candidatePlugins": [
+    { "capability": "SQLite", "packageName": "@capacitor-community/sqlite", "status": "Not approved" },
+    { "capability": "Filesystem", "packageName": "@capacitor/filesystem", "status": "Not approved" },
+    { "capability": "Billing", "packageName": "@revenuecat/purchases-capacitor", "status": "Not approved" },
+    { "capability": "Biometric", "packageName": "capacitor-native-biometric", "status": "Not approved" },
+    { "capability": "Lifecycle", "packageName": "@capacitor/app", "status": "Not approved" }
+  ],
+  "allowedSources": {
+    "npm": "https://registry.npmjs.org/",
+    "spm": ["https://github.com/ionic-team/capacitor-swift-pm.git"],
+    "gradleRepositories": ["google()", "mavenCentral()", "https://plugins.gradle.org/m2/"]
+  }
+}

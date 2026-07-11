@@ -1,0 +1,362 @@
+{
+  "schemaVersion": 1,
+  "mode": "pre-bootstrap",
+  "generatedFrom": {
+    "packageLockSha256": "d5ecf47e2b1730a3db193fd4188948b3189197aa08ff89a7eda8b5ccb413a8a0",
+    "spmResolvedVersion": 3
+  },
+  "npm": {
+    "lockfileVersion": 3,
+    "lockPackageCount": 162,
+    "approvedLicences": [
+      "0BSD",
+      "Apache-2.0",
+      "BSD-3-Clause",
+      "BlueOak-1.0.0",
+      "ISC",
+      "MIT",
+      "MPL-2.0",
+      "Unlicense"
+    ],
+    "production": [
+      {
+        "name": "@capacitor/android",
+        "version": "8.4.1",
+        "source": "https://registry.npmjs.org/@capacitor/android/-/android-8.4.1.tgz",
+        "licence": "MIT",
+        "role": "native platform source",
+        "platform": "Android",
+        "permissions": [],
+        "dataAccess": [],
+        "networkEndpoints": [],
+        "applePrivacyManifest": "Not applicable",
+        "googleDataSafety": "No app data collection or permission declared in B1",
+        "owner": "KS2 Spelling maintainer",
+        "reviewDate": "2026-07-11"
+      },
+      {
+        "name": "@capacitor/core",
+        "version": "8.4.1",
+        "source": "https://registry.npmjs.org/@capacitor/core/-/core-8.4.1.tgz",
+        "licence": "MIT",
+        "role": "bundled and native bridge runtime",
+        "platform": "Web, iOS and Android",
+        "permissions": [],
+        "dataAccess": [],
+        "networkEndpoints": [],
+        "applePrivacyManifest": "No app Required Reason API declared in B1",
+        "googleDataSafety": "No app data collection or permission declared in B1",
+        "owner": "KS2 Spelling maintainer",
+        "reviewDate": "2026-07-11"
+      },
+      {
+        "name": "@capacitor/ios",
+        "version": "8.4.1",
+        "source": "https://registry.npmjs.org/@capacitor/ios/-/ios-8.4.1.tgz",
+        "licence": "MIT",
+        "role": "native platform source",
+        "platform": "iOS",
+        "permissions": [],
+        "dataAccess": [],
+        "networkEndpoints": [],
+        "applePrivacyManifest": "Capacitor and Cordova framework manifests supplied",
+        "googleDataSafety": "Not applicable",
+        "owner": "KS2 Spelling maintainer",
+        "reviewDate": "2026-07-11"
+      },
+      {
+        "name": "react",
+        "version": "19.2.7",
+        "source": "https://registry.npmjs.org/react/-/react-19.2.7.tgz",
+        "licence": "MIT",
+        "role": "bundled runtime",
+        "platform": "WebView",
+        "permissions": [],
+        "dataAccess": [],
+        "networkEndpoints": [],
+        "applePrivacyManifest": "Not applicable",
+        "googleDataSafety": "No data access in B1",
+        "owner": "KS2 Spelling maintainer",
+        "reviewDate": "2026-07-11"
+      },
+      {
+        "name": "react-dom",
+        "version": "19.2.7",
+        "source": "https://registry.npmjs.org/react-dom/-/react-dom-19.2.7.tgz",
+        "licence": "MIT",
+        "role": "bundled runtime",
+        "platform": "WebView",
+        "permissions": [],
+        "dataAccess": [],
+        "networkEndpoints": [],
+        "applePrivacyManifest": "Not applicable",
+        "googleDataSafety": "No data access in B1",
+        "owner": "KS2 Spelling maintainer",
+        "reviewDate": "2026-07-11"
+      },
+      {
+        "name": "scheduler",
+        "version": "0.27.0",
+        "source": "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz",
+        "licence": "MIT",
+        "role": "bundled transitive runtime",
+        "platform": "WebView",
+        "permissions": [],
+        "dataAccess": [],
+        "networkEndpoints": [],
+        "applePrivacyManifest": "Not applicable",
+        "googleDataSafety": "No data access in B1",
+        "owner": "KS2 Spelling maintainer",
+        "reviewDate": "2026-07-11"
+      },
+      {
+        "name": "tslib",
+        "version": "2.8.1",
+        "source": "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
+        "licence": "0BSD",
+        "role": "bundled transitive runtime",
+        "platform": "WebView and native bridge JavaScript",
+        "permissions": [],
+        "dataAccess": [],
+        "networkEndpoints": [],
+        "applePrivacyManifest": "Not applicable",
+        "googleDataSafety": "No data access in B1",
+        "owner": "KS2 Spelling maintainer",
+        "reviewDate": "2026-07-11"
+      }
+    ],
+    "directBuildTools": [
+      {
+        "name": "@capacitor/cli",
+        "version": "8.4.1",
+        "source": "https://registry.npmjs.org/@capacitor/cli/-/cli-8.4.1.tgz",
+        "licence": "MIT",
+        "role": "build-only native project tooling",
+        "platform": "Build host",
+        "permissions": [],
+        "dataAccess": [],
+        "networkEndpoints": [],
+        "applePrivacyManifest": "Build-only",
+        "googleDataSafety": "Build-only",
+        "owner": "KS2 Spelling maintainer",
+        "reviewDate": "2026-07-11"
+      },
+      {
+        "name": "@vitejs/plugin-react",
+        "version": "6.0.3",
+        "source": "https://registry.npmjs.org/@vitejs/plugin-react/-/plugin-react-6.0.3.tgz",
+        "licence": "MIT",
+        "role": "build-only JSX transform",
+        "platform": "Build host",
+        "permissions": [],
+        "dataAccess": [],
+        "networkEndpoints": [],
+        "applePrivacyManifest": "Build-only",
+        "googleDataSafety": "Build-only",
+        "owner": "KS2 Spelling maintainer",
+        "reviewDate": "2026-07-11"
+      },
+      {
+        "name": "oxlint",
+        "version": "1.71.0",
+        "source": "https://registry.npmjs.org/oxlint/-/oxlint-1.71.0.tgz",
+        "licence": "MIT",
+        "role": "build-only static analysis",
+        "platform": "Build host",
+        "permissions": [],
+        "dataAccess": [],
+        "networkEndpoints": [],
+        "applePrivacyManifest": "Build-only",
+        "googleDataSafety": "Build-only",
+        "owner": "KS2 Spelling maintainer",
+        "reviewDate": "2026-07-11"
+      },
+      {
+        "name": "vite",
+        "version": "8.1.4",
+        "source": "https://registry.npmjs.org/vite/-/vite-8.1.4.tgz",
+        "licence": "MIT",
+        "role": "build-only web bundler",
+        "platform": "Build host",
+        "permissions": [],
+        "dataAccess": [],
+        "networkEndpoints": [],
+        "applePrivacyManifest": "Build-only",
+        "googleDataSafety": "Build-only",
+        "owner": "KS2 Spelling maintainer",
+        "reviewDate": "2026-07-11"
+      }
+    ]
+  },
+  "spm": [
+    {
+      "name": "capacitor-swift-pm",
+      "version": "8.4.1",
+      "revision": "2231987d85b8b0b289320b1d0947b4ae8345cde4",
+      "source": "https://github.com/ionic-team/capacitor-swift-pm.git",
+      "licence": "MIT",
+      "role": "native runtime frameworks",
+      "platform": "iOS",
+      "permissions": [],
+      "dataAccess": [],
+      "networkEndpoints": [],
+      "applePrivacyManifest": "Framework privacy manifests supplied",
+      "googleDataSafety": "Not applicable",
+      "owner": "KS2 Spelling maintainer",
+      "reviewDate": "2026-07-11",
+      "privacyManifests": [
+        "node_modules/@capacitor/ios/Capacitor/Capacitor/PrivacyInfo.xcprivacy",
+        "node_modules/@capacitor/ios/CapacitorCordova/CapacitorCordova/PrivacyInfo.xcprivacy"
+      ]
+    }
+  ],
+  "androidResolution": "pending-toolchain",
+  "gradleRepositories": [
+    "google()",
+    "https://plugins.gradle.org/m2/",
+    "mavenCentral()"
+  ],
+  "gradleDeclared": [
+    {
+      "coordinate": "com.android.tools.build:gradle",
+      "version": "8.13.0",
+      "scope": "build",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "com.google.gms:google-services",
+      "version": "4.4.4",
+      "scope": "dormant build plugin; no google-services.json",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "io.github.gradle-nexus:publish-plugin",
+      "version": "1.3.0",
+      "scope": "conditional publish-only; CAP_PUBLISH is not enabled",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "androidx.activity:activity",
+      "version": "1.11.0",
+      "scope": "runtime declaration",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "androidx.appcompat:appcompat",
+      "version": "1.7.1",
+      "scope": "runtime declaration",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "androidx.coordinatorlayout:coordinatorlayout",
+      "version": "1.3.0",
+      "scope": "runtime declaration",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "androidx.core:core",
+      "version": "1.17.0",
+      "scope": "runtime declaration",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "androidx.core:core-splashscreen",
+      "version": "1.2.0",
+      "scope": "runtime declaration",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "androidx.fragment:fragment",
+      "version": "1.8.9",
+      "scope": "runtime declaration",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "androidx.webkit:webkit",
+      "version": "1.14.0",
+      "scope": "runtime declaration",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "org.apache.cordova:framework",
+      "version": "14.0.1",
+      "scope": "runtime declaration",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "junit:junit",
+      "version": "4.13.2",
+      "scope": "test declaration",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "androidx.test.ext:junit",
+      "version": "1.3.0",
+      "scope": "instrumented test declaration",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "androidx.test.espresso:espresso-core",
+      "version": "3.7.0",
+      "scope": "instrumented test declaration",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "org.json:json",
+      "version": "20250517",
+      "scope": "test declaration",
+      "resolution": "pending-toolchain"
+    },
+    {
+      "coordinate": "org.mockito:mockito-core",
+      "version": "5.20.0",
+      "scope": "test declaration",
+      "resolution": "pending-toolchain"
+    }
+  ],
+  "plugins": {
+    "approved": [],
+    "candidates": [
+      {
+        "capability": "SQLite",
+        "packageName": "@capacitor-community/sqlite",
+        "status": "Not approved"
+      },
+      {
+        "capability": "Filesystem",
+        "packageName": "@capacitor/filesystem",
+        "status": "Not approved"
+      },
+      {
+        "capability": "Billing",
+        "packageName": "@revenuecat/purchases-capacitor",
+        "status": "Not approved"
+      },
+      {
+        "capability": "Biometric",
+        "packageName": "capacitor-native-biometric",
+        "status": "Not approved"
+      },
+      {
+        "capability": "Lifecycle",
+        "packageName": "@capacitor/app",
+        "status": "Not approved"
+      }
+    ]
+  },
+  "permissionEvidence": {
+    "androidUsesPermissions": [],
+    "iosEntitlements": [],
+    "iosUsageDescriptionKeys": []
+  },
+  "b1Truth": {
+    "childDataCollected": false,
+    "childDataTransmitted": false,
+    "analytics": false,
+    "advertising": false,
+    "appPermissions": [],
+    "storeCommerce": false,
+    "runtimeNetworkEndpoints": [],
+    "disclosureStatus": "B1 evidence only; not a final store disclosure"
+  }
+}

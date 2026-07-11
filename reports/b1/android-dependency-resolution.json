@@ -33,7 +33,7 @@
     },
     {
       "path": "android/gradle/verification-metadata.xml",
-      "sha256": "60e33c92c2749532e656ae5395d47f6eaacd487b548f9cb1e3d8b5cda31ff7f3"
+      "sha256": "0dd08ee21ee61a2ffe5902080a09e255ee906b418554b97b40b462e6e2d7b1b0"
     },
     {
       "path": "android/gradle/dependency-locks/app.lockfile",
@@ -30846,7 +30846,7 @@
       "ignoredKeys": []
     },
     "componentCount": 392,
-    "artifactCount": 767,
+    "artifactCount": 768,
     "components": [
       {
         "coordinate": "androidx.activity:activity:1.11.0",
@@ -37202,6 +37202,10 @@
         "name": "junit-bom",
         "version": "5.9.2",
         "artifacts": [
+          {
+            "name": "junit-bom-5.9.2.module",
+            "sha256": "ab137ba5a8e32c9b066bf9126a1c76dd5614b724ba5c0b02549772b5e9f4cf1f"
+          },
           {
             "name": "junit-bom-5.9.2.pom",
             "sha256": "2ed07d65845131f5336a86476c9a4056b59d0b58b9815ab3679bb0f36f35f705"

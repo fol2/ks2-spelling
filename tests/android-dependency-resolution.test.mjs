@@ -197,6 +197,11 @@ test('committed verification metadata closes fresh-cache POM and module selectio
       sha256: '55441db27e8869dfefe053059bdf478bdc7e95585642bf391f0023345fd56287',
     },
     {
+      coordinate: 'org.junit:junit-bom:5.9.2',
+      name: 'junit-bom-5.9.2.module',
+      sha256: 'ab137ba5a8e32c9b066bf9126a1c76dd5614b724ba5c0b02549772b5e9f4cf1f',
+    },
+    {
       coordinate: 'org.junit:junit-bom:5.10.2',
       name: 'junit-bom-5.10.2.module',
       sha256: 'de23b114b3e4119a8fe6eb17bed5a3852816698bace67071579d6d927ebb080a',
@@ -261,7 +266,7 @@ test('committed Android certification is bound to every resolver and policy inpu
   assert.equal(report.componentCount, 286);
   assert.equal(report.taskCreatedBuildToolCount, 12);
   assert.equal(report.verificationInventory.componentCount, 392);
-  assert.equal(report.verificationInventory.artifactCount, 767);
+  assert.equal(report.verificationInventory.artifactCount, 768);
   assert.equal(reportText.includes('/Users/'), false);
   const inputs = new Set(report.generatedFrom.map(({ path }) => path));
   for (const path of [

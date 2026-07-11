@@ -11,6 +11,7 @@ import {
   B2_COMMANDS,
   B2_COMMAND_TIMESTAMPS,
   B2_FAILURE_CHECKPOINTS,
+  createB2ScenarioClock,
   randomFrom,
   unchangedB2Plan,
 } from './fixtures/b2-command-scenarios.mjs';
@@ -29,23 +30,26 @@ function wrapExactMethods(target, overrides) {
 }
 
 async function commitPrefix(harness, count) {
+  const clock = createB2ScenarioClock();
   const random = randomFrom(42);
-  let commandIndex = 0;
   const repository = harness.createCommandRepository({
-    now: () => B2_COMMAND_TIMESTAMPS[commandIndex],
+    now: clock.now,
   });
-  for (; commandIndex < count; commandIndex += 1) {
-    await repository.runCommandTransaction('learner-a', (fresh, context) =>
-      applyB2Command(
+  while (clock.currentIndex() < count) {
+    const commandIndex = clock.currentIndex();
+    await repository.runCommandTransaction('learner-a', (fresh, context) => {
+      assert.equal(context.nowMs, B2_COMMAND_TIMESTAMPS[commandIndex]);
+      return applyB2Command(
         fresh,
         B2_COMMANDS[commandIndex],
         harness.catalogue,
         context.nowMs,
         random,
-      ),
-    );
+      );
+    });
+    clock.markSuccessful();
   }
-  return random;
+  return Object.freeze({ clock, random });
 }
 
 test('no-change, planner throw and invalid plans preserve the complete logical database', async (t) => {
@@ -79,12 +83,26 @@ test('no-change, planner throw and invalid plans preserve the complete logical d
 test('the progress-changing command commits every durable target in one transaction', async (t) => {
   const harness = await createB2DatabaseHarness();
   t.after(() => harness.close());
-  const random = await commitPrefix(harness, B2_ATOMIC_COMMAND_INDEX);
+  const { clock, random } = await commitPrefix(
+    harness,
+    B2_ATOMIC_COMMAND_INDEX,
+  );
+  assert.equal(clock.currentIndex(), B2_ATOMIC_COMMAND_INDEX);
   const before = await harness.store.read('learner-a');
   const beforeDigest = await databaseLogicalDigest(harness.connection);
   const checkpoints = [];
+  let monsterSyncCalls = 0;
+  const store = wrapExactMethods(harness.store, {
+    async syncMonsters(learnerId, states) {
+      monsterSyncCalls += 1;
+      assert.equal(learnerId, 'learner-a');
+      assert.deepEqual(states, before.monsterStateByRewardTrackId);
+      return harness.store.syncMonsters(learnerId, states);
+    },
+  });
   const repository = harness.createCommandRepository({
-    now: () => B2_COMMAND_TIMESTAMPS[B2_ATOMIC_COMMAND_INDEX],
+    now: clock.now,
+    store,
     async failureInjector(checkpoint) {
       checkpoints.push(checkpoint);
     },
@@ -92,18 +110,24 @@ test('the progress-changing command commits every durable target in one transact
 
   const plan = await repository.runCommandTransaction(
     'learner-a',
-    (fresh, context) =>
-      applyB2Command(
+    (fresh, context) => {
+      assert.equal(context.nowMs, B2_COMMAND_TIMESTAMPS[B2_ATOMIC_COMMAND_INDEX]);
+      return applyB2Command(
         fresh,
         B2_COMMANDS[B2_ATOMIC_COMMAND_INDEX],
         harness.catalogue,
         context.nowMs,
         random,
-      ),
+      );
+    },
   );
   const after = await harness.store.read('learner-a');
 
   assert.deepEqual(checkpoints, B2_FAILURE_CHECKPOINTS);
+  assert.equal(monsterSyncCalls, 1);
+  assert.equal(clock.currentIndex(), B2_ATOMIC_COMMAND_INDEX);
+  clock.markSuccessful();
+  assert.equal(clock.currentIndex(), B2_ATOMIC_COMMAND_INDEX + 1);
   assert.equal(plan.nextRevision, 5);
   assert.equal(after.revision, 5);
   assert.notDeepEqual(after.subjectState, before.subjectState);
@@ -126,54 +150,83 @@ test('the progress-changing command commits every durable target in one transact
   assert.notEqual(await databaseLogicalDigest(harness.connection), beforeDigest);
 });
 
-test('all seven failure checkpoints roll back the progress-changing command', async () => {
+test('all seven rollback attempts hold command index 4 before one successful advance', async (t) => {
+  const harness = await createB2DatabaseHarness();
+  t.after(() => harness.close());
+  const { clock, random } = await commitPrefix(
+    harness,
+    B2_ATOMIC_COMMAND_INDEX,
+  );
+  const before = await databaseLogicalDigest(harness.connection);
   for (const failedCheckpoint of B2_FAILURE_CHECKPOINTS) {
-    const harness = await createB2DatabaseHarness();
-    try {
-      const random = await commitPrefix(harness, B2_ATOMIC_COMMAND_INDEX);
-      const before = await databaseLogicalDigest(harness.connection);
-      let clockCalls = 0;
-      const repository = harness.createCommandRepository({
-        now() {
-          clockCalls += 1;
-          return B2_COMMAND_TIMESTAMPS[B2_ATOMIC_COMMAND_INDEX];
-        },
-        async failureInjector(checkpoint) {
-          if (checkpoint === failedCheckpoint) {
-            throw new Error(`b2_injected_${checkpoint}`);
-          }
-        },
-      });
+    let clockCalls = 0;
+    const repository = harness.createCommandRepository({
+      now() {
+        clockCalls += 1;
+        return clock.now();
+      },
+      async failureInjector(checkpoint) {
+        if (checkpoint === failedCheckpoint) {
+          throw new Error(`b2_injected_${checkpoint}`);
+        }
+      },
+    });
 
-      await assert.rejects(
-        repository.runCommandTransaction('learner-a', (fresh, context) =>
-          applyB2Command(
-            fresh,
-            B2_COMMANDS[B2_ATOMIC_COMMAND_INDEX],
-            harness.catalogue,
-            context.nowMs,
-            random,
-          ),
-        ),
-        new RegExp(`b2_injected_${failedCheckpoint}`),
-      );
-      assert.equal(clockCalls, 1, failedCheckpoint);
-      assert.equal(
-        await databaseLogicalDigest(harness.connection),
-        before,
-        failedCheckpoint,
-      );
-      assert.equal(await harness.connection.isTransactionActive(), false);
-    } finally {
-      await harness.close();
-    }
+    await assert.rejects(
+      repository.runCommandTransaction('learner-a', (fresh, context) => {
+        assert.equal(
+          context.nowMs,
+          B2_COMMAND_TIMESTAMPS[B2_ATOMIC_COMMAND_INDEX],
+        );
+        return applyB2Command(
+          fresh,
+          B2_COMMANDS[B2_ATOMIC_COMMAND_INDEX],
+          harness.catalogue,
+          context.nowMs,
+          random,
+        );
+      }),
+      new RegExp(`b2_injected_${failedCheckpoint}`),
+    );
+    assert.equal(clockCalls, 1, failedCheckpoint);
+    assert.equal(clock.currentIndex(), B2_ATOMIC_COMMAND_INDEX, failedCheckpoint);
+    assert.equal(
+      await databaseLogicalDigest(harness.connection),
+      before,
+      failedCheckpoint,
+    );
+    assert.equal(await harness.connection.isTransactionActive(), false);
   }
+
+  let committedNowMs;
+  const successful = harness.createCommandRepository({ now: clock.now });
+  const plan = await successful.runCommandTransaction(
+    'learner-a',
+    (fresh, context) => {
+      committedNowMs = context.nowMs;
+      return applyB2Command(
+        fresh,
+        B2_COMMANDS[B2_ATOMIC_COMMAND_INDEX],
+        harness.catalogue,
+        context.nowMs,
+        random,
+      );
+    },
+  );
+  assert.equal(committedNowMs, B2_COMMAND_TIMESTAMPS[B2_ATOMIC_COMMAND_INDEX]);
+  assert.equal(plan.nextRevision, B2_ATOMIC_COMMAND_INDEX + 1);
+  assert.equal(clock.currentIndex(), B2_ATOMIC_COMMAND_INDEX);
+  clock.markSuccessful();
+  assert.equal(clock.currentIndex(), B2_ATOMIC_COMMAND_INDEX + 1);
 });
 
 test('a stale revision retries from a fresh snapshot and a cleared conflict succeeds', async (t) => {
   const harness = await createB2DatabaseHarness();
   t.after(() => harness.close());
-  const random = await commitPrefix(harness, B2_ATOMIC_COMMAND_INDEX);
+  const { clock, random } = await commitPrefix(
+    harness,
+    B2_ATOMIC_COMMAND_INDEX,
+  );
   let casCalls = 0;
   let rollbackCalls = 0;
   let plannerCalls = 0;
@@ -196,7 +249,7 @@ test('a stale revision retries from a fresh snapshot and a cleared conflict succ
           current,
           B2_COMMANDS[B2_ATOMIC_COMMAND_INDEX],
           harness.catalogue,
-          B2_COMMAND_TIMESTAMPS[B2_ATOMIC_COMMAND_INDEX],
+          clock.now(),
           random,
         );
         await persistPlanWithStore({
@@ -204,7 +257,7 @@ test('a stale revision retries from a fresh snapshot and a cleared conflict succ
           store: harness.store,
           current,
           plan: externalPlan,
-          nowMs: B2_COMMAND_TIMESTAMPS[B2_ATOMIC_COMMAND_INDEX],
+          nowMs: clock.now(),
         });
       }
     },
@@ -214,7 +267,7 @@ test('a stale revision retries from a fresh snapshot and a cleared conflict succ
     store,
     now() {
       clockCalls += 1;
-      return B2_COMMAND_TIMESTAMPS[B2_ATOMIC_COMMAND_INDEX];
+      return clock.now();
     },
   });
 
@@ -242,12 +295,18 @@ test('a stale revision retries from a fresh snapshot and a cleared conflict succ
   assert.equal(rollbackCalls, 1);
   assert.equal(plannerCalls, 2);
   assert.equal(clockCalls, 2);
+  assert.equal(clock.currentIndex(), B2_ATOMIC_COMMAND_INDEX);
+  clock.markSuccessful();
+  assert.equal(clock.currentIndex(), B2_ATOMIC_COMMAND_INDEX + 1);
 });
 
 test('three conflicts use the same command timestamp and exhaust without mutation', async (t) => {
   const harness = await createB2DatabaseHarness();
   t.after(() => harness.close());
-  const random = await commitPrefix(harness, B2_ATOMIC_COMMAND_INDEX);
+  const { clock, random } = await commitPrefix(
+    harness,
+    B2_ATOMIC_COMMAND_INDEX,
+  );
   const before = await databaseLogicalDigest(harness.connection);
   let plannerCalls = 0;
   let clockCalls = 0;
@@ -260,7 +319,7 @@ test('three conflicts use the same command timestamp and exhaust without mutatio
     store,
     now() {
       clockCalls += 1;
-      return B2_COMMAND_TIMESTAMPS[B2_ATOMIC_COMMAND_INDEX];
+      return clock.now();
     },
   });
 
@@ -282,5 +341,6 @@ test('three conflicts use the same command timestamp and exhaust without mutatio
   );
   assert.equal(plannerCalls, SPELLING_COMMAND_MAX_CONFLICT_ATTEMPTS);
   assert.equal(clockCalls, SPELLING_COMMAND_MAX_CONFLICT_ATTEMPTS);
+  assert.equal(clock.currentIndex(), B2_ATOMIC_COMMAND_INDEX);
   assert.equal(await databaseLogicalDigest(harness.connection), before);
 });

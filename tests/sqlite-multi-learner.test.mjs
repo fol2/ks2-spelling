@@ -15,7 +15,6 @@ import {
 import {
   createB2DatabaseHarness,
   databaseLogicalDigest,
-  expectedB2Snapshot,
   logicalSnapshotDigest,
 } from './helpers/b2-database-harness.mjs';
 
@@ -107,37 +106,85 @@ test('same-learner concurrent commands serialise against freshly committed state
 test('learner A full round cannot mutate learner B or accept learner B plan data', async (t) => {
   const harness = await createB2DatabaseHarness();
   t.after(() => harness.close());
-  const beforeB = await harness.store.read('learner-b');
-  const beforeBDigest = logicalSnapshotDigest(beforeB);
-  const clock = createB2ScenarioClock();
-  const repository = harness.createCommandRepository({ now: clock.now });
+  const learnerBClock = createB2ScenarioClock();
+  const learnerBRandom = randomFrom(42);
+  const learnerBRepository = harness.createCommandRepository({
+    now: learnerBClock.now,
+  });
+  await learnerBRepository.runCommandTransaction(
+    'learner-b',
+    (fresh, context) =>
+      applyB2Command(
+        fresh,
+        B2_COMMANDS[0],
+        harness.catalogue,
+        context.nowMs,
+        learnerBRandom,
+      ),
+  );
+  learnerBClock.markSuccessful();
+
+  let capturedLearnerBSnapshot;
+  let capturedLearnerBPlan;
+  await learnerBRepository.runCommandTransaction(
+    'learner-b',
+    (fresh, context) => {
+      capturedLearnerBSnapshot = structuredClone(fresh);
+      capturedLearnerBPlan = unchangedB2Plan(fresh, context);
+      return capturedLearnerBPlan;
+    },
+  );
+  assert.equal(capturedLearnerBSnapshot.learnerId, 'learner-b');
+  assert.equal(capturedLearnerBSnapshot.revision, 1);
+  assert.equal(capturedLearnerBSnapshot.practiceSession.status, 'active');
+  assert.equal(capturedLearnerBPlan.learnerId, 'learner-b');
+  assert.equal(capturedLearnerBPlan.expectedRevision, 1);
+
+  const beforeBDigest = logicalSnapshotDigest(capturedLearnerBSnapshot);
+  const learnerAClock = createB2ScenarioClock();
+  const learnerARepository = harness.createCommandRepository({
+    now: learnerAClock.now,
+  });
 
   await runB2Scenario({
-    repository,
+    repository: learnerARepository,
     catalogue: harness.catalogue,
-    clock,
+    clock: learnerAClock,
   });
   assert.equal(
     logicalSnapshotDigest(await harness.store.read('learner-b')),
     beforeBDigest,
   );
 
+  const beforeLearnerA = logicalSnapshotDigest(
+    await harness.store.read('learner-a'),
+  );
+  const beforeLearnerB = logicalSnapshotDigest(
+    await harness.store.read('learner-b'),
+  );
   const beforeForeignAttempt = await databaseLogicalDigest(harness.connection);
   await assert.rejects(
-    repository.runCommandTransaction('learner-a', (fresh, context) => {
-      const foreign = unchangedB2Plan(fresh, context);
-      foreign.learnerId = expectedB2Snapshot('learner-b').learnerId;
-      return foreign;
-    }),
-    /learner|ownership/i,
+    learnerARepository.runCommandTransaction(
+      'learner-a',
+      () => structuredClone(capturedLearnerBPlan),
+    ),
+    (error) =>
+      error instanceof TypeError &&
+      (error.message ===
+        'nextEventLog must preserve the exact existing event history and append only new events.' ||
+        /learner|ownership/i.test(error.message)),
   );
   assert.equal(
     await databaseLogicalDigest(harness.connection),
     beforeForeignAttempt,
   );
   assert.equal(
+    logicalSnapshotDigest(await harness.store.read('learner-a')),
+    beforeLearnerA,
+  );
+  assert.equal(
     logicalSnapshotDigest(await harness.store.read('learner-b')),
-    beforeBDigest,
+    beforeLearnerB,
   );
 });
 

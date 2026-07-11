@@ -65,6 +65,60 @@ function recordIssue(issues, message) {
   issues.push(message);
 }
 
+async function validateVendorRoot(root, vendorRoot, issues) {
+  const components = [
+    { path: root, label: 'repository root' },
+    { path: resolve(root, 'vendor'), label: 'vendor' },
+    { path: vendorRoot, label: EXPECTED_PROVENANCE.vendor.root, isVendorRoot: true },
+  ];
+  let vendorRootStats = null;
+
+  for (const component of components) {
+    try {
+      const stats = await lstat(component.path);
+      if (stats.isSymbolicLink()) {
+        recordIssue(
+          issues,
+          component.isVendorRoot
+            ? 'vendor root is a symlink'
+            : `vendored path component is a symlink: ${component.label}`,
+        );
+        return;
+      }
+      if (component.isVendorRoot) vendorRootStats = stats;
+    } catch (error) {
+      if (component.isVendorRoot) {
+        recordIssue(
+          issues,
+          `invalid vendor root: ${vendorRoot} (${error.code ?? error.message})`,
+        );
+      }
+    }
+  }
+
+  if (!vendorRootStats) return;
+  if (!vendorRootStats.isDirectory()) {
+    recordIssue(issues, 'vendor root is not a directory');
+    return;
+  }
+
+  try {
+    const resolvedRoot = await realpath(root);
+    const resolvedVendorRoot = await realpath(vendorRoot);
+    const vendorPathFromRoot = relative(resolvedRoot, resolvedVendorRoot);
+    if (
+      vendorPathFromRoot === '' ||
+      vendorPathFromRoot === '..' ||
+      vendorPathFromRoot.startsWith(`..${sep}`) ||
+      isAbsolute(vendorPathFromRoot)
+    ) {
+      recordIssue(issues, 'vendor root escapes repository');
+    }
+  } catch (error) {
+    recordIssue(issues, `invalid vendor root: ${vendorRoot} (${error.code ?? error.message})`);
+  }
+}
+
 async function readBytes(path, label, issues) {
   try {
     const stats = await lstat(path);
@@ -306,28 +360,7 @@ export async function verifyVendoredContract({ rootDir = DEFAULT_ROOT } = {}) {
   const root = resolve(rootDir);
   const issues = [];
   const vendorRoot = resolve(root, EXPECTED_PROVENANCE.vendor.root);
-  try {
-    const vendorRootStats = await lstat(vendorRoot);
-    if (vendorRootStats.isSymbolicLink()) {
-      recordIssue(issues, 'vendor root is a symlink');
-    } else if (!vendorRootStats.isDirectory()) {
-      recordIssue(issues, 'vendor root is not a directory');
-    } else {
-      const resolvedRoot = await realpath(root);
-      const resolvedVendorRoot = await realpath(vendorRoot);
-      const vendorPathFromRoot = relative(resolvedRoot, resolvedVendorRoot);
-      if (
-        vendorPathFromRoot === '' ||
-        vendorPathFromRoot === '..' ||
-        vendorPathFromRoot.startsWith(`..${sep}`) ||
-        isAbsolute(vendorPathFromRoot)
-      ) {
-        recordIssue(issues, 'vendor root escapes repository');
-      }
-    }
-  } catch (error) {
-    recordIssue(issues, `invalid vendor root: ${vendorRoot} (${error.code ?? error.message})`);
-  }
+  await validateVendorRoot(root, vendorRoot, issues);
   if (issues.length > 0) throw new VendoredContractVerificationError(issues);
 
   const provenancePath = resolve(root, 'provenance/ks2-mastery-gate-a.json');

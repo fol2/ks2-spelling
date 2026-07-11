@@ -140,6 +140,15 @@ test('the app-owned façade exposes only the certified runtime and read-only cat
 });
 
 test('verification fails closed for representative tampering', async (t) => {
+  await t.test('an intermediate vendored path component is replaced with a directory symlink', async () => {
+    await expectVerificationFailure(async (copyRoot) => {
+      const vendorDirectory = join(copyRoot, 'vendor');
+      const relocatedVendorDirectory = join(copyRoot, 'vendor-relocated');
+      await rename(vendorDirectory, relocatedVendorDirectory);
+      await symlink(relocatedVendorDirectory, vendorDirectory, 'dir');
+    }, /vendored path component is a symlink: vendor/i);
+  });
+
   await t.test('the vendored root is replaced with a directory symlink', async () => {
     await expectVerificationFailure(async (copyRoot) => {
       const vendorRoot = join(copyRoot, 'vendor/ks2-mastery');

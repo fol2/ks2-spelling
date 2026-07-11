@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { EXIT_CODES, isMain, printJson } from './lib/run-command.mjs';
 
@@ -61,14 +61,50 @@ ${rows.join('\n')}
 async function listFiles(root) {
   const files = [];
   async function walk(directory) {
+    const directoryStats = await lstat(directory);
+    if (directoryStats.isSymbolicLink() || !directoryStats.isDirectory()) {
+      throw policyError('unsafe_audited_path', `Audited directory is not regular: ${directory}`);
+    }
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
+      if (entry.isSymbolicLink()) {
+        throw policyError('unsafe_audited_path', `Symbolic link in audited tree: ${path}`);
+      }
       if (entry.isDirectory()) await walk(path);
       else if (entry.isFile()) files.push(path);
+      else {
+        throw policyError('unsafe_audited_path', `Non-regular entry in audited tree: ${path}`);
+      }
     }
   }
   await walk(root);
   return files.sort();
+}
+
+async function assertRegularFilePath(root, path) {
+  const absoluteRoot = resolve(root);
+  const absolutePath = resolve(root, path);
+  const relativePath = relative(absoluteRoot, absolutePath);
+  if (relativePath.startsWith('..') || relativePath === '') {
+    throw policyError('unsafe_audited_path', `Audited file is outside its root: ${path}`);
+  }
+  const rootStats = await lstat(absoluteRoot);
+  if (rootStats.isSymbolicLink() || !rootStats.isDirectory()) {
+    throw policyError('unsafe_audited_path', `Audited root is not regular: ${absoluteRoot}`);
+  }
+  const components = relativePath.split('/');
+  let current = absoluteRoot;
+  for (const [index, component] of components.entries()) {
+    current = join(current, component);
+    const stats = await lstat(current);
+    if (stats.isSymbolicLink()) {
+      throw policyError('unsafe_audited_path', `Symbolic link in audited path: ${path}`);
+    }
+    const isLast = index === components.length - 1;
+    if ((isLast && !stats.isFile()) || (!isLast && !stats.isDirectory())) {
+      throw policyError('unsafe_audited_path', `Audited path is not regular: ${path}`);
+    }
+  }
 }
 
 function commonClassification(policy, name, lockEntry) {
@@ -498,6 +534,7 @@ export async function discoverGradleInputs(root = ROOT) {
   ].sort();
   const entries = await Promise.all(
     paths.map(async (path) => {
+      await assertRegularFilePath(root, path);
       const content = await readFile(resolve(root, path));
       return {
         path,

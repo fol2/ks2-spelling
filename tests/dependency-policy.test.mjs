@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { copyFile, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -371,6 +371,55 @@ test('Gradle input path and SHA-256 allow-list is an exact finite backstop', asy
     );
     assert.doesNotThrow(() =>
       assertGradleInputInventoryMatchesPolicy(cleanCheckoutInputs.inventory, policy),
+    );
+
+    const externalRoot = join(cleanRoot, 'external');
+    await mkdir(externalRoot, { recursive: true });
+    const externalBuildSrc = join(externalRoot, 'buildSrc');
+    await mkdir(externalBuildSrc);
+    await writeFile(join(externalBuildSrc, 'build.gradle'), 'repositories { jcenter() }\n');
+    await symlink(externalBuildSrc, join(cleanRoot, 'android/buildSrc'), 'dir');
+    await assert.rejects(
+      () => discoverGradleInputs(cleanRoot),
+      ({ code }) => code === 'unsafe_audited_path',
+      'symlinked buildSrc directory',
+    );
+    await rm(join(cleanRoot, 'android/buildSrc'));
+
+    const allowedBuildPath = join(cleanRoot, 'android/app/build.gradle');
+    const externalAllowedBuild = join(externalRoot, 'app-build.gradle');
+    await copyFile(allowedBuildPath, externalAllowedBuild);
+    await rm(allowedBuildPath);
+    await symlink(externalAllowedBuild, allowedBuildPath);
+    await assert.rejects(
+      () => discoverGradleInputs(cleanRoot),
+      ({ code }) => code === 'unsafe_audited_path',
+      'symlinked approved build.gradle',
+    );
+    await rm(allowedBuildPath);
+    await copyFile(join(ROOT, 'android/app/build.gradle'), allowedBuildPath);
+
+    const linkedRoot = join(cleanRoot, 'linked-root');
+    await mkdir(linkedRoot);
+    await symlink(join(cleanRoot, 'android'), join(linkedRoot, 'android'), 'dir');
+    await assert.rejects(
+      () => discoverGradleInputs(linkedRoot),
+      ({ code }) => code === 'unsafe_audited_path',
+      'symlinked audited Android root',
+    );
+
+    const capacitorBuildPath = join(
+      cleanRoot,
+      'node_modules/@capacitor/android/capacitor/build.gradle',
+    );
+    const externalCapacitorBuild = join(externalRoot, 'capacitor-build.gradle');
+    await copyFile(capacitorBuildPath, externalCapacitorBuild);
+    await rm(capacitorBuildPath);
+    await symlink(externalCapacitorBuild, capacitorBuildPath);
+    await assert.rejects(
+      () => discoverGradleInputs(cleanRoot),
+      ({ code }) => code === 'unsafe_audited_path',
+      'symlinked explicit Capacitor build source',
     );
   } finally {
     await rm(cleanRoot, { recursive: true, force: true });

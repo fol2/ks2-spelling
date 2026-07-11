@@ -4,8 +4,8 @@
   "generatedFrom": {
     "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "spmResolvedVersion": 3,
-    "nativePluginBuildSha256": "9bd9c841c192529d84b00d6f2e2eb53011528cf2d50fca0a0b931302a35bd970",
-    "webViewBundleEvidenceSha256": "d0a7ee712c8cb8ac6cfbe92463d1d867dbeca91fa8e7505a9bc4cc6c7e7a2bc0"
+    "nativePluginBuildSha256": "a963e02bada56ba9a32559efccb01108b952ae9516112228551587a80e0c4cfc",
+    "webViewBundleEvidenceSha256": "dbe4ff9fb0c75b3f95aa0bd53ca00190fab06956df08956ce6ddc7196e213533"
   },
   "npm": {
     "lockfileVersion": 3,
@@ -154,7 +154,7 @@
           "id": "src/app/App.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "beabb39e01f0062586931114f6a5a76beebe81d5a893a998aaee64675b990031"
+          "sha256": "3d80930859b01e6dc301780240e48a91664339699a08255ef972a8c706b69862"
         },
         {
           "id": "src/app/app.css",
@@ -166,13 +166,13 @@
           "id": "src/app/b2-proof-controller.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "7ddd86202a5314f71e0d5afabbd89706425e50d537399395f807adc1bbc64568"
+          "sha256": "5ceaea0cc91d21232da4662b7b2e422186e238abcc893cc8dd2004c60d6caba9"
         },
         {
           "id": "src/app/create-b2-app-services.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "314781ceb7c245055dee2e2928b5df42484900e0145a1c0b7febb23fbf64afe6"
+          "sha256": "926d1f6bf4a0ac65423456225522cf3a3123ae1fdb583dba2199e109d0468ea4"
         },
         {
           "id": "src/app/database-lifecycle-coordinator.js",
@@ -190,7 +190,7 @@
           "id": "src/main.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "393548173c3da2fd3ca6c2dfe46dc34aa6a0de167e1ca2747496d452b75bd9e6"
+          "sha256": "394e439cd108a74c67c36ec732735df05c77379d13847139d6459afd84ed0006"
         },
         {
           "id": "src/platform/database/b2-seed.js",
@@ -422,27 +422,27 @@
           "sha256": "d165867cad3f680323a8562a7fc72d4d12ab84f28a3d6bf0ee2acc8cfd45855c"
         },
         {
-          "fileName": "assets/index-DZWuISqR.js",
+          "fileName": "assets/index-fT5RxZM5.js",
           "kind": "chunk",
-          "sha256": "685a350e3ed21fbfa887fcf7ed917bc723b9708026620f92dabef7724bea4918"
+          "sha256": "eb1712a1970889b2f99e4026f2fe4e3f59a8b221b460301908939e472248214e"
         },
         {
-          "fileName": "assets/web-CCvQ96Vu.js",
+          "fileName": "assets/web-CxeloDYM.js",
           "kind": "chunk",
-          "sha256": "7cd2dd0444a6559171a334cd3ab4881ecf9fae0e68dc360b449756839395506f"
+          "sha256": "1c871b4701546770dbf943fcfbd3a35a542758927eb3fb5f89a67979bd36f48a"
         },
         {
-          "fileName": "assets/web-CloEs_zZ.js",
+          "fileName": "assets/web-Y8qAEAoP.js",
           "kind": "chunk",
-          "sha256": "1b695c4eeeab02e015df8d91f8cc3b8959218c347315c5d56612522f69dc77c3"
+          "sha256": "9689f709b23147e3192bd7c2beed66045c7c4e3ec1eadb775f2c17665b60e69c"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "d41f21eb83093650cab2782fc15bcd2a444851a14075eb7784faf7e1b196eb4d"
+          "sha256": "96dbd7afdb15045b34f14a16eb5dce742953d4df296349d604ff5e63fe8e452d"
         }
       ],
-      "evidenceSha256": "d0a7ee712c8cb8ac6cfbe92463d1d867dbeca91fa8e7505a9bc4cc6c7e7a2bc0"
+      "evidenceSha256": "dbe4ff9fb0c75b3f95aa0bd53ca00190fab06956df08956ce6ddc7196e213533"
     },
     "allPackages": [
       {

@@ -60,7 +60,7 @@ function B2App({ services }) {
           <p className="label">Active proof phase</p>
           <h2>{proofState.status}</h2>
         </div>
-        <span className="status-pill">Native local data</span>
+        <span className="status-pill">{services.platformRequirement}</span>
       </section>
 
       <dl className="evidence-grid" aria-label="B2 persistence evidence">
@@ -72,9 +72,9 @@ function B2App({ services }) {
           <dt>SQLite schema</dt>
           <dd>{services.schemaVersion}</dd>
         </div>
-        <div aria-label={`Learner isolation: ${services.learnerIsolation}`}>
+        <div aria-label={`Learner isolation: ${proofState.learnerIsolation}`}>
           <dt>Learner isolation</dt>
-          <dd>{services.learnerIsolation}</dd>
+          <dd>{proofState.learnerIsolation}</dd>
         </div>
         <div
           aria-label={`Lifecycle: ${

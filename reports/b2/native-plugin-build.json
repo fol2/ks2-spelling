@@ -180,8 +180,8 @@
     },
     {
       "path": "tests/app-shell.test.mjs",
-      "bytes": 6892,
-      "sha256": "52992fa5593365778850d762970c1f1cb76bd3344ebba62ae4ee52a6726fbb8b"
+      "bytes": 7730,
+      "sha256": "8c2630708c08d8552cfdea38870fe8898340364869f2a7bb629f063555220657"
     },
     {
       "path": "tests/android-project-contract.test.mjs",
@@ -290,13 +290,13 @@
     "outputInventory": [
       {
         "path": ".native-build/android/build/app/outputs/apk/debug/app-debug.apk",
-        "bytes": 25303278,
-        "sha256": "321b5a4a5140d4ded8b17b12fc353ee10e4aa719afbcab819dd1868b5aeb6833"
+        "bytes": 25090413,
+        "sha256": "ed29e086d2d13dfad689f95642d64274169a7fce0010bc5957bb7dbf4d24eec7"
       },
       {
         "path": ".native-build/android/build/app/outputs/apk/release/app-release-unsigned.apk",
-        "bytes": 23893171,
-        "sha256": "1e4a1f0012edb2ed06d82108530b1ed7594a0dcd511b27f6b91dc6645a66ece8"
+        "bytes": 23712636,
+        "sha256": "3b6427710d89769461c8cb9255b0ec30b4aab70e9502160a94d5553690af312b"
       }
     ]
   },

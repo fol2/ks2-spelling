@@ -92,7 +92,10 @@ test('the B2 shell renders exact persistence diagnostics and sanitises failures'
   const { default: App } = await vite.ssrLoadModule('/src/app/App.jsx');
   const controller = Object.freeze({
     getState() {
-      return Object.freeze({ status: 'B2 proof complete' });
+      return Object.freeze({
+        learnerIsolation: 'verified',
+        status: 'B2 proof complete',
+      });
     },
     subscribe() {
       return Object.freeze({ remove() {} });
@@ -103,8 +106,8 @@ test('the B2 shell renders exact persistence diagnostics and sanitises failures'
     mode: 'b2-native-proof',
     controller,
     databaseName: 'ks2-spelling',
+    platformRequirement: 'Native local data',
     schemaVersion: 1,
-    learnerIsolation: 'verified',
   });
   const html = renderToStaticMarkup(React.createElement(App, { services }));
 
@@ -124,7 +127,10 @@ test('the B2 shell renders exact persistence diagnostics and sanitises failures'
         controller: Object.freeze({
           ...controller,
           getState() {
-            return Object.freeze({ status: 'B2 proof needs attention' });
+            return Object.freeze({
+              learnerIsolation: 'not verified',
+              status: 'B2 proof needs attention',
+            });
           },
         }),
       }),
@@ -132,13 +138,37 @@ test('the B2 shell renders exact persistence diagnostics and sanitises failures'
   );
   assert.match(failureHtml, /B2 proof needs attention/);
   assert.doesNotMatch(failureHtml, /wrong|answer|subjectState|practiceSession/);
+
+  const browserFailureHtml = renderToStaticMarkup(
+    React.createElement(App, {
+      services: Object.freeze({
+        ...services,
+        platformRequirement: 'Native platform required',
+        controller: Object.freeze({
+          ...controller,
+          getState() {
+            return Object.freeze({
+              learnerIsolation: 'not verified',
+              status: 'B2 proof needs attention',
+            });
+          },
+        }),
+      }),
+    }),
+  );
+  assert.match(browserFailureHtml, /Native platform required/);
+  assert.match(browserFailureHtml, /Learner isolation: not verified/);
 });
 
 test('main selects native B2 composition without web SQLite fallback', async () => {
   const main = await readFile(join(ROOT, 'src/main.jsx'), 'utf8');
   assert.match(main, /Capacitor\.isNativePlatform\(\)/);
   assert.match(main, /createB2AppServices/);
-  assert.match(main, /else\s*\{\s*services = failureServices\(\)/);
+  assert.match(
+    main,
+    /else\s*\{\s*services = failureServices\('Native platform required'\)/,
+  );
+  assert.match(main, /Native platform required/);
   assert.doesNotMatch(main, /indexeddb|jeep-sqlite|wasm/i);
 });
 

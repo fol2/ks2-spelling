@@ -12,6 +12,7 @@ import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app
 
 import {
   B2_PROOF_METADATA_KEY,
+  createB2AtomicFailureError,
   createB2ProofController,
 } from './b2-proof-controller.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
@@ -73,22 +74,22 @@ function createSwitchableConnection(connectionFactory) {
         await closing.close();
         if (active === closing) active = null;
       },
-      execute(sql, values) {
+      async execute(sql, values) {
         return requireActive().execute(sql, values);
       },
-      query(sql, values) {
+      async query(sql, values) {
         return requireActive().query(sql, values);
       },
-      begin() {
+      async begin() {
         return requireActive().begin();
       },
-      commit() {
+      async commit() {
         return requireActive().commit();
       },
-      rollback() {
+      async rollback() {
         return requireActive().rollback();
       },
-      isTransactionActive() {
+      async isTransactionActive() {
         return requireActive().isTransactionActive();
       },
     }),
@@ -229,109 +230,179 @@ function wrapSuccessfulRepository(repository, onSuccess) {
   });
 }
 
+function retainCleanupFailures(original, failures) {
+  if (failures.length === 0) return original;
+  const primary = original instanceof Error ? original : serviceError('b2_startup_failed');
+  const causes = primary.cause === undefined
+    ? failures
+    : [primary.cause, ...failures];
+  try {
+    Object.defineProperty(primary, 'cause', {
+      configurable: true,
+      value: new AggregateError(causes, 'B2 service cleanup failed.'),
+    });
+    return primary;
+  } catch {
+    return serviceError(primary.code ?? 'b2_startup_failed', {
+      cause: new AggregateError(
+        [primary, ...causes],
+        'B2 startup and cleanup failed.',
+      ),
+    });
+  }
+}
+
+async function disposeOwned({ controller, coordinator, lifecycle, connection }) {
+  const failures = [];
+  for (const dispose of [
+    controller && (() => controller.dispose()),
+    coordinator && (() => coordinator.dispose()),
+    lifecycle && (() => lifecycle.dispose()),
+    connection && (() => connection.close()),
+  ]) {
+    if (!dispose) continue;
+    try {
+      await dispose();
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  return failures;
+}
+
 export async function createB2AppServices(options = {}) {
-  const connectionFactory =
-    options.connectionFactory ?? (() => createCapacitorSqliteConnection());
-  const migrate = options.migrate ?? configureAndMigrateDatabase;
-  const seed = options.seed ?? seedB2Learners;
-  const connection = createSwitchableConnection(connectionFactory);
-  const catalogue = loadStarterSpellingCatalogue();
-  if (catalogue.items.length !== 20) {
-    throw serviceError('b2_starter_catalogue_count_invalid');
-  }
-  const cataloguesById = Object.freeze({ [catalogue.catalogueId]: catalogue });
+  let connection = null;
+  let lifecycle = null;
+  let coordinator = null;
+  let controller = null;
+  try {
+    const connectionFactory =
+      options.connectionFactory ?? (() => createCapacitorSqliteConnection());
+    const migrate = options.migrate ?? configureAndMigrateDatabase;
+    const seed = options.seed ?? seedB2Learners;
+    connection = createSwitchableConnection(connectionFactory);
+    const catalogue = loadStarterSpellingCatalogue();
+    if (catalogue.items.length !== 20) {
+      throw serviceError('b2_starter_catalogue_count_invalid');
+    }
+    const cataloguesById = Object.freeze({ [catalogue.catalogueId]: catalogue });
 
-  await connection.open();
-  const initialVersion = userVersionFrom(
-    await connection.query('PRAGMA user_version'),
-  );
-  let migrationRollbackVerified = false;
-  if (initialVersion === 0) {
-    await proveFreshMigrationRollback(connection, migrate);
-    migrationRollbackVerified = true;
-  }
-  await migrate(connection);
-  await seed(connection);
+    await connection.open();
+    const initialVersion = userVersionFrom(
+      await connection.query('PRAGMA user_version'),
+    );
+    let migrationRollbackVerified = false;
+    if (initialVersion === 0) {
+      await proveFreshMigrationRollback(connection, migrate);
+      migrationRollbackVerified = true;
+    }
+    await migrate(connection);
+    await seed(connection);
 
-  const store = createSQLiteSpellingSnapshotStore({
-    connection,
-    cataloguesById,
-  });
-  const [learnerA, learnerB] = await Promise.all([
-    store.read('learner-a'),
-    store.read('learner-b'),
-  ]);
-  if (learnerA.learnerId !== 'learner-a' || learnerB.learnerId !== 'learner-b') {
-    throw serviceError('b2_learner_isolation_invalid');
-  }
+    const store = createSQLiteSpellingSnapshotStore({
+      connection,
+      cataloguesById,
+    });
+    const [learnerA, learnerB] = await Promise.all([
+      store.read('learner-a'),
+      store.read('learner-b'),
+    ]);
+    if (learnerA.learnerId !== 'learner-a' || learnerB.learnerId !== 'learner-b') {
+      throw serviceError('b2_learner_isolation_invalid');
+    }
 
-  const gate = createDatabaseCommandGate();
-  let timestampIndex = learnerA.revision;
-  const baseRepository = createSQLiteSpellingCommandRepository({
-    connection,
-    gate,
-    store,
-    cataloguesById,
-    now: () => START_TIMESTAMP + timestampIndex,
-  });
-  const repository = wrapSuccessfulRepository(baseRepository, () => {
-    timestampIndex += 1;
-  });
+    const gate = createDatabaseCommandGate();
+    let timestampIndex = learnerA.revision;
+    const baseRepository = createSQLiteSpellingCommandRepository({
+      connection,
+      gate,
+      store,
+      cataloguesById,
+      now: () => START_TIMESTAMP + timestampIndex,
+    });
+    const repository = wrapSuccessfulRepository(baseRepository, () => {
+      timestampIndex += 1;
+    });
 
-  const lifecycle =
-    options.lifecycle ?? (options.lifecycleFactory ?? createCapacitorAppLifecycle)();
+    lifecycle =
+      options.lifecycle ?? (options.lifecycleFactory ?? createCapacitorAppLifecycle)();
+    coordinator = createDatabaseLifecycleCoordinator({
+      lifecycle,
+      commandGate: gate,
+      createConnection: async () => connection,
+      migrate,
+      async rehydrateSelectedLearner(_connection, learnerId) {
+        await store.read(learnerId);
+      },
+      selectedLearnerId: 'learner-a',
+    });
 
-  const coordinator = createDatabaseLifecycleCoordinator({
-    lifecycle,
-    commandGate: gate,
-    createConnection: async () => connection,
-    migrate,
-    async rehydrateSelectedLearner(_connection, learnerId) {
-      await store.read(learnerId);
-    },
-    selectedLearnerId: 'learner-a',
-  });
+    await connection.close();
+    await coordinator.start();
+    const lifecycleProof = createLifecycleProof(lifecycle, coordinator);
+    const proofStore = createProofStore(connection);
+    if (
+      initialVersion === SCHEMA_VERSION &&
+      (await proofStore.read(B2_PROOF_METADATA_KEY)) === null
+    ) {
+      throw serviceError('b2_proof_metadata_missing');
+    }
+    controller = createB2ProofController({
+      catalogue,
+      repository,
+      snapshotStore: store,
+      proofStore,
+      lifecycleProof,
+      migrationRollbackVerified:
+        migrationRollbackVerified || initialVersion === SCHEMA_VERSION,
+      createFailureRepository(checkpoint) {
+        return createSQLiteSpellingCommandRepository({
+          connection,
+          gate,
+          store,
+          cataloguesById,
+          now: () => START_TIMESTAMP + 4,
+          failureInjector(candidate) {
+            if (candidate === checkpoint) {
+              throw createB2AtomicFailureError(checkpoint);
+            }
+          },
+        });
+      },
+      updatedAt: START_TIMESTAMP,
+    });
 
-  await connection.close();
-  await coordinator.start();
-  const lifecycleProof = createLifecycleProof(lifecycle, coordinator);
-  const proofStore = createProofStore(connection);
-  if (
-    initialVersion === SCHEMA_VERSION &&
-    (await proofStore.read(B2_PROOF_METADATA_KEY)) === null
-  ) {
-    throw serviceError('b2_proof_metadata_missing');
-  }
-  const controller = createB2ProofController({
-    catalogue,
-    repository,
-    snapshotStore: store,
-    proofStore,
-    lifecycleProof,
-    migrationRollbackVerified:
-      migrationRollbackVerified || initialVersion === SCHEMA_VERSION,
-    createFailureRepository(checkpoint) {
-      return createSQLiteSpellingCommandRepository({
-        connection,
-        gate,
-        store,
-        cataloguesById,
-        now: () => START_TIMESTAMP + 4,
-        failureInjector(candidate) {
-          if (candidate === checkpoint) {
-            throw serviceError('b2_injected_atomic_failure');
+    let disposePromise;
+    const dispose = () => {
+      if (!disposePromise) {
+        disposePromise = disposeOwned({
+          controller,
+          coordinator,
+          lifecycle,
+          connection,
+        }).then((failures) => {
+          if (failures.length > 0) {
+            throw new AggregateError(failures, 'B2 service disposal failed.');
           }
-        },
-      });
-    },
-    updatedAt: START_TIMESTAMP,
-  });
-
-  return Object.freeze({
-    mode: 'b2-native-proof',
-    controller,
-    databaseName: DATABASE_NAME,
-    schemaVersion: SCHEMA_VERSION,
-    learnerIsolation: 'verified',
-  });
+        });
+      }
+      return disposePromise;
+    };
+    return Object.freeze({
+      mode: 'b2-native-proof',
+      controller,
+      databaseName: DATABASE_NAME,
+      dispose,
+      platformRequirement: 'Native local data',
+      schemaVersion: SCHEMA_VERSION,
+    });
+  } catch (error) {
+    const failures = await disposeOwned({
+      controller,
+      coordinator,
+      lifecycle,
+      connection,
+    });
+    throw retainCleanupFailures(error, failures);
+  }
 }

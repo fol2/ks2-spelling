@@ -22,6 +22,8 @@ const LEARNER_A = 'learner-a';
 const LEARNER_B = 'learner-b';
 const PROOF_SCHEMA_VERSION = 1;
 const START_TIMESTAMP = 1_768_478_400_000;
+const SHA256 = /^[a-f0-9]{64}$/;
+const ATOMIC_FAILURE_IDENTITY = Symbol('b2-atomic-failure-identity');
 const PHASES = new Set([
   'fresh',
   'background-test-ready',
@@ -75,6 +77,31 @@ function proofError(code, options) {
   return error;
 }
 
+export function createB2AtomicFailureError(checkpoint) {
+  if (!B2_ATOMIC_FAILURE_CHECKPOINTS.includes(checkpoint)) {
+    throw new TypeError('Unknown B2 atomic failure checkpoint.');
+  }
+  const error = proofError('b2_injected_atomic_failure');
+  error.name = 'B2AtomicFailureError';
+  Object.defineProperty(error, 'checkpoint', {
+    enumerable: true,
+    value: checkpoint,
+  });
+  Object.defineProperty(error, ATOMIC_FAILURE_IDENTITY, { value: true });
+  return error;
+}
+
+function isExactAtomicFailure(error, checkpoint) {
+  return (
+    error instanceof Error &&
+    error.name === 'B2AtomicFailureError' &&
+    error.code === 'b2_injected_atomic_failure' &&
+    error.checkpoint === checkpoint &&
+    error[ATOMIC_FAILURE_IDENTITY] === true &&
+    error.cause === undefined
+  );
+}
+
 function plainRecord(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
@@ -122,11 +149,10 @@ function validateMetadata(candidate) {
       (typeof candidate.expectedSessionId !== 'string' ||
         candidate.expectedSessionId.length === 0)) ||
     candidate.learnerARevision !== candidate.commandIndex ||
-    typeof candidate.learnerBDigest !== 'string' ||
-    typeof candidate.preRelaunchDigest !== 'string' ||
+    !SHA256.test(candidate.learnerBDigest) ||
     candidate.migrationRollback !== 'verified' ||
     !Number.isSafeInteger(candidate.updatedAt) ||
-    candidate.updatedAt < 0
+    candidate.updatedAt !== START_TIMESTAMP
   ) {
     throw proofError('b2_proof_metadata_corrupt');
   }
@@ -150,13 +176,19 @@ function validateMetadata(candidate) {
   }
   if (
     candidate.phase === 'fresh' &&
-    (candidate.commandIndex > 4 || candidate.lifecycleEvents.length !== 0)
+    (candidate.commandIndex > 4 ||
+      candidate.lifecycleEvents.length !== 0 ||
+      candidate.atomicFailureCheckpoints.length !== 0 ||
+      candidate.preRelaunchDigest !== '')
   ) {
     throw proofError('b2_proof_metadata_corrupt');
   }
   if (
     candidate.phase === 'background-test-ready' &&
-    (candidate.commandIndex !== 4 || candidate.lifecycleEvents.length !== 0)
+    (candidate.commandIndex !== 4 ||
+      candidate.lifecycleEvents.length !== 0 ||
+      candidate.atomicFailureCheckpoints.length !== 0 ||
+      !SHA256.test(candidate.preRelaunchDigest))
   ) {
     throw proofError('b2_proof_metadata_corrupt');
   }
@@ -164,7 +196,11 @@ function validateMetadata(candidate) {
     candidate.phase === 'ready-for-relaunch' &&
     (candidate.commandIndex < 4 ||
       candidate.commandIndex > 6 ||
-      candidate.lifecycleEvents.length !== 2)
+      candidate.lifecycleEvents.length !== 2 ||
+      !SHA256.test(candidate.preRelaunchDigest) ||
+      (candidate.commandIndex > 4 &&
+        candidate.atomicFailureCheckpoints.length !==
+          B2_ATOMIC_FAILURE_CHECKPOINTS.length))
   ) {
     throw proofError('b2_proof_metadata_corrupt');
   }
@@ -173,7 +209,16 @@ function validateMetadata(candidate) {
     (candidate.commandIndex !== 6 ||
       candidate.atomicFailureCheckpoints.length !==
         B2_ATOMIC_FAILURE_CHECKPOINTS.length ||
-      candidate.lifecycleEvents.length !== 2)
+      candidate.lifecycleEvents.length !== 2 ||
+      !SHA256.test(candidate.preRelaunchDigest))
+  ) {
+    throw proofError('b2_proof_metadata_corrupt');
+  }
+  const expectsActiveSession =
+    candidate.commandIndex >= 1 && candidate.commandIndex <= 5;
+  if (
+    (expectsActiveSession && candidate.expectedSessionId === null) ||
+    (!expectsActiveSession && candidate.expectedSessionId !== null)
   ) {
     throw proofError('b2_proof_metadata_corrupt');
   }
@@ -332,11 +377,21 @@ export function createB2ProofController(options) {
   const ports = readOptions(options);
   const expected = expectedSnapshots(ports.catalogue);
   const listeners = new Set();
-  let state = Object.freeze({ status: 'Preparing local proof' });
+  let state = Object.freeze({
+    learnerIsolation: 'pending',
+    status: 'Preparing local proof',
+  });
   let startPromise;
+  let disposed = false;
 
   function publish(status) {
-    state = Object.freeze({ status });
+    const learnerIsolation =
+      status === 'B2 proof complete'
+        ? 'verified'
+        : status === 'B2 proof needs attention'
+          ? 'not verified'
+          : 'pending';
+    state = Object.freeze({ learnerIsolation, status });
     for (const listener of listeners) listener(state);
   }
 
@@ -461,16 +516,15 @@ export function createB2ProofController(options) {
       const checkpoint = B2_ATOMIC_FAILURE_CHECKPOINTS[index];
       const repository = ports.createFailureRepository(checkpoint);
       requireMethod(repository, 'runCommandTransaction', 'failureRepository');
-      let rejected = false;
       try {
         await repository.runCommandTransaction(
           LEARNER_A,
           commandPlanner(4, ports.catalogue),
         );
-      } catch {
-        rejected = true;
+        throw proofError('b2_proof_failure_injection_did_not_fail');
+      } catch (error) {
+        if (!isExactAtomicFailure(error, checkpoint)) throw error;
       }
-      if (!rejected) throw proofError('b2_proof_failure_injection_did_not_fail');
       const after = await ports.snapshotStore.read(LEARNER_A);
       if (
         !exactSnapshot(after, expected[4]) ||
@@ -541,6 +595,13 @@ export function createB2ProofController(options) {
     try {
       const stored = await ports.proofStore.read(B2_PROOF_METADATA_KEY);
       const metadata = stored === null ? await initialMetadata() : validateMetadata(stored);
+      const revisionFourDigest = await canonicalDigest(expected[4]);
+      if (
+        metadata.phase !== 'fresh' &&
+        metadata.preRelaunchDigest !== revisionFourDigest
+      ) {
+        throw proofError('b2_proof_metadata_stale');
+      }
       if (
         metadata.expectedSessionId !==
         activeSessionId(expected[metadata.commandIndex])
@@ -567,13 +628,14 @@ export function createB2ProofController(options) {
       await runFirstLaunch(metadata);
     } catch (cause) {
       publish('B2 proof needs attention');
-      if (cause?.code === 'b2_proof_metadata_stale') throw cause;
-      throw proofError(cause?.code ?? 'b2_proof_failed', { cause });
+      if (cause instanceof Error) throw cause;
+      throw proofError('b2_proof_failed', { cause });
     }
   }
 
   return Object.freeze({
     start() {
+      if (disposed) return Promise.reject(proofError('b2_proof_disposed'));
       if (!startPromise) startPromise = run();
       return startPromise;
     },
@@ -594,6 +656,10 @@ export function createB2ProofController(options) {
           listeners.delete(listener);
         },
       });
+    },
+    async dispose() {
+      disposed = true;
+      listeners.clear();
     },
   });
 }

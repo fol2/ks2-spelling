@@ -9,13 +9,16 @@ const root = document.getElementById('root');
 
 if (!root) throw new Error('KS2 Spelling root element is missing.');
 
-function failureServices() {
-  const state = Object.freeze({ status: 'B2 proof needs attention' });
+function failureServices(platformRequirement) {
+  const state = Object.freeze({
+    learnerIsolation: 'not verified',
+    status: 'B2 proof needs attention',
+  });
   return Object.freeze({
     mode: 'b2-native-proof',
     databaseName: 'ks2-spelling',
     schemaVersion: 1,
-    learnerIsolation: 'not verified',
+    platformRequirement,
     controller: Object.freeze({
       getState: () => state,
       subscribe(listener) {
@@ -33,10 +36,17 @@ async function bootstrap() {
     try {
       services = await createB2AppServices();
     } catch {
-      services = failureServices();
+      services = failureServices('Native proof unavailable');
     }
   } else {
-    services = failureServices();
+    services = failureServices('Native platform required');
+  }
+  if (typeof services.dispose === 'function') {
+    window.addEventListener(
+      'pagehide',
+      () => void services.dispose().catch(() => undefined),
+      { once: true },
+    );
   }
   createRoot(root).render(
     <StrictMode>

@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -10,9 +13,15 @@ import {
 import {
   B2_ATOMIC_FAILURE_CHECKPOINTS,
   B2_PROOF_METADATA_KEY,
+  createB2AtomicFailureError,
   createB2ProofController,
 } from '../src/app/b2-proof-controller.js';
+import { createB2AppServices } from '../src/app/create-b2-app-services.js';
+import { seedB2Learners } from '../src/platform/database/b2-seed.js';
 import { canonicalJson } from '../src/platform/database/canonical-json.js';
+import { configureAndMigrateDatabase } from '../src/platform/database/migrate-database.js';
+
+import { createNodeSqliteConnection } from './helpers/node-sqlite-connection.mjs';
 
 const START = 1_768_478_400_000;
 const COMMANDS = Object.freeze([
@@ -104,7 +113,108 @@ async function waitForStatus(controller, status) {
   assert.equal(controller.getState().status, status);
 }
 
-function createHarness({ metadata = null, snapshotA = initialSnapshot('learner-a') } = {}) {
+function createTrackedConnectionFactory(databasePath, events, metadataWrites) {
+  return async () => {
+    events.push('connection:create');
+    const inner = createNodeSqliteConnection(databasePath);
+    return Object.freeze({
+      async open() {
+        events.push('connection:open');
+        await inner.open();
+      },
+      async close() {
+        events.push('connection:close');
+        await inner.close();
+      },
+      async execute(sql, values) {
+        if (
+          sql.startsWith('INSERT INTO app_metadata') &&
+          values?.[0] === B2_PROOF_METADATA_KEY
+        ) {
+          metadataWrites.push(await inner.isTransactionActive());
+        }
+        return inner.execute(sql, values);
+      },
+      async query(sql, values) {
+        return inner.query(sql, values);
+      },
+      async begin() {
+        return inner.begin();
+      },
+      async commit() {
+        return inner.commit();
+      },
+      async rollback() {
+        return inner.rollback();
+      },
+      async isTransactionActive() {
+        return inner.isTransactionActive();
+      },
+    });
+  };
+}
+
+function createFakeLifecycle(events, { disposeError } = {}) {
+  const listeners = {
+    pause: new Set(),
+    resume: new Set(),
+    state: new Set(),
+  };
+  let disposeCount = 0;
+
+  function subscribe(kind, listener) {
+    events.push(`lifecycle:on-${kind}`);
+    listeners[kind].add(listener);
+    let removed = false;
+    return Object.freeze({
+      async remove() {
+        if (removed) return;
+        removed = true;
+        listeners[kind].delete(listener);
+      },
+    });
+  }
+
+  const port = Object.freeze({
+    onPause(listener) {
+      return subscribe('pause', listener);
+    },
+    onResume(listener) {
+      return subscribe('resume', listener);
+    },
+    onStateChange(listener) {
+      return subscribe('state', listener);
+    },
+    getState() {
+      return Object.freeze({ canonicalState: 'test', diagnosticStateChanges: [] });
+    },
+    async dispose() {
+      disposeCount += 1;
+      events.push('lifecycle:dispose');
+      for (const values of Object.values(listeners)) values.clear();
+      if (disposeError) throw disposeError;
+    },
+  });
+
+  return {
+    port,
+    emitPause() {
+      for (const listener of listeners.pause) listener();
+    },
+    emitResume() {
+      for (const listener of listeners.resume) listener();
+    },
+    get disposeCount() {
+      return disposeCount;
+    },
+  };
+}
+
+function createHarness({
+  metadata = null,
+  snapshotA = initialSnapshot('learner-a'),
+  failureErrorFactory = createB2AtomicFailureError,
+} = {}) {
   const catalogue = loadStarterSpellingCatalogue();
   let learnerA = structuredClone(snapshotA);
   const learnerB = initialSnapshot('learner-b');
@@ -125,9 +235,7 @@ function createHarness({ metadata = null, snapshotA = initialSnapshot('learner-a
       });
       if (activeFailure !== null) {
         failedCheckpoints.push(activeFailure);
-        const error = new Error('sensitive typed answer: answer');
-        error.code = 'injected_sqlite_failure';
-        throw error;
+        throw failureErrorFactory(activeFailure);
       }
       learnerA = snapshotAfterPlan(learnerA, plan);
       successfulRevisions.push(learnerA.revision);
@@ -231,6 +339,7 @@ test('first launch reaches revision 4, proves lifecycle and stops for relaunch',
   harness.lifecycle.resolve();
   await firstStart;
   assert.equal(controller.getState().status, 'Ready for relaunch');
+  assert.equal(controller.getState().learnerIsolation, 'pending');
   assert.equal(harness.metadata.phase, 'ready-for-relaunch');
   assert.deepEqual(harness.metadata.lifecycleEvents, ['pause', 'resume']);
   assert.ok(harness.metadata.expectedSessionId);
@@ -267,6 +376,7 @@ test('relaunch proves every rollback, commits revisions 5 and 6, and never chang
   assert.equal(second.metadata.phase, 'complete');
   assert.equal(second.metadata.commandIndex, 6);
   assert.equal(second.metadata.learnerARevision, 6);
+  assert.equal(controller.getState().learnerIsolation, 'verified');
   assert.deepEqual(
     second.metadata.atomicFailureCheckpoints,
     B2_ATOMIC_FAILURE_CHECKPOINTS,
@@ -290,6 +400,7 @@ test('reconciliation advances metadata after a committed command without replayi
     commandIndex: 3,
     learnerARevision: 3,
     lifecycleEvents: [],
+    preRelaunchDigest: '',
   };
   const prior = createHarness({ metadata, snapshotA });
   const controller = createB2ProofController(prior.ports);
@@ -335,8 +446,8 @@ test('stale or corrupt proof metadata fails closed without exposing learner data
     activeLearnerId: 'learner-a',
     expectedSessionId: 'stale-session',
     learnerARevision: 4,
-    learnerBDigest: 'stale',
-    preRelaunchDigest: 'stale',
+    learnerBDigest: '0'.repeat(64),
+    preRelaunchDigest: '0'.repeat(64),
     migrationRollback: 'verified',
     atomicFailureCheckpoints: [],
     lifecycleEvents: ['pause', 'resume'],
@@ -348,6 +459,7 @@ test('stale or corrupt proof metadata fails closed without exposing learner data
   await assert.rejects(controller.start(), { code: 'b2_proof_metadata_stale' });
   const diagnostic = canonicalJson(controller.getState());
   assert.match(diagnostic, /B2 proof needs attention/);
+  assert.equal(controller.getState().learnerIsolation, 'not verified');
   assert.doesNotMatch(diagnostic, /wrong|answer|subjectState|practiceSession/);
   assert.deepEqual(harness.successfulRevisions, []);
 });
@@ -369,4 +481,359 @@ test('unknown proof metadata fields are corrupt and cannot execute a command', a
   assert.equal(controller.getState().status, 'B2 proof needs attention');
   assert.deepEqual(harness.successfulRevisions, []);
   assert.deepEqual(harness.failedCheckpoints, []);
+});
+
+async function readyFixture() {
+  const first = createHarness();
+  const controller = createB2ProofController(first.ports);
+  const run = controller.start();
+  await waitForStatus(controller, 'Background test ready');
+  first.lifecycle.resolve();
+  await run;
+  return first;
+}
+
+for (const [name, failureErrorFactory, expectedCode] of [
+  [
+    'database closed',
+    () => Object.assign(new Error('database closed'), { code: 'b2_database_connection_closed' }),
+    'b2_database_connection_closed',
+  ],
+  [
+    'forged injection code',
+    (checkpoint) =>
+      Object.assign(new Error('forged'), {
+        checkpoint,
+        code: 'b2_injected_atomic_failure',
+        name: 'B2AtomicFailureError',
+      }),
+    'b2_injected_atomic_failure',
+  ],
+  [
+    'rollback cause',
+    (checkpoint) => {
+      const error = createB2AtomicFailureError(checkpoint);
+      error.cause = Object.assign(new Error('rollback incomplete'), {
+        code: 'sqlite_transaction_rollback_incomplete',
+      });
+      return error;
+    },
+    'b2_injected_atomic_failure',
+  ],
+]) {
+  test(`atomic proof rethrows ${name} instead of certifying it`, async () => {
+    const first = await readyFixture();
+    const second = createHarness({
+      failureErrorFactory,
+      metadata: first.metadata,
+      snapshotA: first.learnerA,
+    });
+    const controller = createB2ProofController(second.ports);
+
+    await assert.rejects(controller.start(), { code: expectedCode });
+    assert.equal(controller.getState().status, 'B2 proof needs attention');
+    assert.equal(controller.getState().learnerIsolation, 'not verified');
+    assert.deepEqual(second.successfulRevisions, []);
+    assert.deepEqual(second.metadata.atomicFailureCheckpoints, []);
+  });
+}
+
+test('metadata rejects malformed digests, timestamps and impossible complete phases', async () => {
+  const first = await readyFixture();
+  const corruptions = [
+    { learnerBDigest: 'ABC' },
+    { updatedAt: START + 1 },
+    { phase: 'complete', commandIndex: 6, learnerARevision: 6 },
+    {
+      atomicFailureCheckpoints: [],
+      commandIndex: 5,
+      learnerARevision: 5,
+    },
+  ];
+  for (const corruption of corruptions) {
+    const harness = createHarness({
+      metadata: { ...first.metadata, ...corruption },
+      snapshotA: first.learnerA,
+    });
+    const controller = createB2ProofController(harness.ports);
+    await assert.rejects(controller.start(), {
+      code: 'b2_proof_metadata_corrupt',
+    });
+    assert.deepEqual(harness.successfulRevisions, []);
+  }
+});
+
+test('complete metadata with a forged revision-4 digest fails closed', async () => {
+  const first = await readyFixture();
+  const completed = createHarness({
+    metadata: first.metadata,
+    snapshotA: first.learnerA,
+  });
+  await createB2ProofController(completed.ports).start();
+  const corrupt = createHarness({
+    metadata: { ...completed.metadata, preRelaunchDigest: '0'.repeat(64) },
+    snapshotA: completed.learnerA,
+  });
+  const controller = createB2ProofController(corrupt.ports);
+
+  await assert.rejects(controller.start(), { code: 'b2_proof_metadata_stale' });
+  assert.equal(controller.getState().learnerIsolation, 'not verified');
+  assert.deepEqual(corrupt.successfulRevisions, []);
+});
+
+test('real B2 composition proves V0 rollback, V1 relaunch and exact durable completion', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-b2-composition-'));
+  const databasePath = join(directory, 'proof.sqlite');
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const metadataWrites = [];
+  const firstEvents = [];
+  const firstLifecycle = createFakeLifecycle(firstEvents);
+  const firstServices = await createB2AppServices({
+    connectionFactory: createTrackedConnectionFactory(
+      databasePath,
+      firstEvents,
+      metadataWrites,
+    ),
+    lifecycle: firstLifecycle.port,
+    async migrate(connection, options) {
+      firstEvents.push(
+        options?.afterMigrationStep ? 'migrate:injected' : 'migrate:normal',
+      );
+      await configureAndMigrateDatabase(connection, options);
+    },
+    async seed(connection) {
+      firstEvents.push('seed');
+      await seedB2Learners(connection);
+    },
+  });
+
+  const firstOrder = [
+    'connection:open',
+    'migrate:injected',
+    'migrate:normal',
+    'seed',
+    'connection:close',
+    'lifecycle:on-pause',
+  ].map((entry) => firstEvents.indexOf(entry));
+  assert.ok(firstOrder.every((index) => index >= 0));
+  assert.deepEqual(firstOrder, firstOrder.toSorted((left, right) => left - right));
+  assert.equal(firstServices.controller.getState().learnerIsolation, 'pending');
+
+  const firstRun = firstServices.controller.start();
+  await waitForStatus(firstServices.controller, 'Background test ready');
+  firstLifecycle.emitPause();
+  firstLifecycle.emitResume();
+  await firstRun;
+  assert.equal(firstServices.controller.getState().status, 'Ready for relaunch');
+  assert.ok(metadataWrites.length > 0);
+  assert.ok(
+    metadataWrites.every((transactionActive) => transactionActive === false),
+    'proof metadata must always be written outside the A3 transaction',
+  );
+  await firstServices.dispose();
+  await firstServices.dispose();
+  assert.equal(firstLifecycle.disposeCount, 1);
+
+  const secondEvents = [];
+  const secondLifecycle = createFakeLifecycle(secondEvents);
+  const secondServices = await createB2AppServices({
+    connectionFactory: createTrackedConnectionFactory(
+      databasePath,
+      secondEvents,
+      metadataWrites,
+    ),
+    lifecycle: secondLifecycle.port,
+    async migrate(connection, options) {
+      secondEvents.push(
+        options?.afterMigrationStep ? 'migrate:injected' : 'migrate:normal',
+      );
+      await configureAndMigrateDatabase(connection, options);
+    },
+    async seed(connection) {
+      secondEvents.push('seed');
+      await seedB2Learners(connection);
+    },
+  });
+  assert.equal(secondEvents.includes('migrate:injected'), false);
+  assert.ok(secondEvents.indexOf('migrate:normal') < secondEvents.indexOf('seed'));
+  await secondServices.controller.start();
+  assert.equal(secondServices.controller.getState().status, 'B2 proof complete');
+  assert.equal(secondServices.controller.getState().learnerIsolation, 'verified');
+  await secondServices.dispose();
+  assert.equal(secondLifecycle.disposeCount, 1);
+  assert.ok(metadataWrites.every((active) => active === false));
+
+  const inspection = createNodeSqliteConnection(databasePath);
+  await inspection.open();
+  const [aggregate] = await inspection.query(
+    'SELECT revision FROM spelling_aggregates WHERE learner_id = ?',
+    ['learner-a'],
+  );
+  const [session] = await inspection.query(
+    'SELECT status, state_json FROM spelling_practice_sessions WHERE learner_id = ?',
+    ['learner-a'],
+  );
+  const eventRows = await inspection.query(
+    'SELECT event_json FROM spelling_events WHERE learner_id = ? ORDER BY sequence_no',
+    ['learner-a'],
+  );
+  await inspection.close();
+
+  assert.equal(aggregate.revision, 6);
+  assert.equal(session.status, 'completed');
+  assert.equal(JSON.parse(session.state_json).status, 'completed');
+  assert.deepEqual(
+    eventRows.map(({ event_json }) => JSON.parse(event_json).type),
+    ['spelling.retry-cleared', 'spelling.session-completed'],
+  );
+});
+
+test('B2 startup failures clean every acquired resource and preserve the primary error', async (t) => {
+  const stages = [
+    {
+      name: 'normal migration',
+      configure(events, primary) {
+        return {
+          async migrate(connection, options) {
+            events.push(options?.afterMigrationStep ? 'migrate:injected' : 'migrate:normal');
+            if (!options?.afterMigrationStep) throw primary;
+            await configureAndMigrateDatabase(connection, options);
+          },
+        };
+      },
+    },
+    {
+      name: 'seed',
+      configure(_events, primary) {
+        return {
+          migrate: configureAndMigrateDatabase,
+          async seed() {
+            throw primary;
+          },
+        };
+      },
+    },
+    {
+      name: 'lifecycle construction',
+      configure(_events, primary) {
+        return {
+          migrate: configureAndMigrateDatabase,
+          seed: seedB2Learners,
+          lifecycleFactory() {
+            throw primary;
+          },
+        };
+      },
+    },
+  ];
+
+  for (const stage of stages) {
+    await t.test(stage.name, async () => {
+      const directory = await mkdtemp(join(tmpdir(), 'ks2-b2-startup-failure-'));
+      const databasePath = join(directory, 'proof.sqlite');
+      const events = [];
+      const primary = Object.assign(new Error(`${stage.name} failed`), {
+        code: `test_${stage.name.replaceAll(' ', '_')}_failed`,
+      });
+      let caught;
+      try {
+        await createB2AppServices({
+          connectionFactory: createTrackedConnectionFactory(
+            databasePath,
+            events,
+            [],
+          ),
+          ...stage.configure(events, primary),
+        });
+      } catch (error) {
+        caught = error;
+      }
+      assert.equal(caught, primary, 'startup must preserve the primary error object');
+      assert.equal(events.at(-1), 'connection:close');
+      await rm(directory, { force: true, recursive: true });
+    });
+  }
+});
+
+test('coordinator startup failure aggregates cleanup failure without replacing its code', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-b2-reopen-failure-'));
+  const databasePath = join(directory, 'proof.sqlite');
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const events = [];
+  const primary = Object.assign(new Error('reopen failed'), {
+    code: 'test_reopen_failed',
+  });
+  const cleanup = Object.assign(new Error('lifecycle cleanup failed'), {
+    code: 'test_cleanup_failed',
+  });
+  const lifecycle = createFakeLifecycle(events, { disposeError: cleanup });
+  const realFactory = createTrackedConnectionFactory(databasePath, events, []);
+  let factoryCount = 0;
+  const connectionFactory = async () => {
+    factoryCount += 1;
+    if (factoryCount === 1) return realFactory();
+    return Object.freeze({
+      async open() {
+        throw primary;
+      },
+      async close() {},
+      async execute() {
+        throw new Error('unexpected execute');
+      },
+      async query() {
+        throw new Error('unexpected query');
+      },
+      async begin() {
+        throw new Error('unexpected begin');
+      },
+      async commit() {
+        throw new Error('unexpected commit');
+      },
+      async rollback() {
+        throw new Error('unexpected rollback');
+      },
+      async isTransactionActive() {
+        return false;
+      },
+    });
+  };
+
+  let caught;
+  try {
+    await createB2AppServices({ connectionFactory, lifecycle: lifecycle.port });
+  } catch (error) {
+    caught = error;
+  }
+  assert.equal(caught, primary);
+  assert.equal(caught.code, 'test_reopen_failed');
+  assert.ok(caught.cause instanceof AggregateError);
+  assert.ok(caught.cause.errors.includes(cleanup));
+  assert.equal(lifecycle.disposeCount, 1);
+});
+
+test('V1 without durable proof metadata fails closed and disposes lifecycle and connection', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-b2-missing-proof-'));
+  const databasePath = join(directory, 'proof.sqlite');
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const preparation = createNodeSqliteConnection(databasePath);
+  await preparation.open();
+  await configureAndMigrateDatabase(preparation);
+  await seedB2Learners(preparation);
+  await preparation.close();
+
+  const events = [];
+  const lifecycle = createFakeLifecycle(events);
+  await assert.rejects(
+    () =>
+      createB2AppServices({
+        connectionFactory: createTrackedConnectionFactory(databasePath, events, []),
+        lifecycle: lifecycle.port,
+      }),
+    { code: 'b2_proof_metadata_missing' },
+  );
+  assert.equal(lifecycle.disposeCount, 1);
+  assert.ok(events.includes('connection:close'));
+  assert.ok(
+    events.lastIndexOf('connection:close') < events.lastIndexOf('lifecycle:dispose'),
+  );
 });

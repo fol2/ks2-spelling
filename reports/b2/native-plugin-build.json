@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "packages": {
     "@capacitor-community/sqlite": {
       "version": "8.1.0",
@@ -10,14 +10,221 @@
       "integrity": "sha512-MlmttTOWHDedr/G4SrhNRxsXMqY+R75S4MM4eIgzsgCzOYhb/MpCkA5Q3nuOCfL1oHm26xjUzqZ5aupbOwdfYg=="
     }
   },
+  "preparation": {
+    "packageName": "@capacitor-community/sqlite",
+    "packageVersion": "8.1.0",
+    "packageIntegrity": "sha512-yhKZDAVPDPcM3QE6UGB3LXyV25a6Rve1SjZ1aUpTE0E2isnYTVM0PG9+JOI241f+NdsHzPTE7ESJiYSqKsKnuA==",
+    "manifestPath": "node_modules/@capacitor-community/sqlite/Package.swift",
+    "upstreamManifestSha256": "c780ccf6fbbe68ea98bf5a8c72e3a0ec662f9ecf09ef2fd7abf2a3b892228c8d",
+    "preparedManifestSha256": "068d8e721cb8fe42129db23ba79f753da0f1064720fb0ee57300b8ef3f4959e7",
+    "upstreamRequirement": ".package(url: \"https://github.com/ionic-team/capacitor-swift-pm.git\", branch: \"8.0.0\"),",
+    "preparedRequirement": ".package(url: \"https://github.com/ionic-team/capacitor-swift-pm.git\", exact: \"8.4.1\"),",
+    "capacitorRequirement": {
+      "kind": "exact",
+      "version": "8.4.1"
+    },
+    "appliedOrVerifiedBy": "scripts/prepare-native-dependencies.mjs",
+    "preparedManifestVerified": "068d8e721cb8fe42129db23ba79f753da0f1064720fb0ee57300b8ef3f4959e7"
+  },
+  "commands": {
+    "ios": {
+      "command": "xcodebuild",
+      "args": [
+        "-project",
+        "ios/App/App.xcodeproj",
+        "-scheme",
+        "KS2Spelling",
+        "-sdk",
+        "iphonesimulator",
+        "-configuration",
+        "Debug",
+        "-derivedDataPath",
+        ".native-build/ios",
+        "CODE_SIGNING_ALLOWED=NO",
+        "build"
+      ],
+      "sha256": "df6b87fb421f72224b63d66dba6a7bbc7eb178ee8569bfdc7a6596205169656c"
+    },
+    "android": {
+      "command": "android/gradlew",
+      "args": [
+        "--no-daemon",
+        "--project-dir",
+        "android",
+        "--project-cache-dir",
+        "../.native-build/android/project-cache",
+        "--init-script",
+        "../.native-build/android/native-output.init.gradle",
+        "testDebugUnitTest",
+        "assembleDebug",
+        "assembleRelease"
+      ],
+      "sha256": "136c87b5cb937a1f5339537b0f0c597b8999b4f903f3e3a9eecdcbf4b585e09b"
+    }
+  },
+  "committedInputs": [
+    {
+      "path": "package.json",
+      "bytes": 1737,
+      "sha256": "855b64ab53cafd871ca684fb7884c9c6216dc860ee5f52f83796d51471de56b5"
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 93576,
+      "sha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479"
+    },
+    {
+      "path": "capacitor.config.json",
+      "bytes": 368,
+      "sha256": "81afd43851d3acc4bdac7b371ddcf0b867856e414f080d11050bd2c66a4ce3a4"
+    },
+    {
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "bytes": 2095,
+      "sha256": "e882f5bcb3eb0224b91e1bc745fe0c1aeabc796b7109169b5d2bad361b1a6d47"
+    },
+    {
+      "path": "android/app/src/main/res/xml/backup_rules.xml",
+      "bytes": 293,
+      "sha256": "2c5c697984f4c52b526337ab61113f5843e0bfc6af4722374916ffe6da38dd9a"
+    },
+    {
+      "path": "android/app/src/main/res/xml/data_extraction_rules.xml",
+      "bytes": 1050,
+      "sha256": "cb029b35db0e976c087100424e16e14a6256b46962398887520e51508c3b5842"
+    },
+    {
+      "path": "android/app/capacitor.build.gradle",
+      "bytes": 472,
+      "sha256": "7a9785a4abc7b6679e4823065fd73f10701d5cf8fdc63ab0403cb1bfa5bb4b95"
+    },
+    {
+      "path": "android/capacitor.settings.gradle",
+      "bytes": 478,
+      "sha256": "02359897c4208fc356ab91c0c385a2160ec92299e94855ccbd380a6139ff3ff4"
+    },
+    {
+      "path": "android/gradle/dependency-locks/app.lockfile",
+      "bytes": 52091,
+      "sha256": "4f882450792e15efa1929efe7202beda696f8c02a9e495d1741af6d6244934a3"
+    },
+    {
+      "path": "android/gradle/dependency-locks/capacitor-android.lockfile",
+      "bytes": 52391,
+      "sha256": "f772b51ee2251036897ef5745a2206387ecb24b122b96d32b708618760cec538"
+    },
+    {
+      "path": "android/gradle/dependency-locks/capacitor-app.lockfile",
+      "bytes": 51257,
+      "sha256": "b708ea9120f6755c86584436c1c4effb2f211f91572bed950190377a7adc3f20"
+    },
+    {
+      "path": "android/gradle/dependency-locks/capacitor-community-sqlite.lockfile",
+      "bytes": 57216,
+      "sha256": "860cfe917ef9427212dd61ccbdd148593d8c5c721b58acc64471b15645b3b8cb"
+    },
+    {
+      "path": "android/gradle/dependency-locks/capacitor-cordova-android-plugins.lockfile",
+      "bytes": 49475,
+      "sha256": "f6c0d85caf74291d4c38291fcd433149947ffde25c9498e07e38a5409280204d"
+    },
+    {
+      "path": "android/gradle/verification-metadata.xml",
+      "bytes": 213898,
+      "sha256": "1a3174dfe255c24dee97147174a3b96904de8b5e20611dcdb415bc710236b359"
+    },
+    {
+      "path": "ios/App/CapApp-SPM/Package.swift",
+      "bytes": 1065,
+      "sha256": "1616fa9243faab36c75bc1ee6f70409f4b9a1d0dbed5c2c76e47db61e9635312"
+    },
+    {
+      "path": "ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+      "bytes": 963,
+      "sha256": "e39ad512c52331be2e741841073056a8ea8bd68c79049385816b56a1d15f23aa"
+    },
+    {
+      "path": "ios/App/App/Info.plist",
+      "bytes": 1684,
+      "sha256": "814d5298220cbcd1032f9f3b5d6ae8beafa7364ea8c297194917e767f0e829a6"
+    },
+    {
+      "path": "scripts/prepare-native-dependencies.mjs",
+      "bytes": 4528,
+      "sha256": "048c62b9724001d1cc0d668a0f2a8264667fa741589bdf3de13b4afdbf35e416"
+    },
+    {
+      "path": "scripts/build-b2-native-plugin-report.mjs",
+      "bytes": 13946,
+      "sha256": "c8eee698cef1c8c242c713795539974a1bc17d6d3c7a118ecf6f602402d8bdc2"
+    },
+    {
+      "path": "scripts/test-ios.mjs",
+      "bytes": 2524,
+      "sha256": "04d91a6156fb16347a630721354ba517f296f912876d0ed362b2a41972592c12"
+    },
+    {
+      "path": "scripts/test-android.mjs",
+      "bytes": 14801,
+      "sha256": "1fb30a2e7a0db4444f924839d6966b642038be776a6536122923a7541ca16c98"
+    },
+    {
+      "path": "tests/native-dependency-preparation.test.mjs",
+      "bytes": 5081,
+      "sha256": "56945aa70b26cf87a992f422b6113f8f3094de70e0b48e51b04174ba968f8374"
+    },
+    {
+      "path": "tests/b2-native-plugin-build-policy.test.mjs",
+      "bytes": 9784,
+      "sha256": "c5c2bfb93941dcf9549427e8244fb00a081398a28c8f73e8abd331822bf1bd2b"
+    },
+    {
+      "path": "tests/app-shell.test.mjs",
+      "bytes": 4638,
+      "sha256": "4f9f3916fb40213b599eae3f7c0236325dde8e2fa094f69946898648d20c48c1"
+    },
+    {
+      "path": "tests/android-project-contract.test.mjs",
+      "bytes": 4796,
+      "sha256": "798c5dda00de4a8410977282e7621893070062b12366212178e18fdd8dac3247"
+    },
+    {
+      "path": "tests/ios-project-contract.test.mjs",
+      "bytes": 5601,
+      "sha256": "293ec429d6c16bb19fa2a45e38bf5d4620eaed78a9b1cbc5c24d5842367be051"
+    },
+    {
+      "path": "tests/native-wrapper-contract.test.mjs",
+      "bytes": 18603,
+      "sha256": "263cab3fdebf4f7d330e4d4711009b5f1ddddf074936f3b9e1d2f7ee689fed7a"
+    }
+  ],
+  "generatedNativeInputs": [
+    {
+      "path": "android/app/src/main/assets/capacitor.config.json",
+      "bytes": 358,
+      "sha256": "62eb3c70bec7c66795f02c0d8bdf895856604104df4e18b4d0e2eab27cbe2151"
+    },
+    {
+      "path": "ios/App/App/capacitor.config.json",
+      "bytes": 426,
+      "sha256": "e949c35fea8a7dff0ec01bae6330750498553c63c55dfec8dc82104ea48f3ca9"
+    }
+  ],
   "builds": {
     "ios": {
+      "ok": true,
+      "platform": "ios",
+      "scheme": "KS2Spelling",
       "compiled": true,
       "sdk": "iphonesimulator",
       "configuration": "Debug",
-      "signed": false
+      "signed": false,
+      "appPath": ".native-build/ios/Build/Products/Debug-iphonesimulator/App.app"
     },
     "android": {
+      "ok": true,
+      "platform": "android",
       "unitTestsPassed": true,
       "debugCompiled": true,
       "debugSigned": true,
@@ -28,34 +235,7 @@
   "android": {
     "dependencyClosure": {
       "componentCount": 314,
-      "scopeMembershipCount": 5452,
-      "lockfiles": [
-        {
-          "path": "android/gradle/dependency-locks/app.lockfile",
-          "sha256": "4f882450792e15efa1929efe7202beda696f8c02a9e495d1741af6d6244934a3"
-        },
-        {
-          "path": "android/gradle/dependency-locks/capacitor-android.lockfile",
-          "sha256": "f772b51ee2251036897ef5745a2206387ecb24b122b96d32b708618760cec538"
-        },
-        {
-          "path": "android/gradle/dependency-locks/capacitor-app.lockfile",
-          "sha256": "b708ea9120f6755c86584436c1c4effb2f211f91572bed950190377a7adc3f20"
-        },
-        {
-          "path": "android/gradle/dependency-locks/capacitor-community-sqlite.lockfile",
-          "sha256": "860cfe917ef9427212dd61ccbdd148593d8c5c721b58acc64471b15645b3b8cb"
-        },
-        {
-          "path": "android/gradle/dependency-locks/capacitor-cordova-android-plugins.lockfile",
-          "sha256": "f6c0d85caf74291d4c38291fcd433149947ffde25c9498e07e38a5409280204d"
-        }
-      ],
-      "verificationMetadataSha256": "1a3174dfe255c24dee97147174a3b96904de8b5e20611dcdb415bc710236b359"
-    },
-    "generatedInputs": {
-      "capacitorBuildGradleSha256": "7a9785a4abc7b6679e4823065fd73f10701d5cf8fdc63ab0403cb1bfa5bb4b95",
-      "capacitorSettingsGradleSha256": "02359897c4208fc356ab91c0c385a2160ec92299e94855ccbd380a6139ff3ff4"
+      "scopeMembershipCount": 5452
     },
     "packagedPermissions": {
       "appIdentity": "uk.eugnel.ks2spelling",
@@ -106,18 +286,103 @@
         "device_sharedpref"
       ],
       "xmlTreeSha256": "74d80216ccbc8774c3699ead4a8406fe2c404d8d33333538d65bdd856d178208"
-    }
+    },
+    "outputInventory": [
+      {
+        "path": ".native-build/android/build/app/outputs/apk/debug/app-debug.apk",
+        "bytes": 25090652,
+        "sha256": "f3a231d2e1772dfdaed565c8b3fac7026175a3bafd899721548fafb794aec9f5"
+      },
+      {
+        "path": ".native-build/android/build/app/outputs/apk/release/app-release-unsigned.apk",
+        "bytes": 23829283,
+        "sha256": "c523be6ea44ba915122e1d41415111d24d6ad3ea6ff19dd25a7afe838644e0b5"
+      }
+    ]
   },
   "ios": {
-    "packageSwiftSha256": "1616fa9243faab36c75bc1ee6f70409f4b9a1d0dbed5c2c76e47db61e9635312",
-    "packageResolvedSha256": "f7ada51813b8ce6971185ff979c5b77521e54b6ecc416b925c07e930ec5f0633",
-    "infoPlistSha256": "814d5298220cbcd1032f9f3b5d6ae8beafa7364ea8c297194917e767f0e829a6",
+    "spmPins": [
+      {
+        "identity": "capacitor-swift-pm",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/ionic-team/capacitor-swift-pm.git",
+        "state": {
+          "revision": "2231987d85b8b0b289320b1d0947b4ae8345cde4",
+          "version": "8.4.1"
+        }
+      },
+      {
+        "identity": "sqlcipher.swift",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/sqlcipher/SQLCipher.swift.git",
+        "state": {
+          "revision": "205df55271aa1ba512a9bfe3fd1813bc9ac52a19",
+          "version": "4.17.0"
+        }
+      },
+      {
+        "identity": "zipfoundation",
+        "kind": "remoteSourceControl",
+        "location": "https://github.com/weichsel/ZIPFoundation.git",
+        "state": {
+          "revision": "22787ffb59de99e5dc1fbfe80b19c97a904ad48d",
+          "version": "0.9.20"
+        }
+      }
+    ],
     "addedUsageDescriptionKeys": [],
-    "addedEntitlements": []
+    "addedEntitlements": [],
+    "outputInventory": [
+      {
+        "path": ".native-build/ios/Build/Products/Debug-iphonesimulator/App.app/App",
+        "bytes": 73104,
+        "sha256": "5fe943d217843cbf9d7308d4fe2472357300cf59244225858ba7178251d384c2"
+      },
+      {
+        "path": ".native-build/ios/Build/Products/Debug-iphonesimulator/App.app/Frameworks/Capacitor.framework/Capacitor",
+        "bytes": 4195856,
+        "sha256": "01e1e4744450ae03d5c1b2acf1915389179a2d446ebd2fb5b047aff07d5fa274",
+        "sourcePin": {
+          "identity": "capacitor-swift-pm",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/ionic-team/capacitor-swift-pm.git",
+          "state": {
+            "revision": "2231987d85b8b0b289320b1d0947b4ae8345cde4",
+            "version": "8.4.1"
+          }
+        }
+      },
+      {
+        "path": ".native-build/ios/Build/Products/Debug-iphonesimulator/App.app/Frameworks/Cordova.framework/Cordova",
+        "bytes": 278000,
+        "sha256": "c5c9e7793f71c52fe6c9a43427941916a6e9ba47b6053e2514d1ba24a99d7a10",
+        "sourcePin": {
+          "identity": "capacitor-swift-pm",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/ionic-team/capacitor-swift-pm.git",
+          "state": {
+            "revision": "2231987d85b8b0b289320b1d0947b4ae8345cde4",
+            "version": "8.4.1"
+          }
+        }
+      },
+      {
+        "path": ".native-build/ios/Build/Products/Debug-iphonesimulator/App.app/Frameworks/SQLCipher.framework/SQLCipher",
+        "bytes": 3020176,
+        "sha256": "d789567d48c9d5e526675ececb7d8e80c7ec4714f8150390b23a48e1ead7c08b",
+        "sourcePin": {
+          "identity": "sqlcipher.swift",
+          "kind": "remoteSourceControl",
+          "location": "https://github.com/sqlcipher/SQLCipher.swift.git",
+          "state": {
+            "revision": "205df55271aa1ba512a9bfe3fd1813bc9ac52a19",
+            "version": "4.17.0"
+          }
+        }
+      }
+    ]
   },
   "nativeConfig": {
-    "capacitorConfigSha256": "81afd43851d3acc4bdac7b371ddcf0b867856e414f080d11050bd2c66a4ce3a4",
-    "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "sqliteMode": "no-encryption",
     "webFallbackInitialised": false,
     "serverUrlConfigured": false

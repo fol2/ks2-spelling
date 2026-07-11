@@ -9,6 +9,10 @@ import {
 const ROOT = resolve(import.meta.dirname, '..');
 
 export const SYNC_COMMANDS = Object.freeze([
+  Object.freeze([
+    process.execPath,
+    Object.freeze(['scripts/prepare-native-dependencies.mjs']),
+  ]),
   Object.freeze(['npm', Object.freeze(['run', 'build'])]),
   Object.freeze(['npx', Object.freeze(['--no-install', 'cap', 'sync'])]),
   Object.freeze([

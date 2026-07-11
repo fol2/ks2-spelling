@@ -7,7 +7,9 @@ import test from 'node:test';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 const EXPECTED_DIRECT_VERSIONS = Object.freeze({
+  '@capacitor-community/sqlite': '8.1.0',
   '@capacitor/android': '8.4.1',
+  '@capacitor/app': '8.1.0',
   '@capacitor/cli': '8.4.1',
   '@capacitor/core': '8.4.1',
   '@capacitor/ios': '8.4.1',
@@ -86,7 +88,17 @@ test('Capacitor and the built shell remain local-only', async () => {
     appId: 'uk.eugnel.ks2spelling',
     appName: 'KS2 Spelling',
     webDir: 'dist',
+    plugins: {
+      CapacitorSQLite: {
+        iosDatabaseLocation: 'Library/CapacitorDatabase',
+        iosIsEncryption: false,
+        iosBiometric: { biometricAuth: false },
+        androidIsEncryption: false,
+        androidBiometric: { biometricAuth: false },
+      },
+    },
   });
+  assert.equal(Object.hasOwn(capacitorConfig, 'server'), false);
 
   await build({ root: ROOT, logLevel: 'silent' });
   const builtHtml = await readFile(join(ROOT, 'dist/index.html'), 'utf8');

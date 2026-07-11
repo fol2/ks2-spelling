@@ -89,8 +89,8 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
   );
   assert.equal(capacitorPin?.location, 'https://github.com/ionic-team/capacitor-swift-pm.git');
   assert.deepEqual(capacitorPin?.state, {
-    branch: '8.0.0',
-    revision: '596259033e94829dffc552a40e7129262122995e',
+    revision: '2231987d85b8b0b289320b1d0947b4ae8345cde4',
+    version: '8.4.1',
   });
   assert.deepEqual(
     packageResolved.pins

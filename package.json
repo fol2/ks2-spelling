@@ -8,6 +8,8 @@
   },
   "packageManager": "npm@11.16.0",
   "scripts": {
+    "postinstall": "node scripts/prepare-native-dependencies.mjs",
+    "prepare:native-dependencies": "node scripts/prepare-native-dependencies.mjs",
     "build": "vite build",
     "lint": "oxlint src tests scripts vite.config.js",
     "test": "node --test tests/*.test.mjs",
@@ -17,6 +19,8 @@
     "native:sync:check": "node scripts/native-sync-check.mjs",
     "test:ios": "node scripts/test-ios.mjs",
     "test:android": "node scripts/test-android.mjs",
+    "report:b2-native-plugins": "node scripts/build-b2-native-plugin-report.mjs",
+    "report:b2-native-plugins:check": "node scripts/build-b2-native-plugin-report.mjs --check",
     "certify:android": "node scripts/certify-android-dependencies.mjs",
     "launch:ios": "node scripts/launch-ios-simulator.mjs",
     "launch:android": "node scripts/launch-android-emulator.mjs",

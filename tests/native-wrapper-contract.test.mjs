@@ -8,6 +8,8 @@ import test from 'node:test';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const SCRIPT_FILES = [
   'scripts/lib/run-command.mjs',
+  'scripts/prepare-native-dependencies.mjs',
+  'scripts/build-b2-native-plugin-report.mjs',
   'scripts/native-doctor.mjs',
   'scripts/native-sync-check.mjs',
   'scripts/test-ios.mjs',
@@ -30,21 +32,30 @@ test('package scripts expose every deterministic native wrapper', async () => {
   assert.deepEqual(
     Object.fromEntries(
       [
+        'postinstall',
+        'prepare:native-dependencies',
         'verify:vendor',
         'native:doctor',
         'native:sync:check',
         'test:ios',
         'test:android',
+        'report:b2-native-plugins',
+        'report:b2-native-plugins:check',
         'launch:ios',
         'launch:android',
       ].map((name) => [name, packageJson.scripts[name]]),
     ),
     {
+      postinstall: 'node scripts/prepare-native-dependencies.mjs',
+      'prepare:native-dependencies': 'node scripts/prepare-native-dependencies.mjs',
       'verify:vendor': 'node scripts/verify-vendored-contract.mjs',
       'native:doctor': 'node scripts/native-doctor.mjs',
       'native:sync:check': 'node scripts/native-sync-check.mjs',
       'test:ios': 'node scripts/test-ios.mjs',
       'test:android': 'node scripts/test-android.mjs',
+      'report:b2-native-plugins': 'node scripts/build-b2-native-plugin-report.mjs',
+      'report:b2-native-plugins:check':
+        'node scripts/build-b2-native-plugin-report.mjs --check',
       'launch:ios': 'node scripts/launch-ios-simulator.mjs',
       'launch:android': 'node scripts/launch-android-emulator.mjs',
     },
@@ -240,6 +251,7 @@ test('native build and sync commands freeze identity and derived outputs', async
   } = await importScript('scripts/test-android.mjs');
 
   assert.deepEqual(SYNC_COMMANDS, [
+    [process.execPath, ['scripts/prepare-native-dependencies.mjs']],
     ['npm', ['run', 'build']],
     ['npx', ['--no-install', 'cap', 'sync']],
     [
@@ -286,15 +298,9 @@ test('native build and sync commands freeze identity and derived outputs', async
   });
   assert.match(GRADLE_INIT_SCRIPT, /\.native-build\/android\/build/);
   assert.deepEqual(ANDROID_BUILD_EVIDENCE, {
-    ok: true,
     platform: 'android',
     variant: 'debug',
     signing: 'debug',
-    debugCompiled: true,
-    releaseCompiled: true,
-    releaseSigned: false,
-    declaredPermissions: [],
-    requestedPermissions: [],
   });
   const { parsePackagedAndroidPermissions } = await importScript(
     'scripts/test-android.mjs',

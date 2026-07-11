@@ -145,15 +145,31 @@ test('iOS adds no usage-description key or app entitlement', async () => {
 test('native build report proves the B2 compile and packaged policy surface', async () => {
   assert.ok(existsSync(join(ROOT, 'reports/b2/native-plugin-build.json')));
   const report = await readJson('reports/b2/native-plugin-build.json');
-  assert.equal(report.schemaVersion, 1);
+  const { assertB2NativePluginReportCurrent, B2_NATIVE_COMMITTED_INPUTS } =
+    await import('../scripts/build-b2-native-plugin-report.mjs');
+  await assert.doesNotReject(() => assertB2NativePluginReportCurrent(report));
+  await assert.rejects(
+    () =>
+      assertB2NativePluginReportCurrent(
+        {
+          ...report,
+          committedInputs: report.committedInputs.map((entry, index) =>
+            index === 0 ? { ...entry, sha256: '0'.repeat(64) } : entry,
+          ),
+        },
+        { verifyLocalOutputs: false },
+      ),
+    ({ code }) => code === 'b2_native_plugin_report_invalid',
+  );
+  assert.equal(report.schemaVersion, 2);
   assert.deepEqual(report.packages, REQUIRED_PLUGINS);
-  assert.deepEqual(report.builds.ios, {
-    compiled: true,
-    sdk: 'iphonesimulator',
-    configuration: 'Debug',
-    signed: false,
-  });
+  assert.equal(report.builds.ios.compiled, true);
+  assert.equal(report.builds.ios.sdk, 'iphonesimulator');
+  assert.equal(report.builds.ios.configuration, 'Debug');
+  assert.equal(report.builds.ios.signed, false);
   assert.deepEqual(report.builds.android, {
+    ok: true,
+    platform: 'android',
     unitTestsPassed: true,
     debugCompiled: true,
     debugSigned: true,
@@ -179,25 +195,45 @@ test('native build report proves the B2 compile and packaged policy surface', as
   );
   assert.deepEqual(report.ios.addedUsageDescriptionKeys, []);
   assert.deepEqual(report.ios.addedEntitlements, []);
-  const expectedLockfiles = [
-    'android/gradle/dependency-locks/app.lockfile',
-    'android/gradle/dependency-locks/capacitor-android.lockfile',
-    'android/gradle/dependency-locks/capacitor-app.lockfile',
-    'android/gradle/dependency-locks/capacitor-community-sqlite.lockfile',
-    'android/gradle/dependency-locks/capacitor-cordova-android-plugins.lockfile',
-  ];
   assert.deepEqual(
-    report.android.dependencyClosure.lockfiles.map(({ path }) => path),
-    expectedLockfiles,
+    report.committedInputs.map(({ path }) => path),
+    B2_NATIVE_COMMITTED_INPUTS,
   );
-  for (const entry of report.android.dependencyClosure.lockfiles) {
+  for (const entry of report.committedInputs) {
     assert.equal(entry.sha256, await sha256(entry.path));
   }
   assert.equal(report.android.dependencyClosure.componentCount, 314);
   assert.equal(report.android.dependencyClosure.scopeMembershipCount, 5452);
+  assert.equal(report.preparation.capacitorRequirement.kind, 'exact');
+  assert.equal(report.preparation.capacitorRequirement.version, '8.4.1');
   assert.equal(
-    report.android.dependencyClosure.verificationMetadataSha256,
-    await sha256('android/gradle/verification-metadata.xml'),
+    report.preparation.upstreamManifestSha256,
+    'c780ccf6fbbe68ea98bf5a8c72e3a0ec662f9ecf09ef2fd7abf2a3b892228c8d',
+  );
+  assert.equal(
+    report.preparation.preparedManifestSha256,
+    '068d8e721cb8fe42129db23ba79f753da0f1064720fb0ee57300b8ef3f4959e7',
+  );
+  assert.deepEqual(
+    report.ios.spmPins.find(({ identity }) => identity === 'capacitor-swift-pm'),
+    {
+      identity: 'capacitor-swift-pm',
+      kind: 'remoteSourceControl',
+      location: 'https://github.com/ionic-team/capacitor-swift-pm.git',
+      state: {
+        revision: '2231987d85b8b0b289320b1d0947b4ae8345cde4',
+        version: '8.4.1',
+      },
+    },
+  );
+  assert.deepEqual(
+    report.ios.outputInventory
+      .filter(({ sourcePin }) => sourcePin?.identity === 'capacitor-swift-pm')
+      .map(({ path }) => path),
+    [
+      '.native-build/ios/Build/Products/Debug-iphonesimulator/App.app/Frameworks/Capacitor.framework/Capacitor',
+      '.native-build/ios/Build/Products/Debug-iphonesimulator/App.app/Frameworks/Cordova.framework/Cordova',
+    ],
   );
   assert.equal(report.approval, 'build-proof-only');
   assert.equal(report.finalPrivacyApproval, false);

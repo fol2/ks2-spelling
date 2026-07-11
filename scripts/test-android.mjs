@@ -8,12 +8,17 @@ import {
   printJson,
   runCommand,
 } from './lib/run-command.mjs';
+import { prepareNativeDependencies } from './prepare-native-dependencies.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const ANDROID_STUDIO_JBR = '/Applications/Android Studio.app/Contents/jbr/Contents/Home';
 const DEBUG_APK = join(
   ROOT,
   '.native-build/android/build/app/outputs/apk/debug/app-debug.apk',
+);
+const RELEASE_APK = join(
+  ROOT,
+  '.native-build/android/build/app/outputs/apk/release/app-release-unsigned.apk',
 );
 const BACKUP_DOMAINS = Object.freeze([
   'root',
@@ -54,15 +59,9 @@ export const ANDROID_BUILD_COMMAND = Object.freeze({
 });
 
 export const ANDROID_BUILD_EVIDENCE = Object.freeze({
-  ok: true,
   platform: 'android',
   variant: 'debug',
   signing: 'debug',
-  debugCompiled: true,
-  releaseCompiled: true,
-  releaseSigned: false,
-  declaredPermissions: [],
-  requestedPermissions: [],
 });
 
 function packagedPermissionError(message) {
@@ -311,14 +310,24 @@ async function findBuildTools36(androidSdkRoot) {
   }
 }
 
-export async function main() {
+function androidBuildError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+export async function buildAndroidApplication({ stream = true } = {}) {
+  try {
+    await prepareNativeDependencies();
+  } catch (error) {
+    throw androidBuildError(error.code, error.message);
+  }
   const resolution = resolveAndroidEnvironment();
   if (!resolution.ready) {
-    printJson(
-      { ok: false, code: 'missing_android_toolchain', missing: resolution.missing },
-      process.stderr,
+    throw androidBuildError(
+      'missing_android_toolchain',
+      `Missing Android toolchain: ${resolution.missing.join(', ')}`,
     );
-    return EXIT_CODES.missingTool;
   }
 
   const platform36 = join(resolution.androidSdkRoot, 'platforms/android-36/android.jar');
@@ -327,11 +336,10 @@ export async function main() {
   if (!existsSync(platform36)) missingPackages.push('platforms;android-36');
   if (!buildTools36) missingPackages.push('build-tools;36.0.0');
   if (missingPackages.length) {
-    printJson(
-      { ok: false, code: 'missing_android_sdk_packages', missing: missingPackages },
-      process.stderr,
+    throw androidBuildError(
+      'missing_android_sdk_packages',
+      `Missing Android SDK packages: ${missingPackages.join(', ')}`,
     );
-    return EXIT_CODES.missingTool;
   }
 
   const nativeRoot = join(ROOT, '.native-build/android');
@@ -346,11 +354,13 @@ export async function main() {
   const result = await runCommand(ANDROID_BUILD_COMMAND.command, ANDROID_BUILD_COMMAND.args, {
     cwd: ROOT,
     env,
-    stream: true,
+    stream,
   });
   if (result.exitCode !== 0) {
-    printJson({ ok: false, code: 'android_build_failed', exitCode: result.exitCode });
-    return EXIT_CODES.commandFailed;
+    throw androidBuildError(
+      'android_build_failed',
+      `Android build failed with ${result.exitCode}`,
+    );
   }
   let permissionEvidence;
   let backupEvidence;
@@ -364,21 +374,66 @@ export async function main() {
       buildTools36,
     });
   } catch (error) {
-    printJson(
-      { ok: false, code: error.code, message: error.message },
-      process.stderr,
-    );
-    return EXIT_CODES.stateMismatch;
+    throw androidBuildError(error.code, error.message);
   }
-  printJson({
+  if (!existsSync(RELEASE_APK)) {
+    throw androidBuildError('android_release_missing', 'Unsigned release APK is missing');
+  }
+  const apksigner = join(
+    resolution.androidSdkRoot,
+    'build-tools',
+    buildTools36,
+    'apksigner',
+  );
+  const debugSignature = await runCommand(apksigner, ['verify', DEBUG_APK], {
+    cwd: ROOT,
+    env,
+  });
+  const releaseSignature = await runCommand(apksigner, ['verify', RELEASE_APK], {
+    cwd: ROOT,
+    env,
+  });
+  if (
+    debugSignature.exitCode !== 0 ||
+    releaseSignature.exitCode === 0 ||
+    !/DOES NOT VERIFY|Missing META-INF\/MANIFEST\.MF/.test(
+      `${releaseSignature.stdout}\n${releaseSignature.stderr}`,
+    )
+  ) {
+    throw androidBuildError(
+      'android_signing_evidence_invalid',
+      'Debug or unsigned-release APK signing state is unexpected',
+    );
+  }
+  return {
+    ok: true,
     ...ANDROID_BUILD_EVIDENCE,
+    unitTestsPassed: true,
+    debugCompiled: existsSync(DEBUG_APK),
+    debugSigned: debugSignature.exitCode === 0,
+    releaseCompiled: existsSync(RELEASE_APK),
+    releaseSigned: releaseSignature.exitCode === 0,
     ...permissionEvidence,
     ...backupEvidence,
+    debugApkPath: '.native-build/android/build/app/outputs/apk/debug/app-debug.apk',
+    releaseApkPath:
+      '.native-build/android/build/app/outputs/apk/release/app-release-unsigned.apk',
     diagnosticApkSha256: createHash('sha256')
       .update(await readFile(DEBUG_APK))
       .digest('hex'),
-  });
-  return EXIT_CODES.success;
+  };
+}
+
+export async function main() {
+  try {
+    printJson(await buildAndroidApplication());
+    return EXIT_CODES.success;
+  } catch (error) {
+    printJson({ ok: false, code: error.code, message: error.message }, process.stderr);
+    return error.code?.startsWith('missing_')
+      ? EXIT_CODES.missingTool
+      : EXIT_CODES.commandFailed;
+  }
 }
 
 if (isMain(import.meta.url)) {

@@ -1,4 +1,5 @@
-import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import {
   EXIT_CODES,
   isMain,
@@ -6,6 +7,7 @@ import {
   resolveExecutable,
   runCommand,
 } from './lib/run-command.mjs';
+import { prepareNativeDependencies } from './prepare-native-dependencies.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 
@@ -27,22 +29,66 @@ export const IOS_BUILD_COMMAND = Object.freeze({
   ]),
 });
 
-export async function main() {
+function iosBuildError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+export async function buildIosApplication({ stream = true } = {}) {
+  await prepareNativeDependencies();
   if (!(await resolveExecutable(IOS_BUILD_COMMAND.command))) {
-    printJson({ ok: false, code: 'missing_xcodebuild' }, process.stderr);
-    return EXIT_CODES.missingTool;
+    throw iosBuildError('missing_xcodebuild', 'xcodebuild is unavailable');
   }
 
   const result = await runCommand(IOS_BUILD_COMMAND.command, IOS_BUILD_COMMAND.args, {
     cwd: ROOT,
-    stream: true,
+    stream,
   });
   if (result.exitCode !== 0) {
-    printJson({ ok: false, code: 'ios_build_failed', exitCode: result.exitCode });
-    return EXIT_CODES.commandFailed;
+    throw iosBuildError('ios_build_failed', `xcodebuild failed with ${result.exitCode}`);
   }
-  printJson({ ok: true, platform: 'ios', scheme: 'KS2Spelling', signed: false });
-  return EXIT_CODES.success;
+  const appPath = join(
+    ROOT,
+    '.native-build/ios/Build/Products/Debug-iphonesimulator/App.app',
+  );
+  const requiredProducts = [
+    'App',
+    'Frameworks/Capacitor.framework/Capacitor',
+    'Frameworks/Cordova.framework/Cordova',
+    'Frameworks/SQLCipher.framework/SQLCipher',
+  ];
+  if (
+    requiredProducts.some((path) => !existsSync(join(appPath, path))) ||
+    existsSync(join(appPath, '_CodeSignature'))
+  ) {
+    throw iosBuildError(
+      'ios_build_output_invalid',
+      'Unsigned iOS application or embedded framework output is incomplete',
+    );
+  }
+  return {
+    ok: true,
+    platform: 'ios',
+    scheme: 'KS2Spelling',
+    compiled: true,
+    sdk: 'iphonesimulator',
+    configuration: 'Debug',
+    signed: false,
+    appPath: '.native-build/ios/Build/Products/Debug-iphonesimulator/App.app',
+  };
+}
+
+export async function main() {
+  try {
+    printJson(await buildIosApplication());
+    return EXIT_CODES.success;
+  } catch (error) {
+    printJson({ ok: false, code: error.code, message: error.message }, process.stderr);
+    return error.code === 'missing_xcodebuild'
+      ? EXIT_CODES.missingTool
+      : EXIT_CODES.commandFailed;
+  }
 }
 
 if (isMain(import.meta.url)) {

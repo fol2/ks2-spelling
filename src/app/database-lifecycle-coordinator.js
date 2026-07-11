@@ -66,6 +66,7 @@ export function createDatabaseLifecycleCoordinator(options = {}) {
 
   let state = 'starting';
   let connection = null;
+  let connectionOpened = false;
   let desiredMode = null;
   let processingPromise = null;
   let startPromise = null;
@@ -90,25 +91,32 @@ export function createDatabaseLifecycleCoordinator(options = {}) {
   async function closeCurrentConnection({ checkpoint }) {
     if (connection === null) return;
     const closing = connection;
-    if (checkpoint) {
+    if (checkpoint && connectionOpened) {
       await closing.query('PRAGMA wal_checkpoint(PASSIVE)');
     }
-    try {
-      await closing.close();
-    } finally {
+    await closing.close();
+    if (connection === closing) {
       connection = null;
+      connectionOpened = false;
     }
   }
 
   async function transitionToPaused() {
+    if (state === 'failed') {
+      await commandGate.pauseAndDrain();
+      return;
+    }
     if (state === 'paused' || connection === null) {
       await commandGate.pauseAndDrain();
+      if (disposedRequested) return;
       setState('paused');
       return;
     }
     setState('pausing');
     await commandGate.pauseAndDrain();
+    if (disposedRequested) return;
     await closeCurrentConnection({ checkpoint: true });
+    if (disposedRequested) return;
     setState('paused');
   }
 
@@ -118,8 +126,11 @@ export function createDatabaseLifecycleCoordinator(options = {}) {
       await candidate.close();
     } catch (closeError) {
       if (primaryError.cause === undefined) primaryError.cause = closeError;
-    } finally {
-      if (connection === candidate) connection = null;
+      return;
+    }
+    if (connection === candidate) {
+      connection = null;
+      connectionOpened = false;
     }
   }
 
@@ -127,17 +138,24 @@ export function createDatabaseLifecycleCoordinator(options = {}) {
     if (state === 'active' && connection !== null) return;
     setState(state === 'starting' ? 'starting' : 'resuming');
     await commandGate.pauseAndDrain();
+    if (disposedRequested) return;
 
     if (connection !== null) {
       await closeCurrentConnection({ checkpoint: false });
+      if (disposedRequested) return;
     }
 
     let candidate = null;
     try {
       candidate = assertSqlConnection(await createConnection());
       connection = candidate;
+      connectionOpened = false;
+      if (disposedRequested) return;
       await candidate.open();
+      connectionOpened = true;
+      if (disposedRequested) return;
       await migrate(candidate);
+      if (disposedRequested) return;
       await rehydrateSelectedLearner(candidate, selectedLearnerId);
       if (disposedRequested) return;
       commandGate.resume();
@@ -182,6 +200,9 @@ export function createDatabaseLifecycleCoordinator(options = {}) {
 
   function requestMode(mode) {
     if (disposedRequested || state === 'disposed') return Promise.resolve();
+    if (mode === 'paused' && state === 'failed') {
+      return processingPromise ?? Promise.resolve();
+    }
     if (
       (mode === 'active' && state === 'active' && connection !== null) ||
       (mode === 'paused' && state === 'paused')
@@ -217,16 +238,19 @@ export function createDatabaseLifecycleCoordinator(options = {}) {
       if (startPromise) return startPromise;
       startPromise = (async () => {
         await commandGate.pauseAndDrain();
+        if (disposedRequested) return;
         installListeners();
+        if (disposedRequested) return;
         await requestMode('active');
       })();
       return startPromise;
     },
     async dispose() {
+      if (state === 'disposed') return;
       if (disposePromise) return disposePromise;
       disposedRequested = true;
       desiredMode = null;
-      disposePromise = (async () => {
+      const running = (async () => {
         const handles = subscriptions;
         subscriptions = [];
         await Promise.all(handles.map(removeSubscription));
@@ -241,21 +265,30 @@ export function createDatabaseLifecycleCoordinator(options = {}) {
         if (connection !== null) {
           const closing = connection;
           try {
-            try {
+            if (connectionOpened) {
               await closing.query('PRAGMA wal_checkpoint(PASSIVE)');
-            } catch (error) {
-              failures.push(failureDiagnostic(error));
             }
-            await closing.close();
           } catch (error) {
             failures.push(failureDiagnostic(error));
-          } finally {
+          }
+          try {
+            await closing.close();
+          } catch (error) {
+            recordFailure(error);
+            throw error;
+          }
+          if (connection === closing) {
             connection = null;
+            connectionOpened = false;
           }
         }
         setState('disposed');
       })();
-      return disposePromise;
+      disposePromise = running;
+      void running.catch(() => {
+        if (disposePromise === running) disposePromise = null;
+      });
+      return running;
     },
     getDiagnosticState() {
       return Object.freeze({

@@ -38,6 +38,9 @@ function createLifecycleProbe() {
     emit(kind, value) {
       for (const listener of Array.from(listeners[kind])) listener(value);
     },
+    subscriptionCount() {
+      return Object.values(listeners).reduce((total, set) => total + set.size, 0);
+    },
   });
 }
 
@@ -47,13 +50,17 @@ function createConnectionProbe(name, failures = {}) {
   const connection = Object.freeze({
     async open() {
       calls.push('open');
-      if (failures.open) throw new Error(`${name}_open_failed`);
+      const fails =
+        typeof failures.open === 'function' ? failures.open() : failures.open;
+      if (fails) throw new Error(`${name}_open_failed`);
       open = true;
     },
     async close() {
       calls.push('close');
+      const fails =
+        typeof failures.close === 'function' ? failures.close() : failures.close;
+      if (fails) throw new Error(`${name}_close_failed`);
       open = false;
-      if (failures.close) throw new Error(`${name}_close_failed`);
     },
     async execute(sql) {
       calls.push(['execute', sql]);
@@ -61,7 +68,11 @@ function createConnectionProbe(name, failures = {}) {
     },
     async query(sql) {
       calls.push(['query', sql]);
-      if (sql === 'PRAGMA wal_checkpoint(PASSIVE)' && failures.checkpoint) {
+      const checkpointFails =
+        typeof failures.checkpoint === 'function'
+          ? failures.checkpoint()
+          : failures.checkpoint;
+      if (sql === 'PRAGMA wal_checkpoint(PASSIVE)' && checkpointFails) {
         throw new Error(`${name}_checkpoint_failed`);
       }
       return [];
@@ -73,7 +84,7 @@ function createConnectionProbe(name, failures = {}) {
       return false;
     },
   });
-  return { calls, connection, isOpen: () => open, name };
+  return { calls, connection, failures, isOpen: () => open, name };
 }
 
 function createHarness({ connections, migrationFailureAt = -1 } = {}) {
@@ -112,6 +123,14 @@ async function waitForState(coordinator, expected) {
     await new Promise((resolve) => setImmediate(resolve));
   }
   assert.fail(`Coordinator did not reach ${expected}: ${JSON.stringify(coordinator.getDiagnosticState())}`);
+}
+
+async function waitFor(predicate, label) {
+  for (let index = 0; index < 100; index += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.fail(`Timed out waiting for ${label}`);
 }
 
 test('coordinator exposes exact surface and starts by opening, migrating and rehydrating', async () => {
@@ -228,7 +247,8 @@ for (const failure of ['checkpoint', 'close']) {
       '../src/app/database-lifecycle-coordinator.js'
     );
     const first = createConnectionProbe('first', { [failure]: true });
-    const harness = createHarness({ connections: [first] });
+    const second = createConnectionProbe('second');
+    const harness = createHarness({ connections: [first, second] });
     const coordinator = createDatabaseLifecycleCoordinator(harness.options);
     await coordinator.start();
     harness.lifecycle.emit('pause');
@@ -243,9 +263,98 @@ for (const failure of ['checkpoint', 'close']) {
       (error) => error?.code === 'sqlite_commands_paused',
     );
     assert.deepEqual(coordinator.getDiagnosticState().failures, diagnostic.failures);
+
+    const callsBeforeDuplicatePause = first.calls.length;
+    harness.lifecycle.emit('pause');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(coordinator.getDiagnosticState().state, 'failed');
+    assert.equal(first.calls.length, callsBeforeDuplicatePause);
+    assert.deepEqual(coordinator.getDiagnosticState().failures, diagnostic.failures);
+
+    if (failure === 'close') {
+      assert.equal(first.isOpen(), true, 'a rejected close may leave the connection live');
+      harness.lifecycle.emit('resume');
+      await waitFor(
+        () => coordinator.getDiagnosticState().failures.length === 2,
+        'the exact connection close retry to fail',
+      );
+      assert.equal(harness.created.length, 1, 'no replacement may open before close');
+      assert.equal(first.isOpen(), true);
+    }
+
+    first.failures[failure] = false;
+    harness.lifecycle.emit('resume');
+    await waitForState(coordinator, 'active');
+    assert.equal(harness.created.length, 2);
+    assert.equal(first.isOpen(), false);
+    assert.equal(second.isOpen(), true);
     await coordinator.dispose();
   });
 }
+
+for (const resumeFailure of ['open', 'migration']) {
+  test(`active pause then resume ${resumeFailure} failure stays recoverable`, async () => {
+    const { createDatabaseLifecycleCoordinator } = await import(
+      '../src/app/database-lifecycle-coordinator.js'
+    );
+    const first = createConnectionProbe('first');
+    const second = createConnectionProbe('second', {
+      open: resumeFailure === 'open',
+    });
+    const third = createConnectionProbe('third');
+    const harness = createHarness({
+      connections: [first, second, third],
+      migrationFailureAt: resumeFailure === 'migration' ? 1 : -1,
+    });
+    const coordinator = createDatabaseLifecycleCoordinator(harness.options);
+    await coordinator.start();
+    harness.lifecycle.emit('pause');
+    await waitForState(coordinator, 'paused');
+
+    harness.lifecycle.emit('resume');
+    await waitForState(coordinator, 'failed');
+    const failed = coordinator.getDiagnosticState();
+    assert.equal(failed.failures.length, 1);
+    assert.match(failed.failures[0].message, new RegExp(`${resumeFailure}_failed`));
+    assert.equal(harness.gate.isAccepting(), false);
+    assert.equal(harness.created.length, 2);
+    assert.equal(first.isOpen(), false);
+    assert.equal(second.isOpen(), false);
+
+    harness.lifecycle.emit('pause');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(coordinator.getDiagnosticState(), failed);
+
+    harness.lifecycle.emit('resume');
+    await waitForState(coordinator, 'active');
+    assert.equal(harness.created.length, 3);
+    assert.equal(third.isOpen(), true);
+    assert.deepEqual(coordinator.getDiagnosticState().failures, failed.failures);
+    await coordinator.dispose();
+  });
+}
+
+test('dispose retries the retained exact connection after a pause close failure', async () => {
+  const { createDatabaseLifecycleCoordinator } = await import(
+    '../src/app/database-lifecycle-coordinator.js'
+  );
+  const first = createConnectionProbe('first', { close: true });
+  const harness = createHarness({
+    connections: [first, createConnectionProbe('must-not-be-created')],
+  });
+  const coordinator = createDatabaseLifecycleCoordinator(harness.options);
+  await coordinator.start();
+  harness.lifecycle.emit('pause');
+  await waitForState(coordinator, 'failed');
+  assert.equal(first.isOpen(), true);
+
+  first.failures.close = false;
+  await coordinator.dispose();
+
+  assert.equal(first.isOpen(), false);
+  assert.equal(harness.created.length, 1);
+  assert.equal(coordinator.getDiagnosticState().state, 'disposed');
+});
 
 test('a later resume retries after migration failure without clearing failure history or bytes', async () => {
   const { createDatabaseLifecycleCoordinator } = await import(
@@ -312,4 +421,84 @@ test('dispose during a transition waits safely, closes once and ignores later ev
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(harness.created.length, created);
   assert.equal(harness.gate.isAccepting(), false);
+});
+
+test('dispose during starting stops after the in-flight factory and never opens', async () => {
+  const { createDatabaseLifecycleCoordinator } = await import(
+    '../src/app/database-lifecycle-coordinator.js'
+  );
+  const harness = createHarness();
+  const factoryStarted = deferred();
+  const releaseFactory = deferred();
+  const candidate = createConnectionProbe('candidate');
+  harness.options.createConnection = async () => {
+    harness.created.push(candidate);
+    factoryStarted.resolve();
+    await releaseFactory.promise;
+    return candidate.connection;
+  };
+  const coordinator = createDatabaseLifecycleCoordinator(harness.options);
+  const starting = coordinator.start();
+  await factoryStarted.promise;
+  assert.equal(coordinator.getDiagnosticState().state, 'starting');
+
+  const disposing = coordinator.dispose();
+  releaseFactory.resolve();
+  await Promise.all([starting, disposing]);
+
+  assert.deepEqual(candidate.calls, ['close']);
+  assert.equal(harness.migrations.length, 0);
+  assert.equal(harness.rehydrations.length, 0);
+  assert.equal(harness.lifecycle.subscriptionCount(), 0);
+  assert.equal(harness.gate.isAccepting(), false);
+  assert.equal(coordinator.getDiagnosticState().state, 'disposed');
+});
+
+test('an immediate dispose cannot race start into installing subscriptions', async () => {
+  const { createDatabaseLifecycleCoordinator } = await import(
+    '../src/app/database-lifecycle-coordinator.js'
+  );
+  const harness = createHarness();
+  const coordinator = createDatabaseLifecycleCoordinator(harness.options);
+
+  await Promise.all([coordinator.start(), coordinator.dispose()]);
+
+  assert.equal(harness.lifecycle.subscriptionCount(), 0);
+  assert.equal(harness.created.length, 0);
+  assert.equal(coordinator.getDiagnosticState().state, 'disposed');
+});
+
+test('dispose during resuming stops after migration and never rehydrates or resumes', async () => {
+  const { createDatabaseLifecycleCoordinator } = await import(
+    '../src/app/database-lifecycle-coordinator.js'
+  );
+  const first = createConnectionProbe('first');
+  const second = createConnectionProbe('second');
+  const harness = createHarness({ connections: [first, second] });
+  const migrationStarted = deferred();
+  const releaseMigration = deferred();
+  harness.options.migrate = async (connection) => {
+    harness.migrations.push(connection);
+    if (harness.migrations.length === 2) {
+      migrationStarted.resolve();
+      await releaseMigration.promise;
+    }
+  };
+  const coordinator = createDatabaseLifecycleCoordinator(harness.options);
+  await coordinator.start();
+  harness.lifecycle.emit('pause');
+  await waitForState(coordinator, 'paused');
+  harness.lifecycle.emit('resume');
+  await migrationStarted.promise;
+  assert.equal(coordinator.getDiagnosticState().state, 'resuming');
+
+  const disposing = coordinator.dispose();
+  releaseMigration.resolve();
+  await disposing;
+
+  assert.equal(harness.rehydrations.length, 1);
+  assert.equal(harness.gate.isAccepting(), false);
+  assert.equal(second.isOpen(), false);
+  assert.equal(harness.lifecycle.subscriptionCount(), 0);
+  assert.equal(coordinator.getDiagnosticState().state, 'disposed');
 });

@@ -112,6 +112,9 @@ test('dispose removes every native listener exactly once and makes callbacks ine
   for (const callback of captured) callback({ isActive: true });
 
   assert.equal(calls, 0);
+  assert.throws(() => lifecycle.onPause(null), /must be a function/);
+  assert.throws(() => lifecycle.onResume('listener'), /must be a function/);
+  assert.throws(() => lifecycle.onStateChange({}), /must be a function/);
   assert.deepEqual(probe.removals.toSorted(), [
     'appStateChange',
     'pause',

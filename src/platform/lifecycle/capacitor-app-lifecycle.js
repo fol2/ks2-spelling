@@ -17,8 +17,9 @@ function requireListener(listener) {
 }
 
 function subscriberHandle(listeners, listener, isDisposed) {
+  requireListener(listener);
   if (isDisposed()) return Object.freeze({ async remove() {} });
-  listeners.add(requireListener(listener));
+  listeners.add(listener);
   let removed = false;
   return Object.freeze({
     async remove() {

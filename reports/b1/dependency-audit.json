@@ -213,7 +213,7 @@
   "androidResolution": {
     "status": "resolved-toolchain",
     "evidencePath": "reports/b1/android-dependency-resolution.json",
-    "evidenceSha256": "280b3470ef2f3357fdc5c04d5a4cb3d4961ac952449ade25a80903b008b71e04",
+    "evidenceSha256": "e67f9ca96c6be0c227eeb7867df6767ae806289cf5a1098a10e5b1891048ceba",
     "componentCount": 286,
     "scopeMembershipCount": 3133,
     "packagedRuntimeCount": 50,
@@ -436,8 +436,22 @@
   },
   "permissionEvidence": {
     "androidUsesPermissions": [],
+    "androidPermissionRemovalMarkers": [
+      "permission",
+      "uses-permission"
+    ],
     "iosEntitlements": [],
-    "iosUsageDescriptionKeys": []
+    "iosUsageDescriptionKeys": [],
+    "packagedAndroid": {
+      "schemaVersion": 1,
+      "apkPath": ".native-build/android/build/app/outputs/apk/debug/app-debug.apk",
+      "appIdentity": "uk.eugnel.ks2spelling",
+      "buildToolsVersion": "36.0.0",
+      "permissionSurfaceSha256": "28845e13ab77dc0edab52ecea963c969397cd9dfa7a9964975c42ddf8ab54650",
+      "sourceBuildInputSha256": "ad53d73b2a27991328e612ebb6dbeeb64ffa0ad997aa6257c3a49cf1808638b1",
+      "declaredPermissions": [],
+      "requestedPermissions": []
+    }
   },
   "b1Truth": {
     "childDataCollected": false,

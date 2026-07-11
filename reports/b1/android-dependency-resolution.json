@@ -8,6 +8,22 @@
   "taskCreatedBuildToolCount": 12,
   "generatedFrom": [
     {
+      "path": "package.json",
+      "sha256": "aa7140be27304d3130b8a5dda1214e30f064c1d45c2e888935d88a7ceb4b8c10"
+    },
+    {
+      "path": "scripts/certify-android-dependencies.mjs",
+      "sha256": "16586177ea72a250450ea83a40d43e3eb7db27ed51916ab75880615183cae9bc"
+    },
+    {
+      "path": "scripts/resolve-android-dependencies.mjs",
+      "sha256": "1e26e657f09f159cc727c5039850c6809f8f7343e795adcd15930a1c2fc86799"
+    },
+    {
+      "path": "scripts/lib/maven-evidence.mjs",
+      "sha256": "46493b8e76a9d9bef2e1ea6959a4c3cba0d6d24e2dc8dfc2f5bf0eca657c4dfc"
+    },
+    {
       "path": "config/dependency-policy.json",
       "sha256": "38e6a017b93ff5cd425f5bcbe7fa72a28ad9e9a20c2985247b9663fd2f8f9e6a"
     },

@@ -128,7 +128,7 @@ test('Gradle verification metadata covers every resolved POM and binary checksum
   );
   const extraComponent = metadata.replace(
     '</components>',
-    `<component group="evil" name="extra" version="1"><artifact name="extra-1.pom"><sha256 value="${SHA_A}"/></artifact></component></components>`,
+    `<component name="extra" version="1" group="evil"><artifact name="extra-1.pom"><sha256 value="${SHA_A}"/></artifact></component></components>`,
   );
   assert.throws(
     () => assertVerificationMetadataMatchesInventory(extraComponent, inventory),
@@ -148,6 +148,31 @@ test('Gradle verification metadata covers every resolved POM and binary checksum
   );
   assert.throws(
     () => parseVerificationMetadataInventory(duplicateChecksum),
+    ({ code }) => code === 'android_verification_metadata_invalid',
+  );
+  for (const invalidAttributes of [
+    `group="com.example" name="library" version="1.0.0" evil='x'`,
+    'group="com.example" name="library" version="1.0.0" bare-junk',
+  ]) {
+    assert.throws(
+      () =>
+        parseVerificationMetadataInventory(
+          metadata.replace(
+            'group="com.example" name="library" version="1.0.0"',
+            invalidAttributes,
+          ),
+        ),
+      ({ code }) => code === 'android_verification_metadata_invalid',
+    );
+  }
+  assert.throws(
+    () =>
+      parseVerificationMetadataInventory(
+        metadata.replace(
+          `<sha256 value="${SHA_A}"/>`,
+          `<sha256 value="${SHA_A}" unknown='x'/>`,
+        ),
+      ),
     ({ code }) => code === 'android_verification_metadata_invalid',
   );
 });
@@ -190,4 +215,29 @@ test('raw Gradle resolution fails closed on duplicate, missing or malformed evid
     () => canonicaliseGradleResolution(malformed),
     ({ code }) => code === 'android_resolution_invalid',
   );
+});
+
+test('committed Android certification is bound to every resolver and policy input', async () => {
+  const reportText = await readFile(
+    join(ROOT, 'reports/b1/android-dependency-resolution.json'),
+    'utf8',
+  );
+  const report = JSON.parse(reportText);
+  assert.equal(report.componentCount, 286);
+  assert.equal(report.taskCreatedBuildToolCount, 12);
+  assert.equal(report.verificationInventory.componentCount, 391);
+  assert.equal(report.verificationInventory.artifactCount, 765);
+  assert.equal(reportText.includes('/Users/'), false);
+  const inputs = new Set(report.generatedFrom.map(({ path }) => path));
+  for (const path of [
+    'package.json',
+    'scripts/certify-android-dependencies.mjs',
+    'scripts/resolve-android-dependencies.mjs',
+    'scripts/lib/maven-evidence.mjs',
+    'config/dependency-policy.json',
+    'config/maven-licence-policy.json',
+    'android/gradle/verification-metadata.xml',
+  ]) {
+    assert.ok(inputs.has(path), path);
+  }
 });

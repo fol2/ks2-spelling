@@ -252,7 +252,38 @@ test('native build and sync commands freeze identity and derived outputs', async
     variant: 'debug',
     signing: 'debug',
     releaseSigned: false,
+    declaredPermissions: [],
+    requestedPermissions: [],
   });
+  const { parsePackagedAndroidPermissions } = await importScript(
+    'scripts/test-android.mjs',
+  );
+  assert.deepEqual(
+    parsePackagedAndroidPermissions('package: uk.eugnel.ks2spelling\n'),
+    {
+      appIdentity: 'uk.eugnel.ks2spelling',
+      declaredPermissions: [],
+      requestedPermissions: [],
+    },
+  );
+  assert.throws(
+    () =>
+      parsePackagedAndroidPermissions(
+        "package: uk.eugnel.ks2spelling\nuses-permission: name='android.permission.INTERNET'\n",
+      ),
+    ({ code }) => code === 'android_packaged_permission_detected',
+  );
+  assert.throws(
+    () =>
+      parsePackagedAndroidPermissions(
+        'package: uk.eugnel.ks2spelling\npermission: uk.eugnel.ks2spelling.UNEXPECTED\n',
+      ),
+    ({ code }) => code === 'android_packaged_permission_detected',
+  );
+  assert.throws(
+    () => parsePackagedAndroidPermissions('package: uk.eugnel.ks2spelling\nbare-junk\n'),
+    ({ code }) => code === 'android_packaged_permission_detected',
+  );
 });
 
 test('launch plans target only the named B1 virtual devices and exact app identity', async () => {

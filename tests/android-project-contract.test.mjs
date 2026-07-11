@@ -69,7 +69,21 @@ test('the B1 Android app declares no network or other permission', async () => {
   assert.ok(existsSync(MANIFEST), 'missing committed Android app manifest');
 
   const manifest = await readFile(MANIFEST, 'utf8');
-  assert.doesNotMatch(manifest, /<uses-permission\b/);
+  assert.match(manifest, /xmlns:tools="http:\/\/schemas\.android\.com\/tools"/);
+  const removalMarkers = [
+    ...manifest.matchAll(
+      /<(permission|uses-permission)\s+android:name="\$\{applicationId\}\.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"\s+tools:node="remove"\s*\/>/g,
+    ),
+  ];
+  assert.deepEqual(
+    removalMarkers.map((match) => match[1]).sort(),
+    ['permission', 'uses-permission'],
+  );
+  let manifestWithoutRemovalMarkers = manifest;
+  for (const marker of removalMarkers) {
+    manifestWithoutRemovalMarkers = manifestWithoutRemovalMarkers.replace(marker[0], '');
+  }
+  assert.doesNotMatch(manifestWithoutRemovalMarkers, /<(?:permission|uses-permission)\b/);
   assert.doesNotMatch(manifest, /android:usesCleartextTraffic\s*=/);
   assert.doesNotMatch(manifest, /android:networkSecurityConfig\s*=/);
   assert.equal(

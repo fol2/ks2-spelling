@@ -390,6 +390,10 @@ export async function buildAndroidCertification({
   );
   const inputs = await Promise.all(
     [
+      'package.json',
+      'scripts/certify-android-dependencies.mjs',
+      'scripts/resolve-android-dependencies.mjs',
+      'scripts/lib/maven-evidence.mjs',
       'config/dependency-policy.json',
       'config/maven-licence-policy.json',
       'android/gradle/verification-metadata.xml',

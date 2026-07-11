@@ -2,11 +2,27 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
-import { EXIT_CODES, isMain, printJson } from './lib/run-command.mjs';
+import { EXIT_CODES, isMain, printJson, runCommand } from './lib/run-command.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const REPORT_PATH = resolve(ROOT, 'reports/b1/dependency-audit.json');
 const NOTICES_PATH = resolve(ROOT, 'THIRD_PARTY_NOTICES.md');
+const PACKAGED_PERMISSION_PATH = resolve(
+  ROOT,
+  'reports/b1/android-packaged-permissions.json',
+);
+const PACKAGED_PERMISSION_BUILD_INPUTS = Object.freeze([
+  'android/app/src/main/AndroidManifest.xml',
+  'android/app/build.gradle',
+  'android/app/capacitor.build.gradle',
+  'android/build.gradle',
+  'android/variables.gradle',
+  'android/gradle/dependency-locks/app.lockfile',
+  'android/gradle/dependency-locks/capacitor-android.lockfile',
+  'android/gradle/dependency-locks/capacitor-cordova-android-plugins.lockfile',
+  'android/gradle/verification-metadata.xml',
+  'package-lock.json',
+]);
 
 function policyError(code, message) {
   const error = new Error(message);
@@ -16,6 +32,79 @@ function policyError(code, message) {
 
 async function readJson(path) {
   return JSON.parse(await readFile(path, 'utf8'));
+}
+
+function canonicalPackagedPermissionEvidence(evidence) {
+  const allowedKeys = [
+    'apkPath',
+    'appIdentity',
+    'buildToolsVersion',
+    'declaredPermissions',
+    'requestedPermissions',
+    'schemaVersion',
+    'permissionSurfaceSha256',
+    'sourceBuildInputSha256',
+  ];
+  const actualKeys = Object.keys(evidence ?? {}).sort();
+  if (
+    actualKeys.some((key) => !allowedKeys.includes(key)) ||
+    (Object.hasOwn(evidence ?? {}, 'schemaVersion') && evidence.schemaVersion !== 1)
+  ) {
+    throw policyError(
+      'android_packaged_permission_evidence_invalid',
+      'Packaged Android permission evidence has unexpected fields or schema',
+    );
+  }
+  const canonical = {
+    schemaVersion: 1,
+    apkPath: evidence?.apkPath,
+    appIdentity: evidence?.appIdentity,
+    buildToolsVersion: evidence?.buildToolsVersion,
+    permissionSurfaceSha256: evidence?.permissionSurfaceSha256,
+    sourceBuildInputSha256: evidence?.sourceBuildInputSha256,
+    declaredPermissions: evidence?.declaredPermissions,
+    requestedPermissions: evidence?.requestedPermissions,
+  };
+  if (
+    canonical.apkPath !==
+      '.native-build/android/build/app/outputs/apk/debug/app-debug.apk' ||
+    canonical.appIdentity !== 'uk.eugnel.ks2spelling' ||
+    canonical.buildToolsVersion !== '36.0.0' ||
+    !/^[a-f0-9]{64}$/.test(canonical.permissionSurfaceSha256 ?? '') ||
+    !/^[a-f0-9]{64}$/.test(canonical.sourceBuildInputSha256 ?? '') ||
+    !Array.isArray(canonical.declaredPermissions) ||
+    canonical.declaredPermissions.length !== 0 ||
+    !Array.isArray(canonical.requestedPermissions) ||
+    canonical.requestedPermissions.length !== 0
+  ) {
+    throw policyError(
+      'android_packaged_permission_evidence_invalid',
+      'Packaged Android permission evidence is incomplete or non-empty',
+    );
+  }
+  return canonical;
+}
+
+async function packagedPermissionSourceBuildInputSha256() {
+  const hash = createHash('sha256');
+  for (const path of PACKAGED_PERMISSION_BUILD_INPUTS) {
+    hash.update(`${path}\0`);
+    hash.update(await readFile(resolve(ROOT, path)));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
+export function assertPackagedPermissionEvidenceCurrent(actual, committed) {
+  const actualCanonical = canonicalPackagedPermissionEvidence(actual);
+  const committedCanonical = canonicalPackagedPermissionEvidence(committed);
+  if (JSON.stringify(actualCanonical) !== JSON.stringify(committedCanonical)) {
+    throw policyError(
+      'android_packaged_permission_evidence_stale',
+      'Committed packaged Android permission evidence does not match the fresh APK',
+    );
+  }
+  return actualCanonical;
 }
 
 function packageNameFromPath(path) {
@@ -156,8 +245,22 @@ async function verifyRuntimeBoundary(packageJson) {
     resolve(ROOT, 'android/app/src/main/AndroidManifest.xml'),
     'utf8',
   );
-  if (/<uses-permission\b/.test(manifest)) {
-    throw policyError('android_permission_declared', 'B1 app manifest declares a permission');
+  const permissionRemovalPattern =
+    /<(permission|uses-permission)\s+android:name="\$\{applicationId\}\.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"\s+tools:node="remove"\s*\/>/g;
+  const permissionRemovalMarkers = [...manifest.matchAll(permissionRemovalPattern)];
+  let manifestWithoutRemovalMarkers = manifest;
+  for (const marker of permissionRemovalMarkers) {
+    manifestWithoutRemovalMarkers = manifestWithoutRemovalMarkers.replace(marker[0], '');
+  }
+  if (
+    permissionRemovalMarkers.length !== 2 ||
+    new Set(permissionRemovalMarkers.map((match) => match[1])).size !== 2 ||
+    /<(?:permission|uses-permission)\b/.test(manifestWithoutRemovalMarkers)
+  ) {
+    throw policyError(
+      'android_permission_declared',
+      'B1 app manifest permission surface is not the exact merge-removal contract',
+    );
   }
   const iosAppFiles = await listFiles(resolve(ROOT, 'ios/App/App'));
   const entitlements = iosAppFiles
@@ -210,6 +313,9 @@ async function verifyRuntimeBoundary(packageJson) {
   }
   return {
     androidUsesPermissions: [],
+    androidPermissionRemovalMarkers: permissionRemovalMarkers
+      .map((match) => match[1])
+      .sort(),
     iosEntitlements: entitlements,
     iosUsageDescriptionKeys: usageDescriptionKeys,
   };
@@ -699,6 +805,11 @@ export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
   assertDirectPolicy(lock.packages[''].devDependencies, policy.directBuildTools, 'lock build');
   const lockPackages = validateLock(policy, lock);
   const permissionEvidence = await verifyRuntimeBoundary(packageJson);
+  if (!preBootstrap) {
+    permissionEvidence.packagedAndroid = canonicalPackagedPermissionEvidence(
+      await readJson(PACKAGED_PERMISSION_PATH),
+    );
+  }
 
   const production = stableSortByName(
     lockPackages
@@ -874,6 +985,38 @@ export async function main(args = process.argv.slice(2)) {
   const write = args.includes('--write');
   try {
     if (!preBootstrap) {
+      const androidBuild = await runCommand(
+        process.execPath,
+        ['scripts/test-android.mjs'],
+        { cwd: ROOT },
+      );
+      if (androidBuild.exitCode !== EXIT_CODES.success) {
+        throw policyError(
+          'android_packaged_permission_gate_failed',
+          `Android build and packaged permission inspection failed with ${androidBuild.exitCode}`,
+        );
+      }
+      const { verifyPackagedAndroidPermissions } = await import('./test-android.mjs');
+      const currentPermissionEvidence = canonicalPackagedPermissionEvidence(
+        {
+          ...(await verifyPackagedAndroidPermissions()),
+          sourceBuildInputSha256:
+            await packagedPermissionSourceBuildInputSha256(),
+        },
+      );
+      if (write) {
+        await mkdir(resolve(ROOT, 'reports/b1'), { recursive: true });
+        await writeFile(
+          PACKAGED_PERMISSION_PATH,
+          `${JSON.stringify(currentPermissionEvidence, null, 2)}\n`,
+          'utf8',
+        );
+      } else {
+        assertPackagedPermissionEvidenceCurrent(
+          currentPermissionEvidence,
+          await readJson(PACKAGED_PERMISSION_PATH),
+        );
+      }
       const {
         assertAndroidCertificationCurrent,
         buildAndroidCertification,

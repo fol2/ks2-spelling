@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
   EXIT_CODES,
@@ -10,6 +11,10 @@ import {
 
 const ROOT = resolve(import.meta.dirname, '..');
 const ANDROID_STUDIO_JBR = '/Applications/Android Studio.app/Contents/jbr/Contents/Home';
+const DEBUG_APK = join(
+  ROOT,
+  '.native-build/android/build/app/outputs/apk/debug/app-debug.apk',
+);
 
 export const GRADLE_INIT_SCRIPT = `gradle.beforeProject { project ->
     def nativeRoot = new File(project.rootProject.projectDir, "../.native-build/android/build")
@@ -39,7 +44,82 @@ export const ANDROID_BUILD_EVIDENCE = Object.freeze({
   variant: 'debug',
   signing: 'debug',
   releaseSigned: false,
+  declaredPermissions: [],
+  requestedPermissions: [],
 });
+
+function packagedPermissionError(message) {
+  const error = new Error(message);
+  error.code = 'android_packaged_permission_detected';
+  return error;
+}
+
+export function parsePackagedAndroidPermissions(output) {
+  let appIdentity = null;
+  const declaredPermissions = [];
+  const requestedPermissions = [];
+  for (const line of output.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean)) {
+    const packageName = line.match(/^package:\s+([^\s]+)$/)?.[1];
+    if (packageName) {
+      if (appIdentity !== null) {
+        throw packagedPermissionError('Duplicate package identity in aapt2 output');
+      }
+      appIdentity = packageName;
+      continue;
+    }
+    const declared = line.match(/^permission:\s+(.+)$/)?.[1];
+    if (declared) {
+      declaredPermissions.push(declared);
+      continue;
+    }
+    const requested = line.match(/^uses-permission:\s+name='([^']+)'$/)?.[1];
+    if (requested) {
+      requestedPermissions.push(requested);
+      continue;
+    }
+    throw packagedPermissionError(`Unparsed aapt2 permission output: ${line}`);
+  }
+  if (declaredPermissions.length || requestedPermissions.length) {
+    throw packagedPermissionError(
+      `Packaged Android permission surface is not empty; declared=${declaredPermissions.join(',')}; requested=${requestedPermissions.join(',')}`,
+    );
+  }
+  if (appIdentity !== 'uk.eugnel.ks2spelling') {
+    throw packagedPermissionError(`Unexpected packaged Android identity: ${appIdentity}`);
+  }
+  return { appIdentity, declaredPermissions, requestedPermissions };
+}
+
+export async function verifyPackagedAndroidPermissions(options = {}) {
+  const resolution = resolveAndroidEnvironment();
+  const androidSdkRoot = options.androidSdkRoot ?? resolution.androidSdkRoot;
+  const buildTools36 =
+    options.buildTools36 ??
+    (androidSdkRoot ? await findBuildTools36(androidSdkRoot) : null);
+  if (!androidSdkRoot || !buildTools36) {
+    throw packagedPermissionError('Android Build Tools 36 are unavailable');
+  }
+  if (!existsSync(DEBUG_APK)) {
+    throw packagedPermissionError('Debug APK is missing for packaged permission inspection');
+  }
+  const aapt2 = join(androidSdkRoot, 'build-tools', buildTools36, 'aapt2');
+  const result = await runCommand(aapt2, ['dump', 'permissions', DEBUG_APK], {
+    cwd: ROOT,
+  });
+  if (result.exitCode !== 0) {
+    throw packagedPermissionError(`aapt2 permission inspection failed with ${result.exitCode}`);
+  }
+  const permissions = parsePackagedAndroidPermissions(result.stdout);
+  const permissionSurfaceSha256 = createHash('sha256')
+    .update(JSON.stringify(permissions))
+    .digest('hex');
+  return {
+    ...permissions,
+    apkPath: '.native-build/android/build/app/outputs/apk/debug/app-debug.apk',
+    permissionSurfaceSha256,
+    buildToolsVersion: buildTools36,
+  };
+}
 
 export function resolveAndroidEnvironment({ env = process.env, pathExists = existsSync } = {}) {
   const javaCandidates = [env.JAVA_HOME, ANDROID_STUDIO_JBR].filter(Boolean);
@@ -110,7 +190,26 @@ export async function main() {
     printJson({ ok: false, code: 'android_build_failed', exitCode: result.exitCode });
     return EXIT_CODES.commandFailed;
   }
-  printJson(ANDROID_BUILD_EVIDENCE);
+  let permissionEvidence;
+  try {
+    permissionEvidence = await verifyPackagedAndroidPermissions({
+      androidSdkRoot: resolution.androidSdkRoot,
+      buildTools36,
+    });
+  } catch (error) {
+    printJson(
+      { ok: false, code: error.code, message: error.message },
+      process.stderr,
+    );
+    return EXIT_CODES.stateMismatch;
+  }
+  printJson({
+    ...ANDROID_BUILD_EVIDENCE,
+    ...permissionEvidence,
+    diagnosticApkSha256: createHash('sha256')
+      .update(await readFile(DEBUG_APK))
+      .digest('hex'),
+  });
   return EXIT_CODES.success;
 }
 

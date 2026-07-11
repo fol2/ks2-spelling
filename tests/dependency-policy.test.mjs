@@ -15,6 +15,7 @@ const REQUIRED_FILES = [
   'docs/compliance/sdk-privacy-register.md',
   'THIRD_PARTY_NOTICES.md',
   'reports/b1/dependency-audit.json',
+  'reports/b1/android-packaged-permissions.json',
 ];
 
 async function importScript(path) {
@@ -73,6 +74,7 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
   assert.deepEqual(report.plugins.approved, []);
   assert.deepEqual(report.permissionEvidence, {
     androidUsesPermissions: [],
+    androidPermissionRemovalMarkers: ['permission', 'uses-permission'],
     iosEntitlements: [],
     iosUsageDescriptionKeys: [],
   });
@@ -95,9 +97,69 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
 });
 
 test('default audit consumes the complete resolved Android certification', async () => {
-  const { buildDependencyArtifacts } = await importScript('scripts/audit-dependencies.mjs');
+  const {
+    assertPackagedPermissionEvidenceCurrent,
+    buildDependencyArtifacts,
+  } = await importScript('scripts/audit-dependencies.mjs');
   const { report } = await buildDependencyArtifacts({ preBootstrap: false });
   assert.equal(report.mode, 'resolved-toolchain');
+  assert.deepEqual(report.permissionEvidence.packagedAndroid, {
+    schemaVersion: 1,
+    apkPath: '.native-build/android/build/app/outputs/apk/debug/app-debug.apk',
+    appIdentity: 'uk.eugnel.ks2spelling',
+    buildToolsVersion: '36.0.0',
+    permissionSurfaceSha256:
+      report.permissionEvidence.packagedAndroid.permissionSurfaceSha256,
+    sourceBuildInputSha256:
+      report.permissionEvidence.packagedAndroid.sourceBuildInputSha256,
+    declaredPermissions: [],
+    requestedPermissions: [],
+  });
+  assert.match(
+    report.permissionEvidence.packagedAndroid.permissionSurfaceSha256,
+    /^[a-f0-9]{64}$/,
+  );
+  assert.match(
+    report.permissionEvidence.packagedAndroid.sourceBuildInputSha256,
+    /^[a-f0-9]{64}$/,
+  );
+  assert.doesNotThrow(() =>
+    assertPackagedPermissionEvidenceCurrent(
+      report.permissionEvidence.packagedAndroid,
+      report.permissionEvidence.packagedAndroid,
+    ),
+  );
+  const machineSpecificApkDiagnostics = ['0'.repeat(64), '1'.repeat(64)];
+  assert.notEqual(...machineSpecificApkDiagnostics);
+  assert.equal(Object.hasOwn(report.permissionEvidence.packagedAndroid, 'apkSha256'), false);
+  assert.doesNotThrow(() =>
+    assertPackagedPermissionEvidenceCurrent(
+      report.permissionEvidence.packagedAndroid,
+      report.permissionEvidence.packagedAndroid,
+    ),
+  );
+  assert.throws(
+    () =>
+      assertPackagedPermissionEvidenceCurrent(
+        {
+          ...report.permissionEvidence.packagedAndroid,
+          appIdentity: 'uk.eugnel.wrong',
+        },
+        report.permissionEvidence.packagedAndroid,
+      ),
+    ({ code }) => code === 'android_packaged_permission_evidence_invalid',
+  );
+  assert.throws(
+    () =>
+      assertPackagedPermissionEvidenceCurrent(
+        {
+          ...report.permissionEvidence.packagedAndroid,
+          requestedPermissions: ['android.permission.INTERNET'],
+        },
+        report.permissionEvidence.packagedAndroid,
+      ),
+    ({ code }) => code === 'android_packaged_permission_evidence_invalid',
+  );
   assert.deepEqual(
     {
       status: report.androidResolution.status,

@@ -144,26 +144,21 @@ export function classifyAndroidDistribution(component) {
       );
     }
   }
-  const packaged = component.scopes.some(
+  const debugRuntime = component.scopes.some(
+    ({ project, configuration, buildscript }) =>
+      project === ':app' &&
+      configuration === 'debugRuntimeClasspath' &&
+      buildscript === false,
+  );
+  const releaseRuntime = component.scopes.some(
     ({ project, configuration, buildscript }) =>
       project === ':app' &&
       configuration === 'releaseRuntimeClasspath' &&
       buildscript === false,
   );
-  if (packaged) {
-    const debugCorroboration = component.scopes.some(
-      ({ project, configuration, buildscript }) =>
-        project === ':app' &&
-        configuration === 'debugRuntimeClasspath' &&
-        buildscript === false,
-    );
-    if (!debugCorroboration) {
-      throw evidenceError(
-        'Release runtime dependency lacks matching debug runtime evidence',
-      );
-    }
-  }
-  return packaged ? 'packaged-runtime' : 'tooling-or-test-only';
+  return debugRuntime || releaseRuntime
+    ? 'packaged-runtime'
+    : 'tooling-or-test-only';
 }
 
 export function mavenPomRelativePath(coordinate) {

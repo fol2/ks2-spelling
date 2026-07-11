@@ -221,6 +221,14 @@ test('licence signatures ignore distribution only and runtime scope promotion is
   assert.equal(
     classifyAndroidDistribution({
       scopes: [
+        { project: ':app', configuration: 'debugRuntimeClasspath', buildscript: false },
+      ],
+    }),
+    'packaged-runtime',
+  );
+  assert.equal(
+    classifyAndroidDistribution({
+      scopes: [
         ...tooling.scopes,
         { project: ':app', configuration: 'debugRuntimeClasspath', buildscript: false },
         { project: ':app', configuration: 'releaseRuntimeClasspath', buildscript: false },
@@ -237,13 +245,12 @@ test('licence signatures ignore distribution only and runtime scope promotion is
       }),
     ({ code }) => code === 'maven_licence_unknown',
   );
-  assert.throws(
-    () =>
-      classifyAndroidDistribution({
-        scopes: [
-          { project: ':app', configuration: 'releaseRuntimeClasspath', buildscript: false },
-        ],
-      }),
-    ({ code }) => code === 'maven_licence_unknown',
+  assert.equal(
+    classifyAndroidDistribution({
+      scopes: [
+        { project: ':app', configuration: 'releaseRuntimeClasspath', buildscript: false },
+      ],
+    }),
+    'packaged-runtime',
   );
 });

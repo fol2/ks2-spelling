@@ -172,12 +172,40 @@ export function assertVerificationMetadataCoversResolution(resolution, xml) {
   return inventory;
 }
 
+function parseExactXmlAttributes(fragment, requiredKeys, optionalKeys = []) {
+  const entries = [];
+  const pattern = /([A-Za-z_][A-Za-z0-9_.:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+  let cursor = 0;
+  for (const match of fragment.matchAll(pattern)) {
+    if (fragment.slice(cursor, match.index).trim()) {
+      throw verificationMetadataError('Unparsed Gradle verification attribute content');
+    }
+    const [, name, doubleQuoted, singleQuoted] = match;
+    if (entries.some(([existing]) => existing === name)) {
+      throw verificationMetadataError(`Duplicate Gradle verification attribute: ${name}`);
+    }
+    entries.push([name, decodeXmlAttribute(doubleQuoted ?? singleQuoted)]);
+    cursor = match.index + match[0].length;
+  }
+  if (fragment.slice(cursor).trim()) {
+    throw verificationMetadataError('Unparsed Gradle verification attribute content');
+  }
+  const actualKeys = entries.map(([name]) => name).sort();
+  const allowedKeys = [...requiredKeys, ...optionalKeys].sort();
+  if (
+    requiredKeys.some((key) => !actualKeys.includes(key)) ||
+    actualKeys.some((key) => !allowedKeys.includes(key))
+  ) {
+    throw verificationMetadataError('Invalid Gradle verification attributes');
+  }
+  return Object.fromEntries(entries.sort(([left], [right]) => left.localeCompare(right)));
+}
+
 function parseXmlAttributes(fragment) {
-  return Object.fromEntries(
-    [...fragment.matchAll(/([A-Za-z][A-Za-z0-9-]*)="([^"]*)"/g)]
-      .map(([, name, value]) => [name, decodeXmlAttribute(value)])
-      .sort(([left], [right]) => left.localeCompare(right)),
-  );
+  const names = [
+    ...fragment.matchAll(/([A-Za-z_][A-Za-z0-9_.:-]*)\s*=/g),
+  ].map(([, name]) => name);
+  return parseExactXmlAttributes(fragment, names);
 }
 
 function parseMetadataPolicyEntries(xml, section, element) {
@@ -197,29 +225,56 @@ export function parseVerificationMetadataInventory(xml) {
   if (verifyMetadata !== 'true' || !verifySignatures) {
     throw verificationMetadataError('Gradle verification configuration is incomplete');
   }
+  const componentsBlock = xml.match(/<components>([\s\S]*?)<\/components>/)?.[1];
+  if (componentsBlock == null) {
+    throw verificationMetadataError('Gradle verification components are missing');
+  }
+  const componentPattern = /<component\s+([^>]*)>([\s\S]*?)<\/component>/g;
+  const componentMatches = [...componentsBlock.matchAll(componentPattern)];
+  if (componentsBlock.replace(componentPattern, '').trim()) {
+    throw verificationMetadataError('Unparsed Gradle verification component content');
+  }
   const components = [];
-  for (const componentMatch of xml.matchAll(
-    /<component\s+group="([^"]+)"\s+name="([^"]+)"\s+version="([^"]+)">([\s\S]*?)<\/component>/g,
-  )) {
-    const coordinate = componentMatch
-      .slice(1, 4)
-      .map(decodeXmlAttribute)
-      .join(':');
+  for (const componentMatch of componentMatches) {
+    const componentAttributes = parseExactXmlAttributes(
+      componentMatch[1],
+      ['group', 'name', 'version'],
+    );
+    const { group, name: componentName, version } = componentAttributes;
+    const coordinate = `${group}:${componentName}:${version}`;
     if (components.some((entry) => entry.coordinate === coordinate)) {
       throw verificationMetadataError(`Duplicate verification component: ${coordinate}`);
     }
     const artifacts = [];
-    for (const artifactMatch of componentMatch[4].matchAll(
-      /<artifact\s+name="([^"]+)">([\s\S]*?)<\/artifact>/g,
-    )) {
-      const name = decodeXmlAttribute(artifactMatch[1]);
-      const checksums = [...artifactMatch[2].matchAll(/<sha256\s+value="([a-f0-9]{64})"/g)]
-        .map(([, checksum]) => checksum);
-      const checksumTags = [...artifactMatch[2].matchAll(/<(sha256|sha512|md5|sha1)\b/g)];
+    const artifactPattern = /<artifact\s+([^>]*)>([\s\S]*?)<\/artifact>/g;
+    const artifactMatches = [...componentMatch[2].matchAll(artifactPattern)];
+    if (componentMatch[2].replace(artifactPattern, '').trim()) {
+      throw verificationMetadataError(
+        `Unparsed verification artefact content for ${coordinate}`,
+      );
+    }
+    for (const artifactMatch of artifactMatches) {
+      const artifactAttributes = parseExactXmlAttributes(artifactMatch[1], ['name']);
+      const name = artifactAttributes.name;
+      const checksumPattern = /<sha256\s+([^>]*)\/>/g;
+      const checksumMatches = [...artifactMatch[2].matchAll(checksumPattern)];
+      if (artifactMatch[2].replace(checksumPattern, '').trim()) {
+        throw verificationMetadataError(
+          `Unparsed verification checksum content for ${coordinate}:${name}`,
+        );
+      }
+      const checksums = checksumMatches.map((match) => {
+        const attributes = parseExactXmlAttributes(match[1], ['value'], ['origin']);
+        if (!/^[a-f0-9]{64}$/.test(attributes.value ?? '')) {
+          throw verificationMetadataError(
+            `Invalid verification checksum attributes for ${coordinate}:${name}`,
+          );
+        }
+        return attributes.value;
+      });
       if (
         artifacts.some((entry) => entry.name === name) ||
-        checksums.length !== 1 ||
-        checksumTags.length !== 1
+        checksums.length !== 1
       ) {
         throw verificationMetadataError(
           `Invalid verification checksum set for ${coordinate}:${name}`,
@@ -229,9 +284,9 @@ export function parseVerificationMetadataInventory(xml) {
     }
     components.push({
       coordinate,
-      group: decodeXmlAttribute(componentMatch[1]),
-      name: decodeXmlAttribute(componentMatch[2]),
-      version: decodeXmlAttribute(componentMatch[3]),
+      group,
+      name: componentName,
+      version,
       artifacts: artifacts.sort((left, right) => left.name.localeCompare(right.name)),
     });
   }

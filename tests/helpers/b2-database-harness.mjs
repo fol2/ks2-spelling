@@ -4,6 +4,8 @@ import {
 } from '../../src/domain/spelling/index.js';
 import { configureAndMigrateDatabase } from '../../src/platform/database/migrate-database.js';
 import { seedB2Learners } from '../../src/platform/database/b2-seed.js';
+import { createDatabaseCommandGate } from '../../src/platform/database/database-command-gate.js';
+import { createSQLiteSpellingCommandRepository } from '../../src/platform/database/sqlite-spelling-command-repository.js';
 import { createSQLiteSpellingSnapshotStore } from '../../src/platform/database/sqlite-spelling-snapshot-store.js';
 
 import { createNodeSqliteConnection } from './node-sqlite-connection.mjs';
@@ -52,10 +54,22 @@ export async function createB2DatabaseHarness() {
   const cataloguesById = Object.freeze({ [catalogue.catalogueId]: catalogue });
   const store = createSQLiteSpellingSnapshotStore({ connection, cataloguesById });
 
+  function createCommandRepository(options = {}) {
+    return createSQLiteSpellingCommandRepository({
+      connection,
+      gate: createDatabaseCommandGate(),
+      store,
+      cataloguesById,
+      now: () => B2_NOW_MS,
+      ...options,
+    });
+  }
+
   return Object.freeze({
     connection,
     catalogue,
     cataloguesById,
+    createCommandRepository,
     store,
     async close() {
       await connection.close();

@@ -182,10 +182,23 @@ test('Gradle evidence rejects every unregistered coordinate, repository form and
     ['extra coordinate', 'dependencies { implementation "evil.tracker:sdk:1.0.0" }'],
     ['runtime-only coordinate', 'dependencies { runtimeOnly "evil.runtime:sdk:3.0.0" }'],
     [
+      'inline conditional coordinate',
+      'dependencies { if (true) implementation "evil.inline:sdk:4.0.0" }',
+    ],
+    [
+      'dynamic add coordinate',
+      'dependencies { add("implementation", "evil.add:sdk:5.0.0") }',
+    ],
+    [
+      'dynamic add version alias',
+      'dependencies { add("implementation", libs.versions.evil) }',
+    ],
+    [
       'platform coordinate',
       'dependencies { implementation(platform("evil.platform:bom:2.0.0")) }',
     ],
     ['unresolved dependency syntax', 'dependencies { implementation libs.evilSdk }'],
+    ['parenthesised version alias', 'dependencies { runtimeOnly(libs.evilSdk) }'],
     ['unexpected local project', "dependencies { runtimeOnly project(':evil-local') }"],
     ['jcenter', 'repositories { jcenter() }'],
     ['maven local', 'repositories { mavenLocal() }'],
@@ -195,6 +208,10 @@ test('Gradle evidence rejects every unregistered coordinate, repository form and
       "repositories { maven { url = uri('https://evil.example/uri-m2') } }",
     ],
     ['unexpected flat directory', "repositories { flatDir { dirs 'unregistered-libs' } }"],
+    [
+      'parenthesised unexpected flat directory',
+      'repositories { flatDir { dirs("unregistered-parenthesised-libs") } }',
+    ],
   ];
   for (const [name, text] of tamperCases) {
     assert.throws(

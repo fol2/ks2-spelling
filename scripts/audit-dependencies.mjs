@@ -290,7 +290,12 @@ export function parseGradleEvidence(sources) {
       return value;
     });
     const [group, artifact, ...versionParts] = resolved.split(':');
-    if (!group || !artifact || versionParts.length === 0) return;
+    if (!group || !artifact || versionParts.length === 0) {
+      throw policyError(
+        'gradle_declaration_drift',
+        `Unresolved Maven coordinate in ${path}: ${raw}`,
+      );
+    }
     const version = versionParts.join(':');
     const key = `${group}:${artifact}:${version}`;
     const existing = declarations.get(key) ?? {
@@ -305,6 +310,17 @@ export function parseGradleEvidence(sources) {
   }
   for (const { path, text } of cleanSources) {
     for (const dependencyBlock of extractNamedBlocks(text, 'dependencies')) {
+      for (const [, raw] of dependencyBlock.matchAll(
+        /['"]([^'"\r\n]+:[^'"\r\n]+:[^'"\r\n]+)['"]/g,
+      )) {
+        recordDeclaration({ configuration: 'literal', raw, path });
+      }
+      if (/\badd\s*\(/.test(dependencyBlock) || /\blibs(?:\.|\[)/.test(dependencyBlock)) {
+        throw policyError(
+          'gradle_declaration_drift',
+          `Dynamic Gradle dependency syntax is not permitted in ${path}`,
+        );
+      }
       const fragments = dependencyBlock.replaceAll('{', '\n').replaceAll('}', '\n').split(/[;\n\r]+/);
       for (const fragment of fragments) {
         const statement = fragment.trim();
@@ -374,11 +390,14 @@ export function parseGradleEvidence(sources) {
       const mavenBlocks = extractNamedBlocks(block, 'maven');
       if (mavenBlocks.length > urls.length) repositories.add('maven:<missing-url>');
       for (const flatDirBlock of extractNamedBlocks(block, 'flatDir')) {
-        for (const dirs of flatDirBlock.matchAll(/\bdirs\s+([^\n\r}]+)/g)) {
+        let literalCount = 0;
+        for (const dirs of flatDirBlock.matchAll(/\bdirs\s*(?:\(\s*)?([^\n\r}]+)/g)) {
           for (const [, path] of dirs[1].matchAll(/['"]([^'"]+)['"]/g)) {
             flatDirs.add(path);
+            literalCount += 1;
           }
         }
+        if (literalCount === 0) flatDirs.add('flatDir:<dynamic>');
       }
     }
   }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "mode": "pre-bootstrap",
+  "mode": "resolved-toolchain",
   "generatedFrom": {
     "packageLockSha256": "d5ecf47e2b1730a3db193fd4188948b3189197aa08ff89a7eda8b5ccb413a8a0",
     "spmResolvedVersion": 3
@@ -210,7 +210,18 @@
       ]
     }
   ],
-  "androidResolution": "pending-toolchain",
+  "androidResolution": {
+    "status": "resolved-toolchain",
+    "evidencePath": "reports/b1/android-dependency-resolution.json",
+    "evidenceSha256": "280b3470ef2f3357fdc5c04d5a4cb3d4961ac952449ade25a80903b008b71e04",
+    "componentCount": 286,
+    "scopeMembershipCount": 3133,
+    "packagedRuntimeCount": 50,
+    "scopeRestrictedToolingCount": 25,
+    "taskCreatedBuildToolCount": 12,
+    "verificationComponentCount": 391,
+    "verificationArtifactCount": 765
+  },
   "gradleInputs": [
     {
       "path": "android/app/build.gradle",
@@ -222,7 +233,7 @@
     },
     {
       "path": "android/build.gradle",
-      "sha256": "e2aa5075e1fcfd5e77c63eb8d662932b3c8586c927376b88a4986365af3b635f"
+      "sha256": "766958866c15eeda5c88bfdbccfd5346a73fb68f29a4441206b472805176552b"
     },
     {
       "path": "android/capacitor.settings.gradle",
@@ -231,6 +242,10 @@
     {
       "path": "android/gradle.properties",
       "sha256": "3bab15c5b8bc4c2f4b6cf525497d15ad4abca53a460e6dd2eb0f0135817d31e6"
+    },
+    {
+      "path": "android/gradle/b1-dependency-resolution.init.gradle",
+      "sha256": "2a38c13e917e3b68ae5918032a9c91cf58a4be094808cb020905fedc0e39d3c6"
     },
     {
       "path": "android/gradle/wrapper/gradle-wrapper.jar",
@@ -254,7 +269,7 @@
     },
     {
       "path": "android/variables.gradle",
-      "sha256": "83d502c9ed8fcf1dd4791482067abeedbebae49fafe9cd14a8a1f5891deb0d88"
+      "sha256": "8d751d59653784d338a1f7cb2f012832c31184635557b8196cdb90b90a8829eb"
     },
     {
       "path": "node_modules/@capacitor/android/capacitor/build.gradle",
@@ -280,97 +295,113 @@
       "coordinate": "com.android.tools.build:gradle",
       "version": "8.13.0",
       "scope": "build",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "tooling-or-test-only"
     },
     {
       "coordinate": "com.google.gms:google-services",
       "version": "4.4.4",
       "scope": "dormant build plugin; no google-services.json",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "tooling-or-test-only"
     },
     {
       "coordinate": "io.github.gradle-nexus:publish-plugin",
       "version": "1.3.0",
       "scope": "conditional publish-only; CAP_PUBLISH is not enabled",
-      "resolution": "pending-toolchain"
+      "resolution": "inactive-condition",
+      "condition": "CAP_PUBLISH is not enabled"
     },
     {
       "coordinate": "androidx.activity:activity",
       "version": "1.11.0",
       "scope": "runtime declaration",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "packaged-runtime"
     },
     {
       "coordinate": "androidx.appcompat:appcompat",
       "version": "1.7.1",
       "scope": "runtime declaration",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "packaged-runtime"
     },
     {
       "coordinate": "androidx.coordinatorlayout:coordinatorlayout",
       "version": "1.3.0",
       "scope": "runtime declaration",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "packaged-runtime"
     },
     {
       "coordinate": "androidx.core:core",
       "version": "1.17.0",
       "scope": "runtime declaration",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "packaged-runtime"
     },
     {
       "coordinate": "androidx.core:core-splashscreen",
       "version": "1.2.0",
       "scope": "runtime declaration",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "packaged-runtime"
     },
     {
       "coordinate": "androidx.fragment:fragment",
       "version": "1.8.9",
       "scope": "runtime declaration",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "packaged-runtime"
     },
     {
       "coordinate": "androidx.webkit:webkit",
       "version": "1.14.0",
       "scope": "runtime declaration",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "packaged-runtime"
     },
     {
       "coordinate": "org.apache.cordova:framework",
       "version": "14.0.1",
       "scope": "runtime declaration",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "packaged-runtime"
     },
     {
       "coordinate": "junit:junit",
       "version": "4.13.2",
       "scope": "test declaration",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "tooling-or-test-only"
     },
     {
       "coordinate": "androidx.test.ext:junit",
       "version": "1.3.0",
       "scope": "instrumented test declaration",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "tooling-or-test-only"
     },
     {
       "coordinate": "androidx.test.espresso:espresso-core",
       "version": "3.7.0",
       "scope": "instrumented test declaration",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "tooling-or-test-only"
     },
     {
       "coordinate": "org.json:json",
       "version": "20250517",
       "scope": "test declaration",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "tooling-or-test-only"
     },
     {
       "coordinate": "org.mockito:mockito-core",
       "version": "5.20.0",
       "scope": "test declaration",
-      "resolution": "pending-toolchain"
+      "resolution": "resolved-toolchain",
+      "distribution": "tooling-or-test-only"
     }
   ],
   "plugins": {

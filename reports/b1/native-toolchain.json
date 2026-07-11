@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "recordedOn": "2026-07-11",
+  "host": {
+    "architecture": "arm64",
+    "node": "v24.18.0",
+    "npm": "11.16.0",
+    "xcode": "26.6 (17F113)",
+    "iosRuntime": "26.5"
+  },
+  "androidStudio": {
+    "homebrewVersion": "2026.1.1.10,quail1-patch2",
+    "bundleVersion": "2026.1",
+    "build": "AI-261.23567.138.2611.15646644"
+  },
+  "jbr": {
+    "source": "Android Studio bundled JBR",
+    "version": "21.0.10",
+    "separateGlobalJdkInstalled": false
+  },
+  "licences": {
+    "personallyAcceptedByJames": true,
+    "acceptedByAgent": false,
+    "evidence": "James completed the visible sdkmanager licence prompts before package installation resumed.",
+    "files": [
+      "android-googletv-license",
+      "android-googlexr-license",
+      "android-sdk-arm-dbt-license",
+      "android-sdk-license",
+      "android-sdk-preview-license",
+      "google-gdk-license",
+      "mips-android-sysimage-license"
+    ]
+  },
+  "androidSdkPackages": [
+    { "path": "build-tools;36.0.0", "version": "36.0.0" },
+    { "path": "cmdline-tools;latest", "version": "21.0" },
+    { "path": "emulator", "version": "36.6.11" },
+    { "path": "platform-tools", "version": "37.0.0" },
+    { "path": "platforms;android-36", "version": "2" },
+    {
+      "path": "system-images;android-36;google_apis;arm64-v8a",
+      "version": "7"
+    }
+  ],
+  "incidentalPackages": [
+    {
+      "path": "build-tools;35.0.0",
+      "version": "35.0.0",
+      "installedDuringInitialAgpBootstrap": true,
+      "requiredByCertifiedBuild": false,
+      "retainedBecauseUserSdkDeletionIsForbidden": true
+    }
+  ],
+  "virtualDevices": {
+    "android": {
+      "name": "KS2_Spelling_API_36",
+      "image": "system-images;android-36;google_apis;arm64-v8a",
+      "hardwareProfile": "pixel_9",
+      "abi": "arm64-v8a"
+    },
+    "ios": {
+      "name": "KS2 Spelling iPhone 17",
+      "runtime": "iOS 26.5",
+      "deviceType": "iPhone 17",
+      "udid": "03B3849B-964C-410D-86DE-15D52BD95C93"
+    }
+  },
+  "disk": {
+    "beforeAvailableKiB": 66899644,
+    "afterAvailableKiB": 53832016,
+    "consumedKiB": 13067628,
+    "minimumRequiredKiB": 26214400,
+    "thresholdPassed": true
+  },
+  "doctor": {
+    "strictReady": true,
+    "missing": [],
+    "doctorAvailableBytes": 55124090880
+  }
+}

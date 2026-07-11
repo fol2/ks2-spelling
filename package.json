@@ -16,6 +16,7 @@
     "native:sync:check": "node scripts/native-sync-check.mjs",
     "test:ios": "node scripts/test-ios.mjs",
     "test:android": "node scripts/test-android.mjs",
+    "certify:android": "node scripts/certify-android-dependencies.mjs",
     "launch:ios": "node scripts/launch-ios-simulator.mjs",
     "launch:android": "node scripts/launch-android-emulator.mjs",
     "audit:dependencies": "node scripts/audit-dependencies.mjs",

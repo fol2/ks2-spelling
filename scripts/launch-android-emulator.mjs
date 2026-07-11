@@ -84,7 +84,6 @@ export function assertAndroidAvdIdentity(configText) {
     throw androidAvdIdentityError('config.ini is unavailable');
   }
   const expected = new Map([
-    ['AvdId', ANDROID_DEVICE.name],
     ['abi.type', ANDROID_DEVICE.image.split(';').at(-1)],
     ['hw.device.name', ANDROID_DEVICE.device],
     ['image.sysdir.1', `${ANDROID_DEVICE.image.replaceAll(';', '/')}/`],
@@ -106,12 +105,39 @@ export function assertAndroidAvdIdentity(configText) {
   }
 }
 
+export function assertAndroidAvdPointerIdentity(pointerText, home) {
+  if (typeof pointerText !== 'string' || !home) {
+    throw androidAvdIdentityError('AVD pointer is unavailable');
+  }
+  const expected = new Map([
+    ['path', join(home, '.android/avd', `${ANDROID_DEVICE.name}.avd`)],
+    ['path.rel', `avd/${ANDROID_DEVICE.name}.avd`],
+    ['target', 'android-36'],
+  ]);
+  const actual = new Map();
+  for (const line of pointerText.split(/\r?\n/)) {
+    const separator = line.indexOf('=');
+    if (separator <= 0) continue;
+    const key = line.slice(0, separator).trim();
+    if (!expected.has(key)) continue;
+    if (actual.has(key)) throw androidAvdIdentityError(`duplicate ${key}`);
+    actual.set(key, line.slice(separator + 1).trim());
+  }
+  for (const [key, value] of expected) {
+    if (actual.get(key) !== value) {
+      throw androidAvdIdentityError(`${key} must equal ${value}`);
+    }
+  }
+}
+
 async function verifyAndroidAvdIdentity() {
   const home = process.env.HOME;
   if (!home) throw androidAvdIdentityError('HOME is unavailable');
   const configPath = join(home, '.android/avd', `${ANDROID_DEVICE.name}.avd`, 'config.ini');
+  const pointerPath = join(home, '.android/avd', `${ANDROID_DEVICE.name}.ini`);
   try {
     assertAndroidAvdIdentity(await readFile(configPath, 'utf8'));
+    assertAndroidAvdPointerIdentity(await readFile(pointerPath, 'utf8'), home);
   } catch (error) {
     if (error.code === 'android_avd_identity_mismatch') throw error;
     throw androidAvdIdentityError('config.ini cannot be read');

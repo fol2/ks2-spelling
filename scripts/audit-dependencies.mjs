@@ -30,7 +30,12 @@ function markdownCell(value) {
   return String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
 }
 
-export function renderThirdPartyNotices({ lockPackages, spm, androidResolution }) {
+export function renderThirdPartyNotices({
+  lockPackages,
+  spm,
+  androidResolution,
+  androidComponents = [],
+}) {
   const rows = [...lockPackages]
     .sort((left, right) =>
       `${left.name}@${left.version}:${left.locator}`.localeCompare(
@@ -44,11 +49,16 @@ export function renderThirdPartyNotices({ lockPackages, spm, androidResolution }
   rows.push(
     `| ${markdownCell(spm.name)} | ${markdownCell(spm.version)} | ${markdownCell(spm.licence)} | SwiftPM | ${markdownCell(spm.source)} | revision ${markdownCell(spm.revision)} |`,
   );
+  for (const component of androidComponents) {
+    rows.push(
+      `| ${markdownCell(`${component.group}:${component.name}`)} | ${markdownCell(component.version)} | ${markdownCell(component.licence.expression)} | Maven | ${markdownCell(component.pom.sourceUrl)} | ${markdownCell(component.distribution)} |`,
+    );
+  }
   return `# Third-party notices
 
-This is the deterministic preliminary dependency inventory for the B1 local prototype. It records package identity, source and declared licence; it is not a substitute for the full licence texts or final store disclosure review.
+This is the deterministic dependency inventory for the B1 local prototype. It records package identity, source and declared licence; it is not a substitute for the full licence texts or final store disclosure review.
 
-- Android resolution: \`${androidResolution}\`
+- Android resolution: \`${typeof androidResolution === 'string' ? androidResolution : androidResolution.status}\`
 - Runtime network endpoints: none
 - Native plugins beyond Capacitor core/platform packages: none
 
@@ -628,17 +638,38 @@ export function assertGradleEvidenceMatchesPolicy(evidence, policy) {
   }
 }
 
-async function verifyGradleDeclarations(policy) {
+async function verifyGradleDeclarations(policy, androidCertification = null) {
   const discovered = await discoverGradleInputs();
   assertGradleInputInventoryMatchesPolicy(discovered.inventory, policy);
   const evidence = parseGradleEvidence(discovered.parserSources);
   assertGradleEvidenceMatchesPolicy(evidence, policy);
   return {
     inputs: discovered.inventory,
-    declarations: policy.gradleDeclared.map((entry) => ({
-      ...entry,
-      resolution: 'pending-toolchain',
-    })),
+    declarations: policy.gradleDeclared.map((entry) => {
+      if (!androidCertification) return { ...entry, resolution: 'pending-toolchain' };
+      const coordinate = `${entry.coordinate}:${entry.version}`;
+      const resolved = androidCertification.components.find(
+        (component) => component.coordinate === coordinate,
+      );
+      if (resolved) {
+        return {
+          ...entry,
+          resolution: 'resolved-toolchain',
+          distribution: resolved.distribution,
+        };
+      }
+      if (coordinate === 'io.github.gradle-nexus:publish-plugin:1.3.0') {
+        return {
+          ...entry,
+          resolution: 'inactive-condition',
+          condition: 'CAP_PUBLISH is not enabled',
+        };
+      }
+      throw policyError(
+        'android_resolution_incomplete',
+        `Declared Maven dependency is absent from the resolved graph: ${coordinate}`,
+      );
+    }),
     repositories: evidence.repositories,
     flatDirs: evidence.flatDirs,
     localDependencies: evidence.localDependencies,
@@ -646,7 +677,7 @@ async function verifyGradleDeclarations(policy) {
 }
 
 export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
-  const [policy, packageJson, lock, packageLockText, packageResolved] = await Promise.all([
+  const [policy, packageJson, lock, packageLockText, packageResolved, androidCertification] = await Promise.all([
     readJson(resolve(ROOT, 'config/dependency-policy.json')),
     readJson(resolve(ROOT, 'package.json')),
     readJson(resolve(ROOT, 'package-lock.json')),
@@ -657,6 +688,9 @@ export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
         'ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved',
       ),
     ),
+    preBootstrap
+      ? Promise.resolve(null)
+      : readJson(resolve(ROOT, 'reports/b1/android-dependency-resolution.json')),
   ]);
 
   assertDirectPolicy(packageJson.dependencies, policy.directDependencies, 'runtime dependency');
@@ -727,10 +761,34 @@ export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
       privacyManifests,
     },
   ];
-  const gradle = await verifyGradleDeclarations(policy);
+  const gradle = await verifyGradleDeclarations(policy, androidCertification);
+  const androidResolution = androidCertification
+    ? {
+        status: androidCertification.mode,
+        evidencePath: 'reports/b1/android-dependency-resolution.json',
+        evidenceSha256: createHash('sha256')
+          .update(
+            await readFile(
+              resolve(ROOT, 'reports/b1/android-dependency-resolution.json'),
+            ),
+          )
+          .digest('hex'),
+        componentCount: androidCertification.componentCount,
+        scopeMembershipCount: androidCertification.scopeMembershipCount,
+        packagedRuntimeCount: androidCertification.packagedRuntimeCount,
+        scopeRestrictedToolingCount:
+          androidCertification.scopeRestrictedToolingCount,
+        taskCreatedBuildToolCount:
+          androidCertification.taskCreatedBuildToolCount,
+        verificationComponentCount:
+          androidCertification.verificationInventory.componentCount,
+        verificationArtifactCount:
+          androidCertification.verificationInventory.artifactCount,
+      }
+    : 'pending-toolchain';
   const report = {
     schemaVersion: 1,
-    mode: 'pre-bootstrap',
+    mode: androidCertification ? 'resolved-toolchain' : 'pre-bootstrap',
     generatedFrom: {
       packageLockSha256: createHash('sha256').update(packageLockText).digest('hex'),
       spmResolvedVersion: packageResolved.version,
@@ -743,7 +801,7 @@ export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
       directBuildTools,
     },
     spm,
-    androidResolution: 'pending-toolchain',
+    androidResolution,
     gradleInputs: gradle.inputs,
     gradleRepositories: gradle.repositories,
     gradleFlatDirs: gradle.flatDirs,
@@ -770,14 +828,13 @@ export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
     lockPackages,
     spm: spm[0],
     androidResolution: report.androidResolution,
+    androidComponents: androidCertification
+      ? [
+          ...androidCertification.components,
+          ...androidCertification.taskCreatedBuildTools,
+        ]
+      : [],
   });
-
-  if (!preBootstrap) {
-    throw policyError(
-      'android_resolution_pending',
-      'Android dependencies remain statically declared until Task 8 resolves the Gradle graph',
-    );
-  }
   return { report, reportJson, noticesMarkdown };
 }
 
@@ -816,6 +873,19 @@ export async function main(args = process.argv.slice(2)) {
   const preBootstrap = args.includes('--pre-bootstrap');
   const write = args.includes('--write');
   try {
+    if (!preBootstrap) {
+      const {
+        assertAndroidCertificationCurrent,
+        buildAndroidCertification,
+      } = await import('./certify-android-dependencies.mjs');
+      const committedAndroid = await readJson(
+        resolve(ROOT, 'reports/b1/android-dependency-resolution.json'),
+      );
+      assertAndroidCertificationCurrent(
+        await buildAndroidCertification({ committed: committedAndroid }),
+        committedAndroid,
+      );
+    }
     const artifacts = await buildDependencyArtifacts({ preBootstrap });
     if (write) {
       await writeDependencyArtifacts(artifacts);

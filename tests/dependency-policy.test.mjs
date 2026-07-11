@@ -94,11 +94,35 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
   assert.ok(report.gradleDeclared.every(({ resolution }) => resolution === 'pending-toolchain'));
 });
 
-test('default audit rejects unresolved Android while pre-bootstrap permits only its marker', async () => {
+test('default audit consumes the complete resolved Android certification', async () => {
   const { buildDependencyArtifacts } = await importScript('scripts/audit-dependencies.mjs');
-  await assert.rejects(
-    () => buildDependencyArtifacts({ preBootstrap: false }),
-    ({ code }) => code === 'android_resolution_pending',
+  const { report } = await buildDependencyArtifacts({ preBootstrap: false });
+  assert.equal(report.mode, 'resolved-toolchain');
+  assert.deepEqual(
+    {
+      status: report.androidResolution.status,
+      componentCount: report.androidResolution.componentCount,
+      scopeMembershipCount: report.androidResolution.scopeMembershipCount,
+      packagedRuntimeCount: report.androidResolution.packagedRuntimeCount,
+      scopeRestrictedToolingCount: report.androidResolution.scopeRestrictedToolingCount,
+      taskCreatedBuildToolCount: report.androidResolution.taskCreatedBuildToolCount,
+    },
+    {
+      status: 'resolved-toolchain',
+      componentCount: 286,
+      scopeMembershipCount: 3133,
+      packagedRuntimeCount: 50,
+      scopeRestrictedToolingCount: 25,
+      taskCreatedBuildToolCount: 12,
+    },
+  );
+  assert.equal(
+    report.gradleDeclared.filter(({ resolution }) => resolution === 'resolved-toolchain').length,
+    15,
+  );
+  assert.equal(
+    report.gradleDeclared.filter(({ resolution }) => resolution === 'inactive-condition').length,
+    1,
   );
   await assert.doesNotReject(() => buildDependencyArtifacts({ preBootstrap: true }));
 });
@@ -107,8 +131,8 @@ test('generated JSON and notices are byte-identical across repeated generation',
   const { assertDependencyEvidenceCurrent, buildDependencyArtifacts } = await importScript(
     'scripts/audit-dependencies.mjs',
   );
-  const first = await buildDependencyArtifacts({ preBootstrap: true });
-  const second = await buildDependencyArtifacts({ preBootstrap: true });
+  const first = await buildDependencyArtifacts({ preBootstrap: false });
+  const second = await buildDependencyArtifacts({ preBootstrap: false });
   assert.equal(first.reportJson, second.reportJson);
   assert.equal(first.noticesMarkdown, second.noticesMarkdown);
   assert.equal(
@@ -282,6 +306,7 @@ test('Gradle input path and SHA-256 allow-list is an exact finite backstop', asy
       'android/build.gradle',
       'android/capacitor.settings.gradle',
       'android/gradle.properties',
+      'android/gradle/b1-dependency-resolution.init.gradle',
       'android/gradle/wrapper/gradle-wrapper.jar',
       'android/gradle/wrapper/gradle-wrapper.properties',
       'android/gradlew',

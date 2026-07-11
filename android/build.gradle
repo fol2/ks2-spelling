@@ -17,6 +17,20 @@ buildscript {
 
 apply from: "variables.gradle"
 
+allprojects { project ->
+    dependencyLocking {
+        lockAllConfigurations()
+        lockFile = rootProject.file("gradle/dependency-locks/${project.name}.lockfile")
+    }
+
+    plugins.withId('com.android.application') {
+        android.buildToolsVersion = rootProject.ext.buildToolsVersion
+    }
+    plugins.withId('com.android.library') {
+        android.buildToolsVersion = rootProject.ext.buildToolsVersion
+    }
+}
+
 allprojects {
     repositories {
         google()

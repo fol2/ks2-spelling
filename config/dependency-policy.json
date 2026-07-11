@@ -123,15 +123,16 @@
   "gradleInputFiles": [
     { "path": "android/app/build.gradle", "sha256": "b476a4b5b91e304b13124dcaee6ebba2fbe4c983f137fd799d666b76f4ea828c" },
     { "path": "android/app/capacitor.build.gradle", "sha256": "7051cadfdbc532197d2cfd4f8a11684d81367f23cf7952e5a208f7b6aa0833e0" },
-    { "path": "android/build.gradle", "sha256": "e2aa5075e1fcfd5e77c63eb8d662932b3c8586c927376b88a4986365af3b635f" },
+    { "path": "android/build.gradle", "sha256": "766958866c15eeda5c88bfdbccfd5346a73fb68f29a4441206b472805176552b" },
     { "path": "android/capacitor.settings.gradle", "sha256": "b488e162f552d6efb8286793c7871bbc1061c9bf5ca3a6a495fdeb8988a541c7" },
     { "path": "android/gradle.properties", "sha256": "3bab15c5b8bc4c2f4b6cf525497d15ad4abca53a460e6dd2eb0f0135817d31e6" },
+    { "path": "android/gradle/b1-dependency-resolution.init.gradle", "sha256": "2a38c13e917e3b68ae5918032a9c91cf58a4be094808cb020905fedc0e39d3c6" },
     { "path": "android/gradle/wrapper/gradle-wrapper.jar", "sha256": "7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172" },
     { "path": "android/gradle/wrapper/gradle-wrapper.properties", "sha256": "9a479a85aa879bb55284fc16d0de5b81a745c3854f4e2d88c42e7debaf007435" },
     { "path": "android/gradlew", "sha256": "b187b4c52e749f5760afdd6fadc31b2a98ad35fb249bf0dff03b72650f320409" },
     { "path": "android/gradlew.bat", "sha256": "94102713eb8fb22d032397924c0f38ab2da783ba60d07054339f1190a0c4e2cd" },
     { "path": "android/settings.gradle", "sha256": "6ce098d15ebd69b44c4ecd786bca1bdc366340d2459b2af4d7bb0ab317aa9669" },
-    { "path": "android/variables.gradle", "sha256": "83d502c9ed8fcf1dd4791482067abeedbebae49fafe9cd14a8a1f5891deb0d88" },
+    { "path": "android/variables.gradle", "sha256": "8d751d59653784d338a1f7cb2f012832c31184635557b8196cdb90b90a8829eb" },
     { "path": "node_modules/@capacitor/android/capacitor/build.gradle", "sha256": "2b03df6b575178a8de490b4db114cc84647c06a580342046a2e5f9f797920717" }
   ],
   "approvedNativePlugins": [],
@@ -146,6 +147,11 @@
     "npm": "https://registry.npmjs.org/",
     "spm": ["https://github.com/ionic-team/capacitor-swift-pm.git"],
     "gradleRepositories": ["google()", "mavenCentral()", "https://plugins.gradle.org/m2/"],
+    "mavenRepositoryUrls": [
+      "https://dl.google.com/dl/android/maven2/",
+      "https://repo.maven.apache.org/maven2/",
+      "https://plugins.gradle.org/m2/"
+    ],
     "gradleFlatDirs": ["../capacitor-cordova-android-plugins/src/main/libs", "libs"],
     "gradleLocalDependencies": [
       "fileTree:libs",

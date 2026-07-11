@@ -11,6 +11,7 @@ import { resolveAndroidEnvironment } from './test-android.mjs';
 import {
   ANDROID_DEVICE,
   assertAndroidAvdIdentity,
+  assertAndroidAvdPointerIdentity,
 } from './launch-android-emulator.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -61,8 +62,10 @@ export async function hasExpectedAndroidAvd({
     `${ANDROID_DEVICE.name}.avd`,
     'config.ini',
   );
+  const pointerPath = join(home, '.android/avd', `${ANDROID_DEVICE.name}.ini`);
   try {
     assertAndroidAvdIdentity(await readText(configPath, 'utf8'));
+    assertAndroidAvdPointerIdentity(await readText(pointerPath, 'utf8'), home);
     return true;
   } catch {
     return false;

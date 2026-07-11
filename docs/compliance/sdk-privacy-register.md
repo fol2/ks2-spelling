@@ -40,15 +40,19 @@ Direct build-only tools are `@capacitor/cli` 8.4.1, `@vitejs/plugin-react` 6.0.3
 |---|---:|---|---|---|---|
 | `capacitor-swift-pm` | 8.4.1 | `2231987d85b8b0b289320b1d0947b4ae8345cde4` | Official Ionic repository | MIT | Capacitor and Cordova framework manifests supplied |
 
-## Android declarations pending toolchain resolution
+## Resolved Android Maven graph
 
-`androidResolution` is `pending-toolchain`. The following are static Gradle declarations, not a claimed resolved Maven graph. Task 8 must replace this marker using actual Gradle dependency output before the default audit may pass.
+The Task 8 toolchain resolves 286 unique module-version nodes across 3,133 exact project, configuration and buildscript scope memberships. The actual test and assemble tasks add 12 exact host build-tool nodes. The committed certification records every selected POM source URL and SHA-256, selected and task-created binary artefact checksums, three project dependency lockfiles and the finite Gradle verification inventory of 391 components and 765 artefacts. Fifty modules are present in the packaged app release runtime.
+
+Twenty-five non-standard or reciprocal licence expressions are restricted to the exact build, internal-tooling or test-only components recorded in `config/maven-licence-policy.json`. None appears in `:app` `releaseRuntimeClasspath`; the audit fails if one is promoted there. James personally accepted the Android SDK terms for local build tooling. That acceptance does not approve redistribution in the packaged app.
+
+The complete evidence, raw POM declarations, inheritance source hashes, distribution scopes and source URLs are in `reports/b1/android-dependency-resolution.json`. `THIRD_PARTY_NOTICES.md` includes every resolved Maven module-version alongside npm and SwiftPM dependencies.
 
 | Coordinate | Version | Scope |
 |---|---:|---|
 | `com.android.tools.build:gradle` | 8.13.0 | Build |
-| `com.google.gms:google-services` | 4.4.4 | Dormant build classpath; not applied without `google-services.json` |
-| `io.github.gradle-nexus:publish-plugin` | 1.3.0 | Capacitor publish-only declaration; inactive without `CAP_PUBLISH=true` |
+| `com.google.gms:google-services` | 4.4.4 | Resolved build classpath; not applied without `google-services.json` |
+| `io.github.gradle-nexus:publish-plugin` | 1.3.0 | Registered inactive condition; absent because `CAP_PUBLISH` is not enabled |
 | `androidx.activity:activity` | 1.11.0 | Runtime declaration |
 | `androidx.appcompat:appcompat` | 1.7.1 | Runtime declaration |
 | `androidx.coordinatorlayout:coordinatorlayout` | 1.3.0 | Runtime declaration |
@@ -63,7 +67,7 @@ Direct build-only tools are `@capacitor/cli` 8.4.1, `@vitejs/plugin-react` 6.0.3
 | `org.json:json` | 20250517 | Test declaration |
 | `org.mockito:mockito-core` | 5.20.0 | Test declaration |
 
-The generated Google Services classpath is registered because it is declared, but B1 has no `google-services.json`, Google runtime SDK, analytics or push service. It must not be described as a resolved or active runtime dependency.
+The generated Google Services classpath is resolved as build tooling because it is declared, but B1 has no `google-services.json`, Google runtime SDK, analytics or push service. It is not an active or packaged runtime dependency.
 
 ## Not approved candidates
 

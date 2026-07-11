@@ -1,0 +1,165 @@
+import groovy.json.JsonOutput
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.maven.MavenModule
+import org.gradle.maven.MavenPomArtifact
+import java.security.MessageDigest
+
+String sha256(File file) {
+    def digest = MessageDigest.getInstance('SHA-256')
+    file.withInputStream { stream ->
+        byte[] buffer = new byte[64 * 1024]
+        int read
+        while ((read = stream.read(buffer)) != -1) {
+            digest.update(buffer, 0, read)
+        }
+    }
+    return digest.digest().encodeHex().toString()
+}
+
+gradle.projectsEvaluated {
+    rootProject.tasks.register('b1ResolvedDependencies') {
+        doLast {
+            def components = [:]
+            def failures = []
+            def recordComponent = { component, scope ->
+                if (!(component.id instanceof ModuleComponentIdentifier)) return
+                def key = "${component.id.group}:${component.id.module}:${component.id.version}"
+                def entry = components[key] ?: [
+                    group: component.id.group,
+                    name: component.id.module,
+                    version: component.id.version,
+                    scopes: [],
+                    artifacts: [],
+                    componentId: component.id,
+                ]
+                entry.scopes << scope
+                components[key] = entry
+            }
+            def recordArtifacts = { configuration ->
+                configuration.incoming.artifactView {
+                    componentFilter { identifier ->
+                        identifier instanceof ModuleComponentIdentifier
+                    }
+                }.artifacts.artifacts.each { artifact ->
+                    def identifier = artifact.id.componentIdentifier
+                    if (!(identifier instanceof ModuleComponentIdentifier)) return
+                    def key = "${identifier.group}:${identifier.module}:${identifier.version}"
+                    def entry = components[key]
+                    if (entry == null) {
+                        throw new GradleException(
+                            "Resolved artifact has no component entry: ${key}",
+                        )
+                    }
+                    entry.artifacts << [
+                        name: artifact.file.name,
+                        sha256: sha256(artifact.file),
+                    ]
+                }
+            }
+            rootProject.allprojects.sort { it.path }.each { project ->
+                project.configurations.findAll { it.canBeResolved }.sort { it.name }.each {
+                    configuration ->
+                    try {
+                        def scope = [
+                            project: project.path,
+                            configuration: configuration.name,
+                            buildscript: false,
+                        ]
+                        configuration.incoming.resolutionResult.allComponents.each {
+                            component -> recordComponent(component, scope)
+                        }
+                        recordArtifacts(configuration)
+                    } catch (Exception error) {
+                        failures << [
+                            project: project.path,
+                            configuration: configuration.name,
+                            buildscript: false,
+                            message: error.toString(),
+                            cause: error.cause?.toString(),
+                        ]
+                    }
+                }
+                project.buildscript.configurations.findAll { it.canBeResolved }
+                    .sort { it.name }
+                    .each { configuration ->
+                        try {
+                            def scope = [
+                                project: project.path,
+                                configuration: configuration.name,
+                                buildscript: true,
+                            ]
+                            configuration.incoming.resolutionResult.allComponents.each {
+                                component -> recordComponent(component, scope)
+                            }
+                            recordArtifacts(configuration)
+                        } catch (Exception error) {
+                            failures << [
+                                project: project.path,
+                                configuration: configuration.name,
+                                buildscript: true,
+                                message: error.toString(),
+                                cause: error.cause?.toString(),
+                            ]
+                        }
+                    }
+            }
+            if (!failures.empty) {
+                throw new GradleException(
+                    "B1 dependency resolution failures: ${JsonOutput.toJson(failures)}",
+                )
+            }
+            def componentEntries = components.values().collect { entry ->
+                [
+                    group: entry.group,
+                    name: entry.name,
+                    version: entry.version,
+                    scopes: entry.scopes.unique().sort { scope ->
+                        [scope.project, scope.configuration, scope.buildscript].join('\u0000')
+                    },
+                    artifacts: entry.artifacts.unique().sort { artifact ->
+                        [artifact.name, artifact.sha256].join('\u0000')
+                    },
+                    componentId: entry.componentId,
+                ]
+            }.sort { entry ->
+                [entry.group, entry.name, entry.version].join('\u0000')
+            }
+            def poms = []
+            def pomResult = rootProject.dependencies.createArtifactResolutionQuery()
+                .forComponents(componentEntries.collect { it.componentId })
+                .withArtifacts(MavenModule, MavenPomArtifact)
+                .execute()
+            pomResult.resolvedComponents.each { component ->
+                component.getArtifacts(MavenPomArtifact).each { artifact ->
+                    poms << [
+                        group: component.id.group,
+                        name: component.id.module,
+                        version: component.id.version,
+                        file: artifact.file.absolutePath,
+                        sha256: sha256(artifact.file),
+                    ]
+                }
+            }
+            def uniquePoms = poms.unique().sort { entry ->
+                [entry.group, entry.name, entry.version].join('\u0000')
+            }
+            if (uniquePoms.size() != componentEntries.size()) {
+                throw new GradleException(
+                    "Expected ${componentEntries.size()} Maven POMs, resolved ${uniquePoms.size()}",
+                )
+            }
+            def output = new File(
+                rootProject.projectDir,
+                '../.native-build/android/resolved-components.json',
+            )
+            output.parentFile.mkdirs()
+            output.text = JsonOutput.prettyPrint(JsonOutput.toJson([
+                schemaVersion: 1,
+                components: componentEntries.collect { entry ->
+                    entry.findAll { key, value -> key != 'componentId' }
+                },
+                poms: uniquePoms,
+            ])) + '\n'
+        }
+    }
+}

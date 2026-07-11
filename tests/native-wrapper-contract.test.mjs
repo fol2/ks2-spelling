@@ -116,21 +116,24 @@ test('doctor probes are read-only and Android absence is deterministic', async (
   assert.equal(resolution.javaHome, null);
   assert.equal(resolution.androidSdkRoot, null);
 
-  const validAvdConfig = `AvdId=KS2_Spelling_API_36
+  const validAvdConfig = `avd.id=<build>
 abi.type=arm64-v8a
 hw.device.name=pixel_9
 image.sysdir.1=system-images/android-36/google_apis/arm64-v8a/
 tag.id=google_apis
 `;
+  const validAvdPointer = `avd.ini.encoding=UTF-8
+path=/test-home/.android/avd/KS2_Spelling_API_36.avd
+path.rel=avd/KS2_Spelling_API_36.avd
+target=android-36
+`;
   assert.equal(
     await hasExpectedAndroidAvd({
       home: '/test-home',
       readText: async (path) => {
-        assert.equal(
-          path,
-          '/test-home/.android/avd/KS2_Spelling_API_36.avd/config.ini',
-        );
-        return validAvdConfig;
+        if (path.endsWith('/config.ini')) return validAvdConfig;
+        if (path.endsWith('/KS2_Spelling_API_36.ini')) return validAvdPointer;
+        assert.fail(`unexpected AVD identity path: ${path}`);
       },
     }),
     true,
@@ -138,7 +141,20 @@ tag.id=google_apis
   assert.equal(
     await hasExpectedAndroidAvd({
       home: '/test-home',
-      readText: async () => validAvdConfig.replace('pixel_9', 'pixel_8'),
+      readText: async (path) =>
+        path.endsWith('/config.ini')
+          ? validAvdConfig.replace('pixel_9', 'pixel_8')
+          : validAvdPointer,
+    }),
+    false,
+  );
+  assert.equal(
+    await hasExpectedAndroidAvd({
+      home: '/test-home',
+      readText: async (path) =>
+        path.endsWith('/config.ini')
+          ? validAvdConfig
+          : validAvdPointer.replace('target=android-36', 'target=android-35'),
     }),
     false,
   );
@@ -146,6 +162,37 @@ tag.id=google_apis
     await hasExpectedAndroidAvd({ home: null, readText: async () => validAvdConfig }),
     false,
   );
+});
+
+test('Task 8 records exact local toolchain, licence gate and disk evidence', async () => {
+  const evidence = JSON.parse(
+    await readFile(join(ROOT, 'reports/b1/native-toolchain.json'), 'utf8'),
+  );
+  assert.equal(evidence.schemaVersion, 1);
+  assert.equal(evidence.androidStudio.homebrewVersion, '2026.1.1.10,quail1-patch2');
+  assert.equal(evidence.jbr.version, '21.0.10');
+  assert.equal(evidence.licences.personallyAcceptedByJames, true);
+  assert.equal(evidence.virtualDevices.android.name, 'KS2_Spelling_API_36');
+  assert.equal(evidence.virtualDevices.android.hardwareProfile, 'pixel_9');
+  assert.equal(evidence.virtualDevices.ios.name, 'KS2 Spelling iPhone 17');
+  assert.ok(evidence.disk.afterAvailableKiB >= 25 * 1024 ** 2);
+  assert.equal(
+    evidence.disk.consumedKiB,
+    evidence.disk.beforeAvailableKiB - evidence.disk.afterAvailableKiB,
+  );
+  const required = new Map(
+    evidence.androidSdkPackages.map(({ path, version }) => [path, version]),
+  );
+  assert.equal(required.get('platform-tools'), '37.0.0');
+  assert.equal(required.get('platforms;android-36'), '2');
+  assert.equal(required.get('build-tools;36.0.0'), '36.0.0');
+  assert.equal(required.get('emulator'), '36.6.11');
+  assert.equal(
+    required.get('system-images;android-36;google_apis;arm64-v8a'),
+    '7',
+  );
+  assert.equal(evidence.incidentalPackages[0].path, 'build-tools;35.0.0');
+  assert.equal(evidence.incidentalPackages[0].requiredByCertifiedBuild, false);
 });
 
 test('native build and sync commands freeze identity and derived outputs', async () => {
@@ -191,9 +238,9 @@ test('native build and sync commands freeze identity and derived outputs', async
       '--project-dir',
       'android',
       '--project-cache-dir',
-      '.native-build/android/project-cache',
+      '../.native-build/android/project-cache',
       '--init-script',
-      '.native-build/android/native-output.init.gradle',
+      '../.native-build/android/native-output.init.gradle',
       'testDebugUnitTest',
       'assembleDebug',
     ],
@@ -215,6 +262,7 @@ test('launch plans target only the named B1 virtual devices and exact app identi
   const {
     ANDROID_DEVICE,
     assertAndroidAvdIdentity,
+    assertAndroidAvdPointerIdentity,
     assertAndroidSerialOwnership,
     createAndroidLaunchPlan,
   } = await importScript('scripts/launch-android-emulator.mjs');
@@ -305,7 +353,7 @@ test('launch plans target only the named B1 virtual devices and exact app identi
     ],
     input: 'no\n',
   });
-  const expectedAvdConfig = `AvdId=KS2_Spelling_API_36
+  const expectedAvdConfig = `avd.id=<build>
 abi.type=arm64-v8a
 hw.device.name=pixel_9
 image.sysdir.1=system-images/android-36/google_apis/arm64-v8a/
@@ -313,7 +361,6 @@ tag.id=google_apis
 `;
   assert.doesNotThrow(() => assertAndroidAvdIdentity(expectedAvdConfig));
   for (const [field, value] of [
-    ['AvdId', 'Some_Other_AVD'],
     ['abi.type', 'x86_64'],
     ['hw.device.name', 'pixel_8'],
     ['image.sysdir.1', 'system-images/android-35/google_apis/arm64-v8a/'],
@@ -333,6 +380,29 @@ tag.id=google_apis
     ({ code }) => code === 'android_avd_identity_mismatch',
     'missing hardware profile',
   );
+  const expectedAvdPointer = `avd.ini.encoding=UTF-8
+path=/test-home/.android/avd/KS2_Spelling_API_36.avd
+path.rel=avd/KS2_Spelling_API_36.avd
+target=android-36
+`;
+  assert.doesNotThrow(() =>
+    assertAndroidAvdPointerIdentity(expectedAvdPointer, '/test-home'),
+  );
+  for (const [field, value] of [
+    ['path', '/test-home/.android/avd/Some_Other_AVD.avd'],
+    ['path.rel', 'avd/Some_Other_AVD.avd'],
+    ['target', 'android-35'],
+  ]) {
+    assert.throws(
+      () =>
+        assertAndroidAvdPointerIdentity(
+          expectedAvdPointer.replace(new RegExp(`^${field}=.*$`, 'm'), `${field}=${value}`),
+          '/test-home',
+        ),
+      ({ code }) => code === 'android_avd_identity_mismatch',
+      field,
+    );
+  }
   assert.doesNotThrow(() => assertAndroidSerialOwnership('KS2_Spelling_API_36\nOK\n'));
   assert.throws(
     () => assertAndroidSerialOwnership('Some_Other_AVD\nOK\n'),

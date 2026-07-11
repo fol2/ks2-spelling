@@ -47,6 +47,15 @@ test('the committed Android project freezes the B1 identity and toolchain', asyn
   assert.match(variables, /minSdkVersion = 24/);
   assert.match(variables, /compileSdkVersion = 36/);
   assert.match(variables, /targetSdkVersion = 36/);
+  assert.match(variables, /buildToolsVersion = ['"]36\.0\.0['"]/);
+  assert.match(
+    rootBuild,
+    /plugins\.withId\(['"]com\.android\.(?:application|library)['"]\)/,
+  );
+  assert.match(rootBuild, /android\.buildToolsVersion = rootProject\.ext\.buildToolsVersion/);
+  assert.match(rootBuild, /dependencyLocking\s*\{/);
+  assert.match(rootBuild, /lockAllConfigurations\(\)/);
+  assert.match(rootBuild, /gradle\/dependency-locks/);
   assert.match(rootBuild, /com\.android\.tools\.build:gradle:8\.13\.0/);
   assert.match(wrapper, /gradle-8\.14\.3-all\.zip/);
 

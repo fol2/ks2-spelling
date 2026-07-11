@@ -178,6 +178,18 @@ test('default audit consumes the complete resolved Android certification', async
       taskCreatedBuildToolCount: 12,
     },
   );
+  assert.equal(report.androidResolution.verificationComponentCount, 392);
+  assert.equal(report.androidResolution.verificationArtifactCount, 768);
+  const complianceRegister = await readFile(
+    join(ROOT, 'docs/compliance/sdk-privacy-register.md'),
+    'utf8',
+  );
+  assert.match(
+    complianceRegister,
+    new RegExp(
+      `finite Gradle verification inventory of ${report.androidResolution.verificationComponentCount} components and ${report.androidResolution.verificationArtifactCount} artefacts\\.`,
+    ),
+  );
   assert.equal(
     report.gradleDeclared.filter(({ resolution }) => resolution === 'resolved-toolchain').length,
     15,

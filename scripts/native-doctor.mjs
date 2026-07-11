@@ -17,6 +17,10 @@ import {
 const ROOT = resolve(import.meta.dirname, '..');
 const IOS_DEVICE_NAME = 'KS2 Spelling iPhone 17';
 const MINIMUM_FREE_BYTES = 25 * 1024 ** 3;
+const CERTIFIED_NODE_VERSION = 'v24.18.0';
+const CERTIFIED_NPM_VERSION = '11.16.0';
+const ANDROID_STUDIO_JBR =
+  '/Applications/Android Studio.app/Contents/jbr/Contents/Home';
 
 export const DOCTOR_COMMANDS = Object.freeze([
   Object.freeze(['npm', Object.freeze(['--version'])]),
@@ -34,15 +38,35 @@ function parseJson(value, fallback) {
   }
 }
 
-async function hasBuildTools36(sdkRoot) {
+async function hasExactBuildTools36(sdkRoot) {
   if (!sdkRoot) return false;
   try {
-    return (await readdir(join(sdkRoot, 'build-tools'))).some(
-      (version) => version === '36.0.0' || version.startsWith('36.'),
-    );
+    return (await readdir(join(sdkRoot, 'build-tools'))).includes('36.0.0');
   } catch {
     return false;
   }
+}
+
+export function evaluateNativeToolchainVersions({
+  nodeVersion,
+  npmVersion,
+  xcodeVersion,
+  javaVersion,
+  javaHome,
+  javaSource,
+  hasExactBuildTools,
+}) {
+  const mismatches = [];
+  if (nodeVersion !== CERTIFIED_NODE_VERSION) mismatches.push('node24.18.0');
+  if (npmVersion !== CERTIFIED_NPM_VERSION) mismatches.push('npm11.16.0');
+  if (javaHome !== ANDROID_STUDIO_JBR) mismatches.push('androidStudioJbr');
+  if (javaSource !== 'android-studio-jbr') mismatches.push('androidStudioJbrSource');
+  const javaMajor = Number(String(javaVersion).match(/version\s+"(\d+)/)?.[1]);
+  if (javaMajor !== 21) mismatches.push('jbr21');
+  const xcodeMajor = Number(String(xcodeVersion).match(/^Xcode\s+(\d+)/m)?.[1]);
+  if (!Number.isInteger(xcodeMajor) || xcodeMajor < 26) mismatches.push('xcode26');
+  if (!hasExactBuildTools) mismatches.push('androidBuildTools36.0.0');
+  return mismatches;
 }
 
 function parseAvailableBytes(dfOutput) {
@@ -90,13 +114,24 @@ export async function collectNativeDoctor() {
 
   const androidResolution = resolveAndroidEnvironment();
   const sdkRoot = androidResolution.androidSdkRoot;
+  const javaResult = androidResolution.javaHome
+    ? await runCommand(join(androidResolution.javaHome, 'bin/java'), ['-version'], {
+        cwd: ROOT,
+      })
+    : null;
+  const javaVersion = javaResult
+    ? `${javaResult.stdout}\n${javaResult.stderr}`.trim() || null
+    : null;
+  const exactBuildTools36 = await hasExactBuildTools36(sdkRoot);
   const androidAvd = await hasExpectedAndroidAvd();
   const android = {
     studio: existsSync('/Applications/Android Studio.app'),
     javaHome: androidResolution.javaHome,
+    javaSource: androidResolution.javaSource,
+    javaVersion,
     sdkRoot,
     platform36: Boolean(sdkRoot && existsSync(join(sdkRoot, 'platforms/android-36/android.jar'))),
-    buildTools36: await hasBuildTools36(sdkRoot),
+    buildTools36: exactBuildTools36,
     adb: Boolean(sdkRoot && existsSync(join(sdkRoot, 'platform-tools/adb'))),
     emulator: Boolean(sdkRoot && existsSync(join(sdkRoot, 'emulator/emulator'))),
     avd: androidAvd,
@@ -114,6 +149,17 @@ export async function collectNativeDoctor() {
   if (!android.adb) missing.push('adb');
   if (!android.emulator) missing.push('emulator');
   if (!android.avd) missing.push('androidAvd');
+  missing.push(
+    ...evaluateNativeToolchainVersions({
+      nodeVersion: process.version,
+      npmVersion: npm.stdout.trim(),
+      xcodeVersion: xcode.stdout.trim(),
+      javaVersion,
+      javaHome: android.javaHome,
+      javaSource: android.javaSource,
+      hasExactBuildTools: exactBuildTools36,
+    }),
+  );
   const availableBytes = parseAvailableBytes(diskResult.stdout);
   if (availableBytes === null || availableBytes < MINIMUM_FREE_BYTES) {
     missing.push('freeDisk25GiB');
@@ -134,7 +180,7 @@ export async function collectNativeDoctor() {
     android,
     disk: { availableBytes, minimumBytes: MINIMUM_FREE_BYTES },
     ready: missing.length === 0,
-    missing,
+    missing: [...new Set(missing)],
   };
 }
 

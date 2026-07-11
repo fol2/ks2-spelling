@@ -10,7 +10,7 @@ const ROOT = resolve(import.meta.dirname, '..');
 
 export const SYNC_COMMANDS = Object.freeze([
   Object.freeze(['npm', Object.freeze(['run', 'build'])]),
-  Object.freeze(['npx', Object.freeze(['cap', 'sync'])]),
+  Object.freeze(['npx', Object.freeze(['--no-install', 'cap', 'sync'])]),
   Object.freeze([
     process.execPath,
     Object.freeze([

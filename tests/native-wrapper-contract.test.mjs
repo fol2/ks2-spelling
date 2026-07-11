@@ -96,7 +96,11 @@ test('command results use stable exit codes and redact signing or environment se
 });
 
 test('doctor probes are read-only and Android absence is deterministic', async () => {
-  const { DOCTOR_COMMANDS, hasExpectedAndroidAvd } = await importScript(
+  const {
+    DOCTOR_COMMANDS,
+    evaluateNativeToolchainVersions,
+    hasExpectedAndroidAvd,
+  } = await importScript(
     'scripts/native-doctor.mjs',
   );
   const { resolveAndroidEnvironment } = await importScript('scripts/test-android.mjs');
@@ -114,6 +118,7 @@ test('doctor probes are read-only and Android absence is deterministic', async (
   assert.equal(resolution.ready, false);
   assert.deepEqual(resolution.missing, ['jbr', 'androidSdk']);
   assert.equal(resolution.javaHome, null);
+  assert.equal(resolution.javaSource, null);
   assert.equal(resolution.androidSdkRoot, null);
 
   const validAvdConfig = `avd.id=<build>
@@ -162,6 +167,33 @@ target=android-36
     await hasExpectedAndroidAvd({ home: null, readText: async () => validAvdConfig }),
     false,
   );
+
+  const certified = {
+    nodeVersion: 'v24.18.0',
+    npmVersion: '11.16.0',
+    xcodeVersion: 'Xcode 26.6\nBuild version 17F113',
+    javaVersion: 'openjdk version "21.0.10" 2026-01-20',
+    javaHome: '/Applications/Android Studio.app/Contents/jbr/Contents/Home',
+    javaSource: 'android-studio-jbr',
+    hasExactBuildTools: true,
+  };
+  assert.deepEqual(evaluateNativeToolchainVersions(certified), []);
+  const mismatches = [
+    ['nodeVersion', 'v24.17.0', 'node24.18.0'],
+    ['npmVersion', '11.15.0', 'npm11.16.0'],
+    ['javaVersion', 'openjdk version "17.0.12"', 'jbr21'],
+    ['javaHome', '/tmp/arbitrary-java-home', 'androidStudioJbr'],
+    ['javaSource', 'JAVA_HOME', 'androidStudioJbrSource'],
+    ['xcodeVersion', 'Xcode 25.4\nBuild version 16F6', 'xcode26'],
+    ['hasExactBuildTools', false, 'androidBuildTools36.0.0'],
+  ];
+  for (const [key, value, expected] of mismatches) {
+    assert.deepEqual(
+      evaluateNativeToolchainVersions({ ...certified, [key]: value }),
+      [expected],
+      `${key} mismatch must fail closed`,
+    );
+  }
 });
 
 test('Task 8 records exact local toolchain, licence gate and disk evidence', async () => {
@@ -203,7 +235,7 @@ test('native build and sync commands freeze identity and derived outputs', async
 
   assert.deepEqual(SYNC_COMMANDS, [
     ['npm', ['run', 'build']],
-    ['npx', ['cap', 'sync']],
+    ['npx', ['--no-install', 'cap', 'sync']],
     [
       process.execPath,
       [

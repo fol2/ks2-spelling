@@ -122,9 +122,19 @@ export async function verifyPackagedAndroidPermissions(options = {}) {
 }
 
 export function resolveAndroidEnvironment({ env = process.env, pathExists = existsSync } = {}) {
-  const javaCandidates = [env.JAVA_HOME, ANDROID_STUDIO_JBR].filter(Boolean);
-  const javaHome =
-    javaCandidates.find((candidate) => pathExists(join(candidate, 'bin/java'))) ?? null;
+  const javaCandidates = [
+    { path: env.JAVA_HOME, source: 'JAVA_HOME' },
+    { path: ANDROID_STUDIO_JBR, source: 'android-studio-jbr' },
+  ]
+    .filter(({ path }) => Boolean(path))
+    .map(({ path, source }) => ({ path: resolve(path), source }));
+  const selectedJava =
+    javaCandidates.find(({ path }) => pathExists(join(path, 'bin/java'))) ?? null;
+  const javaHome = selectedJava?.path ?? null;
+  const javaSource =
+    javaHome === resolve(ANDROID_STUDIO_JBR)
+      ? 'android-studio-jbr'
+      : selectedJava?.source ?? null;
   const sdkCandidates = [env.ANDROID_HOME, join(env.HOME ?? '', 'Library/Android/sdk')].filter(
     Boolean,
   );
@@ -136,6 +146,7 @@ export function resolveAndroidEnvironment({ env = process.env, pathExists = exis
     ready: missing.length === 0,
     missing,
     javaHome,
+    javaSource,
     androidSdkRoot,
   };
 }
@@ -143,7 +154,7 @@ export function resolveAndroidEnvironment({ env = process.env, pathExists = exis
 async function findBuildTools36(androidSdkRoot) {
   try {
     const versions = await readdir(join(androidSdkRoot, 'build-tools'));
-    return versions.find((version) => version === '36.0.0' || version.startsWith('36.')) ?? null;
+    return versions.includes('36.0.0') ? '36.0.0' : null;
   } catch {
     return null;
   }
@@ -163,7 +174,7 @@ export async function main() {
   const buildTools36 = await findBuildTools36(resolution.androidSdkRoot);
   const missingPackages = [];
   if (!existsSync(platform36)) missingPackages.push('platforms;android-36');
-  if (!buildTools36) missingPackages.push('build-tools;36');
+  if (!buildTools36) missingPackages.push('build-tools;36.0.0');
   if (missingPackages.length) {
     printJson(
       { ok: false, code: 'missing_android_sdk_packages', missing: missingPackages },

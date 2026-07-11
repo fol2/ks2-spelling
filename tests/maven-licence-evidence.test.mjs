@@ -79,6 +79,30 @@ test('scope-restricted Maven terms pass only for the exact tooling component', a
       }),
     ({ code }) => code === 'maven_licence_policy_violation',
   );
+  assert.throws(
+    () =>
+      applyMavenLicencePolicy({
+        coordinate: 'org.example:unreviewed-dual:1',
+        distribution: 'tooling-or-test-only',
+        signatures: [signature, 'sha256:' + 'b'.repeat(64)],
+        effective: evidence,
+        policy: {
+          classifications: {
+            [signature]: {
+              expression: 'MIT',
+              scopePolicy: 'any',
+            },
+            ['sha256:' + 'b'.repeat(64)]: {
+              expression: 'Apache-2.0',
+              scopePolicy: 'any',
+            },
+          },
+          componentOverrides: {},
+          scopeRestrictedComponents: {},
+        },
+      }),
+    ({ code }) => code === 'maven_licence_policy_violation',
+  );
 });
 
 test('committed Android certification comparison rejects coordinate and scope drift', async () => {

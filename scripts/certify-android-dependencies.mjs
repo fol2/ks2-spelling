@@ -47,8 +47,15 @@ export function applyMavenLicencePolicy({
       `Unclassified Maven licence declaration: ${coordinate}`,
     );
   }
+  const override = policy.componentOverrides[coordinate];
+  if (signatures.length > 1 && !override) {
+    throw certificationError(
+      'maven_licence_policy_violation',
+      `Multiple Maven licence declarations require an exact component override: ${coordinate}`,
+    );
+  }
   const expression =
-    policy.componentOverrides[coordinate] ??
+    override ??
     [...new Set(classifications.map((classification) => classification.expression))].join(
       ' AND ',
     );

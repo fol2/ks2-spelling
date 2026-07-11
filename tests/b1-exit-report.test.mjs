@@ -11,7 +11,7 @@ import test from 'node:test';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TESTED_APPLICATION_COMMIT =
-  '66a6deee66672d13d98efd12ab13ff0f3e32ff57';
+  '9c4891f20048080a7e6ea51bc6751a1ed28281dd';
 const SHA256 = /^[a-f0-9]{64}$/;
 const execFileAsync = promisify(execFile);
 

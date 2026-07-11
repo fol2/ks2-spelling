@@ -5,7 +5,7 @@ import { EXIT_CODES, isMain, printJson } from './lib/run-command.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const TESTED_APPLICATION_COMMIT =
-  '66a6deee66672d13d98efd12ab13ff0f3e32ff57';
+  '9c4891f20048080a7e6ea51bc6751a1ed28281dd';
 const REQUIRED_ROOT_INPUTS = Object.freeze([
   '.npmrc',
   '.nvmrc',

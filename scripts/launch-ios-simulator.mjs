@@ -14,7 +14,7 @@ const APP_PATH = '.native-build/ios/Build/Products/Debug-iphonesimulator/App.app
 const REPORT_PATH = 'reports/b1/ios-simulator-launch.json';
 const SCREENSHOT_PATH = 'reports/b1/ios-simulator.png';
 const TESTED_APPLICATION_COMMIT =
-  '66a6deee66672d13d98efd12ab13ff0f3e32ff57';
+  '9c4891f20048080a7e6ea51bc6751a1ed28281dd';
 
 export const IOS_DEVICE = Object.freeze({
   name: 'KS2 Spelling iPhone 17',

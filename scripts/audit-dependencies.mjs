@@ -64,7 +64,6 @@ const NATIVE_BUILD_SOURCE_NPM_PACKAGES = new Set([
   '@capacitor-community/sqlite',
   '@capacitor/android',
   '@capacitor/app',
-  '@capacitor/core',
   '@capacitor/ios',
 ]);
 
@@ -488,8 +487,8 @@ function commonClassification(
     integrity: lockEntry.integrity,
     licence: licenceOverride?.approvedForNotice ?? lockEntry.license,
     declaredLicence: lockEntry.license,
-    role: classification.role,
-    platform: classification.platform,
+    role: distribution.role,
+    platform: distribution.platform,
     permissions: [],
     dataAccess: [],
     networkEndpoints: [],
@@ -515,6 +514,8 @@ function npmDistribution(entry, webViewBundle) {
     return {
       packaged: true,
       distribution: 'webview-bundle',
+      role: 'runtime code physically included by the deterministic Vite/Rollup build',
+      platform: 'WebView JavaScript bundle',
       privacyRole: 'Physically included in the local WebView JavaScript bundle',
     };
   }
@@ -522,20 +523,28 @@ function npmDistribution(entry, webViewBundle) {
     return {
       packaged: false,
       distribution: 'native-build-source',
+      role:
+        'native build source that compiles into separately evidenced SwiftPM or Maven outputs',
+      platform: 'Native build input',
       privacyRole:
-        'npm source input only; packaged SwiftPM and Maven binaries are certified separately',
+        'Source input only; resulting SwiftPM and Maven outputs are certified separately',
     };
   }
   if (entry.dev) {
     return {
       packaged: false,
       distribution: 'build-tool-not-packaged',
+      role: 'build-tool dependency absent from application outputs',
+      platform: 'Build host',
       privacyRole: 'Build-only lock closure; absent from the WebView bundle',
     };
   }
   return {
     packaged: false,
     distribution: 'installed-not-packaged',
+    role:
+      'installed optional dependency code absent from the WebView bundle and native source set',
+    platform: 'Installed dependency closure only',
     privacyRole:
       'Conservative notice closure only; absent from the WebView bundle and native source set',
   };
@@ -1240,7 +1249,8 @@ export async function buildDependencyArtifacts({
         dev: entry.dev,
         packaged: distribution.packaged,
         distribution: distribution.distribution,
-        role: classification?.role ?? 'resolved build-tool transitive dependency',
+        role: distribution.role,
+        platform: distribution.platform,
         privacyRole: distribution.privacyRole,
         restrictedExportClassification:
           classification?.restrictedExportClassification ?? 'None identified',

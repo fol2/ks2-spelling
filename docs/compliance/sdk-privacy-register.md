@@ -24,7 +24,7 @@ The application opens the local database without encryption. SQLCipher is nevert
 
 The plugin's Web/IndexedDB/WASM fallback is not initialised. A deterministic Vite/Rollup `write: false` build proves that the WebView bundle contains npm code from exactly `react`, `react-dom` and `scheduler`. It contains no `jeep-sqlite`, `sql.js`, Stencil, localForage or other SQLite web-fallback module. The complete lock closure remains in the notices conservatively; notice inclusion is not evidence that a package is physically included.
 
-The npm artefacts for `@capacitor/android`, `@capacitor/ios`, `@capacitor/core`, `@capacitor-community/sqlite` and `@capacitor/app` are native build-source inputs, not packaged npm artefacts. Their resulting packaged SwiftPM and Maven binaries are recorded separately. Every one of the 189 npm lock identities has an explicit evidence-derived distribution, `packaged` value, privacy role and export classification in the B2 dependency audit.
+The npm artefacts for `@capacitor/android`, `@capacitor/ios`, `@capacitor-community/sqlite` and `@capacitor/app` are native build-source inputs, not packaged npm artefacts. Their resulting SwiftPM and Maven outputs are recorded separately. `@capacitor/core` is JavaScript and types only in this closure; because the write-false build proves it is absent from the WebView bundle, it is classified as installed-not-packaged. Every one of the 189 npm lock identities has an explicit evidence-derived distribution, `packaged` value, role, platform, privacy role and export classification in the B2 dependency audit.
 
 ## Conditionally approved B2 native plugins
 

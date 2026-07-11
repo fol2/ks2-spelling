@@ -29,8 +29,8 @@
   },
   "npmClassifications": {
     "@capacitor-community/sqlite": {
-      "role": "conditionally approved native SQLite bridge and bundled web fallback dependency",
-      "platform": "iOS, Android and bundled WebView JavaScript",
+      "role": "conditionally approved native SQLite source plus installed optional web fallback dependency",
+      "platform": "Native build input and installed dependency closure",
       "applePrivacyManifest": "No app Required Reason API or usage-description key added in B2",
       "googleDataSafety": "Local database access only; no collection or transmission in B2",
       "sourceRepository": "https://github.com/capacitor-community/sqlite.git",
@@ -43,14 +43,14 @@
       "googleDataSafety": "No app data collection or permission declared in B1"
     },
     "@capacitor/core": {
-      "role": "bundled and native bridge runtime",
-      "platform": "Web, iOS and Android",
+      "role": "installed Capacitor JavaScript and type dependency absent from the B2 WebView bundle",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "No app Required Reason API declared in B1",
       "googleDataSafety": "No app data collection or permission declared in B1"
     },
     "@capacitor/app": {
-      "role": "conditionally approved native application lifecycle bridge",
-      "platform": "iOS, Android and bundled WebView JavaScript",
+      "role": "conditionally approved native application lifecycle source",
+      "platform": "Native build input",
       "applePrivacyManifest": "No app Required Reason API or usage-description key added in B2",
       "googleDataSafety": "Lifecycle notifications only; no collection or transmission in B2",
       "sourceRepository": "https://github.com/ionic-team/capacitor-plugins.git",
@@ -81,110 +81,110 @@
       "googleDataSafety": "No data access in B1"
     },
     "jeep-sqlite": {
-      "role": "bundled transitive web fallback code; not initialised in the native B2 application",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional SQLite web fallback dependency; not initialised or included in application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "Web fallback is not initialised in B2"
     },
     "@stencil/core": {
-      "role": "transitive web-component build and runtime support for the uninitialised SQLite web fallback",
-      "platform": "Bundled WebView JavaScript and build host",
+      "role": "installed optional web-component dependency for the uninitialised SQLite fallback; absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "Web fallback is not initialised in B2"
     },
     "browser-fs-access": {
-      "role": "transitive browser file-access support for the uninitialised SQLite web fallback",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional browser file-access dependency for the uninitialised SQLite fallback; absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "Web fallback is not initialised in B2"
     },
     "core-util-is": {
-      "role": "transitive JavaScript stream utility",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional fallback stream utility absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No collection or transmission"
     },
     "immediate": {
-      "role": "transitive JavaScript scheduling utility",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional fallback scheduling utility absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No collection or transmission"
     },
     "inherits": {
-      "role": "transitive JavaScript inheritance utility",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional fallback inheritance utility absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No collection or transmission"
     },
     "isarray": {
-      "role": "transitive JavaScript type utility",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional fallback type utility absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No collection or transmission"
     },
     "jszip": {
-      "role": "transitive archive support for the uninitialised SQLite web fallback",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional archive dependency for the uninitialised SQLite fallback; absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "Web fallback is not initialised in B2"
     },
     "lie": {
-      "role": "transitive Promise implementation",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional fallback Promise implementation absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No collection or transmission"
     },
     "localforage": {
-      "role": "transitive browser storage support for the uninitialised SQLite web fallback",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional browser-storage dependency for the uninitialised SQLite fallback; absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "Web fallback is not initialised in B2"
     },
     "pako": {
-      "role": "transitive compression support for the uninitialised SQLite web fallback",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional compression dependency for the uninitialised SQLite fallback; absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "Web fallback is not initialised in B2"
     },
     "process-nextick-args": {
-      "role": "transitive JavaScript stream scheduling utility",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional fallback stream-scheduling utility absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No collection or transmission"
     },
     "readable-stream": {
-      "role": "transitive JavaScript stream implementation",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional fallback stream implementation absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No collection or transmission"
     },
     "safe-buffer": {
-      "role": "transitive JavaScript buffer utility",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional fallback buffer utility absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No collection or transmission"
     },
     "setimmediate": {
-      "role": "transitive JavaScript scheduling utility",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional fallback scheduling utility absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No collection or transmission"
     },
     "sql.js": {
-      "role": "transitive SQLite WebAssembly implementation for the uninitialised web fallback",
-      "platform": "Bundled WebView JavaScript and WebAssembly",
+      "role": "installed optional SQLite WebAssembly dependency for the uninitialised fallback; absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "Web fallback is not initialised in B2"
     },
     "string_decoder": {
-      "role": "transitive JavaScript stream decoding utility",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional fallback stream-decoding utility absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No collection or transmission"
     },
     "util-deprecate": {
-      "role": "transitive JavaScript compatibility utility",
-      "platform": "Bundled WebView JavaScript",
+      "role": "installed optional fallback compatibility utility absent from application outputs",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No collection or transmission"
     },
@@ -245,8 +245,8 @@
       "packaged": false
     },
     "tslib": {
-      "role": "bundled transitive runtime",
-      "platform": "WebView and native bridge JavaScript",
+      "role": "installed transitive helper absent from the B2 WebView bundle",
+      "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No data access in B1"
     },

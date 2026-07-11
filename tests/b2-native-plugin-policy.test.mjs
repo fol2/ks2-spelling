@@ -337,7 +337,6 @@ test('B2 npm packaging comes only from the deterministic write-false bundle inve
     '@capacitor-community/sqlite',
     '@capacitor/android',
     '@capacitor/app',
-    '@capacitor/core',
     '@capacitor/ios',
   ]) {
     const entry = audit.npm.allPackages.find(
@@ -346,6 +345,11 @@ test('B2 npm packaging comes only from the deterministic write-false bundle inve
     assert.equal(entry.packaged, false, packageName);
     assert.equal(entry.distribution, 'native-build-source', packageName);
   }
+  const capacitorCore = audit.npm.allPackages.find(
+    ({ locator }) => locator === 'node_modules/@capacitor/core',
+  );
+  assert.equal(capacitorCore.packaged, false);
+  assert.equal(capacitorCore.distribution, 'installed-not-packaged');
   for (const packageName of ['jeep-sqlite', 'sql.js', '@stencil/core', 'localforage']) {
     const entries = audit.npm.allPackages.filter(({ name }) => name === packageName);
     assert.ok(entries.length > 0, packageName);
@@ -366,5 +370,29 @@ test('B2 npm packaging comes only from the deterministic write-false bundle inve
         audit.npm.webViewBundle,
       ),
     ({ code }) => code === 'webview_bundle_evidence_drift',
+  );
+});
+
+test('unpackaged npm identities never claim bundled or packaged artefact status', async () => {
+  const audit = await readJson('reports/b2/dependency-audit.json');
+  assert.equal(audit.npm.allPackages.length, 189);
+  for (const entry of audit.npm.allPackages) {
+    assert.ok(entry.role, `${entry.locator} role`);
+    assert.ok(entry.platform, `${entry.locator} platform`);
+    assert.ok(entry.privacyRole, `${entry.locator} privacy role`);
+    if (!entry.packaged) {
+      assert.doesNotMatch(
+        `${entry.role} ${entry.platform} ${entry.privacyRole}`,
+        /\bbundled\b|packaged (?:artefact|runtime|code)/i,
+        entry.locator,
+      );
+    }
+  }
+  assert.deepEqual(
+    audit.npm.allPackages
+      .filter(({ distribution }) => distribution === 'native-build-source')
+      .map(({ name }) => name)
+      .sort(),
+    ['@capacitor-community/sqlite', '@capacitor/android', '@capacitor/app', '@capacitor/ios'],
   );
 });

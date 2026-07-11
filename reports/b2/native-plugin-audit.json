@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "nativePluginBuildSha256": "be2d277dd5b74f7c06a5a7c1f928045009682d6568a4d47fbf80cb22c44ef0ef",
-  "dependencyAuditSha256": "61d5a6fca5b7522d9892eca571609135869e0878e85765b0af0c0b5567254f49",
+  "dependencyAuditSha256": "cd700e4210aff64ef731c7621aad5db6b581f745b56871a3e7d6ba137c9fa2a4",
   "sqliteMode": "no-encryption",
   "webFallbackInitialised": false,
   "androidPackagedPermissions": [],

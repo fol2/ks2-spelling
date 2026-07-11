@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -14,6 +15,10 @@ async function readJson(path) {
 
 async function sha256(path) {
   return createHash('sha256').update(await readFile(join(ROOT, path))).digest('hex');
+}
+
+async function importAudit() {
+  return import(pathToFileURL(join(ROOT, 'scripts/audit-dependencies.mjs')));
 }
 
 test('B2 dependency evidence preserves B1 and binds the exact native build', async () => {
@@ -30,6 +35,14 @@ test('B2 dependency evidence preserves B1 and binds the exact native build', asy
   assert.match(buildSha256, SHA256);
   assert.equal(audit.generatedFrom.nativePluginBuildSha256, buildSha256);
   assert.equal(plugin.nativePluginBuildSha256, buildSha256);
+  assert.equal(
+    plugin.webViewBundleEvidenceSha256,
+    audit.npm.webViewBundle.evidenceSha256,
+  );
+  assert.equal(
+    audit.generatedFrom.webViewBundleEvidenceSha256,
+    audit.npm.webViewBundle.evidenceSha256,
+  );
   assert.equal(audit.android.componentCount, build.android.dependencyClosure.componentCount);
   assert.equal(
     audit.android.scopeMembershipCount,
@@ -83,6 +96,8 @@ test('B2 policy certifies exact npm and resolution-kind-aware SwiftPM identities
     assert.ok(entry.privacyRole);
     assert.equal(typeof entry.packaged, 'boolean');
     assert.ok(entry.restrictedExportClassification);
+    assert.ok(entry.restrictedClassification);
+    assert.ok(entry.exportClassification);
   }
   assert.equal(
     npm.get('@capacitor-community/sqlite').integrity,
@@ -189,5 +204,167 @@ test('B2 notices publish totals consistent with the dependency report', async ()
     new RegExp(
       `Maven verification inventory: ${audit.android.verificationInventory.componentCount} components and ${audit.android.verificationInventory.artifactCount} artefacts`,
     ),
+  );
+});
+
+test('B2 audits the exact four packaged iOS privacy manifests and reasons', async () => {
+  const audit = await readJson('reports/b2/dependency-audit.json');
+  const plugin = await readJson('reports/b2/native-plugin-audit.json');
+  const expected = [
+    {
+      path: 'Frameworks/Capacitor.framework/PrivacyInfo.xcprivacy',
+      sha256: '1bac827f49b2b8a5358491b9698203bf191791a6f1ba3a3ace3b1285d52d2d17',
+      tracking: false,
+      collectedDataTypes: [],
+      trackingDomains: [],
+      requiredReasonApis: [],
+    },
+    {
+      path: 'Frameworks/Cordova.framework/PrivacyInfo.xcprivacy',
+      sha256: '5a9b8fc0cddb10201bb47cc2804b3f004c7251476622d25bfc4eb54ed46e1084',
+      tracking: false,
+      collectedDataTypes: [],
+      trackingDomains: [],
+      requiredReasonApis: [],
+    },
+    {
+      path: 'Frameworks/SQLCipher.framework/PrivacyInfo.xcprivacy',
+      sha256: '9362796ba800a7b4169834eff8bde990866f40114ff7baac002b8bae543e8dd1',
+      tracking: false,
+      collectedDataTypes: [],
+      trackingDomains: [],
+      requiredReasonApis: [
+        {
+          category: 'NSPrivacyAccessedAPICategoryDiskSpace',
+          reasons: ['E174.1'],
+        },
+        {
+          category: 'NSPrivacyAccessedAPICategoryFileTimestamp',
+          reasons: ['3B52.1', 'C617.1'],
+        },
+      ],
+    },
+    {
+      path: 'ZIPFoundation_ZIPFoundation.bundle/PrivacyInfo.xcprivacy',
+      sha256: '9a2f930cedb8d58309a581b9bf9bf3673685ec02ae2197d9f1c56828b718dffd',
+      tracking: false,
+      collectedDataTypes: [],
+      trackingDomains: [],
+      requiredReasonApis: [
+        {
+          category: 'NSPrivacyAccessedAPICategoryFileTimestamp',
+          reasons: ['0A2A.1'],
+        },
+      ],
+    },
+  ];
+  assert.deepEqual(audit.ios.packagedPrivacyManifests, expected);
+  assert.deepEqual(plugin.iosPackagedPrivacyManifests, expected);
+  const {
+    assertIosPackagedPrivacyManifestEvidenceCurrent,
+    resolveIosPackagedPrivacyManifestEvidence,
+  } = await importAudit();
+  assert.doesNotThrow(() =>
+    assertIosPackagedPrivacyManifestEvidenceCurrent(expected, expected),
+  );
+  for (const tampered of [
+    expected.slice(1),
+    [...expected, { ...expected[0], path: 'Extra/PrivacyInfo.xcprivacy' }],
+    expected.map((entry, index) =>
+      index === 0 ? { ...entry, sha256: '0'.repeat(64) } : entry,
+    ),
+    expected.map((entry, index) =>
+      index === 2
+        ? {
+            ...entry,
+            requiredReasonApis: [
+              { category: 'NSPrivacyAccessedAPICategoryDiskSpace', reasons: ['wrong'] },
+            ],
+          }
+        : entry,
+    ),
+  ]) {
+    assert.throws(
+      () => assertIosPackagedPrivacyManifestEvidenceCurrent(tampered, expected),
+      ({ code }) => code === 'ios_packaged_privacy_manifest_drift',
+    );
+  }
+  assert.deepEqual(
+    await resolveIosPackagedPrivacyManifestEvidence({
+      appPath: join(
+        ROOT,
+        '.native-build/ios/Build/Products/Debug-iphonesimulator/App.app',
+      ),
+      committed: expected,
+    }),
+    expected,
+  );
+  assert.deepEqual(
+    await resolveIosPackagedPrivacyManifestEvidence({
+      appPath: join(ROOT, '.native-build/ios/intentionally-absent/App.app'),
+      committed: expected,
+    }),
+    expected,
+  );
+  await assert.rejects(
+    () =>
+      resolveIosPackagedPrivacyManifestEvidence({
+        appPath: join(ROOT, '.native-build/ios/intentionally-absent/App.app'),
+        committed: expected,
+        requireFresh: true,
+      }),
+    ({ code }) => code === 'ios_packaged_privacy_manifest_missing',
+  );
+});
+
+test('B2 npm packaging comes only from the deterministic write-false bundle inventory', async () => {
+  const audit = await readJson('reports/b2/dependency-audit.json');
+  assert.deepEqual(audit.npm.webViewBundle.packageNames, [
+    'react',
+    'react-dom',
+    'scheduler',
+  ]);
+  assert.equal(audit.npm.webViewBundle.moduleCount, 45);
+  assert.equal(audit.npm.webViewBundle.mode, 'vite-rollup-write-false');
+  assert.match(audit.npm.webViewBundle.evidenceSha256, SHA256);
+  assert.ok(audit.npm.webViewBundle.modules.length === 45);
+  const packaged = audit.npm.allPackages
+    .filter((entry) => entry.packaged)
+    .map(({ name }) => name)
+    .sort();
+  assert.deepEqual(packaged, ['react', 'react-dom', 'scheduler']);
+  for (const packageName of [
+    '@capacitor-community/sqlite',
+    '@capacitor/android',
+    '@capacitor/app',
+    '@capacitor/core',
+    '@capacitor/ios',
+  ]) {
+    const entry = audit.npm.allPackages.find(
+      (candidate) => candidate.name === packageName && candidate.locator === `node_modules/${packageName}`,
+    );
+    assert.equal(entry.packaged, false, packageName);
+    assert.equal(entry.distribution, 'native-build-source', packageName);
+  }
+  for (const packageName of ['jeep-sqlite', 'sql.js', '@stencil/core', 'localforage']) {
+    const entries = audit.npm.allPackages.filter(({ name }) => name === packageName);
+    assert.ok(entries.length > 0, packageName);
+    assert.ok(entries.every(({ packaged }) => packaged === false), packageName);
+    assert.ok(
+      entries.every(({ distribution }) => distribution === 'installed-not-packaged'),
+      packageName,
+    );
+  }
+  const { assertWebViewBundleEvidenceCurrent } = await importAudit();
+  assert.doesNotThrow(() =>
+    assertWebViewBundleEvidenceCurrent(audit.npm.webViewBundle, audit.npm.webViewBundle),
+  );
+  assert.throws(
+    () =>
+      assertWebViewBundleEvidenceCurrent(
+        { ...audit.npm.webViewBundle, packageNames: ['jeep-sqlite'] },
+        audit.npm.webViewBundle,
+      ),
+    ({ code }) => code === 'webview_bundle_evidence_drift',
   );
 });

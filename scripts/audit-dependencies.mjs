@@ -9,6 +9,64 @@ const REPORT_PATH = resolve(ROOT, 'reports/b2/dependency-audit.json');
 const NATIVE_PLUGIN_AUDIT_PATH = resolve(ROOT, 'reports/b2/native-plugin-audit.json');
 const NATIVE_PLUGIN_BUILD_PATH = resolve(ROOT, 'reports/b2/native-plugin-build.json');
 const NOTICES_PATH = resolve(ROOT, 'THIRD_PARTY_NOTICES.md');
+const IOS_APP_PATH = resolve(
+  ROOT,
+  '.native-build/ios/Build/Products/Debug-iphonesimulator/App.app',
+);
+const EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS = Object.freeze([
+  {
+    path: 'Frameworks/Capacitor.framework/PrivacyInfo.xcprivacy',
+    sha256: '1bac827f49b2b8a5358491b9698203bf191791a6f1ba3a3ace3b1285d52d2d17',
+    tracking: false,
+    collectedDataTypes: [],
+    trackingDomains: [],
+    requiredReasonApis: [],
+  },
+  {
+    path: 'Frameworks/Cordova.framework/PrivacyInfo.xcprivacy',
+    sha256: '5a9b8fc0cddb10201bb47cc2804b3f004c7251476622d25bfc4eb54ed46e1084',
+    tracking: false,
+    collectedDataTypes: [],
+    trackingDomains: [],
+    requiredReasonApis: [],
+  },
+  {
+    path: 'Frameworks/SQLCipher.framework/PrivacyInfo.xcprivacy',
+    sha256: '9362796ba800a7b4169834eff8bde990866f40114ff7baac002b8bae543e8dd1',
+    tracking: false,
+    collectedDataTypes: [],
+    trackingDomains: [],
+    requiredReasonApis: [
+      { category: 'NSPrivacyAccessedAPICategoryDiskSpace', reasons: ['E174.1'] },
+      {
+        category: 'NSPrivacyAccessedAPICategoryFileTimestamp',
+        reasons: ['3B52.1', 'C617.1'],
+      },
+    ],
+  },
+  {
+    path: 'ZIPFoundation_ZIPFoundation.bundle/PrivacyInfo.xcprivacy',
+    sha256: '9a2f930cedb8d58309a581b9bf9bf3673685ec02ae2197d9f1c56828b718dffd',
+    tracking: false,
+    collectedDataTypes: [],
+    trackingDomains: [],
+    requiredReasonApis: [
+      { category: 'NSPrivacyAccessedAPICategoryFileTimestamp', reasons: ['0A2A.1'] },
+    ],
+  },
+]);
+const EXPECTED_WEBVIEW_BUNDLE_PACKAGES = Object.freeze([
+  'react',
+  'react-dom',
+  'scheduler',
+]);
+const NATIVE_BUILD_SOURCE_NPM_PACKAGES = new Set([
+  '@capacitor-community/sqlite',
+  '@capacitor/android',
+  '@capacitor/app',
+  '@capacitor/core',
+  '@capacitor/ios',
+]);
 
 function policyError(code, message) {
   const error = new Error(message);
@@ -18,6 +76,222 @@ function policyError(code, message) {
 
 async function readJson(path) {
   return JSON.parse(await readFile(path, 'utf8'));
+}
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function exactJson(value) {
+  return JSON.stringify(value);
+}
+
+export function assertIosPackagedPrivacyManifestEvidenceCurrent(actual, committed) {
+  if (
+    exactJson(actual) !== exactJson(committed) ||
+    exactJson(actual) !== exactJson(EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS)
+  ) {
+    throw policyError(
+      'ios_packaged_privacy_manifest_drift',
+      'Packaged iOS privacy manifest path, bytes or Required Reason API evidence drifted',
+    );
+  }
+}
+
+function canonicalPrivacyManifestJson(raw, path) {
+  if (
+    exactJson(Object.keys(raw).sort()) !==
+      exactJson([
+        'NSPrivacyAccessedAPITypes',
+        'NSPrivacyCollectedDataTypes',
+        'NSPrivacyTracking',
+        'NSPrivacyTrackingDomains',
+      ]) ||
+    raw.NSPrivacyTracking !== false ||
+    !Array.isArray(raw.NSPrivacyCollectedDataTypes) ||
+    raw.NSPrivacyCollectedDataTypes.length !== 0 ||
+    !Array.isArray(raw.NSPrivacyTrackingDomains) ||
+    raw.NSPrivacyTrackingDomains.length !== 0 ||
+    !Array.isArray(raw.NSPrivacyAccessedAPITypes)
+  ) {
+    throw policyError(
+      'ios_packaged_privacy_manifest_invalid',
+      `Packaged iOS privacy manifest has an unexpected disclosure shape: ${path}`,
+    );
+  }
+  const requiredReasonApis = raw.NSPrivacyAccessedAPITypes.map((entry) => {
+    if (
+      exactJson(Object.keys(entry ?? {}).sort()) !==
+        exactJson(['NSPrivacyAccessedAPIType', 'NSPrivacyAccessedAPITypeReasons']) ||
+      typeof entry.NSPrivacyAccessedAPIType !== 'string' ||
+      !Array.isArray(entry.NSPrivacyAccessedAPITypeReasons) ||
+      entry.NSPrivacyAccessedAPITypeReasons.some(
+        (reason) => typeof reason !== 'string' || reason.length === 0,
+      )
+    ) {
+      throw policyError(
+        'ios_packaged_privacy_manifest_invalid',
+        `Packaged iOS Required Reason API declaration is invalid: ${path}`,
+      );
+    }
+    return {
+      category: entry.NSPrivacyAccessedAPIType,
+      reasons: [...entry.NSPrivacyAccessedAPITypeReasons].sort(),
+    };
+  }).sort((left, right) => left.category.localeCompare(right.category));
+  if (new Set(requiredReasonApis.map(({ category }) => category)).size !== requiredReasonApis.length) {
+    throw policyError(
+      'ios_packaged_privacy_manifest_invalid',
+      `Packaged iOS privacy manifest repeats an API category: ${path}`,
+    );
+  }
+  return requiredReasonApis;
+}
+
+async function scanIosPackagedPrivacyManifests(appPath) {
+  const paths = (await listFiles(appPath))
+    .filter((path) => path.endsWith('/PrivacyInfo.xcprivacy'))
+    .map((path) => relative(appPath, path))
+    .sort();
+  const manifests = [];
+  for (const path of paths) {
+    const absolutePath = resolve(appPath, path);
+    const content = await readFile(absolutePath);
+    const parsed = await runCommand(
+      '/usr/bin/plutil',
+      ['-convert', 'json', '-o', '-', absolutePath],
+      { cwd: ROOT },
+    );
+    if (parsed.exitCode !== EXIT_CODES.success) {
+      throw policyError(
+        'ios_packaged_privacy_manifest_invalid',
+        `Unable to parse packaged iOS privacy manifest: ${path}`,
+      );
+    }
+    manifests.push({
+      path,
+      sha256: sha256(content),
+      tracking: false,
+      collectedDataTypes: [],
+      trackingDomains: [],
+      requiredReasonApis: canonicalPrivacyManifestJson(JSON.parse(parsed.stdout), path),
+    });
+  }
+  assertIosPackagedPrivacyManifestEvidenceCurrent(
+    manifests,
+    EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS,
+  );
+  return manifests;
+}
+
+export async function resolveIosPackagedPrivacyManifestEvidence({
+  appPath = IOS_APP_PATH,
+  committed,
+  requireFresh = false,
+}) {
+  if (existsSync(appPath)) {
+    const actual = await scanIosPackagedPrivacyManifests(appPath);
+    if (committed && !requireFresh) {
+      assertIosPackagedPrivacyManifestEvidenceCurrent(actual, committed);
+    }
+    return actual;
+  }
+  if (requireFresh || !committed) {
+    throw policyError(
+      'ios_packaged_privacy_manifest_missing',
+      'Packaged iOS privacy manifest evidence is absent and no built App.app is available',
+    );
+  }
+  assertIosPackagedPrivacyManifestEvidenceCurrent(
+    committed,
+    EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS,
+  );
+  return committed;
+}
+
+export function assertWebViewBundleEvidenceCurrent(actual, committed) {
+  if (exactJson(actual) !== exactJson(committed)) {
+    throw policyError(
+      'webview_bundle_evidence_drift',
+      'Committed WebView bundle module evidence does not match the fresh write-false build',
+    );
+  }
+  if (exactJson(actual?.packageNames) !== exactJson(EXPECTED_WEBVIEW_BUNDLE_PACKAGES)) {
+    throw policyError(
+      'webview_bundle_evidence_drift',
+      'WebView bundle npm package set requires explicit policy review',
+    );
+  }
+}
+
+function npmLocatorFromModulePath(path) {
+  if (!path.startsWith('node_modules/')) return null;
+  const parts = path.split('/');
+  return parts[1].startsWith('@')
+    ? `node_modules/${parts[1]}/${parts[2]}`
+    : `node_modules/${parts[1]}`;
+}
+
+export async function buildWebViewBundleEvidence(lock) {
+  const { build } = await import('vite');
+  const built = await build({ write: false, logLevel: 'silent' });
+  const outputs = Array.isArray(built) ? built : [built];
+  const rollupOutputs = outputs.flatMap(({ output }) => output);
+  const moduleIds = [
+    ...new Set(
+      rollupOutputs
+        .filter(({ type }) => type === 'chunk')
+        .flatMap(({ modules }) => Object.keys(modules)),
+    ),
+  ].sort();
+  const modules = [];
+  for (const absoluteId of moduleIds) {
+    if (absoluteId.startsWith('\0')) {
+      modules.push({ id: absoluteId, kind: 'virtual', npmLocator: null, sha256: null });
+      continue;
+    }
+    const id = relative(ROOT, absoluteId);
+    if (id.startsWith('..') || id === '') {
+      throw policyError('webview_bundle_evidence_invalid', `Bundle input is outside root: ${absoluteId}`);
+    }
+    const npmLocator = npmLocatorFromModulePath(id);
+    if (npmLocator && !lock.packages[npmLocator]) {
+      throw policyError(
+        'webview_bundle_evidence_invalid',
+        `Bundled npm module is absent from the lockfile: ${id}`,
+      );
+    }
+    modules.push({
+      id,
+      kind: 'file',
+      npmLocator,
+      sha256: sha256(await readFile(absoluteId)),
+    });
+  }
+  const outputInventory = rollupOutputs
+    .map((output) => ({
+      fileName: output.fileName,
+      kind: output.type,
+      sha256: sha256(output.type === 'chunk' ? output.code : output.source),
+    }))
+    .sort((left, right) => left.fileName.localeCompare(right.fileName));
+  const packageLocators = [
+    ...new Set(modules.map(({ npmLocator }) => npmLocator).filter(Boolean)),
+  ].sort();
+  const packageNames = [
+    ...new Set(packageLocators.map((locator) => packageNameFromPath(locator))),
+  ].sort();
+  const payload = {
+    mode: 'vite-rollup-write-false',
+    moduleCount: modules.length,
+    packageNames,
+    packageLocators,
+    modules,
+    outputInventory,
+  };
+  const evidence = { ...payload, evidenceSha256: sha256(exactJson(payload)) };
+  assertWebViewBundleEvidenceCurrent(evidence, evidence);
+  return evidence;
 }
 
 function canonicalPackagedPermissionEvidence(evidence) {
@@ -108,20 +382,20 @@ export function renderThirdPartyNotices({
       ),
     )
     .map(
-      ({ name, version, licence, source, locator }) =>
-        `| ${markdownCell(name)} | ${markdownCell(version)} | ${markdownCell(licence)} | npm | ${markdownCell(source)} | ${markdownCell(locator)} |`,
+      ({ name, version, licence, source, locator, distribution, packaged }) =>
+        `| ${markdownCell(name)} | ${markdownCell(version)} | ${markdownCell(licence)} | npm | ${markdownCell(source)} | ${markdownCell(locator)} | ${markdownCell(distribution)}; packaged=${packaged} |`,
     );
   for (const dependency of spm) {
     const resolvedRequirement = dependency.requirement.kind === 'version'
       ? `version ${dependency.requirement.version}`
       : `branch ${dependency.requirement.branch}`;
     rows.push(
-      `| ${markdownCell(dependency.identity)} | ${markdownCell(dependency.requirement.version ?? dependency.requirement.branch)} | ${markdownCell(dependency.licence)} | SwiftPM | ${markdownCell(dependency.source)} | ${resolvedRequirement}; revision ${markdownCell(dependency.revision)} |`,
+      `| ${markdownCell(dependency.identity)} | ${markdownCell(dependency.requirement.version ?? dependency.requirement.branch)} | ${markdownCell(dependency.licence)} | SwiftPM | ${markdownCell(dependency.source)} | ${resolvedRequirement}; revision ${markdownCell(dependency.revision)} | packaged=${dependency.packaged} |`,
     );
   }
   for (const component of androidComponents) {
     rows.push(
-      `| ${markdownCell(`${component.group}:${component.name}`)} | ${markdownCell(component.version)} | ${markdownCell(component.licence.expression)} | Maven | ${markdownCell(component.pom.sourceUrl)} | ${markdownCell(component.distribution)} |`,
+      `| ${markdownCell(`${component.group}:${component.name}`)} | ${markdownCell(component.version)} | ${markdownCell(component.licence.expression)} | Maven | ${markdownCell(component.pom.sourceUrl)} | ${markdownCell(component.distribution)} | packaged=${component.packaged} |`,
     );
   }
   return `# Third-party notices
@@ -135,12 +409,14 @@ This is the deterministic dependency inventory for the B2 local persistence proo
 - Maven task-created build-tool identities: ${typeof androidResolution === 'string' ? 0 : androidResolution.taskCreatedBuildToolCount}
 - Maven verification inventory: ${typeof androidResolution === 'string' ? 0 : androidResolution.verificationComponentCount} components and ${typeof androidResolution === 'string' ? 0 : androidResolution.verificationArtifactCount} artefacts
 - Notice rows: ${rows.length}
+- Physically bundled WebView npm packages: ${EXPECTED_WEBVIEW_BUNDLE_PACKAGES.join(', ')}
+- Notice inclusion is deliberately conservative and does not mean an npm artefact is packaged
 - Runtime network endpoints: none
 - Native plugins: @capacitor-community/sqlite 8.1.0 and @capacitor/app 8.1.0, conditionally approved for B2 proof only
 - SQLCipher is packaged even though B2 uses no-encryption mode; US export classification remains unresolved before store release
 
-| Package | Version | Declared licence | Source type | Source | Locator |
-|---|---:|---|---|---|---|
+| Package | Version | Declared licence | Source type | Source | Locator | Distribution |
+|---|---:|---|---|---|---|---|
 ${rows.join('\n')}
 `;
 }
@@ -194,7 +470,13 @@ async function assertRegularFilePath(root, path) {
   }
 }
 
-function commonClassification(policy, name, lockEntry, licenceOverride = null) {
+function commonClassification(
+  policy,
+  name,
+  lockEntry,
+  distribution,
+  licenceOverride = null,
+) {
   const classification = policy.npmClassifications[name];
   if (!classification) {
     throw policyError('unclassified_dependency', `No classification for ${name}`);
@@ -214,12 +496,48 @@ function commonClassification(policy, name, lockEntry, licenceOverride = null) {
     applePrivacyManifest: classification.applePrivacyManifest,
     googleDataSafety: classification.googleDataSafety,
     sourceRepository: classification.sourceRepository ?? null,
-    packaged: classification.packaged ?? lockEntry.dev !== true,
-    privacyRole: classification.googleDataSafety,
+    packaged: distribution.packaged,
+    distribution: distribution.distribution,
+    privacyRole: distribution.privacyRole,
     restrictedExportClassification:
       classification.restrictedExportClassification ?? 'None identified',
+    restrictedClassification: licenceOverride ? 'exact-licence-notice-override' : 'none',
+    exportClassification:
+      classification.restrictedExportClassification ?? 'none-identified',
     owner: policy.owner,
     reviewDate: policy.reviewDate,
+  };
+}
+
+function npmDistribution(entry, webViewBundle) {
+  const bundledLocators = new Set(webViewBundle.packageLocators);
+  if (bundledLocators.has(entry.locator)) {
+    return {
+      packaged: true,
+      distribution: 'webview-bundle',
+      privacyRole: 'Physically included in the local WebView JavaScript bundle',
+    };
+  }
+  if (NATIVE_BUILD_SOURCE_NPM_PACKAGES.has(entry.name)) {
+    return {
+      packaged: false,
+      distribution: 'native-build-source',
+      privacyRole:
+        'npm source input only; packaged SwiftPM and Maven binaries are certified separately',
+    };
+  }
+  if (entry.dev) {
+    return {
+      packaged: false,
+      distribution: 'build-tool-not-packaged',
+      privacyRole: 'Build-only lock closure; absent from the WebView bundle',
+    };
+  }
+  return {
+    packaged: false,
+    distribution: 'installed-not-packaged',
+    privacyRole:
+      'Conservative notice closure only; absent from the WebView bundle and native source set',
   };
 }
 
@@ -841,6 +1159,7 @@ export async function buildDependencyArtifacts({
   const nativePluginBuildSha256 = createHash('sha256')
     .update(nativePluginBuildText)
     .digest('hex');
+  const committedB2Report = existsSync(REPORT_PATH) ? await readJson(REPORT_PATH) : null;
   const androidCertification = preBootstrap
     ? null
     : await (
@@ -849,7 +1168,7 @@ export async function buildDependencyArtifacts({
         discoverSources: discoverAndroidSources,
         committed: discoverAndroidSources
           ? null
-          : (await readJson(REPORT_PATH)).android,
+          : committedB2Report?.android,
       });
 
   assertDirectPolicy(packageJson.dependencies, policy.directDependencies, 'runtime dependency');
@@ -857,6 +1176,13 @@ export async function buildDependencyArtifacts({
   assertDirectPolicy(lock.packages[''].dependencies, policy.directDependencies, 'lock runtime');
   assertDirectPolicy(lock.packages[''].devDependencies, policy.directBuildTools, 'lock build');
   const lockPackages = validateLock(policy, lock, noticeOverrides);
+  const webViewBundle = await buildWebViewBundleEvidence(lock);
+  const committedPrivacyManifests = committedB2Report?.ios?.packagedPrivacyManifests;
+  const iosPackagedPrivacyManifests =
+    await resolveIosPackagedPrivacyManifestEvidence({
+      committed: committedPrivacyManifests,
+      requireFresh: discoverAndroidSources,
+    });
   const permissionEvidence = await verifyRuntimeBoundary(packageJson);
   permissionEvidence.packagedAndroid = {
     appIdentity: nativePluginBuild.android.packagedPermissions.appIdentity,
@@ -872,9 +1198,15 @@ export async function buildDependencyArtifacts({
   const production = stableSortByName(
     lockPackages
       .filter(({ dev }) => !dev)
-      .map(({ name, locator, licenceOverride }) => ({
-        ...commonClassification(policy, name, lock.packages[locator], licenceOverride),
-        locator,
+      .map((entry) => ({
+        ...commonClassification(
+          policy,
+          entry.name,
+          lock.packages[entry.locator],
+          npmDistribution(entry, webViewBundle),
+          entry.licenceOverride,
+        ),
+        locator: entry.locator,
       })),
   );
   const directBuildTools = stableSortByName(
@@ -883,6 +1215,10 @@ export async function buildDependencyArtifacts({
         policy,
         name,
         lock.packages[`node_modules/${name}`],
+        npmDistribution(
+          lockPackages.find(({ locator }) => locator === `node_modules/${name}`),
+          webViewBundle,
+        ),
         noticeOverrides.npmLicenceExpressions[
           `${name}@${lock.packages[`node_modules/${name}`].version}`
         ],
@@ -892,6 +1228,7 @@ export async function buildDependencyArtifacts({
   const allPackages = lockPackages
     .map((entry) => {
       const classification = policy.npmClassifications[entry.name];
+      const distribution = npmDistribution(entry, webViewBundle);
       return {
         locator: entry.locator,
         name: entry.name,
@@ -901,11 +1238,17 @@ export async function buildDependencyArtifacts({
         declaredLicence: entry.declaredLicence,
         licence: entry.licence,
         dev: entry.dev,
-        packaged: classification?.packaged ?? !entry.dev,
+        packaged: distribution.packaged,
+        distribution: distribution.distribution,
         role: classification?.role ?? 'resolved build-tool transitive dependency',
-        privacyRole: classification?.googleDataSafety ?? 'Build-only',
+        privacyRole: distribution.privacyRole,
         restrictedExportClassification:
           classification?.restrictedExportClassification ?? 'None identified',
+        restrictedClassification: entry.licenceOverride
+          ? 'exact-licence-notice-override'
+          : 'none',
+        exportClassification:
+          classification?.restrictedExportClassification ?? 'none-identified',
       };
     })
     .sort((left, right) =>
@@ -1007,16 +1350,21 @@ export async function buildDependencyArtifacts({
       packageLockSha256: createHash('sha256').update(packageLockText).digest('hex'),
       spmResolvedVersion: packageResolved.version,
       nativePluginBuildSha256,
+      webViewBundleEvidenceSha256: webViewBundle.evidenceSha256,
     },
     npm: {
       lockfileVersion: lock.lockfileVersion,
       lockPackageCount: lockPackages.length,
+      webViewBundle,
       allPackages,
       approvedLicences: policy.approvedLicences,
       production,
       directBuildTools,
     },
     spm,
+    ios: {
+      packagedPrivacyManifests: iosPackagedPrivacyManifests,
+    },
     android: androidCertification,
     androidResolution,
     gradleInputs: gradle.inputs,
@@ -1056,6 +1404,8 @@ export async function buildDependencyArtifacts({
       nativePluginBuild.android.packagedPermissions.requestedPermissions,
     iosAddedUsageDescriptionKeys: nativePluginBuild.ios.addedUsageDescriptionKeys,
     iosAddedEntitlements: nativePluginBuild.ios.addedEntitlements,
+    iosPackagedPrivacyManifests,
+    webViewBundleEvidenceSha256: webViewBundle.evidenceSha256,
     androidBackupEnabled: nativePluginBuild.android.packagedManifest.allowBackup,
     androidDataExtraction: 'all-domains-excluded-until-c2',
     androidBackupRulesSha256:
@@ -1081,7 +1431,7 @@ export async function buildDependencyArtifacts({
     .digest('hex');
   const pluginAuditJson = `${JSON.stringify(pluginAudit, null, 2)}\n`;
   const noticesMarkdown = renderThirdPartyNotices({
-    lockPackages,
+    lockPackages: allPackages,
     spm,
     androidResolution: report.androidResolution,
     androidComponents: androidCertification

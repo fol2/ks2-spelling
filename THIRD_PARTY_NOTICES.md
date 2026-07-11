@@ -9,527 +9,529 @@ This is the deterministic dependency inventory for the B2 local persistence proo
 - Maven task-created build-tool identities: 12
 - Maven verification inventory: 427 components and 847 artefacts
 - Notice rows: 518
+- Physically bundled WebView npm packages: react, react-dom, scheduler
+- Notice inclusion is deliberately conservative and does not mean an npm artefact is packaged
 - Runtime network endpoints: none
 - Native plugins: @capacitor-community/sqlite 8.1.0 and @capacitor/app 8.1.0, conditionally approved for B2 proof only
 - SQLCipher is packaged even though B2 uses no-encryption mode; US export classification remains unresolved before store release
 
-| Package | Version | Declared licence | Source type | Source | Locator |
-|---|---:|---|---|---|---|
-| @capacitor-community/sqlite | 8.1.0 | MIT | npm | https://registry.npmjs.org/@capacitor-community/sqlite/-/sqlite-8.1.0.tgz | node_modules/@capacitor-community/sqlite |
-| @capacitor/android | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/android/-/android-8.4.1.tgz | node_modules/@capacitor/android |
-| @capacitor/app | 8.1.0 | MIT | npm | https://registry.npmjs.org/@capacitor/app/-/app-8.1.0.tgz | node_modules/@capacitor/app |
-| @capacitor/cli | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/cli/-/cli-8.4.1.tgz | node_modules/@capacitor/cli |
-| @capacitor/core | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/core/-/core-8.4.1.tgz | node_modules/@capacitor/core |
-| @capacitor/ios | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/ios/-/ios-8.4.1.tgz | node_modules/@capacitor/ios |
-| @emnapi/core | 1.11.1 | MIT | npm | https://registry.npmjs.org/@emnapi/core/-/core-1.11.1.tgz | node_modules/@emnapi/core |
-| @emnapi/runtime | 1.11.1 | MIT | npm | https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.11.1.tgz | node_modules/@emnapi/runtime |
-| @emnapi/wasi-threads | 1.2.2 | MIT | npm | https://registry.npmjs.org/@emnapi/wasi-threads/-/wasi-threads-1.2.2.tgz | node_modules/@emnapi/wasi-threads |
-| @ionic/cli-framework-output | 2.2.8 | MIT | npm | https://registry.npmjs.org/@ionic/cli-framework-output/-/cli-framework-output-2.2.8.tgz | node_modules/@ionic/cli-framework-output |
-| @ionic/utils-array | 2.1.6 | MIT | npm | https://registry.npmjs.org/@ionic/utils-array/-/utils-array-2.1.6.tgz | node_modules/@ionic/utils-array |
-| @ionic/utils-fs | 3.1.7 | MIT | npm | https://registry.npmjs.org/@ionic/utils-fs/-/utils-fs-3.1.7.tgz | node_modules/@ionic/utils-fs |
-| @ionic/utils-object | 2.1.6 | MIT | npm | https://registry.npmjs.org/@ionic/utils-object/-/utils-object-2.1.6.tgz | node_modules/@ionic/utils-object |
-| @ionic/utils-process | 2.1.12 | MIT | npm | https://registry.npmjs.org/@ionic/utils-process/-/utils-process-2.1.12.tgz | node_modules/@ionic/utils-process |
-| @ionic/utils-stream | 3.1.7 | MIT | npm | https://registry.npmjs.org/@ionic/utils-stream/-/utils-stream-3.1.7.tgz | node_modules/@ionic/utils-stream |
-| @ionic/utils-subprocess | 3.0.1 | MIT | npm | https://registry.npmjs.org/@ionic/utils-subprocess/-/utils-subprocess-3.0.1.tgz | node_modules/@ionic/utils-subprocess |
-| @ionic/utils-terminal | 2.3.5 | MIT | npm | https://registry.npmjs.org/@ionic/utils-terminal/-/utils-terminal-2.3.5.tgz | node_modules/@ionic/utils-terminal |
-| @isaacs/fs-minipass | 4.0.1 | ISC | npm | https://registry.npmjs.org/@isaacs/fs-minipass/-/fs-minipass-4.0.1.tgz | node_modules/@isaacs/fs-minipass |
-| @napi-rs/wasm-runtime | 1.1.6 | MIT | npm | https://registry.npmjs.org/@napi-rs/wasm-runtime/-/wasm-runtime-1.1.6.tgz | node_modules/@napi-rs/wasm-runtime |
-| @oxc-project/types | 0.139.0 | MIT | npm | https://registry.npmjs.org/@oxc-project/types/-/types-0.139.0.tgz | node_modules/@oxc-project/types |
-| @oxlint/binding-android-arm-eabi | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-android-arm-eabi/-/binding-android-arm-eabi-1.71.0.tgz | node_modules/@oxlint/binding-android-arm-eabi |
-| @oxlint/binding-android-arm64 | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-android-arm64/-/binding-android-arm64-1.71.0.tgz | node_modules/@oxlint/binding-android-arm64 |
-| @oxlint/binding-darwin-arm64 | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-darwin-arm64/-/binding-darwin-arm64-1.71.0.tgz | node_modules/@oxlint/binding-darwin-arm64 |
-| @oxlint/binding-darwin-x64 | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-darwin-x64/-/binding-darwin-x64-1.71.0.tgz | node_modules/@oxlint/binding-darwin-x64 |
-| @oxlint/binding-freebsd-x64 | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-freebsd-x64/-/binding-freebsd-x64-1.71.0.tgz | node_modules/@oxlint/binding-freebsd-x64 |
-| @oxlint/binding-linux-arm-gnueabihf | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-arm-gnueabihf/-/binding-linux-arm-gnueabihf-1.71.0.tgz | node_modules/@oxlint/binding-linux-arm-gnueabihf |
-| @oxlint/binding-linux-arm-musleabihf | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-arm-musleabihf/-/binding-linux-arm-musleabihf-1.71.0.tgz | node_modules/@oxlint/binding-linux-arm-musleabihf |
-| @oxlint/binding-linux-arm64-gnu | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-1.71.0.tgz | node_modules/@oxlint/binding-linux-arm64-gnu |
-| @oxlint/binding-linux-arm64-musl | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-arm64-musl/-/binding-linux-arm64-musl-1.71.0.tgz | node_modules/@oxlint/binding-linux-arm64-musl |
-| @oxlint/binding-linux-ppc64-gnu | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-ppc64-gnu/-/binding-linux-ppc64-gnu-1.71.0.tgz | node_modules/@oxlint/binding-linux-ppc64-gnu |
-| @oxlint/binding-linux-riscv64-gnu | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-riscv64-gnu/-/binding-linux-riscv64-gnu-1.71.0.tgz | node_modules/@oxlint/binding-linux-riscv64-gnu |
-| @oxlint/binding-linux-riscv64-musl | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-riscv64-musl/-/binding-linux-riscv64-musl-1.71.0.tgz | node_modules/@oxlint/binding-linux-riscv64-musl |
-| @oxlint/binding-linux-s390x-gnu | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-s390x-gnu/-/binding-linux-s390x-gnu-1.71.0.tgz | node_modules/@oxlint/binding-linux-s390x-gnu |
-| @oxlint/binding-linux-x64-gnu | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.71.0.tgz | node_modules/@oxlint/binding-linux-x64-gnu |
-| @oxlint/binding-linux-x64-musl | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-x64-musl/-/binding-linux-x64-musl-1.71.0.tgz | node_modules/@oxlint/binding-linux-x64-musl |
-| @oxlint/binding-openharmony-arm64 | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-openharmony-arm64/-/binding-openharmony-arm64-1.71.0.tgz | node_modules/@oxlint/binding-openharmony-arm64 |
-| @oxlint/binding-win32-arm64-msvc | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-1.71.0.tgz | node_modules/@oxlint/binding-win32-arm64-msvc |
-| @oxlint/binding-win32-ia32-msvc | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-win32-ia32-msvc/-/binding-win32-ia32-msvc-1.71.0.tgz | node_modules/@oxlint/binding-win32-ia32-msvc |
-| @oxlint/binding-win32-x64-msvc | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-win32-x64-msvc/-/binding-win32-x64-msvc-1.71.0.tgz | node_modules/@oxlint/binding-win32-x64-msvc |
-| @rolldown/binding-android-arm64 | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-android-arm64/-/binding-android-arm64-1.1.5.tgz | node_modules/@rolldown/binding-android-arm64 |
-| @rolldown/binding-darwin-arm64 | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-darwin-arm64/-/binding-darwin-arm64-1.1.5.tgz | node_modules/@rolldown/binding-darwin-arm64 |
-| @rolldown/binding-darwin-x64 | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-darwin-x64/-/binding-darwin-x64-1.1.5.tgz | node_modules/@rolldown/binding-darwin-x64 |
-| @rolldown/binding-freebsd-x64 | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-freebsd-x64/-/binding-freebsd-x64-1.1.5.tgz | node_modules/@rolldown/binding-freebsd-x64 |
-| @rolldown/binding-linux-arm-gnueabihf | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-arm-gnueabihf/-/binding-linux-arm-gnueabihf-1.1.5.tgz | node_modules/@rolldown/binding-linux-arm-gnueabihf |
-| @rolldown/binding-linux-arm64-gnu | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-1.1.5.tgz | node_modules/@rolldown/binding-linux-arm64-gnu |
-| @rolldown/binding-linux-arm64-musl | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-arm64-musl/-/binding-linux-arm64-musl-1.1.5.tgz | node_modules/@rolldown/binding-linux-arm64-musl |
-| @rolldown/binding-linux-ppc64-gnu | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-ppc64-gnu/-/binding-linux-ppc64-gnu-1.1.5.tgz | node_modules/@rolldown/binding-linux-ppc64-gnu |
-| @rolldown/binding-linux-s390x-gnu | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-s390x-gnu/-/binding-linux-s390x-gnu-1.1.5.tgz | node_modules/@rolldown/binding-linux-s390x-gnu |
-| @rolldown/binding-linux-x64-gnu | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.1.5.tgz | node_modules/@rolldown/binding-linux-x64-gnu |
-| @rolldown/binding-linux-x64-musl | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-x64-musl/-/binding-linux-x64-musl-1.1.5.tgz | node_modules/@rolldown/binding-linux-x64-musl |
-| @rolldown/binding-openharmony-arm64 | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-openharmony-arm64/-/binding-openharmony-arm64-1.1.5.tgz | node_modules/@rolldown/binding-openharmony-arm64 |
-| @rolldown/binding-wasm32-wasi | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-wasm32-wasi/-/binding-wasm32-wasi-1.1.5.tgz | node_modules/@rolldown/binding-wasm32-wasi |
-| @rolldown/binding-win32-arm64-msvc | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-1.1.5.tgz | node_modules/@rolldown/binding-win32-arm64-msvc |
-| @rolldown/binding-win32-x64-msvc | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-win32-x64-msvc/-/binding-win32-x64-msvc-1.1.5.tgz | node_modules/@rolldown/binding-win32-x64-msvc |
-| @rolldown/pluginutils | 1.0.1 | MIT | npm | https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz | node_modules/@rolldown/pluginutils |
-| @rollup/rollup-darwin-arm64 | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-darwin-arm64/-/rollup-darwin-arm64-4.44.0.tgz | node_modules/@rollup/rollup-darwin-arm64 |
-| @rollup/rollup-darwin-x64 | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-darwin-x64/-/rollup-darwin-x64-4.44.0.tgz | node_modules/@rollup/rollup-darwin-x64 |
-| @rollup/rollup-linux-arm64-gnu | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-linux-arm64-gnu/-/rollup-linux-arm64-gnu-4.44.0.tgz | node_modules/@rollup/rollup-linux-arm64-gnu |
-| @rollup/rollup-linux-arm64-musl | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-linux-arm64-musl/-/rollup-linux-arm64-musl-4.44.0.tgz | node_modules/@rollup/rollup-linux-arm64-musl |
-| @rollup/rollup-linux-x64-gnu | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.44.0.tgz | node_modules/@rollup/rollup-linux-x64-gnu |
-| @rollup/rollup-linux-x64-musl | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-linux-x64-musl/-/rollup-linux-x64-musl-4.44.0.tgz | node_modules/@rollup/rollup-linux-x64-musl |
-| @rollup/rollup-win32-arm64-msvc | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-win32-arm64-msvc/-/rollup-win32-arm64-msvc-4.44.0.tgz | node_modules/@rollup/rollup-win32-arm64-msvc |
-| @rollup/rollup-win32-x64-msvc | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.44.0.tgz | node_modules/@rollup/rollup-win32-x64-msvc |
-| @stencil/core | 4.43.5 | MIT | npm | https://registry.npmjs.org/@stencil/core/-/core-4.43.5.tgz | node_modules/@stencil/core |
-| @tybys/wasm-util | 0.10.3 | MIT | npm | https://registry.npmjs.org/@tybys/wasm-util/-/wasm-util-0.10.3.tgz | node_modules/@tybys/wasm-util |
-| @types/fs-extra | 8.1.5 | MIT | npm | https://registry.npmjs.org/@types/fs-extra/-/fs-extra-8.1.5.tgz | node_modules/@types/fs-extra |
-| @types/node | 26.1.1 | MIT | npm | https://registry.npmjs.org/@types/node/-/node-26.1.1.tgz | node_modules/@types/node |
-| @types/slice-ansi | 4.0.0 | MIT | npm | https://registry.npmjs.org/@types/slice-ansi/-/slice-ansi-4.0.0.tgz | node_modules/@types/slice-ansi |
-| @vitejs/plugin-react | 6.0.3 | MIT | npm | https://registry.npmjs.org/@vitejs/plugin-react/-/plugin-react-6.0.3.tgz | node_modules/@vitejs/plugin-react |
-| @xmldom/xmldom | 0.9.10 | MIT | npm | https://registry.npmjs.org/@xmldom/xmldom/-/xmldom-0.9.10.tgz | node_modules/@xmldom/xmldom |
-| ansi-regex | 5.0.1 | MIT | npm | https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz | node_modules/ansi-regex |
-| ansi-styles | 4.3.0 | MIT | npm | https://registry.npmjs.org/ansi-styles/-/ansi-styles-4.3.0.tgz | node_modules/ansi-styles |
-| astral-regex | 2.0.0 | MIT | npm | https://registry.npmjs.org/astral-regex/-/astral-regex-2.0.0.tgz | node_modules/astral-regex |
-| at-least-node | 1.0.0 | ISC | npm | https://registry.npmjs.org/at-least-node/-/at-least-node-1.0.0.tgz | node_modules/at-least-node |
-| balanced-match | 4.0.4 | MIT | npm | https://registry.npmjs.org/balanced-match/-/balanced-match-4.0.4.tgz | node_modules/balanced-match |
-| base64-js | 1.5.1 | MIT | npm | https://registry.npmjs.org/base64-js/-/base64-js-1.5.1.tgz | node_modules/base64-js |
-| big-integer | 1.6.52 | Unlicense | npm | https://registry.npmjs.org/big-integer/-/big-integer-1.6.52.tgz | node_modules/big-integer |
-| bplist-parser | 0.3.2 | MIT | npm | https://registry.npmjs.org/bplist-parser/-/bplist-parser-0.3.2.tgz | node_modules/bplist-parser |
-| brace-expansion | 5.0.7 | MIT | npm | https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.7.tgz | node_modules/brace-expansion |
-| browser-fs-access | 0.35.0 | Apache-2.0 | npm | https://registry.npmjs.org/browser-fs-access/-/browser-fs-access-0.35.0.tgz | node_modules/browser-fs-access |
-| buffer-crc32 | 0.2.13 | MIT | npm | https://registry.npmjs.org/buffer-crc32/-/buffer-crc32-0.2.13.tgz | node_modules/buffer-crc32 |
-| chownr | 3.0.0 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/chownr/-/chownr-3.0.0.tgz | node_modules/chownr |
-| color-convert | 2.0.1 | MIT | npm | https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz | node_modules/color-convert |
-| color-name | 1.1.4 | MIT | npm | https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz | node_modules/color-name |
-| commander | 12.1.0 | MIT | npm | https://registry.npmjs.org/commander/-/commander-12.1.0.tgz | node_modules/commander |
-| core-util-is | 1.0.3 | MIT | npm | https://registry.npmjs.org/core-util-is/-/core-util-is-1.0.3.tgz | node_modules/core-util-is |
-| cross-spawn | 7.0.6 | MIT | npm | https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz | node_modules/cross-spawn |
-| debug | 4.4.3 | MIT | npm | https://registry.npmjs.org/debug/-/debug-4.4.3.tgz | node_modules/debug |
-| define-lazy-prop | 2.0.0 | MIT | npm | https://registry.npmjs.org/define-lazy-prop/-/define-lazy-prop-2.0.0.tgz | node_modules/define-lazy-prop |
-| detect-libc | 2.1.2 | Apache-2.0 | npm | https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz | node_modules/detect-libc |
-| elementtree | 0.1.7 | Apache-2.0 | npm | https://registry.npmjs.org/elementtree/-/elementtree-0.1.7.tgz | node_modules/elementtree |
-| emoji-regex | 8.0.0 | MIT | npm | https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz | node_modules/emoji-regex |
-| env-paths | 2.2.1 | MIT | npm | https://registry.npmjs.org/env-paths/-/env-paths-2.2.1.tgz | node_modules/env-paths |
-| fd-slicer | 1.1.0 | MIT | npm | https://registry.npmjs.org/fd-slicer/-/fd-slicer-1.1.0.tgz | node_modules/fd-slicer |
-| fdir | 6.5.0 | MIT | npm | https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz | node_modules/fdir |
-| fs-extra | 11.3.6 | MIT | npm | https://registry.npmjs.org/fs-extra/-/fs-extra-11.3.6.tgz | node_modules/fs-extra |
-| fs-extra | 9.1.0 | MIT | npm | https://registry.npmjs.org/fs-extra/-/fs-extra-9.1.0.tgz | node_modules/@ionic/utils-fs/node_modules/fs-extra |
-| fsevents | 2.3.3 | MIT | npm | https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz | node_modules/fsevents |
-| glob | 13.0.6 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/glob/-/glob-13.0.6.tgz | node_modules/glob |
-| graceful-fs | 4.2.11 | ISC | npm | https://registry.npmjs.org/graceful-fs/-/graceful-fs-4.2.11.tgz | node_modules/graceful-fs |
-| immediate | 3.0.6 | MIT | npm | https://registry.npmjs.org/immediate/-/immediate-3.0.6.tgz | node_modules/immediate |
-| inherits | 2.0.4 | ISC | npm | https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz | node_modules/inherits |
-| ini | 4.1.3 | ISC | npm | https://registry.npmjs.org/ini/-/ini-4.1.3.tgz | node_modules/ini |
-| is-docker | 2.2.1 | MIT | npm | https://registry.npmjs.org/is-docker/-/is-docker-2.2.1.tgz | node_modules/is-docker |
-| is-fullwidth-code-point | 3.0.0 | MIT | npm | https://registry.npmjs.org/is-fullwidth-code-point/-/is-fullwidth-code-point-3.0.0.tgz | node_modules/is-fullwidth-code-point |
-| is-wsl | 2.2.0 | MIT | npm | https://registry.npmjs.org/is-wsl/-/is-wsl-2.2.0.tgz | node_modules/is-wsl |
-| isarray | 1.0.0 | MIT | npm | https://registry.npmjs.org/isarray/-/isarray-1.0.0.tgz | node_modules/isarray |
-| isexe | 2.0.0 | ISC | npm | https://registry.npmjs.org/isexe/-/isexe-2.0.0.tgz | node_modules/isexe |
-| jeep-sqlite | 2.8.0 | MIT | npm | https://registry.npmjs.org/jeep-sqlite/-/jeep-sqlite-2.8.0.tgz | node_modules/jeep-sqlite |
-| jsonfile | 6.2.1 | MIT | npm | https://registry.npmjs.org/jsonfile/-/jsonfile-6.2.1.tgz | node_modules/jsonfile |
-| jszip | 3.10.1 | MIT | npm | https://registry.npmjs.org/jszip/-/jszip-3.10.1.tgz | node_modules/jszip |
-| kleur | 3.0.3 | MIT | npm | https://registry.npmjs.org/kleur/-/kleur-3.0.3.tgz | node_modules/prompts/node_modules/kleur |
-| kleur | 4.1.5 | MIT | npm | https://registry.npmjs.org/kleur/-/kleur-4.1.5.tgz | node_modules/kleur |
-| lie | 3.1.1 | MIT | npm | https://registry.npmjs.org/lie/-/lie-3.1.1.tgz | node_modules/localforage/node_modules/lie |
-| lie | 3.3.0 | MIT | npm | https://registry.npmjs.org/lie/-/lie-3.3.0.tgz | node_modules/lie |
-| lightningcss-android-arm64 | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-android-arm64/-/lightningcss-android-arm64-1.32.0.tgz | node_modules/lightningcss-android-arm64 |
-| lightningcss-darwin-arm64 | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-darwin-arm64/-/lightningcss-darwin-arm64-1.32.0.tgz | node_modules/lightningcss-darwin-arm64 |
-| lightningcss-darwin-x64 | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-darwin-x64/-/lightningcss-darwin-x64-1.32.0.tgz | node_modules/lightningcss-darwin-x64 |
-| lightningcss-freebsd-x64 | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-freebsd-x64/-/lightningcss-freebsd-x64-1.32.0.tgz | node_modules/lightningcss-freebsd-x64 |
-| lightningcss-linux-arm-gnueabihf | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-linux-arm-gnueabihf/-/lightningcss-linux-arm-gnueabihf-1.32.0.tgz | node_modules/lightningcss-linux-arm-gnueabihf |
-| lightningcss-linux-arm64-gnu | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-linux-arm64-gnu/-/lightningcss-linux-arm64-gnu-1.32.0.tgz | node_modules/lightningcss-linux-arm64-gnu |
-| lightningcss-linux-arm64-musl | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-linux-arm64-musl/-/lightningcss-linux-arm64-musl-1.32.0.tgz | node_modules/lightningcss-linux-arm64-musl |
-| lightningcss-linux-x64-gnu | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.32.0.tgz | node_modules/lightningcss-linux-x64-gnu |
-| lightningcss-linux-x64-musl | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.32.0.tgz | node_modules/lightningcss-linux-x64-musl |
-| lightningcss-win32-arm64-msvc | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-win32-arm64-msvc/-/lightningcss-win32-arm64-msvc-1.32.0.tgz | node_modules/lightningcss-win32-arm64-msvc |
-| lightningcss-win32-x64-msvc | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-win32-x64-msvc/-/lightningcss-win32-x64-msvc-1.32.0.tgz | node_modules/lightningcss-win32-x64-msvc |
-| lightningcss | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss/-/lightningcss-1.32.0.tgz | node_modules/lightningcss |
-| localforage | 1.10.0 | Apache-2.0 | npm | https://registry.npmjs.org/localforage/-/localforage-1.10.0.tgz | node_modules/localforage |
-| lru-cache | 11.5.2 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/lru-cache/-/lru-cache-11.5.2.tgz | node_modules/lru-cache |
-| minimatch | 10.2.5 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/minimatch/-/minimatch-10.2.5.tgz | node_modules/minimatch |
-| minipass | 7.1.3 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/minipass/-/minipass-7.1.3.tgz | node_modules/minipass |
-| minizlib | 3.1.0 | MIT | npm | https://registry.npmjs.org/minizlib/-/minizlib-3.1.0.tgz | node_modules/minizlib |
-| ms | 2.1.3 | MIT | npm | https://registry.npmjs.org/ms/-/ms-2.1.3.tgz | node_modules/ms |
-| nanoid | 3.3.15 | MIT | npm | https://registry.npmjs.org/nanoid/-/nanoid-3.3.15.tgz | node_modules/nanoid |
-| native-run | 2.0.3 | MIT | npm | https://registry.npmjs.org/native-run/-/native-run-2.0.3.tgz | node_modules/native-run |
-| open | 8.4.2 | MIT | npm | https://registry.npmjs.org/open/-/open-8.4.2.tgz | node_modules/open |
-| oxlint | 1.71.0 | MIT | npm | https://registry.npmjs.org/oxlint/-/oxlint-1.71.0.tgz | node_modules/oxlint |
-| package-json-from-dist | 1.0.1 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/package-json-from-dist/-/package-json-from-dist-1.0.1.tgz | node_modules/package-json-from-dist |
-| pako | 1.0.11 | MIT AND Zlib | npm | https://registry.npmjs.org/pako/-/pako-1.0.11.tgz | node_modules/pako |
-| path-key | 3.1.1 | MIT | npm | https://registry.npmjs.org/path-key/-/path-key-3.1.1.tgz | node_modules/path-key |
-| path-scurry | 2.0.2 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/path-scurry/-/path-scurry-2.0.2.tgz | node_modules/path-scurry |
-| pend | 1.2.0 | MIT | npm | https://registry.npmjs.org/pend/-/pend-1.2.0.tgz | node_modules/pend |
-| picocolors | 1.1.1 | ISC | npm | https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz | node_modules/picocolors |
-| picomatch | 4.0.5 | MIT | npm | https://registry.npmjs.org/picomatch/-/picomatch-4.0.5.tgz | node_modules/picomatch |
-| plist | 3.1.1 | MIT | npm | https://registry.npmjs.org/plist/-/plist-3.1.1.tgz | node_modules/plist |
-| postcss | 8.5.16 | MIT | npm | https://registry.npmjs.org/postcss/-/postcss-8.5.16.tgz | node_modules/postcss |
-| process-nextick-args | 2.0.1 | MIT | npm | https://registry.npmjs.org/process-nextick-args/-/process-nextick-args-2.0.1.tgz | node_modules/process-nextick-args |
-| prompts | 2.4.2 | MIT | npm | https://registry.npmjs.org/prompts/-/prompts-2.4.2.tgz | node_modules/prompts |
-| react-dom | 19.2.7 | MIT | npm | https://registry.npmjs.org/react-dom/-/react-dom-19.2.7.tgz | node_modules/react-dom |
-| react | 19.2.7 | MIT | npm | https://registry.npmjs.org/react/-/react-19.2.7.tgz | node_modules/react |
-| readable-stream | 2.3.8 | MIT | npm | https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz | node_modules/jszip/node_modules/readable-stream |
-| readable-stream | 3.6.2 | MIT | npm | https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz | node_modules/readable-stream |
-| rimraf | 6.1.3 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/rimraf/-/rimraf-6.1.3.tgz | node_modules/rimraf |
-| rolldown | 1.1.5 | MIT | npm | https://registry.npmjs.org/rolldown/-/rolldown-1.1.5.tgz | node_modules/rolldown |
-| safe-buffer | 5.1.2 | MIT | npm | https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz | node_modules/jszip/node_modules/safe-buffer |
-| safe-buffer | 5.2.1 | MIT | npm | https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz | node_modules/safe-buffer |
-| sax | 1.1.4 | ISC | npm | https://registry.npmjs.org/sax/-/sax-1.1.4.tgz | node_modules/sax |
-| scheduler | 0.27.0 | MIT | npm | https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz | node_modules/scheduler |
-| semver | 7.8.5 | ISC | npm | https://registry.npmjs.org/semver/-/semver-7.8.5.tgz | node_modules/semver |
-| setimmediate | 1.0.5 | MIT | npm | https://registry.npmjs.org/setimmediate/-/setimmediate-1.0.5.tgz | node_modules/setimmediate |
-| shebang-command | 2.0.0 | MIT | npm | https://registry.npmjs.org/shebang-command/-/shebang-command-2.0.0.tgz | node_modules/shebang-command |
-| shebang-regex | 3.0.0 | MIT | npm | https://registry.npmjs.org/shebang-regex/-/shebang-regex-3.0.0.tgz | node_modules/shebang-regex |
-| signal-exit | 3.0.7 | ISC | npm | https://registry.npmjs.org/signal-exit/-/signal-exit-3.0.7.tgz | node_modules/signal-exit |
-| sisteransi | 1.0.5 | MIT | npm | https://registry.npmjs.org/sisteransi/-/sisteransi-1.0.5.tgz | node_modules/sisteransi |
-| slice-ansi | 4.0.0 | MIT | npm | https://registry.npmjs.org/slice-ansi/-/slice-ansi-4.0.0.tgz | node_modules/slice-ansi |
-| source-map-js | 1.2.1 | BSD-3-Clause | npm | https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz | node_modules/source-map-js |
-| split2 | 4.2.0 | ISC | npm | https://registry.npmjs.org/split2/-/split2-4.2.0.tgz | node_modules/split2 |
-| sql.js | 1.14.1 | MIT | npm | https://registry.npmjs.org/sql.js/-/sql.js-1.14.1.tgz | node_modules/sql.js |
-| string_decoder | 1.1.1 | MIT | npm | https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz | node_modules/jszip/node_modules/string_decoder |
-| string_decoder | 1.3.0 | MIT | npm | https://registry.npmjs.org/string_decoder/-/string_decoder-1.3.0.tgz | node_modules/string_decoder |
-| string-width | 4.2.3 | MIT | npm | https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz | node_modules/string-width |
-| strip-ansi | 6.0.1 | MIT | npm | https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz | node_modules/strip-ansi |
-| tar | 7.5.19 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/tar/-/tar-7.5.19.tgz | node_modules/tar |
-| through2 | 4.0.2 | MIT | npm | https://registry.npmjs.org/through2/-/through2-4.0.2.tgz | node_modules/through2 |
-| tinyglobby | 0.2.17 | MIT | npm | https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz | node_modules/tinyglobby |
-| tree-kill | 1.2.2 | MIT | npm | https://registry.npmjs.org/tree-kill/-/tree-kill-1.2.2.tgz | node_modules/tree-kill |
-| tslib | 2.8.1 | 0BSD | npm | https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz | node_modules/tslib |
-| undici-types | 8.3.0 | MIT | npm | https://registry.npmjs.org/undici-types/-/undici-types-8.3.0.tgz | node_modules/undici-types |
-| universalify | 2.0.1 | MIT | npm | https://registry.npmjs.org/universalify/-/universalify-2.0.1.tgz | node_modules/universalify |
-| untildify | 4.0.0 | MIT | npm | https://registry.npmjs.org/untildify/-/untildify-4.0.0.tgz | node_modules/untildify |
-| util-deprecate | 1.0.2 | MIT | npm | https://registry.npmjs.org/util-deprecate/-/util-deprecate-1.0.2.tgz | node_modules/util-deprecate |
-| vite | 8.1.4 | MIT | npm | https://registry.npmjs.org/vite/-/vite-8.1.4.tgz | node_modules/vite |
-| which | 2.0.2 | ISC | npm | https://registry.npmjs.org/which/-/which-2.0.2.tgz | node_modules/which |
-| wrap-ansi | 7.0.0 | MIT | npm | https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-7.0.0.tgz | node_modules/wrap-ansi |
-| xml2js | 0.6.2 | MIT | npm | https://registry.npmjs.org/xml2js/-/xml2js-0.6.2.tgz | node_modules/xml2js |
-| xmlbuilder | 11.0.1 | MIT | npm | https://registry.npmjs.org/xmlbuilder/-/xmlbuilder-11.0.1.tgz | node_modules/xml2js/node_modules/xmlbuilder |
-| xmlbuilder | 15.1.1 | MIT | npm | https://registry.npmjs.org/xmlbuilder/-/xmlbuilder-15.1.1.tgz | node_modules/xmlbuilder |
-| yallist | 5.0.0 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/yallist/-/yallist-5.0.0.tgz | node_modules/yallist |
-| yauzl | 2.10.0 | MIT | npm | https://registry.npmjs.org/yauzl/-/yauzl-2.10.0.tgz | node_modules/yauzl |
-| capacitor-swift-pm | 8.4.1 | MIT | SwiftPM | https://github.com/ionic-team/capacitor-swift-pm.git | version 8.4.1; revision 2231987d85b8b0b289320b1d0947b4ae8345cde4 |
-| sqlcipher.swift | 4.17.0 | BSD-3-Clause | SwiftPM | https://github.com/sqlcipher/SQLCipher.swift.git | version 4.17.0; revision 205df55271aa1ba512a9bfe3fd1813bc9ac52a19 |
-| zipfoundation | 0.9.20 | MIT | SwiftPM | https://github.com/weichsel/ZIPFoundation.git | version 0.9.20; revision 22787ffb59de99e5dc1fbfe80b19c97a904ad48d |
-| androidx.activity:activity | 1.11.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.11.0/activity-1.11.0.pom | packaged-runtime |
-| androidx.activity:activity | 1.8.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.8.0/activity-1.8.0.pom | tooling-or-test-only |
-| androidx.annotation:annotation-experimental | 1.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-experimental/1.4.0/annotation-experimental-1.4.0.pom | tooling-or-test-only |
-| androidx.annotation:annotation-experimental | 1.4.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-experimental/1.4.1/annotation-experimental-1.4.1.pom | packaged-runtime |
-| androidx.annotation:annotation-jvm | 1.8.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-jvm/1.8.1/annotation-jvm-1.8.1.pom | packaged-runtime |
-| androidx.annotation:annotation | 1.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation/1.3.0/annotation-1.3.0.pom | tooling-or-test-only |
-| androidx.annotation:annotation | 1.8.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation/1.8.1/annotation-1.8.1.pom | packaged-runtime |
-| androidx.appcompat:appcompat-resources | 1.7.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat-resources/1.7.1/appcompat-resources-1.7.1.pom | packaged-runtime |
-| androidx.appcompat:appcompat | 1.7.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.7.1/appcompat-1.7.1.pom | packaged-runtime |
-| androidx.arch.core:core-common | 2.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/arch/core/core-common/2.2.0/core-common-2.2.0.pom | packaged-runtime |
-| androidx.arch.core:core-runtime | 2.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/arch/core/core-runtime/2.1.0/core-runtime-2.1.0.pom | tooling-or-test-only |
-| androidx.arch.core:core-runtime | 2.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/arch/core/core-runtime/2.2.0/core-runtime-2.2.0.pom | packaged-runtime |
-| androidx.biometric:biometric | 1.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/biometric/biometric/1.1.0/biometric-1.1.0.pom | packaged-runtime |
-| androidx.collection:collection-jvm | 1.4.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/collection/collection-jvm/1.4.2/collection-jvm-1.4.2.pom | packaged-runtime |
-| androidx.collection:collection | 1.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/collection/collection/1.1.0/collection-1.1.0.pom | tooling-or-test-only |
-| androidx.collection:collection | 1.4.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/collection/collection/1.4.2/collection-1.4.2.pom | packaged-runtime |
-| androidx.concurrent:concurrent-futures-ktx | 1.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/concurrent/concurrent-futures-ktx/1.2.0/concurrent-futures-ktx-1.2.0.pom | tooling-or-test-only |
-| androidx.concurrent:concurrent-futures | 1.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/concurrent/concurrent-futures/1.1.0/concurrent-futures-1.1.0.pom | packaged-runtime |
-| androidx.concurrent:concurrent-futures | 1.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/concurrent/concurrent-futures/1.2.0/concurrent-futures-1.2.0.pom | tooling-or-test-only |
-| androidx.coordinatorlayout:coordinatorlayout | 1.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/coordinatorlayout/coordinatorlayout/1.3.0/coordinatorlayout-1.3.0.pom | packaged-runtime |
-| androidx.core:core-ktx | 1.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.13.0/core-ktx-1.13.0.pom | tooling-or-test-only |
-| androidx.core:core-ktx | 1.17.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.17.0/core-ktx-1.17.0.pom | packaged-runtime |
-| androidx.core:core-ktx | 1.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.2.0/core-ktx-1.2.0.pom | tooling-or-test-only |
-| androidx.core:core-splashscreen | 1.0.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-splashscreen/1.0.1/core-splashscreen-1.0.1.pom | tooling-or-test-only |
-| androidx.core:core-splashscreen | 1.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-splashscreen/1.2.0/core-splashscreen-1.2.0.pom | packaged-runtime |
-| androidx.core:core-viewtree | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-viewtree/1.0.0/core-viewtree-1.0.0.pom | packaged-runtime |
-| androidx.core:core | 1.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core/1.13.0/core-1.13.0.pom | tooling-or-test-only |
-| androidx.core:core | 1.17.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core/1.17.0/core-1.17.0.pom | packaged-runtime |
-| androidx.cursoradapter:cursoradapter | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/cursoradapter/cursoradapter/1.0.0/cursoradapter-1.0.0.pom | packaged-runtime |
-| androidx.customview:customview | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/customview/customview/1.0.0/customview-1.0.0.pom | packaged-runtime |
-| androidx.databinding:databinding-common | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/databinding/databinding-common/8.13.0/databinding-common-8.13.0.pom | tooling-or-test-only |
-| androidx.databinding:databinding-compiler-common | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/databinding/databinding-compiler-common/8.13.0/databinding-compiler-common-8.13.0.pom | tooling-or-test-only |
-| androidx.drawerlayout:drawerlayout | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/drawerlayout/drawerlayout/1.0.0/drawerlayout-1.0.0.pom | packaged-runtime |
-| androidx.emoji2:emoji2-views-helper | 1.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/emoji2/emoji2-views-helper/1.3.0/emoji2-views-helper-1.3.0.pom | packaged-runtime |
-| androidx.emoji2:emoji2 | 1.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/emoji2/emoji2/1.3.0/emoji2-1.3.0.pom | packaged-runtime |
-| androidx.fragment:fragment | 1.5.4 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/fragment/fragment/1.5.4/fragment-1.5.4.pom | tooling-or-test-only |
-| androidx.fragment:fragment | 1.8.9 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/fragment/fragment/1.8.9/fragment-1.8.9.pom | packaged-runtime |
-| androidx.interpolator:interpolator | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/interpolator/interpolator/1.0.0/interpolator-1.0.0.pom | packaged-runtime |
-| androidx.lifecycle:lifecycle-common | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-common/2.6.2/lifecycle-common-2.6.2.pom | packaged-runtime |
-| androidx.lifecycle:lifecycle-livedata-core | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core/2.6.2/lifecycle-livedata-core-2.6.2.pom | packaged-runtime |
-| androidx.lifecycle:lifecycle-livedata | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata/2.6.2/lifecycle-livedata-2.6.2.pom | packaged-runtime |
-| androidx.lifecycle:lifecycle-process | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-process/2.6.2/lifecycle-process-2.6.2.pom | packaged-runtime |
-| androidx.lifecycle:lifecycle-runtime | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime/2.6.2/lifecycle-runtime-2.6.2.pom | packaged-runtime |
-| androidx.lifecycle:lifecycle-viewmodel-savedstate | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-savedstate/2.6.2/lifecycle-viewmodel-savedstate-2.6.2.pom | packaged-runtime |
-| androidx.lifecycle:lifecycle-viewmodel | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel/2.6.2/lifecycle-viewmodel-2.6.2.pom | packaged-runtime |
-| androidx.loader:loader | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/loader/loader/1.0.0/loader-1.0.0.pom | packaged-runtime |
-| androidx.profileinstaller:profileinstaller | 1.3.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/profileinstaller/profileinstaller/1.3.1/profileinstaller-1.3.1.pom | tooling-or-test-only |
-| androidx.profileinstaller:profileinstaller | 1.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/profileinstaller/profileinstaller/1.4.0/profileinstaller-1.4.0.pom | packaged-runtime |
-| androidx.resourceinspection:resourceinspection-annotation | 1.0.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/resourceinspection/resourceinspection-annotation/1.0.1/resourceinspection-annotation-1.0.1.pom | packaged-runtime |
-| androidx.room:room-common | 2.6.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-common/2.6.1/room-common-2.6.1.pom | packaged-runtime |
-| androidx.room:room-compiler-processing | 2.6.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-compiler-processing/2.6.1/room-compiler-processing-2.6.1.pom | tooling-or-test-only |
-| androidx.room:room-compiler | 2.6.1 | Apache-2.0 AND BSD-3-Clause | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-compiler/2.6.1/room-compiler-2.6.1.pom | tooling-or-test-only |
-| androidx.room:room-migration | 2.6.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-migration/2.6.1/room-migration-2.6.1.pom | tooling-or-test-only |
-| androidx.room:room-runtime | 2.6.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-runtime/2.6.1/room-runtime-2.6.1.pom | packaged-runtime |
-| androidx.savedstate:savedstate | 1.2.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate/1.2.1/savedstate-1.2.1.pom | packaged-runtime |
-| androidx.security:security-crypto | 1.1.0-alpha06 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/security/security-crypto/1.1.0-alpha06/security-crypto-1.1.0-alpha06.pom | packaged-runtime |
-| androidx.sqlite:sqlite-framework | 2.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/sqlite/sqlite-framework/2.4.0/sqlite-framework-2.4.0.pom | packaged-runtime |
-| androidx.sqlite:sqlite | 2.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/sqlite/sqlite/2.4.0/sqlite-2.4.0.pom | packaged-runtime |
-| androidx.startup:startup-runtime | 1.1.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/startup/startup-runtime/1.1.1/startup-runtime-1.1.1.pom | packaged-runtime |
-| androidx.test:core | 1.7.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/core/1.7.0/core-1.7.0.pom | tooling-or-test-only |
-| androidx.test:monitor | 1.8.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/monitor/1.8.0/monitor-1.8.0.pom | tooling-or-test-only |
-| androidx.test:runner | 1.7.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/runner/1.7.0/runner-1.7.0.pom | tooling-or-test-only |
-| androidx.test.espresso:espresso-core | 3.7.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/espresso/espresso-core/3.7.0/espresso-core-3.7.0.pom | tooling-or-test-only |
-| androidx.test.espresso:espresso-idling-resource | 3.7.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/espresso/espresso-idling-resource/3.7.0/espresso-idling-resource-3.7.0.pom | tooling-or-test-only |
-| androidx.test.ext:junit | 1.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/ext/junit/1.3.0/junit-1.3.0.pom | tooling-or-test-only |
-| androidx.test.services:storage | 1.6.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/services/storage/1.6.0/storage-1.6.0.pom | tooling-or-test-only |
-| androidx.tracing:tracing | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.0.0/tracing-1.0.0.pom | tooling-or-test-only |
-| androidx.tracing:tracing | 1.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.2.0/tracing-1.2.0.pom | packaged-runtime |
-| androidx.vectordrawable:vectordrawable-animated | 1.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/vectordrawable/vectordrawable-animated/1.1.0/vectordrawable-animated-1.1.0.pom | packaged-runtime |
-| androidx.vectordrawable:vectordrawable | 1.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/vectordrawable/vectordrawable/1.1.0/vectordrawable-1.1.0.pom | packaged-runtime |
-| androidx.versionedparcelable:versionedparcelable | 1.1.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/versionedparcelable/versionedparcelable/1.1.1/versionedparcelable-1.1.1.pom | packaged-runtime |
-| androidx.viewpager:viewpager | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/viewpager/viewpager/1.0.0/viewpager-1.0.0.pom | packaged-runtime |
-| androidx.webkit:webkit | 1.12.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/webkit/webkit/1.12.1/webkit-1.12.1.pom | tooling-or-test-only |
-| androidx.webkit:webkit | 1.14.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/webkit/webkit/1.14.0/webkit-1.14.0.pom | packaged-runtime |
-| com.android:signflinger | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/signflinger/8.13.0/signflinger-8.13.0.pom | tooling-or-test-only |
-| com.android:zipflinger | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/zipflinger/8.13.0/zipflinger-8.13.0.pom | tooling-or-test-only |
-| com.android.databinding:baseLibrary | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/databinding/baseLibrary/8.13.0/baseLibrary-8.13.0.pom | tooling-or-test-only |
-| com.android.tools:annotations | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/annotations/31.13.0/annotations-31.13.0.pom | tooling-or-test-only |
-| com.android.tools:common | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/common/31.13.0/common-31.13.0.pom | tooling-or-test-only |
-| com.android.tools:dvlib | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/dvlib/31.13.0/dvlib-31.13.0.pom | tooling-or-test-only |
-| com.android.tools:repository | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/repository/31.13.0/repository-31.13.0.pom | tooling-or-test-only |
-| com.android.tools:sdk-common | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/sdk-common/31.13.0/sdk-common-31.13.0.pom | tooling-or-test-only |
-| com.android.tools:sdklib | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/sdklib/31.13.0/sdklib-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.analytics-library:crash | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/analytics-library/crash/31.13.0/crash-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.analytics-library:protos | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/analytics-library/protos/31.13.0/protos-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.analytics-library:shared | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/analytics-library/shared/31.13.0/shared-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.analytics-library:tracker | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/analytics-library/tracker/31.13.0/tracker-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.build:aapt2-proto | 8.13.0-13719691 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2-proto/8.13.0-13719691/aapt2-proto-8.13.0-13719691.pom | tooling-or-test-only |
-| com.android.tools.build:aaptcompiler | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/aaptcompiler/8.13.0/aaptcompiler-8.13.0.pom | tooling-or-test-only |
-| com.android.tools.build:apksig | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/apksig/8.13.0/apksig-8.13.0.pom | tooling-or-test-only |
-| com.android.tools.build:apkzlib | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/apkzlib/8.13.0/apkzlib-8.13.0.pom | tooling-or-test-only |
-| com.android.tools.build:builder-model | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/builder-model/8.13.0/builder-model-8.13.0.pom | tooling-or-test-only |
-| com.android.tools.build:builder-test-api | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/builder-test-api/8.13.0/builder-test-api-8.13.0.pom | tooling-or-test-only |
-| com.android.tools.build:builder | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/builder/8.13.0/builder-8.13.0.pom | tooling-or-test-only |
-| com.android.tools.build:bundletool | 1.18.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/bundletool/1.18.1/bundletool-1.18.1.pom | tooling-or-test-only |
-| com.android.tools.build:gradle-api | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle-api/8.13.0/gradle-api-8.13.0.pom | tooling-or-test-only |
-| com.android.tools.build:gradle-common-api | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle-common-api/8.13.0/gradle-common-api-8.13.0.pom | tooling-or-test-only |
-| com.android.tools.build:gradle-settings-api | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle-settings-api/8.13.0/gradle-settings-api-8.13.0.pom | tooling-or-test-only |
-| com.android.tools.build:gradle | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/8.13.0/gradle-8.13.0.pom | tooling-or-test-only |
-| com.android.tools.build:manifest-merger | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/manifest-merger/31.13.0/manifest-merger-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.build:transform-api | 2.0.0-deprecated-use-gradle-api | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/transform-api/2.0.0-deprecated-use-gradle-api/transform-api-2.0.0-deprecated-use-gradle-api.pom | tooling-or-test-only |
-| com.android.tools.build.jetifier:jetifier-core | 1.0.0-beta10 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/jetifier/jetifier-core/1.0.0-beta10/jetifier-core-1.0.0-beta10.pom | tooling-or-test-only |
-| com.android.tools.build.jetifier:jetifier-processor | 1.0.0-beta10 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/jetifier/jetifier-processor/1.0.0-beta10/jetifier-processor-1.0.0-beta10.pom | tooling-or-test-only |
-| com.android.tools.ddms:ddmlib | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/ddms/ddmlib/31.13.0/ddmlib-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.emulator:proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/emulator/proto/31.13.0/proto-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.layoutlib:layoutlib-api | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/layoutlib/layoutlib-api/31.13.0/layoutlib-api-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.lint:lint-model | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-model/31.13.0/lint-model-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.lint:lint-typedef-remover | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-typedef-remover/31.13.0/lint-typedef-remover-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-device-provider-ddmlib-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-device-provider-ddmlib-proto/31.13.0/android-device-provider-ddmlib-proto-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-device-provider-ddmlib | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-device-provider-ddmlib/31.13.0/android-device-provider-ddmlib-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-device-provider-profile-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-device-provider-profile-proto/31.13.0/android-device-provider-profile-proto-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-device-provider-profile | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-device-provider-profile/31.13.0/android-device-provider-profile-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-host-additional-test-output-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-additional-test-output-proto/31.13.0/android-test-plugin-host-additional-test-output-proto-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-host-additional-test-output | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-additional-test-output/31.13.0/android-test-plugin-host-additional-test-output-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-host-apk-installer-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-apk-installer-proto/31.13.0/android-test-plugin-host-apk-installer-proto-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-host-apk-installer | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-apk-installer/31.13.0/android-test-plugin-host-apk-installer-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-host-coverage-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-coverage-proto/31.13.0/android-test-plugin-host-coverage-proto-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-host-coverage | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-coverage/31.13.0/android-test-plugin-host-coverage-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-host-device-info-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-device-info-proto/31.13.0/android-test-plugin-host-device-info-proto-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-host-device-info | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-device-info/31.13.0/android-test-plugin-host-device-info-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-host-emulator-control-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-emulator-control-proto/31.13.0/android-test-plugin-host-emulator-control-proto-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-host-emulator-control | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-emulator-control/31.13.0/android-test-plugin-host-emulator-control-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-host-logcat-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-logcat-proto/31.13.0/android-test-plugin-host-logcat-proto-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-host-logcat | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-logcat/31.13.0/android-test-plugin-host-logcat-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-result-listener-gradle-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-result-listener-gradle-proto/31.13.0/android-test-plugin-result-listener-gradle-proto-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:android-test-plugin-result-listener-gradle | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-result-listener-gradle/31.13.0/android-test-plugin-result-listener-gradle-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.utp:utp-common | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/utp-common/31.13.0/utp-common-31.13.0.pom | tooling-or-test-only |
-| com.google.android:annotations | 4.1.1.4 | Apache-2.0 WITH LicenseRef-Android-SDK-License-Additional-Terms | Maven | https://repo.maven.apache.org/maven2/com/google/android/annotations/4.1.1.4/annotations-4.1.1.4.pom | tooling-or-test-only |
-| com.google.android.gms:strict-version-matcher-plugin | 1.2.4 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/android/gms/strict-version-matcher-plugin/1.2.4/strict-version-matcher-plugin-1.2.4.pom | tooling-or-test-only |
-| com.google.api.grpc:proto-google-common-protos | 2.17.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/api/grpc/proto-google-common-protos/2.17.0/proto-google-common-protos-2.17.0.pom | tooling-or-test-only |
-| com.google.api.grpc:proto-google-common-protos | 2.48.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/api/grpc/proto-google-common-protos/2.48.0/proto-google-common-protos-2.48.0.pom | tooling-or-test-only |
-| com.google.auto:auto-common | 0.11 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/auto-common/0.11/auto-common-0.11.pom | tooling-or-test-only |
-| com.google.auto:auto-common | 1.2.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/auto-common/1.2.1/auto-common-1.2.1.pom | tooling-or-test-only |
-| com.google.auto.service:auto-service-annotations | 1.1.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/service/auto-service-annotations/1.1.1/auto-service-annotations-1.1.1.pom | tooling-or-test-only |
-| com.google.auto.service:auto-service | 1.1.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/service/auto-service/1.1.1/auto-service-1.1.1.pom | tooling-or-test-only |
-| com.google.auto.value:auto-value-annotations | 1.6.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.pom | tooling-or-test-only |
-| com.google.auto.value:auto-value-annotations | 1.6.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.6.3/auto-value-annotations-1.6.3.pom | tooling-or-test-only |
-| com.google.code.findbugs:jsr305 | 3.0.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom | tooling-or-test-only |
-| com.google.code.gson:gson | 2.10.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom | tooling-or-test-only |
-| com.google.code.gson:gson | 2.11.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.11.0/gson-2.11.0.pom | tooling-or-test-only |
-| com.google.code.gson:gson | 2.8.9 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.8.9/gson-2.8.9.pom | packaged-runtime |
-| com.google.code.gson:gson | 2.9.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.9.0/gson-2.9.0.pom | tooling-or-test-only |
-| com.google.crypto.tink:tink-android | 1.8.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/crypto/tink/tink-android/1.8.0/tink-android-1.8.0.pom | packaged-runtime |
-| com.google.crypto.tink:tink | 1.7.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/crypto/tink/tink/1.7.0/tink-1.7.0.pom | tooling-or-test-only |
-| com.google.dagger:dagger | 2.28.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/dagger/dagger/2.28.3/dagger-2.28.3.pom | tooling-or-test-only |
-| com.google.dagger:dagger | 2.48 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/dagger/dagger/2.48/dagger-2.48.pom | tooling-or-test-only |
-| com.google.devtools.ksp:symbol-processing-api | 1.9.0-1.0.13 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/devtools/ksp/symbol-processing-api/1.9.0-1.0.13/symbol-processing-api-1.9.0-1.0.13.pom | tooling-or-test-only |
-| com.google.errorprone:error_prone_annotations | 2.11.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.11.0/error_prone_annotations-2.11.0.pom | tooling-or-test-only |
-| com.google.errorprone:error_prone_annotations | 2.23.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.23.0/error_prone_annotations-2.23.0.pom | tooling-or-test-only |
-| com.google.errorprone:error_prone_annotations | 2.28.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.28.0/error_prone_annotations-2.28.0.pom | tooling-or-test-only |
-| com.google.errorprone:error_prone_annotations | 2.30.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.30.0/error_prone_annotations-2.30.0.pom | tooling-or-test-only |
-| com.google.flatbuffers:flatbuffers-java | 1.12.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.pom | tooling-or-test-only |
-| com.google.gms:google-services | 4.4.4 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/gms/google-services/4.4.4/google-services-4.4.4.pom | tooling-or-test-only |
-| com.google.guava:failureaccess | 1.0.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.1/failureaccess-1.0.1.pom | tooling-or-test-only |
-| com.google.guava:failureaccess | 1.0.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.2/failureaccess-1.0.2.pom | tooling-or-test-only |
-| com.google.guava:guava | 31.1-jre | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/guava/31.1-jre/guava-31.1-jre.pom | tooling-or-test-only |
-| com.google.guava:guava | 32.0.1-jre | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/guava/32.0.1-jre/guava-32.0.1-jre.pom | tooling-or-test-only |
-| com.google.guava:guava | 33.3.1-jre | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/guava/33.3.1-jre/guava-33.3.1-jre.pom | tooling-or-test-only |
-| com.google.guava:listenablefuture | 1.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/1.0/listenablefuture-1.0.pom | packaged-runtime |
-| com.google.guava:listenablefuture | 9999.0-empty-to-avoid-conflict-with-guava | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.pom | tooling-or-test-only |
-| com.google.j2objc:j2objc-annotations | 1.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/1.3/j2objc-annotations-1.3.pom | tooling-or-test-only |
-| com.google.j2objc:j2objc-annotations | 2.8 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/2.8/j2objc-annotations-2.8.pom | tooling-or-test-only |
-| com.google.j2objc:j2objc-annotations | 3.0.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/3.0.0/j2objc-annotations-3.0.0.pom | tooling-or-test-only |
-| com.google.jimfs:jimfs | 1.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/jimfs/jimfs/1.1/jimfs-1.1.pom | tooling-or-test-only |
-| com.google.protobuf:protobuf-java-util | 3.22.3 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.22.3/protobuf-java-util-3.22.3.pom | tooling-or-test-only |
-| com.google.protobuf:protobuf-java-util | 3.24.4 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.24.4/protobuf-java-util-3.24.4.pom | tooling-or-test-only |
-| com.google.protobuf:protobuf-java-util | 3.25.5 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5.pom | tooling-or-test-only |
-| com.google.protobuf:protobuf-java | 3.24.4 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java/3.24.4/protobuf-java-3.24.4.pom | tooling-or-test-only |
-| com.google.protobuf:protobuf-java | 3.25.5 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.pom | tooling-or-test-only |
-| com.google.protobuf:protobuf-kotlin | 3.24.4 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-kotlin/3.24.4/protobuf-kotlin-3.24.4.pom | tooling-or-test-only |
-| com.google.testing.platform:android-device-provider-local | 0.0.9-alpha03 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/android-device-provider-local/0.0.9-alpha03/android-device-provider-local-0.0.9-alpha03.pom | tooling-or-test-only |
-| com.google.testing.platform:android-driver-instrumentation | 0.0.9-alpha03 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/android-driver-instrumentation/0.0.9-alpha03/android-driver-instrumentation-0.0.9-alpha03.pom | tooling-or-test-only |
-| com.google.testing.platform:android-test-plugin | 0.0.9-alpha03 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/android-test-plugin/0.0.9-alpha03/android-test-plugin-0.0.9-alpha03.pom | tooling-or-test-only |
-| com.google.testing.platform:core-proto | 0.0.9-alpha03 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/core-proto/0.0.9-alpha03/core-proto-0.0.9-alpha03.pom | tooling-or-test-only |
-| com.google.testing.platform:core | 0.0.9-alpha03 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/core/0.0.9-alpha03/core-0.0.9-alpha03.pom | tooling-or-test-only |
-| com.google.testing.platform:launcher | 0.0.9-alpha03 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/launcher/0.0.9-alpha03/launcher-0.0.9-alpha03.pom | tooling-or-test-only |
-| com.googlecode.juniversalchardet:juniversalchardet | 1.0.3 | MPL-1.1 | Maven | https://repo.maven.apache.org/maven2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.pom | tooling-or-test-only |
-| com.intellij:annotations | 12.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/intellij/annotations/12.0/annotations-12.0.pom | tooling-or-test-only |
-| com.squareup:javapoet | 1.10.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.10.0/javapoet-1.10.0.pom | tooling-or-test-only |
-| com.squareup:javapoet | 1.13.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.13.0/javapoet-1.13.0.pom | tooling-or-test-only |
-| com.squareup:javawriter | 2.5.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom | tooling-or-test-only |
-| com.squareup:kotlinpoet-javapoet | 1.14.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/kotlinpoet-javapoet/1.14.2/kotlinpoet-javapoet-1.14.2.pom | tooling-or-test-only |
-| com.squareup:kotlinpoet | 1.14.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/kotlinpoet/1.14.2/kotlinpoet-1.14.2.pom | tooling-or-test-only |
-| com.sun.activation:javax.activation | 1.2.0 | CDDL-1.1 OR (GPL-2.0-only WITH Classpath-exception-2.0) | Maven | https://repo.maven.apache.org/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.pom | tooling-or-test-only |
-| com.sun.istack:istack-commons-runtime | 3.0.8 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/com/sun/istack/istack-commons-runtime/3.0.8/istack-commons-runtime-3.0.8.pom | tooling-or-test-only |
-| com.sun.xml.fastinfoset:FastInfoset | 1.2.16 | Apache-2.0 OR LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/com/sun/xml/fastinfoset/FastInfoset/1.2.16/FastInfoset-1.2.16.pom | tooling-or-test-only |
-| commons-codec:commons-codec | 1.11 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.11/commons-codec-1.11.pom | tooling-or-test-only |
-| commons-codec:commons-codec | 1.15 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.pom | tooling-or-test-only |
-| commons-io:commons-io | 2.16.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-io/commons-io/2.16.1/commons-io-2.16.1.pom | tooling-or-test-only |
-| commons-logging:commons-logging | 1.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-logging/commons-logging/1.2/commons-logging-1.2.pom | tooling-or-test-only |
-| io.grpc:grpc-api | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-api/1.57.2/grpc-api-1.57.2.pom | tooling-or-test-only |
-| io.grpc:grpc-api | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-api/1.69.1/grpc-api-1.69.1.pom | tooling-or-test-only |
-| io.grpc:grpc-context | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-context/1.57.2/grpc-context-1.57.2.pom | tooling-or-test-only |
-| io.grpc:grpc-context | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-context/1.69.1/grpc-context-1.69.1.pom | tooling-or-test-only |
-| io.grpc:grpc-core | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-core/1.57.2/grpc-core-1.57.2.pom | tooling-or-test-only |
-| io.grpc:grpc-core | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-core/1.69.1/grpc-core-1.69.1.pom | tooling-or-test-only |
-| io.grpc:grpc-inprocess | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-inprocess/1.69.1/grpc-inprocess-1.69.1.pom | tooling-or-test-only |
-| io.grpc:grpc-netty | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-netty/1.57.2/grpc-netty-1.57.2.pom | tooling-or-test-only |
-| io.grpc:grpc-netty | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-netty/1.69.1/grpc-netty-1.69.1.pom | tooling-or-test-only |
-| io.grpc:grpc-protobuf-lite | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf-lite/1.57.2/grpc-protobuf-lite-1.57.2.pom | tooling-or-test-only |
-| io.grpc:grpc-protobuf-lite | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf-lite/1.69.1/grpc-protobuf-lite-1.69.1.pom | tooling-or-test-only |
-| io.grpc:grpc-protobuf | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf/1.57.2/grpc-protobuf-1.57.2.pom | tooling-or-test-only |
-| io.grpc:grpc-protobuf | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf/1.69.1/grpc-protobuf-1.69.1.pom | tooling-or-test-only |
-| io.grpc:grpc-services | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-services/1.57.2/grpc-services-1.57.2.pom | tooling-or-test-only |
-| io.grpc:grpc-stub | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-stub/1.57.2/grpc-stub-1.57.2.pom | tooling-or-test-only |
-| io.grpc:grpc-stub | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-stub/1.69.1/grpc-stub-1.69.1.pom | tooling-or-test-only |
-| io.grpc:grpc-util | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-util/1.69.1/grpc-util-1.69.1.pom | tooling-or-test-only |
-| io.netty:netty-buffer | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-buffer/4.1.110.Final/netty-buffer-4.1.110.Final.pom | tooling-or-test-only |
-| io.netty:netty-buffer | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-buffer/4.1.93.Final/netty-buffer-4.1.93.Final.pom | tooling-or-test-only |
-| io.netty:netty-codec-http | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.1.110.Final/netty-codec-http-4.1.110.Final.pom | tooling-or-test-only |
-| io.netty:netty-codec-http | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.1.93.Final/netty-codec-http-4.1.93.Final.pom | tooling-or-test-only |
-| io.netty:netty-codec-http2 | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec-http2/4.1.110.Final/netty-codec-http2-4.1.110.Final.pom | tooling-or-test-only |
-| io.netty:netty-codec-http2 | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec-http2/4.1.93.Final/netty-codec-http2-4.1.93.Final.pom | tooling-or-test-only |
-| io.netty:netty-codec-socks | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec-socks/4.1.110.Final/netty-codec-socks-4.1.110.Final.pom | tooling-or-test-only |
-| io.netty:netty-codec-socks | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec-socks/4.1.93.Final/netty-codec-socks-4.1.93.Final.pom | tooling-or-test-only |
-| io.netty:netty-codec | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec/4.1.110.Final/netty-codec-4.1.110.Final.pom | tooling-or-test-only |
-| io.netty:netty-codec | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec/4.1.93.Final/netty-codec-4.1.93.Final.pom | tooling-or-test-only |
-| io.netty:netty-common | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-common/4.1.110.Final/netty-common-4.1.110.Final.pom | tooling-or-test-only |
-| io.netty:netty-common | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-common/4.1.93.Final/netty-common-4.1.93.Final.pom | tooling-or-test-only |
-| io.netty:netty-handler-proxy | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-handler-proxy/4.1.110.Final/netty-handler-proxy-4.1.110.Final.pom | tooling-or-test-only |
-| io.netty:netty-handler-proxy | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-handler-proxy/4.1.93.Final/netty-handler-proxy-4.1.93.Final.pom | tooling-or-test-only |
-| io.netty:netty-handler | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-handler/4.1.110.Final/netty-handler-4.1.110.Final.pom | tooling-or-test-only |
-| io.netty:netty-handler | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-handler/4.1.93.Final/netty-handler-4.1.93.Final.pom | tooling-or-test-only |
-| io.netty:netty-resolver | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-resolver/4.1.110.Final/netty-resolver-4.1.110.Final.pom | tooling-or-test-only |
-| io.netty:netty-resolver | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-resolver/4.1.93.Final/netty-resolver-4.1.93.Final.pom | tooling-or-test-only |
-| io.netty:netty-transport-native-unix-common | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.110.Final/netty-transport-native-unix-common-4.1.110.Final.pom | tooling-or-test-only |
-| io.netty:netty-transport-native-unix-common | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.93.Final/netty-transport-native-unix-common-4.1.93.Final.pom | tooling-or-test-only |
-| io.netty:netty-transport | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-transport/4.1.110.Final/netty-transport-4.1.110.Final.pom | tooling-or-test-only |
-| io.netty:netty-transport | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-transport/4.1.93.Final/netty-transport-4.1.93.Final.pom | tooling-or-test-only |
-| io.opencensus:opencensus-api | 0.31.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/opencensus/opencensus-api/0.31.0/opencensus-api-0.31.0.pom | tooling-or-test-only |
-| io.opencensus:opencensus-proto | 0.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/opencensus/opencensus-proto/0.2.0/opencensus-proto-0.2.0.pom | tooling-or-test-only |
-| io.perfmark:perfmark-api | 0.26.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/perfmark/perfmark-api/0.26.0/perfmark-api-0.26.0.pom | tooling-or-test-only |
-| io.perfmark:perfmark-api | 0.27.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/perfmark/perfmark-api/0.27.0/perfmark-api-0.27.0.pom | tooling-or-test-only |
-| jakarta.activation:jakarta.activation-api | 1.2.1 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/jakarta/activation/jakarta.activation-api/1.2.1/jakarta.activation-api-1.2.1.pom | tooling-or-test-only |
-| jakarta.xml.bind:jakarta.xml.bind-api | 2.3.2 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/jakarta/xml/bind/jakarta.xml.bind-api/2.3.2/jakarta.xml.bind-api-2.3.2.pom | tooling-or-test-only |
-| javax.annotation:javax.annotation-api | 1.3.2 | CDDL-1.1 OR (GPL-2.0-only WITH Classpath-exception-2.0) | Maven | https://repo.maven.apache.org/maven2/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom | tooling-or-test-only |
-| javax.inject:javax.inject | 1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/javax/inject/javax.inject/1/javax.inject-1.pom | tooling-or-test-only |
-| junit:junit | 4.13.2 | EPL-1.0 | Maven | https://repo.maven.apache.org/maven2/junit/junit/4.13.2/junit-4.13.2.pom | tooling-or-test-only |
-| net.bytebuddy:byte-buddy-agent | 1.17.7 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy-agent/1.17.7/byte-buddy-agent-1.17.7.pom | tooling-or-test-only |
-| net.bytebuddy:byte-buddy | 1.17.7 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy/1.17.7/byte-buddy-1.17.7.pom | tooling-or-test-only |
-| net.java.dev.jna:jna-platform | 5.6.0 | Apache-2.0 OR LGPL-2.1-only | Maven | https://repo.maven.apache.org/maven2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.pom | tooling-or-test-only |
-| net.java.dev.jna:jna | 5.6.0 | Apache-2.0 OR LGPL-2.1-only | Maven | https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/5.6.0/jna-5.6.0.pom | tooling-or-test-only |
-| net.sf.jopt-simple:jopt-simple | 4.9 | MIT | Maven | https://repo.maven.apache.org/maven2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.pom | tooling-or-test-only |
-| net.sf.kxml:kxml2 | 2.3.0 | LicenseRef-kXML2-BSD-Style AND LicenseRef-kXML-XmlPull-Public-Domain | Maven | https://repo.maven.apache.org/maven2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.pom | tooling-or-test-only |
-| net.zetetic:sqlcipher-android | 4.10.0 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/net/zetetic/sqlcipher-android/4.10.0/sqlcipher-android-4.10.0.pom | packaged-runtime |
-| org.apache.commons:commons-compress | 1.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.21/commons-compress-1.21.pom | tooling-or-test-only |
-| org.apache.cordova:framework | 14.0.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/cordova/framework/14.0.1/framework-14.0.1.pom | packaged-runtime |
-| org.apache.httpcomponents:httpclient | 4.5.14 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom | tooling-or-test-only |
-| org.apache.httpcomponents:httpcore | 4.4.16 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom | tooling-or-test-only |
-| org.apache.httpcomponents:httpmime | 4.5.6 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.pom | tooling-or-test-only |
-| org.bitbucket.b_c:jose4j | 0.9.5 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/bitbucket/b_c/jose4j/0.9.5/jose4j-0.9.5.pom | tooling-or-test-only |
-| org.bouncycastle:bcpkix-jdk18on | 1.79 | LicenseRef-Bouncy-Castle | Maven | https://repo.maven.apache.org/maven2/org/bouncycastle/bcpkix-jdk18on/1.79/bcpkix-jdk18on-1.79.pom | tooling-or-test-only |
-| org.bouncycastle:bcprov-jdk18on | 1.79 | LicenseRef-Bouncy-Castle | Maven | https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.79/bcprov-jdk18on-1.79.pom | tooling-or-test-only |
-| org.bouncycastle:bcutil-jdk18on | 1.79 | LicenseRef-Bouncy-Castle | Maven | https://repo.maven.apache.org/maven2/org/bouncycastle/bcutil-jdk18on/1.79/bcutil-jdk18on-1.79.pom | tooling-or-test-only |
-| org.checkerframework:checker-qual | 3.12.0 | MIT | Maven | https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.12.0/checker-qual-3.12.0.pom | tooling-or-test-only |
-| org.checkerframework:checker-qual | 3.33.0 | MIT | Maven | https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.33.0/checker-qual-3.33.0.pom | tooling-or-test-only |
-| org.checkerframework:checker-qual | 3.43.0 | MIT | Maven | https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.43.0/checker-qual-3.43.0.pom | tooling-or-test-only |
-| org.codehaus.mojo:animal-sniffer-annotations | 1.23 | MIT | Maven | https://repo.maven.apache.org/maven2/org/codehaus/mojo/animal-sniffer-annotations/1.23/animal-sniffer-annotations-1.23.pom | tooling-or-test-only |
-| org.codehaus.mojo:animal-sniffer-annotations | 1.24 | MIT | Maven | https://repo.maven.apache.org/maven2/org/codehaus/mojo/animal-sniffer-annotations/1.24/animal-sniffer-annotations-1.24.pom | tooling-or-test-only |
-| org.glassfish.jaxb:jaxb-runtime | 2.3.2 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.pom | tooling-or-test-only |
-| org.glassfish.jaxb:txw2 | 2.3.2 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/org/glassfish/jaxb/txw2/2.3.2/txw2-2.3.2.pom | tooling-or-test-only |
-| org.hamcrest:hamcrest-core | 1.3 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.pom | tooling-or-test-only |
-| org.hamcrest:hamcrest-library | 1.3 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-library/1.3/hamcrest-library-1.3.pom | tooling-or-test-only |
-| org.jdom:jdom2 | 2.0.6 | LicenseRef-JDOM | Maven | https://repo.maven.apache.org/maven2/org/jdom/jdom2/2.0.6/jdom2-2.0.6.pom | tooling-or-test-only |
-| org.jetbrains:annotations | 13.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom | tooling-or-test-only |
-| org.jetbrains:annotations | 23.0.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/annotations/23.0.0/annotations-23.0.0.pom | packaged-runtime |
-| org.jetbrains.kotlin:kotlin-reflect | 1.8.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.8.21/kotlin-reflect-1.8.21.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-reflect | 2.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.2.0/kotlin-reflect-2.2.0.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib-common | 1.8.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-common/1.8.21/kotlin-stdlib-common-1.8.21.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib-common | 1.8.22 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-common/1.8.22/kotlin-stdlib-common-1.8.22.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib-common | 1.9.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-common/1.9.0/kotlin-stdlib-common-1.9.0.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib-common | 2.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-common/2.2.0/kotlin-stdlib-common-2.2.0.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib-jdk7 | 1.6.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.6.21/kotlin-stdlib-jdk7-1.6.21.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib-jdk7 | 1.8.20 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.8.20/kotlin-stdlib-jdk7-1.8.20.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib-jdk7 | 1.8.22 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.8.22/kotlin-stdlib-jdk7-1.8.22.pom | packaged-runtime |
-| org.jetbrains.kotlin:kotlin-stdlib-jdk7 | 2.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/2.2.0/kotlin-stdlib-jdk7-2.2.0.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib-jdk8 | 1.6.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.6.21/kotlin-stdlib-jdk8-1.6.21.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib-jdk8 | 1.8.20 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.8.20/kotlin-stdlib-jdk8-1.8.20.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib-jdk8 | 1.8.22 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.8.22/kotlin-stdlib-jdk8-1.8.22.pom | packaged-runtime |
-| org.jetbrains.kotlin:kotlin-stdlib-jdk8 | 2.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/2.2.0/kotlin-stdlib-jdk8-2.2.0.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib | 1.8.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.8.21/kotlin-stdlib-1.8.21.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib | 1.8.22 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.8.22/kotlin-stdlib-1.8.22.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib | 1.9.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.0/kotlin-stdlib-1.9.0.pom | tooling-or-test-only |
-| org.jetbrains.kotlin:kotlin-stdlib | 2.0.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.0.21/kotlin-stdlib-2.0.21.pom | packaged-runtime |
-| org.jetbrains.kotlin:kotlin-stdlib | 2.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.2.0/kotlin-stdlib-2.2.0.pom | tooling-or-test-only |
-| org.jetbrains.kotlinx:atomicfu-jvm | 0.22.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/atomicfu-jvm/0.22.0/atomicfu-jvm-0.22.0.pom | tooling-or-test-only |
-| org.jetbrains.kotlinx:atomicfu | 0.22.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/atomicfu/0.22.0/atomicfu-0.22.0.pom | tooling-or-test-only |
-| org.jetbrains.kotlinx:kotlinx-coroutines-android | 1.6.4 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-android/1.6.4/kotlinx-coroutines-android-1.6.4.pom | tooling-or-test-only |
-| org.jetbrains.kotlinx:kotlinx-coroutines-android | 1.8.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-android/1.8.1/kotlinx-coroutines-android-1.8.1.pom | packaged-runtime |
-| org.jetbrains.kotlinx:kotlinx-coroutines-bom | 1.6.4 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.6.4/kotlinx-coroutines-bom-1.6.4.pom | tooling-or-test-only |
-| org.jetbrains.kotlinx:kotlinx-coroutines-bom | 1.7.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.7.3/kotlinx-coroutines-bom-1.7.3.pom | tooling-or-test-only |
-| org.jetbrains.kotlinx:kotlinx-coroutines-bom | 1.8.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.8.1/kotlinx-coroutines-bom-1.8.1.pom | packaged-runtime |
-| org.jetbrains.kotlinx:kotlinx-coroutines-bom | 1.9.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.9.0/kotlinx-coroutines-bom-1.9.0.pom | tooling-or-test-only |
-| org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm | 1.6.4 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.pom | tooling-or-test-only |
-| org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm | 1.7.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.7.3/kotlinx-coroutines-core-jvm-1.7.3.pom | tooling-or-test-only |
-| org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm | 1.8.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.8.1/kotlinx-coroutines-core-jvm-1.8.1.pom | packaged-runtime |
-| org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm | 1.9.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.9.0/kotlinx-coroutines-core-jvm-1.9.0.pom | tooling-or-test-only |
-| org.jetbrains.kotlinx:kotlinx-coroutines-core | 1.6.4 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.6.4/kotlinx-coroutines-core-1.6.4.pom | tooling-or-test-only |
-| org.jetbrains.kotlinx:kotlinx-coroutines-core | 1.7.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.7.3/kotlinx-coroutines-core-1.7.3.pom | tooling-or-test-only |
-| org.jetbrains.kotlinx:kotlinx-coroutines-core | 1.8.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.8.1/kotlinx-coroutines-core-1.8.1.pom | packaged-runtime |
-| org.jetbrains.kotlinx:kotlinx-coroutines-core | 1.9.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.9.0/kotlinx-coroutines-core-1.9.0.pom | tooling-or-test-only |
-| org.json:json | 20250517 | LicenseRef-JSON-java-Public-Domain | Maven | https://repo.maven.apache.org/maven2/org/json/json/20250517/json-20250517.pom | tooling-or-test-only |
-| org.jspecify:jspecify | 1.0.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.0/jspecify-1.0.0.pom | packaged-runtime |
-| org.jvnet.staxex:stax-ex | 1.8.1 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/org/jvnet/staxex/stax-ex/1.8.1/stax-ex-1.8.1.pom | tooling-or-test-only |
-| org.mockito:mockito-core | 5.20.0 | MIT | Maven | https://repo.maven.apache.org/maven2/org/mockito/mockito-core/5.20.0/mockito-core-5.20.0.pom | tooling-or-test-only |
-| org.objenesis:objenesis | 3.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/objenesis/objenesis/3.3/objenesis-3.3.pom | tooling-or-test-only |
-| org.ow2.asm:asm-analysis | 9.8 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/ow2/asm/asm-analysis/9.8/asm-analysis-9.8.pom | tooling-or-test-only |
-| org.ow2.asm:asm-commons | 9.8 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.8/asm-commons-9.8.pom | tooling-or-test-only |
-| org.ow2.asm:asm-tree | 9.8 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/ow2/asm/asm-tree/9.8/asm-tree-9.8.pom | tooling-or-test-only |
-| org.ow2.asm:asm-util | 9.8 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.8/asm-util-9.8.pom | tooling-or-test-only |
-| org.ow2.asm:asm | 9.8 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.8/asm-9.8.pom | tooling-or-test-only |
-| org.slf4j:slf4j-api | 1.7.30 | MIT | Maven | https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom | tooling-or-test-only |
-| org.tensorflow:tensorflow-lite-metadata | 0.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/tensorflow/tensorflow-lite-metadata/0.2.0/tensorflow-lite-metadata-0.2.0.pom | tooling-or-test-only |
-| org.xerial:sqlite-jdbc | 3.41.2.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/xerial/sqlite-jdbc/3.41.2.2/sqlite-jdbc-3.41.2.2.pom | tooling-or-test-only |
-| com.android.tools:play-sdk-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/play-sdk-proto/31.13.0/play-sdk-proto-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.build:aapt2 | 8.13.0-13719691 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/8.13.0-13719691/aapt2-8.13.0-13719691.pom | tooling-or-test-only |
-| com.android.tools.external.com-intellij:intellij-core | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/external/com-intellij/intellij-core/31.13.0/intellij-core-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.external.com-intellij:kotlin-compiler | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/external/com-intellij/kotlin-compiler/31.13.0/kotlin-compiler-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.external.org-jetbrains:uast | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/external/org-jetbrains/uast/31.13.0/uast-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.lint:lint-api | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-api/31.13.0/lint-api-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.lint:lint-checks | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-checks/31.13.0/lint-checks-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.lint:lint-gradle | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-gradle/31.13.0/lint-gradle-31.13.0.pom | tooling-or-test-only |
-| com.android.tools.lint:lint | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint/31.13.0/lint-31.13.0.pom | tooling-or-test-only |
-| commons-codec:commons-codec | 1.10 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom | tooling-or-test-only |
-| org.apache.httpcomponents:httpclient | 4.5.6 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.6/httpclient-4.5.6.pom | tooling-or-test-only |
-| org.codehaus.groovy:groovy | 3.0.22 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/codehaus/groovy/groovy/3.0.22/groovy-3.0.22.pom | tooling-or-test-only |
+| Package | Version | Declared licence | Source type | Source | Locator | Distribution |
+|---|---:|---|---|---|---|---|
+| @capacitor-community/sqlite | 8.1.0 | MIT | npm | https://registry.npmjs.org/@capacitor-community/sqlite/-/sqlite-8.1.0.tgz | node_modules/@capacitor-community/sqlite | native-build-source; packaged=false |
+| @capacitor/android | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/android/-/android-8.4.1.tgz | node_modules/@capacitor/android | native-build-source; packaged=false |
+| @capacitor/app | 8.1.0 | MIT | npm | https://registry.npmjs.org/@capacitor/app/-/app-8.1.0.tgz | node_modules/@capacitor/app | native-build-source; packaged=false |
+| @capacitor/cli | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/cli/-/cli-8.4.1.tgz | node_modules/@capacitor/cli | build-tool-not-packaged; packaged=false |
+| @capacitor/core | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/core/-/core-8.4.1.tgz | node_modules/@capacitor/core | native-build-source; packaged=false |
+| @capacitor/ios | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/ios/-/ios-8.4.1.tgz | node_modules/@capacitor/ios | native-build-source; packaged=false |
+| @emnapi/core | 1.11.1 | MIT | npm | https://registry.npmjs.org/@emnapi/core/-/core-1.11.1.tgz | node_modules/@emnapi/core | build-tool-not-packaged; packaged=false |
+| @emnapi/runtime | 1.11.1 | MIT | npm | https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.11.1.tgz | node_modules/@emnapi/runtime | build-tool-not-packaged; packaged=false |
+| @emnapi/wasi-threads | 1.2.2 | MIT | npm | https://registry.npmjs.org/@emnapi/wasi-threads/-/wasi-threads-1.2.2.tgz | node_modules/@emnapi/wasi-threads | build-tool-not-packaged; packaged=false |
+| @ionic/cli-framework-output | 2.2.8 | MIT | npm | https://registry.npmjs.org/@ionic/cli-framework-output/-/cli-framework-output-2.2.8.tgz | node_modules/@ionic/cli-framework-output | build-tool-not-packaged; packaged=false |
+| @ionic/utils-array | 2.1.6 | MIT | npm | https://registry.npmjs.org/@ionic/utils-array/-/utils-array-2.1.6.tgz | node_modules/@ionic/utils-array | build-tool-not-packaged; packaged=false |
+| @ionic/utils-fs | 3.1.7 | MIT | npm | https://registry.npmjs.org/@ionic/utils-fs/-/utils-fs-3.1.7.tgz | node_modules/@ionic/utils-fs | build-tool-not-packaged; packaged=false |
+| @ionic/utils-object | 2.1.6 | MIT | npm | https://registry.npmjs.org/@ionic/utils-object/-/utils-object-2.1.6.tgz | node_modules/@ionic/utils-object | build-tool-not-packaged; packaged=false |
+| @ionic/utils-process | 2.1.12 | MIT | npm | https://registry.npmjs.org/@ionic/utils-process/-/utils-process-2.1.12.tgz | node_modules/@ionic/utils-process | build-tool-not-packaged; packaged=false |
+| @ionic/utils-stream | 3.1.7 | MIT | npm | https://registry.npmjs.org/@ionic/utils-stream/-/utils-stream-3.1.7.tgz | node_modules/@ionic/utils-stream | build-tool-not-packaged; packaged=false |
+| @ionic/utils-subprocess | 3.0.1 | MIT | npm | https://registry.npmjs.org/@ionic/utils-subprocess/-/utils-subprocess-3.0.1.tgz | node_modules/@ionic/utils-subprocess | build-tool-not-packaged; packaged=false |
+| @ionic/utils-terminal | 2.3.5 | MIT | npm | https://registry.npmjs.org/@ionic/utils-terminal/-/utils-terminal-2.3.5.tgz | node_modules/@ionic/utils-terminal | build-tool-not-packaged; packaged=false |
+| @isaacs/fs-minipass | 4.0.1 | ISC | npm | https://registry.npmjs.org/@isaacs/fs-minipass/-/fs-minipass-4.0.1.tgz | node_modules/@isaacs/fs-minipass | build-tool-not-packaged; packaged=false |
+| @napi-rs/wasm-runtime | 1.1.6 | MIT | npm | https://registry.npmjs.org/@napi-rs/wasm-runtime/-/wasm-runtime-1.1.6.tgz | node_modules/@napi-rs/wasm-runtime | build-tool-not-packaged; packaged=false |
+| @oxc-project/types | 0.139.0 | MIT | npm | https://registry.npmjs.org/@oxc-project/types/-/types-0.139.0.tgz | node_modules/@oxc-project/types | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-android-arm-eabi | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-android-arm-eabi/-/binding-android-arm-eabi-1.71.0.tgz | node_modules/@oxlint/binding-android-arm-eabi | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-android-arm64 | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-android-arm64/-/binding-android-arm64-1.71.0.tgz | node_modules/@oxlint/binding-android-arm64 | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-darwin-arm64 | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-darwin-arm64/-/binding-darwin-arm64-1.71.0.tgz | node_modules/@oxlint/binding-darwin-arm64 | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-darwin-x64 | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-darwin-x64/-/binding-darwin-x64-1.71.0.tgz | node_modules/@oxlint/binding-darwin-x64 | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-freebsd-x64 | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-freebsd-x64/-/binding-freebsd-x64-1.71.0.tgz | node_modules/@oxlint/binding-freebsd-x64 | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-linux-arm-gnueabihf | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-arm-gnueabihf/-/binding-linux-arm-gnueabihf-1.71.0.tgz | node_modules/@oxlint/binding-linux-arm-gnueabihf | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-linux-arm-musleabihf | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-arm-musleabihf/-/binding-linux-arm-musleabihf-1.71.0.tgz | node_modules/@oxlint/binding-linux-arm-musleabihf | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-linux-arm64-gnu | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-1.71.0.tgz | node_modules/@oxlint/binding-linux-arm64-gnu | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-linux-arm64-musl | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-arm64-musl/-/binding-linux-arm64-musl-1.71.0.tgz | node_modules/@oxlint/binding-linux-arm64-musl | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-linux-ppc64-gnu | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-ppc64-gnu/-/binding-linux-ppc64-gnu-1.71.0.tgz | node_modules/@oxlint/binding-linux-ppc64-gnu | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-linux-riscv64-gnu | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-riscv64-gnu/-/binding-linux-riscv64-gnu-1.71.0.tgz | node_modules/@oxlint/binding-linux-riscv64-gnu | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-linux-riscv64-musl | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-riscv64-musl/-/binding-linux-riscv64-musl-1.71.0.tgz | node_modules/@oxlint/binding-linux-riscv64-musl | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-linux-s390x-gnu | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-s390x-gnu/-/binding-linux-s390x-gnu-1.71.0.tgz | node_modules/@oxlint/binding-linux-s390x-gnu | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-linux-x64-gnu | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.71.0.tgz | node_modules/@oxlint/binding-linux-x64-gnu | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-linux-x64-musl | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-linux-x64-musl/-/binding-linux-x64-musl-1.71.0.tgz | node_modules/@oxlint/binding-linux-x64-musl | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-openharmony-arm64 | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-openharmony-arm64/-/binding-openharmony-arm64-1.71.0.tgz | node_modules/@oxlint/binding-openharmony-arm64 | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-win32-arm64-msvc | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-1.71.0.tgz | node_modules/@oxlint/binding-win32-arm64-msvc | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-win32-ia32-msvc | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-win32-ia32-msvc/-/binding-win32-ia32-msvc-1.71.0.tgz | node_modules/@oxlint/binding-win32-ia32-msvc | build-tool-not-packaged; packaged=false |
+| @oxlint/binding-win32-x64-msvc | 1.71.0 | MIT | npm | https://registry.npmjs.org/@oxlint/binding-win32-x64-msvc/-/binding-win32-x64-msvc-1.71.0.tgz | node_modules/@oxlint/binding-win32-x64-msvc | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-android-arm64 | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-android-arm64/-/binding-android-arm64-1.1.5.tgz | node_modules/@rolldown/binding-android-arm64 | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-darwin-arm64 | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-darwin-arm64/-/binding-darwin-arm64-1.1.5.tgz | node_modules/@rolldown/binding-darwin-arm64 | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-darwin-x64 | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-darwin-x64/-/binding-darwin-x64-1.1.5.tgz | node_modules/@rolldown/binding-darwin-x64 | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-freebsd-x64 | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-freebsd-x64/-/binding-freebsd-x64-1.1.5.tgz | node_modules/@rolldown/binding-freebsd-x64 | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-linux-arm-gnueabihf | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-arm-gnueabihf/-/binding-linux-arm-gnueabihf-1.1.5.tgz | node_modules/@rolldown/binding-linux-arm-gnueabihf | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-linux-arm64-gnu | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-1.1.5.tgz | node_modules/@rolldown/binding-linux-arm64-gnu | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-linux-arm64-musl | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-arm64-musl/-/binding-linux-arm64-musl-1.1.5.tgz | node_modules/@rolldown/binding-linux-arm64-musl | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-linux-ppc64-gnu | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-ppc64-gnu/-/binding-linux-ppc64-gnu-1.1.5.tgz | node_modules/@rolldown/binding-linux-ppc64-gnu | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-linux-s390x-gnu | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-s390x-gnu/-/binding-linux-s390x-gnu-1.1.5.tgz | node_modules/@rolldown/binding-linux-s390x-gnu | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-linux-x64-gnu | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.1.5.tgz | node_modules/@rolldown/binding-linux-x64-gnu | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-linux-x64-musl | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-linux-x64-musl/-/binding-linux-x64-musl-1.1.5.tgz | node_modules/@rolldown/binding-linux-x64-musl | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-openharmony-arm64 | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-openharmony-arm64/-/binding-openharmony-arm64-1.1.5.tgz | node_modules/@rolldown/binding-openharmony-arm64 | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-wasm32-wasi | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-wasm32-wasi/-/binding-wasm32-wasi-1.1.5.tgz | node_modules/@rolldown/binding-wasm32-wasi | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-win32-arm64-msvc | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-1.1.5.tgz | node_modules/@rolldown/binding-win32-arm64-msvc | build-tool-not-packaged; packaged=false |
+| @rolldown/binding-win32-x64-msvc | 1.1.5 | MIT | npm | https://registry.npmjs.org/@rolldown/binding-win32-x64-msvc/-/binding-win32-x64-msvc-1.1.5.tgz | node_modules/@rolldown/binding-win32-x64-msvc | build-tool-not-packaged; packaged=false |
+| @rolldown/pluginutils | 1.0.1 | MIT | npm | https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz | node_modules/@rolldown/pluginutils | build-tool-not-packaged; packaged=false |
+| @rollup/rollup-darwin-arm64 | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-darwin-arm64/-/rollup-darwin-arm64-4.44.0.tgz | node_modules/@rollup/rollup-darwin-arm64 | installed-not-packaged; packaged=false |
+| @rollup/rollup-darwin-x64 | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-darwin-x64/-/rollup-darwin-x64-4.44.0.tgz | node_modules/@rollup/rollup-darwin-x64 | installed-not-packaged; packaged=false |
+| @rollup/rollup-linux-arm64-gnu | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-linux-arm64-gnu/-/rollup-linux-arm64-gnu-4.44.0.tgz | node_modules/@rollup/rollup-linux-arm64-gnu | installed-not-packaged; packaged=false |
+| @rollup/rollup-linux-arm64-musl | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-linux-arm64-musl/-/rollup-linux-arm64-musl-4.44.0.tgz | node_modules/@rollup/rollup-linux-arm64-musl | installed-not-packaged; packaged=false |
+| @rollup/rollup-linux-x64-gnu | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.44.0.tgz | node_modules/@rollup/rollup-linux-x64-gnu | installed-not-packaged; packaged=false |
+| @rollup/rollup-linux-x64-musl | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-linux-x64-musl/-/rollup-linux-x64-musl-4.44.0.tgz | node_modules/@rollup/rollup-linux-x64-musl | installed-not-packaged; packaged=false |
+| @rollup/rollup-win32-arm64-msvc | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-win32-arm64-msvc/-/rollup-win32-arm64-msvc-4.44.0.tgz | node_modules/@rollup/rollup-win32-arm64-msvc | installed-not-packaged; packaged=false |
+| @rollup/rollup-win32-x64-msvc | 4.44.0 | MIT | npm | https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.44.0.tgz | node_modules/@rollup/rollup-win32-x64-msvc | installed-not-packaged; packaged=false |
+| @stencil/core | 4.43.5 | MIT | npm | https://registry.npmjs.org/@stencil/core/-/core-4.43.5.tgz | node_modules/@stencil/core | installed-not-packaged; packaged=false |
+| @tybys/wasm-util | 0.10.3 | MIT | npm | https://registry.npmjs.org/@tybys/wasm-util/-/wasm-util-0.10.3.tgz | node_modules/@tybys/wasm-util | build-tool-not-packaged; packaged=false |
+| @types/fs-extra | 8.1.5 | MIT | npm | https://registry.npmjs.org/@types/fs-extra/-/fs-extra-8.1.5.tgz | node_modules/@types/fs-extra | build-tool-not-packaged; packaged=false |
+| @types/node | 26.1.1 | MIT | npm | https://registry.npmjs.org/@types/node/-/node-26.1.1.tgz | node_modules/@types/node | build-tool-not-packaged; packaged=false |
+| @types/slice-ansi | 4.0.0 | MIT | npm | https://registry.npmjs.org/@types/slice-ansi/-/slice-ansi-4.0.0.tgz | node_modules/@types/slice-ansi | build-tool-not-packaged; packaged=false |
+| @vitejs/plugin-react | 6.0.3 | MIT | npm | https://registry.npmjs.org/@vitejs/plugin-react/-/plugin-react-6.0.3.tgz | node_modules/@vitejs/plugin-react | build-tool-not-packaged; packaged=false |
+| @xmldom/xmldom | 0.9.10 | MIT | npm | https://registry.npmjs.org/@xmldom/xmldom/-/xmldom-0.9.10.tgz | node_modules/@xmldom/xmldom | build-tool-not-packaged; packaged=false |
+| ansi-regex | 5.0.1 | MIT | npm | https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz | node_modules/ansi-regex | build-tool-not-packaged; packaged=false |
+| ansi-styles | 4.3.0 | MIT | npm | https://registry.npmjs.org/ansi-styles/-/ansi-styles-4.3.0.tgz | node_modules/ansi-styles | build-tool-not-packaged; packaged=false |
+| astral-regex | 2.0.0 | MIT | npm | https://registry.npmjs.org/astral-regex/-/astral-regex-2.0.0.tgz | node_modules/astral-regex | build-tool-not-packaged; packaged=false |
+| at-least-node | 1.0.0 | ISC | npm | https://registry.npmjs.org/at-least-node/-/at-least-node-1.0.0.tgz | node_modules/at-least-node | build-tool-not-packaged; packaged=false |
+| balanced-match | 4.0.4 | MIT | npm | https://registry.npmjs.org/balanced-match/-/balanced-match-4.0.4.tgz | node_modules/balanced-match | build-tool-not-packaged; packaged=false |
+| base64-js | 1.5.1 | MIT | npm | https://registry.npmjs.org/base64-js/-/base64-js-1.5.1.tgz | node_modules/base64-js | build-tool-not-packaged; packaged=false |
+| big-integer | 1.6.52 | Unlicense | npm | https://registry.npmjs.org/big-integer/-/big-integer-1.6.52.tgz | node_modules/big-integer | build-tool-not-packaged; packaged=false |
+| bplist-parser | 0.3.2 | MIT | npm | https://registry.npmjs.org/bplist-parser/-/bplist-parser-0.3.2.tgz | node_modules/bplist-parser | build-tool-not-packaged; packaged=false |
+| brace-expansion | 5.0.7 | MIT | npm | https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.7.tgz | node_modules/brace-expansion | build-tool-not-packaged; packaged=false |
+| browser-fs-access | 0.35.0 | Apache-2.0 | npm | https://registry.npmjs.org/browser-fs-access/-/browser-fs-access-0.35.0.tgz | node_modules/browser-fs-access | installed-not-packaged; packaged=false |
+| buffer-crc32 | 0.2.13 | MIT | npm | https://registry.npmjs.org/buffer-crc32/-/buffer-crc32-0.2.13.tgz | node_modules/buffer-crc32 | build-tool-not-packaged; packaged=false |
+| chownr | 3.0.0 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/chownr/-/chownr-3.0.0.tgz | node_modules/chownr | build-tool-not-packaged; packaged=false |
+| color-convert | 2.0.1 | MIT | npm | https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz | node_modules/color-convert | build-tool-not-packaged; packaged=false |
+| color-name | 1.1.4 | MIT | npm | https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz | node_modules/color-name | build-tool-not-packaged; packaged=false |
+| commander | 12.1.0 | MIT | npm | https://registry.npmjs.org/commander/-/commander-12.1.0.tgz | node_modules/commander | build-tool-not-packaged; packaged=false |
+| core-util-is | 1.0.3 | MIT | npm | https://registry.npmjs.org/core-util-is/-/core-util-is-1.0.3.tgz | node_modules/core-util-is | installed-not-packaged; packaged=false |
+| cross-spawn | 7.0.6 | MIT | npm | https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz | node_modules/cross-spawn | build-tool-not-packaged; packaged=false |
+| debug | 4.4.3 | MIT | npm | https://registry.npmjs.org/debug/-/debug-4.4.3.tgz | node_modules/debug | build-tool-not-packaged; packaged=false |
+| define-lazy-prop | 2.0.0 | MIT | npm | https://registry.npmjs.org/define-lazy-prop/-/define-lazy-prop-2.0.0.tgz | node_modules/define-lazy-prop | build-tool-not-packaged; packaged=false |
+| detect-libc | 2.1.2 | Apache-2.0 | npm | https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz | node_modules/detect-libc | build-tool-not-packaged; packaged=false |
+| elementtree | 0.1.7 | Apache-2.0 | npm | https://registry.npmjs.org/elementtree/-/elementtree-0.1.7.tgz | node_modules/elementtree | build-tool-not-packaged; packaged=false |
+| emoji-regex | 8.0.0 | MIT | npm | https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz | node_modules/emoji-regex | build-tool-not-packaged; packaged=false |
+| env-paths | 2.2.1 | MIT | npm | https://registry.npmjs.org/env-paths/-/env-paths-2.2.1.tgz | node_modules/env-paths | build-tool-not-packaged; packaged=false |
+| fd-slicer | 1.1.0 | MIT | npm | https://registry.npmjs.org/fd-slicer/-/fd-slicer-1.1.0.tgz | node_modules/fd-slicer | build-tool-not-packaged; packaged=false |
+| fdir | 6.5.0 | MIT | npm | https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz | node_modules/fdir | build-tool-not-packaged; packaged=false |
+| fs-extra | 11.3.6 | MIT | npm | https://registry.npmjs.org/fs-extra/-/fs-extra-11.3.6.tgz | node_modules/fs-extra | build-tool-not-packaged; packaged=false |
+| fs-extra | 9.1.0 | MIT | npm | https://registry.npmjs.org/fs-extra/-/fs-extra-9.1.0.tgz | node_modules/@ionic/utils-fs/node_modules/fs-extra | build-tool-not-packaged; packaged=false |
+| fsevents | 2.3.3 | MIT | npm | https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz | node_modules/fsevents | build-tool-not-packaged; packaged=false |
+| glob | 13.0.6 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/glob/-/glob-13.0.6.tgz | node_modules/glob | build-tool-not-packaged; packaged=false |
+| graceful-fs | 4.2.11 | ISC | npm | https://registry.npmjs.org/graceful-fs/-/graceful-fs-4.2.11.tgz | node_modules/graceful-fs | build-tool-not-packaged; packaged=false |
+| immediate | 3.0.6 | MIT | npm | https://registry.npmjs.org/immediate/-/immediate-3.0.6.tgz | node_modules/immediate | installed-not-packaged; packaged=false |
+| inherits | 2.0.4 | ISC | npm | https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz | node_modules/inherits | installed-not-packaged; packaged=false |
+| ini | 4.1.3 | ISC | npm | https://registry.npmjs.org/ini/-/ini-4.1.3.tgz | node_modules/ini | build-tool-not-packaged; packaged=false |
+| is-docker | 2.2.1 | MIT | npm | https://registry.npmjs.org/is-docker/-/is-docker-2.2.1.tgz | node_modules/is-docker | build-tool-not-packaged; packaged=false |
+| is-fullwidth-code-point | 3.0.0 | MIT | npm | https://registry.npmjs.org/is-fullwidth-code-point/-/is-fullwidth-code-point-3.0.0.tgz | node_modules/is-fullwidth-code-point | build-tool-not-packaged; packaged=false |
+| is-wsl | 2.2.0 | MIT | npm | https://registry.npmjs.org/is-wsl/-/is-wsl-2.2.0.tgz | node_modules/is-wsl | build-tool-not-packaged; packaged=false |
+| isarray | 1.0.0 | MIT | npm | https://registry.npmjs.org/isarray/-/isarray-1.0.0.tgz | node_modules/isarray | installed-not-packaged; packaged=false |
+| isexe | 2.0.0 | ISC | npm | https://registry.npmjs.org/isexe/-/isexe-2.0.0.tgz | node_modules/isexe | build-tool-not-packaged; packaged=false |
+| jeep-sqlite | 2.8.0 | MIT | npm | https://registry.npmjs.org/jeep-sqlite/-/jeep-sqlite-2.8.0.tgz | node_modules/jeep-sqlite | installed-not-packaged; packaged=false |
+| jsonfile | 6.2.1 | MIT | npm | https://registry.npmjs.org/jsonfile/-/jsonfile-6.2.1.tgz | node_modules/jsonfile | build-tool-not-packaged; packaged=false |
+| jszip | 3.10.1 | MIT | npm | https://registry.npmjs.org/jszip/-/jszip-3.10.1.tgz | node_modules/jszip | installed-not-packaged; packaged=false |
+| kleur | 3.0.3 | MIT | npm | https://registry.npmjs.org/kleur/-/kleur-3.0.3.tgz | node_modules/prompts/node_modules/kleur | build-tool-not-packaged; packaged=false |
+| kleur | 4.1.5 | MIT | npm | https://registry.npmjs.org/kleur/-/kleur-4.1.5.tgz | node_modules/kleur | build-tool-not-packaged; packaged=false |
+| lie | 3.1.1 | MIT | npm | https://registry.npmjs.org/lie/-/lie-3.1.1.tgz | node_modules/localforage/node_modules/lie | installed-not-packaged; packaged=false |
+| lie | 3.3.0 | MIT | npm | https://registry.npmjs.org/lie/-/lie-3.3.0.tgz | node_modules/lie | installed-not-packaged; packaged=false |
+| lightningcss-android-arm64 | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-android-arm64/-/lightningcss-android-arm64-1.32.0.tgz | node_modules/lightningcss-android-arm64 | build-tool-not-packaged; packaged=false |
+| lightningcss-darwin-arm64 | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-darwin-arm64/-/lightningcss-darwin-arm64-1.32.0.tgz | node_modules/lightningcss-darwin-arm64 | build-tool-not-packaged; packaged=false |
+| lightningcss-darwin-x64 | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-darwin-x64/-/lightningcss-darwin-x64-1.32.0.tgz | node_modules/lightningcss-darwin-x64 | build-tool-not-packaged; packaged=false |
+| lightningcss-freebsd-x64 | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-freebsd-x64/-/lightningcss-freebsd-x64-1.32.0.tgz | node_modules/lightningcss-freebsd-x64 | build-tool-not-packaged; packaged=false |
+| lightningcss-linux-arm-gnueabihf | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-linux-arm-gnueabihf/-/lightningcss-linux-arm-gnueabihf-1.32.0.tgz | node_modules/lightningcss-linux-arm-gnueabihf | build-tool-not-packaged; packaged=false |
+| lightningcss-linux-arm64-gnu | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-linux-arm64-gnu/-/lightningcss-linux-arm64-gnu-1.32.0.tgz | node_modules/lightningcss-linux-arm64-gnu | build-tool-not-packaged; packaged=false |
+| lightningcss-linux-arm64-musl | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-linux-arm64-musl/-/lightningcss-linux-arm64-musl-1.32.0.tgz | node_modules/lightningcss-linux-arm64-musl | build-tool-not-packaged; packaged=false |
+| lightningcss-linux-x64-gnu | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.32.0.tgz | node_modules/lightningcss-linux-x64-gnu | build-tool-not-packaged; packaged=false |
+| lightningcss-linux-x64-musl | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-linux-x64-musl/-/lightningcss-linux-x64-musl-1.32.0.tgz | node_modules/lightningcss-linux-x64-musl | build-tool-not-packaged; packaged=false |
+| lightningcss-win32-arm64-msvc | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-win32-arm64-msvc/-/lightningcss-win32-arm64-msvc-1.32.0.tgz | node_modules/lightningcss-win32-arm64-msvc | build-tool-not-packaged; packaged=false |
+| lightningcss-win32-x64-msvc | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss-win32-x64-msvc/-/lightningcss-win32-x64-msvc-1.32.0.tgz | node_modules/lightningcss-win32-x64-msvc | build-tool-not-packaged; packaged=false |
+| lightningcss | 1.32.0 | MPL-2.0 | npm | https://registry.npmjs.org/lightningcss/-/lightningcss-1.32.0.tgz | node_modules/lightningcss | build-tool-not-packaged; packaged=false |
+| localforage | 1.10.0 | Apache-2.0 | npm | https://registry.npmjs.org/localforage/-/localforage-1.10.0.tgz | node_modules/localforage | installed-not-packaged; packaged=false |
+| lru-cache | 11.5.2 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/lru-cache/-/lru-cache-11.5.2.tgz | node_modules/lru-cache | build-tool-not-packaged; packaged=false |
+| minimatch | 10.2.5 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/minimatch/-/minimatch-10.2.5.tgz | node_modules/minimatch | build-tool-not-packaged; packaged=false |
+| minipass | 7.1.3 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/minipass/-/minipass-7.1.3.tgz | node_modules/minipass | build-tool-not-packaged; packaged=false |
+| minizlib | 3.1.0 | MIT | npm | https://registry.npmjs.org/minizlib/-/minizlib-3.1.0.tgz | node_modules/minizlib | build-tool-not-packaged; packaged=false |
+| ms | 2.1.3 | MIT | npm | https://registry.npmjs.org/ms/-/ms-2.1.3.tgz | node_modules/ms | build-tool-not-packaged; packaged=false |
+| nanoid | 3.3.15 | MIT | npm | https://registry.npmjs.org/nanoid/-/nanoid-3.3.15.tgz | node_modules/nanoid | build-tool-not-packaged; packaged=false |
+| native-run | 2.0.3 | MIT | npm | https://registry.npmjs.org/native-run/-/native-run-2.0.3.tgz | node_modules/native-run | build-tool-not-packaged; packaged=false |
+| open | 8.4.2 | MIT | npm | https://registry.npmjs.org/open/-/open-8.4.2.tgz | node_modules/open | build-tool-not-packaged; packaged=false |
+| oxlint | 1.71.0 | MIT | npm | https://registry.npmjs.org/oxlint/-/oxlint-1.71.0.tgz | node_modules/oxlint | build-tool-not-packaged; packaged=false |
+| package-json-from-dist | 1.0.1 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/package-json-from-dist/-/package-json-from-dist-1.0.1.tgz | node_modules/package-json-from-dist | build-tool-not-packaged; packaged=false |
+| pako | 1.0.11 | MIT AND Zlib | npm | https://registry.npmjs.org/pako/-/pako-1.0.11.tgz | node_modules/pako | installed-not-packaged; packaged=false |
+| path-key | 3.1.1 | MIT | npm | https://registry.npmjs.org/path-key/-/path-key-3.1.1.tgz | node_modules/path-key | build-tool-not-packaged; packaged=false |
+| path-scurry | 2.0.2 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/path-scurry/-/path-scurry-2.0.2.tgz | node_modules/path-scurry | build-tool-not-packaged; packaged=false |
+| pend | 1.2.0 | MIT | npm | https://registry.npmjs.org/pend/-/pend-1.2.0.tgz | node_modules/pend | build-tool-not-packaged; packaged=false |
+| picocolors | 1.1.1 | ISC | npm | https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz | node_modules/picocolors | build-tool-not-packaged; packaged=false |
+| picomatch | 4.0.5 | MIT | npm | https://registry.npmjs.org/picomatch/-/picomatch-4.0.5.tgz | node_modules/picomatch | build-tool-not-packaged; packaged=false |
+| plist | 3.1.1 | MIT | npm | https://registry.npmjs.org/plist/-/plist-3.1.1.tgz | node_modules/plist | build-tool-not-packaged; packaged=false |
+| postcss | 8.5.16 | MIT | npm | https://registry.npmjs.org/postcss/-/postcss-8.5.16.tgz | node_modules/postcss | build-tool-not-packaged; packaged=false |
+| process-nextick-args | 2.0.1 | MIT | npm | https://registry.npmjs.org/process-nextick-args/-/process-nextick-args-2.0.1.tgz | node_modules/process-nextick-args | installed-not-packaged; packaged=false |
+| prompts | 2.4.2 | MIT | npm | https://registry.npmjs.org/prompts/-/prompts-2.4.2.tgz | node_modules/prompts | build-tool-not-packaged; packaged=false |
+| react-dom | 19.2.7 | MIT | npm | https://registry.npmjs.org/react-dom/-/react-dom-19.2.7.tgz | node_modules/react-dom | webview-bundle; packaged=true |
+| react | 19.2.7 | MIT | npm | https://registry.npmjs.org/react/-/react-19.2.7.tgz | node_modules/react | webview-bundle; packaged=true |
+| readable-stream | 2.3.8 | MIT | npm | https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz | node_modules/jszip/node_modules/readable-stream | installed-not-packaged; packaged=false |
+| readable-stream | 3.6.2 | MIT | npm | https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz | node_modules/readable-stream | build-tool-not-packaged; packaged=false |
+| rimraf | 6.1.3 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/rimraf/-/rimraf-6.1.3.tgz | node_modules/rimraf | build-tool-not-packaged; packaged=false |
+| rolldown | 1.1.5 | MIT | npm | https://registry.npmjs.org/rolldown/-/rolldown-1.1.5.tgz | node_modules/rolldown | build-tool-not-packaged; packaged=false |
+| safe-buffer | 5.1.2 | MIT | npm | https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz | node_modules/jszip/node_modules/safe-buffer | installed-not-packaged; packaged=false |
+| safe-buffer | 5.2.1 | MIT | npm | https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz | node_modules/safe-buffer | build-tool-not-packaged; packaged=false |
+| sax | 1.1.4 | ISC | npm | https://registry.npmjs.org/sax/-/sax-1.1.4.tgz | node_modules/sax | build-tool-not-packaged; packaged=false |
+| scheduler | 0.27.0 | MIT | npm | https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz | node_modules/scheduler | webview-bundle; packaged=true |
+| semver | 7.8.5 | ISC | npm | https://registry.npmjs.org/semver/-/semver-7.8.5.tgz | node_modules/semver | build-tool-not-packaged; packaged=false |
+| setimmediate | 1.0.5 | MIT | npm | https://registry.npmjs.org/setimmediate/-/setimmediate-1.0.5.tgz | node_modules/setimmediate | installed-not-packaged; packaged=false |
+| shebang-command | 2.0.0 | MIT | npm | https://registry.npmjs.org/shebang-command/-/shebang-command-2.0.0.tgz | node_modules/shebang-command | build-tool-not-packaged; packaged=false |
+| shebang-regex | 3.0.0 | MIT | npm | https://registry.npmjs.org/shebang-regex/-/shebang-regex-3.0.0.tgz | node_modules/shebang-regex | build-tool-not-packaged; packaged=false |
+| signal-exit | 3.0.7 | ISC | npm | https://registry.npmjs.org/signal-exit/-/signal-exit-3.0.7.tgz | node_modules/signal-exit | build-tool-not-packaged; packaged=false |
+| sisteransi | 1.0.5 | MIT | npm | https://registry.npmjs.org/sisteransi/-/sisteransi-1.0.5.tgz | node_modules/sisteransi | build-tool-not-packaged; packaged=false |
+| slice-ansi | 4.0.0 | MIT | npm | https://registry.npmjs.org/slice-ansi/-/slice-ansi-4.0.0.tgz | node_modules/slice-ansi | build-tool-not-packaged; packaged=false |
+| source-map-js | 1.2.1 | BSD-3-Clause | npm | https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz | node_modules/source-map-js | build-tool-not-packaged; packaged=false |
+| split2 | 4.2.0 | ISC | npm | https://registry.npmjs.org/split2/-/split2-4.2.0.tgz | node_modules/split2 | build-tool-not-packaged; packaged=false |
+| sql.js | 1.14.1 | MIT | npm | https://registry.npmjs.org/sql.js/-/sql.js-1.14.1.tgz | node_modules/sql.js | installed-not-packaged; packaged=false |
+| string_decoder | 1.1.1 | MIT | npm | https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz | node_modules/jszip/node_modules/string_decoder | installed-not-packaged; packaged=false |
+| string_decoder | 1.3.0 | MIT | npm | https://registry.npmjs.org/string_decoder/-/string_decoder-1.3.0.tgz | node_modules/string_decoder | build-tool-not-packaged; packaged=false |
+| string-width | 4.2.3 | MIT | npm | https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz | node_modules/string-width | build-tool-not-packaged; packaged=false |
+| strip-ansi | 6.0.1 | MIT | npm | https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz | node_modules/strip-ansi | build-tool-not-packaged; packaged=false |
+| tar | 7.5.19 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/tar/-/tar-7.5.19.tgz | node_modules/tar | build-tool-not-packaged; packaged=false |
+| through2 | 4.0.2 | MIT | npm | https://registry.npmjs.org/through2/-/through2-4.0.2.tgz | node_modules/through2 | build-tool-not-packaged; packaged=false |
+| tinyglobby | 0.2.17 | MIT | npm | https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz | node_modules/tinyglobby | build-tool-not-packaged; packaged=false |
+| tree-kill | 1.2.2 | MIT | npm | https://registry.npmjs.org/tree-kill/-/tree-kill-1.2.2.tgz | node_modules/tree-kill | build-tool-not-packaged; packaged=false |
+| tslib | 2.8.1 | 0BSD | npm | https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz | node_modules/tslib | installed-not-packaged; packaged=false |
+| undici-types | 8.3.0 | MIT | npm | https://registry.npmjs.org/undici-types/-/undici-types-8.3.0.tgz | node_modules/undici-types | build-tool-not-packaged; packaged=false |
+| universalify | 2.0.1 | MIT | npm | https://registry.npmjs.org/universalify/-/universalify-2.0.1.tgz | node_modules/universalify | build-tool-not-packaged; packaged=false |
+| untildify | 4.0.0 | MIT | npm | https://registry.npmjs.org/untildify/-/untildify-4.0.0.tgz | node_modules/untildify | build-tool-not-packaged; packaged=false |
+| util-deprecate | 1.0.2 | MIT | npm | https://registry.npmjs.org/util-deprecate/-/util-deprecate-1.0.2.tgz | node_modules/util-deprecate | installed-not-packaged; packaged=false |
+| vite | 8.1.4 | MIT | npm | https://registry.npmjs.org/vite/-/vite-8.1.4.tgz | node_modules/vite | build-tool-not-packaged; packaged=false |
+| which | 2.0.2 | ISC | npm | https://registry.npmjs.org/which/-/which-2.0.2.tgz | node_modules/which | build-tool-not-packaged; packaged=false |
+| wrap-ansi | 7.0.0 | MIT | npm | https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-7.0.0.tgz | node_modules/wrap-ansi | build-tool-not-packaged; packaged=false |
+| xml2js | 0.6.2 | MIT | npm | https://registry.npmjs.org/xml2js/-/xml2js-0.6.2.tgz | node_modules/xml2js | build-tool-not-packaged; packaged=false |
+| xmlbuilder | 11.0.1 | MIT | npm | https://registry.npmjs.org/xmlbuilder/-/xmlbuilder-11.0.1.tgz | node_modules/xml2js/node_modules/xmlbuilder | build-tool-not-packaged; packaged=false |
+| xmlbuilder | 15.1.1 | MIT | npm | https://registry.npmjs.org/xmlbuilder/-/xmlbuilder-15.1.1.tgz | node_modules/xmlbuilder | build-tool-not-packaged; packaged=false |
+| yallist | 5.0.0 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/yallist/-/yallist-5.0.0.tgz | node_modules/yallist | build-tool-not-packaged; packaged=false |
+| yauzl | 2.10.0 | MIT | npm | https://registry.npmjs.org/yauzl/-/yauzl-2.10.0.tgz | node_modules/yauzl | build-tool-not-packaged; packaged=false |
+| capacitor-swift-pm | 8.4.1 | MIT | SwiftPM | https://github.com/ionic-team/capacitor-swift-pm.git | version 8.4.1; revision 2231987d85b8b0b289320b1d0947b4ae8345cde4 | packaged=true |
+| sqlcipher.swift | 4.17.0 | BSD-3-Clause | SwiftPM | https://github.com/sqlcipher/SQLCipher.swift.git | version 4.17.0; revision 205df55271aa1ba512a9bfe3fd1813bc9ac52a19 | packaged=true |
+| zipfoundation | 0.9.20 | MIT | SwiftPM | https://github.com/weichsel/ZIPFoundation.git | version 0.9.20; revision 22787ffb59de99e5dc1fbfe80b19c97a904ad48d | packaged=true |
+| androidx.activity:activity | 1.11.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.11.0/activity-1.11.0.pom | packaged-runtime | packaged=true |
+| androidx.activity:activity | 1.8.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.8.0/activity-1.8.0.pom | tooling-or-test-only | packaged=false |
+| androidx.annotation:annotation-experimental | 1.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-experimental/1.4.0/annotation-experimental-1.4.0.pom | tooling-or-test-only | packaged=false |
+| androidx.annotation:annotation-experimental | 1.4.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-experimental/1.4.1/annotation-experimental-1.4.1.pom | packaged-runtime | packaged=true |
+| androidx.annotation:annotation-jvm | 1.8.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-jvm/1.8.1/annotation-jvm-1.8.1.pom | packaged-runtime | packaged=true |
+| androidx.annotation:annotation | 1.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation/1.3.0/annotation-1.3.0.pom | tooling-or-test-only | packaged=false |
+| androidx.annotation:annotation | 1.8.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation/1.8.1/annotation-1.8.1.pom | packaged-runtime | packaged=true |
+| androidx.appcompat:appcompat-resources | 1.7.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat-resources/1.7.1/appcompat-resources-1.7.1.pom | packaged-runtime | packaged=true |
+| androidx.appcompat:appcompat | 1.7.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.7.1/appcompat-1.7.1.pom | packaged-runtime | packaged=true |
+| androidx.arch.core:core-common | 2.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/arch/core/core-common/2.2.0/core-common-2.2.0.pom | packaged-runtime | packaged=true |
+| androidx.arch.core:core-runtime | 2.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/arch/core/core-runtime/2.1.0/core-runtime-2.1.0.pom | tooling-or-test-only | packaged=false |
+| androidx.arch.core:core-runtime | 2.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/arch/core/core-runtime/2.2.0/core-runtime-2.2.0.pom | packaged-runtime | packaged=true |
+| androidx.biometric:biometric | 1.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/biometric/biometric/1.1.0/biometric-1.1.0.pom | packaged-runtime | packaged=true |
+| androidx.collection:collection-jvm | 1.4.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/collection/collection-jvm/1.4.2/collection-jvm-1.4.2.pom | packaged-runtime | packaged=true |
+| androidx.collection:collection | 1.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/collection/collection/1.1.0/collection-1.1.0.pom | tooling-or-test-only | packaged=false |
+| androidx.collection:collection | 1.4.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/collection/collection/1.4.2/collection-1.4.2.pom | packaged-runtime | packaged=true |
+| androidx.concurrent:concurrent-futures-ktx | 1.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/concurrent/concurrent-futures-ktx/1.2.0/concurrent-futures-ktx-1.2.0.pom | tooling-or-test-only | packaged=false |
+| androidx.concurrent:concurrent-futures | 1.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/concurrent/concurrent-futures/1.1.0/concurrent-futures-1.1.0.pom | packaged-runtime | packaged=true |
+| androidx.concurrent:concurrent-futures | 1.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/concurrent/concurrent-futures/1.2.0/concurrent-futures-1.2.0.pom | tooling-or-test-only | packaged=false |
+| androidx.coordinatorlayout:coordinatorlayout | 1.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/coordinatorlayout/coordinatorlayout/1.3.0/coordinatorlayout-1.3.0.pom | packaged-runtime | packaged=true |
+| androidx.core:core-ktx | 1.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.13.0/core-ktx-1.13.0.pom | tooling-or-test-only | packaged=false |
+| androidx.core:core-ktx | 1.17.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.17.0/core-ktx-1.17.0.pom | packaged-runtime | packaged=true |
+| androidx.core:core-ktx | 1.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.2.0/core-ktx-1.2.0.pom | tooling-or-test-only | packaged=false |
+| androidx.core:core-splashscreen | 1.0.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-splashscreen/1.0.1/core-splashscreen-1.0.1.pom | tooling-or-test-only | packaged=false |
+| androidx.core:core-splashscreen | 1.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-splashscreen/1.2.0/core-splashscreen-1.2.0.pom | packaged-runtime | packaged=true |
+| androidx.core:core-viewtree | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-viewtree/1.0.0/core-viewtree-1.0.0.pom | packaged-runtime | packaged=true |
+| androidx.core:core | 1.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core/1.13.0/core-1.13.0.pom | tooling-or-test-only | packaged=false |
+| androidx.core:core | 1.17.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core/1.17.0/core-1.17.0.pom | packaged-runtime | packaged=true |
+| androidx.cursoradapter:cursoradapter | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/cursoradapter/cursoradapter/1.0.0/cursoradapter-1.0.0.pom | packaged-runtime | packaged=true |
+| androidx.customview:customview | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/customview/customview/1.0.0/customview-1.0.0.pom | packaged-runtime | packaged=true |
+| androidx.databinding:databinding-common | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/databinding/databinding-common/8.13.0/databinding-common-8.13.0.pom | tooling-or-test-only | packaged=false |
+| androidx.databinding:databinding-compiler-common | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/databinding/databinding-compiler-common/8.13.0/databinding-compiler-common-8.13.0.pom | tooling-or-test-only | packaged=false |
+| androidx.drawerlayout:drawerlayout | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/drawerlayout/drawerlayout/1.0.0/drawerlayout-1.0.0.pom | packaged-runtime | packaged=true |
+| androidx.emoji2:emoji2-views-helper | 1.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/emoji2/emoji2-views-helper/1.3.0/emoji2-views-helper-1.3.0.pom | packaged-runtime | packaged=true |
+| androidx.emoji2:emoji2 | 1.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/emoji2/emoji2/1.3.0/emoji2-1.3.0.pom | packaged-runtime | packaged=true |
+| androidx.fragment:fragment | 1.5.4 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/fragment/fragment/1.5.4/fragment-1.5.4.pom | tooling-or-test-only | packaged=false |
+| androidx.fragment:fragment | 1.8.9 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/fragment/fragment/1.8.9/fragment-1.8.9.pom | packaged-runtime | packaged=true |
+| androidx.interpolator:interpolator | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/interpolator/interpolator/1.0.0/interpolator-1.0.0.pom | packaged-runtime | packaged=true |
+| androidx.lifecycle:lifecycle-common | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-common/2.6.2/lifecycle-common-2.6.2.pom | packaged-runtime | packaged=true |
+| androidx.lifecycle:lifecycle-livedata-core | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core/2.6.2/lifecycle-livedata-core-2.6.2.pom | packaged-runtime | packaged=true |
+| androidx.lifecycle:lifecycle-livedata | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata/2.6.2/lifecycle-livedata-2.6.2.pom | packaged-runtime | packaged=true |
+| androidx.lifecycle:lifecycle-process | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-process/2.6.2/lifecycle-process-2.6.2.pom | packaged-runtime | packaged=true |
+| androidx.lifecycle:lifecycle-runtime | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime/2.6.2/lifecycle-runtime-2.6.2.pom | packaged-runtime | packaged=true |
+| androidx.lifecycle:lifecycle-viewmodel-savedstate | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-savedstate/2.6.2/lifecycle-viewmodel-savedstate-2.6.2.pom | packaged-runtime | packaged=true |
+| androidx.lifecycle:lifecycle-viewmodel | 2.6.2 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel/2.6.2/lifecycle-viewmodel-2.6.2.pom | packaged-runtime | packaged=true |
+| androidx.loader:loader | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/loader/loader/1.0.0/loader-1.0.0.pom | packaged-runtime | packaged=true |
+| androidx.profileinstaller:profileinstaller | 1.3.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/profileinstaller/profileinstaller/1.3.1/profileinstaller-1.3.1.pom | tooling-or-test-only | packaged=false |
+| androidx.profileinstaller:profileinstaller | 1.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/profileinstaller/profileinstaller/1.4.0/profileinstaller-1.4.0.pom | packaged-runtime | packaged=true |
+| androidx.resourceinspection:resourceinspection-annotation | 1.0.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/resourceinspection/resourceinspection-annotation/1.0.1/resourceinspection-annotation-1.0.1.pom | packaged-runtime | packaged=true |
+| androidx.room:room-common | 2.6.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-common/2.6.1/room-common-2.6.1.pom | packaged-runtime | packaged=true |
+| androidx.room:room-compiler-processing | 2.6.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-compiler-processing/2.6.1/room-compiler-processing-2.6.1.pom | tooling-or-test-only | packaged=false |
+| androidx.room:room-compiler | 2.6.1 | Apache-2.0 AND BSD-3-Clause | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-compiler/2.6.1/room-compiler-2.6.1.pom | tooling-or-test-only | packaged=false |
+| androidx.room:room-migration | 2.6.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-migration/2.6.1/room-migration-2.6.1.pom | tooling-or-test-only | packaged=false |
+| androidx.room:room-runtime | 2.6.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/room/room-runtime/2.6.1/room-runtime-2.6.1.pom | packaged-runtime | packaged=true |
+| androidx.savedstate:savedstate | 1.2.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate/1.2.1/savedstate-1.2.1.pom | packaged-runtime | packaged=true |
+| androidx.security:security-crypto | 1.1.0-alpha06 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/security/security-crypto/1.1.0-alpha06/security-crypto-1.1.0-alpha06.pom | packaged-runtime | packaged=true |
+| androidx.sqlite:sqlite-framework | 2.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/sqlite/sqlite-framework/2.4.0/sqlite-framework-2.4.0.pom | packaged-runtime | packaged=true |
+| androidx.sqlite:sqlite | 2.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/sqlite/sqlite/2.4.0/sqlite-2.4.0.pom | packaged-runtime | packaged=true |
+| androidx.startup:startup-runtime | 1.1.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/startup/startup-runtime/1.1.1/startup-runtime-1.1.1.pom | packaged-runtime | packaged=true |
+| androidx.test:core | 1.7.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/core/1.7.0/core-1.7.0.pom | tooling-or-test-only | packaged=false |
+| androidx.test:monitor | 1.8.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/monitor/1.8.0/monitor-1.8.0.pom | tooling-or-test-only | packaged=false |
+| androidx.test:runner | 1.7.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/runner/1.7.0/runner-1.7.0.pom | tooling-or-test-only | packaged=false |
+| androidx.test.espresso:espresso-core | 3.7.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/espresso/espresso-core/3.7.0/espresso-core-3.7.0.pom | tooling-or-test-only | packaged=false |
+| androidx.test.espresso:espresso-idling-resource | 3.7.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/espresso/espresso-idling-resource/3.7.0/espresso-idling-resource-3.7.0.pom | tooling-or-test-only | packaged=false |
+| androidx.test.ext:junit | 1.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/ext/junit/1.3.0/junit-1.3.0.pom | tooling-or-test-only | packaged=false |
+| androidx.test.services:storage | 1.6.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/services/storage/1.6.0/storage-1.6.0.pom | tooling-or-test-only | packaged=false |
+| androidx.tracing:tracing | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.0.0/tracing-1.0.0.pom | tooling-or-test-only | packaged=false |
+| androidx.tracing:tracing | 1.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.2.0/tracing-1.2.0.pom | packaged-runtime | packaged=true |
+| androidx.vectordrawable:vectordrawable-animated | 1.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/vectordrawable/vectordrawable-animated/1.1.0/vectordrawable-animated-1.1.0.pom | packaged-runtime | packaged=true |
+| androidx.vectordrawable:vectordrawable | 1.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/vectordrawable/vectordrawable/1.1.0/vectordrawable-1.1.0.pom | packaged-runtime | packaged=true |
+| androidx.versionedparcelable:versionedparcelable | 1.1.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/versionedparcelable/versionedparcelable/1.1.1/versionedparcelable-1.1.1.pom | packaged-runtime | packaged=true |
+| androidx.viewpager:viewpager | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/viewpager/viewpager/1.0.0/viewpager-1.0.0.pom | packaged-runtime | packaged=true |
+| androidx.webkit:webkit | 1.12.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/webkit/webkit/1.12.1/webkit-1.12.1.pom | tooling-or-test-only | packaged=false |
+| androidx.webkit:webkit | 1.14.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/webkit/webkit/1.14.0/webkit-1.14.0.pom | packaged-runtime | packaged=true |
+| com.android:signflinger | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/signflinger/8.13.0/signflinger-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android:zipflinger | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/zipflinger/8.13.0/zipflinger-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.databinding:baseLibrary | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/databinding/baseLibrary/8.13.0/baseLibrary-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools:annotations | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/annotations/31.13.0/annotations-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools:common | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/common/31.13.0/common-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools:dvlib | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/dvlib/31.13.0/dvlib-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools:repository | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/repository/31.13.0/repository-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools:sdk-common | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/sdk-common/31.13.0/sdk-common-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools:sdklib | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/sdklib/31.13.0/sdklib-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.analytics-library:crash | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/analytics-library/crash/31.13.0/crash-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.analytics-library:protos | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/analytics-library/protos/31.13.0/protos-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.analytics-library:shared | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/analytics-library/shared/31.13.0/shared-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.analytics-library:tracker | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/analytics-library/tracker/31.13.0/tracker-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:aapt2-proto | 8.13.0-13719691 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2-proto/8.13.0-13719691/aapt2-proto-8.13.0-13719691.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:aaptcompiler | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/aaptcompiler/8.13.0/aaptcompiler-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:apksig | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/apksig/8.13.0/apksig-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:apkzlib | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/apkzlib/8.13.0/apkzlib-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:builder-model | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/builder-model/8.13.0/builder-model-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:builder-test-api | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/builder-test-api/8.13.0/builder-test-api-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:builder | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/builder/8.13.0/builder-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:bundletool | 1.18.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/bundletool/1.18.1/bundletool-1.18.1.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:gradle-api | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle-api/8.13.0/gradle-api-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:gradle-common-api | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle-common-api/8.13.0/gradle-common-api-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:gradle-settings-api | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle-settings-api/8.13.0/gradle-settings-api-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:gradle | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/8.13.0/gradle-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:manifest-merger | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/manifest-merger/31.13.0/manifest-merger-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:transform-api | 2.0.0-deprecated-use-gradle-api | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/transform-api/2.0.0-deprecated-use-gradle-api/transform-api-2.0.0-deprecated-use-gradle-api.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build.jetifier:jetifier-core | 1.0.0-beta10 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/jetifier/jetifier-core/1.0.0-beta10/jetifier-core-1.0.0-beta10.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build.jetifier:jetifier-processor | 1.0.0-beta10 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/jetifier/jetifier-processor/1.0.0-beta10/jetifier-processor-1.0.0-beta10.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.ddms:ddmlib | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/ddms/ddmlib/31.13.0/ddmlib-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.emulator:proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/emulator/proto/31.13.0/proto-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.layoutlib:layoutlib-api | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/layoutlib/layoutlib-api/31.13.0/layoutlib-api-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.lint:lint-model | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-model/31.13.0/lint-model-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.lint:lint-typedef-remover | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-typedef-remover/31.13.0/lint-typedef-remover-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-device-provider-ddmlib-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-device-provider-ddmlib-proto/31.13.0/android-device-provider-ddmlib-proto-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-device-provider-ddmlib | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-device-provider-ddmlib/31.13.0/android-device-provider-ddmlib-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-device-provider-profile-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-device-provider-profile-proto/31.13.0/android-device-provider-profile-proto-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-device-provider-profile | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-device-provider-profile/31.13.0/android-device-provider-profile-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-host-additional-test-output-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-additional-test-output-proto/31.13.0/android-test-plugin-host-additional-test-output-proto-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-host-additional-test-output | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-additional-test-output/31.13.0/android-test-plugin-host-additional-test-output-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-host-apk-installer-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-apk-installer-proto/31.13.0/android-test-plugin-host-apk-installer-proto-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-host-apk-installer | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-apk-installer/31.13.0/android-test-plugin-host-apk-installer-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-host-coverage-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-coverage-proto/31.13.0/android-test-plugin-host-coverage-proto-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-host-coverage | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-coverage/31.13.0/android-test-plugin-host-coverage-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-host-device-info-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-device-info-proto/31.13.0/android-test-plugin-host-device-info-proto-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-host-device-info | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-device-info/31.13.0/android-test-plugin-host-device-info-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-host-emulator-control-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-emulator-control-proto/31.13.0/android-test-plugin-host-emulator-control-proto-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-host-emulator-control | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-emulator-control/31.13.0/android-test-plugin-host-emulator-control-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-host-logcat-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-logcat-proto/31.13.0/android-test-plugin-host-logcat-proto-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-host-logcat | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-host-logcat/31.13.0/android-test-plugin-host-logcat-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-result-listener-gradle-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-result-listener-gradle-proto/31.13.0/android-test-plugin-result-listener-gradle-proto-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:android-test-plugin-result-listener-gradle | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-result-listener-gradle/31.13.0/android-test-plugin-result-listener-gradle-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.utp:utp-common | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/utp-common/31.13.0/utp-common-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.google.android:annotations | 4.1.1.4 | Apache-2.0 WITH LicenseRef-Android-SDK-License-Additional-Terms | Maven | https://repo.maven.apache.org/maven2/com/google/android/annotations/4.1.1.4/annotations-4.1.1.4.pom | tooling-or-test-only | packaged=false |
+| com.google.android.gms:strict-version-matcher-plugin | 1.2.4 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/android/gms/strict-version-matcher-plugin/1.2.4/strict-version-matcher-plugin-1.2.4.pom | tooling-or-test-only | packaged=false |
+| com.google.api.grpc:proto-google-common-protos | 2.17.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/api/grpc/proto-google-common-protos/2.17.0/proto-google-common-protos-2.17.0.pom | tooling-or-test-only | packaged=false |
+| com.google.api.grpc:proto-google-common-protos | 2.48.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/api/grpc/proto-google-common-protos/2.48.0/proto-google-common-protos-2.48.0.pom | tooling-or-test-only | packaged=false |
+| com.google.auto:auto-common | 0.11 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/auto-common/0.11/auto-common-0.11.pom | tooling-or-test-only | packaged=false |
+| com.google.auto:auto-common | 1.2.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/auto-common/1.2.1/auto-common-1.2.1.pom | tooling-or-test-only | packaged=false |
+| com.google.auto.service:auto-service-annotations | 1.1.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/service/auto-service-annotations/1.1.1/auto-service-annotations-1.1.1.pom | tooling-or-test-only | packaged=false |
+| com.google.auto.service:auto-service | 1.1.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/service/auto-service/1.1.1/auto-service-1.1.1.pom | tooling-or-test-only | packaged=false |
+| com.google.auto.value:auto-value-annotations | 1.6.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.pom | tooling-or-test-only | packaged=false |
+| com.google.auto.value:auto-value-annotations | 1.6.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.6.3/auto-value-annotations-1.6.3.pom | tooling-or-test-only | packaged=false |
+| com.google.code.findbugs:jsr305 | 3.0.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom | tooling-or-test-only | packaged=false |
+| com.google.code.gson:gson | 2.10.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom | tooling-or-test-only | packaged=false |
+| com.google.code.gson:gson | 2.11.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.11.0/gson-2.11.0.pom | tooling-or-test-only | packaged=false |
+| com.google.code.gson:gson | 2.8.9 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.8.9/gson-2.8.9.pom | packaged-runtime | packaged=true |
+| com.google.code.gson:gson | 2.9.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.9.0/gson-2.9.0.pom | tooling-or-test-only | packaged=false |
+| com.google.crypto.tink:tink-android | 1.8.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/crypto/tink/tink-android/1.8.0/tink-android-1.8.0.pom | packaged-runtime | packaged=true |
+| com.google.crypto.tink:tink | 1.7.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/crypto/tink/tink/1.7.0/tink-1.7.0.pom | tooling-or-test-only | packaged=false |
+| com.google.dagger:dagger | 2.28.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/dagger/dagger/2.28.3/dagger-2.28.3.pom | tooling-or-test-only | packaged=false |
+| com.google.dagger:dagger | 2.48 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/dagger/dagger/2.48/dagger-2.48.pom | tooling-or-test-only | packaged=false |
+| com.google.devtools.ksp:symbol-processing-api | 1.9.0-1.0.13 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/devtools/ksp/symbol-processing-api/1.9.0-1.0.13/symbol-processing-api-1.9.0-1.0.13.pom | tooling-or-test-only | packaged=false |
+| com.google.errorprone:error_prone_annotations | 2.11.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.11.0/error_prone_annotations-2.11.0.pom | tooling-or-test-only | packaged=false |
+| com.google.errorprone:error_prone_annotations | 2.23.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.23.0/error_prone_annotations-2.23.0.pom | tooling-or-test-only | packaged=false |
+| com.google.errorprone:error_prone_annotations | 2.28.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.28.0/error_prone_annotations-2.28.0.pom | tooling-or-test-only | packaged=false |
+| com.google.errorprone:error_prone_annotations | 2.30.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.30.0/error_prone_annotations-2.30.0.pom | tooling-or-test-only | packaged=false |
+| com.google.flatbuffers:flatbuffers-java | 1.12.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.pom | tooling-or-test-only | packaged=false |
+| com.google.gms:google-services | 4.4.4 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/gms/google-services/4.4.4/google-services-4.4.4.pom | tooling-or-test-only | packaged=false |
+| com.google.guava:failureaccess | 1.0.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.1/failureaccess-1.0.1.pom | tooling-or-test-only | packaged=false |
+| com.google.guava:failureaccess | 1.0.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.2/failureaccess-1.0.2.pom | tooling-or-test-only | packaged=false |
+| com.google.guava:guava | 31.1-jre | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/guava/31.1-jre/guava-31.1-jre.pom | tooling-or-test-only | packaged=false |
+| com.google.guava:guava | 32.0.1-jre | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/guava/32.0.1-jre/guava-32.0.1-jre.pom | tooling-or-test-only | packaged=false |
+| com.google.guava:guava | 33.3.1-jre | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/guava/33.3.1-jre/guava-33.3.1-jre.pom | tooling-or-test-only | packaged=false |
+| com.google.guava:listenablefuture | 1.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/1.0/listenablefuture-1.0.pom | packaged-runtime | packaged=true |
+| com.google.guava:listenablefuture | 9999.0-empty-to-avoid-conflict-with-guava | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.pom | tooling-or-test-only | packaged=false |
+| com.google.j2objc:j2objc-annotations | 1.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/1.3/j2objc-annotations-1.3.pom | tooling-or-test-only | packaged=false |
+| com.google.j2objc:j2objc-annotations | 2.8 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/2.8/j2objc-annotations-2.8.pom | tooling-or-test-only | packaged=false |
+| com.google.j2objc:j2objc-annotations | 3.0.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/3.0.0/j2objc-annotations-3.0.0.pom | tooling-or-test-only | packaged=false |
+| com.google.jimfs:jimfs | 1.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/jimfs/jimfs/1.1/jimfs-1.1.pom | tooling-or-test-only | packaged=false |
+| com.google.protobuf:protobuf-java-util | 3.22.3 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.22.3/protobuf-java-util-3.22.3.pom | tooling-or-test-only | packaged=false |
+| com.google.protobuf:protobuf-java-util | 3.24.4 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.24.4/protobuf-java-util-3.24.4.pom | tooling-or-test-only | packaged=false |
+| com.google.protobuf:protobuf-java-util | 3.25.5 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.25.5/protobuf-java-util-3.25.5.pom | tooling-or-test-only | packaged=false |
+| com.google.protobuf:protobuf-java | 3.24.4 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java/3.24.4/protobuf-java-3.24.4.pom | tooling-or-test-only | packaged=false |
+| com.google.protobuf:protobuf-java | 3.25.5 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java/3.25.5/protobuf-java-3.25.5.pom | tooling-or-test-only | packaged=false |
+| com.google.protobuf:protobuf-kotlin | 3.24.4 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-kotlin/3.24.4/protobuf-kotlin-3.24.4.pom | tooling-or-test-only | packaged=false |
+| com.google.testing.platform:android-device-provider-local | 0.0.9-alpha03 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/android-device-provider-local/0.0.9-alpha03/android-device-provider-local-0.0.9-alpha03.pom | tooling-or-test-only | packaged=false |
+| com.google.testing.platform:android-driver-instrumentation | 0.0.9-alpha03 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/android-driver-instrumentation/0.0.9-alpha03/android-driver-instrumentation-0.0.9-alpha03.pom | tooling-or-test-only | packaged=false |
+| com.google.testing.platform:android-test-plugin | 0.0.9-alpha03 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/android-test-plugin/0.0.9-alpha03/android-test-plugin-0.0.9-alpha03.pom | tooling-or-test-only | packaged=false |
+| com.google.testing.platform:core-proto | 0.0.9-alpha03 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/core-proto/0.0.9-alpha03/core-proto-0.0.9-alpha03.pom | tooling-or-test-only | packaged=false |
+| com.google.testing.platform:core | 0.0.9-alpha03 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/core/0.0.9-alpha03/core-0.0.9-alpha03.pom | tooling-or-test-only | packaged=false |
+| com.google.testing.platform:launcher | 0.0.9-alpha03 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/testing/platform/launcher/0.0.9-alpha03/launcher-0.0.9-alpha03.pom | tooling-or-test-only | packaged=false |
+| com.googlecode.juniversalchardet:juniversalchardet | 1.0.3 | MPL-1.1 | Maven | https://repo.maven.apache.org/maven2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.pom | tooling-or-test-only | packaged=false |
+| com.intellij:annotations | 12.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/intellij/annotations/12.0/annotations-12.0.pom | tooling-or-test-only | packaged=false |
+| com.squareup:javapoet | 1.10.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.10.0/javapoet-1.10.0.pom | tooling-or-test-only | packaged=false |
+| com.squareup:javapoet | 1.13.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.13.0/javapoet-1.13.0.pom | tooling-or-test-only | packaged=false |
+| com.squareup:javawriter | 2.5.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom | tooling-or-test-only | packaged=false |
+| com.squareup:kotlinpoet-javapoet | 1.14.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/kotlinpoet-javapoet/1.14.2/kotlinpoet-javapoet-1.14.2.pom | tooling-or-test-only | packaged=false |
+| com.squareup:kotlinpoet | 1.14.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/squareup/kotlinpoet/1.14.2/kotlinpoet-1.14.2.pom | tooling-or-test-only | packaged=false |
+| com.sun.activation:javax.activation | 1.2.0 | CDDL-1.1 OR (GPL-2.0-only WITH Classpath-exception-2.0) | Maven | https://repo.maven.apache.org/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.pom | tooling-or-test-only | packaged=false |
+| com.sun.istack:istack-commons-runtime | 3.0.8 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/com/sun/istack/istack-commons-runtime/3.0.8/istack-commons-runtime-3.0.8.pom | tooling-or-test-only | packaged=false |
+| com.sun.xml.fastinfoset:FastInfoset | 1.2.16 | Apache-2.0 OR LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/com/sun/xml/fastinfoset/FastInfoset/1.2.16/FastInfoset-1.2.16.pom | tooling-or-test-only | packaged=false |
+| commons-codec:commons-codec | 1.11 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.11/commons-codec-1.11.pom | tooling-or-test-only | packaged=false |
+| commons-codec:commons-codec | 1.15 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.15/commons-codec-1.15.pom | tooling-or-test-only | packaged=false |
+| commons-io:commons-io | 2.16.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-io/commons-io/2.16.1/commons-io-2.16.1.pom | tooling-or-test-only | packaged=false |
+| commons-logging:commons-logging | 1.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-logging/commons-logging/1.2/commons-logging-1.2.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-api | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-api/1.57.2/grpc-api-1.57.2.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-api | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-api/1.69.1/grpc-api-1.69.1.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-context | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-context/1.57.2/grpc-context-1.57.2.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-context | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-context/1.69.1/grpc-context-1.69.1.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-core | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-core/1.57.2/grpc-core-1.57.2.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-core | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-core/1.69.1/grpc-core-1.69.1.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-inprocess | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-inprocess/1.69.1/grpc-inprocess-1.69.1.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-netty | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-netty/1.57.2/grpc-netty-1.57.2.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-netty | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-netty/1.69.1/grpc-netty-1.69.1.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-protobuf-lite | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf-lite/1.57.2/grpc-protobuf-lite-1.57.2.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-protobuf-lite | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf-lite/1.69.1/grpc-protobuf-lite-1.69.1.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-protobuf | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf/1.57.2/grpc-protobuf-1.57.2.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-protobuf | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf/1.69.1/grpc-protobuf-1.69.1.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-services | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-services/1.57.2/grpc-services-1.57.2.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-stub | 1.57.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-stub/1.57.2/grpc-stub-1.57.2.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-stub | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-stub/1.69.1/grpc-stub-1.69.1.pom | tooling-or-test-only | packaged=false |
+| io.grpc:grpc-util | 1.69.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/grpc/grpc-util/1.69.1/grpc-util-1.69.1.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-buffer | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-buffer/4.1.110.Final/netty-buffer-4.1.110.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-buffer | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-buffer/4.1.93.Final/netty-buffer-4.1.93.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-codec-http | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.1.110.Final/netty-codec-http-4.1.110.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-codec-http | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.1.93.Final/netty-codec-http-4.1.93.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-codec-http2 | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec-http2/4.1.110.Final/netty-codec-http2-4.1.110.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-codec-http2 | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec-http2/4.1.93.Final/netty-codec-http2-4.1.93.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-codec-socks | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec-socks/4.1.110.Final/netty-codec-socks-4.1.110.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-codec-socks | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec-socks/4.1.93.Final/netty-codec-socks-4.1.93.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-codec | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec/4.1.110.Final/netty-codec-4.1.110.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-codec | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-codec/4.1.93.Final/netty-codec-4.1.93.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-common | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-common/4.1.110.Final/netty-common-4.1.110.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-common | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-common/4.1.93.Final/netty-common-4.1.93.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-handler-proxy | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-handler-proxy/4.1.110.Final/netty-handler-proxy-4.1.110.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-handler-proxy | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-handler-proxy/4.1.93.Final/netty-handler-proxy-4.1.93.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-handler | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-handler/4.1.110.Final/netty-handler-4.1.110.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-handler | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-handler/4.1.93.Final/netty-handler-4.1.93.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-resolver | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-resolver/4.1.110.Final/netty-resolver-4.1.110.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-resolver | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-resolver/4.1.93.Final/netty-resolver-4.1.93.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-transport-native-unix-common | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.110.Final/netty-transport-native-unix-common-4.1.110.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-transport-native-unix-common | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.93.Final/netty-transport-native-unix-common-4.1.93.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-transport | 4.1.110.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-transport/4.1.110.Final/netty-transport-4.1.110.Final.pom | tooling-or-test-only | packaged=false |
+| io.netty:netty-transport | 4.1.93.Final | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/netty/netty-transport/4.1.93.Final/netty-transport-4.1.93.Final.pom | tooling-or-test-only | packaged=false |
+| io.opencensus:opencensus-api | 0.31.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/opencensus/opencensus-api/0.31.0/opencensus-api-0.31.0.pom | tooling-or-test-only | packaged=false |
+| io.opencensus:opencensus-proto | 0.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/opencensus/opencensus-proto/0.2.0/opencensus-proto-0.2.0.pom | tooling-or-test-only | packaged=false |
+| io.perfmark:perfmark-api | 0.26.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/perfmark/perfmark-api/0.26.0/perfmark-api-0.26.0.pom | tooling-or-test-only | packaged=false |
+| io.perfmark:perfmark-api | 0.27.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/io/perfmark/perfmark-api/0.27.0/perfmark-api-0.27.0.pom | tooling-or-test-only | packaged=false |
+| jakarta.activation:jakarta.activation-api | 1.2.1 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/jakarta/activation/jakarta.activation-api/1.2.1/jakarta.activation-api-1.2.1.pom | tooling-or-test-only | packaged=false |
+| jakarta.xml.bind:jakarta.xml.bind-api | 2.3.2 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/jakarta/xml/bind/jakarta.xml.bind-api/2.3.2/jakarta.xml.bind-api-2.3.2.pom | tooling-or-test-only | packaged=false |
+| javax.annotation:javax.annotation-api | 1.3.2 | CDDL-1.1 OR (GPL-2.0-only WITH Classpath-exception-2.0) | Maven | https://repo.maven.apache.org/maven2/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom | tooling-or-test-only | packaged=false |
+| javax.inject:javax.inject | 1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/javax/inject/javax.inject/1/javax.inject-1.pom | tooling-or-test-only | packaged=false |
+| junit:junit | 4.13.2 | EPL-1.0 | Maven | https://repo.maven.apache.org/maven2/junit/junit/4.13.2/junit-4.13.2.pom | tooling-or-test-only | packaged=false |
+| net.bytebuddy:byte-buddy-agent | 1.17.7 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy-agent/1.17.7/byte-buddy-agent-1.17.7.pom | tooling-or-test-only | packaged=false |
+| net.bytebuddy:byte-buddy | 1.17.7 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy/1.17.7/byte-buddy-1.17.7.pom | tooling-or-test-only | packaged=false |
+| net.java.dev.jna:jna-platform | 5.6.0 | Apache-2.0 OR LGPL-2.1-only | Maven | https://repo.maven.apache.org/maven2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.pom | tooling-or-test-only | packaged=false |
+| net.java.dev.jna:jna | 5.6.0 | Apache-2.0 OR LGPL-2.1-only | Maven | https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/5.6.0/jna-5.6.0.pom | tooling-or-test-only | packaged=false |
+| net.sf.jopt-simple:jopt-simple | 4.9 | MIT | Maven | https://repo.maven.apache.org/maven2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.pom | tooling-or-test-only | packaged=false |
+| net.sf.kxml:kxml2 | 2.3.0 | LicenseRef-kXML2-BSD-Style AND LicenseRef-kXML-XmlPull-Public-Domain | Maven | https://repo.maven.apache.org/maven2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.pom | tooling-or-test-only | packaged=false |
+| net.zetetic:sqlcipher-android | 4.10.0 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/net/zetetic/sqlcipher-android/4.10.0/sqlcipher-android-4.10.0.pom | packaged-runtime | packaged=true |
+| org.apache.commons:commons-compress | 1.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.21/commons-compress-1.21.pom | tooling-or-test-only | packaged=false |
+| org.apache.cordova:framework | 14.0.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/cordova/framework/14.0.1/framework-14.0.1.pom | packaged-runtime | packaged=true |
+| org.apache.httpcomponents:httpclient | 4.5.14 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom | tooling-or-test-only | packaged=false |
+| org.apache.httpcomponents:httpcore | 4.4.16 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom | tooling-or-test-only | packaged=false |
+| org.apache.httpcomponents:httpmime | 4.5.6 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.pom | tooling-or-test-only | packaged=false |
+| org.bitbucket.b_c:jose4j | 0.9.5 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/bitbucket/b_c/jose4j/0.9.5/jose4j-0.9.5.pom | tooling-or-test-only | packaged=false |
+| org.bouncycastle:bcpkix-jdk18on | 1.79 | LicenseRef-Bouncy-Castle | Maven | https://repo.maven.apache.org/maven2/org/bouncycastle/bcpkix-jdk18on/1.79/bcpkix-jdk18on-1.79.pom | tooling-or-test-only | packaged=false |
+| org.bouncycastle:bcprov-jdk18on | 1.79 | LicenseRef-Bouncy-Castle | Maven | https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.79/bcprov-jdk18on-1.79.pom | tooling-or-test-only | packaged=false |
+| org.bouncycastle:bcutil-jdk18on | 1.79 | LicenseRef-Bouncy-Castle | Maven | https://repo.maven.apache.org/maven2/org/bouncycastle/bcutil-jdk18on/1.79/bcutil-jdk18on-1.79.pom | tooling-or-test-only | packaged=false |
+| org.checkerframework:checker-qual | 3.12.0 | MIT | Maven | https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.12.0/checker-qual-3.12.0.pom | tooling-or-test-only | packaged=false |
+| org.checkerframework:checker-qual | 3.33.0 | MIT | Maven | https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.33.0/checker-qual-3.33.0.pom | tooling-or-test-only | packaged=false |
+| org.checkerframework:checker-qual | 3.43.0 | MIT | Maven | https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.43.0/checker-qual-3.43.0.pom | tooling-or-test-only | packaged=false |
+| org.codehaus.mojo:animal-sniffer-annotations | 1.23 | MIT | Maven | https://repo.maven.apache.org/maven2/org/codehaus/mojo/animal-sniffer-annotations/1.23/animal-sniffer-annotations-1.23.pom | tooling-or-test-only | packaged=false |
+| org.codehaus.mojo:animal-sniffer-annotations | 1.24 | MIT | Maven | https://repo.maven.apache.org/maven2/org/codehaus/mojo/animal-sniffer-annotations/1.24/animal-sniffer-annotations-1.24.pom | tooling-or-test-only | packaged=false |
+| org.glassfish.jaxb:jaxb-runtime | 2.3.2 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.pom | tooling-or-test-only | packaged=false |
+| org.glassfish.jaxb:txw2 | 2.3.2 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/org/glassfish/jaxb/txw2/2.3.2/txw2-2.3.2.pom | tooling-or-test-only | packaged=false |
+| org.hamcrest:hamcrest-core | 1.3 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.pom | tooling-or-test-only | packaged=false |
+| org.hamcrest:hamcrest-library | 1.3 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/hamcrest/hamcrest-library/1.3/hamcrest-library-1.3.pom | tooling-or-test-only | packaged=false |
+| org.jdom:jdom2 | 2.0.6 | LicenseRef-JDOM | Maven | https://repo.maven.apache.org/maven2/org/jdom/jdom2/2.0.6/jdom2-2.0.6.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains:annotations | 13.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains:annotations | 23.0.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/annotations/23.0.0/annotations-23.0.0.pom | packaged-runtime | packaged=true |
+| org.jetbrains.kotlin:kotlin-reflect | 1.8.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.8.21/kotlin-reflect-1.8.21.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-reflect | 2.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/2.2.0/kotlin-reflect-2.2.0.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib-common | 1.8.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-common/1.8.21/kotlin-stdlib-common-1.8.21.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib-common | 1.8.22 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-common/1.8.22/kotlin-stdlib-common-1.8.22.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib-common | 1.9.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-common/1.9.0/kotlin-stdlib-common-1.9.0.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib-common | 2.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-common/2.2.0/kotlin-stdlib-common-2.2.0.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib-jdk7 | 1.6.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.6.21/kotlin-stdlib-jdk7-1.6.21.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib-jdk7 | 1.8.20 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.8.20/kotlin-stdlib-jdk7-1.8.20.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib-jdk7 | 1.8.22 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.8.22/kotlin-stdlib-jdk7-1.8.22.pom | packaged-runtime | packaged=true |
+| org.jetbrains.kotlin:kotlin-stdlib-jdk7 | 2.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/2.2.0/kotlin-stdlib-jdk7-2.2.0.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib-jdk8 | 1.6.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.6.21/kotlin-stdlib-jdk8-1.6.21.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib-jdk8 | 1.8.20 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.8.20/kotlin-stdlib-jdk8-1.8.20.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib-jdk8 | 1.8.22 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.8.22/kotlin-stdlib-jdk8-1.8.22.pom | packaged-runtime | packaged=true |
+| org.jetbrains.kotlin:kotlin-stdlib-jdk8 | 2.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/2.2.0/kotlin-stdlib-jdk8-2.2.0.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib | 1.8.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.8.21/kotlin-stdlib-1.8.21.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib | 1.8.22 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.8.22/kotlin-stdlib-1.8.22.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib | 1.9.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.0/kotlin-stdlib-1.9.0.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlin:kotlin-stdlib | 2.0.21 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.0.21/kotlin-stdlib-2.0.21.pom | packaged-runtime | packaged=true |
+| org.jetbrains.kotlin:kotlin-stdlib | 2.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.2.0/kotlin-stdlib-2.2.0.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlinx:atomicfu-jvm | 0.22.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/atomicfu-jvm/0.22.0/atomicfu-jvm-0.22.0.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlinx:atomicfu | 0.22.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/atomicfu/0.22.0/atomicfu-0.22.0.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlinx:kotlinx-coroutines-android | 1.6.4 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-android/1.6.4/kotlinx-coroutines-android-1.6.4.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlinx:kotlinx-coroutines-android | 1.8.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-android/1.8.1/kotlinx-coroutines-android-1.8.1.pom | packaged-runtime | packaged=true |
+| org.jetbrains.kotlinx:kotlinx-coroutines-bom | 1.6.4 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.6.4/kotlinx-coroutines-bom-1.6.4.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlinx:kotlinx-coroutines-bom | 1.7.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.7.3/kotlinx-coroutines-bom-1.7.3.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlinx:kotlinx-coroutines-bom | 1.8.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.8.1/kotlinx-coroutines-bom-1.8.1.pom | packaged-runtime | packaged=true |
+| org.jetbrains.kotlinx:kotlinx-coroutines-bom | 1.9.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.9.0/kotlinx-coroutines-bom-1.9.0.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm | 1.6.4 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.6.4/kotlinx-coroutines-core-jvm-1.6.4.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm | 1.7.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.7.3/kotlinx-coroutines-core-jvm-1.7.3.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm | 1.8.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.8.1/kotlinx-coroutines-core-jvm-1.8.1.pom | packaged-runtime | packaged=true |
+| org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm | 1.9.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.9.0/kotlinx-coroutines-core-jvm-1.9.0.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlinx:kotlinx-coroutines-core | 1.6.4 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.6.4/kotlinx-coroutines-core-1.6.4.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlinx:kotlinx-coroutines-core | 1.7.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.7.3/kotlinx-coroutines-core-1.7.3.pom | tooling-or-test-only | packaged=false |
+| org.jetbrains.kotlinx:kotlinx-coroutines-core | 1.8.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.8.1/kotlinx-coroutines-core-1.8.1.pom | packaged-runtime | packaged=true |
+| org.jetbrains.kotlinx:kotlinx-coroutines-core | 1.9.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.9.0/kotlinx-coroutines-core-1.9.0.pom | tooling-or-test-only | packaged=false |
+| org.json:json | 20250517 | LicenseRef-JSON-java-Public-Domain | Maven | https://repo.maven.apache.org/maven2/org/json/json/20250517/json-20250517.pom | tooling-or-test-only | packaged=false |
+| org.jspecify:jspecify | 1.0.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.0/jspecify-1.0.0.pom | packaged-runtime | packaged=true |
+| org.jvnet.staxex:stax-ex | 1.8.1 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/org/jvnet/staxex/stax-ex/1.8.1/stax-ex-1.8.1.pom | tooling-or-test-only | packaged=false |
+| org.mockito:mockito-core | 5.20.0 | MIT | Maven | https://repo.maven.apache.org/maven2/org/mockito/mockito-core/5.20.0/mockito-core-5.20.0.pom | tooling-or-test-only | packaged=false |
+| org.objenesis:objenesis | 3.3 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/objenesis/objenesis/3.3/objenesis-3.3.pom | tooling-or-test-only | packaged=false |
+| org.ow2.asm:asm-analysis | 9.8 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/ow2/asm/asm-analysis/9.8/asm-analysis-9.8.pom | tooling-or-test-only | packaged=false |
+| org.ow2.asm:asm-commons | 9.8 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.8/asm-commons-9.8.pom | tooling-or-test-only | packaged=false |
+| org.ow2.asm:asm-tree | 9.8 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/ow2/asm/asm-tree/9.8/asm-tree-9.8.pom | tooling-or-test-only | packaged=false |
+| org.ow2.asm:asm-util | 9.8 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.8/asm-util-9.8.pom | tooling-or-test-only | packaged=false |
+| org.ow2.asm:asm | 9.8 | BSD-3-Clause | Maven | https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.8/asm-9.8.pom | tooling-or-test-only | packaged=false |
+| org.slf4j:slf4j-api | 1.7.30 | MIT | Maven | https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom | tooling-or-test-only | packaged=false |
+| org.tensorflow:tensorflow-lite-metadata | 0.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/tensorflow/tensorflow-lite-metadata/0.2.0/tensorflow-lite-metadata-0.2.0.pom | tooling-or-test-only | packaged=false |
+| org.xerial:sqlite-jdbc | 3.41.2.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/xerial/sqlite-jdbc/3.41.2.2/sqlite-jdbc-3.41.2.2.pom | tooling-or-test-only | packaged=false |
+| com.android.tools:play-sdk-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/play-sdk-proto/31.13.0/play-sdk-proto-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.build:aapt2 | 8.13.0-13719691 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/8.13.0-13719691/aapt2-8.13.0-13719691.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.external.com-intellij:intellij-core | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/external/com-intellij/intellij-core/31.13.0/intellij-core-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.external.com-intellij:kotlin-compiler | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/external/com-intellij/kotlin-compiler/31.13.0/kotlin-compiler-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.external.org-jetbrains:uast | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/external/org-jetbrains/uast/31.13.0/uast-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.lint:lint-api | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-api/31.13.0/lint-api-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.lint:lint-checks | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-checks/31.13.0/lint-checks-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.lint:lint-gradle | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint-gradle/31.13.0/lint-gradle-31.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.tools.lint:lint | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/lint/lint/31.13.0/lint-31.13.0.pom | tooling-or-test-only | packaged=false |
+| commons-codec:commons-codec | 1.10 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom | tooling-or-test-only | packaged=false |
+| org.apache.httpcomponents:httpclient | 4.5.6 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.6/httpclient-4.5.6.pom | tooling-or-test-only | packaged=false |
+| org.codehaus.groovy:groovy | 3.0.22 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/codehaus/groovy/groovy/3.0.22/groovy-3.0.22.pom | tooling-or-test-only | packaged=false |

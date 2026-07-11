@@ -4,11 +4,316 @@
   "generatedFrom": {
     "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "spmResolvedVersion": 3,
-    "nativePluginBuildSha256": "be2d277dd5b74f7c06a5a7c1f928045009682d6568a4d47fbf80cb22c44ef0ef"
+    "nativePluginBuildSha256": "be2d277dd5b74f7c06a5a7c1f928045009682d6568a4d47fbf80cb22c44ef0ef",
+    "webViewBundleEvidenceSha256": "18699c4317501edc620901ad86a51a0b939388c252e435fdae1cf6ffa76393eb"
   },
   "npm": {
     "lockfileVersion": 3,
     "lockPackageCount": 189,
+    "webViewBundle": {
+      "mode": "vite-rollup-write-false",
+      "moduleCount": 45,
+      "packageNames": [
+        "react",
+        "react-dom",
+        "scheduler"
+      ],
+      "packageLocators": [
+        "node_modules/react",
+        "node_modules/react-dom",
+        "node_modules/scheduler"
+      ],
+      "modules": [
+        {
+          "id": "\u0000rolldown/runtime.js",
+          "kind": "virtual",
+          "npmLocator": null,
+          "sha256": null
+        },
+        {
+          "id": "\u0000vite/modulepreload-polyfill.js",
+          "kind": "virtual",
+          "npmLocator": null,
+          "sha256": null
+        },
+        {
+          "id": "index.html",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "ef7c045b13d4d72bdb19fc8ee17918dce4385e511f0a72b3b54ac8bc9ad9de9d"
+        },
+        {
+          "id": "node_modules/react-dom/cjs/react-dom-client.production.js",
+          "kind": "file",
+          "npmLocator": "node_modules/react-dom",
+          "sha256": "9d2de2ee4a588c5d0b8580ff3467f796b8d9bbc45bdc35b257f7d1380e686c56"
+        },
+        {
+          "id": "node_modules/react-dom/cjs/react-dom.production.js",
+          "kind": "file",
+          "npmLocator": "node_modules/react-dom",
+          "sha256": "288449d34c12dba9cb0ad3d0470d741a30dfb1a6a5df1cf2df6b4c61207180eb"
+        },
+        {
+          "id": "node_modules/react-dom/client.js",
+          "kind": "file",
+          "npmLocator": "node_modules/react-dom",
+          "sha256": "00e348ab3d6bc2eef908345d0bc4e008c95bcfecec060dfda5c4967953761396"
+        },
+        {
+          "id": "node_modules/react-dom/index.js",
+          "kind": "file",
+          "npmLocator": "node_modules/react-dom",
+          "sha256": "ba1a3e33489f868371561777607e3ee5091df0f7ea3f1a10f789d6b86e4c1505"
+        },
+        {
+          "id": "node_modules/react/cjs/react-jsx-runtime.production.js",
+          "kind": "file",
+          "npmLocator": "node_modules/react",
+          "sha256": "1e46f15002696985e80c61d47aaa30dabb03c954270a690f5f7dfbbacfa9002b"
+        },
+        {
+          "id": "node_modules/react/cjs/react.production.js",
+          "kind": "file",
+          "npmLocator": "node_modules/react",
+          "sha256": "66fa8fc8149e02f61dd5f26e3d0ea7bd03bac64a52d15601019f50a61260a115"
+        },
+        {
+          "id": "node_modules/react/index.js",
+          "kind": "file",
+          "npmLocator": "node_modules/react",
+          "sha256": "60caffdecbdc5db3bc4ec4e83df9488345ccb271d07533b9210bf5750918d97e"
+        },
+        {
+          "id": "node_modules/react/jsx-runtime.js",
+          "kind": "file",
+          "npmLocator": "node_modules/react",
+          "sha256": "b392951a77d0a2e6a6bd017e49d768481ae5b63c4109c6c31f622cf7b2433edc"
+        },
+        {
+          "id": "node_modules/scheduler/cjs/scheduler.production.js",
+          "kind": "file",
+          "npmLocator": "node_modules/scheduler",
+          "sha256": "679adff761d31e9426604f80c0e99be44a3e6f4c6834b0218ecf0312a67c171f"
+        },
+        {
+          "id": "node_modules/scheduler/index.js",
+          "kind": "file",
+          "npmLocator": "node_modules/scheduler",
+          "sha256": "145965504d60007bc25486ab930b0367867dcd5d579ccd343c148d69349a7cfb"
+        },
+        {
+          "id": "src/app/App.jsx",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "f9271fffc9714cca81f9f8aa1a76b65460b1b512bc437bf0f12020ec6544a83d"
+        },
+        {
+          "id": "src/app/app.css",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "9afeea97f8733a68ab03d091d3bbd22115feaab95d37d16cda08ae854b15ece4"
+        },
+        {
+          "id": "src/app/create-app-services.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "36f027d35a7016870b6bea0e0303812f42aa1c3c9b5788e62ca5b61b6af55207"
+        },
+        {
+          "id": "src/domain/spelling/index.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "0a2a2d26c0e97a72dba68004cfcbe4ab19509a7a2cacf5337b1f7df7e816e0b3"
+        },
+        {
+          "id": "src/main.jsx",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "83c1210b4bf9b3ed2e344cf8b592cded3cddbd6377e497731fedf44395f2f43f"
+        },
+        {
+          "id": "src/platform/fakes/create-b1-fake-native-ports.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "db9319da2c59ec72c519e0538b21df66ed41cab1391fd2d55510c27c615aea90"
+        },
+        {
+          "id": "src/platform/native-port-contract.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "1673abb07d26dd2f4ad70e6262405988f021aa01ca70ad17feab982f11ce4a40"
+        },
+        {
+          "id": "vendor/ks2-mastery/content/spelling.mobile-runtime-full.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "50918c93043eba984cb2472238ac9370be4f46fb52a55c76cf5c469beb330d84"
+        },
+        {
+          "id": "vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "a67317764d1bae4e1796e070fa8d482c0b4702451c63ba7cacf9470c5272eb34"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/core/achievements.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "2e76bf7dfe604314abd6084925bf827b84c6217e152bc9a762696db5a8f7a365"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/core/audio-preferences.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "fd3fb13c9ec96ded2f3253a89c339580ba5ae4c91bc2a75f084d832fe940b058"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/core/content/patterns.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "127319ac7c1ee5650a017cae3f1f38db2b1a58a7d832f01a301ce279dcb3bfd2"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/core/content/taxonomy.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "19a40d332aecc22b6c2c91c8c0b612e35a9dc1233481164ed333d74979d2dbd1"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/core/events.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "5c303f2827a591d4609b343e244369a6715b5cf46123cda17690a267dde84c22"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/core/index.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "2fc2d5918884ecc01f98f0b0f8bf12b0443227f8ab4b23885a80636aa7e1f9dd"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/core/legacy-engine.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "7b582b84333caa02d2fd89fd3517e4df2557e1219105ef3e59a8f91cbc6a0f14"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/core/service-contract.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "c1a36906cc3aa049b56e2ab0965f979f3f5e73805ec676276ce1111b77adea1e"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/core/service.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "783f68f4886eb19da22ffe572ebb14ee3c3b496c90a9385fefdf13ca12107127"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/a3/camp-projection.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "b7851e4c1c9be7e7c02cc5f3a8ac4cfb74e28db7d156e05307727a9a6327ed25"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/a3/command-contracts.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "194890a3d5b62c41df561bd64576dcf8efc31c77fbd4754a995a203e3bc5a5e9"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/a3/command-planner.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "24ee82c5facff330c3330fecf817ff13b3e9b9adfb6346989ee7f752e856b0c3"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/a3/command-repository.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "cda2729791a02f045d54f2358488d86fd881562af15ba32b7eac0079fa03406d"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/a3/index.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "8ac3acc7f82eb680f53620e0abe904778bc60236b9cd036ed03affcd56ec0ddd"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/a3/monster-projection.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "820743295407e04ceb7c7ff70f183d45ad5251c01576d04f76cc451d0616f074"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/a3/parent-projection.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "952b5b5b853bf74bcf006fd04913c44a5d2099f111b380406a83aee172c8f0e7"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/a3/profile-repository.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "3bb3c0cc8fa0adf561e253971d23f136bbf7c6475556da83a79261d58a8ce58e"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/a3/revision-authority.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "384b477c925a7500fd6900bf73d1a471e903a9beb4e327bb94fb5ca8d3c2d571"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/a3/revision-projection.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "78dabff89d293b14652fb794e0f784392dce0f7d6b86b5bf1bae70b0d220cdcb"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/index.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "f304e9b4ea1e046870c1d1209d285e9dc778a5340093097fd209592d77865ea8"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/pack-contracts.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "9ce9b94e88d6e72ee9465fc99e593bb9b0173d65857a03d5871f81987f0cae04"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/runtime-catalogue.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "18ee3791f1eb14ce646f484834946a504a9c380d1c22430003ff3d6b7316bc27"
+        },
+        {
+          "id": "vendor/ks2-mastery/shared/spelling/mobile/runtime-snapshot.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "66bbdb49e77fbac539dc96ccdd60d6912ff57e562b073fac38b96cc63389161d"
+        }
+      ],
+      "outputInventory": [
+        {
+          "fileName": "assets/index-BOyz-jJw.js",
+          "kind": "chunk",
+          "sha256": "c64613f2d7d0a065dfe643fa625d6545d41f447ca9c5d7bbeafc162bfd413073"
+        },
+        {
+          "fileName": "assets/index-BvnBxf-p.css",
+          "kind": "asset",
+          "sha256": "51a4b88cdf1cc34e3c6874089fdcd49ad2fbaf17c71b8ff55768ef572160c267"
+        },
+        {
+          "fileName": "index.html",
+          "kind": "asset",
+          "sha256": "61f2b23306dbc5980d8ad53e42853afe6c1691440b4f8ae63c55461abbd313db"
+        }
+      ],
+      "evidenceSha256": "18699c4317501edc620901ad86a51a0b939388c252e435fdae1cf6ffa76393eb"
+    },
     "allPackages": [
       {
         "locator": "node_modules/@capacitor-community/sqlite",
@@ -19,10 +324,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "native-build-source",
         "role": "conditionally approved native SQLite bridge and bundled web fallback dependency",
-        "privacyRole": "Local database access only; no collection or transmission in B2",
-        "restrictedExportClassification": "SQLCipher is packaged; US export classification remains unresolved before store release"
+        "privacyRole": "npm source input only; packaged SwiftPM and Maven binaries are certified separately",
+        "restrictedExportClassification": "SQLCipher is packaged; US export classification remains unresolved before store release",
+        "restrictedClassification": "none",
+        "exportClassification": "SQLCipher is packaged; US export classification remains unresolved before store release"
       },
       {
         "locator": "node_modules/@capacitor/android",
@@ -33,10 +341,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "native-build-source",
         "role": "native platform source",
-        "privacyRole": "No app data collection or permission declared in B1",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "npm source input only; packaged SwiftPM and Maven binaries are certified separately",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@capacitor/app",
@@ -47,10 +358,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "native-build-source",
         "role": "conditionally approved native application lifecycle bridge",
-        "privacyRole": "Lifecycle notifications only; no collection or transmission in B2",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "npm source input only; packaged SwiftPM and Maven binaries are certified separately",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "None identified"
       },
       {
         "locator": "node_modules/@capacitor/cli",
@@ -62,9 +376,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "build-only native project tooling",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@capacitor/core",
@@ -75,10 +392,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "native-build-source",
         "role": "bundled and native bridge runtime",
-        "privacyRole": "No app data collection or permission declared in B1",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "npm source input only; packaged SwiftPM and Maven binaries are certified separately",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@capacitor/ios",
@@ -89,10 +409,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "native-build-source",
         "role": "native platform source",
-        "privacyRole": "Not applicable",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "npm source input only; packaged SwiftPM and Maven binaries are certified separately",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@emnapi/core",
@@ -104,9 +427,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@emnapi/runtime",
@@ -118,9 +444,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@emnapi/wasi-threads",
@@ -132,9 +461,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@ionic/cli-framework-output",
@@ -146,9 +478,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@ionic/utils-array",
@@ -160,9 +495,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@ionic/utils-fs",
@@ -174,9 +512,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@ionic/utils-object",
@@ -188,9 +529,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@ionic/utils-process",
@@ -202,9 +546,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@ionic/utils-stream",
@@ -216,9 +563,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@ionic/utils-subprocess",
@@ -230,9 +580,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@ionic/utils-terminal",
@@ -244,9 +597,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@isaacs/fs-minipass",
@@ -258,9 +614,12 @@
         "licence": "ISC",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@napi-rs/wasm-runtime",
@@ -272,9 +631,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxc-project/types",
@@ -286,9 +648,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-android-arm-eabi",
@@ -300,9 +665,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-android-arm64",
@@ -314,9 +682,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-darwin-arm64",
@@ -328,9 +699,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-darwin-x64",
@@ -342,9 +716,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-freebsd-x64",
@@ -356,9 +733,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-linux-arm-gnueabihf",
@@ -370,9 +750,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-linux-arm-musleabihf",
@@ -384,9 +767,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-linux-arm64-gnu",
@@ -398,9 +784,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-linux-arm64-musl",
@@ -412,9 +801,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-linux-ppc64-gnu",
@@ -426,9 +818,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-linux-riscv64-gnu",
@@ -440,9 +835,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-linux-riscv64-musl",
@@ -454,9 +852,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-linux-s390x-gnu",
@@ -468,9 +869,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-linux-x64-gnu",
@@ -482,9 +886,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-linux-x64-musl",
@@ -496,9 +903,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-openharmony-arm64",
@@ -510,9 +920,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-win32-arm64-msvc",
@@ -524,9 +937,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-win32-ia32-msvc",
@@ -538,9 +954,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@oxlint/binding-win32-x64-msvc",
@@ -552,9 +971,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-android-arm64",
@@ -566,9 +988,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-darwin-arm64",
@@ -580,9 +1005,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-darwin-x64",
@@ -594,9 +1022,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-freebsd-x64",
@@ -608,9 +1039,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-linux-arm-gnueabihf",
@@ -622,9 +1056,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-linux-arm64-gnu",
@@ -636,9 +1073,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-linux-arm64-musl",
@@ -650,9 +1090,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-linux-ppc64-gnu",
@@ -664,9 +1107,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-linux-s390x-gnu",
@@ -678,9 +1124,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-linux-x64-gnu",
@@ -692,9 +1141,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-linux-x64-musl",
@@ -706,9 +1158,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-openharmony-arm64",
@@ -720,9 +1175,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-wasm32-wasi",
@@ -734,9 +1192,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-win32-arm64-msvc",
@@ -748,9 +1209,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/binding-win32-x64-msvc",
@@ -762,9 +1226,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rolldown/pluginutils",
@@ -776,9 +1243,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rollup/rollup-darwin-arm64",
@@ -790,9 +1260,12 @@
         "licence": "MIT",
         "dev": false,
         "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "optional host-specific transitive build binary; not packaged",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rollup/rollup-darwin-x64",
@@ -804,9 +1277,12 @@
         "licence": "MIT",
         "dev": false,
         "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "optional host-specific transitive build binary; not packaged",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rollup/rollup-linux-arm64-gnu",
@@ -818,9 +1294,12 @@
         "licence": "MIT",
         "dev": false,
         "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "optional host-specific transitive build binary; not packaged",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rollup/rollup-linux-arm64-musl",
@@ -832,9 +1311,12 @@
         "licence": "MIT",
         "dev": false,
         "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "optional host-specific transitive build binary; not packaged",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rollup/rollup-linux-x64-gnu",
@@ -846,9 +1328,12 @@
         "licence": "MIT",
         "dev": false,
         "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "optional host-specific transitive build binary; not packaged",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rollup/rollup-linux-x64-musl",
@@ -860,9 +1345,12 @@
         "licence": "MIT",
         "dev": false,
         "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "optional host-specific transitive build binary; not packaged",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rollup/rollup-win32-arm64-msvc",
@@ -874,9 +1362,12 @@
         "licence": "MIT",
         "dev": false,
         "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "optional host-specific transitive build binary; not packaged",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@rollup/rollup-win32-x64-msvc",
@@ -888,9 +1379,12 @@
         "licence": "MIT",
         "dev": false,
         "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "optional host-specific transitive build binary; not packaged",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@stencil/core",
@@ -901,10 +1395,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive web-component build and runtime support for the uninitialised SQLite web fallback",
-        "privacyRole": "Web fallback is not initialised in B2",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@tybys/wasm-util",
@@ -916,9 +1413,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@types/fs-extra",
@@ -930,9 +1430,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@types/node",
@@ -944,9 +1447,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@types/slice-ansi",
@@ -958,9 +1464,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@vitejs/plugin-react",
@@ -972,9 +1481,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "build-only JSX transform",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@xmldom/xmldom",
@@ -986,9 +1498,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/ansi-regex",
@@ -1000,9 +1515,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/ansi-styles",
@@ -1014,9 +1532,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/astral-regex",
@@ -1028,9 +1549,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/at-least-node",
@@ -1042,9 +1566,12 @@
         "licence": "ISC",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/balanced-match",
@@ -1056,9 +1583,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/base64-js",
@@ -1070,9 +1600,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/big-integer",
@@ -1084,9 +1617,12 @@
         "licence": "Unlicense",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/bplist-parser",
@@ -1098,9 +1634,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/brace-expansion",
@@ -1112,9 +1651,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/browser-fs-access",
@@ -1125,10 +1667,13 @@
         "declaredLicence": "Apache-2.0",
         "licence": "Apache-2.0",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive browser file-access support for the uninitialised SQLite web fallback",
-        "privacyRole": "Web fallback is not initialised in B2",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/buffer-crc32",
@@ -1140,9 +1685,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/chownr",
@@ -1154,9 +1702,12 @@
         "licence": "BlueOak-1.0.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/color-convert",
@@ -1168,9 +1719,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/color-name",
@@ -1182,9 +1736,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/commander",
@@ -1196,9 +1753,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/core-util-is",
@@ -1209,10 +1769,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive JavaScript stream utility",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/cross-spawn",
@@ -1224,9 +1787,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/debug",
@@ -1238,9 +1804,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/define-lazy-prop",
@@ -1252,9 +1821,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/detect-libc",
@@ -1266,9 +1838,12 @@
         "licence": "Apache-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/elementtree",
@@ -1280,9 +1855,12 @@
         "licence": "Apache-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/emoji-regex",
@@ -1294,9 +1872,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/env-paths",
@@ -1308,9 +1889,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/fd-slicer",
@@ -1322,9 +1906,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/fdir",
@@ -1336,9 +1923,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/fs-extra",
@@ -1350,9 +1940,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/@ionic/utils-fs/node_modules/fs-extra",
@@ -1364,9 +1957,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/fsevents",
@@ -1378,9 +1974,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/glob",
@@ -1392,9 +1991,12 @@
         "licence": "BlueOak-1.0.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/graceful-fs",
@@ -1406,9 +2008,12 @@
         "licence": "ISC",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/immediate",
@@ -1419,10 +2024,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive JavaScript scheduling utility",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/inherits",
@@ -1433,10 +2041,13 @@
         "declaredLicence": "ISC",
         "licence": "ISC",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive JavaScript inheritance utility",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/ini",
@@ -1448,9 +2059,12 @@
         "licence": "ISC",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/is-docker",
@@ -1462,9 +2076,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/is-fullwidth-code-point",
@@ -1476,9 +2093,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/is-wsl",
@@ -1490,9 +2110,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/isarray",
@@ -1503,10 +2126,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive JavaScript type utility",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/isexe",
@@ -1518,9 +2144,12 @@
         "licence": "ISC",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/jeep-sqlite",
@@ -1531,10 +2160,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "bundled transitive web fallback code; not initialised in the native B2 application",
-        "privacyRole": "Web fallback is not initialised in B2",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/jsonfile",
@@ -1546,9 +2178,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/jszip",
@@ -1559,10 +2194,13 @@
         "declaredLicence": "(MIT OR GPL-3.0-or-later)",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive archive support for the uninitialised SQLite web fallback",
-        "privacyRole": "Web fallback is not initialised in B2",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "exact-licence-notice-override",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/prompts/node_modules/kleur",
@@ -1574,9 +2212,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/kleur",
@@ -1588,9 +2229,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/localforage/node_modules/lie",
@@ -1601,10 +2245,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive Promise implementation",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lie",
@@ -1615,10 +2262,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive Promise implementation",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lightningcss-android-arm64",
@@ -1630,9 +2280,12 @@
         "licence": "MPL-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lightningcss-darwin-arm64",
@@ -1644,9 +2297,12 @@
         "licence": "MPL-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lightningcss-darwin-x64",
@@ -1658,9 +2314,12 @@
         "licence": "MPL-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lightningcss-freebsd-x64",
@@ -1672,9 +2331,12 @@
         "licence": "MPL-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lightningcss-linux-arm-gnueabihf",
@@ -1686,9 +2348,12 @@
         "licence": "MPL-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lightningcss-linux-arm64-gnu",
@@ -1700,9 +2365,12 @@
         "licence": "MPL-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lightningcss-linux-arm64-musl",
@@ -1714,9 +2382,12 @@
         "licence": "MPL-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lightningcss-linux-x64-gnu",
@@ -1728,9 +2399,12 @@
         "licence": "MPL-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lightningcss-linux-x64-musl",
@@ -1742,9 +2416,12 @@
         "licence": "MPL-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lightningcss-win32-arm64-msvc",
@@ -1756,9 +2433,12 @@
         "licence": "MPL-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lightningcss-win32-x64-msvc",
@@ -1770,9 +2450,12 @@
         "licence": "MPL-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lightningcss",
@@ -1784,9 +2467,12 @@
         "licence": "MPL-2.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/localforage",
@@ -1797,10 +2483,13 @@
         "declaredLicence": "Apache-2.0",
         "licence": "Apache-2.0",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive browser storage support for the uninitialised SQLite web fallback",
-        "privacyRole": "Web fallback is not initialised in B2",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/lru-cache",
@@ -1812,9 +2501,12 @@
         "licence": "BlueOak-1.0.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/minimatch",
@@ -1826,9 +2518,12 @@
         "licence": "BlueOak-1.0.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/minipass",
@@ -1840,9 +2535,12 @@
         "licence": "BlueOak-1.0.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/minizlib",
@@ -1854,9 +2552,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/ms",
@@ -1868,9 +2569,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/nanoid",
@@ -1882,9 +2586,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/native-run",
@@ -1896,9 +2603,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/open",
@@ -1910,9 +2620,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/oxlint",
@@ -1924,9 +2637,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "build-only static analysis",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/package-json-from-dist",
@@ -1938,9 +2654,12 @@
         "licence": "BlueOak-1.0.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/pako",
@@ -1951,10 +2670,13 @@
         "declaredLicence": "(MIT AND Zlib)",
         "licence": "MIT AND Zlib",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive compression support for the uninitialised SQLite web fallback",
-        "privacyRole": "Web fallback is not initialised in B2",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "exact-licence-notice-override",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/path-key",
@@ -1966,9 +2688,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/path-scurry",
@@ -1980,9 +2705,12 @@
         "licence": "BlueOak-1.0.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/pend",
@@ -1994,9 +2722,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/picocolors",
@@ -2008,9 +2739,12 @@
         "licence": "ISC",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/picomatch",
@@ -2022,9 +2756,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/plist",
@@ -2036,9 +2773,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/postcss",
@@ -2050,9 +2790,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/process-nextick-args",
@@ -2063,10 +2806,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive JavaScript stream scheduling utility",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/prompts",
@@ -2078,9 +2824,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/react-dom",
@@ -2092,9 +2841,12 @@
         "licence": "MIT",
         "dev": false,
         "packaged": true,
+        "distribution": "webview-bundle",
         "role": "bundled runtime",
-        "privacyRole": "No data access in B1",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/react",
@@ -2106,9 +2858,12 @@
         "licence": "MIT",
         "dev": false,
         "packaged": true,
+        "distribution": "webview-bundle",
         "role": "bundled runtime",
-        "privacyRole": "No data access in B1",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/jszip/node_modules/readable-stream",
@@ -2119,10 +2874,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive JavaScript stream implementation",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/readable-stream",
@@ -2134,9 +2892,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "transitive JavaScript stream implementation",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/rimraf",
@@ -2148,9 +2909,12 @@
         "licence": "BlueOak-1.0.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/rolldown",
@@ -2162,9 +2926,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/jszip/node_modules/safe-buffer",
@@ -2175,10 +2942,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive JavaScript buffer utility",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/safe-buffer",
@@ -2190,9 +2960,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "transitive JavaScript buffer utility",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/sax",
@@ -2204,9 +2977,12 @@
         "licence": "ISC",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/scheduler",
@@ -2218,9 +2994,12 @@
         "licence": "MIT",
         "dev": false,
         "packaged": true,
+        "distribution": "webview-bundle",
         "role": "bundled transitive runtime",
-        "privacyRole": "No data access in B1",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/semver",
@@ -2232,9 +3011,12 @@
         "licence": "ISC",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/setimmediate",
@@ -2245,10 +3027,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive JavaScript scheduling utility",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/shebang-command",
@@ -2260,9 +3045,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/shebang-regex",
@@ -2274,9 +3062,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/signal-exit",
@@ -2288,9 +3079,12 @@
         "licence": "ISC",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/sisteransi",
@@ -2302,9 +3096,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/slice-ansi",
@@ -2316,9 +3113,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/source-map-js",
@@ -2330,9 +3130,12 @@
         "licence": "BSD-3-Clause",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/split2",
@@ -2344,9 +3147,12 @@
         "licence": "ISC",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/sql.js",
@@ -2357,10 +3163,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive SQLite WebAssembly implementation for the uninitialised web fallback",
-        "privacyRole": "Web fallback is not initialised in B2",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/jszip/node_modules/string_decoder",
@@ -2371,10 +3180,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive JavaScript stream decoding utility",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/string_decoder",
@@ -2386,9 +3198,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "transitive JavaScript stream decoding utility",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/string-width",
@@ -2400,9 +3215,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/strip-ansi",
@@ -2414,9 +3232,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/tar",
@@ -2428,9 +3249,12 @@
         "licence": "BlueOak-1.0.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/through2",
@@ -2442,9 +3266,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/tinyglobby",
@@ -2456,9 +3283,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/tree-kill",
@@ -2470,9 +3300,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/tslib",
@@ -2483,10 +3316,13 @@
         "declaredLicence": "0BSD",
         "licence": "0BSD",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "bundled transitive runtime",
-        "privacyRole": "No data access in B1",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/undici-types",
@@ -2498,9 +3334,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/universalify",
@@ -2512,9 +3351,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/untildify",
@@ -2526,9 +3368,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/util-deprecate",
@@ -2539,10 +3384,13 @@
         "declaredLicence": "MIT",
         "licence": "MIT",
         "dev": false,
-        "packaged": true,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
         "role": "transitive JavaScript compatibility utility",
-        "privacyRole": "No collection or transmission",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/vite",
@@ -2554,9 +3402,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "build-only web bundler",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/which",
@@ -2568,9 +3419,12 @@
         "licence": "ISC",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/wrap-ansi",
@@ -2582,9 +3436,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/xml2js",
@@ -2596,9 +3453,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/xml2js/node_modules/xmlbuilder",
@@ -2610,9 +3470,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/xmlbuilder",
@@ -2624,9 +3487,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/yallist",
@@ -2638,9 +3504,12 @@
         "licence": "BlueOak-1.0.0",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       },
       {
         "locator": "node_modules/yauzl",
@@ -2652,9 +3521,12 @@
         "licence": "MIT",
         "dev": true,
         "packaged": false,
+        "distribution": "build-tool-not-packaged",
         "role": "resolved build-tool transitive dependency",
-        "privacyRole": "Build-only",
-        "restrictedExportClassification": "None identified"
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified"
       }
     ],
     "approvedLicences": [
@@ -2683,9 +3555,12 @@
         "applePrivacyManifest": "No app Required Reason API or usage-description key added in B2",
         "googleDataSafety": "Local database access only; no collection or transmission in B2",
         "sourceRepository": "https://github.com/capacitor-community/sqlite.git",
-        "packaged": true,
-        "privacyRole": "Local database access only; no collection or transmission in B2",
+        "packaged": false,
+        "distribution": "native-build-source",
+        "privacyRole": "npm source input only; packaged SwiftPM and Maven binaries are certified separately",
         "restrictedExportClassification": "SQLCipher is packaged; US export classification remains unresolved before store release",
+        "restrictedClassification": "none",
+        "exportClassification": "SQLCipher is packaged; US export classification remains unresolved before store release",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@capacitor-community/sqlite"
@@ -2705,9 +3580,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No app data collection or permission declared in B1",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No app data collection or permission declared in B1",
+        "packaged": false,
+        "distribution": "native-build-source",
+        "privacyRole": "npm source input only; packaged SwiftPM and Maven binaries are certified separately",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@capacitor/android"
@@ -2727,9 +3605,12 @@
         "applePrivacyManifest": "No app Required Reason API or usage-description key added in B2",
         "googleDataSafety": "Lifecycle notifications only; no collection or transmission in B2",
         "sourceRepository": "https://github.com/ionic-team/capacitor-plugins.git",
-        "packaged": true,
-        "privacyRole": "Lifecycle notifications only; no collection or transmission in B2",
+        "packaged": false,
+        "distribution": "native-build-source",
+        "privacyRole": "npm source input only; packaged SwiftPM and Maven binaries are certified separately",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "None identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@capacitor/app"
@@ -2749,9 +3630,12 @@
         "applePrivacyManifest": "No app Required Reason API declared in B1",
         "googleDataSafety": "No app data collection or permission declared in B1",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No app data collection or permission declared in B1",
+        "packaged": false,
+        "distribution": "native-build-source",
+        "privacyRole": "npm source input only; packaged SwiftPM and Maven binaries are certified separately",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@capacitor/core"
@@ -2771,9 +3655,12 @@
         "applePrivacyManifest": "Capacitor and Cordova framework manifests supplied",
         "googleDataSafety": "Not applicable",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "Not applicable",
+        "packaged": false,
+        "distribution": "native-build-source",
+        "privacyRole": "npm source input only; packaged SwiftPM and Maven binaries are certified separately",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@capacitor/ios"
@@ -2794,8 +3681,11 @@
         "googleDataSafety": "Build-only",
         "sourceRepository": null,
         "packaged": false,
-        "privacyRole": "Build-only",
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@rollup/rollup-darwin-arm64"
@@ -2816,8 +3706,11 @@
         "googleDataSafety": "Build-only",
         "sourceRepository": null,
         "packaged": false,
-        "privacyRole": "Build-only",
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@rollup/rollup-darwin-x64"
@@ -2838,8 +3731,11 @@
         "googleDataSafety": "Build-only",
         "sourceRepository": null,
         "packaged": false,
-        "privacyRole": "Build-only",
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@rollup/rollup-linux-arm64-gnu"
@@ -2860,8 +3756,11 @@
         "googleDataSafety": "Build-only",
         "sourceRepository": null,
         "packaged": false,
-        "privacyRole": "Build-only",
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@rollup/rollup-linux-arm64-musl"
@@ -2882,8 +3781,11 @@
         "googleDataSafety": "Build-only",
         "sourceRepository": null,
         "packaged": false,
-        "privacyRole": "Build-only",
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@rollup/rollup-linux-x64-gnu"
@@ -2904,8 +3806,11 @@
         "googleDataSafety": "Build-only",
         "sourceRepository": null,
         "packaged": false,
-        "privacyRole": "Build-only",
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@rollup/rollup-linux-x64-musl"
@@ -2926,8 +3831,11 @@
         "googleDataSafety": "Build-only",
         "sourceRepository": null,
         "packaged": false,
-        "privacyRole": "Build-only",
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@rollup/rollup-win32-arm64-msvc"
@@ -2948,8 +3856,11 @@
         "googleDataSafety": "Build-only",
         "sourceRepository": null,
         "packaged": false,
-        "privacyRole": "Build-only",
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@rollup/rollup-win32-x64-msvc"
@@ -2969,9 +3880,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "Web fallback is not initialised in B2",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "Web fallback is not initialised in B2",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/@stencil/core"
@@ -2991,9 +3905,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "Web fallback is not initialised in B2",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "Web fallback is not initialised in B2",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/browser-fs-access"
@@ -3013,9 +3930,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No collection or transmission",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No collection or transmission",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/core-util-is"
@@ -3035,9 +3955,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No collection or transmission",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No collection or transmission",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/immediate"
@@ -3057,9 +3980,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No collection or transmission",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No collection or transmission",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/inherits"
@@ -3079,9 +4005,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No collection or transmission",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No collection or transmission",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/isarray"
@@ -3101,9 +4030,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "Web fallback is not initialised in B2",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "Web fallback is not initialised in B2",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/jeep-sqlite"
@@ -3123,9 +4055,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "Web fallback is not initialised in B2",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "Web fallback is not initialised in B2",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "exact-licence-notice-override",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/jszip"
@@ -3145,9 +4080,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No collection or transmission",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No collection or transmission",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/lie"
@@ -3167,9 +4105,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No collection or transmission",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No collection or transmission",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/localforage/node_modules/lie"
@@ -3189,9 +4130,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "Web fallback is not initialised in B2",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "Web fallback is not initialised in B2",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/localforage"
@@ -3211,9 +4155,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "Web fallback is not initialised in B2",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "Web fallback is not initialised in B2",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "exact-licence-notice-override",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/pako"
@@ -3233,9 +4180,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No collection or transmission",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No collection or transmission",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/process-nextick-args"
@@ -3256,8 +4206,11 @@
         "googleDataSafety": "No data access in B1",
         "sourceRepository": null,
         "packaged": true,
-        "privacyRole": "No data access in B1",
+        "distribution": "webview-bundle",
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/react"
@@ -3278,8 +4231,11 @@
         "googleDataSafety": "No data access in B1",
         "sourceRepository": null,
         "packaged": true,
-        "privacyRole": "No data access in B1",
+        "distribution": "webview-bundle",
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/react-dom"
@@ -3299,9 +4255,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No collection or transmission",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No collection or transmission",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/jszip/node_modules/readable-stream"
@@ -3321,9 +4280,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No collection or transmission",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No collection or transmission",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/jszip/node_modules/safe-buffer"
@@ -3344,8 +4306,11 @@
         "googleDataSafety": "No data access in B1",
         "sourceRepository": null,
         "packaged": true,
-        "privacyRole": "No data access in B1",
+        "distribution": "webview-bundle",
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/scheduler"
@@ -3365,9 +4330,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No collection or transmission",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No collection or transmission",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/setimmediate"
@@ -3387,9 +4355,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "Web fallback is not initialised in B2",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "Web fallback is not initialised in B2",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/sql.js"
@@ -3409,9 +4380,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No collection or transmission",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No collection or transmission",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/jszip/node_modules/string_decoder"
@@ -3431,9 +4405,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No data access in B1",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No data access in B1",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/tslib"
@@ -3453,9 +4430,12 @@
         "applePrivacyManifest": "Not applicable",
         "googleDataSafety": "No collection or transmission",
         "sourceRepository": null,
-        "packaged": true,
-        "privacyRole": "No collection or transmission",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11",
         "locator": "node_modules/util-deprecate"
@@ -3478,8 +4458,11 @@
         "googleDataSafety": "Build-only",
         "sourceRepository": null,
         "packaged": false,
-        "privacyRole": "Build-only",
+        "distribution": "build-tool-not-packaged",
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11"
       },
@@ -3499,8 +4482,11 @@
         "googleDataSafety": "Build-only",
         "sourceRepository": null,
         "packaged": false,
-        "privacyRole": "Build-only",
+        "distribution": "build-tool-not-packaged",
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11"
       },
@@ -3520,8 +4506,11 @@
         "googleDataSafety": "Build-only",
         "sourceRepository": null,
         "packaged": false,
-        "privacyRole": "Build-only",
+        "distribution": "build-tool-not-packaged",
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11"
       },
@@ -3541,8 +4530,11 @@
         "googleDataSafety": "Build-only",
         "sourceRepository": null,
         "packaged": false,
-        "privacyRole": "Build-only",
+        "distribution": "build-tool-not-packaged",
+        "privacyRole": "Build-only lock closure; absent from the WebView bundle",
         "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-11"
       }
@@ -3626,6 +4618,63 @@
       "reviewDate": "2026-07-11"
     }
   ],
+  "ios": {
+    "packagedPrivacyManifests": [
+      {
+        "path": "Frameworks/Capacitor.framework/PrivacyInfo.xcprivacy",
+        "sha256": "1bac827f49b2b8a5358491b9698203bf191791a6f1ba3a3ace3b1285d52d2d17",
+        "tracking": false,
+        "collectedDataTypes": [],
+        "trackingDomains": [],
+        "requiredReasonApis": []
+      },
+      {
+        "path": "Frameworks/Cordova.framework/PrivacyInfo.xcprivacy",
+        "sha256": "5a9b8fc0cddb10201bb47cc2804b3f004c7251476622d25bfc4eb54ed46e1084",
+        "tracking": false,
+        "collectedDataTypes": [],
+        "trackingDomains": [],
+        "requiredReasonApis": []
+      },
+      {
+        "path": "Frameworks/SQLCipher.framework/PrivacyInfo.xcprivacy",
+        "sha256": "9362796ba800a7b4169834eff8bde990866f40114ff7baac002b8bae543e8dd1",
+        "tracking": false,
+        "collectedDataTypes": [],
+        "trackingDomains": [],
+        "requiredReasonApis": [
+          {
+            "category": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "reasons": [
+              "E174.1"
+            ]
+          },
+          {
+            "category": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "reasons": [
+              "3B52.1",
+              "C617.1"
+            ]
+          }
+        ]
+      },
+      {
+        "path": "ZIPFoundation_ZIPFoundation.bundle/PrivacyInfo.xcprivacy",
+        "sha256": "9a2f930cedb8d58309a581b9bf9bf3673685ec02ae2197d9f1c56828b718dffd",
+        "tracking": false,
+        "collectedDataTypes": [],
+        "trackingDomains": [],
+        "requiredReasonApis": [
+          {
+            "category": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "reasons": [
+              "0A2A.1"
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "android": {
     "schemaVersion": 1,
     "mode": "resolved-toolchain",

@@ -1,12 +1,68 @@
 {
   "schemaVersion": 1,
   "nativePluginBuildSha256": "be2d277dd5b74f7c06a5a7c1f928045009682d6568a4d47fbf80cb22c44ef0ef",
-  "dependencyAuditSha256": "1f8465c2fea2b6a642e004b7f9515e1e275995d95249e7b3221e1cd2b401105d",
+  "dependencyAuditSha256": "61d5a6fca5b7522d9892eca571609135869e0878e85765b0af0c0b5567254f49",
   "sqliteMode": "no-encryption",
   "webFallbackInitialised": false,
   "androidPackagedPermissions": [],
   "iosAddedUsageDescriptionKeys": [],
   "iosAddedEntitlements": [],
+  "iosPackagedPrivacyManifests": [
+    {
+      "path": "Frameworks/Capacitor.framework/PrivacyInfo.xcprivacy",
+      "sha256": "1bac827f49b2b8a5358491b9698203bf191791a6f1ba3a3ace3b1285d52d2d17",
+      "tracking": false,
+      "collectedDataTypes": [],
+      "trackingDomains": [],
+      "requiredReasonApis": []
+    },
+    {
+      "path": "Frameworks/Cordova.framework/PrivacyInfo.xcprivacy",
+      "sha256": "5a9b8fc0cddb10201bb47cc2804b3f004c7251476622d25bfc4eb54ed46e1084",
+      "tracking": false,
+      "collectedDataTypes": [],
+      "trackingDomains": [],
+      "requiredReasonApis": []
+    },
+    {
+      "path": "Frameworks/SQLCipher.framework/PrivacyInfo.xcprivacy",
+      "sha256": "9362796ba800a7b4169834eff8bde990866f40114ff7baac002b8bae543e8dd1",
+      "tracking": false,
+      "collectedDataTypes": [],
+      "trackingDomains": [],
+      "requiredReasonApis": [
+        {
+          "category": "NSPrivacyAccessedAPICategoryDiskSpace",
+          "reasons": [
+            "E174.1"
+          ]
+        },
+        {
+          "category": "NSPrivacyAccessedAPICategoryFileTimestamp",
+          "reasons": [
+            "3B52.1",
+            "C617.1"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "ZIPFoundation_ZIPFoundation.bundle/PrivacyInfo.xcprivacy",
+      "sha256": "9a2f930cedb8d58309a581b9bf9bf3673685ec02ae2197d9f1c56828b718dffd",
+      "tracking": false,
+      "collectedDataTypes": [],
+      "trackingDomains": [],
+      "requiredReasonApis": [
+        {
+          "category": "NSPrivacyAccessedAPICategoryFileTimestamp",
+          "reasons": [
+            "0A2A.1"
+          ]
+        }
+      ]
+    }
+  ],
+  "webViewBundleEvidenceSha256": "18699c4317501edc620901ad86a51a0b939388c252e435fdae1cf6ffa76393eb",
   "androidBackupEnabled": false,
   "androidDataExtraction": "all-domains-excluded-until-c2",
   "androidBackupRulesSha256": "0d9990aea651376c460947c4b349b48c6dea1babfb268189732de71511d2b7e0",

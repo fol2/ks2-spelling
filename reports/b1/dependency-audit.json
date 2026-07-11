@@ -213,14 +213,14 @@
   "androidResolution": {
     "status": "resolved-toolchain",
     "evidencePath": "reports/b1/android-dependency-resolution.json",
-    "evidenceSha256": "e67f9ca96c6be0c227eeb7867df6767ae806289cf5a1098a10e5b1891048ceba",
+    "evidenceSha256": "a1962f5b1fdee130f2a8538530bd430df95fee89646f899b3e338c1ecf139654",
     "componentCount": 286,
     "scopeMembershipCount": 3133,
     "packagedRuntimeCount": 50,
     "scopeRestrictedToolingCount": 25,
     "taskCreatedBuildToolCount": 12,
-    "verificationComponentCount": 391,
-    "verificationArtifactCount": 765
+    "verificationComponentCount": 392,
+    "verificationArtifactCount": 767
   },
   "gradleInputs": [
     {
@@ -448,7 +448,7 @@
       "appIdentity": "uk.eugnel.ks2spelling",
       "buildToolsVersion": "36.0.0",
       "permissionSurfaceSha256": "28845e13ab77dc0edab52ecea963c969397cd9dfa7a9964975c42ddf8ab54650",
-      "sourceBuildInputSha256": "ad53d73b2a27991328e612ebb6dbeeb64ffa0ad997aa6257c3a49cf1808638b1",
+      "sourceBuildInputSha256": "78a0259459bf0c5010940f927e3d00cfbd436ab8c36a16525d44262910dd55f4",
       "declaredPermissions": [],
       "requestedPermissions": []
     }

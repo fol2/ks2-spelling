@@ -177,6 +177,41 @@ test('Gradle verification metadata covers every resolved POM and binary checksum
   );
 });
 
+test('committed verification metadata closes fresh-cache POM and module selection', async () => {
+  const { parseVerificationMetadataInventory } = await importResolver();
+  const metadata = await readFile(
+    join(ROOT, 'android/gradle/verification-metadata.xml'),
+    'utf8',
+  );
+  const inventory = parseVerificationMetadataInventory(metadata);
+  const components = new Map(
+    inventory.components.map(({ coordinate, artifacts }) => [
+      coordinate,
+      new Map(artifacts.map(({ name, sha256 }) => [name, sha256])),
+    ]),
+  );
+  const freshCacheClosure = [
+    {
+      coordinate: 'com.google.guava:guava-parent:33.3.1-jre',
+      name: 'guava-parent-33.3.1-jre.pom',
+      sha256: '55441db27e8869dfefe053059bdf478bdc7e95585642bf391f0023345fd56287',
+    },
+    {
+      coordinate: 'org.junit:junit-bom:5.10.2',
+      name: 'junit-bom-5.10.2.module',
+      sha256: 'de23b114b3e4119a8fe6eb17bed5a3852816698bace67071579d6d927ebb080a',
+    },
+  ];
+
+  for (const artifact of freshCacheClosure) {
+    assert.equal(
+      components.get(artifact.coordinate)?.get(artifact.name),
+      artifact.sha256,
+      `${artifact.coordinate}:${artifact.name}`,
+    );
+  }
+});
+
 test('raw Gradle resolution is canonicalised as unique modules with exact scopes and checksums', async () => {
   const { canonicaliseGradleResolution } = await importResolver();
   const canonical = canonicaliseGradleResolution(rawResolution());
@@ -225,8 +260,8 @@ test('committed Android certification is bound to every resolver and policy inpu
   const report = JSON.parse(reportText);
   assert.equal(report.componentCount, 286);
   assert.equal(report.taskCreatedBuildToolCount, 12);
-  assert.equal(report.verificationInventory.componentCount, 391);
-  assert.equal(report.verificationInventory.artifactCount, 765);
+  assert.equal(report.verificationInventory.componentCount, 392);
+  assert.equal(report.verificationInventory.artifactCount, 767);
   assert.equal(reportText.includes('/Users/'), false);
   const inputs = new Set(report.generatedFrom.map(({ path }) => path));
   for (const path of [

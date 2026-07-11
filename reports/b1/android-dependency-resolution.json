@@ -33,7 +33,7 @@
     },
     {
       "path": "android/gradle/verification-metadata.xml",
-      "sha256": "22873f65d6bd51c75cb173f97dd4c83cbc4e07320a3cf362be9d2fb4fdd3a9ec"
+      "sha256": "60e33c92c2749532e656ae5395d47f6eaacd487b548f9cb1e3d8b5cda31ff7f3"
     },
     {
       "path": "android/gradle/dependency-locks/app.lockfile",
@@ -30845,8 +30845,8 @@
       "trustedKeys": [],
       "ignoredKeys": []
     },
-    "componentCount": 391,
-    "artifactCount": 765,
+    "componentCount": 392,
+    "artifactCount": 767,
     "components": [
       {
         "coordinate": "androidx.activity:activity:1.11.0",
@@ -34089,6 +34089,19 @@
         "reason": "licence-pom-closure"
       },
       {
+        "coordinate": "com.google.guava:guava-parent:33.3.1-jre",
+        "group": "com.google.guava",
+        "name": "guava-parent",
+        "version": "33.3.1-jre",
+        "artifacts": [
+          {
+            "name": "guava-parent-33.3.1-jre.pom",
+            "sha256": "55441db27e8869dfefe053059bdf478bdc7e95585642bf391f0023345fd56287"
+          }
+        ],
+        "reason": "licence-pom-closure"
+      },
+      {
         "coordinate": "com.google.guava:guava:32.0.1-jre",
         "group": "com.google.guava",
         "name": "guava",
@@ -37172,6 +37185,10 @@
         "name": "junit-bom",
         "version": "5.10.2",
         "artifacts": [
+          {
+            "name": "junit-bom-5.10.2.module",
+            "sha256": "de23b114b3e4119a8fe6eb17bed5a3852816698bace67071579d6d927ebb080a"
+          },
           {
             "name": "junit-bom-5.10.2.pom",
             "sha256": "169dd904a4b0f6520cffe658cc62292bfe9f3c14a989fa92120724cde43a9968"

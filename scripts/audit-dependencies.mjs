@@ -197,42 +197,286 @@ function validateLock(policy, lock) {
   return lockPackages;
 }
 
+function stripGradleComments(text) {
+  let output = '';
+  let state = 'normal';
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    const next = text[index + 1];
+    if (state === 'line-comment') {
+      if (character === '\n') {
+        output += character;
+        state = 'normal';
+      }
+      continue;
+    }
+    if (state === 'block-comment') {
+      if (character === '*' && next === '/') {
+        index += 1;
+        state = 'normal';
+      } else if (character === '\n') {
+        output += character;
+      }
+      continue;
+    }
+    if (state === 'single-quote' || state === 'double-quote') {
+      output += character;
+      if (character === '\\' && next) {
+        output += next;
+        index += 1;
+      } else if (
+        (state === 'single-quote' && character === "'") ||
+        (state === 'double-quote' && character === '"')
+      ) {
+        state = 'normal';
+      }
+      continue;
+    }
+    if (character === '/' && next === '/') {
+      state = 'line-comment';
+      index += 1;
+    } else if (character === '/' && next === '*') {
+      state = 'block-comment';
+      index += 1;
+    } else {
+      output += character;
+      if (character === "'") state = 'single-quote';
+      if (character === '"') state = 'double-quote';
+    }
+  }
+  return output;
+}
+
+function extractNamedBlocks(text, keyword) {
+  const blocks = [];
+  const pattern = new RegExp(`\\b${keyword}\\s*\\{`, 'g');
+  for (const match of text.matchAll(pattern)) {
+    const openingBrace = match.index + match[0].lastIndexOf('{');
+    let depth = 0;
+    for (let index = openingBrace; index < text.length; index += 1) {
+      if (text[index] === '{') depth += 1;
+      if (text[index] === '}') depth -= 1;
+      if (depth === 0) {
+        blocks.push(text.slice(openingBrace + 1, index));
+        break;
+      }
+    }
+  }
+  return blocks;
+}
+
+export function parseGradleEvidence(sources) {
+  const cleanSources = sources.map(({ path, text }) => ({
+    path,
+    text: stripGradleComments(text),
+  }));
+  const combined = cleanSources.map(({ text }) => text).join('\n');
+  const variables = new Map(
+    [...combined.matchAll(/\b([A-Za-z][A-Za-z0-9_]*Version)\s*=\s*['"]([^'"]+)['"]/g)].map(
+      ([, name, value]) => [name, value],
+    ),
+  );
+  const declarations = new Map();
+  const localDependencies = new Set();
+  function recordDeclaration({ configuration, raw, path }) {
+    const resolved = raw.replace(/\$\{?([A-Za-z][A-Za-z0-9_]*)\}?/g, (_, name) => {
+      const value = variables.get(name);
+      if (!value) {
+        throw policyError(
+          'gradle_declaration_drift',
+          `Unresolved Gradle variable ${name} in ${path}`,
+        );
+      }
+      return value;
+    });
+    const [group, artifact, ...versionParts] = resolved.split(':');
+    if (!group || !artifact || versionParts.length === 0) return;
+    const version = versionParts.join(':');
+    const key = `${group}:${artifact}:${version}`;
+    const existing = declarations.get(key) ?? {
+      coordinate: `${group}:${artifact}`,
+      version,
+      configurations: new Set(),
+      sources: new Set(),
+    };
+    existing.configurations.add(configuration);
+    existing.sources.add(path);
+    declarations.set(key, existing);
+  }
+  for (const { path, text } of cleanSources) {
+    for (const dependencyBlock of extractNamedBlocks(text, 'dependencies')) {
+      const fragments = dependencyBlock.replaceAll('{', '\n').replaceAll('}', '\n').split(/[;\n\r]+/);
+      for (const fragment of fragments) {
+        const statement = fragment.trim();
+        if (!statement || /^(?:if|else|try|catch|finally)\b/.test(statement)) continue;
+        const statementMatch = statement.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*(.*)$/);
+        if (!statementMatch) continue;
+        const [, configuration, syntax] = statementMatch;
+        if (!syntax) {
+          if (configuration === 'constraints') continue;
+          throw policyError(
+            'gradle_declaration_drift',
+            `Unresolved dependency statement in ${path}: ${statement}`,
+          );
+        }
+        const projectMatch = syntax.match(/^project\(\s*['"]([^'"]+)['"]/);
+        if (projectMatch) {
+          localDependencies.add(`project:${projectMatch[1]}`);
+          continue;
+        }
+        if (/^fileTree\b/.test(syntax)) {
+          const dir = syntax.match(/\bdir\s*:\s*['"]([^'"]+)['"]/)?.[1];
+          if (!dir) {
+            throw policyError('gradle_declaration_drift', `Unresolved fileTree in ${path}`);
+          }
+          localDependencies.add(`fileTree:${dir}`);
+          continue;
+        }
+        const stringMatch = syntax.match(
+          /^(?:\(\s*)?(?:(?:platform|enforcedPlatform)\s*\(\s*)?['"]([^'"]+)['"]/,
+        );
+        if (stringMatch) {
+          recordDeclaration({ configuration, raw: stringMatch[1], path });
+          continue;
+        }
+        const mapMatch = syntax.match(
+          /^(?:\(\s*)?group\s*:\s*['"]([^'"]+)['"]\s*,\s*name\s*:\s*['"]([^'"]+)['"]\s*,\s*version\s*:\s*['"]([^'"]+)['"]/,
+        );
+        if (mapMatch) {
+          recordDeclaration({
+            configuration,
+            raw: `${mapMatch[1]}:${mapMatch[2]}:${mapMatch[3]}`,
+            path,
+          });
+          continue;
+        }
+        throw policyError(
+          'gradle_declaration_drift',
+          `Unresolved ${configuration} declaration in ${path}: ${syntax}`,
+        );
+      }
+    }
+  }
+
+  const repositories = new Set();
+  const flatDirs = new Set();
+  for (const { text } of cleanSources) {
+    for (const block of extractNamedBlocks(text, 'repositories')) {
+      for (const [, call] of block.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*\)/g)) {
+        repositories.add(`${call}()`);
+      }
+      const urls = [
+        ...block.matchAll(
+          /(?:\burl\s*(?:=\s*)?(?:uri\s*\(\s*)?|\bsetUrl\s*\(\s*)['"]([^'"]+)['"]/g,
+        ),
+      ].map(([, url]) => url);
+      for (const url of urls) repositories.add(url);
+      const mavenBlocks = extractNamedBlocks(block, 'maven');
+      if (mavenBlocks.length > urls.length) repositories.add('maven:<missing-url>');
+      for (const flatDirBlock of extractNamedBlocks(block, 'flatDir')) {
+        for (const dirs of flatDirBlock.matchAll(/\bdirs\s+([^\n\r}]+)/g)) {
+          for (const [, path] of dirs[1].matchAll(/['"]([^'"]+)['"]/g)) {
+            flatDirs.add(path);
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    declarations: [...declarations.values()]
+      .map((entry) => ({
+        ...entry,
+        configurations: [...entry.configurations].sort(),
+        sources: [...entry.sources].sort(),
+      }))
+      .sort((left, right) =>
+        `${left.coordinate}:${left.version}`.localeCompare(`${right.coordinate}:${right.version}`),
+      ),
+    repositories: [...repositories].sort(),
+    flatDirs: [...flatDirs].sort(),
+    localDependencies: [...localDependencies].sort(),
+  };
+}
+
+function exactSetDifference(actual, expected) {
+  const expectedSet = new Set(expected);
+  return actual.filter((value) => !expectedSet.has(value));
+}
+
+export function assertGradleEvidenceMatchesPolicy(evidence, policy) {
+  const actualDeclarations = evidence.declarations.map(
+    ({ coordinate, version }) => `${coordinate}:${version}`,
+  );
+  const expectedDeclarations = policy.gradleDeclared.map(
+    ({ coordinate, version }) => `${coordinate}:${version}`,
+  );
+  const extraDeclarations = exactSetDifference(actualDeclarations, expectedDeclarations);
+  const missingDeclarations = exactSetDifference(expectedDeclarations, actualDeclarations);
+  if (extraDeclarations.length || missingDeclarations.length) {
+    throw policyError(
+      'gradle_declaration_drift',
+      `Gradle declaration set drifted; extra=${extraDeclarations.join(',')}; missing=${missingDeclarations.join(',')}`,
+    );
+  }
+  const extraRepositories = exactSetDifference(
+    evidence.repositories,
+    policy.allowedSources.gradleRepositories,
+  );
+  const missingRepositories = exactSetDifference(
+    policy.allowedSources.gradleRepositories,
+    evidence.repositories,
+  );
+  if (extraRepositories.length || missingRepositories.length) {
+    throw policyError(
+      'unapproved_gradle_source',
+      `Gradle repository set drifted; extra=${extraRepositories.join(',')}; missing=${missingRepositories.join(',')}`,
+    );
+  }
+  const extraFlatDirs = exactSetDifference(evidence.flatDirs, policy.allowedSources.gradleFlatDirs);
+  const missingFlatDirs = exactSetDifference(policy.allowedSources.gradleFlatDirs, evidence.flatDirs);
+  if (extraFlatDirs.length || missingFlatDirs.length) {
+    throw policyError(
+      'unapproved_flat_dir',
+      `Gradle flatDir set drifted; extra=${extraFlatDirs.join(',')}; missing=${missingFlatDirs.join(',')}`,
+    );
+  }
+  const extraLocalDependencies = exactSetDifference(
+    evidence.localDependencies,
+    policy.allowedSources.gradleLocalDependencies,
+  );
+  const missingLocalDependencies = exactSetDifference(
+    policy.allowedSources.gradleLocalDependencies,
+    evidence.localDependencies,
+  );
+  if (extraLocalDependencies.length || missingLocalDependencies.length) {
+    throw policyError(
+      'gradle_declaration_drift',
+      `Gradle local dependency set drifted; extra=${extraLocalDependencies.join(',')}; missing=${missingLocalDependencies.join(',')}`,
+    );
+  }
+}
+
 async function verifyGradleDeclarations(policy) {
-  const text = (
-    await Promise.all(
-      [
-        'android/build.gradle',
-        'android/app/build.gradle',
-        'android/variables.gradle',
-        'node_modules/@capacitor/android/capacitor/build.gradle',
-      ].map((path) => readFile(resolve(ROOT, path), 'utf8')),
-    )
-  ).join('\n');
-  for (const { coordinate, version } of policy.gradleDeclared) {
-    if (!text.includes(coordinate) || !text.includes(version)) {
-      throw policyError(
-        'gradle_declaration_drift',
-        `Missing declared Gradle input ${coordinate}:${version}`,
-      );
-    }
-  }
-  const repositories = [
-    ...new Set([
-      ...[...text.matchAll(/\b(google|mavenCentral)\(\)/g)].map(([, name]) => `${name}()`),
-      ...[...text.matchAll(/maven\s*\{\s*url\s*=\s*"([^"]+)"/g)].map(([, url]) => url),
-    ]),
-  ].sort();
-  for (const repository of repositories) {
-    if (!policy.allowedSources.gradleRepositories.includes(repository)) {
-      throw policyError('unapproved_gradle_source', `Unapproved Gradle source: ${repository}`);
-    }
-  }
+  const sourcePaths = [
+    'android/build.gradle',
+    'android/app/build.gradle',
+    'android/variables.gradle',
+    'node_modules/@capacitor/android/capacitor/build.gradle',
+  ];
+  const sources = await Promise.all(
+    sourcePaths.map(async (path) => ({ path, text: await readFile(resolve(ROOT, path), 'utf8') })),
+  );
+  const evidence = parseGradleEvidence(sources);
+  assertGradleEvidenceMatchesPolicy(evidence, policy);
   return {
     declarations: policy.gradleDeclared.map((entry) => ({
       ...entry,
       resolution: 'pending-toolchain',
     })),
-    repositories,
+    repositories: evidence.repositories,
+    flatDirs: evidence.flatDirs,
+    localDependencies: evidence.localDependencies,
   };
 }
 
@@ -336,6 +580,8 @@ export async function buildDependencyArtifacts({ preBootstrap = false } = {}) {
     spm,
     androidResolution: 'pending-toolchain',
     gradleRepositories: gradle.repositories,
+    gradleFlatDirs: gradle.flatDirs,
+    gradleLocalDependencies: gradle.localDependencies,
     gradleDeclared: gradle.declarations,
     plugins: {
       approved: policy.approvedNativePlugins,

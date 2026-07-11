@@ -216,6 +216,15 @@
     "https://plugins.gradle.org/m2/",
     "mavenCentral()"
   ],
+  "gradleFlatDirs": [
+    "../capacitor-cordova-android-plugins/src/main/libs",
+    "libs"
+  ],
+  "gradleLocalDependencies": [
+    "fileTree:libs",
+    "project::capacitor-android",
+    "project::capacitor-cordova-android-plugins"
+  ],
   "gradleDeclared": [
     {
       "coordinate": "com.android.tools.build:gradle",

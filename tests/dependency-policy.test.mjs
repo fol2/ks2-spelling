@@ -158,3 +158,77 @@ test('future native candidates are explicit Not approved entries and remain unin
     assert.match(register, new RegExp(`\\| ${capability} \\|[^\\n]+\\| Not approved \\|`));
   }
 });
+
+test('Gradle evidence rejects every unregistered coordinate, repository form and flat directory', async () => {
+  const { assertGradleEvidenceMatchesPolicy, parseGradleEvidence } = await importScript(
+    'scripts/audit-dependencies.mjs',
+  );
+  const policy = JSON.parse(
+    await readFile(join(ROOT, 'config/dependency-policy.json'), 'utf8'),
+  );
+  const sources = await Promise.all(
+    [
+      'android/build.gradle',
+      'android/app/build.gradle',
+      'android/variables.gradle',
+      'node_modules/@capacitor/android/capacitor/build.gradle',
+    ].map(async (path) => ({ path, text: await readFile(join(ROOT, path), 'utf8') })),
+  );
+  assert.doesNotThrow(() =>
+    assertGradleEvidenceMatchesPolicy(parseGradleEvidence(sources), policy),
+  );
+
+  const tamperCases = [
+    ['extra coordinate', 'dependencies { implementation "evil.tracker:sdk:1.0.0" }'],
+    ['runtime-only coordinate', 'dependencies { runtimeOnly "evil.runtime:sdk:3.0.0" }'],
+    [
+      'platform coordinate',
+      'dependencies { implementation(platform("evil.platform:bom:2.0.0")) }',
+    ],
+    ['unresolved dependency syntax', 'dependencies { implementation libs.evilSdk }'],
+    ['unexpected local project', "dependencies { runtimeOnly project(':evil-local') }"],
+    ['jcenter', 'repositories { jcenter() }'],
+    ['maven local', 'repositories { mavenLocal() }'],
+    ['single quoted Maven URL', "repositories { maven { url = 'https://evil.example/m2' } }"],
+    [
+      'uri Maven URL',
+      "repositories { maven { url = uri('https://evil.example/uri-m2') } }",
+    ],
+    ['unexpected flat directory', "repositories { flatDir { dirs 'unregistered-libs' } }"],
+  ];
+  for (const [name, text] of tamperCases) {
+    assert.throws(
+      () =>
+        assertGradleEvidenceMatchesPolicy(
+          parseGradleEvidence([...sources, { path: `tamper/${name}.gradle`, text }]),
+          policy,
+        ),
+      ({ code }) =>
+        ['gradle_declaration_drift', 'unapproved_gradle_source', 'unapproved_flat_dir'].includes(
+          code,
+        ),
+      name,
+    );
+  }
+
+  const commentedCoordinateSources = sources.map((source) =>
+    source.path === 'android/build.gradle'
+      ? {
+          ...source,
+          text: source.text.replace(
+            "classpath 'com.google.gms:google-services:4.4.4'",
+            "// classpath 'com.google.gms:google-services:4.4.4'",
+          ),
+        }
+      : source,
+  );
+  assert.throws(
+    () =>
+      assertGradleEvidenceMatchesPolicy(
+        parseGradleEvidence(commentedCoordinateSources),
+        policy,
+      ),
+    ({ code }) => code === 'gradle_declaration_drift',
+    'commented-out coordinates cannot satisfy the exact set',
+  );
+});

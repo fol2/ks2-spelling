@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">KS2 Spelling</string>
+    <string name="title_activity_main">KS2 Spelling</string>
+    <string name="package_name">uk.eugnel.ks2spelling</string>
+    <string name="custom_url_scheme">uk.eugnel.ks2spelling</string>
+</resources>

@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "status": "pass",
+  "environment": "sandbox",
+  "builderMode": "verify-only",
+  "packId": "b3-sandbox-proof",
+  "version": "1.0.0-b3.1",
+  "source": [
+    {
+      "path": "audio/proof-word.m4a",
+      "sha256": "ef93d2c71f8490c7dd1b93929d8cba78b82c7c22c7c5da210e402be0f6b3f82f",
+      "bytes": 840
+    },
+    {
+      "path": "catalogue.json",
+      "sha256": "ee99faa101efe4e18e6e864f4b9265eabc8f0106dd72465c7c4fc3c1b36feb3e",
+      "bytes": 242
+    }
+  ],
+  "archive": {
+    "file": "b3-sandbox-proof.zip",
+    "sha256": "4c2ca2eb4d4bb7ac3347b66e3483dcb6aa71b41958704733bfc471c970ce7664",
+    "bytes": 1324,
+    "etag": "913d2b2485ca6cd31d467bd7228d7e75"
+  },
+  "canonicalManifest": {
+    "file": "canonical-manifest.json",
+    "sha256": "2047ad1a1f968de11430f2eec0b1938448d4653bf99146ea8273872259c976b2",
+    "bytes": 596
+  },
+  "signatureDer": {
+    "keyId": "b3-test-p256-2026-07",
+    "algorithm": "ECDSA_P256_SHA256_DER",
+    "sha256": "a29963a93137589dd46ddb18684d1a6c30851f86a39e17cf830276a8ff430bc5",
+    "bytes": 71
+  },
+  "signedEnvelope": {
+    "file": "signed-manifest.json",
+    "sha256": "39b6a788a3686d7cbf1fd4791bce45623af21ef53c60eabc03d955395856218a",
+    "bytes": 1135,
+    "etag": "c76b2858b8345814279a1c92ae64e365"
+  },
+  "hostileZipCorpus": {
+    "manifestSha256": "b76b8fd52820b1ac69e1ebced81ba99f4c9c78809136d06e76eedb4c4f04bc58",
+    "fixtureCount": 53,
+    "categories": [
+      "traversal-path",
+      "absolute-path",
+      "drive-path",
+      "backslash-path",
+      "dot-segment",
+      "empty-segment",
+      "duplicate-path",
+      "case-fold-collision",
+      "unicode-nfc-collision",
+      "creator-os-zero",
+      "creator-os-unknown",
+      "mode-zero",
+      "mode-ambiguous",
+      "symlink-mode",
+      "hard-link-mode",
+      "device-mode",
+      "fifo-mode",
+      "socket-mode",
+      "directory-mode",
+      "local-name-mismatch",
+      "local-flag-mismatch",
+      "local-method-mismatch",
+      "local-crc-mismatch",
+      "local-size-mismatch",
+      "duplicate-local-offset",
+      "overlapping-local-offset",
+      "overlapping-data-range",
+      "central-directory-overlap",
+      "truncated-offset",
+      "overflowing-offset",
+      "truncated-size",
+      "overflowing-size",
+      "multiple-eocd",
+      "ambiguous-eocd",
+      "eocd-not-at-eof",
+      "prepended-junk",
+      "trailing-junk",
+      "non-zero-extra-field",
+      "unknown-extra-field",
+      "encrypted-flag",
+      "unknown-flag",
+      "unknown-compression-method",
+      "member-comment",
+      "multi-disk",
+      "data-descriptor",
+      "zip64",
+      "local-extracted-size-mismatch",
+      "undeclared-member",
+      "missing-member",
+      "executable-extension",
+      "compressed-ceiling",
+      "extracted-ceiling",
+      "file-count-ceiling"
+    ]
+  }
+}

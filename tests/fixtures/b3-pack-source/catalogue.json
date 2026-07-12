@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "packId": "b3-sandbox-proof",
+  "version": "1.0.0-b3.1",
+  "title": "B3 sandbox proof",
+  "words": [
+    {
+      "id": "proof-word",
+      "spelling": "because",
+      "audioPath": "audio/proof-word.m4a"
+    }
+  ]
+}

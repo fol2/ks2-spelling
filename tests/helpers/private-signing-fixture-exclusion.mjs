@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { extname, join, relative, resolve, sep } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 
+import { verifyHostileZipCorpusSnapshot } from './hostile-zip-builder.mjs';
+
 const AUTHORISED_FIXTURE_DIRECTORY = 'tests/fixtures/keys';
 const PRIVATE_FIXTURE_FILENAME = 'b3-public-test-vector-p256-private.pem';
 const AUTHORISED_PRIVATE_FIXTURE_URL = new URL(
@@ -63,6 +65,7 @@ const PACKAGEABLE_FILES = Object.freeze([
 ]);
 
 const ARCHIVE_EXTENSIONS = new Set(['.aab', '.aar', '.apk', '.ipa', '.jar', '.zip']);
+const HOSTILE_ZIP_FIXTURE_PREFIX = 'tests/fixtures/b3-hostile-zips/';
 const MAX_FILES = 20_000;
 const MAX_FILE_BYTES = 128 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 512 * 1024 * 1024;
@@ -495,6 +498,7 @@ async function scanCollectedFiles(files, mutable, budget, limits) {
 
   let bytesScanned = 0;
   const fingerprint = [];
+  const hostileCorpusSnapshot = new Map();
   for (const file of uniqueFiles) {
     if (file.size > MAX_FILE_BYTES) {
       scanError(`packageable input exceeded the per-file byte bound at ${file.displayPath}`);
@@ -502,14 +506,29 @@ async function scanCollectedFiles(files, mutable, budget, limits) {
     bytesScanned += file.size;
     const bytes = await readStableFile(file, mutable, budget, limits);
     assertNoMarker(bytes, file.displayPath);
-    if (ARCHIVE_EXTENSIONS.has(extname(file.displayPath).toLowerCase())) {
+    // These tracked ZIP bytes are deliberately malformed inspector inputs.
+    // Exact regeneration above is the authority for their compressed and stored
+    // bytes; parsing them as package archives would reject the corpus itself.
+    if (
+      ARCHIVE_EXTENSIONS.has(extname(file.displayPath).toLowerCase()) &&
+      !file.displayPath.startsWith(HOSTILE_ZIP_FIXTURE_PREFIX)
+    ) {
       scanArchive(bytes, file.displayPath, budget, limits, 1);
+    }
+    if (file.displayPath.startsWith(HOSTILE_ZIP_FIXTURE_PREFIX)) {
+      hostileCorpusSnapshot.set(
+        file.displayPath.slice(HOSTILE_ZIP_FIXTURE_PREFIX.length),
+        bytes,
+      );
     }
     fingerprint.push([
       file.displayPath,
       file.identity,
       createHash('sha256').update(bytes).digest('hex'),
     ].join('\u0000'));
+  }
+  if (hostileCorpusSnapshot.size > 0) {
+    verifyHostileZipCorpusSnapshot(hostileCorpusSnapshot);
   }
 
   return Object.freeze({
@@ -568,6 +587,7 @@ async function scanGeneratedDirectory({
 export async function assertPrivateSigningFixtureExcluded({
   root,
   generatedSnapshotObserver,
+  staticSnapshotObserver,
   scanLimits,
 }) {
   if (
@@ -575,6 +595,9 @@ export async function assertPrivateSigningFixtureExcluded({
     typeof generatedSnapshotObserver !== 'function'
   ) {
     throw new TypeError('Generated snapshot observer must be a function.');
+  }
+  if (staticSnapshotObserver !== undefined && typeof staticSnapshotObserver !== 'function') {
+    throw new TypeError('Static snapshot observer must be a function.');
   }
   const limits = normaliseScanLimits(scanLimits);
   const budget = { rawBytes: 0, expandedBytes: 0, archiveEntries: 0 };
@@ -599,6 +622,7 @@ export async function assertPrivateSigningFixtureExcluded({
       { allowMissingRoot: true, mutable: false },
     );
   }
+  await staticSnapshotObserver?.();
   const staticResult = await scanCollectedFiles(staticFiles, false, budget, limits);
   await assertDirectorySnapshotStable(staticDirectories, false);
   const generatedResults = [];

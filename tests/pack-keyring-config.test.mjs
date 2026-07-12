@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash, createPrivateKey, createPublicKey } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -118,6 +118,57 @@ test('the public private-half fixture is documented and excluded from runtime', 
   assert.ok(result.filesScanned > 0);
   assert.ok(result.bytesScanned > 0);
   assert.equal(result.authorisedFixtureDirectory, 'tests/fixtures/keys');
+});
+
+test('hostile ZIP raw-scan exception requires exact deterministic corpus bytes', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'ks2-b3-hostile-private-scalar-'));
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const hostileDirectory = join(root, 'tests', 'fixtures', 'b3-hostile-zips');
+  await mkdir(hostileDirectory, { recursive: true });
+  await writeFile(join(root, 'package.json'), '{"private":true}\n');
+  const privateKey = createPrivateKey(await readFile(PRIVATE_FIXTURE_URL));
+  const scalar = Buffer.from(privateKey.export({ format: 'jwk' }).d, 'base64url');
+  const compressedScalar = createDeflatedZip('hidden.bin', scalar);
+  assert.equal(compressedScalar.indexOf(scalar), -1);
+  await writeFile(join(hostileDirectory, 'absolute-path.zip'), compressedScalar);
+  await writeFile(
+    join(hostileDirectory, 'manifest.json'),
+    '{"schemaVersion":1,"fixtures":[]}\n',
+  );
+
+  await assert.rejects(
+    assertPrivateSigningFixtureExcluded({ root }),
+    /hostile ZIP|corpus|authority|fixture/i,
+  );
+});
+
+test('hostile ZIP replacement after collection cannot hide a compressed private scalar', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'ks2-b3-hostile-private-race-'));
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const hostileDirectory = join(root, 'tests', 'fixtures', 'b3-hostile-zips');
+  await mkdir(dirname(hostileDirectory), { recursive: true });
+  await cp(new URL('tests/fixtures/b3-hostile-zips', ROOT_URL), hostileDirectory, {
+    recursive: true,
+  });
+  const privateKey = createPrivateKey(await readFile(PRIVATE_FIXTURE_URL));
+  const scalar = Buffer.from(privateKey.export({ format: 'jwk' }).d, 'base64url');
+  const replacement = createDeflatedZip('hidden.bin', scalar);
+  assert.equal(replacement.indexOf(scalar), -1);
+  const stagedReplacement = join(root, 'replacement.zip');
+  await writeFile(stagedReplacement, replacement);
+  let replacements = 0;
+
+  await assert.rejects(
+    assertPrivateSigningFixtureExcluded({
+      root,
+      staticSnapshotObserver: async () => {
+        await rename(stagedReplacement, join(hostileDirectory, 'absolute-path.zip'));
+        replacements += 1;
+      },
+    }),
+    /changed during scan|hostile ZIP|corpus|private signing fixture/i,
+  );
+  assert.equal(replacements, 1);
 });
 
 test('generated output scan retries a hashed-bundle replacement and scans the final bytes', async (t) => {
@@ -440,6 +491,11 @@ test('the proof pack freezes bounded data-only identity and ceilings', async () 
     version: '1.0.0-b3.1',
     requiredEntitlementId: 'full-ks2',
     archiveName: 'b3-sandbox-proof.zip',
+    signingKeyId: 'b3-test-p256-2026-07',
+    signatureDerSha256:
+      'a29963a93137589dd46ddb18684d1a6c30851f86a39e17cf830276a8ff430bc5',
+    signedEnvelopeSha256:
+      '39b6a788a3686d7cbf1fd4791bce45623af21ef53c60eabc03d955395856218a',
     allowedExtensions: ['.json', '.m4a'],
     ceilings: {
       fileCount: 16,
@@ -456,6 +512,9 @@ test('the proof pack rejects aliases, executable content and unbounded values', 
     (value) => { value.packId = 'production-full-ks2'; },
     (value) => { value.version = 'latest'; },
     (value) => { value.archiveName = '../proof.zip'; },
+    (value) => { value.signingKeyId = 'production-key'; },
+    (value) => { value.signatureDerSha256 = '0'.repeat(64); },
+    (value) => { value.signedEnvelopeSha256 = '0'.repeat(64); },
     (value) => { value.allowedExtensions.push('.js'); },
     (value) => { value.ceilings.fileCount = 0; },
     (value) => { value.ceilings.compressedBytes = Number.MAX_SAFE_INTEGER; },

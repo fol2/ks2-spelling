@@ -26,6 +26,9 @@ const PROOF_PACK_KEYS = Object.freeze([
   'version',
   'requiredEntitlementId',
   'archiveName',
+  'signingKeyId',
+  'signatureDerSha256',
+  'signedEnvelopeSha256',
   'allowedExtensions',
   'ceilings',
 ]);
@@ -223,6 +226,9 @@ export function assertB3ProofPack(value) {
     version: '1.0.0-b3.1',
     requiredEntitlementId: 'full-ks2',
     archiveName: 'b3-sandbox-proof.zip',
+    signingKeyId: 'b3-test-p256-2026-07',
+    signatureDerSha256: 'a29963a93137589dd46ddb18684d1a6c30851f86a39e17cf830276a8ff430bc5',
+    signedEnvelopeSha256: '39b6a788a3686d7cbf1fd4791bce45623af21ef53c60eabc03d955395856218a',
     allowedExtensions: ['.json', '.m4a'],
   };
   for (const [key, expectedValue] of Object.entries(expected)) {

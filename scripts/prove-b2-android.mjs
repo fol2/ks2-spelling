@@ -731,6 +731,26 @@ export function assertB2AndroidHierarchyPhase(output, phase) {
   };
 }
 
+function summariseB2AndroidHierarchy(hierarchy, texts) {
+  const knownPhaseCounts = B2_ANDROID_PHASES.map((candidate) => ({
+    phase: candidate,
+    count: texts.filter((text) => text === candidate).length,
+  }));
+  const matchedKnownPhases = knownPhaseCounts.filter(({ count }) => count === 1);
+  const knownPhaseCount = knownPhaseCounts.reduce(
+    (total, { count }) => total + count,
+    0,
+  );
+  return Object.freeze({
+    sha256: sha256(Buffer.from(hierarchy, 'utf8')),
+    textCount: texts.length,
+    matchedKnownPhase:
+      matchedKnownPhases.length === 1 && knownPhaseCount === 1
+        ? matchedKnownPhases[0].phase
+        : null,
+  });
+}
+
 export async function waitForB2AndroidHierarchyPhase({
   phase,
   probe,
@@ -738,6 +758,8 @@ export async function waitForB2AndroidHierarchyPhase({
   intervalMs = POLL_INTERVAL_MS,
   deadlineMs = HIERARCHY_POLL_DEADLINE_MS,
   now = () => performance.now(),
+  scheduleTimeout = setTimeout,
+  cancelTimeout = clearTimeout,
   sleep = abortableDelay,
   signal,
 }) {
@@ -748,7 +770,9 @@ export async function waitForB2AndroidHierarchyPhase({
     intervalMs < 0 ||
     !Number.isSafeInteger(deadlineMs) ||
     deadlineMs <= 0 ||
-    typeof now !== 'function'
+    typeof now !== 'function' ||
+    typeof scheduleTimeout !== 'function' ||
+    typeof cancelTimeout !== 'function'
   ) {
     throw new TypeError('B2 Android hierarchy polling options are invalid.');
   }
@@ -773,46 +797,74 @@ export async function waitForB2AndroidHierarchyPhase({
   let lastTransientCode = null;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     throwIfAborted(signal);
-    if (attempt > 0 && readNow() >= deadlineAt) break;
-    let result;
+    const beforeProbe = attempt === 0 ? lastNow : readNow();
+    const remainingMs = deadlineAt - beforeProbe;
+    if (remainingMs <= 0) break;
+    const probeTimeoutMs = Math.max(1, Math.ceil(remainingMs));
+    const probeController = new AbortController();
+    const deadlineReason = proofError(
+      'b2_android_hierarchy_deadline_reached',
+      'B2 Android hierarchy probe reached its deadline',
+    );
+    const onParentAbort = () => probeController.abort(signal.reason);
+    signal?.addEventListener('abort', onParentAbort, { once: true });
+    if (signal?.aborted) onParentAbort();
+    let deadlineTimer;
     try {
-      result = await probe({ signal });
+      deadlineTimer = scheduleTimeout(
+        () => probeController.abort(deadlineReason),
+        probeTimeoutMs,
+      );
+      deadlineTimer?.unref?.();
     } catch (error) {
-      if (error.code !== 'b2_android_hierarchy_dump_not_ready') throw error;
-      lastTransientCode = error.code;
+      signal?.removeEventListener('abort', onParentAbort);
+      throw error;
     }
+    let result;
+    let deadlineExpired = false;
     completedAttempts = attempt + 1;
+    try {
+      result = await probe({
+        signal: probeController.signal,
+        timeoutMs: probeTimeoutMs,
+      });
+    } catch (error) {
+      if (error === deadlineReason) {
+        deadlineExpired = true;
+        lastTransientCode = deadlineReason.code;
+      } else if (error.code === 'b2_android_hierarchy_dump_not_ready') {
+        lastTransientCode = error.code;
+      } else {
+        throw error;
+      }
+    } finally {
+      cancelTimeout(deadlineTimer);
+      signal?.removeEventListener('abort', onParentAbort);
+    }
     throwIfAborted(signal);
+    if (deadlineExpired) break;
+    const completedAfterDeadline = readNow() >= deadlineAt;
     if (result?.exitCode === 0 && !result.signal && !result.timedOut) {
       const hierarchy = b2AndroidMachineText(result);
       try {
+        const phaseEvidence = assertB2AndroidHierarchyPhase(hierarchy, phase);
+        if (completedAfterDeadline) {
+          lastValidHierarchy = summariseB2AndroidHierarchy(
+            hierarchy,
+            phaseEvidence.texts,
+          );
+          lastTransientCode = deadlineReason.code;
+          break;
+        }
         return {
-          ...assertB2AndroidHierarchyPhase(hierarchy, phase),
+          ...phaseEvidence,
           attempts: attempt + 1,
           hierarchy,
         };
       } catch (error) {
         if (error.code !== 'b2_android_hierarchy_phase_invalid') throw error;
         const texts = parseB2AndroidHierarchyTexts(hierarchy);
-        const knownPhaseCounts = B2_ANDROID_PHASES.map((candidate) => ({
-          phase: candidate,
-          count: texts.filter((text) => text === candidate).length,
-        }));
-        const matchedKnownPhases = knownPhaseCounts.filter(
-          ({ count }) => count === 1,
-        );
-        const knownPhaseCount = knownPhaseCounts.reduce(
-          (total, { count }) => total + count,
-          0,
-        );
-        lastValidHierarchy = Object.freeze({
-          sha256: sha256(Buffer.from(hierarchy, 'utf8')),
-          textCount: texts.length,
-          matchedKnownPhase:
-            matchedKnownPhases.length === 1 && knownPhaseCount === 1
-              ? matchedKnownPhases[0].phase
-              : null,
-        });
+        lastValidHierarchy = summariseB2AndroidHierarchy(hierarchy, texts);
         lastTransientCode = error.code;
       }
     } else if (
@@ -829,10 +881,11 @@ export async function waitForB2AndroidHierarchyPhase({
     } else if (result) {
       lastTransientCode = 'b2_android_hierarchy_probe_not_ready';
     }
-    const remainingMs = deadlineAt - readNow();
-    if (remainingMs <= 0) break;
+    if (completedAfterDeadline) break;
+    const remainingAfterProbeMs = deadlineAt - readNow();
+    if (remainingAfterProbeMs <= 0) break;
     if (attempt + 1 < attempts) {
-      await sleep(Math.min(intervalMs, remainingMs), signal);
+      await sleep(Math.min(intervalMs, remainingAfterProbeMs), signal);
     }
   }
   const error = proofError(
@@ -1384,6 +1437,8 @@ export function createB2AndroidProductionDependencies({
   runId = randomUUID(),
   hierarchyDeadlineMs = HIERARCHY_POLL_DEADLINE_MS,
   now = () => performance.now(),
+  scheduleHierarchyTimeout = setTimeout,
+  cancelHierarchyTimeout = clearTimeout,
 } = {}) {
   if (!/^[a-z0-9-]{8,64}$/.test(runId)) {
     throw new TypeError('B2 Android run ID must be a safe unique token.');
@@ -1417,7 +1472,8 @@ export function createB2AndroidProductionDependencies({
   const hierarchyRemotePath = `${REMOTE_HIERARCHY_PATH_PREFIX}${runId}.xml`;
   const remoteTemporaryDirectory = `${REMOTE_TEMP_DIRECTORY_PREFIX}${runId}`;
 
-  async function dumpHierarchy({ signal } = {}) {
+  async function dumpHierarchy({ signal, timeoutMs = 30_000 } = {}) {
+    const hierarchyCommandTimeoutMs = Math.min(30_000, timeoutMs);
     const collision = await required(
       adb,
       shellArgs(
@@ -1425,7 +1481,7 @@ export function createB2AndroidProductionDependencies({
           `if [ -e ${hierarchyRemotePath} ]; then echo exists; else echo absent; fi`,
         ),
       ),
-      { signal, timeoutMs: 30_000 },
+      { signal, timeoutMs: hierarchyCommandTimeoutMs },
     );
     if (b2AndroidMachineText(collision).trim() !== 'absent') {
       throw proofError(
@@ -1438,7 +1494,7 @@ export function createB2AndroidProductionDependencies({
       const dump = await required(
         adb,
         shellArgs('uiautomator', 'dump', hierarchyRemotePath),
-        { signal, timeoutMs: 30_000 },
+        { signal, timeoutMs: hierarchyCommandTimeoutMs },
       );
       const dumpStdout = b2AndroidMachineText(dump);
       const dumpStderr = b2AndroidMachineText(dump, 'stderr');
@@ -1455,7 +1511,7 @@ export function createB2AndroidProductionDependencies({
       for (let attempt = 0; attempt < HIERARCHY_OUTPUT_POLL_ATTEMPTS; attempt += 1) {
         const output = await probe(adb, shellArgs('cat', hierarchyRemotePath), {
           signal,
-          timeoutMs: 5_000,
+          timeoutMs: Math.min(5_000, hierarchyCommandTimeoutMs),
         });
         throwIfAborted(signal);
         const outputStdout = b2AndroidMachineText(output);
@@ -1718,9 +1774,12 @@ export function createB2AndroidProductionDependencies({
     waitForHierarchyPhase(phase, { signal } = {}) {
       return waitForB2AndroidHierarchyPhase({
         phase,
-        probe: () => dumpHierarchy({ signal }),
+        probe: ({ signal: probeSignal, timeoutMs }) =>
+          dumpHierarchy({ signal: probeSignal, timeoutMs }),
         deadlineMs: hierarchyDeadlineMs,
         now,
+        scheduleTimeout: scheduleHierarchyTimeout,
+        cancelTimeout: cancelHierarchyTimeout,
         sleep,
         signal,
       });

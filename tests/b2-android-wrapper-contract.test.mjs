@@ -574,6 +574,72 @@ test('hierarchy polling includes slow probe runtime in its wall-clock deadline',
   assert.deepEqual(sleeps, []);
 });
 
+test('hierarchy polling rejects an expected phase that completes after its deadline', async () => {
+  const expectedHierarchy = hierarchyRecord('Background test ready').hierarchy;
+  const expectedTexts = parseB2AndroidHierarchyTexts(expectedHierarchy);
+  let currentTimeMs = 0;
+
+  await assert.rejects(
+    waitForB2AndroidHierarchyPhase({
+      phase: 'Background test ready',
+      deadlineMs: 5_000,
+      now: () => currentTimeMs,
+      probe: async () => {
+        currentTimeMs = 5_001;
+        return successfulCommand(expectedHierarchy);
+      },
+      sleep: async () => undefined,
+    }),
+    ({ code, diagnostic }) => {
+      assert.equal(code, 'b2_android_hierarchy_timeout');
+      assert.deepEqual(diagnostic, {
+        attempts: 1,
+        lastValidHierarchy: {
+          sha256: createHash('sha256')
+            .update(Buffer.from(expectedHierarchy, 'utf8'))
+            .digest('hex'),
+          textCount: expectedTexts.length,
+          matchedKnownPhase: 'Background test ready',
+        },
+        lastTransientCode: 'b2_android_hierarchy_deadline_reached',
+      });
+      return true;
+    },
+  );
+});
+
+test('hierarchy polling accepts an expected phase just before deadline and clears its timer', async () => {
+  const expectedHierarchy = hierarchyRecord('Background test ready').hierarchy;
+  let currentTimeMs = 0;
+  const timers = [];
+  const clearedTimers = [];
+
+  const result = await waitForB2AndroidHierarchyPhase({
+    phase: 'Background test ready',
+    deadlineMs: 5_000,
+    now: () => currentTimeMs,
+    scheduleTimeout(callback, milliseconds) {
+      const timer = { callback, milliseconds };
+      timers.push(timer);
+      return timer;
+    },
+    cancelTimeout(timer) {
+      clearedTimers.push(timer);
+    },
+    probe: async ({ signal, timeoutMs }) => {
+      assert.ok(signal instanceof AbortSignal);
+      assert.equal(timeoutMs, 5_000);
+      currentTimeMs = 4_999;
+      return successfulCommand(expectedHierarchy);
+    },
+    sleep: async () => undefined,
+  });
+
+  assert.equal(result.phase, 'Background test ready');
+  assert.equal(timers.length, 1);
+  assert.deepEqual(clearedTimers, timers);
+});
+
 test('hierarchy wall-clock timeout reports only sanitised null-root evidence', async () => {
   let currentTimeMs = 0;
   let probeCalls = 0;
@@ -1179,6 +1245,7 @@ test('production source uses exact ownership/run-as and never roots or self-atte
   ]) assert.ok(source.includes(required), required);
   assert.doesNotMatch(source, /\badb\s+root\b|\bchmod\b|manualVisualInspection:\s*'passed'/);
   assert.doesNotMatch(source, /return\s*\{\s*\.\.\.output,\s*stdout:/);
+  assert.doesNotMatch(source, /Promise\.race/);
 });
 
 async function executeJoinedAndroidRemoteCommand(args, options) {
@@ -2240,6 +2307,141 @@ test('production hierarchy aborts between exact API 36 null-root retries', async
     commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
     1,
   );
+});
+
+test('active hierarchy deadline aborts its subprocess and awaits owned cleanup', async () => {
+  const runId = 'active-deadline-1234';
+  const remotePath = `/sdcard/ks2-spelling-b2-window-${runId}.xml`;
+  const events = [];
+  const timers = [];
+  let currentTimeMs = 0;
+  const dependencies = createB2AndroidProductionDependencies({
+    runId,
+    fs: productionTestFs(),
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    hierarchyDeadlineMs: 5_000,
+    now: () => currentTimeMs,
+    scheduleHierarchyTimeout(callback, milliseconds) {
+      const timer = { callback, milliseconds };
+      timers.push(timer);
+      return timer;
+    },
+    cancelHierarchyTimeout(timer) {
+      events.push('timer-cleared');
+      timer.cleared = true;
+    },
+    run: async (_command, args, options) => {
+      const value = args.join(' ');
+      if (value.includes('if [ -e ')) return successfulCommand('absent\n');
+      if (value.includes('uiautomator dump')) {
+        return new Promise((resolveProbe) => {
+          assert.ok(options.signal instanceof AbortSignal);
+          options.signal.addEventListener('abort', () => {
+            events.push('probe-aborted');
+            resolveProbe({
+              ...successfulCommand(),
+              exitCode: null,
+              aborted: true,
+              abortReason: options.signal.reason,
+            });
+          }, { once: true });
+          const timer = timers.at(-1);
+          currentTimeMs += timer.milliseconds;
+          timer.callback();
+        });
+      }
+      if (value.includes(` rm -f ${remotePath}`)) {
+        events.push('owned-path-cleaned');
+        return successfulCommand();
+      }
+      return successfulCommand();
+    },
+  });
+
+  await assert.rejects(
+    dependencies.waitForHierarchyPhase('B2 proof complete'),
+    ({ code, diagnostic }) => {
+      events.push('timeout-returned');
+      return (
+        code === 'b2_android_hierarchy_timeout' &&
+        diagnostic.attempts === 1 &&
+        diagnostic.lastTransientCode === 'b2_android_hierarchy_deadline_reached'
+      );
+    },
+  );
+  assert.deepEqual(events, [
+    'probe-aborted',
+    'owned-path-cleaned',
+    'timer-cleared',
+    'timeout-returned',
+  ]);
+  assert.equal(timers.length, 1);
+  assert.equal(timers[0].cleared, true);
+});
+
+test('parent abort remains authoritative during an active hierarchy probe', async () => {
+  const runId = 'active-parent-abort-1234';
+  const remotePath = `/sdcard/ks2-spelling-b2-window-${runId}.xml`;
+  const controller = new AbortController();
+  const abortReason = new Error('parent hierarchy abort');
+  const events = [];
+  const dependencies = createB2AndroidProductionDependencies({
+    runId,
+    fs: productionTestFs(),
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    hierarchyDeadlineMs: 5_000,
+    now: () => 0,
+    scheduleHierarchyTimeout(callback, milliseconds) {
+      return { callback, milliseconds };
+    },
+    cancelHierarchyTimeout() {
+      events.push('timer-cleared');
+    },
+    run: async (_command, args, options) => {
+      const value = args.join(' ');
+      if (value.includes('if [ -e ')) return successfulCommand('absent\n');
+      if (value.includes('uiautomator dump')) {
+        return new Promise((resolveProbe) => {
+          assert.ok(options.signal instanceof AbortSignal);
+          options.signal.addEventListener('abort', () => {
+            events.push('probe-aborted');
+            resolveProbe({
+              ...successfulCommand(),
+              exitCode: null,
+              aborted: true,
+              abortReason: options.signal.reason,
+            });
+          }, { once: true });
+          controller.abort(abortReason);
+        });
+      }
+      if (value.includes(` rm -f ${remotePath}`)) {
+        events.push('owned-path-cleaned');
+        return successfulCommand();
+      }
+      return successfulCommand();
+    },
+  });
+
+  await assert.rejects(
+    dependencies.waitForHierarchyPhase('B2 proof complete', {
+      signal: controller.signal,
+    }),
+    (error) => error === abortReason,
+  );
+  assert.deepEqual(events, [
+    'probe-aborted',
+    'owned-path-cleaned',
+    'timer-cleared',
+  ]);
 });
 
 test('production hierarchy retries only exact empty and exact owned ENOENT results', async (t) => {

@@ -18,6 +18,7 @@ import test from 'node:test';
 
 import {
   B2_ANDROID_DATABASE_FILES,
+  B2_ANDROID_HIERARCHY_POLL_DEADLINE_MS,
   assertB2AndroidApplicationStatusClean,
   assertB2AndroidHierarchyPhase,
   b2AndroidRemoteShellArgs,
@@ -606,6 +607,57 @@ test('hierarchy polling rejects an expected phase that completes after its deadl
       return true;
     },
   );
+});
+
+test('production hierarchy gives API 36 cold readiness an exact 120 second deadline', async () => {
+  assert.equal(B2_ANDROID_HIERARCHY_POLL_DEADLINE_MS, 120_000);
+  const expectedHierarchy = hierarchyRecord('Background test ready').hierarchy;
+  const scheduled = [];
+  const cleared = [];
+  const dependencies = createB2AndroidProductionDependencies({
+    runId: 'default-deadline-1234',
+    fs: productionTestFs(),
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    now: () => 0,
+    scheduleHierarchyTimeout(callback, milliseconds) {
+      const timer = { callback, milliseconds };
+      scheduled.push(timer);
+      return timer;
+    },
+    cancelHierarchyTimeout(timer) {
+      timer.cleared = true;
+      cleared.push(timer);
+    },
+    run: async (_command, args) => {
+      const value = args.join(' ');
+      if (value.includes('if [ -e ')) return successfulCommand('absent\n');
+      if (value.includes('uiautomator dump')) {
+        return successfulCommand(
+          `UI hierchary dumped to: ${args.at(-1)}\n`,
+        );
+      }
+      if (value.includes(' cat /sdcard/ks2-spelling-b2-window-')) {
+        return successfulCommand(expectedHierarchy);
+      }
+      return successfulCommand();
+    },
+  });
+
+  const result = await dependencies.waitForHierarchyPhase(
+    'Background test ready',
+  );
+
+  assert.equal(result.phase, 'Background test ready');
+  assert.deepEqual(
+    scheduled.map(({ milliseconds }) => milliseconds),
+    [120_000],
+  );
+  assert.deepEqual(cleared, scheduled);
+  assert.equal(scheduled[0].cleared, true);
 });
 
 test('hierarchy polling accepts an expected phase just before deadline and clears its timer', async () => {

@@ -68,7 +68,7 @@ const REMOTE_TEMP_DIRECTORY_PREFIX = 'files/.b2-proof-export-';
 const REMOTE_HIERARCHY_PATH_PREFIX = '/sdcard/ks2-spelling-b2-window-';
 const POLL_ATTEMPTS = 600;
 const POLL_INTERVAL_MS = 100;
-const HIERARCHY_POLL_DEADLINE_MS = 75_000;
+export const B2_ANDROID_HIERARCHY_POLL_DEADLINE_MS = 120_000;
 const PROCESS_POLL_ATTEMPTS = 50;
 const PROCESS_POLL_INTERVAL_MS = 100;
 const HIERARCHY_OUTPUT_POLL_ATTEMPTS = 20;
@@ -756,7 +756,7 @@ export async function waitForB2AndroidHierarchyPhase({
   probe,
   attempts = POLL_ATTEMPTS,
   intervalMs = POLL_INTERVAL_MS,
-  deadlineMs = HIERARCHY_POLL_DEADLINE_MS,
+  deadlineMs = B2_ANDROID_HIERARCHY_POLL_DEADLINE_MS,
   now = () => performance.now(),
   scheduleTimeout = setTimeout,
   cancelTimeout = clearTimeout,
@@ -1435,7 +1435,7 @@ export function createB2AndroidProductionDependencies({
   env = process.env,
   startEmulator = startDetached,
   runId = randomUUID(),
-  hierarchyDeadlineMs = HIERARCHY_POLL_DEADLINE_MS,
+  hierarchyDeadlineMs = B2_ANDROID_HIERARCHY_POLL_DEADLINE_MS,
   now = () => performance.now(),
   scheduleHierarchyTimeout = setTimeout,
   cancelHierarchyTimeout = clearTimeout,

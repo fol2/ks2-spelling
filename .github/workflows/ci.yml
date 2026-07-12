@@ -57,8 +57,8 @@ jobs:
             tests/app-lifecycle-contract.test.mjs \
             tests/database-lifecycle-coordinator.test.mjs \
             tests/b2-proof-controller.test.mjs
-      - name: Run complete default test suite
-        run: npm test
+      - name: Run complete default suite without fresh Android resolution
+        run: npm run test:default:no-android-resolution
       - name: Lint source and verification code
         run: npm run lint
       - name: Build bundled web application
@@ -106,6 +106,8 @@ jobs:
         run: npm run test:android
       - name: Certify resolved Android dependency closure
         run: npm run certify:android
+      - name: Run fresh resolved Android dependency policy tests
+        run: npm run test:android-resolved-policy
       - name: Validate committed B2 virtual-device evidence
         run: node scripts/build-b2-exit-report.mjs --check
 

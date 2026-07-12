@@ -37,6 +37,14 @@ test('the dependency policy and deterministic evidence files are committed', asy
     packageJson.scripts['generate:notices'],
     'node scripts/generate-third-party-notices.mjs',
   );
+  assert.equal(
+    packageJson.scripts['test:default:no-android-resolution'],
+    "node --test --test-skip-pattern='^(default audit consumes the complete resolved Android certification|generated JSON and notices are byte-identical across repeated generation)$' tests/*.test.mjs",
+  );
+  assert.equal(
+    packageJson.scripts['test:android-resolved-policy'],
+    "node --test --test-name-pattern='^(default audit consumes the complete resolved Android certification|generated JSON and notices are byte-identical across repeated generation)$' tests/dependency-policy.test.mjs",
+  );
 });
 
 test('pre-bootstrap audit classifies resolved npm and SPM truth without resolving Android', async () => {
@@ -152,6 +160,41 @@ test('default audit consumes the complete resolved Android certification', async
     1,
   );
   await assert.doesNotReject(() => buildDependencyArtifacts({ preBootstrap: true }));
+});
+
+test('privacy register names the complete machine-audited WebView npm package set', async () => {
+  const audit = JSON.parse(
+    await readFile(join(ROOT, 'reports/b2/dependency-audit.json'), 'utf8'),
+  );
+  const complianceRegister = await readFile(
+    join(ROOT, 'docs/compliance/sdk-privacy-register.md'),
+    'utf8',
+  );
+  const packageNames = audit.npm.webViewBundle.packageNames;
+  assert.deepEqual(packageNames, [
+    '@capacitor-community/sqlite',
+    '@capacitor/app',
+    '@capacitor/core',
+    'react',
+    'react-dom',
+    'scheduler',
+  ]);
+  assert.match(
+    complianceRegister,
+    new RegExp(
+      `physically bundled WebView npm packages are exactly ${packageNames
+        .map((packageName) => `\`${packageName}\``)
+        .join(', ')}\\.`,
+    ),
+  );
+  assert.match(
+    complianceRegister,
+    /SQLite and App bridge JavaScript is bundled, but the Web SQLite fallback is not initialised and native-only use is enforced\./,
+  );
+  assert.match(
+    complianceRegister,
+    /The fallback dependency modules `jeep-sqlite`, `sql\.js`, Stencil and localForage are absent from the WebView bundle\./,
+  );
 });
 
 test('generated JSON and notices are byte-identical across repeated generation', async () => {

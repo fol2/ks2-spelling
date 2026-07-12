@@ -13,6 +13,8 @@
     "build": "vite build",
     "lint": "oxlint src tests scripts vite.config.js",
     "test": "node --test tests/*.test.mjs",
+    "test:default:no-android-resolution": "node --test --test-skip-pattern='^(default audit consumes the complete resolved Android certification|generated JSON and notices are byte-identical across repeated generation)$' tests/*.test.mjs",
+    "test:android-resolved-policy": "node --test --test-name-pattern='^(default audit consumes the complete resolved Android certification|generated JSON and notices are byte-identical across repeated generation)$' tests/dependency-policy.test.mjs",
     "test:upstream:a3": "node --test vendor/ks2-mastery/tests/spelling-mobile-a3-*.test.js",
     "verify:vendor": "node scripts/verify-vendored-contract.mjs",
     "native:doctor": "node scripts/native-doctor.mjs",

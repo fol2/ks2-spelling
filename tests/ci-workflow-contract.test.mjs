@@ -11,6 +11,16 @@ async function readWorkflow() {
   return readFile(WORKFLOW_PATH, 'utf8');
 }
 
+function extractJob(workflow, jobName) {
+  const startMarker = `  ${jobName}:\n`;
+  const start = workflow.indexOf(startMarker);
+  assert.notEqual(start, -1, `missing CI job: ${jobName}`);
+  const nextJob = workflow.slice(start + startMarker.length).search(/^  [a-z][a-z-]+:\n/m);
+  return nextJob === -1
+    ? workflow.slice(start)
+    : workflow.slice(start, start + startMarker.length + nextJob);
+}
+
 test('every B2 CI lane checks out full Git history for evidence anchors', async () => {
   const workflow = await readWorkflow();
   const checkoutUses = workflow.match(
@@ -52,6 +62,31 @@ test('hosted CI validates committed B2 proof without claiming virtual-device rec
   assert.match(workflow, /node scripts\/build-b2-exit-report\.mjs --check/);
   assert.doesNotMatch(workflow, /prove:b2:(?:ios|android)/);
   assert.doesNotMatch(workflow, /launch:(?:ios|android)/);
+});
+
+test('Domain/Web runs the default non-Android-resolution suite before any native toolchain', async () => {
+  const workflow = await readWorkflow();
+  const domain = extractJob(workflow, 'domain-web');
+  const android = extractJob(workflow, 'android-compile');
+
+  assert.match(domain, /run: npm run test:default:no-android-resolution/);
+  assert.doesNotMatch(domain, /run: npm test(?:\s|$)/m);
+  assert.doesNotMatch(
+    domain,
+    /setup-java|setup-gradle|sdkmanager|test:android|certify:android|test:android-resolved-policy/,
+  );
+
+  assert.match(android, /run: npm run test:android-resolved-policy/);
+  assert.ok(
+    android.indexOf('npm run test:android-resolved-policy') >
+      android.indexOf('npm run test:android'),
+    'resolved policy tests must follow Android build and test setup',
+  );
+  assert.ok(
+    android.indexOf('npm run test:android-resolved-policy') >
+      android.indexOf('npm run certify:android'),
+    'resolved policy tests must follow fresh dependency certification',
+  );
 });
 
 test('Android CI uses the exact installed sdkmanager path', async () => {

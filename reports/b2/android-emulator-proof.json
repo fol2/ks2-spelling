@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "platform": "android-emulator",
+  "testedApplicationCommit": "55993ce9de40af5885de570dbbcf8f0ac7255f6d",
+  "applicationFingerprint": "92a7734e98c7d7f39cde4c859c01ff676b6d085c685f8b87c0d5fbe5c951d24e",
+  "identity": {
+    "applicationId": "uk.eugnel.ks2spelling"
+  },
+  "device": {
+    "name": "KS2_Spelling_API_36",
+    "runtime": "system-images;android-36;google_apis;arm64-v8a",
+    "osVersion": "16"
+  },
+  "nativeVersions": {
+    "buildTools": "36.0.0",
+    "androidApi": 36,
+    "capacitorAndroid": "8.4.1"
+  },
+  "pluginVersions": {
+    "capacitorCore": "8.4.1",
+    "capacitorApp": "8.1.0",
+    "capacitorSqlite": "8.1.0"
+  },
+  "database": {
+    "name": "ks2-spelling",
+    "physicalFile": "ks2-spellingSQLite.db",
+    "schemaVersion": 1,
+    "foreignKeys": 1,
+    "journalMode": "wal",
+    "synchronous": 2,
+    "busyTimeout": 5000,
+    "integrityCheck": "ok",
+    "databaseSha256": "3d895c72f83aefe20a5ebd9b30c050e68207e6e71764c434d525755be8d8aada",
+    "walModeObserved": true,
+    "sidecarsObserved": [
+      "ks2-spellingSQLite.db-wal",
+      "ks2-spellingSQLite.db-shm"
+    ],
+    "everyObservedSidecarCollectedSafely": true
+  },
+  "lifecycle": {
+    "events": [
+      "pause",
+      "resume"
+    ],
+    "preKillPid": "2093",
+    "postRelaunchPid": "3474",
+    "differentPid": true
+  },
+  "proof": {
+    "resumedSessionId": "sess-1768478400000-99e1ef7c",
+    "preKillRevision": 4,
+    "finalRevision": 6,
+    "finalLogicalSnapshotSha256": "5d01bc4a16f929ab2a79d9df7588eb1fbc93c821a964a43928f01d1e053157f7",
+    "atomicFailureCheckpoints": [
+      "after-subject-state",
+      "after-practice-session",
+      "after-events",
+      "after-monster-state",
+      "after-camp-state",
+      "after-revision",
+      "before-commit"
+    ],
+    "migrationRollback": "verified",
+    "learnerBIsolation": "verified",
+    "learnerBInitialSha256": "6a5a50b2df1a0d7bdb4ab7d1f4b7d5a87a6c7a3e58dddf16a65b87e482d114cd",
+    "learnerBFinalSha256": "6a5a50b2df1a0d7bdb4ab7d1f4b7d5a87a6c7a3e58dddf16a65b87e482d114cd",
+    "monsterState": "spelling-derived-child-owned",
+    "starterCampRows": 0
+  },
+  "privacy": {
+    "serverUrl": null,
+    "packagedAndroidPermissions": [],
+    "androidBackupEnabled": false,
+    "addedIosUsageDescriptionKeys": [],
+    "addedIosEntitlements": []
+  },
+  "ui": {
+    "diagnosticPhase": "complete",
+    "machineStateSource": "uiautomator-hierarchy",
+    "screenshotSha256": "d66ac3f3b318328eba937d8065793c709a595fe05e3c7cd9f185d2f1feaa58be",
+    "manualVisualInspection": "passed"
+  },
+  "cleanup": {
+    "deviceStopped": true
+  }
+}

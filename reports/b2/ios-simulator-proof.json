@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "platform": "ios-simulator",
+  "testedApplicationCommit": "55993ce9de40af5885de570dbbcf8f0ac7255f6d",
+  "applicationFingerprint": "92a7734e98c7d7f39cde4c859c01ff676b6d085c685f8b87c0d5fbe5c951d24e",
+  "identity": {
+    "applicationId": "uk.eugnel.ks2spelling"
+  },
+  "device": {
+    "name": "KS2 Spelling iPhone 17",
+    "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-5",
+    "osVersion": "26.5"
+  },
+  "nativeVersions": {
+    "xcode": "26.6 (17F113)",
+    "iosSdk": "26.5",
+    "capacitorIos": "8.4.1"
+  },
+  "pluginVersions": {
+    "capacitorCore": "8.4.1",
+    "capacitorApp": "8.1.0",
+    "capacitorSqlite": "8.1.0"
+  },
+  "database": {
+    "name": "ks2-spelling",
+    "physicalFile": "ks2-spellingSQLite.db",
+    "schemaVersion": 1,
+    "foreignKeys": 1,
+    "journalMode": "wal",
+    "synchronous": 2,
+    "busyTimeout": 5000,
+    "integrityCheck": "ok",
+    "databaseSha256": "fbffb446b67f750c921c09051f4d2f4b5c9679aa3c8d2455af017169cba75a0d",
+    "walModeObserved": true,
+    "sidecarsObserved": [
+      "ks2-spellingSQLite.db-wal",
+      "ks2-spellingSQLite.db-shm"
+    ],
+    "everyObservedSidecarCollectedSafely": true
+  },
+  "lifecycle": {
+    "events": [
+      "pause",
+      "resume"
+    ],
+    "preKillPid": "70781",
+    "postRelaunchPid": "72310",
+    "differentPid": true
+  },
+  "proof": {
+    "resumedSessionId": "sess-1768478400000-99e1ef7c",
+    "preKillRevision": 4,
+    "finalRevision": 6,
+    "finalLogicalSnapshotSha256": "5d01bc4a16f929ab2a79d9df7588eb1fbc93c821a964a43928f01d1e053157f7",
+    "atomicFailureCheckpoints": [
+      "after-subject-state",
+      "after-practice-session",
+      "after-events",
+      "after-monster-state",
+      "after-camp-state",
+      "after-revision",
+      "before-commit"
+    ],
+    "migrationRollback": "verified",
+    "learnerBIsolation": "verified",
+    "learnerBInitialSha256": "6a5a50b2df1a0d7bdb4ab7d1f4b7d5a87a6c7a3e58dddf16a65b87e482d114cd",
+    "learnerBFinalSha256": "6a5a50b2df1a0d7bdb4ab7d1f4b7d5a87a6c7a3e58dddf16a65b87e482d114cd",
+    "monsterState": "spelling-derived-child-owned",
+    "starterCampRows": 0
+  },
+  "privacy": {
+    "serverUrl": null,
+    "packagedAndroidPermissions": [],
+    "androidBackupEnabled": false,
+    "addedIosUsageDescriptionKeys": [],
+    "addedIosEntitlements": []
+  },
+  "ui": {
+    "diagnosticPhase": "complete",
+    "machineStateSource": "durable-proof-metadata",
+    "screenshotSha256": "b2b48047448c3516db25f5428b19248f6807ddbf86e3d2af424c7d2ff92c83ee",
+    "manualVisualInspection": "passed"
+  },
+  "cleanup": {
+    "deviceStopped": true
+  }
+}

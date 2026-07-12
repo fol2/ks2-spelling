@@ -45,23 +45,32 @@ const LOGICAL_SHA256 = 'e'.repeat(64);
 const LEARNER_B_SHA256 = 'f'.repeat(64);
 
 function hierarchyRecord(phase) {
+  const learnerIsolation = phase === 'B2 proof complete' ? 'verified' : 'pending';
+  const lifecycle = phase === 'B2 proof complete'
+    ? 'pause, resume and relaunch verified'
+    : 'proof in progress';
   const texts = [
-    'B2 persistence proof',
+    'KS2 Spelling',
+    'KS2 Spelling',
+    'B2 PERSISTENCE PROOF',
     'KS2 Spelling',
     'Local SQLite, transaction recovery and app lifecycle diagnostics.',
-    'Active proof phase',
+    'ACTIVE PROOF PHASE',
     phase,
     'Native local data',
-    'Database',
+    'B2 persistence evidence',
+    'Database: ks2-spelling',
+    'DATABASE',
     'ks2-spelling',
-    'SQLite schema',
+    'SQLite schema: 1',
+    'SQLITE SCHEMA',
     '&#49;',
-    'Learner isolation',
-    phase === 'B2 proof complete' ? 'verified' : 'pending',
-    'Lifecycle',
-    phase === 'B2 proof complete'
-      ? 'pause, resume and relaunch verified'
-      : 'proof in progress',
+    `Learner isolation: ${learnerIsolation}`,
+    'LEARNER ISOLATION',
+    learnerIsolation,
+    `Lifecycle: ${lifecycle}`,
+    'LIFECYCLE',
+    lifecycle,
   ];
   const hierarchy = [
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
@@ -533,7 +542,7 @@ test('hierarchy polling requires exact phases and the complete diagnostic shell'
     ({ code }) => code === 'b2_android_hierarchy_xml_invalid',
   );
   const partial = complete.replace(
-    '<node index="12" text="Lifecycle" class="android.view.View"/>',
+    '<node index="19" text="LIFECYCLE" class="android.view.View"/>',
     '',
   );
   const probes = [successfulCommand(partial), successfulCommand(complete)];
@@ -552,6 +561,53 @@ test('hierarchy polling requires exact phases and the complete diagnostic shell'
     }),
     ({ code }) => code === 'b2_android_hierarchy_probe_failed',
   );
+});
+
+// Minimal product-text fixture extracted from the live API 36 hierarchy with
+// SHA-256 9b6734e310ea5a2af5e38237f102940fc392771a8fb215de7590f7b7167c83ce.
+test('API 36 WebView hierarchy accepts the exact accessible background shell', async () => {
+  const hierarchy = await readFile(
+    join(ROOT, 'tests/fixtures/b2-android-api36-background-hierarchy.xml'),
+    'utf8',
+  );
+
+  const result = assertB2AndroidHierarchyPhase(
+    hierarchy,
+    'Background test ready',
+  );
+
+  assert.equal(result.phase, 'Background test ready');
+  assert.equal(result.texts.length, 21);
+});
+
+test('API 36 WebView hierarchy rejects accessibility drift and extra text', async () => {
+  const hierarchy = await readFile(
+    join(ROOT, 'tests/fixtures/b2-android-api36-background-hierarchy.xml'),
+    'utf8',
+  );
+  const candidates = [
+    hierarchy.replace('B2 PERSISTENCE PROOF', 'B2 persistence proof'),
+    hierarchy.replace(
+      '    <node index="1" text="KS2 Spelling" class="android.view.View" />\n',
+      '',
+    ),
+    hierarchy.replace(
+      'Learner isolation: pending',
+      'Learner isolation: not verified',
+    ),
+    hierarchy.replace(
+      '</node>\n</hierarchy>',
+      '  <node index="21" text="unexpected diagnostic" class="android.view.View" />\n  </node>\n</hierarchy>',
+    ),
+  ];
+
+  for (const candidate of candidates) {
+    assert.throws(
+      () =>
+        assertB2AndroidHierarchyPhase(candidate, 'Background test ready'),
+      ({ code }) => code === 'b2_android_hierarchy_phase_invalid',
+    );
+  }
 });
 
 test('hierarchy polling includes slow probe runtime in its wall-clock deadline', async () => {

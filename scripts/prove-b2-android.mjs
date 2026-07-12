@@ -635,18 +635,26 @@ const B2_ANDROID_PHASES = Object.freeze([
   'Ready for relaunch',
   'B2 proof complete',
 ]);
-const B2_ANDROID_COMMON_VISIBLE_TEXT = Object.freeze([
-  'B2 persistence proof',
-  'KS2 Spelling',
-  'Local SQLite, transaction recovery and app lifecycle diagnostics.',
-  'Active proof phase',
-  'Native local data',
-  'Database',
-  'ks2-spelling',
-  'SQLite schema',
-  '1',
-  'Learner isolation',
-  'Lifecycle',
+// API 36 uiautomator exposes CSS-transformed labels and accessible names as
+// distinct text nodes, including the WebView and aria-labelledby title copies.
+const B2_ANDROID_COMMON_VISIBLE_TEXT_COUNTS = Object.freeze([
+  Object.freeze(['KS2 Spelling', 3]),
+  Object.freeze(['B2 PERSISTENCE PROOF', 1]),
+  Object.freeze([
+    'Local SQLite, transaction recovery and app lifecycle diagnostics.',
+    1,
+  ]),
+  Object.freeze(['ACTIVE PROOF PHASE', 1]),
+  Object.freeze(['Native local data', 1]),
+  Object.freeze(['B2 persistence evidence', 1]),
+  Object.freeze(['Database: ks2-spelling', 1]),
+  Object.freeze(['DATABASE', 1]),
+  Object.freeze(['ks2-spelling', 1]),
+  Object.freeze(['SQLite schema: 1', 1]),
+  Object.freeze(['SQLITE SCHEMA', 1]),
+  Object.freeze(['1', 1]),
+  Object.freeze(['LEARNER ISOLATION', 1]),
+  Object.freeze(['LIFECYCLE', 1]),
 ]);
 
 function assertB2AndroidPhase(phase) {
@@ -784,18 +792,27 @@ export function parseB2AndroidHierarchyTexts(output) {
 export function assertB2AndroidHierarchyPhase(output, phase) {
   assertB2AndroidPhase(phase);
   const texts = parseB2AndroidHierarchyTexts(output);
+  const learnerIsolation = phase === 'B2 proof complete' ? 'verified' : 'pending';
+  const lifecycle = phase === 'B2 proof complete'
+    ? 'pause, resume and relaunch verified'
+    : 'proof in progress';
   const expected = [
-    ...B2_ANDROID_COMMON_VISIBLE_TEXT,
-    phase,
-    phase === 'B2 proof complete' ? 'verified' : 'pending',
-    phase === 'B2 proof complete'
-      ? 'pause, resume and relaunch verified'
-      : 'proof in progress',
+    ...B2_ANDROID_COMMON_VISIBLE_TEXT_COUNTS,
+    [phase, 1],
+    [`Learner isolation: ${learnerIsolation}`, 1],
+    [learnerIsolation, 1],
+    [`Lifecycle: ${lifecycle}`, 1],
+    [lifecycle, 1],
   ];
+  const expectedTextCount = expected.reduce(
+    (total, [, count]) => total + count,
+    0,
+  );
   if (
-    expected.some((text) => texts.filter((candidate) => candidate === text).length !== 1) ||
-    B2_ANDROID_PHASES.some(
-      (candidate) => candidate !== phase && texts.includes(candidate),
+    texts.length !== expectedTextCount ||
+    expected.some(
+      ([text, count]) =>
+        texts.filter((candidate) => candidate === text).length !== count,
     )
   ) {
     throw proofError(

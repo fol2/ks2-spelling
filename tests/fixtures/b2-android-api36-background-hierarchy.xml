@@ -1,0 +1,26 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy rotation="0">
+  <node index="0" text="" class="android.widget.FrameLayout">
+    <node index="0" text="KS2 Spelling" class="android.webkit.WebView" />
+    <node index="1" text="KS2 Spelling" class="android.view.View" />
+    <node index="2" text="B2 PERSISTENCE PROOF" class="android.widget.TextView" />
+    <node index="3" text="KS2 Spelling" class="android.widget.TextView" />
+    <node index="4" text="Local SQLite, transaction recovery and app lifecycle diagnostics." class="android.widget.TextView" />
+    <node index="5" text="ACTIVE PROOF PHASE" class="android.widget.TextView" />
+    <node index="6" text="Background test ready" class="android.widget.TextView" />
+    <node index="7" text="Native local data" class="android.widget.TextView" />
+    <node index="8" text="B2 persistence evidence" class="android.widget.ListView" />
+    <node index="9" text="Database: ks2-spelling" class="android.view.View" />
+    <node index="10" text="DATABASE" class="android.view.View" />
+    <node index="11" text="ks2-spelling" class="android.widget.TextView" />
+    <node index="12" text="SQLite schema: 1" class="android.view.View" />
+    <node index="13" text="SQLITE SCHEMA" class="android.view.View" />
+    <node index="14" text="1" class="android.widget.TextView" />
+    <node index="15" text="Learner isolation: pending" class="android.view.View" />
+    <node index="16" text="LEARNER ISOLATION" class="android.view.View" />
+    <node index="17" text="pending" class="android.widget.TextView" />
+    <node index="18" text="Lifecycle: proof in progress" class="android.view.View" />
+    <node index="19" text="LIFECYCLE" class="android.view.View" />
+    <node index="20" text="proof in progress" class="android.widget.TextView" />
+  </node>
+</hierarchy>

@@ -4,24 +4,28 @@ import { SCHEMA_VERSION, SCHEMA_V1_STATEMENTS } from './schema-v1.js';
 const CONFIGURATION_PRAGMAS = Object.freeze([
   Object.freeze({
     setSql: 'PRAGMA foreign_keys = ON',
+    setOperation: 'execute',
     readSql: 'PRAGMA foreign_keys',
     property: 'foreign_keys',
     expected: 1,
   }),
   Object.freeze({
     setSql: 'PRAGMA journal_mode = WAL',
+    setOperation: 'query',
     readSql: 'PRAGMA journal_mode',
     property: 'journal_mode',
     expected: 'wal',
   }),
   Object.freeze({
     setSql: 'PRAGMA synchronous = FULL',
+    setOperation: 'execute',
     readSql: 'PRAGMA synchronous',
     property: 'synchronous',
     expected: 2,
   }),
   Object.freeze({
     setSql: 'PRAGMA busy_timeout = 5000',
+    setOperation: 'execute',
     readSql: 'PRAGMA busy_timeout',
     property: 'timeout',
     expected: 5000,
@@ -295,8 +299,19 @@ export async function configureAndMigrateDatabase(connection, options = {}) {
   assertSqlConnection(connection);
   const afterMigrationStep = requireMigrationStepHook(options);
 
-  for (const { setSql } of CONFIGURATION_PRAGMAS) {
-    await connection.execute(setSql);
+  for (const { setSql, setOperation, property, expected } of CONFIGURATION_PRAGMAS) {
+    if (setOperation === 'query') {
+      const actual = readExactSingleValue(
+        await connection.query(setSql),
+        property,
+        'sqlite_configuration_invalid',
+      );
+      if (actual !== expected) {
+        throw createMigrationError('sqlite_configuration_invalid');
+      }
+    } else {
+      await connection.execute(setSql);
+    }
   }
   for (const { readSql, property, expected } of CONFIGURATION_PRAGMAS) {
     const actual = readExactSingleValue(

@@ -73,6 +73,7 @@ function forwardingConnection(connection, queryOverride) {
 }
 
 const CONFIGURATION_RESULTS = Object.freeze({
+  'PRAGMA journal_mode = WAL': [{ journal_mode: 'wal' }],
   'PRAGMA foreign_keys': [{ foreign_keys: 1 }],
   'PRAGMA journal_mode': [{ journal_mode: 'wal' }],
   'PRAGMA synchronous': [{ synchronous: 2 }],

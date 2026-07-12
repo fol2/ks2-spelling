@@ -34,6 +34,7 @@ async function readSchema(connection) {
 }
 
 const CONFIGURATION_RESULTS = Object.freeze({
+  'PRAGMA journal_mode = WAL': [{ journal_mode: 'wal' }],
   'PRAGMA foreign_keys': [{ foreign_keys: 1 }],
   'PRAGMA journal_mode': [{ journal_mode: 'wal' }],
   'PRAGMA synchronous': [{ synchronous: 2 }],
@@ -136,6 +137,77 @@ test('fresh migration creates only the eight exact V1 tables and PRAGMAs', async
   });
 });
 
+test('configuration queries the row-returning WAL assignment before exact readback', async () => {
+  const { configureAndMigrateDatabase } = await import(
+    '../src/platform/database/migrate-database.js'
+  );
+
+  await withDatabase(async (filename) => {
+    const inner = createNodeSqliteConnection(filename);
+    const calls = [];
+    const connection = Object.freeze({
+      async open() {
+        return inner.open();
+      },
+      async close() {
+        return inner.close();
+      },
+      async execute(sql, values) {
+        calls.push(['execute', sql]);
+        if (sql === 'PRAGMA journal_mode = WAL') {
+          throw new Error(
+            'Queries can be performed using SQLiteDatabase query or rawQuery methods only.',
+          );
+        }
+        return inner.execute(sql, values);
+      },
+      async query(sql, values) {
+        calls.push(['query', sql]);
+        return inner.query(sql, values);
+      },
+      async begin() {
+        return inner.begin();
+      },
+      async commit() {
+        return inner.commit();
+      },
+      async rollback() {
+        return inner.rollback();
+      },
+      async isTransactionActive() {
+        return inner.isTransactionActive();
+      },
+    });
+
+    await connection.open();
+    await configureAndMigrateDatabase(connection);
+
+    assert.deepEqual(calls.slice(0, 8), [
+      ['execute', 'PRAGMA foreign_keys = ON'],
+      ['query', 'PRAGMA journal_mode = WAL'],
+      ['execute', 'PRAGMA synchronous = FULL'],
+      ['execute', 'PRAGMA busy_timeout = 5000'],
+      ['query', 'PRAGMA foreign_keys'],
+      ['query', 'PRAGMA journal_mode'],
+      ['query', 'PRAGMA synchronous'],
+      ['query', 'PRAGMA busy_timeout'],
+    ]);
+    assert.deepEqual(await connection.query('PRAGMA journal_mode'), [
+      { journal_mode: 'wal' },
+    ]);
+    assert.deepEqual(await connection.query('PRAGMA foreign_keys'), [
+      { foreign_keys: 1 },
+    ]);
+    assert.deepEqual(await readSchema(connection),
+      EXPECTED_SCHEMA.map((sql) => ({
+        name: /^CREATE TABLE ([a-z_]+) /.exec(sql)?.[1],
+        sql: sql.slice(0, -1),
+      })).toSorted((left, right) => left.name.localeCompare(right.name)),
+    );
+    await connection.close();
+  });
+});
+
 test('configuration fails closed when a native port ignores or misreports a PRAGMA', async () => {
   const { configureAndMigrateDatabase } = await import(
     '../src/platform/database/migrate-database.js'
@@ -198,6 +270,32 @@ test('configuration fails closed when a native port ignores or misreports a PRAG
       );
     }
     assert.equal(accessorReads, 0, `${sql} accessor must not be invoked`);
+  }
+});
+
+test('configuration rejects malformed row-returning WAL assignment evidence', async () => {
+  const { configureAndMigrateDatabase } = await import(
+    '../src/platform/database/migrate-database.js'
+  );
+  const candidates = [
+    [],
+    [{ journal_mode: 'delete' }],
+    [{ journal_mode: 'wal', extra: true }],
+    { journal_mode: 'wal' },
+  ];
+
+  for (const candidate of candidates) {
+    const probe = createConfigurationProbeConnection({
+      'PRAGMA journal_mode = WAL': candidate,
+    });
+    await assert.rejects(
+      configureAndMigrateDatabase(probe.connection),
+      /sqlite_configuration_invalid/,
+    );
+    assert.deepEqual(probe.calls.slice(0, 2), [
+      ['execute', 'PRAGMA foreign_keys = ON'],
+      ['query', 'PRAGMA journal_mode = WAL'],
+    ]);
   }
 });
 

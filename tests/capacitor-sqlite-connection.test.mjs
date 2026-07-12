@@ -101,6 +101,9 @@ test('Capacitor SQLite adapter uses exact connection and statement arguments', a
     await connection.execute('INSERT INTO learner (id) VALUES (?)', ['ada']),
     { changes: 1 },
   );
+  assert.deepEqual(await connection.query('PRAGMA journal_mode = WAL'), [
+    { answer: 42 },
+  ]);
   assert.deepEqual(await connection.query('SELECT answer FROM facts WHERE id = ?', [1]), [
     { answer: 42 },
   ]);
@@ -116,6 +119,7 @@ test('Capacitor SQLite adapter uses exact connection and statement arguments', a
     ['database.open'],
     ['database.execute', 'PRAGMA foreign_keys = ON', false],
     ['database.run', 'INSERT INTO learner (id) VALUES (?)', ['ada'], false],
+    ['database.query', 'PRAGMA journal_mode = WAL', undefined],
     ['database.query', 'SELECT answer FROM facts WHERE id = ?', [1]],
     ['database.beginTransaction'],
     ['database.isTransactionActive'],

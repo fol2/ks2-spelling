@@ -52,16 +52,62 @@ These commands update `native-plugin-build.json`, `dependency-audit.json`,
 approve lifecycle evidence. Commit those deterministic inputs in the clean B2
 application checkpoint before either platform proof runs.
 
-At that exact clean checkpoint, run the two capture wrappers and visually
-inspect both complete diagnostic screenshots. Do not accept a blank, partial or
-system-dialog capture.
+At that exact clean checkpoint, use the wrappers' two-stage procedure. A
+capture deliberately exits with status `5` and leaves a pending proof plus its
+screenshot; status `5` is expected only when the emitted code is the matching
+`b2_*_manual_attestation_required` value. The root controller must inspect each
+PNG at original resolution. A blank, partial, clipped or system-dialog capture
+fails.
 
 ```sh
 npm run prove:b2:ios
+# Expected: exit 5, b2_ios_manual_attestation_required and a screenshot SHA-256.
+```
+
+After original-resolution inspection passes, create only
+`.native-build/b2/ios-manual-attestation.json` with the emitted screenshot hash:
+
+```json
+{
+  "schemaVersion": 1,
+  "platform": "ios-simulator",
+  "screenshotSha256": "<emitted iOS screenshot SHA-256>",
+  "manualVisualInspection": "passed"
+}
+```
+
+Then finalise iOS before starting Android:
+
+```sh
+npm run prove:b2:ios -- --attest .native-build/b2/ios-manual-attestation.json
 npm run prove:b2:android
+# Expected: exit 5, b2_android_manual_attestation_required and a screenshot SHA-256.
+```
+
+Inspect the Android PNG at original resolution, then create only
+`.native-build/b2/android-manual-attestation.json`:
+
+```json
+{
+  "schemaVersion": 1,
+  "platform": "android-emulator",
+  "screenshotSha256": "<emitted Android screenshot SHA-256>",
+  "manualVisualInspection": "passed"
+}
+```
+
+Finalise and build the exit report only after both reports are valid:
+
+```sh
+npm run prove:b2:android -- --attest .native-build/b2/android-manual-attestation.json
 node scripts/build-b2-exit-report.mjs --write
 node --test tests/b2-exit-report.live.mjs
 ```
+
+The attestation files contain only platform, screenshot hash and the inspection
+result. Do not include learner or other private data. Never hand-edit pending
+proofs, native proof reports, screenshots, audit reports or the exit report;
+their owning wrappers/builders are the only write authorities.
 
 Commit only the regenerated B2 evidence. After that evidence-only commit,
 `npm run verify:b2` and `node scripts/build-b2-exit-report.mjs --check` validate

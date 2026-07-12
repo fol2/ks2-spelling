@@ -71,29 +71,39 @@ const REQUIRED_ANDROID_GENERATED_INPUTS = Object.freeze([
   ...REQUIRED_LOCKFILES,
 ]);
 const NON_GOALS = Object.freeze({
+  productionChildUi: false,
   parentUi: false,
-  productionProfiles: false,
+  profileUi: false,
+  productionProfileCrud: false,
   parentPin: false,
   biometrics: false,
   reset: false,
   delete: false,
   platformBackup: false,
   backupSqlite: false,
+  retentionCompaction: false,
+  twentyMegabyteRecovery: false,
   billing: false,
+  inAppPurchases: false,
   purchases: false,
   entitlements: false,
-  downloads: false,
+  packDownload: false,
+  packActivation: false,
   productionAudio: false,
   fullKs2Ui: false,
   guardianUi: false,
   bossUi: false,
   patternQuestUi: false,
+  campUi: false,
   heroMode: false,
   heroCamp: false,
-  finalVisualDesign: false,
+  finalTheme: false,
+  finalAssets: false,
+  physicalDevices: false,
   accessibilityCertification: false,
-  physicalDeviceCertification: false,
+  performanceCertification: false,
   storeSigning: false,
+  releaseCompliance: false,
   releaseMetadata: false,
 });
 export const B2_NON_GOAL_KEYS = Object.freeze(Object.keys(NON_GOALS).toSorted());
@@ -103,9 +113,6 @@ const CHECKPOINT_EVIDENCE_PATHS = new Set([
   'reports/b2/ios-simulator-proof.png',
   'reports/b2/android-emulator-proof.json',
   'reports/b2/android-emulator-proof.png',
-  'reports/b2/native-plugin-build.json',
-  'reports/b2/native-plugin-audit.json',
-  'reports/b2/dependency-audit.json',
 ]);
 const REQUIRED_EVIDENCE_SUCCESSOR_PATHS = Object.freeze([
   'reports/b2/b2-exit-report.json',
@@ -133,6 +140,22 @@ function assertExact(actual, expected, field) {
 
 function assertSha256(value, field) {
   assert(SHA256.test(value ?? ''), field, 'must be a SHA-256 value');
+}
+
+export function assertExactB2NonGoals(value) {
+  assert(
+    value !== null &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      Object.getPrototypeOf(value) === Object.prototype,
+    'B2 non-goals',
+    'must be a plain object',
+  );
+  assertExact(Object.keys(value).toSorted(), B2_NON_GOAL_KEYS, 'B2 non-goals keys');
+  for (const key of B2_NON_GOAL_KEYS) {
+    assertExact(value[key], false, `B2 non-goals.${key}`);
+  }
+  return value;
 }
 
 async function readInput(root, path, { json = true } = {}) {
@@ -657,7 +680,7 @@ export async function buildB2ExitReport({
     dependencyAudit,
   );
 
-  return {
+  const report = {
     schemaVersion: 1,
     status: 'pass',
     b1Authority: {
@@ -742,6 +765,8 @@ export async function buildB2ExitReport({
     },
     nonGoals: { ...NON_GOALS },
   };
+  assertExactB2NonGoals(report.nonGoals);
+  return report;
 }
 
 export async function writeB2ExitReport(options = {}) {
@@ -762,13 +787,20 @@ export async function checkB2ExitReport(options = {}) {
   } catch {
     throw exitError('b2_exit_report_missing', `${EXIT_REPORT_PATH} is missing`);
   }
+  let parsed;
+  try {
+    parsed = JSON.parse(actual);
+  } catch {
+    throw exitError('b2_exit_report_stale', `${EXIT_REPORT_PATH} is not valid JSON`);
+  }
+  assertExactB2NonGoals(parsed.nonGoals);
   if (actual !== expected) {
     throw exitError(
       'b2_exit_report_stale',
       `${EXIT_REPORT_PATH} is stale; expected a byte-for-byte match`,
     );
   }
-  return JSON.parse(actual);
+  return parsed;
 }
 
 async function liveOptions() {

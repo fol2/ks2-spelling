@@ -342,7 +342,7 @@ git commit -m "build: compile B2 native plugins"
 - Modify: `scripts/certify-android-dependencies.mjs`
 - Modify: `scripts/generate-third-party-notices.mjs`
 - Modify: `docs/compliance/sdk-privacy-register.md`
-- Modify: `THIRD-PARTY-NOTICES.md`
+- Modify: `THIRD_PARTY_NOTICES.md`
 - Modify: `tests/dependency-policy.test.mjs`
 - Create: `tests/b2-native-plugin-policy.test.mjs`
 - Create: `reports/b2/native-plugin-audit.json`
@@ -427,7 +427,7 @@ Expected: all commands PASS, the audit count is internally consistent across JSO
 - [ ] **Step 6: Commit the conditionally approved native dependency closure**
 
 ```bash
-git add android/gradle config scripts/audit-dependencies.mjs scripts/certify-android-dependencies.mjs scripts/generate-third-party-notices.mjs docs/compliance THIRD-PARTY-NOTICES.md tests/dependency-policy.test.mjs tests/b2-native-plugin-policy.test.mjs reports/b2/native-plugin-audit.json reports/b2/dependency-audit.json
+git add android/gradle config scripts/audit-dependencies.mjs scripts/certify-android-dependencies.mjs scripts/generate-third-party-notices.mjs docs/compliance THIRD_PARTY_NOTICES.md tests/dependency-policy.test.mjs tests/b2-native-plugin-policy.test.mjs reports/b2/native-plugin-audit.json reports/b2/dependency-audit.json
 git commit -m "build: certify B2 plugin closure"
 ```
 
@@ -1311,7 +1311,7 @@ git commit -m "test: certify B2 native persistence proof"
 - Modify: `reports/b2/native-plugin-build.json`
 - Modify: `reports/b2/native-plugin-audit.json`
 - Modify: `reports/b2/dependency-audit.json`
-- Modify: `THIRD-PARTY-NOTICES.md`
+- Modify: `THIRD_PARTY_NOTICES.md`
 
 **Interfaces:**
 
@@ -1391,7 +1391,7 @@ npm run report:b2-native-plugins
 npm run audit:dependencies -- --write
 actionlint .github/workflows/ci.yml
 git diff --check
-git add .github package.json package-lock.json capacitor.config.json docs scripts src tests config android ios README.md THIRD-PARTY-NOTICES.md reports/b2/native-plugin-build.json reports/b2/native-plugin-audit.json reports/b2/dependency-audit.json
+git add .github package.json package-lock.json capacitor.config.json docs scripts src tests config android ios README.md THIRD_PARTY_NOTICES.md reports/b2/native-plugin-build.json reports/b2/native-plugin-audit.json reports/b2/dependency-audit.json
 git commit -m "test: prepare final B2 application checkpoint"
 git status --short
 ```
@@ -1406,8 +1406,6 @@ Expected: the working tree is clean. This exact commit becomes `testedApplicatio
 - Modify: `reports/b2/android-emulator-proof.json`
 - Modify: `reports/b2/ios-simulator-proof.png`
 - Modify: `reports/b2/android-emulator-proof.png`
-- Modify: `reports/b2/native-plugin-audit.json`
-- Modify: `reports/b2/dependency-audit.json`
 - Create: `reports/b2/b2-exit-report.json`
 
 **Interfaces:**
@@ -1438,7 +1436,15 @@ npm run native:sync:check
 npm run test:ios
 npm run test:android
 npm run prove:b2:ios
+# Expected exit 5 with b2_ios_manual_attestation_required. The root controller
+# inspects the original-resolution PNG and creates only the screenshot-SHA-bound
+# .native-build/b2/ios-manual-attestation.json described in the native runbook.
+npm run prove:b2:ios -- --attest .native-build/b2/ios-manual-attestation.json
 npm run prove:b2:android
+# Expected exit 5 with b2_android_manual_attestation_required. The root controller
+# inspects the original-resolution PNG and creates only the screenshot-SHA-bound
+# .native-build/b2/android-manual-attestation.json described in the native runbook.
+npm run prove:b2:android -- --attest .native-build/b2/android-manual-attestation.json
 node scripts/build-b2-exit-report.mjs --write
 npm test
 node --test tests/b2-exit-report.live.mjs
@@ -1446,13 +1452,13 @@ actionlint .github/workflows/ci.yml
 git diff --check
 ```
 
-Expected: every command PASS in one chain; both proof screenshots are visually valid; the working tree contains only regenerated evidence intended for the evidence commit.
+Expected: every ordinary command and both `--attest` finalisation commands PASS. Each initial capture exits `5` only for its exact manual-attestation-required code. The root controller inspects both screenshots at original resolution before authoring the SHA-bound attestations. Attestations contain no private data, and no pending proof, generated report, screenshot or audit JSON is hand-edited. The working tree contains only the two lifecycle reports, two screenshots and exit report intended for the evidence commit; all three deterministic Task 14 audit authorities remain byte-for-byte frozen.
 
 - [ ] **Step 3: Commit only regenerated evidence, then push**
 
 ```bash
 git status --short
-git add reports/b2
+git add reports/b2/ios-simulator-proof.json reports/b2/ios-simulator-proof.png reports/b2/android-emulator-proof.json reports/b2/android-emulator-proof.png reports/b2/b2-exit-report.json
 git commit -m "test: close B2 persistence evidence"
 git push -u origin jamesto/mobile-b2-persistence
 ```

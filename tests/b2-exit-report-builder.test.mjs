@@ -19,25 +19,35 @@ const EXPECTED_NON_GOALS = [
   'billing',
   'biometrics',
   'bossUi',
+  'campUi',
   'delete',
-  'downloads',
   'entitlements',
-  'finalVisualDesign',
+  'finalAssets',
+  'finalTheme',
   'fullKs2Ui',
   'guardianUi',
   'heroCamp',
   'heroMode',
+  'inAppPurchases',
+  'packActivation',
+  'packDownload',
   'parentPin',
   'parentUi',
   'patternQuestUi',
-  'physicalDeviceCertification',
+  'performanceCertification',
+  'physicalDevices',
   'platformBackup',
   'productionAudio',
-  'productionProfiles',
+  'productionChildUi',
+  'productionProfileCrud',
+  'profileUi',
   'purchases',
+  'releaseCompliance',
   'releaseMetadata',
   'reset',
+  'retentionCompaction',
   'storeSigning',
+  'twentyMegabyteRecovery',
 ];
 
 function sha256(value) {
@@ -704,6 +714,55 @@ test('production checkpoint semantics reject HEAD substitution, unrelated commit
   }
 });
 
+test('production checkpoint semantics freeze every deterministic Task 14 authority', async () => {
+  const { assertB2CheckpointSemantics } = await builder();
+  const deterministicAuthorities = [
+    'reports/b2/native-plugin-build.json',
+    'reports/b2/native-plugin-audit.json',
+    'reports/b2/dependency-audit.json',
+  ];
+  for (const path of deterministicAuthorities) {
+    await assert.rejects(
+      assertB2CheckpointSemantics({
+        mode: 'write',
+        testedApplicationCommit: COMMIT,
+        runGit: gitFixture({ head: COMMIT, status: ` M ${path}\n` }),
+      }),
+      `dirty deterministic authority: ${path}`,
+    );
+    await assert.rejects(
+      assertB2CheckpointSemantics({
+        mode: 'check',
+        testedApplicationCommit: COMMIT,
+        runGit: gitFixture({
+          diff: [
+            'reports/b2/b2-exit-report.json',
+            'reports/b2/ios-simulator-proof.json',
+            'reports/b2/android-emulator-proof.json',
+            path,
+          ],
+        }),
+      }),
+      `successor deterministic authority: ${path}`,
+    );
+  }
+});
+
+test('B2 non-goals reject missing, additional and true claims', async () => {
+  const { assertExactB2NonGoals } = await builder();
+  const valid = Object.fromEntries(EXPECTED_NON_GOALS.map((key) => [key, false]));
+  assert.doesNotThrow(() => assertExactB2NonGoals(valid));
+  for (const mutate of [
+    (value) => { delete value.parentUi; },
+    (value) => { value.unreviewedClaim = false; },
+    (value) => { value.performanceCertification = true; },
+  ]) {
+    const changed = structuredClone(valid);
+    mutate(changed);
+    assert.throws(() => assertExactB2NonGoals(changed), /non-goals/i);
+  }
+});
+
 test('B2 exit builder rejects stale commit and application fingerprint', async () => {
   for (const field of ['expectedApplicationCommit', 'expectedApplicationFingerprint']) {
     await withFixture(async ({ root, authority }) => {
@@ -833,7 +892,7 @@ test('B2 exit report write/check is deterministic and byte-for-byte fail closed'
         expectedApplicationFingerprint: FINGERPRINT,
         authority,
       }),
-      /byte-for-byte|stale/i,
+      /non-goals|byte-for-byte|stale/i,
     );
   });
 });

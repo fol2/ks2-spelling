@@ -430,66 +430,85 @@ test('every subprocess has bounded process-group timeout and AbortSignal support
 });
 
 test('AbortSignal escalates a SIGTERM-ignoring child to SIGKILL and owned cleanup runs once', async () => {
-  const controller = new AbortController();
-  const startedAt = Date.now();
-  const running = runB2AndroidSubprocess(
-    process.execPath,
-    [
-      '-e',
-      "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)",
-    ],
-    { timeoutMs: 5_000, signal: controller.signal },
-  );
-  setTimeout(() => controller.abort(new Error('forced abort')), 150);
-  const result = await running;
-  assert.equal(result.aborted, true);
-  assert.equal(result.signal, 'SIGKILL');
-  assert.ok(Date.now() - startedAt < 2_000);
+  const readyRoot = await mkdtemp(join(tmpdir(), 'b2-android-sigterm-ready-'));
+  const childArgs = (readyPath) => [
+    '-e',
+    "process.on('SIGTERM', () => {}); require('node:fs').writeFileSync(process.argv[1], 'ready'); setInterval(() => {}, 1000)",
+    readyPath,
+  ];
+  const waitUntilReady = async (readyPath) => {
+    for (let attempt = 0; attempt < 500; attempt += 1) {
+      try {
+        assert.equal(await readFile(readyPath, 'utf8'), 'ready');
+        return;
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.fail(`SIGTERM-ignore fixture did not become ready: ${readyPath}`);
+  };
+  try {
+    const controller = new AbortController();
+    const abortReadyPath = join(readyRoot, 'abort-ready');
+    const running = runB2AndroidSubprocess(
+      process.execPath,
+      childArgs(abortReadyPath),
+      { timeoutMs: 5_000, signal: controller.signal },
+    );
+    await waitUntilReady(abortReadyPath);
+    const abortStartedAt = Date.now();
+    controller.abort(new Error('forced abort'));
+    const result = await running;
+    assert.equal(result.aborted, true);
+    assert.equal(result.signal, 'SIGKILL');
+    assert.ok(Date.now() - abortStartedAt < 2_000);
 
-  const childSignalSource = new EventEmitter();
-  const interruptedChild = runB2AndroidSubprocess(
-    process.execPath,
-    [
-      '-e',
-      "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)",
-    ],
-    { timeoutMs: 5_000, signalSource: childSignalSource },
-  );
-  setTimeout(() => childSignalSource.emit('SIGTERM'), 150);
-  const interruptedResult = await interruptedChild;
-  assert.equal(interruptedResult.interruptedSignal, 'SIGTERM');
-  assert.equal(interruptedResult.signal, 'SIGKILL');
+    const childSignalSource = new EventEmitter();
+    const signalReadyPath = join(readyRoot, 'signal-ready');
+    const interruptedChild = runB2AndroidSubprocess(
+      process.execPath,
+      childArgs(signalReadyPath),
+      { timeoutMs: 5_000, signalSource: childSignalSource },
+    );
+    await waitUntilReady(signalReadyPath);
+    childSignalSource.emit('SIGTERM');
+    const interruptedResult = await interruptedChild;
+    assert.equal(interruptedResult.interruptedSignal, 'SIGTERM');
+    assert.equal(interruptedResult.signal, 'SIGKILL');
 
-  const signalSource = new EventEmitter();
-  const cleanup = [];
-  let workStarted;
-  const began = new Promise((resolve) => { workStarted = resolve; });
-  const proof = runWithB2AndroidOwnedCleanup({
-    work: async ({ signal, ownSerial }) => {
-      ownSerial('emulator-5580');
-      const child = runB2AndroidSubprocess(
-        process.execPath,
-        [
-          '-e',
-          "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)",
-        ],
-        { timeoutMs: 5_000, signal },
-      );
-      workStarted();
-      await child;
-      signal.throwIfAborted();
-    },
-    killOwnedSerial: async (serial) => cleanup.push(serial),
-    terminateProcessGroup: async () => assert.fail('wrong cleanup route'),
-    signalSource,
-  });
-  await began;
-  signalSource.emit('SIGINT');
-  await assert.rejects(
-    proof,
-    ({ code }) => code === 'b2_android_signal_interrupted',
-  );
-  assert.deepEqual(cleanup, ['emulator-5580']);
+    const signalSource = new EventEmitter();
+    const cleanup = [];
+    const cleanupReadyPath = join(readyRoot, 'cleanup-ready');
+    let workStarted;
+    const began = new Promise((resolve) => { workStarted = resolve; });
+    const proof = runWithB2AndroidOwnedCleanup({
+      work: async ({ signal, ownSerial }) => {
+        ownSerial('emulator-5580');
+        const child = runB2AndroidSubprocess(
+          process.execPath,
+          childArgs(cleanupReadyPath),
+          { timeoutMs: 5_000, signal },
+        );
+        await waitUntilReady(cleanupReadyPath);
+        workStarted();
+        await child;
+        signal.throwIfAborted();
+      },
+      killOwnedSerial: async (serial) => cleanup.push(serial),
+      terminateProcessGroup: async () => assert.fail('wrong cleanup route'),
+      signalSource,
+    });
+    await began;
+    signalSource.emit('SIGINT');
+    await assert.rejects(
+      proof,
+      ({ code }) => code === 'b2_android_signal_interrupted',
+    );
+    assert.deepEqual(cleanup, ['emulator-5580']);
+  } finally {
+    await rm(readyRoot, { recursive: true, force: true });
+  }
 });
 
 test('PID probes fail closed on timeout, signals and malformed or multiple PIDs', async () => {

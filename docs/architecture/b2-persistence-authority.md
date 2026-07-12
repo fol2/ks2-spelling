@@ -61,8 +61,10 @@ canonical logical snapshot and Learner B digests.
 
 The native reports' `testedApplicationCommit` identifies the clean application
 checkpoint before the evidence-only commit. `--write` accepts only that HEAD
-with exact evidence paths dirty. `--check` accepts either that checkpoint while
-evidence is being assembled or its immediate, clean, evidence-only successor.
+with the two lifecycle reports, two screenshots and exit report allowed to be
+dirty. The native build, dependency and plugin audit authorities are frozen in
+the Task 14 checkpoint. `--check` accepts either that checkpoint while evidence
+is being assembled or its immediate, clean, lifecycle-evidence-only successor.
 It rejects stale, unrelated, dirty or application-changing histories.
 
 ## Deferred boundary

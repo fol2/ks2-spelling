@@ -123,10 +123,26 @@ export function runB2IosSubprocess(
     timeoutMs = COMMAND_TIMEOUT_MS,
     spawnProcess = spawn,
     signalSource = process,
+    signal,
   } = {},
 ) {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
     throw new TypeError('B2 iOS subprocess timeout must be a positive integer.');
+  }
+  if (signal?.aborted) {
+    return Promise.resolve({
+      command: redactText(command, env),
+      args: args.map((argument) => redactText(argument, env)),
+      exitCode: null,
+      signal: null,
+      stdout: '',
+      stderr: '',
+      spawnError: null,
+      timedOut: false,
+      interruptedSignal: null,
+      aborted: true,
+      abortReason: signal.reason,
+    });
   }
   return new Promise((resolveResult) => {
     const child = spawnProcess(command, args, {
@@ -140,6 +156,8 @@ export function runB2IosSubprocess(
     let spawnError = null;
     let timedOut = false;
     let interruptedSignal = null;
+    let aborted = false;
+    let abortReason;
     let settled = false;
     let forceKillTimer;
 
@@ -159,12 +177,18 @@ export function runB2IosSubprocess(
       interruptedSignal = signal;
       terminateGroup('SIGTERM');
     };
+    const onAbort = () => {
+      aborted = true;
+      abortReason = signal.reason;
+      terminateGroup('SIGTERM');
+    };
     const signalHandlers = Object.fromEntries(
       ['SIGINT', 'SIGTERM'].map((signal) => [signal, () => onSignal(signal)]),
     );
     for (const [signal, handler] of Object.entries(signalHandlers)) {
       signalSource.on(signal, handler);
     }
+    signal?.addEventListener('abort', onAbort, { once: true });
     const timeout = setTimeout(() => {
       timedOut = true;
       terminateGroup('SIGTERM');
@@ -178,7 +202,7 @@ export function runB2IosSubprocess(
     child.on('error', (error) => {
       spawnError = error;
     });
-    child.on('close', (code, signal) => {
+    child.on('close', (code, processSignal) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
@@ -186,16 +210,19 @@ export function runB2IosSubprocess(
       for (const [name, handler] of Object.entries(signalHandlers)) {
         signalSource.off(name, handler);
       }
+      signal?.removeEventListener('abort', onAbort);
       resolveResult({
         command: redactText(command, env),
         args: args.map((argument) => redactText(argument, env)),
         exitCode: Number.isInteger(code) ? code : null,
-        signal,
+        signal: processSignal,
         stdout: redactText(Buffer.concat(stdout).toString('utf8'), env),
         stderr: redactText(Buffer.concat(stderr).toString('utf8'), env),
         spawnError,
         timedOut,
         interruptedSignal,
+        aborted,
+        abortReason,
       });
     });
   });
@@ -211,13 +238,26 @@ export async function runWithB2IosOwnedCleanup({
   if (typeof work !== 'function' || typeof shutdown !== 'function') {
     throw new TypeError('B2 iOS cleanup requires work and shutdown functions.');
   }
+  let ownedUdid = ownsDevice ? udid : null;
+  const ownDevice = (candidateUdid) => {
+    if (ownedUdid !== null && ownedUdid !== candidateUdid) {
+      throw proofError(
+        'b2_ios_device_ownership_changed',
+        'B2 iOS owned Simulator identity changed during proof',
+      );
+    }
+    if (typeof candidateUdid !== 'string' || candidateUdid.length === 0) {
+      throw proofError('b2_ios_device_invalid', 'Owned iOS simulator UDID is missing');
+    }
+    ownedUdid = candidateUdid;
+  };
   let cleanupPromise;
   const cleanup = () => {
     if (!cleanupPromise) {
-      cleanupPromise = ownsDevice
+      cleanupPromise = ownedUdid !== null
         ? runWithB2IosCleanup({
             ownsDevice: true,
-            udid,
+            udid: ownedUdid,
             work: async () => undefined,
             shutdown,
           })
@@ -225,20 +265,18 @@ export async function runWithB2IosOwnedCleanup({
     }
     return cleanupPromise;
   };
-  let rejectSignal;
-  const signalFailure = new Promise((resolveSignal, reject) => {
-    void resolveSignal;
-    rejectSignal = reject;
-  });
+  const controller = new AbortController();
   const handlers = Object.fromEntries(
     ['SIGINT', 'SIGTERM'].map((signal) => [
       signal,
-      () => rejectSignal(
-        proofError(
+      () => {
+        if (!controller.signal.aborted) {
+          controller.abort(proofError(
           'b2_ios_signal_interrupted',
           `B2 iOS proof interrupted by ${signal}`,
-        ),
-      ),
+          ));
+        }
+      },
     ]),
   );
   for (const [signal, handler] of Object.entries(handlers)) {
@@ -247,9 +285,10 @@ export async function runWithB2IosOwnedCleanup({
   let primaryError;
   let result;
   try {
-    result = await Promise.race([Promise.resolve().then(work), signalFailure]);
+    result = await work({ signal: controller.signal, ownDevice });
+    controller.signal.throwIfAborted();
   } catch (error) {
-    primaryError = error;
+    primaryError = controller.signal.aborted ? controller.signal.reason : error;
   } finally {
     for (const [signal, handler] of Object.entries(handlers)) {
       signalSource.off(signal, handler);
@@ -297,8 +336,23 @@ function sha256(content) {
   return createHash('sha256').update(content).digest('hex');
 }
 
-function delay(milliseconds) {
-  return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
+function throwIfAborted(signal) {
+  signal?.throwIfAborted();
+}
+
+function abortableDelay(milliseconds, signal) {
+  throwIfAborted(signal);
+  return new Promise((resolveDelay, rejectDelay) => {
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolveDelay();
+    }, milliseconds);
+    const onAbort = () => {
+      clearTimeout(timeout);
+      rejectDelay(signal.reason);
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 function requirePid(value, label) {
@@ -410,6 +464,154 @@ export function validateB2IosManualAttestation(candidate, screenshotSha256) {
   return structuredClone(candidate);
 }
 
+export function validateB2IosPendingProof(
+  candidate,
+  { expectedCommit, expectedFingerprint, screenshotBytes } = {},
+) {
+  const invalid = (detail) => {
+    throw proofError(
+      'b2_ios_pending_proof_invalid',
+      `B2 iOS pending proof ${detail}`,
+    );
+  };
+  if (
+    !exactKeys(candidate, [
+      'schemaVersion',
+      'testedApplicationCommit',
+      'applicationFingerprint',
+      'proof',
+    ]) ||
+    candidate.schemaVersion !== 1 ||
+    !/^[a-f0-9]{40}$/.test(candidate.testedApplicationCommit ?? '') ||
+    candidate.testedApplicationCommit !== expectedCommit ||
+    !SHA256.test(candidate.applicationFingerprint ?? '') ||
+    candidate.applicationFingerprint !== expectedFingerprint
+  ) invalid('checkpoint identity is stale or malformed');
+
+  const proof = candidate.proof;
+  if (
+    !exactKeys(proof, [
+      'build',
+      'device',
+      'metadata',
+      'readyMetadata',
+      'screenshot',
+      'collected',
+      'database',
+      'lifecycle',
+    ]) ||
+    !exactKeys(proof.build, [
+      'appPath',
+      'compiled',
+      'configuration',
+      'sdk',
+      'signed',
+    ]) ||
+    typeof proof.build.appPath !== 'string' ||
+    !proof.build.appPath ||
+    proof.build.compiled !== true ||
+    proof.build.configuration !== 'Debug' ||
+    proof.build.sdk !== 'iphonesimulator' ||
+    proof.build.signed !== false ||
+    !exactKeys(proof.device, ['udid', 'state']) ||
+    !/^[A-F0-9-]{36}$/i.test(proof.device.udid ?? '') ||
+    typeof proof.device.state !== 'string'
+  ) invalid('build or owned-device payload is malformed');
+
+  try {
+    const ready = assertB2IosProofMetadata(proof.readyMetadata, {
+      phase: 'ready-for-relaunch',
+    });
+    assertB2IosProofMetadata(proof.metadata, {
+      phase: 'complete',
+      baseline: ready,
+    });
+  } catch {
+    invalid('durable metadata payload is malformed');
+  }
+
+  if (
+    !exactKeys(proof.screenshot, [
+      'path',
+      'sha256',
+      'machineStateSource',
+      'exactTextState',
+      'manualVisualInspection',
+    ]) ||
+    typeof proof.screenshot.path !== 'string' ||
+    !proof.screenshot.path ||
+    proof.screenshot.machineStateSource !== 'durable-proof-metadata' ||
+    proof.screenshot.exactTextState !== 'complete' ||
+    proof.screenshot.manualVisualInspection !== 'pending' ||
+    !SHA256.test(proof.screenshot.sha256 ?? '') ||
+    !(screenshotBytes instanceof Uint8Array) ||
+    sha256(screenshotBytes) !== proof.screenshot.sha256
+  ) invalid('screenshot payload is stale or malformed');
+
+  const collected = proof.collected;
+  if (
+    !exactKeys(collected, [
+      'databasePath',
+      'sidecarsObserved',
+      'observedFiles',
+      'fileSha256',
+      'everyObservedSidecarCollectedSafely',
+    ]) ||
+    typeof collected.databasePath !== 'string' ||
+    !collected.databasePath ||
+    !Array.isArray(collected.observedFiles) ||
+    collected.observedFiles[0] !== DATABASE_NAME ||
+    !exactStringArray(
+      collected.observedFiles,
+      B2_IOS_DATABASE_FILES.filter((name) => collected.observedFiles.includes(name)),
+    ) ||
+    !exactStringArray(collected.sidecarsObserved, collected.observedFiles.slice(1)) ||
+    !exactKeys(collected.fileSha256, collected.observedFiles) ||
+    collected.observedFiles.some((name) => !SHA256.test(collected.fileSha256[name])) ||
+    collected.everyObservedSidecarCollectedSafely !== true
+  ) invalid('database collection payload is malformed');
+
+  const database = proof.database;
+  if (
+    !exactKeys(database, [
+      'databaseSha256',
+      'foreignKeys',
+      'journalMode',
+      'synchronous',
+      'busyTimeout',
+      'integrityCheck',
+      'finalLogicalSnapshotSha256',
+      'starterCampRows',
+      'monsterState',
+    ]) ||
+    !SHA256.test(database.databaseSha256 ?? '') ||
+    database.foreignKeys !== 1 ||
+    database.journalMode !== 'wal' ||
+    database.synchronous !== 2 ||
+    database.busyTimeout !== 5000 ||
+    database.integrityCheck !== 'ok' ||
+    !SHA256.test(database.finalLogicalSnapshotSha256 ?? '') ||
+    database.starterCampRows !== 0 ||
+    database.monsterState !== 'spelling-derived-child-owned'
+  ) invalid('logical database report payload is malformed');
+  if (database.databaseSha256 !== collected.fileSha256[DATABASE_NAME]) {
+    invalid('physical database hash does not match its collected payload');
+  }
+
+  if (
+    !exactKeys(proof.lifecycle, [
+      'preKillPid',
+      'postRelaunchPid',
+      'differentPid',
+    ]) ||
+    !PID.test(proof.lifecycle.preKillPid ?? '') ||
+    !PID.test(proof.lifecycle.postRelaunchPid ?? '') ||
+    proof.lifecycle.preKillPid === proof.lifecycle.postRelaunchPid ||
+    proof.lifecycle.differentPid !== true
+  ) invalid('lifecycle report payload is malformed');
+  return structuredClone(candidate);
+}
+
 export function assertB2ApplicationStatusClean(statusOutput) {
   const applicationChanges = String(statusOutput ?? '')
     .split('\n')
@@ -453,32 +655,48 @@ export async function runB2IosLifecycleProof(dependencies) {
     'collectTerminatedDatabaseSet',
     'inspectCollectedDatabase',
   ]) requireDependency(dependencies, name);
-
-  const build = await dependencies.syncAndBuildUnsigned();
-  const device = await dependencies.acquireOwnedDevice();
-  if (!device || typeof device.udid !== 'string' || !device.udid) {
-    throw proofError('b2_ios_device_invalid', 'Owned iOS simulator UDID is missing');
-  }
-
   return dependencies.withOwnedCleanup({
-    ownsDevice: true,
-    udid: device.udid,
+    ownsDevice: false,
+    udid: null,
     shutdown: dependencies.shutdownOwnedDevice,
-    work: async () => {
+    work: async ({ signal, ownDevice }) => {
+      const step = async (operation) => {
+        throwIfAborted(signal);
+        const value = await operation();
+        throwIfAborted(signal);
+        return value;
+      };
+      const build = await step(() =>
+        dependencies.syncAndBuildUnsigned({ signal }),
+      );
+      throwIfAborted(signal);
+      const device = await dependencies.acquireOwnedDevice({ signal });
+      if (!device || typeof device.udid !== 'string' || !device.udid) {
+        throw proofError('b2_ios_device_invalid', 'Owned iOS simulator UDID is missing');
+      }
+      ownDevice(device.udid);
+      throwIfAborted(signal);
       let reader;
       try {
-        await dependencies.bootOwnedDevice(device);
-        const firstLaunch = await dependencies.freshInstallAndLaunch({
-          udid: device.udid,
-          appPath: build.appPath,
-        });
+        await step(() => dependencies.bootOwnedDevice(device, { signal }));
+        const firstLaunch = await step(() =>
+          dependencies.freshInstallAndLaunch(
+            { udid: device.udid, appPath: build.appPath },
+            { signal },
+          ),
+        );
         const preKillPid = requirePid(firstLaunch?.pid, 'Pre-kill PID');
-        const dataContainer = await dependencies.resolveDataContainer(device.udid);
+        const dataContainer = await step(() =>
+          dependencies.resolveDataContainer(device.udid, { signal }),
+        );
         const liveDatabasePath = join(dataContainer, DATABASE_RELATIVE_PATH);
-        reader = await dependencies.openLiveMetadataReader(liveDatabasePath, {
-          readOnly: true,
-          honoursWal: true,
-        });
+        reader = await step(() =>
+          dependencies.openLiveMetadataReader(
+            liveDatabasePath,
+            { readOnly: true, honoursWal: true },
+            { signal },
+          ),
+        );
         if (
           !reader ||
           typeof reader.poll !== 'function' ||
@@ -487,21 +705,25 @@ export async function runB2IosLifecycleProof(dependencies) {
           throw new TypeError('B2 iOS live metadata reader contract is invalid.');
         }
         const background = assertB2IosProofMetadata(
-          await reader.poll('background-test-ready'),
+          await step(() => reader.poll('background-test-ready', { signal })),
           { phase: 'background-test-ready' },
         );
 
-        await dependencies.foregroundBundledSystemApp(device.udid);
-        await dependencies.relaunchForResume(device.udid);
+        await step(() =>
+          dependencies.foregroundBundledSystemApp(device.udid, { signal }),
+        );
+        await step(() => dependencies.relaunchForResume(device.udid, { signal }));
         const ready = assertB2IosProofMetadata(
-          await reader.poll('ready-for-relaunch'),
+          await step(() => reader.poll('ready-for-relaunch', { signal })),
           { phase: 'ready-for-relaunch', baseline: background },
         );
 
-        await dependencies.assertProcessPresent(preKillPid);
-        await dependencies.terminateApplication(device.udid);
-        await dependencies.assertProcessAbsent(preKillPid);
-        const secondLaunch = await dependencies.launchApplication(device.udid);
+        await step(() => dependencies.assertProcessPresent(preKillPid, { signal }));
+        await step(() => dependencies.terminateApplication(device.udid, { signal }));
+        await step(() => dependencies.assertProcessAbsent(preKillPid, { signal }));
+        const secondLaunch = await step(() =>
+          dependencies.launchApplication(device.udid, { signal }),
+        );
         const postRelaunchPid = requirePid(
           secondLaunch?.pid,
           'Post-relaunch PID',
@@ -512,26 +734,36 @@ export async function runB2IosLifecycleProof(dependencies) {
             'B2 iOS relaunch did not create a different process PID',
           );
         }
-        await dependencies.assertProcessPresent(postRelaunchPid);
+        await step(() =>
+          dependencies.assertProcessPresent(postRelaunchPid, { signal }),
+        );
 
         const complete = assertB2IosProofMetadata(
-          await reader.poll('complete'),
+          await step(() => reader.poll('complete', { signal })),
           { phase: 'complete', baseline: ready },
         );
-        const screenshot = await dependencies.captureForegroundScreenshot({
-          udid: device.udid,
-          pid: postRelaunchPid,
-          metadata: complete,
-        });
-        await dependencies.terminateApplication(device.udid);
-        await dependencies.assertProcessAbsent(postRelaunchPid);
-        const collected = await dependencies.collectTerminatedDatabaseSet({
-          dataContainer,
-        });
-        const database = await dependencies.inspectCollectedDatabase({
-          databasePath: collected.databasePath,
-          readOnly: true,
-        });
+        const screenshot = await step(() =>
+          dependencies.captureForegroundScreenshot(
+            { udid: device.udid, pid: postRelaunchPid, metadata: complete },
+            { signal },
+          ),
+        );
+        await step(() => dependencies.terminateApplication(device.udid, { signal }));
+        await step(() =>
+          dependencies.assertProcessAbsent(postRelaunchPid, { signal }),
+        );
+        const collected = await step(() =>
+          dependencies.collectTerminatedDatabaseSet(
+            { dataContainer },
+            { signal },
+          ),
+        );
+        const database = await step(() =>
+          dependencies.inspectCollectedDatabase(
+            { databasePath: collected.databasePath, readOnly: true },
+            { signal },
+          ),
+        );
         return {
           build,
           device,
@@ -561,9 +793,12 @@ function createRequiredRunner(run = runB2IosSubprocess) {
       allowMissingApplication = false,
       allowAlreadyShutdown = false,
       timeoutMs = COMMAND_TIMEOUT_MS,
+      signal,
     } = {},
   ) {
-    const result = await run(command, args, { cwd: ROOT, timeoutMs });
+    throwIfAborted(signal);
+    const result = await run(command, args, { cwd: ROOT, timeoutMs, signal });
+    throwIfAborted(signal);
     if (!result || typeof result !== 'object') {
       throw proofError(
         'b2_ios_command_result_invalid',
@@ -574,6 +809,12 @@ function createRequiredRunner(run = runB2IosSubprocess) {
       throw proofError(
         'b2_ios_command_spawn_failed',
         `${command} could not be started: ${result.spawnError.message}`,
+      );
+    }
+    if (result.aborted) {
+      throw result.abortReason ?? proofError(
+        'b2_ios_command_aborted',
+        `${command} ${args.join(' ')} was aborted`,
       );
     }
     if (result.timedOut) {
@@ -619,8 +860,13 @@ function createRequiredRunner(run = runB2IosSubprocess) {
 
 const runRequired = createRequiredRunner();
 
-async function readJsonCommand(command, args, required = runRequired) {
-  const result = await required(command, args);
+async function readJsonCommand(
+  command,
+  args,
+  required = runRequired,
+  { signal } = {},
+) {
+  const result = await required(command, args, { signal });
   try {
     return JSON.parse(result.stdout);
   } catch (cause) {
@@ -640,7 +886,13 @@ export function parseB2IosProcessProbe(result, pid) {
       `B2 iOS process ${pid} probe result is malformed`,
     );
   }
-  if (result.spawnError || result.timedOut || result.interruptedSignal || result.signal) {
+  if (
+    result.spawnError ||
+    result.timedOut ||
+    result.interruptedSignal ||
+    result.signal ||
+    result.aborted
+  ) {
     throw proofError(
       'b2_ios_process_probe_failed',
       `B2 iOS process ${pid} probe did not complete normally`,
@@ -663,21 +915,25 @@ export async function pollB2IosProcess({
   run = runB2IosSubprocess,
   attempts = PROCESS_POLL_ATTEMPTS,
   intervalMs = PROCESS_POLL_INTERVAL_MS,
-  sleep = delay,
+  sleep = abortableDelay,
+  signal,
 }) {
   if (!['present', 'absent'].includes(expected)) {
     throw new TypeError('B2 iOS process expectation is invalid.');
   }
   for (let attempt = 0; attempt < attempts; attempt += 1) {
+    throwIfAborted(signal);
     const state = parseB2IosProcessProbe(
       await run('/bin/ps', ['-p', pid, '-o', 'pid=,comm='], {
         cwd: ROOT,
         timeoutMs: 5_000,
+        signal,
       }),
       pid,
     );
+    throwIfAborted(signal);
     if (state === expected) return state;
-    if (attempt + 1 < attempts) await sleep(intervalMs);
+    if (attempt + 1 < attempts) await sleep(intervalMs, signal);
   }
   throw proofError(
     expected === 'present'
@@ -689,11 +945,12 @@ export async function pollB2IosProcess({
 
 async function waitForPath(
   path,
-  { fs = DEFAULT_FS, sleep = delay } = {},
+  { fs = DEFAULT_FS, sleep = abortableDelay, signal } = {},
 ) {
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+    throwIfAborted(signal);
     if (fs.existsSync(path)) return;
-    await sleep(POLL_INTERVAL_MS);
+    await sleep(POLL_INTERVAL_MS, signal);
   }
   throw proofError(
     'b2_ios_database_timeout',
@@ -734,7 +991,7 @@ export function openB2IosLiveMetadataReader(databasePath) {
     return value;
   }
   return Object.freeze({
-    async poll(expectedPhase) {
+    async poll(expectedPhase, { signal } = {}) {
       const phaseOrder = [
         'fresh',
         'background-test-ready',
@@ -744,6 +1001,7 @@ export function openB2IosLiveMetadataReader(databasePath) {
       const expectedIndex = phaseOrder.indexOf(expectedPhase);
       if (expectedIndex < 0) throw new TypeError('Unknown B2 iOS proof phase.');
       for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+        throwIfAborted(signal);
         let value = null;
         try {
           value = readMetadata();
@@ -758,7 +1016,7 @@ export function openB2IosLiveMetadataReader(databasePath) {
             `B2 iOS durable proof skipped phase ${expectedPhase}`,
           );
         }
-        await delay(POLL_INTERVAL_MS);
+        await abortableDelay(POLL_INTERVAL_MS, signal);
       }
       throw proofError(
         'b2_ios_phase_timeout',
@@ -801,15 +1059,20 @@ export async function collectB2IosDatabaseSet({
   sourceDirectory,
   destinationDirectory = DATABASE_DIRECTORY,
   fs = DEFAULT_FS,
+  signal,
 }) {
+  throwIfAborted(signal);
   const observed = databaseSiblingNames(
     await fs.readdir(sourceDirectory, { withFileTypes: true }),
   );
+  throwIfAborted(signal);
   const before = new Map();
   for (const filename of observed) {
+    throwIfAborted(signal);
     const path = join(sourceDirectory, filename);
     const details = await fs.stat(path);
     const bytes = await fs.readFile(path);
+    throwIfAborted(signal);
     if (!details.isFile() || details.size <= 0 || bytes.byteLength !== details.size) {
       throw proofError(
         'b2_ios_database_set_invalid',
@@ -823,16 +1086,21 @@ export async function collectB2IosDatabaseSet({
     });
   }
   const temporaryDirectory = `${destinationDirectory}.tmp-${process.pid}`;
+  throwIfAborted(signal);
   await fs.rm(temporaryDirectory, { force: true, recursive: true });
+  throwIfAborted(signal);
   await fs.mkdir(temporaryDirectory, { recursive: true });
   try {
     for (const filename of observed) {
+      throwIfAborted(signal);
       const source = join(sourceDirectory, filename);
       await fs.copyFile(source, join(temporaryDirectory, filename));
+      throwIfAborted(signal);
     }
     const afterNames = databaseSiblingNames(
       await fs.readdir(sourceDirectory, { withFileTypes: true }),
     );
+    throwIfAborted(signal);
     if (!exactStringArray(afterNames, observed)) {
       throw proofError(
         'b2_ios_database_set_changed',
@@ -840,12 +1108,14 @@ export async function collectB2IosDatabaseSet({
       );
     }
     for (const filename of observed) {
+      throwIfAborted(signal);
       const source = join(sourceDirectory, filename);
       let details;
       let bytes;
       try {
         details = await fs.stat(source);
         bytes = await fs.readFile(source);
+        throwIfAborted(signal);
       } catch (cause) {
         throw proofError(
           'b2_ios_database_set_disappeared',
@@ -865,7 +1135,9 @@ export async function collectB2IosDatabaseSet({
         );
       }
     }
+    throwIfAborted(signal);
     await fs.rm(destinationDirectory, { force: true, recursive: true });
+    throwIfAborted(signal);
     await fs.rename(temporaryDirectory, destinationDirectory);
   } catch (error) {
     await fs.rm(temporaryDirectory, { force: true, recursive: true });
@@ -884,10 +1156,15 @@ export async function collectB2IosDatabaseSet({
   };
 }
 
-async function copyStableDatabaseSet({ dataContainer }, fs = DEFAULT_FS) {
+async function copyStableDatabaseSet(
+  { dataContainer },
+  fs = DEFAULT_FS,
+  { signal } = {},
+) {
   return collectB2IosDatabaseSet({
     sourceDirectory: join(dataContainer, 'Library', 'CapacitorDatabase'),
     fs,
+    signal,
   });
 }
 
@@ -906,11 +1183,14 @@ function tableRows(database, table, orderBy) {
   return database.prepare(`SELECT * FROM ${table} ORDER BY ${orderBy}`).all();
 }
 
-async function inspectCollectedDatabase({ databasePath }) {
+async function inspectCollectedDatabase({ databasePath }, { signal } = {}) {
+  throwIfAborted(signal);
   const database = new DatabaseSync(databasePath, { readOnly: true });
   try {
+    throwIfAborted(signal);
     database.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
     const integrityRows = database.prepare('PRAGMA integrity_check').all();
+    throwIfAborted(signal);
     const logicalState = {
       schema: database
         .prepare(
@@ -992,14 +1272,15 @@ async function clearIosProofOutputs() {
 export function createB2IosProductionDependencies({
   run = runB2IosSubprocess,
   fs = DEFAULT_FS,
-  sleep = delay,
+  sleep = abortableDelay,
   signalSource = process,
 } = {}) {
   const required = createRequiredRunner(run);
   return {
-    async syncAndBuildUnsigned() {
-      await required(process.execPath, ['scripts/native-sync-check.mjs']);
-      await required(process.execPath, ['scripts/test-ios.mjs']);
+    async syncAndBuildUnsigned({ signal } = {}) {
+      await required(process.execPath, ['scripts/native-sync-check.mjs'], { signal });
+      await required(process.execPath, ['scripts/test-ios.mjs'], { signal });
+      throwIfAborted(signal);
       if (!fs.existsSync(APP_PATH)) {
         throw proofError(
           'b2_ios_build_output_invalid',
@@ -1014,20 +1295,20 @@ export function createB2IosProductionDependencies({
         signed: false,
       };
     },
-    async acquireOwnedDevice() {
+    async acquireOwnedDevice({ signal } = {}) {
       const runtimes = await readJsonCommand('xcrun', [
         'simctl',
         'list',
         'runtimes',
         '-j',
-      ], required);
+      ], required, { signal });
       parseIosRuntimeVersion(runtimes);
       const listed = await readJsonCommand('xcrun', [
         'simctl',
         'list',
         'devices',
         '-j',
-      ], required);
+      ], required, { signal });
       let device = selectExistingIosDevice(listed.devices ?? {});
       if (!device) {
         const created = await required('xcrun', [
@@ -1036,7 +1317,7 @@ export function createB2IosProductionDependencies({
           B2_IOS_DEVICE.name,
           B2_IOS_DEVICE.type,
           B2_IOS_DEVICE.runtime,
-        ]);
+        ], { signal });
         device = { udid: created.stdout.trim(), state: 'Shutdown' };
       }
       if (!/^[A-F0-9-]{36}$/i.test(device.udid ?? '')) {
@@ -1047,12 +1328,14 @@ export function createB2IosProductionDependencies({
       }
       return { udid: device.udid, state: device.state };
     },
-    async bootOwnedDevice(device) {
+    async bootOwnedDevice(device, { signal } = {}) {
       if (device.state !== 'Shutdown') {
-        await required('xcrun', ['simctl', 'shutdown', device.udid]);
+        await required('xcrun', ['simctl', 'shutdown', device.udid], { signal });
       }
-      await required('xcrun', ['simctl', 'boot', device.udid]);
-      await required('xcrun', ['simctl', 'bootstatus', device.udid, '-b']);
+      await required('xcrun', ['simctl', 'boot', device.udid], { signal });
+      await required('xcrun', ['simctl', 'bootstatus', device.udid, '-b'], {
+        signal,
+      });
     },
     withOwnedCleanup(options) {
       return runWithB2IosOwnedCleanup({ ...options, signalSource });
@@ -1062,27 +1345,30 @@ export function createB2IosProductionDependencies({
         allowAlreadyShutdown: true,
       });
     },
-    async freshInstallAndLaunch({ udid, appPath }) {
+    async freshInstallAndLaunch({ udid, appPath }, { signal } = {}) {
       const plan = createB2IosFreshInstallPlan({ udid, appPath });
       for (const [index, [command, args]] of plan.entries()) {
-        await required(command, args, { allowMissingApplication: index === 0 });
+        await required(command, args, {
+          allowMissingApplication: index === 0,
+          signal,
+        });
       }
       const launch = await required('xcrun', [
         'simctl',
         'launch',
         udid,
         B2_APPLICATION_ID,
-      ]);
+      ], { signal });
       return { pid: parseB2IosLaunchPid(launch.stdout) };
     },
-    async resolveDataContainer(udid) {
+    async resolveDataContainer(udid, { signal } = {}) {
       const result = await required('xcrun', [
         'simctl',
         'get_app_container',
         udid,
         B2_APPLICATION_ID,
         'data',
-      ]);
+      ], { signal });
       const path = result.stdout.trim();
       if (!path.includes('/data/Containers/Data/Application/')) {
         throw proofError(
@@ -1092,65 +1378,72 @@ export function createB2IosProductionDependencies({
       }
       return path;
     },
-    async openLiveMetadataReader(databasePath, options) {
+    async openLiveMetadataReader(databasePath, options, { signal } = {}) {
       if (options.readOnly !== true || options.honoursWal !== true) {
         throw new TypeError('B2 iOS live reader must be read-only and WAL-aware.');
       }
-      await waitForPath(databasePath, { fs, sleep });
+      await waitForPath(databasePath, { fs, sleep, signal });
       return openB2IosLiveMetadataReader(databasePath);
     },
-    async foregroundBundledSystemApp(udid) {
+    async foregroundBundledSystemApp(udid, { signal } = {}) {
       await required('xcrun', [
         'simctl',
         'launch',
         udid,
         BUNDLED_SYSTEM_APPLICATION,
-      ]);
+      ], { signal });
     },
-    async relaunchForResume(udid) {
+    async relaunchForResume(udid, { signal } = {}) {
       await required('xcrun', [
         'simctl',
         'launch',
         udid,
         B2_APPLICATION_ID,
-      ]);
+      ], { signal });
     },
-    async terminateApplication(udid) {
+    async terminateApplication(udid, { signal } = {}) {
       await required('xcrun', [
         'simctl',
         'terminate',
         udid,
         B2_APPLICATION_ID,
-      ]);
+      ], { signal });
     },
-    async assertProcessPresent(pid) {
-      await pollB2IosProcess({ pid, expected: 'present', run, sleep });
+    async assertProcessPresent(pid, { signal } = {}) {
+      await pollB2IosProcess({ pid, expected: 'present', run, sleep, signal });
     },
-    async assertProcessAbsent(pid) {
-      await pollB2IosProcess({ pid, expected: 'absent', run, sleep });
+    async assertProcessAbsent(pid, { signal } = {}) {
+      await pollB2IosProcess({ pid, expected: 'absent', run, sleep, signal });
     },
-    async launchApplication(udid) {
+    async launchApplication(udid, { signal } = {}) {
       const launch = await required('xcrun', [
         'simctl',
         'launch',
         udid,
         B2_APPLICATION_ID,
-      ]);
+      ], { signal });
       return { pid: parseB2IosLaunchPid(launch.stdout) };
     },
-    async captureForegroundScreenshot({ udid, pid, metadata }) {
+    async captureForegroundScreenshot(
+      { udid, pid, metadata },
+      { signal } = {},
+    ) {
       assertB2IosProofMetadata(metadata, { phase: 'complete' });
-      await pollB2IosProcess({ pid, expected: 'present', run, sleep });
+      await pollB2IosProcess({ pid, expected: 'present', run, sleep, signal });
+      throwIfAborted(signal);
       await fs.mkdir(REPORT_DIRECTORY, { recursive: true });
+      throwIfAborted(signal);
       await required('xcrun', [
         'simctl',
         'io',
         udid,
         'screenshot',
         SCREENSHOT_PATH,
-      ]);
+      ], { signal });
       const bmpPath = join(ROOT, '.native-build/b2/ios-proof.bmp');
+      throwIfAborted(signal);
       await fs.mkdir(join(ROOT, '.native-build/b2'), { recursive: true });
+      throwIfAborted(signal);
       try {
         await required('sips', [
           '-s',
@@ -1159,22 +1452,27 @@ export function createB2IosProductionDependencies({
           SCREENSHOT_PATH,
           '--out',
           bmpPath,
-        ]);
+        ], { signal });
+        throwIfAborted(signal);
         analyseIosScreenshotBmp(await fs.readFile(bmpPath));
+        throwIfAborted(signal);
       } finally {
         await fs.rm(bmpPath, { force: true });
       }
-      await pollB2IosProcess({ pid, expected: 'present', run, sleep });
+      await pollB2IosProcess({ pid, expected: 'present', run, sleep, signal });
+      throwIfAborted(signal);
+      const screenshotBytes = await fs.readFile(SCREENSHOT_PATH);
+      throwIfAborted(signal);
       return {
         path: SCREENSHOT_PATH,
-        sha256: sha256(await fs.readFile(SCREENSHOT_PATH)),
+        sha256: sha256(screenshotBytes),
         machineStateSource: 'durable-proof-metadata',
         exactTextState: metadata.phase,
         manualVisualInspection: 'pending',
       };
     },
-    collectTerminatedDatabaseSet(options) {
-      return copyStableDatabaseSet(options, fs);
+    collectTerminatedDatabaseSet(options, context) {
+      return copyStableDatabaseSet(options, fs, context);
     },
     inspectCollectedDatabase,
   };
@@ -1367,32 +1665,15 @@ async function finalisePendingProof(attestationPath) {
       'Use --attest <path> with a screenshot-SHA-bound manual attestation',
     );
   }
-  const pending = JSON.parse(await DEFAULT_FS.readFile(PENDING_PROOF_PATH, 'utf8'));
-  if (
-    !exactKeys(pending, [
-      'schemaVersion',
-      'testedApplicationCommit',
-      'applicationFingerprint',
-      'proof',
-    ]) ||
-    pending.schemaVersion !== 1
-  ) {
-    throw proofError(
-      'b2_ios_pending_proof_invalid',
-      'B2 iOS pending proof is malformed',
-    );
-  }
+  let pending = JSON.parse(await DEFAULT_FS.readFile(PENDING_PROOF_PATH, 'utf8'));
   const currentCommit = await assertCleanCheckpoint();
   const fingerprint = await fingerprintB2Application({ root: ROOT });
-  if (
-    currentCommit !== pending.testedApplicationCommit ||
-    fingerprint.sha256 !== pending.applicationFingerprint
-  ) {
-    throw proofError(
-      'b2_ios_pending_proof_stale',
-      'B2 iOS pending proof no longer matches the clean application checkpoint',
-    );
-  }
+  const screenshotBytes = await DEFAULT_FS.readFile(SCREENSHOT_PATH);
+  pending = validateB2IosPendingProof(pending, {
+    expectedCommit: currentCommit,
+    expectedFingerprint: fingerprint.sha256,
+    screenshotBytes,
+  });
   const collectedDirectory = resolve(
     pending.proof.collected.databasePath,
     '..',
@@ -1409,13 +1690,13 @@ async function finalisePendingProof(attestationPath) {
       );
     }
   }
-  if (
-    sha256(await DEFAULT_FS.readFile(SCREENSHOT_PATH)) !==
-    pending.proof.screenshot.sha256
-  ) {
+  const recomputedDatabase = await inspectCollectedDatabase({
+    databasePath: pending.proof.collected.databasePath,
+  });
+  if (canonicalJson(recomputedDatabase) !== canonicalJson(pending.proof.database)) {
     throw proofError(
-      'b2_ios_pending_proof_stale',
-      'B2 iOS pending screenshot changed before attestation',
+      'b2_ios_pending_proof_invalid',
+      'B2 iOS pending logical database report was locally modified',
     );
   }
   const manualAttestation = JSON.parse(

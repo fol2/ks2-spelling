@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import {
   copyFile,
@@ -31,6 +32,7 @@ import {
   runB2IosLifecycleProof,
   runWithB2IosOwnedCleanup,
   validateB2IosManualAttestation,
+  validateB2IosPendingProof,
   writeValidatedReport,
 } from '../scripts/prove-b2-ios.mjs';
 import { canonicalJson } from '../src/platform/database/canonical-json.js';
@@ -99,11 +101,17 @@ function createDependencies({ failAt = null } = {}) {
     events,
     dependencies: {
       async syncAndBuildUnsigned() {
-        return step('sync-build-unsigned', { appPath: '/build/App.app' });
+        return step('sync-build-unsigned', {
+          appPath: '/build/App.app',
+          compiled: true,
+          configuration: 'Debug',
+          sdk: 'iphonesimulator',
+          signed: false,
+        });
       },
       async acquireOwnedDevice() {
         return step('acquire-owned', {
-          udid: 'owned-ios-udid',
+          udid: IOS_UDID,
           state: 'Shutdown',
         });
       },
@@ -111,25 +119,27 @@ function createDependencies({ failAt = null } = {}) {
         return step('boot-owned');
       },
       async withOwnedCleanup({ ownsDevice, udid, work, shutdown }) {
-        assert.equal(ownsDevice, true);
-        assert.equal(udid, 'owned-ios-udid');
-        try {
-          return await work();
-        } finally {
-          await shutdown(udid);
-        }
+        assert.equal(ownsDevice, false);
+        assert.equal(udid, null);
+        return runWithB2IosOwnedCleanup({
+          ownsDevice,
+          udid,
+          work,
+          shutdown,
+          signalSource: new EventEmitter(),
+        });
       },
       async shutdownOwnedDevice(udid) {
-        assert.equal(udid, 'owned-ios-udid');
+        assert.equal(udid, IOS_UDID);
         return step('shutdown-owned');
       },
       async freshInstallAndLaunch({ udid, appPath }) {
-        assert.equal(udid, 'owned-ios-udid');
+        assert.equal(udid, IOS_UDID);
         assert.equal(appPath, '/build/App.app');
         return step('uninstall-install-launch', { pid: '101' });
       },
       async resolveDataContainer(udid) {
-        assert.equal(udid, 'owned-ios-udid');
+        assert.equal(udid, IOS_UDID);
         return step('resolve-data-container', '/data/container');
       },
       async openLiveMetadataReader(databasePath, options) {
@@ -181,6 +191,8 @@ function createDependencies({ failAt = null } = {}) {
         return step('capture-screenshot-while-foreground', {
           path: '/reports/ios.png',
           sha256: 'c'.repeat(64),
+          machineStateSource: 'durable-proof-metadata',
+          exactTextState: 'complete',
           manualVisualInspection: 'pending',
         });
       },
@@ -190,6 +202,12 @@ function createDependencies({ failAt = null } = {}) {
           sidecarsObserved: B2_IOS_DATABASE_FILES.slice(1),
           observedFiles: [...B2_IOS_DATABASE_FILES],
           everyObservedSidecarCollectedSafely: true,
+          fileSha256: Object.fromEntries(
+            B2_IOS_DATABASE_FILES.map((name, index) => [
+              name,
+              (index === 0 ? 'f' : 'e').repeat(64),
+            ]),
+          ),
         });
       },
       async inspectCollectedDatabase({ databasePath, readOnly }) {
@@ -201,6 +219,10 @@ function createDependencies({ failAt = null } = {}) {
           synchronous: 2,
           busyTimeout: 5000,
           integrityCheck: 'ok',
+          databaseSha256: 'f'.repeat(64),
+          finalLogicalSnapshotSha256: '0'.repeat(64),
+          starterCampRows: 0,
+          monsterState: 'spelling-derived-child-owned',
         });
       },
     },
@@ -348,6 +370,20 @@ test('every subprocess has a bounded process-group timeout', async () => {
   assert.ok(['SIGTERM', 'SIGKILL'].includes(result.signal));
 });
 
+test('AbortSignal terminates the current subprocess before its timeout', async () => {
+  const controller = new AbortController();
+  const running = runB2IosSubprocess(
+    process.execPath,
+    ['-e', 'setInterval(() => {}, 1000)'],
+    { timeoutMs: 2_000, signal: controller.signal },
+  );
+  setTimeout(() => controller.abort(new Error('test abort')), 20);
+  const result = await running;
+  assert.equal(result.aborted, true);
+  assert.equal(result.abortReason.message, 'test abort');
+  assert.equal(result.timedOut, false);
+});
+
 test('manual visual attestation is explicit and bound to the exact screenshot SHA', () => {
   const screenshotSha256 = 'c'.repeat(64);
   const attestation = {
@@ -372,6 +408,50 @@ test('manual visual attestation is explicit and bound to the exact screenshot SH
       ),
     ({ code }) => code === 'b2_ios_manual_attestation_invalid',
   );
+});
+
+test('pending proof validation rejects nested unknown keys and local payload tampering', async () => {
+  const { dependencies } = createDependencies();
+  const proof = await runB2IosLifecycleProof(dependencies);
+  const screenshotBytes = Buffer.from('pending proof screenshot');
+  proof.screenshot.sha256 = createHash('sha256')
+    .update(screenshotBytes)
+    .digest('hex');
+  const pending = {
+    schemaVersion: 1,
+    testedApplicationCommit: '1'.repeat(40),
+    applicationFingerprint: '2'.repeat(64),
+    proof,
+  };
+  assert.deepEqual(
+    validateB2IosPendingProof(pending, {
+      expectedCommit: pending.testedApplicationCommit,
+      expectedFingerprint: pending.applicationFingerprint,
+      screenshotBytes,
+    }),
+    pending,
+  );
+  for (const mutate of [
+    (value) => { value.proof.screenshot.unknown = true; },
+    (value) => { value.proof.screenshot.manualVisualInspection = 'passed'; },
+    (value) => { value.proof.lifecycle.postRelaunchPid = value.proof.lifecycle.preKillPid; },
+    (value) => { value.proof.collected.observedFiles = ['ks2-spellingSQLite.db-wal']; },
+    (value) => { value.proof.metadata.learnerBDigest = '9'.repeat(64); },
+    (value) => { value.proof.database.databaseSha256 = '8'.repeat(64); },
+    (value) => { value.applicationFingerprint = '3'.repeat(64); },
+  ]) {
+    const changed = structuredClone(pending);
+    mutate(changed);
+    assert.throws(
+      () =>
+        validateB2IosPendingProof(changed, {
+          expectedCommit: pending.testedApplicationCommit,
+          expectedFingerprint: pending.applicationFingerprint,
+          screenshotBytes,
+        }),
+      ({ code }) => code === 'b2_ios_pending_proof_invalid',
+    );
+  }
 });
 
 test('final report fails before any self-attested manual visual claim', async () => {
@@ -609,23 +689,62 @@ test('boot failure is already inside cleanup and primary plus cleanup failures a
   );
 });
 
-test('signal-safe cleanup is idempotent and never shuts down a non-owned device', async () => {
+test('signal waits for blocked work to unwind before one owned cleanup and prevents later mutation', async () => {
   const signalSource = new EventEmitter();
-  const shutdowns = [];
+  const events = [];
+  let releaseWork;
+  let observeAbort;
+  let markWorkStarted;
+  const workReleased = new Promise((resolveRelease) => {
+    releaseWork = resolveRelease;
+  });
+  const abortObserved = new Promise((resolveAbort) => {
+    observeAbort = resolveAbort;
+  });
+  const workStarted = new Promise((resolveStarted) => {
+    markWorkStarted = resolveStarted;
+  });
   const interrupted = runWithB2IosOwnedCleanup({
     ownsDevice: true,
     udid: IOS_UDID,
-    work: () => new Promise(() => {}),
-    shutdown: async (udid) => shutdowns.push(udid),
+    work: async ({ signal }) => {
+      events.push('work-started');
+      markWorkStarted();
+      signal.addEventListener('abort', () => {
+        events.push('abort-observed');
+        observeAbort();
+      }, { once: true });
+      await workReleased;
+      events.push('work-unwound');
+      signal.throwIfAborted();
+      events.push('forbidden-mutation');
+    },
+    shutdown: async (udid) => events.push(`shutdown:${udid}`),
     signalSource,
   });
+  await workStarted;
   signalSource.emit('SIGTERM');
+  await abortObserved;
+  let settled = false;
+  interrupted.catch(() => { settled = true; });
+  await new Promise((resolveTurn) => setImmediate(resolveTurn));
+  assert.equal(settled, false);
+  assert.equal(events.some((event) => event.startsWith('shutdown:')), false);
+  releaseWork();
   await assert.rejects(
     interrupted,
     ({ code }) => code === 'b2_ios_signal_interrupted',
   );
-  assert.deepEqual(shutdowns, [IOS_UDID]);
+  assert.deepEqual(events, [
+    'work-started',
+    'abort-observed',
+    'work-unwound',
+    `shutdown:${IOS_UDID}`,
+  ]);
+  assert.equal(events.includes('forbidden-mutation'), false);
+});
 
+test('cleanup never shuts down a non-owned device', async () => {
   await runWithB2IosOwnedCleanup({
     ownsDevice: false,
     udid: 'foreign-udid',
@@ -633,6 +752,35 @@ test('signal-safe cleanup is idempotent and never shuts down a non-owned device'
     shutdown: async () => assert.fail('must not shut down a non-owned device'),
     signalSource: new EventEmitter(),
   });
+});
+
+test('signal remains the primary cause when owned cleanup also fails', async () => {
+  const signalSource = new EventEmitter();
+  let started;
+  const workStarted = new Promise((resolveStarted) => { started = resolveStarted; });
+  const interrupted = runWithB2IosOwnedCleanup({
+    ownsDevice: true,
+    udid: IOS_UDID,
+    work: async ({ signal }) => {
+      started();
+      await new Promise((resolveAbort) => {
+        signal.addEventListener('abort', resolveAbort, { once: true });
+      });
+      signal.throwIfAborted();
+    },
+    shutdown: async () => { throw new Error('cleanup failed'); },
+    signalSource,
+  });
+  await workStarted;
+  signalSource.emit('SIGINT');
+  await assert.rejects(
+    interrupted,
+    (error) =>
+      error instanceof AggregateError &&
+      error.code === 'b2_ios_signal_interrupted' &&
+      error.cause?.code === 'b2_ios_signal_interrupted' &&
+      error.errors[1].message === 'cleanup failed',
+  );
 });
 
 function successfulCommand(stdout = '') {

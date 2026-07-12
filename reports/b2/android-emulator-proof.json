@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "platform": "android-emulator",
-  "testedApplicationCommit": "0e571f8544dcf09fa24fd83ce30839101c95d458",
-  "applicationFingerprint": "4b4125b6cdc6c21ee19153fdbd6a4da6ac96081e682c517935862dccb3656d0f",
+  "testedApplicationCommit": "8381d0b1e1d0afc07fa748cf56d4f80d3f3c25f9",
+  "applicationFingerprint": "c54d92d93e30d364a8309d4bc734e4a415ebe159bd90ef71873b1e6ea97a3220",
   "identity": {
     "applicationId": "uk.eugnel.ks2spelling"
   },
@@ -43,8 +43,8 @@
       "pause",
       "resume"
     ],
-    "preKillPid": "2123",
-    "postRelaunchPid": "3549",
+    "preKillPid": "2037",
+    "postRelaunchPid": "3583",
     "differentPid": true
   },
   "proof": {
@@ -78,7 +78,7 @@
   "ui": {
     "diagnosticPhase": "complete",
     "machineStateSource": "uiautomator-hierarchy",
-    "screenshotSha256": "9267a7298930ad6cc1450a8a4bee56d822b8ed43cb2c7dca36b7b5eac8ddf25d",
+    "screenshotSha256": "b594d6408c6e4d05583877096f6742fd14c1020c08d9bfa204c66869f31c29ef",
     "manualVisualInspection": "passed"
   },
   "cleanup": {

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "platform": "ios-simulator",
-  "testedApplicationCommit": "0e571f8544dcf09fa24fd83ce30839101c95d458",
-  "applicationFingerprint": "4b4125b6cdc6c21ee19153fdbd6a4da6ac96081e682c517935862dccb3656d0f",
+  "testedApplicationCommit": "8381d0b1e1d0afc07fa748cf56d4f80d3f3c25f9",
+  "applicationFingerprint": "c54d92d93e30d364a8309d4bc734e4a415ebe159bd90ef71873b1e6ea97a3220",
   "identity": {
     "applicationId": "uk.eugnel.ks2spelling"
   },
@@ -43,8 +43,8 @@
       "pause",
       "resume"
     ],
-    "preKillPid": "64837",
-    "postRelaunchPid": "66383",
+    "preKillPid": "80519",
+    "postRelaunchPid": "81524",
     "differentPid": true
   },
   "proof": {
@@ -78,7 +78,7 @@
   "ui": {
     "diagnosticPhase": "complete",
     "machineStateSource": "durable-proof-metadata",
-    "screenshotSha256": "94f45c577f61de34459e0de2adadd8d6fa74feeb13e00006c89e0483a700ddcf",
+    "screenshotSha256": "2b95d8645eca0351c87ae9b44c4d087c24c6f9c0b3f68940a4db7f556b8f4aa0",
     "manualVisualInspection": "passed"
   },
   "cleanup": {

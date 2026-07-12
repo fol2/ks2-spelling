@@ -15,20 +15,20 @@
       "sha256": "8ca42ff4c6eef28b9861eae8749996a0c1e05aff5b784f789eadb817a638ab2a"
     }
   },
-  "testedApplicationCommit": "0e571f8544dcf09fa24fd83ce30839101c95d458",
-  "applicationFingerprint": "4b4125b6cdc6c21ee19153fdbd6a4da6ac96081e682c517935862dccb3656d0f",
+  "testedApplicationCommit": "8381d0b1e1d0afc07fa748cf56d4f80d3f3c25f9",
+  "applicationFingerprint": "c54d92d93e30d364a8309d4bc734e4a415ebe159bd90ef71873b1e6ea97a3220",
   "inputs": {
     "nativePluginBuild": {
       "path": "reports/b2/native-plugin-build.json",
-      "sha256": "69510ad652ff5d6540149e4b8525d75e9d818b980c2d9195c6090b14363475e9"
+      "sha256": "a72e95958e287be21f34588a167f12fd59058ab003dfe3f559b3ba244988a6f9"
     },
     "nativePluginAudit": {
       "path": "reports/b2/native-plugin-audit.json",
-      "sha256": "5abf4d0a83564de7af20c115571d496eca175c2ccb2f3bec0ca2938419a1d270"
+      "sha256": "6c09fcc78055a3ab7f693160da22eb84080e25ee3f389b1b79b2a831b63d3740"
     },
     "dependencyAudit": {
       "path": "reports/b2/dependency-audit.json",
-      "sha256": "3d94fbc75581e7161d4f354880674d0ffb4c1d59a6fecfdf2d32a7ffc4bf28f0"
+      "sha256": "bb3b572280d84beeca2ac4a892836e92fc847bf5cf67015c434f54b94ab085d6"
     },
     "packageLock": {
       "path": "package-lock.json",
@@ -88,7 +88,7 @@
       "generatedInputs": [
         {
           "path": "package.json",
-          "sha256": "b55627718881311afc907c47ef6f7dbb0d3d84aefaf2d16ea8ec4bf23c4fbb97"
+          "sha256": "22f110f953c7709299c6bde0770b95e434550f498e748ba8979a193582726f51"
         },
         {
           "path": "scripts/certify-android-dependencies.mjs",
@@ -145,21 +145,21 @@
     "ios": {
       "report": {
         "path": "reports/b2/ios-simulator-proof.json",
-        "sha256": "07fb84db59fc24e776d9a470b42e93a90951e324982693e3fe301f79c1f06de0"
+        "sha256": "1bd611b840b4601099a6c63a2b942b22b89afa5d7acab3f4fd43efd08104e015"
       },
       "screenshot": {
         "path": "reports/b2/ios-simulator-proof.png",
-        "sha256": "94f45c577f61de34459e0de2adadd8d6fa74feeb13e00006c89e0483a700ddcf"
+        "sha256": "2b95d8645eca0351c87ae9b44c4d087c24c6f9c0b3f68940a4db7f556b8f4aa0"
       }
     },
     "android": {
       "report": {
         "path": "reports/b2/android-emulator-proof.json",
-        "sha256": "815b3a74789d1d3a277daf9b5c0a43032607bc6290ee2cd575a909c8fd2c1650"
+        "sha256": "146b7718ca319917cb1278051cabf6d896cb75facf32f92d6955d65a20327a19"
       },
       "screenshot": {
         "path": "reports/b2/android-emulator-proof.png",
-        "sha256": "9267a7298930ad6cc1450a8a4bee56d822b8ed43cb2c7dca36b7b5eac8ddf25d"
+        "sha256": "b594d6408c6e4d05583877096f6742fd14c1020c08d9bfa204c66869f31c29ef"
       }
     },
     "canonicalLogicalSnapshotSha256": "5d01bc4a16f929ab2a79d9df7588eb1fbc93c821a964a43928f01d1e053157f7"

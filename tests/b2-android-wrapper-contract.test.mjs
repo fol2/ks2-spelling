@@ -151,6 +151,9 @@ function createDependencies({ failAt = null } = {}) {
       async pressHome() {
         return step('KEYCODE_HOME');
       },
+      async waitForApplicationBackgrounded() {
+        return step('activity-backgrounded');
+      },
       async relaunchForResume() {
         return step('am-start-resume');
       },
@@ -263,6 +266,7 @@ test('Android proof orders hierarchy phases, HOME, PID replacement, UI and run-a
     'hierarchy:Background test ready',
     'pid:101:present',
     'KEYCODE_HOME',
+    'activity-backgrounded',
     'am-start-resume',
     'hierarchy:Ready for relaunch',
     'pid:101:present',
@@ -556,6 +560,7 @@ test('hierarchy polling includes slow probe runtime in its wall-clock deadline',
         'B2 Android UI hierarchy timed out before the expected phase',
       );
       assert.deepEqual(error.diagnostic, {
+        expectedPhase: 'Background test ready',
         attempts: 1,
         lastValidHierarchy: {
           sha256: createHash('sha256')
@@ -594,6 +599,7 @@ test('hierarchy polling rejects an expected phase that completes after its deadl
     ({ code, diagnostic }) => {
       assert.equal(code, 'b2_android_hierarchy_timeout');
       assert.deepEqual(diagnostic, {
+        expectedPhase: 'Background test ready',
         attempts: 1,
         lastValidHierarchy: {
           sha256: createHash('sha256')
@@ -717,6 +723,7 @@ test('hierarchy wall-clock timeout reports only sanitised null-root evidence', a
     (error) => {
       assert.equal(error.code, 'b2_android_hierarchy_timeout');
       assert.deepEqual(error.diagnostic, {
+        expectedPhase: 'Background test ready',
         attempts: 3,
         lastValidHierarchy: null,
         lastTransientCode: 'b2_android_hierarchy_dump_not_ready',
@@ -1467,6 +1474,11 @@ test('production adapter executes exact AVD, fresh-install, HOME and force-stop 
     if (serialised.includes('pidof uk.eugnel.ks2spelling')) {
       return successfulCommand('101\n');
     }
+    if (serialised.includes('dumpsys activity activities')) {
+      return successfulCommand(
+        'mResumedActivity: ActivityRecord{abc u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t2}\n',
+      );
+    }
     return successfulCommand();
   };
   const dependencies = createB2AndroidProductionDependencies({
@@ -1489,6 +1501,7 @@ test('production adapter executes exact AVD, fresh-install, HOME and force-stop 
   });
   const first = await dependencies.freshInstallAndLaunch(build);
   await dependencies.pressHome();
+  await dependencies.waitForApplicationBackgrounded();
   await dependencies.relaunchForResume();
   await dependencies.forceStopApplication();
 
@@ -1518,7 +1531,47 @@ test('production adapter executes exact AVD, fresh-install, HOME and force-stop 
           '-s emulator-5580 shell am force-stop uk.eugnel.ks2spelling',
     ),
   );
+  assert.ok(
+    commands.some(
+      ([command, args]) =>
+        command === adb &&
+        args.join(' ') ===
+          '-s emulator-5580 shell dumpsys activity activities',
+    ),
+  );
   assert.ok(commands.every(([, , timeoutMs]) => Number.isSafeInteger(timeoutMs)));
+});
+
+test('production adapter waits until HOME has actually backgrounded the application', async () => {
+  const observedActivities = [
+    'mResumedActivity: ActivityRecord{abc u0 uk.eugnel.ks2spelling/.MainActivity t42}\n',
+    'mResumedActivity: ActivityRecord{def u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t2}\n',
+  ];
+  const sleeps = [];
+  let probes = 0;
+  const dependencies = createB2AndroidProductionDependencies({
+    run: async (_command, args) => {
+      if (args.join(' ').includes('dumpsys activity activities')) {
+        const result = successfulCommand(observedActivities[Math.min(probes, 1)]);
+        probes += 1;
+        return result;
+      }
+      return successfulCommand();
+    },
+    fs: productionTestFs(),
+    sleep: async (milliseconds) => sleeps.push(milliseconds),
+    signalSource: new EventEmitter(),
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+  });
+
+  await dependencies.waitForApplicationBackgrounded();
+
+  assert.equal(probes, 2);
+  assert.deepEqual(sleeps, [100]);
 });
 
 test('production adapter rejects a serial collision and required-runner failures', async () => {

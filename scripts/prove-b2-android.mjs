@@ -893,6 +893,7 @@ export async function waitForB2AndroidHierarchyPhase({
     'B2 Android UI hierarchy timed out before the expected phase',
   );
   error.diagnostic = Object.freeze({
+    expectedPhase: phase,
     attempts: completedAttempts,
     lastValidHierarchy,
     lastTransientCode,
@@ -1238,6 +1239,7 @@ export async function runB2AndroidLifecycleProof(dependencies) {
     'freshInstallAndLaunch',
     'waitForHierarchyPhase',
     'pressHome',
+    'waitForApplicationBackgrounded',
     'relaunchForResume',
     'assertProcessPresent',
     'forceStopApplication',
@@ -1282,6 +1284,7 @@ export async function runB2AndroidLifecycleProof(dependencies) {
       );
       await step(() => dependencies.assertProcessPresent(preKillPid, { signal }));
       await step(() => dependencies.pressHome({ signal }));
+      await step(() => dependencies.waitForApplicationBackgrounded({ signal }));
       await step(() => dependencies.relaunchForResume({ signal }));
       const ready = await step(() =>
         dependencies.waitForHierarchyPhase('Ready for relaunch', { signal }),
@@ -1786,6 +1789,49 @@ export function createB2AndroidProductionDependencies({
     },
     async pressHome({ signal } = {}) {
       await required(adb, shellArgs('input', 'keyevent', 'KEYCODE_HOME'), { signal });
+    },
+    async waitForApplicationBackgrounded({ signal } = {}) {
+      for (let attempt = 0; attempt < PROCESS_POLL_ATTEMPTS; attempt += 1) {
+        throwIfAborted(signal);
+        const result = await probe(
+          adb,
+          shellArgs('dumpsys', 'activity', 'activities'),
+          { signal, timeoutMs: 5_000 },
+        );
+        throwIfAborted(signal);
+        if (
+          result?.exitCode !== 0 ||
+          result.spawnError ||
+          result.timedOut ||
+          result.signal ||
+          result.interruptedSignal ||
+          result.aborted
+        ) {
+          throw proofError(
+            'b2_android_background_probe_failed',
+            'B2 Android activity background probe failed',
+          );
+        }
+        const resumedActivities = [
+          ...b2AndroidMachineText(result).matchAll(
+            /(?:mResumedActivity:\s+|topResumedActivity=)ActivityRecord\{[^\n]*\s+u\d+\s+([^\s}]+)\s+t\d+\}/g,
+          ),
+        ].map((match) => match[1]);
+        const uniqueActivities = [...new Set(resumedActivities)];
+        if (
+          uniqueActivities.length === 1 &&
+          uniqueActivities[0] !== B2_ANDROID_DEVICE.activity
+        ) {
+          return Object.freeze({ resumedActivity: uniqueActivities[0] });
+        }
+        if (attempt + 1 < PROCESS_POLL_ATTEMPTS) {
+          await sleep(PROCESS_POLL_INTERVAL_MS, signal);
+        }
+      }
+      throw proofError(
+        'b2_android_background_timeout',
+        'B2 Android application did not leave the foreground after HOME',
+      );
     },
     async relaunchForResume({ signal } = {}) {
       await required(

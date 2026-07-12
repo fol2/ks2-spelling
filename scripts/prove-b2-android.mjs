@@ -1222,6 +1222,14 @@ function shellArgs(...args) {
   return ['-s', B2_ANDROID_DEVICE.serial, 'shell', ...args];
 }
 
+export function b2AndroidRemoteShellArgs(script) {
+  if (typeof script !== 'string' || script.length === 0) {
+    throw new TypeError('B2 Android remote shell script must be non-empty text.');
+  }
+  const quotedScript = `'${script.replaceAll("'", `'"'"'`)}'`;
+  return ['sh', '-c', quotedScript];
+}
+
 export function createB2AndroidProductionDependencies({
   run = runB2AndroidSubprocess,
   fs = DEFAULT_FS,
@@ -1267,9 +1275,9 @@ export function createB2AndroidProductionDependencies({
     const collision = await required(
       adb,
       shellArgs(
-        'sh',
-        '-c',
-        `if [ -e ${hierarchyRemotePath} ]; then echo exists; else echo absent; fi`,
+        ...b2AndroidRemoteShellArgs(
+          `if [ -e ${hierarchyRemotePath} ]; then echo exists; else echo absent; fi`,
+        ),
       ),
       { signal, timeoutMs: 30_000 },
     );
@@ -1635,9 +1643,9 @@ export function createB2AndroidProductionDependencies({
         },
         async assertTemporaryDirectoryAbsent() {
           const result = await runAs(
-            'sh',
-            '-c',
-            `if [ -e ${remoteTemporaryDirectory} ]; then echo exists; else echo absent; fi`,
+            ...b2AndroidRemoteShellArgs(
+              `if [ -e ${remoteTemporaryDirectory} ]; then echo exists; else echo absent; fi`,
+            ),
           );
           if (result.stdout.trim() !== 'absent') {
             throw proofError(
@@ -1648,9 +1656,9 @@ export function createB2AndroidProductionDependencies({
         },
         async createTemporaryDirectory() {
           await runAsCleanup(
-            'sh',
-            '-c',
-            `mkdir ${remoteTemporaryDirectory} && printf ${runId} > ${remoteTemporaryDirectory}/.owner`,
+            ...b2AndroidRemoteShellArgs(
+              `mkdir ${remoteTemporaryDirectory} && printf ${runId} > ${remoteTemporaryDirectory}/.owner`,
+            ),
           );
         },
         async copyToTemporaryDirectory(filename) {
@@ -1684,9 +1692,9 @@ export function createB2AndroidProductionDependencies({
         },
         async removeTemporaryDirectory() {
           await runAsCleanup(
-            'sh',
-            '-c',
-            `if [ ! -e ${remoteTemporaryDirectory} ]; then exit 0; elif [ "$(cat ${remoteTemporaryDirectory}/.owner 2>/dev/null)" = "${runId}" ]; then rm -rf ${remoteTemporaryDirectory}; else echo foreign-owned-temp >&2; exit 42; fi`,
+            ...b2AndroidRemoteShellArgs(
+              `if [ ! -e ${remoteTemporaryDirectory} ]; then exit 0; elif [ "$(cat ${remoteTemporaryDirectory}/.owner 2>/dev/null)" = "${runId}" ]; then rm -rf ${remoteTemporaryDirectory}; else echo foreign-owned-temp >&2; exit 42; fi`,
+            ),
           );
         },
         fs,
@@ -2019,7 +2027,7 @@ async function assertCleanCheckpoint(required) {
   return testedApplicationCommit;
 }
 
-async function clearAndroidProofOutputs(fs = DEFAULT_FS) {
+export async function clearB2AndroidProofOutputs(fs = DEFAULT_FS) {
   await Promise.all([
     fs.rm(REPORT_PATH, { force: true }),
     fs.rm(SCREENSHOT_PATH, { force: true }),
@@ -2152,7 +2160,7 @@ export async function writeB2AndroidValidatedReport({
 }
 
 async function capturePendingProof() {
-  await clearAndroidProofOutputs();
+  await clearB2AndroidProofOutputs();
   const required = createRequiredRunner();
   try {
     const testedApplicationCommit = await assertCleanCheckpoint(required);
@@ -2191,7 +2199,7 @@ async function capturePendingProof() {
     );
     return EXIT_CODES.stateMismatch;
   } catch (error) {
-    await clearAndroidProofOutputs();
+    await clearB2AndroidProofOutputs();
     throw error;
   }
 }

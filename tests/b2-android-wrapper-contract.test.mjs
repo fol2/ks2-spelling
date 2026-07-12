@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -19,6 +20,7 @@ import {
   B2_ANDROID_DATABASE_FILES,
   assertB2AndroidApplicationStatusClean,
   assertB2AndroidHierarchyPhase,
+  b2AndroidRemoteShellArgs,
   collectB2AndroidDatabaseSet,
   createB2AndroidProductionDependencies,
   inspectB2AndroidHashBoundDatabaseSet,
@@ -1054,6 +1056,120 @@ test('production source uses exact ownership/run-as and never roots or self-atte
   assert.doesNotMatch(source, /\badb\s+root\b|\bchmod\b|manualVisualInspection:\s*'passed'/);
 });
 
+async function executeJoinedAndroidRemoteCommand(args, options) {
+  return runB2AndroidSubprocess('/bin/sh', ['-c', args.join(' ')], {
+    ...options,
+    timeoutMs: 2_000,
+  });
+}
+
+test('remote sh scripts survive adb argv joining and preserve path ownership', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'b2-android-remote-shell-'));
+  const bin = join(directory, 'bin');
+  const hierarchyPath = 'hierarchy.xml';
+  const runId = 'safe-runid-1234';
+  const temporaryDirectory = `files/.b2-proof-export-${runId}`;
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const execute = (args) => executeJoinedAndroidRemoteCommand(args, {
+    cwd: directory,
+    env,
+  });
+  const hierarchyProbe = `if [ -e ${hierarchyPath} ]; then echo exists; else echo absent; fi`;
+  const temporaryProbe = `if [ -e ${temporaryDirectory} ]; then echo exists; else echo absent; fi`;
+  const createTemporary = `mkdir ${temporaryDirectory} && printf ${runId} > ${temporaryDirectory}/.owner`;
+  const cleanupTemporary = `if [ ! -e ${temporaryDirectory} ]; then exit 0; elif [ "$(cat ${temporaryDirectory}/.owner 2>/dev/null)" = "${runId}" ]; then rm -rf ${temporaryDirectory}; else echo foreign-owned-temp >&2; exit 42; fi`;
+  const runAs = (script) => [
+    'run-as',
+    'uk.eugnel.ks2spelling',
+    ...b2AndroidRemoteShellArgs(script),
+  ];
+  try {
+    await mkdir(bin, { recursive: true });
+    await mkdir(join(directory, 'files'), { recursive: true });
+    const fakeRunAs = join(bin, 'run-as');
+    await writeFile(
+      fakeRunAs,
+      '#!/bin/sh\napplication=$1\nshift\n[ "$application" = uk.eugnel.ks2spelling ] || exit 64\nexec "$@"\n',
+    );
+    await chmod(fakeRunAs, 0o755);
+
+    let result = await execute(b2AndroidRemoteShellArgs(hierarchyProbe));
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.stdout, 'absent\n');
+    await writeFile(join(directory, hierarchyPath), 'owned hierarchy');
+    result = await execute(b2AndroidRemoteShellArgs(hierarchyProbe));
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.stdout, 'exists\n');
+
+    result = await execute(runAs(temporaryProbe));
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.stdout, 'absent\n');
+    result = await execute(runAs(createTemporary));
+    assert.equal(result.exitCode, 0);
+    assert.equal(await readFile(join(directory, temporaryDirectory, '.owner'), 'utf8'), runId);
+    result = await execute(runAs(cleanupTemporary));
+    assert.equal(result.exitCode, 0);
+    await assert.rejects(
+      readdir(join(directory, temporaryDirectory)),
+      ({ code }) => code === 'ENOENT',
+    );
+
+    await mkdir(join(directory, temporaryDirectory), { recursive: true });
+    await writeFile(join(directory, temporaryDirectory, '.owner'), 'foreign-runid');
+    result = await execute(runAs(cleanupTemporary));
+    assert.equal(result.exitCode, 42);
+    assert.match(result.stderr, /foreign-owned-temp/);
+    assert.equal(
+      await readFile(join(directory, temporaryDirectory, '.owner'), 'utf8'),
+      'foreign-runid',
+    );
+
+    result = await execute(
+      b2AndroidRemoteShellArgs(`printf '%s' "it's intact" > quoted.txt`),
+    );
+    assert.equal(result.exitCode, 0);
+    assert.equal(await readFile(join(directory, 'quoted.txt'), 'utf8'), "it's intact");
+    result = await execute(
+      b2AndroidRemoteShellArgs(
+        `printf '%s' "safe'; touch injected; #" > untrusted-looking.txt`,
+      ),
+    );
+    assert.equal(result.exitCode, 0);
+    assert.equal(
+      await readFile(join(directory, 'untrusted-looking.txt'), 'utf8'),
+      "safe'; touch injected; #",
+    );
+    await assert.rejects(
+      readFile(join(directory, 'injected')),
+      ({ code }) => code === 'ENOENT',
+    );
+
+    const source = await readFile(join(ROOT, 'scripts/prove-b2-android.mjs'), 'utf8');
+    assert.doesNotMatch(source, /shellArgs\(\s*'sh',\s*'-c'/);
+    assert.doesNotMatch(source, /runAs(?:Cleanup)?\(\s*'sh',\s*'-c'/);
+    assert.equal((source.match(/['"]-c['"]/g) ?? []).length, 1);
+    assert.match(source, /return \['sh', '-c', quotedScript\];/);
+    assert.throws(
+      () => createB2AndroidProductionDependencies({
+        fs: productionTestFs(),
+        env: {
+          HOME: '/test-home',
+          JAVA_HOME: '/java',
+          ANDROID_HOME: '/sdk',
+        },
+        runId: "safe1234'; touch injected; #",
+      }),
+      /safe unique token/,
+    );
+    await assert.rejects(
+      readFile(join(directory, 'injected')),
+      ({ code }) => code === 'ENOENT',
+    );
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 function productionTestFs() {
   return {
     existsSync: () => true,
@@ -1262,7 +1378,7 @@ test('production run-as uses unique paths, pulls every sidecar and cleans an int
       if (value.includes('if [ -e files/.b2-proof-export-')) {
         return successfulCommand('absent\n');
       }
-      if (value.includes(' mkdir files/.b2-proof-export-interrupted-proof-1234')) {
+      if (value.includes('mkdir files/.b2-proof-export-interrupted-proof-1234')) {
         controller.abort(new Error('interrupt after remote mkdir'));
       }
       return successfulCommand();

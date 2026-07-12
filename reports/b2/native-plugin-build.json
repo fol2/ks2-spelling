@@ -290,13 +290,13 @@
     "outputInventory": [
       {
         "path": ".native-build/android/build/app/outputs/apk/debug/app-debug.apk",
-        "bytes": 25303430,
-        "sha256": "66bc739530a468dacb92b894f79dcf4a2a293ddf4ba8b86bea93ab94bb5c2c93"
+        "bytes": 25303432,
+        "sha256": "79944947318f9d4952fef5fe7de59669de0434d27074ab08723d4e74da1bd299"
       },
       {
         "path": ".native-build/android/build/app/outputs/apk/release/app-release-unsigned.apk",
-        "bytes": 23893323,
-        "sha256": "f9de2d08cadabf967d8065a39c425caac520904a162efa342b0f4707465e112f"
+        "bytes": 23893327,
+        "sha256": "1834058656e699b2adf93aba484ab530b91ebf5cb1af6ce7616b863cd340a2a4"
       }
     ]
   },

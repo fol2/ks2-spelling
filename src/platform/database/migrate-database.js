@@ -25,7 +25,7 @@ const CONFIGURATION_PRAGMAS = Object.freeze([
   }),
   Object.freeze({
     setSql: 'PRAGMA busy_timeout = 5000',
-    setOperation: 'execute',
+    setOperation: 'query',
     readSql: 'PRAGMA busy_timeout',
     property: 'timeout',
     expected: 5000,

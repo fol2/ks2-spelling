@@ -35,6 +35,7 @@ async function readSchema(connection) {
 
 const CONFIGURATION_RESULTS = Object.freeze({
   'PRAGMA journal_mode = WAL': [{ journal_mode: 'wal' }],
+  'PRAGMA busy_timeout = 5000': [{ timeout: 5000 }],
   'PRAGMA foreign_keys': [{ foreign_keys: 1 }],
   'PRAGMA journal_mode': [{ journal_mode: 'wal' }],
   'PRAGMA synchronous': [{ synchronous: 2 }],
@@ -137,7 +138,7 @@ test('fresh migration creates only the eight exact V1 tables and PRAGMAs', async
   });
 });
 
-test('configuration queries the row-returning WAL assignment before exact readback', async () => {
+test('configuration queries Android row-returning PRAGMA assignments before exact readback', async () => {
   const { configureAndMigrateDatabase } = await import(
     '../src/platform/database/migrate-database.js'
   );
@@ -154,7 +155,10 @@ test('configuration queries the row-returning WAL assignment before exact readba
       },
       async execute(sql, values) {
         calls.push(['execute', sql]);
-        if (sql === 'PRAGMA journal_mode = WAL') {
+        if (
+          sql === 'PRAGMA journal_mode = WAL' ||
+          sql === 'PRAGMA busy_timeout = 5000'
+        ) {
           throw new Error(
             'Queries can be performed using SQLiteDatabase query or rawQuery methods only.',
           );
@@ -186,7 +190,7 @@ test('configuration queries the row-returning WAL assignment before exact readba
       ['execute', 'PRAGMA foreign_keys = ON'],
       ['query', 'PRAGMA journal_mode = WAL'],
       ['execute', 'PRAGMA synchronous = FULL'],
-      ['execute', 'PRAGMA busy_timeout = 5000'],
+      ['query', 'PRAGMA busy_timeout = 5000'],
       ['query', 'PRAGMA foreign_keys'],
       ['query', 'PRAGMA journal_mode'],
       ['query', 'PRAGMA synchronous'],
@@ -273,29 +277,48 @@ test('configuration fails closed when a native port ignores or misreports a PRAG
   }
 });
 
-test('configuration rejects malformed row-returning WAL assignment evidence', async () => {
+test('configuration rejects malformed row-returning Android PRAGMA assignment evidence', async () => {
   const { configureAndMigrateDatabase } = await import(
     '../src/platform/database/migrate-database.js'
   );
-  const candidates = [
-    [],
-    [{ journal_mode: 'delete' }],
-    [{ journal_mode: 'wal', extra: true }],
-    { journal_mode: 'wal' },
-  ];
-
-  for (const candidate of candidates) {
-    const probe = createConfigurationProbeConnection({
-      'PRAGMA journal_mode = WAL': candidate,
-    });
-    await assert.rejects(
-      configureAndMigrateDatabase(probe.connection),
-      /sqlite_configuration_invalid/,
-    );
-    assert.deepEqual(probe.calls.slice(0, 2), [
-      ['execute', 'PRAGMA foreign_keys = ON'],
-      ['query', 'PRAGMA journal_mode = WAL'],
-    ]);
+  for (const { sql, candidates, expectedPrefix } of [
+    {
+      sql: 'PRAGMA journal_mode = WAL',
+      candidates: [
+        [],
+        [{ journal_mode: 'delete' }],
+        [{ journal_mode: 'wal', extra: true }],
+        { journal_mode: 'wal' },
+      ],
+      expectedPrefix: [
+        ['execute', 'PRAGMA foreign_keys = ON'],
+        ['query', 'PRAGMA journal_mode = WAL'],
+      ],
+    },
+    {
+      sql: 'PRAGMA busy_timeout = 5000',
+      candidates: [
+        [],
+        [{ timeout: 0 }],
+        [{ timeout: 5000, extra: true }],
+        { timeout: 5000 },
+      ],
+      expectedPrefix: [
+        ['execute', 'PRAGMA foreign_keys = ON'],
+        ['query', 'PRAGMA journal_mode = WAL'],
+        ['execute', 'PRAGMA synchronous = FULL'],
+        ['query', 'PRAGMA busy_timeout = 5000'],
+      ],
+    },
+  ]) {
+    for (const candidate of candidates) {
+      const probe = createConfigurationProbeConnection({ [sql]: candidate });
+      await assert.rejects(
+        configureAndMigrateDatabase(probe.connection),
+        /sqlite_configuration_invalid/,
+      );
+      assert.deepEqual(probe.calls.slice(0, expectedPrefix.length), expectedPrefix);
+    }
   }
 });
 

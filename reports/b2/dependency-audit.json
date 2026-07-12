@@ -4,8 +4,8 @@
   "generatedFrom": {
     "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "spmResolvedVersion": 3,
-    "nativePluginBuildSha256": "7b113356cc7c6d64fd8e60fbcbdec44c27ac3b3a953ce29a489585fc9860e4f8",
-    "webViewBundleEvidenceSha256": "b94d183b96064d71fc132c0b918913cc7a64676dfb1b61b02156a294011040b4"
+    "nativePluginBuildSha256": "09b6cb832bb19c9b2bcd3f6873d03e9ffede58021ac3a3d371bd91732b65d780",
+    "webViewBundleEvidenceSha256": "d5f586b78f996903958172fc8907f51f40b5bffb9bda6338d6b31c5bfae34a8d"
   },
   "npm": {
     "lockfileVersion": 3,
@@ -220,7 +220,7 @@
           "id": "src/platform/database/migrate-database.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "50631943a6cd69ff1e9a582030cb15ec229ba657750a7635b4a248d8f01dab19"
+          "sha256": "62ec3bdc89fdf3ecc4cf9395e7fda70cb7e156fb457af34f881858a1e5349611"
         },
         {
           "id": "src/platform/database/schema-v1.js",
@@ -417,9 +417,9 @@
       ],
       "outputInventory": [
         {
-          "fileName": "assets/index-CCGixNva.js",
+          "fileName": "assets/index-BAqUs9Bd.js",
           "kind": "chunk",
-          "sha256": "0690e59f6bd1db9d4cda75d8088e0e11091d130872e91a36c132ebf2257654a4"
+          "sha256": "007f8933226b68384fba93987087cec10b96a8ddfa5cdf5cc291e7586b002fdf"
         },
         {
           "fileName": "assets/index-D-a1p2oZ.css",
@@ -427,22 +427,22 @@
           "sha256": "d165867cad3f680323a8562a7fc72d4d12ab84f28a3d6bf0ee2acc8cfd45855c"
         },
         {
-          "fileName": "assets/web-BsaDzJyz.js",
+          "fileName": "assets/web-CQ_uvqHy.js",
           "kind": "chunk",
-          "sha256": "a5c925604d67e1bab995ccaa9543e6bae59db7414369c6f51c04fb5ad4dfdecf"
+          "sha256": "a74a5478ecb805669e9ff5e4d817acb31859f9fb539a9d0a4df5030cee2405ba"
         },
         {
-          "fileName": "assets/web-C_VTFpMp.js",
+          "fileName": "assets/web-D-fRUkxn.js",
           "kind": "chunk",
-          "sha256": "929b03cb3cd4e7b45089a2cc091bf23c62c8aee12bfe226d0cd0a486b91d9f29"
+          "sha256": "f9c8861a01696f94efaa95fb5a78c26bdb0032d7695589704ab86ebf86d1b614"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "4118a24ffc20528f62f1ac778cd0d1f48de5a6c8146a9cf1107ef3e51aca170f"
+          "sha256": "7718658242221e0314d3b8c416f41b2b455d57faa27f592bc22c28ee598efb35"
         }
       ],
-      "evidenceSha256": "b94d183b96064d71fc132c0b918913cc7a64676dfb1b61b02156a294011040b4"
+      "evidenceSha256": "d5f586b78f996903958172fc8907f51f40b5bffb9bda6338d6b31c5bfae34a8d"
     },
     "allPackages": [
       {

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "nativePluginBuildSha256": "f5f959e46e0ce6fb73b1cfd03a8675f3fc3ea37a10b97cbf4c2e00d8d03ec0c6",
-  "dependencyAuditSha256": "33e9f900fbff8f458fe5c6d894b1b30064cce680b09c611dad091ca8c05c4395",
+  "nativePluginBuildSha256": "7b113356cc7c6d64fd8e60fbcbdec44c27ac3b3a953ce29a489585fc9860e4f8",
+  "dependencyAuditSha256": "d34b585e7a480689ae3330f91ed7906e857e357225497a1f859f491eec6a559a",
   "sqliteMode": "no-encryption",
   "webFallbackInitialised": false,
   "androidPackagedPermissions": [],
@@ -62,7 +62,7 @@
       ]
     }
   ],
-  "webViewBundleEvidenceSha256": "7b79b404dffb0dff11f7bd8286a8deb97eaf5201120236f31ea824ecd417e38a",
+  "webViewBundleEvidenceSha256": "b94d183b96064d71fc132c0b918913cc7a64676dfb1b61b02156a294011040b4",
   "androidBackupEnabled": false,
   "androidDataExtraction": "all-domains-excluded-until-c2",
   "androidBackupRulesSha256": "0d9990aea651376c460947c4b349b48c6dea1babfb268189732de71511d2b7e0",

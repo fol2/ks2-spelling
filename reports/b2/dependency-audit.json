@@ -4,8 +4,8 @@
   "generatedFrom": {
     "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "spmResolvedVersion": 3,
-    "nativePluginBuildSha256": "f5f959e46e0ce6fb73b1cfd03a8675f3fc3ea37a10b97cbf4c2e00d8d03ec0c6",
-    "webViewBundleEvidenceSha256": "7b79b404dffb0dff11f7bd8286a8deb97eaf5201120236f31ea824ecd417e38a"
+    "nativePluginBuildSha256": "7b113356cc7c6d64fd8e60fbcbdec44c27ac3b3a953ce29a489585fc9860e4f8",
+    "webViewBundleEvidenceSha256": "b94d183b96064d71fc132c0b918913cc7a64676dfb1b61b02156a294011040b4"
   },
   "npm": {
     "lockfileVersion": 3,
@@ -220,7 +220,7 @@
           "id": "src/platform/database/migrate-database.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "00029430d4df286ef37bfa1841ca5d85bc5ccd2057cb9e8713dce618e5902c59"
+          "sha256": "50631943a6cd69ff1e9a582030cb15ec229ba657750a7635b4a248d8f01dab19"
         },
         {
           "id": "src/platform/database/schema-v1.js",
@@ -417,32 +417,32 @@
       ],
       "outputInventory": [
         {
+          "fileName": "assets/index-CCGixNva.js",
+          "kind": "chunk",
+          "sha256": "0690e59f6bd1db9d4cda75d8088e0e11091d130872e91a36c132ebf2257654a4"
+        },
+        {
           "fileName": "assets/index-D-a1p2oZ.css",
           "kind": "asset",
           "sha256": "d165867cad3f680323a8562a7fc72d4d12ab84f28a3d6bf0ee2acc8cfd45855c"
         },
         {
-          "fileName": "assets/index-DNS8zXb1.js",
+          "fileName": "assets/web-BsaDzJyz.js",
           "kind": "chunk",
-          "sha256": "295d3af531ef78539bf6340b5391b1615f2cec265feeebcbc9b4334a17d3108b"
+          "sha256": "a5c925604d67e1bab995ccaa9543e6bae59db7414369c6f51c04fb5ad4dfdecf"
         },
         {
-          "fileName": "assets/web-CH9Uxnp9.js",
+          "fileName": "assets/web-C_VTFpMp.js",
           "kind": "chunk",
-          "sha256": "73f6efb97e698a1b92c68fd4275a3b9bbdb1ae638e614415e5fc09763b340578"
-        },
-        {
-          "fileName": "assets/web-DbMfG-jN.js",
-          "kind": "chunk",
-          "sha256": "579a8fdba99db12279f8850fb507d99d46be19c5a3c5445b766d05a3b214998a"
+          "sha256": "929b03cb3cd4e7b45089a2cc091bf23c62c8aee12bfe226d0cd0a486b91d9f29"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "5183bc4ee4ba203bdd338f91a25fffb6dc447e2ce4a2779aadf8bb0077001501"
+          "sha256": "4118a24ffc20528f62f1ac778cd0d1f48de5a6c8146a9cf1107ef3e51aca170f"
         }
       ],
-      "evidenceSha256": "7b79b404dffb0dff11f7bd8286a8deb97eaf5201120236f31ea824ecd417e38a"
+      "evidenceSha256": "b94d183b96064d71fc132c0b918913cc7a64676dfb1b61b02156a294011040b4"
     },
     "allPackages": [
       {

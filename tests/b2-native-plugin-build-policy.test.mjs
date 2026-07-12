@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { readFile, readdir } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
@@ -33,6 +35,22 @@ async function readJson(path) {
 
 async function sha256(path) {
   return createHash('sha256').update(await readFile(join(ROOT, path))).digest('hex');
+}
+
+function sha256FrozenB2(path) {
+  return createHash('sha256')
+    .update(
+      execFileSync(
+        'git',
+        [
+          'cat-file',
+          'blob',
+          `39ef90a5a33efb41368272c4c6d4d002f04658b3:${path}`,
+        ],
+        { cwd: ROOT },
+      ),
+    )
+    .digest('hex');
 }
 
 function assertAllDomainExclusions(xml, domains) {
@@ -145,9 +163,70 @@ test('iOS adds no usage-description key or app entitlement', async () => {
 test('native build report proves the B2 compile and packaged policy surface', async () => {
   assert.ok(existsSync(join(ROOT, 'reports/b2/native-plugin-build.json')));
   const report = await readJson('reports/b2/native-plugin-build.json');
-  const { assertB2NativePluginReportCurrent, B2_NATIVE_COMMITTED_INPUTS } =
-    await import('../scripts/build-b2-native-plugin-report.mjs');
+  const {
+    assertB2NativePluginReportCurrent,
+    B2_NATIVE_COMMITTED_INPUTS,
+  } = await import('../scripts/build-b2-native-plugin-report.mjs');
+  const { assertB2PackageTransition, verifyB3PackageTransitionAuthority } =
+    await import('../scripts/lib/b3-package-transition-authority.mjs');
+  const transitionAuthority = await verifyB3PackageTransitionAuthority({ root: ROOT });
+  const recordedPackageJson = report.committedInputs.find(
+    ({ path }) => path === 'package.json',
+  );
+  assert.notEqual(
+    recordedPackageJson.sha256,
+    await sha256('package.json'),
+    'B2 verification must remain bound to historical package bytes as B3 scripts evolve',
+  );
+  const frozenPackageJson = JSON.parse(
+    execFileSync(
+      'git',
+      [
+        'cat-file',
+        'blob',
+        '39ef90a5a33efb41368272c4c6d4d002f04658b3:package.json',
+      ],
+      { cwd: ROOT, encoding: 'utf8' },
+    ),
+  );
+  const currentPackageJson = await readJson('package.json');
+  assert.doesNotThrow(() =>
+    assertB2PackageTransition(frozenPackageJson, currentPackageJson, transitionAuthority),
+  );
+  for (const mutate of [
+    (value) => {
+      value.version = '9.9.9';
+    },
+    (value) => {
+      value.dependencies.react = '0.0.0';
+    },
+    (value) => {
+      value.scripts['unexpected:b3-command'] = 'node unexpected.mjs';
+    },
+  ]) {
+    const candidate = structuredClone(currentPackageJson);
+    mutate(candidate);
+    assert.throws(
+      () => assertB2PackageTransition(frozenPackageJson, candidate, transitionAuthority),
+      ({ code }) => code === 'b3_package_transition_invalid',
+    );
+  }
   await assert.doesNotReject(() => assertB2NativePluginReportCurrent(report));
+  await assert.rejects(
+    () =>
+      assertB2NativePluginReportCurrent(
+        {
+          ...report,
+          committedInputs: report.committedInputs.map((entry) =>
+            entry.path === 'package.json'
+              ? { ...entry, sha256: createHash('sha256').update('B3 HEAD bytes').digest('hex') }
+              : entry,
+          ),
+        },
+        { verifyLocalOutputs: false },
+      ),
+    ({ code }) => code === 'b2_native_plugin_report_invalid',
+  );
   await assert.rejects(
     () =>
       assertB2NativePluginReportCurrent(
@@ -230,7 +309,7 @@ test('native build report proves the B2 compile and packaged policy surface', as
     B2_NATIVE_COMMITTED_INPUTS,
   );
   for (const entry of report.committedInputs) {
-    assert.equal(entry.sha256, await sha256(entry.path));
+    assert.equal(entry.sha256, sha256FrozenB2(entry.path));
   }
   assert.equal(report.android.dependencyClosure.componentCount, 314);
   assert.equal(report.android.dependencyClosure.scopeMembershipCount, 5452);
@@ -268,4 +347,80 @@ test('native build report proves the B2 compile and packaged policy surface', as
   assert.equal(report.approval, 'build-proof-only');
   assert.equal(report.finalPrivacyApproval, false);
   assert.equal(report.finalExportApproval, false);
+});
+
+test('B2 report checker uses only immutable report bytes and frozen committed-input blobs', async (t) => {
+  const fixture = await mkdtemp(join(tmpdir(), 'ks2-spelling-b2-report-check-'));
+  t.after(() => rm(fixture, { recursive: true, force: true }));
+  const reportBytes = await readFile(join(ROOT, 'reports/b2/native-plugin-build.json'));
+  const report = JSON.parse(reportBytes.toString('utf8'));
+  const {
+    assertB2NativePluginReportCurrent,
+    B2_NATIVE_COMMITTED_INPUTS,
+  } = await import('../scripts/build-b2-native-plugin-report.mjs');
+  const reportPath = join(fixture, 'reports/b2/native-plugin-build.json');
+  await mkdir(dirname(reportPath), { recursive: true });
+  await writeFile(reportPath, reportBytes);
+  for (const path of B2_NATIVE_COMMITTED_INPUTS) {
+    const currentPath = join(fixture, path);
+    await mkdir(dirname(currentPath), { recursive: true });
+    await writeFile(currentPath, Buffer.from(`future B3 bytes for ${path}\n`));
+  }
+  const reads = [];
+  const frozenReader = async (path) => {
+    reads.push(path);
+    return execFileSync(
+      'git',
+      ['cat-file', 'blob', `39ef90a5a33efb41368272c4c6d4d002f04658b3:${path}`],
+      { cwd: ROOT },
+    );
+  };
+  await assert.doesNotReject(() =>
+    assertB2NativePluginReportCurrent(report, { root: fixture, frozenReader }),
+  );
+  assert.deepEqual(reads, B2_NATIVE_COMMITTED_INPUTS);
+
+  await writeFile(reportPath, Buffer.concat([reportBytes, Buffer.from('\n')]));
+  await assert.rejects(
+    () => assertB2NativePluginReportCurrent(report, { root: fixture, frozenReader }),
+    ({ code }) => code === 'b2_native_plugin_report_invalid',
+  );
+  await writeFile(reportPath, reportBytes);
+  await assert.rejects(
+    () =>
+      assertB2NativePluginReportCurrent(report, {
+        root: fixture,
+        frozenReader: async (path) =>
+          path === B2_NATIVE_COMMITTED_INPUTS[0]
+            ? Buffer.from('mutated historical blob\n')
+            : frozenReader(path),
+      }),
+    ({ code }) => code === 'b2_native_plugin_report_invalid',
+  );
+});
+
+test('legacy no-argument B2 report command verifies frozen evidence without rebuilding', async () => {
+  const module = await import('../scripts/build-b2-native-plugin-report.mjs');
+  const source = await readFile(
+    join(ROOT, 'scripts/build-b2-native-plugin-report.mjs'),
+    'utf8',
+  );
+  const exportedBuilderSource = source.slice(
+    source.indexOf('export async function buildB2NativePluginReport'),
+    source.indexOf('export async function main'),
+  );
+  assert.doesNotMatch(
+    exportedBuilderSource,
+    /prepareNativeDependencies|buildIosApplication|buildAndroidApplication|resolveAndroidDependencies/,
+  );
+  assert.equal(module.resolveB2NativeReportMode([]), 'check');
+  assert.equal(module.resolveB2NativeReportMode(['--check']), 'check');
+  assert.equal(module.resolveB2NativeReportMode(['--write']), 'reject');
+
+  const reportPath = join(ROOT, 'reports/b2/native-plugin-build.json');
+  const before = await readFile(reportPath);
+  const direct = await module.buildB2NativePluginReport();
+  assert.deepEqual(direct, JSON.parse(before.toString('utf8')));
+  assert.equal(await module.main([]), 0);
+  assert.deepEqual(await readFile(reportPath), before);
 });

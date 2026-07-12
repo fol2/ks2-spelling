@@ -1325,6 +1325,20 @@ function requireDependency(dependencies, name) {
   }
 }
 
+function durableB2AndroidHierarchyPhase({
+  phase,
+  hierarchySha256,
+  attempts,
+  hierarchy,
+}) {
+  return {
+    phase,
+    hierarchySha256,
+    attempts,
+    hierarchy,
+  };
+}
+
 export async function runB2AndroidLifecycleProof(dependencies) {
   for (const name of [
     'syncAndBuildDebug',
@@ -1429,9 +1443,9 @@ export async function runB2AndroidLifecycleProof(dependencies) {
       return {
         build,
         device,
-        background,
-        ready,
-        complete,
+        background: durableB2AndroidHierarchyPhase(background),
+        ready: durableB2AndroidHierarchyPhase(ready),
+        complete: durableB2AndroidHierarchyPhase(complete),
         screenshot,
         collected,
         database,

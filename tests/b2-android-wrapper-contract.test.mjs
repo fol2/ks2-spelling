@@ -88,6 +88,7 @@ function hierarchyRecord(phase) {
     hierarchySha256: createHash('sha256')
       .update(Buffer.from(hierarchy, 'utf8'))
       .digest('hex'),
+    texts,
     attempts: 1,
   };
 }
@@ -270,6 +271,15 @@ test('Android proof orders hierarchy phases, HOME, PID replacement, UI and run-a
   assert.equal(result.background.phase, 'Background test ready');
   assert.equal(result.ready.phase, 'Ready for relaunch');
   assert.equal(result.complete.phase, 'B2 proof complete');
+  for (const phase of [result.background, result.ready, result.complete]) {
+    assert.deepEqual(Object.keys(phase), [
+      'phase',
+      'hierarchySha256',
+      'attempts',
+      'hierarchy',
+    ]);
+    assert.doesNotMatch(JSON.stringify(phase), /"texts"/);
+  }
   assert.notEqual(result.ready.hierarchySha256, result.background.hierarchySha256);
   assert.notEqual(result.ready.hierarchySha256, result.complete.hierarchySha256);
   assert.deepEqual(events, [
@@ -1188,17 +1198,31 @@ test('manual visual attestation is explicit and bound to the exact screenshot SH
   );
 });
 
-test('pending proof rejects self-passed, stale screenshot and tampered database identities', async () => {
+test('real lifecycle serialises a minimal pending proof that validates and rejects extras', async () => {
   const { dependencies } = createDependencies();
   const proof = await runB2AndroidLifecycleProof(dependencies);
   const screenshotBytes = Buffer.from('pending android screenshot');
   proof.screenshot.sha256 = createHash('sha256').update(screenshotBytes).digest('hex');
-  const pending = {
+  const serialised = JSON.stringify({
     schemaVersion: 1,
     testedApplicationCommit: '1'.repeat(40),
     applicationFingerprint: '2'.repeat(64),
     proof,
-  };
+  });
+  assert.doesNotMatch(serialised, /"texts"/);
+  const pending = JSON.parse(serialised);
+  for (const phase of [
+    pending.proof.background,
+    pending.proof.ready,
+    pending.proof.complete,
+  ]) {
+    assert.deepEqual(Object.keys(phase), [
+      'phase',
+      'hierarchySha256',
+      'attempts',
+      'hierarchy',
+    ]);
+  }
   assert.deepEqual(
     validateB2AndroidPendingProof(pending, {
       expectedCommit: pending.testedApplicationCommit,
@@ -1213,6 +1237,15 @@ test('pending proof rejects self-passed, stale screenshot and tampered database 
     (value) => { value.proof.collected.observedFiles.push('unknown-sidecar'); },
     (value) => { value.proof.database.atomicFailureCheckpoints.pop(); },
     (value) => { value.proof.privacy.packagedPermissions = ['android.permission.INTERNET']; },
+    (value) => { value.proof.background.texts = ['must never persist']; },
+    (value) => { value.proof.complete.privateLearnerName = 'must never persist'; },
+    (value) => {
+      value.proof.background.hierarchy = value.proof.background.hierarchy
+        .replace('Background test ready', 'Background test drifted');
+      value.proof.background.hierarchySha256 = createHash('sha256')
+        .update(Buffer.from(value.proof.background.hierarchy, 'utf8'))
+        .digest('hex');
+    },
     (value) => { value.applicationFingerprint = '3'.repeat(64); },
   ]) {
     const changed = structuredClone(pending);

@@ -68,6 +68,7 @@ const REMOTE_TEMP_DIRECTORY_PREFIX = 'files/.b2-proof-export-';
 const REMOTE_HIERARCHY_PATH_PREFIX = '/sdcard/ks2-spelling-b2-window-';
 const POLL_ATTEMPTS = 600;
 const POLL_INTERVAL_MS = 100;
+const HIERARCHY_POLL_DEADLINE_MS = 75_000;
 const PROCESS_POLL_ATTEMPTS = 50;
 const PROCESS_POLL_INTERVAL_MS = 100;
 const HIERARCHY_OUTPUT_POLL_ATTEMPTS = 20;
@@ -735,17 +736,52 @@ export async function waitForB2AndroidHierarchyPhase({
   probe,
   attempts = POLL_ATTEMPTS,
   intervalMs = POLL_INTERVAL_MS,
+  deadlineMs = HIERARCHY_POLL_DEADLINE_MS,
+  now = () => performance.now(),
   sleep = abortableDelay,
   signal,
 }) {
+  if (
+    !Number.isSafeInteger(attempts) ||
+    attempts <= 0 ||
+    !Number.isSafeInteger(intervalMs) ||
+    intervalMs < 0 ||
+    !Number.isSafeInteger(deadlineMs) ||
+    deadlineMs <= 0 ||
+    typeof now !== 'function'
+  ) {
+    throw new TypeError('B2 Android hierarchy polling options are invalid.');
+  }
+  let lastNow = now();
+  if (!Number.isFinite(lastNow) || lastNow < 0) {
+    throw new TypeError('B2 Android hierarchy clock is invalid.');
+  }
+  const deadlineAt = lastNow + deadlineMs;
+  if (!Number.isFinite(deadlineAt)) {
+    throw new TypeError('B2 Android hierarchy deadline is invalid.');
+  }
+  const readNow = () => {
+    const value = now();
+    if (!Number.isFinite(value) || value < lastNow) {
+      throw new TypeError('B2 Android hierarchy clock must be monotonic.');
+    }
+    lastNow = value;
+    return value;
+  };
+  let completedAttempts = 0;
+  let lastValidHierarchy = null;
+  let lastTransientCode = null;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     throwIfAborted(signal);
+    if (attempt > 0 && readNow() >= deadlineAt) break;
     let result;
     try {
       result = await probe({ signal });
     } catch (error) {
       if (error.code !== 'b2_android_hierarchy_dump_not_ready') throw error;
+      lastTransientCode = error.code;
     }
+    completedAttempts = attempt + 1;
     throwIfAborted(signal);
     if (result?.exitCode === 0 && !result.signal && !result.timedOut) {
       const hierarchy = b2AndroidMachineText(result);
@@ -757,6 +793,27 @@ export async function waitForB2AndroidHierarchyPhase({
         };
       } catch (error) {
         if (error.code !== 'b2_android_hierarchy_phase_invalid') throw error;
+        const texts = parseB2AndroidHierarchyTexts(hierarchy);
+        const knownPhaseCounts = B2_ANDROID_PHASES.map((candidate) => ({
+          phase: candidate,
+          count: texts.filter((text) => text === candidate).length,
+        }));
+        const matchedKnownPhases = knownPhaseCounts.filter(
+          ({ count }) => count === 1,
+        );
+        const knownPhaseCount = knownPhaseCounts.reduce(
+          (total, { count }) => total + count,
+          0,
+        );
+        lastValidHierarchy = Object.freeze({
+          sha256: sha256(Buffer.from(hierarchy, 'utf8')),
+          textCount: texts.length,
+          matchedKnownPhase:
+            matchedKnownPhases.length === 1 && knownPhaseCount === 1
+              ? matchedKnownPhases[0].phase
+              : null,
+        });
+        lastTransientCode = error.code;
       }
     } else if (
       result?.spawnError ||
@@ -769,13 +826,25 @@ export async function waitForB2AndroidHierarchyPhase({
         'b2_android_hierarchy_probe_failed',
         'B2 Android hierarchy probe failed before readiness',
       );
+    } else if (result) {
+      lastTransientCode = 'b2_android_hierarchy_probe_not_ready';
     }
-    if (attempt + 1 < attempts) await sleep(intervalMs, signal);
+    const remainingMs = deadlineAt - readNow();
+    if (remainingMs <= 0) break;
+    if (attempt + 1 < attempts) {
+      await sleep(Math.min(intervalMs, remainingMs), signal);
+    }
   }
-  throw proofError(
+  const error = proofError(
     'b2_android_hierarchy_timeout',
-    `B2 Android UI hierarchy timed out at ${phase}`,
+    'B2 Android UI hierarchy timed out before the expected phase',
   );
+  error.diagnostic = Object.freeze({
+    attempts: completedAttempts,
+    lastValidHierarchy,
+    lastTransientCode,
+  });
+  throw error;
 }
 
 function databaseSiblingNames(output) {
@@ -1313,6 +1382,8 @@ export function createB2AndroidProductionDependencies({
   env = process.env,
   startEmulator = startDetached,
   runId = randomUUID(),
+  hierarchyDeadlineMs = HIERARCHY_POLL_DEADLINE_MS,
+  now = () => performance.now(),
 } = {}) {
   if (!/^[a-z0-9-]{8,64}$/.test(runId)) {
     throw new TypeError('B2 Android run ID must be a safe unique token.');
@@ -1648,6 +1719,8 @@ export function createB2AndroidProductionDependencies({
       return waitForB2AndroidHierarchyPhase({
         phase,
         probe: () => dumpHierarchy({ signal }),
+        deadlineMs: hierarchyDeadlineMs,
+        now,
         sleep,
         signal,
       });

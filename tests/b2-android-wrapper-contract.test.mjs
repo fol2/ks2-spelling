@@ -526,6 +526,95 @@ test('hierarchy polling requires exact phases and the complete diagnostic shell'
   );
 });
 
+test('hierarchy polling includes slow probe runtime in its wall-clock deadline', async () => {
+  const unexpectedPhase = hierarchyRecord('Ready for relaunch').hierarchy.replace(
+    '</node></hierarchy>',
+    '<node index="secret" text="typed-secret-123" class="android.view.View"/></node></hierarchy>',
+  );
+  const unexpectedTexts = parseB2AndroidHierarchyTexts(unexpectedPhase);
+  let currentTimeMs = 0;
+  let probeCalls = 0;
+  const sleeps = [];
+
+  await assert.rejects(
+    waitForB2AndroidHierarchyPhase({
+      phase: 'Background test ready',
+      deadlineMs: 60_000,
+      now: () => currentTimeMs,
+      probe: async () => {
+        probeCalls += 1;
+        currentTimeMs += 60_001;
+        return successfulCommand(unexpectedPhase);
+      },
+      sleep: async (milliseconds) => sleeps.push(milliseconds),
+    }),
+    (error) => {
+      assert.equal(error.code, 'b2_android_hierarchy_timeout');
+      assert.equal(
+        error.message,
+        'B2 Android UI hierarchy timed out before the expected phase',
+      );
+      assert.deepEqual(error.diagnostic, {
+        attempts: 1,
+        lastValidHierarchy: {
+          sha256: createHash('sha256')
+            .update(Buffer.from(unexpectedPhase, 'utf8'))
+            .digest('hex'),
+          textCount: unexpectedTexts.length,
+          matchedKnownPhase: 'Ready for relaunch',
+        },
+        lastTransientCode: 'b2_android_hierarchy_phase_invalid',
+      });
+      assert.doesNotMatch(JSON.stringify(error.diagnostic), /typed-secret-123/);
+      return true;
+    },
+  );
+
+  assert.equal(probeCalls, 1);
+  assert.deepEqual(sleeps, []);
+});
+
+test('hierarchy wall-clock timeout reports only sanitised null-root evidence', async () => {
+  let currentTimeMs = 0;
+  let probeCalls = 0;
+  const sleeps = [];
+
+  await assert.rejects(
+    waitForB2AndroidHierarchyPhase({
+      phase: 'Background test ready',
+      deadlineMs: 5_000,
+      now: () => currentTimeMs,
+      probe: async () => {
+        probeCalls += 1;
+        currentTimeMs += 2_000;
+        const error = new Error('transient raw diagnostic must not escape');
+        error.code = 'b2_android_hierarchy_dump_not_ready';
+        throw error;
+      },
+      sleep: async (milliseconds) => {
+        sleeps.push(milliseconds);
+        currentTimeMs += milliseconds;
+      },
+    }),
+    (error) => {
+      assert.equal(error.code, 'b2_android_hierarchy_timeout');
+      assert.deepEqual(error.diagnostic, {
+        attempts: 3,
+        lastValidHierarchy: null,
+        lastTransientCode: 'b2_android_hierarchy_dump_not_ready',
+      });
+      assert.doesNotMatch(
+        `${error.message}${JSON.stringify(error.diagnostic)}`,
+        /raw diagnostic must not escape/,
+      );
+      return true;
+    },
+  );
+
+  assert.equal(probeCalls, 3);
+  assert.deepEqual(sleeps, [100, 100]);
+});
+
 test('hierarchy parser rejects negated, duplicate, stale, partial and malformed XML text', () => {
   const complete = hierarchyRecord('B2 proof complete').hierarchy;
   const candidates = [
@@ -1852,6 +1941,8 @@ function hierarchyOutputHarness({
   dumpResult,
   catResults = [],
   sleep = async () => undefined,
+  hierarchyDeadlineMs,
+  now,
 }) {
   const remotePath = `/sdcard/ks2-spelling-b2-window-${runId}.xml`;
   const commands = [];
@@ -1880,6 +1971,8 @@ function hierarchyOutputHarness({
       ANDROID_HOME: '/sdk',
     },
     sleep,
+    hierarchyDeadlineMs,
+    now,
     run: async (_command, args) => {
       const value = args.join(' ');
       commands.push(value);
@@ -2081,27 +2174,40 @@ test('production hierarchy retries only the exact API 36 null-root fixture', asy
 
 test('production hierarchy bounds repeated API 36 null-root results', async () => {
   const sleeps = [];
+  let currentTimeMs = 0;
   const { commands, dependencies, remotePath } = hierarchyOutputHarness({
     runId: 'null-root-timeout-1234',
-    dumpResult: () => ({
-      ...successfulCommand(),
-      stderr: 'ERROR: null root node returned by UiTestAutomationBridge.\n',
-    }),
-    sleep: async (milliseconds) => sleeps.push(milliseconds),
+    dumpResult: () => {
+      currentTimeMs += 2_000;
+      return {
+        ...successfulCommand(),
+        stderr: 'ERROR: null root node returned by UiTestAutomationBridge.\n',
+      };
+    },
+    sleep: async (milliseconds) => {
+      sleeps.push(milliseconds);
+      currentTimeMs += milliseconds;
+    },
+    hierarchyDeadlineMs: 5_000,
+    now: () => currentTimeMs,
   });
 
   await assert.rejects(
     dependencies.waitForHierarchyPhase('B2 proof complete'),
-    ({ code }) => code === 'b2_android_hierarchy_timeout',
+    ({ code, diagnostic }) =>
+      code === 'b2_android_hierarchy_timeout' &&
+      diagnostic.attempts === 3 &&
+      diagnostic.lastValidHierarchy === null &&
+      diagnostic.lastTransientCode === 'b2_android_hierarchy_dump_not_ready',
   );
   assert.equal(
     commands.filter((value) => value.includes('uiautomator dump')).length,
-    600,
+    3,
   );
-  assert.deepEqual(sleeps, Array(599).fill(100));
+  assert.deepEqual(sleeps, [100, 100]);
   assert.equal(
     commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
-    600,
+    3,
   );
 });
 

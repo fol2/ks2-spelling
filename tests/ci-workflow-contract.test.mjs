@@ -64,27 +64,29 @@ test('hosted CI validates committed B2 proof without claiming virtual-device rec
   assert.doesNotMatch(workflow, /launch:(?:ios|android)/);
 });
 
-test('Domain/Web runs the default non-Android-resolution suite before any native toolchain', async () => {
+test('Domain/Web runs the ordinary default suite before any native toolchain', async () => {
   const workflow = await readWorkflow();
   const domain = extractJob(workflow, 'domain-web');
   const android = extractJob(workflow, 'android-compile');
 
-  assert.match(domain, /run: npm run test:default:no-android-resolution/);
+  assert.match(domain, /run: npm run test:domain/);
   assert.doesNotMatch(domain, /run: npm test(?:\s|$)/m);
   assert.doesNotMatch(
     domain,
     /setup-java|setup-gradle|sdkmanager|test:android|certify:android|test:android-resolved-policy/,
   );
 
-  assert.match(android, /run: npm run test:android-resolved-policy/);
-  assert.ok(
-    android.indexOf('npm run test:android-resolved-policy') >
-      android.indexOf('npm run test:android'),
-    'resolved policy tests must follow Android build and test setup',
+  const testAndroidIndex = android.indexOf('run: npm run test:android\n');
+  const certifyAndroidIndex = android.indexOf('run: npm run certify:android\n');
+  const resolvedPolicyIndex = android.indexOf(
+    'run: npm run test:android-resolved-policy\n',
   );
+  assert.notEqual(testAndroidIndex, -1, 'Android build and test command is missing');
+  assert.notEqual(certifyAndroidIndex, -1, 'Android certification command is missing');
+  assert.notEqual(resolvedPolicyIndex, -1, 'resolved Android policy command is missing');
+  assert.ok(testAndroidIndex < certifyAndroidIndex, 'certification must follow Android tests');
   assert.ok(
-    android.indexOf('npm run test:android-resolved-policy') >
-      android.indexOf('npm run certify:android'),
+    certifyAndroidIndex < resolvedPolicyIndex,
     'resolved policy tests must follow fresh dependency certification',
   );
 });

@@ -57,8 +57,8 @@ jobs:
             tests/app-lifecycle-contract.test.mjs \
             tests/database-lifecycle-coordinator.test.mjs \
             tests/b2-proof-controller.test.mjs
-      - name: Run complete default suite without fresh Android resolution
-        run: npm run test:default:no-android-resolution
+      - name: Run complete default domain and web suite
+        run: npm run test:domain
       - name: Lint source and verification code
         run: npm run lint
       - name: Build bundled web application

@@ -31,6 +31,8 @@ npm run build && \
 npm run verify:vendor && \
 npm run test:ios && \
 npm run test:android && \
+npm run certify:android && \
+npm run test:android-resolved-policy && \
 npm run audit:dependencies && \
 node --test tests/b1-exit-report.test.mjs && \
 actionlint .github/workflows/ci.yml && \
@@ -118,11 +120,15 @@ virtual-device evidence; it does not rerun a Simulator or Emulator lifecycle.
 The B2 database and lifecycle semantics, evidence paths and deferrals are
 recorded in `docs/architecture/b2-persistence-authority.md`.
 
-The default dependency audit requires the certified Android toolchain and the
-fresh packaged-permission evidence produced by `npm run test:android`, so keep
-that ordering in a clean checkout. The pure domain/web CI lane exercises
-pre-toolchain classification through the dependency policy tests; it does not
-overwrite the committed resolved-toolchain report with pre-bootstrap evidence.
+`npm run test:domain` runs the ordinary default suite without resolving Android.
+The two fresh resolved-toolchain assertions live only in
+`tests/dependency-policy-resolved.live.mjs`; run them through
+`npm run test:android-resolved-policy` after `npm run test:android` and
+`npm run certify:android`. The default dependency audit also requires the
+certified Android toolchain and fresh packaged-permission evidence, so keep that
+ordering in a clean checkout. The pure domain/web CI lane exercises
+pre-toolchain classification without overwriting the committed
+resolved-toolchain report with pre-bootstrap evidence.
 
 ## Virtual-device lifecycle
 

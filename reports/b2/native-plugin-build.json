@@ -65,8 +65,8 @@
   "committedInputs": [
     {
       "path": "package.json",
-      "bytes": 2608,
-      "sha256": "90caad0286b19f139009c27491d4a663b7644b78db581678e1107b602dd12d18"
+      "bytes": 2302,
+      "sha256": "22f110f953c7709299c6bde0770b95e434550f498e748ba8979a193582726f51"
     },
     {
       "path": "package-lock.json",

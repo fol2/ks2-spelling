@@ -96,6 +96,7 @@ The product/design authority remains:
 - `scripts/build-b2-exit-report.mjs`: composes the two native reports, policy reports and frozen B1 entry authority.
 - `reports/b2/`: committed machine-readable iOS, Android, dependency and exit evidence plus diagnostic screenshots.
 - `tests/b2-exit-report-builder.test.mjs` and `tests/b2-exit-report.live.mjs`: reject stale commit/fingerprint, missing fields, mismatched logical digests, permissions or lifecycle proof without making pre-evidence `npm test` circular.
+- `tests/dependency-policy-resolved.live.mjs`: owns exactly the two fresh resolved-Android dependency assertions outside the default Domain/Web glob.
 
 ---
 
@@ -1355,12 +1356,12 @@ Expected: FAIL because the exit builder and B2 CI contract do not exist.
 Add:
 
 ```json
-"verify:b2": "npm run verify:vendor && npm run test:upstream:a3 && npm test && npm run lint && npm run build && npm run audit:dependencies && npm run native:sync:check && npm run test:ios && npm run test:android && node scripts/build-b2-exit-report.mjs --check"
+"verify:b2": "npm run verify:vendor && npm run test:upstream:a3 && npm test && npm run lint && npm run build && npm run audit:dependencies && npm run native:sync:check && npm run test:ios && npm run test:android && npm run test:android-resolved-policy && node scripts/build-b2-exit-report.mjs --check"
 ```
 
 - [ ] **Step 4: Extend hosted CI without claiming virtual-device proof**
 
-Retain three jobs and full-history checkout. Domain/Web must run the Node SQLite contract/parity/atomicity/lifecycle suites using Node `24.18.0`. iOS must sync and compile the exact SwiftPM plugins unsigned. Android must install exact API/Build Tools 36, sync, run unit tests, compile debug plus unsigned release, certify the resolved dependency closure, prove empty packaged permissions and check committed B2 exit evidence. Hosted CI validates committed virtual proof; it does not claim to rerun simulator/emulator lifecycle evidence.
+Retain three jobs and full-history checkout. Domain/Web must run the Node SQLite contract/parity/atomicity/lifecycle suites using Node `24.18.0` without fresh Android resolution. iOS must sync and compile the exact SwiftPM plugins unsigned. Android must install exact API/Build Tools 36, sync, run unit tests, compile debug plus unsigned release, certify the resolved dependency closure, run the dedicated two-test resolved-Android policy file, prove empty packaged permissions and check committed B2 exit evidence. Hosted CI validates committed virtual proof; it does not claim to rerun simulator/emulator lifecycle evidence.
 
 - [ ] **Step 5: Document the proven and deferred boundary**
 
@@ -1387,6 +1388,7 @@ npm run build
 npm run native:sync:check
 npm run test:ios
 npm run test:android
+npm run test:android-resolved-policy
 npm run report:b2-native-plugins
 npm run audit:dependencies -- --write
 actionlint .github/workflows/ci.yml
@@ -1435,6 +1437,7 @@ npm run audit:dependencies
 npm run native:sync:check
 npm run test:ios
 npm run test:android
+npm run test:android-resolved-policy
 npm run prove:b2:ios
 # Expected exit 5 with b2_ios_manual_attestation_required. The root controller
 # inspects the original-resolution PNG and creates only the screenshot-SHA-bound
@@ -1540,6 +1543,7 @@ npm run audit:dependencies
 npm run native:sync:check
 npm run test:ios
 npm run test:android
+npm run test:android-resolved-policy
 npm run prove:b2:ios
 npm run prove:b2:android
 node scripts/build-b2-exit-report.mjs --check

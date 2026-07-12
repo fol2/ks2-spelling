@@ -806,6 +806,7 @@ export async function collectB2AndroidDatabaseSet({
   throwIfAborted(signal);
   let cleanupRegistered = false;
   const temporaryDirectory = `${destinationDirectory}.tmp-${process.pid}`;
+  let destinationOwned = false;
   let primaryError;
   let result;
   try {
@@ -826,7 +827,7 @@ export async function collectB2AndroidDatabaseSet({
         'B2 Android database sidecar set changed during run-as collection',
       );
     }
-    const fileSha256 = {};
+    const pulledFileSha256 = {};
     for (const filename of observed) {
       throwIfAborted(signal);
       const bytes = await pullTemporaryFile(filename, { signal });
@@ -838,11 +839,34 @@ export async function collectB2AndroidDatabaseSet({
         );
       }
       await fs.writeFile(join(temporaryDirectory, filename), bytes);
-      fileSha256[filename] = sha256(bytes);
+      pulledFileSha256[filename] = sha256(bytes);
     }
     throwIfAborted(signal);
     await fs.rm(destinationDirectory, { force: true, recursive: true });
+    destinationOwned = true;
     await fs.rename(temporaryDirectory, destinationDirectory);
+    const fileSha256 = {};
+    for (const filename of observed) {
+      throwIfAborted(signal);
+      let bytes;
+      try {
+        bytes = await fs.readFile(join(destinationDirectory, filename));
+      } catch (cause) {
+        throw proofError(
+          'b2_android_database_destination_changed',
+          `B2 Android final database evidence cannot be read: ${filename}`,
+          { cause },
+        );
+      }
+      const finalSha256 = sha256(bytes);
+      if (finalSha256 !== pulledFileSha256[filename]) {
+        throw proofError(
+          'b2_android_database_destination_changed',
+          `B2 Android final database evidence changed after collection: ${filename}`,
+        );
+      }
+      fileSha256[filename] = finalSha256;
+    }
     result = {
       databasePath: join(destinationDirectory, DATABASE_NAME),
       sidecarsObserved: observed.slice(1),
@@ -853,7 +877,26 @@ export async function collectB2AndroidDatabaseSet({
     };
   } catch (error) {
     primaryError = error;
-    await fs.rm(temporaryDirectory, { force: true, recursive: true });
+    const cleanupErrors = [];
+    for (const directory of [
+      temporaryDirectory,
+      ...(destinationOwned ? [destinationDirectory] : []),
+    ]) {
+      try {
+        await fs.rm(directory, { force: true, recursive: true });
+      } catch (cleanupError) {
+        cleanupErrors.push(cleanupError);
+      }
+    }
+    if (cleanupErrors.length !== 0) {
+      const aggregate = new AggregateError(
+        [error, ...cleanupErrors],
+        'B2 Android database collection and local cleanup both failed',
+        { cause: error },
+      );
+      aggregate.code = error.code ?? 'b2_android_database_collection_failed';
+      primaryError = aggregate;
+    }
   }
   let cleanupError;
   if (cleanupRegistered) {

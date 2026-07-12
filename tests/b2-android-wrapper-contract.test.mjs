@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -592,6 +600,51 @@ test('run-as collection safely copies the primary and every optional known sidec
   }
 });
 
+test('run-as collection rejects destination drift after rename and removes the owned set', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'b2-android-destination-drift-'));
+  const destinationDirectory = join(directory, 'collected');
+  let driftInjected = false;
+  try {
+    await assert.rejects(
+      collectB2AndroidDatabaseSet({
+        async listDatabaseFiles() {
+          return B2_ANDROID_DATABASE_FILES.join('\n');
+        },
+        async assertTemporaryDirectoryAbsent() {},
+        async createTemporaryDirectory() {},
+        async copyToTemporaryDirectory() {},
+        async pullTemporaryFile(filename) {
+          return Buffer.from(`database-bytes:${filename}`);
+        },
+        async removeTemporaryDirectory() {},
+        destinationDirectory,
+        fs: {
+          mkdir,
+          readFile,
+          rm,
+          writeFile,
+          async rename(source, destination) {
+            await rename(source, destination);
+            await writeFile(
+              join(destination, B2_ANDROID_DATABASE_FILES[2]),
+              Buffer.from('destination drift'),
+            );
+            driftInjected = true;
+          },
+        },
+      }),
+      ({ code }) => code === 'b2_android_database_destination_changed',
+    );
+    assert.equal(driftInjected, true, 'the final destination mutation must run');
+    await assert.rejects(
+      readdir(destinationDirectory),
+      ({ code }) => code === 'ENOENT',
+    );
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('run-as collection rejects unknown sidecars and preserves colliding temp paths', async () => {
   await assert.rejects(
     collectFixture('ks2-spellingSQLite.db\nks2-spellingSQLite.db-journal\n'),
@@ -1022,6 +1075,10 @@ function productionTestFs() {
           'path.rel=avd/KS2_Spelling_API_36.avd',
           'target=android-36',
         ].join('\n');
+      }
+      if (path.includes('/.native-build/b2/android-database-set/')) {
+        const filename = path.split('/').at(-1);
+        return Buffer.from(`bytes:${filename}`);
       }
       throw new Error(`unexpected fake read: ${path}`);
     },

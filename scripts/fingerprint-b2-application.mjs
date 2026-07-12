@@ -60,6 +60,7 @@ const REQUIRED_AUTHORITY_INPUTS = Object.freeze([
   'vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json',
   'vendor/ks2-mastery/shared/spelling/mobile/a3/command-repository.js',
   'scripts/lib/b2-evidence.mjs',
+  'scripts/lib/b2-isolated-database-evidence.mjs',
   'scripts/fingerprint-b2-application.mjs',
   'scripts/native-sync-check.mjs',
   'scripts/prepare-native-dependencies.mjs',

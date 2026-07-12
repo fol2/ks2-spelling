@@ -38,6 +38,7 @@ async function fixture() {
     'vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json',
     'vendor/ks2-mastery/shared/spelling/mobile/a3/command-repository.js',
     'scripts/lib/b2-evidence.mjs',
+    'scripts/lib/b2-isolated-database-evidence.mjs',
     'scripts/fingerprint-b2-application.mjs',
     'scripts/native-sync-check.mjs',
     'scripts/prepare-native-dependencies.mjs',
@@ -99,6 +100,32 @@ test('B2 fingerprint includes every behavioural input and excludes evidence outp
     assert.notEqual(changed.sha256, first.sha256);
     await write(root, 'reports/b2/ios-simulator-proof.json', 'changed evidence');
     assert.equal((await fingerprintB2Application({ root })).sha256, changed.sha256);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('isolated database evidence helper is mandatory fingerprint authority', async () => {
+  const { fingerprintB2Application } = await import(
+    '../scripts/fingerprint-b2-application.mjs'
+  );
+  const root = await fixture();
+  const authority = 'scripts/lib/b2-isolated-database-evidence.mjs';
+  try {
+    const first = await fingerprintB2Application({ root });
+    assert.ok(first.files.some(({ path }) => path === authority));
+
+    await write(root, authority, 'changed isolated database evidence authority');
+    const changed = await fingerprintB2Application({ root });
+    assert.notEqual(changed.sha256, first.sha256);
+
+    await rm(join(root, authority));
+    await assert.rejects(
+      fingerprintB2Application({ root }),
+      ({ code, message }) =>
+        code === 'b2_required_input_missing' &&
+        message === `Required behavioural authority input is missing: ${authority}`,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

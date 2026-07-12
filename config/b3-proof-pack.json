@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "packId": "b3-sandbox-proof",
+  "version": "1.0.0-b3.1",
+  "requiredEntitlementId": "full-ks2",
+  "archiveName": "b3-sandbox-proof.zip",
+  "allowedExtensions": [".json", ".m4a"],
+  "ceilings": {
+    "fileCount": 16,
+    "compressedBytes": 1048576,
+    "extractedBytes": 4194304
+  }
+}

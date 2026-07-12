@@ -30,6 +30,7 @@ import {
   assertStartedAndroidEmulatorProcess,
   createB2AndroidFreshInstallPlan,
   compareB2NativeLogicalEvidence,
+  decodeB2MachineUtf8,
   validateB2NativeReport,
 } from './lib/b2-evidence.mjs';
 import {
@@ -116,6 +117,18 @@ function proofError(code, message, options) {
   return error;
 }
 
+function b2AndroidMachineText(result, stream = 'stdout') {
+  try {
+    return decodeB2MachineUtf8(result?.[`${stream}Bytes`]);
+  } catch (cause) {
+    throw proofError(
+      'b2_android_machine_output_invalid',
+      `B2 Android ${stream} machine evidence is invalid`,
+      { cause },
+    );
+  }
+}
+
 function exactKeys(value, keys) {
   return (
     value !== null &&
@@ -182,6 +195,7 @@ export function runB2AndroidSubprocess(
       stdout: '',
       stdoutBytes: Buffer.alloc(0),
       stderr: '',
+      stderrBytes: Buffer.alloc(0),
       spawnError: null,
       timedOut: false,
       interruptedSignal: null,
@@ -269,6 +283,7 @@ export function runB2AndroidSubprocess(
       }
       signal?.removeEventListener('abort', onAbort);
       const stdoutBytes = Buffer.concat(stdout);
+      const stderrBytes = Buffer.concat(stderr);
       resolveResult({
         command: redactText(command, env),
         args: args.map((argument) => redactText(argument, env)),
@@ -276,7 +291,8 @@ export function runB2AndroidSubprocess(
         signal: processSignal,
         stdout: redactText(stdoutBytes.toString('utf8'), env),
         stdoutBytes,
-        stderr: redactText(Buffer.concat(stderr).toString('utf8'), env),
+        stderr: redactText(stderrBytes.toString('utf8'), env),
+        stderrBytes,
         spawnError,
         timedOut,
         interruptedSignal,
@@ -471,13 +487,15 @@ export function parseB2AndroidPidProbe(result) {
       'B2 Android process probe did not complete normally',
     );
   }
-  if (result.exitCode === 0 && PID.test(result.stdout.trim())) {
-    return { state: 'present', pid: result.stdout.trim() };
+  const stdout = b2AndroidMachineText(result);
+  const stderr = b2AndroidMachineText(result, 'stderr');
+  if (result.exitCode === 0 && PID.test(stdout.trim())) {
+    return { state: 'present', pid: stdout.trim() };
   }
   if (
     [0, 1].includes(result.exitCode) &&
-    result.stdout.trim() === '' &&
-    result.stderr.trim() === ''
+    stdout.trim() === '' &&
+    stderr.trim() === ''
   ) return { state: 'absent', pid: null };
   throw proofError(
     'b2_android_process_probe_failed',
@@ -727,11 +745,12 @@ export async function waitForB2AndroidHierarchyPhase({
     }
     throwIfAborted(signal);
     if (result?.exitCode === 0 && !result.signal && !result.timedOut) {
+      const hierarchy = b2AndroidMachineText(result);
       try {
         return {
-          ...assertB2AndroidHierarchyPhase(result.stdout, phase),
+          ...assertB2AndroidHierarchyPhase(hierarchy, phase),
           attempts: attempt + 1,
-          hierarchy: result.stdout,
+          hierarchy,
         };
       } catch (error) {
         if (error.code !== 'b2_android_hierarchy_phase_invalid') throw error;
@@ -1233,14 +1252,10 @@ function shellArgs(...args) {
 }
 
 function assertB2AndroidHierarchyDumpReport(dump, expectedPath) {
-  if (typeof dump.stdout !== 'string' || typeof dump.stderr !== 'string') {
-    throw proofError(
-      'b2_android_hierarchy_output_report_invalid',
-      'B2 Android hierarchy dump report streams are malformed',
-    );
-  }
+  const stdout = b2AndroidMachineText(dump);
+  const stderr = b2AndroidMachineText(dump, 'stderr');
   const paths = [];
-  for (const stream of [dump.stdout, dump.stderr]) {
+  for (const stream of [stdout, stderr]) {
     if (stream === '') continue;
     if (!stream.endsWith('\n')) {
       throw proofError(
@@ -1338,7 +1353,7 @@ export function createB2AndroidProductionDependencies({
       ),
       { signal, timeoutMs: 30_000 },
     );
-    if (collision.stdout.trim() !== 'absent') {
+    if (b2AndroidMachineText(collision).trim() !== 'absent') {
       throw proofError(
         'b2_android_hierarchy_collision',
         'B2 Android hierarchy path already exists',
@@ -1351,9 +1366,11 @@ export function createB2AndroidProductionDependencies({
         shellArgs('uiautomator', 'dump', hierarchyRemotePath),
         { signal, timeoutMs: 30_000 },
       );
+      const dumpStdout = b2AndroidMachineText(dump);
+      const dumpStderr = b2AndroidMachineText(dump, 'stderr');
       if (
-        dump.stdout === '' &&
-        dump.stderr === HIERARCHY_NULL_ROOT_DIAGNOSTIC
+        dumpStdout === '' &&
+        dumpStderr === HIERARCHY_NULL_ROOT_DIAGNOSTIC
       ) {
         throw proofError(
           'b2_android_hierarchy_dump_not_ready',
@@ -1367,6 +1384,8 @@ export function createB2AndroidProductionDependencies({
           timeoutMs: 5_000,
         });
         throwIfAborted(signal);
+        const outputStdout = b2AndroidMachineText(output);
+        const outputStderr = b2AndroidMachineText(output, 'stderr');
         const completedNormally =
           output &&
           typeof output === 'object' &&
@@ -1379,14 +1398,13 @@ export function createB2AndroidProductionDependencies({
         if (
           completedNormally &&
           output.exitCode === 0 &&
-          typeof output.stdout === 'string' &&
-          output.stdout.length !== 0
-        ) return output;
+          outputStdout.length !== 0
+        ) return { ...output, stdout: outputStdout, stderr: outputStderr };
         const outputPending = completedNormally && (
-          (output.exitCode === 0 && output.stdout === '' && output.stderr === '') ||
+          (output.exitCode === 0 && outputStdout === '' && outputStderr === '') ||
           (output.exitCode === 1 &&
-            output.stdout === '' &&
-            output.stderr ===
+            outputStdout === '' &&
+            outputStderr ===
               `cat: ${hierarchyRemotePath}: No such file or directory\n`)
         );
         if (!outputPending) {
@@ -1452,7 +1470,9 @@ export function createB2AndroidProductionDependencies({
         );
       }
       const avds = await required(emulator, ['-list-avds'], { signal });
-      let avdExists = avds.stdout.split(/\r?\n/).includes(B2_ANDROID_DEVICE.name);
+      let avdExists = b2AndroidMachineText(avds)
+        .split(/\r?\n/)
+        .includes(B2_ANDROID_DEVICE.name);
       if (!avdExists) {
         await required(
           avdManager,
@@ -1486,7 +1506,7 @@ export function createB2AndroidProductionDependencies({
           ['-s', B2_ANDROID_DEVICE.serial, 'emu', 'avd', 'name'],
           { signal },
         );
-        assertAndroidSerialOwnership(identity.stdout);
+        assertAndroidSerialOwnership(b2AndroidMachineText(identity));
         ownSerial(B2_ANDROID_DEVICE.serial);
       } else {
         if (
@@ -1531,7 +1551,7 @@ export function createB2AndroidProductionDependencies({
           shellArgs('getprop', 'sys.boot_completed'),
           { signal, timeoutMs: 5_000 },
         );
-        if (boot.stdout.trim() === '1') break;
+        if (b2AndroidMachineText(boot).trim() === '1') break;
         if (attempt === 89) {
           throw proofError(
             'b2_android_boot_timeout',
@@ -1545,7 +1565,7 @@ export function createB2AndroidProductionDependencies({
         ['-s', B2_ANDROID_DEVICE.serial, 'emu', 'avd', 'name'],
         { signal },
       );
-      assertAndroidSerialOwnership(identity.stdout);
+      assertAndroidSerialOwnership(b2AndroidMachineText(identity));
       ownSerial(B2_ANDROID_DEVICE.serial);
     },
     async killOwnedSerial(serial) {
@@ -1578,7 +1598,7 @@ export function createB2AndroidProductionDependencies({
         ['-p', String(processGroupPid), '-o', 'command='],
         { timeoutMs: 5_000 },
       );
-      if (identity.exitCode === 1 && identity.stdout.trim() === '') return;
+      if (identity.exitCode === 1 && b2AndroidMachineText(identity).trim() === '') return;
       if (
         identity.exitCode !== 0 ||
         identity.spawnError ||
@@ -1592,7 +1612,7 @@ export function createB2AndroidProductionDependencies({
           'B2 Android process-group identity probe failed',
         );
       }
-      assertStartedAndroidEmulatorProcess(identity.stdout.trim());
+      assertStartedAndroidEmulatorProcess(b2AndroidMachineText(identity).trim());
       try {
         process.kill(-processGroupPid, 'SIGTERM');
       } catch (error) {
@@ -1693,7 +1713,7 @@ export function createB2AndroidProductionDependencies({
         shellArgs('dumpsys', 'activity', 'activities'),
         { signal },
       );
-      parseAndroidResumedActivity(activities.stdout);
+      parseAndroidResumedActivity(b2AndroidMachineText(activities));
       const freshHierarchy = await dumpHierarchy({ signal });
       const hierarchyEvidence = assertB2AndroidHierarchyPhase(
         freshHierarchy.stdout,
@@ -1751,7 +1771,9 @@ export function createB2AndroidProductionDependencies({
         });
       return collectB2AndroidDatabaseSet({
         async listDatabaseFiles() {
-          return (await runAs('ls', '-1', REMOTE_DATABASE_DIRECTORY)).stdout;
+          return b2AndroidMachineText(
+            await runAs('ls', '-1', REMOTE_DATABASE_DIRECTORY),
+          );
         },
         async assertTemporaryDirectoryAbsent() {
           const result = await runAs(
@@ -1759,7 +1781,7 @@ export function createB2AndroidProductionDependencies({
               `if [ -e ${remoteTemporaryDirectory} ]; then echo exists; else echo absent; fi`,
             ),
           );
-          if (result.stdout.trim() !== 'absent') {
+          if (b2AndroidMachineText(result).trim() !== 'absent') {
             throw proofError(
               'b2_android_temporary_collision',
               'B2 Android run-as temporary directory already exists',
@@ -1840,11 +1862,15 @@ export function createB2AndroidProductionDependencies({
           required(adb, shellArgs('getprop', 'ro.build.version.sdk'), { signal }),
           required(adb, shellArgs('getprop', 'ro.build.version.release'), { signal }),
         ]);
-      const permissions = parsePackagedAndroidPermissions(permissionsOutput.stdout);
-      const backup = parsePackagedAndroidManifestPolicy(manifestOutput.stdout);
+      const permissions = parsePackagedAndroidPermissions(
+        b2AndroidMachineText(permissionsOutput),
+      );
+      const backup = parsePackagedAndroidManifestPolicy(
+        b2AndroidMachineText(manifestOutput),
+      );
       let config;
       try {
-        config = JSON.parse(configOutput.stdout);
+        config = JSON.parse(b2AndroidMachineText(configOutput));
       } catch (cause) {
         throw proofError(
           'b2_android_config_invalid',
@@ -1858,7 +1884,10 @@ export function createB2AndroidProductionDependencies({
           'B2 Android packaged application contains server.url',
         );
       }
-      if (api.stdout.trim() !== '36' || osVersion.stdout.trim() !== '16') {
+      if (
+        b2AndroidMachineText(api).trim() !== '36' ||
+        b2AndroidMachineText(osVersion).trim() !== '16'
+      ) {
         throw proofError(
           'b2_android_runtime_invalid',
           'B2 Android runtime is not Android 16 / API 36',
@@ -2128,14 +2157,14 @@ async function assertCleanCheckpoint(required) {
     required('git', ['rev-parse', 'HEAD']),
     required('git', ['status', '--porcelain', '--untracked-files=all']),
   ]);
-  const testedApplicationCommit = commit.stdout.trim();
+  const testedApplicationCommit = b2AndroidMachineText(commit).trim();
   if (!/^[a-f0-9]{40}$/.test(testedApplicationCommit)) {
     throw proofError(
       'b2_android_checkpoint_invalid',
       'B2 Android tested application commit is malformed',
     );
   }
-  assertB2AndroidApplicationStatusClean(status.stdout);
+  assertB2AndroidApplicationStatusClean(b2AndroidMachineText(status));
   return testedApplicationCommit;
 }
 

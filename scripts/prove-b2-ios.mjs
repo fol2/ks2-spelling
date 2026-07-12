@@ -26,6 +26,7 @@ import {
   B2_PLUGIN_VERSIONS,
   analyseIosScreenshotBmp,
   createB2IosFreshInstallPlan,
+  decodeB2MachineUtf8,
   parseIosRuntimeVersion,
   runWithB2IosCleanup,
   selectExistingIosDevice,
@@ -117,6 +118,18 @@ function proofError(code, message, options) {
   return error;
 }
 
+function b2IosMachineText(result, stream = 'stdout') {
+  try {
+    return decodeB2MachineUtf8(result?.[`${stream}Bytes`]);
+  } catch (cause) {
+    throw proofError(
+      'b2_ios_machine_output_invalid',
+      `B2 iOS ${stream} machine evidence is invalid`,
+      { cause },
+    );
+  }
+}
+
 export function runB2IosSubprocess(
   command,
   args = [],
@@ -139,7 +152,9 @@ export function runB2IosSubprocess(
       exitCode: null,
       signal: null,
       stdout: '',
+      stdoutBytes: Buffer.alloc(0),
       stderr: '',
+      stderrBytes: Buffer.alloc(0),
       spawnError: null,
       timedOut: false,
       interruptedSignal: null,
@@ -214,13 +229,17 @@ export function runB2IosSubprocess(
         signalSource.off(name, handler);
       }
       signal?.removeEventListener('abort', onAbort);
+      const stdoutBytes = Buffer.concat(stdout);
+      const stderrBytes = Buffer.concat(stderr);
       resolveResult({
         command: redactText(command, env),
         args: args.map((argument) => redactText(argument, env)),
         exitCode: Number.isInteger(code) ? code : null,
         signal: processSignal,
-        stdout: redactText(Buffer.concat(stdout).toString('utf8'), env),
-        stderr: redactText(Buffer.concat(stderr).toString('utf8'), env),
+        stdout: redactText(stdoutBytes.toString('utf8'), env),
+        stdoutBytes,
+        stderr: redactText(stderrBytes.toString('utf8'), env),
+        stderrBytes,
         spawnError,
         timedOut,
         interruptedSignal,
@@ -875,8 +894,9 @@ async function readJsonCommand(
   { signal } = {},
 ) {
   const result = await required(command, args, { signal });
+  const stdout = b2IosMachineText(result);
   try {
-    return JSON.parse(result.stdout);
+    return JSON.parse(stdout);
   } catch (cause) {
     throw proofError(
       'b2_ios_command_json_invalid',
@@ -907,10 +927,12 @@ export function parseB2IosProcessProbe(result, pid) {
     );
   }
   if (result.exitCode === 0) {
-    parseIosHostProcess(result.stdout, pid);
+    parseIosHostProcess(b2IosMachineText(result), pid);
     return 'present';
   }
-  if (result.exitCode === 1 && result.stdout.trim() === '') return 'absent';
+  if (result.exitCode === 1 && b2IosMachineText(result).trim() === '') {
+    return 'absent';
+  }
   throw proofError(
     'b2_ios_process_probe_failed',
     `B2 iOS process ${pid} probe failed with ${result.exitCode}`,
@@ -1289,14 +1311,14 @@ async function assertCleanCheckpoint() {
     runRequired('git', ['rev-parse', 'HEAD']),
     runRequired('git', ['status', '--porcelain', '--untracked-files=all']),
   ]);
-  const testedApplicationCommit = commit.stdout.trim();
+  const testedApplicationCommit = b2IosMachineText(commit).trim();
   if (!/^[a-f0-9]{40}$/.test(testedApplicationCommit)) {
     throw proofError(
       'b2_ios_checkpoint_invalid',
       'B2 iOS tested application commit is malformed',
     );
   }
-  assertB2ApplicationStatusClean(status.stdout);
+  assertB2ApplicationStatusClean(b2IosMachineText(status));
   return testedApplicationCommit;
 }
 
@@ -1358,7 +1380,7 @@ export function createB2IosProductionDependencies({
           B2_IOS_DEVICE.type,
           B2_IOS_DEVICE.runtime,
         ], { signal });
-        device = { udid: created.stdout.trim(), state: 'Shutdown' };
+        device = { udid: b2IosMachineText(created).trim(), state: 'Shutdown' };
       }
       if (!/^[A-F0-9-]{36}$/i.test(device.udid ?? '')) {
         throw proofError(
@@ -1399,7 +1421,7 @@ export function createB2IosProductionDependencies({
         udid,
         B2_APPLICATION_ID,
       ], { signal });
-      return { pid: parseB2IosLaunchPid(launch.stdout) };
+      return { pid: parseB2IosLaunchPid(b2IosMachineText(launch)) };
     },
     async resolveDataContainer(udid, { signal } = {}) {
       const result = await required('xcrun', [
@@ -1409,7 +1431,7 @@ export function createB2IosProductionDependencies({
         B2_APPLICATION_ID,
         'data',
       ], { signal });
-      const path = result.stdout.trim();
+      const path = b2IosMachineText(result).trim();
       if (!path.includes('/data/Containers/Data/Application/')) {
         throw proofError(
           'b2_ios_data_container_invalid',
@@ -1462,7 +1484,7 @@ export function createB2IosProductionDependencies({
         udid,
         B2_APPLICATION_ID,
       ], { signal });
-      return { pid: parseB2IosLaunchPid(launch.stdout) };
+      return { pid: parseB2IosLaunchPid(b2IosMachineText(launch)) };
     },
     async captureForegroundScreenshot(
       { udid, pid, metadata },
@@ -1577,7 +1599,9 @@ async function readInstalledPrivacy(build) {
 
 async function xcodeVersion() {
   const result = await runRequired('xcodebuild', ['-version']);
-  const match = result.stdout.trim().match(/^Xcode ([^\n]+)\nBuild version ([^\n]+)$/);
+  const match = b2IosMachineText(result)
+    .trim()
+    .match(/^Xcode ([^\n]+)\nBuild version ([^\n]+)$/);
   if (!match) {
     throw proofError(
       'b2_ios_xcode_version_invalid',

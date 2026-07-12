@@ -7,6 +7,7 @@ import {
   B2_NATIVE_REPORT_SCHEMA_VERSION,
   B2_PLUGIN_VERSIONS,
   compareB2NativeLogicalEvidence,
+  decodeB2MachineUtf8,
   validateB2NativeReport,
 } from '../scripts/lib/b2-evidence.mjs';
 
@@ -16,6 +17,16 @@ const SCREENSHOT = Buffer.from('non-empty screenshot bytes');
 const SCREENSHOT_SHA256 = createHash('sha256').update(SCREENSHOT).digest('hex');
 const LOGICAL_SHA256 = '3'.repeat(64);
 const LEARNER_B_SHA256 = '4'.repeat(64);
+
+test('machine evidence UTF-8 decoding preserves authority bytes and rejects invalid text', () => {
+  const authority = 'password="false" token="machine-value"';
+  assert.equal(decodeB2MachineUtf8(Buffer.from(authority)), authority);
+  assert.throws(
+    () => decodeB2MachineUtf8(Uint8Array.from([0xc3, 0x28])),
+    /valid UTF-8/,
+  );
+  assert.throws(() => decodeB2MachineUtf8('not bytes'), /machine evidence bytes/);
+});
 
 function report(platform) {
   const isIos = platform === 'ios-simulator';

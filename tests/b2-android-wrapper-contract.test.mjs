@@ -24,6 +24,7 @@ import {
   collectB2AndroidDatabaseSet,
   createB2AndroidProductionDependencies,
   inspectB2AndroidHashBoundDatabaseSet,
+  parseB2AndroidHierarchyTexts,
   parseB2AndroidPidProbe,
   pollB2AndroidProcess,
   runB2AndroidLifecycleProof,
@@ -88,6 +89,7 @@ function successfulCommand(stdout = '', stdoutBytes = Buffer.from(stdout)) {
     stdout,
     stdoutBytes,
     stderr: '',
+    stderrBytes: Buffer.alloc(0),
     spawnError: null,
     timedOut: false,
     interruptedSignal: null,
@@ -449,6 +451,21 @@ test('PID probes fail closed on timeout, signals and malformed or multiple PIDs'
     pid: '123',
   });
   assert.deepEqual(
+    parseB2AndroidPidProbe({
+      ...successfulCommand('token=[REDACTED]\n'),
+      stdoutBytes: Buffer.from('123\n'),
+    }),
+    { state: 'present', pid: '123' },
+  );
+  assert.throws(
+    () =>
+      parseB2AndroidPidProbe({
+        ...successfulCommand('123\n'),
+        stdoutBytes: Uint8Array.from([0xc3, 0x28]),
+      }),
+    ({ code }) => code === 'b2_android_machine_output_invalid',
+  );
+  assert.deepEqual(
     parseB2AndroidPidProbe({ ...successfulCommand(), exitCode: 1 }),
     { state: 'absent', pid: null },
   );
@@ -540,6 +557,24 @@ test('hierarchy parser rejects negated, duplicate, stale, partial and malformed 
       ].includes(code),
     );
   }
+
+  const rawMachineXml = complete.replace(
+    'class="android.widget.FrameLayout"',
+    'class="android.widget.FrameLayout" password="false" token="machine-value"',
+  );
+  assert.equal(
+    assertB2AndroidHierarchyPhase(rawMachineXml, 'B2 proof complete').phase,
+    'B2 proof complete',
+  );
+  assert.throws(
+    () =>
+      parseB2AndroidHierarchyTexts(
+        rawMachineXml
+          .replace('password="false"', 'password=[REDACTED]')
+          .replace('token="machine-value"', 'token=[REDACTED]'),
+      ),
+    ({ code }) => code === 'b2_android_hierarchy_xml_invalid',
+  );
 });
 
 async function collectFixture(listing, options = {}) {
@@ -1579,6 +1614,9 @@ test('production hierarchy waits for delayed API 36 output and cleans the exact 
             ...successfulCommand(),
             exitCode: 1,
             stderr: `cat: ${remotePath}: No such file or directory\n`,
+            stderrBytes: Buffer.from(
+              `cat: ${remotePath}: No such file or directory\n`,
+            ),
           };
         }
         return successfulCommand(hierarchy.hierarchy);
@@ -1667,6 +1705,9 @@ test('production hierarchy bounds missing output polling and cleans on timeout',
           ...successfulCommand(),
           exitCode: 1,
           stderr: `cat: ${remotePath}: No such file or directory\n`,
+          stderrBytes: Buffer.from(
+            `cat: ${remotePath}: No such file or directory\n`,
+          ),
         };
       }
       return successfulCommand();
@@ -1698,6 +1739,20 @@ function hierarchyOutputHarness({
   const commands = [];
   let dumpIndex = 0;
   let catIndex = 0;
+  const machineResult = (result) => {
+    const preserve = result?.preserveMachineBytes === true;
+    const normalised = { ...result };
+    delete normalised.preserveMachineBytes;
+    return {
+      ...normalised,
+      stdoutBytes: preserve
+        ? normalised.stdoutBytes
+        : Buffer.from(normalised.stdout ?? ''),
+      stderrBytes: preserve
+        ? normalised.stderrBytes
+        : Buffer.from(normalised.stderr ?? ''),
+    };
+  };
   const dependencies = createB2AndroidProductionDependencies({
     runId,
     fs: productionTestFs(),
@@ -1714,12 +1769,14 @@ function hierarchyOutputHarness({
       if (value.includes('uiautomator dump')) {
         const result = dumpResult(remotePath, dumpIndex);
         dumpIndex += 1;
-        return result;
+        return machineResult(result);
       }
       if (value.includes(` cat ${remotePath}`)) {
         const result = catResults[Math.min(catIndex, catResults.length - 1)];
         catIndex += 1;
-        return typeof result === 'function' ? result(remotePath) : result;
+        return machineResult(
+          typeof result === 'function' ? result(remotePath) : result,
+        );
       }
       return successfulCommand();
     },
@@ -1822,6 +1879,57 @@ test('production hierarchy accepts only exact byte-equivalent dump reports', asy
       );
     });
   }
+});
+
+test('production hierarchy parses raw XML bytes instead of redacted diagnostics', async () => {
+  const rawHierarchy = hierarchyRecord('B2 proof complete').hierarchy.replace(
+    'class="android.widget.FrameLayout"',
+    'class="android.widget.FrameLayout" password="false" token="machine-value"',
+  );
+  const redactedHierarchy = rawHierarchy
+    .replace('password="false"', 'password=[REDACTED]')
+    .replace('token="machine-value"', 'token=[REDACTED]');
+  const { commands, dependencies, remotePath } = hierarchyOutputHarness({
+    runId: 'raw-machine-xml-1234',
+    dumpResult: (path) =>
+      successfulCommand(`UI hierchary dumped to: ${path}\n`),
+    catResults: [{
+      ...successfulCommand(redactedHierarchy),
+      stdoutBytes: Buffer.from(rawHierarchy),
+      preserveMachineBytes: true,
+    }],
+  });
+
+  await assert.doesNotReject(
+    dependencies.waitForHierarchyPhase('B2 proof complete'),
+  );
+  assert.equal(
+    commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+    1,
+  );
+});
+
+test('production hierarchy rejects invalid UTF-8 machine bytes and cleans its path', async () => {
+  const redactedHierarchy = hierarchyRecord('B2 proof complete').hierarchy;
+  const { commands, dependencies, remotePath } = hierarchyOutputHarness({
+    runId: 'invalid-machine-xml-1234',
+    dumpResult: (path) =>
+      successfulCommand(`UI hierchary dumped to: ${path}\n`),
+    catResults: [{
+      ...successfulCommand(redactedHierarchy),
+      stdoutBytes: Uint8Array.from([0xc3, 0x28]),
+      preserveMachineBytes: true,
+    }],
+  });
+
+  await assert.rejects(
+    dependencies.waitForHierarchyPhase('B2 proof complete'),
+    ({ code }) => code === 'b2_android_machine_output_invalid',
+  );
+  assert.equal(
+    commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+    1,
+  );
 });
 
 test('production hierarchy retries only the exact API 36 null-root fixture', async () => {

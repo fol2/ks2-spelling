@@ -41,6 +41,19 @@ export const B2_ATOMIC_FAILURE_CHECKPOINTS = Object.freeze([
 export const B2_IOS_DEVICE = IOS_DEVICE;
 export const B2_ANDROID_DEVICE = ANDROID_DEVICE;
 
+export function decodeB2MachineUtf8(bytes) {
+  if (!(bytes instanceof Uint8Array)) {
+    throw new TypeError('B2 machine evidence bytes must be a Uint8Array.');
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch (cause) {
+    throw new TypeError('B2 machine evidence bytes are not valid UTF-8.', {
+      cause,
+    });
+  }
+}
+
 export {
   analyseAndroidScreenshotBmp,
   analyseIosScreenshotBmp,

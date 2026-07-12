@@ -321,13 +321,42 @@ test('process probes reject runner errors and bounded polling handles transient 
     exitCode: 0,
     signal: null,
     stdout: '123 /tmp/App.app/App\n',
+    stdoutBytes: Buffer.from('123 /tmp/App.app/App\n'),
     stderr: '',
+    stderrBytes: Buffer.alloc(0),
     spawnError: null,
     timedOut: false,
     interruptedSignal: null,
   };
-  const absent = { ...present, exitCode: 1, stdout: '' };
+  const absent = {
+    ...present,
+    exitCode: 1,
+    stdout: '',
+    stdoutBytes: Buffer.alloc(0),
+  };
   assert.equal(parseB2IosProcessProbe(present, '123'), 'present');
+  assert.equal(
+    parseB2IosProcessProbe(
+      {
+        ...present,
+        stdout: 'token=[REDACTED]\n',
+        stdoutBytes: Buffer.from('123 /tmp/App.app/App\n'),
+      },
+      '123',
+    ),
+    'present',
+  );
+  assert.throws(
+    () =>
+      parseB2IosProcessProbe(
+        {
+          ...present,
+          stdoutBytes: Uint8Array.from([0xc3, 0x28]),
+        },
+        '123',
+      ),
+    ({ code }) => code === 'b2_ios_machine_output_invalid',
+  );
   assert.equal(parseB2IosProcessProbe(absent, '123'), 'absent');
   for (const invalid of [
     { ...absent, exitCode: 2 },
@@ -844,12 +873,65 @@ function successfulCommand(stdout = '') {
     exitCode: 0,
     signal: null,
     stdout,
+    stdoutBytes: Buffer.from(stdout),
     stderr: '',
+    stderrBytes: Buffer.alloc(0),
     spawnError: null,
     timedOut: false,
     interruptedSignal: null,
   };
 }
+
+test('production iOS JSON uses raw bytes despite redacted text and rejects invalid UTF-8', async () => {
+  const runtime = JSON.stringify({
+    runtimes: [
+      {
+        identifier: 'com.apple.CoreSimulator.SimRuntime.iOS-26-5',
+        isAvailable: true,
+        version: '26.5',
+        token: 'machine-value',
+      },
+    ],
+  });
+  const devices = JSON.stringify({
+    devices: {
+      'com.apple.CoreSimulator.SimRuntime.iOS-26-5': [
+        {
+          name: 'KS2 Spelling iPhone 17',
+          udid: IOS_UDID,
+          state: 'Shutdown',
+          deviceTypeIdentifier:
+            'com.apple.CoreSimulator.SimDeviceType.iPhone-17',
+        },
+      ],
+    },
+  });
+  const rawCommand = (raw) => ({
+    ...successfulCommand('{"token":[REDACTED]}'),
+    stdoutBytes: Buffer.from(raw),
+  });
+  const dependencies = createB2IosProductionDependencies({
+    fs: TEST_FS,
+    run: async (_command, args) =>
+      rawCommand(args.includes('runtimes') ? runtime : devices),
+  });
+  assert.deepEqual(await dependencies.acquireOwnedDevice(), {
+    udid: IOS_UDID,
+    state: 'Shutdown',
+  });
+
+  const invalid = createB2IosProductionDependencies({
+    fs: TEST_FS,
+    run: async () => ({
+      ...successfulCommand('{"runtimes":[]}'),
+      stdoutBytes: Uint8Array.from([0xc3, 0x28]),
+    }),
+  });
+  await assert.rejects(
+    invalid.acquireOwnedDevice(),
+    ({ code }) => code === 'b2_ios_machine_output_invalid',
+  );
+});
 
 test('production adapter executes exact owned-device commands through the injected runner', async () => {
   const commands = [];

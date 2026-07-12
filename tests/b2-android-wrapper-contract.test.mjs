@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,9 +32,34 @@ const LOGICAL_SHA256 = 'e'.repeat(64);
 const LEARNER_B_SHA256 = 'f'.repeat(64);
 
 function hierarchyRecord(phase) {
-  const hierarchy = phase === 'B2 proof complete'
-    ? '<node text="B2 proof complete Learner isolation verified pause, resume and relaunch verified"/>'
-    : `<node text="${phase}"/>`;
+  const texts = [
+    'B2 persistence proof',
+    'KS2 Spelling',
+    'Local SQLite, transaction recovery and app lifecycle diagnostics.',
+    'Active proof phase',
+    phase,
+    'Native local data',
+    'Database',
+    'ks2-spelling',
+    'SQLite schema',
+    '&#49;',
+    'Learner isolation',
+    phase === 'B2 proof complete' ? 'verified' : 'pending',
+    'Lifecycle',
+    phase === 'B2 proof complete'
+      ? 'pause, resume and relaunch verified'
+      : 'proof in progress',
+  ];
+  const hierarchy = [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<hierarchy rotation="0">',
+    '<node index="root" text="" class="android.widget.FrameLayout">',
+    ...texts.map((text, index) =>
+      `<node index="${index}" text="${text}" class="android.view.View"/>`,
+    ),
+    '</node>',
+    '</hierarchy>',
+  ].join('');
   return {
     phase,
     hierarchy,
@@ -344,6 +369,69 @@ test('every subprocess has bounded process-group timeout and AbortSignal support
   assert.equal(aborted.timedOut, false);
 });
 
+test('AbortSignal escalates a SIGTERM-ignoring child to SIGKILL and owned cleanup runs once', async () => {
+  const controller = new AbortController();
+  const startedAt = Date.now();
+  const running = runB2AndroidSubprocess(
+    process.execPath,
+    [
+      '-e',
+      "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)",
+    ],
+    { timeoutMs: 5_000, signal: controller.signal },
+  );
+  setTimeout(() => controller.abort(new Error('forced abort')), 150);
+  const result = await running;
+  assert.equal(result.aborted, true);
+  assert.equal(result.signal, 'SIGKILL');
+  assert.ok(Date.now() - startedAt < 2_000);
+
+  const childSignalSource = new EventEmitter();
+  const interruptedChild = runB2AndroidSubprocess(
+    process.execPath,
+    [
+      '-e',
+      "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)",
+    ],
+    { timeoutMs: 5_000, signalSource: childSignalSource },
+  );
+  setTimeout(() => childSignalSource.emit('SIGTERM'), 150);
+  const interruptedResult = await interruptedChild;
+  assert.equal(interruptedResult.interruptedSignal, 'SIGTERM');
+  assert.equal(interruptedResult.signal, 'SIGKILL');
+
+  const signalSource = new EventEmitter();
+  const cleanup = [];
+  let workStarted;
+  const began = new Promise((resolve) => { workStarted = resolve; });
+  const proof = runWithB2AndroidOwnedCleanup({
+    work: async ({ signal, ownSerial }) => {
+      ownSerial('emulator-5580');
+      const child = runB2AndroidSubprocess(
+        process.execPath,
+        [
+          '-e',
+          "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)",
+        ],
+        { timeoutMs: 5_000, signal },
+      );
+      workStarted();
+      await child;
+      signal.throwIfAborted();
+    },
+    killOwnedSerial: async (serial) => cleanup.push(serial),
+    terminateProcessGroup: async () => assert.fail('wrong cleanup route'),
+    signalSource,
+  });
+  await began;
+  signalSource.emit('SIGINT');
+  await assert.rejects(
+    proof,
+    ({ code }) => code === 'b2_android_signal_interrupted',
+  );
+  assert.deepEqual(cleanup, ['emulator-5580']);
+});
+
 test('PID probes fail closed on timeout, signals and malformed or multiple PIDs', async () => {
   assert.deepEqual(parseB2AndroidPidProbe(successfulCommand('123\n')), {
     state: 'present',
@@ -379,21 +467,20 @@ test('PID probes fail closed on timeout, signals and malformed or multiple PIDs'
 });
 
 test('hierarchy polling requires exact phases and the complete diagnostic shell', async () => {
-  const complete = [
-    'B2 proof complete',
-    'Learner isolation',
-    'verified',
-    'pause, resume and relaunch verified',
-  ].join(' ');
+  const complete = hierarchyRecord('B2 proof complete').hierarchy;
   assert.equal(
     assertB2AndroidHierarchyPhase(complete, 'B2 proof complete').phase,
     'B2 proof complete',
   );
   assert.throws(
     () => assertB2AndroidHierarchyPhase('B2 proof complete', 'B2 proof complete'),
-    ({ code }) => code === 'b2_android_hierarchy_phase_invalid',
+    ({ code }) => code === 'b2_android_hierarchy_xml_invalid',
   );
-  const probes = [successfulCommand('loading'), successfulCommand(complete)];
+  const partial = complete.replace(
+    '<node index="12" text="Lifecycle" class="android.view.View"/>',
+    '',
+  );
+  const probes = [successfulCommand(partial), successfulCommand(complete)];
   const result = await waitForB2AndroidHierarchyPhase({
     phase: 'B2 proof complete',
     attempts: 2,
@@ -409,6 +496,39 @@ test('hierarchy polling requires exact phases and the complete diagnostic shell'
     }),
     ({ code }) => code === 'b2_android_hierarchy_probe_failed',
   );
+});
+
+test('hierarchy parser rejects negated, duplicate, stale, partial and malformed XML text', () => {
+  const complete = hierarchyRecord('B2 proof complete').hierarchy;
+  const candidates = [
+    complete.replace('text="B2 proof complete"', 'text="Not B2 proof complete"'),
+    complete.replace(
+      '</hierarchy>',
+      '<node index="99" text="KS2 Spelling" class="android.view.View"/></hierarchy>',
+    ),
+    complete.replace(
+      '</hierarchy>',
+      '<node index="99" text="Ready for relaunch" class="android.view.View"/></hierarchy>',
+    ),
+    complete.replace(
+      '<node index="1" text="KS2 Spelling" class="android.view.View"/>',
+      '',
+    ),
+    complete.replace('text="KS2 Spelling"', 'text="KS2 &unknown; Spelling"'),
+    complete.replace(
+      'text="KS2 Spelling"',
+      'text="KS2 Spelling" text="KS2 Spelling"',
+    ),
+  ];
+  for (const candidate of candidates) {
+    assert.throws(
+      () => assertB2AndroidHierarchyPhase(candidate, 'B2 proof complete'),
+      ({ code }) => [
+        'b2_android_hierarchy_phase_invalid',
+        'b2_android_hierarchy_xml_invalid',
+      ].includes(code),
+    );
+  }
 });
 
 async function collectFixture(listing, options = {}) {
@@ -503,6 +623,63 @@ test('run-as collection rejects unknown sidecars and preserves colliding temp pa
   assert.deepEqual(collisionEvents, ['list', 'collision']);
 });
 
+test('run-as mkdir registers ownership before abort and uses non-aborted cleanup', async () => {
+  const controller = new AbortController();
+  const events = [];
+  await assert.rejects(
+    collectB2AndroidDatabaseSet({
+      async listDatabaseFiles() {
+        return 'ks2-spellingSQLite.db\n';
+      },
+      async assertTemporaryDirectoryAbsent() {
+        events.push('collision-clear');
+      },
+      async createTemporaryDirectory() {
+        events.push('mkdir-succeeded');
+        controller.abort(new Error('abort after mkdir'));
+      },
+      async copyToTemporaryDirectory() {
+        events.push('forbidden-copy');
+      },
+      async pullTemporaryFile() {
+        events.push('forbidden-pull');
+      },
+      async removeTemporaryDirectory() {
+        events.push('owned-cleanup-without-aborted-signal');
+      },
+      signal: controller.signal,
+    }),
+    /abort after mkdir/,
+  );
+  assert.deepEqual(events, [
+    'collision-clear',
+    'mkdir-succeeded',
+    'owned-cleanup-without-aborted-signal',
+  ]);
+
+  const failedMkdir = [];
+  await assert.rejects(
+    collectB2AndroidDatabaseSet({
+      async listDatabaseFiles() { return 'ks2-spellingSQLite.db\n'; },
+      async assertTemporaryDirectoryAbsent() {},
+      async createTemporaryDirectory() {
+        failedMkdir.push('side-effect-attempted');
+        throw new Error('mkdir outcome uncertain');
+      },
+      async copyToTemporaryDirectory() {},
+      async pullTemporaryFile() {},
+      async removeTemporaryDirectory() {
+        failedMkdir.push('pre-registered-cleanup-ran');
+      },
+    }),
+    /mkdir outcome uncertain/,
+  );
+  assert.deepEqual(failedMkdir, [
+    'side-effect-attempted',
+    'pre-registered-cleanup-ran',
+  ]);
+});
+
 test('checkpoint cleanup is platform-scoped and application drift fails closed', () => {
   assert.equal(
     assertB2AndroidApplicationStatusClean(
@@ -586,6 +763,170 @@ test('pending proof rejects self-passed, stale screenshot and tampered database 
       }),
       ({ code }) => code === 'b2_android_pending_proof_invalid',
     );
+  }
+});
+
+function matchedIosReport({ proof, commit, fingerprint, screenshotSha256 }) {
+  return {
+    schemaVersion: 1,
+    platform: 'ios-simulator',
+    testedApplicationCommit: commit,
+    applicationFingerprint: fingerprint,
+    identity: { applicationId: 'uk.eugnel.ks2spelling' },
+    device: {
+      name: 'KS2 Spelling iPhone 17',
+      runtime: 'com.apple.CoreSimulator.SimRuntime.iOS-26-5',
+      osVersion: '26.5',
+    },
+    nativeVersions: {
+      xcode: '26.6 (17F113)',
+      iosSdk: '26.5',
+      capacitorIos: '8.4.1',
+    },
+    pluginVersions: {
+      capacitorCore: '8.4.1',
+      capacitorApp: '8.1.0',
+      capacitorSqlite: '8.1.0',
+    },
+    database: {
+      name: 'ks2-spelling',
+      physicalFile: 'ks2-spellingSQLite.db',
+      schemaVersion: 1,
+      foreignKeys: proof.database.foreignKeys,
+      journalMode: proof.database.journalMode,
+      synchronous: proof.database.synchronous,
+      busyTimeout: proof.database.busyTimeout,
+      integrityCheck: proof.database.integrityCheck,
+      databaseSha256: '8'.repeat(64),
+      walModeObserved: true,
+      sidecarsObserved: proof.collected.sidecarsObserved,
+      everyObservedSidecarCollectedSafely: true,
+    },
+    lifecycle: {
+      events: ['pause', 'resume'],
+      preKillPid: '301',
+      postRelaunchPid: '302',
+      differentPid: true,
+    },
+    proof: {
+      resumedSessionId: proof.database.resumedSessionId,
+      preKillRevision: 4,
+      finalRevision: proof.database.finalRevision,
+      finalLogicalSnapshotSha256: proof.database.finalLogicalSnapshotSha256,
+      atomicFailureCheckpoints: proof.database.atomicFailureCheckpoints,
+      migrationRollback: proof.database.migrationRollback,
+      learnerBIsolation: 'verified',
+      learnerBInitialSha256: proof.database.learnerBDigest,
+      learnerBFinalSha256: proof.database.learnerBDigest,
+      monsterState: proof.database.monsterState,
+      starterCampRows: proof.database.starterCampRows,
+    },
+    privacy: {
+      serverUrl: null,
+      packagedAndroidPermissions: [],
+      androidBackupEnabled: false,
+      addedIosUsageDescriptionKeys: [],
+      addedIosEntitlements: [],
+    },
+    ui: {
+      diagnosticPhase: 'complete',
+      machineStateSource: 'durable-proof-metadata',
+      screenshotSha256,
+      manualVisualInspection: 'passed',
+    },
+    cleanup: { deviceStopped: true },
+  };
+}
+
+test('Android final report requires live matched iOS evidence before any write', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'b2-cross-platform-final-'));
+  const paths = {
+    androidReport: join(directory, 'android.json'),
+    androidScreenshot: join(directory, 'android.png'),
+    iosReport: join(directory, 'ios.json'),
+    iosScreenshot: join(directory, 'ios.png'),
+  };
+  const commit = '1'.repeat(40);
+  const fingerprint = '2'.repeat(64);
+  const androidScreenshot = Buffer.from('android screenshot');
+  const iosScreenshot = Buffer.from('ios screenshot');
+  const { dependencies } = createDependencies();
+  const proof = await runB2AndroidLifecycleProof(dependencies);
+  proof.screenshot.sha256 = createHash('sha256')
+    .update(androidScreenshot)
+    .digest('hex');
+  proof.collected.fileSha256['ks2-spellingSQLite.db'] = proof.database.databaseSha256;
+  const attestation = {
+    schemaVersion: 1,
+    platform: 'android-emulator',
+    screenshotSha256: proof.screenshot.sha256,
+    manualVisualInspection: 'passed',
+  };
+  const ios = matchedIosReport({
+    proof,
+    commit,
+    fingerprint,
+    screenshotSha256: createHash('sha256').update(iosScreenshot).digest('hex'),
+  });
+  try {
+    await mkdir(directory, { recursive: true });
+    await writeFile(paths.androidScreenshot, androidScreenshot);
+    await writeFile(paths.iosScreenshot, iosScreenshot);
+    await writeFile(paths.iosReport, `${JSON.stringify(ios)}\n`);
+    await writeB2AndroidValidatedReport({
+      testedApplicationCommit: commit,
+      applicationFingerprint: fingerprint,
+      proof,
+      manualAttestation: attestation,
+      paths,
+    });
+    assert.equal(JSON.parse(await readFile(paths.androidReport)).platform, 'android-emulator');
+
+    const mismatch = structuredClone(ios);
+    mismatch.proof.finalLogicalSnapshotSha256 = '0'.repeat(64);
+    await writeFile(paths.iosReport, `${JSON.stringify(mismatch)}\n`);
+    await rm(paths.androidReport);
+    await assert.rejects(
+      writeB2AndroidValidatedReport({
+        testedApplicationCommit: commit,
+        applicationFingerprint: fingerprint,
+        proof,
+        manualAttestation: attestation,
+        paths,
+      }),
+      /logical proof/i,
+    );
+    await assert.rejects(readFile(paths.androidReport), { code: 'ENOENT' });
+
+    const stale = structuredClone(ios);
+    stale.testedApplicationCommit = '9'.repeat(40);
+    await writeFile(paths.iosReport, `${JSON.stringify(stale)}\n`);
+    await assert.rejects(
+      writeB2AndroidValidatedReport({
+        testedApplicationCommit: commit,
+        applicationFingerprint: fingerprint,
+        proof,
+        manualAttestation: attestation,
+        paths,
+      }),
+      /testedApplicationCommit/i,
+    );
+    await assert.rejects(readFile(paths.androidReport), { code: 'ENOENT' });
+
+    await rm(paths.iosReport);
+    await assert.rejects(
+      writeB2AndroidValidatedReport({
+        testedApplicationCommit: commit,
+        applicationFingerprint: fingerprint,
+        proof,
+        manualAttestation: attestation,
+        paths,
+      }),
+      ({ code }) => code === 'b2_android_ios_evidence_missing',
+    );
+    await assert.rejects(readFile(paths.androidReport), { code: 'ENOENT' });
+  } finally {
+    await rm(directory, { force: true, recursive: true });
   }
 });
 
@@ -753,4 +1094,267 @@ test('production adapter rejects a serial collision and required-runner failures
       ].includes(code),
     );
   }
+});
+
+test('production run-as uses unique paths, pulls every sidecar and cleans an interrupted mkdir', async () => {
+  const commands = [];
+  const files = B2_ANDROID_DATABASE_FILES.join('\n');
+  const run = async (command, args, options) => {
+    commands.push([command, args, options.signal]);
+    const serialised = args.join(' ');
+    if (serialised.includes(' ls -1 databases')) return successfulCommand(`${files}\n`);
+    if (serialised.includes('if [ -e files/.b2-proof-export-')) {
+      return successfulCommand('absent\n');
+    }
+    if (args.includes('exec-out') && args.includes('cat')) {
+      const filename = args.at(-1).split('/').at(-1);
+      return successfulCommand('', Buffer.from(`bytes:${filename}`));
+    }
+    return successfulCommand();
+  };
+  const dependencies = createB2AndroidProductionDependencies({
+    run,
+    fs: productionTestFs(),
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    runId: 'run-as-proof-1234',
+  });
+  const collected = await dependencies.collectTerminatedDatabaseSet();
+  assert.deepEqual(collected.observedFiles, [...B2_ANDROID_DATABASE_FILES]);
+  const serialised = commands.map(([, args]) => args.join(' '));
+  assert.ok(serialised.some((value) => value.includes('files/.b2-proof-export-run-as-proof-1234')));
+  assert.equal(
+    serialised.filter((value) => value.includes(' rm -rf files/.b2-proof-export-run-as-proof-1234')).length,
+    1,
+  );
+  assert.equal(serialised.some((value) => value.includes('files/.b2-proof-export ')), false);
+
+  const controller = new AbortController();
+  const interruptedCommands = [];
+  const interrupted = createB2AndroidProductionDependencies({
+    fs: productionTestFs(),
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    runId: 'interrupted-proof-1234',
+    run: async (_command, args, options) => {
+      const value = args.join(' ');
+      interruptedCommands.push([value, options.signal]);
+      if (value.includes(' ls -1 databases')) {
+        return successfulCommand('ks2-spellingSQLite.db\n');
+      }
+      if (value.includes('if [ -e files/.b2-proof-export-')) {
+        return successfulCommand('absent\n');
+      }
+      if (value.includes(' mkdir files/.b2-proof-export-interrupted-proof-1234')) {
+        controller.abort(new Error('interrupt after remote mkdir'));
+      }
+      return successfulCommand();
+    },
+  });
+  await assert.rejects(
+    interrupted.collectTerminatedDatabaseSet({ signal: controller.signal }),
+    /interrupt after remote mkdir/,
+  );
+  const cleanup = interruptedCommands.find(([value]) =>
+    value.includes(' rm -rf files/.b2-proof-export-interrupted-proof-1234'),
+  );
+  assert.ok(cleanup);
+  assert.equal(cleanup[1], undefined, 'cleanup runner must not reuse the aborted signal');
+
+  const collisionCommands = [];
+  const collision = createB2AndroidProductionDependencies({
+    fs: productionTestFs(),
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    runId: 'foreign-temp-proof-1234',
+    run: async (_command, args) => {
+      const value = args.join(' ');
+      collisionCommands.push(value);
+      if (value.includes(' ls -1 databases')) {
+        return successfulCommand('ks2-spellingSQLite.db\n');
+      }
+      if (value.includes('if [ -e files/.b2-proof-export-')) {
+        return successfulCommand('exists\n');
+      }
+      return successfulCommand();
+    },
+  });
+  await assert.rejects(
+    collision.collectTerminatedDatabaseSet(),
+    ({ code }) => code === 'b2_android_temporary_collision',
+  );
+  assert.equal(collisionCommands.some((value) => value.includes('rm -rf')), false);
+});
+
+function diagnosticBmp() {
+  const width = 10;
+  const height = 10;
+  const buffer = Buffer.alloc(54 + width * height * 4);
+  buffer.write('BM', 0, 'ascii');
+  buffer.writeUInt32LE(buffer.length, 2);
+  buffer.writeUInt32LE(54, 10);
+  buffer.writeUInt32LE(40, 14);
+  buffer.writeInt32LE(width, 18);
+  buffer.writeInt32LE(height, 22);
+  buffer.writeUInt16LE(1, 26);
+  buffer.writeUInt16LE(32, 28);
+  buffer.writeUInt32LE(0, 30);
+  for (let offset = 54; offset < buffer.length; offset += 4) {
+    buffer[offset] = 20;
+    buffer[offset + 1] = 20;
+    buffer[offset + 2] = 20;
+    buffer[offset + 3] = 255;
+  }
+  buffer[54] = 220;
+  buffer[55] = 220;
+  buffer[56] = 220;
+  buffer[58] = 130;
+  buffer[59] = 160;
+  buffer[60] = 80;
+  return buffer;
+}
+
+test('production foreground capture and privacy inspection use executable runner evidence', async () => {
+  const commands = [];
+  const screenshot = Buffer.from('fake png screenshot');
+  const hierarchy = hierarchyRecord('B2 proof complete');
+  const stored = new Map();
+  const fs = {
+    ...productionTestFs(),
+    async readFile(path) {
+      if (path.endsWith('android-proof.bmp')) return diagnosticBmp();
+      if (stored.has(path)) return stored.get(path);
+      return productionTestFs().readFile(path);
+    },
+    async writeFile(path, bytes) {
+      stored.set(path, Buffer.from(bytes));
+    },
+  };
+  const run = async (command, args, options) => {
+    commands.push([command, args, options.timeoutMs]);
+    const value = args.join(' ');
+    if (value.includes('pidof uk.eugnel.ks2spelling')) {
+      return successfulCommand('202\n');
+    }
+    if (value.includes('dumpsys activity activities')) {
+      return successfulCommand(
+        'mResumedActivity: ActivityRecord{abc u0 uk.eugnel.ks2spelling/.MainActivity t42}\n',
+      );
+    }
+    if (value.includes('if [ -e /sdcard/ks2-spelling-b2-window-')) {
+      return successfulCommand('absent\n');
+    }
+    if (value.includes(' cat /sdcard/ks2-spelling-b2-window-')) {
+      return successfulCommand(hierarchy.hierarchy);
+    }
+    if (args.includes('screencap')) return successfulCommand('', screenshot);
+    if (args[0] === 'dump' && args[1] === 'permissions') {
+      return successfulCommand('package: uk.eugnel.ks2spelling\n');
+    }
+    if (args[0] === 'dump' && args[1] === 'xmltree') {
+      return successfulCommand([
+        'A: android:allowBackup(0x01010280)=false',
+        'A: android:fullBackupContent(0x010105eb)=@0x7f120000',
+        'A: android:dataExtractionRules(0x0101064f)=@0x7f120001',
+      ].join('\n'));
+    }
+    if (command === 'unzip') return successfulCommand('{"server":{}}\n');
+    if (value.includes('getprop ro.build.version.sdk')) return successfulCommand('36\n');
+    if (value.includes('getprop ro.build.version.release')) return successfulCommand('16\n');
+    return successfulCommand();
+  };
+  const dependencies = createB2AndroidProductionDependencies({
+    run,
+    fs,
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    runId: 'foreground-proof-1234',
+  });
+  const captured = await dependencies.captureForegroundEvidence(
+    { pid: '202', hierarchy },
+  );
+  assert.equal(captured.sha256, createHash('sha256').update(screenshot).digest('hex'));
+  const privacy = await dependencies.inspectPackagedPrivacy();
+  assert.deepEqual(privacy.packagedPermissions, []);
+  assert.equal(privacy.androidBackupEnabled, false);
+  const commandText = commands.map(([, args]) => args.join(' '));
+  assert.ok(
+    commandText.findIndex((value) => value.includes('uiautomator dump')) <
+      commandText.findIndex((value) => value.includes('exec-out screencap -p')),
+  );
+  assert.equal(commandText.some((value) => value.includes('force-stop')), false);
+  assert.ok(commandText.every((_, index) => Number.isSafeInteger(commands[index][2])));
+
+  const collisionCommands = [];
+  const hierarchyCollision = createB2AndroidProductionDependencies({
+    runId: 'foreign-hierarchy-1234',
+    fs,
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    run: async (_command, args) => {
+      collisionCommands.push(args.join(' '));
+      return successfulCommand('exists\n');
+    },
+  });
+  await assert.rejects(
+    hierarchyCollision.waitForHierarchyPhase('B2 proof complete'),
+    ({ code }) => code === 'b2_android_hierarchy_collision',
+  );
+  assert.equal(collisionCommands.some((value) => value.includes('uiautomator')), false);
+  assert.equal(collisionCommands.some((value) => value.includes(' rm -f ')), false);
+});
+
+test('new-emulator start registers process-group ownership before boot failure cleanup', async () => {
+  const started = [];
+  const cleanup = [];
+  const dependencies = createB2AndroidProductionDependencies({
+    fs: productionTestFs(),
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    runId: 'new-emulator-proof-1234',
+    startEmulator(command, args) {
+      started.push([command, args]);
+      return { pid: 321 };
+    },
+    run: async (_command, args) => {
+      const value = args.join(' ');
+      if (value.endsWith('-s emulator-5580 get-state')) {
+        return { ...successfulCommand(), exitCode: 1 };
+      }
+      if (value.includes('wait-for-device')) {
+        return { ...successfulCommand(), exitCode: null, timedOut: true };
+      }
+      return successfulCommand();
+    },
+  });
+  await assert.rejects(
+    runWithB2AndroidOwnedCleanup({
+      work: ({ signal, ownSerial, ownProcessGroup }) =>
+        dependencies.bootOwnedDevice({}, { signal, ownSerial, ownProcessGroup }),
+      killOwnedSerial: async () => assert.fail('serial was never acquired'),
+      terminateProcessGroup: async (pid) => cleanup.push(pid),
+      signalSource: new EventEmitter(),
+    }),
+    ({ code }) => code === 'b2_android_command_timeout',
+  );
+  assert.equal(started[0][1].includes('5580'), true);
+  assert.deepEqual(cleanup, [321]);
 });

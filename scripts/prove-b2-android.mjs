@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import {
@@ -26,6 +26,7 @@ import {
   assertAndroidSerialOwnership,
   assertStartedAndroidEmulatorProcess,
   createB2AndroidFreshInstallPlan,
+  compareB2NativeLogicalEvidence,
   validateB2NativeReport,
 } from './lib/b2-evidence.mjs';
 import {
@@ -48,6 +49,8 @@ const ROOT = resolve(import.meta.dirname, '..');
 const REPORT_DIRECTORY = join(ROOT, 'reports/b2');
 const REPORT_PATH = join(REPORT_DIRECTORY, 'android-emulator-proof.json');
 const SCREENSHOT_PATH = join(REPORT_DIRECTORY, 'android-emulator-proof.png');
+const IOS_REPORT_PATH = join(REPORT_DIRECTORY, 'ios-simulator-proof.json');
+const IOS_SCREENSHOT_PATH = join(REPORT_DIRECTORY, 'ios-simulator-proof.png');
 const EXIT_REPORT_PATH = join(REPORT_DIRECTORY, 'b2-exit-report.json');
 const PENDING_PROOF_PATH = join(ROOT, '.native-build/b2/android-pending-proof.json');
 const DATABASE_DIRECTORY = join(ROOT, '.native-build/b2/android-database-set');
@@ -57,12 +60,14 @@ const APK_PATH = join(
   '.native-build/android/build/app/outputs/apk/debug/app-debug.apk',
 );
 const REMOTE_DATABASE_DIRECTORY = 'databases';
-const REMOTE_TEMP_DIRECTORY = 'files/.b2-proof-export';
+const REMOTE_TEMP_DIRECTORY_PREFIX = 'files/.b2-proof-export-';
+const REMOTE_HIERARCHY_PATH_PREFIX = '/sdcard/ks2-spelling-b2-window-';
 const POLL_ATTEMPTS = 600;
 const POLL_INTERVAL_MS = 100;
 const PROCESS_POLL_ATTEMPTS = 50;
 const PROCESS_POLL_INTERVAL_MS = 100;
 const COMMAND_TIMEOUT_MS = 15 * 60 * 1000;
+const PROCESS_TERMINATION_GRACE_MS = 250;
 const SHA256 = /^[a-f0-9]{64}$/;
 const PID = /^[1-9][0-9]*$/;
 const LOGICAL_TABLES = Object.freeze([
@@ -206,14 +211,24 @@ export function runB2AndroidSubprocess(
         }
       }
     };
+    const terminateWithGrace = () => {
+      terminateGroup('SIGTERM');
+      if (forceKillTimer === undefined) {
+        forceKillTimer = setTimeout(
+          () => terminateGroup('SIGKILL'),
+          PROCESS_TERMINATION_GRACE_MS,
+        );
+        forceKillTimer.unref?.();
+      }
+    };
     const onSignal = (processSignal) => {
       interruptedSignal = processSignal;
-      terminateGroup('SIGTERM');
+      terminateWithGrace();
     };
     const onAbort = () => {
       aborted = true;
       abortReason = signal.reason;
-      terminateGroup('SIGTERM');
+      terminateWithGrace();
     };
     const signalHandlers = Object.fromEntries(
       ['SIGINT', 'SIGTERM'].map((name) => [name, () => onSignal(name)]),
@@ -224,9 +239,7 @@ export function runB2AndroidSubprocess(
     signal?.addEventListener('abort', onAbort, { once: true });
     const timeout = setTimeout(() => {
       timedOut = true;
-      terminateGroup('SIGTERM');
-      forceKillTimer = setTimeout(() => terminateGroup('SIGKILL'), 250);
-      forceKillTimer.unref?.();
+      terminateWithGrace();
     }, timeoutMs);
     timeout.unref?.();
 
@@ -510,32 +523,179 @@ export async function pollB2AndroidProcess({
   );
 }
 
-export function assertB2AndroidHierarchyPhase(output, phase) {
-  if (
-    typeof output !== 'string' ||
-    typeof phase !== 'string' ||
-    !phase ||
-    !output.includes(phase)
-  ) {
+const B2_ANDROID_PHASES = Object.freeze([
+  'Background test ready',
+  'Ready for relaunch',
+  'B2 proof complete',
+]);
+const B2_ANDROID_COMMON_VISIBLE_TEXT = Object.freeze([
+  'B2 persistence proof',
+  'KS2 Spelling',
+  'Local SQLite, transaction recovery and app lifecycle diagnostics.',
+  'Active proof phase',
+  'Native local data',
+  'Database',
+  'ks2-spelling',
+  'SQLite schema',
+  '1',
+  'Learner isolation',
+  'Lifecycle',
+]);
+
+function decodeXmlText(value) {
+  if (/&(?!(?:amp|quot|apos|lt|gt|#\d+|#x[0-9a-fA-F]+);)/.test(value)) {
     throw proofError(
-      'b2_android_hierarchy_phase_invalid',
-      `B2 Android UI hierarchy does not show ${phase}`,
+      'b2_android_hierarchy_xml_invalid',
+      'B2 Android hierarchy contains an unknown or unescaped XML entity',
     );
   }
+  const decoded = value.replace(
+    /&(?:amp|quot|apos|lt|gt|#\d+|#x[0-9a-fA-F]+);/g,
+    (entity) => {
+      const named = {
+        '&amp;': '&',
+        '&quot;': '"',
+        '&apos;': "'",
+        '&lt;': '<',
+        '&gt;': '>',
+      }[entity];
+      if (named !== undefined) return named;
+      const hexadecimal = entity.startsWith('&#x');
+      const codePoint = Number.parseInt(
+        entity.slice(hexadecimal ? 3 : 2, -1),
+        hexadecimal ? 16 : 10,
+      );
+      if (
+        !Number.isInteger(codePoint) ||
+        codePoint < 0 ||
+        codePoint > 0x10ffff ||
+        (codePoint >= 0xd800 && codePoint <= 0xdfff)
+      ) {
+        throw proofError(
+          'b2_android_hierarchy_xml_invalid',
+          'B2 Android hierarchy contains an invalid XML character reference',
+        );
+      }
+      return String.fromCodePoint(codePoint);
+    },
+  );
+  return decoded;
+}
+
+export function parseB2AndroidHierarchyTexts(output) {
+  const document = typeof output === 'string' ? output.trim() : '';
+  const declaration = /^<\?xml\s+version=(?:"1\.0"|'1\.0')\s+encoding=(?:"UTF-8"|'UTF-8')\s+standalone=(?:"yes"|'yes')\s*\?>/;
+  const declarationMatch = document.match(declaration);
+  if (!declarationMatch) {
+    throw proofError(
+      'b2_android_hierarchy_xml_invalid',
+      'B2 Android hierarchy is not an exact uiautomator XML document',
+    );
+  }
+  let body = document.slice(declarationMatch[0].length).trim();
+  const hierarchyOpen = body.match(/^<hierarchy\s+rotation="0"\s*>/);
+  if (!hierarchyOpen || !body.endsWith('</hierarchy>')) {
+    throw proofError(
+      'b2_android_hierarchy_xml_invalid',
+      'B2 Android hierarchy root is malformed',
+    );
+  }
+  body = body
+    .slice(hierarchyOpen[0].length, -'</hierarchy>'.length)
+    .trim();
+  const texts = [];
+  const token = /<node\b([^<>]*?)\s*(\/?)>|<\/node>/g;
+  let cursor = 0;
+  let depth = 0;
+  let nodeCount = 0;
+  let rootNodeCount = 0;
+  for (const match of body.matchAll(token)) {
+    if (body.slice(cursor, match.index).trim() !== '') {
+      throw proofError(
+        'b2_android_hierarchy_xml_invalid',
+        'B2 Android hierarchy contains unknown markup or text',
+      );
+    }
+    cursor = match.index + match[0].length;
+    if (match[0] === '</node>') {
+      if (depth === 0) {
+        throw proofError(
+          'b2_android_hierarchy_xml_invalid',
+          'B2 Android hierarchy closes an unopened node',
+        );
+      }
+      depth -= 1;
+      continue;
+    }
+    nodeCount += 1;
+    if (depth === 0) rootNodeCount += 1;
+    const source = match[1];
+    const attributes = new Map();
+    let remainder = source;
+    for (const attribute of source.matchAll(
+      /\s+([A-Za-z_:][A-Za-z0-9_.:-]*)="([^"]*)"/g,
+    )) {
+      if (attributes.has(attribute[1])) {
+        throw proofError(
+          'b2_android_hierarchy_xml_invalid',
+          `B2 Android hierarchy node duplicates ${attribute[1]}`,
+        );
+      }
+      attributes.set(attribute[1], decodeXmlText(attribute[2]));
+      remainder = remainder.replace(attribute[0], '');
+    }
+    if (remainder.trim() !== '' || !attributes.has('text')) {
+      throw proofError(
+        'b2_android_hierarchy_xml_invalid',
+        'B2 Android hierarchy node attributes are malformed',
+      );
+    }
+    const text = attributes.get('text');
+    if (text !== '') texts.push(text);
+    if (match[2] !== '/') depth += 1;
+  }
   if (
-    phase === 'B2 proof complete' &&
-    (!output.includes('Learner isolation') ||
-      !output.includes('verified') ||
-      !output.includes('pause, resume and relaunch verified'))
+    cursor !== body.length ||
+    depth !== 0 ||
+    nodeCount === 0 ||
+    rootNodeCount !== 1
+  ) {
+    throw proofError(
+      'b2_android_hierarchy_xml_invalid',
+      'B2 Android hierarchy node structure is malformed',
+    );
+  }
+  return texts;
+}
+
+export function assertB2AndroidHierarchyPhase(output, phase) {
+  if (!B2_ANDROID_PHASES.includes(phase)) {
+    throw new TypeError('B2 Android hierarchy phase is invalid.');
+  }
+  const texts = parseB2AndroidHierarchyTexts(output);
+  const expected = [
+    ...B2_ANDROID_COMMON_VISIBLE_TEXT,
+    phase,
+    phase === 'B2 proof complete' ? 'verified' : 'pending',
+    phase === 'B2 proof complete'
+      ? 'pause, resume and relaunch verified'
+      : 'proof in progress',
+  ];
+  if (
+    expected.some((text) => texts.filter((candidate) => candidate === text).length !== 1) ||
+    B2_ANDROID_PHASES.some(
+      (candidate) => candidate !== phase && texts.includes(candidate),
+    )
   ) {
     throw proofError(
       'b2_android_hierarchy_phase_invalid',
-      'B2 Android complete hierarchy does not show the full diagnostic proof',
+      `B2 Android UI hierarchy does not show the exact ${phase} diagnostic shell`,
     );
   }
   return {
     phase,
     hierarchySha256: sha256(Buffer.from(output, 'utf8')),
+    texts,
   };
 }
 
@@ -639,12 +799,14 @@ export async function collectB2AndroidDatabaseSet({
   throwIfAborted(signal);
   await assertTemporaryDirectoryAbsent({ signal });
   throwIfAborted(signal);
-  await createTemporaryDirectory({ signal });
-  let remoteCreated = true;
+  let cleanupRegistered = false;
   const temporaryDirectory = `${destinationDirectory}.tmp-${process.pid}`;
   let primaryError;
   let result;
   try {
+    cleanupRegistered = true;
+    await createTemporaryDirectory({ signal });
+    throwIfAborted(signal);
     await fs.rm(temporaryDirectory, { force: true, recursive: true });
     await fs.mkdir(temporaryDirectory, { recursive: true });
     for (const filename of observed) {
@@ -689,10 +851,10 @@ export async function collectB2AndroidDatabaseSet({
     await fs.rm(temporaryDirectory, { force: true, recursive: true });
   }
   let cleanupError;
-  if (remoteCreated) {
+  if (cleanupRegistered) {
     try {
       await removeTemporaryDirectory();
-      remoteCreated = false;
+      cleanupRegistered = false;
     } catch (error) {
       cleanupError = error;
     }
@@ -999,7 +1161,11 @@ export function createB2AndroidProductionDependencies({
   signalSource = process,
   env = process.env,
   startEmulator = startDetached,
+  runId = randomUUID(),
 } = {}) {
+  if (!/^[a-z0-9-]{8,64}$/.test(runId)) {
+    throw new TypeError('B2 Android run ID must be a safe unique token.');
+  }
   const resolution = resolveAndroidEnvironment({ env, pathExists: fs.existsSync });
   if (!resolution.ready) {
     throw proofError(
@@ -1026,18 +1192,42 @@ export function createB2AndroidProductionDependencies({
       signal: options.signal,
       env: androidEnv,
     });
-  const hierarchyRemotePath = '/sdcard/ks2-spelling-b2-window.xml';
+  const hierarchyRemotePath = `${REMOTE_HIERARCHY_PATH_PREFIX}${runId}.xml`;
+  const remoteTemporaryDirectory = `${REMOTE_TEMP_DIRECTORY_PREFIX}${runId}`;
 
   async function dumpHierarchy({ signal } = {}) {
-    await required(
+    const collision = await required(
       adb,
-      shellArgs('uiautomator', 'dump', hierarchyRemotePath),
+      shellArgs(
+        'sh',
+        '-c',
+        `if [ -e ${hierarchyRemotePath} ]; then echo exists; else echo absent; fi`,
+      ),
       { signal, timeoutMs: 30_000 },
     );
+    if (collision.stdout.trim() !== 'absent') {
+      throw proofError(
+        'b2_android_hierarchy_collision',
+        'B2 Android hierarchy path already exists',
+      );
+    }
+    let ownsHierarchyPath = true;
     try {
+      await required(
+        adb,
+        shellArgs('uiautomator', 'dump', hierarchyRemotePath),
+        { signal, timeoutMs: 30_000 },
+      );
       return await required(adb, shellArgs('cat', hierarchyRemotePath), { signal });
     } finally {
-      await required(adb, shellArgs('rm', '-f', hierarchyRemotePath), { signal });
+      if (ownsHierarchyPath) {
+        await required(
+          adb,
+          shellArgs('rm', '-f', hierarchyRemotePath),
+          { timeoutMs: 30_000 },
+        );
+        ownsHierarchyPath = false;
+      }
     }
   }
 
@@ -1368,7 +1558,9 @@ export function createB2AndroidProductionDependencies({
       const runAs = (...args) =>
         required(adb, shellArgs('run-as', B2_APPLICATION_ID, ...args), { signal });
       const runAsCleanup = (...args) =>
-        required(adb, shellArgs('run-as', B2_APPLICATION_ID, ...args));
+        required(adb, shellArgs('run-as', B2_APPLICATION_ID, ...args), {
+          timeoutMs: 30_000,
+        });
       return collectB2AndroidDatabaseSet({
         async listDatabaseFiles() {
           return (await runAs('ls', '-1', REMOTE_DATABASE_DIRECTORY)).stdout;
@@ -1377,7 +1569,7 @@ export function createB2AndroidProductionDependencies({
           const result = await runAs(
             'sh',
             '-c',
-            `if [ -e ${REMOTE_TEMP_DIRECTORY} ]; then echo exists; else echo absent; fi`,
+            `if [ -e ${remoteTemporaryDirectory} ]; then echo exists; else echo absent; fi`,
           );
           if (result.stdout.trim() !== 'absent') {
             throw proofError(
@@ -1387,7 +1579,11 @@ export function createB2AndroidProductionDependencies({
           }
         },
         async createTemporaryDirectory() {
-          await runAs('mkdir', REMOTE_TEMP_DIRECTORY);
+          await runAsCleanup(
+            'sh',
+            '-c',
+            `mkdir ${remoteTemporaryDirectory} && printf ${runId} > ${remoteTemporaryDirectory}/.owner`,
+          );
         },
         async copyToTemporaryDirectory(filename) {
           if (!B2_ANDROID_DATABASE_FILES.includes(filename)) {
@@ -1399,7 +1595,7 @@ export function createB2AndroidProductionDependencies({
           await runAs(
             'cp',
             `${REMOTE_DATABASE_DIRECTORY}/${filename}`,
-            `${REMOTE_TEMP_DIRECTORY}/${filename}`,
+            `${remoteTemporaryDirectory}/${filename}`,
           );
         },
         async pullTemporaryFile(filename) {
@@ -1412,14 +1608,18 @@ export function createB2AndroidProductionDependencies({
               'run-as',
               B2_APPLICATION_ID,
               'cat',
-              `${REMOTE_TEMP_DIRECTORY}/${filename}`,
+              `${remoteTemporaryDirectory}/${filename}`,
             ],
             { signal },
           );
           return result.stdoutBytes;
         },
         async removeTemporaryDirectory() {
-          await runAsCleanup('rm', '-rf', REMOTE_TEMP_DIRECTORY);
+          await runAsCleanup(
+            'sh',
+            '-c',
+            `if [ ! -e ${remoteTemporaryDirectory} ]; then exit 0; elif [ "$(cat ${remoteTemporaryDirectory}/.owner 2>/dev/null)" = "${runId}" ]; then rm -rf ${remoteTemporaryDirectory}; else echo foreign-owned-temp >&2; exit 42; fi`,
+          );
         },
         fs,
         signal,
@@ -1720,12 +1920,11 @@ export function validateB2AndroidPendingProof(
     proof.privacy.buildTools !== '36.0.0'
   ) invalid('payload is incomplete, stale or malformed');
   try {
-    assertB2AndroidHierarchyPhase(
-      proof.complete.hierarchy,
-      'B2 proof complete',
-    );
+    for (const hierarchy of [proof.background, proof.ready, proof.complete]) {
+      assertB2AndroidHierarchyPhase(hierarchy.hierarchy, hierarchy.phase);
+    }
   } catch {
-    invalid('complete hierarchy is not the exact diagnostic shell');
+    invalid('hierarchy phases are not the exact diagnostic shell');
   }
   return structuredClone(candidate);
 }
@@ -1761,6 +1960,12 @@ export async function writeB2AndroidValidatedReport({
   proof,
   manualAttestation,
   fs = DEFAULT_FS,
+  paths = {
+    androidReport: REPORT_PATH,
+    androidScreenshot: SCREENSHOT_PATH,
+    iosReport: IOS_REPORT_PATH,
+    iosScreenshot: IOS_SCREENSHOT_PATH,
+  },
 }) {
   const attestation = validateB2AndroidManualAttestation(
     manualAttestation,
@@ -1830,14 +2035,45 @@ export async function writeB2AndroidValidatedReport({
     },
     cleanup: { deviceStopped: true },
   };
-  const screenshotBytes = await fs.readFile(SCREENSHOT_PATH);
+  const screenshotBytes = await fs.readFile(paths.androidScreenshot);
   validateB2NativeReport(report, {
     expectedPlatform: 'android-emulator',
     expectedApplicationCommit: testedApplicationCommit,
     expectedApplicationFingerprint: applicationFingerprint,
     screenshotBytes,
   });
-  await fs.writeFile(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  let iosReport;
+  try {
+    iosReport = JSON.parse(await fs.readFile(paths.iosReport, 'utf8'));
+  } catch (cause) {
+    throw proofError(
+      'b2_android_ios_evidence_missing',
+      'B2 Android finalisation requires the matched iOS report',
+      { cause },
+    );
+  }
+  let iosScreenshotBytes;
+  try {
+    iosScreenshotBytes = await fs.readFile(paths.iosScreenshot);
+  } catch (cause) {
+    throw proofError(
+      'b2_android_ios_evidence_missing',
+      'B2 Android finalisation requires the matched iOS screenshot',
+      { cause },
+    );
+  }
+  validateB2NativeReport(iosReport, {
+    expectedPlatform: 'ios-simulator',
+    expectedApplicationCommit: testedApplicationCommit,
+    expectedApplicationFingerprint: applicationFingerprint,
+    screenshotBytes: iosScreenshotBytes,
+  });
+  compareB2NativeLogicalEvidence(iosReport, report);
+  await fs.writeFile(
+    paths.androidReport,
+    `${JSON.stringify(report, null, 2)}\n`,
+    'utf8',
+  );
   return report;
 }
 
@@ -1926,6 +2162,7 @@ async function finalisePendingProof(attestationPath) {
   const manualAttestation = JSON.parse(
     await DEFAULT_FS.readFile(resolve(attestationPath), 'utf8'),
   );
+  await DEFAULT_FS.rm(REPORT_PATH, { force: true });
   const report = await writeB2AndroidValidatedReport({
     testedApplicationCommit: pending.testedApplicationCommit,
     applicationFingerprint: pending.applicationFingerprint,

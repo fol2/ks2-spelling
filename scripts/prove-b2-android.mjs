@@ -1296,8 +1296,20 @@ export function createB2AndroidProductionDependencies({
         shellArgs('uiautomator', 'dump', hierarchyRemotePath),
         { signal, timeoutMs: 30_000 },
       );
-      const reportedPath = dump.stdout.match(/dumped to:\s*(\S+)/)?.[1];
-      if (reportedPath && reportedPath !== hierarchyRemotePath) {
+      const dumpOutput =
+        typeof dump.stdout === 'string' && typeof dump.stderr === 'string'
+          ? `${dump.stdout}\n${dump.stderr}`
+          : '';
+      const reportedPaths = [...dumpOutput.matchAll(/dumped to:\s*(\S+)/g)].map(
+        (match) => match[1],
+      );
+      if (reportedPaths.length !== 1) {
+        throw proofError(
+          'b2_android_hierarchy_output_report_invalid',
+          'B2 Android hierarchy dump did not report exactly one output path',
+        );
+      }
+      if (reportedPaths[0] !== hierarchyRemotePath) {
         throw proofError(
           'b2_android_hierarchy_output_redirected',
           'B2 Android hierarchy dump was redirected away from its owned path',
@@ -1324,13 +1336,13 @@ export function createB2AndroidProductionDependencies({
           typeof output.stdout === 'string' &&
           output.stdout.length !== 0
         ) return output;
-        const outputPending =
-          completedNormally &&
-          ((output.exitCode === 0 && output.stdout === '') ||
-            (output.exitCode === 1 &&
-              /No such file or directory/i.test(
-                `${output.stdout ?? ''}\n${output.stderr ?? ''}`,
-              )));
+        const outputPending = completedNormally && (
+          (output.exitCode === 0 && output.stdout === '' && output.stderr === '') ||
+          (output.exitCode === 1 &&
+            output.stdout === '' &&
+            output.stderr ===
+              `cat: ${hierarchyRemotePath}: No such file or directory\n`)
+        );
         if (!outputPending) {
           throw proofError(
             'b2_android_hierarchy_output_failed',

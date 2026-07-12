@@ -1480,6 +1480,9 @@ test('production foreground capture and privacy inspection use executable runner
     if (value.includes('if [ -e /sdcard/ks2-spelling-b2-window-')) {
       return successfulCommand('absent\n');
     }
+    if (value.includes('uiautomator dump')) {
+      return successfulCommand(`UI hierchary dumped to: ${args.at(-1)}\n`);
+    }
     if (value.includes(' cat /sdcard/ks2-spelling-b2-window-')) {
       return successfulCommand(hierarchy.hierarchy);
     }
@@ -1679,6 +1682,224 @@ test('production hierarchy bounds missing output polling and cleans on timeout',
     20,
   );
   assert.deepEqual(sleeps, Array(19).fill(50));
+  assert.equal(
+    commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+    1,
+  );
+});
+
+function hierarchyOutputHarness({
+  runId,
+  dumpResult,
+  catResults = [],
+  sleep = async () => undefined,
+}) {
+  const remotePath = `/sdcard/ks2-spelling-b2-window-${runId}.xml`;
+  const commands = [];
+  let catIndex = 0;
+  const dependencies = createB2AndroidProductionDependencies({
+    runId,
+    fs: productionTestFs(),
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    sleep,
+    run: async (_command, args) => {
+      const value = args.join(' ');
+      commands.push(value);
+      if (value.includes('if [ -e ')) return successfulCommand('absent\n');
+      if (value.includes('uiautomator dump')) return dumpResult(remotePath);
+      if (value.includes(` cat ${remotePath}`)) {
+        const result = catResults[Math.min(catIndex, catResults.length - 1)];
+        catIndex += 1;
+        return typeof result === 'function' ? result(remotePath) : result;
+      }
+      return successfulCommand();
+    },
+  });
+  return { commands, dependencies, remotePath };
+}
+
+test('production hierarchy requires exactly one exact dump-reported path', async (t) => {
+  for (const scenario of [
+    {
+      name: 'missing report',
+      runId: 'missing-report-1234',
+      result: () => successfulCommand('dump complete\n'),
+      code: 'b2_android_hierarchy_output_report_invalid',
+    },
+    {
+      name: 'duplicate report',
+      runId: 'duplicate-report-1234',
+      result: (remotePath) => ({
+        ...successfulCommand(`UI hierchary dumped to: ${remotePath}\n`),
+        stderr: `UI hierchary dumped to: ${remotePath}\n`,
+      }),
+      code: 'b2_android_hierarchy_output_report_invalid',
+    },
+    {
+      name: 'redirected report',
+      runId: 'foreign-report-1234',
+      result: () => successfulCommand(
+        'UI hierchary dumped to: /sdcard/window_dump.xml\n',
+      ),
+      code: 'b2_android_hierarchy_output_redirected',
+    },
+  ]) {
+    await t.test(scenario.name, async () => {
+      const { commands, dependencies, remotePath } = hierarchyOutputHarness({
+        runId: scenario.runId,
+        dumpResult: scenario.result,
+        catResults: [successfulCommand(hierarchyRecord('B2 proof complete').hierarchy)],
+      });
+      await assert.rejects(
+        dependencies.waitForHierarchyPhase('B2 proof complete'),
+        ({ code }) => code === scenario.code,
+      );
+      assert.equal(
+        commands.some((value) => value.includes(` cat ${remotePath}`)),
+        false,
+      );
+      assert.equal(
+        commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+        1,
+      );
+      assert.equal(
+        commands.some((value) => value.includes('rm -f /sdcard/window_dump.xml')),
+        false,
+      );
+    });
+  }
+});
+
+test('production hierarchy retries only exact empty and exact owned ENOENT results', async (t) => {
+  const exactHierarchy = successfulCommand(
+    hierarchyRecord('B2 proof complete').hierarchy,
+  );
+  for (const scenario of [
+    {
+      name: 'foreign ENOENT',
+      runId: 'foreign-enoent-1234',
+      result: () => ({
+        ...successfulCommand(),
+        exitCode: 1,
+        stderr: 'cat: /sdcard/foreign.xml: No such file or directory\n',
+      }),
+    },
+    {
+      name: 'permission denied',
+      runId: 'permission-denied-1234',
+      result: (remotePath) => ({
+        ...successfulCommand(),
+        exitCode: 1,
+        stderr: `cat: ${remotePath}: Permission denied\n`,
+      }),
+    },
+    {
+      name: 'mixed stdout and ENOENT',
+      runId: 'mixed-output-1234',
+      result: (remotePath) => ({
+        ...successfulCommand('unexpected stdout\n'),
+        exitCode: 1,
+        stderr: `cat: ${remotePath}: No such file or directory\n`,
+      }),
+    },
+    {
+      name: 'additional ENOENT diagnosis',
+      runId: 'extra-diagnosis-1234',
+      result: (remotePath) => ({
+        ...successfulCommand(),
+        exitCode: 1,
+        stderr: `cat: ${remotePath}: No such file or directory\nadditional error\n`,
+      }),
+    },
+    {
+      name: 'subprocess timeout',
+      runId: 'probe-timeout-1234',
+      result: () => ({
+        ...successfulCommand(),
+        exitCode: null,
+        timedOut: true,
+      }),
+    },
+  ]) {
+    await t.test(scenario.name, async () => {
+      const sleeps = [];
+      const { commands, dependencies, remotePath } = hierarchyOutputHarness({
+        runId: scenario.runId,
+        dumpResult: (path) =>
+          successfulCommand(`UI hierchary dumped to: ${path}\n`),
+        catResults: [scenario.result],
+        sleep: async (milliseconds) => sleeps.push(milliseconds),
+      });
+      await assert.rejects(
+        dependencies.waitForHierarchyPhase('B2 proof complete'),
+        ({ code }) => code === 'b2_android_hierarchy_output_failed',
+      );
+      assert.deepEqual(sleeps, []);
+      assert.equal(
+        commands.filter((value) => value.includes(` cat ${remotePath}`)).length,
+        1,
+      );
+      assert.equal(
+        commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+        1,
+      );
+    });
+  }
+
+  await t.test('empty stdout and stderr', async () => {
+    const sleeps = [];
+    const { commands, dependencies, remotePath } = hierarchyOutputHarness({
+      runId: 'empty-output-1234',
+      dumpResult: (path) =>
+        successfulCommand(`UI hierchary dumped to: ${path}\n`),
+      catResults: [successfulCommand(), exactHierarchy],
+      sleep: async (milliseconds) => sleeps.push(milliseconds),
+    });
+    await assert.doesNotReject(
+      dependencies.waitForHierarchyPhase('B2 proof complete'),
+    );
+    assert.deepEqual(sleeps, [50]);
+    assert.equal(
+      commands.filter((value) => value.includes(` cat ${remotePath}`)).length,
+      2,
+    );
+    assert.equal(
+      commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+      1,
+    );
+  });
+});
+
+test('production hierarchy aborts output polling and cleans the exact owned path', async () => {
+  const controller = new AbortController();
+  const abortReason = new Error('abort hierarchy output probe');
+  const { commands, dependencies, remotePath } = hierarchyOutputHarness({
+    runId: 'abort-output-1234',
+    dumpResult: (path) =>
+      successfulCommand(`UI hierchary dumped to: ${path}\n`),
+    catResults: [() => {
+      controller.abort(abortReason);
+      return {
+        ...successfulCommand(),
+        exitCode: null,
+        aborted: true,
+      };
+    }],
+  });
+  await assert.rejects(
+    dependencies.waitForHierarchyPhase('B2 proof complete', {
+      signal: controller.signal,
+    }),
+    (error) => error === abortReason,
+  );
+  assert.equal(
+    commands.filter((value) => value.includes(` cat ${remotePath}`)).length,
+    1,
+  );
   assert.equal(
     commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
     1,

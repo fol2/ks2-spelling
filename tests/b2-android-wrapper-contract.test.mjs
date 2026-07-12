@@ -1696,6 +1696,7 @@ function hierarchyOutputHarness({
 }) {
   const remotePath = `/sdcard/ks2-spelling-b2-window-${runId}.xml`;
   const commands = [];
+  let dumpIndex = 0;
   let catIndex = 0;
   const dependencies = createB2AndroidProductionDependencies({
     runId,
@@ -1710,7 +1711,11 @@ function hierarchyOutputHarness({
       const value = args.join(' ');
       commands.push(value);
       if (value.includes('if [ -e ')) return successfulCommand('absent\n');
-      if (value.includes('uiautomator dump')) return dumpResult(remotePath);
+      if (value.includes('uiautomator dump')) {
+        const result = dumpResult(remotePath, dumpIndex);
+        dumpIndex += 1;
+        return result;
+      }
       if (value.includes(` cat ${remotePath}`)) {
         const result = catResults[Math.min(catIndex, catResults.length - 1)];
         catIndex += 1;
@@ -1722,7 +1727,44 @@ function hierarchyOutputHarness({
   return { commands, dependencies, remotePath };
 }
 
-test('production hierarchy requires exactly one exact dump-reported path', async (t) => {
+test('production hierarchy accepts only exact byte-equivalent dump reports', async (t) => {
+  await t.test('diagnosis-observed stdout fixture', async () => {
+    const hierarchy = hierarchyRecord('B2 proof complete').hierarchy;
+    const { commands, dependencies, remotePath } = hierarchyOutputHarness({
+      runId: 'observed-report-1234',
+      dumpResult: (path) => successfulCommand(
+        `UI hierchary dumped to: ${path}\n`,
+      ),
+      catResults: [successfulCommand(hierarchy)],
+    });
+    await assert.doesNotReject(
+      dependencies.waitForHierarchyPhase('B2 proof complete'),
+    );
+    assert.equal(
+      commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+      1,
+    );
+  });
+
+  await t.test('byte-equivalent duplicate across streams', async () => {
+    const hierarchy = hierarchyRecord('B2 proof complete').hierarchy;
+    const { commands, dependencies, remotePath } = hierarchyOutputHarness({
+      runId: 'duplicate-same-1234',
+      dumpResult: (path) => {
+        const report = `UI hierchary dumped to: ${path}\n`;
+        return { ...successfulCommand(report), stderr: report };
+      },
+      catResults: [successfulCommand(hierarchy)],
+    });
+    await assert.doesNotReject(
+      dependencies.waitForHierarchyPhase('B2 proof complete'),
+    );
+    assert.equal(
+      commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+      1,
+    );
+  });
+
   for (const scenario of [
     {
       name: 'missing report',
@@ -1731,12 +1773,20 @@ test('production hierarchy requires exactly one exact dump-reported path', async
       code: 'b2_android_hierarchy_output_report_invalid',
     },
     {
-      name: 'duplicate report',
-      runId: 'duplicate-report-1234',
+      name: 'duplicate distinct reports',
+      runId: 'duplicate-distinct-1234',
       result: (remotePath) => ({
         ...successfulCommand(`UI hierchary dumped to: ${remotePath}\n`),
-        stderr: `UI hierchary dumped to: ${remotePath}\n`,
+        stderr: 'UI hierchary dumped to: /sdcard/window_dump.xml\n',
       }),
+      code: 'b2_android_hierarchy_output_report_invalid',
+    },
+    {
+      name: 'extra malformed diagnostic',
+      runId: 'extra-report-text-1234',
+      result: (remotePath) => successfulCommand(
+        `UI hierchary dumped to: ${remotePath}\nunexpected diagnostic\n`,
+      ),
       code: 'b2_android_hierarchy_output_report_invalid',
     },
     {
@@ -1772,6 +1822,92 @@ test('production hierarchy requires exactly one exact dump-reported path', async
       );
     });
   }
+});
+
+test('production hierarchy retries only the exact API 36 null-root fixture', async () => {
+  const sleeps = [];
+  const hierarchy = hierarchyRecord('B2 proof complete').hierarchy;
+  const { commands, dependencies, remotePath } = hierarchyOutputHarness({
+    runId: 'null-root-retry-1234',
+    dumpResult: (path, index) =>
+      index === 0
+        ? {
+            ...successfulCommand(),
+            stderr: 'ERROR: null root node returned by UiTestAutomationBridge.\n',
+          }
+        : successfulCommand(`UI hierchary dumped to: ${path}\n`),
+    catResults: [successfulCommand(hierarchy)],
+    sleep: async (milliseconds) => sleeps.push(milliseconds),
+  });
+
+  const result = await dependencies.waitForHierarchyPhase('B2 proof complete');
+  assert.equal(result.phase, 'B2 proof complete');
+  assert.deepEqual(sleeps, [100]);
+  assert.equal(
+    commands.filter((value) => value.includes('uiautomator dump')).length,
+    2,
+  );
+  assert.equal(
+    commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+    2,
+  );
+});
+
+test('production hierarchy bounds repeated API 36 null-root results', async () => {
+  const sleeps = [];
+  const { commands, dependencies, remotePath } = hierarchyOutputHarness({
+    runId: 'null-root-timeout-1234',
+    dumpResult: () => ({
+      ...successfulCommand(),
+      stderr: 'ERROR: null root node returned by UiTestAutomationBridge.\n',
+    }),
+    sleep: async (milliseconds) => sleeps.push(milliseconds),
+  });
+
+  await assert.rejects(
+    dependencies.waitForHierarchyPhase('B2 proof complete'),
+    ({ code }) => code === 'b2_android_hierarchy_timeout',
+  );
+  assert.equal(
+    commands.filter((value) => value.includes('uiautomator dump')).length,
+    600,
+  );
+  assert.deepEqual(sleeps, Array(599).fill(100));
+  assert.equal(
+    commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+    600,
+  );
+});
+
+test('production hierarchy aborts between exact API 36 null-root retries', async () => {
+  const controller = new AbortController();
+  const abortReason = new Error('abort null-root hierarchy retry');
+  const { commands, dependencies, remotePath } = hierarchyOutputHarness({
+    runId: 'null-root-abort-1234',
+    dumpResult: () => ({
+      ...successfulCommand(),
+      stderr: 'ERROR: null root node returned by UiTestAutomationBridge.\n',
+    }),
+    sleep: async () => {
+      controller.abort(abortReason);
+      controller.signal.throwIfAborted();
+    },
+  });
+
+  await assert.rejects(
+    dependencies.waitForHierarchyPhase('B2 proof complete', {
+      signal: controller.signal,
+    }),
+    (error) => error === abortReason,
+  );
+  assert.equal(
+    commands.filter((value) => value.includes('uiautomator dump')).length,
+    1,
+  );
+  assert.equal(
+    commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+    1,
+  );
 });
 
 test('production hierarchy retries only exact empty and exact owned ENOENT results', async (t) => {

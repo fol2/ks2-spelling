@@ -71,6 +71,9 @@ const PROCESS_POLL_ATTEMPTS = 50;
 const PROCESS_POLL_INTERVAL_MS = 100;
 const HIERARCHY_OUTPUT_POLL_ATTEMPTS = 20;
 const HIERARCHY_OUTPUT_POLL_INTERVAL_MS = 50;
+const HIERARCHY_DUMP_REPORT_PREFIX = 'UI hierchary dumped to: ';
+const HIERARCHY_NULL_ROOT_DIAGNOSTIC =
+  'ERROR: null root node returned by UiTestAutomationBridge.\n';
 const COMMAND_TIMEOUT_MS = 15 * 60 * 1000;
 const PROCESS_TERMINATION_GRACE_MS = 250;
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -716,7 +719,12 @@ export async function waitForB2AndroidHierarchyPhase({
 }) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     throwIfAborted(signal);
-    const result = await probe({ signal });
+    let result;
+    try {
+      result = await probe({ signal });
+    } catch (error) {
+      if (error.code !== 'b2_android_hierarchy_dump_not_ready') throw error;
+    }
     throwIfAborted(signal);
     if (result?.exitCode === 0 && !result.signal && !result.timedOut) {
       try {
@@ -1224,6 +1232,53 @@ function shellArgs(...args) {
   return ['-s', B2_ANDROID_DEVICE.serial, 'shell', ...args];
 }
 
+function assertB2AndroidHierarchyDumpReport(dump, expectedPath) {
+  if (typeof dump.stdout !== 'string' || typeof dump.stderr !== 'string') {
+    throw proofError(
+      'b2_android_hierarchy_output_report_invalid',
+      'B2 Android hierarchy dump report streams are malformed',
+    );
+  }
+  const paths = [];
+  for (const stream of [dump.stdout, dump.stderr]) {
+    if (stream === '') continue;
+    if (!stream.endsWith('\n')) {
+      throw proofError(
+        'b2_android_hierarchy_output_report_invalid',
+        'B2 Android hierarchy dump report is not complete',
+      );
+    }
+    for (const line of stream.slice(0, -1).split('\n')) {
+      if (!line.startsWith(HIERARCHY_DUMP_REPORT_PREFIX)) {
+        throw proofError(
+          'b2_android_hierarchy_output_report_invalid',
+          'B2 Android hierarchy dump report contains unexpected diagnostics',
+        );
+      }
+      const path = line.slice(HIERARCHY_DUMP_REPORT_PREFIX.length);
+      if (!path || /\s/.test(path)) {
+        throw proofError(
+          'b2_android_hierarchy_output_report_invalid',
+          'B2 Android hierarchy dump reported a malformed output path',
+        );
+      }
+      paths.push(path);
+    }
+  }
+  if (paths.length === 0 || new Set(paths).size !== 1) {
+    throw proofError(
+      'b2_android_hierarchy_output_report_invalid',
+      'B2 Android hierarchy dump did not report one unique output path',
+    );
+  }
+  if (paths[0] !== expectedPath) {
+    throw proofError(
+      'b2_android_hierarchy_output_redirected',
+      'B2 Android hierarchy dump was redirected away from its owned path',
+    );
+  }
+}
+
 export function b2AndroidRemoteShellArgs(script) {
   if (typeof script !== 'string' || script.length === 0) {
     throw new TypeError('B2 Android remote shell script must be non-empty text.');
@@ -1296,25 +1351,16 @@ export function createB2AndroidProductionDependencies({
         shellArgs('uiautomator', 'dump', hierarchyRemotePath),
         { signal, timeoutMs: 30_000 },
       );
-      const dumpOutput =
-        typeof dump.stdout === 'string' && typeof dump.stderr === 'string'
-          ? `${dump.stdout}\n${dump.stderr}`
-          : '';
-      const reportedPaths = [...dumpOutput.matchAll(/dumped to:\s*(\S+)/g)].map(
-        (match) => match[1],
-      );
-      if (reportedPaths.length !== 1) {
+      if (
+        dump.stdout === '' &&
+        dump.stderr === HIERARCHY_NULL_ROOT_DIAGNOSTIC
+      ) {
         throw proofError(
-          'b2_android_hierarchy_output_report_invalid',
-          'B2 Android hierarchy dump did not report exactly one output path',
+          'b2_android_hierarchy_dump_not_ready',
+          'B2 Android hierarchy dump has no accessibility root yet',
         );
       }
-      if (reportedPaths[0] !== hierarchyRemotePath) {
-        throw proofError(
-          'b2_android_hierarchy_output_redirected',
-          'B2 Android hierarchy dump was redirected away from its owned path',
-        );
-      }
+      assertB2AndroidHierarchyDumpReport(dump, hierarchyRemotePath);
       for (let attempt = 0; attempt < HIERARCHY_OUTPUT_POLL_ATTEMPTS; attempt += 1) {
         const output = await probe(adb, shellArgs('cat', hierarchyRemotePath), {
           signal,

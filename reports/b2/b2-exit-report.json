@@ -1,0 +1,290 @@
+{
+  "schemaVersion": 1,
+  "status": "pass",
+  "b1Authority": {
+    "repository": "https://github.com/fol2/ks2-spelling.git",
+    "mergedCommit": "47c8ae791ccb521c8aafdfd297f1c211fd5981d4",
+    "mergedTree": "ce0f2f483c0f21975ef3807a2a668b6d32b5c24e",
+    "hostedCiUrl": "https://github.com/fol2/ks2-spelling/actions/runs/29160017974",
+    "dependencyAudit": {
+      "path": "reports/b1/dependency-audit.json",
+      "sha256": "1af859ea0a499c24fb33975149b8777c47225da9a1c388cbb6fc1dc9b0a3385c"
+    },
+    "exitReport": {
+      "path": "reports/b1/b1-exit-report.json",
+      "sha256": "8ca42ff4c6eef28b9861eae8749996a0c1e05aff5b784f789eadb817a638ab2a"
+    }
+  },
+  "testedApplicationCommit": "0e571f8544dcf09fa24fd83ce30839101c95d458",
+  "applicationFingerprint": "4b4125b6cdc6c21ee19153fdbd6a4da6ac96081e682c517935862dccb3656d0f",
+  "inputs": {
+    "nativePluginBuild": {
+      "path": "reports/b2/native-plugin-build.json",
+      "sha256": "69510ad652ff5d6540149e4b8525d75e9d818b980c2d9195c6090b14363475e9"
+    },
+    "nativePluginAudit": {
+      "path": "reports/b2/native-plugin-audit.json",
+      "sha256": "5abf4d0a83564de7af20c115571d496eca175c2ccb2f3bec0ca2938419a1d270"
+    },
+    "dependencyAudit": {
+      "path": "reports/b2/dependency-audit.json",
+      "sha256": "3d94fbc75581e7161d4f354880674d0ffb4c1d59a6fecfdf2d32a7ffc4bf28f0"
+    },
+    "packageLock": {
+      "path": "package-lock.json",
+      "sha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479"
+    },
+    "webViewBundleEvidenceSha256": "d5f586b78f996903958172fc8907f51f40b5bffb9bda6338d6b31c5bfae34a8d",
+    "swiftPackageManager": {
+      "packageResolved": {
+        "path": "ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        "sha256": "e39ad512c52331be2e741841073056a8ea8bd68c79049385816b56a1d15f23aa"
+      },
+      "pins": [
+        {
+          "identity": "capacitor-swift-pm",
+          "version": "8.4.1",
+          "revision": "2231987d85b8b0b289320b1d0947b4ae8345cde4"
+        },
+        {
+          "identity": "sqlcipher.swift",
+          "version": "4.17.0",
+          "revision": "205df55271aa1ba512a9bfe3fd1813bc9ac52a19"
+        },
+        {
+          "identity": "zipfoundation",
+          "version": "0.9.20",
+          "revision": "22787ffb59de99e5dc1fbfe80b19c97a904ad48d"
+        }
+      ]
+    },
+    "androidMaven": {
+      "verificationMetadata": {
+        "path": "android/gradle/verification-metadata.xml",
+        "sha256": "1a3174dfe255c24dee97147174a3b96904de8b5e20611dcdb415bc710236b359"
+      },
+      "lockfiles": [
+        {
+          "path": "android/gradle/dependency-locks/app.lockfile",
+          "sha256": "4f882450792e15efa1929efe7202beda696f8c02a9e495d1741af6d6244934a3"
+        },
+        {
+          "path": "android/gradle/dependency-locks/capacitor-android.lockfile",
+          "sha256": "f772b51ee2251036897ef5745a2206387ecb24b122b96d32b708618760cec538"
+        },
+        {
+          "path": "android/gradle/dependency-locks/capacitor-app.lockfile",
+          "sha256": "b708ea9120f6755c86584436c1c4effb2f211f91572bed950190377a7adc3f20"
+        },
+        {
+          "path": "android/gradle/dependency-locks/capacitor-community-sqlite.lockfile",
+          "sha256": "860cfe917ef9427212dd61ccbdd148593d8c5c721b58acc64471b15645b3b8cb"
+        },
+        {
+          "path": "android/gradle/dependency-locks/capacitor-cordova-android-plugins.lockfile",
+          "sha256": "f6c0d85caf74291d4c38291fcd433149947ffde25c9498e07e38a5409280204d"
+        }
+      ],
+      "generatedInputs": [
+        {
+          "path": "package.json",
+          "sha256": "b55627718881311afc907c47ef6f7dbb0d3d84aefaf2d16ea8ec4bf23c4fbb97"
+        },
+        {
+          "path": "scripts/certify-android-dependencies.mjs",
+          "sha256": "f0d6b79b8393747ae2915de7fd4f1b976c02ab5d7c44146b55a3d361b529e3ae"
+        },
+        {
+          "path": "scripts/resolve-android-dependencies.mjs",
+          "sha256": "1e26e657f09f159cc727c5039850c6809f8f7343e795adcd15930a1c2fc86799"
+        },
+        {
+          "path": "scripts/lib/maven-evidence.mjs",
+          "sha256": "46493b8e76a9d9bef2e1ea6959a4c3cba0d6d24e2dc8dfc2f5bf0eca657c4dfc"
+        },
+        {
+          "path": "config/dependency-policy.json",
+          "sha256": "f0fd4ac64576a9621229bffdb2bd1ee92d89a1287d9e2bb5d4f218dfad1ccaa9"
+        },
+        {
+          "path": "config/maven-licence-policy.json",
+          "sha256": "622db772df285dcde4be3b0013e97e7653805f55b3db3b05dd8c6d9edcb1aa23"
+        },
+        {
+          "path": "config/third-party-notices-overrides.json",
+          "sha256": "f833b2847c546ec6c573e5f3af065a06a0aef22d36d7d6833945377cdec3ee3d"
+        },
+        {
+          "path": "android/gradle/verification-metadata.xml",
+          "sha256": "1a3174dfe255c24dee97147174a3b96904de8b5e20611dcdb415bc710236b359"
+        },
+        {
+          "path": "android/gradle/dependency-locks/app.lockfile",
+          "sha256": "4f882450792e15efa1929efe7202beda696f8c02a9e495d1741af6d6244934a3"
+        },
+        {
+          "path": "android/gradle/dependency-locks/capacitor-android.lockfile",
+          "sha256": "f772b51ee2251036897ef5745a2206387ecb24b122b96d32b708618760cec538"
+        },
+        {
+          "path": "android/gradle/dependency-locks/capacitor-app.lockfile",
+          "sha256": "b708ea9120f6755c86584436c1c4effb2f211f91572bed950190377a7adc3f20"
+        },
+        {
+          "path": "android/gradle/dependency-locks/capacitor-community-sqlite.lockfile",
+          "sha256": "860cfe917ef9427212dd61ccbdd148593d8c5c721b58acc64471b15645b3b8cb"
+        },
+        {
+          "path": "android/gradle/dependency-locks/capacitor-cordova-android-plugins.lockfile",
+          "sha256": "f6c0d85caf74291d4c38291fcd433149947ffde25c9498e07e38a5409280204d"
+        }
+      ]
+    }
+  },
+  "nativeEvidence": {
+    "ios": {
+      "report": {
+        "path": "reports/b2/ios-simulator-proof.json",
+        "sha256": "07fb84db59fc24e776d9a470b42e93a90951e324982693e3fe301f79c1f06de0"
+      },
+      "screenshot": {
+        "path": "reports/b2/ios-simulator-proof.png",
+        "sha256": "94f45c577f61de34459e0de2adadd8d6fa74feeb13e00006c89e0483a700ddcf"
+      }
+    },
+    "android": {
+      "report": {
+        "path": "reports/b2/android-emulator-proof.json",
+        "sha256": "815b3a74789d1d3a277daf9b5c0a43032607bc6290ee2cd575a909c8fd2c1650"
+      },
+      "screenshot": {
+        "path": "reports/b2/android-emulator-proof.png",
+        "sha256": "9267a7298930ad6cc1450a8a4bee56d822b8ed43cb2c7dca36b7b5eac8ddf25d"
+      }
+    },
+    "canonicalLogicalSnapshotSha256": "5d01bc4a16f929ab2a79d9df7588eb1fbc93c821a964a43928f01d1e053157f7"
+  },
+  "database": {
+    "name": "ks2-spelling",
+    "physicalFile": "ks2-spellingSQLite.db",
+    "schemaVersion": 1,
+    "pragmas": {
+      "foreignKeys": 1,
+      "journalMode": "wal",
+      "synchronous": 2,
+      "busyTimeout": 5000
+    },
+    "integrityCheck": "ok",
+    "migrationRollback": "verified"
+  },
+  "atomicity": {
+    "failureCheckpoints": [
+      "after-subject-state",
+      "after-practice-session",
+      "after-events",
+      "after-monster-state",
+      "after-camp-state",
+      "after-revision",
+      "before-commit"
+    ],
+    "transientEffectsAfterCommitOnly": true
+  },
+  "lifecycle": {
+    "events": [
+      "pause",
+      "resume"
+    ],
+    "processTerminationDifferentPid": true,
+    "sessionResume": true
+  },
+  "learnerIsolation": {
+    "twoLearners": true,
+    "learnerBUntouched": true,
+    "learnerBSha256": "6a5a50b2df1a0d7bdb4ab7d1f4b7d5a87a6c7a3e58dddf16a65b87e482d114cd",
+    "starterCampRows": 0,
+    "monsterState": "spelling-derived-child-owned"
+  },
+  "privacy": {
+    "serverUrl": null,
+    "androidPermissions": [],
+    "androidAllowBackup": false,
+    "legacyBackupExcludedDomains": [
+      "root",
+      "file",
+      "database",
+      "sharedpref",
+      "external"
+    ],
+    "cloudBackupExcludedDomains": [
+      "root",
+      "file",
+      "database",
+      "sharedpref",
+      "external",
+      "device_root",
+      "device_file",
+      "device_database",
+      "device_sharedpref"
+    ],
+    "deviceTransferExcludedDomains": [
+      "root",
+      "file",
+      "database",
+      "sharedpref",
+      "external",
+      "device_root",
+      "device_file",
+      "device_database",
+      "device_sharedpref"
+    ],
+    "addedIosUsageDescriptionKeys": [],
+    "addedIosEntitlements": []
+  },
+  "cryptography": {
+    "sqlCipherPackaged": true,
+    "sqliteMode": "no-encryption",
+    "applicationEncryptionAtRestProved": false,
+    "usEncryptionExportClassification": "unresolved-before-store-release"
+  },
+  "visual": {
+    "status": "diagnostic-proof-only",
+    "visualThemeAssetMigrationDeferred": true,
+    "migrationOrder": "after-gate-b-go-before-c3-child-ui"
+  },
+  "nonGoals": {
+    "productionChildUi": false,
+    "parentUi": false,
+    "profileUi": false,
+    "productionProfileCrud": false,
+    "parentPin": false,
+    "biometrics": false,
+    "reset": false,
+    "delete": false,
+    "platformBackup": false,
+    "backupSqlite": false,
+    "retentionCompaction": false,
+    "twentyMegabyteRecovery": false,
+    "billing": false,
+    "inAppPurchases": false,
+    "purchases": false,
+    "entitlements": false,
+    "packDownload": false,
+    "packActivation": false,
+    "productionAudio": false,
+    "fullKs2Ui": false,
+    "guardianUi": false,
+    "bossUi": false,
+    "patternQuestUi": false,
+    "campUi": false,
+    "heroMode": false,
+    "heroCamp": false,
+    "finalTheme": false,
+    "finalAssets": false,
+    "physicalDevices": false,
+    "accessibilityCertification": false,
+    "performanceCertification": false,
+    "storeSigning": false,
+    "releaseCompliance": false,
+    "releaseMetadata": false
+  }
+}

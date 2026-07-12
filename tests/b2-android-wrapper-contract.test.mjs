@@ -258,6 +258,11 @@ test('Android proof orders hierarchy phases, HOME, PID replacement, UI and run-a
     postRelaunchPid: '202',
     differentPid: true,
   });
+  assert.equal(result.background.phase, 'Background test ready');
+  assert.equal(result.ready.phase, 'Ready for relaunch');
+  assert.equal(result.complete.phase, 'B2 proof complete');
+  assert.notEqual(result.ready.hierarchySha256, result.background.hierarchySha256);
+  assert.notEqual(result.ready.hierarchySha256, result.complete.hierarchySha256);
   assert.deepEqual(events, [
     'sync-build-debug',
     'acquire-owned-avd',
@@ -287,6 +292,24 @@ test('Android proof orders hierarchy phases, HOME, PID replacement, UI and run-a
     events.indexOf('capture-hierarchy-and-screenshot-while-foreground') <
       events.lastIndexOf('am-force-stop'),
   );
+});
+
+test('background acknowledgement timeout prevents resume launch and still cleans the owned emulator', async () => {
+  const { dependencies, events } = createDependencies();
+  dependencies.waitForApplicationBackgrounded = async () => {
+    events.push('activity-background-poll-timeout');
+    throw Object.assign(new Error('background acknowledgement timed out'), {
+      code: 'b2_android_background_timeout',
+    });
+  };
+
+  await assert.rejects(
+    runB2AndroidLifecycleProof(dependencies),
+    ({ code }) => code === 'b2_android_background_timeout',
+  );
+  assert.equal(events.includes('am-start-resume'), false);
+  assert.equal(events.includes('hierarchy:Ready for relaunch'), false);
+  assert.equal(events.at(-1), 'kill-owned-emulator-5580');
 });
 
 test('failure still shuts down only the owned exact emulator', async () => {
@@ -789,6 +812,31 @@ test('hierarchy parser rejects negated, duplicate, stale, partial and malformed 
       ),
     ({ code }) => code === 'b2_android_hierarchy_xml_invalid',
   );
+});
+
+test('hierarchy polling rejects an unknown phase before clocks, probes or diagnostics', async () => {
+  let clockCalls = 0;
+  let probeCalls = 0;
+  const secretPhase = 'secret-phase-do-not-disclose';
+  await assert.rejects(
+    waitForB2AndroidHierarchyPhase({
+      phase: secretPhase,
+      now: () => {
+        clockCalls += 1;
+        return 0;
+      },
+      probe: async () => {
+        probeCalls += 1;
+        return successfulCommand(hierarchyRecord('Background test ready').hierarchy);
+      },
+    }),
+    (error) =>
+      error instanceof TypeError &&
+      error.diagnostic === undefined &&
+      !error.message.includes(secretPhase),
+  );
+  assert.equal(clockCalls, 0);
+  assert.equal(probeCalls, 0);
 });
 
 async function collectFixture(listing, options = {}) {
@@ -1542,24 +1590,22 @@ test('production adapter executes exact AVD, fresh-install, HOME and force-stop 
   assert.ok(commands.every(([, , timeoutMs]) => Number.isSafeInteger(timeoutMs)));
 });
 
-test('production adapter waits until HOME has actually backgrounded the application', async () => {
-  const observedActivities = [
-    'mResumedActivity: ActivityRecord{abc u0 uk.eugnel.ks2spelling/.MainActivity t42}\n',
-    'mResumedActivity: ActivityRecord{def u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t2}\n',
-  ];
-  const sleeps = [];
+function createBackgroundActivityHarness({ results, sleep = async () => undefined }) {
+  const commands = [];
   let probes = 0;
   const dependencies = createB2AndroidProductionDependencies({
     run: async (_command, args) => {
-      if (args.join(' ').includes('dumpsys activity activities')) {
-        const result = successfulCommand(observedActivities[Math.min(probes, 1)]);
+      const command = args.join(' ');
+      commands.push(command);
+      if (command.includes('dumpsys activity activities')) {
+        const result = results[Math.min(probes, results.length - 1)];
         probes += 1;
-        return result;
+        return typeof result === 'string' ? successfulCommand(result) : result;
       }
       return successfulCommand();
     },
     fs: productionTestFs(),
-    sleep: async (milliseconds) => sleeps.push(milliseconds),
+    sleep,
     signalSource: new EventEmitter(),
     env: {
       HOME: '/test-home',
@@ -1567,11 +1613,175 @@ test('production adapter waits until HOME has actually backgrounded the applicat
       ANDROID_HOME: '/sdk',
     },
   });
+  return {
+    commands,
+    dependencies,
+    probeCount: () => probes,
+  };
+}
 
-  await dependencies.waitForApplicationBackgrounded();
+test('production adapter waits for raw foreign-package activity before resume launch', async () => {
+  const ownRaw =
+    'mResumedActivity: ActivityRecord{abc u0 uk.eugnel.ks2spelling/.MainActivity t42}\n';
+  const foreignRaw =
+    'topResumedActivity=ActivityRecord{def u0 com.google.android.apps.nexuslauncher/com.google.android.apps.nexuslauncher.NexusLauncherActivity t2}\n';
+  const sleeps = [];
+  const { commands, dependencies, probeCount } = createBackgroundActivityHarness({
+    results: [
+      successfulCommand(
+        'mResumedActivity: ActivityRecord{redacted u0 foreign.example/.Fake t1}\n',
+        Buffer.from(ownRaw),
+      ),
+      successfulCommand('[REDACTED]\n', Buffer.from(foreignRaw)),
+    ],
+    sleep: async (milliseconds) => sleeps.push(milliseconds),
+  });
 
-  assert.equal(probes, 2);
+  assert.equal(await dependencies.waitForApplicationBackgrounded(), undefined);
+  assert.equal(
+    commands.some((command) => command.includes(' shell am start ')),
+    false,
+  );
+  await dependencies.relaunchForResume();
+
+  assert.equal(probeCount(), 2);
   assert.deepEqual(sleeps, [100]);
+  assert.ok(commands.at(-1).includes(' shell am start -n '));
+});
+
+test('background acknowledgement treats every same-package Activity as foreground', async () => {
+  for (const resumedActivity of [
+    'uk.eugnel.ks2spelling/uk.eugnel.ks2spelling.MainActivity',
+    'uk.eugnel.ks2spelling/.SettingsActivity',
+    'uk.eugnel.ks2spelling/example.shared.ExternalActivity',
+  ]) {
+    const { commands, dependencies, probeCount } = createBackgroundActivityHarness({
+      results: [
+        `mResumedActivity: ActivityRecord{abc u0 ${resumedActivity} t42}\n`,
+      ],
+    });
+    await assert.rejects(
+      dependencies.waitForApplicationBackgrounded(),
+      ({ code }) => code === 'b2_android_background_timeout',
+    );
+    assert.equal(probeCount(), 50);
+    assert.equal(
+      commands.some((command) => command.includes(' shell am start ')),
+      false,
+    );
+  }
+});
+
+test('background acknowledgement rejects malformed, conflicting and non-empty stderr authority', async (t) => {
+  const scenarios = [
+    {
+      name: 'malformed authority',
+      result: successfulCommand('mResumedActivity: null\n'),
+    },
+    {
+      name: 'conflicting authorities',
+      result: successfulCommand(
+        'mResumedActivity: ActivityRecord{abc u0 uk.eugnel.ks2spelling/.MainActivity t42}\n' +
+          'topResumedActivity=ActivityRecord{def u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t2}\n',
+      ),
+    },
+    {
+      name: 'raw stderr is not exactly empty',
+      result: {
+        ...successfulCommand(
+          'mResumedActivity: ActivityRecord{abc u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t2}\n',
+        ),
+        stderr: '',
+        stderrBytes: Buffer.from('\n'),
+      },
+    },
+  ];
+  for (const scenario of scenarios) {
+    await t.test(scenario.name, async () => {
+      const { dependencies, probeCount } = createBackgroundActivityHarness({
+        results: [scenario.result],
+      });
+      await assert.rejects(
+        dependencies.waitForApplicationBackgrounded(),
+        ({ code }) => code === 'b2_android_resumed_activity_invalid',
+      );
+      assert.equal(probeCount(), 1);
+    });
+  }
+});
+
+test('background acknowledgement rejects invalid raw UTF-8 before resume launch', async () => {
+  const { commands, dependencies, probeCount } = createBackgroundActivityHarness({
+    results: [{
+      ...successfulCommand(
+        'mResumedActivity: ActivityRecord{abc u0 foreign.example/.Fake t1}\n',
+      ),
+      stdoutBytes: Uint8Array.from([0xc3, 0x28]),
+    }],
+  });
+  await assert.rejects(
+    dependencies.waitForApplicationBackgrounded(),
+    ({ code }) => code === 'b2_android_machine_output_invalid',
+  );
+  assert.equal(probeCount(), 1);
+  assert.equal(
+    commands.some((command) => command.includes(' shell am start ')),
+    false,
+  );
+});
+
+test('parent abort unwinds background polling before owned cleanup and never resumes', async () => {
+  const signalSource = new EventEmitter();
+  const events = [];
+  let acknowledgeSleepStarted;
+  const sleepStarted = new Promise((resolve) => {
+    acknowledgeSleepStarted = resolve;
+  });
+  const { commands, dependencies } = createBackgroundActivityHarness({
+    results: [
+      'mResumedActivity: ActivityRecord{abc u0 uk.eugnel.ks2spelling/.MainActivity t42}\n',
+    ],
+    sleep: async (_milliseconds, signal) => {
+      events.push('background-poll-sleep');
+      acknowledgeSleepStarted();
+      await new Promise((resolve) => {
+        signal.addEventListener('abort', resolve, { once: true });
+      });
+      events.push('background-poll-unwound');
+      signal.throwIfAborted();
+    },
+  });
+  const proof = runWithB2AndroidOwnedCleanup({
+    signalSource,
+    work: async ({ signal, ownSerial }) => {
+      ownSerial('emulator-5580');
+      await dependencies.pressHome({ signal });
+      await dependencies.waitForApplicationBackgrounded({ signal });
+      await dependencies.relaunchForResume({ signal });
+    },
+    killOwnedSerial: async (serial) => events.push(`cleanup:${serial}`),
+    terminateProcessGroup: async () => assert.fail('serial cleanup is authoritative'),
+  });
+
+  await sleepStarted;
+  signalSource.emit('SIGTERM');
+  await assert.rejects(
+    proof,
+    ({ code }) => code === 'b2_android_signal_interrupted',
+  );
+  assert.deepEqual(events, [
+    'background-poll-sleep',
+    'background-poll-unwound',
+    'cleanup:emulator-5580',
+  ]);
+  assert.ok(
+    commands.findIndex((command) => command.includes('input keyevent KEYCODE_HOME')) <
+      commands.findIndex((command) => command.includes('dumpsys activity activities')),
+  );
+  assert.equal(
+    commands.some((command) => command.includes(' shell am start ')),
+    false,
+  );
 });
 
 test('production adapter rejects a serial collision and required-runner failures', async () => {

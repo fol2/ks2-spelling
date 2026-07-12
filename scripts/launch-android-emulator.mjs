@@ -129,19 +129,95 @@ export function parseAndroidPackageMetadata(output) {
   return { versionCode, versionName };
 }
 
+const ANDROID_RESUMED_ACTIVITY_AUTHORITIES = Object.freeze([
+  'mResumedActivity',
+  'topResumedActivity',
+]);
+const ANDROID_PACKAGE_NAME =
+  /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$/;
+const ANDROID_CLASS_SUFFIX =
+  /^\.[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*$/;
+const ANDROID_CLASS_NAME =
+  /^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)+$/;
+
+function normaliseAndroidActivityComponent(component) {
+  const separator = component.indexOf('/');
+  if (separator <= 0 || separator !== component.lastIndexOf('/')) {
+    throw androidCaptureError('Android resumed activity component is malformed');
+  }
+  const packageId = component.slice(0, separator);
+  const activity = component.slice(separator + 1);
+  if (!ANDROID_PACKAGE_NAME.test(packageId)) {
+    throw androidCaptureError('Android resumed activity package is malformed');
+  }
+  let activityName;
+  if (ANDROID_CLASS_SUFFIX.test(activity)) {
+    activityName = `${packageId}${activity}`;
+  } else if (ANDROID_CLASS_NAME.test(activity)) {
+    activityName = activity;
+  } else {
+    throw androidCaptureError('Android resumed activity class is malformed');
+  }
+  return Object.freeze({
+    packageId,
+    activityName,
+    component: `${packageId}/${activityName}`,
+  });
+}
+
+export function parseAndroidDumpsysResumedActivity(output) {
+  if (typeof output !== 'string' || output.length === 0) {
+    throw androidCaptureError('Android resumed activity output is incomplete');
+  }
+  const observations = [];
+  const seenAuthorities = new Set();
+  for (const line of output.split(/\r?\n/)) {
+    const mentionedAuthorities = ANDROID_RESUMED_ACTIVITY_AUTHORITIES.filter(
+      (authority) => line.includes(authority),
+    );
+    if (mentionedAuthorities.length === 0) continue;
+    if (mentionedAuthorities.length !== 1) {
+      throw androidCaptureError('Android resumed activity authority is ambiguous');
+    }
+    const match = line.match(
+      /^\s*(?:(mResumedActivity):\s+|(topResumedActivity)=)ActivityRecord\{[A-Za-z0-9]+ u[0-9]+ ([^\s{}]+) t[0-9]+\}\s*$/,
+    );
+    const authority = match?.[1] ?? match?.[2];
+    if (!match || authority !== mentionedAuthorities[0] || seenAuthorities.has(authority)) {
+      throw androidCaptureError('Android resumed activity authority is malformed');
+    }
+    seenAuthorities.add(authority);
+    observations.push(Object.freeze({
+      authority,
+      ...normaliseAndroidActivityComponent(match[3]),
+    }));
+  }
+  if (observations.length === 0) {
+    throw androidCaptureError('Android resumed activity authority is missing');
+  }
+  const components = new Set(observations.map(({ component }) => component));
+  if (components.size !== 1) {
+    throw androidCaptureError('Android resumed activity authorities conflict');
+  }
+  const [{ packageId, activityName, component }] = observations;
+  return Object.freeze({
+    packageId,
+    activityName,
+    component,
+    authorities: Object.freeze(observations.map(({ authority }) => authority)),
+  });
+}
+
 export function parseAndroidResumedActivity(output) {
-  const matches = [
-    ...output.matchAll(
-      /(?:mResumedActivity:\s+|topResumedActivity=)ActivityRecord\{[^\n]*\s+u\d+\s+([^\s}]+)\s+t\d+\}/g,
-    ),
-  ].map((match) => match[1]);
+  const resumed = parseAndroidDumpsysResumedActivity(output);
   if (
-    matches.length !== 1 ||
-    matches[0] !== `${ANDROID_DEVICE.packageId}/.MainActivity`
+    resumed.authorities.length !== 1 ||
+    resumed.packageId !== ANDROID_DEVICE.packageId ||
+    resumed.activityName !== `${ANDROID_DEVICE.packageId}.MainActivity`
   ) {
     throw androidCaptureError('Android resumed activity is not the B1 application');
   }
-  return matches[0];
+  return ANDROID_DEVICE.activity;
 }
 
 export async function waitForAndroidProcess({

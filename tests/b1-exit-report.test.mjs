@@ -597,12 +597,26 @@ test('native capture parsers fail closed on exact foreground and installation ev
     ),
     'uk.eugnel.ks2spelling/.MainActivity',
   );
+  assert.equal(
+    parseAndroidResumedActivity(
+      'mResumedActivity: ActivityRecord{abc u0 uk.eugnel.ks2spelling/uk.eugnel.ks2spelling.MainActivity t12}\n',
+    ),
+    'uk.eugnel.ks2spelling/.MainActivity',
+  );
   for (const output of ['', 'mResumedActivity: ActivityRecord{abc u0 evil/.MainActivity t12}']) {
     assert.throws(
       () => parseAndroidResumedActivity(output),
       ({ code }) => code === 'android_capture_invalid',
     );
   }
+  assert.throws(
+    () =>
+      parseAndroidResumedActivity(
+        'topResumedActivity=ActivityRecord{one u0 uk.eugnel.ks2spelling/.MainActivity t7}\n' +
+          'mResumedActivity: ActivityRecord{two u0 uk.eugnel.ks2spelling/.MainActivity t7}\n',
+      ),
+    ({ code }) => code === 'android_capture_invalid',
+  );
   assert.throws(
     () =>
       parseAndroidResumedActivity(

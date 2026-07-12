@@ -34,7 +34,7 @@ import {
   validateB2NativeReport,
 } from './lib/b2-evidence.mjs';
 import {
-  parseAndroidResumedActivity,
+  parseAndroidDumpsysResumedActivity,
 } from './launch-android-emulator.mjs';
 import {
   parsePackagedAndroidManifestPolicy,
@@ -71,6 +71,8 @@ const POLL_INTERVAL_MS = 100;
 export const B2_ANDROID_HIERARCHY_POLL_DEADLINE_MS = 120_000;
 const PROCESS_POLL_ATTEMPTS = 50;
 const PROCESS_POLL_INTERVAL_MS = 100;
+const ACTIVITY_POLL_ATTEMPTS = 50;
+const ACTIVITY_POLL_INTERVAL_MS = 100;
 const HIERARCHY_OUTPUT_POLL_ATTEMPTS = 20;
 const HIERARCHY_OUTPUT_POLL_INTERVAL_MS = 50;
 const HIERARCHY_DUMP_REPORT_PREFIX = 'UI hierchary dumped to: ';
@@ -125,6 +127,26 @@ function b2AndroidMachineText(result, stream = 'stdout') {
     throw proofError(
       'b2_android_machine_output_invalid',
       `B2 Android ${stream} machine evidence is invalid`,
+      { cause },
+    );
+  }
+}
+
+function parseB2AndroidResumedActivity(result) {
+  const stdout = b2AndroidMachineText(result);
+  const stderr = b2AndroidMachineText(result, 'stderr');
+  if (stderr !== '') {
+    throw proofError(
+      'b2_android_resumed_activity_invalid',
+      'B2 Android resumed-activity evidence is invalid',
+    );
+  }
+  try {
+    return parseAndroidDumpsysResumedActivity(stdout);
+  } catch (cause) {
+    throw proofError(
+      'b2_android_resumed_activity_invalid',
+      'B2 Android resumed-activity evidence is invalid',
       { cause },
     );
   }
@@ -574,6 +596,12 @@ const B2_ANDROID_COMMON_VISIBLE_TEXT = Object.freeze([
   'Lifecycle',
 ]);
 
+function assertB2AndroidPhase(phase) {
+  if (!B2_ANDROID_PHASES.includes(phase)) {
+    throw new TypeError('B2 Android hierarchy phase is invalid.');
+  }
+}
+
 function decodeXmlText(value) {
   if (/&(?!(?:amp|quot|apos|lt|gt|#\d+|#x[0-9a-fA-F]+);)/.test(value)) {
     throw proofError(
@@ -701,9 +729,7 @@ export function parseB2AndroidHierarchyTexts(output) {
 }
 
 export function assertB2AndroidHierarchyPhase(output, phase) {
-  if (!B2_ANDROID_PHASES.includes(phase)) {
-    throw new TypeError('B2 Android hierarchy phase is invalid.');
-  }
+  assertB2AndroidPhase(phase);
   const texts = parseB2AndroidHierarchyTexts(output);
   const expected = [
     ...B2_ANDROID_COMMON_VISIBLE_TEXT,
@@ -763,6 +789,7 @@ export async function waitForB2AndroidHierarchyPhase({
   sleep = abortableDelay,
   signal,
 }) {
+  assertB2AndroidPhase(phase);
   if (
     !Number.isSafeInteger(attempts) ||
     attempts <= 0 ||
@@ -1791,7 +1818,7 @@ export function createB2AndroidProductionDependencies({
       await required(adb, shellArgs('input', 'keyevent', 'KEYCODE_HOME'), { signal });
     },
     async waitForApplicationBackgrounded({ signal } = {}) {
-      for (let attempt = 0; attempt < PROCESS_POLL_ATTEMPTS; attempt += 1) {
+      for (let attempt = 0; attempt < ACTIVITY_POLL_ATTEMPTS; attempt += 1) {
         throwIfAborted(signal);
         const result = await probe(
           adb,
@@ -1812,20 +1839,10 @@ export function createB2AndroidProductionDependencies({
             'B2 Android activity background probe failed',
           );
         }
-        const resumedActivities = [
-          ...b2AndroidMachineText(result).matchAll(
-            /(?:mResumedActivity:\s+|topResumedActivity=)ActivityRecord\{[^\n]*\s+u\d+\s+([^\s}]+)\s+t\d+\}/g,
-          ),
-        ].map((match) => match[1]);
-        const uniqueActivities = [...new Set(resumedActivities)];
-        if (
-          uniqueActivities.length === 1 &&
-          uniqueActivities[0] !== B2_ANDROID_DEVICE.activity
-        ) {
-          return Object.freeze({ resumedActivity: uniqueActivities[0] });
-        }
-        if (attempt + 1 < PROCESS_POLL_ATTEMPTS) {
-          await sleep(PROCESS_POLL_INTERVAL_MS, signal);
+        const resumed = parseB2AndroidResumedActivity(result);
+        if (resumed.packageId !== B2_APPLICATION_ID) return;
+        if (attempt + 1 < ACTIVITY_POLL_ATTEMPTS) {
+          await sleep(ACTIVITY_POLL_INTERVAL_MS, signal);
         }
       }
       throw proofError(
@@ -1894,7 +1911,16 @@ export function createB2AndroidProductionDependencies({
         shellArgs('dumpsys', 'activity', 'activities'),
         { signal },
       );
-      parseAndroidResumedActivity(b2AndroidMachineText(activities));
+      const resumed = parseB2AndroidResumedActivity(activities);
+      if (
+        resumed.packageId !== B2_APPLICATION_ID ||
+        resumed.activityName !== `${B2_APPLICATION_ID}.MainActivity`
+      ) {
+        throw proofError(
+          'b2_android_foreground_activity_invalid',
+          'B2 Android foreground activity is not the proof application',
+        );
+      }
       const freshHierarchy = await dumpHierarchy({ signal });
       const hierarchyEvidence = assertB2AndroidHierarchyPhase(
         b2AndroidMachineText(freshHierarchy),

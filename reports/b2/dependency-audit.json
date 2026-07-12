@@ -4,7 +4,7 @@
   "generatedFrom": {
     "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "spmResolvedVersion": 3,
-    "nativePluginBuildSha256": "48cc67c9ae5b4a33a352cd2041fc442478614228ce326dad4b8ad5fb30ce3bfd",
+    "nativePluginBuildSha256": "f5f959e46e0ce6fb73b1cfd03a8675f3fc3ea37a10b97cbf4c2e00d8d03ec0c6",
     "webViewBundleEvidenceSha256": "7b79b404dffb0dff11f7bd8286a8deb97eaf5201120236f31ea824ecd417e38a"
   },
   "npm": {
@@ -5005,7 +5005,7 @@
     "generatedFrom": [
       {
         "path": "package.json",
-        "sha256": "2a4e996ed083a4baa61295a322c6dd8c260bc704474d68d6e1a72a2549a51ea7"
+        "sha256": "5c927e15620ba96a5a09183c87c578578121268d8b63204fc3de644f1a10a35a"
       },
       {
         "path": "scripts/certify-android-dependencies.mjs",

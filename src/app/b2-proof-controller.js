@@ -376,6 +376,7 @@ function commandPlanner(index, catalogue) {
 export function createB2ProofController(options) {
   const ports = readOptions(options);
   const expected = expectedSnapshots(ports.catalogue);
+  const expectedLearnerB = initialSnapshot(ports.catalogue, LEARNER_B);
   const listeners = new Set();
   let state = Object.freeze({
     learnerIsolation: 'pending',
@@ -595,6 +596,11 @@ export function createB2ProofController(options) {
     try {
       const stored = await ports.proofStore.read(B2_PROOF_METADATA_KEY);
       const metadata = stored === null ? await initialMetadata() : validateMetadata(stored);
+      const expectedLearnerBDigest = await canonicalDigest(expectedLearnerB);
+      if (metadata.learnerBDigest !== expectedLearnerBDigest) {
+        throw proofError('b2_proof_learner_b_changed');
+      }
+      await assertLearnerB(metadata);
       const revisionFourDigest = await canonicalDigest(expected[4]);
       if (
         metadata.phase !== 'fresh' &&

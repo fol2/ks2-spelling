@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -213,11 +214,12 @@ function createFakeLifecycle(events, { disposeError } = {}) {
 function createHarness({
   metadata = null,
   snapshotA = initialSnapshot('learner-a'),
+  snapshotB = initialSnapshot('learner-b'),
   failureErrorFactory = createB2AtomicFailureError,
 } = {}) {
   const catalogue = loadStarterSpellingCatalogue();
   let learnerA = structuredClone(snapshotA);
-  const learnerB = initialSnapshot('learner-b');
+  const learnerB = structuredClone(snapshotB);
   let storedMetadata = metadata === null ? null : structuredClone(metadata);
   const writes = [];
   const successfulRevisions = [];
@@ -302,6 +304,10 @@ function createHarness({
       updatedAt: START,
     },
   };
+}
+
+function snapshotDigest(snapshot) {
+  return createHash('sha256').update(canonicalJson(snapshot)).digest('hex');
 }
 
 async function advanceToRevision(snapshot, revision) {
@@ -446,7 +452,7 @@ test('stale or corrupt proof metadata fails closed without exposing learner data
     activeLearnerId: 'learner-a',
     expectedSessionId: 'stale-session',
     learnerARevision: 4,
-    learnerBDigest: '0'.repeat(64),
+    learnerBDigest: snapshotDigest(initialSnapshot('learner-b')),
     preRelaunchDigest: '0'.repeat(64),
     migrationRollback: 'verified',
     atomicFailureCheckpoints: [],
@@ -579,6 +585,27 @@ test('complete metadata with a forged revision-4 digest fails closed', async () 
   await assert.rejects(controller.start(), { code: 'b2_proof_metadata_stale' });
   assert.equal(controller.getState().learnerIsolation, 'not verified');
   assert.deepEqual(corrupt.successfulRevisions, []);
+});
+
+test('paired learner-B and metadata corruption cannot impersonate the certified seed', async () => {
+  const first = await readyFixture();
+  const corruptLearnerB = initialSnapshot('learner-b');
+  corruptLearnerB.subjectState.data.prefs.autoSpeak = true;
+  const pairedDigest = snapshotDigest(corruptLearnerB);
+  const paired = createHarness({
+    metadata: { ...first.metadata, learnerBDigest: pairedDigest },
+    snapshotA: first.learnerA,
+    snapshotB: corruptLearnerB,
+  });
+  const controller = createB2ProofController(paired.ports);
+
+  await assert.rejects(controller.start(), {
+    code: 'b2_proof_learner_b_changed',
+  });
+  assert.deepEqual(paired.successfulRevisions, []);
+  assert.deepEqual(paired.failedCheckpoints, []);
+  assert.equal(controller.getState().status, 'B2 proof needs attention');
+  assert.equal(controller.getState().learnerIsolation, 'not verified');
 });
 
 test('real B2 composition proves V0 rollback, V1 relaunch and exact durable completion', async (t) => {

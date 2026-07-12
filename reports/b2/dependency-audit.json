@@ -4,8 +4,8 @@
   "generatedFrom": {
     "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "spmResolvedVersion": 3,
-    "nativePluginBuildSha256": "a963e02bada56ba9a32559efccb01108b952ae9516112228551587a80e0c4cfc",
-    "webViewBundleEvidenceSha256": "dbe4ff9fb0c75b3f95aa0bd53ca00190fab06956df08956ce6ddc7196e213533"
+    "nativePluginBuildSha256": "75fddf242b57335e034b969d5dc2c0110439b2771995b7e6875cd2e8c7700cd1",
+    "webViewBundleEvidenceSha256": "7b79b404dffb0dff11f7bd8286a8deb97eaf5201120236f31ea824ecd417e38a"
   },
   "npm": {
     "lockfileVersion": 3,
@@ -166,7 +166,7 @@
           "id": "src/app/b2-proof-controller.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "5ceaea0cc91d21232da4662b7b2e422186e238abcc893cc8dd2004c60d6caba9"
+          "sha256": "8e61c433bc631c9d28ab31f92252a629ae9f8bfe692d0cd7cbbff15aa230fa11"
         },
         {
           "id": "src/app/create-b2-app-services.js",
@@ -422,27 +422,27 @@
           "sha256": "d165867cad3f680323a8562a7fc72d4d12ab84f28a3d6bf0ee2acc8cfd45855c"
         },
         {
-          "fileName": "assets/index-fT5RxZM5.js",
+          "fileName": "assets/index-DNS8zXb1.js",
           "kind": "chunk",
-          "sha256": "eb1712a1970889b2f99e4026f2fe4e3f59a8b221b460301908939e472248214e"
+          "sha256": "295d3af531ef78539bf6340b5391b1615f2cec265feeebcbc9b4334a17d3108b"
         },
         {
-          "fileName": "assets/web-CxeloDYM.js",
+          "fileName": "assets/web-CH9Uxnp9.js",
           "kind": "chunk",
-          "sha256": "1c871b4701546770dbf943fcfbd3a35a542758927eb3fb5f89a67979bd36f48a"
+          "sha256": "73f6efb97e698a1b92c68fd4275a3b9bbdb1ae638e614415e5fc09763b340578"
         },
         {
-          "fileName": "assets/web-Y8qAEAoP.js",
+          "fileName": "assets/web-DbMfG-jN.js",
           "kind": "chunk",
-          "sha256": "9689f709b23147e3192bd7c2beed66045c7c4e3ec1eadb775f2c17665b60e69c"
+          "sha256": "579a8fdba99db12279f8850fb507d99d46be19c5a3c5445b766d05a3b214998a"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "96dbd7afdb15045b34f14a16eb5dce742953d4df296349d604ff5e63fe8e452d"
+          "sha256": "5183bc4ee4ba203bdd338f91a25fffb6dc447e2ce4a2779aadf8bb0077001501"
         }
       ],
-      "evidenceSha256": "dbe4ff9fb0c75b3f95aa0bd53ca00190fab06956df08956ce6ddc7196e213533"
+      "evidenceSha256": "7b79b404dffb0dff11f7bd8286a8deb97eaf5201120236f31ea824ecd417e38a"
     },
     "allPackages": [
       {

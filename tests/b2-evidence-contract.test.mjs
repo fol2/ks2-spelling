@@ -33,8 +33,8 @@ function report(platform) {
       osVersion: isIos ? '26.5' : '16',
     },
     nativeVersions: isIos
-      ? { xcode: '26.6', iosSdk: '26.5' }
-      : { androidApi: 36, buildTools: '36.0.0' },
+      ? { xcode: '26.6 (17F113)', iosSdk: '26.5', capacitorIos: '8.4.1' }
+      : { androidApi: 36, buildTools: '36.0.0', capacitorAndroid: '8.4.1' },
     pluginVersions: { ...B2_PLUGIN_VERSIONS },
     database: {
       name: 'ks2-spelling',
@@ -110,6 +110,17 @@ test('B2 reports use the strict schema and compare as one logical proof', () => 
   });
 });
 
+test('cross-platform comparison permits only explicit platform and physical evidence', () => {
+  const ios = report('ios-simulator');
+  const android = report('android-emulator');
+  android.database.databaseSha256 = '7'.repeat(64);
+  android.database.sidecarsObserved = [];
+  android.lifecycle.preKillPid = '300';
+  android.lifecycle.postRelaunchPid = '400';
+  android.ui.screenshotSha256 = '8'.repeat(64);
+  assert.doesNotThrow(() => compareB2NativeLogicalEvidence(ios, android));
+});
+
 test('B2 report validation rejects stale identity, malformed proof and privacy drift', () => {
   const mutations = [
     (value) => { value.unknown = true; },
@@ -152,6 +163,36 @@ test('platform-only report values cannot be crossed', () => {
   assert.throws(() => validate(android), /nativeVersions/i);
 });
 
+test('native version evidence has exact required platform keys and frozen values', () => {
+  const mutations = [
+    (value) => { value.nativeVersions = {}; },
+    (value) => { delete value.nativeVersions.iosSdk; },
+    (value) => { value.nativeVersions.extra = 'unexpected'; },
+    (value) => { value.nativeVersions.xcode = ''; },
+    (value) => { value.nativeVersions.xcode = 26; },
+    (value) => { value.nativeVersions.iosSdk = '26.4'; },
+    (value) => { value.nativeVersions.capacitorIos = '8.4.0'; },
+  ];
+  for (const mutate of mutations) {
+    const candidate = report('ios-simulator');
+    mutate(candidate);
+    assert.throws(() => validate(candidate), /nativeVersions/i);
+  }
+
+  const androidMutations = [
+    (value) => { delete value.nativeVersions.androidApi; },
+    (value) => { value.nativeVersions.androidApi = '36'; },
+    (value) => { value.nativeVersions.androidApi = 35; },
+    (value) => { value.nativeVersions.buildTools = ''; },
+    (value) => { value.nativeVersions.capacitorAndroid = '8.3.0'; },
+  ];
+  for (const mutate of androidMutations) {
+    const candidate = report('android-emulator');
+    mutate(candidate);
+    assert.throws(() => validate(candidate), /nativeVersions/i);
+  }
+});
+
 test('cross-platform comparison rejects logical divergence', () => {
   const ios = report('ios-simulator');
   const android = report('android-emulator');
@@ -171,4 +212,64 @@ test('cross-platform comparison rejects logical divergence', () => {
     () => compareB2NativeLogicalEvidence(report('ios-simulator'), checkpointDrift),
     /logical/i,
   );
+});
+
+test('cross-platform comparison covers every shared logical and status field', () => {
+  const sharedPaths = [
+    ['schemaVersion'],
+    ['testedApplicationCommit'],
+    ['applicationFingerprint'],
+    ['identity', 'applicationId'],
+    ['pluginVersions', 'capacitorCore'],
+    ['pluginVersions', 'capacitorApp'],
+    ['pluginVersions', 'capacitorSqlite'],
+    ['database', 'name'],
+    ['database', 'physicalFile'],
+    ['database', 'schemaVersion'],
+    ['database', 'foreignKeys'],
+    ['database', 'journalMode'],
+    ['database', 'synchronous'],
+    ['database', 'busyTimeout'],
+    ['database', 'integrityCheck'],
+    ['database', 'walModeObserved'],
+    ['database', 'everyObservedSidecarCollectedSafely'],
+    ['lifecycle', 'events'],
+    ['lifecycle', 'differentPid'],
+    ['proof', 'resumedSessionId'],
+    ['proof', 'preKillRevision'],
+    ['proof', 'finalRevision'],
+    ['proof', 'finalLogicalSnapshotSha256'],
+    ['proof', 'atomicFailureCheckpoints'],
+    ['proof', 'migrationRollback'],
+    ['proof', 'learnerBIsolation'],
+    ['proof', 'learnerBInitialSha256'],
+    ['proof', 'learnerBFinalSha256'],
+    ['proof', 'monsterState'],
+    ['proof', 'starterCampRows'],
+    ['privacy', 'serverUrl'],
+    ['privacy', 'packagedAndroidPermissions'],
+    ['privacy', 'androidBackupEnabled'],
+    ['privacy', 'addedIosUsageDescriptionKeys'],
+    ['privacy', 'addedIosEntitlements'],
+    ['ui', 'diagnosticPhase'],
+    ['ui', 'manualVisualInspection'],
+    ['cleanup', 'deviceStopped'],
+  ];
+  for (const path of sharedPaths) {
+    const android = report('android-emulator');
+    const owner = path.slice(0, -1).reduce((value, key) => value[key], android);
+    const key = path.at(-1);
+    owner[key] = Array.isArray(owner[key])
+      ? [...owner[key], 'drift']
+      : typeof owner[key] === 'boolean'
+        ? !owner[key]
+        : typeof owner[key] === 'number'
+          ? owner[key] + 1
+          : `${owner[key]}-drift`;
+    assert.throws(
+      () => compareB2NativeLogicalEvidence(report('ios-simulator'), android),
+      /logical/i,
+      path.join('.'),
+    );
+  }
 });

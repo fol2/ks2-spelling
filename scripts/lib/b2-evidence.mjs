@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 
 import {
   IOS_DEVICE,
@@ -125,23 +126,8 @@ const OBJECT_KEYS = Object.freeze({
 });
 
 const NATIVE_VERSION_KEYS = Object.freeze({
-  'ios-simulator': new Set([
-    'node',
-    'npm',
-    'xcode',
-    'iosSdk',
-    'swift',
-    'capacitorIos',
-  ]),
-  'android-emulator': new Set([
-    'node',
-    'npm',
-    'java',
-    'androidApi',
-    'buildTools',
-    'gradle',
-    'capacitorAndroid',
-  ]),
+  'ios-simulator': ['xcode', 'iosSdk', 'capacitorIos'],
+  'android-emulator': ['buildTools', 'androidApi', 'capacitorAndroid'],
 });
 
 function evidenceError(field, detail) {
@@ -169,7 +155,7 @@ function assertExactKeys(value, keys, field) {
 }
 
 function assertExact(value, expected, field) {
-  if (JSON.stringify(value) !== JSON.stringify(expected)) {
+  if (!isDeepStrictEqual(value, expected)) {
     throw evidenceError(field, 'does not match the exact contract');
   }
 }
@@ -185,20 +171,21 @@ function assertSha256(value, field) {
 }
 
 function assertNativeVersions(value, platform) {
-  if (!isPlainObject(value)) {
-    throw evidenceError('nativeVersions', 'must be a plain object');
-  }
-  const allowed = NATIVE_VERSION_KEYS[platform];
-  if (Object.keys(value).some((key) => !allowed.has(key))) {
-    throw evidenceError('nativeVersions', 'contains a mismatched platform-only field');
-  }
-  for (const [key, version] of Object.entries(value)) {
-    if (
-      (typeof version !== 'string' || version.length === 0) &&
-      (!Number.isInteger(version) || version < 1)
-    ) {
-      throw evidenceError(`nativeVersions.${key}`, 'must identify a version');
+  assertExactKeys(value, NATIVE_VERSION_KEYS[platform], 'nativeVersions');
+  if (platform === 'ios-simulator') {
+    if (typeof value.xcode !== 'string' || value.xcode.trim() !== value.xcode || !value.xcode) {
+      throw evidenceError('nativeVersions.xcode', 'must be a non-blank string');
     }
+    assertExact(value.iosSdk, '26.5', 'nativeVersions.iosSdk');
+    assertExact(value.capacitorIos, '8.4.1', 'nativeVersions.capacitorIos');
+  } else {
+    assertExact(value.buildTools, '36.0.0', 'nativeVersions.buildTools');
+    assertExact(value.androidApi, 36, 'nativeVersions.androidApi');
+    assertExact(
+      value.capacitorAndroid,
+      '8.4.1',
+      'nativeVersions.capacitorAndroid',
+    );
   }
 }
 
@@ -389,62 +376,52 @@ export function compareB2NativeLogicalEvidence(iosReport, androidReport) {
   ) {
     throw evidenceError('cross-platform logical proof', 'has mismatched platforms');
   }
-  const fields = [
-    'finalLogicalSnapshotSha256',
-    'learnerBInitialSha256',
-    'learnerBFinalSha256',
-  ];
-  const sharedEvidence = [
-    ['testedApplicationCommit'],
-    ['applicationFingerprint'],
-    ['identity'],
-    ['pluginVersions'],
-    ['database', 'name'],
-    ['database', 'physicalFile'],
-    ['database', 'schemaVersion'],
-    ['database', 'foreignKeys'],
-    ['database', 'journalMode'],
-    ['database', 'synchronous'],
-    ['database', 'busyTimeout'],
-    ['database', 'integrityCheck'],
-    ['database', 'walModeObserved'],
-    ['database', 'everyObservedSidecarCollectedSafely'],
-    ['lifecycle', 'events'],
-    ['privacy', 'serverUrl'],
-    ['privacy', 'packagedAndroidPermissions'],
-    ['privacy', 'androidBackupEnabled'],
-    ['privacy', 'addedIosUsageDescriptionKeys'],
-    ['privacy', 'addedIosEntitlements'],
-  ];
-  for (const path of sharedEvidence) {
-    const iosValue = path.reduce((value, key) => value?.[key], iosReport);
-    const androidValue = path.reduce((value, key) => value?.[key], androidReport);
-    if (JSON.stringify(iosValue) !== JSON.stringify(androidValue)) {
-      throw evidenceError('cross-platform logical proof', `${path.join('.')} differs`);
-    }
+  function sharedLogicalEvidence(report) {
+    return {
+      schemaVersion: report.schemaVersion,
+      testedApplicationCommit: report.testedApplicationCommit,
+      applicationFingerprint: report.applicationFingerprint,
+      identity: report.identity,
+      pluginVersions: report.pluginVersions,
+      database: {
+        name: report.database?.name,
+        physicalFile: report.database?.physicalFile,
+        schemaVersion: report.database?.schemaVersion,
+        foreignKeys: report.database?.foreignKeys,
+        journalMode: report.database?.journalMode,
+        synchronous: report.database?.synchronous,
+        busyTimeout: report.database?.busyTimeout,
+        integrityCheck: report.database?.integrityCheck,
+        walModeObserved: report.database?.walModeObserved,
+        everyObservedSidecarCollectedSafely:
+          report.database?.everyObservedSidecarCollectedSafely,
+      },
+      lifecycle: {
+        events: report.lifecycle?.events,
+        differentPid: report.lifecycle?.differentPid,
+      },
+      proof: report.proof,
+      privacy: report.privacy,
+      ui: {
+        diagnosticPhase: report.ui?.diagnosticPhase,
+        manualVisualInspection: report.ui?.manualVisualInspection,
+      },
+      cleanup: report.cleanup,
+    };
   }
-  const compared = {};
-  for (const field of fields) {
-    if (iosReport.proof?.[field] !== androidReport.proof?.[field]) {
-      throw evidenceError('cross-platform logical proof', `${field} differs`);
-    }
-    compared[field] = iosReport.proof[field];
+  if (
+    !isDeepStrictEqual(
+      sharedLogicalEvidence(iosReport),
+      sharedLogicalEvidence(androidReport),
+    )
+  ) {
+    throw evidenceError('cross-platform logical proof', 'shared evidence differs');
   }
-  for (const field of [
-    'resumedSessionId',
-    'preKillRevision',
-    'finalRevision',
-    'atomicFailureCheckpoints',
-    'migrationRollback',
-    'learnerBIsolation',
-    'monsterState',
-    'starterCampRows',
-  ]) {
-    if (JSON.stringify(iosReport.proof?.[field]) !== JSON.stringify(androidReport.proof?.[field])) {
-      throw evidenceError('cross-platform logical proof', `${field} differs`);
-    }
-  }
-  return compared;
+  return {
+    finalLogicalSnapshotSha256: iosReport.proof.finalLogicalSnapshotSha256,
+    learnerBInitialSha256: iosReport.proof.learnerBInitialSha256,
+    learnerBFinalSha256: iosReport.proof.learnerBFinalSha256,
+  };
 }
 
 export function createB2IosFreshInstallPlan({ udid, appPath }) {

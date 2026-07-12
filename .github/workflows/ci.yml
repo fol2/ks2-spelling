@@ -1,18 +1,18 @@
-name: B1 continuous integration
+name: B2 continuous integration
 
 on:
   pull_request:
   push:
     branches:
       - main
-      - jamesto/mobile-b1-bootstrap
+      - jamesto/mobile-b2-persistence
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: b1-ci-${{ github.workflow }}-${{ github.ref }}
+  group: b2-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -32,25 +32,44 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version-file: .nvmrc
+          node-version: "24.18.0"
           cache: npm
       - name: Install exact JavaScript dependencies
         run: npm ci
-      - name: Run domain and contract tests
+      - name: Verify frozen spelling authority and A3 producer contracts
         run: |
-          mapfile -t domain_test_files < <(
-            find tests -maxdepth 1 -name '*.test.mjs' ! -name 'b1-exit-report.test.mjs' -print | sort
-          )
-          node --test "${domain_test_files[@]}"
+          npm run verify:vendor
+          npm run test:upstream:a3
+      - name: Run B2 SQLite, atomicity and lifecycle contracts
+        run: |
+          node --test \
+            tests/sql-connection-contract.test.mjs \
+            tests/canonical-json.test.mjs \
+            tests/capacitor-sqlite-connection.test.mjs \
+            tests/sqlite-schema.test.mjs \
+            tests/sqlite-migration-rollback.test.mjs \
+            tests/database-command-gate.test.mjs \
+            tests/sqlite-spelling-snapshot-store.test.mjs \
+            tests/sqlite-command-repository.test.mjs \
+            tests/sqlite-adapter-parity.test.mjs \
+            tests/sqlite-atomicity.test.mjs \
+            tests/sqlite-multi-learner.test.mjs \
+            tests/app-lifecycle-contract.test.mjs \
+            tests/database-lifecycle-coordinator.test.mjs \
+            tests/b2-proof-controller.test.mjs
+      - name: Run complete default test suite
+        run: npm test
       - name: Lint source and verification code
         run: npm run lint
       - name: Build bundled web application
         run: npm run build
-      - name: Verify frozen spelling authority
-        run: npm run verify:vendor
+      - name: Materialise and verify fingerprinted native bundle inputs
+        run: npm run native:sync:check
+      - name: Validate committed B2 virtual-device evidence
+        run: node scripts/build-b2-exit-report.mjs --check
 
   android-compile:
-    name: Android unsigned debug compile
+    name: Android unsigned debug and release compile
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -61,7 +80,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version-file: .nvmrc
+          node-version: "24.18.0"
           cache: npm
       - name: Set up Temurin 21 for CI only
         uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
@@ -83,12 +102,12 @@ jobs:
         run: npm ci
       - name: Materialise and verify synced native bundle inputs
         run: npm run native:sync:check
-      - name: Compile and test Android debug application
+      - name: Compile and test Android debug plus unsigned release application
         run: npm run test:android
-      - name: Verify resolved Android dependency policy
-        run: npm run audit:dependencies
-      - name: Verify committed B1 exit evidence
-        run: node --test tests/b1-exit-report.test.mjs
+      - name: Certify resolved Android dependency closure
+        run: npm run certify:android
+      - name: Validate committed B2 virtual-device evidence
+        run: node scripts/build-b2-exit-report.mjs --check
 
   ios-compile:
     name: iOS unsigned Simulator compile
@@ -102,7 +121,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version-file: .nvmrc
+          node-version: "24.18.0"
           cache: npm
       - name: Require Xcode 26 or newer
         run: |
@@ -116,5 +135,5 @@ jobs:
         run: npm run native:sync:check
       - name: Compile unsigned iOS Simulator application
         run: npm run test:ios
-      - name: Verify committed B1 exit evidence
-        run: node --test tests/b1-exit-report.test.mjs
+      - name: Validate committed B2 virtual-device evidence
+        run: node scripts/build-b2-exit-report.mjs --check

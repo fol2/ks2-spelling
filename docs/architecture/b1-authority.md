@@ -37,3 +37,10 @@ builds must not load remote HTML or JavaScript and must not configure a
 Capacitor `server.url`. B1 does not approve accounts, cloud progress,
 analytics, advertising, SQLite, billing, downloads, production native plugins,
 release signing, store records, deployment or production readiness.
+
+## B2 continuation
+
+B1 remains the immutable repository and native-shell entry authority. B2's
+separate transactional persistence and lifecycle authority is documented in
+[`b2-persistence-authority.md`](b2-persistence-authority.md). B2 does not alter
+the frozen B1 commit, tree, hosted run or evidence hashes recorded above.

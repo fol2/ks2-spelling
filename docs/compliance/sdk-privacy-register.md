@@ -6,6 +6,14 @@ Owner: KS2 Spelling maintainer
 
 This register describes the B2 local persistence proof. It is engineering evidence for later store-disclosure work, not a final Apple App Privacy, US encryption export or Google Play Data Safety submission.
 
+The machine authority is the cross-hashed set
+`reports/b2/native-plugin-build.json`, `reports/b2/dependency-audit.json`,
+`reports/b2/native-plugin-audit.json` and `reports/b2/b2-exit-report.json`. The
+exit builder also binds the exact package lock, SwiftPM resolution, Gradle
+verification metadata, five Android lockfiles, both native lifecycle reports
+and both screenshots. A hosted check validates those committed bytes and must
+not be described as a fresh virtual-device run.
+
 ## B2 proof truth
 
 | Area | B2 evidence |
@@ -73,6 +81,11 @@ Twenty-five non-standard or reciprocal licence expressions remain restricted to 
 The merged Android manifest proves `android:allowBackup="false"`, names both backup-rule resources and contains no packaged permission. The legacy rules exclude `root`, `file`, `database`, `sharedpref` and `external`; both cloud-backup and device-transfer sections also exclude all five legacy domains and the four device-protected domains. B2 keeps backup and device transfer disabled until the C2 security design.
 
 The built iOS application adds no usage-description key and no app entitlement. Its four packaged privacy manifests are certified above. Parent PIN, biometrics, database-key management, production backup, store signing and final disclosure certification remain outside B2.
+
+The B2 proof uses only virtual devices. Physical-device privacy, accessibility
+and performance certification remain B4. The diagnostic proof shell is not the
+final visual design; Visual / Theme / Asset Migration follows Gate B `GO`
+before C3 child UI.
 
 ## Not approved candidates
 

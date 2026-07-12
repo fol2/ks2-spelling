@@ -1,8 +1,8 @@
 # KS2 Spelling
 
 `ks2-spelling` is the standalone repository for the local-first KS2 Spelling
-mobile application. B1 establishes an independently versioned prototype shell
-and its native packaging boundaries.
+mobile application. B1 established the independently versioned native shell;
+B2 adds its local transactional SQLite and lifecycle proof.
 
 ## Frozen identity
 
@@ -40,10 +40,26 @@ approved or claimed as complete:
 The application remains local-first and must package its application code in
 the installed binary. Later work requires its own evidence and approval gates.
 
+## B2 persistence boundary
+
+B2 proves the frozen A3 spelling command contract through one local SQLite
+transaction boundary on the owned iOS Simulator and Android Emulator. It proves
+atomic rollback, WAL recovery, pause/resume, process termination and exact
+session recovery while preserving two learners' independent state. Starter
+Camp remains empty and Monster state remains child-owned and spelling-derived.
+
+The B2 shell is deliberately diagnostic. Production profiles, Parent UI and
+security, backup, commerce, downloads, final visuals, physical-device quality,
+accessibility, signing and release metadata remain later gates. SQLCipher is
+packaged but B2 uses `no-encryption`; export classification remains unresolved
+before store release.
+
 ## Source authority
 
 The frozen upstream authority and import boundary are recorded in
 [`docs/architecture/b1-authority.md`](docs/architecture/b1-authority.md).
+The B2 transaction, lifecycle and evidence authority is recorded in
+[`docs/architecture/b2-persistence-authority.md`](docs/architecture/b2-persistence-authority.md).
 
 ## Development and verification
 
@@ -53,13 +69,18 @@ lifecycle, disk requirements and unsigned-build boundary are documented in
 [`docs/operations/native-development.md`](docs/operations/native-development.md).
 
 CI has separate Ubuntu 24.04 domain/web and Android compile lanes plus an
-unsigned iOS Simulator lane on macOS 26. All third-party Actions are pinned to
-full commit SHAs. A workflow definition or local pass is not presented as a
-hosted CI result; the exact private-branch run must be observed first.
+unsigned iOS Simulator compile lane on macOS 26. All use Node.js `24.18.0`,
+retain full Git history and pin third-party Actions to full commit SHAs. CI
+validates committed B2 virtual proof but does not claim to rerun the lifecycle
+captures. A workflow definition or local pass is not presented as a hosted CI
+result; the exact private-branch run must be observed first.
 
-## B1 evidence status
+## B2 evidence status
 
-B1 proves a local bundled shell, deterministic dependency governance and exact
-Simulator/Emulator launch evidence. It remains a prototype: SQLite durability,
-lifecycle recovery, billing and restore, signed pack downloads, physical-device
-quality, accessibility and store compliance remain later gated work.
+B1 proves the local bundled shell and deterministic dependency governance. B2
+adds virtual iOS/Android SQLite durability and lifecycle recovery. Run the exact
+local and evidence workflow in
+[`docs/operations/native-development.md`](docs/operations/native-development.md).
+Billing and restore, signed pack downloads, production security,
+physical-device quality, accessibility and store compliance remain later gated
+work.

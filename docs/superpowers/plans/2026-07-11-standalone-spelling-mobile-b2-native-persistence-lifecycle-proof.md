@@ -1308,11 +1308,15 @@ git commit -m "test: certify B2 native persistence proof"
 - Modify: `docs/operations/native-development.md`
 - Modify: `docs/compliance/sdk-privacy-register.md`
 - Modify: `README.md`
+- Modify: `reports/b2/native-plugin-build.json`
+- Modify: `reports/b2/native-plugin-audit.json`
+- Modify: `reports/b2/dependency-audit.json`
+- Modify: `THIRD-PARTY-NOTICES.md`
 
 **Interfaces:**
 
 - Consumes: final application checkpoint, iOS/Android proof reports, dependency audit, plugin audit and frozen B1 entry evidence.
-- Produces: `npm run verify:b2`, strict exit-report generation/checking, hosted unsigned build coverage, documentation and one clean final application checkpoint; this task does not commit regenerated proof evidence.
+- Produces: `npm run verify:b2`, strict exit-report generation/checking, hosted unsigned build coverage, documentation and one clean final application checkpoint. The deterministic native build, dependency and plugin audit authorities plus third-party notices are regenerated after application changes and committed in this checkpoint. This task does not regenerate or commit the iOS/Android lifecycle reports, their screenshots or `b2-exit-report.json`.
 
 - [ ] **Step 1: Write failing exit-builder and CI contract tests**
 
@@ -1371,7 +1375,7 @@ Retain three jobs and full-history checkout. Domain/Web must run the Node SQLite
 
 - [ ] **Step 6: Commit the final clean B2 application checkpoint before recapture**
 
-Run all non-evidence-changing focused/unit/build checks, then commit every final application, native, config, verifier, CI and documentation input before either native proof is recaptured:
+Regenerate the deterministic native build and dependency/plugin audit authorities after every application change, then run all focused/unit/build checks and commit every final application, native, config, verifier, CI, documentation and deterministic audit input before either native lifecycle proof is recaptured. Do not regenerate the iOS/Android proof reports or screenshots, and do not create `b2-exit-report.json` in this task:
 
 ```bash
 npm ci
@@ -1383,9 +1387,11 @@ npm run build
 npm run native:sync:check
 npm run test:ios
 npm run test:android
+npm run report:b2-native-plugins
+npm run audit:dependencies -- --write
 actionlint .github/workflows/ci.yml
 git diff --check
-git add .github package.json package-lock.json capacitor.config.json docs scripts src tests config android ios README.md THIRD-PARTY-NOTICES.md
+git add .github package.json package-lock.json capacitor.config.json docs scripts src tests config android ios README.md THIRD-PARTY-NOTICES.md reports/b2/native-plugin-build.json reports/b2/native-plugin-audit.json reports/b2/dependency-audit.json
 git commit -m "test: prepare final B2 application checkpoint"
 git status --short
 ```

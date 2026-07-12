@@ -1,8 +1,8 @@
-# Native development and B1 verification
+# Native development and B2 verification
 
-This runbook covers the B1 native shell and governance gates. Passing them means
-`native shell and governance ready`; it does not mean the application is signed,
-store-ready or ready for release.
+This runbook covers the B1 native shell plus the B2 local persistence and
+lifecycle gates. Passing them proves the reviewed virtual-device boundary; it
+does not mean the application is signed, store-ready or ready for release.
 
 ## Required local toolchain
 
@@ -36,6 +36,41 @@ node --test tests/b1-exit-report.test.mjs && \
 actionlint .github/workflows/ci.yml && \
 git diff --check
 ```
+
+## Complete local B2 gate
+
+After application or verifier changes, regenerate deterministic native and
+dependency authority before lifecycle capture:
+
+```sh
+npm run report:b2-native-plugins
+npm run audit:dependencies -- --write
+```
+
+These commands update `native-plugin-build.json`, `dependency-audit.json`,
+`native-plugin-audit.json` and third-party notices. They do not capture or
+approve lifecycle evidence. Commit those deterministic inputs in the clean B2
+application checkpoint before either platform proof runs.
+
+At that exact clean checkpoint, run the two capture wrappers and visually
+inspect both complete diagnostic screenshots. Do not accept a blank, partial or
+system-dialog capture.
+
+```sh
+npm run prove:b2:ios
+npm run prove:b2:android
+node scripts/build-b2-exit-report.mjs --write
+node --test tests/b2-exit-report.live.mjs
+```
+
+Commit only the regenerated B2 evidence. After that evidence-only commit,
+`npm run verify:b2` and `node scripts/build-b2-exit-report.mjs --check` validate
+the exact predecessor checkpoint, immediate-successor topology, fingerprint,
+report hashes and cross-platform logical digest. Hosted CI checks committed
+virtual-device evidence; it does not rerun a Simulator or Emulator lifecycle.
+
+The B2 database and lifecycle semantics, evidence paths and deferrals are
+recorded in `docs/architecture/b2-persistence-authority.md`.
 
 The default dependency audit requires the certified Android toolchain and the
 fresh packaged-permission evidence produced by `npm run test:android`, so keep
@@ -80,10 +115,10 @@ store-disclosure assumptions.
 
 ## B2 plugin-approval boundary
 
-B1 approves no production native plugin beyond Capacitor core and its iOS and
-Android platform packages. SQLite, filesystem, billing, biometric and lifecycle
-plugins remain `Not approved`. B2 must approve each capability, data boundary,
-permission surface, licence and failure mode before installation.
+B2 conditionally approves `@capacitor-community/sqlite@8.1.0` and
+`@capacitor/app@8.1.0` for the persistence proof only. Filesystem, billing and
+biometric plugins remain `Not approved`. Production security, backup and store
+disclosure decisions remain later gates.
 
 ## Hosted CI evidence
 

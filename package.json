@@ -26,6 +26,7 @@
     "launch:android": "node scripts/launch-android-emulator.mjs",
     "prove:b2:ios": "node scripts/prove-b2-ios.mjs",
     "prove:b2:android": "node scripts/prove-b2-android.mjs",
+    "verify:b2": "npm run verify:vendor && npm run test:upstream:a3 && npm test && npm run lint && npm run build && npm run audit:dependencies && npm run native:sync:check && npm run test:ios && npm run test:android && node scripts/build-b2-exit-report.mjs --check",
     "audit:dependencies": "node scripts/audit-dependencies.mjs",
     "generate:notices": "node scripts/generate-third-party-notices.mjs"
   },

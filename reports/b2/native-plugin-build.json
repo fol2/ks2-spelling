@@ -65,8 +65,8 @@
   "committedInputs": [
     {
       "path": "package.json",
-      "bytes": 1737,
-      "sha256": "855b64ab53cafd871ca684fb7884c9c6216dc860ee5f52f83796d51471de56b5"
+      "bytes": 1790,
+      "sha256": "2a4e996ed083a4baa61295a322c6dd8c260bc704474d68d6e1a72a2549a51ea7"
     },
     {
       "path": "package-lock.json",
@@ -290,13 +290,13 @@
     "outputInventory": [
       {
         "path": ".native-build/android/build/app/outputs/apk/debug/app-debug.apk",
-        "bytes": 25303329,
-        "sha256": "235749c7e8560e7ab9270b1f62cb75f9e0f2fdcdddf913cad49947fa54e9b0d1"
+        "bytes": 25303363,
+        "sha256": "3ec663a1897c65609d5f1ebc56aafd05854f507471ce007da85ad963eed721de"
       },
       {
         "path": ".native-build/android/build/app/outputs/apk/release/app-release-unsigned.apk",
-        "bytes": 23893259,
-        "sha256": "ac0ece5e7f60b62330ab57720fdee5dd85a8b4c6804b18b84ebc6babc6abba45"
+        "bytes": 23893279,
+        "sha256": "09a3c16782698c5eecfc0820d201161b01cd8edc944254ddade6e3bd0d278898"
       }
     ]
   },

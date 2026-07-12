@@ -1,5 +1,16 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { EventEmitter } from 'node:events';
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -10,9 +21,17 @@ import {
   B2_IOS_DATABASE_FILES,
   assertB2ApplicationStatusClean,
   assertB2IosProofMetadata,
+  collectB2IosDatabaseSet,
+  createB2IosProductionDependencies,
   openB2IosLiveMetadataReader,
   parseB2IosLaunchPid,
+  parseB2IosProcessProbe,
+  pollB2IosProcess,
+  runB2IosSubprocess,
   runB2IosLifecycleProof,
+  runWithB2IosOwnedCleanup,
+  validateB2IosManualAttestation,
+  writeValidatedReport,
 } from '../scripts/prove-b2-ios.mjs';
 import { canonicalJson } from '../src/platform/database/canonical-json.js';
 
@@ -20,6 +39,19 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const DIGEST_A = 'a'.repeat(64);
 const DIGEST_B = 'b'.repeat(64);
 const SESSION_ID = 'session-known-from-durable-metadata';
+const IOS_UDID = 'AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE';
+
+const TEST_FS = Object.freeze({
+  copyFile,
+  existsSync: () => true,
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  stat,
+  writeFile,
+});
 
 function metadata(phase) {
   const complete = phase === 'complete';
@@ -69,8 +101,14 @@ function createDependencies({ failAt = null } = {}) {
       async syncAndBuildUnsigned() {
         return step('sync-build-unsigned', { appPath: '/build/App.app' });
       },
-      async ownAndBootDevice() {
-        return step('own-boot', { udid: 'owned-ios-udid' });
+      async acquireOwnedDevice() {
+        return step('acquire-owned', {
+          udid: 'owned-ios-udid',
+          state: 'Shutdown',
+        });
+      },
+      async bootOwnedDevice() {
+        return step('boot-owned');
       },
       async withOwnedCleanup({ ownsDevice, udid, work, shutdown }) {
         assert.equal(ownsDevice, true);
@@ -122,6 +160,10 @@ function createDependencies({ failAt = null } = {}) {
       async terminateApplication() {
         return step('terminate-application');
       },
+      async assertProcessPresent(pid) {
+        assert.ok(['101', '202'].includes(pid));
+        return step(`prove-pid-${pid}-present`);
+      },
       async assertProcessAbsent(pid) {
         assert.ok(['101', '202'].includes(pid));
         return step(
@@ -139,14 +181,15 @@ function createDependencies({ failAt = null } = {}) {
         return step('capture-screenshot-while-foreground', {
           path: '/reports/ios.png',
           sha256: 'c'.repeat(64),
-          manualVisualInspection: 'passed',
+          manualVisualInspection: 'pending',
         });
       },
-      async collectTerminatedDatabaseSet({ files }) {
-        assert.deepEqual(files, B2_IOS_DATABASE_FILES);
+      async collectTerminatedDatabaseSet() {
         return step('copy-db-wal-shm-after-termination', {
           databasePath: '/evidence/ks2-spellingSQLite.db',
-          sidecarsObserved: files.slice(1),
+          sidecarsObserved: B2_IOS_DATABASE_FILES.slice(1),
+          observedFiles: [...B2_IOS_DATABASE_FILES],
+          everyObservedSidecarCollectedSafely: true,
         });
       },
       async inspectCollectedDatabase({ databasePath, readOnly }) {
@@ -188,6 +231,7 @@ test('production adapter consumes the frozen B1 ownership and read-only authorit
   ]) assert.match(source, new RegExp(authority.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.doesNotMatch(source, /\bsimctl\s*(?:erase|delete)\b|\biCloud\b/);
   assert.doesNotMatch(source, /CODE_SIGNING_ALLOWED=(?!NO)/);
+  assert.doesNotMatch(source, /manualVisualInspection:\s*'passed'/);
 });
 
 test('checkpoint cleanliness permits evidence outputs but rejects application drift', () => {
@@ -242,6 +286,106 @@ test('strict launch PID and durable phase contracts fail closed', () => {
   );
 });
 
+test('process probes reject runner errors and bounded polling handles transient presence', async () => {
+  const present = {
+    exitCode: 0,
+    signal: null,
+    stdout: '123 /tmp/App.app/App\n',
+    stderr: '',
+    spawnError: null,
+    timedOut: false,
+    interruptedSignal: null,
+  };
+  const absent = { ...present, exitCode: 1, stdout: '' };
+  assert.equal(parseB2IosProcessProbe(present, '123'), 'present');
+  assert.equal(parseB2IosProcessProbe(absent, '123'), 'absent');
+  for (const invalid of [
+    { ...absent, exitCode: 2 },
+    { ...absent, spawnError: new Error('spawn failed') },
+    { ...absent, timedOut: true },
+    { ...absent, signal: 'SIGKILL' },
+  ]) {
+    assert.throws(
+      () => parseB2IosProcessProbe(invalid, '123'),
+      ({ code }) => code === 'b2_ios_process_probe_failed',
+    );
+  }
+
+  const results = [present, present, absent];
+  const sleeps = [];
+  assert.equal(
+    await pollB2IosProcess({
+      pid: '123',
+      expected: 'absent',
+      attempts: 3,
+      intervalMs: 7,
+      run: async () => results.shift(),
+      sleep: async (milliseconds) => sleeps.push(milliseconds),
+    }),
+    'absent',
+  );
+  assert.deepEqual(sleeps, [7, 7]);
+  await assert.rejects(
+    pollB2IosProcess({
+      pid: '123',
+      expected: 'absent',
+      attempts: 2,
+      run: async () => present,
+      sleep: async () => undefined,
+    }),
+    ({ code }) => code === 'b2_ios_process_still_running',
+  );
+});
+
+test('every subprocess has a bounded process-group timeout', async () => {
+  const result = await runB2IosSubprocess(
+    process.execPath,
+    ['-e', 'setInterval(() => {}, 1000)'],
+    { timeoutMs: 30 },
+  );
+  assert.equal(result.timedOut, true);
+  assert.equal(result.exitCode, null);
+  assert.ok(['SIGTERM', 'SIGKILL'].includes(result.signal));
+});
+
+test('manual visual attestation is explicit and bound to the exact screenshot SHA', () => {
+  const screenshotSha256 = 'c'.repeat(64);
+  const attestation = {
+    schemaVersion: 1,
+    platform: 'ios-simulator',
+    screenshotSha256,
+    manualVisualInspection: 'passed',
+  };
+  assert.deepEqual(
+    validateB2IosManualAttestation(attestation, screenshotSha256),
+    attestation,
+  );
+  assert.throws(
+    () => validateB2IosManualAttestation(undefined, screenshotSha256),
+    ({ code }) => code === 'b2_ios_manual_attestation_invalid',
+  );
+  assert.throws(
+    () =>
+      validateB2IosManualAttestation(
+        { ...attestation, screenshotSha256: 'd'.repeat(64) },
+        screenshotSha256,
+      ),
+    ({ code }) => code === 'b2_ios_manual_attestation_invalid',
+  );
+});
+
+test('final report fails before any self-attested manual visual claim', async () => {
+  await assert.rejects(
+    writeValidatedReport({
+      testedApplicationCommit: '1'.repeat(40),
+      applicationFingerprint: '2'.repeat(64),
+      proof: { screenshot: { sha256: 'c'.repeat(64) } },
+      manualAttestation: undefined,
+    }),
+    ({ code }) => code === 'b2_ios_manual_attestation_invalid',
+  );
+});
+
 test('production host reader is read-only and observes committed WAL updates', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'b2-ios-live-reader-'));
   const databasePath = join(directory, 'ks2-spellingSQLite.db');
@@ -275,6 +419,113 @@ test('production host reader is read-only and observes committed WAL updates', a
   }
 });
 
+async function createDatabaseFiles(directory, filenames) {
+  await mkdir(directory, { recursive: true });
+  for (const filename of filenames) {
+    await writeFile(join(directory, filename), Buffer.from(`bytes:${filename}`));
+  }
+}
+
+test('database collection permits optional known sidecars and derives complete coverage', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'b2-ios-db-set-'));
+  try {
+    for (const filenames of [
+      ['ks2-spellingSQLite.db'],
+      [...B2_IOS_DATABASE_FILES],
+    ]) {
+      const source = join(directory, `source-${filenames.length}`);
+      const destination = join(directory, `destination-${filenames.length}`);
+      await createDatabaseFiles(source, filenames);
+      const collected = await collectB2IosDatabaseSet({
+        sourceDirectory: source,
+        destinationDirectory: destination,
+        fs: TEST_FS,
+      });
+      assert.deepEqual(collected.observedFiles, filenames);
+      assert.deepEqual(collected.sidecarsObserved, filenames.slice(1));
+      assert.equal(collected.everyObservedSidecarCollectedSafely, true);
+      assert.deepEqual(Object.keys(collected.fileSha256), filenames);
+      for (const filename of filenames) {
+        assert.deepEqual(
+          await readFile(join(destination, filename)),
+          await readFile(join(source, filename)),
+        );
+      }
+    }
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test('database collection rejects unknown, changed and disappeared sidecars', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'b2-ios-db-failure-'));
+  try {
+    const unknown = join(directory, 'unknown');
+    await createDatabaseFiles(unknown, [
+      'ks2-spellingSQLite.db',
+      'ks2-spellingSQLite.db-journal',
+    ]);
+    await assert.rejects(
+      collectB2IosDatabaseSet({
+        sourceDirectory: unknown,
+        destinationDirectory: join(directory, 'unknown-copy'),
+        fs: TEST_FS,
+      }),
+      ({ code }) => code === 'b2_ios_database_sidecar_unknown',
+    );
+
+    const changed = join(directory, 'changed');
+    await createDatabaseFiles(changed, [...B2_IOS_DATABASE_FILES]);
+    let changedOnce = false;
+    await assert.rejects(
+      collectB2IosDatabaseSet({
+        sourceDirectory: changed,
+        destinationDirectory: join(directory, 'changed-copy'),
+        fs: {
+          ...TEST_FS,
+          async copyFile(source, destination) {
+            await copyFile(source, destination);
+            if (!changedOnce && source.endsWith('-wal')) {
+              changedOnce = true;
+              await writeFile(source, Buffer.from('changed WAL bytes'));
+            }
+          },
+        },
+      }),
+      ({ code }) => code === 'b2_ios_database_set_changed',
+    );
+
+    const disappeared = join(directory, 'disappeared');
+    await createDatabaseFiles(disappeared, [...B2_IOS_DATABASE_FILES]);
+    const entries = await readdir(disappeared, { withFileTypes: true });
+    let statCalls = 0;
+    await assert.rejects(
+      collectB2IosDatabaseSet({
+        sourceDirectory: disappeared,
+        destinationDirectory: join(directory, 'disappeared-copy'),
+        fs: {
+          ...TEST_FS,
+          async readdir() {
+            return entries;
+          },
+          async stat(path) {
+            statCalls += 1;
+            if (statCalls > B2_IOS_DATABASE_FILES.length && path.endsWith('-shm')) {
+              const error = new Error('gone');
+              error.code = 'ENOENT';
+              throw error;
+            }
+            return stat(path);
+          },
+        },
+      }),
+      ({ code }) => code === 'b2_ios_database_set_disappeared',
+    );
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('iOS proof orders lifecycle, PID replacement, UI capture and WAL-safe collection', async () => {
   const { dependencies, events } = createDependencies();
   const result = await runB2IosLifecycleProof(dependencies);
@@ -283,7 +534,8 @@ test('iOS proof orders lifecycle, PID replacement, UI capture and WAL-safe colle
   assert.equal(result.metadata.phase, 'complete');
   assert.deepEqual(events, [
     'sync-build-unsigned',
-    'own-boot',
+    'acquire-owned',
+    'boot-owned',
     'uninstall-install-launch',
     'resolve-data-container',
     'open-host-read-only-wal',
@@ -291,9 +543,11 @@ test('iOS proof orders lifecycle, PID replacement, UI capture and WAL-safe colle
     'foreground-bundled-system-app',
     'relaunch-for-resume',
     'poll-ready-for-relaunch',
+    'prove-pid-101-present',
     'terminate-application',
     'prove-old-pid-absent',
     'launch-new-process',
+    'prove-pid-202-present',
     'poll-complete',
     'capture-screenshot-while-foreground',
     'terminate-application',
@@ -314,4 +568,216 @@ test('failure still closes the read-only view and shuts down only the owned simu
   assert.equal(events.at(-1), 'shutdown-owned');
   assert.equal(events.filter((entry) => entry === 'shutdown-owned').length, 1);
   assert.equal(events.includes('copy-db-wal-shm-after-termination'), false);
+});
+
+test('relaunch must produce a distinct live PID before proof can continue', async () => {
+  const { dependencies, events } = createDependencies();
+  dependencies.launchApplication = async () => {
+    events.push('launch-reused-process');
+    return { pid: '101' };
+  };
+  await assert.rejects(
+    runB2IosLifecycleProof(dependencies),
+    ({ code }) => code === 'b2_ios_pid_unchanged',
+  );
+  assert.equal(events.at(-1), 'shutdown-owned');
+  assert.equal(events.includes('capture-screenshot-while-foreground'), false);
+});
+
+test('boot failure is already inside cleanup and primary plus cleanup failures aggregate', async () => {
+  const bootFailure = createDependencies({ failAt: 'boot-owned' });
+  await assert.rejects(
+    runB2IosLifecycleProof(bootFailure.dependencies),
+    /failure at boot-owned/,
+  );
+  assert.equal(bootFailure.events.at(-1), 'shutdown-owned');
+
+  const primary = Object.assign(new Error('primary failure'), { code: 'primary_code' });
+  await assert.rejects(
+    runWithB2IosOwnedCleanup({
+      ownsDevice: true,
+      udid: IOS_UDID,
+      work: async () => { throw primary; },
+      shutdown: async () => { throw new Error('cleanup failure'); },
+      signalSource: new EventEmitter(),
+    }),
+    (error) =>
+      error instanceof AggregateError &&
+      error.code === 'primary_code' &&
+      error.cause === primary &&
+      error.errors.length === 2,
+  );
+});
+
+test('signal-safe cleanup is idempotent and never shuts down a non-owned device', async () => {
+  const signalSource = new EventEmitter();
+  const shutdowns = [];
+  const interrupted = runWithB2IosOwnedCleanup({
+    ownsDevice: true,
+    udid: IOS_UDID,
+    work: () => new Promise(() => {}),
+    shutdown: async (udid) => shutdowns.push(udid),
+    signalSource,
+  });
+  signalSource.emit('SIGTERM');
+  await assert.rejects(
+    interrupted,
+    ({ code }) => code === 'b2_ios_signal_interrupted',
+  );
+  assert.deepEqual(shutdowns, [IOS_UDID]);
+
+  await runWithB2IosOwnedCleanup({
+    ownsDevice: false,
+    udid: 'foreign-udid',
+    work: async () => 'done',
+    shutdown: async () => assert.fail('must not shut down a non-owned device'),
+    signalSource: new EventEmitter(),
+  });
+});
+
+function successfulCommand(stdout = '') {
+  return {
+    exitCode: 0,
+    signal: null,
+    stdout,
+    stderr: '',
+    spawnError: null,
+    timedOut: false,
+    interruptedSignal: null,
+  };
+}
+
+test('production adapter executes exact owned-device commands through the injected runner', async () => {
+  const commands = [];
+  const runtime = {
+    runtimes: [
+      {
+        identifier: 'com.apple.CoreSimulator.SimRuntime.iOS-26-5',
+        isAvailable: true,
+        version: '26.5',
+      },
+    ],
+  };
+  const devices = {
+    devices: {
+      'com.apple.CoreSimulator.SimRuntime.iOS-26-5': [
+        {
+          name: 'KS2 Spelling iPhone 17',
+          udid: IOS_UDID,
+          state: 'Shutdown',
+          deviceTypeIdentifier:
+            'com.apple.CoreSimulator.SimDeviceType.iPhone-17',
+        },
+      ],
+    },
+  };
+  let launchCount = 0;
+  const run = async (command, args, options) => {
+    commands.push([command, args, options.timeoutMs]);
+    const serialised = args.join(' ');
+    if (serialised === 'simctl list runtimes -j') {
+      return successfulCommand(JSON.stringify(runtime));
+    }
+    if (serialised === 'simctl list devices -j') {
+      return successfulCommand(JSON.stringify(devices));
+    }
+    if (serialised.includes('simctl launch') && serialised.includes('uk.eugnel')) {
+      launchCount += 1;
+      return successfulCommand(`uk.eugnel.ks2spelling: ${100 + launchCount}\n`);
+    }
+    if (command === '/bin/ps') {
+      return successfulCommand(`${args[1]} /tmp/App.app/App\n`);
+    }
+    return successfulCommand();
+  };
+  const dependencies = createB2IosProductionDependencies({
+    run,
+    fs: TEST_FS,
+    sleep: async () => undefined,
+    signalSource: new EventEmitter(),
+  });
+  const build = await dependencies.syncAndBuildUnsigned();
+  const device = await dependencies.acquireOwnedDevice();
+  await dependencies.bootOwnedDevice(device);
+  const first = await dependencies.freshInstallAndLaunch({
+    udid: device.udid,
+    appPath: build.appPath,
+  });
+  await dependencies.assertProcessPresent(first.pid);
+  await dependencies.terminateApplication(device.udid);
+  await dependencies.launchApplication(device.udid);
+
+  assert.deepEqual(
+    commands.slice(2, 9).map(([, args]) => args),
+    [
+      ['simctl', 'list', 'runtimes', '-j'],
+      ['simctl', 'list', 'devices', '-j'],
+      ['simctl', 'boot', IOS_UDID],
+      ['simctl', 'bootstatus', IOS_UDID, '-b'],
+      ['simctl', 'uninstall', IOS_UDID, 'uk.eugnel.ks2spelling'],
+      ['simctl', 'install', IOS_UDID, build.appPath],
+      ['simctl', 'launch', IOS_UDID, 'uk.eugnel.ks2spelling'],
+    ],
+  );
+  assert.ok(commands.every(([, , timeoutMs]) => Number.isInteger(timeoutMs)));
+});
+
+test('production ownership rejects a same-name collision without boot or cleanup mutation', async () => {
+  const commands = [];
+  const run = async (command, args) => {
+    commands.push([command, args]);
+    if (args.includes('runtimes')) {
+      return successfulCommand(
+        JSON.stringify({
+          runtimes: [
+            {
+              identifier: 'com.apple.CoreSimulator.SimRuntime.iOS-26-5',
+              isAvailable: true,
+              version: '26.5',
+            },
+          ],
+        }),
+      );
+    }
+    return successfulCommand(
+      JSON.stringify({
+        devices: {
+          'com.apple.CoreSimulator.SimRuntime.iOS-25-0': [
+            {
+              name: 'KS2 Spelling iPhone 17',
+              udid: IOS_UDID,
+              state: 'Shutdown',
+              deviceTypeIdentifier:
+                'com.apple.CoreSimulator.SimDeviceType.iPhone-17',
+            },
+          ],
+        },
+      }),
+    );
+  };
+  const dependencies = createB2IosProductionDependencies({ run, fs: TEST_FS });
+  await assert.rejects(
+    dependencies.acquireOwnedDevice(),
+    ({ code }) => code === 'ios_device_collision',
+  );
+  assert.equal(commands.length, 2);
+  assert.equal(commands.some(([, args]) => args.includes('boot')), false);
+});
+
+test('production required runner rejects timeout and spawn failures before mutation continues', async () => {
+  for (const result of [
+    { ...successfulCommand(), exitCode: null, timedOut: true },
+    { ...successfulCommand(), exitCode: null, spawnError: new Error('missing') },
+  ]) {
+    const dependencies = createB2IosProductionDependencies({
+      run: async () => result,
+      fs: TEST_FS,
+    });
+    await assert.rejects(
+      dependencies.syncAndBuildUnsigned(),
+      ({ code }) =>
+        code === 'b2_ios_command_timeout' ||
+        code === 'b2_ios_command_spawn_failed',
+    );
+  }
 });

@@ -69,6 +69,8 @@ const POLL_ATTEMPTS = 600;
 const POLL_INTERVAL_MS = 100;
 const PROCESS_POLL_ATTEMPTS = 50;
 const PROCESS_POLL_INTERVAL_MS = 100;
+const HIERARCHY_OUTPUT_POLL_ATTEMPTS = 20;
+const HIERARCHY_OUTPUT_POLL_INTERVAL_MS = 50;
 const COMMAND_TIMEOUT_MS = 15 * 60 * 1000;
 const PROCESS_TERMINATION_GRACE_MS = 250;
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -1289,12 +1291,64 @@ export function createB2AndroidProductionDependencies({
     }
     let ownsHierarchyPath = true;
     try {
-      await required(
+      const dump = await required(
         adb,
         shellArgs('uiautomator', 'dump', hierarchyRemotePath),
         { signal, timeoutMs: 30_000 },
       );
-      return await required(adb, shellArgs('cat', hierarchyRemotePath), { signal });
+      const reportedPath = dump.stdout.match(/dumped to:\s*(\S+)/)?.[1];
+      if (reportedPath && reportedPath !== hierarchyRemotePath) {
+        throw proofError(
+          'b2_android_hierarchy_output_redirected',
+          'B2 Android hierarchy dump was redirected away from its owned path',
+        );
+      }
+      for (let attempt = 0; attempt < HIERARCHY_OUTPUT_POLL_ATTEMPTS; attempt += 1) {
+        const output = await probe(adb, shellArgs('cat', hierarchyRemotePath), {
+          signal,
+          timeoutMs: 5_000,
+        });
+        throwIfAborted(signal);
+        const completedNormally =
+          output &&
+          typeof output === 'object' &&
+          !output.spawnError &&
+          !output.timedOut &&
+          !output.signal &&
+          !output.interruptedSignal &&
+          !output.aborted &&
+          Number.isInteger(output.exitCode);
+        if (
+          completedNormally &&
+          output.exitCode === 0 &&
+          typeof output.stdout === 'string' &&
+          output.stdout.length !== 0
+        ) return output;
+        const outputPending =
+          completedNormally &&
+          ((output.exitCode === 0 && output.stdout === '') ||
+            (output.exitCode === 1 &&
+              /No such file or directory/i.test(
+                `${output.stdout ?? ''}\n${output.stderr ?? ''}`,
+              )));
+        if (!outputPending) {
+          throw proofError(
+            'b2_android_hierarchy_output_failed',
+            'B2 Android hierarchy output probe failed before readiness',
+          );
+        }
+        if (attempt === HIERARCHY_OUTPUT_POLL_ATTEMPTS - 1) {
+          throw proofError(
+            'b2_android_hierarchy_output_timeout',
+            'B2 Android hierarchy output did not appear at its owned path',
+          );
+        }
+        await sleep(HIERARCHY_OUTPUT_POLL_INTERVAL_MS, signal);
+      }
+      throw proofError(
+        'b2_android_hierarchy_output_timeout',
+        'B2 Android hierarchy output did not appear at its owned path',
+      );
     } finally {
       if (ownsHierarchyPath) {
         await required(

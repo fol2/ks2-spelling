@@ -1546,6 +1546,145 @@ test('production foreground capture and privacy inspection use executable runner
   assert.equal(collisionCommands.some((value) => value.includes(' rm -f ')), false);
 });
 
+test('production hierarchy waits for delayed API 36 output and cleans the exact owned path', async () => {
+  const hierarchy = hierarchyRecord('B2 proof complete');
+  const remotePath =
+    '/sdcard/ks2-spelling-b2-window-delayed-hierarchy-1234.xml';
+  const commands = [];
+  const sleeps = [];
+  let catAttempts = 0;
+  const dependencies = createB2AndroidProductionDependencies({
+    runId: 'delayed-hierarchy-1234',
+    fs: productionTestFs(),
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    sleep: async (milliseconds) => sleeps.push(milliseconds),
+    run: async (_command, args) => {
+      const value = args.join(' ');
+      commands.push(value);
+      if (value.includes('if [ -e ')) return successfulCommand('absent\n');
+      if (value.includes('uiautomator dump')) {
+        return successfulCommand(`UI hierchary dumped to: ${remotePath}\n`);
+      }
+      if (value.includes(` cat ${remotePath}`)) {
+        catAttempts += 1;
+        if (catAttempts === 1) {
+          return {
+            ...successfulCommand(),
+            exitCode: 1,
+            stderr: `cat: ${remotePath}: No such file or directory\n`,
+          };
+        }
+        return successfulCommand(hierarchy.hierarchy);
+      }
+      return successfulCommand();
+    },
+  });
+
+  const result = await dependencies.waitForHierarchyPhase('B2 proof complete');
+  assert.equal(result.phase, 'B2 proof complete');
+  assert.equal(catAttempts, 2);
+  assert.deepEqual(sleeps, [50]);
+  assert.equal(
+    commands.filter((value) => value.includes('uiautomator dump')).length,
+    1,
+  );
+  assert.equal(
+    commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+    1,
+  );
+});
+
+test('production hierarchy rejects API 36 output redirection and still cleans only its path', async () => {
+  const remotePath =
+    '/sdcard/ks2-spelling-b2-window-redirected-hierarchy-1234.xml';
+  const commands = [];
+  const dependencies = createB2AndroidProductionDependencies({
+    runId: 'redirected-hierarchy-1234',
+    fs: productionTestFs(),
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    sleep: async () => undefined,
+    run: async (_command, args) => {
+      const value = args.join(' ');
+      commands.push(value);
+      if (value.includes('if [ -e ')) return successfulCommand('absent\n');
+      if (value.includes('uiautomator dump')) {
+        return successfulCommand(
+          'UI hierchary dumped to: /sdcard/window_dump.xml\n',
+        );
+      }
+      return successfulCommand();
+    },
+  });
+
+  await assert.rejects(
+    dependencies.waitForHierarchyPhase('B2 proof complete'),
+    ({ code }) => code === 'b2_android_hierarchy_output_redirected',
+  );
+  assert.equal(commands.some((value) => value.includes(` cat ${remotePath}`)), false);
+  assert.equal(
+    commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+    1,
+  );
+  assert.equal(
+    commands.some((value) => value.includes('rm -f /sdcard/window_dump.xml')),
+    false,
+  );
+});
+
+test('production hierarchy bounds missing output polling and cleans on timeout', async () => {
+  const remotePath = '/sdcard/ks2-spelling-b2-window-missing-output-1234.xml';
+  const commands = [];
+  const sleeps = [];
+  const dependencies = createB2AndroidProductionDependencies({
+    runId: 'missing-output-1234',
+    fs: productionTestFs(),
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    sleep: async (milliseconds) => sleeps.push(milliseconds),
+    run: async (_command, args) => {
+      const value = args.join(' ');
+      commands.push(value);
+      if (value.includes('if [ -e ')) return successfulCommand('absent\n');
+      if (value.includes('uiautomator dump')) {
+        return successfulCommand(`UI hierchary dumped to: ${remotePath}\n`);
+      }
+      if (value.includes(` cat ${remotePath}`)) {
+        return {
+          ...successfulCommand(),
+          exitCode: 1,
+          stderr: `cat: ${remotePath}: No such file or directory\n`,
+        };
+      }
+      return successfulCommand();
+    },
+  });
+
+  await assert.rejects(
+    dependencies.waitForHierarchyPhase('B2 proof complete'),
+    ({ code }) => code === 'b2_android_hierarchy_output_timeout',
+  );
+  assert.equal(
+    commands.filter((value) => value.includes(` cat ${remotePath}`)).length,
+    20,
+  );
+  assert.deepEqual(sleeps, Array(19).fill(50));
+  assert.equal(
+    commands.filter((value) => value.includes(` rm -f ${remotePath}`)).length,
+    1,
+  );
+});
+
 test('new-emulator start registers process-group ownership before boot failure cleanup', async () => {
   const started = [];
   const cleanup = [];

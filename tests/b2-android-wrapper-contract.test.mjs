@@ -1830,19 +1830,37 @@ test('production adapter rejects a serial collision and required-runner failures
   }
 });
 
-test('Android missing-application exceptions use only authoritative raw bytes', async () => {
+test('Android fresh install proves API 36 package absence before accepting failed uninstall', async () => {
   const fs = productionTestFs();
   const env = {
     HOME: '/test-home',
     JAVA_HOME: '/java',
     ANDROID_HOME: '/sdk',
   };
-  const missingResult = (diagnostic, raw) => ({
-    ...successfulCommand(diagnostic),
-    exitCode: 1,
-    stdoutBytes: raw,
+  const commandResult = ({ exitCode = 0, stdout = '', stderr = '' } = {}) => ({
+    ...successfulCommand(stdout),
+    exitCode,
+    stdoutBytes: Buffer.from(stdout),
+    stderr,
+    stderrBytes: Buffer.from(stderr),
   });
-  const runFreshInstall = async (uninstallResult) => {
+  const exactApi36MissingUninstall = commandResult({
+    exitCode: 1,
+    stdout: 'Failure [DELETE_FAILED_INTERNAL_ERROR]\n',
+  });
+  const exactAbsentPackageList = commandResult();
+  const exactAbsentPackagePath = commandResult({ exitCode: 1 });
+  const exactPresentPackageList = commandResult({
+    stdout: 'package:uk.eugnel.ks2spelling\n',
+  });
+  const exactPresentPackagePath = commandResult({
+    stdout: 'package:/data/app/~~token/uk.eugnel.ks2spelling-token/base.apk\n',
+  });
+  const runFreshInstall = async ({
+    uninstall = exactApi36MissingUninstall,
+    packageList = exactAbsentPackageList,
+    packagePath = exactAbsentPackagePath,
+  } = {}) => {
     const commands = [];
     const dependencies = createB2AndroidProductionDependencies({
       fs,
@@ -1850,35 +1868,94 @@ test('Android missing-application exceptions use only authoritative raw bytes', 
       sleep: async () => undefined,
       run: async (_command, args) => {
         commands.push(args.join(' '));
-        if (args.includes('uninstall')) return uninstallResult;
+        if (args.includes('uninstall')) return uninstall;
+        if (args.includes('list') && args.includes('packages')) return packageList;
+        if (args.includes('path')) return packagePath;
         if (args.includes('pidof')) return successfulCommand('321\n');
         return successfulCommand();
       },
     });
-    const launch = await dependencies.freshInstallAndLaunch({
-      apkPath: '/tmp/app-debug.apk',
-    });
-    return { commands, launch };
+    try {
+      const launch = await dependencies.freshInstallAndLaunch({
+        apkPath: '/tmp/app-debug.apk',
+      });
+      return { commands, launch, error: null };
+    } catch (error) {
+      return { commands, launch: null, error };
+    }
   };
 
-  const allowed = await runFreshInstall(
-    missingResult('[REDACTED diagnostic]\n', Buffer.from('Unknown package\n')),
-  );
+  const allowed = await runFreshInstall();
+  assert.equal(allowed.error, null);
   assert.equal(allowed.launch.pid, '321');
+  assert.deepEqual(allowed.commands.slice(0, 3), [
+    '-s emulator-5580 uninstall uk.eugnel.ks2spelling',
+    '-s emulator-5580 shell pm list packages --user 0 uk.eugnel.ks2spelling',
+    '-s emulator-5580 shell pm path uk.eugnel.ks2spelling',
+  ]);
   assert.ok(allowed.commands.some((value) => value.includes(' install ')));
 
-  await assert.rejects(
-    runFreshInstall(
-      missingResult('Unknown package\n', Buffer.from('permission denied\n')),
-    ),
-    ({ code }) => code === 'b2_android_command_failed',
+  const present = await runFreshInstall({
+    packageList: exactPresentPackageList,
+    packagePath: exactPresentPackagePath,
+  });
+  assert.equal(present.error?.code, 'b2_android_uninstall_failed_application_present');
+  assert.equal(
+    present.commands.some((value) => value.includes(' install ')),
+    false,
   );
-  await assert.rejects(
-    runFreshInstall(
-      missingResult('Unknown package\n', Uint8Array.from([0xc3, 0x28])),
-    ),
-    ({ code }) => code === 'b2_android_machine_output_invalid',
+
+  const falseDiagnostic = await runFreshInstall({
+    uninstall: commandResult({ exitCode: 1, stdout: 'Unknown package\n' }),
+    packageList: exactPresentPackageList,
+    packagePath: exactPresentPackagePath,
+  });
+  assert.equal(
+    falseDiagnostic.error?.code,
+    'b2_android_uninstall_failed_application_present',
   );
+  assert.equal(
+    falseDiagnostic.commands.some((value) => value.includes(' install ')),
+    false,
+  );
+
+  const invalidUtf8Uninstall = await runFreshInstall({
+    uninstall: {
+      ...exactApi36MissingUninstall,
+      stdoutBytes: Uint8Array.from([0xc3, 0x28]),
+    },
+  });
+  assert.equal(invalidUtf8Uninstall.error?.code, 'b2_android_machine_output_invalid');
+  assert.deepEqual(invalidUtf8Uninstall.commands, [
+    '-s emulator-5580 uninstall uk.eugnel.ks2spelling',
+  ]);
+
+  for (const authority of [
+    { packageList: commandResult({ stdout: 'package:other.application\n' }) },
+    { packageList: commandResult({ exitCode: 1 }) },
+    { packageList: commandResult({ stderr: 'warning\n' }) },
+    { packagePath: commandResult({ exitCode: 0 }) },
+    { packagePath: commandResult({ exitCode: 1, stdout: 'missing\n' }) },
+    { packagePath: commandResult({ stdout: 'package:relative/base.apk\n' }) },
+    {
+      packagePath: {
+        ...exactAbsentPackagePath,
+        stdoutBytes: Uint8Array.from([0xc3, 0x28]),
+      },
+    },
+    {
+      packageList: exactAbsentPackageList,
+      packagePath: exactPresentPackagePath,
+    },
+  ]) {
+    const rejected = await runFreshInstall(authority);
+    assert.equal(rejected.error?.code, 'b2_android_uninstall_absence_unproven');
+    assert.ok(rejected.error?.cause instanceof AggregateError);
+    assert.equal(
+      rejected.commands.some((value) => value.includes(' install ')),
+      false,
+    );
+  }
 });
 
 test('production run-as uses unique paths, pulls every sidecar and cleans an interrupted mkdir', async () => {

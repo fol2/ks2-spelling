@@ -326,12 +326,18 @@ export function runB2AndroidSubprocess(
   });
 }
 
-function createRequiredRunner(run = runB2AndroidSubprocess) {
-  return async function required(
+function commandFailure(command, args, result) {
+  return proofError(
+    'b2_android_command_failed',
+    `${command} ${args.join(' ')} failed with ${result.exitCode}`,
+  );
+}
+
+function createObservedRunner(run = runB2AndroidSubprocess) {
+  return async function observed(
     command,
     args,
     {
-      allowMissingApplication = false,
       timeoutMs = COMMAND_TIMEOUT_MS,
       signal,
       input,
@@ -381,22 +387,69 @@ function createRequiredRunner(run = runB2AndroidSubprocess) {
         `${command} ${args.join(' ')} exited via ${result.signal}`,
       );
     }
-    if (result.exitCode === 0) return result;
-    const machineOutput = allowMissingApplication && Number.isInteger(result.exitCode)
-      ? `${b2AndroidMachineText(result)}\n${b2AndroidMachineText(result, 'stderr')}`
-      : '';
-    if (
-      allowMissingApplication &&
-      Number.isInteger(result.exitCode) &&
-      /(?:unknown package|not installed|does not exist|no such file)/i.test(
-        machineOutput,
-      )
-    ) return result;
-    throw proofError(
-      'b2_android_command_failed',
-      `${command} ${args.join(' ')} failed with ${result.exitCode}`,
-    );
+    if (!Number.isInteger(result.exitCode)) {
+      throw proofError(
+        'b2_android_command_result_invalid',
+        `${command} returned a command result without an integer exit code`,
+      );
+    }
+    return result;
   };
+}
+
+function createRequiredRunner(run = runB2AndroidSubprocess) {
+  const observed = createObservedRunner(run);
+  return async function required(command, args, options = {}) {
+    const result = await observed(command, args, options);
+    if (result.exitCode === 0) return result;
+    throw commandFailure(command, args, result);
+  };
+}
+
+function parseB2AndroidPackageListAuthority(result) {
+  const stdout = b2AndroidMachineText(result);
+  const stderr = b2AndroidMachineText(result, 'stderr');
+  if (result.exitCode !== 0 || stderr !== '') {
+    throw proofError(
+      'b2_android_package_list_authority_invalid',
+      'B2 Android package-list absence authority is invalid',
+    );
+  }
+  if (stdout === '') return 'absent';
+  if (stdout === `package:${B2_APPLICATION_ID}\n`) return 'present';
+  throw proofError(
+    'b2_android_package_list_authority_invalid',
+    'B2 Android package-list absence authority is malformed',
+  );
+}
+
+function parseB2AndroidPackagePathAuthority(result) {
+  const stdout = b2AndroidMachineText(result);
+  const stderr = b2AndroidMachineText(result, 'stderr');
+  if (stderr !== '') {
+    throw proofError(
+      'b2_android_package_path_authority_invalid',
+      'B2 Android package-path absence authority is invalid',
+    );
+  }
+  if (result.exitCode === 1 && stdout === '') return 'absent';
+  if (result.exitCode === 0 && stdout.endsWith('\n')) {
+    const paths = stdout.slice(0, -1).split('\n');
+    if (
+      paths.length > 0 &&
+      paths.every((entry) =>
+        entry.startsWith('package:/') &&
+        entry.length > 'package:/.apk'.length &&
+        entry.endsWith('.apk') &&
+        !entry.includes('\0') &&
+        !entry.includes('\r'),
+      )
+    ) return 'present';
+  }
+  throw proofError(
+    'b2_android_package_path_authority_invalid',
+    'B2 Android package-path absence authority is malformed',
+  );
 }
 
 export async function runWithB2AndroidOwnedCleanup({
@@ -1489,9 +1542,10 @@ export function createB2AndroidProductionDependencies({
     JAVA_HOME: resolution.javaHome,
     ANDROID_HOME: sdkRoot,
   };
-  const required = createRequiredRunner((command, args, options) =>
-    run(command, args, { ...options, env: androidEnv }),
-  );
+  const runWithAndroidEnvironment = (command, args, options) =>
+    run(command, args, { ...options, env: androidEnv });
+  const observed = createObservedRunner(runWithAndroidEnvironment);
+  const required = createRequiredRunner(runWithAndroidEnvironment);
   const probe = (command, args, options = {}) =>
     run(command, args, {
       cwd: ROOT,
@@ -1595,6 +1649,92 @@ export function createB2AndroidProductionDependencies({
         ownsHierarchyPath = false;
       }
     }
+  }
+
+  async function provePackageAbsentAfterFailedUninstall({
+    command,
+    args,
+    result,
+    signal,
+  }) {
+    b2AndroidMachineText(result);
+    b2AndroidMachineText(result, 'stderr');
+    const uninstallFailure = commandFailure(command, args, result);
+    const authorityCommands = [
+      [
+        'package-list',
+        shellArgs(
+          'pm',
+          'list',
+          'packages',
+          '--user',
+          '0',
+          B2_APPLICATION_ID,
+        ),
+        parseB2AndroidPackageListAuthority,
+      ],
+      [
+        'package-path',
+        shellArgs('pm', 'path', B2_APPLICATION_ID),
+        parseB2AndroidPackagePathAuthority,
+      ],
+    ];
+    const settled = await Promise.allSettled(
+      authorityCommands.map(([, authorityArgs]) =>
+        observed(adb, authorityArgs, { signal, timeoutMs: 5_000 }),
+      ),
+    );
+    throwIfAborted(signal);
+    const authorityFailures = [];
+    const states = [];
+    for (let index = 0; index < authorityCommands.length; index += 1) {
+      const [name, , parse] = authorityCommands[index];
+      const outcome = settled[index];
+      if (outcome.status === 'rejected') {
+        authorityFailures.push(outcome.reason);
+        continue;
+      }
+      try {
+        states.push([name, parse(outcome.value)]);
+      } catch (error) {
+        authorityFailures.push(error);
+      }
+    }
+    if (authorityFailures.length !== 0) {
+      throw proofError(
+        'b2_android_uninstall_absence_unproven',
+        'B2 Android uninstall failed and package absence could not be proven',
+        {
+          cause: new AggregateError(
+            [uninstallFailure, ...authorityFailures],
+            'B2 Android fresh-install absence authority failed',
+          ),
+        },
+      );
+    }
+    const observedStates = states.map(([, state]) => state);
+    if (observedStates.every((state) => state === 'absent')) return;
+    if (observedStates.every((state) => state === 'present')) {
+      throw proofError(
+        'b2_android_uninstall_failed_application_present',
+        'B2 Android uninstall failed while the application remains installed',
+        { cause: uninstallFailure },
+      );
+    }
+    const mismatch = proofError(
+      'b2_android_package_authority_mismatch',
+      'B2 Android package-list and package-path authorities disagree',
+    );
+    throw proofError(
+      'b2_android_uninstall_absence_unproven',
+      'B2 Android uninstall failed and package absence could not be proven',
+      {
+        cause: new AggregateError(
+          [uninstallFailure, mismatch],
+          'B2 Android fresh-install absence authority failed',
+        ),
+      },
+    );
   }
 
   return {
@@ -1781,25 +1921,43 @@ export function createB2AndroidProductionDependencies({
     },
     async freshInstallAndLaunch(build, { signal } = {}) {
       const plan = createB2AndroidFreshInstallPlan({ apkPath: build.apkPath });
-      for (const [index, [command, args]] of plan.entries()) {
-        await required(command === 'adb' ? adb : command, args, {
-          allowMissingApplication: index === 0,
+      const [[uninstallCommand, uninstallArgs], [installCommand, installArgs]] = plan;
+      const resolvedUninstallCommand = uninstallCommand === 'adb'
+        ? adb
+        : uninstallCommand;
+      const uninstall = await observed(
+        resolvedUninstallCommand,
+        uninstallArgs,
+        { signal },
+      );
+      b2AndroidMachineText(uninstall);
+      b2AndroidMachineText(uninstall, 'stderr');
+      if (uninstall.exitCode !== 0) {
+        await provePackageAbsentAfterFailedUninstall({
+          command: resolvedUninstallCommand,
+          args: uninstallArgs,
+          result: uninstall,
           signal,
         });
       }
+      await required(
+        installCommand === 'adb' ? adb : installCommand,
+        installArgs,
+        { signal },
+      );
       await required(
         adb,
         shellArgs('am', 'start', '-n', B2_ANDROID_DEVICE.activity),
         { signal },
       );
-      const observed = await pollB2AndroidProcess({
+      const processState = await pollB2AndroidProcess({
         expected: 'present',
         run: probe,
         adb,
         sleep,
         signal,
       });
-      return { pid: observed.pid };
+      return { pid: processState.pid };
     },
     waitForHierarchyPhase(phase, { signal } = {}) {
       return waitForB2AndroidHierarchyPhase({

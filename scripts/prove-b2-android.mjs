@@ -359,11 +359,14 @@ function createRequiredRunner(run = runB2AndroidSubprocess) {
       );
     }
     if (result.exitCode === 0) return result;
+    const machineOutput = allowMissingApplication && Number.isInteger(result.exitCode)
+      ? `${b2AndroidMachineText(result)}\n${b2AndroidMachineText(result, 'stderr')}`
+      : '';
     if (
       allowMissingApplication &&
       Number.isInteger(result.exitCode) &&
       /(?:unknown package|not installed|does not exist|no such file)/i.test(
-        `${result.stdout}\n${result.stderr}`,
+        machineOutput,
       )
     ) return result;
     throw proofError(
@@ -1399,7 +1402,7 @@ export function createB2AndroidProductionDependencies({
           completedNormally &&
           output.exitCode === 0 &&
           outputStdout.length !== 0
-        ) return { ...output, stdout: outputStdout, stderr: outputStderr };
+        ) return output;
         const outputPending = completedNormally && (
           (output.exitCode === 0 && outputStdout === '' && outputStderr === '') ||
           (output.exitCode === 1 &&
@@ -1716,7 +1719,7 @@ export function createB2AndroidProductionDependencies({
       parseAndroidResumedActivity(b2AndroidMachineText(activities));
       const freshHierarchy = await dumpHierarchy({ signal });
       const hierarchyEvidence = assertB2AndroidHierarchyPhase(
-        freshHierarchy.stdout,
+        b2AndroidMachineText(freshHierarchy),
         'B2 proof complete',
       );
       const screenshot = await required(

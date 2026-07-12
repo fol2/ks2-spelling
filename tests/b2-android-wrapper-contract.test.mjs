@@ -1089,6 +1089,7 @@ test('production source uses exact ownership/run-as and never roots or self-atte
     'assertStartedAndroidEmulatorProcess',
   ]) assert.ok(source.includes(required), required);
   assert.doesNotMatch(source, /\badb\s+root\b|\bchmod\b|manualVisualInspection:\s*'passed'/);
+  assert.doesNotMatch(source, /return\s*\{\s*\.\.\.output,\s*stdout:/);
 });
 
 async function executeJoinedAndroidRemoteCommand(args, options) {
@@ -1358,6 +1359,57 @@ test('production adapter rejects a serial collision and required-runner failures
   }
 });
 
+test('Android missing-application exceptions use only authoritative raw bytes', async () => {
+  const fs = productionTestFs();
+  const env = {
+    HOME: '/test-home',
+    JAVA_HOME: '/java',
+    ANDROID_HOME: '/sdk',
+  };
+  const missingResult = (diagnostic, raw) => ({
+    ...successfulCommand(diagnostic),
+    exitCode: 1,
+    stdoutBytes: raw,
+  });
+  const runFreshInstall = async (uninstallResult) => {
+    const commands = [];
+    const dependencies = createB2AndroidProductionDependencies({
+      fs,
+      env,
+      sleep: async () => undefined,
+      run: async (_command, args) => {
+        commands.push(args.join(' '));
+        if (args.includes('uninstall')) return uninstallResult;
+        if (args.includes('pidof')) return successfulCommand('321\n');
+        return successfulCommand();
+      },
+    });
+    const launch = await dependencies.freshInstallAndLaunch({
+      apkPath: '/tmp/app-debug.apk',
+    });
+    return { commands, launch };
+  };
+
+  const allowed = await runFreshInstall(
+    missingResult('[REDACTED diagnostic]\n', Buffer.from('Unknown package\n')),
+  );
+  assert.equal(allowed.launch.pid, '321');
+  assert.ok(allowed.commands.some((value) => value.includes(' install ')));
+
+  await assert.rejects(
+    runFreshInstall(
+      missingResult('Unknown package\n', Buffer.from('permission denied\n')),
+    ),
+    ({ code }) => code === 'b2_android_command_failed',
+  );
+  await assert.rejects(
+    runFreshInstall(
+      missingResult('Unknown package\n', Uint8Array.from([0xc3, 0x28])),
+    ),
+    ({ code }) => code === 'b2_android_machine_output_invalid',
+  );
+});
+
 test('production run-as uses unique paths, pulls every sidecar and cleans an interrupted mkdir', async () => {
   const commands = [];
   const files = B2_ANDROID_DATABASE_FILES.join('\n');
@@ -1489,6 +1541,13 @@ test('production foreground capture and privacy inspection use executable runner
   const commands = [];
   const screenshot = Buffer.from('fake png screenshot');
   const hierarchy = hierarchyRecord('B2 proof complete');
+  const rawFreshHierarchy = hierarchy.hierarchy.replace(
+    'class="android.widget.FrameLayout"',
+    'class="android.widget.FrameLayout" password="false" token="machine-value"',
+  );
+  const redactedFreshHierarchy = rawFreshHierarchy
+    .replace('password="false"', 'password=[REDACTED]')
+    .replace('token="machine-value"', 'token=[REDACTED]');
   const stored = new Map();
   const fs = {
     ...productionTestFs(),
@@ -1519,7 +1578,10 @@ test('production foreground capture and privacy inspection use executable runner
       return successfulCommand(`UI hierchary dumped to: ${args.at(-1)}\n`);
     }
     if (value.includes(' cat /sdcard/ks2-spelling-b2-window-')) {
-      return successfulCommand(hierarchy.hierarchy);
+      return successfulCommand(
+        redactedFreshHierarchy,
+        Buffer.from(rawFreshHierarchy),
+      );
     }
     if (args.includes('screencap')) return successfulCommand('', screenshot);
     if (args[0] === 'dump' && args[1] === 'permissions') {
@@ -1551,6 +1613,10 @@ test('production foreground capture and privacy inspection use executable runner
     { pid: '202', hierarchy },
   );
   assert.equal(captured.sha256, createHash('sha256').update(screenshot).digest('hex'));
+  assert.doesNotMatch(
+    JSON.stringify(captured),
+    /machine-value|password="false"|token="machine-value"/,
+  );
   const privacy = await dependencies.inspectPackagedPrivacy();
   assert.deepEqual(privacy.packagedPermissions, []);
   assert.equal(privacy.androidBackupEnabled, false);
@@ -1582,6 +1648,58 @@ test('production foreground capture and privacy inspection use executable runner
   );
   assert.equal(collisionCommands.some((value) => value.includes('uiautomator')), false);
   assert.equal(collisionCommands.some((value) => value.includes(' rm -f ')), false);
+});
+
+test('foreground hierarchy rejects invalid raw UTF-8 and cleans without leaking diagnostics', async () => {
+  const hierarchy = hierarchyRecord('B2 proof complete');
+  const commands = [];
+  const dependencies = createB2AndroidProductionDependencies({
+    runId: 'invalid-capture-utf8-1234',
+    fs: productionTestFs(),
+    env: {
+      HOME: '/test-home',
+      JAVA_HOME: '/java',
+      ANDROID_HOME: '/sdk',
+    },
+    sleep: async () => undefined,
+    run: async (_command, args) => {
+      const value = args.join(' ');
+      commands.push(value);
+      if (value.includes('pidof uk.eugnel.ks2spelling')) {
+        return successfulCommand('202\n');
+      }
+      if (value.includes('dumpsys activity activities')) {
+        return successfulCommand(
+          'mResumedActivity: ActivityRecord{abc u0 uk.eugnel.ks2spelling/.MainActivity t42}\n',
+        );
+      }
+      if (value.includes('if [ -e /sdcard/ks2-spelling-b2-window-')) {
+        return successfulCommand('absent\n');
+      }
+      if (value.includes('uiautomator dump')) {
+        return successfulCommand(`UI hierchary dumped to: ${args.at(-1)}\n`);
+      }
+      if (value.includes(' cat /sdcard/ks2-spelling-b2-window-')) {
+        return successfulCommand(
+          'password=[REDACTED] token=[REDACTED]',
+          Uint8Array.from([0xc3, 0x28]),
+        );
+      }
+      return successfulCommand();
+    },
+  });
+
+  await assert.rejects(
+    dependencies.captureForegroundEvidence({ pid: '202', hierarchy }),
+    ({ code, message }) =>
+      code === 'b2_android_machine_output_invalid' &&
+      !/password|token|REDACTED/.test(message),
+  );
+  assert.equal(
+    commands.filter((value) => value.includes(' rm -f ')).length,
+    1,
+  );
+  assert.equal(commands.some((value) => value.includes('screencap')), false);
 });
 
 test('production hierarchy waits for delayed API 36 output and cleans the exact owned path', async () => {

@@ -1067,3 +1067,65 @@ test('production required runner rejects timeout and spawn failures before mutat
     );
   }
 });
+
+test('iOS command exceptions use only authoritative raw bytes', async () => {
+  const commandResult = (diagnostic, raw) => ({
+    ...successfulCommand(diagnostic),
+    exitCode: 1,
+    stdoutBytes: raw,
+  });
+  const dependenciesFor = (exceptionResult) =>
+    createB2IosProductionDependencies({
+      fs: TEST_FS,
+      run: async (_command, args) => {
+        if (args.includes('uninstall') || args.includes('shutdown')) {
+          return exceptionResult;
+        }
+        if (args.includes('launch')) {
+          return successfulCommand('uk.eugnel.ks2spelling: 456\n');
+        }
+        return successfulCommand();
+      },
+    });
+
+  const missing = dependenciesFor(
+    commandResult('[REDACTED diagnostic]\n', Buffer.from('not installed\n')),
+  );
+  assert.deepEqual(
+    await missing.freshInstallAndLaunch({
+      udid: IOS_UDID,
+      appPath: '/tmp/App.app',
+    }),
+    { pid: '456' },
+  );
+
+  const shutdown = dependenciesFor(
+    commandResult(
+      '[REDACTED diagnostic]\n',
+      Buffer.from('current state: Shutdown\n'),
+    ),
+  );
+  await assert.doesNotReject(shutdown.shutdownOwnedDevice(IOS_UDID));
+
+  for (const exceptionResult of [
+    commandResult('current state: Shutdown\n', Buffer.from('permission denied\n')),
+    commandResult('not installed\n', Buffer.from('permission denied\n')),
+  ]) {
+    const rejected = dependenciesFor(exceptionResult);
+    await assert.rejects(
+      rejected.shutdownOwnedDevice(IOS_UDID),
+      ({ code }) => code === 'b2_ios_command_failed',
+    );
+  }
+
+  const invalid = dependenciesFor(
+    commandResult(
+      'current state: Shutdown\n',
+      Uint8Array.from([0xc3, 0x28]),
+    ),
+  );
+  await assert.rejects(
+    invalid.shutdownOwnedDevice(IOS_UDID),
+    ({ code }) => code === 'b2_ios_machine_output_invalid',
+  );
+});

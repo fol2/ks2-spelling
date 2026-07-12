@@ -863,18 +863,22 @@ function createRequiredRunner(run = runB2IosSubprocess) {
       );
     }
     if (result.exitCode === 0) return result;
-    const output = `${result.stdout}\n${result.stderr}`;
+    const machineOutput =
+      (allowMissingApplication || allowAlreadyShutdown) &&
+      Number.isInteger(result.exitCode)
+        ? `${b2IosMachineText(result)}\n${b2IosMachineText(result, 'stderr')}`
+        : '';
     if (
       allowMissingApplication &&
       Number.isInteger(result.exitCode) &&
-      /(?:not found|not installed|does not exist|no such file)/i.test(output)
+      /(?:not found|not installed|does not exist|no such file)/i.test(machineOutput)
     ) {
       return result;
     }
     if (
       allowAlreadyShutdown &&
       Number.isInteger(result.exitCode) &&
-      /current state:\s*Shutdown/i.test(output)
+      /current state:\s*Shutdown/i.test(machineOutput)
     ) {
       return result;
     }

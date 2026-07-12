@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash, createPrivateKey, createPublicKey } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -118,6 +118,124 @@ test('the public private-half fixture is documented and excluded from runtime', 
   assert.ok(result.filesScanned > 0);
   assert.ok(result.bytesScanned > 0);
   assert.equal(result.authorisedFixtureDirectory, 'tests/fixtures/keys');
+});
+
+test('generated output scan retries a hashed-bundle replacement and scans the final bytes', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'ks2-b3-generated-snapshot-'));
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const assets = join(root, 'dist', 'assets');
+  await mkdir(assets, { recursive: true });
+  const initialBundle = join(assets, 'index-initial.js');
+  const replacementBundle = join(assets, 'index-replacement.js');
+  const stagedReplacement = join(root, 'index-replacement.tmp');
+  await writeFile(initialBundle, 'export const safe = true;\n');
+  await writeFile(
+    stagedReplacement,
+    'export const leaked = "b3-public-test-vector-p256-private.pem";\n',
+  );
+  let replacements = 0;
+
+  await assert.rejects(
+    assertPrivateSigningFixtureExcluded({
+      root,
+      generatedSnapshotObserver: async ({ directory, attempt }) => {
+        if (directory === 'dist' && attempt === 0) {
+          await rm(initialBundle);
+          await rename(stagedReplacement, replacementBundle);
+          replacements += 1;
+        }
+      },
+    }),
+    /private signing fixture.*index-replacement\.js/i,
+  );
+  assert.equal(replacements, 1);
+});
+
+test('generated output scan re-hashes an in-place overwrite before accepting stability', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'ks2-b3-generated-overwrite-'));
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const bundle = join(root, 'dist', 'assets', 'index-stable-name.js');
+  await mkdir(dirname(bundle), { recursive: true });
+  await writeFile(bundle, 'export const safe = true;\n');
+  let overwrites = 0;
+
+  await assert.rejects(
+    assertPrivateSigningFixtureExcluded({
+      root,
+      generatedSnapshotObserver: async ({ directory, attempt }) => {
+        if (directory === 'dist' && attempt === 1) {
+          await writeFile(
+            bundle,
+            'export const leaked = "b3-public-test-vector-p256-private.pem";\n',
+          );
+          overwrites += 1;
+        }
+      },
+    }),
+    /private signing fixture.*index-stable-name\.js/i,
+  );
+  assert.equal(overwrites, 1);
+});
+
+test('scan work budget aggregates raw bytes across static roots and generated retries', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'ks2-b3-global-raw-budget-'));
+  t.after(() => rm(root, { force: true, recursive: true }));
+  await mkdir(join(root, 'src'), { recursive: true });
+  await mkdir(join(root, 'dist'), { recursive: true });
+  await writeFile(join(root, 'src', 'safe.js'), 'static');
+  await writeFile(join(root, 'dist', 'safe.js'), 'generated');
+
+  await assert.rejects(
+    assertPrivateSigningFixtureExcluded({
+      root,
+      scanLimits: {
+        maxRawBytes: 29,
+        maxExpandedArchiveBytes: 1_000,
+        maxArchiveEntries: 100,
+      },
+    }),
+    /raw byte.*budget|bounded total bytes/i,
+  );
+});
+
+test('scan work budget aggregates expanded archive bytes across roots', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'ks2-b3-global-expanded-budget-'));
+  t.after(() => rm(root, { force: true, recursive: true }));
+  await mkdir(join(root, 'src'), { recursive: true });
+  await mkdir(join(root, 'dist'), { recursive: true });
+  await writeFile(join(root, 'src', 'static.zip'), createDeflatedZip('safe.txt', '123456'));
+  await writeFile(join(root, 'dist', 'generated.zip'), createDeflatedZip('safe.txt', 'abcdef'));
+
+  await assert.rejects(
+    assertPrivateSigningFixtureExcluded({
+      root,
+      scanLimits: {
+        maxRawBytes: 100_000,
+        maxExpandedArchiveBytes: 11,
+        maxArchiveEntries: 100,
+      },
+    }),
+    /archive expansion.*budget|bounded total/i,
+  );
+});
+
+test('scan work budget counts archive entries consumed by generated stability retries', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'ks2-b3-global-entry-budget-'));
+  t.after(() => rm(root, { force: true, recursive: true }));
+  await mkdir(join(root, 'dist'), { recursive: true });
+  await writeFile(join(root, 'dist', 'generated.zip'), createDeflatedZip('safe.txt', 'safe'));
+
+  await assert.rejects(
+    assertPrivateSigningFixtureExcluded({
+      root,
+      scanLimits: {
+        maxRawBytes: 100_000,
+        maxExpandedArchiveBytes: 100_000,
+        maxArchiveEntries: 1,
+      },
+    }),
+    /archive entr.*budget|bounded.*entr/i,
+  );
 });
 
 test('packageable web, native and generated outputs reject private-half leakage', async (t) => {

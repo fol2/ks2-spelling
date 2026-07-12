@@ -1,5 +1,5 @@
-import { createPrivateKey } from 'node:crypto';
-import { lstat, readdir, readFile } from 'node:fs/promises';
+import { createHash, createPrivateKey } from 'node:crypto';
+import { lstat, open, readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { extname, join, relative, resolve, sep } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
@@ -45,7 +45,6 @@ const GENERATED_PACKAGEABLE_DIRECTORIES = Object.freeze([
 const PACKAGEABLE_DIRECTORIES = Object.freeze([
   ...FINGERPRINTED_PACKAGEABLE_DIRECTORIES,
   ...GATEWAY_PACKAGEABLE_DIRECTORIES,
-  ...GENERATED_PACKAGEABLE_DIRECTORIES,
   'tests/fixtures',
 ]);
 
@@ -69,6 +68,18 @@ const MAX_FILE_BYTES = 128 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 512 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 50_000;
 const MAX_ARCHIVE_DEPTH = 3;
+const MAX_GENERATED_SNAPSHOT_ATTEMPTS = 32;
+const MAX_GENERATED_SNAPSHOT_MILLISECONDS = 15_000;
+const SCAN_LIMIT_KEYS = Object.freeze([
+  'maxRawBytes',
+  'maxExpandedArchiveBytes',
+  'maxArchiveEntries',
+]);
+const DEFAULT_SCAN_LIMITS = Object.freeze({
+  maxRawBytes: MAX_TOTAL_BYTES,
+  maxExpandedArchiveBytes: MAX_TOTAL_BYTES,
+  maxArchiveEntries: MAX_ARCHIVE_ENTRIES,
+});
 const EXCLUDED_DIRECTORY_NAMES = new Set(['.git', '.gradle', 'node_modules']);
 const EXCLUDED_DIRECTORY_PATHS = new Set([
   'ios/App/CapApp-SPM/.swiftpm',
@@ -149,6 +160,66 @@ function scanError(detail) {
   throw new Error(`Private signing fixture exclusion failed: ${detail}.`);
 }
 
+class GeneratedSnapshotChanged extends Error {}
+
+function metadataIdentity(metadata) {
+  return [
+    metadata.dev,
+    metadata.ino,
+    metadata.mode,
+    metadata.size,
+    metadata.mtimeNs,
+    metadata.ctimeNs,
+  ].join(':');
+}
+
+function handleChangedPath(displayPath, mutable) {
+  if (mutable) {
+    throw new GeneratedSnapshotChanged(displayPath);
+  }
+  scanError(`static packageable input changed during scan at ${displayPath}`);
+}
+
+function normaliseScanLimits(scanLimits) {
+  if (scanLimits === undefined) return DEFAULT_SCAN_LIMITS;
+  if (
+    !scanLimits ||
+    typeof scanLimits !== 'object' ||
+    Array.isArray(scanLimits) ||
+    Object.getPrototypeOf(scanLimits) !== Object.prototype ||
+    Reflect.ownKeys(scanLimits).length !== SCAN_LIMIT_KEYS.length ||
+    Reflect.ownKeys(scanLimits).some(
+      (key) => typeof key !== 'string' || !SCAN_LIMIT_KEYS.includes(key),
+    )
+  ) {
+    throw new TypeError('Private signing fixture scan limits must use the exact test seam.');
+  }
+  for (const key of SCAN_LIMIT_KEYS) {
+    if (
+      !Number.isSafeInteger(scanLimits[key]) ||
+      scanLimits[key] <= 0 ||
+      scanLimits[key] > DEFAULT_SCAN_LIMITS[key]
+    ) {
+      throw new TypeError('Private signing fixture scan limits must be positive safe integers.');
+    }
+  }
+  return Object.freeze({ ...scanLimits });
+}
+
+function chargeRawBytes(budget, limits, byteCount) {
+  budget.rawBytes += byteCount;
+  if (budget.rawBytes > limits.maxRawBytes) {
+    scanError('raw byte work budget exceeded the bounded total');
+  }
+}
+
+function chargeArchiveEntries(budget, limits, entryCount, displayPath) {
+  budget.archiveEntries += entryCount;
+  if (budget.archiveEntries > limits.maxArchiveEntries) {
+    scanError(`archive entry work budget exceeded the bounded total in ${displayPath}`);
+  }
+}
+
 function asciiLowercase(bytes) {
   const lowered = Buffer.from(bytes);
   for (let index = 0; index < lowered.length; index += 1) {
@@ -205,7 +276,7 @@ function findEndOfCentralDirectory(bytes) {
   return -1;
 }
 
-function scanArchive(bytes, displayPath, budget, depth) {
+function scanArchive(bytes, displayPath, budget, limits, depth) {
   if (depth > MAX_ARCHIVE_DEPTH) {
     scanError(`archive nesting exceeded the bounded depth in ${displayPath}`);
   }
@@ -230,6 +301,7 @@ function scanArchive(bytes, displayPath, budget, depth) {
   ) {
     scanError(`archive bounds are unsupported or malformed in ${displayPath}`);
   }
+  chargeArchiveEntries(budget, limits, totalEntries, displayPath);
 
   let cursor = centralOffset;
   for (let index = 0; index < totalEntries; index += 1) {
@@ -279,13 +351,13 @@ function scanArchive(bytes, displayPath, budget, depth) {
       scanError(`archive entry size is inconsistent in ${displayPath}`);
     }
     budget.expandedBytes += content.length;
-    if (budget.expandedBytes > MAX_TOTAL_BYTES) {
-      scanError(`archive expansion exceeded the bounded total in ${displayPath}`);
+    if (budget.expandedBytes > limits.maxExpandedArchiveBytes) {
+      scanError(`archive expansion work budget exceeded the bounded total in ${displayPath}`);
     }
     const entryDisplayPath = `${displayPath}!${entryName}`;
     assertNoMarker(content, entryDisplayPath);
     if (ARCHIVE_EXTENSIONS.has(extname(entryName).toLowerCase())) {
-      scanArchive(content, entryDisplayPath, budget, depth + 1);
+      scanArchive(content, entryDisplayPath, budget, limits, depth + 1);
     }
     cursor = nameEnd + extraLength + entryCommentLength;
   }
@@ -294,13 +366,20 @@ function scanArchive(bytes, displayPath, budget, depth) {
   }
 }
 
-async function collectFiles(root, candidatePath, files) {
+async function collectFiles(
+  root,
+  candidatePath,
+  files,
+  directories,
+  { allowMissingRoot, mutable },
+) {
   let metadata;
   try {
-    metadata = await lstat(candidatePath);
+    metadata = await lstat(candidatePath, { bigint: true });
   } catch (error) {
     if (error?.code === 'ENOENT') {
-      return;
+      if (allowMissingRoot) return false;
+      handleChangedPath(assertSafeRelativePath(root, candidatePath), mutable);
     }
     throw error;
   }
@@ -325,56 +404,232 @@ async function collectFiles(root, candidatePath, files) {
     scanError(`symbolic link is forbidden in packageable input ${displayPath}`);
   }
   if (metadata.isFile()) {
-    files.push({ absolutePath: candidatePath, displayPath, size: metadata.size });
-    return;
+    files.push({
+      absolutePath: candidatePath,
+      displayPath,
+      identity: metadataIdentity(metadata),
+      size: Number(metadata.size),
+    });
+    return true;
   }
   if (!metadata.isDirectory()) {
     scanError(`non-file packageable input is forbidden at ${displayPath}`);
   }
-  const entries = await readdir(candidatePath, { withFileTypes: true });
+  directories.push({
+    absolutePath: candidatePath,
+    displayPath,
+    identity: metadataIdentity(metadata),
+  });
+  let entries;
+  try {
+    entries = await readdir(candidatePath, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === 'ENOENT') handleChangedPath(displayPath, mutable);
+    throw error;
+  }
   entries.sort((left, right) => left.name.localeCompare(right.name, 'en'));
   for (const entry of entries) {
-    await collectFiles(root, join(candidatePath, entry.name), files);
+    await collectFiles(root, join(candidatePath, entry.name), files, directories, {
+      allowMissingRoot: false,
+      mutable,
+    });
+  }
+  return true;
+}
+
+async function readStableFile(file, mutable, budget, limits) {
+  let handle;
+  try {
+    handle = await open(file.absolutePath, 'r');
+  } catch (error) {
+    if (error?.code === 'ENOENT') handleChangedPath(file.displayPath, mutable);
+    throw error;
+  }
+  try {
+    const before = await handle.stat({ bigint: true });
+    if (!before.isFile() || metadataIdentity(before) !== file.identity) {
+      handleChangedPath(file.displayPath, mutable);
+    }
+    const bytes = await handle.readFile();
+    chargeRawBytes(budget, limits, bytes.length);
+    const after = await handle.stat({ bigint: true });
+    let pathAfter;
+    try {
+      pathAfter = await lstat(file.absolutePath, { bigint: true });
+    } catch (error) {
+      if (error?.code === 'ENOENT') handleChangedPath(file.displayPath, mutable);
+      throw error;
+    }
+    if (
+      metadataIdentity(before) !== metadataIdentity(after) ||
+      metadataIdentity(after) !== metadataIdentity(pathAfter) ||
+      bytes.length !== Number(after.size)
+    ) {
+      handleChangedPath(file.displayPath, mutable);
+    }
+    return bytes;
+  } finally {
+    await handle.close();
   }
 }
 
-export async function assertPrivateSigningFixtureExcluded({ root }) {
-  const absoluteRoot = normaliseRoot(root);
-  const files = [];
-  for (const directory of PACKAGEABLE_DIRECTORIES) {
-    await collectFiles(absoluteRoot, join(absoluteRoot, directory), files);
+async function assertDirectorySnapshotStable(directories, mutable) {
+  for (const directory of directories) {
+    let current;
+    try {
+      current = await lstat(directory.absolutePath, { bigint: true });
+    } catch (error) {
+      if (error?.code === 'ENOENT') handleChangedPath(directory.displayPath, mutable);
+      throw error;
+    }
+    if (!current.isDirectory() || metadataIdentity(current) !== directory.identity) {
+      handleChangedPath(directory.displayPath, mutable);
+    }
   }
-  for (const file of PACKAGEABLE_FILES) {
-    await collectFiles(absoluteRoot, join(absoluteRoot, file), files);
-  }
-  const uniqueFiles = [...new Map(
-    files.map((file) => [file.absolutePath, file]),
-  ).values()].sort((left, right) => left.displayPath.localeCompare(right.displayPath, 'en'));
-  if (uniqueFiles.length > MAX_FILES) {
-    scanError('packageable file count exceeded the bounded maximum');
-  }
+}
+
+async function scanCollectedFiles(files, mutable, budget, limits) {
+  const uniqueFiles = [...new Map(files.map((file) => [file.absolutePath, file])).values()]
+    .sort((left, right) => left.displayPath.localeCompare(right.displayPath, 'en'));
+  if (uniqueFiles.length > MAX_FILES) scanError('packageable file count exceeded the bounded maximum');
 
   let bytesScanned = 0;
-  const budget = { expandedBytes: 0 };
+  const fingerprint = [];
   for (const file of uniqueFiles) {
     if (file.size > MAX_FILE_BYTES) {
       scanError(`packageable input exceeded the per-file byte bound at ${file.displayPath}`);
     }
     bytesScanned += file.size;
-    if (bytesScanned > MAX_TOTAL_BYTES) {
-      scanError('packageable inputs exceeded the bounded total bytes');
-    }
-    const bytes = await readFile(file.absolutePath);
+    const bytes = await readStableFile(file, mutable, budget, limits);
     assertNoMarker(bytes, file.displayPath);
     if (ARCHIVE_EXTENSIONS.has(extname(file.displayPath).toLowerCase())) {
-      scanArchive(bytes, file.displayPath, budget, 1);
+      scanArchive(bytes, file.displayPath, budget, limits, 1);
     }
+    fingerprint.push([
+      file.displayPath,
+      file.identity,
+      createHash('sha256').update(bytes).digest('hex'),
+    ].join('\u0000'));
+  }
+
+  return Object.freeze({
+    filesScanned: uniqueFiles.length,
+    bytesScanned,
+    fingerprint,
+  });
+}
+
+async function scanGeneratedDirectory({
+  root,
+  directory,
+  generatedSnapshotObserver,
+  budget,
+  limits,
+}) {
+  const startedAt = Date.now();
+  let previousFingerprint;
+  for (let attempt = 0; attempt < MAX_GENERATED_SNAPSHOT_ATTEMPTS; attempt += 1) {
+    if (Date.now() - startedAt > MAX_GENERATED_SNAPSHOT_MILLISECONDS) break;
+    try {
+      const files = [];
+      const directories = [];
+      const present = await collectFiles(
+        root,
+        join(root, directory),
+        files,
+        directories,
+        { allowMissingRoot: true, mutable: true },
+      );
+      const result = await scanCollectedFiles(files, true, budget, limits);
+      await generatedSnapshotObserver?.({ directory, attempt });
+      await assertDirectorySnapshotStable(directories, true);
+      const verificationResult = await scanCollectedFiles(files, true, budget, limits);
+      await assertDirectorySnapshotStable(directories, true);
+      if (JSON.stringify(result.fingerprint) !== JSON.stringify(verificationResult.fingerprint)) {
+        throw new GeneratedSnapshotChanged(directory);
+      }
+      const fingerprint = JSON.stringify({
+        present,
+        directories: directories.map((entry) => [entry.displayPath, entry.identity]),
+        files: verificationResult.fingerprint,
+      });
+      if (Date.now() - startedAt > MAX_GENERATED_SNAPSHOT_MILLISECONDS) break;
+      if (fingerprint === previousFingerprint) return verificationResult;
+      previousFingerprint = fingerprint;
+    } catch (error) {
+      if (!(error instanceof GeneratedSnapshotChanged)) throw error;
+      previousFingerprint = undefined;
+    }
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 0));
+  }
+  scanError(`generated packageable output did not reach a stable snapshot at ${directory}`);
+}
+
+export async function assertPrivateSigningFixtureExcluded({
+  root,
+  generatedSnapshotObserver,
+  scanLimits,
+}) {
+  if (
+    generatedSnapshotObserver !== undefined &&
+    typeof generatedSnapshotObserver !== 'function'
+  ) {
+    throw new TypeError('Generated snapshot observer must be a function.');
+  }
+  const limits = normaliseScanLimits(scanLimits);
+  const budget = { rawBytes: 0, expandedBytes: 0, archiveEntries: 0 };
+  const absoluteRoot = normaliseRoot(root);
+  const staticFiles = [];
+  const staticDirectories = [];
+  for (const directory of PACKAGEABLE_DIRECTORIES) {
+    await collectFiles(
+      absoluteRoot,
+      join(absoluteRoot, directory),
+      staticFiles,
+      staticDirectories,
+      { allowMissingRoot: true, mutable: false },
+    );
+  }
+  for (const file of PACKAGEABLE_FILES) {
+    await collectFiles(
+      absoluteRoot,
+      join(absoluteRoot, file),
+      staticFiles,
+      staticDirectories,
+      { allowMissingRoot: true, mutable: false },
+    );
+  }
+  const staticResult = await scanCollectedFiles(staticFiles, false, budget, limits);
+  await assertDirectorySnapshotStable(staticDirectories, false);
+  const generatedResults = [];
+  for (const directory of GENERATED_PACKAGEABLE_DIRECTORIES) {
+    generatedResults.push(await scanGeneratedDirectory({
+      root: absoluteRoot,
+      directory,
+      generatedSnapshotObserver,
+      budget,
+      limits,
+    }));
+  }
+
+  const filesScanned = staticResult.filesScanned + generatedResults.reduce(
+    (sum, result) => sum + result.filesScanned,
+    0,
+  );
+  const bytesScanned = staticResult.bytesScanned + generatedResults.reduce(
+    (sum, result) => sum + result.bytesScanned,
+    0,
+  );
+  const expandedArchiveBytesScanned = budget.expandedBytes;
+  if (filesScanned > MAX_FILES) scanError('packageable file count exceeded the bounded maximum');
+  if (bytesScanned > MAX_TOTAL_BYTES) {
+    scanError('packageable inputs exceeded the bounded total bytes');
   }
 
   return Object.freeze({
     authorisedFixtureDirectory: AUTHORISED_FIXTURE_DIRECTORY,
-    filesScanned: uniqueFiles.length,
+    filesScanned,
     bytesScanned,
-    expandedArchiveBytesScanned: budget.expandedBytes,
+    expandedArchiveBytesScanned,
   });
 }

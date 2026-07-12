@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +13,7 @@ import {
   assertB2AndroidHierarchyPhase,
   collectB2AndroidDatabaseSet,
   createB2AndroidProductionDependencies,
+  inspectB2AndroidHashBoundDatabaseSet,
   parseB2AndroidPidProbe,
   pollB2AndroidProcess,
   runB2AndroidLifecycleProof,
@@ -678,6 +679,59 @@ test('run-as mkdir registers ownership before abort and uses non-aborted cleanup
     'side-effect-attempted',
     'pre-registered-cleanup-ran',
   ]);
+});
+
+test('hash-bound Android verification mutates only scratch SHM across capture and finalise checks', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'b2-android-isolated-evidence-'));
+  const collected = join(directory, 'collected');
+  const scratchRoot = join(directory, 'scratch');
+  await mkdir(collected, { recursive: true });
+  for (const name of B2_ANDROID_DATABASE_FILES) {
+    await writeFile(join(collected, name), Buffer.from(`original:${name}`));
+  }
+  const original = Object.fromEntries(
+    await Promise.all(B2_ANDROID_DATABASE_FILES.map(async (name) => [
+      name,
+      await readFile(join(collected, name)),
+    ])),
+  );
+  const fileSha256 = Object.fromEntries(
+    Object.entries(original).map(([name, bytes]) => [
+      name,
+      createHash('sha256').update(bytes).digest('hex'),
+    ]),
+  );
+  let mutationCount = 0;
+  const inspectDatabase = async (scratchDatabasePath) => {
+    await writeFile(
+      `${scratchDatabasePath}-shm`,
+      Buffer.from(`android-reader-mutated-shm-${mutationCount}`),
+    );
+    mutationCount += 1;
+    return { mutationCount };
+  };
+  try {
+    for (const expected of [1, 2]) {
+      assert.deepEqual(
+        await inspectB2AndroidHashBoundDatabaseSet(
+          {
+            databasePath: join(collected, B2_ANDROID_DATABASE_FILES[0]),
+            observedFiles: [...B2_ANDROID_DATABASE_FILES],
+            fileSha256,
+          },
+          { scratchRoot, inspectDatabase },
+        ),
+        { mutationCount: expected },
+      );
+      for (const name of B2_ANDROID_DATABASE_FILES) {
+        assert.deepEqual(await readFile(join(collected, name)), original[name]);
+      }
+      assert.deepEqual(await readdir(scratchRoot), []);
+    }
+    assert.equal(mutationCount, 2);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
 });
 
 test('checkpoint cleanup is platform-scoped and application drift fails closed', () => {

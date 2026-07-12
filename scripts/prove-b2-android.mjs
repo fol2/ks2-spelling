@@ -2,7 +2,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import {
+  copyFile,
   mkdir,
+  mkdtemp,
   readFile,
   readdir,
   rename,
@@ -14,6 +16,7 @@ import { join, resolve } from 'node:path';
 
 import { canonicalJson } from '../src/platform/database/canonical-json.js';
 import { fingerprintB2Application } from './fingerprint-b2-application.mjs';
+import { inspectHashBoundDatabaseSet } from './lib/b2-isolated-database-evidence.mjs';
 import {
   B2_ANDROID_DEVICE,
   B2_APPLICATION_ID,
@@ -91,8 +94,10 @@ export const B2_ANDROID_DATABASE_FILES = Object.freeze([
 ]);
 
 const DEFAULT_FS = Object.freeze({
+  copyFile,
   existsSync,
   mkdir,
+  mkdtemp,
   readFile,
   readdir,
   rename,
@@ -888,10 +893,7 @@ function tableRows(database, table, orderBy) {
   return database.prepare(`SELECT * FROM ${table} ORDER BY ${orderBy}`).all();
 }
 
-export async function inspectB2AndroidCollectedDatabase(
-  { databasePath },
-  { signal } = {},
-) {
+async function inspectB2AndroidDatabaseFile(databasePath, { signal } = {}) {
   throwIfAborted(signal);
   const database = new DatabaseSync(databasePath, { readOnly: true });
   try {
@@ -1004,6 +1006,24 @@ export async function inspectB2AndroidCollectedDatabase(
   }
 }
 
+export function inspectB2AndroidHashBoundDatabaseSet(
+  options,
+  {
+    fs = DEFAULT_FS,
+    scratchRoot = join(ROOT, '.native-build/b2'),
+    inspectDatabase = inspectB2AndroidDatabaseFile,
+    signal,
+  } = {},
+) {
+  return inspectHashBoundDatabaseSet(options, {
+    scratchRoot,
+    scratchPrefix: 'android-database-verify',
+    inspectDatabase,
+    fs,
+    signal,
+  });
+}
+
 function requireDependency(dependencies, name) {
   if (typeof dependencies?.[name] !== 'function') {
     throw new TypeError(`B2 Android proof dependency ${name} must be a function.`);
@@ -1099,7 +1119,12 @@ export async function runB2AndroidLifecycleProof(dependencies) {
       );
       const database = await step(() =>
         dependencies.inspectCollectedDatabase(
-          { databasePath: collected.databasePath, readOnly: true },
+          {
+            databasePath: collected.databasePath,
+            observedFiles: collected.observedFiles,
+            fileSha256: collected.fileSha256,
+            readOnly: true,
+          },
           { signal },
         ),
       );
@@ -1625,11 +1650,17 @@ export function createB2AndroidProductionDependencies({
         signal,
       });
     },
-    async inspectCollectedDatabase({ databasePath, readOnly }, { signal } = {}) {
+    async inspectCollectedDatabase(
+      { databasePath, observedFiles, fileSha256, readOnly },
+      { signal } = {},
+    ) {
       if (readOnly !== true) {
         throw new TypeError('B2 Android database inspection must be read-only.');
       }
-      return inspectB2AndroidCollectedDatabase({ databasePath }, { signal });
+      return inspectB2AndroidHashBoundDatabaseSet(
+        { databasePath, observedFiles, fileSha256 },
+        { fs, signal },
+      );
     },
     async inspectPackagedPrivacy({ signal } = {}) {
       const [permissionsOutput, manifestOutput, configOutput, api, osVersion] =
@@ -2139,19 +2170,10 @@ async function finalisePendingProof(attestationPath) {
     expectedFingerprint: fingerprint.sha256,
     screenshotBytes,
   });
-  const collectedDirectory = resolve(pending.proof.collected.databasePath, '..');
-  for (const filename of pending.proof.collected.observedFiles) {
-    const expected = pending.proof.collected.fileSha256[filename];
-    const actual = sha256(await DEFAULT_FS.readFile(join(collectedDirectory, filename)));
-    if (!SHA256.test(expected ?? '') || actual !== expected) {
-      throw proofError(
-        'b2_android_pending_proof_stale',
-        `B2 Android pending database evidence changed: ${filename}`,
-      );
-    }
-  }
-  const recomputedDatabase = await inspectB2AndroidCollectedDatabase({
+  const recomputedDatabase = await inspectB2AndroidHashBoundDatabaseSet({
     databasePath: pending.proof.collected.databasePath,
+    observedFiles: pending.proof.collected.observedFiles,
+    fileSha256: pending.proof.collected.fileSha256,
   });
   if (canonicalJson(recomputedDatabase) !== canonicalJson(pending.proof.database)) {
     throw proofError(

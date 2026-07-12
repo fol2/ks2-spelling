@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import {
   copyFile,
   mkdir,
+  mkdtemp,
   readdir,
   readFile,
   rename,
@@ -16,6 +17,7 @@ import { join, resolve } from 'node:path';
 
 import { canonicalJson } from '../src/platform/database/canonical-json.js';
 import { fingerprintB2Application } from './fingerprint-b2-application.mjs';
+import { inspectHashBoundDatabaseSet } from './lib/b2-isolated-database-evidence.mjs';
 import {
   B2_APPLICATION_ID,
   B2_ATOMIC_FAILURE_CHECKPOINTS,
@@ -100,6 +102,7 @@ const DEFAULT_FS = Object.freeze({
   copyFile,
   existsSync,
   mkdir,
+  mkdtemp,
   readdir,
   readFile,
   rename,
@@ -760,7 +763,12 @@ export async function runB2IosLifecycleProof(dependencies) {
         );
         const database = await step(() =>
           dependencies.inspectCollectedDatabase(
-            { databasePath: collected.databasePath, readOnly: true },
+            {
+              databasePath: collected.databasePath,
+              observedFiles: collected.observedFiles,
+              fileSha256: collected.fileSha256,
+              readOnly: true,
+            },
             { signal },
           ),
         );
@@ -1143,13 +1151,27 @@ export async function collectB2IosDatabaseSet({
     await fs.rm(temporaryDirectory, { force: true, recursive: true });
     throw error;
   }
+  const destinationHashes = Object.fromEntries(
+    await Promise.all(
+      observed.map(async (name) => [
+        name,
+        sha256(await fs.readFile(join(destinationDirectory, name))),
+      ]),
+    ),
+  );
+  for (const filename of observed) {
+    if (destinationHashes[filename] !== before.get(filename).sha256) {
+      throw proofError(
+        'b2_ios_database_set_changed',
+        `B2 iOS collected database copy drifted: ${filename}`,
+      );
+    }
+  }
   return {
     databasePath: join(destinationDirectory, DATABASE_NAME),
     sidecarsObserved: observed.slice(1),
     observedFiles: observed,
-    fileSha256: Object.fromEntries(
-      observed.map((name) => [name, before.get(name).sha256]),
-    ),
+    fileSha256: destinationHashes,
     everyObservedSidecarCollectedSafely:
       observed.slice(1).every((name) => before.has(name)) &&
       observed.length === before.size,
@@ -1183,7 +1205,7 @@ function tableRows(database, table, orderBy) {
   return database.prepare(`SELECT * FROM ${table} ORDER BY ${orderBy}`).all();
 }
 
-async function inspectCollectedDatabase({ databasePath }, { signal } = {}) {
+async function inspectB2IosDatabaseFile(databasePath, { signal } = {}) {
   throwIfAborted(signal);
   const database = new DatabaseSync(databasePath, { readOnly: true });
   try {
@@ -1244,6 +1266,24 @@ async function inspectCollectedDatabase({ databasePath }, { signal } = {}) {
   }
 }
 
+export function inspectB2IosHashBoundDatabaseSet(
+  options,
+  {
+    fs = DEFAULT_FS,
+    scratchRoot = join(ROOT, '.native-build/b2'),
+    inspectDatabase = inspectB2IosDatabaseFile,
+    signal,
+  } = {},
+) {
+  return inspectHashBoundDatabaseSet(options, {
+    scratchRoot,
+    scratchPrefix: 'ios-database-verify',
+    inspectDatabase,
+    fs,
+    signal,
+  });
+}
+
 async function assertCleanCheckpoint() {
   const [commit, status] = await Promise.all([
     runRequired('git', ['rev-parse', 'HEAD']),
@@ -1260,7 +1300,7 @@ async function assertCleanCheckpoint() {
   return testedApplicationCommit;
 }
 
-async function clearIosProofOutputs() {
+export async function clearB2IosProofOutputs() {
   await Promise.all([
     rm(REPORT_PATH, { force: true }),
     rm(SCREENSHOT_PATH, { force: true }),
@@ -1474,7 +1514,18 @@ export function createB2IosProductionDependencies({
     collectTerminatedDatabaseSet(options, context) {
       return copyStableDatabaseSet(options, fs, context);
     },
-    inspectCollectedDatabase,
+    async inspectCollectedDatabase(
+      { databasePath, observedFiles, fileSha256, readOnly },
+      { signal } = {},
+    ) {
+      if (readOnly !== true) {
+        throw new TypeError('B2 iOS database inspection must be read-only.');
+      }
+      return inspectB2IosHashBoundDatabaseSet(
+        { databasePath, observedFiles, fileSha256 },
+        { fs, signal },
+      );
+    },
   };
 }
 
@@ -1623,7 +1674,7 @@ export async function writeValidatedReport({
 }
 
 async function capturePendingProof() {
-  await clearIosProofOutputs();
+  await clearB2IosProofOutputs();
   try {
     const testedApplicationCommit = await assertCleanCheckpoint();
     const fingerprint = await fingerprintB2Application({ root: ROOT });
@@ -1653,7 +1704,7 @@ async function capturePendingProof() {
     );
     return EXIT_CODES.stateMismatch;
   } catch (error) {
-    await clearIosProofOutputs();
+    await clearB2IosProofOutputs();
     throw error;
   }
 }
@@ -1674,24 +1725,10 @@ async function finalisePendingProof(attestationPath) {
     expectedFingerprint: fingerprint.sha256,
     screenshotBytes,
   });
-  const collectedDirectory = resolve(
-    pending.proof.collected.databasePath,
-    '..',
-  );
-  for (const filename of pending.proof.collected.observedFiles ?? []) {
-    const expected = pending.proof.collected.fileSha256?.[filename];
-    const actual = sha256(
-      await DEFAULT_FS.readFile(join(collectedDirectory, filename)),
-    );
-    if (!SHA256.test(expected ?? '') || actual !== expected) {
-      throw proofError(
-        'b2_ios_pending_proof_stale',
-        `B2 iOS pending database evidence changed: ${filename}`,
-      );
-    }
-  }
-  const recomputedDatabase = await inspectCollectedDatabase({
+  const recomputedDatabase = await inspectB2IosHashBoundDatabaseSet({
     databasePath: pending.proof.collected.databasePath,
+    observedFiles: pending.proof.collected.observedFiles,
+    fileSha256: pending.proof.collected.fileSha256,
   });
   if (canonicalJson(recomputedDatabase) !== canonicalJson(pending.proof.database)) {
     throw proofError(

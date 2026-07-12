@@ -24,6 +24,7 @@ import {
   assertB2IosProofMetadata,
   collectB2IosDatabaseSet,
   createB2IosProductionDependencies,
+  inspectB2IosHashBoundDatabaseSet,
   openB2IosLiveMetadataReader,
   parseB2IosLaunchPid,
   parseB2IosProcessProbe,
@@ -210,8 +211,15 @@ function createDependencies({ failAt = null } = {}) {
           ),
         });
       },
-      async inspectCollectedDatabase({ databasePath, readOnly }) {
+      async inspectCollectedDatabase({
+        databasePath,
+        observedFiles,
+        fileSha256,
+        readOnly,
+      }) {
         assert.equal(databasePath, '/evidence/ks2-spellingSQLite.db');
+        assert.deepEqual(observedFiles, [...B2_IOS_DATABASE_FILES]);
+        assert.deepEqual(Object.keys(fileSha256), [...B2_IOS_DATABASE_FILES]);
         assert.equal(readOnly, true);
         return step('inspect-collected-db-read-only', {
           foreignKeys: 1,
@@ -601,6 +609,54 @@ test('database collection rejects unknown, changed and disappeared sidecars', as
       }),
       ({ code }) => code === 'b2_ios_database_set_disappeared',
     );
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test('hash-bound iOS verification mutates only scratch SHM across capture and finalise checks', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'b2-ios-isolated-evidence-'));
+  const collected = join(directory, 'collected');
+  const scratchRoot = join(directory, 'scratch');
+  await createDatabaseFiles(collected, [...B2_IOS_DATABASE_FILES]);
+  const original = Object.fromEntries(
+    await Promise.all(B2_IOS_DATABASE_FILES.map(async (name) => [
+      name,
+      await readFile(join(collected, name)),
+    ])),
+  );
+  const fileSha256 = Object.fromEntries(
+    Object.entries(original).map(([name, bytes]) => [
+      name,
+      createHash('sha256').update(bytes).digest('hex'),
+    ]),
+  );
+  let mutationCount = 0;
+  const inspectDatabase = async (scratchDatabasePath) => {
+    const scratchShm = `${scratchDatabasePath}-shm`;
+    await writeFile(scratchShm, Buffer.from(`reader-mutated-shm-${mutationCount}`));
+    mutationCount += 1;
+    return { mutationCount };
+  };
+  try {
+    for (const stage of ['capture', 'finalise']) {
+      assert.deepEqual(
+        await inspectB2IosHashBoundDatabaseSet(
+          {
+            databasePath: join(collected, B2_IOS_DATABASE_FILES[0]),
+            observedFiles: [...B2_IOS_DATABASE_FILES],
+            fileSha256,
+          },
+          { scratchRoot, inspectDatabase },
+        ),
+        { mutationCount: stage === 'capture' ? 1 : 2 },
+      );
+      for (const name of B2_IOS_DATABASE_FILES) {
+        assert.deepEqual(await readFile(join(collected, name)), original[name]);
+      }
+      assert.deepEqual(await readdir(scratchRoot), []);
+    }
+    assert.equal(mutationCount, 2, 'the fake reader must really mutate both scratch sets');
   } finally {
     await rm(directory, { force: true, recursive: true });
   }

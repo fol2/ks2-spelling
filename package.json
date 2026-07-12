@@ -24,6 +24,7 @@
     "certify:android": "node scripts/certify-android-dependencies.mjs",
     "launch:ios": "node scripts/launch-ios-simulator.mjs",
     "launch:android": "node scripts/launch-android-emulator.mjs",
+    "prove:b2:ios": "node scripts/prove-b2-ios.mjs",
     "audit:dependencies": "node scripts/audit-dependencies.mjs",
     "generate:notices": "node scripts/generate-third-party-notices.mjs"
   },

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 
 import { createNodeSqliteConnection } from './helpers/node-sqlite-connection.mjs';
@@ -85,9 +86,12 @@ test('schema V1 exports the exact database identity and ordered statements', asy
   assert.equal(Object.isFrozen(SCHEMA_V1_STATEMENTS), true);
 });
 
-test('fresh migration creates only the eight exact V1 tables and PRAGMAs', async () => {
+test('fresh migration creates the exact V1 and V2 tables and PRAGMAs', async () => {
   const { configureAndMigrateDatabase } = await import(
     '../src/platform/database/migrate-database.js'
+  );
+  const { SCHEMA_V2_STATEMENTS } = await import(
+    '../src/platform/database/schema-v2.js'
   );
 
   await withDatabase(async (filename) => {
@@ -108,26 +112,32 @@ test('fresh migration creates only the eight exact V1 tables and PRAGMAs', async
       { timeout: 5000 },
     ]);
     assert.deepEqual(await connection.query('PRAGMA user_version'), [
-      { user_version: 1 },
+      { user_version: 2 },
     ]);
 
     const schema = await readSchema(connection);
     assert.deepEqual(
       schema.map(({ name }) => name),
       [
+        'active_pack_versions',
+        'app_entitlements',
         'app_metadata',
+        'installed_pack_versions',
         'learner_profiles',
+        'pack_download_chunks',
+        'pack_download_jobs',
         'spelling_aggregates',
         'spelling_camp_states',
         'spelling_events',
         'spelling_monster_states',
         'spelling_practice_sessions',
         'spelling_subject_states',
+        'transaction_journal',
       ],
     );
     assert.deepEqual(
       schema.map(({ sql }) => `${sql};`),
-      EXPECTED_SCHEMA.toSorted(),
+      [...EXPECTED_SCHEMA, ...SCHEMA_V2_STATEMENTS].toSorted(),
     );
 
     const explicitIndexes = await connection.query(
@@ -141,6 +151,9 @@ test('fresh migration creates only the eight exact V1 tables and PRAGMAs', async
 test('configuration queries Android row-returning PRAGMA assignments before exact readback', async () => {
   const { configureAndMigrateDatabase } = await import(
     '../src/platform/database/migrate-database.js'
+  );
+  const { SCHEMA_V2_STATEMENTS } = await import(
+    '../src/platform/database/schema-v2.js'
   );
 
   await withDatabase(async (filename) => {
@@ -186,7 +199,8 @@ test('configuration queries Android row-returning PRAGMA assignments before exac
     await connection.open();
     await configureAndMigrateDatabase(connection);
 
-    assert.deepEqual(calls.slice(0, 8), [
+    assert.deepEqual(calls.slice(0, 9), [
+      ['query', 'PRAGMA user_version'],
       ['execute', 'PRAGMA foreign_keys = ON'],
       ['query', 'PRAGMA journal_mode = WAL'],
       ['execute', 'PRAGMA synchronous = FULL'],
@@ -203,7 +217,7 @@ test('configuration queries Android row-returning PRAGMA assignments before exac
       { foreign_keys: 1 },
     ]);
     assert.deepEqual(await readSchema(connection),
-      EXPECTED_SCHEMA.map((sql) => ({
+      [...EXPECTED_SCHEMA, ...SCHEMA_V2_STATEMENTS].map((sql) => ({
         name: /^CREATE TABLE ([a-z_]+) /.exec(sql)?.[1],
         sql: sql.slice(0, -1),
       })).toSorted((left, right) => left.name.localeCompare(right.name)),
@@ -269,8 +283,8 @@ test('configuration fails closed when a native port ignores or misreports a PRAG
         probe.calls.some(
           ([operation, value]) => operation === 'query' && value === 'PRAGMA user_version',
         ),
-        false,
-        `${sql} ${variant} must fail before schema inspection`,
+        true,
+        `${sql} ${variant} must validate the supported schema version first`,
       );
     }
     assert.equal(accessorReads, 0, `${sql} accessor must not be invoked`);
@@ -291,6 +305,7 @@ test('configuration rejects malformed row-returning Android PRAGMA assignment ev
         { journal_mode: 'wal' },
       ],
       expectedPrefix: [
+        ['query', 'PRAGMA user_version'],
         ['execute', 'PRAGMA foreign_keys = ON'],
         ['query', 'PRAGMA journal_mode = WAL'],
       ],
@@ -304,6 +319,7 @@ test('configuration rejects malformed row-returning Android PRAGMA assignment ev
         { timeout: 5000 },
       ],
       expectedPrefix: [
+        ['query', 'PRAGMA user_version'],
         ['execute', 'PRAGMA foreign_keys = ON'],
         ['query', 'PRAGMA journal_mode = WAL'],
         ['execute', 'PRAGMA synchronous = FULL'],
@@ -319,6 +335,27 @@ test('configuration rejects malformed row-returning Android PRAGMA assignment ev
       );
       assert.deepEqual(probe.calls.slice(0, expectedPrefix.length), expectedPrefix);
     }
+  }
+});
+
+test('malformed user_version fails before any persistent configuration', async () => {
+  const { configureAndMigrateDatabase } = await import(
+    '../src/platform/database/migrate-database.js'
+  );
+  for (const malformed of [
+    [],
+    [{ user_version: -1 }],
+    [{ user_version: 1.5 }],
+    [{ user_version: 2, extra: true }],
+    { user_version: 2 },
+  ]) {
+    const probe = createConfigurationProbeConnection({
+      'PRAGMA user_version': malformed,
+    });
+    await assert.rejects(configureAndMigrateDatabase(probe.connection), {
+      code: 'sqlite_schema_version_invalid',
+    });
+    assert.deepEqual(probe.calls, [['query', 'PRAGMA user_version']]);
   }
 });
 
@@ -427,7 +464,7 @@ test('V1 enforces checks, foreign keys, uniqueness and cascades', async () => {
   });
 });
 
-test('V1 verification rejects schema drift without rewriting it', async () => {
+test('current schema verification rejects V1 table drift without rewriting it', async () => {
   const { configureAndMigrateDatabase } = await import(
     '../src/platform/database/migrate-database.js'
   );
@@ -440,7 +477,7 @@ test('V1 verification rejects schema drift without rewriting it', async () => {
 
     await assert.rejects(
       configureAndMigrateDatabase(connection),
-      /sqlite_schema_v1_invalid/,
+      /sqlite_schema_v2_invalid/,
     );
     assert.deepEqual(
       await connection.query(
@@ -452,7 +489,7 @@ test('V1 verification rejects schema drift without rewriting it', async () => {
   });
 });
 
-test('V1 verification rejects an explicit index without rewriting it', async () => {
+test('current schema verification rejects an explicit index without rewriting it', async () => {
   const { configureAndMigrateDatabase } = await import(
     '../src/platform/database/migrate-database.js'
   );
@@ -467,7 +504,7 @@ test('V1 verification rejects an explicit index without rewriting it', async () 
 
     await assert.rejects(
       configureAndMigrateDatabase(connection),
-      /sqlite_schema_v1_invalid/,
+      /sqlite_schema_v2_invalid/,
     );
     assert.deepEqual(
       await connection.query(
@@ -486,7 +523,7 @@ test('V1 verification rejects an explicit index without rewriting it', async () 
   });
 });
 
-test('V1 authority rejects unexpected views and triggers without rewriting them', async () => {
+test('current schema authority rejects unexpected views and triggers without rewriting them', async () => {
   const { configureAndMigrateDatabase } = await import(
     '../src/platform/database/migrate-database.js'
   );
@@ -512,7 +549,7 @@ test('V1 authority rejects unexpected views and triggers without rewriting them'
 
       await assert.rejects(
         configureAndMigrateDatabase(connection),
-        /sqlite_schema_v1_invalid/,
+        /sqlite_schema_v2_invalid/,
       );
       assert.deepEqual(
         await connection.query(
@@ -534,7 +571,7 @@ test('unsupported newer user_version closes and fails with the exact code', asyn
   await withDatabase(async (filename) => {
     const connection = createNodeSqliteConnection(filename);
     await connection.open();
-    await connection.execute('PRAGMA user_version = 2');
+    await connection.execute('PRAGMA user_version = 3');
 
     await assert.rejects(configureAndMigrateDatabase(connection), (error) => {
       assert.equal(error.code, 'sqlite_schema_version_unsupported');
@@ -545,12 +582,66 @@ test('unsupported newer user_version closes and fails with the exact code', asyn
   });
 });
 
+test('unsupported closed V3 is rejected without mutating its exact SQLite file', async () => {
+  const { configureAndMigrateDatabase } = await import(
+    '../src/platform/database/migrate-database.js'
+  );
+
+  await withDatabase(async (filename) => {
+    const fixture = createNodeSqliteConnection(filename);
+    await fixture.open();
+    await fixture.execute(
+      'CREATE TABLE future_data (id INTEGER PRIMARY KEY, value TEXT NOT NULL)',
+    );
+    await fixture.execute(
+      'INSERT INTO future_data (id, value) VALUES (?, ?)',
+      [1, 'preserve-me'],
+    );
+    await fixture.execute('PRAGMA user_version = 3');
+    await fixture.close();
+
+    const directory = dirname(filename);
+    const beforeBytes = await readFile(filename);
+    const beforeSha256 = createHash('sha256').update(beforeBytes).digest('hex');
+    const beforeMode = (await stat(filename)).mode;
+    const beforeFiles = (await readdir(directory)).toSorted();
+
+    const rejected = createNodeSqliteConnection(filename);
+    await rejected.open();
+    await assert.rejects(configureAndMigrateDatabase(rejected), {
+      code: 'sqlite_schema_version_unsupported',
+    });
+
+    const afterBytes = await readFile(filename);
+    assert.deepEqual(afterBytes, beforeBytes);
+    assert.equal(
+      createHash('sha256').update(afterBytes).digest('hex'),
+      beforeSha256,
+    );
+    assert.equal((await stat(filename)).mode, beforeMode);
+    assert.deepEqual((await readdir(directory)).toSorted(), beforeFiles);
+
+    const inspection = createNodeSqliteConnection(filename);
+    await inspection.open();
+    assert.deepEqual(await inspection.query('PRAGMA user_version'), [
+      { user_version: 3 },
+    ]);
+    assert.deepEqual(
+      await inspection.query('SELECT id, value FROM future_data ORDER BY id'),
+      [{ id: 1, value: 'preserve-me' }],
+    );
+    await inspection.close();
+  });
+});
+
 test('unsupported version preserves a close failure as the exact outer cause', async () => {
   const { configureAndMigrateDatabase } = await import(
     '../src/platform/database/migrate-database.js'
   );
   const closeError = new Error('native_close_failed');
-  const probe = createConfigurationProbeConnection();
+  const probe = createConfigurationProbeConnection({
+    'PRAGMA user_version': [{ user_version: 3 }],
+  });
   const connection = Object.freeze({
     ...probe.connection,
     async close() {

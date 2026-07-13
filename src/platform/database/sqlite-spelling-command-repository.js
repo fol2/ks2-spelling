@@ -9,6 +9,10 @@ import {
 
 import { canonicalJson } from './canonical-json.js';
 import { assertSqlConnection } from './sql-connection-contract.js';
+import {
+  assertTransactionInactive,
+  runExclusive,
+} from './sqlite-transaction-runner.js';
 
 const LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const STORE_METHODS = Object.freeze([
@@ -465,7 +469,12 @@ export function createSQLiteSpellingCommandRepository(options) {
         new TypeError('runCommandTransaction planner must be a function.'),
       );
     }
-    return gate.run(() => attemptTransaction(learnerId, planner));
+    return gate.run(() =>
+      runExclusive(connection, async () => {
+        await assertTransactionInactive(connection);
+        return attemptTransaction(learnerId, planner);
+      }),
+    );
   }
 
   return Object.freeze(

@@ -1,0 +1,427 @@
+import {
+  FULL_KS2_PACK,
+  FULL_KS2_PRODUCT_IDS,
+  PURCHASE_CHECKPOINTS,
+  assertApprovedFullKs2ProductId,
+  classifyGatewayFailure,
+} from '../domain/commerce/purchase-state.js';
+import { validateObservation } from '../platform/commerce/store-port.js';
+
+const METHOD_NAMES = Object.freeze([
+  'purchaseFullKs2',
+  'handleObservation',
+  'restore',
+  'refresh',
+  'recover',
+]);
+
+function requireFactoryInput(value) {
+  const keys = [
+    'store',
+    'gateway',
+    'commerceRepository',
+    'downloadRepository',
+    'clock',
+    'idFactory',
+    'failureInjector',
+  ];
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype ||
+    Reflect.ownKeys(value).length !== keys.length ||
+    Reflect.ownKeys(value).some((key) => typeof key !== 'string' || !keys.includes(key))
+  ) {
+    throw new TypeError('Purchase coordinator dependencies are invalid.');
+  }
+  for (const key of keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor?.enumerable || !Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError('Purchase coordinator dependencies must be data fields.');
+    }
+  }
+  const methodGroups = [
+    [value.store, ['purchase', 'queryTransactions', 'restore', 'finishTransaction']],
+    [value.gateway, ['verifyTransaction', 'completeTransaction', 'refreshEntitlement', 'authorisePackDownload']],
+    [value.commerceRepository, [
+      'observeTransaction', 'markVerified', 'commitEntitlementAndReadyToComplete',
+      'markStoreCompleteAndClearProof', 'markRejectedAndClearProof',
+      'replaceSealedRefreshHandle', 'applyRevocationAndDeleteHandle',
+      'listRecoverableTransactions', 'listEntitlements',
+    ]],
+    [value.downloadRepository, ['listDownloadJobs', 'upsertDownloadJob']],
+  ];
+  for (const [target, methods] of methodGroups) {
+    if (!target || methods.some((method) => typeof target[method] !== 'function')) {
+      throw new TypeError('Purchase coordinator port is invalid.');
+    }
+  }
+  for (const name of ['clock', 'idFactory', 'failureInjector']) {
+    if (typeof value[name] !== 'function') throw new TypeError(`${name} must be a function.`);
+  }
+  return value;
+}
+
+function safeJournalId(idFactory) {
+  const value = idFactory();
+  if (typeof value !== 'string' || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value) || value.length > 64) {
+    throw new TypeError('idFactory returned an invalid journal identifier.');
+  }
+  return value;
+}
+
+function assertGatewayIdentity(response, authority, expectedState) {
+  const keys = [
+    'store', 'productId', 'environment', 'entitlementId', 'storeTransactionId',
+    'applicationId', 'workerVersionId', 'workerScriptAuthoritySha256',
+  ];
+  for (const key of keys) {
+    if (authority[key] !== undefined && response[key] !== authority[key]) {
+      throw Object.assign(new Error('Gateway identity changed during commerce processing.'), {
+        code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH',
+      });
+    }
+  }
+  if (response.state !== expectedState) {
+    throw Object.assign(new Error('Gateway entitlement state changed unexpectedly.'), {
+      code: 'PURCHASE_GATEWAY_STATE_MISMATCH',
+    });
+  }
+  return response;
+}
+
+function frozenResult(state) {
+  return Object.freeze({ state });
+}
+
+export function createPurchaseCoordinator(rawDependencies) {
+  const dependencies = requireFactoryInput(rawDependencies);
+  const {
+    store,
+    gateway,
+    commerceRepository,
+    downloadRepository,
+    clock,
+    idFactory,
+    failureInjector,
+  } = dependencies;
+  let tail = Promise.resolve();
+  let lastTimestamp = -1;
+
+  function serialise(operation) {
+    const run = tail.then(operation, operation);
+    tail = run.catch(() => {});
+    return run;
+  }
+
+  function timestampAfter(...values) {
+    const sampled = clock();
+    if (!Number.isSafeInteger(sampled) || sampled < 0) {
+      throw new TypeError('clock must return a safe non-negative integer.');
+    }
+    const floor = Math.max(lastTimestamp, ...values.filter(Number.isSafeInteger));
+    const next = Math.max(sampled, floor + 1);
+    if (!Number.isSafeInteger(next)) throw new TypeError('Commerce timestamp overflowed.');
+    lastTimestamp = next;
+    return next;
+  }
+
+  async function checkpoint(position, name) {
+    if (!PURCHASE_CHECKPOINTS.includes(name)) throw new TypeError('Unknown purchase checkpoint.');
+    await failureInjector(`${position}:${name}`);
+  }
+
+  async function around(name, operation) {
+    await checkpoint('before', name);
+    const result = await operation();
+    await checkpoint('after', name);
+    return result;
+  }
+
+  async function listRecoverable() {
+    const rows = await commerceRepository.listRecoverableTransactions();
+    if (!Array.isArray(rows)) throw new TypeError('Recoverable transaction list is invalid.');
+    return rows;
+  }
+
+  async function locateJournal(value) {
+    const rows = await listRecoverable();
+    const journal = rows.find((row) =>
+      row.store === value.store &&
+      row.productId === value.productId &&
+      row.observationState === value.outcome &&
+      row.opaqueProof === (value.opaqueProof ?? null)) ?? null;
+    const pending = rows.filter((row) =>
+      row.store === value.store &&
+      row.productId === value.productId &&
+      row.observationState === 'pending' &&
+      row.processingState === 'observed' &&
+      row.opaqueProof === null);
+    return { journal, promotablePending: pending.length === 1 ? pending[0] : null };
+  }
+
+  async function persistHandle(response, previousTimestamp = -1) {
+    if (response.state !== 'active') return null;
+    return commerceRepository.replaceSealedRefreshHandle({
+      entitlementId: response.entitlementId,
+      sealedRefreshHandle: response.sealedRefreshHandle,
+      refreshHandleVersion: response.refreshHandleVersion,
+      refreshedAt: timestampAfter(previousTimestamp),
+    });
+  }
+
+  async function ensureDownloadJob(authority) {
+    const jobs = await downloadRepository.listDownloadJobs();
+    const existing = jobs.find((job) => job.jobId === FULL_KS2_PACK.jobId);
+    if (existing) {
+      const safeStates = new Set([
+        'queued', 'downloading', 'downloaded', 'extracting', 'ready', 'failed',
+      ]);
+      const safeExisting =
+        existing.packId === FULL_KS2_PACK.packId &&
+        existing.version === FULL_KS2_PACK.version &&
+        existing.archiveName === 'b3-sandbox-proof.zip' &&
+        typeof existing.manifestSha256 === 'string' &&
+        /^[a-f0-9]{64}$/.test(existing.manifestSha256) &&
+        typeof existing.archiveSha256 === 'string' &&
+        /^[a-f0-9]{64}$/.test(existing.archiveSha256) &&
+        Number.isSafeInteger(existing.expectedBytes) &&
+        existing.expectedBytes > 0 &&
+        Number.isSafeInteger(existing.completedBytes) &&
+        existing.completedBytes >= 0 &&
+        existing.completedBytes <= existing.expectedBytes &&
+        safeStates.has(existing.state);
+      if (!safeExisting) {
+        throw Object.assign(new Error('The durable download job authority is inconsistent.'), {
+          code: 'PURCHASE_DOWNLOAD_JOB_AUTHORITY_MISMATCH',
+        });
+      }
+      return existing;
+    }
+    const response = await around('download-authorisation', () =>
+      gateway.authorisePackDownload({
+        sealedRefreshHandle: authority.sealedRefreshHandle,
+        packId: FULL_KS2_PACK.packId,
+        version: FULL_KS2_PACK.version,
+      }));
+    assertGatewayIdentity(response, authority, 'active');
+    await persistHandle(response, authority.refreshedAt ?? authority.updatedAt ?? -1);
+    const capability = response.archiveCapability;
+    return around('download-job', () => downloadRepository.upsertDownloadJob({
+      jobId: FULL_KS2_PACK.jobId,
+      packId: FULL_KS2_PACK.packId,
+      version: FULL_KS2_PACK.version,
+      manifestSha256: response.signedEnvelopeSha256,
+      archiveName: capability.archiveName,
+      archiveSha256: capability.sha256,
+      expectedBytes: capability.compressedBytes,
+      completedBytes: 0,
+      etag: capability.etag,
+      state: 'queued',
+      updatedAt: timestampAfter(),
+    }));
+  }
+
+  async function verifyJournal(journal) {
+    let verified;
+    try {
+      verified = await around('verify', () => gateway.verifyTransaction({
+        store: journal.store,
+        environment: 'sandbox',
+        productId: journal.productId,
+        opaqueProof: journal.opaqueProof,
+      }));
+    } catch (error) {
+      const classification = classifyGatewayFailure(error);
+      if (classification !== 'recoverable') {
+        await around('rejection', () => commerceRepository.markRejectedAndClearProof({
+          journalId: journal.journalId,
+          rejectionKind: classification,
+          rejectedAt: timestampAfter(journal.updatedAt),
+        }));
+      }
+      throw error;
+    }
+    const expectedState = journal.observationState === 'revoked' ? 'revoked' : 'active';
+    assertGatewayIdentity(verified, {
+      store: journal.store,
+      productId: journal.productId,
+      environment: 'sandbox',
+      entitlementId: FULL_KS2_PACK.entitlementId,
+      applicationId: 'uk.eugnel.ks2spelling',
+    }, expectedState);
+    if (journal.processingState === 'observed') {
+      journal = await around('mark-verified', () => commerceRepository.markVerified({
+        journalId: journal.journalId,
+        verifiedAt: timestampAfter(journal.updatedAt),
+      }));
+    }
+    return { journal, verified };
+  }
+
+  async function finishAndClear(journal, verified, nativeObservation, nativeSnapshotKnown) {
+    const completed = await around('gateway-completion', () => gateway.completeTransaction({
+      sealedRefreshHandle: verified.sealedRefreshHandle,
+    }));
+    assertGatewayIdentity(completed, verified, verified.state);
+    if (completed.state === 'active') {
+      await persistHandle(completed, journal.updatedAt);
+    }
+    let nativeConfirmed = nativeSnapshotKnown && nativeObservation === null;
+    if (nativeObservation) {
+      const finish = await around('store-finish', () => store.finishTransaction({
+        transactionRef: nativeObservation.transactionRef,
+      }));
+      nativeConfirmed = finish?.completion === 'finished';
+    }
+    if (!nativeConfirmed) return frozenResult('store-completion-pending');
+    journal = await around('proof-clear', () => commerceRepository.markStoreCompleteAndClearProof({
+      journalId: journal.journalId,
+      completedAt: timestampAfter(journal.updatedAt),
+    }));
+    if (verified.state === 'active') await ensureDownloadJob(completed);
+    return frozenResult(journal.processingState);
+  }
+
+  async function processDurableJournal(journal, nativeObservation, nativeSnapshotKnown) {
+    if (journal.observationState === 'pending') return frozenResult('pending');
+    const { journal: verifiedJournal, verified } = await verifyJournal(journal);
+    journal = verifiedJournal;
+    if (journal.processingState === 'verified') {
+      if (journal.observationState === 'purchased') {
+        const committed = await around('entitlement-commit', () =>
+          commerceRepository.commitEntitlementAndReadyToComplete({
+            journalId: journal.journalId,
+            entitlementId: verified.entitlementId,
+            storeTransactionId: verified.storeTransactionId,
+            sealedRefreshHandle: verified.sealedRefreshHandle,
+            refreshHandleVersion: verified.refreshHandleVersion,
+            committedAt: timestampAfter(journal.updatedAt),
+          }));
+        journal = committed.journal;
+      } else {
+        const revoked = await around('entitlement-commit', () =>
+          commerceRepository.applyRevocationAndDeleteHandle({
+            journalId: journal.journalId,
+            entitlementId: verified.entitlementId,
+            storeTransactionId: verified.storeTransactionId,
+            revokedAt: timestampAfter(journal.updatedAt),
+          }));
+        journal = revoked.journal;
+      }
+    } else if (journal.processingState !== 'store-completion-pending') {
+      throw Object.assign(new Error('Durable purchase journal state is invalid.'), {
+        code: 'PURCHASE_JOURNAL_STATE_INVALID',
+      });
+    }
+    return finishAndClear(journal, verified, nativeObservation, nativeSnapshotKnown);
+  }
+
+  async function processObservation(rawObservation) {
+    const value = validateObservation(rawObservation);
+    if (value.outcome === 'cancelled' || value.outcome === 'unverified') {
+      return frozenResult(value.outcome);
+    }
+    const located = await locateJournal(value);
+    let journal = located.journal;
+    if (!journal) {
+      journal = await around('journal', () => commerceRepository.observeTransaction({
+        journalId: located.promotablePending?.journalId ?? safeJournalId(idFactory),
+        store: value.store,
+        productId: value.productId,
+        observationState: value.outcome,
+        opaqueProof: value.opaqueProof ?? null,
+        observedAt: timestampAfter(located.promotablePending?.updatedAt ?? -1),
+      }));
+    }
+    if (value.outcome === 'pending') return frozenResult('pending');
+    return processDurableJournal(journal, value, false);
+  }
+
+  async function recoverInternal() {
+    const native = await store.queryTransactions({ productIds: [...FULL_KS2_PRODUCT_IDS] });
+    for (const observation of native) await processObservation(observation);
+    const recoverable = await listRecoverable();
+    for (const journal of recoverable) {
+      if (journal.observationState === 'pending') continue;
+      const matching = native.find((candidate) =>
+        candidate.store === journal.store &&
+        candidate.productId === journal.productId &&
+        candidate.opaqueProof === journal.opaqueProof) ?? null;
+      await processDurableJournal(journal, matching, true);
+    }
+    const entitlements = await commerceRepository.listEntitlements();
+    for (const entitlement of entitlements) {
+      if (entitlement.entitlementId === FULL_KS2_PACK.entitlementId && entitlement.state === 'active') {
+        await ensureDownloadJob(entitlement);
+      }
+    }
+    return frozenResult('reconciled');
+  }
+
+  async function purchaseFullKs2(request) {
+    if (arguments.length !== 1) throw new TypeError('purchaseFullKs2 requires one input.');
+    return serialise(async () => {
+      const productId = assertApprovedFullKs2ProductId(request);
+      return processObservation(await store.purchase({ productId }));
+    });
+  }
+
+  async function handleObservation(value) {
+    if (arguments.length !== 1) throw new TypeError('handleObservation requires one input.');
+    return serialise(() => processObservation(value));
+  }
+
+  async function restore() {
+    if (arguments.length !== 0) throw new TypeError('restore does not accept input.');
+    return serialise(async () => {
+      const observations = await store.restore({ productIds: [...FULL_KS2_PRODUCT_IDS] });
+      for (const observation of observations) await processObservation(observation);
+      return frozenResult('restored');
+    });
+  }
+
+  async function refresh() {
+    if (arguments.length !== 0) throw new TypeError('refresh does not accept input.');
+    return serialise(async () => {
+      const entitlements = await commerceRepository.listEntitlements();
+      for (const entitlement of entitlements) {
+        if (entitlement.state !== 'active') continue;
+        const response = await gateway.refreshEntitlement({
+          sealedRefreshHandle: entitlement.sealedRefreshHandle,
+        });
+        assertGatewayIdentity(response, entitlement, response.state);
+        if (response.state === 'active') {
+          await persistHandle(response, entitlement.refreshedAt);
+        } else {
+          const native = await store.queryTransactions({
+            productIds: [...FULL_KS2_PRODUCT_IDS],
+          });
+          const revocation = native.find((observation) =>
+            observation.outcome === 'revoked' &&
+            observation.store === entitlement.store &&
+            observation.productId === entitlement.productId) ?? null;
+          if (!revocation) {
+            throw Object.assign(new Error('A verified store revocation observation is required.'), {
+              code: 'PURCHASE_REVOCATION_OBSERVATION_REQUIRED',
+            });
+          }
+          await processObservation(revocation);
+        }
+      }
+      return frozenResult('refreshed');
+    });
+  }
+
+  async function recover() {
+    if (arguments.length !== 0) throw new TypeError('recover does not accept input.');
+    return serialise(recoverInternal);
+  }
+
+  const coordinator = { purchaseFullKs2, handleObservation, restore, refresh, recover };
+  if (Reflect.ownKeys(coordinator).join('|') !== METHOD_NAMES.join('|')) {
+    throw new TypeError('Purchase coordinator surface is invalid.');
+  }
+  return Object.freeze(coordinator);
+}

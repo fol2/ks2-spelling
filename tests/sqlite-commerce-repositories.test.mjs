@@ -318,6 +318,108 @@ test('pending remains recoverable with null store ID and cannot be verified or g
   });
 });
 
+test('one matching pending journal promotes atomically to a purchased proof', async () => {
+  await withDatabase(async (connection) => {
+    const repository = createSqliteCommerceRepositories(connection);
+    const pending = await repository.observeTransaction({
+      journalId: 'journal-promotion',
+      store: 'google',
+      productId: 'full_ks2',
+      observationState: 'pending',
+      opaqueProof: null,
+      observedAt: 1_768_478_400_000,
+    });
+    const promoted = await repository.observeTransaction({
+      journalId: pending.journalId,
+      store: pending.store,
+      productId: pending.productId,
+      observationState: 'purchased',
+      opaqueProof: 'fresh-google-purchase-proof',
+      observedAt: pending.updatedAt + 1,
+    });
+    assert.equal(promoted.createdAt, pending.createdAt);
+    assert.equal(promoted.updatedAt, pending.updatedAt + 1);
+    assert.equal(promoted.observationState, 'purchased');
+    assert.equal(promoted.opaqueProof, 'fresh-google-purchase-proof');
+    assert.deepEqual(await repository.listRecoverableTransactions(), [promoted]);
+    assert.deepEqual(
+      await repository.observeTransaction({
+        journalId: pending.journalId,
+        store: pending.store,
+        productId: pending.productId,
+        observationState: 'purchased',
+        opaqueProof: 'fresh-google-purchase-proof',
+        observedAt: pending.updatedAt + 1,
+      }),
+      promoted,
+    );
+    await assert.rejects(
+      repository.observeTransaction({
+        journalId: pending.journalId,
+        store: pending.store,
+        productId: pending.productId,
+        observationState: 'revoked',
+        opaqueProof: 'different-proof',
+        observedAt: pending.updatedAt + 2,
+      }),
+      /conflict/i,
+    );
+  });
+});
+
+test('restore reseals one same-authority entitlement and transfers store ID authority', async () => {
+  await withDatabase(async (connection) => {
+    const repository = createSqliteCommerceRepositories(connection);
+    const first = await grantApple(repository);
+    await repository.markStoreCompleteAndClearProof({
+      journalId: first.journal.journalId,
+      completedAt: first.journal.updatedAt + 1,
+    });
+    await repository.observeTransaction({
+      journalId: 'journal-apple-restore',
+      store: 'apple',
+      productId: 'uk.eugnel.ks2spelling.fullks2',
+      observationState: 'purchased',
+      opaqueProof: 'fresh-restore-jws',
+      observedAt: first.journal.updatedAt + 2,
+    });
+    await repository.markVerified({
+      journalId: 'journal-apple-restore',
+      verifiedAt: first.journal.updatedAt + 3,
+    });
+    const restored = await repository.commitEntitlementAndReadyToComplete({
+      journalId: 'journal-apple-restore',
+      entitlementId: 'full-ks2',
+      storeTransactionId: '2000001234567890',
+      sealedRefreshHandle: 'b3rh1.2.restore.ciphertext',
+      refreshHandleVersion: 2,
+      committedAt: first.journal.updatedAt + 4,
+    });
+    assert.equal(restored.entitlement.verifiedAt, first.entitlement.verifiedAt);
+    assert.equal(restored.entitlement.refreshedAt, first.journal.updatedAt + 4);
+    assert.equal(restored.entitlement.sealedRefreshHandle, 'b3rh1.2.restore.ciphertext');
+    assert.equal(restored.journal.processingState, 'store-completion-pending');
+    assert.deepEqual(
+      await connection.query(
+        'SELECT journal_id FROM transaction_journal WHERE store_transaction_id = ?',
+        ['2000001234567890'],
+      ),
+      [{ journal_id: 'journal-apple-restore' }],
+    );
+    assert.deepEqual(
+      await repository.commitEntitlementAndReadyToComplete({
+        journalId: 'journal-apple-restore',
+        entitlementId: 'full-ks2',
+        storeTransactionId: '2000001234567890',
+        sealedRefreshHandle: 'b3rh1.2.restore.ciphertext',
+        refreshHandleVersion: 2,
+        committedAt: first.journal.updatedAt + 4,
+      }),
+      restored,
+    );
+  });
+});
+
 test('only canonical Apple decimal and Google GPA gateway IDs become durable authority', async () => {
   await withDatabase(async (connection) => {
     const repository = createSqliteCommerceRepositories(connection);

@@ -255,6 +255,44 @@ export function createSqliteCommerceRepositories(connection) {
           updatedAt: values.observedAt,
         };
         if (JOURNAL_KEYS.every((key) => mapped[key] === expected[key])) return mapped;
+        if (
+          mapped.store === values.store &&
+          mapped.productId === values.productId &&
+          mapped.storeTransactionId === null &&
+          mapped.observationState === values.observationState &&
+          mapped.processingState === 'observed' &&
+          mapped.opaqueProof === values.opaqueProof &&
+          mapped.createdAt < values.observedAt &&
+          mapped.updatedAt === values.observedAt
+        ) {
+          return mapped;
+        }
+        const mayPromotePending =
+          mapped.store === values.store &&
+          mapped.productId === values.productId &&
+          mapped.storeTransactionId === null &&
+          mapped.observationState === 'pending' &&
+          mapped.processingState === 'observed' &&
+          mapped.opaqueProof === null &&
+          (values.observationState === 'purchased' || values.observationState === 'revoked') &&
+          values.observedAt > mapped.updatedAt;
+        if (mayPromotePending) {
+          requireOneChange(
+            await connection.execute(
+              'UPDATE transaction_journal SET observation_state = ?, opaque_proof = ?, updated_at = ? WHERE journal_id = ? AND observation_state = ? AND processing_state = ? AND opaque_proof IS NULL AND store_transaction_id IS NULL',
+              [
+                values.observationState,
+                values.opaqueProof,
+                values.observedAt,
+                values.journalId,
+                'pending',
+                'observed',
+              ],
+            ),
+            'sqlite_commerce_journal_conflict',
+          );
+          return mapJournal(await readJournal(connection, values.journalId));
+        }
         throw commerceError('sqlite_commerce_journal_conflict');
       }
       requireOneChange(
@@ -364,7 +402,7 @@ export function createSqliteCommerceRepositories(connection) {
           existingEntitlement.productId === journal.productId &&
           existingEntitlement.sealedRefreshHandle === values.sealedRefreshHandle &&
           existingEntitlement.refreshHandleVersion === values.refreshHandleVersion &&
-          existingEntitlement.verifiedAt === values.committedAt &&
+          existingEntitlement.verifiedAt <= values.committedAt &&
           existingEntitlement.refreshedAt === values.committedAt
         ) {
           return frozenRecord(['journal', 'entitlement'], {
@@ -401,23 +439,53 @@ export function createSqliteCommerceRepositories(connection) {
         throw new TypeError('entitlementId does not match durable store product authority.');
       }
       if (existingEntitlementRow) {
-        throw commerceError('sqlite_commerce_entitlement_conflict');
+        const existingEntitlement = mapEntitlement(existingEntitlementRow);
+        if (
+          existingEntitlement.state !== 'active' ||
+          existingEntitlement.store !== journal.store ||
+          existingEntitlement.productId !== journal.productId ||
+          existingEntitlement.revocationAt !== null ||
+          values.committedAt <= existingEntitlement.refreshedAt ||
+          values.refreshHandleVersion < existingEntitlement.refreshHandleVersion
+        ) {
+          throw commerceError('sqlite_commerce_entitlement_conflict');
+        }
+        requireOneChange(
+          await connection.execute(
+            'UPDATE app_entitlements SET sealed_refresh_handle = ?, refresh_handle_version = ?, refreshed_at = ? WHERE entitlement_id = ? AND state = ? AND store = ? AND product_id = ?',
+            [
+              values.sealedRefreshHandle,
+              values.refreshHandleVersion,
+              values.committedAt,
+              values.entitlementId,
+              'active',
+              journal.store,
+              journal.productId,
+            ],
+          ),
+          'sqlite_commerce_entitlement_conflict',
+        );
+      } else {
+        requireOneChange(
+          await connection.execute(
+            'INSERT INTO app_entitlements (entitlement_id, store, product_id, state, sealed_refresh_handle, refresh_handle_version, verified_at, refreshed_at, revocation_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)',
+            [
+              values.entitlementId,
+              journal.store,
+              journal.productId,
+              'active',
+              values.sealedRefreshHandle,
+              values.refreshHandleVersion,
+              values.committedAt,
+              values.committedAt,
+            ],
+          ),
+          'sqlite_commerce_entitlement_write_failed',
+        );
       }
-      requireOneChange(
-        await connection.execute(
-          'INSERT INTO app_entitlements (entitlement_id, store, product_id, state, sealed_refresh_handle, refresh_handle_version, verified_at, refreshed_at, revocation_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)',
-          [
-            values.entitlementId,
-            journal.store,
-            journal.productId,
-            'active',
-            values.sealedRefreshHandle,
-            values.refreshHandleVersion,
-            values.committedAt,
-            values.committedAt,
-          ],
-        ),
-        'sqlite_commerce_entitlement_write_failed',
+      await connection.execute(
+        'UPDATE transaction_journal SET store_transaction_id = NULL WHERE store = ? AND store_transaction_id = ? AND journal_id <> ?',
+        [journal.store, values.storeTransactionId, values.journalId],
       );
       requireOneChange(
         await connection.execute(
@@ -432,6 +500,17 @@ export function createSqliteCommerceRepositories(connection) {
         ),
         'sqlite_commerce_state_invalid',
       );
+      const authorityRows = await connection.query(
+        'SELECT journal_id FROM transaction_journal WHERE store = ? AND store_transaction_id = ?',
+        [journal.store, values.storeTransactionId],
+      );
+      if (
+        !Array.isArray(authorityRows) ||
+        authorityRows.length !== 1 ||
+        authorityRows[0]?.journal_id !== values.journalId
+      ) {
+        throw commerceError('sqlite_commerce_transaction_authority_invalid');
+      }
       return frozenRecord(['journal', 'entitlement'], {
         journal: mapJournal(await readJournal(connection, values.journalId)),
         entitlement: mapEntitlement(

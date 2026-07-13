@@ -364,6 +364,18 @@ test('one matching pending journal promotes atomically to a purchased proof', as
       }),
       /conflict/i,
     );
+    await assert.rejects(
+      repository.observeTransaction({
+        journalId: pending.journalId,
+        store: pending.store,
+        productId: pending.productId,
+        observationState: 'purchased',
+        opaqueProof: 'newer-proof-without-cas-authority',
+        observedAt: pending.updatedAt + 3,
+      }),
+      /conflict/i,
+    );
+    assert.deepEqual(await repository.listRecoverableTransactions(), [promoted]);
   });
 });
 
@@ -457,6 +469,17 @@ test('deterministic terminal journal replay returns a proof-free tombstone', asy
     });
     assert.deepEqual(replay, complete);
     assert.equal(replay.opaqueProof, null);
+    assert.deepEqual(
+      await repository.observeTransaction({
+        journalId: complete.journalId,
+        store: complete.store,
+        productId: complete.productId,
+        observationState: 'pending',
+        opaqueProof: null,
+        observedAt: 1_768_478_400_005,
+      }),
+      complete,
+    );
 
     await repository.observeTransaction({
       journalId: 'jr-deterministic-rejected',
@@ -479,6 +502,17 @@ test('deterministic terminal journal replay returns a proof-free tombstone', asy
         observationState: rejected.observationState,
         opaqueProof: 'permanent-proof',
         observedAt: 1_768_478_401_002,
+      }),
+      rejected,
+    );
+    assert.deepEqual(
+      await repository.observeTransaction({
+        journalId: rejected.journalId,
+        store: rejected.store,
+        productId: rejected.productId,
+        observationState: 'pending',
+        opaqueProof: null,
+        observedAt: 1_768_478_401_003,
       }),
       rejected,
     );

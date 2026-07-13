@@ -108,6 +108,8 @@ export function createPurchaseCoordinator(rawDependencies) {
     idFactory,
     failureInjector,
   } = dependencies;
+  // The native application composition owns one coordinator and one reconciler per
+  // database connection. This queue is therefore the single proof-processing lane.
   let tail = Promise.resolve();
   let lastTimestamp = -1;
   let timestampFloorSeeded = false;
@@ -171,20 +173,29 @@ export function createPurchaseCoordinator(rawDependencies) {
     timestampFloorSeeded = true;
   }
 
-  async function locateJournal(value) {
+  function sameEventKind(left, right) {
+    const kind = (value) => value === 'pending' || value === 'purchased'
+      ? 'acquisition'
+      : value;
+    return kind(left) === kind(right);
+  }
+
+  async function locateJournal(value, stableJournalId) {
     const rows = await listRecoverable();
-    const journal = rows.find((row) =>
+    const exact = rows.find((row) =>
       row.store === value.store &&
       row.productId === value.productId &&
-      row.observationState === value.outcome &&
+      sameEventKind(row.observationState, value.outcome) &&
       row.opaqueProof === (value.opaqueProof ?? null)) ?? null;
-    const pending = rows.filter((row) =>
+    const stable = rows.find((row) => row.journalId === stableJournalId) ?? null;
+    const promotablePending = value.outcome === 'purchased' ? rows.filter((row) =>
       row.store === value.store &&
       row.productId === value.productId &&
       row.observationState === 'pending' &&
       row.processingState === 'observed' &&
-      row.opaqueProof === null);
-    return { journal, promotablePending: pending.length === 1 ? pending[0] : null };
+      row.storeTransactionId === null &&
+      row.opaqueProof === null) : [];
+    return exact ?? stable ?? (promotablePending.length === 1 ? promotablePending[0] : null);
   }
 
   async function persistHandle(response, previousTimestamp = -1) {
@@ -231,8 +242,20 @@ export function createPurchaseCoordinator(rawDependencies) {
       }));
     assertGatewayIdentity(response, authority, 'active');
     const capability = response.archiveCapability;
+    const manifestObject = response.objects?.[0];
+    const archiveObject = response.objects?.[1];
     if (
       response.signedEnvelopeSha256 !== B3_PACK_JOB_AUTHORITY.manifestSha256 ||
+      !Array.isArray(response.objects) ||
+      response.objects.length !== 2 ||
+      manifestObject?.objectKind !== 'manifest' ||
+      manifestObject.sha256 !== B3_PACK_JOB_AUTHORITY.manifestSha256 ||
+      manifestObject.size !== B3_PACK_JOB_AUTHORITY.manifestBytes ||
+      manifestObject.etag !== B3_PACK_JOB_AUTHORITY.manifestEtag ||
+      archiveObject?.objectKind !== 'archive' ||
+      archiveObject.sha256 !== B3_PACK_JOB_AUTHORITY.archiveSha256 ||
+      archiveObject.size !== B3_PACK_JOB_AUTHORITY.archiveBytes ||
+      archiveObject.etag !== B3_PACK_JOB_AUTHORITY.archiveEtag ||
       capability.packId !== B3_PACK_JOB_AUTHORITY.packId ||
       capability.version !== B3_PACK_JOB_AUTHORITY.version ||
       capability.archiveName !== B3_PACK_JOB_AUTHORITY.archiveName ||
@@ -260,25 +283,29 @@ export function createPurchaseCoordinator(rawDependencies) {
     }));
   }
 
-  async function verifyJournal(journal) {
+  async function verifyJournal(journal, suppliedAuthority = null) {
     let verified;
-    try {
-      verified = await around('verify', () => gateway.verifyTransaction({
-        store: journal.store,
-        environment: 'sandbox',
-        productId: journal.productId,
-        opaqueProof: journal.opaqueProof,
-      }));
-    } catch (error) {
-      const classification = classifyGatewayFailure(error);
-      if (classification !== 'recoverable') {
-        await around('rejection', () => commerceRepository.markRejectedAndClearProof({
-          journalId: journal.journalId,
-          rejectionKind: classification,
-          rejectedAt: timestampAfter(journal.updatedAt),
+    if (suppliedAuthority) {
+      verified = suppliedAuthority;
+    } else {
+      try {
+        verified = await around('verify', () => gateway.verifyTransaction({
+          store: journal.store,
+          environment: 'sandbox',
+          productId: journal.productId,
+          opaqueProof: journal.opaqueProof,
         }));
+      } catch (error) {
+        const classification = classifyGatewayFailure(error);
+        if (classification !== 'recoverable') {
+          await around('rejection', () => commerceRepository.markRejectedAndClearProof({
+            journalId: journal.journalId,
+            rejectionKind: classification,
+            rejectedAt: timestampAfter(journal.updatedAt),
+          }));
+        }
+        throw error;
       }
-      throw error;
     }
     const expectedState = journal.observationState === 'revoked' ? 'revoked' : 'active';
     assertGatewayIdentity(verified, {
@@ -297,14 +324,7 @@ export function createPurchaseCoordinator(rawDependencies) {
     return { journal, verified };
   }
 
-  async function finishAndClear(journal, verified, nativeObservation, nativeSnapshotKnown) {
-    const completed = await around('gateway-completion', () => gateway.completeTransaction({
-      sealedRefreshHandle: verified.sealedRefreshHandle,
-    }));
-    assertGatewayIdentity(completed, verified, verified.state);
-    if (completed.state === 'active') {
-      await persistHandle(completed, journal.updatedAt);
-    }
+  async function finishNativeAndClear(journal, nativeObservation, nativeSnapshotKnown) {
     let nativeConfirmed = nativeSnapshotKnown && nativeObservation === null;
     if (nativeObservation) {
       const finish = await around('store-finish', () => store.finishTransaction({
@@ -312,41 +332,115 @@ export function createPurchaseCoordinator(rawDependencies) {
       }));
       nativeConfirmed = finish?.completion === 'finished';
     }
-    if (!nativeConfirmed) return frozenResult('store-completion-pending');
-    journal = await around('proof-clear', () => commerceRepository.markStoreCompleteAndClearProof({
-      journalId: journal.journalId,
-      completedAt: timestampAfter(journal.updatedAt),
-    }));
-    if (verified.state === 'active') await ensureDownloadJob(completed);
-    return frozenResult(journal.processingState);
+    if (!nativeConfirmed) return { journal, complete: false };
+    const complete = await around('proof-clear', () =>
+      commerceRepository.markStoreCompleteAndClearProof({
+        journalId: journal.journalId,
+        completedAt: timestampAfter(journal.updatedAt),
+      }));
+    return { journal: complete, complete: true };
   }
 
-  async function processDurableJournal(journal, nativeObservation, nativeSnapshotKnown) {
+  async function finishAcquisition(journal, verified, nativeObservation, nativeSnapshotKnown) {
+    const completed = await around('gateway-completion', () => gateway.completeTransaction({
+      sealedRefreshHandle: verified.sealedRefreshHandle,
+    }));
+    assertGatewayIdentity(completed, verified, verified.state);
+    if (completed.state === 'active') {
+      await persistHandle(completed, journal.updatedAt);
+    }
+    const result = await finishNativeAndClear(journal, nativeObservation, nativeSnapshotKnown);
+    if (!result.complete) return frozenResult('store-completion-pending');
+    await ensureDownloadJob(completed);
+    return frozenResult(result.journal.processingState);
+  }
+
+  async function processRevocationJournal(
+    journal,
+    nativeObservation,
+    nativeSnapshotKnown,
+    suppliedAuthority,
+  ) {
+    if (journal.processingState === 'store-completion-pending') {
+      if (
+        suppliedAuthority &&
+        suppliedAuthority.storeTransactionId !== journal.storeTransactionId
+      ) {
+        throw Object.assign(new Error('Reverified store transaction authority changed.'), {
+          code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH',
+        });
+      }
+      const result = await finishNativeAndClear(
+        journal,
+        nativeObservation,
+        nativeSnapshotKnown,
+      );
+      return frozenResult(result.complete ? result.journal.processingState : 'store-completion-pending');
+    }
+
+    let authority = suppliedAuthority;
+    if (!authority) {
+      const entitlements = await listEntitlements();
+      const active = entitlements.find((entitlement) =>
+        entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
+        entitlement.store === journal.store &&
+        entitlement.productId === journal.productId &&
+        entitlement.state === 'active');
+      if (active) {
+        authority = await around('verify', () => gateway.refreshEntitlement({
+          sealedRefreshHandle: active.sealedRefreshHandle,
+        }));
+        assertGatewayIdentity(authority, active, 'revoked');
+      }
+    }
+    const verifiedResult = await verifyJournal(journal, authority);
+    journal = verifiedResult.journal;
+    const verified = verifiedResult.verified;
+    if (journal.processingState !== 'verified') {
+      throw Object.assign(new Error('Durable revocation journal state is invalid.'), {
+        code: 'PURCHASE_JOURNAL_STATE_INVALID',
+      });
+    }
+    const revoked = await around('entitlement-commit', () =>
+      commerceRepository.applyRevocationAndDeleteHandle({
+        journalId: journal.journalId,
+        entitlementId: verified.entitlementId,
+        storeTransactionId: verified.storeTransactionId,
+        revokedAt: timestampAfter(journal.updatedAt),
+      }));
+    journal = revoked.journal;
+    const result = await finishNativeAndClear(journal, nativeObservation, nativeSnapshotKnown);
+    return frozenResult(result.complete ? result.journal.processingState : 'store-completion-pending');
+  }
+
+  async function processDurableJournal(
+    journal,
+    nativeObservation,
+    nativeSnapshotKnown,
+    suppliedAuthority = null,
+  ) {
     if (journal.observationState === 'pending') return frozenResult('pending');
+    if (journal.observationState === 'revoked') {
+      return processRevocationJournal(
+        journal,
+        nativeObservation,
+        nativeSnapshotKnown,
+        suppliedAuthority,
+      );
+    }
     const { journal: verifiedJournal, verified } = await verifyJournal(journal);
     journal = verifiedJournal;
     if (journal.processingState === 'verified') {
-      if (journal.observationState === 'purchased') {
-        const committed = await around('entitlement-commit', () =>
-          commerceRepository.commitEntitlementAndReadyToComplete({
-            journalId: journal.journalId,
-            entitlementId: verified.entitlementId,
-            storeTransactionId: verified.storeTransactionId,
-            sealedRefreshHandle: verified.sealedRefreshHandle,
-            refreshHandleVersion: verified.refreshHandleVersion,
-            committedAt: timestampAfter(journal.updatedAt),
-          }));
-        journal = committed.journal;
-      } else {
-        const revoked = await around('entitlement-commit', () =>
-          commerceRepository.applyRevocationAndDeleteHandle({
-            journalId: journal.journalId,
-            entitlementId: verified.entitlementId,
-            storeTransactionId: verified.storeTransactionId,
-            revokedAt: timestampAfter(journal.updatedAt),
-          }));
-        journal = revoked.journal;
-      }
+      const committed = await around('entitlement-commit', () =>
+        commerceRepository.commitEntitlementAndReadyToComplete({
+          journalId: journal.journalId,
+          entitlementId: verified.entitlementId,
+          storeTransactionId: verified.storeTransactionId,
+          sealedRefreshHandle: verified.sealedRefreshHandle,
+          refreshHandleVersion: verified.refreshHandleVersion,
+          committedAt: timestampAfter(journal.updatedAt),
+        }));
+      journal = committed.journal;
     } else if (journal.processingState !== 'store-completion-pending') {
       throw Object.assign(new Error('Durable purchase journal state is invalid.'), {
         code: 'PURCHASE_JOURNAL_STATE_INVALID',
@@ -360,7 +454,7 @@ export function createPurchaseCoordinator(rawDependencies) {
         code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH',
       });
     }
-    return finishAndClear(journal, verified, nativeObservation, nativeSnapshotKnown);
+    return finishAcquisition(journal, verified, nativeObservation, nativeSnapshotKnown);
   }
 
   async function processTerminalJournal(journal) {
@@ -370,48 +464,99 @@ export function createPurchaseCoordinator(rawDependencies) {
         code: 'PURCHASE_JOURNAL_STATE_INVALID',
       });
     }
-    const entitlements = await listEntitlements();
-    const active = entitlements.find((entitlement) =>
-      entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
-      entitlement.state === 'active');
-    if (active) await ensureDownloadJob(active);
+    if (journal.observationState !== 'revoked') {
+      const entitlements = await listEntitlements();
+      const active = entitlements.find((entitlement) =>
+        entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
+        entitlement.state === 'active');
+      if (active) await ensureDownloadJob(active);
+    }
     return frozenResult('complete');
   }
 
-  async function processObservation(rawObservation, { freshRestoreAttempt = false } = {}) {
+  async function processObservation(rawObservation, {
+    attemptMode = 'proactive',
+    suppliedAuthority = null,
+    nativeSnapshotKnown = false,
+  } = {}) {
     const value = validateObservation(rawObservation);
     if (value.outcome === 'cancelled' || value.outcome === 'unverified') {
       return frozenResult(value.outcome);
     }
     await seedTimestampFloor();
-    const located = await locateJournal(value);
-    let journal = located.journal;
-    if (!journal) {
-      const journalId = located.promotablePending?.journalId ?? (
-        freshRestoreAttempt
-          ? safeJournalId(idFactory)
-          : await deriveTransactionReplayJournalId(value)
-      );
+    const stableJournalId = deriveTransactionReplayJournalId(value);
+    let journal = await locateJournal(value, stableJournalId);
+    const entitlements = await listEntitlements();
+    const entitlement = entitlements.find((candidate) =>
+      candidate.entitlementId === FULL_KS2_PACK.entitlementId &&
+      candidate.store === value.store &&
+      candidate.productId === value.productId) ?? null;
+    if (!journal && value.outcome === 'purchased' && entitlement?.state === 'active' &&
+      attemptMode !== 'restore') {
+      await ensureDownloadJob(entitlement);
+      return frozenResult('complete');
+    }
+    if (!journal && value.outcome === 'revoked' && entitlement?.state === 'revoked') {
+      return frozenResult('complete');
+    }
+
+    const nativeObservation = value;
+    if (journal) {
+      const promotesPending =
+        journal.observationState === 'pending' &&
+        value.outcome === 'purchased' &&
+        journal.processingState === 'observed';
+      if (promotesPending) {
+        journal = await around('journal', () => commerceRepository.observeTransaction({
+          journalId: journal.journalId,
+          store: value.store,
+          productId: value.productId,
+          observationState: value.outcome,
+          opaqueProof: value.opaqueProof,
+          observedAt: timestampAfter(journal.updatedAt),
+        }));
+      }
+    } else {
       journal = await around('journal', () => commerceRepository.observeTransaction({
-        journalId,
+        journalId: stableJournalId,
         store: value.store,
         productId: value.productId,
         observationState: value.outcome,
         opaqueProof: value.opaqueProof ?? null,
-        observedAt: timestampAfter(located.promotablePending?.updatedAt ?? -1),
+        observedAt: timestampAfter(),
       }));
     }
     if (journal.processingState === 'complete' || journal.processingState === 'rejected') {
-      return processTerminalJournal(journal);
+      const acquisition = value.outcome === 'pending' || value.outcome === 'purchased';
+      const needsFreshAttempt =
+        (attemptMode === 'restore' && acquisition) ||
+        (attemptMode === 'purchase' && acquisition && journal.processingState === 'rejected') ||
+        (value.outcome === 'revoked' && entitlement?.state === 'active');
+      if (!needsFreshAttempt) return processTerminalJournal(journal);
+      journal = await around('journal', () => commerceRepository.observeTransaction({
+        journalId: safeJournalId(idFactory),
+        store: value.store,
+        productId: value.productId,
+        observationState: value.outcome,
+        opaqueProof: value.opaqueProof ?? null,
+        observedAt: timestampAfter(journal.updatedAt),
+      }));
     }
     if (value.outcome === 'pending') return frozenResult('pending');
-    return processDurableJournal(journal, value, false);
+    return processDurableJournal(
+      journal,
+      nativeObservation,
+      nativeSnapshotKnown,
+      suppliedAuthority,
+    );
   }
 
   async function recoverInternal() {
     await seedTimestampFloor();
     const native = await store.queryTransactions({ productIds: [...FULL_KS2_PRODUCT_IDS] });
-    for (const observation of native) await processObservation(observation);
+    for (const observation of native) {
+      await processObservation(observation, { nativeSnapshotKnown: true });
+    }
     const recoverable = await listRecoverable();
     for (const journal of recoverable) {
       if (journal.observationState === 'pending') continue;
@@ -419,7 +564,12 @@ export function createPurchaseCoordinator(rawDependencies) {
         candidate.store === journal.store &&
         candidate.productId === journal.productId &&
         candidate.opaqueProof === journal.opaqueProof) ?? null;
-      await processDurableJournal(journal, matching, true);
+      const conflicting = native.some((candidate) =>
+        candidate.store === journal.store &&
+        candidate.productId === journal.productId &&
+        sameEventKind(candidate.outcome, journal.observationState) &&
+        candidate.opaqueProof !== journal.opaqueProof);
+      await processDurableJournal(journal, matching, !conflicting);
     }
     const entitlements = await listEntitlements();
     for (const entitlement of entitlements) {
@@ -434,7 +584,9 @@ export function createPurchaseCoordinator(rawDependencies) {
     if (arguments.length !== 1) throw new TypeError('purchaseFullKs2 requires one input.');
     return serialise(async () => {
       const productId = assertApprovedFullKs2ProductId(request);
-      return processObservation(await store.purchase({ productId }));
+      return processObservation(await store.purchase({ productId }), {
+        attemptMode: 'purchase',
+      });
     });
   }
 
@@ -447,8 +599,19 @@ export function createPurchaseCoordinator(rawDependencies) {
     if (arguments.length !== 0) throw new TypeError('restore does not accept input.');
     return serialise(async () => {
       const observations = await store.restore({ productIds: [...FULL_KS2_PRODUCT_IDS] });
+      const selected = new Map();
       for (const observation of observations) {
-        await processObservation(observation, { freshRestoreAttempt: true });
+        const value = validateObservation(observation);
+        const key = ['pending', 'purchased', 'revoked'].includes(value.outcome)
+          ? deriveTransactionReplayJournalId(value)
+          : `${value.store}:${value.productId}:${value.outcome}`;
+        const existing = selected.get(key);
+        if (!existing || (existing.outcome === 'pending' && value.outcome === 'purchased')) {
+          selected.set(key, value);
+        }
+      }
+      for (const observation of selected.values()) {
+        await processObservation(observation, { attemptMode: 'restore' });
       }
       return frozenResult('restored');
     });
@@ -461,9 +624,9 @@ export function createPurchaseCoordinator(rawDependencies) {
       const entitlements = await listEntitlements();
       for (const entitlement of entitlements) {
         if (entitlement.state !== 'active') continue;
-        const response = await gateway.refreshEntitlement({
+        const response = await around('verify', () => gateway.refreshEntitlement({
           sealedRefreshHandle: entitlement.sealedRefreshHandle,
-        });
+        }));
         assertGatewayIdentity(response, entitlement, response.state);
         if (response.state === 'active') {
           await persistHandle(response, entitlement.refreshedAt);
@@ -480,7 +643,7 @@ export function createPurchaseCoordinator(rawDependencies) {
               code: 'PURCHASE_REVOCATION_OBSERVATION_REQUIRED',
             });
           }
-          await processObservation(revocation);
+          await processObservation(revocation, { suppliedAuthority: response });
         }
       }
       return frozenResult('refreshed');

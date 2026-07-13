@@ -227,8 +227,8 @@ test('permanent rejection crash checkpoints preserve proof before and keep it cl
 
 test('revocation crash matrix converges with the handle deleted and installed job retained', async () => {
   for (const checkpoint of [
+    'before:verify', 'after:verify',
     'before:entitlement-commit', 'after:entitlement-commit',
-    'before:gateway-completion', 'after:gateway-completion',
     'before:store-finish', 'after:store-finish',
     'before:proof-clear', 'after:proof-clear',
   ]) {
@@ -247,9 +247,9 @@ test('revocation crash matrix converges with the handle deleted and installed jo
       traceId: '123e4567-e89b-42d3-a456-426614174000', workerVersionId: 'worker-test',
       workerScriptAuthoritySha256: 'a'.repeat(64),
     };
-    world.gateway.verifyTransaction = async () => revokedIdentity;
-    world.gateway.completeTransaction = async ({ sealedRefreshHandle }) => {
-      world.gatewayEffects.add(sealedRefreshHandle);
+    let refreshCalls = 0;
+    world.gateway.refreshEntitlement = async () => {
+      refreshCalls += 1;
       return revokedIdentity;
     };
     const first = await makeCoordinator(world, checkpoint);
@@ -264,7 +264,8 @@ test('revocation crash matrix converges with the handle deleted and installed jo
     assert.equal(entitlement.refreshHandleVersion, null, checkpoint);
     assert.equal(revocationJournal.processingState, 'complete', checkpoint);
     assert.equal(revocationJournal.opaqueProof, null, checkpoint);
-    assert.equal(world.gatewayEffects.has('b3rh1.2.revocation.handle'), true, checkpoint);
+    assert.equal(refreshCalls >= 1, true, checkpoint);
+    assert.equal(world.gatewayEffects.has('b3rh1.2.revocation.handle'), false, checkpoint);
     assert.equal(world.storeEffects.has('native-revocation'), true, checkpoint);
     assert.equal(world.jobs.size, 1, checkpoint);
   }

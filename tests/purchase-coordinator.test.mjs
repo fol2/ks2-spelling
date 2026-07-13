@@ -247,6 +247,7 @@ test('a purchased observation journals before verification and finishes before p
     'listRecoverableTransactions',
     'listEntitlements',
     'listRecoverableTransactions',
+    'listEntitlements',
     'observeTransaction',
     'verifyTransaction',
     'markVerified',
@@ -406,12 +407,7 @@ test('verified revocation locks access and deletes its handle without deleting t
     transactionRef: 'native-revocation',
     opaqueProof: 'fresh-revocation-proof',
   });
-  harness.gateway.verifyTransaction = async () => identity({
-    state: 'revoked',
-    sealedRefreshHandle: 'b3rh1.2.revocation.handle',
-    refreshHandleVersion: 2,
-  });
-  harness.gateway.completeTransaction = async () => identity({
+  harness.gateway.refreshEntitlement = async () => identity({
     state: 'revoked',
     sealedRefreshHandle: 'b3rh1.2.revocation.handle',
     refreshHandleVersion: 2,

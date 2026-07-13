@@ -37,6 +37,10 @@ const PERMANENT_REJECTIONS = Object.freeze([
   'definitive-malformed-proof',
 ]);
 
+function observationEventKind(value) {
+  return value === 'pending' || value === 'purchased' ? 'acquisition' : value;
+}
+
 function commerceError(code, message = code, options) {
   const error = new Error(message, options);
   error.code = code;
@@ -247,7 +251,8 @@ export function createSqliteCommerceRepositories(connection) {
           (mapped.processingState === 'complete' || mapped.processingState === 'rejected') &&
           mapped.store === values.store &&
           mapped.productId === values.productId &&
-          mapped.observationState === values.observationState &&
+          observationEventKind(mapped.observationState) ===
+            observationEventKind(values.observationState) &&
           mapped.opaqueProof === null
         ) {
           return mapped;
@@ -270,9 +275,7 @@ export function createSqliteCommerceRepositories(connection) {
           mapped.storeTransactionId === null &&
           mapped.observationState === values.observationState &&
           mapped.processingState === 'observed' &&
-          mapped.opaqueProof === values.opaqueProof &&
-          mapped.createdAt < values.observedAt &&
-          mapped.updatedAt === values.observedAt
+          mapped.opaqueProof === values.opaqueProof
         ) {
           return mapped;
         }
@@ -283,7 +286,7 @@ export function createSqliteCommerceRepositories(connection) {
           mapped.observationState === 'pending' &&
           mapped.processingState === 'observed' &&
           mapped.opaqueProof === null &&
-          (values.observationState === 'purchased' || values.observationState === 'revoked') &&
+          values.observationState === 'purchased' &&
           values.observedAt > mapped.updatedAt;
         if (mayPromotePending) {
           requireOneChange(
@@ -449,25 +452,33 @@ export function createSqliteCommerceRepositories(connection) {
       }
       if (existingEntitlementRow) {
         const existingEntitlement = mapEntitlement(existingEntitlementRow);
-        if (
-          existingEntitlement.state !== 'active' ||
-          existingEntitlement.store !== journal.store ||
-          existingEntitlement.productId !== journal.productId ||
-          existingEntitlement.revocationAt !== null ||
-          values.committedAt <= existingEntitlement.refreshedAt ||
-          values.refreshHandleVersion < existingEntitlement.refreshHandleVersion
-        ) {
+        const sameAuthority =
+          existingEntitlement.store === journal.store &&
+          existingEntitlement.productId === journal.productId;
+        const mayResealActive =
+          existingEntitlement.state === 'active' &&
+          existingEntitlement.revocationAt === null &&
+          values.committedAt > existingEntitlement.refreshedAt &&
+          values.refreshHandleVersion >= existingEntitlement.refreshHandleVersion;
+        const mayReactivateRevoked =
+          existingEntitlement.state === 'revoked' &&
+          existingEntitlement.sealedRefreshHandle === null &&
+          existingEntitlement.refreshHandleVersion === null &&
+          existingEntitlement.revocationAt !== null &&
+          values.committedAt > existingEntitlement.refreshedAt &&
+          values.committedAt > existingEntitlement.revocationAt;
+        if (!sameAuthority || (!mayResealActive && !mayReactivateRevoked)) {
           throw commerceError('sqlite_commerce_entitlement_conflict');
         }
         requireOneChange(
           await connection.execute(
-            'UPDATE app_entitlements SET sealed_refresh_handle = ?, refresh_handle_version = ?, refreshed_at = ? WHERE entitlement_id = ? AND state = ? AND store = ? AND product_id = ?',
+            'UPDATE app_entitlements SET state = ?, sealed_refresh_handle = ?, refresh_handle_version = ?, refreshed_at = ?, revocation_at = NULL WHERE entitlement_id = ? AND store = ? AND product_id = ?',
             [
+              'active',
               values.sealedRefreshHandle,
               values.refreshHandleVersion,
               values.committedAt,
               values.entitlementId,
-              'active',
               journal.store,
               journal.productId,
             ],
@@ -677,21 +688,14 @@ export function createSqliteCommerceRepositories(connection) {
       if (values.entitlementId !== mappedEntitlementId) {
         throw new TypeError('entitlementId does not match durable store product authority.');
       }
-      const entitlement = mapEntitlement(
-        oneRow(
-          await connection.query(
-            'SELECT entitlement_id, store, product_id, state, sealed_refresh_handle, refresh_handle_version, verified_at, refreshed_at, revocation_at FROM app_entitlements WHERE entitlement_id = ?',
-            [values.entitlementId],
-          ),
-          'sqlite_commerce_entitlement_missing',
-        ),
-      );
+      const entitlementRow = await readEntitlement(connection, values.entitlementId);
+      const entitlement = entitlementRow ? mapEntitlement(entitlementRow) : null;
       if (
         journal.observationState === 'revoked' &&
         journal.processingState === 'store-completion-pending' &&
         journal.storeTransactionId === values.storeTransactionId &&
         journal.updatedAt === values.revokedAt &&
-        entitlement.state === 'revoked' &&
+        entitlement?.state === 'revoked' &&
         entitlement.sealedRefreshHandle === null &&
         entitlement.refreshHandleVersion === null &&
         entitlement.revocationAt === values.revokedAt
@@ -701,11 +705,13 @@ export function createSqliteCommerceRepositories(connection) {
       if (
         journal.observationState !== 'revoked' ||
         journal.processingState !== 'verified' ||
-        entitlement.state !== 'active' ||
-        journal.store !== entitlement.store ||
-        journal.productId !== entitlement.productId ||
         values.revokedAt < journal.updatedAt ||
-        values.revokedAt < entitlement.refreshedAt
+        (entitlement && (
+          entitlement.state !== 'active' ||
+          journal.store !== entitlement.store ||
+          journal.productId !== entitlement.productId ||
+          values.revokedAt < entitlement.refreshedAt
+        ))
       ) {
         throw commerceError('sqlite_commerce_state_invalid');
       }
@@ -713,20 +719,38 @@ export function createSqliteCommerceRepositories(connection) {
         'UPDATE transaction_journal SET store_transaction_id = NULL WHERE store = ? AND store_transaction_id = ? AND journal_id <> ?',
         [journal.store, values.storeTransactionId, values.journalId],
       );
-      requireOneChange(
-        await connection.execute(
-          'UPDATE app_entitlements SET state = ?, revocation_at = ? WHERE entitlement_id = ? AND state = ?',
-          ['revoked', values.revokedAt, values.entitlementId, 'active'],
-        ),
-        'sqlite_commerce_state_invalid',
-      );
-      requireOneChange(
-        await connection.execute(
-          'UPDATE app_entitlements SET sealed_refresh_handle = NULL, refresh_handle_version = NULL WHERE entitlement_id = ? AND state = ?',
-          [values.entitlementId, 'revoked'],
-        ),
-        'sqlite_commerce_state_invalid',
-      );
+      if (entitlement) {
+        requireOneChange(
+          await connection.execute(
+            'UPDATE app_entitlements SET state = ?, revocation_at = ? WHERE entitlement_id = ? AND state = ?',
+            ['revoked', values.revokedAt, values.entitlementId, 'active'],
+          ),
+          'sqlite_commerce_state_invalid',
+        );
+        requireOneChange(
+          await connection.execute(
+            'UPDATE app_entitlements SET sealed_refresh_handle = NULL, refresh_handle_version = NULL WHERE entitlement_id = ? AND state = ?',
+            [values.entitlementId, 'revoked'],
+          ),
+          'sqlite_commerce_state_invalid',
+        );
+      } else {
+        requireOneChange(
+          await connection.execute(
+            'INSERT INTO app_entitlements (entitlement_id, store, product_id, state, sealed_refresh_handle, refresh_handle_version, verified_at, refreshed_at, revocation_at) VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?)',
+            [
+              values.entitlementId,
+              journal.store,
+              journal.productId,
+              'revoked',
+              values.revokedAt,
+              values.revokedAt,
+              values.revokedAt,
+            ],
+          ),
+          'sqlite_commerce_entitlement_write_failed',
+        );
+      }
       requireOneChange(
         await connection.execute(
           'UPDATE transaction_journal SET store_transaction_id = ?, processing_state = ?, updated_at = ? WHERE journal_id = ? AND processing_state = ?',

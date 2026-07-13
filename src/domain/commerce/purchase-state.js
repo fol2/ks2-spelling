@@ -1,5 +1,7 @@
 import packObjectAuthority from '../../../config/b3-pack-object-authority.json' with { type: 'json' };
 
+import { mapStoreProductToEntitlement } from './commerce-contracts.js';
+
 export const FULL_KS2_PRODUCT_IDS = Object.freeze([
   'uk.eugnel.ks2spelling.fullks2',
   'full_ks2',
@@ -109,24 +111,15 @@ export function assertApprovedFullKs2ProductId(value) {
   return value.productId;
 }
 
-export async function deriveTransactionReplayJournalId(observation) {
-  const authority = [
-    'KS2_SPELLING_PURCHASE_REPLAY_V1',
-    observation.store,
-    observation.productId,
-    observation.outcome,
-    observation.transactionRef,
-  ];
-  const framed = authority
-    .map((value) => `${new TextEncoder().encode(value).byteLength}:${value}`)
-    .join('|');
-  const subtle = globalThis.crypto?.subtle;
-  if (!subtle || typeof subtle.digest !== 'function') {
-    throw new Error('Cryptographic transaction replay identity is unavailable.');
-  }
-  const digest = new Uint8Array(
-    await subtle.digest('SHA-256', new TextEncoder().encode(framed)),
-  );
-  const hex = Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('');
-  return `jr-${hex.slice(0, 60)}`;
+export function deriveTransactionReplayJournalId(observation) {
+  const store = observation?.store;
+  const productId = observation?.productId;
+  mapStoreProductToEntitlement({ store, productId });
+  const eventKind = {
+    pending: 'acquisition',
+    purchased: 'acquisition',
+    revoked: 'revocation',
+  }[observation?.outcome];
+  if (!eventKind) throw new TypeError('Purchase replay event kind is invalid.');
+  return `purchase-${store}-full-ks2-${eventKind}`;
 }

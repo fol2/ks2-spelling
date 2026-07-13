@@ -165,6 +165,97 @@ test('B3 fake scripts are finite FIFO queues and returned records cannot mutate 
   );
 });
 
+test('B3 fake constructors snapshot every mutable scripted outcome', async () => {
+  const { createB3FakeStore } = await import(
+    '../src/platform/fakes/create-b3-fake-store.js'
+  );
+  const { createB3FakeGateway } = await import(
+    '../src/platform/fakes/create-b3-fake-gateway.js'
+  );
+  const { createB3FakePackTransfer } = await import(
+    '../src/platform/fakes/create-b3-fake-pack-transfer.js'
+  );
+
+  const productOutcome = [{
+    productId: 'full_ks2',
+    displayName: 'Original Full KS2',
+    description: 'Original description.',
+    displayPrice: '£4.99',
+    currencyCode: 'GBP',
+  }];
+  const store = createB3FakeStore({ productOutcomes: [productOutcome] });
+  productOutcome[0].displayName = 'Mutated after construction';
+  assert.equal(
+    (await store.queryProducts({ productIds: ['full_ks2'] }))[0].displayName,
+    'Original Full KS2',
+  );
+
+  const initialGateway = await createB3FakeGateway({
+    uuidFactory: () => '11111111-1111-4111-8111-111111111111',
+  }).verifyTransaction({
+    store: 'google',
+    environment: 'sandbox',
+    productId: 'full_ks2',
+    opaqueProof: 'proof',
+  });
+  const gatewayOutcome = structuredClone(initialGateway);
+  delete gatewayOutcome.traceId;
+  const gateway = createB3FakeGateway({
+    verifyOutcomes: [gatewayOutcome],
+    uuidFactory: () => '22222222-2222-4222-8222-222222222222',
+  });
+  gatewayOutcome.entitlementId = 'mutated';
+  assert.equal((await gateway.verifyTransaction({
+    store: 'google',
+    environment: 'sandbox',
+    productId: 'full_ks2',
+    opaqueProof: 'proof',
+  })).entitlementId, 'full-ks2');
+
+  const initialAuthorisation = await createB3FakeGateway({
+    uuidFactory: () => '33333333-3333-4333-8333-333333333333',
+  }).authorisePackDownload({
+    sealedRefreshHandle: 'b3rh1.1.fake-nonce.fake-ciphertext',
+    packId: 'b3-sandbox-proof',
+    version: '1.0.0-b3.1',
+  });
+  const authoriseOutcome = structuredClone(initialAuthorisation);
+  delete authoriseOutcome.traceId;
+  const authorisingGateway = createB3FakeGateway({
+    authoriseOutcomes: [authoriseOutcome],
+    uuidFactory: () => '44444444-4444-4444-8444-444444444444',
+  });
+  authoriseOutcome.objects[1].etag = 'mutated-after-construction';
+  assert.equal((await authorisingGateway.authorisePackDownload({
+    sealedRefreshHandle: 'b3rh1.1.fake-nonce.fake-ciphertext',
+    packId: 'b3-sandbox-proof',
+    version: '1.0.0-b3.1',
+  })).objects[1].etag, 'archive-etag');
+
+  const sealOutcome = {
+    installedPathToken: 'installed/original/1.0.0',
+    activationMarkerSha256: 'b'.repeat(64),
+  };
+  const transfer = createB3FakePackTransfer({ sealOutcomes: [sealOutcome] });
+  sealOutcome.installedPathToken = 'installed/mutated/1.0.0';
+  assert.equal((await transfer.sealAndInstall({
+    packId: 'b3-sandbox-proof',
+    version: '1.0.0-b3.1',
+    manifestSha256: 'a'.repeat(64),
+  })).installedPathToken, 'installed/original/1.0.0');
+
+  const scriptedError = Object.assign(new Error('raw scripted secret'), {
+    code: 'ORIGINAL_SCRIPT_CODE',
+  });
+  const failingStore = createB3FakeStore({ purchaseOutcomes: [scriptedError] });
+  scriptedError.code = 'MUTATED_SCRIPT_CODE';
+  await assert.rejects(
+    failingStore.purchase({ productId: 'full_ks2' }),
+    (error) => error.code === 'ORIGINAL_SCRIPT_CODE' &&
+      !error.message.includes('raw scripted secret'),
+  );
+});
+
 test('pack-transfer results reject path-like logical tokens', async () => {
   const { createB3FakePackTransfer } = await import(
     '../src/platform/fakes/create-b3-fake-pack-transfer.js'

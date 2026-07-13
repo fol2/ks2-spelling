@@ -1,6 +1,6 @@
 import {
   assertClosedArray,
-  cloneClosedData,
+  cloneScriptOutcome,
   fail,
 } from '../commerce/store-port.js';
 import {
@@ -93,7 +93,8 @@ function readOptions(options) {
 }
 
 function queue(value, fallback, label) {
-  return [...assertClosedArray(value ?? fallback, label, { max: 128 })];
+  return assertClosedArray(value ?? fallback, label, { max: 128 }).map((outcome) =>
+    cloneScriptOutcome(outcome, label));
 }
 
 function take(values, label, uuidFactory) {
@@ -104,7 +105,7 @@ function take(values, label, uuidFactory) {
   }
   const value = values.shift();
   if (value instanceof Error) throw value;
-  return { ...cloneClosedData(value, `Fake ${label} outcome`), traceId: uuidFactory() };
+  return { ...cloneScriptOutcome(value, `Fake ${label} outcome`), traceId: uuidFactory() };
 }
 
 export function createB3FakeGateway(rawOptions) {

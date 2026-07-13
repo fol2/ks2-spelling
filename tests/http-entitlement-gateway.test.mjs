@@ -312,6 +312,62 @@ test('HTTP gateway keeps 429 and 5xx retryable without treating them as proof re
   }
 });
 
+test('malformed transient responses remain safely retryable', async () => {
+  const { createHttpEntitlementGateway } = await import(
+    '../src/platform/gateway/http-entitlement-gateway.js'
+  );
+  const request = {
+    store: 'google', environment: 'sandbox', productId: 'full_ks2', opaqueProof: 'token',
+  };
+  for (const response of [
+    new Response('<html>rate limited</html>', {
+      status: 429,
+      headers: { 'content-type': 'text/html' },
+    }),
+    new Response('{', {
+      status: 503,
+      headers: { 'content-type': 'application/json' },
+    }),
+  ]) {
+    const gateway = createHttpEntitlementGateway({
+      authority: await authority(),
+      fetchImpl: async () => response,
+    });
+    await assert.rejects(gateway.verifyTransaction(request), (error) => {
+      assert.equal(error.code, 'GATEWAY_RESPONSE_INVALID');
+      assert.equal(error.status, response.status);
+      assert.equal(error.retryable, true);
+      return true;
+    });
+  }
+});
+
+test('gateway rejects inconsistent status, code and retryability mappings safely', async () => {
+  const { createHttpEntitlementGateway } = await import(
+    '../src/platform/gateway/http-entitlement-gateway.js'
+  );
+  const request = {
+    store: 'google', environment: 'sandbox', productId: 'full_ks2', opaqueProof: 'token',
+  };
+  for (const [status, body, expectedRetryable] of [
+    [400, { code: 'RATE_LIMITED', retryable: true }, false],
+    [503, { code: 'PROOF_REJECTED', retryable: false }, true],
+    [400, { code: 'GATEWAY_UNAVAILABLE', retryable: false }, false],
+    [422, { code: 'PROOF_REJECTED', retryable: true }, false],
+  ]) {
+    const gateway = createHttpEntitlementGateway({
+      authority: await authority(),
+      fetchImpl: async () => jsonResponse(body, { status }),
+    });
+    await assert.rejects(gateway.verifyTransaction(request), (error) => {
+      assert.equal(error.code, 'GATEWAY_RESPONSE_INVALID');
+      assert.equal(error.status, status);
+      assert.equal(error.retryable, expectedRetryable);
+      return true;
+    });
+  }
+});
+
 test('HTTP gateway accepts only closed safe error codes and never logs endpoints or secrets', async () => {
   const { createHttpEntitlementGateway } = await import(
     '../src/platform/gateway/http-entitlement-gateway.js'

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { registerPlugin } from '@capacitor/core';
+
 const APPLE_PRODUCT_ID = 'uk.eugnel.ks2spelling.fullks2';
 
 function product() {
@@ -55,6 +57,25 @@ test('Capacitor store maps exact requests and closed product results', async () 
   assert.deepEqual(result, [product()]);
   assert.equal(Object.isFrozen(result), true);
   assert.equal(Object.isFrozen(result[0]), true);
+});
+
+test('Capacitor store accepts the genuine Capacitor 8 zero-own-key plugin proxy', async () => {
+  const { createCapacitorStore } = await import(
+    '../src/platform/commerce/capacitor-store.js'
+  );
+  const Commerce = registerPlugin('Task7ReviewCommerceProxy');
+  assert.deepEqual(Reflect.ownKeys(Commerce), []);
+
+  const store = createCapacitorStore({ Commerce });
+  assert.deepEqual(Reflect.ownKeys(store), [
+    'queryProducts',
+    'purchase',
+    'queryTransactions',
+    'restore',
+    'finishTransaction',
+    'subscribeTransactionUpdates',
+  ]);
+  assert.equal(Object.isFrozen(store), true);
 });
 
 test('Capacitor store preserves cancel, pending, purchase, revoke and unverified parity', async () => {
@@ -228,6 +249,69 @@ test('Capacitor store removal is idempotent and blocks all later native events',
   assert.deepEqual(seen, []);
 });
 
+test('concurrent disposal shares one native removal operation', async () => {
+  const { createCapacitorStore } = await import(
+    '../src/platform/commerce/capacitor-store.js'
+  );
+  let nativeListener;
+  let removals = 0;
+  let release;
+  const pendingRemoval = new Promise((resolve) => { release = resolve; });
+  const store = createCapacitorStore({
+    Commerce: createCommerce({
+      addListener: async (_name, listener) => {
+        nativeListener = listener;
+        return {
+          remove() {
+            removals += 1;
+            return pendingRemoval;
+          },
+        };
+      },
+    }),
+  });
+  const seen = [];
+  const subscription = await store.subscribeTransactionUpdates((event) => seen.push(event));
+  const first = subscription.remove();
+  const second = subscription.remove();
+  assert.equal(first, second);
+  assert.equal(removals, 1);
+  await nativeListener(observation('purchased', { opaqueProof: 'must-not-deliver' }));
+  release();
+  await Promise.all([first, second]);
+  assert.deepEqual(seen, []);
+});
+
+test('failed native removal remains disposed but permits a real retry', async () => {
+  const { createCapacitorStore } = await import(
+    '../src/platform/commerce/capacitor-store.js'
+  );
+  let nativeListener;
+  let removals = 0;
+  const store = createCapacitorStore({
+    Commerce: createCommerce({
+      addListener: async (_name, listener) => {
+        nativeListener = listener;
+        return {
+          remove() {
+            removals += 1;
+            return removals === 1
+              ? Promise.reject(new Error('native secret'))
+              : Promise.resolve();
+          },
+        };
+      },
+    }),
+  });
+  const seen = [];
+  const subscription = await store.subscribeTransactionUpdates((event) => seen.push(event));
+  await assert.rejects(subscription.remove(), ({ code }) => code === 'STORE_NATIVE_FAILURE');
+  await nativeListener(observation('purchased', { opaqueProof: 'must-not-deliver' }));
+  await subscription.remove();
+  assert.equal(removals, 2);
+  assert.deepEqual(seen, []);
+});
+
 test('Capacitor store rejects malformed plugin and request records before native work', async () => {
   const { createCapacitorStore } = await import(
     '../src/platform/commerce/capacitor-store.js'
@@ -251,5 +335,9 @@ test('Capacitor store rejects malformed plugin and request records before native
   assert.throws(
     () => createCapacitorStore({ Commerce: { ...Commerce, unknownMethod() {} } }),
     /Commerce|methods|closed/i,
+  );
+  assert.throws(
+    () => createCapacitorStore({ Commerce: Object.create(Commerce) }),
+    /Commerce|prototype|closed/i,
   );
 });

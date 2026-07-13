@@ -50,8 +50,12 @@ function gatewayError(code, status = null, retryable = false) {
   return new EntitlementGatewayError(code, status, retryable);
 }
 
+function isTransientStatus(status) {
+  return status === 429 || (Number.isInteger(status) && status >= 500);
+}
+
 function invalidResponse(status = null) {
-  return gatewayError('GATEWAY_RESPONSE_INVALID', status, false);
+  return gatewayError('GATEWAY_RESPONSE_INVALID', status, isTransientStatus(status));
 }
 
 function validateOptions(options) {
@@ -176,11 +180,21 @@ function validateErrorResponse(body, status) {
     'PACK_NOT_FOUND',
     'REQUEST_INVALID',
   ]);
+  const transientStatusMatches =
+    (body.code === 'RATE_LIMITED' && status === 429) ||
+    ((body.code === 'STORE_UNAVAILABLE' || body.code === 'GATEWAY_UNAVAILABLE') &&
+      status >= 500);
+  const transientCode =
+    body.code === 'RATE_LIMITED' ||
+    body.code === 'STORE_UNAVAILABLE' ||
+    body.code === 'GATEWAY_UNAVAILABLE';
   if (
     !SAFE_ERROR_CODES.has(body.code) ||
     typeof body.retryable !== 'boolean' ||
     (permanent.has(body.code) && body.retryable) ||
-    ((status === 429 || status >= 500) && !body.retryable)
+    (transientCode && (!body.retryable || !transientStatusMatches)) ||
+    (isTransientStatus(status) && (!body.retryable || !transientCode)) ||
+    (!isTransientStatus(status) && body.retryable)
   ) {
     throw invalidResponse(status);
   }

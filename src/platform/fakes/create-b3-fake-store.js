@@ -3,6 +3,7 @@ import {
   assertClosedArray,
   assertExactPort,
   cloneClosedData,
+  cloneScriptOutcome,
   cloneFrozenArray,
   fail,
   validateFinishRequest,
@@ -61,7 +62,8 @@ function readOptions(options) {
 
 function queue(value, fallback, label) {
   const source = value ?? fallback;
-  return [...assertClosedArray(source, label, { max: 128 })];
+  return assertClosedArray(source, label, { max: 128 }).map((outcome) =>
+    cloneScriptOutcome(outcome, label));
 }
 
 function take(values, label) {
@@ -72,7 +74,7 @@ function take(values, label) {
   }
   const value = values.shift();
   if (value instanceof Error) throw value;
-  return cloneClosedData(value, `Fake ${label} outcome`);
+  return cloneScriptOutcome(value, `Fake ${label} outcome`);
 }
 
 function crossCheck(values, requested, label, rejectDuplicates = false) {

@@ -147,6 +147,22 @@ export function cloneClosedData(value, label = 'Scripted value', depth = 0) {
   return output;
 }
 
+export function cloneScriptOutcome(value, label = 'Scripted outcome') {
+  if (!(value instanceof Error)) return cloneClosedData(value, label);
+  const copy = new Error('The scripted fake operation failed.');
+  Object.defineProperty(copy, 'name', { value: 'B3FakeScriptError' });
+  for (const key of ['code', 'status', 'retryable']) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor) continue;
+    if (!descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) {
+      fail(label, 'error authority must use enumerable data fields');
+    }
+    const authority = cloneClosedData(descriptor.value, label);
+    Object.defineProperty(copy, key, { value: authority, enumerable: true });
+  }
+  return copy;
+}
+
 export function cloneFrozenArray(values, mapper = (value) => value) {
   return Object.freeze(values.map(mapper));
 }

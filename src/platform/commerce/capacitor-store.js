@@ -73,9 +73,41 @@ function validateListenerHandle(value) {
   return value;
 }
 
+function createCommerceFacade(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    fail('Commerce plugin', 'must be an object');
+  }
+  const ownKeys = Reflect.ownKeys(value);
+  const prototype = Object.getPrototypeOf(value);
+  if (
+    ownKeys.length === 0 &&
+    prototype !== Object.prototype &&
+    prototype !== null
+  ) {
+    fail('Commerce plugin', 'must not inherit methods from a custom prototype');
+  }
+  if (ownKeys.length !== 0) {
+    assertExactPort(value, COMMERCE_METHODS, 'Commerce plugin');
+  }
+  const methods = {};
+  for (const methodName of COMMERCE_METHODS) {
+    let method;
+    try {
+      method = value[methodName];
+    } catch {
+      fail('Commerce plugin', `${methodName} must be available`);
+    }
+    if (typeof method !== 'function') {
+      fail('Commerce plugin', `${methodName} must be a function`);
+    }
+    methods[methodName] = (...args) => Reflect.apply(method, value, args);
+  }
+  return Object.freeze(methods);
+}
+
 export function createCapacitorStore(options) {
   assertClosedRecord(options, ['Commerce'], 'Capacitor store options');
-  const Commerce = assertExactPort(options.Commerce, COMMERCE_METHODS, 'Commerce plugin');
+  const Commerce = createCommerceFacade(options.Commerce);
 
   const port = {
     async queryProducts(request) {
@@ -169,24 +201,32 @@ export function createCapacitorStore(options) {
           'Commerce.addListener',
         ),
       );
-      let removed = false;
+      let removalPromise = null;
       return Object.freeze({
-        async remove() {
-          if (removed) return;
-          removed = true;
+        remove() {
           active = false;
-          let result;
-          try {
-            result = handle.remove();
-          } catch {
-            throw safeNativeError();
-          }
-          assertPromise(result, 'Commerce listener remove');
-          try {
-            await result;
-          } catch {
-            throw safeNativeError();
-          }
+          if (removalPromise) return removalPromise;
+          const attempt = (async () => {
+            let result;
+            try {
+              result = handle.remove();
+            } catch {
+              throw safeNativeError();
+            }
+            assertPromise(result, 'Commerce listener remove');
+            try {
+              await result;
+            } catch {
+              throw safeNativeError();
+            }
+          })();
+          let tracked;
+          tracked = attempt.catch((error) => {
+            if (removalPromise === tracked) removalPromise = null;
+            throw error;
+          });
+          removalPromise = tracked;
+          return tracked;
         },
       });
     },

@@ -243,6 +243,15 @@ export function createSqliteCommerceRepositories(connection) {
       const existing = await readJournal(connection, values.journalId);
       if (existing) {
         const mapped = mapJournal(existing);
+        if (
+          (mapped.processingState === 'complete' || mapped.processingState === 'rejected') &&
+          mapped.store === values.store &&
+          mapped.productId === values.productId &&
+          mapped.observationState === values.observationState &&
+          mapped.opaqueProof === null
+        ) {
+          return mapped;
+        }
         const expected = {
           journalId: values.journalId,
           store: values.store,

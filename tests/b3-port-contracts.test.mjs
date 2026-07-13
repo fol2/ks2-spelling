@@ -230,7 +230,7 @@ test('B3 fake constructors snapshot every mutable scripted outcome', async () =>
     sealedRefreshHandle: 'b3rh1.1.fake-nonce.fake-ciphertext',
     packId: 'b3-sandbox-proof',
     version: '1.0.0-b3.1',
-  })).objects[1].etag, 'archive-etag');
+  })).objects[1].etag, '913d2b2485ca6cd31d467bd7228d7e75');
 
   const sealOutcome = {
     installedPathToken: 'installed/original/1.0.0',

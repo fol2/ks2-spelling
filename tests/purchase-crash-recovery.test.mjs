@@ -12,6 +12,9 @@ const CHECKPOINTS = Object.freeze([
   'before:download-authorisation', 'after:download-authorisation',
   'before:download-job', 'after:download-job',
 ]);
+const MANIFEST_SHA256 = '39b6a788a3686d7cbf1fd4791bce45623af21ef53c60eabc03d955395856218a';
+const ARCHIVE_SHA256 = '4c2ca2eb4d4bb7ac3347b66e3483dcb6aa71b41958704733bfc471c970ce7664';
+const ARCHIVE_ETAG = '913d2b2485ca6cd31d467bd7228d7e75';
 
 function createWorld() {
   const observation = Object.freeze({
@@ -87,7 +90,7 @@ function createWorld() {
     async verifyTransaction() { return identity(); },
     async completeTransaction({ sealedRefreshHandle }) { gatewayEffects.add(sealedRefreshHandle); return identity(); },
     async refreshEntitlement() { return identity(); },
-    async authorisePackDownload() { return { ...identity(), packId: 'b3-sandbox-proof', version: '1.0.0-b3.1', signedManifestEnvelopeBase64: 'e30=', signedEnvelopeSha256: 'b'.repeat(64), objects: [{ objectKind: 'manifest', sha256: 'b'.repeat(64), size: 2, etag: 'manifest-etag' }, { objectKind: 'archive', sha256: 'c'.repeat(64), size: 16, etag: 'archive-etag' }], archiveCapability: { packId: 'b3-sandbox-proof', version: '1.0.0-b3.1', archiveName: 'b3-sandbox-proof.zip', sha256: 'c'.repeat(64), compressedBytes: 16, etag: 'archive-etag', capabilityUrl: 'https://b3-gateway.eugnel.uk/v1/packs/b3-sandbox-proof/1.0.0-b3.1/b3-sandbox-proof.zip?expires=1783987200&cap=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' } }; },
+    async authorisePackDownload() { return { ...identity(), packId: 'b3-sandbox-proof', version: '1.0.0-b3.1', signedManifestEnvelopeBase64: 'e30=', signedEnvelopeSha256: MANIFEST_SHA256, objects: [{ objectKind: 'manifest', sha256: MANIFEST_SHA256, size: 1_135, etag: 'c76b2858b8345814279a1c92ae64e365' }, { objectKind: 'archive', sha256: ARCHIVE_SHA256, size: 1_324, etag: ARCHIVE_ETAG }], archiveCapability: { packId: 'b3-sandbox-proof', version: '1.0.0-b3.1', archiveName: 'b3-sandbox-proof.zip', sha256: ARCHIVE_SHA256, compressedBytes: 1_324, etag: ARCHIVE_ETAG, capabilityUrl: 'https://b3-gateway.eugnel.uk/v1/packs/b3-sandbox-proof/1.0.0-b3.1/b3-sandbox-proof.zip?expires=1783987200&cap=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' } }; },
   };
   const downloadRepository = {
     async listDownloadJobs() { return [...jobs.values()]; },
@@ -141,6 +144,34 @@ test('recovery confirms an already-finished native transaction that vanished bef
   assert.equal(journal.processingState, 'complete');
   assert.equal(journal.opaqueProof, null);
   assert.equal(world.jobs.size, 1);
+});
+
+test('pending completion rejects a reverified store transaction ID mismatch before side effects', async () => {
+  const world = createWorld();
+  await assert.rejects(
+    (await makeCoordinator(world, 'after:entitlement-commit'))
+      .purchaseFullKs2({ productId: 'full_ks2' }),
+    { code: 'SIMULATED_CRASH' },
+  );
+  const journal = [...world.journals.values()][0];
+  assert.equal(journal.processingState, 'store-completion-pending');
+  let completionCalls = 0;
+  world.gateway.verifyTransaction = async () => ({
+    store: 'google', productId: 'full_ks2', environment: 'sandbox',
+    applicationId: 'uk.eugnel.ks2spelling', entitlementId: 'full-ks2', state: 'active',
+    storeTransactionId: 'GPA.9999-9999-9999-99999',
+    sealedRefreshHandle: 'b3rh1.2.mismatch.handle', refreshHandleVersion: 2,
+    traceId: '123e4567-e89b-42d3-a456-426614174000', workerVersionId: 'worker-test',
+    workerScriptAuthoritySha256: 'a'.repeat(64),
+  });
+  world.gateway.completeTransaction = async () => { completionCalls += 1; throw new Error('must not complete'); };
+  await assert.rejects(
+    (await makeCoordinator(world, 'never')).recover(),
+    { code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH' },
+  );
+  assert.equal(completionCalls, 0);
+  assert.equal(world.storeEffects.has('native-purchase'), false);
+  assert.equal(journal.opaqueProof, 'fresh-purchase-proof');
 });
 
 test('same-millisecond clocks allocate strictly monotonic repository timestamps', async () => {

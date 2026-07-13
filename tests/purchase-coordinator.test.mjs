@@ -5,6 +5,10 @@ const GOOGLE_PRODUCT_ID = 'full_ks2';
 const APPLE_PRODUCT_ID = 'uk.eugnel.ks2spelling.fullks2';
 const STORE_TRANSACTION_ID = 'GPA.1234-5678-9012-34567';
 const HANDLE = 'b3rh1.1.test-nonce.test-ciphertext';
+const MANIFEST_SHA256 = '39b6a788a3686d7cbf1fd4791bce45623af21ef53c60eabc03d955395856218a';
+const ARCHIVE_SHA256 = '4c2ca2eb4d4bb7ac3347b66e3483dcb6aa71b41958704733bfc471c970ce7664';
+const ARCHIVE_BYTES = 1_324;
+const ARCHIVE_ETAG = '913d2b2485ca6cd31d467bd7228d7e75';
 
 function observation(outcome, overrides = {}) {
   const value = {
@@ -43,18 +47,18 @@ function authorisation(overrides = {}) {
     packId: 'b3-sandbox-proof',
     version: '1.0.0-b3.1',
     signedManifestEnvelopeBase64: 'e30=',
-    signedEnvelopeSha256: 'b'.repeat(64),
+    signedEnvelopeSha256: MANIFEST_SHA256,
     objects: Object.freeze([
-      Object.freeze({ objectKind: 'manifest', sha256: 'b'.repeat(64), size: 2, etag: 'manifest-etag' }),
-      Object.freeze({ objectKind: 'archive', sha256: 'c'.repeat(64), size: 16, etag: 'archive-etag' }),
+      Object.freeze({ objectKind: 'manifest', sha256: MANIFEST_SHA256, size: 1_135, etag: 'c76b2858b8345814279a1c92ae64e365' }),
+      Object.freeze({ objectKind: 'archive', sha256: ARCHIVE_SHA256, size: ARCHIVE_BYTES, etag: ARCHIVE_ETAG }),
     ]),
     archiveCapability: Object.freeze({
       packId: 'b3-sandbox-proof',
       version: '1.0.0-b3.1',
       archiveName: 'b3-sandbox-proof.zip',
-      sha256: 'c'.repeat(64),
-      compressedBytes: 16,
-      etag: 'archive-etag',
+      sha256: ARCHIVE_SHA256,
+      compressedBytes: ARCHIVE_BYTES,
+      etag: ARCHIVE_ETAG,
       capabilityUrl: 'https://b3-gateway.eugnel.uk/v1/packs/b3-sandbox-proof/1.0.0-b3.1/b3-sandbox-proof.zip?expires=1783987200&cap=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
     }),
     ...overrides,
@@ -119,6 +123,11 @@ function createHarness({ purchaseOutcome = observation('purchased'), verifyError
         verifiedAt: value.committedAt,
         revocationAt: null,
       };
+      if (entitlements[0] && value.committedAt <= entitlement.refreshedAt) {
+        throw Object.assign(new Error('restore timestamp did not advance'), {
+          code: 'TEST_TIMESTAMP_NOT_MONOTONIC',
+        });
+      }
       Object.assign(entitlement, {
         sealedRefreshHandle: value.sealedRefreshHandle,
         refreshHandleVersion: value.refreshHandleVersion,
@@ -236,6 +245,8 @@ test('a purchased observation journals before verification and finishes before p
   assert.deepEqual(harness.calls.map(([name]) => name), [
     'purchase',
     'listRecoverableTransactions',
+    'listEntitlements',
+    'listRecoverableTransactions',
     'observeTransaction',
     'verifyTransaction',
     'markVerified',
@@ -255,12 +266,12 @@ test('a purchased observation journals before verification and finishes before p
     jobId: 'b3-sandbox-proof.1.0.0-b3.1',
     packId: 'b3-sandbox-proof',
     version: '1.0.0-b3.1',
-    manifestSha256: 'b'.repeat(64),
+    manifestSha256: MANIFEST_SHA256,
     archiveName: 'b3-sandbox-proof.zip',
-    archiveSha256: 'c'.repeat(64),
-    expectedBytes: 16,
+    archiveSha256: ARCHIVE_SHA256,
+    expectedBytes: ARCHIVE_BYTES,
     completedBytes: 0,
-    etag: 'archive-etag',
+    etag: ARCHIVE_ETAG,
     state: 'queued',
     updatedAt: 1_006,
   });
@@ -457,8 +468,103 @@ test('an existing fixed job validates locally and recovery remains offline', asy
   harness.store.queryTransactions = async () => [];
   await value.recover();
   assert.equal(networkCalls, 0);
-  harness.jobs[0] = { ...harness.jobs[0], packId: 'poison-pack' };
-  await assert.rejects(value.recover(), { code: 'PURCHASE_DOWNLOAD_JOB_AUTHORITY_MISMATCH' });
-  assert.equal(harness.jobs.length, 1);
-  assert.equal(harness.jobs[0].packId, 'poison-pack');
+  const valid = harness.jobs[0];
+  for (const mutation of [
+    { packId: 'poison-pack' },
+    { manifestSha256: 'd'.repeat(64) },
+    { archiveSha256: 'e'.repeat(64) },
+    { expectedBytes: valid.expectedBytes + 1 },
+    { etag: 'wrong-but-well-formed-etag' },
+  ]) {
+    harness.jobs[0] = { ...valid, ...mutation };
+    await assert.rejects(
+      value.recover(),
+      { code: 'PURCHASE_DOWNLOAD_JOB_AUTHORITY_MISMATCH' },
+    );
+    assert.equal(networkCalls, 0);
+  }
+});
+
+test('repeated current-entitlement observations use one stable tombstone across coordinators', async () => {
+  const purchased = observation('purchased', {
+    transactionRef: 'native-current-entitlement',
+    opaqueProof: 'current-entitlement-proof',
+  });
+  const harness = createHarness({ purchaseOutcome: purchased });
+  await (await coordinator(harness, { idFactory: () => 'first-random-attempt' }))
+    .purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
+  const durableBefore = JSON.stringify({
+    journals: harness.journals,
+    entitlements: harness.entitlements,
+    jobs: harness.jobs,
+  });
+  harness.store.queryTransactions = async () => [purchased];
+  let gatewayCalls = 0;
+  for (const method of ['verifyTransaction', 'completeTransaction', 'authorisePackDownload']) {
+    harness.gateway[method] = async () => {
+      gatewayCalls += 1;
+      throw new Error('terminal replay must remain offline');
+    };
+  }
+  await (await coordinator(harness, { idFactory: () => 'different-random-attempt' })).recover();
+  assert.equal(gatewayCalls, 0);
+  assert.equal(harness.journals.length, 1);
+  assert.equal(JSON.stringify(harness.journals).includes(purchased.transactionRef), false);
+  assert.equal(JSON.stringify({
+    journals: harness.journals,
+    entitlements: harness.entitlements,
+    jobs: harness.jobs,
+  }), durableBefore);
+});
+
+test('permanently rejected current observation never restores proof on a fresh coordinator', async () => {
+  const purchased = observation('purchased', {
+    transactionRef: 'native-permanent-rejection',
+    opaqueProof: 'permanently-rejected-proof',
+  });
+  const error = Object.assign(new Error('permanent'), {
+    code: 'PROOF_REJECTED', status: 422, retryable: false,
+  });
+  const harness = createHarness({ purchaseOutcome: purchased, verifyError: error });
+  await assert.rejects(
+    (await coordinator(harness, { idFactory: () => 'first-rejection-attempt' }))
+      .purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID }),
+    { code: 'PROOF_REJECTED' },
+  );
+  assert.equal(harness.journals[0].opaqueProof, null);
+  harness.store.queryTransactions = async () => [purchased];
+  let gatewayCalls = 0;
+  harness.gateway.verifyTransaction = async () => { gatewayCalls += 1; throw error; };
+  await (await coordinator(harness, { idFactory: () => 'second-rejection-attempt' })).recover();
+  assert.equal(gatewayCalls, 0);
+  assert.equal(harness.journals.length, 1);
+  assert.equal(harness.journals[0].processingState, 'rejected');
+  assert.equal(harness.journals[0].opaqueProof, null);
+});
+
+test('fresh coordinator seeds a rolled-back clock before an explicit Restore', async () => {
+  const harness = createHarness();
+  let firstIdentifier = 0;
+  await (await coordinator(harness, {
+    clock: () => 50_000,
+    idFactory: () => `initial-${firstIdentifier += 1}`,
+  })).purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
+  const priorRefreshedAt = harness.entitlements[0].refreshedAt;
+  const fresh = observation('purchased', {
+    transactionRef: 'native-lower-clock-restore',
+    opaqueProof: 'lower-clock-restore-proof',
+  });
+  harness.store.restore = async () => [fresh];
+  harness.gateway.verifyTransaction = async () => identity({
+    sealedRefreshHandle: 'b3rh1.2.lower-clock.handle', refreshHandleVersion: 2,
+  });
+  harness.gateway.completeTransaction = async () => identity({
+    sealedRefreshHandle: 'b3rh1.2.lower-clock.handle', refreshHandleVersion: 2,
+  });
+  await (await coordinator(harness, {
+    clock: () => 1,
+    idFactory: () => 'fresh-restore-attempt',
+  })).restore();
+  assert.equal(harness.entitlements[0].refreshedAt > priorRefreshedAt, true);
+  assert.equal(harness.entitlements[0].sealedRefreshHandle, 'b3rh1.2.lower-clock.handle');
 });

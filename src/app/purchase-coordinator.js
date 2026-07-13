@@ -1,9 +1,11 @@
 import {
+  B3_PACK_JOB_AUTHORITY,
   FULL_KS2_PACK,
   FULL_KS2_PRODUCT_IDS,
   PURCHASE_CHECKPOINTS,
   assertApprovedFullKs2ProductId,
   classifyGatewayFailure,
+  deriveTransactionReplayJournalId,
 } from '../domain/commerce/purchase-state.js';
 import { validateObservation } from '../platform/commerce/store-port.js';
 
@@ -108,6 +110,7 @@ export function createPurchaseCoordinator(rawDependencies) {
   } = dependencies;
   let tail = Promise.resolve();
   let lastTimestamp = -1;
+  let timestampFloorSeeded = false;
 
   function serialise(operation) {
     const run = tail.then(operation, operation);
@@ -143,6 +146,29 @@ export function createPurchaseCoordinator(rawDependencies) {
     const rows = await commerceRepository.listRecoverableTransactions();
     if (!Array.isArray(rows)) throw new TypeError('Recoverable transaction list is invalid.');
     return rows;
+  }
+
+  function absorbTimestampFloor(rows) {
+    for (const row of rows) {
+      for (const key of ['updatedAt', 'verifiedAt', 'refreshedAt', 'revocationAt']) {
+        if (Number.isSafeInteger(row[key])) lastTimestamp = Math.max(lastTimestamp, row[key]);
+      }
+    }
+  }
+
+  async function listEntitlements() {
+    const rows = await commerceRepository.listEntitlements();
+    if (!Array.isArray(rows)) throw new TypeError('Entitlement list is invalid.');
+    absorbTimestampFloor(rows);
+    return rows;
+  }
+
+  async function seedTimestampFloor() {
+    if (timestampFloorSeeded) return;
+    const recoverable = await listRecoverable();
+    absorbTimestampFloor(recoverable);
+    await listEntitlements();
+    timestampFloorSeeded = true;
   }
 
   async function locateJournal(value) {
@@ -181,13 +207,11 @@ export function createPurchaseCoordinator(rawDependencies) {
       const safeExisting =
         existing.packId === FULL_KS2_PACK.packId &&
         existing.version === FULL_KS2_PACK.version &&
-        existing.archiveName === 'b3-sandbox-proof.zip' &&
-        typeof existing.manifestSha256 === 'string' &&
-        /^[a-f0-9]{64}$/.test(existing.manifestSha256) &&
-        typeof existing.archiveSha256 === 'string' &&
-        /^[a-f0-9]{64}$/.test(existing.archiveSha256) &&
-        Number.isSafeInteger(existing.expectedBytes) &&
-        existing.expectedBytes > 0 &&
+        existing.archiveName === B3_PACK_JOB_AUTHORITY.archiveName &&
+        existing.manifestSha256 === B3_PACK_JOB_AUTHORITY.manifestSha256 &&
+        existing.archiveSha256 === B3_PACK_JOB_AUTHORITY.archiveSha256 &&
+        existing.expectedBytes === B3_PACK_JOB_AUTHORITY.archiveBytes &&
+        existing.etag === B3_PACK_JOB_AUTHORITY.archiveEtag &&
         Number.isSafeInteger(existing.completedBytes) &&
         existing.completedBytes >= 0 &&
         existing.completedBytes <= existing.expectedBytes &&
@@ -206,8 +230,21 @@ export function createPurchaseCoordinator(rawDependencies) {
         version: FULL_KS2_PACK.version,
       }));
     assertGatewayIdentity(response, authority, 'active');
-    await persistHandle(response, authority.refreshedAt ?? authority.updatedAt ?? -1);
     const capability = response.archiveCapability;
+    if (
+      response.signedEnvelopeSha256 !== B3_PACK_JOB_AUTHORITY.manifestSha256 ||
+      capability.packId !== B3_PACK_JOB_AUTHORITY.packId ||
+      capability.version !== B3_PACK_JOB_AUTHORITY.version ||
+      capability.archiveName !== B3_PACK_JOB_AUTHORITY.archiveName ||
+      capability.sha256 !== B3_PACK_JOB_AUTHORITY.archiveSha256 ||
+      capability.compressedBytes !== B3_PACK_JOB_AUTHORITY.archiveBytes ||
+      capability.etag !== B3_PACK_JOB_AUTHORITY.archiveEtag
+    ) {
+      throw Object.assign(new Error('The gateway pack authority does not match the tracked proof.'), {
+        code: 'PURCHASE_DOWNLOAD_AUTHORITY_MISMATCH',
+      });
+    }
+    await persistHandle(response, authority.refreshedAt ?? authority.updatedAt ?? -1);
     return around('download-job', () => downloadRepository.upsertDownloadJob({
       jobId: FULL_KS2_PACK.jobId,
       packId: FULL_KS2_PACK.packId,
@@ -315,19 +352,48 @@ export function createPurchaseCoordinator(rawDependencies) {
         code: 'PURCHASE_JOURNAL_STATE_INVALID',
       });
     }
+    if (
+      journal.processingState === 'store-completion-pending' &&
+      verified.storeTransactionId !== journal.storeTransactionId
+    ) {
+      throw Object.assign(new Error('Reverified store transaction authority changed.'), {
+        code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH',
+      });
+    }
     return finishAndClear(journal, verified, nativeObservation, nativeSnapshotKnown);
   }
 
-  async function processObservation(rawObservation) {
+  async function processTerminalJournal(journal) {
+    if (journal.processingState === 'rejected') return frozenResult('rejected');
+    if (journal.processingState !== 'complete') {
+      throw Object.assign(new Error('Unexpected terminal purchase state.'), {
+        code: 'PURCHASE_JOURNAL_STATE_INVALID',
+      });
+    }
+    const entitlements = await listEntitlements();
+    const active = entitlements.find((entitlement) =>
+      entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
+      entitlement.state === 'active');
+    if (active) await ensureDownloadJob(active);
+    return frozenResult('complete');
+  }
+
+  async function processObservation(rawObservation, { freshRestoreAttempt = false } = {}) {
     const value = validateObservation(rawObservation);
     if (value.outcome === 'cancelled' || value.outcome === 'unverified') {
       return frozenResult(value.outcome);
     }
+    await seedTimestampFloor();
     const located = await locateJournal(value);
     let journal = located.journal;
     if (!journal) {
+      const journalId = located.promotablePending?.journalId ?? (
+        freshRestoreAttempt
+          ? safeJournalId(idFactory)
+          : await deriveTransactionReplayJournalId(value)
+      );
       journal = await around('journal', () => commerceRepository.observeTransaction({
-        journalId: located.promotablePending?.journalId ?? safeJournalId(idFactory),
+        journalId,
         store: value.store,
         productId: value.productId,
         observationState: value.outcome,
@@ -335,11 +401,15 @@ export function createPurchaseCoordinator(rawDependencies) {
         observedAt: timestampAfter(located.promotablePending?.updatedAt ?? -1),
       }));
     }
+    if (journal.processingState === 'complete' || journal.processingState === 'rejected') {
+      return processTerminalJournal(journal);
+    }
     if (value.outcome === 'pending') return frozenResult('pending');
     return processDurableJournal(journal, value, false);
   }
 
   async function recoverInternal() {
+    await seedTimestampFloor();
     const native = await store.queryTransactions({ productIds: [...FULL_KS2_PRODUCT_IDS] });
     for (const observation of native) await processObservation(observation);
     const recoverable = await listRecoverable();
@@ -351,7 +421,7 @@ export function createPurchaseCoordinator(rawDependencies) {
         candidate.opaqueProof === journal.opaqueProof) ?? null;
       await processDurableJournal(journal, matching, true);
     }
-    const entitlements = await commerceRepository.listEntitlements();
+    const entitlements = await listEntitlements();
     for (const entitlement of entitlements) {
       if (entitlement.entitlementId === FULL_KS2_PACK.entitlementId && entitlement.state === 'active') {
         await ensureDownloadJob(entitlement);
@@ -377,7 +447,9 @@ export function createPurchaseCoordinator(rawDependencies) {
     if (arguments.length !== 0) throw new TypeError('restore does not accept input.');
     return serialise(async () => {
       const observations = await store.restore({ productIds: [...FULL_KS2_PRODUCT_IDS] });
-      for (const observation of observations) await processObservation(observation);
+      for (const observation of observations) {
+        await processObservation(observation, { freshRestoreAttempt: true });
+      }
       return frozenResult('restored');
     });
   }
@@ -385,7 +457,8 @@ export function createPurchaseCoordinator(rawDependencies) {
   async function refresh() {
     if (arguments.length !== 0) throw new TypeError('refresh does not accept input.');
     return serialise(async () => {
-      const entitlements = await commerceRepository.listEntitlements();
+      await seedTimestampFloor();
+      const entitlements = await listEntitlements();
       for (const entitlement of entitlements) {
         if (entitlement.state !== 'active') continue;
         const response = await gateway.refreshEntitlement({

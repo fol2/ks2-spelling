@@ -21,8 +21,9 @@ const OPTION_KEYS = Object.freeze([
   'uuidFactory',
 ]);
 const SHA_A = 'a'.repeat(64);
-const SHA_B = 'b'.repeat(64);
-const SHA_C = 'c'.repeat(64);
+const SHA_B = '39b6a788a3686d7cbf1fd4791bce45623af21ef53c60eabc03d955395856218a';
+const SHA_C = '4c2ca2eb4d4bb7ac3347b66e3483dcb6aa71b41958704733bfc471c970ce7664';
+const ARCHIVE_ETAG = '913d2b2485ca6cd31d467bd7228d7e75';
 
 function identity() {
   return {
@@ -57,16 +58,16 @@ function authorisation() {
     signedManifestEnvelopeBase64: 'e30=',
     signedEnvelopeSha256: SHA_B,
     objects: [
-      { objectKind: 'manifest', sha256: SHA_B, size: 2, etag: 'manifest-etag' },
-      { objectKind: 'archive', sha256: SHA_C, size: 16, etag: 'archive-etag' },
+      { objectKind: 'manifest', sha256: SHA_B, size: 1_135, etag: 'c76b2858b8345814279a1c92ae64e365' },
+      { objectKind: 'archive', sha256: SHA_C, size: 1_324, etag: ARCHIVE_ETAG },
     ],
     archiveCapability: {
       packId: 'b3-sandbox-proof',
       version: '1.0.0-b3.1',
       archiveName: 'b3-sandbox-proof.zip',
       sha256: SHA_C,
-      compressedBytes: 16,
-      etag: 'archive-etag',
+      compressedBytes: 1_324,
+      etag: ARCHIVE_ETAG,
       capabilityUrl,
     },
   };

@@ -1,3 +1,5 @@
+import packObjectAuthority from '../../../config/b3-pack-object-authority.json' with { type: 'json' };
+
 export const FULL_KS2_PRODUCT_IDS = Object.freeze([
   'uk.eugnel.ks2spelling.fullks2',
   'full_ks2',
@@ -9,6 +11,43 @@ export const FULL_KS2_PACK = Object.freeze({
   version: '1.0.0-b3.1',
   jobId: 'b3-sandbox-proof.1.0.0-b3.1',
 });
+
+function readPackObjectAuthority(value) {
+  const archive = value?.objects?.find?.((entry) => entry?.role === 'archive');
+  const manifest = value?.objects?.find?.((entry) => entry?.role === 'signed-manifest');
+  const valid =
+    value?.schemaVersion === 1 &&
+    value?.packId === FULL_KS2_PACK.packId &&
+    value?.version === FULL_KS2_PACK.version &&
+    Array.isArray(value?.objects) &&
+    value.objects.length === 2 &&
+    archive &&
+    manifest &&
+    archive.key === 'packs/b3-sandbox-proof/1.0.0-b3.1/b3-sandbox-proof.zip' &&
+    manifest.key === 'packs/b3-sandbox-proof/1.0.0-b3.1/signed-manifest.json' &&
+    Number.isSafeInteger(archive.bytes) &&
+    archive.bytes > 0 &&
+    /^[a-f0-9]{64}$/.test(archive.sha256) &&
+    /^[a-f0-9]{32}$/.test(archive.etag) &&
+    Number.isSafeInteger(manifest.bytes) &&
+    manifest.bytes > 0 &&
+    /^[a-f0-9]{64}$/.test(manifest.sha256) &&
+    /^[a-f0-9]{32}$/.test(manifest.etag);
+  if (!valid) throw new TypeError('B3 pack object authority is invalid.');
+  return Object.freeze({
+    packId: value.packId,
+    version: value.version,
+    archiveName: 'b3-sandbox-proof.zip',
+    manifestSha256: manifest.sha256,
+    manifestBytes: manifest.bytes,
+    manifestEtag: manifest.etag,
+    archiveSha256: archive.sha256,
+    archiveBytes: archive.bytes,
+    archiveEtag: archive.etag,
+  });
+}
+
+export const B3_PACK_JOB_AUTHORITY = readPackObjectAuthority(packObjectAuthority);
 
 export const PURCHASE_CHECKPOINTS = Object.freeze([
   'journal',
@@ -68,4 +107,26 @@ export function assertApprovedFullKs2ProductId(value) {
     throw new TypeError('A single approved Full KS2 platform product is required.');
   }
   return value.productId;
+}
+
+export async function deriveTransactionReplayJournalId(observation) {
+  const authority = [
+    'KS2_SPELLING_PURCHASE_REPLAY_V1',
+    observation.store,
+    observation.productId,
+    observation.outcome,
+    observation.transactionRef,
+  ];
+  const framed = authority
+    .map((value) => `${new TextEncoder().encode(value).byteLength}:${value}`)
+    .join('|');
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle || typeof subtle.digest !== 'function') {
+    throw new Error('Cryptographic transaction replay identity is unavailable.');
+  }
+  const digest = new Uint8Array(
+    await subtle.digest('SHA-256', new TextEncoder().encode(framed)),
+  );
+  const hex = Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `jr-${hex.slice(0, 60)}`;
 }

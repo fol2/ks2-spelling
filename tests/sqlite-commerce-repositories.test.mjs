@@ -420,6 +420,71 @@ test('restore reseals one same-authority entitlement and transfers store ID auth
   });
 });
 
+test('deterministic terminal journal replay returns a proof-free tombstone', async () => {
+  await withDatabase(async (connection) => {
+    const repository = createSqliteCommerceRepositories(connection);
+    await repository.observeTransaction({
+      journalId: 'jr-deterministic-terminal',
+      store: 'google',
+      productId: 'full_ks2',
+      observationState: 'purchased',
+      opaqueProof: 'native-proof-never-restored',
+      observedAt: 1_768_478_400_000,
+    });
+    await repository.markVerified({
+      journalId: 'jr-deterministic-terminal',
+      verifiedAt: 1_768_478_400_001,
+    });
+    const committed = await repository.commitEntitlementAndReadyToComplete({
+      journalId: 'jr-deterministic-terminal',
+      entitlementId: 'full-ks2',
+      storeTransactionId: 'GPA.1234-5678-9012-34567',
+      sealedRefreshHandle: 'b3rh1.1.terminal.handle',
+      refreshHandleVersion: 1,
+      committedAt: 1_768_478_400_002,
+    });
+    const complete = await repository.markStoreCompleteAndClearProof({
+      journalId: committed.journal.journalId,
+      completedAt: 1_768_478_400_003,
+    });
+    const replay = await repository.observeTransaction({
+      journalId: complete.journalId,
+      store: complete.store,
+      productId: complete.productId,
+      observationState: complete.observationState,
+      opaqueProof: 'native-proof-never-restored',
+      observedAt: 1_768_478_400_004,
+    });
+    assert.deepEqual(replay, complete);
+    assert.equal(replay.opaqueProof, null);
+
+    await repository.observeTransaction({
+      journalId: 'jr-deterministic-rejected',
+      store: 'google',
+      productId: 'full_ks2',
+      observationState: 'purchased',
+      opaqueProof: 'permanent-proof',
+      observedAt: 1_768_478_401_000,
+    });
+    const rejected = await repository.markRejectedAndClearProof({
+      journalId: 'jr-deterministic-rejected',
+      rejectionKind: 'authenticated-permanent',
+      rejectedAt: 1_768_478_401_001,
+    });
+    assert.deepEqual(
+      await repository.observeTransaction({
+        journalId: rejected.journalId,
+        store: rejected.store,
+        productId: rejected.productId,
+        observationState: rejected.observationState,
+        opaqueProof: 'permanent-proof',
+        observedAt: 1_768_478_401_002,
+      }),
+      rejected,
+    );
+  });
+});
+
 test('only canonical Apple decimal and Google GPA gateway IDs become durable authority', async () => {
   await withDatabase(async (connection) => {
     const repository = createSqliteCommerceRepositories(connection);

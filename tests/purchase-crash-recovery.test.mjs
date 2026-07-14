@@ -38,7 +38,16 @@ function createWorld() {
   const repository = {
     async observeTransaction(input) {
       const prior = journals.get(input.journalId);
-      if (prior) return prior;
+      if (prior) {
+        if (prior.observationState === 'pending' &&
+          prior.processingState === 'observed' &&
+          input.observationState === 'purchased') {
+          prior.observationState = 'purchased';
+          prior.opaqueProof = input.opaqueProof;
+          prior.updatedAt = input.observedAt;
+        }
+        return prior;
+      }
       const row = { journalId: input.journalId, store: input.store, productId: input.productId,
         storeTransactionId: null, observationState: input.observationState, processingState: 'observed',
         opaqueProof: input.opaqueProof, createdAt: input.observedAt, updatedAt: input.observedAt };
@@ -96,8 +105,43 @@ function createWorld() {
     async listDownloadJobs() { return [...jobs.values()]; },
     async upsertDownloadJob(input) { jobs.set(input.jobId, input); return input; },
   };
+  const attemptRepository = {
+    async preparePendingAttempt(input) {
+      const existing = [...journals.values()].find((row) =>
+        row.observationState === 'pending' &&
+        row.processingState === 'observed' &&
+        row.opaqueProof === null &&
+        row.storeTransactionId === null);
+      if (existing) return existing;
+      const stableJournalId = 'purchase-google-full-ks2-acquisition';
+      const journalId = !journals.has(stableJournalId) && entitlements.size === 0
+        ? stableJournalId
+        : input.journalId;
+      return repository.observeTransaction({
+        journalId,
+        store: 'google',
+        productId: 'full_ks2',
+        observationState: 'pending',
+        opaqueProof: null,
+        observedAt: input.observedAt,
+      });
+    },
+    async discardPendingAttempt({ journalId }) {
+      const row = journals.get(journalId);
+      if (!row) return { discarded: false };
+      if (row.observationState !== 'pending' || row.processingState !== 'observed' ||
+        row.opaqueProof !== null || row.storeTransactionId !== null) {
+        throw Object.assign(new Error('attempt conflict'), {
+          code: 'sqlite_commerce_attempt_conflict',
+        });
+      }
+      journals.delete(journalId);
+      return { discarded: true };
+    },
+  };
   return {
-    repository, store, gateway, downloadRepository, journals, entitlements, jobs,
+    repository, attemptRepository, store, gateway, downloadRepository,
+    journals, entitlements, jobs,
     gatewayEffects, storeEffects,
     nextJournalId() { nextJournalId += 1; return `journal-${nextJournalId}`; },
     queueNative(value) { nativeObservations.push(value); },
@@ -110,6 +154,7 @@ async function makeCoordinator(world, checkpoint) {
   let crashed = false;
   return createPurchaseCoordinator({
     store: world.store, gateway: world.gateway, commerceRepository: world.repository,
+    attemptRepository: world.attemptRepository,
     downloadRepository: world.downloadRepository, clock: () => 10_000,
     idFactory: () => world.nextJournalId(),
     failureInjector: async (candidate) => {
@@ -122,7 +167,11 @@ test('every before/after state arrow converges under replay without duplicated d
   for (const checkpoint of CHECKPOINTS) {
     const world = createWorld();
     const first = await makeCoordinator(world, checkpoint);
-    await assert.rejects(first.purchaseFullKs2({ productId: 'full_ks2' }), { code: 'SIMULATED_CRASH' }, checkpoint);
+    await assert.rejects(
+      first.handleObservation((await world.store.queryTransactions())[0]),
+      { code: 'SIMULATED_CRASH' },
+      checkpoint,
+    );
     const replay = await makeCoordinator(world, 'never');
     await replay.recover();
     assert.equal(world.entitlements.size, 1, checkpoint);
@@ -137,7 +186,10 @@ test('every before/after state arrow converges under replay without duplicated d
 test('recovery confirms an already-finished native transaction that vanished before proof clear', async () => {
   const world = createWorld();
   const first = await makeCoordinator(world, 'after:store-finish');
-  await assert.rejects(first.purchaseFullKs2({ productId: 'full_ks2' }), { code: 'SIMULATED_CRASH' });
+  await assert.rejects(
+    first.handleObservation((await world.store.queryTransactions())[0]),
+    { code: 'SIMULATED_CRASH' },
+  );
   assert.deepEqual(await world.store.queryTransactions(), []);
   await (await makeCoordinator(world, 'never')).recover();
   const [journal] = world.journals.values();
@@ -150,7 +202,7 @@ test('pending completion rejects a reverified store transaction ID mismatch befo
   const world = createWorld();
   await assert.rejects(
     (await makeCoordinator(world, 'after:entitlement-commit'))
-      .purchaseFullKs2({ productId: 'full_ks2' }),
+      .handleObservation((await world.store.queryTransactions())[0]),
     { code: 'SIMULATED_CRASH' },
   );
   const journal = [...world.journals.values()][0];
@@ -198,7 +250,7 @@ test('permanent rejection crash checkpoints preserve proof before and keep it cl
       });
     };
     const first = await makeCoordinator(world, checkpoint);
-    await assert.rejects(first.purchaseFullKs2({ productId: 'full_ks2' }), {
+    await assert.rejects(first.handleObservation((await world.store.queryTransactions())[0]), {
       code: 'SIMULATED_CRASH',
     });
     const [journal] = world.journals.values();
@@ -254,7 +306,12 @@ test('revocation crash matrix converges with the handle deleted and installed jo
     };
     const first = await makeCoordinator(world, checkpoint);
     await assert.rejects(first.handleObservation(revoked), { code: 'SIMULATED_CRASH' }, checkpoint);
-    await (await makeCoordinator(world, 'never')).recover();
+    try {
+      await (await makeCoordinator(world, 'never')).recover();
+    } catch (error) {
+      error.message = `${error.message} (${checkpoint})`;
+      throw error;
+    }
     const entitlement = [...world.entitlements.values()][0];
     const revocationJournal = [...world.journals.values()].find(
       (row) => row.observationState === 'revoked',

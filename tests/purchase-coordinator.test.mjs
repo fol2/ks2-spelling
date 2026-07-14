@@ -205,7 +205,48 @@ function createHarness({ purchaseOutcome = observation('purchased'), verifyError
     async listDownloadJobs() { calls.push(['listDownloadJobs']); return jobs; },
     async upsertDownloadJob(value) { calls.push(['upsertDownloadJob', value]); jobs.push(value); return value; },
   };
-  return { calls, journals, entitlements, jobs, repository, store, gateway, downloadRepository };
+  const attemptRepository = {
+    async preparePendingAttempt(value) {
+      calls.push(['preparePendingAttempt', value]);
+      const existing = journals.find((row) =>
+        row.observationState === 'pending' &&
+        row.processingState === 'observed' &&
+        row.opaqueProof === null &&
+        row.storeTransactionId === null);
+      if (existing) return existing;
+      const stableJournalId = 'purchase-google-full-ks2-acquisition';
+      const journalId = !journals.some((row) => row.journalId === stableJournalId) &&
+        entitlements.length === 0
+        ? stableJournalId
+        : value.journalId;
+      return repository.observeTransaction({
+        journalId,
+        store: 'google',
+        productId: GOOGLE_PRODUCT_ID,
+        observationState: 'pending',
+        opaqueProof: null,
+        observedAt: value.observedAt,
+      });
+    },
+    async discardPendingAttempt(value) {
+      calls.push(['discardPendingAttempt', value]);
+      const index = journals.findIndex((row) => row.journalId === value.journalId);
+      if (index === -1) return { discarded: false };
+      const row = journals[index];
+      if (row.observationState !== 'pending' || row.processingState !== 'observed' ||
+        row.opaqueProof !== null || row.storeTransactionId !== null) {
+        throw Object.assign(new Error('attempt conflict'), {
+          code: 'sqlite_commerce_attempt_conflict',
+        });
+      }
+      journals.splice(index, 1);
+      return { discarded: true };
+    },
+  };
+  return {
+    calls, journals, entitlements, jobs, repository, attemptRepository,
+    store, gateway, downloadRepository,
+  };
 }
 
 async function coordinator(harness, overrides = {}) {
@@ -214,6 +255,7 @@ async function coordinator(harness, overrides = {}) {
     store: harness.store,
     gateway: harness.gateway,
     commerceRepository: harness.repository,
+    attemptRepository: harness.attemptRepository,
     downloadRepository: harness.downloadRepository,
     clock: () => 1_000,
     idFactory: () => 'journal-one',
@@ -236,6 +278,30 @@ test('purchase coordinator exposes only the five frozen async methods', async ()
   await assert.rejects(value.restore('extra'), TypeError);
   await assert.rejects(value.refresh('extra'), TypeError);
   await assert.rejects(value.recover('extra'), TypeError);
+  await assert.rejects(
+    coordinator(createHarness(), { attemptRepository: Object.freeze({}) }),
+    TypeError,
+  );
+  await assert.rejects(
+    coordinator(createHarness(), {
+      attemptRepository: Object.freeze({
+        async preparePendingAttempt() {},
+        async discardPendingAttempt() {},
+        async extra() {},
+      }),
+    }),
+    TypeError,
+  );
+  await assert.rejects(
+    coordinator(createHarness(), { idFactory: () => 'journal.with-dot' })
+      .then((candidate) => candidate.purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID })),
+    TypeError,
+  );
+  await assert.rejects(
+    coordinator(createHarness(), { idFactory: () => 'journal_with_underscore' })
+      .then((candidate) => candidate.purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID })),
+    TypeError,
+  );
 });
 
 test('a purchased observation journals before verification and finishes before proof clear and job creation', async () => {
@@ -243,9 +309,14 @@ test('a purchased observation journals before verification and finishes before p
   const value = await coordinator(harness);
   await value.purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
   assert.deepEqual(harness.calls.map(([name]) => name), [
-    'purchase',
     'listRecoverableTransactions',
     'listEntitlements',
+    'listEntitlements',
+    'listRecoverableTransactions',
+    'listRecoverableTransactions',
+    'preparePendingAttempt',
+    'observeTransaction',
+    'purchase',
     'listRecoverableTransactions',
     'listEntitlements',
     'observeTransaction',
@@ -274,7 +345,7 @@ test('a purchased observation journals before verification and finishes before p
     completedBytes: 0,
     etag: ARCHIVE_ETAG,
     state: 'queued',
-    updatedAt: 1_006,
+    updatedAt: 1_007,
   });
   assert.equal(JSON.stringify(harness.calls).match(/learner|child|monster|session|progress/gi), null);
   assert.equal(JSON.stringify(harness.jobs).includes('capabilityUrl'), false);
@@ -284,7 +355,12 @@ test('cancelled and unverified observations never journal or grant; pending jour
   for (const outcome of ['cancelled', 'unverified']) {
     const harness = createHarness({ purchaseOutcome: observation(outcome) });
     await (await coordinator(harness)).purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
-    assert.equal(harness.calls.some(([name]) => name === 'observeTransaction'), false, outcome);
+    assert.equal(harness.journals.length, 0, outcome);
+    assert.equal(
+      harness.calls.some(([name]) => name === 'discardPendingAttempt'),
+      true,
+      outcome,
+    );
     assert.equal(harness.entitlements.length, 0, outcome);
   }
   const pending = createHarness({ purchaseOutcome: observation('pending') });

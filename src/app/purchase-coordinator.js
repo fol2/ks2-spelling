@@ -16,12 +16,38 @@ const METHOD_NAMES = Object.freeze([
   'refresh',
   'recover',
 ]);
+const ASYNC_FUNCTION_PROTOTYPE = Object.getPrototypeOf(async function () {});
+
+function requireAttemptPort(value) {
+  const methods = ['preparePendingAttempt', 'discardPendingAttempt'];
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    (Object.getPrototypeOf(value) !== Object.prototype &&
+      Object.getPrototypeOf(value) !== null) ||
+    Reflect.ownKeys(value).length !== methods.length ||
+    Reflect.ownKeys(value).some((key) => typeof key !== 'string' || !methods.includes(key))
+  ) {
+    throw new TypeError('CommerceAttemptPort is invalid.');
+  }
+  for (const method of methods) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, method);
+    if (!descriptor?.enumerable || !Object.hasOwn(descriptor, 'value') ||
+      typeof descriptor.value !== 'function' ||
+      Object.getPrototypeOf(descriptor.value) !== ASYNC_FUNCTION_PROTOTYPE) {
+      throw new TypeError('CommerceAttemptPort must expose exact async data methods.');
+    }
+  }
+  return value;
+}
 
 function requireFactoryInput(value) {
   const keys = [
     'store',
     'gateway',
     'commerceRepository',
+    'attemptRepository',
     'downloadRepository',
     'clock',
     'idFactory',
@@ -43,6 +69,7 @@ function requireFactoryInput(value) {
       throw new TypeError('Purchase coordinator dependencies must be data fields.');
     }
   }
+  requireAttemptPort(value.attemptRepository);
   const methodGroups = [
     [value.store, ['purchase', 'queryTransactions', 'restore', 'finishTransaction']],
     [value.gateway, ['verifyTransaction', 'completeTransaction', 'refreshEntitlement', 'authorisePackDownload']],
@@ -52,6 +79,7 @@ function requireFactoryInput(value) {
       'replaceSealedRefreshHandle', 'applyRevocationAndDeleteHandle',
       'listRecoverableTransactions', 'listEntitlements',
     ]],
+    [value.attemptRepository, ['preparePendingAttempt', 'discardPendingAttempt']],
     [value.downloadRepository, ['listDownloadJobs', 'upsertDownloadJob']],
   ];
   for (const [target, methods] of methodGroups) {
@@ -67,7 +95,7 @@ function requireFactoryInput(value) {
 
 function safeJournalId(idFactory) {
   const value = idFactory();
-  if (typeof value !== 'string' || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value) || value.length > 64) {
+  if (typeof value !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) || value.length > 64) {
     throw new TypeError('idFactory returned an invalid journal identifier.');
   }
   return value;
@@ -103,6 +131,7 @@ export function createPurchaseCoordinator(rawDependencies) {
     store,
     gateway,
     commerceRepository,
+    attemptRepository,
     downloadRepository,
     clock,
     idFactory,
@@ -180,8 +209,20 @@ export function createPurchaseCoordinator(rawDependencies) {
     return kind(left) === kind(right);
   }
 
-  async function locateJournal(value, stableJournalId) {
+  async function locateJournal(value, stableJournalId, preferredJournalId = null) {
     const rows = await listRecoverable();
+    const preferred = preferredJournalId === null
+      ? null
+      : rows.find((row) => row.journalId === preferredJournalId) ?? null;
+    if (preferred && (
+      preferred.store !== value.store ||
+      preferred.productId !== value.productId ||
+      !sameEventKind(preferred.observationState, value.outcome)
+    )) {
+      throw Object.assign(new Error('Explicit commerce attempt authority changed.'), {
+        code: 'PURCHASE_ATTEMPT_AUTHORITY_MISMATCH',
+      });
+    }
     const exact = rows.find((row) =>
       row.store === value.store &&
       row.productId === value.productId &&
@@ -195,7 +236,50 @@ export function createPurchaseCoordinator(rawDependencies) {
       row.processingState === 'observed' &&
       row.storeTransactionId === null &&
       row.opaqueProof === null) : [];
-    return exact ?? stable ?? (promotablePending.length === 1 ? promotablePending[0] : null);
+    const acquisitionCandidates = (
+      value.outcome === 'pending' || value.outcome === 'purchased'
+    ) ? rows.filter((row) =>
+        row.store === value.store &&
+        row.productId === value.productId &&
+        sameEventKind(row.observationState, value.outcome)) : [];
+    if (acquisitionCandidates.length > 1) {
+      throw Object.assign(new Error('Durable acquisition replay is ambiguous.'), {
+        code: 'PURCHASE_ACQUISITION_AMBIGUOUS',
+      });
+    }
+    if (preferredJournalId !== null && preferred === null) {
+      throw Object.assign(new Error('Durable explicit commerce attempt is missing.'), {
+        code: 'PURCHASE_ATTEMPT_MISSING',
+      });
+    }
+    return preferred ?? exact ?? stable ??
+      (promotablePending.length === 1 ? promotablePending[0] : null) ??
+      (acquisitionCandidates.length === 1 ? acquisitionCandidates[0] : null);
+  }
+
+  async function prepareExplicitAttempt(expectedProductId = null) {
+    await seedTimestampFloor();
+    const recoverable = await listRecoverable();
+    const existing = recoverable.filter((journal) =>
+      journal.observationState === 'pending' &&
+      journal.processingState === 'observed' &&
+      journal.opaqueProof === null &&
+      journal.storeTransactionId === null &&
+      (expectedProductId === null || journal.productId === expectedProductId));
+    if (existing.length > 1) {
+      throw Object.assign(new Error('Durable explicit commerce attempt is ambiguous.'), {
+        code: 'PURCHASE_ACQUISITION_AMBIGUOUS',
+      });
+    }
+    return around('journal', () => attemptRepository.preparePendingAttempt({
+      journalId: existing[0]?.journalId ?? safeJournalId(idFactory),
+      observedAt: timestampAfter(),
+    }));
+  }
+
+  async function discardExplicitAttempt(journal) {
+    return around('attempt-discard', () =>
+      attemptRepository.discardPendingAttempt({ journalId: journal.journalId }));
   }
 
   async function persistHandle(response, previousTimestamp = -1) {
@@ -430,6 +514,29 @@ export function createPurchaseCoordinator(rawDependencies) {
     }
     const { journal: verifiedJournal, verified } = await verifyJournal(journal);
     journal = verifiedJournal;
+    if (
+      nativeObservation?.outcome === 'purchased' &&
+      nativeObservation.opaqueProof !== journal.opaqueProof
+    ) {
+      const currentNativeAuthority = await around('verify', () => gateway.verifyTransaction({
+        store: nativeObservation.store,
+        environment: 'sandbox',
+        productId: nativeObservation.productId,
+        opaqueProof: nativeObservation.opaqueProof,
+      }));
+      assertGatewayIdentity(currentNativeAuthority, {
+        store: journal.store,
+        productId: journal.productId,
+        environment: 'sandbox',
+        entitlementId: FULL_KS2_PACK.entitlementId,
+        applicationId: 'uk.eugnel.ks2spelling',
+      }, 'active');
+      if (currentNativeAuthority.storeTransactionId !== verified.storeTransactionId) {
+        throw Object.assign(new Error('Current native acquisition authority changed.'), {
+          code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH',
+        });
+      }
+    }
     if (journal.processingState === 'verified') {
       const committed = await around('entitlement-commit', () =>
         commerceRepository.commitEntitlementAndReadyToComplete({
@@ -476,6 +583,7 @@ export function createPurchaseCoordinator(rawDependencies) {
 
   async function processObservation(rawObservation, {
     attemptMode = 'proactive',
+    attemptJournalId = null,
     suppliedAuthority = null,
     nativeSnapshotKnown = false,
   } = {}) {
@@ -485,7 +593,7 @@ export function createPurchaseCoordinator(rawDependencies) {
     }
     await seedTimestampFloor();
     const stableJournalId = deriveTransactionReplayJournalId(value);
-    let journal = await locateJournal(value, stableJournalId);
+    let journal = await locateJournal(value, stableJournalId, attemptJournalId);
     const entitlements = await listEntitlements();
     const entitlement = entitlements.find((candidate) =>
       candidate.entitlementId === FULL_KS2_PACK.entitlementId &&
@@ -529,9 +637,10 @@ export function createPurchaseCoordinator(rawDependencies) {
     if (journal.processingState === 'complete' || journal.processingState === 'rejected') {
       const acquisition = value.outcome === 'pending' || value.outcome === 'purchased';
       const needsFreshAttempt =
-        (attemptMode === 'restore' && acquisition) ||
-        (attemptMode === 'purchase' && acquisition && journal.processingState === 'rejected') ||
-        (value.outcome === 'revoked' && entitlement?.state === 'active');
+        !acquisition &&
+        value.outcome === 'revoked' &&
+        entitlement?.state === 'active' &&
+        suppliedAuthority?.state === 'revoked';
       if (!needsFreshAttempt) return processTerminalJournal(journal);
       journal = await around('journal', () => commerceRepository.observeTransaction({
         journalId: safeJournalId(idFactory),
@@ -584,8 +693,41 @@ export function createPurchaseCoordinator(rawDependencies) {
     if (arguments.length !== 1) throw new TypeError('purchaseFullKs2 requires one input.');
     return serialise(async () => {
       const productId = assertApprovedFullKs2ProductId(request);
-      return processObservation(await store.purchase({ productId }), {
+      await seedTimestampFloor();
+      let existingEntitlements = await listEntitlements();
+      let active = existingEntitlements.find((entitlement) =>
+        entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
+        entitlement.productId === productId &&
+        entitlement.state === 'active') ?? null;
+      const recoverable = await listRecoverable();
+      if (active && recoverable.some((journal) =>
+        journal.observationState === 'purchased')) {
+        await recoverInternal();
+        existingEntitlements = await listEntitlements();
+        active = existingEntitlements.find((entitlement) =>
+          entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
+          entitlement.productId === productId &&
+          entitlement.state === 'active') ?? null;
+      }
+      if (active) {
+        await ensureDownloadJob(active);
+        return frozenResult('complete');
+      }
+      const attempt = await prepareExplicitAttempt(productId);
+      if (attempt.productId !== productId) {
+        await discardExplicitAttempt(attempt);
+        throw Object.assign(new Error('Purchase product does not match this platform.'), {
+          code: 'PURCHASE_ATTEMPT_AUTHORITY_MISMATCH',
+        });
+      }
+      const observation = validateObservation(await store.purchase({ productId }));
+      if (observation.outcome === 'cancelled' || observation.outcome === 'unverified') {
+        await discardExplicitAttempt(attempt);
+        return frozenResult(observation.outcome);
+      }
+      return processObservation(observation, {
         attemptMode: 'purchase',
+        attemptJournalId: attempt.journalId,
       });
     });
   }
@@ -598,6 +740,7 @@ export function createPurchaseCoordinator(rawDependencies) {
   async function restore() {
     if (arguments.length !== 0) throw new TypeError('restore does not accept input.');
     return serialise(async () => {
+      const attempt = await prepareExplicitAttempt();
       const observations = await store.restore({ productIds: [...FULL_KS2_PRODUCT_IDS] });
       const selected = new Map();
       for (const observation of observations) {
@@ -610,8 +753,32 @@ export function createPurchaseCoordinator(rawDependencies) {
           selected.set(key, value);
         }
       }
+      const acquisition = [...selected.values()].find((observation) =>
+        (observation.outcome === 'pending' || observation.outcome === 'purchased') &&
+        observation.store === attempt.store &&
+        observation.productId === attempt.productId) ?? null;
+      const foreignAcquisition = [...selected.values()].find((observation) =>
+        (observation.outcome === 'pending' || observation.outcome === 'purchased') &&
+        (observation.store !== attempt.store || observation.productId !== attempt.productId));
+      if (foreignAcquisition) {
+        await discardExplicitAttempt(attempt);
+        throw Object.assign(new Error('Restore acquisition does not match this platform.'), {
+          code: 'PURCHASE_ATTEMPT_AUTHORITY_MISMATCH',
+        });
+      }
+      if (acquisition) {
+        await processObservation(acquisition, {
+          attemptMode: 'restore',
+          attemptJournalId: attempt.journalId,
+        });
+      } else {
+        await discardExplicitAttempt(attempt);
+      }
       for (const observation of selected.values()) {
-        await processObservation(observation, { attemptMode: 'restore' });
+        if (observation === acquisition ||
+          observation.outcome === 'cancelled' ||
+          observation.outcome === 'unverified') continue;
+        await processObservation(observation);
       }
       return frozenResult('restored');
     });

@@ -606,13 +606,27 @@ Expected: B1 and B3 contract tests PASS without weakening the frozen B1 boundary
 - Create: `src/app/purchase-coordinator.js`
 - Create: `src/app/commerce-reconciler.js`
 - Create: `src/domain/commerce/purchase-state.js`
+- Create: `src/platform/database/sqlite-commerce-attempt-repository.js`
 - Create: `tests/purchase-coordinator.test.mjs`
 - Create: `tests/purchase-crash-recovery.test.mjs`
+- Create: `tests/purchase-second-lifecycle.test.mjs`
+- Create: `tests/sqlite-commerce-attempt-repository.test.mjs`
 - Create: `tests/commerce-reconciler.test.mjs`
 
 **Interfaces:**
 
-- Produces: `createPurchaseCoordinator({store,gateway,commerceRepository,downloadRepository,clock,idFactory,failureInjector})` with `purchaseFullKs2`, `handleObservation`, `restore`, `refresh` and `recover`; `createCommerceReconciler(...).start()/resume()/dispose()`.
+- Produces: `createPurchaseCoordinator({store,gateway,commerceRepository,attemptRepository,downloadRepository,clock,idFactory,failureInjector})` with `purchaseFullKs2`, `handleObservation`, `restore`, `refresh` and `recover`; `createCommerceReconciler(...).start()/resume()/dispose()`.
+
+**Implementation amendment:** Task 8 adds a platform-configured two-method
+`CommerceAttemptPort` dependency to the purchase coordinator. The frozen Task 6
+nine-method repository and Task 7 six-method StorePort cannot durably record a
+pre-store Parent attempt and safely delete an unprogressed cancelled/empty
+attempt. The port shares the existing SQLite transaction serialiser, uses the
+unchanged `transaction_journal` schema, and exposes only
+`preparePendingAttempt({journalId,observedAt})` and
+`discardPendingAttempt({journalId})`. A durable pending intent is one-shot
+authorisation across an ambiguous process loss; every acquired proof still
+requires live gateway verification.
 
 - [ ] **Step 1: Write failing state-machine and crash-matrix tests**
 

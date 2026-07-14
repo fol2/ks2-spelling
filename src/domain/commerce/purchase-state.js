@@ -53,6 +53,7 @@ export const B3_PACK_JOB_AUTHORITY = readPackObjectAuthority(packObjectAuthority
 
 export const PURCHASE_CHECKPOINTS = Object.freeze([
   'journal',
+  'attempt-discard',
   'verify',
   'rejection',
   'mark-verified',

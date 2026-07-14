@@ -7,6 +7,7 @@ import test from 'node:test';
 import { createPurchaseCoordinator } from '../src/app/purchase-coordinator.js';
 import { deriveTransactionReplayJournalId } from '../src/domain/commerce/purchase-state.js';
 import { configureAndMigrateDatabase } from '../src/platform/database/migrate-database.js';
+import { createSqliteCommerceAttemptRepository } from '../src/platform/database/sqlite-commerce-attempt-repository.js';
 import { createSqliteCommerceRepositories } from '../src/platform/database/sqlite-commerce-repositories.js';
 import { createSqlitePackRepositories } from '../src/platform/database/sqlite-pack-repositories.js';
 
@@ -103,6 +104,9 @@ async function withWorld(run) {
     await connection.open();
     await configureAndMigrateDatabase(connection);
     const commerceRepository = createSqliteCommerceRepositories(connection);
+    const attemptRepository = createSqliteCommerceAttemptRepository(connection, {
+      store: 'google',
+    });
     const packRepository = createSqlitePackRepositories(connection);
     const calls = {
       verify: [], complete: [], refresh: [], authorise: [], finish: [],
@@ -151,7 +155,11 @@ async function withWorld(run) {
       },
       async authorisePackDownload(input) {
         calls.authorise.push(input);
-        return state.authorisation;
+        return {
+          ...state.authorisation,
+          sealedRefreshHandle: state.lastIdentity.sealedRefreshHandle,
+          refreshHandleVersion: state.lastIdentity.refreshHandleVersion,
+        };
       },
     };
     function coordinator({ failureAt = 'never' } = {}) {
@@ -160,6 +168,7 @@ async function withWorld(run) {
         store,
         gateway,
         commerceRepository,
+        attemptRepository,
         downloadRepository: packRepository,
         clock: () => state.clock += 1,
         idFactory: () => `restore-attempt-${state.nextAttempt += 1}`,
@@ -251,8 +260,9 @@ test('changed process-local purchase authority finishes one stable recoverable a
     assert.equal(rows.length, 1);
     assert.equal(rows[0].processing_state, 'complete');
     assert.equal(rows[0].opaque_proof, null);
-    assert.equal(calls.verify.length, 1);
+    assert.equal(calls.verify.length, 2);
     assert.equal(calls.verify[0].opaqueProof, 'durable-first-process-proof');
+    assert.equal(calls.verify[1].opaqueProof, 'fresh-process-observation-proof');
     assert.deepEqual(calls.finish, ['fresh-process-native-ref']);
   });
 });

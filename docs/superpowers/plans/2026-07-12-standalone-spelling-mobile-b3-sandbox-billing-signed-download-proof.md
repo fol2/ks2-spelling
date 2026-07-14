@@ -699,6 +699,30 @@ and a foreign revocation was not recognised as foreign authority.
 The orphan-intent follow-up recorded 0/2: Parent Buy and Restore recovered the
 purchased journal but left the proof-free pending intent durable instead of
 querying the empty native snapshot and discarding it.
+The coexistence-ordering follow-up recorded 0/4: Parent Buy and Restore either
+treated a later native pending intent as a second durable acquisition, or
+processed a native revocation before purchased-journal replay and then
+reactivated access. Purchased recovery must complete first, pending intent
+reconciliation must reuse the same prevalidated snapshot, and revocation must
+remain the final authority.
+The coexistence crash-replay review then recorded 0/4: after native revocation
+finish or proof clear removed the snapshot proof, Parent Buy and Restore ignored
+the durable revocation result, discarded its pending intent and returned
+cancelled instead of completing revocation replay last.
+The terminal-precedence follow-up recorded 0/6: after purchase or revocation
+proof clear removed the final recoverable journal, an empty or matching-cancelled
+retry treated the surviving Parent intent as cancelled instead of recognising
+the strictly later same-store/product entitlement lifecycle. A completed
+purchase consumes that intent and returns complete/restored; a completed
+revocation remains final and preserves the intent. Older entitlement state must
+never claim a newer Parent intent.
+The acquisition-authority follow-up recorded 0/1: routine handle refresh after
+a pending Parent intent advanced `refreshedAt` and falsely claimed completed
+purchase precedence without a purchase or safe-ID transition. Terminal purchase
+recovery therefore uses acquisition-specific `verifiedAt`; a new purchase,
+Restore or reactivation advances it, while routine refresh and active callbacks
+preserve it. The same-store/product lifecycle timestamp must be strictly later
+than the pending intent.
 
 - [ ] **Step 3: Implement exact ordering and idempotency**
 
@@ -711,7 +735,7 @@ node --test tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.te
 npm run lint
 git diff --check
 git add docs/superpowers/plans/2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md src/app/purchase-coordinator.js src/app/commerce-reconciler.js src/domain/commerce/purchase-state.js src/domain/commerce/entitlement-access-projection.js src/platform/database/sqlite-commerce-repositories.js src/platform/database/sqlite-commerce-attempt-repository.js src/platform/fakes/create-b3-fake-gateway.js tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/purchase-replay-authority.test.mjs tests/purchase-second-lifecycle.test.mjs tests/sqlite-commerce-repositories.test.mjs tests/sqlite-commerce-attempt-repository.test.mjs tests/entitlement-access-projection.test.mjs tests/commerce-reconciler.test.mjs tests/b3-port-contracts.test.mjs
-git commit -m "fix: clear recovered pending commerce intents"
+git commit -m "fix: order coexisting commerce recovery"
 ```
 
 Expected: every restart point converges without double entitlement, double finish/acknowledgement or learner mutation. Obtain fresh state-machine and privacy reviews.

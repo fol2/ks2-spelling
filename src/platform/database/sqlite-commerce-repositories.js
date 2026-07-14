@@ -553,11 +553,12 @@ export function createSqliteCommerceRepositories(connection) {
         }
         requireOneChange(
           await connection.execute(
-            'UPDATE app_entitlements SET state = ?, sealed_refresh_handle = ?, refresh_handle_version = ?, refreshed_at = ?, revocation_at = NULL WHERE entitlement_id = ? AND store = ? AND product_id = ?',
+            'UPDATE app_entitlements SET state = ?, sealed_refresh_handle = ?, refresh_handle_version = ?, verified_at = ?, refreshed_at = ?, revocation_at = NULL WHERE entitlement_id = ? AND store = ? AND product_id = ?',
             [
               'active',
               values.sealedRefreshHandle,
               values.refreshHandleVersion,
+              activeCallback ? existingEntitlement.verifiedAt : values.committedAt,
               values.committedAt,
               values.entitlementId,
               journal.store,

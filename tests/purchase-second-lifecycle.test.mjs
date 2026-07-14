@@ -239,6 +239,29 @@ async function seedPurchasedRecoveryWithPendingIntent(world, operation) {
   return { existingJob, purchasedJournalId, pendingJournalId };
 }
 
+function configureRevocationAuthority(world) {
+  const activeAuthority = identity();
+  const revokedAuthority = identity({ state: 'revoked' });
+  world.gateway.verifyTransaction = async (input) => {
+    world.calls.push(['verifyTransaction', input]);
+    return activeAuthority;
+  };
+  world.gateway.completeTransaction = async (input) => {
+    world.calls.push(['completeTransaction', input]);
+    return activeAuthority;
+  };
+  world.gateway.refreshEntitlement = async (input) => {
+    world.calls.push(['refreshEntitlement', input]);
+    return revokedAuthority;
+  };
+}
+
+function runExplicitParentOperation(coordinator, operation) {
+  return operation === 'Buy'
+    ? coordinator.purchaseFullKs2({ productId: PRODUCT_ID })
+    : coordinator.restore();
+}
+
 test('explicit Buy persists one intent before native work and recovers a second lifecycle after process loss', async () => {
   await withWorld(async (world) => {
     await bootstrapRevoked(world);
@@ -603,6 +626,255 @@ test('Parent Restore reports purchased recovery and clears a surviving empty int
     assert.equal((await world.commerceRepository.listEntitlements())[0].state, 'active');
     assert.deepEqual(world.jobs, [authority.existingJob]);
   });
+});
+
+for (const operation of ['Buy', 'Restore']) {
+  for (const snapshot of ['pending', 'revocation']) {
+    test(`Parent ${operation} recovers a purchased journal before a coexisting ${snapshot} intent snapshot`, async () => {
+      await withWorld(async (world) => {
+        const authority = await seedPurchasedRecoveryWithPendingIntent(
+          world,
+          `${operation.toLowerCase()}-${snapshot}`,
+        );
+        if (snapshot === 'pending') {
+          world.native.push(outcome('pending', `${operation.toLowerCase()}-coexisting-pending`));
+        } else {
+          configureRevocationAuthority(world);
+          world.native.push(revoked(`${operation.toLowerCase()}-coexisting-revocation`));
+        }
+        const callsBefore = world.calls.length;
+
+        const result = await runExplicitParentOperation(world.makeCoordinator(), operation);
+
+        assert.deepEqual(result, { state: snapshot === 'pending' ? 'pending' : 'revoked' });
+        const relevantCalls = world.calls.slice(callsBefore);
+        assert.equal(
+          relevantCalls.some(([name]) => name === 'purchase' || name === 'restore'),
+          false,
+        );
+        const durable = await rows(world.connection);
+        assert.equal(durable.some((row) =>
+          row.journal_id === authority.purchasedJournalId &&
+          row.observation_state === 'purchased' &&
+          row.processing_state === 'complete' &&
+          row.opaque_proof === null), true);
+        assert.equal(durable.some((row) =>
+          row.journal_id === authority.pendingJournalId &&
+          row.observation_state === 'pending' &&
+          row.processing_state === 'observed' &&
+          row.opaque_proof === null &&
+          row.store_transaction_id === null), true);
+        const entitlement = (await world.commerceRepository.listEntitlements())[0];
+        if (snapshot === 'pending') {
+          assert.equal(entitlement.state, 'active');
+          assert.notEqual(entitlement.sealedRefreshHandle, null);
+        } else {
+          assert.ok(
+            relevantCalls.findIndex(([name]) => name === 'completeTransaction') <
+            relevantCalls.findIndex(([name]) => name === 'refreshEntitlement'),
+          );
+          assert.equal(entitlement.state, 'revoked');
+          assert.equal(entitlement.sealedRefreshHandle, null);
+          assert.equal(durable.some((row) =>
+            row.observation_state === 'revoked' &&
+            row.processing_state === 'complete' &&
+            row.opaque_proof === null), true);
+        }
+      });
+    });
+  }
+}
+
+for (const operation of ['Buy', 'Restore']) {
+  for (const [checkpoint, occurrence, retrySnapshot] of [
+    ['after:store-finish', 1, 'empty'],
+    ['after:proof-clear', 2, 'empty'],
+    ['after:proof-clear', 2, 'cancelled'],
+  ]) {
+    test(`Parent ${operation} resumes coexisting revocation ${checkpoint} with ${retrySnapshot} retry authority`, async () => {
+      await withWorld(async (world) => {
+        const authority = await seedPurchasedRecoveryWithPendingIntent(
+          world,
+          `${operation.toLowerCase()}-revocation-retry`,
+        );
+        configureRevocationAuthority(world);
+        world.native.push(revoked(`${operation.toLowerCase()}-revocation-retry`));
+        let seen = 0;
+        const loseDuringRevocationCompletion = async (observedCheckpoint) => {
+          if (observedCheckpoint === checkpoint && (seen += 1) === occurrence) {
+            throw Object.assign(new Error('process lost after native revocation finish'), {
+              code: 'SIMULATED_PROCESS_LOSS',
+            });
+          }
+        };
+        const firstCoordinator = world.makeCoordinator(loseDuringRevocationCompletion);
+
+        await assert.rejects(
+          runExplicitParentOperation(firstCoordinator, operation),
+          { code: 'SIMULATED_PROCESS_LOSS' },
+        );
+        assert.deepEqual(world.native, []);
+        if (retrySnapshot === 'cancelled') {
+          world.native.push(outcome('cancelled', `${operation.toLowerCase()}-revocation-retry`));
+        }
+        const callsBeforeRetry = world.calls.length;
+
+        const result = await runExplicitParentOperation(world.makeCoordinator(), operation);
+
+        assert.deepEqual(result, { state: 'revoked' });
+        assert.equal(
+          world.calls.slice(callsBeforeRetry).some(([name]) =>
+            name === 'purchase' || name === 'restore'),
+          false,
+        );
+        const durable = await rows(world.connection);
+        assert.equal(durable.some((row) =>
+          row.journal_id === authority.pendingJournalId &&
+          row.observation_state === 'pending' &&
+          row.processing_state === 'observed'), true);
+        assert.equal(durable.some((row) =>
+          row.observation_state === 'revoked' &&
+          row.processing_state === 'complete' &&
+          row.opaque_proof === null), true);
+        const entitlement = (await world.commerceRepository.listEntitlements())[0];
+        assert.equal(entitlement.state, 'revoked');
+        assert.equal(entitlement.sealedRefreshHandle, null);
+      });
+    });
+  }
+}
+
+for (const operation of ['Buy', 'Restore']) {
+  for (const retrySnapshot of ['empty', 'cancelled']) {
+    test(`Parent ${operation} preserves completed purchased recovery over a ${retrySnapshot} intent retry`, async () => {
+      await withWorld(async (world) => {
+        const authority = await seedPurchasedRecoveryWithPendingIntent(
+          world,
+          `${operation.toLowerCase()}-purchased-proof-clear-${retrySnapshot}`,
+        );
+        if (retrySnapshot === 'cancelled') {
+          world.native.push(outcome('cancelled', `${operation.toLowerCase()}-purchased-retry`));
+        }
+        const loseAfterPurchasedProofClear = async (checkpoint) => {
+          if (checkpoint === 'after:proof-clear') {
+            throw Object.assign(new Error('process lost after purchased proof clear'), {
+              code: 'SIMULATED_PROCESS_LOSS',
+            });
+          }
+        };
+
+        await assert.rejects(
+          runExplicitParentOperation(
+            world.makeCoordinator(loseAfterPurchasedProofClear),
+            operation,
+          ),
+          { code: 'SIMULATED_PROCESS_LOSS' },
+        );
+        const callsBeforeRetry = world.calls.length;
+
+        const result = await runExplicitParentOperation(world.makeCoordinator(), operation);
+
+        assert.deepEqual(result, {
+          state: operation === 'Buy' ? 'complete' : 'restored',
+        });
+        assert.equal(
+          world.calls.slice(callsBeforeRetry).some(([name]) =>
+            name === 'purchase' || name === 'restore'),
+          false,
+        );
+        const durable = await rows(world.connection);
+        assert.equal(durable.some((row) => row.journal_id === authority.pendingJournalId), false);
+        assert.equal(durable.some((row) =>
+          row.journal_id === authority.purchasedJournalId &&
+          row.observation_state === 'purchased' &&
+          row.processing_state === 'complete' &&
+          row.opaque_proof === null), true);
+        const entitlement = (await world.commerceRepository.listEntitlements())[0];
+        assert.equal(entitlement.state, 'active');
+        assert.notEqual(entitlement.sealedRefreshHandle, null);
+      });
+    });
+  }
+}
+
+test('a lifecycle not strictly later than the Parent intent cannot claim terminal precedence', async () => {
+  for (const lifecycleState of ['active', 'revoked']) {
+    for (const operation of ['Buy', 'Restore']) {
+      for (const timing of ['equal', 'newer']) {
+        await withWorld(async (world) => {
+          if (lifecycleState === 'active') await bootstrapActive(world);
+          else await bootstrapRevoked(world);
+          const entitlement = (await world.commerceRepository.listEntitlements())[0];
+          const lifecycleAt = lifecycleState === 'active'
+            ? entitlement.verifiedAt
+            : entitlement.revocationAt;
+          const attempt = await world.attemptRepository.preparePendingAttempt({
+            journalId: `${timing}-${lifecycleState}-${operation.toLowerCase()}-intent`,
+            observedAt: timing === 'equal' ? lifecycleAt : 50_000,
+          });
+          world.native.push(outcome('cancelled', `${timing}-${lifecycleState}-intent`));
+          const callsBeforeRetry = world.calls.length;
+
+          const result = await runExplicitParentOperation(world.makeCoordinator(), operation);
+
+          const label = `${lifecycleState}/${operation}/${timing}`;
+          assert.deepEqual(result, { state: 'cancelled' }, label);
+          assert.equal(
+            world.calls.slice(callsBeforeRetry).some(([name]) =>
+              name === 'purchase' || name === 'restore'),
+            false,
+            label,
+          );
+          assert.equal(
+            (await rows(world.connection)).some((row) => row.journal_id === attempt.journalId),
+            false,
+            label,
+          );
+        });
+      }
+    }
+  }
+});
+
+test('a routine handle refresh after the Parent intent cannot claim purchase precedence', async () => {
+  for (const operation of ['Buy', 'Restore']) {
+    for (const retrySnapshot of ['empty', 'cancelled']) {
+      await withWorld(async (world) => {
+        await bootstrapActive(world);
+        const activeBeforeIntent = (await world.commerceRepository.listEntitlements())[0];
+        const attempt = await world.attemptRepository.preparePendingAttempt({
+          journalId: `routine-refresh-${operation.toLowerCase()}-${retrySnapshot}-intent`,
+          observedAt: 50_000,
+        });
+
+        await world.makeCoordinator().refresh();
+        const refreshed = (await world.commerceRepository.listEntitlements())[0];
+        assert.equal(refreshed.storeTransactionId, activeBeforeIntent.storeTransactionId);
+        assert.equal(refreshed.verifiedAt, activeBeforeIntent.verifiedAt);
+        assert.equal(refreshed.refreshedAt > attempt.updatedAt, true);
+        if (retrySnapshot === 'cancelled') {
+          world.native.push(outcome('cancelled', `routine-refresh-${operation.toLowerCase()}`));
+        }
+        const callsBeforeRetry = world.calls.length;
+
+        const result = await runExplicitParentOperation(world.makeCoordinator(), operation);
+
+        const label = `${operation}/${retrySnapshot}`;
+        assert.deepEqual(result, { state: 'cancelled' }, label);
+        assert.equal(
+          world.calls.slice(callsBeforeRetry).some(([name]) =>
+            name === 'purchase' || name === 'restore'),
+          false,
+          label,
+        );
+        assert.equal(
+          (await rows(world.connection)).some((row) => row.journal_id === attempt.journalId),
+          false,
+          label,
+        );
+      });
+    }
+  }
 });
 
 test('Restore rejects a foreign-platform acquisition and discards its safe configured intent', async () => {

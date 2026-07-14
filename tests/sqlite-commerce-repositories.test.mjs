@@ -382,7 +382,7 @@ test('one matching pending journal promotes atomically to a purchased proof', as
   });
 });
 
-test('restore reseals one same-authority entitlement and transfers store ID authority', async () => {
+test('restore advances acquisition verification and transfers store ID authority', async () => {
   await withDatabase(async (connection) => {
     const repository = createSqliteCommerceRepositories(connection);
     const first = await grantApple(repository);
@@ -410,7 +410,7 @@ test('restore reseals one same-authority entitlement and transfers store ID auth
       refreshHandleVersion: 2,
       committedAt: first.journal.updatedAt + 4,
     });
-    assert.equal(restored.entitlement.verifiedAt, first.entitlement.verifiedAt);
+    assert.equal(restored.entitlement.verifiedAt, first.journal.updatedAt + 4);
     assert.equal(restored.entitlement.refreshedAt, first.journal.updatedAt + 4);
     assert.equal(restored.entitlement.sealedRefreshHandle, 'b3rh1.2.restore.ciphertext');
     assert.equal(restored.entitlement.storeTransactionId, '2000001234567891');
@@ -440,6 +440,49 @@ test('restore reseals one same-authority entitlement and transfers store ID auth
       }),
       restored,
     );
+  });
+});
+
+test('routine refresh and active callback do not advance acquisition verification', async () => {
+  await withDatabase(async (connection) => {
+    const repository = createSqliteCommerceRepositories(connection);
+    const first = await grantApple(repository);
+    await repository.markStoreCompleteAndClearProof({
+      journalId: first.journal.journalId,
+      completedAt: first.journal.updatedAt + 1,
+    });
+    const refreshed = await repository.replaceSealedRefreshHandle({
+      entitlementId: 'full-ks2',
+      sealedRefreshHandle: 'b3rh1.2.refresh.ciphertext',
+      refreshHandleVersion: 2,
+      refreshedAt: first.journal.updatedAt + 2,
+    });
+    assert.equal(refreshed.verifiedAt, first.entitlement.verifiedAt);
+
+    const callbackJournalId = 'purchase-apple-full-ks2-active-callback';
+    await repository.observeTransaction({
+      journalId: callbackJournalId,
+      store: 'apple',
+      productId: 'uk.eugnel.ks2spelling.fullks2',
+      observationState: 'purchased',
+      opaqueProof: 'fresh-current-entitlement-jws',
+      observedAt: first.journal.updatedAt + 3,
+    });
+    await repository.markVerified({
+      journalId: callbackJournalId,
+      verifiedAt: first.journal.updatedAt + 4,
+    });
+    const callback = await repository.commitEntitlementAndReadyToComplete({
+      journalId: callbackJournalId,
+      entitlementId: 'full-ks2',
+      storeTransactionId: first.entitlement.storeTransactionId,
+      sealedRefreshHandle: 'b3rh1.3.callback.ciphertext',
+      refreshHandleVersion: 3,
+      committedAt: first.journal.updatedAt + 5,
+    });
+
+    assert.equal(callback.entitlement.verifiedAt, first.entitlement.verifiedAt);
+    assert.equal(callback.entitlement.refreshedAt, first.journal.updatedAt + 5);
   });
 });
 

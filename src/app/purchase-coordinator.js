@@ -762,46 +762,52 @@ export function createPurchaseCoordinator(rawDependencies) {
     return frozenResult('reconciled');
   }
 
-  async function reconcilePurchasedAttempt() {
+  async function preflightExplicitOperation(expectedProductId, attemptMode) {
     const before = await listRecoverable();
     const purchased = before.filter((journal) => journal.observationState === 'purchased');
-    if (purchased.length === 0) {
-      return Object.freeze({ reconciled: false, recoverable: before });
-    }
-    await recoverInternal();
-    const remaining = await listRecoverable();
-    if (purchased.some((journal) =>
-      remaining.some((candidate) => candidate.journalId === journal.journalId))) {
-      throw Object.assign(new Error('Purchased commerce recovery did not converge.'), {
-        code: 'PURCHASE_RECOVERY_INCOMPLETE',
+    if (purchased.length > 1) {
+      throw Object.assign(new Error('Durable purchased commerce recovery is ambiguous.'), {
+        code: 'PURCHASE_ACQUISITION_AMBIGUOUS',
       });
     }
-    return Object.freeze({ reconciled: true, recoverable: remaining });
-  }
-
-  async function reconcilePreExistingPendingAttempt(
-    expectedProductId,
-    attemptMode,
-    recoverable,
-  ) {
-    const pending = recoverable.filter((journal) =>
+    const pending = before.filter((journal) =>
       journal.observationState === 'pending' &&
       journal.processingState === 'observed' &&
       journal.storeTransactionId === null &&
       journal.opaqueProof === null &&
       (expectedProductId === null || journal.productId === expectedProductId));
-    if (pending.length === 0) return null;
     if (pending.length > 1) {
       throw Object.assign(new Error('Durable explicit commerce attempt is ambiguous.'), {
         code: 'PURCHASE_ACQUISITION_AMBIGUOUS',
       });
     }
-    const attempt = pending[0];
+    const durableRevocations = before.filter((journal) =>
+      journal.observationState === 'revoked');
+    if (durableRevocations.length > 1) {
+      throw Object.assign(new Error('Durable revocation recovery is ambiguous.'), {
+        code: 'PURCHASE_NATIVE_REVOCATION_AMBIGUOUS',
+      });
+    }
+    const purchasedJournal = purchased[0] ?? null;
+    const attempt = pending[0] ?? null;
+    const durableRevocation = durableRevocations[0] ?? null;
+    if (!purchasedJournal && !attempt && !durableRevocation) {
+      return Object.freeze({ reconciled: false, priorAttempt: null });
+    }
+    const authority = attempt ?? purchasedJournal ?? durableRevocation;
+    if ([purchasedJournal, attempt, durableRevocation]
+      .filter(Boolean)
+      .some((journal) =>
+        journal.store !== authority.store || journal.productId !== authority.productId)) {
+      throw Object.assign(new Error('Durable commerce authorities do not match.'), {
+        code: 'PURCHASE_ATTEMPT_AUTHORITY_MISMATCH',
+      });
+    }
     const native = normaliseNativeSnapshot(
       await store.queryTransactions({ productIds: [...FULL_KS2_PRODUCT_IDS] }),
     );
     const belongsToAttempt = (observation) =>
-      observation.store === attempt.store && observation.productId === attempt.productId;
+      observation.store === authority.store && observation.productId === authority.productId;
     const authorityBearing = native.filter((observation) =>
       observation.outcome === 'pending' ||
       observation.outcome === 'purchased' ||
@@ -816,36 +822,97 @@ export function createPurchaseCoordinator(rawDependencies) {
     const matching = native.filter(belongsToAttempt);
     const acquisition = matching.find((observation) =>
       observation.outcome === 'pending' || observation.outcome === 'purchased') ?? null;
-    const revocations = matching.filter((observation) => observation.outcome === 'revoked');
-    if (revocations.length > 1) {
+    const nativeRevocations = matching.filter((observation) => observation.outcome === 'revoked');
+    if (nativeRevocations.length > 1) {
       throw Object.assign(new Error('Native revocation snapshot is ambiguous.'), {
         code: 'PURCHASE_NATIVE_REVOCATION_AMBIGUOUS',
       });
     }
     if (matching.some((observation) => observation.outcome === 'unverified')) {
-      return frozenResult('unverified');
+      return Object.freeze({ reconciled: false, priorAttempt: frozenResult('unverified') });
     }
-    let result = null;
-    if (acquisition) {
-      result = await processObservation(acquisition, {
+    const purchasedObservation = acquisition?.outcome === 'purchased'
+      ? acquisition
+      : null;
+    let reconciled = false;
+    if (purchasedJournal) {
+      await processDurableJournal(
+        purchasedJournal,
+        purchasedObservation,
+        true,
+      );
+      const remaining = await listRecoverable();
+      if (remaining.some((candidate) =>
+        candidate.journalId === purchasedJournal.journalId)) {
+        throw Object.assign(new Error('Purchased commerce recovery did not converge.'), {
+          code: 'PURCHASE_RECOVERY_INCOMPLETE',
+        });
+      }
+      reconciled = true;
+    }
+
+    let completedLifecycle = null;
+    if (attempt && !durableRevocation && !acquisition && nativeRevocations.length === 0) {
+      const entitlements = await listEntitlements();
+      const entitlement = entitlements.find((candidate) =>
+        candidate.store === attempt.store &&
+        candidate.productId === attempt.productId) ?? null;
+      if (
+        entitlement?.state === 'active' &&
+        entitlement.verifiedAt > attempt.updatedAt
+      ) {
+        completedLifecycle = 'purchased';
+      } else if (
+        entitlement?.state === 'revoked' &&
+        entitlement.revocationAt > attempt.updatedAt
+      ) {
+        completedLifecycle = 'revoked';
+      }
+    }
+
+    let priorAttempt = null;
+    const attemptAcquisition = acquisition === purchasedObservation && purchasedJournal
+      ? null
+      : acquisition;
+    if (attempt && attemptAcquisition) {
+      priorAttempt = await processObservation(attemptAcquisition, {
         attemptMode,
         attemptJournalId: attempt.journalId,
         nativeSnapshotKnown: true,
       });
+    } else if (attempt && completedLifecycle === 'purchased') {
+      await discardExplicitAttempt(attempt);
+      priorAttempt = frozenResult('complete');
+    } else if (attempt && nativeRevocations.length === 0 &&
+      !durableRevocation && completedLifecycle !== 'revoked') {
+      const remainingMatching = matching.filter((observation) =>
+        observation !== purchasedObservation);
+      if (remainingMatching.length > 0 &&
+        !remainingMatching.every((observation) => observation.outcome === 'cancelled')) {
+        throw Object.assign(new Error('Native Parent-intent snapshot is not authoritative.'), {
+          code: 'PURCHASE_ATTEMPT_AUTHORITY_MISMATCH',
+        });
+      }
+      await discardExplicitAttempt(attempt);
+      priorAttempt = frozenResult('cancelled');
+    } else if (!attempt && acquisition?.outcome === 'pending') {
+      priorAttempt = frozenResult('pending');
     }
-    for (const revocation of revocations) {
-      await processObservation(revocation, { nativeSnapshotKnown: true });
-      result = frozenResult('revoked');
+    if (durableRevocation) {
+      await processDurableJournal(
+        durableRevocation,
+        nativeRevocations[0] ?? null,
+        true,
+      );
+      priorAttempt = frozenResult('revoked');
+    } else {
+      for (const revocation of nativeRevocations) {
+        await processObservation(revocation, { nativeSnapshotKnown: true });
+        priorAttempt = frozenResult('revoked');
+      }
+      if (completedLifecycle === 'revoked') priorAttempt = frozenResult('revoked');
     }
-    if (result) return result;
-    if (matching.length > 0 &&
-      !matching.every((observation) => observation.outcome === 'cancelled')) {
-      throw Object.assign(new Error('Native Parent-intent snapshot is not authoritative.'), {
-        code: 'PURCHASE_ATTEMPT_AUTHORITY_MISMATCH',
-      });
-    }
-    await discardExplicitAttempt(attempt);
-    return frozenResult('cancelled');
+    return Object.freeze({ reconciled, priorAttempt });
   }
 
   async function purchaseFullKs2(request) {
@@ -853,12 +920,8 @@ export function createPurchaseCoordinator(rawDependencies) {
     return serialise(async () => {
       const productId = assertApprovedFullKs2ProductId(request);
       await seedTimestampFloor();
-      const recovery = await reconcilePurchasedAttempt();
-      const priorAttempt = await reconcilePreExistingPendingAttempt(
-        productId,
-        'purchase',
-        recovery.recoverable,
-      );
+      const recovery = await preflightExplicitOperation(productId, 'purchase');
+      const priorAttempt = recovery.priorAttempt;
       if (priorAttempt && (!recovery.reconciled ||
         !['cancelled', 'complete'].includes(priorAttempt.state))) {
         return priorAttempt;
@@ -910,12 +973,8 @@ export function createPurchaseCoordinator(rawDependencies) {
     if (arguments.length !== 0) throw new TypeError('restore does not accept input.');
     return serialise(async () => {
       await seedTimestampFloor();
-      const recovery = await reconcilePurchasedAttempt();
-      const priorAttempt = await reconcilePreExistingPendingAttempt(
-        null,
-        'restore',
-        recovery.recoverable,
-      );
+      const recovery = await preflightExplicitOperation(null, 'restore');
+      const priorAttempt = recovery.priorAttempt;
       if (recovery.reconciled) {
         if (priorAttempt && !['cancelled', 'complete'].includes(priorAttempt.state)) {
           return priorAttempt;

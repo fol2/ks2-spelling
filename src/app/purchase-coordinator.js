@@ -800,23 +800,48 @@ export function createPurchaseCoordinator(rawDependencies) {
     const native = normaliseNativeSnapshot(
       await store.queryTransactions({ productIds: [...FULL_KS2_PRODUCT_IDS] }),
     );
-    const acquisition = native.find((observation) =>
-      (observation.outcome === 'pending' || observation.outcome === 'purchased') &&
-      observation.store === attempt.store &&
-      observation.productId === attempt.productId) ?? null;
-    const foreignAcquisition = native.find((observation) =>
-      (observation.outcome === 'pending' || observation.outcome === 'purchased') &&
-      (observation.store !== attempt.store || observation.productId !== attempt.productId));
-    if (foreignAcquisition) {
-      throw Object.assign(new Error('Native acquisition does not match durable Parent intent.'), {
+    const belongsToAttempt = (observation) =>
+      observation.store === attempt.store && observation.productId === attempt.productId;
+    const authorityBearing = native.filter((observation) =>
+      observation.outcome === 'pending' ||
+      observation.outcome === 'purchased' ||
+      observation.outcome === 'revoked');
+    const foreignAuthority = authorityBearing.find((observation) =>
+      !belongsToAttempt(observation));
+    if (foreignAuthority) {
+      throw Object.assign(new Error('Native authority does not match durable Parent intent.'), {
         code: 'PURCHASE_ATTEMPT_AUTHORITY_MISMATCH',
       });
     }
+    const matching = native.filter(belongsToAttempt);
+    const acquisition = matching.find((observation) =>
+      observation.outcome === 'pending' || observation.outcome === 'purchased') ?? null;
+    const revocations = matching.filter((observation) => observation.outcome === 'revoked');
+    if (revocations.length > 1) {
+      throw Object.assign(new Error('Native revocation snapshot is ambiguous.'), {
+        code: 'PURCHASE_NATIVE_REVOCATION_AMBIGUOUS',
+      });
+    }
+    if (matching.some((observation) => observation.outcome === 'unverified')) {
+      return frozenResult('unverified');
+    }
+    let result = null;
     if (acquisition) {
-      return processObservation(acquisition, {
+      result = await processObservation(acquisition, {
         attemptMode,
         attemptJournalId: attempt.journalId,
         nativeSnapshotKnown: true,
+      });
+    }
+    for (const revocation of revocations) {
+      await processObservation(revocation, { nativeSnapshotKnown: true });
+      result = frozenResult('revoked');
+    }
+    if (result) return result;
+    if (matching.length > 0 &&
+      !matching.every((observation) => observation.outcome === 'cancelled')) {
+      throw Object.assign(new Error('Native Parent-intent snapshot is not authoritative.'), {
+        code: 'PURCHASE_ATTEMPT_AUTHORITY_MISMATCH',
       });
     }
     await discardExplicitAttempt(attempt);

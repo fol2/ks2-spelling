@@ -659,6 +659,12 @@ An existing proof-free pending Parent intent is also one-shot: the next explicit
 action queries native state without invoking the store operation again, then
 promotes a matching purchase, preserves matching pending state, or discards an
 authoritatively empty/cancelled intent so only a later Parent action may retry.
+The read-only query snapshot is closed and prevalidated before effects. A
+matching unverified outcome preserves the intent and fails closed; a verified
+revocation is processed without invoking Buy/Restore and also preserves the
+intent; acquisition is always processed before a same-snapshot revocation so
+revocation is final. Any foreign pending, purchased or revoked authority fails
+closed without gateway or durable entitlement effects.
 
 - [ ] **Step 1: Write failing state-machine and crash-matrix tests**
 
@@ -675,7 +681,7 @@ Cover normal states plus failure classification. Authenticated nonretryable gate
 - [ ] **Step 2: Record RED**
 
 ```bash
-node --test tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/purchase-replay-authority.test.mjs tests/purchase-second-lifecycle.test.mjs tests/sqlite-commerce-repositories.test.mjs tests/entitlement-access-projection.test.mjs tests/commerce-reconciler.test.mjs
+node --test tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/purchase-replay-authority.test.mjs tests/purchase-second-lifecycle.test.mjs tests/sqlite-commerce-repositories.test.mjs tests/sqlite-commerce-attempt-repository.test.mjs tests/entitlement-access-projection.test.mjs tests/commerce-reconciler.test.mjs
 ```
 
 Expected: FAIL before implementation. The final repair recorded 14/17 with
@@ -686,7 +692,10 @@ mismatch and rejection crash convergence: the callback remained verified with
 proof A instead of rejected and proof-cleared. A second focused run recorded
 0/2 for one-shot pending Buy/Restore reconciliation and Restore-result
 ambiguity: the store operation was invoked again and the ambiguous result did
-not reject.
+not reject. The final snapshot repair recorded 20/24 with four failures: a
+matching unverified outcome was treated as empty, revocation-only was treated
+as empty, a mixed acquisition/revocation snapshot stopped after acquisition,
+and a foreign revocation was not recognised as foreign authority.
 
 - [ ] **Step 3: Implement exact ordering and idempotency**
 
@@ -699,7 +708,7 @@ node --test tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.te
 npm run lint
 git diff --check
 git add docs/superpowers/plans/2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md src/app/purchase-coordinator.js src/app/commerce-reconciler.js src/domain/commerce/purchase-state.js src/domain/commerce/entitlement-access-projection.js src/platform/database/sqlite-commerce-repositories.js src/platform/database/sqlite-commerce-attempt-repository.js src/platform/fakes/create-b3-fake-gateway.js tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/purchase-replay-authority.test.mjs tests/purchase-second-lifecycle.test.mjs tests/sqlite-commerce-repositories.test.mjs tests/sqlite-commerce-attempt-repository.test.mjs tests/entitlement-access-projection.test.mjs tests/commerce-reconciler.test.mjs tests/b3-port-contracts.test.mjs
-git commit -m "fix: reject changed callback authority"
+git commit -m "fix: reconcile pending authority snapshots"
 ```
 
 Expected: every restart point converges without double entitlement, double finish/acknowledgement or learner mutation. Obtain fresh state-machine and privacy reviews.

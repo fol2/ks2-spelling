@@ -726,6 +726,252 @@ test('pre-existing one-shot intent reconciles native state without a second Buy 
   }
 });
 
+test('pre-existing intent preserves an unverified matching query snapshot without effects', async () => {
+  for (const operation of ['purchase', 'restore']) {
+    await withWorld(async (world) => {
+      const attempt = await world.attemptRepository.preparePendingAttempt({
+        journalId: `pre-existing-${operation}-unverified`,
+        observedAt: 9_999,
+      });
+      world.native.push(outcome('unverified', `${operation}-unverified`));
+      const callsBefore = world.calls.length;
+
+      const result = operation === 'purchase'
+        ? await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID })
+        : await world.makeCoordinator().restore();
+
+      assert.equal(result.state, 'unverified', operation);
+      assert.deepEqual(await rows(world.connection), [{
+        journal_id: attempt.journalId,
+        observation_state: 'pending',
+        processing_state: 'observed',
+        opaque_proof: null,
+        store_transaction_id: null,
+      }], operation);
+      assert.deepEqual(await world.commerceRepository.listEntitlements(), [], operation);
+      assert.deepEqual(world.jobs, [], operation);
+      assert.equal(
+        world.calls.slice(callsBefore).some(([name]) => [
+          'purchase',
+          'restore',
+          'verifyTransaction',
+          'completeTransaction',
+          'finishTransaction',
+          'authorisePackDownload',
+        ].includes(name)),
+        false,
+        operation,
+      );
+    });
+  }
+});
+
+test('unverified prevalidates a mixed pending-intent snapshot before any authority effect', async () => {
+  for (const authorityOutcome of ['purchased', 'revoked']) {
+    await withWorld(async (world) => {
+      if (authorityOutcome === 'revoked') await bootstrapActive(world);
+      const attempt = await world.attemptRepository.preparePendingAttempt({
+        journalId: `pre-existing-unverified-with-${authorityOutcome}`,
+        observedAt: 20_000,
+      });
+      world.native.push(
+        authorityOutcome === 'purchased'
+          ? purchased('mixed-unverified-acquisition')
+          : revoked('mixed-unverified-revocation'),
+        outcome('unverified', `mixed-${authorityOutcome}`),
+      );
+      const durableBefore = await rows(world.connection);
+      const entitlementsBefore = await world.commerceRepository.listEntitlements();
+      const jobsBefore = structuredClone(world.jobs);
+      const callsBefore = world.calls.length;
+
+      const result = await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID });
+
+      assert.equal(result.state, 'unverified', authorityOutcome);
+      assert.deepEqual(await rows(world.connection), durableBefore, authorityOutcome);
+      assert.deepEqual(
+        await world.commerceRepository.listEntitlements(),
+        entitlementsBefore,
+        authorityOutcome,
+      );
+      assert.deepEqual(world.jobs, jobsBefore, authorityOutcome);
+      assert.equal(
+        (await rows(world.connection)).some((row) => row.journal_id === attempt.journalId),
+        true,
+        authorityOutcome,
+      );
+      assert.equal(
+        world.calls.slice(callsBefore).some(([name]) => [
+          'purchase',
+          'restore',
+          'verifyTransaction',
+          'refreshEntitlement',
+          'completeTransaction',
+          'finishTransaction',
+          'authorisePackDownload',
+        ].includes(name)),
+        false,
+        authorityOutcome,
+      );
+    });
+  }
+});
+
+test('pre-existing intent processes a revocation-only query snapshot and remains pending', async () => {
+  for (const operation of ['purchase', 'restore']) {
+    await withWorld(async (world) => {
+      await bootstrapActive(world);
+      await world.attemptRepository.preparePendingAttempt({
+        journalId: `pre-existing-${operation}-revocation`,
+        observedAt: 20_000,
+      });
+      world.setGatewayIdentity(identity({ state: 'revoked' }));
+      world.native.push(revoked(`${operation}-query-revocation`));
+      const callsBefore = world.calls.length;
+
+      const result = operation === 'purchase'
+        ? await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID })
+        : await world.makeCoordinator().restore();
+
+      assert.equal(result.state, 'revoked', operation);
+      const durable = await rows(world.connection);
+      assert.equal(durable.some((row) =>
+        row.journal_id === `pre-existing-${operation}-revocation` &&
+        row.observation_state === 'pending' &&
+        row.processing_state === 'observed' &&
+        row.opaque_proof === null &&
+        row.store_transaction_id === null), true, operation);
+      assert.equal(durable.some((row) =>
+        row.journal_id === STABLE_REVOCATION_ID &&
+        row.processing_state === 'complete' &&
+        row.opaque_proof === null), true, operation);
+      const entitlement = (await world.commerceRepository.listEntitlements())[0];
+      assert.equal(entitlement.state, 'revoked', operation);
+      assert.equal(entitlement.sealedRefreshHandle, null, operation);
+      assert.equal(
+        world.calls.slice(callsBefore).some(([name]) => name === 'purchase' || name === 'restore'),
+        false,
+        operation,
+      );
+      assert.equal(
+        world.calls.slice(callsBefore).some(([name]) => name === 'refreshEntitlement'),
+        true,
+        operation,
+      );
+    });
+  }
+});
+
+test('pre-existing intent orders acquisition before revocation from one validated query snapshot', async () => {
+  await withWorld(async (world) => {
+    await world.attemptRepository.preparePendingAttempt({
+      journalId: 'pre-existing-acquisition-and-revocation',
+      observedAt: 9_999,
+    });
+    const acquisition = purchased('ordered-acquisition');
+    const revocation = revoked('ordered-revocation');
+    world.native.push(revocation, acquisition);
+    const active = identity();
+    const revokedAuthority = identity({ state: 'revoked' });
+    world.gateway.verifyTransaction = async (input) => {
+      world.calls.push(['verifyTransaction', input]);
+      return input.opaqueProof === acquisition.opaqueProof ? active : revokedAuthority;
+    };
+    world.gateway.completeTransaction = async (input) => {
+      world.calls.push(['completeTransaction', input]);
+      return active;
+    };
+    world.gateway.refreshEntitlement = async (input) => {
+      world.calls.push(['refreshEntitlement', input]);
+      return revokedAuthority;
+    };
+    const callsBefore = world.calls.length;
+
+    const result = await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID });
+
+    assert.equal(result.state, 'revoked');
+    const relevantCalls = world.calls.slice(callsBefore);
+    assert.equal(relevantCalls.some(([name]) => name === 'purchase' || name === 'restore'), false);
+    assert.ok(
+      relevantCalls.findIndex(([name]) => name === 'completeTransaction') <
+      relevantCalls.findIndex(([name]) => name === 'refreshEntitlement'),
+    );
+    const entitlement = (await world.commerceRepository.listEntitlements())[0];
+    assert.equal(entitlement.state, 'revoked');
+    assert.equal(entitlement.sealedRefreshHandle, null);
+    const durable = await rows(world.connection);
+    assert.equal(durable.some((row) =>
+      row.observation_state === 'purchased' && row.processing_state === 'complete'), true);
+    assert.equal(durable.some((row) =>
+      row.observation_state === 'revoked' && row.processing_state === 'complete'), true);
+  });
+});
+
+test('pre-existing intent discards only empty or matching cancelled snapshots', async () => {
+  for (const snapshot of ['empty', 'cancelled']) {
+    await withWorld(async (world) => {
+      await world.attemptRepository.preparePendingAttempt({
+        journalId: `pre-existing-authoritative-${snapshot}`,
+        observedAt: 9_999,
+      });
+      if (snapshot === 'cancelled') world.native.push(outcome('cancelled', 'matching-cancelled'));
+
+      const result = await world.makeCoordinator().restore();
+
+      assert.equal(result.state, 'cancelled', snapshot);
+      assert.deepEqual(await rows(world.connection), [], snapshot);
+      assert.equal(world.calls.some(([name]) => name === 'restore'), false, snapshot);
+    });
+  }
+});
+
+test('pre-existing intent rejects a foreign authority-bearing snapshot before effects', async () => {
+  for (const nativeOutcome of ['purchased', 'revoked']) {
+    await withWorld(async (world) => {
+      const attempt = await world.attemptRepository.preparePendingAttempt({
+        journalId: `pre-existing-foreign-${nativeOutcome}`,
+        observedAt: 9_999,
+      });
+      world.native.push(Object.freeze({
+        store: 'apple',
+        environment: 'sandbox',
+        productId: 'uk.eugnel.ks2spelling.fullks2',
+        outcome: nativeOutcome,
+        transactionRef: `foreign-${nativeOutcome}-reference`,
+        opaqueProof: `foreign-${nativeOutcome}-proof`,
+      }));
+      const callsBefore = world.calls.length;
+
+      await assert.rejects(
+        world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID }),
+        { code: 'PURCHASE_ATTEMPT_AUTHORITY_MISMATCH' },
+      );
+
+      assert.deepEqual(await rows(world.connection), [{
+        journal_id: attempt.journalId,
+        observation_state: 'pending',
+        processing_state: 'observed',
+        opaque_proof: null,
+        store_transaction_id: null,
+      }], nativeOutcome);
+      assert.deepEqual(await world.commerceRepository.listEntitlements(), [], nativeOutcome);
+      assert.deepEqual(world.jobs, [], nativeOutcome);
+      assert.equal(
+        world.calls.slice(callsBefore).some(([name]) => [
+          'purchase',
+          'restore',
+          'verifyTransaction',
+          'completeTransaction',
+          'finishTransaction',
+          'authorisePackDownload',
+        ].includes(name)),
+        false,
+        nativeOutcome,
+      );
+    });
+  }
+});
+
 test('Restore rejects an ambiguous acquisition result before gateway or retained durable effects', async () => {
   await withWorld(async (world) => {
     world.setRestoreResults([

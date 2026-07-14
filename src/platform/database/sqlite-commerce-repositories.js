@@ -25,6 +25,7 @@ const ENTITLEMENT_KEYS = Object.freeze([
   'entitlementId',
   'store',
   'productId',
+  'storeTransactionId',
   'state',
   'sealedRefreshHandle',
   'refreshHandleVersion',
@@ -39,6 +40,10 @@ const PERMANENT_REJECTIONS = Object.freeze([
 
 function observationEventKind(value) {
   return value === 'pending' || value === 'purchased' ? 'acquisition' : value;
+}
+
+function isActiveCallbackJournal(journal) {
+  return journal.journalId === `purchase-${journal.store}-full-ks2-active-callback`;
 }
 
 function commerceError(code, message = code, options) {
@@ -156,6 +161,7 @@ function mapEntitlement(row) {
     entitlementId: row.entitlement_id,
     store: row.store,
     productId: row.product_id,
+    storeTransactionId: row.store_transaction_id,
     state: row.state,
     sealedRefreshHandle: row.sealed_refresh_handle,
     refreshHandleVersion:
@@ -210,12 +216,43 @@ async function readJournal(connection, journalId) {
 }
 
 async function readEntitlement(connection, entitlementId) {
-  return optionalRow(
+  const row = optionalRow(
     await connection.query(
       'SELECT entitlement_id, store, product_id, state, sealed_refresh_handle, refresh_handle_version, verified_at, refreshed_at, revocation_at FROM app_entitlements WHERE entitlement_id = ?',
       [entitlementId],
     ),
   );
+  return row ? attachCurrentTransactionAuthority(connection, row) : null;
+}
+
+function validateCurrentTransactionAuthority(entitlement, rows) {
+  if (!Array.isArray(rows) || rows.length !== 1) {
+    throw commerceError('sqlite_commerce_transaction_authority_invalid');
+  }
+  const [owner] = rows;
+  const validStoreId = entitlement.store === 'apple'
+    ? APPLE_TRANSACTION_ID.test(owner.store_transaction_id)
+    : GOOGLE_TRANSACTION_ID.test(owner.store_transaction_id);
+  const expectedObservation = entitlement.state === 'active' ? 'purchased' : 'revoked';
+  if (
+    !validStoreId ||
+    owner.observation_state !== expectedObservation ||
+    !['store-completion-pending', 'complete'].includes(owner.processing_state)
+  ) {
+    throw commerceError('sqlite_commerce_transaction_authority_invalid');
+  }
+  return owner.store_transaction_id;
+}
+
+async function attachCurrentTransactionAuthority(connection, entitlement) {
+  const rows = await connection.query(
+    "SELECT store_transaction_id, observation_state, processing_state FROM transaction_journal WHERE store = ? AND product_id = ? AND store_transaction_id IS NOT NULL ORDER BY journal_id",
+    [entitlement.store, entitlement.product_id],
+  );
+  return {
+    ...entitlement,
+    store_transaction_id: validateCurrentTransactionAuthority(entitlement, rows),
+  };
 }
 
 export function createSqliteCommerceRepositories(connection) {
@@ -247,6 +284,38 @@ export function createSqliteCommerceRepositories(connection) {
       const existing = await readJournal(connection, values.journalId);
       if (existing) {
         const mapped = mapJournal(existing);
+        const mayReopenActiveCallback =
+          isActiveCallbackJournal(mapped) &&
+          mapped.observationState === 'purchased' &&
+          mapped.processingState === 'complete' &&
+          mapped.storeTransactionId === null &&
+          mapped.opaqueProof === null &&
+          values.observationState === 'purchased' &&
+          values.observedAt > mapped.updatedAt;
+        if (mayReopenActiveCallback) {
+          const entitlementId = mapStoreProductToEntitlement({
+            store: mapped.store,
+            productId: mapped.productId,
+          });
+          const entitlement = mapEntitlement(
+            await readEntitlement(connection, entitlementId),
+          );
+          if (
+            entitlement.state !== 'active' ||
+            entitlement.store !== mapped.store ||
+            entitlement.productId !== mapped.productId
+          ) {
+            throw commerceError('sqlite_commerce_entitlement_conflict');
+          }
+          requireOneChange(
+            await connection.execute(
+              'UPDATE transaction_journal SET processing_state = ?, opaque_proof = ?, updated_at = ? WHERE journal_id = ? AND processing_state = ? AND store_transaction_id IS NULL AND opaque_proof IS NULL',
+              ['observed', values.opaqueProof, values.observedAt, values.journalId, 'complete'],
+            ),
+            'sqlite_commerce_journal_conflict',
+          );
+          return mapJournal(await readJournal(connection, values.journalId));
+        }
         if (
           (mapped.processingState === 'complete' || mapped.processingState === 'rejected') &&
           mapped.store === values.store &&
@@ -401,10 +470,14 @@ export function createSqliteCommerceRepositories(connection) {
         connection,
         values.entitlementId,
       );
+      const activeCallback = isActiveCallbackJournal(journal);
       if (
         journal.observationState === 'purchased' &&
         journal.processingState === 'store-completion-pending' &&
-        journal.storeTransactionId === values.storeTransactionId &&
+        (
+          journal.storeTransactionId === values.storeTransactionId ||
+          (activeCallback && journal.storeTransactionId === null)
+        ) &&
         existingEntitlementRow
       ) {
         const existingEntitlement = mapEntitlement(existingEntitlementRow);
@@ -412,6 +485,7 @@ export function createSqliteCommerceRepositories(connection) {
           existingEntitlement.state === 'active' &&
           existingEntitlement.store === journal.store &&
           existingEntitlement.productId === journal.productId &&
+          existingEntitlement.storeTransactionId === values.storeTransactionId &&
           existingEntitlement.sealedRefreshHandle === values.sealedRefreshHandle &&
           existingEntitlement.refreshHandleVersion === values.refreshHandleVersion &&
           existingEntitlement.verifiedAt <= values.committedAt &&
@@ -470,6 +544,13 @@ export function createSqliteCommerceRepositories(connection) {
         if (!sameAuthority || (!mayResealActive && !mayReactivateRevoked)) {
           throw commerceError('sqlite_commerce_entitlement_conflict');
         }
+        if (
+          activeCallback &&
+          (existingEntitlement.state !== 'active' ||
+            existingEntitlement.storeTransactionId !== values.storeTransactionId)
+        ) {
+          throw commerceError('sqlite_commerce_transaction_authority_invalid');
+        }
         requireOneChange(
           await connection.execute(
             'UPDATE app_entitlements SET state = ?, sealed_refresh_handle = ?, refresh_handle_version = ?, refreshed_at = ?, revocation_at = NULL WHERE entitlement_id = ? AND store = ? AND product_id = ?',
@@ -486,6 +567,9 @@ export function createSqliteCommerceRepositories(connection) {
           'sqlite_commerce_entitlement_conflict',
         );
       } else {
+        if (activeCallback) {
+          throw commerceError('sqlite_commerce_entitlement_missing');
+        }
         requireOneChange(
           await connection.execute(
             'INSERT INTO app_entitlements (entitlement_id, store, product_id, state, sealed_refresh_handle, refresh_handle_version, verified_at, refreshed_at, revocation_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)',
@@ -503,9 +587,33 @@ export function createSqliteCommerceRepositories(connection) {
           'sqlite_commerce_entitlement_write_failed',
         );
       }
+      if (activeCallback) {
+        requireOneChange(
+          await connection.execute(
+            'UPDATE transaction_journal SET processing_state = ?, updated_at = ? WHERE journal_id = ? AND processing_state = ? AND store_transaction_id IS NULL',
+            [
+              'store-completion-pending',
+              values.committedAt,
+              values.journalId,
+              'verified',
+            ],
+          ),
+          'sqlite_commerce_state_invalid',
+        );
+        const entitlement = mapEntitlement(
+          await readEntitlement(connection, values.entitlementId),
+        );
+        if (entitlement.storeTransactionId !== values.storeTransactionId) {
+          throw commerceError('sqlite_commerce_transaction_authority_invalid');
+        }
+        return frozenRecord(['journal', 'entitlement'], {
+          journal: mapJournal(await readJournal(connection, values.journalId)),
+          entitlement,
+        });
+      }
       await connection.execute(
-        'UPDATE transaction_journal SET store_transaction_id = NULL WHERE store = ? AND store_transaction_id = ? AND journal_id <> ?',
-        [journal.store, values.storeTransactionId, values.journalId],
+        'UPDATE transaction_journal SET store_transaction_id = NULL WHERE store = ? AND product_id = ? AND store_transaction_id IS NOT NULL AND journal_id <> ?',
+        [journal.store, journal.productId, values.journalId],
       );
       requireOneChange(
         await connection.execute(
@@ -716,8 +824,8 @@ export function createSqliteCommerceRepositories(connection) {
         throw commerceError('sqlite_commerce_state_invalid');
       }
       await connection.execute(
-        'UPDATE transaction_journal SET store_transaction_id = NULL WHERE store = ? AND store_transaction_id = ? AND journal_id <> ?',
-        [journal.store, values.storeTransactionId, values.journalId],
+        'UPDATE transaction_journal SET store_transaction_id = NULL WHERE store = ? AND product_id = ? AND store_transaction_id IS NOT NULL AND journal_id <> ?',
+        [journal.store, journal.productId, values.journalId],
       );
       if (entitlement) {
         requireOneChange(
@@ -798,14 +906,17 @@ export function createSqliteCommerceRepositories(connection) {
 
   async function listEntitlements() {
     requireNoArguments(arguments, 'listEntitlements');
-    return runExclusive(connection, async () =>
-      freezeList(
-        await connection.query(
-          'SELECT entitlement_id, store, product_id, state, sealed_refresh_handle, refresh_handle_version, verified_at, refreshed_at, revocation_at FROM app_entitlements ORDER BY entitlement_id ASC',
-        ),
-        mapEntitlement,
-      ),
-    );
+    return runExclusive(connection, async () => {
+      const rows = await connection.query(
+        'SELECT entitlement_id, store, product_id, state, sealed_refresh_handle, refresh_handle_version, verified_at, refreshed_at, revocation_at FROM app_entitlements ORDER BY entitlement_id ASC',
+      );
+      if (!Array.isArray(rows)) throw commerceError('sqlite_commerce_rows_invalid');
+      const projected = [];
+      for (const row of rows) {
+        projected.push(mapEntitlement(await attachCurrentTransactionAuthority(connection, row)));
+      }
+      return Object.freeze(projected);
+    });
   }
 
   return Object.freeze({

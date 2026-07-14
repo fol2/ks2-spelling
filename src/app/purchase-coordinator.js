@@ -209,6 +209,46 @@ export function createPurchaseCoordinator(rawDependencies) {
     return kind(left) === kind(right);
   }
 
+  function activeCallbackJournalId(store) {
+    return `purchase-${store}-full-ks2-active-callback`;
+  }
+
+  function isActiveCallbackJournal(journal) {
+    return journal.journalId === activeCallbackJournalId(journal.store);
+  }
+
+  function normaliseNativeSnapshot(rawObservations) {
+    if (!Array.isArray(rawObservations)) {
+      throw new TypeError('Native transaction snapshot is invalid.');
+    }
+    const observations = [];
+    const seen = new Set();
+    const acquisitions = new Map();
+    for (const rawObservation of rawObservations) {
+      const observation = validateObservation(rawObservation);
+      const fingerprint = [
+        observation.store,
+        observation.environment,
+        observation.productId,
+        observation.outcome,
+        observation.transactionRef,
+        observation.opaqueProof ?? '',
+      ].join('\u0000');
+      if (seen.has(fingerprint)) continue;
+      seen.add(fingerprint);
+      observations.push(observation);
+      if (observation.outcome !== 'pending' && observation.outcome !== 'purchased') continue;
+      const authority = `${observation.store}\u0000${observation.productId}`;
+      if (acquisitions.has(authority)) {
+        throw Object.assign(new Error('Native acquisition snapshot is ambiguous.'), {
+          code: 'PURCHASE_NATIVE_ACQUISITION_AMBIGUOUS',
+        });
+      }
+      acquisitions.set(authority, observation);
+    }
+    return observations;
+  }
+
   async function locateJournal(value, stableJournalId, preferredJournalId = null) {
     const rows = await listRecoverable();
     const preferred = preferredJournalId === null
@@ -512,8 +552,29 @@ export function createPurchaseCoordinator(rawDependencies) {
         suppliedAuthority,
       );
     }
+    const activeCallback = isActiveCallbackJournal(journal);
     const { journal: verifiedJournal, verified } = await verifyJournal(journal);
     journal = verifiedJournal;
+    if (activeCallback) {
+      const entitlements = await listEntitlements();
+      const active = entitlements.find((entitlement) =>
+        entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
+        entitlement.store === journal.store &&
+        entitlement.productId === journal.productId &&
+        entitlement.state === 'active') ?? null;
+      if (!active || verified.storeTransactionId !== active.storeTransactionId) {
+        if (journal.processingState === 'observed' || journal.processingState === 'verified') {
+          await around('rejection', () => commerceRepository.markRejectedAndClearProof({
+            journalId: journal.journalId,
+            rejectionKind: 'authenticated-permanent',
+            rejectedAt: timestampAfter(journal.updatedAt),
+          }));
+        }
+        throw Object.assign(new Error('Active callback store transaction authority changed.'), {
+          code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH',
+        });
+      }
+    }
     if (
       nativeObservation?.outcome === 'purchased' &&
       nativeObservation.opaqueProof !== journal.opaqueProof
@@ -555,6 +616,7 @@ export function createPurchaseCoordinator(rawDependencies) {
     }
     if (
       journal.processingState === 'store-completion-pending' &&
+      !activeCallback &&
       verified.storeTransactionId !== journal.storeTransactionId
     ) {
       throw Object.assign(new Error('Reverified store transaction authority changed.'), {
@@ -592,18 +654,18 @@ export function createPurchaseCoordinator(rawDependencies) {
       return frozenResult(value.outcome);
     }
     await seedTimestampFloor();
-    const stableJournalId = deriveTransactionReplayJournalId(value);
-    let journal = await locateJournal(value, stableJournalId, attemptJournalId);
     const entitlements = await listEntitlements();
     const entitlement = entitlements.find((candidate) =>
       candidate.entitlementId === FULL_KS2_PACK.entitlementId &&
       candidate.store === value.store &&
       candidate.productId === value.productId) ?? null;
-    if (!journal && value.outcome === 'purchased' && entitlement?.state === 'active' &&
-      attemptMode !== 'restore') {
-      await ensureDownloadJob(entitlement);
-      return frozenResult('complete');
-    }
+    const stableJournalId =
+      value.outcome === 'purchased' &&
+      entitlement?.state === 'active' &&
+      attemptMode !== 'restore'
+        ? activeCallbackJournalId(value.store)
+        : deriveTransactionReplayJournalId(value);
+    let journal = await locateJournal(value, stableJournalId, attemptJournalId);
     if (!journal && value.outcome === 'revoked' && entitlement?.state === 'revoked') {
       return frozenResult('complete');
     }
@@ -662,7 +724,9 @@ export function createPurchaseCoordinator(rawDependencies) {
 
   async function recoverInternal() {
     await seedTimestampFloor();
-    const native = await store.queryTransactions({ productIds: [...FULL_KS2_PRODUCT_IDS] });
+    const native = normaliseNativeSnapshot(
+      await store.queryTransactions({ productIds: [...FULL_KS2_PRODUCT_IDS] }),
+    );
     for (const observation of native) {
       await processObservation(observation, { nativeSnapshotKnown: true });
     }
@@ -689,11 +753,27 @@ export function createPurchaseCoordinator(rawDependencies) {
     return frozenResult('reconciled');
   }
 
+  async function reconcilePurchasedAttempt() {
+    const before = await listRecoverable();
+    const purchased = before.filter((journal) => journal.observationState === 'purchased');
+    if (purchased.length === 0) return false;
+    await recoverInternal();
+    const remaining = await listRecoverable();
+    if (purchased.some((journal) =>
+      remaining.some((candidate) => candidate.journalId === journal.journalId))) {
+      throw Object.assign(new Error('Purchased commerce recovery did not converge.'), {
+        code: 'PURCHASE_RECOVERY_INCOMPLETE',
+      });
+    }
+    return true;
+  }
+
   async function purchaseFullKs2(request) {
     if (arguments.length !== 1) throw new TypeError('purchaseFullKs2 requires one input.');
     return serialise(async () => {
       const productId = assertApprovedFullKs2ProductId(request);
       await seedTimestampFloor();
+      await reconcilePurchasedAttempt();
       let existingEntitlements = await listEntitlements();
       let active = existingEntitlements.find((entitlement) =>
         entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
@@ -740,6 +820,8 @@ export function createPurchaseCoordinator(rawDependencies) {
   async function restore() {
     if (arguments.length !== 0) throw new TypeError('restore does not accept input.');
     return serialise(async () => {
+      await seedTimestampFloor();
+      if (await reconcilePurchasedAttempt()) return frozenResult('restored');
       const attempt = await prepareExplicitAttempt();
       const observations = await store.restore({ productIds: [...FULL_KS2_PRODUCT_IDS] });
       const selected = new Map();

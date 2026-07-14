@@ -110,6 +110,7 @@ async function withWorld(run) {
     const packRepository = createSqlitePackRepositories(connection);
     const calls = {
       verify: [], complete: [], refresh: [], authorise: [], finish: [],
+      order: [],
     };
     const state = {
       current: [],
@@ -117,6 +118,8 @@ async function withWorld(run) {
       purchase: purchased(),
       rejectVerification: false,
       authorisation: authorisation(),
+      refreshIdentity: null,
+      verifyIdentity: null,
       nextAttempt: 0,
       clock: 20_000,
       lastIdentity: identity(),
@@ -127,18 +130,20 @@ async function withWorld(run) {
       async restore() { return [...state.restore]; },
       async finishTransaction({ transactionRef }) {
         calls.finish.push(transactionRef);
+        calls.order.push('finish');
         return { completion: 'finished' };
       },
     };
     const gateway = {
       async verifyTransaction(input) {
         calls.verify.push(input);
+        calls.order.push('verify');
         if (state.rejectVerification) {
           throw Object.assign(new Error('authenticated permanent rejection'), {
             code: 'PROOF_REJECTED', status: 422, retryable: false,
           });
         }
-        state.lastIdentity = identity({
+        state.lastIdentity = state.verifyIdentity ?? identity({
           state: input.opaqueProof.includes('revocation') ? 'revoked' : 'active',
           version: calls.verify.length,
         });
@@ -146,11 +151,12 @@ async function withWorld(run) {
       },
       async completeTransaction(input) {
         calls.complete.push(input);
+        calls.order.push('complete');
         return state.lastIdentity;
       },
       async refreshEntitlement(input) {
         calls.refresh.push(input);
-        state.lastIdentity = identity({ state: 'revoked' });
+        state.lastIdentity = state.refreshIdentity ?? identity({ state: 'revoked' });
         return state.lastIdentity;
       },
       async authorisePackDownload(input) {
@@ -196,7 +202,7 @@ async function journalRows(connection) {
   );
 }
 
-test('pending promotion and repeated current recovery share one non-secret acquisition authority', async () => {
+test('pending promotion and a later current callback use bounded non-secret authorities', async () => {
   await withWorld(async ({ connection, calls, state, coordinator }) => {
     const pendingValue = pending({ transactionRef: 'pending-native-secret' });
     const purchasedValue = purchased({
@@ -222,13 +228,14 @@ test('pending promotion and repeated current recovery share one non-secret acqui
     await coordinator().recover();
 
     const rows = await journalRows(connection);
-    assert.equal(rows.length, 1);
+    assert.equal(rows.length, 2);
     assert.equal(rows[0].journal_id, 'purchase-google-full-ks2-acquisition');
-    assert.equal(rows[0].processing_state, 'complete');
-    assert.equal(rows[0].opaque_proof, null);
-    assert.equal(calls.verify.length, 1);
-    assert.equal(calls.complete.length, 1);
-    assert.deepEqual(calls.finish, ['purchased-native-secret']);
+    assert.equal(rows[1].journal_id, 'purchase-google-full-ks2-active-callback');
+    assert.equal(rows.every((row) => row.processing_state === 'complete'), true);
+    assert.equal(rows.every((row) => row.opaque_proof === null), true);
+    assert.equal(calls.verify.length, 2);
+    assert.equal(calls.complete.length, 2);
+    assert.deepEqual(calls.finish, ['purchased-native-secret', 'changed-native-secret']);
     const durable = JSON.stringify(await connection.query(
       'SELECT * FROM transaction_journal ORDER BY journal_id',
     ));
@@ -267,7 +274,7 @@ test('changed process-local purchase authority finishes one stable recoverable a
   });
 });
 
-test('first clean Restore uses stable authority and ordinary recovery stays offline', async () => {
+test('first clean Restore uses stable authority and a later current proof is live reverified', async () => {
   await withWorld(async ({ connection, calls, state, coordinator }) => {
     const restored = purchased({
       transactionRef: 'clean-restore-native',
@@ -280,13 +287,15 @@ test('first clean Restore uses stable authority and ordinary recovery stays offl
       transactionRef: 'process-unstable-native',
       opaqueProof: 'process-unstable-proof',
     }];
-    const before = structuredClone(calls);
+    const beforeVerify = calls.verify.length;
     await coordinator().recover();
-    assert.deepEqual(calls, before);
+    assert.equal(calls.verify.length, beforeVerify + 1);
+    assert.equal(calls.verify.at(-1).opaqueProof, 'process-unstable-proof');
     const rows = await journalRows(connection);
-    assert.equal(rows.length, 1);
+    assert.equal(rows.length, 2);
     assert.equal(rows[0].journal_id, 'purchase-google-full-ks2-acquisition');
-    assert.equal(rows[0].processing_state, 'complete');
+    assert.equal(rows[1].journal_id, 'purchase-google-full-ks2-active-callback');
+    assert.equal(rows.every((row) => row.processing_state === 'complete'), true);
   });
 });
 
@@ -324,17 +333,17 @@ test('stable rejected Restore stays proof-free proactively but a later user Rest
       transactionRef: 'ordinary-after-retry-native',
       opaqueProof: 'ordinary-after-retry-proof',
     }];
-    const before = structuredClone(calls);
+    const beforeVerify = calls.verify.length;
     await coordinator().recover();
-    assert.deepEqual(calls, before);
+    assert.equal(calls.verify.length, beforeVerify + 1);
     const rows = await journalRows(connection);
-    assert.equal(rows.length, 2);
-    assert.deepEqual(rows.map(({ processing_state }) => processing_state), ['rejected', 'complete']);
+    assert.equal(rows.length, 3);
+    assert.deepEqual(rows.map(({ processing_state }) => processing_state), ['rejected', 'complete', 'complete']);
     assert.equal(rows.every(({ opaque_proof }) => opaque_proof === null), true);
   });
 });
 
-test('a later user purchase escapes a stable rejection without reopening proactive callbacks', async () => {
+test('a later user purchase escapes a stable rejection and later callbacks stay live verified', async () => {
   await withWorld(async ({ commerceRepository, calls, state, coordinator }) => {
     state.rejectVerification = true;
     await assert.rejects(
@@ -349,13 +358,14 @@ test('a later user purchase escapes a stable rejection without reopening proacti
     state.authorisation = authorisation(identity({ version: 2 }));
     await coordinator().purchaseFullKs2({ productId: 'full_ks2' });
     assert.equal((await commerceRepository.listEntitlements())[0].state, 'active');
-    const before = structuredClone(calls);
+    const beforeVerify = calls.verify.length;
     state.current = [purchased({
       transactionRef: 'later-callback-native',
       opaqueProof: 'later-callback-proof',
     })];
     await coordinator().recover();
-    assert.deepEqual(calls, before);
+    assert.equal(calls.verify.length, beforeVerify + 1);
+    assert.equal(calls.verify.at(-1).opaqueProof, 'later-callback-proof');
   });
 });
 
@@ -411,6 +421,180 @@ test('authorisation compares exact ordered tracked object records before durable
       assert.deepEqual(await packRepository.listDownloadJobs(), []);
     });
   }
+});
+
+test('an active entitlement journals and live-verifies duplicate proof before completion and native finish', async () => {
+  await withWorld(async ({ connection, commerceRepository, calls, state, coordinator }) => {
+    await coordinator().handleObservation(purchased());
+    const active = (await commerceRepository.listEntitlements())[0];
+    const duplicate = purchased({
+      transactionRef: 'active-duplicate-native',
+      opaqueProof: 'active-duplicate-proof',
+    });
+    const orderBefore = calls.order.length;
+    await coordinator().handleObservation(duplicate);
+    assert.deepEqual(calls.order.slice(orderBefore, orderBefore + 3), [
+      'verify', 'complete', 'finish',
+    ]);
+    assert.equal(calls.verify.at(-1).opaqueProof, 'active-duplicate-proof');
+    assert.equal(calls.finish.at(-1), 'active-duplicate-native');
+    const rows = await connection.query(
+      'SELECT journal_id, store_transaction_id, processing_state, opaque_proof FROM transaction_journal ORDER BY journal_id',
+    );
+    assert.equal(rows.length, 2);
+    assert.equal(rows.filter((row) => row.store_transaction_id !== null).length, 1);
+    assert.equal(
+      rows.find((row) => row.journal_id.endsWith('active-callback')).store_transaction_id,
+      null,
+    );
+    assert.equal(rows.every((row) => row.processing_state === 'complete'), true);
+    assert.equal(rows.every((row) => row.opaque_proof === null), true);
+    assert.equal((await commerceRepository.listEntitlements())[0].storeTransactionId,
+      active.storeTransactionId);
+
+    state.verifyIdentity = identity({ version: 3 });
+    await coordinator().handleObservation(purchased({
+      transactionRef: 'active-duplicate-native-again',
+      opaqueProof: 'active-duplicate-proof-again',
+    }));
+    assert.equal((await connection.query('SELECT COUNT(*) AS count FROM transaction_journal'))[0].count, 2);
+  });
+});
+
+test('an active entitlement rejects and clears a changed safe ID without completion or access loss', async () => {
+  await withWorld(async ({ connection, commerceRepository, calls, state, coordinator }) => {
+    await coordinator().handleObservation(purchased());
+    const before = (await commerceRepository.listEntitlements())[0];
+    const completionsBefore = calls.complete.length;
+    const finishesBefore = calls.finish.length;
+    state.verifyIdentity = {
+      ...identity({ version: 2 }),
+      storeTransactionId: 'GPA.2222-3333-4444-55555',
+    };
+    await assert.rejects(
+      coordinator().handleObservation(purchased({
+        transactionRef: 'changed-id-native',
+        opaqueProof: 'changed-id-proof',
+      })),
+      { code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH' },
+    );
+    assert.equal(calls.complete.length, completionsBefore);
+    assert.equal(calls.finish.length, finishesBefore);
+    assert.deepEqual((await commerceRepository.listEntitlements())[0], before);
+    const callback = (await connection.query(
+      "SELECT store_transaction_id, processing_state, opaque_proof FROM transaction_journal WHERE journal_id LIKE '%active-callback'",
+    ))[0];
+    assert.deepEqual(callback, {
+      store_transaction_id: null,
+      processing_state: 'rejected',
+      opaque_proof: null,
+    });
+  });
+});
+
+test('changed active-callback authority converges proof-free across rejection crash arrows', async () => {
+  for (const checkpoint of ['before:rejection', 'after:rejection']) {
+    await withWorld(async ({ connection, commerceRepository, calls, state, coordinator }) => {
+      await coordinator().handleObservation(purchased());
+      const before = (await commerceRepository.listEntitlements())[0];
+      const completionsBefore = calls.complete.length;
+      const finishesBefore = calls.finish.length;
+      state.verifyIdentity = {
+        ...identity({ version: 2 }),
+        storeTransactionId: 'GPA.2222-3333-4444-55555',
+      };
+      state.current = [purchased({
+        transactionRef: `changed-id-${checkpoint.replace(':', '-')}`,
+        opaqueProof: `changed-proof-${checkpoint.replace(':', '-')}`,
+      })];
+      await assert.rejects(coordinator({ failureAt: checkpoint }).recover(), {
+        code: 'SIMULATED_CRASH',
+      }, checkpoint);
+      try {
+        await coordinator().recover();
+      } catch (error) {
+        assert.equal(error.code, 'PURCHASE_GATEWAY_IDENTITY_MISMATCH', checkpoint);
+      }
+      const callback = (await connection.query(
+        "SELECT store_transaction_id, processing_state, opaque_proof FROM transaction_journal WHERE journal_id LIKE '%active-callback'",
+      ))[0];
+      assert.deepEqual(callback, {
+        store_transaction_id: null,
+        processing_state: 'rejected',
+        opaque_proof: null,
+      }, checkpoint);
+      assert.equal(calls.complete.length, completionsBefore, checkpoint);
+      assert.equal(calls.finish.length, finishesBefore, checkpoint);
+      assert.deepEqual((await commerceRepository.listEntitlements())[0], before, checkpoint);
+    });
+  }
+});
+
+test('active duplicate callback recovery is constant-row across every durable crash arrow', async () => {
+  const checkpoints = [
+    'before:journal', 'after:journal',
+    'before:verify', 'after:verify',
+    'before:mark-verified', 'after:mark-verified',
+    'before:entitlement-commit', 'after:entitlement-commit',
+    'before:gateway-completion', 'after:gateway-completion',
+    'before:store-finish', 'after:store-finish',
+    'before:proof-clear', 'after:proof-clear',
+  ];
+  for (const checkpoint of checkpoints) {
+    await withWorld(async ({ connection, commerceRepository, state, coordinator }) => {
+      await coordinator().handleObservation(purchased());
+      state.current = [purchased({
+        transactionRef: `callback-${checkpoint.replace(':', '-')}`,
+        opaqueProof: `callback-proof-${checkpoint.replace(':', '-')}`,
+      })];
+      await assert.rejects(coordinator({ failureAt: checkpoint }).recover(), {
+        code: 'SIMULATED_CRASH',
+      }, checkpoint);
+      await coordinator().recover();
+      const rows = await connection.query(
+        'SELECT store_transaction_id, processing_state, opaque_proof FROM transaction_journal ORDER BY journal_id',
+      );
+      assert.equal(rows.length, 2, checkpoint);
+      assert.equal(rows.filter((row) => row.store_transaction_id !== null).length, 1, checkpoint);
+      assert.equal(rows.every((row) => row.processing_state === 'complete'), true, checkpoint);
+      assert.equal(rows.every((row) => row.opaque_proof === null), true, checkpoint);
+      assert.equal((await commerceRepository.listEntitlements())[0].state, 'active', checkpoint);
+    });
+  }
+});
+
+test('refresh fails closed when the safe store transaction identity changes', async () => {
+  await withWorld(async ({ commerceRepository, state, coordinator }) => {
+    await coordinator().handleObservation(purchased());
+    const before = (await commerceRepository.listEntitlements())[0];
+    state.refreshIdentity = {
+      ...identity({ state: 'active', version: 2 }),
+      storeTransactionId: 'GPA.2222-3333-4444-55555',
+    };
+    await assert.rejects(
+      coordinator().refresh(),
+      { code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH' },
+    );
+    assert.deepEqual((await commerceRepository.listEntitlements())[0], before);
+  });
+});
+
+test('download authorisation fails closed when the safe store transaction identity changes', async () => {
+  await withWorld(async ({ commerceRepository, packRepository, state, coordinator }) => {
+    await coordinator().handleObservation(purchased());
+    await packRepository.deleteDownloadJob({ jobId: 'b3-sandbox-proof.1.0.0-b3.1' });
+    const before = (await commerceRepository.listEntitlements())[0];
+    state.authorisation = authorisation({
+      storeTransactionId: 'GPA.2222-3333-4444-55555',
+    });
+    state.current = [];
+    await assert.rejects(
+      coordinator().recover(),
+      { code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH' },
+    );
+    assert.deepEqual((await commerceRepository.listEntitlements())[0], before);
+    assert.deepEqual(await packRepository.listDownloadJobs(), []);
+  });
 });
 
 test('refresh-authorised revocation emits refresh only and a later lifecycle revokes again', async () => {

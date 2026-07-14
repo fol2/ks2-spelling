@@ -38,6 +38,7 @@ const ENTITLEMENT_KEYS = Object.freeze([
   'entitlementId',
   'store',
   'productId',
+  'storeTransactionId',
   'state',
   'sealedRefreshHandle',
   'refreshHandleVersion',
@@ -242,6 +243,7 @@ test('purchase progresses through observed, verified, ready-to-complete and proo
       committedAt: 1_768_478_400_200,
     });
     assertClosedFrozenRecord(committed, ['journal', 'entitlement']);
+    assert.equal(committed.entitlement.storeTransactionId, '2000001234567890');
     assertJournal(committed.journal, {
       ...verified,
       storeTransactionId: '2000001234567890',
@@ -252,6 +254,7 @@ test('purchase progresses through observed, verified, ready-to-complete and proo
       entitlementId: 'full-ks2',
       store: 'apple',
       productId: 'uk.eugnel.ks2spelling.fullks2',
+      storeTransactionId: '2000001234567890',
       state: 'active',
       sealedRefreshHandle: 'b3rh1.1.nonce.ciphertext-and-tag',
       refreshHandleVersion: 1,
@@ -402,7 +405,7 @@ test('restore reseals one same-authority entitlement and transfers store ID auth
     const restored = await repository.commitEntitlementAndReadyToComplete({
       journalId: 'journal-apple-restore',
       entitlementId: 'full-ks2',
-      storeTransactionId: '2000001234567890',
+      storeTransactionId: '2000001234567891',
       sealedRefreshHandle: 'b3rh1.2.restore.ciphertext',
       refreshHandleVersion: 2,
       committedAt: first.journal.updatedAt + 4,
@@ -410,19 +413,27 @@ test('restore reseals one same-authority entitlement and transfers store ID auth
     assert.equal(restored.entitlement.verifiedAt, first.entitlement.verifiedAt);
     assert.equal(restored.entitlement.refreshedAt, first.journal.updatedAt + 4);
     assert.equal(restored.entitlement.sealedRefreshHandle, 'b3rh1.2.restore.ciphertext');
+    assert.equal(restored.entitlement.storeTransactionId, '2000001234567891');
     assert.equal(restored.journal.processingState, 'store-completion-pending');
     assert.deepEqual(
       await connection.query(
         'SELECT journal_id FROM transaction_journal WHERE store_transaction_id = ?',
-        ['2000001234567890'],
+        ['2000001234567891'],
       ),
       [{ journal_id: 'journal-apple-restore' }],
+    );
+    assert.deepEqual(
+      await connection.query(
+        'SELECT store_transaction_id FROM transaction_journal WHERE journal_id = ?',
+        ['journal-apple'],
+      ),
+      [{ store_transaction_id: null }],
     );
     assert.deepEqual(
       await repository.commitEntitlementAndReadyToComplete({
         journalId: 'journal-apple-restore',
         entitlementId: 'full-ks2',
-        storeTransactionId: '2000001234567890',
+        storeTransactionId: '2000001234567891',
         sealedRefreshHandle: 'b3rh1.2.restore.ciphertext',
         refreshHandleVersion: 2,
         committedAt: first.journal.updatedAt + 4,
@@ -430,6 +441,48 @@ test('restore reseals one same-authority entitlement and transfers store ID auth
       restored,
     );
   });
+});
+
+test('entitlement projection fails closed unless exactly one valid lifecycle journal owns its safe ID', async () => {
+  for (const corruption of ['missing', 'duplicate', 'wrong-kind', 'wrong-state']) {
+    await withDatabase(async (connection) => {
+      const repository = createSqliteCommerceRepositories(connection);
+      await grantApple(repository);
+      if (corruption === 'missing') {
+        await connection.execute(
+          'UPDATE transaction_journal SET store_transaction_id = NULL WHERE journal_id = ?',
+          ['journal-apple'],
+        );
+      } else if (corruption === 'duplicate') {
+        await connection.execute(
+          'INSERT INTO transaction_journal VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)',
+          [
+            'journal-duplicate-owner',
+            'apple',
+            'uk.eugnel.ks2spelling.fullks2',
+            '2000001234567891',
+            'purchased',
+            'complete',
+            1_768_478_400_201,
+            1_768_478_400_201,
+          ],
+        );
+      } else if (corruption === 'wrong-kind') {
+        await connection.execute(
+          'UPDATE transaction_journal SET observation_state = ? WHERE journal_id = ?',
+          ['revoked', 'journal-apple'],
+        );
+      } else {
+        await connection.execute(
+          'UPDATE transaction_journal SET processing_state = ? WHERE journal_id = ?',
+          ['rejected', 'journal-apple'],
+        );
+      }
+      await assert.rejects(repository.listEntitlements(), {
+        code: 'sqlite_commerce_transaction_authority_invalid',
+      }, corruption);
+    });
+  }
 });
 
 test('deterministic terminal journal replay returns a proof-free tombstone', async () => {

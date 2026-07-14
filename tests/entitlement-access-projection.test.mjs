@@ -18,6 +18,9 @@ function entitlement(overrides = {}) {
     entitlementId: 'full-ks2',
     store: 'apple',
     productId: 'uk.eugnel.ks2spelling.fullks2',
+    storeTransactionId: overrides.store === 'google'
+      ? 'GPA.1234-5678-9012-34567'
+      : '2000001234567890',
     state: 'active',
     sealedRefreshHandle: 'b3rh1.1.nonce.ciphertext',
     refreshHandleVersion: 1,
@@ -137,6 +140,7 @@ test('projection rejects malformed, open, inherited and accessor-backed entitlem
     entitlement({ state: 'pending' }),
     entitlement({ sealedRefreshHandle: null, refreshHandleVersion: 1 }),
     entitlement({ refreshedAt: 1.5 }),
+    entitlement({ storeTransactionId: 'native-secret' }),
     inherited,
     accessor,
   ];

@@ -76,6 +76,17 @@ function createHarness({ purchaseOutcome = observation('purchased'), verifyError
       const existing = journals.find((candidate) => candidate.journalId === value.journalId);
       if (existing) {
         if (
+          existing.journalId.endsWith('active-callback') &&
+          existing.processingState === 'complete' &&
+          existing.storeTransactionId === null
+        ) {
+          Object.assign(existing, {
+            processingState: 'observed',
+            opaqueProof: value.opaqueProof,
+            updatedAt: value.observedAt,
+          });
+        }
+        if (
           existing.observationState === 'pending' &&
           existing.processingState === 'observed' &&
           (value.observationState === 'purchased' || value.observationState === 'revoked')
@@ -113,12 +124,16 @@ function createHarness({ purchaseOutcome = observation('purchased'), verifyError
       calls.push(['commitEntitlementAndReadyToComplete', value]);
       const row = journals.find((candidate) => candidate.journalId === value.journalId);
       row.processingState = 'store-completion-pending';
-      row.storeTransactionId = value.storeTransactionId;
+      if (!row.journalId.endsWith('active-callback')) {
+        for (const candidate of journals) candidate.storeTransactionId = null;
+        row.storeTransactionId = value.storeTransactionId;
+      }
       row.updatedAt = value.committedAt;
       const entitlement = entitlements[0] ?? {
         entitlementId: value.entitlementId,
         store: row.store,
         productId: row.productId,
+        storeTransactionId: value.storeTransactionId,
         state: 'active',
         verifiedAt: value.committedAt,
         revocationAt: null,
@@ -129,6 +144,7 @@ function createHarness({ purchaseOutcome = observation('purchased'), verifyError
         });
       }
       Object.assign(entitlement, {
+        storeTransactionId: value.storeTransactionId,
         sealedRefreshHandle: value.sealedRefreshHandle,
         refreshHandleVersion: value.refreshHandleVersion,
         refreshedAt: value.committedAt,
@@ -166,6 +182,7 @@ function createHarness({ purchaseOutcome = observation('purchased'), verifyError
       calls.push(['applyRevocationAndDeleteHandle', value]);
       const row = entitlements.find((candidate) => candidate.entitlementId === value.entitlementId);
       Object.assign(row, { state: 'revoked', sealedRefreshHandle: null, refreshHandleVersion: null });
+      row.storeTransactionId = value.storeTransactionId;
       const journal = journals.find((candidate) => candidate.journalId === value.journalId);
       Object.assign(journal, {
         processingState: 'store-completion-pending',
@@ -311,14 +328,15 @@ test('a purchased observation journals before verification and finishes before p
   assert.deepEqual(harness.calls.map(([name]) => name), [
     'listRecoverableTransactions',
     'listEntitlements',
+    'listRecoverableTransactions',
     'listEntitlements',
     'listRecoverableTransactions',
     'listRecoverableTransactions',
     'preparePendingAttempt',
     'observeTransaction',
     'purchase',
-    'listRecoverableTransactions',
     'listEntitlements',
+    'listRecoverableTransactions',
     'observeTransaction',
     'verifyTransaction',
     'markVerified',
@@ -557,7 +575,7 @@ test('an existing fixed job validates locally and recovery remains offline', asy
   }
 });
 
-test('repeated current-entitlement observations use one stable tombstone across coordinators', async () => {
+test('repeated current-entitlement observations use one live-verified bounded callback journal', async () => {
   const purchased = observation('purchased', {
     transactionRef: 'native-current-entitlement',
     opaqueProof: 'current-entitlement-proof',
@@ -565,28 +583,21 @@ test('repeated current-entitlement observations use one stable tombstone across 
   const harness = createHarness({ purchaseOutcome: purchased });
   await (await coordinator(harness, { idFactory: () => 'first-random-attempt' }))
     .purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
-  const durableBefore = JSON.stringify({
-    journals: harness.journals,
-    entitlements: harness.entitlements,
-    jobs: harness.jobs,
-  });
+  const safeId = harness.entitlements[0].storeTransactionId;
   harness.store.queryTransactions = async () => [purchased];
-  let gatewayCalls = 0;
-  for (const method of ['verifyTransaction', 'completeTransaction', 'authorisePackDownload']) {
-    harness.gateway[method] = async () => {
-      gatewayCalls += 1;
-      throw new Error('terminal replay must remain offline');
-    };
-  }
+  const before = harness.calls.length;
   await (await coordinator(harness, { idFactory: () => 'different-random-attempt' })).recover();
-  assert.equal(gatewayCalls, 0);
-  assert.equal(harness.journals.length, 1);
+  const replayCalls = harness.calls.slice(before).map(([name]) => name);
+  assert.equal(replayCalls.filter((name) => name === 'verifyTransaction').length, 1);
+  assert.equal(replayCalls.filter((name) => name === 'completeTransaction').length, 1);
+  assert.equal(replayCalls.filter((name) => name === 'authorisePackDownload').length, 0);
+  assert.equal(harness.journals.length, 2);
+  const callback = harness.journals.find((row) => row.journalId.endsWith('active-callback'));
+  assert.equal(callback.processingState, 'complete');
+  assert.equal(callback.storeTransactionId, null);
+  assert.equal(callback.opaqueProof, null);
+  assert.equal(harness.entitlements[0].storeTransactionId, safeId);
   assert.equal(JSON.stringify(harness.journals).includes(purchased.transactionRef), false);
-  assert.equal(JSON.stringify({
-    journals: harness.journals,
-    entitlements: harness.entitlements,
-    jobs: harness.jobs,
-  }), durableBefore);
 });
 
 test('permanently rejected current observation never restores proof on a fresh coordinator', async () => {

@@ -253,6 +253,43 @@ test('explicit Buy persists one intent before native work and recovers a second 
   });
 });
 
+test('Parent Buy preflights one purchased journal before any second store purchase', async () => {
+  await withWorld(async (world) => {
+    const acquired = purchased('buy-preflight', 'buy-preflight-proof');
+    world.native.push(acquired);
+    world.setPurchaseResult(acquired);
+    let journalWrites = 0;
+    await assert.rejects(
+      world.makeCoordinator(async (checkpoint) => {
+        if (checkpoint === 'after:journal' && (journalWrites += 1) === 2) {
+          throw Object.assign(new Error('process lost after purchased journal'), {
+            code: 'SIMULATED_PROCESS_LOSS',
+          });
+        }
+      }).purchaseFullKs2({ productId: PRODUCT_ID }),
+      { code: 'SIMULATED_PROCESS_LOSS' },
+    );
+    assert.equal((await rows(world.connection))[0].processing_state, 'observed');
+    assert.deepEqual(await world.commerceRepository.listEntitlements(), []);
+
+    let secondStorePurchases = 0;
+    world.store.purchase = async (input) => {
+      world.calls.push(['purchase', input]);
+      secondStorePurchases += 1;
+      return acquired;
+    };
+    await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID });
+
+    assert.equal(secondStorePurchases, 0);
+    const durable = await rows(world.connection);
+    assert.equal(durable.length, 1);
+    assert.equal(durable[0].journal_id, STABLE_ACQUISITION_ID);
+    assert.equal(durable[0].processing_state, 'complete');
+    assert.equal(durable[0].opaque_proof, null);
+    assert.equal((await world.commerceRepository.listEntitlements())[0].state, 'active');
+  });
+});
+
 test('explicit pending Buy promotes the same intent and reactivates a revoked entitlement', async () => {
   await withWorld(async (world) => {
     await bootstrapRevoked(world);
@@ -320,6 +357,42 @@ test('Restore journal replay associates the sole acquisition after native refere
       'restore-proof-before-crash',
       'changed-restore-proof',
     ]);
+  });
+});
+
+test('Parent Restore preflights one purchased journal before any second restore attempt', async () => {
+  await withWorld(async (world) => {
+    const restored = purchased('restore-preflight', 'restore-preflight-proof');
+    world.native.push(restored);
+    world.setRestoreResults([restored]);
+    let journalWrites = 0;
+    await assert.rejects(
+      world.makeCoordinator(async (checkpoint) => {
+        if (checkpoint === 'after:journal' && (journalWrites += 1) === 2) {
+          throw Object.assign(new Error('process lost after Restore journal'), {
+            code: 'SIMULATED_PROCESS_LOSS',
+          });
+        }
+      }).restore(),
+      { code: 'SIMULATED_PROCESS_LOSS' },
+    );
+    assert.equal((await rows(world.connection))[0].processing_state, 'observed');
+
+    let secondRestores = 0;
+    world.store.restore = async (input) => {
+      world.calls.push(['restore', input]);
+      secondRestores += 1;
+      return [restored];
+    };
+    await world.makeCoordinator().restore();
+
+    assert.equal(secondRestores, 0);
+    const durable = await rows(world.connection);
+    assert.equal(durable.length, 1);
+    assert.equal(durable[0].journal_id, STABLE_ACQUISITION_ID);
+    assert.equal(durable[0].processing_state, 'complete');
+    assert.equal(durable[0].opaque_proof, null);
+    assert.equal((await world.commerceRepository.listEntitlements())[0].state, 'active');
   });
 });
 
@@ -545,10 +618,10 @@ test('a crash before cancelled or empty intent discard preserves one-shot author
       await world.makeCoordinator().recover();
       assert.equal(
         world.calls.filter(([name]) => name === 'verifyTransaction').length,
-        gatewayCalls,
+        gatewayCalls + 1,
         operation,
       );
-      assert.equal((await rows(world.connection)).length, 1, operation);
+      assert.equal((await rows(world.connection)).length, 2, operation);
     });
   }
 });
@@ -577,6 +650,32 @@ test('more than one recoverable acquisition candidate fails closed before verifi
       false,
     );
     assert.deepEqual(await world.commerceRepository.listEntitlements(), []);
+  });
+});
+
+test('two different native acquisition candidates fail the whole snapshot before effects', async () => {
+  await withWorld(async (world) => {
+    world.native.push(
+      purchased('native-candidate-one', 'native-proof-one'),
+      purchased('native-candidate-two', 'native-proof-two'),
+    );
+    const callsBefore = world.calls.length;
+    await assert.rejects(
+      world.makeCoordinator().recover(),
+      { code: 'PURCHASE_NATIVE_ACQUISITION_AMBIGUOUS' },
+    );
+    assert.equal(
+      world.calls.slice(callsBefore).some(([name]) => [
+        'verifyTransaction',
+        'completeTransaction',
+        'finishTransaction',
+        'authorisePackDownload',
+      ].includes(name)),
+      false,
+    );
+    assert.deepEqual(await rows(world.connection), []);
+    assert.deepEqual(await world.commerceRepository.listEntitlements(), []);
+    assert.deepEqual(world.jobs, []);
   });
 });
 

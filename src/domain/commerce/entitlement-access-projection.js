@@ -2,6 +2,7 @@ const ENTITLEMENT_KEYS = Object.freeze([
   'entitlementId',
   'store',
   'productId',
+  'storeTransactionId',
   'state',
   'sealedRefreshHandle',
   'refreshHandleVersion',
@@ -70,6 +71,12 @@ function validateEntitlement(value) {
   }
   if (!['apple', 'google'].includes(row.store) || !PRODUCT_ID.test(row.productId)) {
     throw new TypeError('Entitlement store or product is invalid.');
+  }
+  const validStoreTransactionId = row.store === 'apple'
+    ? /^[1-9][0-9]*$/.test(row.storeTransactionId)
+    : /^GPA\.[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{5}$/.test(row.storeTransactionId);
+  if (!validStoreTransactionId) {
+    throw new TypeError('Entitlement store transaction authority is invalid.');
   }
   if (!['active', 'revoked'].includes(row.state)) {
     throw new TypeError('Entitlement state is invalid.');

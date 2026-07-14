@@ -612,6 +612,10 @@ Expected: B1 and B3 contract tests PASS without weakening the frozen B1 boundary
 - Create: `tests/purchase-second-lifecycle.test.mjs`
 - Create: `tests/sqlite-commerce-attempt-repository.test.mjs`
 - Create: `tests/commerce-reconciler.test.mjs`
+- Modify: `src/platform/database/sqlite-commerce-repositories.js`
+- Modify: `src/domain/commerce/entitlement-access-projection.js`
+- Modify: `tests/sqlite-commerce-repositories.test.mjs`
+- Modify: `tests/entitlement-access-projection.test.mjs`
 
 **Interfaces:**
 
@@ -628,6 +632,27 @@ unchanged `transaction_journal` schema, and exposes only
 authorisation across an ambiguous process loss; every acquired proof still
 requires live gateway verification.
 
+Task 8 also derives the current safe store transaction ID into the closed
+entitlement projection from `transaction_journal`; it does not add a column or
+repository method. Projection queries consider every non-null candidate and
+fail closed unless exactly one canonical purchased/active or revoked/revoked
+lifecycle owner exists. Every acquisition or revocation transfer atomically
+clears all earlier non-null owners for the same store/product before assigning
+the current journal. Refresh and download authorisation must cross-check that
+derived ID exactly.
+
+An active entitlement never treats a later native purchased proof as an offline
+no-op. It uses one deterministic, reusable, proof-bearing active-callback
+journal per store/product. The callback journal owns no safe ID: live
+verification must match the separate current lifecycle owner before gateway
+completion, native finish and atomic proof clear. A changed safe ID is rejected
+and proof-cleared without completion, finish or access loss. Completed callback
+slots may reopen; rejected slots never reopen, keeping replay row count bounded.
+Before Parent Buy or Restore invokes a second store operation, any existing
+non-pending acquisition is recovered to completion. A complete native snapshot
+is validated and deduplicated before effects; different acquisition candidates
+fail with `PURCHASE_NATIVE_ACQUISITION_AMBIGUOUS`.
+
 - [ ] **Step 1: Write failing state-machine and crash-matrix tests**
 
 Inject a crash before/after every arrow:
@@ -643,10 +668,13 @@ Cover normal states plus failure classification. Authenticated nonretryable gate
 - [ ] **Step 2: Record RED**
 
 ```bash
-node --test tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/commerce-reconciler.test.mjs
+node --test tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/purchase-replay-authority.test.mjs tests/purchase-second-lifecycle.test.mjs tests/sqlite-commerce-repositories.test.mjs tests/entitlement-access-projection.test.mjs tests/commerce-reconciler.test.mjs
 ```
 
-Expected: FAIL because the coordinators do not exist.
+Expected: FAIL before implementation. The final repair recorded 14/17 with
+three failures for Buy/Restore preflight and whole-snapshot ambiguity, followed
+by 40/44 with four failures for safe-ID projection and refresh/download
+cross-checks.
 
 - [ ] **Step 3: Implement exact ordering and idempotency**
 
@@ -655,11 +683,11 @@ Implement a closed retryability classifier. Permanent authenticated rejection ca
 - [ ] **Step 4: Run, review and commit**
 
 ```bash
-node --test tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/commerce-reconciler.test.mjs tests/b3-learner-preservation.test.mjs
+node --test tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/purchase-replay-authority.test.mjs tests/purchase-second-lifecycle.test.mjs tests/sqlite-commerce-repositories.test.mjs tests/sqlite-commerce-attempt-repository.test.mjs tests/entitlement-access-projection.test.mjs tests/commerce-reconciler.test.mjs tests/b3-port-contracts.test.mjs tests/b3-learner-preservation.test.mjs
 npm run lint
 git diff --check
-git add src/app/purchase-coordinator.js src/app/commerce-reconciler.js src/domain/commerce/purchase-state.js tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/commerce-reconciler.test.mjs
-git commit -m "feat: coordinate durable sandbox purchases"
+git add docs/superpowers/plans/2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md src/app/purchase-coordinator.js src/app/commerce-reconciler.js src/domain/commerce/purchase-state.js src/domain/commerce/entitlement-access-projection.js src/platform/database/sqlite-commerce-repositories.js src/platform/database/sqlite-commerce-attempt-repository.js tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/purchase-replay-authority.test.mjs tests/purchase-second-lifecycle.test.mjs tests/sqlite-commerce-repositories.test.mjs tests/sqlite-commerce-attempt-repository.test.mjs tests/entitlement-access-projection.test.mjs tests/commerce-reconciler.test.mjs
+git commit -m "fix: preflight recoverable purchase authority"
 ```
 
 Expected: every restart point converges without double entitlement, double finish/acknowledgement or learner mutation. Obtain fresh state-machine and privacy reviews.

@@ -609,6 +609,7 @@ Expected: B1 and B3 contract tests PASS without weakening the frozen B1 boundary
 - Create: `src/platform/database/sqlite-commerce-attempt-repository.js`
 - Create: `tests/purchase-coordinator.test.mjs`
 - Create: `tests/purchase-crash-recovery.test.mjs`
+- Create: `tests/purchase-replay-authority.test.mjs`
 - Create: `tests/purchase-second-lifecycle.test.mjs`
 - Create: `tests/sqlite-commerce-attempt-repository.test.mjs`
 - Create: `tests/commerce-reconciler.test.mjs`
@@ -616,6 +617,8 @@ Expected: B1 and B3 contract tests PASS without weakening the frozen B1 boundary
 - Modify: `src/domain/commerce/entitlement-access-projection.js`
 - Modify: `tests/sqlite-commerce-repositories.test.mjs`
 - Modify: `tests/entitlement-access-projection.test.mjs`
+- Modify: `src/platform/fakes/create-b3-fake-gateway.js`
+- Modify: `tests/b3-port-contracts.test.mjs`
 
 **Interfaces:**
 
@@ -652,6 +655,10 @@ Before Parent Buy or Restore invokes a second store operation, any existing
 non-pending acquisition is recovered to completion. A complete native snapshot
 is validated and deduplicated before effects; different acquisition candidates
 fail with `PURCHASE_NATIVE_ACQUISITION_AMBIGUOUS`.
+An existing proof-free pending Parent intent is also one-shot: the next explicit
+action queries native state without invoking the store operation again, then
+promotes a matching purchase, preserves matching pending state, or discards an
+authoritatively empty/cancelled intent so only a later Parent action may retry.
 
 - [ ] **Step 1: Write failing state-machine and crash-matrix tests**
 
@@ -674,7 +681,12 @@ node --test tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.te
 Expected: FAIL before implementation. The final repair recorded 14/17 with
 three failures for Buy/Restore preflight and whole-snapshot ambiguity, followed
 by 40/44 with four failures for safe-ID projection and refresh/download
-cross-checks.
+cross-checks. The adversarial follow-up recorded 0/2 for callback proof A/B
+mismatch and rejection crash convergence: the callback remained verified with
+proof A instead of rejected and proof-cleared. A second focused run recorded
+0/2 for one-shot pending Buy/Restore reconciliation and Restore-result
+ambiguity: the store operation was invoked again and the ambiguous result did
+not reject.
 
 - [ ] **Step 3: Implement exact ordering and idempotency**
 
@@ -686,8 +698,8 @@ Implement a closed retryability classifier. Permanent authenticated rejection ca
 node --test tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/purchase-replay-authority.test.mjs tests/purchase-second-lifecycle.test.mjs tests/sqlite-commerce-repositories.test.mjs tests/sqlite-commerce-attempt-repository.test.mjs tests/entitlement-access-projection.test.mjs tests/commerce-reconciler.test.mjs tests/b3-port-contracts.test.mjs tests/b3-learner-preservation.test.mjs
 npm run lint
 git diff --check
-git add docs/superpowers/plans/2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md src/app/purchase-coordinator.js src/app/commerce-reconciler.js src/domain/commerce/purchase-state.js src/domain/commerce/entitlement-access-projection.js src/platform/database/sqlite-commerce-repositories.js src/platform/database/sqlite-commerce-attempt-repository.js tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/purchase-replay-authority.test.mjs tests/purchase-second-lifecycle.test.mjs tests/sqlite-commerce-repositories.test.mjs tests/sqlite-commerce-attempt-repository.test.mjs tests/entitlement-access-projection.test.mjs tests/commerce-reconciler.test.mjs
-git commit -m "fix: preflight recoverable purchase authority"
+git add docs/superpowers/plans/2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md src/app/purchase-coordinator.js src/app/commerce-reconciler.js src/domain/commerce/purchase-state.js src/domain/commerce/entitlement-access-projection.js src/platform/database/sqlite-commerce-repositories.js src/platform/database/sqlite-commerce-attempt-repository.js src/platform/fakes/create-b3-fake-gateway.js tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/purchase-replay-authority.test.mjs tests/purchase-second-lifecycle.test.mjs tests/sqlite-commerce-repositories.test.mjs tests/sqlite-commerce-attempt-repository.test.mjs tests/entitlement-access-projection.test.mjs tests/commerce-reconciler.test.mjs tests/b3-port-contracts.test.mjs
+git commit -m "fix: reject changed callback authority"
 ```
 
 Expected: every restart point converges without double entitlement, double finish/acknowledgement or learner mutation. Obtain fresh state-machine and privacy reviews.

@@ -120,6 +120,7 @@ async function withWorld(run) {
       authorisation: authorisation(),
       refreshIdentity: null,
       verifyIdentity: null,
+      verifyIdentityForInput: null,
       nextAttempt: 0,
       clock: 20_000,
       lastIdentity: identity(),
@@ -143,7 +144,7 @@ async function withWorld(run) {
             code: 'PROOF_REJECTED', status: 422, retryable: false,
           });
         }
-        state.lastIdentity = state.verifyIdentity ?? identity({
+        state.lastIdentity = state.verifyIdentityForInput?.(input) ?? state.verifyIdentity ?? identity({
           state: input.opaqueProof.includes('revocation') ? 'revoked' : 'active',
           version: calls.verify.length,
         });
@@ -280,7 +281,7 @@ test('first clean Restore uses stable authority and a later current proof is liv
       transactionRef: 'clean-restore-native',
       opaqueProof: 'clean-restore-proof',
     });
-    state.restore = [restored, restored, pending({ transactionRef: 'late-pending' })];
+    state.restore = [restored, restored];
     await coordinator().restore();
     state.current = [{
       ...restored,
@@ -526,6 +527,89 @@ test('changed active-callback authority converges proof-free across rejection cr
       assert.equal(calls.complete.length, completionsBefore, checkpoint);
       assert.equal(calls.finish.length, finishesBefore, checkpoint);
       assert.deepEqual((await commerceRepository.listEntitlements())[0], before, checkpoint);
+    });
+  }
+});
+
+test('replacement proof with a changed safe ID rejects and clears durable callback proof A', async () => {
+  await withWorld(async ({ connection, commerceRepository, calls, state, coordinator }) => {
+    await coordinator().handleObservation(purchased());
+    const active = (await commerceRepository.listEntitlements())[0];
+    await assert.rejects(
+      coordinator({ failureAt: 'after:journal' }).handleObservation(purchased({
+        transactionRef: 'callback-proof-a-native',
+        opaqueProof: 'callback-proof-a',
+      })),
+      { code: 'SIMULATED_CRASH' },
+    );
+    state.current = [purchased({
+      transactionRef: 'callback-proof-b-native',
+      opaqueProof: 'callback-proof-b',
+    })];
+    state.verifyIdentityForInput = (input) => input.opaqueProof === 'callback-proof-b'
+      ? { ...identity({ version: 2 }), storeTransactionId: 'GPA.2222-3333-4444-55555' }
+      : identity();
+    const completionsBefore = calls.complete.length;
+    const finishesBefore = calls.finish.length;
+    await assert.rejects(coordinator().recover(), {
+      code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH',
+    });
+    assert.deepEqual((await connection.query(
+      "SELECT store_transaction_id, processing_state, opaque_proof FROM transaction_journal WHERE journal_id LIKE '%active-callback'",
+    ))[0], {
+      store_transaction_id: null,
+      processing_state: 'rejected',
+      opaque_proof: null,
+    });
+    assert.equal(calls.complete.length, completionsBefore);
+    assert.equal(calls.finish.length, finishesBefore);
+    assert.deepEqual((await commerceRepository.listEntitlements())[0], active);
+    const verifiesBeforeReplay = calls.verify.length;
+    await coordinator().recover();
+    assert.equal(calls.verify.length, verifiesBeforeReplay);
+  });
+});
+
+test('replacement-proof mismatch converges across durable rejection crash arrows', async () => {
+  for (const checkpoint of ['before:rejection', 'after:rejection']) {
+    await withWorld(async ({ connection, commerceRepository, calls, state, coordinator }) => {
+      await coordinator().handleObservation(purchased());
+      const active = (await commerceRepository.listEntitlements())[0];
+      await assert.rejects(
+        coordinator({ failureAt: 'after:journal' }).handleObservation(purchased({
+          transactionRef: `proof-a-${checkpoint.replace(':', '-')}`,
+          opaqueProof: `proof-a-${checkpoint.replace(':', '-')}`,
+        })),
+        { code: 'SIMULATED_CRASH' },
+      );
+      const proofB = `proof-b-${checkpoint.replace(':', '-')}`;
+      state.current = [purchased({ transactionRef: proofB, opaqueProof: proofB })];
+      state.verifyIdentityForInput = (input) => input.opaqueProof === proofB
+        ? { ...identity({ version: 2 }), storeTransactionId: 'GPA.2222-3333-4444-55555' }
+        : identity();
+      const completionsBefore = calls.complete.length;
+      const finishesBefore = calls.finish.length;
+      await assert.rejects(coordinator({ failureAt: checkpoint }).recover(), {
+        code: 'SIMULATED_CRASH',
+      }, checkpoint);
+      if (checkpoint === 'before:rejection') {
+        await assert.rejects(coordinator().recover(), {
+          code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH',
+        }, checkpoint);
+      }
+      const verifiesBeforeReplay = calls.verify.length;
+      await coordinator().recover();
+      assert.deepEqual((await connection.query(
+        "SELECT store_transaction_id, processing_state, opaque_proof FROM transaction_journal WHERE journal_id LIKE '%active-callback'",
+      ))[0], {
+        store_transaction_id: null,
+        processing_state: 'rejected',
+        opaque_proof: null,
+      }, checkpoint);
+      assert.equal(calls.complete.length, completionsBefore, checkpoint);
+      assert.equal(calls.finish.length, finishesBefore, checkpoint);
+      assert.equal(calls.verify.length, verifiesBeforeReplay, checkpoint);
+      assert.deepEqual((await commerceRepository.listEntitlements())[0], active, checkpoint);
     });
   }
 });

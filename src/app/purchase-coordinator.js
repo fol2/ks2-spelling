@@ -479,6 +479,20 @@ export function createPurchaseCoordinator(rawDependencies) {
     return frozenResult(result.journal.processingState);
   }
 
+  async function rejectAuthenticatedActiveCallback(journal) {
+    if (!isActiveCallbackJournal(journal) ||
+      (journal.processingState !== 'observed' && journal.processingState !== 'verified')) {
+      throw Object.assign(new Error('Active callback rejection state is invalid.'), {
+        code: 'PURCHASE_JOURNAL_STATE_INVALID',
+      });
+    }
+    return around('rejection', () => commerceRepository.markRejectedAndClearProof({
+      journalId: journal.journalId,
+      rejectionKind: 'authenticated-permanent',
+      rejectedAt: timestampAfter(journal.updatedAt),
+    }));
+  }
+
   async function processRevocationJournal(
     journal,
     nativeObservation,
@@ -563,13 +577,7 @@ export function createPurchaseCoordinator(rawDependencies) {
         entitlement.productId === journal.productId &&
         entitlement.state === 'active') ?? null;
       if (!active || verified.storeTransactionId !== active.storeTransactionId) {
-        if (journal.processingState === 'observed' || journal.processingState === 'verified') {
-          await around('rejection', () => commerceRepository.markRejectedAndClearProof({
-            journalId: journal.journalId,
-            rejectionKind: 'authenticated-permanent',
-            rejectedAt: timestampAfter(journal.updatedAt),
-          }));
-        }
+        await rejectAuthenticatedActiveCallback(journal);
         throw Object.assign(new Error('Active callback store transaction authority changed.'), {
           code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH',
         });
@@ -593,6 +601,7 @@ export function createPurchaseCoordinator(rawDependencies) {
         applicationId: 'uk.eugnel.ks2spelling',
       }, 'active');
       if (currentNativeAuthority.storeTransactionId !== verified.storeTransactionId) {
+        if (activeCallback) await rejectAuthenticatedActiveCallback(journal);
         throw Object.assign(new Error('Current native acquisition authority changed.'), {
           code: 'PURCHASE_GATEWAY_IDENTITY_MISMATCH',
         });
@@ -756,7 +765,9 @@ export function createPurchaseCoordinator(rawDependencies) {
   async function reconcilePurchasedAttempt() {
     const before = await listRecoverable();
     const purchased = before.filter((journal) => journal.observationState === 'purchased');
-    if (purchased.length === 0) return false;
+    if (purchased.length === 0) {
+      return Object.freeze({ reconciled: false, recoverable: before });
+    }
     await recoverInternal();
     const remaining = await listRecoverable();
     if (purchased.some((journal) =>
@@ -765,7 +776,51 @@ export function createPurchaseCoordinator(rawDependencies) {
         code: 'PURCHASE_RECOVERY_INCOMPLETE',
       });
     }
-    return true;
+    return Object.freeze({ reconciled: true, recoverable: before });
+  }
+
+  async function reconcilePreExistingPendingAttempt(
+    expectedProductId,
+    attemptMode,
+    recoverable,
+  ) {
+    const pending = recoverable.filter((journal) =>
+      journal.observationState === 'pending' &&
+      journal.processingState === 'observed' &&
+      journal.storeTransactionId === null &&
+      journal.opaqueProof === null &&
+      (expectedProductId === null || journal.productId === expectedProductId));
+    if (pending.length === 0) return null;
+    if (pending.length > 1) {
+      throw Object.assign(new Error('Durable explicit commerce attempt is ambiguous.'), {
+        code: 'PURCHASE_ACQUISITION_AMBIGUOUS',
+      });
+    }
+    const attempt = pending[0];
+    const native = normaliseNativeSnapshot(
+      await store.queryTransactions({ productIds: [...FULL_KS2_PRODUCT_IDS] }),
+    );
+    const acquisition = native.find((observation) =>
+      (observation.outcome === 'pending' || observation.outcome === 'purchased') &&
+      observation.store === attempt.store &&
+      observation.productId === attempt.productId) ?? null;
+    const foreignAcquisition = native.find((observation) =>
+      (observation.outcome === 'pending' || observation.outcome === 'purchased') &&
+      (observation.store !== attempt.store || observation.productId !== attempt.productId));
+    if (foreignAcquisition) {
+      throw Object.assign(new Error('Native acquisition does not match durable Parent intent.'), {
+        code: 'PURCHASE_ATTEMPT_AUTHORITY_MISMATCH',
+      });
+    }
+    if (acquisition) {
+      return processObservation(acquisition, {
+        attemptMode,
+        attemptJournalId: attempt.journalId,
+        nativeSnapshotKnown: true,
+      });
+    }
+    await discardExplicitAttempt(attempt);
+    return frozenResult('cancelled');
   }
 
   async function purchaseFullKs2(request) {
@@ -773,7 +828,15 @@ export function createPurchaseCoordinator(rawDependencies) {
     return serialise(async () => {
       const productId = assertApprovedFullKs2ProductId(request);
       await seedTimestampFloor();
-      await reconcilePurchasedAttempt();
+      const recovery = await reconcilePurchasedAttempt();
+      if (!recovery.reconciled) {
+        const priorAttempt = await reconcilePreExistingPendingAttempt(
+          productId,
+          'purchase',
+          recovery.recoverable,
+        );
+        if (priorAttempt) return priorAttempt;
+      }
       let existingEntitlements = await listEntitlements();
       let active = existingEntitlements.find((entitlement) =>
         entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
@@ -821,9 +884,26 @@ export function createPurchaseCoordinator(rawDependencies) {
     if (arguments.length !== 0) throw new TypeError('restore does not accept input.');
     return serialise(async () => {
       await seedTimestampFloor();
-      if (await reconcilePurchasedAttempt()) return frozenResult('restored');
+      const recovery = await reconcilePurchasedAttempt();
+      if (recovery.reconciled) return frozenResult('restored');
+      const priorAttempt = await reconcilePreExistingPendingAttempt(
+        null,
+        'restore',
+        recovery.recoverable,
+      );
+      if (priorAttempt) {
+        return priorAttempt.state === 'complete' ? frozenResult('restored') : priorAttempt;
+      }
       const attempt = await prepareExplicitAttempt();
-      const observations = await store.restore({ productIds: [...FULL_KS2_PRODUCT_IDS] });
+      let observations;
+      try {
+        observations = normaliseNativeSnapshot(
+          await store.restore({ productIds: [...FULL_KS2_PRODUCT_IDS] }),
+        );
+      } catch (error) {
+        await discardExplicitAttempt(attempt);
+        throw error;
+      }
       const selected = new Map();
       for (const observation of observations) {
         const value = validateObservation(observation);

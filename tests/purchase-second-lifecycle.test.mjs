@@ -679,6 +679,79 @@ test('two different native acquisition candidates fail the whole snapshot before
   });
 });
 
+test('pre-existing one-shot intent reconciles native state without a second Buy or Restore', async () => {
+  for (const operation of ['purchase', 'restore']) {
+    for (const snapshot of ['purchased', 'pending', 'empty']) {
+      await withWorld(async (world) => {
+        await world.attemptRepository.preparePendingAttempt({
+          journalId: `pre-existing-${operation}-${snapshot}`,
+          observedAt: 9_999,
+        });
+        if (snapshot === 'purchased') {
+          world.native.push(purchased(`${operation}-pre-existing`));
+        } else if (snapshot === 'pending') {
+          world.native.push(outcome('pending', `${operation}-pre-existing`));
+        }
+        const callsBefore = world.calls.length;
+        const invoke = () => operation === 'purchase'
+          ? world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID })
+          : world.makeCoordinator().restore();
+        const result = await invoke();
+        assert.equal(
+          world.calls.slice(callsBefore).some(([name]) => name === operation),
+          false,
+          `${operation}/${snapshot}`,
+        );
+        const durable = await rows(world.connection);
+        if (snapshot === 'purchased') {
+          assert.equal(durable.length, 1, `${operation}/${snapshot}`);
+          assert.equal(durable[0].processing_state, 'complete', `${operation}/${snapshot}`);
+          assert.equal((await world.commerceRepository.listEntitlements())[0].state, 'active');
+        } else if (snapshot === 'pending') {
+          assert.equal(result.state, 'pending', `${operation}/${snapshot}`);
+          assert.equal(durable.length, 1, `${operation}/${snapshot}`);
+          assert.equal(durable[0].observation_state, 'pending', `${operation}/${snapshot}`);
+        } else {
+          assert.equal(result.state, 'cancelled', `${operation}/${snapshot}`);
+          assert.deepEqual(durable, [], `${operation}/${snapshot}`);
+          await invoke();
+          assert.equal(
+            world.calls.filter(([name]) => name === operation).length,
+            1,
+            `${operation}/${snapshot}/later-action`,
+          );
+        }
+      });
+    }
+  }
+});
+
+test('Restore rejects an ambiguous acquisition result before gateway or retained durable effects', async () => {
+  await withWorld(async (world) => {
+    world.setRestoreResults([
+      purchased('restore-ambiguous-one', 'restore-ambiguous-proof-one'),
+      purchased('restore-ambiguous-two', 'restore-ambiguous-proof-two'),
+    ]);
+    const callsBefore = world.calls.length;
+    await assert.rejects(
+      world.makeCoordinator().restore(),
+      { code: 'PURCHASE_NATIVE_ACQUISITION_AMBIGUOUS' },
+    );
+    assert.equal(
+      world.calls.slice(callsBefore).some(([name]) => [
+        'verifyTransaction',
+        'completeTransaction',
+        'finishTransaction',
+        'authorisePackDownload',
+      ].includes(name)),
+      false,
+    );
+    assert.deepEqual(await rows(world.connection), []);
+    assert.deepEqual(await world.commerceRepository.listEntitlements(), []);
+    assert.deepEqual(world.jobs, []);
+  });
+});
+
 test('second lifecycle converges across every durable purchase arrow', async () => {
   const cases = [
     ['before:journal', 1],

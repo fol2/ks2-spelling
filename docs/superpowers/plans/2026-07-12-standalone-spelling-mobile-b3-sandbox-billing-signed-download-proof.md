@@ -696,6 +696,9 @@ not reject. The final snapshot repair recorded 20/24 with four failures: a
 matching unverified outcome was treated as empty, revocation-only was treated
 as empty, a mixed acquisition/revocation snapshot stopped after acquisition,
 and a foreign revocation was not recognised as foreign authority.
+The orphan-intent follow-up recorded 0/2: Parent Buy and Restore recovered the
+purchased journal but left the proof-free pending intent durable instead of
+querying the empty native snapshot and discarding it.
 
 - [ ] **Step 3: Implement exact ordering and idempotency**
 
@@ -708,7 +711,7 @@ node --test tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.te
 npm run lint
 git diff --check
 git add docs/superpowers/plans/2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md src/app/purchase-coordinator.js src/app/commerce-reconciler.js src/domain/commerce/purchase-state.js src/domain/commerce/entitlement-access-projection.js src/platform/database/sqlite-commerce-repositories.js src/platform/database/sqlite-commerce-attempt-repository.js src/platform/fakes/create-b3-fake-gateway.js tests/purchase-coordinator.test.mjs tests/purchase-crash-recovery.test.mjs tests/purchase-replay-authority.test.mjs tests/purchase-second-lifecycle.test.mjs tests/sqlite-commerce-repositories.test.mjs tests/sqlite-commerce-attempt-repository.test.mjs tests/entitlement-access-projection.test.mjs tests/commerce-reconciler.test.mjs tests/b3-port-contracts.test.mjs
-git commit -m "fix: reconcile pending authority snapshots"
+git commit -m "fix: clear recovered pending commerce intents"
 ```
 
 Expected: every restart point converges without double entitlement, double finish/acknowledgement or learner mutation. Obtain fresh state-machine and privacy reviews.

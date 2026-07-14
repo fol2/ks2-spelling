@@ -219,6 +219,26 @@ async function bootstrapRevoked(world) {
   await world.makeCoordinator().handleObservation(revoked());
 }
 
+async function seedPurchasedRecoveryWithPendingIntent(world, operation) {
+  await bootstrapActive(world);
+  const existingJob = structuredClone(world.jobs[0]);
+  const purchasedJournalId = `orphan-recovery-${operation}`;
+  const pendingJournalId = `orphan-intent-${operation}`;
+  await world.commerceRepository.observeTransaction({
+    journalId: purchasedJournalId,
+    store: 'google',
+    productId: PRODUCT_ID,
+    observationState: 'purchased',
+    opaqueProof: `proof-orphan-${operation}`,
+    observedAt: 20_000,
+  });
+  await world.attemptRepository.preparePendingAttempt({
+    journalId: pendingJournalId,
+    observedAt: 20_001,
+  });
+  return { existingJob, purchasedJournalId, pendingJournalId };
+}
+
 test('explicit Buy persists one intent before native work and recovers a second lifecycle after process loss', async () => {
   await withWorld(async (world) => {
     await bootstrapRevoked(world);
@@ -528,6 +548,60 @@ test('active Buy reconciles one incomplete acquisition without opening a second 
       false,
     );
     assert.equal(world.native.length, 0);
+  });
+});
+
+test('Parent Buy completes purchased recovery and clears a surviving empty intent without buying again', async () => {
+  await withWorld(async (world) => {
+    const authority = await seedPurchasedRecoveryWithPendingIntent(world, 'buy');
+    const callsBefore = world.calls.length;
+
+    const result = await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID });
+
+    assert.deepEqual(result, { state: 'complete' });
+    assert.equal(
+      world.calls.slice(callsBefore).some(([name]) => name === 'purchase' || name === 'restore'),
+      false,
+    );
+    const durable = await rows(world.connection);
+    assert.equal(durable.some((row) => row.journal_id === authority.pendingJournalId), false);
+    assert.deepEqual(durable.filter((row) =>
+      row.journal_id === authority.purchasedJournalId), [{
+      journal_id: authority.purchasedJournalId,
+      observation_state: 'purchased',
+      processing_state: 'complete',
+      opaque_proof: null,
+      store_transaction_id: FIRST_STORE_ID,
+    }]);
+    assert.equal((await world.commerceRepository.listEntitlements())[0].state, 'active');
+    assert.deepEqual(world.jobs, [authority.existingJob]);
+  });
+});
+
+test('Parent Restore reports purchased recovery and clears a surviving empty intent without restoring again', async () => {
+  await withWorld(async (world) => {
+    const authority = await seedPurchasedRecoveryWithPendingIntent(world, 'restore');
+    const callsBefore = world.calls.length;
+
+    const result = await world.makeCoordinator().restore();
+
+    assert.deepEqual(result, { state: 'restored' });
+    assert.equal(
+      world.calls.slice(callsBefore).some(([name]) => name === 'purchase' || name === 'restore'),
+      false,
+    );
+    const durable = await rows(world.connection);
+    assert.equal(durable.some((row) => row.journal_id === authority.pendingJournalId), false);
+    assert.deepEqual(durable.filter((row) =>
+      row.journal_id === authority.purchasedJournalId), [{
+      journal_id: authority.purchasedJournalId,
+      observation_state: 'purchased',
+      processing_state: 'complete',
+      opaque_proof: null,
+      store_transaction_id: FIRST_STORE_ID,
+    }]);
+    assert.equal((await world.commerceRepository.listEntitlements())[0].state, 'active');
+    assert.deepEqual(world.jobs, [authority.existingJob]);
   });
 });
 

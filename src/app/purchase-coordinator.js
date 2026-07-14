@@ -776,7 +776,7 @@ export function createPurchaseCoordinator(rawDependencies) {
         code: 'PURCHASE_RECOVERY_INCOMPLETE',
       });
     }
-    return Object.freeze({ reconciled: true, recoverable: before });
+    return Object.freeze({ reconciled: true, recoverable: remaining });
   }
 
   async function reconcilePreExistingPendingAttempt(
@@ -854,13 +854,14 @@ export function createPurchaseCoordinator(rawDependencies) {
       const productId = assertApprovedFullKs2ProductId(request);
       await seedTimestampFloor();
       const recovery = await reconcilePurchasedAttempt();
-      if (!recovery.reconciled) {
-        const priorAttempt = await reconcilePreExistingPendingAttempt(
-          productId,
-          'purchase',
-          recovery.recoverable,
-        );
-        if (priorAttempt) return priorAttempt;
+      const priorAttempt = await reconcilePreExistingPendingAttempt(
+        productId,
+        'purchase',
+        recovery.recoverable,
+      );
+      if (priorAttempt && (!recovery.reconciled ||
+        !['cancelled', 'complete'].includes(priorAttempt.state))) {
+        return priorAttempt;
       }
       let existingEntitlements = await listEntitlements();
       let active = existingEntitlements.find((entitlement) =>
@@ -910,12 +911,17 @@ export function createPurchaseCoordinator(rawDependencies) {
     return serialise(async () => {
       await seedTimestampFloor();
       const recovery = await reconcilePurchasedAttempt();
-      if (recovery.reconciled) return frozenResult('restored');
       const priorAttempt = await reconcilePreExistingPendingAttempt(
         null,
         'restore',
         recovery.recoverable,
       );
+      if (recovery.reconciled) {
+        if (priorAttempt && !['cancelled', 'complete'].includes(priorAttempt.state)) {
+          return priorAttempt;
+        }
+        return frozenResult('restored');
+      }
       if (priorAttempt) {
         return priorAttempt.state === 'complete' ? frozenResult('restored') : priorAttempt;
       }

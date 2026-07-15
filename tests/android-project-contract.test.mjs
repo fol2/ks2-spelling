@@ -70,7 +70,7 @@ test('the committed Android project freezes the B1 identity and toolchain', asyn
   assert.equal(capacitorAndroidPackage.version, '8.4.1');
 });
 
-test('the B2 Android app declares only permission removals and disables backup', async () => {
+test('the Android app allows only normal INTERNET plus permission removals and disables backup', async () => {
   assert.ok(existsSync(MANIFEST), 'missing committed Android app manifest');
   assert.ok(
     existsSync(BACKUP_RULES) && existsSync(DATA_EXTRACTION_RULES),
@@ -101,6 +101,16 @@ test('the B2 Android app declares only permission removals and disables backup',
   for (const marker of [...removalMarkers, ...biometricRemovalMarkers]) {
     manifestWithoutRemovalMarkers = manifestWithoutRemovalMarkers.replace(marker[0], '');
   }
+  const remainingPermissions = [
+    ...manifestWithoutRemovalMarkers.matchAll(
+      /<uses-permission\s+android:name="([^"]+)"\s*\/>/g,
+    ),
+  ].map((match) => match[1]);
+  assert.deepEqual(remainingPermissions, ['android.permission.INTERNET']);
+  manifestWithoutRemovalMarkers = manifestWithoutRemovalMarkers.replace(
+    /<uses-permission\s+android:name="android\.permission\.INTERNET"\s*\/>/,
+    '',
+  );
   assert.doesNotMatch(manifestWithoutRemovalMarkers, /<(?:permission|uses-permission)\b/);
   assert.match(manifest, /android:allowBackup="false"/);
   assert.match(manifest, /android:fullBackupContent="@xml\/backup_rules"/);
@@ -111,4 +121,12 @@ test('the B2 Android app declares only permission removals and disables backup',
     existsSync(join(ANDROID_ROOT, 'app/src/main/res/xml/network_security_config.xml')),
     false,
   );
+});
+
+test('the Android activity explicitly registers the owned PackTransfer plugin', async () => {
+  const activity = await readFile(
+    join(ANDROID_ROOT, 'app/src/main/java/uk/eugnel/ks2spelling/MainActivity.java'),
+    'utf8',
+  );
+  assert.match(activity, /registerPlugin\(PackTransferPlugin\.class\)/);
 });

@@ -1,0 +1,323 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "category": "traversal-path",
+      "file": "traversal-path.zip",
+      "sha256": "eea49492c277c87ee68a252f3ec19e386f3eb99d1b1e0269ffcd50237d58250e",
+      "bytes": 162
+    },
+    {
+      "category": "absolute-path",
+      "file": "absolute-path.zip",
+      "sha256": "caaa0e8645eff03975a326f0ee2acfe331b33bdccb4627f437eb50225942defb",
+      "bytes": 157
+    },
+    {
+      "category": "drive-path",
+      "file": "drive-path.zip",
+      "sha256": "81649e8be6757089a366ce772282ec3cbd7a04b380f37a27e36dd8f523313885",
+      "bytes": 158
+    },
+    {
+      "category": "backslash-path",
+      "file": "backslash-path.zip",
+      "sha256": "f88708e04533ecbd12552119b13536186d04ba210319ed97daa3b79082ee5c13",
+      "bytes": 158
+    },
+    {
+      "category": "dot-segment",
+      "file": "dot-segment.zip",
+      "sha256": "00dd04ba92044e7391a09d8558d7990f52968a03fd836ca5067cd8a12120b95c",
+      "bytes": 159
+    },
+    {
+      "category": "empty-segment",
+      "file": "empty-segment.zip",
+      "sha256": "8b2570b59925f74e2e924465f4057c8bd36eb323d2a2bcd5f01fc8c9f4461e9d",
+      "bytes": 159
+    },
+    {
+      "category": "duplicate-path",
+      "file": "duplicate-path.zip",
+      "sha256": "b5511817b6dbb95506d422562a9335cde72aa9be7cdf634f5b45c811c206b2a6",
+      "bytes": 236
+    },
+    {
+      "category": "case-fold-collision",
+      "file": "case-fold-collision.zip",
+      "sha256": "206f4cca5cf1e277ab65db9f645734cd87283449f6393bfa2ddea4ec948a0a8b",
+      "bytes": 240
+    },
+    {
+      "category": "unicode-nfc-collision",
+      "file": "unicode-nfc-collision.zip",
+      "sha256": "b3ef2b5deba1add57d711dd6c67880c75c9e2bb8ecf0a46c158d34d919e59d5c",
+      "bytes": 242
+    },
+    {
+      "category": "creator-os-zero",
+      "file": "creator-os-zero.zip",
+      "sha256": "3d83a8a3c971e05d37f920b4ce291b603f0148940933cb1701ffb45edab54839",
+      "bytes": 169
+    },
+    {
+      "category": "creator-os-unknown",
+      "file": "creator-os-unknown.zip",
+      "sha256": "94a0cc4458ef65d11dfc1952be21f39c0d692beb20835b09390eb3a5a1259ef0",
+      "bytes": 178
+    },
+    {
+      "category": "mode-zero",
+      "file": "mode-zero.zip",
+      "sha256": "96fd6d9caf302c4031ab56c855c41c69edb3d89bd85f0f68a25d8077ef5fe5d5",
+      "bytes": 151
+    },
+    {
+      "category": "mode-ambiguous",
+      "file": "mode-ambiguous.zip",
+      "sha256": "6b1647d735d0a51708683d8f590c88251bfbb78fab53285d5f433e8bb980ba21",
+      "bytes": 166
+    },
+    {
+      "category": "symlink-mode",
+      "file": "symlink-mode.zip",
+      "sha256": "c466ab8ce9f7de28da006f08744600a4fb3765c51a07585fe1ee91681a0b6d3d",
+      "bytes": 160
+    },
+    {
+      "category": "hard-link-mode",
+      "file": "hard-link-mode.zip",
+      "sha256": "92a8eba1bbdaa43f84340f6cc1ea794b3fc7cce95f8251ec1d8534c3561063e5",
+      "bytes": 226
+    },
+    {
+      "category": "device-mode",
+      "file": "device-mode.zip",
+      "sha256": "122148fffebfef84df0404bc3b18999bd897bec1bb17a1a6cd6e9a4c49cdeed7",
+      "bytes": 157
+    },
+    {
+      "category": "fifo-mode",
+      "file": "fifo-mode.zip",
+      "sha256": "a0fa4868daa6ab08e9177ac90dc50e286aca94d03c5c642939fbf8b12338f2c8",
+      "bytes": 151
+    },
+    {
+      "category": "socket-mode",
+      "file": "socket-mode.zip",
+      "sha256": "88cd54bffd96ee10a7eb3a04de66ddf4d4d6df2dceb7509df2c17ec08b403387",
+      "bytes": 157
+    },
+    {
+      "category": "directory-mode",
+      "file": "directory-mode.zip",
+      "sha256": "08e9b9765df1b3ea1f8500ef7c5fc3370b4f8604324d23cff01d4bf9d0e0ac06",
+      "bytes": 140
+    },
+    {
+      "category": "local-name-mismatch",
+      "file": "local-name-mismatch.zip",
+      "sha256": "35b7c25a764e09f913ada44c280a9ffddfb2221136e0652db260e7ed4f5c9dd5",
+      "bytes": 161
+    },
+    {
+      "category": "local-flag-mismatch",
+      "file": "local-flag-mismatch.zip",
+      "sha256": "814968125710ce093e6239aea8b1c4495d60c95f3b37459574f2249ac1559858",
+      "bytes": 181
+    },
+    {
+      "category": "local-method-mismatch",
+      "file": "local-method-mismatch.zip",
+      "sha256": "c8217a65b253136a9a10805aafa38049bbcb06a18e6678390f0ad95735dbfbb7",
+      "bytes": 189
+    },
+    {
+      "category": "local-crc-mismatch",
+      "file": "local-crc-mismatch.zip",
+      "sha256": "e12df085de54541621babd42223369b2091bcb196463a7c718efe4a0bb70877f",
+      "bytes": 178
+    },
+    {
+      "category": "local-size-mismatch",
+      "file": "local-size-mismatch.zip",
+      "sha256": "1ae7062eab055ce9407d20458262fc928960e4949d1007986ffcb7bddf506b58",
+      "bytes": 181
+    },
+    {
+      "category": "duplicate-local-offset",
+      "file": "duplicate-local-offset.zip",
+      "sha256": "3880b5b3b2d88636a7cd1a87c67442c09c51664d0585e5763c9f26d0be72670b",
+      "bytes": 212
+    },
+    {
+      "category": "overlapping-local-offset",
+      "file": "overlapping-local-offset.zip",
+      "sha256": "bf80a3ea632a6d05af6aa544b32b1b017a90a98b7ff9854c3e6a8e5847b0ba2d",
+      "bytes": 257
+    },
+    {
+      "category": "overlapping-data-range",
+      "file": "overlapping-data-range.zip",
+      "sha256": "82c96d49e742c4969f7349ccfcb74ee4fb28e3fe4def1134e90cb83f852c2639",
+      "bytes": 256
+    },
+    {
+      "category": "central-directory-overlap",
+      "file": "central-directory-overlap.zip",
+      "sha256": "9424ffa75a128716f24fd6e12b9aa55b31da524ec7930bc88e29cc340e7ade50",
+      "bytes": 158
+    },
+    {
+      "category": "truncated-offset",
+      "file": "truncated-offset.zip",
+      "sha256": "35639757f81bca41e5aa69c606a1d63147cc579b36d1111cbe30cf879fedb7f3",
+      "bytes": 172
+    },
+    {
+      "category": "overflowing-offset",
+      "file": "overflowing-offset.zip",
+      "sha256": "67202782c30266c51792c49683b42964f8ae1faa72e3f42c7f7bfe7df53a2286",
+      "bytes": 178
+    },
+    {
+      "category": "truncated-size",
+      "file": "truncated-size.zip",
+      "sha256": "70ce0ebf4abee4454c1f255b69a78b04cda4b06771904deb50ee365f17c08929",
+      "bytes": 166
+    },
+    {
+      "category": "overflowing-size",
+      "file": "overflowing-size.zip",
+      "sha256": "da10f43ecc53aa9863753f69ddc13c0365da929861277a332260d305717fe4c2",
+      "bytes": 172
+    },
+    {
+      "category": "multiple-eocd",
+      "file": "multiple-eocd.zip",
+      "sha256": "9b270cc9681a70c4aaa42a3e8d04317a77739270112b6c68dfdb53f2581c5eaf",
+      "bytes": 185
+    },
+    {
+      "category": "ambiguous-eocd",
+      "file": "ambiguous-eocd.zip",
+      "sha256": "d4245336d67b0ee2d886c5e5903dc173c16ac07f1b91e5e3aabdfd759880260c",
+      "bytes": 167
+    },
+    {
+      "category": "eocd-not-at-eof",
+      "file": "eocd-not-at-eof.zip",
+      "sha256": "796c2cd6100f0e6abf6046c3e4da6420d2284d43be1781e617961adeaed18fec",
+      "bytes": 154
+    },
+    {
+      "category": "prepended-junk",
+      "file": "prepended-junk.zip",
+      "sha256": "0eb1b202bc218c7c14dae78d5a46da3961171545991af8beecabc8a31b27a12d",
+      "bytes": 154
+    },
+    {
+      "category": "trailing-junk",
+      "file": "trailing-junk.zip",
+      "sha256": "273165af98cbd08c2c72950144ab42f778c456714224a7c4dd415bef8277b8dd",
+      "bytes": 160
+    },
+    {
+      "category": "non-zero-extra-field",
+      "file": "non-zero-extra-field.zip",
+      "sha256": "0be7f91621b03c689a515d4b8e67da0aff0e476a3754d95c47392fd148740941",
+      "bytes": 192
+    },
+    {
+      "category": "unknown-extra-field",
+      "file": "unknown-extra-field.zip",
+      "sha256": "14282f58a10bb3d9cf7defa73a07bdaa39144475fba1ff97962524693f265cb9",
+      "bytes": 191
+    },
+    {
+      "category": "encrypted-flag",
+      "file": "encrypted-flag.zip",
+      "sha256": "8f335f2db793923a92595a1266a7e5e1a8bb6c4ee2db31bac509af5d0e735921",
+      "bytes": 166
+    },
+    {
+      "category": "unknown-flag",
+      "file": "unknown-flag.zip",
+      "sha256": "a338cb9af11dcf64ea014c695fc4e91ffc4b1c92b6f45680262553e3dbc7760f",
+      "bytes": 160
+    },
+    {
+      "category": "unknown-compression-method",
+      "file": "unknown-compression-method.zip",
+      "sha256": "bd63fa091aefcb8c8b05c90ca462030f5dc197b0e07dce6e9a660d60f517ce19",
+      "bytes": 202
+    },
+    {
+      "category": "member-comment",
+      "file": "member-comment.zip",
+      "sha256": "4b180e9c0679ee9fdf7d626ff5fcf6a7f3ef46892f07d11eaa1db66eddc6970a",
+      "bytes": 175
+    },
+    {
+      "category": "multi-disk",
+      "file": "multi-disk.zip",
+      "sha256": "8aa9ac69a396fc65abb10f1d4c325da90c98f9c5b5911a9b2196ab0236802f74",
+      "bytes": 154
+    },
+    {
+      "category": "data-descriptor",
+      "file": "data-descriptor.zip",
+      "sha256": "88bfb5196a5cad3552794496d74b0e2e146846f8d90603227cf83c39881095ad",
+      "bytes": 169
+    },
+    {
+      "category": "zip64",
+      "file": "zip64.zip",
+      "sha256": "fa3d44c136f38323820a00b217bdd59a06eaf15d0d24d1579941cc05249c9b8e",
+      "bytes": 147
+    },
+    {
+      "category": "local-extracted-size-mismatch",
+      "file": "local-extracted-size-mismatch.zip",
+      "sha256": "fcbf9f307fb97e0fac9201a3acd844b2e4c543d18c57aa9411235532f0826fb6",
+      "bytes": 211
+    },
+    {
+      "category": "undeclared-member",
+      "file": "undeclared-member.zip",
+      "sha256": "b2e38162da101a5b727b040e35a76b0aa8a33b1332f2d5bc54764b6c6496a4b9",
+      "bytes": 236
+    },
+    {
+      "category": "missing-member",
+      "file": "missing-member.zip",
+      "sha256": "4bc7da01bb45242530edb5c0229fa1cab2ba18dde24f0ec7e5504a781f4f4477",
+      "bytes": 128
+    },
+    {
+      "category": "executable-extension",
+      "file": "executable-extension.zip",
+      "sha256": "12110cc487a807d581f8ed9da9b4be1b23cf0328e10d0c2f6d5878bc2aaafd93",
+      "bytes": 154
+    },
+    {
+      "category": "compressed-ceiling",
+      "file": "compressed-ceiling.zip",
+      "sha256": "4d3b7dc3d994f6b7481dd7ddc70bd06c0df99950edb7d35a568393344b3b7dff",
+      "bytes": 1048721
+    },
+    {
+      "category": "extracted-ceiling",
+      "file": "extracted-ceiling.zip",
+      "sha256": "44e42190549d71574e974b187772e453c95b0cd912498cedda6e4759e6aba216",
+      "bytes": 4223
+    },
+    {
+      "category": "file-count-ceiling",
+      "file": "file-count-ceiling.zip",
+      "sha256": "6c07290277c659bcd4ccb74e61d8d307b12a761e08214166b220e476d3a84c71",
+      "bytes": 1780
+    }
+  ]
+}

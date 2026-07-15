@@ -181,6 +181,7 @@ test('Capacitor and the built shell remain local-only', async () => {
     appId: 'uk.eugnel.ks2spelling',
     appName: 'KS2 Spelling',
     webDir: 'dist',
+    loggingBehavior: 'none',
     plugins: {
       CapacitorSQLite: {
         iosDatabaseLocation: 'Library/CapacitorDatabase',

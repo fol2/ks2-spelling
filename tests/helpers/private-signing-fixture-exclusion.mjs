@@ -42,6 +42,8 @@ const GENERATED_PACKAGEABLE_DIRECTORIES = Object.freeze([
   'dist',
   '.native-build/b3',
   '.native-build/ios/Build/Products',
+  '.native-build/android/build/app/intermediates/java_res/debugUnitTest/'
+    + 'processDebugUnitTestJavaRes/out/b3-hostile-zips',
 ]);
 
 const PACKAGEABLE_DIRECTORIES = Object.freeze([
@@ -66,6 +68,45 @@ const PACKAGEABLE_FILES = Object.freeze([
 
 const ARCHIVE_EXTENSIONS = new Set(['.aab', '.aar', '.apk', '.ipa', '.jar', '.zip']);
 const HOSTILE_ZIP_FIXTURE_PREFIX = 'tests/fixtures/b3-hostile-zips/';
+const NATIVE_HOSTILE_ZIP_FIXTURE_PREFIX =
+  'android/app/src/test/resources/b3-hostile-zips/';
+const GENERATED_ANDROID_HOSTILE_ZIP_FIXTURE_PREFIX =
+  'android/app/build/intermediates/java_res/debugUnitTest/'
+  + 'processDebugUnitTestJavaRes/out/b3-hostile-zips/';
+const GENERATED_NATIVE_ANDROID_HOSTILE_ZIP_FIXTURE_PREFIX =
+  '.native-build/android/build/app/intermediates/java_res/debugUnitTest/'
+  + 'processDebugUnitTestJavaRes/out/b3-hostile-zips/';
+const HOSTILE_ZIP_MANIFEST_SHA256 =
+  'b76b8fd52820b1ac69e1ebced81ba99f4c9c78809136d06e76eedb4c4f04bc58';
+const hostileZipManifestBytes = await readFile(
+  new URL('../fixtures/b3-hostile-zips/manifest.json', import.meta.url),
+);
+if (
+  createHash('sha256').update(hostileZipManifestBytes).digest('hex')
+  !== HOSTILE_ZIP_MANIFEST_SHA256
+) {
+  throw new Error('The frozen hostile ZIP filename and SHA-256 authority drifted.');
+}
+const hostileZipManifest = JSON.parse(hostileZipManifestBytes);
+const HOSTILE_ZIP_FILE_AUTHORITY = new Map([
+  ['manifest.json', HOSTILE_ZIP_MANIFEST_SHA256],
+  ...hostileZipManifest.fixtures.map((fixture) => [fixture.file, fixture.sha256]),
+]);
+if (
+  HOSTILE_ZIP_FILE_AUTHORITY.size !== hostileZipManifest.fixtures.length + 1
+  || [...HOSTILE_ZIP_FILE_AUTHORITY].some(
+    ([name, sha256]) => !/^[a-z0-9][a-z0-9-]*\.zip$|^manifest\.json$/.test(name)
+      || !/^[0-9a-f]{64}$/.test(sha256),
+  )
+) {
+  throw new Error('The frozen hostile ZIP filename and SHA-256 authority is malformed.');
+}
+const HOSTILE_ZIP_COPY_PREFIXES = Object.freeze([
+  HOSTILE_ZIP_FIXTURE_PREFIX,
+  NATIVE_HOSTILE_ZIP_FIXTURE_PREFIX,
+  GENERATED_ANDROID_HOSTILE_ZIP_FIXTURE_PREFIX,
+  GENERATED_NATIVE_ANDROID_HOSTILE_ZIP_FIXTURE_PREFIX,
+]);
 const MAX_FILES = 20_000;
 const MAX_FILE_BYTES = 128 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 512 * 1024 * 1024;
@@ -498,7 +539,9 @@ async function scanCollectedFiles(files, mutable, budget, limits) {
 
   let bytesScanned = 0;
   const fingerprint = [];
-  const hostileCorpusSnapshot = new Map();
+  const hostileCorpusSnapshots = new Map(
+    HOSTILE_ZIP_COPY_PREFIXES.map((prefix) => [prefix, new Map()]),
+  );
   for (const file of uniqueFiles) {
     if (file.size > MAX_FILE_BYTES) {
       scanError(`packageable input exceeded the per-file byte bound at ${file.displayPath}`);
@@ -506,20 +549,31 @@ async function scanCollectedFiles(files, mutable, budget, limits) {
     bytesScanned += file.size;
     const bytes = await readStableFile(file, mutable, budget, limits);
     assertNoMarker(bytes, file.displayPath);
+    const hostilePrefix = HOSTILE_ZIP_COPY_PREFIXES.find(
+      (prefix) => file.displayPath.startsWith(prefix),
+    );
+    let approvedHostileCopy = false;
+    if (hostilePrefix !== undefined) {
+      const relativeName = file.displayPath.slice(hostilePrefix.length);
+      const expectedSha256 = HOSTILE_ZIP_FILE_AUTHORITY.get(relativeName);
+      if (expectedSha256 === undefined) {
+        scanError(`unexpected hostile ZIP authority file at ${file.displayPath}`);
+      }
+      const actualSha256 = createHash('sha256').update(bytes).digest('hex');
+      if (actualSha256 !== expectedSha256) {
+        scanError(`hostile ZIP copy is not byte-identical to the frozen SHA-256 authority at ${file.displayPath}`);
+      }
+      hostileCorpusSnapshots.get(hostilePrefix).set(relativeName, bytes);
+      approvedHostileCopy = true;
+    }
     // These tracked ZIP bytes are deliberately malformed inspector inputs.
-    // Exact regeneration above is the authority for their compressed and stored
-    // bytes; parsing them as package archives would reject the corpus itself.
+    // The frozen filename plus SHA-256 authority above is the only archive-parser
+    // exemption. Raw private-material marker scanning has already run.
     if (
       ARCHIVE_EXTENSIONS.has(extname(file.displayPath).toLowerCase()) &&
-      !file.displayPath.startsWith(HOSTILE_ZIP_FIXTURE_PREFIX)
+      !approvedHostileCopy
     ) {
       scanArchive(bytes, file.displayPath, budget, limits, 1);
-    }
-    if (file.displayPath.startsWith(HOSTILE_ZIP_FIXTURE_PREFIX)) {
-      hostileCorpusSnapshot.set(
-        file.displayPath.slice(HOSTILE_ZIP_FIXTURE_PREFIX.length),
-        bytes,
-      );
     }
     fingerprint.push([
       file.displayPath,
@@ -527,8 +581,19 @@ async function scanCollectedFiles(files, mutable, budget, limits) {
       createHash('sha256').update(bytes).digest('hex'),
     ].join('\u0000'));
   }
-  if (hostileCorpusSnapshot.size > 0) {
-    verifyHostileZipCorpusSnapshot(hostileCorpusSnapshot);
+  for (const [prefix, snapshot] of hostileCorpusSnapshots) {
+    if (snapshot.size === 0) continue;
+    if (snapshot.size !== HOSTILE_ZIP_FILE_AUTHORITY.size) {
+      scanError(`hostile ZIP copy is incomplete against the exact authority at ${prefix}`);
+    }
+    for (const name of HOSTILE_ZIP_FILE_AUTHORITY.keys()) {
+      if (!snapshot.has(name)) {
+        scanError(`hostile ZIP copy is missing exact authority file ${prefix}${name}`);
+      }
+    }
+    if (prefix === HOSTILE_ZIP_FIXTURE_PREFIX) {
+      verifyHostileZipCorpusSnapshot(snapshot);
+    }
   }
 
   return Object.freeze({

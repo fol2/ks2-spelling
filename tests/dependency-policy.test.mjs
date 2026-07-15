@@ -104,7 +104,9 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
     report.plugins.approved.map(({ packageName }) => packageName),
     ['@capacitor-community/sqlite', '@capacitor/app'],
   );
-  assert.deepEqual(report.permissionEvidence.androidUsesPermissions, []);
+  assert.deepEqual(report.permissionEvidence.androidUsesPermissions, [
+    'android.permission.INTERNET',
+  ]);
   assert.equal(report.permissionEvidence.androidPermissionRemovalMarkers.length, 4);
   assert.deepEqual(report.permissionEvidence.iosEntitlements, []);
   assert.deepEqual(report.permissionEvidence.iosUsageDescriptionKeys, []);

@@ -579,6 +579,15 @@ async function verifyRuntimeBoundary(packageJson) {
   for (const marker of permissionRemovalMarkers) {
     manifestWithoutRemovalMarkers = manifestWithoutRemovalMarkers.replace(marker[0], '');
   }
+  const allowedInternetPermission =
+    /<uses-permission\s+android:name="android\.permission\.INTERNET"\s*\/>/;
+  const internetPermissionMarkers = manifestWithoutRemovalMarkers.match(
+    new RegExp(allowedInternetPermission.source, 'g'),
+  ) ?? [];
+  manifestWithoutRemovalMarkers = manifestWithoutRemovalMarkers.replace(
+    allowedInternetPermission,
+    '',
+  );
   if (
     permissionRemovalMarkers.length !== 4 ||
     JSON.stringify(permissionRemovalMarkers.map((match) => match[2]).sort()) !==
@@ -588,11 +597,12 @@ async function verifyRuntimeBoundary(packageJson) {
         'android.permission.USE_BIOMETRIC',
         'android.permission.USE_FINGERPRINT',
       ].sort()) ||
+    internetPermissionMarkers.length !== 1 ||
     /<(?:permission|uses-permission)\b/.test(manifestWithoutRemovalMarkers)
   ) {
     throw policyError(
       'android_permission_declared',
-      'B2 app manifest permission surface is not the exact merge-removal contract',
+      'Android permission surface is not exact normal INTERNET plus merge removals',
     );
   }
   const iosAppFiles = await listFiles(resolve(ROOT, 'ios/App/App'));
@@ -655,7 +665,7 @@ async function verifyRuntimeBoundary(packageJson) {
     }
   }
   return {
-    androidUsesPermissions: [],
+    androidUsesPermissions: ['android.permission.INTERNET'],
     androidPermissionRemovalMarkers: permissionRemovalMarkers
       .map((match) => `${match[1]}:${match[2]}`)
       .sort(),

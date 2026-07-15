@@ -204,7 +204,16 @@ export async function verifyPackagedAndroidBackupPolicy(options = {}) {
   };
 }
 
-export function parsePackagedAndroidPermissions(output) {
+export function parsePackagedAndroidPermissions(output, options = {}) {
+  const expectedRequestedPermissions = options.expectedRequestedPermissions ?? [
+    'android.permission.INTERNET',
+  ];
+  if (
+    !Array.isArray(expectedRequestedPermissions) ||
+    expectedRequestedPermissions.some((value) => typeof value !== 'string')
+  ) {
+    throw packagedPermissionError('Expected Android permission authority is malformed');
+  }
   let appIdentity = null;
   const declaredPermissions = [];
   const requestedPermissions = [];
@@ -229,9 +238,12 @@ export function parsePackagedAndroidPermissions(output) {
     }
     throw packagedPermissionError(`Unparsed aapt2 permission output: ${line}`);
   }
-  if (declaredPermissions.length || requestedPermissions.length) {
+  if (
+    declaredPermissions.length !== 0 ||
+    JSON.stringify(requestedPermissions) !== JSON.stringify(expectedRequestedPermissions)
+  ) {
     throw packagedPermissionError(
-      `Packaged Android permission surface is not empty; declared=${declaredPermissions.join(',')}; requested=${requestedPermissions.join(',')}`,
+      `Packaged Android permission surface differs from exact normal INTERNET authority; declared=${declaredPermissions.join(',')}; requested=${requestedPermissions.join(',')}`,
     );
   }
   if (appIdentity !== 'uk.eugnel.ks2spelling') {

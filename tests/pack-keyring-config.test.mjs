@@ -142,6 +142,53 @@ test('hostile ZIP raw-scan exception requires exact deterministic corpus bytes',
   );
 });
 
+test('native hostile ZIP exemption rejects an extra compressed private PEM archive', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'ks2-b3-native-hostile-extra-'));
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const nativeDirectory = join(
+    root, 'android', 'app', 'src', 'test', 'resources', 'b3-hostile-zips',
+  );
+  await cp(new URL('android/app/src/test/resources/b3-hostile-zips', ROOT_URL), nativeDirectory, {
+    recursive: true,
+  });
+  const privatePem = await readFile(PRIVATE_FIXTURE_URL);
+  const compressedPem = createDeflatedZip('hidden.pem', privatePem);
+  assert.equal(compressedPem.indexOf(Buffer.from('-----BEGIN PRIVATE KEY-----')), -1);
+  await writeFile(join(nativeDirectory, 'extra-private-pem.zip'), compressedPem);
+
+  await assert.rejects(
+    assertPrivateSigningFixtureExcluded({ root }),
+    /unexpected hostile ZIP authority file|native hostile ZIP|exact.*authority/i,
+  );
+});
+
+test('generated Android hostile ZIP copies require the exact path, names and bytes', async (t) => {
+  const prefixes = [
+    'android/app/build/intermediates/java_res/debugUnitTest/processDebugUnitTestJavaRes/out/b3-hostile-zips',
+    '.native-build/android/build/app/intermediates/java_res/debugUnitTest/processDebugUnitTestJavaRes/out/b3-hostile-zips',
+  ];
+  for (const [index, prefix] of prefixes.entries()) {
+    await t.test(prefix, async () => {
+      const root = await mkdtemp(join(tmpdir(), `ks2-b3-generated-hostile-copy-${index}-`));
+      t.after(() => rm(root, { force: true, recursive: true }));
+      const generatedDirectory = join(root, prefix);
+      await cp(new URL('tests/fixtures/b3-hostile-zips', ROOT_URL), generatedDirectory, {
+        recursive: true,
+      });
+      assert.ok((await assertPrivateSigningFixtureExcluded({ root })).filesScanned > 0);
+
+      await writeFile(
+        join(generatedDirectory, 'absolute-path.zip'),
+        createDeflatedZip('safe.json', Buffer.from('{}')),
+      );
+      await assert.rejects(
+        assertPrivateSigningFixtureExcluded({ root }),
+        /hostile ZIP.*SHA-256|exact.*authority|byte-identical/i,
+      );
+    });
+  }
+});
+
 test('hostile ZIP replacement after collection cannot hide a compressed private scalar', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'ks2-b3-hostile-private-race-'));
   t.after(() => rm(root, { force: true, recursive: true }));

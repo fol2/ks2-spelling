@@ -7,6 +7,7 @@ import {
 const IDENTIFIER = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
 const ARCHIVE_NAME = /^[a-z0-9][a-z0-9._-]{0,59}\.zip$/;
+const REQUIRED_ENTITLEMENT_ID = 'full-ks2';
 const JOB_STATES = Object.freeze([
   'queued',
   'downloading',
@@ -113,6 +114,24 @@ function requireSha256(value) {
   return value;
 }
 
+function requireInstalledPathToken(value, packId, version) {
+  if (value !== `installed/${packId}/${version}`) {
+    throw inputError();
+  }
+  return value;
+}
+
+function requireStoredInstalledPathToken(value, packId, version) {
+  if (
+    typeof packId !== 'string' ||
+    typeof version !== 'string' ||
+    value !== `installed/${packId}/${version}`
+  ) {
+    throw packError('sqlite_pack_row_invalid');
+  }
+  return value;
+}
+
 function requireSafeInteger(value, { positive = false } = {}) {
   if (
     !Number.isSafeInteger(value) ||
@@ -190,7 +209,7 @@ function mapInstalled(row) {
     packId: row.pack_id,
     version: row.version,
     manifestSha256: row.manifest_sha256,
-    pathToken: row.path_token,
+    pathToken: requireStoredInstalledPathToken(row.path_token, row.pack_id, row.version),
     activationMarkerSha256: row.activation_marker_sha256,
     state: row.state,
     installedAt: toSafeInteger(row.installed_at),
@@ -203,7 +222,7 @@ function mapActive(row) {
     packId: row.pack_id,
     version: row.version,
     manifestSha256: row.manifest_sha256,
-    pathToken: row.path_token,
+    pathToken: requireStoredInstalledPathToken(row.path_token, row.pack_id, row.version),
     activatedAt: toSafeInteger(row.activated_at),
   });
 }
@@ -263,7 +282,7 @@ function validateInstalled(input, { allowRetired = false } = {}) {
   requireIdentifier(value.packId);
   requireIdentifier(value.version);
   requireSha256(value.manifestSha256);
-  requireIdentifier(value.pathToken);
+  requireInstalledPathToken(value.pathToken, value.packId, value.version);
   requireSha256(value.activationMarkerSha256);
   if (value.state !== 'ready' && !(allowRetired && value.state === 'retired')) {
     throw inputError();
@@ -277,7 +296,7 @@ function validateActive(input) {
   requireIdentifier(value.packId);
   requireIdentifier(value.version);
   requireSha256(value.manifestSha256);
-  requireIdentifier(value.pathToken);
+  requireInstalledPathToken(value.pathToken, value.packId, value.version);
   requireSafeInteger(value.activatedAt);
   return value;
 }
@@ -548,7 +567,12 @@ export function createSqlitePackRepositories(connection) {
   }
 
   async function registerAndFlipActiveVersion(input) {
-    const value = requireExactInput(input, ['installedVersion', 'activeVersion']);
+    const value = requireExactInput(
+      input,
+      ['requiredEntitlementId', 'installedVersion', 'activeVersion'],
+    );
+    requireIdentifier(value.requiredEntitlementId);
+    if (value.requiredEntitlementId !== REQUIRED_ENTITLEMENT_ID) throw inputError();
     const installed = validateInstalled(value.installedVersion);
     const active = validateActive(value.activeVersion);
     if (
@@ -560,6 +584,13 @@ export function createSqlitePackRepositories(connection) {
       throw packError('sqlite_pack_activation_conflict');
     }
     return runOwnedTransaction(connection, async () => {
+      const entitlement = optionalRow(await connection.query(
+        'SELECT state FROM app_entitlements WHERE entitlement_id = ?',
+        [value.requiredEntitlementId],
+      ));
+      if (entitlement?.state !== 'active') {
+        throw packError('sqlite_pack_entitlement_inactive');
+      }
       await registerInstalledWithinTransaction(connection, installed);
       return flipActiveWithinTransaction(connection, active);
     });

@@ -29,6 +29,7 @@ const PACK_METHODS = Object.freeze([
 const SHA_A = 'a1'.repeat(32);
 const SHA_B = '22'.repeat(32);
 const SHA_C = 'c3'.repeat(32);
+const REQUIRED_ENTITLEMENT_ID = 'full-ks2';
 
 function downloadJob(overrides = {}) {
   return {
@@ -63,7 +64,7 @@ function installedVersion(overrides = {}) {
     packId: 'b3-sandbox-proof',
     version: '1.0.0-b3.1',
     manifestSha256: SHA_A,
-    pathToken: 'b3-sandbox-proof-1.0.0-b3.1',
+    pathToken: 'installed/b3-sandbox-proof/1.0.0-b3.1',
     activationMarkerSha256: SHA_C,
     state: 'ready',
     installedAt: 1_720_000_000_100,
@@ -82,6 +83,24 @@ function activeVersion(version = installedVersion(), overrides = {}) {
   };
 }
 
+function checkedActivation(installed, active = activeVersion(installed)) {
+  return {
+    requiredEntitlementId: REQUIRED_ENTITLEMENT_ID,
+    installedVersion: installed,
+    activeVersion: active,
+  };
+}
+
+async function seedActiveEntitlement(connection) {
+  await connection.execute(
+    'INSERT INTO app_entitlements (entitlement_id, store, product_id, state, sealed_refresh_handle, refresh_handle_version, verified_at, refreshed_at, revocation_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)',
+    [
+      REQUIRED_ENTITLEMENT_ID, 'apple', 'uk.eugnel.ks2spelling.fullks2', 'active',
+      'sealed-refresh-handle', 1, 1_720_000_000_000, 1_720_000_000_000,
+    ],
+  );
+}
+
 function chunksFor(jobId = 'download-b3-proof') {
   return [
     downloadChunk({ jobId, startByte: 0, endByteExclusive: 4 }),
@@ -96,6 +115,7 @@ async function withDatabase(run) {
   try {
     await connection.open();
     await configureAndMigrateDatabase(connection);
+    await seedActiveEntitlement(connection);
     await run({ connection, repository: createSqlitePackRepositories(connection) });
   } finally {
     await connection.close().catch(() => {});
@@ -207,6 +227,7 @@ test('every pack method rejects extra authority, URL and learner fields', async 
       () => repository.flipActiveVersion({ ...activeVersion(installed), capabilityUrl: 'https://example.invalid/' }),
       () =>
         repository.registerAndFlipActiveVersion({
+          requiredEntitlementId: REQUIRED_ENTITLEMENT_ID,
           installedVersion: installed,
           activeVersion: activeVersion(installed),
           learnerId: 'learner-a',
@@ -659,7 +680,7 @@ test('deleting a job cascades chunks and replay is idempotent', async () => {
   });
 });
 
-test('installed versions expose exact records, safe tokens and idempotent registration', async () => {
+test('installed versions require the exact native-owned path token and idempotent registration', async () => {
   await withDatabase(async ({ repository }) => {
     const original = installedVersion();
     assertFrozenRecord(await repository.registerInstalledVersion(original), original);
@@ -681,6 +702,10 @@ test('installed versions expose exact records, safe tokens and idempotent regist
 
     for (const invalid of [
       installedVersion({ pathToken: '../installed/path' }),
+      installedVersion({ pathToken: '/installed/b3-sandbox-proof/1.0.0-b3.1' }),
+      installedVersion({ pathToken: 'installed//b3-sandbox-proof/1.0.0-b3.1' }),
+      installedVersion({ pathToken: 'installed\\b3-sandbox-proof\\1.0.0-b3.1' }),
+      installedVersion({ pathToken: 'installed/b3-sandbox-proof/../1.0.0-b3.1' }),
       installedVersion({ pathToken: 'https://files.example/pack' }),
       installedVersion({ pathToken: 'UPPER' }),
       installedVersion({ activationMarkerSha256: SHA_C.toUpperCase() }),
@@ -696,7 +721,7 @@ test('installed versions expose exact records, safe tokens and idempotent regist
 
     await rejectsCode(
       () => repository.registerInstalledVersion({ ...original, pathToken: 'different-token' }),
-      'sqlite_pack_version_conflict',
+      'sqlite_pack_input_invalid',
     );
     assert.deepEqual(await repository.listInstalledVersions({ packId: original.packId }), [original]);
   });
@@ -712,14 +737,19 @@ test('active pointers require a ready matching installed version and preserve ex
       'sqlite_pack_version_not_ready',
     );
     await repository.registerInstalledVersion(installed);
+    for (const mismatch of [{ manifestSha256: SHA_B }]) {
+      await rejectsCode(
+        () => repository.flipActiveVersion({ ...active, ...mismatch }),
+        'sqlite_pack_activation_conflict',
+      );
+    }
     for (const mismatch of [
-      { manifestSha256: SHA_B },
       { pathToken: 'different-token' },
       { version: '1.0.1' },
     ]) {
       await rejectsCode(
         () => repository.flipActiveVersion({ ...active, ...mismatch }),
-        'sqlite_pack_activation_conflict',
+        'sqlite_pack_input_invalid',
       );
     }
 
@@ -736,14 +766,11 @@ test('retirement is idempotent but never retires the active version', async () =
     const newer = installedVersion({
       version: '1.0.1',
       manifestSha256: SHA_B,
-      pathToken: 'b3-sandbox-proof-1.0.1',
+      pathToken: 'installed/b3-sandbox-proof/1.0.1',
       activationMarkerSha256: SHA_A,
       installedAt: 1_720_000_000_300,
     });
-    await repository.registerAndFlipActiveVersion({
-      installedVersion: old,
-      activeVersion: activeVersion(old),
-    });
+    await repository.registerAndFlipActiveVersion(checkedActivation(old));
     await repository.registerInstalledVersion(newer);
 
     await rejectsCode(
@@ -767,7 +794,7 @@ test('combined registration and active flip are atomic and replay-safe', async (
     const second = installedVersion({
       version: '1.0.1',
       manifestSha256: SHA_B,
-      pathToken: 'b3-sandbox-proof-1.0.1',
+      pathToken: 'installed/b3-sandbox-proof/1.0.1',
       activationMarkerSha256: SHA_A,
       installedAt: 1_720_000_000_300,
     });
@@ -775,37 +802,26 @@ test('combined registration and active flip are atomic and replay-safe', async (
     const secondActive = activeVersion(second, { activatedAt: 1_720_000_000_400 });
 
     assertFrozenRecord(
-      await repository.registerAndFlipActiveVersion({
-        installedVersion: first,
-        activeVersion: firstActive,
-      }),
+      await repository.registerAndFlipActiveVersion(checkedActivation(first, firstActive)),
       firstActive,
     );
     assertFrozenRecord(
-      await repository.registerAndFlipActiveVersion({
-        installedVersion: first,
-        activeVersion: firstActive,
-      }),
+      await repository.registerAndFlipActiveVersion(checkedActivation(first, firstActive)),
       firstActive,
     );
     assertFrozenRecord(
-      await repository.registerAndFlipActiveVersion({
-        installedVersion: second,
-        activeVersion: secondActive,
-      }),
+      await repository.registerAndFlipActiveVersion(checkedActivation(second, secondActive)),
       secondActive,
     );
     await rejectsCode(
       () =>
-        repository.registerAndFlipActiveVersion({
-          installedVersion: first,
-          activeVersion: firstActive,
-        }),
+        repository.registerAndFlipActiveVersion(checkedActivation(first, firstActive)),
       'sqlite_pack_activation_conflict',
     );
     await rejectsCode(
       () =>
         repository.registerAndFlipActiveVersion({
+          requiredEntitlementId: REQUIRED_ENTITLEMENT_ID,
           installedVersion: first,
           activeVersion: {
             ...firstActive,
@@ -819,6 +835,142 @@ test('combined registration and active flip are atomic and replay-safe', async (
       ['1.0.0-b3.1', '1.0.1'],
     );
     assertFrozenRecord(await repository.getActiveVersion({ packId: first.packId }), secondActive);
+  });
+});
+
+test('combined activation checks the required entitlement inside its owned transaction', async () => {
+  await withDatabase(async ({ connection, repository }) => {
+    const first = installedVersion();
+    await connection.execute(
+      'UPDATE app_entitlements SET state = ?, sealed_refresh_handle = NULL, refresh_handle_version = NULL, revocation_at = ? WHERE entitlement_id = ?',
+      ['revoked', 1_720_000_000_010, REQUIRED_ENTITLEMENT_ID],
+    );
+
+    await rejectsCode(
+      () => repository.registerAndFlipActiveVersion(checkedActivation(first)),
+      'sqlite_pack_entitlement_inactive',
+    );
+    assert.deepEqual(await repository.listInstalledVersions({ packId: first.packId }), []);
+    assert.equal(await repository.getActiveVersion({ packId: first.packId }), null);
+
+    await connection.execute('DELETE FROM app_entitlements WHERE entitlement_id = ?', [
+      REQUIRED_ENTITLEMENT_ID,
+    ]);
+    await rejectsCode(
+      () => repository.registerAndFlipActiveVersion(checkedActivation(first)),
+      'sqlite_pack_entitlement_inactive',
+    );
+    assert.deepEqual(await repository.listInstalledVersions({ packId: first.packId }), []);
+  });
+});
+
+test('revocation and activation sharing SQLite are serialised with ordered closed outcomes', async () => {
+  const { createSqliteCommerceRepositories } = await import(
+    '../src/platform/database/sqlite-commerce-repositories.js'
+  );
+  await withDatabase(async ({ connection, repository }) => {
+    const commerce = createSqliteCommerceRepositories(connection);
+    const first = installedVersion();
+    await connection.execute(
+      'INSERT INTO transaction_journal (journal_id, store, product_id, store_transaction_id, observation_state, processing_state, opaque_proof, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)',
+      [
+        'active-purchase', 'apple', 'uk.eugnel.ks2spelling.fullks2',
+        '2000001234567888', 'purchased', 'complete',
+        1_720_000_000_000, 1_720_000_000_000,
+      ],
+    );
+    await commerce.observeTransaction({
+      journalId: 'revocation-proof', store: 'apple',
+      productId: 'uk.eugnel.ks2spelling.fullks2', observationState: 'revoked',
+      opaqueProof: 'revocation-proof', observedAt: 1_720_000_000_010,
+    });
+    await commerce.markVerified({
+      journalId: 'revocation-proof', verifiedAt: 1_720_000_000_020,
+    });
+
+    const revocation = commerce.applyRevocationAndDeleteHandle({
+      journalId: 'revocation-proof', entitlementId: REQUIRED_ENTITLEMENT_ID,
+      storeTransactionId: '2000001234567890', revokedAt: 1_720_000_000_030,
+    });
+    const activation = repository.registerAndFlipActiveVersion(checkedActivation(first));
+    const [revocationResult, activationResult] = await Promise.allSettled([
+      revocation,
+      activation,
+    ]);
+    assert.equal(revocationResult.status, 'fulfilled', revocationResult.reason?.stack);
+    assert.equal(activationResult.status, 'rejected');
+    assert.equal(activationResult.reason?.code, 'sqlite_pack_entitlement_inactive');
+    assert.deepEqual(await repository.listInstalledVersions({ packId: first.packId }), []);
+    assert.equal(await repository.getActiveVersion({ packId: first.packId }), null);
+  });
+
+  await withDatabase(async ({ connection, repository }) => {
+    const commerce = createSqliteCommerceRepositories(connection);
+    const first = installedVersion();
+    await connection.execute(
+      'INSERT INTO transaction_journal (journal_id, store, product_id, store_transaction_id, observation_state, processing_state, opaque_proof, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)',
+      [
+        'active-purchase', 'apple', 'uk.eugnel.ks2spelling.fullks2',
+        '2000001234567889', 'purchased', 'complete',
+        1_720_000_000_000, 1_720_000_000_000,
+      ],
+    );
+    await commerce.observeTransaction({
+      journalId: 'revocation-after-activation', store: 'apple',
+      productId: 'uk.eugnel.ks2spelling.fullks2', observationState: 'revoked',
+      opaqueProof: 'revocation-proof', observedAt: 1_720_000_000_010,
+    });
+    await commerce.markVerified({
+      journalId: 'revocation-after-activation', verifiedAt: 1_720_000_000_020,
+    });
+
+    const activation = repository.registerAndFlipActiveVersion(checkedActivation(first));
+    const revocation = commerce.applyRevocationAndDeleteHandle({
+      journalId: 'revocation-after-activation', entitlementId: REQUIRED_ENTITLEMENT_ID,
+      storeTransactionId: '2000001234567891', revokedAt: 1_720_000_000_030,
+    });
+    const [active, revoked] = await Promise.all([activation, revocation]);
+    assert.equal(active.version, first.version);
+    assert.equal(revoked.entitlement.state, 'revoked');
+    assert.equal((await repository.getActiveVersion({ packId: first.packId })).version, first.version);
+  });
+});
+
+test('stored installed and active path tokens are validated again on read', async () => {
+  await withDatabase(async ({ connection, repository }) => {
+    const installed = installedVersion();
+    await connection.execute(
+      'INSERT INTO installed_pack_versions (pack_id, version, manifest_sha256, path_token, activation_marker_sha256, state, installed_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        installed.packId, installed.version, installed.manifestSha256,
+        'installed/b3-sandbox-proof/../escape', installed.activationMarkerSha256,
+        installed.state, installed.installedAt,
+      ],
+    );
+    await rejectsCode(
+      () => repository.listInstalledVersions({ packId: installed.packId }),
+      'sqlite_pack_row_invalid',
+    );
+
+    await connection.execute('DELETE FROM installed_pack_versions WHERE pack_id = ?', [installed.packId]);
+    await connection.execute(
+      'INSERT INTO installed_pack_versions (pack_id, version, manifest_sha256, path_token, activation_marker_sha256, state, installed_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        installed.packId, installed.version, installed.manifestSha256, installed.pathToken,
+        installed.activationMarkerSha256, installed.state, installed.installedAt,
+      ],
+    );
+    await connection.execute(
+      'INSERT INTO active_pack_versions (pack_id, version, manifest_sha256, path_token, activated_at) VALUES (?, ?, ?, ?, ?)',
+      [
+        installed.packId, installed.version, installed.manifestSha256,
+        'installed/b3-sandbox-proof/../escape', 1_720_000_000_200,
+      ],
+    );
+    await rejectsCode(
+      () => repository.getActiveVersion({ packId: installed.packId }),
+      'sqlite_pack_row_invalid',
+    );
   });
 });
 
@@ -843,25 +995,23 @@ test('combined activation rollback preserves the previous active version', async
   try {
     const first = installedVersion();
     const firstActive = activeVersion(first);
-    await repository.registerAndFlipActiveVersion({
-      installedVersion: first,
-      activeVersion: firstActive,
-    });
+    await seedActiveEntitlement(base);
+    await repository.registerAndFlipActiveVersion(checkedActivation(first, firstActive));
 
     const second = installedVersion({
       version: '1.0.1',
       manifestSha256: SHA_B,
-      pathToken: 'b3-sandbox-proof-1.0.1',
+      pathToken: 'installed/b3-sandbox-proof/1.0.1',
       activationMarkerSha256: SHA_A,
       installedAt: 1_720_000_000_300,
     });
     failNextActiveWrite = true;
     await assert.rejects(
       () =>
-        repository.registerAndFlipActiveVersion({
-          installedVersion: second,
-          activeVersion: activeVersion(second, { activatedAt: 1_720_000_000_400 }),
-        }),
+        repository.registerAndFlipActiveVersion(checkedActivation(
+          second,
+          activeVersion(second, { activatedAt: 1_720_000_000_400 }),
+        )),
       /injected_active_pointer_failure/,
     );
 
@@ -892,10 +1042,7 @@ test('transactional writes require native begin acknowledgement before the first
     const installed = installedVersion();
     await rejectsCode(
       () =>
-        repository.registerAndFlipActiveVersion({
-          installedVersion: installed,
-          activeVersion: activeVersion(installed),
-        }),
+        repository.registerAndFlipActiveVersion(checkedActivation(installed)),
       'sqlite_transaction_state_invalid',
     );
     assert.deepEqual(writes, []);
@@ -967,6 +1114,7 @@ test('commerce and pack transactions sharing one connection are serialised', asy
         committedAt: 1_720_000_000_100,
       }),
       packs.registerAndFlipActiveVersion({
+        requiredEntitlementId: REQUIRED_ENTITLEMENT_ID,
         installedVersion: installed,
         activeVersion: activeVersion(installed),
       }),

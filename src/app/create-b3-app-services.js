@@ -222,6 +222,8 @@ export async function createB3AppServices(options = {}) {
   let commerceReconciler;
   let lifecycle;
   let resumeHandle;
+  let resumeOperation = null;
+  let acceptingResumeEvents = true;
   let controller;
   try {
     if (
@@ -460,7 +462,9 @@ export async function createB3AppServices(options = {}) {
       const lifecycleFactory = options.lifecycleFactory ?? createCapacitorAppLifecycle;
       lifecycle = lifecycleFactory();
       resumeHandle = lifecycle.onResume(() => {
-        const operation = (async () => {
+        if (!acceptingResumeEvents) return Promise.resolve();
+        if (resumeOperation) return resumeOperation;
+        const attempt = (async () => {
           let resumeFailed = false;
           for (const refresh of [
             () => commerceReconciler.resume(),
@@ -477,8 +481,13 @@ export async function createB3AppServices(options = {}) {
           syncFailed = resumeFailed;
           await controller.sync();
         })();
-        void operation.catch(() => undefined);
-        return operation;
+        let tracked;
+        tracked = attempt.finally(() => {
+          if (resumeOperation === tracked) resumeOperation = null;
+        });
+        resumeOperation = tracked;
+        void tracked.catch(() => undefined);
+        return tracked;
       });
     }
     startupSequence.push('ready');
@@ -488,8 +497,21 @@ export async function createB3AppServices(options = {}) {
       if (!disposePromise) {
         disposePromise = (async () => {
           const failures = [];
+          acceptingResumeEvents = false;
+          try {
+            await resumeHandle?.remove?.();
+          } catch (error) {
+            failures.push(error);
+          }
+          const activeResume = resumeOperation;
+          if (activeResume) {
+            try {
+              await activeResume;
+            } catch (error) {
+              failures.push(error);
+            }
+          }
           for (const disposeOwned of [
-            () => resumeHandle?.remove?.(),
             () => lifecycle?.dispose?.(),
             () => controller.dispose(),
             () => connection.close(),
@@ -515,9 +537,15 @@ export async function createB3AppServices(options = {}) {
       dispose,
     });
   } catch (error) {
-    await commerceReconciler?.dispose().catch(() => undefined);
+    acceptingResumeEvents = false;
     await resumeHandle?.remove?.().catch(() => undefined);
+    await resumeOperation?.catch(() => undefined);
     await lifecycle?.dispose?.().catch(() => undefined);
+    if (controller) {
+      await controller.dispose().catch(() => undefined);
+    } else {
+      await commerceReconciler?.dispose().catch(() => undefined);
+    }
     if (connection) await closeQuietly(connection);
     throw error;
   }

@@ -19,6 +19,48 @@ const GOOGLE_PRODUCT = Object.freeze({
   currencyCode: 'GBP',
 });
 
+function createDelayedEntitlementConnection(filename, events = []) {
+  const base = createNodeSqliteConnection(filename);
+  let remainingMatches = 0;
+  let releaseQuery = null;
+  let queryStarted = null;
+
+  const connection = Object.freeze({
+    async open() { return base.open(); },
+    async close() {
+      events.push('connection-closed');
+      return base.close();
+    },
+    async execute(sql, values) { return base.execute(sql, values); },
+    async query(sql, values) {
+      if (remainingMatches > 0 && /\bFROM app_entitlements\b/.test(sql)) {
+        remainingMatches -= 1;
+        if (remainingMatches === 0) {
+          queryStarted?.();
+          await new Promise((resolve) => { releaseQuery = resolve; });
+        }
+      }
+      return base.query(sql, values);
+    },
+    async begin() { return base.begin(); },
+    async commit() { return base.commit(); },
+    async rollback() { return base.rollback(); },
+    async isTransactionActive() { return base.isTransactionActive(); },
+  });
+
+  return Object.freeze({
+    connection,
+    arm(matchNumber = 2) {
+      remainingMatches = matchNumber;
+      return new Promise((resolve) => { queryStarted = resolve; });
+    },
+    release() {
+      events.push('refresh-released');
+      releaseQuery?.();
+    },
+  });
+}
+
 test('browser test composition migrates and reaches ready using deterministic B3 fakes', async (t) => {
   const temporary = await mkdtemp(join(tmpdir(), 'ks2-b3-composition-'));
   t.after(() => rm(temporary, { recursive: true, force: true }));
@@ -388,6 +430,90 @@ test('native lifecycle may ignore a fatal resume promise without unhandled rejec
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.deepEqual(unhandled, []);
+});
+
+test('overlapping lifecycle resume events coalesce into one refresh operation', async (t) => {
+  const temporary = await mkdtemp(join(tmpdir(), 'ks2-b3-resume-coalesced-'));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const delayed = createDelayedEntitlementConnection(join(temporary, 'proof.sqlite'));
+  let resume;
+  const services = await createB3AppServices({
+    runtime: Object.freeze({ isNativePlatform: false, platform: 'web' }),
+    connectionFactory: () => delayed.connection,
+    fakeStoreOptions: {
+      productOutcomes: [[GOOGLE_PRODUCT], [GOOGLE_PRODUCT]],
+      transactionOutcomes: [[], [], [], []],
+    },
+    lifecycleFactory: () => Object.freeze({
+      onResume(listener) {
+        resume = listener;
+        return Object.freeze({ async remove() {} });
+      },
+      async dispose() {},
+    }),
+  });
+  t.after(() => services.dispose());
+  await services.controller.start();
+
+  const refreshStarted = delayed.arm();
+  const first = resume();
+  await refreshStarted;
+  const second = resume();
+
+  const coalesced = second === first;
+  delayed.release();
+  await Promise.all([first, second]);
+  assert.equal(coalesced, true);
+  assert.equal(services.controller.getState().status, 'ready');
+});
+
+test('dispose removes resume events and awaits delayed refresh before closing SQLite', async (t) => {
+  const temporary = await mkdtemp(join(tmpdir(), 'ks2-b3-resume-dispose-'));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const events = [];
+  const delayed = createDelayedEntitlementConnection(
+    join(temporary, 'proof.sqlite'),
+    events,
+  );
+  let resume;
+  const services = await createB3AppServices({
+    runtime: Object.freeze({ isNativePlatform: false, platform: 'web' }),
+    connectionFactory: () => delayed.connection,
+    fakeStoreOptions: {
+      productOutcomes: [[GOOGLE_PRODUCT], [GOOGLE_PRODUCT]],
+      transactionOutcomes: [[], [], [], []],
+    },
+    lifecycleFactory: () => Object.freeze({
+      onResume(listener) {
+        resume = listener;
+        return Object.freeze({
+          async remove() { events.push('resume-listener-removed'); },
+        });
+      },
+      async dispose() { events.push('lifecycle-disposed'); },
+    }),
+  });
+  await services.controller.start();
+
+  const refreshStarted = delayed.arm();
+  const activeResume = resume();
+  await refreshStarted;
+  let disposeFinished = false;
+  const disposal = services.dispose().then(() => { disposeFinished = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const finishedBeforeRelease = disposeFinished;
+  const eventsBeforeRelease = [...events];
+  delayed.release();
+  await Promise.all([activeResume, disposal]);
+  assert.equal(finishedBeforeRelease, false);
+  assert.deepEqual(eventsBeforeRelease, ['resume-listener-removed']);
+  assert.deepEqual(events, [
+    'resume-listener-removed',
+    'refresh-released',
+    'lifecycle-disposed',
+    'connection-closed',
+  ]);
 });
 
 test('a failed delayed transaction update reaches the calm proof state', async (t) => {

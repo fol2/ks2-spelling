@@ -40,7 +40,8 @@ select {
 .hero,
 .status-card,
 .boundary,
-.evidence-grid {
+.evidence-grid,
+.commerce-card {
   border: 1px solid rgb(255 255 255 / 12%);
   border-radius: 1.5rem;
   background: rgb(9 27 38 / 72%);
@@ -119,6 +120,64 @@ h1 {
 
 .proof-status h2 {
   color: #f5f1e8;
+}
+
+.proof-message {
+  max-width: 34rem;
+  margin: 0.65rem 0 0;
+  color: #c4d0d5;
+  line-height: 1.5;
+}
+
+.commerce-card {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.5rem;
+}
+
+.commerce-card h2,
+.localised-price {
+  margin-bottom: 0;
+}
+
+.localised-price {
+  margin-top: 0.45rem;
+  color: #f6d48b;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.proof-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.proof-actions button {
+  min-height: 3rem;
+  border: 1px solid rgb(130 210 189 / 55%);
+  border-radius: 0.9rem;
+  padding: 0.7rem 1rem;
+  color: #f5f1e8;
+  background: #173848;
+  font-weight: 750;
+}
+
+.proof-actions button:first-child {
+  color: #09241c;
+  background: #82d2bd;
+}
+
+.proof-actions button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.b3-proof-shell .evidence-grid dd {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.76rem;
+  line-height: 1.5;
 }
 
 .evidence-grid {

@@ -7,6 +7,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(PackTransferPlugin.class);
+        registerPlugin(CommercePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

@@ -1182,13 +1182,16 @@ export async function buildDependencyArtifacts({
     .update(nativePluginBuildText)
     .digest('hex');
   const committedB2Report = existsSync(REPORT_PATH) ? await readJson(REPORT_PATH) : null;
+  const appBuild = await readFile(resolve(ROOT, 'android/app/build.gradle'), 'utf8');
+  const b3BillingActive = /com\.android\.billingclient:billing:9\.1\.0/.test(appBuild);
+  const useLiveAndroidSources = discoverAndroidSources || b3BillingActive;
   const androidCertification = preBootstrap
     ? null
     : await (
         await import('./certify-android-dependencies.mjs')
       ).buildAndroidCertification({
-        discoverSources: discoverAndroidSources,
-        committed: discoverAndroidSources
+        discoverSources: useLiveAndroidSources,
+        committed: useLiveAndroidSources
           ? null
           : committedB2Report?.android,
       });
@@ -1206,15 +1209,15 @@ export async function buildDependencyArtifacts({
       requireFresh: discoverAndroidSources,
     });
   const permissionEvidence = await verifyRuntimeBoundary(packageJson);
+  const packagedAndroid = b3BillingActive && !preBootstrap
+    ? await (await import('./test-android.mjs')).verifyPackagedAndroidPermissions()
+    : nativePluginBuild.android.packagedPermissions;
   permissionEvidence.packagedAndroid = {
-    appIdentity: nativePluginBuild.android.packagedPermissions.appIdentity,
-    buildToolsVersion: nativePluginBuild.android.packagedPermissions.buildToolsVersion,
-    permissionSurfaceSha256:
-      nativePluginBuild.android.packagedPermissions.permissionSurfaceSha256,
-    declaredPermissions:
-      nativePluginBuild.android.packagedPermissions.declaredPermissions,
-    requestedPermissions:
-      nativePluginBuild.android.packagedPermissions.requestedPermissions,
+    appIdentity: packagedAndroid.appIdentity,
+    buildToolsVersion: packagedAndroid.buildToolsVersion,
+    permissionSurfaceSha256: packagedAndroid.permissionSurfaceSha256,
+    declaredPermissions: packagedAndroid.declaredPermissions,
+    requestedPermissions: packagedAndroid.requestedPermissions,
   };
 
   const production = stableSortByName(
@@ -1352,7 +1355,9 @@ export async function buildDependencyArtifacts({
   const androidResolution = androidCertification
     ? {
         status: androidCertification.mode,
-        evidencePath: 'reports/b2/dependency-audit.json#android',
+        evidencePath: b3BillingActive
+          ? 'live-locked-policy'
+          : 'reports/b2/dependency-audit.json#android',
         componentCount: androidCertification.componentCount,
         scopeMembershipCount: androidCertification.scopeMembershipCount,
         packagedRuntimeCount: androidCertification.packagedRuntimeCount,
@@ -1500,10 +1505,41 @@ export function assertDependencyEvidenceCurrent(artifacts, current) {
   }
 }
 
+function comparablePackagedPermissionEvidence(evidence) {
+  return {
+    appIdentity: evidence?.appIdentity,
+    buildToolsVersion: evidence?.buildToolsVersion,
+    permissionSurfaceSha256: evidence?.permissionSurfaceSha256,
+    declaredPermissions: evidence?.declaredPermissions,
+    requestedPermissions: evidence?.requestedPermissions,
+  };
+}
+
+export function assertRuntimePermissionEvidenceCurrent(actual, expected) {
+  if (
+    JSON.stringify(comparablePackagedPermissionEvidence(actual)) !==
+    JSON.stringify(comparablePackagedPermissionEvidence(expected))
+  ) {
+    throw policyError(
+      'android_packaged_permission_evidence_stale',
+      'Fresh APK permission surface does not match the active dependency policy',
+    );
+  }
+}
+
 export async function main(args = process.argv.slice(2)) {
   const preBootstrap = args.includes('--pre-bootstrap');
   const write = args.includes('--write');
   try {
+    let currentPermissionEvidence = null;
+    const appBuild = await readFile(resolve(ROOT, 'android/app/build.gradle'), 'utf8');
+    const b3BillingActive = /com\.android\.billingclient:billing:9\.1\.0/.test(appBuild);
+    if (write && b3BillingActive) {
+      throw policyError(
+        'b3_frozen_evidence_write_forbidden',
+        'B3 live dependency evidence must not overwrite frozen B2 reports',
+      );
+    }
     if (!preBootstrap) {
       const androidBuild = await runCommand(
         process.execPath,
@@ -1517,27 +1553,21 @@ export async function main(args = process.argv.slice(2)) {
         );
       }
       const { verifyPackagedAndroidPermissions } = await import('./test-android.mjs');
-      const currentPermissionEvidence = await verifyPackagedAndroidPermissions();
-      const nativeBuild = await readJson(NATIVE_PLUGIN_BUILD_PATH);
-      if (
-        JSON.stringify(currentPermissionEvidence.requestedPermissions) !==
-          JSON.stringify(nativeBuild.android.packagedPermissions.requestedPermissions) ||
-        JSON.stringify(currentPermissionEvidence.declaredPermissions) !==
-          JSON.stringify(nativeBuild.android.packagedPermissions.declaredPermissions)
-      ) {
-        throw policyError(
-          'android_packaged_permission_evidence_stale',
-          'Fresh APK permission surface does not match the B2 native build report',
-        );
-      }
+      currentPermissionEvidence = await verifyPackagedAndroidPermissions();
     }
     const artifacts = await buildDependencyArtifacts({
       preBootstrap,
       discoverAndroidSources: write && !preBootstrap,
     });
+    if (currentPermissionEvidence) {
+      assertRuntimePermissionEvidenceCurrent(
+        currentPermissionEvidence,
+        artifacts.report.permissionEvidence.packagedAndroid,
+      );
+    }
     if (write) {
       await writeDependencyArtifacts(artifacts);
-    } else {
+    } else if (!b3BillingActive) {
       assertDependencyEvidenceCurrent(artifacts, {
         reportJson: await readFile(REPORT_PATH, 'utf8'),
         pluginAuditJson: await readFile(NATIVE_PLUGIN_AUDIT_PATH, 'utf8'),
@@ -1549,7 +1579,7 @@ export async function main(args = process.argv.slice(2)) {
       mode: artifacts.report.mode,
       npmPackages: artifacts.report.npm.lockPackageCount,
       androidResolution: artifacts.report.androidResolution,
-      evidence: write ? 'written' : 'current',
+      evidence: b3BillingActive ? 'live-locked-policy' : write ? 'written' : 'current',
     });
     return EXIT_CODES.success;
   } catch (error) {

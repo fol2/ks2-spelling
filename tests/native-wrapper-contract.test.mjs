@@ -420,12 +420,19 @@ test('native build and sync commands freeze identity and derived outputs', async
   );
   assert.deepEqual(
     parsePackagedAndroidPermissions(
-      "package: uk.eugnel.ks2spelling\nuses-permission: name='android.permission.INTERNET'\n",
+      "package: uk.eugnel.ks2spelling\n" +
+        "uses-permission: name='android.permission.INTERNET'\n" +
+        "uses-permission: name='com.android.vending.BILLING'\n" +
+        "uses-permission: name='android.permission.ACCESS_NETWORK_STATE'\n",
     ),
     {
       appIdentity: 'uk.eugnel.ks2spelling',
       declaredPermissions: [],
-      requestedPermissions: ['android.permission.INTERNET'],
+      requestedPermissions: [
+        'android.permission.INTERNET',
+        'com.android.vending.BILLING',
+        'android.permission.ACCESS_NETWORK_STATE',
+      ],
     },
   );
   assert.throws(

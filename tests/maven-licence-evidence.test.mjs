@@ -79,6 +79,22 @@ test('scope-restricted Maven terms pass only for the exact tooling component', a
       }),
     ({ code }) => code === 'maven_licence_policy_violation',
   );
+  assert.deepEqual(
+    applyMavenLicencePolicy({
+      coordinate: 'org.example:runtime:1',
+      distribution: 'packaged-runtime',
+      signatures: [signature],
+      effective: evidence,
+      policy: {
+        ...policy,
+        scopeRestrictedComponents: {},
+        packagedRuntimeComponents: {
+          'org.example:runtime:1': 'LicenseRef-Custom',
+        },
+      },
+    }),
+    { expression: 'LicenseRef-Custom', scopePolicy: 'any' },
+  );
   assert.throws(
     () =>
       applyMavenLicencePolicy({

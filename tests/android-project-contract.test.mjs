@@ -123,10 +123,11 @@ test('the Android app allows only normal INTERNET plus permission removals and d
   );
 });
 
-test('the Android activity explicitly registers the owned PackTransfer plugin', async () => {
+test('the Android activity explicitly registers the owned native plugins', async () => {
   const activity = await readFile(
     join(ANDROID_ROOT, 'app/src/main/java/uk/eugnel/ks2spelling/MainActivity.java'),
     'utf8',
   );
   assert.match(activity, /registerPlugin\(PackTransferPlugin\.class\)/);
+  assert.match(activity, /registerPlugin\(CommercePlugin\.class\)/);
 });

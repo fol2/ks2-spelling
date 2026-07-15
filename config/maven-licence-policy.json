@@ -5,6 +5,7 @@
   "signatureAlgorithm": "sha256(JSON UTF-8 array of NFC whitespace-collapsed name, URL and comments; distribution retained separately)",
   "classifications": {
     "sha256:48ad2b1f833f1d5664daf6ef52f3bfdff0187668a6bb7f4dc3225ff3ea804a5c": { "expression": "LicenseRef-Android-SDK-License", "scopePolicy": "tooling-or-test-only" },
+    "sha256:94e84cc09ff2717ed69b87cc789dfb29036117558ce9e1dd2dbec0d487cacd3d": { "expression": "LicenseRef-Android-SDK-License", "scopePolicy": "tooling-or-test-only" },
     "sha256:a62a7debe0ea127479de6ad7579d06ecec60642ceb9f1eda099b0583979e8533": { "expression": "Apache-2.0 WITH LicenseRef-Android-SDK-License-Additional-Terms", "scopePolicy": "tooling-or-test-only" },
     "sha256:400aca14bbb48e56aeb784415de9c6ed0235c80b96d2560f43e888e24141a576": { "expression": "Apache-2.0", "scopePolicy": "any" },
     "sha256:55686b4092956bdcd91012bcb3dd5cda3118c74266e43313fa15b885b76ff551": { "expression": "Apache-2.0", "scopePolicy": "any" },
@@ -48,6 +49,14 @@
     "net.java.dev.jna:jna-platform:5.6.0": "Apache-2.0 OR LGPL-2.1-only",
     "net.sf.kxml:kxml2:2.3.0": "LicenseRef-kXML2-BSD-Style AND LicenseRef-kXML-XmlPull-Public-Domain"
   },
+  "packagedRuntimeComponents": {
+    "com.android.billingclient:billing:9.1.0": "LicenseRef-Android-SDK-License",
+    "com.google.android.gms:play-services-base:18.5.0": "LicenseRef-Android-SDK-License",
+    "com.google.android.gms:play-services-basement:18.9.0": "LicenseRef-Android-SDK-License",
+    "com.google.android.gms:play-services-location:19.0.0": "LicenseRef-Android-SDK-License",
+    "com.google.android.gms:play-services-places-placereport:17.0.0": "LicenseRef-Android-SDK-License",
+    "com.google.android.gms:play-services-tasks:18.2.0": "LicenseRef-Android-SDK-License"
+  },
   "scopeRestrictedComponents": {
     "com.google.android:annotations:4.1.1.4": "Apache-2.0 WITH LicenseRef-Android-SDK-License-Additional-Terms",
     "com.google.testing.platform:android-device-provider-local:0.0.9-alpha03": "LicenseRef-Android-SDK-License",
@@ -76,5 +85,6 @@
     "org.jvnet.staxex:stax-ex:1.8.1": "LicenseRef-Eclipse-Distribution-License-1.0"
   },
   "scopeRestrictedRationale": "Independent POM review confirmed these exact components are build, internal-tooling or test-only and are not packaged in :app releaseRuntimeClasspath. Any scope promotion requires a separate owner or legal review.",
-  "androidSdkAcceptance": "James personally accepted the installed Android SDK licence prompts on 2026-07-11; this evidence applies only to local build tooling and does not approve packaged redistribution."
+  "androidSdkAcceptance": "James personally accepted the installed Android SDK licence prompts on 2026-07-11; this evidence applies only to local build tooling and does not approve packaged redistribution.",
+  "playBillingRedistributionReview": "The official Google Play Billing Library 9.1.0 and its exact locked Google Play services runtime closure are approved only for this Play-distributed app; no unrelated Android SDK-licensed runtime is approved. Reviewed 2026-07-15."
 }

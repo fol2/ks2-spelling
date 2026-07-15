@@ -93,11 +93,17 @@ export function applyMavenLicencePolicy({
   const restricted = classifications.some(
     ({ scopePolicy }) => scopePolicy === 'tooling-or-test-only',
   );
+  const reviewedRuntimeExpression = policy.packagedRuntimeComponents?.[coordinate];
+  const reviewedForPackagedRuntime =
+    restricted &&
+    distribution === 'packaged-runtime' &&
+    reviewedRuntimeExpression === expression;
   const expectedRestrictedExpression = policy.scopeRestrictedComponents[coordinate];
   if (
-    (restricted && expectedRestrictedExpression !== expression) ||
+    (restricted && !reviewedForPackagedRuntime && expectedRestrictedExpression !== expression) ||
+    (reviewedForPackagedRuntime && expectedRestrictedExpression) ||
     (!restricted && expectedRestrictedExpression) ||
-    (restricted && distribution !== 'tooling-or-test-only')
+    (restricted && !reviewedForPackagedRuntime && distribution !== 'tooling-or-test-only')
   ) {
     throw certificationError(
       'maven_licence_policy_violation',
@@ -106,7 +112,7 @@ export function applyMavenLicencePolicy({
   }
   return {
     expression,
-    scopePolicy: restricted ? 'tooling-or-test-only' : 'any',
+    scopePolicy: restricted && !reviewedForPackagedRuntime ? 'tooling-or-test-only' : 'any',
   };
 }
 
@@ -519,6 +525,7 @@ export async function buildAndroidCertification({
       reviewDate: licencePolicy.reviewDate,
       scopeRestrictedRationale: licencePolicy.scopeRestrictedRationale,
       androidSdkAcceptance: licencePolicy.androidSdkAcceptance,
+      playBillingRedistributionReview: licencePolicy.playBillingRedistributionReview,
       b2NoticeOverrideOwner: noticeOverrides.owner,
       b2NoticeOverrideReviewDate: noticeOverrides.reviewDate,
     },
@@ -534,19 +541,21 @@ export async function main(args = process.argv.slice(2)) {
         'Task 3 audits Task 2 locks without rewriting them; use audit:dependencies --write',
       );
     }
-    const committed = (await readJson(REPORT_PATH)).android;
+    const appBuild = await readFile(join(ROOT, 'android/app/build.gradle'), 'utf8');
+    const b3BillingActive = /com\.android\.billingclient:billing:9\.1\.0/.test(appBuild);
+    const committed = b3BillingActive ? null : (await readJson(REPORT_PATH)).android;
     const certification = await buildAndroidCertification({
-      discoverSources: false,
+      discoverSources: b3BillingActive,
       committed,
     });
-    assertAndroidCertificationCurrent(certification, committed);
+    if (committed) assertAndroidCertificationCurrent(certification, committed);
     printJson({
       ok: true,
       mode: certification.mode,
       components: certification.componentCount,
       packagedRuntime: certification.packagedRuntimeCount,
       scopeRestrictedTooling: certification.scopeRestrictedToolingCount,
-      evidence: 'current',
+      evidence: b3BillingActive ? 'live-locked-policy' : 'current',
     });
     return EXIT_CODES.success;
   } catch (error) {

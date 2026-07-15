@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -8,6 +10,28 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
 async function importScript(path) {
   return import(pathToFileURL(join(ROOT, path)));
+}
+
+async function sha256(path) {
+  return createHash('sha256').update(await readFile(join(ROOT, path))).digest('hex');
+}
+
+async function runAuditCli(args = []) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ['scripts/audit-dependencies.mjs', ...args], {
+      cwd: ROOT,
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.once('error', reject);
+    child.once('close', (exitCode) => resolve({ exitCode, stdout, stderr }));
+  });
 }
 
 test('default audit consumes the complete resolved Android certification', async () => {
@@ -20,7 +44,11 @@ test('default audit consumes the complete resolved Android certification', async
     permissionSurfaceSha256:
       report.permissionEvidence.packagedAndroid.permissionSurfaceSha256,
     declaredPermissions: [],
-    requestedPermissions: [],
+    requestedPermissions: [
+      'android.permission.INTERNET',
+      'com.android.vending.BILLING',
+      'android.permission.ACCESS_NETWORK_STATE',
+    ],
   });
   assert.match(
     report.permissionEvidence.packagedAndroid.permissionSurfaceSha256,
@@ -37,15 +65,15 @@ test('default audit consumes the complete resolved Android certification', async
     },
     {
       status: 'resolved-toolchain',
-      componentCount: 314,
-      scopeMembershipCount: 5452,
-      packagedRuntimeCount: 61,
+      componentCount: 326,
+      scopeMembershipCount: 5568,
+      packagedRuntimeCount: 74,
       scopeRestrictedToolingCount: 25,
-      taskCreatedBuildToolCount: 12,
+      taskCreatedBuildToolCount: 13,
     },
   );
-  assert.equal(report.androidResolution.verificationComponentCount, 427);
-  assert.equal(report.androidResolution.verificationArtifactCount, 847);
+  assert.equal(report.androidResolution.verificationComponentCount, 441);
+  assert.equal(report.androidResolution.verificationArtifactCount, 875);
   const complianceRegister = await readFile(
     join(ROOT, 'docs/compliance/sdk-privacy-register.md'),
     'utf8',
@@ -53,12 +81,12 @@ test('default audit consumes the complete resolved Android certification', async
   assert.match(
     complianceRegister,
     new RegExp(
-      `finite Gradle verification inventory of ${report.androidResolution.verificationComponentCount} components and ${report.androidResolution.verificationArtifactCount} artefacts\\.`,
+      `finite Gradle verification inventory contains ${report.androidResolution.verificationComponentCount} components and ${report.androidResolution.verificationArtifactCount} artefacts\\.`,
     ),
   );
   assert.equal(
     report.gradleDeclared.filter(({ resolution }) => resolution === 'resolved-toolchain').length,
-    15,
+    16,
   );
   assert.equal(
     report.gradleDeclared.filter(({ resolution }) => resolution === 'inactive-condition').length,
@@ -76,13 +104,10 @@ test('generated JSON and notices are byte-identical across repeated generation',
   assert.equal(first.reportJson, second.reportJson);
   assert.equal(first.pluginAuditJson, second.pluginAuditJson);
   assert.equal(first.noticesMarkdown, second.noticesMarkdown);
-  assert.equal(
+  assert.notEqual(
     await readFile(join(ROOT, 'reports/b2/dependency-audit.json'), 'utf8'),
     first.reportJson,
-  );
-  assert.equal(
-    await readFile(join(ROOT, 'THIRD_PARTY_NOTICES.md'), 'utf8'),
-    first.noticesMarkdown,
+    'B3 live policy must not overwrite frozen B2 evidence',
   );
   assert.doesNotThrow(() =>
     assertDependencyEvidenceCurrent(first, {
@@ -100,4 +125,35 @@ test('generated JSON and notices are byte-identical across repeated generation',
       }),
     ({ code }) => code === 'dependency_evidence_stale',
   );
+});
+
+test('default audit CLI validates live B3 evidence without mutating frozen B2 reports', async () => {
+  const frozenPaths = [
+    'reports/b2/dependency-audit.json',
+    'reports/b2/native-plugin-audit.json',
+    'THIRD_PARTY_NOTICES.md',
+  ];
+  const before = await Promise.all(frozenPaths.map(sha256));
+  const result = await runAuditCli();
+  assert.equal(result.exitCode, 0, result.stderr || result.stdout);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.ok, true);
+  assert.equal(output.evidence, 'live-locked-policy');
+  assert.deepEqual(await Promise.all(frozenPaths.map(sha256)), before);
+});
+
+test('pre-bootstrap write CLI cannot overwrite frozen B2 evidence while B3 is active', async () => {
+  const frozenPaths = [
+    'reports/b2/dependency-audit.json',
+    'reports/b2/native-plugin-audit.json',
+    'THIRD_PARTY_NOTICES.md',
+  ];
+  const before = await Promise.all(frozenPaths.map(sha256));
+  const result = await runAuditCli(['--pre-bootstrap', '--write']);
+  assert.equal(result.exitCode, 4, result.stdout || result.stderr);
+  assert.equal(result.stdout, '');
+  const output = JSON.parse(result.stderr);
+  assert.equal(output.ok, false);
+  assert.equal(output.code, 'b3_frozen_evidence_write_forbidden');
+  assert.deepEqual(await Promise.all(frozenPaths.map(sha256)), before);
 });

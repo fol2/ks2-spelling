@@ -87,6 +87,22 @@ and performance certification remain B4. The diagnostic proof shell is not the
 final visual design; Visual / Theme / Asset Migration follows Gate B `GO`
 before C3 child UI.
 
+## B3 Play Billing transition
+
+The app-owned Android commerce bridge adds the exact official
+`com.android.billingclient:billing:9.1.0` Java artefact. The current locked B3
+graph resolves 326 unique module-version nodes across 5,568 exact scope
+memberships; 74 occur in the packaged release runtime. The finite Gradle verification inventory contains 441 components and 875 artefacts. B2 reports
+above remain frozen and are not rewritten by this transition.
+
+The merged B3 APK requests only the existing normal `INTERNET` permission plus
+the normal `com.android.vending.BILLING` and `ACCESS_NETWORK_STATE` permissions
+contributed by the official Play Billing runtime closure. It adds no dangerous
+or runtime-granted permission, account identifier, analytics SDK or advertising
+SDK. The bridge never acknowledges a purchase locally and never supplies an
+obfuscated account or profile identifier. Final Google Play Data Safety wording
+and the committed B3 dependency report remain Task 18 release evidence.
+
 ## Not approved candidates
 
 | Capability | Candidate package | Status |

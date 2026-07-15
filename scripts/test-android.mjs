@@ -207,6 +207,8 @@ export async function verifyPackagedAndroidBackupPolicy(options = {}) {
 export function parsePackagedAndroidPermissions(output, options = {}) {
   const expectedRequestedPermissions = options.expectedRequestedPermissions ?? [
     'android.permission.INTERNET',
+    'com.android.vending.BILLING',
+    'android.permission.ACCESS_NETWORK_STATE',
   ];
   if (
     !Array.isArray(expectedRequestedPermissions) ||
@@ -243,7 +245,7 @@ export function parsePackagedAndroidPermissions(output, options = {}) {
     JSON.stringify(requestedPermissions) !== JSON.stringify(expectedRequestedPermissions)
   ) {
     throw packagedPermissionError(
-      `Packaged Android permission surface differs from exact normal INTERNET authority; declared=${declaredPermissions.join(',')}; requested=${requestedPermissions.join(',')}`,
+      `Packaged Android permission surface differs from exact normal B3 network and Play Billing authority; declared=${declaredPermissions.join(',')}; requested=${requestedPermissions.join(',')}`,
     );
   }
   if (appIdentity !== 'uk.eugnel.ks2spelling') {

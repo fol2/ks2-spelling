@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import { createDownloadCoordinator } from '../src/app/download-coordinator.js';
 import { assertSignedDownloadAccess } from '../src/domain/packs/signed-download-access-contract.js';
+import { createCapacitorPackTransfer } from
+  '../src/platform/pack-transfer/capacitor-pack-transfer.js';
 import {
   ARCHIVE_ETAG, ARCHIVE_SHA, ENVELOPE_SHA, HANDLE, JOB_ID, NOW, PACK_ID, VERSION,
   authorisation, capabilityUrl, createHarness, createRangeFixtureServer,
@@ -23,6 +25,28 @@ function resumeChunks() {
     { jobId: JOB_ID, startByte: 0, endByteExclusive: 1_000, state: 'complete', chunkSha256: ARCHIVE_SHA },
     { jobId: JOB_ID, startByte: 1_000, endByteExclusive: 1_324, state: 'pending', chunkSha256: null },
   ];
+}
+
+function capacitorTransfer(downloadRange) {
+  return createCapacitorPackTransfer({
+    PackTransfer: {
+      getFreeBytes: async () => ({ freeBytes: 9_000_000 }),
+      downloadRange,
+      inspectAndExtract: async () => ({
+        archiveSha256: ARCHIVE_SHA,
+        manifestSha256: ENVELOPE_SHA,
+        extractedBytes: 1_082,
+        fileCount: 2,
+        stagingToken: `staging/${PACK_ID}/${VERSION}`,
+      }),
+      sealAndInstall: async () => ({
+        installedPathToken: `installed/${PACK_ID}/${VERSION}`,
+        activationMarkerSha256: ARCHIVE_SHA,
+      }),
+      inventoryInstalledVersions: async () => ({ versions: [] }),
+      removeOwnedTemporaryState: async () => ({ removed: true }),
+    },
+  });
 }
 
 test('resume skips durable complete chunks and sends an exact 206 range', async () => {
@@ -53,6 +77,40 @@ test('expired capability renews signed authority and retries the same chunk', as
   assert.equal(harness.calls.downloads.length, 2);
   assert.notEqual(harness.calls.downloads[0].capabilityUrl, harness.calls.downloads[1].capabilityUrl);
   assert.equal(JSON.stringify(harness.memory.snapshot()).includes('BBBB'), false);
+});
+
+test('real Capacitor adapter recovery codes reach the Task 11 coordinator catch path', async () => {
+  for (const code of ['PACK_CAPABILITY_EXPIRED', 'PACK_RANGE_NOT_SATISFIABLE']) {
+    const harness = createHarness({
+      initialJob: job(),
+      initialChunks: resumeChunks(),
+      authoriseOutcomes: [authorisation(), authorisation()],
+    });
+    let calls = 0;
+    harness.dependencies.packTransfer = capacitorTransfer(async (request) => {
+      calls += 1;
+      if (calls === 1) {
+        throw Object.assign(new Error('private native detail'), { code });
+      }
+      return {
+        status: 206,
+        startByte: request.startByte,
+        endByteExclusive: request.endByteExclusive,
+        totalBytes: 1_324,
+        bytesWritten: request.endByteExclusive - request.startByte,
+        etag: ARCHIVE_ETAG,
+      };
+    });
+    const result = await createDownloadCoordinator(harness.dependencies)
+      .resume({ sealedRefreshHandle: HANDLE });
+    assert.equal(result.state, 'downloaded');
+    assert.equal(calls, 2);
+    assert.equal(harness.calls.gateway.length, 2);
+    assert.equal(
+      harness.memory.writes.some(([kind]) => kind === 'clear'),
+      code === 'PACK_RANGE_NOT_SATISFIABLE',
+    );
+  }
 });
 
 test('capability renewal is bounded to one fresh authority per operation', async () => {

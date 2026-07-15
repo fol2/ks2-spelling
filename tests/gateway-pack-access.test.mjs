@@ -321,6 +321,35 @@ test('private archive GET streams full and single ranges with exact immutable he
   assert.equal(bucket.calls.filter(({ operation }) => operation === 'get').length, 3);
 });
 
+test('exact native iOS download headers get 206 and a genuinely expired capability gets safe 400', async () => {
+  const { createGatewayHandler } = await import('../gateway/src/handler.js');
+  const bucket = await fixtureBucket();
+  const nativeHeaders = {
+    Origin: ORIGIN,
+    Range: 'bytes=0-99',
+    'Accept-Encoding': 'identity',
+  };
+  const valid = await createGatewayHandler(dependencies()).fetch(
+    new Request(KNOWN_CAPABILITY_URL, { method: 'GET', headers: nativeHeaders }),
+    environment(bucket),
+  );
+  assert.equal(valid.status, 206);
+  assert.equal(valid.headers.get('content-range'), `bytes 0-99/${ARCHIVE_AUTHORITY.bytes}`);
+  assert.equal((await valid.arrayBuffer()).byteLength, 100);
+
+  bucket.calls.length = 0;
+  const expired = await createGatewayHandler(dependencies({
+    clock: () => 1_782_866_401_000,
+  })).fetch(
+    new Request(KNOWN_CAPABILITY_URL, { method: 'GET', headers: nativeHeaders }),
+    environment(bucket),
+  );
+  assert.equal(expired.status, 400);
+  assert.deepEqual(await expired.json(), { code: 'REQUEST_INVALID', retryable: false });
+  assert.equal(expired.headers.get('cache-control'), 'private, no-store');
+  assert.equal(bucket.calls.length, 0);
+});
+
 test('private archive GET implements 304 and 416 without returning archive bytes', async () => {
   const { createGatewayHandler } = await import('../gateway/src/handler.js');
   const bucket = await fixtureBucket();

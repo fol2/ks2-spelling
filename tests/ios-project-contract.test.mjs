@@ -160,3 +160,25 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
     'B1 app code must not fabricate a privacy manifest',
   );
 });
+
+test('the iOS app target explicitly links the frozen ZIPFoundation extraction product', async () => {
+  const project = await readFile(PROJECT, 'utf8');
+  const appDelegate = await readFile(join(IOS_ROOT, 'App/AppDelegate.swift'), 'utf8');
+  assert.match(project, /XCRemoteSwiftPackageReference "ZIPFoundation"/);
+  assert.match(project, /repositoryURL = "https:\/\/github\.com\/weichsel\/ZIPFoundation\.git"/);
+  assert.match(project, /requirement = \{\s*kind = exactVersion;\s*version = 0\.9\.20;/s);
+  assert.match(project, /ZIPFoundation in Frameworks/);
+  assert.match(project, /productName = ZIPFoundation/);
+  assert.match(project, /PackTransferPlugin\.swift in Sources/);
+  assert.match(project, /PackDownloadFlow\.swift in Sources/);
+  assert.match(project, /PackInstallSealer\.swift in Sources/);
+  assert.match(project, /ZipCentralDirectoryInspector\.swift in Sources/);
+  assert.match(project, /pack-signing-public-keys\.json in Resources/);
+  assert.match(appDelegate, /PackTransferPlugin/);
+  assert.match(appDelegate, /registerPluginInstance/);
+  assert.deepEqual(
+    JSON.parse(await readFile(join(IOS_ROOT, 'App/Resources/pack-signing-public-keys.json'))),
+    JSON.parse(await readFile(join(ROOT, 'config/pack-signing-public-keys.json'))),
+    'the native bundle must copy the tracked public verification keyring byte-for-byte in meaning',
+  );
+});

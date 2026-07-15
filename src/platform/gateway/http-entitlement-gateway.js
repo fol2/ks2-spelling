@@ -14,8 +14,8 @@ import {
   validateIdentityResponse,
   validateVerifyRequest,
 } from './entitlement-gateway-port.js';
+import { MAX_GATEWAY_BODY_BYTES } from './gateway-payload-limits.js';
 
-const MAX_BODY_BYTES = 65_536;
 const SAFE_ERROR_CODES = new Set([
   'PROOF_REJECTED',
   'PRODUCT_MISMATCH',
@@ -79,7 +79,7 @@ function parseContentLength(response) {
   if (raw === null || raw === undefined) return null;
   if (!/^(?:0|[1-9][0-9]*)$/.test(raw)) throw invalidResponse(response.status);
   const value = Number(raw);
-  if (!Number.isSafeInteger(value) || value > MAX_BODY_BYTES) {
+  if (!Number.isSafeInteger(value) || value > MAX_GATEWAY_BODY_BYTES) {
     throw invalidResponse(response.status);
   }
   return value;
@@ -111,7 +111,7 @@ async function readJson(response, signal) {
         if (result.done) break;
         if (!(result.value instanceof Uint8Array)) throw invalidResponse(response.status);
         byteLength += result.value.byteLength;
-        if (byteLength > MAX_BODY_BYTES) {
+        if (byteLength > MAX_GATEWAY_BODY_BYTES) {
           const cancelPromise = reader.cancel();
           assertPromise(cancelPromise, 'Gateway response body cancellation');
           await cancelPromise.catch(() => undefined);
@@ -149,7 +149,10 @@ async function readJson(response, signal) {
     bytes = new TextEncoder().encode(text);
   }
   const byteLength = bytes.byteLength;
-  if (byteLength > MAX_BODY_BYTES || (declaredLength !== null && declaredLength !== byteLength)) {
+  if (
+    byteLength > MAX_GATEWAY_BODY_BYTES ||
+    (declaredLength !== null && declaredLength !== byteLength)
+  ) {
     throw invalidResponse(response.status);
   }
   let body;

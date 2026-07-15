@@ -128,6 +128,59 @@ test('port inputs reject prototypes, accessors, symbols, unknown and learner fie
   assert.equal(getterCalls, 0);
 });
 
+test('gateway proof and sealed-handle validators share the exact 64 KiB transport budget', async () => {
+  const {
+    MAX_GATEWAY_BODY_BYTES,
+    MAX_OPAQUE_PROOF_CHARS,
+    MAX_SEALED_REFRESH_HANDLE_CHARS,
+  } = await import('../src/platform/gateway/gateway-payload-limits.js');
+  const {
+    validateHandleRequest,
+    validateIdentityResponse,
+    validateVerifyRequest,
+  } = await import('../src/platform/gateway/entitlement-gateway-port.js');
+  assert.deepEqual({
+    MAX_GATEWAY_BODY_BYTES,
+    MAX_OPAQUE_PROOF_CHARS,
+    MAX_SEALED_REFRESH_HANDLE_CHARS,
+  }, {
+    MAX_GATEWAY_BODY_BYTES: 65_536,
+    MAX_OPAQUE_PROOF_CHARS: 48_000,
+    MAX_SEALED_REFRESH_HANDLE_CHARS: 64_500,
+  });
+
+  const proof = 'p'.repeat(MAX_OPAQUE_PROOF_CHARS);
+  assert.equal(validateVerifyRequest({
+    store: 'google', environment: 'sandbox', productId: 'full_ks2', opaqueProof: proof,
+  }).opaqueProof.length, MAX_OPAQUE_PROOF_CHARS);
+  for (const opaqueProof of [
+    `${proof}p`,
+    'non-ascii-£',
+    'quoted-"proof',
+    'escaped-\\proof',
+  ]) {
+    assert.throws(() => validateVerifyRequest({
+      store: 'google', environment: 'sandbox', productId: 'full_ks2', opaqueProof,
+    }), /proof/i);
+  }
+
+  const handle = 'h'.repeat(MAX_SEALED_REFRESH_HANDLE_CHARS);
+  assert.equal(validateHandleRequest({ sealedRefreshHandle: handle }).sealedRefreshHandle.length,
+    MAX_SEALED_REFRESH_HANDLE_CHARS);
+  assert.throws(
+    () => validateHandleRequest({ sealedRefreshHandle: `${handle}h` }),
+    /handle/i,
+  );
+  assert.equal(validateIdentityResponse({
+    store: 'google', productId: 'full_ks2', environment: 'sandbox',
+    applicationId: 'uk.eugnel.ks2spelling', entitlementId: 'full-ks2', state: 'active',
+    storeTransactionId: 'GPA.1234-5678-9012-34567', sealedRefreshHandle: handle,
+    refreshHandleVersion: 2_147_483_647,
+    traceId: '05c095a1-f5de-4e39-a38f-f466de9a256a', workerVersionId: 'worker-version',
+    workerScriptAuthoritySha256: 'a'.repeat(64),
+  }).sealedRefreshHandle.length, MAX_SEALED_REFRESH_HANDLE_CHARS);
+});
+
 test('B3 gateway fake scripts deterministic outcomes but creates fresh trace IDs', async () => {
   const { createB3FakeGateway } = await import(
     '../src/platform/fakes/create-b3-fake-gateway.js'

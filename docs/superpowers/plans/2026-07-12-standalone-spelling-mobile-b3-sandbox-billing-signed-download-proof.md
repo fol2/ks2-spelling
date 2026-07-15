@@ -38,7 +38,7 @@ The product/design authority remains:
 - The permanent product mapping is Apple `uk.eugnel.ks2spelling.fullks2`, Google `full_ks2`, internal entitlement `full-ks2`. The B3 fixture pack is `b3-sandbox-proof`; none of these identifiers may be inferred from display copy.
 - iOS uses StoreKit 2 directly and adds no client billing dependency. Android uses the exact official base Java artifact `com.android.billingclient:billing:9.1.0`; do not add `billing-ktx`, Kotlin, RevenueCat, Capawesome, Cap-go or a private registry unless a separately reviewed proof demonstrates that Java is insufficient.
 - Commerce exists only in the diagnostic Parent proof shell. No child surface shows price, Buy, Restore, download progress, purchase pressure or a store sheet.
-- The gateway is receipt-only and account-free. Initial purchase/restore accepts opaque Apple JWS or Google purchase token plus store/product/environment/request-integrity metadata; refresh/download accepts only a Worker-sealed refresh handle. Every route rejects learner/profile/progress/session/Monster/Camp fields and never stores them.
+- The gateway is receipt-only and account-free. Initial purchase/restore accepts opaque Apple JWS or Google purchase token plus store/product/environment and Worker-derived request-integrity metadata: exact origin, query-free route, method, content type, bounded body framing and rate-limit outcome. Request integrity is not a client-supplied field, token, device identifier or entitlement authority. Cloudflare-managed `CF-*`, canonical HTTPS `X-Forwarded-Proto` and ignored `X-Forwarded-For` transport headers are permitted separately from the browser CORS request-header authority; arbitrary client headers remain forbidden. Refresh/download accepts only a Worker-sealed refresh handle. Every route rejects learner/profile/progress/session/Monster/Camp fields and never stores them. Request/response bodies are at most 65,536 UTF-8 bytes; opaque proofs are visible ASCII excluding JSON quote/backslash and at most 48,000 characters; sealed handles are at most 64,500 characters. The shared client/Worker contract must prove the worst-case Apple identity, handle request and success response all remain inside that byte budget.
 - The only live gateway origin is the tracked HTTPS sandbox origin in `config/b3-gateway-authority.json`, restricted to environment `sandbox`, exact approved Cloudflare account/Worker identity and native WebView origins `capacitor://localhost`, `http://localhost`. `capacitor.config.json` keeps `server.url === null`. Endpoint, proof, handle, capability and secrets never enter logs.
 - The refresh handle is a versioned AES-256-GCM envelope sealed by the Worker with a fresh unique 96-bit nonce. `ENTITLEMENT_HANDLE_KEY_CURRENT` and `ENTITLEMENT_HANDLE_KEY_PREVIOUS` values are exact records `v{positiveInteger}:{unpaddedCanonicalBase64url(raw32Bytes)}` with distinct versions and key bytes. Prefix, payload format/key version and AAD binding must agree exactly. Current encrypts; current+previous decrypt; every accepted previous handle reseals current and returns positive `refreshHandleVersion`. The app stores only the opaque handle/version in the app-wide entitlement row; raw proof is cleared after finish/acknowledgement. Restore issues a fresh handle; durable revocation commits before handle deletion.
 - Durable store transaction authority comes only from live gateway truth: Apple verified `transactionId` and Google verified `orderId`, returned as `storeTransactionId` and cross-checked on every refresh. Native `transactionRef`, JWS, purchase token and opaque proof are never persisted as `store_transaction_id`; purchased results without a valid store-specific safe ID fail closed.
@@ -765,6 +765,10 @@ Expected: clean reviewed Task 8 HEAD pushed without force; any `SKIP_PREPUSH=1` 
 - Create: `gateway/src/redacted-logging.js`
 - Create: `gateway/config/apple-root-certificates/AppleRootCA-G3.der`
 - Create: `gateway/config/apple-root-certificates.json`
+- Create: `src/platform/gateway/gateway-payload-limits.js`
+- Modify: `src/platform/gateway/entitlement-gateway-port.js`
+- Modify: `src/platform/gateway/http-entitlement-gateway.js`
+- Modify: `tests/b3-port-contracts.test.mjs`
 - Create: `tests/gateway-contract.test.mjs`
 - Create: `tests/gateway-store-verifiers.test.mjs`
 - Create: `tests/gateway-privacy-boundary.test.mjs`
@@ -789,9 +793,55 @@ node --test tests/gateway-contract.test.mjs tests/gateway-store-verifiers.test.m
 
 Expected: FAIL because the gateway does not exist.
 
+Actual RED: 0/19 passed. All handler, verifier, privacy, refresh-handle and
+workerd tests failed at their public module/file seams because `gateway/` and
+its pinned runtime did not yet exist; no production implementation was present.
+The Google workerd-compatibility follow-up recorded 4/6: OAuth, ProductPurchaseV2
+and acknowledgement fetches still requested unsupported redirect handling and
+did not classify every intercepted redirect as retryable upstream failure.
+The bundled Google runtime probe then recorded 2/3 because passing the workerd
+Fetch function through an object changed its receiver and caused an illegal
+invocation before the intercepted OAuth request.
+The trust-root binding review recorded 0/3: Wrangler had no DER data-module
+rule, runtime embedded a second unbound certificate copy and the workerd probe
+did not instantiate `SignedDataVerifier` from the tracked DER authority.
+The store-failure and CORS follow-up recorded 8/10: Apple network/OCSP
+unavailability was classified as permanent proof rejection, and GET preflight
+was rejected before later unlisted-method/header assertions could run.
+The pending-proof authority follow-up recorded 4/5: the verifier result was
+rejected for its deliberately absent Google order ID before the public route
+could prove the required safe `REQUEST_INVALID` response and zero handle,
+entitlement or trace effects.
+The Apple OCSP/workerd follow-up recorded 2/3: the actual bundled official
+verifier still exposed `enableOnlineChecks: true`, which would route OCSP
+through the library's Node-specific fetch response seam rather than the
+Workers-compatible live API adapter.
+The query and end-to-end sizing follow-up recorded 4/6: a query-bearing exact
+pathname reached body parsing instead of a safe `403`, and a 48,000-character
+proof received a handle that the 4,096-character refresh validator immediately
+rejected. The shared Task 7 client-budget follow-up recorded 8/9 because no
+single client/Worker payload-limit authority existed yet.
+The live Cloudflare-header follow-up recorded 5/6: an otherwise valid request
+with edge-managed `X-Forwarded-Proto`, `X-Forwarded-For`, `CF-Connecting-IP`
+and `CF-Ray` was rejected before normal processing because the local header
+allow-list modelled browser tests but not Cloudflare's incoming-request surface.
+The store-timeout follow-up recorded 5/6: both Apple and Google classified an
+upstream HTTP `408 Request Timeout` as permanent `PROOF_REJECTED` rather than
+retryable `STORE_UNAVAILABLE`.
+The server-keyring configuration follow-up recorded 6/7: a missing, malformed
+or duplicate Worker-owned handle key was reported as permanent client
+`HANDLE_INVALID` rather than sanitised retryable `GATEWAY_UNAVAILABLE`; the
+client-submitted malformed handle remained correctly permanent.
+
+Task 9 keeps the frozen Task 7 client contract: native observations in line 588
+allow opaque proof only for `purchased|revoked`. `StoreVerifier` recognises a
+live Google `PENDING` response, but a pending result owns no safe order ID,
+entitlement, handle or gateway trace and the public verify route rejects it
+before effects. Native query/reconciliation remains pending authority.
+
 - [ ] **Step 3: Implement official live verification boundaries**
 
-Pin exact official `@apple/app-store-server-library@3.1.0`, `wrangler@4.110.0` and `miniflare@4.20260708.1` in `gateway/package-lock.json`; set compatibility date `2026-07-12` and flags exactly `["nodejs_compat"]`. Copy Apple Root CA G3 from `https://www.apple.com/certificateauthority/AppleRootCA-G3.cer`, record source URL/SHA-256 in the closed certificate manifest, and validate submitted signed transactions with that trust root, sandbox environment and exact bundle ID. Then use App Store Server API with Worker secrets to query the same transaction ID in sandbox, verify returned JWS again, and derive current product/revocation truth; never authorise solely from replayable client JWS. For Google, create a short-lived OAuth token from the configured service-account secret, call `purchases.productsv2.getproductpurchasev2`, require package/product, `PURCHASED|PENDING|CANCELLED` and `testPurchaseContext.fopType === 'TEST'`, and acknowledge only a verified unacknowledged `PURCHASED` token.
+Pin exact official `@apple/app-store-server-library@3.1.0`, `wrangler@4.110.0` and `miniflare@4.20260708.1` in `gateway/package-lock.json`; set compatibility date `2026-07-12` and flags exactly `["nodejs_compat"]`. Copy Apple Root CA G3 from `https://www.apple.com/certificateauthority/AppleRootCA-G3.cer`, record source URL/SHA-256 in the closed certificate manifest, and validate submitted signed transactions with that trust root, sandbox environment and exact bundle ID. Instantiate the official verifier with online certificate checks disabled because version 3.1.0's internal OCSP transport uses a Node-specific fetch response API that is not Workers-compatible. Freshness and revocation authority instead come from a Workers-compatible authenticated App Store Server API sandbox lookup of the same transaction ID followed by official-library verification of the returned JWS against the tracked root; never authorise solely from replayable client JWS. The real bundled workerd probe must assert this verifier mode and intercept the live API network seam. For Google, create a short-lived OAuth token from the configured service-account secret, call `purchases.productsv2.getproductpurchasev2`, require package/product, `PURCHASED|PENDING|CANCELLED` and `testPurchaseContext.fopType === 'TEST'`, and acknowledge only a verified unacknowledged `PURCHASED` token. The shared payload-limit authority preserves Task 7's closed four-field/one-field shapes while bounding exact ASCII/JSON/AES-GCM/base64url overhead: with a 48,000-character proof, the worst-case Apple handle is 64,412 characters, its refresh body is 64,438 bytes and the largest revoked success body is 64,992 bytes. Over-limit proof or non-ASCII/JSON-escaping input is rejected before verifier/upstream or cryptography, and every issued handle must round-trip through refresh and completion under the same 65,536-byte limit.
 
 Parse both handle secrets only as `v{positiveInteger}:{canonicalBase64url(raw32)}`; reject equal versions, equal bytes, padding, zero/negative/non-canonical versions or wrong length. Implement handle format `b3rh1.{keyVersion}.{base64urlNonce}.{base64urlCiphertextAndTag}`. AAD is exact UTF-8 `["b3rh1", String(keyVersion), store, productId, environment, applicationId].join("\n")`; payload repeats exact `format:"b3rh1"`, keyVersion/store/product/environment/applicationId plus gateway-safe `storeTransactionId`, opaque proof and issuedAt. Prefix, AAD, payload and request context must all equal. Current encrypts, current/previous decrypt, previous returns freshly resealed current plus positive `refreshHandleVersion`. Use 12 random bytes and per-isolate bounded nonce-reuse detection/retry; deterministic collision tests and 10,000-issuance uniqueness tests pass. Apple `storeTransactionId` comes only from verified live `transactionId`; Google only live `orderId`. Reject native transactionRef, JWS/token/proof-like value as durable ID.
 

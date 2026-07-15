@@ -9,6 +9,11 @@ import {
   cloneFrozenArray,
   fail,
 } from '../commerce/store-port.js';
+import {
+  MAX_OPAQUE_PROOF_CHARS,
+  MAX_SEALED_REFRESH_HANDLE_CHARS,
+  OPAQUE_PROOF_PATTERN,
+} from './gateway-payload-limits.js';
 
 export const ENTITLEMENT_GATEWAY_METHODS = Object.freeze([
   'verifyTransaction',
@@ -74,7 +79,10 @@ export function validateVerifyRequest(value) {
     store: value.store,
     environment: value.environment,
     productId,
-    opaqueProof: assertString(value.opaqueProof, 'Opaque store proof', { max: 65_536 }),
+    opaqueProof: assertString(value.opaqueProof, 'Opaque store proof', {
+      max: MAX_OPAQUE_PROOF_CHARS,
+      pattern: OPAQUE_PROOF_PATTERN,
+    }),
   });
 }
 
@@ -84,7 +92,7 @@ export function validateHandleRequest(value, label = 'Gateway handle request') {
     sealedRefreshHandle: assertString(
       value.sealedRefreshHandle,
       'Sealed refresh handle',
-      { max: 4_096 },
+      { max: MAX_SEALED_REFRESH_HANDLE_CHARS },
     ),
   });
 }
@@ -99,7 +107,7 @@ export function validateAuthoriseRequest(value) {
     sealedRefreshHandle: assertString(
       value.sealedRefreshHandle,
       'Sealed refresh handle',
-      { max: 4_096 },
+      { max: MAX_SEALED_REFRESH_HANDLE_CHARS },
     ),
     packId: assertString(value.packId, 'Pack identifier', { max: 64, pattern: PACK_ID }),
     version: assertString(value.version, 'Pack version', { max: 64, pattern: VERSION }),
@@ -141,7 +149,7 @@ function validateIdentityFields(value, keys = IDENTITY_KEYS) {
     sealedRefreshHandle: assertString(
       value.sealedRefreshHandle,
       'Gateway sealed refresh handle',
-      { max: 4_096 },
+      { max: MAX_SEALED_REFRESH_HANDLE_CHARS },
     ),
     refreshHandleVersion: assertSafeInteger(
       value.refreshHandleVersion,

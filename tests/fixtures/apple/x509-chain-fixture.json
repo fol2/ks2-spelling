@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "root": "AppleRootCA-G3.der",
+  "expectedSubject": "Apple Root CA - G3"
+}

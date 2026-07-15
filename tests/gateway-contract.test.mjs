@@ -199,6 +199,39 @@ test('gateway enforces exact CORS preflight and request boundary', async () => {
   assert.doesNotMatch(await queryResponse.text(), /learnerId|progress|b3rh1|traceId/);
 });
 
+test('conditional download headers are forbidden on receipt and non-download requests', async () => {
+  const { createGatewayHandler } = await import('../gateway/src/handler.js');
+  const counters = { upstream: 0 };
+  const handler = createGatewayHandler(dependencies(counters));
+
+  for (const headerName of ['Range', 'If-None-Match']) {
+    let bodyReads = 0;
+    const receiptRequest = {
+      method: 'POST',
+      url: 'https://b3-gateway.eugnel.uk/v1/entitlements/verify',
+      headers: new Headers({
+        Origin: ORIGIN,
+        'Content-Type': 'application/json',
+        [headerName]: headerName === 'Range' ? 'bytes=0-99' : '"private-etag"',
+      }),
+      get body() {
+        bodyReads += 1;
+        throw new Error('forbidden conditional header must be rejected before body read');
+      },
+    };
+    const receiptResponse = await handler.fetch(receiptRequest, env());
+    assert.equal(receiptResponse.status, 403, headerName);
+    assert.equal(bodyReads, 0, headerName);
+  }
+
+  const nonDownloadGet = await handler.fetch(new Request(
+    'https://b3-gateway.eugnel.uk/v1/entitlements/verify',
+    { method: 'GET', headers: { Origin: ORIGIN, Range: 'bytes=0-99' } },
+  ), env());
+  assert.equal(nonDownloadGet.status, 403);
+  assert.equal(counters.upstream, 0);
+});
+
 test('POST body is exact JSON, sandbox-only and at most 64 KiB', async () => {
   const { createGatewayHandler } = await import('../gateway/src/handler.js');
   const handler = createGatewayHandler(dependencies());

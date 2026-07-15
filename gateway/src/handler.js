@@ -1,6 +1,7 @@
 import { createAppleStoreVerifier } from './apple-store-verifier.js';
 import { createGoogleStoreVerifier } from './google-store-verifier.js';
 import { createRedactedLogger } from './redacted-logging.js';
+import { createPackAccessService } from './pack-access-service.js';
 import {
   openRefreshHandle,
   parseRefreshHandleKeyring,
@@ -27,9 +28,11 @@ const ROUTES = new Map([
   ['/v1/entitlements/verify', 'verify'],
   ['/v1/entitlements/refresh', 'refresh'],
   ['/v1/transactions/complete', 'complete'],
+  ['/v1/packs/authorise-download', 'authorise'],
 ]);
 const WORKER_SCRIPT_AUTHORITY_SHA256 = '0'.repeat(64);
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'OPTIONS']);
+const DOWNLOAD_REQUEST_HEADERS = new Set(['range', 'if-none-match']);
 
 function defaultStoreVerifier(store, env, dependencies) {
   if (store === 'apple') {
@@ -73,9 +76,11 @@ function response(origin, status, body = null, extraHeaders = undefined) {
   return new Response(JSON.stringify(body), { status, headers });
 }
 
-function errorResponse(origin, error) {
-  const safe = error instanceof GatewayError ? error : safeGatewayError();
-  return response(origin, safe.status, { code: safe.code, retryable: safe.retryable });
+function hasOnlyRequestedHeaders(value, allowed) {
+  if (value === null || value === '') return true;
+  const names = value.split(',').map((name) => name.trim().toLowerCase());
+  return names.every((name, index) =>
+    name.length > 0 && allowed.has(name) && names.indexOf(name) === index);
 }
 
 function parseServerKeyring(env) {
@@ -89,7 +94,7 @@ function parseServerKeyring(env) {
   }
 }
 
-function hasUnapprovedRequestHeader(headers) {
+function hasUnapprovedRequestHeader(headers, routeHeaders = undefined) {
   for (const [rawName, value] of headers) {
     const name = rawName.toLowerCase();
     // Cloudflare overwrites the visitor protocol and appends its forwarding chain
@@ -100,9 +105,9 @@ function hasUnapprovedRequestHeader(headers) {
     }
     if (name === 'x-forwarded-for') continue;
     if (
-      ['origin', 'content-type', 'accept', 'accept-language', 'content-language', 'range',
+      ['origin', 'content-type', 'accept', 'accept-language', 'content-language',
         'content-length', 'accept-encoding', 'host', 'user-agent', 'connection', 'cdn-loop']
-        .includes(name) || name.startsWith('cf-') || name.startsWith('sec-')
+        .includes(name) || routeHeaders?.has(name) || name.startsWith('cf-') || name.startsWith('sec-')
     ) continue;
     return true;
   }
@@ -220,6 +225,7 @@ export function createGatewayHandler(injected = {}) {
     logger: injected.logger ?? createRedactedLogger(),
     createStoreVerifier: injected.createStoreVerifier,
   });
+  const packAccess = createPackAccessService({ clock: dependencies.clock });
 
   async function verifier(store, env) {
     const candidate = dependencies.createStoreVerifier
@@ -289,43 +295,79 @@ export function createGatewayHandler(injected = {}) {
     async fetch(request, env) {
       const origin = request.headers.get('origin') ?? '';
       const url = new URL(request.url);
-      if (!ALLOWED_ORIGINS.has(origin)) return response(origin, 403, { code: 'REQUEST_INVALID', retryable: false });
-      if (!ALLOWED_METHODS.has(request.method)) return response(origin, 403, { code: 'REQUEST_INVALID', retryable: false });
+      const isDownloadPath = packAccess.matchesDownloadPath(url.pathname);
+      const isDownloadNamespace = packAccess.matchesDownloadNamespace(url.pathname);
+      const downloadCache = isDownloadNamespace ? { 'Cache-Control': 'private, no-store' } : undefined;
+      const reply = (status, body = null, extraHeaders = undefined) => response(
+        origin,
+        status,
+        body,
+        { ...downloadCache, ...extraHeaders },
+      );
+      if (!ALLOWED_ORIGINS.has(origin)) return reply(403, { code: 'REQUEST_INVALID', retryable: false });
+      if (!ALLOWED_METHODS.has(request.method)) return reply(403, { code: 'REQUEST_INVALID', retryable: false });
 
       if (request.method === 'OPTIONS') {
         const requestedMethod = request.headers.get('access-control-request-method');
         const requestedHeaders = request.headers.get('access-control-request-headers');
+        const allowedHeaders = isDownloadPath
+          ? new Set(['range', 'if-none-match'])
+          : new Set(['content-type']);
+        const validTarget = isDownloadPath
+          ? packAccess.matchesDownloadRequest(url) && requestedMethod === 'GET'
+          : url.search === '' && ROUTES.has(url.pathname) && ALLOWED_METHODS.has(requestedMethod);
         if (
-          url.search !== '' || url.username !== '' || url.password !== '' || url.hash !== '' ||
-          !ROUTES.has(url.pathname) || !ALLOWED_METHODS.has(requestedMethod) ||
-          (requestedHeaders !== null && requestedHeaders !== '' && requestedHeaders.toLowerCase() !== 'content-type')
-        ) return response(origin, 403, { code: 'REQUEST_INVALID', retryable: false });
-        return response(origin, 204, null, {
+          url.username !== '' || url.password !== '' || url.hash !== '' || !validTarget ||
+          !hasOnlyRequestedHeaders(requestedHeaders, allowedHeaders)
+        ) return reply(403, { code: 'REQUEST_INVALID', retryable: false });
+        return reply(204, null, {
           'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
+          'Access-Control-Allow-Headers': isDownloadPath ? 'Range, If-None-Match' : 'Content-Type',
         });
       }
 
       try {
         if (request.method === 'POST' || request.method === 'GET') await enforceRateLimit(env);
-        if (url.search !== '' || url.username !== '' || url.password !== '' || url.hash !== '') {
-          return response(origin, 403, { code: 'REQUEST_INVALID', retryable: false });
+        const isDownload = packAccess.matchesDownloadPath(url.pathname) && request.method === 'GET';
+        const isCanonicalDownload = request.method === 'GET' && packAccess.matchesDownloadRequest(url);
+        if ((!isDownload && url.search !== '') || url.username !== '' || url.password !== '' || url.hash !== '') {
+          return reply(403, { code: 'REQUEST_INVALID', retryable: false });
         }
-        if (hasUnapprovedRequestHeader(request.headers)) {
-          return response(origin, 403, { code: 'REQUEST_INVALID', retryable: false });
+        if (hasUnapprovedRequestHeader(
+          request.headers,
+          isCanonicalDownload ? DOWNLOAD_REQUEST_HEADERS : undefined,
+        )) {
+          return reply(403, { code: 'REQUEST_INVALID', retryable: false });
+        }
+        if (isDownload) {
+          const streamed = await packAccess.download({ request, url, env, origin });
+          dependencies.logger.info('gateway_request', {
+            operation: 'download',
+            status: streamed.status,
+            retryable: false,
+          });
+          return new Response(streamed.body, { status: streamed.status, headers: streamed.headers });
         }
         const operation = ROUTES.get(url.pathname);
-        if (!operation) return response(origin, 404, { code: 'REQUEST_INVALID', retryable: false });
-        if (request.method !== 'POST') return response(origin, 405, { code: 'REQUEST_INVALID', retryable: false });
+        if (!operation) return reply(404, { code: 'REQUEST_INVALID', retryable: false });
+        if (request.method !== 'POST') return reply(405, { code: 'REQUEST_INVALID', retryable: false });
         const body = await readJson(request);
-        const result = await operate(operation, body, env);
+        let result;
+        if (operation === 'authorise') {
+          const input = packAccess.assertAuthoriseRequest(body);
+          packAccess.assertBindings(env);
+          const identity = await operate('refresh', { sealedRefreshHandle: input.sealedRefreshHandle }, env);
+          result = await packAccess.authorise({ request: input, identity, env });
+        } else {
+          result = await operate(operation, body, env);
+        }
         dependencies.logger.info('gateway_request', {
           operation,
           status: 200,
           store: result.store,
           retryable: false,
         });
-        return response(origin, 200, result);
+        return reply(200, result);
       } catch (error) {
         const safe = error instanceof GatewayError ? error : safeGatewayError();
         dependencies.logger.error('gateway_error', {
@@ -333,7 +375,7 @@ export function createGatewayHandler(injected = {}) {
           status: safe.status,
           retryable: safe.retryable,
         });
-        return errorResponse(origin, safe);
+        return reply(safe.status, { code: safe.code, retryable: safe.retryable });
       }
     },
   });

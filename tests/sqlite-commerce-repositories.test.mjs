@@ -8,6 +8,7 @@ import test from 'node:test';
 import { canonicalJson } from '../src/platform/database/canonical-json.js';
 import { configureAndMigrateDatabase } from '../src/platform/database/migrate-database.js';
 import { createSqliteCommerceRepositories } from '../src/platform/database/sqlite-commerce-repositories.js';
+import { MAX_SEALED_REFRESH_HANDLE_CHARS } from '../src/platform/gateway/gateway-payload-limits.js';
 
 import { createNodeSqliteConnection } from './helpers/node-sqlite-connection.mjs';
 
@@ -19,6 +20,7 @@ const REPOSITORY_METHODS = Object.freeze([
   'markStoreCompleteAndClearProof',
   'markRejectedAndClearProof',
   'replaceSealedRefreshHandle',
+  'compareAndSwapSealedRefreshHandle',
   'applyRevocationAndDeleteHandle',
   'listRecoverableTransactions',
   'listEntitlements',
@@ -183,7 +185,7 @@ async function grantApple(repository, overrides = {}) {
   });
 }
 
-test('commerce repository exposes exactly nine frozen async public methods', async () => {
+test('commerce repository exposes exactly ten frozen async public methods', async () => {
   await withDatabase(async (connection) => {
     const repository = createSqliteCommerceRepositories(connection);
 
@@ -206,6 +208,105 @@ test('commerce repository exposes exactly nine frozen async public methods', asy
     () => createSqliteCommerceRepositories(Object.freeze({})),
     TypeError,
   );
+});
+
+test('sealed handle authority accepts the proven maximum through commit, replace and CAS', async () => {
+  await withDatabase(async (connection) => {
+    const repository = createSqliteCommerceRepositories(connection);
+    const firstHandle = 'a'.repeat(MAX_SEALED_REFRESH_HANDLE_CHARS);
+    const secondHandle = 'b'.repeat(MAX_SEALED_REFRESH_HANDLE_CHARS);
+    const thirdHandle = 'c'.repeat(MAX_SEALED_REFRESH_HANDLE_CHARS);
+    const granted = await grantApple(repository, { sealedRefreshHandle: firstHandle });
+    assert.equal(granted.entitlement.sealedRefreshHandle.length, MAX_SEALED_REFRESH_HANDLE_CHARS);
+
+    const replaced = await repository.replaceSealedRefreshHandle({
+      entitlementId: 'full-ks2',
+      sealedRefreshHandle: secondHandle,
+      refreshHandleVersion: 2,
+      refreshedAt: granted.entitlement.refreshedAt + 1,
+    });
+    assert.equal(replaced.sealedRefreshHandle, secondHandle);
+
+    const swapped = await repository.compareAndSwapSealedRefreshHandle({
+      entitlementId: 'full-ks2',
+      expectedSealedRefreshHandle: secondHandle,
+      sealedRefreshHandle: thirdHandle,
+      refreshHandleVersion: 3,
+      refreshedAt: replaced.refreshedAt + 1,
+    });
+    assert.equal(swapped.sealedRefreshHandle, thirdHandle);
+
+    for (const operation of [
+      () => repository.replaceSealedRefreshHandle({
+        entitlementId: 'full-ks2',
+        sealedRefreshHandle: 'x'.repeat(MAX_SEALED_REFRESH_HANDLE_CHARS + 1),
+        refreshHandleVersion: 4,
+        refreshedAt: swapped.refreshedAt + 1,
+      }),
+      () => repository.compareAndSwapSealedRefreshHandle({
+        entitlementId: 'full-ks2',
+        expectedSealedRefreshHandle: thirdHandle,
+        sealedRefreshHandle: 'x'.repeat(MAX_SEALED_REFRESH_HANDLE_CHARS + 1),
+        refreshHandleVersion: 4,
+        refreshedAt: swapped.refreshedAt + 1,
+      }),
+    ]) {
+      await assert.rejects(operation, TypeError);
+    }
+    assert.equal((await repository.listEntitlements())[0].sealedRefreshHandle, thirdHandle);
+  });
+});
+
+test('sealed handle CAS is idempotent only for the exact result and loses races or revocation', async () => {
+  await withDatabase(async (connection) => {
+    const repository = createSqliteCommerceRepositories(connection);
+    const granted = await grantApple(repository);
+    const expected = granted.entitlement.sealedRefreshHandle;
+    const firstInput = {
+      entitlementId: 'full-ks2',
+      expectedSealedRefreshHandle: expected,
+      sealedRefreshHandle: 'b3rh1.2.cas-winner',
+      refreshHandleVersion: 2,
+      refreshedAt: granted.entitlement.refreshedAt + 1,
+    };
+    const secondInput = {
+      ...firstInput,
+      sealedRefreshHandle: 'b3rh1.2.cas-loser',
+      refreshedAt: firstInput.refreshedAt + 1,
+    };
+    const race = await Promise.allSettled([
+      repository.compareAndSwapSealedRefreshHandle(firstInput),
+      repository.compareAndSwapSealedRefreshHandle(secondInput),
+    ]);
+    const fulfilled = race.filter((result) => result.status === 'fulfilled');
+    const rejected = race.filter((result) => result.status === 'rejected');
+    assert.equal(fulfilled.length, 1);
+    assert.equal(rejected.length, 1);
+    assert.equal(rejected[0].reason?.code, 'sqlite_commerce_entitlement_conflict');
+    const winner = fulfilled[0].value;
+    const winningInput = winner.sealedRefreshHandle === firstInput.sealedRefreshHandle
+      ? firstInput
+      : secondInput;
+    assert.deepEqual(
+      await repository.compareAndSwapSealedRefreshHandle(winningInput),
+      winner,
+    );
+
+    await connection.execute(
+      'UPDATE app_entitlements SET state = ?, sealed_refresh_handle = NULL, refresh_handle_version = NULL, revocation_at = ? WHERE entitlement_id = ?',
+      ['revoked', secondInput.refreshedAt + 1, 'full-ks2'],
+    );
+    await assert.rejects(
+      repository.compareAndSwapSealedRefreshHandle({
+        ...firstInput,
+        expectedSealedRefreshHandle: winner.sealedRefreshHandle,
+        sealedRefreshHandle: 'b3rh1.3.after-revoke',
+        refreshHandleVersion: 3,
+        refreshedAt: secondInput.refreshedAt + 2,
+      }),
+      (error) => error?.code === 'sqlite_commerce_entitlement_conflict',
+    );
+  });
 });
 
 test('purchase progresses through observed, verified, ready-to-complete and proof-cleared complete', async () => {

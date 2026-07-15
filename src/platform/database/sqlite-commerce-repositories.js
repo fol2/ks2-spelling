@@ -1,4 +1,5 @@
 import { mapStoreProductToEntitlement } from '../../domain/commerce/commerce-contracts.js';
+import { MAX_SEALED_REFRESH_HANDLE_CHARS } from '../gateway/gateway-payload-limits.js';
 
 import { assertSqlConnection } from './sql-connection-contract.js';
 import {
@@ -215,13 +216,17 @@ async function readJournal(connection, journalId) {
   );
 }
 
-async function readEntitlement(connection, entitlementId) {
-  const row = optionalRow(
+async function readRawEntitlement(connection, entitlementId) {
+  return optionalRow(
     await connection.query(
       'SELECT entitlement_id, store, product_id, state, sealed_refresh_handle, refresh_handle_version, verified_at, refreshed_at, revocation_at FROM app_entitlements WHERE entitlement_id = ?',
       [entitlementId],
     ),
   );
+}
+
+async function readEntitlement(connection, entitlementId) {
+  const row = await readRawEntitlement(connection, entitlementId);
   return row ? attachCurrentTransactionAuthority(connection, row) : null;
 }
 
@@ -452,7 +457,11 @@ export function createSqliteCommerceRepositories(connection) {
     requireIdentifier(values.journalId, 'journalId');
     requireIdentifier(values.entitlementId, 'entitlementId');
     requireNonEmptyString(values.storeTransactionId, 'storeTransactionId', 64);
-    requireNonEmptyString(values.sealedRefreshHandle, 'sealedRefreshHandle', 4_096);
+    requireNonEmptyString(
+      values.sealedRefreshHandle,
+      'sealedRefreshHandle',
+      MAX_SEALED_REFRESH_HANDLE_CHARS,
+    );
     requirePositiveInteger(values.refreshHandleVersion, 'refreshHandleVersion');
     requireTimestamp(values.committedAt, 'committedAt');
     return runOwnedTransaction(connection, async () => {
@@ -726,7 +735,11 @@ export function createSqliteCommerceRepositories(connection) {
       'replaceSealedRefreshHandle input',
     );
     requireIdentifier(values.entitlementId, 'entitlementId');
-    requireNonEmptyString(values.sealedRefreshHandle, 'sealedRefreshHandle', 4_096);
+    requireNonEmptyString(
+      values.sealedRefreshHandle,
+      'sealedRefreshHandle',
+      MAX_SEALED_REFRESH_HANDLE_CHARS,
+    );
     requirePositiveInteger(values.refreshHandleVersion, 'refreshHandleVersion');
     requireTimestamp(values.refreshedAt, 'refreshedAt');
     return runOwnedTransaction(connection, async () => {
@@ -759,6 +772,71 @@ export function createSqliteCommerceRepositories(connection) {
           ],
         ),
         'sqlite_commerce_state_invalid',
+      );
+      return mapEntitlement(await readEntitlement(connection, values.entitlementId));
+    });
+  }
+
+  async function compareAndSwapSealedRefreshHandle(input) {
+    const values = requireExactInput(
+      input,
+      [
+        'entitlementId', 'expectedSealedRefreshHandle', 'sealedRefreshHandle',
+        'refreshHandleVersion', 'refreshedAt',
+      ],
+      'compareAndSwapSealedRefreshHandle input',
+    );
+    requireIdentifier(values.entitlementId, 'entitlementId');
+    requireNonEmptyString(
+      values.expectedSealedRefreshHandle,
+      'expectedSealedRefreshHandle',
+      MAX_SEALED_REFRESH_HANDLE_CHARS,
+    );
+    requireNonEmptyString(
+      values.sealedRefreshHandle,
+      'sealedRefreshHandle',
+      MAX_SEALED_REFRESH_HANDLE_CHARS,
+    );
+    requirePositiveInteger(values.refreshHandleVersion, 'refreshHandleVersion');
+    requireTimestamp(values.refreshedAt, 'refreshedAt');
+    return runOwnedTransaction(connection, async () => {
+      const existing = await readRawEntitlement(connection, values.entitlementId);
+      if (!existing) throw commerceError('sqlite_commerce_entitlement_missing');
+      const entitlement = mapEntitlement({ ...existing, store_transaction_id: null });
+      if (
+        entitlement.state === 'active' &&
+        entitlement.sealedRefreshHandle === values.sealedRefreshHandle &&
+        entitlement.refreshHandleVersion === values.refreshHandleVersion &&
+        entitlement.refreshedAt === values.refreshedAt
+      ) {
+        return mapEntitlement(await readEntitlement(connection, values.entitlementId));
+      }
+      if (
+        entitlement.state !== 'active' ||
+        entitlement.sealedRefreshHandle !== values.expectedSealedRefreshHandle
+      ) {
+        throw commerceError('sqlite_commerce_entitlement_conflict');
+      }
+      if (values.refreshedAt <= entitlement.refreshedAt) {
+        throw commerceError('sqlite_commerce_state_invalid');
+      }
+      if (values.refreshHandleVersion < entitlement.refreshHandleVersion) {
+        throw commerceError('sqlite_commerce_refresh_version_invalid');
+      }
+      requireOneChange(
+        await connection.execute(
+          'UPDATE app_entitlements SET sealed_refresh_handle = ?, refresh_handle_version = ?, refreshed_at = ? WHERE entitlement_id = ? AND state = ? AND sealed_refresh_handle = ? AND refreshed_at < ?',
+          [
+            values.sealedRefreshHandle,
+            values.refreshHandleVersion,
+            values.refreshedAt,
+            values.entitlementId,
+            'active',
+            values.expectedSealedRefreshHandle,
+            values.refreshedAt,
+          ],
+        ),
+        'sqlite_commerce_entitlement_conflict',
       );
       return mapEntitlement(await readEntitlement(connection, values.entitlementId));
     });
@@ -927,6 +1005,7 @@ export function createSqliteCommerceRepositories(connection) {
     markStoreCompleteAndClearProof,
     markRejectedAndClearProof,
     replaceSealedRefreshHandle,
+    compareAndSwapSealedRefreshHandle,
     applyRevocationAndDeleteHandle,
     listRecoverableTransactions,
     listEntitlements,

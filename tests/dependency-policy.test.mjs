@@ -104,7 +104,12 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
   }
   assert.deepEqual(
     report.plugins.approved.map(({ packageName }) => packageName),
-    ['@capacitor-community/sqlite', '@capacitor/app'],
+    [
+      '@capacitor-community/sqlite',
+      '@capacitor/app',
+      'app-owned-commerce-bridge',
+      'app-owned-pack-transfer-bridge',
+    ],
   );
   assert.deepEqual(report.permissionEvidence.androidUsesPermissions, [
     'android.permission.INTERNET',
@@ -113,10 +118,19 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
   assert.deepEqual(report.permissionEvidence.iosEntitlements, []);
   assert.deepEqual(report.permissionEvidence.iosUsageDescriptionKeys, []);
   assert.deepEqual(report.permissionEvidence.packagedAndroid.requestedPermissions, []);
-  assert.equal(report.b2Truth.sqliteMode, 'no-encryption');
-  assert.equal(report.b2Truth.sqlCipherPackaged, true);
-  assert.equal(report.b2Truth.applicationEncryptionAtRestProved, false);
-  assert.equal(report.b2Truth.approval, 'B2-proof-only');
+  assert.equal(report.b3Truth.sqliteMode, 'no-encryption');
+  assert.equal(report.b3Truth.sqlCipherPackaged, true);
+  assert.equal(report.b3Truth.applicationEncryptionAtRestProved, false);
+  assert.equal(report.b3Truth.storeCommerce, true);
+  assert.equal(report.b3Truth.appConfiguredAnalytics, false);
+  assert.equal(report.b3Truth.appConfiguredAdvertising, false);
+  assert.equal(
+    report.b3Truth.vendorRuntimeDataPracticeAssessment,
+    'pending-before-store-release',
+  );
+  assert.equal(report.b3Truth.liveStoreProof, false);
+  assert.equal(report.b3Truth.liveCloudProof, false);
+  assert.equal(report.b3Truth.approval, 'B3-compiled-capability-only');
   assert.equal(report.spm[0].identity, 'capacitor-swift-pm');
   assert.deepEqual(report.spm[0].requirement, { kind: 'version', version: '8.4.1' });
   assert.equal(report.spm[0].revision, '2231987d85b8b0b289320b1d0947b4ae8345cde4');

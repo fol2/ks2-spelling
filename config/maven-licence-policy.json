@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "owner": "KS2 Spelling maintainer",
-  "reviewDate": "2026-07-11",
+  "reviewDate": "2026-07-15",
   "signatureAlgorithm": "sha256(JSON UTF-8 array of NFC whitespace-collapsed name, URL and comments; distribution retained separately)",
   "classifications": {
     "sha256:48ad2b1f833f1d5664daf6ef52f3bfdff0187668a6bb7f4dc3225ff3ea804a5c": { "expression": "LicenseRef-Android-SDK-License", "scopePolicy": "tooling-or-test-only" },

@@ -31,8 +31,8 @@
     "@capacitor-community/sqlite": {
       "role": "conditionally approved native SQLite source plus installed optional web fallback dependency",
       "platform": "Native build input and installed dependency closure",
-      "applePrivacyManifest": "No app Required Reason API or usage-description key added in B2",
-      "googleDataSafety": "Local database access only; no collection or transmission in B2",
+      "applePrivacyManifest": "No app Required Reason API or usage-description key added by this dependency",
+      "googleDataSafety": "Local database access only; no app-configured collection or transmission",
       "sourceRepository": "https://github.com/capacitor-community/sqlite.git",
       "restrictedExportClassification": "SQLCipher is packaged; US export classification remains unresolved before store release"
     },
@@ -43,7 +43,7 @@
       "googleDataSafety": "No app data collection or permission declared in B1"
     },
     "@capacitor/core": {
-      "role": "installed Capacitor JavaScript and type dependency absent from the B2 WebView bundle",
+      "role": "installed Capacitor JavaScript and type dependency absent from the current WebView bundle",
       "platform": "Installed dependency closure only",
       "applePrivacyManifest": "No app Required Reason API declared in B1",
       "googleDataSafety": "No app data collection or permission declared in B1"
@@ -51,8 +51,8 @@
     "@capacitor/app": {
       "role": "conditionally approved native application lifecycle source",
       "platform": "Native build input",
-      "applePrivacyManifest": "No app Required Reason API or usage-description key added in B2",
-      "googleDataSafety": "Lifecycle notifications only; no collection or transmission in B2",
+      "applePrivacyManifest": "No app Required Reason API or usage-description key added by this dependency",
+      "googleDataSafety": "Lifecycle notifications only; no app-configured collection or transmission",
       "sourceRepository": "https://github.com/ionic-team/capacitor-plugins.git",
       "restrictedExportClassification": "None identified"
     },
@@ -84,19 +84,19 @@
       "role": "installed optional SQLite web fallback dependency; not initialised or included in application outputs",
       "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
-      "googleDataSafety": "Web fallback is not initialised in B2"
+      "googleDataSafety": "Web fallback is not initialised in the current app"
     },
     "@stencil/core": {
       "role": "installed optional web-component dependency for the uninitialised SQLite fallback; absent from application outputs",
       "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
-      "googleDataSafety": "Web fallback is not initialised in B2"
+      "googleDataSafety": "Web fallback is not initialised in the current app"
     },
     "browser-fs-access": {
       "role": "installed optional browser file-access dependency for the uninitialised SQLite fallback; absent from application outputs",
       "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
-      "googleDataSafety": "Web fallback is not initialised in B2"
+      "googleDataSafety": "Web fallback is not initialised in the current app"
     },
     "core-util-is": {
       "role": "installed optional fallback stream utility absent from application outputs",
@@ -126,7 +126,7 @@
       "role": "installed optional archive dependency for the uninitialised SQLite fallback; absent from application outputs",
       "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
-      "googleDataSafety": "Web fallback is not initialised in B2"
+      "googleDataSafety": "Web fallback is not initialised in the current app"
     },
     "lie": {
       "role": "installed optional fallback Promise implementation absent from application outputs",
@@ -138,13 +138,13 @@
       "role": "installed optional browser-storage dependency for the uninitialised SQLite fallback; absent from application outputs",
       "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
-      "googleDataSafety": "Web fallback is not initialised in B2"
+      "googleDataSafety": "Web fallback is not initialised in the current app"
     },
     "pako": {
       "role": "installed optional compression dependency for the uninitialised SQLite fallback; absent from application outputs",
       "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
-      "googleDataSafety": "Web fallback is not initialised in B2"
+      "googleDataSafety": "Web fallback is not initialised in the current app"
     },
     "process-nextick-args": {
       "role": "installed optional fallback stream-scheduling utility absent from application outputs",
@@ -174,7 +174,7 @@
       "role": "installed optional SQLite WebAssembly dependency for the uninitialised fallback; absent from application outputs",
       "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
-      "googleDataSafety": "Web fallback is not initialised in B2"
+      "googleDataSafety": "Web fallback is not initialised in the current app"
     },
     "string_decoder": {
       "role": "installed optional fallback stream-decoding utility absent from application outputs",
@@ -245,7 +245,7 @@
       "packaged": false
     },
     "tslib": {
-      "role": "installed transitive helper absent from the B2 WebView bundle",
+      "role": "installed transitive helper absent from the current WebView bundle",
       "platform": "Installed dependency closure only",
       "applePrivacyManifest": "Not applicable",
       "googleDataSafety": "No data access in B1"
@@ -297,7 +297,7 @@
       "role": "packaged native SQLCipher framework",
       "platform": "iOS",
       "packaged": true,
-      "privacyRole": "Local database implementation; B2 opens it in no-encryption mode",
+      "privacyRole": "Local database implementation; the current app opens it in no-encryption mode",
       "restrictedExportClassification": "US encryption export classification remains unresolved before store release"
     },
     {
@@ -354,15 +354,29 @@
       "capability": "SQLite",
       "packageName": "@capacitor-community/sqlite",
       "version": "8.1.0",
-      "status": "B2 proof only",
+      "status": "B2 local proof and B3 compiled capability",
       "source": "https://github.com/capacitor-community/sqlite.git"
     },
     {
       "capability": "Lifecycle",
       "packageName": "@capacitor/app",
       "version": "8.1.0",
-      "status": "B2 proof only",
+      "status": "B2 local proof and B3 compiled capability",
       "source": "https://github.com/ionic-team/capacitor-plugins.git"
+    },
+    {
+      "capability": "Commerce",
+      "packageName": "app-owned-commerce-bridge",
+      "version": "B3",
+      "status": "B3 compiled capability only",
+      "source": "App-owned Swift StoreKit and Java Play Billing sources"
+    },
+    {
+      "capability": "PackTransfer",
+      "packageName": "app-owned-pack-transfer-bridge",
+      "version": "B3",
+      "status": "B3 compiled capability only",
+      "source": "App-owned Swift and Java pack-transfer sources"
     }
   ],
   "candidatePlugins": [

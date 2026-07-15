@@ -6,6 +6,7 @@ import { EXIT_CODES, isMain, printJson, runCommand } from './lib/run-command.mjs
 
 const ROOT = resolve(import.meta.dirname, '..');
 const REPORT_PATH = resolve(ROOT, 'reports/b2/dependency-audit.json');
+const B3_REPORT_PATH = resolve(ROOT, 'reports/b3/dependency-audit.json');
 const NATIVE_PLUGIN_AUDIT_PATH = resolve(ROOT, 'reports/b2/native-plugin-audit.json');
 const NATIVE_PLUGIN_BUILD_PATH = resolve(ROOT, 'reports/b2/native-plugin-build.json');
 const NOTICES_PATH = resolve(ROOT, 'THIRD_PARTY_NOTICES.md');
@@ -376,6 +377,7 @@ export function renderThirdPartyNotices({
   spm,
   androidResolution,
   androidComponents = [],
+  evidenceMode = 'b2',
 }) {
   const rows = [...lockPackages]
     .sort((left, right) =>
@@ -400,9 +402,10 @@ export function renderThirdPartyNotices({
       `| ${markdownCell(`${component.group}:${component.name}`)} | ${markdownCell(component.version)} | ${markdownCell(component.licence.expression)} | Maven | ${markdownCell(component.pom.sourceUrl)} | ${markdownCell(component.distribution)} | packaged=${component.packaged} |`,
     );
   }
+  const b3 = evidenceMode === 'b3';
   return `# Third-party notices
 
-This is the deterministic dependency inventory for the B2 local persistence proof. It records package identity, source and declared licence; it is not a substitute for the full licence texts or final store disclosure review.
+This is the deterministic dependency inventory for the ${b3 ? 'B3 compiled sandbox capability' : 'B2 local persistence proof'}. It records package identity, source and declared licence; it is not a substitute for the full licence texts or final store disclosure review.
 
 - Android resolution: \`${typeof androidResolution === 'string' ? androidResolution : androidResolution.status}\`
 - npm lock identities: ${lockPackages.length}
@@ -413,9 +416,9 @@ This is the deterministic dependency inventory for the B2 local persistence proo
 - Notice rows: ${rows.length}
 - Physically bundled WebView npm packages: ${EXPECTED_WEBVIEW_BUNDLE_PACKAGES.join(', ')}
 - Notice inclusion is deliberately conservative and does not mean an npm artefact is packaged
-- Runtime network endpoints: none
-- Native plugins: @capacitor-community/sqlite 8.1.0 and @capacitor/app 8.1.0, conditionally approved for B2 proof only
-- SQLCipher is packaged even though B2 uses no-encryption mode; US export classification remains unresolved before store release
+- ${b3 ? 'App-owned runtime network endpoint: the exact tracked B3 public sandbox gateway origin; store-vendor runtime data-practice and live cloud proof remain separate' : 'Runtime network endpoints: none'}
+- Native capability: ${b3 ? 'app-owned StoreKit 2 and Play Billing 9.1.0 bridges plus PackTransfer; compiled capability only, not live store proof' : '@capacitor-community/sqlite 8.1.0 and @capacitor/app 8.1.0, conditionally approved for B2 proof only'}
+${b3 ? '- Play Billing transitive privacy review: Google DataTransport, Firebase encoders and Play services are present; vendor runtime data-practice assessment and final Play Data Safety review remain pending\n' : ''}- SQLCipher is packaged even though the application uses no-encryption mode; US export classification remains unresolved before store release
 
 | Package | Version | Declared licence | Source type | Source | Locator | Distribution |
 |---|---:|---|---|---|---|---|
@@ -1163,6 +1166,7 @@ export async function buildDependencyArtifacts({
     packageResolved,
     nativePluginBuild,
     noticeOverrides,
+    gatewayAuthority,
   ] = await Promise.all([
     readJson(resolve(ROOT, 'config/dependency-policy.json')),
     readJson(resolve(ROOT, 'package.json')),
@@ -1176,6 +1180,7 @@ export async function buildDependencyArtifacts({
     ),
     readJson(NATIVE_PLUGIN_BUILD_PATH),
     readJson(resolve(ROOT, 'config/third-party-notices-overrides.json')),
+    readJson(resolve(ROOT, 'config/b3-gateway-authority.json')),
   ]);
   const nativePluginBuildText = await readFile(NATIVE_PLUGIN_BUILD_PATH);
   const nativePluginBuildSha256 = createHash('sha256')
@@ -1194,6 +1199,7 @@ export async function buildDependencyArtifacts({
         committed: useLiveAndroidSources
           ? null
           : committedB2Report?.android,
+        evidenceMode: b3BillingActive ? 'b3' : 'b2',
       });
 
   assertDirectPolicy(packageJson.dependencies, policy.directDependencies, 'runtime dependency');
@@ -1405,22 +1411,49 @@ export async function buildDependencyArtifacts({
       candidates: policy.candidatePlugins,
     },
     permissionEvidence,
-    b2Truth: {
-      childDataCollected: false,
-      childDataTransmitted: false,
-      analytics: false,
-      advertising: false,
-      appPermissions: [],
-      storeCommerce: false,
-      runtimeNetworkEndpoints: [],
-      localDatabase: true,
-      sqliteMode: 'no-encryption',
-      sqlCipherPackaged: true,
-      applicationEncryptionAtRestProved: false,
-      usEncryptionExportClassification: 'unresolved-before-store-release',
-      approval: 'B2-proof-only',
-      disclosureStatus: 'B2 proof only; not a final store disclosure',
-    },
+    ...(b3BillingActive
+      ? {
+          b3Truth: {
+            childOrProgressPayloadSentToCommerceGateway: false,
+            appConfiguredAnalytics: false,
+            appConfiguredAdvertising: false,
+            vendorRuntimeDataPracticeAssessment: 'pending-before-store-release',
+            storeCommerce: true,
+            appOwnedRuntimeNetworkEndpoints: [gatewayAuthority.publicSandboxOrigin],
+            androidRequestedPermissions:
+              permissionEvidence.packagedAndroid.requestedPermissions,
+            androidDangerousPermissions: [],
+            iosUsageDescriptionKeys: permissionEvidence.iosUsageDescriptionKeys,
+            iosEntitlements: permissionEvidence.iosEntitlements,
+            localDatabase: true,
+            sqliteMode: 'no-encryption',
+            sqlCipherPackaged: true,
+            applicationEncryptionAtRestProved: false,
+            usEncryptionExportClassification: 'unresolved-before-store-release',
+            approval: 'B3-compiled-capability-only',
+            liveStoreProof: false,
+            liveCloudProof: false,
+            disclosureStatus: 'Not a final store disclosure',
+          },
+        }
+      : {
+          b2Truth: {
+            childDataCollected: false,
+            childDataTransmitted: false,
+            analytics: false,
+            advertising: false,
+            appPermissions: [],
+            storeCommerce: false,
+            runtimeNetworkEndpoints: [],
+            localDatabase: true,
+            sqliteMode: 'no-encryption',
+            sqlCipherPackaged: true,
+            applicationEncryptionAtRestProved: false,
+            usEncryptionExportClassification: 'unresolved-before-store-release',
+            approval: 'B2-proof-only',
+            disclosureStatus: 'B2 proof only; not a final store disclosure',
+          },
+        }),
   };
   const pluginAudit = {
     schemaVersion: 1,
@@ -1451,7 +1484,7 @@ export async function buildDependencyArtifacts({
     ),
     applicationEncryptionAtRestProved: false,
     usEncryptionExportClassification: 'unresolved-before-store-release',
-    approval: 'B2-proof-only',
+    approval: b3BillingActive ? 'B3-compiled-capability-only' : 'B2-proof-only',
   };
   const reportJson = `${JSON.stringify(report, null, 2)}\n`;
   pluginAudit.dependencyAuditSha256 = createHash('sha256')
@@ -1468,6 +1501,7 @@ export async function buildDependencyArtifacts({
           ...androidCertification.taskCreatedBuildTools,
         ]
       : [],
+    evidenceMode: b3BillingActive ? 'b3' : 'b2',
   });
   return { report, reportJson, pluginAudit, pluginAuditJson, noticesMarkdown };
 }
@@ -1492,6 +1526,54 @@ export async function writeDependencyArtifacts(artifacts) {
   ]);
 }
 
+export async function writeB3DependencyArtifacts(
+  artifacts,
+  { root = ROOT } = {},
+) {
+  let report;
+  try {
+    report = JSON.parse(artifacts?.reportJson);
+  } catch {
+    throw policyError(
+      'b3_dependency_evidence_invalid',
+      'B3 dependency evidence must be resolved JSON',
+    );
+  }
+  const expectedKeys = [
+    'schemaVersion', 'mode', 'generatedFrom', 'npm', 'spm', 'ios', 'android',
+    'androidResolution', 'gradleInputs', 'gradleRepositories', 'gradleFlatDirs',
+    'gradleLocalDependencies', 'gradleDeclared', 'plugins', 'permissionEvidence',
+    'b3Truth',
+  ];
+  if (
+    report?.schemaVersion !== 2 ||
+    report?.mode !== 'resolved-toolchain' ||
+    JSON.stringify(Object.keys(report)) !== JSON.stringify(expectedKeys) ||
+    `${JSON.stringify(report, null, 2)}\n` !== artifacts.reportJson ||
+    report.androidResolution?.status !== 'resolved-toolchain' ||
+    report.b3Truth?.approval !== 'B3-compiled-capability-only' ||
+    report.b3Truth?.storeCommerce !== true ||
+    report.b3Truth?.liveStoreProof !== false ||
+    report.b3Truth?.liveCloudProof !== false ||
+    !Array.isArray(report.npm?.allPackages) ||
+    report.npm.allPackages.length === 0 ||
+    !Array.isArray(report.spm) ||
+    report.spm.length === 0 ||
+    !Array.isArray(report.android?.components) ||
+    report.android.components.length === 0
+  ) {
+    throw policyError(
+      'b3_dependency_evidence_invalid',
+      'B3 dependency evidence must be resolved from the native toolchain',
+    );
+  }
+  const output = root === ROOT
+    ? B3_REPORT_PATH
+    : resolve(root, 'reports/b3/dependency-audit.json');
+  await mkdir(resolve(root, 'reports/b3'), { recursive: true });
+  await writeFile(output, artifacts.reportJson, 'utf8');
+}
+
 export function assertDependencyEvidenceCurrent(artifacts, current) {
   if (
     current.reportJson !== artifacts.reportJson ||
@@ -1501,6 +1583,18 @@ export function assertDependencyEvidenceCurrent(artifacts, current) {
     throw policyError(
       'dependency_evidence_stale',
       'Committed B2 dependency, plugin or third-party notice evidence is stale; rerun with --write',
+    );
+  }
+}
+
+export function assertB3DependencyEvidenceCurrent(artifacts, current) {
+  if (
+    current.reportJson !== artifacts.reportJson ||
+    current.noticesMarkdown !== artifacts.noticesMarkdown
+  ) {
+    throw policyError(
+      'dependency_evidence_stale',
+      'Committed B3 dependency or notice evidence is stale; rerun with --write',
     );
   }
 }
@@ -1534,10 +1628,10 @@ export async function main(args = process.argv.slice(2)) {
     let currentPermissionEvidence = null;
     const appBuild = await readFile(resolve(ROOT, 'android/app/build.gradle'), 'utf8');
     const b3BillingActive = /com\.android\.billingclient:billing:9\.1\.0/.test(appBuild);
-    if (write && b3BillingActive) {
+    if (write && b3BillingActive && preBootstrap) {
       throw policyError(
         'b3_frozen_evidence_write_forbidden',
-        'B3 live dependency evidence must not overwrite frozen B2 reports',
+        'Incomplete B3 dependency evidence must not overwrite frozen B2 reports',
       );
     }
     if (!preBootstrap) {
@@ -1566,11 +1660,21 @@ export async function main(args = process.argv.slice(2)) {
       );
     }
     if (write) {
-      await writeDependencyArtifacts(artifacts);
+      if (b3BillingActive) {
+        await writeB3DependencyArtifacts(artifacts);
+        await writeFile(NOTICES_PATH, artifacts.noticesMarkdown, 'utf8');
+      } else {
+        await writeDependencyArtifacts(artifacts);
+      }
     } else if (!b3BillingActive) {
       assertDependencyEvidenceCurrent(artifacts, {
         reportJson: await readFile(REPORT_PATH, 'utf8'),
         pluginAuditJson: await readFile(NATIVE_PLUGIN_AUDIT_PATH, 'utf8'),
+        noticesMarkdown: await readFile(NOTICES_PATH, 'utf8'),
+      });
+    } else {
+      assertB3DependencyEvidenceCurrent(artifacts, {
+        reportJson: await readFile(B3_REPORT_PATH, 'utf8'),
         noticesMarkdown: await readFile(NOTICES_PATH, 'utf8'),
       });
     }
@@ -1579,7 +1683,9 @@ export async function main(args = process.argv.slice(2)) {
       mode: artifacts.report.mode,
       npmPackages: artifacts.report.npm.lockPackageCount,
       androidResolution: artifacts.report.androidResolution,
-      evidence: b3BillingActive ? 'live-locked-policy' : write ? 'written' : 'current',
+      evidence: b3BillingActive
+        ? write ? 'b3-written' : 'live-locked-policy'
+        : write ? 'written' : 'current',
     });
     return EXIT_CODES.success;
   } catch (error) {

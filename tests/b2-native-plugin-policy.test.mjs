@@ -190,8 +190,12 @@ test('B2 privacy and store-release boundary is exact and honest', async () => {
   assert.match(register, /does not prove encryption at rest/i);
 });
 
-test('B2 notices publish totals consistent with the dependency report', async () => {
-  const audit = await readJson('reports/b2/dependency-audit.json');
+test('active notices publish totals consistent with the active dependency report', async () => {
+  const androidBuild = await readFile(join(ROOT, 'android/app/build.gradle'), 'utf8');
+  const evidenceStage = /com\.android\.billingclient:billing:9\.1\.0/.test(androidBuild)
+    ? 'b3'
+    : 'b2';
+  const audit = await readJson(`reports/${evidenceStage}/dependency-audit.json`);
   const notices = await readFile(join(ROOT, 'THIRD_PARTY_NOTICES.md'), 'utf8');
   assert.match(notices, new RegExp(`npm lock identities: ${audit.npm.lockPackageCount}`));
   assert.match(notices, new RegExp(`SwiftPM identities: ${audit.spm.length}`));

@@ -1,10 +1,13 @@
-# B2 SDK and privacy register
+# SDK and privacy register
 
-Review date: 11 July 2026
+Review date: 15 July 2026
 
 Owner: KS2 Spelling maintainer
 
-This register describes the B2 local persistence proof. It is engineering evidence for later store-disclosure work, not a final Apple App Privacy, US encryption export or Google Play Data Safety submission.
+This register describes the B2 local persistence proof and B3 compiled commerce
+and signed-pack capability. It is engineering evidence for later
+store-disclosure work, not a final Apple App Privacy, US encryption export or
+Google Play Data Safety submission.
 
 The machine authority is the cross-hashed set
 `reports/b2/native-plugin-build.json`, `reports/b2/dependency-audit.json`,
@@ -102,6 +105,32 @@ or runtime-granted permission, account identifier, analytics SDK or advertising
 SDK. The bridge never acknowledges a purchase locally and never supplies an
 obfuscated account or profile identifier. Final Google Play Data Safety wording
 and the committed B3 dependency report remain Task 18 release evidence.
+
+Task 18 binds this compiled capability in `reports/b3/native-build.json` and
+`reports/b3/dependency-audit.json`. The native report hashes the simulator app
+binary, both Android APK variants and the app-owned debug/release Commerce,
+PackTransfer and ZIP-inspector classes. It also records executed rejection of
+the exact 53-file hostile ZIP corpus on iOS and Android, the closed native
+method surfaces, and the packaged Android permission surface. The packaged app
+contains no Capacitor Filesystem dependency, RevenueCat SDK, Billing KTX,
+app-owned Kotlin source or Kotlin Gradle plugin. StoreKit remains a system
+framework and Play Billing remains the exact Java artefact above.
+
+The resolved Play Billing 9.1.0 closure includes Google DataTransport, Firebase
+encoder and Play services runtime modules declared by the official Billing POM.
+The app does not configure an analytics or advertising product and does not
+send a learner or spelling-progress payload to commerce, but this is not proof
+that every vendor runtime module never collects or transmits data. Vendor
+runtime data-practice assessment and final Play Data Safety review therefore
+remain pending before store release.
+
+The B3 commerce gateway receives store proof for verification, but no learner,
+nickname, spelling-progress, monster or child-profile payload. The only durable
+download authority in the app is an opaque sealed refresh handle; expiring
+capability URLs are kept in memory and are not persisted. The app does not
+configure an analytics or advertising product or SDK. These are compiled and
+deterministic fake proof boundaries only: live store, live cloud,
+physical-device and final store disclosure proof remain separate later gates.
 
 ## Not approved candidates
 

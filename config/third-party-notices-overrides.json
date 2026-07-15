@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "owner": "KS2 Spelling maintainer",
-  "reviewDate": "2026-07-11",
+  "reviewDate": "2026-07-15",
   "npmLicenceExpressions": {
     "jszip@3.10.1": {
       "declared": "(MIT OR GPL-3.0-or-later)",

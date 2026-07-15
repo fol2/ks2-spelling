@@ -49,14 +49,19 @@ function classifyB2AndroidDistribution(component) {
   return classifyAndroidDistribution(normalised);
 }
 
-function b2MavenComplianceFields(coordinate, distribution, classification) {
+function mavenComplianceFields(coordinate, distribution, classification, evidenceMode) {
   const sqlCipher = coordinate === 'net.zetetic:sqlcipher-android:4.10.0';
+  const b3 = evidenceMode === 'b3';
   return {
     packaged: distribution === 'packaged-runtime',
     privacyRole: sqlCipher
-      ? 'Local database implementation; B2 opens it in no-encryption mode'
+      ? b3
+        ? 'Local database implementation in no-encryption mode; final store disclosure review pending'
+        : 'Local database implementation; B2 opens it in no-encryption mode'
       : distribution === 'packaged-runtime'
-        ? 'Native application dependency; no collection or transmission declared in B2'
+        ? b3
+          ? 'B3 compiled dependency closure; no app-configured analytics, advertising or learner payload; vendor runtime data-practice and final Play Data Safety review pending'
+          : 'Native application dependency; no collection or transmission declared in B2'
         : 'Build or test only',
     restrictedClassification: classification.scopePolicy,
     exportClassification: sqlCipher
@@ -297,7 +302,11 @@ function annotateVerificationInventory(
 export async function buildAndroidCertification({
   discoverSources = false,
   committed = null,
+  evidenceMode = 'b2',
 } = {}) {
+  if (!['b2', 'b3'].includes(evidenceMode)) {
+    throw new TypeError('Android certification evidence mode is invalid');
+  }
   const [
     resolution,
     dependencyPolicy,
@@ -381,10 +390,11 @@ export async function buildAndroidCertification({
     return {
       ...component,
       distribution,
-      ...b2MavenComplianceFields(
+      ...mavenComplianceFields(
         component.coordinate,
         distribution,
         classification,
+        evidenceMode,
       ),
       artifacts: component.artifacts.map((artifact) => ({
         ...artifact,
@@ -433,10 +443,11 @@ export async function buildAndroidCertification({
       name: component.name,
       version: component.version,
       distribution: 'tooling-or-test-only',
-      ...b2MavenComplianceFields(
+      ...mavenComplianceFields(
         component.coordinate,
         'tooling-or-test-only',
         classification,
+        evidenceMode,
       ),
       scope: 'task-created-build-tool',
       artifacts: component.artifacts
@@ -547,6 +558,7 @@ export async function main(args = process.argv.slice(2)) {
     const certification = await buildAndroidCertification({
       discoverSources: b3BillingActive,
       committed,
+      evidenceMode: b3BillingActive ? 'b3' : 'b2',
     });
     if (committed) assertAndroidCertificationCurrent(certification, committed);
     printJson({

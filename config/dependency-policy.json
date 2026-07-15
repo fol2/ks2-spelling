@@ -333,7 +333,7 @@
     { "coordinate": "com.android.billingclient:billing", "version": "9.1.0", "scope": "app-owned Play Billing runtime declaration" }
   ],
   "gradleInputFiles": [
-    { "path": "android/app/build.gradle", "sha256": "ec4f7602994cf4743d24597faafc241a099d859e0790408ac30fedd5dc5e921f" },
+    { "path": "android/app/build.gradle", "sha256": "86823fcec7e308b70d829f706f4b36d2f6fde25093bda9fe7b94b7641d3390ce" },
     { "path": "android/app/capacitor.build.gradle", "sha256": "7a9785a4abc7b6679e4823065fd73f10701d5cf8fdc63ab0403cb1bfa5bb4b95" },
     { "path": "android/build.gradle", "sha256": "766958866c15eeda5c88bfdbccfd5346a73fb68f29a4441206b472805176552b" },
     { "path": "android/capacitor.settings.gradle", "sha256": "02359897c4208fc356ab91c0c385a2160ec92299e94855ccbd380a6139ff3ff4" },

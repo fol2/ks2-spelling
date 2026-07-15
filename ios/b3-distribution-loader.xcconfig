@@ -1,0 +1,2 @@
+// Values are generated under ignored .native-build only after a clean Task 20 checkpoint.
+#include? "../.native-build/b3/distribution/b3-distribution.xcconfig"

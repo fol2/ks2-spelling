@@ -11,6 +11,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             bridgeViewController.loadViewIfNeeded()
             bridgeViewController.bridge?.registerPluginInstance(PackTransferPlugin())
             bridgeViewController.bridge?.registerPluginInstance(CommercePlugin())
+            #if B3_SANDBOX_PROOF
+            bridgeViewController.bridge?.registerPluginInstance(BuildAuthorityPlugin())
+            #endif
         }
         return true
     }

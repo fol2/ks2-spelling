@@ -34,6 +34,12 @@
     "prove:b3:ios-storekit-test": "node scripts/prove-b3-ios-storekit-test.mjs",
     "report:b3-native": "node scripts/build-b3-native-audit.mjs",
     "prove:b3:deterministic": "node scripts/run-b3-deterministic-proof.mjs",
+    "deploy:b3:sandbox": "node scripts/deploy-b3-sandbox-gateway.mjs",
+    "prove:b3:cloudflare": "node scripts/prove-b3-cloudflare.mjs",
+    "prove:b3:ios": "node scripts/prove-b3-ios.mjs",
+    "prove:b3:android": "node scripts/prove-b3-android.mjs",
+    "prepare:b3:distribution": "node scripts/prepare-b3-distribution.mjs",
+    "verify:b3:installed-distribution": "node scripts/verify-b3-installed-distribution.mjs",
     "verify:b2": "npm run verify:vendor && npm run test:upstream:a3 && npm test && npm run lint && npm run build && npm run audit:dependencies && npm run native:sync:check && npm run test:ios && npm run test:android && npm run test:android-resolved-policy && node scripts/build-b2-exit-report.mjs --check",
     "audit:dependencies": "node scripts/audit-dependencies.mjs",
     "generate:notices": "node scripts/generate-third-party-notices.mjs"

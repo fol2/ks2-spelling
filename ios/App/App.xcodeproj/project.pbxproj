@@ -24,6 +24,7 @@
 		B31500000000000000000001 /* CommercePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B31500000000000000000011 /* CommercePlugin.swift */; };
 		B31500000000000000000003 /* B3StoreKitDelayedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B31500000000000000000013 /* B3StoreKitDelayedTests.swift */; };
 		B31500000000000000000004 /* B3Sandbox.storekit in Resources */ = {isa = PBXBuildFile; fileRef = B31500000000000000000012 /* B3Sandbox.storekit */; };
+		C31900000000000000000001 /* BuildAuthorityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31900000000000000000011 /* BuildAuthorityPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,6 +57,8 @@
 		B31500000000000000000012 /* B3Sandbox.storekit */ = {isa = PBXFileReference; lastKnownFileType = text.storekit; path = B3Sandbox.storekit; sourceTree = "<group>"; };
 		B31500000000000000000013 /* B3StoreKitDelayedTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = B3StoreKitDelayedTests.swift; sourceTree = "<group>"; };
 		B31500000000000000000014 /* AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C31900000000000000000011 /* BuildAuthorityPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildAuthorityPlugin.swift; sourceTree = "<group>"; };
+		C31900000000000000000012 /* b3-distribution-loader.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = b3-distribution-loader.xcconfig; path = ../b3-distribution-loader.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +85,7 @@
 			isa = PBXGroup;
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
+				C31900000000000000000012 /* b3-distribution-loader.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				B31500000000000000000031 /* AppTests */,
 				504EC3051FED79650016851F /* Products */,
@@ -106,6 +110,7 @@
 				A12000000000000000000014 /* PackDownloadFlow.swift */,
 				A12000000000000000000015 /* PackInstallSealer.swift */,
 				B31500000000000000000011 /* CommercePlugin.swift */,
+				C31900000000000000000011 /* BuildAuthorityPlugin.swift */,
 				B31500000000000000000012 /* B3Sandbox.storekit */,
 				A12000000000000000000012 /* ZipCentralDirectoryInspector.swift */,
 				A12000000000000000000021 /* Resources */,
@@ -258,6 +263,7 @@
 				A12000000000000000000005 /* PackDownloadFlow.swift in Sources */,
 				A12000000000000000000006 /* PackInstallSealer.swift in Sources */,
 				B31500000000000000000001 /* CommercePlugin.swift in Sources */,
+				C31900000000000000000001 /* BuildAuthorityPlugin.swift in Sources */,
 				A12000000000000000000002 /* ZipCentralDirectoryInspector.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -502,6 +508,61 @@
 			};
 			name = Release;
 		};
+		C31900000000000000000061 /* B3SandboxProof */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = B3SandboxProof;
+		};
+		C31900000000000000000062 /* B3SandboxProof */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C31900000000000000000012 /* b3-distribution-loader.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(B3_IOS_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = V45S7U2LZB;
+				INFOPLIST_FILE = App/Info.plist;
+				INFOPLIST_KEY_B3ApplicationFingerprint = "$(B3_APPLICATION_FINGERPRINT)";
+				INFOPLIST_KEY_B3Distribution = development;
+				INFOPLIST_KEY_B3Mode = B3SandboxProof;
+				INFOPLIST_KEY_B3ProofKind = "physical-live";
+				INFOPLIST_KEY_B3PublicSandboxOrigin = "https://b3-gateway.eugnel.uk";
+				INFOPLIST_KEY_B3TestedApplicationCommit = "$(B3_TESTED_APPLICATION_COMMIT)";
+				INFOPLIST_KEY_B3WorkerName = "ks2-spelling-b3-sandbox";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = "$(B3_VERSION_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = uk.eugnel.ks2spelling;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = B3_SANDBOX_PROOF;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = B3SandboxProof;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -510,6 +571,7 @@
 			buildConfigurations = (
 				504EC3141FED79650016851F /* Debug */,
 				504EC3151FED79650016851F /* Release */,
+				C31900000000000000000061 /* B3SandboxProof */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -519,6 +581,7 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+				C31900000000000000000062 /* B3SandboxProof */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

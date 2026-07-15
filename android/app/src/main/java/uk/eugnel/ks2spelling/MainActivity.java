@@ -8,6 +8,9 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(PackTransferPlugin.class);
         registerPlugin(CommercePlugin.class);
+        if (BuildConfig.B3_SANDBOX_PROOF) {
+            registerPlugin(BuildAuthorityPlugin.class);
+        }
         super.onCreate(savedInstanceState);
     }
 }

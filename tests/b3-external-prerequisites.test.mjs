@@ -23,10 +23,12 @@ import {
   checkB3ExternalPrerequisites,
   createCloudflareRemoteInspector,
   readValidatedB3OperatorFile,
+  parseB3StrictJsonBytes,
   runB3PrerequisitesCli,
   runOAuthSafeWrangler,
   runSafeGitPolicyCommand,
   validateB3ApprovalFilePolicy,
+  validateB3LocalMutationAuthority,
 } from '../scripts/check-b3-external-prerequisites.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -103,6 +105,31 @@ const labelledR2Domain = (bucket) =>
   'min_tls_version:   1.2\n' +
   'zone_id:           0123456789abcdef0123456789abcdef\n' +
   'zone_name:         example.test\n';
+
+test('strict B3 operator JSON rejects duplicate members before schema validation', () => {
+  assert.throws(
+    () => parseB3StrictJsonBytes(Buffer.from('{"schemaVersion":1,"schemaVersion":2}'), 'operator fixture'),
+    /duplicate JSON member/i,
+  );
+});
+
+test('external prerequisite orchestration rejects duplicate approval members before remote inspection', async (t) => {
+  const value = cleanFixture(t, await fixture());
+  const valid = JSON.stringify(approval());
+  const duplicate = valid.replace('"schemaVersion":1', '"schemaVersion":1,"schemaVersion":1');
+  await writeFile(value.approvalFile, duplicate, { mode: 0o600 });
+  let remoteCalls = 0;
+  const result = await checkB3ExternalPrerequisites({
+    approvalFile: value.approvalFile,
+    runToken: TOKEN,
+    root: value.root,
+    gitRunner: value.gitRunner,
+    clock: value.clock,
+    remoteInspector: async () => { remoteCalls += 1; return remoteState(); },
+  });
+  assert.equal(result.status, 'blocked-external');
+  assert.equal(remoteCalls, 0);
+});
 
 function approval() {
   return {
@@ -249,6 +276,32 @@ test('external prerequisite constants freeze every named gate and exact remote s
   assert.deepEqual(B3_REMOTE_MUTATION_SCOPES, SCOPES);
   assert.equal(B3_RUN_AUTHORITY_PLAN_COMMIT, PLAN_COMMIT);
   assert.equal(B3_RUN_AUTHORITY_MAX_LIFETIME_MS, 86_400_000);
+});
+
+test('local mutation gate binds exact secure approval scope and current run token', async (t) => {
+  const value = cleanFixture(t, await fixture());
+  assert.deepEqual(
+    await validateB3LocalMutationAuthority({
+      root: value.root,
+      approvalFile: value.approvalFile,
+      runToken: TOKEN,
+      requestedScope: 'apple-sandbox-history-refund',
+      gitRunner: value.gitRunner,
+      clock: value.clock,
+    }),
+    { status: 'pass', scope: 'apple-sandbox-history-refund', approvedPlayCertificateSha256: '12'.repeat(32) },
+  );
+  await assert.rejects(
+    validateB3LocalMutationAuthority({
+      root: value.root,
+      approvalFile: value.approvalFile,
+      runToken: 'cd'.repeat(32),
+      requestedScope: 'apple-sandbox-history-refund',
+      gitRunner: value.gitRunner,
+      clock: value.clock,
+    }),
+    /invalid or expired/i,
+  );
 });
 
 test('external checker accepts durable approvals, current run token and matching name-only remote state', async (t) => {

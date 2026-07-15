@@ -6,6 +6,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { runPinnedSystemGit } from './lib/pinned-system-git.mjs';
+import { parseJsonWithoutDuplicateMembers } from '../src/domain/packs/signed-manifest-contract.js';
 
 const DEFAULT_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const CLOUDFLARE_GATES = Object.freeze([
@@ -329,12 +330,77 @@ async function readValidatedB3RunAuthority({ root, gitRunner }) {
   return record;
 }
 
-function parseJsonBytes(bytes) {
-  try {
-    return JSON.parse(bytes.toString('utf8'));
-  } catch {
-    return null;
+export function parseB3StrictJsonBytes(bytes, label = 'B3 operator JSON') {
+  if (!Buffer.isBuffer(bytes) || bytes.length === 0 || bytes.length > 1024 * 1024) {
+    throw new Error(`${label} has invalid byte length`);
   }
+  return parseJsonWithoutDuplicateMembers(bytes, label);
+}
+
+export async function readValidatedB3OperatorJson({ path, label, root = DEFAULT_ROOT, gitRunner } = {}) {
+  const record = await readValidatedB3OperatorFile({ path, root, gitRunner });
+  return Object.freeze({ ...record, value: parseB3StrictJsonBytes(record.bytes, label) });
+}
+
+export async function validateB3LocalMutationAuthority({
+  approvalFile,
+  runToken,
+  requestedScope,
+  root = DEFAULT_ROOT,
+  gitRunner = defaultGitRunner,
+  clock = () => new Date(),
+} = {}) {
+  if (!B3_REMOTE_MUTATION_SCOPES.includes(requestedScope)) {
+    throw new Error('requested B3 remote mutation scope is invalid');
+  }
+  const approvalRecord = await readValidatedB3OperatorJson({
+    path: approvalFile,
+    label: 'B3 prerequisite approval',
+    root,
+    gitRunner,
+  });
+  const runRecordRaw = await readValidatedB3RunAuthority({ root, gitRunner });
+  const runAuthority = parseB3StrictJsonBytes(runRecordRaw.bytes, 'B3 run authority');
+  const approval = approvalRecord.value;
+  if (!hasExactKeys(approval, ['schemaVersion', 'gates']) || approval.schemaVersion !== 1 ||
+      !hasExactKeys(approval.gates, B3_REQUIRED_EXTERNAL_GATES) ||
+      !B3_REQUIRED_EXTERNAL_GATES.every((name) => validateLocalGate(name, approval.gates[name])) ||
+      !approval.gates.remoteMutationApprovals.scopes.includes(requestedScope) ||
+      !validRunToken(runAuthority, runToken, clock)) {
+    throw new Error('B3 local mutation authority is invalid or expired');
+  }
+  const [finalApproval, finalRunRaw] = await Promise.all([
+    readValidatedB3OperatorJson({ path: approvalFile, label: 'B3 prerequisite approval', root, gitRunner }),
+    readValidatedB3RunAuthority({ root, gitRunner }),
+  ]);
+  const finalRun = parseB3StrictJsonBytes(finalRunRaw.bytes, 'B3 run authority');
+  if (!approvalRecord.bytes.equals(finalApproval.bytes) ||
+      !isDeepStrictEqual(approvalRecord.snapshot, finalApproval.snapshot) ||
+      !runRecordRaw.bytes.equals(finalRunRaw.bytes) ||
+      !isDeepStrictEqual(runRecordRaw.snapshot, finalRunRaw.snapshot) ||
+      !isDeepStrictEqual(runAuthority, finalRun) || !validRunToken(finalRun, runToken, clock)) {
+    throw new Error('B3 local mutation authority changed during validation');
+  }
+  return Object.freeze({
+    status: 'pass',
+    scope: requestedScope,
+    approvedPlayCertificateSha256:
+      approval.gates.googlePlayAppSigningCertificateSha256.identifier,
+  });
+}
+
+export async function readApprovedB3PlayCertificate({ approvalFile, root = DEFAULT_ROOT, gitRunner } = {}) {
+  const record = await readValidatedB3OperatorJson({
+    path: approvalFile,
+    label: 'B3 prerequisite approval',
+    root,
+    gitRunner,
+  });
+  const value = record.value?.gates?.googlePlayAppSigningCertificateSha256;
+  if (!isApprovedIdentifierRecord(value) || !/^[0-9a-f]{64}$/u.test(value.identifier)) {
+    throw new Error('approved Play App Signing certificate authority is invalid');
+  }
+  return value.identifier;
 }
 
 function validateLocalGate(name, value) {
@@ -846,7 +912,12 @@ export async function checkB3ExternalPrerequisites({
   } catch {
     return block(B3_REQUIRED_EXTERNAL_GATES);
   }
-  const approval = parseJsonBytes(approvalRecord.bytes);
+  let approval;
+  try {
+    approval = parseB3StrictJsonBytes(approvalRecord.bytes, 'B3 prerequisite approval');
+  } catch {
+    return block(B3_REQUIRED_EXTERNAL_GATES);
+  }
   if (!hasExactKeys(approval, ['schemaVersion', 'gates']) || approval.schemaVersion !== 1) {
     return block(B3_REQUIRED_EXTERNAL_GATES);
   }
@@ -861,7 +932,7 @@ export async function checkB3ExternalPrerequisites({
   let runAuthority = null;
   try {
     runAuthorityRecord = await readValidatedB3RunAuthority({ root, gitRunner });
-    runAuthority = parseJsonBytes(runAuthorityRecord.bytes);
+    runAuthority = parseB3StrictJsonBytes(runAuthorityRecord.bytes, 'B3 run authority');
   } catch {
     // The named gate below remains the only public diagnostic.
   }
@@ -893,7 +964,12 @@ export async function checkB3ExternalPrerequisites({
     } catch {
       return block(B3_REQUIRED_EXTERNAL_GATES);
     }
-    const finalApproval = parseJsonBytes(finalApprovalRecord.bytes);
+    let finalApproval;
+    try {
+      finalApproval = parseB3StrictJsonBytes(finalApprovalRecord.bytes, 'B3 prerequisite approval');
+    } catch {
+      return block(B3_REQUIRED_EXTERNAL_GATES);
+    }
     if (
       !hasExactKeys(finalApproval, ['schemaVersion', 'gates']) ||
       finalApproval.schemaVersion !== 1 ||
@@ -924,7 +1000,12 @@ export async function checkB3ExternalPrerequisites({
     } catch {
       return block(['remoteMutationApprovals']);
     }
-    const finalRunAuthority = parseJsonBytes(finalRunAuthorityRecord.bytes);
+    let finalRunAuthority;
+    try {
+      finalRunAuthority = parseB3StrictJsonBytes(finalRunAuthorityRecord.bytes, 'B3 run authority');
+    } catch {
+      return block(['remoteMutationApprovals']);
+    }
     if (
       !runAuthorityRecord.bytes.equals(finalRunAuthorityRecord.bytes) ||
       !isDeepStrictEqual(runAuthority, finalRunAuthority) ||

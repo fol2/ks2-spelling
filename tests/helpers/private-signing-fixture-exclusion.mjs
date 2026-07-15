@@ -41,7 +41,10 @@ const GATEWAY_PACKAGEABLE_DIRECTORIES = Object.freeze([
 const GENERATED_PACKAGEABLE_DIRECTORIES = Object.freeze([
   'dist',
   '.native-build/b3',
-  '.native-build/ios/Build/Products',
+  // Xcode's Products directory also contains non-packageable object modules,
+  // framework copies and dSYMs. Scan the exact installed simulator bundle;
+  // signed B3 distribution artefacts remain covered by .native-build/b3.
+  '.native-build/ios/Build/Products/Debug-iphonesimulator/App.app',
   '.native-build/android/build/app/intermediates/java_res/debugUnitTest/'
     + 'processDebugUnitTestJavaRes/out/b3-hostile-zips',
 ]);

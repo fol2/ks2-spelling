@@ -141,11 +141,7 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
     }
 
     @Override public void onPurchasesUpdated(BillingResult billingResult, List<Purchase> purchases) {
-        PluginCall purchaseCall;
-        synchronized (stateLock) {
-            purchaseCall = pendingPurchaseCall;
-            pendingPurchaseCall = null;
-        }
+        PluginCall purchaseCall = takePendingPurchaseCall();
 
         if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.USER_CANCELED) {
             PurchaseSnapshot cancelled = transientSnapshot("cancelled");
@@ -321,18 +317,38 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
     }
 
     private void queryPurchasesAsync(PurchaseQuery listener, boolean emit) {
+        PluginCall pendingAtStart = emit ? currentPendingPurchaseCall() : null;
         QueryPurchasesParams params = QueryPurchasesParams.newBuilder()
             .setProductType(BillingClient.ProductType.INAPP)
             .build();
         billingClient.queryPurchasesAsync(params, (result, purchases) -> {
             if (listener != null) listener.complete(result, purchases);
-            if (!emit || !isOk(result) || purchases == null) return;
-            try {
-                emitSnapshots(normalisePurchases(purchases));
-            } catch (RuntimeException ignored) {
-                // A malformed or unexpected store record is never exposed to JavaScript.
-            }
+            if (emit) settlePendingPurchaseFromQuery(pendingAtStart, result, purchases);
         });
+    }
+
+    private void settlePendingPurchaseFromQuery(
+        PluginCall expectedPurchaseCall,
+        BillingResult result,
+        List<Purchase> purchases
+    ) {
+        if (!isOk(result) || purchases == null) {
+            PluginCall purchaseCall = takePendingPurchaseCall(expectedPurchaseCall);
+            if (purchaseCall != null) reject(purchaseCall);
+            return;
+        }
+        try {
+            List<PurchaseSnapshot> snapshots = normalisePurchases(purchases);
+            if (expectedPurchaseCall != null) {
+                PurchaseSnapshot recovered = pendingSnapshotForSuccessfulQuery(snapshots);
+                PluginCall purchaseCall = takePendingPurchaseCall(expectedPurchaseCall);
+                if (purchaseCall != null) purchaseCall.resolve(recovered.javascriptObject());
+            }
+            emitSnapshots(snapshots);
+        } catch (RuntimeException error) {
+            PluginCall purchaseCall = takePendingPurchaseCall(expectedPurchaseCall);
+            if (purchaseCall != null) reject(purchaseCall);
+        }
     }
 
     private List<ProductDetails> exactProductDetails(QueryProductDetailsResult result) {
@@ -495,6 +511,29 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
         }
     }
 
+    private PluginCall currentPendingPurchaseCall() {
+        synchronized (stateLock) {
+            return pendingPurchaseCall;
+        }
+    }
+
+    private PluginCall takePendingPurchaseCall() {
+        synchronized (stateLock) {
+            PluginCall call = pendingPurchaseCall;
+            pendingPurchaseCall = null;
+            return call;
+        }
+    }
+
+    private PluginCall takePendingPurchaseCall(PluginCall expected) {
+        if (expected == null) return null;
+        synchronized (stateLock) {
+            if (pendingPurchaseCall != expected) return null;
+            pendingPurchaseCall = null;
+            return expected;
+        }
+    }
+
     private void reject(PluginCall call) {
         call.reject("Store operation rejected.", STORE_NATIVE_FAILURE);
     }
@@ -540,6 +579,11 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
     static String completionForRequeriedPurchase(boolean found, boolean acknowledged) {
         if (!found || !acknowledged) throw new StoreCompletionPendingException();
         return "finished";
+    }
+
+    static PurchaseSnapshot pendingSnapshotForSuccessfulQuery(List<PurchaseSnapshot> snapshots) {
+        if (snapshots == null || snapshots.size() > 1) throw new IllegalArgumentException();
+        return snapshots.isEmpty() ? transientSnapshot("cancelled") : snapshots.get(0);
     }
 
     private static PurchaseSnapshot transientSnapshot(String outcome) {

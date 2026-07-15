@@ -78,4 +78,41 @@ public final class CommercePluginTest {
             assertEquals("STORE_COMPLETION_PENDING", error.safeCode());
         }
     }
+
+    @Test public void successfulResumeQuerySettlesARecoveredPendingPurchase() {
+        CommercePlugin.PurchaseSnapshot purchased = CommercePlugin.normalisePurchaseSnapshot(
+            Purchase.PurchaseState.PURCHASED,
+            false,
+            List.of("full_ks2"),
+            "recovered-purchase-token"
+        );
+
+        assertEquals(
+            purchased,
+            CommercePlugin.pendingSnapshotForSuccessfulQuery(List.of(purchased))
+        );
+        CommercePlugin.PurchaseSnapshot cancelled =
+            CommercePlugin.pendingSnapshotForSuccessfulQuery(List.of());
+        assertEquals("cancelled", cancelled.outcome());
+        assertNull(cancelled.opaqueProof());
+    }
+
+    @Test public void ambiguousResumeQueryCannotSettleAPendingPurchase() {
+        CommercePlugin.PurchaseSnapshot first = CommercePlugin.normalisePurchaseSnapshot(
+            Purchase.PurchaseState.PURCHASED,
+            false,
+            List.of("full_ks2"),
+            "first-token"
+        );
+        CommercePlugin.PurchaseSnapshot second = CommercePlugin.normalisePurchaseSnapshot(
+            Purchase.PurchaseState.PENDING,
+            false,
+            List.of("full_ks2"),
+            "second-token"
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> CommercePlugin.pendingSnapshotForSuccessfulQuery(List.of(first, second))
+        );
+    }
 }

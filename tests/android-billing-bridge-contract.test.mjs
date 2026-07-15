@@ -56,8 +56,24 @@ test('the app-owned Commerce bridge configures reconnection and one-time pending
   );
   assert.match(source, /\.enableAutoServiceReconnection\(\)/);
   assert.doesNotMatch(source, /enablePendingPurchases\(\s*\)/);
-  assert.match(source, /onBillingSetupFinished[\s\S]*?queryPurchasesAsync\(/);
-  assert.match(source, /handleOnResume[\s\S]*?queryPurchasesAsync\(/);
+  assert.match(
+    source,
+    /onBillingSetupFinished[\s\S]*?queryPurchasesAsync\(null, true\)/,
+  );
+  assert.match(
+    source,
+    /handleOnResume[\s\S]*?queryPurchasesAsync\(null, true\)/,
+  );
+  assert.match(
+    source,
+    /queryPurchasesAsync[\s\S]*?PluginCall pendingAtStart[\s\S]*?settlePendingPurchaseFromQuery\(pendingAtStart, result, purchases\)/,
+    'setup/resume purchase queries must settle a native purchase Promise when the listener was missed',
+  );
+  assert.match(
+    source,
+    /pendingSnapshotForSuccessfulQuery[\s\S]*?snapshots\.isEmpty\(\)[\s\S]*?transientSnapshot\("cancelled"\)/,
+    'an authoritative empty resume query must settle as calm cancellation',
+  );
   assert.doesNotMatch(source, /Map<String,\s*ProductDetails>|productDetailsById/);
   assert.match(
     source,

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "xcode-storekit-test-non-live",
+  "store": "apple",
+  "environment": "sandbox",
+  "productId": "uk.eugnel.ks2spelling.fullks2",
+  "physicalSandbox": false,
+  "liveStore": false,
+  "cases": [
+    {
+      "name": "delayed-approve",
+      "initialOutcome": "pending",
+      "storeKitTestAction": "approveAskToBuyTransaction",
+      "finalOutcome": "purchased",
+      "verifiedProofRequired": true,
+      "finishedByTest": false
+    },
+    {
+      "name": "delayed-decline",
+      "initialOutcome": "pending",
+      "storeKitTestAction": "declineAskToBuyTransaction",
+      "finalOutcome": "cancelled",
+      "verifiedProofRequired": false,
+      "finishedByTest": false
+    }
+  ]
+}

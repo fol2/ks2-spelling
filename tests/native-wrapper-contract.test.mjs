@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -20,6 +21,23 @@ const SCRIPT_FILES = [
 
 async function importScript(path) {
   return import(pathToFileURL(join(ROOT, path)));
+}
+
+async function processStopsWithin(pid, attempts = 50) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      process.kill(pid, 0);
+      const state = spawnSync('/bin/ps', ['-p', String(pid), '-o', 'state='], {
+        encoding: 'utf8',
+      });
+      if (state.status !== 0 || state.stdout.trim().startsWith('Z')) return true;
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 20));
+    } catch (error) {
+      if (error?.code !== 'ESRCH') throw error;
+      return true;
+    }
+  }
+  return false;
 }
 
 test('package scripts expose every deterministic native wrapper', async () => {
@@ -99,11 +117,83 @@ test('command results use stable exit codes and redact signing or environment se
     { env: { ...process.env, ...env } },
   );
   assert.equal(result.exitCode, 0);
+  assert.equal(result.timedOut, false);
   assert.equal(result.stdout, '[REDACTED]');
   assert.doesNotMatch(
     JSON.stringify(result),
     /top-secret-value|signing-secret-value|private-profile-name/,
   );
+});
+
+test('shared commands validate deadlines and terminate the complete owned process group', async () => {
+  const { runCommand } = await importScript('scripts/lib/run-command.mjs');
+  const timeoutMs = 500;
+  assert.throws(
+    () => runCommand(process.execPath, ['-e', ''], { timeoutMs: 0 }),
+    /positive safe integer/i,
+  );
+
+  const childProgram = [
+    "const { spawn } = require('node:child_process');",
+    "const grandchild = spawn(process.execPath, ['-e', \"process.on('SIGTERM', () => {}); process.stdout.write('ready'); setInterval(() => {}, 1000)\"], { stdio: ['ignore', 'pipe', 'ignore'] });",
+    "grandchild.stdout.once('data', () => process.stdout.write(String(grandchild.pid), () => {",
+    "  process.on('SIGTERM', () => {});",
+    '  setInterval(() => {}, 1000);',
+    '}));',
+  ].join('\n');
+  const result = await runCommand(process.execPath, ['-e', childProgram], {
+    timeoutMs,
+  });
+  assert.equal(result.timedOut, true);
+  assert.ok(['SIGTERM', 'SIGKILL'].includes(result.signal));
+  const grandchildPid = Number(result.stdout);
+  assert.equal(Number.isSafeInteger(grandchildPid), true);
+
+  assert.equal(
+    await processStopsWithin(grandchildPid),
+    true,
+    'timed-out process group left a child running',
+  );
+});
+
+test('shared command deadlines still escalate after the process-group leader exits', async () => {
+  const { runCommand } = await importScript('scripts/lib/run-command.mjs');
+  const timeoutMs = 500;
+  const childProgram = [
+    "const { spawn } = require('node:child_process');",
+    "const grandchild = spawn(process.execPath, ['-e', \"process.on('SIGTERM', () => {}); process.stdout.write('ready'); setInterval(() => {}, 1000)\"], { stdio: ['ignore', 'pipe', 'ignore'] });",
+    "grandchild.stdout.once('data', () => process.stdout.write(String(grandchild.pid), () => {",
+    "  process.on('SIGTERM', () => process.exit(0));",
+    '  setInterval(() => {}, 1000);',
+    '}));',
+  ].join('\n');
+  const startedAt = Date.now();
+  let grandchildPid = null;
+  try {
+    const result = await runCommand(process.execPath, ['-e', childProgram], {
+      timeoutMs,
+    });
+    assert.equal(result.timedOut, true);
+    grandchildPid = Number(result.stdout);
+    assert.ok(
+      Date.now() - startedAt >= timeoutMs + 250,
+      'deadline resolved before SIGKILL escalation',
+    );
+    assert.equal(Number.isSafeInteger(grandchildPid) && grandchildPid > 1, true);
+    assert.equal(
+      await processStopsWithin(grandchildPid),
+      true,
+      'leader exit cancelled escalation and orphaned its child',
+    );
+  } finally {
+    if (Number.isSafeInteger(grandchildPid) && grandchildPid > 1) {
+      try {
+        process.kill(grandchildPid, 'SIGKILL');
+      } catch {
+        // Best-effort cleanup after an assertion failure.
+      }
+    }
+  }
 });
 
 test('doctor probes are read-only and Android absence is deterministic', async () => {

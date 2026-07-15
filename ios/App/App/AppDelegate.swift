@@ -10,6 +10,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if let bridgeViewController = window?.rootViewController as? CAPBridgeViewController {
             bridgeViewController.loadViewIfNeeded()
             bridgeViewController.bridge?.registerPluginInstance(PackTransferPlugin())
+            bridgeViewController.bridge?.registerPluginInstance(CommercePlugin())
         }
         return true
     }

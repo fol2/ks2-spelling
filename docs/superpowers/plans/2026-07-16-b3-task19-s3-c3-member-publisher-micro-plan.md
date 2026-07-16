@@ -153,6 +153,12 @@ Tests/helpers are limited to:
 
 - `tests/b3-capture-bundle-store.test.mjs`
 - `tests/helpers/b3-capture-bundle-reconcile-death-child.mjs`
+- `tests/helpers/b3-capture-bundle-store-child.mjs`, only to add transparent
+  `renameSync`/`unlinkSync` pass-through exports required by its existing
+  `node:fs` module mock; and
+- `tests/helpers/b3-capture-store-fs-death-child.mjs`, only for the same
+  pass-through exports so the existing C2 crash helper can instantiate the
+  expanded bundle-store import surface.
 
 Implement one RED-to-GREEN slice at a time:
 
@@ -168,8 +174,9 @@ Implement one RED-to-GREEN slice at a time:
 5. Run the finite real-child death matrix and prove unmocked fresh inspection
    converges without a production fault hook.
 
-No repository, facade, live adapter, journal, checkpoint builder, smoke builder,
-schema, native source or Cloudflare file changes in C3.
+The two existing helper edits above change no trace, fault or assertion
+behaviour. No repository, facade, live adapter, journal, checkpoint builder,
+smoke builder, schema, native source or Cloudflare file changes in C3.
 
 ## Finite crash and adversarial matrix
 

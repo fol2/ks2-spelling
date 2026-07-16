@@ -8,6 +8,7 @@ import {
   readdir,
   realpath,
   rename,
+  rmdir,
   rm,
 } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -294,11 +295,13 @@ async function moveDirectoryOnce({ source, destination, sourceParent, destinatio
   try { destinationMetadata = await lstat(destination); } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
   }
-  if (sourceMetadata && (!sourceMetadata.isDirectory() || sourceMetadata.isSymbolicLink())) {
+  if (sourceMetadata && (!sourceMetadata.isDirectory() || sourceMetadata.isSymbolicLink() ||
+      (sourceMetadata.mode & 0o077) !== 0)) {
     throw archiveError('B3 abandoned-capture observation directory policy is invalid');
   }
   if (destinationMetadata &&
-      (!destinationMetadata.isDirectory() || destinationMetadata.isSymbolicLink())) {
+      (!destinationMetadata.isDirectory() || destinationMetadata.isSymbolicLink() ||
+       (destinationMetadata.mode & 0o077) !== 0)) {
     throw archiveError('B3 abandoned-capture destination directory policy is invalid');
   }
   if (sourceMetadata && destinationMetadata) {
@@ -307,7 +310,26 @@ async function moveDirectoryOnce({ source, destination, sourceParent, destinatio
       sourceMetadata = null;
     }
     if (sourceMetadata) {
-      throw archiveError('B3 abandoned-capture observation archive conflicts');
+      const sourceEntries = await readdir(source, { withFileTypes: true });
+      if (sourceEntries.length !== 0) {
+        throw archiveError('B3 abandoned-capture observation archive conflicts');
+      }
+      // A normal journal read after the archive rename recreates this exact
+      // private directory. rmdir is the final atomic emptiness check: a raced
+      // writer makes it fail closed with ENOTEMPTY instead of losing evidence.
+      try {
+        await rmdir(source);
+      } catch (error) {
+        if (error?.code === 'ENOENT') {
+          sourceMetadata = null;
+        } else if (['ENOTEMPTY', 'EEXIST', 'ENOTDIR'].includes(error?.code)) {
+          throw archiveError('B3 abandoned-capture observation archive conflicts');
+        } else {
+          throw error;
+        }
+      }
+      sourceMetadata = null;
+      await syncDirectory(sourceParent);
     }
   }
   if (!sourceMetadata && !destinationMetadata) {

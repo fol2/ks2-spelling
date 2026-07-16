@@ -16,6 +16,12 @@ import {
   finaliseB3IosEvidence,
   runB3IosProofCli,
 } from '../scripts/prove-b3-ios.mjs';
+import { createDefaultB3IosCaptureAdapter } from '../scripts/lib/b3-live-capture-adapters.mjs';
+import {
+  persistB3IssuedCommand,
+  readB3IssuedCommand,
+  transitionB3IssuedCommand,
+} from '../scripts/lib/b3-issued-command.mjs';
 import {
   B3_TEST_COMMIT,
   B3_TEST_HASH,
@@ -82,6 +88,7 @@ function cliCapturePrimitives(platform, deploymentDraft) {
     ];
   };
   return {
+    recoverAmbiguousCapture: async () => false,
     inspectDistribution: async () => platform.distribution,
     inspectDeviceStore: async () => ({
       device: platform.device,
@@ -142,6 +149,7 @@ test('iOS capture owns exact scenario order, learner redaction and scope-before-
     ];
   };
   const primitives = {
+    recoverAmbiguousCapture: async () => physicalOrder.push('recovery-preflight'),
     inspectDistribution: async ({ fresh = false } = {}) => {
       physicalOrder.push(fresh ? 'distribution-after' : 'distribution-before');
       return platform.distribution;
@@ -194,6 +202,7 @@ test('iOS capture owns exact scenario order, learner redaction and scope-before-
     'after-fresh-install-reseed:initial', 'after-fresh-install-reseed:final',
   ]);
   assert.deepEqual(physicalOrder, [
+    'recovery-preflight',
     'distribution-before',
     'gateway-smoke',
     'device-store', 'terminal', 'chain', 'storekit',
@@ -239,6 +248,60 @@ test('iOS capture owns exact scenario order, learner redaction and scope-before-
     primitives: { ...primitives, inspectGatewaySmoke: async () => wrongSmoke },
     authorityGate: async () => {},
   }), /smoke|deployment|authority/i);
+});
+
+test('iOS wrapper consumes initial ARM_CAPTURE reinstall recovery before any capture primitive', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-initial-reinstall-preflight-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const authorityDirectory = join(root, '.native-build/b3/distribution');
+  await mkdir(authorityDirectory, { recursive: true, mode: 0o700 });
+  await writeFile(join(authorityDirectory, 'build-authority.json'), JSON.stringify({
+    testedApplicationCommit: B3_TEST_COMMIT,
+    applicationFingerprint: B3_TEST_HASH,
+    versionName: '0.3.0-b3',
+    iosBuildNumber: '19',
+    androidVersionCode: 19,
+  }), { mode: 0o600 });
+  const command = {
+    schemaVersion: 1,
+    captureId: '018f1d7b-97e8-4a52-8cf2-783e5089c101',
+    platform: 'ios-physical',
+    testedApplicationCommit: B3_TEST_COMMIT,
+    applicationFingerprint: B3_TEST_HASH,
+    expectedScenarioIndex: 0,
+    expectedSequence: 1,
+    previousObservationSha256: '0'.repeat(64),
+    installationMode: 'existing',
+    actionCode: 'ARM_CAPTURE',
+    challengeSha256: 'd'.repeat(64),
+  };
+  await persistB3IssuedCommand({ root, platform: 'ios', command });
+  await transitionB3IssuedCommand({
+    root, platform: 'ios', command, expectedState: 'prepared', nextState: 'launching',
+  });
+  const retained = await transitionB3IssuedCommand({
+    root, platform: 'ios', command, expectedState: 'launching', nextState: 'restart-required',
+  });
+
+  await assert.rejects(captureB3IosEvidenceWithPrimitives({
+    root,
+    approvalFile: '/operator/approval.json',
+    runToken: 'a'.repeat(64),
+    approvedScope: 'apple-sandbox-history-refund',
+    deploymentDraft: cloudflareDeploymentDraft(),
+    authorityGate: async () => {},
+    primitives: createDefaultB3IosCaptureAdapter({ root, env: {}, resumeReinstall: true }),
+  }), /signed distribution path|required/i);
+
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+  const archiveAuthority = JSON.parse(await readFile(join(
+    root,
+    '.native-build/b3/evidence/ios-abandoned-captures',
+    retained.commandSha256,
+    'authority.json',
+  ), 'utf8'));
+  assert.equal(archiveAuthority.commandSha256, retained.commandSha256);
+  assert.equal(archiveAuthority.expectedSequence, 1);
 });
 
 test('iOS Task22 exposes real host utilities and fails closed before device work without authority', async () => {

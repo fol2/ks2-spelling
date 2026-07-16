@@ -80,6 +80,7 @@ export async function captureB3IosEvidenceWithPrimitives({
   await authorityGate({ approvalFile, runToken, requestedScope: B3_IOS_REMOTE_SCOPE, root, clock, gitRunner });
   const validatedDraft = validateB3CloudflareDeploymentDraft(deploymentDraft);
   const gateway = b3PlatformGatewayFromDeploymentDraft(validatedDraft);
+  const recoverAmbiguousCapture = requirePrimitive(primitives, 'recoverAmbiguousCapture');
   const inspectDistribution = requirePrimitive(primitives, 'inspectDistribution');
   const inspectDeviceStore = requirePrimitive(primitives, 'inspectDeviceStore');
   const inspectSyntheticLearners = requirePrimitive(primitives, 'inspectSyntheticLearners');
@@ -89,6 +90,7 @@ export async function captureB3IosEvidenceWithPrimitives({
   const inspectProofObservationChain = requirePrimitive(primitives, 'inspectProofObservationChain');
   const inspectStoreKitTest = requirePrimitive(primitives, 'inspectStoreKitTest');
   const captureScreenshot = requirePrimitive(primitives, 'captureScreenshot');
+  await recoverAmbiguousCapture();
   const distributionBeforeCapture = await inspectDistribution();
   if (validatedDraft.testedApplicationCommit !== distributionBeforeCapture.embeddedCommit ||
       validatedDraft.applicationFingerprint !== distributionBeforeCapture.embeddedFingerprint) {

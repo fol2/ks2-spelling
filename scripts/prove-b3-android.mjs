@@ -77,6 +77,7 @@ export async function captureB3AndroidEvidenceWithPrimitives({
 } = {}) {
   assertB3RemoteMutationScope({ approvedScope, runToken, expectedScope: B3_ANDROID_REMOTE_SCOPE });
   await authorityGate({ approvalFile, runToken, requestedScope: B3_ANDROID_REMOTE_SCOPE, root, clock, gitRunner });
+  const recoverAmbiguousCapture = requirePrimitive(primitives, 'recoverAmbiguousCapture');
   const inspectDistribution = requirePrimitive(primitives, 'inspectDistribution');
   const inspectDeviceStore = requirePrimitive(primitives, 'inspectDeviceStore');
   const inspectSyntheticLearners = requirePrimitive(primitives, 'inspectSyntheticLearners');
@@ -84,6 +85,7 @@ export async function captureB3AndroidEvidenceWithPrimitives({
   const inspectTerminalEvidence = requirePrimitive(primitives, 'inspectTerminalEvidence');
   const inspectProofObservationChain = requirePrimitive(primitives, 'inspectProofObservationChain');
   const captureScreenshot = requirePrimitive(primitives, 'captureScreenshot');
+  await recoverAmbiguousCapture();
   const beforeInitial = assertB3SyntheticLearnerObservation(
     await inspectSyntheticLearners({ baseline: 'before-purchase', phase: 'initial' }),
     'before-purchase',

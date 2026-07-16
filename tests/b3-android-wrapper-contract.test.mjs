@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -13,7 +13,18 @@ import {
   holdUnacknowledgedPurchase,
   runB3AndroidProofCli,
 } from '../scripts/prove-b3-android.mjs';
-import { cloudflareEvidence, platformEvidence } from './helpers/b3-evidence-fixtures.mjs';
+import { createDefaultB3AndroidCaptureAdapter } from '../scripts/lib/b3-live-capture-adapters.mjs';
+import {
+  persistB3IssuedCommand,
+  readB3IssuedCommand,
+  transitionB3IssuedCommand,
+} from '../scripts/lib/b3-issued-command.mjs';
+import {
+  B3_TEST_COMMIT,
+  B3_TEST_HASH,
+  cloudflareEvidence,
+  platformEvidence,
+} from './helpers/b3-evidence-fixtures.mjs';
 
 test('Android wrapper requires physical Play distribution and ordered pm-path hashes', () => {
   const platform = platformEvidence('android-play-physical');
@@ -46,6 +57,7 @@ test('Android capture owns exact scenario order, learner redaction and scope-bef
   const calls = [];
   const physicalOrder = [];
   const primitives = {
+    recoverAmbiguousCapture: async () => physicalOrder.push('recovery-preflight'),
     inspectDistribution: async ({ fresh = false } = {}) => {
       physicalOrder.push(fresh ? 'distribution-after' : 'distribution-before');
       return platform.distribution;
@@ -102,7 +114,7 @@ test('Android capture owns exact scenario order, learner redaction and scope-bef
   assert.ok(timing.includes('wait:5000'));
   assert.ok(timing.includes('force-stop:unacknowledged-relaunch'));
   assert.deepEqual(physicalOrder, [
-    'distribution-before', 'device-store', 'terminal', 'chain', 'screenshot',
+    'recovery-preflight', 'distribution-before', 'device-store', 'terminal', 'chain', 'screenshot',
     'distribution-after',
   ]);
   let distributionReads = 0;
@@ -121,6 +133,63 @@ test('Android capture owns exact scenario order, learner redaction and scope-bef
     approvalFile: '/operator/approval.json', runToken: 'a'.repeat(64), approvedScope: 'apple-sandbox-history-refund',
     cloudflare: cloudflareEvidence(), primitives, authorityGate: async () => {},
   }), /scope/i);
+});
+
+test('Android wrapper consumes initial ARM_CAPTURE reinstall recovery before any capture primitive', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-android-initial-reinstall-preflight-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const authorityDirectory = join(root, '.native-build/b3/distribution');
+  await mkdir(authorityDirectory, { recursive: true, mode: 0o700 });
+  await writeFile(join(authorityDirectory, 'build-authority.json'), JSON.stringify({
+    testedApplicationCommit: B3_TEST_COMMIT,
+    applicationFingerprint: B3_TEST_HASH,
+    versionName: '0.3.0-b3',
+    iosBuildNumber: '19',
+    androidVersionCode: 19,
+  }), { mode: 0o600 });
+  const command = {
+    schemaVersion: 1,
+    captureId: '018f1d7b-97e8-4a52-8cf2-783e5089c102',
+    platform: 'android-play-physical',
+    testedApplicationCommit: B3_TEST_COMMIT,
+    applicationFingerprint: B3_TEST_HASH,
+    expectedScenarioIndex: 0,
+    expectedSequence: 1,
+    previousObservationSha256: '0'.repeat(64),
+    installationMode: 'existing',
+    actionCode: 'ARM_CAPTURE',
+    challengeSha256: 'e'.repeat(64),
+  };
+  await persistB3IssuedCommand({ root, platform: 'android', command });
+  await transitionB3IssuedCommand({
+    root, platform: 'android', command, expectedState: 'prepared', nextState: 'launching',
+  });
+  const retained = await transitionB3IssuedCommand({
+    root, platform: 'android', command,
+    expectedState: 'launching', nextState: 'restart-required',
+  });
+
+  await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
+    root,
+    approvalFile: '/operator/approval.json',
+    runToken: 'a'.repeat(64),
+    approvedScope: 'google-test-track-refund-revoke',
+    cloudflare: cloudflareEvidence(),
+    authorityGate: async () => {},
+    primitives: createDefaultB3AndroidCaptureAdapter({
+      root, env: {}, resumeReinstall: true, wait: async () => {},
+    }),
+  }), /signed distribution path|required/i);
+
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'android' }), /ENOENT|absent/i);
+  const archiveAuthority = JSON.parse(await readFile(join(
+    root,
+    '.native-build/b3/evidence/android-abandoned-captures',
+    retained.commandSha256,
+    'authority.json',
+  ), 'utf8'));
+  assert.equal(archiveAuthority.commandSha256, retained.commandSha256);
+  assert.equal(archiveAuthority.expectedSequence, 1);
 });
 
 test('Android Task22 exposes real host utilities and fails closed before device work without authority', async () => {

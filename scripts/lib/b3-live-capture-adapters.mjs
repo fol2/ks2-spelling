@@ -1206,6 +1206,25 @@ function createDefaultAdapter({
     return buildAuthorityPromise;
   }
 
+  async function recoverAmbiguousCapture() {
+    let retained;
+    try {
+      retained = await readB3IssuedCommand({ root, platform });
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+      return false;
+    }
+    const recovery = await recoverB3AmbiguousCaptureAfterReinstall({
+      root,
+      platform,
+      enabled: resumeReinstall && !reinstallAcknowledgementConsumed,
+      invocationCommandSha256: retained.commandSha256,
+      buildAuthority: await buildAuthority(),
+    });
+    if (recovery) reinstallAcknowledgementConsumed = true;
+    return recovery;
+  }
+
   async function records() {
     await inspectDistribution();
     const retained = await readB3PhysicalObservationJournal({
@@ -1493,6 +1512,7 @@ function createDefaultAdapter({
   }
 
   const base = {
+    recoverAmbiguousCapture,
     inspectDistribution,
     inspectDeviceStore,
     inspectSyntheticLearners,

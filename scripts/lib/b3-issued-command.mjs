@@ -41,7 +41,10 @@ const ENTRY_NAME = /^(?:command-chain-root|[0-9a-f]{64}\.(?:base|consumed|next-c
 const PRIVATE_TEMPORARY_NAME = /^\.issued-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.tmp$/u;
 const MAXIMUM_ALIAS_SCAN_ENTRIES = 512;
 const MAXIMUM_TRANSIENT_ALIAS_RETRIES = 32;
-const MAXIMUM_COMMAND_CHAIN_LENGTH = 64;
+// Four bounded abandoned Android journeys plus one final eighteen-command
+// journey require ninety immutable allocations without manual ledger deletion.
+const MAXIMUM_COMMAND_CHAIN_LENGTH = 96;
+const MAXIMUM_LEDGER_ENTRIES = 768;
 
 function issuedError(message, code = 'b3_issued_command_invalid') {
   return Object.assign(new Error(message), { code });
@@ -351,7 +354,7 @@ async function deriveCommand({ evidence, ledger, platform, commandSha256 }) {
 
 async function ledgerEntries(ledger) {
   const entries = await readdir(ledger, { withFileTypes: true });
-  if (entries.length > 256 ||
+  if (entries.length > MAXIMUM_LEDGER_ENTRIES ||
       entries.some((entry) => !entry.isFile() || !ENTRY_NAME.test(entry.name))) {
     throw issuedError('B3 issued-command ledger entry policy is invalid');
   }

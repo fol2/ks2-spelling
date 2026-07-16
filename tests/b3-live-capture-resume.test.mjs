@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { link, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  link, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -1182,6 +1184,82 @@ test('ambiguous capture restart is concurrent and crash-resumable without a seco
   await assert.rejects(readB3IssuedCommand({ root: crashRoot, platform: 'ios' }), /ENOENT|absent/i);
 });
 
+test('capture restart resumes after normal journal access recreates an empty active directory', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-recreated-journal-restart-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const retained = await retainAmbiguousRestartGate({ root });
+
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+    afterArchive: async () => { throw new Error('simulated crash after archive'); },
+  }), /simulated crash after archive/i);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'restart-executing');
+
+  // This is the first operation performed by the normal adapter on the next
+  // invocation. The reader recreates the now-active journal path after the old
+  // directory has been moved into the abandoned-capture archive.
+  assert.deepEqual(await readB3PhysicalObservationJournal({
+    root,
+    platform: 'ios',
+    buildAuthority: BUILD_AUTHORITY,
+  }), []);
+
+  const recovered = await recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: false,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  });
+  assert.equal(recovered.restarted, true);
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+});
+
+test('capture restart rejects hostile recreated active observation directories', async (t) => {
+  const outside = await mkdtemp(join(tmpdir(), 'b3-hostile-recreated-journal-target-'));
+  const cases = [
+    ['non-empty', async (path) => {
+      await mkdir(path, { mode: 0o700 });
+      await writeFile(join(path, 'hostile.json'), '{}', { mode: 0o600 });
+    }],
+    ['wrong-mode', async (path) => mkdir(path, { mode: 0o755 })],
+    ['symbolic-link', async (path) => symlink(outside, path)],
+  ];
+  const roots = [];
+  t.after(() => Promise.all([...roots, outside].map((path) =>
+    rm(path, { recursive: true, force: true }))));
+
+  for (const [label, recreate] of cases) {
+    const root = await mkdtemp(join(tmpdir(), `b3-hostile-recreated-journal-${label}-`));
+    roots.push(root);
+    const retained = await retainAmbiguousRestartGate({ root });
+    await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+      root,
+      platform: 'ios',
+      enabled: true,
+      invocationCommandSha256: retained.commandSha256,
+      buildAuthority: BUILD_AUTHORITY,
+      afterArchive: async () => { throw new Error('simulated crash after archive'); },
+    }), /simulated crash after archive/i);
+    await recreate(join(root, '.native-build/b3/evidence/ios-observations'));
+
+    await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+      root,
+      platform: 'ios',
+      enabled: false,
+      invocationCommandSha256: retained.commandSha256,
+      buildAuthority: BUILD_AUTHORITY,
+    }), /observation|archive|directory|conflict|policy/i);
+    assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+      'restart-executing');
+  }
+});
+
 test('capture restart clears an exact restart-complete command after a crash', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-complete-ambiguity-restart-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -2294,7 +2372,7 @@ test('issued ledger entry and base scans are independently bounded', async (t) =
   const entryLedger = join(
     entryRoot, '.native-build/b3/evidence/ios-issued-command-ledger',
   );
-  await Promise.all(Array.from({ length: 256 }, (_, index) => writeFile(
+  await Promise.all(Array.from({ length: 768 }, (_, index) => writeFile(
     join(entryLedger, `${index.toString(16).padStart(64, '0')}.state-launched.json`),
     'bounded-debris',
     { mode: 0o600 },
@@ -2308,7 +2386,7 @@ test('issued ledger entry and base scans are independently bounded', async (t) =
   await persistB3IssuedCommand({ root: baseRoot, platform: 'ios', command: consumed });
   await clearB3IssuedCommand({ root: baseRoot, platform: 'ios', command: consumed });
   const baseLedger = join(baseRoot, '.native-build/b3/evidence/ios-issued-command-ledger');
-  await Promise.all(Array.from({ length: 64 }, (_, index) => writeFile(
+  await Promise.all(Array.from({ length: 96 }, (_, index) => writeFile(
     join(baseLedger, `${(index + 1).toString(16).padStart(64, '0')}.base.json`),
     'bounded-debris',
     { mode: 0o600 },
@@ -2317,6 +2395,25 @@ test('issued ledger entry and base scans are independently bounded', async (t) =
     readB3IssuedCommand({ root: baseRoot, platform: 'ios' }),
     /base count|bound/i,
   );
+});
+
+test('issued ledger capacity covers four abandoned Android journeys and one final journey', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ledger-capture-generation-capacity-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  // Android is the larger closed journey at eighteen host commands. Four
+  // retained abandoned generations plus one final generation therefore need
+  // ninety immutable command allocations without operator ledger deletion.
+  for (let index = 1; index <= 90; index += 1) {
+    const command = launchCommand({
+      captureId: `018f1d7b-97e8-4a52-8cf2-${String(index).padStart(12, '0')}`,
+      challengeSha256: index.toString(16).padStart(64, '0'),
+    });
+    await persistB3IssuedCommand({ root, platform: 'ios', command });
+    await clearB3IssuedCommand({ root, platform: 'ios', command });
+  }
+
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
 });
 
 test('empty host root issues ARM_CAPTURE and makes durable progress on first invocation', async (t) => {

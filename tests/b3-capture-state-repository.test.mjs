@@ -35,6 +35,68 @@ const LAUNCHING_TO_LAUNCHED_CLAIM_JSON = Buffer.from(
   '{"claimSha256":"0acb91cd0eda8be3051bda358bf13afa1966fb6ed5061d22a8ba04cfa13c833a","commandSha256":"1f0de6d66179333a8e7adca7cb537342b19278e61aaff41a10a154da04652880","expectedState":"launching","nextRecordSha256":"f6006d640ff0469b80b500f9fb1f5f9c996b69fb36e6db959ff6485d520bb2c4","nextState":"launched","platform":"ios","schemaVersion":1}',
   'utf8',
 );
+const ORDINARY_EDGES = Object.freeze([
+  ['prepared', 'launching'],
+  ['prepared', 'stop-intent'],
+  ['stop-intent', 'stop-executing'],
+  ['stop-executing', 'host-stopped'],
+  ['host-stopped', 'launching'],
+  ['launching', 'launched'],
+  ['launching', 'reinstall-authorised'],
+  ['launching', 'restart-required'],
+  ['reinstall-authorised', 'reinstall-launching'],
+  ['reinstall-launching', 'launched'],
+  ['reinstall-launching', 'restart-required'],
+  ['restart-required', 'launched'],
+]);
+const ISSUED_COMMAND_STATES = Object.freeze([
+  'prepared',
+  'stop-intent',
+  'stop-executing',
+  'host-stopped',
+  'launching',
+  'reinstall-authorised',
+  'reinstall-launching',
+  'launched',
+  'restart-required',
+  'restart-executing',
+  'restart-complete',
+]);
+const PATH_TO_STATE = Object.freeze({
+  prepared: [],
+  'stop-intent': [['prepared', 'stop-intent']],
+  'stop-executing': [
+    ['prepared', 'stop-intent'],
+    ['stop-intent', 'stop-executing'],
+  ],
+  'host-stopped': [
+    ['prepared', 'stop-intent'],
+    ['stop-intent', 'stop-executing'],
+    ['stop-executing', 'host-stopped'],
+  ],
+  launching: [['prepared', 'launching']],
+  'reinstall-authorised': [
+    ['prepared', 'launching'],
+    ['launching', 'reinstall-authorised'],
+  ],
+  'reinstall-launching': [
+    ['prepared', 'launching'],
+    ['launching', 'reinstall-authorised'],
+    ['reinstall-authorised', 'reinstall-launching'],
+  ],
+  'restart-required': [
+    ['prepared', 'launching'],
+    ['launching', 'restart-required'],
+  ],
+  launched: [
+    ['prepared', 'launching'],
+    ['launching', 'launched'],
+  ],
+});
+
+function transitionAction([sourceState, nextState], extra = {}) {
+  return { op: 'transition', sourceState, nextState, ...extra };
+}
 
 async function fixture(t, label) {
   const root = await mkdtemp(join(tmpdir(), `b3-capture-repository-${label}-`));
@@ -176,6 +238,20 @@ async function probeInChild(root, mode, commands = [], platform = 'ios') {
     platform,
     ...commands.map((command) =>
       Buffer.from(JSON.stringify(command), 'utf8').toString('base64url')),
+  ], { cwd: root });
+  return JSON.parse(stdout);
+}
+
+async function decideInChild(root, actions, platform = 'ios') {
+  const helper = new URL(
+    './helpers/b3-capture-state-decision-child.mjs',
+    import.meta.url,
+  );
+  const { stdout } = await execFileAsync(process.execPath, [
+    '--experimental-test-module-mocks',
+    helper.pathname,
+    platform,
+    Buffer.from(JSON.stringify(actions), 'utf8').toString('base64url'),
   ], { cwd: root });
   return JSON.parse(stdout);
 }
@@ -373,7 +449,13 @@ test('repository accepts one independently seeded canonical ready initial comman
 
   assert.deepEqual(reopened, {
     ok: true,
-    result: ['close', 'readActiveCommand', 'reserveInitialCaptureStart'],
+    result: [
+      'close',
+      'consumeCommand',
+      'readActiveCommand',
+      'reserveInitialCaptureStart',
+      'transitionCommand',
+    ],
     getterCalls: 0,
   });
 });
@@ -462,7 +544,7 @@ test('ready initial validation rejects corrupt rows, pointers and orphan decisio
       assert.equal(reopened.ok, false, scenario.label);
       assert.match(
         reopened.error.message,
-        /authority|cardinality|canonical|foreign-key|invalid|unsupported/i,
+        /authority|cardinality|canonical|foreign-key|invalid|unsupported|unselected/i,
         scenario.label,
       );
       assert.equal(await fileSha256(path), corruptSha256, scenario.label);
@@ -525,7 +607,13 @@ test('repository surface is closed and rejects use after close', async (t) => {
   const shape = await probeInChild(root, 'shape');
   assert.deepEqual(shape, {
     ok: true,
-    result: ['close', 'readActiveCommand', 'reserveInitialCaptureStart'],
+    result: [
+      'close',
+      'consumeCommand',
+      'readActiveCommand',
+      'reserveInitialCaptureStart',
+      'transitionCommand',
+    ],
     getterCalls: 0,
   });
 
@@ -819,4 +907,476 @@ test('every reservation rereads build authority and rejects a stale open-session
     assert.equal(result.ok, false);
     assert.match(result.error.message, /build|metadata|authority|differs/i);
     assert.equal(await fileSha256(path), beforeSha256);
+  });
+
+test('ordinary transition selects prepared to launching and retains an identical retry',
+  async (t) => {
+    const root = await fixture(t, 'transition-prepared-launching');
+    await seedReadyInitial(root);
+
+    const result = await decideInChild(root, [
+      { op: 'transition', sourceState: 'prepared', nextState: 'launching' },
+      { op: 'transition', sourceState: 'prepared', nextState: 'launching' },
+    ]);
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.results.map(({ kind }) => kind), [
+      'transitioned',
+      'already-transitioned',
+    ]);
+    assert.equal(result.results[0].command.state, 'launching');
+    assert.deepEqual(result.results[1].command, result.results[0].command);
+    assert.deepEqual(result.final, {
+      kind: 'active',
+      command: result.results[0].command,
+    });
+  });
+
+test('repository selects every one of the twelve frozen ordinary edges', async (t) => {
+  for (const edge of ORDINARY_EDGES) {
+    const [sourceState, nextState] = edge;
+    const root = await fixture(t, `ordinary-${sourceState}-${nextState}`);
+    await seedReadyInitial(root);
+    const actions = [
+      ...PATH_TO_STATE[sourceState].map((pathEdge) => transitionAction(pathEdge)),
+      transitionAction(edge),
+    ];
+
+    const result = await decideInChild(root, actions);
+
+    assert.equal(result.ok, true, `${sourceState}:${nextState}`);
+    assert.equal(result.results.at(-1).kind, 'transitioned', `${sourceState}:${nextState}`);
+    assert.equal(result.results.at(-1).command.state, nextState, `${sourceState}:${nextState}`);
+    assert.deepEqual(result.final, {
+      kind: 'active',
+      command: result.results.at(-1).command,
+    }, `${sourceState}:${nextState}`);
+  }
+});
+
+test('ordinary decision returns its retained winner to a conflicting retry', async (t) => {
+  const root = await fixture(t, 'ordinary-conflict');
+  await seedReadyInitial(root);
+
+  const result = await decideInChild(root, [
+    transitionAction(['prepared', 'launching']),
+    transitionAction(['prepared', 'stop-intent']),
+  ]);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.results[1].kind, 'ordinary-conflict');
+  assert.equal(result.results[1].command.state, 'launching');
+  assert.deepEqual(result.results[1].command, result.results[0].command);
+});
+
+test('ordinary transition rejects non-frozen and recovery edges without mutation', async (t) => {
+  const root = await fixture(t, 'ordinary-invalid');
+  await seedReadyInitial(root);
+
+  const result = await decideInChild(root, [
+    transitionAction(['prepared', 'launched'], { expectError: true }),
+    transitionAction(['prepared', 'launching']),
+    transitionAction(['launching', 'restart-required']),
+    transitionAction(['restart-required', 'restart-executing'], { expectError: true }),
+  ]);
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.results.map(({ kind }) => kind), [
+    'error', 'transitioned', 'transitioned', 'error',
+  ]);
+  assert.equal(result.results[0].code, 'b3_capture_state_invalid');
+  assert.equal(result.results[3].code, 'b3_capture_state_invalid');
+  assert.match(result.results[0].message, /transition|invalid/i);
+  assert.match(result.results[3].message, /transition|invalid/i);
+  assert.equal(result.final.command.state, 'restart-required');
+});
+
+test('repository rejects every other transition pair for each selected ordinary source',
+  async (t) => {
+    for (const sourceState of Object.keys(PATH_TO_STATE).filter((state) =>
+      ORDINARY_EDGES.some(([source]) => source === state))) {
+      const root = await fixture(t, `ordinary-invalid-all-${sourceState}`);
+      await seedReadyInitial(root);
+      const allowed = new Set(ORDINARY_EDGES
+        .filter(([source]) => source === sourceState)
+        .map(([, next]) => next));
+      const invalidStates = [...ISSUED_COMMAND_STATES, 'unknown-state']
+        .filter((nextState) => !allowed.has(nextState));
+      const result = await decideInChild(root, [
+        ...PATH_TO_STATE[sourceState].map((edge) => transitionAction(edge)),
+        ...invalidStates.map((nextState) => ({
+          ...transitionAction([sourceState, nextState]),
+          expectError: true,
+        })),
+      ]);
+
+      assert.equal(result.ok, true, sourceState);
+      const rejected = result.results.slice(PATH_TO_STATE[sourceState].length);
+      assert.equal(rejected.length, invalidStates.length, sourceState);
+      for (const outcome of rejected) {
+        assert.equal(outcome.kind, 'error', sourceState);
+        assert.equal(outcome.code, 'b3_capture_state_invalid', sourceState);
+      }
+      assert.equal(result.final.command.state, sourceState, sourceState);
+    }
+  });
+
+test('ordinary transition snapshots every source and nested command getter exactly once',
+  async (t) => {
+    const root = await fixture(t, 'ordinary-getters-once');
+    await seedReadyInitial(root);
+
+    const result = await decideInChild(root, [
+      transitionAction(['prepared', 'launching'], { countGetters: true }),
+    ]);
+
+    assert.equal(result.ok, true);
+    assert.equal(result.sourceGetterCalls, 9);
+    assert.equal(result.commandGetterCalls, Object.keys(initialCommand()).length);
+  });
+
+test('generic consumption closes prepared exactly once and clears only its active pointer',
+  async (t) => {
+    const root = await fixture(t, 'consume-prepared');
+    await seedReadyInitial(root);
+
+    const result = await decideInChild(root, [
+      { op: 'consume', sourceState: 'prepared' },
+      { op: 'consume', sourceState: 'prepared' },
+      transitionAction(['prepared', 'launching']),
+    ]);
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.results, [
+      {
+        kind: 'consumed',
+        commandSha256: FIRST_COMMAND_SHA256,
+        sourceState: 'prepared',
+        claimSha256: '09f59c0645547a4d7cf701893b9540e0b5f6862ede5992e744c9434a650947f2',
+      },
+      {
+        kind: 'already-consumed',
+        commandSha256: FIRST_COMMAND_SHA256,
+        sourceState: 'prepared',
+        claimSha256: '09f59c0645547a4d7cf701893b9540e0b5f6862ede5992e744c9434a650947f2',
+      },
+      {
+        kind: 'generic-consumed',
+        commandSha256: FIRST_COMMAND_SHA256,
+        sourceState: 'prepared',
+        claimSha256: '09f59c0645547a4d7cf701893b9540e0b5f6862ede5992e744c9434a650947f2',
+      },
+    ]);
+    assert.deepEqual(result.final, { kind: 'none' });
+    const database = new DatabaseSync(databasePath(root), { readOnly: true });
+    t.after(() => database.close());
+    assert.deepEqual({ ...database.prepare('SELECT * FROM b3_authority_state').get() }, {
+      singleton: 1,
+      next_allocation_sequence: 2,
+      active_command_sha256: null,
+      reserved_start_command_sha256: null,
+      row_version: 4,
+    });
+    assert.deepEqual({ ...database.prepare(`
+      SELECT source_state, source_record_sha256, winner_kind, next_state,
+        next_record_json, next_record_sha256, claim_sha256
+      FROM b3_decisions
+    `).get() }, {
+      source_state: 'prepared',
+      source_record_sha256: FIRST_PREPARED_RECORD_SHA256,
+      winner_kind: 'generic-consumption',
+      next_state: null,
+      next_record_json: null,
+      next_record_sha256: null,
+      claim_sha256: '09f59c0645547a4d7cf701893b9540e0b5f6862ede5992e744c9434a650947f2',
+    });
+  });
+
+test('repository generically consumes each of the eight frozen source states', async (t) => {
+  for (const sourceState of [
+    'prepared',
+    'stop-intent',
+    'stop-executing',
+    'host-stopped',
+    'launching',
+    'reinstall-authorised',
+    'reinstall-launching',
+    'launched',
+  ]) {
+    const root = await fixture(t, `consume-${sourceState}`);
+    await seedReadyInitial(root);
+    const result = await decideInChild(root, [
+      ...PATH_TO_STATE[sourceState].map((edge) => transitionAction(edge)),
+      { op: 'consume', sourceState },
+    ]);
+
+    assert.equal(result.ok, true, sourceState);
+    assert.equal(result.results.at(-1).kind, 'consumed', sourceState);
+    assert.equal(result.results.at(-1).sourceState, sourceState, sourceState);
+    assert.deepEqual(result.final, { kind: 'none' }, sourceState);
+  }
+});
+
+test('generic consumption returns an ordinary winner selected for the same source', async (t) => {
+  const root = await fixture(t, 'consume-ordinary-selected');
+  await seedReadyInitial(root);
+
+  const result = await decideInChild(root, [
+    transitionAction(['prepared', 'launching']),
+    { op: 'consume', sourceState: 'prepared' },
+  ]);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.results[1].kind, 'ordinary-selected');
+  assert.deepEqual(result.results[1].command, result.results[0].command);
+  assert.equal(result.final.command.state, 'launching');
+});
+
+test('generic consumption rejects forbidden, recovery and unknown sources unchanged',
+  async (t) => {
+    const root = await fixture(t, 'consume-forbidden');
+    await seedReadyInitial(root);
+    const path = await decideInChild(root, [
+      transitionAction(['prepared', 'launching']),
+      transitionAction(['launching', 'restart-required']),
+    ]);
+    assert.equal(path.ok, true);
+    const beforeSha256 = await fileSha256(databasePath(root));
+
+    const result = await decideInChild(root, [
+      { op: 'consume', sourceState: 'restart-required', expectError: true },
+      {
+        op: 'consume',
+        sourceState: 'restart-required',
+        forgeState: 'restart-executing',
+        expectError: true,
+      },
+      {
+        op: 'consume',
+        sourceState: 'restart-required',
+        forgeState: 'restart-complete',
+        expectError: true,
+      },
+      {
+        op: 'consume',
+        sourceState: 'restart-required',
+        forgeState: 'unknown-recovery',
+        expectError: true,
+      },
+    ]);
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.results.map(({ kind }) => kind), [
+      'error', 'error', 'error', 'error',
+    ]);
+    for (const outcome of result.results) {
+      assert.equal(outcome.code, 'b3_capture_state_invalid');
+      assert.match(outcome.message, /generic-consumption|state|invalid/i);
+    }
+    assert.equal(await fileSha256(databasePath(root)), beforeSha256);
+    assert.equal(result.final.command.state, 'restart-required');
+  });
+
+test('generic consumption snapshots source and nested command getters exactly once',
+  async (t) => {
+    const root = await fixture(t, 'consume-getters-once');
+    await seedReadyInitial(root);
+
+    const result = await decideInChild(root, [
+      { op: 'consume', sourceState: 'prepared', countGetters: true },
+    ]);
+
+    assert.equal(result.ok, true);
+    assert.equal(result.sourceGetterCalls, 9);
+    assert.equal(result.commandGetterCalls, Object.keys(initialCommand()).length);
+  });
+
+test('corrupt retained decision normalises authority failure and leaves database unchanged',
+  async (t) => {
+    const root = await fixture(t, 'decision-corrupt-code');
+    await seedReadyInitial(root);
+    const selected = await decideInChild(root, [
+      transitionAction(['prepared', 'launching']),
+    ]);
+    assert.equal(selected.ok, true);
+    const path = databasePath(root);
+    const database = new DatabaseSync(path);
+    const retained = database.prepare(`
+      SELECT claim_json FROM b3_decisions
+      WHERE command_sha256 = ? AND source_state = 'prepared'
+    `).get(FIRST_COMMAND_SHA256);
+    const corrupt = JSON.parse(Buffer.from(retained.claim_json).toString('utf8'));
+    corrupt.claimSha256 = 'f'.repeat(64);
+    database.prepare(`
+      UPDATE b3_decisions SET claim_json = ?
+      WHERE command_sha256 = ? AND source_state = 'prepared'
+    `).run(
+      Buffer.from(canonicaliseB3ProofValue(corrupt), 'utf8'),
+      FIRST_COMMAND_SHA256,
+    );
+    database.close();
+    const corruptSha256 = await fileSha256(path);
+
+    const opened = await probeInChild(root, 'shape');
+
+    assert.equal(opened.ok, false);
+    assert.equal(opened.error.code, 'b3_capture_state_invalid');
+    assert.match(opened.error.message, /decision|claim|authority|invalid/i);
+    assert.equal(await fileSha256(path), corruptSha256);
+  });
+
+test('decision APIs reject extra options before getters and reject use after close',
+  async (t) => {
+    for (const [label, actions] of [
+      ['transition-extra', [{
+        op: 'transition-extra',
+        nextState: 'launching',
+        expectError: true,
+      }]],
+      ['consume-extra', [{ op: 'consume-extra', expectError: true }]],
+      ['transition-closed', [{
+        op: 'close-transition',
+        sourceState: 'prepared',
+        nextState: 'launching',
+        expectError: true,
+      }]],
+      ['consume-closed', [{
+        op: 'close-consume',
+        sourceState: 'prepared',
+        expectError: true,
+      }]],
+    ]) {
+      const root = await fixture(t, `decision-api-${label}`);
+      await seedReadyInitial(root);
+      const result = await decideInChild(root, actions);
+      assert.equal(result.ok, true, label);
+      assert.equal(result.results[0].kind, 'error', label);
+      assert.equal(result.results[0].code, 'b3_capture_state_invalid', label);
+      if (label.endsWith('extra')) assert.equal(result.optionGetterCalls, 0, label);
+    }
+  });
+
+test('repository normalises a malformed nested source before database mutation',
+  async (t) => {
+    const root = await fixture(t, 'decision-malformed-source');
+    await seedReadyInitial(root);
+    const path = databasePath(root);
+    const beforeSha256 = await fileSha256(path);
+
+    const result = await decideInChild(root, [{
+      op: 'transition',
+      sourceState: 'prepared',
+      nextState: 'launching',
+      malformedCommand: true,
+      expectError: true,
+    }]);
+
+    assert.equal(result.ok, true);
+    assert.equal(result.results[0].kind, 'error');
+    assert.equal(result.results[0].code, 'b3_capture_state_invalid');
+    assert.equal(await fileSha256(path), beforeSha256);
+  });
+
+test('malformed persisted decision bytes map to capture-state errors without mutation',
+  async (t) => {
+    const scenarios = [
+      {
+        label: 'ordinary-claim',
+        action: transitionAction(['prepared', 'launching']),
+        column: 'claim_json',
+      },
+      {
+        label: 'ordinary-next-record',
+        action: transitionAction(['prepared', 'launching']),
+        column: 'next_record_json',
+      },
+      {
+        label: 'generic-claim',
+        action: { op: 'consume', sourceState: 'prepared' },
+        column: 'claim_json',
+      },
+    ];
+    for (const scenario of scenarios) {
+      const root = await fixture(t, `decision-malformed-${scenario.label}`);
+      await seedReadyInitial(root);
+      const selected = await decideInChild(root, [scenario.action]);
+      assert.equal(selected.ok, true, scenario.label);
+      const path = databasePath(root);
+      const database = new DatabaseSync(path);
+      database.prepare(`
+        UPDATE b3_decisions SET ${scenario.column} = x'7b'
+        WHERE command_sha256 = ? AND source_state = 'prepared'
+      `).run(FIRST_COMMAND_SHA256);
+      database.close();
+      const corruptSha256 = await fileSha256(path);
+
+      const reopened = await probeInChild(root, 'shape');
+
+      assert.equal(reopened.ok, false, scenario.label);
+      assert.equal(reopened.error.code, 'b3_capture_state_invalid', scenario.label);
+      assert.equal(await fileSha256(path), corruptSha256, scenario.label);
+    }
+  });
+
+test('decision APIs deep-snapshot mutable sources before their first await', async (t) => {
+  for (const [label, action, expectedKind, expectedFinal] of [
+    [
+      'transition',
+      {
+        op: 'transition',
+        sourceState: 'prepared',
+        nextState: 'launching',
+        mutateBeforeAwait: true,
+      },
+      'transitioned',
+      'active',
+    ],
+    [
+      'consume',
+      { op: 'consume', sourceState: 'prepared', mutateBeforeAwait: true },
+      'consumed',
+      'none',
+    ],
+  ]) {
+    const root = await fixture(t, `decision-sync-snapshot-${label}`);
+    await seedReadyInitial(root);
+
+    const result = await decideInChild(root, [action]);
+
+    assert.equal(result.ok, true, label);
+    assert.equal(result.results[0].kind, expectedKind, label);
+    assert.equal(result.final.kind, expectedFinal, label);
+  }
+});
+
+test('decision APIs synchronously snapshot each getter once before returning a promise',
+  async (t) => {
+    for (const [label, action] of [
+      ['transition', {
+        op: 'transition',
+        sourceState: 'prepared',
+        nextState: 'launching',
+        countGetters: true,
+        observeBeforeAwait: true,
+      }],
+      ['consume', {
+        op: 'consume',
+        sourceState: 'prepared',
+        countGetters: true,
+        observeBeforeAwait: true,
+      }],
+    ]) {
+      const root = await fixture(t, `decision-sync-getters-${label}`);
+      await seedReadyInitial(root);
+
+      const result = await decideInChild(root, [action]);
+
+      assert.equal(result.ok, true, label);
+      assert.deepEqual(result.synchronousGetterSnapshots, [{
+        sourceGetterCalls: 9,
+        commandGetterCalls: Object.keys(initialCommand()).length,
+      }], label);
+      assert.equal(result.sourceGetterCalls, 9, label);
+      assert.equal(result.commandGetterCalls, Object.keys(initialCommand()).length, label);
+    }
   });

@@ -1,12 +1,134 @@
+import { isDeepStrictEqual } from 'node:util';
+
+import { canonicaliseB3ProofValue } from '../../src/app/b3-live-proof-protocol.js';
 import {
   createB3InitialCaptureStartAuthority,
   publicB3CaptureStartAuthority,
 } from './b3-capture-start-authority.mjs';
 import { openB3CaptureStateDatabase } from './b3-capture-state-database.mjs';
 import { takeB3CaptureStateSession } from './b3-capture-state-internal.mjs';
+import {
+  createB3GenericConsumptionClaimAuthority,
+  createB3IssuedCommandStateAuthority,
+  createB3OrdinaryIssuedCommandClaimAuthority,
+} from './b3-issued-command-authority.mjs';
+
+const SOURCE_KEYS = Object.freeze([
+  'allocationSequence',
+  'captureId',
+  'command',
+  'commandSha256',
+  'platform',
+  'predecessorCommandSha256',
+  'recordSha256',
+  'schemaVersion',
+  'state',
+]);
+const HASH = /^[0-9a-f]{64}$/u;
 
 function repositoryError(message) {
   return Object.assign(new Error(message), { code: 'b3_capture_state_invalid' });
+}
+
+function snapshotClosedRecord(value, expectedKeys, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+    throw repositoryError(`B3 capture-state ${label} authority is invalid`);
+  }
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key !== 'string') ||
+      !isDeepStrictEqual([...keys].sort(), [...expectedKeys].sort())) {
+    throw repositoryError(`B3 capture-state ${label} authority is invalid`);
+  }
+  const snapshot = {};
+  for (const key of keys) snapshot[key] = value[key];
+  return Object.freeze(snapshot);
+}
+
+function snapshotCommand(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+    throw repositoryError('B3 capture-state source command authority is invalid');
+  }
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key !== 'string')) {
+    throw repositoryError('B3 capture-state source command authority is invalid');
+  }
+  const snapshot = {};
+  for (const key of keys) snapshot[key] = value[key];
+  return Object.freeze(snapshot);
+}
+
+function snapshotSource(rawSource) {
+  const copied = snapshotClosedRecord(rawSource, SOURCE_KEYS, 'source');
+  const command = snapshotCommand(copied.command);
+  return Object.freeze({ ...copied, command });
+}
+
+function canonicaliseSource(copied, platform, buildAuthority) {
+  const command = copied.command;
+  const record = createB3IssuedCommandStateAuthority({
+    platform,
+    command,
+    state: copied.state,
+  });
+  if (copied.schemaVersion !== record.schemaVersion || copied.platform !== platform ||
+      !Number.isSafeInteger(copied.allocationSequence) || copied.allocationSequence <= 0 ||
+      (copied.predecessorCommandSha256 !== null &&
+        !HASH.test(copied.predecessorCommandSha256 ?? '')) ||
+      copied.captureId !== record.command.captureId ||
+      copied.commandSha256 !== record.commandSha256 ||
+      copied.recordSha256 !== record.recordSha256 ||
+      command.testedApplicationCommit !== buildAuthority.testedApplicationCommit ||
+      command.applicationFingerprint !== buildAuthority.applicationFingerprint) {
+    throw repositoryError('B3 capture-state source authority differs');
+  }
+  return Object.freeze({
+    schemaVersion: record.schemaVersion,
+    platform,
+    allocationSequence: copied.allocationSequence,
+    predecessorCommandSha256: copied.predecessorCommandSha256,
+    captureId: copied.captureId,
+    commandSha256: record.commandSha256,
+    command: record.command,
+    state: record.state,
+    recordSha256: record.recordSha256,
+  });
+}
+
+function canonicalBytes(value) {
+  return Buffer.from(canonicaliseB3ProofValue(value), 'utf8');
+}
+
+function selectedSource(state, source) {
+  return state.selectedCommands.find((candidate) =>
+    isDeepStrictEqual(candidate, source));
+}
+
+function selectedDecision(state, source) {
+  return state.selectedDecisions.find((decision) =>
+    decision.source.state === source.state &&
+    decision.source.recordSha256 === source.recordSha256);
+}
+
+function genericOutcome(kind, decision) {
+  return Object.freeze({
+    kind,
+    commandSha256: decision.commandSha256,
+    sourceState: decision.sourceState,
+    claimSha256: decision.claimSha256,
+  });
+}
+
+function stateRecord(source) {
+  return Object.freeze({
+    schemaVersion: source.schemaVersion,
+    platform: source.platform,
+    state: source.state,
+    command: source.command,
+    commandSha256: source.commandSha256,
+    recordSha256: source.recordSha256,
+  });
 }
 
 export async function openB3CaptureStateRepository(options) {
@@ -15,6 +137,100 @@ export async function openB3CaptureStateRepository(options) {
   if (!session) {
     await foundation.close();
     throw repositoryError('B3 capture-state internal session authority is absent');
+  }
+
+  function insertSelectedDecision(proposal, source, state) {
+    let inserted;
+    if (proposal.winnerKind === 'ordinary') {
+      inserted = session.database.prepare(`
+        INSERT INTO b3_decisions (
+          command_sha256, source_state, source_record_sha256, winner_kind,
+          next_state, next_record_json, next_record_sha256,
+          claim_json, claim_sha256
+        ) VALUES (?, ?, ?, 'ordinary', ?, ?, ?, ?, ?)
+        ON CONFLICT (command_sha256, source_state) DO NOTHING
+      `).run(
+        source.commandSha256,
+        source.state,
+        source.recordSha256,
+        proposal.next.state,
+        canonicalBytes(proposal.next),
+        proposal.next.recordSha256,
+        canonicalBytes(proposal.claim),
+        proposal.claim.claimSha256,
+      );
+    } else {
+      inserted = session.database.prepare(`
+        INSERT INTO b3_decisions (
+          command_sha256, source_state, source_record_sha256, winner_kind,
+          next_state, next_record_json, next_record_sha256,
+          claim_json, claim_sha256
+        ) VALUES (?, ?, ?, 'generic-consumption', NULL, NULL, NULL, ?, ?)
+        ON CONFLICT (command_sha256, source_state) DO NOTHING
+      `).run(
+        source.commandSha256,
+        source.state,
+        source.recordSha256,
+        canonicalBytes(proposal.claim),
+        proposal.claim.claimSha256,
+      );
+      if (inserted.changes === 0) return false;
+      const cleared = session.database.prepare(`
+        UPDATE b3_authority_state
+        SET active_command_sha256 = NULL, row_version = row_version + 1
+        WHERE singleton = 1 AND active_command_sha256 = ?
+          AND reserved_start_command_sha256 IS NULL AND row_version = ?
+      `).run(source.commandSha256, state.authority.row_version);
+      if (cleared.changes !== 1) {
+        throw repositoryError('B3 capture-state command decision lost active authority');
+      }
+    }
+    if (inserted.changes === 0) return false;
+    if (inserted.changes !== 1) {
+      throw repositoryError('B3 capture-state command decision lost selection authority');
+    }
+    return true;
+  }
+
+  function selectCommandDecision({ source, buildAuthority, proposal }) {
+    session.database.exec('BEGIN IMMEDIATE');
+    try {
+      let state = session.validate(buildAuthority);
+      if (state.kind !== 'ready-initial' || !selectedSource(state, source)) {
+        throw repositoryError('B3 capture-state command decision source is not selected');
+      }
+      let decision = selectedDecision(state, source);
+      if (decision) {
+        session.database.exec('COMMIT');
+        return Object.freeze({ selected: false, decision });
+      }
+      if (!state.activeCommand || !isDeepStrictEqual(state.activeCommand, source)) {
+        throw repositoryError('B3 capture-state command decision source is not active');
+      }
+      const inserted = insertSelectedDecision(proposal, source, state);
+      state = session.validate(buildAuthority);
+      decision = selectedDecision(state, source);
+      if (!inserted) {
+        if (!decision) {
+          throw repositoryError('B3 capture-state command decision conflict did not rederive');
+        }
+        session.database.exec('COMMIT');
+        return Object.freeze({ selected: false, decision });
+      }
+      if (!decision || decision.winnerKind !== proposal.winnerKind ||
+          decision.claimSha256 !== proposal.claim.claimSha256 ||
+          (proposal.winnerKind === 'ordinary' &&
+            decision.command.recordSha256 !== proposal.next.recordSha256) ||
+          (proposal.winnerKind === 'generic-consumption' &&
+            state.activeCommand !== null)) {
+        throw repositoryError('B3 capture-state command decision did not rederive');
+      }
+      session.database.exec('COMMIT');
+      return Object.freeze({ selected: true, decision });
+    } catch (error) {
+      if (session.database.isTransaction) session.database.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   async function reserveInitialCaptureStart(reservationOptions) {
@@ -98,13 +314,9 @@ export async function openB3CaptureStateRepository(options) {
           intent: publicB3CaptureStartAuthority(state.startIntent),
         });
       } else if (state.kind === 'ready-initial') {
-        result = Object.freeze({
-          kind: 'active',
-          command: Object.freeze({
-            ...state.activeCommand,
-            command: Object.freeze({ ...state.activeCommand.command }),
-          }),
-        });
+        result = state.activeCommand === null
+          ? Object.freeze({ kind: 'none' })
+          : Object.freeze({ kind: 'active', command: state.activeCommand });
       } else {
         throw repositoryError('B3 capture-state read authority is unsupported');
       }
@@ -116,9 +328,109 @@ export async function openB3CaptureStateRepository(options) {
     }
   }
 
+  async function transitionCommand(transitionOptions) {
+    if (session.isClosed()) {
+      throw repositoryError('B3 capture-state repository is already closed');
+    }
+    const options = snapshotClosedRecord(
+      transitionOptions,
+      ['source', 'nextState'],
+      'ordinary transition',
+    );
+    const rawSource = options.source;
+    const nextState = options.nextState;
+    const sourceSnapshot = snapshotSource(rawSource);
+    const buildAuthority = await session.readBuildAuthorityFresh();
+    let source;
+    let next;
+    let claim;
+    try {
+      source = canonicaliseSource(sourceSnapshot, session.platform, buildAuthority);
+      next = createB3IssuedCommandStateAuthority({
+        platform: session.platform,
+        command: source.command,
+        state: nextState,
+      });
+      claim = createB3OrdinaryIssuedCommandClaimAuthority({
+        platform: session.platform,
+        source: stateRecord(source),
+        nextState,
+      });
+    } catch (error) {
+      if (error?.code === 'b3_issued_command_invalid') {
+        throw repositoryError(error.message);
+      }
+      throw error;
+    }
+
+    const outcome = selectCommandDecision({
+      source,
+      buildAuthority,
+      proposal: Object.freeze({ winnerKind: 'ordinary', next, claim }),
+    });
+    if (outcome.selected) {
+      return Object.freeze({ kind: 'transitioned', command: outcome.decision.command });
+    }
+    if (outcome.decision.winnerKind === 'generic-consumption') {
+      return genericOutcome('generic-consumed', outcome.decision);
+    }
+    return Object.freeze({
+      kind: outcome.decision.command.state === nextState
+        ? 'already-transitioned'
+        : 'ordinary-conflict',
+      command: outcome.decision.command,
+    });
+  }
+
+  async function consumeCommand(consumptionOptions) {
+    if (session.isClosed()) {
+      throw repositoryError('B3 capture-state repository is already closed');
+    }
+    const options = snapshotClosedRecord(
+      consumptionOptions,
+      ['source'],
+      'generic consumption',
+    );
+    const rawSource = options.source;
+    const sourceSnapshot = snapshotSource(rawSource);
+    const buildAuthority = await session.readBuildAuthorityFresh();
+    let source;
+    let claim;
+    try {
+      source = canonicaliseSource(sourceSnapshot, session.platform, buildAuthority);
+      claim = createB3GenericConsumptionClaimAuthority({
+        platform: session.platform,
+        source: stateRecord(source),
+      });
+    } catch (error) {
+      if (error?.code === 'b3_issued_command_invalid') {
+        throw repositoryError(error.message);
+      }
+      throw error;
+    }
+
+    const outcome = selectCommandDecision({
+      source,
+      buildAuthority,
+      proposal: Object.freeze({ winnerKind: 'generic-consumption', claim }),
+    });
+    if (outcome.selected) {
+      return genericOutcome('consumed', outcome.decision);
+    }
+    if (outcome.decision.winnerKind === 'ordinary') {
+      return Object.freeze({
+        kind: 'ordinary-selected',
+        command: outcome.decision.command,
+      });
+    }
+    return genericOutcome('already-consumed', outcome.decision);
+  }
+
   return Object.freeze({
+    consumeCommand,
     readActiveCommand,
     reserveInitialCaptureStart,
+    transitionCommand,
     close: () => foundation.close(),
   });
 }

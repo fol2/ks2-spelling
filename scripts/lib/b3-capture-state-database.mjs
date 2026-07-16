@@ -23,7 +23,12 @@ import {
   validateB3PendingInitialCaptureStartAuthority,
   validateB3ReadyInitialCaptureStartAuthority,
 } from './b3-capture-start-authority.mjs';
-import { validateB3PreparedIssuedCommandAuthorityBytes } from './b3-issued-command-authority.mjs';
+import {
+  validateB3GenericConsumptionClaimAuthorityBytes,
+  validateB3IssuedCommandStateAuthorityBytes,
+  validateB3OrdinaryIssuedCommandClaimAuthorityBytes,
+  validateB3PreparedIssuedCommandAuthorityBytes,
+} from './b3-issued-command-authority.mjs';
 import { registerB3CaptureStateSession } from './b3-capture-state-internal.mjs';
 
 const PLATFORMS = new Set(['ios', 'android']);
@@ -414,7 +419,117 @@ function retainedStartIntent(row) {
   });
 }
 
-function validateReadyInitialStart(database, authority, platform, buildAuthority) {
+function publicCommandSnapshot(command, record) {
+  return Object.freeze({
+    schemaVersion: record.schemaVersion,
+    platform: record.platform,
+    allocationSequence: command.allocation_sequence,
+    predecessorCommandSha256: command.predecessor_command_sha256,
+    captureId: command.capture_id,
+    commandSha256: command.command_sha256,
+    command: Object.freeze({ ...record.command }),
+    state: record.state,
+    recordSha256: record.recordSha256,
+  });
+}
+
+function validateSelectedDecisionPath(database, command, preparedRecord, platform) {
+  const rows = database.prepare(`
+    SELECT * FROM b3_decisions ORDER BY command_sha256, source_state
+  `).all();
+  const bySource = new Map();
+  for (const row of rows) {
+    if (row.command_sha256 !== command.command_sha256 || bySource.has(row.source_state)) {
+      throw databaseError('B3 capture-state decision path has an orphan or duplicate source');
+    }
+    bySource.set(row.source_state, row);
+  }
+
+  const selectedCommands = [];
+  const selectedDecisions = [];
+  let current = preparedRecord;
+  let genericDecision = null;
+  const visited = new Set();
+  selectedCommands.push(publicCommandSnapshot(command, current));
+  while (bySource.has(current.state)) {
+    if (visited.has(current.state)) {
+      throw databaseError('B3 capture-state decision path contains a cycle');
+    }
+    visited.add(current.state);
+    const row = bySource.get(current.state);
+    if (row.source_record_sha256 !== current.recordSha256) {
+      throw databaseError('B3 capture-state decision source authority differs');
+    }
+    if (row.winner_kind === 'ordinary') {
+      if (typeof row.next_state !== 'string' || row.next_record_json === null ||
+          row.next_record_sha256 === null) {
+        throw databaseError('B3 capture-state ordinary decision shape differs');
+      }
+      const next = validateB3IssuedCommandStateAuthorityBytes({
+        bytes: row.next_record_json,
+        platform,
+        expectedState: row.next_state,
+      });
+      const claim = validateB3OrdinaryIssuedCommandClaimAuthorityBytes({
+        bytes: row.claim_json,
+        platform,
+        source: current,
+      });
+      if (next.commandSha256 !== command.command_sha256 ||
+          next.recordSha256 !== row.next_record_sha256 ||
+          claim.nextState !== row.next_state ||
+          claim.nextRecordSha256 !== row.next_record_sha256 ||
+          claim.claimSha256 !== row.claim_sha256) {
+        throw databaseError('B3 capture-state ordinary decision authority differs');
+      }
+      const selected = Object.freeze({
+        source: selectedCommands.at(-1),
+        winnerKind: 'ordinary',
+        command: publicCommandSnapshot(command, next),
+        claimSha256: claim.claimSha256,
+      });
+      selectedDecisions.push(selected);
+      current = next;
+      selectedCommands.push(selected.command);
+      continue;
+    }
+    if (row.winner_kind === 'generic-consumption') {
+      if (row.next_state !== null || row.next_record_json !== null ||
+          row.next_record_sha256 !== null) {
+        throw databaseError('B3 capture-state generic decision shape differs');
+      }
+      const claim = validateB3GenericConsumptionClaimAuthorityBytes({
+        bytes: row.claim_json,
+        platform,
+        source: current,
+      });
+      if (claim.claimSha256 !== row.claim_sha256) {
+        throw databaseError('B3 capture-state generic decision authority differs');
+      }
+      genericDecision = Object.freeze({
+        source: selectedCommands.at(-1),
+        winnerKind: 'generic-consumption',
+        commandSha256: current.commandSha256,
+        sourceState: current.state,
+        claimSha256: claim.claimSha256,
+      });
+      selectedDecisions.push(genericDecision);
+      break;
+    }
+    throw databaseError('B3 capture-state recovery decision is unsupported in S2b');
+  }
+  if (visited.size !== rows.length) {
+    throw databaseError('B3 capture-state decision path contains an unselected row');
+  }
+  return Object.freeze({
+    selectedCommands: Object.freeze(selectedCommands),
+    selectedDecisions: Object.freeze(selectedDecisions),
+    tailCommand: selectedCommands.at(-1),
+    genericDecision,
+  });
+}
+
+function validateReadyInitialStartUnchecked(database, authority, platform, buildAuthority) {
   const intentRows = database.prepare('SELECT * FROM b3_capture_start_intents').all();
   const captureRows = database.prepare('SELECT * FROM b3_captures').all();
   const commandRows = database.prepare('SELECT * FROM b3_commands').all();
@@ -449,32 +564,52 @@ function validateReadyInitialStart(database, authority, platform, buildAuthority
       command.expected_observation_sequence !== 1 ||
       command.previous_observation_sha256 !== '0'.repeat(64) ||
       preparedRecord.commandSha256 !== command.command_sha256 ||
-      preparedRecord.recordSha256 !== command.prepared_record_sha256 ||
-      !isDeepStrictEqual({ ...authority }, {
-        singleton: 1,
-        next_allocation_sequence: 2,
-        active_command_sha256: command.command_sha256,
-        reserved_start_command_sha256: null,
-        row_version: 3,
-      })) {
+      preparedRecord.recordSha256 !== command.prepared_record_sha256) {
     throw databaseError('B3 capture-state ready initial command authority differs');
+  }
+  const path = validateSelectedDecisionPath(database, command, preparedRecord, platform);
+  const expectedAuthority = path.genericDecision
+    ? {
+      singleton: 1,
+      next_allocation_sequence: 2,
+      active_command_sha256: null,
+      reserved_start_command_sha256: null,
+      row_version: 4,
+    }
+    : {
+      singleton: 1,
+      next_allocation_sequence: 2,
+      active_command_sha256: command.command_sha256,
+      reserved_start_command_sha256: null,
+      row_version: 3,
+    };
+  if (!isDeepStrictEqual({ ...authority }, expectedAuthority)) {
+    throw databaseError('B3 capture-state ready initial singleton authority differs');
   }
   return Object.freeze({
     kind: 'ready-initial',
     startIntent,
     capture: Object.freeze({ ...capture }),
-    activeCommand: Object.freeze({
-      schemaVersion: preparedRecord.schemaVersion,
-      platform,
-      allocationSequence: command.allocation_sequence,
-      predecessorCommandSha256: command.predecessor_command_sha256,
-      captureId: command.capture_id,
-      commandSha256: command.command_sha256,
-      command: preparedRecord.command,
-      state: preparedRecord.state,
-      recordSha256: preparedRecord.recordSha256,
-    }),
+    authority: Object.freeze({ ...authority }),
+    activeCommand: path.genericDecision ? null : path.tailCommand,
+    ...path,
   });
+}
+
+function validateReadyInitialStart(database, authority, platform, buildAuthority) {
+  try {
+    return validateReadyInitialStartUnchecked(
+      database,
+      authority,
+      platform,
+      buildAuthority,
+    );
+  } catch (error) {
+    if (error?.code === 'b3_issued_command_invalid') {
+      throw databaseError(error.message);
+    }
+    throw error;
+  }
 }
 
 function validateDatabase(database, platform, buildAuthority) {
@@ -542,8 +677,7 @@ function validateDatabase(database, platform, buildAuthority) {
     });
   }
   if (!recoveryCount && domainCounts.start_intents === 1 &&
-      domainCounts.captures === 1 && domainCounts.commands === 1 &&
-      domainCounts.decisions === 0) {
+      domainCounts.captures === 1 && domainCounts.commands === 1) {
     return validateReadyInitialStart(database, authority, platform, buildAuthority);
   }
   throw databaseError('B3 capture-state domain authority is unsupported or invalid');

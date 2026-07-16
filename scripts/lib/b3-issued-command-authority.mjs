@@ -44,6 +44,24 @@ function authorityError(message) {
   return Object.assign(new Error(message), { code: 'b3_issued_command_invalid' });
 }
 
+function withAuthorityInputBoundary(operation) {
+  try {
+    return operation();
+  } catch (error) {
+    if (error?.code === 'b3_issued_command_invalid') throw error;
+    if (error?.code === 'B3_PROOF_PROTOCOL_INVALID' ||
+        error instanceof TypeError || error instanceof SyntaxError ||
+        error instanceof RangeError ||
+        (error instanceof Error && (
+          error.message.startsWith('B3 ') ||
+          error.message.startsWith('Signed pack manifest ')
+        ))) {
+      throw authorityError(error.message);
+    }
+    throw error;
+  }
+}
+
 function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
@@ -52,7 +70,7 @@ function canonicalBytes(value) {
   return Buffer.from(canonicaliseB3ProofValue(value), 'utf8');
 }
 
-export function createB3IssuedCommandStateAuthority({
+function createB3IssuedCommandStateAuthorityUnchecked({
   platform,
   command: rawCommand,
   state,
@@ -88,7 +106,12 @@ export function createB3IssuedCommandStateAuthority({
   });
 }
 
-export function validateB3IssuedCommandStateAuthorityBytes({
+export function createB3IssuedCommandStateAuthority(options) {
+  return withAuthorityInputBoundary(() =>
+    createB3IssuedCommandStateAuthorityUnchecked(options));
+}
+
+function validateB3IssuedCommandStateAuthorityBytesUnchecked({
   bytes,
   platform,
   expectedState,
@@ -114,6 +137,11 @@ export function validateB3IssuedCommandStateAuthorityBytes({
   return expected;
 }
 
+export function validateB3IssuedCommandStateAuthorityBytes(options) {
+  return withAuthorityInputBoundary(() =>
+    validateB3IssuedCommandStateAuthorityBytesUnchecked(options));
+}
+
 function validateSource(platform, source) {
   if (!source || typeof source !== 'object' || typeof source.state !== 'string') {
     throw authorityError('B3 issued-command source authority is invalid');
@@ -125,7 +153,7 @@ function validateSource(platform, source) {
   });
 }
 
-export function createB3OrdinaryIssuedCommandClaimAuthority({
+function createB3OrdinaryIssuedCommandClaimAuthorityUnchecked({
   platform,
   source: rawSource,
   nextState,
@@ -153,7 +181,12 @@ export function createB3OrdinaryIssuedCommandClaimAuthority({
   });
 }
 
-export function validateB3OrdinaryIssuedCommandClaimAuthorityBytes({
+export function createB3OrdinaryIssuedCommandClaimAuthority(options) {
+  return withAuthorityInputBoundary(() =>
+    createB3OrdinaryIssuedCommandClaimAuthorityUnchecked(options));
+}
+
+function validateB3OrdinaryIssuedCommandClaimAuthorityBytesUnchecked({
   bytes,
   platform,
   source: rawSource,
@@ -179,7 +212,12 @@ export function validateB3OrdinaryIssuedCommandClaimAuthorityBytes({
   return expected;
 }
 
-export function createB3GenericConsumptionClaimAuthority({
+export function validateB3OrdinaryIssuedCommandClaimAuthorityBytes(options) {
+  return withAuthorityInputBoundary(() =>
+    validateB3OrdinaryIssuedCommandClaimAuthorityBytesUnchecked(options));
+}
+
+function createB3GenericConsumptionClaimAuthorityUnchecked({
   platform,
   source: rawSource,
 }) {
@@ -204,7 +242,12 @@ export function createB3GenericConsumptionClaimAuthority({
   });
 }
 
-export function validateB3GenericConsumptionClaimAuthorityBytes({
+export function createB3GenericConsumptionClaimAuthority(options) {
+  return withAuthorityInputBoundary(() =>
+    createB3GenericConsumptionClaimAuthorityUnchecked(options));
+}
+
+function validateB3GenericConsumptionClaimAuthorityBytesUnchecked({
   bytes,
   platform,
   source: rawSource,
@@ -227,14 +270,25 @@ export function validateB3GenericConsumptionClaimAuthorityBytes({
   return expected;
 }
 
-export function createB3PreparedIssuedCommandAuthority({ platform, command }) {
-  return createB3IssuedCommandStateAuthority({ platform, command, state: 'prepared' });
+export function validateB3GenericConsumptionClaimAuthorityBytes(options) {
+  return withAuthorityInputBoundary(() =>
+    validateB3GenericConsumptionClaimAuthorityBytesUnchecked(options));
 }
 
-export function validateB3PreparedIssuedCommandAuthorityBytes({ bytes, platform }) {
-  return validateB3IssuedCommandStateAuthorityBytes({
-    bytes,
-    platform,
-    expectedState: 'prepared',
+export function createB3PreparedIssuedCommandAuthority(options) {
+  return withAuthorityInputBoundary(() => {
+    const { platform, command } = options;
+    return createB3IssuedCommandStateAuthority({ platform, command, state: 'prepared' });
+  });
+}
+
+export function validateB3PreparedIssuedCommandAuthorityBytes(options) {
+  return withAuthorityInputBoundary(() => {
+    const { bytes, platform } = options;
+    return validateB3IssuedCommandStateAuthorityBytes({
+      bytes,
+      platform,
+      expectedState: 'prepared',
+    });
   });
 }

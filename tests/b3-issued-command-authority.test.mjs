@@ -65,6 +65,13 @@ function canonicalBytes(value) {
   return Buffer.from(canonicaliseB3ProofValue(value), 'utf8');
 }
 
+function assertIssuedCommandInvalid(operation) {
+  assert.throws(operation, (error) => {
+    assert.equal(error?.code, 'b3_issued_command_invalid');
+    return true;
+  });
+}
+
 test('pure issued-command authority retains every schema-v3 state record literal', () => {
   for (const [state, recordSha256] of Object.entries(RECORD_HASHES)) {
     const record = createB3IssuedCommandStateAuthority({
@@ -159,4 +166,41 @@ test('generic-consumption authority has one closed domain-separated literal', ()
       platform: 'ios', command: COMMAND, state: 'restart-required',
     }),
   }), /generic-consumption|state|invalid/i);
+});
+
+test('pure authority normalises malformed bytes and nested launch commands', () => {
+  const prepared = createB3IssuedCommandStateAuthority({
+    platform: 'ios', command: COMMAND, state: 'prepared',
+  });
+  for (const bytes of [Buffer.from('{', 'utf8'), Buffer.alloc(0)]) {
+    assertIssuedCommandInvalid(() => validateB3IssuedCommandStateAuthorityBytes({
+      bytes,
+      platform: 'ios',
+      expectedState: 'prepared',
+    }));
+    assertIssuedCommandInvalid(() => validateB3OrdinaryIssuedCommandClaimAuthorityBytes({
+      bytes,
+      platform: 'ios',
+      source: prepared,
+    }));
+    assertIssuedCommandInvalid(() => validateB3GenericConsumptionClaimAuthorityBytes({
+      bytes,
+      platform: 'ios',
+      source: prepared,
+    }));
+  }
+
+  const malformedCommand = { ...COMMAND, challengeSha256: 'not-a-hash' };
+  assertIssuedCommandInvalid(() => createB3IssuedCommandStateAuthority({
+    platform: 'ios', command: malformedCommand, state: 'prepared',
+  }));
+  assertIssuedCommandInvalid(() => createB3OrdinaryIssuedCommandClaimAuthority({
+    platform: 'ios',
+    source: { ...prepared, command: malformedCommand },
+    nextState: 'launching',
+  }));
+  assertIssuedCommandInvalid(() => createB3GenericConsumptionClaimAuthority({
+    platform: 'ios',
+    source: { ...prepared, command: malformedCommand },
+  }));
 });

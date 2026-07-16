@@ -87,7 +87,7 @@ async function evidenceDirectory(root) {
   return { canonicalRoot, evidence: current };
 }
 
-function buildArchiveAuthority({ platform, issued, buildAuthority }) {
+function buildArchiveBinding({ platform, issued, buildAuthority }) {
   const command = issued?.command;
   if (!Object.hasOwn(PLATFORM, platform) || command?.platform !== PLATFORM[platform] ||
       !HASH.test(issued?.commandSha256 ?? '') || !UUID_V4.test(command.captureId ?? '') ||
@@ -99,8 +99,7 @@ function buildArchiveAuthority({ platform, issued, buildAuthority }) {
       command.applicationFingerprint !== buildAuthority.applicationFingerprint) {
     throw archiveError('B3 abandoned-capture archive authority is invalid');
   }
-  const unsigned = {
-    schemaVersion: 1,
+  return Object.freeze({
     platform,
     captureId: command.captureId,
     commandSha256: issued.commandSha256,
@@ -108,6 +107,17 @@ function buildArchiveAuthority({ platform, issued, buildAuthority }) {
     previousObservationSha256: command.previousObservationSha256,
     testedApplicationCommit: command.testedApplicationCommit,
     applicationFingerprint: command.applicationFingerprint,
+  });
+}
+
+function buildArchiveAuthority({ binding, observationJournalSnapshotSha256 }) {
+  if (!HASH.test(observationJournalSnapshotSha256 ?? '')) {
+    throw archiveError('B3 abandoned-capture observation journal authority is invalid');
+  }
+  const unsigned = {
+    schemaVersion: 2,
+    ...binding,
+    observationJournalSnapshotSha256,
   };
   return Object.freeze({
     ...unsigned,
@@ -120,12 +130,13 @@ function validateAuthority(bytes, expected) {
   const unsigned = value && Object.fromEntries(Object.entries(value).filter(
     ([key]) => key !== 'authoritySha256',
   ));
-  if (!value || Object.keys(value).length !== 9 || value.schemaVersion !== 1 ||
+  if (!value || Object.keys(value).length !== 10 || value.schemaVersion !== 2 ||
       !Object.hasOwn(PLATFORM, value.platform) || !UUID_V4.test(value.captureId ?? '') ||
       !HASH.test(value.commandSha256 ?? '') || !Number.isSafeInteger(value.expectedSequence) ||
       value.expectedSequence < 1 || !HASH.test(value.previousObservationSha256 ?? '') ||
       !COMMIT.test(value.testedApplicationCommit ?? '') ||
       !HASH.test(value.applicationFingerprint ?? '') ||
+      !HASH.test(value.observationJournalSnapshotSha256 ?? '') ||
       Object.entries(expected).some(([key, expectedValue]) => value[key] !== expectedValue) ||
       value.authoritySha256 !== sha256(Buffer.from(canonicaliseB3ProofValue(unsigned), 'utf8')) ||
       canonicaliseB3ProofValue(value) !== bytes.toString('utf8')) {
@@ -149,6 +160,11 @@ export async function readB3AbandonedCaptureArchive({
   const archiveRoot = await readPrivateDirectory(
     resolve(evidence, `${platform}-abandoned-captures`),
   );
+  const archiveEntries = await readdir(archiveRoot, { withFileTypes: true });
+  if (archiveEntries.length > MAXIMUM_ARCHIVES || archiveEntries.some((entry) =>
+    !entry.isDirectory() || !HASH.test(entry.name))) {
+    throw archiveError('B3 abandoned-capture archive generation policy is invalid');
+  }
   const archive = await readPrivateDirectory(resolve(archiveRoot, commandSha256));
   const authorityPath = resolve(archive, 'authority.json');
   await reconcileAuthorityTemporaries({
@@ -166,6 +182,13 @@ export async function readB3AbandonedCaptureArchive({
       applicationFingerprint: buildAuthority.applicationFingerprint,
     },
   );
+  await validateArchiveContents({
+    root,
+    archive,
+    platform,
+    authority,
+    buildAuthority,
+  });
   return Object.freeze({
     restarted: true,
     abandonedCaptureId: authority.captureId,
@@ -205,6 +228,80 @@ async function readRegularPrivateFile(
     }
     return bytes;
   } finally { await handle.close(); }
+}
+
+async function validateArchiveContents({
+  root,
+  archive,
+  platform,
+  authority,
+  buildAuthority,
+}) {
+  const entries = await readdir(archive, { withFileTypes: true });
+  const expectedEntries = Object.freeze([
+    'authority.json',
+    'checkpoint',
+    'derived',
+    'observations',
+  ]);
+  const names = entries.map(({ name }) => name).sort();
+  if (names.length !== expectedEntries.length ||
+      names.some((name, index) => name !== expectedEntries[index])) {
+    throw archiveError('B3 abandoned-capture archive layout is invalid');
+  }
+  for (const entry of entries) {
+    const expectedFile = entry.name === 'authority.json';
+    if ((expectedFile && !entry.isFile()) || (!expectedFile && !entry.isDirectory())) {
+      throw archiveError('B3 abandoned-capture archive entry policy is invalid');
+    }
+  }
+
+  const observations = await readPrivateDirectory(resolve(archive, 'observations'));
+  const journal = await validateB3PhysicalObservationJournalDirectory({
+    root,
+    directory: observations,
+    platform,
+    buildAuthority,
+    captureAuthority: {
+      captureId: authority.captureId,
+      expectedSequence: authority.expectedSequence,
+      previousObservationSha256: authority.previousObservationSha256,
+    },
+  });
+  if (journal.snapshotSha256 !== authority.observationJournalSnapshotSha256) {
+    throw archiveError('B3 abandoned-capture observation journal snapshot differs');
+  }
+
+  const checkpoint = await readPrivateDirectory(resolve(archive, 'checkpoint'));
+  const checkpointEntries = await readdir(checkpoint, { withFileTypes: true });
+  if (checkpointEntries.length > MAXIMUM_EVIDENCE_ENTRIES ||
+      checkpointEntries.some((entry) => !entry.isFile() || !CHECKPOINT_NAME.test(entry.name))) {
+    throw archiveError('B3 abandoned-capture checkpoint archive entry policy is invalid');
+  }
+  for (const entry of checkpointEntries) {
+    const retained = validateB3CaptureCheckpointBytes({
+      bytes: await readRegularPrivateFile(resolve(checkpoint, entry.name), 128 * 1024),
+      platform,
+    });
+    const revision = /\.revision-(?<revision>[0-9]{8})\.json$/u.exec(entry.name);
+    if (retained.captureId !== authority.captureId ||
+        retained.testedApplicationCommit !== authority.testedApplicationCommit ||
+        retained.applicationFingerprint !== authority.applicationFingerprint ||
+        (revision && retained.checkpointRevision !== Number(revision.groups.revision))) {
+      throw archiveError('B3 abandoned-capture checkpoint archive authority differs');
+    }
+  }
+
+  const derived = await readPrivateDirectory(resolve(archive, 'derived'));
+  const derivedEntries = await readdir(derived, { withFileTypes: true });
+  const permittedDerived = new Set(CAPTURE_BOUND_FILES[platform]);
+  if (derivedEntries.length > permittedDerived.size || derivedEntries.some((entry) =>
+    !entry.isFile() || !permittedDerived.has(entry.name))) {
+    throw archiveError('B3 abandoned-capture derived archive entry policy is invalid');
+  }
+  for (const entry of derivedEntries) {
+    await readRegularPrivateFile(resolve(derived, entry.name), 128 * 1024);
+  }
 }
 
 async function reconcileAuthorityTemporaries({ evidence, archive, path, commandSha256 }) {
@@ -437,8 +534,16 @@ async function moveDirectoryOnce({
       (retained.mode & 0o777) !== 0o700) {
     throw archiveError('B3 abandoned-capture observation archive is invalid');
   }
+  const journal = await validateB3PhysicalObservationJournalDirectory({
+    root,
+    directory: destination,
+    platform,
+    buildAuthority,
+    captureAuthority,
+  });
   await syncDirectory(sourceParent);
   await syncDirectory(destinationParent);
+  return journal;
 }
 
 async function moveFileOnce({ source, destination, sourceParent, destinationParent }) {
@@ -561,9 +666,9 @@ async function reconcileCheckpointTemporaries({
 }
 
 export async function archiveB3AbandonedCapture({ root, platform, issued, buildAuthority }) {
-  const authority = buildArchiveAuthority({ platform, issued, buildAuthority });
+  const binding = buildArchiveBinding({ platform, issued, buildAuthority });
   const { evidence } = await evidenceDirectory(root);
-  await reconcileCheckpointTemporaries({ evidence, platform, authority });
+  await reconcileCheckpointTemporaries({ evidence, platform, authority: binding });
   const archiveRoot = await ensurePrivateDirectory(
     resolve(evidence, `${platform}-abandoned-captures`),
   );
@@ -578,19 +683,23 @@ export async function archiveB3AbandonedCapture({ root, platform, issued, buildA
   }
   const archive = await ensurePrivateDirectory(resolve(archiveRoot, issued.commandSha256));
 
-  await moveDirectoryOnce({
+  const journal = await moveDirectoryOnce({
     root,
     platform,
     buildAuthority,
     captureAuthority: {
-      captureId: authority.captureId,
-      expectedSequence: authority.expectedSequence,
-      previousObservationSha256: authority.previousObservationSha256,
+      captureId: binding.captureId,
+      expectedSequence: binding.expectedSequence,
+      previousObservationSha256: binding.previousObservationSha256,
     },
     source: resolve(evidence, `${platform}-observations`),
     destination: resolve(archive, 'observations'),
     sourceParent: evidence,
     destinationParent: archive,
+  });
+  const authority = buildArchiveAuthority({
+    binding,
+    observationJournalSnapshotSha256: journal.snapshotSha256,
   });
   const retainedAuthority = await retainAuthority({ evidence, archive, authority });
 
@@ -639,6 +748,13 @@ export async function archiveB3AbandonedCapture({ root, platform, issued, buildA
   }
   await syncDirectory(archiveRoot);
   await syncDirectory(archive);
+  await validateArchiveContents({
+    root,
+    archive,
+    platform,
+    authority: retainedAuthority,
+    buildAuthority,
+  });
   return Object.freeze({
     restarted: true,
     abandonedCaptureId: retainedAuthority.captureId,

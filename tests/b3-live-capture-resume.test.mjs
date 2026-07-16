@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import {
-  link, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile,
+  link, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, symlink, writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -40,6 +40,7 @@ import {
   clearB3IssuedCommand,
   persistB3IssuedCommand,
   readB3IssuedCommand,
+  readB3IssuedCommandRecoverySuccessor,
   transitionB3IssuedCommand,
 } from '../scripts/lib/b3-issued-command.mjs';
 import { reconcileB3CaptureCheckpointFromJournal } from '../scripts/lib/b3-host-capture-state.mjs';
@@ -1163,8 +1164,10 @@ test('ordinary ambiguity archives its exact capture and restarts from sequence o
     join(archiveRoot, abandoned.commandSha256, 'authority.json'),
     'utf8',
   ));
+  assert.equal(archiveAuthority.schemaVersion, 2);
   assert.equal(archiveAuthority.captureId, abandoned.command.captureId);
   assert.equal(archiveAuthority.commandSha256, abandoned.commandSha256);
+  assert.match(archiveAuthority.observationJournalSnapshotSha256, /^[0-9a-f]{64}$/u);
   assert.equal(await readFile(join(
     archiveRoot, abandoned.commandSha256, 'derived', 'ios-pending.json',
   ), 'utf8'), '{"stale":true}');
@@ -1289,6 +1292,222 @@ test('ambiguous capture restart is concurrent and crash-resumable without a seco
   assert.equal(resumed.restarted, true);
   await assert.rejects(readB3IssuedCommand({ root: crashRoot, platform: 'ios' }), /ENOENT|absent/i);
 });
+
+test('capture restart rejects a journal replaced after archive before consuming its command', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-post-archive-journal-replacement-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { retained } = await retainAmbiguousRestartGateWithJournal({ root });
+  const record = join(
+    root,
+    '.native-build/b3/evidence/ios-abandoned-captures',
+    retained.commandSha256,
+    'observations/00000001.json',
+  );
+
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+    afterArchive: async () => {
+      const replacement = `${record}.replacement`;
+      await writeFile(replacement, await readFile(record), { mode: 0o600 });
+      await rename(replacement, record);
+    },
+  }), /archive|journal|observation|snapshot|changed|differ/i);
+
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'restart-executing');
+  assert.equal((await readdir(join(record, '..'))).includes('00000001.json'), true);
+});
+
+test('archive lookup rejects extra, symbolic-link and external-hard-link observation records',
+  async (t) => {
+    const outside = await mkdtemp(join(tmpdir(), 'b3-hostile-archived-record-target-'));
+    const roots = [];
+    t.after(() => Promise.all([...roots, outside].map((path) =>
+      rm(path, { recursive: true, force: true }))));
+    const external = join(outside, 'external.json');
+    await writeFile(external, '{}', { mode: 0o600 });
+    const cases = [
+      ['extra', async (journal) => writeFile(join(journal, 'hostile.json'), '{}', {
+        mode: 0o600,
+      })],
+      ['symbolic-link', async (journal) => symlink(external, join(journal, '00000001.json'))],
+      ['external-hard-link', async (journal) => link(external, join(journal, '00000001.json'))],
+    ];
+
+    for (const [label, poison] of cases) {
+      const root = await mkdtemp(join(tmpdir(), `b3-hostile-archive-lookup-${label}-`));
+      roots.push(root);
+      const retained = await retainAmbiguousRestartGate({ root });
+      await recoverB3AmbiguousCaptureAfterReinstall({
+        root,
+        platform: 'ios',
+        enabled: true,
+        invocationCommandSha256: retained.commandSha256,
+        buildAuthority: BUILD_AUTHORITY,
+      });
+      const journal = join(
+        root,
+        '.native-build/b3/evidence/ios-abandoned-captures',
+        retained.commandSha256,
+        'observations',
+      );
+      await poison(journal);
+
+      await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+        root,
+        platform: 'ios',
+        enabled: false,
+        invocationCommandSha256: retained.commandSha256,
+        buildAuthority: BUILD_AUTHORITY,
+      }), /archive|journal|observation|entry|link|policy|snapshot/i);
+      await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+    }
+  });
+
+test('archive lookup rejects a semantically identical replaced observation record', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-replaced-archive-lookup-record-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { retained } = await retainAmbiguousRestartGateWithJournal({ root });
+  await recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  });
+  const record = join(
+    root,
+    '.native-build/b3/evidence/ios-abandoned-captures',
+    retained.commandSha256,
+    'observations/00000001.json',
+  );
+  const replacement = `${record}.replacement`;
+  await writeFile(replacement, await readFile(record), { mode: 0o600 });
+  await rename(replacement, record);
+
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: false,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  }), /archive|journal|observation|snapshot|changed|differ/i);
+});
+
+test('archive lookup revalidates the complete abandoned-generation root', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-invalid-archive-generation-root-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const retained = await retainAmbiguousRestartGate({ root });
+  await recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  });
+  await mkdir(join(
+    root,
+    '.native-build/b3/evidence/ios-abandoned-captures/hostile-generation',
+  ), { mode: 0o700 });
+
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: false,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  }), /archive|generation|entry|policy|layout/i);
+});
+
+test('a recovery helper adopts the same pinned command advanced by another helper', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-pinned-recovery-successor-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await retainAmbiguousRestartGate({ root });
+  const helperAPin = await readB3IssuedCommand({ root, platform: 'ios' });
+  const helperBPin = await readB3IssuedCommand({ root, platform: 'ios' });
+  assert.equal(helperAPin.state, 'restart-required');
+  assert.equal(helperBPin.recordSha256, helperAPin.recordSha256);
+
+  let releaseHelperA;
+  let signalArchived;
+  const helperAReleased = new Promise((resolveRelease) => { releaseHelperA = resolveRelease; });
+  const helperAArchived = new Promise((resolveArchived) => { signalArchived = resolveArchived; });
+  const helperA = recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: helperAPin.commandSha256,
+    invocationRecordSha256: helperAPin.recordSha256,
+    invocationState: helperAPin.state,
+    buildAuthority: BUILD_AUTHORITY,
+    afterArchive: async () => {
+      signalArchived();
+      await helperAReleased;
+    },
+  });
+  await helperAArchived;
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'restart-executing');
+
+  let helperB;
+  try {
+    helperB = await recoverB3AmbiguousCaptureAfterReinstall({
+      root,
+      platform: 'ios',
+      enabled: true,
+      invocationCommandSha256: helperBPin.commandSha256,
+      invocationRecordSha256: helperBPin.recordSha256,
+      invocationState: helperBPin.state,
+      buildAuthority: BUILD_AUTHORITY,
+    });
+  } finally {
+    releaseHelperA();
+    await helperA;
+  }
+  assert.equal(helperB.restarted, true);
+  assert.equal(helperB.commandSha256, helperBPin.commandSha256);
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+});
+
+test('recovery successor adoption accepts legal progress during immutable chain validation',
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), 'b3-recovery-successor-adoption-race-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const retained = await retainAmbiguousRestartGate({ root });
+    const pinned = await readB3IssuedCommand({ root, platform: 'ios' });
+    await transitionB3IssuedCommand({
+      root,
+      platform: 'ios',
+      command: retained.command,
+      expectedState: 'restart-required',
+      nextState: 'restart-executing',
+    });
+
+    const adopted = await readB3IssuedCommandRecoverySuccessor({
+      root,
+      platform: 'ios',
+      commandSha256: pinned.commandSha256,
+      recordSha256: pinned.recordSha256,
+      state: pinned.state,
+      afterCurrentRead: async (current) => {
+        assert.equal(current.state, 'restart-executing');
+        await transitionB3IssuedCommand({
+          root,
+          platform: 'ios',
+          command: current.command,
+          expectedState: 'restart-executing',
+          nextState: 'restart-complete',
+        });
+      },
+    });
+
+    assert.equal(adopted.commandSha256, pinned.commandSha256);
+    assert.equal(adopted.state, 'restart-complete');
+  });
 
 test('capture restart removes an authentic unpublished checkpoint revision temporary', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-restart-revision-temporary-'));

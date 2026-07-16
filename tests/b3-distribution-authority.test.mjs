@@ -63,6 +63,92 @@ function androidDeviceRunner(materialisePull) {
   };
 }
 
+function iosArtifactRunner({
+  signedCertificate = Buffer.from('signed-certificate'),
+  profileCertificates = [Buffer.from('signed-certificate')],
+  signedApplicationIdentifier = 'TEAM123456.uk.eugnel.ks2spelling',
+  signedTeamIdentifier = 'TEAM123456',
+  signedGetTaskAllow = 'true',
+  profileApplicationIdentifier = 'TEAM123456.uk.eugnel.ks2spelling',
+  profileApplicationIdentifierPrefix = 'TEAM123456',
+  profileTeamIdentifier = 'TEAM123456',
+} = {}) {
+  const infoValues = new Map([
+    ['B3Mode', 'B3SandboxProof'],
+    ['B3ProofKind', 'physical-live'],
+    ['B3Distribution', 'development'],
+    ['B3PublicSandboxOrigin', 'https://b3-gateway.eugnel.uk'],
+    ['B3WorkerName', 'ks2-spelling-b3-sandbox'],
+    ['B3TestedApplicationCommit', COMMIT],
+    ['B3ApplicationFingerprint', HASH],
+    ['CFBundleShortVersionString', '0.3.0-b3'],
+    ['CFBundleVersion', '19'],
+    ['CFBundleIdentifier', 'uk.eugnel.ks2spelling'],
+  ]);
+  const profileValues = new Map([
+    ['Entitlements.get-task-allow', 'true'],
+    ['Entitlements.application-identifier', profileApplicationIdentifier],
+    ['ApplicationIdentifierPrefix', '1'],
+    ['ApplicationIdentifierPrefix.0', profileApplicationIdentifierPrefix],
+    ['TeamIdentifier', '1'],
+    ['TeamIdentifier.0', profileTeamIdentifier],
+    ['DeveloperCertificates', String(profileCertificates.length)],
+  ].filter(([, value]) => value !== undefined && value !== null));
+  const signedEntitlementValues = new Map([
+    ['application-identifier', signedApplicationIdentifier],
+    ['com.apple.developer.team-identifier', signedTeamIdentifier],
+    ['get-task-allow', signedGetTaskAllow],
+  ].filter(([, value]) => value !== undefined && value !== null));
+  return async (command, args) => {
+    if (command.endsWith('/ditto')) {
+      const app = join(args.at(-1), 'Payload/KS2Spelling.app');
+      await mkdir(app, { recursive: true });
+      await writeFile(join(app, 'Info.plist'), 'fixture');
+      await writeFile(join(app, 'embedded.mobileprovision'), 'fixture');
+    } else if (command.endsWith('/codesign') && args.includes('--extract-certificates')) {
+      await writeFile(`${args[args.indexOf('--extract-certificates') + 1]}0`, signedCertificate, { mode: 0o600 });
+    } else if (command.endsWith('/codesign') && args.includes('--entitlements')) {
+      await writeFile(args[args.indexOf('--entitlements') + 1], 'fixture', { mode: 0o600 });
+    } else if (command.endsWith('/plutil')) {
+      const key = args[1];
+      const certificate = /^DeveloperCertificates\.(\d+)$/u.exec(key);
+      if (certificate) {
+        const value = profileCertificates[Number(certificate[1])];
+        return { exitCode: value ? 0 : 1, stdout: value?.toString('base64') ?? '', stderr: '' };
+      }
+      const path = args.at(-1);
+      const values = path.endsWith('signed-entitlements.plist')
+        ? signedEntitlementValues
+        : path.endsWith('profile.plist')
+          ? profileValues
+          : infoValues;
+      return { exitCode: values.has(key) ? 0 : 1, stdout: values.get(key) ?? '', stderr: '' };
+    }
+    return { exitCode: 0, stdout: '', stderr: '' };
+  };
+}
+
+async function createIosArtifactInspectorFixture(t, runnerOptions) {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-artifact-root-'));
+  const operator = await mkdtemp(join(tmpdir(), 'b3-ios-artifact-operator-'));
+  t.after(() => Promise.all([
+    rm(root, { recursive: true, force: true }),
+    rm(operator, { recursive: true, force: true }),
+  ]));
+  const ipa = join(operator, 'proof.ipa');
+  await writeFile(ipa, buildDeterministicZip([
+    { name: 'Payload/KS2Spelling.app/Info.plist', data: 'fixture' },
+    { name: 'Payload/KS2Spelling.app/embedded.mobileprovision', data: 'fixture' },
+  ]), { mode: 0o600 });
+  return {
+    ipa,
+    inspector: createDefaultB3DistributionInspectors({
+      root,
+      commandRunner: iosArtifactRunner(runnerOptions),
+    }).artifactInspector,
+  };
+}
+
 test('distribution preparation binds clean HEAD and fingerprint into authority and xcconfig only', async () => {
   const authority = buildB3DistributionAuthority({ commit: COMMIT, fingerprint: HASH, iosBuildNumber: '19', androidVersionCode: 19 });
   assert.deepEqual(authority, { schemaVersion: 1, testedApplicationCommit: COMMIT, applicationFingerprint: HASH, versionName: '0.3.0-b3', iosBuildNumber: '19', androidVersionCode: 19 });
@@ -283,6 +369,72 @@ test('default Android artefact inspector rejects an unsigned AAB before DEX insp
   });
   await assert.rejects(inspectors.artifactInspector({ platform: 'android', signedPath: aab }), /jarsigner|signature|command failed/i);
   assert.equal(dexCalls, 0);
+});
+
+test('default iOS artefact inspector rejects a development profile that does not contain the IPA signing certificate', async (t) => {
+  const { ipa, inspector } = await createIosArtifactInspectorFixture(t, {
+    signedCertificate: Buffer.from('ipa-signing-certificate'),
+    profileCertificates: [Buffer.from('unrelated-development-certificate')],
+  });
+
+  await assert.rejects(
+    inspector({ platform: 'ios', signedPath: ipa }),
+    /signing certificate.*provisioning profile|DeveloperCertificates/i,
+  );
+});
+
+test('default iOS artefact inspector rejects signed application-identifier authority for another bundle', async (t) => {
+  const { ipa, inspector } = await createIosArtifactInspectorFixture(t, {
+    signedApplicationIdentifier: 'TEAM123456.example.unrelated.app',
+  });
+
+  await assert.rejects(
+    inspector({ platform: 'ios', signedPath: ipa }),
+    /signed entitlements.*application-identifier|bundle identifier authority/i,
+  );
+});
+
+test('default iOS artefact inspector rejects a provisioning profile for another application', async (t) => {
+  const { ipa, inspector } = await createIosArtifactInspectorFixture(t, {
+    profileApplicationIdentifier: 'TEAM123456.example.unrelated.*',
+  });
+
+  await assert.rejects(
+    inspector({ platform: 'ios', signedPath: ipa }),
+    /provisioning profile application-identifier authority|bundle identifier authority/i,
+  );
+});
+
+test('default iOS artefact inspector rejects missing signed entitlement authority', async (t) => {
+  for (const [name, options] of [
+    ['application identifier', { signedApplicationIdentifier: null }],
+    ['team identifier', { signedTeamIdentifier: null }],
+    ['development entitlement', { signedGetTaskAllow: null }],
+  ]) {
+    await t.test(name, async (subtest) => {
+      const { ipa, inspector } = await createIosArtifactInspectorFixture(subtest, options);
+      await assert.rejects(
+        inspector({ platform: 'ios', signedPath: ipa }),
+        /distribution command failed|signed entitlements|application-identifier authority/i,
+      );
+    });
+  }
+});
+
+test('default iOS artefact inspector binds the IPA certificate and signed entitlements to its development profile', async (t) => {
+  const { ipa, inspector } = await createIosArtifactInspectorFixture(t, {
+    profileCertificates: [Buffer.from('unrelated-certificate'), Buffer.from('signed-certificate')],
+    profileApplicationIdentifier: 'TEAM123456.*',
+  });
+
+  const result = await inspector({ platform: 'ios', signedPath: ipa });
+
+  assert.equal(result.mode, 'development');
+  assert.equal(result.codeSigningCertificateSha256, '6924559b16d00710094957459484a50df1d34e77330c031aaf3cfe5b9a0821b3');
+  assert.equal(result.embeddedCommit, COMMIT);
+  assert.equal(result.embeddedFingerprint, HASH);
+  assert.equal(Object.hasOwn(result, 'signedApplicationIdentifier'), false);
+  assert.equal(Object.hasOwn(result, 'profileDeveloperCertificates'), false);
 });
 
 test('default iOS device inspector derives sandbox receipt proof outside app JSON', async (t) => {

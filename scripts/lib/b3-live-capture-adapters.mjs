@@ -48,6 +48,7 @@ import {
   clearB3IssuedCommand,
   persistB3IssuedCommand,
   readB3IssuedCommand,
+  readB3IssuedCommandRecoverySuccessor,
   transitionB3IssuedCommand,
 } from './b3-issued-command.mjs';
 import {
@@ -704,13 +705,28 @@ export async function recoverB3AmbiguousCaptureAfterReinstall({
       return false;
     }
   }
-  if (issued.commandSha256 !== invocationCommandSha256 ||
-      (exactInvocationRequired && (issued.recordSha256 !== invocationRecordSha256 ||
-        issued.state !== invocationState))) {
+  if (issued.commandSha256 !== invocationCommandSha256) {
     if (exactInvocationRequired) {
       throw captureError('B3 issued command changed after adapter invocation');
     }
     return false;
+  }
+  if (exactInvocationRequired && (issued.recordSha256 !== invocationRecordSha256 ||
+      issued.state !== invocationState)) {
+    try {
+      issued = await readB3IssuedCommandRecoverySuccessor({
+        root,
+        platform,
+        commandSha256: invocationCommandSha256,
+        recordSha256: invocationRecordSha256,
+        state: invocationState,
+      });
+    } catch (error) {
+      if (error?.code === 'b3_issued_command_invalid') {
+        throw captureError('B3 issued command changed after adapter invocation');
+      }
+      throw error;
+    }
   }
   if (issued.state === 'restart-required') {
     if (!enabled) return false;
@@ -731,6 +747,16 @@ export async function recoverB3AmbiguousCaptureAfterReinstall({
     buildAuthority,
   });
   await afterArchive();
+  // Re-open the retained archive through its strict lookup seam immediately
+  // before either advancing or consuming the command. This closes the gap in
+  // which a same-user mutation after the archive move could otherwise be
+  // accepted on the strength of authority.json alone.
+  await readB3AbandonedCaptureArchive({
+    root,
+    platform,
+    commandSha256: invocationCommandSha256,
+    buildAuthority,
+  });
   try {
     if (issued.state === 'restart-executing') {
       issued = await transitionB3IssuedCommand({

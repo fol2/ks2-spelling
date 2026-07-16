@@ -20,6 +20,7 @@ const MAX_SIGNED_ARCHIVE_BYTES = 512 * 1024 * 1024;
 const MAX_TOTAL_EXTRACTED_BYTES = 512 * 1024 * 1024;
 const MAX_IOS_DEVICE_RECORD_BYTES = 1024 * 1024;
 const MAX_IOS_SANDBOX_RECEIPT_BYTES = 1024 * 1024;
+const MAX_IOS_PROFILE_CERTIFICATES = 64;
 const MAX_ANDROID_APK_BYTES = MAX_SIGNED_ARCHIVE_BYTES;
 
 function fail(message) {
@@ -30,6 +31,18 @@ function fail(message) {
 
 function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+function decodeCanonicalBase64(value, label) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > (MAX_IOS_DEVICE_RECORD_BYTES * 2) ||
+      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) {
+    fail(`${label} is malformed`);
+  }
+  const bytes = Buffer.from(value, 'base64');
+  if (bytes.length === 0 || bytes.length > MAX_IOS_DEVICE_RECORD_BYTES || bytes.toString('base64') !== value) {
+    fail(`${label} is malformed`);
+  }
+  return bytes;
 }
 
 function sameFile(left, right) {
@@ -343,8 +356,62 @@ async function inspectIosArtifact({ bytes, copyPath, temporary, runner }) {
   const profile = resolve(app, 'embedded.mobileprovision');
   const profilePlist = resolve(temporary, 'profile.plist');
   await run(runner, '/usr/bin/security', ['cms', '-D', '-i', profile, '-o', profilePlist]);
-  const development = await run(runner, '/usr/bin/plutil', ['-extract', 'Entitlements.get-task-allow', 'raw', profilePlist]);
+  const development = await run(runner, '/usr/bin/plutil', [
+    '-extract', 'Entitlements.get-task-allow', 'raw', '-expect', 'bool', profilePlist,
+  ]);
   if (development !== 'true') fail('iOS IPA is not development signed');
+  const certificateCountText = await run(runner, '/usr/bin/plutil', [
+    '-extract', 'DeveloperCertificates', 'raw', '-expect', 'array', profilePlist,
+  ]);
+  const certificateCount = Number(certificateCountText);
+  if (!/^[1-9][0-9]*$/u.test(certificateCountText) || !Number.isSafeInteger(certificateCount) ||
+      certificateCount > MAX_IOS_PROFILE_CERTIFICATES) {
+    fail('iOS provisioning profile DeveloperCertificates authority is invalid');
+  }
+  const signingCertificateSha256 = sha256(certificate);
+  let signingCertificateInProfile = false;
+  for (let index = 0; index < certificateCount; index += 1) {
+    const profileCertificate = decodeCanonicalBase64(await run(runner, '/usr/bin/plutil', [
+      '-extract', `DeveloperCertificates.${String(index)}`, 'raw', '-expect', 'data', profilePlist,
+    ]), `iOS provisioning profile DeveloperCertificates.${String(index)}`);
+    signingCertificateInProfile ||= sha256(profileCertificate) === signingCertificateSha256;
+  }
+  if (!signingCertificateInProfile) fail('iOS IPA signing certificate is absent from provisioning profile DeveloperCertificates');
+  const signedEntitlements = resolve(temporary, 'signed-entitlements.plist');
+  await run(runner, '/usr/bin/codesign', [
+    '--display', '--entitlements', signedEntitlements, '--xml', app,
+  ]);
+  const [
+    signedApplicationIdentifier,
+    signedTeamIdentifier,
+    signedGetTaskAllow,
+    profileApplicationIdentifier,
+    applicationPrefixCount,
+    profileApplicationPrefix,
+    teamIdentifierCount,
+    profileTeamIdentifier,
+  ] = await Promise.all([
+    run(runner, '/usr/bin/plutil', ['-extract', 'application-identifier', 'raw', '-expect', 'string', signedEntitlements]),
+    run(runner, '/usr/bin/plutil', ['-extract', 'com.apple.developer.team-identifier', 'raw', '-expect', 'string', signedEntitlements]),
+    run(runner, '/usr/bin/plutil', ['-extract', 'get-task-allow', 'raw', '-expect', 'bool', signedEntitlements]),
+    run(runner, '/usr/bin/plutil', ['-extract', 'Entitlements.application-identifier', 'raw', '-expect', 'string', profilePlist]),
+    run(runner, '/usr/bin/plutil', ['-extract', 'ApplicationIdentifierPrefix', 'raw', '-expect', 'array', profilePlist]),
+    run(runner, '/usr/bin/plutil', ['-extract', 'ApplicationIdentifierPrefix.0', 'raw', '-expect', 'string', profilePlist]),
+    run(runner, '/usr/bin/plutil', ['-extract', 'TeamIdentifier', 'raw', '-expect', 'array', profilePlist]),
+    run(runner, '/usr/bin/plutil', ['-extract', 'TeamIdentifier.0', 'raw', '-expect', 'string', profilePlist]),
+  ]);
+  const expectedBundleId = 'uk.eugnel.ks2spelling';
+  const exactApplicationIdentifier = `${profileApplicationPrefix}.${expectedBundleId}`;
+  if (bundleId !== expectedBundleId || signedGetTaskAllow !== 'true' ||
+      applicationPrefixCount !== '1' || teamIdentifierCount !== '1' ||
+      !/^[A-Z0-9]{10}$/u.test(profileApplicationPrefix) ||
+      !/^[A-Z0-9]{10}$/u.test(profileTeamIdentifier) ||
+      signedTeamIdentifier !== profileTeamIdentifier ||
+      signedApplicationIdentifier !== exactApplicationIdentifier ||
+      (profileApplicationIdentifier !== exactApplicationIdentifier &&
+        profileApplicationIdentifier !== `${profileApplicationPrefix}.*`)) {
+    fail('iOS signed entitlements and provisioning profile application-identifier authority differ from the bundle identifier authority');
+  }
   return {
     mode: 'development',
     signedIpaSha256: sha256(bytes),
@@ -352,7 +419,7 @@ async function inspectIosArtifact({ bytes, copyPath, temporary, runner }) {
       mode, proofKind, platform: 'ios', distribution, publicSandboxOrigin, workerName, bundleId,
       commit, fingerprint, versionName, buildNumber: build,
     }),
-    codeSigningCertificateSha256: sha256(certificate),
+    codeSigningCertificateSha256: signingCertificateSha256,
     embeddedCommit: commit,
     embeddedFingerprint: fingerprint,
     versionName,

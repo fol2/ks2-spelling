@@ -262,13 +262,21 @@ export async function validateB3PhysicalObservationJournalDirectory({
     }),
     entries: Object.freeze(retainedEntries),
   });
+  const snapshotSha256 = sha256(Buffer.concat([
+    Buffer.from('ks2-spelling:b3-physical-observation-journal-snapshot:v1\0', 'utf8'),
+    Buffer.from(canonicaliseB3ProofValue(snapshot), 'utf8'),
+  ]));
   validatedJournalSnapshots.add(snapshot);
   if (expectedSnapshot !== undefined &&
       (!validatedJournalSnapshots.has(expectedSnapshot) ||
        !sameJournalSnapshot(snapshot, expectedSnapshot))) {
     throw journalError('B3 physical observation journal changed while being archived');
   }
-  return Object.freeze({ records: Object.freeze(records), snapshot });
+  return Object.freeze({
+    records: Object.freeze(records),
+    snapshot,
+    snapshotSha256,
+  });
 }
 
 async function validateRecordBytes({ bytes, platform, sequence, buildAuthority, previousObservation }) {

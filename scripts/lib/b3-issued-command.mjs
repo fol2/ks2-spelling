@@ -34,6 +34,15 @@ const TRANSITIONS = new Set([
   'reinstall-authorised:reinstall-launching',
   'reinstall-launching:launched',
 ]);
+const RECOVERY_SUCCESSOR_TRANSITIONS = Object.freeze({
+  'restart-required': Object.freeze([
+    Object.freeze(['restart-required', 'restart-executing']),
+    Object.freeze(['restart-executing', 'restart-complete']),
+  ]),
+  'restart-executing': Object.freeze([
+    Object.freeze(['restart-executing', 'restart-complete']),
+  ]),
+});
 const COMMAND_CHAIN_ROOT_NAME = 'command-chain-root.json';
 const BASE_NAME = /^(?<hash>[0-9a-f]{64})\.base\.json$/u;
 const NEXT_COMMAND_NAME = /^(?<hash>[0-9a-f]{64})\.next-command\.json$/u;
@@ -534,6 +543,49 @@ export async function readB3IssuedCommand({ root, platform }) {
   const active = await activeCommands({ evidence, ledger, platform });
   if (active.length === 0) throw issuedError('B3 issued command is absent', 'ENOENT');
   return active[0];
+}
+
+export async function readB3IssuedCommandRecoverySuccessor({
+  root,
+  platform,
+  commandSha256,
+  recordSha256,
+  state,
+  afterCurrentRead = async () => {},
+}) {
+  if (!Object.hasOwn(RECOVERY_SUCCESSOR_TRANSITIONS, state) || !HASH.test(commandSha256 ?? '') ||
+      !HASH.test(recordSha256 ?? '') || typeof afterCurrentRead !== 'function') {
+    throw issuedError('B3 issued-command recovery predecessor authority is invalid');
+  }
+  const current = await readB3IssuedCommand({ root, platform });
+  const predecessor = record(platform, current.command, state);
+  const transitions = RECOVERY_SUCCESSOR_TRANSITIONS[state];
+  const allowedStates = transitions.map(([, nextState]) => nextState);
+  if (current.commandSha256 !== commandSha256 || predecessor.recordSha256 !== recordSha256 ||
+      !allowedStates.includes(current.state)) {
+    throw issuedError('B3 issued command is not a recovery successor of the pinned invocation');
+  }
+  await afterCurrentRead(current);
+
+  // `existingRevisionOnly` verifies each immutable successor claim without
+  // creating one. Walking every edge up to the already-derived current state
+  // makes adoption depend on the retained ledger chain, not state names alone.
+  let adopted = current;
+  for (const [expectedState, nextState] of transitions) {
+    adopted = await transitionB3IssuedCommand({
+      root,
+      platform,
+      command: current.command,
+      expectedState,
+      nextState,
+      existingRevisionOnly: true,
+    });
+    if (nextState === adopted.state) break;
+  }
+  if (adopted.commandSha256 !== commandSha256 || !allowedStates.includes(adopted.state)) {
+    throw issuedError('B3 issued-command recovery successor changed during adoption');
+  }
+  return adopted;
 }
 
 export async function persistB3IssuedCommand({

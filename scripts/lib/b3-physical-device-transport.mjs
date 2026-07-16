@@ -585,6 +585,17 @@ function deviceIdentifier(platform, env) {
   return value;
 }
 
+function boundedTransportTimeout(options) {
+  if (options === undefined || (options && Object.keys(options).length === 0)) return 30_000;
+  if (!options || Object.getPrototypeOf(options) !== Object.prototype ||
+      Object.keys(options).length !== 1 || !Object.hasOwn(options, 'timeoutMs') ||
+      !Number.isSafeInteger(options.timeoutMs) || options.timeoutMs < 1 ||
+      options.timeoutMs > 30_000) {
+    throw transportError('B3 physical-device operation timeout is invalid');
+  }
+  return options.timeoutMs;
+}
+
 export function createB3PhysicalDeviceTransport({
   root,
   platform,
@@ -599,8 +610,9 @@ export function createB3PhysicalDeviceTransport({
   const authority = PLATFORM[platform];
   let retainedIosProcessIdentity = null;
 
-  async function launch(rawCommand) {
+  async function launch(rawCommand, options) {
     const command = validateB3ProofLaunchCommand(rawCommand);
+    const timeoutMs = boundedTransportTimeout(options);
     if (command.platform !== authority.commandPlatform) {
       throw transportError('B3 physical-device command platform differs from transport platform');
     }
@@ -618,7 +630,7 @@ export function createB3PhysicalDeviceTransport({
           'devicectl', 'device', 'process', 'launch', '--device', id,
           '--terminate-existing', '--json-output', jsonOutput,
           BUNDLE_ID, '--b3-proof-command-v1', encoded,
-        ], { cwd: root, timeoutMs: 30_000 });
+        ], { cwd: root, timeoutMs });
         const result = await readDeviceCtlJson(jsonOutput, 'launch');
         if (Object.keys(result).some((key) => !['processIdentifier', 'deviceIdentifier'].includes(key)) ||
             !Object.hasOwn(result, 'processIdentifier') ||
@@ -630,7 +642,7 @@ export function createB3PhysicalDeviceTransport({
         await runText(runner, 'xcrun', [
           'devicectl', 'device', 'info', 'processes', '--device', id,
           '--json-output', processesOutput,
-        ], { cwd: root, timeoutMs: 30_000 });
+        ], { cwd: root, timeoutMs });
         retainedIosProcessIdentity = iosProcessIdentity(
           await readDeviceCtlJson(processesOutput, 'launch process inventory'),
           launchedProcessIdentifier,
@@ -648,12 +660,13 @@ export function createB3PhysicalDeviceTransport({
       await runText(runner, 'adb', [
         '-s', id, 'shell', 'am', 'start', '-S', '-W', '-n', ANDROID_COMPONENT,
         '--es', `${BUNDLE_ID}.B3_PROOF_COMMAND_V1`, encoded,
-      ], { cwd: root, timeoutMs: 30_000 });
+      ], { cwd: root, timeoutMs });
     }
   }
 
-  async function pullObservation() {
+  async function pullObservation(options) {
     const id = deviceIdentifier(platform, env);
+    const timeoutMs = boundedTransportTimeout(options);
     const parent = await ensurePrivateTransportDirectory(root, platform);
     const temporary = await mkdtemp(resolve(parent, 'pull-'));
     const destination = resolve(temporary, 'b3-proof-observation-v1.json');
@@ -665,11 +678,11 @@ export function createB3PhysicalDeviceTransport({
           '--destination', destination,
           '--domain-type', 'appDataContainer',
           '--domain-identifier', BUNDLE_ID,
-        ], { cwd: root, timeoutMs: 30_000 });
+        ], { cwd: root, timeoutMs });
       } else {
         await runText(runner, 'adb', [
           '-s', id, 'pull', ANDROID_OBSERVATION_PATH, destination,
-        ], { cwd: root, timeoutMs: 30_000 });
+        ], { cwd: root, timeoutMs });
       }
       return await readPulledObservation(destination);
     } finally {

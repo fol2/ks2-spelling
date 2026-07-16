@@ -486,24 +486,32 @@ test('host capture polls past a stale fixed-path observation and retains only co
     Buffer.from(canonicaliseB3ProofValue(value), 'utf8'));
   let launches = 0;
   let waits = 0;
+  const operationTimeouts = [];
   const observation = await captureB3ValidatedDeviceObservation({
     root,
     platform: 'ios',
     command: expectedCommand,
     buildAuthority: BUILD_AUTHORITY,
     transport: {
-      async launch(value) {
+      async launch(value, options) {
         launches += 1;
+        operationTimeouts.push(options.timeoutMs);
         assert.deepEqual(value, expectedCommand);
       },
-      async pullObservation() { return pulls.shift(); },
+      async pullObservation(options) {
+        operationTimeouts.push(options.timeoutMs);
+        return pulls.shift();
+      },
     },
     wait: async () => { waits += 1; },
     maximumPullAttempts: 3,
+    deadlineMs: 600_000,
+    monotonicClock: () => 580_000,
   });
   assert.equal(observation.observationSha256, expected.observationSha256);
   assert.equal(launches, 1);
   assert.equal(waits, 1);
+  assert.deepEqual(operationTimeouts, [20_000, 20_000, 20_000]);
   const records = await import('../scripts/lib/b3-physical-observation-journal.mjs')
     .then(({ readB3PhysicalObservationJournal }) =>
       readB3PhysicalObservationJournal({ root, platform: 'ios', buildAuthority: BUILD_AUTHORITY }));

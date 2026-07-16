@@ -778,6 +778,31 @@ test('Android transport uses explicit activity, fixed external pull and direct b
   await assert.rejects(invalid.captureScreenshot(), /PNG|screenshot/i);
 });
 
+test('Android transport applies the remaining slow-card deadline to launch and pull processes', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-android-deadline-transport-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const timeouts = [];
+  const observationBytes = Buffer.from('{"device":"observation"}', 'utf8');
+  const runner = async (_executable, args, options) => {
+    timeouts.push(options.timeoutMs);
+    if (args.includes('pull')) await writeFile(args.at(-1), observationBytes);
+    return { exitCode: 0, stdout: '', stderr: '' };
+  };
+  const transport = createB3PhysicalDeviceTransport({
+    root,
+    platform: 'android',
+    env: { B3_ANDROID_PHYSICAL_DEVICE_ID: 'R5CT1234ABC' },
+    runner,
+  });
+  await transport.launch(command('android-play-physical'), { timeoutMs: 12_345 });
+  assert.deepEqual(await transport.pullObservation({ timeoutMs: 6_789 }), observationBytes);
+  assert.deepEqual(timeouts, [12_345, 6_789]);
+  await assert.rejects(
+    transport.launch(command('android-play-physical'), { timeoutMs: 30_001 }),
+    /timeout/i,
+  );
+});
+
 test('device inspection derives bounded physical model and OS from platform tools', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-device-inspection-'));
   t.after(() => rm(root, { recursive: true, force: true }));

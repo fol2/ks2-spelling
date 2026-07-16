@@ -232,6 +232,24 @@ test('iOS capture owns exact scenario order, learner redaction and scope-before-
   }), /run token rejected/);
   assert.equal(primitiveCalls, 0);
 
+  const crossAuthorityDraft = cloudflareDeploymentDraft();
+  crossAuthorityDraft.testedApplicationCommit = 'c'.repeat(40);
+  let crossAuthorityRecoveryCalls = 0;
+  let crossAuthorityLaterCalls = 0;
+  await assert.rejects(captureB3IosEvidenceWithPrimitives({
+    approvalFile: '/operator/approval.json', runToken: 'a'.repeat(64),
+    approvedScope: 'apple-sandbox-history-refund', deploymentDraft: crossAuthorityDraft,
+    primitives: {
+      ...primitives,
+      inspectDistribution: async () => platform.distribution,
+      recoverAmbiguousCapture: async () => { crossAuthorityRecoveryCalls += 1; },
+      inspectSyntheticLearners: async () => { crossAuthorityLaterCalls += 1; },
+    },
+    authorityGate: async () => {},
+  }), /distribution.*Cloudflare.*authority/i);
+  assert.equal(crossAuthorityRecoveryCalls, 0);
+  assert.equal(crossAuthorityLaterCalls, 0);
+
   const invalidDraft = structuredClone(deploymentDraft);
   invalidDraft.worker.deploymentVersionId = invalidDraft.worker.deploymentVersionId.toUpperCase();
   await assert.rejects(captureB3IosEvidenceWithPrimitives({
@@ -320,6 +338,28 @@ test('iOS wrapper verifies the installed distribution before initial ARM_CAPTURE
     },
   }), /distribution authority differs/i);
   assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state, 'restart-required');
+
+  const mismatchedDraft = cloudflareDeploymentDraft();
+  mismatchedDraft.applicationFingerprint = 'c'.repeat(64);
+  await assert.rejects(captureB3IosEvidenceWithPrimitives({
+    root,
+    approvalFile: '/operator/approval.json',
+    runToken: 'a'.repeat(64),
+    approvedScope: 'apple-sandbox-history-refund',
+    deploymentDraft: mismatchedDraft,
+    authorityGate: async () => {},
+    primitives: {
+      ...defaultAdapter,
+      inspectDistribution: async () => platformEvidence().distribution,
+    },
+  }), /distribution.*Cloudflare.*authority/i);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state, 'restart-required');
+  await assert.rejects(readFile(join(
+    root,
+    '.native-build/b3/evidence/ios-abandoned-captures',
+    retained.commandSha256,
+    'authority.json',
+  )), /ENOENT|absent/i);
 
   await assert.rejects(captureB3IosEvidenceWithPrimitives({
     root,

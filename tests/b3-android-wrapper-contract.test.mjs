@@ -136,6 +136,25 @@ test('Android capture owns exact scenario order, learner redaction and scope-bef
     approvalFile: '/operator/approval.json', runToken: 'a'.repeat(64), approvedScope: 'apple-sandbox-history-refund',
     cloudflare: cloudflareEvidence(), primitives, authorityGate: async () => {},
   }), /scope/i);
+
+  const crossAuthorityCloudflare = cloudflareEvidence();
+  crossAuthorityCloudflare.applicationFingerprint = 'c'.repeat(64);
+  let crossAuthorityRecoveryCalls = 0;
+  let crossAuthorityLaterCalls = 0;
+  await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
+    approvalFile: '/operator/approval.json', runToken: 'a'.repeat(64),
+    approvedScope: 'google-test-track-refund-revoke',
+    cloudflare: crossAuthorityCloudflare,
+    primitives: {
+      ...primitives,
+      inspectDistribution: async () => platform.distribution,
+      recoverAmbiguousCapture: async () => { crossAuthorityRecoveryCalls += 1; },
+      inspectSyntheticLearners: async () => { crossAuthorityLaterCalls += 1; },
+    },
+    authorityGate: async () => {},
+  }), /distribution.*Cloudflare.*authority/i);
+  assert.equal(crossAuthorityRecoveryCalls, 0);
+  assert.equal(crossAuthorityLaterCalls, 0);
 });
 
 test('Android capture validates final Cloudflare authority before every physical primitive', async () => {
@@ -216,6 +235,43 @@ test('Android default slow-card controller polls one fresh process until delayed
   assert.equal(await controller.finish(authority), authority);
 });
 
+test('Android slow-card deadline includes arming work before the first poll', async () => {
+  const platform = platformEvidence('android-play-physical');
+  const learners = (baseline) => {
+    const row = platform.learnerPreservation.find((entry) => entry.baseline === baseline);
+    return [
+      { learnerId: 'learner-a', nickname: 'Ada', digest: row.learnerAInitialSha256 },
+      { learnerId: 'learner-b', nickname: 'Ben', digest: row.learnerBInitialSha256 },
+    ];
+  };
+  let elapsed = 0;
+  let polls = 0;
+  const primitives = {
+    recoverAmbiguousCapture: async () => false,
+    inspectDistribution: async () => platform.distribution,
+    inspectSyntheticLearners: async ({ baseline }) => learners(baseline),
+    runScenario: async ({ scenario }) =>
+      platform.transitions.find((entry) => entry.scenario === scenario),
+    beginSlowCardScenario: async () => { elapsed = 600_000; },
+    pollSlowCardScenario: async () => { polls += 1; return 'pending'; },
+    finishSlowCardScenario: async () => { throw new Error('finish must not run'); },
+    beginUnacknowledgedScenario: async () => { throw new Error('later scenario must not run'); },
+    forceStopUnacknowledgedScenario: async () => {},
+    finishUnacknowledgedScenario: async () => {},
+    wait: async () => {},
+    inspectDeviceStore: async () => {},
+    inspectTerminalEvidence: async () => {},
+    inspectProofObservationChain: async () => {},
+    captureScreenshot: async () => {},
+  };
+  await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
+    approvalFile: '/operator/approval.json', runToken: 'a'.repeat(64),
+    approvedScope: 'google-test-track-refund-revoke', cloudflare: cloudflareEvidence(),
+    primitives, authorityGate: async () => {}, monotonicClock: () => elapsed,
+  }), /ten minutes|deadline|polling/i);
+  assert.equal(polls, 0);
+});
+
 test('Android wrapper verifies the installed distribution before initial ARM_CAPTURE recovery', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-android-initial-reinstall-preflight-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -287,6 +343,28 @@ test('Android wrapper verifies the installed distribution before initial ARM_CAP
     },
   }), /distribution authority differs/i);
   assert.equal((await readB3IssuedCommand({ root, platform: 'android' })).state, 'restart-required');
+
+  const mismatchedCloudflare = cloudflareEvidence();
+  mismatchedCloudflare.testedApplicationCommit = 'c'.repeat(40);
+  await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
+    root,
+    approvalFile: '/operator/approval.json',
+    runToken: 'a'.repeat(64),
+    approvedScope: 'google-test-track-refund-revoke',
+    cloudflare: mismatchedCloudflare,
+    authorityGate: async () => {},
+    primitives: {
+      ...defaultAdapter,
+      inspectDistribution: async () => platformEvidence('android-play-physical').distribution,
+    },
+  }), /distribution.*Cloudflare.*authority/i);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'android' })).state, 'restart-required');
+  await assert.rejects(readFile(join(
+    root,
+    '.native-build/b3/evidence/android-abandoned-captures',
+    retained.commandSha256,
+    'authority.json',
+  )), /ENOENT|absent/i);
 
   await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
     root,
@@ -411,6 +489,26 @@ test('slow-card polling is five seconds with a ten-minute ceiling and unack hold
   });
   assert.equal(result, 'approved');
   assert.deepEqual(delays, [5_000, 5_000]);
+
+  let elapsed = 0;
+  let deadlinePolls = 0;
+  const deadlineWaits = [];
+  await assert.rejects(pollSlowCard({
+    poll: async () => {
+      deadlinePolls += 1;
+      elapsed += 210_000;
+      return 'pending';
+    },
+    wait: async (milliseconds) => {
+      deadlineWaits.push(milliseconds);
+      elapsed += milliseconds;
+    },
+    monotonicClock: () => elapsed,
+    deadlineMs: 600_000,
+  }), /ten minutes|deadline|polling/i);
+  assert.equal(deadlinePolls, 3);
+  assert.deepEqual(deadlineWaits, [5_000, 5_000]);
+
   let released = false;
   await holdUnacknowledgedPurchase({ wait: async (milliseconds) => assert.equal(milliseconds, 5_000), release: async () => { released = true; } });
   assert.equal(released, true);

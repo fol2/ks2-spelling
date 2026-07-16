@@ -91,11 +91,11 @@ export async function captureB3IosEvidenceWithPrimitives({
   const inspectStoreKitTest = requirePrimitive(primitives, 'inspectStoreKitTest');
   const captureScreenshot = requirePrimitive(primitives, 'captureScreenshot');
   const distributionBeforeCapture = await inspectDistribution();
-  await recoverAmbiguousCapture();
   if (validatedDraft.testedApplicationCommit !== distributionBeforeCapture.embeddedCommit ||
       validatedDraft.applicationFingerprint !== distributionBeforeCapture.embeddedFingerprint) {
     throw new Error('B3 iOS distribution and Cloudflare deployment draft authority differ');
   }
+  await recoverAmbiguousCapture();
   const beforeInitial = assertB3SyntheticLearnerObservation(
     await inspectSyntheticLearners({ baseline: 'before-purchase', phase: 'initial' }),
     'before-purchase',

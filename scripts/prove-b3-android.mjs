@@ -12,6 +12,7 @@ import {
   assertB3SyntheticLearnerObservation,
   B3_ANDROID_SCENARIOS,
   b3PlatformGatewayFromCloudflare,
+  validateB3CloudflareEvidence,
   validateB3PlatformEvidence,
   validateB3PendingPlatformEvidence,
 } from './lib/b3-evidence.mjs';
@@ -27,6 +28,23 @@ const B3_OPERATOR_INSTRUCTION_CODES = new Set([
 ]);
 const POLL_INTERVAL_MS = 5_000;
 const POLL_LIMIT = 120;
+const POLL_BUDGET_MS = 600_000;
+
+function readMonotonicClock(clock) {
+  const value = clock();
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error('slow-card monotonic clock is invalid');
+  }
+  return value;
+}
+
+function slowCardDeadline(clock) {
+  const deadline = readMonotonicClock(clock) + POLL_BUDGET_MS;
+  if (!Number.isSafeInteger(Math.ceil(deadline))) {
+    throw new Error('slow-card polling deadline is invalid');
+  }
+  return deadline;
+}
 
 export function assertB3AndroidCaptureInput(value, { approvedScope, runToken, requireScope = false } = {}) {
   if (requireScope) assertB3RemoteMutationScope({ approvedScope, runToken, expectedScope: B3_ANDROID_REMOTE_SCOPE });
@@ -69,6 +87,7 @@ export async function captureB3AndroidEvidenceWithPrimitives({
   runToken,
   approvedScope,
   clock,
+  monotonicClock = () => performance.now(),
   gitRunner,
   authorityGate = validateB3LocalMutationAuthority,
   primitives,
@@ -77,7 +96,8 @@ export async function captureB3AndroidEvidenceWithPrimitives({
 } = {}) {
   assertB3RemoteMutationScope({ approvedScope, runToken, expectedScope: B3_ANDROID_REMOTE_SCOPE });
   await authorityGate({ approvalFile, runToken, requestedScope: B3_ANDROID_REMOTE_SCOPE, root, clock, gitRunner });
-  const gateway = b3PlatformGatewayFromCloudflare(cloudflare);
+  const validatedCloudflare = validateB3CloudflareEvidence(cloudflare);
+  const gateway = b3PlatformGatewayFromCloudflare(validatedCloudflare);
   const recoverAmbiguousCapture = requirePrimitive(primitives, 'recoverAmbiguousCapture');
   const inspectDistribution = requirePrimitive(primitives, 'inspectDistribution');
   const inspectDeviceStore = requirePrimitive(primitives, 'inspectDeviceStore');
@@ -87,6 +107,10 @@ export async function captureB3AndroidEvidenceWithPrimitives({
   const inspectProofObservationChain = requirePrimitive(primitives, 'inspectProofObservationChain');
   const captureScreenshot = requirePrimitive(primitives, 'captureScreenshot');
   const distributionBeforeCapture = await inspectDistribution();
+  if (validatedCloudflare.testedApplicationCommit !== distributionBeforeCapture.embeddedCommit ||
+      validatedCloudflare.applicationFingerprint !== distributionBeforeCapture.embeddedFingerprint) {
+    throw new Error('B3 Android distribution and Cloudflare authority differ');
+  }
   await recoverAmbiguousCapture();
   const beforeInitial = assertB3SyntheticLearnerObservation(
     await inspectSyntheticLearners({ baseline: 'before-purchase', phase: 'initial' }),
@@ -103,8 +127,15 @@ export async function captureB3AndroidEvidenceWithPrimitives({
       const poll = requirePrimitive(primitives, 'pollSlowCardScenario');
       const finish = requirePrimitive(primitives, 'finishSlowCardScenario');
       const wait = requirePrimitive(primitives, 'wait');
-      await begin(structuredClone(authority));
-      const terminalState = await pollSlowCard({ poll: () => poll(structuredClone(authority)), wait });
+      const deadlineMs = slowCardDeadline(monotonicClock);
+      const timing = Object.freeze({ deadlineMs, monotonicClock });
+      await begin(structuredClone(authority), timing);
+      const terminalState = await pollSlowCard({
+        poll: (budget) => poll(structuredClone(authority), budget),
+        wait,
+        monotonicClock,
+        deadlineMs,
+      });
       const expected = authority.scenario.endsWith('decline') ? 'declined' : 'approved';
       if (terminalState !== expected) throw new Error('slow-card terminal state differs from scenario authority');
       transition = await finish(structuredClone(authority));
@@ -180,15 +211,36 @@ export async function captureB3AndroidEvidenceWithPrimitives({
   return Object.freeze(pending);
 }
 
-export async function pollSlowCard({ poll, wait, maximumPolls = POLL_LIMIT }) {
-  if (typeof poll !== 'function' || typeof wait !== 'function' || maximumPolls !== POLL_LIMIT) {
+export async function pollSlowCard({
+  poll,
+  wait,
+  maximumPolls = POLL_LIMIT,
+  monotonicClock = () => performance.now(),
+  deadlineMs,
+}) {
+  if (typeof poll !== 'function' || typeof wait !== 'function' ||
+      typeof monotonicClock !== 'function' || maximumPolls !== POLL_LIMIT) {
     throw new Error('slow-card polling authority is invalid');
   }
+  const deadline = deadlineMs ?? slowCardDeadline(monotonicClock);
+  if (!Number.isFinite(deadline) || deadline <= readMonotonicClock(monotonicClock)) {
+    throw new Error('slow-card polling deadline is invalid');
+  }
   for (let count = 0; count < maximumPolls; count += 1) {
-    const state = await poll();
+    const beforePoll = readMonotonicClock(monotonicClock);
+    if (beforePoll >= deadline) break;
+    const state = await poll(Object.freeze({
+      deadlineMs: deadline,
+      monotonicClock,
+      remainingMs: deadline - beforePoll,
+    }));
+    const afterPoll = readMonotonicClock(monotonicClock);
+    if (afterPoll >= deadline) break;
     if (state !== 'pending') return state;
     if (count === maximumPolls - 1) break;
+    if (deadline - afterPoll <= POLL_INTERVAL_MS) break;
     await wait(POLL_INTERVAL_MS);
+    if (readMonotonicClock(monotonicClock) >= deadline) break;
   }
   throw new Error('slow-card polling exceeded ten minutes');
 }

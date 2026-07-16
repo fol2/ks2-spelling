@@ -354,6 +354,27 @@ function isIssuedCommandConflict(error) {
     error.message === 'B3 issued command conflicts with the pending command';
 }
 
+function remainingCaptureDeadline(deadlineMs, monotonicClock) {
+  if (deadlineMs === undefined) return null;
+  if (!Number.isFinite(deadlineMs) || typeof monotonicClock !== 'function') {
+    throw captureError('B3 slow-card capture deadline authority is invalid');
+  }
+  const now = monotonicClock();
+  if (!Number.isFinite(now) || now < 0 || now >= deadlineMs) {
+    throw captureError(
+      'B3 slow-card polling exceeded ten minutes',
+      'b3_slow_card_poll_timeout',
+    );
+  }
+  return deadlineMs - now;
+}
+
+function boundedOperationTimeout(deadlineMs, monotonicClock, maximumMs = 30_000) {
+  const remaining = remainingCaptureDeadline(deadlineMs, monotonicClock);
+  if (remaining === null) return undefined;
+  return Math.max(1, Math.min(maximumMs, Math.floor(remaining)));
+}
+
 export async function captureB3ValidatedDeviceObservation({
   root,
   platform,
@@ -362,6 +383,8 @@ export async function captureB3ValidatedDeviceObservation({
   transport,
   wait = (milliseconds) => new Promise((resolveWait) => setTimeout(resolveWait, milliseconds)),
   maximumPullAttempts = 120,
+  deadlineMs,
+  monotonicClock = () => performance.now(),
   afterIssue = async () => {},
   afterLaunch = async () => {},
   afterJournal = async () => {},
@@ -374,6 +397,7 @@ export async function captureB3ValidatedDeviceObservation({
       typeof transport?.pullObservation !== 'function' || typeof wait !== 'function' ||
       !Number.isSafeInteger(maximumPullAttempts) || maximumPullAttempts < 1 ||
       maximumPullAttempts > 120 ||
+      typeof monotonicClock !== 'function' ||
       typeof afterIssue !== 'function' || typeof afterLaunch !== 'function' ||
       typeof afterJournal !== 'function' || typeof beforeJournal !== 'function') {
     throw captureError('B3 validated device-observation capture options are invalid');
@@ -448,7 +472,9 @@ export async function captureB3ValidatedDeviceObservation({
   }
   if (ownsLaunchTransition) {
     try {
-      await transport.launch(command);
+      await transport.launch(command, deadlineMs === undefined ? undefined : {
+        timeoutMs: boundedOperationTimeout(deadlineMs, monotonicClock),
+      });
       await afterLaunch();
       issued = await transitionB3IssuedCommand({
         root, platform: name, command,
@@ -471,17 +497,25 @@ export async function captureB3ValidatedDeviceObservation({
   for (let attempt = 0; attempt < maximumPullAttempts; attempt += 1) {
     let bytes;
     try {
-      bytes = await transport.pullObservation();
+      bytes = await transport.pullObservation(deadlineMs === undefined ? undefined : {
+        timeoutMs: boundedOperationTimeout(deadlineMs, monotonicClock),
+      });
     } catch (error) {
       if (error?.code !== 'b3_physical_device_command_failed' &&
           !/observation pull did not produce/u.test(error?.message ?? '')) throw error;
       if (attempt === maximumPullAttempts - 1) break;
-      await wait(250);
+      await wait(Math.min(
+        250,
+        remainingCaptureDeadline(deadlineMs, monotonicClock) ?? 250,
+      ));
       continue;
     }
     if (staleObservation(bytes, command)) {
       if (attempt === maximumPullAttempts - 1) break;
-      await wait(250);
+      await wait(Math.min(
+        250,
+        remainingCaptureDeadline(deadlineMs, monotonicClock) ?? 250,
+      ));
       continue;
     }
     try {
@@ -497,7 +531,10 @@ export async function captureB3ValidatedDeviceObservation({
       // stale bytes, but the host must not repeat the native launch side effect.
       if (launchOutcomeAmbiguous) {
         if (attempt < maximumPullAttempts - 1) {
-          await wait(250);
+          await wait(Math.min(
+            250,
+            remainingCaptureDeadline(deadlineMs, monotonicClock) ?? 250,
+          ));
           continue;
         }
         break;
@@ -753,11 +790,14 @@ export async function advanceB3HostCaptureOne({
   wait,
   uuidFactory,
   maximumPullAttempts = 120,
+  deadlineMs,
+  monotonicClock = () => performance.now(),
 }) {
   try {
     await readB3IssuedCommand({ root, platform });
     return await resumeB3IssuedDeviceObservation({
       root, platform, buildAuthority, transport, wait, maximumPullAttempts,
+      deadlineMs, monotonicClock,
     });
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
@@ -768,6 +808,7 @@ export async function advanceB3HostCaptureOne({
   try {
     return await captureB3ValidatedDeviceObservation({
       root, platform, command, buildAuthority, transport, wait, maximumPullAttempts,
+      deadlineMs, monotonicClock,
     });
   } catch (error) {
     if (!isIssuedCommandConflict(error)) throw error;
@@ -780,6 +821,7 @@ export async function advanceB3HostCaptureOne({
     return captureB3ValidatedDeviceObservation({
       root, platform, command: issued.command, buildAuthority,
       transport, wait, maximumPullAttempts,
+      deadlineMs, monotonicClock,
     });
   }
 }
@@ -918,7 +960,25 @@ export function createB3AndroidSlowCardController({
     }
   }
 
-  async function begin(authority) {
+  function currentBudget(timing) {
+    if (timing === undefined) return Object.freeze({});
+    if (!timing || typeof timing !== 'object' ||
+        typeof timing.monotonicClock !== 'function' ||
+        !Number.isFinite(timing.deadlineMs)) {
+      throw captureError('B3 Android slow-card timing authority is invalid');
+    }
+    const remainingMs = remainingCaptureDeadline(
+      timing.deadlineMs,
+      timing.monotonicClock,
+    );
+    return Object.freeze({
+      deadlineMs: timing.deadlineMs,
+      monotonicClock: timing.monotonicClock,
+      remainingMs,
+    });
+  }
+
+  async function begin(authority, timing) {
     if (!['slow-card-pending-decline', 'slow-card-pending-approve']
       .includes(authority?.scenario)) {
       throw captureError('B3 Android slow-card scenario authority is invalid');
@@ -941,17 +1001,17 @@ export function createB3AndroidSlowCardController({
         return;
       }
       if (count === 16) break;
-      await pollFreshProcess({ authority, phase: 'arm' });
+      await pollFreshProcess({ authority, phase: 'arm', ...currentBudget(timing) });
     }
     throw captureError('B3 Android slow-card arming exceeded its closed command bound');
   }
 
-  async function poll(authority) {
+  async function poll(authority, timing) {
     if (authority?.scenario !== activeScenario) {
       throw captureError('B3 Android slow-card poll differs from the armed scenario');
     }
     if (terminalState) return terminalState;
-    await pollFreshProcess({ authority, phase: 'poll' });
+    await pollFreshProcess({ authority, phase: 'poll', ...currentBudget(timing) });
     const retained = await readRecords();
     deriveIfTerminal(retained, authority);
     return terminalState ?? 'pending';
@@ -1664,12 +1724,14 @@ export function createDefaultB3AndroidCaptureAdapter({
   const slowCard = createB3AndroidSlowCardController({
     readRecords: records,
     consumeStoreActionResume,
-    pollFreshProcess: async () => advanceB3HostCaptureOne({
+    pollFreshProcess: async ({ deadlineMs, monotonicClock } = {}) => advanceB3HostCaptureOne({
       root,
       platform: 'android',
       buildAuthority: await buildAuthority(),
       transport,
       wait,
+      deadlineMs,
+      monotonicClock,
     }),
   });
   return Object.freeze({

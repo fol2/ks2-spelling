@@ -1,5 +1,6 @@
 import { link, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import {
   parseB3StrictJsonBytes,
@@ -19,6 +20,11 @@ import { createDefaultB3AndroidCaptureAdapter } from './lib/b3-live-capture-adap
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 export const B3_ANDROID_REMOTE_SCOPE = 'google-test-track-refund-revoke';
+const B3_OPERATOR_INSTRUCTION_CODES = new Set([
+  'START_CAPTURE', 'COMPLETE_STORE_ACTION', 'APPROVE_PENDING_PURCHASE',
+  'DECLINE_PENDING_PURCHASE', 'REINSTALL_EXACT_BUILD',
+  'SHOW_PLAY_PROTECT_SETTINGS', 'ATTEST_PLAY_PROTECT_SETTINGS',
+]);
 const POLL_INTERVAL_MS = 5_000;
 const POLL_LIMIT = 120;
 
@@ -34,6 +40,10 @@ export function assertB3AndroidCaptureInput(value, { approvedScope, runToken, re
 export function finaliseB3AndroidEvidence({ platform, cloudflare }) {
   if (platform?.manualVisualInspection !== 'passed') throw new Error('B3 Android manual visual inspection is not passed');
   const evidence = assertB3AndroidCaptureInput(platform);
+  if (cloudflare?.testedApplicationCommit !== evidence.testedApplicationCommit ||
+      cloudflare?.applicationFingerprint !== evidence.applicationFingerprint) {
+    throw new Error('B3 Android and Cloudflare application authority differ');
+  }
   return assertB3GatewayEquality(evidence, cloudflare);
 }
 
@@ -72,6 +82,7 @@ export async function captureB3AndroidEvidenceWithPrimitives({
   const inspectSyntheticLearners = requirePrimitive(primitives, 'inspectSyntheticLearners');
   const runScenario = requirePrimitive(primitives, 'runScenario');
   const inspectTerminalEvidence = requirePrimitive(primitives, 'inspectTerminalEvidence');
+  const inspectProofObservationChain = requirePrimitive(primitives, 'inspectProofObservationChain');
   const captureScreenshot = requirePrimitive(primitives, 'captureScreenshot');
   const beforeInitial = assertB3SyntheticLearnerObservation(
     await inspectSyntheticLearners({ baseline: 'before-purchase', phase: 'initial' }),
@@ -124,9 +135,15 @@ export async function captureB3AndroidEvidenceWithPrimitives({
       );
     }
   }
-  const [distribution, deviceStore, terminal, screenshot] = await Promise.all([
-    inspectDistribution(), inspectDeviceStore(), inspectTerminalEvidence(), captureScreenshot(),
-  ]);
+  const distributionBeforeScreenshot = await inspectDistribution();
+  const deviceStore = await inspectDeviceStore();
+  const terminal = await inspectTerminalEvidence();
+  const proofObservationChain = await inspectProofObservationChain();
+  const screenshot = await captureScreenshot();
+  const distribution = await inspectDistribution({ fresh: true });
+  if (!isDeepStrictEqual(distribution, distributionBeforeScreenshot)) {
+    throw new Error('B3 Android installed distribution changed during screenshot capture');
+  }
   const gateway = b3PlatformGatewayFromCloudflare(cloudflare);
   const pending = {
     schemaVersion: 1,
@@ -137,6 +154,7 @@ export async function captureB3AndroidEvidenceWithPrimitives({
     store: deviceStore.store,
     transitions,
     storeCompletion: deviceStore.storeCompletion,
+    proofObservationChain,
     distribution,
     gateway,
     transport: terminal.transport,
@@ -186,6 +204,26 @@ function argument(args, name) {
   return index === -1 ? null : args[index + 1];
 }
 
+export function b3AndroidProofExitCode(error) {
+  return error?.code === 'b3_operator_action_required' &&
+    B3_OPERATOR_INSTRUCTION_CODES.has(error?.instructionCode) ? 7 : 6;
+}
+
+export function b3AndroidProofErrorRecord(error) {
+  if (b3AndroidProofExitCode(error) === 7) {
+    return Object.freeze({
+      ok: false,
+      code: 'b3_operator_action_required',
+      instructionCode: error.instructionCode,
+    });
+  }
+  return Object.freeze({
+    ok: false,
+    code: error?.code ?? 'b3_android_proof_failed',
+    message: error?.message,
+  });
+}
+
 export async function runB3AndroidProofCli({
   env = process.env,
   root = ROOT,
@@ -206,7 +244,13 @@ export async function runB3AndroidProofCli({
         approvalFile: env.B3_PREREQUISITES_FILE,
         runToken: env.B3_REMOTE_RUN_TOKEN,
         approvedScope: env.B3_REMOTE_MUTATION_SCOPE,
-        primitives: capturePrimitives ?? createDefaultB3AndroidCaptureAdapter({ root, env }),
+        primitives: capturePrimitives ?? createDefaultB3AndroidCaptureAdapter({
+          root,
+          env,
+          resumeStoreAction: args.includes('--resume-store-action'),
+          resumeReinstall: args.includes('--resume-reinstall'),
+          capturePlayProtectSettings: args.includes('--capture-play-protect'),
+        }),
         cloudflare,
         write: true,
       });
@@ -237,8 +281,8 @@ export async function runB3AndroidProofCli({
     stdout.write(`${JSON.stringify({ ok: true, platform: report.platform })}\n`);
     return 0;
   } catch (error) {
-    stderr.write(`${JSON.stringify({ ok: false, code: error.code ?? 'b3_android_proof_failed', message: error.message })}\n`);
-    return 6;
+    stderr.write(`${JSON.stringify(b3AndroidProofErrorRecord(error))}\n`);
+    return b3AndroidProofExitCode(error);
   }
 }
 

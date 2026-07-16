@@ -2,9 +2,12 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { isDeepStrictEqual } from 'node:util';
 
+import { canonicaliseB3ProofValue } from '../../src/app/b3-live-proof-protocol.js';
+
 const HASH = /^[0-9a-f]{64}$/u;
 const COMMIT = /^[0-9a-f]{40}$/u;
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const R2_ETAG = /^[0-9a-f]{32}$/u;
 const ACCOUNT = /^[0-9a-f]{32}$/u;
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 
@@ -45,16 +48,68 @@ export const B3_REQUIRED_SECRET_NAMES = Object.freeze([
   'R2_CAPABILITY_HMAC_KEY',
 ]);
 
+function freezeGatewayCalls(value) {
+  return Object.freeze(Object.fromEntries(Object.entries(value).map(([platform, scenarios]) => [
+    platform,
+    Object.freeze(Object.fromEntries(Object.entries(scenarios).map(([scenario, calls]) => [
+      scenario,
+      Object.freeze(calls.map((call) => Object.freeze({ ...call }))),
+    ]))),
+  ])));
+}
+
+export const B3_EVIDENCE_GATEWAY_CALLS = freezeGatewayCalls({
+  'ios-physical': {
+    'product-query': [], cancel: [], 'ask-to-buy-pending': [],
+    'normal-purchase': [{ operation: 'verify', relation: 'transaction-verification' }],
+    'unfinished-relaunch': [
+      { operation: 'verify', relation: 'recovery-reverification' },
+      { operation: 'complete', relation: 'completion-of-prior-verify' },
+      { operation: 'authorise', relation: 'download-job-authorisation' },
+      { operation: 'refresh', relation: 'post-recovery-handle-refresh' },
+    ],
+    'pack-install': [{ operation: 'authorise', relation: 'download-capability-authorisation' }],
+    'restore-after-reinstall': [
+      { operation: 'verify', relation: 'fresh-install-startup-verification' },
+      { operation: 'complete', relation: 'fresh-install-startup-completion' },
+      { operation: 'authorise', relation: 'fresh-install-download-job-authorisation' },
+      { operation: 'refresh', relation: 'fresh-install-handle-refresh' },
+    ],
+    redownload: [{ operation: 'authorise', relation: 'redownload-capability-authorisation' }],
+    'refund-revoke': [{ operation: 'refresh', relation: 'revocation-handle-refresh' }],
+  },
+  'android-play-physical': {
+    'product-query': [], cancel: [], 'slow-card-pending-decline': [],
+    'slow-card-pending-approve': [],
+    'unacknowledged-relaunch': [
+      { operation: 'verify', relation: 'transaction-verification' },
+      { operation: 'verify', relation: 'recovery-reverification' },
+      { operation: 'complete', relation: 'completion-of-prior-verify' },
+      { operation: 'authorise', relation: 'download-job-authorisation' },
+      { operation: 'refresh', relation: 'post-recovery-handle-refresh' },
+    ],
+    'pack-install': [{ operation: 'authorise', relation: 'download-capability-authorisation' }],
+    'restore-after-reinstall': [
+      { operation: 'verify', relation: 'fresh-install-startup-verification' },
+      { operation: 'complete', relation: 'fresh-install-startup-completion' },
+      { operation: 'authorise', relation: 'fresh-install-download-job-authorisation' },
+      { operation: 'refresh', relation: 'fresh-install-handle-refresh' },
+    ],
+    redownload: [{ operation: 'authorise', relation: 'redownload-capability-authorisation' }],
+    'refund-revoke': [{ operation: 'refresh', relation: 'revocation-handle-refresh' }],
+  },
+});
+
 export const B3_IOS_SCENARIOS = Object.freeze([
   { scenario: 'product-query', outcome: 'products-visible', traces: [] },
   { scenario: 'cancel', outcome: 'cancelled', traces: [] },
   { scenario: 'ask-to-buy-pending', outcome: 'pending-no-access', traces: [] },
-  { scenario: 'normal-purchase', outcome: 'verified-active', traces: [{ operation: 'verify', relation: 'transaction-verification' }] },
-  { scenario: 'unfinished-relaunch', outcome: 'finished-recovered', traces: [{ operation: 'complete', relation: 'completion-of-prior-verify' }] },
-  { scenario: 'pack-install', outcome: 'installed', traces: [{ operation: 'authorise', relation: 'authorisation-from-active-handle' }] },
-  { scenario: 'restore-after-reinstall', outcome: 'restored-active', traces: [{ operation: 'verify', relation: 'transaction-verification' }] },
-  { scenario: 'redownload', outcome: 'redownloaded', traces: [{ operation: 'authorise', relation: 'authorisation-from-active-handle' }] },
-  { scenario: 'refund-revoke', outcome: 'revoked-locked', traces: [{ operation: 'refresh', relation: 'refresh-of-active-handle' }] },
+  { scenario: 'normal-purchase', outcome: 'verified-active', traces: B3_EVIDENCE_GATEWAY_CALLS['ios-physical']['normal-purchase'] },
+  { scenario: 'unfinished-relaunch', outcome: 'finished-recovered', traces: B3_EVIDENCE_GATEWAY_CALLS['ios-physical']['unfinished-relaunch'] },
+  { scenario: 'pack-install', outcome: 'installed', traces: B3_EVIDENCE_GATEWAY_CALLS['ios-physical']['pack-install'] },
+  { scenario: 'restore-after-reinstall', outcome: 'restored-active', traces: B3_EVIDENCE_GATEWAY_CALLS['ios-physical']['restore-after-reinstall'] },
+  { scenario: 'redownload', outcome: 'redownloaded', traces: B3_EVIDENCE_GATEWAY_CALLS['ios-physical'].redownload },
+  { scenario: 'refund-revoke', outcome: 'revoked-locked', traces: B3_EVIDENCE_GATEWAY_CALLS['ios-physical']['refund-revoke'] },
 ]);
 
 export const B3_ANDROID_SCENARIOS = Object.freeze([
@@ -62,14 +117,11 @@ export const B3_ANDROID_SCENARIOS = Object.freeze([
   { scenario: 'cancel', outcome: 'cancelled', traces: [] },
   { scenario: 'slow-card-pending-decline', outcome: 'declined-no-access', traces: [] },
   { scenario: 'slow-card-pending-approve', outcome: 'pending-approved-no-access', traces: [] },
-  { scenario: 'unacknowledged-relaunch', outcome: 'acknowledged-recovered', traces: [
-    { operation: 'verify', relation: 'transaction-verification' },
-    { operation: 'complete', relation: 'completion-of-prior-verify' },
-  ] },
-  { scenario: 'pack-install', outcome: 'installed', traces: [{ operation: 'authorise', relation: 'authorisation-from-active-handle' }] },
-  { scenario: 'restore-after-reinstall', outcome: 'restored-active', traces: [{ operation: 'verify', relation: 'transaction-verification' }] },
-  { scenario: 'redownload', outcome: 'redownloaded', traces: [{ operation: 'authorise', relation: 'authorisation-from-active-handle' }] },
-  { scenario: 'refund-revoke', outcome: 'revoked-locked', traces: [{ operation: 'refresh', relation: 'refresh-of-active-handle' }] },
+  { scenario: 'unacknowledged-relaunch', outcome: 'acknowledged-recovered', traces: B3_EVIDENCE_GATEWAY_CALLS['android-play-physical']['unacknowledged-relaunch'] },
+  { scenario: 'pack-install', outcome: 'installed', traces: B3_EVIDENCE_GATEWAY_CALLS['android-play-physical']['pack-install'] },
+  { scenario: 'restore-after-reinstall', outcome: 'restored-active', traces: B3_EVIDENCE_GATEWAY_CALLS['android-play-physical']['restore-after-reinstall'] },
+  { scenario: 'redownload', outcome: 'redownloaded', traces: B3_EVIDENCE_GATEWAY_CALLS['android-play-physical'].redownload },
+  { scenario: 'refund-revoke', outcome: 'revoked-locked', traces: B3_EVIDENCE_GATEWAY_CALLS['android-play-physical']['refund-revoke'] },
 ]);
 
 function evidenceError(message) {
@@ -89,6 +141,14 @@ function requireKeys(value, expected, label) {
 
 function hash(value) {
   return typeof value === 'string' && HASH.test(value);
+}
+
+function workerVersionId(value) {
+  return typeof value === 'string' && UUID_V4.test(value);
+}
+
+function r2Etag(value) {
+  return typeof value === 'string' && R2_ETAG.test(value);
 }
 
 function identifier(value, maximum = 512) {
@@ -114,7 +174,7 @@ function assertObject(value, expected, role, key) {
   requireKeys(value.customMetadata, metadataKeys, `${role} metadata`);
   if (
     value.role !== role || value.key !== key || !hash(value.sha256) ||
-    !Number.isSafeInteger(value.size) || value.size <= 0 || !identifier(value.etag) ||
+    !Number.isSafeInteger(value.size) || value.size <= 0 || !r2Etag(value.etag) ||
     value.customMetadata['b3-role'] !== role ||
     value.customMetadata['b3-sha256'] !== value.sha256 ||
     value.customMetadata['b3-size'] !== String(value.size) ||
@@ -142,7 +202,7 @@ export function validateB3CloudflareEvidence(value) {
     !hash(value.applicationFingerprint) || !ACCOUNT.test(value.worker.accountId) ||
     value.worker.name !== 'ks2-spelling-b3-sandbox' ||
     value.worker.publicSandboxOrigin !== 'https://b3-gateway.eugnel.uk' ||
-    !identifier(value.worker.deploymentVersionId, 128) || !hash(value.worker.scriptAuthoritySha256) ||
+    !workerVersionId(value.worker.deploymentVersionId) || !hash(value.worker.scriptAuthoritySha256) ||
     value.worker.compatibilityDate !== '2026-07-12' ||
     !isDeepStrictEqual(value.worker.compatibilityFlags, ['nodejs_compat']) ||
     !isDeepStrictEqual(value.worker.bindings, { r2: 'PACKS', rateLimit: 'GATEWAY_RATE_LIMIT', versionMetadata: 'WORKER_VERSION_METADATA' }) ||
@@ -190,6 +250,81 @@ function assertTransitions(actual, expected) {
       traceIds.add(trace.traceId);
     }
   }
+}
+
+function assertObservationChain(value) {
+  requireKeys(value, [
+    'captureId', 'terminalObservationSha256', 'transitionGatewayProjectionSha256',
+    'chainAuthoritySha256', 'observations',
+  ], 'proof observation chain');
+  if (!UUID_V4.test(value.captureId) || !hash(value.terminalObservationSha256) ||
+      !hash(value.transitionGatewayProjectionSha256) ||
+      !hash(value.chainAuthoritySha256) ||
+      !Array.isArray(value.observations) || value.observations.length < 9 ||
+      value.observations.length > 128) {
+    throw evidenceError('proof observation chain authority or bound mismatch');
+  }
+  let previous = '0'.repeat(64);
+  let previousScenario = 0;
+  const observationHashes = new Set();
+  for (const [index, observation] of value.observations.entries()) {
+    requireKeys(observation, [
+      'sequence', 'scenarioIndex', 'previousObservationSha256',
+      'observationSha256', 'proofProjectionSha256',
+    ], `proof observation chain ${index}`);
+    if (observation.sequence !== index + 1 ||
+        !Number.isSafeInteger(observation.scenarioIndex) ||
+        (index === 0 && observation.scenarioIndex !== 0) ||
+        observation.scenarioIndex < previousScenario ||
+        observation.scenarioIndex > previousScenario + 1 ||
+        observation.scenarioIndex < 0 || observation.scenarioIndex > 8 ||
+        observation.previousObservationSha256 !== previous ||
+        !hash(observation.observationSha256) ||
+        !hash(observation.proofProjectionSha256) ||
+        observationHashes.has(observation.observationSha256)) {
+      throw evidenceError('proof observation hash chain, sequence or scenario mismatch');
+    }
+    observationHashes.add(observation.observationSha256);
+    previous = observation.observationSha256;
+    previousScenario = observation.scenarioIndex;
+  }
+  if (previousScenario !== 8 || value.terminalObservationSha256 !== previous) {
+    throw evidenceError('proof observation terminal authority mismatch');
+  }
+}
+
+function sha256Domain(domain, value) {
+  return createHash('sha256')
+    .update(`${domain}\u0000${canonicaliseB3ProofValue(value)}`)
+    .digest('hex');
+}
+
+export function createB3TransitionGatewayProjectionSha256(transitions) {
+  if (!Array.isArray(transitions)) throw evidenceError('transition projection is invalid');
+  const safeTransitions = JSON.parse(canonicaliseB3ProofValue(transitions));
+  return sha256Domain(
+    'ks2-spelling:b3-transition-gateway-projection:v1',
+    safeTransitions.map(({ scenario, outcome, gatewayTraces }) => ({
+      scenario,
+      outcome,
+      gatewayTraces,
+    })),
+  );
+}
+
+export function createB3ObservationChainAuthoritySha256({ chain, transitions }) {
+  if (!chain || typeof chain !== 'object' || Array.isArray(chain)) {
+    throw evidenceError('proof observation chain authority input is invalid');
+  }
+  const safeChain = JSON.parse(canonicaliseB3ProofValue(chain));
+  const transitionGatewayProjectionSha256 =
+    createB3TransitionGatewayProjectionSha256(transitions);
+  return sha256Domain('ks2-spelling:b3-observation-chain-authority:v1', {
+    captureId: safeChain.captureId,
+    terminalObservationSha256: safeChain.terminalObservationSha256,
+    transitionGatewayProjectionSha256,
+    observations: safeChain.observations,
+  });
 }
 
 function assertLearnerPreservation(value) {
@@ -254,6 +389,7 @@ export function validateB3PlatformEvidence(value) {
   const baseKeys = [
     'schemaVersion', 'testedApplicationCommit', 'applicationFingerprint', 'platform', 'device',
     'store', 'transitions', 'storeCompletion', 'distribution', 'gateway', 'transport',
+    'proofObservationChain',
     'storeTransactionAuthority', 'refreshHandleLifecycle', 'entitlement', 'pack',
     'syntheticLearnerAuthoritySha256', 'learnerPreservation', 'restore', 'screenshotSha256',
     'manualVisualInspection',
@@ -264,15 +400,40 @@ export function validateB3PlatformEvidence(value) {
   if ((!ios && !android) || value.schemaVersion !== 1 || !COMMIT.test(value.testedApplicationCommit) || !hash(value.applicationFingerprint)) {
     throw evidenceError('platform evidence authority mismatch');
   }
-  requireKeys(value.device, ios ? ['model', 'osVersion', 'physical'] : ['model', 'osVersion', 'physical', 'playCertified'], 'physical device evidence');
+  requireKeys(value.device, ios
+    ? ['model', 'osVersion', 'physical']
+    : [
+        'model', 'osVersion', 'physical', 'playCertified',
+        'playProtectSettingsScreenshotSha256', 'playProtectRootAttestationSha256',
+      ], 'physical device evidence');
   requireKeys(value.store, ['environment', 'productId', 'localisedPriceObserved'], 'store evidence');
+  const androidPlayAuthorityHashes = android ? [
+    value.device.playProtectSettingsScreenshotSha256,
+    value.device.playProtectRootAttestationSha256,
+    value.screenshotSha256,
+  ] : [];
   if (!identifier(value.device.model) || !identifier(value.device.osVersion) || value.device.physical !== true ||
-      (!ios && value.device.playCertified !== true) ||
+      (!ios && (value.device.playCertified !== true ||
+        !hash(value.device.playProtectSettingsScreenshotSha256) ||
+        !hash(value.device.playProtectRootAttestationSha256) ||
+        new Set(androidPlayAuthorityHashes).size !== androidPlayAuthorityHashes.length)) ||
       value.store.environment !== (ios ? 'sandbox' : 'play-test') ||
       value.store.productId !== (ios ? 'uk.eugnel.ks2spelling.fullks2' : 'full_ks2') || value.store.localisedPriceObserved !== true) {
     throw evidenceError('physical device or store authority mismatch');
   }
   assertTransitions(value.transitions, ios ? B3_IOS_SCENARIOS : B3_ANDROID_SCENARIOS);
+  assertObservationChain(value.proofObservationChain);
+  const transitionGatewayProjectionSha256 =
+    createB3TransitionGatewayProjectionSha256(value.transitions);
+  if (value.proofObservationChain.transitionGatewayProjectionSha256 !==
+        transitionGatewayProjectionSha256 ||
+      value.proofObservationChain.chainAuthoritySha256 !==
+        createB3ObservationChainAuthoritySha256({
+          chain: value.proofObservationChain,
+          transitions: value.transitions,
+        })) {
+    throw evidenceError('proof observation chain authority mismatch');
+  }
   requireKeys(value.storeCompletion, [ios ? 'finished' : 'acknowledged'], 'store completion');
   if (value.storeCompletion[ios ? 'finished' : 'acknowledged'] !== true) throw evidenceError('store completion mismatch');
   if (ios) {
@@ -286,10 +447,10 @@ export function validateB3PlatformEvidence(value) {
   for (const [name, key] of [['manifestObject', MANIFEST_KEY], ['archiveObject', ARCHIVE_KEY]]) {
     const object = value.gateway[name];
     requireKeys(object, ['key', 'sha256', 'size', 'etag', 'metadataMatched'], `${name} evidence`);
-    if (object.key !== key || !hash(object.sha256) || !Number.isSafeInteger(object.size) || object.size <= 0 || !identifier(object.etag) || object.metadataMatched !== true) throw evidenceError(`${name} authority mismatch`);
+    if (object.key !== key || !hash(object.sha256) || !Number.isSafeInteger(object.size) || object.size <= 0 || !r2Etag(object.etag) || object.metadataMatched !== true) throw evidenceError(`${name} authority mismatch`);
   }
   if (!ACCOUNT.test(value.gateway.accountId) || value.gateway.workerName !== 'ks2-spelling-b3-sandbox' ||
-      value.gateway.publicSandboxOrigin !== 'https://b3-gateway.eugnel.uk' || !identifier(value.gateway.deploymentVersionId, 128) ||
+      value.gateway.publicSandboxOrigin !== 'https://b3-gateway.eugnel.uk' || !workerVersionId(value.gateway.deploymentVersionId) ||
       !hash(value.gateway.scriptAuthoritySha256) || !hash(value.gateway.signedEnvelopeSha256) ||
       value.gateway.signedEnvelopeSha256 !== value.gateway.manifestObject.sha256) throw evidenceError('gateway authority mismatch');
   requireKeys(value.transport, ['concreteCapacitorStore', 'concreteHttpGateway', 'serverUrl', 'nativeOriginAllowed', 'noRedirects'], 'transport evidence');

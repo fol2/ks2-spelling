@@ -97,7 +97,8 @@ function B3App({ services }) {
 
   useEffect(() => {
     const subscription = services.controller.subscribe(setProofState);
-    void services.controller.start().catch(() => undefined);
+    const start = services.runLiveProofCommand ?? (() => services.controller.start());
+    void start().catch(() => undefined);
     return () => subscription.remove();
   }, [services]);
 

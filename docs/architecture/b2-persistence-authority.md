@@ -39,7 +39,8 @@ Two deterministic learners prove isolation across subject state, sessions,
 events, Monster state, Camp state and revisions. Learner B's canonical digest
 must remain unchanged. Starter Camp contains zero rows. Monster state remains
 child-owned and spelling-derived; no Parent projection or analytics is stored
-in Monster or Camp tables.
+in Monster or Camp tables. Monster is a motivational presentation around
+spelling, not an independently cloud-tracked Parent metric.
 
 ## Evidence authority
 

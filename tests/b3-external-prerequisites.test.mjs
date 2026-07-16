@@ -36,6 +36,9 @@ const TOKEN = 'ab'.repeat(32);
 const PLAN_COMMIT = '7f681f886ee1b627d574641a4a23add9d98796d2';
 const NOW = new Date('2026-07-12T15:00:00.000Z');
 const TEST_CLOCK = () => new Date(NOW);
+const CURRENT_VERSION_ID = '11111111-2222-4333-8444-555555555555';
+const VERSION_A_ID = '22222222-3333-4444-8555-666666666666';
+const VERSION_B_ID = '33333333-4444-4555-8666-777777777777';
 
 const REQUIRED_GATES = Object.freeze([
   'appleAgreements',
@@ -195,7 +198,7 @@ function successfulCloudflareResponse(args, request) {
   } else if (args[0] === 'deployments') {
     body = {
       id: 'deployment-current',
-      versions: [{ version_id: 'version-current', percentage: 100 }],
+      versions: [{ version_id: CURRENT_VERSION_ID, percentage: 100 }],
     };
   } else if (args[0] === 'versions') {
     body = {
@@ -783,7 +786,7 @@ test('Cloudflare inspector runs read-only name-only commands and rejects missing
     },
     {
       id: 'deployment-current',
-      versions: [{ version_id: 'version-1', percentage: 100 }],
+      versions: [{ version_id: CURRENT_VERSION_ID, percentage: 100 }],
       author_email: 'not-returned@example.test',
     },
     {
@@ -815,7 +818,7 @@ test('Cloudflare inspector runs read-only name-only commands and rejects missing
     })),
     {
       id: 'deployment-current',
-      versions: [{ version_id: 'version-1', percentage: 100 }],
+      versions: [{ version_id: CURRENT_VERSION_ID, percentage: 100 }],
     },
     { name: 'ks2-spelling-b3-sandbox-packs' },
     R2_DEV_URL_DISABLED,
@@ -851,7 +854,7 @@ test('Cloudflare inspector runs read-only name-only commands and rejects missing
     },
     {
       args: [
-        'versions', 'view', 'version-1', '--name', 'ks2-spelling-b3-sandbox', '--json',
+        'versions', 'view', CURRENT_VERSION_ID, '--name', 'ks2-spelling-b3-sandbox', '--json',
         ...SAFE_ENV_FILE_ARGS,
       ],
       context: { accountId: '1234567890abcdef1234567890abcdef' },
@@ -943,8 +946,8 @@ test('Cloudflare inspector rejects split current deployment and returns complete
     {
       id: 'deployment-split',
       versions: [
-        { version_id: 'version-a', percentage: 50 },
-        { version_id: 'version-b', percentage: 50 },
+        { version_id: VERSION_A_ID, percentage: 50 },
+        { version_id: VERSION_B_ID, percentage: 50 },
       ],
     },
   ];
@@ -961,7 +964,7 @@ test('Cloudflare inspector rejects split current deployment and returns complete
 
   const extraResponses = [
     { authType: 'OAuth Token', accounts: [{ id: request.accountId }] },
-    { id: 'deployment-current', versions: [{ version_id: 'version-current', percentage: 100 }] },
+    { id: 'deployment-current', versions: [{ version_id: CURRENT_VERSION_ID, percentage: 100 }] },
     {
       resources: {
         bindings: [
@@ -985,7 +988,7 @@ test('Cloudflare inspector rejects split current deployment and returns complete
       ...CLOUDFLARE_SECRET_NAMES.map((name) => ({ name, type: 'secret_text' })),
       { name: 'UNAPPROVED_SECRET', type: 'secret_text' },
     ],
-    { id: 'deployment-current', versions: [{ version_id: 'version-current', percentage: 100 }] },
+    { id: 'deployment-current', versions: [{ version_id: CURRENT_VERSION_ID, percentage: 100 }] },
     { name: request.privateR2BucketName },
     R2_DEV_URL_DISABLED,
     noR2Domains(request.privateR2BucketName),
@@ -1030,6 +1033,46 @@ test('Cloudflare inspector rejects split current deployment and returns complete
   );
 });
 
+test('Cloudflare inspector rejects hostile active version IDs before versions view', async () => {
+  const request = {
+    accountId: '1234567890abcdef1234567890abcdef',
+    workerName: 'ks2-spelling-b3-sandbox',
+    privateR2BucketName: 'ks2-spelling-b3-sandbox-packs',
+    bindingNames: CLOUDFLARE_BINDINGS,
+    secretNames: CLOUDFLARE_SECRET_NAMES,
+  };
+  const rejectedVersionIds = [
+    'a8f32f60-16b9-4ca6-9b4a-f771dd5302f7'.toUpperCase(),
+    '11111111-2222-1333-8444-555555555555',
+    'version-current',
+    'a'.repeat(129),
+    '--env-file=/tmp/attacker.env',
+  ];
+  for (const rejectedVersionId of rejectedVersionIds) {
+    const calls = [];
+    const responses = [
+      { authType: 'OAuth Token', accounts: [{ id: request.accountId }] },
+      {
+        id: 'deployment-current',
+        versions: [{ version_id: rejectedVersionId, percentage: 100 }],
+      },
+    ];
+    const inspector = createCloudflareRemoteInspector({
+      commandRunner: async (args) => {
+        calls.push([...args]);
+        return { exitCode: 0, stdout: JSON.stringify(responses.shift()), stderr: '' };
+      },
+    });
+    await assert.rejects(inspector(request), /inspection unavailable/);
+    assert.deepEqual(calls.map((args) => args.slice(0, 2)), [
+      ['whoami', '--json'],
+      ['deployments', 'status'],
+    ]);
+    assert.equal(calls.some((args) => args[0] === 'versions'), false);
+    assert.equal(calls.flat().includes(rejectedVersionId), false);
+  }
+});
+
 test('Cloudflare inspector accepts only an OAuth Token whoami authority', async () => {
   const request = {
     accountId: '1234567890abcdef1234567890abcdef',
@@ -1065,7 +1108,7 @@ test('Cloudflare inspector rejects an active deployment switch during inspection
   };
   const responses = [
     { authType: 'OAuth Token', accounts: [{ id: request.accountId }] },
-    { id: 'deployment-a', versions: [{ version_id: 'version-a', percentage: 100 }] },
+    { id: 'deployment-a', versions: [{ version_id: VERSION_A_ID, percentage: 100 }] },
     {
       resources: {
         bindings: [
@@ -1084,7 +1127,7 @@ test('Cloudflare inspector rejects an active deployment switch during inspection
     R2_DEV_URL_DISABLED,
     noR2Domains(request.privateR2BucketName),
     CLOUDFLARE_SECRET_NAMES.map((name) => ({ name, type: 'secret_text' })),
-    { id: 'deployment-b', versions: [{ version_id: 'version-b', percentage: 100 }] },
+    { id: 'deployment-b', versions: [{ version_id: VERSION_B_ID, percentage: 100 }] },
   ];
   const inspector = createCloudflareRemoteInspector({
     commandRunner: async () => {
@@ -1109,7 +1152,7 @@ test('Cloudflare inspector rejects private R2 becoming public during inspection'
   };
   const deployment = {
     id: 'deployment-current',
-    versions: [{ version_id: 'version-current', percentage: 100 }],
+    versions: [{ version_id: CURRENT_VERSION_ID, percentage: 100 }],
   };
   const responses = [
     { authType: 'OAuth Token', accounts: [{ id: request.accountId }] },
@@ -1249,6 +1292,11 @@ test('Cloudflare inspector rejects malformed and duplicate binding or secret ent
   ];
   const validSecrets = CLOUDFLARE_SECRET_NAMES.map((name) => ({ name, type: 'secret_text' }));
   const cases = [
+    {
+      bindings: validBindings,
+      secrets: validSecrets,
+      rawFirstResponse: `{"authType":"OAuth Token","authType":"Global API Key","accounts":[{"id":"${request.accountId}"}]}`,
+    },
     { bindings: [...validBindings, { ...validBindings[0] }], secrets: validSecrets },
     { bindings: [...validBindings, { type: 'plain_text' }], secrets: validSecrets },
     { bindings: [...validBindings, { name: 'MISSING_TYPE' }], secrets: validSecrets },
@@ -1258,8 +1306,8 @@ test('Cloudflare inspector rejects malformed and duplicate binding or secret ent
   ];
   for (const value of cases) {
     const responses = [
-      { authType: 'OAuth Token', accounts: [{ id: request.accountId }] },
-      { id: 'deployment-current', versions: [{ version_id: 'version-current', percentage: 100 }] },
+      value.rawFirstResponse ?? { authType: 'OAuth Token', accounts: [{ id: request.accountId }] },
+      { id: 'deployment-current', versions: [{ version_id: CURRENT_VERSION_ID, percentage: 100 }] },
       { resources: { bindings: value.bindings } },
       { name: request.privateR2BucketName },
       R2_DEV_URL_DISABLED,
@@ -1317,7 +1365,7 @@ test('Cloudflare inspector strictly proves disabled r2.dev and zero custom domai
   ]) {
     const responses = [
       { authType: 'OAuth Token', accounts: [{ id: request.accountId }] },
-      { id: 'deployment-current', versions: [{ version_id: 'version-current', percentage: 100 }] },
+      { id: 'deployment-current', versions: [{ version_id: CURRENT_VERSION_ID, percentage: 100 }] },
       {
         resources: {
           bindings: [

@@ -1,6 +1,8 @@
 import { loadStarterSpellingCatalogue } from '../domain/spelling/index.js';
 import { createB1FakeNativePorts } from '../platform/fakes/create-b1-fake-native-ports.js';
 import { assertNativePortContract } from '../platform/native-port-contract.js';
+import { readCapacitorBuildAuthority } from '../platform/distribution/capacitor-build-authority.js';
+import { createCapacitorB3ProofObservation } from '../platform/proof/capacitor-b3-proof-observation.js';
 import gatewayAuthority from '../../config/b3-gateway-authority.json' with { type: 'json' };
 import { createB2AppServices } from './create-b2-app-services.js';
 import { createB3AppServices } from './create-b3-app-services.js';
@@ -40,9 +42,21 @@ export async function createSelectedAppServices({
 }) {
   if (isNativePlatform === true) {
     const composition = selectNativeAppComposition({ buildMode, platform });
-    return composition.serviceMode === 'b3'
-      ? createB3AppServices({ ...b3Options, runtime: composition.runtime })
-      : createB2AppServices();
+    if (composition.serviceMode !== 'b3') return createB2AppServices();
+    if (Object.hasOwn(b3Options, 'proofObservationPort')) {
+      throw new TypeError('B3 physical proof observation transport is application-owned.');
+    }
+    const embeddedBuildAuthority = await readCapacitorBuildAuthority(platform);
+    return createB3AppServices({
+      ...b3Options,
+      runtime: Object.freeze({
+        ...composition.runtime,
+        buildAuthority: embeddedBuildAuthority,
+      }),
+      proofObservationPort: createCapacitorB3ProofObservation({
+        buildAuthority: embeddedBuildAuthority,
+      }),
+    });
   }
   if (buildMode !== 'B3DeterministicTest') return null;
   return createB3AppServices({

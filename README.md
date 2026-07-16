@@ -40,6 +40,20 @@ approved or claimed as complete:
 The application remains local-first and must package its application code in
 the installed binary. Later work requires its own evidence and approval gates.
 
+## B3 local and online boundary
+
+Spelling practice, installed packs, learner progress and child-owned Monster
+progress remain local and work offline. Online access is used only for commerce
+verification, pack download or redownload, entitlement refresh, restore and
+revocation. It is not a runtime dependency for spelling practice or installed
+content.
+
+Monster is a motivational presentation around spelling, not an independently
+cloud-tracked Parent metric. A dedicated Visual / Theme / Asset Migration Spec
+remains mandatory after Gate B `GO` and before C3 child UI. B3 proves
+sandbox/test commerce and signed-download truth only; it does not prove
+production release readiness.
+
 ## B2 persistence boundary
 
 B2 proves the frozen A3 spelling command contract through one local SQLite

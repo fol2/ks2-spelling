@@ -17,6 +17,7 @@ const CLOUDFLARE_GATES = Object.freeze([
   'cloudflareSecretNames',
 ]);
 const SAFE_ENV_FILE_ARGS = Object.freeze(['--env-file', '/dev/null']);
+const LOWERCASE_UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const INSPECTION_FAILURE_GATES = Symbol('inspectionFailureGates');
 export const B3_RUN_AUTHORITY_PLAN_COMMIT =
   '7f681f886ee1b627d574641a4a23add9d98796d2';
@@ -545,7 +546,7 @@ function parseWranglerJson(result) {
     throw new Error('Cloudflare OAuth inspection unavailable');
   }
   try {
-    return JSON.parse(result.stdout);
+    return parseB3StrictJsonBytes(Buffer.from(result.stdout, 'utf8'), 'Cloudflare OAuth inspection');
   } catch {
     throw new Error('Cloudflare OAuth inspection unavailable');
   }
@@ -646,7 +647,7 @@ async function readActiveDeployment(run, request, accountContext) {
       ? versions[0]
       : null;
   const versionId = activeVersion?.version_id ?? activeVersion?.versionId;
-  if (!isIdentifier(deploymentId) || !isIdentifier(versionId)) {
+  if (!isIdentifier(deploymentId) || typeof versionId !== 'string' || !LOWERCASE_UUID_V4.test(versionId)) {
     throw new Error('Cloudflare OAuth inspection unavailable');
   }
   return Object.freeze({ deploymentId, versionId });
@@ -789,21 +790,29 @@ export function createCloudflareRemoteInspector({ commandRunner }) {
   };
 }
 
-async function defaultWranglerSpawn(command, args, options) {
+export async function defaultWranglerSpawn(command, args, options) {
   return new Promise((resolveResult) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: options.env,
       stdio: options.stdio,
       windowsHide: options.windowsHide,
+      detached: true,
     });
     let stdout = '';
     let stderr = '';
     let settled = false;
-    const timer = setTimeout(() => child.kill('SIGKILL'), options.timeout);
+    const terminateGroup = () => {
+      try {
+        process.kill(-child.pid, 'SIGKILL');
+      } catch {
+        child.kill('SIGKILL');
+      }
+    };
+    const timer = setTimeout(terminateGroup, options.timeout);
     const append = (current, chunk) => {
       const next = current + chunk.toString('utf8');
-      if (Buffer.byteLength(next) > options.maxBuffer) child.kill('SIGKILL');
+      if (Buffer.byteLength(next) > options.maxBuffer) terminateGroup();
       return next;
     };
     child.stdout?.on('data', (chunk) => {
@@ -847,7 +856,7 @@ export async function runOAuthSafeWrangler(
     ) {
       throw new Error('local Wrangler unavailable');
     }
-    const packageJson = JSON.parse(await readFile(wranglerPackagePath, 'utf8'));
+    const packageJson = parseB3StrictJsonBytes(await readFile(wranglerPackagePath), 'local Wrangler package');
     if (packageJson?.version !== '4.110.0') throw new Error('local Wrangler unavailable');
   } catch {
     return { exitCode: 1, stdout: '', stderr: '' };

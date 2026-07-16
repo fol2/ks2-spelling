@@ -5,14 +5,14 @@
     "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "spmResolvedVersion": 3,
     "nativePluginBuildSha256": "a72e95958e287be21f34588a167f12fd59058ab003dfe3f559b3ba244988a6f9",
-    "webViewBundleEvidenceSha256": "5b46f44c093d9dbb324eabbec4b0a8fa012b0f3b15192317c510ba41ab45246c"
+    "webViewBundleEvidenceSha256": "1143574389828e4e2a883d55456823c5222606f6234637c4ea276336e9a3248c"
   },
   "npm": {
     "lockfileVersion": 3,
     "lockPackageCount": 189,
     "webViewBundle": {
       "mode": "vite-rollup-write-false",
-      "moduleCount": 100,
+      "moduleCount": 107,
       "packageNames": [
         "@capacitor-community/sqlite",
         "@capacitor/app",
@@ -59,6 +59,12 @@
           "kind": "file",
           "npmLocator": null,
           "sha256": "32887edb5374b37c92615f7423f0e2ed8a328c39d86e4990f8f5fc9f25e81a1f"
+        },
+        {
+          "id": "config/b3-synthetic-learners.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "5449b0052d78abd1aa6e8a3bbab62cbe62de151288ec0cf6f38dde6e20a908b4"
         },
         {
           "id": "config/pack-signing-public-keys.json",
@@ -178,7 +184,7 @@
           "id": "src/app/App.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "4372bfc48c10975229830abc19f9adc29f73b1934c767e3bde7f0052562cf6e2"
+          "sha256": "78ec459d3b4f604a35dc0bfc7efd4ef4baf76f838adfd0713b8fc3d17d7a65a3"
         },
         {
           "id": "src/app/app.css",
@@ -191,6 +197,24 @@
           "kind": "file",
           "npmLocator": null,
           "sha256": "8e61c433bc631c9d28ab31f92252a629ae9f8bfe692d0cd7cbbff15aa230fa11"
+        },
+        {
+          "id": "src/app/b3-device-gateway-smoke.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "a56cbaee9fa309c7c05bf576b64af663ccccb3ececaa3c38feecdd48d15c94dd"
+        },
+        {
+          "id": "src/app/b3-live-proof-composition.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "900825bccb6ca9b1f1a2f7db2dad2ecd0bf7363cbe1c0d59ecbe0eb930b72cde"
+        },
+        {
+          "id": "src/app/b3-live-proof-protocol.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "d480f14b7b94a519d1ae897a40a39a2d2d9360038805f492e31825ca4ddcf0d9"
         },
         {
           "id": "src/app/b3-proof-controller.js",
@@ -208,7 +232,7 @@
           "id": "src/app/create-app-services.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "467aaf8eacba3e0907d2abe47df97d58a208f2b662b18b40f23b88d0f99a1a36"
+          "sha256": "77edd0e0b4d735d23c82f40c4e3a6b058d3c424e84fe1c6b7173eca9eba2a2e0"
         },
         {
           "id": "src/app/create-b2-app-services.js",
@@ -220,7 +244,7 @@
           "id": "src/app/create-b3-app-services.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "50843532153716f41947d7ac7533d0d4acf4bd44a238c85d74380a6dedc961b1"
+          "sha256": "fc52c3886a8f0c63a6746143333b3e75debbc1f057cd4a4bf5f7fa0f1a187458"
         },
         {
           "id": "src/app/database-lifecycle-coordinator.js",
@@ -403,6 +427,12 @@
           "sha256": "d5a4aa2977cd2e7d41da9b80e06a4fceb469873d15715685c66a90121df31b31"
         },
         {
+          "id": "src/platform/distribution/capacitor-build-authority.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "7ffdd3b4c5cfb033fa60a222fb2bed7bffe7412684378a740530377f292821c4"
+        },
+        {
           "id": "src/platform/fakes/create-b1-fake-native-ports.js",
           "kind": "file",
           "npmLocator": null,
@@ -473,6 +503,18 @@
           "kind": "file",
           "npmLocator": null,
           "sha256": "15f0a20bce420b344983cc3e4f6145aca0b1aabe11a1874ff102a427c541bbc5"
+        },
+        {
+          "id": "src/platform/proof/b3-proof-observation-port.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "53a0f76528307de8e8606ed8ec974ff315457a339030661450ca06b93edc85da"
+        },
+        {
+          "id": "src/platform/proof/capacitor-b3-proof-observation.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "9fd38e9b10db927032eba25820920d566e7cff496c24871bbb666c3e7b532949"
         },
         {
           "id": "vendor/ks2-mastery/content/spelling.mobile-runtime-full.json",
@@ -638,27 +680,27 @@
           "sha256": "61cf1c7a20158a534da47c5bb453604b8d0ca9d8d5aac9d1d450942de33af3f1"
         },
         {
-          "fileName": "assets/index-CMOxbQrW.js",
+          "fileName": "assets/index-BUzemD4J.js",
           "kind": "chunk",
-          "sha256": "75cc8f5b9e489c9583becedda13d79c80372440b1a1531c80c0053242ad7ae33"
+          "sha256": "725120069cda233c8ca4517fb3a954b13b53a5ddee95cf5854203b1abae7c673"
         },
         {
-          "fileName": "assets/web-C-HzCQV5.js",
+          "fileName": "assets/web-DzSpGx0f.js",
           "kind": "chunk",
-          "sha256": "ba7e7202f6e4f698ba0e1d2b8c7618000156e084cde8bcfb50cf32c71d96f0fc"
+          "sha256": "18bcc4a1ebaa155b09dbd6aa225bc655e861cf2c1c0678b1e4b7ae360698272e"
         },
         {
-          "fileName": "assets/web-DNJOlaF-.js",
+          "fileName": "assets/web-FXXvXVFE.js",
           "kind": "chunk",
-          "sha256": "1980bbbdf457910dada0ca9b38766f463cf3181b5c42579d5a5154e1515e4a86"
+          "sha256": "8df4831de411b14bcaa017d5344ad822fca904ad9c105029d6f5009b670cc07d"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "cc1e0c80b9cc721b3db8b80b38596c75a8eda5a3e7180cff875134d8c709c756"
+          "sha256": "d929a45211aa9ddc9f6c2dba99b760b80392d1d69447bad3463be6bc60a4ed7c"
         }
       ],
-      "evidenceSha256": "5b46f44c093d9dbb324eabbec4b0a8fa012b0f3b15192317c510ba41ab45246c"
+      "evidenceSha256": "1143574389828e4e2a883d55456823c5222606f6234637c4ea276336e9a3248c"
     },
     "allPackages": [
       {
@@ -5221,7 +5263,7 @@
     "generatedFrom": [
       {
         "path": "package.json",
-        "sha256": "00de258d7c7735e15cf364fdb4079979090ab5b760a13db659774624fad8a768"
+        "sha256": "9fbc8b1ab3c777293459cca1568e273e138f4f326ab941d866eef3602fb21fd6"
       },
       {
         "path": "scripts/certify-android-dependencies.mjs",
@@ -5237,7 +5279,7 @@
       },
       {
         "path": "config/dependency-policy.json",
-        "sha256": "ac6b6659a66210bafa021e39363f74d7af837cde3924efe6523465b743a9e005"
+        "sha256": "6bb79b4dc87745882b396db43f355b28d68a5a32b4ec3d4cad2585c39d9eb808"
       },
       {
         "path": "config/maven-licence-policy.json",
@@ -59202,7 +59244,7 @@
   "gradleInputs": [
     {
       "path": "android/app/build.gradle",
-      "sha256": "ec4f7602994cf4743d24597faafc241a099d859e0790408ac30fedd5dc5e921f"
+      "sha256": "86823fcec7e308b70d829f706f4b36d2f6fde25093bda9fe7b94b7641d3390ce"
     },
     {
       "path": "android/app/capacitor.build.gradle",

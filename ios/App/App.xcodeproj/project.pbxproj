@@ -25,6 +25,8 @@
 		B31500000000000000000003 /* B3StoreKitDelayedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B31500000000000000000013 /* B3StoreKitDelayedTests.swift */; };
 		B31500000000000000000004 /* B3Sandbox.storekit in Resources */ = {isa = PBXBuildFile; fileRef = B31500000000000000000012 /* B3Sandbox.storekit */; };
 		C31900000000000000000001 /* BuildAuthorityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31900000000000000000011 /* BuildAuthorityPlugin.swift */; };
+		C31900000000000000000002 /* B3ProofObservationPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31900000000000000000013 /* B3ProofObservationPlugin.swift */; };
+		D31900000000000000000001 /* B3ProofScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31900000000000000000011 /* B3ProofScreenshotTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +61,9 @@
 		B31500000000000000000014 /* AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C31900000000000000000011 /* BuildAuthorityPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildAuthorityPlugin.swift; sourceTree = "<group>"; };
 		C31900000000000000000012 /* b3-distribution-loader.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = b3-distribution-loader.xcconfig; path = ../b3-distribution-loader.xcconfig; sourceTree = SOURCE_ROOT; };
+		C31900000000000000000013 /* B3ProofObservationPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = B3ProofObservationPlugin.swift; sourceTree = "<group>"; };
+		D31900000000000000000011 /* B3ProofScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = B3ProofScreenshotTests.swift; sourceTree = "<group>"; };
+		D31900000000000000000012 /* B3ProofUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = B3ProofUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,6 +83,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D31900000000000000000031 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -88,6 +100,7 @@
 				C31900000000000000000012 /* b3-distribution-loader.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				B31500000000000000000031 /* AppTests */,
+				D31900000000000000000021 /* B3ProofUITests */,
 				504EC3051FED79650016851F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -97,6 +110,7 @@
 			children = (
 				504EC3041FED79650016851F /* App.app */,
 				B31500000000000000000014 /* AppTests.xctest */,
+				D31900000000000000000012 /* B3ProofUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -111,6 +125,7 @@
 				A12000000000000000000015 /* PackInstallSealer.swift */,
 				B31500000000000000000011 /* CommercePlugin.swift */,
 				C31900000000000000000011 /* BuildAuthorityPlugin.swift */,
+				C31900000000000000000013 /* B3ProofObservationPlugin.swift */,
 				B31500000000000000000012 /* B3Sandbox.storekit */,
 				A12000000000000000000012 /* ZipCentralDirectoryInspector.swift */,
 				A12000000000000000000021 /* Resources */,
@@ -130,6 +145,14 @@
 				B31500000000000000000013 /* B3StoreKitDelayedTests.swift */,
 			);
 			path = AppTests;
+			sourceTree = "<group>";
+		};
+		D31900000000000000000021 /* B3ProofUITests */ = {
+			isa = PBXGroup;
+			children = (
+				D31900000000000000000011 /* B3ProofScreenshotTests.swift */,
+			);
+			path = B3ProofUITests;
 			sourceTree = "<group>";
 		};
 		A12000000000000000000021 /* Resources */ = {
@@ -184,6 +207,25 @@
 			productReference = B31500000000000000000014 /* AppTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		D31900000000000000000041 /* B3ProofUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D31900000000000000000051 /* Build configuration list for PBXNativeTarget "B3ProofUITests" */;
+			buildPhases = (
+				D31900000000000000000032 /* Sources */,
+				D31900000000000000000031 /* Frameworks */,
+				D31900000000000000000033 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = B3ProofUITests;
+			packageProductDependencies = (
+			);
+			productName = B3ProofUITests;
+			productReference = D31900000000000000000012 /* B3ProofUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -202,6 +244,10 @@
 						CreatedOnToolsVersion = 16.0;
 						ProvisioningStyle = Automatic;
 						TestTargetID = 504EC3031FED79650016851F;
+					};
+					D31900000000000000000041 = {
+						CreatedOnToolsVersion = 16.0;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -224,6 +270,7 @@
 				targets = (
 					504EC3031FED79650016851F /* App */,
 					B31500000000000000000041 /* AppTests */,
+					D31900000000000000000041 /* B3ProofUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -251,6 +298,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D31900000000000000000033 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -264,6 +318,7 @@
 				A12000000000000000000006 /* PackInstallSealer.swift in Sources */,
 				B31500000000000000000001 /* CommercePlugin.swift in Sources */,
 				C31900000000000000000001 /* BuildAuthorityPlugin.swift in Sources */,
+				C31900000000000000000002 /* B3ProofObservationPlugin.swift in Sources */,
 				A12000000000000000000002 /* ZipCentralDirectoryInspector.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -273,6 +328,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				B31500000000000000000003 /* B3StoreKitDelayedTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D31900000000000000000032 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D31900000000000000000001 /* B3ProofScreenshotTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -563,6 +626,71 @@
 			};
 			name = B3SandboxProof;
 		};
+		D31900000000000000000061 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = V45S7U2LZB;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = uk.eugnel.ks2spelling.B3ProofUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D31900000000000000000062 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = V45S7U2LZB;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = uk.eugnel.ks2spelling.B3ProofUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D31900000000000000000063 /* B3SandboxProof */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = V45S7U2LZB;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = uk.eugnel.ks2spelling.B3ProofUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = B3_SANDBOX_PROOF;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = B3SandboxProof;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -594,6 +722,16 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
+		};
+		D31900000000000000000051 /* Build configuration list for PBXNativeTarget "B3ProofUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D31900000000000000000061 /* Debug */,
+				D31900000000000000000062 /* Release */,
+				D31900000000000000000063 /* B3SandboxProof */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = B3SandboxProof;
 		};
 /* End XCConfigurationList section */
 

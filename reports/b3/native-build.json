@@ -40,7 +40,7 @@
         "sourceSha256": "7aaa9a832edc314da3f96151e0bfecd6f73e3f995d1201f1748c97d3f703514d"
       }
     ],
-    "dependencyAuditSha256": "079df701736310e18feca48cfa13980b22aaffaebed61f2f814ada0c0a4e6773"
+    "dependencyAuditSha256": "1ca5829bd7701cf213ddc06e28b84250fd5ec4f53e7683a6d7b1706b3bb0bafb"
   },
   "sourceAuthority": [
     {
@@ -101,12 +101,12 @@
     {
       "path": ".native-build/android/build/app/outputs/apk/debug/app-debug.apk",
       "bytes": 25908801,
-      "sha256": "27b07f66db82534bfce642223c96c68e36c3597a55cc6e97d3eb2149d1512a8e"
+      "sha256": "c133f2124be268e91e242346a2a273befb05ad4c234781370021d4f8cce9968b"
     },
     {
       "path": ".native-build/android/build/app/outputs/apk/release/app-release-unsigned.apk",
-      "bytes": 24645245,
-      "sha256": "72f9b1fc6da0a3c9003e0aa6c45e4c7a1d27150217e7e74934245e6b0b8eafc5"
+      "bytes": 24660685,
+      "sha256": "3a77239fafab7f5baa1fd825c8fd197248af8efed2b534fe1a1ab0ba08a65aef"
     },
     {
       "path": ".native-build/android/build/app/intermediates/javac/debug/compileDebugJavaWithJavac/classes/uk/eugnel/ks2spelling/CommercePlugin.class",
@@ -164,7 +164,7 @@
       "junit": [
         {
           "path": ".native-build/android/build/app/test-results/testDebugUnitTest/TEST-uk.eugnel.ks2spelling.CommercePluginTest.xml",
-          "sha256": "d0d7fb5a3ed89dd9ea8c1dd3bee94fc8e3890e160f40af6755330b6eee15164f",
+          "sha256": "06f466b8f5f2e557e6f50653d2e438764c8208c0d559022b6fc0a1963c94be97",
           "suite": "uk.eugnel.ks2spelling.CommercePluginTest",
           "tests": 6,
           "failures": 0,
@@ -173,7 +173,7 @@
         },
         {
           "path": ".native-build/android/build/app/test-results/testDebugUnitTest/TEST-uk.eugnel.ks2spelling.PackTransferPluginTest.xml",
-          "sha256": "a7ddfaf23d9779d03ac4234815c64aa1e8690923874e000e2715d8ca15974e1f",
+          "sha256": "d9a6e9cb60b2d6b01a5884679805c1c56c7be38337e10a4d0827f12475342b75",
           "suite": "uk.eugnel.ks2spelling.PackTransferPluginTest",
           "tests": 4,
           "failures": 0,
@@ -182,7 +182,7 @@
         },
         {
           "path": ".native-build/android/build/app/test-results/testDebugUnitTest/TEST-uk.eugnel.ks2spelling.ZipCentralDirectoryInspectorTest.xml",
-          "sha256": "e890426945f3244249fa46d963a5fbcd47d5bd8a803829fb8b4f89a94fa530fd",
+          "sha256": "6fb088907e16068ddbf0bed7e60e4214edd3b06784f73a875b99fe9d6fe8a491",
           "suite": "uk.eugnel.ks2spelling.ZipCentralDirectoryInspectorTest",
           "tests": 3,
           "failures": 0,
@@ -266,9 +266,9 @@
     "archiveSha256": "4c2ca2eb4d4bb7ac3347b66e3483dcb6aa71b41958704733bfc471c970ce7664",
     "exclusionScan": {
       "authorisedFixtureDirectory": "tests/fixtures/keys",
-      "filesScanned": 1180,
-      "bytesScanned": 117755344,
-      "expandedArchiveBytesScanned": 1053598
+      "filesScanned": 2540,
+      "bytesScanned": 168076913,
+      "expandedArchiveBytesScanned": 168543630
     },
     "signingFixturePackaged": false
   },

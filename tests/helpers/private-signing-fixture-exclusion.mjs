@@ -47,6 +47,12 @@ const GENERATED_PACKAGEABLE_DIRECTORIES = Object.freeze([
   '.native-build/ios/Build/Products/Debug-iphonesimulator/App.app',
   '.native-build/android/build/app/intermediates/java_res/debugUnitTest/'
     + 'processDebugUnitTestJavaRes/out/b3-hostile-zips',
+  'android/app/build/intermediates/java_res/debugUnitTest/'
+    + 'processDebugUnitTestJavaRes/out/b3-hostile-zips',
+  'android/app/build/intermediates/java_res/b3SandboxProofDebugUnitTest/'
+    + 'processB3SandboxProofDebugUnitTestJavaRes/out/b3-hostile-zips',
+  'android/app/build/intermediates/java_res/b3SandboxProofReleaseUnitTest/'
+    + 'processB3SandboxProofReleaseUnitTestJavaRes/out/b3-hostile-zips',
 ]);
 
 const PACKAGEABLE_DIRECTORIES = Object.freeze([
@@ -76,6 +82,12 @@ const NATIVE_HOSTILE_ZIP_FIXTURE_PREFIX =
 const GENERATED_ANDROID_HOSTILE_ZIP_FIXTURE_PREFIX =
   'android/app/build/intermediates/java_res/debugUnitTest/'
   + 'processDebugUnitTestJavaRes/out/b3-hostile-zips/';
+const GENERATED_ANDROID_B3_DEBUG_HOSTILE_ZIP_FIXTURE_PREFIX =
+  'android/app/build/intermediates/java_res/b3SandboxProofDebugUnitTest/'
+  + 'processB3SandboxProofDebugUnitTestJavaRes/out/b3-hostile-zips/';
+const GENERATED_ANDROID_B3_RELEASE_HOSTILE_ZIP_FIXTURE_PREFIX =
+  'android/app/build/intermediates/java_res/b3SandboxProofReleaseUnitTest/'
+  + 'processB3SandboxProofReleaseUnitTestJavaRes/out/b3-hostile-zips/';
 const GENERATED_NATIVE_ANDROID_HOSTILE_ZIP_FIXTURE_PREFIX =
   '.native-build/android/build/app/intermediates/java_res/debugUnitTest/'
   + 'processDebugUnitTestJavaRes/out/b3-hostile-zips/';
@@ -108,6 +120,8 @@ const HOSTILE_ZIP_COPY_PREFIXES = Object.freeze([
   HOSTILE_ZIP_FIXTURE_PREFIX,
   NATIVE_HOSTILE_ZIP_FIXTURE_PREFIX,
   GENERATED_ANDROID_HOSTILE_ZIP_FIXTURE_PREFIX,
+  GENERATED_ANDROID_B3_DEBUG_HOSTILE_ZIP_FIXTURE_PREFIX,
+  GENERATED_ANDROID_B3_RELEASE_HOSTILE_ZIP_FIXTURE_PREFIX,
   GENERATED_NATIVE_ANDROID_HOSTILE_ZIP_FIXTURE_PREFIX,
 ]);
 const MAX_FILES = 20_000;
@@ -131,6 +145,11 @@ const EXCLUDED_DIRECTORY_NAMES = new Set(['.git', '.gradle', 'node_modules']);
 const EXCLUDED_DIRECTORY_PATHS = new Set([
   'ios/App/CapApp-SPM/.swiftpm',
   'ios/Pods',
+  // Gradle intermediates are non-packageable duplicate work products. Final
+  // APK/AAB outputs remain under android/app/build/outputs and are scanned;
+  // the deliberately malformed hostile-ZIP copies are scanned separately by
+  // the exact generated roots above.
+  'android/app/build/intermediates',
 ]);
 
 const authorisedPrivateFixture = await readFile(AUTHORISED_PRIVATE_FIXTURE_URL);

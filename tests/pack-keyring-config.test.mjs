@@ -165,6 +165,8 @@ test('native hostile ZIP exemption rejects an extra compressed private PEM archi
 test('generated Android hostile ZIP copies require the exact path, names and bytes', async (t) => {
   const prefixes = [
     'android/app/build/intermediates/java_res/debugUnitTest/processDebugUnitTestJavaRes/out/b3-hostile-zips',
+    'android/app/build/intermediates/java_res/b3SandboxProofDebugUnitTest/processB3SandboxProofDebugUnitTestJavaRes/out/b3-hostile-zips',
+    'android/app/build/intermediates/java_res/b3SandboxProofReleaseUnitTest/processB3SandboxProofReleaseUnitTestJavaRes/out/b3-hostile-zips',
     '.native-build/android/build/app/intermediates/java_res/debugUnitTest/processDebugUnitTestJavaRes/out/b3-hostile-zips',
   ];
   for (const [index, prefix] of prefixes.entries()) {

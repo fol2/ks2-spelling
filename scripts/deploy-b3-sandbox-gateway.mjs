@@ -12,8 +12,8 @@ import {
   assertB3RemoteMutationScope,
   orchestrateB3CloudflareDeployment,
   readTrackedB3CloudflareAuthority,
+  validateB3CloudflareDeploymentDraft,
 } from './lib/b3-cloudflare-evidence.mjs';
-import { validateB3CloudflareEvidence } from './lib/b3-evidence.mjs';
 import { createDefaultB3CloudflarePrimitives } from './lib/b3-cloudflare-live-adapter.mjs';
 import { assertCleanB3Head } from './prepare-b3-distribution.mjs';
 import { fingerprintB3Application } from './fingerprint-b3-application.mjs';
@@ -29,6 +29,9 @@ export async function deployB3SandboxGateway({
   applicationAuthority,
   clock,
   localMutationGate = validateB3LocalMutationAuthority,
+  prerequisiteChecker = checkB3ExternalPrerequisites,
+  trackedAuthorityReader = readTrackedB3CloudflareAuthority,
+  write = false,
 } = {}) {
   assertB3RemoteMutationScope({
     approvedScope: env.B3_REMOTE_MUTATION_SCOPE,
@@ -45,7 +48,7 @@ export async function deployB3SandboxGateway({
   const inspector = remoteInspector ?? createCloudflareRemoteInspector({
     commandRunner: (args, context) => runOAuthSafeWrangler(args, { root, env, accountId: context?.accountId }),
   });
-  const prerequisite = await checkB3ExternalPrerequisites({
+  const prerequisite = await prerequisiteChecker({
     approvalFile: env.B3_PREREQUISITES_FILE,
     runToken: env.B3_REMOTE_RUN_TOKEN,
     remoteInspector: inspector,
@@ -58,7 +61,7 @@ export async function deployB3SandboxGateway({
     error.gates = prerequisite.gates;
     throw error;
   }
-  const tracked = await readTrackedB3CloudflareAuthority(root);
+  const tracked = await trackedAuthorityReader(root);
   const checkpoint = applicationAuthority ?? {
     testedApplicationCommit: await assertCleanB3Head(root),
     applicationFingerprint: (await fingerprintB3Application({ root })).sha256,
@@ -69,20 +72,27 @@ export async function deployB3SandboxGateway({
       ? '.native-build/b3/pack/signed-manifest.json'
       : '.native-build/b3/pack/b3-sandbox-proof.zip',
   ));
-  return validateB3CloudflareEvidence(await orchestrateB3CloudflareDeployment({
+  const draft = validateB3CloudflareDeploymentDraft(await orchestrateB3CloudflareDeployment({
     applicationAuthority: checkpoint,
     tracked,
     primitives: primitives ?? createDefaultB3CloudflarePrimitives({ root, env }),
     readAuthorityObject: readAuthorityObject ?? defaultReader,
   }));
+  if (write) {
+    const evidenceDirectory = resolve(root, '.native-build/b3/evidence');
+    await mkdir(evidenceDirectory, { recursive: true, mode: 0o700 });
+    await writeFile(
+      resolve(evidenceDirectory, 'cloudflare-deployment-draft.json'),
+      `${JSON.stringify(draft, null, 2)}\n`,
+      { mode: 0o600, flag: 'wx' },
+    );
+  }
+  return draft;
 }
 
 async function main() {
   try {
-    const evidence = await deployB3SandboxGateway();
-    const evidenceDirectory = resolve(ROOT, '.native-build/b3/evidence');
-    await mkdir(evidenceDirectory, { recursive: true, mode: 0o700 });
-    await writeFile(resolve(evidenceDirectory, 'cloudflare-deployment.json'), `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
+    const evidence = await deployB3SandboxGateway({ write: true });
     process.stdout.write(`${JSON.stringify({ ok: true, deploymentVersionId: evidence.worker.deploymentVersionId })}\n`);
     return 0;
   } catch (error) {

@@ -11,6 +11,7 @@ import { verifySignedPackManifest } from '../domain/packs/pack-signature-verifie
 import { B3_DOWNLOAD_CHUNK_BYTES } from '../domain/packs/signed-download-access-contract.js';
 import { createCapacitorStore } from '../platform/commerce/capacitor-store.js';
 import { createCapacitorSqliteConnection } from '../platform/database/capacitor-sqlite-connection.js';
+import { seedB2Learners } from '../platform/database/b2-seed.js';
 import { configureAndMigrateDatabase } from '../platform/database/migrate-database.js';
 import { createSqliteCommerceAttemptRepository } from '../platform/database/sqlite-commerce-attempt-repository.js';
 import { createSqliteCommerceRepositories } from '../platform/database/sqlite-commerce-repositories.js';
@@ -21,8 +22,17 @@ import { createB3FakeStore } from '../platform/fakes/create-b3-fake-store.js';
 import { createHttpEntitlementGateway } from '../platform/gateway/http-entitlement-gateway.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
 import { createCapacitorPackTransfer } from '../platform/pack-transfer/capacitor-pack-transfer.js';
+import {
+  isCapacitorB3ProofObservation,
+} from '../platform/proof/capacitor-b3-proof-observation.js';
 
 import { createB3ProofController } from './b3-proof-controller.js';
+import { createB3DeviceGatewaySmokeProbe } from './b3-device-gateway-smoke.js';
+import {
+  createB3LiveProofSession,
+  createB3ObservedGateway,
+  createB3ObservedStore,
+} from './b3-live-proof-composition.js';
 import { createCommerceReconciler } from './commerce-reconciler.js';
 import { createDownloadCoordinator } from './download-coordinator.js';
 import { createPackActivationCoordinator } from './pack-activation-coordinator.js';
@@ -73,6 +83,11 @@ function assertBuildAuthority(runtime, gatewayAuthority) {
       'distribution',
       'publicSandboxOrigin',
       'workerName',
+      'bundleId',
+      'testedApplicationCommit',
+      'applicationFingerprint',
+      'versionName',
+      'buildNumber',
     ];
     if (
       Reflect.ownKeys(authority).length !== keys.length ||
@@ -91,7 +106,16 @@ function assertBuildAuthority(runtime, gatewayAuthority) {
       authority.distribution !==
         (runtime.platform === 'ios' ? 'development' : 'play-internal') ||
       authority.publicSandboxOrigin !== gatewayAuthority.publicSandboxOrigin ||
-      authority.workerName !== gatewayAuthority.workerName
+      authority.workerName !== gatewayAuthority.workerName ||
+      authority.bundleId !== 'uk.eugnel.ks2spelling' ||
+      !/^[0-9a-f]{40}$/u.test(authority.testedApplicationCommit) ||
+      !SHA256.test(authority.applicationFingerprint) ||
+      authority.versionName !== '0.3.0-b3' ||
+      !(
+        (runtime.platform === 'ios' && /^\d+$/u.test(authority.buildNumber)) ||
+        (runtime.platform === 'android' && Number.isSafeInteger(authority.buildNumber))
+      ) ||
+      Number(authority.buildNumber) <= 0
     ) {
       throw new TypeError('B3 native composition requires physical live proof authority.');
     }
@@ -190,7 +214,19 @@ async function verifyManifest(input) {
   });
 }
 
-function createGatewayRecorder(gateway, recordEnvelope) {
+export function createGatewayRecorder(
+  gateway,
+  recordEnvelope,
+  observeAuthorisation = () => {},
+  recordObservationFailure = () => {},
+) {
+  function markObservationFailure() {
+    try {
+      recordObservationFailure();
+    } catch {
+      // Proof bookkeeping cannot replace the production gateway result.
+    }
+  }
   return Object.freeze({
     verifyTransaction: (request) => gateway.verifyTransaction(request),
     completeTransaction: (request) => gateway.completeTransaction(request),
@@ -198,6 +234,15 @@ function createGatewayRecorder(gateway, recordEnvelope) {
     async authorisePackDownload(request) {
       const result = await gateway.authorisePackDownload(request);
       recordEnvelope(result.signedManifestEnvelopeBase64);
+      try {
+        const observation = observeAuthorisation(result);
+        if (observation && typeof observation.then === 'function') {
+          void observation.catch(markObservationFailure);
+        }
+      } catch {
+        // Proof observation cannot replace the production gateway result.
+        markObservationFailure();
+      }
       return result;
     },
   });
@@ -225,6 +270,8 @@ export async function createB3AppServices(options = {}) {
   let resumeOperation = null;
   let acceptingResumeEvents = true;
   let controller;
+  let proofCommand = null;
+  let liveProofSession = null;
   try {
     if (
       runtime.isNativePlatform &&
@@ -235,9 +282,28 @@ export async function createB3AppServices(options = {}) {
       throw new TypeError('B3 physical proof does not accept fake adapters.');
     }
     assertBuildAuthority(runtime, gatewayAuthority);
+    if (runtime.isNativePlatform) {
+      if (!isCapacitorB3ProofObservation(options.proofObservationPort)) {
+        throw new TypeError('B3 physical proof requires its concrete observation transport.');
+      }
+      proofCommand = await options.proofObservationPort.getLaunchCommand();
+      if (proofCommand !== null && (
+        proofCommand.platform !==
+          (runtime.platform === 'ios' ? 'ios-physical' : 'android-play-physical') ||
+        proofCommand.testedApplicationCommit !==
+          runtime.buildAuthority.testedApplicationCommit ||
+        proofCommand.applicationFingerprint !==
+          runtime.buildAuthority.applicationFingerprint
+      )) {
+        throw new TypeError('B3 launch command does not match the embedded build authority.');
+      }
+    } else if (Object.hasOwn(options, 'proofObservationPort')) {
+      throw new TypeError('Browser B3 composition cannot accept a proof observation transport.');
+    }
     connection = await connectionFactory();
     await connection.open();
     await migrate(connection);
+    await seedB2Learners(connection);
     startupSequence.push('database-migrated');
 
     const packTransfer = runtime.isNativePlatform
@@ -259,7 +325,7 @@ export async function createB3AppServices(options = {}) {
 
     assertBuildAuthority(runtime, gatewayAuthority);
     startupSequence.push('build-authority-selected');
-    const store = runtime.isNativePlatform
+    const rawStore = runtime.isNativePlatform
       ? createCapacitorStore({ Commerce: CommercePlugin })
       : createB3FakeStore(options.fakeStoreOptions);
     const rawGateway = runtime.isNativePlatform
@@ -269,10 +335,34 @@ export async function createB3AppServices(options = {}) {
         })
       : createB3FakeGateway(options.fakeGatewayOptions);
     startupSequence.push('commerce-adapters-composed');
+    if (proofCommand !== null) {
+      const gatewaySmokeProbe = options.deviceGatewaySmokeProbe ??
+        createB3DeviceGatewaySmokeProbe({
+          fetchImpl: globalThis.fetch.bind(globalThis),
+          clock,
+          wait: (milliseconds) => new Promise((resolveWait) => setTimeout(resolveWait, milliseconds)),
+        });
+      liveProofSession = await createB3LiveProofSession({
+        command: proofCommand,
+        buildAuthority: runtime.buildAuthority,
+        connection,
+        observationPort: options.proofObservationPort,
+        gatewaySmokeProbe,
+      });
+    }
+    const store = liveProofSession
+      ? createB3ObservedStore(rawStore, liveProofSession)
+      : rawStore;
+    const observedGateway = liveProofSession
+      ? createB3ObservedGateway(rawGateway, liveProofSession)
+      : rawGateway;
     let latestSignedManifestEnvelope = null;
-    const gateway = createGatewayRecorder(rawGateway, (value) => {
-      latestSignedManifestEnvelope = value;
-    });
+    const gateway = createGatewayRecorder(
+      observedGateway,
+      (value) => { latestSignedManifestEnvelope = value; },
+      (result) => liveProofSession?.observeDownloadAuthorisation(result),
+      () => liveProofSession?.recordGatewaySmokeFailure(),
+    );
     const storeKind = runtime.platform === 'ios' ? 'apple' : 'google';
     const attemptRepository = createSqliteCommerceAttemptRepository(
       connection,
@@ -286,7 +376,7 @@ export async function createB3AppServices(options = {}) {
       downloadRepository: packRepository,
       clock: () => safeTimestampClock(clock),
       idFactory: () => globalThis.crypto.randomUUID(),
-      failureInjector: async () => undefined,
+      failureInjector: liveProofSession?.failureInjector ?? (async () => undefined),
     });
     let latestTransactionState = null;
     let syncFailed = false;
@@ -532,6 +622,10 @@ export async function createB3AppServices(options = {}) {
     return Object.freeze({
       mode: 'b3-parent-proof',
       adapterKind: runtime.isNativePlatform ? 'concrete-live' : 'deterministic-fake',
+      liveProofArmed: proofCommand !== null,
+      runLiveProofCommand: liveProofSession
+        ? () => liveProofSession.run(controller)
+        : null,
       startupSequence: Object.freeze([...startupSequence]),
       controller,
       dispose,

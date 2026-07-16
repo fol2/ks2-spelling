@@ -132,6 +132,12 @@ configure an analytics or advertising product or SDK. These are compiled and
 deterministic fake proof boundaries only: live store, live cloud,
 physical-device and final store disclosure proof remain separate later gates.
 
+Spelling practice, installed-pack use, learner progress and child-owned Monster
+progress remain local and available offline. Network access is limited to
+commerce verification, pack download and redownload, entitlement refresh,
+restore and revocation. B3 sandbox and test proof must not be described as
+production release readiness.
+
 ## Not approved candidates
 
 | Capability | Candidate package | Status |

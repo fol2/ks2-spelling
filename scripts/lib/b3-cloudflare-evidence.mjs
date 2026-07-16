@@ -2,11 +2,40 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
+import { parseJsonWithoutDuplicateMembers } from '../../src/domain/packs/signed-manifest-contract.js';
 
 export const B3_SCRIPT_AUTHORITY_PLACEHOLDER = '0'.repeat(64);
 export const B3_CLOUDFLARE_SCOPE = 'cloudflare-deploy';
 export const B3_MANIFEST_KEY = 'packs/b3-sandbox-proof/1.0.0-b3.1/signed-manifest.json';
 export const B3_ARCHIVE_KEY = 'packs/b3-sandbox-proof/1.0.0-b3.1/b3-sandbox-proof.zip';
+const LOWERCASE_UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const SHA256 = /^[0-9a-f]{64}$/u;
+const R2_ETAG = /^[0-9a-f]{32}$/u;
+const DEPLOYMENT_DRAFT_KEYS = Object.freeze([
+  'schemaVersion', 'testedApplicationCommit', 'applicationFingerprint', 'worker', 'bucket',
+  'signedEnvelopeSha256', 'objects', 'deploymentReadback',
+]);
+const PUBLIC_WORKER_KEYS = Object.freeze([
+  'accountId', 'name', 'publicSandboxOrigin', 'deploymentVersionId',
+  'scriptAuthoritySha256', 'compatibilityDate', 'compatibilityFlags', 'bindings',
+  'requiredSecretNames', 'remoteSecretNamesVerified',
+]);
+const PUBLIC_BUCKET_KEYS = Object.freeze([
+  'approvedIdentifier', 'private', 'r2DevPublicAccess', 'customDomains',
+]);
+const PUBLIC_OBJECT_KEYS = Object.freeze([
+  'role', 'key', 'sha256', 'size', 'etag', 'customMetadata',
+]);
+const SMOKE_OBJECT_KEYS = Object.freeze(['role', 'key', 'sha256', 'size', 'etag']);
+const DEVICE_SMOKE_KEYS = Object.freeze([
+  'schemaVersion', 'deploymentVersionId', 'scriptAuthoritySha256',
+  'signedEnvelopeSha256', 'objects', 'capability', 'range',
+]);
+const REQUIRED_SECRET_NAMES = Object.freeze([
+  'APPLE_IAP_ISSUER_ID', 'APPLE_IAP_KEY_ID', 'APPLE_IAP_PRIVATE_KEY',
+  'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', 'ENTITLEMENT_HANDLE_KEY_CURRENT',
+  'ENTITLEMENT_HANDLE_KEY_PREVIOUS', 'R2_CAPABILITY_HMAC_KEY',
+]);
 
 function cloudflareError(message) {
   const error = new Error(message);
@@ -16,6 +45,16 @@ function cloudflareError(message) {
 
 function validToken(value) {
   return typeof value === 'string' && /^[0-9a-f]{64}$/u.test(value);
+}
+
+function exactRecord(value, keys, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      Object.getPrototypeOf(value) !== Object.prototype ||
+      Reflect.ownKeys(value).length !== keys.length ||
+      keys.some((key) => !Object.hasOwn(value, key))) {
+    throw cloudflareError(`${label} violates its closed schema`);
+  }
+  return value;
 }
 
 function assertGatewayAuthority(value) {
@@ -39,8 +78,12 @@ export function orderTrackedB3Objects(objects) {
 
 export async function readTrackedB3CloudflareAuthority(root) {
   const [gateway, objectAuthority] = await Promise.all([
-    readFile(resolve(root, 'config/b3-gateway-authority.json'), 'utf8').then(JSON.parse),
-    readFile(resolve(root, 'config/b3-pack-object-authority.json'), 'utf8').then(JSON.parse),
+    readFile(resolve(root, 'config/b3-gateway-authority.json')).then(
+      (bytes) => parseJsonWithoutDuplicateMembers(bytes, 'B3 gateway authority'),
+    ),
+    readFile(resolve(root, 'config/b3-pack-object-authority.json')).then(
+      (bytes) => parseJsonWithoutDuplicateMembers(bytes, 'B3 object authority'),
+    ),
   ]);
   assertGatewayAuthority(gateway);
   if (objectAuthority?.bucketName !== gateway.privateR2BucketName) {
@@ -64,7 +107,10 @@ export function buildB3CloudflareDeploymentPlan({ authority, objects, approvedSc
     accountId: authority.cloudflareAccountId,
     commands: Object.freeze([
       Object.freeze({ operation: 'dry-run', args: Object.freeze(['deploy', '--dry-run', '--outdir', '.native-build/b3/wrangler-dry-run', ...safe]) }),
-      Object.freeze({ operation: 'deploy-exact-bundle', args: Object.freeze(['deploy', '--outdir', '.native-build/b3/wrangler-deploy', ...safe]) }),
+      Object.freeze({ operation: 'deploy-exact-bundle', args: Object.freeze([
+        'deploy', '--config', '.native-build/b3/wrangler-derived.json', '--no-bundle',
+        '--outdir', '.native-build/b3/wrangler-deploy', ...safe,
+      ]) }),
       Object.freeze({ operation: 'retrieve-version-api', method: 'GET', path: `/accounts/${authority.cloudflareAccountId}/workers/scripts/${authority.workerName}/versions` }),
       Object.freeze({ operation: 'upload-no-overwrite-identical-only', role: ordered[0].role, key: ordered[0].key }),
       Object.freeze({ operation: 'upload-no-overwrite-identical-only', role: ordered[1].role, key: ordered[1].key }),
@@ -110,6 +156,206 @@ function assertRemoteObject(actual, authority) {
   return actual;
 }
 
+
+function publicObjectFromAuthority(authority) {
+  return {
+    role: authority.role,
+    key: authority.key,
+    sha256: authority.sha256,
+    size: authority.bytes,
+    etag: authority.etag,
+    customMetadata: structuredClone(authority.metadata),
+  };
+}
+
+function smokeObjectFromPublic(value) {
+  return {
+    role: value.role,
+    key: value.key,
+    sha256: value.sha256,
+    size: value.size,
+    etag: value.etag,
+  };
+}
+
+function assertSmokeObject(value, expected, label) {
+  exactRecord(value, SMOKE_OBJECT_KEYS, label);
+  if (!isDeepStrictEqual(value, smokeObjectFromPublic(expected))) {
+    throw cloudflareError(`${label} differs from the deployment draft`);
+  }
+}
+
+export function validateB3CloudflareDeploymentDraft(rawValue) {
+  const value = exactRecord(rawValue, DEPLOYMENT_DRAFT_KEYS, 'Cloudflare deployment draft');
+  exactRecord(value.worker, PUBLIC_WORKER_KEYS, 'Cloudflare deployment draft worker');
+  exactRecord(value.worker.bindings, ['r2', 'rateLimit', 'versionMetadata'], 'Cloudflare deployment draft bindings');
+  exactRecord(value.bucket, PUBLIC_BUCKET_KEYS, 'Cloudflare deployment draft bucket');
+  exactRecord(
+    value.deploymentReadback,
+    ['deploymentVersionId', 'deployedSourceSha256', 'versionApiMatched',
+      'contentBytesMatched', 'objects'],
+    'Cloudflare deployment readback',
+  );
+  if (value.schemaVersion !== 1 || !/^[0-9a-f]{40}$/u.test(value.testedApplicationCommit) ||
+      !SHA256.test(value.applicationFingerprint) ||
+      value.worker.accountId !== '6d00cb4a0396c17ad6ba617bcbcaa45d' ||
+      value.worker.name !== 'ks2-spelling-b3-sandbox' ||
+      value.worker.publicSandboxOrigin !== 'https://b3-gateway.eugnel.uk' ||
+      !LOWERCASE_UUID_V4.test(value.worker.deploymentVersionId) ||
+      !SHA256.test(value.worker.scriptAuthoritySha256) ||
+      value.worker.compatibilityDate !== '2026-07-12' ||
+      !isDeepStrictEqual(value.worker.compatibilityFlags, ['nodejs_compat']) ||
+      !isDeepStrictEqual(value.worker.bindings, {
+        r2: 'PACKS', rateLimit: 'GATEWAY_RATE_LIMIT', versionMetadata: 'WORKER_VERSION_METADATA',
+      }) ||
+      !isDeepStrictEqual(value.worker.requiredSecretNames, REQUIRED_SECRET_NAMES) ||
+      value.worker.remoteSecretNamesVerified !== true ||
+      !isDeepStrictEqual(value.bucket, {
+        approvedIdentifier: 'ks2-spelling-b3-sandbox-packs',
+        private: true,
+        r2DevPublicAccess: false,
+        customDomains: [],
+      }) ||
+      !SHA256.test(value.signedEnvelopeSha256) || !Array.isArray(value.objects) ||
+      value.objects.length !== 2 ||
+      value.deploymentReadback.deploymentVersionId !== value.worker.deploymentVersionId ||
+      !SHA256.test(value.deploymentReadback.deployedSourceSha256) ||
+      value.deploymentReadback.versionApiMatched !== true ||
+      value.deploymentReadback.contentBytesMatched !== true ||
+      !Array.isArray(value.deploymentReadback.objects) ||
+      value.deploymentReadback.objects.length !== 2) {
+    throw cloudflareError('Cloudflare deployment draft readback authority is invalid');
+  }
+  const expectedRoles = ['signed-manifest', 'archive'];
+  for (let index = 0; index < expectedRoles.length; index += 1) {
+    const object = value.objects[index];
+    const readback = value.deploymentReadback.objects[index];
+    exactRecord(object, PUBLIC_OBJECT_KEYS, `Cloudflare deployment draft object ${index}`);
+    exactRecord(
+      readback,
+      ['role', 'key', 'sha256', 'size', 'etag', 'headMatched', 'getMatched'],
+      `Cloudflare deployment object readback ${index}`,
+    );
+    const expectedKey = index === 0 ? B3_MANIFEST_KEY : B3_ARCHIVE_KEY;
+    const metadataKeys = index === 0
+      ? ['b3-envelope-sha256', 'b3-role', 'b3-sha256', 'b3-size']
+      : ['b3-role', 'b3-sha256', 'b3-size'];
+    exactRecord(object.customMetadata, metadataKeys, `Cloudflare deployment draft metadata ${index}`);
+    if (object.role !== expectedRoles[index] || object.key !== expectedKey ||
+        !SHA256.test(object.sha256) ||
+        !R2_ETAG.test(object.etag) || !Number.isSafeInteger(object.size) || object.size <= 0 ||
+        object.customMetadata['b3-role'] !== object.role ||
+        object.customMetadata['b3-sha256'] !== object.sha256 ||
+        object.customMetadata['b3-size'] !== String(object.size) ||
+        (index === 0 && object.customMetadata['b3-envelope-sha256'] !== object.sha256) ||
+        !isDeepStrictEqual(readback, {
+          ...smokeObjectFromPublic(object), headMatched: true, getMatched: true,
+        })) {
+      throw cloudflareError('Cloudflare deployment object head/get readback is invalid');
+    }
+  }
+  if (value.signedEnvelopeSha256 !== value.objects[0].sha256) {
+    throw cloudflareError('Cloudflare deployment draft envelope authority is invalid');
+  }
+  return structuredClone(value);
+}
+
+function validateDeviceSmokeProjection(rawValue, draft) {
+  const value = exactRecord(rawValue, DEVICE_SMOKE_KEYS, 'B3 device gateway smoke');
+  if (value.schemaVersion !== 1 ||
+      value.deploymentVersionId !== draft.worker.deploymentVersionId ||
+      value.scriptAuthoritySha256 !== draft.worker.scriptAuthoritySha256 ||
+      value.signedEnvelopeSha256 !== draft.signedEnvelopeSha256 ||
+      !Array.isArray(value.objects) || value.objects.length !== 2) {
+    throw cloudflareError('B3 device gateway smoke is not bound to the deployment draft');
+  }
+  value.objects.forEach((object, index) =>
+    assertSmokeObject(object, draft.objects[index], `B3 device gateway smoke object ${index}`));
+  exactRecord(value.capability, [
+    'ttlSeconds', 'valid', 'tamperedRejected', 'expiredRejected',
+    'canonicalEncodingRequired',
+  ], 'B3 device capability smoke');
+  exactRecord(value.range, [
+    'full200', 'partial206', 'conditional304', 'unsatisfied416',
+    'noRedirects', 'cacheControl',
+  ], 'B3 device Range smoke');
+  if (!isDeepStrictEqual(value.capability, {
+    ttlSeconds: 600,
+    valid: true,
+    tamperedRejected: true,
+    expiredRejected: true,
+    canonicalEncodingRequired: true,
+  }) || !isDeepStrictEqual(value.range, {
+    full200: true,
+    partial206: true,
+    conditional304: true,
+    unsatisfied416: true,
+    noRedirects: true,
+    cacheControl: 'private, no-store',
+  })) {
+    throw cloudflareError('B3 device capability or Range smoke is invalid');
+  }
+  return structuredClone(value);
+}
+
+export function validateB3DeviceGatewaySmokeProjection(rawValue, rawDraft) {
+  return validateDeviceSmokeProjection(
+    rawValue,
+    validateB3CloudflareDeploymentDraft(rawDraft),
+  );
+}
+
+export async function assembleB3CloudflareEvidence({
+  draft: rawDraft,
+  smokeProjection: rawSmokeProjection,
+  smokeGateway,
+}) {
+  const draft = validateB3CloudflareDeploymentDraft(rawDraft);
+  const deviceSmoke = validateB3DeviceGatewaySmokeProjection(rawSmokeProjection, draft);
+  if (typeof smokeGateway !== 'function') {
+    throw cloudflareError('approved host-safe gateway smoke primitive is missing');
+  }
+  const safeInput = {
+    deploymentVersionId: draft.worker.deploymentVersionId,
+    scriptAuthoritySha256: draft.worker.scriptAuthoritySha256,
+    objects: draft.objects.map(smokeObjectFromPublic),
+  };
+  const safeSmoke = await smokeGateway(structuredClone(safeInput));
+  exactRecord(safeSmoke, ['identity', 'cors', 'rateLimit'], 'host-safe gateway smoke');
+  assertSafeGatewayIdentity(safeSmoke.identity, {
+    deploymentVersionId: draft.worker.deploymentVersionId,
+    scriptAuthoritySha256: draft.worker.scriptAuthoritySha256,
+  });
+  exactRecord(safeSmoke.cors, ['nativeOriginsAllowed', 'foreignOriginsRejected'], 'host-safe CORS smoke');
+  exactRecord(safeSmoke.rateLimit, [
+    'everyPublicPostGetCovered', 'limitedStatus', 'limitedBodyReads',
+    'limitedUpstreamCalls', 'missingBindingFailedClosed',
+  ], 'host-safe rate-limit smoke');
+  if (!isDeepStrictEqual(safeSmoke.cors, {
+    nativeOriginsAllowed: true, foreignOriginsRejected: true,
+  }) || !isDeepStrictEqual(safeSmoke.rateLimit, {
+    everyPublicPostGetCovered: true,
+    limitedStatus: 429,
+    limitedBodyReads: 0,
+    limitedUpstreamCalls: 0,
+    missingBindingFailedClosed: true,
+  })) {
+    throw cloudflareError('host-safe CORS or rate-limit smoke is invalid');
+  }
+  return {
+    schemaVersion: 1,
+    testedApplicationCommit: draft.testedApplicationCommit,
+    applicationFingerprint: draft.applicationFingerprint,
+    worker: structuredClone(draft.worker),
+    bucket: structuredClone(draft.bucket),
+    signedEnvelopeSha256: draft.signedEnvelopeSha256,
+    objects: structuredClone(draft.objects),
+    capability: deviceSmoke.capability,
+    range: deviceSmoke.range,
+    rateLimit: structuredClone(safeSmoke.rateLimit),
+  };
+}
+
 function requirePrimitive(primitives, name) {
   if (typeof primitives?.[name] !== 'function') throw cloudflareError(`approved Cloudflare primitive is missing: ${name}`);
   return primitives[name];
@@ -134,7 +380,6 @@ export async function orchestrateB3CloudflareDeployment({
   const inspectWorkerState = requirePrimitive(primitives, 'inspectWorkerState');
   const inspectObject = requirePrimitive(primitives, 'inspectObject');
   const uploadObject = requirePrimitive(primitives, 'uploadObject');
-  const smokeGateway = requirePrimitive(primitives, 'smokeGateway');
 
   const objectBytes = new Map();
   for (const authority of objects) {
@@ -156,11 +401,15 @@ export async function orchestrateB3CloudflareDeployment({
     scriptAuthoritySha256: bound.scriptAuthoritySha256,
     deployedSourceSha256,
   });
-  if (!deployment || !/^[A-Za-z0-9._-]{1,128}$/u.test(deployment.deploymentVersionId ?? '') ||
+  if (!deployment || !LOWERCASE_UUID_V4.test(deployment.deploymentVersionId ?? '') ||
       deployment.deployedSourceSha256 !== deployedSourceSha256) {
     throw cloudflareError('deployed Worker bytes or version authority mismatch');
   }
-  const version = await inspectVersionApi({ deploymentVersionId: deployment.deploymentVersionId });
+  const version = await inspectVersionApi({
+    deploymentVersionId: deployment.deploymentVersionId,
+    deployedSourceSha256,
+    scriptAuthoritySha256: bound.scriptAuthoritySha256,
+  });
   if (!isDeepStrictEqual(version, {
     deploymentVersionId: deployment.deploymentVersionId,
     deployedSourceSha256,
@@ -168,6 +417,8 @@ export async function orchestrateB3CloudflareDeployment({
 
   const workerState = await inspectWorkerState();
   const expectedWorkerState = {
+    deploymentVersionId: deployment.deploymentVersionId,
+    deployedSourceSha256,
     accountId: tracked.gateway.cloudflareAccountId,
     workerName: tracked.gateway.workerName,
     publicSandboxOrigin: tracked.gateway.publicSandboxOrigin,
@@ -200,31 +451,9 @@ export async function orchestrateB3CloudflareDeployment({
       remote = await inspectObject({ role: authority.role, key: authority.key });
     }
     assertRemoteObject(remote, authority);
-    reportObjects.push({
-      role: authority.role,
-      key: authority.key,
-      sha256: authority.sha256,
-      size: authority.bytes,
-      etag: authority.etag,
-      customMetadata: structuredClone(authority.metadata),
-    });
+    reportObjects.push(publicObjectFromAuthority(authority));
   }
 
-  const smoke = await smokeGateway({
-    deploymentVersionId: deployment.deploymentVersionId,
-    scriptAuthoritySha256: bound.scriptAuthoritySha256,
-    objects: structuredClone(reportObjects),
-  });
-  assertSafeGatewayIdentity(smoke?.identity, {
-    deploymentVersionId: deployment.deploymentVersionId,
-    scriptAuthoritySha256: bound.scriptAuthoritySha256,
-  });
-  if (!isDeepStrictEqual(smoke?.cors, { nativeOriginsAllowed: true, foreignOriginsRejected: true }) ||
-      !isDeepStrictEqual(smoke?.capability, { ttlSeconds: 600, valid: true, tamperedRejected: true, expiredRejected: true, canonicalEncodingRequired: true }) ||
-      !isDeepStrictEqual(smoke?.range, { full200: true, partial206: true, conditional304: true, unsatisfied416: true, noRedirects: true, cacheControl: 'private, no-store' }) ||
-      !isDeepStrictEqual(smoke?.rateLimit, { everyPublicPostGetCovered: true, limitedStatus: 429, limitedBodyReads: 0, limitedUpstreamCalls: 0, missingBindingFailedClosed: true })) {
-    throw cloudflareError('live CORS, capability, range or rate-limit smoke mismatch');
-  }
   return {
     schemaVersion: 1,
     testedApplicationCommit: applicationAuthority.testedApplicationCommit,
@@ -249,9 +478,17 @@ export async function orchestrateB3CloudflareDeployment({
     },
     signedEnvelopeSha256: reportObjects[0].sha256,
     objects: reportObjects,
-    capability: smoke.capability,
-    range: smoke.range,
-    rateLimit: smoke.rateLimit,
+    deploymentReadback: {
+      deploymentVersionId: deployment.deploymentVersionId,
+      deployedSourceSha256,
+      versionApiMatched: true,
+      contentBytesMatched: true,
+      objects: reportObjects.map((object) => ({
+        ...smokeObjectFromPublic(object),
+        headMatched: true,
+        getMatched: true,
+      })),
+    },
   };
 }
 
@@ -281,12 +518,18 @@ export async function verifyB3CloudflareDeploymentEvidence({
   if (bound.scriptAuthoritySha256 !== evidence.worker.scriptAuthoritySha256) {
     throw cloudflareError('current deterministic Worker script authority differs from live evidence');
   }
-  const version = await inspectVersionApi({ deploymentVersionId: evidence.worker.deploymentVersionId });
+  const version = await inspectVersionApi({
+    deploymentVersionId: evidence.worker.deploymentVersionId,
+    deployedSourceSha256,
+    scriptAuthoritySha256: bound.scriptAuthoritySha256,
+  });
   if (!isDeepStrictEqual(version, { deploymentVersionId: evidence.worker.deploymentVersionId, deployedSourceSha256 })) {
     throw cloudflareError('Cloudflare API version authority mismatch');
   }
   const workerState = await inspectWorkerState();
   const expectedWorkerState = {
+    deploymentVersionId: evidence.worker.deploymentVersionId,
+    deployedSourceSha256,
     accountId: evidence.worker.accountId,
     workerName: evidence.worker.name,
     publicSandboxOrigin: evidence.worker.publicSandboxOrigin,
@@ -315,17 +558,16 @@ export async function verifyB3CloudflareDeploymentEvidence({
   const smoke = await smokeGateway({
     deploymentVersionId: evidence.worker.deploymentVersionId,
     scriptAuthoritySha256: evidence.worker.scriptAuthoritySha256,
-    objects: structuredClone(evidence.objects),
+    objects: evidence.objects.map(smokeObjectFromPublic),
   });
+  exactRecord(smoke, ['identity', 'cors', 'rateLimit'], 'host-safe gateway smoke');
   assertSafeGatewayIdentity(smoke?.identity, {
     deploymentVersionId: evidence.worker.deploymentVersionId,
     scriptAuthoritySha256: evidence.worker.scriptAuthoritySha256,
   });
-  if (!isDeepStrictEqual(smoke?.capability, evidence.capability) ||
-      !isDeepStrictEqual(smoke?.range, evidence.range) ||
-      !isDeepStrictEqual(smoke?.rateLimit, evidence.rateLimit) ||
+  if (!isDeepStrictEqual(smoke?.rateLimit, evidence.rateLimit) ||
       !isDeepStrictEqual(smoke?.cors, { nativeOriginsAllowed: true, foreignOriginsRejected: true })) {
-    throw cloudflareError('live gateway smoke differs from evidence');
+    throw cloudflareError('host-safe gateway smoke differs from evidence');
   }
   return true;
 }

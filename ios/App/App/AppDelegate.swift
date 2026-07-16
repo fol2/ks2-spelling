@@ -13,6 +13,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             bridgeViewController.bridge?.registerPluginInstance(CommercePlugin())
             #if B3_SANDBOX_PROOF
             bridgeViewController.bridge?.registerPluginInstance(BuildAuthorityPlugin())
+            bridgeViewController.bridge?.registerPluginInstance(B3ProofObservationPlugin())
             #endif
         }
         return true

@@ -7,7 +7,7 @@
 - [Standalone Spelling Mobile Application Design](../../../../ks2-mastery/docs/superpowers/specs/2026-07-09-standalone-spelling-mobile-application-design.md)
 - [B3 Sandbox Billing and Signed Download Proof Plan](./2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md), especially Tasks 19–23
 
-This document amends Task 19 only where the current implementation proved that the original live-capture and Cloudflare primitives cannot produce honest evidence. All other B3 requirements remain authoritative. If this amendment and the original Task 19 wording differ, this amendment governs the live-adapter implementation and the resulting production-trace contract.
+This document amends Task 19 where the current implementation proved that the original live-capture and Cloudflare primitives cannot produce honest evidence, plus the minimum Task 22 execution-order change required to finalise capability/Range smoke without exposing a sealed handle. All other B3 requirements remain authoritative. If this amendment and the original wording differ, this amendment governs the live-adapter implementation, production-trace contract and atomic Task 22 evidence assembly order; the exact six-file topology and all final claims remain unchanged.
 
 ## Outcome
 
@@ -30,6 +30,28 @@ The shipping application remains offline-first. Cloudflare is not used for spell
 - During Tasks 19A–19H below: no Cloudflare deployment, R2 mutation, store-console mutation, signing, installation, uninstall/reinstall, physical-device launch, force-stop, screenshot capture, commit, push or evidence finalisation. Tests use fakes for external process/API/device boundaries while exercising the real application composition.
 - Real Cloudflare/device mutations remain deferred to original Tasks 21–22 and still require the existing exact scoped approval and run-token gates.
 - Existing dirty Task 19 work belongs to the active implementation lane. Do not discard, overwrite or stage unrelated changes.
+
+## Task 19 protocol correction — physical process and host checkpoints
+
+The physical transport proof established that every app command is a fresh process. `devicectl` launch environment applies only to the spawned process, Android launches use force-stop semantics, and operator/store-console actions do not launch the app. The following correction is therefore authoritative:
+
+- `WAITING_OPERATOR`, force-stop and manual attestation are host-owned checkpoints, not app launch actions.
+- `APPROVE_PENDING_PURCHASE` and `DECLINE_PENDING_PURCHASE` are host/store actions. The pending app observation remains `in-progress`; it must not claim an approved or declined result.
+- Android decline is proved retroactively when the next fresh process observes no retained transaction and no access. Android approval is proved retroactively when a fresh `ARM_GATEWAY_COMPLETION_HOLD` process observes and verifies the purchased transaction, publishes `HOLD_REACHED`, and is force-stopped only after the host validates that observation and waits exactly five seconds. A fourth fresh process then runs `RELAUNCH` over the unchanged recovery path. The host may derive the prior public scenario outcome only from those retained, validated device observations.
+- Every observation contains only the gateway calls and redacted store events since that session's previous successful publication. Calls are never filtered. A bounded app-owned cursor binds the capture, scenario, exact production offset and used trace identifiers across processes. A successful call which was not published causes the next process to fail closed; it cannot silently skip the call.
+- A cursor for another capture ID is never silently reset on the same durable installation, even when its pending/publication fields are clean. A new capture requires the explicit reinstall/reset boundary which creates new durable application state.
+- Publication validates each gateway delta as an exact contiguous segment of the production vector. The independent host validator concatenates every retained delta for the scenario and requires exact full-vector equality before deriving public evidence.
+- The closed proof projection additionally carries four app-owned authorities:
+  - `entitlementAuthority`: `{ id, state, domainSeparatedDigestSha256, refreshHandlePresent }`, where the digest binds the canonical redacted durable entitlement row and never the raw handle or transaction;
+  - `packAuthority`: `{ packId, manifestSha256, archiveSha256, installed }`, accepted as installed only when the active row, ready installed row and latest matching ready download job agree exactly; and
+  - `transportAuthority`: `{ storeAdapter, gatewayAdapter, serverUrl, nativeOriginAllowed, noRedirects }`, fixed by the physical composition to the concrete Capacitor store and concrete HTTP gateway with no server URL or redirects; and
+  - `storeAuthority`: `{ environment, productId, localisedPriceObserved, completionState }`, derived only after StorePort validation and reconciled with durable journal completion. Completion is `finished` on iOS, `acknowledged` on Android, or `not-observed`; it never carries a receipt, token or transaction identifier.
+- `transactionAuthority.rawProofCleared` is an additional redacted durable boolean. It is true only when relevant full-KS2 transaction-journal rows are unambiguous and every `opaque_proof` cell has been cleared to SQL `NULL`. Recovery, install, restore, redownload and revocation cannot become terminal evidence while it is false.
+- Exactly one distinct non-null relevant store transaction identifier may be authoritative. Historical terminal rows whose authority was atomically transferred to a revocation journal may be null, but multiple distinct identifiers fail closed.
+- Proof observation and cursor persistence are fail-later metadata: they may mark the session drifted and block publication, but must never replace or delay ownership of a validated StorePort/gateway result or the original production error. The redacted StorePort projection retains the port's full 64-transaction result bound.
+- Restore/reinstall and redownload report facts are host derivations over the authenticated observation chain and reinstall boundary. They are not caller-supplied booleans. StoreKit test reporting remains an independent host artefact.
+
+The production-trace integration gate must create separate real `createB3AppServices` processes over the same SQLite path for the hold/relaunch boundary and fresh real-factory processes for every remaining iOS and Android scenario segment. External native/store/HTTP responses may be supplied only through the existing Capacitor and fetch boundaries; the application factory, coordinators, repositories, startup reconciliation and proof publication remain production code. Manually assembled coordinator worlds are not trace authority.
 
 ## Architecture and ownership
 
@@ -72,14 +94,27 @@ Create:
 - `src/platform/proof/b3-proof-observation-port.js`
 - `src/platform/proof/capacitor-b3-proof-observation.js`
 - `ios/App/App/B3ProofObservationPlugin.swift`
-- `android/app/src/main/java/uk/eugnel/ks2spelling/B3ProofObservationPlugin.java`
+- `android/app/src/b3SandboxProof/java/uk/eugnel/ks2spelling/B3ProofObservationPlugin.java`
 - `scripts/lib/b3-device-observation.mjs`
+- `scripts/lib/b3-host-capture-state.mjs`
+- `scripts/lib/b3-issued-command.mjs`
+- `scripts/lib/b3-physical-device-transport.mjs`
+- `scripts/lib/b3-physical-observation-journal.mjs`
+- `scripts/lib/b3-ios-proof-screenshot.mjs`
+- `scripts/lib/b3-play-protect-attestation.mjs`
 - `scripts/lib/b3-cloudflare-oauth-child.mjs`
 - `tests/b3-live-proof-protocol.test.mjs`
 - `tests/b3-live-proof-production-trace.test.mjs`
 - `tests/b3-live-proof-privacy.test.mjs`
 - `tests/b3-cloudflare-live-adapter.test.mjs`
 - `tests/b3-live-capture-resume.test.mjs`
+- `tests/b3-physical-device-transport.test.mjs`
+- `tests/b3-physical-observation-journal.test.mjs`
+- `tests/b3-ios-screenshot-capture.test.mjs`
+- `tests/b3-play-protect-attestation.test.mjs`
+- `ios/App/B3ProofUITests/B3ProofScreenshotTests.swift`
+- `ios/App/App.xcodeproj/xcshareddata/xcschemes/B3ProofUITests.xcscheme`
+- `tests/b3-ios-screenshot-target-contract.test.mjs`
 
 Modify only where required:
 
@@ -135,8 +170,8 @@ The test records all calls at the production gateway seam and proves at least th
 - recovery may re-run transaction verification before gateway completion;
 - purchase coordination may call `authorisePackDownload` to persist a download job;
 - the download coordinator calls `authorisePackDownload` again to obtain the live capability and rotating handle;
-- fresh-install startup reconciliation may recover entitlement before explicit Restore;
-- the explicit Restore action may therefore add further real verification/refresh/authorisation/completion calls;
+- fresh-install startup reconciliation recovers entitlement before the command is published;
+- `REBIND_FRESH_INSTALL` therefore publishes that startup replay authority and must not duplicate the same store transaction through a second explicit Restore call;
 - revocation and post-reinstall calls stay ordered as actually emitted by the production composition.
 
 Run:
@@ -149,7 +184,7 @@ Expected RED: the current exact trace arrays in `scripts/lib/b3-evidence.mjs` om
 
 ### GREEN
 
-Update the exact iOS and Android scenario trace vectors in `scripts/lib/b3-evidence.mjs` and fixtures only after the integration test has produced the real ordered vectors. Each trace record remains a fresh UUIDv4 with its real operation and relation. Do not coalesce repeated calls, move a call to a more convenient scenario, or suppress startup calls.
+Update the exact iOS and Android scenario trace vectors in `scripts/lib/b3-evidence.mjs` and fixtures only after the real application-factory integration test has produced the ordered vectors. Each trace record remains a fresh UUIDv4 with its real operation and relation. Do not coalesce repeated calls, move a call to a more convenient scenario, or suppress startup calls. Worker deployment version IDs use lowercase UUIDv4 and the tracked single-part R2 objects use lowercase 32-hex ETags; neither may be validated by a generic identifier rule or substituted for a 64-hex SHA-256 authority.
 
 The original nine user-visible scenarios and outcomes remain unless the real state machine proves a naming/order defect. The amendment is to trace multiplicity and relation, not permission to reduce coverage. Any scenario-name/order change requires a written mapping in the test and a spec review before implementation continues.
 
@@ -181,6 +216,7 @@ Add protocol and privacy tests for a closed launch command:
   testedApplicationCommit,
   applicationFingerprint,
   expectedScenarioIndex,
+  expectedSequence,
   previousObservationSha256,
   installationMode: 'existing' | 'fresh-reinstall',
   actionCode,
@@ -188,7 +224,7 @@ Add protocol and privacy tests for a closed launch command:
 }
 ```
 
-The command contains no claimed result. `actionCode` is one value from a closed enum controlled by the host runner. It cannot contain free text, paths, shell fragments, URLs or evidence fields.
+The command contains no claimed result. `expectedSequence` is a positive safe integer owned by the host checkpoint; it is required because a fresh reinstall clears app metadata and the new installation cannot derive the prior sequence from a hash. `actionCode` is one value from a closed enum controlled by the host runner. It cannot contain free text, paths, shell fragments, URLs or evidence fields.
 
 The application publishes a canonical JSON observation with exact keys:
 
@@ -214,6 +250,8 @@ The application publishes a canonical JSON observation with exact keys:
 
 Require a maximum canonical byte size of 64 KiB, bounded arrays, exact keys, lowercase SHA-256 values, monotonic sequence/index, challenge binding, previous-hash binding and self-hash verification. A fresh reinstall creates a new `installationId` but must link to the prior installation's tail hash supplied by the host command.
 
+The app-side publication validator checks exact canonical shape, self-hash and every launch-command binding, including `expectedSequence` and the supplied prior tail. It does not claim to possess the prior installation's full observation after a fresh reinstall. The host-side validator remains separate and must receive the prior observation/checkpoint for every sequence above one; only that full-chain validator may advance the checkpoint or evidence.
+
 The protocol state machine is closed:
 
 ```text
@@ -234,6 +272,8 @@ UNBOUND
 Only applicable transitions are traversed for a scenario. Timeout, unchanged observation, wrong challenge, replay, skipped index, wrong installation mode, broken hash chain, duplicate terminal state or unknown action exits `6` and must not advance the checkpoint.
 
 Privacy RED cases must scan nested keys and values and reject raw JWS/token/receipt/order/transaction ID, sealed handle, capability, email/tester/account/device identifier, learner ID and nickname. Learners are verified internally against the exact tracked two-profile authority and exported only as fixed positional digests plus `syntheticAuthorityMatched: true`. Transaction authority exports only source, cross-check boolean and a domain-separated digest. Handle lifecycle exports only presence/version/rotation/deletion booleans.
+
+The closed `proofProjection` also contains a bounded `gatewayCalls` array. Each item has exactly `{ operation, relation, traceId }`: `operation` is one of `verify | complete | refresh | authorise`, `relation` is from the production-derived closed relation enum frozen by Task 19A, and `traceId` is the gateway-generated random UUID already required by the public B3 transition evidence. This is not a store transaction identifier. The application must export every real call in order; the host copies these records and may never invent, filter or coalesce them.
 
 Run:
 
@@ -270,6 +310,8 @@ Extend `tests/b3-live-composition.test.mjs` to require:
 - dispose/resume races cannot publish stale or duplicate observations.
 
 Add the crash proof at the existing purchase-coordinator `before:gateway-completion` failure-injection seam. In B3 physical proof only, the closed command may arm a one-shot hold at that point. The entitlement and sealed handle must already be durable, while gateway completion has not run. The host observes `HOLD_REACHED`, waits exactly five seconds where required, force-stops, then relaunches the unchanged production recovery path. All re-verification and completion calls are recorded.
+
+For iOS, the hold is part of `normal-purchase`: that scenario records the initial transaction verification and ends at `HOLD_REACHED`. The next `unfinished-relaunch` scenario records recovery re-verification, completion and all subsequent production calls. Android keeps both sides inside `unacknowledged-relaunch`. This preserves the existing public scenario meanings while recording every real call exactly once.
 
 Expected RED: `createB3AppServices` hard-codes a no-op failure injector and has no observation composition.
 
@@ -351,6 +393,7 @@ Add `tests/b3-live-capture-resume.test.mjs` and extend the iOS/Android wrapper t
   applicationFingerprint,
   installationId,
   nextScenarioIndex,
+  nextObservationSequence,
   state,
   completedScenarios,
   previousObservationSha256,
@@ -368,12 +411,66 @@ Host adapters must:
 - validate the observation independently before advancing;
 - print one bounded operator instruction from a closed enum and exit `7` when human store action is required;
 - own the exact slow-card poll budget and five-second unacknowledged hold;
+- treat `--resume-store-action` as a single-use acknowledgement for exactly one
+  retained observation hash and closed store-action code in one CLI invocation;
+  it never supplies an approve/decline outcome, and a later operator gate requires
+  a fresh invocation and flag;
+- bind `--resume-reinstall` to the exact `REBIND_FRESH_INSTALL` action and
+  retained invocation-start observation hash; the first encounter exits `7`
+  with `REINSTALL_EXACT_BUILD`, while a future or different reinstall gate
+  cannot consume the acknowledgement;
+- retain each issued native command as a canonical `prepared -> launching ->
+  launched` record. A prepared command may launch once, a launched command may
+  only pull, and an ambiguous launching command must pull the exact fixed-path
+  publication first. If none validates inside the fixed bound, exit `7` at the
+  closed reinstall checkpoint without repeating the native side effect;
+- store issued commands in bounded, private per-platform immutable ledgers.
+  Each command hash has one immutable base, each source state has one atomic
+  successor claim, and completion appends a command-hash tombstone bound to the
+  actually derived terminal record. No transition uses PID liveness, a reusable
+  lock/current path or unlink; conflicting successor edges have exactly one
+  winner and stale completion of one command cannot consume another;
+- model iOS termination as `stop-intent -> stop-executing -> host-stopped`.
+  Exactly one successor claimant owns the physical terminate side effect, and
+  the transport must durably retain the post-terminate receipt before its
+  `forceStop` promise resolves. Process absence without that receipt is never
+  treated as proof of a host-owned stop;
+- retain invalid command-bound publication authority instead of clearing and
+  relaunching it. A replacement exact publication may recover through pull-only
+  resume;
+- use immutable observation creation and immutable checkpoint revision claims
+  as the filesystem concurrency primitives. Writer temporaries live outside the
+  closed observation directory, and obsolete `.lock` debris cannot wedge a
+  checkpoint revision after process death;
 - wait for `HOLD_REACHED` before force-stop and require `RELAUNCH_RECOVERY` afterwards;
-- capture the final original-resolution screenshot directly with `devicectl`/`adb`, not from an environment-supplied source path;
+- capture the final original-resolution screenshot from an owned platform tool, never from an environment-supplied source path: Android uses `adb exec-out screencap -p`; Xcode 26.6 exposes no `devicectl` screenshot command, so iOS uses a dedicated B3-only XCUITest which retains `XCUIScreen.main.screenshot()` as a named original-quality `XCTAttachment`, then exports that attachment from its `.xcresult` with `xcresulttool`. The UI-test target/scheme has no App target dependency or App build product and uses `XCUIApplication(bundleIdentifier:)`, so XCTest launches the already-installed Task 21 application instead of replacing it; distribution authority is re-inspected after capture;
+- validate the entire PNG structure, chunk CRCs, compressed scanline extent and
+  final `IEND`, not only its signature/IHDR. Before Android's final screencap,
+  foreground the exact application component with a closed `adb am start -W`
+  command so Play Protect Settings cannot become the app proof screenshot;
+- after the ninth scenario, issue only `CAPTURE_TERMINAL` and retain the
+  app-owned `TERMINAL_CAPTURE` observation. The app must not claim
+  `MANUAL_ATTESTATION` or `COMPLETE`; those are host report states reached only
+  after the separately captured screenshot is actually attested;
 - stop at pending evidence and exit `5` for manual visual attestation;
 - never accept a path to operator JSON as a device observation.
 
-Android `playCertified: true` cannot come from the app. Bind it to a CLI-captured Play Protect settings screenshot plus an independent root SHA attestation, together with installer and Play App Signing certificate authority. The report keeps only the approved boolean and attestation/screenshot hashes permitted by the closed evidence contract.
+Android `playCertified: true` cannot come from the app. Bind it to a CLI-captured Play Protect settings screenshot plus an independent root SHA attestation, together with installer and Play App Signing certificate authority. Retain those two hidden artefacts only at the fixed private paths `.native-build/b3/evidence/android-play-protect-settings.png` and `.native-build/b3/evidence/android-play-protect-root-attestation.json`. The committed Android `device` block includes only `playCertified: true`, `playProtectSettingsScreenshotSha256` and `playProtectRootAttestationSha256` alongside model/OS/physical authority.
+
+The first absent Play Protect authority exits `7` with `SHOW_PLAY_PROTECT_SETTINGS`.
+After the root controller opens that exact screen, rerun with
+`--capture-play-protect`; the CLI captures the PNG directly with `adb`, retains it
+at the fixed path, and exits `7` with `ATTEST_PLAY_PROTECT_SETTINGS`. The root
+attestation is mode `0600`, canonical JSON without a trailing newline, and has
+exactly:
+
+```json
+{"playCertified":true,"platform":"android-play-physical","schemaVersion":1,"screenshotPath":".native-build/b3/evidence/android-play-protect-settings.png","screenshotSha256":"<exact lowercase PNG SHA-256>"}
+```
+
+Only a genuinely absent file reaches these operator gates. A symlink, hard link,
+non-canonical record, hash mismatch or replacement is a hard exit `6` and cannot
+be relabelled as an operator task.
 
 ### GREEN
 
@@ -382,7 +479,7 @@ Implement `scripts/lib/b3-device-observation.mjs`, the default adapters in `scri
 Run:
 
 ```bash
-node --test tests/b3-live-capture-resume.test.mjs tests/b3-ios-wrapper-contract.test.mjs tests/b3-android-wrapper-contract.test.mjs tests/b3-evidence-contract.test.mjs
+node --test tests/b3-live-capture-resume.test.mjs tests/b3-physical-device-transport.test.mjs tests/b3-physical-observation-journal.test.mjs tests/b3-ios-screenshot-capture.test.mjs tests/b3-ios-screenshot-target-contract.test.mjs tests/b3-play-protect-attestation.test.mjs tests/b3-ios-wrapper-contract.test.mjs tests/b3-android-wrapper-contract.test.mjs tests/b3-evidence-contract.test.mjs
 ```
 
 Expected GREEN: default adapters are no longer unavailable, but tests perform no real device command or mutation.
@@ -444,6 +541,8 @@ Implement `scripts/lib/b3-cloudflare-oauth-child.mjs` and `scripts/lib/b3-cloudf
 - `uploadObject`
 - `smokeGateway`
 
+`smokeGateway` must not mint or receive a capability on the host: the host has no legitimate sealed refresh handle before the physical journey, and neither a raw handle nor a new admin/test endpoint is allowed. Its default remains fail-closed until Task 19G supplies a device-generated closed smoke projection. The physical B3 application uses its own sealed handle internally to exercise valid/tampered/expired capability and Range behaviour, then publishes only the approved booleans and deployment/script bindings. No capability URL, query or handle crosses the observation port.
+
 Update `buildB3CloudflareDeploymentPlan` so the recorded exact deployment is explicitly `--no-bundle` against the derived config. Preserve scope/run-token/local-authority gates before the child is spawned or any remote inspection/mutation occurs.
 
 Run the focused command again. Add tests that mutate the Wrangler version, derived config, content bytes, version ID, remote binding name, bucket name, object key, metadata, SHA, ETag, precondition, consistency readback, child environment, output schema and disposal path one at a time.
@@ -471,6 +570,8 @@ Extend evidence and exit-builder mutation tests to reject:
 - claims that installed spelling practice, learners or Monster progress require Cloudflare.
 
 ### GREEN
+
+Split Cloudflare evidence assembly without widening the six-file topology: Task 22 first creates an ignored run-local deployment draft after Worker/version/R2 proof, then the physical application performs the closed capability/Range smoke after it has a legitimate sealed handle. The app publishes only the redacted smoke projection. The final Cloudflare report is assembled from the deployment draft plus that validated projection; iOS/Android finalisation then binds the same Cloudflare report. This changes execution order only—no incomplete draft or extra report may be committed, and the final six files remain atomic.
 
 Keep the public report schemas as small as possible. Observation/checkpoint internals remain untracked under `.native-build/b3/evidence`; only their approved hashes/projections enter the existing platform reports. Update architecture wording only if necessary to state:
 
@@ -509,7 +610,7 @@ Combine adjacent commits when the implementation cannot remain buildable indepen
 Run the complete local, non-mutating verification set:
 
 ```bash
-node --test tests/b3-live-proof-protocol.test.mjs tests/b3-live-proof-production-trace.test.mjs tests/b3-live-proof-privacy.test.mjs tests/b3-live-capture-resume.test.mjs tests/b3-cloudflare-live-adapter.test.mjs tests/b3-evidence-contract.test.mjs tests/b3-application-fingerprint.test.mjs tests/b3-cloudflare-wrapper-contract.test.mjs tests/b3-ios-wrapper-contract.test.mjs tests/b3-android-wrapper-contract.test.mjs tests/b3-distribution-authority.test.mjs tests/b3-live-composition.test.mjs tests/purchase-crash-recovery.test.mjs tests/purchase-second-lifecycle.test.mjs
+node --test tests/b3-live-proof-protocol.test.mjs tests/b3-live-proof-production-trace.test.mjs tests/b3-live-proof-privacy.test.mjs tests/b3-live-capture-resume.test.mjs tests/b3-physical-device-transport.test.mjs tests/b3-physical-observation-journal.test.mjs tests/b3-ios-screenshot-capture.test.mjs tests/b3-ios-screenshot-target-contract.test.mjs tests/b3-play-protect-attestation.test.mjs tests/b3-cloudflare-live-adapter.test.mjs tests/b3-evidence-contract.test.mjs tests/b3-application-fingerprint.test.mjs tests/b3-cloudflare-wrapper-contract.test.mjs tests/b3-ios-wrapper-contract.test.mjs tests/b3-android-wrapper-contract.test.mjs tests/b3-distribution-authority.test.mjs tests/b3-live-composition.test.mjs tests/purchase-crash-recovery.test.mjs tests/purchase-second-lifecycle.test.mjs
 npm test
 npm run lint
 npm run build

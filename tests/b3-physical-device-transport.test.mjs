@@ -14,6 +14,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { createB3TestPng } from './helpers/b3-test-png.mjs';
 
 import { canonicaliseB3ProofValue } from '../src/app/b3-live-proof-protocol.js';
@@ -24,6 +25,9 @@ import {
 
 const COMMIT = 'a'.repeat(40);
 const FINGERPRINT = 'b'.repeat(64);
+const FIFO_CHILD = fileURLToPath(
+  new URL('./helpers/b3-native-transport-fifo-child.mjs', import.meta.url),
+);
 
 async function processStopsWithin(pid, attempts = 50) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -40,6 +44,15 @@ async function processStopsWithin(pid, attempts = 50) {
     }
   }
   return false;
+}
+
+function assertFifoChildRejectsPromptly(operation) {
+  const result = spawnSync(process.execPath, [FIFO_CHILD, operation], {
+    encoding: 'utf8',
+    timeout: 2_000,
+  });
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
+  assert.ok(JSON.parse(result.stdout).elapsedMs < 1_000);
 }
 
 function command(platform) {
@@ -120,6 +133,18 @@ test('physical-device production runner bounds stdout and stderr independently',
     assert.equal(Buffer.byteLength(result[stream === 'stdout' ? 'stderr' : 'stdout']), 0);
     assert.equal(result.exitCode, 1);
   }
+});
+
+test('physical-device observation pull promptly rejects a FIFO output', () => {
+  assertFifoChildRejectsPromptly('pulled-observation');
+});
+
+test('iOS devicectl JSON output promptly rejects a FIFO', () => {
+  assertFifoChildRejectsPromptly('devicectl-json');
+});
+
+test('iOS retained launch identity promptly rejects a FIFO', () => {
+  assertFifoChildRejectsPromptly('launch-identity');
 });
 
 test('iOS transport launches only the fixed bundle and pulls only fixed appData bytes', async (t) => {

@@ -16,6 +16,7 @@ const MAXIMUM_BYTES = 128 * 1024;
 const STATES = Object.freeze([
   'prepared', 'stop-intent', 'stop-executing', 'host-stopped',
   'launching', 'reinstall-authorised', 'reinstall-launching', 'launched',
+  'restart-required', 'restart-executing', 'restart-complete',
 ]);
 const TRANSITIONS = new Set([
   'prepared:launching',
@@ -25,6 +26,11 @@ const TRANSITIONS = new Set([
   'host-stopped:launching',
   'launching:launched',
   'launching:reinstall-authorised',
+  'launching:restart-required',
+  'reinstall-launching:restart-required',
+  'restart-required:launched',
+  'restart-required:restart-executing',
+  'restart-executing:restart-complete',
   'reinstall-authorised:reinstall-launching',
   'reinstall-launching:launched',
 ]);

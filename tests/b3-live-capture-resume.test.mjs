@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { link, lstat, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { link, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +31,7 @@ import {
   createB3StoreActionResumeAuthority,
   buildAuthorityFor,
   resumeB3AmbiguousIssuedCommandAfterReinstall,
+  recoverB3AmbiguousCaptureAfterReinstall,
 } from '../scripts/lib/b3-live-capture-adapters.mjs';
 import {
   clearB3IssuedCommand,
@@ -189,6 +190,45 @@ function launchCommand(overrides = {}) {
     actionCode: 'ARM_CAPTURE',
     challengeSha256: 'd'.repeat(64),
     ...overrides,
+  };
+}
+
+function emptyProofProjection(command) {
+  return {
+    challengeSha256: command.challengeSha256,
+    scenarioOutcome: 'in-progress',
+    entitlementState: 'none',
+    packState: 'absent',
+    storeCompletionObserved: false,
+    storeEvents: [],
+    storeAuthority: {
+      environment: 'sandbox', productId: 'uk.eugnel.ks2spelling.fullks2',
+      localisedPriceObserved: false, completionState: 'not-observed',
+    },
+    gatewayCalls: [],
+    syntheticLearners: {
+      syntheticAuthorityMatched: true,
+      positionalSnapshotSha256: ['a'.repeat(64), 'b'.repeat(64)],
+    },
+    transactionAuthority: {
+      source: 'none', crossCheckedOnRefresh: false, domainSeparatedDigestSha256: null,
+      rawProofCleared: false,
+    },
+    refreshHandleLifecycle: {
+      present: false, positiveVersionObserved: false, rotated: false, deleted: false,
+    },
+    entitlementAuthority: {
+      id: null, state: 'none', domainSeparatedDigestSha256: null,
+      refreshHandlePresent: false,
+    },
+    packAuthority: {
+      packId: null, manifestSha256: null, archiveSha256: null, installed: false,
+    },
+    gatewaySmokeAuthority: null,
+    transportAuthority: {
+      storeAdapter: 'concreteCapacitorStore', gatewayAdapter: 'concreteHttpGateway',
+      serverUrl: null, nativeOriginAllowed: true, noRedirects: true,
+    },
   };
 }
 
@@ -888,7 +928,7 @@ for (const [platform, commandPlatform, exitCode] of [
       transportLaunch: async () => {},
       afterLaunch: async () => { throw new Error('simulated death after launch'); },
     }],
-  ]) test(`${platform} ${label} reaches the closed reinstall gate without duplicate launch`, async (t) => {
+  ]) test(`${platform} ${label} pulls before reaching the closed reinstall gate`, async (t) => {
     const root = await mkdtemp(join(tmpdir(), 'b3-ambiguous-launch-'));
     t.after(() => rm(root, { recursive: true, force: true }));
     const expectedCommand = launchCommand({ platform: commandPlatform });
@@ -898,16 +938,6 @@ for (const [platform, commandPlatform, exitCode] of [
       root, platform, command: expectedCommand, buildAuthority: BUILD_AUTHORITY,
       transport: {
         async launch(command) { launches += 1; await captureOptions.transportLaunch(command); },
-        async pullObservation() { assert.fail('ambiguous launch cannot pull'); },
-      },
-      ...(captureOptions.afterLaunch ? { afterLaunch: captureOptions.afterLaunch } : {}),
-      maximumPullAttempts: 1,
-    }), /simulated death/i);
-    assert.equal((await readB3IssuedCommand({ root, platform })).state, 'launching');
-    await assert.rejects(resumeB3IssuedDeviceObservation({
-      root, platform, buildAuthority: BUILD_AUTHORITY,
-      transport: {
-        async launch() { launches += 1; },
         async pullObservation() {
           pulls += 1;
           throw Object.assign(new Error('observation pull did not produce bytes'), {
@@ -915,14 +945,409 @@ for (const [platform, commandPlatform, exitCode] of [
           });
         },
       },
+      ...(captureOptions.afterLaunch ? { afterLaunch: captureOptions.afterLaunch } : {}),
       maximumPullAttempts: 1,
     }), (error) => error?.code === 'b3_operator_action_required' &&
       error.instructionCode === 'REINSTALL_EXACT_BUILD' && exitCode(error) === 7);
     assert.equal(launches, 1);
     assert.equal(pulls, 1);
-    assert.equal((await readB3IssuedCommand({ root, platform })).state, 'launching');
+    assert.equal((await readB3IssuedCommand({ root, platform })).state, 'restart-required');
   });
 }
+
+test('an ambiguous launch reconciles a same-invocation publication without relaunch', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ambiguous-launch-published-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const command = launchCommand();
+  const observation = await createB3ProofObservation({
+    command,
+    buildAuthority: BUILD_AUTHORITY,
+    installationId: INSTALLATION_ID,
+    sequence: 1,
+    scenario: 'product-query',
+    phase: 'ARMED',
+    nextActionCode: 'QUERY_PRODUCT',
+    completedTransitions: ['UNBOUND', 'ARMED'],
+    proofProjection: emptyProofProjection(command),
+    observedAt: '2026-07-15T10:00:00.000Z',
+  });
+  let launches = 0;
+  let pulls = 0;
+
+  const recovered = await captureB3ValidatedDeviceObservation({
+    root,
+    platform: 'ios',
+    command,
+    buildAuthority: BUILD_AUTHORITY,
+    transport: {
+      async launch() {
+        launches += 1;
+        throw new Error('ambiguous launch return');
+      },
+      async pullObservation() {
+        pulls += 1;
+        return Buffer.from(canonicaliseB3ProofValue(observation), 'utf8');
+      },
+    },
+    maximumPullAttempts: 1,
+  });
+
+  assert.equal(recovered.observationSha256, observation.observationSha256);
+  assert.equal(launches, 1);
+  assert.equal(pulls, 1);
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+});
+
+async function retainAmbiguousRestartGate({ root, command = launchCommand() }) {
+  await assert.rejects(captureB3ValidatedDeviceObservation({
+    root,
+    platform: 'ios',
+    command,
+    buildAuthority: BUILD_AUTHORITY,
+    transport: {
+      async launch() { throw new Error('ambiguous physical launch'); },
+      async pullObservation() {
+        throw Object.assign(new Error('observation pull did not produce bytes'), {
+          code: 'b3_physical_device_command_failed',
+        });
+      },
+    },
+    maximumPullAttempts: 1,
+  }), (error) => error?.instructionCode === 'REINSTALL_EXACT_BUILD');
+  return readB3IssuedCommand({ root, platform: 'ios' });
+}
+
+test('ordinary ambiguity archives its exact capture and restarts from sequence one', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ordinary-ambiguity-restart-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const abandoned = await retainAmbiguousRestartGate({ root });
+
+  assert.equal(await recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: 'f'.repeat(64),
+    buildAuthority: BUILD_AUTHORITY,
+  }), false);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'restart-required');
+  const evidence = join(root, '.native-build/b3/evidence');
+  await writeFile(join(evidence, 'ios-pending.json'), '{"stale":true}', { mode: 0o600 });
+  await writeFile(join(evidence, 'cloudflare-device-smoke.json'), '{"stale":true}', {
+    mode: 0o600,
+  });
+
+  const recovery = await recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: abandoned.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  });
+  assert.equal(recovery.restarted, true);
+  assert.equal(recovery.abandonedCaptureId, abandoned.command.captureId);
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+
+  const archiveRoot = join(root, '.native-build/b3/evidence/ios-abandoned-captures');
+  const archives = await readdir(archiveRoot);
+  assert.deepEqual(archives, [abandoned.commandSha256]);
+  const archiveAuthority = JSON.parse(await readFile(
+    join(archiveRoot, abandoned.commandSha256, 'authority.json'),
+    'utf8',
+  ));
+  assert.equal(archiveAuthority.captureId, abandoned.command.captureId);
+  assert.equal(archiveAuthority.commandSha256, abandoned.commandSha256);
+  assert.equal(await readFile(join(
+    archiveRoot, abandoned.commandSha256, 'derived', 'ios-pending.json',
+  ), 'utf8'), '{"stale":true}');
+  assert.equal(await readFile(join(
+    archiveRoot, abandoned.commandSha256, 'derived', 'cloudflare-device-smoke.json',
+  ), 'utf8'), '{"stale":true}');
+  await assert.rejects(readFile(join(evidence, 'ios-pending.json')), /ENOENT/u);
+  await assert.rejects(readFile(join(evidence, 'cloudflare-device-smoke.json')), /ENOENT/u);
+
+  let freshCommand;
+  const next = await advanceB3HostCaptureOne({
+    root,
+    platform: 'ios',
+    buildAuthority: BUILD_AUTHORITY,
+    uuidFactory: () => '00000000-0000-4000-8000-000000000999',
+    maximumPullAttempts: 1,
+    transport: {
+      async launch(command) { freshCommand = command; },
+      async pullObservation() {
+        const observation = await createB3ProofObservation({
+          command: freshCommand,
+          buildAuthority: BUILD_AUTHORITY,
+          installationId: '00000000-0000-4000-8000-000000000998',
+          sequence: 1,
+          scenario: 'product-query',
+          phase: 'ARMED',
+          nextActionCode: 'QUERY_PRODUCT',
+          completedTransitions: ['UNBOUND', 'ARMED'],
+          proofProjection: emptyProofProjection(freshCommand),
+          observedAt: '2026-07-15T10:00:01.000Z',
+        });
+        return Buffer.from(canonicaliseB3ProofValue(observation), 'utf8');
+      },
+    },
+  });
+  assert.equal(freshCommand.captureId, '00000000-0000-4000-8000-000000000999');
+  assert.equal(freshCommand.expectedSequence, 1);
+  assert.equal(freshCommand.actionCode, 'ARM_CAPTURE');
+  assert.equal(next.sequence, 1);
+});
+
+test('repeated fresh-REBIND ambiguity uses the disjoint capture-restart path', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-rebind-ambiguity-restart-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const command = launchCommand({
+    actionCode: 'REBIND_FRESH_INSTALL',
+    installationMode: 'fresh-reinstall',
+  });
+  await persistB3IssuedCommand({ root, platform: 'ios', command });
+  await transitionB3IssuedCommand({
+    root, platform: 'ios', command,
+    expectedState: 'prepared', nextState: 'launching',
+  });
+  await transitionB3IssuedCommand({
+    root, platform: 'ios', command,
+    expectedState: 'launching', nextState: 'reinstall-authorised',
+  });
+
+  await assert.rejects(resumeB3IssuedDeviceObservation({
+    root,
+    platform: 'ios',
+    buildAuthority: BUILD_AUTHORITY,
+    transport: {
+      async launch() { throw new Error('second ambiguous reinstall launch'); },
+      async pullObservation() {
+        throw Object.assign(new Error('observation pull did not produce bytes'), {
+          code: 'b3_physical_device_command_failed',
+        });
+      },
+    },
+    maximumPullAttempts: 1,
+  }), (error) => error?.instructionCode === 'REINSTALL_EXACT_BUILD');
+  const retained = await readB3IssuedCommand({ root, platform: 'ios' });
+  assert.equal(retained.state, 'restart-required');
+
+  const recovery = await recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  });
+  assert.equal(recovery.restarted, true);
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+});
+
+test('ambiguous capture restart is concurrent and crash-resumable without a second flag', async (t) => {
+  const concurrentRoot = await mkdtemp(join(tmpdir(), 'b3-concurrent-ambiguity-restart-'));
+  const crashRoot = await mkdtemp(join(tmpdir(), 'b3-crash-ambiguity-restart-'));
+  t.after(() => Promise.all([
+    rm(concurrentRoot, { recursive: true, force: true }),
+    rm(crashRoot, { recursive: true, force: true }),
+  ]));
+  const concurrent = await retainAmbiguousRestartGate({ root: concurrentRoot });
+  const outcomes = await Promise.all([
+    recoverB3AmbiguousCaptureAfterReinstall({
+      root: concurrentRoot, platform: 'ios', enabled: true,
+      invocationCommandSha256: concurrent.commandSha256, buildAuthority: BUILD_AUTHORITY,
+    }),
+    recoverB3AmbiguousCaptureAfterReinstall({
+      root: concurrentRoot, platform: 'ios', enabled: true,
+      invocationCommandSha256: concurrent.commandSha256, buildAuthority: BUILD_AUTHORITY,
+    }),
+  ]);
+  assert.equal(outcomes.every(({ restarted }) => restarted), true);
+  assert.deepEqual(await readdir(join(
+    concurrentRoot, '.native-build/b3/evidence/ios-abandoned-captures',
+  )), [concurrent.commandSha256]);
+
+  const crashing = await retainAmbiguousRestartGate({ root: crashRoot });
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root: crashRoot, platform: 'ios', enabled: true,
+    invocationCommandSha256: crashing.commandSha256, buildAuthority: BUILD_AUTHORITY,
+    afterArchive: async () => { throw new Error('simulated restart crash'); },
+  }), /simulated restart crash/i);
+  assert.equal((await readB3IssuedCommand({ root: crashRoot, platform: 'ios' })).state,
+    'restart-executing');
+  const resumed = await recoverB3AmbiguousCaptureAfterReinstall({
+    root: crashRoot, platform: 'ios', enabled: false,
+    invocationCommandSha256: crashing.commandSha256, buildAuthority: BUILD_AUTHORITY,
+  });
+  assert.equal(resumed.restarted, true);
+  await assert.rejects(readB3IssuedCommand({ root: crashRoot, platform: 'ios' }), /ENOENT|absent/i);
+});
+
+test('capture restart clears an exact restart-complete command after a crash', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-complete-ambiguity-restart-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const retained = await retainAmbiguousRestartGate({ root });
+
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+    beforeClear: async () => { throw new Error('simulated crash before restart clear'); },
+  }), /simulated crash before restart clear/i);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'restart-complete');
+
+  const recovered = await recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: false,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  });
+  assert.equal(recovered.restarted, true);
+  assert.equal(recovered.commandSha256, retained.commandSha256);
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+});
+
+test('ambiguous capture restart rejects hostile archive links before consuming authority', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-hostile-ambiguity-restart-'));
+  const outside = await mkdtemp(join(tmpdir(), 'b3-hostile-ambiguity-outside-'));
+  t.after(() => Promise.all([
+    rm(root, { recursive: true, force: true }),
+    rm(outside, { recursive: true, force: true }),
+  ]));
+  const retained = await retainAmbiguousRestartGate({ root });
+  const evidence = join(root, '.native-build/b3/evidence');
+  await mkdir(evidence, { recursive: true, mode: 0o700 });
+  await symlink(outside, join(evidence, 'ios-abandoned-captures'));
+
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  }), /archive|directory|link|policy/i);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'restart-executing');
+});
+
+test('capture restart rejects hostile pre-created destinations and checkpoint hard links', async (t) => {
+  const destinationRoot = await mkdtemp(join(tmpdir(), 'b3-hostile-restart-destination-'));
+  const hardLinkRoot = await mkdtemp(join(tmpdir(), 'b3-hostile-restart-checkpoint-'));
+  const outside = await mkdtemp(join(tmpdir(), 'b3-hostile-restart-target-'));
+  t.after(() => Promise.all([destinationRoot, hardLinkRoot, outside].map((root) =>
+    rm(root, { recursive: true, force: true }))));
+
+  const destination = await retainAmbiguousRestartGate({ root: destinationRoot });
+  const destinationArchive = join(
+    destinationRoot,
+    '.native-build/b3/evidence/ios-abandoned-captures',
+    destination.commandSha256,
+  );
+  await mkdir(destinationArchive, { recursive: true, mode: 0o700 });
+  await symlink(outside, join(destinationArchive, 'observations'));
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root: destinationRoot, platform: 'ios', enabled: true,
+    invocationCommandSha256: destination.commandSha256, buildAuthority: BUILD_AUTHORITY,
+  }), /destination|observation|archive|link|policy/i);
+
+  const hardLinked = await retainAmbiguousRestartGate({ root: hardLinkRoot });
+  const checkpointPath = join(
+    hardLinkRoot, '.native-build/b3/evidence/ios-capture-checkpoint.json',
+  );
+  await writeFile(checkpointPath, '{"checkpoint":"stale"}', { mode: 0o600 });
+  await link(checkpointPath, join(outside, 'linked-checkpoint.json'));
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root: hardLinkRoot, platform: 'ios', enabled: true,
+    invocationCommandSha256: hardLinked.commandSha256, buildAuthority: BUILD_AUTHORITY,
+  }), /checkpoint|link|policy/i);
+});
+
+test('capture restart repairs its exact authority writer alias after a crash gap', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-restart-authority-alias-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const retained = await retainAmbiguousRestartGate({ root });
+  await recoverB3AmbiguousCaptureAfterReinstall({
+    root, platform: 'ios', enabled: true,
+    invocationCommandSha256: retained.commandSha256, buildAuthority: BUILD_AUTHORITY,
+  });
+  const evidence = join(root, '.native-build/b3/evidence');
+  const authority = join(
+    evidence, 'ios-abandoned-captures', retained.commandSha256, 'authority.json',
+  );
+  const alias = join(
+    evidence,
+    `.abandoned-capture-${retained.commandSha256}-00000000-0000-4000-8000-000000000777.tmp`,
+  );
+  await link(authority, alias);
+  assert.equal((await lstat(authority)).nlink, 2);
+
+  const recovered = await recoverB3AmbiguousCaptureAfterReinstall({
+    root, platform: 'ios', enabled: false,
+    invocationCommandSha256: retained.commandSha256, buildAuthority: BUILD_AUTHORITY,
+  });
+  assert.equal(recovered.restarted, true);
+  assert.equal((await lstat(authority)).nlink, 1);
+  await assert.rejects(lstat(alias), /ENOENT/u);
+});
+
+test('capture restart fails closed when its retained archive authority is corrupt', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-corrupt-restart-authority-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const retained = await retainAmbiguousRestartGate({ root });
+  await recoverB3AmbiguousCaptureAfterReinstall({
+    root, platform: 'ios', enabled: true,
+    invocationCommandSha256: retained.commandSha256, buildAuthority: BUILD_AUTHORITY,
+  });
+  const authority = join(
+    root,
+    '.native-build/b3/evidence/ios-abandoned-captures',
+    retained.commandSha256,
+    'authority.json',
+  );
+  await writeFile(authority, '{"corrupt":true}', { mode: 0o600 });
+
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root, platform: 'ios', enabled: false,
+    invocationCommandSha256: retained.commandSha256, buildAuthority: BUILD_AUTHORITY,
+  }), /archive|authority|differ|invalid/i);
+});
+
+test('capture restart bounds abandoned generations and tolerates an absent empty journal', async (t) => {
+  const absentRoot = await mkdtemp(join(tmpdir(), 'b3-restart-absent-journal-'));
+  const boundedRoot = await mkdtemp(join(tmpdir(), 'b3-restart-bounded-archive-'));
+  t.after(() => Promise.all([absentRoot, boundedRoot].map((root) =>
+    rm(root, { recursive: true, force: true }))));
+
+  const absent = await retainAmbiguousRestartGate({ root: absentRoot });
+  await rm(join(absentRoot, '.native-build/b3/evidence/ios-observations'), {
+    recursive: true,
+  });
+  const recovered = await recoverB3AmbiguousCaptureAfterReinstall({
+    root: absentRoot, platform: 'ios', enabled: true,
+    invocationCommandSha256: absent.commandSha256, buildAuthority: BUILD_AUTHORITY,
+  });
+  assert.equal(recovered.restarted, true);
+  assert.deepEqual(await readdir(join(
+    absentRoot, '.native-build/b3/evidence/ios-abandoned-captures',
+    absent.commandSha256, 'observations',
+  )), []);
+
+  const bounded = await retainAmbiguousRestartGate({ root: boundedRoot });
+  const archiveRoot = join(
+    boundedRoot, '.native-build/b3/evidence/ios-abandoned-captures',
+  );
+  await mkdir(archiveRoot, { recursive: true, mode: 0o700 });
+  for (let index = 0; index < 4; index += 1) {
+    await mkdir(join(archiveRoot, String(index + 1).padStart(64, '0')), { mode: 0o700 });
+  }
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root: boundedRoot, platform: 'ios', enabled: true,
+    invocationCommandSha256: bounded.commandSha256, buildAuthority: BUILD_AUTHORITY,
+  }), /bound|archive/i);
+});
 
 test('launching resume consumes an exact published observation without a second launch', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-launching-published-'));
@@ -970,15 +1395,11 @@ test('launching resume consumes an exact published observation without a second 
     observedAt: '2026-07-15T10:00:00.000Z',
   });
   let launches = 0;
-  await assert.rejects(captureB3ValidatedDeviceObservation({
-    root, platform: 'ios', command: expectedCommand, buildAuthority: BUILD_AUTHORITY,
-    transport: {
-      async launch() { launches += 1; },
-      async pullObservation() { assert.fail('host dies before pull'); },
-    },
-    afterLaunch: async () => { throw new Error('host dies after native publication'); },
-    maximumPullAttempts: 1,
-  }), /dies after native publication/i);
+  await persistB3IssuedCommand({ root, platform: 'ios', command: expectedCommand });
+  await transitionB3IssuedCommand({
+    root, platform: 'ios', command: expectedCommand,
+    expectedState: 'prepared', nextState: 'launching',
+  });
   assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state, 'launching');
   let pulls = 0;
   const recovered = await resumeB3IssuedDeviceObservation({
@@ -994,7 +1415,7 @@ test('launching resume consumes an exact published observation without a second 
     wait: async () => {},
     maximumPullAttempts: 2,
   });
-  assert.equal(launches, 1);
+  assert.equal(launches, 0);
   assert.equal(pulls, 2);
   assert.equal(recovered.observationSha256, value.observationSha256);
   await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
@@ -1062,7 +1483,7 @@ test('reinstall acknowledgement authorises only exact fresh REBIND ambiguity', a
   }
 });
 
-test('a repeated fresh-reinstall ambiguity remains at the closed reinstall checkpoint', async (t) => {
+test('a repeated fresh-reinstall ambiguity becomes a durable capture-restart gate', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-reinstall-launch-ambiguous-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const expectedCommand = launchCommand({
@@ -1083,18 +1504,6 @@ test('a repeated fresh-reinstall ambiguity remains at the closed reinstall check
   }), true);
 
   let launches = 0;
-  await assert.rejects(resumeB3IssuedDeviceObservation({
-    root, platform: 'ios', buildAuthority: BUILD_AUTHORITY,
-    transport: {
-      async launch() { launches += 1; },
-      async pullObservation() { assert.fail('host dies before pull'); },
-    },
-    afterLaunch: async () => { throw new Error('simulated repeated reinstall ambiguity'); },
-    maximumPullAttempts: 1,
-  }), /repeated reinstall ambiguity/i);
-  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
-    'reinstall-launching');
-
   let pulls = 0;
   await assert.rejects(resumeB3IssuedDeviceObservation({
     root, platform: 'ios', buildAuthority: BUILD_AUTHORITY,
@@ -1107,13 +1516,14 @@ test('a repeated fresh-reinstall ambiguity remains at the closed reinstall check
         });
       },
     },
+    afterLaunch: async () => { throw new Error('simulated repeated reinstall ambiguity'); },
     maximumPullAttempts: 1,
   }), (error) => error?.instructionCode === 'REINSTALL_EXACT_BUILD' &&
     b3IosProofExitCode(error) === 7);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'restart-required');
   assert.equal(launches, 1);
   assert.equal(pulls, 1);
-  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
-    'reinstall-launching');
 });
 
 test('host-stop intent receives a durable receipt before outer force-stop returns', async (t) => {
@@ -1273,7 +1683,7 @@ test('barriered child processes share one first public launch authority without 
   assert.equal(results.every(({ error }) => error !== null), true);
   assert.equal(results.some(({ error }) => /file policy|ledger|orphan|conflict/i.test(
     error.message,
-  )), false);
+  )), false, JSON.stringify(results));
   const launchedCaptureId = results.find(({ launches }) => launches === 1).launchedCaptureId;
   assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).command.captureId,
     launchedCaptureId);

@@ -47,6 +47,10 @@ import {
   readB3IssuedCommand,
   transitionB3IssuedCommand,
 } from './b3-issued-command.mjs';
+import {
+  archiveB3AbandonedCapture,
+  readB3AbandonedCaptureArchive,
+} from './b3-abandoned-capture.mjs';
 import { createDefaultB3DistributionInspectors } from './b3-distribution-inspectors.mjs';
 import {
   verifyB3InstalledDistributionWithInspectors,
@@ -439,16 +443,28 @@ export async function captureB3ValidatedDeviceObservation({
     activeLaunchingState = nextState;
     ownsLaunchTransition = issued.transitionClaimed;
   }
-  if (ownsLaunchTransition) {
-    await transport.launch(command);
-    await afterLaunch();
-    issued = await transitionB3IssuedCommand({
-      root, platform: name, command,
-      expectedState: activeLaunchingState,
-      nextState: 'launched',
-    });
+  if (['restart-executing', 'restart-complete'].includes(issued.state)) {
+    throw captureError('B3 ambiguous capture restart must finish before device capture');
   }
-  const launchOutcomeAmbiguous = ['launching', 'reinstall-launching'].includes(issued.state);
+  if (ownsLaunchTransition) {
+    try {
+      await transport.launch(command);
+      await afterLaunch();
+      issued = await transitionB3IssuedCommand({
+        root, platform: name, command,
+        expectedState: activeLaunchingState,
+        nextState: 'launched',
+      });
+    } catch {
+      // Crossing the native launch boundary is ambiguous even when the runner
+      // reports an error. Keep this invocation alive and pull the fixed-path
+      // publication before deciding that an explicit reinstall is required.
+      issued = await readB3IssuedCommand({ root, platform: name });
+    }
+  }
+  const launchOutcomeAmbiguous = [
+    'launching', 'reinstall-launching', 'restart-required',
+  ].includes(issued.state);
   if (!launchOutcomeAmbiguous && issued.state !== 'launched') {
     throw captureError('B3 issued command did not reach retained launched authority');
   }
@@ -484,9 +500,30 @@ export async function captureB3ValidatedDeviceObservation({
           await wait(250);
           continue;
         }
-        throw operatorRequired('REINSTALL_EXACT_BUILD');
+        break;
       }
       throw error;
+    }
+    if (launchOutcomeAmbiguous) {
+      try {
+        issued = await transitionB3IssuedCommand({
+          root,
+          platform: name,
+          command,
+          expectedState: issued.state,
+          nextState: 'launched',
+        });
+      } catch (error) {
+        const retained = await readB3IssuedCommand({ root, platform: name });
+        if (retained.state !== 'restart-required') throw error;
+        issued = await transitionB3IssuedCommand({
+          root,
+          platform: name,
+          command,
+          expectedState: 'restart-required',
+          nextState: 'launched',
+        });
+      }
     }
     await beforeJournal();
     await appendB3PhysicalObservation({
@@ -516,6 +553,26 @@ export async function captureB3ValidatedDeviceObservation({
     return retained.observation;
   }
   if (launchOutcomeAmbiguous) {
+    if (issued.state !== 'restart-required') {
+      try {
+        issued = await transitionB3IssuedCommand({
+          root,
+          platform: name,
+          command,
+          expectedState: issued.state,
+          nextState: 'restart-required',
+        });
+      } catch (error) {
+        const retained = await readB3IssuedCommand({ root, platform: name });
+        if (retained.state === 'launched') {
+          throw captureError(
+            'B3 physical device did not publish the command-bound observation before the fixed deadline',
+            'b3_physical_observation_timeout',
+          );
+        }
+        throw error;
+      }
+    }
     throw operatorRequired('REINSTALL_EXACT_BUILD');
   }
   throw captureError(
@@ -554,6 +611,75 @@ export async function resumeB3AmbiguousIssuedCommandAfterReinstall({
     nextState: 'reinstall-authorised',
   });
   return authorised.transitionClaimed;
+}
+
+export async function recoverB3AmbiguousCaptureAfterReinstall({
+  root,
+  platform,
+  enabled,
+  invocationCommandSha256,
+  buildAuthority,
+  afterArchive = async () => {},
+  beforeClear = async () => {},
+}) {
+  if (typeof enabled !== 'boolean' || !/^[0-9a-f]{64}$/u.test(
+    invocationCommandSha256 ?? '',
+  ) || typeof afterArchive !== 'function' || typeof beforeClear !== 'function') {
+    throw captureError('B3 ambiguous capture-restart authority is invalid');
+  }
+  let issued;
+  try {
+    issued = await readB3IssuedCommand({ root, platform });
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    try {
+      return await readB3AbandonedCaptureArchive({
+        root,
+        platform,
+        commandSha256: invocationCommandSha256,
+        buildAuthority,
+      });
+    } catch (archiveError) {
+      if (archiveError?.code !== 'b3_abandoned_capture_archive_absent') throw archiveError;
+      return false;
+    }
+  }
+  if (issued.commandSha256 !== invocationCommandSha256) return false;
+  if (issued.state === 'restart-required') {
+    if (!enabled) return false;
+    issued = await transitionB3IssuedCommand({
+      root,
+      platform,
+      command: issued.command,
+      expectedState: 'restart-required',
+      nextState: 'restart-executing',
+    });
+  } else if (!['restart-executing', 'restart-complete'].includes(issued.state)) {
+    return false;
+  }
+  const recovery = await archiveB3AbandonedCapture({
+    root,
+    platform,
+    issued,
+    buildAuthority,
+  });
+  await afterArchive();
+  try {
+    if (issued.state === 'restart-executing') {
+      issued = await transitionB3IssuedCommand({
+        root,
+        platform,
+        command: issued.command,
+        expectedState: 'restart-executing',
+        nextState: 'restart-complete',
+      });
+    }
+    await beforeClear();
+    await clearB3IssuedCommand({ root, platform, command: issued.command });
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  return recovery;
 }
 
 function deriveChallenge(commandWithoutChallenge) {
@@ -1044,6 +1170,8 @@ function createDefaultAdapter({
   let buildAuthorityPromise;
   let invocationTailCaptured = false;
   let invocationTail = null;
+  let invocationIssuedCommandSha256 = null;
+  let reinstallAcknowledgementConsumed = false;
 
   async function inspectDistributionFresh() {
     if (typeof signedPath !== 'string' || signedPath.length === 0) {
@@ -1087,6 +1215,12 @@ function createDefaultAdapter({
     });
     if (!invocationTailCaptured) {
       invocationTail = retained.at(-1)?.observation ?? null;
+      try {
+        invocationIssuedCommandSha256 = (await readB3IssuedCommand({ root, platform }))
+          .commandSha256;
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
       invocationTailCaptured = true;
     }
     return retained;
@@ -1118,19 +1252,20 @@ function createDefaultAdapter({
   }
 
   async function runScenario(authority) {
-    const retained = await records();
-    const tail = retained.at(-1)?.observation;
-    if (tail && resumeReinstall) {
-      try {
-        await resumeB3AmbiguousIssuedCommandAfterReinstall({
-          root,
-          platform,
-          enabled: true,
-          actionCode: tail.nextActionCode,
-          observationSha256: tail.observationSha256,
-        });
-      } catch (error) {
-        if (error?.code !== 'ENOENT') throw error;
+    let retained = await records();
+    let tail = retained.at(-1)?.observation;
+    if (invocationIssuedCommandSha256) {
+      const recovery = await recoverB3AmbiguousCaptureAfterReinstall({
+        root,
+        platform,
+        enabled: resumeReinstall && !reinstallAcknowledgementConsumed,
+        invocationCommandSha256: invocationIssuedCommandSha256,
+        buildAuthority: await buildAuthority(),
+      });
+      if (recovery) {
+        reinstallAcknowledgementConsumed = true;
+        retained = await records();
+        tail = retained.at(-1)?.observation;
       }
     }
     if (platform === 'ios' && authority?.scenario === 'unfinished-relaunch' &&
@@ -1216,15 +1351,15 @@ function createDefaultAdapter({
       resumeStoreAction,
       invocationBinding,
     );
-    let reinstallConsumed = false;
     const transition = await driveB3HostScenario({
       authority,
       resumeStoreAction: consumeStoreActionResume,
       resumeReinstall: ({ actionCode, observationSha256 }) => {
-        if (!resumeReinstall || reinstallConsumed || actionCode !== 'REBIND_FRESH_INSTALL' ||
+        if (!resumeReinstall || reinstallAcknowledgementConsumed ||
+            actionCode !== 'REBIND_FRESH_INSTALL' ||
             invocationBinding?.actionCode !== actionCode ||
             invocationBinding?.observationSha256 !== observationSha256) return false;
-        reinstallConsumed = true;
+        reinstallAcknowledgementConsumed = true;
         return true;
       },
       readRecords: records,

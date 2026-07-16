@@ -455,6 +455,32 @@ Host adapters must:
 - stop at pending evidence and exit `5` for manual visual attestation;
 - never accept a path to operator JSON as a device observation.
 
+### Task 19H review correction — ambiguous-launch reinstall recovery
+
+The planned restore journey keeps its existing exact `REBIND_FRESH_INSTALL`
+gate: `--resume-reinstall` remains bound to that retained observation tail and
+cannot acknowledge another restore gate. A launch whose native outcome is
+ambiguous is a disjoint recovery case. The same explicit flag may acknowledge
+that recovery only when it is bound to the exact retained command hash,
+platform, capture ID, observation sequence, prior hash-chain tail, tested
+commit and application fingerprint recorded by a durable `restart-required`
+gate. It must not convert an arbitrary action into protocol
+`REBIND_FRESH_INSTALL`, because that action is valid only for the planned
+`restore-after-reinstall` scenario.
+
+After the operator reinstalls the exact approved distribution, one immutable
+claim owns a bounded, crash-resumable host reset. It archives—without deleting
+or overwriting—the abandoned journal, checkpoint revisions and capture-bound
+pending projections under private per-platform storage, consumes the exact
+ambiguous issued command, and starts a new capture ID at sequence 1 with
+`ARM_CAPTURE`. The abandoned capture never contributes to final evidence. A
+concurrent helper may complete the same filesystem-only reset idempotently,
+but the acknowledgement is single-use; no process may relaunch the uncertain
+action, continue it under the old capture/hash chain, reset automatically from
+`restart-required`, or require manual ledger deletion. A crash after the
+durable acknowledgement may resume `restart-executing` or `restart-complete`
+without asking the operator to repeat the flag.
+
 Android `playCertified: true` cannot come from the app. Bind it to a CLI-captured Play Protect settings screenshot plus an independent root SHA attestation, together with installer and Play App Signing certificate authority. Retain those two hidden artefacts only at the fixed private paths `.native-build/b3/evidence/android-play-protect-settings.png` and `.native-build/b3/evidence/android-play-protect-root-attestation.json`. The committed Android `device` block includes only `playCertified: true`, `playProtectSettingsScreenshotSha256` and `playProtectRootAttestationSha256` alongside model/OS/physical authority.
 
 The first absent Play Protect authority exits `7` with `SHOW_PLAY_PROTECT_SETTINGS`.

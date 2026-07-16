@@ -271,7 +271,10 @@ function createLaunchIdentityRecord(command, identity, deviceIdentifier) {
 async function readLaunchIdentityFile(path) {
   let handle;
   try {
-    handle = await open(path, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    handle = await open(
+      path,
+      fsConstants.O_RDONLY | fsConstants.O_NONBLOCK | fsConstants.O_NOFOLLOW,
+    );
   } catch {
     throw transportError('B3 iOS launch identity link or file policy is invalid');
   }
@@ -290,7 +293,10 @@ async function readLaunchIdentityFile(path) {
           throw transportError('B3 iOS launch identity temporary alias policy is invalid');
         }
         const aliasPath = resolve(directory, entry.name);
-        const alias = await open(aliasPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+        const alias = await open(
+          aliasPath,
+          fsConstants.O_RDONLY | fsConstants.O_NONBLOCK | fsConstants.O_NOFOLLOW,
+        );
         try {
           const metadata = await alias.stat();
           if (metadata.isFile() && metadata.nlink === 2 &&
@@ -320,8 +326,10 @@ async function readLaunchIdentityFile(path) {
     }
     const bytes = await handle.readFile();
     const after = await handle.stat();
-    if (after.dev !== before.dev || after.ino !== before.ino ||
-        after.size !== before.size || after.mtimeMs !== before.mtimeMs) {
+    if (!after.isFile() || after.nlink !== 1 || bytes.length !== before.size ||
+        after.dev !== before.dev || after.ino !== before.ino ||
+        after.size !== before.size || after.mtimeMs !== before.mtimeMs ||
+        after.ctimeMs !== before.ctimeMs) {
       throw transportError('B3 iOS launch identity changed while being read');
     }
     return bytes;
@@ -442,7 +450,10 @@ async function readRetainedLaunchIdentity({ root, command, deviceIdentifier }) {
 async function readPulledObservation(path) {
   let handle;
   try {
-    handle = await open(path, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    handle = await open(
+      path,
+      fsConstants.O_RDONLY | fsConstants.O_NONBLOCK | fsConstants.O_NOFOLLOW,
+    );
   } catch {
     throw transportError('B3 physical-device observation pull did not produce the fixed file');
   }
@@ -454,8 +465,10 @@ async function readPulledObservation(path) {
     }
     const bytes = await handle.readFile();
     const after = await handle.stat();
-    if (after.dev !== before.dev || after.ino !== before.ino ||
-        after.size !== before.size || after.mtimeMs !== before.mtimeMs) {
+    if (!after.isFile() || after.nlink !== 1 || bytes.length !== before.size ||
+        after.dev !== before.dev || after.ino !== before.ino ||
+        after.size !== before.size || after.mtimeMs !== before.mtimeMs ||
+        after.ctimeMs !== before.ctimeMs) {
       throw transportError('B3 physical-device observation changed while being read');
     }
     return bytes;
@@ -467,17 +480,28 @@ async function readPulledObservation(path) {
 async function readDeviceCtlJson(path, label) {
   let handle;
   try {
-    handle = await open(path, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    handle = await open(
+      path,
+      fsConstants.O_RDONLY | fsConstants.O_NONBLOCK | fsConstants.O_NOFOLLOW,
+    );
   } catch {
     throw transportError(`B3 iOS ${label} JSON output is absent or invalid`);
   }
   try {
-    const metadata = await handle.stat();
-    if (!metadata.isFile() || metadata.nlink !== 1 || metadata.size <= 0 ||
-        metadata.size > MAXIMUM_DEVICECTL_JSON_BYTES) {
+    const before = await handle.stat();
+    if (!before.isFile() || before.nlink !== 1 || before.size <= 0 ||
+        before.size > MAXIMUM_DEVICECTL_JSON_BYTES) {
       throw transportError(`B3 iOS ${label} JSON output is not a bounded regular file`);
     }
-    const value = parseB3StrictJsonBytes(await handle.readFile(), `B3 iOS ${label}`);
+    const bytes = await handle.readFile();
+    const after = await handle.stat();
+    if (!after.isFile() || after.nlink !== 1 || bytes.length !== before.size ||
+        after.dev !== before.dev || after.ino !== before.ino ||
+        after.size !== before.size || after.mtimeMs !== before.mtimeMs ||
+        after.ctimeMs !== before.ctimeMs) {
+      throw transportError(`B3 iOS ${label} JSON output changed while being read`);
+    }
+    const value = parseB3StrictJsonBytes(bytes, `B3 iOS ${label}`);
     if (value === null || typeof value !== 'object' || Array.isArray(value) ||
         Object.keys(value).length !== 2 || !Object.hasOwn(value, 'info') ||
         !Object.hasOwn(value, 'result') || value.info?.outcome !== 'success' ||

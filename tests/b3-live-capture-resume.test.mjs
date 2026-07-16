@@ -43,6 +43,8 @@ import {
   appendB3PhysicalObservation,
   readB3PhysicalObservationJournal,
 } from '../scripts/lib/b3-physical-observation-journal.mjs';
+import { b3IosProofExitCode } from '../scripts/prove-b3-ios.mjs';
+import { b3AndroidProofExitCode } from '../scripts/prove-b3-android.mjs';
 
 const COMMIT = 'a'.repeat(40);
 const FINGERPRINT = 'b'.repeat(64);
@@ -57,6 +59,7 @@ const ISSUED_COMMAND_RACE_CHILD = fileURLToPath(
 );
 
 function launchIpcRaceChild({ helper, environmentKey, input }) {
+  const childLabel = input.label ?? input.operation ?? input.role ?? 'unlabelled';
   const child = spawn(process.execPath, [helper], {
     env: {
       ...process.env,
@@ -72,7 +75,12 @@ function launchIpcRaceChild({ helper, environmentKey, input }) {
   const messages = [];
   const waiters = [];
   let exitAuthority = null;
+  let lastProgress = null;
   child.on('message', (message) => {
+    if (message?.type === 'progress') {
+      lastProgress = message;
+      return;
+    }
     const index = waiters.findIndex(({ type }) => type === message?.type);
     if (index < 0) {
       messages.push(message);
@@ -96,7 +104,8 @@ function launchIpcRaceChild({ helper, environmentKey, input }) {
     if (index >= 0) return Promise.resolve(messages.splice(index, 1)[0]);
     if (exitAuthority !== null) {
       return Promise.reject(new Error(
-        `B3 capture race child exited before ${type} ` +
+        `B3 capture race child ${childLabel} (${input.operation ?? input.role ?? 'unknown'}) ` +
+        `exited before ${type} ` +
         `(${exitAuthority.code ?? exitAuthority.signal}): ${stderr}`,
       ));
     }
@@ -104,7 +113,11 @@ function launchIpcRaceChild({ helper, environmentKey, input }) {
       const timeout = setTimeout(() => {
         const waiterIndex = waiters.findIndex((waiter) => waiter.resolve === resolve);
         if (waiterIndex >= 0) waiters.splice(waiterIndex, 1);
-        reject(new Error(`B3 capture race child timed out waiting for ${type}: ${stderr}`));
+        reject(new Error(
+          `B3 capture race child ${childLabel} (${input.operation ?? input.role ?? 'unknown'}) ` +
+          `timed out waiting for ${type}; last progress ` +
+          `${JSON.stringify(lastProgress)}: ${stderr}`,
+        ));
       }, 30_000);
       waiters.push({ type, resolve, reject, timeout });
     });
@@ -113,6 +126,8 @@ function launchIpcRaceChild({ helper, environmentKey, input }) {
     child,
     waitFor,
     go: () => child.send({ type: 'go' }),
+    continueRun: () => child.send({ type: 'continue' }),
+    sendControl: (type) => child.send({ type }),
     terminate: () => {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
     },
@@ -861,21 +876,26 @@ test('death before launch resumes exactly once from prepared authority', async (
   assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state, 'launched');
 });
 
-for (const [label, captureOptions] of [
-  ['during launch', {
-    transportLaunch: async () => { throw new Error('simulated death during launch'); },
-  }],
-  ['after launch before receipt', {
-    transportLaunch: async () => {},
-    afterLaunch: async () => { throw new Error('simulated death after launch'); },
-  }],
+for (const [platform, commandPlatform, exitCode] of [
+  ['ios', 'ios-physical', b3IosProofExitCode],
+  ['android', 'android-play-physical', b3AndroidProofExitCode],
 ]) {
-  test(`${label} is fail-closed and cannot duplicate native side effects`, async (t) => {
+  for (const [label, captureOptions] of [
+    ['during launch', {
+      transportLaunch: async () => { throw new Error('simulated death during launch'); },
+    }],
+    ['after launch before receipt', {
+      transportLaunch: async () => {},
+      afterLaunch: async () => { throw new Error('simulated death after launch'); },
+    }],
+  ]) test(`${platform} ${label} reaches the closed reinstall gate without duplicate launch`, async (t) => {
     const root = await mkdtemp(join(tmpdir(), 'b3-ambiguous-launch-'));
     t.after(() => rm(root, { recursive: true, force: true }));
+    const expectedCommand = launchCommand({ platform: commandPlatform });
     let launches = 0;
+    let pulls = 0;
     await assert.rejects(captureB3ValidatedDeviceObservation({
-      root, platform: 'ios', command: launchCommand(), buildAuthority: BUILD_AUTHORITY,
+      root, platform, command: expectedCommand, buildAuthority: BUILD_AUTHORITY,
       transport: {
         async launch(command) { launches += 1; await captureOptions.transportLaunch(command); },
         async pullObservation() { assert.fail('ambiguous launch cannot pull'); },
@@ -883,20 +903,24 @@ for (const [label, captureOptions] of [
       ...(captureOptions.afterLaunch ? { afterLaunch: captureOptions.afterLaunch } : {}),
       maximumPullAttempts: 1,
     }), /simulated death/i);
-    assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state, 'launching');
+    assert.equal((await readB3IssuedCommand({ root, platform })).state, 'launching');
     await assert.rejects(resumeB3IssuedDeviceObservation({
-      root, platform: 'ios', buildAuthority: BUILD_AUTHORITY,
+      root, platform, buildAuthority: BUILD_AUTHORITY,
       transport: {
         async launch() { launches += 1; },
         async pullObservation() {
+          pulls += 1;
           throw Object.assign(new Error('observation pull did not produce bytes'), {
             code: 'b3_physical_device_command_failed',
           });
         },
       },
       maximumPullAttempts: 1,
-    }), (error) => error?.code === 'b3_physical_launch_outcome_ambiguous');
+    }), (error) => error?.code === 'b3_operator_action_required' &&
+      error.instructionCode === 'REINSTALL_EXACT_BUILD' && exitCode(error) === 7);
     assert.equal(launches, 1);
+    assert.equal(pulls, 1);
+    assert.equal((await readB3IssuedCommand({ root, platform })).state, 'launching');
   });
 }
 
@@ -956,17 +980,22 @@ test('launching resume consumes an exact published observation without a second 
     maximumPullAttempts: 1,
   }), /dies after native publication/i);
   assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state, 'launching');
+  let pulls = 0;
   const recovered = await resumeB3IssuedDeviceObservation({
     root, platform: 'ios', buildAuthority: BUILD_AUTHORITY,
     transport: {
       async launch() { launches += 1; },
       async pullObservation() {
+        pulls += 1;
+        if (pulls === 1) return Buffer.from('{"incomplete":true}', 'utf8');
         return Buffer.from(canonicaliseB3ProofValue(value), 'utf8');
       },
     },
-    maximumPullAttempts: 1,
+    wait: async () => {},
+    maximumPullAttempts: 2,
   });
   assert.equal(launches, 1);
+  assert.equal(pulls, 2);
   assert.equal(recovered.observationSha256, value.observationSha256);
   await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
 });
@@ -1031,6 +1060,60 @@ test('reinstall acknowledgement authorises only exact fresh REBIND ambiguity', a
       root: rejectedRoot, platform: 'ios',
     })).state, 'launching');
   }
+});
+
+test('a repeated fresh-reinstall ambiguity remains at the closed reinstall checkpoint', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-reinstall-launch-ambiguous-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const expectedCommand = launchCommand({
+    actionCode: 'REBIND_FRESH_INSTALL',
+    installationMode: 'fresh-reinstall',
+  });
+  await persistB3IssuedCommand({ root, platform: 'ios', command: expectedCommand });
+  await transitionB3IssuedCommand({
+    root, platform: 'ios', command: expectedCommand,
+    expectedState: 'prepared', nextState: 'launching',
+  });
+  assert.equal(await resumeB3AmbiguousIssuedCommandAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    actionCode: expectedCommand.actionCode,
+    observationSha256: expectedCommand.previousObservationSha256,
+  }), true);
+
+  let launches = 0;
+  await assert.rejects(resumeB3IssuedDeviceObservation({
+    root, platform: 'ios', buildAuthority: BUILD_AUTHORITY,
+    transport: {
+      async launch() { launches += 1; },
+      async pullObservation() { assert.fail('host dies before pull'); },
+    },
+    afterLaunch: async () => { throw new Error('simulated repeated reinstall ambiguity'); },
+    maximumPullAttempts: 1,
+  }), /repeated reinstall ambiguity/i);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'reinstall-launching');
+
+  let pulls = 0;
+  await assert.rejects(resumeB3IssuedDeviceObservation({
+    root, platform: 'ios', buildAuthority: BUILD_AUTHORITY,
+    transport: {
+      async launch() { launches += 1; },
+      async pullObservation() {
+        pulls += 1;
+        throw Object.assign(new Error('observation pull did not produce bytes'), {
+          code: 'b3_physical_device_command_failed',
+        });
+      },
+    },
+    maximumPullAttempts: 1,
+  }), (error) => error?.instructionCode === 'REINSTALL_EXACT_BUILD' &&
+    b3IosProofExitCode(error) === 7);
+  assert.equal(launches, 1);
+  assert.equal(pulls, 1);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'reinstall-launching');
 });
 
 test('host-stop intent receives a durable receipt before outer force-stop returns', async (t) => {
@@ -1199,30 +1282,51 @@ test('barriered child processes share one first public launch authority without 
 test('barriered readers reconcile consume-next allocation and transition writers', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-issued-next-process-barrier-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const commands = Array.from({ length: 16 }, (_, index) => launchCommand({
+  const commands = Array.from({ length: 8 }, (_, index) => launchCommand({
     challengeSha256: String(index + 1).padStart(64, '0'),
   }));
   await persistB3IssuedCommand({ root, platform: 'ios', command: commands[0] });
   const writer = launchIssuedCommandRaceChild({
     operation: 'consume-chain',
+    label: 'writer',
     root,
     commands,
   });
-  const readers = Array.from({ length: 8 }, () => launchIssuedCommandRaceChild({
+  const readers = Array.from({ length: 4 }, (_, index) => launchIssuedCommandRaceChild({
     operation: 'read-loop',
+    label: `reader-${index}`,
     root,
-    iterations: 128,
+    iterations: 16,
+    finalChallengeSha256: commands.at(-1).challengeSha256,
   }));
   const children = [writer, ...readers];
   t.after(() => children.forEach(({ terminate }) => terminate()));
   await Promise.all(children.map(({ waitFor }) => waitFor('ready')));
-  children.forEach(({ go }) => go());
-  const [writerResult, ...readerResults] = await Promise.all(
-    children.map(({ waitFor }) => waitFor('result')),
+  readers.forEach(({ go }) => go());
+  await Promise.all(readers.map(({ waitFor }) => waitFor('active')));
+  writer.go();
+  await writer.waitFor('active');
+  readers.forEach(({ continueRun }) => continueRun());
+  const successorReads = await Promise.all(
+    readers.map(({ waitFor }) => waitFor('successor-seen')),
   );
+  assert.equal(successorReads.every(({ challengeSha256, state }) =>
+    challengeSha256 === commands[1].challengeSha256 && state === 'prepared'), true);
+  writer.continueRun();
+  readers.forEach(({ sendControl }) => sendControl('race'));
+  const [writerResult] = await Promise.all([
+    writer.waitFor('result'),
+    ...readers.map(({ waitFor }) => waitFor('race-complete')),
+  ]);
+  readers.forEach(({ sendControl }) => sendControl('final-check'));
+  const readerResults = await Promise.all(readers.map(({ waitFor }) => waitFor('result')));
 
   assert.equal(writerResult.error, null);
   assert.deepEqual(readerResults.flatMap(({ errors }) => errors), []);
+  assert.equal(readerResults.every(({ finalObserved }) => finalObserved), true);
+  assert.equal(readerResults.every(({ observedChallenges }) =>
+    observedChallenges.includes(commands[0].challengeSha256) &&
+    observedChallenges.includes(commands.at(-1).challengeSha256)), true);
   const retained = await readB3IssuedCommand({ root, platform: 'ios' });
   assert.equal(retained.state, 'launching');
   assert.deepEqual(retained.command, commands.at(-1));

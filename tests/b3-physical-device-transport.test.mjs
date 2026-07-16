@@ -68,21 +68,28 @@ function relaunchCommand() {
   };
 }
 
-test('physical-device production runner terminates its complete timed-out process group', async () => {
+test('physical-device production runner terminates its complete timed-out process group', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-process-group-ready-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const readyPath = join(root, 'grandchild-ready.fifo');
+  const fifo = spawnSync('/usr/bin/mkfifo', [readyPath]);
+  assert.equal(fifo.status, 0, fifo.stderr?.toString('utf8'));
   const childProgram = [
-    "const { spawn } = require('node:child_process');",
-    "const grandchild = spawn(process.execPath, ['-e', \"process.on('SIGTERM', () => {}); process.stdout.write('ready'); setInterval(() => {}, 1000)\"], { stdio: ['ignore', 'pipe', 'ignore'] });",
-    "grandchild.stdout.once('data', () => process.stdout.write(String(grandchild.pid), () => {",
-    "  process.on('SIGTERM', () => process.exit(0));",
-    '  setInterval(() => {}, 1000);',
-    '}));',
+    "trap 'exit 0' TERM",
+    'ready_path=$1',
+    "/bin/sh -c 'trap \"\" TERM; printf \"ready\\n\" > \"$1\"; exec /bin/sleep 30' b3-grandchild \"$ready_path\" &",
+    'grandchild_pid=$!',
+    'IFS= read -r ready_token < "$ready_path"',
+    '[ "$ready_token" = ready ] || exit 2',
+    'printf "%s" "$grandchild_pid"',
+    'wait "$grandchild_pid"',
   ].join('\n');
   let grandchildPid = null;
   try {
     const startedAt = Date.now();
     const result = await runB3PhysicalDeviceProcess(
-      process.execPath,
-      ['-e', childProgram],
+      '/bin/sh',
+      ['-c', childProgram, 'b3-process-group-parent', readyPath],
       { timeoutMs: 1_000, stdoutLimit: 64 * 1024, stderrLimit: 64 * 1024 },
     );
     grandchildPid = Number(result.stdout);

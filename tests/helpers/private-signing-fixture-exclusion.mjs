@@ -635,7 +635,6 @@ async function scanGeneratedDirectory({
   const startedAt = Date.now();
   let previousFingerprint;
   for (let attempt = 0; attempt < MAX_GENERATED_SNAPSHOT_ATTEMPTS; attempt += 1) {
-    if (Date.now() - startedAt > MAX_GENERATED_SNAPSHOT_MILLISECONDS) break;
     try {
       const files = [];
       const directories = [];
@@ -659,12 +658,20 @@ async function scanGeneratedDirectory({
         directories: directories.map((entry) => [entry.displayPath, entry.identity]),
         files: verificationResult.fingerprint,
       });
-      if (Date.now() - startedAt > MAX_GENERATED_SNAPSHOT_MILLISECONDS) break;
       if (fingerprint === previousFingerprint) return verificationResult;
+      // The wall-clock bound limits retries after observed change; it must not
+      // reject an otherwise stable output merely because two complete,
+      // bounded scans were slow under host contention. Always retain the first
+      // fully verified candidate long enough to compare one successor.
+      if (
+        previousFingerprint !== undefined
+        && Date.now() - startedAt > MAX_GENERATED_SNAPSHOT_MILLISECONDS
+      ) break;
       previousFingerprint = fingerprint;
     } catch (error) {
       if (!(error instanceof GeneratedSnapshotChanged)) throw error;
       previousFingerprint = undefined;
+      if (Date.now() - startedAt > MAX_GENERATED_SNAPSHOT_MILLISECONDS) break;
     }
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 0));
   }

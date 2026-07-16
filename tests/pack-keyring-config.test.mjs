@@ -277,6 +277,31 @@ test('generated output scan re-hashes an in-place overwrite before accepting sta
   assert.equal(overwrites, 1);
 });
 
+test('generated output scan accepts two stable snapshots when bounded scans outlast the retry clock', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'ks2-b3-generated-slow-stable-'));
+  t.after(() => rm(root, { force: true, recursive: true }));
+  await mkdir(join(root, 'dist'), { recursive: true });
+  await writeFile(join(root, 'dist', 'safe.js'), 'export const safe = true;\n');
+
+  const realNow = Date.now;
+  const startedAt = realNow();
+  let observations = 0;
+  try {
+    const result = await assertPrivateSigningFixtureExcluded({
+      root,
+      generatedSnapshotObserver: ({ directory }) => {
+        if (directory !== 'dist') return;
+        observations += 1;
+        Date.now = () => startedAt + 15_001;
+      },
+    });
+    assert.equal(result.filesScanned, 1);
+  } finally {
+    Date.now = realNow;
+  }
+  assert.equal(observations, 2);
+});
+
 test('scan work budget aggregates raw bytes across static roots and generated retries', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'ks2-b3-global-raw-budget-'));
   t.after(() => rm(root, { force: true, recursive: true }));

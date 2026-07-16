@@ -335,11 +335,6 @@ function staleObservation(bytes, command) {
     value?.proofProjection?.challengeSha256 !== command.challengeSha256;
 }
 
-function reinstallEligibleCommand(command) {
-  return command.actionCode === 'REBIND_FRESH_INSTALL' &&
-    command.installationMode === 'fresh-reinstall';
-}
-
 const CONCURRENT_ALLOCATION_CONTEXT_KEYS = Object.freeze([
   'schemaVersion', 'platform', 'testedApplicationCommit', 'applicationFingerprint',
   'expectedScenarioIndex', 'expectedSequence', 'previousObservationSha256',
@@ -485,13 +480,11 @@ export async function captureB3ValidatedDeviceObservation({
       // Keep the exact launched command. A later pull may replace incomplete or
       // stale bytes, but the host must not repeat the native launch side effect.
       if (launchOutcomeAmbiguous) {
-        if (issued.state === 'launching' && reinstallEligibleCommand(command)) {
-          throw operatorRequired('REINSTALL_EXACT_BUILD');
+        if (attempt < maximumPullAttempts - 1) {
+          await wait(250);
+          continue;
         }
-        throw captureError(
-          'B3 non-reinstall native launch outcome is ambiguous and cannot be reissued safely',
-          'b3_physical_launch_outcome_ambiguous',
-        );
+        throw operatorRequired('REINSTALL_EXACT_BUILD');
       }
       throw error;
     }
@@ -523,13 +516,7 @@ export async function captureB3ValidatedDeviceObservation({
     return retained.observation;
   }
   if (launchOutcomeAmbiguous) {
-    if (issued.state === 'launching' && reinstallEligibleCommand(command)) {
-      throw operatorRequired('REINSTALL_EXACT_BUILD');
-    }
-    throw captureError(
-      'B3 non-reinstall native launch outcome is ambiguous and cannot be reissued safely',
-      'b3_physical_launch_outcome_ambiguous',
-    );
+    throw operatorRequired('REINSTALL_EXACT_BUILD');
   }
   throw captureError(
     'B3 physical device did not publish the command-bound observation before the fixed deadline',

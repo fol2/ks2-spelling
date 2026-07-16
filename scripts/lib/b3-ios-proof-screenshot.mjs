@@ -121,7 +121,10 @@ function selectAttachment(manifest, deviceId) {
 async function readScreenshot(path) {
   let handle;
   try {
-    handle = await open(path, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    handle = await open(
+      path,
+      fsConstants.O_RDONLY | fsConstants.O_NONBLOCK | fsConstants.O_NOFOLLOW,
+    );
   } catch {
     throw screenshotError('B3 iOS screenshot attachment path is invalid');
   }
@@ -150,7 +153,10 @@ async function readScreenshot(path) {
 async function readAttachmentManifestBytes(path) {
   let handle;
   try {
-    handle = await open(path, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    handle = await open(
+      path,
+      fsConstants.O_RDONLY | fsConstants.O_NONBLOCK | fsConstants.O_NOFOLLOW,
+    );
   } catch {
     throw screenshotError('B3 iOS screenshot attachment manifest path is invalid');
   }

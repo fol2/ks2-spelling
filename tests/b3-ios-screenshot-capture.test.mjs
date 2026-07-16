@@ -43,6 +43,60 @@ function attachmentExportRunner(png, exportManifest) {
   };
 }
 
+function runFifoExportProbe({ root, kind }) {
+  const program = String.raw`
+    import { spawnSync } from 'node:child_process';
+    import { mkdir, writeFile } from 'node:fs/promises';
+    import { join } from 'node:path';
+    import { captureB3IosScreenshotBytes } from './scripts/lib/b3-ios-proof-screenshot.mjs';
+
+    const root = process.env.B3_FIFO_PROBE_ROOT;
+    const kind = process.env.B3_FIFO_PROBE_KIND;
+    const runner = async (_executable, args) => {
+      if (args.includes('-resultBundlePath')) {
+        await mkdir(args[args.indexOf('-resultBundlePath') + 1], { recursive: true });
+      }
+      if (args.slice(0, 3).join(' ') === 'xcresulttool export attachments') {
+        const output = args[args.indexOf('--output-path') + 1];
+        await mkdir(output, { recursive: true });
+        const manifest = ${JSON.stringify(attachmentManifest())};
+        if (kind === 'manifest') {
+          const created = spawnSync('/usr/bin/mkfifo', [join(output, 'manifest.json')]);
+          if (created.status !== 0) throw new Error('manifest FIFO creation failed');
+        } else {
+          await writeFile(join(output, 'manifest.json'), JSON.stringify(manifest));
+          const created = spawnSync('/usr/bin/mkfifo', [join(output, 'attachment.png')]);
+          if (created.status !== 0) throw new Error('attachment FIFO creation failed');
+        }
+      }
+      return { exitCode: 0, stdout: '', stderr: '' };
+    };
+
+    try {
+      await captureB3IosScreenshotBytes({
+        root,
+        deviceId: '${DEVICE_ID}',
+        runner,
+      });
+      process.exitCode = 3;
+    } catch (error) {
+      process.stdout.write(String(error?.code ?? 'rejected'));
+    }
+  `;
+  const startedAt = Date.now();
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', program], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    timeout: 3_000,
+    env: {
+      ...process.env,
+      B3_FIFO_PROBE_ROOT: root,
+      B3_FIFO_PROBE_KIND: kind,
+    },
+  });
+  return { ...result, elapsedMs: Date.now() - startedAt };
+}
+
 async function processStopsWithin(pid, attempts = 50) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
@@ -226,6 +280,28 @@ test('iOS screenshot capture rejects a symbolic-link attachment manifest', async
     captureB3IosScreenshotBytes({ root, deviceId: DEVICE_ID, runner }),
     /manifest|link|path|regular/i,
   );
+});
+
+test('iOS screenshot capture promptly rejects a FIFO attachment manifest', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-screenshot-manifest-fifo-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const result = runFifoExportProbe({ root, kind: 'manifest' });
+
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
+  assert.match(result.stdout, /b3_ios_screenshot_capture_invalid|rejected/u);
+  assert.ok(result.elapsedMs < 2_500, 'FIFO manifest rejection exceeded its fixed bound');
+});
+
+test('iOS screenshot capture promptly rejects a FIFO selected attachment', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-screenshot-attachment-fifo-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const result = runFifoExportProbe({ root, kind: 'attachment' });
+
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
+  assert.match(result.stdout, /b3_ios_screenshot_capture_invalid|rejected/u);
+  assert.ok(result.elapsedMs < 2_500, 'FIFO attachment rejection exceeded its fixed bound');
 });
 
 test('iOS screenshot capture rejects a hard-linked attachment manifest', async (t) => {

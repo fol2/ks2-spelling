@@ -239,19 +239,19 @@ test('parent rejects unsafe child output and both Wrangler runners terminate com
   if (process.platform === 'win32') t.skip('POSIX process-group termination contract');
   const directory = await mkdtemp(join(tmpdir(), 'b3-wrangler-process-group-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const scriptPath = resolve(directory, 'spawn-grandchild.mjs');
+  const scriptPath = resolve(directory, 'spawn-grandchild.sh');
   const oauthPidPath = resolve(directory, 'oauth-grandchild.pid');
   const inspectorPidPath = resolve(directory, 'inspector-grandchild.pid');
   await writeFile(scriptPath, [
-    "import { spawn } from 'node:child_process';",
-    "import { writeFileSync } from 'node:fs';",
-    "const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });",
-    'writeFileSync(process.argv[2], String(child.pid));',
-    'setInterval(() => {}, 1000);',
+    '#!/bin/sh',
+    'sleep 60 &',
+    'grandchild_pid=$!',
+    "printf '%s' \"$grandchild_pid\" > \"$1\"",
+    'wait "$grandchild_pid"',
   ].join('\n'));
 
   await assert.rejects(withinHostCeiling(spawnBoundedOAuthCommand(
-    process.execPath,
+    '/bin/sh',
     [scriptPath, oauthPidPath],
     { cwd: directory, env: process.env, timeoutMs: 1_000 },
   ), 3_000), /exceeded.*bound/i);
@@ -259,7 +259,7 @@ test('parent rejects unsafe child output and both Wrangler runners terminate com
   await waitForProcessExit(oauthGrandchildPid);
 
   const inspectorResult = await withinHostCeiling(defaultWranglerSpawn(
-    process.execPath,
+    '/bin/sh',
     [scriptPath, inspectorPidPath],
     {
       cwd: directory,
@@ -1247,9 +1247,15 @@ test('OAuth child rejects remote-binding config drift and non-private mode befor
   }
 });
 
-test('default primitives use pinned dry-run, no-bundle deploy and closed child documents without inherited secrets', async () => {
+test('default primitives use pinned dry-run, no-bundle deploy and closed child documents without inherited secrets', async (t) => {
   const calls = [];
   const childDocuments = [];
+  let ownedSession;
+  t.after(async () => {
+    if (ownedSession !== undefined) {
+      await rm(ownedSession, { recursive: true, force: true });
+    }
+  });
   const source = `const BUILD = '${'0'.repeat(64)}';\nexport default BUILD;\n`;
   const scriptAuthoritySha256 = 'a'.repeat(64);
   const boundSource = source.replace('0'.repeat(64), scriptAuthoritySha256);
@@ -1264,6 +1270,9 @@ test('default primitives use pinned dry-run, no-bundle deploy and closed child d
     assert.equal(args[0], resolve(ROOT, 'gateway/node_modules/wrangler/bin/wrangler.js'));
     if (args.includes('--dry-run')) {
       const outdir = args[args.indexOf('--outdir') + 1];
+      const session = resolve(outdir, '..');
+      if (ownedSession === undefined) ownedSession = session;
+      else assert.equal(session, ownedSession);
       await mkdir(outdir, { recursive: true, mode: 0o700 });
       const configPath = args[args.indexOf('--config') + 1];
       if (configPath === resolve(ROOT, 'gateway/wrangler.jsonc')) {

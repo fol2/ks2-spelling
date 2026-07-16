@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { link, lstat, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { createB3LiveProofSession } from '../src/app/b3-live-proof-composition.js';
@@ -47,6 +49,72 @@ const FINGERPRINT = 'b'.repeat(64);
 const TAIL = 'c'.repeat(64);
 const CAPTURE_ID = '018f1d7b-97e8-4a52-8cf2-783e5089c001';
 const INSTALLATION_ID = '018f1d7b-97e8-4a52-8cf2-783e5089c002';
+const CAPTURE_RACE_CHILD = fileURLToPath(
+  new URL('./helpers/b3-live-capture-race-child.mjs', import.meta.url),
+);
+
+function launchCaptureRaceChild(input) {
+  const child = spawn(process.execPath, [CAPTURE_RACE_CHILD], {
+    env: {
+      ...process.env,
+      B3_CAPTURE_RACE_CHILD_INPUT: Buffer.from(JSON.stringify(input)).toString('base64url'),
+    },
+    stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+  });
+  let stderr = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => {
+    stderr = `${stderr}${chunk}`.slice(-16 * 1_024);
+  });
+  const messages = [];
+  const waiters = [];
+  let exitAuthority = null;
+  child.on('message', (message) => {
+    const index = waiters.findIndex(({ type }) => type === message?.type);
+    if (index < 0) {
+      messages.push(message);
+      return;
+    }
+    const [{ resolve, timeout }] = waiters.splice(index, 1);
+    clearTimeout(timeout);
+    resolve(message);
+  });
+  child.once('exit', (code, signal) => {
+    exitAuthority = { code, signal };
+    for (const { type, reject, timeout } of waiters.splice(0)) {
+      clearTimeout(timeout);
+      reject(new Error(
+        `B3 capture race child exited before ${type} (${code ?? signal}): ${stderr}`,
+      ));
+    }
+  });
+  const waitFor = (type) => {
+    const index = messages.findIndex((message) => message?.type === type);
+    if (index >= 0) return Promise.resolve(messages.splice(index, 1)[0]);
+    if (exitAuthority !== null) {
+      return Promise.reject(new Error(
+        `B3 capture race child exited before ${type} ` +
+        `(${exitAuthority.code ?? exitAuthority.signal}): ${stderr}`,
+      ));
+    }
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        const waiterIndex = waiters.findIndex((waiter) => waiter.resolve === resolve);
+        if (waiterIndex >= 0) waiters.splice(waiterIndex, 1);
+        reject(new Error(`B3 capture race child timed out waiting for ${type}: ${stderr}`));
+      }, 10_000);
+      waiters.push({ type, resolve, reject, timeout });
+    });
+  };
+  return Object.freeze({
+    child,
+    waitFor,
+    go: () => child.send({ type: 'go' }),
+    terminate: () => {
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+    },
+  });
+}
 
 const BUILD_AUTHORITY = Object.freeze({
   mode: 'B3SandboxProof',
@@ -1054,6 +1122,372 @@ test('issued-command claim installation remains deterministic under repeated con
     assert.equal(conflictResults.filter(({ status }) => status === 'fulfilled').length, 1);
     assert.equal(conflictResults.filter(({ status }) => status === 'rejected').length, 1);
   }
+});
+
+test('different first commands reconcile to one platform-global allocation under contention', async (t) => {
+  const roots = [];
+  t.after(() => Promise.all(roots.map((root) => rm(root, { recursive: true, force: true }))));
+
+  for (let iteration = 0; iteration < 100; iteration += 1) {
+    const root = await mkdtemp(join(tmpdir(), 'b3-issued-first-command-stress-'));
+    roots.push(root);
+    const first = launchCommand({
+      captureId: `00000000-0000-4000-8000-${String((iteration * 2) + 1).padStart(12, '0')}`,
+      challengeSha256: ((iteration * 2) + 1).toString(16).padStart(64, '0'),
+    });
+    const second = launchCommand({
+      captureId: `00000000-0000-4000-8000-${String((iteration * 2) + 2).padStart(12, '0')}`,
+      challengeSha256: ((iteration * 2) + 2).toString(16).padStart(64, '0'),
+    });
+
+    const contenders = await Promise.all([
+      persistB3IssuedCommand({ root, platform: 'ios', command: first }),
+      persistB3IssuedCommand({ root, platform: 'ios', command: second }),
+    ]);
+    const retained = await readB3IssuedCommand({ root, platform: 'ios' });
+    assert.ok([first.captureId, second.captureId].includes(retained.command.captureId));
+    assert.deepEqual(contenders.map(({ command }) => command), [retained.command, retained.command]);
+
+    const ledger = join(root, '.native-build/b3/evidence/ios-issued-command-ledger');
+    assert.equal((await readdir(ledger)).filter((name) => name.endsWith('.base.json')).length, 1);
+  }
+});
+
+test('a lagging empty-root child process adopts the platform-global capture winner', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-issued-child-process-race-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const winnerCommand = launchCommand({
+    captureId: '00000000-0000-4000-8000-000000000801',
+  });
+  const laggerCommand = launchCommand({
+    captureId: '00000000-0000-4000-8000-000000000802',
+  });
+  const barrierPath = join(root, 'release-lagging-child');
+  const winner = launchCaptureRaceChild({
+    role: 'winner', root, captureId: winnerCommand.captureId,
+    buildAuthority: BUILD_AUTHORITY, barrierPath,
+  });
+  const lagger = launchCaptureRaceChild({
+    role: 'lagger', root, captureId: laggerCommand.captureId,
+    buildAuthority: BUILD_AUTHORITY, barrierPath,
+  });
+  t.after(() => { winner.terminate(); lagger.terminate(); });
+
+  await Promise.all([winner.waitFor('ready'), lagger.waitFor('empty')]);
+  winner.go();
+  const winnerResult = await winner.waitFor('result');
+  await writeFile(barrierPath, 'go', { mode: 0o600 });
+  const laggerResult = await lagger.waitFor('result');
+
+  assert.match(winnerResult.outcome.message, /fixed deadline/i);
+  assert.match(laggerResult.outcome.message, /fixed deadline/i);
+  assert.doesNotMatch(laggerResult.outcome.message, /conflicts with the pending command/i);
+  assert.equal(winnerResult.launches, 1);
+  assert.equal(laggerResult.launches, 0);
+  assert.equal(winnerResult.launchedCaptureId, winnerCommand.captureId);
+  assert.equal(winnerResult.retainedCaptureId, winnerCommand.captureId);
+  assert.equal(laggerResult.retainedCaptureId, winnerCommand.captureId);
+});
+
+test('a lagging empty-root child rejects a winner from a different allocation context', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-issued-child-context-race-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const winnerCaptureId = '00000000-0000-4000-8000-000000000821';
+  const laggerCaptureId = '00000000-0000-4000-8000-000000000822';
+  const barrierPath = join(root, 'release-context-lagging-child');
+  const winner = launchCaptureRaceChild({
+    role: 'winner', root, captureId: winnerCaptureId,
+    buildAuthority: BUILD_AUTHORITY, barrierPath,
+  });
+  const lagger = launchCaptureRaceChild({
+    role: 'lagger', root, captureId: laggerCaptureId,
+    buildAuthority: { ...BUILD_AUTHORITY, applicationFingerprint: 'c'.repeat(64) },
+    barrierPath,
+  });
+  t.after(() => { winner.terminate(); lagger.terminate(); });
+
+  await Promise.all([winner.waitFor('ready'), lagger.waitFor('empty')]);
+  winner.go();
+  const winnerResult = await winner.waitFor('result');
+  await writeFile(barrierPath, 'go', { mode: 0o600 });
+  const laggerResult = await lagger.waitFor('result');
+
+  assert.match(winnerResult.outcome.message, /fixed deadline/i);
+  assert.match(laggerResult.outcome.message, /conflicts with the pending command/i);
+  assert.equal(winnerResult.launches, 1);
+  assert.equal(laggerResult.launches, 0);
+  assert.equal(winnerResult.retainedCaptureId, winnerCaptureId);
+  assert.equal(laggerResult.retainedCaptureId, winnerCaptureId);
+});
+
+test('a stale empty-root child cannot relaunch sequence one after the winner journals it', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-issued-child-journal-race-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const winnerCaptureId = '00000000-0000-4000-8000-000000000831';
+  const laggerCaptureId = '00000000-0000-4000-8000-000000000832';
+  const barrierPath = join(root, 'release-journal-lagging-child');
+  const winner = launchCaptureRaceChild({
+    role: 'winner', root, captureId: winnerCaptureId,
+    buildAuthority: BUILD_AUTHORITY, barrierPath, completeObservation: true,
+  });
+  const lagger = launchCaptureRaceChild({
+    role: 'lagger', root, captureId: laggerCaptureId,
+    buildAuthority: BUILD_AUTHORITY, barrierPath,
+  });
+  t.after(() => { winner.terminate(); lagger.terminate(); });
+
+  await Promise.all([winner.waitFor('ready'), lagger.waitFor('empty')]);
+  winner.go();
+  const winnerResult = await winner.waitFor('result');
+  assert.equal(winnerResult.outcome.status, 'fulfilled');
+  assert.equal(winnerResult.launches, 1);
+  assert.equal(winnerResult.retainedCaptureId, null);
+  assert.equal(winnerResult.journalLength, 1);
+  assert.equal(winnerResult.journalCaptureId, winnerCaptureId);
+
+  await writeFile(barrierPath, 'go', { mode: 0o600 });
+  const laggerResult = await lagger.waitFor('result');
+  assert.match(laggerResult.outcome.message, /retained command differs/i);
+  assert.equal(laggerResult.launches, 0);
+  assert.equal(laggerResult.retainedCaptureId, null);
+  assert.equal(laggerResult.journalLength, 1);
+  assert.equal(laggerResult.journalCaptureId, winnerCaptureId);
+});
+
+test('a sequential direct capture still rejects a different pending command', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-issued-sequential-mismatch-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const winnerCommand = launchCommand({
+    captureId: '00000000-0000-4000-8000-000000000811',
+    challengeSha256: '1'.repeat(64),
+  });
+  const differentCommand = launchCommand({
+    captureId: '00000000-0000-4000-8000-000000000812',
+    challengeSha256: '2'.repeat(64),
+  });
+  await persistB3IssuedCommand({ root, platform: 'ios', command: winnerCommand });
+  let launches = 0;
+
+  await assert.rejects(captureB3ValidatedDeviceObservation({
+    root,
+    platform: 'ios',
+    command: differentCommand,
+    buildAuthority: BUILD_AUTHORITY,
+    transport: {
+      async launch() { launches += 1; },
+      async pullObservation() { throw new Error('pull must not be reached'); },
+    },
+    maximumPullAttempts: 1,
+  }), /conflicts with the pending command/i);
+  assert.equal(launches, 0);
+  assert.deepEqual(
+    (await readB3IssuedCommand({ root, platform: 'ios' })).command,
+    winnerCommand,
+  );
+});
+
+test('different first host advances retain one healthy launch authority across 100 races', async (t) => {
+  const roots = [];
+  t.after(() => Promise.all(roots.map((root) => rm(root, { recursive: true, force: true }))));
+
+  for (let iteration = 0; iteration < 100; iteration += 1) {
+    const root = await mkdtemp(join(tmpdir(), 'b3-first-advance-stress-'));
+    roots.push(root);
+    await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+    let launches = 0;
+    let uuidCalls = 0;
+    let launchedCommand = null;
+    const transport = {
+      async launch(command) {
+        launches += 1;
+        launchedCommand = command;
+      },
+      async pullObservation() {
+        throw Object.assign(new Error('observation pull did not produce bytes'), {
+          code: 'b3_physical_device_command_failed',
+        });
+      },
+    };
+    const captureIds = [
+      `00000000-0000-4000-8000-${String((iteration * 2) + 1_001).padStart(12, '0')}`,
+      `00000000-0000-4000-8000-${String((iteration * 2) + 1_002).padStart(12, '0')}`,
+    ];
+    const attempts = await Promise.allSettled(captureIds.map((captureId) =>
+      advanceB3HostCaptureOne({
+        root,
+        platform: 'ios',
+        buildAuthority: BUILD_AUTHORITY,
+        transport,
+        uuidFactory: () => {
+          uuidCalls += 1;
+          return captureId;
+        },
+        maximumPullAttempts: 1,
+      })));
+    assert.equal(uuidCalls, 2);
+    assert.equal(attempts.filter(({ status }) => status === 'rejected').length, 2);
+    for (const { reason } of attempts) {
+      assert.doesNotMatch(reason.message, /multiple active|pending command|stale|differs/i);
+    }
+    assert.equal(launches, 1);
+    assert.deepEqual((await readB3IssuedCommand({ root, platform: 'ios' })).command,
+      launchedCommand);
+    const ledger = join(root, '.native-build/b3/evidence/ios-issued-command-ledger');
+    assert.equal((await readdir(ledger)).filter((name) => name.endsWith('.base.json')).length, 1);
+  }
+});
+
+test('concurrent first host advances keep one launch authority and resume its observation', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-first-advance-race-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+
+  let launches = 0;
+  let uuidCalls = 0;
+  let launchedCommand = null;
+  let publishedBytes = null;
+  const transport = {
+    async launch(command) {
+      launches += 1;
+      launchedCommand = command;
+    },
+    async pullObservation() {
+      if (publishedBytes !== null) return publishedBytes;
+      throw Object.assign(new Error('observation pull did not produce bytes'), {
+        code: 'b3_physical_device_command_failed',
+      });
+    },
+  };
+  const advance = (captureId) => advanceB3HostCaptureOne({
+    root,
+    platform: 'ios',
+    buildAuthority: BUILD_AUTHORITY,
+    transport,
+    uuidFactory: () => {
+      uuidCalls += 1;
+      return captureId;
+    },
+    maximumPullAttempts: 1,
+  });
+  const attempts = await Promise.allSettled([
+    advance('00000000-0000-4000-8000-000000000901'),
+    advance('00000000-0000-4000-8000-000000000902'),
+  ]);
+  assert.equal(uuidCalls, 2);
+  assert.equal(attempts.filter(({ status }) => status === 'rejected').length, 2);
+  for (const { reason } of attempts) {
+    assert.doesNotMatch(reason.message, /multiple active|pending command|stale|differs/i);
+  }
+  assert.equal(launches, 1);
+
+  const issued = await readB3IssuedCommand({ root, platform: 'ios' });
+  assert.deepEqual(issued.command, launchedCommand);
+  const observation = await createB3ProofObservation({
+    command: issued.command,
+    buildAuthority: BUILD_AUTHORITY,
+    installationId: INSTALLATION_ID,
+    sequence: 1,
+    scenario: 'product-query',
+    phase: 'ARMED',
+    nextActionCode: 'QUERY_PRODUCT',
+    completedTransitions: ['UNBOUND', 'ARMED'],
+    proofProjection: {
+      challengeSha256: issued.command.challengeSha256,
+      scenarioOutcome: 'in-progress',
+      entitlementState: 'none',
+      packState: 'absent',
+      storeCompletionObserved: false,
+      storeEvents: [],
+      storeAuthority: {
+        environment: 'sandbox', productId: 'uk.eugnel.ks2spelling.fullks2',
+        localisedPriceObserved: false, completionState: 'not-observed',
+      },
+      gatewayCalls: [],
+      syntheticLearners: {
+        syntheticAuthorityMatched: true,
+        positionalSnapshotSha256: ['a'.repeat(64), 'b'.repeat(64)],
+      },
+      transactionAuthority: {
+        source: 'none', crossCheckedOnRefresh: false,
+        domainSeparatedDigestSha256: null, rawProofCleared: false,
+      },
+      refreshHandleLifecycle: {
+        present: false, positiveVersionObserved: false, rotated: false, deleted: false,
+      },
+      entitlementAuthority: {
+        id: null, state: 'none', domainSeparatedDigestSha256: null,
+        refreshHandlePresent: false,
+      },
+      packAuthority: {
+        packId: null, manifestSha256: null, archiveSha256: null, installed: false,
+      },
+      gatewaySmokeAuthority: null,
+      transportAuthority: {
+        storeAdapter: 'concreteCapacitorStore', gatewayAdapter: 'concreteHttpGateway',
+        serverUrl: null, nativeOriginAllowed: true, noRedirects: true,
+      },
+    },
+    observedAt: '2026-07-15T10:00:00.000Z',
+  });
+  publishedBytes = Buffer.from(canonicaliseB3ProofValue(observation), 'utf8');
+  const resumed = await resumeB3IssuedDeviceObservation({
+    root,
+    platform: 'ios',
+    buildAuthority: BUILD_AUTHORITY,
+    transport,
+    maximumPullAttempts: 1,
+  });
+  assert.equal(resumed.observationSha256, observation.observationSha256);
+  assert.equal(launches, 1);
+  assert.equal((await readB3PhysicalObservationJournal({
+    root, platform: 'ios', buildAuthority: BUILD_AUTHORITY,
+  })).length, 1);
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+});
+
+test('an immutable allocation claim repairs its exact base after a crash gap', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-issued-allocation-repair-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const ledger = join(root, '.native-build/b3/evidence/ios-issued-command-ledger');
+
+  const first = await persistB3IssuedCommand({
+    root, platform: 'ios', command: launchCommand(),
+  });
+  const firstBase = join(ledger, `${first.commandSha256}.base.json`);
+  await rm(firstBase);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).commandSha256,
+    first.commandSha256);
+  assert.equal((await lstat(firstBase)).mode & 0o777, 0o600);
+
+  await clearB3IssuedCommand({ root, platform: 'ios', command: first.command });
+  const second = await persistB3IssuedCommand({
+    root,
+    platform: 'ios',
+    command: launchCommand({ challengeSha256: 'e'.repeat(64) }),
+  });
+  const secondBase = join(ledger, `${second.commandSha256}.base.json`);
+  await rm(secondBase);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).commandSha256,
+    second.commandSha256);
+  assert.equal((await lstat(secondBase)).mode & 0o777, 0o600);
+});
+
+test('global allocation scanning rejects an unanchored next-command claim', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-issued-orphan-allocation-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const retained = await persistB3IssuedCommand({
+    root, platform: 'ios', command: launchCommand(),
+  });
+  const ledger = join(root, '.native-build/b3/evidence/ios-issued-command-ledger');
+  await writeFile(
+    join(ledger, `${'f'.repeat(64)}.next-command.json`),
+    await readFile(join(ledger, `${retained.commandSha256}.base.json`)),
+    { mode: 0o600 },
+  );
+  await assert.rejects(
+    readB3IssuedCommand({ root, platform: 'ios' }),
+    /allocation|orphan|anchored/i,
+  );
 });
 
 test('immutable claim reconciliation rejects a persistent private temp hard link', async (t) => {

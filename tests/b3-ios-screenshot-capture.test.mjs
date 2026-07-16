@@ -1,13 +1,81 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { captureB3IosScreenshotBytes } from '../scripts/lib/b3-ios-proof-screenshot.mjs';
+import {
+  captureB3IosScreenshotBytes,
+  runB3IosScreenshotProcess,
+} from '../scripts/lib/b3-ios-proof-screenshot.mjs';
 import { createB3TestPng } from './helpers/b3-test-png.mjs';
 
 const DEVICE_ID = '00008140-001234560123001C';
+
+async function processStopsWithin(pid, attempts = 50) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      process.kill(pid, 0);
+      const state = spawnSync('/bin/ps', ['-p', String(pid), '-o', 'state='], {
+        encoding: 'utf8',
+      });
+      if (state.status !== 0 || state.stdout.trim().startsWith('Z')) return true;
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 20));
+    } catch (error) {
+      if (error?.code !== 'ESRCH') throw error;
+      return true;
+    }
+  }
+  return false;
+}
+
+test('iOS screenshot production runner terminates its complete timed-out process group', async () => {
+  const childProgram = [
+    "const { spawn } = require('node:child_process');",
+    "const grandchild = spawn(process.execPath, ['-e', \"process.on('SIGTERM', () => {}); process.stdout.write('ready'); setInterval(() => {}, 1000)\"], { stdio: ['ignore', 'pipe', 'ignore'] });",
+    "grandchild.stdout.once('data', () => process.stdout.write(String(grandchild.pid), () => {",
+    "  process.on('SIGTERM', () => process.exit(0));",
+    '  setInterval(() => {}, 1000);',
+    '}));',
+  ].join('\n');
+  let grandchildPid = null;
+  try {
+    const startedAt = Date.now();
+    const result = await runB3IosScreenshotProcess(
+      process.execPath,
+      ['-e', childProgram],
+      { timeoutMs: 1_000 },
+    );
+    grandchildPid = Number(result.stdout);
+    assert.equal(result.timedOut, true);
+    assert.ok(Date.now() - startedAt >= 1_250, 'runner settled before SIGKILL escalation');
+    assert.equal(Number.isSafeInteger(grandchildPid) && grandchildPid > 1, true);
+    assert.equal(
+      await processStopsWithin(grandchildPid),
+      true,
+      'iOS screenshot timeout left its descendant running',
+    );
+  } finally {
+    if (Number.isSafeInteger(grandchildPid) && grandchildPid > 1) {
+      try { process.kill(grandchildPid, 'SIGKILL'); } catch { /* Best-effort test cleanup. */ }
+    }
+  }
+});
+
+test('iOS screenshot production runner bounds each text stream', async () => {
+  for (const stream of ['stdout', 'stderr']) {
+    const result = await runB3IosScreenshotProcess(
+      process.execPath,
+      ['-e', `process.${stream}.write(Buffer.alloc(300 * 1024, 97)); setInterval(() => {}, 1000)`],
+      { timeoutMs: 5_000 },
+    );
+    assert.equal(result.outputExceeded, true);
+    assert.equal(Buffer.byteLength(result[stream]), 256 * 1024);
+    assert.equal(Buffer.byteLength(result[stream === 'stdout' ? 'stderr' : 'stdout']), 0);
+    assert.equal(result.exitCode, 1);
+  }
+});
 
 test('iOS screenshot capture runs only independent B3ProofUITests and exports its named attachment', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-ios-screenshot-'));

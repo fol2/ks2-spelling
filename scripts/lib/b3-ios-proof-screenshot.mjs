@@ -1,4 +1,3 @@
-import { execFile } from 'node:child_process';
 import { constants as fsConstants } from 'node:fs';
 import {
   lstat,
@@ -10,12 +9,11 @@ import {
   rm,
 } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
-import { promisify } from 'node:util';
 
 import { parseB3StrictJsonBytes } from '../check-b3-external-prerequisites.mjs';
+import { runB3PhysicalDeviceProcess } from './b3-physical-device-transport.mjs';
 import { validateB3PngBytes } from './b3-png.mjs';
 
-const execFileAsync = promisify(execFile);
 const DEVICE_ID = /^[A-Fa-f0-9-]{8,64}$/u;
 const MAXIMUM_TEXT_BYTES = 256 * 1024;
 const MAXIMUM_SCREENSHOT_BYTES = 64 * 1024 * 1024;
@@ -32,24 +30,17 @@ function exactKeys(value, required, optional = []) {
     required.every((key) => Object.hasOwn(value, key));
 }
 
-async function defaultRunner(command, args, options = {}) {
-  try {
-    const result = await execFileAsync(command, args, {
-      cwd: options.cwd,
-      encoding: 'utf8',
-      timeout: options.timeoutMs ?? 10 * 60 * 1000,
-      maxBuffer: MAXIMUM_TEXT_BYTES,
-      windowsHide: true,
-    });
-    return { exitCode: 0, stdout: result.stdout, stderr: result.stderr };
-  } catch (error) {
-    return {
-      exitCode: Number.isInteger(error.code) ? error.code : 1,
-      stdout: typeof error.stdout === 'string' ? error.stdout : '',
-      stderr: typeof error.stderr === 'string' ? error.stderr : '',
-    };
-  }
+export function runB3IosScreenshotProcess(command, args, options = {}) {
+  return runB3PhysicalDeviceProcess(command, args, {
+    cwd: options.cwd,
+    env: options.env,
+    timeoutMs: options.timeoutMs ?? 10 * 60 * 1000,
+    stdoutLimit: MAXIMUM_TEXT_BYTES,
+    stderrLimit: MAXIMUM_TEXT_BYTES,
+  });
 }
+
+const defaultRunner = runB3IosScreenshotProcess;
 
 async function run(runner, command, args, options) {
   const result = await runner(command, args, options);

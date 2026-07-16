@@ -1,15 +1,46 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import {
+  chmod,
+  link,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { createB3TestPng } from './helpers/b3-test-png.mjs';
 
 import { canonicaliseB3ProofValue } from '../src/app/b3-live-proof-protocol.js';
-import { createB3PhysicalDeviceTransport } from '../scripts/lib/b3-physical-device-transport.mjs';
+import {
+  createB3PhysicalDeviceTransport,
+  runB3PhysicalDeviceProcess,
+} from '../scripts/lib/b3-physical-device-transport.mjs';
 
 const COMMIT = 'a'.repeat(40);
 const FINGERPRINT = 'b'.repeat(64);
+
+async function processStopsWithin(pid, attempts = 50) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      process.kill(pid, 0);
+      const state = spawnSync('/bin/ps', ['-p', String(pid), '-o', 'state='], {
+        encoding: 'utf8',
+      });
+      if (state.status !== 0 || state.stdout.trim().startsWith('Z')) return true;
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 20));
+    } catch (error) {
+      if (error?.code !== 'ESRCH') throw error;
+      return true;
+    }
+  }
+  return false;
+}
 
 function command(platform) {
   return {
@@ -26,6 +57,63 @@ function command(platform) {
     challengeSha256: 'c'.repeat(64),
   };
 }
+
+function relaunchCommand() {
+  return {
+    ...command('ios-physical'),
+    expectedSequence: 2,
+    previousObservationSha256: 'd'.repeat(64),
+    actionCode: 'RELAUNCH',
+    challengeSha256: 'e'.repeat(64),
+  };
+}
+
+test('physical-device production runner terminates its complete timed-out process group', async () => {
+  const childProgram = [
+    "const { spawn } = require('node:child_process');",
+    "const grandchild = spawn(process.execPath, ['-e', \"process.on('SIGTERM', () => {}); process.stdout.write('ready'); setInterval(() => {}, 1000)\"], { stdio: ['ignore', 'pipe', 'ignore'] });",
+    "grandchild.stdout.once('data', () => process.stdout.write(String(grandchild.pid), () => {",
+    "  process.on('SIGTERM', () => process.exit(0));",
+    '  setInterval(() => {}, 1000);',
+    '}));',
+  ].join('\n');
+  let grandchildPid = null;
+  try {
+    const startedAt = Date.now();
+    const result = await runB3PhysicalDeviceProcess(
+      process.execPath,
+      ['-e', childProgram],
+      { timeoutMs: 1_000, stdoutLimit: 64 * 1024, stderrLimit: 64 * 1024 },
+    );
+    grandchildPid = Number(result.stdout);
+    assert.equal(result.timedOut, true);
+    assert.ok(Date.now() - startedAt >= 1_250, 'runner settled before SIGKILL escalation');
+    assert.equal(Number.isSafeInteger(grandchildPid) && grandchildPid > 1, true);
+    assert.equal(
+      await processStopsWithin(grandchildPid),
+      true,
+      'physical-device timeout left its descendant running',
+    );
+  } finally {
+    if (Number.isSafeInteger(grandchildPid) && grandchildPid > 1) {
+      try { process.kill(grandchildPid, 'SIGKILL'); } catch { /* Best-effort test cleanup. */ }
+    }
+  }
+});
+
+test('physical-device production runner bounds stdout and stderr independently', async () => {
+  for (const stream of ['stdout', 'stderr']) {
+    const result = await runB3PhysicalDeviceProcess(
+      process.execPath,
+      ['-e', `process.${stream}.write(Buffer.alloc(4096, 97)); setInterval(() => {}, 1000)`],
+      { timeoutMs: 5_000, stdoutLimit: 32, stderrLimit: 32 },
+    );
+    assert.equal(result.outputExceeded, true);
+    assert.equal(Buffer.byteLength(result[stream]), 32);
+    assert.equal(Buffer.byteLength(result[stream === 'stdout' ? 'stderr' : 'stdout']), 0);
+    assert.equal(result.exitCode, 1);
+  }
+});
 
 test('iOS transport launches only the fixed bundle and pulls only fixed appData bytes', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-ios-transport-'));
@@ -48,6 +136,7 @@ test('iOS transport launches only the fixed bundle and pulls only fixed appData 
           runningProcesses: [{
             bundleIdentifier: 'uk.eugnel.ks2spelling',
             processIdentifier: 4321,
+            startDate: '2026-07-16T12:00:00.000Z',
           }],
         },
       }));
@@ -81,57 +170,45 @@ test('iOS transport launches only the fixed bundle and pulls only fixed appData 
     canonicaliseB3ProofValue(command('ios-physical')),
   ]);
   assert.deepEqual(await transport.pullObservation(), observationBytes);
-  assert.deepEqual(calls[1][0], 'xcrun');
-  assert.deepEqual(calls[1][1].slice(0, 7), [
+  const copyCall = calls.find(([, args]) => args.slice(0, 4).join(' ') ===
+    'devicectl device copy from');
+  assert.deepEqual(copyCall[0], 'xcrun');
+  assert.deepEqual(copyCall[1].slice(0, 7), [
     'devicectl', 'device', 'copy', 'from', '--device',
     '00008140-001234560123001C', '--source',
   ]);
   assert.equal(
-    calls[1][1][calls[1][1].indexOf('--source') + 1],
+    copyCall[1][copyCall[1].indexOf('--source') + 1],
     'Library/Application Support/b3-proof-observation-v1.json',
   );
-  assert.equal(calls[1][1].includes('--domain-type'), true);
-  assert.equal(calls[1][1][calls[1][1].indexOf('--domain-type') + 1], 'appDataContainer');
-  assert.equal(calls[1][1][calls[1][1].indexOf('--domain-identifier') + 1], 'uk.eugnel.ks2spelling');
+  assert.equal(copyCall[1].includes('--domain-type'), true);
+  assert.equal(copyCall[1][copyCall[1].indexOf('--domain-type') + 1], 'appDataContainer');
+  assert.equal(copyCall[1][copyCall[1].indexOf('--domain-identifier') + 1], 'uk.eugnel.ks2spelling');
   let receiptRetained = false;
   await transport.forceStop({
-    retainReceipt: async ({ processIdentifier }) => {
+    command: relaunchCommand(),
+    retainReceipt: async ({ processIdentifier, startDate }) => {
       assert.equal(processIdentifier, 4321);
+      assert.equal(startDate, '2026-07-16T12:00:00.000Z');
       receiptRetained = true;
     },
   });
   assert.equal(receiptRetained, true);
-  assert.ok(calls[2][1].includes('processes'));
-  assert.deepEqual(calls[3][1].slice(0, 8), [
+  assert.equal(calls.filter(([, args]) => args.includes('processes')).length, 2);
+  const terminateCall = calls.find(([, args]) => args.includes('terminate'));
+  assert.deepEqual(terminateCall[1].slice(0, 8), [
     'devicectl', 'device', 'process', 'terminate', '--device',
     '00008140-001234560123001C', '--pid', '4321',
   ]);
-  assert.equal(calls[3][1].includes('--kill'), true);
+  assert.equal(terminateCall[1].includes('--kill'), true);
 });
 
-test('resumed iOS force-stop requires one exact running bundle process from private JSON', async (t) => {
+test('fresh iOS transport cannot authorise force-stop without retained launch identity', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-ios-resumed-stop-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const calls = [];
   const runner = async (executable, args) => {
     calls.push([executable, args]);
-    if (args.includes('processes')) {
-      await writeFile(args[args.indexOf('--json-output') + 1], JSON.stringify({
-        info: { outcome: 'success' },
-        result: {
-          runningProcesses: [{
-            bundleIdentifier: 'uk.eugnel.ks2spelling',
-            processIdentifier: 9876,
-          }],
-        },
-      }));
-    }
-    if (args.includes('terminate')) {
-      await writeFile(args[args.indexOf('--json-output') + 1], JSON.stringify({
-        info: { outcome: 'success' },
-        result: { processIdentifier: 9876 },
-      }));
-    }
     return { exitCode: 0, stdout: '', stderr: '' };
   };
   const transport = createB3PhysicalDeviceTransport({
@@ -140,44 +217,295 @@ test('resumed iOS force-stop requires one exact running bundle process from priv
     env: { B3_IOS_PHYSICAL_DEVICE_ID: '00008140-001234560123001C' },
     runner,
   });
-  await transport.forceStop();
-  assert.ok(calls[0][1].includes('processes'));
-  assert.equal(calls[1][1][calls[1][1].indexOf('--pid') + 1], '9876');
-  assert.equal(calls[1][1].includes('--kill'), true);
+  await assert.rejects(
+    transport.forceStop({ command: relaunchCommand() }),
+    /retained launch identity/i,
+  );
+  assert.deepEqual(calls, []);
+});
 
-  for (const runningProcesses of [
-    [],
-    [
-      { bundleIdentifier: 'uk.eugnel.ks2spelling', processIdentifier: 10 },
-      { bundleIdentifier: 'uk.eugnel.ks2spelling', processIdentifier: 11 },
-    ],
-    [{ bundleIdentifier: 'another.bundle', processIdentifier: 12 }],
-    [{ bundleIdentifier: 'uk.eugnel.ks2spelling', processIdentifier: 0 }],
-  ]) {
-    let terminateCalls = 0;
-    const rejected = createB3PhysicalDeviceTransport({
+test('fresh iOS transport resumes force-stop from exact append-only launch identity', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-durable-launch-identity-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const calls = [];
+  const runner = async (_executable, args) => {
+    calls.push(args);
+    const output = args[args.indexOf('--json-output') + 1];
+    if (args.includes('launch')) {
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' }, result: { processIdentifier: 4321 },
+      }));
+    } else if (args.includes('processes')) {
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' },
+        result: { runningProcesses: [{
+          bundleIdentifier: 'uk.eugnel.ks2spelling',
+          processIdentifier: 4321,
+          startDate: '2026-07-16T12:00:00.000Z',
+        }] },
+      }));
+    } else if (args.includes('terminate')) {
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' }, result: { processIdentifier: 4321 },
+      }));
+    }
+    return { exitCode: 0, stdout: '', stderr: '' };
+  };
+  await createB3PhysicalDeviceTransport({
+    root,
+    platform: 'ios',
+    env: { B3_IOS_PHYSICAL_DEVICE_ID: '00008140-001234560123001C' },
+    runner,
+  }).launch(command('ios-physical'));
+  const identityDirectory = join(root, '.native-build/b3/evidence/ios-transport');
+  const identityName = (await readdir(identityDirectory))
+    .find((name) => name.endsWith('.launch-identity.json'));
+  const identityPath = join(identityDirectory, identityName);
+  const identityRecord = JSON.parse(await readFile(identityPath, 'utf8'));
+  assert.equal((await stat(identityPath)).mode & 0o777, 0o600);
+  assert.equal(identityRecord.captureId, command('ios-physical').captureId);
+  assert.equal(identityRecord.sequence, 1);
+  assert.equal(identityRecord.deviceIdentifier, '00008140-001234560123001C');
+  assert.deepEqual(identityRecord.command, command('ios-physical'));
+  assert.equal(await readFile(identityPath, 'utf8').then((value) => value.endsWith('\n')), false);
+  const crashedWriterAlias = join(
+    identityDirectory,
+    '.launch-identity-018f1d7b-97e8-4a52-8cf2-783e5089c099.tmp',
+  );
+  await link(identityPath, crashedWriterAlias);
+
+  let receipt;
+  await createB3PhysicalDeviceTransport({
+    root,
+    platform: 'ios',
+    env: { B3_IOS_PHYSICAL_DEVICE_ID: '00008140-001234560123001C' },
+    runner,
+  }).forceStop({
+    command: relaunchCommand(),
+    retainReceipt: async (value) => { receipt = value; },
+  });
+  assert.deepEqual(receipt, {
+    deviceIdentifier: '00008140-001234560123001C',
+    processIdentifier: 4321,
+    startDate: '2026-07-16T12:00:00.000Z',
+  });
+  await assert.rejects(stat(crashedWriterAlias), /ENOENT/u);
+  assert.equal((await stat(identityPath)).nlink, 1);
+  assert.equal(calls.filter((args) => args.includes('terminate')).length, 1);
+});
+
+test('resumed iOS force-stop rejects a different physical device before inventory or SIGKILL', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-durable-device-identity-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const firstDevice = '00008140-001234560123001A';
+  const secondDevice = '00008140-001234560123001B';
+  const calls = [];
+  const runner = async (_executable, args) => {
+    calls.push(args);
+    const output = args[args.indexOf('--json-output') + 1];
+    if (args.includes('launch')) {
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' }, result: { processIdentifier: 4321 },
+      }));
+    } else if (args.includes('processes')) {
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' },
+        result: { runningProcesses: [{
+          bundleIdentifier: 'uk.eugnel.ks2spelling',
+          processIdentifier: 4321,
+          startDate: '2026-07-16T12:00:00.000Z',
+        }] },
+      }));
+    } else if (args.includes('terminate')) {
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' }, result: { processIdentifier: 4321 },
+      }));
+    }
+    return { exitCode: 0, stdout: '', stderr: '' };
+  };
+  await createB3PhysicalDeviceTransport({
+    root,
+    platform: 'ios',
+    env: { B3_IOS_PHYSICAL_DEVICE_ID: firstDevice },
+    runner,
+  }).launch(command('ios-physical'));
+  const callCountAfterLaunch = calls.length;
+
+  await assert.rejects(
+    createB3PhysicalDeviceTransport({
+      root,
+      platform: 'ios',
+      env: { B3_IOS_PHYSICAL_DEVICE_ID: secondDevice },
+      runner,
+    }).forceStop({ command: relaunchCommand() }),
+    /device.*identity|identity.*device/i,
+  );
+  assert.equal(calls.length, callCountAfterLaunch);
+  assert.equal(calls.some((args) => args.includes('terminate')), false);
+});
+
+test('iOS force-stop rejects a different optional terminate-result device before receipt', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-terminate-result-device-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const device = '00008140-001234560123001A';
+  let receiptRetained = false;
+  const runner = async (_executable, args) => {
+    const output = args[args.indexOf('--json-output') + 1];
+    if (args.includes('launch')) {
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' }, result: { processIdentifier: 4321 },
+      }));
+    } else if (args.includes('processes')) {
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' },
+        result: { runningProcesses: [{
+          bundleIdentifier: 'uk.eugnel.ks2spelling',
+          processIdentifier: 4321,
+          startDate: '2026-07-16T12:00:00.000Z',
+        }] },
+      }));
+    } else if (args.includes('terminate')) {
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' },
+        result: {
+          processIdentifier: 4321,
+          deviceIdentifier: '00008140-001234560123001B',
+        },
+      }));
+    }
+    return { exitCode: 0, stdout: '', stderr: '' };
+  };
+  const transport = createB3PhysicalDeviceTransport({
+    root,
+    platform: 'ios',
+    env: { B3_IOS_PHYSICAL_DEVICE_ID: device },
+    runner,
+  });
+  await transport.launch(command('ios-physical'));
+  await assert.rejects(
+    transport.forceStop({
+      command: relaunchCommand(),
+      retainReceipt: async () => { receiptRetained = true; },
+    }),
+    /terminate JSON result/i,
+  );
+  assert.equal(receiptRetained, false);
+});
+
+test('iOS launch rejects missing, malformed, duplicate or unmatched process start identity', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-launch-identity-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const bundle = 'uk.eugnel.ks2spelling';
+  const exact = `{"bundleIdentifier":"${bundle}","processIdentifier":4321`;
+  const cases = [
+    `${exact}}`,
+    `${exact},"startDate":"not-a-date"}`,
+    `${exact},"startDate":"2026-02-30T12:00:00.000Z"}`,
+    `${exact},"startDate":"2026-07-16T12:00:00.000Z","startDate":"2026-07-16T12:00:01.000Z"}`,
+    `{"bundleIdentifier":"${bundle}","processIdentifier":9999,"startDate":"2026-07-16T12:00:00.000Z"}`,
+    `${exact},"startDate":"2026-07-16T12:00:00.000Z"},${exact},"startDate":"2026-07-16T12:00:00.000Z"}`,
+  ];
+  for (const entries of cases) {
+    const commands = [];
+    const transport = createB3PhysicalDeviceTransport({
       root,
       platform: 'ios',
       env: { B3_IOS_PHYSICAL_DEVICE_ID: '00008140-001234560123001C' },
-      runner: async (_command, args) => {
-        if (args.includes('processes')) {
-          await writeFile(args[args.indexOf('--json-output') + 1], JSON.stringify({
-            info: { outcome: 'success' },
-            result: { runningProcesses },
+      runner: async (_executable, args) => {
+        const output = args[args.indexOf('--json-output') + 1];
+        if (args.includes('launch')) {
+          commands.push('launch');
+          await writeFile(output, JSON.stringify({
+            info: { outcome: 'success' }, result: { processIdentifier: 4321 },
           }));
+        } else if (args.includes('processes')) {
+          commands.push('processes');
+          await writeFile(
+            output,
+            `{"info":{"outcome":"success"},"result":{"runningProcesses":[${entries}]}}`,
+          );
         } else {
-          terminateCalls += 1;
+          commands.push('unexpected-side-effect');
         }
         return { exitCode: 0, stdout: '', stderr: '' };
       },
     });
-    await assert.rejects(rejected.forceStop(), /process|PID|bundle/i);
-    assert.equal(terminateCalls, 0);
+    await assert.rejects(
+      transport.launch(command('ios-physical')),
+      /start|identity|process|JSON|ambiguous/i,
+    );
+    assert.deepEqual(commands, ['launch', 'processes']);
   }
 });
 
-test('iOS force-stop rejects a recycled retained PID before SIGKILL', async (t) => {
-  const root = await mkdtemp(join(tmpdir(), 'b3-ios-pid-reuse-'));
+test('iOS launch rejects a different optional launch-result device before process inventory', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-launch-result-device-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const calls = [];
+  const transport = createB3PhysicalDeviceTransport({
+    root,
+    platform: 'ios',
+    env: { B3_IOS_PHYSICAL_DEVICE_ID: '00008140-001234560123001A' },
+    runner: async (_executable, args) => {
+      calls.push(args);
+      const output = args[args.indexOf('--json-output') + 1];
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' },
+        result: {
+          processIdentifier: 4321,
+          deviceIdentifier: '00008140-001234560123001B',
+        },
+      }));
+      return { exitCode: 0, stdout: '', stderr: '' };
+    },
+  });
+  await assert.rejects(
+    transport.launch(command('ios-physical')),
+    /launch JSON result/i,
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].includes('launch'), true);
+});
+
+test('iOS launch identity filename retains the full validated safe-integer sequence', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-launch-sequence-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const runner = async (_executable, args) => {
+    const output = args[args.indexOf('--json-output') + 1];
+    if (args.includes('launch')) {
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' }, result: { processIdentifier: 4321 },
+      }));
+    } else {
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' },
+        result: { runningProcesses: [{
+          bundleIdentifier: 'uk.eugnel.ks2spelling',
+          processIdentifier: 4321,
+          startDate: '2026-07-16T12:00:00.000Z',
+        }] },
+      }));
+    }
+    return { exitCode: 0, stdout: '', stderr: '' };
+  };
+  await createB3PhysicalDeviceTransport({
+    root,
+    platform: 'ios',
+    env: { B3_IOS_PHYSICAL_DEVICE_ID: '00008140-001234560123001C' },
+    runner,
+  }).launch({
+    ...command('ios-physical'),
+    expectedSequence: Number.MAX_SAFE_INTEGER,
+  });
+  const entries = await readdir(join(root, '.native-build/b3/evidence/ios-transport'));
+  assert.equal(
+    entries.some((name) => name.startsWith(`${Number.MAX_SAFE_INTEGER}-`)),
+    true,
+  );
+});
+
+test('iOS launch-identity ledger rejects hostile links, permissions, duplicate claims and entry floods', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-launch-ledger-policy-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   let terminateCalls = 0;
   const runner = async (_executable, args) => {
@@ -190,11 +518,108 @@ test('iOS force-stop rejects a recycled retained PID before SIGKILL', async (t) 
       await writeFile(output, JSON.stringify({
         info: { outcome: 'success' },
         result: { runningProcesses: [{
-          bundleIdentifier: 'uk.eugnel.ks2spelling', processIdentifier: 9999,
+          bundleIdentifier: 'uk.eugnel.ks2spelling',
+          processIdentifier: 4321,
+          startDate: '2026-07-16T12:00:00.000Z',
+        }] },
+      }));
+    } else if (args.includes('terminate')) {
+      terminateCalls += 1;
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' }, result: { processIdentifier: 4321 },
+      }));
+    }
+    return { exitCode: 0, stdout: '', stderr: '' };
+  };
+  const options = {
+    root,
+    platform: 'ios',
+    env: { B3_IOS_PHYSICAL_DEVICE_ID: '00008140-001234560123001C' },
+    runner,
+  };
+  await createB3PhysicalDeviceTransport(options).launch(command('ios-physical'));
+  const directory = join(root, '.native-build/b3/evidence/ios-transport');
+  const identityName = (await readdir(directory))
+    .find((name) => name.endsWith('.launch-identity.json'));
+  const identityPath = join(directory, identityName);
+
+  const hardLink = `${identityPath}.hostile`;
+  await link(identityPath, hardLink);
+  await assert.rejects(
+    createB3PhysicalDeviceTransport(options).forceStop({ command: relaunchCommand() }),
+    /hard-link|file policy|identity/i,
+  );
+  await rm(hardLink);
+
+  await chmod(identityPath, 0o644);
+  await assert.rejects(
+    createB3PhysicalDeviceTransport(options).forceStop({ command: relaunchCommand() }),
+    /file policy|identity/i,
+  );
+  await chmod(identityPath, 0o600);
+
+  const symbolicClaim = join(
+    directory,
+    `00000001-${'f'.repeat(64)}.launch-identity.json`,
+  );
+  await symlink(identityPath, symbolicClaim);
+  await assert.rejects(
+    createB3PhysicalDeviceTransport(options).forceStop({ command: relaunchCommand() }),
+    /entry policy|identity/i,
+  );
+  await rm(symbolicClaim);
+  assert.equal(terminateCalls, 0);
+
+  await createB3PhysicalDeviceTransport(options).launch({
+    ...command('ios-physical'),
+    challengeSha256: 'f'.repeat(64),
+  });
+  await assert.rejects(
+    createB3PhysicalDeviceTransport(options).forceStop({ command: relaunchCommand() }),
+    /absent|ambiguous/i,
+  );
+  assert.equal(terminateCalls, 0);
+
+  for (let index = 0; index < 255; index += 1) {
+    await writeFile(join(directory, `untrusted-${String(index).padStart(3, '0')}`), 'x', {
+      mode: 0o600,
+    });
+  }
+  await assert.rejects(
+    createB3PhysicalDeviceTransport(options).forceStop({ command: relaunchCommand() }),
+    /entry bound/i,
+  );
+  assert.equal(terminateCalls, 0);
+});
+
+test('iOS force-stop rejects a recycled retained PID before SIGKILL', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-pid-reuse-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let terminateCalls = 0;
+  let processInventoryCalls = 0;
+  const runner = async (_executable, args) => {
+    const output = args[args.indexOf('--json-output') + 1];
+    if (args.includes('launch')) {
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' }, result: { processIdentifier: 4321 },
+      }));
+    } else if (args.includes('processes')) {
+      processInventoryCalls += 1;
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' },
+        result: { runningProcesses: [{
+          bundleIdentifier: 'uk.eugnel.ks2spelling',
+          processIdentifier: processInventoryCalls === 1 ? 4321 : 9999,
+          startDate: processInventoryCalls === 1
+            ? '2026-07-16T12:00:00.000Z'
+            : '2026-07-16T12:00:01.000Z',
         }] },
       }));
     } else {
       terminateCalls += 1;
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' }, result: { processIdentifier: 4321 },
+      }));
     }
     return { exitCode: 0, stdout: '', stderr: '' };
   };
@@ -205,7 +630,55 @@ test('iOS force-stop rejects a recycled retained PID before SIGKILL', async (t) 
     runner,
   });
   await transport.launch(command('ios-physical'));
-  await assert.rejects(transport.forceStop(), /PID|process|bundle/i);
+  await assert.rejects(
+    transport.forceStop({ command: relaunchCommand() }),
+    /PID|process|bundle/i,
+  );
+  assert.equal(terminateCalls, 0);
+});
+
+test('iOS force-stop rejects the same numeric PID with a different process start date', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-same-pid-reuse-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let processInventoryCalls = 0;
+  let terminateCalls = 0;
+  const runner = async (_executable, args) => {
+    const output = args[args.indexOf('--json-output') + 1];
+    if (args.includes('launch')) {
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' }, result: { processIdentifier: 4321 },
+      }));
+    } else if (args.includes('processes')) {
+      processInventoryCalls += 1;
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' },
+        result: { runningProcesses: [{
+          bundleIdentifier: 'uk.eugnel.ks2spelling',
+          processIdentifier: 4321,
+          startDate: processInventoryCalls === 1
+            ? '2026-07-16T12:00:00.000Z'
+            : '2026-07-16T12:00:01.000Z',
+        }] },
+      }));
+    } else {
+      terminateCalls += 1;
+      await writeFile(output, JSON.stringify({
+        info: { outcome: 'success' }, result: { processIdentifier: 4321 },
+      }));
+    }
+    return { exitCode: 0, stdout: '', stderr: '' };
+  };
+  const transport = createB3PhysicalDeviceTransport({
+    root,
+    platform: 'ios',
+    env: { B3_IOS_PHYSICAL_DEVICE_ID: '00008140-001234560123001C' },
+    runner,
+  });
+  await transport.launch(command('ios-physical'));
+  await assert.rejects(
+    transport.forceStop({ command: relaunchCommand() }),
+    /start|identity|process|PID/i,
+  );
   assert.equal(terminateCalls, 0);
 });
 

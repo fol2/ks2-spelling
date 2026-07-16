@@ -340,6 +340,21 @@ function reinstallEligibleCommand(command) {
     command.installationMode === 'fresh-reinstall';
 }
 
+const CONCURRENT_ALLOCATION_CONTEXT_KEYS = Object.freeze([
+  'schemaVersion', 'platform', 'testedApplicationCommit', 'applicationFingerprint',
+  'expectedScenarioIndex', 'expectedSequence', 'previousObservationSha256',
+  'installationMode', 'actionCode',
+]);
+
+function hasMatchingConcurrentAllocationContext(retained, requested) {
+  return CONCURRENT_ALLOCATION_CONTEXT_KEYS.every((key) => retained[key] === requested[key]);
+}
+
+function isIssuedCommandConflict(error) {
+  return error?.code === 'b3_issued_command_invalid' &&
+    error.message === 'B3 issued command conflicts with the pending command';
+}
+
 export async function captureB3ValidatedDeviceObservation({
   root,
   platform,
@@ -354,7 +369,7 @@ export async function captureB3ValidatedDeviceObservation({
   beforeJournal = async () => {},
 } = {}) {
   const name = platformName(platform);
-  const command = validateB3ProofLaunchCommand(rawCommand);
+  let command = validateB3ProofLaunchCommand(rawCommand);
   if (command.platform !== PLATFORM[name].commandPlatform ||
       typeof transport?.launch !== 'function' ||
       typeof transport?.pullObservation !== 'function' || typeof wait !== 'function' ||
@@ -401,6 +416,15 @@ export async function captureB3ValidatedDeviceObservation({
   // deliberately ambiguous and must never be issued again without an app-side
   // durable execution guard.
   let issued = await persistB3IssuedCommand({ root, platform: name, command });
+  if (canonicaliseB3ProofValue(issued.command) !== canonicaliseB3ProofValue(command)) {
+    if (retainedBeforeLaunch.length !== 0 ||
+        !hasMatchingConcurrentAllocationContext(issued.command, command)) {
+      throw captureError('B3 concurrent issued command differs from the requested authority');
+    }
+    // Concurrent empty-root runners may derive different capture identifiers.
+    // The immutable platform-global allocation winner is the sole launch authority.
+    command = issued.command;
+  }
   let ownsLaunchTransition = false;
   let activeLaunchingState = 'launching';
   if (issued.state === 'prepared') {
@@ -628,9 +652,23 @@ export async function advanceB3HostCaptureOne({
   const command = await createNextB3HostCommand({
     root, platform, buildAuthority, uuidFactory,
   });
-  return captureB3ValidatedDeviceObservation({
-    root, platform, command, buildAuthority, transport, wait, maximumPullAttempts,
-  });
+  try {
+    return await captureB3ValidatedDeviceObservation({
+      root, platform, command, buildAuthority, transport, wait, maximumPullAttempts,
+    });
+  } catch (error) {
+    if (!isIssuedCommandConflict(error)) throw error;
+    const retained = await readB3PhysicalObservationJournal({
+      root, platform, buildAuthority,
+    });
+    const issued = await readB3IssuedCommand({ root, platform });
+    if (retained.length !== 0 ||
+        !hasMatchingConcurrentAllocationContext(issued.command, command)) throw error;
+    return captureB3ValidatedDeviceObservation({
+      root, platform, command: issued.command, buildAuthority,
+      transport, wait, maximumPullAttempts,
+    });
+  }
 }
 
 const HOST_OPERATOR_ACTIONS = Object.freeze(new Set([
@@ -1168,6 +1206,7 @@ function createDefaultAdapter({
       if (issuedRelaunch.state === 'stop-executing' && ownsStopExecution) {
         await hostWait(5_000);
         await transport.forceStop({
+          command: issuedRelaunch.command,
           retainReceipt: async () => {
             await transitionB3IssuedCommand({
               root,

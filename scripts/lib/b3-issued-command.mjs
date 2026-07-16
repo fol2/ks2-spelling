@@ -28,11 +28,14 @@ const TRANSITIONS = new Set([
   'reinstall-authorised:reinstall-launching',
   'reinstall-launching:launched',
 ]);
+const COMMAND_CHAIN_ROOT_NAME = 'command-chain-root.json';
 const BASE_NAME = /^(?<hash>[0-9a-f]{64})\.base\.json$/u;
-const ENTRY_NAME = /^(?<hash>[0-9a-f]{64})\.(?:base|consumed|state-[a-z-]+|successor-[a-z-]+)\.json$/u;
+const NEXT_COMMAND_NAME = /^(?<hash>[0-9a-f]{64})\.next-command\.json$/u;
+const ENTRY_NAME = /^(?:command-chain-root|[0-9a-f]{64}\.(?:base|consumed|next-command|state-[a-z-]+|successor-[a-z-]+))\.json$/u;
 const PRIVATE_TEMPORARY_NAME = /^\.issued-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.tmp$/u;
 const MAXIMUM_ALIAS_SCAN_ENTRIES = 512;
 const MAXIMUM_TRANSIENT_ALIAS_RETRIES = 32;
+const MAXIMUM_COMMAND_CHAIN_LENGTH = 64;
 
 function issuedError(message, code = 'b3_issued_command_invalid') {
   return Object.assign(new Error(message), { code });
@@ -263,6 +266,7 @@ function paths(ledger, commandSha256) {
   return {
     base: resolve(ledger, `${commandSha256}.base.json`),
     consumed: resolve(ledger, `${commandSha256}.consumed.json`),
+    nextCommand: resolve(ledger, `${commandSha256}.next-command.json`),
     state: (state) => resolve(ledger, `${commandSha256}.state-${state}.json`),
     successor: (state) => resolve(ledger, `${commandSha256}.successor-${state}.json`),
   };
@@ -310,47 +314,169 @@ async function deriveCommand({ ledger, platform, commandSha256 }) {
   }
 }
 
-async function activeCommands({ ledger, platform }) {
+async function ledgerEntries(ledger) {
   const entries = await readdir(ledger, { withFileTypes: true });
   if (entries.length > 256 ||
       entries.some((entry) => !entry.isFile() || !ENTRY_NAME.test(entry.name))) {
     throw issuedError('B3 issued-command ledger entry policy is invalid');
   }
   const bases = entries.filter((entry) => BASE_NAME.test(entry.name));
-  if (bases.length > 64) throw issuedError('B3 issued-command ledger base count exceeds its bound');
-  const active = [];
-  for (const entry of bases) {
-    const commandSha256 = BASE_NAME.exec(entry.name).groups.hash;
-    const current = await deriveCommand({ ledger, platform, commandSha256 });
-    if (current) active.push(current);
+  const nextCommands = entries.filter((entry) => NEXT_COMMAND_NAME.test(entry.name));
+  if (bases.length > MAXIMUM_COMMAND_CHAIN_LENGTH) {
+    throw issuedError('B3 issued-command ledger base count exceeds its bound');
   }
-  if (active.length > 1) throw issuedError('B3 issued-command ledger has multiple active commands');
-  return active;
+  if (nextCommands.length >= MAXIMUM_COMMAND_CHAIN_LENGTH) {
+    throw issuedError('B3 issued-command allocation chain exceeds its bound');
+  }
+  return { entries, bases, nextCommands };
 }
 
-async function writeImmutable({ evidence, ledger, path, bytes }) {
+async function claimImmutable({ evidence, ledger, path, bytes }) {
   const temporary = resolve(evidence, `.issued-${randomUUID()}.tmp`);
   const handle = await open(temporary, 'wx', 0o600);
   try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
   let claimed = false;
+  let retained = bytes;
   try {
     await link(temporary, path);
     claimed = true;
   } catch (error) {
     if (error?.code !== 'EEXIST') throw error;
-    const retained = await readImmutableClaimBytes({ evidence, path });
-    if (!retained.equals(bytes)) throw issuedError('B3 issued-command immutable ledger conflict');
+    retained = await readImmutableClaimBytes({ evidence, path });
   } finally {
     await rm(temporary, { force: true });
   }
   await syncDirectory(ledger);
+  return Object.freeze({ claimed, bytes: retained });
+}
+
+async function writeImmutable({ evidence, ledger, path, bytes }) {
+  const result = await claimImmutable({ evidence, ledger, path, bytes });
+  if (!result.bytes.equals(bytes)) throw issuedError('B3 issued-command immutable ledger conflict');
+  const { claimed } = result;
   return claimed;
+}
+
+async function ensureAllocatedBase({ evidence, ledger, platform, allocation, bytes }) {
+  const base = paths(ledger, allocation.commandSha256).base;
+  let retained;
+  try {
+    retained = await readImmutableClaimBytes({ evidence, path: base });
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    await writeImmutable({ evidence, ledger, path: base, bytes });
+    return;
+  }
+  const retainedRecord = validateRecord(retained, platform, 'prepared');
+  if (retainedRecord.commandSha256 !== allocation.commandSha256 ||
+      retainedRecord.recordSha256 !== allocation.recordSha256 || !retained.equals(bytes)) {
+    throw issuedError('B3 issued-command allocated base differs from its immutable claim');
+  }
+}
+
+async function inspectCommandChain({ evidence, ledger, platform }) {
+  // The fixed root and consumed-predecessor successors form one append-only,
+  // platform-global allocation chain. Each claim carries the canonical prepared
+  // record so a process death before base materialisation remains recoverable.
+  const initial = await ledgerEntries(ledger);
+  const rootPath = resolve(ledger, COMMAND_CHAIN_ROOT_NAME);
+  const hasRoot = initial.entries.some(({ name }) => name === COMMAND_CHAIN_ROOT_NAME);
+  if (!hasRoot) {
+    if (initial.bases.length > 0 || initial.nextCommands.length > 0) {
+      throw issuedError('B3 issued-command ledger has authority without a global root claim');
+    }
+    return Object.freeze({ active: Object.freeze([]), tail: null, length: 0 });
+  }
+
+  let allocationBytes = await readImmutableClaimBytes({ evidence, path: rootPath });
+  const commandHashes = new Set();
+  const traversedNextClaims = new Set();
+  let active = null;
+  let tail = null;
+  for (let index = 0; index < MAXIMUM_COMMAND_CHAIN_LENGTH; index += 1) {
+    const allocation = validateRecord(allocationBytes, platform, 'prepared');
+    if (commandHashes.has(allocation.commandSha256)) {
+      throw issuedError('B3 issued-command allocation chain contains a cycle');
+    }
+    commandHashes.add(allocation.commandSha256);
+    await ensureAllocatedBase({
+      evidence,
+      ledger,
+      platform,
+      allocation,
+      bytes: allocationBytes,
+    });
+    const current = await deriveCommand({
+      ledger,
+      platform,
+      commandSha256: allocation.commandSha256,
+    });
+    tail = allocation;
+    let nextBytes = null;
+    try {
+      nextBytes = await readImmutableClaimBytes({
+        evidence,
+        path: paths(ledger, allocation.commandSha256).nextCommand,
+      });
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    if (current !== null) {
+      if (nextBytes !== null) {
+        throw issuedError('B3 issued-command successor allocation has an active predecessor');
+      }
+      active = current;
+      break;
+    }
+    if (nextBytes === null) break;
+    traversedNextClaims.add(`${allocation.commandSha256}.next-command.json`);
+    allocationBytes = nextBytes;
+    if (index === MAXIMUM_COMMAND_CHAIN_LENGTH - 1) {
+      throw issuedError('B3 issued-command allocation chain exceeds its bound');
+    }
+  }
+
+  const finalEntries = await ledgerEntries(ledger);
+  const unexpectedNextClaims = finalEntries.nextCommands
+    .map(({ name }) => name)
+    .filter((name) => !traversedNextClaims.has(name));
+  if (unexpectedNextClaims.length > 0) {
+    const expectedTailClaim = tail === null ? null : `${tail.commandSha256}.next-command.json`;
+    if (active === null && unexpectedNextClaims.length === 1 &&
+        unexpectedNextClaims[0] === expectedTailClaim) {
+      return null;
+    }
+    throw issuedError('B3 issued-command allocation claim is orphaned or unanchored');
+  }
+  const allocatedBases = new Set([...commandHashes].map((hash) => `${hash}.base.json`));
+  if (finalEntries.bases.length !== allocatedBases.size ||
+      finalEntries.bases.some(({ name }) => !allocatedBases.has(name))) {
+    throw issuedError('B3 issued-command base is absent from the global allocation chain');
+  }
+  return Object.freeze({
+    active: Object.freeze(active === null ? [] : [active]),
+    tail,
+    length: commandHashes.size,
+  });
+}
+
+async function commandChain(options) {
+  for (let attempt = 0; attempt <= MAXIMUM_TRANSIENT_ALIAS_RETRIES; attempt += 1) {
+    const chain = await inspectCommandChain(options);
+    if (chain !== null) return chain;
+    await delay(1);
+  }
+  throw issuedError('B3 issued-command allocation reconciliation retry bound was exceeded');
+}
+
+async function activeCommands(options) {
+  return (await commandChain(options)).active;
 }
 
 export async function readB3IssuedCommand({ root, platform }) {
   if (!Object.hasOwn(PLATFORM, platform)) throw issuedError('B3 issued-command platform is invalid');
-  const { ledger } = await directories(root, platform);
-  const active = await activeCommands({ ledger, platform });
+  const { evidence, ledger } = await directories(root, platform);
+  const active = await activeCommands({ evidence, ledger, platform });
   if (active.length === 0) throw issuedError('B3 issued command is absent', 'ENOENT');
   return active[0];
 }
@@ -360,22 +486,37 @@ export async function persistB3IssuedCommand({ root, platform, command: rawComma
   if (command.platform !== PLATFORM[platform]) throw issuedError('B3 issued-command platform differs');
   const { evidence, ledger } = await directories(root, platform);
   const value = record(platform, command, 'prepared');
-  const retained = await activeCommands({ ledger, platform });
-  if (retained.length === 1) {
-    if (retained[0].commandSha256 !== value.commandSha256) {
+  const chain = await commandChain({ evidence, ledger, platform });
+  if (chain.active.length === 1) {
+    if (chain.active[0].commandSha256 !== value.commandSha256) {
       throw issuedError('B3 issued command conflicts with the pending command');
     }
-    return retained[0];
+    return chain.active[0];
+  }
+  if (chain.length >= MAXIMUM_COMMAND_CHAIN_LENGTH) {
+    throw issuedError('B3 issued-command allocation chain exceeds its bound');
   }
   const commandPaths = paths(ledger, value.commandSha256);
   if (await readOptional(commandPaths.consumed)) {
     throw issuedError('B3 consumed issued command cannot be reused');
   }
-  await writeImmutable({
+  const bytes = Buffer.from(canonicaliseB3ProofValue(value), 'utf8');
+  const allocationPath = chain.tail === null
+    ? resolve(ledger, COMMAND_CHAIN_ROOT_NAME)
+    : paths(ledger, chain.tail.commandSha256).nextCommand;
+  const allocation = await claimImmutable({
     evidence,
     ledger,
-    path: commandPaths.base,
-    bytes: Buffer.from(canonicaliseB3ProofValue(value), 'utf8'),
+    path: allocationPath,
+    bytes,
+  });
+  const winner = validateRecord(allocation.bytes, platform, 'prepared');
+  await ensureAllocatedBase({
+    evidence,
+    ledger,
+    platform,
+    allocation: winner,
+    bytes: allocation.bytes,
   });
   return readB3IssuedCommand({ root, platform });
 }

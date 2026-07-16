@@ -30,11 +30,16 @@ try {
   }
   const results = [];
   for (const action of actions) {
-    let selectedSource = action.sourceName !== undefined
-      ? sources.get(action.sourceName)
-      : action.sourceState === undefined
+    let selectedSource;
+    if (action.sourceSnapshot !== undefined) {
+      selectedSource = action.sourceSnapshot;
+    } else if (action.sourceName !== undefined) {
+      selectedSource = sources.get(action.sourceName);
+    } else {
+      selectedSource = action.sourceState === undefined
         ? source
         : sources.get(action.sourceState);
+    }
     if (action.op !== 'allocate' && !selectedSource) {
       throw new Error(`decision helper source is absent: ${action.sourceName ?? action.sourceState}`);
     }

@@ -1,7 +1,17 @@
 import assert from 'node:assert/strict';
 import { execFile, fork, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmod, lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdir,
+  mkdtemp,
+  open,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -13,6 +23,14 @@ import { canonicaliseB3ProofValue } from '../src/app/b3-live-proof-protocol.js';
 const execFileAsync = promisify(execFile);
 const COMMIT = '1'.repeat(40);
 const FINGERPRINT = '2'.repeat(64);
+const REPLACEMENT_BUILD_AUTHORITY = Object.freeze({
+  schemaVersion: 1,
+  testedApplicationCommit: '3'.repeat(40),
+  applicationFingerprint: '4'.repeat(64),
+  versionName: '0.3.0-b3',
+  iosBuildNumber: '20',
+  androidVersionCode: 20,
+});
 const CAPTURE_ID = '018f1d7b-97e8-4a52-8cf2-783e5089c001';
 const FIRST_COMMAND_SHA256 = '1f0de6d66179333a8e7adca7cb537342b19278e61aaff41a10a154da04652880';
 const FIRST_PREPARED_RECORD_SHA256 =
@@ -117,6 +135,34 @@ async function fixture(t, label) {
     androidVersionCode: 19,
   }), { mode: 0o600 });
   return root;
+}
+
+async function replaceBuildAuthority(root) {
+  const distribution = join(root, '.native-build', 'b3', 'distribution');
+  const authorityPath = join(distribution, 'build-authority.json');
+  const temporaryPath = join(distribution, 'build-authority.next.json');
+  await writeFile(
+    temporaryPath,
+    JSON.stringify(REPLACEMENT_BUILD_AUTHORITY),
+    { mode: 0o600, flag: 'wx' },
+  );
+  const temporary = await open(temporaryPath, 'r');
+  try {
+    await temporary.sync();
+  } finally {
+    await temporary.close();
+  }
+  await rename(temporaryPath, authorityPath);
+  const directory = await open(distribution, 'r');
+  try {
+    await directory.sync();
+  } finally {
+    await directory.close();
+  }
+  assert.deepEqual(
+    JSON.parse(await readFile(authorityPath, 'utf8')),
+    REPLACEMENT_BUILD_AUTHORITY,
+  );
 }
 
 function sha256(bytes) {
@@ -480,6 +526,8 @@ function spawnBarrierMutator(t, root, input) {
       operation: reportedResult.operation,
       result: reportedResult.result,
       error: reportedResult.error,
+      synchronousGetterSnapshot: reportedResult.synchronousGetterSnapshot,
+      getterCounts: reportedResult.getterCounts,
     }));
   });
   t.after(() => {
@@ -1050,6 +1098,83 @@ test('every reservation rereads build authority and rejects a stale open-session
     assert.equal(result.ok, false);
     assert.match(result.error.message, /build|metadata|authority|differs/i);
     assert.equal(await fileSha256(path), beforeSha256);
+  });
+
+test('later allocation snapshots once and rejects a stable fresh build replacement',
+  async (t) => {
+    const root = await fixture(t, 'fresh-build-allocation');
+    await seedReadyInitial(root);
+    const closed = await decideInChild(root, [{ op: 'consume', sourceName: 'A' }]);
+    assert.equal(closed.ok, true);
+    assert.equal(closed.results[0].kind, 'consumed');
+    const command = laterCommand({
+      expectedScenarioIndex: 1,
+      expectedSequence: 2,
+      previousObservationSha256: 'a'.repeat(64),
+    });
+    const child = spawnBarrierMutator(t, root, {
+      kind: 'allocate',
+      command,
+      countGetters: true,
+    });
+    assert.deepEqual(await child.ready, { kind: 'none' });
+    const path = databasePath(root);
+    const beforeSha256 = await fileSha256(path);
+
+    await replaceBuildAuthority(root);
+    child.release();
+    const outcome = await child.result;
+
+    assert.equal(outcome.result, null);
+    assert.equal(outcome.error.code, 'b3_capture_state_invalid');
+    assert.match(outcome.error.message, /build|authority|differs/i);
+    assert.deepEqual(outcome.synchronousGetterSnapshot, {
+      sourceGetterCalls: 0,
+      commandGetterCalls: 0,
+      allocationCommandGetterCalls: Object.keys(command).length,
+    });
+    assert.deepEqual(outcome.getterCounts, outcome.synchronousGetterSnapshot);
+    assert.equal(await fileSha256(path), beforeSha256);
+  });
+
+test('decision mutators snapshot once and reject a stable fresh build replacement',
+  async (t) => {
+    for (const [label, action] of [
+      ['transition', {
+        kind: 'transition',
+        nextState: 'launching',
+        countGetters: true,
+      }],
+      ['consumption', { kind: 'consume', countGetters: true }],
+    ]) {
+      const root = await fixture(t, `fresh-build-${label}`);
+      await seedReadyInitial(root);
+      const child = spawnBarrierMutator(t, root, action);
+      const preflight = await child.ready;
+      assert.equal(preflight.kind, 'active', label);
+      assert.equal(preflight.command.state, 'prepared', label);
+      const path = databasePath(root);
+      const beforeSha256 = await fileSha256(path);
+
+      await replaceBuildAuthority(root);
+      child.release();
+      const outcome = await child.result;
+
+      assert.equal(outcome.result, null, label);
+      assert.equal(outcome.error.code, 'b3_capture_state_invalid', label);
+      assert.match(outcome.error.message, /build|authority|differs/i, label);
+      assert.deepEqual(outcome.synchronousGetterSnapshot, {
+        sourceGetterCalls: Object.keys(preflight.command).length,
+        commandGetterCalls: Object.keys(preflight.command.command).length,
+        allocationCommandGetterCalls: 0,
+      }, label);
+      assert.deepEqual(
+        outcome.getterCounts,
+        outcome.synchronousGetterSnapshot,
+        label,
+      );
+      assert.equal(await fileSha256(path), beforeSha256, label);
+    }
   });
 
 test('ordinary transition selects prepared to launching and retains an identical retry',
@@ -2022,6 +2147,8 @@ test('stale A retries after B and C retain immutable closure without clearing ac
 test('allocation returns the exact pending initial reservation', async (t) => {
   const root = await fixture(t, 'allocate-pending-start');
   const reservation = await reserveInChild(root, initialCommand());
+  const path = databasePath(root);
+  const beforeSha256 = await fileSha256(path);
   const proposal = laterCommand({
     expectedScenarioIndex: 1,
     expectedSequence: 2,
@@ -2033,6 +2160,41 @@ test('allocation returns the exact pending initial reservation', async (t) => {
   assert.equal(result.ok, true);
   assert.deepEqual(result.results[0], { kind: 'start-reserved', intent: reservation });
   assert.deepEqual(result.final, { kind: 'start-reserved', intent: reservation });
+  assert.equal(await fileSha256(path), beforeSha256);
+});
+
+test('pending initial authority blocks transition and consumption unchanged', async (t) => {
+  const sourceRoot = await fixture(t, 'pending-mutation-source');
+  await seedReadyInitial(sourceRoot);
+  const sourceResult = await decideInChild(sourceRoot, []);
+  assert.equal(sourceResult.ok, true);
+  assert.equal(sourceResult.final.kind, 'active');
+
+  const root = await fixture(t, 'pending-mutations');
+  const reservation = await reserveInChild(root, initialCommand());
+  const path = databasePath(root);
+  const beforeSha256 = await fileSha256(path);
+  const result = await decideInChild(root, [
+    {
+      op: 'transition',
+      sourceSnapshot: sourceResult.final.command,
+      nextState: 'launching',
+      expectError: true,
+    },
+    {
+      op: 'consume',
+      sourceSnapshot: sourceResult.final.command,
+      expectError: true,
+    },
+  ]);
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.results.map(({ kind }) => kind), ['error', 'error']);
+  assert.deepEqual(result.results.map(({ code }) => code), [
+    'b3_capture_state_invalid', 'b3_capture_state_invalid',
+  ]);
+  assert.deepEqual(result.final, { kind: 'start-reserved', intent: reservation });
+  assert.equal(await fileSha256(path), beforeSha256);
 });
 
 test('allocation snapshots a mutable command synchronously before its first await',
@@ -2122,7 +2284,11 @@ test('inactive unclosed tails and multi-command orphan decisions reject unchange
     assert.equal(await fileSha256(orphanPath), orphanSha256);
   });
 
-test('recovery-fresh intent authority is never interpreted as generic closure', async (t) => {
+test('recovery-fresh intent authority blocks every mutator unchanged', async (t) => {
+  const sourceRoot = await fixture(t, 'recovery-fresh-source');
+  await seedReadyInitial(sourceRoot);
+  const sourceResult = await decideInChild(sourceRoot, []);
+  assert.equal(sourceResult.ok, true);
   const root = await fixture(t, 'allocate-recovery-fresh');
   await seedReadyInitial(root);
   const path = databasePath(root);
@@ -2135,12 +2301,76 @@ test('recovery-fresh intent authority is never interpreted as generic closure', 
   `).run('d'.repeat(64), 'e'.repeat(64));
   database.close();
   const corruptSha256 = await fileSha256(path);
+  const proposal = laterCommand({
+    expectedScenarioIndex: 1,
+    expectedSequence: 2,
+    previousObservationSha256: 'a'.repeat(64),
+  });
 
-  const opened = await probeInChild(root, 'shape');
+  for (const [label, action] of [
+    ['allocation', { op: 'allocate', command: proposal }],
+    ['transition', {
+      op: 'transition',
+      sourceSnapshot: sourceResult.final.command,
+      nextState: 'launching',
+    }],
+    ['consumption', { op: 'consume', sourceSnapshot: sourceResult.final.command }],
+  ]) {
+    const attempted = await decideInChild(root, [action]);
+    assert.equal(attempted.ok, false, label);
+    assert.match(attempted.error.message, /foreign-key|authority|invalid/i, label);
+    assert.equal(await fileSha256(path), corruptSha256, label);
+  }
+});
 
-  assert.equal(opened.ok, false);
-  assert.match(opened.error.message, /foreign-key|authority|invalid/i);
-  assert.equal(await fileSha256(path), corruptSha256);
+test('a selected persisted recovery decision blocks every mutator unchanged', async (t) => {
+  const root = await fixture(t, 'selected-recovery-decision');
+  await seedReadyInitial(root);
+  const selected = await decideInChild(root, [
+    { op: 'transition', sourceState: 'prepared', nextState: 'launching' },
+    { op: 'transition', sourceState: 'launching', nextState: 'restart-required' },
+  ]);
+  assert.equal(selected.ok, true);
+  assert.equal(selected.final.kind, 'active');
+  assert.equal(selected.final.command.state, 'restart-required');
+  const path = databasePath(root);
+  const database = new DatabaseSync(path);
+  database.prepare(`
+    INSERT INTO b3_decisions (
+      command_sha256, source_state, source_record_sha256, winner_kind,
+      next_state, next_record_json, next_record_sha256, claim_json, claim_sha256
+    ) VALUES (?, 'restart-required', ?, 'recovery-owner',
+      'restart-executing', ?, ?, ?, ?)
+  `).run(
+    FIRST_COMMAND_SHA256,
+    selected.final.command.recordSha256,
+    Buffer.from('{}', 'utf8'),
+    'd'.repeat(64),
+    Buffer.from('{}', 'utf8'),
+    'e'.repeat(64),
+  );
+  database.close();
+  const corruptSha256 = await fileSha256(path);
+  const proposal = laterCommand({
+    expectedScenarioIndex: 1,
+    expectedSequence: 2,
+    previousObservationSha256: 'a'.repeat(64),
+  });
+
+  for (const [label, action] of [
+    ['allocation', { op: 'allocate', command: proposal }],
+    ['transition', {
+      op: 'transition',
+      sourceSnapshot: selected.final.command,
+      nextState: 'launched',
+    }],
+    ['consumption', { op: 'consume', sourceSnapshot: selected.final.command }],
+  ]) {
+    const attempted = await decideInChild(root, [action]);
+    assert.equal(attempted.ok, false, label);
+    assert.match(attempted.error.message, /recovery|unsupported|authority|invalid/i, label);
+    assert.equal(await fileSha256(path), corruptSha256, label);
+  }
 });
 
 test('multi-command gaps and predecessor corruption reject without repair', async (t) => {
@@ -2179,7 +2409,11 @@ test('multi-command gaps and predecessor corruption reject without repair', asyn
   }
 });
 
-test('persisted recovery rows fail closed instead of becoming allocation closure', async (t) => {
+test('persisted recovery rows block every mutator unchanged', async (t) => {
+  const sourceRoot = await fixture(t, 'recovery-row-source');
+  await seedReadyInitial(sourceRoot);
+  const sourceResult = await decideInChild(sourceRoot, []);
+  assert.equal(sourceResult.ok, true);
   const root = await fixture(t, 'allocate-recovery-row');
   await seedReadyInitial(root);
   const path = databasePath(root);
@@ -2193,10 +2427,28 @@ test('persisted recovery rows fail closed instead of becoming allocation closure
   `).run(FIRST_COMMAND_SHA256, 'd'.repeat(64), CAPTURE_ID);
   database.close();
   const corruptSha256 = await fileSha256(path);
+  const proposal = laterCommand({
+    expectedScenarioIndex: 1,
+    expectedSequence: 2,
+    previousObservationSha256: 'a'.repeat(64),
+  });
 
-  const opened = await probeInChild(root, 'shape');
-
-  assert.equal(opened.ok, false);
-  assert.match(opened.error.message, /foreign-key|recovery|authority|invalid/i);
-  assert.equal(await fileSha256(path), corruptSha256);
+  for (const [label, action] of [
+    ['allocation', { op: 'allocate', command: proposal }],
+    ['transition', {
+      op: 'transition',
+      sourceSnapshot: sourceResult.final.command,
+      nextState: 'launching',
+    }],
+    ['consumption', { op: 'consume', sourceSnapshot: sourceResult.final.command }],
+  ]) {
+    const attempted = await decideInChild(root, [action]);
+    assert.equal(attempted.ok, false, label);
+    assert.match(
+      attempted.error.message,
+      /foreign-key|recovery|authority|invalid/i,
+      label,
+    );
+    assert.equal(await fileSha256(path), corruptSha256, label);
+  }
 });

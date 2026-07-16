@@ -7,6 +7,46 @@ if (typeof process.send !== 'function' || typeof process.argv[2] !== 'string') {
 const action = JSON.parse(
   Buffer.from(process.argv[2], 'base64url').toString('utf8'),
 );
+let sourceGetterCalls = 0;
+let commandGetterCalls = 0;
+let allocationCommandGetterCalls = 0;
+
+function countedCommand(command, increment) {
+  const counted = Object.fromEntries(Object.keys(command).map((key) => [key, undefined]));
+  for (const key of Object.keys(command)) {
+    Object.defineProperty(counted, key, {
+      enumerable: true,
+      get() {
+        increment();
+        return command[key];
+      },
+    });
+  }
+  return counted;
+}
+
+function countedSource(source) {
+  const command = countedCommand(source.command, () => { commandGetterCalls += 1; });
+  const counted = Object.fromEntries(Object.keys(source).map((key) => [key, undefined]));
+  for (const key of Object.keys(source)) {
+    Object.defineProperty(counted, key, {
+      enumerable: true,
+      get() {
+        sourceGetterCalls += 1;
+        return key === 'command' ? command : source[key];
+      },
+    });
+  }
+  return counted;
+}
+
+function getterCounts() {
+  return {
+    sourceGetterCalls,
+    commandGetterCalls,
+    allocationCommandGetterCalls,
+  };
+}
 
 function waitForGo() {
   return new Promise((resolve, reject) => {
@@ -35,14 +75,19 @@ const repository = await openB3CaptureStateRepository({ platform: 'ios' });
 const preflight = await repository.readActiveCommand();
 let mutate;
 if (action.kind === 'transition' && preflight.kind === 'active') {
+  const source = action.countGetters ? countedSource(preflight.command) : preflight.command;
   mutate = () => repository.transitionCommand({
-    source: preflight.command,
+    source,
     nextState: action.nextState,
   });
 } else if (action.kind === 'consume' && preflight.kind === 'active') {
-  mutate = () => repository.consumeCommand({ source: preflight.command });
+  const source = action.countGetters ? countedSource(preflight.command) : preflight.command;
+  mutate = () => repository.consumeCommand({ source });
 } else if (action.kind === 'allocate' && preflight.kind === 'none') {
-  mutate = () => repository.allocateNextCommand({ command: action.command });
+  const command = action.countGetters
+    ? countedCommand(action.command, () => { allocationCommandGetterCalls += 1; })
+    : action.command;
+  mutate = () => repository.allocateNextCommand({ command });
 } else {
   await repository.close();
   throw new Error('B3 capture-state race action or preflight is invalid');
@@ -53,8 +98,11 @@ await waitForGo();
 
 let result = null;
 let error = null;
+let synchronousGetterSnapshot = null;
 try {
-  result = await mutate();
+  const operation = mutate();
+  synchronousGetterSnapshot = getterCounts();
+  result = await operation;
 } catch (cause) {
   error = {
     code: cause?.code ?? null,
@@ -64,5 +112,12 @@ try {
   await repository.close();
 }
 
-await send({ type: 'result', operation: action.kind, result, error });
+await send({
+  type: 'result',
+  operation: action.kind,
+  result,
+  error,
+  synchronousGetterSnapshot,
+  getterCounts: getterCounts(),
+});
 process.disconnect();

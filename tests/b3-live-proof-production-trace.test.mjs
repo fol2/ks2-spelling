@@ -403,19 +403,42 @@ test('fresh Android app processes recover an approved pending purchase through s
     previousObservation: armed,
   })).nextActionCode, 'APPROVE_PENDING_PURCHASE');
 
-  const holdCommand = command({
+  const delayedPollCommand = command({
     expectedScenarioIndex: 4,
     expectedSequence: 7,
     previousObservationSha256: pending.observationSha256,
     actionCode: 'ARM_GATEWAY_COMPLETION_HOLD',
     challengeSha256: 'c'.repeat(64),
   });
+  const delayedPoll = await runPhysicalProcess({
+    command: delayedPollCommand,
+    buildAuthority,
+    sqlitePath,
+    storeState: 'none',
+    now: Date.parse('2026-07-15T10:00:02.000Z'),
+  });
+  const validatedDelayedPoll = await validateB3ProofObservation(delayedPoll, {
+    command: delayedPollCommand,
+    buildAuthority,
+    previousObservation: pending,
+  });
+  assert.equal(validatedDelayedPoll.phase, 'OBSERVING');
+  assert.equal(validatedDelayedPoll.nextActionCode, 'ARM_GATEWAY_COMPLETION_HOLD');
+  assert.equal(validatedDelayedPoll.proofProjection.entitlementState, 'none');
+
+  const holdCommand = command({
+    expectedScenarioIndex: 4,
+    expectedSequence: 8,
+    previousObservationSha256: delayedPoll.observationSha256,
+    actionCode: 'ARM_GATEWAY_COMPLETION_HOLD',
+    challengeSha256: 'e'.repeat(64),
+  });
   const heldProcess = launchHeldPhysicalProcess({
     command: holdCommand,
     buildAuthority,
     sqlitePath,
     storeState: 'approved',
-    now: Date.parse('2026-07-15T10:00:02.000Z'),
+    now: Date.parse('2026-07-15T10:00:03.000Z'),
     traceStart: 0,
   });
   t.after(() => heldProcess.terminateNow());
@@ -440,7 +463,7 @@ test('fresh Android app processes recover an approved pending purchase through s
   const validatedHold = await validateB3ProofObservation(held, {
     command: holdCommand,
     buildAuthority,
-    previousObservation: pending,
+    previousObservation: delayedPoll,
   });
   assert.equal(validatedHold.phase, 'HOLD_REACHED');
   assert.equal(validatedHold.proofProjection.entitlementState, 'active');
@@ -460,7 +483,7 @@ test('fresh Android app processes recover an approved pending purchase through s
 
   const recoveryCommand = command({
     expectedScenarioIndex: 4,
-    expectedSequence: 8,
+    expectedSequence: 9,
     previousObservationSha256: held.observationSha256,
     actionCode: 'RELAUNCH',
     challengeSha256: 'd'.repeat(64),

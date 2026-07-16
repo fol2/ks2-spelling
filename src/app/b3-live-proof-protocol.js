@@ -689,6 +689,7 @@ const NEXT_ACTIONS_BY_PHASE = Object.freeze({
   ]),
   OBSERVING: Object.freeze([
     'OBSERVE', 'APPROVE_PENDING_PURCHASE', 'DECLINE_PENDING_PURCHASE',
+    'ARM_GATEWAY_COMPLETION_HOLD',
   ]),
   HOLD_REACHED: Object.freeze(['RELAUNCH']),
   HOST_FORCE_STOP: Object.freeze(['RELAUNCH']),
@@ -847,6 +848,17 @@ function assertHostChain(value, command, previous) {
     previous.proofProjection.entitlementAuthority.refreshHandlePresent === false &&
     previous.proofProjection.packAuthority.packId === null &&
     previous.proofProjection.packAuthority.installed === false;
+  const currentPending = value.proofProjection.storeEvents.some((event) =>
+    ['queryTransactions', 'transaction-update', 'purchase'].includes(event.operation) &&
+    ['none', 'pending'].includes(event.outcome));
+  const currentPendingWithoutAccess = value.proofProjection.entitlementState === 'none' &&
+    value.proofProjection.packState === 'absent' &&
+    value.proofProjection.storeCompletionObserved === false &&
+    value.proofProjection.entitlementAuthority.id === null &&
+    value.proofProjection.entitlementAuthority.state === 'none' &&
+    value.proofProjection.entitlementAuthority.refreshHandlePresent === false &&
+    value.proofProjection.packAuthority.packId === null &&
+    value.proofProjection.packAuthority.installed === false && currentPending;
   const declinedWithoutAccess = value.proofProjection.entitlementState === 'none' &&
     value.proofProjection.packState === 'absent' &&
     value.proofProjection.entitlementAuthority.id === null &&
@@ -869,19 +881,24 @@ function assertHostChain(value, command, previous) {
     value.proofProjection.storeEvents.some((event) =>
       event.operation === 'queryTransactions' &&
       ['none', 'cancelled'].includes(event.outcome));
-  const androidApproveBridge = previous.platform === 'android-play-physical' &&
+  const androidApproveDecision = previous.platform === 'android-play-physical' &&
     previous.scenario === 'slow-card-pending-approve' && previous.phase === 'OBSERVING' &&
     previous.nextActionCode === 'APPROVE_PENDING_PURCHASE' && previousPending &&
     previousPendingWithoutAccess &&
     scenarioAdvance === 1 && value.scenario === 'unacknowledged-relaunch' &&
-    command.actionCode === 'ARM_GATEWAY_COMPLETION_HOLD' &&
+    command.actionCode === 'ARM_GATEWAY_COMPLETION_HOLD';
+  const androidApprovePendingBridge = androidApproveDecision &&
+    value.phase === 'OBSERVING' && firstPhase === 'ARMED' &&
+    value.nextActionCode === 'ARM_GATEWAY_COMPLETION_HOLD' && currentPendingWithoutAccess;
+  const androidApproveBridge = androidApproveDecision &&
     value.phase === 'HOLD_REACHED' && firstPhase === 'ARMED' &&
     value.proofProjection.entitlementState === 'active' &&
     value.proofProjection.storeCompletionObserved === false &&
     value.proofProjection.storeEvents.some((event) =>
       ['queryTransactions', 'transaction-update'].includes(event.operation) &&
       event.outcome === 'purchased');
-  const hostStoreDecisionBridge = androidDeclineBridge || androidApproveBridge;
+  const hostStoreDecisionBridge = androidDeclineBridge || androidApprovePendingBridge ||
+    androidApproveBridge;
   if (command.actionCode !== previous.nextActionCode && !hostStoreDecisionBridge) {
     throw protocolError('B3 proof command does not match the prior next action.');
   }
@@ -922,6 +939,17 @@ function assertHostChain(value, command, previous) {
   if (scenarioAdvance !== 0) {
     throw protocolError('B3 proof scenario index moved without an approved transition.');
   }
+  const androidApprovePollingBridge = previous.platform === 'android-play-physical' &&
+    previous.scenario === 'unacknowledged-relaunch' && previous.phase === 'OBSERVING' &&
+    previous.nextActionCode === 'ARM_GATEWAY_COMPLETION_HOLD' &&
+    previousPendingWithoutAccess && command.actionCode === 'ARM_GATEWAY_COMPLETION_HOLD' &&
+    value.scenario === 'unacknowledged-relaunch' && (
+      (value.phase === 'OBSERVING' && currentPendingWithoutAccess) ||
+      (value.phase === 'HOLD_REACHED' &&
+       value.proofProjection.entitlementState === 'active' &&
+       value.proofProjection.storeCompletionObserved === false)
+    );
+  if (androidApprovePollingBridge) return;
   const androidForceStopBridge = previous.platform === 'android-play-physical' &&
     previous.scenario === 'unacknowledged-relaunch' && previous.phase === 'HOLD_REACHED' &&
     previous.nextActionCode === 'RELAUNCH' && command.actionCode === 'RELAUNCH' &&

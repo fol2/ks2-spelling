@@ -841,10 +841,22 @@ export async function createB3LiveProofSession(rawOptions) {
           default:
             throw new TypeError('B3 live-proof action is unsupported.');
         }
-        const pendingAndroid = command.platform === 'android-play-physical' &&
+        const androidPurchaseObserved = hasStoreOutcome(
+          storeEvents,
+          'purchased',
+          ['queryTransactions', 'transaction-update', 'purchase'],
+        );
+        const pendingAndroidSlowCard = command.platform === 'android-play-physical' &&
           ['slow-card-pending-decline', 'slow-card-pending-approve'].includes(scenario) &&
           command.actionCode === 'INITIATE_PURCHASE';
-        const nextActionCode = pendingAndroid
+        const pendingAndroidApprovalPoll = command.platform === 'android-play-physical' &&
+          scenario === 'unacknowledged-relaunch' &&
+          command.actionCode === 'ARM_GATEWAY_COMPLETION_HOLD' &&
+          !androidPurchaseObserved;
+        const pendingAndroid = pendingAndroidSlowCard || pendingAndroidApprovalPoll;
+        const nextActionCode = pendingAndroidApprovalPoll
+          ? 'ARM_GATEWAY_COMPLETION_HOLD'
+          : pendingAndroidSlowCard
           ? (scenario.endsWith('decline') ? 'DECLINE_PENDING_PURCHASE' : 'APPROVE_PENDING_PURCHASE')
           : command.expectedScenarioIndex === 8
             ? 'CAPTURE_TERMINAL'

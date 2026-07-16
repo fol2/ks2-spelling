@@ -90,8 +90,8 @@ export async function captureB3IosEvidenceWithPrimitives({
   const inspectProofObservationChain = requirePrimitive(primitives, 'inspectProofObservationChain');
   const inspectStoreKitTest = requirePrimitive(primitives, 'inspectStoreKitTest');
   const captureScreenshot = requirePrimitive(primitives, 'captureScreenshot');
-  await recoverAmbiguousCapture();
   const distributionBeforeCapture = await inspectDistribution();
+  await recoverAmbiguousCapture();
   if (validatedDraft.testedApplicationCommit !== distributionBeforeCapture.embeddedCommit ||
       validatedDraft.applicationFingerprint !== distributionBeforeCapture.embeddedFingerprint) {
     throw new Error('B3 iOS distribution and Cloudflare deployment draft authority differ');

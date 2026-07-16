@@ -887,6 +887,86 @@ export async function driveB3HostUntilPhase({
   throw captureError('B3 host phase driver exceeded its closed command bound');
 }
 
+export function createB3AndroidSlowCardController({
+  readRecords,
+  consumeStoreActionResume,
+  pollFreshProcess,
+  deriveTransition = ({ records, authority }) =>
+    deriveB3ScenarioTransition({ records, authority }),
+} = {}) {
+  if (typeof readRecords !== 'function' ||
+      typeof consumeStoreActionResume !== 'function' ||
+      typeof pollFreshProcess !== 'function' ||
+      typeof deriveTransition !== 'function') {
+    throw captureError('B3 Android slow-card controller options are invalid');
+  }
+  let activeScenario = null;
+  let terminalState = null;
+
+  function expectedTerminal(authority) {
+    return authority?.scenario === 'slow-card-pending-decline' ? 'declined' : 'approved';
+  }
+
+  function deriveIfTerminal(records, authority) {
+    try {
+      const transition = deriveTransition({ records, authority });
+      terminalState = expectedTerminal(authority);
+      return transition;
+    } catch (error) {
+      if (!/absent|outcome/u.test(error?.message ?? '')) throw error;
+      return null;
+    }
+  }
+
+  async function begin(authority) {
+    if (!['slow-card-pending-decline', 'slow-card-pending-approve']
+      .includes(authority?.scenario)) {
+      throw captureError('B3 Android slow-card scenario authority is invalid');
+    }
+    if (activeScenario !== authority.scenario) terminalState = null;
+    activeScenario = authority.scenario;
+    for (let count = 0; count <= 16; count += 1) {
+      const retained = await readRecords();
+      if (deriveIfTerminal(retained, authority)) return;
+      const tail = retained.at(-1)?.observation;
+      const expectedAction = authority.scenario.endsWith('decline')
+        ? 'DECLINE_PENDING_PURCHASE'
+        : 'APPROVE_PENDING_PURCHASE';
+      if (tail?.scenario === authority.scenario && tail.phase === 'OBSERVING' &&
+          tail.nextActionCode === expectedAction) {
+        if (!consumeStoreActionResume({
+          actionCode: expectedAction,
+          observationSha256: tail.observationSha256,
+        })) throw operatorRequired(expectedAction);
+        return;
+      }
+      if (count === 16) break;
+      await pollFreshProcess({ authority, phase: 'arm' });
+    }
+    throw captureError('B3 Android slow-card arming exceeded its closed command bound');
+  }
+
+  async function poll(authority) {
+    if (authority?.scenario !== activeScenario) {
+      throw captureError('B3 Android slow-card poll differs from the armed scenario');
+    }
+    if (terminalState) return terminalState;
+    await pollFreshProcess({ authority, phase: 'poll' });
+    const retained = await readRecords();
+    deriveIfTerminal(retained, authority);
+    return terminalState ?? 'pending';
+  }
+
+  async function finish(authority) {
+    if (authority?.scenario !== activeScenario || !terminalState) {
+      throw captureError('B3 Android slow-card finish has no terminal authority');
+    }
+    return deriveTransition({ records: await readRecords(), authority });
+  }
+
+  return Object.freeze({ begin, poll, finish });
+}
+
 function mapDistribution(platform, value) {
   return platform === 'ios'
     ? Object.freeze({
@@ -1172,6 +1252,7 @@ function createDefaultAdapter({
   let invocationTail = null;
   let invocationIssuedCommandSha256 = null;
   let reinstallAcknowledgementConsumed = false;
+  let storeActionResumeAuthority = null;
 
   async function inspectDistributionFresh() {
     if (typeof signedPath !== 'string' || signedPath.length === 0) {
@@ -1366,13 +1447,12 @@ function createDefaultAdapter({
       actionCode: invocationTail.nextActionCode,
       observationSha256: invocationTail.observationSha256,
     };
-    const consumeStoreActionResume = createB3StoreActionResumeAuthority(
-      resumeStoreAction,
-      invocationBinding,
+    storeActionResumeAuthority ??= createB3StoreActionResumeAuthority(
+      resumeStoreAction, invocationBinding,
     );
     const transition = await driveB3HostScenario({
       authority,
-      resumeStoreAction: consumeStoreActionResume,
+      resumeStoreAction: storeActionResumeAuthority,
       resumeReinstall: ({ actionCode, observationSha256 }) => {
         if (!resumeReinstall || reinstallAcknowledgementConsumed ||
             actionCode !== 'REBIND_FRESH_INSTALL' ||
@@ -1523,7 +1603,23 @@ function createDefaultAdapter({
     captureScreenshot,
     inspectStoreKitTest,
   };
-  return { base, transport, wait: hostWait, records, buildAuthority };
+  return {
+    base,
+    transport,
+    wait: hostWait,
+    records,
+    buildAuthority,
+    consumeStoreActionResume(binding) {
+      const invocationBinding = invocationTail && {
+        actionCode: invocationTail.nextActionCode,
+        observationSha256: invocationTail.observationSha256,
+      };
+      storeActionResumeAuthority ??= createB3StoreActionResumeAuthority(
+        resumeStoreAction, invocationBinding,
+      );
+      return storeActionResumeAuthority(binding);
+    },
+  };
 }
 
 export function createDefaultB3IosCaptureAdapter({
@@ -1552,7 +1648,9 @@ export function createDefaultB3AndroidCaptureAdapter({
   resumeReinstall = false,
   capturePlayProtectSettings = false,
 } = {}) {
-  const { base, transport, records, buildAuthority } = createDefaultAdapter({
+  const {
+    base, transport, records, buildAuthority, consumeStoreActionResume,
+  } = createDefaultAdapter({
     root,
     env,
     platform: 'android',
@@ -1563,14 +1661,22 @@ export function createDefaultB3AndroidCaptureAdapter({
     resumeReinstall,
     capturePlayProtectSettings,
   });
+  const slowCard = createB3AndroidSlowCardController({
+    readRecords: records,
+    consumeStoreActionResume,
+    pollFreshProcess: async () => advanceB3HostCaptureOne({
+      root,
+      platform: 'android',
+      buildAuthority: await buildAuthority(),
+      transport,
+      wait,
+    }),
+  });
   return Object.freeze({
     ...base,
-    beginSlowCardScenario: base.runScenario,
-    pollSlowCardScenario: async (authority) => {
-      const transition = await base.runScenario(authority);
-      return transition.outcome.startsWith('declined') ? 'declined' : 'approved';
-    },
-    finishSlowCardScenario: base.runScenario,
+    beginSlowCardScenario: slowCard.begin,
+    pollSlowCardScenario: slowCard.poll,
+    finishSlowCardScenario: slowCard.finish,
     beginUnacknowledgedScenario: async (authority) => {
       return driveB3HostUntilPhase({
         scenario: authority?.scenario,

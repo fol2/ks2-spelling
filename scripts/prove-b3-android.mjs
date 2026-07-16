@@ -86,6 +86,7 @@ export async function captureB3AndroidEvidenceWithPrimitives({
   const inspectTerminalEvidence = requirePrimitive(primitives, 'inspectTerminalEvidence');
   const inspectProofObservationChain = requirePrimitive(primitives, 'inspectProofObservationChain');
   const captureScreenshot = requirePrimitive(primitives, 'captureScreenshot');
+  const distributionBeforeCapture = await inspectDistribution();
   await recoverAmbiguousCapture();
   const beforeInitial = assertB3SyntheticLearnerObservation(
     await inspectSyntheticLearners({ baseline: 'before-purchase', phase: 'initial' }),
@@ -138,7 +139,7 @@ export async function captureB3AndroidEvidenceWithPrimitives({
       );
     }
   }
-  const distributionBeforeScreenshot = await inspectDistribution();
+  const distributionBeforeScreenshot = distributionBeforeCapture;
   const deviceStore = await inspectDeviceStore();
   const terminal = await inspectTerminalEvidence();
   const proofObservationChain = await inspectProofObservationChain();

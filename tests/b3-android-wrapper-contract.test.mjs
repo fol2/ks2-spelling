@@ -13,7 +13,10 @@ import {
   holdUnacknowledgedPurchase,
   runB3AndroidProofCli,
 } from '../scripts/prove-b3-android.mjs';
-import { createDefaultB3AndroidCaptureAdapter } from '../scripts/lib/b3-live-capture-adapters.mjs';
+import {
+  createB3AndroidSlowCardController,
+  createDefaultB3AndroidCaptureAdapter,
+} from '../scripts/lib/b3-live-capture-adapters.mjs';
 import {
   persistB3IssuedCommand,
   readB3IssuedCommand,
@@ -114,7 +117,7 @@ test('Android capture owns exact scenario order, learner redaction and scope-bef
   assert.ok(timing.includes('wait:5000'));
   assert.ok(timing.includes('force-stop:unacknowledged-relaunch'));
   assert.deepEqual(physicalOrder, [
-    'recovery-preflight', 'distribution-before', 'device-store', 'terminal', 'chain', 'screenshot',
+    'distribution-before', 'recovery-preflight', 'device-store', 'terminal', 'chain', 'screenshot',
     'distribution-after',
   ]);
   let distributionReads = 0;
@@ -164,7 +167,56 @@ test('Android capture validates final Cloudflare authority before every physical
   }
 });
 
-test('Android wrapper consumes initial ARM_CAPTURE reinstall recovery before any capture primitive', async (t) => {
+test('Android default slow-card controller polls one fresh process until delayed terminal state', async () => {
+  const transitions = platformEvidence('android-play-physical').transitions;
+  const authority = transitions.find(
+    ({ scenario }) => scenario === 'slow-card-pending-approve',
+  );
+  const completedDecline = transitions.find(
+    ({ scenario }) => scenario === 'slow-card-pending-decline',
+  );
+  let observedScenario = completedDecline.scenario;
+  let state = 'terminal';
+  let freshProcesses = 0;
+  const waits = [];
+  const controller = createB3AndroidSlowCardController({
+    readRecords: async () => [{ observation: {
+      scenario: observedScenario,
+      phase: state === 'terminal' ? 'SCENARIO_COMPLETE' : 'OBSERVING',
+      nextActionCode: state === 'operator-pending'
+        ? 'APPROVE_PENDING_PURCHASE'
+        : 'ARM_GATEWAY_COMPLETION_HOLD',
+      observationSha256: 'a'.repeat(64),
+    } }],
+    consumeStoreActionResume: ({ actionCode }) => actionCode === 'APPROVE_PENDING_PURCHASE',
+    pollFreshProcess: async () => {
+      freshProcesses += 1;
+      state = freshProcesses < 3 ? 'device-pending' : 'terminal';
+    },
+    deriveTransition: () => {
+      if (state !== 'terminal') throw new Error('B3 scenario outcome is absent');
+      return observedScenario === authority.scenario ? authority : completedDecline;
+    },
+  });
+
+  await controller.begin(completedDecline);
+  assert.equal(await controller.poll(completedDecline), 'declined');
+  assert.equal(await controller.finish(completedDecline), completedDecline);
+
+  observedScenario = authority.scenario;
+  state = 'operator-pending';
+  await controller.begin(authority);
+  const terminal = await pollSlowCard({
+    poll: () => controller.poll(authority),
+    wait: async (milliseconds) => waits.push(milliseconds),
+  });
+  assert.equal(terminal, 'approved');
+  assert.equal(freshProcesses, 3);
+  assert.deepEqual(waits, [5_000, 5_000]);
+  assert.equal(await controller.finish(authority), authority);
+});
+
+test('Android wrapper verifies the installed distribution before initial ARM_CAPTURE recovery', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-android-initial-reinstall-preflight-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const authorityDirectory = join(root, '.native-build/b3/distribution');
@@ -201,6 +253,9 @@ test('Android wrapper consumes initial ARM_CAPTURE reinstall recovery before any
     mode: 0o700,
   });
 
+  const defaultAdapter = createDefaultB3AndroidCaptureAdapter({
+    root, env: {}, resumeReinstall: true, wait: async () => {},
+  });
   await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
     root,
     approvalFile: '/operator/approval.json',
@@ -208,9 +263,42 @@ test('Android wrapper consumes initial ARM_CAPTURE reinstall recovery before any
     approvedScope: 'google-test-track-refund-revoke',
     cloudflare: cloudflareEvidence(),
     authorityGate: async () => {},
-    primitives: createDefaultB3AndroidCaptureAdapter({
-      root, env: {}, resumeReinstall: true, wait: async () => {},
-    }),
+    primitives: defaultAdapter,
+  }), /signed distribution path|required/i);
+
+  assert.equal((await readB3IssuedCommand({ root, platform: 'android' })).state, 'restart-required');
+  await assert.rejects(readFile(join(
+    root,
+    '.native-build/b3/evidence/android-abandoned-captures',
+    retained.commandSha256,
+    'authority.json',
+  )), /ENOENT|absent/i);
+
+  await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
+    root,
+    approvalFile: '/operator/approval.json',
+    runToken: 'a'.repeat(64),
+    approvedScope: 'google-test-track-refund-revoke',
+    cloudflare: cloudflareEvidence(),
+    authorityGate: async () => {},
+    primitives: {
+      ...defaultAdapter,
+      inspectDistribution: async () => { throw new Error('installed distribution authority differs'); },
+    },
+  }), /distribution authority differs/i);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'android' })).state, 'restart-required');
+
+  await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
+    root,
+    approvalFile: '/operator/approval.json',
+    runToken: 'a'.repeat(64),
+    approvedScope: 'google-test-track-refund-revoke',
+    cloudflare: cloudflareEvidence(),
+    authorityGate: async () => {},
+    primitives: {
+      ...defaultAdapter,
+      inspectDistribution: async () => platformEvidence('android-play-physical').distribution,
+    },
   }), /signed distribution path|required/i);
 
   await assert.rejects(readB3IssuedCommand({ root, platform: 'android' }), /ENOENT|absent/i);

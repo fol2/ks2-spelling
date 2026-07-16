@@ -202,8 +202,8 @@ test('iOS capture owns exact scenario order, learner redaction and scope-before-
     'after-fresh-install-reseed:initial', 'after-fresh-install-reseed:final',
   ]);
   assert.deepEqual(physicalOrder, [
-    'recovery-preflight',
     'distribution-before',
+    'recovery-preflight',
     'gateway-smoke',
     'device-store', 'terminal', 'chain', 'storekit',
     'screenshot', 'distribution-after',
@@ -250,7 +250,7 @@ test('iOS capture owns exact scenario order, learner redaction and scope-before-
   }), /smoke|deployment|authority/i);
 });
 
-test('iOS wrapper consumes initial ARM_CAPTURE reinstall recovery before any capture primitive', async (t) => {
+test('iOS wrapper verifies the installed distribution before initial ARM_CAPTURE recovery', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-ios-initial-reinstall-preflight-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const authorityDirectory = join(root, '.native-build/b3/distribution');
@@ -286,6 +286,9 @@ test('iOS wrapper consumes initial ARM_CAPTURE reinstall recovery before any cap
     mode: 0o700,
   });
 
+  const defaultAdapter = createDefaultB3IosCaptureAdapter({
+    root, env: {}, resumeReinstall: true,
+  });
   await assert.rejects(captureB3IosEvidenceWithPrimitives({
     root,
     approvalFile: '/operator/approval.json',
@@ -293,7 +296,42 @@ test('iOS wrapper consumes initial ARM_CAPTURE reinstall recovery before any cap
     approvedScope: 'apple-sandbox-history-refund',
     deploymentDraft: cloudflareDeploymentDraft(),
     authorityGate: async () => {},
-    primitives: createDefaultB3IosCaptureAdapter({ root, env: {}, resumeReinstall: true }),
+    primitives: defaultAdapter,
+  }), /signed distribution path|required/i);
+
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state, 'restart-required');
+  await assert.rejects(readFile(join(
+    root,
+    '.native-build/b3/evidence/ios-abandoned-captures',
+    retained.commandSha256,
+    'authority.json',
+  )), /ENOENT|absent/i);
+
+  await assert.rejects(captureB3IosEvidenceWithPrimitives({
+    root,
+    approvalFile: '/operator/approval.json',
+    runToken: 'a'.repeat(64),
+    approvedScope: 'apple-sandbox-history-refund',
+    deploymentDraft: cloudflareDeploymentDraft(),
+    authorityGate: async () => {},
+    primitives: {
+      ...defaultAdapter,
+      inspectDistribution: async () => { throw new Error('installed distribution authority differs'); },
+    },
+  }), /distribution authority differs/i);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state, 'restart-required');
+
+  await assert.rejects(captureB3IosEvidenceWithPrimitives({
+    root,
+    approvalFile: '/operator/approval.json',
+    runToken: 'a'.repeat(64),
+    approvedScope: 'apple-sandbox-history-refund',
+    deploymentDraft: cloudflareDeploymentDraft(),
+    authorityGate: async () => {},
+    primitives: {
+      ...defaultAdapter,
+      inspectDistribution: async () => platformEvidence().distribution,
+    },
   }), /signed distribution path|required/i);
 
   await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);

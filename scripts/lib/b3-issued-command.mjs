@@ -42,6 +42,7 @@ const RECOVERY_SUCCESSOR_TRANSITIONS = Object.freeze({
   'restart-executing': Object.freeze([
     Object.freeze(['restart-executing', 'restart-complete']),
   ]),
+  'restart-complete': Object.freeze([]),
 });
 const COMMAND_CHAIN_ROOT_NAME = 'command-chain-root.json';
 const BASE_NAME = /^(?<hash>[0-9a-f]{64})\.base\.json$/u;
@@ -545,6 +546,75 @@ export async function readB3IssuedCommand({ root, platform }) {
   return active[0];
 }
 
+async function readExactConsumedB3RecoverySuccessor({
+  root,
+  platform,
+  commandSha256,
+  recordSha256,
+  state,
+}) {
+  const { evidence, ledger } = await directories(root, platform);
+  const commandPaths = paths(ledger, commandSha256);
+  const base = validateRecord(
+    await readImmutableClaimBytes({ evidence, path: commandPaths.base }),
+    platform,
+    'prepared',
+  );
+  if (base.commandSha256 !== commandSha256) {
+    throw issuedError('B3 issued-command recovery base authority differs');
+  }
+  let current = validateRecord(
+    await readImmutableClaimBytes({ evidence, path: commandPaths.state(state) }),
+    platform,
+    state,
+  );
+  if (current.commandSha256 !== commandSha256 || current.recordSha256 !== recordSha256 ||
+      canonicaliseB3ProofValue(current.command) !== canonicaliseB3ProofValue(base.command)) {
+    throw issuedError('B3 issued-command recovery predecessor authority differs');
+  }
+  for (const [expectedState, nextState] of RECOVERY_SUCCESSOR_TRANSITIONS[state]) {
+    if (current.state !== expectedState) {
+      throw issuedError('B3 issued-command consumed recovery chain is incomplete');
+    }
+    const successor = validateClaim(
+      await readImmutableClaimBytes({
+        evidence,
+        path: commandPaths.successor(expectedState),
+      }),
+      platform,
+      current,
+    );
+    const next = validateRecord(
+      await readImmutableClaimBytes({ evidence, path: commandPaths.state(nextState) }),
+      platform,
+      nextState,
+    );
+    if (successor.nextState !== nextState ||
+        successor.nextRecordSha256 !== next.recordSha256 ||
+        next.commandSha256 !== commandSha256 ||
+        canonicaliseB3ProofValue(next.command) !== canonicaliseB3ProofValue(current.command)) {
+      throw issuedError('B3 issued-command consumed recovery successor authority differs');
+    }
+    current = next;
+  }
+  if (current.state !== 'restart-complete') {
+    throw issuedError('B3 issued-command consumed recovery is not terminal');
+  }
+  const consumed = validateTombstone(
+    await readImmutableClaimBytes({ evidence, path: commandPaths.consumed }),
+    platform,
+    commandSha256,
+  );
+  if (consumed.finalRecordSha256 !== current.recordSha256) {
+    throw issuedError('B3 issued-command consumed recovery tombstone authority differs');
+  }
+  const chain = await commandChain({ evidence, ledger, platform });
+  if (chain.active.length !== 0 || chain.tail?.commandSha256 !== commandSha256) {
+    throw issuedError('B3 issued-command consumed recovery was replaced');
+  }
+  return Object.freeze({ ...current, transitionClaimed: false, recoveryConsumed: true });
+}
+
 export async function readB3IssuedCommandRecoverySuccessor({
   root,
   platform,
@@ -557,7 +627,19 @@ export async function readB3IssuedCommandRecoverySuccessor({
       !HASH.test(recordSha256 ?? '') || typeof afterCurrentRead !== 'function') {
     throw issuedError('B3 issued-command recovery predecessor authority is invalid');
   }
-  const current = await readB3IssuedCommand({ root, platform });
+  let current;
+  try {
+    current = await readB3IssuedCommand({ root, platform });
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    return readExactConsumedB3RecoverySuccessor({
+      root,
+      platform,
+      commandSha256,
+      recordSha256,
+      state,
+    });
+  }
   const predecessor = record(platform, current.command, state);
   const transitions = RECOVERY_SUCCESSOR_TRANSITIONS[state];
   const allowedStates = transitions.map(([, nextState]) => nextState);
@@ -571,16 +653,27 @@ export async function readB3IssuedCommandRecoverySuccessor({
   // creating one. Walking every edge up to the already-derived current state
   // makes adoption depend on the retained ledger chain, not state names alone.
   let adopted = current;
-  for (const [expectedState, nextState] of transitions) {
-    adopted = await transitionB3IssuedCommand({
+  try {
+    for (const [expectedState, nextState] of transitions) {
+      adopted = await transitionB3IssuedCommand({
+        root,
+        platform,
+        command: current.command,
+        expectedState,
+        nextState,
+        existingRevisionOnly: true,
+      });
+      if (nextState === adopted.state) break;
+    }
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    return readExactConsumedB3RecoverySuccessor({
       root,
       platform,
-      command: current.command,
-      expectedState,
-      nextState,
-      existingRevisionOnly: true,
+      commandSha256,
+      recordSha256,
+      state,
     });
-    if (nextState === adopted.state) break;
   }
   if (adopted.commandSha256 !== commandSha256 || !allowedStates.includes(adopted.state)) {
     throw issuedError('B3 issued-command recovery successor changed during adoption');

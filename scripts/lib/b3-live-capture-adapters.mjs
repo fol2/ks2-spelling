@@ -673,7 +673,9 @@ export async function recoverB3AmbiguousCaptureAfterReinstall({
   invocationState,
   buildAuthority,
   afterArchive = async () => {},
+  afterSuccessorCurrentRead = async () => {},
   beforeClear = async () => {},
+  beforeClearCommandRead = async () => {},
 }) {
   const exactInvocationRequired = invocationRecordSha256 !== undefined ||
     invocationState !== undefined;
@@ -682,7 +684,8 @@ export async function recoverB3AmbiguousCaptureAfterReinstall({
   ) || (exactInvocationRequired && (!/^[0-9a-f]{64}$/u.test(
     invocationRecordSha256 ?? '',
   ) || typeof invocationState !== 'string' || invocationState.length === 0)) ||
-      typeof afterArchive !== 'function' || typeof beforeClear !== 'function') {
+      typeof afterArchive !== 'function' || typeof afterSuccessorCurrentRead !== 'function' ||
+      typeof beforeClear !== 'function' || typeof beforeClearCommandRead !== 'function') {
     throw captureError('B3 ambiguous capture-restart authority is invalid');
   }
   let issued;
@@ -690,6 +693,26 @@ export async function recoverB3AmbiguousCaptureAfterReinstall({
     issued = await readB3IssuedCommand({ root, platform });
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
+    if (exactInvocationRequired) {
+      try {
+        const consumed = await readB3IssuedCommandRecoverySuccessor({
+          root,
+          platform,
+          commandSha256: invocationCommandSha256,
+          recordSha256: invocationRecordSha256,
+          state: invocationState,
+        });
+        if (consumed.recoveryConsumed !== true) {
+          throw captureError('B3 issued command changed after adapter invocation');
+        }
+      } catch (consumedError) {
+        if (consumedError?.code === 'b3_issued_command_invalid' ||
+            consumedError?.code === 'ENOENT') {
+          throw captureError('B3 issued command changed after adapter invocation');
+        }
+        throw consumedError;
+      }
+    }
     try {
       return await readB3AbandonedCaptureArchive({
         root,
@@ -699,9 +722,9 @@ export async function recoverB3AmbiguousCaptureAfterReinstall({
       });
     } catch (archiveError) {
       if (archiveError?.code !== 'b3_abandoned_capture_archive_absent') throw archiveError;
-      if (exactInvocationRequired) {
-        throw captureError('B3 issued command changed after adapter invocation');
-      }
+      if (exactInvocationRequired) throw captureError(
+        'B3 issued command changed after adapter invocation',
+      );
       return false;
     }
   }
@@ -720,6 +743,7 @@ export async function recoverB3AmbiguousCaptureAfterReinstall({
         commandSha256: invocationCommandSha256,
         recordSha256: invocationRecordSha256,
         state: invocationState,
+        afterCurrentRead: afterSuccessorCurrentRead,
       });
     } catch (error) {
       if (error?.code === 'b3_issued_command_invalid') {
@@ -727,16 +751,66 @@ export async function recoverB3AmbiguousCaptureAfterReinstall({
       }
       throw error;
     }
+    if (issued.recoveryConsumed === true) {
+      return readB3AbandonedCaptureArchive({
+        root,
+        platform,
+        commandSha256: invocationCommandSha256,
+        buildAuthority,
+      });
+    }
+  }
+  const consumptionAuthority = Object.freeze(exactInvocationRequired
+    ? {
+        commandSha256: invocationCommandSha256,
+        recordSha256: invocationRecordSha256,
+        state: invocationState,
+      }
+    : {
+        commandSha256: issued.commandSha256,
+        recordSha256: issued.recordSha256,
+        state: issued.state,
+      });
+  async function validateConsumedRecovery() {
+    let consumed;
+    try {
+      consumed = await readB3IssuedCommandRecoverySuccessor({
+        root,
+        platform,
+        commandSha256: consumptionAuthority.commandSha256,
+        recordSha256: consumptionAuthority.recordSha256,
+        state: consumptionAuthority.state,
+      });
+    } catch (error) {
+      if (error?.code === 'b3_issued_command_invalid' || error?.code === 'ENOENT') {
+        throw captureError('B3 issued command changed before restart consumption');
+      }
+      throw error;
+    }
+    if (consumed.recoveryConsumed !== true) {
+      throw captureError('B3 issued command changed before restart consumption');
+    }
+    return readB3AbandonedCaptureArchive({
+      root,
+      platform,
+      commandSha256: consumptionAuthority.commandSha256,
+      buildAuthority,
+    });
   }
   if (issued.state === 'restart-required') {
     if (!enabled) return false;
-    issued = await transitionB3IssuedCommand({
-      root,
-      platform,
-      command: issued.command,
-      expectedState: 'restart-required',
-      nextState: 'restart-executing',
-    });
+    try {
+      issued = await transitionB3IssuedCommand({
+        root,
+        platform,
+        command: issued.command,
+        expectedState: 'restart-required',
+        nextState: 'restart-executing',
+      });
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+      return validateConsumedRecovery();
+    }
   } else if (!['restart-executing', 'restart-complete'].includes(issued.state)) {
     return false;
   }
@@ -757,8 +831,8 @@ export async function recoverB3AmbiguousCaptureAfterReinstall({
     commandSha256: invocationCommandSha256,
     buildAuthority,
   });
-  try {
-    if (issued.state === 'restart-executing') {
+  if (issued.state === 'restart-executing') {
+    try {
       issued = await transitionB3IssuedCommand({
         root,
         platform,
@@ -766,11 +840,28 @@ export async function recoverB3AmbiguousCaptureAfterReinstall({
         expectedState: 'restart-executing',
         nextState: 'restart-complete',
       });
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+      return validateConsumedRecovery();
     }
-    await beforeClear();
-    await clearB3IssuedCommand({ root, platform, command: issued.command });
+  }
+  await beforeClear();
+  await beforeClearCommandRead();
+  try {
+    await clearB3IssuedCommand({
+      root,
+      platform,
+      command: issued.command,
+      beforeConsume: () => readB3AbandonedCaptureArchive({
+        root,
+        platform,
+        commandSha256: invocationCommandSha256,
+        buildAuthority,
+      }),
+    });
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
+    return validateConsumedRecovery();
   }
   return recovery;
 }

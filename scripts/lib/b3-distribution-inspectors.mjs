@@ -347,7 +347,9 @@ async function inspectIosArtifact({ bytes, copyPath, temporary, runner }) {
     plistValue('CFBundleShortVersionString'), plistValue('CFBundleVersion'), plistValue('CFBundleIdentifier'),
   ]);
   await run(runner, '/usr/bin/codesign', ['--verify', '--deep', '--strict', app]);
-  await run(runner, '/usr/bin/codesign', ['-d', '--extract-certificates', resolve(temporary, 'codesign'), app], { cwd: temporary });
+  await run(runner, '/usr/bin/codesign', [
+    '-d', `--extract-certificates=${resolve(temporary, 'codesign')}`, app,
+  ], { cwd: temporary });
   const certificate = await readStableExternalFile({
     path: resolve(temporary, 'codesign0'),
     label: 'iOS signing certificate',

@@ -72,6 +72,7 @@ function iosArtifactRunner({
   profileApplicationIdentifier = 'TEAM123456.uk.eugnel.ks2spelling',
   profileApplicationIdentifierPrefix = 'TEAM123456',
   profileTeamIdentifier = 'TEAM123456',
+  commandLog = [],
 } = {}) {
   const infoValues = new Map([
     ['B3Mode', 'B3SandboxProof'],
@@ -100,13 +101,24 @@ function iosArtifactRunner({
     ['get-task-allow', signedGetTaskAllow],
   ].filter(([, value]) => value !== undefined && value !== null));
   return async (command, args) => {
+    commandLog.push({ command, args: [...args] });
     if (command.endsWith('/ditto')) {
       const app = join(args.at(-1), 'Payload/KS2Spelling.app');
       await mkdir(app, { recursive: true });
       await writeFile(join(app, 'Info.plist'), 'fixture');
       await writeFile(join(app, 'embedded.mobileprovision'), 'fixture');
-    } else if (command.endsWith('/codesign') && args.includes('--extract-certificates')) {
-      await writeFile(`${args[args.indexOf('--extract-certificates') + 1]}0`, signedCertificate, { mode: 0o600 });
+    } else if (command.endsWith('/codesign') &&
+        args.some((argument) => argument.startsWith('--extract-certificates'))) {
+      const extractionOptions = args.filter((argument) =>
+        argument.startsWith('--extract-certificates='));
+      if (args.includes('--extract-certificates') || extractionOptions.length !== 1) {
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: 'codesign requires the optional extraction prefix in the same argv item',
+        };
+      }
+      await writeFile(`${extractionOptions[0].slice('--extract-certificates='.length)}0`, signedCertificate, { mode: 0o600 });
     } else if (command.endsWith('/codesign') && args.includes('--entitlements')) {
       await writeFile(args[args.indexOf('--entitlements') + 1], 'fixture', { mode: 0o600 });
     } else if (command.endsWith('/plutil')) {
@@ -422,9 +434,11 @@ test('default iOS artefact inspector rejects missing signed entitlement authorit
 });
 
 test('default iOS artefact inspector binds the IPA certificate and signed entitlements to its development profile', async (t) => {
+  const commandLog = [];
   const { ipa, inspector } = await createIosArtifactInspectorFixture(t, {
     profileCertificates: [Buffer.from('unrelated-certificate'), Buffer.from('signed-certificate')],
     profileApplicationIdentifier: 'TEAM123456.*',
+    commandLog,
   });
 
   const result = await inspector({ platform: 'ios', signedPath: ipa });
@@ -435,6 +449,16 @@ test('default iOS artefact inspector binds the IPA certificate and signed entitl
   assert.equal(result.embeddedFingerprint, HASH);
   assert.equal(Object.hasOwn(result, 'signedApplicationIdentifier'), false);
   assert.equal(Object.hasOwn(result, 'profileDeveloperCertificates'), false);
+  const extractionCalls = commandLog.filter(({ command, args }) =>
+    command.endsWith('/codesign') &&
+    args.some((argument) => argument.startsWith('--extract-certificates')));
+  assert.equal(extractionCalls.length, 1);
+  assert.equal(extractionCalls[0].args.includes('--extract-certificates'), false);
+  assert.equal(
+    extractionCalls[0].args.filter((argument) =>
+      argument.startsWith('--extract-certificates=')).length,
+    1,
+  );
 });
 
 test('default iOS device inspector derives sandbox receipt proof outside app JSON', async (t) => {

@@ -70,6 +70,27 @@ function requirePrimitive(primitives, name) {
   return primitives[name];
 }
 
+function assertRecoveryFinalisation(value) {
+  const descriptor = value && Object.getOwnPropertyDescriptor(value, 'status');
+  if ((Object.getPrototypeOf(value ?? {}) !== Object.prototype &&
+      Object.getPrototypeOf(value ?? {}) !== null) ||
+      Reflect.ownKeys(value ?? {}).length !== 1 || descriptor?.enumerable !== true ||
+      !Object.hasOwn(descriptor ?? {}, 'value')) {
+    throw new Error('B3 Android recovery finalisation result is invalid');
+  }
+  if (['not-applicable', 'recovered', 'already-recovered'].includes(value.status)) return value;
+  if (value.status === 'operator-required') {
+    throw Object.assign(new Error('Reinstall the exact approved B3 distribution, then resume capture.'), {
+      code: 'b3_operator_action_required',
+      instructionCode: 'REINSTALL_EXACT_BUILD',
+    });
+  }
+  if (value.status === 'rejected') {
+    throw new Error('B3 Android capture recovery rejected the pinned invocation');
+  }
+  throw new Error('B3 Android recovery finalisation result is invalid');
+}
+
 async function writePendingAtomically(path, value) {
   await mkdir(resolve(path, '..'), { recursive: true, mode: 0o700 });
   const temporary = `${path}.${process.pid}.tmp`;
@@ -98,7 +119,8 @@ export async function captureB3AndroidEvidenceWithPrimitives({
   await authorityGate({ approvalFile, runToken, requestedScope: B3_ANDROID_REMOTE_SCOPE, root, clock, gitRunner });
   const validatedCloudflare = validateB3CloudflareEvidence(cloudflare);
   const gateway = b3PlatformGatewayFromCloudflare(validatedCloudflare);
-  const recoverAmbiguousCapture = requirePrimitive(primitives, 'recoverAmbiguousCapture');
+  const pinInvocation = requirePrimitive(primitives, 'pinInvocation');
+  const finaliseInvocation = requirePrimitive(primitives, 'finaliseInvocation');
   const inspectDistribution = requirePrimitive(primitives, 'inspectDistribution');
   const inspectDeviceStore = requirePrimitive(primitives, 'inspectDeviceStore');
   const inspectSyntheticLearners = requirePrimitive(primitives, 'inspectSyntheticLearners');
@@ -106,15 +128,16 @@ export async function captureB3AndroidEvidenceWithPrimitives({
   const inspectTerminalEvidence = requirePrimitive(primitives, 'inspectTerminalEvidence');
   const inspectProofObservationChain = requirePrimitive(primitives, 'inspectProofObservationChain');
   const captureScreenshot = requirePrimitive(primitives, 'captureScreenshot');
-  if (primitives.pinInvocationIssuedCommandAuthority !== undefined) {
-    await requirePrimitive(primitives, 'pinInvocationIssuedCommandAuthority')();
-  }
+  const invocation = await pinInvocation();
   const distributionBeforeCapture = await inspectDistribution();
   if (validatedCloudflare.testedApplicationCommit !== distributionBeforeCapture.embeddedCommit ||
       validatedCloudflare.applicationFingerprint !== distributionBeforeCapture.embeddedFingerprint) {
     throw new Error('B3 Android distribution and Cloudflare authority differ');
   }
-  await recoverAmbiguousCapture();
+  assertRecoveryFinalisation(await finaliseInvocation({
+    invocation,
+    distribution: distributionBeforeCapture,
+  }));
   const beforeInitial = assertB3SyntheticLearnerObservation(
     await inspectSyntheticLearners({ baseline: 'before-purchase', phase: 'initial' }),
     'before-purchase',

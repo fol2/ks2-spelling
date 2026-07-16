@@ -60,6 +60,7 @@ import {
   verifyB3InstalledDistributionWithInspectors,
 } from '../verify-b3-installed-distribution.mjs';
 import { validateB3PngBytes } from './b3-png.mjs';
+import { createB3CaptureRecoveryStore } from './b3-capture-recovery-store.mjs';
 
 export {
   assertB3CaptureResumeAuthority,
@@ -1508,7 +1509,7 @@ function createDefaultAdapter({
     return buildAuthorityPromise;
   }
 
-  async function recoverAmbiguousCapture() {
+  async function recoverAmbiguousCapture({ acknowledgeReinstall } = {}) {
     if (!invocationIssuedCommandAuthorityPinned) {
       throw captureError('B3 issued command authority was not pinned for this invocation');
     }
@@ -1525,7 +1526,7 @@ function createDefaultAdapter({
     const recovery = await recoverB3AmbiguousCaptureAfterReinstall({
       root,
       platform,
-      enabled: resumeReinstall && !reinstallAcknowledgementConsumed,
+      enabled: acknowledgeReinstall === true && !reinstallAcknowledgementConsumed,
       invocationCommandSha256: invocationIssued.commandSha256,
       invocationRecordSha256: invocationIssued.recordSha256,
       invocationState: invocationIssued.state,
@@ -1534,6 +1535,15 @@ function createDefaultAdapter({
     if (recovery) reinstallAcknowledgementConsumed = true;
     return recovery;
   }
+
+  const recoveryStore = createB3CaptureRecoveryStore({
+    platform,
+    buildAuthority,
+    transitionalBridge: Object.freeze({
+      pinInvocation: pinInvocationIssuedCommandAuthority,
+      finaliseInvocation: recoverAmbiguousCapture,
+    }),
+  });
 
   async function records() {
     await inspectDistribution();
@@ -1821,8 +1831,10 @@ function createDefaultAdapter({
   }
 
   const base = {
-    pinInvocationIssuedCommandAuthority,
-    recoverAmbiguousCapture,
+    pinInvocation: () => recoveryStore.pinInvocation({
+      acknowledgeReinstall: resumeReinstall,
+    }),
+    finaliseInvocation: recoveryStore.finaliseInvocation,
     inspectDistribution,
     inspectDeviceStore,
     inspectSyntheticLearners,

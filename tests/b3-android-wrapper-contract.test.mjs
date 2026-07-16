@@ -61,7 +61,16 @@ test('Android capture owns exact scenario order, learner redaction and scope-bef
   const calls = [];
   const physicalOrder = [];
   const primitives = {
-    recoverAmbiguousCapture: async () => physicalOrder.push('recovery-preflight'),
+    pinInvocation: async () => {
+      physicalOrder.push('invocation-pinned');
+      return Object.freeze({ invocation: 'android-test' });
+    },
+    finaliseInvocation: async ({ invocation, distribution }) => {
+      assert.deepEqual(invocation, { invocation: 'android-test' });
+      assert.equal(distribution, platform.distribution);
+      physicalOrder.push('invocation-finalised');
+      return Object.freeze({ status: 'not-applicable' });
+    },
     inspectDistribution: async ({ fresh = false } = {}) => {
       physicalOrder.push(fresh ? 'distribution-after' : 'distribution-before');
       return platform.distribution;
@@ -118,7 +127,8 @@ test('Android capture owns exact scenario order, learner redaction and scope-bef
   assert.ok(timing.includes('wait:5000'));
   assert.ok(timing.includes('force-stop:unacknowledged-relaunch'));
   assert.deepEqual(physicalOrder, [
-    'distribution-before', 'recovery-preflight', 'device-store', 'terminal', 'chain', 'screenshot',
+    'invocation-pinned', 'distribution-before', 'invocation-finalised',
+    'device-store', 'terminal', 'chain', 'screenshot',
     'distribution-after',
   ]);
   let distributionReads = 0;
@@ -140,7 +150,7 @@ test('Android capture owns exact scenario order, learner redaction and scope-bef
 
   const crossAuthorityCloudflare = cloudflareEvidence();
   crossAuthorityCloudflare.applicationFingerprint = 'c'.repeat(64);
-  let crossAuthorityRecoveryCalls = 0;
+  let crossAuthorityFinaliseCalls = 0;
   let crossAuthorityLaterCalls = 0;
   await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
     approvalFile: '/operator/approval.json', runToken: 'a'.repeat(64),
@@ -149,13 +159,66 @@ test('Android capture owns exact scenario order, learner redaction and scope-bef
     primitives: {
       ...primitives,
       inspectDistribution: async () => platform.distribution,
-      recoverAmbiguousCapture: async () => { crossAuthorityRecoveryCalls += 1; },
+      finaliseInvocation: async () => {
+        crossAuthorityFinaliseCalls += 1;
+        return Object.freeze({ status: 'not-applicable' });
+      },
       inspectSyntheticLearners: async () => { crossAuthorityLaterCalls += 1; },
     },
     authorityGate: async () => {},
   }), /distribution.*Cloudflare.*authority/i);
-  assert.equal(crossAuthorityRecoveryCalls, 0);
+  assert.equal(crossAuthorityFinaliseCalls, 0);
   assert.equal(crossAuthorityLaterCalls, 0);
+
+  let invocationTail = 'absent';
+  let lateTailDeviceCalls = 0;
+  await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
+    approvalFile: '/operator/approval.json',
+    runToken: 'a'.repeat(64),
+    approvedScope: 'google-test-track-refund-revoke',
+    cloudflare: cloudflareEvidence(),
+    primitives: {
+      ...primitives,
+      pinInvocation: async () => Object.freeze({ tail: invocationTail }),
+      inspectDistribution: async () => {
+        invocationTail = 'planned-rebind';
+        return platform.distribution;
+      },
+      finaliseInvocation: async ({ invocation }) => Object.freeze({
+        status: invocation.tail === invocationTail ? 'not-applicable' : 'rejected',
+      }),
+      inspectSyntheticLearners: async () => {
+        lateTailDeviceCalls += 1;
+        throw new Error('unexpected device work');
+      },
+    },
+    authorityGate: async () => {},
+  }), /recovery.*rejected|pinned invocation/i);
+  assert.equal(lateTailDeviceCalls, 0);
+
+  for (const [result, expected] of [
+    [Object.freeze({ status: 'operator-required' }), (error) =>
+      b3AndroidProofExitCode(error) === 7 && error.instructionCode === 'REINSTALL_EXACT_BUILD'],
+    [Object.freeze({ status: 'recovered', extra: true }),
+      /finalisation.*invalid|recovery.*invalid/i],
+    [Object.freeze({ status: 'unknown' }), /finalisation.*invalid|recovery.*invalid/i],
+  ]) {
+    let laterCalls = 0;
+    await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
+      approvalFile: '/operator/approval.json', runToken: 'a'.repeat(64),
+      approvedScope: 'google-test-track-refund-revoke', cloudflare: cloudflareEvidence(),
+      primitives: {
+        ...primitives,
+        finaliseInvocation: async () => result,
+        inspectSyntheticLearners: async () => {
+          laterCalls += 1;
+          throw new Error('unexpected device work');
+        },
+      },
+      authorityGate: async () => {},
+    }), expected);
+    assert.equal(laterCalls, 0);
+  }
 });
 
 test('Android capture validates final Cloudflare authority before every physical primitive', async () => {
@@ -248,7 +311,8 @@ test('Android slow-card deadline includes arming work before the first poll', as
   let elapsed = 0;
   let polls = 0;
   const primitives = {
-    recoverAmbiguousCapture: async () => false,
+    pinInvocation: async () => Object.freeze({ invocation: 'android-cli' }),
+    finaliseInvocation: async () => Object.freeze({ status: 'not-applicable' }),
     inspectDistribution: async () => platform.distribution,
     inspectSyntheticLearners: async ({ baseline }) => learners(baseline),
     runScenario: async ({ scenario }) =>

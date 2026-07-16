@@ -385,6 +385,24 @@ function assertDistribution(value, ios, commit, fingerprint) {
   });
 }
 
+export function validateB3DistributionProjection({ value, platform, buildAuthority }) {
+  const ios = platform === 'ios';
+  if (!ios && platform !== 'android') {
+    throw evidenceError('distribution platform is invalid');
+  }
+  assertDistribution(
+    value,
+    ios,
+    buildAuthority?.testedApplicationCommit,
+    buildAuthority?.applicationFingerprint,
+  );
+  if (value.versionName !== buildAuthority?.versionName ||
+      value[ios ? 'iosBuildNumber' : 'androidVersionCode'] !== buildAuthority?.buildNumber) {
+    throw evidenceError('distribution build authority mismatch');
+  }
+  return structuredClone(value);
+}
+
 export function validateB3PlatformEvidence(value) {
   const baseKeys = [
     'schemaVersion', 'testedApplicationCommit', 'applicationFingerprint', 'platform', 'device',

@@ -89,7 +89,8 @@ function cliCapturePrimitives(platform, deploymentDraft) {
     ];
   };
   return {
-    recoverAmbiguousCapture: async () => false,
+    pinInvocation: async () => Object.freeze({ invocation: 'ios-cli' }),
+    finaliseInvocation: async () => Object.freeze({ status: 'not-applicable' }),
     inspectDistribution: async () => platform.distribution,
     inspectDeviceStore: async () => ({
       device: platform.device,
@@ -150,7 +151,16 @@ test('iOS capture owns exact scenario order, learner redaction and scope-before-
     ];
   };
   const primitives = {
-    recoverAmbiguousCapture: async () => physicalOrder.push('recovery-preflight'),
+    pinInvocation: async () => {
+      physicalOrder.push('invocation-pinned');
+      return Object.freeze({ invocation: 'ios-test' });
+    },
+    finaliseInvocation: async ({ invocation, distribution }) => {
+      assert.deepEqual(invocation, { invocation: 'ios-test' });
+      assert.equal(distribution, platform.distribution);
+      physicalOrder.push('invocation-finalised');
+      return Object.freeze({ status: 'not-applicable' });
+    },
     inspectDistribution: async ({ fresh = false } = {}) => {
       physicalOrder.push(fresh ? 'distribution-after' : 'distribution-before');
       return platform.distribution;
@@ -203,8 +213,9 @@ test('iOS capture owns exact scenario order, learner redaction and scope-before-
     'after-fresh-install-reseed:initial', 'after-fresh-install-reseed:final',
   ]);
   assert.deepEqual(physicalOrder, [
+    'invocation-pinned',
     'distribution-before',
-    'recovery-preflight',
+    'invocation-finalised',
     'gateway-smoke',
     'device-store', 'terminal', 'chain', 'storekit',
     'screenshot', 'distribution-after',
@@ -235,7 +246,7 @@ test('iOS capture owns exact scenario order, learner redaction and scope-before-
 
   const crossAuthorityDraft = cloudflareDeploymentDraft();
   crossAuthorityDraft.testedApplicationCommit = 'c'.repeat(40);
-  let crossAuthorityRecoveryCalls = 0;
+  let crossAuthorityFinaliseCalls = 0;
   let crossAuthorityLaterCalls = 0;
   await assert.rejects(captureB3IosEvidenceWithPrimitives({
     approvalFile: '/operator/approval.json', runToken: 'a'.repeat(64),
@@ -243,12 +254,15 @@ test('iOS capture owns exact scenario order, learner redaction and scope-before-
     primitives: {
       ...primitives,
       inspectDistribution: async () => platform.distribution,
-      recoverAmbiguousCapture: async () => { crossAuthorityRecoveryCalls += 1; },
+      finaliseInvocation: async () => {
+        crossAuthorityFinaliseCalls += 1;
+        return Object.freeze({ status: 'not-applicable' });
+      },
       inspectSyntheticLearners: async () => { crossAuthorityLaterCalls += 1; },
     },
     authorityGate: async () => {},
   }), /distribution.*Cloudflare.*authority/i);
-  assert.equal(crossAuthorityRecoveryCalls, 0);
+  assert.equal(crossAuthorityFinaliseCalls, 0);
   assert.equal(crossAuthorityLaterCalls, 0);
 
   const invalidDraft = structuredClone(deploymentDraft);
@@ -267,6 +281,79 @@ test('iOS capture owns exact scenario order, learner redaction and scope-before-
     primitives: { ...primitives, inspectGatewaySmoke: async () => wrongSmoke },
     authorityGate: async () => {},
   }), /smoke|deployment|authority/i);
+});
+
+test('iOS wrapper rejects an invocation tail created during distribution inspection before device work', async () => {
+  const platform = platformEvidence();
+  const deploymentDraft = cloudflareDeploymentDraft();
+  const primitives = cliCapturePrimitives(platform, deploymentDraft);
+  let tail = 'absent';
+  let laterDeviceCalls = 0;
+  await assert.rejects(captureB3IosEvidenceWithPrimitives({
+    approvalFile: '/operator/approval.json',
+    runToken: 'a'.repeat(64),
+    approvedScope: 'apple-sandbox-history-refund',
+    deploymentDraft,
+    authorityGate: async () => {},
+    primitives: {
+      ...primitives,
+      pinInvocation: async () => Object.freeze({ tail }),
+      inspectDistribution: async () => {
+        tail = 'planned-rebind';
+        return platform.distribution;
+      },
+      finaliseInvocation: async ({ invocation }) => Object.freeze({
+        status: invocation.tail === tail ? 'not-applicable' : 'rejected',
+      }),
+      inspectSyntheticLearners: async () => {
+        laterDeviceCalls += 1;
+        throw new Error('unexpected device work');
+      },
+    },
+  }), /recovery.*rejected|pinned invocation/i);
+  assert.equal(laterDeviceCalls, 0);
+});
+
+test('iOS wrapper accepts only closed successful recovery finalisation results', async () => {
+  const platform = platformEvidence();
+  const deploymentDraft = cloudflareDeploymentDraft();
+  const base = cliCapturePrimitives(platform, deploymentDraft);
+  for (const status of ['recovered', 'already-recovered']) {
+    const pending = await captureB3IosEvidenceWithPrimitives({
+      approvalFile: '/operator/approval.json', runToken: 'a'.repeat(64),
+      approvedScope: 'apple-sandbox-history-refund', deploymentDraft,
+      authorityGate: async () => {},
+      primitives: {
+        ...base,
+        finaliseInvocation: async () => Object.freeze({ status }),
+      },
+    });
+    assert.equal(pending.platform, 'ios-physical');
+  }
+  for (const [label, result, expected] of [
+    ['operator', Object.freeze({ status: 'operator-required' }), (error) =>
+      b3IosProofExitCode(error) === 7 && error.instructionCode === 'REINSTALL_EXACT_BUILD'],
+    ['rejected', Object.freeze({ status: 'rejected' }), /recovery.*rejected/i],
+    ['malformed', Object.freeze({ status: 'recovered', extra: true }), /finalisation.*invalid|recovery.*invalid/i],
+    ['unknown', Object.freeze({ status: 'later-status' }), /finalisation.*invalid|recovery.*invalid/i],
+    ['absent', undefined, /finalisation.*invalid|recovery.*invalid/i],
+  ]) {
+    let laterDeviceCalls = 0;
+    await assert.rejects(captureB3IosEvidenceWithPrimitives({
+      approvalFile: '/operator/approval.json', runToken: 'a'.repeat(64),
+      approvedScope: 'apple-sandbox-history-refund', deploymentDraft,
+      authorityGate: async () => {},
+      primitives: {
+        ...base,
+        finaliseInvocation: async () => result,
+        inspectSyntheticLearners: async () => {
+          laterDeviceCalls += 1;
+          throw new Error(`unexpected ${label} device work`);
+        },
+      },
+    }), expected);
+    assert.equal(laterDeviceCalls, 0);
+  }
 });
 
 test('iOS wrapper verifies the installed distribution before initial ARM_CAPTURE recovery', async (t) => {

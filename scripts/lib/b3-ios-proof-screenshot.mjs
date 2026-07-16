@@ -4,7 +4,6 @@ import {
   mkdir,
   mkdtemp,
   open,
-  readFile,
   realpath,
   rm,
 } from 'node:fs/promises';
@@ -16,6 +15,7 @@ import { validateB3PngBytes } from './b3-png.mjs';
 
 const DEVICE_ID = /^[A-Fa-f0-9-]{8,64}$/u;
 const MAXIMUM_TEXT_BYTES = 256 * 1024;
+const MAXIMUM_MANIFEST_BYTES = 256 * 1024;
 const MAXIMUM_SCREENSHOT_BYTES = 64 * 1024 * 1024;
 const ATTACHMENT_NAME = 'b3-ios-sandbox-proof.png';
 const TEST_IDENTIFIER = 'B3ProofUITests/B3ProofScreenshotTests/testCaptureInstalledApplication()';
@@ -147,6 +147,47 @@ async function readScreenshot(path) {
   }
 }
 
+async function readAttachmentManifestBytes(path) {
+  let handle;
+  try {
+    handle = await open(path, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+  } catch {
+    throw screenshotError('B3 iOS screenshot attachment manifest path is invalid');
+  }
+  try {
+    const before = await handle.stat();
+    if (!before.isFile() || before.nlink !== 1 || before.size <= 0 ||
+        before.size > MAXIMUM_MANIFEST_BYTES) {
+      throw screenshotError('B3 iOS screenshot attachment manifest is not a bounded regular owned file');
+    }
+    const bytes = await handle.readFile();
+    const after = await handle.stat();
+    if (!after.isFile() || after.nlink !== 1 || bytes.length !== before.size ||
+        after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size ||
+        after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs) {
+      throw screenshotError('B3 iOS screenshot attachment manifest changed while being read');
+    }
+    return bytes;
+  } finally {
+    await handle.close();
+  }
+}
+
+async function canonicalAttachmentDirectory(temporary, exported) {
+  const metadata = await lstat(exported).catch(() => null);
+  if (!metadata?.isDirectory() || metadata.isSymbolicLink()) {
+    throw screenshotError('B3 iOS screenshot attachment directory policy is invalid');
+  }
+  const [canonicalTemporary, canonicalExported] = await Promise.all([
+    realpath(temporary),
+    realpath(exported),
+  ]);
+  if (canonicalExported !== resolve(canonicalTemporary, 'attachments')) {
+    throw screenshotError('B3 iOS screenshot attachment directory escaped the private capture root');
+  }
+  return canonicalExported;
+}
+
 export async function captureB3IosScreenshotBytes({
   root,
   deviceId,
@@ -179,12 +220,13 @@ export async function captureB3IosScreenshotBytes({
       '--path', resultBundle,
       '--output-path', exported,
     ], { cwd: root, timeoutMs: 60_000 });
+    const canonicalExported = await canonicalAttachmentDirectory(temporary, exported);
     const manifest = parseB3StrictJsonBytes(
-      await readFile(resolve(exported, 'manifest.json')),
+      await readAttachmentManifestBytes(resolve(canonicalExported, 'manifest.json')),
       'B3 iOS screenshot attachment manifest',
     );
     const filename = selectAttachment(manifest, deviceId);
-    return await readScreenshot(resolve(exported, filename));
+    return await readScreenshot(resolve(canonicalExported, filename));
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }

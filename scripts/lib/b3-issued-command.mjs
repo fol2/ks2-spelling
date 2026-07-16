@@ -102,28 +102,29 @@ async function readBytes(path) {
   } finally { await handle.close(); }
 }
 
-async function hasTransientPrivateAlias({ evidence, path }) {
+async function findVerifiedPrivateAlias({ evidence, path }) {
   let retained;
   try { retained = await open(path, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW); } catch {
-    return false;
+    return null;
   }
   try {
     const retainedMetadata = await retained.stat();
     if (!retainedMetadata.isFile() || retainedMetadata.nlink !== 2 ||
         (retainedMetadata.mode & 0o077) !== 0 || retainedMetadata.size <= 0 ||
         retainedMetadata.size > MAXIMUM_BYTES) {
-      return false;
+      return null;
     }
     let scanned = 0;
     const directory = await opendir(evidence);
     for await (const entry of directory) {
       scanned += 1;
-      if (scanned > MAXIMUM_ALIAS_SCAN_ENTRIES) return false;
+      if (scanned > MAXIMUM_ALIAS_SCAN_ENTRIES) return null;
       if (!entry.isFile() || !PRIVATE_TEMPORARY_NAME.test(entry.name)) continue;
+      const aliasPath = resolve(evidence, entry.name);
       let alias;
       try {
         alias = await open(
-          resolve(evidence, entry.name),
+          aliasPath,
           fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW,
         );
       } catch {
@@ -136,24 +137,42 @@ async function hasTransientPrivateAlias({ evidence, path }) {
             aliasMetadata.dev === retainedMetadata.dev &&
             aliasMetadata.ino === retainedMetadata.ino &&
             aliasMetadata.size === retainedMetadata.size) {
-          return true;
+          return aliasPath;
         }
       } finally { await alias.close(); }
     }
-    return false;
+    return null;
   } finally { await retained.close(); }
+}
+
+async function removeVerifiedPrivateAlias({ evidence, path, aliasPath }) {
+  const verified = await findVerifiedPrivateAlias({ evidence, path });
+  if (verified !== aliasPath) return false;
+  const ledger = resolve(path, '..');
+  // Preserve the claimed target before making the stale writer alias disappear.
+  await syncDirectory(ledger);
+  try {
+    await rm(aliasPath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  await syncDirectory(evidence);
+  await syncDirectory(ledger);
+  return true;
 }
 
 async function readImmutableClaimBytes({ evidence, path }) {
   for (let attempt = 0; attempt <= MAXIMUM_TRANSIENT_ALIAS_RETRIES; attempt += 1) {
     try { return await readBytes(path); } catch (error) {
-      if (error?.message !== 'B3 issued-command file policy is invalid' ||
-          attempt === MAXIMUM_TRANSIENT_ALIAS_RETRIES) {
-        throw error;
-      }
-      if (!await hasTransientPrivateAlias({ evidence, path })) {
+      if (error?.message !== 'B3 issued-command file policy is invalid') throw error;
+      const aliasPath = await findVerifiedPrivateAlias({ evidence, path });
+      if (aliasPath === null) {
         // The installing writer can unlink its alias between the strict read and
         // alias proof. Accept only a subsequent fully strict single-link read.
+        return readBytes(path);
+      }
+      if (attempt === MAXIMUM_TRANSIENT_ALIAS_RETRIES) {
+        await removeVerifiedPrivateAlias({ evidence, path, aliasPath });
         return readBytes(path);
       }
       await delay(1);
@@ -272,25 +291,32 @@ function paths(ledger, commandSha256) {
   };
 }
 
-async function readOptional(path) {
-  try { return await readBytes(path); } catch (error) {
+async function readOptional({ evidence, path }) {
+  try { return await readImmutableClaimBytes({ evidence, path }); } catch (error) {
     if (error?.code === 'ENOENT') return null;
     throw error;
   }
 }
 
-async function deriveCommand({ ledger, platform, commandSha256 }) {
+async function deriveCommand({ evidence, ledger, platform, commandSha256 }) {
   const commandPaths = paths(ledger, commandSha256);
-  let current = validateRecord(await readBytes(commandPaths.base), platform, 'prepared');
+  let current = validateRecord(
+    await readImmutableClaimBytes({ evidence, path: commandPaths.base }),
+    platform,
+    'prepared',
+  );
   if (current.commandSha256 !== commandSha256) {
     throw issuedError('B3 issued-command base filename authority differs');
   }
-  const consumedBytes = await readOptional(commandPaths.consumed);
+  const consumedBytes = await readOptional({ evidence, path: commandPaths.consumed });
   const visited = new Set();
   while (true) {
     if (visited.has(current.state)) throw issuedError('B3 issued-command ledger contains a cycle');
     visited.add(current.state);
-    const claimBytes = await readOptional(commandPaths.successor(current.state));
+    const claimBytes = await readOptional({
+      evidence,
+      path: commandPaths.successor(current.state),
+    });
     if (!claimBytes) {
       if (!consumedBytes) return current;
       const consumed = validateTombstone(consumedBytes, platform, commandSha256);
@@ -301,7 +327,10 @@ async function deriveCommand({ ledger, platform, commandSha256 }) {
     }
     const successor = validateClaim(claimBytes, platform, current);
     const next = validateRecord(
-      await readBytes(commandPaths.state(successor.nextState)),
+      await readImmutableClaimBytes({
+        evidence,
+        path: commandPaths.state(successor.nextState),
+      }),
       platform,
       successor.nextState,
     );
@@ -331,20 +360,36 @@ async function ledgerEntries(ledger) {
   return { entries, bases, nextCommands };
 }
 
-async function claimImmutable({ evidence, ledger, path, bytes }) {
+async function claimImmutable({
+  evidence,
+  ledger,
+  path,
+  bytes,
+  beforeTargetSync = async () => {},
+}) {
   const temporary = resolve(evidence, `.issued-${randomUUID()}.tmp`);
   const handle = await open(temporary, 'wx', 0o600);
   try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
   let claimed = false;
   let retained = bytes;
+  let removeTemporary = true;
   try {
     await link(temporary, path);
     claimed = true;
+    removeTemporary = false;
+    // Make the immutable target durable before removing the only writer alias.
+    // A death before this fsync leaves the exact alias for restart reconciliation.
+    await beforeTargetSync();
+    await syncDirectory(ledger);
+    removeTemporary = true;
   } catch (error) {
     if (error?.code !== 'EEXIST') throw error;
     retained = await readImmutableClaimBytes({ evidence, path });
   } finally {
-    await rm(temporary, { force: true });
+    if (removeTemporary) {
+      await rm(temporary, { force: true });
+      await syncDirectory(evidence);
+    }
   }
   await syncDirectory(ledger);
   return Object.freeze({ claimed, bytes: retained });
@@ -407,6 +452,7 @@ async function inspectCommandChain({ evidence, ledger, platform }) {
       bytes: allocationBytes,
     });
     const current = await deriveCommand({
+      evidence,
       ledger,
       platform,
       commandSha256: allocation.commandSha256,
@@ -481,7 +527,15 @@ export async function readB3IssuedCommand({ root, platform }) {
   return active[0];
 }
 
-export async function persistB3IssuedCommand({ root, platform, command: rawCommand }) {
+export async function persistB3IssuedCommand({
+  root,
+  platform,
+  command: rawCommand,
+  beforeAllocationSync = async () => {},
+}) {
+  if (typeof beforeAllocationSync !== 'function') {
+    throw issuedError('B3 issued-command allocation sync hook is invalid');
+  }
   const command = validateB3ProofLaunchCommand(rawCommand);
   if (command.platform !== PLATFORM[platform]) throw issuedError('B3 issued-command platform differs');
   const { evidence, ledger } = await directories(root, platform);
@@ -497,7 +551,7 @@ export async function persistB3IssuedCommand({ root, platform, command: rawComma
     throw issuedError('B3 issued-command allocation chain exceeds its bound');
   }
   const commandPaths = paths(ledger, value.commandSha256);
-  if (await readOptional(commandPaths.consumed)) {
+  if (await readOptional({ evidence, path: commandPaths.consumed })) {
     throw issuedError('B3 consumed issued command cannot be reused');
   }
   const bytes = Buffer.from(canonicaliseB3ProofValue(value), 'utf8');
@@ -509,6 +563,7 @@ export async function persistB3IssuedCommand({ root, platform, command: rawComma
     ledger,
     path: allocationPath,
     bytes,
+    beforeTargetSync: beforeAllocationSync,
   });
   const winner = validateRecord(allocation.bytes, platform, 'prepared');
   await ensureAllocatedBase({
@@ -544,7 +599,10 @@ export async function transitionB3IssuedCommand({
   if (current.state !== expectedState) {
     const expected = record(platform, command, expectedState);
     const retainedClaim = validateClaim(
-      await readBytes(commandPaths.successor(expectedState)),
+      await readImmutableClaimBytes({
+        evidence,
+        path: commandPaths.successor(expectedState),
+      }),
       platform,
       expected,
     );
@@ -557,7 +615,10 @@ export async function transitionB3IssuedCommand({
   const nextBytes = Buffer.from(canonicaliseB3ProofValue(next), 'utf8');
   if (existingRevisionOnly) {
     const retainedClaim = validateClaim(
-      await readBytes(commandPaths.successor(expectedState)),
+      await readImmutableClaimBytes({
+        evidence,
+        path: commandPaths.successor(expectedState),
+      }),
       platform,
       current,
     );

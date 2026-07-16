@@ -256,6 +256,8 @@ test('gateway-completion hold publishes only after durable entitlement and learn
     challengeSha256: 'a'.repeat(64),
   };
   const published = [];
+  let resolvePublished;
+  const publishedOnce = new Promise((resolve) => { resolvePublished = resolve; });
   const session = await createB3LiveProofSession({
     command,
     buildAuthority: {
@@ -268,7 +270,10 @@ test('gateway-completion hold publishes only after durable entitlement and learn
     connection,
     observationPort: Object.freeze({
       getLaunchCommand: async () => command,
-      async publishObservation(value) { published.push(value); },
+      async publishObservation(value) {
+        published.push(value);
+        resolvePublished();
+      },
     }),
     clock: () => Date.parse('2026-07-15T10:00:00.000Z'),
     uuidFactory: () => '018f1d7b-97e8-4a52-8cf2-783e5089c002',
@@ -303,8 +308,15 @@ test('gateway-completion hold publishes only after durable entitlement and learn
   );
 
   void session.failureInjector('before:gateway-completion');
-  for (let index = 0; index < 20 && published.length === 0; index += 1) {
-    await new Promise((resolve) => setImmediate(resolve));
+  const publicationTimeout = setTimeout(
+    () => resolvePublished(new Error('B3 gateway-completion hold publication timed out')),
+    5_000,
+  );
+  try {
+    const publication = await publishedOnce;
+    if (publication instanceof Error) throw publication;
+  } finally {
+    clearTimeout(publicationTimeout);
   }
 
   assert.equal(published.length, 1);

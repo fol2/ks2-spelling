@@ -106,6 +106,7 @@ export function createB3SterileCloudflareEnvironment(parentEnv, { accountId }) {
     CI: '1',
     NO_COLOR: '1',
     CLOUDFLARE_ACCOUNT_ID: ACCOUNT_ID,
+    CLOUDFLARE_AUTH_USE_KEYRING: 'false',
     CLOUDFLARE_SEND_METRICS: 'false',
     CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false',
     CLOUDFLARE_INCLUDE_PROCESS_ENV: 'false',

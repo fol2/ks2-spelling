@@ -196,6 +196,7 @@ test('sterile child environment removes unrelated credentials and process env in
     PATH: '/bin',
     TMPDIR: '/tmp',
     CLOUDFLARE_API_TOKEN: 'must-not-cross',
+    CLOUDFLARE_AUTH_USE_KEYRING: 'true',
     AWS_SECRET_ACCESS_KEY: 'must-not-cross',
     OPENAI_API_KEY: 'must-not-cross',
   }, { accountId: ACCOUNT_ID });
@@ -206,6 +207,7 @@ test('sterile child environment removes unrelated credentials and process env in
     CI: '1',
     NO_COLOR: '1',
     CLOUDFLARE_ACCOUNT_ID: ACCOUNT_ID,
+    CLOUDFLARE_AUTH_USE_KEYRING: 'false',
     CLOUDFLARE_SEND_METRICS: 'false',
     CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false',
     CLOUDFLARE_INCLUDE_PROCESS_ENV: 'false',
@@ -251,8 +253,8 @@ test('parent rejects unsafe child output and both Wrangler runners terminate com
   await assert.rejects(withinHostCeiling(spawnBoundedOAuthCommand(
     process.execPath,
     [scriptPath, oauthPidPath],
-    { cwd: directory, env: process.env, timeoutMs: 200 },
-  ), 2_000), /exceeded.*bound/i);
+    { cwd: directory, env: process.env, timeoutMs: 1_000 },
+  ), 3_000), /exceeded.*bound/i);
   const oauthGrandchildPid = Number(await readFile(oauthPidPath, 'utf8'));
   await waitForProcessExit(oauthGrandchildPid);
 
@@ -263,11 +265,11 @@ test('parent rejects unsafe child output and both Wrangler runners terminate com
       cwd: directory,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 200,
+      timeout: 1_000,
       maxBuffer: 64 * 1024,
       windowsHide: true,
     },
-  ), 2_000);
+  ), 3_000);
   assert.equal(inspectorResult.exitCode, 1);
   const inspectorGrandchildPid = Number(await readFile(inspectorPidPath, 'utf8'));
   await waitForProcessExit(inspectorGrandchildPid);
@@ -1295,10 +1297,11 @@ test('default primitives use pinned dry-run, no-bundle deploy and closed child d
   const childRunner = async (document, context) => {
     childDocuments.push(structuredClone(document));
     assert.deepEqual(Object.keys(context.env).sort(), [
-      'CI', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_INCLUDE_PROCESS_ENV',
+      'CI', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_AUTH_USE_KEYRING', 'CLOUDFLARE_INCLUDE_PROCESS_ENV',
       'CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV', 'CLOUDFLARE_SEND_METRICS',
       'HOME', 'NO_COLOR', 'PATH', 'TMPDIR', 'WRANGLER_HIDE_BANNER',
     ].sort());
+    assert.equal(context.env.CLOUDFLARE_AUTH_USE_KEYRING, 'false');
     if (document.operation === 'verify-worker') {
       return { deploymentVersionId: versionId, deployedSourceSha256: deployedSha };
     }

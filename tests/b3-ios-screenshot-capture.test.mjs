@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { link, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -12,6 +12,36 @@ import {
 import { createB3TestPng } from './helpers/b3-test-png.mjs';
 
 const DEVICE_ID = '00008140-001234560123001C';
+
+function attachmentManifest(overrides = {}) {
+  return [{
+    testIdentifier: 'B3ProofUITests/B3ProofScreenshotTests/testCaptureInstalledApplication()',
+    attachments: [{
+      exportedFileName: 'attachment.png',
+      suggestedHumanReadableName: 'b3-ios-sandbox-proof.png',
+      isAssociatedWithFailure: false,
+      configurationName: 'Test Action',
+      deviceName: 'iPhone',
+      deviceId: DEVICE_ID,
+      ...overrides,
+    }],
+  }];
+}
+
+function attachmentExportRunner(png, exportManifest) {
+  return async (_executable, args) => {
+    if (args.includes('-resultBundlePath')) {
+      await mkdir(args[args.indexOf('-resultBundlePath') + 1], { recursive: true });
+    }
+    if (args.slice(0, 3).join(' ') === 'xcresulttool export attachments') {
+      const output = args[args.indexOf('--output-path') + 1];
+      await mkdir(output, { recursive: true });
+      await writeFile(join(output, 'attachment.png'), png);
+      await exportManifest(output);
+    }
+    return { exitCode: 0, stdout: '', stderr: '' };
+  };
+}
 
 async function processStopsWithin(pid, attempts = 50) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -180,5 +210,75 @@ test('iOS screenshot capture fails closed before xcodebuild for invalid device I
       runner: async () => assert.fail('runner must not execute'),
     }),
     /device identifier/i,
+  );
+});
+
+test('iOS screenshot capture rejects a symbolic-link attachment manifest', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-screenshot-manifest-link-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const outsideManifest = join(root, 'operator-manifest.json');
+  const png = createB3TestPng({ width: 1179, height: 2556 });
+  await writeFile(outsideManifest, JSON.stringify(attachmentManifest()));
+  const runner = attachmentExportRunner(png, (output) =>
+    symlink(outsideManifest, join(output, 'manifest.json')));
+
+  await assert.rejects(
+    captureB3IosScreenshotBytes({ root, deviceId: DEVICE_ID, runner }),
+    /manifest|link|path|regular/i,
+  );
+});
+
+test('iOS screenshot capture rejects a hard-linked attachment manifest', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-screenshot-manifest-hard-link-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const outsideManifest = join(root, 'operator-manifest.json');
+  const png = createB3TestPng({ width: 1179, height: 2556 });
+  await writeFile(outsideManifest, JSON.stringify(attachmentManifest()));
+  const runner = attachmentExportRunner(png, (output) =>
+    link(outsideManifest, join(output, 'manifest.json')));
+
+  await assert.rejects(
+    captureB3IosScreenshotBytes({ root, deviceId: DEVICE_ID, runner }),
+    /manifest|link|path|regular/i,
+  );
+});
+
+test('iOS screenshot capture rejects an oversized attachment manifest before parsing it', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-screenshot-manifest-oversized-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const png = createB3TestPng({ width: 1179, height: 2556 });
+  const runner = attachmentExportRunner(png, (output) =>
+    writeFile(join(output, 'manifest.json'), JSON.stringify(attachmentManifest({
+      arguments: 'a'.repeat(256 * 1024),
+    }))));
+
+  await assert.rejects(
+    captureB3IosScreenshotBytes({ root, deviceId: DEVICE_ID, runner }),
+    /manifest.*bound|bound.*manifest|manifest.*size/i,
+  );
+});
+
+test('iOS screenshot capture rejects an attachment export directory outside its private capture root', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-screenshot-export-link-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const outside = join(root, 'operator-attachments');
+  const png = createB3TestPng({ width: 1179, height: 2556 });
+  await mkdir(outside);
+  await writeFile(join(outside, 'attachment.png'), png);
+  await writeFile(join(outside, 'manifest.json'), JSON.stringify(attachmentManifest()));
+
+  const runner = async (_executable, args) => {
+    if (args.includes('-resultBundlePath')) {
+      await mkdir(args[args.indexOf('-resultBundlePath') + 1], { recursive: true });
+    }
+    if (args.slice(0, 3).join(' ') === 'xcresulttool export attachments') {
+      await symlink(outside, args[args.indexOf('--output-path') + 1]);
+    }
+    return { exitCode: 0, stdout: '', stderr: '' };
+  };
+
+  await assert.rejects(
+    captureB3IosScreenshotBytes({ root, deviceId: DEVICE_ID, runner }),
+    /attachment.*directory|directory.*attachment|contain|escape|link/i,
   );
 });

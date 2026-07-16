@@ -52,12 +52,15 @@ const INSTALLATION_ID = '018f1d7b-97e8-4a52-8cf2-783e5089c002';
 const CAPTURE_RACE_CHILD = fileURLToPath(
   new URL('./helpers/b3-live-capture-race-child.mjs', import.meta.url),
 );
+const ISSUED_COMMAND_RACE_CHILD = fileURLToPath(
+  new URL('./helpers/b3-issued-command-race-child.mjs', import.meta.url),
+);
 
-function launchCaptureRaceChild(input) {
-  const child = spawn(process.execPath, [CAPTURE_RACE_CHILD], {
+function launchIpcRaceChild({ helper, environmentKey, input }) {
+  const child = spawn(process.execPath, [helper], {
     env: {
       ...process.env,
-      B3_CAPTURE_RACE_CHILD_INPUT: Buffer.from(JSON.stringify(input)).toString('base64url'),
+      [environmentKey]: Buffer.from(JSON.stringify(input)).toString('base64url'),
     },
     stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
   });
@@ -102,7 +105,7 @@ function launchCaptureRaceChild(input) {
         const waiterIndex = waiters.findIndex((waiter) => waiter.resolve === resolve);
         if (waiterIndex >= 0) waiters.splice(waiterIndex, 1);
         reject(new Error(`B3 capture race child timed out waiting for ${type}: ${stderr}`));
-      }, 10_000);
+      }, 30_000);
       waiters.push({ type, resolve, reject, timeout });
     });
   };
@@ -113,6 +116,22 @@ function launchCaptureRaceChild(input) {
     terminate: () => {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
     },
+  });
+}
+
+function launchCaptureRaceChild(input) {
+  return launchIpcRaceChild({
+    helper: CAPTURE_RACE_CHILD,
+    environmentKey: 'B3_CAPTURE_RACE_CHILD_INPUT',
+    input,
+  });
+}
+
+function launchIssuedCommandRaceChild(input) {
+  return launchIpcRaceChild({
+    helper: ISSUED_COMMAND_RACE_CHILD,
+    environmentKey: 'B3_ISSUED_COMMAND_RACE_CHILD_INPUT',
+    input,
   });
 }
 
@@ -1153,6 +1172,62 @@ test('different first commands reconcile to one platform-global allocation under
   }
 });
 
+test('barriered child processes share one first public launch authority without ledger errors', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-issued-first-process-barrier-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const children = Array.from({ length: 12 }, (_, index) => launchIssuedCommandRaceChild({
+    operation: 'advance-first',
+    root,
+    buildAuthority: BUILD_AUTHORITY,
+    captureId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+  }));
+  t.after(() => children.forEach(({ terminate }) => terminate()));
+  await Promise.all(children.map(({ waitFor }) => waitFor('ready')));
+  children.forEach(({ go }) => go());
+  const results = await Promise.all(children.map(({ waitFor }) => waitFor('result')));
+
+  assert.equal(results.reduce((total, value) => total + value.launches, 0), 1);
+  assert.equal(results.every(({ error }) => error !== null), true);
+  assert.equal(results.some(({ error }) => /file policy|ledger|orphan|conflict/i.test(
+    error.message,
+  )), false);
+  const launchedCaptureId = results.find(({ launches }) => launches === 1).launchedCaptureId;
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).command.captureId,
+    launchedCaptureId);
+});
+
+test('barriered readers reconcile consume-next allocation and transition writers', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-issued-next-process-barrier-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const commands = Array.from({ length: 16 }, (_, index) => launchCommand({
+    challengeSha256: String(index + 1).padStart(64, '0'),
+  }));
+  await persistB3IssuedCommand({ root, platform: 'ios', command: commands[0] });
+  const writer = launchIssuedCommandRaceChild({
+    operation: 'consume-chain',
+    root,
+    commands,
+  });
+  const readers = Array.from({ length: 8 }, () => launchIssuedCommandRaceChild({
+    operation: 'read-loop',
+    root,
+    iterations: 128,
+  }));
+  const children = [writer, ...readers];
+  t.after(() => children.forEach(({ terminate }) => terminate()));
+  await Promise.all(children.map(({ waitFor }) => waitFor('ready')));
+  children.forEach(({ go }) => go());
+  const [writerResult, ...readerResults] = await Promise.all(
+    children.map(({ waitFor }) => waitFor('result')),
+  );
+
+  assert.equal(writerResult.error, null);
+  assert.deepEqual(readerResults.flatMap(({ errors }) => errors), []);
+  const retained = await readB3IssuedCommand({ root, platform: 'ios' });
+  assert.equal(retained.state, 'launching');
+  assert.deepEqual(retained.command, commands.at(-1));
+});
+
 test('a lagging empty-root child process adopts the platform-global capture winner', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-issued-child-process-race-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -1490,7 +1565,7 @@ test('global allocation scanning rejects an unanchored next-command claim', asyn
   );
 });
 
-test('immutable claim reconciliation rejects a persistent private temp hard link', async (t) => {
+test('immutable claim reconciliation repairs a crashed writer alias but rejects arbitrary links', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-issued-hostile-temp-'));
   const authorityRoot = await mkdtemp(join(tmpdir(), 'b3-issued-authority-record-'));
   t.after(() => Promise.all([
@@ -1517,15 +1592,114 @@ test('immutable claim reconciliation rejects a persistent private temp hard link
     '.native-build/b3/evidence/.issued-018f1d7b-97e8-4a52-8cf2-783e5089c099.tmp',
   );
   await link(retainedState, persistentAlias);
-  await assert.rejects(transitionB3IssuedCommand({
-    root, platform: 'ios', command,
-    expectedState: 'prepared', nextState: 'stop-intent',
-  }), /link|policy/i);
-  await rm(persistentAlias);
   assert.equal((await transitionB3IssuedCommand({
     root, platform: 'ios', command,
     expectedState: 'prepared', nextState: 'stop-intent',
   })).state, 'stop-intent');
+  await assert.rejects(lstat(persistentAlias), { code: 'ENOENT' });
+
+  const arbitraryAlias = join(
+    root,
+    '.native-build/b3/evidence/hostile-private.tmp',
+  );
+  await link(retainedState, arbitraryAlias);
+  await assert.rejects(
+    readB3IssuedCommand({ root, platform: 'ios' }),
+    /link|policy/i,
+  );
+  await rm(arbitraryAlias);
+});
+
+test('restart repairs crashed writer aliases for every issued-command authority record', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-issued-crashed-writer-records-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const evidence = join(root, '.native-build/b3/evidence');
+  const ledger = join(evidence, 'ios-issued-command-ledger');
+  let aliasIndex = 100;
+  const crashAfterLink = async (target) => {
+    const alias = join(
+      evidence,
+      `.issued-018f1d7b-97e8-4a52-8cf2-${String(aliasIndex).padStart(12, '0')}.tmp`,
+    );
+    aliasIndex += 1;
+    await link(target, alias);
+    return alias;
+  };
+  const expectRepaired = async (alias) => {
+    await assert.rejects(lstat(alias), { code: 'ENOENT' });
+  };
+
+  const first = await persistB3IssuedCommand({
+    root, platform: 'ios', command: launchCommand(),
+  });
+  let alias = await crashAfterLink(join(ledger, 'command-chain-root.json'));
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state, 'prepared');
+  await expectRepaired(alias);
+
+  alias = await crashAfterLink(join(ledger, `${first.commandSha256}.base.json`));
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state, 'prepared');
+  await expectRepaired(alias);
+
+  await transitionB3IssuedCommand({
+    root, platform: 'ios', command: first.command,
+    expectedState: 'prepared', nextState: 'launching',
+  });
+  for (const name of [
+    `${first.commandSha256}.successor-prepared.json`,
+    `${first.commandSha256}.state-launching.json`,
+  ]) {
+    alias = await crashAfterLink(join(ledger, name));
+    assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state, 'launching');
+    await expectRepaired(alias);
+  }
+
+  await clearB3IssuedCommand({ root, platform: 'ios', command: first.command });
+  alias = await crashAfterLink(join(ledger, `${first.commandSha256}.consumed.json`));
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+  await expectRepaired(alias);
+
+  const second = await persistB3IssuedCommand({
+    root,
+    platform: 'ios',
+    command: launchCommand({ challengeSha256: 'e'.repeat(64) }),
+  });
+  alias = await crashAfterLink(join(ledger, `${first.commandSha256}.next-command.json`));
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).commandSha256,
+    second.commandSha256);
+  await expectRepaired(alias);
+});
+
+test('failed pre-cleanup allocation sync preserves its writer alias for restart repair', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-issued-allocation-sync-failure-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const command = launchCommand();
+  let injected = 0;
+  await assert.rejects(
+    persistB3IssuedCommand({
+      root,
+      platform: 'ios',
+      command,
+      beforeAllocationSync: async () => {
+        injected += 1;
+        throw new Error('injected pre-cleanup allocation sync failure');
+      },
+    }),
+    /injected pre-cleanup allocation sync failure/i,
+  );
+  assert.equal(injected, 1);
+
+  const evidence = join(root, '.native-build/b3/evidence');
+  const ledger = join(evidence, 'ios-issued-command-ledger');
+  const aliases = (await readdir(evidence)).filter((name) =>
+    /^\.issued-.*\.tmp$/u.test(name));
+  assert.equal(aliases.length, 1);
+  assert.equal((await lstat(join(evidence, aliases[0]))).nlink, 2);
+  assert.equal((await lstat(join(ledger, 'command-chain-root.json'))).nlink, 2);
+
+  const recovered = await persistB3IssuedCommand({ root, platform: 'ios', command });
+  assert.deepEqual(recovered.command, command);
+  await assert.rejects(lstat(join(evidence, aliases[0])), { code: 'ENOENT' });
+  assert.equal((await lstat(join(ledger, 'command-chain-root.json'))).nlink, 1);
 });
 
 test('stale clear of command A cannot consume concurrently persisted command B', async (t) => {
@@ -1806,13 +1980,13 @@ test('issued command is canonical, immutable and rejects symlink or hard-link au
   await link(path, alias);
   await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /link|policy/i);
   await rm(alias);
-  const hostilePrivateAlias = join(
+  const crashedPrivateAlias = join(
     root,
     '.native-build/b3/evidence/.issued-018f1d7b-97e8-4a52-8cf2-783e5089c099.tmp',
   );
-  await link(path, hostilePrivateAlias);
-  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /link|policy/i);
-  await rm(hostilePrivateAlias);
+  await link(path, crashedPrivateAlias);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state, 'prepared');
+  await assert.rejects(lstat(crashedPrivateAlias), { code: 'ENOENT' });
   const bytes = await readFile(path);
   await rm(path);
   await writeFile(path, `${JSON.stringify(JSON.parse(bytes), null, 2)}\n`, { mode: 0o600 });

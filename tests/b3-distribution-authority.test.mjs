@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, link, mkdir, mkdtemp, readFile, rename, rm, symlink, truncate, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -23,6 +23,45 @@ import { buildDeterministicZip, buildHostileZip } from './helpers/hostile-zip-bu
 
 const COMMIT = 'b'.repeat(40);
 const HASH = 'a'.repeat(64);
+
+function androidBuildConfigOutput() {
+  return [
+    "Class descriptor  : 'Luk/eugnel/ks2spelling/BuildConfig;'",
+    "name          : 'APPLICATION_ID'", 'value         : "uk.eugnel.ks2spelling"',
+    "name          : 'B3_MODE'", 'value         : "B3SandboxProof"',
+    "name          : 'B3_PROOF_KIND'", 'value         : "physical-live"',
+    "name          : 'B3_PLATFORM'", 'value         : "android"',
+    "name          : 'B3_DISTRIBUTION'", 'value         : "play-internal"',
+    "name          : 'B3_PUBLIC_SANDBOX_ORIGIN'", 'value         : "https://b3-gateway.eugnel.uk"',
+    "name          : 'B3_WORKER_NAME'", 'value         : "ks2-spelling-b3-sandbox"',
+    "name          : 'B3_APPLICATION_FINGERPRINT'", `value         : "${HASH}"`,
+    "name          : 'B3_TESTED_APPLICATION_COMMIT'", `value         : "${COMMIT}"`,
+    "name          : 'FLAVOR'", 'value         : "b3SandboxProof"',
+    "name          : 'VERSION_CODE'", 'value         : 19',
+    "name          : 'VERSION_NAME'", 'value         : "0.3.0-b3"',
+  ].join('\n');
+}
+
+function androidDeviceRunner(materialisePull) {
+  const apk = buildDeterministicZip([{ name: 'classes.dex', data: 'fake-dex' }]);
+  return async (command, args) => {
+    if (command.endsWith('/adb')) {
+      if (args.includes('getprop')) return { exitCode: 0, stdout: '', stderr: '' };
+      if (args.includes('pm')) return { exitCode: 0, stdout: 'package:/data/app/proof/base.apk\n', stderr: '' };
+      if (args.includes('dumpsys')) {
+        return { exitCode: 0, stdout: '  versionName=0.3.0-b3\n  versionCode=19 minSdk=23\n  installerPackageName=com.android.vending\n', stderr: '' };
+      }
+      if (args.includes('pull')) {
+        await materialisePull(args.at(-1), apk);
+        return { exitCode: 0, stdout: '', stderr: '' };
+      }
+    }
+    if (command.endsWith('/apksigner')) {
+      return { exitCode: 0, stdout: `Signer #1 certificate SHA-256 digest: ${'c'.repeat(64)}\n`, stderr: '' };
+    }
+    return { exitCode: 0, stdout: androidBuildConfigOutput(), stderr: '' };
+  };
+}
 
 test('distribution preparation binds clean HEAD and fingerprint into authority and xcconfig only', async () => {
   const authority = buildB3DistributionAuthority({ commit: COMMIT, fingerprint: HASH, iosBuildNumber: '19', androidVersionCode: 19 });
@@ -166,7 +205,10 @@ test('default Android artefact inspector safely extracts AAB DEX through pinned 
   const operator = await mkdtemp(join(tmpdir(), 'b3-inspector-operator-'));
   t.after(() => Promise.all([rm(root, { recursive: true, force: true }), rm(operator, { recursive: true, force: true })]));
   const aab = join(operator, 'proof.aab');
-  await writeFile(aab, buildDeterministicZip([{ name: 'base/dex/classes.dex', data: 'fake-dex' }]), { mode: 0o600 });
+  await writeFile(aab, buildDeterministicZip([
+    { name: 'base/dex/classes.dex', data: 'fake-dex' },
+    { name: 'base/assets/legitimate-pack.bin', data: Buffer.alloc(2 * 1024 * 1024, 7) },
+  ]), { mode: 0o600 });
   const buildConfig = [
     "Class descriptor  : 'Luk/eugnel/ks2spelling/BuildConfig;'",
     "name          : 'APPLICATION_ID'", 'value         : "uk.eugnel.ks2spelling"',
@@ -272,4 +314,195 @@ test('default iOS device inspector derives sandbox receipt proof outside app JSO
   assert.ok(commands.some((args) => args.includes('asn1parse')));
   assert.equal(Object.hasOwn(result, 'developmentIdentityVerified'), false);
   assert.equal(Object.hasOwn(result, 'sandboxReceiptVerified'), false);
+});
+
+test('default iOS device inspector rejects a hard-linked copied authority', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-hard-link-root-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const authority = {
+    mode: 'B3SandboxProof', proofKind: 'physical-live', platform: 'ios', distribution: 'development',
+    publicSandboxOrigin: 'https://b3-gateway.eugnel.uk', workerName: 'ks2-spelling-b3-sandbox',
+    testedApplicationCommit: COMMIT, applicationFingerprint: HASH,
+    versionName: '0.3.0-b3', buildNumber: '19', bundleId: 'uk.eugnel.ks2spelling',
+  };
+  const inspectors = createDefaultB3DistributionInspectors({
+    root,
+    env: { B3_IOS_PHYSICAL_DEVICE_ID: 'physical-ios-device' },
+    commandRunner: async (_command, args) => {
+      const jsonIndex = args.indexOf('--json-output');
+      const destinationIndex = args.indexOf('--destination');
+      const sourceIndex = args.indexOf('--source');
+      if (args.includes('info') && args.includes('apps')) {
+        await writeFile(args[jsonIndex + 1], JSON.stringify({ result: { apps: [{ bundleIdentifier: 'uk.eugnel.ks2spelling', version: '0.3.0-b3', buildVersion: '19' }] } }));
+      } else if (sourceIndex !== -1 && args[sourceIndex + 1].endsWith('b3-build-authority.json')) {
+        const destination = args[destinationIndex + 1];
+        await writeFile(destination, JSON.stringify(authority));
+        await link(destination, `${destination}.hostile-alias`);
+      } else if (sourceIndex !== -1 && args[sourceIndex + 1].endsWith('b3-sandbox-receipt')) {
+        await writeFile(args[destinationIndex + 1], Buffer.alloc(128, 7));
+      }
+      return { exitCode: 0, stdout: '', stderr: '' };
+    },
+  });
+
+  await assert.rejects(
+    inspectors.deviceInspector({ platform: 'ios' }),
+    /file copy|hard-link|file policy|unsafe/i,
+  );
+});
+
+test('default iOS device inspector rejects linked, oversized and swapped copied receipts', async (t) => {
+  const authority = {
+    mode: 'B3SandboxProof', proofKind: 'physical-live', platform: 'ios', distribution: 'development',
+    publicSandboxOrigin: 'https://b3-gateway.eugnel.uk', workerName: 'ks2-spelling-b3-sandbox',
+    testedApplicationCommit: COMMIT, applicationFingerprint: HASH,
+    versionName: '0.3.0-b3', buildNumber: '19', bundleId: 'uk.eugnel.ks2spelling',
+  };
+  const makeRunner = (materialiseReceipt) => async (_command, args) => {
+    const jsonIndex = args.indexOf('--json-output');
+    const destinationIndex = args.indexOf('--destination');
+    const sourceIndex = args.indexOf('--source');
+    if (args.includes('info') && args.includes('apps')) {
+      await writeFile(args[jsonIndex + 1], JSON.stringify({ result: { apps: [{ bundleIdentifier: 'uk.eugnel.ks2spelling', version: '0.3.0-b3', buildVersion: '19' }] } }));
+    } else if (sourceIndex !== -1 && args[sourceIndex + 1].endsWith('b3-build-authority.json')) {
+      await writeFile(args[destinationIndex + 1], JSON.stringify(authority));
+    } else if (sourceIndex !== -1 && args[sourceIndex + 1].endsWith('b3-sandbox-receipt')) {
+      await materialiseReceipt(args[destinationIndex + 1]);
+    }
+    return { exitCode: 0, stdout: '', stderr: '' };
+  };
+
+  for (const [name, materialiseReceipt] of [
+    ['symbolic-link', async (destination) => {
+      const target = `${destination}.target`;
+      await writeFile(target, Buffer.alloc(128, 7));
+      await symlink(target, destination);
+    }],
+    ['oversized', async (destination) => {
+      await writeFile(destination, Buffer.from('x'));
+      await truncate(destination, (1024 * 1024) + 1);
+    }],
+  ]) {
+    await t.test(name, async (subtest) => {
+      const root = await mkdtemp(join(tmpdir(), `b3-ios-receipt-${name}-`));
+      subtest.after(() => rm(root, { recursive: true, force: true }));
+      const inspectors = createDefaultB3DistributionInspectors({
+        root,
+        env: { B3_IOS_PHYSICAL_DEVICE_ID: 'physical-ios-device' },
+        commandRunner: makeRunner(materialiseReceipt),
+      });
+      await assert.rejects(
+        inspectors.deviceInspector({ platform: 'ios' }),
+        /b3-sandbox-receipt.*file policy|file copy produced an unsafe result/i,
+      );
+    });
+  }
+
+  await t.test('pathname swap after open', async (subtest) => {
+    const root = await mkdtemp(join(tmpdir(), 'b3-ios-receipt-swap-'));
+    subtest.after(() => rm(root, { recursive: true, force: true }));
+    let swapped = false;
+    const inspectors = createDefaultB3DistributionInspectors({
+      root,
+      env: { B3_IOS_PHYSICAL_DEVICE_ID: 'physical-ios-device' },
+      commandRunner: makeRunner((destination) => writeFile(destination, Buffer.alloc(128, 7))),
+      afterExternalFileOpenHook: async ({ label, path }) => {
+        if (label !== 'physical-device b3-sandbox-receipt') return;
+        swapped = true;
+        const original = `${path}.opened-original`;
+        const replacement = `${path}.replacement`;
+        await rename(path, original);
+        await writeFile(replacement, Buffer.alloc(128, 8));
+        await symlink(replacement, path);
+      },
+    });
+    await assert.rejects(
+      inspectors.deviceInspector({ platform: 'ios' }),
+      /b3-sandbox-receipt.*changed/i,
+    );
+    assert.equal(swapped, true);
+  });
+});
+
+test('default Android device inspector rejects linked, oversized and swapped pulled APKs', async (t) => {
+  for (const [name, materialisePull] of [
+    ['symbolic-link', async (destination, apk) => {
+      const target = `${destination}.target`;
+      await writeFile(target, apk);
+      await symlink(target, destination);
+    }],
+    ['hard-link', async (destination, apk) => {
+      await writeFile(destination, apk);
+      await link(destination, `${destination}.hostile-alias`);
+    }],
+    ['oversized', async (destination) => {
+      await writeFile(destination, Buffer.from('x'));
+      await truncate(destination, (512 * 1024 * 1024) + 1);
+    }],
+  ]) {
+    await t.test(name, async (subtest) => {
+      const root = await mkdtemp(join(tmpdir(), `b3-android-${name}-`));
+      subtest.after(() => rm(root, { recursive: true, force: true }));
+      const inspectors = createDefaultB3DistributionInspectors({
+        root,
+        env: {
+          B3_ANDROID_PHYSICAL_DEVICE_ID: 'physical-android-device',
+          B3_ADB_PATH: '/test/adb',
+        },
+        commandRunner: androidDeviceRunner(materialisePull),
+      });
+      await assert.rejects(
+        inspectors.deviceInspector({ platform: 'android' }),
+        /pulled Android APK.*file policy/i,
+      );
+    });
+  }
+
+  await t.test('pathname swap after open', async (subtest) => {
+    const root = await mkdtemp(join(tmpdir(), 'b3-android-swap-'));
+    subtest.after(() => rm(root, { recursive: true, force: true }));
+    let swapped = false;
+    const inspectors = createDefaultB3DistributionInspectors({
+      root,
+      env: {
+        B3_ANDROID_PHYSICAL_DEVICE_ID: 'physical-android-device',
+        B3_ADB_PATH: '/test/adb',
+      },
+      commandRunner: androidDeviceRunner((destination, apk) => writeFile(destination, apk)),
+      afterExternalFileOpenHook: async ({ label, path }) => {
+        if (label !== 'pulled Android APK 0') return;
+        swapped = true;
+        const original = `${path}.opened-original`;
+        const replacement = `${path}.replacement`;
+        await rename(path, original);
+        await writeFile(replacement, buildDeterministicZip([{ name: 'classes.dex', data: 'replacement' }]));
+        await symlink(replacement, path);
+      },
+    });
+    await assert.rejects(
+      inspectors.deviceInspector({ platform: 'android' }),
+      /pulled Android APK.*changed/i,
+    );
+    assert.equal(swapped, true);
+  });
+});
+
+test('default Android device inspector accepts a bounded stable Play-installed APK', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-android-stable-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const inspectors = createDefaultB3DistributionInspectors({
+    root,
+    env: {
+      B3_ANDROID_PHYSICAL_DEVICE_ID: 'physical-android-device',
+      B3_ADB_PATH: '/test/adb',
+    },
+    commandRunner: androidDeviceRunner((destination, apk) => writeFile(destination, apk)),
+  });
+
+  const result = await inspectors.deviceInspector({ platform: 'android' });
+  assert.equal(result.installer, 'com.android.vending');
+  assert.deepEqual(result.installedApks.map(({ order, kind, splitName }) => ({ order, kind, splitName })), [
+    { order: 0, kind: 'base', splitName: '' },
+  ]);
+  assert.equal(result.installedSigningCertificateSha256, 'c'.repeat(64));
 });

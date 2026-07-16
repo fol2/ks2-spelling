@@ -34,7 +34,10 @@ import {
   deriveB3ScenarioTransition,
   readB3PhysicalObservationJournal,
 } from './b3-physical-observation-journal.mjs';
-import { createB3PhysicalDeviceTransport } from './b3-physical-device-transport.mjs';
+import {
+  B3_PHYSICAL_DEVICE_PROCESS_TERMINATION_GRACE_MS,
+  createB3PhysicalDeviceTransport,
+} from './b3-physical-device-transport.mjs';
 import { captureB3IosScreenshotBytes } from './b3-ios-proof-screenshot.mjs';
 import {
   captureB3PlayProtectSettingsScreenshot,
@@ -372,7 +375,17 @@ function remainingCaptureDeadline(deadlineMs, monotonicClock) {
 function boundedOperationTimeout(deadlineMs, monotonicClock, maximumMs = 30_000) {
   const remaining = remainingCaptureDeadline(deadlineMs, monotonicClock);
   if (remaining === null) return undefined;
-  return Math.max(1, Math.min(maximumMs, Math.floor(remaining)));
+  const timeoutMs = Math.min(
+    maximumMs,
+    Math.floor(remaining - B3_PHYSICAL_DEVICE_PROCESS_TERMINATION_GRACE_MS),
+  );
+  if (timeoutMs < 1) {
+    throw captureError(
+      'B3 slow-card polling exceeded ten minutes',
+      'b3_slow_card_poll_timeout',
+    );
+  }
+  return timeoutMs;
 }
 
 export async function captureB3ValidatedDeviceObservation({

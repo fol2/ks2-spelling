@@ -118,6 +118,15 @@ function validateStoredCheckpoint(value, bytes) {
   return expected;
 }
 
+export function validateB3CaptureCheckpointBytes({ bytes, platform }) {
+  if (!Buffer.isBuffer(bytes) || bytes.length === 0 || bytes.length > MAXIMUM_BYTES) {
+    throw checkpointError('B3 capture checkpoint bytes are invalid');
+  }
+  const value = parseB3StrictJsonBytes(bytes, 'B3 capture checkpoint');
+  if (value.platform !== platform) throw checkpointError('B3 capture checkpoint platform differs');
+  return validateStoredCheckpoint(value, bytes);
+}
+
 function relativeCheckpointPath(platform) {
   if (!Object.hasOwn(SCENARIOS, platform)) throw checkpointError('B3 capture platform is invalid');
   return `.native-build/b3/evidence/${platform}-capture-checkpoint.json`;
@@ -165,9 +174,7 @@ export async function readB3CaptureCheckpoint({ root, platform }) {
   } finally {
     await handle.close();
   }
-  const value = parseB3StrictJsonBytes(bytes, 'B3 capture checkpoint');
-  if (value.platform !== platform) throw checkpointError('B3 capture checkpoint platform differs');
-  return validateStoredCheckpoint(value, bytes);
+  return validateB3CaptureCheckpointBytes({ bytes, platform });
 }
 
 async function syncDirectory(directory) {

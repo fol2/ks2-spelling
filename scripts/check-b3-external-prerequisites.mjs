@@ -19,6 +19,7 @@ const CLOUDFLARE_GATES = Object.freeze([
 const SAFE_ENV_FILE_ARGS = Object.freeze(['--env-file', '/dev/null']);
 const LOWERCASE_UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const INSPECTION_FAILURE_GATES = Symbol('inspectionFailureGates');
+const MAXIMUM_OPERATOR_JSON_BYTES = 1024 * 1024;
 export const B3_RUN_AUTHORITY_PLAN_COMMIT =
   '7f681f886ee1b627d574641a4a23add9d98796d2';
 export const B3_RUN_AUTHORITY_MAX_LIFETIME_MS = 24 * 60 * 60 * 1_000;
@@ -237,8 +238,10 @@ export async function readValidatedB3OperatorFile({
   root = DEFAULT_ROOT,
   gitRunner = defaultGitRunner,
   afterPolicyHook,
+  maximumBytes = MAXIMUM_OPERATOR_JSON_BYTES,
 } = {}) {
-  if (!isIdentifier(path) || typeof constants.O_NOFOLLOW !== 'number') {
+  if (!isIdentifier(path) || typeof constants.O_NOFOLLOW !== 'number' ||
+      !Number.isSafeInteger(maximumBytes) || maximumBytes <= 0) {
     throw new Error('operator file failed secure validation');
   }
   const requestedPath = resolve(path);
@@ -248,6 +251,9 @@ export async function readValidatedB3OperatorFile({
     const initial = await handle.stat({ bigint: true });
     const initialPath = await lstat(requestedPath, { bigint: true });
     assertSecureOperatorStats(initial);
+    if (initial.size <= 0n || initial.size > BigInt(maximumBytes)) {
+      throw new Error('operator file failed secure validation');
+    }
     if (
       initialPath.isSymbolicLink() ||
       !sameFile(initial, initialPath)
@@ -258,7 +264,17 @@ export async function readValidatedB3OperatorFile({
     const canonicalPath = await validateOperatorPathPolicy({ requestedPath, root, gitRunner });
 
     await afterPolicyHook?.();
-    const bytes = await handle.readFile();
+    const bytes = Buffer.allocUnsafe(Number(initial.size));
+    let offset = 0;
+    while (offset < bytes.length) {
+      const { bytesRead } = await handle.read(bytes, offset, bytes.length - offset, offset);
+      if (bytesRead === 0) throw new Error('operator file changed during validation');
+      offset += bytesRead;
+    }
+    const trailing = Buffer.allocUnsafe(1);
+    if ((await handle.read(trailing, 0, 1, bytes.length)).bytesRead !== 0) {
+      throw new Error('operator file changed during validation');
+    }
     const [finalHandle, finalPath] = await Promise.all([
       handle.stat({ bigint: true }),
       lstat(requestedPath, { bigint: true }),

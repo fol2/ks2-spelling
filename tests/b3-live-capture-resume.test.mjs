@@ -46,6 +46,7 @@ import {
   appendB3PhysicalObservation,
   readB3PhysicalObservationJournal,
 } from '../scripts/lib/b3-physical-observation-journal.mjs';
+import { runB3PhysicalDeviceProcess } from '../scripts/lib/b3-physical-device-transport.mjs';
 import { b3IosProofExitCode } from '../scripts/prove-b3-ios.mjs';
 import { b3AndroidProofExitCode } from '../scripts/prove-b3-android.mjs';
 
@@ -176,6 +177,71 @@ test('default Android build authority retains an integer version code', () => {
   });
   assert.equal(authority.buildNumber, 19);
   assert.equal(Number.isSafeInteger(authority.buildNumber), true);
+});
+
+test('slow-card physical launch and pull settle within the absolute deadline', async (t) => {
+  const deadlineBudgetMs = 600;
+  const maximumElapsedMs = deadlineBudgetMs + 125;
+
+  for (const delayedOperation of ['launch', 'pull']) {
+    const root = await mkdtemp(join(tmpdir(), `b3-slow-card-${delayedOperation}-deadline-`));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    let completedStubbornSettlements = 0;
+    let processTimedOut = false;
+    const stubbornProcess = async (options) => {
+      const result = await runB3PhysicalDeviceProcess(process.execPath, [
+        '-e',
+        "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)",
+      ], {
+        timeoutMs: options.timeoutMs,
+        stdoutLimit: 1024,
+        stderrLimit: 1024,
+      });
+      processTimedOut = result.timedOut;
+      throw Object.assign(new Error('observation pull did not produce bytes'), {
+        code: 'b3_physical_device_command_failed',
+      });
+    };
+    const startedAt = performance.now();
+    await assert.rejects(captureB3ValidatedDeviceObservation({
+      root,
+      platform: 'ios',
+      command: launchCommand({ captureId: delayedOperation === 'launch'
+        ? '018f1d7b-97e8-4a52-8cf2-783e5089c011'
+        : '018f1d7b-97e8-4a52-8cf2-783e5089c012' }),
+      buildAuthority: BUILD_AUTHORITY,
+      transport: {
+        launch: delayedOperation === 'launch'
+          ? async (_command, options) => {
+            try {
+              await stubbornProcess(options);
+            } finally {
+              completedStubbornSettlements += 1;
+            }
+          }
+          : async () => {},
+        pullObservation: delayedOperation === 'pull'
+          ? async (options) => {
+            try {
+              await stubbornProcess(options);
+            } finally {
+              completedStubbornSettlements += 1;
+            }
+          }
+          : async () => assert.fail('pull started after the launch consumed its deadline'),
+      },
+      maximumPullAttempts: 1,
+      deadlineMs: startedAt + deadlineBudgetMs,
+      monotonicClock: () => performance.now(),
+    }));
+    assert.equal(completedStubbornSettlements, 1);
+    assert.equal(processTimedOut, true);
+    const elapsedMs = performance.now() - startedAt;
+    assert.ok(
+      elapsedMs <= maximumElapsedMs,
+      `${delayedOperation} settled after the absolute deadline (${elapsedMs}ms)`,
+    );
+  }
 });
 
 function launchCommand(overrides = {}) {
@@ -511,7 +577,7 @@ test('host capture polls past a stale fixed-path observation and retains only co
   assert.equal(observation.observationSha256, expected.observationSha256);
   assert.equal(launches, 1);
   assert.equal(waits, 1);
-  assert.deepEqual(operationTimeouts, [20_000, 20_000, 20_000]);
+  assert.deepEqual(operationTimeouts, [19_750, 19_750, 19_750]);
   const records = await import('../scripts/lib/b3-physical-observation-journal.mjs')
     .then(({ readB3PhysicalObservationJournal }) =>
       readB3PhysicalObservationJournal({ root, platform: 'ios', buildAuthority: BUILD_AUTHORITY }));
@@ -1190,6 +1256,257 @@ test('ambiguous capture restart is concurrent and crash-resumable without a seco
   });
   assert.equal(resumed.restarted, true);
   await assert.rejects(readB3IssuedCommand({ root: crashRoot, platform: 'ios' }), /ENOENT|absent/i);
+});
+
+test('capture restart removes an authentic unpublished checkpoint revision temporary', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-restart-revision-temporary-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const retained = await retainAmbiguousRestartGate({
+    root,
+    command: launchCommand({ expectedSequence: 2, previousObservationSha256: TAIL }),
+  });
+  const checkpointValue = createB3CaptureCheckpoint(checkpoint({
+    nextObservationSequence: 2,
+    state: 'ARMED',
+    previousObservationSha256: TAIL,
+  }));
+  const checkpointPath = join(
+    root, '.native-build/b3/evidence/ios-capture-checkpoint.json',
+  );
+  await writeB3CaptureCheckpoint({
+    root,
+    platform: 'ios',
+    expectedRevision: null,
+    value: checkpointValue,
+  });
+  const bytes = await readFile(checkpointPath);
+  await rm(checkpointPath);
+  await rm(`${checkpointPath}.revision-00000000.json`);
+  const temporary = `${checkpointPath}.00000000-0000-4000-8000-000000000771.revision.tmp`;
+  await writeFile(temporary, bytes, { mode: 0o600 });
+  assert.equal((await lstat(temporary)).nlink, 1);
+  await transitionB3IssuedCommand({
+    root,
+    platform: 'ios',
+    command: retained.command,
+    expectedState: 'restart-required',
+    nextState: 'restart-executing',
+  });
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'restart-executing');
+
+  const recovered = await recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: false,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  });
+
+  assert.equal(recovered.restarted, true);
+  await assert.rejects(lstat(temporary), /ENOENT/u);
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+});
+
+test('capture restart removes an authentic unpublished checkpoint current temporary', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-restart-current-temporary-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const retained = await retainAmbiguousRestartGate({
+    root,
+    command: launchCommand({ expectedSequence: 2, previousObservationSha256: TAIL }),
+  });
+  const checkpointValue = createB3CaptureCheckpoint(checkpoint({
+    nextObservationSequence: 2,
+    state: 'ARMED',
+    previousObservationSha256: TAIL,
+  }));
+  const checkpointPath = join(
+    root, '.native-build/b3/evidence/ios-capture-checkpoint.json',
+  );
+  await writeB3CaptureCheckpoint({
+    root,
+    platform: 'ios',
+    expectedRevision: null,
+    value: checkpointValue,
+  });
+  const bytes = await readFile(checkpointPath);
+  await rm(checkpointPath);
+  const temporary = `${checkpointPath}.00000000-0000-4000-8000-000000000772.current.tmp`;
+  await writeFile(temporary, bytes, { mode: 0o600 });
+  assert.equal((await lstat(temporary)).nlink, 1);
+
+  const recovered = await recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  });
+
+  assert.equal(recovered.restarted, true);
+  await assert.rejects(lstat(temporary), /ENOENT/u);
+  assert.equal(await readFile(join(
+    root,
+    '.native-build/b3/evidence/ios-abandoned-captures',
+    retained.commandSha256,
+    'checkpoint/ios-capture-checkpoint.json.revision-00000000.json',
+  ), 'utf8'), bytes.toString('utf8'));
+  await assert.rejects(readB3IssuedCommand({ root, platform: 'ios' }), /ENOENT|absent/i);
+});
+
+test('capture restart verifies and removes a published checkpoint revision alias', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-restart-revision-alias-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const retained = await retainAmbiguousRestartGate({
+    root,
+    command: launchCommand({ expectedSequence: 2, previousObservationSha256: TAIL }),
+  });
+  const checkpointValue = createB3CaptureCheckpoint(checkpoint({
+    nextObservationSequence: 2,
+    state: 'ARMED',
+    previousObservationSha256: TAIL,
+  }));
+  const checkpointPath = join(
+    root, '.native-build/b3/evidence/ios-capture-checkpoint.json',
+  );
+  await writeB3CaptureCheckpoint({
+    root,
+    platform: 'ios',
+    expectedRevision: null,
+    value: checkpointValue,
+  });
+  const revisionPath = `${checkpointPath}.revision-00000000.json`;
+  const temporary = `${checkpointPath}.00000000-0000-4000-8000-000000000773.revision.tmp`;
+  await link(revisionPath, temporary);
+  const revisionBytes = await readFile(revisionPath, 'utf8');
+  // The writer publishes the immutable revision link before it creates the
+  // current temporary, so an initial-write crash here has no current alias.
+  await rm(checkpointPath);
+  assert.equal((await lstat(revisionPath)).nlink, 2);
+  assert.equal((await lstat(temporary)).nlink, 2);
+
+  const recovered = await recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  });
+
+  assert.equal(recovered.restarted, true);
+  await assert.rejects(lstat(temporary), /ENOENT/u);
+  const archivedRevision = join(
+    root,
+    '.native-build/b3/evidence/ios-abandoned-captures',
+    retained.commandSha256,
+    'checkpoint/ios-capture-checkpoint.json.revision-00000000.json',
+  );
+  assert.equal((await lstat(archivedRevision)).nlink, 1);
+  assert.equal(await readFile(archivedRevision, 'utf8'), revisionBytes);
+});
+
+test('capture restart verifies and removes a published checkpoint current alias', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-restart-current-alias-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const retained = await retainAmbiguousRestartGate({
+    root,
+    command: launchCommand({ expectedSequence: 2, previousObservationSha256: TAIL }),
+  });
+  const checkpointValue = createB3CaptureCheckpoint(checkpoint({
+    nextObservationSequence: 2,
+    state: 'ARMED',
+    previousObservationSha256: TAIL,
+  }));
+  const checkpointPath = join(
+    root, '.native-build/b3/evidence/ios-capture-checkpoint.json',
+  );
+  await writeB3CaptureCheckpoint({
+    root,
+    platform: 'ios',
+    expectedRevision: null,
+    value: checkpointValue,
+  });
+  const temporary = `${checkpointPath}.00000000-0000-4000-8000-000000000774.current.tmp`;
+  await link(checkpointPath, temporary);
+  assert.equal((await lstat(checkpointPath)).nlink, 2);
+  assert.equal((await lstat(temporary)).nlink, 2);
+
+  const recovered = await recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  });
+
+  assert.equal(recovered.restarted, true);
+  await assert.rejects(lstat(temporary), /ENOENT/u);
+  const archivedCurrent = join(
+    root,
+    '.native-build/b3/evidence/ios-abandoned-captures',
+    retained.commandSha256,
+    'checkpoint/ios-capture-checkpoint.json',
+  );
+  assert.equal((await lstat(archivedCurrent)).nlink, 1);
+  assert.equal(await readFile(archivedCurrent, 'utf8'), await readFile(join(
+    root,
+    '.native-build/b3/evidence/ios-abandoned-captures',
+    retained.commandSha256,
+    'checkpoint/ios-capture-checkpoint.json.revision-00000000.json',
+  ), 'utf8'));
+});
+
+test('capture restart retains hostile checkpoint temporary files and external links', async (t) => {
+  const outside = await mkdtemp(join(tmpdir(), 'b3-hostile-checkpoint-temporary-target-'));
+  const roots = [];
+  t.after(() => Promise.all([...roots, outside].map((path) =>
+    rm(path, { recursive: true, force: true }))));
+
+  for (const [index, kind] of ['invalid-file', 'external-hard-link'].entries()) {
+    const root = await mkdtemp(join(tmpdir(), `b3-hostile-checkpoint-${kind}-`));
+    roots.push(root);
+    const retained = await retainAmbiguousRestartGate({
+      root,
+      command: launchCommand({ expectedSequence: 2, previousObservationSha256: TAIL }),
+    });
+    const checkpointValue = createB3CaptureCheckpoint(checkpoint({
+      nextObservationSequence: 2,
+      state: 'ARMED',
+      previousObservationSha256: TAIL,
+    }));
+    const checkpointPath = join(
+      root, '.native-build/b3/evidence/ios-capture-checkpoint.json',
+    );
+    await writeB3CaptureCheckpoint({
+      root,
+      platform: 'ios',
+      expectedRevision: null,
+      value: checkpointValue,
+    });
+    const bytes = await readFile(checkpointPath);
+    await rm(checkpointPath);
+    await rm(`${checkpointPath}.revision-00000000.json`);
+    const temporary = `${checkpointPath}.00000000-0000-4000-8000-00000000078${index}` +
+      '.revision.tmp';
+    if (kind === 'invalid-file') {
+      await writeFile(temporary, '{}', { mode: 0o600 });
+    } else {
+      const external = join(outside, `checkpoint-${index}.json`);
+      await writeFile(external, bytes, { mode: 0o600 });
+      await link(external, temporary);
+    }
+
+    await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+      root,
+      platform: 'ios',
+      enabled: true,
+      invocationCommandSha256: retained.commandSha256,
+      buildAuthority: BUILD_AUTHORITY,
+    }), /checkpoint|temporary|external|link|policy|schema/i);
+    await lstat(temporary);
+    assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+      'restart-executing');
+  }
 });
 
 test('capture restart resumes after normal journal access recreates an empty active directory', async (t) => {

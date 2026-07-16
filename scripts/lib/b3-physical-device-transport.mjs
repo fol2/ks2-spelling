@@ -27,7 +27,7 @@ const ANDROID_OBSERVATION_PATH = `/sdcard/Android/data/${BUNDLE_ID}/files/b3-pro
 const MAXIMUM_OBSERVATION_BYTES = 64 * 1024;
 const MAXIMUM_SCREENSHOT_BYTES = 64 * 1024 * 1024;
 const MAXIMUM_DEVICECTL_JSON_BYTES = 256 * 1024;
-const PROCESS_TERMINATION_GRACE_MS = 250;
+export const B3_PHYSICAL_DEVICE_PROCESS_TERMINATION_GRACE_MS = 250;
 const MAXIMUM_LAUNCH_IDENTITY_BYTES = 4 * 1024;
 const LAUNCH_IDENTITY_NAME = /^(?<sequence>(?:0[0-9]{7}|[1-9][0-9]{7,15}))-(?<commandSha256>[0-9a-f]{64})\.launch-identity\.json$/u;
 const PRIVATE_LAUNCH_IDENTITY_TEMPORARY = /^\.launch-identity-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.tmp$/u;
@@ -133,7 +133,7 @@ export function runB3PhysicalDeviceProcess(command, args, {
         killGroup('SIGKILL');
         escalationComplete = true;
         finish();
-      }, PROCESS_TERMINATION_GRACE_MS);
+      }, B3_PHYSICAL_DEVICE_PROCESS_TERMINATION_GRACE_MS);
     };
     const retain = (target, chunk, currentBytes, limit) => {
       const bytes = Buffer.from(chunk);

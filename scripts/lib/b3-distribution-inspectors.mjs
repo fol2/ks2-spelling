@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
+import { chmod, lstat, mkdir, mkdtemp, open, readdir, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -15,7 +16,11 @@ const HASH = /^[0-9a-f]{64}$/u;
 const COMMIT = /^[0-9a-f]{40}$/u;
 const MAX_ARCHIVE_ENTRIES = 20_000;
 const MAX_DEX_BYTES = 64 * 1024 * 1024;
+const MAX_SIGNED_ARCHIVE_BYTES = 512 * 1024 * 1024;
 const MAX_TOTAL_EXTRACTED_BYTES = 512 * 1024 * 1024;
+const MAX_IOS_DEVICE_RECORD_BYTES = 1024 * 1024;
+const MAX_IOS_SANDBOX_RECEIPT_BYTES = 1024 * 1024;
+const MAX_ANDROID_APK_BYTES = MAX_SIGNED_ARCHIVE_BYTES;
 
 function fail(message) {
   const error = new Error(message);
@@ -25,6 +30,81 @@ function fail(message) {
 
 function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+function sameFile(left, right) {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
+function fileSnapshot(stats) {
+  return Object.freeze({
+    dev: stats.dev,
+    ino: stats.ino,
+    uid: stats.uid,
+    gid: stats.gid,
+    mode: stats.mode,
+    nlink: stats.nlink,
+    size: stats.size,
+    mtimeNs: stats.mtimeNs,
+    ctimeNs: stats.ctimeNs,
+  });
+}
+
+function sameSnapshot(left, right) {
+  return Object.keys(left).every((key) => left[key] === right[key]);
+}
+
+async function readStableExternalFile({
+  path,
+  label,
+  maximumBytes,
+  minimumBytes = 1,
+  afterOpenHook,
+}) {
+  if (typeof fsConstants.O_NOFOLLOW !== 'number' ||
+      !Number.isSafeInteger(maximumBytes) || maximumBytes <= 0 ||
+      !Number.isSafeInteger(minimumBytes) || minimumBytes < 0 || minimumBytes > maximumBytes) {
+    fail(`${label} bounded file policy is invalid`);
+  }
+  let handle;
+  try {
+    handle = await open(path, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const initial = await handle.stat({ bigint: true });
+    const initialPath = await lstat(path, { bigint: true });
+    if (!initial.isFile() || initial.nlink !== 1n || initialPath.isSymbolicLink() ||
+        !sameFile(initial, initialPath) || initial.size < BigInt(minimumBytes) ||
+        initial.size > BigInt(maximumBytes)) {
+      fail(`${label} file policy is invalid`);
+    }
+    const snapshot = fileSnapshot(initial);
+    await afterOpenHook?.({ label, path, snapshot });
+    const bytes = Buffer.allocUnsafe(Number(initial.size));
+    let offset = 0;
+    while (offset < bytes.length) {
+      const { bytesRead } = await handle.read(bytes, offset, bytes.length - offset, offset);
+      if (bytesRead === 0) fail(`${label} changed while being read`);
+      offset += bytesRead;
+    }
+    const trailing = Buffer.allocUnsafe(1);
+    if ((await handle.read(trailing, 0, 1, bytes.length)).bytesRead !== 0) {
+      fail(`${label} changed while being read`);
+    }
+    const [finalHandle, finalPath] = await Promise.all([
+      handle.stat({ bigint: true }),
+      lstat(path, { bigint: true }),
+    ]);
+    if (!finalHandle.isFile() || finalHandle.nlink !== 1n || finalPath.isSymbolicLink() ||
+        !sameFile(initial, finalHandle) || !sameFile(initial, finalPath) ||
+        !sameSnapshot(snapshot, fileSnapshot(finalHandle))) {
+      fail(`${label} changed while being read`);
+    }
+    return bytes;
+  } catch (error) {
+    if (error?.code === 'b3_distribution_inspection_failed') throw error;
+    fail(`${label} file policy is invalid`);
+  } finally {
+    await handle?.close().catch(() => {});
+  }
 }
 
 function uint16(bytes, offset) {
@@ -66,7 +146,7 @@ function assertSafeArchiveName(name, directory) {
 }
 
 export function inspectB3SignedZip(bytes, { extract = () => false } = {}) {
-  if (!Buffer.isBuffer(bytes) || bytes.length < 22 || bytes.length > 512 * 1024 * 1024) fail('signed archive byte length is invalid');
+  if (!Buffer.isBuffer(bytes) || bytes.length < 22 || bytes.length > MAX_SIGNED_ARCHIVE_BYTES) fail('signed archive byte length is invalid');
   const end = findEocd(bytes);
   const count = uint16(bytes, end + 10);
   const centralSize = uint32(bytes, end + 12);
@@ -255,7 +335,11 @@ async function inspectIosArtifact({ bytes, copyPath, temporary, runner }) {
   ]);
   await run(runner, '/usr/bin/codesign', ['--verify', '--deep', '--strict', app]);
   await run(runner, '/usr/bin/codesign', ['-d', '--extract-certificates', resolve(temporary, 'codesign'), app], { cwd: temporary });
-  const certificate = await readFile(resolve(temporary, 'codesign0'));
+  const certificate = await readStableExternalFile({
+    path: resolve(temporary, 'codesign0'),
+    label: 'iOS signing certificate',
+    maximumBytes: MAX_IOS_DEVICE_RECORD_BYTES,
+  });
   const profile = resolve(app, 'embedded.mobileprovision');
   const profilePlist = resolve(temporary, 'profile.plist');
   await run(runner, '/usr/bin/security', ['cms', '-D', '-i', profile, '-o', profilePlist]);
@@ -331,29 +415,43 @@ function hasExactKeys(value, expected) {
     expected.length === Object.keys(value).length && expected.every((key) => Object.hasOwn(value, key));
 }
 
-async function readCopiedDeviceFile(destination, expectedName) {
+async function readCopiedDeviceFile(destination, expectedName, options) {
   const metadata = await lstat(destination);
-  if (metadata.isFile() && !metadata.isSymbolicLink()) return readFile(destination);
+  if (metadata.isFile() && !metadata.isSymbolicLink()) {
+    return readStableExternalFile({ path: destination, ...options });
+  }
   if (!metadata.isDirectory()) fail('physical-device file copy produced an unsafe result');
   const names = await readdir(destination);
   if (names.length !== 1 || names[0] !== expectedName) fail('physical-device file copy result is ambiguous');
   const path = resolve(destination, expectedName);
-  const file = await lstat(path);
-  if (!file.isFile() || file.isSymbolicLink()) fail('physical-device file copy produced an unsafe result');
-  return readFile(path);
+  return readStableExternalFile({ path, ...options });
 }
 
-async function copyIosApplicationSupportFile({ device, source, destination, jsonOutput, runner }) {
+async function copyIosApplicationSupportFile({
+  device,
+  source,
+  destination,
+  jsonOutput,
+  runner,
+  maximumBytes,
+  minimumBytes,
+  afterOpenHook,
+}) {
   await run(runner, '/usr/bin/xcrun', [
     'devicectl', 'device', 'copy', 'from', '--device', device,
     '--domain-type', 'appDataContainer', '--domain-identifier', 'uk.eugnel.ks2spelling',
     '--source', `Library/Application Support/${source}`, '--destination', destination,
     '--json-output', jsonOutput,
   ]);
-  return readCopiedDeviceFile(destination, source);
+  return readCopiedDeviceFile(destination, source, {
+    label: `physical-device ${source}`,
+    maximumBytes,
+    minimumBytes,
+    afterOpenHook,
+  });
 }
 
-async function inspectIosDevice({ root, env, runner }) {
+async function inspectIosDevice({ root, env, runner, afterExternalFileOpenHook }) {
   const device = env.B3_IOS_PHYSICAL_DEVICE_ID;
   if (!device) fail('B3_IOS_PHYSICAL_DEVICE_ID is required');
   await mkdir(resolve(root, '.native-build/b3/distribution'), { recursive: true, mode: 0o700 });
@@ -361,10 +459,17 @@ async function inspectIosDevice({ root, env, runner }) {
   try {
     const appsJson = resolve(temporary, 'apps.json');
     await run(runner, '/usr/bin/xcrun', ['devicectl', 'device', 'info', 'apps', '--device', device, '--bundle-id', 'uk.eugnel.ks2spelling', '--json-output', appsJson]);
-    const appRecord = extractIosAppRecord(parseB3StrictJsonBytes(await readFile(appsJson), 'devicectl application inventory'));
+    const appRecord = extractIosAppRecord(parseB3StrictJsonBytes(await readStableExternalFile({
+      path: appsJson,
+      label: 'devicectl application inventory',
+      maximumBytes: MAX_IOS_DEVICE_RECORD_BYTES,
+      afterOpenHook: afterExternalFileOpenHook,
+    }), 'devicectl application inventory'));
     const authorityBytes = await copyIosApplicationSupportFile({
       device, source: 'b3-build-authority.json', destination: resolve(temporary, 'authority-copy'),
       jsonOutput: resolve(temporary, 'authority-copy.json'), runner,
+      maximumBytes: MAX_IOS_DEVICE_RECORD_BYTES,
+      afterOpenHook: afterExternalFileOpenHook,
     });
     const authority = parseB3StrictJsonBytes(authorityBytes, 'installed iOS build authority');
     const authorityKeys = ['mode', 'proofKind', 'platform', 'distribution', 'publicSandboxOrigin', 'workerName', 'testedApplicationCommit', 'applicationFingerprint', 'versionName', 'buildNumber', 'bundleId'];
@@ -382,10 +487,14 @@ async function inspectIosDevice({ root, env, runner }) {
     const receipt = await copyIosApplicationSupportFile({
       device, source: 'b3-sandbox-receipt', destination: receiptPath,
       jsonOutput: resolve(temporary, 'receipt-copy.json'), runner,
+      minimumBytes: 128,
+      maximumBytes: MAX_IOS_SANDBOX_RECEIPT_BYTES,
+      afterOpenHook: afterExternalFileOpenHook,
     });
-    if (receipt.length < 128 || receipt.length > 1024 * 1024) fail('physical iOS sandbox receipt has an invalid byte length');
+    const trustedReceiptPath = resolve(temporary, 'sandbox-receipt-inspection');
+    await writeFile(trustedReceiptPath, receipt, { mode: 0o600, flag: 'wx' });
     const receiptPayload = resolve(temporary, 'receipt-payload.der');
-    await run(runner, '/usr/bin/security', ['cms', '-D', '-u', '9', '-i', receiptPath, '-o', receiptPayload]);
+    await run(runner, '/usr/bin/security', ['cms', '-D', '-u', '9', '-i', trustedReceiptPath, '-o', receiptPayload]);
     const receiptStructure = await run(runner, '/usr/bin/openssl', ['asn1parse', '-inform', 'DER', '-in', receiptPayload, '-i']);
     if (!/UTF8STRING\s*:Sandbox(?:\s|$)/u.test(receiptStructure)) fail('physical iOS receipt is not a validated sandbox receipt');
     return {
@@ -429,7 +538,7 @@ function parseApksignerCertificate(output) {
   return certificates[0];
 }
 
-async function inspectAndroidDevice({ root, env, runner }) {
+async function inspectAndroidDevice({ root, env, runner, afterExternalFileOpenHook }) {
   const serial = env.B3_ANDROID_PHYSICAL_DEVICE_ID;
   if (!serial) fail('B3_ANDROID_PHYSICAL_DEVICE_ID is required');
   const adb = env.B3_ADB_PATH ?? resolve(homedir(), 'Library/Android/sdk/platform-tools/adb');
@@ -448,11 +557,17 @@ async function inspectAndroidDevice({ root, env, runner }) {
       const destination = resolve(temporary, index === 0 ? 'base.apk' : `split-${String(index).padStart(3, '0')}.apk`);
       await run(runner, adb, [...prefix, 'pull', paths[index], destination]);
       const splitName = index === 0 ? '' : basename(paths[index], '.apk');
-      const apkBytes = await readFile(destination);
+      const apkBytes = await readStableExternalFile({
+        path: destination,
+        label: `pulled Android APK ${String(index)}`,
+        maximumBytes: MAX_ANDROID_APK_BYTES,
+        afterOpenHook: afterExternalFileOpenHook,
+      });
       if (index === 0) baseBytes = apkBytes;
       installedApks.push({ order: index, kind: index === 0 ? 'base' : 'split', splitName, sha256: sha256(apkBytes) });
     }
-    const basePath = resolve(temporary, 'base.apk');
+    const basePath = resolve(temporary, 'base-inspection.apk');
+    await writeFile(basePath, baseBytes, { mode: 0o600, flag: 'wx' });
     const certificate = parseApksignerCertificate(await run(runner, apksigner, ['verify', '--verbose', '--print-certs', basePath]));
     const buildConfig = await inspectAndroidDexAuthority({ bytes: baseBytes, temporary, runner });
     if (buildConfig.versionName !== dumpsys.versionName || buildConfig.versionCode !== dumpsys.versionCode) fail('pulled base APK and package manager authority differ');
@@ -473,11 +588,20 @@ async function inspectAndroidDevice({ root, env, runner }) {
   }
 }
 
-export function createDefaultB3DistributionInspectors({ root, env = process.env, commandRunner = defaultCommandRunner } = {}) {
+export function createDefaultB3DistributionInspectors({
+  root,
+  env = process.env,
+  commandRunner = defaultCommandRunner,
+  afterExternalFileOpenHook,
+} = {}) {
   return Object.freeze({
     async artifactInspector({ platform, signedPath }) {
       if (platform !== 'ios' && platform !== 'android') fail('distribution platform is invalid');
-      const record = await readValidatedB3OperatorFile({ path: signedPath, root });
+      const record = await readValidatedB3OperatorFile({
+        path: signedPath,
+        root,
+        maximumBytes: MAX_SIGNED_ARCHIVE_BYTES,
+      });
       const outputRoot = resolve(root, '.native-build/b3/distribution');
       await mkdir(outputRoot, { recursive: true, mode: 0o700 });
       const temporary = await mkdtemp(resolve(outputRoot, `${platform}-artifact-`));
@@ -495,8 +619,8 @@ export function createDefaultB3DistributionInspectors({ root, env = process.env,
     deviceInspector({ platform }) {
       if (platform !== 'ios' && platform !== 'android') fail('distribution platform is invalid');
       return platform === 'ios'
-        ? inspectIosDevice({ root, env, runner: commandRunner })
-        : inspectAndroidDevice({ root, env, runner: commandRunner });
+        ? inspectIosDevice({ root, env, runner: commandRunner, afterExternalFileOpenHook })
+        : inspectAndroidDevice({ root, env, runner: commandRunner, afterExternalFileOpenHook });
     },
   });
 }

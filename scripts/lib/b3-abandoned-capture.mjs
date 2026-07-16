@@ -15,6 +15,7 @@ import { resolve } from 'node:path';
 
 import { parseB3StrictJsonBytes } from '../check-b3-external-prerequisites.mjs';
 import { canonicaliseB3ProofValue } from '../../src/app/b3-live-proof-protocol.js';
+import { validateB3CaptureCheckpointBytes } from './b3-device-observation.mjs';
 
 const HASH = /^[0-9a-f]{64}$/u;
 const COMMIT = /^[0-9a-f]{40}$/u;
@@ -24,6 +25,7 @@ const MAXIMUM_AUTHORITY_BYTES = 16 * 1024;
 const MAXIMUM_EVIDENCE_ENTRIES = 512;
 const PLATFORM = Object.freeze({ ios: 'ios-physical', android: 'android-play-physical' });
 const CHECKPOINT_NAME = /^(?:ios|android)-capture-checkpoint\.json(?:\.revision-[0-9]{8}\.json)?$/u;
+const CHECKPOINT_TEMPORARY = /^(?:ios|android)-capture-checkpoint\.json\.(?:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.(?<kind>revision|current)\.tmp$/u;
 const AUTHORITY_TEMPORARY = /^\.abandoned-capture-(?<hash>[0-9a-f]{64})-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.tmp$/u;
 const CAPTURE_BOUND_FILES = Object.freeze({
   ios: Object.freeze(['ios-pending.json', 'cloudflare-device-smoke.json']),
@@ -169,7 +171,11 @@ export async function readB3AbandonedCaptureArchive({
   });
 }
 
-async function readRegularPrivateFile(path, maximumBytes = MAXIMUM_AUTHORITY_BYTES) {
+async function readRegularPrivateFile(
+  path,
+  maximumBytes = MAXIMUM_AUTHORITY_BYTES,
+  allowedLinkCounts = [1],
+) {
   let handle;
   try {
     handle = await open(
@@ -181,13 +187,15 @@ async function readRegularPrivateFile(path, maximumBytes = MAXIMUM_AUTHORITY_BYT
   }
   try {
     const before = await handle.stat();
-    if (!before.isFile() || before.nlink !== 1 || (before.mode & 0o077) !== 0 ||
+    if (!before.isFile() || !allowedLinkCounts.includes(before.nlink) ||
+        (before.mode & 0o077) !== 0 ||
         before.size <= 0 || before.size > maximumBytes) {
       throw archiveError('B3 abandoned-capture archive file policy is invalid');
     }
     const bytes = await handle.readFile();
     const after = await handle.stat();
-    if (!after.isFile() || after.nlink !== 1 || (after.mode & 0o077) !== 0 ||
+    if (!after.isFile() || !allowedLinkCounts.includes(after.nlink) ||
+        (after.mode & 0o077) !== 0 ||
         bytes.length !== before.size || after.dev !== before.dev || after.ino !== before.ino ||
         after.size !== before.size || after.mtimeMs !== before.mtimeMs ||
         after.ctimeMs !== before.ctimeMs) {
@@ -385,9 +393,93 @@ async function moveFileOnce({ source, destination, sourceParent, destinationPare
   await syncDirectory(destinationParent);
 }
 
+async function reconcileCheckpointTemporaries({
+  evidence,
+  platform,
+  authority,
+}) {
+  const prefix = `${platform}-capture-checkpoint.json`;
+  const entries = await readdir(evidence, { withFileTypes: true });
+  if (entries.length > MAXIMUM_EVIDENCE_ENTRIES) {
+    throw archiveError('B3 abandoned-capture evidence entry bound is exceeded');
+  }
+  const temporaries = entries.filter(({ name }) => name.startsWith(`${prefix}.`) &&
+    name.endsWith('.tmp'));
+  const removable = [];
+  for (const entry of temporaries) {
+    const match = CHECKPOINT_TEMPORARY.exec(entry.name);
+    if (!match) continue;
+    const path = resolve(evidence, entry.name);
+    const metadata = await lstat(path);
+    if (!metadata.isFile() || metadata.isSymbolicLink() || ![1, 2].includes(metadata.nlink) ||
+        (metadata.mode & 0o077) !== 0) {
+      throw archiveError('B3 abandoned-capture checkpoint temporary policy is invalid');
+    }
+    const temporaryBytes = await readRegularPrivateFile(path, 128 * 1024, [1, 2]);
+    const checkpoint = validateB3CaptureCheckpointBytes({
+      bytes: temporaryBytes,
+      platform,
+    });
+    if (checkpoint.captureId !== authority.captureId ||
+        checkpoint.testedApplicationCommit !== authority.testedApplicationCommit ||
+        checkpoint.applicationFingerprint !== authority.applicationFingerprint) {
+      throw archiveError('B3 abandoned-capture checkpoint temporary authority differs');
+    }
+    const revisionName = `${prefix}.revision-${String(checkpoint.checkpointRevision)
+      .padStart(8, '0')}.json`;
+    if (metadata.nlink === 2) {
+      const aliasTarget = resolve(
+        evidence,
+        match.groups.kind === 'revision' ? revisionName : prefix,
+      );
+      let targetMetadata;
+      try {
+        targetMetadata = await lstat(aliasTarget);
+      } catch {
+        throw archiveError('B3 abandoned-capture checkpoint temporary has an external link');
+      }
+      if (!targetMetadata.isFile() || targetMetadata.isSymbolicLink() ||
+          targetMetadata.nlink !== 2 || (targetMetadata.mode & 0o077) !== 0 ||
+          targetMetadata.dev !== metadata.dev || targetMetadata.ino !== metadata.ino ||
+          !(await readRegularPrivateFile(aliasTarget, 128 * 1024, [2])).equals(temporaryBytes)) {
+        throw archiveError('B3 abandoned-capture checkpoint temporary alias is invalid');
+      }
+    }
+    if (match.groups.kind === 'current') {
+      const revisionPath = resolve(evidence, revisionName);
+      let revisionBytes;
+      try {
+        revisionBytes = await readRegularPrivateFile(revisionPath, 128 * 1024);
+      } catch {
+        throw archiveError('B3 abandoned-capture checkpoint current temporary is unpublished');
+      }
+      if (!revisionBytes.equals(temporaryBytes)) {
+        throw archiveError('B3 abandoned-capture checkpoint current temporary differs from revision');
+      }
+    }
+    removable.push({
+      path,
+      dev: metadata.dev,
+      ino: metadata.ino,
+      nlink: metadata.nlink,
+    });
+  }
+  for (const expected of removable) {
+    const metadata = await lstat(expected.path);
+    if (!metadata.isFile() || metadata.isSymbolicLink() ||
+        metadata.dev !== expected.dev || metadata.ino !== expected.ino ||
+        metadata.nlink !== expected.nlink || (metadata.mode & 0o077) !== 0) {
+      throw archiveError('B3 abandoned-capture checkpoint temporary changed before removal');
+    }
+    await rm(expected.path);
+  }
+  if (removable.length > 0) await syncDirectory(evidence);
+}
+
 export async function archiveB3AbandonedCapture({ root, platform, issued, buildAuthority }) {
   const authority = buildArchiveAuthority({ platform, issued, buildAuthority });
   const { evidence } = await evidenceDirectory(root);
+  await reconcileCheckpointTemporaries({ evidence, platform, authority });
   const archiveRoot = await ensurePrivateDirectory(
     resolve(evidence, `${platform}-abandoned-captures`),
   );

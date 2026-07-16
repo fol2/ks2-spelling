@@ -1582,6 +1582,22 @@ test('operator-file handle rejects a pathname replacement after policy validatio
   assert.equal((await readFile(replacement, 'utf8')).includes('replacement'), true);
 });
 
+test('operator-file handle rejects an oversized file before bounded allocation', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'ks2-spelling-b3-bounded-root-'));
+  const operatorRoot = await mkdtemp(join(tmpdir(), 'ks2-spelling-b3-bounded-operator-'));
+  t.after(() => Promise.all([
+    rm(root, { recursive: true, force: true }),
+    rm(operatorRoot, { recursive: true, force: true }),
+  ]));
+  const path = join(operatorRoot, 'oversized.bin');
+  await writeFile(path, Buffer.alloc(33, 7), { mode: 0o600 });
+
+  await assert.rejects(
+    readValidatedB3OperatorFile({ root, path, maximumBytes: 32 }),
+    /operator file failed secure validation/,
+  );
+});
+
 test('operator-file handle rejects in-place metadata and post-read Git-policy drift', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'ks2-spelling-b3-metadata-root-'));
   const operatorRoot = await mkdtemp(join(tmpdir(), 'ks2-spelling-b3-metadata-operator-'));

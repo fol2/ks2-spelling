@@ -160,6 +160,34 @@ function initialCommand(captureId = CAPTURE_ID, platform = 'ios') {
   };
 }
 
+function laterCommand({
+  expectedScenarioIndex,
+  expectedSequence,
+  previousObservationSha256,
+  captureId = CAPTURE_ID,
+  platform = 'ios',
+}) {
+  const commandWithoutChallenge = {
+    schemaVersion: 1,
+    captureId,
+    platform: platform === 'ios' ? 'ios-physical' : 'android-play-physical',
+    testedApplicationCommit: COMMIT,
+    applicationFingerprint: FINGERPRINT,
+    expectedScenarioIndex,
+    expectedSequence,
+    previousObservationSha256,
+    installationMode: 'existing',
+    actionCode: 'ARM_CAPTURE',
+  };
+  return {
+    ...commandWithoutChallenge,
+    challengeSha256: sha256(Buffer.from(
+      `ks2-spelling:b3-host-command-challenge:v1\0${canonicaliseB3ProofValue(commandWithoutChallenge)}`,
+      'utf8',
+    )),
+  };
+}
+
 async function seedReadyInitial(root) {
   const bootstrapped = await probeInChild(root, 'shape');
   assert.equal(bootstrapped.ok, true);
@@ -450,6 +478,7 @@ test('repository accepts one independently seeded canonical ready initial comman
   assert.deepEqual(reopened, {
     ok: true,
     result: [
+      'allocateNextCommand',
       'close',
       'consumeCommand',
       'readActiveCommand',
@@ -608,6 +637,7 @@ test('repository surface is closed and rejects use after close', async (t) => {
   assert.deepEqual(shape, {
     ok: true,
     result: [
+      'allocateNextCommand',
       'close',
       'consumeCommand',
       'readActiveCommand',
@@ -1234,6 +1264,7 @@ test('decision APIs reject extra options before getters and reject use after clo
         expectError: true,
       }]],
       ['consume-extra', [{ op: 'consume-extra', expectError: true }]],
+      ['allocate-extra', [{ op: 'allocate-extra', expectError: true }]],
       ['transition-closed', [{
         op: 'close-transition',
         sourceState: 'prepared',
@@ -1243,6 +1274,15 @@ test('decision APIs reject extra options before getters and reject use after clo
       ['consume-closed', [{
         op: 'close-consume',
         sourceState: 'prepared',
+        expectError: true,
+      }]],
+      ['allocate-closed', [{
+        op: 'close-allocate',
+        command: laterCommand({
+          expectedScenarioIndex: 1,
+          expectedSequence: 2,
+          previousObservationSha256: 'a'.repeat(64),
+        }),
         expectError: true,
       }]],
     ]) {
@@ -1380,3 +1420,426 @@ test('decision APIs synchronously snapshot each getter once before returning a p
       assert.equal(result.commandGetterCalls, Object.keys(initialCommand()).length, label);
     }
   });
+
+test('one capture allocates contiguous A to B to C after exact generic closures',
+  async (t) => {
+    const root = await fixture(t, 'allocate-a-b-c');
+    await seedReadyInitial(root);
+    const bundles = join(root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles');
+    await assert.rejects(lstat(bundles), { code: 'ENOENT' });
+    const commandB = laterCommand({
+      expectedScenarioIndex: 1,
+      expectedSequence: 2,
+      previousObservationSha256: 'a'.repeat(64),
+    });
+    const commandC = laterCommand({
+      expectedScenarioIndex: 2,
+      expectedSequence: 3,
+      previousObservationSha256: 'b'.repeat(64),
+    });
+
+    const result = await decideInChild(root, [
+      { op: 'consume', sourceState: 'prepared' },
+      { op: 'allocate', command: commandB },
+      { op: 'consume', sourceState: 'prepared' },
+      { op: 'allocate', command: commandC },
+    ]);
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.results.map(({ kind }) => kind), [
+      'consumed', 'allocated', 'consumed', 'allocated',
+    ]);
+    const allocatedB = result.results[1].command;
+    const allocatedC = result.results[3].command;
+    assert.equal(allocatedB.allocationSequence, 2);
+    assert.equal(allocatedB.predecessorCommandSha256, FIRST_COMMAND_SHA256);
+    assert.equal(allocatedB.captureId, CAPTURE_ID);
+    assert.equal(allocatedB.state, 'prepared');
+    assert.equal(allocatedC.allocationSequence, 3);
+    assert.equal(allocatedC.predecessorCommandSha256, allocatedB.commandSha256);
+    assert.equal(allocatedC.captureId, CAPTURE_ID);
+    assert.equal(allocatedC.state, 'prepared');
+    assert.deepEqual(result.final, { kind: 'active', command: allocatedC });
+
+    const database = new DatabaseSync(databasePath(root), { readOnly: true });
+    t.after(() => database.close());
+    assert.deepEqual(database.prepare(`
+      SELECT allocation_sequence, predecessor_command_sha256, capture_id
+      FROM b3_commands ORDER BY allocation_sequence
+    `).all().map((row) => ({ ...row })), [
+      {
+        allocation_sequence: 1,
+        predecessor_command_sha256: null,
+        capture_id: CAPTURE_ID,
+      },
+      {
+        allocation_sequence: 2,
+        predecessor_command_sha256: FIRST_COMMAND_SHA256,
+        capture_id: CAPTURE_ID,
+      },
+      {
+        allocation_sequence: 3,
+        predecessor_command_sha256: allocatedB.commandSha256,
+        capture_id: CAPTURE_ID,
+      },
+    ]);
+    assert.deepEqual({ ...database.prepare('SELECT * FROM b3_authority_state').get() }, {
+      singleton: 1,
+      next_allocation_sequence: 4,
+      active_command_sha256: allocatedC.commandSha256,
+      reserved_start_command_sha256: null,
+      row_version: 7,
+    });
+    assert.equal(database.prepare('SELECT count(*) AS count FROM b3_captures').get().count, 1);
+    assert.equal(database.prepare('SELECT count(*) AS count FROM b3_decisions').get().count, 2);
+    await assert.rejects(lstat(bundles), { code: 'ENOENT' });
+  });
+
+test('allocation retries retain one active slot winner and classify a different proposal',
+  async (t) => {
+    const root = await fixture(t, 'allocate-idempotent-conflict');
+    await seedReadyInitial(root);
+    const commandB = laterCommand({
+      expectedScenarioIndex: 1,
+      expectedSequence: 2,
+      previousObservationSha256: 'a'.repeat(64),
+    });
+    const commandC = laterCommand({
+      expectedScenarioIndex: 2,
+      expectedSequence: 3,
+      previousObservationSha256: 'b'.repeat(64),
+    });
+
+    const result = await decideInChild(root, [
+      { op: 'consume', sourceName: 'A' },
+      { op: 'allocate', command: commandB, saveAs: 'B' },
+      { op: 'allocate', command: commandB },
+      { op: 'allocate', command: commandC },
+    ]);
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.results.map(({ kind }) => kind), [
+      'consumed', 'allocated', 'already-active', 'allocation-conflict',
+    ]);
+    assert.deepEqual(result.results[2].command, result.results[1].command);
+    assert.deepEqual(result.results[3].command, result.results[1].command);
+    assert.deepEqual(result.final, { kind: 'active', command: result.results[1].command });
+    const database = new DatabaseSync(databasePath(root), { readOnly: true });
+    t.after(() => database.close());
+    assert.equal(database.prepare('SELECT count(*) AS count FROM b3_commands').get().count, 2);
+  });
+
+test('allocation retry returns the current state of its active retained slot',
+  async (t) => {
+    const root = await fixture(t, 'allocate-idempotent-current-state');
+    await seedReadyInitial(root);
+    const commandB = laterCommand({
+      expectedScenarioIndex: 1,
+      expectedSequence: 2,
+      previousObservationSha256: 'a'.repeat(64),
+    });
+
+    const result = await decideInChild(root, [
+      { op: 'consume', sourceName: 'A' },
+      { op: 'allocate', command: commandB, saveAs: 'B' },
+      {
+        op: 'transition',
+        sourceName: 'B',
+        nextState: 'launching',
+      },
+      { op: 'allocate', command: commandB },
+    ]);
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.results.map(({ kind }) => kind), [
+      'consumed', 'allocated', 'transitioned', 'already-active',
+    ]);
+    assert.equal(result.results[3].command.state, 'launching');
+    assert.deepEqual(result.results[3].command, result.results[2].command);
+    assert.deepEqual(result.final, { kind: 'active', command: result.results[2].command });
+  });
+
+test('allocation rejects an unclosed initial active command before retry classification',
+  async (t) => {
+    const commandB = laterCommand({
+      expectedScenarioIndex: 1,
+      expectedSequence: 2,
+      previousObservationSha256: 'a'.repeat(64),
+    });
+    for (const [label, proposal] of [
+      ['same-a', initialCommand()],
+      ['different-b', commandB],
+    ]) {
+      const root = await fixture(t, `allocate-unclosed-initial-${label}`);
+      await seedReadyInitial(root);
+      const path = databasePath(root);
+      const beforeSha256 = await fileSha256(path);
+
+      const rejected = await decideInChild(root, [{
+        op: 'allocate',
+        command: proposal,
+        expectError: true,
+      }]);
+
+      assert.equal(rejected.ok, true, label);
+      assert.equal(rejected.results[0].kind, 'error', label);
+      assert.equal(rejected.results[0].code, 'b3_capture_state_invalid', label);
+      assert.match(rejected.results[0].message, /tail|closed|active/i, label);
+      assert.equal(rejected.final.kind, 'active', label);
+      assert.equal(rejected.final.command.commandSha256, FIRST_COMMAND_SHA256, label);
+      assert.equal(await fileSha256(path), beforeSha256, label);
+    }
+  });
+
+test('allocation rejects every previously allocated command hash without mutation',
+  async (t) => {
+    for (const label of ['A', 'B']) {
+      const root = await fixture(t, `allocate-old-hash-${label}`);
+      await seedReadyInitial(root);
+      const commandB = laterCommand({
+        expectedScenarioIndex: 1,
+        expectedSequence: 2,
+        previousObservationSha256: 'a'.repeat(64),
+      });
+      const closeActions = label === 'A'
+        ? [{ op: 'consume', sourceName: 'A' }]
+        : [
+          { op: 'consume', sourceName: 'A' },
+          { op: 'allocate', command: commandB, saveAs: 'B' },
+          { op: 'consume', sourceName: 'B' },
+        ];
+      const closed = await decideInChild(root, closeActions);
+      assert.equal(closed.ok, true, label);
+      const path = databasePath(root);
+      const beforeSha256 = await fileSha256(path);
+
+      const rejected = await decideInChild(root, [{
+        op: 'allocate',
+        command: label === 'A' ? initialCommand() : commandB,
+        expectError: true,
+      }]);
+
+      assert.equal(rejected.ok, true, label);
+      assert.equal(rejected.results[0].kind, 'error', label);
+      assert.equal(rejected.results[0].code, 'b3_capture_state_invalid', label);
+      assert.match(rejected.results[0].message, /reuses|earlier|allocation/i, label);
+      assert.deepEqual(rejected.final, { kind: 'none' }, label);
+      assert.equal(await fileSha256(path), beforeSha256, label);
+    }
+  });
+
+test('stale A retries after B and C retain immutable closure without clearing active C',
+  async (t) => {
+    const root = await fixture(t, 'allocate-stale-a');
+    await seedReadyInitial(root);
+    const commandB = laterCommand({
+      expectedScenarioIndex: 1,
+      expectedSequence: 2,
+      previousObservationSha256: 'a'.repeat(64),
+    });
+    const commandC = laterCommand({
+      expectedScenarioIndex: 2,
+      expectedSequence: 3,
+      previousObservationSha256: 'b'.repeat(64),
+    });
+
+    const result = await decideInChild(root, [
+      { op: 'consume', sourceName: 'A' },
+      { op: 'allocate', command: commandB, saveAs: 'B' },
+      { op: 'consume', sourceName: 'B' },
+      { op: 'allocate', command: commandC, saveAs: 'C' },
+      { op: 'consume', sourceName: 'A' },
+      {
+        op: 'transition',
+        sourceName: 'A',
+        nextState: 'launching',
+      },
+    ]);
+
+    assert.equal(result.ok, true);
+    assert.equal(result.results[4].kind, 'already-consumed');
+    assert.equal(result.results[5].kind, 'generic-consumed');
+    assert.deepEqual(result.final, { kind: 'active', command: result.results[3].command });
+  });
+
+test('allocation returns the exact pending initial reservation', async (t) => {
+  const root = await fixture(t, 'allocate-pending-start');
+  const reservation = await reserveInChild(root, initialCommand());
+  const proposal = laterCommand({
+    expectedScenarioIndex: 1,
+    expectedSequence: 2,
+    previousObservationSha256: 'a'.repeat(64),
+  });
+
+  const result = await decideInChild(root, [{ op: 'allocate', command: proposal }]);
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.results[0], { kind: 'start-reserved', intent: reservation });
+  assert.deepEqual(result.final, { kind: 'start-reserved', intent: reservation });
+});
+
+test('allocation snapshots a mutable command synchronously before its first await',
+  async (t) => {
+    const root = await fixture(t, 'allocate-sync-snapshot');
+    await seedReadyInitial(root);
+    const commandB = laterCommand({
+      expectedScenarioIndex: 1,
+      expectedSequence: 2,
+      previousObservationSha256: 'a'.repeat(64),
+    });
+
+    const result = await decideInChild(root, [
+      { op: 'consume', sourceName: 'A' },
+      {
+        op: 'allocate',
+        command: commandB,
+        countAllocationGetters: true,
+        observeBeforeAwait: true,
+      },
+    ]);
+
+    assert.equal(result.ok, true);
+    assert.equal(result.results[1].kind, 'allocated');
+    assert.deepEqual(result.synchronousAllocationGetterSnapshots, [
+      Object.keys(commandB).length,
+    ]);
+    assert.equal(result.allocationCommandGetterCalls, Object.keys(commandB).length);
+
+    const mutationRoot = await fixture(t, 'allocate-sync-mutation');
+    await seedReadyInitial(mutationRoot);
+    const mutated = await decideInChild(mutationRoot, [
+      { op: 'consume', sourceName: 'A' },
+      { op: 'allocate', command: commandB, mutateBeforeAwait: true },
+    ]);
+    assert.equal(mutated.ok, true);
+    assert.equal(mutated.results[1].kind, 'allocated');
+    assert.deepEqual(mutated.results[1].command.command, commandB);
+  });
+
+test('inactive unclosed tails and multi-command orphan decisions reject unchanged',
+  async (t) => {
+    const inactiveRoot = await fixture(t, 'allocate-inactive-tail');
+    await seedReadyInitial(inactiveRoot);
+    const inactivePath = databasePath(inactiveRoot);
+    const inactive = new DatabaseSync(inactivePath);
+    inactive.exec('UPDATE b3_authority_state SET active_command_sha256 = NULL');
+    inactive.close();
+    const inactiveSha256 = await fileSha256(inactivePath);
+    const inactiveOpen = await probeInChild(inactiveRoot, 'shape');
+    assert.equal(inactiveOpen.ok, false);
+    assert.match(inactiveOpen.error.message, /singleton|authority|invalid/i);
+    assert.equal(await fileSha256(inactivePath), inactiveSha256);
+
+    const orphanRoot = await fixture(t, 'allocate-orphan-decision');
+    await seedReadyInitial(orphanRoot);
+    const commandB = laterCommand({
+      expectedScenarioIndex: 1,
+      expectedSequence: 2,
+      previousObservationSha256: 'a'.repeat(64),
+    });
+    const allocated = await decideInChild(orphanRoot, [
+      { op: 'consume', sourceName: 'A' },
+      { op: 'allocate', command: commandB },
+    ]);
+    assert.equal(allocated.ok, true);
+    const orphanPath = databasePath(orphanRoot);
+    const orphan = new DatabaseSync(orphanPath);
+    orphan.prepare(`
+      INSERT INTO b3_decisions (
+        command_sha256, source_state, source_record_sha256, winner_kind,
+        next_state, next_record_json, next_record_sha256, claim_json, claim_sha256
+      ) VALUES (?, 'launching', ?, 'ordinary', 'launched', ?, ?, ?, ?)
+    `).run(
+      FIRST_COMMAND_SHA256,
+      '57686831aa8562d8e309645db655aa17be75d8d647504a1ad17296e456113e09',
+      LAUNCHED_RECORD_JSON,
+      'f6006d640ff0469b80b500f9fb1f5f9c996b69fb36e6db959ff6485d520bb2c4',
+      LAUNCHING_TO_LAUNCHED_CLAIM_JSON,
+      '0acb91cd0eda8be3051bda358bf13afa1966fb6ed5061d22a8ba04cfa13c833a',
+    );
+    orphan.close();
+    const orphanSha256 = await fileSha256(orphanPath);
+    const orphanOpen = await probeInChild(orphanRoot, 'shape');
+    assert.equal(orphanOpen.ok, false);
+    assert.match(orphanOpen.error.message, /unselected|orphan|decision/i);
+    assert.equal(await fileSha256(orphanPath), orphanSha256);
+  });
+
+test('recovery-fresh intent authority is never interpreted as generic closure', async (t) => {
+  const root = await fixture(t, 'allocate-recovery-fresh');
+  await seedReadyInitial(root);
+  const path = databasePath(root);
+  const database = new DatabaseSync(path);
+  database.exec('PRAGMA foreign_keys = OFF');
+  database.prepare(`
+    UPDATE b3_capture_start_intents
+    SET intent_kind = 'recovery-fresh', recovered_command_sha256 = ?,
+      terminal_claim_sha256 = ?
+  `).run('d'.repeat(64), 'e'.repeat(64));
+  database.close();
+  const corruptSha256 = await fileSha256(path);
+
+  const opened = await probeInChild(root, 'shape');
+
+  assert.equal(opened.ok, false);
+  assert.match(opened.error.message, /foreign-key|authority|invalid/i);
+  assert.equal(await fileSha256(path), corruptSha256);
+});
+
+test('multi-command gaps and predecessor corruption reject without repair', async (t) => {
+  for (const [label, mutate] of [
+    ['gap', (database) => database.exec(`
+      UPDATE b3_commands SET allocation_sequence = 3 WHERE allocation_sequence = 2
+    `)],
+    ['predecessor', (database) => database.exec(`
+      UPDATE b3_commands SET predecessor_command_sha256 = NULL
+      WHERE allocation_sequence = 2
+    `)],
+  ]) {
+    const root = await fixture(t, `allocate-corrupt-${label}`);
+    await seedReadyInitial(root);
+    const commandB = laterCommand({
+      expectedScenarioIndex: 1,
+      expectedSequence: 2,
+      previousObservationSha256: 'a'.repeat(64),
+    });
+    const allocated = await decideInChild(root, [
+      { op: 'consume', sourceName: 'A' },
+      { op: 'allocate', command: commandB },
+    ]);
+    assert.equal(allocated.ok, true, label);
+    const path = databasePath(root);
+    const database = new DatabaseSync(path);
+    mutate(database);
+    database.close();
+    const corruptSha256 = await fileSha256(path);
+
+    const opened = await probeInChild(root, 'shape');
+
+    assert.equal(opened.ok, false, label);
+    assert.match(opened.error.message, /allocated|command|authority|invalid/i, label);
+    assert.equal(await fileSha256(path), corruptSha256, label);
+  }
+});
+
+test('persisted recovery rows fail closed instead of becoming allocation closure', async (t) => {
+  const root = await fixture(t, 'allocate-recovery-row');
+  await seedReadyInitial(root);
+  const path = databasePath(root);
+  const database = new DatabaseSync(path);
+  database.exec('PRAGMA foreign_keys = OFF');
+  database.prepare(`
+    INSERT INTO b3_recoveries (
+      command_sha256, owner_kind, owner_claim_sha256, capture_id,
+      bundle_state, source_snapshot_sha256, row_version
+    ) VALUES (?, 'recovery-owner', ?, ?, 'claimed', NULL, 1)
+  `).run(FIRST_COMMAND_SHA256, 'd'.repeat(64), CAPTURE_ID);
+  database.close();
+  const corruptSha256 = await fileSha256(path);
+
+  const opened = await probeInChild(root, 'shape');
+
+  assert.equal(opened.ok, false);
+  assert.match(opened.error.message, /foreign-key|recovery|authority|invalid/i);
+  assert.equal(await fileSha256(path), corruptSha256);
+});

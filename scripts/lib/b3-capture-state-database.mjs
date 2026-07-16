@@ -11,6 +11,7 @@ import { constants as sqliteConstants, DatabaseSync } from 'node:sqlite';
 import { isDeepStrictEqual } from 'node:util';
 
 import { parseB3StrictJsonBytes } from '../check-b3-external-prerequisites.mjs';
+import { canonicaliseB3ProofValue } from '../../src/app/b3-live-proof-protocol.js';
 import {
   B3_CAPTURE_STATE_APPLICATION_ID,
   B3_CAPTURE_STATE_SCHEMA_OBJECTS,
@@ -433,10 +434,7 @@ function publicCommandSnapshot(command, record) {
   });
 }
 
-function validateSelectedDecisionPath(database, command, preparedRecord, platform) {
-  const rows = database.prepare(`
-    SELECT * FROM b3_decisions ORDER BY command_sha256, source_state
-  `).all();
+function validateSelectedDecisionPath(rows, command, preparedRecord, platform) {
   const bySource = new Map();
   for (const row of rows) {
     if (row.command_sha256 !== command.command_sha256 || bySource.has(row.source_state)) {
@@ -532,8 +530,13 @@ function validateSelectedDecisionPath(database, command, preparedRecord, platfor
 function validateReadyInitialStartUnchecked(database, authority, platform, buildAuthority) {
   const intentRows = database.prepare('SELECT * FROM b3_capture_start_intents').all();
   const captureRows = database.prepare('SELECT * FROM b3_captures').all();
-  const commandRows = database.prepare('SELECT * FROM b3_commands').all();
-  if (intentRows.length !== 1 || captureRows.length !== 1 || commandRows.length !== 1) {
+  const commandRows = database.prepare(`
+    SELECT * FROM b3_commands ORDER BY allocation_sequence
+  `).all();
+  const decisionRows = database.prepare(`
+    SELECT * FROM b3_decisions ORDER BY command_sha256, source_state
+  `).all();
+  if (intentRows.length !== 1 || captureRows.length !== 1 || commandRows.length < 1) {
     throw databaseError('B3 capture-state ready initial cardinality differs');
   }
   const startIntent = validateB3ReadyInitialCaptureStartAuthority({
@@ -550,49 +553,87 @@ function validateReadyInitialStartUnchecked(database, authority, platform, build
   })) {
     throw databaseError('B3 capture-state ready initial capture authority differs');
   }
-  const command = commandRows[0];
-  const preparedRecord = validateB3PreparedIssuedCommandAuthorityBytes({
-    bytes: command.prepared_record_json,
-    platform,
-  });
-  if (command.command_sha256 !== startIntent.firstCommandSha256 ||
-      command.allocation_sequence !== 1 || command.predecessor_command_sha256 !== null ||
+  const decisionsByCommand = new Map();
+  for (const decision of decisionRows) {
+    const rows = decisionsByCommand.get(decision.command_sha256) ?? [];
+    rows.push(decision);
+    decisionsByCommand.set(decision.command_sha256, rows);
+  }
+  const paths = [];
+  const allocatedCommands = [];
+  let previousCommand = null;
+  for (const [index, command] of commandRows.entries()) {
+    const preparedRecord = validateB3PreparedIssuedCommandAuthorityBytes({
+      bytes: command.prepared_record_json,
+      platform,
+    });
+    const expectedCommandBytes = Buffer.from(
+      canonicaliseB3ProofValue(preparedRecord.command),
+      'utf8',
+    );
+    if (command.allocation_sequence !== index + 1 ||
+        command.predecessor_command_sha256 !== (previousCommand?.command_sha256 ?? null) ||
+        !Buffer.from(command.command_json).equals(expectedCommandBytes) ||
+        command.command_sha256 !== preparedRecord.commandSha256 ||
+        command.prepared_record_sha256 !== preparedRecord.recordSha256 ||
+        command.capture_id !== startIntent.captureId ||
+        preparedRecord.command.captureId !== startIntent.captureId ||
+        preparedRecord.command.testedApplicationCommit !==
+          buildAuthority.testedApplicationCommit ||
+        preparedRecord.command.applicationFingerprint !==
+          buildAuthority.applicationFingerprint ||
+        command.expected_observation_sequence !== preparedRecord.command.expectedSequence ||
+        command.previous_observation_sha256 !==
+          preparedRecord.command.previousObservationSha256) {
+      throw databaseError('B3 capture-state allocated command authority differs');
+    }
+    if (index === 0 && (
+      command.command_sha256 !== startIntent.firstCommandSha256 ||
       !Buffer.from(command.command_json).equals(startIntent.commandBytes) ||
       !Buffer.from(command.prepared_record_json).equals(startIntent.preparedRecordBytes) ||
-      command.prepared_record_sha256 !== startIntent.firstPreparedRecordSha256 ||
-      command.capture_id !== startIntent.captureId ||
-      command.expected_observation_sequence !== 1 ||
-      command.previous_observation_sha256 !== '0'.repeat(64) ||
-      preparedRecord.commandSha256 !== command.command_sha256 ||
-      preparedRecord.recordSha256 !== command.prepared_record_sha256) {
-    throw databaseError('B3 capture-state ready initial command authority differs');
-  }
-  const path = validateSelectedDecisionPath(database, command, preparedRecord, platform);
-  const expectedAuthority = path.genericDecision
-    ? {
-      singleton: 1,
-      next_allocation_sequence: 2,
-      active_command_sha256: null,
-      reserved_start_command_sha256: null,
-      row_version: 4,
+      command.prepared_record_sha256 !== startIntent.firstPreparedRecordSha256
+    )) {
+      throw databaseError('B3 capture-state ready initial command authority differs');
     }
-    : {
-      singleton: 1,
-      next_allocation_sequence: 2,
-      active_command_sha256: command.command_sha256,
-      reserved_start_command_sha256: null,
-      row_version: 3,
-    };
+    const rows = decisionsByCommand.get(command.command_sha256) ?? [];
+    const path = validateSelectedDecisionPath(rows, command, preparedRecord, platform);
+    if (index < commandRows.length - 1 && path.genericDecision === null) {
+      throw databaseError('B3 capture-state earlier command is not generically closed');
+    }
+    paths.push(path);
+    allocatedCommands.push(path.selectedCommands[0]);
+    previousCommand = command;
+    decisionsByCommand.delete(command.command_sha256);
+  }
+  if (decisionsByCommand.size !== 0) {
+    throw databaseError('B3 capture-state decision names an unknown command');
+  }
+  const tailPath = paths.at(-1);
+  const genericDecisionCount = paths.filter((path) => path.genericDecision !== null).length;
+  const tailIsClosed = tailPath.genericDecision !== null;
+  const expectedAuthority = {
+    singleton: 1,
+    next_allocation_sequence: commandRows.length + 1,
+    active_command_sha256: tailIsClosed ? null : commandRows.at(-1).command_sha256,
+    reserved_start_command_sha256: null,
+    row_version: 3 + (commandRows.length - 1) + genericDecisionCount,
+  };
   if (!isDeepStrictEqual({ ...authority }, expectedAuthority)) {
     throw databaseError('B3 capture-state ready initial singleton authority differs');
   }
+  const selectedCommands = paths.flatMap((path) => path.selectedCommands);
+  const selectedDecisions = paths.flatMap((path) => path.selectedDecisions);
   return Object.freeze({
     kind: 'ready-initial',
     startIntent,
     capture: Object.freeze({ ...capture }),
     authority: Object.freeze({ ...authority }),
-    activeCommand: path.genericDecision ? null : path.tailCommand,
-    ...path,
+    allocatedCommands: Object.freeze(allocatedCommands),
+    selectedCommands: Object.freeze(selectedCommands),
+    selectedDecisions: Object.freeze(selectedDecisions),
+    tailCommand: tailPath.tailCommand,
+    genericDecision: tailPath.genericDecision,
+    activeCommand: tailIsClosed ? null : tailPath.tailCommand,
   });
 }
 
@@ -677,7 +718,7 @@ function validateDatabase(database, platform, buildAuthority) {
     });
   }
   if (!recoveryCount && domainCounts.start_intents === 1 &&
-      domainCounts.captures === 1 && domainCounts.commands === 1) {
+      domainCounts.captures === 1 && domainCounts.commands >= 1) {
     return validateReadyInitialStart(database, authority, platform, buildAuthority);
   }
   throw databaseError('B3 capture-state domain authority is unsupported or invalid');

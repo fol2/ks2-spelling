@@ -11,6 +11,7 @@ import {
   createB3GenericConsumptionClaimAuthority,
   createB3IssuedCommandStateAuthority,
   createB3OrdinaryIssuedCommandClaimAuthority,
+  createB3PreparedIssuedCommandAuthority,
 } from './b3-issued-command-authority.mjs';
 
 const SOURCE_KEYS = Object.freeze([
@@ -45,14 +46,14 @@ function snapshotClosedRecord(value, expectedKeys, label) {
   return Object.freeze(snapshot);
 }
 
-function snapshotCommand(value) {
+function snapshotCommand(value, label = 'source command') {
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
       ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
-    throw repositoryError('B3 capture-state source command authority is invalid');
+    throw repositoryError(`B3 capture-state ${label} authority is invalid`);
   }
   const keys = Reflect.ownKeys(value);
   if (keys.some((key) => typeof key !== 'string')) {
-    throw repositoryError('B3 capture-state source command authority is invalid');
+    throw repositoryError(`B3 capture-state ${label} authority is invalid`);
   }
   const snapshot = {};
   for (const key of keys) snapshot[key] = value[key];
@@ -98,6 +99,23 @@ function canonicaliseSource(copied, platform, buildAuthority) {
 
 function canonicalBytes(value) {
   return Buffer.from(canonicaliseB3ProofValue(value), 'utf8');
+}
+
+function canonicaliseAllocationCommand(command, platform, buildAuthority) {
+  const preparedRecord = createB3PreparedIssuedCommandAuthority({ platform, command });
+  if (preparedRecord.command.testedApplicationCommit !==
+        buildAuthority.testedApplicationCommit ||
+      preparedRecord.command.applicationFingerprint !==
+        buildAuthority.applicationFingerprint) {
+    throw repositoryError('B3 capture-state allocation build authority differs');
+  }
+  return Object.freeze({
+    command: preparedRecord.command,
+    commandSha256: preparedRecord.commandSha256,
+    commandBytes: canonicalBytes(preparedRecord.command),
+    preparedRecord,
+    preparedRecordBytes: canonicalBytes(preparedRecord),
+  });
 }
 
 function selectedSource(state, source) {
@@ -328,6 +346,127 @@ export async function openB3CaptureStateRepository(options) {
     }
   }
 
+  async function allocateNextCommand(allocationOptions) {
+    if (session.isClosed()) {
+      throw repositoryError('B3 capture-state repository is already closed');
+    }
+    const options = snapshotClosedRecord(
+      allocationOptions,
+      ['command'],
+      'next allocation',
+    );
+    const commandSnapshot = snapshotCommand(options.command, 'allocation command');
+    const buildAuthority = await session.readBuildAuthorityFresh();
+    let proposal;
+    try {
+      proposal = canonicaliseAllocationCommand(
+        commandSnapshot,
+        session.platform,
+        buildAuthority,
+      );
+    } catch (error) {
+      if (error?.code === 'b3_issued_command_invalid') {
+        throw repositoryError(error.message);
+      }
+      throw error;
+    }
+
+    session.database.exec('BEGIN IMMEDIATE');
+    try {
+      let state = session.validate(buildAuthority);
+      if (state.kind === 'pending-initial') {
+        session.database.exec('COMMIT');
+        return Object.freeze({
+          kind: 'start-reserved',
+          intent: publicB3CaptureStartAuthority(state.startIntent),
+        });
+      }
+      if (state.kind !== 'ready-initial') {
+        throw repositoryError('B3 capture-state next allocation has no ready capture');
+      }
+      if (proposal.command.captureId !== state.capture.capture_id) {
+        throw repositoryError('B3 capture-state next allocation capture differs');
+      }
+      const retained = state.allocatedCommands.find((command) =>
+        command.commandSha256 === proposal.commandSha256);
+      if (state.activeCommand !== null) {
+        if (state.allocatedCommands.length === 1) {
+          throw repositoryError('B3 capture-state allocation tail is not closed');
+        }
+        if (retained &&
+            retained.commandSha256 === state.activeCommand.commandSha256 &&
+            retained.allocationSequence === state.activeCommand.allocationSequence &&
+            isDeepStrictEqual(retained.command, proposal.command)) {
+          session.database.exec('COMMIT');
+          return Object.freeze({ kind: 'already-active', command: state.activeCommand });
+        }
+        if (retained) {
+          throw repositoryError('B3 capture-state allocation reuses an earlier command');
+        }
+        session.database.exec('COMMIT');
+        return Object.freeze({
+          kind: 'allocation-conflict',
+          command: state.activeCommand,
+        });
+      }
+      if (retained) {
+        throw repositoryError('B3 capture-state allocation reuses an earlier command');
+      }
+      if (state.genericDecision === null || state.tailCommand === null) {
+        throw repositoryError('B3 capture-state allocation tail is not closed');
+      }
+      const allocationSequence = state.authority.next_allocation_sequence;
+      const inserted = session.database.prepare(`
+        INSERT INTO b3_commands (
+          command_sha256, allocation_sequence, predecessor_command_sha256,
+          command_json, prepared_record_json, prepared_record_sha256, capture_id,
+          expected_observation_sequence, previous_observation_sha256
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT DO NOTHING
+      `).run(
+        proposal.commandSha256,
+        allocationSequence,
+        state.tailCommand.commandSha256,
+        proposal.commandBytes,
+        proposal.preparedRecordBytes,
+        proposal.preparedRecord.recordSha256,
+        state.capture.capture_id,
+        proposal.command.expectedSequence,
+        proposal.command.previousObservationSha256,
+      );
+      if (inserted.changes !== 1) {
+        throw repositoryError('B3 capture-state next allocation lost command authority');
+      }
+      const advanced = session.database.prepare(`
+        UPDATE b3_authority_state
+        SET next_allocation_sequence = next_allocation_sequence + 1,
+          active_command_sha256 = ?, row_version = row_version + 1
+        WHERE singleton = 1 AND next_allocation_sequence = ?
+          AND active_command_sha256 IS NULL
+          AND reserved_start_command_sha256 IS NULL AND row_version = ?
+      `).run(
+        proposal.commandSha256,
+        allocationSequence,
+        state.authority.row_version,
+      );
+      if (advanced.changes !== 1) {
+        throw repositoryError('B3 capture-state next allocation lost singleton authority');
+      }
+      state = session.validate(buildAuthority);
+      if (state.kind !== 'ready-initial' || state.activeCommand === null ||
+          state.activeCommand.commandSha256 !== proposal.commandSha256 ||
+          state.activeCommand.allocationSequence !== allocationSequence ||
+          !isDeepStrictEqual(state.activeCommand.command, proposal.command)) {
+        throw repositoryError('B3 capture-state next allocation did not rederive');
+      }
+      session.database.exec('COMMIT');
+      return Object.freeze({ kind: 'allocated', command: state.activeCommand });
+    } catch (error) {
+      if (session.database.isTransaction) session.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
   async function transitionCommand(transitionOptions) {
     if (session.isClosed()) {
       throw repositoryError('B3 capture-state repository is already closed');
@@ -427,6 +566,7 @@ export async function openB3CaptureStateRepository(options) {
   }
 
   return Object.freeze({
+    allocateNextCommand,
     consumeCommand,
     readActiveCommand,
     reserveInitialCaptureStart,

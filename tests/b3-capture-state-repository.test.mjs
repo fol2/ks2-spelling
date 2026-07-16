@@ -8,6 +8,7 @@ import {
   mkdtemp,
   open,
   readFile,
+  readdir,
   rename,
   rm,
   writeFile,
@@ -184,6 +185,48 @@ function databasePath(root, platform = 'ios') {
   );
 }
 
+async function createExactEmptyBundle(root, captureId = CAPTURE_ID) {
+  const working = join(
+    root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
+    `${captureId}.working`,
+  );
+  for (const path of [
+    join(root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles'),
+    working,
+    join(working, 'observations'),
+    join(working, 'checkpoint'),
+    join(working, 'derived'),
+  ]) {
+    await mkdir(path, { recursive: true, mode: 0o700 });
+    await chmod(path, 0o700);
+  }
+  return working;
+}
+
+async function namespaceSnapshot(path) {
+  const rows = [];
+  async function visit(current, relativePath) {
+    const metadata = await lstat(current);
+    const row = {
+      relativePath,
+      mode: metadata.mode,
+      nlink: metadata.nlink,
+      size: metadata.size,
+      type: metadata.isDirectory() ? 'directory' : 'file',
+    };
+    if (metadata.isFile()) row.sha256 = await fileSha256(current);
+    rows.push(row);
+    if (metadata.isDirectory()) {
+      for (const name of (await readdir(current)).sort()) {
+        await visit(join(current, name),
+          relativePath === '.' ? name : `${relativePath}/${name}`);
+      }
+    }
+  }
+  await visit(path, '.');
+  return rows;
+}
+
 function initialCommand(captureId = CAPTURE_ID, platform = 'ios') {
   const commandWithoutChallenge = {
     schemaVersion: 1,
@@ -234,7 +277,7 @@ function laterCommand({
   };
 }
 
-async function seedReadyInitial(root) {
+async function seedReadyInitial(root, { materialiseBundle = true } = {}) {
   const bootstrapped = await probeInChild(root, 'shape');
   assert.equal(bootstrapped.ok, true);
   const database = new DatabaseSync(databasePath(root));
@@ -287,6 +330,7 @@ async function seedReadyInitial(root) {
   } finally {
     database.close();
   }
+  if (materialiseBundle) await createExactEmptyBundle(root);
 }
 
 async function reserveInChild(root, command, platform = 'ios') {
@@ -648,6 +692,116 @@ test('repository accepts one independently seeded canonical ready initial comman
     ],
     getterCalls: 0,
   });
+});
+
+test('production open rejects database and bundle composite mismatches unchanged', async (t) => {
+  const cases = [{
+    label: 'empty-working',
+    async setup(root) {
+      await probeInChild(root, 'shape');
+      await createExactEmptyBundle(root);
+    },
+  }, {
+    label: 'pending-nonempty',
+    async setup(root) {
+      await reserveInChild(root, initialCommand());
+      const working = await createExactEmptyBundle(root);
+      await writeFile(join(working, 'observations', '00000001.json'),
+        Buffer.from('unexpected'), { mode: 0o600 });
+    },
+  }, {
+    label: 'pending-wrong-capture',
+    async setup(root) {
+      await reserveInChild(root, initialCommand());
+      await createExactEmptyBundle(root, '018f1d7b-97e8-4a52-8cf2-783e5089c099');
+    },
+  }, {
+    label: 'ready-absent',
+    setup: (root) => seedReadyInitial(root, { materialiseBundle: false }),
+  }, {
+    label: 'ready-partial',
+    async setup(root) {
+      await seedReadyInitial(root, { materialiseBundle: false });
+      const working = join(
+        root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
+        `${CAPTURE_ID}.working`,
+      );
+      await mkdir(join(working, 'observations'), { recursive: true, mode: 0o700 });
+      for (const path of [
+        join(root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles'),
+        working,
+        join(working, 'observations'),
+      ]) await chmod(path, 0o700);
+    },
+  }, {
+    label: 'ready-wrong-capture',
+    async setup(root) {
+      await seedReadyInitial(root, { materialiseBundle: false });
+      await createExactEmptyBundle(root, '018f1d7b-97e8-4a52-8cf2-783e5089c099');
+    },
+  }];
+
+  for (const current of cases) {
+    const root = await fixture(t, `composite-${current.label}`);
+    await current.setup(root);
+    const databaseBefore = await fileSha256(databasePath(root));
+    const namespaceBefore = await namespaceSnapshot(root);
+
+    const opened = await probeInChild(root, 'shape');
+
+    assert.equal(opened.ok, false, current.label);
+    assert.match(opened.error.message, /bundle|pairing|composite|invalid/i, current.label);
+    assert.equal(await fileSha256(databasePath(root)), databaseBefore, current.label);
+    assert.deepEqual(await namespaceSnapshot(root), namespaceBefore, current.label);
+  }
+});
+
+test('production open accepts matching empty pending and ready-empty composites', async (t) => {
+  const emptyRoot = await fixture(t, 'composite-valid-empty');
+  assert.equal((await probeInChild(emptyRoot, 'shape')).ok, true);
+
+  const childNames = ['checkpoint', 'derived', 'observations'];
+  const pendingAbsentRoot = await fixture(t, 'composite-valid-pending-absent');
+  await reserveInChild(pendingAbsentRoot, initialCommand());
+  const pendingAbsentBefore = await namespaceSnapshot(pendingAbsentRoot);
+  assert.equal((await probeInChild(pendingAbsentRoot, 'shape')).ok, true);
+  assert.deepEqual(await namespaceSnapshot(pendingAbsentRoot), pendingAbsentBefore);
+
+  const pendingEmptyRoot = await fixture(t, 'composite-valid-pending-empty-root');
+  await reserveInChild(pendingEmptyRoot, initialCommand());
+  const emptyBundles = join(
+    pendingEmptyRoot, '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
+  );
+  await mkdir(emptyBundles, { mode: 0o700 });
+  const pendingEmptyBefore = await namespaceSnapshot(pendingEmptyRoot);
+  assert.equal((await probeInChild(pendingEmptyRoot, 'shape')).ok, true);
+  assert.deepEqual(await namespaceSnapshot(pendingEmptyRoot), pendingEmptyBefore);
+
+  for (let mask = 0; mask < 8; mask += 1) {
+    const root = await fixture(t, `composite-valid-pending-${mask}`);
+    await reserveInChild(root, initialCommand());
+    const working = join(
+      root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
+      `${CAPTURE_ID}.working`,
+    );
+    await mkdir(working, { recursive: true, mode: 0o700 });
+    for (const [index, name] of childNames.entries()) {
+      if ((mask & (1 << index)) !== 0) {
+        await mkdir(join(working, name), { mode: 0o700 });
+      }
+    }
+    for (const path of [
+      join(root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles'),
+      working,
+      ...childNames.filter((_, index) => (mask & (1 << index)) !== 0)
+        .map((name) => join(working, name)),
+    ]) await chmod(path, 0o700);
+    assert.equal((await probeInChild(root, 'shape')).ok, true, `subset-${mask}`);
+  }
+
+  const readyRoot = await fixture(t, 'composite-valid-ready');
+  await seedReadyInitial(readyRoot);
+  assert.equal((await probeInChild(readyRoot, 'shape')).ok, true);
 });
 
 test('ready initial validation rejects corrupt rows, pointers and orphan decisions unchanged',
@@ -1820,7 +1974,10 @@ test('one capture allocates contiguous A to B to C after exact generic closures'
     const root = await fixture(t, 'allocate-a-b-c');
     await seedReadyInitial(root);
     const bundles = join(root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles');
-    await assert.rejects(lstat(bundles), { code: 'ENOENT' });
+    assert.deepEqual((await readdir(bundles)).sort(), [`${CAPTURE_ID}.working`]);
+    assert.deepEqual((await readdir(join(bundles, `${CAPTURE_ID}.working`))).sort(), [
+      'checkpoint', 'derived', 'observations',
+    ]);
     const commandB = laterCommand({
       expectedScenarioIndex: 1,
       expectedSequence: 2,
@@ -1886,7 +2043,7 @@ test('one capture allocates contiguous A to B to C after exact generic closures'
     });
     assert.equal(database.prepare('SELECT count(*) AS count FROM b3_captures').get().count, 1);
     assert.equal(database.prepare('SELECT count(*) AS count FROM b3_decisions').get().count, 2);
-    await assert.rejects(lstat(bundles), { code: 'ENOENT' });
+    assert.deepEqual((await readdir(bundles)).sort(), [`${CAPTURE_ID}.working`]);
   });
 
 test('allocation retries retain one active slot winner and classify a different proposal',

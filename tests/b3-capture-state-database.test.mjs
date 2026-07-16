@@ -554,6 +554,27 @@ test('orphan bundle state rejects before the fixed database path is created', as
   )), { code: 'ENOENT' });
 });
 
+test('existing database rejects a structurally hostile bundle root without mutation',
+  async (t) => {
+    const root = await fixture(t, 'existing-hostile-bundle');
+    await openInChild(root);
+    const stateDirectory = join(
+      root, '.native-build', 'b3', 'evidence', 'ios-capture-state',
+    );
+    const bundles = join(
+      root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
+    );
+    await mkdir(bundles, { mode: 0o700 });
+    await writeFile(join(bundles, 'unexpected'), Buffer.from('hostile'), { mode: 0o600 });
+    const databaseBefore = await directorySnapshot(stateDirectory);
+    const bundlesBefore = await directorySnapshot(bundles);
+
+    await assert.rejects(openInChild(root), /bundle|inventory|structurally|invalid/i);
+
+    assert.deepEqual(await directorySnapshot(stateDirectory), databaseBefore);
+    assert.deepEqual(await directorySnapshot(bundles), bundlesBefore);
+  });
+
 test('pre-existing zero-byte database is the sole incomplete bootstrap state', async (t) => {
   const root = await fixture(t, 'zero-byte');
   const stateDirectory = join(

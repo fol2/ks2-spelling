@@ -30,6 +30,10 @@ import {
   validateB3OrdinaryIssuedCommandClaimAuthorityBytes,
   validateB3PreparedIssuedCommandAuthorityBytes,
 } from './b3-issued-command-authority.mjs';
+import {
+  classifyB3CaptureBundleRootState,
+  validateB3CaptureBundleComposite,
+} from './b3-capture-bundle-store.mjs';
 import { registerB3CaptureStateSession } from './b3-capture-state-internal.mjs';
 
 const PLATFORMS = new Set(['ios', 'android']);
@@ -215,15 +219,14 @@ async function assertLegacyStateAbsent(evidence, platform) {
   }
 }
 
-async function assertBootstrapBundleState(evidence, platform) {
-  const path = resolve(evidence, `${platform}-capture-bundles`);
+function assertBootstrapBundleState(platform) {
+  let state;
   try {
-    validateDirectory(await lstat(path), 'capture-bundles');
+    state = classifyB3CaptureBundleRootState({ platform });
   } catch (error) {
-    if (error?.code === 'ENOENT') return;
-    throw error;
+    throw databaseError(error?.message ?? 'B3 capture-state bundle root is invalid');
   }
-  if ((await readdir(path)).length !== 0) {
+  if (!['absent', 'empty'].includes(state.kind)) {
     throw databaseError('B3 capture-state orphan-bundle-state is present', 'b3_orphan_bundle_state');
   }
 }
@@ -339,8 +342,8 @@ function schemaObjects(database) {
   `).all().map((row) => ({ ...row }));
 }
 
-function bootstrapOrObserveSchema(database, platform, buildAuthority) {
-  database.exec('BEGIN EXCLUSIVE');
+function bootstrapOrObserveSchemaAndComposite(database, platform, buildAuthority) {
+  database.exec('BEGIN IMMEDIATE');
   try {
     const userVersion = pragmaScalar(database, 'user_version');
     const objects = schemaObjects(database);
@@ -369,9 +372,17 @@ function bootstrapOrObserveSchema(database, platform, buildAuthority) {
         ) VALUES (1, 1, NULL, NULL, 1)
       `);
     }
+    database.setAuthorizer(strictAuthoriser);
+    const databaseState = validateDatabase(database, platform, buildAuthority);
+    const rootState = classifyB3CaptureBundleRootState({ platform });
+    validateB3CaptureBundleComposite({ databaseState, rootState });
     database.exec('COMMIT');
   } catch (error) {
     if (database.isTransaction) database.exec('ROLLBACK');
+    if (['b3_capture_bundle_invalid', 'b3_capture_member_conflict']
+      .includes(error?.code)) {
+      throw databaseError(error.message);
+    }
     throw error;
   }
 }
@@ -757,7 +768,7 @@ export async function openB3CaptureStateDatabase(options) {
     await lstat(unresolvedStateDirectory);
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
-    await assertBootstrapBundleState(evidence, platform);
+    assertBootstrapBundleState(platform);
   }
   const stateDirectory = await createOrValidateDirectory(
     evidence, `${platform}-capture-state`,
@@ -768,7 +779,7 @@ export async function openB3CaptureStateDatabase(options) {
     await lstat(databasePath);
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
-    await assertBootstrapBundleState(evidence, platform);
+    assertBootstrapBundleState(platform);
   }
   let created = false;
   let guard;
@@ -790,8 +801,13 @@ export async function openB3CaptureStateDatabase(options) {
     const databaseMetadata = await guard.stat();
     validatePrivateFile(databaseMetadata, DATABASE_NAME, (size) => size >= 0);
     const bootstrapEligible = created || databaseMetadata.size === 0;
-    if (bootstrapEligible) await assertBootstrapBundleState(evidence, platform);
+    if (bootstrapEligible) assertBootstrapBundleState(platform);
     if (!bootstrapEligible) {
+      try {
+        classifyB3CaptureBundleRootState({ platform });
+      } catch (error) {
+        throw databaseError(error?.message ?? 'B3 capture-state bundle root is invalid');
+      }
       await validateExistingHeaderBytes(guard, databaseMetadata.size);
     }
 
@@ -807,9 +823,7 @@ export async function openB3CaptureStateDatabase(options) {
       setPrevalidationConnectionPragmas(database);
       if (!bootstrapEligible) validateExistingDatabase(database);
       setValidatedConnectionPragmas(database);
-      bootstrapOrObserveSchema(database, platform, buildAuthority);
-      database.setAuthorizer(strictAuthoriser);
-      validateDatabase(database, platform, buildAuthority);
+      bootstrapOrObserveSchemaAndComposite(database, platform, buildAuthority);
       const after = await lstat(databasePath);
       validatePrivateFile(after, DATABASE_NAME, (size) => size > 0);
       if (after.dev !== databaseMetadata.dev || after.ino !== databaseMetadata.ino) {

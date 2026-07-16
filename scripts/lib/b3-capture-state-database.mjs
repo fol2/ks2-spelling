@@ -260,9 +260,12 @@ async function validateStateNamespace(stateDirectory) {
   throw databaseError('B3 capture-state journal namespace did not stabilise');
 }
 
-function setConnectionPragmas(database) {
+function setPrevalidationConnectionPragmas(database) {
+  database.exec('PRAGMA busy_timeout = 5000;');
+}
+
+function setValidatedConnectionPragmas(database) {
   database.exec(`
-    PRAGMA busy_timeout = 5000;
     PRAGMA journal_mode = DELETE;
     PRAGMA synchronous = FULL;
     PRAGMA fullfsync = ON;
@@ -801,8 +804,9 @@ export async function openB3CaptureStateDatabase(options) {
       if (database.location() !== databasePath) {
         throw databaseError('B3 capture-state SQLite location differs');
       }
+      setPrevalidationConnectionPragmas(database);
       if (!bootstrapEligible) validateExistingDatabase(database);
-      setConnectionPragmas(database);
+      setValidatedConnectionPragmas(database);
       bootstrapOrObserveSchema(database, platform, buildAuthority);
       database.setAuthorizer(strictAuthoriser);
       validateDatabase(database, platform, buildAuthority);

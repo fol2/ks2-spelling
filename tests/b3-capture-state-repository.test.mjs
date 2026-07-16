@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFile, spawn } from 'node:child_process';
+import { execFile, fork, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmod, lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -418,6 +418,119 @@ function spawnBarrierReader(root) {
     release() { child.stdin.end('go\n'); },
     result,
   });
+}
+
+function spawnBarrierMutator(t, root, input) {
+  const helper = new URL(
+    './helpers/b3-capture-state-race-child.mjs',
+    import.meta.url,
+  );
+  const child = fork(helper.pathname, [
+    Buffer.from(JSON.stringify(input), 'utf8').toString('base64url'),
+  ], {
+    cwd: root,
+    execArgv: ['--experimental-test-module-mocks'],
+    stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+  });
+  let stderr = '';
+  let readyResolve;
+  let readyReject;
+  let resultResolve;
+  let resultReject;
+  let reportedResult = null;
+  let readySettled = false;
+  const ready = new Promise((resolve, reject) => {
+    readyResolve = resolve;
+    readyReject = reject;
+  });
+  const result = new Promise((resolve, reject) => {
+    resultResolve = resolve;
+    resultReject = reject;
+  });
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  child.on('message', (message) => {
+    if (message?.type === 'ready' && !readySettled) {
+      readySettled = true;
+      readyResolve(message.preflight);
+    } else if (message?.type === 'result' && reportedResult === null) {
+      reportedResult = message;
+    }
+  });
+  child.once('error', (error) => {
+    if (!readySettled) {
+      readySettled = true;
+      readyReject(error);
+    }
+    resultReject(error);
+  });
+  child.once('exit', (code, signal) => {
+    if (code !== 0 || reportedResult === null) {
+      const error = new Error(
+        `capture-state mutation child failed (${code}, ${signal}): ${stderr}`,
+      );
+      if (!readySettled) {
+        readySettled = true;
+        readyReject(error);
+      }
+      resultReject(error);
+      return;
+    }
+    resultResolve(Object.freeze({
+      operation: reportedResult.operation,
+      result: reportedResult.result,
+      error: reportedResult.error,
+    }));
+  });
+  t.after(() => {
+    if (child.exitCode === null && child.signalCode === null) child.kill();
+  });
+  return Object.freeze({
+    ready,
+    release() { child.send({ type: 'go' }); },
+    result,
+    terminate() {
+      if (child.exitCode === null && child.signalCode === null) child.kill();
+    },
+  });
+}
+
+async function raceBarrierMutations(t, root, inputs) {
+  const children = inputs.map((input) => spawnBarrierMutator(t, root, input));
+  try {
+    const preflights = await Promise.all(children.map((child) => child.ready));
+    for (const child of children) child.release();
+    const outcomes = await Promise.all(children.map((child) => child.result));
+    return Object.freeze({ preflights, outcomes });
+  } catch (error) {
+    for (const child of children) child.terminate();
+    await Promise.allSettled(children.map((child) => child.result));
+    throw error;
+  }
+}
+
+function readRaceDatabaseState(root) {
+  const database = new DatabaseSync(databasePath(root), { readOnly: true });
+  try {
+    return Object.freeze({
+      decisions: database.prepare(`
+        SELECT command_sha256, source_state, winner_kind, next_state
+        FROM b3_decisions ORDER BY command_sha256, source_state
+      `).all().map((row) => ({ ...row })),
+      commands: database.prepare(`
+        SELECT command_sha256, allocation_sequence, predecessor_command_sha256
+        FROM b3_commands ORDER BY allocation_sequence
+      `).all().map((row) => ({ ...row })),
+      authority: {
+        ...database.prepare(`
+          SELECT next_allocation_sequence, active_command_sha256, row_version
+          FROM b3_authority_state
+        `).get(),
+      },
+    });
+  } finally {
+    database.close();
+  }
 }
 
 test('initial capture start reserves one immutable canonical command without allocating it',
@@ -1421,6 +1534,162 @@ test('decision APIs synchronously snapshot each getter once before returning a p
     }
   });
 
+test('real processes selecting one identical ordinary successor retain one winner',
+  { timeout: 15_000 }, async (t) => {
+    const root = await fixture(t, 'decision-race-identical-ordinary');
+    await seedReadyInitial(root);
+
+    const race = await raceBarrierMutations(t, root, [
+      { kind: 'transition', nextState: 'launching' },
+      { kind: 'transition', nextState: 'launching' },
+    ]);
+
+    assert.deepEqual(race.preflights[0], race.preflights[1]);
+    assert.equal(race.preflights[0].kind, 'active');
+    assert.equal(race.preflights[0].command.state, 'prepared');
+    assert.deepEqual(race.outcomes.map(({ error }) => error), [null, null]);
+    assert.deepEqual(race.outcomes.map(({ result }) => result.kind).sort(), [
+      'already-transitioned', 'transitioned',
+    ]);
+    assert.deepEqual(race.outcomes[0].result.command, race.outcomes[1].result.command);
+    assert.equal(race.outcomes[0].result.command.state, 'launching');
+
+    const state = readRaceDatabaseState(root);
+    assert.deepEqual(state.decisions, [{
+      command_sha256: FIRST_COMMAND_SHA256,
+      source_state: 'prepared',
+      winner_kind: 'ordinary',
+      next_state: 'launching',
+    }]);
+    assert.deepEqual(state.authority, {
+      next_allocation_sequence: 2,
+      active_command_sha256: FIRST_COMMAND_SHA256,
+      row_version: 3,
+    });
+  });
+
+test('real processes selecting different ordinary successors retain one typed conflict',
+  { timeout: 15_000 }, async (t) => {
+    const root = await fixture(t, 'decision-race-different-ordinary');
+    await seedReadyInitial(root);
+
+    const race = await raceBarrierMutations(t, root, [
+      { kind: 'transition', nextState: 'launching' },
+      { kind: 'transition', nextState: 'stop-intent' },
+    ]);
+
+    assert.deepEqual(race.preflights[0], race.preflights[1]);
+    assert.equal(race.preflights[0].command.state, 'prepared');
+    assert.deepEqual(race.outcomes.map(({ error }) => error), [null, null]);
+    assert.deepEqual(race.outcomes.map(({ result }) => result.kind).sort(), [
+      'ordinary-conflict', 'transitioned',
+    ]);
+    assert.deepEqual(race.outcomes[0].result.command, race.outcomes[1].result.command);
+    assert.equal(
+      ['launching', 'stop-intent'].includes(race.outcomes[0].result.command.state),
+      true,
+    );
+
+    const state = readRaceDatabaseState(root);
+    assert.deepEqual(state.decisions, [{
+      command_sha256: FIRST_COMMAND_SHA256,
+      source_state: 'prepared',
+      winner_kind: 'ordinary',
+      next_state: race.outcomes[0].result.command.state,
+    }]);
+    assert.deepEqual(state.authority, {
+      next_allocation_sequence: 2,
+      active_command_sha256: FIRST_COMMAND_SHA256,
+      row_version: 3,
+    });
+  });
+
+test('real processes consuming one identical source retain one generic winner',
+  { timeout: 15_000 }, async (t) => {
+    const root = await fixture(t, 'decision-race-identical-consumption');
+    await seedReadyInitial(root);
+
+    const race = await raceBarrierMutations(t, root, [
+      { kind: 'consume' },
+      { kind: 'consume' },
+    ]);
+
+    assert.deepEqual(race.preflights[0], race.preflights[1]);
+    assert.equal(race.preflights[0].command.state, 'prepared');
+    assert.deepEqual(race.outcomes.map(({ error }) => error), [null, null]);
+    assert.deepEqual(race.outcomes.map(({ result }) => result.kind).sort(), [
+      'already-consumed', 'consumed',
+    ]);
+    const [first, second] = race.outcomes.map(({ result }) => result);
+    assert.equal(first.commandSha256, second.commandSha256);
+    assert.equal(first.sourceState, second.sourceState);
+    assert.equal(first.claimSha256, second.claimSha256);
+
+    const state = readRaceDatabaseState(root);
+    assert.deepEqual(state.decisions, [{
+      command_sha256: FIRST_COMMAND_SHA256,
+      source_state: 'prepared',
+      winner_kind: 'generic-consumption',
+      next_state: null,
+    }]);
+    assert.deepEqual(state.authority, {
+      next_allocation_sequence: 2,
+      active_command_sha256: null,
+      row_version: 4,
+    });
+  });
+
+test('real ordinary and generic proposals for one source retain one typed winner',
+  { timeout: 15_000 }, async (t) => {
+    const root = await fixture(t, 'decision-race-ordinary-generic');
+    await seedReadyInitial(root);
+
+    const race = await raceBarrierMutations(t, root, [
+      { kind: 'transition', nextState: 'launching' },
+      { kind: 'consume' },
+    ]);
+
+    assert.deepEqual(race.preflights[0], race.preflights[1]);
+    assert.equal(race.preflights[0].command.state, 'prepared');
+    assert.deepEqual(race.outcomes.map(({ error }) => error), [null, null]);
+    const ordinary = race.outcomes.find(({ operation }) => operation === 'transition').result;
+    const generic = race.outcomes.find(({ operation }) => operation === 'consume').result;
+    const state = readRaceDatabaseState(root);
+    assert.equal(state.decisions.length, 1);
+    if (ordinary.kind === 'transitioned') {
+      assert.equal(generic.kind, 'ordinary-selected');
+      assert.deepEqual(generic.command, ordinary.command);
+      assert.deepEqual(state.decisions, [{
+        command_sha256: FIRST_COMMAND_SHA256,
+        source_state: 'prepared',
+        winner_kind: 'ordinary',
+        next_state: 'launching',
+      }]);
+      assert.deepEqual(state.authority, {
+        next_allocation_sequence: 2,
+        active_command_sha256: FIRST_COMMAND_SHA256,
+        row_version: 3,
+      });
+    } else {
+      assert.equal(ordinary.kind, 'generic-consumed');
+      assert.equal(generic.kind, 'consumed');
+      assert.equal(ordinary.commandSha256, generic.commandSha256);
+      assert.equal(ordinary.sourceState, generic.sourceState);
+      assert.equal(ordinary.claimSha256, generic.claimSha256);
+      assert.deepEqual(state.decisions, [{
+        command_sha256: FIRST_COMMAND_SHA256,
+        source_state: 'prepared',
+        winner_kind: 'generic-consumption',
+        next_state: null,
+      }]);
+      assert.deepEqual(state.authority, {
+        next_allocation_sequence: 2,
+        active_command_sha256: null,
+        row_version: 4,
+      });
+    }
+  });
+
 test('one capture allocates contiguous A to B to C after exact generic closures',
   async (t) => {
     const root = await fixture(t, 'allocate-a-b-c');
@@ -1557,6 +1826,94 @@ test('allocation retry returns the current state of its active retained slot',
     assert.equal(result.results[3].command.state, 'launching');
     assert.deepEqual(result.results[3].command, result.results[2].command);
     assert.deepEqual(result.final, { kind: 'active', command: result.results[2].command });
+  });
+
+test('real processes allocating one identical B proposal retain one sequence-two winner',
+  { timeout: 15_000 }, async (t) => {
+    const root = await fixture(t, 'allocation-race-identical-b');
+    await seedReadyInitial(root);
+    const closed = await decideInChild(root, [{ op: 'consume', sourceName: 'A' }]);
+    assert.equal(closed.ok, true);
+    assert.equal(closed.results[0].kind, 'consumed');
+    assert.deepEqual(closed.final, { kind: 'none' });
+    const commandB = laterCommand({
+      expectedScenarioIndex: 1,
+      expectedSequence: 2,
+      previousObservationSha256: 'a'.repeat(64),
+    });
+
+    const race = await raceBarrierMutations(t, root, [
+      { kind: 'allocate', command: commandB },
+      { kind: 'allocate', command: commandB },
+    ]);
+
+    assert.deepEqual(race.preflights, [{ kind: 'none' }, { kind: 'none' }]);
+    assert.deepEqual(race.outcomes.map(({ error }) => error), [null, null]);
+    assert.deepEqual(race.outcomes.map(({ result }) => result.kind).sort(), [
+      'allocated', 'already-active',
+    ]);
+    assert.deepEqual(race.outcomes[0].result.command, race.outcomes[1].result.command);
+    const winner = race.outcomes[0].result.command;
+    assert.equal(winner.allocationSequence, 2);
+    assert.equal(winner.predecessorCommandSha256, FIRST_COMMAND_SHA256);
+
+    const state = readRaceDatabaseState(root);
+    assert.deepEqual(state.commands.map(({ allocation_sequence }) => allocation_sequence), [1, 2]);
+    assert.equal(state.commands[1].command_sha256, winner.commandSha256);
+    assert.equal(state.commands[1].predecessor_command_sha256, FIRST_COMMAND_SHA256);
+    assert.deepEqual(state.authority, {
+      next_allocation_sequence: 3,
+      active_command_sha256: winner.commandSha256,
+      row_version: 5,
+    });
+  });
+
+test('real processes allocating different B proposals retain one typed slot conflict',
+  { timeout: 15_000 }, async (t) => {
+    const root = await fixture(t, 'allocation-race-different-b');
+    await seedReadyInitial(root);
+    const closed = await decideInChild(root, [{ op: 'consume', sourceName: 'A' }]);
+    assert.equal(closed.ok, true);
+    assert.equal(closed.results[0].kind, 'consumed');
+    assert.deepEqual(closed.final, { kind: 'none' });
+    const firstProposal = laterCommand({
+      expectedScenarioIndex: 1,
+      expectedSequence: 2,
+      previousObservationSha256: 'a'.repeat(64),
+    });
+    const secondProposal = laterCommand({
+      expectedScenarioIndex: 2,
+      expectedSequence: 2,
+      previousObservationSha256: 'a'.repeat(64),
+    });
+
+    const race = await raceBarrierMutations(t, root, [
+      { kind: 'allocate', command: firstProposal },
+      { kind: 'allocate', command: secondProposal },
+    ]);
+
+    assert.deepEqual(race.preflights, [{ kind: 'none' }, { kind: 'none' }]);
+    assert.deepEqual(race.outcomes.map(({ error }) => error), [null, null]);
+    assert.deepEqual(race.outcomes.map(({ result }) => result.kind).sort(), [
+      'allocated', 'allocation-conflict',
+    ]);
+    assert.deepEqual(race.outcomes[0].result.command, race.outcomes[1].result.command);
+    const winner = race.outcomes[0].result.command;
+    assert.equal(
+      [firstProposal.challengeSha256, secondProposal.challengeSha256]
+        .includes(winner.command.challengeSha256),
+      true,
+    );
+
+    const state = readRaceDatabaseState(root);
+    assert.deepEqual(state.commands.map(({ allocation_sequence }) => allocation_sequence), [1, 2]);
+    assert.equal(state.commands[1].command_sha256, winner.commandSha256);
+    assert.equal(state.commands[1].predecessor_command_sha256, FIRST_COMMAND_SHA256);
+    assert.deepEqual(state.authority, {
+      next_allocation_sequence: 3,
+      active_command_sha256: winner.commandSha256,
+      row_version: 5,
+    });
   });
 
 test('allocation rejects an unclosed initial active command before retry classification',

@@ -9,6 +9,10 @@ import {
   canonicaliseB3ProofValue,
   validateB3ProofLaunchCommand,
 } from '../../src/app/b3-live-proof-protocol.js';
+import {
+  createB3PreparedIssuedCommandAuthority,
+  validateB3PreparedIssuedCommandAuthorityBytes,
+} from './b3-issued-command-authority.mjs';
 
 const PLATFORM = Object.freeze({ ios: 'ios-physical', android: 'android-play-physical' });
 const HASH = /^[0-9a-f]{64}$/u;
@@ -202,6 +206,9 @@ async function readImmutableClaimBytes({ evidence, path }) {
 
 function record(platform, command, state = 'prepared') {
   if (!STATES.includes(state)) throw issuedError('B3 issued-command state is invalid');
+  if (state === 'prepared') {
+    return createB3PreparedIssuedCommandAuthority({ platform, command });
+  }
   const commandBytes = Buffer.from(canonicaliseB3ProofValue(command), 'utf8');
   const unsigned = {
     schemaVersion: 3,
@@ -222,6 +229,9 @@ function record(platform, command, state = 'prepared') {
 }
 
 function validateRecord(bytes, platform, expectedState) {
+  if (expectedState === 'prepared') {
+    return validateB3PreparedIssuedCommandAuthorityBytes({ bytes, platform });
+  }
   const value = parseB3StrictJsonBytes(bytes, 'B3 issued command');
   if (!value || Object.keys(value).length !== 6 || value.schemaVersion !== 3 ||
       value.platform !== platform || !STATES.includes(value.state) ||

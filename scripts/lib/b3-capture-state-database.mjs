@@ -19,6 +19,8 @@ import {
   B3_CAPTURE_STATE_SCHEMA_VERSION,
 } from './b3-capture-state-schema.mjs';
 import { B3_CAPTURE_STATE_REPOSITORY_ROOT } from './b3-capture-state-location.mjs';
+import { validateB3PendingInitialCaptureStartAuthority } from './b3-capture-start-authority.mjs';
+import { registerB3CaptureStateSession } from './b3-capture-state-internal.mjs';
 
 const PLATFORMS = new Set(['ios', 'android']);
 const DATABASE_NAME = 'recovery.sqlite';
@@ -361,6 +363,37 @@ function bootstrapOrObserveSchema(database, platform, buildAuthority) {
   }
 }
 
+function validatePendingInitialStart(database, authority, platform, buildAuthority) {
+  const rows = database.prepare('SELECT * FROM b3_capture_start_intents').all();
+  if (rows.length !== 1) {
+    throw databaseError('B3 capture-state pending initial intent cardinality differs');
+  }
+  const row = rows[0];
+  return validateB3PendingInitialCaptureStartAuthority({
+    platform,
+    buildAuthority,
+    retained: Object.freeze({
+      startIntentSha256: row.start_intent_sha256,
+      intentKind: row.intent_kind,
+      recoveredCommandSha256: row.recovered_command_sha256,
+      terminalClaimSha256: row.terminal_claim_sha256,
+      captureId: row.capture_id,
+      firstCommandSha256: row.first_command_sha256,
+      firstCommandBytes: row.first_command_json,
+      firstPreparedRecordBytes: row.first_prepared_record_json,
+      firstPreparedRecordSha256: row.first_prepared_record_sha256,
+      intentState: row.intent_state,
+      rowVersion: row.row_version,
+    }),
+    singleton: Object.freeze({
+      nextAllocationSequence: authority.next_allocation_sequence,
+      activeCommandSha256: authority.active_command_sha256,
+      reservedStartCommandSha256: authority.reserved_start_command_sha256,
+      rowVersion: authority.row_version,
+    }),
+  });
+}
+
 function validateDatabase(database, platform, buildAuthority) {
   validatePragmas(database);
   if (!isDeepStrictEqual(schemaObjects(database), B3_CAPTURE_STATE_SCHEMA_OBJECTS)) {
@@ -384,15 +417,10 @@ function validateDatabase(database, platform, buildAuthority) {
     throw databaseError('B3 capture-state metadata authority differs');
   }
   const authorityRows = database.prepare('SELECT * FROM b3_authority_state').all();
-  if (!isDeepStrictEqual(authorityRows.map((row) => ({ ...row })), [{
-    singleton: 1,
-    next_allocation_sequence: 1,
-    active_command_sha256: null,
-    reserved_start_command_sha256: null,
-    row_version: 1,
-  }])) {
+  if (authorityRows.length !== 1 || authorityRows[0].singleton !== 1) {
     throw databaseError('B3 capture-state singleton authority differs');
   }
+  const authority = authorityRows[0];
   const domainCounts = database.prepare(`
     SELECT
       (SELECT count(*) FROM b3_capture_start_intents) AS start_intents,
@@ -404,9 +432,31 @@ function validateDatabase(database, platform, buildAuthority) {
       (SELECT count(*) FROM b3_recovery_authorities) AS recovery_authorities,
       (SELECT count(*) FROM b3_recovery_terminals) AS recovery_terminals
   `).get();
-  if (Object.values(domainCounts).some((count) => count !== 0)) {
-    throw databaseError('B3 capture-state domain authority requires S2 validation');
+  const unsupportedCount = Object.entries(domainCounts)
+    .filter(([name]) => name !== 'start_intents')
+    .some(([, count]) => count !== 0);
+  if (!unsupportedCount && domainCounts.start_intents === 0 &&
+      isDeepStrictEqual({ ...authority }, {
+        singleton: 1,
+        next_allocation_sequence: 1,
+        active_command_sha256: null,
+        reserved_start_command_sha256: null,
+        row_version: 1,
+      })) {
+    return Object.freeze({ kind: 'empty', startIntent: null });
   }
+  if (!unsupportedCount && domainCounts.start_intents === 1) {
+    return Object.freeze({
+      kind: 'pending-initial',
+      startIntent: validatePendingInitialStart(
+        database,
+        authority,
+        platform,
+        buildAuthority,
+      ),
+    });
+  }
+  throw databaseError('B3 capture-state domain authority is unsupported or invalid');
 }
 
 function openWithPrivateMask(path) {
@@ -501,13 +551,21 @@ export async function openB3CaptureStateDatabase(options) {
         await syncDirectory(stateDirectory);
       }
       let closed = false;
-      const state = Object.freeze({
-        async close() {
-          if (closed) throw databaseError('B3 capture-state handle is already closed');
-          closed = true;
-          database.close();
-        },
-      });
+      async function close() {
+        if (closed) throw databaseError('B3 capture-state handle is already closed');
+        closed = true;
+        database.close();
+      }
+      const state = { close };
+      registerB3CaptureStateSession(state, Object.freeze({
+        database,
+        platform,
+        isClosed: () => closed,
+        readBuildAuthorityFresh: () => readBuildAuthority(root),
+        validate: (freshBuildAuthority) =>
+          validateDatabase(database, platform, freshBuildAuthority),
+      }));
+      Object.freeze(state);
       returned = true;
       return state;
     } finally {

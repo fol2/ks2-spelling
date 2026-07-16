@@ -4,6 +4,7 @@ import { installB3CaptureStateRootMock } from './b3-capture-state-install-root-m
 installB3CaptureStateRootMock();
 
 const probeAuthoriser = process.argv[3] === 'authoriser-probe';
+const probeSurface = process.argv[3] === 'surface-shape';
 const original = Object.freeze({
   enableDefensive: DatabaseSync.prototype.enableDefensive,
   enableLoadExtension: DatabaseSync.prototype.enableLoadExtension,
@@ -33,8 +34,10 @@ const { openB3CaptureStateDatabase } = await import(
 
 const platform = process.argv[2] ?? 'ios';
 const state = await openB3CaptureStateDatabase({ platform });
+const surfaceKeys = probeSurface ? Reflect.ownKeys(state).map(String).sort() : null;
 await state.close();
 const result = { ok: true };
+if (probeSurface) result.surfaceKeys = surfaceKeys;
 if (probeAuthoriser) {
   result.calls = calls;
   result.decisions = {

@@ -77,7 +77,47 @@ export async function openB3CaptureStateRepository(options) {
     }
   }
 
+  async function readActiveCommand(...readOptions) {
+    if (session.isClosed()) {
+      throw repositoryError('B3 capture-state repository is already closed');
+    }
+    if (readOptions.length !== 0) {
+      throw repositoryError('B3 capture-state read authority is invalid');
+    }
+    const buildAuthority = await session.readBuildAuthorityFresh();
+
+    session.database.exec('BEGIN');
+    try {
+      const state = session.validate(buildAuthority);
+      let result;
+      if (state.kind === 'empty') {
+        result = Object.freeze({ kind: 'none' });
+      } else if (state.kind === 'pending-initial') {
+        result = Object.freeze({
+          kind: 'start-reserved',
+          intent: publicB3CaptureStartAuthority(state.startIntent),
+        });
+      } else if (state.kind === 'ready-initial') {
+        result = Object.freeze({
+          kind: 'active',
+          command: Object.freeze({
+            ...state.activeCommand,
+            command: Object.freeze({ ...state.activeCommand.command }),
+          }),
+        });
+      } else {
+        throw repositoryError('B3 capture-state read authority is unsupported');
+      }
+      session.database.exec('COMMIT');
+      return result;
+    } catch (error) {
+      if (session.database.isTransaction) session.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
   return Object.freeze({
+    readActiveCommand,
     reserveInitialCaptureStart,
     close: () => foundation.close(),
   });

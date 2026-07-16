@@ -19,7 +19,11 @@ import {
   B3_CAPTURE_STATE_SCHEMA_VERSION,
 } from './b3-capture-state-schema.mjs';
 import { B3_CAPTURE_STATE_REPOSITORY_ROOT } from './b3-capture-state-location.mjs';
-import { validateB3PendingInitialCaptureStartAuthority } from './b3-capture-start-authority.mjs';
+import {
+  validateB3PendingInitialCaptureStartAuthority,
+  validateB3ReadyInitialCaptureStartAuthority,
+} from './b3-capture-start-authority.mjs';
+import { validateB3PreparedIssuedCommandAuthorityBytes } from './b3-issued-command-authority.mjs';
 import { registerB3CaptureStateSession } from './b3-capture-state-internal.mjs';
 
 const PLATFORMS = new Set(['ios', 'android']);
@@ -394,6 +398,85 @@ function validatePendingInitialStart(database, authority, platform, buildAuthori
   });
 }
 
+function retainedStartIntent(row) {
+  return Object.freeze({
+    startIntentSha256: row.start_intent_sha256,
+    intentKind: row.intent_kind,
+    recoveredCommandSha256: row.recovered_command_sha256,
+    terminalClaimSha256: row.terminal_claim_sha256,
+    captureId: row.capture_id,
+    firstCommandSha256: row.first_command_sha256,
+    firstCommandBytes: row.first_command_json,
+    firstPreparedRecordBytes: row.first_prepared_record_json,
+    firstPreparedRecordSha256: row.first_prepared_record_sha256,
+    intentState: row.intent_state,
+    rowVersion: row.row_version,
+  });
+}
+
+function validateReadyInitialStart(database, authority, platform, buildAuthority) {
+  const intentRows = database.prepare('SELECT * FROM b3_capture_start_intents').all();
+  const captureRows = database.prepare('SELECT * FROM b3_captures').all();
+  const commandRows = database.prepare('SELECT * FROM b3_commands').all();
+  if (intentRows.length !== 1 || captureRows.length !== 1 || commandRows.length !== 1) {
+    throw databaseError('B3 capture-state ready initial cardinality differs');
+  }
+  const startIntent = validateB3ReadyInitialCaptureStartAuthority({
+    platform,
+    buildAuthority,
+    retained: retainedStartIntent(intentRows[0]),
+  });
+  const capture = captureRows[0];
+  if (!isDeepStrictEqual({ ...capture }, {
+    capture_id: startIntent.captureId,
+    start_intent_sha256: startIntent.startIntentSha256,
+    capture_state: 'working',
+    row_version: 1,
+  })) {
+    throw databaseError('B3 capture-state ready initial capture authority differs');
+  }
+  const command = commandRows[0];
+  const preparedRecord = validateB3PreparedIssuedCommandAuthorityBytes({
+    bytes: command.prepared_record_json,
+    platform,
+  });
+  if (command.command_sha256 !== startIntent.firstCommandSha256 ||
+      command.allocation_sequence !== 1 || command.predecessor_command_sha256 !== null ||
+      !Buffer.from(command.command_json).equals(startIntent.commandBytes) ||
+      !Buffer.from(command.prepared_record_json).equals(startIntent.preparedRecordBytes) ||
+      command.prepared_record_sha256 !== startIntent.firstPreparedRecordSha256 ||
+      command.capture_id !== startIntent.captureId ||
+      command.expected_observation_sequence !== 1 ||
+      command.previous_observation_sha256 !== '0'.repeat(64) ||
+      preparedRecord.commandSha256 !== command.command_sha256 ||
+      preparedRecord.recordSha256 !== command.prepared_record_sha256 ||
+      !isDeepStrictEqual({ ...authority }, {
+        singleton: 1,
+        next_allocation_sequence: 2,
+        active_command_sha256: command.command_sha256,
+        reserved_start_command_sha256: null,
+        row_version: 3,
+      })) {
+    throw databaseError('B3 capture-state ready initial command authority differs');
+  }
+  return Object.freeze({
+    kind: 'ready-initial',
+    startIntent,
+    capture: Object.freeze({ ...capture }),
+    activeCommand: Object.freeze({
+      schemaVersion: preparedRecord.schemaVersion,
+      platform,
+      allocationSequence: command.allocation_sequence,
+      predecessorCommandSha256: command.predecessor_command_sha256,
+      captureId: command.capture_id,
+      commandSha256: command.command_sha256,
+      command: preparedRecord.command,
+      state: preparedRecord.state,
+      recordSha256: preparedRecord.recordSha256,
+    }),
+  });
+}
+
 function validateDatabase(database, platform, buildAuthority) {
   validatePragmas(database);
   if (!isDeepStrictEqual(schemaObjects(database), B3_CAPTURE_STATE_SCHEMA_OBJECTS)) {
@@ -432,10 +515,12 @@ function validateDatabase(database, platform, buildAuthority) {
       (SELECT count(*) FROM b3_recovery_authorities) AS recovery_authorities,
       (SELECT count(*) FROM b3_recovery_terminals) AS recovery_terminals
   `).get();
-  const unsupportedCount = Object.entries(domainCounts)
-    .filter(([name]) => name !== 'start_intents')
+  const recoveryCount = Object.entries(domainCounts)
+    .filter(([name]) => name.startsWith('recover'))
     .some(([, count]) => count !== 0);
-  if (!unsupportedCount && domainCounts.start_intents === 0 &&
+  const initialDomainIsEmpty = domainCounts.captures === 0 &&
+    domainCounts.commands === 0 && domainCounts.decisions === 0;
+  if (!recoveryCount && initialDomainIsEmpty && domainCounts.start_intents === 0 &&
       isDeepStrictEqual({ ...authority }, {
         singleton: 1,
         next_allocation_sequence: 1,
@@ -445,7 +530,7 @@ function validateDatabase(database, platform, buildAuthority) {
       })) {
     return Object.freeze({ kind: 'empty', startIntent: null });
   }
-  if (!unsupportedCount && domainCounts.start_intents === 1) {
+  if (!recoveryCount && initialDomainIsEmpty && domainCounts.start_intents === 1) {
     return Object.freeze({
       kind: 'pending-initial',
       startIntent: validatePendingInitialStart(
@@ -455,6 +540,11 @@ function validateDatabase(database, platform, buildAuthority) {
         buildAuthority,
       ),
     });
+  }
+  if (!recoveryCount && domainCounts.start_intents === 1 &&
+      domainCounts.captures === 1 && domainCounts.commands === 1 &&
+      domainCounts.decisions === 0) {
+    return validateReadyInitialStart(database, authority, platform, buildAuthority);
   }
   throw databaseError('B3 capture-state domain authority is unsupported or invalid');
 }

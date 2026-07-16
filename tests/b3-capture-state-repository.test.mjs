@@ -19,6 +19,22 @@ const FIRST_PREPARED_RECORD_SHA256 =
   '9d3bfbae6203275b1c7ef777b001f8254ebab77b334843ad8ac2a5c28898beaa';
 const START_INTENT_SHA256 =
   '60330a9948db44bae18d3db4324ce708bbe57018c73bf181043e4539a3b3a521';
+const FIRST_COMMAND_JSON = Buffer.from(
+  '{"actionCode":"ARM_CAPTURE","applicationFingerprint":"2222222222222222222222222222222222222222222222222222222222222222","captureId":"018f1d7b-97e8-4a52-8cf2-783e5089c001","challengeSha256":"f144a676e8bf11d8a36b75b4ddb08c62d10b8c69be56e29270f556b9ee42261c","expectedScenarioIndex":0,"expectedSequence":1,"installationMode":"existing","platform":"ios-physical","previousObservationSha256":"0000000000000000000000000000000000000000000000000000000000000000","schemaVersion":1,"testedApplicationCommit":"1111111111111111111111111111111111111111"}',
+  'utf8',
+);
+const FIRST_PREPARED_RECORD_JSON = Buffer.from(
+  '{"command":{"actionCode":"ARM_CAPTURE","applicationFingerprint":"2222222222222222222222222222222222222222222222222222222222222222","captureId":"018f1d7b-97e8-4a52-8cf2-783e5089c001","challengeSha256":"f144a676e8bf11d8a36b75b4ddb08c62d10b8c69be56e29270f556b9ee42261c","expectedScenarioIndex":0,"expectedSequence":1,"installationMode":"existing","platform":"ios-physical","previousObservationSha256":"0000000000000000000000000000000000000000000000000000000000000000","schemaVersion":1,"testedApplicationCommit":"1111111111111111111111111111111111111111"},"commandSha256":"1f0de6d66179333a8e7adca7cb537342b19278e61aaff41a10a154da04652880","platform":"ios","recordSha256":"9d3bfbae6203275b1c7ef777b001f8254ebab77b334843ad8ac2a5c28898beaa","schemaVersion":3,"state":"prepared"}',
+  'utf8',
+);
+const LAUNCHED_RECORD_JSON = Buffer.from(
+  '{"command":{"actionCode":"ARM_CAPTURE","applicationFingerprint":"2222222222222222222222222222222222222222222222222222222222222222","captureId":"018f1d7b-97e8-4a52-8cf2-783e5089c001","challengeSha256":"f144a676e8bf11d8a36b75b4ddb08c62d10b8c69be56e29270f556b9ee42261c","expectedScenarioIndex":0,"expectedSequence":1,"installationMode":"existing","platform":"ios-physical","previousObservationSha256":"0000000000000000000000000000000000000000000000000000000000000000","schemaVersion":1,"testedApplicationCommit":"1111111111111111111111111111111111111111"},"commandSha256":"1f0de6d66179333a8e7adca7cb537342b19278e61aaff41a10a154da04652880","platform":"ios","recordSha256":"f6006d640ff0469b80b500f9fb1f5f9c996b69fb36e6db959ff6485d520bb2c4","schemaVersion":3,"state":"launched"}',
+  'utf8',
+);
+const LAUNCHING_TO_LAUNCHED_CLAIM_JSON = Buffer.from(
+  '{"claimSha256":"0acb91cd0eda8be3051bda358bf13afa1966fb6ed5061d22a8ba04cfa13c833a","commandSha256":"1f0de6d66179333a8e7adca7cb537342b19278e61aaff41a10a154da04652880","expectedState":"launching","nextRecordSha256":"f6006d640ff0469b80b500f9fb1f5f9c996b69fb36e6db959ff6485d520bb2c4","nextState":"launched","platform":"ios","schemaVersion":1}',
+  'utf8',
+);
 
 async function fixture(t, label) {
   const root = await mkdtemp(join(tmpdir(), `b3-capture-repository-${label}-`));
@@ -80,6 +96,61 @@ function initialCommand(captureId = CAPTURE_ID, platform = 'ios') {
       'utf8',
     )),
   };
+}
+
+async function seedReadyInitial(root) {
+  const bootstrapped = await probeInChild(root, 'shape');
+  assert.equal(bootstrapped.ok, true);
+  const database = new DatabaseSync(databasePath(root));
+  try {
+    database.exec('BEGIN IMMEDIATE');
+    database.prepare(`
+      INSERT INTO b3_capture_start_intents (
+        start_intent_sha256, intent_kind, recovered_command_sha256,
+        terminal_claim_sha256, capture_id, first_command_sha256,
+        first_command_json, first_prepared_record_json,
+        first_prepared_record_sha256, intent_state, row_version
+      ) VALUES (?, 'initial', NULL, NULL, ?, ?, ?, ?, ?, 'ready', 2)
+    `).run(
+      START_INTENT_SHA256,
+      CAPTURE_ID,
+      FIRST_COMMAND_SHA256,
+      FIRST_COMMAND_JSON,
+      FIRST_PREPARED_RECORD_JSON,
+      FIRST_PREPARED_RECORD_SHA256,
+    );
+    database.prepare(`
+      INSERT INTO b3_captures (
+        capture_id, start_intent_sha256, capture_state, row_version
+      ) VALUES (?, ?, 'working', 1)
+    `).run(CAPTURE_ID, START_INTENT_SHA256);
+    database.prepare(`
+      INSERT INTO b3_commands (
+        command_sha256, allocation_sequence, predecessor_command_sha256,
+        command_json, prepared_record_json, prepared_record_sha256, capture_id,
+        expected_observation_sequence, previous_observation_sha256
+      ) VALUES (?, 1, NULL, ?, ?, ?, ?, 1, ?)
+    `).run(
+      FIRST_COMMAND_SHA256,
+      FIRST_COMMAND_JSON,
+      FIRST_PREPARED_RECORD_JSON,
+      FIRST_PREPARED_RECORD_SHA256,
+      CAPTURE_ID,
+      '0'.repeat(64),
+    );
+    database.prepare(`
+      UPDATE b3_authority_state
+      SET next_allocation_sequence = 2, active_command_sha256 = ?,
+        reserved_start_command_sha256 = NULL, row_version = 3
+      WHERE singleton = 1
+    `).run(FIRST_COMMAND_SHA256);
+    database.exec('COMMIT');
+  } catch (error) {
+    if (database.isTransaction) database.exec('ROLLBACK');
+    throw error;
+  } finally {
+    database.close();
+  }
 }
 
 async function reserveInChild(root, command, platform = 'ios') {
@@ -203,6 +274,48 @@ function spawnStaleBuildReserver(root, command) {
   });
 }
 
+function spawnBarrierReader(root) {
+  const helper = new URL(
+    './helpers/b3-capture-state-stale-read-child.mjs',
+    import.meta.url,
+  );
+  const child = spawn(process.execPath, [
+    '--experimental-test-module-mocks',
+    helper.pathname,
+  ], { cwd: root, stdio: ['pipe', 'pipe', 'pipe'] });
+  let stdout = '';
+  let stderr = '';
+  let readyResolve;
+  let readyReject;
+  const ready = new Promise((resolve, reject) => {
+    readyResolve = resolve;
+    readyReject = reject;
+  });
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => {
+    stdout += chunk;
+    if (stdout.includes('READY\n')) readyResolve();
+  });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const result = new Promise((resolve, reject) => {
+    child.once('exit', (code, signal) => {
+      if (code !== 0) {
+        const error = new Error(`stale-read child failed (${code}, ${signal}): ${stderr}`);
+        readyReject(error);
+        reject(error);
+        return;
+      }
+      resolve(JSON.parse(stdout.trim().split('\n').at(-1)));
+    });
+  });
+  return Object.freeze({
+    ready,
+    release() { child.stdin.end('go\n'); },
+    result,
+  });
+}
+
 test('initial capture start reserves one immutable canonical command without allocating it',
   async (t) => {
     const root = await fixture(t, 'initial');
@@ -250,6 +363,110 @@ test('initial capture start reserves one immutable canonical command without all
     }]);
     assert.equal(database.prepare('SELECT count(*) AS count FROM b3_captures').get().count, 0);
     assert.equal(database.prepare('SELECT count(*) AS count FROM b3_commands').get().count, 0);
+  });
+
+test('repository accepts one independently seeded canonical ready initial command', async (t) => {
+  const root = await fixture(t, 'ready-initial');
+  await seedReadyInitial(root);
+
+  const reopened = await probeInChild(root, 'shape');
+
+  assert.deepEqual(reopened, {
+    ok: true,
+    result: ['close', 'readActiveCommand', 'reserveInitialCaptureStart'],
+    getterCalls: 0,
+  });
+});
+
+test('ready initial validation rejects corrupt rows, pointers and orphan decisions unchanged',
+  async (t) => {
+    const scenarios = [
+      {
+        label: 'intent',
+        mutate(database) {
+          database.exec('UPDATE b3_capture_start_intents SET row_version = 3');
+        },
+      },
+      {
+        label: 'capture',
+        mutate(database) {
+          database.exec("UPDATE b3_captures SET capture_state = 'abandoned'");
+        },
+      },
+      {
+        label: 'command-bytes',
+        mutate(database) {
+          database.prepare('UPDATE b3_commands SET command_json = ?')
+            .run(Buffer.from(JSON.stringify(initialCommand(), null, 2), 'utf8'));
+        },
+      },
+      {
+        label: 'prepared-hash',
+        mutate(database) {
+          database.prepare('UPDATE b3_commands SET prepared_record_sha256 = ?')
+            .run('e'.repeat(64));
+        },
+      },
+      {
+        label: 'allocation-gap',
+        mutate(database) {
+          database.exec('UPDATE b3_commands SET allocation_sequence = 2');
+        },
+      },
+      {
+        label: 'first-predecessor',
+        mutate(database) {
+          database.prepare(`
+            UPDATE b3_commands SET predecessor_command_sha256 = command_sha256
+          `).run();
+        },
+      },
+      {
+        label: 'active-pointer',
+        mutate(database) {
+          database.exec('UPDATE b3_authority_state SET active_command_sha256 = NULL');
+        },
+      },
+      {
+        label: 'orphan-decision',
+        mutate(database) {
+          database.prepare(`
+            INSERT INTO b3_decisions (
+              command_sha256, source_state, source_record_sha256, winner_kind,
+              next_state, next_record_json, next_record_sha256,
+              claim_json, claim_sha256
+            ) VALUES (?, 'launching', ?, 'ordinary', 'launched', ?, ?, ?, ?)
+          `).run(
+            FIRST_COMMAND_SHA256,
+            '57686831aa8562d8e309645db655aa17be75d8d647504a1ad17296e456113e09',
+            LAUNCHED_RECORD_JSON,
+            'f6006d640ff0469b80b500f9fb1f5f9c996b69fb36e6db959ff6485d520bb2c4',
+            LAUNCHING_TO_LAUNCHED_CLAIM_JSON,
+            '0acb91cd0eda8be3051bda358bf13afa1966fb6ed5061d22a8ba04cfa13c833a',
+          );
+        },
+      },
+    ];
+
+    for (const scenario of scenarios) {
+      const root = await fixture(t, `ready-corrupt-${scenario.label}`);
+      await seedReadyInitial(root);
+      const path = databasePath(root);
+      const database = new DatabaseSync(path);
+      scenario.mutate(database);
+      database.close();
+      const corruptSha256 = await fileSha256(path);
+
+      const reopened = await probeInChild(root, 'shape');
+
+      assert.equal(reopened.ok, false, scenario.label);
+      assert.match(
+        reopened.error.message,
+        /authority|cardinality|canonical|foreign-key|invalid|unsupported/i,
+        scenario.label,
+      );
+      assert.equal(await fileSha256(path), corruptSha256, scenario.label);
+    }
   });
 
 test('two real processes proposing different initial commands converge on one committed winner',
@@ -308,14 +525,131 @@ test('repository surface is closed and rejects use after close', async (t) => {
   const shape = await probeInChild(root, 'shape');
   assert.deepEqual(shape, {
     ok: true,
-    result: ['close', 'reserveInitialCaptureStart'],
+    result: ['close', 'readActiveCommand', 'reserveInitialCaptureStart'],
     getterCalls: 0,
   });
 
   const closed = await probeInChild(root, 'closed', [initialCommand()]);
   assert.equal(closed.ok, false);
   assert.match(closed.error.message, /closed/i);
+
+  const readClosed = await probeInChild(await fixture(t, 'read-closed'), 'read-closed');
+  assert.equal(readClosed.ok, false);
+  assert.match(readClosed.error.message, /closed/i);
+
+  const readExtra = await probeInChild(await fixture(t, 'read-extra'), 'read-extra');
+  assert.equal(readExtra.ok, false);
+  assert.equal(readExtra.getterCalls, 0);
+  assert.match(readExtra.error.message, /read authority/i);
 });
+
+test('repository read returns closed empty, pending-start and ready-active outcomes',
+  async (t) => {
+    const emptyRoot = await fixture(t, 'read-empty');
+    assert.deepEqual(await probeInChild(emptyRoot, 'read'), {
+      ok: true,
+      result: { kind: 'none' },
+      getterCalls: 0,
+    });
+
+    const pendingRoot = await fixture(t, 'read-pending');
+    const pending = await reserveInChild(pendingRoot, initialCommand());
+    assert.deepEqual(await probeInChild(pendingRoot, 'read'), {
+      ok: true,
+      result: { kind: 'start-reserved', intent: pending },
+      getterCalls: 0,
+    });
+
+    const readyRoot = await fixture(t, 'read-ready');
+    await seedReadyInitial(readyRoot);
+    assert.deepEqual(await probeInChild(readyRoot, 'read'), {
+      ok: true,
+      result: {
+        kind: 'active',
+        command: {
+          schemaVersion: 3,
+          platform: 'ios',
+          allocationSequence: 1,
+          predecessorCommandSha256: null,
+          captureId: CAPTURE_ID,
+          commandSha256: FIRST_COMMAND_SHA256,
+          command: initialCommand(),
+          state: 'prepared',
+          recordSha256: FIRST_PREPARED_RECORD_SHA256,
+        },
+      },
+      getterCalls: 0,
+    });
+  });
+
+test('repository read owns one SQL snapshot and rolls back invalid authority', async (t) => {
+  const validRoot = await fixture(t, 'read-order');
+  const valid = await probeInChild(validRoot, 'read-order');
+  assert.equal(valid.ok, true);
+  assert.deepEqual(valid.result, { kind: 'none' });
+  assert.equal(valid.sqlTrace[0], 'BEGIN');
+  assert.equal(valid.sqlTrace.includes('READ'), true);
+  assert.equal(valid.sqlTrace.at(-1), 'COMMIT');
+
+  const invalidRoot = await fixture(t, 'read-order-invalid');
+  const invalid = await probeInChild(invalidRoot, 'read-order-invalid');
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.sqlTrace[0], 'BEGIN');
+  assert.equal(invalid.sqlTrace.includes('READ'), true);
+  assert.equal(invalid.sqlTrace.at(-1), 'ROLLBACK');
+});
+
+test('repository read takes one committed snapshot beside a real writer', async (t) => {
+  const root = await fixture(t, 'read-live-writer');
+  const reader = spawnBarrierReader(root);
+  await reader.ready;
+  const writer = new DatabaseSync(databasePath(root));
+  let observed;
+  try {
+    writer.exec(`
+      PRAGMA journal_mode = DELETE;
+      PRAGMA synchronous = FULL;
+      BEGIN IMMEDIATE;
+      UPDATE b3_authority_state SET next_allocation_sequence = 2;
+    `);
+
+    reader.release();
+    observed = await reader.result;
+  } finally {
+    if (writer.isTransaction) writer.exec('ROLLBACK');
+    writer.close();
+  }
+  assert.deepEqual(observed, {
+    ok: true,
+    result: { kind: 'none' },
+  });
+});
+
+test('every repository read rereads build authority and rejects a stale open session',
+  async (t) => {
+    const root = await fixture(t, 'fresh-read-build-authority');
+    const reader = spawnBarrierReader(root);
+    await reader.ready;
+    const path = databasePath(root);
+    const beforeSha256 = await fileSha256(path);
+    await writeFile(join(
+      root, '.native-build', 'b3', 'distribution', 'build-authority.json',
+    ), JSON.stringify({
+      schemaVersion: 1,
+      testedApplicationCommit: '3'.repeat(40),
+      applicationFingerprint: '4'.repeat(64),
+      versionName: '0.3.0-b3',
+      iosBuildNumber: '20',
+      androidVersionCode: 20,
+    }), { mode: 0o600 });
+
+    reader.release();
+    const result = await reader.result;
+
+    assert.equal(result.ok, false);
+    assert.match(result.error.message, /build|metadata|authority|differs/i);
+    assert.equal(await fileSha256(path), beforeSha256);
+  });
 
 test('invalid options and commands fail before any reservation mutation', async (t) => {
   const root = await fixture(t, 'invalid-input');

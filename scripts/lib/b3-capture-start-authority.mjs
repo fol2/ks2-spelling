@@ -110,6 +110,45 @@ export function validateB3PendingInitialCaptureStartAuthority({
   }
 }
 
+export function validateB3ReadyInitialCaptureStartAuthority({
+  platform,
+  buildAuthority,
+  retained,
+}) {
+  try {
+    const commandBytes = Buffer.from(retained.firstCommandBytes);
+    const command = parseB3StrictJsonBytes(
+      commandBytes,
+      'B3 capture-state initial command',
+    );
+    const expected = createB3InitialCaptureStartAuthority({
+      platform,
+      command,
+      buildAuthority,
+    });
+    const retainedPrepared = validateB3PreparedIssuedCommandAuthorityBytes({
+      bytes: retained.firstPreparedRecordBytes,
+      platform,
+    });
+    if (retained.startIntentSha256 !== expected.startIntentSha256 ||
+        retained.intentKind !== 'initial' || retained.recoveredCommandSha256 !== null ||
+        retained.terminalClaimSha256 !== null || retained.captureId !== expected.captureId ||
+        retained.firstCommandSha256 !== expected.firstCommandSha256 ||
+        !commandBytes.equals(expected.commandBytes) ||
+        retained.firstPreparedRecordSha256 !== expected.firstPreparedRecordSha256 ||
+        !Buffer.from(retained.firstPreparedRecordBytes).equals(expected.preparedRecordBytes) ||
+        retainedPrepared.commandSha256 !== expected.firstCommandSha256 ||
+        retainedPrepared.recordSha256 !== expected.firstPreparedRecordSha256 ||
+        retained.intentState !== 'ready' || retained.rowVersion !== 2) {
+      throw authorityError('B3 capture-state ready initial intent authority differs');
+    }
+    return Object.freeze({ ...expected, intentState: 'ready', rowVersion: 2 });
+  } catch (error) {
+    if (error?.code === 'b3_capture_state_invalid') throw error;
+    throw authorityError('B3 capture-state ready initial intent is invalid');
+  }
+}
+
 export function publicB3CaptureStartAuthority(intent) {
   return Object.freeze({
     schemaVersion: intent.schemaVersion,

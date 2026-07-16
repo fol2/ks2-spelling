@@ -10,34 +10,26 @@ import {
   validateB3ProofLaunchCommand,
 } from '../../src/app/b3-live-proof-protocol.js';
 import {
-  createB3PreparedIssuedCommandAuthority,
-  validateB3PreparedIssuedCommandAuthorityBytes,
+  createB3IssuedCommandStateAuthority,
+  createB3OrdinaryIssuedCommandClaimAuthority,
+  isB3OrdinaryIssuedCommandTransition,
+  validateB3IssuedCommandStateAuthorityBytes,
+  validateB3OrdinaryIssuedCommandClaimAuthorityBytes,
 } from './b3-issued-command-authority.mjs';
 
 const PLATFORM = Object.freeze({ ios: 'ios-physical', android: 'android-play-physical' });
 const HASH = /^[0-9a-f]{64}$/u;
 const MAXIMUM_BYTES = 128 * 1024;
-const STATES = Object.freeze([
-  'prepared', 'stop-intent', 'stop-executing', 'host-stopped',
-  'launching', 'reinstall-authorised', 'reinstall-launching', 'launched',
-  'restart-required', 'restart-executing', 'restart-complete',
-]);
-const TRANSITIONS = new Set([
-  'prepared:launching',
-  'prepared:stop-intent',
-  'stop-intent:stop-executing',
-  'stop-executing:host-stopped',
-  'host-stopped:launching',
-  'launching:launched',
-  'launching:reinstall-authorised',
-  'launching:restart-required',
-  'reinstall-launching:restart-required',
-  'restart-required:launched',
+const RECOVERY_TRANSITIONS = new Set([
   'restart-required:restart-executing',
   'restart-executing:restart-complete',
-  'reinstall-authorised:reinstall-launching',
-  'reinstall-launching:launched',
 ]);
+
+function isB3IssuedCommandTransition(sourceState, nextState) {
+  return isB3OrdinaryIssuedCommandTransition(sourceState, nextState) ||
+    (typeof sourceState === 'string' && typeof nextState === 'string' &&
+      RECOVERY_TRANSITIONS.has(`${sourceState}:${nextState}`));
+}
 const RECOVERY_SUCCESSOR_TRANSITIONS = Object.freeze({
   'restart-required': Object.freeze([
     Object.freeze(['restart-required', 'restart-executing']),
@@ -205,52 +197,21 @@ async function readImmutableClaimBytes({ evidence, path }) {
 }
 
 function record(platform, command, state = 'prepared') {
-  if (!STATES.includes(state)) throw issuedError('B3 issued-command state is invalid');
-  if (state === 'prepared') {
-    return createB3PreparedIssuedCommandAuthority({ platform, command });
-  }
-  const commandBytes = Buffer.from(canonicaliseB3ProofValue(command), 'utf8');
-  const unsigned = {
-    schemaVersion: 3,
-    platform,
-    state,
-    command,
-    commandSha256: sha256(Buffer.concat([
-      Buffer.from('ks2-spelling:b3-issued-command:v1\0', 'utf8'), commandBytes,
-    ])),
-  };
-  return {
-    ...unsigned,
-    recordSha256: sha256(Buffer.concat([
-      Buffer.from('ks2-spelling:b3-issued-command-record:v3\0', 'utf8'),
-      Buffer.from(canonicaliseB3ProofValue(unsigned), 'utf8'),
-    ])),
-  };
+  return createB3IssuedCommandStateAuthority({ platform, command, state });
 }
 
 function validateRecord(bytes, platform, expectedState) {
-  if (expectedState === 'prepared') {
-    return validateB3PreparedIssuedCommandAuthorityBytes({ bytes, platform });
-  }
-  const value = parseB3StrictJsonBytes(bytes, 'B3 issued command');
-  if (!value || Object.keys(value).length !== 6 || value.schemaVersion !== 3 ||
-      value.platform !== platform || !STATES.includes(value.state) ||
-      (expectedState && value.state !== expectedState) ||
-      !HASH.test(value.commandSha256 ?? '') || !HASH.test(value.recordSha256 ?? '') ||
-      canonicaliseB3ProofValue(value) !== bytes.toString('utf8')) {
-    throw issuedError('B3 issued-command record is not canonical or closed');
-  }
-  const command = validateB3ProofLaunchCommand(value.command);
-  const expected = record(platform, command, value.state);
-  if (command.platform !== PLATFORM[platform] ||
-      expected.commandSha256 !== value.commandSha256 ||
-      expected.recordSha256 !== value.recordSha256) {
-    throw issuedError('B3 issued-command authority is invalid');
-  }
-  return Object.freeze({ ...expected, command: Object.freeze(command) });
+  return validateB3IssuedCommandStateAuthorityBytes({ bytes, platform, expectedState });
 }
 
 function claim(platform, current, next) {
+  if (!RECOVERY_TRANSITIONS.has(`${current.state}:${next.state}`)) {
+    return createB3OrdinaryIssuedCommandClaimAuthority({
+      platform,
+      source: current,
+      nextState: next.state,
+    });
+  }
   const unsigned = {
     schemaVersion: 1,
     platform,
@@ -269,11 +230,18 @@ function validateClaim(bytes, platform, current) {
   const value = parseB3StrictJsonBytes(bytes, 'B3 issued-command successor claim');
   if (!value || Object.keys(value).length !== 7 || value.schemaVersion !== 1 ||
       value.platform !== platform || value.commandSha256 !== current.commandSha256 ||
-      value.expectedState !== current.state || !STATES.includes(value.nextState) ||
-      !TRANSITIONS.has(`${value.expectedState}:${value.nextState}`) ||
+      value.expectedState !== current.state ||
+      !isB3IssuedCommandTransition(value.expectedState, value.nextState) ||
       !HASH.test(value.nextRecordSha256 ?? '') || !HASH.test(value.claimSha256 ?? '') ||
       canonicaliseB3ProofValue(value) !== bytes.toString('utf8')) {
     throw issuedError('B3 issued-command successor claim is invalid');
+  }
+  if (!RECOVERY_TRANSITIONS.has(`${value.expectedState}:${value.nextState}`)) {
+    return validateB3OrdinaryIssuedCommandClaimAuthorityBytes({
+      bytes,
+      platform,
+      source: current,
+    });
   }
   const unsigned = Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'claimSha256'));
   if (sha256(Buffer.from(canonicaliseB3ProofValue(unsigned), 'utf8')) !== value.claimSha256) {
@@ -748,7 +716,7 @@ export async function transitionB3IssuedCommand({
   nextState,
   existingRevisionOnly = false,
 }) {
-  if (!TRANSITIONS.has(`${expectedState}:${nextState}`) ||
+  if (!isB3IssuedCommandTransition(expectedState, nextState) ||
       typeof existingRevisionOnly !== 'boolean') {
     throw issuedError('B3 issued-command state transition is invalid');
   }

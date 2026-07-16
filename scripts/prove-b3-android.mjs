@@ -77,6 +77,7 @@ export async function captureB3AndroidEvidenceWithPrimitives({
 } = {}) {
   assertB3RemoteMutationScope({ approvedScope, runToken, expectedScope: B3_ANDROID_REMOTE_SCOPE });
   await authorityGate({ approvalFile, runToken, requestedScope: B3_ANDROID_REMOTE_SCOPE, root, clock, gitRunner });
+  const gateway = b3PlatformGatewayFromCloudflare(cloudflare);
   const recoverAmbiguousCapture = requirePrimitive(primitives, 'recoverAmbiguousCapture');
   const inspectDistribution = requirePrimitive(primitives, 'inspectDistribution');
   const inspectDeviceStore = requirePrimitive(primitives, 'inspectDeviceStore');
@@ -146,7 +147,6 @@ export async function captureB3AndroidEvidenceWithPrimitives({
   if (!isDeepStrictEqual(distribution, distributionBeforeScreenshot)) {
     throw new Error('B3 Android installed distribution changed during screenshot capture');
   }
-  const gateway = b3PlatformGatewayFromCloudflare(cloudflare);
   const pending = {
     schemaVersion: 1,
     testedApplicationCommit: distribution.embeddedCommit,

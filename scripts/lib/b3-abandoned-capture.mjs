@@ -296,12 +296,12 @@ async function moveDirectoryOnce({ source, destination, sourceParent, destinatio
     if (error?.code !== 'ENOENT') throw error;
   }
   if (sourceMetadata && (!sourceMetadata.isDirectory() || sourceMetadata.isSymbolicLink() ||
-      (sourceMetadata.mode & 0o077) !== 0)) {
+      (sourceMetadata.mode & 0o777) !== 0o700)) {
     throw archiveError('B3 abandoned-capture observation directory policy is invalid');
   }
   if (destinationMetadata &&
       (!destinationMetadata.isDirectory() || destinationMetadata.isSymbolicLink() ||
-       (destinationMetadata.mode & 0o077) !== 0)) {
+       (destinationMetadata.mode & 0o777) !== 0o700)) {
     throw archiveError('B3 abandoned-capture destination directory policy is invalid');
   }
   if (sourceMetadata && destinationMetadata) {
@@ -333,9 +333,7 @@ async function moveDirectoryOnce({ source, destination, sourceParent, destinatio
     }
   }
   if (!sourceMetadata && !destinationMetadata) {
-    try { await mkdir(destination, { mode: 0o700 }); } catch (error) {
-      if (error?.code !== 'EEXIST') throw error;
-    }
+    throw archiveError('B3 abandoned-capture observation journal is absent');
   }
   if (sourceMetadata) {
     try { await rename(source, destination); } catch (error) {
@@ -343,7 +341,8 @@ async function moveDirectoryOnce({ source, destination, sourceParent, destinatio
     }
   }
   const retained = await lstat(destination);
-  if (!retained.isDirectory() || retained.isSymbolicLink() || (retained.mode & 0o077) !== 0) {
+  if (!retained.isDirectory() || retained.isSymbolicLink() ||
+      (retained.mode & 0o777) !== 0o700) {
     throw archiveError('B3 abandoned-capture observation archive is invalid');
   }
   await syncDirectory(sourceParent);

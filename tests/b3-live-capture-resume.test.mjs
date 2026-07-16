@@ -1227,6 +1227,7 @@ test('capture restart rejects hostile recreated active observation directories',
       await mkdir(path, { mode: 0o700 });
       await writeFile(join(path, 'hostile.json'), '{}', { mode: 0o600 });
     }],
+    ['private-wrong-mode', async (path) => mkdir(path, { mode: 0o600 })],
     ['wrong-mode', async (path) => mkdir(path, { mode: 0o755 })],
     ['symbolic-link', async (path) => symlink(outside, path)],
   ];
@@ -1393,7 +1394,7 @@ test('capture restart fails closed when its retained archive authority is corrup
   }), /archive|authority|differ|invalid/i);
 });
 
-test('capture restart bounds abandoned generations and tolerates an absent empty journal', async (t) => {
+test('capture restart bounds abandoned generations and rejects an absent journal', async (t) => {
   const absentRoot = await mkdtemp(join(tmpdir(), 'b3-restart-absent-journal-'));
   const boundedRoot = await mkdtemp(join(tmpdir(), 'b3-restart-bounded-archive-'));
   t.after(() => Promise.all([absentRoot, boundedRoot].map((root) =>
@@ -1403,15 +1404,12 @@ test('capture restart bounds abandoned generations and tolerates an absent empty
   await rm(join(absentRoot, '.native-build/b3/evidence/ios-observations'), {
     recursive: true,
   });
-  const recovered = await recoverB3AmbiguousCaptureAfterReinstall({
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
     root: absentRoot, platform: 'ios', enabled: true,
     invocationCommandSha256: absent.commandSha256, buildAuthority: BUILD_AUTHORITY,
-  });
-  assert.equal(recovered.restarted, true);
-  assert.deepEqual(await readdir(join(
-    absentRoot, '.native-build/b3/evidence/ios-abandoned-captures',
-    absent.commandSha256, 'observations',
-  )), []);
+  }), /observation|journal|archive|absent|missing/i);
+  assert.equal((await readB3IssuedCommand({ root: absentRoot, platform: 'ios' })).state,
+    'restart-executing');
 
   const bounded = await retainAmbiguousRestartGate({ root: boundedRoot });
   const archiveRoot = join(

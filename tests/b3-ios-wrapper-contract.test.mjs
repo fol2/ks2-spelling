@@ -282,6 +282,9 @@ test('iOS wrapper consumes initial ARM_CAPTURE reinstall recovery before any cap
   const retained = await transitionB3IssuedCommand({
     root, platform: 'ios', command, expectedState: 'launching', nextState: 'restart-required',
   });
+  await mkdir(join(root, '.native-build/b3/evidence/ios-observations'), {
+    mode: 0o700,
+  });
 
   await assert.rejects(captureB3IosEvidenceWithPrimitives({
     root,

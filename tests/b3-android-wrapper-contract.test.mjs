@@ -135,6 +135,35 @@ test('Android capture owns exact scenario order, learner redaction and scope-bef
   }), /scope/i);
 });
 
+test('Android capture validates final Cloudflare authority before every physical primitive', async () => {
+  const cases = [
+    ['malformed', null],
+    ['authority-drifted', {
+      ...cloudflareEvidence(),
+      signedEnvelopeSha256: 'f'.repeat(64),
+    }],
+  ];
+
+  for (const [label, cloudflare] of cases) {
+    let authorityCalls = 0;
+    let primitiveCalls = 0;
+    const primitives = new Proxy({}, {
+      get: () => async () => { primitiveCalls += 1; },
+    });
+
+    await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
+      approvalFile: '/operator/approval.json',
+      runToken: 'a'.repeat(64),
+      approvedScope: 'google-test-track-refund-revoke',
+      cloudflare,
+      primitives,
+      authorityGate: async () => { authorityCalls += 1; },
+    }), /Cloudflare|evidence|authority|object/i, label);
+    assert.equal(authorityCalls, 1, `${label} bypassed the local authority gate`);
+    assert.equal(primitiveCalls, 0, `${label} reached a physical primitive`);
+  }
+});
+
 test('Android wrapper consumes initial ARM_CAPTURE reinstall recovery before any capture primitive', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-android-initial-reinstall-preflight-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -167,6 +196,9 @@ test('Android wrapper consumes initial ARM_CAPTURE reinstall recovery before any
   const retained = await transitionB3IssuedCommand({
     root, platform: 'android', command,
     expectedState: 'launching', nextState: 'restart-required',
+  });
+  await mkdir(join(root, '.native-build/b3/evidence/android-observations'), {
+    mode: 0o700,
   });
 
   await assert.rejects(captureB3AndroidEvidenceWithPrimitives({

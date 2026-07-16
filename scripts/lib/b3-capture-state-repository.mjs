@@ -5,6 +5,11 @@ import {
   createB3InitialCaptureStartAuthority,
   publicB3CaptureStartAuthority,
 } from './b3-capture-start-authority.mjs';
+import {
+  classifyB3CaptureBundleRootState,
+  materialiseB3EmptyWorkingBundle,
+  validateB3CaptureBundleComposite,
+} from './b3-capture-bundle-store.mjs';
 import { openB3CaptureStateDatabase } from './b3-capture-state-database.mjs';
 import { takeB3CaptureStateSession } from './b3-capture-state-internal.mjs';
 import {
@@ -29,6 +34,12 @@ const HASH = /^[0-9a-f]{64}$/u;
 
 function repositoryError(message) {
   return Object.assign(new Error(message), { code: 'b3_capture_state_invalid' });
+}
+
+function assertInitialReconciliationWrite(result) {
+  if (result.changes !== 1) {
+    throw repositoryError('B3 capture-state initial reconciliation lost authority');
+  }
 }
 
 function snapshotClosedRecord(value, expectedKeys, label) {
@@ -251,27 +262,13 @@ export async function openB3CaptureStateRepository(options) {
     }
   }
 
-  async function reserveInitialCaptureStart(reservationOptions) {
-    if (session.isClosed()) {
-      throw repositoryError('B3 capture-state repository is already closed');
-    }
-    const reservationKeys = reservationOptions && typeof reservationOptions === 'object'
-      ? Object.keys(reservationOptions)
-      : [];
-    if (reservationKeys.length !== 1 || reservationKeys[0] !== 'command') {
-      throw repositoryError('B3 capture-state initial reservation authority is invalid');
-    }
-    const rawCommand = reservationOptions.command;
-    const buildAuthority = await session.readBuildAuthorityFresh();
-    const proposal = createB3InitialCaptureStartAuthority({
-      platform: session.platform,
-      command: rawCommand,
-      buildAuthority,
-    });
-
+  function reserveInitialCaptureStartProposal(proposal, buildAuthority, allowReady) {
     session.database.exec('BEGIN IMMEDIATE');
     try {
       let state = session.validate(buildAuthority);
+      const rootState = classifyB3CaptureBundleRootState({ platform: session.platform });
+      validateB3CaptureBundleComposite({ databaseState: state, rootState });
+      let wonReservation = false;
       if (state.kind === 'empty') {
         const inserted = session.database.prepare(`
           INSERT INTO b3_capture_start_intents (
@@ -299,12 +296,134 @@ export async function openB3CaptureStateRepository(options) {
           throw repositoryError('B3 capture-state initial reservation write lost authority');
         }
         state = session.validate(buildAuthority);
+        validateB3CaptureBundleComposite({ databaseState: state, rootState });
+        wonReservation = true;
       }
-      if (state.kind !== 'pending-initial') {
+      if (state.kind !== 'pending-initial' &&
+          !(allowReady && state.kind === 'ready-initial')) {
         throw repositoryError('B3 capture-state initial reservation cannot proceed');
       }
+      const winner = state.startIntent;
+      const kind = wonReservation
+        ? 'won-reservation'
+        : (winner.startIntentSha256 === proposal.startIntentSha256
+            ? 'same-winner'
+            : 'different-winner');
       session.database.exec('COMMIT');
-      return publicB3CaptureStartAuthority(state.startIntent);
+      return Object.freeze({
+        kind,
+        capture: publicB3CaptureStartAuthority(winner),
+      });
+    } catch (error) {
+      if (session.database.isTransaction) session.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  async function reserveInitialCaptureStart(reservationOptions) {
+    if (session.isClosed()) {
+      throw repositoryError('B3 capture-state repository is already closed');
+    }
+    const reservationKeys = reservationOptions && typeof reservationOptions === 'object'
+      ? Object.keys(reservationOptions)
+      : [];
+    if (reservationKeys.length !== 1 || reservationKeys[0] !== 'command') {
+      throw repositoryError('B3 capture-state initial reservation authority is invalid');
+    }
+    const rawCommand = reservationOptions.command;
+    const buildAuthority = await session.readBuildAuthorityFresh();
+    const proposal = createB3InitialCaptureStartAuthority({
+      platform: session.platform,
+      command: rawCommand,
+      buildAuthority,
+    });
+    return reserveInitialCaptureStartProposal(proposal, buildAuthority, false).capture;
+  }
+
+  async function reconcileInitialCaptureStart(reconciliationOptions) {
+    if (session.isClosed()) {
+      throw repositoryError('B3 capture-state repository is already closed');
+    }
+    const options = snapshotClosedRecord(
+      reconciliationOptions,
+      ['command'],
+      'initial reconciliation',
+    );
+    const commandSnapshot = snapshotCommand(options.command, 'initial command');
+    const reservationBuildAuthority = await session.readBuildAuthorityFresh();
+    const proposal = createB3InitialCaptureStartAuthority({
+      platform: session.platform,
+      command: commandSnapshot,
+      buildAuthority: reservationBuildAuthority,
+    });
+    const reservation = reserveInitialCaptureStartProposal(
+      proposal,
+      reservationBuildAuthority,
+      true,
+    );
+
+    const reconciliationBuildAuthority = await session.readBuildAuthorityFresh();
+    session.database.exec('BEGIN IMMEDIATE');
+    try {
+      let state = session.validate(reconciliationBuildAuthority);
+      let rootState = classifyB3CaptureBundleRootState({ platform: session.platform });
+      validateB3CaptureBundleComposite({ databaseState: state, rootState });
+      if (state.kind === 'pending-initial') {
+        rootState = materialiseB3EmptyWorkingBundle({
+          platform: session.platform,
+          captureId: state.startIntent.captureId,
+          rootState,
+        });
+        validateB3CaptureBundleComposite({ databaseState: state, rootState });
+        const start = state.startIntent;
+        const insertedCapture = session.database.prepare(`
+          INSERT INTO b3_captures (
+            capture_id, start_intent_sha256, capture_state, row_version
+          ) VALUES (?, ?, 'working', 1)
+        `).run(start.captureId, start.startIntentSha256);
+        assertInitialReconciliationWrite(insertedCapture);
+        const insertedCommand = session.database.prepare(`
+          INSERT INTO b3_commands (
+            command_sha256, allocation_sequence, predecessor_command_sha256,
+            command_json, prepared_record_json, prepared_record_sha256, capture_id,
+            expected_observation_sequence, previous_observation_sha256
+          ) VALUES (?, 1, NULL, ?, ?, ?, ?, ?, ?)
+        `).run(
+          start.firstCommandSha256,
+          start.commandBytes,
+          start.preparedRecordBytes,
+          start.firstPreparedRecordSha256,
+          start.captureId,
+          start.firstCommand.expectedSequence,
+          start.firstCommand.previousObservationSha256,
+        );
+        assertInitialReconciliationWrite(insertedCommand);
+        const advanced = session.database.prepare(`
+          UPDATE b3_authority_state
+          SET next_allocation_sequence = 2, active_command_sha256 = ?,
+            reserved_start_command_sha256 = NULL, row_version = row_version + 1
+          WHERE singleton = 1 AND next_allocation_sequence = 1
+            AND active_command_sha256 IS NULL
+            AND reserved_start_command_sha256 = ? AND row_version = 2
+        `).run(start.firstCommandSha256, start.firstCommandSha256);
+        assertInitialReconciliationWrite(advanced);
+        const readied = session.database.prepare(`
+          UPDATE b3_capture_start_intents
+          SET intent_state = 'ready', row_version = row_version + 1
+          WHERE start_intent_sha256 = ? AND intent_state = 'pending' AND row_version = 1
+        `).run(start.startIntentSha256);
+        assertInitialReconciliationWrite(readied);
+        state = session.validate(reconciliationBuildAuthority);
+        rootState = classifyB3CaptureBundleRootState({ platform: session.platform });
+        validateB3CaptureBundleComposite({ databaseState: state, rootState });
+      }
+      if (state.kind !== 'ready-initial' ||
+          state.startIntent.startIntentSha256 !== reservation.capture.startIntentSha256) {
+        throw repositoryError('B3 capture-state initial reconciliation did not rederive');
+      }
+      const capture = publicB3CaptureStartAuthority(state.startIntent);
+      session.database.exec('COMMIT');
+      return Object.freeze({ kind: reservation.kind, capture });
     } catch (error) {
       if (session.database.isTransaction) session.database.exec('ROLLBACK');
       throw error;
@@ -569,6 +688,7 @@ export async function openB3CaptureStateRepository(options) {
     allocateNextCommand,
     consumeCommand,
     readActiveCommand,
+    reconcileInitialCaptureStart,
     reserveInitialCaptureStart,
     transitionCommand,
     close: () => foundation.close(),

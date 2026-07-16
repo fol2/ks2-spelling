@@ -3,13 +3,16 @@ import {
   closeSync,
   constants as fsConstants,
   fstatSync,
+  fsyncSync,
   lstatSync,
+  mkdirSync,
   openSync,
   readSync,
   readdirSync,
   realpathSync,
 } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 import { canonicaliseB3ProofValue } from '../../src/app/b3-live-proof-protocol.js';
 import { B3_CAPTURE_STATE_REPOSITORY_ROOT } from './b3-capture-state-location.mjs';
@@ -56,7 +59,7 @@ const TEMPORARY_GRAMMARS = Object.freeze({
   ),
 });
 
-const ROOT_STATE_SNAPSHOTS = new WeakSet();
+const ROOT_STATE_AUTHORITIES = new WeakMap();
 
 function memberError(message) {
   return Object.assign(new Error(message), {
@@ -459,10 +462,77 @@ function assertStableFixedEvidenceHierarchy(hierarchy) {
   }
 }
 
-function freezeRootState(value) {
+function freezeRootState(value, authority) {
   const frozen = Object.freeze(value);
-  ROOT_STATE_SNAPSHOTS.add(frozen);
+  ROOT_STATE_AUTHORITIES.set(frozen, Object.freeze(authority));
   return frozen;
+}
+
+function sameDirectoryIdentity(left, right) {
+  const leftMetadata = left.metadata;
+  const rightMetadata = right.metadata;
+  return left.canonical === right.canonical &&
+    leftMetadata.dev === rightMetadata.dev &&
+    leftMetadata.ino === rightMetadata.ino &&
+    leftMetadata.mode === rightMetadata.mode &&
+    leftMetadata.nlink === rightMetadata.nlink &&
+    leftMetadata.size === rightMetadata.size &&
+    leftMetadata.mtimeMs === rightMetadata.mtimeMs &&
+    leftMetadata.ctimeMs === rightMetadata.ctimeMs;
+}
+
+function assertSameRootStateAuthority(retained, observed) {
+  if (!retained || !observed || retained.rootPath !== observed.rootPath ||
+      retained.hierarchy.ancestors.length !== observed.hierarchy.ancestors.length ||
+      Boolean(retained.bundles) !== Boolean(observed.bundles) ||
+      Boolean(retained.working) !== Boolean(observed.working) ||
+      retained.children.length !== observed.children.length) {
+    throw bundleError('B3 capture bundle retained root authority changed');
+  }
+  for (let index = 0; index < retained.hierarchy.ancestors.length; index += 1) {
+    const retainedAncestor = retained.hierarchy.ancestors[index];
+    const observedAncestor = observed.hierarchy.ancestors[index];
+    assertStableDirectory(retainedAncestor.directory, retainedAncestor.label);
+    if (retainedAncestor.label !== observedAncestor.label ||
+        !sameDirectoryIdentity(retainedAncestor.directory, observedAncestor.directory)) {
+      throw bundleError('B3 capture bundle retained hierarchy identity changed');
+    }
+  }
+  for (const [label, retainedDirectory, observedDirectory] of [
+    ['root', retained.bundles, observed.bundles],
+    ['working', retained.working, observed.working],
+  ]) {
+    if (!retainedDirectory) continue;
+    assertStableDirectory(retainedDirectory, label);
+    if (!sameDirectoryIdentity(retainedDirectory, observedDirectory)) {
+      throw bundleError(`B3 capture bundle retained ${label} identity changed`);
+    }
+  }
+  for (let index = 0; index < retained.children.length; index += 1) {
+    const retainedChild = retained.children[index];
+    const observedChild = observed.children[index];
+    assertStableDirectory(retainedChild.directory, retainedChild.name);
+    if (retainedChild.name !== observedChild.name ||
+        !sameDirectoryIdentity(retainedChild.directory, observedChild.directory)) {
+      throw bundleError('B3 capture bundle retained child identity changed');
+    }
+  }
+}
+
+function rootStateAuthority({
+  hierarchy,
+  rootPath,
+  bundles = null,
+  working = null,
+  children = [],
+}) {
+  return Object.freeze({
+    hierarchy,
+    rootPath,
+    bundles,
+    working,
+    children: Object.freeze(children.map((child) => Object.freeze(child))),
+  });
 }
 
 export function classifyB3CaptureBundleRootState(input = {}) {
@@ -479,7 +549,10 @@ export function classifyB3CaptureBundleRootState(input = {}) {
   } catch (error) {
     if (error?.code === 'ENOENT') {
       assertStableFixedEvidenceHierarchy(hierarchy);
-      return freezeRootState({ schemaVersion: 1, platform, kind: 'absent' });
+      return freezeRootState(
+        { schemaVersion: 1, platform, kind: 'absent' },
+        rootStateAuthority({ hierarchy, rootPath }),
+      );
     }
     throw error;
   }
@@ -491,7 +564,10 @@ export function classifyB3CaptureBundleRootState(input = {}) {
   assertStableDirectory(bundles, 'root');
   if (rootEntries.length === 0) {
     assertStableFixedEvidenceHierarchy(hierarchy);
-    return freezeRootState({ schemaVersion: 1, platform, kind: 'empty' });
+    return freezeRootState(
+      { schemaVersion: 1, platform, kind: 'empty' },
+      rootStateAuthority({ hierarchy, rootPath, bundles }),
+    );
   }
   const match = rootEntries.length === 1
     ? new RegExp(`^(?<captureId>${UUID_V4})\\.working$`, 'u').exec(rootEntries[0].name)
@@ -513,6 +589,7 @@ export function classifyB3CaptureBundleRootState(input = {}) {
     throw bundleError('B3 capture bundle child inventory is not structurally closed');
   }
   let isExactEmpty = true;
+  const children = [];
   for (const entry of childEntries) {
     const child = exactDirectory(
       resolve(working.canonical, entry.name),
@@ -520,24 +597,28 @@ export function classifyB3CaptureBundleRootState(input = {}) {
     );
     if (readdirSync(child.canonical).length !== 0) isExactEmpty = false;
     assertStableDirectory(child, entry.name);
+    children.push({ name: entry.name, directory: child });
   }
   assertStableDirectory(working, 'working');
   assertStableDirectory(bundles, 'root');
   assertStableFixedEvidenceHierarchy(hierarchy);
   const presentChildren = Object.freeze(childEntries.map((entry) => entry.name));
-  return freezeRootState({
-    schemaVersion: 1,
-    platform,
-    kind: presentChildren.length === childNames.length ? 'working' : 'partial-working',
-    captureId,
-    presentChildren,
-    isExactEmpty,
-  });
+  return freezeRootState(
+    {
+      schemaVersion: 1,
+      platform,
+      kind: presentChildren.length === childNames.length ? 'working' : 'partial-working',
+      captureId,
+      presentChildren,
+      isExactEmpty,
+    },
+    rootStateAuthority({ hierarchy, rootPath, bundles, working, children }),
+  );
 }
 
 export function validateB3CaptureBundleComposite(input = {}) {
   if (!isExactPlainRecord(input, ['databaseState', 'rootState']) ||
-      !ROOT_STATE_SNAPSHOTS.has(input.rootState)) {
+      !ROOT_STATE_AUTHORITIES.has(input.rootState)) {
     throw bundleError('B3 capture bundle composite validation authority is invalid');
   }
   const { databaseState, rootState } = input;
@@ -587,6 +668,167 @@ export function validateB3CaptureBundleComposite(input = {}) {
     });
   }
   throw bundleError('B3 capture bundle database state is unsupported');
+}
+
+function fsyncExactDirectory(directory, label) {
+  assertStableDirectory(directory, label);
+  let descriptor;
+  try {
+    descriptor = openSync(
+      directory.canonical,
+      fsConstants.O_RDONLY | (fsConstants.O_DIRECTORY ?? 0) |
+        (fsConstants.O_NOFOLLOW ?? 0),
+    );
+    const opened = fstatSync(descriptor);
+    if (!opened.isDirectory() || opened.dev !== directory.metadata.dev ||
+        opened.ino !== directory.metadata.ino || opened.mode !== directory.metadata.mode) {
+      throw bundleError(`B3 capture bundle ${label} sync authority differs`);
+    }
+    fsyncSync(descriptor);
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+  assertStableDirectory(directory, label);
+}
+
+function refreshDirectoryAfterOwnedChildCreation(directory, label) {
+  const refreshed = exactDirectory(
+    directory.canonical,
+    label,
+    dirname(directory.canonical),
+    directory.metadata.dev,
+  );
+  if (refreshed.canonical !== directory.canonical ||
+      refreshed.metadata.ino !== directory.metadata.ino ||
+      refreshed.metadata.mode !== directory.metadata.mode) {
+    throw bundleError(
+      `B3 capture bundle ${label} directory changed during owned child creation`,
+    );
+  }
+  return refreshed;
+}
+
+function mkdirExactDirectory(path, label, parent, device) {
+  const previousMask = process.umask(0o077);
+  try {
+    mkdirSync(path, { mode: 0o700 });
+  } catch {
+    throw bundleError(`B3 capture bundle ${label} creation did not own an absent path`);
+  } finally {
+    process.umask(previousMask);
+  }
+  return exactDirectory(path, label, parent, device);
+}
+
+export function materialiseB3EmptyWorkingBundle(input = {}) {
+  if (!isExactPlainRecord(input, ['platform', 'captureId', 'rootState']) ||
+      !['ios', 'android'].includes(input.platform) ||
+      !ROOT_STATE_AUTHORITIES.has(input.rootState)) {
+    throw bundleError('B3 capture bundle materialisation authority is invalid');
+  }
+  const { platform, captureId: rawCaptureId, rootState } = input;
+  const captureId = assertCaptureId(rawCaptureId);
+  if (rootState.platform !== platform) {
+    throw bundleError('B3 capture bundle materialisation platform differs');
+  }
+  const retainedAuthority = ROOT_STATE_AUTHORITIES.get(rootState);
+  const current = classifyB3CaptureBundleRootState({ platform });
+  if (!isDeepStrictEqual(current, rootState)) {
+    throw bundleError('B3 capture bundle materialisation root state drifted');
+  }
+  const currentAuthority = ROOT_STATE_AUTHORITIES.get(current);
+  assertSameRootStateAuthority(retainedAuthority, currentAuthority);
+  if (!['absent', 'empty', 'partial-working', 'working'].includes(current.kind) ||
+      (['partial-working', 'working'].includes(current.kind) &&
+        (current.captureId !== captureId || !current.isExactEmpty))) {
+    throw bundleError('B3 capture bundle materialisation state is invalid');
+  }
+
+  const hierarchy = retainedAuthority.hierarchy;
+  let { evidence } = hierarchy;
+  const bundlesPath = retainedAuthority.rootPath;
+  let bundles = current.kind === 'absent'
+    ? mkdirExactDirectory(
+        bundlesPath, 'root', evidence.canonical, evidence.metadata.dev,
+      )
+    : retainedAuthority.bundles;
+  if (current.kind === 'absent') {
+    fsyncExactDirectory(bundles, 'root');
+    evidence = refreshDirectoryAfterOwnedChildCreation(evidence, 'evidence');
+    fsyncExactDirectory(evidence, 'evidence');
+  }
+
+  const workingPath = resolve(bundles.canonical, `${captureId}.working`);
+  const hasWorking = ['partial-working', 'working'].includes(current.kind);
+  let working = hasWorking
+    ? retainedAuthority.working
+    : mkdirExactDirectory(
+        workingPath, 'working', bundles.canonical, bundles.metadata.dev,
+      );
+  if (!hasWorking) {
+    fsyncExactDirectory(working, 'working');
+    bundles = refreshDirectoryAfterOwnedChildCreation(bundles, 'root');
+    fsyncExactDirectory(bundles, 'root');
+  }
+
+  const children = new Map(
+    retainedAuthority.children.map((child) => [child.name, child.directory]),
+  );
+  for (const name of ['observations', 'checkpoint', 'derived']) {
+    if (children.has(name)) {
+      assertStableDirectory(children.get(name), name);
+      continue;
+    }
+    const child = mkdirExactDirectory(
+      resolve(working.canonical, name),
+      name,
+      working.canonical,
+      working.metadata.dev,
+    );
+    children.set(name, child);
+    fsyncExactDirectory(child, name);
+    working = refreshDirectoryAfterOwnedChildCreation(working, 'working');
+    fsyncExactDirectory(working, 'working');
+  }
+  for (const [name, child] of children) assertStableDirectory(child, name);
+  fsyncExactDirectory(working, 'working');
+  fsyncExactDirectory(bundles, 'root');
+  for (const ancestor of hierarchy.ancestors.slice(0, -1)) {
+    assertStableDirectory(ancestor.directory, ancestor.label);
+  }
+  assertStableDirectory(evidence, 'evidence');
+
+  const materialised = classifyB3CaptureBundleRootState({ platform });
+  if (materialised.kind !== 'working' || materialised.captureId !== captureId ||
+      !materialised.isExactEmpty || !isDeepStrictEqual(
+        materialised.presentChildren,
+        Object.freeze(['checkpoint', 'derived', 'observations']),
+      )) {
+    throw bundleError('B3 capture bundle materialisation did not converge');
+  }
+  const expectedHierarchy = {
+    ...hierarchy,
+    evidence,
+    ancestors: [
+      ...hierarchy.ancestors.slice(0, -1),
+      { directory: evidence, label: 'evidence' },
+    ],
+  };
+  const expectedAuthority = rootStateAuthority({
+    hierarchy: expectedHierarchy,
+    rootPath: bundlesPath,
+    bundles,
+    working,
+    children: ['checkpoint', 'derived', 'observations'].map((name) => ({
+      name,
+      directory: children.get(name),
+    })),
+  });
+  assertSameRootStateAuthority(
+    expectedAuthority,
+    ROOT_STATE_AUTHORITIES.get(materialised),
+  );
+  return materialised;
 }
 
 function readSecureMember(path, parent, expectedDevice, { allowEmpty = false } = {}) {

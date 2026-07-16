@@ -31,6 +31,7 @@ if (input.__testFault || input.__testMetadata) {
       fstatSync(descriptor) {
         return retainedMetadata(`/descriptor/${descriptor}`, originalFs.fstatSync(descriptor));
       },
+      fsyncSync: originalFs.fsyncSync,
       lstatSync(path) {
         if (!fired && fault?.kind === 'replace-member-before-pathname-check' &&
             resolve(path) === target) {
@@ -42,6 +43,7 @@ if (input.__testFault || input.__testMetadata) {
         }
         return retainedMetadata(path, originalFs.lstatSync(path));
       },
+      mkdirSync: originalFs.mkdirSync,
       openSync: originalFs.openSync,
       readSync: originalFs.readSync,
       readdirSync(path, options) {

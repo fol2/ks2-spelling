@@ -52,6 +52,18 @@ async function inspectInChild(root, input) {
   return JSON.parse(stdout);
 }
 
+async function materialiseAfterAbaInChild(root, input) {
+  const child = new URL(
+    './helpers/b3-capture-bundle-materialise-aba-child.mjs',
+    import.meta.url,
+  );
+  const encoded = Buffer.from(JSON.stringify(input), 'utf8').toString('base64url');
+  const { stdout } = await execFileAsync(process.execPath, [
+    '--experimental-test-module-mocks', child.pathname, encoded,
+  ], { cwd: root });
+  return JSON.parse(stdout);
+}
+
 async function createEmptyWorkingBundle(root, platform = 'ios', captureId = UUID) {
   const working = join(
     root, '.native-build', 'b3', 'evidence', `${platform}-capture-bundles`,
@@ -84,6 +96,39 @@ async function createWorkingSubset(root, children, captureId = UUID) {
   ]) await chmod(path, 0o700);
   return working;
 }
+
+test('materialisation rejects exact-empty root ABA before any effect', async (t) => {
+  const root = await fixture(t, 'materialise-root-aba');
+  await createEmptyWorkingBundle(root);
+
+  const result = await materialiseAfterAbaInChild(root, {
+    platform: 'ios',
+    captureId: UUID,
+    mutation: 'replace-root',
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, B3_CAPTURE_BUNDLE_ERROR_CODES.invalidBundle);
+  assert.match(result.error.message, /changed|identity|authority/iu);
+  assert.deepEqual(result.after, result.before);
+});
+
+test('materialisation rejects present-child ABA before completing a partial bundle',
+  async (t) => {
+    const root = await fixture(t, 'materialise-present-child-aba');
+    await createWorkingSubset(root, ['observations']);
+
+    const result = await materialiseAfterAbaInChild(root, {
+      platform: 'ios',
+      captureId: UUID,
+      mutation: 'replace-present-child',
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, B3_CAPTURE_BUNDLE_ERROR_CODES.invalidBundle);
+    assert.match(result.error.message, /changed|identity|authority/iu);
+    assert.deepEqual(result.after, result.before);
+  });
 
 async function namespaceSnapshot(path) {
   const rows = [];

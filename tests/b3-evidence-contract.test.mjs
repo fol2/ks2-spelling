@@ -105,6 +105,12 @@ test('platform evidence enforces physical scenarios, tracked learners and privac
     invalid.distribution[field] = B3_TEST_HASH;
     assert.throws(() => validateB3PlatformEvidence(invalid), /closed schema|certificate/i);
   }
+  const misleadingDevelopmentIdentity = platformEvidence();
+  misleadingDevelopmentIdentity.distribution.developmentIdentityVerified = true;
+  assert.throws(() => validateB3PlatformEvidence(misleadingDevelopmentIdentity), /closed schema|developer app/i);
+  const nonDeveloperInstall = platformEvidence();
+  nonDeveloperInstall.distribution.installedBuiltByDeveloper = false;
+  assert.throws(() => validateB3PlatformEvidence(nonDeveloperInstall), /developer app|installed distribution/i);
   const duplicateTrace = platformEvidence();
   duplicateTrace.transitions[6].gatewayTraces[0].traceId = duplicateTrace.transitions[3].gatewayTraces[0].traceId;
   assert.throws(() => validateB3PlatformEvidence(duplicateTrace), /trace/i);

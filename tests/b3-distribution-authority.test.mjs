@@ -126,12 +126,19 @@ test('installed distribution verifier rejects certificate drift and independentl
   };
   const deviceInspection = {
     installedBundleId: 'uk.eugnel.ks2spelling', installedVersion: '0.3.0-b3', installedBuild: '19',
-    installedEmbeddedAuthoritySha256: HASH, sandboxReceiptSha256: 'd'.repeat(64),
+    installedEmbeddedAuthoritySha256: HASH, installedBuiltByDeveloper: true, sandboxReceiptSha256: 'd'.repeat(64),
     sandboxReceiptEnvironment: 'sandbox', sandboxReceiptCmsVerified: true,
   };
-  assert.equal(verifyB3InstalledDistribution({ expected, platform: 'ios', artifactInspection, deviceInspection }).platform, 'ios');
+  const verified = verifyB3InstalledDistribution({ expected, platform: 'ios', artifactInspection, deviceInspection });
+  assert.equal(verified.platform, 'ios');
+  assert.equal(verified.installedBuiltByDeveloper, true);
+  assert.equal(Object.hasOwn(verified, 'developmentIdentityVerified'), false);
   assert.throws(() => verifyB3InstalledDistribution({ expected: { ...expected, token: 'forbidden' }, platform: 'ios', artifactInspection, deviceInspection }), /closed schema/i);
   assert.throws(() => verifyB3InstalledDistribution({ expected, platform: 'ios', artifactInspection, deviceInspection: { ...deviceInspection, installedEmbeddedAuthoritySha256: 'c'.repeat(64) } }), /embedded authority/i);
+  assert.throws(() => verifyB3InstalledDistribution({ expected, platform: 'ios', artifactInspection, deviceInspection: { ...deviceInspection, installedBuiltByDeveloper: false } }), /developer app|installed distribution/i);
+  const { installedBuiltByDeveloper: _omitted, ...missingDeveloperAuthority } = deviceInspection;
+  assert.throws(() => verifyB3InstalledDistribution({ expected, platform: 'ios', artifactInspection, deviceInspection: missingDeveloperAuthority }), /closed schema|developer app/i);
+  assert.throws(() => verifyB3InstalledDistribution({ expected, platform: 'ios', artifactInspection, deviceInspection: { ...deviceInspection, developmentIdentityVerified: true } }), /closed schema|developer app/i);
   assert.throws(() => verifyB3InstalledDistribution({ expected, platform: 'ios', artifactInspection: { ...artifactInspection, signingCertificateSha256: HASH }, deviceInspection }), /closed schema/i);
 });
 
@@ -288,6 +295,7 @@ test('default iOS device inspector derives sandbox receipt proof outside app JSO
     versionName: '0.3.0-b3', buildNumber: '19', bundleId: 'uk.eugnel.ks2spelling',
   };
   const commands = [];
+  let builtByDeveloper = true;
   const inspectors = createDefaultB3DistributionInspectors({
     root,
     env: { B3_IOS_PHYSICAL_DEVICE_ID: 'physical-ios-device' },
@@ -297,7 +305,10 @@ test('default iOS device inspector derives sandbox receipt proof outside app JSO
       const destinationIndex = args.indexOf('--destination');
       const sourceIndex = args.indexOf('--source');
       if (args.includes('info') && args.includes('apps')) {
-        await writeFile(args[jsonIndex + 1], JSON.stringify({ result: { apps: [{ bundleIdentifier: 'uk.eugnel.ks2spelling', version: '0.3.0-b3', buildVersion: '19' }] } }));
+        await writeFile(args[jsonIndex + 1], JSON.stringify({ result: { apps: [{
+          bundleIdentifier: 'uk.eugnel.ks2spelling', version: '0.3.0-b3', buildVersion: '19',
+          ...(builtByDeveloper === undefined ? {} : { builtByDeveloper }),
+        }] } }));
       } else if (sourceIndex !== -1 && args[sourceIndex + 1].endsWith('b3-build-authority.json')) {
         await writeFile(args[destinationIndex + 1], JSON.stringify(authority));
       } else if (sourceIndex !== -1 && args[sourceIndex + 1].endsWith('b3-sandbox-receipt')) {
@@ -310,10 +321,15 @@ test('default iOS device inspector derives sandbox receipt proof outside app JSO
   assert.equal(result.sandboxReceiptEnvironment, 'sandbox');
   assert.equal(result.sandboxReceiptCmsVerified, true);
   assert.equal(result.installedEmbeddedAuthoritySha256.length, 64);
+  assert.equal(result.installedBuiltByDeveloper, true);
   assert.ok(commands.some((args) => args.includes('cms') && args.includes('9')));
   assert.ok(commands.some((args) => args.includes('asn1parse')));
   assert.equal(Object.hasOwn(result, 'developmentIdentityVerified'), false);
   assert.equal(Object.hasOwn(result, 'sandboxReceiptVerified'), false);
+  for (const invalidDeveloperAuthority of [false, undefined]) {
+    builtByDeveloper = invalidDeveloperAuthority;
+    await assert.rejects(inspectors.deviceInspector({ platform: 'ios' }), /developer app/i);
+  }
 });
 
 test('default iOS device inspector rejects a hard-linked copied authority', async (t) => {
@@ -333,7 +349,7 @@ test('default iOS device inspector rejects a hard-linked copied authority', asyn
       const destinationIndex = args.indexOf('--destination');
       const sourceIndex = args.indexOf('--source');
       if (args.includes('info') && args.includes('apps')) {
-        await writeFile(args[jsonIndex + 1], JSON.stringify({ result: { apps: [{ bundleIdentifier: 'uk.eugnel.ks2spelling', version: '0.3.0-b3', buildVersion: '19' }] } }));
+        await writeFile(args[jsonIndex + 1], JSON.stringify({ result: { apps: [{ bundleIdentifier: 'uk.eugnel.ks2spelling', version: '0.3.0-b3', buildVersion: '19', builtByDeveloper: true }] } }));
       } else if (sourceIndex !== -1 && args[sourceIndex + 1].endsWith('b3-build-authority.json')) {
         const destination = args[destinationIndex + 1];
         await writeFile(destination, JSON.stringify(authority));
@@ -363,7 +379,7 @@ test('default iOS device inspector rejects linked, oversized and swapped copied 
     const destinationIndex = args.indexOf('--destination');
     const sourceIndex = args.indexOf('--source');
     if (args.includes('info') && args.includes('apps')) {
-      await writeFile(args[jsonIndex + 1], JSON.stringify({ result: { apps: [{ bundleIdentifier: 'uk.eugnel.ks2spelling', version: '0.3.0-b3', buildVersion: '19' }] } }));
+      await writeFile(args[jsonIndex + 1], JSON.stringify({ result: { apps: [{ bundleIdentifier: 'uk.eugnel.ks2spelling', version: '0.3.0-b3', buildVersion: '19', builtByDeveloper: true }] } }));
     } else if (sourceIndex !== -1 && args[sourceIndex + 1].endsWith('b3-build-authority.json')) {
       await writeFile(args[destinationIndex + 1], JSON.stringify(authority));
     } else if (sourceIndex !== -1 && args[sourceIndex + 1].endsWith('b3-sandbox-receipt')) {

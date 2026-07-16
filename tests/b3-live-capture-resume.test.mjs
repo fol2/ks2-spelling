@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
 import {
   link, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile,
 } from 'node:fs/promises';
@@ -1093,6 +1094,37 @@ async function retainAmbiguousRestartGate({ root, command = launchCommand() }) {
   return readB3IssuedCommand({ root, platform: 'ios' });
 }
 
+async function retainAmbiguousRestartGateWithJournal({ root }) {
+  const firstCommand = launchCommand();
+  const firstObservation = await createB3ProofObservation({
+    command: firstCommand,
+    buildAuthority: BUILD_AUTHORITY,
+    installationId: INSTALLATION_ID,
+    sequence: 1,
+    scenario: 'product-query',
+    phase: 'ARMED',
+    nextActionCode: 'QUERY_PRODUCT',
+    completedTransitions: ['UNBOUND', 'ARMED'],
+    proofProjection: emptyProofProjection(firstCommand),
+    observedAt: '2026-07-15T10:00:00.000Z',
+  });
+  await appendB3PhysicalObservation({
+    root,
+    platform: 'ios',
+    command: firstCommand,
+    buildAuthority: BUILD_AUTHORITY,
+    observationBytes: Buffer.from(canonicaliseB3ProofValue(firstObservation), 'utf8'),
+  });
+  const retained = await retainAmbiguousRestartGate({
+    root,
+    command: launchCommand({
+      expectedSequence: 2,
+      previousObservationSha256: firstObservation.observationSha256,
+    }),
+  });
+  return { retained, firstObservation };
+}
+
 test('ordinary ambiguity archives its exact capture and restarts from sequence one', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-ordinary-ambiguity-restart-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -1261,24 +1293,11 @@ test('ambiguous capture restart is concurrent and crash-resumable without a seco
 test('capture restart removes an authentic unpublished checkpoint revision temporary', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-restart-revision-temporary-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const retained = await retainAmbiguousRestartGate({
-    root,
-    command: launchCommand({ expectedSequence: 2, previousObservationSha256: TAIL }),
-  });
-  const checkpointValue = createB3CaptureCheckpoint(checkpoint({
-    nextObservationSequence: 2,
-    state: 'ARMED',
-    previousObservationSha256: TAIL,
-  }));
+  const { retained, firstObservation } = await retainAmbiguousRestartGateWithJournal({ root });
+  assert.equal(firstObservation.observationSha256, retained.command.previousObservationSha256);
   const checkpointPath = join(
     root, '.native-build/b3/evidence/ios-capture-checkpoint.json',
   );
-  await writeB3CaptureCheckpoint({
-    root,
-    platform: 'ios',
-    expectedRevision: null,
-    value: checkpointValue,
-  });
   const bytes = await readFile(checkpointPath);
   await rm(checkpointPath);
   await rm(`${checkpointPath}.revision-00000000.json`);
@@ -1311,24 +1330,11 @@ test('capture restart removes an authentic unpublished checkpoint revision tempo
 test('capture restart removes an authentic unpublished checkpoint current temporary', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-restart-current-temporary-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const retained = await retainAmbiguousRestartGate({
-    root,
-    command: launchCommand({ expectedSequence: 2, previousObservationSha256: TAIL }),
-  });
-  const checkpointValue = createB3CaptureCheckpoint(checkpoint({
-    nextObservationSequence: 2,
-    state: 'ARMED',
-    previousObservationSha256: TAIL,
-  }));
+  const { retained, firstObservation } = await retainAmbiguousRestartGateWithJournal({ root });
+  assert.equal(firstObservation.observationSha256, retained.command.previousObservationSha256);
   const checkpointPath = join(
     root, '.native-build/b3/evidence/ios-capture-checkpoint.json',
   );
-  await writeB3CaptureCheckpoint({
-    root,
-    platform: 'ios',
-    expectedRevision: null,
-    value: checkpointValue,
-  });
   const bytes = await readFile(checkpointPath);
   await rm(checkpointPath);
   const temporary = `${checkpointPath}.00000000-0000-4000-8000-000000000772.current.tmp`;
@@ -1357,24 +1363,11 @@ test('capture restart removes an authentic unpublished checkpoint current tempor
 test('capture restart verifies and removes a published checkpoint revision alias', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-restart-revision-alias-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const retained = await retainAmbiguousRestartGate({
-    root,
-    command: launchCommand({ expectedSequence: 2, previousObservationSha256: TAIL }),
-  });
-  const checkpointValue = createB3CaptureCheckpoint(checkpoint({
-    nextObservationSequence: 2,
-    state: 'ARMED',
-    previousObservationSha256: TAIL,
-  }));
+  const { retained, firstObservation } = await retainAmbiguousRestartGateWithJournal({ root });
+  assert.equal(firstObservation.observationSha256, retained.command.previousObservationSha256);
   const checkpointPath = join(
     root, '.native-build/b3/evidence/ios-capture-checkpoint.json',
   );
-  await writeB3CaptureCheckpoint({
-    root,
-    platform: 'ios',
-    expectedRevision: null,
-    value: checkpointValue,
-  });
   const revisionPath = `${checkpointPath}.revision-00000000.json`;
   const temporary = `${checkpointPath}.00000000-0000-4000-8000-000000000773.revision.tmp`;
   await link(revisionPath, temporary);
@@ -1408,24 +1401,11 @@ test('capture restart verifies and removes a published checkpoint revision alias
 test('capture restart verifies and removes a published checkpoint current alias', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-restart-current-alias-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const retained = await retainAmbiguousRestartGate({
-    root,
-    command: launchCommand({ expectedSequence: 2, previousObservationSha256: TAIL }),
-  });
-  const checkpointValue = createB3CaptureCheckpoint(checkpoint({
-    nextObservationSequence: 2,
-    state: 'ARMED',
-    previousObservationSha256: TAIL,
-  }));
+  const { retained, firstObservation } = await retainAmbiguousRestartGateWithJournal({ root });
+  assert.equal(firstObservation.observationSha256, retained.command.previousObservationSha256);
   const checkpointPath = join(
     root, '.native-build/b3/evidence/ios-capture-checkpoint.json',
   );
-  await writeB3CaptureCheckpoint({
-    root,
-    platform: 'ios',
-    expectedRevision: null,
-    value: checkpointValue,
-  });
   const temporary = `${checkpointPath}.00000000-0000-4000-8000-000000000774.current.tmp`;
   await link(checkpointPath, temporary);
   assert.equal((await lstat(checkpointPath)).nlink, 2);
@@ -1667,6 +1647,190 @@ test('capture restart rejects hostile pre-created destinations and checkpoint ha
     root: hardLinkRoot, platform: 'ios', enabled: true,
     invocationCommandSha256: hardLinked.commandSha256, buildAuthority: BUILD_AUTHORITY,
   }), /checkpoint|link|policy/i);
+});
+
+test('capture restart validates every observation entry before moving its journal', async (t) => {
+  const outside = await mkdtemp(join(tmpdir(), 'b3-hostile-restart-journal-target-'));
+  const roots = [];
+  t.after(() => Promise.all([...roots, outside].map((path) =>
+    rm(path, { recursive: true, force: true }))));
+  const external = join(outside, 'external.json');
+  await writeFile(external, '{}', { mode: 0o600 });
+
+  const cases = [
+    ['symbolic-link', async (journal) => symlink(external, join(journal, '00000001.json'))],
+    ['external-hard-link', async (journal) => link(external, join(journal, '00000001.json'))],
+    ['non-record', async (journal) => writeFile(join(journal, 'hostile.json'), '{}', {
+      mode: 0o600,
+    })],
+    ['invalid-record', async (journal) => writeFile(join(journal, '00000001.json'), '{}', {
+      mode: 0o600,
+    })],
+  ];
+
+  for (const [label, poison] of cases) {
+    const root = await mkdtemp(join(tmpdir(), `b3-hostile-restart-journal-${label}-`));
+    roots.push(root);
+    const retained = await retainAmbiguousRestartGate({ root });
+    const journal = join(root, '.native-build/b3/evidence/ios-observations');
+    await poison(journal);
+
+    await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+      root,
+      platform: 'ios',
+      enabled: true,
+      invocationCommandSha256: retained.commandSha256,
+      buildAuthority: BUILD_AUTHORITY,
+    }), /observation|journal|entry|record|link|policy|canonical/i);
+    await lstat(journal);
+    assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+      'restart-executing');
+    await assert.rejects(lstat(join(
+      root,
+      '.native-build/b3/evidence/ios-abandoned-captures',
+      retained.commandSha256,
+      'observations',
+    )), /ENOENT/u);
+  }
+});
+
+test('capture restart rejects a canonical journal bound to another capture', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-wrong-capture-restart-journal-'));
+  const donorRoot = await mkdtemp(join(tmpdir(), 'b3-wrong-capture-restart-donor-'));
+  t.after(() => Promise.all([root, donorRoot].map((path) =>
+    rm(path, { recursive: true, force: true }))));
+  const donorCommand = launchCommand({
+    captureId: '018f1d7b-97e8-4a52-8cf2-783e5089c088',
+  });
+  const donorObservation = await createB3ProofObservation({
+    command: donorCommand,
+    buildAuthority: BUILD_AUTHORITY,
+    installationId: INSTALLATION_ID,
+    sequence: 1,
+    scenario: 'product-query',
+    phase: 'ARMED',
+    nextActionCode: 'QUERY_PRODUCT',
+    completedTransitions: ['UNBOUND', 'ARMED'],
+    proofProjection: emptyProofProjection(donorCommand),
+    observedAt: '2026-07-15T10:00:00.000Z',
+  });
+  const donorRelative = await appendB3PhysicalObservation({
+    root: donorRoot,
+    platform: 'ios',
+    command: donorCommand,
+    buildAuthority: BUILD_AUTHORITY,
+    observationBytes: Buffer.from(canonicaliseB3ProofValue(donorObservation), 'utf8'),
+  });
+  const retained = await retainAmbiguousRestartGate({
+    root,
+    command: launchCommand({
+      expectedSequence: 2,
+      previousObservationSha256: donorObservation.observationSha256,
+    }),
+  });
+  const journal = join(root, '.native-build/b3/evidence/ios-observations');
+  await writeFile(
+    join(journal, '00000001.json'),
+    await readFile(join(donorRoot, donorRelative)),
+    { mode: 0o600 },
+  );
+
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  }), /observation|journal|capture|authority|chain/i);
+  await lstat(journal);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'restart-executing');
+});
+
+test('capture restart rejects an observation journal entry flood before moving it', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-restart-journal-entry-flood-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const retained = await retainAmbiguousRestartGate({ root });
+  const journal = join(root, '.native-build/b3/evidence/ios-observations');
+  await Promise.all(Array.from({ length: 513 }, (_, index) => writeFile(
+    join(journal, `${String(index + 1).padStart(8, '0')}.json`),
+    '{}',
+    { mode: 0o600 },
+  )));
+
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: BUILD_AUTHORITY,
+  }), /observation|journal|entry|bound/i);
+  assert.equal((await readdir(journal)).length, 513);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'restart-executing');
+});
+
+test('capture restart restores the active journal when a record changes across its move', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-restart-journal-move-race-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const firstCommand = launchCommand();
+  const firstObservation = await createB3ProofObservation({
+    command: firstCommand,
+    buildAuthority: BUILD_AUTHORITY,
+    installationId: INSTALLATION_ID,
+    sequence: 1,
+    scenario: 'product-query',
+    phase: 'ARMED',
+    nextActionCode: 'QUERY_PRODUCT',
+    completedTransitions: ['UNBOUND', 'ARMED'],
+    proofProjection: emptyProofProjection(firstCommand),
+    observedAt: '2026-07-15T10:00:00.000Z',
+  });
+  const relative = await appendB3PhysicalObservation({
+    root,
+    platform: 'ios',
+    command: firstCommand,
+    buildAuthority: BUILD_AUTHORITY,
+    observationBytes: Buffer.from(canonicaliseB3ProofValue(firstObservation), 'utf8'),
+  });
+  const retained = await retainAmbiguousRestartGate({
+    root,
+    command: launchCommand({
+      expectedSequence: 2,
+      previousObservationSha256: firstObservation.observationSha256,
+    }),
+  });
+  const journal = join(root, '.native-build/b3/evidence/ios-observations');
+  const record = join(root, relative);
+  let changed = false;
+  const racingBuildAuthority = new Proxy(BUILD_AUTHORITY, {
+    getOwnPropertyDescriptor(target, property) {
+      if (property === 'mode' && !changed) {
+        changed = true;
+        writeFileSync(record, '{}', { mode: 0o600 });
+      }
+      return Reflect.getOwnPropertyDescriptor(target, property);
+    },
+  });
+
+  await assert.rejects(recoverB3AmbiguousCaptureAfterReinstall({
+    root,
+    platform: 'ios',
+    enabled: true,
+    invocationCommandSha256: retained.commandSha256,
+    buildAuthority: racingBuildAuthority,
+  }), /observation|journal|record|canonical|changed/i);
+  assert.equal(changed, true);
+  await lstat(journal);
+  assert.equal(await readFile(record, 'utf8'), '{}');
+  await assert.rejects(lstat(join(
+    root,
+    '.native-build/b3/evidence/ios-abandoned-captures',
+    retained.commandSha256,
+    'observations',
+  )), /ENOENT/u);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'restart-executing');
 });
 
 test('capture restart repairs its exact authority writer alias after a crash gap', async (t) => {

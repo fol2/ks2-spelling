@@ -351,7 +351,7 @@ function assertLearnerPreservation(value) {
 function assertDistribution(value, ios, commit, fingerprint) {
   const shared = ['embeddedCommit', 'embeddedFingerprint', 'versionName', 'kind'];
   const keys = ios
-    ? [...shared, 'iosBuildNumber', 'signedIpaSha256', 'ipaEmbeddedAuthoritySha256', 'codeSigningCertificateSha256', 'installedBundleId', 'installedVersion', 'installedBuild', 'installedEmbeddedAuthoritySha256', 'developmentIdentityVerified', 'sandboxReceiptVerified']
+    ? [...shared, 'iosBuildNumber', 'signedIpaSha256', 'ipaEmbeddedAuthoritySha256', 'codeSigningCertificateSha256', 'installedBundleId', 'installedVersion', 'installedBuild', 'installedEmbeddedAuthoritySha256', 'installedBuiltByDeveloper', 'sandboxReceiptVerified']
     : [...shared, 'androidVersionCode', 'signedAabSha256', 'aabEmbeddedAuthoritySha256', 'playAppSigningCertificateSha256', 'installer', 'installedEmbeddedAuthoritySha256', 'pmPathOrderVerified', 'installedApks'];
   requireKeys(value, keys, `${ios ? 'iOS' : 'Android'} distribution evidence`);
   if (value.embeddedCommit !== commit || value.embeddedFingerprint !== fingerprint || value.versionName !== '0.3.0-b3') {
@@ -362,8 +362,8 @@ function assertDistribution(value, ios, commit, fingerprint) {
         ![value.signedIpaSha256, value.ipaEmbeddedAuthoritySha256, value.codeSigningCertificateSha256, value.installedEmbeddedAuthoritySha256].every(hash) ||
         value.ipaEmbeddedAuthoritySha256 !== value.installedEmbeddedAuthoritySha256 ||
         value.installedBundleId !== 'uk.eugnel.ks2spelling' || value.installedVersion !== '0.3.0-b3' ||
-        value.installedBuild !== value.iosBuildNumber || value.developmentIdentityVerified !== true || value.sandboxReceiptVerified !== true) {
-      throw evidenceError('iOS certificate or installed distribution authority mismatch');
+        value.installedBuild !== value.iosBuildNumber || value.installedBuiltByDeveloper !== true || value.sandboxReceiptVerified !== true) {
+      throw evidenceError('iOS IPA certificate, developer app or installed distribution authority mismatch');
     }
     return;
   }

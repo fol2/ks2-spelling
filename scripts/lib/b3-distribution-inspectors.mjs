@@ -458,7 +458,7 @@ async function inspectIosDevice({ root, env, runner, afterExternalFileOpenHook }
   const temporary = await mkdtemp(resolve(root, '.native-build/b3/distribution/ios-device-'));
   try {
     const appsJson = resolve(temporary, 'apps.json');
-    await run(runner, '/usr/bin/xcrun', ['devicectl', 'device', 'info', 'apps', '--device', device, '--bundle-id', 'uk.eugnel.ks2spelling', '--json-output', appsJson]);
+    await run(runner, '/usr/bin/xcrun', ['devicectl', 'device', 'info', 'apps', '--device', device, '--bundle-id', 'uk.eugnel.ks2spelling', '--no-include-default-apps', '--json-output', appsJson]);
     const appRecord = extractIosAppRecord(parseB3StrictJsonBytes(await readStableExternalFile({
       path: appsJson,
       label: 'devicectl application inventory',
@@ -483,6 +483,7 @@ async function inspectIosDevice({ root, env, runner, afterExternalFileOpenHook }
     const appVersion = appRecord.version ?? appRecord.shortVersion ?? appRecord.CFBundleShortVersionString;
     const appBuild = String(appRecord.buildVersion ?? appRecord.versionIdentifier ?? appRecord.CFBundleVersion ?? '');
     if (appVersion !== authority.versionName || appBuild !== authority.buildNumber) fail('devicectl and installed iOS authority differ');
+    if (appRecord.builtByDeveloper !== true) fail('devicectl did not independently classify the installed iOS application as a developer app');
     const receiptPath = resolve(temporary, 'sandbox-receipt');
     const receipt = await copyIosApplicationSupportFile({
       device, source: 'b3-sandbox-receipt', destination: receiptPath,
@@ -506,6 +507,7 @@ async function inspectIosDevice({ root, env, runner, afterExternalFileOpenHook }
         commit: authority.testedApplicationCommit,
         fingerprint: authority.applicationFingerprint,
       }),
+      installedBuiltByDeveloper: appRecord.builtByDeveloper,
       sandboxReceiptSha256: sha256(receipt),
       sandboxReceiptEnvironment: 'sandbox',
       sandboxReceiptCmsVerified: true,

@@ -668,13 +668,20 @@ export async function recoverB3AmbiguousCaptureAfterReinstall({
   platform,
   enabled,
   invocationCommandSha256,
+  invocationRecordSha256,
+  invocationState,
   buildAuthority,
   afterArchive = async () => {},
   beforeClear = async () => {},
 }) {
+  const exactInvocationRequired = invocationRecordSha256 !== undefined ||
+    invocationState !== undefined;
   if (typeof enabled !== 'boolean' || !/^[0-9a-f]{64}$/u.test(
     invocationCommandSha256 ?? '',
-  ) || typeof afterArchive !== 'function' || typeof beforeClear !== 'function') {
+  ) || (exactInvocationRequired && (!/^[0-9a-f]{64}$/u.test(
+    invocationRecordSha256 ?? '',
+  ) || typeof invocationState !== 'string' || invocationState.length === 0)) ||
+      typeof afterArchive !== 'function' || typeof beforeClear !== 'function') {
     throw captureError('B3 ambiguous capture-restart authority is invalid');
   }
   let issued;
@@ -691,10 +698,20 @@ export async function recoverB3AmbiguousCaptureAfterReinstall({
       });
     } catch (archiveError) {
       if (archiveError?.code !== 'b3_abandoned_capture_archive_absent') throw archiveError;
+      if (exactInvocationRequired) {
+        throw captureError('B3 issued command changed after adapter invocation');
+      }
       return false;
     }
   }
-  if (issued.commandSha256 !== invocationCommandSha256) return false;
+  if (issued.commandSha256 !== invocationCommandSha256 ||
+      (exactInvocationRequired && (issued.recordSha256 !== invocationRecordSha256 ||
+        issued.state !== invocationState))) {
+    if (exactInvocationRequired) {
+      throw captureError('B3 issued command changed after adapter invocation');
+    }
+    return false;
+  }
   if (issued.state === 'restart-required') {
     if (!enabled) return false;
     issued = await transitionB3IssuedCommand({
@@ -1055,7 +1072,7 @@ function mapDistribution(platform, value) {
         installedVersion: value.installedVersion,
         installedBuild: value.installedBuild,
         installedEmbeddedAuthoritySha256: value.installedEmbeddedAuthoritySha256,
-        developmentIdentityVerified: value.developmentIdentityVerified,
+        installedBuiltByDeveloper: value.installedBuiltByDeveloper,
         sandboxReceiptVerified: value.sandboxReceiptVerified,
       })
     : Object.freeze({
@@ -1326,6 +1343,20 @@ function createDefaultAdapter({
   let invocationIssuedCommandSha256 = null;
   let reinstallAcknowledgementConsumed = false;
   let storeActionResumeAuthority = null;
+  let invocationIssuedCommandAuthorityPromise = null;
+  let invocationIssuedCommandAuthorityPinned = false;
+
+  async function pinInvocationIssuedCommandAuthority() {
+    invocationIssuedCommandAuthorityPinned = true;
+    invocationIssuedCommandAuthorityPromise ??= readB3IssuedCommand({ root, platform })
+      .then((issued) => Object.freeze({ issued }))
+      .catch((error) => Object.freeze(error?.code === 'ENOENT'
+        ? { issued: null }
+        : { error }));
+    const pinned = await invocationIssuedCommandAuthorityPromise;
+    if (pinned.error) throw pinned.error;
+    return pinned.issued;
+  }
 
   async function inspectDistributionFresh() {
     if (typeof signedPath !== 'string' || signedPath.length === 0) {
@@ -1361,18 +1392,26 @@ function createDefaultAdapter({
   }
 
   async function recoverAmbiguousCapture() {
-    let retained;
-    try {
-      retained = await readB3IssuedCommand({ root, platform });
-    } catch (error) {
-      if (error?.code !== 'ENOENT') throw error;
-      return false;
+    if (!invocationIssuedCommandAuthorityPinned) {
+      throw captureError('B3 issued command authority was not pinned for this invocation');
+    }
+    const invocationIssued = await pinInvocationIssuedCommandAuthority();
+    if (invocationIssued === null) {
+      try {
+        await readB3IssuedCommand({ root, platform });
+      } catch (error) {
+        if (error?.code === 'ENOENT') return false;
+        throw error;
+      }
+      throw captureError('B3 issued command changed after adapter invocation');
     }
     const recovery = await recoverB3AmbiguousCaptureAfterReinstall({
       root,
       platform,
       enabled: resumeReinstall && !reinstallAcknowledgementConsumed,
-      invocationCommandSha256: retained.commandSha256,
+      invocationCommandSha256: invocationIssued.commandSha256,
+      invocationRecordSha256: invocationIssued.recordSha256,
+      invocationState: invocationIssued.state,
       buildAuthority: await buildAuthority(),
     });
     if (recovery) reinstallAcknowledgementConsumed = true;
@@ -1665,6 +1704,7 @@ function createDefaultAdapter({
   }
 
   const base = {
+    pinInvocationIssuedCommandAuthority,
     recoverAmbiguousCapture,
     inspectDistribution,
     inspectDeviceStore,

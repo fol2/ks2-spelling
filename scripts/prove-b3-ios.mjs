@@ -90,6 +90,9 @@ export async function captureB3IosEvidenceWithPrimitives({
   const inspectProofObservationChain = requirePrimitive(primitives, 'inspectProofObservationChain');
   const inspectStoreKitTest = requirePrimitive(primitives, 'inspectStoreKitTest');
   const captureScreenshot = requirePrimitive(primitives, 'captureScreenshot');
+  if (primitives.pinInvocationIssuedCommandAuthority !== undefined) {
+    await requirePrimitive(primitives, 'pinInvocationIssuedCommandAuthority')();
+  }
   const distributionBeforeCapture = await inspectDistribution();
   if (validatedDraft.testedApplicationCommit !== distributionBeforeCapture.embeddedCommit ||
       validatedDraft.applicationFingerprint !== distributionBeforeCapture.embeddedFingerprint) {

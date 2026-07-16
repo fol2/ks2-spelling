@@ -52,12 +52,12 @@ export function verifyB3InstalledDistribution({
   }
   if (platform === 'ios') {
     const artifactKeys = ['mode', 'signedIpaSha256', 'ipaEmbeddedAuthoritySha256', 'codeSigningCertificateSha256', 'embeddedCommit', 'embeddedFingerprint', 'versionName', 'build'];
-    const deviceKeys = ['installedBundleId', 'installedVersion', 'installedBuild', 'installedEmbeddedAuthoritySha256', 'sandboxReceiptSha256', 'sandboxReceiptEnvironment', 'sandboxReceiptCmsVerified'];
+    const deviceKeys = ['installedBundleId', 'installedVersion', 'installedBuild', 'installedEmbeddedAuthoritySha256', 'installedBuiltByDeveloper', 'sandboxReceiptSha256', 'sandboxReceiptEnvironment', 'sandboxReceiptCmsVerified'];
     if (!exactKeys(artifactInspection, artifactKeys) || !exactKeys(deviceInspection, deviceKeys)) fail('iOS independently inspected distribution violates its closed schema');
     if (artifactInspection.mode !== 'development' || ![artifactInspection.signedIpaSha256, artifactInspection.ipaEmbeddedAuthoritySha256, artifactInspection.codeSigningCertificateSha256, deviceInspection.installedEmbeddedAuthoritySha256, deviceInspection.sandboxReceiptSha256].every((value) => HASH.test(value)) ||
         artifactInspection.embeddedCommit !== expected.testedApplicationCommit || artifactInspection.embeddedFingerprint !== expected.applicationFingerprint || artifactInspection.versionName !== expected.versionName || artifactInspection.build !== expected.iosBuildNumber ||
-        deviceInspection.installedBundleId !== 'uk.eugnel.ks2spelling' || deviceInspection.installedVersion !== expected.versionName || deviceInspection.installedBuild !== expected.iosBuildNumber || artifactInspection.ipaEmbeddedAuthoritySha256 !== deviceInspection.installedEmbeddedAuthoritySha256 || deviceInspection.sandboxReceiptEnvironment !== 'sandbox' || deviceInspection.sandboxReceiptCmsVerified !== true) {
-      fail('iOS embedded authority, independently extracted certificate or installed distribution mismatch');
+        deviceInspection.installedBundleId !== 'uk.eugnel.ks2spelling' || deviceInspection.installedVersion !== expected.versionName || deviceInspection.installedBuild !== expected.iosBuildNumber || artifactInspection.ipaEmbeddedAuthoritySha256 !== deviceInspection.installedEmbeddedAuthoritySha256 || deviceInspection.installedBuiltByDeveloper !== true || deviceInspection.sandboxReceiptEnvironment !== 'sandbox' || deviceInspection.sandboxReceiptCmsVerified !== true) {
+      fail('iOS developer app, embedded authority, independently extracted IPA certificate or installed distribution mismatch');
     }
     return Object.freeze({
       platform,
@@ -66,7 +66,7 @@ export function verifyB3InstalledDistribution({
       installedVersion: deviceInspection.installedVersion,
       installedBuild: deviceInspection.installedBuild,
       installedEmbeddedAuthoritySha256: deviceInspection.installedEmbeddedAuthoritySha256,
-      developmentIdentityVerified: true,
+      installedBuiltByDeveloper: deviceInspection.installedBuiltByDeveloper,
       sandboxReceiptVerified: true,
     });
   }

@@ -16,6 +16,8 @@ import { resolve } from 'node:path';
 import { parseB3StrictJsonBytes } from '../check-b3-external-prerequisites.mjs';
 import { canonicaliseB3ProofValue } from '../../src/app/b3-live-proof-protocol.js';
 import { validateB3CaptureCheckpointBytes } from './b3-device-observation.mjs';
+import { validateB3PhysicalObservationJournalDirectory } from
+  './b3-physical-observation-journal.mjs';
 
 const HASH = /^[0-9a-f]{64}$/u;
 const COMMIT = /^[0-9a-f]{40}$/u;
@@ -294,7 +296,16 @@ async function retainAuthority({ evidence, archive, authority }) {
   return retained;
 }
 
-async function moveDirectoryOnce({ source, destination, sourceParent, destinationParent }) {
+async function moveDirectoryOnce({
+  root,
+  platform,
+  buildAuthority,
+  captureAuthority,
+  source,
+  destination,
+  sourceParent,
+  destinationParent,
+}) {
   let sourceMetadata = null;
   let destinationMetadata = null;
   try { sourceMetadata = await lstat(source); } catch (error) {
@@ -344,9 +355,82 @@ async function moveDirectoryOnce({ source, destination, sourceParent, destinatio
     throw archiveError('B3 abandoned-capture observation journal is absent');
   }
   if (sourceMetadata) {
-    try { await rename(source, destination); } catch (error) {
+    let beforeMove;
+    try {
+      beforeMove = await validateB3PhysicalObservationJournalDirectory({
+        root,
+        directory: source,
+        platform,
+        buildAuthority,
+        captureAuthority,
+      });
+    } catch (error) {
       if (error?.code !== 'ENOENT') throw error;
+      // A concurrent owner may have completed the atomic rename after this
+      // process inspected the source. Accept only the same strict destination.
+      await validateB3PhysicalObservationJournalDirectory({
+        root,
+        directory: destination,
+        platform,
+        buildAuthority,
+        captureAuthority,
+      });
+      sourceMetadata = null;
     }
+    if (beforeMove === undefined) {
+      await syncDirectory(sourceParent);
+      await syncDirectory(destinationParent);
+    } else {
+      try {
+        await rename(source, destination);
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+        // A concurrent owner may win after both readers validate the source.
+        // Its destination must still be byte-for-byte the same snapshot.
+        await validateB3PhysicalObservationJournalDirectory({
+          root,
+          directory: destination,
+          platform,
+          buildAuthority,
+          captureAuthority,
+          expectedSnapshot: beforeMove.snapshot,
+        });
+        beforeMove = undefined;
+      }
+      if (beforeMove !== undefined) {
+        try {
+          await validateB3PhysicalObservationJournalDirectory({
+            root,
+            directory: destination,
+            platform,
+            buildAuthority,
+            captureAuthority,
+            expectedSnapshot: beforeMove.snapshot,
+          });
+        } catch (error) {
+          // Restore the source name when the moved directory changed across
+          // the atomic boundary. The retained restart gate remains the sole
+          // recovery authority and no invalid journal becomes an archive.
+          try {
+            await rename(destination, source);
+            await syncDirectory(sourceParent);
+            await syncDirectory(destinationParent);
+          } catch {
+            // Preserve the strict validation error. A concurrent source
+            // claimant can only leave the durable restart gate uncleared.
+          }
+          throw error;
+        }
+      }
+    }
+  } else {
+    await validateB3PhysicalObservationJournalDirectory({
+      root,
+      directory: destination,
+      platform,
+      buildAuthority,
+      captureAuthority,
+    });
   }
   const retained = await lstat(destination);
   if (!retained.isDirectory() || retained.isSymbolicLink() ||
@@ -493,14 +577,22 @@ export async function archiveB3AbandonedCapture({ root, platform, issued, buildA
     throw archiveError('B3 abandoned-capture archive bound is exhausted');
   }
   const archive = await ensurePrivateDirectory(resolve(archiveRoot, issued.commandSha256));
-  const retainedAuthority = await retainAuthority({ evidence, archive, authority });
 
   await moveDirectoryOnce({
+    root,
+    platform,
+    buildAuthority,
+    captureAuthority: {
+      captureId: authority.captureId,
+      expectedSequence: authority.expectedSequence,
+      previousObservationSha256: authority.previousObservationSha256,
+    },
     source: resolve(evidence, `${platform}-observations`),
     destination: resolve(archive, 'observations'),
     sourceParent: evidence,
     destinationParent: archive,
   });
+  const retainedAuthority = await retainAuthority({ evidence, archive, authority });
 
   const checkpointArchive = await ensurePrivateDirectory(resolve(archive, 'checkpoint'));
   const checkpointPrefix = `${platform}-capture-checkpoint.json`;

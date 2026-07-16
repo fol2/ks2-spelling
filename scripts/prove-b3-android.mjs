@@ -106,6 +106,9 @@ export async function captureB3AndroidEvidenceWithPrimitives({
   const inspectTerminalEvidence = requirePrimitive(primitives, 'inspectTerminalEvidence');
   const inspectProofObservationChain = requirePrimitive(primitives, 'inspectProofObservationChain');
   const captureScreenshot = requirePrimitive(primitives, 'captureScreenshot');
+  if (primitives.pinInvocationIssuedCommandAuthority !== undefined) {
+    await requirePrimitive(primitives, 'pinInvocationIssuedCommandAuthority')();
+  }
   const distributionBeforeCapture = await inspectDistribution();
   if (validatedCloudflare.testedApplicationCommit !== distributionBeforeCapture.embeddedCommit ||
       validatedCloudflare.applicationFingerprint !== distributionBeforeCapture.embeddedFingerprint) {

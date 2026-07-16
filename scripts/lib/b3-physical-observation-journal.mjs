@@ -23,6 +23,8 @@ import {
 } from './b3-evidence.mjs';
 
 const MAXIMUM_RECORD_BYTES = 128 * 1024;
+const MAXIMUM_JOURNAL_RECORDS = 512;
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const RECORD_KEYS = Object.freeze([
   'schemaVersion',
   'platform',
@@ -36,6 +38,7 @@ const PLATFORMS = Object.freeze({
 });
 const RECORD_NAME = /^(?<sequence>[0-9]{8})\.json$/u;
 const validatedRecordAuthority = new WeakMap();
+const validatedJournalSnapshots = new WeakSet();
 
 function journalError(message, code = 'b3_physical_observation_journal_invalid') {
   return Object.assign(new Error(message), { code });
@@ -120,7 +123,10 @@ async function ensurePrivateDirectory(root, platform) {
 async function readSecureRecord(path) {
   let handle;
   try {
-    handle = await open(path, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    handle = await open(
+      path,
+      fsConstants.O_RDONLY | fsConstants.O_NONBLOCK | fsConstants.O_NOFOLLOW,
+    );
   } catch (error) {
     if (['ELOOP', 'ENOENT'].includes(error?.code)) {
       throw journalError('B3 physical observation journal link or file policy is invalid');
@@ -129,20 +135,140 @@ async function readSecureRecord(path) {
   }
   try {
     const before = await handle.stat();
-    if (!before.isFile() || before.nlink !== 1 || (before.mode & 0o077) !== 0 ||
+    if (!before.isFile() || before.nlink !== 1 || (before.mode & 0o777) !== 0o600 ||
         before.size <= 0 || before.size > MAXIMUM_RECORD_BYTES) {
       throw journalError('B3 physical observation journal file or link policy is invalid');
     }
     const bytes = await handle.readFile();
     const after = await handle.stat();
-    if (after.dev !== before.dev || after.ino !== before.ino ||
-        after.size !== before.size || after.mtimeMs !== before.mtimeMs) {
+    if (!after.isFile() || after.nlink !== 1 || (after.mode & 0o777) !== 0o600 ||
+        after.dev !== before.dev || after.ino !== before.ino ||
+        after.size !== before.size || after.mtimeMs !== before.mtimeMs ||
+        after.ctimeMs !== before.ctimeMs || bytes.length !== before.size) {
       throw journalError('B3 physical observation journal changed while being read');
     }
-    return bytes;
+    return Object.freeze({
+      bytes,
+      metadata: Object.freeze({
+        dev: before.dev,
+        ino: before.ino,
+        mode: before.mode & 0o777,
+        nlink: before.nlink,
+        size: before.size,
+        mtimeMs: before.mtimeMs,
+        ctimeMs: before.ctimeMs,
+        sha256: sha256(bytes),
+      }),
+    });
   } finally {
     await handle.close();
   }
+}
+
+function validateCaptureAuthority({ records, captureAuthority }) {
+  if (captureAuthority === undefined) return;
+  if (!exactRecord(captureAuthority, [
+    'captureId', 'expectedSequence', 'previousObservationSha256',
+  ]) || !UUID_V4.test(captureAuthority.captureId) ||
+      !Number.isSafeInteger(captureAuthority.expectedSequence) ||
+      captureAuthority.expectedSequence < 1 ||
+      !/^[0-9a-f]{64}$/u.test(captureAuthority.previousObservationSha256)) {
+    throw journalError('B3 physical observation journal capture authority is invalid');
+  }
+  const tail = records.at(-1)?.observation;
+  if (records.length !== captureAuthority.expectedSequence - 1 ||
+      records.some(({ command, observation }) =>
+        command.captureId !== captureAuthority.captureId ||
+        observation.captureId !== captureAuthority.captureId) ||
+      (tail?.observationSha256 ?? '0'.repeat(64)) !==
+        captureAuthority.previousObservationSha256) {
+    throw journalError('B3 physical observation journal differs from capture authority');
+  }
+}
+
+function sameJournalSnapshot(left, right) {
+  return left.directory.dev === right.directory.dev &&
+    left.directory.ino === right.directory.ino &&
+    left.directory.mode === right.directory.mode &&
+    left.entries.length === right.entries.length &&
+    left.entries.every((entry, index) => {
+      const expected = right.entries[index];
+      return entry.name === expected.name &&
+        Object.entries(entry.metadata).every(([key, value]) => expected.metadata[key] === value);
+    });
+}
+
+export async function validateB3PhysicalObservationJournalDirectory({
+  root,
+  directory: rawDirectory,
+  platform,
+  buildAuthority,
+  captureAuthority,
+  expectedSnapshot,
+}) {
+  const name = platformName(platform);
+  const canonicalRoot = await realpath(resolve(root));
+  const path = resolve(rawDirectory);
+  const before = await lstat(path);
+  if (!before.isDirectory() || before.isSymbolicLink() ||
+      (before.mode & 0o777) !== 0o700) {
+    throw journalError('B3 physical observation journal directory policy is invalid');
+  }
+  const directory = await realpath(path);
+  if (!directory.startsWith(`${canonicalRoot}/`)) {
+    throw journalError('B3 physical observation journal escaped the repository');
+  }
+  const entries = await readdir(directory, { withFileTypes: true });
+  if (entries.length > MAXIMUM_JOURNAL_RECORDS) {
+    throw journalError('B3 physical observation journal entry bound is exceeded');
+  }
+  if (entries.some((entry) => !entry.isFile() || !RECORD_NAME.test(entry.name))) {
+    throw journalError('B3 physical observation journal link or entry policy is invalid');
+  }
+  entries.sort((left, right) => left.name.localeCompare(right.name));
+  const records = [];
+  const retainedEntries = [];
+  let previousObservation;
+  for (const [index, entry] of entries.entries()) {
+    const sequence = Number(RECORD_NAME.exec(entry.name).groups.sequence);
+    if (sequence !== index + 1 || entry.name !== recordName(sequence)) {
+      throw journalError('B3 physical observation journal sequence is not contiguous');
+    }
+    const retained = await readSecureRecord(resolve(directory, entry.name));
+    const record = await validateRecordBytes({
+      bytes: retained.bytes,
+      platform: name,
+      sequence,
+      buildAuthority,
+      previousObservation,
+    });
+    records.push(record);
+    retainedEntries.push(Object.freeze({ name: entry.name, metadata: retained.metadata }));
+    previousObservation = record.observation;
+  }
+  const after = await lstat(directory);
+  if (!after.isDirectory() || after.isSymbolicLink() ||
+      after.dev !== before.dev || after.ino !== before.ino ||
+      (after.mode & 0o777) !== 0o700 || after.mtimeMs !== before.mtimeMs ||
+      after.ctimeMs !== before.ctimeMs) {
+    throw journalError('B3 physical observation journal changed while being read');
+  }
+  validateCaptureAuthority({ records, captureAuthority });
+  const snapshot = Object.freeze({
+    directory: Object.freeze({
+      dev: before.dev,
+      ino: before.ino,
+      mode: before.mode & 0o777,
+    }),
+    entries: Object.freeze(retainedEntries),
+  });
+  validatedJournalSnapshots.add(snapshot);
+  if (expectedSnapshot !== undefined &&
+      (!validatedJournalSnapshots.has(expectedSnapshot) ||
+       !sameJournalSnapshot(snapshot, expectedSnapshot))) {
+    throw journalError('B3 physical observation journal changed while being archived');
+  }
+  return Object.freeze({ records: Object.freeze(records), snapshot });
 }
 
 async function validateRecordBytes({ bytes, platform, sequence, buildAuthority, previousObservation }) {
@@ -176,29 +302,12 @@ async function validateRecordBytes({ bytes, platform, sequence, buildAuthority, 
 export async function readB3PhysicalObservationJournal({ root, platform, buildAuthority }) {
   const name = platformName(platform);
   const { directory } = await ensurePrivateDirectory(root, name);
-  const entries = await readdir(directory, { withFileTypes: true });
-  if (entries.some((entry) => !entry.isFile() || !RECORD_NAME.test(entry.name))) {
-    throw journalError('B3 physical observation journal link or entry policy is invalid');
-  }
-  entries.sort((left, right) => left.name.localeCompare(right.name));
-  const records = [];
-  let previousObservation;
-  for (const [index, entry] of entries.entries()) {
-    const sequence = Number(RECORD_NAME.exec(entry.name).groups.sequence);
-    if (sequence !== index + 1 || entry.name !== recordName(sequence)) {
-      throw journalError('B3 physical observation journal sequence is not contiguous');
-    }
-    const record = await validateRecordBytes({
-      bytes: await readSecureRecord(resolve(directory, entry.name)),
-      platform: name,
-      sequence,
-      buildAuthority,
-      previousObservation,
-    });
-    records.push(record);
-    previousObservation = record.observation;
-  }
-  return Object.freeze(records);
+  return (await validateB3PhysicalObservationJournalDirectory({
+    root,
+    directory,
+    platform: name,
+    buildAuthority,
+  })).records;
 }
 
 async function writeSyncedTemporary(path, bytes) {
@@ -275,14 +384,14 @@ export async function appendB3PhysicalObservation({
     } catch (error) {
       if (error?.code !== 'EEXIST') throw error;
       const existing = await readSecureRecord(path);
-      if (!existing.equals(bytes)) {
+      if (!existing.bytes.equals(bytes)) {
         throw journalError('B3 physical observation journal sequence conflicts with its immutable record');
       }
     }
     await rm(temporary, { force: true });
     await syncDirectory(directory);
     const persisted = await readSecureRecord(path);
-    if (!persisted.equals(bytes)) {
+    if (!persisted.bytes.equals(bytes)) {
       throw journalError('B3 physical observation journal persistence changed its bytes');
     }
   } finally {

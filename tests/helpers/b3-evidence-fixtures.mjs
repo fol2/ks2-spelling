@@ -114,7 +114,7 @@ export function platformEvidence(platform = 'ios-physical') {
     ...(ios ? { storeKitTest: { reportSha256: B3_TEST_HASH, scenarios: ['storekit-test-pending-approve', 'storekit-test-pending-decline'], liveSandbox: false } } : {}),
     distribution: ios ? {
       embeddedCommit: B3_TEST_COMMIT, embeddedFingerprint: B3_TEST_HASH, versionName: '0.3.0-b3', kind: 'development', iosBuildNumber: '19', signedIpaSha256: B3_TEST_HASH,
-      ipaEmbeddedAuthoritySha256: B3_TEST_HASH, codeSigningCertificateSha256: B3_TEST_HASH, installedBundleId: 'uk.eugnel.ks2spelling', installedVersion: '0.3.0-b3', installedBuild: '19', installedEmbeddedAuthoritySha256: B3_TEST_HASH, developmentIdentityVerified: true, sandboxReceiptVerified: true,
+      ipaEmbeddedAuthoritySha256: B3_TEST_HASH, codeSigningCertificateSha256: B3_TEST_HASH, installedBundleId: 'uk.eugnel.ks2spelling', installedVersion: '0.3.0-b3', installedBuild: '19', installedEmbeddedAuthoritySha256: B3_TEST_HASH, installedBuiltByDeveloper: true, sandboxReceiptVerified: true,
     } : {
       embeddedCommit: B3_TEST_COMMIT, embeddedFingerprint: B3_TEST_HASH, versionName: '0.3.0-b3', kind: 'play-internal', androidVersionCode: 19, signedAabSha256: B3_TEST_HASH,
       aabEmbeddedAuthoritySha256: B3_TEST_HASH, playAppSigningCertificateSha256: B3_TEST_HASH, installer: 'com.android.vending', installedEmbeddedAuthoritySha256: B3_TEST_HASH, pmPathOrderVerified: true,

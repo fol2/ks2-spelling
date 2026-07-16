@@ -18,6 +18,7 @@ import {
 } from '../scripts/prove-b3-ios.mjs';
 import { createDefaultB3IosCaptureAdapter } from '../scripts/lib/b3-live-capture-adapters.mjs';
 import {
+  clearB3IssuedCommand,
   persistB3IssuedCommand,
   readB3IssuedCommand,
   transitionB3IssuedCommand,
@@ -383,6 +384,76 @@ test('iOS wrapper verifies the installed distribution before initial ARM_CAPTURE
   ), 'utf8'));
   assert.equal(archiveAuthority.commandSha256, retained.commandSha256);
   assert.equal(archiveAuthority.expectedSequence, 1);
+});
+
+test('iOS resume-reinstall cannot acknowledge a command created during distribution preflight', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-ios-late-reinstall-command-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const authorityDirectory = join(root, '.native-build/b3/distribution');
+  await mkdir(authorityDirectory, { recursive: true, mode: 0o700 });
+  await writeFile(join(authorityDirectory, 'build-authority.json'), JSON.stringify({
+    testedApplicationCommit: B3_TEST_COMMIT,
+    applicationFingerprint: B3_TEST_HASH,
+    versionName: '0.3.0-b3',
+    iosBuildNumber: '19',
+    androidVersionCode: 19,
+  }), { mode: 0o600 });
+  const command = {
+    schemaVersion: 1,
+    captureId: '018f1d7b-97e8-4a52-8cf2-783e5089c103',
+    platform: 'ios-physical',
+    testedApplicationCommit: B3_TEST_COMMIT,
+    applicationFingerprint: B3_TEST_HASH,
+    expectedScenarioIndex: 0,
+    expectedSequence: 1,
+    previousObservationSha256: '0'.repeat(64),
+    installationMode: 'existing',
+    actionCode: 'ARM_CAPTURE',
+    challengeSha256: 'f'.repeat(64),
+  };
+  const defaultAdapter = createDefaultB3IosCaptureAdapter({
+    root, env: {}, resumeReinstall: true,
+  });
+  let retained;
+  let deviceWork = 0;
+
+  await assert.rejects(captureB3IosEvidenceWithPrimitives({
+    root,
+    approvalFile: '/operator/approval.json',
+    runToken: 'a'.repeat(64),
+    approvedScope: 'apple-sandbox-history-refund',
+    deploymentDraft: cloudflareDeploymentDraft(),
+    authorityGate: async () => {},
+    primitives: {
+      ...defaultAdapter,
+      inspectDistribution: async () => {
+        await persistB3IssuedCommand({ root, platform: 'ios', command });
+        await transitionB3IssuedCommand({
+          root, platform: 'ios', command, expectedState: 'prepared', nextState: 'launching',
+        });
+        retained = await transitionB3IssuedCommand({
+          root, platform: 'ios', command,
+          expectedState: 'launching', nextState: 'restart-required',
+        });
+        return platformEvidence().distribution;
+      },
+      inspectSyntheticLearners: async () => {
+        deviceWork += 1;
+        throw new Error('device work reached');
+      },
+    },
+  }), /issued command.*invocation|invocation.*issued command/i);
+
+  assert.equal(deviceWork, 0);
+  assert.equal((await readB3IssuedCommand({ root, platform: 'ios' })).state,
+    'restart-required');
+  await assert.rejects(readFile(join(
+    root,
+    '.native-build/b3/evidence/ios-abandoned-captures',
+    retained.commandSha256,
+    'authority.json',
+  )), /ENOENT|absent/i);
+  await clearB3IssuedCommand({ root, platform: 'ios', command });
 });
 
 test('iOS Task22 exposes real host utilities and fails closed before device work without authority', async () => {

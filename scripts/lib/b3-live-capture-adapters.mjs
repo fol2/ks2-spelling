@@ -62,7 +62,7 @@ import {
   verifyB3InstalledDistributionWithInspectors,
 } from '../verify-b3-installed-distribution.mjs';
 import { validateB3PngBytes } from './b3-png.mjs';
-import { createB3CaptureRecoveryStore } from './b3-capture-recovery-store.mjs';
+import { createB3StoreBackedLiveCapture } from './b3-store-backed-live-capture.mjs';
 
 export {
   assertB3CaptureResumeAuthority,
@@ -1445,23 +1445,8 @@ function createDefaultAdapter({
   let buildAuthorityPromise;
   let invocationTailCaptured = false;
   let invocationTail = null;
-  let invocationIssuedCommandSha256 = null;
   let reinstallAcknowledgementConsumed = false;
   let storeActionResumeAuthority = null;
-  let invocationIssuedCommandAuthorityPromise = null;
-  let invocationIssuedCommandAuthorityPinned = false;
-
-  async function pinInvocationIssuedCommandAuthority() {
-    invocationIssuedCommandAuthorityPinned = true;
-    invocationIssuedCommandAuthorityPromise ??= readB3IssuedCommand({ root, platform })
-      .then((issued) => Object.freeze({ issued }))
-      .catch((error) => Object.freeze(error?.code === 'ENOENT'
-        ? { issued: null }
-        : { error }));
-    const pinned = await invocationIssuedCommandAuthorityPromise;
-    if (pinned.error) throw pinned.error;
-    return pinned.issued;
-  }
 
   async function inspectDistributionFresh() {
     if (typeof signedPath !== 'string' || signedPath.length === 0) {
@@ -1496,57 +1481,18 @@ function createDefaultAdapter({
     return buildAuthorityPromise;
   }
 
-  async function recoverAmbiguousCapture({ acknowledgeReinstall } = {}) {
-    if (!invocationIssuedCommandAuthorityPinned) {
-      throw captureError('B3 issued command authority was not pinned for this invocation');
-    }
-    const invocationIssued = await pinInvocationIssuedCommandAuthority();
-    if (invocationIssued === null) {
-      try {
-        await readB3IssuedCommand({ root, platform });
-      } catch (error) {
-        if (error?.code === 'ENOENT') return false;
-        throw error;
-      }
-      throw captureError('B3 issued command changed after adapter invocation');
-    }
-    const recovery = await recoverB3AmbiguousCaptureAfterReinstall({
-      root,
-      platform,
-      enabled: acknowledgeReinstall === true && !reinstallAcknowledgementConsumed,
-      invocationCommandSha256: invocationIssued.commandSha256,
-      invocationRecordSha256: invocationIssued.recordSha256,
-      invocationState: invocationIssued.state,
-      buildAuthority: await buildAuthority(),
-    });
-    if (recovery) reinstallAcknowledgementConsumed = true;
-    return recovery;
-  }
-
-  const recoveryStore = createB3CaptureRecoveryStore({
+  const liveCapture = createB3StoreBackedLiveCapture({
     platform,
     buildAuthority,
-    transitionalBridge: Object.freeze({
-      pinInvocation: pinInvocationIssuedCommandAuthority,
-      finaliseInvocation: recoverAmbiguousCapture,
-    }),
+    transport,
+    wait: hostWait,
   });
 
   async function records() {
     await inspectDistribution();
-    const retained = await readB3PhysicalObservationJournal({
-      root,
-      platform,
-      buildAuthority: await buildAuthority(),
-    });
+    const retained = (await liveCapture.readCapture())?.records ?? Object.freeze([]);
     if (!invocationTailCaptured) {
       invocationTail = retained.at(-1)?.observation ?? null;
-      try {
-        invocationIssuedCommandSha256 = (await readB3IssuedCommand({ root, platform }))
-          .commandSha256;
-      } catch (error) {
-        if (error?.code !== 'ENOENT') throw error;
-      }
       invocationTailCaptured = true;
     }
     return retained;
@@ -1557,13 +1503,7 @@ function createDefaultAdapter({
     if (!authority) throw captureError('B3 synthetic learner baseline is invalid');
     let retained = await records();
     if (retained.length === 0) {
-      await advanceB3HostCaptureOne({
-        root,
-        platform,
-        buildAuthority: await buildAuthority(),
-        transport,
-        wait,
-      });
+      await liveCapture.advance();
       retained = await records();
     }
     const digests = retained.at(-1).observation.proofProjection.syntheticLearners
@@ -1578,96 +1518,12 @@ function createDefaultAdapter({
   }
 
   async function runScenario(authority) {
-    let retained = await records();
-    let tail = retained.at(-1)?.observation;
-    if (invocationIssuedCommandSha256) {
-      const recovery = await recoverB3AmbiguousCaptureAfterReinstall({
-        root,
-        platform,
-        enabled: resumeReinstall && !reinstallAcknowledgementConsumed,
-        invocationCommandSha256: invocationIssuedCommandSha256,
-        buildAuthority: await buildAuthority(),
-      });
-      if (recovery) {
-        reinstallAcknowledgementConsumed = true;
-        retained = await records();
-        tail = retained.at(-1)?.observation;
-      }
-    }
+    const retained = await records();
+    const tail = retained.at(-1)?.observation;
     if (platform === 'ios' && authority?.scenario === 'unfinished-relaunch' &&
         tail?.scenario === 'normal-purchase' && tail.phase === 'HOLD_REACHED') {
-      let issuedRelaunch;
-      try {
-        issuedRelaunch = await readB3IssuedCommand({ root, platform });
-        if (issuedRelaunch.command.actionCode !== 'RELAUNCH') {
-          throw captureError('B3 iOS hold retained a different issued command');
-        }
-      } catch (error) {
-        if (error?.code !== 'ENOENT') throw error;
-      }
-      let ownsStopExecution = false;
-      if (!issuedRelaunch) {
-        const relaunchCommand = await createNextB3HostCommand({
-          root,
-          platform,
-          buildAuthority: await buildAuthority(),
-        });
-        if (relaunchCommand.actionCode !== 'RELAUNCH') {
-          throw captureError('B3 host force-stop did not retain exact relaunch authority');
-        }
-        await persistB3IssuedCommand({ root, platform, command: relaunchCommand });
-        issuedRelaunch = await transitionB3IssuedCommand({
-          root,
-          platform,
-          command: relaunchCommand,
-          expectedState: 'prepared',
-          nextState: 'stop-intent',
-        });
-        if (!issuedRelaunch.transitionClaimed) {
-          throw captureError('B3 host-stop intent is already owned by another invocation');
-        }
-      }
-      if (issuedRelaunch.state === 'stop-intent') {
-        issuedRelaunch = await transitionB3IssuedCommand({
-          root,
-          platform,
-          command: issuedRelaunch.command,
-          expectedState: 'stop-intent',
-          nextState: 'stop-executing',
-        });
-        ownsStopExecution = issuedRelaunch.transitionClaimed;
-      }
-      if (issuedRelaunch.state === 'stop-executing' && !ownsStopExecution) {
-        try {
-          issuedRelaunch = await transitionB3IssuedCommand({
-            root,
-            platform,
-            command: issuedRelaunch.command,
-            expectedState: 'stop-executing',
-            nextState: 'host-stopped',
-            existingRevisionOnly: true,
-          });
-        } catch (error) {
-          if (error?.code !== 'ENOENT') throw error;
-        }
-      }
-      if (issuedRelaunch.state === 'stop-executing' && ownsStopExecution) {
-        await hostWait(5_000);
-        await transport.forceStop({
-          command: issuedRelaunch.command,
-          retainReceipt: async () => {
-            await transitionB3IssuedCommand({
-              root,
-              platform,
-              command: issuedRelaunch.command,
-              expectedState: 'stop-executing',
-              nextState: 'host-stopped',
-            });
-          },
-        });
-      } else if (!['host-stopped', 'launching', 'launched'].includes(issuedRelaunch.state)) {
-        throw captureError('B3 iOS host-stop authority is incomplete');
-      }
+      await hostWait(5_000);
+      await liveCapture.stopForRelaunch();
     }
     const invocationBinding = invocationTail && {
       actionCode: invocationTail.nextActionCode,
@@ -1688,26 +1544,14 @@ function createDefaultAdapter({
         return true;
       },
       readRecords: records,
-      advance: async () => advanceB3HostCaptureOne({
-        root,
-        platform,
-        buildAuthority: await buildAuthority(),
-        transport,
-        wait: hostWait,
-      }),
+      advance: () => liveCapture.advance(),
     });
     if (authority?.scenario === 'refund-revoke') {
       await driveB3HostUntilPhase({
         scenario: authority.scenario,
         phase: 'TERMINAL_CAPTURE',
         readRecords: records,
-        advance: async () => advanceB3HostCaptureOne({
-          root,
-          platform,
-          buildAuthority: await buildAuthority(),
-          transport,
-          wait: hostWait,
-        }),
+        advance: () => liveCapture.advance(),
       });
     }
     return transition;
@@ -1743,8 +1587,11 @@ function createDefaultAdapter({
   }
 
   async function inspectGatewaySmoke() {
-    const retained = await records();
-    const projection = extractB3DeviceGatewaySmokeProjection({ retained });
+    await inspectDistribution();
+    const projection = (await liveCapture.readCapture())?.gatewaySmokeProjection;
+    if (projection === null || projection === undefined) {
+      throw captureError('B3 device gateway smoke must occur exactly once');
+    }
     await persistB3DeviceGatewaySmokeProjection({ root, projection });
     return projection;
   }
@@ -1818,10 +1665,10 @@ function createDefaultAdapter({
   }
 
   const base = {
-    pinInvocation: () => recoveryStore.pinInvocation({
+    pinInvocation: () => liveCapture.pinInvocation({
       acknowledgeReinstall: resumeReinstall,
     }),
-    finaliseInvocation: recoveryStore.finaliseInvocation,
+    finaliseInvocation: liveCapture.finaliseInvocation,
     inspectDistribution,
     inspectDeviceStore,
     inspectSyntheticLearners,
@@ -1831,6 +1678,7 @@ function createDefaultAdapter({
     inspectProofObservationChain,
     captureScreenshot,
     inspectStoreKitTest,
+    dispose: liveCapture.dispose,
   };
   return {
     base,
@@ -1838,6 +1686,7 @@ function createDefaultAdapter({
     wait: hostWait,
     records,
     buildAuthority,
+    liveCapture,
     consumeStoreActionResume(binding) {
       const invocationBinding = invocationTail && {
         actionCode: invocationTail.nextActionCode,
@@ -1878,7 +1727,7 @@ export function createDefaultB3AndroidCaptureAdapter({
   capturePlayProtectSettings = false,
 } = {}) {
   const {
-    base, transport, records, buildAuthority, consumeStoreActionResume,
+    base, records, liveCapture, consumeStoreActionResume,
   } = createDefaultAdapter({
     root,
     env,
@@ -1893,12 +1742,7 @@ export function createDefaultB3AndroidCaptureAdapter({
   const slowCard = createB3AndroidSlowCardController({
     readRecords: records,
     consumeStoreActionResume,
-    pollFreshProcess: async ({ deadlineMs, monotonicClock } = {}) => advanceB3HostCaptureOne({
-      root,
-      platform: 'android',
-      buildAuthority: await buildAuthority(),
-      transport,
-      wait,
+    pollFreshProcess: ({ deadlineMs, monotonicClock } = {}) => liveCapture.advance({
       deadlineMs,
       monotonicClock,
     }),
@@ -1913,24 +1757,10 @@ export function createDefaultB3AndroidCaptureAdapter({
         scenario: authority?.scenario,
         phase: 'HOLD_REACHED',
         readRecords: records,
-        advance: async () => advanceB3HostCaptureOne({
-          root,
-          platform: 'android',
-          buildAuthority: await buildAuthority(),
-          transport,
-          wait,
-        }),
+        advance: () => liveCapture.advance(),
       });
     },
-    forceStopUnacknowledgedScenario: async () => {
-      try {
-        const issued = await readB3IssuedCommand({ root, platform: 'android' });
-        if (issued.command.actionCode === 'RELAUNCH') return;
-      } catch (error) {
-        if (error?.code !== 'ENOENT') throw error;
-      }
-      await transport.forceStop();
-    },
+    forceStopUnacknowledgedScenario: () => liveCapture.stopForRelaunch(),
     finishUnacknowledgedScenario: base.runScenario,
     wait,
   });

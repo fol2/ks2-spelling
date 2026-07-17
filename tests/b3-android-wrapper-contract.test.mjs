@@ -15,20 +15,55 @@ import {
 } from '../scripts/prove-b3-android.mjs';
 import {
   createB3AndroidSlowCardController,
-  createDefaultB3AndroidCaptureAdapter,
 } from '../scripts/lib/b3-live-capture-adapters.mjs';
 import {
-  clearB3IssuedCommand,
-  persistB3IssuedCommand,
-  readB3IssuedCommand,
-  transitionB3IssuedCommand,
-} from '../scripts/lib/b3-issued-command.mjs';
-import {
-  B3_TEST_COMMIT,
-  B3_TEST_HASH,
   cloudflareEvidence,
   platformEvidence,
 } from './helpers/b3-evidence-fixtures.mjs';
+
+function androidCliCapturePrimitives(platform, dispose = async () => {}) {
+  const learners = (baseline) => {
+    const row = platform.learnerPreservation.find((entry) => entry.baseline === baseline);
+    return [
+      { learnerId: 'learner-a', nickname: 'Ada', digest: row.learnerAInitialSha256 },
+      { learnerId: 'learner-b', nickname: 'Ben', digest: row.learnerBInitialSha256 },
+    ];
+  };
+  const transition = ({ scenario }) =>
+    platform.transitions.find((entry) => entry.scenario === scenario);
+  return {
+    pinInvocation: async () => Object.freeze({ invocation: 'android-cli' }),
+    finaliseInvocation: async () => Object.freeze({ status: 'not-applicable' }),
+    inspectDistribution: async () => platform.distribution,
+    inspectDeviceStore: async () => ({
+      device: platform.device,
+      store: platform.store,
+      storeCompletion: platform.storeCompletion,
+    }),
+    inspectSyntheticLearners: async ({ baseline }) => learners(baseline),
+    runScenario: async (authority) => transition(authority),
+    beginSlowCardScenario: async () => {},
+    pollSlowCardScenario: async ({ scenario }) =>
+      scenario.endsWith('decline') ? 'declined' : 'approved',
+    finishSlowCardScenario: async (authority) => transition(authority),
+    beginUnacknowledgedScenario: async () => {},
+    forceStopUnacknowledgedScenario: async () => {},
+    finishUnacknowledgedScenario: async (authority) => transition(authority),
+    wait: async () => {},
+    inspectTerminalEvidence: async () => ({
+      transport: platform.transport,
+      storeTransactionAuthority: platform.storeTransactionAuthority,
+      refreshHandleLifecycle: platform.refreshHandleLifecycle,
+      entitlement: platform.entitlement,
+      pack: platform.pack,
+      syntheticLearnerAuthoritySha256: platform.syntheticLearnerAuthoritySha256,
+      restore: platform.restore,
+    }),
+    inspectProofObservationChain: async () => platform.proofObservationChain,
+    captureScreenshot: async () => ({ sha256: platform.screenshotSha256 }),
+    dispose,
+  };
+}
 
 test('Android wrapper requires physical Play distribution and ordered pm-path hashes', () => {
   const platform = platformEvidence('android-play-physical');
@@ -337,215 +372,6 @@ test('Android slow-card deadline includes arming work before the first poll', as
   assert.equal(polls, 0);
 });
 
-test('Android wrapper verifies the installed distribution before initial ARM_CAPTURE recovery', async (t) => {
-  const root = await mkdtemp(join(tmpdir(), 'b3-android-initial-reinstall-preflight-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const authorityDirectory = join(root, '.native-build/b3/distribution');
-  await mkdir(authorityDirectory, { recursive: true, mode: 0o700 });
-  await writeFile(join(authorityDirectory, 'build-authority.json'), JSON.stringify({
-    testedApplicationCommit: B3_TEST_COMMIT,
-    applicationFingerprint: B3_TEST_HASH,
-    versionName: '0.3.0-b3',
-    iosBuildNumber: '19',
-    androidVersionCode: 19,
-  }), { mode: 0o600 });
-  const command = {
-    schemaVersion: 1,
-    captureId: '018f1d7b-97e8-4a52-8cf2-783e5089c102',
-    platform: 'android-play-physical',
-    testedApplicationCommit: B3_TEST_COMMIT,
-    applicationFingerprint: B3_TEST_HASH,
-    expectedScenarioIndex: 0,
-    expectedSequence: 1,
-    previousObservationSha256: '0'.repeat(64),
-    installationMode: 'existing',
-    actionCode: 'ARM_CAPTURE',
-    challengeSha256: 'e'.repeat(64),
-  };
-  await persistB3IssuedCommand({ root, platform: 'android', command });
-  await transitionB3IssuedCommand({
-    root, platform: 'android', command, expectedState: 'prepared', nextState: 'launching',
-  });
-  const retained = await transitionB3IssuedCommand({
-    root, platform: 'android', command,
-    expectedState: 'launching', nextState: 'restart-required',
-  });
-  await mkdir(join(root, '.native-build/b3/evidence/android-observations'), {
-    mode: 0o700,
-  });
-
-  const defaultAdapter = createDefaultB3AndroidCaptureAdapter({
-    root, env: {}, resumeReinstall: true, wait: async () => {},
-  });
-  await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
-    root,
-    approvalFile: '/operator/approval.json',
-    runToken: 'a'.repeat(64),
-    approvedScope: 'google-test-track-refund-revoke',
-    cloudflare: cloudflareEvidence(),
-    authorityGate: async () => {},
-    primitives: defaultAdapter,
-  }), /signed distribution path|required/i);
-
-  assert.equal((await readB3IssuedCommand({ root, platform: 'android' })).state, 'restart-required');
-  await assert.rejects(readFile(join(
-    root,
-    '.native-build/b3/evidence/android-abandoned-captures',
-    retained.commandSha256,
-    'authority.json',
-  )), /ENOENT|absent/i);
-
-  await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
-    root,
-    approvalFile: '/operator/approval.json',
-    runToken: 'a'.repeat(64),
-    approvedScope: 'google-test-track-refund-revoke',
-    cloudflare: cloudflareEvidence(),
-    authorityGate: async () => {},
-    primitives: {
-      ...defaultAdapter,
-      inspectDistribution: async () => { throw new Error('installed distribution authority differs'); },
-    },
-  }), /distribution authority differs/i);
-  assert.equal((await readB3IssuedCommand({ root, platform: 'android' })).state, 'restart-required');
-
-  const mismatchedCloudflare = cloudflareEvidence();
-  mismatchedCloudflare.testedApplicationCommit = 'c'.repeat(40);
-  await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
-    root,
-    approvalFile: '/operator/approval.json',
-    runToken: 'a'.repeat(64),
-    approvedScope: 'google-test-track-refund-revoke',
-    cloudflare: mismatchedCloudflare,
-    authorityGate: async () => {},
-    primitives: {
-      ...defaultAdapter,
-      inspectDistribution: async () => platformEvidence('android-play-physical').distribution,
-    },
-  }), /distribution.*Cloudflare.*authority/i);
-  assert.equal((await readB3IssuedCommand({ root, platform: 'android' })).state, 'restart-required');
-  await assert.rejects(readFile(join(
-    root,
-    '.native-build/b3/evidence/android-abandoned-captures',
-    retained.commandSha256,
-    'authority.json',
-  )), /ENOENT|absent/i);
-
-  await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
-    root,
-    approvalFile: '/operator/approval.json',
-    runToken: 'a'.repeat(64),
-    approvedScope: 'google-test-track-refund-revoke',
-    cloudflare: cloudflareEvidence(),
-    authorityGate: async () => {},
-    primitives: {
-      ...defaultAdapter,
-      inspectDistribution: async () => platformEvidence('android-play-physical').distribution,
-    },
-  }), /signed distribution path|required/i);
-
-  await assert.rejects(readB3IssuedCommand({ root, platform: 'android' }), /ENOENT|absent/i);
-  const archiveAuthority = JSON.parse(await readFile(join(
-    root,
-    '.native-build/b3/evidence/android-abandoned-captures',
-    retained.commandSha256,
-    'authority.json',
-  ), 'utf8'));
-  assert.equal(archiveAuthority.commandSha256, retained.commandSha256);
-  assert.equal(archiveAuthority.expectedSequence, 1);
-});
-
-test('Android resume-reinstall cannot acknowledge a command replaced during distribution preflight', async (t) => {
-  const root = await mkdtemp(join(tmpdir(), 'b3-android-replaced-reinstall-command-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const authorityDirectory = join(root, '.native-build/b3/distribution');
-  await mkdir(authorityDirectory, { recursive: true, mode: 0o700 });
-  await writeFile(join(authorityDirectory, 'build-authority.json'), JSON.stringify({
-    testedApplicationCommit: B3_TEST_COMMIT,
-    applicationFingerprint: B3_TEST_HASH,
-    versionName: '0.3.0-b3',
-    iosBuildNumber: '19',
-    androidVersionCode: 19,
-  }), { mode: 0o600 });
-  const initialCommand = {
-    schemaVersion: 1,
-    captureId: '018f1d7b-97e8-4a52-8cf2-783e5089c104',
-    platform: 'android-play-physical',
-    testedApplicationCommit: B3_TEST_COMMIT,
-    applicationFingerprint: B3_TEST_HASH,
-    expectedScenarioIndex: 0,
-    expectedSequence: 1,
-    previousObservationSha256: '0'.repeat(64),
-    installationMode: 'existing',
-    actionCode: 'ARM_CAPTURE',
-    challengeSha256: 'a'.repeat(64),
-  };
-  const replacementCommand = {
-    ...initialCommand,
-    captureId: '018f1d7b-97e8-4a52-8cf2-783e5089c105',
-    challengeSha256: 'b'.repeat(64),
-  };
-  await persistB3IssuedCommand({ root, platform: 'android', command: initialCommand });
-  await transitionB3IssuedCommand({
-    root, platform: 'android', command: initialCommand,
-    expectedState: 'prepared', nextState: 'launching',
-  });
-  const initial = await transitionB3IssuedCommand({
-    root, platform: 'android', command: initialCommand,
-    expectedState: 'launching', nextState: 'restart-required',
-  });
-  const defaultAdapter = createDefaultB3AndroidCaptureAdapter({
-    root, env: {}, resumeReinstall: true, wait: async () => {},
-  });
-  let replacement;
-  let deviceWork = 0;
-
-  await assert.rejects(captureB3AndroidEvidenceWithPrimitives({
-    root,
-    approvalFile: '/operator/approval.json',
-    runToken: 'a'.repeat(64),
-    approvedScope: 'google-test-track-refund-revoke',
-    cloudflare: cloudflareEvidence(),
-    authorityGate: async () => {},
-    primitives: {
-      ...defaultAdapter,
-      inspectDistribution: async () => {
-        await clearB3IssuedCommand({ root, platform: 'android', command: initialCommand });
-        await persistB3IssuedCommand({
-          root, platform: 'android', command: replacementCommand,
-        });
-        await transitionB3IssuedCommand({
-          root, platform: 'android', command: replacementCommand,
-          expectedState: 'prepared', nextState: 'launching',
-        });
-        replacement = await transitionB3IssuedCommand({
-          root, platform: 'android', command: replacementCommand,
-          expectedState: 'launching', nextState: 'restart-required',
-        });
-        return platformEvidence('android-play-physical').distribution;
-      },
-      inspectSyntheticLearners: async () => {
-        deviceWork += 1;
-        throw new Error('device work reached');
-      },
-    },
-  }), /issued command.*invocation|invocation.*issued command/i);
-
-  assert.equal(deviceWork, 0);
-  const retained = await readB3IssuedCommand({ root, platform: 'android' });
-  assert.equal(retained.commandSha256, replacement.commandSha256);
-  assert.equal(retained.state, 'restart-required');
-  for (const commandSha256 of [initial.commandSha256, replacement.commandSha256]) {
-    await assert.rejects(readFile(join(
-      root,
-      '.native-build/b3/evidence/android-abandoned-captures',
-      commandSha256,
-      'authority.json',
-    )), /ENOENT|absent/i);
-  }
-  await clearB3IssuedCommand({ root, platform: 'android', command: replacementCommand });
-});
-
 test('Android Task22 exposes real host utilities and fails closed before device work without authority', async () => {
   const adapter = await import('../scripts/lib/b3-live-capture-adapters.mjs').catch(() => ({}));
   assert.equal(typeof adapter.createDefaultB3AndroidCaptureAdapter, 'function');
@@ -607,6 +433,55 @@ test('Android capture waits for and reuses the final Cloudflare report', async (
   }), 6);
   assert.equal(primitiveCalls, 0);
   assert.match(JSON.parse(stderr.join('')).message, /cloudflare-sandbox-proof|ENOENT/i);
+});
+
+test('Android CLI disposes capture primitives once after success and failure', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-android-disposal-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const reports = join(root, 'reports/b3');
+  await mkdir(reports, { recursive: true });
+  await writeFile(
+    join(reports, 'cloudflare-sandbox-proof.json'),
+    `${JSON.stringify(cloudflareEvidence(), null, 2)}\n`,
+  );
+  const env = {
+    B3_PREREQUISITES_FILE: '/operator/approval.json',
+    B3_REMOTE_RUN_TOKEN: 'a'.repeat(64),
+    B3_REMOTE_MUTATION_SCOPE: 'google-test-track-refund-revoke',
+  };
+  const platform = platformEvidence('android-play-physical');
+  const stream = { write() {} };
+  let successfulDisposals = 0;
+  assert.equal(await runB3AndroidProofCli({
+    root,
+    env,
+    args: [],
+    authorityGate: async () => {},
+    capturePrimitives: androidCliCapturePrimitives(
+      platform,
+      async () => { successfulDisposals += 1; },
+    ),
+    stdout: stream,
+    stderr: stream,
+  }), 5);
+  assert.equal(successfulDisposals, 1);
+
+  let failedDisposals = 0;
+  const failed = androidCliCapturePrimitives(
+    platform,
+    async () => { failedDisposals += 1; },
+  );
+  failed.pinInvocation = async () => { throw new Error('injected capture failure'); };
+  assert.equal(await runB3AndroidProofCli({
+    root,
+    env,
+    args: [],
+    authorityGate: async () => {},
+    capturePrimitives: failed,
+    stdout: stream,
+    stderr: stream,
+  }), 6);
+  assert.equal(failedDisposals, 1);
 });
 
 test('Android B3 proof transport is flavour-only, explicit-intent and fixed app storage', async () => {

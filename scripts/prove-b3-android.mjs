@@ -285,6 +285,14 @@ function argument(args, name) {
   return index === -1 ? null : args[index + 1];
 }
 
+async function withOptionalPrimitiveDisposal(primitives, operation) {
+  try {
+    return await operation();
+  } finally {
+    await primitives?.dispose?.();
+  }
+}
+
 export function b3AndroidProofExitCode(error) {
   return error?.code === 'b3_operator_action_required' &&
     B3_OPERATOR_INSTRUCTION_CODES.has(error?.instructionCode) ? 7 : 6;
@@ -310,6 +318,7 @@ export async function runB3AndroidProofCli({
   root = ROOT,
   args = process.argv.slice(2),
   capturePrimitives,
+  authorityGate = validateB3LocalMutationAuthority,
   stdout = process.stdout,
   stderr = process.stderr,
 } = {}) {
@@ -320,25 +329,28 @@ export async function runB3AndroidProofCli({
         await readFile(resolve(root, 'reports/b3/cloudflare-sandbox-proof.json')),
         'B3 Cloudflare report',
       );
-      await captureB3AndroidEvidenceWithPrimitives({
+      const primitives = capturePrimitives ?? createDefaultB3AndroidCaptureAdapter({
         root,
-        approvalFile: env.B3_PREREQUISITES_FILE,
-        runToken: env.B3_REMOTE_RUN_TOKEN,
-        approvedScope: env.B3_REMOTE_MUTATION_SCOPE,
-        primitives: capturePrimitives ?? createDefaultB3AndroidCaptureAdapter({
-          root,
-          env,
-          resumeStoreAction: args.includes('--resume-store-action'),
-          resumeReinstall: args.includes('--resume-reinstall'),
-          capturePlayProtectSettings: args.includes('--capture-play-protect'),
-        }),
-        cloudflare,
-        write: true,
+        env,
+        resumeStoreAction: args.includes('--resume-store-action'),
+        resumeReinstall: args.includes('--resume-reinstall'),
+        capturePlayProtectSettings: args.includes('--capture-play-protect'),
       });
+      await withOptionalPrimitiveDisposal(primitives, () =>
+        captureB3AndroidEvidenceWithPrimitives({
+          root,
+          approvalFile: env.B3_PREREQUISITES_FILE,
+          runToken: env.B3_REMOTE_RUN_TOKEN,
+          approvedScope: env.B3_REMOTE_MUTATION_SCOPE,
+          authorityGate,
+          primitives,
+          cloudflare,
+          write: true,
+        }));
       stdout.write(`${JSON.stringify({ ok: false, code: 'b3_android_manual_attestation_required', evidencePath: '.native-build/b3/evidence/android-pending.json' })}\n`);
       return 5;
     }
-    await validateB3LocalMutationAuthority({
+    await authorityGate({
       approvalFile: env.B3_PREREQUISITES_FILE,
       runToken: env.B3_REMOTE_RUN_TOKEN,
       requestedScope: B3_ANDROID_REMOTE_SCOPE,

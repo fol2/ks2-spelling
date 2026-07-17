@@ -241,7 +241,16 @@ test('C2 facade freezes its closed handle and rejects authority before getters',
   const shapeRoot = await fixture(t, 'shape');
   assert.deepEqual(await probe(shapeRoot, 'shape'), {
     ok: true,
-    result: ['close', 'publishObservation', 'readCapture', 'startCapture'],
+    result: [
+      'allocateNextCommand',
+      'close',
+      'consumeCommand',
+      'publishObservation',
+      'readActiveCommand',
+      'readCapture',
+      'startCapture',
+      'transitionCommand',
+    ],
     getterCalls: 0,
   });
 
@@ -286,7 +295,16 @@ test('capture-store open snapshots an alternating platform getter exactly once',
       ok: true,
       getterCalls: 1,
       synchronousGetterCalls: 1,
-      keys: ['close', 'publishObservation', 'readCapture', 'startCapture'],
+      keys: [
+        'allocateNextCommand',
+        'close',
+        'consumeCommand',
+        'publishObservation',
+        'readActiveCommand',
+        'readCapture',
+        'startCapture',
+        'transitionCommand',
+      ],
     });
     const evidence = join(root, '.native-build', 'b3', 'evidence');
     assert.equal((await lstat(join(evidence, 'ios-capture-state'))).isDirectory(), true);

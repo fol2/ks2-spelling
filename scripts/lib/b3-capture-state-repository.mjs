@@ -75,6 +75,21 @@ function copyStepRow(row) {
   });
 }
 
+function copyCompositionValue(value) {
+  if (Buffer.isBuffer(value)) return Buffer.from(value);
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map((entry) => copyCompositionValue(entry)));
+  }
+  if (value !== null && typeof value === 'object') {
+    const copied = {};
+    for (const key of Object.keys(value)) {
+      copied[key] = copyCompositionValue(value[key]);
+    }
+    return Object.freeze(copied);
+  }
+  return value;
+}
+
 function assertInitialReconciliationWrite(result) {
   if (result.changes !== 1) {
     throw repositoryError('B3 capture-state initial reconciliation lost authority');
@@ -250,6 +265,123 @@ export async function openB3CaptureStateRepository(options) {
     throw repositoryError('B3 capture-state internal session authority is absent');
   }
 
+  function copyCompositionState(state) {
+    return copyCompositionValue(state);
+  }
+
+  function readCompositionState(buildSource) {
+    session.database.exec('BEGIN');
+    try {
+      const snapshot = copyCompositionState(
+        session.validate(buildSource.buildAuthority),
+      );
+      session.database.exec('COMMIT');
+      return snapshot;
+    } catch (error) {
+      if (session.database.isTransaction) session.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  async function validateCompositionSteps(snapshot, buildSourceValue) {
+    if (!Array.isArray(snapshot.steps)) return Object.freeze([]);
+    const allocatedCommands = snapshot.allocatedCommands ?? snapshot.allCommands;
+    const retained = [];
+    let previousObservation;
+    for (const row of snapshot.steps) {
+      const allocated = allocatedCommands.find((candidate) =>
+        candidate.commandSha256 === row.commandSha256);
+      if (!allocated) {
+        throw repositoryError('B3 capture-state retained step command is absent');
+      }
+      const step = await validateB3RetainedCaptureStep({
+        platform: session.platform,
+        command: allocated.command,
+        buildSource: buildSourceValue,
+        previousObservation,
+        recordBytes: row.recordBytes,
+        checkpointBytes: row.checkpointBytes,
+      });
+      if (step.recordSha256 !== row.recordSha256 ||
+          step.observationSha256 !== row.observationSha256 ||
+          step.checkpointBlobSha256 !== row.checkpointSha256) {
+        throw repositoryError('B3 capture-state retained step semantic hashes differ');
+      }
+      retained.push(step);
+      previousObservation = step.record.observation;
+    }
+    return Object.freeze(retained);
+  }
+
+  async function readCompositionPreflight() {
+    const buildSource = await session.readBuildSourceFresh();
+    const state = readCompositionState(buildSource);
+    const retainedSteps = await validateCompositionSteps(state, buildSource.value);
+    return Object.freeze({ buildSource, state, retainedSteps });
+  }
+
+  function assertBuildSourceUnchanged(left, right) {
+    if (!isDeepStrictEqual(buildSourceSnapshot(left), buildSourceSnapshot(right))) {
+      throw driftError('B3 capture-state build source changed during composition');
+    }
+  }
+
+  function rereadCompositionState(preflight) {
+    session.database.exec('BEGIN');
+    try {
+      const committedSource = session.readBuildSourceFreshSync();
+      assertBuildSourceUnchanged(preflight.buildSource, committedSource);
+      const committed = copyCompositionState(
+        session.validate(committedSource.buildAuthority),
+      );
+      if (!isDeepStrictEqual(committed, preflight.state)) {
+        throw driftError('B3 capture-state composition changed after preflight');
+      }
+      session.database.exec('COMMIT');
+      return committed;
+    } catch (error) {
+      if (session.database.isTransaction) session.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  function beginCompositionWriter(preflight) {
+    session.database.exec('BEGIN IMMEDIATE');
+    const committedSource = session.readBuildSourceFreshSync();
+    assertBuildSourceUnchanged(preflight.buildSource, committedSource);
+    const committed = copyCompositionState(
+      session.validate(committedSource.buildAuthority),
+    );
+    if (!isDeepStrictEqual(committed, preflight.state)) {
+      throw driftError('B3 capture-state composition changed before mutation');
+    }
+    return Object.freeze({
+      buildAuthority: committedSource.buildAuthority,
+      state: committed,
+    });
+  }
+
+  function normaliseCompositionError(error, label) {
+    if (error?.code === 'b3_capture_state_invalid') return error;
+    if (error?.code === 'b3_issued_command_invalid') {
+      return repositoryError(error.message);
+    }
+    return repositoryError(error?.message ?? `B3 capture-state ${label} failed`);
+  }
+
+  async function retryComposition(label, operation) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        return await operation();
+      } catch (error) {
+        if (session.database.isTransaction) session.database.exec('ROLLBACK');
+        if (isRetryableDrift(error) && attempt < 3) continue;
+        throw normaliseCompositionError(error, label);
+      }
+    }
+    throw repositoryError(`B3 capture-state ${label} attempt bound exceeded`);
+  }
+
   function insertSelectedDecision(proposal, source, state) {
     let inserted;
     if (proposal.winnerKind === 'ordinary') {
@@ -303,10 +435,10 @@ export async function openB3CaptureStateRepository(options) {
     return true;
   }
 
-  function selectCommandDecision({ source, buildAuthority, proposal }) {
-    session.database.exec('BEGIN IMMEDIATE');
+  function selectCommandDecision({ source, preflight, proposal }) {
     try {
-      let state = session.validate(buildAuthority);
+      const writer = beginCompositionWriter(preflight);
+      let state = writer.state;
       if (state.kind !== 'ready-initial' || !selectedSource(state, source)) {
         throw repositoryError('B3 capture-state command decision source is not selected');
       }
@@ -319,7 +451,7 @@ export async function openB3CaptureStateRepository(options) {
         throw repositoryError('B3 capture-state command decision source is not active');
       }
       const inserted = insertSelectedDecision(proposal, source, state);
-      state = session.validate(buildAuthority);
+      state = session.validate(writer.buildAuthority);
       decision = selectedDecision(state, source);
       if (!inserted) {
         if (!decision) {
@@ -344,10 +476,12 @@ export async function openB3CaptureStateRepository(options) {
     }
   }
 
-  function reserveInitialCaptureStartProposal(proposal, buildAuthority, allowReady) {
+  function reserveInitialCaptureStartProposal(proposal, buildSource, allowReady) {
     session.database.exec('BEGIN IMMEDIATE');
     try {
-      let state = session.validate(buildAuthority);
+      const committedSource = session.readBuildSourceFreshSync();
+      assertBuildSourceUnchanged(buildSource, committedSource);
+      let state = session.validate(committedSource.buildAuthority);
       let wonReservation = false;
       if (state.kind === 'empty') {
         const inserted = session.database.prepare(`
@@ -375,7 +509,7 @@ export async function openB3CaptureStateRepository(options) {
         if (inserted.changes !== 1 || reserved.changes !== 1) {
           throw repositoryError('B3 capture-state initial reservation write lost authority');
         }
-        state = session.validate(buildAuthority);
+        state = session.validate(committedSource.buildAuthority);
         wonReservation = true;
       }
       if (state.kind !== 'pending-initial' &&
@@ -410,13 +544,13 @@ export async function openB3CaptureStateRepository(options) {
       throw repositoryError('B3 capture-state initial reservation authority is invalid');
     }
     const rawCommand = reservationOptions.command;
-    const buildAuthority = await session.readBuildAuthorityFresh();
+    const buildSource = await session.readBuildSourceFresh();
     const proposal = createB3InitialCaptureStartAuthority({
       platform: session.platform,
       command: rawCommand,
-      buildAuthority,
+      buildAuthority: buildSource.buildAuthority,
     });
-    return reserveInitialCaptureStartProposal(proposal, buildAuthority, false).capture;
+    return reserveInitialCaptureStartProposal(proposal, buildSource, false).capture;
   }
 
   async function reconcileInitialCaptureStart(reconciliationOptions) {
@@ -429,74 +563,96 @@ export async function openB3CaptureStateRepository(options) {
       'initial reconciliation',
     );
     const commandSnapshot = snapshotCommand(options.command, 'initial command');
-    const reservationBuildAuthority = await session.readBuildAuthorityFresh();
-    const proposal = createB3InitialCaptureStartAuthority({
-      platform: session.platform,
-      command: commandSnapshot,
-      buildAuthority: reservationBuildAuthority,
-    });
-    const reservation = reserveInitialCaptureStartProposal(
-      proposal,
-      reservationBuildAuthority,
-      true,
-    );
+    return retryComposition('initial reconciliation', async () => {
+      const preflight = await readCompositionPreflight();
+      const proposal = createB3InitialCaptureStartAuthority({
+        platform: session.platform,
+        command: commandSnapshot,
+        buildAuthority: preflight.buildSource.buildAuthority,
+      });
+      if (preflight.state.kind === 'ready-initial') {
+        const confirmed = rereadCompositionState(preflight);
+        return Object.freeze({
+          kind: confirmed.startIntent.startIntentSha256 === proposal.startIntentSha256
+            ? 'same-winner'
+            : 'different-winner',
+          capture: publicB3CaptureStartAuthority(confirmed.startIntent),
+        });
+      }
+      const reservation = reserveInitialCaptureStartProposal(
+        proposal,
+        preflight.buildSource,
+        true,
+      );
 
-    const reconciliationBuildAuthority = await session.readBuildAuthorityFresh();
-    session.database.exec('BEGIN IMMEDIATE');
-    try {
-      let state = session.validate(reconciliationBuildAuthority);
-      if (state.kind === 'pending-initial') {
-        const start = state.startIntent;
-        const insertedCapture = session.database.prepare(`
-          INSERT INTO b3_captures (
-            capture_id, start_intent_sha256, capture_state, row_version
-          ) VALUES (?, ?, 'working', 1)
-        `).run(start.captureId, start.startIntentSha256);
-        assertInitialReconciliationWrite(insertedCapture);
-        const insertedCommand = session.database.prepare(`
-          INSERT INTO b3_commands (
-            command_sha256, allocation_sequence, predecessor_command_sha256,
-            command_json, prepared_record_json, prepared_record_sha256, capture_id,
-            expected_observation_sequence, previous_observation_sha256
-          ) VALUES (?, 1, NULL, ?, ?, ?, ?, ?, ?)
-        `).run(
-          start.firstCommandSha256,
-          start.commandBytes,
-          start.preparedRecordBytes,
-          start.firstPreparedRecordSha256,
-          start.captureId,
-          start.firstCommand.expectedSequence,
-          start.firstCommand.previousObservationSha256,
-        );
-        assertInitialReconciliationWrite(insertedCommand);
-        const advanced = session.database.prepare(`
-          UPDATE b3_authority_state
-          SET next_allocation_sequence = 2, active_command_sha256 = ?,
-            reserved_start_command_sha256 = NULL, row_version = row_version + 1
-          WHERE singleton = 1 AND next_allocation_sequence = 1
-            AND active_command_sha256 IS NULL
-            AND reserved_start_command_sha256 = ? AND row_version = 2
-        `).run(start.firstCommandSha256, start.firstCommandSha256);
-        assertInitialReconciliationWrite(advanced);
-        const readied = session.database.prepare(`
-          UPDATE b3_capture_start_intents
-          SET intent_state = 'ready', row_version = row_version + 1
-          WHERE start_intent_sha256 = ? AND intent_state = 'pending' AND row_version = 1
-        `).run(start.startIntentSha256);
-        assertInitialReconciliationWrite(readied);
-        state = session.validate(reconciliationBuildAuthority);
+      const reconciliationSource = await session.readBuildSourceFresh();
+      session.database.exec('BEGIN IMMEDIATE');
+      let state;
+      try {
+        const committedSource = session.readBuildSourceFreshSync();
+        assertBuildSourceUnchanged(reconciliationSource, committedSource);
+        state = session.validate(committedSource.buildAuthority);
+        if (state.kind === 'pending-initial') {
+          const start = state.startIntent;
+          const insertedCapture = session.database.prepare(`
+            INSERT INTO b3_captures (
+              capture_id, start_intent_sha256, capture_state, row_version
+            ) VALUES (?, ?, 'working', 1)
+          `).run(start.captureId, start.startIntentSha256);
+          assertInitialReconciliationWrite(insertedCapture);
+          const insertedCommand = session.database.prepare(`
+            INSERT INTO b3_commands (
+              command_sha256, allocation_sequence, predecessor_command_sha256,
+              command_json, prepared_record_json, prepared_record_sha256, capture_id,
+              expected_observation_sequence, previous_observation_sha256
+            ) VALUES (?, 1, NULL, ?, ?, ?, ?, ?, ?)
+          `).run(
+            start.firstCommandSha256,
+            start.commandBytes,
+            start.preparedRecordBytes,
+            start.firstPreparedRecordSha256,
+            start.captureId,
+            start.firstCommand.expectedSequence,
+            start.firstCommand.previousObservationSha256,
+          );
+          assertInitialReconciliationWrite(insertedCommand);
+          const advanced = session.database.prepare(`
+            UPDATE b3_authority_state
+            SET next_allocation_sequence = 2, active_command_sha256 = ?,
+              reserved_start_command_sha256 = NULL, row_version = row_version + 1
+            WHERE singleton = 1 AND next_allocation_sequence = 1
+              AND active_command_sha256 IS NULL
+              AND reserved_start_command_sha256 = ? AND row_version = 2
+          `).run(start.firstCommandSha256, start.firstCommandSha256);
+          assertInitialReconciliationWrite(advanced);
+          const readied = session.database.prepare(`
+            UPDATE b3_capture_start_intents
+            SET intent_state = 'ready', row_version = row_version + 1
+            WHERE start_intent_sha256 = ? AND intent_state = 'pending' AND row_version = 1
+          `).run(start.startIntentSha256);
+          assertInitialReconciliationWrite(readied);
+          state = session.validate(committedSource.buildAuthority);
+        }
+        if (state.kind !== 'ready-initial' ||
+            state.startIntent.startIntentSha256 !== reservation.capture.startIntentSha256) {
+          throw repositoryError('B3 capture-state initial reconciliation did not rederive');
+        }
+        session.database.exec('COMMIT');
+      } catch (error) {
+        if (session.database.isTransaction) session.database.exec('ROLLBACK');
+        throw error;
       }
-      if (state.kind !== 'ready-initial' ||
-          state.startIntent.startIntentSha256 !== reservation.capture.startIntentSha256) {
-        throw repositoryError('B3 capture-state initial reconciliation did not rederive');
+      const completed = await readCompositionPreflight();
+      if (completed.state.kind !== 'ready-initial' ||
+          completed.state.startIntent.startIntentSha256 !==
+            reservation.capture.startIntentSha256) {
+        throw driftError('B3 capture-state initial reconciliation changed after commit');
       }
-      const capture = publicB3CaptureStartAuthority(state.startIntent);
-      session.database.exec('COMMIT');
-      return Object.freeze({ kind: reservation.kind, capture });
-    } catch (error) {
-      if (session.database.isTransaction) session.database.exec('ROLLBACK');
-      throw error;
-    }
+      return Object.freeze({
+        kind: reservation.kind,
+        capture: publicB3CaptureStartAuthority(completed.state.startIntent),
+      });
+    });
   }
 
   async function readActiveCommand(...readOptions) {
@@ -506,11 +662,8 @@ export async function openB3CaptureStateRepository(options) {
     if (readOptions.length !== 0) {
       throw repositoryError('B3 capture-state read authority is invalid');
     }
-    const buildAuthority = await session.readBuildAuthorityFresh();
-
-    session.database.exec('BEGIN');
-    try {
-      const state = session.validate(buildAuthority);
+    return retryComposition('active-command read', async () => {
+      const { state } = await readCompositionPreflight();
       let result;
       if (state.kind === 'empty') {
         result = Object.freeze({ kind: 'none' });
@@ -526,12 +679,8 @@ export async function openB3CaptureStateRepository(options) {
       } else {
         throw repositoryError('B3 capture-state read authority is unsupported');
       }
-      session.database.exec('COMMIT');
       return result;
-    } catch (error) {
-      if (session.database.isTransaction) session.database.exec('ROLLBACK');
-      throw error;
-    }
+    });
   }
 
   async function allocateNextCommand(allocationOptions) {
@@ -544,26 +693,16 @@ export async function openB3CaptureStateRepository(options) {
       'next allocation',
     );
     const commandSnapshot = snapshotCommand(options.command, 'allocation command');
-    const buildAuthority = await session.readBuildAuthorityFresh();
-    let proposal;
-    try {
-      proposal = canonicaliseAllocationCommand(
+    return retryComposition('next allocation', async () => {
+      const preflight = await readCompositionPreflight();
+      const proposal = canonicaliseAllocationCommand(
         commandSnapshot,
         session.platform,
-        buildAuthority,
+        preflight.buildSource.buildAuthority,
       );
-    } catch (error) {
-      if (error?.code === 'b3_issued_command_invalid') {
-        throw repositoryError(error.message);
-      }
-      throw error;
-    }
-
-    session.database.exec('BEGIN IMMEDIATE');
-    try {
-      let state = session.validate(buildAuthority);
+      let state = preflight.state;
       if (state.kind === 'pending-initial') {
-        session.database.exec('COMMIT');
+        state = rereadCompositionState(preflight);
         return Object.freeze({
           kind: 'start-reserved',
           intent: publicB3CaptureStartAuthority(state.startIntent),
@@ -585,13 +724,13 @@ export async function openB3CaptureStateRepository(options) {
             retained.commandSha256 === state.activeCommand.commandSha256 &&
             retained.allocationSequence === state.activeCommand.allocationSequence &&
             isDeepStrictEqual(retained.command, proposal.command)) {
-          session.database.exec('COMMIT');
+          state = rereadCompositionState(preflight);
           return Object.freeze({ kind: 'already-active', command: state.activeCommand });
         }
         if (retained) {
           throw repositoryError('B3 capture-state allocation reuses an earlier command');
         }
-        session.database.exec('COMMIT');
+        state = rereadCompositionState(preflight);
         return Object.freeze({
           kind: 'allocation-conflict',
           command: state.activeCommand,
@@ -603,6 +742,20 @@ export async function openB3CaptureStateRepository(options) {
       if (state.genericDecision === null || state.tailCommand === null) {
         throw repositoryError('B3 capture-state allocation tail is not closed');
       }
+      const expectedSequence = state.allocatedCommands.length + 1;
+      const predecessorStep = state.steps.at(-1);
+      if (proposal.command.expectedSequence !== expectedSequence ||
+          expectedSequence > 512 ||
+          state.steps.length !== state.allocatedCommands.length ||
+          predecessorStep?.commandSha256 !== state.tailCommand.commandSha256 ||
+          proposal.command.previousObservationSha256 !==
+            predecessorStep?.observationSha256) {
+        throw repositoryError(
+          'B3 capture-state next allocation does not follow the committed tail step',
+        );
+      }
+      const writer = beginCompositionWriter(preflight);
+      state = writer.state;
       const allocationSequence = state.authority.next_allocation_sequence;
       const inserted = session.database.prepare(`
         INSERT INTO b3_commands (
@@ -640,7 +793,7 @@ export async function openB3CaptureStateRepository(options) {
       if (advanced.changes !== 1) {
         throw repositoryError('B3 capture-state next allocation lost singleton authority');
       }
-      state = session.validate(buildAuthority);
+      state = session.validate(writer.buildAuthority);
       if (state.kind !== 'ready-initial' || state.activeCommand === null ||
           state.activeCommand.commandSha256 !== proposal.commandSha256 ||
           state.activeCommand.allocationSequence !== allocationSequence ||
@@ -649,10 +802,7 @@ export async function openB3CaptureStateRepository(options) {
       }
       session.database.exec('COMMIT');
       return Object.freeze({ kind: 'allocated', command: state.activeCommand });
-    } catch (error) {
-      if (session.database.isTransaction) session.database.exec('ROLLBACK');
-      throw error;
-    }
+    });
   }
 
   async function transitionCommand(transitionOptions) {
@@ -667,45 +817,50 @@ export async function openB3CaptureStateRepository(options) {
     const rawSource = options.source;
     const nextState = options.nextState;
     const sourceSnapshot = snapshotSource(rawSource);
-    const buildAuthority = await session.readBuildAuthorityFresh();
-    let source;
-    let next;
-    let claim;
-    try {
-      source = canonicaliseSource(sourceSnapshot, session.platform, buildAuthority);
-      next = createB3IssuedCommandStateAuthority({
+    return retryComposition('ordinary transition', async () => {
+      const preflight = await readCompositionPreflight();
+      const source = canonicaliseSource(
+        sourceSnapshot,
+        session.platform,
+        preflight.buildSource.buildAuthority,
+      );
+      const next = createB3IssuedCommandStateAuthority({
         platform: session.platform,
         command: source.command,
         state: nextState,
       });
-      claim = createB3OrdinaryIssuedCommandClaimAuthority({
+      const claim = createB3OrdinaryIssuedCommandClaimAuthority({
         platform: session.platform,
         source: stateRecord(source),
         nextState,
       });
-    } catch (error) {
-      if (error?.code === 'b3_issued_command_invalid') {
-        throw repositoryError(error.message);
+      if (preflight.state.kind !== 'ready-initial' ||
+          !selectedSource(preflight.state, source)) {
+        throw repositoryError('B3 capture-state command decision source is not selected');
       }
-      throw error;
-    }
-
-    const outcome = selectCommandDecision({
-      source,
-      buildAuthority,
-      proposal: Object.freeze({ winnerKind: 'ordinary', next, claim }),
-    });
-    if (outcome.selected) {
-      return Object.freeze({ kind: 'transitioned', command: outcome.decision.command });
-    }
-    if (outcome.decision.winnerKind === 'generic-consumption') {
-      return genericOutcome('generic-consumed', outcome.decision);
-    }
-    return Object.freeze({
-      kind: outcome.decision.command.state === nextState
-        ? 'already-transitioned'
-        : 'ordinary-conflict',
-      command: outcome.decision.command,
+      const retained = selectedDecision(preflight.state, source);
+      const outcome = retained
+        ? Object.freeze({
+            selected: false,
+            decision: selectedDecision(rereadCompositionState(preflight), source),
+          })
+        : selectCommandDecision({
+            source,
+            preflight,
+            proposal: Object.freeze({ winnerKind: 'ordinary', next, claim }),
+          });
+      if (outcome.selected) {
+        return Object.freeze({ kind: 'transitioned', command: outcome.decision.command });
+      }
+      if (outcome.decision.winnerKind === 'generic-consumption') {
+        return genericOutcome('generic-consumed', outcome.decision);
+      }
+      return Object.freeze({
+        kind: outcome.decision.command.state === nextState
+          ? 'already-transitioned'
+          : 'ordinary-conflict',
+        command: outcome.decision.command,
+      });
     });
   }
 
@@ -720,37 +875,51 @@ export async function openB3CaptureStateRepository(options) {
     );
     const rawSource = options.source;
     const sourceSnapshot = snapshotSource(rawSource);
-    const buildAuthority = await session.readBuildAuthorityFresh();
-    let source;
-    let claim;
-    try {
-      source = canonicaliseSource(sourceSnapshot, session.platform, buildAuthority);
-      claim = createB3GenericConsumptionClaimAuthority({
+    return retryComposition('generic consumption', async () => {
+      const preflight = await readCompositionPreflight();
+      const source = canonicaliseSource(
+        sourceSnapshot,
+        session.platform,
+        preflight.buildSource.buildAuthority,
+      );
+      const claim = createB3GenericConsumptionClaimAuthority({
         platform: session.platform,
         source: stateRecord(source),
       });
-    } catch (error) {
-      if (error?.code === 'b3_issued_command_invalid') {
-        throw repositoryError(error.message);
+      if (preflight.state.kind !== 'ready-initial' ||
+          !selectedSource(preflight.state, source)) {
+        throw repositoryError('B3 capture-state command decision source is not selected');
       }
-      throw error;
-    }
-
-    const outcome = selectCommandDecision({
-      source,
-      buildAuthority,
-      proposal: Object.freeze({ winnerKind: 'generic-consumption', claim }),
+      const retained = selectedDecision(preflight.state, source);
+      if (!retained) {
+        const step = preflight.state.steps[source.command.expectedSequence - 1];
+        if (step?.commandSha256 !== source.commandSha256) {
+          throw repositoryError(
+            'B3 capture-state generic consumption requires the exact committed step',
+          );
+        }
+      }
+      const outcome = retained
+        ? Object.freeze({
+            selected: false,
+            decision: selectedDecision(rereadCompositionState(preflight), source),
+          })
+        : selectCommandDecision({
+            source,
+            preflight,
+            proposal: Object.freeze({ winnerKind: 'generic-consumption', claim }),
+          });
+      if (outcome.selected) {
+        return genericOutcome('consumed', outcome.decision);
+      }
+      if (outcome.decision.winnerKind === 'ordinary') {
+        return Object.freeze({
+          kind: 'ordinary-selected',
+          command: outcome.decision.command,
+        });
+      }
+      return genericOutcome('already-consumed', outcome.decision);
     });
-    if (outcome.selected) {
-      return genericOutcome('consumed', outcome.decision);
-    }
-    if (outcome.decision.winnerKind === 'ordinary') {
-      return Object.freeze({
-        kind: 'ordinary-selected',
-        command: outcome.decision.command,
-      });
-    }
-    return genericOutcome('already-consumed', outcome.decision);
   }
 
   function capturePublicationSnapshot(state, canonicalSource) {
@@ -837,42 +1006,6 @@ export async function openB3CaptureStateRepository(options) {
     }
   }
 
-  async function validatePublicationSteps(snapshot, buildSourceValue) {
-    const retained = [];
-    let previousObservation;
-    for (const row of snapshot.steps) {
-      const command = snapshot.commandSha256 === row.commandSha256
-        ? snapshot.command
-        : snapshot.allCommands.find((candidate) =>
-          candidate.commandSha256 === row.commandSha256)?.command;
-      if (!command) {
-        throw repositoryError('B3 capture-state retained step command is absent');
-      }
-      const step = await validateB3RetainedCaptureStep({
-        platform: session.platform,
-        command,
-        buildSource: buildSourceValue,
-        previousObservation,
-        recordBytes: row.recordBytes,
-        checkpointBytes: row.checkpointBytes,
-      });
-      if (step.recordSha256 !== row.recordSha256 ||
-          step.observationSha256 !== row.observationSha256 ||
-          step.checkpointBlobSha256 !== row.checkpointSha256) {
-        throw repositoryError('B3 capture-state retained step semantic hashes differ');
-      }
-      retained.push(step);
-      previousObservation = step.record.observation;
-    }
-    return Object.freeze(retained);
-  }
-
-  function assertBuildSourceUnchanged(left, right) {
-    if (!isDeepStrictEqual(buildSourceSnapshot(left), buildSourceSnapshot(right))) {
-      throw driftError('B3 capture-state build source changed during publication');
-    }
-  }
-
   function committedResult(kind, step) {
     return Object.freeze({ kind, record: step.record, checkpoint: step.checkpoint });
   }
@@ -902,7 +1035,7 @@ export async function openB3CaptureStateRepository(options) {
       try {
         const preflightSource = await session.readBuildSourceFresh();
         const preflight = readPublicationSnapshot(sourceSnapshot, preflightSource);
-        const retained = await validatePublicationSteps(preflight, preflightSource.value);
+        const retained = await validateCompositionSteps(preflight, preflightSource.value);
         const previousObservation = retained[preflight.sequence - 2]?.record.observation;
         const proposal = await deriveB3CaptureStep({
           platform: session.platform,
@@ -1025,7 +1158,7 @@ export async function openB3CaptureStateRepository(options) {
         if (session.database.isTransaction) session.database.exec('ROLLBACK');
         throw error;
       }
-      const retained = await validatePublicationSteps(snapshot, buildSource.value);
+      const retained = await validateCompositionSteps(snapshot, buildSource.value);
       const records = Object.freeze(retained.map((step) => step.record));
       const checkpoint = retained.at(-1)?.checkpoint ?? null;
       return Object.freeze({

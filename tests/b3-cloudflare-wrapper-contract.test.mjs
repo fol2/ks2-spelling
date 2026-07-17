@@ -360,6 +360,16 @@ test('Cloudflare proof finalises only after the ignored draft and device smoke b
   );
 });
 
+test('Cloudflare production smoke authority is read from the iOS capture store', async () => {
+  const source = await readFile(
+    new URL('../scripts/prove-b3-cloudflare.mjs', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /openB3CaptureStore\(\{ platform: 'ios' \}\)/u);
+  assert.match(source, /readCapture\(\)[\s\S]*gatewaySmokeProjection/u);
+  assert.doesNotMatch(source, /cloudflare-device-smoke\.json/u);
+});
+
 test('deploy wrapper success writes only the ignored fixed deployment-draft path', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-cloudflare-draft-'));
   t.after(() => rm(root, { recursive: true, force: true }));

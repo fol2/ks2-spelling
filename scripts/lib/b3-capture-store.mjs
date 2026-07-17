@@ -113,6 +113,68 @@ export async function openB3CaptureStore(options) {
     return repository.publishObservation({ source: sourceSnapshot, observationBytes });
   }
 
+  async function readActiveCommand(...readOptions) {
+    if (closed) throw storeError('B3 capture-store is already closed');
+    if (readOptions.length !== 0) {
+      throw storeError('B3 capture-store read active command authority is invalid');
+    }
+    return repository.readActiveCommand();
+  }
+
+  async function allocateNextCommand(allocationOptions) {
+    if (closed) throw storeError('B3 capture-store is already closed');
+    const options = snapshotDataRecord(
+      allocationOptions,
+      ['command'],
+      'next allocation',
+    );
+    const command = snapshotScalarRecord(options.command, 'allocation command');
+    return repository.allocateNextCommand({ command });
+  }
+
+  async function transitionCommand(transitionOptions) {
+    if (closed) throw storeError('B3 capture-store is already closed');
+    const options = snapshotDataRecord(
+      transitionOptions,
+      ['source', 'nextState'],
+      'ordinary transition',
+    );
+    const source = snapshotDataRecord(options.source, [
+      'allocationSequence', 'captureId', 'command', 'commandSha256', 'platform',
+      'predecessorCommandSha256', 'recordSha256', 'schemaVersion', 'state',
+    ], 'ordinary transition source');
+    const sourceSnapshot = Object.freeze({
+      ...source,
+      command: snapshotScalarRecord(source.command, 'ordinary transition command'),
+    });
+    if (typeof options.nextState !== 'string') {
+      throw storeError('B3 capture-store ordinary transition state is invalid');
+    }
+    return repository.transitionCommand({
+      source: sourceSnapshot,
+      nextState: options.nextState,
+    });
+  }
+
+  async function consumeCommand(consumptionOptions) {
+    if (closed) throw storeError('B3 capture-store is already closed');
+    const options = snapshotDataRecord(
+      consumptionOptions,
+      ['source'],
+      'generic consumption',
+    );
+    const source = snapshotDataRecord(options.source, [
+      'allocationSequence', 'captureId', 'command', 'commandSha256', 'platform',
+      'predecessorCommandSha256', 'recordSha256', 'schemaVersion', 'state',
+    ], 'generic consumption source');
+    return repository.consumeCommand({
+      source: Object.freeze({
+        ...source,
+        command: snapshotScalarRecord(source.command, 'generic consumption command'),
+      }),
+    });
+  }
+
   async function readCapture(...readOptions) {
     if (closed) throw storeError('B3 capture-store is already closed');
     if (readOptions.length !== 0) {
@@ -127,5 +189,14 @@ export async function openB3CaptureStore(options) {
     await repository.close();
   }
 
-  return Object.freeze({ startCapture, publishObservation, readCapture, close });
+  return Object.freeze({
+    startCapture,
+    readActiveCommand,
+    allocateNextCommand,
+    transitionCommand,
+    publishObservation,
+    consumeCommand,
+    readCapture,
+    close,
+  });
 }

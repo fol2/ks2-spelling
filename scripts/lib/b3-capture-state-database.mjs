@@ -428,6 +428,58 @@ function validateCaptureSteps(rows, commandRows, captureId) {
   return Object.freeze(retained);
 }
 
+function validateCaptureCommandStepShape({
+  captureId,
+  commandRows,
+  paths,
+  stepRows,
+  activeCommandSha256,
+}) {
+  const localSteps = validateCaptureSteps(stepRows, commandRows, captureId);
+  for (const [index, command] of commandRows.entries()) {
+    const expectedSequence = index + 1;
+    if (command.capture_id !== captureId ||
+        command.expected_observation_sequence !== expectedSequence ||
+        expectedSequence > 512 ||
+        (expectedSequence === 1 &&
+          command.previous_observation_sha256 !== '0'.repeat(64)) ||
+        (expectedSequence > 1 &&
+          command.previous_observation_sha256 !==
+            localSteps[expectedSequence - 2]?.observationSha256)) {
+      throw databaseError('B3 capture-state local command observation chain differs');
+    }
+    const hasStep = localSteps[expectedSequence - 1]?.commandSha256 ===
+      command.command_sha256;
+    if (paths[index].genericDecision !== null && !hasStep) {
+      throw databaseError(
+        'B3 capture-state generically closed command has no exact committed step',
+      );
+    }
+    if (index < commandRows.length - 1 &&
+        (paths[index].genericDecision === null || !hasStep)) {
+      throw databaseError(
+        'B3 capture-state earlier command is not generically closed with a retained step',
+      );
+    }
+  }
+
+  const tail = commandRows.at(-1);
+  const tailIsClosed = paths.at(-1).genericDecision !== null;
+  if (tailIsClosed) {
+    if (activeCommandSha256 !== null || localSteps.length !== commandRows.length) {
+      throw databaseError('B3 capture-state closed tail retained step shape differs');
+    }
+  } else if (activeCommandSha256 !== tail.command_sha256 ||
+      ![commandRows.length - 1, commandRows.length].includes(localSteps.length)) {
+    throw databaseError('B3 capture-state active tail retained step shape differs');
+  }
+  if (localSteps.length === 0 &&
+      (commandRows.length !== 1 || activeCommandSha256 !== tail.command_sha256)) {
+    throw databaseError('B3 capture-state zero-step ready capture shape differs');
+  }
+  return localSteps;
+}
+
 function validateSelectedDecisionPath(rows, command, preparedRecord, platform) {
   const bySource = new Map();
   for (const row of rows) {
@@ -558,6 +610,7 @@ function validateReadyInitialStartUnchecked(database, authority, platform, build
   }
   const paths = [];
   const allocatedCommands = [];
+  const localCommandRows = [];
   let previousCommand = null;
   for (const [index, command] of commandRows.entries()) {
     const preparedRecord = validateB3PreparedIssuedCommandAuthorityBytes({
@@ -584,6 +637,10 @@ function validateReadyInitialStartUnchecked(database, authority, platform, build
           preparedRecord.command.previousObservationSha256) {
       throw databaseError('B3 capture-state allocated command authority differs');
     }
+    const localSequence = localCommandRows.length + 1;
+    if (command.expected_observation_sequence !== localSequence) {
+      throw databaseError('B3 capture-state local command ordinal differs');
+    }
     if (index === 0 && (
       command.command_sha256 !== startIntent.firstCommandSha256 ||
       !Buffer.from(command.command_json).equals(startIntent.commandBytes) ||
@@ -599,6 +656,7 @@ function validateReadyInitialStartUnchecked(database, authority, platform, build
     }
     paths.push(path);
     allocatedCommands.push(path.selectedCommands[0]);
+    localCommandRows.push(command);
     previousCommand = command;
     decisionsByCommand.delete(command.command_sha256);
   }
@@ -620,7 +678,13 @@ function validateReadyInitialStartUnchecked(database, authority, platform, build
   }
   const selectedCommands = paths.flatMap((path) => path.selectedCommands);
   const selectedDecisions = paths.flatMap((path) => path.selectedDecisions);
-  const steps = validateCaptureSteps(stepRows, commandRows, capture.capture_id);
+  const steps = validateCaptureCommandStepShape({
+    captureId: capture.capture_id,
+    commandRows: localCommandRows,
+    paths,
+    stepRows,
+    activeCommandSha256: authority.active_command_sha256,
+  });
   return Object.freeze({
     kind: 'ready-initial',
     startIntent,

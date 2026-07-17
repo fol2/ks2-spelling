@@ -198,6 +198,14 @@ function argument(args, name) {
   return index === -1 ? null : args[index + 1];
 }
 
+async function withOptionalPrimitiveDisposal(primitives, operation) {
+  try {
+    return await operation();
+  } finally {
+    await primitives?.dispose?.();
+  }
+}
+
 export function b3IosProofExitCode(error) {
   return error?.code === 'b3_operator_action_required' &&
     B3_OPERATOR_INSTRUCTION_CODES.has(error?.instructionCode) ? 7 : 6;
@@ -236,21 +244,23 @@ export async function runB3IosProofCli({
         label: 'B3 Cloudflare deployment draft',
         root,
       })).value;
-      await captureB3IosEvidenceWithPrimitives({
+      const primitives = capturePrimitives ?? createDefaultB3IosCaptureAdapter({
         root,
-        approvalFile: env.B3_PREREQUISITES_FILE,
-        runToken: env.B3_REMOTE_RUN_TOKEN,
-        approvedScope: env.B3_REMOTE_MUTATION_SCOPE,
-        authorityGate,
-        primitives: capturePrimitives ?? createDefaultB3IosCaptureAdapter({
-          root,
-          env,
-          resumeStoreAction: args.includes('--resume-store-action'),
-          resumeReinstall: args.includes('--resume-reinstall'),
-        }),
-        deploymentDraft,
-        write: true,
+        env,
+        resumeStoreAction: args.includes('--resume-store-action'),
+        resumeReinstall: args.includes('--resume-reinstall'),
       });
+      await withOptionalPrimitiveDisposal(primitives, () =>
+        captureB3IosEvidenceWithPrimitives({
+          root,
+          approvalFile: env.B3_PREREQUISITES_FILE,
+          runToken: env.B3_REMOTE_RUN_TOKEN,
+          approvedScope: env.B3_REMOTE_MUTATION_SCOPE,
+          authorityGate,
+          primitives,
+          deploymentDraft,
+          write: true,
+        }));
       stdout.write(`${JSON.stringify({ ok: false, code: 'b3_ios_manual_attestation_required', evidencePath: '.native-build/b3/evidence/ios-pending.json' })}\n`);
       return 5;
     }

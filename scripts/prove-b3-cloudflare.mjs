@@ -11,6 +11,7 @@ import {
   verifyB3CloudflareDeploymentEvidence,
 } from './lib/b3-cloudflare-evidence.mjs';
 import { validateB3CloudflareEvidence } from './lib/b3-evidence.mjs';
+import { openB3CaptureStore } from './lib/b3-capture-store.mjs';
 import { createDefaultB3CloudflarePrimitives } from './lib/b3-cloudflare-live-adapter.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -37,6 +38,19 @@ export function b3PlatformGatewayFromDeploymentDraft(value) {
   });
 }
 
+async function readDefaultDeviceSmokeProjection() {
+  const store = await openB3CaptureStore({ platform: 'ios' });
+  try {
+    const projection = (await store.readCapture()).gatewaySmokeProjection;
+    if (projection === null) {
+      throw new Error('B3 device gateway smoke projection is absent from SQLite authority');
+    }
+    return projection;
+  } finally {
+    await store.close();
+  }
+}
+
 export async function proveB3Cloudflare({
   root = ROOT,
   primitives,
@@ -58,13 +72,7 @@ export async function proveB3Cloudflare({
       root,
     })
   ).value);
-  const deviceSmoke = smokeProjection ?? (
-    await readValidatedB3OperatorJson({
-      path: resolve(root, '.native-build/b3/evidence/cloudflare-device-smoke.json'),
-      label: 'B3 device gateway smoke projection',
-      root,
-    })
-  ).value;
+  const deviceSmoke = smokeProjection ?? await readDefaultDeviceSmokeProjection();
   const livePrimitives = primitives ?? createDefaultB3CloudflarePrimitives({ root });
   const candidate = validateB3CloudflareEvidence(await assembleB3CloudflareEvidence({
     draft: deploymentDraft,

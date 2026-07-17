@@ -98,6 +98,109 @@ function spawnSignalledPublisher(root, observedAt) {
   });
 }
 
+function spawnCommandPublicationRole(t, root, role, observedAt) {
+  const helper = new URL(
+    './helpers/b3-capture-state-command-publication-race-child.mjs',
+    import.meta.url,
+  );
+  const child = fork(helper.pathname, [role, observedAt], {
+    cwd: root,
+    execArgv: ['--experimental-test-module-mocks'],
+    stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+  });
+  let stderr = '';
+  child.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
+  let readyResolve;
+  let readyReject;
+  let resultResolve;
+  let resultReject;
+  let settled = false;
+  const ready = new Promise((resolve, reject) => {
+    readyResolve = resolve;
+    readyReject = reject;
+  });
+  const result = new Promise((resolve, reject) => {
+    resultResolve = resolve;
+    resultReject = reject;
+  });
+  child.on('message', (message) => {
+    if (message?.type === 'ready') readyResolve(message);
+    if (message?.type === 'result') {
+      settled = true;
+      resultResolve(message);
+    }
+  });
+  child.on('error', (error) => {
+    readyReject(error);
+    resultReject(error);
+  });
+  child.on('exit', (code, signal) => {
+    if (settled) return;
+    const error = new Error(
+      `B3 command/publication child exited ${code ?? signal}: ${stderr}`,
+    );
+    readyReject(error);
+    resultReject(error);
+  });
+  t.after(() => {
+    if (child.exitCode === null && child.signalCode === null) child.kill();
+  });
+  return Object.freeze({
+    ready,
+    result,
+    release: () => child.send({ type: 'go' }),
+  });
+}
+
+function spawnStoreBackedPublicationRace(t, root) {
+  const helper = new URL(
+    './helpers/b3-store-backed-publication-race-child.mjs',
+    import.meta.url,
+  );
+  const child = fork(helper.pathname, [], {
+    cwd: root,
+    execArgv: ['--experimental-test-module-mocks'],
+    stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+  });
+  let stderr = '';
+  let resultResolve;
+  let resultReject;
+  let settled = false;
+  const barrierResolvers = new Map();
+  const barriers = Object.freeze(Object.fromEntries([
+    'launch-completion', 'publication', 'consumption',
+  ].map((phase) => [phase, new Promise((resolve) => {
+    barrierResolvers.set(phase, resolve);
+  })])));
+  const result = new Promise((resolve, reject) => {
+    resultResolve = resolve;
+    resultReject = reject;
+  });
+  child.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
+  child.on('message', (message) => {
+    if (message?.type === 'barrier') barrierResolvers.get(message.phase)?.(message);
+    if (message?.type === 'result') {
+      settled = true;
+      resultResolve(message);
+    }
+  });
+  child.on('error', resultReject);
+  child.on('exit', (code, signal) => {
+    if (settled) return;
+    resultReject(new Error(
+      `B3 store-backed publication race child exited ${code ?? signal}: ${stderr}`,
+    ));
+  });
+  t.after(() => {
+    if (child.exitCode === null && child.signalCode === null) child.kill();
+  });
+  return Object.freeze({
+    barriers,
+    result,
+    release(phase) { child.send({ type: 'go', phase }); },
+  });
+}
+
 async function replaceBuildSourceInode(root) {
   const directory = join(root, '.native-build', 'b3', 'distribution');
   const path = join(directory, 'build-authority.json');
@@ -141,6 +244,40 @@ function readCaptureStepRow(root) {
   } finally {
     database.close();
   }
+}
+
+function readRelationalCaptureState(root) {
+  const database = new DatabaseSync(captureStateDatabasePath(root), { readOnly: true });
+  try {
+    return Object.freeze({
+      commands: database.prepare(`
+        SELECT command_sha256, allocation_sequence
+        FROM b3_commands ORDER BY allocation_sequence
+      `).all().map((row) => ({ ...row })),
+      steps: database.prepare(`
+        SELECT command_sha256, observation_sequence
+        FROM b3_capture_steps ORDER BY observation_sequence
+      `).all().map((row) => ({ ...row })),
+      decisions: database.prepare(`
+        SELECT command_sha256, source_state, winner_kind, next_state
+        FROM b3_decisions ORDER BY command_sha256, source_state
+      `).all().map((row) => ({ ...row })),
+      authority: {
+        ...database.prepare(`
+          SELECT active_command_sha256, next_allocation_sequence
+          FROM b3_authority_state
+        `).get(),
+      },
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function runReleased(child) {
+  await child.ready;
+  child.release();
+  return child.result;
 }
 
 test('D2 facade atomically publishes, retries, conflicts and reads committed capture', async (t) => {
@@ -459,3 +596,248 @@ test('D2 read fails closed for empty and pending-start state without healing', a
     }
   }
 });
+
+test('D3 real publisher and ordinary transition converge in both lock orderings',
+  { timeout: 15_000 }, async (t) => {
+    for (const order of ['publisher-first', 'transition-first']) {
+      const root = await fixture(t);
+      assert.deepEqual(await runPublisher(
+        root,
+        '2026-07-17T10:00:00.000Z',
+        'seed-only',
+      ), { seeded: true });
+      const publisher = spawnCommandPublicationRole(
+        t, root, 'publish-adopt', '2026-07-17T10:00:00.000Z',
+      );
+      const transition = spawnCommandPublicationRole(
+        t, root, 'transition', '2026-07-17T10:00:00.000Z',
+      );
+      await Promise.all([publisher.ready, transition.ready]);
+
+      const first = order === 'publisher-first' ? publisher : transition;
+      const second = order === 'publisher-first' ? transition : publisher;
+      first.release();
+      const firstResult = await first.result;
+      second.release();
+      const secondResult = await second.result;
+      const publication = order === 'publisher-first' ? firstResult : secondResult;
+      const selected = order === 'publisher-first' ? secondResult : firstResult;
+
+      assert.equal(publication.error, undefined, order);
+      assert.equal(publication.result.kind, 'published', order);
+      assert.equal(selected.error, undefined, order);
+      assert.equal(selected.result.kind, 'transitioned', order);
+      assert.equal(selected.result.command.state, 'launching', order);
+      assert.equal(
+        publication.initialError === null,
+        order === 'publisher-first',
+        order,
+      );
+      if (publication.initialError) {
+        assert.equal(publication.initialError.code, 'b3_capture_state_invalid', order);
+      }
+      const state = readRelationalCaptureState(root);
+      assert.equal(state.steps.length, 1, order);
+      assert.deepEqual(state.decisions.map(({ winner_kind, next_state }) => ({
+        winner_kind, next_state,
+      })), [{ winner_kind: 'ordinary', next_state: 'launching' }], order);
+      assert.equal(state.authority.active_command_sha256, state.commands[0].command_sha256);
+    }
+  });
+
+test('D3 missing-step consumption cannot commit before publication and later closes',
+  { timeout: 15_000 }, async (t) => {
+    const root = await fixture(t);
+    assert.deepEqual(await runPublisher(
+      root,
+      '2026-07-17T10:00:00.000Z',
+      'seed-only',
+    ), { seeded: true });
+    const consumer = spawnCommandPublicationRole(
+      t, root, 'consume', '2026-07-17T10:00:00.000Z',
+    );
+    const publisher = spawnCommandPublicationRole(
+      t, root, 'publish-prepared', '2026-07-17T10:00:00.000Z',
+    );
+    await Promise.all([consumer.ready, publisher.ready]);
+
+    consumer.release();
+    const rejected = await consumer.result;
+    assert.equal(rejected.result, null);
+    assert.equal(rejected.error.code, 'b3_capture_state_invalid');
+    assert.match(rejected.error.message, /exact committed step/i);
+    let state = readRelationalCaptureState(root);
+    assert.equal(state.steps.length, 0);
+    assert.equal(state.decisions.length, 0);
+    assert.equal(state.authority.active_command_sha256, state.commands[0].command_sha256);
+
+    publisher.release();
+    const published = await publisher.result;
+    assert.equal(published.error, undefined);
+    assert.equal(published.result.kind, 'published');
+    const retry = spawnCommandPublicationRole(
+      t, root, 'consume', '2026-07-17T10:00:00.000Z',
+    );
+    const consumed = await runReleased(retry);
+    assert.equal(consumed.error, undefined);
+    assert.equal(consumed.result.kind, 'consumed');
+    state = readRelationalCaptureState(root);
+    assert.equal(state.steps.length, 1);
+    assert.equal(state.decisions[0].winner_kind, 'generic-consumption');
+    assert.equal(state.authority.active_command_sha256, null);
+  });
+
+test('D3 exact publication retry and valid next allocation succeed from real children',
+  { timeout: 15_000 }, async (t) => {
+    const root = await fixture(t);
+    const observedAt = '2026-07-17T10:00:00.000Z';
+    assert.equal((await runPublisher(root, observedAt)).result.kind, 'published');
+    const initialConsumer = spawnCommandPublicationRole(t, root, 'consume', observedAt);
+    assert.equal((await runReleased(initialConsumer)).result.kind, 'consumed');
+
+    const retry = spawnCommandPublicationRole(t, root, 'publish-prepared', observedAt);
+    const allocator = spawnCommandPublicationRole(t, root, 'allocate', observedAt);
+    await Promise.all([retry.ready, allocator.ready]);
+    retry.release();
+    allocator.release();
+    const [retried, allocated] = await Promise.all([retry.result, allocator.result]);
+
+    assert.equal(retried.error, undefined);
+    assert.equal(retried.result.kind, 'already-published');
+    assert.equal(allocated.error, undefined);
+    assert.equal(allocated.result.kind, 'allocated');
+    assert.equal(allocated.result.command.command.expectedSequence, 2);
+    const state = readRelationalCaptureState(root);
+    assert.equal(state.steps.length, 1);
+    assert.equal(state.decisions[0].winner_kind, 'generic-consumption');
+    assert.equal(state.commands.length, 2);
+    assert.equal(state.authority.active_command_sha256, state.commands[1].command_sha256);
+  });
+
+test('D3 publication retries preserve selected ordinary and generic result unions',
+  { timeout: 15_000 }, async (t) => {
+    for (const winner of ['ordinary', 'generic-consumption']) {
+      const root = await fixture(t);
+      const observedAt = '2026-07-17T10:00:00.000Z';
+      assert.equal((await runPublisher(root, observedAt)).result.kind, 'published');
+      const selector = spawnCommandPublicationRole(
+        t,
+        root,
+        winner === 'ordinary' ? 'transition' : 'consume',
+        observedAt,
+      );
+      const selected = await runReleased(selector);
+      assert.equal(selected.error, undefined, winner);
+      assert.equal(
+        selected.result.kind,
+        winner === 'ordinary' ? 'transitioned' : 'consumed',
+        winner,
+      );
+
+      const retry = spawnCommandPublicationRole(
+        t, root, 'publish-prepared', observedAt,
+      );
+      const loser = spawnCommandPublicationRole(
+        t,
+        root,
+        winner === 'ordinary' ? 'consume-prepared' : 'transition',
+        observedAt,
+      );
+      await Promise.all([retry.ready, loser.ready]);
+      retry.release();
+      loser.release();
+      const [retried, classified] = await Promise.all([retry.result, loser.result]);
+
+      assert.equal(retried.error, undefined, winner);
+      assert.equal(retried.result.kind, 'already-published', winner);
+      assert.equal(classified.error, undefined, winner);
+      assert.equal(
+        classified.result.kind,
+        winner === 'ordinary' ? 'ordinary-selected' : 'generic-consumed',
+        winner,
+      );
+      const state = readRelationalCaptureState(root);
+      assert.equal(state.steps.length, 1, winner);
+      assert.equal(state.decisions.length, 1, winner);
+      assert.equal(state.decisions[0].winner_kind, winner, winner);
+    }
+  });
+
+test('D3 real controller adopts or consumes across both publication-transition orderings',
+  { timeout: 15_000 }, async (t) => {
+    for (const order of ['successor-first', 'publication-first']) {
+      const root = await fixture(t);
+      const observedAt = '2026-07-17T10:00:00.000Z';
+      assert.deepEqual(await runPublisher(root, observedAt, 'seed-only'), { seeded: true });
+      const launchIntent = spawnCommandPublicationRole(t, root, 'transition', observedAt);
+      assert.equal((await runReleased(launchIntent)).result.kind, 'transitioned');
+
+      const controller = spawnStoreBackedPublicationRace(t, root);
+      const launchCompletion = await controller.barriers['launch-completion'];
+      assert.equal(launchCompletion.value.state, 'launching', order);
+      const restart = spawnCommandPublicationRole(
+        t, root, 'transition-restart', observedAt,
+      );
+      assert.equal((await runReleased(restart)).result.kind, 'transitioned');
+      controller.release('launch-completion');
+
+      const publication = await controller.barriers.publication;
+      assert.equal(publication.value.state, 'restart-required', order);
+      if (order === 'successor-first') {
+        const successor = spawnCommandPublicationRole(
+          t, root, 'transition-launched', observedAt,
+        );
+        assert.equal((await runReleased(successor)).result.kind, 'transitioned');
+        controller.release('publication');
+      } else {
+        controller.release('publication');
+        await controller.barriers.consumption;
+        const successor = spawnCommandPublicationRole(
+          t, root, 'transition-launched', observedAt,
+        );
+        assert.equal((await runReleased(successor)).result.kind, 'transitioned');
+        controller.release('consumption');
+      }
+      if (order === 'successor-first') {
+        const progress = await Promise.race([
+          controller.barriers.consumption.then((value) => ({ kind: 'barrier', value })),
+          controller.result.then((value) => ({ kind: 'result', value })),
+        ]);
+        assert.equal(progress.kind, 'barrier', progress.value?.error?.message ?? order);
+        const consumption = progress.value;
+        assert.equal(consumption.value.state, 'launched', order);
+        controller.release('consumption');
+      }
+
+      const outcome = await controller.result;
+      assert.equal(outcome.error, undefined, order);
+      assert.equal(outcome.observation.sequence, 1, order);
+      const state = readRelationalCaptureState(root);
+      assert.equal(state.steps.length, 1, order);
+      assert.equal(state.authority.active_command_sha256, null, order);
+      assert.deepEqual(state.decisions.map(({ source_state, winner_kind, next_state }) => ({
+        source_state, winner_kind, next_state,
+      })), [
+        {
+          source_state: 'launched',
+          winner_kind: 'generic-consumption',
+          next_state: null,
+        },
+        {
+          source_state: 'launching',
+          winner_kind: 'ordinary',
+          next_state: 'restart-required',
+        },
+        {
+          source_state: 'prepared',
+          winner_kind: 'ordinary',
+          next_state: 'launching',
+        },
+        {
+          source_state: 'restart-required',
+          winner_kind: 'ordinary',
+          next_state: 'launched',
+        },
+      ], order);
+    }
+  });

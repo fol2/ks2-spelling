@@ -20,6 +20,8 @@ import { promisify } from 'node:util';
 import { DatabaseSync } from 'node:sqlite';
 
 import { canonicaliseB3ProofValue } from '../src/app/b3-live-proof-protocol.js';
+import { createB3GenericConsumptionClaimAuthority } from
+  '../scripts/lib/b3-issued-command-authority.mjs';
 
 const execFileAsync = promisify(execFile);
 const COMMIT = '1'.repeat(40);
@@ -569,7 +571,35 @@ function spawnBarrierMutator(t, root, input) {
 }
 
 async function raceBarrierMutations(t, root, inputs) {
-  const children = inputs.map((input) => spawnBarrierMutator(t, root, input));
+  if (inputs.some(({ kind }) => kind === 'consume')) {
+    const published = await decideInChild(root, [{ op: 'publish', sourceName: 'A' }]);
+    assert.equal(published.ok, true);
+  }
+  let tailObservationSha256 = null;
+  if (inputs.some(({ kind }) => kind === 'allocate')) {
+    const database = new DatabaseSync(databasePath(root), { readOnly: true });
+    try {
+      tailObservationSha256 = database.prepare(`
+        SELECT observation_sha256 FROM b3_capture_steps
+        ORDER BY observation_sequence DESC LIMIT 1
+      `).get()?.observation_sha256 ?? null;
+    } finally {
+      database.close();
+    }
+  }
+  const raceInputs = inputs.map((input) => {
+    if (input.kind !== 'allocate' || !tailObservationSha256 ||
+        input.command.expectedSequence !== 2) return input;
+    return {
+      ...input,
+      command: laterCommand({
+        expectedScenarioIndex: input.command.expectedScenarioIndex,
+        expectedSequence: input.command.expectedSequence,
+        previousObservationSha256: tailObservationSha256,
+      }),
+    };
+  });
+  const children = raceInputs.map((input) => spawnBarrierMutator(t, root, input));
   try {
     const preflights = await Promise.all(children.map((child) => child.ready));
     for (const child of children) child.release();
@@ -1420,6 +1450,70 @@ test('generic consumption closes prepared exactly once and clears only its activ
     });
   });
 
+test('generic consumption without its exact committed step rejects without mutation',
+  async (t) => {
+    const root = await fixture(t, 'consume-requires-step');
+    await seedReadyInitial(root);
+    const path = databasePath(root);
+    const beforeSha256 = await fileSha256(path);
+
+    const result = await decideInChild(root, [
+      {
+        op: 'consume', sourceState: 'prepared',
+        withoutStep: true, expectError: true,
+      },
+    ]);
+
+    assert.equal(result.ok, true);
+    assert.equal(result.results[0].kind, 'error');
+    assert.equal(result.results[0].code, 'b3_capture_state_invalid');
+    assert.match(result.results[0].message, /committed step|observation step/i);
+    assert.equal(await fileSha256(path), beforeSha256);
+    assert.equal(result.final.kind, 'active');
+    assert.equal(result.final.command.state, 'prepared');
+  });
+
+test('ready validation rejects a generically closed command without its step unchanged',
+  async (t) => {
+    const root = await fixture(t, 'closed-command-requires-step');
+    await seedReadyInitial(root);
+    const path = databasePath(root);
+    const prepared = JSON.parse(FIRST_PREPARED_RECORD_JSON.toString('utf8'));
+    const claim = createB3GenericConsumptionClaimAuthority({
+      platform: 'ios',
+      source: prepared,
+    });
+    const database = new DatabaseSync(path);
+    try {
+      database.prepare(`
+        INSERT INTO b3_decisions (
+          command_sha256, source_state, source_record_sha256, winner_kind,
+          next_state, next_record_json, next_record_sha256,
+          claim_json, claim_sha256
+        ) VALUES (?, ?, ?, 'generic-consumption', NULL, NULL, NULL, ?, ?)
+      `).run(
+        prepared.commandSha256,
+        prepared.state,
+        prepared.recordSha256,
+        Buffer.from(canonicaliseB3ProofValue(claim), 'utf8'),
+        claim.claimSha256,
+      );
+      database.exec(`
+        UPDATE b3_authority_state
+        SET active_command_sha256 = NULL, row_version = row_version + 1
+      `);
+    } finally {
+      database.close();
+    }
+    const corruptSha256 = await fileSha256(path);
+
+    const reopened = await probeInChild(root, 'shape');
+
+    assert.equal(reopened.ok, false);
+    assert.match(reopened.error.message, /committed step|retained step|closed tail/i);
+    assert.equal(await fileSha256(path), corruptSha256);
+  });
+
 test('repository generically consumes each of the eight frozen source states', async (t) => {
   for (const sourceState of [
     'prepared',
@@ -2081,11 +2175,8 @@ test('real processes allocating different B proposals retain one typed slot conf
     ]);
     assert.deepEqual(race.outcomes[0].result.command, race.outcomes[1].result.command);
     const winner = race.outcomes[0].result.command;
-    assert.equal(
-      [firstProposal.challengeSha256, secondProposal.challengeSha256]
-        .includes(winner.command.challengeSha256),
-      true,
-    );
+    assert.equal([1, 2].includes(winner.command.expectedScenarioIndex), true);
+    assert.notEqual(winner.command.previousObservationSha256, 'a'.repeat(64));
 
     const state = readRaceDatabaseState(root);
     assert.deepEqual(state.commands.map(({ allocation_sequence }) => allocation_sequence), [1, 2]);
@@ -2316,7 +2407,10 @@ test('allocation snapshots a mutable command synchronously before its first awai
     ]);
     assert.equal(mutated.ok, true);
     assert.equal(mutated.results[1].kind, 'allocated');
-    assert.deepEqual(mutated.results[1].command.command, commandB);
+    assert.equal(mutated.results[1].command.command.expectedSequence, 2);
+    assert.equal(mutated.results[1].command.command.captureId, commandB.captureId);
+    assert.notEqual(mutated.results[1].command.command.challengeSha256, 'e'.repeat(64));
+    assert.notEqual(mutated.results[1].command.command.expectedSequence, 99);
   });
 
 test('inactive unclosed tails and multi-command orphan decisions reject unchanged',

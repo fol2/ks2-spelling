@@ -1,6 +1,6 @@
 import {
   assertB3CaptureResumeAuthority,
-  createB3CaptureCheckpoint,
+  createB3CaptureCheckpointFromObservation,
   readB3CaptureCheckpoint,
   writeB3CaptureCheckpoint,
 } from './b3-device-observation.mjs';
@@ -23,32 +23,16 @@ function stateError(message) {
   return Object.assign(new Error(message), { code: 'b3_host_capture_state_invalid' });
 }
 
-function completedScenarioCount(platform, observation) {
-  if (['TERMINAL_CAPTURE', 'MANUAL_ATTESTATION', 'COMPLETE'].includes(observation.phase)) {
-    return SCENARIOS[platform].length;
-  }
-  if (observation.phase === 'SCENARIO_COMPLETE') return observation.scenarioIndex + 1;
-  if (platform === 'ios' && observation.scenario === 'normal-purchase' &&
-      observation.phase === 'HOLD_REACHED') return observation.scenarioIndex + 1;
-  return observation.scenarioIndex;
-}
-
 function checkpointFromTail({ platform, buildAuthority, observation, revision }) {
-  const completedCount = completedScenarioCount(platform, observation);
-  return createB3CaptureCheckpoint({
-    schemaVersion: 2,
+  const checkpoint = createB3CaptureCheckpointFromObservation({
     platform,
-    captureId: observation.captureId,
-    testedApplicationCommit: buildAuthority.testedApplicationCommit,
-    applicationFingerprint: buildAuthority.applicationFingerprint,
-    installationId: observation.installationId,
-    nextScenarioIndex: completedCount,
-    nextObservationSequence: observation.sequence + 1,
-    state: observation.phase,
-    completedScenarios: SCENARIOS[platform].slice(0, completedCount),
-    previousObservationSha256: observation.observationSha256,
-    checkpointRevision: revision,
+    buildAuthority,
+    observation,
   });
+  if (checkpoint.checkpointRevision !== revision) {
+    throw stateError('B3 host capture checkpoint revision differs from its observation');
+  }
+  return checkpoint;
 }
 
 export async function reconcileB3CaptureCheckpointFromJournal({

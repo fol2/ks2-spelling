@@ -219,6 +219,14 @@ test('host extracts exactly one pack-install smoke and writes only the fixed red
       gatewayCalls: [{ operation: 'authorise', relation: 'download-capability-authorisation', traceId: '018f1d7b-97e8-4a52-8cf2-783e5089c001' }],
     } } },
   ];
+  assert.throws(
+    () => extractB3DeviceGatewaySmokeProjection({ retained: [] }),
+    (error) => error?.code === 'b3_live_capture_invalid' && /empty/i.test(error.message),
+  );
+  assert.throws(
+    () => extractB3DeviceGatewaySmokeProjection({ retained: [retained[0]] }),
+    (error) => error?.code === 'b3_live_capture_invalid' && /exactly once/i.test(error.message),
+  );
   const projection = extractB3DeviceGatewaySmokeProjection({ retained });
   assert.deepEqual(projection.capability, authority.accessBehaviour);
   assert.deepEqual(projection.range, authority.byteServingBehaviour);

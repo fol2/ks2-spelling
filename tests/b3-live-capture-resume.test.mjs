@@ -172,13 +172,37 @@ const BUILD_AUTHORITY = Object.freeze({
 
 test('default Android build authority retains an integer version code', () => {
   const authority = buildAuthorityFor('android', {
+    schemaVersion: 1,
     testedApplicationCommit: COMMIT,
     applicationFingerprint: FINGERPRINT,
     versionName: '0.3.0-b3',
+    iosBuildNumber: '19',
     androidVersionCode: 19,
   });
   assert.equal(authority.buildNumber, 19);
   assert.equal(Number.isSafeInteger(authority.buildNumber), true);
+  assert.throws(
+    () => buildAuthorityFor('ios', {
+      schemaVersion: 1,
+      testedApplicationCommit: COMMIT,
+      applicationFingerprint: FINGERPRINT,
+      versionName: '0.3.0-b3',
+      androidVersionCode: 19,
+    }),
+    /build source|closed/i,
+  );
+  assert.throws(
+    () => buildAuthorityFor('android', {
+      schemaVersion: 1,
+      testedApplicationCommit: COMMIT,
+      applicationFingerprint: FINGERPRINT,
+      versionName: '0.3.0-b3',
+      iosBuildNumber: '19',
+      androidVersionCode: 19,
+      unexpected: true,
+    }),
+    /build source|closed/i,
+  );
 });
 
 test('slow-card physical launch and pull settle within the absolute deadline', async (t) => {

@@ -107,6 +107,38 @@ export function createB3CaptureCheckpoint(value) {
   return Object.freeze({ ...unsigned, checkpointSha256 });
 }
 
+function completedScenarioCount(platform, observation) {
+  if (['TERMINAL_CAPTURE', 'MANUAL_ATTESTATION', 'COMPLETE'].includes(observation?.phase)) {
+    return SCENARIOS[platform]?.length;
+  }
+  if (observation?.phase === 'SCENARIO_COMPLETE') return observation.scenarioIndex + 1;
+  if (platform === 'ios' && observation?.scenario === 'normal-purchase' &&
+      observation?.phase === 'HOLD_REACHED') return observation.scenarioIndex + 1;
+  return observation?.scenarioIndex;
+}
+
+export function createB3CaptureCheckpointFromObservation({
+  platform,
+  buildAuthority,
+  observation,
+}) {
+  const completedCount = completedScenarioCount(platform, observation);
+  return createB3CaptureCheckpoint({
+    schemaVersion: 2,
+    platform,
+    captureId: observation?.captureId,
+    testedApplicationCommit: buildAuthority?.testedApplicationCommit,
+    applicationFingerprint: buildAuthority?.applicationFingerprint,
+    installationId: observation?.installationId,
+    nextScenarioIndex: completedCount,
+    nextObservationSequence: observation?.sequence + 1,
+    state: observation?.phase,
+    completedScenarios: SCENARIOS[platform]?.slice(0, completedCount),
+    previousObservationSha256: observation?.observationSha256,
+    checkpointRevision: observation?.sequence - 1,
+  });
+}
+
 function validateStoredCheckpoint(value, bytes) {
   if (!isExactRecord(value, STORED_KEYS) || !HASH.test(value.checkpointSha256)) {
     throw checkpointError('B3 stored capture checkpoint violates its closed schema');

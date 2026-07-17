@@ -22,6 +22,43 @@ function snapshotCommand(value) {
   return Object.freeze(snapshot);
 }
 
+function snapshotDataRecord(value, keys, label) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(value)) ||
+      Reflect.ownKeys(value).some((key) => typeof key !== 'string') ||
+      Reflect.ownKeys(value).sort().join(',') !== [...keys].sort().join(',')) {
+    throw storeError(`B3 capture-store ${label} authority is invalid`);
+  }
+  const snapshot = {};
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor?.enumerable || !Object.hasOwn(descriptor, 'value')) {
+      throw storeError(`B3 capture-store ${label} authority is invalid`);
+    }
+    snapshot[key] = descriptor.value;
+  }
+  return Object.freeze(snapshot);
+}
+
+function snapshotScalarRecord(value, label) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+    throw storeError(`B3 capture-store ${label} authority is invalid`);
+  }
+  const snapshot = {};
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (typeof key !== 'string' || !descriptor?.enumerable ||
+        !Object.hasOwn(descriptor, 'value') ||
+        (!['string', 'number', 'boolean'].includes(typeof descriptor.value) &&
+          descriptor.value !== null)) {
+      throw storeError(`B3 capture-store ${label} authority is invalid`);
+    }
+    snapshot[key] = descriptor.value;
+  }
+  return Object.freeze(snapshot);
+}
+
 export async function openB3CaptureStore(options) {
   if (!isClosedRecord(options, ['platform'])) {
     throw storeError('B3 capture-store open authority is invalid');
@@ -52,11 +89,43 @@ export async function openB3CaptureStore(options) {
     return Object.freeze({ kind, capture: outcome.capture });
   }
 
+  async function publishObservation(publicationOptions) {
+    if (closed) throw storeError('B3 capture-store is already closed');
+    const options = snapshotDataRecord(
+      publicationOptions,
+      ['source', 'observationBytes'],
+      'observation publication',
+    );
+    const source = snapshotDataRecord(options.source, [
+      'allocationSequence', 'captureId', 'command', 'commandSha256', 'platform',
+      'predecessorCommandSha256', 'recordSha256', 'schemaVersion', 'state',
+    ], 'observation source');
+    const sourceSnapshot = Object.freeze({
+      ...source,
+      command: snapshotScalarRecord(source.command, 'observation source command'),
+    });
+    const observationBytes = options.observationBytes instanceof Uint8Array
+      ? Buffer.from(options.observationBytes)
+      : null;
+    if (!observationBytes) {
+      throw storeError('B3 capture-store observation bytes are invalid');
+    }
+    return repository.publishObservation({ source: sourceSnapshot, observationBytes });
+  }
+
+  async function readCapture(...readOptions) {
+    if (closed) throw storeError('B3 capture-store is already closed');
+    if (readOptions.length !== 0) {
+      throw storeError('B3 capture-store read capture authority is invalid');
+    }
+    return repository.readCapture();
+  }
+
   async function close() {
     if (closed) throw storeError('B3 capture-store is already closed');
     closed = true;
     await repository.close();
   }
 
-  return Object.freeze({ startCapture, close });
+  return Object.freeze({ startCapture, publishObservation, readCapture, close });
 }

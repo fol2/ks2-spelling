@@ -12,7 +12,10 @@ import { constants as sqliteConstants, DatabaseSync } from 'node:sqlite';
 import { isDeepStrictEqual } from 'node:util';
 
 import { canonicaliseB3ProofValue } from '../../src/app/b3-live-proof-protocol.js';
-import { readB3BuildAuthoritySource } from './b3-build-authority-source.mjs';
+import {
+  readB3BuildAuthoritySource,
+  readB3BuildAuthoritySourceSync,
+} from './b3-build-authority-source.mjs';
 import {
   B3_CAPTURE_STATE_APPLICATION_ID,
   B3_CAPTURE_STATE_SCHEMA_OBJECTS,
@@ -809,6 +812,8 @@ export async function openB3CaptureStateDatabase(options) {
         database,
         platform,
         isClosed: () => closed,
+        readBuildSourceFresh: readB3BuildAuthoritySource,
+        readBuildSourceFreshSync: readB3BuildAuthoritySourceSync,
         readBuildAuthorityFresh: async () =>
           (await readB3BuildAuthoritySource()).buildAuthority,
         validate: (freshBuildAuthority) =>

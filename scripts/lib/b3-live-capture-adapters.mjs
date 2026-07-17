@@ -30,6 +30,8 @@ import {
 } from './b3-evidence.mjs';
 import {
   appendB3PhysicalObservation,
+  buildB3PhysicalProofAuthority,
+  deriveB3DeviceGatewaySmokeProjection,
   deriveB3ProofObservationChain,
   deriveB3ScenarioTransition,
   readB3PhysicalObservationJournal,
@@ -80,23 +82,22 @@ export function extractB3DeviceGatewaySmokeProjection({ retained }) {
     throw captureError('B3 device gateway smoke must occur exactly once');
   }
   const [{ observation }] = candidates;
-  if (observation.scenario !== 'pack-install' || observation.phase !== 'SCENARIO_COMPLETE' ||
+  if (observation.scenario !== 'pack-install' ||
+      observation.phase !== 'SCENARIO_COMPLETE' ||
       !observation.proofProjection.gatewayCalls.some(({ operation, relation }) =>
         operation === 'authorise' && relation === 'download-capability-authorisation')) {
     throw captureError('B3 device gateway smoke is not bound to pack-install authorisation');
   }
-  const authority = validateB3GatewaySmokeAuthority(
-    observation.proofProjection.gatewaySmokeAuthority,
-  );
-  return Object.freeze({
-    schemaVersion: authority.schemaVersion,
-    deploymentVersionId: authority.deploymentVersionId,
-    scriptAuthoritySha256: authority.scriptAuthoritySha256,
-    signedEnvelopeSha256: authority.signedEnvelopeSha256,
-    objects: Object.freeze(authority.objects.map((object) => Object.freeze({ ...object }))),
-    capability: Object.freeze({ ...authority.accessBehaviour }),
-    range: Object.freeze({ ...authority.byteServingBehaviour }),
-  });
+  try {
+    const projection = deriveB3DeviceGatewaySmokeProjection(retained);
+    if (projection === null) {
+      throw captureError('B3 device gateway smoke must occur exactly once');
+    }
+    return projection;
+  } catch (error) {
+    if (error?.code === 'b3_live_capture_invalid') throw error;
+    throw captureError(error?.message ?? 'B3 device gateway smoke is invalid');
+  }
 }
 
 export async function persistB3DeviceGatewaySmokeProjection({ root, projection }) {
@@ -1217,21 +1218,7 @@ async function readBuildExpected(root) {
 }
 
 export function buildAuthorityFor(platform, expected) {
-  return Object.freeze({
-    mode: 'B3SandboxProof',
-    proofKind: 'physical-live',
-    platform,
-    distribution: PLATFORM[platform].distribution,
-    publicSandboxOrigin: 'https://b3-gateway.eugnel.uk',
-    workerName: 'ks2-spelling-b3-sandbox',
-    bundleId: 'uk.eugnel.ks2spelling',
-    testedApplicationCommit: expected.testedApplicationCommit,
-    applicationFingerprint: expected.applicationFingerprint,
-    versionName: expected.versionName,
-    buildNumber: platform === 'ios'
-      ? expected.iosBuildNumber
-      : expected.androidVersionCode,
-  });
+  return buildB3PhysicalProofAuthority(platform, expected);
 }
 
 function operatorRequired(instructionCode) {

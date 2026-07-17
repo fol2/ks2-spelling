@@ -8,6 +8,11 @@ import {
 import { openB3CaptureStateDatabase } from './b3-capture-state-database.mjs';
 import { takeB3CaptureStateSession } from './b3-capture-state-internal.mjs';
 import {
+  deriveB3CaptureStep,
+  deriveB3DeviceGatewaySmokeProjection,
+  validateB3RetainedCaptureStep,
+} from './b3-physical-observation-journal.mjs';
+import {
   createB3GenericConsumptionClaimAuthority,
   createB3IssuedCommandStateAuthority,
   createB3OrdinaryIssuedCommandClaimAuthority,
@@ -31,6 +36,45 @@ function repositoryError(message) {
   return Object.assign(new Error(message), { code: 'b3_capture_state_invalid' });
 }
 
+function driftError(message) {
+  return Object.assign(new Error(message), { code: 'b3_capture_state_drift' });
+}
+
+function isRetryableDrift(error) {
+  return error?.code === 'b3_capture_state_drift' ||
+    error?.errcode === 5 || error?.errcode === 6 ||
+    String(error?.code ?? '').startsWith('SQLITE_BUSY') ||
+    String(error?.code ?? '').startsWith('SQLITE_LOCKED');
+}
+
+function buildSourceSnapshot(source) {
+  return Object.freeze({
+    bytes: source.bytes.toString('base64'),
+    sha256: source.sha256,
+    sourceSha256: source.sourceSha256,
+    value: Object.freeze({ ...source.value }),
+    buildAuthority: Object.freeze({ ...source.buildAuthority }),
+    identity: Object.freeze({
+      ancestors: Object.freeze(source.identity.ancestors.map((entry) =>
+        Object.freeze({ ...entry }))),
+      file: Object.freeze({ ...source.identity.file }),
+    }),
+  });
+}
+
+function copyStepRow(row) {
+  return Object.freeze({
+    captureId: row.captureId,
+    observationSequence: row.observationSequence,
+    commandSha256: row.commandSha256,
+    recordBytes: Buffer.from(row.recordBytes),
+    recordSha256: row.recordSha256,
+    observationSha256: row.observationSha256,
+    checkpointBytes: Buffer.from(row.checkpointBytes),
+    checkpointSha256: row.checkpointSha256,
+  });
+}
+
 function assertInitialReconciliationWrite(result) {
   if (result.changes !== 1) {
     throw repositoryError('B3 capture-state initial reconciliation lost authority');
@@ -49,6 +93,46 @@ function snapshotClosedRecord(value, expectedKeys, label) {
   }
   const snapshot = {};
   for (const key of keys) snapshot[key] = value[key];
+  return Object.freeze(snapshot);
+}
+
+function snapshotClosedDataRecord(value, expectedKeys, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+    throw repositoryError(`B3 capture-state ${label} authority is invalid`);
+  }
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key !== 'string') ||
+      !isDeepStrictEqual([...keys].sort(), [...expectedKeys].sort())) {
+    throw repositoryError(`B3 capture-state ${label} authority is invalid`);
+  }
+  const snapshot = {};
+  for (const key of keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor?.enumerable || !Object.hasOwn(descriptor, 'value')) {
+      throw repositoryError(`B3 capture-state ${label} authority is invalid`);
+    }
+    snapshot[key] = descriptor.value;
+  }
+  return Object.freeze(snapshot);
+}
+
+function snapshotScalarCommand(value, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+    throw repositoryError(`B3 capture-state ${label} authority is invalid`);
+  }
+  const snapshot = {};
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (typeof key !== 'string' || !descriptor?.enumerable ||
+        !Object.hasOwn(descriptor, 'value') ||
+        !['string', 'number', 'boolean'].includes(typeof descriptor.value) &&
+          descriptor.value !== null) {
+      throw repositoryError(`B3 capture-state ${label} authority is invalid`);
+    }
+    snapshot[key] = descriptor.value;
+  }
   return Object.freeze(snapshot);
 }
 
@@ -669,10 +753,301 @@ export async function openB3CaptureStateRepository(options) {
     return genericOutcome('already-consumed', outcome.decision);
   }
 
+  function capturePublicationSnapshot(state, canonicalSource) {
+    if (state.kind !== 'ready-initial') {
+      throw repositoryError('B3 capture-state publication has no ready working capture');
+    }
+    const selected = selectedSource(state, canonicalSource);
+    if (!selected) {
+      throw repositoryError('B3 capture-state publication source is not retained');
+    }
+    const allocated = state.allocatedCommands.find((candidate) =>
+      candidate.commandSha256 === canonicalSource.commandSha256);
+    if (!allocated) {
+      throw repositoryError('B3 capture-state publication command is not allocated');
+    }
+    const steps = Object.freeze(state.steps.map(copyStepRow));
+    const sequence = allocated.command.expectedSequence;
+    return Object.freeze({
+      captureId: state.capture.capture_id,
+      activeCommand: state.activeCommand,
+      source: selected,
+      command: allocated.command,
+      commandSha256: allocated.commandSha256,
+      allCommands: Object.freeze(state.allocatedCommands.map((entry) => entry)),
+      sequence,
+      steps,
+      predecessor: sequence === 1 ? null : (steps[sequence - 2] ?? null),
+      existing: steps[sequence - 1] ?? null,
+    });
+  }
+
+  function sameExistingPublicationSnapshot(left, right) {
+    return left.captureId === right.captureId &&
+      left.commandSha256 === right.commandSha256 &&
+      left.sequence === right.sequence &&
+      isDeepStrictEqual(left.source, right.source) &&
+      isDeepStrictEqual(left.command, right.command) &&
+      isDeepStrictEqual(left.predecessor, right.predecessor) &&
+      isDeepStrictEqual(left.existing, right.existing);
+  }
+
+  function sameMissingPublicationSnapshot(left, right) {
+    return sameExistingPublicationSnapshot(left, right) &&
+      isDeepStrictEqual(left.activeCommand, right.activeCommand) &&
+      isDeepStrictEqual(left.allCommands, right.allCommands) &&
+      isDeepStrictEqual(left.steps, right.steps);
+  }
+
+  function readPublicationSnapshot(sourceSnapshot, buildSource) {
+    session.database.exec('BEGIN');
+    try {
+      const state = session.validate(buildSource.buildAuthority);
+      const canonicalSource = canonicaliseSource(
+        sourceSnapshot,
+        session.platform,
+        buildSource.buildAuthority,
+      );
+      const snapshot = capturePublicationSnapshot(state, canonicalSource);
+      session.database.exec('COMMIT');
+      return snapshot;
+    } catch (error) {
+      if (session.database.isTransaction) session.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  function rereadExistingPublicationSnapshot(sourceSnapshot, preflightSource) {
+    session.database.exec('BEGIN');
+    try {
+      const committedSource = session.readBuildSourceFreshSync();
+      assertBuildSourceUnchanged(preflightSource, committedSource);
+      const state = session.validate(committedSource.buildAuthority);
+      const canonicalSource = canonicaliseSource(
+        sourceSnapshot,
+        session.platform,
+        committedSource.buildAuthority,
+      );
+      const snapshot = capturePublicationSnapshot(state, canonicalSource);
+      session.database.exec('COMMIT');
+      return snapshot;
+    } catch (error) {
+      if (session.database.isTransaction) session.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  async function validatePublicationSteps(snapshot, buildSourceValue) {
+    const retained = [];
+    let previousObservation;
+    for (const row of snapshot.steps) {
+      const command = snapshot.commandSha256 === row.commandSha256
+        ? snapshot.command
+        : snapshot.allCommands.find((candidate) =>
+          candidate.commandSha256 === row.commandSha256)?.command;
+      if (!command) {
+        throw repositoryError('B3 capture-state retained step command is absent');
+      }
+      const step = await validateB3RetainedCaptureStep({
+        platform: session.platform,
+        command,
+        buildSource: buildSourceValue,
+        previousObservation,
+        recordBytes: row.recordBytes,
+        checkpointBytes: row.checkpointBytes,
+      });
+      if (step.recordSha256 !== row.recordSha256 ||
+          step.observationSha256 !== row.observationSha256 ||
+          step.checkpointBlobSha256 !== row.checkpointSha256) {
+        throw repositoryError('B3 capture-state retained step semantic hashes differ');
+      }
+      retained.push(step);
+      previousObservation = step.record.observation;
+    }
+    return Object.freeze(retained);
+  }
+
+  function assertBuildSourceUnchanged(left, right) {
+    if (!isDeepStrictEqual(buildSourceSnapshot(left), buildSourceSnapshot(right))) {
+      throw driftError('B3 capture-state build source changed during publication');
+    }
+  }
+
+  function committedResult(kind, step) {
+    return Object.freeze({ kind, record: step.record, checkpoint: step.checkpoint });
+  }
+
+  async function publishObservation(publicationOptions) {
+    if (session.isClosed()) {
+      throw repositoryError('B3 capture-state repository is already closed');
+    }
+    const options = snapshotClosedDataRecord(
+      publicationOptions,
+      ['source', 'observationBytes'],
+      'observation publication',
+    );
+    const copiedSource = snapshotClosedDataRecord(options.source, SOURCE_KEYS, 'source');
+    const sourceSnapshot = Object.freeze({
+      ...copiedSource,
+      command: snapshotScalarCommand(copiedSource.command, 'source command'),
+    });
+    const observationBytes = options.observationBytes instanceof Uint8Array
+      ? Buffer.from(options.observationBytes)
+      : null;
+    if (!observationBytes) {
+      throw repositoryError('B3 capture-state observation bytes are invalid');
+    }
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        const preflightSource = await session.readBuildSourceFresh();
+        const preflight = readPublicationSnapshot(sourceSnapshot, preflightSource);
+        const retained = await validatePublicationSteps(preflight, preflightSource.value);
+        const previousObservation = retained[preflight.sequence - 2]?.record.observation;
+        const proposal = await deriveB3CaptureStep({
+          platform: session.platform,
+          command: preflight.command,
+          buildSource: preflightSource.value,
+          previousObservation,
+          observationBytes,
+        });
+
+        if (preflight.existing !== null) {
+          const committed = rereadExistingPublicationSnapshot(
+            sourceSnapshot,
+            preflightSource,
+          );
+          if (!sameExistingPublicationSnapshot(committed, preflight)) {
+            throw driftError('B3 capture-state existing publication snapshot changed');
+          }
+          const existing = retained[preflight.sequence - 1];
+          const identical = proposal.recordBytes.equals(existing.recordBytes) &&
+            proposal.checkpointBytes.equals(existing.checkpointBytes);
+          return committedResult(
+            identical ? 'already-published' : 'publication-conflict',
+            existing,
+          );
+        }
+
+        if (!isDeepStrictEqual(preflight.activeCommand, preflight.source) ||
+            preflight.steps.length !== preflight.sequence - 1 ||
+            (preflight.predecessor?.observationSha256 ?? '0'.repeat(64)) !==
+              preflight.command.previousObservationSha256) {
+          throw repositoryError('B3 capture-state missing publication is not the active tail');
+        }
+
+        session.database.exec('BEGIN IMMEDIATE');
+        let committedRow;
+        try {
+          const committedSource = session.readBuildSourceFreshSync();
+          assertBuildSourceUnchanged(preflightSource, committedSource);
+          const state = session.validate(committedSource.buildAuthority);
+          const canonicalSource = canonicaliseSource(
+            sourceSnapshot,
+            session.platform,
+            committedSource.buildAuthority,
+          );
+          const committed = capturePublicationSnapshot(state, canonicalSource);
+          if (!sameMissingPublicationSnapshot(committed, preflight)) {
+            throw driftError('B3 capture-state missing publication snapshot changed');
+          }
+          const inserted = session.database.prepare(`
+            INSERT INTO b3_capture_steps (
+              capture_id, observation_sequence, command_sha256,
+              record_json, record_sha256, observation_sha256,
+              checkpoint_json, checkpoint_sha256
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT DO NOTHING
+          `).run(
+            committed.captureId,
+            committed.sequence,
+            committed.commandSha256,
+            proposal.recordBytes,
+            proposal.recordSha256,
+            proposal.observationSha256,
+            proposal.checkpointBytes,
+            proposal.checkpointBlobSha256,
+          );
+          if (inserted.changes !== 1) {
+            throw driftError('B3 capture-state publication insert selected no row');
+          }
+          const after = session.validate(committedSource.buildAuthority);
+          committedRow = copyStepRow(after.steps[committed.sequence - 1]);
+          session.database.exec('COMMIT');
+        } catch (error) {
+          if (session.database.isTransaction) session.database.exec('ROLLBACK');
+          throw error;
+        }
+        const committedStep = await validateB3RetainedCaptureStep({
+          platform: session.platform,
+          command: preflight.command,
+          buildSource: preflightSource.value,
+          previousObservation,
+          recordBytes: committedRow.recordBytes,
+          checkpointBytes: committedRow.checkpointBytes,
+        });
+        return committedResult('published', committedStep);
+      } catch (error) {
+        if (isRetryableDrift(error) && attempt < 3) continue;
+        if (error?.code === 'b3_capture_state_invalid') throw error;
+        throw repositoryError(error?.message ?? 'B3 capture-state publication failed');
+      }
+    }
+    throw repositoryError('B3 capture-state publication attempt bound exceeded');
+  }
+
+  async function readCapture(...readOptions) {
+    if (session.isClosed()) {
+      throw repositoryError('B3 capture-state repository is already closed');
+    }
+    if (readOptions.length !== 0) {
+      throw repositoryError('B3 capture-state read capture authority is invalid');
+    }
+    try {
+      const buildSource = await session.readBuildSourceFresh();
+      session.database.exec('BEGIN');
+      let snapshot;
+      try {
+        const state = session.validate(buildSource.buildAuthority);
+        if (state.kind !== 'ready-initial' || state.capture.capture_state !== 'working') {
+          throw repositoryError('B3 capture-state has no readable working capture');
+        }
+        snapshot = Object.freeze({
+          kind: state.kind,
+          captureId: state.capture.capture_id,
+          commandSha256: state.allocatedCommands.at(-1).commandSha256,
+          command: state.allocatedCommands.at(-1).command,
+          allCommands: Object.freeze(state.allocatedCommands.map((entry) => entry)),
+          steps: Object.freeze(state.steps.map(copyStepRow)),
+        });
+        session.database.exec('COMMIT');
+      } catch (error) {
+        if (session.database.isTransaction) session.database.exec('ROLLBACK');
+        throw error;
+      }
+      const retained = await validatePublicationSteps(snapshot, buildSource.value);
+      const records = Object.freeze(retained.map((step) => step.record));
+      const checkpoint = retained.at(-1)?.checkpoint ?? null;
+      return Object.freeze({
+        schemaVersion: 1,
+        platform: session.platform,
+        captureId: snapshot.captureId,
+        records,
+        checkpoint,
+        gatewaySmokeProjection: deriveB3DeviceGatewaySmokeProjection(records),
+      });
+    } catch (error) {
+      if (error?.code === 'b3_capture_state_invalid') throw error;
+      throw repositoryError(error?.message ?? 'B3 capture-state read failed');
+    }
+  }
+
   return Object.freeze({
     allocateNextCommand,
     consumeCommand,
     readActiveCommand,
+    readCapture,
+    publishObservation,
     reconcileInitialCaptureStart,
     reserveInitialCaptureStart,
     transitionCommand,

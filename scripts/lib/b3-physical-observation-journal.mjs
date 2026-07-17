@@ -14,6 +14,7 @@ import { resolve } from 'node:path';
 import { parseB3StrictJsonBytes } from '../check-b3-external-prerequisites.mjs';
 import {
   canonicaliseB3ProofValue,
+  validateB3GatewaySmokeAuthority,
   validateB3ProofLaunchCommand,
   validateB3ProofObservationBytes,
 } from '../../src/app/b3-live-proof-protocol.js';
@@ -21,6 +22,10 @@ import {
   createB3ObservationChainAuthoritySha256,
   createB3TransitionGatewayProjectionSha256,
 } from './b3-evidence.mjs';
+import {
+  createB3CaptureCheckpointFromObservation,
+  validateB3CaptureCheckpointBytes,
+} from './b3-device-observation.mjs';
 
 const MAXIMUM_RECORD_BYTES = 128 * 1024;
 const MAXIMUM_JOURNAL_RECORDS = 512;
@@ -37,6 +42,16 @@ const PLATFORMS = Object.freeze({
   android: 'android-play-physical',
 });
 const RECORD_NAME = /^(?<sequence>[0-9]{8})\.json$/u;
+const COMMIT = /^[0-9a-f]{40}$/u;
+const HASH = /^[0-9a-f]{64}$/u;
+const BUILD_SOURCE_KEYS = Object.freeze([
+  'schemaVersion',
+  'testedApplicationCommit',
+  'applicationFingerprint',
+  'versionName',
+  'iosBuildNumber',
+  'androidVersionCode',
+]);
 const validatedRecordAuthority = new WeakMap();
 const validatedJournalSnapshots = new WeakSet();
 
@@ -49,6 +64,34 @@ function platformName(platform) {
     throw journalError('B3 physical observation journal platform is invalid');
   }
   return platform;
+}
+
+export function buildB3PhysicalProofAuthority(platform, buildSource) {
+  const name = platformName(platform);
+  if (!exactRecord(buildSource, BUILD_SOURCE_KEYS) || buildSource.schemaVersion !== 1 ||
+      !COMMIT.test(buildSource.testedApplicationCommit ?? '') ||
+      !HASH.test(buildSource.applicationFingerprint ?? '') ||
+      buildSource.versionName !== '0.3.0-b3' ||
+      !/^[1-9][0-9]*$/u.test(buildSource.iosBuildNumber ?? '') ||
+      !Number.isSafeInteger(buildSource.androidVersionCode) ||
+      buildSource.androidVersionCode <= 0) {
+    throw journalError('B3 physical proof build source is invalid or not closed');
+  }
+  return Object.freeze({
+    mode: 'B3SandboxProof',
+    proofKind: 'physical-live',
+    platform: name,
+    distribution: name === 'ios' ? 'development' : 'play-internal',
+    publicSandboxOrigin: 'https://b3-gateway.eugnel.uk',
+    workerName: 'ks2-spelling-b3-sandbox',
+    bundleId: 'uk.eugnel.ks2spelling',
+    testedApplicationCommit: buildSource.testedApplicationCommit,
+    applicationFingerprint: buildSource.applicationFingerprint,
+    versionName: buildSource.versionName,
+    buildNumber: name === 'ios'
+      ? buildSource.iosBuildNumber
+      : buildSource.androidVersionCode,
+  });
 }
 
 function exactRecord(value, keys) {
@@ -235,7 +278,7 @@ export async function validateB3PhysicalObservationJournalDirectory({
       throw journalError('B3 physical observation journal sequence is not contiguous');
     }
     const retained = await readSecureRecord(resolve(directory, entry.name));
-    const record = await validateRecordBytes({
+    const { record } = await validateB3PhysicalObservationRecordBytes({
       bytes: retained.bytes,
       platform: name,
       sequence,
@@ -279,7 +322,18 @@ export async function validateB3PhysicalObservationJournalDirectory({
   });
 }
 
-async function validateRecordBytes({ bytes, platform, sequence, buildAuthority, previousObservation }) {
+export async function validateB3PhysicalObservationRecordBytes({
+  bytes: rawBytes,
+  platform,
+  sequence,
+  buildAuthority,
+  previousObservation,
+  expectedCommand,
+}) {
+  const bytes = Buffer.isBuffer(rawBytes) ? Buffer.from(rawBytes) : null;
+  if (!bytes || bytes.length === 0 || bytes.length > MAXIMUM_RECORD_BYTES) {
+    throw journalError('B3 physical observation journal record bytes are invalid');
+  }
   const value = parseB3StrictJsonBytes(bytes, 'B3 physical observation journal record');
   if (!exactRecord(value, RECORD_KEYS) || value.schemaVersion !== 1 ||
       value.platform !== platform || value.sequence !== sequence ||
@@ -289,6 +343,11 @@ async function validateRecordBytes({ bytes, platform, sequence, buildAuthority, 
   const command = validateB3ProofLaunchCommand(value.command);
   if (command.platform !== PLATFORMS[platform] || command.expectedSequence !== sequence) {
     throw journalError('B3 physical observation journal command authority is invalid');
+  }
+  if (expectedCommand !== undefined &&
+      canonicaliseB3ProofValue(command) !==
+        canonicaliseB3ProofValue(validateB3ProofLaunchCommand(expectedCommand))) {
+    throw journalError('B3 retained observation command differs from persisted authority');
   }
   const observationBytes = Buffer.from(canonicaliseB3ProofValue(value.observation), 'utf8');
   const observation = await validateB3ProofObservationBytes(observationBytes, {
@@ -304,7 +363,167 @@ async function validateRecordBytes({ bytes, platform, sequence, buildAuthority, 
     observation: structuredClone(observation),
   });
   validatedRecordAuthority.set(record, sha256(bytes));
-  return record;
+  return Object.freeze({
+    record,
+    get recordBytes() { return Buffer.from(bytes); },
+    recordSha256: sha256(bytes),
+    observationSha256: record.observation.observationSha256,
+  });
+}
+
+export async function deriveB3PhysicalObservationRecord({
+  platform,
+  command: rawCommand,
+  buildAuthority,
+  previousObservation,
+  observationBytes: rawObservationBytes,
+}) {
+  const name = platformName(platform);
+  const command = validateB3ProofLaunchCommand(rawCommand);
+  if (command.platform !== PLATFORMS[name]) {
+    throw journalError('B3 physical observation command platform is invalid');
+  }
+  const observationBytes = rawObservationBytes instanceof Uint8Array
+    ? Buffer.from(rawObservationBytes)
+    : null;
+  if (!observationBytes || observationBytes.length === 0 ||
+      observationBytes.length > MAXIMUM_RECORD_BYTES) {
+    throw journalError('B3 physical observation bytes are invalid');
+  }
+  const observation = await validateB3ProofObservationBytes(observationBytes, {
+    command,
+    buildAuthority,
+    ...(previousObservation ? { previousObservation } : {}),
+  });
+  const record = deepFreeze({
+    schemaVersion: 1,
+    platform: name,
+    sequence: command.expectedSequence,
+    command: structuredClone(command),
+    observation: structuredClone(observation),
+  });
+  const bytes = Buffer.from(canonicaliseB3ProofValue(record), 'utf8');
+  if (bytes.length > MAXIMUM_RECORD_BYTES) {
+    throw journalError('B3 physical observation journal record exceeds its bound');
+  }
+  validatedRecordAuthority.set(record, sha256(bytes));
+  return Object.freeze({
+    record,
+    get recordBytes() { return Buffer.from(bytes); },
+    recordSha256: sha256(bytes),
+    observationSha256: observation.observationSha256,
+  });
+}
+
+function captureStepResult({ recordResult, checkpoint, checkpointBytes }) {
+  const retainedRecordBytes = recordResult.recordBytes;
+  const retainedCheckpointBytes = Buffer.from(checkpointBytes);
+  return Object.freeze({
+    record: recordResult.record,
+    checkpoint: deepFreeze(structuredClone(checkpoint)),
+    get recordBytes() { return Buffer.from(retainedRecordBytes); },
+    get checkpointBytes() { return Buffer.from(retainedCheckpointBytes); },
+    recordSha256: recordResult.recordSha256,
+    observationSha256: recordResult.observationSha256,
+    checkpointBlobSha256: sha256(retainedCheckpointBytes),
+  });
+}
+
+export async function deriveB3CaptureStep({
+  platform,
+  command,
+  buildSource,
+  previousObservation,
+  observationBytes,
+}) {
+  const buildAuthority = buildB3PhysicalProofAuthority(platform, buildSource);
+  const recordResult = await deriveB3PhysicalObservationRecord({
+    platform,
+    command,
+    buildAuthority,
+    previousObservation,
+    observationBytes,
+  });
+  const checkpoint = createB3CaptureCheckpointFromObservation({
+    platform,
+    buildAuthority,
+    observation: recordResult.record.observation,
+  });
+  return captureStepResult({
+    recordResult,
+    checkpoint,
+    checkpointBytes: Buffer.from(canonicaliseB3ProofValue(checkpoint), 'utf8'),
+  });
+}
+
+export async function validateB3RetainedCaptureStep({
+  platform,
+  command,
+  buildSource,
+  previousObservation,
+  recordBytes,
+  checkpointBytes: rawCheckpointBytes,
+}) {
+  const buildAuthority = buildB3PhysicalProofAuthority(platform, buildSource);
+  const sequence = command?.expectedSequence;
+  const recordResult = await validateB3PhysicalObservationRecordBytes({
+    bytes: recordBytes,
+    platform,
+    sequence,
+    buildAuthority,
+    previousObservation,
+    expectedCommand: command,
+  });
+  const checkpointBytes = Buffer.isBuffer(rawCheckpointBytes)
+    ? Buffer.from(rawCheckpointBytes)
+    : null;
+  if (!checkpointBytes) {
+    throw journalError('B3 retained capture checkpoint bytes are invalid');
+  }
+  const checkpoint = validateB3CaptureCheckpointBytes({ bytes: checkpointBytes, platform });
+  const expected = createB3CaptureCheckpointFromObservation({
+    platform,
+    buildAuthority,
+    observation: recordResult.record.observation,
+  });
+  if (canonicaliseB3ProofValue(checkpoint) !== canonicaliseB3ProofValue(expected) ||
+      canonicaliseB3ProofValue(checkpoint) !== checkpointBytes.toString('utf8')) {
+    throw journalError('B3 retained capture checkpoint differs from its observation');
+  }
+  return captureStepResult({ recordResult, checkpoint, checkpointBytes });
+}
+
+export function deriveB3DeviceGatewaySmokeProjection(records) {
+  if (!Array.isArray(records)) {
+    throw journalError('B3 device gateway smoke records are invalid');
+  }
+  const candidates = records.filter(({ observation }) =>
+    observation?.proofProjection?.gatewaySmokeAuthority !== null &&
+    observation?.proofProjection?.gatewaySmokeAuthority !== undefined);
+  if (candidates.length === 0) return null;
+  if (candidates.length !== 1) {
+    throw journalError('B3 device gateway smoke must occur exactly once when present');
+  }
+  const [{ observation }] = candidates;
+  if (observation.platform === 'android-play-physical' ||
+      observation.scenario !== 'pack-install' ||
+      observation.phase !== 'SCENARIO_COMPLETE' ||
+      !observation.proofProjection.gatewayCalls.some(({ operation, relation }) =>
+        operation === 'authorise' && relation === 'download-capability-authorisation')) {
+    throw journalError('B3 device gateway smoke is not bound to iOS pack-install authorisation');
+  }
+  const authority = validateB3GatewaySmokeAuthority(
+    observation.proofProjection.gatewaySmokeAuthority,
+  );
+  return deepFreeze({
+    schemaVersion: authority.schemaVersion,
+    deploymentVersionId: authority.deploymentVersionId,
+    scriptAuthoritySha256: authority.scriptAuthoritySha256,
+    signedEnvelopeSha256: authority.signedEnvelopeSha256,
+    objects: structuredClone(authority.objects),
+    capability: structuredClone(authority.accessBehaviour),
+    range: structuredClone(authority.byteServingBehaviour),
+  });
 }
 
 export async function readB3PhysicalObservationJournal({ root, platform, buildAuthority }) {
@@ -359,22 +578,14 @@ export async function appendB3PhysicalObservation({
     }
     return relative;
   }
-  const observation = await validateB3ProofObservationBytes(observationBytes, {
+  const derived = await deriveB3PhysicalObservationRecord({
+    platform: name,
     command,
     buildAuthority,
-    ...(previousObservation ? { previousObservation } : {}),
+    previousObservation,
+    observationBytes,
   });
-  const record = {
-    schemaVersion: 1,
-    platform: name,
-    sequence,
-    command,
-    observation,
-  };
-  const bytes = Buffer.from(canonicaliseB3ProofValue(record), 'utf8');
-  if (bytes.length > MAXIMUM_RECORD_BYTES) {
-    throw journalError('B3 physical observation journal record exceeds its bound');
-  }
+  const bytes = derived.recordBytes;
   const { directory } = await ensurePrivateDirectory(root, name);
   const path = resolve(directory, filename);
   if (sequence !== records.length + 1) {

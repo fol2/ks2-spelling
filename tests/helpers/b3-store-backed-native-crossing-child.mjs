@@ -314,6 +314,67 @@ async function verifyCrossing() {
   });
 }
 
+async function fallbackLaunchedRace() {
+  await seed('prepared');
+  const retained = (await transitionActive('launching')).command;
+  let pulls = 0;
+  let paused = false;
+  const controller = createB3StoreBackedLiveCapture({
+    platform: 'ios',
+    buildAuthority: async () => buildAuthority(),
+    transport: {
+      async launch() { throw new Error('unexpected native launch'); },
+      async pullObservation() {
+        pulls += 1;
+        if (pulls <= 2) {
+          throw Object.assign(
+            new Error('B3 physical-device observation pull did not produce the fixed file'),
+            { code: 'b3_physical_device_command_failed' },
+          );
+        }
+        return Buffer.from(canonicaliseB3ProofValue(
+          await observation(retained.command),
+        ), 'utf8');
+      },
+      async forceStop() { throw new Error('unexpected native force-stop'); },
+    },
+    wait: async () => {
+      if (paused) return;
+      paused = true;
+      const active = await activeCommand();
+      send({
+        type: 'ready',
+        stage: 'fallback-launched-race',
+        state: active.kind === 'active' ? active.command.state : active.kind,
+      });
+      await waitForGo();
+    },
+  });
+  let observationSha256 = null;
+  let error = null;
+  try {
+    observationSha256 = (await controller.advance({ maximumPullAttempts: 2 }))
+      .observationSha256;
+  } catch (caught) {
+    error = Object.freeze({
+      code: caught?.code ?? null,
+      instructionCode: caught?.instructionCode ?? null,
+      message: caught?.message ?? null,
+    });
+  } finally {
+    await controller.dispose();
+  }
+  const activeAfter = await activeCommand();
+  send({
+    type: 'result',
+    pulls,
+    observationSha256,
+    error,
+    activeKindAfter: activeAfter.kind,
+    stateAfter: activeAfter.kind === 'active' ? activeAfter.command.state : null,
+  });
+}
+
 async function stalePin(kind, nextState) {
   const initialState = nextState === 'stop-executing' ? 'stop-intent' : 'prepared';
   await seed(initialState);
@@ -548,6 +609,7 @@ async function finaliserMatrix(platform, state) {
 
 if (mode === 'crossing') await crossing(targetState);
 else if (mode === 'verify-crossing') await verifyCrossing();
+else if (mode === 'fallback-launched-race') await fallbackLaunchedRace();
 else if (mode === 'seed') {
   const state = await seed(targetState);
   send({ type: 'result', state: state.state });

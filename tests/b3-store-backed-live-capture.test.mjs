@@ -703,6 +703,85 @@ test('retained ambiguous launch states enter the closed reinstall gate after bou
     }
   });
 
+test('bounded ambiguous-launch fallback adopts a concurrent launched winner without reinstall',
+  async (t) => {
+    for (const state of ['launching', 'reinstall-launching']) {
+      await t.test(state, async () => {
+        const authority = buildAuthority();
+        const command = deriveB3NextStoreCommand({
+          platform: 'ios',
+          buildAuthority: authority,
+          capture: null,
+          uuidFactory: () => CAPTURE_ID,
+        });
+        const fake = fakeStore({
+          active: commandSource('ios', command, state),
+          capture: Object.freeze({
+            schemaVersion: 1,
+            platform: 'ios',
+            captureId: CAPTURE_ID,
+            records: Object.freeze([]),
+            checkpoint: null,
+            gatewaySmokeProjection: null,
+          }),
+        });
+        const ordinaryTransition = fake.store.transitionCommand;
+        let fallbackConflicted = false;
+        const store = Object.freeze({
+          ...fake.store,
+          async transitionCommand(input) {
+            if (!fallbackConflicted && input.source.state === state &&
+                input.nextState === 'restart-required') {
+              fallbackConflicted = true;
+              fake.events.push(`transition:${state}:restart-required`);
+              const winner = commandSource(
+                'ios', input.source.command, 'launched', input.source.allocationSequence,
+              );
+              fake.setActive(winner);
+              return Object.freeze({ kind: 'ordinary-conflict', command: winner });
+            }
+            return ordinaryTransition(input);
+          },
+        });
+        let launches = 0;
+        let pulls = 0;
+        const controller = createB3StoreBackedLiveCapture({
+          platform: 'ios',
+          buildAuthority: async () => authority,
+          storeFactory: async () => store,
+          transport: {
+            async launch() { launches += 1; },
+            async pullObservation() {
+              pulls += 1;
+              if (pulls <= 2) {
+                throw Object.assign(
+                  new Error('B3 physical-device observation pull did not produce the fixed file'),
+                  { code: 'b3_physical_device_command_failed' },
+                );
+              }
+              return Buffer.from(canonicaliseB3ProofValue(
+                await observationFor(command, authority),
+              ), 'utf8');
+            },
+            async forceStop() {},
+          },
+          wait: async () => {},
+        });
+
+        const observation = await controller.advance({ maximumPullAttempts: 2 });
+        assert.equal(observation.sequence, 1);
+        assert.deepEqual({ launches, pulls }, { launches: 0, pulls: 3 });
+        assert.equal(fake.events.filter((entry) =>
+          entry === `transition:${state}:restart-required`).length, 1);
+        assert.equal(fake.events.includes('publish:restart-required'), false);
+        assert.equal(fake.events.includes('publish:launched'), true);
+        assert.equal(fake.events.includes('consume:launched'), true);
+        assert.equal(fake.active(), null);
+        await controller.dispose();
+      });
+    }
+  });
+
 test('retained stop-executing never replays force-stop and enters the exact reinstall gate',
   async (t) => {
     for (const platform of ['ios', 'android']) {
@@ -797,11 +876,10 @@ test('force-stop receipt losing to the restart gate cannot continue the uncertai
     await controller.dispose();
   });
 
-test('publication adopts a concurrently selected ordinary successor before consuming', async () => {
+test('valid observation explicitly wins restart-required to launched before publication', async () => {
   const authority = buildAuthority();
   const fake = fakeStore();
   let launchCompletionConflicted = false;
-  let firstPublication = true;
   const store = Object.freeze({
     ...fake.store,
     async transitionCommand(input) {
@@ -815,20 +893,6 @@ test('publication adopts a concurrently selected ordinary successor before consu
         return Object.freeze({ kind: 'ordinary-conflict', command: selected.command });
       }
       return fake.store.transitionCommand(input);
-    },
-    async publishObservation(input) {
-      if (firstPublication) {
-        firstPublication = false;
-        await fake.store.transitionCommand({
-          source: input.source,
-          nextState: 'launched',
-        });
-        throw Object.assign(
-          new Error('B3 capture-state missing publication is not the active tail'),
-          { code: 'b3_capture_state_invalid' },
-        );
-      }
-      return fake.store.publishObservation(input);
     },
   });
   let launchedCommand;
@@ -862,8 +926,77 @@ test('publication adopts a concurrently selected ordinary successor before consu
     'publish:launched',
     'consume:launched',
   ]);
+  assert.equal(fake.events.includes('publish:restart-required'), false);
   await controller.dispose();
 });
+
+test('valid observation does not publish when the restart bridge loses its authority',
+  async () => {
+    const authority = buildAuthority();
+    const fake = fakeStore();
+    let launchCompletionConflicted = false;
+    let restartBridgeConflicted = false;
+    let publications = 0;
+    const store = Object.freeze({
+      ...fake.store,
+      async transitionCommand(input) {
+        if (!launchCompletionConflicted && input.source.state === 'launching' &&
+            input.nextState === 'launched') {
+          launchCompletionConflicted = true;
+          const selected = await fake.store.transitionCommand({
+            source: input.source,
+            nextState: 'restart-required',
+          });
+          return Object.freeze({ kind: 'ordinary-conflict', command: selected.command });
+        }
+        if (!restartBridgeConflicted && input.source.state === 'restart-required' &&
+            input.nextState === 'launched') {
+          restartBridgeConflicted = true;
+          fake.events.push('transition:restart-required:launched');
+          const winner = commandSource(
+            'ios', input.source.command, 'restart-executing', input.source.allocationSequence,
+          );
+          fake.setActive(winner);
+          return Object.freeze({ kind: 'ordinary-conflict', command: winner });
+        }
+        return fake.store.transitionCommand(input);
+      },
+      async publishObservation(input) {
+        publications += 1;
+        return fake.store.publishObservation(input);
+      },
+    });
+    let launchedCommand;
+    const controller = createB3StoreBackedLiveCapture({
+      platform: 'ios',
+      buildAuthority: async () => authority,
+      uuidFactory: () => CAPTURE_ID,
+      storeFactory: async () => store,
+      transport: {
+        async launch(command) {
+          launchedCommand = command;
+          throw Object.assign(new Error('native launch completion was not observed'), {
+            code: 'b3_physical_device_command_failed',
+          });
+        },
+        async pullObservation() {
+          return Buffer.from(canonicaliseB3ProofValue(
+            await observationFor(launchedCommand, authority),
+          ));
+        },
+        async forceStop() {},
+      },
+    });
+
+    await assert.rejects(
+      controller.advance(),
+      /observation publication winner is not safely launched/i,
+    );
+    assert.equal(publications, 0);
+    assert.equal(fake.capture().records.length, 0);
+    assert.equal(fake.active().state, 'restart-executing');
+    await controller.dispose();
+  });
 
 test('controller maps every closed recovery outcome to one public key on both platforms',
   async (t) => {
@@ -1084,6 +1217,27 @@ test('real child death at native launch crossings reopens without replay or fina
         );
       });
     }
+  });
+
+test('real SQLite fallback losing to launched follows the winner without reinstall',
+  async (t) => {
+    const root = await nativeCrossingFixture(t, 'fallback-launched-race');
+    const fallback = spawnNativeCrossingHelper(t, root, 'fallback-launched-race');
+    assert.deepEqual(await fallback.ready, {
+      type: 'ready',
+      stage: 'fallback-launched-race',
+      state: 'launching',
+    });
+    const winner = await runNativeCrossingHelper(t, root, 'transition', 'launched');
+    assert.equal(winner.state, 'launched');
+    fallback.child.send({ type: 'go' });
+    const result = await fallback.result;
+    assert.deepEqual(await fallback.exited, { code: 0, signal: null, stderr: '' });
+    assert.equal(result.error, null);
+    assert.equal(result.pulls, 3);
+    assert.match(result.observationSha256, /^[0-9a-f]{64}$/u);
+    assert.equal(result.activeKindAfter, 'none');
+    assert.equal(result.stateAfter, null);
   });
 
 

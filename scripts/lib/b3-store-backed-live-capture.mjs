@@ -18,6 +18,7 @@ const PLATFORM = Object.freeze({
 });
 const MAXIMUM_SELECTED_ORDINARY_EDGES = 13;
 const MAXIMUM_PULL_ATTEMPTS = 120;
+const MAXIMUM_PULL_PHASES = 2;
 const AMBIGUOUS_LAUNCH_STATES = new Set(['launching', 'reinstall-launching']);
 const GENERIC_CONSUMPTION_STATES = new Set([
   'prepared',
@@ -380,6 +381,9 @@ export function createB3StoreBackedLiveCapture({
   }
 
   async function publishWithSuccessorAdoption(source, bytes) {
+    if (source.state !== 'launched') {
+      throw controllerError('B3 observation publication requires launched authority');
+    }
     let current = source;
     for (let edge = 0; edge <= MAXIMUM_SELECTED_ORDINARY_EDGES; edge += 1) {
       try {
@@ -400,6 +404,20 @@ export function createB3StoreBackedLiveCapture({
       }
     }
     throw controllerError('B3 store-backed publication exceeded its ordinary edge bound');
+  }
+
+  async function selectLaunchedPublicationSource(source) {
+    let current = source;
+    if (AMBIGUOUS_LAUNCH_STATES.has(current.state)) {
+      current = (await transition(current, 'launched')).command;
+    }
+    if (current.state === 'restart-required') {
+      current = (await transition(current, 'launched')).command;
+    }
+    if (current.state !== 'launched') {
+      throw controllerError('B3 observation publication winner is not safely launched');
+    }
+    return current;
   }
 
   async function advance({
@@ -446,51 +464,63 @@ export function createB3StoreBackedLiveCapture({
       throw controllerError('B3 store-backed command is not ready to pull');
     }
     capture = await readCaptureOrNull();
-    const previousObservation = capture?.records?.[source.command.expectedSequence - 2]
+    let previousObservation = capture?.records?.[source.command.expectedSequence - 2]
       ?.observation;
     const authority = assertBuildAuthority(await buildAuthority(), platform);
-    for (let attempt = 0; attempt < maximumPullAttempts; attempt += 1) {
-      let bytes;
-      try {
-        const timeoutMs = boundedOperationTimeout(deadlineMs, monotonicClock);
-        bytes = await transport.pullObservation(
-          timeoutMs === undefined ? undefined : { timeoutMs },
-        );
-      } catch (error) {
-        if (error?.code !== 'b3_physical_device_command_failed' &&
-            !/observation pull did not produce/u.test(error?.message ?? '')) throw error;
-        if (attempt === maximumPullAttempts - 1) break;
-        await wait(Math.min(250, remainingCaptureDeadline(deadlineMs, monotonicClock) ?? 250));
-        continue;
+    for (let pullPhase = 0; pullPhase < MAXIMUM_PULL_PHASES; pullPhase += 1) {
+      for (let attempt = 0; attempt < maximumPullAttempts; attempt += 1) {
+        let bytes;
+        try {
+          const timeoutMs = boundedOperationTimeout(deadlineMs, monotonicClock);
+          bytes = await transport.pullObservation(
+            timeoutMs === undefined ? undefined : { timeoutMs },
+          );
+        } catch (error) {
+          if (error?.code !== 'b3_physical_device_command_failed' &&
+              !/observation pull did not produce/u.test(error?.message ?? '')) throw error;
+          if (attempt === maximumPullAttempts - 1) break;
+          await wait(Math.min(250, remainingCaptureDeadline(deadlineMs, monotonicClock) ?? 250));
+          continue;
+        }
+        if (staleObservation(bytes, source.command)) {
+          if (attempt === maximumPullAttempts - 1) break;
+          await wait(Math.min(250, remainingCaptureDeadline(deadlineMs, monotonicClock) ?? 250));
+          continue;
+        }
+        let observation;
+        try {
+          observation = await validateB3ProofObservationBytes(bytes, {
+            command: source.command,
+            buildAuthority: authority,
+            ...(previousObservation ? { previousObservation } : {}),
+          });
+        } catch (error) {
+          if (!AMBIGUOUS_LAUNCH_STATES.has(source.state)) throw error;
+          if (attempt === maximumPullAttempts - 1) break;
+          await wait(Math.min(250, remainingCaptureDeadline(deadlineMs, monotonicClock) ?? 250));
+          continue;
+        }
+        source = await selectLaunchedPublicationSource(source);
+        const committed = await publishWithSuccessorAdoption(source, Buffer.from(bytes));
+        await consume(committed.source);
+        return committed.publication.record.observation ?? observation;
       }
-      if (staleObservation(bytes, source.command)) {
-        if (attempt === maximumPullAttempts - 1) break;
-        await wait(Math.min(250, remainingCaptureDeadline(deadlineMs, monotonicClock) ?? 250));
-        continue;
+      if (!AMBIGUOUS_LAUNCH_STATES.has(source.state)) break;
+      source = (await transition(source, 'restart-required')).command;
+      if (source.state === 'restart-required') {
+        throw operatorRequired('REINSTALL_EXACT_BUILD');
       }
-      let observation;
-      try {
-        observation = await validateB3ProofObservationBytes(bytes, {
-          command: source.command,
-          buildAuthority: authority,
-          ...(previousObservation ? { previousObservation } : {}),
-        });
-      } catch (error) {
-        if (!AMBIGUOUS_LAUNCH_STATES.has(source.state)) throw error;
-        if (attempt === maximumPullAttempts - 1) break;
-        await wait(Math.min(250, remainingCaptureDeadline(deadlineMs, monotonicClock) ?? 250));
-        continue;
+      if (source.state !== 'launched') {
+        throw controllerError('B3 ambiguous launch fallback winner is not safely pullable');
       }
-      if (AMBIGUOUS_LAUNCH_STATES.has(source.state)) {
-        source = (await transition(source, 'launched')).command;
+      capture = await readCaptureOrNull();
+      const retained = retainedObservation(capture, source);
+      if (retained) {
+        await consume(source);
+        return retained;
       }
-      const committed = await publishWithSuccessorAdoption(source, Buffer.from(bytes));
-      await consume(committed.source);
-      return committed.publication.record.observation ?? observation;
-    }
-    if (AMBIGUOUS_LAUNCH_STATES.has(source.state)) {
-      await transition(source, 'restart-required');
-      throw operatorRequired('REINSTALL_EXACT_BUILD');
+      previousObservation = capture?.records?.[source.command.expectedSequence - 2]
+        ?.observation;
     }
     throw controllerError(
       'B3 physical device did not publish the command-bound observation before the fixed deadline',

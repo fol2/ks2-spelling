@@ -7,7 +7,6 @@ import {
   mkdir,
   mkdtemp,
   readFile,
-  readdir,
   rm,
   writeFile,
 } from 'node:fs/promises';
@@ -179,64 +178,6 @@ function spawnBarrierStarter(root, command) {
   });
 }
 
-function spawnFilesystemDeathStarter(root, command, targetEvent) {
-  const helper = new URL(
-    './helpers/b3-capture-store-fs-death-child.mjs',
-    import.meta.url,
-  );
-  const child = fork(helper.pathname, [
-    String(targetEvent),
-    Buffer.from(JSON.stringify(command), 'utf8').toString('base64url'),
-  ], {
-    cwd: root,
-    execArgv: ['--experimental-test-module-mocks'],
-    stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
-  });
-  let stderr = '';
-  child.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
-  let readyResolve;
-  let failed = false;
-  const ready = new Promise((resolve) => { readyResolve = resolve; });
-  const paused = new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      failed = true;
-      reject(new Error(`B3 filesystem death child did not pause: ${stderr}`));
-    }, 5_000);
-    child.on('message', (message) => {
-      if (message?.type === 'paused') {
-        clearTimeout(timeout);
-        resolve(message);
-      } else if (message?.type?.startsWith('unexpected-')) {
-        clearTimeout(timeout);
-        failed = true;
-        reject(new Error(JSON.stringify(message)));
-      }
-    });
-  });
-  const exited = new Promise((resolve, reject) => {
-    child.on('error', reject);
-    child.on('exit', (code, signal) => {
-      if (!failed && signal !== 'SIGKILL') {
-        reject(new Error(
-          `B3 filesystem death child exited ${code ?? signal}: ${stderr}`,
-        ));
-        return;
-      }
-      resolve({ code, signal });
-    });
-  });
-  child.on('message', (message) => {
-    if (message?.type === 'ready') readyResolve();
-  });
-  return Object.freeze({
-    ready,
-    paused,
-    exited,
-    go: () => child.send({ type: 'go' }),
-    kill: () => child.kill('SIGKILL'),
-  });
-}
-
 function spawnSqlDeathStarter(root, command, targetEvent) {
   const helper = new URL(
     './helpers/b3-capture-store-sql-death-child.mjs',
@@ -381,7 +322,7 @@ test('facade freezes its handle and complete public start result', async (t) => 
   });
 });
 
-test('an absent initial namespace starts one ready capture and exact empty bundle',
+test('an absent initial namespace starts one ready SQLite capture without a bundle',
   async (t) => {
     const root = await fixture(t, 'start-absent');
     const command = initialCommand();
@@ -411,25 +352,9 @@ test('an absent initial namespace starts one ready capture and exact empty bundl
       },
       getterCalls: 0,
     });
-    const working = join(
+    await assert.rejects(lstat(join(
       root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
-      `${command.captureId}.working`,
-    );
-    assert.deepEqual((await readdir(working)).sort(), [
-      'checkpoint', 'derived', 'observations',
-    ]);
-    for (const path of [
-      join(root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles'),
-      working,
-      join(working, 'observations'),
-      join(working, 'checkpoint'),
-      join(working, 'derived'),
-    ]) {
-      const metadata = await lstat(path);
-      assert.equal(metadata.isDirectory(), true);
-      assert.equal(metadata.isSymbolicLink(), false);
-      assert.equal(metadata.mode & 0o7777, 0o700);
-    }
+    )), { code: 'ENOENT' });
     const database = new DatabaseSync(join(
       root, '.native-build', 'b3', 'evidence', 'ios-capture-state', 'recovery.sqlite',
     ), { readOnly: true });
@@ -449,7 +374,7 @@ test('an absent initial namespace starts one ready capture and exact empty bundl
     });
   });
 
-test('Android initial start and retry retain one exact offline bundle', async (t) => {
+test('Android initial start and retry retain one SQLite capture without a bundle', async (t) => {
   const root = await fixture(t, 'android-start-retry');
   const command = initialCommand(
     '018f1d7b-97e8-4a52-8cf2-783e5089c002',
@@ -464,16 +389,12 @@ test('Android initial start and retry retain one exact offline bundle', async (t
   assert.equal(retried.ok, true);
   assert.equal(retried.result.kind, 'already-started');
   assert.equal(retried.result.capture.captureId, command.captureId);
-  const working = join(
+  await assert.rejects(lstat(join(
     root, '.native-build', 'b3', 'evidence', 'android-capture-bundles',
-    `${command.captureId}.working`,
-  );
-  assert.deepEqual((await readdir(working)).sort(), [
-    'checkpoint', 'derived', 'observations',
-  ]);
+  )), { code: 'ENOENT' });
 });
 
-test('hostile initial bundle rejects before the reservation can change database bytes',
+test('obsolete hostile bundle bytes are outside capture-state authority',
   async (t) => {
     const root = await fixture(t, 'hostile-before-reservation');
     await probe(root, 'shape');
@@ -482,24 +403,15 @@ test('hostile initial bundle rejects before the reservation can change database 
     const databasePath = join(
       evidence, 'ios-capture-state', 'recovery.sqlite',
     );
-    const before = await readFile(databasePath);
-
     const result = await probe(root, 'hostile-before-start', initialCommand());
 
-    assert.deepEqual(result, {
-      ok: false,
-      error: {
-        code: 'b3_capture_bundle_invalid',
-        message: 'B3 capture bundle root inventory is not structurally closed',
-      },
-      getterCalls: 0,
-    });
-    assert.deepEqual(await readFile(databasePath), before);
+    assert.equal(result.ok, true);
+    assert.equal(result.result.kind, 'started');
     const database = new DatabaseSync(databasePath, { readOnly: true });
     t.after(() => database.close());
     assert.equal(database.prepare(`
       SELECT COUNT(*) AS count FROM b3_capture_start_intents
-    `).get().count, 0);
+    `).get().count, 1);
     assert.equal(await readFile(join(bundles, 'unexpected'), 'utf8'), 'hostile');
   });
 
@@ -536,67 +448,20 @@ test('an impossible committed partial SQL state rejects without creating a bundl
     }
   });
 
-test('pending initial start converges from every recognised empty bundle subset',
-  async (t) => {
-    const children = ['observations', 'checkpoint', 'derived'];
-    const cases = [
-      { label: 'absent-root', kind: 'absent' },
-      { label: 'empty-root', kind: 'empty' },
-      ...Array.from({ length: 8 }, (_, mask) => ({
-        label: `working-subset-${mask}`,
-        kind: 'working-subset',
-        mask,
-      })),
-    ];
+test('pending initial start converges without creating working-bundle state', async (t) => {
+  const root = await fixture(t, 'pending-no-bundle');
+  const command = initialCommand();
+  await reserveInChild(root, command);
 
-    for (const current of cases) {
-      const root = await fixture(t, current.label);
-      const command = initialCommand();
-      await reserveInChild(root, command);
-      const bundles = join(
-        root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
-      );
-      const working = join(bundles, `${command.captureId}.working`);
-      if (current.kind !== 'absent') await mkdir(bundles, { mode: 0o700 });
-      if (current.kind === 'working-subset') {
-        await mkdir(working, { mode: 0o700 });
-        for (const [index, child] of children.entries()) {
-          if ((current.mask & (1 << index)) !== 0) {
-            await mkdir(join(working, child), { mode: 0o700 });
-          }
-        }
-      }
+  const reconciled = await probe(root, 'start', command);
 
-      const reconciled = await probe(root, 'start', command);
-
-      assert.equal(reconciled.ok, true, current.label);
-      assert.equal(reconciled.result.kind, 'already-started', current.label);
-      assert.equal(reconciled.result.capture.captureId, command.captureId, current.label);
-      assert.deepEqual((await readdir(working)).sort(), [
-        'checkpoint', 'derived', 'observations',
-      ], current.label);
-      const database = new DatabaseSync(join(
-        root, '.native-build', 'b3', 'evidence', 'ios-capture-state',
-        'recovery.sqlite',
-      ), { readOnly: true });
-      try {
-        assert.deepEqual({ ...database.prepare(`
-          SELECT intent_state, capture_id FROM b3_capture_start_intents
-        `).get() }, {
-          intent_state: 'ready',
-          capture_id: command.captureId,
-        }, current.label);
-        assert.equal(database.prepare(`
-          SELECT COUNT(*) AS count FROM b3_captures
-        `).get().count, 1, current.label);
-        assert.equal(database.prepare(`
-          SELECT COUNT(*) AS count FROM b3_commands
-        `).get().count, 1, current.label);
-      } finally {
-        database.close();
-      }
-    }
-  });
+  assert.equal(reconciled.ok, true);
+  assert.equal(reconciled.result.kind, 'already-started');
+  assert.equal(reconciled.result.capture.captureId, command.captureId);
+  await assert.rejects(lstat(join(
+    root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
+  )), { code: 'ENOENT' });
+});
 
 test('a different pending loser completes only the retained winner and reports conflict',
   async (t) => {
@@ -611,10 +476,9 @@ test('a different pending loser completes only the retained winner and reports c
     assert.equal(result.result.kind, 'start-conflict');
     assert.equal(result.result.capture.captureId, winner.captureId);
     assert.equal(result.result.capture.firstCommand.captureId, winner.captureId);
-    const bundles = join(
+    await assert.rejects(lstat(join(
       root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
-    );
-    assert.deepEqual(await readdir(bundles), [`${winner.captureId}.working`]);
+    )), { code: 'ENOENT' });
     const database = new DatabaseSync(join(
       root, '.native-build', 'b3', 'evidence', 'ios-capture-state',
       'recovery.sqlite',
@@ -715,11 +579,9 @@ test('real same and different starters converge on one retained capture', async 
       current.expectedKinds, current.label);
     const captureIds = new Set(outcomes.map((outcome) => outcome.result.capture.captureId));
     assert.equal(captureIds.size, 1, current.label);
-    const [captureId] = captureIds;
-    const bundles = join(
+    await assert.rejects(lstat(join(
       root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
-    );
-    assert.deepEqual(await readdir(bundles), [`${captureId}.working`], current.label);
+    )), { code: 'ENOENT' });
     const database = new DatabaseSync(join(
       root, '.native-build', 'b3', 'evidence', 'ios-capture-state',
       'recovery.sqlite',
@@ -739,107 +601,6 @@ test('real same and different starters converge on one retained capture', async 
     }
   }
 });
-
-test('every filesystem durability boundary retries the retained pending start',
-  { timeout: 60_000 }, async (t) => {
-    const operations = [
-      'mkdir-root',
-      'fsync-new-root',
-      'fsync-evidence',
-      'mkdir-working',
-      'fsync-new-working',
-      'fsync-root-parent',
-      'mkdir-observations',
-      'fsync-new-observations',
-      'fsync-working-after-observations',
-      'mkdir-checkpoint',
-      'fsync-new-checkpoint',
-      'fsync-working-after-checkpoint',
-      'mkdir-derived',
-      'fsync-new-derived',
-      'fsync-working-after-derived',
-      'fsync-complete-working',
-      'fsync-complete-root',
-    ];
-    const cases = operations.flatMap((operation) => [
-      `before-${operation}`,
-      `after-${operation}`,
-    ]);
-    cases.push('after-empty-snapshot');
-    const captureId = initialCommand().captureId;
-    const bundlesPath = '.native-build/b3/evidence/ios-capture-bundles';
-    const workingPath = `${bundlesPath}/${captureId}.working`;
-    const expectedTrace = [
-      { operationIndex: 0, kind: 'mkdir', path: bundlesPath },
-      { operationIndex: 1, kind: 'fsync', path: bundlesPath },
-      { operationIndex: 2, kind: 'fsync', path: '.native-build/b3/evidence' },
-      { operationIndex: 3, kind: 'mkdir', path: workingPath },
-      { operationIndex: 4, kind: 'fsync', path: workingPath },
-      { operationIndex: 5, kind: 'fsync', path: bundlesPath },
-      { operationIndex: 6, kind: 'mkdir', path: `${workingPath}/observations` },
-      { operationIndex: 7, kind: 'fsync', path: `${workingPath}/observations` },
-      { operationIndex: 8, kind: 'fsync', path: workingPath },
-      { operationIndex: 9, kind: 'mkdir', path: `${workingPath}/checkpoint` },
-      { operationIndex: 10, kind: 'fsync', path: `${workingPath}/checkpoint` },
-      { operationIndex: 11, kind: 'fsync', path: workingPath },
-      { operationIndex: 12, kind: 'mkdir', path: `${workingPath}/derived` },
-      { operationIndex: 13, kind: 'fsync', path: `${workingPath}/derived` },
-      { operationIndex: 14, kind: 'fsync', path: workingPath },
-      { operationIndex: 15, kind: 'fsync', path: workingPath },
-      { operationIndex: 16, kind: 'fsync', path: bundlesPath },
-    ];
-
-    for (const [targetEvent, label] of cases.entries()) {
-      const root = await fixture(t, `fs-death-${targetEvent}`);
-      const command = initialCommand();
-      const reservation = await reserveInChild(root, command);
-      const starter = spawnFilesystemDeathStarter(root, command, targetEvent);
-      await starter.ready;
-      starter.go();
-      const paused = await starter.paused;
-      starter.kill();
-      assert.equal((await starter.exited).signal, 'SIGKILL', label);
-      assert.equal(paused.eventIndex, targetEvent, label);
-      if (targetEvent < 34) {
-        const operationIndex = Math.floor(targetEvent / 2);
-        const expected = expectedTrace[operationIndex];
-        const phase = targetEvent % 2 === 0 ? 'before' : 'after';
-        assert.equal(paused.operationIndex, operationIndex, label);
-        assert.equal(paused.phase, phase, label);
-        assert.equal(paused.kind, expected.kind, label);
-        assert.equal(paused.path, expected.path, label);
-        assert.deepEqual(
-          paused.trace,
-          expectedTrace.slice(0, operationIndex + (phase === 'after' ? 1 : 0)),
-          label,
-        );
-      } else {
-        assert.equal(paused.operationIndex, 17, label);
-        assert.equal(paused.phase, 'after', label);
-        assert.equal(paused.kind, 'snapshot', label);
-        assert.equal(paused.path, workingPath, label);
-        assert.deepEqual(paused.trace, expectedTrace, label);
-      }
-
-      const retried = await probe(root, 'start', command);
-
-      assert.equal(retried.ok, true, label);
-      assert.equal(retried.result.kind, 'already-started', label);
-      assert.equal(retried.result.capture.captureId, reservation.captureId, label);
-      assert.equal(
-        retried.result.capture.firstCommandSha256,
-        reservation.firstCommandSha256,
-        label,
-      );
-      const working = join(
-        root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
-        `${reservation.captureId}.working`,
-      );
-      assert.deepEqual((await readdir(working)).sort(), [
-        'checkpoint', 'derived', 'observations',
-      ], label);
-    }
-  });
 
 test('every SQL reconciliation boundary retries one retained start',
   { timeout: 60_000 }, async (t) => {

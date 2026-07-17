@@ -25,10 +25,11 @@ import { DatabaseSync } from 'node:sqlite';
 const execFileAsync = promisify(execFile);
 const COMMIT = '1'.repeat(40);
 const FINGERPRINT = '2'.repeat(64);
-const SCHEMA_SHA256 = 'da2f75d1d27c6e6ec2a45809b49520f42a2c4deae375d120d13d6a2c2748750e';
+const SCHEMA_SHA256 = 'a871ea9a3ecf55f53f4930437854e39abd7088081b89e9047483301b519c12ba';
 const EXPECTED_TABLES = Object.freeze([
   'b3_authority_state',
   'b3_capture_start_intents',
+  'b3_capture_steps',
   'b3_captures',
   'b3_commands',
   'b3_decisions',
@@ -138,7 +139,7 @@ test('temporary cwd alone cannot redirect the module-derived repository root', a
   assert.equal(JSON.parse(stdout).repositoryRoot, dirname(import.meta.dirname));
 });
 
-test('closed capture-state foundation bootstraps one fixed private v1 database',
+test('closed capture-state foundation bootstraps one fixed private v2 database',
   async (t) => {
     const root = await fixture(t, 'bootstrap');
     const opened = await openInChild(root);
@@ -161,7 +162,7 @@ test('closed capture-state foundation bootstraps one fixed private v1 database',
     assert.deepEqual(tableRows.map(({ name }) => name), EXPECTED_TABLES);
     const meta = database.prepare('SELECT * FROM b3_meta').get();
     assert.equal(meta.singleton, 1);
-    assert.equal(meta.schema_version, 1);
+    assert.equal(meta.schema_version, 2);
     assert.equal(meta.platform, 'ios');
     assert.equal(meta.tested_application_commit, COMMIT);
     assert.equal(meta.application_fingerprint, FINGERPRINT);
@@ -172,7 +173,7 @@ test('closed capture-state foundation bootstraps one fixed private v1 database',
     assert.equal(strictTables.length, EXPECTED_TABLES.length);
     assert.equal(strictTables.every(({ strict }) => strict === 1), true);
     assert.equal(database.prepare('PRAGMA application_id').get().application_id, 0x4b533342);
-    assert.equal(database.prepare('PRAGMA user_version').get().user_version, 1);
+    assert.equal(database.prepare('PRAGMA user_version').get().user_version, 2);
     assert.equal(database.prepare('PRAGMA journal_mode').get().journal_mode, 'delete');
     assert.deepEqual(database.prepare('SELECT * FROM b3_authority_state').all()
       .map((row) => ({ ...row })), [{
@@ -536,7 +537,7 @@ test('a helper closes successfully while another honest writer owns the exact jo
     writer.kill('SIGKILL');
   });
 
-test('orphan bundle state rejects before the fixed database path is created', async (t) => {
+test('obsolete working-bundle state is ignored by SQLite bootstrap', async (t) => {
   const root = await fixture(t, 'orphan-before-bootstrap');
   const bundles = join(
     root, '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
@@ -548,13 +549,13 @@ test('orphan bundle state rejects before the fixed database path is created', as
     await chmod(path, 0o700);
   }
 
-  await assert.rejects(openInChild(root), /orphan-bundle-state/i);
-  await assert.rejects(lstat(join(
+  assert.deepEqual(await openInChild(root), { ok: true });
+  assert.equal((await lstat(join(
     root, '.native-build', 'b3', 'evidence', 'ios-capture-state', 'recovery.sqlite',
-  )), { code: 'ENOENT' });
+  ))).isFile(), true);
 });
 
-test('existing database rejects a structurally hostile bundle root without mutation',
+test('existing database does not inspect obsolete working-bundle state',
   async (t) => {
     const root = await fixture(t, 'existing-hostile-bundle');
     await openInChild(root);
@@ -569,7 +570,7 @@ test('existing database rejects a structurally hostile bundle root without mutat
     const databaseBefore = await directorySnapshot(stateDirectory);
     const bundlesBefore = await directorySnapshot(bundles);
 
-    await assert.rejects(openInChild(root), /bundle|inventory|structurally|invalid/i);
+    assert.deepEqual(await openInChild(root), { ok: true });
 
     assert.deepEqual(await directorySnapshot(stateDirectory), databaseBefore);
     assert.deepEqual(await directorySnapshot(bundles), bundlesBefore);
@@ -651,7 +652,7 @@ test('invalid persisted schema, metadata, pragma and foreign keys fail closed by
       },
       {
         label: 'user-version',
-        mutate(database) { database.exec('PRAGMA user_version = 2'); },
+        mutate(database) { database.exec('PRAGMA user_version = 3'); },
       },
       {
         label: 'journal-mode',

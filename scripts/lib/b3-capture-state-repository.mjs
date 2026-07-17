@@ -5,11 +5,6 @@ import {
   createB3InitialCaptureStartAuthority,
   publicB3CaptureStartAuthority,
 } from './b3-capture-start-authority.mjs';
-import {
-  classifyB3CaptureBundleRootState,
-  materialiseB3EmptyWorkingBundle,
-  validateB3CaptureBundleComposite,
-} from './b3-capture-bundle-store.mjs';
 import { openB3CaptureStateDatabase } from './b3-capture-state-database.mjs';
 import { takeB3CaptureStateSession } from './b3-capture-state-internal.mjs';
 import {
@@ -119,6 +114,9 @@ function canonicaliseAllocationCommand(command, platform, buildAuthority) {
       preparedRecord.command.applicationFingerprint !==
         buildAuthority.applicationFingerprint) {
     throw repositoryError('B3 capture-state allocation build authority differs');
+  }
+  if (preparedRecord.command.expectedSequence > 512) {
+    throw repositoryError('B3 capture-state allocation observation sequence exceeds 512');
   }
   return Object.freeze({
     command: preparedRecord.command,
@@ -266,8 +264,6 @@ export async function openB3CaptureStateRepository(options) {
     session.database.exec('BEGIN IMMEDIATE');
     try {
       let state = session.validate(buildAuthority);
-      const rootState = classifyB3CaptureBundleRootState({ platform: session.platform });
-      validateB3CaptureBundleComposite({ databaseState: state, rootState });
       let wonReservation = false;
       if (state.kind === 'empty') {
         const inserted = session.database.prepare(`
@@ -296,7 +292,6 @@ export async function openB3CaptureStateRepository(options) {
           throw repositoryError('B3 capture-state initial reservation write lost authority');
         }
         state = session.validate(buildAuthority);
-        validateB3CaptureBundleComposite({ databaseState: state, rootState });
         wonReservation = true;
       }
       if (state.kind !== 'pending-initial' &&
@@ -366,15 +361,7 @@ export async function openB3CaptureStateRepository(options) {
     session.database.exec('BEGIN IMMEDIATE');
     try {
       let state = session.validate(reconciliationBuildAuthority);
-      let rootState = classifyB3CaptureBundleRootState({ platform: session.platform });
-      validateB3CaptureBundleComposite({ databaseState: state, rootState });
       if (state.kind === 'pending-initial') {
-        rootState = materialiseB3EmptyWorkingBundle({
-          platform: session.platform,
-          captureId: state.startIntent.captureId,
-          rootState,
-        });
-        validateB3CaptureBundleComposite({ databaseState: state, rootState });
         const start = state.startIntent;
         const insertedCapture = session.database.prepare(`
           INSERT INTO b3_captures (
@@ -414,8 +401,6 @@ export async function openB3CaptureStateRepository(options) {
         `).run(start.startIntentSha256);
         assertInitialReconciliationWrite(readied);
         state = session.validate(reconciliationBuildAuthority);
-        rootState = classifyB3CaptureBundleRootState({ platform: session.platform });
-        validateB3CaptureBundleComposite({ databaseState: state, rootState });
       }
       if (state.kind !== 'ready-initial' ||
           state.startIntent.startIntentSha256 !== reservation.capture.startIntentSha256) {

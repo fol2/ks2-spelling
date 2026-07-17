@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 
 export const B3_CAPTURE_STATE_APPLICATION_ID = 0x4b533342;
-export const B3_CAPTURE_STATE_SCHEMA_VERSION = 1;
+export const B3_CAPTURE_STATE_SCHEMA_VERSION = 2;
 
 const HASH_CHECK = (column, length) =>
   `length(${column}) = ${length} AND ${column} NOT GLOB '*[^0-9a-f]*'`;
@@ -45,7 +45,7 @@ const genericCheck = GENERIC_STATES.map(quoted).join(', ');
 export const B3_CAPTURE_STATE_SCHEMA_SQL = `
 CREATE TABLE b3_meta (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-  schema_version INTEGER NOT NULL CHECK (schema_version = 1),
+  schema_version INTEGER NOT NULL CHECK (schema_version = 2),
   platform TEXT NOT NULL CHECK (platform IN ('ios', 'android')),
   tested_application_commit TEXT NOT NULL CHECK (${HASH_CHECK('tested_application_commit', 40)}),
   application_fingerprint TEXT NOT NULL CHECK (${HASH_CHECK('application_fingerprint', 64)}),
@@ -92,9 +92,25 @@ CREATE TABLE b3_commands (
   prepared_record_json BLOB NOT NULL CHECK (${BLOB_CHECK('prepared_record_json')}),
   prepared_record_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('prepared_record_sha256', 64)}),
   capture_id TEXT NOT NULL REFERENCES b3_captures(capture_id),
-  expected_observation_sequence INTEGER NOT NULL CHECK (expected_observation_sequence > 0),
+  expected_observation_sequence INTEGER NOT NULL
+    CHECK (expected_observation_sequence BETWEEN 1 AND 512),
   previous_observation_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('previous_observation_sha256', 64)}),
   UNIQUE (command_sha256, capture_id)
+) STRICT, WITHOUT ROWID;
+
+CREATE TABLE b3_capture_steps (
+  capture_id TEXT NOT NULL REFERENCES b3_captures(capture_id),
+  observation_sequence INTEGER NOT NULL
+    CHECK (observation_sequence BETWEEN 1 AND 512),
+  command_sha256 TEXT UNIQUE NOT NULL CHECK (${HASH_CHECK('command_sha256', 64)}),
+  record_json BLOB NOT NULL CHECK (${BLOB_CHECK('record_json')}),
+  record_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('record_sha256', 64)}),
+  observation_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('observation_sha256', 64)}),
+  checkpoint_json BLOB NOT NULL CHECK (${BLOB_CHECK('checkpoint_json')}),
+  checkpoint_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('checkpoint_sha256', 64)}),
+  PRIMARY KEY (capture_id, observation_sequence),
+  FOREIGN KEY (command_sha256, capture_id)
+    REFERENCES b3_commands(command_sha256, capture_id)
 ) STRICT, WITHOUT ROWID;
 
 CREATE TABLE b3_decisions (
@@ -126,63 +142,70 @@ CREATE TABLE b3_decisions (
 ) STRICT, WITHOUT ROWID;
 
 CREATE TABLE b3_recoveries (
-  command_sha256 TEXT PRIMARY KEY REFERENCES b3_commands(command_sha256),
+  command_sha256 TEXT PRIMARY KEY CHECK (${HASH_CHECK('command_sha256', 64)}),
   owner_kind TEXT NOT NULL CHECK (owner_kind = 'recovery-owner'),
   owner_claim_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('owner_claim_sha256', 64)}),
   capture_id TEXT UNIQUE NOT NULL CHECK (${UUID_CHECK('capture_id')}),
-  bundle_state TEXT NOT NULL CHECK (bundle_state IN ('claimed', 'move-intent', 'bound')),
-  source_snapshot_sha256 TEXT NULL CHECK (source_snapshot_sha256 IS NULL OR ${HASH_CHECK('source_snapshot_sha256', 64)}),
-  row_version INTEGER NOT NULL CHECK (row_version > 0),
-  CHECK (
-    (bundle_state = 'claimed' AND source_snapshot_sha256 IS NULL) OR
-    (bundle_state IN ('move-intent', 'bound') AND source_snapshot_sha256 IS NOT NULL)
-  ),
+  capture_snapshot_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('capture_snapshot_sha256', 64)}),
+  row_version INTEGER NOT NULL CHECK (row_version = 1),
   FOREIGN KEY (command_sha256, owner_kind, owner_claim_sha256)
     REFERENCES b3_decisions(command_sha256, winner_kind, claim_sha256),
   FOREIGN KEY (command_sha256, capture_id)
     REFERENCES b3_commands(command_sha256, capture_id),
-  UNIQUE (command_sha256, bundle_state, owner_claim_sha256, source_snapshot_sha256)
+  UNIQUE (command_sha256, owner_claim_sha256, capture_snapshot_sha256)
 ) STRICT, WITHOUT ROWID;
 
 CREATE TABLE b3_recovery_manifests (
-  command_sha256 TEXT PRIMARY KEY,
-  bundle_state TEXT NOT NULL CHECK (bundle_state = 'bound'),
+  command_sha256 TEXT PRIMARY KEY CHECK (${HASH_CHECK('command_sha256', 64)}),
   owner_claim_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('owner_claim_sha256', 64)}),
-  payload_snapshot_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('payload_snapshot_sha256', 64)}),
+  capture_snapshot_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('capture_snapshot_sha256', 64)}),
   manifest_json BLOB NOT NULL CHECK (${BLOB_CHECK('manifest_json')}),
   manifest_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('manifest_sha256', 64)}),
-  FOREIGN KEY (command_sha256, bundle_state, owner_claim_sha256, payload_snapshot_sha256)
+  FOREIGN KEY (command_sha256, owner_claim_sha256, capture_snapshot_sha256)
     REFERENCES b3_recoveries(
-      command_sha256, bundle_state, owner_claim_sha256, source_snapshot_sha256
+      command_sha256, owner_claim_sha256, capture_snapshot_sha256
     ),
-  UNIQUE (command_sha256, owner_claim_sha256, manifest_sha256)
+  UNIQUE (
+    command_sha256, owner_claim_sha256, capture_snapshot_sha256, manifest_sha256
+  )
 ) STRICT, WITHOUT ROWID;
 
 CREATE TABLE b3_recovery_authorities (
-  command_sha256 TEXT PRIMARY KEY,
+  command_sha256 TEXT PRIMARY KEY CHECK (${HASH_CHECK('command_sha256', 64)}),
   owner_claim_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('owner_claim_sha256', 64)}),
+  capture_snapshot_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('capture_snapshot_sha256', 64)}),
   manifest_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('manifest_sha256', 64)}),
   authority_json BLOB NOT NULL CHECK (${BLOB_CHECK('authority_json')}),
   authority_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('authority_sha256', 64)}),
-  FOREIGN KEY (command_sha256, owner_claim_sha256, manifest_sha256)
+  FOREIGN KEY (
+    command_sha256, owner_claim_sha256, capture_snapshot_sha256, manifest_sha256
+  )
     REFERENCES b3_recovery_manifests(
-      command_sha256, owner_claim_sha256, manifest_sha256
+      command_sha256, owner_claim_sha256, capture_snapshot_sha256, manifest_sha256
     ),
-  UNIQUE (command_sha256, owner_claim_sha256, manifest_sha256, authority_sha256)
+  UNIQUE (
+    command_sha256, owner_claim_sha256, capture_snapshot_sha256,
+    manifest_sha256, authority_sha256
+  )
 ) STRICT, WITHOUT ROWID;
 
 CREATE TABLE b3_recovery_terminals (
-  command_sha256 TEXT PRIMARY KEY,
+  command_sha256 TEXT PRIMARY KEY CHECK (${HASH_CHECK('command_sha256', 64)}),
   owner_claim_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('owner_claim_sha256', 64)}),
+  capture_snapshot_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('capture_snapshot_sha256', 64)}),
   manifest_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('manifest_sha256', 64)}),
   authority_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('authority_sha256', 64)}),
   terminal_record_json BLOB NOT NULL CHECK (${BLOB_CHECK('terminal_record_json')}),
   terminal_record_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('terminal_record_sha256', 64)}),
   terminal_claim_json BLOB NOT NULL CHECK (${BLOB_CHECK('terminal_claim_json')}),
   terminal_claim_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('terminal_claim_sha256', 64)}),
-  FOREIGN KEY (command_sha256, owner_claim_sha256, manifest_sha256, authority_sha256)
+  FOREIGN KEY (
+    command_sha256, owner_claim_sha256, capture_snapshot_sha256,
+    manifest_sha256, authority_sha256
+  )
     REFERENCES b3_recovery_authorities(
-      command_sha256, owner_claim_sha256, manifest_sha256, authority_sha256
+      command_sha256, owner_claim_sha256, capture_snapshot_sha256,
+      manifest_sha256, authority_sha256
     ),
   UNIQUE (command_sha256, terminal_claim_sha256)
 ) STRICT, WITHOUT ROWID;

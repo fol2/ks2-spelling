@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
 import {
   lstat,
@@ -10,8 +11,8 @@ import { resolve } from 'node:path';
 import { constants as sqliteConstants, DatabaseSync } from 'node:sqlite';
 import { isDeepStrictEqual } from 'node:util';
 
-import { parseB3StrictJsonBytes } from '../check-b3-external-prerequisites.mjs';
 import { canonicaliseB3ProofValue } from '../../src/app/b3-live-proof-protocol.js';
+import { readB3BuildAuthoritySource } from './b3-build-authority-source.mjs';
 import {
   B3_CAPTURE_STATE_APPLICATION_ID,
   B3_CAPTURE_STATE_SCHEMA_OBJECTS,
@@ -30,17 +31,11 @@ import {
   validateB3OrdinaryIssuedCommandClaimAuthorityBytes,
   validateB3PreparedIssuedCommandAuthorityBytes,
 } from './b3-issued-command-authority.mjs';
-import {
-  classifyB3CaptureBundleRootState,
-  validateB3CaptureBundleComposite,
-} from './b3-capture-bundle-store.mjs';
 import { registerB3CaptureStateSession } from './b3-capture-state-internal.mjs';
 
 const PLATFORMS = new Set(['ios', 'android']);
 const DATABASE_NAME = 'recovery.sqlite';
 const JOURNAL_NAME = `${DATABASE_NAME}-journal`;
-const HASH = /^[0-9a-f]{64}$/u;
-const COMMIT = /^[0-9a-f]{40}$/u;
 const APPROVED_PRAGMAS = new Set([
   'application_id',
   'busy_timeout',
@@ -159,51 +154,6 @@ async function createOrValidateDirectory(parent, name) {
   return canonical;
 }
 
-async function readBuildAuthority(root) {
-  let current = root;
-  for (const component of ['.native-build', 'b3', 'distribution']) {
-    current = resolve(current, component);
-    validateDirectory(await lstat(current), `build-authority ${component}`);
-    const canonical = await realpath(current);
-    if (!canonical.startsWith(`${root}/`)) {
-      throw databaseError('B3 capture-state build authority escaped the repository');
-    }
-    current = canonical;
-  }
-  const authorityPath = resolve(current, 'build-authority.json');
-  const handle = await open(
-    authorityPath,
-    fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW,
-  );
-  let bytes;
-  try {
-    const before = await handle.stat();
-    validatePrivateFile(before, 'build-authority', (size) => size > 0 && size <= 16 * 1024);
-    bytes = await handle.readFile();
-    const after = await handle.stat();
-    if (after.dev !== before.dev || after.ino !== before.ino ||
-        after.mode !== before.mode || after.nlink !== before.nlink ||
-        after.size !== before.size || after.mtimeMs !== before.mtimeMs ||
-        after.ctimeMs !== before.ctimeMs || bytes.length !== before.size) {
-      throw databaseError('B3 capture-state build authority changed while being read');
-    }
-  } finally {
-    await handle.close();
-  }
-  const value = parseB3StrictJsonBytes(bytes, 'B3 distribution build authority');
-  if (!value || Object.keys(value).length !== 6 || value.schemaVersion !== 1 ||
-      !COMMIT.test(value.testedApplicationCommit ?? '') ||
-      !HASH.test(value.applicationFingerprint ?? '') || value.versionName !== '0.3.0-b3' ||
-      !/^[1-9][0-9]*$/u.test(value.iosBuildNumber ?? '') ||
-      !Number.isSafeInteger(value.androidVersionCode) || value.androidVersionCode <= 0) {
-    throw databaseError('B3 capture-state build authority is invalid');
-  }
-  return Object.freeze({
-    testedApplicationCommit: value.testedApplicationCommit,
-    applicationFingerprint: value.applicationFingerprint,
-  });
-}
-
 async function assertLegacyStateAbsent(evidence, platform) {
   for (const name of [
     `${platform}-issued-command-ledger`,
@@ -216,18 +166,6 @@ async function assertLegacyStateAbsent(evidence, platform) {
     } catch (error) {
       if (error?.code !== 'ENOENT') throw error;
     }
-  }
-}
-
-function assertBootstrapBundleState(platform) {
-  let state;
-  try {
-    state = classifyB3CaptureBundleRootState({ platform });
-  } catch (error) {
-    throw databaseError(error?.message ?? 'B3 capture-state bundle root is invalid');
-  }
-  if (!['absent', 'empty'].includes(state.kind)) {
-    throw databaseError('B3 capture-state orphan-bundle-state is present', 'b3_orphan_bundle_state');
   }
 }
 
@@ -288,9 +226,19 @@ async function validateExistingHeaderBytes(handle, size) {
   const { bytesRead } = await handle.read(header, 0, header.length, 0);
   if (bytesRead !== header.length ||
       !header.subarray(0, 16).equals(Buffer.from('SQLite format 3\0', 'binary')) ||
-      header[18] !== 1 || header[19] !== 1 ||
-      header.readUInt32BE(60) !== B3_CAPTURE_STATE_SCHEMA_VERSION ||
-      header.readUInt32BE(68) !== B3_CAPTURE_STATE_APPLICATION_ID) {
+      header[18] !== 1 || header[19] !== 1) {
+    throw databaseError('B3 capture-state existing database header differs');
+  }
+  const userVersion = header.readUInt32BE(60);
+  const applicationId = header.readUInt32BE(68);
+  if (applicationId === B3_CAPTURE_STATE_APPLICATION_ID && userVersion === 1) {
+    throw databaseError(
+      'B3 capture-state schema version 1 is obsolete',
+      'b3_capture_state_schema_obsolete',
+    );
+  }
+  if (userVersion !== B3_CAPTURE_STATE_SCHEMA_VERSION ||
+      applicationId !== B3_CAPTURE_STATE_APPLICATION_ID) {
     throw databaseError('B3 capture-state existing database header differs');
   }
 }
@@ -342,7 +290,7 @@ function schemaObjects(database) {
   `).all().map((row) => ({ ...row }));
 }
 
-function bootstrapOrObserveSchemaAndComposite(database, platform, buildAuthority) {
+function bootstrapOrObserveSchema(database, platform, buildAuthority) {
   database.exec('BEGIN IMMEDIATE');
   try {
     const userVersion = pragmaScalar(database, 'user_version');
@@ -373,16 +321,10 @@ function bootstrapOrObserveSchemaAndComposite(database, platform, buildAuthority
       `);
     }
     database.setAuthorizer(strictAuthoriser);
-    const databaseState = validateDatabase(database, platform, buildAuthority);
-    const rootState = classifyB3CaptureBundleRootState({ platform });
-    validateB3CaptureBundleComposite({ databaseState, rootState });
+    validateDatabase(database, platform, buildAuthority);
     database.exec('COMMIT');
   } catch (error) {
     if (database.isTransaction) database.exec('ROLLBACK');
-    if (['b3_capture_bundle_invalid', 'b3_capture_member_conflict']
-      .includes(error?.code)) {
-      throw databaseError(error.message);
-    }
     throw error;
   }
 }
@@ -446,6 +388,41 @@ function publicCommandSnapshot(command, record) {
     state: record.state,
     recordSha256: record.recordSha256,
   });
+}
+
+function sha256(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+function validateCaptureSteps(rows, commandRows, captureId) {
+  const commands = new Map(commandRows.map((row) => [row.command_sha256, row]));
+  let previousObservationSha256 = '0'.repeat(64);
+  const retained = [];
+  for (const [index, row] of rows.entries()) {
+    const command = commands.get(row.command_sha256);
+    const expectedSequence = index + 1;
+    if (!command || row.capture_id !== captureId ||
+        row.observation_sequence !== expectedSequence ||
+        command.capture_id !== captureId ||
+        command.expected_observation_sequence !== expectedSequence ||
+        command.previous_observation_sha256 !== previousObservationSha256 ||
+        sha256(row.record_json) !== row.record_sha256 ||
+        sha256(row.checkpoint_json) !== row.checkpoint_sha256) {
+      throw databaseError('B3 capture-state retained step structure differs');
+    }
+    retained.push(Object.freeze({
+      captureId: row.capture_id,
+      observationSequence: row.observation_sequence,
+      commandSha256: row.command_sha256,
+      recordBytes: Buffer.from(row.record_json),
+      recordSha256: row.record_sha256,
+      observationSha256: row.observation_sha256,
+      checkpointBytes: Buffer.from(row.checkpoint_json),
+      checkpointSha256: row.checkpoint_sha256,
+    }));
+    previousObservationSha256 = row.observation_sha256;
+  }
+  return Object.freeze(retained);
 }
 
 function validateSelectedDecisionPath(rows, command, preparedRecord, platform) {
@@ -550,6 +527,9 @@ function validateReadyInitialStartUnchecked(database, authority, platform, build
   const decisionRows = database.prepare(`
     SELECT * FROM b3_decisions ORDER BY command_sha256, source_state
   `).all();
+  const stepRows = database.prepare(`
+    SELECT * FROM b3_capture_steps ORDER BY capture_id, observation_sequence
+  `).all();
   if (intentRows.length !== 1 || captureRows.length !== 1 || commandRows.length < 1) {
     throw databaseError('B3 capture-state ready initial cardinality differs');
   }
@@ -637,6 +617,7 @@ function validateReadyInitialStartUnchecked(database, authority, platform, build
   }
   const selectedCommands = paths.flatMap((path) => path.selectedCommands);
   const selectedDecisions = paths.flatMap((path) => path.selectedDecisions);
+  const steps = validateCaptureSteps(stepRows, commandRows, capture.capture_id);
   return Object.freeze({
     kind: 'ready-initial',
     startIntent,
@@ -645,6 +626,7 @@ function validateReadyInitialStartUnchecked(database, authority, platform, build
     allocatedCommands: Object.freeze(allocatedCommands),
     selectedCommands: Object.freeze(selectedCommands),
     selectedDecisions: Object.freeze(selectedDecisions),
+    steps,
     tailCommand: tailPath.tailCommand,
     genericDecision: tailPath.genericDecision,
     activeCommand: tailIsClosed ? null : tailPath.tailCommand,
@@ -699,6 +681,7 @@ function validateDatabase(database, platform, buildAuthority) {
       (SELECT count(*) FROM b3_capture_start_intents) AS start_intents,
       (SELECT count(*) FROM b3_captures) AS captures,
       (SELECT count(*) FROM b3_commands) AS commands,
+      (SELECT count(*) FROM b3_capture_steps) AS steps,
       (SELECT count(*) FROM b3_decisions) AS decisions,
       (SELECT count(*) FROM b3_recoveries) AS recoveries,
       (SELECT count(*) FROM b3_recovery_manifests) AS recovery_manifests,
@@ -709,7 +692,8 @@ function validateDatabase(database, platform, buildAuthority) {
     .filter(([name]) => name.startsWith('recover'))
     .some(([, count]) => count !== 0);
   const initialDomainIsEmpty = domainCounts.captures === 0 &&
-    domainCounts.commands === 0 && domainCounts.decisions === 0;
+    domainCounts.commands === 0 && domainCounts.decisions === 0 &&
+    domainCounts.steps === 0;
   if (!recoveryCount && initialDomainIsEmpty && domainCounts.start_intents === 0 &&
       isDeepStrictEqual({ ...authority }, {
         singleton: 1,
@@ -756,31 +740,18 @@ export async function openB3CaptureStateDatabase(options) {
   if (root !== B3_CAPTURE_STATE_REPOSITORY_ROOT) {
     throw databaseError('B3 capture-state repository root is not canonical');
   }
-  const buildAuthority = await readBuildAuthority(root);
+  const buildAuthority = (await readB3BuildAuthoritySource()).buildAuthority;
 
   let evidence = root;
   for (const component of ['.native-build', 'b3', 'evidence']) {
     evidence = await createOrValidateDirectory(evidence, component);
   }
   await assertLegacyStateAbsent(evidence, platform);
-  const unresolvedStateDirectory = resolve(evidence, `${platform}-capture-state`);
-  try {
-    await lstat(unresolvedStateDirectory);
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-    assertBootstrapBundleState(platform);
-  }
   const stateDirectory = await createOrValidateDirectory(
     evidence, `${platform}-capture-state`,
   );
   await validateStateNamespace(stateDirectory);
   const databasePath = resolve(stateDirectory, DATABASE_NAME);
-  try {
-    await lstat(databasePath);
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-    assertBootstrapBundleState(platform);
-  }
   let created = false;
   let guard;
   try {
@@ -801,13 +772,7 @@ export async function openB3CaptureStateDatabase(options) {
     const databaseMetadata = await guard.stat();
     validatePrivateFile(databaseMetadata, DATABASE_NAME, (size) => size >= 0);
     const bootstrapEligible = created || databaseMetadata.size === 0;
-    if (bootstrapEligible) assertBootstrapBundleState(platform);
     if (!bootstrapEligible) {
-      try {
-        classifyB3CaptureBundleRootState({ platform });
-      } catch (error) {
-        throw databaseError(error?.message ?? 'B3 capture-state bundle root is invalid');
-      }
       await validateExistingHeaderBytes(guard, databaseMetadata.size);
     }
 
@@ -823,7 +788,7 @@ export async function openB3CaptureStateDatabase(options) {
       setPrevalidationConnectionPragmas(database);
       if (!bootstrapEligible) validateExistingDatabase(database);
       setValidatedConnectionPragmas(database);
-      bootstrapOrObserveSchemaAndComposite(database, platform, buildAuthority);
+      bootstrapOrObserveSchema(database, platform, buildAuthority);
       const after = await lstat(databasePath);
       validatePrivateFile(after, DATABASE_NAME, (size) => size > 0);
       if (after.dev !== databaseMetadata.dev || after.ino !== databaseMetadata.ino) {
@@ -844,7 +809,8 @@ export async function openB3CaptureStateDatabase(options) {
         database,
         platform,
         isClosed: () => closed,
-        readBuildAuthorityFresh: () => readBuildAuthority(root),
+        readBuildAuthorityFresh: async () =>
+          (await readB3BuildAuthoritySource()).buildAuthority,
         validate: (freshBuildAuthority) =>
           validateDatabase(database, platform, freshBuildAuthority),
       }));

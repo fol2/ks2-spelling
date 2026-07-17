@@ -291,8 +291,10 @@ test('SQLite rolls back a hot journal from a killed writer before application va
 
 test('duplicate initialisers converge on one exact schema and metadata row', async (t) => {
   const root = await fixture(t, 'duplicate-bootstrap');
-  const [left, right] = await Promise.all([openInChild(root), openInChild(root)]);
-  assert.deepEqual([left, right], [{ ok: true }, { ok: true }]);
+  const results = await Promise.all(
+    Array.from({ length: 8 }, () => openInChild(root)),
+  );
+  assert.deepEqual(results, Array.from({ length: 8 }, () => ({ ok: true })));
   const database = new DatabaseSync(join(
     root, '.native-build', 'b3', 'evidence', 'ios-capture-state', 'recovery.sqlite',
   ), { readOnly: true });

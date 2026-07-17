@@ -20,9 +20,23 @@ const COMPONENTS = Object.freeze(['.native-build', 'b3', 'distribution']);
 const AUTHORITY_NAME = 'build-authority.json';
 const COMMIT = /^[0-9a-f]{40}$/u;
 const HASH = /^[0-9a-f]{64}$/u;
+const MAX_STABLE_READ_ATTEMPTS = 3;
+const RETRYABLE_ANCESTOR_METADATA_DRIFT = Symbol(
+  'b3-retryable-ancestor-metadata-drift',
+);
 
 function sourceError(message) {
   return Object.assign(new Error(message), { code: 'b3_capture_state_invalid' });
+}
+
+function retryableAncestorMetadataError() {
+  const error = sourceError(
+    'B3 build-authority ancestor metadata changed while being read',
+  );
+  Object.defineProperty(error, RETRYABLE_ANCESTOR_METADATA_DRIFT, {
+    value: true,
+  });
+  return error;
 }
 
 function normaliseSourceError(error) {
@@ -40,6 +54,13 @@ function identity(metadata) {
     mtime: metadata.mtimeMs,
     ctime: metadata.ctimeMs,
   });
+}
+
+function sameAncestorObjects(current, retained) {
+  return current.length === retained.length && current.every(
+    (entry, index) => entry.dev === retained[index].dev &&
+      entry.ino === retained[index].ino && entry.mode === retained[index].mode,
+  );
 }
 
 function validateDirectory(metadata, label) {
@@ -113,6 +134,9 @@ async function assertAsyncAncestorSnapshot(paths, retained) {
   const current = [];
   for (const path of paths) current.push(identity(await lstat(path)));
   if (!isDeepStrictEqual(current, retained)) {
+    if (sameAncestorObjects(current, retained)) {
+      throw retryableAncestorMetadataError();
+    }
     throw sourceError('B3 build-authority ancestor identity changed while being read');
   }
 }
@@ -161,16 +185,26 @@ export async function readB3BuildAuthoritySource(...options) {
   if (options.length !== 0) {
     throw sourceError('B3 build-authority source accepts no caller authority');
   }
-  try {
-    return await readBuildAuthoritySourceOnce();
-  } catch (error) {
-    throw normaliseSourceError(error);
+  let finalError;
+  for (let attempt = 0; attempt < MAX_STABLE_READ_ATTEMPTS; attempt += 1) {
+    try {
+      return await readBuildAuthoritySourceOnce();
+    } catch (error) {
+      finalError = error;
+      if (!error?.[RETRYABLE_ANCESTOR_METADATA_DRIFT]) {
+        throw normaliseSourceError(error);
+      }
+    }
   }
+  throw normaliseSourceError(finalError);
 }
 
 function assertSyncAncestorSnapshot(paths, retained) {
   const current = paths.map((path) => identity(lstatSync(path)));
   if (!isDeepStrictEqual(current, retained)) {
+    if (sameAncestorObjects(current, retained)) {
+      throw retryableAncestorMetadataError();
+    }
     throw sourceError('B3 build-authority ancestor identity changed while being read');
   }
 }
@@ -236,9 +270,16 @@ export function readB3BuildAuthoritySourceSync(...options) {
   if (options.length !== 0) {
     throw sourceError('B3 build-authority source accepts no caller authority');
   }
-  try {
-    return readBuildAuthoritySourceSyncOnce();
-  } catch (error) {
-    throw normaliseSourceError(error);
+  let finalError;
+  for (let attempt = 0; attempt < MAX_STABLE_READ_ATTEMPTS; attempt += 1) {
+    try {
+      return readBuildAuthoritySourceSyncOnce();
+    } catch (error) {
+      finalError = error;
+      if (!error?.[RETRYABLE_ANCESTOR_METADATA_DRIFT]) {
+        throw normaliseSourceError(error);
+      }
+    }
   }
+  throw normaliseSourceError(finalError);
 }

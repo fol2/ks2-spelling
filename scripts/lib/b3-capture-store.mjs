@@ -59,6 +59,46 @@ function snapshotScalarRecord(value, label) {
   return Object.freeze(snapshot);
 }
 
+function snapshotRecursiveData(value, label, depth = 0) {
+  if (depth > 8) throw storeError(`B3 capture-store ${label} authority is invalid`);
+  if (value === null || ['string', 'number', 'boolean'].includes(typeof value)) {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    if (value.length > 64 ||
+        Array.from({ length: value.length }, (_, index) => index)
+          .some((index) => !Object.hasOwn(value, index)) ||
+        Reflect.ownKeys(value).some((key) =>
+      key !== 'length' && (!/^(?:0|[1-9][0-9]*)$/u.test(String(key)) ||
+        Number(key) >= value.length))) {
+      throw storeError(`B3 capture-store ${label} authority is invalid`);
+    }
+    const snapshot = [];
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+      if (!descriptor?.enumerable || !Object.hasOwn(descriptor, 'value')) {
+        throw storeError(`B3 capture-store ${label} authority is invalid`);
+      }
+      snapshot.push(snapshotRecursiveData(descriptor.value, label, depth + 1));
+    }
+    return Object.freeze(snapshot);
+  }
+  if (typeof value !== 'object' ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+    throw storeError(`B3 capture-store ${label} authority is invalid`);
+  }
+  const snapshot = {};
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (typeof key !== 'string' || !descriptor?.enumerable ||
+        !Object.hasOwn(descriptor, 'value')) {
+      throw storeError(`B3 capture-store ${label} authority is invalid`);
+    }
+    snapshot[key] = snapshotRecursiveData(descriptor.value, label, depth + 1);
+  }
+  return Object.freeze(snapshot);
+}
+
 export async function openB3CaptureStore(options) {
   if (!isClosedRecord(options, ['platform'])) {
     throw storeError('B3 capture-store open authority is invalid');
@@ -69,6 +109,7 @@ export async function openB3CaptureStore(options) {
   }
   const repository = await openB3CaptureStateRepository({ platform });
   let closed = false;
+  const recoveryPins = new WeakMap();
 
   async function startCapture(startOptions) {
     if (closed) throw storeError('B3 capture-store is already closed');
@@ -183,6 +224,61 @@ export async function openB3CaptureStore(options) {
     return repository.readCapture();
   }
 
+  async function pinRecoveryInvocation(pinOptions = {}) {
+    if (closed) throw storeError('B3 capture-store is already closed');
+    const options = snapshotDataRecord(
+      pinOptions,
+      ['acknowledgeReinstall'],
+      'recovery pin',
+    );
+    if (typeof options.acknowledgeReinstall !== 'boolean') {
+      throw storeError('B3 capture-store recovery pin authority is invalid');
+    }
+    const acknowledgeReinstall = options.acknowledgeReinstall;
+    const repositoryPin = await repository.readRecoveryInvocationPin();
+    const invocation = Object.freeze(Object.create(null));
+    recoveryPins.set(invocation, Object.freeze({
+      repositoryPin,
+      acknowledgeReinstall,
+      finalised: false,
+    }));
+    return invocation;
+  }
+
+  async function finaliseRecoveryInvocation(finaliseOptions) {
+    if (closed) throw storeError('B3 capture-store is already closed');
+    const options = snapshotDataRecord(finaliseOptions, [
+      'invocation', 'distribution', 'freshCommand',
+    ], 'recovery finalisation');
+    const retainedPin = recoveryPins.get(options.invocation);
+    if (!retainedPin || retainedPin.finalised) {
+      throw storeError('B3 capture-store recovery invocation pin is invalid');
+    }
+    recoveryPins.set(options.invocation, Object.freeze({
+      ...retainedPin,
+      finalised: true,
+    }));
+    const distribution = snapshotRecursiveData(
+      options.distribution,
+      'recovery distribution',
+    );
+    const freshCommand = snapshotScalarRecord(
+      options.freshCommand,
+      'recovery fresh command',
+    );
+    const outcome = await repository.finaliseRecoveryInvocation({
+      pin: retainedPin.repositoryPin,
+      acknowledgeReinstall: retainedPin.acknowledgeReinstall,
+      distribution,
+      freshCommand,
+    });
+    return Object.freeze({
+      status: outcome.status,
+      acknowledgementConsumed: retainedPin.acknowledgeReinstall &&
+        outcome.exactRecoveryLineageConverged,
+    });
+  }
+
   async function close() {
     if (closed) throw storeError('B3 capture-store is already closed');
     closed = true;
@@ -197,6 +293,8 @@ export async function openB3CaptureStore(options) {
     publishObservation,
     consumeCommand,
     readCapture,
+    pinRecoveryInvocation,
+    finaliseRecoveryInvocation,
     close,
   });
 }

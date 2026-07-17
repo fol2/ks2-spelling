@@ -231,6 +231,21 @@ test('Android capture owns exact scenario order, learner redaction and scope-bef
   }), /recovery.*rejected|pinned invocation/i);
   assert.equal(lateTailDeviceCalls, 0);
 
+  for (const status of ['recovered', 'already-recovered']) {
+    const pending = await captureB3AndroidEvidenceWithPrimitives({
+      approvalFile: '/operator/approval.json',
+      runToken: 'a'.repeat(64),
+      approvedScope: 'google-test-track-refund-revoke',
+      cloudflare: cloudflareEvidence(),
+      primitives: {
+        ...primitives,
+        finaliseInvocation: async () => Object.freeze({ status }),
+      },
+      authorityGate: async () => {},
+    });
+    assert.equal(pending.platform, 'android-play-physical');
+  }
+
   for (const [result, expected] of [
     [Object.freeze({ status: 'operator-required' }), (error) =>
       b3AndroidProofExitCode(error) === 7 && error.instructionCode === 'REINSTALL_EXACT_BUILD'],

@@ -127,6 +127,9 @@ CREATE TABLE b3_decisions (
   claim_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('claim_sha256', 64)}),
   PRIMARY KEY (command_sha256, source_state),
   UNIQUE (command_sha256, winner_kind, claim_sha256),
+  UNIQUE (
+    command_sha256, winner_kind, next_record_sha256, claim_sha256
+  ),
   CHECK (
     (winner_kind = 'ordinary' AND (${ordinaryCheck}) AND
       next_record_json IS NOT NULL AND next_record_sha256 IS NOT NULL) OR
@@ -195,6 +198,7 @@ CREATE TABLE b3_recovery_terminals (
   capture_snapshot_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('capture_snapshot_sha256', 64)}),
   manifest_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('manifest_sha256', 64)}),
   authority_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('authority_sha256', 64)}),
+  terminal_kind TEXT NOT NULL CHECK (terminal_kind = 'recovery-terminal'),
   terminal_record_json BLOB NOT NULL CHECK (${BLOB_CHECK('terminal_record_json')}),
   terminal_record_sha256 TEXT NOT NULL CHECK (${HASH_CHECK('terminal_record_sha256', 64)}),
   terminal_claim_json BLOB NOT NULL CHECK (${BLOB_CHECK('terminal_claim_json')}),
@@ -206,6 +210,14 @@ CREATE TABLE b3_recovery_terminals (
     REFERENCES b3_recovery_authorities(
       command_sha256, owner_claim_sha256, capture_snapshot_sha256,
       manifest_sha256, authority_sha256
+    ),
+  FOREIGN KEY (
+    command_sha256, terminal_kind,
+    terminal_record_sha256, terminal_claim_sha256
+  )
+    REFERENCES b3_decisions(
+      command_sha256, winner_kind,
+      next_record_sha256, claim_sha256
     ),
   UNIQUE (command_sha256, terminal_claim_sha256)
 ) STRICT, WITHOUT ROWID;

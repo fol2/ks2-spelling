@@ -26,8 +26,17 @@ import {
 import { B3_CAPTURE_STATE_REPOSITORY_ROOT } from './b3-capture-state-location.mjs';
 import {
   validateB3PendingInitialCaptureStartAuthority,
+  validateB3PendingRecoveryFreshCaptureStartAuthority,
   validateB3ReadyInitialCaptureStartAuthority,
+  validateB3ReadyRecoveryFreshCaptureStartAuthority,
 } from './b3-capture-start-authority.mjs';
+import {
+  createB3CaptureSnapshotAuthority,
+  validateB3RecoveryArchiveAuthorityBytes,
+  validateB3RecoveryManifestAuthorityBytes,
+  validateB3RecoveryOwnerClaimAuthorityBytes,
+  validateB3RecoveryTerminalAuthorityBytes,
+} from './b3-capture-recovery-authority.mjs';
 import {
   validateB3GenericConsumptionClaimAuthorityBytes,
   validateB3IssuedCommandStateAuthorityBytes,
@@ -430,6 +439,7 @@ function validateCaptureSteps(rows, commandRows, captureId) {
 
 function validateCaptureCommandStepShape({
   captureId,
+  captureState,
   commandRows,
   paths,
   stepRows,
@@ -464,23 +474,49 @@ function validateCaptureCommandStepShape({
   }
 
   const tail = commandRows.at(-1);
-  const tailIsClosed = paths.at(-1).genericDecision !== null;
-  if (tailIsClosed) {
+  const tailPath = paths.at(-1);
+  const tailIsClosed = tailPath.genericDecision !== null;
+  if (captureState === 'abandoned') {
+    if (tailPath.recoveryOwner === null || tailIsClosed ||
+        activeCommandSha256 !== null ||
+        ![commandRows.length - 1, commandRows.length].includes(localSteps.length)) {
+      throw databaseError('B3 capture-state abandoned tail shape differs');
+    }
+  } else if (tailIsClosed) {
     if (activeCommandSha256 !== null || localSteps.length !== commandRows.length) {
-      throw databaseError('B3 capture-state closed tail retained step shape differs');
+      throw databaseError('B3 capture-state closed tail authority differs');
     }
   } else if (activeCommandSha256 !== tail.command_sha256 ||
       ![commandRows.length - 1, commandRows.length].includes(localSteps.length)) {
-    throw databaseError('B3 capture-state active tail retained step shape differs');
+    throw databaseError('B3 capture-state active tail authority differs');
   }
-  if (localSteps.length === 0 &&
+  if (captureState === 'working' && localSteps.length === 0 &&
       (commandRows.length !== 1 || activeCommandSha256 !== tail.command_sha256)) {
     throw databaseError('B3 capture-state zero-step ready capture shape differs');
   }
   return localSteps;
 }
 
-function validateSelectedDecisionPath(rows, command, preparedRecord, platform) {
+function decisionSnapshot(row) {
+  return Object.freeze({
+    commandSha256: row.command_sha256,
+    sourceState: row.source_state,
+    sourceRecordSha256: row.source_record_sha256,
+    winnerKind: row.winner_kind,
+    nextState: row.next_state,
+    nextRecordSha256: row.next_record_sha256,
+    claimSha256: row.claim_sha256,
+  });
+}
+
+function validateSelectedDecisionPath({
+  rows,
+  command,
+  preparedRecord,
+  platform,
+  captureState,
+  isCaptureTail,
+}) {
   const bySource = new Map();
   for (const row of rows) {
     if (row.command_sha256 !== command.command_sha256 || bySource.has(row.source_state)) {
@@ -491,8 +527,11 @@ function validateSelectedDecisionPath(rows, command, preparedRecord, platform) {
 
   const selectedCommands = [];
   const selectedDecisions = [];
+  const snapshotDecisions = [];
   let current = preparedRecord;
   let genericDecision = null;
+  let recoveryOwner = null;
+  let terminalDecisionRow = null;
   const visited = new Set();
   selectedCommands.push(publicCommandSnapshot(command, current));
   while (bySource.has(current.state)) {
@@ -533,6 +572,7 @@ function validateSelectedDecisionPath(rows, command, preparedRecord, platform) {
         claimSha256: claim.claimSha256,
       });
       selectedDecisions.push(selected);
+      snapshotDecisions.push(decisionSnapshot(row));
       current = next;
       selectedCommands.push(selected.command);
       continue;
@@ -558,9 +598,45 @@ function validateSelectedDecisionPath(rows, command, preparedRecord, platform) {
         claimSha256: claim.claimSha256,
       });
       selectedDecisions.push(genericDecision);
+      snapshotDecisions.push(decisionSnapshot(row));
       break;
     }
-    throw databaseError('B3 capture-state recovery decision is unsupported in S2b');
+    if (row.winner_kind === 'recovery-owner') {
+      if (captureState !== 'abandoned' || !isCaptureTail || recoveryOwner !== null ||
+          row.next_state !== 'restart-executing' || row.next_record_json === null ||
+          row.next_record_sha256 === null) {
+        throw databaseError('B3 capture-state recovery-owner decision shape differs');
+      }
+      const owner = validateB3RecoveryOwnerClaimAuthorityBytes({
+        bytes: row.claim_json,
+        platform,
+        source: current,
+      });
+      if (owner.nextRecord.recordSha256 !== row.next_record_sha256 ||
+          owner.nextRecordSha256 !== row.next_record_sha256 ||
+          owner.ownerClaimSha256 !== row.claim_sha256 ||
+          !owner.nextRecordBytes.equals(Buffer.from(row.next_record_json))) {
+        throw databaseError('B3 capture-state recovery-owner authority differs');
+      }
+      recoveryOwner = Object.freeze({
+        source: selectedCommands.at(-1),
+        winnerKind: 'recovery-owner',
+        command: publicCommandSnapshot(command, owner.nextRecord),
+        claimSha256: owner.ownerClaimSha256,
+        authority: owner,
+      });
+      selectedDecisions.push(recoveryOwner);
+      snapshotDecisions.push(decisionSnapshot(row));
+      current = owner.nextRecord;
+      selectedCommands.push(recoveryOwner.command);
+      continue;
+    }
+    if (row.winner_kind === 'recovery-terminal' && recoveryOwner !== null &&
+        current.state === 'restart-executing') {
+      terminalDecisionRow = Object.freeze({ ...row });
+      break;
+    }
+    throw databaseError('B3 capture-state recovery decision path differs');
   }
   if (visited.size !== rows.length) {
     throw databaseError('B3 capture-state decision path contains an unselected row');
@@ -568,50 +644,60 @@ function validateSelectedDecisionPath(rows, command, preparedRecord, platform) {
   return Object.freeze({
     selectedCommands: Object.freeze(selectedCommands),
     selectedDecisions: Object.freeze(selectedDecisions),
+    snapshotDecisions: Object.freeze(snapshotDecisions),
     tailCommand: selectedCommands.at(-1),
     genericDecision,
+    recoveryOwner,
+    terminalDecisionRow,
   });
 }
 
-function validateReadyInitialStartUnchecked(database, authority, platform, buildAuthority) {
-  const intentRows = database.prepare('SELECT * FROM b3_capture_start_intents').all();
-  const captureRows = database.prepare('SELECT * FROM b3_captures').all();
-  const commandRows = database.prepare(`
-    SELECT * FROM b3_commands ORDER BY allocation_sequence
-  `).all();
-  const decisionRows = database.prepare(`
-    SELECT * FROM b3_decisions ORDER BY command_sha256, source_state
-  `).all();
-  const stepRows = database.prepare(`
-    SELECT * FROM b3_capture_steps ORDER BY capture_id, observation_sequence
-  `).all();
-  if (intentRows.length !== 1 || captureRows.length !== 1 || commandRows.length < 1) {
-    throw databaseError('B3 capture-state ready initial cardinality differs');
+function groupRows(rows, key) {
+  const grouped = new Map();
+  for (const row of rows) {
+    const value = row[key];
+    const existing = grouped.get(value) ?? [];
+    existing.push(row);
+    grouped.set(value, existing);
   }
-  const startIntent = validateB3ReadyInitialCaptureStartAuthority({
+  return grouped;
+}
+
+function validateReadyStartIntent({ row, platform, buildAuthority }) {
+  const retained = retainedStartIntent(row);
+  if (row.intent_kind === 'initial') {
+    return validateB3ReadyInitialCaptureStartAuthority({
+      platform,
+      buildAuthority,
+      retained,
+    });
+  }
+  if (row.intent_kind === 'recovery-fresh') {
+    return validateB3ReadyRecoveryFreshCaptureStartAuthority({
+      platform,
+      buildAuthority,
+      recoveredCommandSha256: row.recovered_command_sha256,
+      terminalClaimSha256: row.terminal_claim_sha256,
+      retained,
+    });
+  }
+  throw databaseError('B3 capture-state ready intent kind differs');
+}
+
+function validatePendingRecoveryStartIntent({ row, platform, buildAuthority }) {
+  return validateB3PendingRecoveryFreshCaptureStartAuthority({
     platform,
     buildAuthority,
-    retained: retainedStartIntent(intentRows[0]),
+    recoveredCommandSha256: row.recovered_command_sha256,
+    terminalClaimSha256: row.terminal_claim_sha256,
+    retained: retainedStartIntent(row),
   });
-  const capture = captureRows[0];
-  if (!isDeepStrictEqual({ ...capture }, {
-    capture_id: startIntent.captureId,
-    start_intent_sha256: startIntent.startIntentSha256,
-    capture_state: 'working',
-    row_version: 1,
-  })) {
-    throw databaseError('B3 capture-state ready initial capture authority differs');
-  }
-  const decisionsByCommand = new Map();
-  for (const decision of decisionRows) {
-    const rows = decisionsByCommand.get(decision.command_sha256) ?? [];
-    rows.push(decision);
-    decisionsByCommand.set(decision.command_sha256, rows);
-  }
-  const paths = [];
-  const allocatedCommands = [];
-  const localCommandRows = [];
-  let previousCommand = null;
+}
+
+function validateGlobalCommandLedger(commandRows, platform, buildAuthority) {
+  const blocks = [];
+  const seenCaptureIds = new Set();
+  let previous = null;
   for (const [index, command] of commandRows.entries()) {
     const preparedRecord = validateB3PreparedIssuedCommandAuthorityBytes({
       bytes: command.prepared_record_json,
@@ -622,12 +708,11 @@ function validateReadyInitialStartUnchecked(database, authority, platform, build
       'utf8',
     );
     if (command.allocation_sequence !== index + 1 ||
-        command.predecessor_command_sha256 !== (previousCommand?.command_sha256 ?? null) ||
+        command.predecessor_command_sha256 !== (previous?.command_sha256 ?? null) ||
         !Buffer.from(command.command_json).equals(expectedCommandBytes) ||
         command.command_sha256 !== preparedRecord.commandSha256 ||
         command.prepared_record_sha256 !== preparedRecord.recordSha256 ||
-        command.capture_id !== startIntent.captureId ||
-        preparedRecord.command.captureId !== startIntent.captureId ||
+        preparedRecord.command.captureId !== command.capture_id ||
         preparedRecord.command.testedApplicationCommit !==
           buildAuthority.testedApplicationCommit ||
         preparedRecord.command.applicationFingerprint !==
@@ -637,83 +722,495 @@ function validateReadyInitialStartUnchecked(database, authority, platform, build
           preparedRecord.command.previousObservationSha256) {
       throw databaseError('B3 capture-state allocated command authority differs');
     }
-    const localSequence = localCommandRows.length + 1;
-    if (command.expected_observation_sequence !== localSequence) {
+    let block = blocks.at(-1);
+    if (!block || block.captureId !== command.capture_id) {
+      if (seenCaptureIds.has(command.capture_id)) {
+        throw databaseError('B3 capture-state command capture block is not contiguous');
+      }
+      seenCaptureIds.add(command.capture_id);
+      block = { captureId: command.capture_id, entries: [] };
+      blocks.push(block);
+    }
+    const expectedLocalSequence = block.entries.length + 1;
+    if (command.expected_observation_sequence !== expectedLocalSequence ||
+        expectedLocalSequence > 512 ||
+        (expectedLocalSequence === 1 &&
+          command.previous_observation_sha256 !== '0'.repeat(64))) {
       throw databaseError('B3 capture-state local command ordinal differs');
     }
+    block.entries.push(Object.freeze({ row: command, preparedRecord }));
+    previous = command;
+  }
+  return Object.freeze(blocks.map((block) => Object.freeze({
+    captureId: block.captureId,
+    entries: Object.freeze(block.entries),
+  })));
+}
+
+function validateCaptureBlock({
+  block,
+  captureRow,
+  intentRow,
+  decisionRowsByCommand,
+  stepRows,
+  activeCommandSha256,
+  platform,
+  buildAuthority,
+}) {
+  const startIntent = validateReadyStartIntent({
+    row: intentRow,
+    platform,
+    buildAuthority,
+  });
+  const expectedCapture = {
+    capture_id: startIntent.captureId,
+    start_intent_sha256: startIntent.startIntentSha256,
+    capture_state: captureRow.capture_state,
+    row_version: captureRow.capture_state === 'working' ? 1 : 2,
+  };
+  if (!isDeepStrictEqual({ ...captureRow }, expectedCapture) ||
+      block.captureId !== startIntent.captureId) {
+    throw databaseError('B3 capture-state capture authority differs');
+  }
+  const paths = [];
+  const commandRows = block.entries.map((entry) => entry.row);
+  for (const [index, entry] of block.entries.entries()) {
     if (index === 0 && (
-      command.command_sha256 !== startIntent.firstCommandSha256 ||
-      !Buffer.from(command.command_json).equals(startIntent.commandBytes) ||
-      !Buffer.from(command.prepared_record_json).equals(startIntent.preparedRecordBytes) ||
-      command.prepared_record_sha256 !== startIntent.firstPreparedRecordSha256
+      entry.row.command_sha256 !== startIntent.firstCommandSha256 ||
+      !Buffer.from(entry.row.command_json).equals(startIntent.commandBytes) ||
+      !Buffer.from(entry.row.prepared_record_json).equals(startIntent.preparedRecordBytes) ||
+      entry.row.prepared_record_sha256 !== startIntent.firstPreparedRecordSha256
     )) {
-      throw databaseError('B3 capture-state ready initial command authority differs');
+      throw databaseError('B3 capture-state first command authority differs');
     }
-    const rows = decisionsByCommand.get(command.command_sha256) ?? [];
-    const path = validateSelectedDecisionPath(rows, command, preparedRecord, platform);
-    if (index < commandRows.length - 1 && path.genericDecision === null) {
+    const rows = decisionRowsByCommand.get(entry.row.command_sha256) ?? [];
+    const path = validateSelectedDecisionPath({
+      rows,
+      command: entry.row,
+      preparedRecord: entry.preparedRecord,
+      platform,
+      captureState: captureRow.capture_state,
+      isCaptureTail: index === block.entries.length - 1,
+    });
+    if (index < block.entries.length - 1 && path.genericDecision === null) {
       throw databaseError('B3 capture-state earlier command is not generically closed');
     }
+    decisionRowsByCommand.delete(entry.row.command_sha256);
     paths.push(path);
-    allocatedCommands.push(path.selectedCommands[0]);
-    localCommandRows.push(command);
-    previousCommand = command;
-    decisionsByCommand.delete(command.command_sha256);
   }
-  if (decisionsByCommand.size !== 0) {
-    throw databaseError('B3 capture-state decision names an unknown command');
-  }
-  const tailPath = paths.at(-1);
-  const genericDecisionCount = paths.filter((path) => path.genericDecision !== null).length;
-  const tailIsClosed = tailPath.genericDecision !== null;
-  const expectedAuthority = {
-    singleton: 1,
-    next_allocation_sequence: commandRows.length + 1,
-    active_command_sha256: tailIsClosed ? null : commandRows.at(-1).command_sha256,
-    reserved_start_command_sha256: null,
-    row_version: 3 + (commandRows.length - 1) + genericDecisionCount,
-  };
-  if (!isDeepStrictEqual({ ...authority }, expectedAuthority)) {
-    throw databaseError('B3 capture-state ready initial singleton authority differs');
-  }
-  const selectedCommands = paths.flatMap((path) => path.selectedCommands);
-  const selectedDecisions = paths.flatMap((path) => path.selectedDecisions);
+  const containsActive = commandRows.some((row) =>
+    row.command_sha256 === activeCommandSha256);
   const steps = validateCaptureCommandStepShape({
-    captureId: capture.capture_id,
-    commandRows: localCommandRows,
+    captureId: captureRow.capture_id,
+    captureState: captureRow.capture_state,
+    commandRows,
     paths,
     stepRows,
-    activeCommandSha256: authority.active_command_sha256,
+    activeCommandSha256: containsActive ? activeCommandSha256 : null,
   });
+  const tailPath = paths.at(-1);
+  const allocatedCommands = Object.freeze(paths.map((path) => path.selectedCommands[0]));
+  const selectedCommands = Object.freeze(paths.flatMap((path) => path.selectedCommands));
+  const selectedDecisions = Object.freeze(paths.flatMap((path) => path.selectedDecisions));
+  const snapshotCommands = Object.freeze(commandRows.map((row) => Object.freeze({
+    allocationSequence: row.allocation_sequence,
+    commandSha256: row.command_sha256,
+    predecessorCommandSha256: row.predecessor_command_sha256,
+    commandJsonSha256: sha256(row.command_json),
+    preparedRecordSha256: row.prepared_record_sha256,
+    expectedObservationSequence: row.expected_observation_sequence,
+    previousObservationSha256: row.previous_observation_sha256,
+  })));
+  const snapshotDecisions = Object.freeze(paths.flatMap((path) =>
+    path.snapshotDecisions));
+  const snapshotSteps = Object.freeze(steps.map((step) => Object.freeze({
+    observationSequence: step.observationSequence,
+    commandSha256: step.commandSha256,
+    recordSha256: step.recordSha256,
+    observationSha256: step.observationSha256,
+    checkpointSha256: step.checkpointSha256,
+  })));
+  const tailIsGeneric = tailPath.genericDecision !== null;
   return Object.freeze({
-    kind: 'ready-initial',
     startIntent,
-    capture: Object.freeze({ ...capture }),
-    authority: Object.freeze({ ...authority }),
-    allocatedCommands: Object.freeze(allocatedCommands),
-    selectedCommands: Object.freeze(selectedCommands),
-    selectedDecisions: Object.freeze(selectedDecisions),
+    capture: Object.freeze({ ...captureRow }),
+    allocatedCommands,
+    selectedCommands,
+    selectedDecisions,
+    snapshotCommands,
+    snapshotDecisions,
+    snapshotSteps,
     steps,
     tailCommand: tailPath.tailCommand,
     genericDecision: tailPath.genericDecision,
-    activeCommand: tailIsClosed ? null : tailPath.tailCommand,
+    activeCommand: captureRow.capture_state === 'working' && !tailIsGeneric
+      ? tailPath.tailCommand
+      : null,
+    recoveryOwner: tailPath.recoveryOwner,
+    terminalDecisionRow: tailPath.terminalDecisionRow,
+    recovery: null,
   });
 }
 
-function validateReadyInitialStart(database, authority, platform, buildAuthority) {
-  try {
-    return validateReadyInitialStartUnchecked(
-      database,
-      authority,
+function validateCaptureRecovery({
+  capture,
+  recoveryRow,
+  manifestRow,
+  authorityRow,
+  terminalRow,
+  platform,
+  buildAuthority,
+}) {
+  if (capture.capture.capture_state !== 'abandoned' || !capture.recoveryOwner ||
+      !recoveryRow || !manifestRow || !authorityRow) {
+    throw databaseError('B3 capture-state abandoned recovery cardinality differs');
+  }
+  const owner = capture.recoveryOwner.authority;
+  const tailCommandSha256 = capture.allocatedCommands.at(-1).commandSha256;
+  const snapshot = createB3CaptureSnapshotAuthority({
+    platform,
+    captureId: capture.capture.capture_id,
+    startIntentSha256: capture.startIntent.startIntentSha256,
+    captureState: 'abandoned',
+    captureRowVersion: capture.capture.row_version,
+    testedApplicationCommit: buildAuthority.testedApplicationCommit,
+    applicationFingerprint: buildAuthority.applicationFingerprint,
+    commands: capture.snapshotCommands,
+    decisions: capture.snapshotDecisions,
+    steps: capture.snapshotSteps,
+  });
+  if (!isDeepStrictEqual({ ...recoveryRow }, {
+    command_sha256: tailCommandSha256,
+    owner_kind: 'recovery-owner',
+    owner_claim_sha256: owner.ownerClaimSha256,
+    capture_id: capture.capture.capture_id,
+    capture_snapshot_sha256: snapshot.captureSnapshotSha256,
+    row_version: 1,
+  })) {
+    throw databaseError('B3 capture-state recovery snapshot row differs');
+  }
+  const lastStep = capture.steps.at(-1);
+  const manifest = validateB3RecoveryManifestAuthorityBytes({
+    bytes: manifestRow.manifest_json,
+    platform,
+    captureId: capture.capture.capture_id,
+    commandSha256: tailCommandSha256,
+    ownerClaimSha256: owner.ownerClaimSha256,
+    captureSnapshotSha256: snapshot.captureSnapshotSha256,
+    observationCount: capture.steps.length,
+    terminalObservationSha256: lastStep?.observationSha256 ?? '0'.repeat(64),
+  });
+  if (manifestRow.command_sha256 !== tailCommandSha256 ||
+      manifestRow.owner_claim_sha256 !== owner.ownerClaimSha256 ||
+      manifestRow.capture_snapshot_sha256 !== snapshot.captureSnapshotSha256 ||
+      manifestRow.manifest_sha256 !== manifest.manifestSha256) {
+    throw databaseError('B3 capture-state recovery manifest row differs');
+  }
+  const archive = validateB3RecoveryArchiveAuthorityBytes({
+    bytes: authorityRow.authority_json,
+    platform,
+    captureId: capture.capture.capture_id,
+    commandSha256: tailCommandSha256,
+    ownerClaimSha256: owner.ownerClaimSha256,
+    captureSnapshotSha256: snapshot.captureSnapshotSha256,
+    manifestSha256: manifest.manifestSha256,
+    testedApplicationCommit: buildAuthority.testedApplicationCommit,
+    applicationFingerprint: buildAuthority.applicationFingerprint,
+  });
+  if (authorityRow.command_sha256 !== tailCommandSha256 ||
+      authorityRow.owner_claim_sha256 !== owner.ownerClaimSha256 ||
+      authorityRow.capture_snapshot_sha256 !== snapshot.captureSnapshotSha256 ||
+      authorityRow.manifest_sha256 !== manifest.manifestSha256 ||
+      authorityRow.authority_sha256 !== archive.archiveAuthoritySha256) {
+    throw databaseError('B3 capture-state recovery archive row differs');
+  }
+
+  let terminal = null;
+  if (terminalRow !== undefined) {
+    const decision = capture.terminalDecisionRow;
+    if (!decision) {
+      throw databaseError('B3 capture-state recovery terminal decision is absent');
+    }
+    terminal = validateB3RecoveryTerminalAuthorityBytes({
+      terminalRecordBytes: terminalRow.terminal_record_json,
+      terminalClaimBytes: terminalRow.terminal_claim_json,
+      platform,
+      source: owner.nextRecord,
+      ownerClaimSha256: owner.ownerClaimSha256,
+      captureSnapshotSha256: snapshot.captureSnapshotSha256,
+      manifestSha256: manifest.manifestSha256,
+      archiveAuthoritySha256: archive.archiveAuthoritySha256,
+    });
+    if (terminalRow.command_sha256 !== tailCommandSha256 ||
+        terminalRow.owner_claim_sha256 !== owner.ownerClaimSha256 ||
+        terminalRow.capture_snapshot_sha256 !== snapshot.captureSnapshotSha256 ||
+        terminalRow.manifest_sha256 !== manifest.manifestSha256 ||
+        terminalRow.authority_sha256 !== archive.archiveAuthoritySha256 ||
+        terminalRow.terminal_kind !== 'recovery-terminal' ||
+        terminalRow.terminal_record_sha256 !== terminal.terminalRecordSha256 ||
+        terminalRow.terminal_claim_sha256 !== terminal.terminalClaimSha256 ||
+        decision.command_sha256 !== tailCommandSha256 ||
+        decision.source_state !== 'restart-executing' ||
+        decision.source_record_sha256 !== owner.nextRecordSha256 ||
+        decision.winner_kind !== 'recovery-terminal' ||
+        decision.next_state !== 'restart-complete' ||
+        decision.next_record_sha256 !== terminal.terminalRecordSha256 ||
+        decision.claim_sha256 !== terminal.terminalClaimSha256 ||
+        !Buffer.from(decision.next_record_json).equals(terminal.terminalRecordBytes) ||
+        !Buffer.from(decision.claim_json).equals(terminal.terminalClaimBytes)) {
+      throw databaseError('B3 capture-state recovery terminal row differs');
+    }
+  } else if (capture.terminalDecisionRow !== null) {
+    throw databaseError('B3 capture-state terminal decision has no terminal row');
+  }
+  return Object.freeze({
+    owner,
+    snapshot,
+    manifest,
+    archive,
+    terminal,
+  });
+}
+
+function validateAuthorityProjection({
+  authority,
+  captures,
+  pendingStartIntent,
+  intentCount,
+  commandCount,
+}) {
+  const workingCapture = captures.find((capture) =>
+    capture.capture.capture_state === 'working') ?? null;
+  const genericCount = captures.reduce((count, capture) =>
+    count + capture.selectedDecisions.filter((decision) =>
+      decision.winnerKind === 'generic-consumption').length, 0);
+  const abandonedCount = captures.filter((capture) =>
+    capture.capture.capture_state === 'abandoned').length;
+  const expectedActive = workingCapture?.activeCommand?.commandSha256 ?? null;
+  const expectedReserved = pendingStartIntent?.firstCommandSha256 ?? null;
+  if (!isDeepStrictEqual({ ...authority }, {
+    singleton: 1,
+    next_allocation_sequence: commandCount + 1,
+    active_command_sha256: expectedActive,
+    reserved_start_command_sha256: expectedReserved,
+    row_version: 1 + intentCount + commandCount + genericCount + abandonedCount,
+  })) {
+    throw databaseError('B3 capture-state singleton authority differs');
+  }
+  return workingCapture;
+}
+
+function validateRelationalState(database, authority, platform, buildAuthority) {
+  const intentRows = database.prepare(`
+    SELECT * FROM b3_capture_start_intents ORDER BY start_intent_sha256
+  `).all();
+  const captureRows = database.prepare('SELECT * FROM b3_captures').all();
+  const commandRows = database.prepare(`
+    SELECT * FROM b3_commands ORDER BY allocation_sequence
+  `).all();
+  const decisionRows = database.prepare(`
+    SELECT * FROM b3_decisions ORDER BY command_sha256, source_state
+  `).all();
+  const stepRows = database.prepare(`
+    SELECT * FROM b3_capture_steps ORDER BY capture_id, observation_sequence
+  `).all();
+  const recoveryRows = database.prepare('SELECT * FROM b3_recoveries').all();
+  const manifestRows = database.prepare('SELECT * FROM b3_recovery_manifests').all();
+  const archiveRows = database.prepare('SELECT * FROM b3_recovery_authorities').all();
+  const terminalRows = database.prepare('SELECT * FROM b3_recovery_terminals').all();
+
+  const recoveryDomainCount = recoveryRows.length + manifestRows.length +
+    archiveRows.length + terminalRows.length;
+  if (captureRows.length === 0 && commandRows.length === 0 &&
+      decisionRows.length === 0 && stepRows.length === 0 && recoveryDomainCount === 0) {
+    if (intentRows.length === 0 && isDeepStrictEqual({ ...authority }, {
+      singleton: 1,
+      next_allocation_sequence: 1,
+      active_command_sha256: null,
+      reserved_start_command_sha256: null,
+      row_version: 1,
+    })) {
+      return Object.freeze({
+        kind: 'empty',
+        authority: Object.freeze({ ...authority }),
+        captures: Object.freeze([]),
+        workingCapture: null,
+        pendingStartIntent: null,
+        latestRecovery: null,
+      });
+    }
+    if (intentRows.length === 1 && intentRows[0].intent_kind === 'initial') {
+      const pending = validatePendingInitialStart(
+        database,
+        authority,
+        platform,
+        buildAuthority,
+      );
+      return Object.freeze({
+        kind: 'pending-initial',
+        authority: Object.freeze({ ...authority }),
+        captures: Object.freeze([]),
+        workingCapture: null,
+        pendingStartIntent: pending,
+        latestRecovery: null,
+      });
+    }
+    throw databaseError('B3 capture-state empty domain authority differs');
+  }
+  if (captureRows.length === 0 || commandRows.length === 0) {
+    throw databaseError('B3 capture-state capture domain cardinality differs');
+  }
+
+  const blocks = validateGlobalCommandLedger(commandRows, platform, buildAuthority);
+  const captureById = new Map(captureRows.map((row) => [row.capture_id, row]));
+  const intentBySha256 = new Map(intentRows.map((row) =>
+    [row.start_intent_sha256, row]));
+  const decisionsByCommand = groupRows(decisionRows, 'command_sha256');
+  const stepsByCapture = groupRows(stepRows, 'capture_id');
+  const baseCaptures = [];
+  for (const block of blocks) {
+    const captureRow = captureById.get(block.captureId);
+    const intentRow = captureRow && intentBySha256.get(captureRow.start_intent_sha256);
+    if (!captureRow || !intentRow || intentRow.intent_state !== 'ready') {
+      throw databaseError('B3 capture-state capture block authority is absent');
+    }
+    const capture = validateCaptureBlock({
+      block,
+      captureRow,
+      intentRow,
+      decisionRowsByCommand: decisionsByCommand,
+      stepRows: stepsByCapture.get(block.captureId) ?? [],
+      activeCommandSha256: authority.active_command_sha256,
       platform,
       buildAuthority,
-    );
-  } catch (error) {
-    if (error?.code === 'b3_issued_command_invalid') {
-      throw databaseError(error.message);
-    }
-    throw error;
+    });
+    baseCaptures.push(capture);
+    captureById.delete(block.captureId);
+    intentBySha256.delete(intentRow.start_intent_sha256);
+    stepsByCapture.delete(block.captureId);
   }
+  if (captureById.size !== 0 || decisionsByCommand.size !== 0 ||
+      stepsByCapture.size !== 0) {
+    throw databaseError('B3 capture-state relational row is orphaned');
+  }
+
+  const recoveryByCommand = new Map(recoveryRows.map((row) =>
+    [row.command_sha256, row]));
+  const manifestByCommand = new Map(manifestRows.map((row) =>
+    [row.command_sha256, row]));
+  const archiveByCommand = new Map(archiveRows.map((row) =>
+    [row.command_sha256, row]));
+  const terminalByCommand = new Map(terminalRows.map((row) =>
+    [row.command_sha256, row]));
+  const captures = [];
+  for (const capture of baseCaptures) {
+    const commandSha256 = capture.allocatedCommands.at(-1).commandSha256;
+    if (capture.capture.capture_state === 'working') {
+      if (recoveryByCommand.has(commandSha256) || manifestByCommand.has(commandSha256) ||
+          archiveByCommand.has(commandSha256) || terminalByCommand.has(commandSha256) ||
+          capture.recoveryOwner || capture.terminalDecisionRow) {
+        throw databaseError('B3 capture-state working capture has recovery authority');
+      }
+      captures.push(capture);
+      continue;
+    }
+    const recovery = validateCaptureRecovery({
+      capture,
+      recoveryRow: recoveryByCommand.get(commandSha256),
+      manifestRow: manifestByCommand.get(commandSha256),
+      authorityRow: archiveByCommand.get(commandSha256),
+      terminalRow: terminalByCommand.get(commandSha256),
+      platform,
+      buildAuthority,
+    });
+    recoveryByCommand.delete(commandSha256);
+    manifestByCommand.delete(commandSha256);
+    archiveByCommand.delete(commandSha256);
+    terminalByCommand.delete(commandSha256);
+    captures.push(Object.freeze({ ...capture, recovery }));
+  }
+  if (recoveryByCommand.size !== 0 || manifestByCommand.size !== 0 ||
+      archiveByCommand.size !== 0 || terminalByCommand.size !== 0) {
+    throw databaseError('B3 capture-state recovery row is orphaned');
+  }
+
+  if (captures[0].startIntent.intentKind !== 'initial') {
+    throw databaseError('B3 capture-state first intent is not initial');
+  }
+  for (let index = 1; index < captures.length; index += 1) {
+    const previous = captures[index - 1];
+    const current = captures[index];
+    if (current.startIntent.intentKind !== 'recovery-fresh' ||
+        previous.capture.capture_state !== 'abandoned' ||
+        previous.recovery?.terminal === null ||
+        current.startIntent.recoveredCommandSha256 !==
+          previous.allocatedCommands.at(-1).commandSha256 ||
+        current.startIntent.terminalClaimSha256 !==
+          previous.recovery.terminal.terminalClaimSha256) {
+      throw databaseError('B3 capture-state recovery-fresh lineage differs');
+    }
+  }
+
+  const pendingRows = [...intentBySha256.values()];
+  let pendingStartIntent = null;
+  if (pendingRows.length === 1 && pendingRows[0].intent_state === 'pending' &&
+      pendingRows[0].intent_kind === 'recovery-fresh') {
+    pendingStartIntent = validatePendingRecoveryStartIntent({
+      row: pendingRows[0],
+      platform,
+      buildAuthority,
+    });
+  } else if (pendingRows.length !== 0) {
+    throw databaseError('B3 capture-state pending intent authority differs');
+  }
+
+  const frozenCaptures = Object.freeze(captures);
+  const workingCaptures = captures.filter((capture) =>
+    capture.capture.capture_state === 'working');
+  if (workingCaptures.length > 1 ||
+      (workingCaptures.length === 1 && workingCaptures[0] !== captures.at(-1))) {
+    throw databaseError('B3 capture-state working capture ordering differs');
+  }
+  const latest = captures.at(-1);
+  let kind;
+  if (workingCaptures.length === 1 && pendingStartIntent === null) {
+    kind = 'working';
+  } else if (workingCaptures.length === 0 && latest.recovery?.terminal === null &&
+      pendingStartIntent === null) {
+    kind = 'archived-recovery-pending-terminal';
+  } else if (workingCaptures.length === 0 && latest.recovery?.terminal !== null &&
+      pendingStartIntent !== null &&
+      pendingStartIntent.recoveredCommandSha256 ===
+        latest.allocatedCommands.at(-1).commandSha256 &&
+      pendingStartIntent.terminalClaimSha256 ===
+        latest.recovery.terminal.terminalClaimSha256) {
+    kind = 'terminal-pending-recovery-fresh';
+  } else {
+    throw databaseError('B3 capture-state recovery phase mixture differs');
+  }
+  for (let index = 0; index < captures.length - 1; index += 1) {
+    if (captures[index].capture.capture_state !== 'abandoned' ||
+        captures[index].recovery?.terminal === null) {
+      throw databaseError('B3 capture-state earlier recovery is incomplete');
+    }
+  }
+  const workingCapture = validateAuthorityProjection({
+    authority,
+    captures,
+    pendingStartIntent,
+    intentCount: intentRows.length,
+    commandCount: commandRows.length,
+  });
+  const latestRecovery = [...captures].reverse().find((capture) =>
+    capture.capture.capture_state === 'abandoned')?.recovery ?? null;
+  return Object.freeze({
+    kind,
+    authority: Object.freeze({ ...authority }),
+    captures: frozenCaptures,
+    workingCapture,
+    pendingStartIntent,
+    latestRecovery,
+  });
 }
 
 function validateDatabase(database, platform, buildAuthority) {
@@ -743,50 +1240,15 @@ function validateDatabase(database, platform, buildAuthority) {
     throw databaseError('B3 capture-state singleton authority differs');
   }
   const authority = authorityRows[0];
-  const domainCounts = database.prepare(`
-    SELECT
-      (SELECT count(*) FROM b3_capture_start_intents) AS start_intents,
-      (SELECT count(*) FROM b3_captures) AS captures,
-      (SELECT count(*) FROM b3_commands) AS commands,
-      (SELECT count(*) FROM b3_capture_steps) AS steps,
-      (SELECT count(*) FROM b3_decisions) AS decisions,
-      (SELECT count(*) FROM b3_recoveries) AS recoveries,
-      (SELECT count(*) FROM b3_recovery_manifests) AS recovery_manifests,
-      (SELECT count(*) FROM b3_recovery_authorities) AS recovery_authorities,
-      (SELECT count(*) FROM b3_recovery_terminals) AS recovery_terminals
-  `).get();
-  const recoveryCount = Object.entries(domainCounts)
-    .filter(([name]) => name.startsWith('recover'))
-    .some(([, count]) => count !== 0);
-  const initialDomainIsEmpty = domainCounts.captures === 0 &&
-    domainCounts.commands === 0 && domainCounts.decisions === 0 &&
-    domainCounts.steps === 0;
-  if (!recoveryCount && initialDomainIsEmpty && domainCounts.start_intents === 0 &&
-      isDeepStrictEqual({ ...authority }, {
-        singleton: 1,
-        next_allocation_sequence: 1,
-        active_command_sha256: null,
-        reserved_start_command_sha256: null,
-        row_version: 1,
-      })) {
-    return Object.freeze({ kind: 'empty', startIntent: null });
+  try {
+    return validateRelationalState(database, authority, platform, buildAuthority);
+  } catch (error) {
+    if (error?.code === 'b3_issued_command_invalid' ||
+        error?.code === 'b3_capture_recovery_invalid') {
+      throw databaseError(error.message);
+    }
+    throw error;
   }
-  if (!recoveryCount && initialDomainIsEmpty && domainCounts.start_intents === 1) {
-    return Object.freeze({
-      kind: 'pending-initial',
-      startIntent: validatePendingInitialStart(
-        database,
-        authority,
-        platform,
-        buildAuthority,
-      ),
-    });
-  }
-  if (!recoveryCount && domainCounts.start_intents === 1 &&
-      domainCounts.captures === 1 && domainCounts.commands >= 1) {
-    return validateReadyInitialStart(database, authority, platform, buildAuthority);
-  }
-  throw databaseError('B3 capture-state domain authority is unsupported or invalid');
 }
 
 function openWithPrivateMask(path) {

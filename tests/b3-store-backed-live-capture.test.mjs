@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { fork } from 'node:child_process';
+import { execFile, fork } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   chmod,
@@ -13,13 +13,13 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { promisify } from 'node:util';
 
 import {
   canonicaliseB3ProofValue,
   createB3ProofObservation,
 } from '../src/app/b3-live-proof-protocol.js';
 import {
-  classifyB3InterimRecoveryState,
   createB3StoreBackedLiveCapture,
   deriveB3NextStoreCommand,
 } from '../scripts/lib/b3-store-backed-live-capture.mjs';
@@ -39,6 +39,11 @@ const NATIVE_CROSSING_HELPER = new URL(
   './helpers/b3-store-backed-native-crossing-child.mjs',
   import.meta.url,
 );
+const RECOVERY_SQL_DEATH_HELPER = new URL(
+  './helpers/b3-store-backed-recovery-sql-death-child.mjs',
+  import.meta.url,
+);
+const execFileAsync = promisify(execFile);
 
 async function nativeCrossingFixture(t, label) {
   const root = await mkdtemp(join(tmpdir(), `b3-store-backed-${label}-`));
@@ -117,6 +122,43 @@ async function runNativeCrossingHelper(t, root, ...args) {
   const result = await helper.result;
   assert.deepEqual(await helper.exited, { code: 0, signal: null, stderr: '' });
   return result;
+}
+
+async function runRecoverySqlDeathHelper(root, ...args) {
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    '--experimental-test-module-mocks',
+    RECOVERY_SQL_DEATH_HELPER.pathname,
+    ...args,
+  ], { cwd: root, env: { ...process.env, NODE_NO_WARNINGS: '1' } });
+  assert.equal(stderr, '');
+  return JSON.parse(stdout);
+}
+
+function spawnRecoverySqlDeathHelper(t, root, ...args) {
+  const child = fork(RECOVERY_SQL_DEATH_HELPER.pathname, args, {
+    cwd: root,
+    env: { ...process.env, NODE_NO_WARNINGS: '1' },
+    execArgv: ['--experimental-test-module-mocks'],
+    stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+  });
+  let stderr = '';
+  child.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
+  t.after(() => {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  });
+  const paused = new Promise((resolvePaused, rejectPaused) => {
+    child.on('message', (message) => {
+      if (message?.type === 'paused') resolvePaused(message);
+      if (message?.type === 'unexpected-return') {
+        rejectPaused(new Error('B3 recovery SQL death helper unexpectedly returned'));
+      }
+    });
+    child.on('error', rejectPaused);
+  });
+  const exited = new Promise((resolveExit) => {
+    child.on('exit', (code, signal) => resolveExit({ code, signal, stderr }));
+  });
+  return Object.freeze({ child, paused, exited });
 }
 
 function buildAuthority(platform = 'ios') {
@@ -209,15 +251,27 @@ async function observationFor(command, authority = buildAuthority()) {
   });
 }
 
-function fakeStore({ platform = 'ios', active = null, capture = null } = {}) {
+function fakeStore({
+  platform = 'ios',
+  active = null,
+  capture = null,
+  activeProjection,
+  recoveryOutcome = Object.freeze({
+    status: 'not-applicable',
+    acknowledgementConsumed: false,
+  }),
+} = {}) {
   const events = [];
   let current = active;
   let projection = capture;
+  let selectedRecoveryOutcome = recoveryOutcome;
+  const recoveryPins = new WeakSet();
   const nextSource = (command, state, allocationSequence = 1) =>
     commandSource(platform, command, state, allocationSequence);
   const store = {
     async readActiveCommand() {
       events.push('read-active');
+      if (activeProjection !== undefined) return activeProjection;
       return current === null
         ? Object.freeze({ kind: 'none' })
         : Object.freeze({ kind: 'active', command: current });
@@ -282,6 +336,23 @@ function fakeStore({ platform = 'ios', active = null, capture = null } = {}) {
       }
       return projection;
     },
+    async pinRecoveryInvocation({ acknowledgeReinstall }) {
+      events.push(`pin-recovery:${acknowledgeReinstall}`);
+      const invocation = Object.freeze(Object.create(null));
+      recoveryPins.add(invocation);
+      return invocation;
+    },
+    async finaliseRecoveryInvocation({ invocation, distribution, freshCommand }) {
+      events.push('finalise-recovery');
+      assert.equal(recoveryPins.has(invocation), true);
+      assert.notEqual(distribution, platformEvidence(
+        platform === 'ios' ? 'ios-physical' : 'android-play-physical',
+      ).distribution);
+      assert.equal(freshCommand.actionCode, 'ARM_CAPTURE');
+      assert.equal(freshCommand.expectedScenarioIndex, 0);
+      assert.equal(freshCommand.expectedSequence, 1);
+      return selectedRecoveryOutcome;
+    },
     async close() { events.push('close'); },
   };
   return {
@@ -289,6 +360,7 @@ function fakeStore({ platform = 'ios', active = null, capture = null } = {}) {
     events,
     active: () => current,
     setActive: (value) => { current = value; },
+    setRecoveryOutcome: (value) => { selectedRecoveryOutcome = value; },
     capture: () => projection,
   };
 }
@@ -342,28 +414,6 @@ test('pure next-command derivation uses the committed capture tail and Android a
   assert.equal(second.previousObservationSha256, observationSha256);
   assert.equal(second.captureId, CAPTURE_ID);
   assert.equal(uuidCalls, 1);
-});
-
-test('interim recovery classifier exhaustively rejects only ambiguous or recovery states', () => {
-  const expected = {
-    none: 'not-applicable',
-    prepared: 'not-applicable',
-    'stop-intent': 'not-applicable',
-    'stop-executing': 'rejected',
-    'host-stopped': 'not-applicable',
-    launching: 'rejected',
-    'reinstall-authorised': 'not-applicable',
-    'reinstall-launching': 'rejected',
-    launched: 'not-applicable',
-    'restart-required': 'rejected',
-    'restart-executing': 'rejected',
-    'restart-complete': 'rejected',
-  };
-  for (const [state, status] of Object.entries(expected)) {
-    assert.deepEqual(classifyB3InterimRecoveryState(state), { status });
-    assert.equal(Object.isFrozen(classifyB3InterimRecoveryState(state)), true);
-  }
-  assert.throws(() => classifyB3InterimRecoveryState('future-state'), /state.*invalid/i);
 });
 
 test('controller lazily starts, owns one launch, publishes, consumes and closes once', async () => {
@@ -548,70 +598,165 @@ test('publication adopts a concurrently selected ordinary successor before consu
   await controller.dispose();
 });
 
-test('pin finalisation classifies the fresh legal successor and performs no store mutation', async () => {
-  const authority = buildAuthority();
-  const command = deriveB3NextStoreCommand({
-    platform: 'ios', buildAuthority: authority, capture: null,
-    uuidFactory: () => CAPTURE_ID,
+test('controller maps every closed recovery outcome to one public key on both platforms',
+  async (t) => {
+    const outcomes = [
+      ['not-applicable', false],
+      ['operator-required', false],
+      ['recovered', true],
+      ['already-recovered', true],
+      ['rejected', false],
+    ];
+    for (const platform of ['ios', 'android']) {
+      for (const [status, acknowledgementConsumed] of outcomes) {
+        await t.test(`${platform}:${status}`, async () => {
+          const events = [];
+          const fake = fakeStore({
+            platform,
+            recoveryOutcome: Object.freeze({ status, acknowledgementConsumed }),
+          });
+          const controller = createB3StoreBackedLiveCapture({
+            platform,
+            buildAuthority: async () => buildAuthority(platform),
+            uuidFactory: () => CAPTURE_ID,
+            storeFactory: async () => fake.store,
+            consumeReinstallAcknowledgement() {
+              assert.equal(fake.events.at(-1), 'finalise-recovery');
+              events.push('acknowledgement-consumed');
+            },
+            transport: {
+              async launch() {}, async pullObservation() { return Buffer.alloc(0); },
+              async forceStop() {},
+            },
+          });
+          const invocation = await controller.pinInvocation({
+            acknowledgeReinstall: true,
+          });
+          const result = await controller.finaliseInvocation({
+            invocation,
+            distribution: platformEvidence(
+              platform === 'ios' ? 'ios-physical' : 'android-play-physical',
+            ).distribution,
+          });
+          assert.deepEqual(result, { status });
+          assert.deepEqual(Reflect.ownKeys(result), ['status']);
+          assert.equal(Object.isFrozen(result), true);
+          assert.deepEqual(fake.events.filter((entry) =>
+            entry.startsWith('pin-recovery') || entry === 'finalise-recovery'), [
+            'pin-recovery:true',
+            'finalise-recovery',
+          ]);
+          assert.deepEqual(events, acknowledgementConsumed
+            ? ['acknowledgement-consumed']
+            : []);
+          await controller.dispose();
+        });
+      }
+    }
   });
-  const prepared = commandSource('ios', command, 'prepared');
-  const fake = fakeStore({ active: prepared });
-  const controller = createB3StoreBackedLiveCapture({
-    platform: 'ios',
-    buildAuthority: async () => authority,
-    storeFactory: async () => fake.store,
-    transport: {
-      async launch() {}, async pullObservation() { return Buffer.alloc(0); },
-      async forceStop() {},
-    },
-  });
-  const invocation = await controller.pinInvocation();
-  await fake.store.transitionCommand({ source: prepared, nextState: 'launching' });
-  const before = fake.events.length;
-  assert.deepEqual(await controller.finaliseInvocation({
-    invocation,
-    distribution: platformEvidence().distribution,
-  }), { status: 'rejected' });
-  assert.deepEqual(fake.events.slice(before), ['read-active']);
-  await controller.dispose();
-});
 
-test('pin finalisation accepts a selected multi-edge successor but rejects state regression',
+test('controller rejects distribution before UUID or store finalisation and consumes its pin',
   async () => {
-    const authority = buildAuthority();
-    const command = deriveB3NextStoreCommand({
-      platform: 'ios', buildAuthority: authority, capture: null,
-      uuidFactory: () => CAPTURE_ID,
-    });
-    const prepared = commandSource('ios', command, 'prepared');
-    const fake = fakeStore({ active: prepared });
+    const fake = fakeStore();
+    let uuidCalls = 0;
     const controller = createB3StoreBackedLiveCapture({
       platform: 'ios',
-      buildAuthority: async () => authority,
+      buildAuthority: async () => buildAuthority(),
+      uuidFactory: () => {
+        uuidCalls += 1;
+        return CAPTURE_ID;
+      },
       storeFactory: async () => fake.store,
       transport: {
         async launch() {}, async pullObservation() { return Buffer.alloc(0); },
         async forceStop() {},
       },
     });
-
-    const preparedPin = await controller.pinInvocation();
-    const launching = (await fake.store.transitionCommand({
-      source: prepared, nextState: 'launching',
-    })).command;
-    await fake.store.transitionCommand({ source: launching, nextState: 'launched' });
-    assert.deepEqual(await controller.finaliseInvocation({
-      invocation: preparedPin,
+    const invocation = await controller.pinInvocation({ acknowledgeReinstall: true });
+    const invalidDistribution = {
+      ...platformEvidence().distribution,
+      installedBuild: '999',
+    };
+    await assert.rejects(controller.finaliseInvocation({
+      invocation,
+      distribution: invalidDistribution,
+    }), /recovery.*distribution.*differs/i);
+    assert.equal(uuidCalls, 0);
+    assert.equal(fake.events.includes('finalise-recovery'), false);
+    await assert.rejects(controller.finaliseInvocation({
+      invocation,
       distribution: platformEvidence().distribution,
-    }), { status: 'not-applicable' });
-
-    const launchedPin = await controller.pinInvocation();
-    fake.setActive(prepared);
-    assert.deepEqual(await controller.finaliseInvocation({
-      invocation: launchedPin,
-      distribution: platformEvidence().distribution,
-    }), { status: 'rejected' });
+    }), /recovery.*invocation.*invalid/i);
+    assert.equal(uuidCalls, 0);
+    assert.equal(fake.events.includes('finalise-recovery'), false);
     await controller.dispose();
+  });
+
+test('controller rejects recovery-pending ordinary work without build, UUID or transport',
+  async () => {
+    let buildReads = 0;
+    let uuidCalls = 0;
+    let transportCalls = 0;
+    const fake = fakeStore({
+      activeProjection: Object.freeze({ kind: 'recovery-pending' }),
+    });
+    const controller = createB3StoreBackedLiveCapture({
+      platform: 'ios',
+      buildAuthority: async () => {
+        buildReads += 1;
+        return buildAuthority();
+      },
+      uuidFactory: () => {
+        uuidCalls += 1;
+        return CAPTURE_ID;
+      },
+      storeFactory: async () => fake.store,
+      transport: {
+        async launch() { transportCalls += 1; },
+        async pullObservation() { transportCalls += 1; return Buffer.alloc(0); },
+        async forceStop() { transportCalls += 1; },
+      },
+    });
+    await assert.rejects(controller.advance(), /recovery.*pending/i);
+    assert.deepEqual({ buildReads, uuidCalls, transportCalls }, {
+      buildReads: 0,
+      uuidCalls: 0,
+      transportCalls: 0,
+    });
+    assert.equal(fake.events.some((entry) =>
+      ['start', 'allocate', 'finalise-recovery'].includes(entry)), false);
+    await controller.dispose();
+  });
+
+test('controller validates the internal recovery outcome before consuming acknowledgement',
+  async () => {
+    let callbackCalls = 0;
+    const fake = fakeStore({
+      recoveryOutcome: Object.freeze({
+        status: 'not-applicable',
+        acknowledgementConsumed: true,
+      }),
+    });
+    const controller = createB3StoreBackedLiveCapture({
+      platform: 'ios',
+      buildAuthority: async () => buildAuthority(),
+      uuidFactory: () => CAPTURE_ID,
+      storeFactory: async () => fake.store,
+      consumeReinstallAcknowledgement() { callbackCalls += 1; },
+      transport: {
+        async launch() {}, async pullObservation() { return Buffer.alloc(0); },
+        async forceStop() {},
+      },
+    });
+    const invocation = await controller.pinInvocation({ acknowledgeReinstall: true });
+    await assert.rejects(controller.finaliseInvocation({
+      invocation,
+      distribution: platformEvidence().distribution,
+    }), /recovery.*outcome.*invalid/i);
+    assert.equal(callbackCalls, 0);
+    await controller.dispose();
+    await controller.dispose();
+    assert.equal(fake.events.filter((entry) => entry === 'close').length, 1);
   });
 
 test('real child death at native launch crossings reopens without replay or finaliser mutation',
@@ -685,6 +830,78 @@ test('real child death at native launch crossings reopens without replay or fina
     }
   });
 
+test('real process death before and after each recovery commit reopens through the controller',
+  async (t) => {
+    const cases = [
+      { transaction: 1, boundary: 'before', before: 'active', status: 'recovered',
+        acknowledge: true, retainedCapture: '018f1d7b-97e8-4a52-8cf2-783e5089c003' },
+      { transaction: 1, boundary: 'after', before: 'recovery-pending', status: 'recovered',
+        acknowledge: false, retainedCapture: '018f1d7b-97e8-4a52-8cf2-783e5089c003' },
+      { transaction: 2, boundary: 'before', before: 'recovery-pending', status: 'recovered',
+        acknowledge: false, retainedCapture: '018f1d7b-97e8-4a52-8cf2-783e5089c003' },
+      { transaction: 2, boundary: 'after', before: 'recovery-pending',
+        status: 'already-recovered', acknowledge: false,
+        retainedCapture: '018f1d7b-97e8-4a52-8cf2-783e5089c002' },
+      { transaction: 3, boundary: 'before', before: 'recovery-pending',
+        status: 'already-recovered', acknowledge: false,
+        retainedCapture: '018f1d7b-97e8-4a52-8cf2-783e5089c002' },
+      { transaction: 3, boundary: 'after', before: 'active',
+        status: 'already-recovered', acknowledge: false,
+        retainedCapture: '018f1d7b-97e8-4a52-8cf2-783e5089c002' },
+    ];
+    for (const expected of cases) {
+      await t.test(`${expected.boundary}-transaction-${expected.transaction}`, async (t) => {
+        const root = await nativeCrossingFixture(
+          t,
+          `recovery-${expected.boundary}-${expected.transaction}`,
+        );
+        assert.deepEqual(await runRecoverySqlDeathHelper(root, 'seed'), {
+          ok: true,
+          state: 'restart-required',
+        });
+        const crossing = spawnRecoverySqlDeathHelper(
+          t,
+          root,
+          'recover',
+          String(expected.transaction),
+          expected.boundary,
+          'true',
+          '018f1d7b-97e8-4a52-8cf2-783e5089c002',
+        );
+        assert.deepEqual(await crossing.paused, {
+          type: 'paused',
+          transaction: expected.transaction,
+          boundary: expected.boundary,
+        });
+        assert.equal(crossing.child.kill('SIGKILL'), true);
+        assert.deepEqual(await crossing.exited, {
+          code: null,
+          signal: 'SIGKILL',
+          stderr: '',
+        });
+        const resumed = await runRecoverySqlDeathHelper(
+          root,
+          'resume',
+          '0',
+          'none',
+          String(expected.acknowledge),
+          '018f1d7b-97e8-4a52-8cf2-783e5089c003',
+        );
+        assert.equal(resumed.ok, true);
+        assert.equal(resumed.activeBefore.kind, expected.before);
+        if (expected.transaction === 1 && expected.boundary === 'before') {
+          assert.equal(resumed.activeBefore.command.state, 'restart-required');
+        }
+        assert.deepEqual(resumed.outcome, { status: expected.status });
+        assert.deepEqual(Reflect.ownKeys(resumed.outcome), ['status']);
+        assert.equal(resumed.activeAfter.kind, 'active');
+        assert.equal(resumed.activeAfter.command.state, 'prepared');
+        assert.equal(resumed.activeAfter.command.captureId, expected.retainedCapture);
+        assert.equal(resumed.activeAfter.command.allocationSequence, 2);
+      });
+    }
+  });
+
 test('real same-process and second-helper stale pins classify fresh ambiguous states read-only',
   async (t) => {
     for (const target of ['launching', 'stop-executing']) {
@@ -713,7 +930,7 @@ test('real same-process and second-helper stale pins classify fresh ambiguous st
     }
   });
 
-test('real SQLite finaliser matrix is read-only for repository states and D4 recovery projections',
+test('real SQLite finaliser matrix is read-only for ordinary repository states',
   async (t) => {
     const expectedStatuses = Object.freeze({
       none: 'not-applicable',
@@ -725,9 +942,7 @@ test('real SQLite finaliser matrix is read-only for repository states and D4 rec
       'reinstall-authorised': 'not-applicable',
       'reinstall-launching': 'rejected',
       launched: 'not-applicable',
-      'restart-required': 'rejected',
-      'restart-executing': 'rejected',
-      'restart-complete': 'rejected',
+      'restart-required': 'operator-required',
     });
 
     for (const platform of ['ios', 'android']) {
@@ -739,12 +954,7 @@ test('real SQLite finaliser matrix is read-only for repository states and D4 rec
           );
           assert.equal(result.platform, platform);
           assert.equal(result.state, state);
-          assert.equal(
-            result.authoritySource,
-            ['restart-executing', 'restart-complete'].includes(state)
-              ? 'd4-recovery-projection-over-committed-restart-required'
-              : 'repository-committed',
-          );
+          assert.equal(result.authoritySource, 'repository-committed');
           assert.deepEqual(result.finalisation, { status });
           assert.equal(result.databaseBytesUnchanged, true);
           assert.equal(result.relationalSnapshotUnchanged, true);

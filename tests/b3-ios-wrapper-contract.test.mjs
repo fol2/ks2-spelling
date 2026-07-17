@@ -376,6 +376,14 @@ test('iOS Task22 exposes real host utilities and fails closed before device work
   assert.equal(b3IosProofExitCode(new Error('ordinary failure')), 6);
 });
 
+test('default adapters reread build authority instead of memoising it', async () => {
+  const source = await readFile(new URL(
+    '../scripts/lib/b3-live-capture-adapters.mjs',
+    import.meta.url,
+  ), 'utf8');
+  assert.doesNotMatch(source, /buildAuthorityPromise/u);
+});
+
 test('iOS CLI captures from the ignored deployment draft, then binds final attestation to the later Cloudflare report', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-ios-order-'));
   t.after(() => rm(root, { recursive: true, force: true }));

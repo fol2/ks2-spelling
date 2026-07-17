@@ -1442,7 +1442,6 @@ function createDefaultAdapter({
   });
   const signedPath = env[PLATFORM[platform].signedEnvironment];
   let distributionPromise;
-  let buildAuthorityPromise;
   let invocationTailCaptured = false;
   let invocationTail = null;
   let reinstallAcknowledgementConsumed = false;
@@ -1476,9 +1475,7 @@ function createDefaultAdapter({
   }
 
   async function buildAuthority() {
-    buildAuthorityPromise ??= readBuildExpected(root).then((expected) =>
-      buildAuthorityFor(platform, expected));
-    return buildAuthorityPromise;
+    return buildAuthorityFor(platform, await readBuildExpected(root));
   }
 
   const liveCapture = createB3StoreBackedLiveCapture({
@@ -1486,6 +1483,12 @@ function createDefaultAdapter({
     buildAuthority,
     transport,
     wait: hostWait,
+    consumeReinstallAcknowledgement() {
+      if (!resumeReinstall || reinstallAcknowledgementConsumed) {
+        throw captureError('B3 reinstall acknowledgement consumption is invalid');
+      }
+      reinstallAcknowledgementConsumed = true;
+    },
   });
 
   async function records() {
@@ -1666,7 +1669,7 @@ function createDefaultAdapter({
 
   const base = {
     pinInvocation: () => liveCapture.pinInvocation({
-      acknowledgeReinstall: resumeReinstall,
+      acknowledgeReinstall: resumeReinstall && !reinstallAcknowledgementConsumed,
     }),
     finaliseInvocation: liveCapture.finaliseInvocation,
     inspectDistribution,

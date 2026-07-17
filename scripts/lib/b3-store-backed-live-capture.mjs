@@ -43,20 +43,14 @@ const ORDINARY_TRANSITIONS = new Set([
   'reinstall-launching:restart-required',
   'restart-required:launched',
 ]);
-const RECOVERY_STATUS = Object.freeze({
-  none: 'not-applicable',
-  prepared: 'not-applicable',
-  'stop-intent': 'not-applicable',
-  'stop-executing': 'rejected',
-  'host-stopped': 'not-applicable',
-  launching: 'rejected',
-  'reinstall-authorised': 'not-applicable',
-  'reinstall-launching': 'rejected',
-  launched: 'not-applicable',
-  'restart-required': 'rejected',
-  'restart-executing': 'rejected',
-  'restart-complete': 'rejected',
-});
+const RECOVERY_STATUSES = new Set([
+  'not-applicable',
+  'operator-required',
+  'recovered',
+  'already-recovered',
+  'rejected',
+]);
+const ACKNOWLEDGED_RECOVERY_STATUSES = new Set(['recovered', 'already-recovered']);
 
 function controllerError(message, code = 'b3_live_capture_invalid') {
   return Object.assign(new Error(message), { code });
@@ -168,13 +162,6 @@ export function deriveB3NextStoreCommand({
   });
 }
 
-export function classifyB3InterimRecoveryState(state) {
-  if (!Object.hasOwn(RECOVERY_STATUS, state)) {
-    throw controllerError('B3 interim recovery state is invalid');
-  }
-  return Object.freeze({ status: RECOVERY_STATUS[state] });
-}
-
 function sameCommand(left, right) {
   return left?.commandSha256 === right?.commandSha256 &&
     left?.captureId === right?.captureId && left?.platform === right?.platform &&
@@ -264,10 +251,12 @@ export function createB3StoreBackedLiveCapture({
   wait = (milliseconds) => new Promise((resolveWait) => setTimeout(resolveWait, milliseconds)),
   uuidFactory = randomUUID,
   storeFactory = openB3CaptureStore,
+  consumeReinstallAcknowledgement = () => {},
 } = {}) {
   const platform = platformName(rawPlatform);
   if (typeof buildAuthority !== 'function' || typeof storeFactory !== 'function' ||
       typeof uuidFactory !== 'function' || typeof wait !== 'function' ||
+      typeof consumeReinstallAcknowledgement !== 'function' ||
       typeof transport?.launch !== 'function' ||
       typeof transport?.pullObservation !== 'function' ||
       typeof transport?.forceStop !== 'function') {
@@ -283,7 +272,8 @@ export function createB3StoreBackedLiveCapture({
     storePromise ??= Promise.resolve(storeFactory({ platform })).then((value) => {
       const methods = [
         'startCapture', 'readActiveCommand', 'allocateNextCommand', 'transitionCommand',
-        'publishObservation', 'consumeCommand', 'readCapture', 'close',
+        'publishObservation', 'consumeCommand', 'readCapture',
+        'pinRecoveryInvocation', 'finaliseRecoveryInvocation', 'close',
       ];
       if (!value || methods.some((name) => typeof value[name] !== 'function')) {
         throw controllerError('B3 capture-store facade is incomplete');
@@ -315,6 +305,9 @@ export function createB3StoreBackedLiveCapture({
         throw controllerError('B3 reserved capture start did not retain an active command');
       }
       return retained.command;
+    }
+    if (retained.kind === 'recovery-pending') {
+      throw controllerError('B3 capture recovery is pending finalisation');
     }
     if (retained.kind !== 'none') {
       throw controllerError('B3 active-command projection is invalid');
@@ -537,39 +530,59 @@ export function createB3StoreBackedLiveCapture({
 
   async function pinInvocation({ acknowledgeReinstall } = {}) {
     if (acknowledgeReinstall !== undefined && typeof acknowledgeReinstall !== 'boolean') {
-      throw controllerError('B3 interim recovery acknowledgement is invalid');
+      throw controllerError('B3 capture recovery acknowledgement is invalid');
     }
-    const active = await (await store()).readActiveCommand();
-    if (!['none', 'active', 'start-reserved'].includes(active.kind)) {
-      throw controllerError('B3 interim recovery pin authority is invalid');
-    }
+    const acknowledged = acknowledgeReinstall === true;
+    const storeInvocation = await (await store()).pinRecoveryInvocation({
+      acknowledgeReinstall: acknowledged,
+    });
     const invocation = Object.freeze(Object.create(null));
-    pins.set(invocation, Object.freeze({ active }));
+    pins.set(invocation, Object.freeze({ storeInvocation, finalised: false }));
     return invocation;
   }
 
   async function finaliseInvocation({ invocation, distribution } = {}) {
     const pin = pins.get(invocation);
-    if (!pin) throw controllerError('B3 interim recovery invocation pin is invalid');
+    if (!pin || pin.finalised) {
+      throw controllerError('B3 capture recovery invocation pin is invalid');
+    }
+    pins.set(invocation, Object.freeze({ ...pin, finalised: true }));
     const authority = assertBuildAuthority(await buildAuthority(), platform);
+    let retainedDistribution;
     try {
-      validateB3DistributionProjection({ value: distribution, platform, buildAuthority: authority });
+      retainedDistribution = validateB3DistributionProjection({
+        value: distribution,
+        platform,
+        buildAuthority: authority,
+      });
     } catch {
-      throw controllerError('B3 interim recovery distribution authority differs');
+      throw controllerError('B3 capture recovery distribution authority differs');
     }
-    const fresh = await (await store()).readActiveCommand();
-    if (pin.active.kind === 'none' && fresh.kind === 'none') {
-      return classifyB3InterimRecoveryState('none');
+    const freshCommand = deriveB3NextStoreCommand({
+      platform,
+      buildAuthority: authority,
+      capture: null,
+      uuidFactory,
+    });
+    const outcome = await (await store()).finaliseRecoveryInvocation({
+      invocation: pin.storeInvocation,
+      distribution: retainedDistribution,
+      freshCommand,
+    });
+    if (!exactRecord(outcome, ['status', 'acknowledgementConsumed']) ||
+        !RECOVERY_STATUSES.has(outcome.status) ||
+        typeof outcome.acknowledgementConsumed !== 'boolean' ||
+        (outcome.acknowledgementConsumed &&
+          !ACKNOWLEDGED_RECOVERY_STATUSES.has(outcome.status))) {
+      throw controllerError('B3 capture recovery outcome is invalid');
     }
-    if (pin.active.kind === 'start-reserved' && fresh.kind === 'start-reserved' &&
-        isDeepStrictEqual(pin.active.intent, fresh.intent)) {
-      return classifyB3InterimRecoveryState('none');
+    if (outcome.acknowledgementConsumed) {
+      const consumed = consumeReinstallAcknowledgement();
+      if (consumed !== undefined) {
+        throw controllerError('B3 capture recovery acknowledgement callback is invalid');
+      }
     }
-    if (pin.active.kind !== 'active' || fresh.kind !== 'active' ||
-        !sameOrLegalSuccessor(pin.active.command, fresh.command)) {
-      return Object.freeze({ status: 'rejected' });
-    }
-    return classifyB3InterimRecoveryState(fresh.command.state);
+    return Object.freeze({ status: outcome.status });
   }
 
   function dispose() {

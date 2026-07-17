@@ -20,6 +20,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 import {
   B3_CAPTURE_STATE_SCHEMA_OBJECTS,
+  B3_CAPTURE_STATE_SCHEMA_SQL,
   B3_CAPTURE_STATE_SCHEMA_VERSION,
 } from '../scripts/lib/b3-capture-state-schema.mjs';
 import { canonicaliseB3ProofValue } from '../src/app/b3-live-proof-protocol.js';
@@ -101,6 +102,161 @@ test('D1 freezes SQLite capture authority at schema version 2 with retained step
   );
   assert.match(recoveries.sql, /capture_snapshot_sha256/u);
   assert.doesNotMatch(recoveries.sql, /bundle_state|source_snapshot_sha256/u);
+});
+
+function recoverySchemaFixture({ includeTerminalDecision = true } = {}) {
+  const database = new DatabaseSync(':memory:');
+  database.exec('PRAGMA foreign_keys = ON');
+  database.exec(B3_CAPTURE_STATE_SCHEMA_SQL);
+  const values = Object.freeze({
+    command: '3'.repeat(64),
+    sourceRecord: '4'.repeat(64),
+    ownerClaim: '5'.repeat(64),
+    snapshot: '6'.repeat(64),
+    manifest: '7'.repeat(64),
+    authority: '8'.repeat(64),
+    terminalRecord: '9'.repeat(64),
+    terminalClaim: 'a'.repeat(64),
+  });
+  database.prepare(`
+    INSERT INTO b3_capture_start_intents (
+      start_intent_sha256, intent_kind, recovered_command_sha256,
+      terminal_claim_sha256, capture_id, first_command_sha256,
+      first_command_json, first_prepared_record_json,
+      first_prepared_record_sha256, intent_state, row_version
+    ) VALUES (?, 'initial', NULL, NULL, ?, ?, ?, ?, ?, 'ready', 2)
+  `).run(
+    'b'.repeat(64), '018f1d7b-97e8-4a52-8cf2-783e5089c001', values.command,
+    Buffer.from('{}'), Buffer.from('{}'), 'c'.repeat(64),
+  );
+  database.prepare(`
+    INSERT INTO b3_captures (
+      capture_id, start_intent_sha256, capture_state, row_version
+    ) VALUES (?, ?, 'abandoned', 2)
+  `).run('018f1d7b-97e8-4a52-8cf2-783e5089c001', 'b'.repeat(64));
+  database.prepare(`
+    INSERT INTO b3_commands (
+      command_sha256, allocation_sequence, predecessor_command_sha256,
+      command_json, prepared_record_json, prepared_record_sha256, capture_id,
+      expected_observation_sequence, previous_observation_sha256
+    ) VALUES (?, 1, NULL, ?, ?, ?, ?, 1, ?)
+  `).run(
+    values.command, Buffer.from('{}'), Buffer.from('{}'), 'c'.repeat(64),
+    '018f1d7b-97e8-4a52-8cf2-783e5089c001', '0'.repeat(64),
+  );
+  database.prepare(`
+    INSERT INTO b3_decisions (
+      command_sha256, source_state, source_record_sha256, winner_kind,
+      next_state, next_record_json, next_record_sha256, claim_json, claim_sha256
+    ) VALUES (?, 'restart-required', ?, 'recovery-owner',
+      'restart-executing', ?, ?, ?, ?)
+  `).run(
+    values.command, 'd'.repeat(64), Buffer.from('{}'), values.sourceRecord,
+    Buffer.from('{}'), values.ownerClaim,
+  );
+  database.prepare(`
+    INSERT INTO b3_recoveries (
+      command_sha256, owner_kind, owner_claim_sha256, capture_id,
+      capture_snapshot_sha256, row_version
+    ) VALUES (?, 'recovery-owner', ?, ?, ?, 1)
+  `).run(
+    values.command, values.ownerClaim,
+    '018f1d7b-97e8-4a52-8cf2-783e5089c001', values.snapshot,
+  );
+  database.prepare(`
+    INSERT INTO b3_recovery_manifests (
+      command_sha256, owner_claim_sha256, capture_snapshot_sha256,
+      manifest_json, manifest_sha256
+    ) VALUES (?, ?, ?, ?, ?)
+  `).run(
+    values.command, values.ownerClaim, values.snapshot,
+    Buffer.from('{}'), values.manifest,
+  );
+  database.prepare(`
+    INSERT INTO b3_recovery_authorities (
+      command_sha256, owner_claim_sha256, capture_snapshot_sha256,
+      manifest_sha256, authority_json, authority_sha256
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `).run(
+    values.command, values.ownerClaim, values.snapshot, values.manifest,
+    Buffer.from('{}'), values.authority,
+  );
+  if (includeTerminalDecision) {
+    database.prepare(`
+      INSERT INTO b3_decisions (
+        command_sha256, source_state, source_record_sha256, winner_kind,
+        next_state, next_record_json, next_record_sha256, claim_json, claim_sha256
+      ) VALUES (?, 'restart-executing', ?, 'recovery-terminal',
+        'restart-complete', ?, ?, ?, ?)
+    `).run(
+      values.command, values.sourceRecord, Buffer.from('{}'), values.terminalRecord,
+      Buffer.from('{}'), values.terminalClaim,
+    );
+  }
+  return { database, values };
+}
+
+function insertRecoveryTerminal(database, values, overrides = {}) {
+  const row = { ...values, terminalKind: 'recovery-terminal', ...overrides };
+  return database.prepare(`
+    INSERT INTO b3_recovery_terminals (
+      command_sha256, owner_claim_sha256, capture_snapshot_sha256,
+      manifest_sha256, authority_sha256, terminal_kind,
+      terminal_record_json, terminal_record_sha256,
+      terminal_claim_json, terminal_claim_sha256
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    row.command, row.ownerClaim, row.snapshot, row.manifest, row.authority,
+    row.terminalKind, Buffer.from('{}'), row.terminalRecord,
+    Buffer.from('{}'), row.terminalClaim,
+  );
+}
+
+test('D4.1 terminal row is composite-bound to the exact selected terminal decision', () => {
+  {
+    const { database, values } = recoverySchemaFixture({
+      includeTerminalDecision: false,
+    });
+    assert.throws(() => insertRecoveryTerminal(database, values), /FOREIGN KEY/u);
+    database.close();
+  }
+  {
+    const { database, values } = recoverySchemaFixture();
+    insertRecoveryTerminal(database, values);
+    assert.equal(database.prepare(`
+      SELECT terminal_kind FROM b3_recovery_terminals
+    `).get().terminal_kind, 'recovery-terminal');
+    database.close();
+  }
+  for (const [label, overrides, pattern] of [
+    ['record', { terminalRecord: 'e'.repeat(64) }, /FOREIGN KEY/u],
+    ['claim', { terminalClaim: 'f'.repeat(64) }, /FOREIGN KEY/u],
+    ['discriminator', { terminalKind: 'ordinary' }, /CHECK constraint/u],
+    ['archive-prerequisite', { authority: '1'.repeat(64) }, /FOREIGN KEY/u],
+  ]) {
+    const { database, values } = recoverySchemaFixture();
+    assert.throws(() => insertRecoveryTerminal(database, values, overrides), pattern, label);
+    database.close();
+  }
+});
+
+test('D4.1 recovery prerequisite composites reject manifest and authority swaps', () => {
+  {
+    const { database, values } = recoverySchemaFixture();
+    assert.throws(() => database.prepare(`
+      UPDATE b3_recovery_manifests SET capture_snapshot_sha256 = ?
+      WHERE command_sha256 = ?
+    `).run('e'.repeat(64), values.command), /FOREIGN KEY/u);
+    database.close();
+  }
+  {
+    const { database, values } = recoverySchemaFixture();
+    assert.throws(() => database.prepare(`
+      UPDATE b3_recovery_authorities SET manifest_sha256 = ?
+      WHERE command_sha256 = ?
+    `).run('e'.repeat(64), values.command), /FOREIGN KEY/u);
+    database.close();
+  }
 });
 
 test('D1 production database and repository have no working-bundle dependency', async () => {

@@ -10,6 +10,8 @@ import {
   readSync,
   readdirSync,
   realpathSync,
+  renameSync,
+  unlinkSync,
 } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
@@ -60,6 +62,7 @@ const TEMPORARY_GRAMMARS = Object.freeze({
 });
 
 const ROOT_STATE_AUTHORITIES = new WeakMap();
+const INVENTORY_AUTHORITIES = new WeakMap();
 
 function memberError(message) {
   return Object.assign(new Error(message), {
@@ -888,6 +891,129 @@ function readSecureMember(path, parent, expectedDevice, { allowEmpty = false } =
   }
 }
 
+function copyDirectoryAuthority(directory) {
+  return Object.freeze({
+    canonical: directory.canonical,
+    dev: directory.metadata.dev,
+    ino: directory.metadata.ino,
+    mode: directory.metadata.mode,
+    nlink: directory.metadata.nlink,
+    size: directory.metadata.size,
+    mtimeMs: directory.metadata.mtimeMs,
+    ctimeMs: directory.metadata.ctimeMs,
+  });
+}
+
+function copyMemberAuthority(member, retained) {
+  return Object.freeze({
+    relativePath: member.relativePath,
+    memberKind: member.parsed.memberKind,
+    finalName: member.parsed.finalName,
+    kind: member.parsed.kind,
+    canonicalPath: retained.canonicalPath,
+    parent: member.parent,
+    dev: retained.metadata.dev,
+    ino: retained.metadata.ino,
+    mode: retained.metadata.mode,
+    nlink: retained.metadata.nlink,
+    size: retained.metadata.size,
+    mtimeMs: retained.metadata.mtimeMs,
+    ctimeMs: retained.metadata.ctimeMs,
+    sha256: retained.sha256,
+  });
+}
+
+function assertReconcileDirectory(directory, label, { exactMetadata = true } = {}) {
+  let current;
+  try {
+    current = lstatSync(directory.canonical);
+  } catch {
+    throw memberError(`B3 capture bundle reconciliation ${label} is absent`);
+  }
+  if (!current.isDirectory() || current.isSymbolicLink() ||
+      current.dev !== directory.dev || current.ino !== directory.ino ||
+      current.mode !== directory.mode ||
+      (exactMetadata && (current.nlink !== directory.nlink ||
+        current.size !== directory.size ||
+        current.mtimeMs !== directory.mtimeMs || current.ctimeMs !== directory.ctimeMs)) ||
+      realpathSync(directory.canonical) !== directory.canonical) {
+    throw memberError(`B3 capture bundle reconciliation ${label} identity changed`);
+  }
+}
+
+function assertReconcileHierarchy(authority, { exactChildren = false } = {}) {
+  for (const ancestor of authority.ancestors) {
+    assertReconcileDirectory(ancestor.directory, ancestor.label);
+  }
+  assertReconcileDirectory(authority.bundles, 'root');
+  assertReconcileDirectory(authority.working, 'working');
+  for (const child of authority.children) {
+    assertReconcileDirectory(child.directory, child.name, {
+      exactMetadata: exactChildren,
+    });
+  }
+}
+
+function assertReconcileNamespace(authority, namesByKind, options) {
+  assertReconcileHierarchy(authority, options);
+  for (const child of authority.children) {
+    const names = readdirSync(child.directory.canonical).sort((left, right) =>
+      left.localeCompare(right));
+    const expected = [...namesByKind.get(child.name)].sort((left, right) =>
+      left.localeCompare(right));
+    if (!isDeepStrictEqual(names, expected)) {
+      throw memberError('B3 capture bundle reconciliation namespace changed');
+    }
+  }
+}
+
+function readReconcileMember(member, { allowRenamedMetadata = false } = {}) {
+  const retained = readSecureMember(
+    member.canonicalPath,
+    member.parent,
+    member.dev,
+    { allowEmpty: member.kind === 'temporary' },
+  );
+  if (retained.metadata.dev !== member.dev || retained.metadata.ino !== member.ino ||
+      retained.metadata.mode !== member.mode || retained.metadata.nlink !== member.nlink ||
+      retained.metadata.size !== member.size || retained.sha256 !== member.sha256 ||
+      (!allowRenamedMetadata && (retained.metadata.mtimeMs !== member.mtimeMs ||
+        retained.metadata.ctimeMs !== member.ctimeMs))) {
+    throw memberError('B3 capture bundle reconciliation member identity changed');
+  }
+  return retained;
+}
+
+function assertReconcileAbsent(path) {
+  try {
+    lstatSync(path);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw error;
+  }
+  throw memberError('B3 capture bundle reconciliation target unexpectedly exists');
+}
+
+function fsyncReconcileDirectory(directory, label) {
+  assertReconcileDirectory(directory, label, { exactMetadata: false });
+  let descriptor;
+  try {
+    descriptor = openSync(
+      directory.canonical,
+      fsConstants.O_RDONLY | (fsConstants.O_DIRECTORY ?? 0) |
+        (fsConstants.O_NOFOLLOW ?? 0),
+    );
+    const opened = fstatSync(descriptor);
+    if (!opened.isDirectory() || opened.dev !== directory.dev ||
+        opened.ino !== directory.ino || opened.mode !== directory.mode) {
+      throw memberError(`B3 capture bundle reconciliation ${label} sync changed`);
+    }
+    fsyncSync(descriptor);
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+}
+
 export function inspectB3CaptureBundleInventory(input = {}) {
   if (!isExactPlainRecord(input, [
     'platform', 'captureId', 'databaseState', 'retainedDomain',
@@ -942,6 +1068,7 @@ export function inspectB3CaptureBundleInventory(input = {}) {
     ...namespace.working,
   }];
   const retainedMembers = [];
+  const privateMembers = [];
   const childDirectories = [];
   for (const name of childNames) {
     const child = exactDirectory(
@@ -1021,6 +1148,7 @@ export function inspectB3CaptureBundleInventory(input = {}) {
       member.device,
       { allowEmpty: member.parsed.kind === 'temporary' },
     );
+    privateMembers.push(copyMemberAuthority(member, retained));
     if (member.parsed.kind === 'final') {
       if (retained.bytes.length !== authority.expectedLength ||
           retained.sha256 !== authority.expectedSha256) {
@@ -1104,9 +1232,130 @@ export function inspectB3CaptureBundleInventory(input = {}) {
     namespace,
     entries: Object.freeze(entries.map((entry) => Object.freeze(entry))),
   });
-  return Object.freeze({
+  const inventory = Object.freeze({
     ...unsigned,
     snapshotSha256: snapshotSha256(unsigned),
     actions: Object.freeze(actions),
   });
+  INVENTORY_AUTHORITIES.set(inventory, Object.freeze({
+    platform,
+    captureId,
+    snapshotSha256: inventory.snapshotSha256,
+    ancestors: Object.freeze(hierarchy.ancestors.map((ancestor) => Object.freeze({
+      label: ancestor.label,
+      directory: copyDirectoryAuthority(ancestor.directory),
+    }))),
+    bundles: copyDirectoryAuthority(bundles),
+    working: copyDirectoryAuthority(working),
+    children: Object.freeze(childDirectories.map((child) => Object.freeze({
+      name: child.name,
+      directory: copyDirectoryAuthority(child.directory),
+    }))),
+    members: Object.freeze(privateMembers),
+    actions: Object.freeze(actions.map((action) => Object.freeze({ ...action }))),
+  }));
+  return inventory;
+}
+
+export function reconcileB3DurableBundleActions(inventory) {
+  const authority = INVENTORY_AUTHORITIES.get(inventory);
+  if (!authority) {
+    throw memberError('B3 capture bundle reconciliation authority is invalid');
+  }
+  if (inventory.snapshotSha256 !== authority.snapshotSha256 ||
+      !isDeepStrictEqual(inventory.actions, authority.actions) ||
+      authority.actions.some((action) =>
+    ![
+      'remove-incomplete-temporary',
+      'remove-redundant-temporary',
+      'adopt-complete-temporary',
+    ].includes(action.kind))) {
+    throw memberError('B3 capture bundle reconciliation action needs validation');
+  }
+  const sortedActions = [...authority.actions].sort((left, right) =>
+    left.temporaryRelativePath.localeCompare(right.temporaryRelativePath));
+  if (!isDeepStrictEqual(sortedActions, authority.actions) ||
+      new Set(authority.actions.map((action) => action.temporaryRelativePath)).size !==
+        authority.actions.length ||
+      new Set(authority.actions.map((action) => action.finalRelativePath)).size !==
+        authority.actions.length) {
+    throw memberError('B3 capture bundle reconciliation actions conflict');
+  }
+
+  const members = new Map(authority.members.map((member) => [member.relativePath, member]));
+  const namesByKind = new Map(authority.children.map((child) => [
+    child.name,
+    new Set(authority.members
+      .filter((member) => member.memberKind === child.name)
+      .map((member) => member.relativePath.slice(child.name.length + 1))),
+  ]));
+
+  try {
+    assertReconcileNamespace(authority, namesByKind, { exactChildren: true });
+    for (const member of authority.members) readReconcileMember(member);
+    for (const action of authority.actions) {
+      const temporary = members.get(action.temporaryRelativePath);
+      const final = members.get(action.finalRelativePath);
+      if (!temporary || temporary.kind !== 'temporary' ||
+          temporary.memberKind !== action.memberKind ||
+          temporary.finalName !== action.finalRelativePath.slice(
+            action.memberKind.length + 1,
+          ) || temporary.size > action.expectedLength ||
+          (temporary.size === action.expectedLength &&
+            temporary.sha256 !== action.expectedSha256) ||
+          (action.kind === 'adopt-complete-temporary' &&
+            (temporary.size !== action.expectedLength || final)) ||
+          (action.kind === 'remove-incomplete-temporary' &&
+            temporary.size >= action.expectedLength) ||
+          (action.kind === 'remove-redundant-temporary' && !final)) {
+        throw memberError('B3 capture bundle reconciliation action authority conflicts');
+      }
+      if (!final) assertReconcileAbsent(resolve(temporary.parent, temporary.finalName));
+    }
+
+    for (const action of authority.actions) {
+      assertReconcileNamespace(authority, namesByKind, { exactChildren: false });
+      const temporary = members.get(action.temporaryRelativePath);
+      const final = members.get(action.finalRelativePath);
+      readReconcileMember(temporary);
+      if (final) readReconcileMember(final);
+      const temporaryName = action.temporaryRelativePath.slice(action.memberKind.length + 1);
+      const finalPath = resolve(temporary.parent, temporary.finalName);
+      if (action.kind === 'adopt-complete-temporary') {
+        assertReconcileAbsent(finalPath);
+        renameSync(temporary.canonicalPath, finalPath);
+        members.delete(action.temporaryRelativePath);
+        members.set(action.finalRelativePath, Object.freeze({
+          ...temporary,
+          relativePath: action.finalRelativePath,
+          kind: 'final',
+          canonicalPath: finalPath,
+        }));
+        namesByKind.get(action.memberKind).delete(temporaryName);
+        namesByKind.get(action.memberKind).add(temporary.finalName);
+      } else {
+        unlinkSync(temporary.canonicalPath);
+        members.delete(action.temporaryRelativePath);
+        namesByKind.get(action.memberKind).delete(temporaryName);
+      }
+      const child = authority.children.find(({ name }) => name === action.memberKind);
+      fsyncReconcileDirectory(child.directory, child.name);
+      assertReconcileNamespace(authority, namesByKind, { exactChildren: false });
+    }
+
+    for (const action of authority.actions) {
+      const original = authority.members.find((member) =>
+        member.relativePath === action.temporaryRelativePath);
+      assertReconcileAbsent(original.canonicalPath);
+      const final = members.get(action.finalRelativePath);
+      if (final) readReconcileMember(final, {
+        allowRenamedMetadata: action.kind === 'adopt-complete-temporary',
+      });
+      else assertReconcileAbsent(resolve(original.parent, original.finalName));
+    }
+    assertReconcileNamespace(authority, namesByKind, { exactChildren: false });
+  } catch (error) {
+    if (error?.code === B3_CAPTURE_BUNDLE_ERROR_CODES.memberConflict) throw error;
+    throw memberError('B3 capture bundle reconciliation drifted');
+  }
 }

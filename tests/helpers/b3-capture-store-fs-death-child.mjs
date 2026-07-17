@@ -95,6 +95,8 @@ mock.module('node:fs', {
     readSync: originalFs.readSync,
     readdirSync: originalFs.readdirSync,
     realpathSync: originalFs.realpathSync,
+    renameSync: originalFs.renameSync,
+    unlinkSync: originalFs.unlinkSync,
   },
 });
 

@@ -58,6 +58,8 @@ if (input.__testFault || input.__testMetadata) {
         return entries;
       },
       realpathSync: originalFs.realpathSync,
+      renameSync: originalFs.renameSync,
+      unlinkSync: originalFs.unlinkSync,
     },
   });
 }

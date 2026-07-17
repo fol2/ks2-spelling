@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, fork } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   chmod,
@@ -50,6 +50,81 @@ async function inspectInChild(root, input) {
     '--experimental-test-module-mocks', child.pathname, encoded,
   ], { cwd: root });
   return JSON.parse(stdout);
+}
+
+async function reconcileInChild(root, input) {
+  const child = new URL(
+    './helpers/b3-capture-bundle-reconcile-death-child.mjs',
+    import.meta.url,
+  );
+  const encoded = Buffer.from(JSON.stringify(input), 'utf8').toString('base64url');
+  const { stdout } = await execFileAsync(process.execPath, [
+    '--experimental-test-module-mocks', child.pathname, encoded,
+  ], { cwd: root });
+  return JSON.parse(stdout);
+}
+
+function spawnReconcileDeath(root, input) {
+  const helper = new URL(
+    './helpers/b3-capture-bundle-reconcile-death-child.mjs',
+    import.meta.url,
+  );
+  const encoded = Buffer.from(JSON.stringify({ ...input, trace: true }), 'utf8')
+    .toString('base64url');
+  const child = fork(helper.pathname, [encoded], {
+    cwd: root,
+    execArgv: ['--experimental-test-module-mocks'],
+    stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+  });
+  let stderr = '';
+  child.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
+  let readyResolve;
+  let readyReject;
+  const ready = new Promise((resolve, reject) => {
+    readyResolve = resolve;
+    readyReject = reject;
+  });
+  const paused = new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`B3 reconciliation death child did not pause: ${stderr}`));
+    }, 5_000);
+    child.on('message', (message) => {
+      if (message?.type === 'paused') {
+        clearTimeout(timeout);
+        resolve(message);
+      } else if (message?.type === 'result') {
+        clearTimeout(timeout);
+        reject(new Error(`B3 reconciliation death child returned: ${JSON.stringify(message)}`));
+      }
+    });
+  });
+  const exited = new Promise((resolve, reject) => {
+    child.on('error', (error) => {
+      readyReject(error);
+      reject(error);
+    });
+    child.on('exit', (code, signal) => {
+      if (signal !== 'SIGKILL') {
+        const error = new Error(
+          `B3 reconciliation death child exited ${code ?? signal}: ${stderr}`,
+        );
+        readyReject(error);
+        reject(error);
+        return;
+      }
+      resolve({ code, signal });
+    });
+  });
+  child.on('message', (message) => {
+    if (message?.type === 'ready') readyResolve();
+  });
+  return Object.freeze({
+    ready,
+    paused,
+    exited,
+    go: () => child.send({ type: 'go' }),
+    kill: () => child.kill('SIGKILL'),
+  });
 }
 
 async function materialiseAfterAbaInChild(root, input) {
@@ -196,6 +271,686 @@ function fixedNamespaceMetadata(device) {
     },
   };
 }
+
+test('durable reconciliation accepts only its exact branded inventory', async (t) => {
+  const root = await fixture(t, 'reconcile-brand');
+  await createEmptyWorkingBundle(root);
+  const authority = {
+    platform: 'ios',
+    captureId: UUID,
+    ...compositeAuthority(),
+  };
+
+  assert.deepEqual(await reconcileInChild(root, { authority, mode: 'same' }), {
+    ok: true,
+    result: null,
+    trace: [],
+  });
+  const before = await namespaceSnapshot(root);
+  const cloned = await reconcileInChild(root, { authority, mode: 'clone' });
+  assert.equal(cloned.ok, false);
+  assert.equal(cloned.code, B3_CAPTURE_BUNDLE_ERROR_CODES.memberConflict);
+  assert.deepEqual(await namespaceSnapshot(root), before);
+});
+
+test('durable actions adopt or remove exact members in sorted fsync order',
+  async (t) => {
+    const root = await fixture(t, 'reconcile-durable-actions');
+    const working = await createEmptyWorkingBundle(root);
+    const observationBytes = Buffer.from('observation', 'utf8');
+    const checkpointBytes = Buffer.from('checkpoint', 'utf8');
+    const observationHash = sha256(observationBytes);
+    const checkpointHash = sha256(checkpointBytes);
+    const observationSha256 = '7'.repeat(64);
+    const redundant =
+      `.00000001.json.${observationBytes.length}.${observationHash}.${UUID}.member.tmp`;
+    const incomplete =
+      `.00000002.json.${observationBytes.length}.${observationHash}.${SECOND_UUID}.member.tmp`;
+    const checkpoint =
+      `.revision-00000000.json.${checkpointBytes.length}.${checkpointHash}.${UUID}.member.tmp`;
+    const observationDirectory = join(working, 'observations');
+    const checkpointDirectory = join(working, 'checkpoint');
+    await writeFile(join(observationDirectory, '00000001.json'), observationBytes,
+      { mode: 0o600 });
+    await writeFile(join(observationDirectory, redundant), observationBytes,
+      { mode: 0o600 });
+    await writeFile(join(observationDirectory, incomplete),
+      observationBytes.subarray(0, 3), { mode: 0o600 });
+    await writeFile(join(checkpointDirectory, checkpoint), checkpointBytes,
+      { mode: 0o600 });
+    const authority = {
+      platform: 'ios',
+      captureId: UUID,
+      ...compositeAuthority({
+        activeCommand: {
+          captureId: UUID,
+          expectedSequence: 2,
+          previousObservationSha256: observationSha256,
+        },
+        observations: [{
+          sequence: 1,
+          expectedLength: observationBytes.length,
+          expectedSha256: observationHash,
+          observationSha256,
+          gatewaySmokeAuthority: false,
+        }],
+        pendingCheckpoint: {
+          revision: 0,
+          expectedLength: checkpointBytes.length,
+          expectedSha256: checkpointHash,
+          observationSha256,
+        },
+      }),
+    };
+
+    const reconciled = await reconcileInChild(root, {
+      authority,
+      mode: 'same',
+      trace: true,
+    });
+
+    assert.deepEqual(reconciled, {
+      ok: true,
+      result: null,
+      trace: [{
+        operationIndex: 0,
+        kind: 'rename',
+        path: join(
+          '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
+          `${UUID}.working`, 'checkpoint', checkpoint,
+        ),
+        destination: join(
+          '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
+          `${UUID}.working`, 'checkpoint', 'revision-00000000.json',
+        ),
+      }, {
+        operationIndex: 1,
+        kind: 'fsync',
+        path: join(
+          '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
+          `${UUID}.working`, 'checkpoint',
+        ),
+      }, {
+        operationIndex: 2,
+        kind: 'unlink',
+        path: join(
+          '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
+          `${UUID}.working`, 'observations', redundant,
+        ),
+      }, {
+        operationIndex: 3,
+        kind: 'fsync',
+        path: join(
+          '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
+          `${UUID}.working`, 'observations',
+        ),
+      }, {
+        operationIndex: 4,
+        kind: 'unlink',
+        path: join(
+          '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
+          `${UUID}.working`, 'observations', incomplete,
+        ),
+      }, {
+        operationIndex: 5,
+        kind: 'fsync',
+        path: join(
+          '.native-build', 'b3', 'evidence', 'ios-capture-bundles',
+          `${UUID}.working`, 'observations',
+        ),
+      }],
+    });
+    assert.deepEqual(await readFile(
+      join(checkpointDirectory, 'revision-00000000.json'),
+    ), checkpointBytes);
+    assert.deepEqual(await readdir(checkpointDirectory), ['revision-00000000.json']);
+    assert.deepEqual((await readdir(observationDirectory)).sort(), ['00000001.json']);
+    const successorAuthority = {
+      platform: 'ios',
+      captureId: UUID,
+      ...compositeAuthority({
+        activeCommand: {
+          captureId: UUID,
+          expectedSequence: 2,
+          previousObservationSha256: observationSha256,
+        },
+        observations: [{
+          sequence: 1,
+          expectedLength: observationBytes.length,
+          expectedSha256: observationHash,
+          observationSha256,
+          gatewaySmokeAuthority: false,
+        }],
+        checkpoints: [{
+          revision: 0,
+          expectedLength: checkpointBytes.length,
+          expectedSha256: checkpointHash,
+          observationSha256,
+        }],
+      }),
+    };
+    assert.deepEqual(await reconcileInChild(root, {
+      authority: successorAuthority,
+      mode: 'same',
+      trace: true,
+    }), { ok: true, result: null, trace: [] });
+  });
+
+test('durable reconciliation converges after the exact 18 child-death boundaries',
+  async (t) => {
+    const observationBytes = Buffer.from('observation', 'utf8');
+    const checkpointBytes = Buffer.from('checkpoint', 'utf8');
+    const smokeBytes = Buffer.from('smoke', 'utf8');
+    const observationHash = sha256(observationBytes);
+    const checkpointHash = sha256(checkpointBytes);
+    const smokeHash = sha256(smokeBytes);
+    const observationSha256 = '8'.repeat(64);
+    const observationSlot = {
+      sequence: 1,
+      expectedLength: observationBytes.length,
+      expectedSha256: observationHash,
+      observationSha256,
+      gatewaySmokeAuthority: false,
+    };
+    const checkpointSlot = {
+      revision: 0,
+      expectedLength: checkpointBytes.length,
+      expectedSha256: checkpointHash,
+      observationSha256,
+    };
+    const workingRelative = (platform) => join(
+      '.native-build', 'b3', 'evidence', `${platform}-capture-bundles`,
+      `${UUID}.working`,
+    );
+
+    async function setupScenario(label, scenario) {
+      const root = await fixture(t, `reconcile-death-${label}`);
+      if (scenario === 'android-incomplete') {
+        const platform = 'android';
+        const working = await createEmptyWorkingBundle(root, platform);
+        const temporary =
+          `.00000001.json.${observationBytes.length}.${observationHash}.${UUID}.member.tmp`;
+        await writeFile(join(working, 'observations', temporary),
+          observationBytes.subarray(0, 3), { mode: 0o600 });
+        const authority = {
+          platform,
+          captureId: UUID,
+          ...compositeAuthority({
+            activeCommand: {
+              captureId: UUID,
+              expectedSequence: 1,
+              previousObservationSha256: '0'.repeat(64),
+            },
+          }),
+        };
+        const relativeTemporary = join(workingRelative(platform),
+          'observations', temporary);
+        return {
+          root,
+          authority,
+          completedAuthority: authority,
+          expectedTrace: [{
+            operationIndex: 0,
+            kind: 'unlink',
+            path: relativeTemporary,
+          }, {
+            operationIndex: 1,
+            kind: 'fsync',
+            path: join(workingRelative(platform), 'observations'),
+          }],
+        };
+      }
+      if (scenario === 'ios-derived-redundant') {
+        const platform = 'ios';
+        const working = await createEmptyWorkingBundle(root, platform);
+        const smokeTemporary =
+          `.cloudflare-device-smoke.json.${smokeBytes.length}.${smokeHash}.${UUID}.member.tmp`;
+        await writeFile(join(working, 'observations', '00000001.json'),
+          observationBytes, { mode: 0o600 });
+        await writeFile(join(working, 'derived', 'cloudflare-device-smoke.json'),
+          smokeBytes, { mode: 0o600 });
+        await writeFile(join(working, 'derived', smokeTemporary),
+          smokeBytes, { mode: 0o600 });
+        const authority = {
+          platform,
+          captureId: UUID,
+          ...compositeAuthority({
+            observations: [{ ...observationSlot, gatewaySmokeAuthority: true }],
+            pendingCheckpoint: checkpointSlot,
+            gatewaySmoke: {
+              expectedLength: smokeBytes.length,
+              expectedSha256: smokeHash,
+              observationSha256,
+            },
+          }),
+        };
+        return {
+          root,
+          authority,
+          completedAuthority: authority,
+          expectedTrace: [{
+            operationIndex: 0,
+            kind: 'unlink',
+            path: join(workingRelative(platform), 'derived', smokeTemporary),
+          }, {
+            operationIndex: 1,
+            kind: 'fsync',
+            path: join(workingRelative(platform), 'derived'),
+          }],
+        };
+      }
+
+      const platform = 'android';
+      const working = await createEmptyWorkingBundle(root, platform);
+      const checkpointTemporary =
+        `.revision-00000000.json.${checkpointBytes.length}.${checkpointHash}.${UUID}.member.tmp`;
+      await writeFile(join(working, 'observations', '00000001.json'),
+        observationBytes, { mode: 0o600 });
+      await writeFile(join(working, 'checkpoint', checkpointTemporary),
+        checkpointBytes, { mode: 0o600 });
+      const activeCommand = scenario === 'two-action'
+        ? {
+            captureId: UUID,
+            expectedSequence: 2,
+            previousObservationSha256: observationSha256,
+          }
+        : null;
+      let observationTemporary = null;
+      if (activeCommand) {
+        observationTemporary =
+          `.00000002.json.${observationBytes.length}.${observationHash}.${SECOND_UUID}.member.tmp`;
+        await writeFile(join(working, 'observations', observationTemporary),
+          observationBytes.subarray(0, 3), { mode: 0o600 });
+      }
+      const authority = {
+        platform,
+        captureId: UUID,
+        ...compositeAuthority({
+          activeCommand,
+          observations: [observationSlot],
+          pendingCheckpoint: checkpointSlot,
+        }),
+      };
+      const completedAuthority = {
+        platform,
+        captureId: UUID,
+        ...compositeAuthority({
+          activeCommand,
+          observations: [observationSlot],
+          checkpoints: [checkpointSlot],
+        }),
+      };
+      const expectedTrace = [{
+        operationIndex: 0,
+        kind: 'rename',
+        path: join(workingRelative(platform), 'checkpoint', checkpointTemporary),
+        destination: join(
+          workingRelative(platform), 'checkpoint', 'revision-00000000.json',
+        ),
+      }, {
+        operationIndex: 1,
+        kind: 'fsync',
+        path: join(workingRelative(platform), 'checkpoint'),
+      }];
+      if (observationTemporary) {
+        expectedTrace.push({
+          operationIndex: 2,
+          kind: 'unlink',
+          path: join(workingRelative(platform), 'observations', observationTemporary),
+        }, {
+          operationIndex: 3,
+          kind: 'fsync',
+          path: join(workingRelative(platform), 'observations'),
+        });
+      }
+      return {
+        root,
+        authority,
+        completedAuthority,
+        expectedTrace,
+        postconditionFirstPath: join(
+          workingRelative(platform), 'checkpoint', checkpointTemporary,
+        ),
+        postconditionLastDirectory: join(
+          workingRelative(platform), 'observations',
+        ),
+      };
+    }
+
+    const cases = [];
+    for (const scenario of [
+      'android-incomplete',
+      'ios-derived-redundant',
+      'android-checkpoint',
+    ]) {
+      for (let operationIndex = 0; operationIndex < 2; operationIndex += 1) {
+        for (const phase of ['before', 'after']) {
+          cases.push({
+            label: `${scenario}-${phase}-${operationIndex}`,
+            scenario,
+            death: { kind: 'effect', operationIndex, phase },
+          });
+        }
+      }
+    }
+    for (let operationIndex = 0; operationIndex < 4; operationIndex += 1) {
+      cases.push({
+        label: `two-action-after-${operationIndex}`,
+        scenario: 'two-action',
+        death: { kind: 'effect', operationIndex, phase: 'after' },
+      });
+    }
+    for (const phase of ['before', 'after']) {
+      cases.push({
+        label: `two-action-postcondition-${phase}`,
+        scenario: 'two-action',
+        death: { kind: 'postcondition', phase },
+      });
+    }
+    assert.equal(cases.length, 18);
+
+    for (const current of cases) {
+      const scenario = await setupScenario(current.label, current.scenario);
+      const death = current.death.kind === 'postcondition'
+        ? {
+            ...current.death,
+            effectCount: 4,
+            firstPath: scenario.postconditionFirstPath,
+            lastDirectory: scenario.postconditionLastDirectory,
+          }
+        : current.death;
+      const child = spawnReconcileDeath(scenario.root, {
+        authority: scenario.authority,
+        mode: 'same',
+        death,
+      });
+      await child.ready;
+      child.go();
+      const paused = await child.paused;
+      child.kill();
+      assert.equal((await child.exited).signal, 'SIGKILL', current.label);
+      assert.equal(paused.phase, current.death.phase, current.label);
+      if (current.death.kind === 'effect') {
+        const expected = scenario.expectedTrace[current.death.operationIndex];
+        assert.deepEqual(paused.entry, expected, current.label);
+        assert.deepEqual(
+          paused.trace,
+          scenario.expectedTrace.slice(
+            0,
+            current.death.operationIndex + (current.death.phase === 'after' ? 1 : 0),
+          ),
+          current.label,
+        );
+      } else {
+        assert.equal(paused.entry.kind, 'postcondition', current.label);
+        assert.equal(paused.entry.path, scenario.postconditionFirstPath, current.label);
+        assert.deepEqual(paused.trace, scenario.expectedTrace, current.label);
+      }
+
+      const adoptedFinal = join(
+        scenario.root,
+        workingRelative('android'),
+        'checkpoint',
+        'revision-00000000.json',
+      );
+      const adopted = current.scenario.includes('checkpoint') ||
+          current.scenario === 'two-action'
+        ? await lstat(adoptedFinal).then((metadata) => metadata.isFile()).catch(() => false)
+        : false;
+      const recoveryAuthority = adopted
+        ? scenario.completedAuthority
+        : scenario.authority;
+      const recovered = await reconcileInChild(scenario.root, {
+        authority: recoveryAuthority,
+        mode: 'same',
+      });
+      assert.equal(recovered.ok, true, `${current.label}: ${recovered.message ?? ''}`);
+      const inspected = await inspectInChild(scenario.root, scenario.completedAuthority);
+      assert.equal(inspected.ok, true, `${current.label}: ${inspected.message ?? ''}`);
+      assert.deepEqual(inspected.result.actions, [], current.label);
+    }
+  });
+
+test('candidate action rejects the whole reconciliation call without mutation',
+  async (t) => {
+    const root = await fixture(t, 'reconcile-candidate');
+    const working = await createEmptyWorkingBundle(root);
+    const observationBytes = Buffer.from('candidate', 'utf8');
+    const smokeBytes = Buffer.from('smoke', 'utf8');
+    const observationHash = sha256(observationBytes);
+    const smokeHash = sha256(smokeBytes);
+    const observationSha256 = '6'.repeat(64);
+    const candidate =
+      `.00000002.json.${observationBytes.length}.${observationHash}.${UUID}.member.tmp`;
+    const incomplete =
+      `.cloudflare-device-smoke.json.${smokeBytes.length}.${smokeHash}.${UUID}.member.tmp`;
+    await writeFile(join(working, 'observations', '00000001.json'),
+      observationBytes, { mode: 0o600 });
+    await writeFile(join(working, 'observations', candidate),
+      observationBytes, { mode: 0o600 });
+    await writeFile(join(working, 'derived', incomplete),
+      smokeBytes.subarray(0, 2), { mode: 0o600 });
+    const authority = {
+      platform: 'ios',
+      captureId: UUID,
+      ...compositeAuthority({
+        activeCommand: {
+          captureId: UUID,
+          expectedSequence: 2,
+          previousObservationSha256: observationSha256,
+        },
+        observations: [{
+          sequence: 1,
+          expectedLength: observationBytes.length,
+          expectedSha256: observationHash,
+          observationSha256,
+          gatewaySmokeAuthority: true,
+        }],
+        pendingCheckpoint: {
+          revision: 0,
+          expectedLength: observationBytes.length,
+          expectedSha256: observationHash,
+          observationSha256,
+        },
+      }),
+    };
+    const before = await namespaceSnapshot(root);
+
+    const reconciled = await reconcileInChild(root, { authority, mode: 'same' });
+
+    assert.equal(reconciled.ok, false);
+    assert.equal(reconciled.code, B3_CAPTURE_BUNDLE_ERROR_CODES.memberConflict);
+    assert.deepEqual(await namespaceSnapshot(root), before);
+  });
+
+test('private reconciliation authority is independent of caller-object mutation',
+  async (t) => {
+    const root = await fixture(t, 'reconcile-caller-mutation');
+    const working = await createEmptyWorkingBundle(root, 'android');
+    const bytes = Buffer.from('authority', 'utf8');
+    const hash = sha256(bytes);
+    const temporary = `.00000001.json.${bytes.length}.${hash}.${UUID}.member.tmp`;
+    const relativeTemporary = join(
+      '.native-build', 'b3', 'evidence', 'android-capture-bundles',
+      `${UUID}.working`, 'observations', temporary,
+    );
+    await writeFile(join(root, relativeTemporary), bytes.subarray(0, 2), { mode: 0o600 });
+    const authority = {
+      platform: 'android',
+      captureId: UUID,
+      ...compositeAuthority({
+        activeCommand: {
+          captureId: UUID,
+          expectedSequence: 1,
+          previousObservationSha256: '0'.repeat(64),
+        },
+      }),
+    };
+
+    const reconciled = await reconcileInChild(root, {
+      authority,
+      mode: 'same',
+      trace: true,
+      mutation: { kind: 'caller-authority' },
+    });
+
+    assert.equal(reconciled.ok, true, reconciled.message);
+    assert.deepEqual(reconciled.trace, [{
+      operationIndex: 0,
+      kind: 'unlink',
+      path: relativeTemporary,
+    }, {
+      operationIndex: 1,
+      kind: 'fsync',
+      path: join(
+        '.native-build', 'b3', 'evidence', 'android-capture-bundles',
+        `${UUID}.working`, 'observations',
+      ),
+    }]);
+    await assert.rejects(lstat(join(root, relativeTemporary)), { code: 'ENOENT' });
+    assert.equal(working.endsWith(`${UUID}.working`), true);
+  });
+
+test('member parent final and ENOENT ABA reject before any C3 effect', async (t) => {
+  for (const mutationKind of [
+    'remove-member',
+    'replace-member',
+    'create-final',
+    'replace-parent',
+  ]) {
+    const root = await fixture(t, `reconcile-aba-${mutationKind}`);
+    await createEmptyWorkingBundle(root, 'android');
+    const bytes = Buffer.from('authority', 'utf8');
+    const hash = sha256(bytes);
+    const temporary = `.00000001.json.${bytes.length}.${hash}.${UUID}.member.tmp`;
+    const workingRelative = join(
+      '.native-build', 'b3', 'evidence', 'android-capture-bundles',
+      `${UUID}.working`,
+    );
+    const temporaryRelative = join(workingRelative, 'observations', temporary);
+    const finalRelative = join(workingRelative, 'observations', '00000001.json');
+    const parentRelative = join(workingRelative, 'observations');
+    await writeFile(join(root, temporaryRelative), bytes.subarray(0, 2), { mode: 0o600 });
+    const authority = {
+      platform: 'android',
+      captureId: UUID,
+      ...compositeAuthority({
+        activeCommand: {
+          captureId: UUID,
+          expectedSequence: 1,
+          previousObservationSha256: '0'.repeat(64),
+        },
+      }),
+    };
+    const mutation = mutationKind === 'create-final'
+      ? {
+          kind: mutationKind,
+          source: temporaryRelative,
+          destination: finalRelative,
+        }
+      : (mutationKind === 'replace-parent'
+          ? {
+              kind: mutationKind,
+              path: parentRelative,
+              retainedPath: join(
+                '.native-build', 'b3', 'evidence',
+                `retained-observations-${UUID}`,
+              ),
+            }
+          : { kind: mutationKind, path: temporaryRelative });
+
+    const reconciled = await reconcileInChild(root, {
+      authority,
+      mode: 'same',
+      trace: true,
+      mutation,
+    });
+
+    assert.equal(reconciled.ok, false, mutationKind);
+    assert.equal(
+      reconciled.code,
+      B3_CAPTURE_BUNDLE_ERROR_CODES.memberConflict,
+      mutationKind,
+    );
+    assert.deepEqual(reconciled.trace, [], mutationKind);
+    if (mutationKind === 'create-final') {
+      assert.equal((await lstat(join(root, finalRelative))).isFile(), true);
+    } else {
+      await assert.rejects(lstat(join(root, finalRelative)), { code: 'ENOENT' });
+    }
+    if (mutationKind === 'remove-member') {
+      await assert.rejects(lstat(join(root, temporaryRelative)), { code: 'ENOENT' });
+    } else {
+      assert.equal((await lstat(join(root, temporaryRelative))).isFile(), true);
+    }
+  }
+});
+
+test('unrelated retained-final overwrite rejects before an eligible cleanup effect',
+  async (t) => {
+    const root = await fixture(t, 'reconcile-unrelated-final-overwrite');
+    await createEmptyWorkingBundle(root, 'android');
+    const retainedBytes = Buffer.from('retained', 'utf8');
+    const attackerBytes = Buffer.from('attacker', 'utf8');
+    assert.equal(attackerBytes.length, retainedBytes.length);
+    const retainedHash = sha256(retainedBytes);
+    const observationSha256 = '5'.repeat(64);
+    const temporary =
+      `.00000002.json.${retainedBytes.length}.${retainedHash}.${UUID}.member.tmp`;
+    const workingRelative = join(
+      '.native-build', 'b3', 'evidence', 'android-capture-bundles',
+      `${UUID}.working`,
+    );
+    const finalRelative = join(workingRelative, 'observations', '00000001.json');
+    const temporaryRelative = join(workingRelative, 'observations', temporary);
+    await writeFile(join(root, finalRelative), retainedBytes, { mode: 0o600 });
+    await writeFile(join(root, temporaryRelative), retainedBytes.subarray(0, 2),
+      { mode: 0o600 });
+    const authority = {
+      platform: 'android',
+      captureId: UUID,
+      ...compositeAuthority({
+        activeCommand: {
+          captureId: UUID,
+          expectedSequence: 2,
+          previousObservationSha256: observationSha256,
+        },
+        observations: [{
+          sequence: 1,
+          expectedLength: retainedBytes.length,
+          expectedSha256: retainedHash,
+          observationSha256,
+          gatewaySmokeAuthority: false,
+        }],
+        pendingCheckpoint: {
+          revision: 0,
+          expectedLength: retainedBytes.length,
+          expectedSha256: retainedHash,
+          observationSha256,
+        },
+      }),
+    };
+
+    const reconciled = await reconcileInChild(root, {
+      authority,
+      mode: 'same',
+      trace: true,
+      mutation: {
+        kind: 'overwrite-member',
+        path: finalRelative,
+        bytes: attackerBytes.toString('base64url'),
+      },
+    });
+
+    assert.equal(reconciled.ok, false);
+    assert.equal(reconciled.code, B3_CAPTURE_BUNDLE_ERROR_CODES.memberConflict);
+    assert.deepEqual(reconciled.trace, []);
+    assert.deepEqual(await readFile(join(root, finalRelative)), attackerBytes);
+    assert.deepEqual(
+      await readFile(join(root, temporaryRelative)),
+      retainedBytes.subarray(0, 2),
+    );
+  });
 
 test('closed bundle member grammars freeze canonical lengths and platform kinds', () => {
   assert.deepEqual(B3_CAPTURE_BUNDLE_LIMITS, {
@@ -640,6 +1395,16 @@ test('the global temporary limit accepts 32 and rejects 33 without mutation', as
   });
   assert.equal(acceptedResult.ok, true, acceptedResult.message);
   assert.equal(acceptedResult.result.actions.length, 32);
+  const acceptedReconciled = await reconcileInChild(acceptedRoot, {
+    authority: {
+      platform: 'ios', captureId: UUID,
+      ...compositeAuthority(accepted),
+    },
+    mode: 'same',
+  });
+  assert.equal(acceptedReconciled.ok, true, acceptedReconciled.message);
+  await Promise.all(accepted.temporaryPaths.map((path) =>
+    assert.rejects(lstat(path), { code: 'ENOENT' })));
 
   const rejectedRoot = await fixture(t, 'temporary-33');
   const rejected = await materialise(rejectedRoot, 33);

@@ -760,6 +760,10 @@ export function createB3PhysicalDeviceTransport({
       await runText(runner, 'adb', [
         '-s', id, 'shell', 'am', 'force-stop', BUNDLE_ID,
       ], { cwd: root, timeoutMs: 30_000 });
+      await retainReceipt(Object.freeze({
+        deviceIdentifier: id,
+        bundleIdentifier: BUNDLE_ID,
+      }));
       return;
     }
     const stopCommand = validateB3ProofLaunchCommand(rawStopCommand);

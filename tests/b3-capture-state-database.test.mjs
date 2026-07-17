@@ -25,7 +25,7 @@ import { DatabaseSync } from 'node:sqlite';
 const execFileAsync = promisify(execFile);
 const COMMIT = '1'.repeat(40);
 const FINGERPRINT = '2'.repeat(64);
-const SCHEMA_SHA256 = '108d633619713caa2f76ebd3f841a2f2b11b7afd9645a87ff2b8225c9574907d';
+const SCHEMA_SHA256 = '76121199637bf3a587910189149105f0a54efe2d61a205507ce6377e2895b857';
 const EXPECTED_TABLES = Object.freeze([
   'b3_authority_state',
   'b3_capture_start_intents',

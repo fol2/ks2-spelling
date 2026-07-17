@@ -12,6 +12,13 @@ observation, checkpoint, distribution and recovery authority when reading.
 Pure proof derivation accepts only values or bytes and has no filesystem,
 transport, environment or database dependency.
 
+Exact retained `launching` and `reinstall-launching` commands recover by bounded
+pull-only observation reads and never replay native launch. Exact retained
+`stop-executing` commands never replay force-stop; without a durable
+`host-stopped` receipt they enter the command-bound reinstall gate. Android
+force-stop resolves only after the SQLite receipt callback has completed.
+Process absence is never a native-stop receipt.
+
 ## Derived evidence
 
 Final B3 JSON reports and platform PNGs are immutable derived evidence outside

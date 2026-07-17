@@ -1,5 +1,10 @@
 # B3 Task 19 D4 SQLite Transactional Recovery Plan
 
+> **Task 19H correction:** D4 recovery ownership still begins only from a
+> durable `restart-required` command. The ordinary no-replay bridge from an exact
+> retained native crossing is governed by
+> [`2026-07-17-b3-task19h-native-crossing-correction.md`](2026-07-17-b3-task19h-native-crossing-correction.md).
+
 **Status:** review candidate; implementation must not begin until two independent
 reviewers approve one exact plan SHA-256.
 
@@ -38,7 +43,8 @@ D4 does not:
 - store a snapshot JSON BLOB or write an archive/journal/checkpoint directory;
 - delete legacy modules or tests, rewrite the final six evidence exporters, or
   claim Task 19 complete; those are D5 and Task 19H work; or
-- broaden recovery to `launching`, `reinstall-launching` or `stop-executing`.
+- broaden D4 archive/recovery ownership beyond `restart-required`; Task 19H
+  adds only an ordinary fail-closed bridge from exact retained native crossings.
 
 ## Frozen corrections to the parent amendment
 
@@ -355,12 +361,13 @@ Status meaning is frozen:
   intent or a terminal-bound ready successor, and reconciliation adopted that
   lineage. This remains true even if that successor has since transitioned,
   consumed, allocated later commands or independently reached another gate.
-- `not-applicable`: empty, pending initial, a normal working state, or an
-  ordinary `restart-required -> launched` winner which prevents archive
+- `not-applicable`: empty, pending initial, a normal working state, an exact
+  current native-crossing source owned by the operation-specific no-replay path,
+  or an ordinary `restart-required -> launched` winner which prevents archive
   ownership.
-- `rejected`: pin replacement/drift, malformed authority, ambiguous
-  `launching | reinstall-launching | stop-executing`, mismatched platform/build,
-  or any impossible state.
+- `rejected`: pin replacement/drift, including a pin taken before another
+  helper advances into `launching | reinstall-launching | stop-executing`,
+  malformed authority, mismatched platform/build or any impossible state.
 
 A stale pin is resolved from its own command hash, capture and retained terminal
 chain, never by comparing only the current active pointer. If helper A pins the

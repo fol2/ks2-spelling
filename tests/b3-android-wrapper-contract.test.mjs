@@ -526,7 +526,7 @@ test('Android B3 proof transport is flavour-only, explicit-intent and fixed app 
   assert.doesNotMatch(manifest, /WRITE_EXTERNAL_STORAGE|READ_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE/u);
 });
 
-test('slow-card polling is five seconds with a ten-minute ceiling and unack hold auto-releases', async () => {
+test('slow-card polling is five seconds with a ten-minute ceiling and unack hold releases only after the wait', async () => {
   const delays = [];
   let polls = 0;
   const result = await pollSlowCard({
@@ -555,7 +555,27 @@ test('slow-card polling is five seconds with a ten-minute ceiling and unack hold
   assert.equal(deadlinePolls, 3);
   assert.deepEqual(deadlineWaits, [5_000, 5_000]);
 
-  let released = false;
-  await holdUnacknowledgedPurchase({ wait: async (milliseconds) => assert.equal(milliseconds, 5_000), release: async () => { released = true; } });
-  assert.equal(released, true);
+  const holdEvents = [];
+  await holdUnacknowledgedPurchase({
+    wait: async (milliseconds) => {
+      assert.equal(milliseconds, 5_000);
+      holdEvents.push('wait-complete');
+    },
+    release: async () => { holdEvents.push('release'); },
+  });
+  assert.deepEqual(holdEvents, ['wait-complete', 'release']);
+
+  const waitFailure = new Error('wait interrupted');
+  let rejectedWaitReleaseCalls = 0;
+  await assert.rejects(holdUnacknowledgedPurchase({
+    wait: async () => { throw waitFailure; },
+    release: async () => { rejectedWaitReleaseCalls += 1; },
+  }), (error) => error === waitFailure);
+  assert.equal(rejectedWaitReleaseCalls, 0);
+
+  const releaseFailure = new Error('release failed');
+  await assert.rejects(holdUnacknowledgedPurchase({
+    wait: async () => {},
+    release: async () => { throw releaseFailure; },
+  }), (error) => error === releaseFailure);
 });

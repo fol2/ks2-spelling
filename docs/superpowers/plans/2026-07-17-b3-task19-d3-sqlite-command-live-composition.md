@@ -1,5 +1,10 @@
 # Task 19 D3 — SQLite Command and Live-Capture Composition Plan
 
+> **Task 19H correction:** exact current native-crossing sources and the new
+> `stop-executing -> restart-required` bridge are superseded by
+> [`2026-07-17-b3-task19h-native-crossing-correction.md`](2026-07-17-b3-task19h-native-crossing-correction.md).
+> Stale pins remain rejected.
+
 **Date:** 2026-07-17
 
 **Parent:** `2026-07-16-b3-task19-sqlite-blob-authority-amendment.md`
@@ -100,7 +105,7 @@ copied before the first `await` and are never reread.
 
 ### Ordinary transition
 
-Keep all twelve ordinary edges and the existing public result union:
+Keep all thirteen ordinary edges and the existing public result union:
 
 ```text
 transitioned | already-transitioned | ordinary-conflict | generic-consumed
@@ -115,7 +120,7 @@ If a store-backed controller publication loses to an ordinary transition, D2
 correctly rejects the stale source. The controller may then reread and adopt only
 an exact selected ordinary successor for the same command/capture, and retry the
 same copied observation bytes. Adoption is bounded by the frozen ordinary state
-graph (at most twelve selected edges), performs no native side effect and rejects
+graph (at most thirteen selected edges), performs no native side effect and rejects
 a different command, generic consumption or recovery edge. D2 publication itself
 keeps its three result kinds and stable-error boundary unchanged.
 
@@ -296,11 +301,11 @@ Finalisation uses this exhaustive table for both platforms:
 | no active command | `not-applicable` | no command requires recovery |
 | `prepared` | `not-applicable` | no native side effect is authorised yet |
 | `stop-intent` | `not-applicable` | force-stop execution has not been claimed |
-| `stop-executing` | `rejected` | force-stop crossing is ambiguous |
+| `stop-executing` | `not-applicable` | exact current source is handled by the no-replay restart-gate bridge |
 | `host-stopped` | `not-applicable` | force-stop receipt is retained; later launch is safe |
-| `launching` | `rejected` | native launch crossing is ambiguous |
+| `launching` | `not-applicable` | exact current source resumes through bounded pull-only recovery |
 | `reinstall-authorised` | `not-applicable` | reinstall launch has not been claimed |
-| `reinstall-launching` | `rejected` | reinstall launch crossing is ambiguous |
+| `reinstall-launching` | `not-applicable` | exact current source resumes through bounded pull-only recovery |
 | `launched` | `not-applicable` | launch receipt is retained; only pull/publish remains |
 | `restart-required` | `rejected` | abandonment and recovery are required |
 | `restart-executing` | `rejected` | recovery execution is incomplete |

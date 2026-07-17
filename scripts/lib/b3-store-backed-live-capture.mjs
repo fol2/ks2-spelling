@@ -16,7 +16,7 @@ const PLATFORM = Object.freeze({
   ios: 'ios-physical',
   android: 'android-play-physical',
 });
-const MAXIMUM_SELECTED_ORDINARY_EDGES = 12;
+const MAXIMUM_SELECTED_ORDINARY_EDGES = 13;
 const MAXIMUM_PULL_ATTEMPTS = 120;
 const AMBIGUOUS_LAUNCH_STATES = new Set(['launching', 'reinstall-launching']);
 const GENERIC_CONSUMPTION_STATES = new Set([
@@ -34,6 +34,7 @@ const ORDINARY_TRANSITIONS = new Set([
   'prepared:stop-intent',
   'stop-intent:stop-executing',
   'stop-executing:host-stopped',
+  'stop-executing:restart-required',
   'host-stopped:launching',
   'launching:launched',
   'launching:reinstall-authorised',
@@ -510,6 +511,14 @@ export function createB3StoreBackedLiveCapture({
       ownsStop = outcome.ownsSideEffect;
     }
     if (source.state === 'host-stopped') return source;
+    if (source.state === 'stop-executing' && !ownsStop) {
+      source = (await transition(source, 'restart-required')).command;
+      if (source.state === 'host-stopped') return source;
+      if (source.state !== 'restart-required') {
+        throw controllerError('B3 force-stop recovery winner is invalid');
+      }
+      throw operatorRequired('REINSTALL_EXACT_BUILD');
+    }
     if (source.state !== 'stop-executing' || !ownsStop) {
       throw controllerError('B3 force-stop crossing is ambiguous');
     }
@@ -520,7 +529,17 @@ export function createB3StoreBackedLiveCapture({
       retainedReceipt = true;
     };
     await transport.forceStop({ command: source.command, retainReceipt });
-    await retainReceipt();
+    if (!retainedReceipt) {
+      throw controllerError(
+        'B3 force-stop transport resolved before retaining its durable receipt',
+      );
+    }
+    if (source.state === 'restart-required') {
+      throw operatorRequired('REINSTALL_EXACT_BUILD');
+    }
+    if (source.state !== 'host-stopped') {
+      throw controllerError('B3 force-stop receipt winner is invalid');
+    }
     return source;
   }
 

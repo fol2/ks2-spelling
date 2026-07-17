@@ -778,6 +778,63 @@ test('Android transport uses explicit activity, fixed external pull and direct b
   await assert.rejects(invalid.captureScreenshot(), /PNG|screenshot/i);
 });
 
+
+test('Android force-stop awaits durable receipt retention before promise settlement', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'b3-android-stop-receipt-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const events = [];
+  let releaseReceipt;
+  let receiptStarted;
+  const receiptEntered = new Promise((resolveReceipt) => { receiptStarted = resolveReceipt; });
+  const receiptBarrier = new Promise((resolveReceipt) => { releaseReceipt = resolveReceipt; });
+  const transport = createB3PhysicalDeviceTransport({
+    root,
+    platform: 'android',
+    env: { B3_ANDROID_PHYSICAL_DEVICE_ID: 'R5CT1234ABC' },
+    runner: async (_executable, args) => {
+      assert.deepEqual(args, [
+        '-s', 'R5CT1234ABC', 'shell', 'am', 'force-stop',
+        'uk.eugnel.ks2spelling',
+      ]);
+      events.push('force-stop-complete');
+      return { exitCode: 0, stdout: '', stderr: '' };
+    },
+  });
+  let settled = false;
+  const stopping = transport.forceStop({
+    command: relaunchCommand(),
+    retainReceipt: async (receipt) => {
+      events.push('receipt-start');
+      assert.deepEqual(receipt, {
+        deviceIdentifier: 'R5CT1234ABC',
+        bundleIdentifier: 'uk.eugnel.ks2spelling',
+      });
+      receiptStarted();
+      await receiptBarrier;
+      events.push('receipt-complete');
+    },
+  }).then(() => {
+    settled = true;
+    events.push('resolved');
+  });
+
+  await receiptEntered;
+  await new Promise((resolveTurn) => setImmediate(resolveTurn));
+  assert.equal(settled, false);
+  assert.deepEqual(events, ['force-stop-complete', 'receipt-start']);
+  releaseReceipt();
+  await stopping;
+  assert.deepEqual(events, [
+    'force-stop-complete', 'receipt-start', 'receipt-complete', 'resolved',
+  ]);
+
+  const receiptFailure = new Error('receipt persistence failed');
+  await assert.rejects(transport.forceStop({
+    command: relaunchCommand(),
+    retainReceipt: async () => { throw receiptFailure; },
+  }), (error) => error === receiptFailure);
+});
+
 test('Android transport applies the remaining slow-card deadline to launch and pull processes', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'b3-android-deadline-transport-'));
   t.after(() => rm(root, { recursive: true, force: true }));

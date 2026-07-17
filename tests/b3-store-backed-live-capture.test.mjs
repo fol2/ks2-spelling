@@ -39,6 +39,10 @@ const NATIVE_CROSSING_HELPER = new URL(
   './helpers/b3-store-backed-native-crossing-child.mjs',
   import.meta.url,
 );
+const FORCE_STOP_CROSSING_HELPER = new URL(
+  './helpers/b3-store-backed-force-stop-child.mjs',
+  import.meta.url,
+);
 const RECOVERY_SQL_DEATH_HELPER = new URL(
   './helpers/b3-store-backed-recovery-sql-death-child.mjs',
   import.meta.url,
@@ -64,8 +68,8 @@ async function nativeCrossingFixture(t, label) {
   return root;
 }
 
-function spawnNativeCrossingHelper(t, root, ...args) {
-  const child = fork(NATIVE_CROSSING_HELPER.pathname, args, {
+function spawnIpcHelper(t, helper, root, ...args) {
+  const child = fork(helper.pathname, args, {
     cwd: root,
     env: { ...process.env, NODE_NO_WARNINGS: '1' },
     execArgv: ['--experimental-test-module-mocks'],
@@ -117,8 +121,23 @@ function spawnNativeCrossingHelper(t, root, ...args) {
   return Object.freeze({ child, ready, result, exited });
 }
 
+function spawnNativeCrossingHelper(t, root, ...args) {
+  return spawnIpcHelper(t, NATIVE_CROSSING_HELPER, root, ...args);
+}
+
+function spawnForceStopHelper(t, root, ...args) {
+  return spawnIpcHelper(t, FORCE_STOP_CROSSING_HELPER, root, ...args);
+}
+
 async function runNativeCrossingHelper(t, root, ...args) {
   const helper = spawnNativeCrossingHelper(t, root, ...args);
+  const result = await helper.result;
+  assert.deepEqual(await helper.exited, { code: 0, signal: null, stderr: '' });
+  return result;
+}
+
+async function runForceStopHelper(t, root, ...args) {
+  const helper = spawnForceStopHelper(t, root, ...args);
   const result = await helper.result;
   assert.deepEqual(await helper.exited, { code: 0, signal: null, stderr: '' });
   return result;
@@ -192,7 +211,9 @@ function proofProjection(command) {
     storeEvents: [],
     storeAuthority: {
       environment: 'sandbox',
-      productId: 'uk.eugnel.ks2spelling.fullks2',
+      productId: command.platform === 'ios-physical'
+        ? 'uk.eugnel.ks2spelling.fullks2'
+        : 'full_ks2',
       localisedPriceObserved: false,
       completionState: 'not-observed',
     },
@@ -248,6 +269,38 @@ async function observationFor(command, authority = buildAuthority()) {
     completedTransitions: ['UNBOUND', 'ARMED'],
     proofProjection: proofProjection(command),
     observedAt: '2026-07-17T10:00:00.000Z',
+  });
+}
+
+function relaunchCommandFor(platform) {
+  const authority = buildAuthority(platform);
+  const first = deriveB3NextStoreCommand({
+    platform,
+    buildAuthority: authority,
+    capture: null,
+    uuidFactory: () => CAPTURE_ID,
+  });
+  return deriveB3NextStoreCommand({
+    platform,
+    buildAuthority: authority,
+    capture: Object.freeze({
+      schemaVersion: 1,
+      platform,
+      captureId: CAPTURE_ID,
+      records: Object.freeze([Object.freeze({
+        command: first,
+        observation: Object.freeze({
+          captureId: CAPTURE_ID,
+          sequence: 1,
+          scenarioIndex: 1,
+          nextActionCode: 'RELAUNCH',
+          observationSha256: 'd'.repeat(64),
+        }),
+      })]),
+      checkpoint: Object.freeze({ nextScenarioIndex: 2 }),
+      gatewaySmokeProjection: null,
+    }),
+    uuidFactory: () => { throw new Error('relaunch command reused capture UUID factory'); },
   });
 }
 
@@ -530,6 +583,220 @@ test('retained launched command is pull-only and an existing committed step is c
   await consumeOnly.dispose();
 });
 
+
+test('retained ambiguous launch states are pull-only and converge on both platforms',
+  async (t) => {
+    for (const platform of ['ios', 'android']) {
+      for (const state of ['launching', 'reinstall-launching']) {
+        await t.test(`${platform}:${state}`, async () => {
+          const authority = buildAuthority(platform);
+          const command = deriveB3NextStoreCommand({
+            platform,
+            buildAuthority: authority,
+            capture: null,
+            uuidFactory: () => CAPTURE_ID,
+          });
+          const fake = fakeStore({
+            platform,
+            active: commandSource(platform, command, state),
+            capture: Object.freeze({
+              schemaVersion: 1,
+              platform,
+              captureId: CAPTURE_ID,
+              records: Object.freeze([]),
+              checkpoint: null,
+              gatewaySmokeProjection: null,
+            }),
+          });
+          let launches = 0;
+          let pulls = 0;
+          const controller = createB3StoreBackedLiveCapture({
+            platform,
+            buildAuthority: async () => authority,
+            storeFactory: async () => fake.store,
+            transport: {
+              async launch() { launches += 1; },
+              async pullObservation() {
+                pulls += 1;
+                return Buffer.from(canonicaliseB3ProofValue(
+                  await observationFor(command, authority),
+                ), 'utf8');
+              },
+              async forceStop() {},
+            },
+            wait: async () => {},
+          });
+
+          const observation = await controller.advance();
+          assert.equal(observation.sequence, 1);
+          assert.deepEqual({ launches, pulls }, { launches: 0, pulls: 1 });
+          assert.deepEqual(fake.events.filter((entry) =>
+            entry.startsWith('transition:') || entry.startsWith('publish:') ||
+              entry.startsWith('consume:')), [
+            `transition:${state}:launched`,
+            'publish:launched',
+            'consume:launched',
+          ]);
+          assert.equal(fake.active(), null);
+          await controller.dispose();
+        });
+      }
+    }
+  });
+
+test('retained ambiguous launch states enter the closed reinstall gate after bounded pull-only recovery',
+  async (t) => {
+    for (const platform of ['ios', 'android']) {
+      for (const state of ['launching', 'reinstall-launching']) {
+        await t.test(`${platform}:${state}`, async () => {
+          const authority = buildAuthority(platform);
+          const command = deriveB3NextStoreCommand({
+            platform,
+            buildAuthority: authority,
+            capture: null,
+            uuidFactory: () => CAPTURE_ID,
+          });
+          const fake = fakeStore({
+            platform,
+            active: commandSource(platform, command, state),
+            capture: Object.freeze({
+              schemaVersion: 1,
+              platform,
+              captureId: CAPTURE_ID,
+              records: Object.freeze([]),
+              checkpoint: null,
+              gatewaySmokeProjection: null,
+            }),
+          });
+          let launches = 0;
+          let pulls = 0;
+          const controller = createB3StoreBackedLiveCapture({
+            platform,
+            buildAuthority: async () => authority,
+            storeFactory: async () => fake.store,
+            transport: {
+              async launch() { launches += 1; },
+              async pullObservation() {
+                pulls += 1;
+                throw Object.assign(
+                  new Error('B3 physical-device observation pull did not produce the fixed file'),
+                  { code: 'b3_physical_device_command_failed' },
+                );
+              },
+              async forceStop() {},
+            },
+            wait: async () => {},
+          });
+
+          await assert.rejects(controller.advance({ maximumPullAttempts: 3 }), (error) => {
+            assert.equal(error?.code, 'b3_operator_action_required');
+            assert.equal(error?.instructionCode, 'REINSTALL_EXACT_BUILD');
+            return true;
+          });
+          assert.deepEqual({ launches, pulls }, { launches: 0, pulls: 3 });
+          assert.equal(fake.events.filter((entry) =>
+            entry === `transition:${state}:restart-required`).length, 1);
+          assert.equal(fake.active().state, 'restart-required');
+          await controller.dispose();
+        });
+      }
+    }
+  });
+
+test('retained stop-executing never replays force-stop and enters the exact reinstall gate',
+  async (t) => {
+    for (const platform of ['ios', 'android']) {
+      await t.test(platform, async () => {
+        const command = relaunchCommandFor(platform);
+        const fake = fakeStore({
+          platform,
+          active: commandSource(platform, command, 'stop-executing'),
+          capture: Object.freeze({
+            schemaVersion: 1,
+            platform,
+            captureId: CAPTURE_ID,
+            records: Object.freeze([]),
+            checkpoint: null,
+            gatewaySmokeProjection: null,
+          }),
+        });
+        let stops = 0;
+        const controller = createB3StoreBackedLiveCapture({
+          platform,
+          buildAuthority: async () => buildAuthority(platform),
+          storeFactory: async () => fake.store,
+          transport: {
+            async launch() {},
+            async pullObservation() { return Buffer.alloc(0); },
+            async forceStop() { stops += 1; },
+          },
+        });
+
+        await assert.rejects(controller.stopForRelaunch(), (error) => {
+          assert.equal(error?.code, 'b3_operator_action_required');
+          assert.equal(error?.instructionCode, 'REINSTALL_EXACT_BUILD');
+          return true;
+        });
+        assert.equal(stops, 0);
+        assert.equal(fake.events.filter((entry) =>
+          entry === 'transition:stop-executing:restart-required').length, 1);
+        assert.equal(fake.active().state, 'restart-required');
+        await controller.dispose();
+      });
+    }
+  });
+
+
+test('force-stop receipt losing to the restart gate cannot continue the uncertain capture',
+  async () => {
+    const command = relaunchCommandFor('android');
+    const fake = fakeStore({
+      platform: 'android',
+      active: commandSource('android', command, 'stop-intent'),
+      capture: Object.freeze({
+        schemaVersion: 1,
+        platform: 'android',
+        captureId: CAPTURE_ID,
+        records: Object.freeze([]),
+        checkpoint: null,
+        gatewaySmokeProjection: null,
+      }),
+    });
+    const ordinaryTransition = fake.store.transitionCommand;
+    const store = Object.freeze({
+      ...fake.store,
+      async transitionCommand({ source, nextState }) {
+        if (source.state === 'stop-executing' && nextState === 'host-stopped') {
+          fake.events.push('transition:stop-executing:host-stopped');
+          const winner = commandSource(
+            'android', source.command, 'restart-required', source.allocationSequence,
+          );
+          fake.setActive(winner);
+          return Object.freeze({ kind: 'ordinary-conflict', command: winner });
+        }
+        return ordinaryTransition({ source, nextState });
+      },
+    });
+    const controller = createB3StoreBackedLiveCapture({
+      platform: 'android',
+      buildAuthority: async () => buildAuthority('android'),
+      storeFactory: async () => store,
+      transport: {
+        async launch() {},
+        async pullObservation() { return Buffer.alloc(0); },
+        async forceStop({ retainReceipt }) { await retainReceipt(); },
+      },
+    });
+
+    await assert.rejects(controller.stopForRelaunch(), (error) => {
+      assert.equal(error?.code, 'b3_operator_action_required');
+      assert.equal(error?.instructionCode, 'REINSTALL_EXACT_BUILD');
+      return true;
+    });
+    assert.equal(fake.active().state, 'restart-required');
+    await controller.dispose();
+  });
+
 test('publication adopts a concurrently selected ordinary successor before consuming', async () => {
   const authority = buildAuthority();
   const fake = fakeStore();
@@ -765,26 +1032,20 @@ test('real child death at native launch crossings reopens without replay or fina
       {
         stage: 'before-native-launch',
         state: 'launching',
-        status: 'rejected',
+        status: 'not-applicable',
         receipt: false,
-        pulls: 0,
-        activeKindAfter: 'active',
       },
       {
         stage: 'after-native-receipt',
         state: 'launching',
-        status: 'rejected',
+        status: 'not-applicable',
         receipt: true,
-        pulls: 0,
-        activeKindAfter: 'active',
       },
       {
         stage: 'after-launched-commit',
         state: 'launched',
         status: 'not-applicable',
         receipt: true,
-        pulls: 1,
-        activeKindAfter: 'none',
       },
     ];
     for (const expected of cases) {
@@ -813,19 +1074,53 @@ test('real child death at native launch crossings reopens without replay or fina
         assert.deepEqual(verified.finalisation, { status: expected.status });
         assert.equal(verified.databaseUnchangedByFinalisation, true);
         assert.equal(verified.launches, 0);
-        assert.equal(verified.pulls, expected.pulls);
-        assert.equal(verified.activeKindAfter, expected.activeKindAfter);
-        if (expected.state === 'launched') {
-          assert.match(verified.advancedObservationSha256, /^[0-9a-f]{64}$/u);
-          assert.equal(verified.stateAfter, null);
-        } else {
-          assert.equal(verified.advancedObservationSha256, null);
-          assert.equal(verified.stateAfter, 'launching');
-        }
+        assert.equal(verified.pulls, 1);
+        assert.equal(verified.activeKindAfter, 'none');
+        assert.match(verified.advancedObservationSha256, /^[0-9a-f]{64}$/u);
+        assert.equal(verified.stateAfter, null);
         assert.deepEqual(
           await readdir(join(root, '.native-build', 'b3', 'evidence')),
           ['ios-capture-state'],
         );
+      });
+    }
+  });
+
+
+test('real Android death around force-stop receipt retains only durable state and recovers safely',
+  async (t) => {
+    for (const [stage, expectedState] of [
+      ['before-receipt', 'stop-executing'],
+      ['after-receipt', 'host-stopped'],
+    ]) {
+      await t.test(stage, async (t) => {
+        const root = await nativeCrossingFixture(t, `force-stop-${stage}`);
+        const crossing = spawnForceStopHelper(t, root, 'crossing', stage);
+        assert.deepEqual(await crossing.ready, { type: 'ready', stage });
+        assert.equal(crossing.child.kill('SIGKILL'), true);
+        assert.deepEqual(await crossing.exited, {
+          code: null,
+          signal: 'SIGKILL',
+          stderr: '',
+        });
+
+        const inspected = await runForceStopHelper(t, root, 'inspect');
+        assert.deepEqual(inspected, {
+          type: 'result',
+          activeKind: 'active',
+          state: expectedState,
+        });
+        if (stage === 'before-receipt') {
+          const recovery = await runForceStopHelper(t, root, 'recover');
+          assert.deepEqual(recovery.required, { status: 'operator-required' });
+          assert.deepEqual(recovery.recovered, { status: 'recovered' });
+          assert.equal(recovery.activeKind, 'active');
+          assert.equal(recovery.state, 'prepared');
+          assert.equal(
+            recovery.captureId,
+            '018f1d7b-97e8-4a52-8cf2-783e5089ca02',
+          );
+        }
       });
     }
   });
@@ -936,11 +1231,11 @@ test('real SQLite finaliser matrix is read-only for ordinary repository states',
       none: 'not-applicable',
       prepared: 'not-applicable',
       'stop-intent': 'not-applicable',
-      'stop-executing': 'rejected',
+      'stop-executing': 'not-applicable',
       'host-stopped': 'not-applicable',
-      launching: 'rejected',
+      launching: 'not-applicable',
       'reinstall-authorised': 'not-applicable',
-      'reinstall-launching': 'rejected',
+      'reinstall-launching': 'not-applicable',
       launched: 'not-applicable',
       'restart-required': 'operator-required',
     });

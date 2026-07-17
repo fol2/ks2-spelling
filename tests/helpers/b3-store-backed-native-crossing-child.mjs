@@ -295,7 +295,8 @@ async function verifyCrossing() {
   });
   const databaseAfterFinalisation = sha256(await readFile(databasePath()));
   let advancedObservationSha256 = null;
-  if (retainedBefore.command.state === 'launched') {
+  if (['launching', 'reinstall-launching', 'launched']
+    .includes(retainedBefore.command.state)) {
     advancedObservationSha256 = (await controller.advance()).observationSha256;
   }
   await controller.dispose();

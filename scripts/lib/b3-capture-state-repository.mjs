@@ -899,10 +899,11 @@ export async function openB3CaptureStateRepository(options) {
       if (current.state === 'restart-required') {
         return Object.freeze({ kind: 'rejected' });
       }
-      return Object.freeze({
-        kind: ['launching', 'reinstall-launching', 'stop-executing']
-          .includes(current.state) ? 'rejected' : 'non-recovery',
-      });
+      if (['launching', 'reinstall-launching', 'stop-executing'].includes(current.state) &&
+          !isDeepStrictEqual(current, pin.source)) {
+        return Object.freeze({ kind: 'rejected' });
+      }
+      return Object.freeze({ kind: 'non-recovery' });
     }
     if (capture.capture.capture_state === 'abandoned') {
       if (!capture.recoveryOwner ||

@@ -274,11 +274,8 @@ export async function pollSlowCard({
 
 export async function holdUnacknowledgedPurchase({ wait, release }) {
   if (typeof wait !== 'function' || typeof release !== 'function') throw new Error('unacknowledged hold authority is invalid');
-  try {
-    await wait(5_000);
-  } finally {
-    await release();
-  }
+  await wait(5_000);
+  await release();
 }
 
 function argument(args, name) {

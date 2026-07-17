@@ -27,9 +27,9 @@
 
 The product/design authority remains:
 
-- `/Users/jamesto/Coding/ks2-mastery/docs/superpowers/specs/2026-07-09-standalone-spelling-mobile-application-design.md`
-- `/Users/jamesto/Coding/ks2-mastery/docs/superpowers/plans/2026-07-09-standalone-spelling-mobile-programme.md`
-- `/Users/jamesto/Coding/ks2-spelling/docs/superpowers/plans/2026-07-11-standalone-spelling-mobile-b2-native-persistence-lifecycle-proof.md`
+- [Standalone Spelling Mobile Application Design](../specs/2026-07-09-standalone-spelling-mobile-application-design.md)
+- [Standalone Spelling Mobile Programme](2026-07-09-standalone-spelling-mobile-programme.md)
+- [B2 Native Persistence and Lifecycle Proof](2026-07-11-standalone-spelling-mobile-b2-native-persistence-lifecycle-proof.md)
 
 ## Global constraints
 

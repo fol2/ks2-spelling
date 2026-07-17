@@ -18,6 +18,7 @@ const ORDINARY_TRANSITIONS = Object.freeze([
   ['prepared', 'stop-intent'],
   ['stop-intent', 'stop-executing'],
   ['stop-executing', 'host-stopped'],
+  ['stop-executing', 'restart-required'],
   ['host-stopped', 'launching'],
   ['launching', 'launched'],
   ['launching', 'reinstall-authorised'],

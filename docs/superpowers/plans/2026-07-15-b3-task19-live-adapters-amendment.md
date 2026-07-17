@@ -4,8 +4,10 @@
 
 **Primary authorities:**
 
-- [Standalone Spelling Mobile Application Design](../../../../ks2-mastery/docs/superpowers/specs/2026-07-09-standalone-spelling-mobile-application-design.md)
+- [Standalone Spelling Mobile Application Design](../specs/2026-07-09-standalone-spelling-mobile-application-design.md)
+- [Standalone Spelling Mobile Programme](2026-07-09-standalone-spelling-mobile-programme.md)
 - [B3 Sandbox Billing and Signed Download Proof Plan](./2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md), especially Tasks 19–23
+- [Task 19H Native-Crossing Recovery Correction](2026-07-17-b3-task19h-native-crossing-correction.md)
 
 This document amends Task 19 where the current implementation proved that the original live-capture and Cloudflare primitives cannot produce honest evidence, plus the minimum Task 22 execution-order change required to finalise capability/Range smoke without exposing a sealed handle. All other B3 requirements remain authoritative. If this amendment and the original wording differ, this amendment governs the live-adapter implementation, production-trace contract and atomic Task 22 evidence assembly order; the exact six-file topology and all final claims remain unchanged.
 

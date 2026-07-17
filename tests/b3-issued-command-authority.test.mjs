@@ -45,6 +45,7 @@ const CLAIM_HASHES = Object.freeze({
   'prepared:stop-intent': 'fbaabcb548effeacfb1f3117320e62d1420c6cb94b0a87bfed73f014a0d729a6',
   'stop-intent:stop-executing': '35806d6e2955788095479c5cacb4bbcda3767b4ffe20133d2993b76c50713496',
   'stop-executing:host-stopped': '928f348be321bbbd21a727941c541f0b3cf43ff8e39c02403395374f817ffc42',
+  'stop-executing:restart-required': '37d72adc59dedeb6d16310b7a7ba15ad6d18adf914bce16cefe3c8faba37271f',
   'host-stopped:launching': 'be0c1c10c9a410c1b1590b27c08d25d6aaa1734237fb5c23acd29f1997b9b304',
   'launching:launched': '0acb91cd0eda8be3051bda358bf13afa1966fb6ed5061d22a8ba04cfa13c833a',
   'launching:reinstall-authorised': '286354ecae8b941c601467a42a097bef48715d7f2eeff915affb3871946388b6',
@@ -89,7 +90,7 @@ test('pure issued-command authority retains every schema-v3 state record literal
   }
 });
 
-test('pure issued-command authority retains all twelve ordinary claim literals', () => {
+test('pure issued-command authority retains all thirteen ordinary claim literals', () => {
   for (const [edge, claimSha256] of Object.entries(CLAIM_HASHES)) {
     const [sourceState, nextState] = edge.split(':');
     const source = createB3IssuedCommandStateAuthority({

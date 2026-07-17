@@ -102,7 +102,7 @@ Ordinary edges are exactly:
 ```text
 prepared -> launching | stop-intent
 stop-intent -> stop-executing
-stop-executing -> host-stopped
+stop-executing -> host-stopped | restart-required
 host-stopped -> launching
 launching -> launched | reinstall-authorised | restart-required
 reinstall-authorised -> reinstall-launching
@@ -203,12 +203,12 @@ decision and never clears active B/C.
 
 Implement one RED -> GREEN slice at a time:
 
-1. Known-literal pure authority parity: all state records, twelve ordinary
+1. Known-literal pure authority parity: all state records, thirteen ordinary
    edges and the generic claim; legacy bytes remain exact.
 2. Ready-A fixture/full validator; corrupt intent/capture/command, gaps,
    predecessors, bytes/hashes, pointers and orphan rows reject unchanged.
 3. Closed API and snapshot-consistent `active | start-reserved | none` reads.
-4. All twelve ordinary edges, all other pairs rejected, with identical and
+4. All thirteen ordinary edges, all other pairs rejected, with identical and
    conflicting typed outcomes.
 5. All eight generic sources; every recovery/unknown source rejected; pointer
    clearing is exact.

@@ -5,7 +5,7 @@
     "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "spmResolvedVersion": 3,
     "nativePluginBuildSha256": "a72e95958e287be21f34588a167f12fd59058ab003dfe3f559b3ba244988a6f9",
-    "webViewBundleEvidenceSha256": "1143574389828e4e2a883d55456823c5222606f6234637c4ea276336e9a3248c"
+    "webViewBundleEvidenceSha256": "043bed0532f116430767cf79ce2d87edbc21e7c45812cfc4fb0aee816802550c"
   },
   "npm": {
     "lockfileVersion": 3,
@@ -208,13 +208,13 @@
           "id": "src/app/b3-live-proof-composition.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "900825bccb6ca9b1f1a2f7db2dad2ecd0bf7363cbe1c0d59ecbe0eb930b72cde"
+          "sha256": "1410818d213ed3cd1ccb576b9b10e02d4252f789576f308c419e833832769eb5"
         },
         {
           "id": "src/app/b3-live-proof-protocol.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "d480f14b7b94a519d1ae897a40a39a2d2d9360038805f492e31825ca4ddcf0d9"
+          "sha256": "a0b3325e8230585e97d87d3ee4b915becb3e800fd7a19d4da1efbed790088288"
         },
         {
           "id": "src/app/b3-proof-controller.js",
@@ -680,27 +680,27 @@
           "sha256": "61cf1c7a20158a534da47c5bb453604b8d0ca9d8d5aac9d1d450942de33af3f1"
         },
         {
-          "fileName": "assets/index-BUzemD4J.js",
+          "fileName": "assets/index-ri-vSev_.js",
           "kind": "chunk",
-          "sha256": "725120069cda233c8ca4517fb3a954b13b53a5ddee95cf5854203b1abae7c673"
+          "sha256": "8736b2055bcb7d929b2372f44641934aee1fe28d7357fe9cfd8b42aa0255389a"
         },
         {
-          "fileName": "assets/web-DzSpGx0f.js",
+          "fileName": "assets/web-B981aNzd.js",
           "kind": "chunk",
-          "sha256": "18bcc4a1ebaa155b09dbd6aa225bc655e861cf2c1c0678b1e4b7ae360698272e"
+          "sha256": "6d16c638bbfb3e1418c2d9e9e799c0b01c316cc4bb066297db6f7a981b5268d4"
         },
         {
-          "fileName": "assets/web-FXXvXVFE.js",
+          "fileName": "assets/web-DY6F8oeQ.js",
           "kind": "chunk",
-          "sha256": "8df4831de411b14bcaa017d5344ad822fca904ad9c105029d6f5009b670cc07d"
+          "sha256": "0ecf85811c4d7a27cdb4aa77ff28948c37954399a904972bc5da5b9dcd8f3ae3"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "d929a45211aa9ddc9f6c2dba99b760b80392d1d69447bad3463be6bc60a4ed7c"
+          "sha256": "ef0ba9d148bf30caa0882ffbef729a68431bf6b69af7817079004de34a636902"
         }
       ],
-      "evidenceSha256": "1143574389828e4e2a883d55456823c5222606f6234637c4ea276336e9a3248c"
+      "evidenceSha256": "043bed0532f116430767cf79ce2d87edbc21e7c45812cfc4fb0aee816802550c"
     },
     "allPackages": [
       {

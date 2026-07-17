@@ -18,6 +18,7 @@ import {
 } from './lib/b3-evidence.mjs';
 import { assertB3RemoteMutationScope } from './lib/b3-cloudflare-evidence.mjs';
 import { createDefaultB3AndroidCaptureAdapter } from './lib/b3-live-capture-adapters.mjs';
+import { publishB3FinalProofOutput } from './lib/b3-final-proof-output.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 export const B3_ANDROID_REMOTE_SCOPE = 'google-test-track-refund-revoke';
@@ -370,7 +371,11 @@ export async function runB3AndroidProofCli({
     }
     pending.manualVisualInspection = attestation.manualVisualInspection;
     const report = finaliseB3AndroidEvidence({ platform: pending, cloudflare });
-    await writeFile(resolve(root, 'reports/b3/android-sandbox-proof.json'), `${JSON.stringify(report, null, 2)}\n`, { flag: 'wx' });
+    await publishB3FinalProofOutput({
+      root,
+      output: 'reports/b3/android-sandbox-proof.json',
+      bytes: Buffer.from(`${JSON.stringify(report, null, 2)}\n`, 'utf8'),
+    });
     stdout.write(`${JSON.stringify({ ok: true, platform: report.platform })}\n`);
     return 0;
   } catch (error) {

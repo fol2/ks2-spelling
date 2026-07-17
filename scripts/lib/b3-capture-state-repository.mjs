@@ -21,7 +21,7 @@ import {
   deriveB3CaptureStep,
   deriveB3DeviceGatewaySmokeProjection,
   validateB3RetainedCaptureStep,
-} from './b3-physical-observation-journal.mjs';
+} from './b3-capture-proof-domain.mjs';
 import {
   createB3GenericConsumptionClaimAuthority,
   createB3IssuedCommandStateAuthority,

@@ -354,7 +354,7 @@ test('iOS Task22 exposes real host utilities and fails closed before device work
   const adapter = await import('../scripts/lib/b3-live-capture-adapters.mjs').catch(() => ({}));
   assert.equal(typeof adapter.createDefaultB3IosCaptureAdapter, 'function');
   assert.equal(typeof adapter.persistB3PlatformScreenshot, 'function');
-  assert.equal(typeof adapter.readB3CaptureCheckpoint, 'function');
+  assert.equal(typeof adapter.readB3CaptureCheckpoint, 'undefined');
   await assert.rejects(
     adapter.createDefaultB3IosCaptureAdapter({ root: '/tmp', env: {} })
       .inspectSyntheticLearners({ baseline: 'before-purchase', phase: 'initial' }),
@@ -528,7 +528,7 @@ test('iOS B3 proof transport is fixed-path, launch-argument only and absent outs
   assert.doesNotMatch(info, /CFBundleURLTypes|b3-proof-observation/u);
 });
 
-test('screenshot persistence keeps owned exact PNG bytes and rejects operator paths', async (t) => {
+test('screenshot persistence is exact-byte idempotent for both closed platform paths', async (t) => {
   const adapter = await import('../scripts/lib/b3-live-capture-adapters.mjs');
   const root = await mkdtemp(join(tmpdir(), 'b3-png-root-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -537,10 +537,15 @@ test('screenshot persistence keeps owned exact PNG bytes and rejects operator pa
   const destination = join(root, result.path);
   assert.deepEqual(await readFile(destination), png);
   assert.equal((await lstat(destination)).mode & 0o777, 0o600);
-  await assert.rejects(
-    adapter.persistB3PlatformScreenshot({ root, platform: 'ios', bytes: png }),
-    /exist|EEXIST/i,
+  assert.deepEqual(
+    await adapter.persistB3PlatformScreenshot({ root, platform: 'ios', bytes: png }),
+    result,
   );
+  const android = await adapter.persistB3PlatformScreenshot({
+    root, platform: 'android', bytes: png,
+  });
+  assert.equal(android.path, 'reports/b3/android-sandbox-proof.png');
+  assert.deepEqual(await readFile(join(root, android.path)), png);
   await assert.rejects(
     adapter.persistB3PlatformScreenshot({ root, platform: 'android', sourcePath: '/tmp/operator.png' }),
     /PNG|screenshot/i,

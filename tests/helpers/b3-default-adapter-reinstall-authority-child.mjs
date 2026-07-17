@@ -15,7 +15,7 @@ const actualController = await import('../../scripts/lib/b3-store-backed-live-ca
 const actualPrerequisites = await import('../../scripts/check-b3-external-prerequisites.mjs');
 const { openB3CaptureStore } = await import('../../scripts/lib/b3-capture-store.mjs');
 const { buildB3PhysicalProofAuthority } = await import(
-  '../../scripts/lib/b3-physical-observation-journal.mjs'
+  '../../scripts/lib/b3-capture-proof-domain.mjs'
 );
 const {
   B3_ANDROID_SCENARIOS,

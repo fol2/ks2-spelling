@@ -26,7 +26,7 @@ import {
 import { createB3IssuedCommandStateAuthority } from
   '../scripts/lib/b3-issued-command-authority.mjs';
 import { buildB3PhysicalProofAuthority } from
-  '../scripts/lib/b3-physical-observation-journal.mjs';
+  '../scripts/lib/b3-capture-proof-domain.mjs';
 import {
   B3_TEST_COMMIT,
   B3_TEST_HASH,

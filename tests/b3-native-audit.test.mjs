@@ -15,9 +15,19 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
+function deepFreeze(value) {
+  if (value === null || typeof value !== 'object' || Object.isFrozen(value) ||
+      ArrayBuffer.isView(value)) return value;
+  for (const member of Reflect.ownKeys(value)) deepFreeze(value[member]);
+  return Object.freeze(value);
+}
+
 test('B3 native audit is rebuilt from closed fresh inputs without weakening B2', async () => {
   const { buildB3NativeAudit } = await import('../scripts/build-b3-native-audit.mjs');
-  const { writeB3DependencyArtifacts } = await import('../scripts/audit-dependencies.mjs');
+  const {
+    buildDependencyArtifacts,
+    writeB3DependencyArtifacts,
+  } = await import('../scripts/audit-dependencies.mjs');
   const firstDirectory = await mkdtemp(join(tmpdir(), 'b3-native-audit-a-'));
   const secondDirectory = await mkdtemp(join(tmpdir(), 'b3-native-audit-b-'));
   const frozenPaths = [
@@ -30,8 +40,20 @@ test('B3 native audit is rebuilt from closed fresh inputs without weakening B2',
     frozenPaths.map((path) => readFile(join(ROOT, path))),
   );
   try {
-    const first = await buildB3NativeAudit({ root: ROOT, outputDirectory: firstDirectory });
-    const second = await buildB3NativeAudit({ root: ROOT, outputDirectory: secondDirectory });
+    const dependencyArtifacts = deepFreeze(await buildDependencyArtifacts({
+      preBootstrap: false,
+      discoverAndroidSources: true,
+    }));
+    const first = await buildB3NativeAudit({
+      root: ROOT,
+      outputDirectory: firstDirectory,
+      dependencyArtifacts,
+    });
+    const second = await buildB3NativeAudit({
+      root: ROOT,
+      outputDirectory: secondDirectory,
+      dependencyArtifacts,
+    });
     assert.equal(first.nativeBuildJson, second.nativeBuildJson);
     assert.equal(first.dependencyAuditJson, second.dependencyAuditJson);
     assert.equal(sha256(first.nativeBuildJson), sha256(second.nativeBuildJson));

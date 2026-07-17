@@ -15,7 +15,7 @@ const { createB3StoreBackedLiveCapture, deriveB3NextStoreCommand } = await impor
 );
 const { openB3CaptureStore } = await import('../../scripts/lib/b3-capture-store.mjs');
 const { buildB3PhysicalProofAuthority } = await import(
-  '../../scripts/lib/b3-physical-observation-journal.mjs'
+  '../../scripts/lib/b3-capture-proof-domain.mjs'
 );
 const {
   B3_TEST_COMMIT,

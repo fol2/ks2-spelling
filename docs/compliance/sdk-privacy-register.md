@@ -138,6 +138,12 @@ commerce verification, pack download and redownload, entitlement refresh,
 restore and revocation. B3 sandbox and test proof must not be described as
 production release readiness.
 
+Task 19 physical-capture working and recovery state is retained only in the
+ignored local SQLite schema-v2 database. Its final JSON and PNG files are
+immutable derived evidence, not a second mutable state store. Task 19 performs
+no live Cloudflare/R2, store or device mutation and makes no signed/live-evidence
+claim.
+
 ## Not approved candidates
 
 | Capability | Candidate package | Status |

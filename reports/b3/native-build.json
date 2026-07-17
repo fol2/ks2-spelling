@@ -40,7 +40,7 @@
         "sourceSha256": "7aaa9a832edc314da3f96151e0bfecd6f73e3f995d1201f1748c97d3f703514d"
       }
     ],
-    "dependencyAuditSha256": "1ca5829bd7701cf213ddc06e28b84250fd5ec4f53e7683a6d7b1706b3bb0bafb"
+    "dependencyAuditSha256": "371d45906af87e5767f6873deee46d713a5b178c36d0f5c2e9f8f9d557ca4bd2"
   },
   "sourceAuthority": [
     {
@@ -101,12 +101,12 @@
     {
       "path": ".native-build/android/build/app/outputs/apk/debug/app-debug.apk",
       "bytes": 25908801,
-      "sha256": "c133f2124be268e91e242346a2a273befb05ad4c234781370021d4f8cce9968b"
+      "sha256": "88d46697b2b6a3763f99080ce8ab9c1f4628c474ebde343f87362911e2480e84"
     },
     {
       "path": ".native-build/android/build/app/outputs/apk/release/app-release-unsigned.apk",
-      "bytes": 24660685,
-      "sha256": "3a77239fafab7f5baa1fd825c8fd197248af8efed2b534fe1a1ab0ba08a65aef"
+      "bytes": 24660729,
+      "sha256": "f6d9de041a70e9b3f15624fd01a0829b08a99e46d219300e2a4e4c3bc05952a1"
     },
     {
       "path": ".native-build/android/build/app/intermediates/javac/debug/compileDebugJavaWithJavac/classes/uk/eugnel/ks2spelling/CommercePlugin.class",
@@ -266,9 +266,9 @@
     "archiveSha256": "4c2ca2eb4d4bb7ac3347b66e3483dcb6aa71b41958704733bfc471c970ce7664",
     "exclusionScan": {
       "authorisedFixtureDirectory": "tests/fixtures/keys",
-      "filesScanned": 2540,
-      "bytesScanned": 168076913,
-      "expandedArchiveBytesScanned": 168543630
+      "filesScanned": 1425,
+      "bytesScanned": 163680086,
+      "expandedArchiveBytesScanned": 168191479
     },
     "signingFixturePackaged": false
   },

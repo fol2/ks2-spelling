@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { canonicaliseB3ProofValue } from '../src/app/b3-live-proof-protocol.js';
@@ -117,31 +116,6 @@ test('pure authority alone classifies every ordinary edge and excludes recovery'
   }
   assert.equal(isB3OrdinaryIssuedCommandTransition('prepared', 'restart-complete'), false);
 });
-
-test('legacy transition preflight delegates ordinary classification before filesystem access',
-  async () => {
-    const source = await readFile(new URL(
-      '../scripts/lib/b3-issued-command.mjs', import.meta.url,
-    ), 'utf8');
-    assert.doesNotMatch(source, /const TRANSITIONS\s*=\s*new Set/u);
-    assert.doesNotMatch(source, /const STATES\s*=\s*Object\.freeze/u);
-    assert.match(source, /function isB3IssuedCommandTransition\(/u);
-    const claimValidation = source.slice(
-      source.indexOf('function validateClaim('),
-      source.indexOf('function tombstone('),
-    );
-    assert.match(claimValidation,
-      /isB3IssuedCommandTransition\(value\.expectedState, value\.nextState\)/u);
-    const transition = source.slice(
-      source.indexOf('export async function transitionB3IssuedCommand('),
-      source.indexOf('export async function clearB3IssuedCommand('),
-    );
-    const preflight = transition.indexOf(
-      'isB3IssuedCommandTransition(expectedState, nextState)',
-    );
-    assert.notEqual(preflight, -1);
-    assert.ok(preflight < transition.indexOf('directories('));
-  });
 
 test('generic-consumption authority has one closed domain-separated literal', () => {
   const source = createB3IssuedCommandStateAuthority({

@@ -16,7 +16,7 @@ const {
   createB3ProofObservation,
 } = await import('../../src/app/b3-live-proof-protocol.js');
 const { buildB3PhysicalProofAuthority } = await import(
-  '../../scripts/lib/b3-physical-observation-journal.mjs'
+  '../../scripts/lib/b3-capture-proof-domain.mjs'
 );
 const { openB3CaptureStateRepository } = await import(
   '../../scripts/lib/b3-capture-state-repository.mjs'

@@ -10,8 +10,10 @@ import {
   buildB3PhysicalProofAuthority,
   deriveB3CaptureStep,
   deriveB3DeviceGatewaySmokeProjection,
+  deriveB3ProofObservationChain,
+  deriveB3ScenarioTransition,
   validateB3RetainedCaptureStep,
-} from '../scripts/lib/b3-physical-observation-journal.mjs';
+} from '../scripts/lib/b3-capture-proof-domain.mjs';
 import {
   extractB3DeviceGatewaySmokeProjection,
 } from '../scripts/lib/b3-live-capture-adapters.mjs';
@@ -321,5 +323,79 @@ test('D2 optional gateway smoke projection is validated, zero-or-one and iOS-onl
   assert.throws(
     () => deriveB3DeviceGatewaySmokeProjection([android]),
     /iOS|pack-install/i,
+  );
+});
+
+test('D5 derives scenario transitions and the proof chain only from validated records', async () => {
+  const buildAuthority = buildB3PhysicalProofAuthority('ios', buildSource());
+  const firstCommand = command();
+  const firstObservation = await createB3ProofObservation({
+    command: firstCommand,
+    buildAuthority,
+    installationId: INSTALLATION_ID,
+    sequence: 1,
+    scenario: 'product-query',
+    phase: 'ARMED',
+    nextActionCode: 'QUERY_PRODUCT',
+    completedTransitions: ['UNBOUND', 'ARMED'],
+    proofProjection: proofProjection({ challengeSha256: firstCommand.challengeSha256 }),
+    observedAt: '2026-07-17T10:05:00.000Z',
+  });
+  const first = await deriveB3CaptureStep({
+    platform: 'ios', command: firstCommand, buildSource: buildSource(),
+    previousObservation: undefined,
+    observationBytes: Buffer.from(canonicaliseB3ProofValue(firstObservation), 'utf8'),
+  });
+  const secondCommand = command({
+    expectedSequence: 2,
+    previousObservationSha256: first.observationSha256,
+    actionCode: 'QUERY_PRODUCT',
+  });
+  const secondObservation = await createB3ProofObservation({
+    command: secondCommand,
+    buildAuthority,
+    installationId: INSTALLATION_ID,
+    sequence: 2,
+    scenario: 'product-query',
+    phase: 'SCENARIO_COMPLETE',
+    nextActionCode: 'ARM_CAPTURE',
+    completedTransitions: [
+      'UNBOUND', 'ARMED', 'WAITING_OPERATOR', 'OBSERVING', 'SCENARIO_COMPLETE',
+    ],
+    proofProjection: proofProjection({
+      challengeSha256: secondCommand.challengeSha256,
+      scenarioOutcome: 'products-visible',
+      storeAuthority: {
+        environment: 'sandbox', productId: 'uk.eugnel.ks2spelling.fullks2',
+        localisedPriceObserved: true, completionState: 'not-observed',
+      },
+      storeEvents: [{ operation: 'queryProducts', outcome: 'products-visible' }],
+    }),
+    observedAt: '2026-07-17T10:05:01.000Z',
+  });
+  const second = await deriveB3CaptureStep({
+    platform: 'ios', command: secondCommand, buildSource: buildSource(),
+    previousObservation: first.record.observation,
+    observationBytes: Buffer.from(canonicaliseB3ProofValue(secondObservation), 'utf8'),
+  });
+  const records = [first.record, second.record];
+  const transition = deriveB3ScenarioTransition({
+    records,
+    authority: { scenario: 'product-query', outcome: 'products-visible', traces: [] },
+  });
+  assert.deepEqual(transition, {
+    scenario: 'product-query',
+    startedAt: '2026-07-17T10:05:00.000Z',
+    completedAt: '2026-07-17T10:05:01.000Z',
+    outcome: 'products-visible',
+    gatewayTraces: [],
+  });
+  const chain = deriveB3ProofObservationChain({ records, transitions: [transition] });
+  assert.equal(chain.captureId, CAPTURE_ID);
+  assert.equal(chain.terminalObservationSha256, second.observationSha256);
+  assert.match(chain.chainAuthoritySha256, /^[0-9a-f]{64}$/u);
+  assert.throws(
+    () => deriveB3ProofObservationChain({ records: structuredClone(records), transitions: [transition] }),
+    /validated retained records/i,
   );
 });

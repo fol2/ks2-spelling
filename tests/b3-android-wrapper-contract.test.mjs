@@ -391,7 +391,7 @@ test('Android Task22 exposes real host utilities and fails closed before device 
   const adapter = await import('../scripts/lib/b3-live-capture-adapters.mjs').catch(() => ({}));
   assert.equal(typeof adapter.createDefaultB3AndroidCaptureAdapter, 'function');
   assert.equal(typeof adapter.persistB3PlatformScreenshot, 'function');
-  assert.equal(typeof adapter.readB3CaptureCheckpoint, 'function');
+  assert.equal(typeof adapter.readB3CaptureCheckpoint, 'undefined');
   await assert.rejects(
     adapter.createDefaultB3AndroidCaptureAdapter({ root: '/tmp', env: {} })
       .inspectSyntheticLearners({ baseline: 'before-purchase', phase: 'initial' }),

@@ -120,6 +120,14 @@ virtual-device evidence; it does not rerun a Simulator or Emulator lifecycle.
 The B2 database and lifecycle semantics, evidence paths and deferrals are
 recorded in `docs/architecture/b2-persistence-authority.md`.
 
+The later B3 physical-capture tooling keeps mutable capture and recovery state
+only in its ignored SQLite schema-v2 database. Final B3 reports and screenshots
+are immutable derived evidence outside SQL and use one closed create-only,
+exact-byte-idempotent publisher. See
+`docs/architecture/b3-capture-authority.md`. Task 19 runs locally and must not
+be described as a Cloudflare/R2 deployment, store mutation, signed build or
+live-evidence result.
+
 `npm run test:domain` runs the ordinary default suite without resolving Android.
 The two fresh resolved-toolchain assertions live only in
 `tests/dependency-policy-resolved.live.mjs`; run them through

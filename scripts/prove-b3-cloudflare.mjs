@@ -1,4 +1,3 @@
-import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readValidatedB3OperatorJson } from './check-b3-external-prerequisites.mjs';
@@ -13,6 +12,7 @@ import {
 import { validateB3CloudflareEvidence } from './lib/b3-evidence.mjs';
 import { openB3CaptureStore } from './lib/b3-capture-store.mjs';
 import { createDefaultB3CloudflarePrimitives } from './lib/b3-cloudflare-live-adapter.mjs';
+import { publishB3FinalProofOutput } from './lib/b3-final-proof-output.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -86,7 +86,11 @@ export async function proveB3Cloudflare({
     primitives: livePrimitives,
   });
   if (write) {
-    await writeFile(resolve(root, 'reports/b3/cloudflare-sandbox-proof.json'), `${JSON.stringify(candidate, null, 2)}\n`, { flag: 'wx' });
+    await publishB3FinalProofOutput({
+      root,
+      output: 'reports/b3/cloudflare-sandbox-proof.json',
+      bytes: Buffer.from(`${JSON.stringify(candidate, null, 2)}\n`, 'utf8'),
+    });
   }
   return candidate;
 }

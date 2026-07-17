@@ -20,6 +20,7 @@ import {
   validateB3DeviceGatewaySmokeProjection,
 } from './lib/b3-cloudflare-evidence.mjs';
 import { createDefaultB3IosCaptureAdapter } from './lib/b3-live-capture-adapters.mjs';
+import { publishB3FinalProofOutput } from './lib/b3-final-proof-output.mjs';
 import { b3PlatformGatewayFromDeploymentDraft } from './prove-b3-cloudflare.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -284,7 +285,11 @@ export async function runB3IosProofCli({
     }
     pending.manualVisualInspection = attestation.manualVisualInspection;
     const report = finaliseB3IosEvidence({ platform: pending, cloudflare });
-    await writeFile(resolve(root, 'reports/b3/ios-sandbox-proof.json'), `${JSON.stringify(report, null, 2)}\n`, { flag: 'wx' });
+    await publishB3FinalProofOutput({
+      root,
+      output: 'reports/b3/ios-sandbox-proof.json',
+      bytes: Buffer.from(`${JSON.stringify(report, null, 2)}\n`, 'utf8'),
+    });
     stdout.write(`${JSON.stringify({ ok: true, platform: report.platform })}\n`);
     return 0;
   } catch (error) {

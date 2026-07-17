@@ -452,7 +452,9 @@ test('D2 real writer lock retries byte, inode and ancestor build-source drift',
         await child.ready;
         await mutate(root);
       } finally {
-        if (lock.isTransaction) lock.exec('COMMIT');
+        // This transaction is only a writer-lock barrier and performs no SQL
+        // mutation, so release it without an unnecessary EXCLUSIVE commit.
+        if (lock.isTransaction) lock.exec('ROLLBACK');
         lock.close();
       }
       const outcome = await child.result;
@@ -486,7 +488,9 @@ test('D2 publisher retries a winner committed after its read preflight',
     const child = spawnSignalledPublisher(root, '2026-07-17T10:05:13.000Z');
     try {
       await child.prepared;
-      lock.exec('PRAGMA foreign_keys = ON; BEGIN IMMEDIATE');
+      // Match the production connection's bounded busy wait: this direct test
+      // writer must tolerate the child's transient preflight reader.
+      lock.exec('PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON; BEGIN IMMEDIATE');
       child.go();
       await child.ready;
       lock.prepare(`

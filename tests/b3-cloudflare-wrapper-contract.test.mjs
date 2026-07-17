@@ -350,6 +350,15 @@ test('Cloudflare proof finalises only after the ignored draft and device smoke b
     )),
     evidence,
   );
+  assert.deepEqual(await proveB3Cloudflare({
+    root,
+    primitives: harness.primitives,
+    applicationAuthority,
+    draft,
+    smokeProjection: deviceSmokeProjection(draft),
+    trackedAuthorityReader: async () => harness.tracked,
+    write: true,
+  }), evidence);
   await assert.rejects(
     readFile(join(root, 'reports/b3/cloudflare-deployment-draft.json')),
     /ENOENT/u,

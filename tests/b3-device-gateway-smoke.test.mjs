@@ -1,25 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import {
-  chmod,
-  link,
-  mkdir,
-  mkdtemp,
-  readFile,
-  readdir,
-  rm,
-  stat,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import test from 'node:test';
 
 import { createB3DeviceGatewaySmokeProbe } from '../src/app/b3-device-gateway-smoke.js';
 import {
   extractB3DeviceGatewaySmokeProjection,
-  persistB3DeviceGatewaySmokeProjection,
 } from '../scripts/lib/b3-live-capture-adapters.mjs';
 
 const ARCHIVE = Buffer.from('exact-b3-archive-bytes');
@@ -199,7 +184,7 @@ test('device probe owns bounded fetch, body-read and cancellation deadlines', as
   );
 });
 
-test('host extracts exactly one pack-install smoke and writes only the fixed redacted file', async (t) => {
+test('host extracts exactly one pack-install smoke without a duplicate diagnostic file', () => {
   const authority = {
     schemaVersion: 1,
     deploymentVersionId: authorisation().workerVersionId,
@@ -241,74 +226,4 @@ test('host extracts exactly one pack-install smoke and writes only the fixed red
     /pack-install/i,
   );
 
-  const root = await mkdtemp(join(tmpdir(), 'b3-device-smoke-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const result = await persistB3DeviceGatewaySmokeProjection({ root, projection });
-  assert.deepEqual(result, { path: '.native-build/b3/evidence/cloudflare-device-smoke.json' });
-  const path = join(root, result.path);
-  assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), projection);
-  assert.equal((await stat(path)).mode & 0o777, 0o600);
-  assert.doesNotMatch(await readFile(path, 'utf8'), /https?:\/\/|[?&]cap=|sealedRefreshHandle/iu);
-
-  assert.deepEqual(
-    await persistB3DeviceGatewaySmokeProjection({ root, projection }),
-    result,
-  );
-
-  async function hostileEvidenceRoot(kind) {
-    const hostileRoot = await mkdtemp(join(tmpdir(), `b3-device-smoke-${kind}-`));
-    t.after(() => rm(hostileRoot, { recursive: true, force: true }));
-    const evidence = join(hostileRoot, '.native-build', 'b3', 'evidence');
-    await mkdir(evidence, { recursive: true, mode: 0o700 });
-    const destination = join(evidence, 'cloudflare-device-smoke.json');
-    return { hostileRoot, evidence, destination };
-  }
-
-  const symlinkCase = await hostileEvidenceRoot('symlink');
-  const symlinkTarget = join(symlinkCase.hostileRoot, 'target');
-  await writeFile(symlinkTarget, 'private-target', { mode: 0o600 });
-  await symlink(symlinkTarget, symlinkCase.destination);
-  await assert.rejects(
-    persistB3DeviceGatewaySmokeProjection({ root: symlinkCase.hostileRoot, projection }),
-    /conflict|symbolic|loop|evidence/i,
-  );
-  assert.equal(await readFile(symlinkTarget, 'utf8'), 'private-target');
-
-  const hardlinkCase = await hostileEvidenceRoot('hardlink');
-  const hardlinkTarget = join(hardlinkCase.hostileRoot, 'target');
-  await writeFile(hardlinkTarget, 'private-target', { mode: 0o600 });
-  await link(hardlinkTarget, hardlinkCase.destination);
-  await assert.rejects(
-    persistB3DeviceGatewaySmokeProjection({ root: hardlinkCase.hostileRoot, projection }),
-    /conflict|evidence/i,
-  );
-  assert.equal(await readFile(hardlinkTarget, 'utf8'), 'private-target');
-
-  for (const [kind, contents] of [
-    ['partial', '{"schemaVersion":1'],
-    ['conflict', `${JSON.stringify({ ...projection, deploymentVersionId: 'b8f32f60-16b9-4ca6-9b4a-f771dd5302f7' })}\n`],
-  ]) {
-    const hostile = await hostileEvidenceRoot(kind);
-    await writeFile(hostile.destination, contents, { mode: 0o600 });
-    await assert.rejects(
-      persistB3DeviceGatewaySmokeProjection({ root: hostile.hostileRoot, projection }),
-      /conflict|evidence/i,
-    );
-    assert.equal(await readFile(hostile.destination, 'utf8'), contents);
-    assert.deepEqual(
-      (await readdir(hostile.evidence)).filter((name) => name.endsWith('.tmp')),
-      [],
-    );
-  }
-
-  const readonlyCase = await hostileEvidenceRoot('readonly');
-  await writeFile(readonlyCase.destination, `${JSON.stringify(projection, null, 2)}\n`, {
-    mode: 0o600,
-  });
-  await chmod(readonlyCase.destination, 0o400);
-  await assert.rejects(
-    persistB3DeviceGatewaySmokeProjection({ root: readonlyCase.hostileRoot, projection }),
-    /conflict|evidence/i,
-  );
-  assert.equal((await stat(readonlyCase.destination)).mode & 0o777, 0o400);
 });

@@ -13,7 +13,7 @@ const { createB3IssuedCommandStateAuthority } = await import(
   '../../scripts/lib/b3-issued-command-authority.mjs'
 );
 const { buildB3PhysicalProofAuthority } = await import(
-  '../../scripts/lib/b3-physical-observation-journal.mjs'
+  '../../scripts/lib/b3-capture-proof-domain.mjs'
 );
 
 const COMMIT = '1'.repeat(40);

@@ -9,7 +9,7 @@ import {
 } from '../../src/app/b3-live-proof-protocol.js';
 import { installB3CaptureStateRootMock } from './b3-capture-state-install-root-mock.mjs';
 import { buildB3PhysicalProofAuthority } from
-  '../../scripts/lib/b3-physical-observation-journal.mjs';
+  '../../scripts/lib/b3-capture-proof-domain.mjs';
 
 installB3CaptureStateRootMock();
 

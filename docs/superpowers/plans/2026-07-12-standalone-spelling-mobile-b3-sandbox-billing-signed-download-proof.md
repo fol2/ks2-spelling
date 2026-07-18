@@ -1671,9 +1671,10 @@ change a verifier, add a retry or alter the application fingerprint.
 
 - Consumes: Task 20 exact application commit `ea36913574679bad13440066f67c9e174f8707a3`, integration commit `466de3204f513223ff35167dfacb7645240bb501`, application fingerprint `2b6c4bc91c2d97f01e3a98236a4b0b7fe115a71e46388dc856e7491eead1fba5`, deterministic/native/dependency reports, hosted StoreKit Test and exact-head three-lane CI.
 - Produces: one reviewed authority successor limited to the documentation needed
-  to keep the governing and referenced plans coherent, plus the existing
-  public-claim contract assertion; a merged B3 Development Checkpoint on `main`;
-  exact-main three-lane CI in `pending` mode; and measured B4 entry authority.
+  to keep the governing and referenced plans coherent, the existing public-claim
+  contract assertion, and the exact order-only iOS CI/test correction described
+  above; a merged B3 Development Checkpoint on `main`; exact-main three-lane CI
+  in `pending` mode; and measured B4 entry authority.
 
 - [ ] **Step 1: Reconfirm the narrow development evidence**
 
@@ -1685,7 +1686,7 @@ Expected: hosted StoreKit delayed approve/decline, BillingClient compilation/JUn
 
 Update this plan, the programme, foundation design, B3 architecture and native-development runbook in place. Do not add another superseding amendment. Record that current `pending` mode is a successful B3 Development Checkpoint, while signed distribution, deployed Cloudflare/R2, real store transactions and physical compatibility remain one Release Commerce Certification blocker before public store submission.
 
-Expected: no runtime or verifier file changes and the application fingerprint remains byte-identical to Task 20. The public-claim assertion rejects both the former live-sandbox claim and any wording that omits the pre-release blocker.
+Expected: no runtime or verifier file changes and the application fingerprint remains byte-identical to Task 20. The only workflow/test change moves and locks the unchanged iOS topology command immediately after Node setup. The public-claim assertion rejects both the former live-sandbox claim and any wording that omits the pre-release blocker.
 
 - [ ] **Step 3: Run the exact-HEAD review gates**
 
@@ -1695,7 +1696,9 @@ Require three independent approvals on one exact HEAD:
 2. Matt reviews Standards and Spec compliance, including offline-first and release-blocker honesty.
 3. Ponytail rejects over-engineering, duplicate proof frameworks and unnecessary emulator/cloud-device integration.
 
-Only actionable P1/P2 findings inside this documentation and gate boundary block completion. A correction creates a new candidate HEAD and all three reviews rerun.
+Only actionable P1/P2 findings inside this documentation, public-claim and
+order-only CI boundary block completion. A correction creates a new candidate
+HEAD and all three reviews rerun.
 
 - [ ] **Step 4: Merge and prove exact main in pending mode**
 
@@ -1753,8 +1756,9 @@ B3 Development is complete when all items below have direct evidence:
 
 1. Frozen B2/A2 authority, vendor authority and upstream A3 contract pass without changing local learner, Monster or Camp semantics.
 2. The Task 20 application fingerprint remains exact and the tracked tree changes
-   only documentation authority plus the existing public-claim contract assertion
-   after that checkpoint; all application-fingerprint inputs remain unchanged.
+   only documentation authority, the existing public-claim contract assertion and
+   the exact iOS topology-step reorder with its contract assertion after that
+   checkpoint; all application-fingerprint inputs remain unchanged.
 3. Deterministic commerce, entitlement, restore, revoke, signed-pack download, resume, activation and offline-continuity scenarios pass twice with byte-identical public evidence.
 4. Real workerd/gateway tests, CORS, rate-limit, Apple/Google verifier fixtures, missing-binding fail-closed behaviour and Wrangler dry-run pass without a live deployment.
 5. iOS compiles the unsigned B3 Simulator target, runs the owned hostile ZIP harness and passes hosted Xcode StoreKit Test delayed approve/decline with explicit non-live labels.

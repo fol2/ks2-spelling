@@ -23,8 +23,10 @@ cloud-tracked Parent metric.
 
 Task 20 creates one clean application commit and its B3 fingerprint. The checkpoint
 binds application, gateway, native, dependency, configuration, proof-wrapper,
-validator and builder inputs for the B3 Development Checkpoint. A documentation-
-only successor may integrate that checkpoint without changing its fingerprint.
+validator and builder inputs for the B3 Development Checkpoint. Its authority
+successor may change only governing documentation, the existing public-claim
+contract and the exact iOS CI/test ordering needed to validate the immutable
+checkout before Xcode; this does not change the fingerprint or checkpoint bytes.
 Planned B4/C work may then change application bytes without producing throw-away
 signed builds or live captures; deferred Task 22 freezes a fresh final
 release-candidate checkpoint instead.

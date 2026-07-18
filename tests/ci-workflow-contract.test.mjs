@@ -104,11 +104,25 @@ test('iOS runs normal and B3 unsigned builds, the pack inspector and StoreKit Te
   const ios = extractJob(await readWorkflow(), 'ios-compile');
   const nodeSetupIndex = ios.indexOf('node-version: "24.18.0"');
   const topologyIndex = ios.indexOf('node scripts/build-b3-exit-report.mjs --check-ci');
-  const xcodeIndex = ios.indexOf('- name: Require Xcode 26 or newer');
-  assert.ok(
-    nodeSetupIndex < topologyIndex && topologyIndex < xcodeIndex,
-    'iOS must validate the immutable checkout before starting Xcode workloads',
+  assert.notEqual(nodeSetupIndex, -1, 'the iOS Node setup is missing');
+  assert.notEqual(topologyIndex, -1, 'the iOS topology check is missing');
+  assert.match(
+    ios,
+    /- name: Set up Node\.js\n\s+uses: actions\/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6\n\s+with:\n\s+node-version: "24\.18\.0"\n\s+cache: npm\n\s+- name: Validate B3 pending or complete evidence topology\n\s+run: node scripts\/build-b3-exit-report\.mjs --check-ci/u,
+    'the iOS topology check must immediately follow Node setup',
   );
+  for (const workload of [
+    'xcodebuild',
+    'npm run native:sync:check',
+    'npm run test:ios',
+    '-scheme B3SandboxProof',
+    'node scripts/test-ios-pack-inspector.mjs',
+    'npm run prove:b3:ios-storekit-test',
+  ]) {
+    const workloadIndex = ios.indexOf(workload);
+    assert.notEqual(workloadIndex, -1, `the iOS workload is missing: ${workload}`);
+    assert.ok(topologyIndex < workloadIndex, `topology must precede the iOS workload: ${workload}`);
+  }
   assert.match(ios, /run: npm run native:sync:check/);
   assert.match(ios, /run: npm run test:ios/);
   assert.match(ios, /-scheme B3SandboxProof/);

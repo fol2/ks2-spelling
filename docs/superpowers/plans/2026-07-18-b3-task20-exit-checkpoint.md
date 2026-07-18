@@ -230,9 +230,12 @@ creates a new candidate and restarts all three reviews.
 
 Before Task 21 integration, any application, gateway, native, dependency,
 configuration, proof-wrapper, validator, fingerprint, builder or workflow change
-invalidates the Task 20 Development checkpoint. After integration, planned B4/C
-changes do not require throw-away signing or live capture. Task 22 freezes one
-fresh final release-candidate checkpoint; any subsequent application-authority
-change invalidates its signing and live evidence. The only legal tracked successor
-to that final checkpoint is the exact six-file evidence set; Task 23 changes no
-files.
+invalidates the Task 20 Development checkpoint, except Task 21's exact order-only
+move of the unchanged iOS topology command immediately after Node setup and its
+contract assertion. That exception changes no application, verifier or report
+input and must preserve the exact Task 20 fingerprint. After integration, planned
+B4/C changes do not require throw-away signing or live capture. Task 22 freezes
+one fresh final release-candidate checkpoint; any subsequent
+application-authority change invalidates its signing and live evidence. The only
+legal tracked successor to that final checkpoint is the exact six-file evidence
+set; Task 23 changes no files.

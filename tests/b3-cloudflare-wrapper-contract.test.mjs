@@ -369,6 +369,35 @@ test('Cloudflare proof finalises only after the ignored draft and device smoke b
   );
 });
 
+test('Task 19 Cloudflare finalisation stops before readers without Task 22 primitives', async () => {
+  const harness = cloudflareHarness();
+  const applicationAuthority = {
+    testedApplicationCommit: 'b'.repeat(40),
+    applicationFingerprint: 'a'.repeat(64),
+  };
+  const draft = await orchestrateB3CloudflareDeployment({
+    applicationAuthority,
+    tracked: harness.tracked,
+    primitives: harness.primitives,
+    readAuthorityObject: async (role) => harness.bytes[role],
+  });
+  let readerCalls = 0;
+  await assert.rejects(
+    proveB3Cloudflare({
+      root: process.cwd(),
+      applicationAuthority,
+      draft,
+      smokeProjection: deviceSmokeProjection(draft),
+      trackedAuthorityReader: async () => {
+        readerCalls += 1;
+        return harness.tracked;
+      },
+    }),
+    /Task 22 authorised Cloudflare finalisation/i,
+  );
+  assert.equal(readerCalls, 0);
+});
+
 test('Cloudflare production smoke authority is read from the iOS capture store', async () => {
   const source = await readFile(
     new URL('../scripts/prove-b3-cloudflare.mjs', import.meta.url),

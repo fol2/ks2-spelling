@@ -1,129 +1,62 @@
-# Task 19H Authorised Cloudflare Session Corrective Plan
+# Task 19H Scope Correction and Task 22 Deferral
 
-## Status and authority
+## Decision
 
-This corrective plan supersedes point fixes for the two Cloudflare P2 findings on
-Task 19H candidate `2522c67248294b07dfeabe5e64222702b0bb3c5a`. The Task 19 amendment and
-the exact six-file evidence topology remain authoritative.
+Task 19 ends at locally verified, fail-closed live-proof tooling. It does not build
+or execute a production Cloudflare finalisation session.
 
-No step may deploy, upload, inspect a live account, contact a store, sign a build,
-install an application or operate a physical device while implementing or testing
-this plan.
+The previous proposal for an authorised session façade and an exact-runtime private
+workerd probe is deferred to Task 22. Task 22 may implement either only when its live
+execution proves that the existing scoped deployment wrapper, exact Cloudflare
+readback, gateway contract tests and device smoke projection are insufficient.
 
-## Problem
+## Task 19 boundary
 
-The current production finaliser constructs Cloudflare primitives directly. It can
-therefore begin authenticated readback without first validating the approved scope,
-run token and durable local authority. The deployment wrapper owns those gates, but
-the finaliser does not. This is an authority-boundary defect rather than a missing
-conditional.
+Task 19 must provide:
 
-The default `smokeGateway` is also intentionally fail-closed. Tests inject a smoke
-result, but the production finaliser has no honest implementation. Adding a host
-capability or an administrative endpoint would violate the amendment: capability
-and Range proof belongs to the physical application after it owns a legitimate
-sealed handle.
+- the B3-only device observation and resumable SQLite capture path;
+- redacted platform screenshots with a metadata-free committed PNG policy;
+- the pinned Wrangler/OAuth/R2 deployment adapter behind the existing explicit
+  scope, run-token and local-authority gates;
+- pure Cloudflare evidence composition and verification exercised with injected
+  test primitives;
+- a production Cloudflare finaliser which fails before any reader, SQLite, OAuth,
+  Worker or R2 work until Task 22 supplies an authorised live session;
+- the complete local, native, gateway, privacy and dependency verification set.
 
-## Deep-module design
+Task 19 must not add a session factory, public/admin endpoint, host capability flow,
+second Worker, Miniflare probe, new dependency or duplicate runtime certification.
 
-Create one `B3AuthorisedCloudflareLiveSession` façade. It is the only production
-route from either deployment or finalisation to OAuth, Worker or R2 primitives.
+## Task 22 ownership
 
-Opening a session has two explicit phases.
+Task 22 owns all live Cloudflare finalisation: scoped authorisation, remote
+inspection, exact deployment/object readback, safe public HTTP probes, the physical
+device capability/Range journey and final six-file evidence assembly.
 
-Local pre-authorisation must complete, in order:
+Internal zero-body/upstream/R2 behaviour remains a code-level claim proved by the
+gateway tests. Live Task 22 evidence may claim only externally observable results.
+Exact deployed bytes come from official Cloudflare readback; capability and Range
+truth comes from the redacted device projection. Do not add a second proof unless a
+concrete Task 22 gap requires it.
 
-1. validate `cloudflare-deploy` scope and the closed run-token shape;
-2. validate the durable local mutation/run authority;
-3. read the tracked account, Worker, origin, bucket and two-object authority;
-4. bind the clean application commit and fingerprint;
-5. reread the local approval and run authority and require byte, identity and token
-   equality with the first read.
+## Minimal implementation
 
-Only after local pre-authorisation may the façade construct one sterile OAuth child.
-The authenticated phase uses that same child to inspect the read-only remote
-prerequisites. It then rereads the durable approval and run authority again and
-requires exact equality before unlocking deployment, Worker readback or R2
-operations. A local pre-authorisation failure produces zero child spawn and zero
-remote work. A remote-prerequisite or stable-reread failure produces zero mutation
-and disposes the child and session.
+1. Add one production-seam RED test: calling `proveB3Cloudflare()` without injected
+   primitives must fail before every supplied reader or external seam.
+2. Remove its premature default primitive construction. Keep injected primitives
+   for pure local contract tests.
+3. Run the complete Task 19H non-mutating verification set.
 
-The façade owns disposal and exposes operations, not raw child/process handles. A
-failed gate must produce zero primitive construction, child spawn, remote inspection
-or remote mutation. Deployment and finalisation inject the same session factory in
-tests; they do not accept an unauthorised bag of production primitives.
+## Final review gate
 
-## Split smoke authority
+All three reviews inspect the same exact candidate HEAD:
 
-Keep the two independent proof domains explicit:
+1. **Gstack boundary review**: Task 19 stays inside this correction and the approved
+   spelling-mobile design; Task 22 work is not pulled forward.
+2. **Matt code review**: `ask-matt` routes to the two-axis Standards and Spec review.
+3. **Ponytail review**: reject speculative generality, duplicate proof, shallow
+   modules, unnecessary tests/files/dependencies and anything Task 22 can own later.
 
-- Device smoke: the SQLite projection proves capability and Range behaviour using
-  the application's legitimate sealed handle. No handle, capability URL or query
-  leaves the device observation port.
-- Host-safe smoke: after exact Worker content readback matches the deterministic
-  local bundle, run those exact main-module and data-module bytes locally under the
-  pinned workerd/Miniflare runtime. The runner must consume the same verified
-  entrypoint and data-module names, compatibility date, compatibility flags and
-  module rules as the deployed Worker. Only runtime bindings may be replaced with
-  bounded instrumentation. Instrument the rate-limit binding, request body,
-  outbound service and R2 binding to prove CORS, every-route rate limiting, zero
-  body/upstream/R2 work after rejection, and missing-binding fail-closed.
-
-The host-safe runner must not make a network request. Its identity is the already
-verified deployment version plus exact script authority; it must not invent a second
-remote identity observation. It always disposes the local runtime in `finally`.
-
-Cache, temporary output and workerd state are private optimisations under
-`.native-build/b3/`. Exact readback bytes and SHA authority, not those files, decide
-acceptance.
-
-## RED
-
-Add production-seam tests which prove:
-
-1. `proveB3Cloudflare()` with missing/wrong scope, run token or local authority makes
-   zero primitive/session/remote calls;
-2. deployment and finalisation both receive their operations through the same
-   authorised façade;
-3. a clean default finalisation path reaches a real local workerd smoke instead of
-   `live gateway smoke input authority is unavailable`;
-4. the exact locally executed module bytes, entrypoint/module names, compatibility
-   date/flags and module rules equal the bound dry-run and verified Cloudflare
-   readback authority;
-5. allowed native CORS succeeds and foreign CORS fails;
-6. rate-limited and missing-binding requests record zero body, upstream and R2 work;
-7. runtime error, timeout and every mismatch dispose the runtime and session;
-8. no smoke input or output contains a handle, capability, query, token, learner,
-   profile, progress, Monster, account or device identifier.
-
-Record the failing production-seam tests before implementation.
-
-## GREEN
-
-1. Add the authorised session façade beside the Cloudflare policy modules.
-2. Move the existing deployment gate sequence into the façade without weakening or
-   duplicating it.
-3. Route both `deploy-b3-sandbox-gateway.mjs` and `prove-b3-cloudflare.mjs` through
-   the façade.
-4. Add the bounded exact-module local smoke runner to the live adapter. Do not add a
-   public Worker route or host capability flow.
-5. Separate deployment-readback identity, local host-safe CORS/rate-limit proof and
-   device capability/Range projection in the evidence composer, while retaining the
-   existing public report schema and exact claims.
-6. Delete the test which freezes default smoke unavailability. Retain explicit
-   dependency injection only behind the authorised session seam.
-
-## Verification and review reset
-
-Run the focused Cloudflare, prerequisite, evidence, wrapper and privacy suites first,
-then the complete Task 19H non-mutating gate. Re-run gateway tests, lint, Wrangler
-dry-run, root/gateway audits, deterministic proof, native builds, compiled hostile
-scanners and Android resolved-policy certification.
-
-The known Xcode StoreKit failure remains external and fail-closed. No mock may make
-it green.
-
-Any implementation commit creates a new exact candidate SHA. All five Task 19H
-reviews are invalidated and must approve the same replacement SHA. If review finds
-another authority bypass or another fake/live split at this seam, stop and revise
-this façade rather than adding a caller-specific exception.
+Only actionable P1/P2 findings inside the frozen Task 19 boundary block completion.
+A fix creates a new candidate HEAD and all three reviews rerun. Style preferences,
+new threat models and deferred Task 22 improvements do not reopen Task 19.

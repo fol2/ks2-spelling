@@ -1,6 +1,6 @@
 # B3 Task 19 Live Adapters Amendment Implementation Plan
 
-**Status:** Approved implementation amendment; implementation has not started.
+**Status:** Implemented; Task 19H completion review in progress.
 
 **Primary authorities:**
 
@@ -8,15 +8,16 @@
 - [Standalone Spelling Mobile Programme](2026-07-09-standalone-spelling-mobile-programme.md)
 - [B3 Sandbox Billing and Signed Download Proof Plan](./2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md), especially Tasks 19–23
 - [Task 19H Native-Crossing Recovery Correction](2026-07-17-b3-task19h-native-crossing-correction.md)
+- [Task 19H Scope Correction and Task 22 Deferral](2026-07-18-task19h-authorised-cloudflare-session-corrective-plan.md)
 
-This document amends Task 19 where the current implementation proved that the original live-capture and Cloudflare primitives cannot produce honest evidence, plus the minimum Task 22 execution-order change required to finalise capability/Range smoke without exposing a sealed handle. All other B3 requirements remain authoritative. If this amendment and the original wording differ, this amendment governs the live-adapter implementation, production-trace contract and atomic Task 22 evidence assembly order; the exact six-file topology and all final claims remain unchanged.
+This document amends Task 19 where the current implementation proved that the original live-capture and Cloudflare primitives cannot produce honest evidence, plus the minimum Task 22 execution-order change required to finalise capability/Range smoke without exposing a sealed handle. The 2026-07-18 scope correction supersedes Task 19 production Cloudflare finalisation and review-gate wording: Task 19 stops at local fail-closed tooling, while Task 22 owns the authorised live session and final evidence assembly. All other B3 requirements remain authoritative. If this amendment and the original wording differ, this amendment governs the live-adapter implementation and production-trace contract; the exact six-file topology and final claims remain unchanged.
 
 ## Outcome
 
 Task 19 will finish with two deep, narrow live-proof adapters:
 
 1. a B3-only, device-generated observation protocol which drives the existing production purchase, recovery, download, activation and revocation composition without accepting operator-authored outcomes; and
-2. an audited Cloudflare adapter which deploys one exact bound Worker source, proves the deployed bytes through the official Workers content/version APIs, and accesses only the exact remote `PACKS` R2 binding through Wrangler 4.110.0 `getPlatformProxy`.
+2. an audited Cloudflare deployment adapter which is locally verified through fakes and can operate only behind the existing explicit scope, run-token and local-authority gates. Task 22 owns its live execution, readback and final evidence assembly.
 
 The shipping application remains offline-first. Cloudflare is not used for spelling practice, learner progress, Monster progress, installed pack reads or revision. It is used only when online commerce must be verified, a purchased pack must be downloaded/redownloaded, entitlement state must be refreshed/restored/revoked, or B3 must prove those boundaries. Once a verified pack is installed, its authorised content remains local and usable offline under the original design.
 
@@ -569,7 +570,7 @@ Implement `scripts/lib/b3-cloudflare-oauth-child.mjs` and `scripts/lib/b3-cloudf
 - `uploadObject`
 - `smokeGateway`
 
-`smokeGateway` must not mint or receive a capability on the host: the host has no legitimate sealed refresh handle before the physical journey, and neither a raw handle nor a new admin/test endpoint is allowed. Its default remains fail-closed until Task 19G supplies a device-generated closed smoke projection. The physical B3 application uses its own sealed handle internally to exercise valid/tampered/expired capability and Range behaviour, then publishes only the approved booleans and deployment/script bindings. No capability URL, query or handle crosses the observation port.
+`smokeGateway` must not mint or receive a capability on the host: the host has no legitimate sealed refresh handle before the physical journey, and neither a raw handle nor a new admin/test endpoint is allowed. Its Task 19 default remains fail-closed. Pure local evidence tests inject a closed fake; Task 22 owns any authorised live finalisation. The physical B3 application uses its own sealed handle internally to exercise valid/tampered/expired capability and Range behaviour, then publishes only the approved booleans and deployment/script bindings. No capability URL, query or handle crosses the observation port.
 
 Update `buildB3CloudflareDeploymentPlan` so the recorded exact deployment is explicitly `--no-bundle` against the derived config. Preserve scope/run-token/local-authority gates before the child is spawned or any remote inspection/mutation occurs.
 
@@ -579,7 +580,7 @@ Expected GREEN: all operations are proven through fakes; no network request or r
 
 ### Gate
 
-Two fresh reviews are mandatory: Cloudflare/runtime correctness and security/credential containment. Both must inspect the exact child environment, official API byte readback, `getPlatformProxy` options, two-key allow-list, put precondition and `finally` disposal.
+Focused Cloudflare tests must prove the exact child environment, official API byte-readback contract, `getPlatformProxy` options, two-key allow-list, put precondition and `finally` disposal without remote work. The final Task 19H gate below governs review.
 
 ## Task 19G — Integrate the amended evidence contract without widening claims
 
@@ -599,7 +600,7 @@ Extend evidence and exit-builder mutation tests to reject:
 
 ### GREEN
 
-Split Cloudflare evidence assembly without widening the six-file topology: Task 22 first creates an ignored run-local deployment draft after Worker/version/R2 proof, then the physical application performs the closed capability/Range smoke after it has a legitimate sealed handle. The app publishes only the redacted smoke projection. The final Cloudflare report is assembled from the deployment draft plus that validated projection; iOS/Android finalisation then binds the same Cloudflare report. This changes execution order only—no incomplete draft or extra report may be committed, and the final six files remain atomic.
+Define pure Cloudflare evidence assembly without widening the six-file topology. Task 19 exercises it only with injected local primitives. Task 22 first creates an ignored run-local deployment draft after Worker/version/R2 proof, then the physical application performs the closed capability/Range smoke after it has a legitimate sealed handle. The app publishes only the redacted smoke projection. Task 22 assembles the final Cloudflare report from the deployment draft plus that validated projection; iOS/Android finalisation then binds the same Cloudflare report. No incomplete draft or extra report may be committed, and the final six files remain atomic.
 
 Keep the public report schemas as small as possible. Observation/checkpoint internals remain untracked under `.native-build/b3/evidence`; only their approved hashes/projections enter the existing platform reports. Update architecture wording only if necessary to state:
 
@@ -667,15 +668,13 @@ Full verification must prove:
 - no secret/private material entered source, bundles, native resources, logs or reports;
 - the working tree contains only intended Task 19 files plus pre-existing owned changes.
 
-Obtain fresh independent reviews on the exact final Task 19 HEAD:
+Obtain these three reviews on the exact final Task 19 HEAD:
 
-1. spec and trace-contract compliance;
-2. application concurrency/recovery semantics;
-3. native transport, command injection and privacy;
-4. Cloudflare exact-byte/R2/credential security;
-5. code quality and test adequacy.
+1. Gstack boundary review, proving Task 19 stays inside the approved design and the 2026-07-18 scope correction;
+2. Matt two-axis Standards and Spec code review, routed through `ask-matt`;
+3. Ponytail review, rejecting speculative generality, duplicate proof and work owned by Task 22.
 
-Resolve every Critical or Important finding with a new RED test and rerun the affected gate plus the full suite. Task 19 is complete only when all five reviews approve the exact same HEAD.
+Only actionable P1/P2 findings inside the frozen Task 19 boundary block completion. Resolve each with the smallest root-cause RED test and rerun the affected gate plus the full suite. Style preferences, new threat models and deferred Task 22 improvements do not reopen Task 19. A code fix creates a new candidate HEAD and all three reviews rerun.
 
 ## Downstream invalidation and execution hand-off
 
@@ -701,8 +700,8 @@ This amendment is complete only when:
 - iOS and Android transports are B3-only and fixed-path/closed-command;
 - crash proof uses the existing `before:gateway-completion` seam and unchanged production recovery;
 - Android certification and both screenshots are independently host-captured;
-- Wrangler is pinned to 4.110.0, bound source is deployed with `--no-bundle`, and official content/version readback hashes the deployed bytes;
-- the sterile OAuth child uses exact `getPlatformProxy({ envFiles: [], persist: false, remoteBindings: true })`, exact remote `PACKS`, two keys only, create-only metadata/SHA uploads, immediate `head`/`get` equality and unconditional disposal;
-- all focused/full/non-mutating gates and fresh reviews pass on one exact HEAD;
+- Wrangler is pinned to 4.110.0 and the local adapter contract requires bound `--no-bundle` deployment plus official content/version readback; Task 22 alone executes it;
+- the sterile OAuth child contract requires exact `getPlatformProxy({ envFiles: [], persist: false, remoteBindings: true })`, exact remote `PACKS`, two keys only, create-only metadata/SHA uploads, immediate `head`/`get` equality and unconditional disposal; Task 19 proves the contract with fakes;
+- all focused/full/non-mutating gates and the three frozen reviews pass on one exact HEAD;
 - Task 19 contains no live deployment, R2 mutation, store mutation, device mutation, signing, commit of evidence or push;
 - original Tasks 20–23 remain the only route to the final B3 checkpoint, live execution and Gate B decision.

@@ -11,7 +11,6 @@ import {
 } from './lib/b3-cloudflare-evidence.mjs';
 import { validateB3CloudflareEvidence } from './lib/b3-evidence.mjs';
 import { openB3CaptureStore } from './lib/b3-capture-store.mjs';
-import { createDefaultB3CloudflarePrimitives } from './lib/b3-cloudflare-live-adapter.mjs';
 import { publishB3FinalProofOutput } from './lib/b3-final-proof-output.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -60,6 +59,12 @@ export async function proveB3Cloudflare({
   trackedAuthorityReader = readTrackedB3CloudflareAuthority,
   write = false,
 } = {}) {
+  if (!primitives) {
+    throw Object.assign(
+      new Error('Task 22 authorised Cloudflare finalisation is required'),
+      { code: 'b3_task22_cloudflare_finalisation_required' },
+    );
+  }
   const checkpoint = applicationAuthority ?? {
     testedApplicationCommit: await assertCleanB3Head(root),
     applicationFingerprint: (await fingerprintB3Application({ root })).sha256,
@@ -73,17 +78,16 @@ export async function proveB3Cloudflare({
     })
   ).value);
   const deviceSmoke = smokeProjection ?? await readDefaultDeviceSmokeProjection();
-  const livePrimitives = primitives ?? createDefaultB3CloudflarePrimitives({ root });
   const candidate = validateB3CloudflareEvidence(await assembleB3CloudflareEvidence({
     draft: deploymentDraft,
     smokeProjection: deviceSmoke,
-    smokeGateway: livePrimitives.smokeGateway,
+    smokeGateway: primitives.smokeGateway,
   }));
   await verifyB3CloudflareDeploymentEvidence({
     evidence: candidate,
     applicationAuthority: checkpoint,
     tracked,
-    primitives: livePrimitives,
+    primitives,
   });
   if (write) {
     await publishB3FinalProofOutput({

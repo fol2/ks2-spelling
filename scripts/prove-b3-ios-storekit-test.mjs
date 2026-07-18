@@ -1,4 +1,4 @@
-import { readFile, rm } from 'node:fs/promises';
+import { readFile, readdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
   EXIT_CODES,
@@ -14,6 +14,7 @@ const RESULT_BUNDLE = resolve(
   '.native-build/ios-storekit-test/B3StoreKitTest.xcresult',
 );
 const DERIVED_DATA = resolve(ROOT, '.native-build/ios-storekit-test');
+const PRODUCTS_DIR = resolve(DERIVED_DATA, 'Build/Products');
 const STOREKIT_BUILD_TIMEOUT_MS = 600_000;
 const STOREKIT_TEST_TIMEOUT_MS = 90_000;
 const OBSERVATION_PATTERN =
@@ -193,7 +194,7 @@ export async function runB3IosStoreKitTest({ env = process.env, stream = true } 
 
   await rm(RESULT_BUNDLE, { recursive: true, force: true });
   const destination = `platform=iOS Simulator,id=${simulator.udid}`;
-  const xcodeAuthorityArgs = [
+  const xcodeBuildArgs = [
     '-project',
     'ios/App/App.xcodeproj',
     '-scheme',
@@ -207,7 +208,7 @@ export async function runB3IosStoreKitTest({ env = process.env, stream = true } 
   const buildResult = await runCommand(
     'xcodebuild',
     [
-      ...xcodeAuthorityArgs,
+      ...xcodeBuildArgs,
       'build-for-testing',
     ],
     { cwd: ROOT, env, stream, timeoutMs: STOREKIT_BUILD_TIMEOUT_MS },
@@ -225,10 +226,33 @@ export async function runB3IosStoreKitTest({ env = process.env, stream = true } 
     );
   }
 
+  let xcTestRunEntries;
+  try {
+    xcTestRunEntries = await readdir(PRODUCTS_DIR, { withFileTypes: true });
+  } catch {
+    throw proofError(
+      'storekit_build_output_mismatch',
+      'Xcode StoreKit build did not expose its test execution manifest',
+    );
+  }
+  const xcTestRuns = xcTestRunEntries.filter(
+    (entry) => entry.isFile() && entry.name.endsWith('.xctestrun'),
+  );
+  if (xcTestRuns.length !== 1) {
+    throw proofError(
+      'storekit_build_output_mismatch',
+      'Xcode StoreKit build must produce exactly one test execution manifest',
+    );
+  }
+  const xcTestRun = resolve(PRODUCTS_DIR, xcTestRuns[0].name);
+
   const result = await runCommand(
     'xcodebuild',
     [
-      ...xcodeAuthorityArgs,
+      '-xctestrun',
+      xcTestRun,
+      '-destination',
+      destination,
       '-resultBundlePath',
       RESULT_BUNDLE,
       '-test-timeouts-enabled',
@@ -237,6 +261,7 @@ export async function runB3IosStoreKitTest({ env = process.env, stream = true } 
       '20',
       '-maximum-test-execution-time-allowance',
       '30',
+      '-only-testing:AppTests/B3StoreKitDelayedTests',
       'test-without-building',
     ],
     { cwd: ROOT, env, stream, timeoutMs: STOREKIT_TEST_TIMEOUT_MS },

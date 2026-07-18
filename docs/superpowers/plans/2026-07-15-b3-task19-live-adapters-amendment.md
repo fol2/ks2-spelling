@@ -446,7 +446,7 @@ Host adapters must:
   closed observation directory, and obsolete `.lock` debris cannot wedge a
   checkpoint revision after process death;
 - wait for `HOLD_REACHED` before force-stop and require `RELAUNCH_RECOVERY` afterwards;
-- capture the final original-resolution screenshot from an owned platform tool, never from an environment-supplied source path: Android uses `adb exec-out screencap -p`; Xcode 26.6 exposes no `devicectl` screenshot command, so iOS uses a dedicated B3-only XCUITest which retains `XCUIScreen.main.screenshot()` as a named original-quality `XCTAttachment`, then exports that attachment from its `.xcresult` with `xcresulttool`. The UI-test target/scheme has no App target dependency or App build product and uses `XCUIApplication(bundleIdentifier:)`, so XCTest launches the already-installed Task 21 application instead of replacing it; distribution authority is re-inspected after capture;
+- capture the final original-resolution screenshot from an owned platform tool, never from an environment-supplied source path: Android uses `adb exec-out screencap -p`; Xcode 26.6 exposes no `devicectl` screenshot command, so iOS uses a dedicated B3-only XCUITest which retains `XCUIScreen.main.screenshot()` as a named original-quality `XCTAttachment`, then exports that attachment from its `.xcresult` with `xcresulttool`. The UI-test target/scheme has no App target dependency or App build product and uses `XCUIApplication(bundleIdentifier:)`, so XCTest launches the already-installed Task 22 release-candidate application instead of replacing it; distribution authority is re-inspected after capture;
 - validate the entire PNG structure, chunk CRCs, compressed scanline extent and
   final `IEND`, not only its signature/IHDR. Before Android's final screencap,
   foreground the exact application component with a closed `adb am start -W`
@@ -681,7 +681,9 @@ Only actionable P1/P2 findings inside the frozen Task 19 boundary block completi
 
 ## Downstream invalidation and execution hand-off
 
-Task 19 changes application, native, gateway fingerprint and verifier inputs. Therefore any earlier Task 20 checkpoint, Task 21 distribution authority or Task 22 live evidence is stale, even if its files still exist.
+Task 19 changes application, native, gateway fingerprint and verifier inputs.
+Therefore any checkpoint, development authority or live evidence produced before
+this amendment is stale, even if its files still exist.
 
 This amendment remains the authority for Task 19 adapter safety, but its former
 immediate live-execution sequence is superseded by the current programme and B3
@@ -693,7 +695,13 @@ deploy/read back the exact Worker and R2 objects, capture the nine real
 store/device scenarios, publish the exact six evidence files and require
 complete-mode review and CI.
 
-Any later application, gateway, config, native, dependency, proof-wrapper or validator change invalidates the Task 20 checkpoint and forces a new signed distribution, exact Cloudflare deployment/readback and complete iOS/Android recapture. Evidence-only corrections cannot conceal stale application authority.
+Before Task 21 integration, any application, gateway, configuration, native,
+dependency, proof-wrapper or validator change invalidates the Task 20 checkpoint.
+After integration, planned B4/C changes do not require immediate signing or live
+capture; Task 22 creates one fresh final release-candidate checkpoint. Any such
+change after that freeze forces a new signed distribution, exact Cloudflare/R2
+readback and complete iOS/Android recapture. Evidence-only corrections cannot
+conceal stale application authority.
 
 ## Completion definition
 

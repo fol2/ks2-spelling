@@ -309,7 +309,9 @@ async function hostDescription() {
 
 async function proveB4Ios() {
   const workDirectory = await mkdtemp(join(tmpdir(), 'ks2-b4-ios-'));
+  const ownedSimulatorUdids = [];
   let phoneUdid = null;
+  let scaledPhoneUdid = null;
   let tabletUdid = null;
   let restoreKeyboard = null;
   try {
@@ -326,12 +328,21 @@ async function proveB4Ios() {
       profiles.phoneTypeIdentifier,
       profiles.runtimeIdentifier,
     );
+    ownedSimulatorUdids.push(phoneUdid);
+    scaledPhoneUdid = await createSimulator(
+      `KS2 Spelling B4 Scaled Phone ${process.pid}`,
+      profiles.phoneTypeIdentifier,
+      profiles.runtimeIdentifier,
+    );
+    ownedSimulatorUdids.push(scaledPhoneUdid);
     tabletUdid = await createSimulator(
       `KS2 Spelling B4 Tablet ${process.pid}`,
       profiles.tabletTypeIdentifier,
       profiles.runtimeIdentifier,
     );
+    ownedSimulatorUdids.push(tabletUdid);
     await bootSimulator(phoneUdid);
+    await bootSimulator(scaledPhoneUdid);
     await bootSimulator(tabletUdid);
 
     await setContentSize(phoneUdid, 'large');
@@ -344,9 +355,9 @@ async function proveB4Ios() {
     const defaultJourney = await readJourneyCapture(defaultResult);
     const localDatabaseBytes = await databaseFamilyBytes(phoneUdid);
 
-    await setContentSize(phoneUdid, 'accessibility-extra-extra-extra-large');
+    await setContentSize(scaledPhoneUdid, 'accessibility-extra-extra-extra-large');
     const scaledResult = await runInstalledTest({
-      udid: phoneUdid,
+      udid: scaledPhoneUdid,
       workDirectory,
       name: 'phone-200-percent',
       testMethod: 'testInstalledFiveCardJourney',
@@ -459,13 +470,9 @@ async function proveB4Ios() {
       limitations: capture.limitations,
     };
   } finally {
-    if (phoneUdid) {
-      await attempt('xcrun', ['simctl', 'shutdown', phoneUdid]);
-      await attempt('xcrun', ['simctl', 'delete', phoneUdid]);
-    }
-    if (tabletUdid) {
-      await attempt('xcrun', ['simctl', 'shutdown', tabletUdid]);
-      await attempt('xcrun', ['simctl', 'delete', tabletUdid]);
+    for (const udid of ownedSimulatorUdids) {
+      await attempt('xcrun', ['simctl', 'shutdown', udid]);
+      await attempt('xcrun', ['simctl', 'delete', udid]);
     }
     if (restoreKeyboard) await restoreKeyboard();
     await rm(workDirectory, { recursive: true, force: true });

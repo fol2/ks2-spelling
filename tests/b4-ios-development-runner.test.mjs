@@ -118,6 +118,9 @@ test('the bounded runner records 200% layout, raw sizes and honest Simulator lim
     'Simulator only; not physical-device, signed-distribution or App Store evidence.',
     "connect-src 'none'",
     "clientTts: 'none'",
+    'KS2 Spelling B4 Scaled Phone',
+    'scaledPhoneUdid',
+    'for (const udid of ownedSimulatorUdids)',
     "'--rotate', '-90'",
     'after landscape scene validation',
   ]) {

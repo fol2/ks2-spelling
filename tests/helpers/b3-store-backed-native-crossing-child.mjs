@@ -319,6 +319,7 @@ async function fallbackLaunchedRace() {
   const retained = (await transitionActive('launching')).command;
   let pulls = 0;
   let paused = false;
+  let allowObservation = false;
   const controller = createB3StoreBackedLiveCapture({
     platform: 'ios',
     buildAuthority: async () => buildAuthority(),
@@ -326,7 +327,7 @@ async function fallbackLaunchedRace() {
       async launch() { throw new Error('unexpected native launch'); },
       async pullObservation() {
         pulls += 1;
-        if (pulls <= 2) {
+        if (!allowObservation) {
           throw Object.assign(
             new Error('B3 physical-device observation pull did not produce the fixed file'),
             { code: 'b3_physical_device_command_failed' },
@@ -351,9 +352,20 @@ async function fallbackLaunchedRace() {
     },
   });
   let observationSha256 = null;
+  let firstError = null;
   let error = null;
   try {
-    observationSha256 = (await controller.advance({ maximumPullAttempts: 2 }))
+    try {
+      await controller.advance({ maximumPullAttempts: 2 });
+    } catch (caught) {
+      firstError = Object.freeze({
+        code: caught?.code ?? null,
+        instructionCode: caught?.instructionCode ?? null,
+        message: caught?.message ?? null,
+      });
+    }
+    allowObservation = true;
+    observationSha256 = (await controller.advance({ maximumPullAttempts: 1 }))
       .observationSha256;
   } catch (caught) {
     error = Object.freeze({
@@ -369,9 +381,54 @@ async function fallbackLaunchedRace() {
     type: 'result',
     pulls,
     observationSha256,
+    firstError,
     error,
     activeKindAfter: activeAfter.kind,
     stateAfter: activeAfter.kind === 'active' ? activeAfter.command.state : null,
+  });
+}
+
+async function advancedPinWait(pinKind, crossingState, successorState) {
+  if (!['at-crossing', 'before-crossing'].includes(pinKind)) {
+    throw new Error('B3 advanced-pin kind is invalid');
+  }
+  if (![
+    'launching:launched',
+    'reinstall-launching:launched',
+    'stop-executing:host-stopped',
+  ].includes(`${crossingState}:${successorState}`)) {
+    throw new Error('B3 advanced-pin transition is invalid');
+  }
+  const initialState = crossingState === 'stop-executing' ? 'stop-intent' : 'prepared';
+  if (pinKind === 'at-crossing') await seedMatrixState('ios', crossingState);
+  else await seed(initialState);
+  const controller = createB3StoreBackedLiveCapture({
+    platform: 'ios',
+    buildAuthority: async () => buildAuthority(),
+    transport: inertTransport(),
+  });
+  const invocation = await controller.pinInvocation();
+  if (pinKind === 'before-crossing') {
+    const transitions = MATRIX_TRANSITIONS[crossingState].slice(
+      MATRIX_TRANSITIONS[initialState].length,
+    );
+    for (const nextState of transitions) await transitionActive(nextState);
+  }
+  await transitionActive(successorState);
+  send({ type: 'ready', state: crossingState, successorState });
+  await waitForGo();
+  const before = sha256(await readFile(databasePath()));
+  const finalisation = await controller.finaliseInvocation({
+    invocation,
+    distribution: platformEvidence().distribution,
+  });
+  const after = sha256(await readFile(databasePath()));
+  await controller.dispose();
+  send({
+    type: 'result',
+    finalisation,
+    databaseUnchangedByFinalisation: before === after,
+    state: (await activeCommand()).command.state,
   });
 }
 
@@ -618,6 +675,8 @@ else if (mode === 'seed') {
   send({ type: 'result', state: result.command.state });
 } else if (mode === 'stale-pin-same' || mode === 'stale-pin-wait') {
   await stalePin(mode, targetState);
+} else if (mode === 'advanced-pin-wait') {
+  await advancedPinWait(process.argv[3], process.argv[4], process.argv[5]);
 } else if (mode === 'finaliser-matrix') {
   await finaliserMatrix(matrixPlatform, targetState);
 } else throw new Error('B3 store-backed native-crossing helper mode is invalid');

@@ -80,6 +80,7 @@ function barrier(phase, value = null) {
 }
 
 let controller;
+let publicationCalls = 0;
 try {
   const store = await openB3CaptureStore({ platform: 'ios' });
   let publicationCommitted = false;
@@ -101,9 +102,13 @@ try {
       if (input.source.state === 'launching' && input.nextState === 'launched') {
         await barrier('launch-completion', input.source);
       }
+      if (input.source.state === 'restart-required' && input.nextState === 'launched') {
+        await barrier('restart-bridge', input.source);
+      }
       return store.transitionCommand(input);
     },
     async publishObservation(input) {
+      publicationCalls += 1;
       if (!publicationPaused) {
         publicationPaused = true;
         await barrier('publication', input.source);
@@ -150,11 +155,12 @@ try {
     },
   });
   const observation = await controller.advance({ maximumPullAttempts: 1 });
-  process.send?.({ type: 'result', observation });
+  process.send?.({ type: 'result', observation, publicationCalls });
 } catch (error) {
   process.send?.({
     type: 'result',
     observation: null,
+    publicationCalls,
     error: { code: error?.code ?? null, message: error?.message ?? String(error) },
   });
 } finally {

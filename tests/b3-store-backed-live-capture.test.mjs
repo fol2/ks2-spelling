@@ -703,7 +703,7 @@ test('retained ambiguous launch states enter the closed reinstall gate after bou
     }
   });
 
-test('bounded ambiguous-launch fallback adopts a concurrent launched winner without reinstall',
+test('ambiguous-launch fallback shares one pull budget and resumes a launched winner',
   async (t) => {
     for (const state of ['launching', 'reinstall-launching']) {
       await t.test(state, async () => {
@@ -745,6 +745,7 @@ test('bounded ambiguous-launch fallback adopts a concurrent launched winner with
         });
         let launches = 0;
         let pulls = 0;
+        let allowObservation = false;
         const controller = createB3StoreBackedLiveCapture({
           platform: 'ios',
           buildAuthority: async () => authority,
@@ -753,7 +754,7 @@ test('bounded ambiguous-launch fallback adopts a concurrent launched winner with
             async launch() { launches += 1; },
             async pullObservation() {
               pulls += 1;
-              if (pulls <= 2) {
+              if (!allowObservation) {
                 throw Object.assign(
                   new Error('B3 physical-device observation pull did not produce the fixed file'),
                   { code: 'b3_physical_device_command_failed' },
@@ -768,7 +769,14 @@ test('bounded ambiguous-launch fallback adopts a concurrent launched winner with
           wait: async () => {},
         });
 
-        const observation = await controller.advance({ maximumPullAttempts: 2 });
+        await assert.rejects(controller.advance({ maximumPullAttempts: 2 }), (error) => {
+          assert.equal(error?.code, 'b3_physical_observation_timeout');
+          return true;
+        });
+        assert.deepEqual({ launches, pulls }, { launches: 0, pulls: 2 });
+        assert.equal(fake.active().state, 'launched');
+        allowObservation = true;
+        const observation = await controller.advance({ maximumPullAttempts: 1 });
         assert.equal(observation.sequence, 1);
         assert.deepEqual({ launches, pulls }, { launches: 0, pulls: 3 });
         assert.equal(fake.events.filter((entry) =>
@@ -1233,11 +1241,45 @@ test('real SQLite fallback losing to launched follows the winner without reinsta
     fallback.child.send({ type: 'go' });
     const result = await fallback.result;
     assert.deepEqual(await fallback.exited, { code: 0, signal: null, stderr: '' });
+    assert.equal(result.firstError?.code, 'b3_physical_observation_timeout');
+    assert.equal(result.firstError?.instructionCode, null);
     assert.equal(result.error, null);
     assert.equal(result.pulls, 3);
     assert.match(result.observationSha256, /^[0-9a-f]{64}$/u);
     assert.equal(result.activeKindAfter, 'none');
     assert.equal(result.stateAfter, null);
+  });
+
+test('native-crossing recovery pins reject successor drift without changing SQLite',
+  async (t) => {
+    const cases = [
+      ['launching', 'launched'],
+      ['reinstall-launching', 'launched'],
+      ['stop-executing', 'host-stopped'],
+    ];
+    for (const [crossingState, successorState] of cases) {
+      for (const pinKind of ['at-crossing', 'before-crossing']) {
+        await t.test(`${pinKind}:${crossingState}:${successorState}`, async (t) => {
+          const root = await nativeCrossingFixture(
+            t, `advanced-pin-${pinKind}-${crossingState}`,
+          );
+          const stale = spawnNativeCrossingHelper(
+            t, root, 'advanced-pin-wait', pinKind, crossingState, successorState,
+          );
+          assert.deepEqual(await stale.ready, {
+            type: 'ready',
+            state: crossingState,
+            successorState,
+          });
+          stale.child.send({ type: 'go' });
+          const result = await stale.result;
+          assert.deepEqual(await stale.exited, { code: 0, signal: null, stderr: '' });
+          assert.deepEqual(result.finalisation, { status: 'rejected' });
+          assert.equal(result.databaseUnchangedByFinalisation, true);
+          assert.equal(result.state, successorState);
+        });
+      }
+    }
   });
 
 

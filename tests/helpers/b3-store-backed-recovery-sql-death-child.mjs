@@ -22,15 +22,25 @@ const {
   B3_TEST_HASH,
   platformEvidence,
 } = await import('./b3-evidence-fixtures.mjs');
+const testedApplicationCommit = process.argv[7] ?? B3_TEST_COMMIT;
+const applicationFingerprint = process.argv[8] ?? B3_TEST_HASH;
 
 function buildAuthority() {
   return buildB3PhysicalProofAuthority('ios', {
     schemaVersion: 1,
-    testedApplicationCommit: B3_TEST_COMMIT,
-    applicationFingerprint: B3_TEST_HASH,
+    testedApplicationCommit,
+    applicationFingerprint,
     versionName: '0.3.0-b3',
     iosBuildNumber: '19',
     androidVersionCode: 19,
+  });
+}
+
+function distribution() {
+  return Object.freeze({
+    ...platformEvidence().distribution,
+    embeddedCommit: testedApplicationCommit,
+    embeddedFingerprint: applicationFingerprint,
   });
 }
 
@@ -113,7 +123,7 @@ async function controllerFinalisation({ trace = false } = {}) {
     if (trace) pauseAtCommit();
     const outcome = await controller.finaliseInvocation({
       invocation,
-      distribution: platformEvidence().distribution,
+      distribution: distribution(),
     });
     return Object.freeze({ activeBefore, outcome, activeAfter: await readActive() });
   } finally {

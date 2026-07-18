@@ -896,11 +896,7 @@ export async function openB3CaptureStateRepository(options) {
           current.captureId !== pin.source.captureId) {
         return Object.freeze({ kind: 'rejected' });
       }
-      if (current.state === 'restart-required') {
-        return Object.freeze({ kind: 'rejected' });
-      }
-      if (['launching', 'reinstall-launching', 'stop-executing'].includes(current.state) &&
-          !isDeepStrictEqual(current, pin.source)) {
+      if (!isDeepStrictEqual(current, pin.source)) {
         return Object.freeze({ kind: 'rejected' });
       }
       return Object.freeze({ kind: 'non-recovery' });

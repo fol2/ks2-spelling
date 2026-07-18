@@ -51,6 +51,26 @@ async function runPublisher(root, observedAt, mode = 'publish') {
   return JSON.parse(stdout);
 }
 
+async function runRecoveryWinner(root) {
+  const helper = new URL(
+    './helpers/b3-store-backed-recovery-sql-death-child.mjs',
+    import.meta.url,
+  );
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    '--experimental-test-module-mocks',
+    helper.pathname,
+    'resume',
+    '0',
+    'none',
+    'true',
+    '018f1d7b-97e8-4a52-8cf2-783e5089c903',
+    '1'.repeat(40),
+    '2'.repeat(64),
+  ], { cwd: root, env: { ...process.env, NODE_NO_WARNINGS: '1' } });
+  assert.equal(stderr, '');
+  return JSON.parse(stdout);
+}
+
 async function killPublisher(root, observedAt, mode) {
   try {
     await runPublisher(root, observedAt, mode);
@@ -168,7 +188,7 @@ function spawnStoreBackedPublicationRace(t, root) {
   let settled = false;
   const barrierResolvers = new Map();
   const barriers = Object.freeze(Object.fromEntries([
-    'launch-completion', 'publication', 'consumption',
+    'launch-completion', 'restart-bridge', 'publication', 'consumption',
   ].map((phase) => [phase, new Promise((resolve) => {
     barrierResolvers.set(phase, resolve);
   })])));
@@ -767,61 +787,42 @@ test('D3 publication retries preserve selected ordinary and generic result union
     }
   });
 
-test('D3 real controller adopts or consumes across both publication-transition orderings',
+test('D3 real controller bridges a restart winner before publication and consumption',
   { timeout: 15_000 }, async (t) => {
-    for (const order of ['successor-first', 'publication-first']) {
-      const root = await fixture(t);
-      const observedAt = '2026-07-17T10:00:00.000Z';
-      assert.deepEqual(await runPublisher(root, observedAt, 'seed-only'), { seeded: true });
-      const launchIntent = spawnCommandPublicationRole(t, root, 'transition', observedAt);
-      assert.equal((await runReleased(launchIntent)).result.kind, 'transitioned');
+    const root = await fixture(t);
+    const observedAt = '2026-07-17T10:00:00.000Z';
+    assert.deepEqual(await runPublisher(root, observedAt, 'seed-only'), { seeded: true });
+    const launchIntent = spawnCommandPublicationRole(t, root, 'transition', observedAt);
+    assert.equal((await runReleased(launchIntent)).result.kind, 'transitioned');
 
-      const controller = spawnStoreBackedPublicationRace(t, root);
-      const launchCompletion = await controller.barriers['launch-completion'];
-      assert.equal(launchCompletion.value.state, 'launching', order);
-      const restart = spawnCommandPublicationRole(
-        t, root, 'transition-restart', observedAt,
-      );
-      assert.equal((await runReleased(restart)).result.kind, 'transitioned');
-      controller.release('launch-completion');
+    const controller = spawnStoreBackedPublicationRace(t, root);
+    const launchCompletion = await controller.barriers['launch-completion'];
+    assert.equal(launchCompletion.value.state, 'launching');
+    const restart = spawnCommandPublicationRole(
+      t, root, 'transition-restart', observedAt,
+    );
+    assert.equal((await runReleased(restart)).result.kind, 'transitioned');
+    controller.release('launch-completion');
 
-      const publication = await controller.barriers.publication;
-      assert.equal(publication.value.state, 'restart-required', order);
-      if (order === 'successor-first') {
-        const successor = spawnCommandPublicationRole(
-          t, root, 'transition-launched', observedAt,
-        );
-        assert.equal((await runReleased(successor)).result.kind, 'transitioned');
-        controller.release('publication');
-      } else {
-        controller.release('publication');
-        await controller.barriers.consumption;
-        const successor = spawnCommandPublicationRole(
-          t, root, 'transition-launched', observedAt,
-        );
-        assert.equal((await runReleased(successor)).result.kind, 'transitioned');
-        controller.release('consumption');
-      }
-      if (order === 'successor-first') {
-        const progress = await Promise.race([
-          controller.barriers.consumption.then((value) => ({ kind: 'barrier', value })),
-          controller.result.then((value) => ({ kind: 'result', value })),
-        ]);
-        assert.equal(progress.kind, 'barrier', progress.value?.error?.message ?? order);
-        const consumption = progress.value;
-        assert.equal(consumption.value.state, 'launched', order);
-        controller.release('consumption');
-      }
+    const restartBridge = await controller.barriers['restart-bridge'];
+    assert.equal(restartBridge.value.state, 'restart-required');
+    controller.release('restart-bridge');
+    const publication = await controller.barriers.publication;
+    assert.equal(publication.value.state, 'launched');
+    controller.release('publication');
+    const consumption = await controller.barriers.consumption;
+    assert.equal(consumption.value.state, 'launched');
+    controller.release('consumption');
 
-      const outcome = await controller.result;
-      assert.equal(outcome.error, undefined, order);
-      assert.equal(outcome.observation.sequence, 1, order);
-      const state = readRelationalCaptureState(root);
-      assert.equal(state.steps.length, 1, order);
-      assert.equal(state.authority.active_command_sha256, null, order);
-      assert.deepEqual(state.decisions.map(({ source_state, winner_kind, next_state }) => ({
-        source_state, winner_kind, next_state,
-      })), [
+    const outcome = await controller.result;
+    assert.equal(outcome.error, undefined);
+    assert.equal(outcome.observation.sequence, 1);
+    const state = readRelationalCaptureState(root);
+    assert.equal(state.steps.length, 1);
+    assert.equal(state.authority.active_command_sha256, null);
+    assert.deepEqual(state.decisions.map(({ source_state, winner_kind, next_state }) => ({
+      source_state, winner_kind, next_state,
+    })), [
         {
           source_state: 'launched',
           winner_kind: 'generic-consumption',
@@ -842,6 +843,41 @@ test('D3 real controller adopts or consumes across both publication-transition o
           winner_kind: 'ordinary',
           next_state: 'launched',
         },
-      ], order);
-    }
+    ]);
+  });
+
+test('D3 real recovery ownership prevents restart-bridge publication',
+  { timeout: 15_000 }, async (t) => {
+    const root = await fixture(t);
+    const observedAt = '2026-07-17T10:00:00.000Z';
+    assert.deepEqual(await runPublisher(root, observedAt, 'seed-only'), { seeded: true });
+    const launchIntent = spawnCommandPublicationRole(t, root, 'transition', observedAt);
+    assert.equal((await runReleased(launchIntent)).result.kind, 'transitioned');
+
+    const controller = spawnStoreBackedPublicationRace(t, root);
+    const launchCompletion = await controller.barriers['launch-completion'];
+    assert.equal(launchCompletion.value.state, 'launching');
+    const restart = spawnCommandPublicationRole(
+      t, root, 'transition-restart', observedAt,
+    );
+    assert.equal((await runReleased(restart)).result.kind, 'transitioned');
+    controller.release('launch-completion');
+
+    const restartBridge = await controller.barriers['restart-bridge'];
+    assert.equal(restartBridge.value.state, 'restart-required');
+    const recovery = await runRecoveryWinner(root);
+    assert.equal(recovery.ok, true);
+    assert.deepEqual(recovery.outcome, { status: 'recovered' });
+    controller.release('restart-bridge');
+
+    const outcome = await controller.result;
+    assert.equal(outcome.observation, null);
+    assert.equal(outcome.publicationCalls, 0);
+    assert.match(outcome.error?.message ?? '', /recovery|authority|capture|decision/i);
+    const state = readRelationalCaptureState(root);
+    assert.equal(state.steps.length, 0);
+    assert.equal(state.commands.length, 2);
+    assert.notEqual(state.authority.active_command_sha256, null);
+    assert.equal(state.decisions.some(({ source_state, winner_kind }) =>
+      source_state === 'restart-required' && winner_kind === 'recovery-owner'), true);
   });

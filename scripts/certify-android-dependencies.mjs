@@ -6,7 +6,7 @@ import {
   mavenLicenceSignature,
   mavenPomRelativePath,
   parseMavenPom,
-  readCachedMavenPom,
+  resolveVerifiedMavenPom,
   resolveEffectiveMavenLicences,
 } from './lib/maven-evidence.mjs';
 import { EXIT_CODES, isMain, printJson } from './lib/run-command.mjs';
@@ -134,99 +134,104 @@ async function collectPomClosure(
   resolution,
   extraCoordinates = [],
   licenceNameOverrides = {},
+  {
+    expectedPomSha256,
+    repositoryBases,
+    discoverSources,
+  },
 ) {
   const records = new Map();
   const selected = new Set(resolution.components.map(({ coordinate }) => coordinate));
-  async function load(coordinate) {
-    if (records.has(coordinate)) return records.get(coordinate);
-    const cached = await readCachedMavenPom(GRADLE_USER_HOME, coordinate);
-    let evidenceText = cached.text;
-    let parsed;
-    try {
-      parsed = parseMavenPom(evidenceText);
-    } catch (error) {
-      const override = licenceNameOverrides[coordinate];
-      if (
-        error.code !== 'maven_licence_unknown' ||
-        !override ||
-        override.missingField !== 'name' ||
-        override.pomSha256 !== cached.sha256 ||
-        !cached.text.includes(`<url>${override.url}</url>`)
-      ) {
-        throw certificationError(
-          error.code ?? 'maven_licence_unknown',
-          `${coordinate}: ${error.message}`,
-        );
+  const pending = new Set([...selected, ...extraCoordinates]);
+  async function loadBatch(coordinates) {
+    const loaded = Array.from({ length: coordinates.length });
+    let index = 0;
+    async function worker() {
+      while (index < coordinates.length) {
+        const current = index;
+        index += 1;
+        const coordinate = coordinates[current];
+        loaded[current] = await resolveVerifiedMavenPom({
+          gradleUserHome: GRADLE_USER_HOME,
+          coordinate,
+          expectedSha256: expectedPomSha256.get(coordinate),
+          repositoryBases,
+          allowApprovedSourceFetch: discoverSources,
+        });
       }
-      evidenceText = cached.text.replace(
-        `<url>${override.url}</url>`,
-        `<name>${override.name}</name>\n      <url>${override.url}</url>`,
-      );
-      parsed = parseMavenPom(evidenceText);
     }
-    const record = { coordinate, ...cached, text: evidenceText, parsed };
-    records.set(coordinate, record);
-    if (!parsed.licences.length) {
-      if (!parsed.parentCoordinate || parsed.parentCoordinate.includes('${')) {
-        throw certificationError(
-          'maven_licence_policy_violation',
-          `No exact Maven licence parent for ${coordinate}`,
-        );
-      }
-      await load(parsed.parentCoordinate);
-    }
-    return record;
+    await Promise.all(
+      Array.from({ length: Math.min(16, coordinates.length) }, worker),
+    );
+    return loaded;
   }
-  for (const coordinate of [...selected, ...extraCoordinates]) await load(coordinate);
+  while (pending.size) {
+    const coordinates = [...pending].filter((coordinate) => !records.has(coordinate));
+    pending.clear();
+    if (!coordinates.length) break;
+    const evidence = await loadBatch(coordinates);
+    for (let index = 0; index < coordinates.length; index += 1) {
+      const coordinate = coordinates[index];
+      const loaded = evidence[index];
+      let evidenceText = loaded.text;
+      let parsed;
+      try {
+        parsed = parseMavenPom(evidenceText);
+      } catch (error) {
+        const override = licenceNameOverrides[coordinate];
+        if (
+          error.code !== 'maven_licence_unknown' ||
+          !override ||
+          override.missingField !== 'name' ||
+          override.pomSha256 !== loaded.sha256 ||
+          !loaded.text.includes(`<url>${override.url}</url>`)
+        ) {
+          throw certificationError(
+            error.code ?? 'maven_licence_unknown',
+            `${coordinate}: ${error.message}`,
+          );
+        }
+        evidenceText = loaded.text.replace(
+          `<url>${override.url}</url>`,
+          `<name>${override.name}</name>\n      <url>${override.url}</url>`,
+        );
+        parsed = parseMavenPom(evidenceText);
+      }
+      records.set(coordinate, {
+        coordinate,
+        ...loaded,
+        text: evidenceText,
+        parsed,
+      });
+      if (!parsed.licences.length) {
+        if (!parsed.parentCoordinate || parsed.parentCoordinate.includes('${')) {
+          throw certificationError(
+            'maven_licence_policy_violation',
+            `No exact Maven licence parent for ${coordinate}`,
+          );
+        }
+        pending.add(parsed.parentCoordinate);
+      }
+    }
+  }
   return { records, selected };
 }
 
-async function discoverPomSource(record, repositoryBases) {
-  const relativePath = mavenPomRelativePath(record.coordinate);
-  const failures = [];
-  for (const repository of repositoryBases) {
-    const sourceUrl = `${repository}${relativePath}`;
-    try {
-      const response = await fetch(sourceUrl, {
-        redirect: 'follow',
-        signal: AbortSignal.timeout(30_000),
-      });
-      if (!response.ok) {
-        failures.push(`${response.status}:${repository}`);
-        continue;
+function sourcesFromResolved(records) {
+  return new Map(
+    [...records.values()].map((record) => {
+      if (!record.repository || !record.sourceUrl) {
+        throw certificationError(
+          'maven_source_unresolved',
+          `Missing approved Maven source provenance: ${record.coordinate}`,
+        );
       }
-      const content = Buffer.from(await response.arrayBuffer());
-      if (sha256(content) !== record.sha256) {
-        failures.push(`sha256:${repository}`);
-        continue;
-      }
-      return { repository, sourceUrl };
-    } catch (error) {
-      failures.push(`${error.name}:${repository}`);
-    }
-  }
-  throw certificationError(
-    'maven_source_unresolved',
-    `No approved Maven source matched ${record.coordinate}: ${failures.join(', ')}`,
+      return [record.coordinate, {
+        repository: record.repository,
+        sourceUrl: record.sourceUrl,
+      }];
+    }),
   );
-}
-
-async function discoverPomSources(records, repositoryBases) {
-  const entries = [...records.values()];
-  const sources = new Map();
-  let index = 0;
-  async function worker() {
-    while (index < entries.length) {
-      const record = entries[index];
-      index += 1;
-      sources.set(
-        record.coordinate,
-        await discoverPomSource(record, repositoryBases),
-      );
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(16, entries.length) }, worker));
-  return sources;
 }
 
 function sourcesFromCommitted(committed, records, repositoryBases) {
@@ -342,14 +347,26 @@ export async function buildAndroidCertification({
         ({ name }) => !name.endsWith('.pom') && !name.endsWith('.module'),
       ),
   );
+  const expectedPomSha256 = new Map(
+    rawVerificationInventory.components.flatMap((component) => {
+      const pomName = `${component.name}-${component.version}.pom`;
+      const pom = component.artifacts.find(({ name }) => name === pomName);
+      return pom ? [[component.coordinate, pom.sha256]] : [];
+    }),
+  );
+  const repositoryBases = dependencyPolicy.allowedSources.mavenRepositoryUrls;
   const { records, selected } = await collectPomClosure(
     resolution,
     taskCreatedVerificationComponents.map(({ coordinate }) => coordinate),
     noticeOverrides.mavenPomLicenceNameOverrides,
+    {
+      expectedPomSha256,
+      repositoryBases,
+      discoverSources,
+    },
   );
-  const repositoryBases = dependencyPolicy.allowedSources.mavenRepositoryUrls;
   const sources = discoverSources
-    ? await discoverPomSources(records, repositoryBases)
+    ? sourcesFromResolved(records)
     : sourcesFromCommitted(committed, records, repositoryBases);
   const effectiveLicences = new Map(
     (

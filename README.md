@@ -74,6 +74,8 @@ The frozen upstream authority and import boundary are recorded in
 [`docs/architecture/b1-authority.md`](docs/architecture/b1-authority.md).
 The B2 transaction, lifecycle and evidence authority is recorded in
 [`docs/architecture/b2-persistence-authority.md`](docs/architecture/b2-persistence-authority.md).
+The B3 sandbox commerce, signed-pack and clean-checkpoint boundary is recorded in
+[`docs/architecture/b3-commerce-pack-authority.md`](docs/architecture/b3-commerce-pack-authority.md).
 
 ## Development and verification
 
@@ -84,10 +86,11 @@ lifecycle, disk requirements and unsigned-build boundary are documented in
 
 CI has separate Ubuntu 24.04 domain/web and Android compile lanes plus an
 unsigned iOS Simulator compile lane on macOS 26. All use Node.js `24.18.0`,
-retain full Git history and pin third-party Actions to full commit SHAs. CI
-validates committed B2 virtual proof but does not claim to rerun the lifecycle
-captures. A workflow definition or local pass is not presented as a hosted CI
-result; the exact private-branch run must be observed first.
+retain full Git history and pin third-party Actions to full commit SHAs. B3 CI
+accepts only a legitimate zero-file `pending` state or the exact six-file
+`complete` evidence successor. It does not perform live Cloudflare, store or
+physical-device actions. A workflow definition or local pass is not presented
+as a hosted CI result; the exact private-branch run must be observed first.
 
 ## B2 evidence status
 

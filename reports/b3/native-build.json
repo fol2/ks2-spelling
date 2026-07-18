@@ -40,7 +40,7 @@
         "sourceSha256": "7aaa9a832edc314da3f96151e0bfecd6f73e3f995d1201f1748c97d3f703514d"
       }
     ],
-    "dependencyAuditSha256": "371d45906af87e5767f6873deee46d713a5b178c36d0f5c2e9f8f9d557ca4bd2"
+    "dependencyAuditSha256": "ea978fe264d2300eede27ec3189047e478c7e445f0f1a4c89d4f17fddf7ca9cd"
   },
   "sourceAuthority": [
     {
@@ -96,12 +96,12 @@
     {
       "path": ".native-build/ios/Build/Products/Debug-iphonesimulator/App.app/App",
       "bytes": 73104,
-      "sha256": "5fe943d217843cbf9d7308d4fe2472357300cf59244225858ba7178251d384c2"
+      "sha256": "77125252c2fbf6d96cfc1e0d86750337c0c0e569437c2566e79ed07db9fb4ba1"
     },
     {
       "path": ".native-build/android/build/app/outputs/apk/debug/app-debug.apk",
-      "bytes": 25908801,
-      "sha256": "88d46697b2b6a3763f99080ce8ab9c1f4628c474ebde343f87362911e2480e84"
+      "bytes": 26054854,
+      "sha256": "152fa8391eef69f6a4ca3427ba0e0c4bf88e46b386c082313724fe430410d0dd"
     },
     {
       "path": ".native-build/android/build/app/outputs/apk/release/app-release-unsigned.apk",
@@ -164,7 +164,7 @@
       "junit": [
         {
           "path": ".native-build/android/build/app/test-results/testDebugUnitTest/TEST-uk.eugnel.ks2spelling.CommercePluginTest.xml",
-          "sha256": "06f466b8f5f2e557e6f50653d2e438764c8208c0d559022b6fc0a1963c94be97",
+          "sha256": "24a4139f95d6e52c5db08d6d25e95caf51e8c72d1679a0ae8850a60fd46b0f80",
           "suite": "uk.eugnel.ks2spelling.CommercePluginTest",
           "tests": 6,
           "failures": 0,
@@ -173,7 +173,7 @@
         },
         {
           "path": ".native-build/android/build/app/test-results/testDebugUnitTest/TEST-uk.eugnel.ks2spelling.PackTransferPluginTest.xml",
-          "sha256": "d9a6e9cb60b2d6b01a5884679805c1c56c7be38337e10a4d0827f12475342b75",
+          "sha256": "432d3ffe1970e21eb0702591650cb5077a52cf6df43e7017ea0a8cf1f95b9932",
           "suite": "uk.eugnel.ks2spelling.PackTransferPluginTest",
           "tests": 4,
           "failures": 0,
@@ -182,7 +182,7 @@
         },
         {
           "path": ".native-build/android/build/app/test-results/testDebugUnitTest/TEST-uk.eugnel.ks2spelling.ZipCentralDirectoryInspectorTest.xml",
-          "sha256": "6fb088907e16068ddbf0bed7e60e4214edd3b06784f73a875b99fe9d6fe8a491",
+          "sha256": "3dfc21e6867157fd206e05e8c7c6e8d953e26e0c98a3dbb2b213d4b757b12c05",
           "suite": "uk.eugnel.ks2spelling.ZipCentralDirectoryInspectorTest",
           "tests": 3,
           "failures": 0,
@@ -266,9 +266,9 @@
     "archiveSha256": "4c2ca2eb4d4bb7ac3347b66e3483dcb6aa71b41958704733bfc471c970ce7664",
     "exclusionScan": {
       "authorisedFixtureDirectory": "tests/fixtures/keys",
-      "filesScanned": 1425,
-      "bytesScanned": 163680086,
-      "expandedArchiveBytesScanned": 168191479
+      "filesScanned": 534,
+      "bytesScanned": 26445899,
+      "expandedArchiveBytesScanned": 77342
     },
     "signingFixturePackaged": false
   },

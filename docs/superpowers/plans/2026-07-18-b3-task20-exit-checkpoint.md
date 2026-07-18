@@ -1,6 +1,7 @@
-# B3 Task 20 Exit Report and Application Checkpoint Plan
+# B3 Task 20 Exit Report and Development Application Checkpoint Plan
 
-**Status:** implementation ready.
+**Status:** implemented. Its downstream sequence is governed by the current B3
+plan and programme.
 
 **Fixed point:** `6be15b7df781670f8c19b59d4b2d033832c4b864`, the
 reviewed and merged Task 19 checkpoint.
@@ -12,8 +13,9 @@ with the programme and standalone application design remaining authoritative.
 ## Outcome
 
 Task 20 adds one narrow exit-report builder and converts the existing three-lane
-workflow to B3. The resulting clean commit is the sole application checkpoint for
-Tasks 21 and 22.
+workflow to B3. The resulting clean commit is the B3 Development application
+checkpoint consumed by Task 21. It is not the final release-candidate checkpoint;
+Task 22 freezes fresh final bytes before signing or live capture.
 
 Task 20 performs no Cloudflare or R2 mutation, store action, signing, installation,
 physical-device action or live evidence publication. It does not change application,
@@ -54,9 +56,9 @@ The six final paths remain exactly:
 
 - **pending**: zero current paths, a clean worktree, and six separate full-history
   queries proving that no path has appeared in any available ref;
-- **complete**: all six current paths, strict byte regeneration, one shared Task 20
-  commit/fingerprint, and an evidence-only successor whose diff is exactly the six
-  paths.
+- **complete**: all six current paths, strict byte regeneration, one shared final
+  release-candidate commit/fingerprint, and an evidence-only successor whose diff
+  is exactly the six paths.
 
 One to five current paths always fail. A prior one-, five- or six-path state followed
 by zero or partial current evidence fails permanently. History uses the existing
@@ -85,7 +87,7 @@ claimBoundary
 It binds:
 
 - the frozen B2 commit, tree and exit-report hash;
-- the exact Task 20 commit and B3 fingerprint;
+- the exact final release-candidate application commit and B3 fingerprint;
 - the proof-pack, native-build, dependency and deterministic report hashes;
 - tracked gateway, pack-object, product and synthetic-learner authority hashes;
 - Cloudflare, iOS, Android and both screenshot hashes;
@@ -187,15 +189,16 @@ preserving the 20/30-second XCTest limits.
 
 ### T4 — Document the checkpoint boundary
 
-Create one architecture document explaining sandbox/test-only commerce and signed
-download proof, local/offline learning authority, the six-file successor and the
-Task 20 invalidation rule. Add only concise links and operator commands to the
-native-development guide and README.
+Create one architecture document explaining the Development-versus-Release
+commerce and signed-download boundary, local/offline learning authority, the
+six-file successor and checkpoint invalidation rules. Add only concise links and
+operator commands to the native-development guide and README.
 
 Explicitly defer production content/audio, production secrets/Worker/bucket,
-pricing, store approval, Parent/child production UI, family sharing,
-accessibility/performance and Visual / Theme / Asset Migration. B4 and the later
-visual migration specification own those claims.
+pricing, store approval, Parent/child production UI, family sharing and Visual /
+Theme / Asset Migration. B4 owns virtual/hosted product-quality development; the
+pre-release gate owns broad physical compatibility, accessibility/performance and
+Release Commerce Certification.
 
 ## Verification and commit
 
@@ -206,14 +209,16 @@ certification/resolved policy, deterministic/native/dependency report regenerati
 `actionlint`, history tests and `git diff --check`.
 
 Commit only the intended Task 20 files and regenerated deterministic B3 reports.
-The clean commit becomes `testedApplicationCommit`. Push it to a Task 20 branch and
-obtain exact-head hosted CI before integration.
+The clean commit becomes the Task 21 Development `testedApplicationCommit`. Push
+it to a Task 20 branch and obtain exact-head hosted CI before integration. Task 22
+later replaces that authority with a fresh final release-candidate checkpoint.
 
 ## Review gate
 
 All reviewers inspect the same exact candidate:
 
-1. Gstack confirms Task 20 scope, the six-file boundary and Task 21/22 deferral.
+1. Gstack confirms Task 20 scope, the six-file boundary, Task 21 Development
+   integration and Task 22 Release deferral.
 2. Matt runs the two-axis Standards and Spec code review.
 3. Ponytail rejects duplicate validation, speculative abstraction and unnecessary
    files, tests, modes or dependencies.
@@ -223,7 +228,11 @@ creates a new candidate and restarts all three reviews.
 
 ## Invalidation
 
-After Task 20, any application, gateway, native, dependency, configuration, proof
-wrapper, validator, fingerprint, builder or workflow change invalidates the
-checkpoint and therefore Tasks 21 and 22. The only legal tracked Task 22 successor
-is the exact six-file evidence set; Task 23 changes no files.
+Before Task 21 integration, any application, gateway, native, dependency,
+configuration, proof-wrapper, validator, fingerprint, builder or workflow change
+invalidates the Task 20 Development checkpoint. After integration, planned B4/C
+changes do not require throw-away signing or live capture. Task 22 freezes one
+fresh final release-candidate checkpoint; any subsequent application-authority
+change invalidates its signing and live evidence. The only legal tracked successor
+to that final checkpoint is the exact six-file evidence set; Task 23 changes no
+files.

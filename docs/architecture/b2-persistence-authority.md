@@ -72,14 +72,15 @@ It rejects stale, unrelated, dirty or application-changing histories.
 
 - Production profile CRUD, Parent security, PIN and biometrics, reset/delete,
   database-key management and production backup remain C2.
-- Physical devices, accessibility and performance certification remain B4.
+- Virtual/hosted product-quality development remains B4. Broad physical-device,
+  accessibility and performance certification remain one pre-release gate.
 - SQLCipher is packaged while B2 explicitly opens `no-encryption`; US
   encryption export classification remains unresolved release work.
 - Billing, purchases, entitlements, downloads, production audio, signing and
   store metadata are not implemented or approved.
 - The current shell is diagnostic proof UI, not final product visuals.
 
-A dedicated Visual / Theme / Asset Migration Spec follows Gate B `GO` and must
-finish before C3 child UI. It will migrate the spelling and Monster visual
-language, assets, typography, colour, motion and responsive layouts without
-changing the B2 persistence truth.
+A dedicated Visual / Theme / Asset Migration Spec follows Gate B Development
+`GO` and must finish before C3 child UI. It will migrate the spelling and Monster
+visual language, assets, typography, colour, motion and responsive layouts
+without changing the B2 persistence truth.

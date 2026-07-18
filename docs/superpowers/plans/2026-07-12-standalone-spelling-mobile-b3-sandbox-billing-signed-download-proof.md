@@ -1579,7 +1579,7 @@ git commit -m "test: define B3 live sandbox proof"
 
 Expected: tooling contract PASS without touching cloud/accounts/devices. Security review must verify no secret prompt, secret output or unauthorised remote mutation path.
 
-### Task 20: Add the exit builder, branch CI and final B3 application checkpoint
+### Task 20: Add the exit builder, branch CI and B3 Development application checkpoint
 
 **Files:**
 
@@ -1623,7 +1623,7 @@ Add package command `verify:b3` as the complete deterministic/native audit chain
 
 The architecture document must state that B3 Development proves only deterministic/compiled `b3-sandbox-proof` capability and explicitly denies live store, deployed Cloudflare/R2, signed distribution and physical-device truth. It also denies production Full content/audio, production keys/bucket/Worker, public pricing, store approval, production Parent/child UI, release compliance, family sharing, broad physical-device quality, accessibility/performance and visual/theme/assets completion. It records that B4 owns virtual-device product-quality development, Release Commerce Certification owns final live/physical truth, and Visual / Theme / Asset Migration remains after Gate B Development `GO` and before C3.
 
-- [ ] **Step 5: Run the final application checkpoint and commit**
+- [ ] **Step 5: Run the B3 Development application checkpoint and commit**
 
 ```bash
 npm ci

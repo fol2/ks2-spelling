@@ -31,7 +31,9 @@ The shipping application remains offline-first. Cloudflare is not used for spell
 - Native observation transport is compiled and registered only for the `B3SandboxProof` iOS scheme/configuration and Android B3 proof variant. Normal application builds must not expose it.
 - No raw store JWS, purchase token, receipt, order/transaction identifier, sealed refresh handle, capability URL/query, tester/account identity, device identifier, learner identifier or learner nickname may cross the observation port or enter reports.
 - During Tasks 19A–19H below: no Cloudflare deployment, R2 mutation, store-console mutation, signing, installation, uninstall/reinstall, physical-device launch, force-stop, screenshot capture, commit, push or evidence finalisation. Tests use fakes for external process/API/device boundaries while exercising the real application composition.
-- Real Cloudflare/device mutations remain deferred to original Tasks 21–22 and still require the existing exact scoped approval and run-token gates.
+- Real Cloudflare/device mutations remain deferred to Task 22 Release Commerce
+  Certification and still require the existing exact scoped approval and run-token
+  gates.
 - Existing dirty Task 19 work belongs to the active implementation lane. Do not discard, overwrite or stage unrelated changes.
 
 ## Task 19 protocol correction — physical process and host checkpoints
@@ -607,7 +609,8 @@ Keep the public report schemas as small as possible. Observation/checkpoint inte
 - offline spelling and installed-pack use are local;
 - commerce verification/download requires online store/gateway access;
 - Monster is motivational presentation around spelling, not an independently cloud-tracked Parent metric;
-- visual/theme/asset migration remains a later mandatory plan after Gate B `GO` and before C3;
+- visual/theme/asset migration remains a later mandatory plan after Gate B
+  Development `GO` and before C3;
 - B3 Development proves deterministic and compiled commerce/signed-download
   capability only. Signed store, deployed Cloudflare/R2 and physical-device
   truth remain one Release Commerce Certification blocker before public

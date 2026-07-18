@@ -25,7 +25,7 @@ function extractJob(workflow, jobName) {
     : workflow.slice(start, start + startMarker.length + nextJob);
 }
 
-test('every B3 CI lane checks out the exact pull-request head with full history', async () => {
+test('every B4 CI lane checks out the exact pull-request head with full history', async () => {
   const workflow = await readWorkflow();
   const checkoutUses = workflow.match(
     /uses: actions\/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6/g,
@@ -37,14 +37,17 @@ test('every B3 CI lane checks out the exact pull-request head with full history'
   assert.equal(fullHistoryCheckouts?.length, checkoutUses.length);
 });
 
-test('B3 CI keeps exactly three jobs on Node 24.18.0 and preserves native boundaries', async () => {
+test('B4 CI keeps exactly three jobs on Node 24.18.0 and preserves native boundaries', async () => {
   const workflow = await readWorkflow();
-  assert.match(workflow, /^name: B3 continuous integration$/m);
+  assert.match(workflow, /^name: B4 continuous integration$/m);
   assert.equal((workflow.match(/^  [a-z][a-z-]+:\n    name:/gm) ?? []).length, 3);
   assert.equal((workflow.match(/node-version: "24\.18\.0"/g) ?? []).length, 3);
   assert.doesNotMatch(workflow, /node-version-file:/);
-  assert.match(workflow, /branches:\n\s+- main\n\s+- jamesto\/mobile-b3-billing-download/);
-  assert.match(workflow, /group: b3-ci-/);
+  assert.match(
+    workflow,
+    /branches:\n\s+- main\n\s+- jamesto\/mobile-b3-billing-download\n\s+- jamesto\/mobile-b4-vertical-slice/,
+  );
+  assert.match(workflow, /group: b4-ci-/);
   assert.match(workflow, /xcode_major.*-ge 26/);
   assert.match(workflow, /"platforms;android-36" "build-tools;36\.0\.0"/);
 });

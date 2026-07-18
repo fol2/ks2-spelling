@@ -8,6 +8,7 @@ import test from 'node:test';
 
 import {
   B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+  B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   assertB2PackageTransition,
   verifyB3PackageTransitionAuthority,
 } from '../scripts/lib/b3-package-transition-authority.mjs';
@@ -29,6 +30,15 @@ const EXPECTED_SCRIPT_NAMES = Object.freeze([
   'prepare:b3:distribution',
   'verify:b3:installed-distribution',
   'verify:b3',
+]);
+
+const EXPECTED_B4_SCRIPT_NAMES = Object.freeze([
+  'build:b4-development',
+  'sync:b4-development',
+  'prove:b4:ios',
+  'prove:b4:android',
+  'report:b4-development',
+  'report:b4-development:check',
 ]);
 
 function frozenPackage() {
@@ -56,12 +66,16 @@ async function authorityFixture() {
   return root;
 }
 
-test('transition authority freezes every package script declared by the approved B3 plan', async () => {
+test('transition authority freezes every package script declared by the approved B3 and B4 plans', async () => {
   const authority = await verifyB3PackageTransitionAuthority({ root: ROOT });
   assert.deepEqual(Object.keys(B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS), EXPECTED_SCRIPT_NAMES);
+  assert.deepEqual(Object.keys(B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS), EXPECTED_B4_SCRIPT_NAMES);
   assert.deepEqual(
     authority.allowedPackageScriptAdditions,
-    B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+    {
+      ...B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+      ...B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+    },
   );
   assert.deepEqual(authority.protectedCurrentFiles.map(({ path }) => path), [
     'scripts/build-b2-native-plugin-report.mjs',
@@ -82,6 +96,11 @@ test('package transition accepts any reviewed subset of exact planned additions 
   assert.doesNotThrow(() => assertB2PackageTransition(frozen, current, authority));
 
   for (const [name, command] of Object.entries(B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS)) {
+    const candidate = structuredClone(current);
+    candidate.scripts[name] = command;
+    assert.doesNotThrow(() => assertB2PackageTransition(frozen, candidate, authority), name);
+  }
+  for (const [name, command] of Object.entries(B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS)) {
     const candidate = structuredClone(current);
     candidate.scripts[name] = command;
     assert.doesNotThrow(() => assertB2PackageTransition(frozen, candidate, authority), name);

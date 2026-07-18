@@ -95,6 +95,18 @@ final class B4DevelopmentTests: XCTestCase {
         add(attachment)
     }
 
+    private func revealCompletionForScreenshot(in application: XCUIApplication) {
+        let freshRound = application.buttons["Start a fresh round"]
+        let webView = application.webViews.firstMatch
+        for _ in 0..<8 where !freshRound.isHittable {
+            webView.swipeDown()
+        }
+        XCTAssertTrue(
+            freshRound.isHittable,
+            "The completion action was not visible for the evidence screenshot."
+        )
+    }
+
     private func waitForWindowOrientation(
         _ application: XCUIApplication,
         landscape: Bool,
@@ -266,6 +278,7 @@ final class B4DevelopmentTests: XCTestCase {
             name: "b4-ios-journey-observations.json"
         )
 
+        revealCompletionForScreenshot(in: application)
         attachScreenshot(name: "b4-ios-completed-round")
     }
 

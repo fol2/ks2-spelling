@@ -365,6 +365,7 @@ test('genuine A3 audio effects run only post-commit and replay failures never mu
   assert.deepEqual(snapshot, durableBeforeReplay);
   pauseListener();
   assert.equal(paths.at(-1), 'stop');
+  assert.deepEqual(controller.getState().audio, { status: 'idle', error: null });
   await controller.rehydrate();
   assert.equal(paths.at(-1), 'stop');
   await controller.dispose();

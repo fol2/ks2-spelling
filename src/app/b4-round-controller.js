@@ -113,6 +113,10 @@ export function createB4RoundController({
     playbackGeneration += 1;
     playAudio.stop();
     audio = { status: 'idle', error: null };
+    publish(Object.freeze({
+      ...currentState,
+      audio: Object.freeze({ ...audio }),
+    }));
   }
 
   async function playCue(cue) {

@@ -100,7 +100,7 @@ final class B4DevelopmentTests: XCTestCase {
         let freshRound = application.buttons["Start a fresh round"]
         let webView = application.webViews.firstMatch
         for _ in 0..<8 where !freshRound.isHittable {
-            webView.swipeDown()
+            webView.swipeUp()
         }
         XCTAssertTrue(
             freshRound.isHittable,

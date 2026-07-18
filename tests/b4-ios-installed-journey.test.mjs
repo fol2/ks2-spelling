@@ -35,7 +35,7 @@ test('the iOS installed journey follows the frozen B4 answers without a proof br
     'b4-ios-journey-observations.json',
     'revealCompletionForScreenshot',
     'Start a fresh round',
-    'swipeDown',
+    'swipeUp',
     'testTabletLayoutScreenshots',
     'XCUIDevice.shared.orientation = .portrait',
     'XCUIDevice.shared.orientation = .landscapeLeft',
@@ -47,6 +47,7 @@ test('the iOS installed journey follows the frozen B4 answers without a proof br
   }
 
   assert.doesNotMatch(source, /B3|proof bridge|target word|currentRuntimeItemId/i);
+  assert.doesNotMatch(source, /webView\.swipeDown\(\)/u);
 });
 
 test('the B4 learner surface uses the standard WebKit Dynamic Type root', async () => {

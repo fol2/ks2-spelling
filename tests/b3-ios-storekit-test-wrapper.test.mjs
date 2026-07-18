@@ -115,7 +115,7 @@ test('the wrapper derives exact observations from executed test output and fails
     `B3_STOREKIT_OBSERVATION case=delayed-approve productId=${transcript.productId} initial=pending final=purchased verifiedProof=true`,
     'B3StoreKitDelayedTests testDelayedDeclineProducesNoPurchasedEntitlement',
     `B3_STOREKIT_OBSERVATION case=delayed-decline productId=${transcript.productId} initial=pending final=cancelled verifiedProof=false`,
-    '** TEST SUCCEEDED **',
+    '** TEST EXECUTE SUCCEEDED **',
   ].join('\n');
   assert.deepEqual(
     parseExecutedStoreKitObservations(executed),
@@ -142,7 +142,7 @@ test('the wrapper derives exact observations from executed test output and fails
     ({ code }) => code === 'storekit_observation_mismatch',
   );
   assert.throws(
-    () => assertExecutedStoreKitEvidence(executed.replace('** TEST SUCCEEDED **', '** TEST FAILED **'), transcript),
+    () => assertExecutedStoreKitEvidence(executed.replace('** TEST EXECUTE SUCCEEDED **', '** TEST EXECUTE FAILED **'), transcript),
     ({ code }) => code === 'storekit_test_failed',
   );
   assert.throws(

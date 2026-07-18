@@ -112,7 +112,7 @@ export function assertStoreKitConfiguration(value, expectedProductId) {
 }
 
 export function assertExecutedStoreKitEvidence(output, transcript) {
-  if (!output.includes('** TEST SUCCEEDED **')) {
+  if (!output.includes('** TEST EXECUTE SUCCEEDED **')) {
     throw proofError('storekit_test_failed', 'Xcode StoreKit Test did not succeed');
   }
   for (const method of [

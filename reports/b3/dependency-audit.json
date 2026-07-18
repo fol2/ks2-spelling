@@ -5,7 +5,7 @@
     "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "spmResolvedVersion": 3,
     "nativePluginBuildSha256": "a72e95958e287be21f34588a167f12fd59058ab003dfe3f559b3ba244988a6f9",
-    "webViewBundleEvidenceSha256": "e64ed86425204fbcea7a4ec022e04e6c87688cd94f98a4f2cf096f4dede8d301"
+    "webViewBundleEvidenceSha256": "2000f04e4791fd9fd6d99648a7af4c79a66b102f4e07c2a0b6820c69325b666a"
   },
   "npm": {
     "lockfileVersion": 3,
@@ -250,13 +250,13 @@
           "id": "src/app/b4-round-contract.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "a1f28fba080d6faa793ed8d625de14fdd2ee6e41eb257f64494f6144809273a6"
+          "sha256": "bded2088c1af3fb347391ef150a25db5a2d06dc347c8763d1e938b6c1095deab"
         },
         {
           "id": "src/app/b4-round-controller.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "a0bf03751f4b23d2571cc25d293223fa699849779f60ef6387d6c21d45cd3af6"
+          "sha256": "a8310af2280f0375ad56e4ee4ac8bc972a1ec4cc8383cbe9716a7cf136b536bc"
         },
         {
           "id": "src/app/commerce-reconciler.js",
@@ -286,7 +286,7 @@
           "id": "src/app/create-b4-app-services.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "b52f3680bec28df7355a410c353381d61340022621c89379ac7d4bed182194f7"
+          "sha256": "534b00898643ece77ef586b48f1a76e3682737562c385aa75497e2730787352a"
         },
         {
           "id": "src/app/database-lifecycle-coordinator.js",
@@ -733,27 +733,27 @@
           "sha256": "09fae0aaa4aa7bc9cc743c1d8f2ede4a6f9ddbf48ebbdf7305bf1bdbeefda8cc"
         },
         {
-          "fileName": "assets/index-hreyiyX8.js",
+          "fileName": "assets/index-Ct3t9pZ_.js",
           "kind": "chunk",
-          "sha256": "873ead3dd4435b84eeac102f728914536b6f664ada4fc6073fc5738d7f6a8410"
+          "sha256": "c93e35056b20b9ae43f61c7568d459442c809ba3ab4dbf0235db688d439f8f5a"
         },
         {
-          "fileName": "assets/web-Bli3I9V9.js",
+          "fileName": "assets/web-DamFAhBk.js",
           "kind": "chunk",
-          "sha256": "85c6a529000418347f9771e79dbe782c1eff3f5d5d64f46dbced8749fca121e0"
+          "sha256": "ee5f56735a5b6d232fea9489b079ba752364c6bb296dbd136de03eb57f124a2c"
         },
         {
-          "fileName": "assets/web-Dn--8iUn.js",
+          "fileName": "assets/web-DEdot-l7.js",
           "kind": "chunk",
-          "sha256": "a7efd2e80c1bd81a64699cf9d05cfd52763d8cd20bdb648fe33cf0bc752f8d24"
+          "sha256": "6ca80e067ebb14501e890f989092e3c18b3ba1df78bebc2743ecf94fe54a1ced"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "a07804c64b74ca7ff3b91aa099add4078b87696747be474a70711a20017885ee"
+          "sha256": "1193d44db5adc71215c560e8b6a0ede7caa16ec4b3d5081d34168af06794fab7"
         }
       ],
-      "evidenceSha256": "e64ed86425204fbcea7a4ec022e04e6c87688cd94f98a4f2cf096f4dede8d301"
+      "evidenceSha256": "2000f04e4791fd9fd6d99648a7af4c79a66b102f4e07c2a0b6820c69325b666a"
     },
     "allPackages": [
       {

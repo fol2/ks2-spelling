@@ -18,6 +18,10 @@ const PRODUCTS_DIR = resolve(DERIVED_DATA, 'Build/Products');
 const STOREKIT_BUILD_TIMEOUT_MS = 600_000;
 const STOREKIT_SIMULATOR_TIMEOUT_MS = 300_000;
 const STOREKIT_TEST_TIMEOUT_MS = 90_000;
+const STOREKIT_TEST_METHODS = Object.freeze([
+  'testDelayedApproveProducesVerifiedPurchasedObservation',
+  'testDelayedDeclineProducesNoPurchasedEntitlement',
+]);
 const OBSERVATION_PATTERN =
   /B3_STOREKIT_OBSERVATION case=(delayed-(?:approve|decline)) productId=([a-z][a-z0-9]*(?:[._][a-z0-9]+)+) initial=(pending) final=(purchased|cancelled) verifiedProof=(true|false)/g;
 
@@ -115,10 +119,7 @@ export function assertExecutedStoreKitEvidence(output, transcript) {
   if (!output.includes('** TEST EXECUTE SUCCEEDED **')) {
     throw proofError('storekit_test_failed', 'Xcode StoreKit Test did not succeed');
   }
-  for (const method of [
-    'testDelayedApproveProducesVerifiedPurchasedObservation',
-    'testDelayedDeclineProducesNoPurchasedEntitlement',
-  ]) {
+  for (const method of STOREKIT_TEST_METHODS) {
     if (!output.includes(method)) {
       throw proofError(
         'storekit_test_evidence_missing',
@@ -127,6 +128,10 @@ export function assertExecutedStoreKitEvidence(output, transcript) {
     }
   }
 
+  return assertExactStoreKitObservations(output, transcript, 'storekit_observation_mismatch');
+}
+
+function assertExactStoreKitObservations(output, transcript, errorCode) {
   const observations = parseExecutedStoreKitObservations(output);
   const expected = transcript.cases
     .map(({ name: caseName, initialOutcome, finalOutcome, verifiedProofRequired }) => ({
@@ -139,11 +144,33 @@ export function assertExecutedStoreKitEvidence(output, transcript) {
     .sort((left, right) => left.case.localeCompare(right.case));
   if (JSON.stringify(observations) !== JSON.stringify(expected)) {
     throw proofError(
-      'storekit_observation_mismatch',
+      errorCode,
       'Executed StoreKit observations do not match the closed transcript',
     );
   }
   return observations;
+}
+
+export function assertCompletedStoreKitTimeoutEvidence(output, transcript) {
+  const completedSuite =
+    /Test Suite 'B3StoreKitDelayedTests' passed at [^\n]+\n\s*Executed 2 tests, with 0 failures \(0 unexpected\)/u;
+  if (output.includes('** TEST EXECUTE FAILED **') || !completedSuite.test(output)) {
+    throw proofError(
+      'storekit_test_timeout',
+      'Xcode StoreKit execution timed out before the selected suite completed cleanly',
+    );
+  }
+  for (const method of STOREKIT_TEST_METHODS) {
+    const passed = `Test Case '-[AppTests.B3StoreKitDelayedTests ${method}]' passed (`;
+    const failed = `Test Case '-[AppTests.B3StoreKitDelayedTests ${method}]' failed (`;
+    if (!output.includes(passed) || output.includes(failed)) {
+      throw proofError(
+        'storekit_test_timeout',
+        `Xcode StoreKit execution timed out without a clean result for ${method}`,
+      );
+    }
+  }
+  return assertExactStoreKitObservations(output, transcript, 'storekit_test_timeout');
 }
 
 export async function runB3IosStoreKitTest({ env = process.env, stream = true } = {}) {
@@ -284,17 +311,17 @@ export async function runB3IosStoreKitTest({ env = process.env, stream = true } 
     ],
     { cwd: ROOT, env, stream, timeoutMs: STOREKIT_TEST_TIMEOUT_MS },
   );
+  const executionOutput = result.stdout + result.stderr;
+  let completionMode = 'normal-process-exit';
+  let observations;
   if (result.timedOut) {
-    throw proofError(
-      'storekit_test_timeout',
-      'Xcode StoreKit test-without-building exceeded its 90 second process deadline',
-    );
-  }
-  if (result.exitCode !== 0) {
+    observations = assertCompletedStoreKitTimeoutEvidence(executionOutput, transcript);
+    completionMode = 'completed-suite-before-xcode-process-timeout';
+  } else if (result.exitCode !== 0) {
     throw proofError('storekit_test_failed', `Xcode StoreKit Test exited ${result.exitCode}`);
+  } else {
+    observations = assertExecutedStoreKitEvidence(executionOutput, transcript);
   }
-
-  const observations = assertExecutedStoreKitEvidence(result.stdout + result.stderr, transcript);
   return {
     ok: true,
     evidenceKind: 'xcode-storekit-test-non-live',
@@ -305,6 +332,7 @@ export async function runB3IosStoreKitTest({ env = process.env, stream = true } 
     simulator,
     productId: configurationProductId,
     observations,
+    completionMode,
     resultBundle: '.native-build/ios-storekit-test/B3StoreKitTest.xcresult',
   };
 }

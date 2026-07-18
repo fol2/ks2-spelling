@@ -35,6 +35,11 @@ test('public architecture states the exact local-first B3 claim boundary', async
   ]) {
     assert.match(publicWording, claim);
   }
+
+  assert.doesNotMatch(
+    publicWording,
+    /B3 proves sandbox\/test commerce and signed-download truth only/i,
+  );
 });
 
 test('evidence accepts only UUID v4 Worker version IDs and lowercase 32-hex R2 ETags', () => {

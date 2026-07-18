@@ -2,32 +2,32 @@
   "schemaVersion": 1,
   "productIdentifier": "b4-starter-product",
   "applicationCheckpoint": {
-    "commit": "ee2466fd7b752028c985ffc1e41e3ee238e8eef1",
-    "tree": "1721c6d7bd1b03751ded043d0bcf2cc48c76993f"
+    "commit": "e013710fa0db9931776142aee6155c08cc43e1fb",
+    "tree": "c5b482f21d974fb9e72669a9d52c8ec1880ac51c"
   },
   "bundleInputs": {
     "ios": {
       "kind": "directory-sha256",
-      "sha256": "d80d20af5b4bde280812989e6ccfdeeb7a174f5bec397f168942132c778e3f78",
+      "sha256": "35d184b6109621c34493045f6bdd12768020d95a41ba50f9043a5cbc1b6a5ae8",
       "fileCount": 64,
-      "byteSize": 18215259
+      "byteSize": 18215685
     },
     "android": {
       "kind": "file-sha256",
-      "sha256": "ec0f1031d58d28fa14c9b8d938fbddab1816fec689f2fbdb389ed2f5d6a6ddfd",
-      "byteSize": 28197684
+      "sha256": "b17f6956f1ed40a9bbf16b36fce51722afe2055ed1284b6e2a2e1d4516e82760",
+      "byteSize": 28198599
     }
   },
   "evidenceSha256": {
-    "reports/b4/domain-round-proof.json": "c0b18dd3fe73f35652c6f5e8d167e5fbf6318b3ca9d02bb79323337bd2b36eb1",
-    "reports/b4/ios-simulator-proof.json": "24502edd2a557d2f5a06aaee9cde94d7ded6073769549c1126d5d9f3eda94a99",
-    "reports/b4/ios-phone.png": "a1a4dcb63b6ce1943b2fa0a99f2a671bf38d85a6e3ef5a20e1347ce870036b3b",
-    "reports/b4/ios-tablet-portrait.png": "cc53935cdecb32919739a020f2881cb35272bf5b17fc807dd642c999a9a824cf",
-    "reports/b4/ios-tablet-landscape.png": "5482cdfe72234f12fc9819fe26eb104106b5115afb18bf010b8be7774eabcdba",
-    "reports/b4/android-emulator-proof.json": "171b833f08347473f359bc8e15364574af4e6a9c439a63781b7224d50414c520",
-    "reports/b4/android-phone.png": "a84556312334b3675437ad782a0a38f8fb5a93df51238010e66d06635a9eceae",
-    "reports/b4/android-tablet-portrait.png": "6361256874616ec29ef6578d3084e53c98acdc722a2804e58e35a65a36ab2310",
-    "reports/b4/android-tablet-landscape.png": "70529b8b0d8a96353c004159730b54161f91713ab0417e065477d1d8597a9489"
+    "reports/b4/domain-round-proof.json": "eafddd984fc95f290944c34fd6ea91accdcf881e9ed59be63dc3d4f0725cfd23",
+    "reports/b4/ios-simulator-proof.json": "a8505ff2b025c2adb3506a6e825767054085fa7ca064510e41cd7a8d069c33e3",
+    "reports/b4/ios-phone.png": "9f13d6b4efe3de2c95323acf2fda4ce67d30f6c55251d3cdec83576daf6197cc",
+    "reports/b4/ios-tablet-portrait.png": "f3a0488b3e1456dc9f300f0c14c420dea542d45d72ca5a9175fdf4b730911a36",
+    "reports/b4/ios-tablet-landscape.png": "2087ad9977f9149a93d2684dcf2226d9dbcbd6315364b87039120167e68448a9",
+    "reports/b4/android-emulator-proof.json": "57117bfcfcd3bbc4b6160d355235cd03f2795d217b8591396f3888c65abca335",
+    "reports/b4/android-phone.png": "63bff4754ca32399ad346ab0d6d745869b689f6675a25c76e16363260bca649a",
+    "reports/b4/android-tablet-portrait.png": "5b16c2238df1a0673a2d7d5c3a3bab18deaae5e0b4d1090563094ad1fb6b4717",
+    "reports/b4/android-tablet-landscape.png": "c6cefbea9f3405fddab60e0894a19f7f6b015b3360ec2cb8bde3842e4d0c514c"
   },
   "claims": {
     "composition": "pass",

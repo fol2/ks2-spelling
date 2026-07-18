@@ -52,6 +52,17 @@ test('the native delayed tests use SKTestSession approval and decline without fi
   assert.match(source, /XCTAssertEqual\([^\n]*"purchased"/);
   assert.match(source, /XCTAssertEqual\([^\n]*"cancelled"/);
   assert.doesNotMatch(source, /\.finish\(\)/);
+
+  const declineStart = source.indexOf(
+    'func testDelayedDeclineProducesNoPurchasedEntitlement()',
+  );
+  const helperStart = source.indexOf('private func beginDelayedPurchase()', declineStart);
+  assert.notEqual(declineStart, -1);
+  assert.notEqual(helperStart, -1);
+  const decline = source.slice(declineStart, helperStart);
+  assert.match(decline, /pendingAskToBuyConfirmation\s*==\s*false/);
+  assert.match(decline, /currentEntitlement\s*==\s*nil/);
+  assert.doesNotMatch(decline, /\.state\s*==\s*\.failed|cancelDate|Task\.sleep/);
 });
 
 test('the wrapper selects only an inventoried iOS Simulator and rejects injected authority', () => {

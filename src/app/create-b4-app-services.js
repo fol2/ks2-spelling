@@ -9,6 +9,7 @@ import { createSQLiteSpellingCommandRepository } from '../platform/database/sqli
 import { createSQLiteSpellingSnapshotStore } from '../platform/database/sqlite-spelling-snapshot-store.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
 import { B4_PRODUCT_IDENTIFIER, B4_START_TIMESTAMP } from './b4-round-contract.js';
+import { createB4LocalAudioPlayer } from './b4-local-audio.js';
 import { createB4RoundController } from './b4-round-controller.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
 import { createSwitchableSqlConnection } from './switchable-sql-connection.js';
@@ -46,6 +47,7 @@ export async function createB4AppServices(options = {}) {
   let lifecycle = null;
   let coordinator = null;
   let controller = null;
+  let playAudio = null;
   try {
     await connection.open();
     await migrate(connection);
@@ -63,6 +65,12 @@ export async function createB4AppServices(options = {}) {
     });
     const repository = successfulRepository(baseRepository, () => { timestampIndex += 1; });
     lifecycle = options.lifecycle ?? (options.lifecycleFactory ?? createCapacitorAppLifecycle)();
+    const audioManifest = options.audioManifest ?? (
+      await import('../../config/b4-audio-manifest.json', { with: { type: 'json' } })
+    ).default;
+    playAudio = options.playAudio ?? createB4LocalAudioPlayer({
+      createAudioElement: options.createAudioElement,
+    });
     coordinator = createDatabaseLifecycleCoordinator({
       lifecycle,
       commandGate: gate,
@@ -73,7 +81,14 @@ export async function createB4AppServices(options = {}) {
     });
     await connection.close();
     await coordinator.start();
-    controller = createB4RoundController({ catalogue, repository, snapshotStore });
+    controller = createB4RoundController({
+      catalogue,
+      repository,
+      snapshotStore,
+      audioManifest,
+      playAudio,
+      lifecycle,
+    });
     let disposePromise;
     return Object.freeze({
       mode: B4_PRODUCT_IDENTIFIER,
@@ -97,6 +112,7 @@ export async function createB4AppServices(options = {}) {
     try {
       await disposeAll([
         controller && (() => controller.dispose()),
+        !controller && playAudio?.dispose && (() => playAudio.dispose()),
         coordinator && (() => coordinator.dispose()),
         lifecycle && (() => lifecycle.dispose()),
         () => connection.close(),

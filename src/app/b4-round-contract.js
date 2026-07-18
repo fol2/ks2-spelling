@@ -200,25 +200,25 @@ export function characteriseB4Round({ randomFrom: createRandom = randomFrom } = 
 }
 
 function audioAsset({ runtimeItemId, sentence = null, kind, input, sequence }) {
-  const paceInstruction = kind === 'word-natural'
-    ? 'Speak only the spelling word at a natural pace.'
-    : kind === 'dictation-slow'
-      ? 'Read the sentence slowly for dictation, with clear natural pauses.'
-      : 'Read the sentence at a natural dictation pace.';
+  const lengthScale = kind === 'dictation-slow' ? 1.35 : 1;
   return Object.freeze({
     assetId: `b4-${String(sequence).padStart(2, '0')}`,
     runtimeItemId,
     sentence,
     kind,
-    generation: Object.freeze({
-      model: B4_AUDIO_AUTHORITY.model,
+    path: `audio/b4/b4-${String(sequence).padStart(2, '0')}.wav`,
+    input,
+    generationSpec: Object.freeze({
+      engine: B4_AUDIO_AUTHORITY.engine,
+      engineVersion: B4_AUDIO_AUTHORITY.engineVersion,
       voice: B4_AUDIO_AUTHORITY.voice,
-      instructions: `${B4_AUDIO_AUTHORITY.instructions} ${paceInstruction}`,
-      responseFormat: B4_AUDIO_AUTHORITY.responseFormat,
-      input,
+      modelSha256: B4_AUDIO_AUTHORITY.modelSha256,
+      configSha256: B4_AUDIO_AUTHORITY.configSha256,
+      noiseScale: 0,
+      noiseWScale: 0,
+      lengthScale,
+      outputFormat: B4_AUDIO_AUTHORITY.outputFormat,
     }),
-    authority: B4_AUDIO_AUTHORITY,
-    sha256: null,
   });
 }
 
@@ -230,16 +230,20 @@ export function createB4AudioInventory() {
     assets.push(audioAsset({
       runtimeItemId,
       kind: 'word-natural',
-      input: item.target,
+      input: `${item.target}.`,
       sequence: assets.length + 1,
     }));
   }
   for (const prompt of B4_SENTENCE_PROMPTS) {
     for (const kind of ['dictation-normal', 'dictation-slow']) {
+      const input = kind === 'dictation-slow' &&
+        prompt.sentence === 'We will arrive before lunch.'
+        ? 'We will... arrive before lunch.'
+        : prompt.sentence;
       assets.push(audioAsset({
         ...prompt,
         kind,
-        input: prompt.sentence,
+        input,
         sequence: assets.length + 1,
       }));
     }
@@ -249,17 +253,36 @@ export function createB4AudioInventory() {
 
 export function validateB4AudioManifest(value) {
   const expected = createB4AudioInventory();
-  const complete = value?.productIdentifier === B4_PRODUCT_IDENTIFIER &&
+  const rootKeys = [
+    'schemaVersion', 'productIdentifier', 'authority', 'authoritySha256',
+    'traceSha256', 'assetCount', 'assets',
+  ];
+  const assetKeys = [
+    'assetId', 'runtimeItemId', 'sentence', 'kind', 'path', 'byteSize',
+    'input', 'inputSha256', 'generationSpecSha256', 'generationSpec', 'assetSha256',
+  ];
+  const complete = value?.schemaVersion === 1 &&
+    Object.keys(value).sort().join('|') === [...rootKeys].sort().join('|') &&
+    value.productIdentifier === B4_PRODUCT_IDENTIFIER &&
+    JSON.stringify(value.authority) === JSON.stringify(B4_AUDIO_AUTHORITY) &&
+    /^[a-f0-9]{64}$/u.test(value.authoritySha256) &&
+    /^[a-f0-9]{64}$/u.test(value.traceSha256) &&
+    value.assetCount === expected.length &&
     Array.isArray(value.assets) && value.assets.length === expected.length &&
     value.assets.every((asset, index) => {
       const frozen = expected[index];
-      return asset?.assetId === frozen.assetId &&
+      return asset && Object.keys(asset).sort().join('|') === [...assetKeys].sort().join('|') &&
+        asset.assetId === frozen.assetId &&
         asset.runtimeItemId === frozen.runtimeItemId &&
         asset.sentence === frozen.sentence &&
         asset.kind === frozen.kind &&
-        JSON.stringify(asset.generation) === JSON.stringify(frozen.generation) &&
-        JSON.stringify(asset.authority) === JSON.stringify(B4_AUDIO_AUTHORITY) &&
-        /^[a-f0-9]{64}$/u.test(asset.sha256);
+        asset.path === frozen.path &&
+        asset.input === frozen.input &&
+        Number.isSafeInteger(asset.byteSize) && asset.byteSize > 0 &&
+        /^[a-f0-9]{64}$/u.test(asset.inputSha256) &&
+        /^[a-f0-9]{64}$/u.test(asset.generationSpecSha256) &&
+        JSON.stringify(asset.generationSpec) === JSON.stringify(frozen.generationSpec) &&
+        /^[a-f0-9]{64}$/u.test(asset.assetSha256);
     });
   if (!complete) {
     const error = new Error('B4 audio source, voice, redistribution authority and hashes must be complete.');

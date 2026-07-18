@@ -1,0 +1,121 @@
+import { validateB4AudioManifest } from './b4-round-contract.js';
+
+const SAFE_LOCAL_PATH = /^audio\/b4\/[a-z0-9-]+\.wav$/u;
+
+function audioError(code, options) {
+  const error = new Error(code, options);
+  error.code = code;
+  return error;
+}
+
+export function resolveB4AudioPath(manifestValue, { runtimeItemId, sentence = null, slow = false }) {
+  const manifest = validateB4AudioManifest(manifestValue);
+  const kind = sentence === null
+    ? 'word-natural'
+    : slow ? 'dictation-slow' : 'dictation-normal';
+  const asset = manifest.assets.find((candidate) =>
+    candidate.runtimeItemId === runtimeItemId &&
+    candidate.sentence === sentence &&
+    candidate.kind === kind,
+  );
+  if (!asset || !SAFE_LOCAL_PATH.test(asset.path)) throw audioError('b4_audio_asset_missing');
+  return asset.path;
+}
+
+export function createB4LocalAudioPlayer({
+  createAudioElement = () => new Audio(),
+  onError = () => {},
+} = {}) {
+  if (typeof createAudioElement !== 'function') throw new TypeError('createAudioElement must be a function.');
+  if (typeof onError !== 'function') throw new TypeError('onError must be a function.');
+  let active = null;
+  let generation = 0;
+  let disposed = false;
+
+  function reset(element) {
+    element.pause();
+    element.currentTime = 0;
+    element.removeAttribute?.('src');
+    element.load?.();
+  }
+
+  function stop(reason = 'b4_audio_interrupted') {
+    generation += 1;
+    if (!active) return;
+    const current = active;
+    active = null;
+    reset(current.element);
+    current.reject?.(audioError(reason));
+  }
+
+  async function startPath(paths, index, token, settle) {
+    if (disposed || token !== generation) return;
+    const path = paths[index];
+    if (!path) return;
+    const element = createAudioElement();
+    if (!element || typeof element.play !== 'function' || typeof element.pause !== 'function') {
+      throw new TypeError('createAudioElement must return an audio-like element.');
+    }
+    element.preload = 'auto';
+    element.currentTime = 0;
+    element.src = path;
+    let playing = false;
+    const rejectPending = (error) => {
+      if (token !== generation) return;
+      active = null;
+      reset(element);
+      const normalised = error?.code ? error : audioError('b4_audio_play_failed', { cause: error });
+      if (!settle.started) settle.reject(normalised);
+      else onError(normalised);
+    };
+    active = {
+      element,
+      reject(error) {
+        if (!playing) settle.reject(error);
+        else onError(error);
+      },
+    };
+    element.addEventListener('playing', () => {
+      if (token !== generation || playing) return;
+      playing = true;
+      active.reject = null;
+      if (!settle.started) {
+        settle.started = true;
+        settle.resolve(Object.freeze({ status: 'playing', path: paths[0] }));
+      }
+    }, { once: true });
+    element.addEventListener('ended', () => {
+      if (token !== generation) return;
+      reset(element);
+      active = null;
+      void startPath(paths, index + 1, token, settle).catch(rejectPending);
+    }, { once: true });
+    element.addEventListener('error', () => rejectPending(audioError('b4_audio_play_failed')), { once: true });
+    try {
+      await element.play();
+    } catch (error) {
+      rejectPending(error);
+    }
+  }
+
+  function play(paths) {
+    if (disposed) return Promise.reject(audioError('b4_audio_player_disposed'));
+    const sequence = Array.isArray(paths) ? [...paths] : [paths];
+    if (sequence.length === 0 || sequence.some((path) => typeof path !== 'string' || !SAFE_LOCAL_PATH.test(path))) {
+      return Promise.reject(audioError('b4_audio_path_invalid'));
+    }
+    stop();
+    const token = generation;
+    return new Promise((resolve, reject) => {
+      void startPath(sequence, 0, token, { resolve, reject, started: false }).catch(reject);
+    });
+  }
+
+  play.stop = () => stop();
+  play.dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    stop('b4_audio_player_disposed');
+  };
+  return Object.freeze(play);
+}

@@ -78,9 +78,12 @@ test('trace-derived B4 audio inventory rejects pending authority', () => {
   assert.equal(inventory.filter(({ kind }) => kind === 'dictation-normal').length, 10);
   assert.equal(inventory.filter(({ kind }) => kind === 'dictation-slow').length, 10);
   assert.deepEqual(
-    [B4_AUDIO_AUTHORITY.model, B4_AUDIO_AUTHORITY.voice, B4_AUDIO_AUTHORITY.responseFormat],
-    ['gpt-4o-mini-tts', 'cedar', 'mp3'],
+    [B4_AUDIO_AUTHORITY.engine, B4_AUDIO_AUTHORITY.engineVersion, B4_AUDIO_AUTHORITY.voice],
+    ['piper-tts', '1.5.0', 'en_GB-cori-medium'],
   );
+  assert.equal(B4_AUDIO_AUTHORITY.engineLicence, 'GPL-3.0-or-later');
+  assert.equal(B4_AUDIO_AUTHORITY.voiceRights, 'public domain; permitted for any legal and ethical purpose');
+  assert.equal(B4_AUDIO_AUTHORITY.outputFormat, 'wav-pcm-s16le-mono-22050hz');
   assert.equal(B4_AUDIO_AUTHORITY.backendGenerated, true);
   assert.equal(B4_AUDIO_AUTHORITY.runtimeGeneration, false);
   assert.equal(B4_AUDIO_AUTHORITY.runtimeProviderAccess, false);

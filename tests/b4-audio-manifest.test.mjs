@@ -214,4 +214,5 @@ test('B4 Vite build contains all 25 exact WAV bytes and bound manifest authority
   assert.match(source, /en_GB-cori-medium/u);
   assert.match(source, /public domain; permitted for any legal and ethical purpose/u);
   assert.match(source, /bundled-development-proof/u);
+  assert.doesNotMatch(source, /\.\.\/\.\.\/config\/b4-audio-manifest\.json/u);
 });

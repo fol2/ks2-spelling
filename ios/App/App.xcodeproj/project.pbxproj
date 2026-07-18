@@ -27,6 +27,7 @@
 		C31900000000000000000001 /* BuildAuthorityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31900000000000000000011 /* BuildAuthorityPlugin.swift */; };
 		C31900000000000000000002 /* B3ProofObservationPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31900000000000000000013 /* B3ProofObservationPlugin.swift */; };
 		D31900000000000000000001 /* B3ProofScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31900000000000000000011 /* B3ProofScreenshotTests.swift */; };
+		E41900000000000000000001 /* B4DevelopmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41900000000000000000011 /* B4DevelopmentTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,6 +65,7 @@
 		C31900000000000000000013 /* B3ProofObservationPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = B3ProofObservationPlugin.swift; sourceTree = "<group>"; };
 		D31900000000000000000011 /* B3ProofScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = B3ProofScreenshotTests.swift; sourceTree = "<group>"; };
 		D31900000000000000000012 /* B3ProofUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = B3ProofUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E41900000000000000000011 /* B4DevelopmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = B4DevelopmentTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,6 +153,7 @@
 			isa = PBXGroup;
 			children = (
 				D31900000000000000000011 /* B3ProofScreenshotTests.swift */,
+				E41900000000000000000011 /* B4DevelopmentTests.swift */,
 			);
 			path = B3ProofUITests;
 			sourceTree = "<group>";
@@ -336,6 +339,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D31900000000000000000001 /* B3ProofScreenshotTests.swift in Sources */,
+				E41900000000000000000001 /* B4DevelopmentTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

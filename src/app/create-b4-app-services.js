@@ -66,7 +66,7 @@ export async function createB4AppServices(options = {}) {
     const repository = successfulRepository(baseRepository, () => { timestampIndex += 1; });
     lifecycle = options.lifecycle ?? (options.lifecycleFactory ?? createCapacitorAppLifecycle)();
     const audioManifest = options.audioManifest ?? (
-      await import('../../config/b4-audio-manifest.json', { with: { type: 'json' } })
+      await import('../../config/b4-audio-manifest.json')
     ).default;
     playAudio = options.playAudio ?? createB4LocalAudioPlayer({
       createAudioElement: options.createAudioElement,

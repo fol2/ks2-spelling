@@ -256,6 +256,13 @@ test('B4 surface has one semantic task order and non-duplicated polite announcem
     previousIndex = index;
   }
 
+  const liveRegionIndex = html.indexOf('class="b4-live-region"');
+  assert.ok(
+    liveRegionIndex > html.indexOf('>Slow replay</button>') &&
+      liveRegionIndex < html.indexOf('id="b4-spelling-input"'),
+    'Playback status must remain beside the listening controls at large text sizes',
+  );
+
   assert.match(html, /class="b4-feedback b4-feedback-retry" role="status">/);
   assert.doesNotMatch(html, /class="b4-feedback[^>]+aria-live=/);
   assert.match(html, /class="b4-live-region" aria-live="polite" aria-atomic="true">Audio playing/);

@@ -147,6 +147,11 @@ function B4App({ services }) {
       ? 'Audio is unavailable just now. You can still continue.'
       : roundState.audio.status === 'playing' ? 'Audio playing' : ''
   );
+  const liveRegion = (
+    <p className="b4-live-region" aria-live="polite" aria-atomic="true">
+      {liveMessage}
+    </p>
+  );
 
   return (
     <main className="shell b4-learner-shell" aria-labelledby="b4-round-title">
@@ -169,6 +174,7 @@ function B4App({ services }) {
           <form onSubmit={learnerAction.submit}>
             <button type="submit" disabled={busy}>Start a fresh round</button>
           </form>
+          {liveRegion}
         </section>
       ) : (
         <section
@@ -185,6 +191,7 @@ function B4App({ services }) {
               Slow replay
             </button>
           </div>
+          {liveRegion}
           <form className="b4-entry-form" onSubmit={learnerAction.submit}>
             <label htmlFor="b4-spelling-input">Type the spelling</label>
             <input
@@ -220,10 +227,6 @@ function B4App({ services }) {
           )}
         </section>
       )}
-
-      <p className="b4-live-region" aria-live="polite" aria-atomic="true">
-        {liveMessage}
-      </p>
       <aside className="b4-audio-disclosure" aria-label="Audio information">
         {B4_AUDIO_AUTHORITY.futureDisclosure}
       </aside>

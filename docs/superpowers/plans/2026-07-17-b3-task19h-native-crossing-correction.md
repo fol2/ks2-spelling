@@ -8,8 +8,10 @@ force-stop receipt ordering, the Android five-second hold and the D5 deletion
 proof. All other B3 authorities remain unchanged.
 
 Task 19 is still open. This correction performs no Cloudflare/R2/store/device,
-signing, installation or evidence mutation. Five independent reviewers must
-approve the new exact HEAD; no approval from an earlier SHA carries forward.
+signing, installation or evidence mutation. The three-review gate in the Task 19H
+scope correction supersedes the earlier five-review gate. Gstack, Matt and
+Ponytail must approve the same exact HEAD; an actionable P1/P2 correction inside
+the frozen Task 19 boundary invalidates all earlier approvals.
 
 ## Exact invocation finalisation
 

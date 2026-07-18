@@ -56,16 +56,16 @@ real application composition and SQLite recovery semantics. It must not deploy,
 write R2, mutate store consoles, sign, install, operate physical devices or
 publish live evidence.
 
-Task 19 closes only when five independent reviews approve one exact HEAD for:
+Task 19 closes only when three independent reviews approve one exact HEAD:
 
-1. specification and production-trace compliance;
-2. SQLite concurrency and recovery semantics;
-3. native transport, command injection and privacy;
-4. Cloudflare exact-byte, R2 and credential security; and
-5. code quality and test adequacy.
+1. Gstack confirms the frozen Task 19 scope and Task 22 deferral;
+2. Matt reviews Standards and Spec compliance; and
+3. Ponytail rejects over-engineering and premature Task 22 work.
 
-Every Critical or Important correction creates a new exact HEAD and invalidates
-all prior Task 19 approvals.
+Only actionable P1/P2 findings inside the frozen Task 19 boundary block
+completion. Every such correction creates a new exact HEAD and invalidates all
+three Task 19 approvals. The detailed gate is defined by the Task 19H scope
+correction.
 
 ### Task 20 — clean application checkpoint
 

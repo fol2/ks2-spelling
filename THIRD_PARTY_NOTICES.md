@@ -5,10 +5,10 @@ This is the deterministic dependency inventory for the B3 compiled sandbox capab
 - Android resolution: `resolved-toolchain`
 - npm lock identities: 189
 - SwiftPM identities: 3
-- Maven selected module identities: 326
+- Maven selected module identities: 327
 - Maven task-created build-tool identities: 13
-- Maven verification inventory: 441 components and 875 artefacts
-- Notice rows: 531
+- Maven verification inventory: 442 components and 878 artefacts
+- Notice rows: 532
 - Physically bundled WebView npm packages: @capacitor-community/sqlite, @capacitor/app, @capacitor/core, react, react-dom, scheduler
 - Notice inclusion is deliberately conservative and does not mean an npm artefact is packaged
 - App-owned runtime network endpoint: the exact tracked B3 public sandbox gateway origin; store-vendor runtime data-practice and live cloud proof remain separate
@@ -276,6 +276,7 @@ This is the deterministic dependency inventory for the B3 compiled sandbox capab
 | androidx.test.espresso:espresso-idling-resource | 3.7.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/espresso/espresso-idling-resource/3.7.0/espresso-idling-resource-3.7.0.pom | tooling-or-test-only | packaged=false |
 | androidx.test.ext:junit | 1.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/ext/junit/1.3.0/junit-1.3.0.pom | tooling-or-test-only | packaged=false |
 | androidx.test.services:storage | 1.6.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/services/storage/1.6.0/storage-1.6.0.pom | tooling-or-test-only | packaged=false |
+| androidx.test.uiautomator:uiautomator | 2.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/test/uiautomator/uiautomator/2.3.0/uiautomator-2.3.0.pom | tooling-or-test-only | packaged=false |
 | androidx.tracing:tracing | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.0.0/tracing-1.0.0.pom | tooling-or-test-only | packaged=false |
 | androidx.tracing:tracing | 1.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.2.0/tracing-1.2.0.pom | packaged-runtime | packaged=true |
 | androidx.vectordrawable:vectordrawable-animated | 1.1.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/vectordrawable/vectordrawable-animated/1.1.0/vectordrawable-animated-1.1.0.pom | packaged-runtime | packaged=true |

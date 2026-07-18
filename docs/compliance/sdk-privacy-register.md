@@ -94,8 +94,8 @@ before C3 child UI.
 
 The app-owned Android commerce bridge adds the exact official
 `com.android.billingclient:billing:9.1.0` Java artefact. The current locked B3
-graph resolves 326 unique module-version nodes across 5,568 exact scope
-memberships; 74 occur in the packaged release runtime. The finite Gradle verification inventory contains 441 components and 875 artefacts. B2 reports
+graph resolves 327 unique module-version nodes across 5,570 exact scope
+memberships; 74 occur in the packaged release runtime. The finite Gradle verification inventory contains 442 components and 878 artefacts. B2 reports
 above remain frozen and are not rewritten by this transition.
 
 The merged B3 APK requests only the existing normal `INTERNET` permission plus

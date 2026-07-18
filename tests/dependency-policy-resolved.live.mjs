@@ -112,15 +112,15 @@ test('default audit consumes the complete resolved Android certification', async
     },
     {
       status: 'resolved-toolchain',
-      componentCount: 326,
-      scopeMembershipCount: 5568,
+      componentCount: 327,
+      scopeMembershipCount: 5570,
       packagedRuntimeCount: 74,
       scopeRestrictedToolingCount: 25,
       taskCreatedBuildToolCount: 13,
     },
   );
-  assert.equal(report.androidResolution.verificationComponentCount, 441);
-  assert.equal(report.androidResolution.verificationArtifactCount, 875);
+  assert.equal(report.androidResolution.verificationComponentCount, 442);
+  assert.equal(report.androidResolution.verificationArtifactCount, 878);
   const complianceRegister = await readFile(
     join(ROOT, 'docs/compliance/sdk-privacy-register.md'),
     'utf8',
@@ -133,7 +133,7 @@ test('default audit consumes the complete resolved Android certification', async
   );
   assert.equal(
     report.gradleDeclared.filter(({ resolution }) => resolution === 'resolved-toolchain').length,
-    16,
+    17,
   );
   assert.equal(
     report.gradleDeclared.filter(({ resolution }) => resolution === 'inactive-condition').length,

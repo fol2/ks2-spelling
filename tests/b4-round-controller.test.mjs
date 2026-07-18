@@ -21,6 +21,7 @@ import {
   createB4AudioInventory,
 } from '../src/app/b4-round-contract.js';
 import { createB4AppServices } from '../src/app/create-b4-app-services.js';
+import { createB4LearnerAction } from '../src/app/b4-learner-action.js';
 import { createB4RoundController } from '../src/app/b4-round-controller.js';
 import { randomFrom } from './fixtures/b2-command-scenarios.mjs';
 import { createNodeSqliteConnection } from './helpers/node-sqlite-connection.mjs';
@@ -161,6 +162,140 @@ test('headless B4 services commit, rehydrate mid-round and complete five cards',
   const durable = await services.snapshotStore.read('learner-a');
   assert.equal(durable.revision, B4_COMMAND_TRACE.length);
   assert.deepEqual(durable.subjectState.ui.summary, B4_SUMMARY);
+});
+
+test('concurrent React start effects share one durable session start', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-b4-concurrent-start-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const services = await createB4AppServices({
+    connectionFactory: () => createNodeSqliteConnection(join(directory, 'round.sqlite')),
+    lifecycleFactory: createLifecycle,
+    audioManifest: placeholderManifest(),
+    playAudio: silentPlayer(),
+  });
+  t.after(() => services.dispose());
+
+  const [first, second] = await Promise.all([
+    services.controller.start(),
+    services.controller.start(),
+  ]);
+  assert.equal(first.revision, 1);
+  assert.equal(second.revision, 1);
+  assert.equal((await services.snapshotStore.read('learner-a')).revision, 1);
+});
+
+test('real typed answers follow durable retry feedback and continue the committed card', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-b4-real-answer-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const databasePath = join(directory, 'round.sqlite');
+  const options = {
+    connectionFactory: () => createNodeSqliteConnection(databasePath),
+    lifecycleFactory: createLifecycle,
+    audioManifest: placeholderManifest(),
+    playAudio: silentPlayer(),
+  };
+  let services = await createB4AppServices(options);
+  let state = await services.controller.start();
+  const committedRuntimeItemId = state.currentRuntimeItemId;
+  const target = loadStarterSpellingCatalogue().items.find(
+    ({ runtimeItemId }) => runtimeItemId === committedRuntimeItemId,
+  ).target;
+
+  state = await services.controller.submit('definitely-wrong');
+  assert.equal(state.currentRuntimeItemId, committedRuntimeItemId);
+  assert.equal(state.answerPhase, 'retry');
+  assert.equal(state.awaitingAdvance, false);
+  assert.equal(state.feedback.kind, 'error');
+  assert.match(state.feedback.headline, /not quite/i);
+
+  state = await services.controller.submit(target);
+  assert.equal(state.currentRuntimeItemId, committedRuntimeItemId);
+  assert.equal(state.awaitingAdvance, true);
+  assert.notEqual(state.feedback.kind, 'error');
+  const revision = state.revision;
+  await services.dispose();
+
+  services = await createB4AppServices(options);
+  t.after(() => services.dispose());
+  state = await services.controller.rehydrate();
+  assert.equal(state.revision, revision);
+  assert.equal(state.currentRuntimeItemId, committedRuntimeItemId);
+  assert.equal(state.awaitingAdvance, true);
+
+  state = await services.controller.continue();
+  assert.equal(state.revision, revision + 1);
+  assert.equal(state.awaitingAdvance, false);
+});
+
+test('the learner form action completes the genuine five-card domain round', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-b4-form-round-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const services = await createB4AppServices({
+    connectionFactory: () => createNodeSqliteConnection(join(directory, 'round.sqlite')),
+    lifecycleFactory: createLifecycle,
+    audioManifest: placeholderManifest(),
+    playAudio: silentPlayer(),
+  });
+  t.after(() => services.dispose());
+  const catalogue = loadStarterSpellingCatalogue();
+  let state = await services.controller.start();
+  let answer = '';
+  const errors = [];
+  const action = createB4LearnerAction({
+    controller: services.controller,
+    readState: () => state,
+    readAnswer: () => answer,
+    onState: (next) => { state = next; },
+    onAnswer: (next) => { answer = next; },
+    onBusy: () => {},
+    onError: (error) => errors.push(error.code),
+  });
+
+  while (state.phase !== 'summary') {
+    if (!state.awaitingAdvance) {
+      answer = catalogue.items.find(
+        ({ runtimeItemId }) => runtimeItemId === state.currentRuntimeItemId,
+      ).target;
+    }
+    await action.submit({ preventDefault() {} });
+  }
+
+  assert.deepEqual(errors, []);
+  assert.equal(state.revision, B4_COMMAND_TRACE.length);
+  assert.deepEqual(state.summary, B4_SUMMARY);
+  assert.equal(answer, '');
+});
+
+test('fresh round starts deterministically from a genuine committed summary', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-b4-fresh-round-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  async function completeAndRestart(filename) {
+    const services = await createB4AppServices({
+      connectionFactory: () => createNodeSqliteConnection(join(directory, filename)),
+      lifecycleFactory: createLifecycle,
+      audioManifest: placeholderManifest(),
+      playAudio: silentPlayer(),
+    });
+    try {
+      let state = await services.controller.start();
+      while (state.phase !== 'summary') state = await services.controller.advance();
+      const summaryRevision = state.revision;
+      state = await services.controller.freshRound();
+      return { state, summaryRevision };
+    } finally {
+      await services.dispose();
+    }
+  }
+
+  const first = await completeAndRestart('first.sqlite');
+  const second = await completeAndRestart('second.sqlite');
+  assert.equal(first.state.phase, 'session');
+  assert.equal(first.state.revision, first.summaryRevision + 1);
+  assert.equal(first.state.completedRuntimeItemIds.length, 0);
+  assert.ok(B4_RUNTIME_ITEM_IDS.includes(first.state.currentRuntimeItemId));
+  assert.equal(first.state.totalCards, 5);
+  assert.equal(first.state.currentRuntimeItemId, second.state.currentRuntimeItemId);
+  assert.equal(first.state.currentSentence, second.state.currentSentence);
 });
 
 test('genuine A3 audio effects run only post-commit and replay failures never mutate durable state', async () => {

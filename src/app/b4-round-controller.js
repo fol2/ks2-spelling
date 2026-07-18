@@ -2,7 +2,9 @@ import { applySpellingCommand } from '../domain/spelling/index.js';
 import {
   B4_COMMAND_TRACE,
   B4_RANDOM_DRAWS_BEFORE_COMMAND,
+  B4_RUNTIME_ITEM_IDS,
   B4_SEED,
+  B4_START_COMMAND,
   randomFrom,
 } from './b4-round-contract.js';
 import { resolveB4AudioPath } from './b4-local-audio.js';
@@ -21,6 +23,11 @@ function controllerError(code) {
   return error;
 }
 
+function cloneFeedback(feedback) {
+  if (!feedback) return null;
+  return structuredClone(feedback);
+}
+
 function viewState(snapshot, audio) {
   const ui = snapshot.subjectState.ui;
   const session = ui.session;
@@ -36,17 +43,41 @@ function viewState(snapshot, audio) {
     sessionId: session?.id ?? ui.summary?.sessionId ?? null,
     currentRuntimeItemId: session?.currentRuntimeItemId ?? null,
     currentSentence: session?.currentPrompt?.sentence ?? null,
+    answerPhase: session?.phase ?? null,
     awaitingAdvance: ui.awaitingAdvance === true,
     completedRuntimeItemIds: Object.freeze(completedRuntimeItemIds),
+    completedCards: completedRuntimeItemIds.length,
+    totalCards: B4_RUNTIME_ITEM_IDS.length,
+    feedback: cloneFeedback(ui.feedback),
     summary: ui.summary ? structuredClone(ui.summary) : null,
     audio: Object.freeze({ ...audio }),
   });
 }
 
 function randomAtCommand(index) {
+  const frozenOffset = B4_RANDOM_DRAWS_BEFORE_COMMAND[index];
+  if (frozenOffset === undefined) return randomFrom(B4_SEED + index);
   const random = randomFrom(B4_SEED);
-  for (let draw = 0; draw < B4_RANDOM_DRAWS_BEFORE_COMMAND[index]; draw += 1) random();
+  for (let draw = 0; draw < frozenOffset; draw += 1) random();
   return random;
+}
+
+function readyState(audio) {
+  return Object.freeze({
+    phase: 'ready',
+    revision: 0,
+    sessionId: null,
+    currentRuntimeItemId: null,
+    currentSentence: null,
+    answerPhase: null,
+    awaitingAdvance: false,
+    completedRuntimeItemIds: Object.freeze([]),
+    completedCards: 0,
+    totalCards: B4_RUNTIME_ITEM_IDS.length,
+    feedback: null,
+    summary: null,
+    audio: Object.freeze({ ...audio }),
+  });
 }
 
 export function createB4RoundController({
@@ -68,6 +99,15 @@ export function createB4RoundController({
   let disposed = false;
   let playbackGeneration = 0;
   let audio = { status: 'idle', error: null };
+  let currentState = readyState(audio);
+  let startPromise = null;
+  const listeners = new Set();
+
+  function publish(state) {
+    currentState = state;
+    for (const listener of listeners) listener(state);
+    return state;
+  }
 
   function stopPlayback() {
     playbackGeneration += 1;
@@ -92,18 +132,11 @@ export function createB4RoundController({
 
   async function read() {
     if (disposed) throw controllerError('b4_round_controller_disposed');
-    const snapshot = await snapshotStore.read(LEARNER_ID);
-    if (snapshot.revision > B4_COMMAND_TRACE.length) {
-      throw controllerError('b4_round_contract_revision_invalid');
-    }
-    return snapshot;
+    return snapshotStore.read(LEARNER_ID);
   }
 
-  async function advance() {
+  async function runCommand(command) {
     const before = await read();
-    if (before.subjectState.ui.phase === 'summary') return viewState(before, audio);
-    const command = B4_COMMAND_TRACE[before.revision];
-    if (!command) throw controllerError('b4_round_contract_exhausted');
     const plan = await repository.runCommandTransaction(LEARNER_ID, (fresh, context) => {
       if (fresh.revision !== before.revision) {
         throw controllerError('b4_round_revision_changed');
@@ -122,15 +155,56 @@ export function createB4RoundController({
     }
     const effect = plan.transientEffects.find(({ type }) => type === 'audio-cue');
     if (effect) await playCue(effect.payload);
-    return viewState(committed, audio);
+    return publish(viewState(committed, audio));
+  }
+
+  async function advance() {
+    const before = await read();
+    if (before.subjectState.ui.phase === 'summary') {
+      return publish(viewState(before, audio));
+    }
+    const command = B4_COMMAND_TRACE[before.revision];
+    if (!command) throw controllerError('b4_round_contract_exhausted');
+    return runCommand(command);
   }
 
   return Object.freeze({
-    async start() {
-      const snapshot = await read();
-      return snapshot.revision === 0 ? advance() : viewState(snapshot, audio);
+    getState() {
+      return currentState;
+    },
+    subscribe(listener) {
+      if (typeof listener !== 'function') throw new TypeError('listener must be a function.');
+      listeners.add(listener);
+      return Object.freeze({ remove() { listeners.delete(listener); } });
+    },
+    start() {
+      startPromise ??= (async () => {
+        const snapshot = await read();
+        return snapshot.revision === 0
+          ? runCommand(B4_START_COMMAND)
+          : publish(viewState(snapshot, audio));
+      })().finally(() => {
+        startPromise = null;
+      });
+      return startPromise;
     },
     advance,
+    async submit(typed) {
+      if (typeof typed !== 'string' || typed.trim() === '') {
+        throw controllerError('b4_round_answer_required');
+      }
+      return runCommand({ type: 'submit-answer', payload: { typed: typed.trim() } });
+    },
+    async continue() {
+      return runCommand({ type: 'continue-session', payload: {} });
+    },
+    async freshRound() {
+      const snapshot = await read();
+      if (snapshot.subjectState.ui.phase !== 'summary') {
+        throw controllerError('b4_round_not_complete');
+      }
+      return runCommand(B4_START_COMMAND);
+    },
     async replay() {
       const snapshot = await read();
       const prompt = snapshot.subjectState.ui.session?.currentPrompt;
@@ -139,7 +213,7 @@ export function createB4RoundController({
         sentence: prompt?.sentence ?? null,
         slow: false,
       });
-      return viewState(snapshot, audio);
+      return publish(viewState(snapshot, audio));
     },
     async slowReplay() {
       const snapshot = await read();
@@ -149,15 +223,16 @@ export function createB4RoundController({
         sentence: prompt?.sentence ?? null,
         slow: true,
       });
-      return viewState(snapshot, audio);
+      return publish(viewState(snapshot, audio));
     },
     async rehydrate() {
       stopPlayback();
-      return viewState(await read(), audio);
+      return publish(viewState(await read(), audio));
     },
     async dispose() {
       if (disposed) return;
       disposed = true;
+      listeners.clear();
       stopPlayback();
       playAudio.dispose?.();
       await pauseHandle?.remove?.();

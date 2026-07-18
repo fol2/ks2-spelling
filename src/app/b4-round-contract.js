@@ -16,7 +16,7 @@ export const B4_RUNTIME_ITEM_IDS = Object.freeze([
   'ks2-core:build',
 ]);
 
-const START_COMMAND = Object.freeze({
+export const B4_START_COMMAND = Object.freeze({
   type: 'start-session',
   payload: Object.freeze({
     mode: 'smart',
@@ -40,7 +40,7 @@ const CONTINUE_COMMAND = Object.freeze({
 });
 
 export const B4_COMMAND_TRACE = Object.freeze([
-  START_COMMAND,
+  B4_START_COMMAND,
   submit('arrive'), CONTINUE_COMMAND,
   submit('answer'), CONTINUE_COMMAND,
   submit('arrive'), CONTINUE_COMMAND,
@@ -157,7 +157,7 @@ export function characteriseB4Round({ randomFrom: createRandom = randomFrom } = 
   const sentencePrompts = [];
   while (snapshot.subjectState.ui.phase !== 'summary') {
     const ui = snapshot.subjectState.ui;
-    let command = START_COMMAND;
+    let command = B4_START_COMMAND;
     if (commands.length > 0 && ui.awaitingAdvance === true) {
       command = CONTINUE_COMMAND;
     } else if (commands.length > 0) {

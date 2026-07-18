@@ -88,6 +88,7 @@ test('trace-derived B4 audio inventory rejects pending authority', () => {
   assert.equal(B4_AUDIO_AUTHORITY.runtimeGeneration, false);
   assert.equal(B4_AUDIO_AUTHORITY.runtimeProviderAccess, false);
   assert.equal(B4_AUDIO_AUTHORITY.b4Distribution, 'bundled-development-proof');
+  assert.equal(B4_AUDIO_AUTHORITY.productionDistribution, 'server pack/local install');
   assert.deepEqual(B4_AUDIO_AUTHORITY.forbiddenClientTts, [
     'Web SpeechSynthesis',
     'iOS AVSpeechSynthesizer',

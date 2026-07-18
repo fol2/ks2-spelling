@@ -117,7 +117,7 @@ This is one complete **five-card round**, not completion of all 20 Starter items
 C1 owns the production signed Starter 20 content/audio package. C2 owns
 production profiles. C3 owns the full child information architecture.
 
-### Bundled local audio
+### Pre-generated local audio
 
 B4 needs only enough authorised, packaged speech audio to prove the Capacitor
 audio path for the bounded five-card round:
@@ -139,6 +139,15 @@ manifest to exact runtime item, sentence, kind and SHA-256, and packaged into
 both B4 native builds. Reusing one unrelated sound for different words is not
 acceptable round evidence. Browser/native TTS and a network provider are
 forbidden at runtime.
+
+B4 commits this bounded proof set so the installed virtual-device journey is
+reproducible. The production contract remains server-pack/local-install: C1
+will put the complete pre-generated audio set inside each signed downloadable
+pack. The client never generates canonical spelling audio. Missing or corrupt
+audio fails explicitly and recoverably instead of falling back to Web Speech,
+iOS `AVSpeechSynthesizer`, Android `TextToSpeech` or a network provider.
+VoiceOver and TalkBack may read the semantic interface under user control, but
+they are not practice-audio implementations.
 
 `Replay` and `Slow replay` consume the same manifest. A post-commit audio cue may
 start playback only after the SQLite transaction succeeds. Pause, learner

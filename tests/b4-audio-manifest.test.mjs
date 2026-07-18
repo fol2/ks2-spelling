@@ -152,15 +152,18 @@ test('runtime lookup resolves only an exact manifest-listed local cue', async ()
 
 test('B4 product paths contain no runtime fetch, provider or client TTS implementation', async () => {
   const paths = [
+    'src/app/App.jsx',
     'src/app/b4-local-audio.js',
     'src/app/b4-round-contract.js',
     'src/app/b4-round-controller.js',
+    'src/app/create-app-services.js',
     'src/app/create-b4-app-services.js',
   ];
   const source = (await Promise.all(paths.map((path) => readFile(join(root.pathname, path), 'utf8')))).join('\n');
   assert.doesNotMatch(source, /\bfetch\s*\(/u);
   assert.doesNotMatch(source, /speechSynthesis|SpeechSynthesisUtterance|AVSpeechSynthesizer|TextToSpeech/u);
   assert.doesNotMatch(source, /\bspawn\s*\(|\buvx\b|\bpiper\b|OPENAI_API_KEY|\/v1\/audio\/speech/u);
+  assert.match(source, /Audio is unavailable just now\. You can still continue\./u);
 });
 
 test('authoring generator pins public-domain Piper, exact deterministic settings and no secret route', async () => {

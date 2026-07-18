@@ -359,7 +359,6 @@ export async function buildB3ExitReport({
       commit: b2Authority.commit,
       tree: b2Authority.tree,
       exitReport: Object.freeze({
-        path: 'reports/b2/b2-exit-report.json',
         sha256: b2Authority.exitReportSha256,
       }),
     }),

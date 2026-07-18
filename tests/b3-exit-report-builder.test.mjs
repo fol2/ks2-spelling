@@ -178,7 +178,6 @@ test('B3 exit builder composes one hash-only sandbox checkpoint', async () => {
       commit: B2_AUTHORITY.commit,
       tree: B2_AUTHORITY.tree,
       exitReport: {
-        path: 'reports/b2/b2-exit-report.json',
         sha256: B2_AUTHORITY.exitReportSha256,
       },
     });

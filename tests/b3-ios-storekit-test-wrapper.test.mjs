@@ -31,7 +31,7 @@ test('the B3 StoreKit proof command is explicitly a non-live Xcode StoreKit Test
   assert.match(source, /'-test-timeouts-enabled',\s*'YES'/);
   assert.match(source, /'-default-test-execution-time-allowance',\s*'20'/);
   assert.match(source, /'-maximum-test-execution-time-allowance',\s*'30'/);
-  assert.match(source, /const STOREKIT_TEST_TIMEOUT_MS = 90_000/);
+  assert.match(source, /const STOREKIT_TEST_TIMEOUT_MS = 240_000/);
   assert.match(source, /timeoutMs:\s*STOREKIT_TEST_TIMEOUT_MS/);
   assert.match(source, /result\.timedOut[\s\S]*?'storekit_test_timeout'/);
   assert.doesNotMatch(source, /platform=iOS(?:,|$)(?! Simulator)/m);

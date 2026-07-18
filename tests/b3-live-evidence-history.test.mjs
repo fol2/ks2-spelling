@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -9,9 +9,20 @@ import { B3_FINAL_PROOF_OUTPUT_PATHS } from '../scripts/lib/b3-final-proof-outpu
 const COMMIT = '1'.repeat(40);
 const HEAD = '2'.repeat(40);
 const FIRST_FIVE = B3_FINAL_PROOF_OUTPUT_PATHS.slice(0, 5);
+const SOURCE_ROOT = new URL('../', import.meta.url);
+const DETERMINISTIC_REPORTS = Object.freeze([
+  'reports/b3/b3-proof-pack-build.json',
+  'reports/b3/native-build.json',
+  'reports/b3/dependency-audit.json',
+  'reports/b3/deterministic-proof.json',
+]);
 
 async function rootWith(paths = []) {
   const root = await mkdtemp(join(tmpdir(), 'ks2-spelling-b3-history-'));
+  for (const path of DETERMINISTIC_REPORTS) {
+    await mkdir(dirname(join(root, path)), { recursive: true });
+    await copyFile(new URL(path, SOURCE_ROOT), join(root, path));
+  }
   for (const path of paths) {
     await mkdir(dirname(join(root, path)), { recursive: true });
     const value = path.endsWith('cloudflare-sandbox-proof.json')
@@ -55,6 +66,22 @@ test('pending requires six independent never-present history queries and a clean
     assert.deepEqual(
       git.calls.filter(([command]) => command === 'log').map((args) => args.at(-1)),
       B3_FINAL_PROOF_OUTPUT_PATHS,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('pending rejects a deterministic B3 report that is no longer green', async () => {
+  const root = await rootWith();
+  try {
+    const path = join(root, 'reports/b3/deterministic-proof.json');
+    const report = JSON.parse(await readFile(path, 'utf8'));
+    report.status = 'fail';
+    await writeFile(path, `${JSON.stringify(report)}\n`);
+    await assert.rejects(
+      check(root, { runGit: gitFixture().runGit }),
+      /deterministic proof authority is invalid/i,
     );
   } finally {
     await rm(root, { recursive: true, force: true });

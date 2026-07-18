@@ -506,6 +506,13 @@ export async function checkB3LiveEvidenceTopology({
       [...history.values()].every((commits) => commits.length === 0),
       'B3 live evidence was deleted after appearing in history',
     );
+    const [proofPack, nativeBuild, dependencyAudit, deterministicProof] = await Promise.all([
+      readBoundedInput(absoluteRoot, INPUT_PATHS.proofPack),
+      readBoundedInput(absoluteRoot, INPUT_PATHS.nativeBuild),
+      readBoundedInput(absoluteRoot, INPUT_PATHS.dependencyAudit),
+      readBoundedInput(absoluteRoot, INPUT_PATHS.deterministicProof),
+    ]);
+    validateDeterministicInputs({ proofPack, nativeBuild, dependencyAudit, deterministicProof });
     return Object.freeze({ mode: 'pending', testedApplicationCommit: head });
   }
   assert(

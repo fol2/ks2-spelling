@@ -167,16 +167,19 @@ workflow identity and push branch from B2 to
 `jamesto/mobile-b3-billing-download`. Pull requests must check the exact head rather
 than treating GitHub's synthetic merge commit as application authority.
 
-- Domain/Web installs both lockfiles, verifies frozen/vendor authority, runs the
-  default suite, real gateway/workerd tests and dry-run, deterministic proof, lint,
-  build, native sync and `--check-ci`.
+- Domain/Web installs both lockfiles, verifies frozen/vendor authority, materialises
+  deterministic proof-pack and native bundle inputs, then runs the host-neutral
+  default-suite tests, real gateway/workerd tests and dry-run, deterministic proof,
+  lint, build and `--check-ci`. Platform execution stays in the native lanes; the
+  two cross-host aggregate tests remain in the full local `verify:b3` gate.
 - iOS runs native sync, unsigned normal and B3 compilation, the owned hostile pack
   inspector, the non-live StoreKit test and `--check-ci`.
 - Android retains Java 21/API 36, runs Java tests plus normal/B3 unsigned builds,
   dependency certification/resolved policy and `--check-ci`.
 
 The known local Xcode 26.6/iOS 26.5 StoreKit runtime error remains fail-closed. Do
-not add a mock or weaken the hosted StoreKit gate.
+not add a mock or weaken the hosted StoreKit gate. The wrapper allows four minutes
+for a clean hosted Xcode build while preserving the 20/30-second XCTest limits.
 
 ### T4 — Document the checkpoint boundary
 

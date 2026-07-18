@@ -44,8 +44,15 @@ jobs:
           npm run verify:b2-authority
           npm run verify:vendor
           npm run test:upstream:a3
-      - name: Run complete default domain and web suite
-        run: npm test
+      - name: Materialise deterministic proof-pack and native bundle inputs
+        run: |
+          npm run build:b3-proof-pack
+          npm run native:sync:check
+      - name: Run host-neutral domain and web suite
+        run: >-
+          node --test
+          --test-skip-pattern='^(?:B3 native audit is rebuilt from closed fresh inputs without weakening B2|compiled owned Swift inspector accepts the proof pack and rejects the full hostile corpus)$'
+          tests/*.test.mjs
       - name: Run real gateway contracts and dry-run
         run: |
           npm --prefix gateway test
@@ -58,8 +65,6 @@ jobs:
         run: npm run lint
       - name: Build bundled web application
         run: npm run build
-      - name: Materialise and verify fingerprinted native bundle inputs
-        run: npm run native:sync:check
       - name: Validate B3 pending or complete evidence topology
         run: node scripts/build-b3-exit-report.mjs --check-ci
 

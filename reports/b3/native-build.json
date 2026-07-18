@@ -266,9 +266,9 @@
     "archiveSha256": "4c2ca2eb4d4bb7ac3347b66e3483dcb6aa71b41958704733bfc471c970ce7664",
     "exclusionScan": {
       "authorisedFixtureDirectory": "tests/fixtures/keys",
-      "filesScanned": 759,
-      "bytesScanned": 43753294,
-      "expandedArchiveBytesScanned": 33217375
+      "filesScanned": 687,
+      "bytesScanned": 42987772,
+      "expandedArchiveBytesScanned": 32865419
     },
     "signingFixturePackaged": false
   },

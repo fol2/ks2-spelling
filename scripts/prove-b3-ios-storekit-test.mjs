@@ -14,7 +14,7 @@ const RESULT_BUNDLE = resolve(
   '.native-build/ios-storekit-test/B3StoreKitTest.xcresult',
 );
 const DERIVED_DATA = resolve(ROOT, '.native-build/ios-storekit-test');
-const STOREKIT_TEST_TIMEOUT_MS = 90_000;
+const STOREKIT_TEST_TIMEOUT_MS = 240_000;
 const OBSERVATION_PATTERN =
   /B3_STOREKIT_OBSERVATION case=(delayed-(?:approve|decline)) productId=([a-z][a-z0-9]*(?:[._][a-z0-9]+)+) initial=(pending) final=(purchased|cancelled) verifiedProof=(true|false)/g;
 
@@ -219,7 +219,7 @@ export async function runB3IosStoreKitTest({ env = process.env, stream = true } 
   if (result.timedOut) {
     throw proofError(
       'storekit_test_timeout',
-      'Xcode StoreKit Test exceeded its 90 second process deadline',
+      'Xcode StoreKit Test exceeded its 240 second process deadline',
     );
   }
   if (result.exitCode !== 0) {

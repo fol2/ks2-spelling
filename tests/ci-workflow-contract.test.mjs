@@ -62,7 +62,7 @@ test('all lanes accept only pending or complete B3 evidence topology', async () 
   );
 });
 
-test('Domain/Web proves root and real gateway contracts without a native toolchain', async () => {
+test('Domain/Web proves host-neutral and gateway contracts without claiming native hosts', async () => {
   const workflow = await readWorkflow();
   const domain = extractJob(workflow, 'domain-web');
 
@@ -72,7 +72,11 @@ test('Domain/Web proves root and real gateway contracts without a native toolcha
     'npm run verify:b2-authority',
     'npm run verify:vendor',
     'npm run test:upstream:a3',
-    'npm test',
+    'npm run build:b3-proof-pack',
+    'npm run native:sync:check',
+    '--test-skip-pattern=',
+    'B3 native audit is rebuilt from closed fresh inputs without weakening B2',
+    'compiled owned Swift inspector accepts the proof pack and rejects the full hostile corpus',
     'npm --prefix gateway test',
     'npm --prefix gateway run lint',
     'npm --prefix gateway run deploy:dry-run',
@@ -80,8 +84,16 @@ test('Domain/Web proves root and real gateway contracts without a native toolcha
     'npm run prove:b3:deterministic',
     'npm run lint',
     'npm run build',
-    'npm run native:sync:check',
   ]) assert.match(domain, new RegExp(command.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.doesNotMatch(domain, /^\s+run: npm test$/m);
+  assert.ok(
+    domain.indexOf('npm run build:b3-proof-pack') < domain.indexOf('--test-skip-pattern='),
+    'the proof pack must exist before the host-neutral suite',
+  );
+  assert.ok(
+    domain.indexOf('npm run native:sync:check') < domain.indexOf('--test-skip-pattern='),
+    'native bundle inputs must exist before the host-neutral suite',
+  );
   assert.doesNotMatch(
     domain,
     /setup-java|setup-gradle|sdkmanager|test:ios|test:android|certify:android|test:android-resolved-policy|xcodebuild/,

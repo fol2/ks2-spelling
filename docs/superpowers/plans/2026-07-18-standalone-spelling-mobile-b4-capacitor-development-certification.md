@@ -99,13 +99,17 @@ Starter audio is present.
 
 - Use the existing synthetic local learner `learner-a` only for B4 development
   evidence. C2 owns production profile creation, selection and multi-child UI.
+- Add an explicit B4 development build configuration. Keep the current normal
+  B2 composition and its wrappers unchanged until Gate B returns `GO`; B3 also
+  remains confined to its existing explicit proof configuration.
 - Start one five-card `smart` round from five permanent Starter runtime IDs.
 - Use the existing planner and command repository for every transition.
 - Render only committed or freshly rehydrated state. React component state may
   hold view input and busy/error state, but it must not become a second durable
   spelling session.
-- Complete the round with five correct submitted answers and the required
-  continue transitions.
+- Complete five unique A3-planned items through the genuine A3 summary. The
+  number and order of submit/continue transitions come from the engine; the
+  controller must not assume one submission per item.
 - Prove one mid-round termination and relaunch resumes the same session and
   advances each card exactly once.
 
@@ -116,26 +120,34 @@ production profiles. C3 owns the full child information architecture.
 ### Bundled local audio
 
 B4 needs only enough authorised, packaged speech audio to prove the Capacitor
-audio path for the five-card round:
+audio path for the bounded five-card round:
 
 - one natural word cue per selected card;
-- one normal dictation sentence per selected card; and
-- one slow dictation sentence per selected card.
+- one normal dictation cue for every sentence prompt the deterministic clean
+  round can emit; and
+- one slow dictation cue for every such sentence prompt.
 
-The exact 15 files must be committed or deterministically materialised from
-repository-owned, redistribution-authorised inputs, mapped by a small manifest
-to exact runtime item, sentence, kind and SHA-256, and packaged into both normal
-native builds. Reusing one unrelated sound for different words is not acceptable
-round evidence. Browser/native TTS and a network provider are forbidden at
-runtime.
+Task 1 freezes the five runtime IDs, random seed, exact successful A3 command
+trace, emitted sentence prompts and resulting asset inventory before product
+code uses them. It also freezes a machine-readable provenance record containing
+the exact source or generation inputs, voice, licence or consent,
+redistribution grant and SHA-256 for every audio file. Manifest validation and
+the B4 technical report bind that provenance record.
+
+The complete derived set must be committed or deterministically materialised
+from repository-owned, redistribution-authorised inputs, mapped by a small
+manifest to exact runtime item, sentence, kind and SHA-256, and packaged into
+both B4 native builds. Reusing one unrelated sound for different words is not
+acceptable round evidence. Browser/native TTS and a network provider are
+forbidden at runtime.
 
 `Replay` and `Slow replay` consume the same manifest. A post-commit audio cue may
 start playback only after the SQLite transaction succeeds. Pause, learner
 rehydration or disposal stops current playback without altering durable session
 state. Playback failure keeps the round recoverable and never invents an answer.
 
-This 15-file proof manifest is not the production 840-asset Starter manifest and
-must not be labelled as production audio readiness. C1 still requires two
+This bounded proof manifest is not the production 840-asset Starter manifest
+and must not be labelled as production audio readiness. C1 still requires two
 approved British-English voices and complete word/normal/slow coverage.
 
 ### Learner UI and keyboard
@@ -174,39 +186,48 @@ Development accessibility requires:
 - DOM/focus order matching the visual task order;
 - no target word in accessible labels, hints or hidden text before scoring;
 - correct live feedback without duplicate announcements;
-- minimum 44 CSS-pixel interactive controls in the shared web surface;
+- platform-measured minimum 44 pt iOS and 48 dp Android interactive controls;
 - no colour-only correctness state;
 - Reduced Motion disabling non-essential transition/celebration motion; and
-- successful DOM zoom/text scaling at 200% without blocking the round.
+- a complete installed-platform round at 200% OS text scaling without blocked
+  or clipped task controls.
 
 iOS and Android virtual-device automation must observe and operate the same
 labelled controls. It does not claim VoiceOver or TalkBack physical-device
 certification; that remains in the pre-release gate.
 
-## B4 performance and size proxies
+## B4 performance risk observations
 
-B4 uses the section 18 thresholds as WebView risk gates where virtual/hosted
-measurement is meaningful. Each result records platform, runner image, OS,
-runtime, device profile, build configuration, sample count, raw samples, p95 and
-threshold. The measurement code uses monotonic clocks.
+B4 records the section 18 behaviours that virtual/hosted execution can observe,
+but it does not pretend that a hosted runner is a physical reference device or
+that a different artefact is a store download or compacted backup.
 
-| Measure | B4 development sample and threshold | Claim boundary |
-|---|---:|---|
-| Cold launch to interactive B4 round control | p95 <= 2.0 s across 30 terminated-app launches per platform | Virtual/hosted proxy; no production profile picker yet |
-| Local answer feedback | p95 <= 100 ms across 200 submissions | Planner, SQLite commit and rendered feedback measured separately as well as end-to-end |
-| Local audio start | p95 <= 250 ms across 100 starts from packaged local files | Measure request to `playing`; not acoustic-output latency |
-| SQLite answer transaction | p95 <= 50 ms across 200 representative commits | Virtual/hosted database proxy |
-| Child navigation/feedback frames | >=95% at <=16.7 ms and >=99% at <=33.3 ms during a scripted five-minute run | WebView frame proxy; physical reference classes remain pre-release |
-| Starter application payload | <=120 MB compressed for each B4 native build proxy | Not an App Store/Play download-size claim |
-| Representative local database | <=20 MB after the B4 round and bounded performance sample | Not a production `backup.sqlite` or retention claim |
+The existing native journeys collect monotonic raw samples for:
 
-Failure of a timing threshold must first be reproduced and attributed. B4 may
-repair a demonstrated application bottleneck. It must not hide failure by
-dropping samples, extending the threshold, adding broad retries or labelling a
-different measurement as the original one.
+- 30 terminated-app launches to the interactive B4 control;
+- 200 local answer-feedback transitions, with SQLite commit and rendered
+  feedback timings retained separately;
+- 100 packaged-local-audio starts, creating a fresh player and resetting cached
+  state for every sample, measured to the `playing` event.
 
-The final production store-download and backed-up SQLite budgets remain C1/C2
-and release evidence because those artefacts do not yet exist.
+Each native report records platform, runner image, OS/runtime, device profile,
+build configuration, every raw sample, p95 and the matching section 18
+comparator. The journey script may contain a small local percentile calculation;
+do not create a reusable performance framework or separate report library.
+
+Cold launch ends at a B4 control rather than the future profile picker, so it is
+labelled a risk observation. Compressed B4 native payload and local database
+bytes are recorded as raw facts without relabelling them as Starter store
+download or compacted `backup.sqlite` evidence. The production hard gates remain
+C1/C2/C7 and pre-release evidence. Final celebration/navigation frame budgets
+are also C7 work because B4 deliberately has no production animation or visual
+system to certify.
+
+A comparator breach triggers investigation and one independent reproduction; it
+does not itself produce `NO_GO`. Missing or malformed observations make B4
+`INCOMPLETE`. Only a reproducible, attributed WebView ceiling which cannot be
+removed without disproportionate platform-specific work may produce `NO_GO`.
+Samples, comparators and labels must not be changed to turn a breach into a pass.
 
 ## Evidence shape
 
@@ -225,11 +246,27 @@ reports/b4/android-tablet-landscape.png
 reports/b4/b4-development-report.json
 ```
 
-The report schema remains shallow: entry authority, tested commit/tree, app
-bundle hashes, virtual-device identities, five-card journey outcome,
-lifecycle/audio/accessibility/layout outcomes, budget samples and a final
-`GO | NO_GO` decision. It contains no learner nickname, receipt, token, device
-account, capability URL or live-store/cloud evidence.
+The report schema remains shallow: entry authority, tested application
+commit/tree, app bundle hashes, virtual-device identities, five-card journey
+outcome, lifecycle/audio/accessibility/layout outcomes, raw performance
+observations and one technical outcome:
+
+- `pass`;
+- `investigation-required`;
+- `incomplete`; or
+- `webview-ceiling`.
+
+It contains no learner nickname, receipt, token, device account, capability URL
+or live-store/cloud evidence. It does not encode future review, merge, exact-main
+CI or the final Gate B decision.
+
+After implementation, freeze one clean application checkpoint. Generate all B4
+reports and screenshots against that exact predecessor, then commit them as one
+evidence-only successor. The report builder accepts only that relationship and
+rejects application changes in the evidence commit. The final Gate B `GO |
+INCOMPLETE | NO_GO` is recorded only after exact-main CI, outside the technical
+report, in the merged GitHub PR discussion with the exact-main commit and CI URL,
+so no file attempts to bind the future commit which contains itself.
 
 Do not reuse the B3 release-proof SQLite ledger, command protocol, immutable
 publisher or six-file pending/complete topology. B4 evidence is not a commerce
@@ -244,9 +281,8 @@ transaction and does not need that machinery.
   the existing toolchain.
 - Use XCUITest for the installed iOS WebView journey and existing Android
   instrumentation/UI automation for the installed Android WebView journey.
-- Use one app-owned, B4-only observation/report bridge only if native automation
-  cannot read a required committed outcome safely. It must not become a general
-  device command protocol.
+- Extend the existing native test targets only. Do not add an app-authored
+  observation bridge, private command channel or new native test target.
 - Extend the existing three CI jobs. Do not introduce an external device farm,
   live deployment, store credentials or a second CI system.
 - Keep each implementation task in a reviewable commit and push safety
@@ -258,16 +294,22 @@ transaction and does not need that machinery.
 
 Add focused failing tests for:
 
-- normal native builds selecting `b4-starter-product`, while B2 and B3 proof
-  modes remain explicit and unchanged;
+- an explicit B4 development configuration selecting `b4-starter-product`,
+  while the current normal/B2 and explicit B3 compositions remain unchanged;
 - one five-card Starter round contract;
 - controller rehydration from the existing SQLite snapshot; and
 - the shallow B4 report schema and claim labels.
 
-Implement the smallest normal native composition using the existing connection,
-migration, seed, command gate, snapshot store, command repository and lifecycle
-coordinator. Extract shared setup from `create-b2-app-services.js` only where
-both compositions demonstrably use it; do not create a framework of factories.
+Before product composition, add a deterministic characterisation test which
+freezes the five permanent runtime IDs, random seed, exact A3 command trace,
+summary and every emitted sentence prompt. Add the executable audio provenance
+record and fail if source, voice, redistribution authority or hashes are absent.
+
+Implement the smallest explicit B4 development composition using the existing
+connection, migration, seed, command gate, snapshot store, command repository
+and lifecycle coordinator. Extract shared setup from
+`create-b2-app-services.js` only where both compositions demonstrably use it; do
+not create a framework of factories.
 
 Expected focused command:
 
@@ -284,14 +326,15 @@ green.
 
 ### Task 2 — Package and execute the bounded local-audio slice
 
-Add the 15-file B4 manifest and authorised assets, with a provenance note that
-states their source, generation parameters, redistribution authority and B4-only
-status. Tests must reject missing, extra, path-drifting or hash-drifting assets.
+Add the complete trace-derived B4 manifest and authorised assets, with the
+machine-readable provenance record frozen in Task 1. Tests must reject missing,
+extra, path-drifting, provenance-drifting or hash-drifting assets.
 
-Implement one small audio player port and browser implementation. Consume
-post-commit effects, expose replay/slow replay, and stop safely on pause,
-rehydration and dispose. Test play rejection, interruption, stale completion and
-rapid replay without changing durable round state.
+Implement one small `HTMLAudioElement`-backed playback function. Inject that
+function directly into controller tests; do not add a one-implementation port or
+adapter hierarchy. Consume post-commit effects, expose replay/slow replay, and
+stop safely on pause, rehydration and dispose. Test play rejection, interruption,
+stale completion and rapid replay without changing durable round state.
 
 Expected focused command:
 
@@ -302,9 +345,10 @@ node --test \
   tests/b4-round-controller.test.mjs
 ```
 
-Exit: all five cards have exact local word, normal sentence and slow sentence
-paths; both native bundles contain those exact bytes; runtime network access is
-not used for scored audio.
+Exit: every item and sentence in the frozen clean round has exact local word,
+normal sentence and slow sentence paths; both B4 native bundles contain those
+exact bytes and the bound provenance record; runtime network access is not used
+for scored audio.
 
 ### Task 3 — Build the five-card learner surface
 
@@ -329,8 +373,8 @@ recreates the controller mid-round and resumes the exact committed card.
 
 Add focused semantic, focus, 200% scaling, Reduced Motion and fixed-viewport
 tests. Add only the CSS needed for phone portrait, tablet portrait and tablet
-landscape usability. Preserve a visible focus indicator and 44 CSS-pixel minimum
-targets.
+landscape usability. Preserve a visible focus indicator and prove the shared
+surface reaches 44 pt on iOS and 48 dp on Android.
 
 The evidence screenshots demonstrate layout only; they are not final visual QA.
 Do not migrate Monster art, production typography, final colours, navigation or
@@ -339,36 +383,44 @@ celebration assets in B4.
 Exit: the same DOM and information order serves every viewport, and all controls
 remain reachable without target leakage or horizontal obstruction.
 
-### Task 5 — Add the measurable B4 budget harness
+### Task 5 — Record B4 platform risk observations
 
-Implement one bounded measurement library and one report builder. It records raw
-samples and derives percentiles without rounding a failure into a pass. Tests use
-fixed samples to prove percentile and frame-budget calculations, schema
-validation and fail-closed threshold decisions.
+Extend the existing native journey scripts to retain only the raw cold-launch,
+answer/SQLite/render and uncached-audio samples defined above. Keep percentile
+calculation local to those scripts and test it with one fixed sample set; do not
+introduce a measurement library or performance report subsystem. Fixed-viewport
+journeys remain separate layout evidence. Missing, malformed or mislabelled
+samples are `incomplete`; a comparator breach is `investigation-required` until
+independently reproduced and attributed.
 
-Measure the seven B4 proxies exactly as defined above. The five-minute frame run
-may execute once per platform rather than once per viewport if all viewport
-journeys separately pass.
-
-Exit: deterministic calculation tests pass and real virtual/hosted runs emit
-complete, internally consistent measurements. A missing sample or wrong count is
-`NO_GO`, not `not applicable`.
+Exit: both native reports contain complete raw observations and honest labels.
+No result claims physical-reference, store-download or backup certification.
 
 ### Task 6 — Prove the installed iOS vertical slice
 
-Create a B4 XCUITest target or extend the existing owned UI-test target without
-changing B3 evidence semantics. On supported hosted Simulator profiles:
+Extend the existing owned XCUITest target without changing B3 evidence
+semantics. On supported hosted Simulator profiles, with network access denied
+for the installed application:
 
-1. install and cold-launch the normal unsigned app;
+1. install and cold-launch the unsigned B4 development app;
 2. operate the labelled input with the software keyboard;
 3. complete part of the five-card round;
 4. background/foreground during audio;
 5. terminate and relaunch;
 6. prove the same committed session resumes;
 7. complete the round exactly once;
-8. exercise the Enter-key path;
-9. capture phone and tablet portrait/landscape screenshots; and
-10. record B4 performance and payload/database proxies.
+8. tap Replay and Slow replay, wait for the neutral visible `Audio playing`
+   state, then prove interruption stops it;
+9. exercise the Enter-key path;
+10. repeat the complete journey at 200% OS text scaling and prove controls are at
+    least 44 pt;
+11. capture phone and tablet portrait/landscape screenshots; and
+12. record B4 performance observations plus raw payload/database sizes.
+
+The test runner derives the expected runtime item, audio kind and manifest hash
+from the committed deterministic trace and audio manifest. The application
+exposes only neutral visible playback state, so the target word does not leak and
+no private observation bridge is introduced.
 
 The report records exact Simulator runtime and device types. No result is called
 physical, signed or App Store evidence.
@@ -376,9 +428,12 @@ physical, signed or App Store evidence.
 ### Task 7 — Prove the installed Android vertical slice
 
 Use the existing Android native project and owned instrumentation/UI automation
-on hosted emulators. Execute the same journey and assertions as iOS, including
-software keyboard, interruption, process death/relaunch, exact resume, Enter-key
-path, phone/tablet screenshots and budget proxies.
+target on hosted emulators. Deny network access to the installed application and
+execute the same journey and assertions as iOS, including Replay/Slow replay,
+visible playing/stopped state, software keyboard, interruption, process
+death/relaunch, exact resume, Enter-key path, a complete journey at 200% OS text
+scaling, platform-measured 48 dp targets, phone/tablet screenshots and raw
+performance/payload/database observations.
 
 Run a minimum API 24 launch/core-flow compatibility check and an API 36 product
 journey where hosted images support them. Record actual image, ABI, API and device
@@ -387,9 +442,11 @@ TalkBack physical-device truth.
 
 ### Task 8 — Gate B Development decision and integration
 
-Regenerate the domain, iOS and Android reports from a clean candidate. Build the
-aggregate report only when all required evidence exists and binds the same
-candidate commit/tree and application bundle inputs.
+Freeze a clean application checkpoint after Tasks 1-7. Regenerate the domain,
+iOS and Android reports against that checkpoint. Commit reports and screenshots
+as one evidence-only successor whose aggregate binds the predecessor
+commit/tree and application bundle inputs. Reject any application change in the
+evidence commit.
 
 Run at minimum:
 
@@ -413,13 +470,17 @@ Run the three exact-candidate review gates:
 Only actionable P1/P2 findings inside B4 block. Any correction creates a new
 exact candidate and invalidates all three approvals.
 
-Push the approved candidate, require hosted Domain/Web, iOS and Android jobs to
-pass, merge through one ordinary PR, then require exact-main CI. Record one of:
+Push the approved evidence successor, require hosted Domain/Web, iOS and Android
+jobs to pass, merge through one ordinary PR, then require exact-main CI. Only
+then record one of:
 
 - `GO`: the bounded Capacitor slice passes and no demonstrated WebView ceiling
   blocks C-series work; or
+- `INCOMPLETE`: required evidence is missing, malformed, stale or still needs
+  investigation; continue B4 without selecting another framework; or
 - `NO_GO`: preserve the evidence, stop Capacitor product work and write a React
-  Native design grounded in the measured failure.
+  Native design grounded in a reproduced, attributed and disproportionate
+  WebView ceiling.
 
 Do not turn a `NO_GO` into `GO` by narrowing the frozen journey or relabelling a
 failed threshold.
@@ -468,29 +529,32 @@ deferred until final product, visual, security and store records have stabilised
 B4 returns `GO` only when all of the following are true on one exact integrated
 candidate:
 
-1. Normal iOS and Android builds launch the local B4 product slice; B2/B3 proof
-   modes remain explicit and non-production.
+1. Explicit B4 iOS and Android development builds launch the local product
+   slice; the current normal/B2 and explicit B3 proof compositions remain
+   unchanged.
 2. One real five-card Starter round uses the existing A3 planner and SQLite
    transaction repository from start through completion.
 3. Termination/relaunch resumes the exact committed session without skipping or
    double-advancing a card.
-4. Fifteen exact, authorised B4 speech assets are bundled and verified; replay,
-   slow replay and interruption work without runtime network or TTS.
+4. Every asset derived from the frozen five-item A3 trace has exact, authorised
+   word/normal/slow speech bytes and bound provenance; replay, slow replay and
+   interruption work without runtime network or TTS.
 5. Software-keyboard and Enter-key paths operate the same labelled input and
    submission action on both platforms.
 6. Phone portrait, tablet portrait and tablet landscape remain usable on both
    virtual platforms.
-7. B4 semantic, focus, Reduced Motion, 200% scaling, minimum-target and
-   no-answer-leakage checks pass; physical screen-reader certification remains
-   explicitly unclaimed.
-8. All seven B4 performance/size proxies meet their sample counts and thresholds
-   or the decision is `NO_GO`.
+7. B4 semantic, focus, Reduced Motion, complete 200% OS text-scale,
+   platform-specific 44 pt/48 dp and no-answer-leakage checks pass; physical
+   screen-reader certification remains explicitly unclaimed.
+8. Raw B4 performance observations are complete and honestly compared with
+   section 18. A breach is investigated; missing evidence is `INCOMPLETE`; only
+   a reproduced, attributed, disproportionate WebView ceiling is `NO_GO`.
 9. Existing domain, B1/B2/B3, native, dependency, privacy and offline-learning
    contracts remain green.
 10. Reports and screenshots bind one candidate and contain no secret/private
     identity or live commerce/cloud claim.
 11. Gstack, Matt and Ponytail approve the same exact candidate; exact-head and
     exact-main hosted CI pass.
-12. The aggregate report states either `GO` or `NO_GO` with no ambiguous partial
-    pass.
-
+12. The technical aggregate binds the application checkpoint through an
+    evidence-only successor; the final `GO | INCOMPLETE | NO_GO` is recorded only
+    after exact-main CI.

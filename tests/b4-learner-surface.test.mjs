@@ -201,6 +201,81 @@ test('B4 surface renders native learner controls without target leakage or comme
   assert.doesNotMatch(completeHtml, />Replay<|>Slow replay<|>Submit</);
 });
 
+test('B4 surface has one semantic task order and non-duplicated polite announcements', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true, hmr: { port: 24_679 } },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { default: App } = await vite.ssrLoadModule('/src/app/App.jsx');
+  const state = activeState({
+    feedback: Object.freeze({
+      kind: 'retry',
+      headline: 'Have another go',
+      body: 'Listen again, then retry.',
+      answer: null,
+      footer: null,
+    }),
+    audio: Object.freeze({ status: 'playing', error: null }),
+  });
+  const controller = Object.freeze({
+    getState: () => state,
+    subscribe: () => Object.freeze({ remove() {} }),
+    async start() { return state; },
+    async submit() { return state; },
+    async continue() { return state; },
+    async freshRound() { return state; },
+    async replay() { return state; },
+    async slowReplay() { return state; },
+  });
+  const html = renderToStaticMarkup(React.createElement(App, {
+    services: Object.freeze({ mode: 'b4-starter-product', controller }),
+  }));
+
+  assert.match(html, /^<main[^>]+aria-labelledby="b4-round-title"/);
+  assert.equal((html.match(/<h1\b/g) ?? []).length, 1);
+  assert.equal((html.match(/<h2\b/g) ?? []).length, 1);
+  assert.match(html, /<section[^>]+aria-labelledby="b4-practice-title"/);
+  assert.match(html, /<aside[^>]+aria-label="Audio information"/);
+  assert.match(html, /<label for="b4-spelling-input">Type the spelling<\/label>/);
+
+  const orderedControls = [
+    '>Replay</button>',
+    '>Slow replay</button>',
+    'id="b4-spelling-input"',
+    '>Submit</button>',
+  ];
+  let previousIndex = -1;
+  for (const control of orderedControls) {
+    const index = html.indexOf(control);
+    assert.ok(index > previousIndex, `${control} must follow the previous task control`);
+    previousIndex = index;
+  }
+
+  assert.match(html, /class="b4-feedback b4-feedback-retry" role="status">/);
+  assert.doesNotMatch(html, /class="b4-feedback[^>]+aria-live=/);
+  assert.match(html, /class="b4-live-region" aria-live="polite" aria-atomic="true">Audio playing/);
+  assert.match(html, /Have another go/);
+  assert.match(html, /Listen again, then retry\./);
+});
+
+test('B4 CSS contracts preserve touch targets, focus, scaling and reduced motion', async () => {
+  const css = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
+  const b4Start = css.indexOf('.b4-learner-shell');
+  const b4Css = css.slice(b4Start);
+
+  assert.match(b4Css, /\.b4-entry-form input,\s*\.b4-learner-shell button\s*{[^}]*min-height:\s*3rem;[^}]*min-width:\s*3rem;/s);
+  assert.match(b4Css, /\.b4-entry-form input:focus-visible,\s*\.b4-learner-shell button:focus-visible\s*{[^}]*outline:\s*[^;]+;[^}]*outline-offset:\s*[^;]+;/s);
+  assert.match(b4Css, /\.b4-learner-shell\s*{[^}]*overflow-wrap:\s*anywhere;/s);
+  assert.match(b4Css, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*{[^}]*\.b4-learner-shell \*\s*{[^}]*animation:\s*none\s*!important;[^}]*transition:\s*none\s*!important;/s);
+  assert.doesNotMatch(b4Css, /(?:^|\n)\s*(?:height|max-height):/);
+  assert.doesNotMatch(b4Css, /(?:flex-direction:\s*(?:row|column)-reverse|\border\s*:|grid-template-areas)/);
+});
+
 test('B4 child surface cannot import or call B3 commerce services', async () => {
   const source = await readFile(join(ROOT, 'src/app/App.jsx'), 'utf8');
   const b4Start = source.indexOf('function B4App');

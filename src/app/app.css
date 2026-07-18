@@ -214,6 +214,7 @@ h1 {
 .b4-learner-shell {
   width: min(100% - 2rem, 38rem);
   padding-top: clamp(2rem, 8vh, 5rem);
+  overflow-wrap: anywhere;
 }
 
 .b4-round-heading,
@@ -264,6 +265,7 @@ h1 {
 .b4-entry-form input,
 .b4-learner-shell button {
   min-height: 3rem;
+  min-width: 3rem;
   border: 1px solid rgb(130 210 189 / 55%);
   border-radius: 0.9rem;
   padding: 0.7rem 1rem;
@@ -283,6 +285,12 @@ h1 {
 .b4-learner-shell button:disabled {
   cursor: wait;
   opacity: 0.55;
+}
+
+.b4-entry-form input:focus-visible,
+.b4-learner-shell button:focus-visible {
+  outline: 0.2rem solid #f6d48b;
+  outline-offset: 0.2rem;
 }
 
 .b4-feedback {
@@ -308,6 +316,13 @@ h1 {
 .b4-audio-disclosure {
   padding: 1rem 1.25rem;
   font-size: 0.9rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .b4-learner-shell * {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 @media (max-width: 34rem) {

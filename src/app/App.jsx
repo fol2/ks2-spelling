@@ -149,10 +149,10 @@ function B4App({ services }) {
   );
 
   return (
-    <main className="shell b4-learner-shell">
+    <main className="shell b4-learner-shell" aria-labelledby="b4-round-title">
       <header className="b4-round-heading">
         <p className="eyebrow">Starter spelling</p>
-        <h1>Listen, type, learn</h1>
+        <h1 id="b4-round-title">Listen, type, learn</h1>
         <p className="b4-progress">
           {complete
             ? 'Round complete'
@@ -211,7 +211,6 @@ function B4App({ services }) {
             <div
               className={`b4-feedback b4-feedback-${feedback.kind}`}
               role="status"
-              aria-live="polite"
             >
               <h3>{feedback.headline}</h3>
               {feedback.answer && <p>Correct spelling: {feedback.answer}</p>}

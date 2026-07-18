@@ -22,6 +22,7 @@ final class B4DevelopmentTests: XCTestCase {
         let answerFeedbackMs: [Double]
         let audioStartMs: [Double]
         let minimumControlHeightPoints: Double
+        let referenceTextHeightPoints: Double
         let softwareKeyboardObserved: Bool
         let enterSubmitted: Bool
         let backgroundAudioStoppedCount: Int
@@ -153,10 +154,15 @@ final class B4DevelopmentTests: XCTestCase {
         let replay = application.buttons["Replay"]
         let slowReplay = application.buttons["Slow replay"]
         let submit = application.buttons["Submit"]
+        let referenceText = application.staticTexts["Type the spelling"]
         XCTAssertTrue(waitUntilEnabled(input), "The spelling input did not become ready.")
         XCTAssertTrue(waitUntilEnabled(replay), "Replay did not become ready.")
         XCTAssertTrue(waitUntilEnabled(slowReplay), "Slow replay did not become ready.")
         XCTAssertTrue(waitUntilEnabled(submit), "Submit did not become ready.")
+        XCTAssertTrue(
+            waitUntilPresent(referenceText),
+            "The text-scale reference label did not become ready."
+        )
 
         let minimumControlHeightPoints = [input, replay, slowReplay, submit]
             .map(\.frame.height)
@@ -165,6 +171,12 @@ final class B4DevelopmentTests: XCTestCase {
             minimumControlHeightPoints,
             44,
             "Every iOS learner control must be at least 44 points high."
+        )
+        let referenceTextHeightPoints = referenceText.frame.height
+        XCTAssertGreaterThan(
+            referenceTextHeightPoints,
+            0,
+            "The text-scale reference label must have a measurable height."
         )
 
         var audioStartMs: [Double] = []
@@ -268,6 +280,7 @@ final class B4DevelopmentTests: XCTestCase {
                 answerFeedbackMs: answerFeedbackMs,
                 audioStartMs: audioStartMs,
                 minimumControlHeightPoints: minimumControlHeightPoints,
+                referenceTextHeightPoints: referenceTextHeightPoints,
                 softwareKeyboardObserved: softwareKeyboardObserved,
                 enterSubmitted: enterSubmitted,
                 backgroundAudioStoppedCount: backgroundAudioStoppedCount,

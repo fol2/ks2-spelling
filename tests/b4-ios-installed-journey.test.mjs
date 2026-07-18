@@ -27,6 +27,8 @@ test('the iOS installed journey follows the frozen B4 answers without a proof br
     'application.terminate()',
     'XCUIDevice.shared.press(.home)',
     'minimumControlHeightPoints',
+    'referenceTextHeightPoints',
+    'application.staticTexts["Type the spelling"]',
     'coldLaunchMs',
     'answerFeedbackMs',
     'audioStartMs',
@@ -45,4 +47,12 @@ test('the iOS installed journey follows the frozen B4 answers without a proof br
   }
 
   assert.doesNotMatch(source, /B3|proof bridge|target word|currentRuntimeItemId/i);
+});
+
+test('the B4 learner surface uses the standard WebKit Dynamic Type root', async () => {
+  const source = await readFile(new URL('../src/app/app.css', import.meta.url), 'utf8');
+  assert.match(source, /@supports \(font: -apple-system-body\)/u);
+  assert.match(source, /\.b4-learner-shell\s*\{\s*font: -apple-system-body;/u);
+  assert.match(source, /\.b4-round-heading h1[\s\S]*?font-size: 2\.5em;/u);
+  assert.match(source, /\.b4-audio-disclosure[\s\S]*?font-size: 0\.9em;/u);
 });

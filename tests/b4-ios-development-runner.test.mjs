@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import {
   createB4IosXcodeTestArguments,
+  measuredB4IosTextScale,
   selectB4IosRuntimeProfiles,
   validateB4IosLayoutDimensions,
 } from '../scripts/prove-b4-ios.mjs';
@@ -82,13 +83,35 @@ test('the iOS runner rejects a portrait framebuffer relabelled as landscape', ()
   });
 });
 
+test('the iOS runner accepts only a measured 200% text-size journey', () => {
+  assert.equal(measuredB4IosTextScale({
+    defaultHeightPoints: 20,
+    scaledHeightPoints: 40,
+  }), 2);
+  assert.throws(
+    () => measuredB4IosTextScale({
+      defaultHeightPoints: 20,
+      scaledHeightPoints: 39.5,
+    }),
+    (error) => error?.code === 'b4_ios_text_scale_invalid',
+  );
+  assert.throws(
+    () => measuredB4IosTextScale({
+      defaultHeightPoints: 0,
+      scaledHeightPoints: 40,
+    }),
+    (error) => error?.code === 'b4_ios_text_scale_invalid',
+  );
+});
+
 test('the bounded runner records 200% layout, raw sizes and honest Simulator limits', async () => {
   const [source, packageJson] = await Promise.all([
     readFile(new URL('../scripts/prove-b4-ios.mjs', import.meta.url), 'utf8'),
     readFile(new URL('../package.json', import.meta.url), 'utf8'),
   ]);
   for (const required of [
-    'accessibility-extra-large',
+    'accessibility-extra-extra-extra-large',
+    'measuredTextScale',
     'nativePayloadBytes',
     'localDatabaseBytes',
     'virtual-development-risk-observation',

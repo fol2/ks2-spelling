@@ -114,6 +114,24 @@ export function validateB4IosLayoutDimensions(value) {
   return structuredClone(value);
 }
 
+export function measuredB4IosTextScale({ defaultHeightPoints, scaledHeightPoints }) {
+  if (!Number.isFinite(defaultHeightPoints) || defaultHeightPoints <= 0 ||
+      !Number.isFinite(scaledHeightPoints) || scaledHeightPoints <= 0) {
+    throw proofError(
+      'b4_ios_text_scale_invalid',
+      'The iOS text-scale reference heights must be positive finite values.',
+    );
+  }
+  const ratio = scaledHeightPoints / defaultHeightPoints;
+  if (ratio < 2) {
+    throw proofError(
+      'b4_ios_text_scale_invalid',
+      `The measured iOS text scale was ${ratio.toFixed(3)}; at least 2.000 is required.`,
+    );
+  }
+  return Number(ratio.toFixed(3));
+}
+
 async function checked(command, args, { stream = false } = {}) {
   const result = await runCommand(command, args, {
     cwd: ROOT,
@@ -326,7 +344,7 @@ async function proveB4Ios() {
     const defaultJourney = await readJourneyCapture(defaultResult);
     const localDatabaseBytes = await databaseFamilyBytes(phoneUdid);
 
-    await setContentSize(phoneUdid, 'accessibility-extra-large');
+    await setContentSize(phoneUdid, 'accessibility-extra-extra-extra-large');
     const scaledResult = await runInstalledTest({
       udid: phoneUdid,
       workDirectory,
@@ -334,6 +352,10 @@ async function proveB4Ios() {
       testMethod: 'testInstalledFiveCardJourney',
     });
     const scaledJourney = await readJourneyCapture(scaledResult);
+    const measuredTextScale = measuredB4IosTextScale({
+      defaultHeightPoints: defaultJourney.observations.referenceTextHeightPoints,
+      scaledHeightPoints: scaledJourney.observations.referenceTextHeightPoints,
+    });
 
     await setContentSize(tabletUdid, 'large');
     const tabletResult = await runInstalledTest({
@@ -407,8 +429,9 @@ async function proveB4Ios() {
       journeys: {
         default: defaultJourney.observations,
         scaled: {
-          contentSizeCategory: 'accessibility-extra-large',
-          atLeast200Percent: true,
+          contentSizeCategory: 'accessibility-extra-extra-extra-large',
+          measuredTextScale,
+          atLeast200Percent: measuredTextScale >= 2,
           ...scaledJourney.observations,
         },
       },

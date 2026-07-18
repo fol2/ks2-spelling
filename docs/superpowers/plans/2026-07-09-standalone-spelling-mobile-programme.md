@@ -80,8 +80,10 @@ fingerprint, deterministic commerce/download proof, workerd and gateway dry-run,
 hosted Xcode StoreKit Test, Android BillingClient tests, unsigned native builds
 and CI `pending` topology. Merge the reviewed checkpoint to `main` only after
 Gstack boundary, Matt Standards/Spec and Ponytail over-engineering reviews approve
-one exact HEAD. The resulting claim is development capability, not signed-store,
-live Cloudflare or physical-device certification.
+one exact HEAD. The iOS lane checks the immutable pending topology before Xcode
+workloads, then proves the unchanged native and StoreKit gates in that same job.
+The resulting claim is development capability, not signed-store, live Cloudflare
+or physical-device certification.
 
 ### Task 22 — deferred Release Commerce Certification
 

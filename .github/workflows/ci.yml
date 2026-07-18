@@ -136,6 +136,8 @@ jobs:
         with:
           node-version: "24.18.0"
           cache: npm
+      - name: Validate B3 pending or complete evidence topology
+        run: node scripts/build-b3-exit-report.mjs --check-ci
       - name: Require Xcode 26 or newer
         run: |
           xcodebuild -version
@@ -165,5 +167,3 @@ jobs:
         run: node scripts/test-ios-pack-inspector.mjs
       - name: Run non-live iOS StoreKit Test
         run: npm run prove:b3:ios-storekit-test
-      - name: Validate B3 pending or complete evidence topology
-        run: node scripts/build-b3-exit-report.mjs --check-ci

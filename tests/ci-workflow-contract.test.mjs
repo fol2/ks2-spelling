@@ -102,6 +102,13 @@ test('Domain/Web proves host-neutral and gateway contracts without claiming nati
 
 test('iOS runs normal and B3 unsigned builds, the pack inspector and StoreKit Test', async () => {
   const ios = extractJob(await readWorkflow(), 'ios-compile');
+  const nodeSetupIndex = ios.indexOf('node-version: "24.18.0"');
+  const topologyIndex = ios.indexOf('node scripts/build-b3-exit-report.mjs --check-ci');
+  const xcodeIndex = ios.indexOf('- name: Require Xcode 26 or newer');
+  assert.ok(
+    nodeSetupIndex < topologyIndex && topologyIndex < xcodeIndex,
+    'iOS must validate the immutable checkout before starting Xcode workloads',
+  );
   assert.match(ios, /run: npm run native:sync:check/);
   assert.match(ios, /run: npm run test:ios/);
   assert.match(ios, /-scheme B3SandboxProof/);

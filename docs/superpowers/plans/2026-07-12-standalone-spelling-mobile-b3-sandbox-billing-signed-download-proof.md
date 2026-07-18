@@ -1658,7 +1658,12 @@ Expected: clean tree and exact-head branch CI green for all three jobs in legiti
 
 ### Task 21: Close and integrate the B3 Development Checkpoint
 
-**Files:** Documentation authority plus the existing public-claim contract assertion in `tests/b3-evidence-contract.test.mjs`. Do not change application, gateway, native, dependency, proof-wrapper, validator, CI or report inputs.
+**Files:** Documentation authority, the existing public-claim contract assertion in
+`tests/b3-evidence-contract.test.mjs`, and CI orchestration with its existing
+contract test. Do not change application, gateway, native, dependency,
+proof-wrapper, validator or report inputs. The only permitted CI correction is to
+validate the immutable iOS checkout before starting Xcode workloads; it must not
+change a verifier, add a retry or alter the application fingerprint.
 
 **Decision rationale:** Apple distinguishes local Xcode StoreKit Test from App Store sandbox truth: Simulator/device test transactions and receipts are signed by Xcode, while sandbox/TestFlight exercises App Store-signed transactions and server paths ([Apple testing stages](https://developer.apple.com/documentation/storekit/testing-at-all-stages-of-development-with-xcode-and-the-sandbox?changes=_8&language=objc), [sandbox overview](https://developer.apple.com/help/app-store-connect/test-in-app-purchases/overview-of-testing-in-sandbox)). Google documents that Play-enabled AVD profiles include the Play Store and CTS-compatible system images, but live Billing tests still require Play Console product/licence-tester authority ([AVD profiles](https://developer.android.com/studio/run/managing-avds), [Play Billing testing](https://developer.android.com/google/play/billing/test)). These narrower environments are valid development evidence but cannot be relabelled as final store evidence.
 
@@ -1695,6 +1700,11 @@ Only actionable P1/P2 findings inside this documentation and gate boundary block
 - [ ] **Step 4: Merge and prove exact main in pending mode**
 
 Push the reviewed branch, merge it through one PR and require exact-head plus exact-main Domain/Web, iOS and Android jobs to pass. Parse the JSON output of `node scripts/build-b3-exit-report.mjs --check-ci`; the unsupported `--print-mode` option must not be used.
+
+The iOS lane validates that topology immediately after Node setup. This preserves
+the same exact-checkout authority while avoiding measured hosted-runner process
+starvation after Simulator and Xcode execution; the native and StoreKit gates
+remain unchanged and must still pass later in the same job.
 
 Expected: exact `main` is green with `mode:"pending"`. Report the result as **B3 Development Checkpoint complete; Release Commerce Certification outstanding**. This authorises the next B4 development plan without authorising store submission or public release.
 

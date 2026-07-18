@@ -30,7 +30,8 @@ test('public architecture states the exact local-first B3 claim boundary', async
     /online access is used only for commerce verification, pack download or redownload, entitlement refresh, restore and revocation/i,
     /Monster is a motivational presentation around spelling, not an independently cloud-tracked Parent metric/i,
     /Visual \/ Theme \/ Asset Migration[^.]+after Gate B `GO`[^.]+before C3/i,
-    /B3 proves sandbox\/test commerce and signed-download truth only; it does not prove production release readiness/i,
+    /B3 Development proves deterministic and compiled commerce\/signed-download capability only/i,
+    /Signed App Store\/Google Play, deployed Cloudflare\/R2 and physical-device truth remain one Release Commerce Certification blocker before public submission/i,
   ]) {
     assert.match(publicWording, claim);
   }

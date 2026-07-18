@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` to implement this plan task-by-task. Use `superpowers:test-driven-development` for every task and `superpowers:verification-before-completion` before the exit commit. Steps use checkbox (`- [ ]`) syntax for tracking. Every task requires fresh independent spec-compliance and code-quality review before the next task begins.
 
-**Goal:** Prove on one physical iPhone and one Play-certified physical Android test device that a Parent-only sandbox purchase can be verified by a receipt-only Cloudflare Worker, durably grant the app-wide `full-ks2` entitlement, resume and safely activate the signed `b3-sandbox-proof` data-only pack from private R2, restore/redownload it after reinstall, and revoke access without changing either child's learning history during non-destructive commerce.
+**Goal:** Complete the B3 Development Checkpoint by proving the Parent-only commerce, entitlement, signed-pack, restore/redownload, revocation and learner-preservation implementation through deterministic tests, real native compilation, hosted StoreKit Test and workerd/gateway integration, while reserving signed-store, deployed Cloudflare/R2 and physical-device truth for one mandatory Release Commerce Certification on the final release-candidate bytes.
 
 **Architecture:** Keep the frozen Gate A and B2 authorities unchanged. Add app-owned StoreKit 2 and Google Play Billing bridges, a receipt-only Worker with live Apple/Google verification, Worker-sealed refresh handles and private-R2 capability delivery, SQLite schema V2 app-wide commerce/pack state, and app-owned native central-directory inspectors plus pack-transfer bridges for resumable private-file download, hostile-ZIP rejection and atomic activation. Pack manifests use one precomputed, domain-separated RFC 8785/P-256/SHA-256 DER signature fixture; runtime contains only its public key and can never sign or re-sign a pack.
 
@@ -61,17 +61,17 @@ The product/design authority remains:
 - Activation order is staging extraction -> every member verified -> activation marker -> atomic rename to immutable installed version -> SQLite active-pointer flip -> later old-version retirement. Every failure leaves the previous verified pack active.
 - SQLite V2 app-wide tables are exactly `app_entitlements`, `transaction_journal`, `installed_pack_versions`, `active_pack_versions`, `pack_download_jobs` and `pack_download_chunks`. `app_entitlements` owns nullable `sealed_refresh_handle` and `refresh_handle_version`; no other table persists it. None may contain `learner_id`, nickname, year group, progress, session, Monster or Camp fields.
 - Existing A3 `granted_entitlement_ids_json` is frozen legacy snapshot data, not entitlement authority. C3 later injects active app-wide grants through the B3 access projection.
-- B3 proves actual sandbox commerce on one physical development-signed iPhone and one Play-certified Android internal-test device. iOS distribution kind is exactly `development`. Physical sandbox proves Ask to Buy pending/no access only; separate Xcode StoreKit Test approve/decline is non-live. B4 owns the broad matrix.
+- B3 Development proves compiled and deterministic commerce/download capability only. Xcode StoreKit Test approve/decline remains non-live; Android BillingClient compile/JUnit and any virtual-device run remain non-store evidence. Release Commerce Certification later requires one accessible physical iPhone and one Play-certified physical Android, or an approved hosted-real-device route that produces the same signed-install and store evidence. B4 owns virtual-device product-quality work; broad physical compatibility joins the release gate.
 - The gateway runtime pins `wrangler@4.110.0`, `miniflare@4.20260708.1`, compatibility date `2026-07-12` and flag `nodejs_compat`; one real Miniflare/workerd test imports Apple library `3.1.0`, validates X.509 fixtures and intercepts outbound App Store API fetches before any deployment.
 - Exact Worker bindings are private R2 `PACKS` and rate-limit binding `GATEWAY_RATE_LIMIT`. Required remote secret names are `APPLE_IAP_ISSUER_ID`, `APPLE_IAP_KEY_ID`, `APPLE_IAP_PRIVATE_KEY`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `ENTITLEMENT_HANDLE_KEY_CURRENT`, `ENTITLEMENT_HANDLE_KEY_PREVIOUS` and `R2_CAPABILITY_HMAC_KEY`. Existing OAuth verifies names/bindings read-only; scripts never read local values, `.env`, keychain or provisioning. Missing OAuth exits `6` non-interactively.
 - `GATEWAY_RATE_LIMIT` runs before request-body parsing, R2 access, Apple/Google fetch or cryptography on every public POST and GET. Missing binding fails closed; limited requests return `429` with zero upstream/body-read calls.
 - Sandbox bucket identifier is exactly `ks2-spelling-b3-sandbox-packs`, tracked in gateway authority and fingerprinted. It must equal prerequisites, Wrangler `PACKS` bucket, Cloud/platform evidence and exit. Object authority owns exact keys/SHA/sizes/ETags/metadata; deployment rejects drift and overwrites only byte-identical objects.
 - Worker version metadata binding is exactly `WORKER_VERSION_METADATA`. Deployment normalises one fixed-length script-authority placeholder, hashes the dry-run bundle before deploy, replaces only that placeholder with the hash, and records the resulting build constant plus Cloudflare API version ID. Gateway responses return `WORKER_VERSION_METADATA.id` and the embedded normalised script-authority SHA; reports/exit require equality with tracked approved account ID, Worker name and public sandbox endpoint.
-- Remote mutations require both durable approved identifiers and one exact random run-local token. Approval scopes are exactly `cloudflare-deploy`, `apple-signed-distribution`, `apple-sandbox-history-refund` and `google-test-track-refund-revoke`; the Google scope includes its internal-track distribution action. Wrappers only pause with a visible operator instruction for Apple/Google console/device actions; agents never perform those console mutations.
-- Signed distribution authority is produced after the clean checkpoint. iOS B3 mode is development-signed only and binds operator-provided signed IPA SHA, independently extracted embedded authority SHA/values and IPA code-signing certificate SHA, plus installed bundle/version/build/authority equality and `devicectl`'s device-derived `builtByDeveloper: true` classification. Xcode 26.6's supported device inventory does not expose the installed signing certificate, so B3 does not claim installed-certificate equality; app-authored executable or provisioning-profile hashes are not accepted as signing identity authority. Android binds signed internal-track AAB SHA, independently extracted authority/versionCode, Play App Signing certificate, installer and ordered pulled base/split APK SHA multiset. Agents never access keychain/signing; visible Xcode development deployment and Play internal-track actions are operator-owned.
+- Release Commerce Certification remote mutations require both durable approved identifiers and one exact random run-local token. Approval scopes are exactly `cloudflare-deploy`, `apple-signed-distribution`, `apple-sandbox-history-refund` and `google-test-track-refund-revoke`; the Google scope includes its internal-track distribution action. Wrappers only pause with a visible operator instruction for Apple/Google console/device actions; agents never perform those console mutations.
+- Signed distribution authority is produced only from the final release-candidate checkpoint. The existing iOS certification mode remains development-signed and binds operator-provided signed IPA SHA, independently extracted embedded authority SHA/values and IPA code-signing certificate SHA, plus installed bundle/version/build/authority equality and device-derived distribution classification. Android binds signed internal-track AAB SHA, independently extracted authority/versionCode, Play App Signing certificate, installer and ordered pulled base/split APK SHA multiset. Agents never access keychain/signing; visible Xcode and Play internal-track actions are operator-owned.
 - Evidence uses fresh random UUIDv4 trace IDs only for gateway-backed success/revocation outcomes. It never contains a store-proof commitment/SHA/prefix, refresh handle or capability. Query/cancel/pending transitions have no trace/commitment. Ordered scenario multisets are exact; iOS completion is exactly `finished:true`, Android exactly `acknowledged:true`.
 - Live capture is authorised only against `config/b3-synthetic-learners.json`: exactly two synthetic learner IDs/nicknames and their expected canonical digests before purchase and after fresh-install reseed. Wrappers reject every arbitrary/real learner database or nickname; committed reports contain only the expected synthetic digests, never IDs/nicknames.
-- External prerequisite checks are explicit gates, never fabricated passes. Apple/Google/Cloudflare console state, merchant agreements, products, at least two Apple sandbox tester contexts, test accounts, signing, devices and secrets are provisioned through visible official UI/credential flows. Scripts must never display a hidden password prompt.
+- Release Commerce Certification prerequisite checks are explicit gates, never fabricated passes. Apple/Google/Cloudflare console state, merchant agreements, products, Apple sandbox tester contexts, test accounts, signing, accessible devices and secrets are provisioned through visible official UI/credential flows. Their absence does not block B3 Development, but it blocks store submission and public release. Scripts must never display a hidden password prompt.
 - B3 UI stays visibly labelled `B3 sandbox proof` and is diagnostic Parent evidence only. It is not production Parent/child UI, Parent PIN, final theme, Monster presentation or asset migration.
 - B3 does not claim production Full KS2 content/audio readiness, production signing keys, final Cloudflare/store configuration, store approval, family sharing, public pricing, release compliance, final visuals, accessibility or performance certification.
 - TDD is mandatory. Each task begins with a focused failing test, records the exact RED reason, implements the smallest complete behaviour, reruns focused and regression gates, commits independently, then receives fresh spec and quality review. Resolve all Critical/Important findings before the next task.
@@ -1613,7 +1613,7 @@ Expected: FAIL because the B3 exit builder/CI contract are absent.
 
 - [ ] **Step 3: Implement the builder and exact branch CI**
 
-`build-b3-exit-report.mjs --write` validates live inputs atomically. `--check-ci` has two legal modes. **Pending:** all six absent, deterministic green, and separate full-history queries for each exact path prove none ever appeared in any ancestor/ref. **Complete:** all six exist and strict regeneration matches. Current one-to-five partial fails. If ancestry ever contained any one of six, later zero/partial fails permanently—even if exit JSON itself never existed. Mutation tests cover deleted one, deleted five and deleted complete sets. CI uses full history on every job; Task 23 requires complete.
+`build-b3-exit-report.mjs --write` validates live inputs atomically. `--check-ci` has two legal modes. **Pending:** all six absent, deterministic green, and separate full-history queries for each exact path prove none ever appeared in any ancestor/ref. **Complete:** all six exist and strict regeneration matches. Current one-to-five partial fails. If ancestry ever contained any one of six, later zero/partial fails permanently—even if exit JSON itself never existed. Mutation tests cover deleted one, deleted five and deleted complete sets. CI uses full history on every job; Task 21 integrates the Development Checkpoint in pending mode, while deferred Task 23 requires complete mode before public release.
 
 CI retains three jobs and Node `24.18.0`; Domain/Web runs real workerd/gateway, sealed-handle and deterministic B3 suites, iOS compiles StoreKit/owned inspector/PackTransfer and runs the Swift hostile harness plus non-live StoreKit Test, Android runs Java inspector JUnit and compiles debug/unsigned release with BillingClient `9.1.0`.
 
@@ -1621,7 +1621,7 @@ Add package command `verify:b3` as the complete deterministic/native audit chain
 
 - [ ] **Step 4: Document exact proof and deferrals**
 
-The architecture document must state that B3 proves only `b3-sandbox-proof` through real sandbox/test purchases and test Cloudflare resources. It explicitly denies production Full content/audio, production keys/bucket/Worker, public pricing, store approval, production Parent/child UI, release compliance, family sharing, broad physical-device quality, accessibility/performance and visual/theme/assets completion. It records that B4 owns the broad matrix and that Visual / Theme / Asset Migration remains after Gate B `GO` and before C3.
+The architecture document must state that B3 Development proves only deterministic/compiled `b3-sandbox-proof` capability and explicitly denies live store, deployed Cloudflare/R2, signed distribution and physical-device truth. It also denies production Full content/audio, production keys/bucket/Worker, public pricing, store approval, production Parent/child UI, release compliance, family sharing, broad physical-device quality, accessibility/performance and visual/theme/assets completion. It records that B4 owns virtual-device product-quality development, Release Commerce Certification owns final live/physical truth, and Visual / Theme / Asset Migration remains after Gate B Development `GO` and before C3.
 
 - [ ] **Step 5: Run the final application checkpoint and commit**
 
@@ -1654,181 +1654,104 @@ git status --short
 git push -u origin jamesto/mobile-b3-billing-download
 ```
 
-Expected: clean tree and exact-head branch CI green for all three jobs in legitimate pending mode. This commit becomes `testedApplicationCommit`; Task 21 may create only untracked `.native-build` distribution authority, Task 22 may commit only the six live evidence files, and Task 23 changes no files. Any application/gateway/native/verifier change requires a new Task 20 checkpoint, new signed distribution and complete live recapture.
+Expected: clean tree and exact-head branch CI green for all three jobs in legitimate pending mode. The exact application checkpoint is frozen for Task 21 development acceptance. No signing, store distribution, Cloudflare/R2 mutation or physical capture is performed against bytes that planned B4/C work will replace.
 
-### Task 21: Produce and verify signed distribution authority for the clean checkpoint
+### Task 21: Close and integrate the B3 Development Checkpoint
 
-**Files:** No tracked files. Outputs stay under `.native-build/b3/distribution/` and are consumed into Task 22 platform reports.
+**Files:** Documentation authority plus the existing public-claim contract assertion in `tests/b3-evidence-contract.test.mjs`. Do not change application, gateway, native, dependency, proof-wrapper, validator, CI or report inputs.
 
-**Interfaces:**
-
-- Consumes: Task 20 clean commit/fingerprint, durable Apple/Google distribution approvals, visible operator-built/signed artefacts and installed apps.
-- Produces: `.native-build/b3/distribution/build-authority.json`, `ios-installed-authority.json` and `android-installed-authority.json`; no seventh committed live evidence file.
-
-- [ ] **Step 1: Generate deterministic build authority from clean HEAD**
-
-```bash
-git status --short
-B3_REMOTE_RUN_TOKEN="$B3_REMOTE_RUN_TOKEN" npm run prepare:b3:distribution
-```
-
-Expected: clean tree; metadata binds exact Task 20 commit/fingerprint, `versionName: "0.3.0-b3"`, approved positive iOS build number and Android versionCode. It contains no future/evidence commit SHA, key/certificate bytes or secret.
-
-- [ ] **Step 2: Pause for visible signed distribution actions**
-
-The wrapper exits `7` for visible operator action. Operator uses Xcode Archive scheme `KS2Spelling`/`B3SandboxProof`, exports a development-signed IPA and installs it physically. Android uploads exact signed `bundleB3SandboxProofRelease` AAB to Play internal testing. Agent does not sign/upload/access keychain or console.
-
-```bash
-B3_REMOTE_MUTATION_SCOPE=apple-signed-distribution B3_REMOTE_RUN_TOKEN="$B3_REMOTE_RUN_TOKEN" npm run prepare:b3:distribution -- --request-operator-action ios
-B3_REMOTE_MUTATION_SCOPE=google-test-track-refund-revoke B3_REMOTE_RUN_TOKEN="$B3_REMOTE_RUN_TOKEN" npm run prepare:b3:distribution -- --request-operator-action android
-```
-
-Expected: each command exits `7` only after validating its durable identifiers/run token and writing a redacted visible instruction; it performs no remote mutation.
-
-- [ ] **Step 3: Verify installed signed builds against authority**
-
-```bash
-npm run verify:b3:installed-distribution -- --platform ios --signed-ipa "$B3_IOS_SIGNED_IPA"
-npm run verify:b3:installed-distribution -- --platform android --signed-aab "$B3_ANDROID_SIGNED_AAB"
-```
-
-Expected: iOS exact closed development IPA/embedded authority/IPA cert, installed bundle-version-build-authority, device-derived developer-app classification and sandbox receipt equality. Android exact AAB/extracted authority/versionCode/Play cert/installer plus ordered pulled base/split APK SHA multiset and installed authority equality. Any other distribution or mismatch fails.
-
-- [ ] **Step 4: Reconfirm no tracked change**
-
-```bash
-git status --short
-node --test tests/b3-distribution-authority.test.mjs
-```
-
-Expected: working tree remains clean; only `.native-build/b3/distribution/` exists untracked/ignored. Fresh reviewer checks the three authority files and signed-artefact comparison before Task 22.
-
-### Task 22: Deploy the exact sandbox checkpoint and capture Apple, Google and private-R2 proof
-
-**Files:**
-
-- Create: `reports/b3/cloudflare-sandbox-proof.json`
-- Create: `reports/b3/ios-sandbox-proof.json`
-- Create: `reports/b3/ios-sandbox-proof.png`
-- Create: `reports/b3/android-sandbox-proof.json`
-- Create: `reports/b3/android-sandbox-proof.png`
-- Create: `reports/b3/b3-exit-report.json`
+**Decision rationale:** Apple distinguishes local Xcode StoreKit Test from App Store sandbox truth: Simulator/device test transactions and receipts are signed by Xcode, while sandbox/TestFlight exercises App Store-signed transactions and server paths ([Apple testing stages](https://developer.apple.com/documentation/storekit/testing-at-all-stages-of-development-with-xcode-and-the-sandbox?changes=_8&language=objc), [sandbox overview](https://developer.apple.com/help/app-store-connect/test-in-app-purchases/overview-of-testing-in-sandbox)). Google documents that Play-enabled AVD profiles include the Play Store and CTS-compatible system images, but live Billing tests still require Play Console product/licence-tester authority ([AVD profiles](https://developer.android.com/studio/run/managing-avds), [Play Billing testing](https://developer.android.com/google/play/billing/test)). These narrower environments are valid development evidence but cannot be relabelled as final store evidence.
 
 **Interfaces:**
 
-- Consumes: Task 20 exact clean checkpoint, Task 21 installed distribution authority, exact run-local token, durable scoped remote-mutation approvals, provisioned stores/test accounts/devices/remote secret names and root-authored screenshot attestations.
-- Produces: one evidence-only commit proving actual store/gateway/R2 behaviour.
+- Consumes: Task 20 exact application commit `ea36913574679bad13440066f67c9e174f8707a3`, integration commit `466de3204f513223ff35167dfacb7645240bb501`, application fingerprint `2b6c4bc91c2d97f01e3a98236a4b0b7fe115a71e46388dc856e7491eead1fba5`, deterministic/native/dependency reports, hosted StoreKit Test and exact-head three-lane CI.
+- Produces: one reviewed documentation-only successor, a merged B3 Development Checkpoint on `main`, exact-main three-lane CI in `pending` mode and measured B4 entry authority.
 
-- [ ] **Step 1: Prove external gates and deploy exact test resources**
+- [ ] **Step 1: Reconfirm the narrow development evidence**
 
-```bash
-npm run check:b3-prerequisites
-B3_REMOTE_MUTATION_SCOPE=cloudflare-deploy B3_REMOTE_RUN_TOKEN="$B3_REMOTE_RUN_TOKEN" npm run deploy:b3:sandbox
-npm run prove:b3:cloudflare
-```
+Require the current B3 fingerprint to equal the Task 20 value. Run the focused exit-topology, StoreKit wrapper, Android BillingClient/native report, deterministic proof and gateway/workerd gates. `node scripts/build-b3-exit-report.mjs --check-ci` must return `mode:"pending"`; do not add a third CI mode or create any of the six live paths.
 
-Expected: prerequisite gate reads OAuth remotely and matches tracked account/Worker/public endpoint, private bucket, `PACKS`, `GATEWAY_RATE_LIMIT`, `WORKER_VERSION_METADATA`, seven secret names and run token without values. Deployment validates object authority, uploads immutable identical-only objects, binds normalised script authority + Cloudflare API version ID, and passes CORS, every-route rate-limit `429` with zero upstream calls, missing-binding fail-closed, capability, Range and no-redirect smoke. Missing/drift exits `6`; never login/overwrite/fabricate/request credentials.
+Expected: hosted StoreKit delayed approve/decline, BillingClient compilation/JUnit, unsigned iOS/Android builds, signed-pack validation, deterministic purchase/restore/revoke/download/activation/offline continuity and gateway/workerd integration pass. Every report continues to state `liveStoreProof:false`, `liveCloudProof:false` and `physicalDeviceProof:false` where those fields apply.
 
-- [ ] **Step 2: Capture the complete live Apple sandbox journey**
+- [ ] **Step 2: Freeze the development-versus-release claim boundary**
 
-First require the committed deterministic report's separate non-live StoreKit Test block with exact approve then decline scenarios. It cannot satisfy any physical sandbox field. Then, on one physical iPhone whose installed signed build matches Task 21, use one sandbox tester context reserved for Ask to Buy pending and a separate normal-purchase tester context:
+Update this plan, the programme, foundation design, B3 architecture and native-development runbook in place. Do not add another superseding amendment. Record that current `pending` mode is a successful B3 Development Checkpoint, while signed distribution, deployed Cloudflare/R2, real store transactions and physical compatibility remain one Release Commerce Certification blocker before public store submission.
 
-```bash
-B3_REMOTE_MUTATION_SCOPE=apple-sandbox-history-refund B3_REMOTE_RUN_TOKEN="$B3_REMOTE_RUN_TOKEN" npm run prove:b3:ios
-```
+Expected: no runtime or verifier file changes and the application fingerprint remains byte-identical to Task 20. The public-claim assertion rejects both the former live-sandbox claim and any wording that omits the pre-release blocker.
 
-Before purchase require exact synthetic authority. Journey: query; cancel; Ask pending; switch tester; normal purchase/hold/unfinished; live JWS/finish/HTTPS install; unchanged digests; delete/reinstall; parent visibly taps Restore, native calls `AppStore.sync()` exactly once then verified current entitlements/fresh handle/redownload; proactive launch/resume before that must show zero sync/auth UI; reseed exact authority; visible refund; verified revoke/handle delete/unchanged second record. Wrapper rejects fake adapter/Worker identity.
+- [ ] **Step 3: Run the exact-HEAD review gates**
 
-Each exit `7` writes only redacted run-local state and a visible instruction. After the operator completes that exact action, rerun the same scoped command; the wrapper resumes from its validated checkpoint. It must never treat timeout/no state change as success.
+Require three independent approvals on one exact HEAD:
 
-Expected initial exit: `5` with code `b3_ios_manual_attestation_required` after writing pending report/screenshot. The root controller inspects the original-resolution screenshot, verifies complete Parent diagnostic shell/no store sheet/system dialog/private account data, then creates only `.native-build/b3/ios-manual-attestation.json` with platform, screenshot SHA-256 and `manualVisualInspection: "passed"`.
+1. Gstack confirms the change stays inside the accepted development/release boundary and does not claim live proof.
+2. Matt reviews Standards and Spec compliance, including offline-first and release-blocker honesty.
+3. Ponytail rejects over-engineering, duplicate proof frameworks and unnecessary emulator/cloud-device integration.
 
-```bash
-npm run prove:b3:ios -- --attest .native-build/b3/ios-manual-attestation.json
-```
+Only actionable P1/P2 findings inside this documentation and gate boundary block completion. A correction creates a new candidate HEAD and all three reviews rerun.
 
-Expected: PASS with exact nine-scenario physical order, separate non-live StoreKit Test reference, Task 21 distribution block, Cloudflare/object equality, full envelope SHA, random trace IDs only for gateway-backed outcomes, no commitment on query/cancel/pending and completion exactly `{finished:true}`.
+- [ ] **Step 4: Merge and prove exact main in pending mode**
 
-- [ ] **Step 3: Capture the complete live Google Play test journey**
+Push the reviewed branch, merge it through one PR and require exact-head plus exact-main Domain/Web, iOS and Android jobs to pass. Parse the JSON output of `node scripts/build-b3-exit-report.mjs --check-ci`; the unsupported `--print-mode` option must not be used.
 
-On one Play-certified physical Android device with the build installed through internal/closed testing, run:
+Expected: exact `main` is green with `mode:"pending"`. Report the result as **B3 Development Checkpoint complete; Release Commerce Certification outstanding**. This authorises the next B4 development plan without authorising store submission or public release.
 
-```bash
-B3_REMOTE_MUTATION_SCOPE=google-test-track-refund-revoke B3_REMOTE_RUN_TOKEN="$B3_REMOTE_RUN_TOKEN" npm run prove:b3:android
-```
+### Task 22: Deferred Release Commerce Certification
 
-Before purchase the wrapper requires exact tracked synthetic two-learner authority and rejects any other profile/nickname/digest. It proves ordered scenarios with Google `TEST`: query; cancel; slow decline; slow pending/approve; bounded polling; resume query; durable entitlement/handle/safe Google order ID then exact five-second unack hold/force-stop; relaunch -> live ProductPurchaseV2 -> acknowledgement -> real HTTPS install; unchanged synthetic digests; Play reinstall -> fresh proof/handle -> restore/redownload/no learner-backup claim; reseed/revalidate exact synthetic authority; visible refund+revoke; gateway denial, durable revoke+handle deletion and unchanged second synthetic record. It pauses exit `7` and never mutates Play Console or permits fake gateway/store adapters.
+Task 22 is deliberately not a prerequisite for B4/C development. It runs once, after product UI, visual/theme/assets, production security, store records and other release-candidate work have stabilised.
 
-After every exit `7`, the operator completes only the displayed approved action and the same scoped command is rerun. Automatic slow-card polling and the five-second hold never ask the operator to race a hidden prompt; timeout fails closed.
-
-Expected initial exit: `5` with code `b3_android_manual_attestation_required`. After root inspection, create only `.native-build/b3/android-manual-attestation.json` bound to the screenshot SHA and finalise:
-
-```bash
-npm run prove:b3:android -- --attest .native-build/b3/android-manual-attestation.json
-```
-
-Expected: PASS with exact nine-scenario order, completion exactly `{acknowledged:true}`, Task 21 embedded authority/versionCode/signing certificate, installer `com.android.vending`, certified-device evidence, Cloudflare/object equality, full envelope SHA and no raw token/handle/account identity.
-
-- [ ] **Step 4: Build and validate the B3 exit report**
-
-```bash
-node --test tests/b3-evidence-contract.test.mjs tests/b3-cloudflare-wrapper-contract.test.mjs tests/b3-ios-wrapper-contract.test.mjs tests/b3-android-wrapper-contract.test.mjs
-node scripts/build-b3-exit-report.mjs --write
-npm test
-node --test tests/b3-exit-report.live.mjs
-git diff --check
-git status --short
-```
-
-Expected: exactly the complete six-file topology is changed: Cloudflare JSON, iOS JSON/PNG, Android JSON/PNG and exit JSON. All strict ordered scenarios, non-live/live labels, distribution/gateway/object equality and screenshot attestations pass; no application/config/gateway/native/verifier input changed.
-
-- [ ] **Step 5: Commit evidence only and push**
-
-```bash
-git add reports/b3/cloudflare-sandbox-proof.json reports/b3/ios-sandbox-proof.json reports/b3/ios-sandbox-proof.png reports/b3/android-sandbox-proof.json reports/b3/android-sandbox-proof.png reports/b3/b3-exit-report.json
-git commit -m "test: close B3 sandbox commerce evidence"
-git push origin jamesto/mobile-b3-billing-download
-```
-
-Expected: branch HEAD is the evidence-only commit and exact-head three-job CI passes. If any live journey cannot be completed, B3 remains blocked-external rather than partially passed.
-
-### Task 23: Complete broad review, fast-forward main and prove exact main
-
-**Files:** No planned source files. Review fixes repeat Tasks 20–22 in full.
+**Files:** The existing exact six-file `reports/b3` topology only.
 
 **Interfaces:**
 
-- Consumes: Task 22 evidence-only head, exact-head hosted CI in complete mode and whole-branch review.
-- Produces: fast-forwarded `main`, exact-main CI and measured B4 entry authority.
+- Consumes: one fresh final release-candidate checkpoint/fingerprint; provisioned Apple/Google test products and accounts; durable scoped mutation approvals; final signed distributions; accessible physical devices or a separately approved hosted-real-device route that can produce the same store/install evidence; and approved Cloudflare/R2 test authority.
+- Produces: one evidence-only successor proving actual signed-store, deployed gateway/R2 and device behaviour without learner-data disclosure.
 
-- [ ] **Step 1: Require exact-head CI and broad independent review**
+- [ ] **Step 1: Freeze the final release-candidate checkpoint**
 
-Build a review package from `git merge-base main HEAD` through branch HEAD. Require CI `mode:'complete'`; pending mode cannot merge. The fresh reviewer must assess every B3 exit criterion, product scope, native billing correctness, sealed-handle lifecycle, receipt-only privacy, signed distribution, live store truth, gateway/R2 access, signature/canonicalisation, compiled hostile ZIP proof, crash recovery, learner preservation, dependency/licence evidence and claim honesty. Resolve all Critical/Important findings. Any non-evidence change creates a new clean Task 20 checkpoint and forces new signed distribution, Cloudflare redeploy and both full physical-device recaptures.
+Rerun the full deterministic/native/dependency/CI chain on the final application bytes. The six live paths must still be absent. Any subsequent application, gateway, native, dependency, wrapper or validator change invalidates this checkpoint.
 
-- [ ] **Step 2: Fast-forward and prove exact main**
+- [ ] **Step 2: Produce and inspect signed distribution authority**
 
-```bash
-test "$(node scripts/build-b3-exit-report.mjs --check-ci --print-mode)" = "complete"
-git switch main
-git pull --ff-only origin main
-git merge --ff-only jamesto/mobile-b3-billing-download
-git push origin main
-```
+Use the existing `prepare:b3:distribution` and `verify:b3:installed-distribution` paths. iOS requires the supported development-signed IPA/install authority; Android requires the exact Play internal-test AAB, Play App Signing certificate, `com.android.vending` installer and ordered installed APK hashes. A Simulator, emulator, unsigned build or generic cloud-device screenshot cannot satisfy this step.
 
-Require the exact pushed `main` SHA to complete all three hosted jobs successfully. Then run read-only authority capture:
+- [ ] **Step 3: Deploy and read back the exact test gateway and pack objects**
 
-```bash
-git rev-parse HEAD
-git rev-parse HEAD^{tree}
-shasum -a 256 reports/b3/b3-exit-report.json reports/b3/dependency-audit.json reports/b3/native-build.json package-lock.json gateway/package-lock.json
-gh run list --branch main --commit "$(git rev-parse HEAD)" --workflow ci.yml --json databaseId,url,headSha,status,conclusion
-```
+Use only the existing scoped Cloudflare/R2 tooling. Validate exact Worker bytes/version metadata, bindings and secret names without exposing values; upload the two immutable objects create-only/identical-only; prove rate limiting, capability, Range and no-redirect behaviour. Do not add a development-only remote deployment lifecycle.
 
-Expected: one successful exact-main run whose `headSha` equals `git rev-parse HEAD`. Preserve the branch until these measured values are copied into the next B4 plan authority section.
+- [ ] **Step 4: Capture the complete Apple and Google store journeys**
 
-## B3 exit criteria
+Use the existing fail-closed iOS and Android wrappers for the exact query, cancel, pending/decline, purchase, unfinished/relaunch or unacknowledged/relaunch, install, restore-after-reinstall, redownload and refund/revoke scenarios. Bind final signed distribution, Cloudflare/object equality, exact synthetic learner preservation and redacted screenshots. Physical device ownership is not required, but the evidence must come from accessible real devices and satisfy the existing local transport/inspector contract unless a separate pre-release plan proves an equivalent hosted route.
 
-B3 is complete only when all items below have direct evidence:
+- [ ] **Step 5: Publish the exact evidence-only successor**
+
+Create exactly the Cloudflare JSON, iOS JSON/PNG, Android JSON/PNG and exit JSON through the existing create-only publisher. `node scripts/build-b3-exit-report.mjs --check-ci` must return `mode:"complete"`, and the evidence commit must directly follow the frozen final release-candidate checkpoint.
+
+Expected: Release Commerce Certification passes only on the final release-candidate bytes. If any live journey is unavailable, public store submission remains blocked; development history and local spelling use remain unaffected.
+
+### Task 23: Deferred release-candidate review and exact-main proof
+
+**Files:** No planned source files. Review fixes repeat the final checkpoint and Task 22 where invalidated.
+
+Require Gstack boundary, Matt Standards/Spec and Ponytail over-engineering approvals on one exact evidence HEAD, complete-mode three-lane CI and a whole-release review. Merge the evidence-only successor and require exact-main CI whose `headSha` equals the pushed commit. Any non-evidence correction restarts the final checkpoint, signed distributions, Cloudflare/R2 readback and both store/device captures.
+
+## B3 Development Checkpoint exit criteria
+
+B3 Development is complete when all items below have direct evidence:
+
+1. Frozen B2/A2 authority, vendor authority and upstream A3 contract pass without changing local learner, Monster or Camp semantics.
+2. The Task 20 application fingerprint remains exact and the tracked tree changes only documentation authority after that checkpoint.
+3. Deterministic commerce, entitlement, restore, revoke, signed-pack download, resume, activation and offline-continuity scenarios pass twice with byte-identical public evidence.
+4. Real workerd/gateway tests, CORS, rate-limit, Apple/Google verifier fixtures, missing-binding fail-closed behaviour and Wrangler dry-run pass without a live deployment.
+5. iOS compiles the unsigned B3 Simulator target, runs the owned hostile ZIP harness and passes hosted Xcode StoreKit Test delayed approve/decline with explicit non-live labels.
+6. Android compiles/tests the exact BillingClient `9.1.0` bridge, unsigned B3 bundle, owned hostile ZIP inspector and resolved dependency/privacy policy. The frozen Google APIs AVD is not claimed as Play-enabled purchase proof.
+7. Native and deterministic reports remain explicit that live store, live Cloudflare and physical-device proof are false.
+8. All six final live-evidence paths remain absent and `node scripts/build-b3-exit-report.mjs --check-ci` returns `mode:"pending"`.
+9. Gstack, Matt and Ponytail approve one exact documentation-only HEAD with no actionable P1/P2 finding.
+10. Exact-head and exact-main Domain/Web, iOS and Android CI pass in pending mode. B4 authority records the exact merge SHA, tree, fingerprint, report hashes and CI URL.
+
+## Release Commerce Certification exit criteria
+
+Public store submission remains blocked until all items below have direct evidence on the final release-candidate bytes:
 
 1. Frozen B2/A2 authority passes; tracked gateway binds approved account/Worker, bucket `ks2-spelling-b3-sandbox-packs`, origin `https://b3-gateway.eugnel.uk`, sandbox and exact Capacitor origins while `server.url` is null.
 2. Store/product/entitlement/pack IDs are exact. Concrete Capacitor store and closed 10-second no-redirect HTTP gateway run physically; fake fallback fails; CORS exact; endpoint/secrets unlogged.
@@ -1848,9 +1771,13 @@ B3 is complete only when all items below have direct evidence:
 16. Live reports contain fresh trace UUIDs only; deterministic proof contains no fresh random values and is byte-identical across two clean runs. No raw proof/handle/capability/store ID.
 17. Platform gateway/object/Worker/distribution blocks equal actual response/Cloud/distribution authority; screenshots are SHA-attested and Parent-only.
 18. Reviewed non-force pushes occur after Tasks 4/8/13/18 on exact branch; hook bypass only after documented exact-HEAD full relevant tests. Task20 formal checkpoint remains.
-19. CI checks ancestry separately for all six paths; only never-present zero is pending, any partial/history deletion fails, exact six is complete; Task23 merges complete with exact-head branch/main CI and broad review.
+19. CI checks ancestry separately for all six paths; only never-present zero is pending, any partial/history deletion fails, exact six is complete; deferred Task 23 merges complete with exact-head branch/main CI and broad review.
 
-## Complete B3 verification command
+## B3 Development verification
+
+The local verification chain is `npm run verify:b3`; it must end in pending mode and keep all six live outputs absent. Hosted exact-head CI supplies the supported StoreKit execution result and all three platform lanes. Local Xcode runtime failure must remain fail-closed rather than be replaced by a mock.
+
+## Release Commerce Certification verification command
 
 ```bash
 npm ci
@@ -1878,7 +1805,7 @@ npm run verify:b3:installed-distribution -- --platform ios --signed-ipa "$B3_IOS
 npm run verify:b3:installed-distribution -- --platform android --signed-aab "$B3_ANDROID_SIGNED_AAB"
 npm run prove:b3:ios -- --attest .native-build/b3/ios-manual-attestation.json
 npm run prove:b3:android -- --attest .native-build/b3/android-manual-attestation.json
-test "$(node scripts/build-b3-exit-report.mjs --check-ci --print-mode)" = "complete"
+node scripts/build-b3-exit-report.mjs --check-ci
 node --test tests/b3-exit-report.live.mjs
 actionlint .github/workflows/ci.yml
 git diff --check
@@ -1889,17 +1816,20 @@ git status --short
 
 B3 does not ship or certify production Full KS2 content/audio, production pack signing keys, production Cloudflare resources, public pricing, store approval, family sharing, production Parent/child/profile/PIN/biometric UI, final Monster/pack visuals, final theme/assets, accessibility, performance, complete phone/tablet support, public compliance metadata or release readiness. It does not change spelling mastery, Monster stages or Camp rules.
 
-B4 now owns the broad physical-device and WebView proof: one complete Starter spelling round, bundled local audio, software keyboard, lifecycle/audio interruption, VoiceOver/TalkBack, iPhone/iPad/Pixel 6a/Galaxy Tab A9 layout, and all section 18 performance/size budgets. B3's two physical devices prove commerce/download truth only. Only B4 `GO` authorises C-series work. The dedicated Visual / Theme / Asset Migration plan remains mandatory after Gate B `GO` and before C3 child-facing production UI.
+B4 owns virtual-device and hosted development proof for one complete Starter spelling round, bundled local audio, software keyboard, lifecycle/audio interruption, accessibility, phone/tablet layout and the section 18 performance/size budgets that can be measured without locally owned hardware. Physical compatibility is consolidated with Task 22 into the pre-release certification boundary. B4 Development `GO` authorises C-series work without claiming physical or store readiness. The dedicated Visual / Theme / Asset Migration plan remains mandatory after Gate B Development `GO` and before C3 child-facing production UI.
 
 ## B4 entry authority block
 
-The next B4 plan must freeze values measured after Task 23, using these exact sources and no inferred values:
+The next B4 plan must freeze values measured after Task 21 integration, using these exact sources and no inferred values:
 
 | B4 authority field | Exact source after B3 merge |
 |---|---|
 | B3 merged `main` commit | stdout of `git rev-parse HEAD` |
 | B3 merged tree | stdout of `git rev-parse HEAD^{tree}` |
-| B3 exit report SHA-256 | stdout for `reports/b3/b3-exit-report.json` from the Task 23 `shasum` command |
+| Task 20 application commit | `ea36913574679bad13440066f67c9e174f8707a3` |
+| B3 application fingerprint | fresh output from `scripts/fingerprint-b3-application.mjs`, equal to `2b6c4bc91c2d97f01e3a98236a4b0b7fe115a71e46388dc856e7491eead1fba5` |
+| B3 evidence topology | fresh `mode:"pending"` output from `scripts/build-b3-exit-report.mjs --check-ci` |
+| B3 deterministic proof SHA-256 | stdout for `reports/b3/deterministic-proof.json` |
 | B3 dependency audit SHA-256 | stdout for `reports/b3/dependency-audit.json` |
 | B3 native build report SHA-256 | stdout for `reports/b3/native-build.json` |
 | Root package lock SHA-256 | stdout for `package-lock.json` |
@@ -1908,4 +1838,4 @@ The next B4 plan must freeze values measured after Task 23, using these exact so
 | Frozen upstream Gate A commit | `4501607a9b58f2fb252b4cce64ba056e6f60c630` |
 | A2 contract manifest SHA-256 | `237b26b14e7506fa271bb3324f701d6205e6e0166d659a16789937478cc77b66` |
 
-Do not delete `jamesto/mobile-b3-billing-download` or begin B4 implementation until every measured B4 authority value has been written into the B4 plan and independently checked against exact `main`.
+Do not delete `jamesto/mobile-b3-billing-download` or begin B4 implementation until every measured B4 authority value has been written into the B4 plan and independently checked against exact `main`. Release Commerce Certification remains a separate outstanding blocker before store submission.

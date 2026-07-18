@@ -1,9 +1,11 @@
 # B3 commerce and signed-pack authority
 
-B3 proves only the `b3-sandbox-proof` pack through Apple sandbox and Google Play
-test purchases, the dedicated test Cloudflare Worker and its private R2 bucket.
-It does not prove production Full content or audio, production secrets or cloud
-resources, public pricing, store approval or release readiness.
+B3 Development proves the `b3-sandbox-proof` implementation through deterministic
+commerce/download scenarios, real workerd integration, hosted Xcode StoreKit
+Test, Android BillingClient tests and unsigned native compilation. It does not
+claim Apple sandbox or Google Play transaction truth, deployed Cloudflare/R2,
+signed distribution, physical-device behaviour, production Full content/audio,
+public pricing, store approval or release readiness.
 
 ## Local application boundary
 
@@ -21,15 +23,17 @@ cloud-tracked Parent metric.
 
 Task 20 creates one clean application commit and its B3 fingerprint. The checkpoint
 binds application, gateway, native, dependency, configuration, proof-wrapper,
-validator and builder inputs. Any later change to those inputs, or to the CI
-workflow, invalidates the checkpoint and requires fresh Task 21 distributions and
-Task 22 live capture.
+validator and builder inputs for the B3 Development Checkpoint. A documentation-
+only successor may integrate that checkpoint without changing its fingerprint.
+Planned B4/C work may then change application bytes without producing throw-away
+signed builds or live captures; deferred Task 22 freezes a fresh final
+release-candidate checkpoint instead.
 
 CI accepts only two final-evidence topologies:
 
 - `pending`: none of the six final paths exists now or in available Git history;
-- `complete`: all six paths form the exact evidence-only successor of the Task 20
-  checkpoint and strict regeneration is byte-identical.
+- `complete`: all six paths form the exact evidence-only successor of the later
+  final release-candidate checkpoint and strict regeneration is byte-identical.
 
 The six paths are:
 
@@ -43,24 +47,30 @@ reports/b3/b3-exit-report.json
 ```
 
 One to five current paths fail. Deleting earlier evidence cannot restore pending
-mode. Task 22 supplies and validates the first five files, then the exit builder
-uses the existing create-only publisher for the sixth. Task 23 changes no files.
+mode. Pending is the accepted B3 Development state. Deferred Task 22 supplies and
+validates the first five files at pre-release, then the exit builder uses the
+existing create-only publisher for the sixth. Deferred Task 23 changes no files.
 
 ## Downstream authority
 
-Task 21 produces and inspects signed iOS and Android distribution authority outside
-Git from the exact Task 20 checkpoint. Successful unsigned compilation is not
-signing or store authority.
+Task 21 closes and integrates the B3 Development Checkpoint using existing
+deterministic, workerd, hosted StoreKit, BillingClient, unsigned native and
+pending-topology evidence. Successful unsigned compilation is not signing or
+store authority.
 
-Task 22 alone may perform explicitly authorised Cloudflare/R2, store-test and
-physical-device actions. It binds exact remote readback and the two signed installed
-applications to the same Task 20 commit and fingerprint. Learner identities, raw
-store proofs, refresh handles, capability URLs and device account data are not
-committed.
+Deferred Task 22 alone may perform explicitly authorised Cloudflare/R2, store-test
+and physical-device actions. It binds exact remote readback and the two signed
+installed applications to one fresh final release-candidate commit and
+fingerprint. Learner identities, raw store proofs, refresh handles, capability
+URLs and device account data are not committed. Physical devices need not be
+owned, but any borrowed or hosted-real-device route must satisfy the existing
+signed-install, store and evidence contract; virtual devices never satisfy it.
 
 ## Deferred claims
 
-B4 retains broad device quality, accessibility, performance, production security,
-backup/export, family sharing and release-compliance work. Production Parent/child
-UI, pricing and content remain later product gates. A dedicated Visual / Theme /
-Asset Migration Spec remains mandatory after Gate B `GO` and before C3 child UI.
+B4 retains virtual-device and hosted development quality, accessibility,
+performance, production security, backup/export and family-sharing work.
+Physical compatibility and Release Commerce Certification remain one explicit
+pre-release blocker. Production Parent/child UI, pricing and content remain later
+product gates. A dedicated Visual / Theme / Asset Migration Spec remains mandatory
+after Gate B Development `GO` and before C3 child UI.

@@ -50,9 +50,11 @@ content.
 
 Monster is a motivational presentation around spelling, not an independently
 cloud-tracked Parent metric. A dedicated Visual / Theme / Asset Migration Spec
-remains mandatory after Gate B `GO` and before C3 child UI. B3 proves
-sandbox/test commerce and signed-download truth only; it does not prove
-production release readiness.
+remains mandatory after Gate B `GO` for the Development Checkpoint and before C3
+child UI. B3
+Development proves deterministic and compiled commerce/signed-download capability
+only. Signed App Store/Google Play, deployed Cloudflare/R2 and physical-device
+truth remain one Release Commerce Certification blocker before public submission.
 
 ## B2 persistence boundary
 
@@ -87,10 +89,11 @@ lifecycle, disk requirements and unsigned-build boundary are documented in
 CI has separate Ubuntu 24.04 domain/web and Android compile lanes plus an
 unsigned iOS Simulator compile lane on macOS 26. All use Node.js `24.18.0`,
 retain full Git history and pin third-party Actions to full commit SHAs. B3 CI
-accepts only a legitimate zero-file `pending` state or the exact six-file
-`complete` evidence successor. It does not perform live Cloudflare, store or
-physical-device actions. A workflow definition or local pass is not presented
-as a hosted CI result; the exact private-branch run must be observed first.
+accepts a legitimate zero-file `pending` Development Checkpoint or the exact
+six-file `complete` pre-release evidence successor. It does not perform live
+Cloudflare, store or physical-device actions. A workflow definition or local
+pass is not presented as a hosted CI result; the exact branch run must be
+observed first.
 
 ## B2 evidence status
 

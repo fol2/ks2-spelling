@@ -71,8 +71,8 @@ learner-scoped snapshot, validates the complete command plan, commits all
 related durable targets atomically and releases transient effects only after
 commit.
 
-B3 schema v2 adds app-wide commerce, pack and physical-proof capture authority
-without making Cloudflare or R2 a learning-state database. The physical proof
+B3 schema v2 adds app-wide commerce, pack and release-proof capture authority
+without making Cloudflare or R2 a learning-state database. The release-proof
 capture database is separate ignored verification state. It must not become a
 runtime dependency of spelling practice or learner progress.
 
@@ -103,12 +103,21 @@ verification keys only and cannot sign or re-sign packs. Archive inspection and
 activation reject path traversal, links, duplicates, unbounded content and
 signature or hash drift before replacing the active data pack.
 
-## Native proof boundary
+## Development and release proof boundary
 
 The B3 proof plugin is diagnostic and B3-only. Normal application builds must not
-expose it. Physical observations are app-owned, command-bound, redacted and
-hash-chained. The host may pull only the fixed observation path and may derive
-public evidence only from validated observations.
+expose it. B3 development acceptance uses deterministic commerce/download proof,
+unsigned native compilation, Android BillingClient tests and Xcode StoreKit Test.
+These results remain explicitly non-live and do not claim signed distribution,
+App Store or Google Play transaction truth, Cloudflare deployment or physical
+device behaviour.
+
+The existing signed-distribution, live-store, Cloudflare/R2 and physical-device
+proof tooling is reserved unchanged for one Release Commerce Certification on
+the final release-candidate bytes. Physical observations in that gate are
+app-owned, command-bound, redacted and hash-chained. The host may pull only the
+fixed observation path and may derive public evidence only from validated
+observations.
 
 Host checkpoints such as pending-purchase approval/decline, the exact five-second
 hold, force-stop, reinstall acknowledgement and screenshot attestation are not
@@ -116,9 +125,10 @@ app observations. Process absence is never proof that a host-owned stop
 completed. Native launch and force-stop crossings therefore require durable
 receipts or the closed reinstall recovery gate.
 
-Final B3 reports and screenshots are immutable derived evidence under the closed
-`reports/b3` namespace. They are outside SQLite and may be created only through
-the exact-byte final-output publisher. Task 19 performs local, non-mutating
+Final release-commerce reports and screenshots are immutable derived evidence
+under the closed `reports/b3` namespace. They are outside SQLite and may be
+created only through the exact-byte final-output publisher. They remain absent
+while development CI is in `pending` mode. Task 19 performs local, non-mutating
 certification only: it does not deploy Cloudflare, write R2, mutate a store
 console, sign, install, operate a physical device or publish live evidence.
 
@@ -127,6 +137,9 @@ console, sign, install, operate a physical device or publish live evidence.
 The current proof shell is not final child-facing visual design. Parent security,
 production profile administration, accessibility and performance certification,
 release signing, store records, legal metadata, production backup and final
-visual/theme/asset migration remain separately reviewed programme gates. Passing
-a narrower test or unsigned build must not be described as production or store
-readiness.
+visual/theme/asset migration remain separately reviewed programme gates. Virtual
+devices and hosted device services may advance development and compatibility
+work, but public store submission remains blocked until Release Commerce
+Certification has exercised signed final-candidate builds on accessible physical
+or approved hosted-real devices. Passing a narrower test or unsigned build must
+not be described as production or store readiness.

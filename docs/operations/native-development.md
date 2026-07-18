@@ -139,14 +139,19 @@ node scripts/build-b3-exit-report.mjs --check-ci
 
 Pending means that none of the six final B3 paths exists now or anywhere in the
 available Git history. One to five paths, or deleted earlier evidence, fail closed.
-After Task 22 has created the exact six-file evidence-only successor, the same
-commands require complete mode and strict byte regeneration. See
+Pending is the successful B3 Development Checkpoint state. After deferred Task 22
+has certified the final release-candidate bytes and created the exact six-file
+evidence-only successor, the same commands require complete mode and strict byte
+regeneration. See
 `docs/architecture/b3-commerce-pack-authority.md` for the topology and invalidation
 rules.
 
 Task 20 does not sign, install, deploy or contact a store or physical device. Task
-21 owns signed distribution authority and Task 22 owns explicitly authorised live
-execution. Do not use the exit builder to invent or hand-edit any of their inputs.
+21 closes the development checkpoint without those actions. Deferred Task 22 owns
+fresh final-candidate signed distribution and explicitly authorised live execution.
+Do not use the exit builder to invent or hand-edit any live input. A Simulator,
+emulator or unsigned build remains non-live evidence even when it passes every
+development test.
 
 `npm run test:domain` runs the ordinary default suite without resolving Android.
 The two fresh resolved-toolchain assertions live only in

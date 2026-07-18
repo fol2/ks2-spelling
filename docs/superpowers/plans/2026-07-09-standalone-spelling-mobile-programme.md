@@ -43,12 +43,12 @@ The implementation plan is
 and the effective record is
 [`../../architecture/b2-persistence-authority.md`](../../architecture/b2-persistence-authority.md).
 
-### B3 — sandbox billing and signed-download proof
+### B3 — development commerce and signed-download proof
 
 Add the app-owned StoreKit 2 and Google Play Billing bridges, receipt-only
 Cloudflare gateway, sealed refresh handles, private-R2 capability delivery,
-signed data-only pack verification and physical proof protocol. B3 must preserve
-B1/B2 local learning authority and privacy boundaries.
+signed data-only pack verification and a fail-closed release-proof protocol. B3
+must preserve B1/B2 local learning authority and privacy boundaries.
 
 Task 19 builds and locally certifies the non-mutating capture/tooling path. It may
 use fakes at external process, API and device boundaries, but it must exercise the
@@ -73,26 +73,35 @@ After Task 19 approval, create the clean application checkpoint and exact
 application fingerprint. Any later application, gateway, native, dependency,
 configuration, wrapper or validator change invalidates this checkpoint.
 
-### Task 21 — signed distribution authority
+### Task 21 — development commerce checkpoint
 
-Build and inspect fresh signed iOS and Android distributions from the exact Task
-20 checkpoint. Signing, provisioning, store identities and distribution
-inspection are separate gates from successful compilation. Task 21 does not
-substitute for physical execution evidence.
+Close the B3 Development Checkpoint using the exact Task 20 application
+fingerprint, deterministic commerce/download proof, workerd and gateway dry-run,
+hosted Xcode StoreKit Test, Android BillingClient tests, unsigned native builds
+and CI `pending` topology. Merge the reviewed checkpoint to `main` only after
+Gstack boundary, Matt Standards/Spec and Ponytail over-engineering reviews approve
+one exact HEAD. The resulting claim is development capability, not signed-store,
+live Cloudflare or physical-device certification.
 
-### Task 22 — scoped live execution
+### Task 22 — deferred Release Commerce Certification
 
-Only explicit scoped approvals and run-token gates may authorise Cloudflare/R2,
-store-console or physical-device actions. Deploy and read back the exact Worker
-bytes, create-only upload the two closed R2 objects, inspect the exact signed
-distributions and execute the complete iOS/Android physical scenario protocol.
-Create only the six closed `reports/b3` final outputs.
+Task 22 is intentionally non-blocking for B4 and C-series development. After the
+final product, visual and release-candidate bytes are frozen, only explicit scoped
+approvals and run-token gates may authorise Cloudflare/R2, store-console or
+physical-device actions. Produce and inspect fresh signed iOS and Android
+distributions from that final checkpoint, deploy and read back the exact Worker
+and R2 bytes, and execute the complete Apple/Google store protocol. Create only
+the six closed `reports/b3` final outputs. Device access may be borrowed or an
+approved hosted-real-device service; the evidence contract is not weakened to
+accept a Simulator or emulator as live store truth.
 
-### Task 23 — final exact-main review
+### Task 23 — deferred release-candidate exact-main review
 
-Review the final evidence-only change, fast-forward the approved commit and
-verify exact main. Task 23 does not repair application code or conceal stale
-Task 20/21/22 authority; any such change restarts the affected downstream gates.
+After Task 22, review the final evidence-only change, fast-forward the approved
+release-candidate commit and verify exact main in CI `complete` mode. Task 23
+does not repair application code or conceal stale release-candidate authority;
+any application change restarts the final checkpoint, signed distribution and
+live certification.
 
 ## Cross-cutting rules
 
@@ -112,9 +121,12 @@ Task 20/21/22 authority; any such change restarts the affected downstream gates.
 
 ## Downstream invalidation
 
-Changes to runtime application bytes, gateway source/configuration, native
-projects, dependencies, proof plugins, fingerprint inputs, validators or wrapper
-logic invalidate the Task 20 checkpoint and therefore require new signed
-distributions, exact Cloudflare readback and complete physical recapture. An
-evidence-only correction may not hide stale application or distribution
-authority.
+Before Task 21 integration, changes to runtime application bytes, gateway
+source/configuration, native projects, dependencies, proof plugins, fingerprint
+inputs, validators or wrapper logic invalidate the Task 20 checkpoint. After B3
+Development Checkpoint integration, ordinary planned B4/C development is allowed
+to change those bytes without producing throw-away signed distributions or live
+captures. Task 22 must instead create one fresh final release-candidate checkpoint
+and bind all signed distribution, Cloudflare/R2 and physical-store evidence to
+that exact authority. An evidence-only correction may not hide stale application
+or distribution authority.

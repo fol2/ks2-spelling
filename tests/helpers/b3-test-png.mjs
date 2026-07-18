@@ -24,7 +24,7 @@ function chunk(type, data) {
   return result;
 }
 
-export function createB3TestPng({ width = 320, height = 480 } = {}) {
+export function createB3TestPng({ width = 320, height = 480, chunks = [] } = {}) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
@@ -34,6 +34,7 @@ export function createB3TestPng({ width = 320, height = 480 } = {}) {
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     chunk('IHDR', ihdr),
+    ...chunks.map(({ type, data }) => chunk(type, Buffer.from(data))),
     chunk('IDAT', deflateSync(rows)),
     chunk('IEND', Buffer.alloc(0)),
   ]);

@@ -10,6 +10,7 @@ const BIT_DEPTHS = Object.freeze({
   4: Object.freeze([8, 16]),
   6: Object.freeze([8, 16]),
 });
+const REPORT_CHUNKS = Object.freeze(new Set(['IHDR', 'IDAT', 'IEND']));
 
 const CRC_TABLE = Object.freeze(Array.from({ length: 256 }, (_, index) => {
   let value = index;
@@ -25,7 +26,7 @@ function crc32(bytes) {
   return (value ^ 0xffffffff) >>> 0;
 }
 
-export function validateB3PngBytes(rawBytes, {
+function validatePng(rawBytes, {
   minimumWidth = 320,
   minimumHeight = 480,
   maximumBytes = 64 * 1024 * 1024,
@@ -34,6 +35,7 @@ export function validateB3PngBytes(rawBytes, {
   maximumPixels = 32 * 1024 * 1024,
   maximumInflatedBytes = 128 * 1024 * 1024,
   label = 'B3 screenshot',
+  reportSafe = false,
 } = {}) {
   const bytes = rawBytes instanceof Uint8Array ? Buffer.from(rawBytes) : null;
   const fail = () => { throw new Error(`${label} is not a complete bounded PNG`); };
@@ -56,6 +58,7 @@ export function validateB3PngBytes(rawBytes, {
     const data = bytes.subarray(offset + 8, offset + 8 + length);
     if (!/^[A-Za-z]{4}$/u.test(type) ||
         crc32(Buffer.concat([typeBytes, data])) !== bytes.readUInt32BE(offset + 8 + length)) fail();
+    if (reportSafe && !REPORT_CHUNKS.has(type)) fail();
     if (!sawIhdr) {
       if (type !== 'IHDR' || length !== 13) fail();
       width = data.readUInt32BE(0);
@@ -66,6 +69,7 @@ export function validateB3PngBytes(rawBytes, {
           width > maximumWidth || height > maximumHeight ||
           width * height > maximumPixels ||
           !Object.hasOwn(CHANNELS, colourType) || !BIT_DEPTHS[colourType].includes(bitDepth) ||
+          (reportSafe && ![0, 2, 4, 6].includes(colourType)) ||
           data[10] !== 0 || data[11] !== 0 || data[12] !== 0) fail();
       rowBytes = Math.ceil(width * CHANNELS[colourType] * bitDepth / 8);
       sawIhdr = true;
@@ -97,4 +101,12 @@ export function validateB3PngBytes(rawBytes, {
     height,
     sha256: createHash('sha256').update(bytes).digest('hex'),
   });
+}
+
+export function validateB3PngBytes(rawBytes, options = {}) {
+  return validatePng(rawBytes, options);
+}
+
+export function validateB3ReportPngBytes(rawBytes, options = {}) {
+  return validatePng(rawBytes, { ...options, reportSafe: true });
 }

@@ -29,7 +29,7 @@ import { createDefaultB3DistributionInspectors } from './b3-distribution-inspect
 import {
   verifyB3InstalledDistributionWithInspectors,
 } from '../verify-b3-installed-distribution.mjs';
-import { validateB3PngBytes } from './b3-png.mjs';
+import { validateB3ReportPngBytes } from './b3-png.mjs';
 import { publishB3FinalProofOutput } from './b3-final-proof-output.mjs';
 import { createB3StoreBackedLiveCapture } from './b3-store-backed-live-capture.mjs';
 
@@ -134,7 +134,10 @@ export async function inspectB3DeterministicStoreKitReport({ root }) {
 
 function validateScreenshotBytes(rawBytes) {
   try {
-    return validateB3PngBytes(rawBytes, { maximumBytes: MAXIMUM_SCREENSHOT_BYTES }).bytes;
+    return validateB3ReportPngBytes(rawBytes, {
+      maximumBytes: MAXIMUM_SCREENSHOT_BYTES,
+      label: 'B3 committable screenshot',
+    }).bytes;
   } catch {
     throw captureError('B3 screenshot is not a bounded original-resolution PNG');
   }

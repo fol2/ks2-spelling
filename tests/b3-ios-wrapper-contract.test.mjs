@@ -560,6 +560,30 @@ test('screenshot persistence is exact-byte idempotent for both closed platform p
   );
 });
 
+test('committable B3 screenshots reject every metadata-bearing PNG chunk', async (t) => {
+  const adapter = await import('../scripts/lib/b3-live-capture-adapters.mjs');
+  const root = await mkdtemp(join(tmpdir(), 'b3-png-metadata-root-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const identity = Buffer.from('deviceIdentifier\0R5CT1234ABC', 'utf8');
+  const metadataChunks = [
+    { type: 'tEXt', data: identity },
+    { type: 'zTXt', data: identity },
+    { type: 'iTXt', data: identity },
+    { type: 'eXIf', data: identity },
+  ];
+  for (const metadata of metadataChunks) {
+    await assert.rejects(
+      adapter.persistB3PlatformScreenshot({
+        root,
+        platform: 'ios',
+        bytes: createB3TestPng({ width: 1179, height: 2556, chunks: [metadata] }),
+      }),
+      /metadata|PNG|screenshot/i,
+      metadata.type,
+    );
+  }
+});
+
 test('StoreKit evidence hashes the exact committed deterministic report transcript', async (t) => {
   const { inspectB3DeterministicStoreKitReport } =
     await import('../scripts/lib/b3-live-capture-adapters.mjs');

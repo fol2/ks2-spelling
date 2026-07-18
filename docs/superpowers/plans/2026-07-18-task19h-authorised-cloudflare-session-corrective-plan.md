@@ -29,14 +29,24 @@ sealed handle.
 Create one `B3AuthorisedCloudflareLiveSession` façade. It is the only production
 route from either deployment or finalisation to OAuth, Worker or R2 primitives.
 
-Opening a session must complete, in order:
+Opening a session has two explicit phases.
+
+Local pre-authorisation must complete, in order:
 
 1. validate `cloudflare-deploy` scope and the closed run-token shape;
 2. validate the durable local mutation/run authority;
-3. validate external prerequisites, including a stable reread of the run authority;
-4. read the tracked account, Worker, origin, bucket and two-object authority;
-5. bind the clean application commit and fingerprint;
-6. only then construct the sterile OAuth child and exact-byte primitives.
+3. read the tracked account, Worker, origin, bucket and two-object authority;
+4. bind the clean application commit and fingerprint;
+5. reread the local approval and run authority and require byte, identity and token
+   equality with the first read.
+
+Only after local pre-authorisation may the façade construct one sterile OAuth child.
+The authenticated phase uses that same child to inspect the read-only remote
+prerequisites. It then rereads the durable approval and run authority again and
+requires exact equality before unlocking deployment, Worker readback or R2
+operations. A local pre-authorisation failure produces zero child spawn and zero
+remote work. A remote-prerequisite or stable-reread failure produces zero mutation
+and disposes the child and session.
 
 The façade owns disposal and exposes operations, not raw child/process handles. A
 failed gate must produce zero primitive construction, child spawn, remote inspection
@@ -52,9 +62,12 @@ Keep the two independent proof domains explicit:
   leaves the device observation port.
 - Host-safe smoke: after exact Worker content readback matches the deterministic
   local bundle, run those exact main-module and data-module bytes locally under the
-  pinned workerd/Miniflare runtime. Instrument the rate-limit binding, request body,
-  outbound service and R2 binding to prove CORS, every-route rate limiting,
-  zero body/upstream/R2 work after rejection, and missing-binding fail-closed.
+  pinned workerd/Miniflare runtime. The runner must consume the same verified
+  entrypoint and data-module names, compatibility date, compatibility flags and
+  module rules as the deployed Worker. Only runtime bindings may be replaced with
+  bounded instrumentation. Instrument the rate-limit binding, request body,
+  outbound service and R2 binding to prove CORS, every-route rate limiting, zero
+  body/upstream/R2 work after rejection, and missing-binding fail-closed.
 
 The host-safe runner must not make a network request. Its identity is the already
 verified deployment version plus exact script authority; it must not invent a second
@@ -74,7 +87,8 @@ Add production-seam tests which prove:
    authorised façade;
 3. a clean default finalisation path reaches a real local workerd smoke instead of
    `live gateway smoke input authority is unavailable`;
-4. the exact locally executed module bytes equal the bound dry-run and Cloudflare
+4. the exact locally executed module bytes, entrypoint/module names, compatibility
+   date/flags and module rules equal the bound dry-run and verified Cloudflare
    readback authority;
 5. allowed native CORS succeeds and foreign CORS fails;
 6. rate-limited and missing-binding requests record zero body, upstream and R2 work;

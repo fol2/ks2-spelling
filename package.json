@@ -11,6 +11,8 @@
     "postinstall": "node scripts/prepare-native-dependencies.mjs",
     "prepare:native-dependencies": "node scripts/prepare-native-dependencies.mjs",
     "build": "vite build",
+    "build:b4-development": "vite build --mode B4Development",
+    "sync:b4-development": "npm run build:b4-development && cap sync",
     "lint": "oxlint src tests scripts vite.config.js",
     "test": "node --test tests/*.test.mjs",
     "test:domain": "node --test tests/*.test.mjs",

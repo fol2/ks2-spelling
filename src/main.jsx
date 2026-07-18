@@ -41,7 +41,7 @@ async function bootstrap() {
       buildMode: import.meta.env.MODE,
       platform: Capacitor.getPlatform(),
     });
-    if (composition.serviceMode === 'b3') {
+    if (composition.serviceMode === 'b3' || composition.serviceMode === 'b4') {
       services = await createSelectedAppServices({
         buildMode: import.meta.env.MODE,
         isNativePlatform: true,

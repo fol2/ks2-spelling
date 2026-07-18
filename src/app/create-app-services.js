@@ -6,12 +6,20 @@ import { createCapacitorB3ProofObservation } from '../platform/proof/capacitor-b
 import gatewayAuthority from '../../config/b3-gateway-authority.json' with { type: 'json' };
 import { createB2AppServices } from './create-b2-app-services.js';
 import { createB3AppServices } from './create-b3-app-services.js';
+import { createB4AppServices } from './create-b4-app-services.js';
 
-export { createB2AppServices, createB3AppServices };
+export { createB2AppServices, createB3AppServices, createB4AppServices };
 
 export function selectNativeAppComposition({ buildMode, platform }) {
   if (platform !== 'ios' && platform !== 'android') {
     throw new TypeError('Native application platform is invalid.');
+  }
+  if (buildMode === 'B4Development') {
+    return Object.freeze({
+      serviceMode: 'b4',
+      productIdentifier: 'b4-starter-product',
+      runtime: Object.freeze({ isNativePlatform: true, platform }),
+    });
   }
   if (buildMode !== 'B3SandboxProof') {
     return Object.freeze({ serviceMode: 'b2', runtime: null });
@@ -39,9 +47,11 @@ export async function createSelectedAppServices({
   isNativePlatform,
   platform,
   b3Options = {},
+  b4Options = {},
 }) {
   if (isNativePlatform === true) {
     const composition = selectNativeAppComposition({ buildMode, platform });
+    if (composition.serviceMode === 'b4') return createB4AppServices(b4Options);
     if (composition.serviceMode !== 'b3') return createB2AppServices();
     if (Object.hasOwn(b3Options, 'proofObservationPort')) {
       throw new TypeError('B3 physical proof observation transport is application-owned.');

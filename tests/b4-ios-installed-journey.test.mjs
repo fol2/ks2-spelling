@@ -24,6 +24,8 @@ test('the iOS installed journey follows the frozen B4 answers without a proof br
   for (const required of [
     'testInstalledFiveCardJourney',
     'application.keyboards.firstMatch',
+    'input.wait(for: \\.hasFocus, toEqual: true, timeout: 5)',
+    'keyboard.waitForExistence(timeout: 5)',
     'application.terminate()',
     'XCUIDevice.shared.press(.home)',
     'minimumControlHeightPoints',
@@ -47,6 +49,7 @@ test('the iOS installed journey follows the frozen B4 answers without a proof br
   }
 
   assert.doesNotMatch(source, /B3|proof bridge|target word|currentRuntimeItemId/i);
+  assert.doesNotMatch(source, /currentInteractionOptions|SkipPreEventQuiescence/u);
   assert.doesNotMatch(source, /webView\.swipeDown\(\)/u);
 });
 

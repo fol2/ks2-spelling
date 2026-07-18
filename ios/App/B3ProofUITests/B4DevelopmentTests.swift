@@ -67,6 +67,18 @@ final class B4DevelopmentTests: XCTestCase {
         return element.waitForExistence(timeout: timeout)
     }
 
+    private func focusForTyping(
+        _ input: XCUIElement,
+        in application: XCUIApplication
+    ) -> Bool {
+        let keyboard = application.keyboards.firstMatch
+        input.tap()
+        guard input.wait(for: \.hasFocus, toEqual: true, timeout: 5) else {
+            return false
+        }
+        return keyboard.waitForExistence(timeout: 5)
+    }
+
     private func elapsedMilliseconds(since start: Date) -> Double {
         Date().timeIntervalSince(start) * 1_000
     }
@@ -213,10 +225,12 @@ final class B4DevelopmentTests: XCTestCase {
 
         for (index, answer) in frozenAnswers.enumerated() {
             XCTAssertTrue(waitUntilEnabled(input), "The spelling input was unavailable for answer \(index + 1).")
-            input.tap()
+            XCTAssertTrue(
+                focusForTyping(input, in: application),
+                "The spelling input did not acquire software-keyboard focus for answer \(index + 1)."
+            )
             if index == 0 {
-                softwareKeyboardObserved = application.keyboards.firstMatch.waitForExistence(timeout: 5)
-                XCTAssertTrue(softwareKeyboardObserved, "The software keyboard did not appear.")
+                softwareKeyboardObserved = true
             }
             input.typeText(answer)
 

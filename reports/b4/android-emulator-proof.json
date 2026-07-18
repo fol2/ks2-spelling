@@ -23,7 +23,7 @@
       "requestedImage": "system-images;android-24;google_apis;arm64-v8a"
     },
     "productJourney": {
-      "avdName": "KS2_Spelling_B4_Phone_11542",
+      "avdName": "KS2_Spelling_B4_Phone_88220",
       "requestedImage": "system-images;android-36;google_apis;arm64-v8a",
       "requestedDevice": "pixel_9",
       "api": 36,
@@ -33,7 +33,7 @@
       "abi": "arm64-v8a"
     },
     "tabletLayout": {
-      "avdName": "KS2_Spelling_B4_Tablet_11542",
+      "avdName": "KS2_Spelling_B4_Tablet_88220",
       "requestedImage": "system-images;android-36;google_apis;arm64-v8a",
       "requestedDevice": "pixel_tablet",
       "api": 36,
@@ -45,22 +45,22 @@
   },
   "journeys": {
     "default": {
-      "coldLaunchMs": 4661.99221,
+      "coldLaunchMs": 4274.368543,
       "audioStartMs": [
-        453.276751,
-        310.296459
+        444.156375,
+        358.52525
       ],
       "answerFeedbackMs": [
-        885.479834,
-        1571.444209,
-        1406.054626,
-        2358.085042,
-        2183.423376,
-        1040.427667,
-        2012.691585,
-        1529.994376,
-        1543.910668,
-        960.122751
+        1010.686584,
+        2135.432168,
+        1188.423709,
+        2652.406168,
+        1478.233543,
+        1633.289543,
+        2009.168709,
+        1508.764667,
+        1617.767043,
+        1556.047334
       ],
       "minimumControlHeightDp": 49.14285659790039,
       "softwareKeyboardObserved": true,
@@ -73,22 +73,22 @@
     "scaled": {
       "fontScale": 2,
       "atLeast200Percent": true,
-      "coldLaunchMs": 1785.348875,
+      "coldLaunchMs": 2226.701626,
       "audioStartMs": [
-        718.427584,
-        560.946167
+        743.776708,
+        559.923209
       ],
       "answerFeedbackMs": [
-        1007.151,
-        2289.564792,
-        1821.747959,
-        1759.950126,
-        2443.390084,
-        1843.944501,
-        2466.855168,
-        2253.669793,
-        2301.451252,
-        2371.927543
+        1016.305834,
+        1815.417626,
+        2082.174793,
+        2383.131627,
+        1769.049292,
+        1825.079418,
+        2289.697918,
+        2364.585542,
+        2299.289834,
+        1659.784668
       ],
       "minimumControlHeightDp": 62.095237731933594,
       "softwareKeyboardObserved": true,
@@ -154,7 +154,7 @@
       {
         "kind": "coldLaunch",
         "sequence": 1,
-        "rawValue": 4661.99221,
+        "rawValue": 4274.368543,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -168,7 +168,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 1,
-        "rawValue": 885.479834,
+        "rawValue": 1010.686584,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -182,7 +182,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 2,
-        "rawValue": 1571.444209,
+        "rawValue": 2135.432168,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -196,7 +196,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 3,
-        "rawValue": 1406.054626,
+        "rawValue": 1188.423709,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -210,7 +210,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 4,
-        "rawValue": 2358.085042,
+        "rawValue": 2652.406168,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -224,7 +224,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 5,
-        "rawValue": 2183.423376,
+        "rawValue": 1478.233543,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -238,7 +238,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 6,
-        "rawValue": 1040.427667,
+        "rawValue": 1633.289543,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -252,7 +252,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 7,
-        "rawValue": 2012.691585,
+        "rawValue": 2009.168709,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -266,7 +266,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 8,
-        "rawValue": 1529.994376,
+        "rawValue": 1508.764667,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -280,7 +280,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 9,
-        "rawValue": 1543.910668,
+        "rawValue": 1617.767043,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -294,7 +294,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 10,
-        "rawValue": 960.122751,
+        "rawValue": 1556.047334,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -308,7 +308,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 1,
-        "rawValue": 885.479834,
+        "rawValue": 1010.686584,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -322,7 +322,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 2,
-        "rawValue": 1571.444209,
+        "rawValue": 2135.432168,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -336,7 +336,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 3,
-        "rawValue": 1406.054626,
+        "rawValue": 1188.423709,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -350,7 +350,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 4,
-        "rawValue": 2358.085042,
+        "rawValue": 2652.406168,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -364,7 +364,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 5,
-        "rawValue": 2183.423376,
+        "rawValue": 1478.233543,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -378,7 +378,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 6,
-        "rawValue": 1040.427667,
+        "rawValue": 1633.289543,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -392,7 +392,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 7,
-        "rawValue": 2012.691585,
+        "rawValue": 2009.168709,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -406,7 +406,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 8,
-        "rawValue": 1529.994376,
+        "rawValue": 1508.764667,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -420,7 +420,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 9,
-        "rawValue": 1543.910668,
+        "rawValue": 1617.767043,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -434,7 +434,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 10,
-        "rawValue": 960.122751,
+        "rawValue": 1556.047334,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -448,7 +448,7 @@
       {
         "kind": "audioStart",
         "sequence": 1,
-        "rawValue": 453.276751,
+        "rawValue": 444.156375,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -462,7 +462,7 @@
       {
         "kind": "audioStart",
         "sequence": 2,
-        "rawValue": 310.296459,
+        "rawValue": 358.52525,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -505,8 +505,8 @@
     "technicalOutcome": "investigation-required"
   },
   "applicationCheckpoint": {
-    "commit": "e013710fa0db9931776142aee6155c08cc43e1fb",
-    "tree": "c5b482f21d974fb9e72669a9d52c8ec1880ac51c"
+    "commit": "9ad794845f1ffb2c27adaf0151cb0c73b52e599f",
+    "tree": "e16b838180dc8ccb00691b55683abe800ebb8d7f"
   },
   "bundleInput": {
     "kind": "file-sha256",

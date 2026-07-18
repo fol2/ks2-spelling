@@ -23,6 +23,7 @@ import { canonicalJson } from '../src/platform/database/canonical-json.js';
 import { configureAndMigrateDatabase } from '../src/platform/database/migrate-database.js';
 
 import { createNodeSqliteConnection } from './helpers/node-sqlite-connection.mjs';
+import { createSeededV1 } from './helpers/sqlite-v1-fixture.mjs';
 
 const START = 1_768_478_400_000;
 const COMMANDS = Object.freeze([
@@ -608,7 +609,7 @@ test('paired learner-B and metadata corruption cannot impersonate the certified 
   assert.equal(controller.getState().learnerIsolation, 'not verified');
 });
 
-test('real B2 composition proves V0 rollback, V1 relaunch and exact durable completion', async (t) => {
+test('real B2 composition proves V0 rollback, valid V1 upgrade, V2 reopen and durable completion', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'ks2-b2-composition-'));
   const databasePath = join(directory, 'proof.sqlite');
   t.after(() => rm(directory, { force: true, recursive: true }));
@@ -661,6 +662,21 @@ test('real B2 composition proves V0 rollback, V1 relaunch and exact durable comp
   await firstServices.dispose();
   assert.equal(firstLifecycle.disposeCount, 1);
 
+  const v1Upgrade = createNodeSqliteConnection(databasePath);
+  await v1Upgrade.open();
+  for (const table of [
+    'active_pack_versions',
+    'installed_pack_versions',
+    'pack_download_chunks',
+    'pack_download_jobs',
+    'transaction_journal',
+    'app_entitlements',
+  ]) {
+    await v1Upgrade.execute(`DROP TABLE ${table}`);
+  }
+  await v1Upgrade.execute('PRAGMA user_version = 1');
+  await v1Upgrade.close();
+
   const secondEvents = [];
   const secondLifecycle = createFakeLifecycle(secondEvents);
   const secondServices = await createB2AppServices({
@@ -683,12 +699,29 @@ test('real B2 composition proves V0 rollback, V1 relaunch and exact durable comp
   });
   assert.equal(secondEvents.includes('migrate:injected'), false);
   assert.ok(secondEvents.indexOf('migrate:normal') < secondEvents.indexOf('seed'));
+  assert.equal(secondServices.schemaVersion, 2);
   await secondServices.controller.start();
   assert.equal(secondServices.controller.getState().status, 'B2 proof complete');
   assert.equal(secondServices.controller.getState().learnerIsolation, 'verified');
   await secondServices.dispose();
   assert.equal(secondLifecycle.disposeCount, 1);
   assert.ok(metadataWrites.every((active) => active === false));
+
+  const thirdEvents = [];
+  const thirdLifecycle = createFakeLifecycle(thirdEvents);
+  const thirdServices = await createB2AppServices({
+    connectionFactory: createTrackedConnectionFactory(
+      databasePath,
+      thirdEvents,
+      metadataWrites,
+    ),
+    lifecycle: thirdLifecycle.port,
+  });
+  assert.equal(thirdServices.schemaVersion, 2);
+  await thirdServices.controller.start();
+  assert.equal(thirdServices.controller.getState().status, 'B2 proof complete');
+  await thirdServices.dispose();
+  assert.equal(thirdLifecycle.disposeCount, 1);
 
   const inspection = createNodeSqliteConnection(databasePath);
   await inspection.open();
@@ -842,10 +875,7 @@ test('V1 without durable proof metadata fails closed and disposes lifecycle and 
   const directory = await mkdtemp(join(tmpdir(), 'ks2-b2-missing-proof-'));
   const databasePath = join(directory, 'proof.sqlite');
   t.after(() => rm(directory, { force: true, recursive: true }));
-  const preparation = createNodeSqliteConnection(databasePath);
-  await preparation.open();
-  await configureAndMigrateDatabase(preparation);
-  await seedB2Learners(preparation);
+  const preparation = await createSeededV1(databasePath);
   await preparation.close();
 
   const events = [];

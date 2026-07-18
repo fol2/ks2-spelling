@@ -123,6 +123,7 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
     appId: 'uk.eugnel.ks2spelling',
     appName: 'KS2 Spelling',
     webDir: 'dist',
+    loggingBehavior: 'none',
     plugins: {
       CapacitorSQLite: {
         iosDatabaseLocation: 'Library/CapacitorDatabase',
@@ -159,4 +160,63 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
     false,
     'B1 app code must not fabricate a privacy manifest',
   );
+});
+
+test('the iOS app target explicitly links the frozen ZIPFoundation extraction product', async () => {
+  const project = await readFile(PROJECT, 'utf8');
+  const appDelegate = await readFile(join(IOS_ROOT, 'App/AppDelegate.swift'), 'utf8');
+  assert.match(project, /XCRemoteSwiftPackageReference "ZIPFoundation"/);
+  assert.match(project, /repositoryURL = "https:\/\/github\.com\/weichsel\/ZIPFoundation\.git"/);
+  assert.match(project, /requirement = \{\s*kind = exactVersion;\s*version = 0\.9\.20;/s);
+  assert.match(project, /ZIPFoundation in Frameworks/);
+  assert.match(project, /productName = ZIPFoundation/);
+  assert.match(project, /PackTransferPlugin\.swift in Sources/);
+  assert.match(project, /PackDownloadFlow\.swift in Sources/);
+  assert.match(project, /PackInstallSealer\.swift in Sources/);
+  assert.match(project, /ZipCentralDirectoryInspector\.swift in Sources/);
+  assert.match(project, /pack-signing-public-keys\.json in Resources/);
+  assert.match(appDelegate, /PackTransferPlugin/);
+  assert.match(appDelegate, /registerPluginInstance/);
+  assert.deepEqual(
+    JSON.parse(await readFile(join(IOS_ROOT, 'App/Resources/pack-signing-public-keys.json'))),
+    JSON.parse(await readFile(join(ROOT, 'config/pack-signing-public-keys.json'))),
+    'the native bundle must copy the tracked public verification keyring byte-for-byte in meaning',
+  );
+});
+
+test('the iOS project owns a hosted StoreKit Test target and exact B3 product configuration', async () => {
+  const project = await readFile(PROJECT, 'utf8');
+  const scheme = await readFile(SCHEME, 'utf8');
+  const storeKitConfiguration = JSON.parse(
+    await readFile(join(IOS_ROOT, 'App/B3Sandbox.storekit'), 'utf8'),
+  );
+  const appDelegate = await readFile(join(IOS_ROOT, 'App/AppDelegate.swift'), 'utf8');
+
+  assert.match(project, /PBXNativeTarget "AppTests"/);
+  assert.match(project, /B3StoreKitDelayedTests\.swift in Sources/);
+  assert.match(project, /B3Sandbox\.storekit in Resources/);
+  assert.equal(
+    [...project.matchAll(/B3Sandbox\.storekit in Resources \*\/ = \{isa = PBXBuildFile/g)].length,
+    1,
+    'the non-live StoreKit fixture must belong only to AppTests',
+  );
+  assert.match(project, /lastKnownFileType = text\.storekit; path = B3Sandbox\.storekit/);
+  assert.match(project, /TEST_HOST = "\$\(BUILT_PRODUCTS_DIR\)\/App\.app\/App"/);
+  assert.match(project, /BUNDLE_LOADER = "\$\(TEST_HOST\)"/);
+  assert.match(scheme, /BlueprintName = "AppTests"/);
+  assert.equal(
+    [...scheme.matchAll(/identifier = "\.\.\/\.\.\/App\/B3Sandbox\.storekit"/g)].length,
+    1,
+    'only Test may resolve the non-live StoreKit configuration outside App.xcodeproj',
+  );
+  const launchAction = scheme.match(/<LaunchAction[\s\S]*?<\/LaunchAction>/)?.[0] ?? '';
+  assert.doesNotMatch(launchAction, /StoreKitConfigurationFileReference/);
+  assert.match(appDelegate, /CommercePlugin/);
+  assert.match(appDelegate, /registerPluginInstance/);
+
+  assert.equal(storeKitConfiguration.products.length, 1);
+  assert.equal(storeKitConfiguration.products[0].productID, 'uk.eugnel.ks2spelling.fullks2');
+  assert.equal(storeKitConfiguration.products[0].type, 'NonConsumable');
+  assert.deepEqual(storeKitConfiguration.subscriptionGroups, []);
+  assert.deepEqual(storeKitConfiguration.nonRenewingSubscriptions, []);
 });

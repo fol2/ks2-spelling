@@ -253,6 +253,27 @@ test('repository exposes only the frozen A3 transaction and certifies one clock'
   assert.equal(await harness.connection.isTransactionActive(), false);
 });
 
+test('repository never begins in or rolls back a foreign transaction', async (t) => {
+  const harness = await createB2DatabaseHarness();
+  t.after(() => harness.close());
+  const repository = createRepository(harness);
+  const before = await harness.store.read('learner-a');
+
+  await harness.connection.begin();
+  await assert.rejects(
+    repository.runCommandTransaction('learner-a', (fresh, context) =>
+      unchangedPlan(fresh, context),
+    ),
+    (error) =>
+      error?.code === 'sqlite_transaction_foreign_active' &&
+      error.message.includes('another operation'),
+  );
+
+  assert.equal(await harness.connection.isTransactionActive(), true);
+  await harness.connection.rollback();
+  assert.deepEqual(await harness.store.read('learner-a'), before);
+});
+
 test('changed transaction writes every durable target in checkpoint order', async (t) => {
   const harness = await createB2DatabaseHarness();
   t.after(() => harness.close());
@@ -609,8 +630,12 @@ test('failed transaction-state probes cannot silently claim rollback safety', as
     const harness = await createB2DatabaseHarness();
     try {
       let stateCalls = 0;
+      let transactionSeen = false;
       const connection = wrapConnection(harness.connection, {
         async isTransactionActive() {
+          const actual = await harness.connection.isTransactionActive();
+          if (actual) transactionSeen = true;
+          if (!transactionSeen) return actual;
           stateCalls += 1;
           if (stateCalls === 1 && testCase.throwInitial) {
             throw testCase.initialIssue;
@@ -621,7 +646,7 @@ test('failed transaction-state probes cannot silently claim rollback safety', as
           if (stateCalls === 2 && testCase.finalIssue !== null) {
             return testCase.finalIssue;
           }
-          return harness.connection.isTransactionActive();
+          return actual;
         },
       });
       const repository = createRepository(harness, {

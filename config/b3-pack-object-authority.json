@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "bucketName": "ks2-spelling-b3-sandbox-packs",
+  "packId": "b3-sandbox-proof",
+  "version": "1.0.0-b3.1",
+  "objects": [
+    {
+      "role": "archive",
+      "key": "packs/b3-sandbox-proof/1.0.0-b3.1/b3-sandbox-proof.zip",
+      "bytes": 1324,
+      "sha256": "4c2ca2eb4d4bb7ac3347b66e3483dcb6aa71b41958704733bfc471c970ce7664",
+      "etag": "913d2b2485ca6cd31d467bd7228d7e75",
+      "metadata": {
+        "b3-role": "archive",
+        "b3-sha256": "4c2ca2eb4d4bb7ac3347b66e3483dcb6aa71b41958704733bfc471c970ce7664",
+        "b3-size": "1324"
+      }
+    },
+    {
+      "role": "signed-manifest",
+      "key": "packs/b3-sandbox-proof/1.0.0-b3.1/signed-manifest.json",
+      "bytes": 1135,
+      "sha256": "39b6a788a3686d7cbf1fd4791bce45623af21ef53c60eabc03d955395856218a",
+      "etag": "c76b2858b8345814279a1c92ae64e365",
+      "metadata": {
+        "b3-role": "signed-manifest",
+        "b3-sha256": "39b6a788a3686d7cbf1fd4791bce45623af21ef53c60eabc03d955395856218a",
+        "b3-size": "1135",
+        "b3-envelope-sha256": "39b6a788a3686d7cbf1fd4791bce45623af21ef53c60eabc03d955395856218a"
+      }
+    }
+  ]
+}

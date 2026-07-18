@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "learners": [
+    {
+      "learnerId": "learner-a",
+      "nickname": "Ada",
+      "beforePurchaseSnapshotSha256": "f938d0e0028f1b3de65bdbf7e8a3b0f873c3257de81f2cd5263ed8611af00342",
+      "afterFreshInstallReseedSnapshotSha256": "f938d0e0028f1b3de65bdbf7e8a3b0f873c3257de81f2cd5263ed8611af00342"
+    },
+    {
+      "learnerId": "learner-b",
+      "nickname": "Ben",
+      "beforePurchaseSnapshotSha256": "6a5a50b2df1a0d7bdb4ab7d1f4b7d5a87a6c7a3e58dddf16a65b87e482d114cd",
+      "afterFreshInstallReseedSnapshotSha256": "6a5a50b2df1a0d7bdb4ab7d1f4b7d5a87a6c7a3e58dddf16a65b87e482d114cd"
+    }
+  ],
+  "v1CellTypeAndBytesSha256": "f1c4876c485df887b3184b3a78852c0d0df895f5a5fa1c6b8983e138bdeb5a11"
+}

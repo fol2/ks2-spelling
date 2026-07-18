@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "frozenB2Commit": "39ef90a5a33efb41368272c4c6d4d002f04658b3",
+  "approvedPlanPath": "docs/superpowers/plans/2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md",
+  "allowedPackageScriptAdditions": {
+    "verify:b2-authority": "node scripts/verify-b2-authority.mjs",
+    "check:b3-prerequisites": "node scripts/check-b3-external-prerequisites.mjs",
+    "build:b3-proof-pack": "node scripts/build-b3-proof-pack.mjs",
+    "prove:b3:ios-storekit-test": "node scripts/prove-b3-ios-storekit-test.mjs",
+    "report:b3-native": "node scripts/build-b3-native-audit.mjs",
+    "prove:b3:deterministic": "node scripts/run-b3-deterministic-proof.mjs",
+    "deploy:b3:sandbox": "node scripts/deploy-b3-sandbox-gateway.mjs",
+    "prove:b3:cloudflare": "node scripts/prove-b3-cloudflare.mjs",
+    "prove:b3:ios": "node scripts/prove-b3-ios.mjs",
+    "prove:b3:android": "node scripts/prove-b3-android.mjs",
+    "prepare:b3:distribution": "node scripts/prepare-b3-distribution.mjs",
+    "verify:b3:installed-distribution": "node scripts/verify-b3-installed-distribution.mjs",
+    "verify:b3": "npm run verify:b2-authority && npm run verify:vendor && npm run test:upstream:a3 && npm test && npm run lint && npm run build && npm run native:sync:check && npm run test:ios && node scripts/test-ios-pack-inspector.mjs && npm run prove:b3:ios-storekit-test && npm run test:android && npm run certify:android && npm run test:android-resolved-policy && npm run report:b3-native && npm run prove:b3:deterministic && npm run audit:dependencies && node scripts/build-b3-exit-report.mjs --check-ci"
+  },
+  "protectedCurrentFiles": [
+    {
+      "path": "scripts/build-b2-native-plugin-report.mjs",
+      "sha256": "0b2d437bececcd0abccdd302c7b941da3e1e4116f31751068cc5997968ffb723"
+    },
+    {
+      "path": "scripts/lib/frozen-b2-git.mjs",
+      "sha256": "5f689a86324b9e3a101487819335c82f1b980e5c13c1e911668b2cfb603372cc"
+    },
+    {
+      "path": "scripts/lib/pinned-system-git.mjs",
+      "sha256": "d07a03f20f9f19711b665f9f0610a9de190bbb1418677e5e307f249ee472b478"
+    },
+    {
+      "path": "tests/b2-native-plugin-build-policy.test.mjs",
+      "sha256": "6b5a200a00f44a0e5c6373ce0179e131e7a542b28fde17d92793140c9f29fcf3"
+    }
+  ]
+}

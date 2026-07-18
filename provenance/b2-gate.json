@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "commit": "39ef90a5a33efb41368272c4c6d4d002f04658b3",
+  "tree": "d4e43a1571fd1a811ce572670c30ae7209e52024",
+  "hostedCiUrl": "https://github.com/fol2/ks2-spelling/actions/runs/29192615770",
+  "exitReportSha256": "6d19101ff93a3c4f0e74ad0ee987beb915686d108071b6a06b6e3e4562cab6ce",
+  "dependencyAuditSha256": "bb3b572280d84beeca2ac4a892836e92fc847bf5cf67015c434f54b94ab085d6",
+  "nativeBuildReportSha256": "a72e95958e287be21f34588a167f12fd59058ab003dfe3f559b3ba244988a6f9",
+  "nativePluginAuditSha256": "6c09fcc78055a3ab7f693160da22eb84080e25ee3f389b1b79b2a831b63d3740",
+  "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
+  "gateACommit": "4501607a9b58f2fb252b4cce64ba056e6f60c630",
+  "a2ContractManifestSha256": "237b26b14e7506fa271bb3324f701d6205e6e0166d659a16789937478cc77b66"
+}

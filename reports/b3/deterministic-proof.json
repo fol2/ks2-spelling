@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "status": "pass",
+  "evidenceBoundary": {
+    "deterministicFakes": true,
+    "liveStoreProof": false,
+    "liveCloudProof": false,
+    "physicalDeviceProof": false
+  },
+  "clock": "2026-07-13T23:55:00.000Z",
+  "traceIdValid": true,
+  "traceIdsUnique": true,
+  "scenarioMatrix": {
+    "commerce": [
+      {
+        "scenario": "cancelled",
+        "passed": true,
+        "stateSha256": "4f156df2e3f31d5179882d8cd4d7b9cc7b80df565abc5a4cf02860d814033580"
+      },
+      {
+        "scenario": "offline-retry",
+        "passed": true,
+        "stateSha256": "fd8b82bff9ba19a01965ea142d808e899d13dd84200af5b57443b52dae6ebb53"
+      },
+      {
+        "scenario": "pending",
+        "passed": true,
+        "stateSha256": "4f156df2e3f31d5179882d8cd4d7b9cc7b80df565abc5a4cf02860d814033580"
+      },
+      {
+        "scenario": "purchased",
+        "passed": true,
+        "stateSha256": "564ec1c16e9f757e6deaaf03d888906bcdb9faaa42967a19852b4f7773c1d947"
+      },
+      {
+        "scenario": "restored",
+        "passed": true,
+        "stateSha256": "a4ac615e5410646efc38b0df470e17b65adbc2634e1fd30aefba5889747969e7"
+      },
+      {
+        "scenario": "revoked",
+        "passed": true,
+        "stateSha256": "128bde9517e31ddeba4f3693045b9c6ea04449a67055243086442c553c2cd8f9"
+      },
+      {
+        "scenario": "sealed-handle-replay",
+        "passed": true,
+        "stateSha256": "96b2c45d41cae4586d1b12fcb76d63cb63d1cff286895ba3568822380f99b7ca"
+      }
+    ],
+    "download": [
+      {
+        "scenario": "capability-expired",
+        "passed": true,
+        "stateSha256": "7d9b2d190c38c7112beb4a45f1b9e67f45d85299e24cd6cb2fd62626047b76c2"
+      },
+      {
+        "scenario": "fresh",
+        "passed": true,
+        "stateSha256": "5c9c9d1ec77c9f1b46049da066c93cc5cddc785e38440ba9b9904dbfb9c5ef45"
+      },
+      {
+        "scenario": "manifest-rejected",
+        "passed": true,
+        "stateSha256": "027c4414bc677c3dedfe7a498ab5144cf4be6e68f90048e825e464987d7ea2c0"
+      },
+      {
+        "scenario": "offline-continuity",
+        "passed": true,
+        "stateSha256": "cbd0223c44308ea4d37e86755614cf7c462a646ae4dfd9fae8dd479264cb225f"
+      },
+      {
+        "scenario": "range-resume",
+        "passed": true,
+        "stateSha256": "d0b660a0b6e3c9b69d6b3bd53557d0b365608c3593215e43adbe1da413f04734"
+      },
+      {
+        "scenario": "storage-rejected",
+        "passed": true,
+        "stateSha256": "59a892885c0a81bd50e3cdb8974c1e531877c62e405fe1989a1f487952a7ec9d"
+      }
+    ],
+    "activation": [
+      {
+        "scenario": "already-installed",
+        "passed": true,
+        "stateSha256": "f796686b1792d25b23c7da01a6dcd8e200529e57e16f19705ff4543d8e274d32"
+      },
+      {
+        "scenario": "crash-before-switch",
+        "passed": true,
+        "stateSha256": "e99e6789a6e978807e2750abe720b760db8d39731674f2b231af21ce199a1e34"
+      },
+      {
+        "scenario": "fresh-install",
+        "passed": true,
+        "stateSha256": "e0702bc4c0028bbbd2c46f776b4d67d43e4454cb8fb066f9d40d2a6b85458167"
+      },
+      {
+        "scenario": "reconcile-interrupted",
+        "passed": true,
+        "stateSha256": "c495cdb26291600652011e4907a85c43cf6e5e266586fdf1cd20e6aab19319ae"
+      },
+      {
+        "scenario": "rollback-preserved",
+        "passed": true,
+        "stateSha256": "2a1654e08e942d03088b986e0c84e506d52e8b9a369a80b918368166c7270d7b"
+      }
+    ],
+    "privacyContinuity": {
+      "parentOnlyDiagnostic": true,
+      "childSalesCopy": false,
+      "safeStoreIdsOnly": true,
+      "sealedHandlesOnly": true,
+      "offlineInstalledPackReady": true
+    }
+  },
+  "nonLiveStoreKit": {
+    "evidenceKind": "xcode-storekit-test-non-live",
+    "physicalSandbox": false,
+    "liveStore": false,
+    "cases": [
+      {
+        "name": "delayed-approve",
+        "initialOutcome": "pending",
+        "finalOutcome": "purchased"
+      },
+      {
+        "name": "delayed-decline",
+        "initialOutcome": "pending",
+        "finalOutcome": "cancelled"
+      }
+    ]
+  },
+  "syntheticDigests": {
+    "signedManifestSha256": "39b6a788a3686d7cbf1fd4791bce45623af21ef53c60eabc03d955395856218a",
+    "packObjectAuthoritySha256": "32887edb5374b37c92615f7423f0e2ed8a328c39d86e4990f8f5fc9f25e81a1f",
+    "beforePurchase": [
+      "f938d0e0028f1b3de65bdbf7e8a3b0f873c3257de81f2cd5263ed8611af00342",
+      "6a5a50b2df1a0d7bdb4ab7d1f4b7d5a87a6c7a3e58dddf16a65b87e482d114cd"
+    ],
+    "afterFreshInstallReseed": [
+      "f938d0e0028f1b3de65bdbf7e8a3b0f873c3257de81f2cd5263ed8611af00342",
+      "6a5a50b2df1a0d7bdb4ab7d1f4b7d5a87a6c7a3e58dddf16a65b87e482d114cd"
+    ],
+    "v1CellTypeAndBytesSha256": "f1c4876c485df887b3184b3a78852c0d0df895f5a5fa1c6b8983e138bdeb5a11",
+    "syntheticLearnerAuthoritySha256": "5449b0052d78abd1aa6e8a3bbab62cbe62de151288ec0cf6f38dde6e20a908b4",
+    "scenarioMatrixSha256": "2f878a435dd022121e7cacaa87fd98e00664046980a8dfaad012f50bb37c6d87"
+  }
+}

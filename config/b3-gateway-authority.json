@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "environment": "sandbox",
+  "cloudflareAccountId": "6d00cb4a0396c17ad6ba617bcbcaa45d",
+  "workerName": "ks2-spelling-b3-sandbox",
+  "privateR2BucketName": "ks2-spelling-b3-sandbox-packs",
+  "publicSandboxOrigin": "https://b3-gateway.eugnel.uk",
+  "allowedOrigins": ["capacitor://localhost", "http://localhost"],
+  "distribution": {
+    "applicationId": "uk.eugnel.ks2spelling",
+    "iosKind": "development",
+    "androidTrack": "internal"
+  }
+}

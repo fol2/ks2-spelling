@@ -7,7 +7,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customisation after application launch.
+        if let bridgeViewController = window?.rootViewController as? CAPBridgeViewController {
+            bridgeViewController.loadViewIfNeeded()
+            bridgeViewController.bridge?.registerPluginInstance(PackTransferPlugin())
+            bridgeViewController.bridge?.registerPluginInstance(CommercePlugin())
+            #if B3_SANDBOX_PROOF
+            bridgeViewController.bridge?.registerPluginInstance(BuildAuthorityPlugin())
+            bridgeViewController.bridge?.registerPluginInstance(B3ProofObservationPlugin())
+            #endif
+        }
         return true
     }
 

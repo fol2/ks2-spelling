@@ -2260,6 +2260,11 @@ export function createB2AndroidProductionDependencies({
         ]);
       const permissions = parsePackagedAndroidPermissions(
         b2AndroidMachineText(permissionsOutput),
+        {
+          // B2 remains a frozen historical no-network proof. B3 Task 13 is the
+          // first current application authority that permits normal INTERNET.
+          expectedRequestedPermissions: [],
+        },
       );
       const backup = parsePackagedAndroidManifestPolicy(
         b2AndroidMachineText(manifestOutput),

@@ -4,7 +4,11 @@ import { seedB2Learners } from '../platform/database/b2-seed.js';
 import { createCapacitorSqliteConnection } from '../platform/database/capacitor-sqlite-connection.js';
 import { createDatabaseCommandGate } from '../platform/database/database-command-gate.js';
 import { configureAndMigrateDatabase } from '../platform/database/migrate-database.js';
-import { DATABASE_NAME, SCHEMA_VERSION } from '../platform/database/schema-v1.js';
+import {
+  DATABASE_NAME,
+  SCHEMA_VERSION as B2_PROOF_SCHEMA_VERSION,
+} from '../platform/database/schema-v1.js';
+import { SCHEMA_VERSION as DATABASE_SCHEMA_VERSION } from '../platform/database/schema-v2.js';
 import { assertSqlConnection } from '../platform/database/sql-connection-contract.js';
 import { createSQLiteSpellingCommandRepository } from '../platform/database/sqlite-spelling-command-repository.js';
 import { createSQLiteSpellingSnapshotStore } from '../platform/database/sqlite-spelling-snapshot-store.js';
@@ -291,6 +295,9 @@ export async function createB2AppServices(options = {}) {
     const initialVersion = userVersionFrom(
       await connection.query('PRAGMA user_version'),
     );
+    const hasExistingB2Database =
+      initialVersion === B2_PROOF_SCHEMA_VERSION ||
+      initialVersion === DATABASE_SCHEMA_VERSION;
     let migrationRollbackVerified = false;
     if (initialVersion === 0) {
       await proveFreshMigrationRollback(connection, migrate);
@@ -342,7 +349,7 @@ export async function createB2AppServices(options = {}) {
     const lifecycleProof = createLifecycleProof(lifecycle, coordinator);
     const proofStore = createProofStore(connection);
     if (
-      initialVersion === SCHEMA_VERSION &&
+      hasExistingB2Database &&
       (await proofStore.read(B2_PROOF_METADATA_KEY)) === null
     ) {
       throw serviceError('b2_proof_metadata_missing');
@@ -354,7 +361,7 @@ export async function createB2AppServices(options = {}) {
       proofStore,
       lifecycleProof,
       migrationRollbackVerified:
-        migrationRollbackVerified || initialVersion === SCHEMA_VERSION,
+        migrationRollbackVerified || hasExistingB2Database,
       createFailureRepository(checkpoint) {
         return createSQLiteSpellingCommandRepository({
           connection,
@@ -394,7 +401,7 @@ export async function createB2AppServices(options = {}) {
       databaseName: DATABASE_NAME,
       dispose,
       platformRequirement: 'Native local data',
-      schemaVersion: SCHEMA_VERSION,
+      schemaVersion: DATABASE_SCHEMA_VERSION,
     });
   } catch (error) {
     const failures = await disposeOwned({

@@ -14,6 +14,9 @@
     <uses-permission
         android:name="android.permission.USE_FINGERPRINT"
         tools:node="remove" />
+    <!-- Required only for the bounded native HTTPS pack transfer. This is a normal,
+         non-runtime permission; no storage or dangerous permission is introduced. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="false"

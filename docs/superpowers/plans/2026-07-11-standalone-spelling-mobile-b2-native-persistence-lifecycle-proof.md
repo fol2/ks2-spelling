@@ -26,10 +26,10 @@
 
 The product/design authority remains:
 
-- `/Users/jamesto/Coding/ks2-mastery/docs/superpowers/specs/2026-07-09-standalone-spelling-mobile-application-design.md`
-- `/Users/jamesto/Coding/ks2-mastery/docs/superpowers/plans/2026-07-09-standalone-spelling-mobile-programme.md`
-- `/Users/jamesto/Coding/ks2-mastery/docs/superpowers/plans/2026-07-11-standalone-spelling-mobile-a3-spelling-projections-atomic-command.md`
-- `/Users/jamesto/Coding/ks2-mastery/docs/superpowers/plans/2026-07-11-standalone-spelling-mobile-b1-repository-bootstrap-native-dependency-decision.md`
+- [Standalone Spelling Mobile Application Design](../specs/2026-07-09-standalone-spelling-mobile-application-design.md)
+- [Standalone Spelling Mobile Programme](2026-07-09-standalone-spelling-mobile-programme.md)
+- [B1 Source Authority and Boundaries](../../architecture/b1-authority.md)
+- `vendor/ks2-mastery/content/spelling.mobile-a3-contract-manifest.json`
 
 ## Global constraints
 
@@ -155,7 +155,7 @@ Expected: FAIL because the nine certified producer files and their provenance se
 
 - [ ] **Step 3: Copy producer bytes from the exact Gate A commit**
 
-Use `git archive` against `/Users/jamesto/Coding/ks2-mastery` commit `4501607a9b58f2fb252b4cce64ba056e6f60c630`, extracting only the nine paths into a temporary directory. Copy the extracted regular files into `vendor/ks2-mastery/tests/`; do not copy from the sibling working tree and do not create links.
+Use `git archive` against a verified clone of `https://github.com/fol2/ks2-mastery.git` at commit `4501607a9b58f2fb252b4cce64ba056e6f60c630`, extracting only the nine paths into a temporary directory. Copy the extracted regular files into `vendor/ks2-mastery/tests/`; do not copy from the sibling working tree and do not create links.
 
 Extend the provenance record with:
 

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "keys": [
+    {
+      "keyId": "b3-test-p256-2026-07",
+      "algorithm": "ECDSA_P256_SHA256_DER",
+      "publicKeySpkiDerBase64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEYP7UuiVanTHJYet0xjVtaMBJuJI7Yfps5mliLmDyn7Z5A/4QCLi8maQa6elWKLxk8vGyDC1+n1F3o8KU1EYimQ==",
+      "publicKeySpkiSha256": "5a7a78cca4a0f420d9bc62bb669c3c2759e39f723d3ae10dcbe0f0815a07ecd4",
+      "testOnly": true,
+      "notBefore": "2026-07-01T00:00:00Z",
+      "notAfter": "2027-07-01T00:00:00Z",
+      "allowedEnvironments": ["test", "sandbox"],
+      "allowedPackIds": ["b3-sandbox-proof"]
+    }
+  ]
+}

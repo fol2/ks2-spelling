@@ -1,0 +1,21 @@
+{
+  "name": "ks2-spelling-b3-gateway",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.18.0"
+  },
+  "scripts": {
+    "test": "node --test ../tests/gateway-*.test.mjs",
+    "lint": "cd .. && node_modules/.bin/oxlint gateway/src tests/gateway-*.test.mjs",
+    "deploy:dry-run": "wrangler deploy --dry-run --outdir .wrangler-dry-run"
+  },
+  "dependencies": {
+    "@apple/app-store-server-library": "3.1.0"
+  },
+  "devDependencies": {
+    "miniflare": "4.20260708.1",
+    "wrangler": "4.110.0"
+  }
+}

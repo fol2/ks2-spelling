@@ -1,0 +1,285 @@
+{
+  "schemaVersion": 1,
+  "status": "pass",
+  "evidenceBoundary": {
+    "compiledCapability": true,
+    "liveStoreProof": false,
+    "liveCloudProof": false,
+    "physicalDeviceProof": false
+  },
+  "dependencies": {
+    "billingClient": {
+      "coordinate": "com.android.billingclient:billing",
+      "version": "9.1.0",
+      "source": "google()"
+    },
+    "appOwnedKotlinSources": 0,
+    "kotlinGradlePlugin": false,
+    "transitiveKotlinRuntimePresent": true,
+    "billingKtx": false,
+    "revenueCat": false,
+    "privateRegistry": false,
+    "storeKit": "system-framework-only",
+    "spm": [
+      {
+        "identity": "capacitor-swift-pm",
+        "version": "8.4.1",
+        "revision": "2231987d85b8b0b289320b1d0947b4ae8345cde4",
+        "sourceSha256": "19b35d69b5ef58bc322810a8573c677f93c9f18e3977b3259130a2a42e1513c2"
+      },
+      {
+        "identity": "sqlcipher.swift",
+        "version": "4.17.0",
+        "revision": "205df55271aa1ba512a9bfe3fd1813bc9ac52a19",
+        "sourceSha256": "40072f5c39eb515779a452626541e9c92183a1310f82b80269917795f7201465"
+      },
+      {
+        "identity": "zipfoundation",
+        "version": "0.9.20",
+        "revision": "22787ffb59de99e5dc1fbfe80b19c97a904ad48d",
+        "sourceSha256": "7aaa9a832edc314da3f96151e0bfecd6f73e3f995d1201f1748c97d3f703514d"
+      }
+    ],
+    "dependencyAuditSha256": "ea978fe264d2300eede27ec3189047e478c7e445f0f1a4c89d4f17fddf7ca9cd"
+  },
+  "sourceAuthority": [
+    {
+      "path": "src/platform/commerce/capacitor-store.js",
+      "sha256": "98ed45c83c9840d268f3f9bd3d3176797043ab4706ed98f1cdf23068a73a102e"
+    },
+    {
+      "path": "src/platform/pack-transfer/capacitor-pack-transfer.js",
+      "sha256": "c3c97c4d169e2fe2b45bcec18e4e38ecaf69cc93ef0e7230a434fb5a2ebe5458"
+    },
+    {
+      "path": "src/platform/gateway/http-entitlement-gateway.js",
+      "sha256": "545238d99d8c4daeae2fcdcf692790837f164b6898f946567332f054e9be8c8c"
+    },
+    {
+      "path": "ios/App/App/CommercePlugin.swift",
+      "sha256": "1185ead54c5ff7df38ed13db494e0a528503dc99aac414cd374d477f63a9a86e"
+    },
+    {
+      "path": "ios/App/App/PackTransferPlugin.swift",
+      "sha256": "09ac505e74c8ad8fb6fdc79acf54f2e0d0b7da2b105824b4893269115702b6c7"
+    },
+    {
+      "path": "ios/App/App/ZipCentralDirectoryInspector.swift",
+      "sha256": "d1a99a274aced87732290764f4972ca0a34db0e15eef2c77fddf16974c944b1d"
+    },
+    {
+      "path": "android/app/src/main/java/uk/eugnel/ks2spelling/CommercePlugin.java",
+      "sha256": "bb294f4a58c6ed82d0985ef28b86e5bec5ba66515e8216007e9a4403f3412d44"
+    },
+    {
+      "path": "android/app/src/main/java/uk/eugnel/ks2spelling/PackTransferPlugin.java",
+      "sha256": "ebf2433e2e42c39dd60966349a5f9d6b2004d8c200d85de3ef1bec32305fe448"
+    },
+    {
+      "path": "android/app/src/main/java/uk/eugnel/ks2spelling/ZipCentralDirectoryInspector.java",
+      "sha256": "bdb054d8c1bbfc80e255da999baca1f6c754591a48fb825abc813940435a9ccb"
+    },
+    {
+      "path": "config/b3-gateway-authority.json",
+      "sha256": "2c338dd1fd72ce0062c0b1dc257f2933ed1421e7be295b2fb1df831d94e3ba9d"
+    },
+    {
+      "path": "config/b3-pack-object-authority.json",
+      "sha256": "32887edb5374b37c92615f7423f0e2ed8a328c39d86e4990f8f5fc9f25e81a1f"
+    },
+    {
+      "path": "config/b3-synthetic-learners.json",
+      "sha256": "5449b0052d78abd1aa6e8a3bbab62cbe62de151288ec0cf6f38dde6e20a908b4"
+    }
+  ],
+  "compiledOutputs": [
+    {
+      "path": ".native-build/ios/Build/Products/Debug-iphonesimulator/App.app/App",
+      "bytes": 73104,
+      "sha256": "77125252c2fbf6d96cfc1e0d86750337c0c0e569437c2566e79ed07db9fb4ba1"
+    },
+    {
+      "path": ".native-build/android/build/app/outputs/apk/debug/app-debug.apk",
+      "bytes": 26054854,
+      "sha256": "152fa8391eef69f6a4ca3427ba0e0c4bf88e46b386c082313724fe430410d0dd"
+    },
+    {
+      "path": ".native-build/android/build/app/outputs/apk/release/app-release-unsigned.apk",
+      "bytes": 24660729,
+      "sha256": "f6d9de041a70e9b3f15624fd01a0829b08a99e46d219300e2a4e4c3bc05952a1"
+    },
+    {
+      "path": ".native-build/android/build/app/intermediates/javac/debug/compileDebugJavaWithJavac/classes/uk/eugnel/ks2spelling/CommercePlugin.class",
+      "bytes": 30033,
+      "sha256": "aa7c1226963b285a916d57601c9e1f25a946929a3cbff6b87e53438f74cd741f"
+    },
+    {
+      "path": ".native-build/android/build/app/intermediates/javac/debug/compileDebugJavaWithJavac/classes/uk/eugnel/ks2spelling/PackTransferPlugin.class",
+      "bytes": 39871,
+      "sha256": "9ccebc23d5695d775df5f7506a9b55d682f26d63bca110e113966adc5896eb37"
+    },
+    {
+      "path": ".native-build/android/build/app/intermediates/javac/debug/compileDebugJavaWithJavac/classes/uk/eugnel/ks2spelling/ZipCentralDirectoryInspector.class",
+      "bytes": 16787,
+      "sha256": "298fc401f2e96075bf70e9d2f09935208949cd4f2d88397199af2e20376a5a4c"
+    },
+    {
+      "path": ".native-build/android/build/app/intermediates/javac/release/compileReleaseJavaWithJavac/classes/uk/eugnel/ks2spelling/CommercePlugin.class",
+      "bytes": 30033,
+      "sha256": "aa7c1226963b285a916d57601c9e1f25a946929a3cbff6b87e53438f74cd741f"
+    },
+    {
+      "path": ".native-build/android/build/app/intermediates/javac/release/compileReleaseJavaWithJavac/classes/uk/eugnel/ks2spelling/PackTransferPlugin.class",
+      "bytes": 39871,
+      "sha256": "9ccebc23d5695d775df5f7506a9b55d682f26d63bca110e113966adc5896eb37"
+    },
+    {
+      "path": ".native-build/android/build/app/intermediates/javac/release/compileReleaseJavaWithJavac/classes/uk/eugnel/ks2spelling/ZipCentralDirectoryInspector.class",
+      "bytes": 16787,
+      "sha256": "298fc401f2e96075bf70e9d2f09935208949cd4f2d88397199af2e20376a5a4c"
+    }
+  ],
+  "nativeParity": {
+    "hostileArchiveManifestSha256": "b76b8fd52820b1ac69e1ebced81ba99f4c9c78809136d06e76eedb4c4f04bc58",
+    "hostileArchiveFixtureCount": 53,
+    "hostileArchiveFixtureSetSha256": "a832bdded517e103fcf17a79b56bfc370e8d5697e0656ce945b08b2d1dee23bf",
+    "structuralOverlapCovered": true,
+    "eocdAmbiguityCovered": true,
+    "zipFoundationExtractionSeam": true,
+    "ios": {
+      "hostileArchiveManifestSha256": "b76b8fd52820b1ac69e1ebced81ba99f4c9c78809136d06e76eedb4c4f04bc58",
+      "executedHarness": {
+        "ok": true,
+        "approvedRuntimeSmoke": true,
+        "securityMatrix": true,
+        "hostileFixturesRejected": 53,
+        "harnessSha256": "08aa38207ed64cffcb58208ee6164052567f868750423d47891f739a7e766868"
+      },
+      "inspectorSha256": "d1a99a274aced87732290764f4972ca0a34db0e15eef2c77fddf16974c944b1d"
+    },
+    "android": {
+      "hostileArchiveManifestSha256": "b76b8fd52820b1ac69e1ebced81ba99f4c9c78809136d06e76eedb4c4f04bc58",
+      "harnessSha256": "a0468ae8b3a3f3a9463b81343ac5f5ee5b0100ad8ea62de2a5eb05f7d5f1b4dc",
+      "inspectorSha256": "bdb054d8c1bbfc80e255da999baca1f6c754591a48fb825abc813940435a9ccb",
+      "junit": [
+        {
+          "path": ".native-build/android/build/app/test-results/testDebugUnitTest/TEST-uk.eugnel.ks2spelling.CommercePluginTest.xml",
+          "sha256": "24a4139f95d6e52c5db08d6d25e95caf51e8c72d1679a0ae8850a60fd46b0f80",
+          "suite": "uk.eugnel.ks2spelling.CommercePluginTest",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": ".native-build/android/build/app/test-results/testDebugUnitTest/TEST-uk.eugnel.ks2spelling.PackTransferPluginTest.xml",
+          "sha256": "432d3ffe1970e21eb0702591650cb5077a52cf6df43e7017ea0a8cf1f95b9932",
+          "suite": "uk.eugnel.ks2spelling.PackTransferPluginTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        {
+          "path": ".native-build/android/build/app/test-results/testDebugUnitTest/TEST-uk.eugnel.ks2spelling.ZipCentralDirectoryInspectorTest.xml",
+          "sha256": "3dfc21e6867157fd206e05e8c7c6e8d953e26e0c98a3dbb2b213d4b757b12c05",
+          "suite": "uk.eugnel.ks2spelling.ZipCentralDirectoryInspectorTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      ]
+    }
+  },
+  "runtimeSurface": {
+    "capacitorServer": {
+      "url": null
+    },
+    "ios": {
+      "addedUsageDescriptionKeys": [],
+      "addedEntitlements": []
+    },
+    "android": {
+      "appIdentity": "uk.eugnel.ks2spelling",
+      "buildToolsVersion": "36.0.0",
+      "permissionSurfaceSha256": "a711ae95cba3942ebe2dc54216f123d0b80926038040ba15cf252be2ca1978de",
+      "declaredPermissions": [],
+      "requestedPermissions": [
+        "android.permission.INTERNET",
+        "com.android.vending.BILLING",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ],
+      "dangerousPermissions": []
+    },
+    "methodAuthority": {
+      "javascriptPackTransfer": [
+        "getFreeBytes",
+        "downloadRange",
+        "inspectAndExtract",
+        "sealAndInstall",
+        "inventoryInstalledVersions",
+        "removeOwnedTemporaryState"
+      ],
+      "iosPackTransfer": [
+        "getFreeBytes",
+        "downloadRange",
+        "inspectAndExtract",
+        "sealAndInstall",
+        "inventoryInstalledVersions",
+        "removeOwnedTemporaryState"
+      ],
+      "androidPackTransfer": [
+        "getFreeBytes",
+        "downloadRange",
+        "inspectAndExtract",
+        "sealAndInstall",
+        "inventoryInstalledVersions",
+        "removeOwnedTemporaryState"
+      ],
+      "iosCommerce": [
+        "queryProducts",
+        "purchase",
+        "queryTransactions",
+        "restore",
+        "finishTransaction"
+      ],
+      "androidCommerce": [
+        "queryProducts",
+        "purchase",
+        "queryTransactions",
+        "restore",
+        "finishTransaction"
+      ]
+    },
+    "filesystemPackageInstalled": false,
+    "arbitraryFilesystemApi": false,
+    "executableArchiveMembersAccepted": false
+  },
+  "publicFixtures": {
+    "keyringSha256": "34f69734459c07cf10253499d5df60aa0bb20668610fa30b535ed54cf9b745c2",
+    "testSigningFixtureSha256": "930c320433c65f7b500f06ebf5a2a31637b96e84bb1572e551c90054ed1dea49",
+    "publicSpkiSha256": "5a7a78cca4a0f420d9bc62bb669c3c2759e39f723d3ae10dcbe0f0815a07ecd4",
+    "signatureDerSha256": "a29963a93137589dd46ddb18684d1a6c30851f86a39e17cf830276a8ff430bc5",
+    "signedEnvelopeSha256": "39b6a788a3686d7cbf1fd4791bce45623af21ef53c60eabc03d955395856218a",
+    "canonicalManifestSha256": "2047ad1a1f968de11430f2eec0b1938448d4653bf99146ea8273872259c976b2",
+    "archiveSha256": "4c2ca2eb4d4bb7ac3347b66e3483dcb6aa71b41958704733bfc471c970ce7664",
+    "exclusionScan": {
+      "authorisedFixtureDirectory": "tests/fixtures/keys",
+      "filesScanned": 687,
+      "bytesScanned": 42987772,
+      "expandedArchiveBytesScanned": 32865419
+    },
+    "signingFixturePackaged": false
+  },
+  "nonLiveStoreKit": {
+    "evidenceKind": "xcode-storekit-test-non-live",
+    "physicalSandbox": false,
+    "liveStore": false,
+    "signedStoreReadiness": false,
+    "cases": [
+      "delayed-approve",
+      "delayed-decline"
+    ]
+  }
+}

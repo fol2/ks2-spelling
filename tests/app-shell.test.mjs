@@ -160,13 +160,87 @@ test('the B2 shell renders exact persistence diagnostics and sanitises failures'
   assert.match(browserFailureHtml, /Learner isolation: not verified/);
 });
 
-test('main selects native B2 composition without web SQLite fallback', async () => {
+test('the B3 shell is a Parent-only diagnostic with sanitised commerce and pack evidence', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { default: App } = await vite.ssrLoadModule('/src/app/App.jsx');
+  const state = Object.freeze({
+    status: 'ready',
+    message: 'Ready for a Parent to test the sandbox purchase.',
+    displayPrice: '£4.99',
+    packReady: false,
+    digests: Object.freeze({
+      manifest: 'a'.repeat(64),
+      archive: 'b'.repeat(64),
+      install: null,
+    }),
+  });
+  const controller = Object.freeze({
+    getState: () => state,
+    subscribe: () => Object.freeze({ remove() {} }),
+    async start() {},
+    async buy() {},
+    async restore() {},
+    async redownload() {},
+  });
+  const html = renderToStaticMarkup(
+    React.createElement(App, {
+      services: Object.freeze({ mode: 'b3-parent-proof', controller }),
+    }),
+  );
+
+  assert.match(html, /B3 sandbox proof/);
+  assert.match(html, /Parent-only diagnostic/);
+  assert.match(html, /£4\.99/);
+  assert.match(html, />Buy</);
+  assert.match(html, />Restore</);
+  assert.match(html, />Redownload</);
+  assert.match(html, /Manifest digest/);
+  assert.match(html, /Archive digest/);
+  assert.match(html, /Install digest/);
+  assert.match(html, /Not installed/);
+  assert.match(html, /Ready for a Parent to test the sandbox purchase\./);
+  assert.doesNotMatch(
+    html,
+    /opaque|proof-token|refresh-handle|https?:|full_ks2|learner|nickname|monster|camp/i,
+  );
+
+  const productOfflineHtml = renderToStaticMarkup(
+    React.createElement(App, {
+      services: Object.freeze({
+        mode: 'b3-parent-proof',
+        controller: Object.freeze({
+          ...controller,
+          getState: () => Object.freeze({
+            ...state,
+            status: 'failed',
+            displayPrice: '',
+          }),
+        }),
+      }),
+    }),
+  );
+  assert.match(productOfflineHtml, /<button type="button" disabled="">Buy<\/button>/);
+  assert.match(productOfflineHtml, /<button type="button">Restore<\/button>/);
+  assert.match(productOfflineHtml, /<button type="button">Redownload<\/button>/);
+});
+
+test('main selects compile-time B2/B3 composition without a web SQLite fallback', async () => {
   const main = await readFile(join(ROOT, 'src/main.jsx'), 'utf8');
   assert.match(main, /Capacitor\.isNativePlatform\(\)/);
   assert.match(main, /createB2AppServices/);
+  assert.match(main, /createSelectedAppServices/);
+  assert.match(main, /buildMode:\s*import\.meta\.env\.MODE/);
   assert.match(
     main,
-    /else\s*\{\s*services = failureServices\('Native platform required'\)/,
+    /\?\? failureServices\('Native platform required'\)/,
   );
   assert.match(main, /Native platform required/);
   assert.doesNotMatch(main, /indexeddb|jeep-sqlite|wasm/i);
@@ -181,6 +255,7 @@ test('Capacitor and the built shell remain local-only', async () => {
     appId: 'uk.eugnel.ks2spelling',
     appName: 'KS2 Spelling',
     webDir: 'dist',
+    loggingBehavior: 'none',
     plugins: {
       CapacitorSQLite: {
         iosDatabaseLocation: 'Library/CapacitorDatabase',

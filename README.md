@@ -40,6 +40,22 @@ approved or claimed as complete:
 The application remains local-first and must package its application code in
 the installed binary. Later work requires its own evidence and approval gates.
 
+## B3 local and online boundary
+
+Spelling practice, installed packs, learner progress and child-owned Monster
+progress remain local and work offline. Online access is used only for commerce
+verification, pack download or redownload, entitlement refresh, restore and
+revocation. It is not a runtime dependency for spelling practice or installed
+content.
+
+Monster is a motivational presentation around spelling, not an independently
+cloud-tracked Parent metric. A dedicated Visual / Theme / Asset Migration Spec
+remains mandatory after Gate B `GO` for the Development Checkpoint and before C3
+child UI. B3
+Development proves deterministic and compiled commerce/signed-download capability
+only. Signed App Store/Google Play, deployed Cloudflare/R2 and physical-device
+truth remain one Release Commerce Certification blocker before public submission.
+
 ## B2 persistence boundary
 
 B2 proves the frozen A3 spelling command contract through one local SQLite
@@ -60,6 +76,8 @@ The frozen upstream authority and import boundary are recorded in
 [`docs/architecture/b1-authority.md`](docs/architecture/b1-authority.md).
 The B2 transaction, lifecycle and evidence authority is recorded in
 [`docs/architecture/b2-persistence-authority.md`](docs/architecture/b2-persistence-authority.md).
+The B3 sandbox commerce, signed-pack and clean-checkpoint boundary is recorded in
+[`docs/architecture/b3-commerce-pack-authority.md`](docs/architecture/b3-commerce-pack-authority.md).
 
 ## Development and verification
 
@@ -70,10 +88,12 @@ lifecycle, disk requirements and unsigned-build boundary are documented in
 
 CI has separate Ubuntu 24.04 domain/web and Android compile lanes plus an
 unsigned iOS Simulator compile lane on macOS 26. All use Node.js `24.18.0`,
-retain full Git history and pin third-party Actions to full commit SHAs. CI
-validates committed B2 virtual proof but does not claim to rerun the lifecycle
-captures. A workflow definition or local pass is not presented as a hosted CI
-result; the exact private-branch run must be observed first.
+retain full Git history and pin third-party Actions to full commit SHAs. B3 CI
+accepts a legitimate zero-file `pending` Development Checkpoint or the exact
+six-file `complete` pre-release evidence successor. It does not perform live
+Cloudflare, store or physical-device actions. A workflow definition or local
+pass is not presented as a hosted CI result; the exact branch run must be
+observed first.
 
 ## B2 evidence status
 

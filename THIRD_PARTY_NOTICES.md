@@ -1,19 +1,20 @@
 # Third-party notices
 
-This is the deterministic dependency inventory for the B2 local persistence proof. It records package identity, source and declared licence; it is not a substitute for the full licence texts or final store disclosure review.
+This is the deterministic dependency inventory for the B3 compiled sandbox capability. It records package identity, source and declared licence; it is not a substitute for the full licence texts or final store disclosure review.
 
 - Android resolution: `resolved-toolchain`
 - npm lock identities: 189
 - SwiftPM identities: 3
-- Maven selected module identities: 314
-- Maven task-created build-tool identities: 12
-- Maven verification inventory: 427 components and 847 artefacts
-- Notice rows: 518
+- Maven selected module identities: 326
+- Maven task-created build-tool identities: 13
+- Maven verification inventory: 441 components and 875 artefacts
+- Notice rows: 531
 - Physically bundled WebView npm packages: @capacitor-community/sqlite, @capacitor/app, @capacitor/core, react, react-dom, scheduler
 - Notice inclusion is deliberately conservative and does not mean an npm artefact is packaged
-- Runtime network endpoints: none
-- Native plugins: @capacitor-community/sqlite 8.1.0 and @capacitor/app 8.1.0, conditionally approved for B2 proof only
-- SQLCipher is packaged even though B2 uses no-encryption mode; US export classification remains unresolved before store release
+- App-owned runtime network endpoint: the exact tracked B3 public sandbox gateway origin; store-vendor runtime data-practice and live cloud proof remain separate
+- Native capability: app-owned StoreKit 2 and Play Billing 9.1.0 bridges plus PackTransfer; compiled capability only, not live store proof
+- Play Billing transitive privacy review: Google DataTransport, Firebase encoders and Play services are present; vendor runtime data-practice assessment and final Play Data Safety review remain pending
+- SQLCipher is packaged even though the application uses no-encryption mode; US export classification remains unresolved before store release
 
 | Package | Version | Declared licence | Source type | Source | Locator | Distribution |
 |---|---:|---|---|---|---|---|
@@ -211,7 +212,6 @@ This is the deterministic dependency inventory for the B2 local persistence proo
 | zipfoundation | 0.9.20 | MIT | SwiftPM | https://github.com/weichsel/ZIPFoundation.git | version 0.9.20; revision 22787ffb59de99e5dc1fbfe80b19c97a904ad48d | packaged=true |
 | androidx.activity:activity | 1.11.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.11.0/activity-1.11.0.pom | packaged-runtime | packaged=true |
 | androidx.activity:activity | 1.8.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.8.0/activity-1.8.0.pom | tooling-or-test-only | packaged=false |
-| androidx.annotation:annotation-experimental | 1.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-experimental/1.4.0/annotation-experimental-1.4.0.pom | tooling-or-test-only | packaged=false |
 | androidx.annotation:annotation-experimental | 1.4.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-experimental/1.4.1/annotation-experimental-1.4.1.pom | packaged-runtime | packaged=true |
 | androidx.annotation:annotation-jvm | 1.8.1 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-jvm/1.8.1/annotation-jvm-1.8.1.pom | packaged-runtime | packaged=true |
 | androidx.annotation:annotation | 1.3.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation/1.3.0/annotation-1.3.0.pom | tooling-or-test-only | packaged=false |
@@ -236,6 +236,7 @@ This is the deterministic dependency inventory for the B2 local persistence proo
 | androidx.core:core-splashscreen | 1.2.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-splashscreen/1.2.0/core-splashscreen-1.2.0.pom | packaged-runtime | packaged=true |
 | androidx.core:core-viewtree | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core-viewtree/1.0.0/core-viewtree-1.0.0.pom | packaged-runtime | packaged=true |
 | androidx.core:core | 1.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core/1.13.0/core-1.13.0.pom | tooling-or-test-only | packaged=false |
+| androidx.core:core | 1.15.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core/1.15.0/core-1.15.0.pom | tooling-or-test-only | packaged=false |
 | androidx.core:core | 1.17.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/core/core/1.17.0/core-1.17.0.pom | packaged-runtime | packaged=true |
 | androidx.cursoradapter:cursoradapter | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/cursoradapter/cursoradapter/1.0.0/cursoradapter-1.0.0.pom | packaged-runtime | packaged=true |
 | androidx.customview:customview | 1.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/customview/customview/1.0.0/customview-1.0.0.pom | packaged-runtime | packaged=true |
@@ -285,6 +286,7 @@ This is the deterministic dependency inventory for the B2 local persistence proo
 | androidx.webkit:webkit | 1.14.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/webkit/webkit/1.14.0/webkit-1.14.0.pom | packaged-runtime | packaged=true |
 | com.android:signflinger | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/signflinger/8.13.0/signflinger-8.13.0.pom | tooling-or-test-only | packaged=false |
 | com.android:zipflinger | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/zipflinger/8.13.0/zipflinger-8.13.0.pom | tooling-or-test-only | packaged=false |
+| com.android.billingclient:billing | 9.1.0 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/android/billingclient/billing/9.1.0/billing-9.1.0.pom | packaged-runtime | packaged=true |
 | com.android.databinding:baseLibrary | 8.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/databinding/baseLibrary/8.13.0/baseLibrary-8.13.0.pom | tooling-or-test-only | packaged=false |
 | com.android.tools:annotations | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/annotations/31.13.0/annotations-31.13.0.pom | tooling-or-test-only | packaged=false |
 | com.android.tools:common | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/common/31.13.0/common-31.13.0.pom | tooling-or-test-only | packaged=false |
@@ -337,6 +339,14 @@ This is the deterministic dependency inventory for the B2 local persistence proo
 | com.android.tools.utp:android-test-plugin-result-listener-gradle | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/android-test-plugin-result-listener-gradle/31.13.0/android-test-plugin-result-listener-gradle-31.13.0.pom | tooling-or-test-only | packaged=false |
 | com.android.tools.utp:utp-common | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/utp/utp-common/31.13.0/utp-common-31.13.0.pom | tooling-or-test-only | packaged=false |
 | com.google.android:annotations | 4.1.1.4 | Apache-2.0 WITH LicenseRef-Android-SDK-License-Additional-Terms | Maven | https://repo.maven.apache.org/maven2/com/google/android/annotations/4.1.1.4/annotations-4.1.1.4.pom | tooling-or-test-only | packaged=false |
+| com.google.android.datatransport:transport-api | 3.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/android/datatransport/transport-api/3.0.0/transport-api-3.0.0.pom | packaged-runtime | packaged=true |
+| com.google.android.datatransport:transport-backend-cct | 3.1.8 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/android/datatransport/transport-backend-cct/3.1.8/transport-backend-cct-3.1.8.pom | packaged-runtime | packaged=true |
+| com.google.android.datatransport:transport-runtime | 3.1.8 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/android/datatransport/transport-runtime/3.1.8/transport-runtime-3.1.8.pom | packaged-runtime | packaged=true |
+| com.google.android.gms:play-services-base | 18.5.0 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-base/18.5.0/play-services-base-18.5.0.pom | packaged-runtime | packaged=true |
+| com.google.android.gms:play-services-basement | 18.9.0 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-basement/18.9.0/play-services-basement-18.9.0.pom | packaged-runtime | packaged=true |
+| com.google.android.gms:play-services-location | 19.0.0 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-location/19.0.0/play-services-location-19.0.0.pom | packaged-runtime | packaged=true |
+| com.google.android.gms:play-services-places-placereport | 17.0.0 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-places-placereport/17.0.0/play-services-places-placereport-17.0.0.pom | packaged-runtime | packaged=true |
+| com.google.android.gms:play-services-tasks | 18.2.0 | LicenseRef-Android-SDK-License | Maven | https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-tasks/18.2.0/play-services-tasks-18.2.0.pom | packaged-runtime | packaged=true |
 | com.google.android.gms:strict-version-matcher-plugin | 1.2.4 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/android/gms/strict-version-matcher-plugin/1.2.4/strict-version-matcher-plugin-1.2.4.pom | tooling-or-test-only | packaged=false |
 | com.google.api.grpc:proto-google-common-protos | 2.17.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/api/grpc/proto-google-common-protos/2.17.0/proto-google-common-protos-2.17.0.pom | tooling-or-test-only | packaged=false |
 | com.google.api.grpc:proto-google-common-protos | 2.48.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/api/grpc/proto-google-common-protos/2.48.0/proto-google-common-protos-2.48.0.pom | tooling-or-test-only | packaged=false |
@@ -360,6 +370,9 @@ This is the deterministic dependency inventory for the B2 local persistence proo
 | com.google.errorprone:error_prone_annotations | 2.23.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.23.0/error_prone_annotations-2.23.0.pom | tooling-or-test-only | packaged=false |
 | com.google.errorprone:error_prone_annotations | 2.28.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.28.0/error_prone_annotations-2.28.0.pom | tooling-or-test-only | packaged=false |
 | com.google.errorprone:error_prone_annotations | 2.30.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.30.0/error_prone_annotations-2.30.0.pom | tooling-or-test-only | packaged=false |
+| com.google.firebase:firebase-encoders-json | 18.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/firebase/firebase-encoders-json/18.0.0/firebase-encoders-json-18.0.0.pom | packaged-runtime | packaged=true |
+| com.google.firebase:firebase-encoders-proto | 16.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/firebase/firebase-encoders-proto/16.0.0/firebase-encoders-proto-16.0.0.pom | packaged-runtime | packaged=true |
+| com.google.firebase:firebase-encoders | 17.0.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/firebase/firebase-encoders/17.0.0/firebase-encoders-17.0.0.pom | packaged-runtime | packaged=true |
 | com.google.flatbuffers:flatbuffers-java | 1.12.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.pom | tooling-or-test-only | packaged=false |
 | com.google.gms:google-services | 4.4.4 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/google/gms/google-services/4.4.4/google-services-4.4.4.pom | tooling-or-test-only | packaged=false |
 | com.google.guava:failureaccess | 1.0.1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.1/failureaccess-1.0.1.pom | tooling-or-test-only | packaged=false |
@@ -445,7 +458,7 @@ This is the deterministic dependency inventory for the B2 local persistence proo
 | jakarta.activation:jakarta.activation-api | 1.2.1 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/jakarta/activation/jakarta.activation-api/1.2.1/jakarta.activation-api-1.2.1.pom | tooling-or-test-only | packaged=false |
 | jakarta.xml.bind:jakarta.xml.bind-api | 2.3.2 | LicenseRef-Eclipse-Distribution-License-1.0 | Maven | https://repo.maven.apache.org/maven2/jakarta/xml/bind/jakarta.xml.bind-api/2.3.2/jakarta.xml.bind-api-2.3.2.pom | tooling-or-test-only | packaged=false |
 | javax.annotation:javax.annotation-api | 1.3.2 | CDDL-1.1 OR (GPL-2.0-only WITH Classpath-exception-2.0) | Maven | https://repo.maven.apache.org/maven2/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom | tooling-or-test-only | packaged=false |
-| javax.inject:javax.inject | 1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/javax/inject/javax.inject/1/javax.inject-1.pom | tooling-or-test-only | packaged=false |
+| javax.inject:javax.inject | 1 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/javax/inject/javax.inject/1/javax.inject-1.pom | packaged-runtime | packaged=true |
 | junit:junit | 4.13.2 | EPL-1.0 | Maven | https://repo.maven.apache.org/maven2/junit/junit/4.13.2/junit-4.13.2.pom | tooling-or-test-only | packaged=false |
 | net.bytebuddy:byte-buddy-agent | 1.17.7 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy-agent/1.17.7/byte-buddy-agent-1.17.7.pom | tooling-or-test-only | packaged=false |
 | net.bytebuddy:byte-buddy | 1.17.7 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy/1.17.7/byte-buddy-1.17.7.pom | tooling-or-test-only | packaged=false |
@@ -523,6 +536,7 @@ This is the deterministic dependency inventory for the B2 local persistence proo
 | org.slf4j:slf4j-api | 1.7.30 | MIT | Maven | https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom | tooling-or-test-only | packaged=false |
 | org.tensorflow:tensorflow-lite-metadata | 0.2.0 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/tensorflow/tensorflow-lite-metadata/0.2.0/tensorflow-lite-metadata-0.2.0.pom | tooling-or-test-only | packaged=false |
 | org.xerial:sqlite-jdbc | 3.41.2.2 | Apache-2.0 | Maven | https://repo.maven.apache.org/maven2/org/xerial/sqlite-jdbc/3.41.2.2/sqlite-jdbc-3.41.2.2.pom | tooling-or-test-only | packaged=false |
+| androidx.annotation:annotation-experimental | 1.4.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-experimental/1.4.0/annotation-experimental-1.4.0.pom | tooling-or-test-only | packaged=false |
 | com.android.tools:play-sdk-proto | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/play-sdk-proto/31.13.0/play-sdk-proto-31.13.0.pom | tooling-or-test-only | packaged=false |
 | com.android.tools.build:aapt2 | 8.13.0-13719691 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/8.13.0-13719691/aapt2-8.13.0-13719691.pom | tooling-or-test-only | packaged=false |
 | com.android.tools.external.com-intellij:intellij-core | 31.13.0 | Apache-2.0 | Maven | https://dl.google.com/dl/android/maven2/com/android/tools/external/com-intellij/intellij-core/31.13.0/intellij-core-31.13.0.pom | tooling-or-test-only | packaged=false |

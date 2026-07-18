@@ -3,10 +3,13 @@ import { lstat, readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const SHA256 = /^[a-f0-9]{64}$/;
+const DEFAULT_MAXIMUM_POM_BYTES = 1024 * 1024;
+const DEFAULT_POM_TIMEOUT_MILLISECONDS = 30_000;
 
-function evidenceError(message) {
+function evidenceError(message, { code = 'maven_licence_unknown', reason } = {}) {
   const error = new Error(message);
-  error.code = 'maven_licence_unknown';
+  error.code = code;
+  if (reason) error.reason = reason;
   return error;
 }
 
@@ -186,11 +189,21 @@ export async function readCachedMavenPom(gradleUserHome, coordinate) {
   let hashDirectories;
   try {
     hashDirectories = await readdir(coordinateRoot, { withFileTypes: true });
-  } catch {
-    throw evidenceError(`Cached Maven POM is missing: ${coordinate}`);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      throw evidenceError(`Cached Maven POM is missing: ${coordinate}`, {
+        reason: 'cache-missing',
+      });
+    }
+    throw evidenceError(`Unreadable Maven cache entry: ${coordinate}`);
   }
   for (const directory of hashDirectories) {
-    if (directory.isSymbolicLink() || !directory.isDirectory()) continue;
+    if (directory.isSymbolicLink()) {
+      throw evidenceError(`Symlinked Maven cache entry: ${coordinate}`);
+    }
+    if (!directory.isDirectory()) {
+      throw evidenceError(`Unsafe Maven cache entry: ${coordinate}`);
+    }
     const hashRoot = join(coordinateRoot, directory.name);
     for (const entry of await readdir(hashRoot, { withFileTypes: true })) {
       if (entry.isSymbolicLink()) {
@@ -211,10 +224,230 @@ export async function readCachedMavenPom(gradleUserHome, coordinate) {
     }
   }
   if (!candidates.length) {
-    throw evidenceError(`Cached Maven POM is missing: ${coordinate}`);
+    throw evidenceError(`Cached Maven POM is missing: ${coordinate}`, {
+      reason: 'cache-missing',
+    });
   }
   if (new Set(candidates.map(({ sha256 }) => sha256)).size !== 1) {
     throw evidenceError(`Conflicting cached Maven POMs: ${coordinate}`);
   }
   return candidates.sort((left, right) => left.path.localeCompare(right.path))[0];
+}
+
+function validateRepositoryBase(repository) {
+  let parsed;
+  try {
+    parsed = new URL(repository);
+  } catch {
+    throw evidenceError(`Invalid approved Maven repository: ${repository}`, {
+      code: 'maven_pom_authority_invalid',
+    });
+  }
+  if (
+    parsed.protocol !== 'https:' ||
+    parsed.username ||
+    parsed.password ||
+    parsed.search ||
+    parsed.hash ||
+    !parsed.pathname.endsWith('/') ||
+    parsed.href !== repository
+  ) {
+    throw evidenceError(`Unsafe approved Maven repository: ${repository}`, {
+      code: 'maven_pom_authority_invalid',
+    });
+  }
+  return repository;
+}
+
+function validateCommittedSourceAuthority(coordinate, sourceAuthority, repositoryBases) {
+  if (sourceAuthority === null || sourceAuthority === undefined) return null;
+  if (
+    sourceAuthority === null ||
+    typeof sourceAuthority !== 'object' ||
+    Array.isArray(sourceAuthority) ||
+    !Object.hasOwn(sourceAuthority, 'repository') ||
+    !Object.hasOwn(sourceAuthority, 'sourceUrl')
+  ) {
+    throw evidenceError(`Invalid committed Maven source authority: ${coordinate}`, {
+      code: 'maven_pom_authority_invalid',
+    });
+  }
+  const repositories = repositoryBases.map(validateRepositoryBase);
+  const repository = validateRepositoryBase(sourceAuthority.repository);
+  const sourceUrl = `${repository}${mavenPomRelativePath(coordinate)}`;
+  if (!repositories.includes(repository) || sourceAuthority.sourceUrl !== sourceUrl) {
+    throw evidenceError(`Committed Maven source authority drifted: ${coordinate}`, {
+      code: 'maven_pom_authority_invalid',
+    });
+  }
+  return Object.freeze({ repository, sourceUrl });
+}
+
+async function readBoundedResponse(response, maximumBytes) {
+  const declaredLength = response.headers.get('content-length');
+  if (declaredLength !== null) {
+    const parsedLength = Number(declaredLength);
+    if (
+      !Number.isSafeInteger(parsedLength) ||
+      parsedLength < 0 ||
+      parsedLength > maximumBytes
+    ) {
+      throw evidenceError('Maven POM response length is invalid or too large', {
+        code: 'maven_source_unresolved',
+      });
+    }
+  }
+  if (!response.body) return Buffer.alloc(0);
+  const reader = response.body.getReader();
+  const chunks = [];
+  let byteLength = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      byteLength += value.byteLength;
+      if (byteLength > maximumBytes) {
+        await reader.cancel();
+        throw evidenceError('Maven POM response is too large', {
+          code: 'maven_source_unresolved',
+        });
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks, byteLength);
+}
+
+export async function fetchVerifiedMavenPom({
+  coordinate,
+  expectedSha256,
+  repositoryBases,
+  fetchImpl = globalThis.fetch,
+  maximumBytes = DEFAULT_MAXIMUM_POM_BYTES,
+  timeoutMilliseconds = DEFAULT_POM_TIMEOUT_MILLISECONDS,
+}) {
+  if (!SHA256.test(expectedSha256 ?? '')) {
+    throw evidenceError(`Missing exact Maven POM authority: ${coordinate}`, {
+      code: 'maven_pom_authority_invalid',
+    });
+  }
+  const relativePath = mavenPomRelativePath(coordinate);
+  if (
+    !Array.isArray(repositoryBases) ||
+    repositoryBases.length === 0 ||
+    typeof fetchImpl !== 'function' ||
+    !Number.isSafeInteger(maximumBytes) ||
+    maximumBytes < 1 ||
+    !Number.isSafeInteger(timeoutMilliseconds) ||
+    timeoutMilliseconds < 1
+  ) {
+    throw evidenceError(`Invalid Maven POM source authority: ${coordinate}`, {
+      code: 'maven_pom_authority_invalid',
+    });
+  }
+  const repositories = repositoryBases.map(validateRepositoryBase);
+  const failures = [];
+  for (const repository of repositories) {
+    const sourceUrl = `${repository}${relativePath}`;
+    try {
+      const response = await fetchImpl(sourceUrl, {
+        redirect: 'manual',
+        signal: AbortSignal.timeout(timeoutMilliseconds),
+      });
+      if (
+        response.redirected ||
+        (response.url && response.url !== sourceUrl) ||
+        (response.status >= 300 && response.status < 400)
+      ) {
+        failures.push(`redirect:${repository}`);
+        continue;
+      }
+      if (!response.ok) {
+        failures.push(`${response.status}:${repository}`);
+        continue;
+      }
+      const content = await readBoundedResponse(response, maximumBytes);
+      const actualSha256 = createHash('sha256').update(content).digest('hex');
+      if (actualSha256 !== expectedSha256) {
+        failures.push(`sha256:${repository}`);
+        continue;
+      }
+      return {
+        path: null,
+        text: content.toString('utf8'),
+        sha256: actualSha256,
+        repository,
+        sourceUrl,
+      };
+    } catch (error) {
+      failures.push(`${error.name}:${repository}`);
+    }
+  }
+  throw evidenceError(
+    `No approved Maven source matched ${coordinate}: ${failures.join(', ')}`,
+    { code: 'maven_source_unresolved' },
+  );
+}
+
+export async function resolveVerifiedMavenPom({
+  gradleUserHome,
+  coordinate,
+  expectedSha256,
+  repositoryBases = [],
+  sourceAuthority = null,
+  fetchImpl = globalThis.fetch,
+  maximumBytes = DEFAULT_MAXIMUM_POM_BYTES,
+  timeoutMilliseconds = DEFAULT_POM_TIMEOUT_MILLISECONDS,
+}) {
+  if (!SHA256.test(expectedSha256 ?? '')) {
+    throw evidenceError(`Missing exact Maven POM authority: ${coordinate}`, {
+      code: 'maven_pom_authority_invalid',
+    });
+  }
+  const committedSource = validateCommittedSourceAuthority(
+    coordinate,
+    sourceAuthority,
+    repositoryBases,
+  );
+  let cached;
+  try {
+    cached = await readCachedMavenPom(gradleUserHome, coordinate);
+  } catch (error) {
+    if (error.reason !== 'cache-missing') throw error;
+    return fetchVerifiedMavenPom({
+      coordinate,
+      expectedSha256,
+      repositoryBases: committedSource ? [committedSource.repository] : repositoryBases,
+      fetchImpl,
+      maximumBytes,
+      timeoutMilliseconds,
+    });
+  }
+  if (cached.sha256 !== expectedSha256) {
+    throw evidenceError(`Cached Maven POM checksum mismatch: ${coordinate}`, {
+      code: 'maven_pom_checksum_mismatch',
+    });
+  }
+  if (committedSource) {
+    return {
+      ...cached,
+      repository: committedSource.repository,
+      sourceUrl: committedSource.sourceUrl,
+    };
+  }
+  const source = await fetchVerifiedMavenPom({
+    coordinate,
+    expectedSha256,
+    repositoryBases,
+    fetchImpl,
+    maximumBytes,
+    timeoutMilliseconds,
+  });
+  return {
+    ...cached,
+    repository: source.repository,
+    sourceUrl: source.sourceUrl,
+  };
 }

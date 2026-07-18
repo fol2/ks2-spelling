@@ -1,0 +1,24 @@
+[
+  {
+    "name": "RFC 8785 sample values",
+    "value": {
+      "numbers": [333333333.33333329, 1e30, 4.5, 0.002, 1e-27],
+      "string": "€$\u000f\nA'B\"\\\"/",
+      "literals": [null, true, false]
+    },
+    "canonical": "{\"literals\":[null,true,false],\"numbers\":[333333333.3333333,1e+30,4.5,0.002,1e-27],\"string\":\"€$\\u000f\\nA'B\\\"\\\\\\\"/\"}"
+  },
+  {
+    "name": "UTF-16 property ordering",
+    "value": {
+      "דּ": "Hebrew presentation form",
+      "1": "ASCII digit",
+      "😀": "surrogate pair",
+      "€": "Euro sign",
+      "ö": "Latin small letter",
+      "": "control",
+      "\r": "carriage return"
+    },
+    "canonical": "{\"\\r\":\"carriage return\",\"1\":\"ASCII digit\",\"\":\"control\",\"ö\":\"Latin small letter\",\"€\":\"Euro sign\",\"😀\":\"surrogate pair\",\"דּ\":\"Hebrew presentation form\"}"
+  }
+]

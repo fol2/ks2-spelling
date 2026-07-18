@@ -1,5 +1,9 @@
 import { assertSqlConnection } from './sql-connection-contract.js';
-import { SCHEMA_VERSION, SCHEMA_V1_STATEMENTS } from './schema-v1.js';
+import {
+  SCHEMA_VERSION as SCHEMA_V1_VERSION,
+  SCHEMA_V1_STATEMENTS,
+} from './schema-v1.js';
+import { SCHEMA_VERSION, SCHEMA_V2_STATEMENTS } from './schema-v2.js';
 
 const CONFIGURATION_PRAGMAS = Object.freeze([
   Object.freeze({
@@ -31,6 +35,8 @@ const CONFIGURATION_PRAGMAS = Object.freeze([
     expected: 5000,
   }),
 ]);
+
+const MIGRATION_QUEUES = new WeakMap();
 
 function createMigrationError(code, options) {
   const error = new Error(code, options);
@@ -95,11 +101,11 @@ async function assertIntegrityValid(connection) {
   }
 }
 
-async function assertSchemaV1(connection) {
+async function assertSchema(connection, statements, code) {
   const actual = await connection.query(
     'SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY type, name',
   );
-  const expected = SCHEMA_V1_STATEMENTS.map((sql) => ({
+  const expected = statements.map((sql) => ({
     type: 'table',
     name: /^CREATE TABLE ([a-z_]+) /.exec(sql)?.[1],
     tbl_name: /^CREATE TABLE ([a-z_]+) /.exec(sql)?.[1],
@@ -109,12 +115,12 @@ async function assertSchemaV1(connection) {
   );
 
   if (!Array.isArray(actual)) {
-    throw createMigrationError('sqlite_schema_v1_invalid');
+    throw createMigrationError(code);
   }
   const appOwned = [];
   for (const row of actual) {
     if (!row || typeof row !== 'object') {
-      throw createMigrationError('sqlite_schema_v1_invalid');
+      throw createMigrationError(code);
     }
     const keys = Reflect.ownKeys(row);
     if (
@@ -130,7 +136,7 @@ async function assertSchemaV1(connection) {
         );
       })
     ) {
-      throw createMigrationError('sqlite_schema_v1_invalid');
+      throw createMigrationError(code);
     }
     const values = Object.fromEntries(
       keys.map((key) => [key, Object.getOwnPropertyDescriptor(row, key).value]),
@@ -154,8 +160,20 @@ async function assertSchemaV1(connection) {
         row.sql !== expected[index].sql,
     )
   ) {
-    throw createMigrationError('sqlite_schema_v1_invalid');
+    throw createMigrationError(code);
   }
+}
+
+async function assertSchemaV1(connection) {
+  await assertSchema(connection, SCHEMA_V1_STATEMENTS, 'sqlite_schema_v1_invalid');
+}
+
+async function assertSchemaV2(connection) {
+  await assertSchema(
+    connection,
+    [...SCHEMA_V1_STATEMENTS, ...SCHEMA_V2_STATEMENTS],
+    'sqlite_schema_v2_invalid',
+  );
 }
 
 function requireMigrationStepHook(options) {
@@ -230,9 +248,68 @@ async function rollbackAndProveInactive(connection, originalError) {
   throw originalError;
 }
 
-async function migrateV0ToV1(connection, afterMigrationStep) {
+async function requireInactiveTransaction(connection) {
+  let transactionActive;
+  try {
+    transactionActive = await connection.isTransactionActive();
+  } catch (error) {
+    throw createMigrationError('sqlite_migration_transaction_state_invalid', {
+      cause: error,
+    });
+  }
+  if (typeof transactionActive !== 'boolean') {
+    throw createMigrationError('sqlite_migration_transaction_state_invalid');
+  }
+  if (transactionActive) {
+    throw createMigrationError('sqlite_migration_transaction_already_active');
+  }
+}
+
+async function beginOwnedTransaction(connection) {
+  await requireInactiveTransaction(connection);
   try {
     await connection.begin();
+  } catch (beginError) {
+    let transactionActive;
+    try {
+      transactionActive = await connection.isTransactionActive();
+    } catch (inspectionError) {
+      await rollbackAndProveInactive(
+        connection,
+        createMigrationError('sqlite_migration_transaction_state_invalid', {
+          cause: new AggregateError(
+            [beginError, inspectionError],
+            'Native begin outcome could not be verified.',
+          ),
+        }),
+      );
+    }
+    if (typeof transactionActive !== 'boolean') {
+      await rollbackAndProveInactive(
+        connection,
+        createMigrationError('sqlite_migration_transaction_state_invalid', {
+          cause: new AggregateError(
+            [
+              beginError,
+              createMigrationError('sqlite_migration_transaction_state_invalid'),
+            ],
+            'Native begin outcome could not be verified.',
+          ),
+        }),
+      );
+    }
+    if (transactionActive) {
+      await rollbackAndProveInactive(connection, beginError);
+    }
+    throw beginError;
+  }
+}
+
+async function migrateV0ToV1(connection, afterMigrationStep) {
+  let ownsTransaction = false;
+  try {
+    await beginOwnedTransaction(connection);
+    ownsTransaction = true;
     let statementIndex = 0;
     for (const sql of SCHEMA_V1_STATEMENTS) {
       await connection.execute(sql);
@@ -242,7 +319,7 @@ async function migrateV0ToV1(connection, afterMigrationStep) {
       statementIndex += 1;
     }
 
-    const setVersionSql = `PRAGMA user_version = ${SCHEMA_VERSION}`;
+    const setVersionSql = `PRAGMA user_version = ${SCHEMA_V1_VERSION}`;
     await connection.execute(setVersionSql);
     await afterMigrationStep(
       Object.freeze({
@@ -280,8 +357,77 @@ async function migrateV0ToV1(connection, afterMigrationStep) {
       Object.freeze({ phase: 'before_commit', sql: 'COMMIT', statementIndex }),
     );
     await connection.commit();
+    ownsTransaction = false;
   } catch (error) {
-    await rollbackAndProveInactive(connection, error);
+    if (ownsTransaction) {
+      await rollbackAndProveInactive(connection, error);
+    }
+    throw error;
+  }
+}
+
+async function migrateV1ToV2(connection, afterMigrationStep) {
+  let ownsTransaction = false;
+  try {
+    await beginOwnedTransaction(connection);
+    ownsTransaction = true;
+    let statementIndex = 0;
+    for (const sql of SCHEMA_V2_STATEMENTS) {
+      await connection.execute(sql);
+      await afterMigrationStep(
+        Object.freeze({ phase: 'v2_schema_statement', sql, statementIndex }),
+      );
+      statementIndex += 1;
+    }
+
+    const setVersionSql = `PRAGMA user_version = ${SCHEMA_VERSION}`;
+    await connection.execute(setVersionSql);
+    await afterMigrationStep(
+      Object.freeze({
+        phase: 'v2_set_user_version',
+        sql: setVersionSql,
+        statementIndex,
+      }),
+    );
+    statementIndex += 1;
+
+    const foreignKeyCheckSql = 'PRAGMA foreign_key_check';
+    await assertForeignKeysValid(connection);
+    await afterMigrationStep(
+      Object.freeze({
+        phase: 'v2_foreign_key_check',
+        sql: foreignKeyCheckSql,
+        statementIndex,
+      }),
+    );
+    statementIndex += 1;
+
+    const integrityCheckSql = 'PRAGMA integrity_check';
+    await assertIntegrityValid(connection);
+    await afterMigrationStep(
+      Object.freeze({
+        phase: 'v2_integrity_check',
+        sql: integrityCheckSql,
+        statementIndex,
+      }),
+    );
+    statementIndex += 1;
+
+    await assertSchemaV2(connection);
+    await afterMigrationStep(
+      Object.freeze({
+        phase: 'v2_before_commit',
+        sql: 'COMMIT',
+        statementIndex,
+      }),
+    );
+    await connection.commit();
+    ownsTransaction = false;
+  } catch (error) {
+    if (ownsTransaction) {
+      await rollbackAndProveInactive(connection, error);
+    }
+    throw error;
   }
 }
 
@@ -295,9 +441,24 @@ async function closeForUnsupportedVersion(connection) {
   throw error;
 }
 
-export async function configureAndMigrateDatabase(connection, options = {}) {
-  assertSqlConnection(connection);
-  const afterMigrationStep = requireMigrationStepHook(options);
+async function configureAndMigrateDatabaseOnce(connection, afterMigrationStep) {
+  const userVersion = readExactSingleValue(
+    await connection.query('PRAGMA user_version'),
+    'user_version',
+    'sqlite_schema_version_invalid',
+  );
+  if (!Number.isSafeInteger(userVersion) || userVersion < 0) {
+    throw createMigrationError('sqlite_schema_version_invalid');
+  }
+  if (
+    userVersion !== 0 &&
+    userVersion !== SCHEMA_V1_VERSION &&
+    userVersion !== SCHEMA_VERSION
+  ) {
+    await closeForUnsupportedVersion(connection);
+  }
+
+  await requireInactiveTransaction(connection);
 
   for (const { setSql, setOperation, property, expected } of CONFIGURATION_PRAGMAS) {
     if (setOperation === 'query') {
@@ -324,23 +485,38 @@ export async function configureAndMigrateDatabase(connection, options = {}) {
     }
   }
 
-  const userVersion = readExactSingleValue(
-    await connection.query('PRAGMA user_version'),
-    'user_version',
-    'sqlite_schema_version_invalid',
-  );
-  if (!Number.isSafeInteger(userVersion) || userVersion < 0) {
-    throw createMigrationError('sqlite_schema_version_invalid');
-  }
-  if (userVersion !== 0 && userVersion !== SCHEMA_VERSION) {
-    await closeForUnsupportedVersion(connection);
-  }
-
   if (userVersion === 0) {
     await migrateV0ToV1(connection, afterMigrationStep);
   }
 
-  await assertSchemaV1(connection);
+  if (userVersion === 0 || userVersion === SCHEMA_V1_VERSION) {
+    await assertSchemaV1(connection);
+    await migrateV1ToV2(connection, afterMigrationStep);
+  }
+
+  await assertSchemaV2(connection);
   await assertForeignKeysValid(connection);
   await assertIntegrityValid(connection);
+}
+
+export async function configureAndMigrateDatabase(connection, options = {}) {
+  assertSqlConnection(connection);
+  const afterMigrationStep = requireMigrationStepHook(options);
+  const previous = MIGRATION_QUEUES.get(connection) ?? Promise.resolve();
+  const result = previous
+    .catch(() => undefined)
+    .then(() => configureAndMigrateDatabaseOnce(connection, afterMigrationStep));
+  const settled = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  MIGRATION_QUEUES.set(connection, settled);
+
+  try {
+    return await result;
+  } finally {
+    if (MIGRATION_QUEUES.get(connection) === settled) {
+      MIGRATION_QUEUES.delete(connection);
+    }
+  }
 }

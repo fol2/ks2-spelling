@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "products": [
+    {
+      "entitlementId": "full-ks2",
+      "type": "non-consumable",
+      "appleProductId": "uk.eugnel.ks2spelling.fullks2",
+      "googleProductId": "full_ks2",
+      "packIds": ["b3-sandbox-proof"]
+    }
+  ]
+}

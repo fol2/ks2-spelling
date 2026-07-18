@@ -14,6 +14,7 @@ export const EXIT_CODES = Object.freeze({
 
 const SECRET_KEY =
   /(?:api[_-]?key|token|password|secret|credential|private[_-]?key|mobileprovision|provisioning[_-]?profile|code[_-]?sign[_-]?identity|signing[_-]?(?:certificate|identity))/i;
+const PROCESS_TERMINATION_GRACE_MS = 250;
 
 function replaceAllLiteral(text, value) {
   return value ? text.split(value).join('[REDACTED]') : text;
@@ -62,24 +63,63 @@ export function isMain(metaUrl) {
 export function runCommand(
   command,
   args = [],
-  { cwd = process.cwd(), env = process.env, input = null, stream = false } = {},
+  {
+    cwd = process.cwd(),
+    env = process.env,
+    input = null,
+    stream = false,
+    timeoutMs = null,
+  } = {},
 ) {
+  if (timeoutMs !== null && (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0)) {
+    throw new TypeError('Command timeout must be a positive safe integer.');
+  }
   return new Promise((completion) => {
     const child = spawn(command, args, {
       cwd,
       env,
+      detached: timeoutMs !== null,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     const stdout = [];
     const stderr = [];
     let spawnError = null;
+    let timedOut = false;
+    let escalationComplete = false;
+    let closeResult = null;
+    let completed = false;
 
-    child.stdout.on('data', (chunk) => stdout.push(chunk));
-    child.stderr.on('data', (chunk) => stderr.push(chunk));
-    child.on('error', (error) => {
-      spawnError = error;
-    });
-    child.on('close', (code, signal) => {
+    const terminateGroup = (signal) => {
+      if (!Number.isSafeInteger(child.pid)) return;
+      try {
+        process.kill(-child.pid, signal);
+      } catch {
+        try {
+          child.kill(signal);
+        } catch {
+          // The process may already have exited.
+        }
+      }
+    };
+    const timeout = timeoutMs === null ? null : setTimeout(() => {
+      timedOut = true;
+      terminateGroup('SIGTERM');
+      setTimeout(() => {
+        terminateGroup('SIGKILL');
+        escalationComplete = true;
+        completeIfReady();
+      }, PROCESS_TERMINATION_GRACE_MS);
+    }, timeoutMs);
+    timeout?.unref?.();
+
+    const completeIfReady = () => {
+      if (
+        completed ||
+        closeResult === null ||
+        (timedOut && !escalationComplete)
+      ) return;
+      completed = true;
+      const { code, signal } = closeResult;
       const safeStdout = redactText(Buffer.concat(stdout).toString('utf8'), env);
       const safeStderr = redactText(Buffer.concat(stderr).toString('utf8'), env);
       if (stream) {
@@ -96,7 +136,19 @@ export function runCommand(
         spawnError: spawnError
           ? { code: spawnError.code ?? null, message: redactText(spawnError.message, env) }
           : null,
+        timedOut,
       });
+    };
+
+    child.stdout.on('data', (chunk) => stdout.push(chunk));
+    child.stderr.on('data', (chunk) => stderr.push(chunk));
+    child.on('error', (error) => {
+      spawnError = error;
+    });
+    child.on('close', (code, signal) => {
+      if (timeout !== null) clearTimeout(timeout);
+      closeResult = { code, signal };
+      completeIfReady();
     });
 
     if (input === null) child.stdin.end();

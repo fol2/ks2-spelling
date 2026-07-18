@@ -55,7 +55,7 @@ test('the dependency policy and deterministic evidence files are committed', asy
   );
 });
 
-test('resolved Android policy authority contains exactly two dedicated live tests', async () => {
+test('resolved Android policy authority contains exactly five dedicated live tests', async () => {
   const source = await readFile(
     join(ROOT, 'tests/dependency-policy-resolved.live.mjs'),
     'utf8',
@@ -63,7 +63,10 @@ test('resolved Android policy authority contains exactly two dedicated live test
   const declarations = [...source.matchAll(/^test\('([^']+)'/gm)].map(([, name]) => name);
   assert.deepEqual(declarations, [
     'default audit consumes the complete resolved Android certification',
+    'committed Android certification is identical from warm and empty POM caches',
     'generated JSON and notices are byte-identical across repeated generation',
+    'default audit CLI validates live B3 evidence without mutating frozen B2 reports',
+    'pre-bootstrap write CLI cannot overwrite frozen B2 evidence while B3 is active',
   ]);
 });
 
@@ -102,17 +105,33 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
   }
   assert.deepEqual(
     report.plugins.approved.map(({ packageName }) => packageName),
-    ['@capacitor-community/sqlite', '@capacitor/app'],
+    [
+      '@capacitor-community/sqlite',
+      '@capacitor/app',
+      'app-owned-commerce-bridge',
+      'app-owned-pack-transfer-bridge',
+    ],
   );
-  assert.deepEqual(report.permissionEvidence.androidUsesPermissions, []);
+  assert.deepEqual(report.permissionEvidence.androidUsesPermissions, [
+    'android.permission.INTERNET',
+  ]);
   assert.equal(report.permissionEvidence.androidPermissionRemovalMarkers.length, 4);
   assert.deepEqual(report.permissionEvidence.iosEntitlements, []);
   assert.deepEqual(report.permissionEvidence.iosUsageDescriptionKeys, []);
   assert.deepEqual(report.permissionEvidence.packagedAndroid.requestedPermissions, []);
-  assert.equal(report.b2Truth.sqliteMode, 'no-encryption');
-  assert.equal(report.b2Truth.sqlCipherPackaged, true);
-  assert.equal(report.b2Truth.applicationEncryptionAtRestProved, false);
-  assert.equal(report.b2Truth.approval, 'B2-proof-only');
+  assert.equal(report.b3Truth.sqliteMode, 'no-encryption');
+  assert.equal(report.b3Truth.sqlCipherPackaged, true);
+  assert.equal(report.b3Truth.applicationEncryptionAtRestProved, false);
+  assert.equal(report.b3Truth.storeCommerce, true);
+  assert.equal(report.b3Truth.appConfiguredAnalytics, false);
+  assert.equal(report.b3Truth.appConfiguredAdvertising, false);
+  assert.equal(
+    report.b3Truth.vendorRuntimeDataPracticeAssessment,
+    'pending-before-store-release',
+  );
+  assert.equal(report.b3Truth.liveStoreProof, false);
+  assert.equal(report.b3Truth.liveCloudProof, false);
+  assert.equal(report.b3Truth.approval, 'B3-compiled-capability-only');
   assert.equal(report.spm[0].identity, 'capacitor-swift-pm');
   assert.deepEqual(report.spm[0].requirement, { kind: 'version', version: '8.4.1' });
   assert.equal(report.spm[0].revision, '2231987d85b8b0b289320b1d0947b4ae8345cde4');

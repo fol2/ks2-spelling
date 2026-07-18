@@ -5,7 +5,10 @@ import test from 'node:test';
 import {
   B4_PRODUCT_IDENTIFIER,
   B4_AUDIO_AUTHORITY,
+  B4_RUNTIME_ITEM_IDS,
+  B4_SENTENCE_PROMPTS,
   createB4AudioInventory,
+  loadB4SpellingCatalogue,
   validateB4AudioManifest,
 } from '../src/app/b4-round-contract.js';
 import {
@@ -103,4 +106,18 @@ test('trace-derived B4 audio inventory rejects pending authority', () => {
     () => validateB4AudioManifest({ productIdentifier: B4_PRODUCT_IDENTIFIER, assets: inventory }),
     (error) => error?.code === 'b4_audio_authority_incomplete',
   );
+});
+
+test('B4 content exposes only sentence prompts covered by its local audio manifest', () => {
+  const catalogue = loadB4SpellingCatalogue();
+  for (const runtimeItemId of B4_RUNTIME_ITEM_IDS) {
+    const item = catalogue.items.find((candidate) => candidate.runtimeItemId === runtimeItemId);
+    const expected = B4_SENTENCE_PROMPTS
+      .filter((prompt) => prompt.runtimeItemId === runtimeItemId)
+      .map((prompt) => prompt.sentence)
+      .sort();
+    assert.deepEqual(item.sentencePrompts.map(({ text }) => text).sort(), expected);
+    assert.equal(item.sentencePrompts.length, 2);
+  }
+  assert.equal(catalogue.audio.requiredAssetCount, 680);
 });

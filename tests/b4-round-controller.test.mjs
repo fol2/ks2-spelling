@@ -270,18 +270,31 @@ test('fresh round starts deterministically from a genuine committed summary', as
   const directory = await mkdtemp(join(tmpdir(), 'ks2-b4-fresh-round-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   async function completeAndRestart(filename) {
+    const playedPaths = [];
     const services = await createB4AppServices({
       connectionFactory: () => createNodeSqliteConnection(join(directory, filename)),
       lifecycleFactory: createLifecycle,
       audioManifest: placeholderManifest(),
-      playAudio: silentPlayer(),
+      playAudio: silentPlayer(playedPaths),
     });
     try {
       let state = await services.controller.start();
       while (state.phase !== 'summary') state = await services.controller.advance();
       const summaryRevision = state.revision;
       state = await services.controller.freshRound();
-      return { state, summaryRevision };
+      const freshState = state;
+      const audioStates = [];
+      const catalogue = loadStarterSpellingCatalogue();
+      while (state.phase !== 'summary') {
+        audioStates.push(await services.controller.replay());
+        audioStates.push(await services.controller.slowReplay());
+        const target = catalogue.items.find(
+          ({ runtimeItemId }) => runtimeItemId === state.currentRuntimeItemId,
+        ).target;
+        state = await services.controller.submit(target);
+        if (state.awaitingAdvance) state = await services.controller.continue();
+      }
+      return { state: freshState, summaryRevision, freshSummary: state, audioStates, playedPaths };
     } finally {
       await services.dispose();
     }
@@ -296,6 +309,13 @@ test('fresh round starts deterministically from a genuine committed summary', as
   assert.equal(first.state.totalCards, 5);
   assert.equal(first.state.currentRuntimeItemId, second.state.currentRuntimeItemId);
   assert.equal(first.state.currentSentence, second.state.currentSentence);
+  assert.equal(first.freshSummary.phase, 'summary');
+  assert.ok(first.audioStates.length >= 10);
+  assert.ok(first.audioStates.every(({ audio }) => audio.status === 'playing'));
+  assert.ok(first.audioStates.every(({ audio }) => audio.error === null));
+  const replayPaths = first.playedPaths.filter((path) => path.startsWith('audio/b4/'));
+  assert.match(replayPaths.at(-2), /^audio\/b4\/b4-\d{2}\.wav$/u);
+  assert.match(replayPaths.at(-1), /^audio\/b4\/b4-\d{2}\.wav$/u);
 });
 
 test('genuine A3 audio effects run post-commit while replay stays independent of durable storage', async () => {

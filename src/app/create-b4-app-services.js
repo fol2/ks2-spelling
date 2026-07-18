@@ -1,4 +1,3 @@
-import { loadStarterSpellingCatalogue } from '../domain/spelling/index.js';
 import { seedB2Learners } from '../platform/database/b2-seed.js';
 import { createCapacitorSqliteConnection } from '../platform/database/capacitor-sqlite-connection.js';
 import { createDatabaseCommandGate } from '../platform/database/database-command-gate.js';
@@ -8,7 +7,11 @@ import { SCHEMA_VERSION } from '../platform/database/schema-v2.js';
 import { createSQLiteSpellingCommandRepository } from '../platform/database/sqlite-spelling-command-repository.js';
 import { createSQLiteSpellingSnapshotStore } from '../platform/database/sqlite-spelling-snapshot-store.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
-import { B4_PRODUCT_IDENTIFIER, B4_START_TIMESTAMP } from './b4-round-contract.js';
+import {
+  B4_PRODUCT_IDENTIFIER,
+  B4_START_TIMESTAMP,
+  loadB4SpellingCatalogue,
+} from './b4-round-contract.js';
 import { createB4LocalAudioPlayer } from './b4-local-audio.js';
 import { createB4RoundController } from './b4-round-controller.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
@@ -42,7 +45,7 @@ export async function createB4AppServices(options = {}) {
   const migrate = options.migrate ?? configureAndMigrateDatabase;
   const seed = options.seed ?? seedB2Learners;
   const connection = createSwitchableSqlConnection(connectionFactory);
-  const catalogue = loadStarterSpellingCatalogue();
+  const catalogue = loadB4SpellingCatalogue();
   const cataloguesById = Object.freeze({ [catalogue.catalogueId]: catalogue });
   let lifecycle = null;
   let coordinator = null;

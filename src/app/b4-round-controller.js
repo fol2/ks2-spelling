@@ -1,11 +1,9 @@
 import { applySpellingCommand } from '../domain/spelling/index.js';
 import {
   B4_COMMAND_TRACE,
-  B4_RANDOM_DRAWS_BEFORE_COMMAND,
   B4_RUNTIME_ITEM_IDS,
-  B4_SEED,
   B4_START_COMMAND,
-  randomFrom,
+  randomAtB4Command,
 } from './b4-round-contract.js';
 import { resolveB4AudioPath } from './b4-local-audio.js';
 
@@ -52,14 +50,6 @@ function viewState(snapshot, audio) {
     summary: ui.summary ? structuredClone(ui.summary) : null,
     audio: Object.freeze({ ...audio }),
   });
-}
-
-function randomAtCommand(index) {
-  const frozenOffset = B4_RANDOM_DRAWS_BEFORE_COMMAND[index];
-  if (frozenOffset === undefined) return randomFrom(B4_SEED + index);
-  const random = randomFrom(B4_SEED);
-  for (let draw = 0; draw < frozenOffset; draw += 1) random();
-  return random;
 }
 
 function readyState(audio) {
@@ -162,7 +152,7 @@ export function createB4RoundController({
         command,
         contentSnapshot: catalogue,
         now: () => context.nowMs,
-        random: randomAtCommand(fresh.revision),
+        random: randomAtB4Command(fresh.revision),
       });
     });
     const committed = await read();

@@ -1,6 +1,7 @@
 import {
   applySpellingCommand,
   loadStarterSpellingCatalogue,
+  validateCatalogueV1,
   validateSpellingCommandSnapshotV1,
 } from '../domain/spelling/index.js';
 import audioAuthority from '../../config/b4-audio-authority.json' with { type: 'json' };
@@ -71,6 +72,44 @@ export const B4_SENTENCE_PROMPTS = Object.freeze([
   Object.freeze({ runtimeItemId: 'ks2-core:answer', sentence: 'I checked the answer with my partner.' }),
 ]);
 
+function createB4SpellingCatalogue() {
+  const catalogue = structuredClone(loadStarterSpellingCatalogue());
+  const orderedByRuntimeItemId = new Map(B4_RUNTIME_ITEM_IDS.map((runtimeItemId) => [
+    runtimeItemId,
+    B4_SENTENCE_PROMPTS
+      .filter((prompt) => prompt.runtimeItemId === runtimeItemId)
+      .map((prompt) => prompt.sentence),
+  ]));
+  catalogue.items = catalogue.items.map((item) => {
+    const ordered = orderedByRuntimeItemId.get(item.runtimeItemId);
+    if (!ordered) return item;
+    const sourceByText = new Map(item.sentencePrompts.map((prompt) => [prompt.text, prompt]));
+    const sentencePrompts = ordered.map((sentence) => sourceByText.get(sentence));
+    // The frozen seed consumes the two build prompts in reverse source order.
+    // Keeping that bounded catalogue order preserves the characterised B4 trace.
+    if (item.runtimeItemId === 'ks2-core:build') sentencePrompts.reverse();
+    return {
+      ...item,
+      sentencePrompts: sentencePrompts.map((prompt, index) => ({
+        ...prompt,
+        sentenceId: `sentence-${index + 1}`,
+      })),
+    };
+  });
+  catalogue.audio.requiredAssetCount = catalogue.audio.profiles.length
+    * catalogue.items.reduce(
+      (count, item) => count + 1 + (2 * item.sentencePrompts.length),
+      0,
+    );
+  return freezeContract(validateCatalogueV1(catalogue));
+}
+
+const READ_ONLY_B4_SPELLING_CATALOGUE = createB4SpellingCatalogue();
+
+export function loadB4SpellingCatalogue() {
+  return READ_ONLY_B4_SPELLING_CATALOGUE;
+}
+
 export const B4_SUMMARY = Object.freeze({
   mode: 'smart',
   label: 'Smart review',
@@ -108,6 +147,14 @@ export function randomFrom(seed = B4_SEED) {
     result ^= result + Math.imul(result ^ (result >>> 7), 61 | result);
     return ((result ^ (result >>> 14)) >>> 0) / 4_294_967_296;
   };
+}
+
+export function randomAtB4Command(index, { randomFrom: createRandom = randomFrom } = {}) {
+  const frozenOffset = B4_RANDOM_DRAWS_BEFORE_COMMAND[index];
+  if (frozenOffset === undefined) return createRandom(B4_SEED + index);
+  const random = createRandom(B4_SEED);
+  for (let draw = 0; draw < frozenOffset; draw += 1) random();
+  return random;
 }
 
 function initialSnapshot(catalogue) {
@@ -150,8 +197,7 @@ function committedSnapshot(snapshot, plan, catalogue) {
 }
 
 export function characteriseB4Round({ randomFrom: createRandom = randomFrom } = {}) {
-  const catalogue = loadStarterSpellingCatalogue();
-  const random = createRandom(B4_SEED);
+  const catalogue = loadB4SpellingCatalogue();
   let snapshot = initialSnapshot(catalogue);
   const commands = [];
   const sentencePrompts = [];
@@ -176,7 +222,7 @@ export function characteriseB4Round({ randomFrom: createRandom = randomFrom } = 
       command,
       contentSnapshot: catalogue,
       now: () => B4_START_TIMESTAMP + commands.length,
-      random,
+      random: randomAtB4Command(commands.length, { randomFrom: createRandom }),
     });
     commands.push(structuredClone(command));
     const prompt = plan.nextSubjectState.ui.session?.currentPrompt;
@@ -223,7 +269,7 @@ function audioAsset({ runtimeItemId, sentence = null, kind, input, sequence }) {
 }
 
 export function createB4AudioInventory() {
-  const catalogue = loadStarterSpellingCatalogue();
+  const catalogue = loadB4SpellingCatalogue();
   const assets = [];
   for (const runtimeItemId of B4_RUNTIME_ITEM_IDS) {
     const item = catalogue.items.find((candidate) => candidate.runtimeItemId === runtimeItemId);

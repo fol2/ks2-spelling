@@ -129,10 +129,9 @@ audio path for the bounded five-card round:
 
 Task 1 freezes the five runtime IDs, random seed, exact successful A3 command
 trace, emitted sentence prompts and resulting asset inventory before product
-code uses them. It also freezes a machine-readable provenance record containing
-the exact source or generation inputs, voice, licence or consent,
-redistribution grant and SHA-256 for every audio file. Manifest validation and
-the B4 technical report bind that provenance record.
+code uses them. The same trace-derived audio manifest contains the exact source
+or generation inputs, voice, licence or consent, redistribution grant and
+SHA-256 for every audio file; there is no second provenance document.
 
 The complete derived set must be committed or deterministically materialised
 from repository-owned, redistribution-authorised inputs, mapped by a small
@@ -202,18 +201,17 @@ B4 records the section 18 behaviours that virtual/hosted execution can observe,
 but it does not pretend that a hosted runner is a physical reference device or
 that a different artefact is a store download or compacted backup.
 
-The existing native journeys collect monotonic raw samples for:
-
-- 30 terminated-app launches to the interactive B4 control;
-- 200 local answer-feedback transitions, with SQLite commit and rendered
-  feedback timings retained separately;
-- 100 packaged-local-audio starts, creating a fresh player and resetting cached
-  state for every sample, measured to the `playing` event.
+The existing native journeys record monotonic raw timings naturally produced by
+their required cold launches, five-card interactions, SQLite commits, rendered
+feedback and Replay/Slow replay actions. Every audio observation creates a fresh
+player and resets cached state before measuring to the `playing` event. Do not
+mandate extra loops, sample counts, percentile code, a performance framework or
+a separate report library.
 
 Each native report records platform, runner image, OS/runtime, device profile,
-build configuration, every raw sample, p95 and the matching section 18
-comparator. The journey script may contain a small local percentile calculation;
-do not create a reusable performance framework or separate report library.
+build configuration and the raw observations beside the matching section 18
+comparator. These sparse development observations identify obvious WebView
+risk; they are not statistical certification.
 
 Cold launch ends at a B4 control rather than the future profile picker, so it is
 labelled a risk observation. Compressed B4 native payload and local database
@@ -262,11 +260,13 @@ CI or the final Gate B decision.
 
 After implementation, freeze one clean application checkpoint. Generate all B4
 reports and screenshots against that exact predecessor, then commit them as one
-evidence-only successor. The report builder accepts only that relationship and
-rejects application changes in the evidence commit. The final Gate B `GO |
-INCOMPLETE | NO_GO` is recorded only after exact-main CI, outside the technical
-report, in the merged GitHub PR discussion with the exact-main commit and CI URL,
-so no file attempts to bind the future commit which contains itself.
+evidence-only successor. The shallow aggregate records the predecessor SHA; an
+ordinary `git diff --name-only` allow-list verifies that the successor changes
+only the declared `reports/b4` paths. No lineage-aware report builder is added.
+The final Gate B `GO | INCOMPLETE | NO_GO` is recorded only after exact-main CI,
+outside the technical report, in the merged GitHub PR discussion with the
+exact-main commit and CI URL, so no file attempts to bind the future commit which
+contains itself.
 
 Do not reuse the B3 release-proof SQLite ledger, command protocol, immutable
 publisher or six-file pending/complete topology. B4 evidence is not a commerce
@@ -302,8 +302,9 @@ Add focused failing tests for:
 
 Before product composition, add a deterministic characterisation test which
 freezes the five permanent runtime IDs, random seed, exact A3 command trace,
-summary and every emitted sentence prompt. Add the executable audio provenance
-record and fail if source, voice, redistribution authority or hashes are absent.
+summary and every emitted sentence prompt. Freeze the single executable audio
+manifest and fail if its source, voice, redistribution authority or hashes are
+absent.
 
 Implement the smallest explicit B4 development composition using the existing
 connection, migration, seed, command gate, snapshot store, command repository
@@ -327,8 +328,8 @@ green.
 ### Task 2 — Package and execute the bounded local-audio slice
 
 Add the complete trace-derived B4 manifest and authorised assets, with the
-machine-readable provenance record frozen in Task 1. Tests must reject missing,
-extra, path-drifting, provenance-drifting or hash-drifting assets.
+source, voice and redistribution authority frozen in Task 1. Tests must reject
+missing, extra, path-drifting, provenance-drifting or hash-drifting assets.
 
 Implement one small `HTMLAudioElement`-backed playback function. Inject that
 function directly into controller tests; do not add a one-implementation port or
@@ -347,15 +348,15 @@ node --test \
 
 Exit: every item and sentence in the frozen clean round has exact local word,
 normal sentence and slow sentence paths; both B4 native bundles contain those
-exact bytes and the bound provenance record; runtime network access is not used
+exact bytes and the bound manifest authority; runtime network access is not used
 for scored audio.
 
 ### Task 3 — Build the five-card learner surface
 
-Replace the normal diagnostic launch with the B4 product surface while retaining
-explicit B2/B3 proof modes. Implement the real input, submit, replay, slow replay,
-progress, feedback, retry and completion states. Keep product copy calm and free
-of commerce pressure.
+In the explicit B4 development composition, render the B4 product surface while
+leaving the current normal/B2 and explicit B3 entry points unchanged. Implement
+the real input, submit, replay, slow replay, progress, feedback, retry and
+completion states. Keep product copy calm and free of commerce pressure.
 
 Test:
 
@@ -385,12 +386,12 @@ remain reachable without target leakage or horizontal obstruction.
 
 ### Task 5 — Record B4 platform risk observations
 
-Extend the existing native journey scripts to retain only the raw cold-launch,
-answer/SQLite/render and uncached-audio samples defined above. Keep percentile
-calculation local to those scripts and test it with one fixed sample set; do not
-introduce a measurement library or performance report subsystem. Fixed-viewport
-journeys remain separate layout evidence. Missing, malformed or mislabelled
-samples are `incomplete`; a comparator breach is `investigation-required` until
+Retain only the raw timings naturally emitted by the required native cold
+launches, five-card journey, SQLite commits, rendered feedback and uncached
+Replay/Slow replay actions. Do not add sample loops, percentile code, a
+measurement library or a performance report subsystem. Fixed-viewport journeys
+remain separate layout evidence. Missing, malformed or mislabelled observations
+are `incomplete`; a comparator breach is `investigation-required` until
 independently reproduced and attributed.
 
 Exit: both native reports contain complete raw observations and honest labels.
@@ -444,9 +445,10 @@ TalkBack physical-device truth.
 
 Freeze a clean application checkpoint after Tasks 1-7. Regenerate the domain,
 iOS and Android reports against that checkpoint. Commit reports and screenshots
-as one evidence-only successor whose aggregate binds the predecessor
-commit/tree and application bundle inputs. Reject any application change in the
-evidence commit.
+as one evidence-only successor whose shallow aggregate records the predecessor
+SHA and application bundle inputs. Verify with an ordinary
+`git diff --name-only <application-checkpoint>..HEAD` exact allow-list that the
+successor changes only the declared `reports/b4` paths.
 
 Run at minimum:
 
@@ -537,8 +539,8 @@ candidate:
 3. Termination/relaunch resumes the exact committed session without skipping or
    double-advancing a card.
 4. Every asset derived from the frozen five-item A3 trace has exact, authorised
-   word/normal/slow speech bytes and bound provenance; replay, slow replay and
-   interruption work without runtime network or TTS.
+   word/normal/slow speech bytes and provenance in one manifest; replay, slow
+   replay and interruption work without runtime network or TTS.
 5. Software-keyboard and Enter-key paths operate the same labelled input and
    submission action on both platforms.
 6. Phone portrait, tablet portrait and tablet landscape remain usable on both
@@ -546,15 +548,16 @@ candidate:
 7. B4 semantic, focus, Reduced Motion, complete 200% OS text-scale,
    platform-specific 44 pt/48 dp and no-answer-leakage checks pass; physical
    screen-reader certification remains explicitly unclaimed.
-8. Raw B4 performance observations are complete and honestly compared with
-   section 18. A breach is investigated; missing evidence is `INCOMPLETE`; only
-   a reproduced, attributed, disproportionate WebView ceiling is `NO_GO`.
+8. Raw timings from the required B4 journeys are complete and honestly shown
+   beside section 18 comparators without a statistical-certification claim. A
+   concern is investigated; missing evidence is `INCOMPLETE`; only a reproduced,
+   attributed, disproportionate WebView ceiling is `NO_GO`.
 9. Existing domain, B1/B2/B3, native, dependency, privacy and offline-learning
    contracts remain green.
 10. Reports and screenshots bind one candidate and contain no secret/private
     identity or live commerce/cloud claim.
 11. Gstack, Matt and Ponytail approve the same exact candidate; exact-head and
     exact-main hosted CI pass.
-12. The technical aggregate binds the application checkpoint through an
-    evidence-only successor; the final `GO | INCOMPLETE | NO_GO` is recorded only
-    after exact-main CI.
+12. The shallow technical aggregate records the application checkpoint and an
+    ordinary report-path diff allow-list proves the evidence-only successor; the
+    final `GO | INCOMPLETE | NO_GO` is recorded only after exact-main CI.

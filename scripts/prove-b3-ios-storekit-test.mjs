@@ -16,6 +16,7 @@ const RESULT_BUNDLE = resolve(
 const DERIVED_DATA = resolve(ROOT, '.native-build/ios-storekit-test');
 const PRODUCTS_DIR = resolve(DERIVED_DATA, 'Build/Products');
 const STOREKIT_BUILD_TIMEOUT_MS = 600_000;
+const STOREKIT_SIMULATOR_TIMEOUT_MS = 300_000;
 const STOREKIT_TEST_TIMEOUT_MS = 90_000;
 const OBSERVATION_PATTERN =
   /B3_STOREKIT_OBSERVATION case=(delayed-(?:approve|decline)) productId=([a-z][a-z0-9]*(?:[._][a-z0-9]+)+) initial=(pending) final=(purchased|cancelled) verifiedProof=(true|false)/g;
@@ -191,6 +192,23 @@ export async function runB3IosStoreKitTest({ env = process.env, stream = true } 
     parseAvailableIosSimulators(simulatorInventory),
     env.B3_IOS_STOREKIT_DEVICE ?? '',
   );
+  const simulatorResult = await runCommand(
+    'xcrun',
+    ['simctl', 'bootstatus', simulator.udid, '-b'],
+    { cwd: ROOT, env, stream, timeoutMs: STOREKIT_SIMULATOR_TIMEOUT_MS },
+  );
+  if (simulatorResult.timedOut) {
+    throw proofError(
+      'storekit_simulator_timeout',
+      'The iOS Simulator did not become ready within 300 seconds',
+    );
+  }
+  if (simulatorResult.exitCode !== 0) {
+    throw proofError(
+      'storekit_simulator_failed',
+      `The iOS Simulator readiness check exited ${simulatorResult.exitCode}`,
+    );
+  }
 
   await rm(RESULT_BUNDLE, { recursive: true, force: true });
   const destination = `platform=iOS Simulator,id=${simulator.udid}`;

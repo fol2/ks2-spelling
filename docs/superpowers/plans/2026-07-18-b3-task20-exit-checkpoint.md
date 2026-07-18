@@ -179,10 +179,11 @@ than treating GitHub's synthetic merge commit as application authority.
 
 The known local Xcode 26.6/iOS 26.5 StoreKit runtime error remains fail-closed. Do
 not add a mock or weaken the hosted StoreKit gate. The wrapper separates a clean
-hosted `build-for-testing`, allowed up to ten minutes, from a bounded
-`test-without-building` that consumes the generated `.xctestrun` manifest instead
-of reloading the project graph. Execution is allowed 90 seconds while preserving
-the 20/30-second XCTest limits.
+hosted Simulator readiness phase, allowed up to five minutes, and
+`build-for-testing`, allowed up to ten minutes, from a bounded
+`test-without-building`. The latter consumes the generated `.xctestrun` manifest
+instead of reloading the project graph. Execution is allowed 90 seconds while
+preserving the 20/30-second XCTest limits.
 
 ### T4 — Document the checkpoint boundary
 

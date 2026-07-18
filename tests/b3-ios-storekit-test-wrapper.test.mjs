@@ -32,12 +32,16 @@ test('the B3 StoreKit proof command is explicitly a non-live Xcode StoreKit Test
   assert.match(source, /'-default-test-execution-time-allowance',\s*'20'/);
   assert.match(source, /'-maximum-test-execution-time-allowance',\s*'30'/);
   assert.match(source, /const STOREKIT_BUILD_TIMEOUT_MS = 600_000/);
+  assert.match(source, /const STOREKIT_SIMULATOR_TIMEOUT_MS = 300_000/);
   assert.match(source, /const STOREKIT_TEST_TIMEOUT_MS = 90_000/);
+  assert.match(source, /\['simctl',\s*'bootstatus',\s*simulator\.udid,\s*'-b'\]/);
   assert.match(source, /'build-for-testing'/);
   assert.match(source, /'test-without-building'/);
   assert.match(source, /'-xctestrun',\s*xcTestRun/);
   assert.match(source, /timeoutMs:\s*STOREKIT_BUILD_TIMEOUT_MS/);
+  assert.match(source, /timeoutMs:\s*STOREKIT_SIMULATOR_TIMEOUT_MS/);
   assert.match(source, /timeoutMs:\s*STOREKIT_TEST_TIMEOUT_MS/);
+  assert.match(source, /simulatorResult\.timedOut[\s\S]*?'storekit_simulator_timeout'/);
   assert.match(source, /buildResult\.timedOut[\s\S]*?'storekit_build_timeout'/);
   assert.match(source, /result\.timedOut[\s\S]*?'storekit_test_timeout'/);
   assert.doesNotMatch(source, /platform=iOS(?:,|$)(?! Simulator)/m);

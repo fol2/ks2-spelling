@@ -608,7 +608,10 @@ Keep the public report schemas as small as possible. Observation/checkpoint inte
 - commerce verification/download requires online store/gateway access;
 - Monster is motivational presentation around spelling, not an independently cloud-tracked Parent metric;
 - visual/theme/asset migration remains a later mandatory plan after Gate B `GO` and before C3;
-- B3 proves sandbox/test commerce and download truth only, not production release readiness.
+- B3 Development proves deterministic and compiled commerce/signed-download
+  capability only. Signed store, deployed Cloudflare/R2 and physical-device
+  truth remain one Release Commerce Certification blocker before public
+  submission.
 
 Run:
 
@@ -680,14 +683,15 @@ Only actionable P1/P2 findings inside the frozen Task 19 boundary block completi
 
 Task 19 changes application, native, gateway fingerprint and verifier inputs. Therefore any earlier Task 20 checkpoint, Task 21 distribution authority or Task 22 live evidence is stale, even if its files still exist.
 
-After this amendment is implemented and reviewed:
-
-1. execute original Task 20 against the new clean Task 19 HEAD and record the new application fingerprint;
-2. run exact-head branch CI in legitimate pending mode;
-3. execute Task 21 to create fresh signed distribution authority from that exact checkpoint;
-4. only then execute Task 22 with explicit scoped approvals to deploy the exact Worker/object authority and operate the two physical devices;
-5. capture all nine scenarios through the device-generated state machine, then complete manual screenshot attestations;
-6. commit only the exact six evidence files and run Task 23 complete-mode CI/review.
+This amendment remains the authority for Task 19 adapter safety, but its former
+immediate live-execution sequence is superseded by the current programme and B3
+plan. Task 20 froze the clean application checkpoint; Task 21 integrates its B3
+Development Checkpoint in legitimate `pending` mode. B4 and C-series product
+development may then proceed without signing or live mutation. Only after final
+release-candidate bytes are frozen do Tasks 22 and 23 create signed distribution,
+deploy/read back the exact Worker and R2 objects, capture the nine real
+store/device scenarios, publish the exact six evidence files and require
+complete-mode review and CI.
 
 Any later application, gateway, config, native, dependency, proof-wrapper or validator change invalidates the Task 20 checkpoint and forces a new signed distribution, exact Cloudflare deployment/readback and complete iOS/Android recapture. Evidence-only corrections cannot conceal stale application authority.
 
@@ -704,4 +708,5 @@ This amendment is complete only when:
 - the sterile OAuth child contract requires exact `getPlatformProxy({ envFiles: [], persist: false, remoteBindings: true })`, exact remote `PACKS`, two keys only, create-only metadata/SHA uploads, immediate `head`/`get` equality and unconditional disposal; Task 19 proves the contract with fakes;
 - all focused/full/non-mutating gates and the three frozen reviews pass on one exact HEAD;
 - Task 19 contains no live deployment, R2 mutation, store mutation, device mutation, signing, commit of evidence or push;
-- original Tasks 20–23 remain the only route to the final B3 checkpoint, live execution and Gate B decision.
+- the current Tasks 20–23 in the governing B3 plan remain the only route from
+  development checkpoint through final live certification and Gate B decision.

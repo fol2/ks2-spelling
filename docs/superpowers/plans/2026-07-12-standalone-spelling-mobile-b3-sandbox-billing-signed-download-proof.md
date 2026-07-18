@@ -1665,7 +1665,10 @@ Expected: clean tree and exact-head branch CI green for all three jobs in legiti
 **Interfaces:**
 
 - Consumes: Task 20 exact application commit `ea36913574679bad13440066f67c9e174f8707a3`, integration commit `466de3204f513223ff35167dfacb7645240bb501`, application fingerprint `2b6c4bc91c2d97f01e3a98236a4b0b7fe115a71e46388dc856e7491eead1fba5`, deterministic/native/dependency reports, hosted StoreKit Test and exact-head three-lane CI.
-- Produces: one reviewed documentation-only successor, a merged B3 Development Checkpoint on `main`, exact-main three-lane CI in `pending` mode and measured B4 entry authority.
+- Produces: one reviewed authority successor limited to the documentation needed
+  to keep the governing and referenced plans coherent, plus the existing
+  public-claim contract assertion; a merged B3 Development Checkpoint on `main`;
+  exact-main three-lane CI in `pending` mode; and measured B4 entry authority.
 
 - [ ] **Step 1: Reconfirm the narrow development evidence**
 
@@ -1739,14 +1742,16 @@ Require Gstack boundary, Matt Standards/Spec and Ponytail over-engineering appro
 B3 Development is complete when all items below have direct evidence:
 
 1. Frozen B2/A2 authority, vendor authority and upstream A3 contract pass without changing local learner, Monster or Camp semantics.
-2. The Task 20 application fingerprint remains exact and the tracked tree changes only documentation authority after that checkpoint.
+2. The Task 20 application fingerprint remains exact and the tracked tree changes
+   only documentation authority plus the existing public-claim contract assertion
+   after that checkpoint; all application-fingerprint inputs remain unchanged.
 3. Deterministic commerce, entitlement, restore, revoke, signed-pack download, resume, activation and offline-continuity scenarios pass twice with byte-identical public evidence.
 4. Real workerd/gateway tests, CORS, rate-limit, Apple/Google verifier fixtures, missing-binding fail-closed behaviour and Wrangler dry-run pass without a live deployment.
 5. iOS compiles the unsigned B3 Simulator target, runs the owned hostile ZIP harness and passes hosted Xcode StoreKit Test delayed approve/decline with explicit non-live labels.
 6. Android compiles/tests the exact BillingClient `9.1.0` bridge, unsigned B3 bundle, owned hostile ZIP inspector and resolved dependency/privacy policy. The frozen Google APIs AVD is not claimed as Play-enabled purchase proof.
 7. Native and deterministic reports remain explicit that live store, live Cloudflare and physical-device proof are false.
 8. All six final live-evidence paths remain absent and `node scripts/build-b3-exit-report.mjs --check-ci` returns `mode:"pending"`.
-9. Gstack, Matt and Ponytail approve one exact documentation-only HEAD with no actionable P1/P2 finding.
+9. Gstack, Matt and Ponytail approve one exact Task 21 authority HEAD with no actionable P1/P2 finding.
 10. Exact-head and exact-main Domain/Web, iOS and Android CI pass in pending mode. B4 authority records the exact merge SHA, tree, fingerprint, report hashes and CI URL.
 
 ## Release Commerce Certification exit criteria

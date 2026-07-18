@@ -388,6 +388,63 @@ async function fallbackLaunchedRace() {
   });
 }
 
+async function launchSettlementRestartRace(settlement) {
+  if (!['resolved', 'rejected'].includes(settlement)) {
+    throw new Error('B3 launch-settlement race mode is invalid');
+  }
+  let launches = 0;
+  let pulls = 0;
+  const controller = createB3StoreBackedLiveCapture({
+    platform: 'ios',
+    buildAuthority: async () => buildAuthority(),
+    uuidFactory: () => CAPTURE_ID,
+    transport: {
+      async launch() {
+        launches += 1;
+        const active = await activeCommand();
+        send({
+          type: 'ready',
+          stage: 'launch-settlement-restart-race',
+          settlement,
+          state: active.kind === 'active' ? active.command.state : active.kind,
+        });
+        await waitForGo();
+        if (settlement === 'rejected') {
+          throw Object.assign(new Error('native launch settlement was rejected'), {
+            code: 'b3_physical_device_command_failed',
+          });
+        }
+      },
+      async pullObservation() {
+        pulls += 1;
+        throw new Error('restart winner must prevent observation pull');
+      },
+      async forceStop() { throw new Error('unexpected native force-stop'); },
+    },
+  });
+  let error = null;
+  try {
+    await controller.advance();
+  } catch (caught) {
+    error = Object.freeze({
+      code: caught?.code ?? null,
+      instructionCode: caught?.instructionCode ?? null,
+      message: caught?.message ?? null,
+    });
+  } finally {
+    await controller.dispose();
+  }
+  const activeAfter = await activeCommand();
+  send({
+    type: 'result',
+    launches,
+    pulls,
+    error,
+    activeKindAfter: activeAfter.kind,
+    stateAfter: activeAfter.kind === 'active' ? activeAfter.command.state : null,
+  });
+}
+
 async function advancedPinWait(pinKind, crossingState, successorState) {
   if (!['at-crossing', 'before-crossing'].includes(pinKind)) {
     throw new Error('B3 advanced-pin kind is invalid');
@@ -667,6 +724,9 @@ async function finaliserMatrix(platform, state) {
 if (mode === 'crossing') await crossing(targetState);
 else if (mode === 'verify-crossing') await verifyCrossing();
 else if (mode === 'fallback-launched-race') await fallbackLaunchedRace();
+else if (mode === 'launch-settlement-restart-race') {
+  await launchSettlementRestartRace(targetState);
+}
 else if (mode === 'seed') {
   const state = await seed(targetState);
   send({ type: 'result', state: state.state });

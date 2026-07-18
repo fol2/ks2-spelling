@@ -312,6 +312,87 @@ test('verified Maven POM resolution treats cache as an optimisation beneath exac
   });
 });
 
+test('committed Maven closure rebuilds exact evidence from an empty cache without source discovery',
+  async () => {
+    const { resolveAuthoritativePomClosure } = await importCertifier();
+    const coordinate = 'androidx.annotation:annotation-experimental:1.4.0';
+    const pom = Buffer.from(
+      '<project><licenses><license><name>Apache-2.0</name><url>https://apache.org/licenses/LICENSE-2.0</url></license></licenses></project>',
+    );
+    const repository = 'https://dl.google.com/dl/android/maven2/';
+    const sourceUrl =
+      `${repository}androidx/annotation/annotation-experimental/1.4.0/annotation-experimental-1.4.0.pom`;
+    const authority = [{
+      coordinate,
+      sha256: digest(pom),
+      repository,
+      sourceUrl,
+      selectedModule: false,
+    }];
+
+    await withTemporaryDirectory(async (gradleUserHome) => {
+      let cleanFetches = 0;
+      const clean = await resolveAuthoritativePomClosure({
+        resolution: { components: [] },
+        extraCoordinates: [coordinate],
+        licenceNameOverrides: {},
+        expectedPomSha256: new Map([[coordinate, digest(pom)]]),
+        repositoryBases: [repository, 'https://repo.maven.apache.org/maven2/'],
+        discoverSources: false,
+        committedPomClosure: authority,
+        gradleUserHome,
+        fetchImpl: async (url) => {
+          cleanFetches += 1;
+          assert.equal(url, sourceUrl);
+          return new Response(pom);
+        },
+      });
+      assert.equal(cleanFetches, 1);
+
+      await writeCachedPom(gradleUserHome, coordinate, 'warm', pom);
+      const warm = await resolveAuthoritativePomClosure({
+        resolution: { components: [] },
+        extraCoordinates: [coordinate],
+        licenceNameOverrides: {},
+        expectedPomSha256: new Map([[coordinate, digest(pom)]]),
+        repositoryBases: [repository, 'https://repo.maven.apache.org/maven2/'],
+        discoverSources: false,
+        committedPomClosure: authority,
+        gradleUserHome,
+        fetchImpl: async () => {
+          throw new Error('warm committed authority must not need the network');
+        },
+      });
+      const project = ({ records, sources }) => [...records.values()].map((record) => ({
+        coordinate: record.coordinate,
+        sha256: record.sha256,
+        ...sources.get(record.coordinate),
+      }));
+      assert.deepEqual(project(clean), project(warm));
+      assert.deepEqual(project(clean), [{ coordinate, sha256: digest(pom), repository, sourceUrl }]);
+
+      let unauthorisedFetches = 0;
+      await assert.rejects(
+        () => resolveAuthoritativePomClosure({
+          resolution: { components: [] },
+          extraCoordinates: [coordinate],
+          licenceNameOverrides: {},
+          expectedPomSha256: new Map([[coordinate, digest(pom)]]),
+          repositoryBases: [repository],
+          discoverSources: false,
+          committedPomClosure: [],
+          gradleUserHome: join(gradleUserHome, 'missing-authority'),
+          fetchImpl: async () => {
+            unauthorisedFetches += 1;
+            return new Response(pom);
+          },
+        }),
+        ({ code }) => code === 'android_certification_stale',
+      );
+      assert.equal(unauthorisedFetches, 0);
+    });
+  });
+
 test('verified Maven POM resolution rejects missing authority, redirects, timeouts and oversized or wrong bytes', async () => {
   const { resolveVerifiedMavenPom } = await importEvidence();
   const coordinate = 'org.example:library:1.0.0';

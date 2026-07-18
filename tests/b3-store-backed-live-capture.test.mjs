@@ -1250,6 +1250,40 @@ test('real SQLite fallback losing to launched follows the winner without reinsta
     assert.equal(result.stateAfter, null);
   });
 
+test('real SQLite launch settlement losing to restart requires the exact operator gate',
+  async (t) => {
+    for (const settlement of ['resolved', 'rejected']) {
+      await t.test(settlement, async (t) => {
+        const root = await nativeCrossingFixture(t, `launch-restart-${settlement}`);
+        const launch = spawnNativeCrossingHelper(
+          t, root, 'launch-settlement-restart-race', settlement,
+        );
+        assert.deepEqual(await launch.ready, {
+          type: 'ready',
+          stage: 'launch-settlement-restart-race',
+          settlement,
+          state: 'launching',
+        });
+        const winner = await runNativeCrossingHelper(t, root, 'transition', 'restart-required');
+        assert.equal(winner.state, 'restart-required');
+        launch.child.send({ type: 'go' });
+        const result = await launch.result;
+        assert.deepEqual(await launch.exited, { code: 0, signal: null, stderr: '' });
+        assert.deepEqual(result.error, {
+          code: 'b3_operator_action_required',
+          instructionCode: 'REINSTALL_EXACT_BUILD',
+          message: 'Reinstall the exact approved B3 distribution, then resume capture.',
+        });
+        assert.deepEqual({ launches: result.launches, pulls: result.pulls }, {
+          launches: 1,
+          pulls: 0,
+        });
+        assert.equal(result.activeKindAfter, 'active');
+        assert.equal(result.stateAfter, 'restart-required');
+      });
+    }
+  });
+
 test('native-crossing recovery pins reject successor drift without changing SQLite',
   async (t) => {
     const cases = [

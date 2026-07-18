@@ -245,6 +245,16 @@ function operatorRequired(instructionCode) {
   );
 }
 
+function assertPullableOrRequireOperator(source) {
+  if (source.state === 'restart-required') {
+    throw operatorRequired('REINSTALL_EXACT_BUILD');
+  }
+  if (source.state !== 'launched' && !AMBIGUOUS_LAUNCH_STATES.has(source.state)) {
+    throw controllerError('B3 store-backed command is not ready to pull');
+  }
+  return source;
+}
+
 export function createB3StoreBackedLiveCapture({
   platform: rawPlatform,
   buildAuthority,
@@ -459,9 +469,7 @@ export function createB3StoreBackedLiveCapture({
         source = retained.command;
       }
     }
-    if (source.state !== 'launched' && !AMBIGUOUS_LAUNCH_STATES.has(source.state)) {
-      throw controllerError('B3 store-backed command is not ready to pull');
-    }
+    source = assertPullableOrRequireOperator(source);
     capture = await readCaptureOrNull();
     const previousObservation = capture?.records?.[source.command.expectedSequence - 2]
       ?.observation;

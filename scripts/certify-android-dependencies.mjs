@@ -130,16 +130,59 @@ export function assertAndroidCertificationCurrent(actual, committed) {
   }
 }
 
-async function collectPomClosure(
+function committedSourceAuthorities(committedPomClosure, expectedPomSha256, repositoryBases) {
+  if (!Array.isArray(committedPomClosure)) {
+    throw certificationError(
+      'android_certification_stale',
+      'Committed Maven POM closure authority is missing',
+    );
+  }
+  const approved = new Set(repositoryBases);
+  const authorities = new Map();
+  for (const entry of committedPomClosure) {
+    const expectedSourceUrl = typeof entry?.repository === 'string' &&
+      typeof entry?.coordinate === 'string'
+      ? `${entry.repository}${mavenPomRelativePath(entry.coordinate)}`
+      : null;
+    if (
+      !entry ||
+      typeof entry.coordinate !== 'string' ||
+      authorities.has(entry.coordinate) ||
+      expectedPomSha256.get(entry.coordinate) !== entry.sha256 ||
+      !approved.has(entry.repository) ||
+      entry.sourceUrl !== expectedSourceUrl
+    ) {
+      throw certificationError(
+        'android_certification_stale',
+        `Committed Maven POM source drifted: ${entry?.coordinate ?? 'unknown'}`,
+      );
+    }
+    authorities.set(entry.coordinate, Object.freeze({
+      repository: entry.repository,
+      sourceUrl: entry.sourceUrl,
+    }));
+  }
+  return authorities;
+}
+
+export async function resolveAuthoritativePomClosure({
   resolution,
   extraCoordinates = [],
   licenceNameOverrides = {},
-  {
-    expectedPomSha256,
-    repositoryBases,
-    discoverSources,
-  },
-) {
+  expectedPomSha256,
+  repositoryBases,
+  discoverSources,
+  committedPomClosure = null,
+  gradleUserHome = GRADLE_USER_HOME,
+  fetchImpl = globalThis.fetch,
+}) {
+  const sourceAuthorities = discoverSources
+    ? null
+    : committedSourceAuthorities(
+        committedPomClosure,
+        expectedPomSha256,
+        repositoryBases,
+      );
   const records = new Map();
   const selected = new Set(resolution.components.map(({ coordinate }) => coordinate));
   const pending = new Set([...selected, ...extraCoordinates]);
@@ -151,12 +194,20 @@ async function collectPomClosure(
         const current = index;
         index += 1;
         const coordinate = coordinates[current];
+        const sourceAuthority = sourceAuthorities?.get(coordinate) ?? null;
+        if (!discoverSources && sourceAuthority === null) {
+          throw certificationError(
+            'android_certification_stale',
+            `Committed Maven POM source is missing: ${coordinate}`,
+          );
+        }
         loaded[current] = await resolveVerifiedMavenPom({
-          gradleUserHome: GRADLE_USER_HOME,
+          gradleUserHome,
           coordinate,
           expectedSha256: expectedPomSha256.get(coordinate),
           repositoryBases,
-          allowApprovedSourceFetch: discoverSources,
+          sourceAuthority,
+          fetchImpl,
         });
       }
     }
@@ -214,7 +265,10 @@ async function collectPomClosure(
       }
     }
   }
-  return { records, selected };
+  const sources = discoverSources
+    ? sourcesFromResolved(records)
+    : sourcesFromCommitted({ pomClosure: committedPomClosure }, records, repositoryBases);
+  return { records, selected, sources };
 }
 
 function sourcesFromResolved(records) {
@@ -308,6 +362,8 @@ export async function buildAndroidCertification({
   discoverSources = false,
   committed = null,
   evidenceMode = 'b2',
+  gradleUserHome = GRADLE_USER_HOME,
+  fetchImpl = globalThis.fetch,
 } = {}) {
   if (!['b2', 'b3'].includes(evidenceMode)) {
     throw new TypeError('Android certification evidence mode is invalid');
@@ -355,19 +411,19 @@ export async function buildAndroidCertification({
     }),
   );
   const repositoryBases = dependencyPolicy.allowedSources.mavenRepositoryUrls;
-  const { records, selected } = await collectPomClosure(
+  const { records, selected, sources } = await resolveAuthoritativePomClosure({
     resolution,
-    taskCreatedVerificationComponents.map(({ coordinate }) => coordinate),
-    noticeOverrides.mavenPomLicenceNameOverrides,
-    {
-      expectedPomSha256,
-      repositoryBases,
-      discoverSources,
-    },
-  );
-  const sources = discoverSources
-    ? sourcesFromResolved(records)
-    : sourcesFromCommitted(committed, records, repositoryBases);
+    extraCoordinates: taskCreatedVerificationComponents.map(
+      ({ coordinate }) => coordinate,
+    ),
+    licenceNameOverrides: noticeOverrides.mavenPomLicenceNameOverrides,
+    expectedPomSha256,
+    repositoryBases,
+    discoverSources,
+    committedPomClosure: committed?.pomClosure ?? null,
+    gradleUserHome,
+    fetchImpl,
+  });
   const effectiveLicences = new Map(
     (
       await resolveEffectiveMavenLicences(

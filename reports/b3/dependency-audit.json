@@ -5267,7 +5267,7 @@
       },
       {
         "path": "scripts/certify-android-dependencies.mjs",
-        "sha256": "ce4a8563d458bef7617be3fc9b5b1970c2e3cd731a764b720476e9ecb8536c5b"
+        "sha256": "5a8456d7e015cb88647026a7e10dd7b9e6b9e5e2ac2a75942e25ac9dd30279d2"
       },
       {
         "path": "scripts/resolve-android-dependencies.mjs",
@@ -5275,7 +5275,7 @@
       },
       {
         "path": "scripts/lib/maven-evidence.mjs",
-        "sha256": "ac4c09c1c8d4a54ea2f72ff3e797d63b535dae406d5e5647e44cd6cce8216ce8"
+        "sha256": "a2838a2972b2c676ea17d55f717aec2222f506d76daa7dc8b709eed7e5ff2804"
       },
       {
         "path": "config/dependency-policy.json",

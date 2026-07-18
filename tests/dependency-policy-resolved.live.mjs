@@ -1,12 +1,59 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const ANNOTATION_EXPERIMENTAL_COORDINATE =
+  'androidx.annotation:annotation-experimental:1.4.0';
+const ANNOTATION_EXPERIMENTAL_POM = Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <!-- This module was also published with a richer model, Gradle metadata,  -->
+  <!-- which should be used instead. Do not delete the following line which  -->
+  <!-- is to indicate to Gradle or any Gradle module metadata file consumer  -->
+  <!-- that they should prefer consuming it instead. -->
+  <!-- do_not_remove: published-with-gradle-metadata -->
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>androidx.annotation</groupId>
+  <artifactId>annotation-experimental</artifactId>
+  <version>1.4.0</version>
+  <packaging>aar</packaging>
+  <name>Experimental annotation</name>
+  <description>Java annotation for use on unstable Android API surfaces. When used in conjunction with the Experimental annotation lint checks, this annotation provides functional parity with Kotlin's Experimental annotation.</description>
+  <url>https://developer.android.com/jetpack/androidx/releases/annotation#1.4.0</url>
+  <inceptionYear>2019</inceptionYear>
+  <organization>
+    <name>The Android Open Source Project</name>
+  </organization>
+  <licenses>
+    <license>
+      <name>The Apache Software License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>The Android Open Source Project</name>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:https://android.googlesource.com/platform/frameworks/support</connection>
+    <url>https://cs.android.com/androidx/platform/frameworks/support</url>
+  </scm>
+  <dependencies>
+    <dependency>
+      <groupId>org.jetbrains.kotlin</groupId>
+      <artifactId>kotlin-stdlib</artifactId>
+      <version>1.7.10</version>
+      <scope>compile</scope>
+    </dependency>
+  </dependencies>
+</project>`);
 
 async function importScript(path) {
   return import(pathToFileURL(join(ROOT, path)));
@@ -93,6 +140,58 @@ test('default audit consumes the complete resolved Android certification', async
     1,
   );
   await assert.doesNotReject(() => buildDependencyArtifacts({ preBootstrap: true }));
+});
+
+test('committed Android certification is identical from warm and empty POM caches', async (t) => {
+  const cleanGradleUserHome = await mkdtemp(join(tmpdir(), 'b3-committed-pom-cache-'));
+  t.after(() => rm(cleanGradleUserHome, { recursive: true, force: true }));
+  const [{ buildAndroidCertification }, { readCachedMavenPom }] = await Promise.all([
+    importScript('scripts/certify-android-dependencies.mjs'),
+    importScript('scripts/lib/maven-evidence.mjs'),
+  ]);
+  const committed = JSON.parse(
+    await readFile(join(ROOT, 'reports/b3/dependency-audit.json'), 'utf8'),
+  ).android;
+  assert.equal(
+    createHash('sha256').update(ANNOTATION_EXPERIMENTAL_POM).digest('hex'),
+    committed.pomClosure.find(
+      ({ coordinate }) => coordinate === ANNOTATION_EXPERIMENTAL_COORDINATE,
+    ).sha256,
+  );
+  const warmGradleUserHome = join(ROOT, '.native-build/android/gradle-user-home');
+  const committedAnnotationSource = committed.pomClosure.find(
+    ({ coordinate }) => coordinate === ANNOTATION_EXPERIMENTAL_COORDINATE,
+  ).sourceUrl;
+  const warm = await buildAndroidCertification({
+    discoverSources: false,
+    committed,
+    evidenceMode: 'b3',
+    gradleUserHome: warmGradleUserHome,
+    fetchImpl: async (url) => {
+      assert.equal(url, committedAnnotationSource);
+      return new Response(ANNOTATION_EXPERIMENTAL_POM);
+    },
+  });
+  const authorityByUrl = new Map(
+    committed.pomClosure.map((entry) => [entry.sourceUrl, entry]),
+  );
+  const clean = await buildAndroidCertification({
+    discoverSources: false,
+    committed,
+    evidenceMode: 'b3',
+    gradleUserHome: cleanGradleUserHome,
+    fetchImpl: async (url) => {
+      const authority = authorityByUrl.get(url);
+      assert.ok(authority, `unexpected committed Maven URL: ${url}`);
+      if (authority.coordinate === ANNOTATION_EXPERIMENTAL_COORDINATE) {
+        return new Response(ANNOTATION_EXPERIMENTAL_POM);
+      }
+      const cached = await readCachedMavenPom(warmGradleUserHome, authority.coordinate);
+      assert.equal(cached.sha256, authority.sha256);
+      return new Response(cached.text);
+    },
+  });
+  assert.deepEqual(clean, warm);
 });
 
 test('generated JSON and notices are byte-identical across repeated generation', async () => {

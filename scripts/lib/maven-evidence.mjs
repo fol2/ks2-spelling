@@ -259,6 +259,30 @@ function validateRepositoryBase(repository) {
   return repository;
 }
 
+function validateCommittedSourceAuthority(coordinate, sourceAuthority, repositoryBases) {
+  if (sourceAuthority === null || sourceAuthority === undefined) return null;
+  if (
+    sourceAuthority === null ||
+    typeof sourceAuthority !== 'object' ||
+    Array.isArray(sourceAuthority) ||
+    !Object.hasOwn(sourceAuthority, 'repository') ||
+    !Object.hasOwn(sourceAuthority, 'sourceUrl')
+  ) {
+    throw evidenceError(`Invalid committed Maven source authority: ${coordinate}`, {
+      code: 'maven_pom_authority_invalid',
+    });
+  }
+  const repositories = repositoryBases.map(validateRepositoryBase);
+  const repository = validateRepositoryBase(sourceAuthority.repository);
+  const sourceUrl = `${repository}${mavenPomRelativePath(coordinate)}`;
+  if (!repositories.includes(repository) || sourceAuthority.sourceUrl !== sourceUrl) {
+    throw evidenceError(`Committed Maven source authority drifted: ${coordinate}`, {
+      code: 'maven_pom_authority_invalid',
+    });
+  }
+  return Object.freeze({ repository, sourceUrl });
+}
+
 async function readBoundedResponse(response, maximumBytes) {
   const declaredLength = response.headers.get('content-length');
   if (declaredLength !== null) {
@@ -372,7 +396,7 @@ export async function resolveVerifiedMavenPom({
   coordinate,
   expectedSha256,
   repositoryBases = [],
-  allowApprovedSourceFetch = true,
+  sourceAuthority = null,
   fetchImpl = globalThis.fetch,
   maximumBytes = DEFAULT_MAXIMUM_POM_BYTES,
   timeoutMilliseconds = DEFAULT_POM_TIMEOUT_MILLISECONDS,
@@ -382,15 +406,20 @@ export async function resolveVerifiedMavenPom({
       code: 'maven_pom_authority_invalid',
     });
   }
+  const committedSource = validateCommittedSourceAuthority(
+    coordinate,
+    sourceAuthority,
+    repositoryBases,
+  );
   let cached;
   try {
     cached = await readCachedMavenPom(gradleUserHome, coordinate);
   } catch (error) {
-    if (error.reason !== 'cache-missing' || !allowApprovedSourceFetch) throw error;
+    if (error.reason !== 'cache-missing') throw error;
     return fetchVerifiedMavenPom({
       coordinate,
       expectedSha256,
-      repositoryBases,
+      repositoryBases: committedSource ? [committedSource.repository] : repositoryBases,
       fetchImpl,
       maximumBytes,
       timeoutMilliseconds,
@@ -401,20 +430,24 @@ export async function resolveVerifiedMavenPom({
       code: 'maven_pom_checksum_mismatch',
     });
   }
-  if (allowApprovedSourceFetch) {
-    const source = await fetchVerifiedMavenPom({
-      coordinate,
-      expectedSha256,
-      repositoryBases,
-      fetchImpl,
-      maximumBytes,
-      timeoutMilliseconds,
-    });
+  if (committedSource) {
     return {
       ...cached,
-      repository: source.repository,
-      sourceUrl: source.sourceUrl,
+      repository: committedSource.repository,
+      sourceUrl: committedSource.sourceUrl,
     };
   }
-  return cached;
+  const source = await fetchVerifiedMavenPom({
+    coordinate,
+    expectedSha256,
+    repositoryBases,
+    fetchImpl,
+    maximumBytes,
+    timeoutMilliseconds,
+  });
+  return {
+    ...cached,
+    repository: source.repository,
+    sourceUrl: source.sourceUrl,
+  };
 }

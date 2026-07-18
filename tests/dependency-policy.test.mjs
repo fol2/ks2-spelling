@@ -55,7 +55,7 @@ test('the dependency policy and deterministic evidence files are committed', asy
   );
 });
 
-test('resolved Android policy authority contains exactly four dedicated live tests', async () => {
+test('resolved Android policy authority contains exactly five dedicated live tests', async () => {
   const source = await readFile(
     join(ROOT, 'tests/dependency-policy-resolved.live.mjs'),
     'utf8',
@@ -63,6 +63,7 @@ test('resolved Android policy authority contains exactly four dedicated live tes
   const declarations = [...source.matchAll(/^test\('([^']+)'/gm)].map(([, name]) => name);
   assert.deepEqual(declarations, [
     'default audit consumes the complete resolved Android certification',
+    'committed Android certification is identical from warm and empty POM caches',
     'generated JSON and notices are byte-identical across repeated generation',
     'default audit CLI validates live B3 evidence without mutating frozen B2 reports',
     'pre-bootstrap write CLI cannot overwrite frozen B2 evidence while B3 is active',

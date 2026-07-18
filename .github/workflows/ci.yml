@@ -1,4 +1,4 @@
-name: B3 continuous integration
+name: B4 continuous integration
 
 on:
   pull_request:
@@ -6,13 +6,14 @@ on:
     branches:
       - main
       - jamesto/mobile-b3-billing-download
+      - jamesto/mobile-b4-vertical-slice
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: b3-ci-${{ github.workflow }}-${{ github.ref }}
+  group: b4-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -65,6 +66,18 @@ jobs:
         run: npm run lint
       - name: Build bundled web application
         run: npm run build
+      - name: Build the offline B4 web application and verify committed evidence
+        run: |
+          npm run build:b4-development
+          npm run report:b4-development:check
+      - name: Prove the branch candidate is one evidence-only successor
+        if: github.ref != 'refs/heads/main'
+        run: |
+          checkpoint="$(node -e "const fs=require('node:fs'); process.stdout.write(JSON.parse(fs.readFileSync('reports/b4/b4-development-report.json')).applicationCheckpoint.commit)")"
+          test "$(git rev-parse HEAD^)" = "$checkpoint"
+          node --input-type=module -e "import { B4_EVIDENCE_PATHS } from './scripts/collect-b4-development-evidence.mjs'; process.stdout.write(B4_EVIDENCE_PATHS.toSorted().join('\\n') + '\\n')" > /tmp/b4-expected-paths
+          git diff --name-only "$checkpoint"..HEAD > /tmp/b4-actual-paths
+          diff -u /tmp/b4-expected-paths /tmp/b4-actual-paths
       - name: Validate B3 pending or complete evidence topology
         run: node scripts/build-b3-exit-report.mjs --check-ci
 
@@ -105,6 +118,11 @@ jobs:
         run: npm run native:sync:check
       - name: Compile and test Android debug plus unsigned release application
         run: npm run test:android
+      - name: Compile the installed B4 Android test seam
+        run: |
+          npm run sync:b4-development
+          ./android/gradlew -p android :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon
+          npm run report:b4-development:check
       - name: Test and compile the unsigned B3 application
         working-directory: android
         run: >-
@@ -150,6 +168,19 @@ jobs:
         run: npm run native:sync:check
       - name: Compile unsigned iOS Simulator application
         run: npm run test:ios
+      - name: Compile the installed B4 iOS test seam and verify committed evidence
+        run: |
+          npm run sync:b4-development
+          xcodebuild \
+            -quiet \
+            -project ios/App/App.xcodeproj \
+            -scheme B4DevelopmentUITests \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .native-build/b4-ci \
+            CODE_SIGNING_ALLOWED=NO \
+            build-for-testing
+          npm run report:b4-development:check
       - name: Compile unsigned B3 iOS Simulator application
         run: >-
           xcodebuild

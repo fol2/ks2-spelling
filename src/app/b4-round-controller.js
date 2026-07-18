@@ -132,6 +132,18 @@ export function createB4RoundController({
     }
   }
 
+  async function replayCurrentPrompt(slow) {
+    await playCue({
+      runtimeItemId: currentState.currentRuntimeItemId,
+      sentence: currentState.currentSentence,
+      slow,
+    });
+    return publish(Object.freeze({
+      ...currentState,
+      audio: Object.freeze({ ...audio }),
+    }));
+  }
+
   const pauseHandle = lifecycle?.onPause?.(() => stopPlayback()) ?? null;
 
   async function read() {
@@ -209,25 +221,11 @@ export function createB4RoundController({
       }
       return runCommand(B4_START_COMMAND);
     },
-    async replay() {
-      const snapshot = await read();
-      const prompt = snapshot.subjectState.ui.session?.currentPrompt;
-      await playCue({
-        runtimeItemId: prompt?.runtimeItemId ?? null,
-        sentence: prompt?.sentence ?? null,
-        slow: false,
-      });
-      return publish(viewState(snapshot, audio));
+    replay() {
+      return replayCurrentPrompt(false);
     },
-    async slowReplay() {
-      const snapshot = await read();
-      const prompt = snapshot.subjectState.ui.session?.currentPrompt;
-      await playCue({
-        runtimeItemId: prompt?.runtimeItemId ?? null,
-        sentence: prompt?.sentence ?? null,
-        slow: true,
-      });
-      return publish(viewState(snapshot, audio));
+    slowReplay() {
+      return replayCurrentPrompt(true);
     },
     async rehydrate() {
       stopPlayback();

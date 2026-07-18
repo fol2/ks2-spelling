@@ -298,9 +298,10 @@ test('fresh round starts deterministically from a genuine committed summary', as
   assert.equal(first.state.currentSentence, second.state.currentSentence);
 });
 
-test('genuine A3 audio effects run only post-commit and replay failures never mutate durable state', async () => {
+test('genuine A3 audio effects run post-commit while replay stays independent of durable storage', async () => {
   let snapshot = freshSnapshot(true);
   let committed = false;
+  let storageReadable = true;
   const paths = [];
   let rejectPlayback = false;
   const playAudio = async (path) => {
@@ -342,7 +343,12 @@ test('genuine A3 audio effects run only post-commit and replay failures never mu
   const controller = createB4RoundController({
     catalogue: loadStarterSpellingCatalogue(),
     repository,
-    snapshotStore: { async read() { return structuredClone(snapshot); } },
+    snapshotStore: {
+      async read() {
+        if (!storageReadable) throw new Error('storage resuming');
+        return structuredClone(snapshot);
+      },
+    },
     audioManifest: placeholderManifest(),
     playAudio,
     lifecycle,
@@ -354,6 +360,7 @@ test('genuine A3 audio effects run only post-commit and replay failures never mu
   assert.equal(paths.at(-1), 'audio/b4/b4-06.wav');
   const durableBeforeReplay = structuredClone(snapshot);
 
+  storageReadable = false;
   state = await controller.slowReplay();
   assert.equal(state.audio.status, 'playing');
   assert.equal(paths.at(-1), 'audio/b4/b4-07.wav');
@@ -366,6 +373,7 @@ test('genuine A3 audio effects run only post-commit and replay failures never mu
   pauseListener();
   assert.equal(paths.at(-1), 'stop');
   assert.deepEqual(controller.getState().audio, { status: 'idle', error: null });
+  storageReadable = true;
   await controller.rehydrate();
   assert.equal(paths.at(-1), 'stop');
   await controller.dispose();

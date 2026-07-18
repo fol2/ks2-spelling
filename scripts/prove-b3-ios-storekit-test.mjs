@@ -1,4 +1,4 @@
-import { readFile, rm } from 'node:fs/promises';
+import { readFile, readdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
   EXIT_CODES,
@@ -14,6 +14,9 @@ const RESULT_BUNDLE = resolve(
   '.native-build/ios-storekit-test/B3StoreKitTest.xcresult',
 );
 const DERIVED_DATA = resolve(ROOT, '.native-build/ios-storekit-test');
+const PRODUCTS_DIR = resolve(DERIVED_DATA, 'Build/Products');
+const STOREKIT_BUILD_TIMEOUT_MS = 600_000;
+const STOREKIT_SIMULATOR_TIMEOUT_MS = 300_000;
 const STOREKIT_TEST_TIMEOUT_MS = 90_000;
 const OBSERVATION_PATTERN =
   /B3_STOREKIT_OBSERVATION case=(delayed-(?:approve|decline)) productId=([a-z][a-z0-9]*(?:[._][a-z0-9]+)+) initial=(pending) final=(purchased|cancelled) verifiedProof=(true|false)/g;
@@ -109,7 +112,7 @@ export function assertStoreKitConfiguration(value, expectedProductId) {
 }
 
 export function assertExecutedStoreKitEvidence(output, transcript) {
-  if (!output.includes('** TEST SUCCEEDED **')) {
+  if (!output.includes('** TEST EXECUTE SUCCEEDED **')) {
     throw proofError('storekit_test_failed', 'Xcode StoreKit Test did not succeed');
   }
   for (const method of [
@@ -189,20 +192,85 @@ export async function runB3IosStoreKitTest({ env = process.env, stream = true } 
     parseAvailableIosSimulators(simulatorInventory),
     env.B3_IOS_STOREKIT_DEVICE ?? '',
   );
+  const simulatorResult = await runCommand(
+    'xcrun',
+    ['simctl', 'bootstatus', simulator.udid, '-b'],
+    { cwd: ROOT, env, stream, timeoutMs: STOREKIT_SIMULATOR_TIMEOUT_MS },
+  );
+  if (simulatorResult.timedOut) {
+    throw proofError(
+      'storekit_simulator_timeout',
+      'The iOS Simulator did not become ready within 300 seconds',
+    );
+  }
+  if (simulatorResult.exitCode !== 0) {
+    throw proofError(
+      'storekit_simulator_failed',
+      `The iOS Simulator readiness check exited ${simulatorResult.exitCode}`,
+    );
+  }
 
   await rm(RESULT_BUNDLE, { recursive: true, force: true });
   const destination = `platform=iOS Simulator,id=${simulator.udid}`;
+  const xcodeBuildArgs = [
+    '-project',
+    'ios/App/App.xcodeproj',
+    '-scheme',
+    'KS2Spelling',
+    '-destination',
+    destination,
+    '-derivedDataPath',
+    DERIVED_DATA,
+    '-only-testing:AppTests/B3StoreKitDelayedTests',
+  ];
+  const buildResult = await runCommand(
+    'xcodebuild',
+    [
+      ...xcodeBuildArgs,
+      'build-for-testing',
+    ],
+    { cwd: ROOT, env, stream, timeoutMs: STOREKIT_BUILD_TIMEOUT_MS },
+  );
+  if (buildResult.timedOut) {
+    throw proofError(
+      'storekit_build_timeout',
+      'Xcode StoreKit build-for-testing exceeded its 600 second process deadline',
+    );
+  }
+  if (buildResult.exitCode !== 0) {
+    throw proofError(
+      'storekit_build_failed',
+      `Xcode StoreKit build-for-testing exited ${buildResult.exitCode}`,
+    );
+  }
+
+  let xcTestRunEntries;
+  try {
+    xcTestRunEntries = await readdir(PRODUCTS_DIR, { withFileTypes: true });
+  } catch {
+    throw proofError(
+      'storekit_build_output_mismatch',
+      'Xcode StoreKit build did not expose its test execution manifest',
+    );
+  }
+  const xcTestRuns = xcTestRunEntries.filter(
+    (entry) => entry.isFile() && entry.name.endsWith('.xctestrun'),
+  );
+  if (xcTestRuns.length !== 1) {
+    throw proofError(
+      'storekit_build_output_mismatch',
+      'Xcode StoreKit build must produce exactly one test execution manifest',
+    );
+  }
+  const xcTestRun = resolve(PRODUCTS_DIR, xcTestRuns[0].name);
+
   const result = await runCommand(
     'xcodebuild',
     [
-      '-project',
-      'ios/App/App.xcodeproj',
-      '-scheme',
-      'KS2Spelling',
+      '-xctestrun',
+      xcTestRun,
       '-destination',
       destination,
-      '-derivedDataPath',
-      DERIVED_DATA,
       '-resultBundlePath',
       RESULT_BUNDLE,
       '-test-timeouts-enabled',
@@ -212,14 +280,14 @@ export async function runB3IosStoreKitTest({ env = process.env, stream = true } 
       '-maximum-test-execution-time-allowance',
       '30',
       '-only-testing:AppTests/B3StoreKitDelayedTests',
-      'test',
+      'test-without-building',
     ],
     { cwd: ROOT, env, stream, timeoutMs: STOREKIT_TEST_TIMEOUT_MS },
   );
   if (result.timedOut) {
     throw proofError(
       'storekit_test_timeout',
-      'Xcode StoreKit Test exceeded its 90 second process deadline',
+      'Xcode StoreKit test-without-building exceeded its 90 second process deadline',
     );
   }
   if (result.exitCode !== 0) {

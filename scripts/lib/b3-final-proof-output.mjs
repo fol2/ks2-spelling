@@ -3,7 +3,7 @@ import { constants as fsConstants } from 'node:fs';
 import { link, lstat, mkdir, open, realpath, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-const OUTPUTS = new Set([
+export const B3_FINAL_PROOF_OUTPUT_PATHS = Object.freeze([
   'reports/b3/cloudflare-sandbox-proof.json',
   'reports/b3/ios-sandbox-proof.json',
   'reports/b3/ios-sandbox-proof.png',
@@ -11,6 +11,7 @@ const OUTPUTS = new Set([
   'reports/b3/android-sandbox-proof.png',
   'reports/b3/b3-exit-report.json',
 ]);
+const OUTPUTS = new Set(B3_FINAL_PROOF_OUTPUT_PATHS);
 const MAXIMUM_OUTPUT_BYTES = 64 * 1024 * 1024;
 const TRANSIENT_LINK_ATTEMPTS = 8;
 const TRANSIENT_LINK_WAIT_MS = 10;

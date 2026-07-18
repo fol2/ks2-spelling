@@ -128,6 +128,26 @@ exact-byte-idempotent publisher. See
 be described as a Cloudflare/R2 deployment, store mutation, signed build or
 live-evidence result.
 
+## B3 application checkpoint
+
+Task 20 verifies the clean application checkpoint in pending mode:
+
+```sh
+npm run verify:b3
+node scripts/build-b3-exit-report.mjs --check-ci
+```
+
+Pending means that none of the six final B3 paths exists now or anywhere in the
+available Git history. One to five paths, or deleted earlier evidence, fail closed.
+After Task 22 has created the exact six-file evidence-only successor, the same
+commands require complete mode and strict byte regeneration. See
+`docs/architecture/b3-commerce-pack-authority.md` for the topology and invalidation
+rules.
+
+Task 20 does not sign, install, deploy or contact a store or physical device. Task
+21 owns signed distribution authority and Task 22 owns explicitly authorised live
+execution. Do not use the exit builder to invent or hand-edit any of their inputs.
+
 `npm run test:domain` runs the ordinary default suite without resolving Android.
 The two fresh resolved-toolchain assertions live only in
 `tests/dependency-policy-resolved.live.mjs`; run them through

@@ -52,11 +52,10 @@ final class B3StoreKitDelayedTests: XCTestCase {
         let staged = try pendingAskToBuyTransaction()
 
         try session.declineAskToBuyTransaction(identifier: staged.identifier)
-        try await Task.sleep(nanoseconds: 250_000_000)
         let currentEntitlement = await Transaction.currentEntitlement(for: productId)
         let finalRecord = session.allTransactions().first { $0.identifier == staged.identifier }
-        let declined = finalRecord == nil || finalRecord?.state == .failed ||
-            finalRecord?.cancelDate != nil
+        let declined = finalRecord == nil ||
+            finalRecord?.pendingAskToBuyConfirmation == false
         let finalOutcome = declined && currentEntitlement == nil ? "cancelled" : "unverified"
 
         XCTAssertEqual(finalOutcome, "cancelled")

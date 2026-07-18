@@ -31,8 +31,18 @@ test('the B3 StoreKit proof command is explicitly a non-live Xcode StoreKit Test
   assert.match(source, /'-test-timeouts-enabled',\s*'YES'/);
   assert.match(source, /'-default-test-execution-time-allowance',\s*'20'/);
   assert.match(source, /'-maximum-test-execution-time-allowance',\s*'30'/);
+  assert.match(source, /const STOREKIT_BUILD_TIMEOUT_MS = 600_000/);
+  assert.match(source, /const STOREKIT_SIMULATOR_TIMEOUT_MS = 300_000/);
   assert.match(source, /const STOREKIT_TEST_TIMEOUT_MS = 90_000/);
+  assert.match(source, /\['simctl',\s*'bootstatus',\s*simulator\.udid,\s*'-b'\]/);
+  assert.match(source, /'build-for-testing'/);
+  assert.match(source, /'test-without-building'/);
+  assert.match(source, /'-xctestrun',\s*xcTestRun/);
+  assert.match(source, /timeoutMs:\s*STOREKIT_BUILD_TIMEOUT_MS/);
+  assert.match(source, /timeoutMs:\s*STOREKIT_SIMULATOR_TIMEOUT_MS/);
   assert.match(source, /timeoutMs:\s*STOREKIT_TEST_TIMEOUT_MS/);
+  assert.match(source, /simulatorResult\.timedOut[\s\S]*?'storekit_simulator_timeout'/);
+  assert.match(source, /buildResult\.timedOut[\s\S]*?'storekit_build_timeout'/);
   assert.match(source, /result\.timedOut[\s\S]*?'storekit_test_timeout'/);
   assert.doesNotMatch(source, /platform=iOS(?:,|$)(?! Simulator)/m);
   assert.doesNotMatch(source, /mobileprovision|App Store Connect|sandbox account/i);
@@ -52,6 +62,17 @@ test('the native delayed tests use SKTestSession approval and decline without fi
   assert.match(source, /XCTAssertEqual\([^\n]*"purchased"/);
   assert.match(source, /XCTAssertEqual\([^\n]*"cancelled"/);
   assert.doesNotMatch(source, /\.finish\(\)/);
+
+  const declineStart = source.indexOf(
+    'func testDelayedDeclineProducesNoPurchasedEntitlement()',
+  );
+  const helperStart = source.indexOf('private func beginDelayedPurchase()', declineStart);
+  assert.notEqual(declineStart, -1);
+  assert.notEqual(helperStart, -1);
+  const decline = source.slice(declineStart, helperStart);
+  assert.match(decline, /pendingAskToBuyConfirmation\s*==\s*false/);
+  assert.match(decline, /currentEntitlement\s*==\s*nil/);
+  assert.doesNotMatch(decline, /\.state\s*==\s*\.failed|cancelDate|Task\.sleep/);
 });
 
 test('the wrapper selects only an inventoried iOS Simulator and rejects injected authority', () => {
@@ -94,7 +115,7 @@ test('the wrapper derives exact observations from executed test output and fails
     `B3_STOREKIT_OBSERVATION case=delayed-approve productId=${transcript.productId} initial=pending final=purchased verifiedProof=true`,
     'B3StoreKitDelayedTests testDelayedDeclineProducesNoPurchasedEntitlement',
     `B3_STOREKIT_OBSERVATION case=delayed-decline productId=${transcript.productId} initial=pending final=cancelled verifiedProof=false`,
-    '** TEST SUCCEEDED **',
+    '** TEST EXECUTE SUCCEEDED **',
   ].join('\n');
   assert.deepEqual(
     parseExecutedStoreKitObservations(executed),
@@ -121,7 +142,7 @@ test('the wrapper derives exact observations from executed test output and fails
     ({ code }) => code === 'storekit_observation_mismatch',
   );
   assert.throws(
-    () => assertExecutedStoreKitEvidence(executed.replace('** TEST SUCCEEDED **', '** TEST FAILED **'), transcript),
+    () => assertExecutedStoreKitEvidence(executed.replace('** TEST EXECUTE SUCCEEDED **', '** TEST EXECUTE FAILED **'), transcript),
     ({ code }) => code === 'storekit_test_failed',
   );
   assert.throws(

@@ -36,6 +36,7 @@ test('the iOS installed journey follows the frozen B4 answers without a proof br
     'XCUIDevice.shared.orientation = .landscapeLeft',
     'b4-ios-layout-portrait',
     'b4-ios-layout-landscape',
+    'frame.width > element.frame.height',
   ]) {
     assert.match(source, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }

@@ -95,6 +95,21 @@ final class B4DevelopmentTests: XCTestCase {
         add(attachment)
     }
 
+    private func waitForWindowOrientation(
+        _ application: XCUIApplication,
+        landscape: Bool,
+        timeout: TimeInterval = 10
+    ) -> Bool {
+        let predicate = NSPredicate { object, _ in
+            guard let element = object as? XCUIElement else { return false }
+            return landscape
+                ? element.frame.width > element.frame.height
+                : element.frame.height > element.frame.width
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: application)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
     func testLearnerSurfaceAppears() throws {
         continueAfterFailure = false
 
@@ -268,13 +283,23 @@ final class B4DevelopmentTests: XCTestCase {
         let slowReplay = application.buttons["Slow replay"]
         let submit = application.buttons["Submit"]
         XCTAssertTrue(waitUntilPresent(heading), "The tablet portrait surface did not appear.")
+        XCTAssertTrue(
+            waitForWindowOrientation(application, landscape: false),
+            "The tablet application window did not settle in portrait."
+        )
         for control in [input, replay, slowReplay, submit] {
             XCTAssertTrue(waitUntilEnabled(control), "A tablet portrait control was unreachable.")
             XCTAssertTrue(control.isHittable, "A tablet portrait control was not hittable.")
         }
         attachScreenshot(name: "b4-ios-layout-portrait")
 
+        application.terminate()
         XCUIDevice.shared.orientation = .landscapeLeft
+        application.launch()
+        XCTAssertTrue(
+            waitForWindowOrientation(application, landscape: true),
+            "The tablet application window did not settle in landscape."
+        )
         XCTAssertTrue(waitUntilPresent(heading), "The tablet landscape surface did not remain visible.")
         for control in [input, replay, slowReplay, submit] {
             XCTAssertTrue(waitUntilEnabled(control), "A tablet landscape control was unreachable.")

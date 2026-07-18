@@ -8,6 +8,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
+import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 
 import { createB4PlatformRiskReport } from '../src/app/b4-development-report.js';
@@ -33,6 +34,8 @@ const PRODUCT_IMAGE = 'system-images;android-36;google_apis;arm64-v8a';
 const MINIMUM_IMAGE = 'system-images;android-24;google_apis;arm64-v8a';
 const PORT = '5580';
 const SERIAL = `emulator-${PORT}`;
+const RUNNER_LEASE_HOST = '127.0.0.1';
+const RUNNER_LEASE_PORT = 45_580;
 const APK_PATH = join(ROOT, 'android/app/build/outputs/apk/debug/app-debug.apk');
 const TEST_APK_PATH = join(
   ROOT,
@@ -52,6 +55,40 @@ function proofError(code, message, options) {
   return error;
 }
 
+export function acquireB4AndroidRunnerLease() {
+  return new Promise((resolveLease, rejectLease) => {
+    const server = createServer();
+    const reject = (cause) => {
+      const busy = cause?.code === 'EADDRINUSE';
+      rejectLease(proofError(
+        busy ? 'b4_android_runner_busy' : 'b4_android_runner_lease_failed',
+        busy
+          ? 'Another B4 Android certification runner owns the emulator lease.'
+          : 'The B4 Android certification runner could not acquire its emulator lease.',
+        { cause },
+      ));
+    };
+    server.once('error', reject);
+    server.listen({
+      host: RUNNER_LEASE_HOST,
+      port: RUNNER_LEASE_PORT,
+      exclusive: true,
+    }, () => {
+      server.off('error', reject);
+      let closed = false;
+      resolveLease(Object.freeze({
+        async close() {
+          if (closed) return;
+          closed = true;
+          await new Promise((resolveClose, rejectClose) => {
+            server.close((error) => error ? rejectClose(error) : resolveClose());
+          });
+        },
+      }));
+    });
+  });
+}
+
 function finiteSeries(value, length) {
   return Array.isArray(value) && value.length === length &&
     value.every((item) => Number.isFinite(item) && item >= 0);
@@ -67,6 +104,21 @@ export function validateB4AndroidInstrumentationOutput(output) {
     );
   }
   return 'passed';
+}
+
+export function validateB4AndroidAvdIdentity(output, expectedName) {
+  const names = typeof output === 'string'
+    ? output.split(/\r?\n/u).map((line) => line.trim()).filter(
+        (line) => line.length > 0 && line !== 'OK',
+      )
+    : [];
+  if (names.length !== 1 || names[0] !== expectedName) {
+    throw proofError(
+      'b4_android_emulator_ownership_lost',
+      'The emulator serial no longer belongs to this certification run.',
+    );
+  }
+  return names[0];
 }
 
 export function combineB4AndroidJourney(phaseOne, phaseTwo) {
@@ -186,7 +238,21 @@ async function waitForBoot() {
   throw proofError('b4_android_emulator_unavailable', 'The owned Android emulator did not boot.');
 }
 
-async function stopEmulator() {
+async function assertOwnedSerial(expectedName) {
+  const identity = await attempt(ADB, ['-s', SERIAL, 'emu', 'avd', 'name']);
+  if (identity.exitCode !== 0) {
+    throw proofError(
+      'b4_android_emulator_ownership_lost',
+      'The emulator serial did not expose its AVD identity.',
+    );
+  }
+  validateB4AndroidAvdIdentity(`${identity.stdout}\n${identity.stderr}`, expectedName);
+}
+
+async function stopEmulator(expectedName) {
+  const state = await attempt(ADB, ['-s', SERIAL, 'get-state']);
+  if (state.exitCode !== 0) return;
+  await assertOwnedSerial(expectedName);
   await attempt(ADB, ['-s', SERIAL, 'emu', 'kill']);
   for (let attemptIndex = 0; attemptIndex < 80; attemptIndex += 1) {
     const state = await attempt(ADB, ['-s', SERIAL, 'get-state']);
@@ -215,10 +281,11 @@ async function withOwnedAvd({ label, image, device }, action) {
     ]);
     started = true;
     await waitForBoot();
+    await assertOwnedSerial(name);
     return await action({ name, image, device, serial: SERIAL });
   } finally {
     try {
-      if (started) await stopEmulator();
+      if (started) await stopEmulator(name);
     } finally {
       if (created) await attempt(AVD_MANAGER, ['delete', 'avd', '--name', name]);
     }
@@ -477,8 +544,10 @@ async function minimumCompatibility() {
 }
 
 async function proveB4Android() {
-  const workDirectory = await mkdtemp(join(tmpdir(), 'ks2-b4-android-'));
+  const lease = await acquireB4AndroidRunnerLease();
+  let workDirectory = null;
   try {
+    workDirectory = await mkdtemp(join(tmpdir(), 'ks2-b4-android-'));
     if (!await imageIsHosted(PRODUCT_IMAGE)) {
       throw proofError(
         'b4_android_emulator_unavailable',
@@ -610,7 +679,11 @@ async function proveB4Android() {
       limitations: capture.limitations,
     };
   } finally {
-    await rm(workDirectory, { recursive: true, force: true });
+    try {
+      if (workDirectory) await rm(workDirectory, { recursive: true, force: true });
+    } finally {
+      await lease.close();
+    }
   }
 }
 

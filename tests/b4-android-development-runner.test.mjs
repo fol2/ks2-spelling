@@ -3,10 +3,40 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  acquireB4AndroidRunnerLease,
   combineB4AndroidJourney,
+  validateB4AndroidAvdIdentity,
   validateB4AndroidInstrumentationOutput,
   validateB4AndroidLayoutDimensions,
 } from '../scripts/prove-b4-android.mjs';
+
+test('the Android runner holds one process-lifetime ownership lease', async (t) => {
+  const first = await acquireB4AndroidRunnerLease();
+  t.after(() => first.close());
+  await assert.rejects(
+    acquireB4AndroidRunnerLease(),
+    (error) => error?.code === 'b4_android_runner_busy',
+  );
+  await first.close();
+
+  const successor = await acquireB4AndroidRunnerLease();
+  await successor.close();
+});
+
+test('the Android runner accepts only its exact launched AVD identity', () => {
+  const expected = 'KS2_Spelling_B4_Phone_12345';
+  assert.equal(validateB4AndroidAvdIdentity(`${expected}\nOK\n`, expected), expected);
+  for (const output of [
+    'KS2_Spelling_B4_Phone_99999\nOK\n',
+    `${expected}\nforeign\nOK\n`,
+    'OK\n',
+  ]) {
+    assert.throws(
+      () => validateB4AndroidAvdIdentity(output, expected),
+      (error) => error?.code === 'b4_android_emulator_ownership_lost',
+    );
+  }
+});
 
 test('the Android runner accepts one exact passing instrumentation result only', () => {
   assert.equal(validateB4AndroidInstrumentationOutput(`
@@ -97,6 +127,8 @@ test('the bounded Android runner records hosted-image truth and honest emulator 
     'Emulator only; not physical-device, Play-signed distribution or TalkBack evidence.',
     "connect-src 'none'",
     "clientTts: 'none'",
+    'acquireB4AndroidRunnerLease',
+    "'emu', 'avd', 'name'",
   ]) {
     assert.match(source, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }

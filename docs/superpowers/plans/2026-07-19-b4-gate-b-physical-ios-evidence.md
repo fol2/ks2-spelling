@@ -116,7 +116,16 @@ work: this cycle produces measurement evidence and a decision, nothing else.
    `npm run native:sync:check`, `npm run audit:dependencies`,
    `git diff --check`); then the evidence-only successor whose
    `git diff --name-only` against the harness candidate is exactly the
-   declared `reports/b4-physical/` paths. Gstack, Matt (Standards+Spec)
+   declared `reports/b4-physical/` paths. On top of those, hosted CI's
+   standing branch contract (`ci.yml`, "Prove the branch candidate is
+   one evidence-only successor") independently requires every branch
+   HEAD to be a mechanical `reports/b4` re-collection
+   (`npm run report:b4-development`) whose recorded
+   `applicationCheckpoint.commit` is `HEAD^` — so the branch closes
+   with that refresh commit, exactly the ten allow-listed
+   `reports/b4` files regenerated at the final candidate, as every
+   prior B4 branch has. The refresh is re-collection at the new
+   checkpoint, not an edit of the virtual evidence. Gstack, Matt (Standards+Spec)
    and Ponytail approvals on the exact final candidate; PR; hosted CI
    green; exact-main CI; only then the Gate B record. Any P1/P2
    correction creates a new exact candidate and invalidates all
@@ -131,8 +140,11 @@ work: this cycle produces measurement evidence and a decision, nothing else.
   leaves with the app.
 - Learner practice stays local/offline; no comparator, journey or
   evidence-schema change to force a result.
-- `reports/b4` (pinned virtual evidence) is never touched; physical
-  evidence lives only under `reports/b4-physical/`.
+- `reports/b4` (pinned virtual evidence) is never edited; physical
+  evidence lives only under `reports/b4-physical/`. The one permitted
+  `reports/b4` change is the CI-mandated mechanical re-collection at
+  the final candidate (Task 4), which regenerates — never hand-edits —
+  the ten allow-listed files.
 - Never commit signing keys, provisioning profiles, or device pairing
   material; the committed metadata is limited to device model, OS
   version, and build configuration.

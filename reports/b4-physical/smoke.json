@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "record": "B4 Gate B physical iOS evidence — Task 1 device smoke",
+  "planDocument": "docs/superpowers/plans/2026-07-19-b4-gate-b-physical-ios-evidence.md",
+  "capturedAt": "2026-07-19T14:57:53+01:00",
+  "device": {
+    "model": "iPhone 16 Pro Max (iPhone17,2)",
+    "osVersion": "iOS 27.0 (24A5380h)",
+    "reality": "physical"
+  },
+  "host": {
+    "machine": "MacBook Pro (M1 Max)",
+    "osVersion": "macOS 27.0 (26A5378n)",
+    "signingIdentityName": "Apple Development: James TO (S9AZBVHA2H)",
+    "signingMechanismClaim": "development install signing only; no distribution claim"
+  },
+  "workingToolchain": {
+    "xcode": "26.6 (17F109)",
+    "sdk": "iphoneos26.5",
+    "configuration": "Release",
+    "scheme": "B4DevelopmentUITests",
+    "smokeTest": "B3ProofUITests/B4DevelopmentTests/testLearnerSurfaceAppears",
+    "result": "TEST SUCCEEDED",
+    "standaloneLaunch": "process alive 8 s after devicectl launch"
+  },
+  "failedToolchain": {
+    "xcode": "27.0 beta (27A5194q)",
+    "sdk": "iphoneos27.0",
+    "result": "app crashes at launch: EXC_BREAKPOINT (SIGTRAP) in UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption",
+    "attribution": "iOS 27 traps apps built against SDK 27 without UIScene lifecycle adoption; the Capacitor shell uses the legacy UIApplicationDelegate lifecycle. Crash is absent when the identical source is built against SDK 26.5.",
+    "productConsequence": "UIScene lifecycle adoption is required before any future SDK 27 build; out of B4 scope, owed to C-series before Apple mandates SDK 27 submissions."
+  },
+  "boundaries": "Physical-device development smoke only. No store, Cloudflare/R2, distribution or certification claim. Learner data untouched beyond app-container lifecycle."
+}

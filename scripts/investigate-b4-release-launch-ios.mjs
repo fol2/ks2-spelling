@@ -6,7 +6,6 @@ import { selectB4IosRuntimeProfiles } from './prove-b4-ios.mjs';
 import { EXIT_CODES, isMain, printJson, runCommand } from './lib/run-command.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const APP_ID = 'uk.eugnel.ks2spelling';
 const RELEASE_APP_PATH = join(
   ROOT,
   '.native-build/b4-release/Build/Products/Release-iphonesimulator/App.app',

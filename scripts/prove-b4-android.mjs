@@ -2,7 +2,6 @@ import {
   mkdir,
   mkdtemp,
   readFile,
-  rename,
   rm,
   stat,
   writeFile,
@@ -12,6 +11,7 @@ import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 
 import { createB4PlatformRiskReport } from '../src/app/b4-development-report.js';
+import { movePath } from './lib/move-path.mjs';
 import {
   EXIT_CODES,
   isMain,
@@ -500,8 +500,8 @@ async function captureTabletLayout(workDirectory) {
   const portraitOutput = join(OUTPUT_DIRECTORY, 'android-tablet-portrait.png');
   const landscapeOutput = join(OUTPUT_DIRECTORY, 'android-tablet-landscape.png');
   await Promise.all([
-    rename(portrait.path, portraitOutput),
-    rename(landscape.path, landscapeOutput),
+    movePath(portrait.path, portraitOutput),
+    movePath(landscape.path, landscapeOutput),
   ]);
   return Object.freeze({
     controlEvidence,

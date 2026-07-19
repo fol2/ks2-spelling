@@ -5,7 +5,6 @@ import {
   mkdtemp,
   readFile,
   readdir,
-  rename,
   rm,
   writeFile,
 } from 'node:fs/promises';
@@ -24,6 +23,7 @@ import {
   characteriseB4Round,
   validateB4AudioManifest,
 } from '../src/app/b4-round-contract.js';
+import { movePath } from './lib/move-path.mjs';
 import {
   EXIT_CODES,
   isMain,
@@ -359,7 +359,7 @@ async function collectEvidence() {
     await writeJson(join(temporary, 'b4-development-report.json'), aggregate);
     await rm(REPORT_DIRECTORY, { recursive: true, force: true });
     await mkdir(join(ROOT, 'reports'), { recursive: true });
-    await rename(temporary, REPORT_DIRECTORY);
+    await movePath(temporary, REPORT_DIRECTORY);
   } catch (error) {
     await rm(temporary, { recursive: true, force: true });
     throw error;

@@ -6,7 +6,13 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Rect;
+import android.media.AudioManager;
+import android.media.AudioPlaybackConfiguration;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -21,6 +27,7 @@ import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -33,6 +40,7 @@ import org.junit.runner.RunWith;
 public class B4DevelopmentTest {
     private static final String PACKAGE_ID = "uk.eugnel.ks2spelling";
     private static final String KEYBOARD_PACKAGE = "com.google.android.inputmethod.latin";
+    private static final String DATABASE_NAME = "ks2-spellingSQLite.db";
     private static final long WAIT_TIMEOUT_MS = 10_000;
     private static final String[] FROZEN_ANSWERS = {
         "arrive",
@@ -181,6 +189,59 @@ public class B4DevelopmentTest {
         return elapsedMs;
     }
 
+    private static final class NewPlaybackProbe extends AudioManager.AudioPlaybackCallback {
+        private final AudioManager audioManager;
+        private final AtomicLong activeAtNanos = new AtomicLong(-1);
+        private volatile int baselineActiveCount = 0;
+
+        NewPlaybackProbe(AudioManager audioManager) {
+            this.audioManager = audioManager;
+        }
+
+        void arm() {
+            baselineActiveCount = audioManager.getActivePlaybackConfigurations().size();
+            activeAtNanos.set(-1);
+        }
+
+        int baselineActiveCount() {
+            return baselineActiveCount;
+        }
+
+        long waitForNewActivePlayback() throws InterruptedException {
+            long deadline = SystemClock.elapsedRealtime() + WAIT_TIMEOUT_MS;
+            while (SystemClock.elapsedRealtime() < deadline) {
+                long observed = activeAtNanos.get();
+                if (observed >= 0) return observed;
+                Thread.sleep(1);
+            }
+            return -1;
+        }
+
+        @Override
+        public void onPlaybackConfigChanged(List<AudioPlaybackConfiguration> configurations) {
+            if (activeAtNanos.get() >= 0) return;
+            if (configurations.size() > baselineActiveCount) {
+                activeAtNanos.compareAndSet(-1, SystemClock.elapsedRealtimeNanos());
+            }
+        }
+    }
+
+    private long waitForRevision(SQLiteDatabase database, int expectedRevision)
+            throws InterruptedException {
+        long deadline = SystemClock.elapsedRealtime() + WAIT_TIMEOUT_MS;
+        while (SystemClock.elapsedRealtime() < deadline) {
+            try (Cursor cursor = database.rawQuery(
+                    "SELECT revision FROM spelling_aggregates WHERE learner_id = ?",
+                    new String[] { "learner-a" })) {
+                if (cursor.moveToFirst() && cursor.getInt(0) == expectedRevision) {
+                    return SystemClock.elapsedRealtimeNanos();
+                }
+            }
+            Thread.sleep(1);
+        }
+        return -1;
+    }
+
     private double minimumControlHeightDp() {
         float density = context.getResources().getDisplayMetrics().density;
         double minimum = Double.POSITIVE_INFINITY;
@@ -283,6 +344,76 @@ public class B4DevelopmentTest {
     }
 
     @Test
+    public void testSplitTimingJourney() throws Exception {
+        launchApplication();
+        AudioManager audioManager = context.getSystemService(AudioManager.class);
+        assertNotNull("The Android audio manager is unavailable.", audioManager);
+        NewPlaybackProbe playbackProbe = new NewPlaybackProbe(audioManager);
+        audioManager.registerAudioPlaybackCallback(playbackProbe, new Handler(Looper.getMainLooper()));
+
+        File databaseFile = context.getDatabasePath(DATABASE_NAME);
+        assertTrue("The B4 SQLite database is missing.", databaseFile.isFile());
+        JSONArray observations = new JSONArray();
+        try (SQLiteDatabase database = SQLiteDatabase.openDatabase(
+                databaseFile.getAbsolutePath(),
+                null,
+                SQLiteDatabase.OPEN_READONLY)) {
+            for (int index = 0; index < FROZEN_ANSWERS.length; index += 1) {
+                double replayToAudioPlayingVisibleMs = interruptAudio("Replay");
+                setAnswer(FROZEN_ANSWERS[index]);
+                dismissKeyboard();
+                playbackProbe.arm();
+                assertTrue(
+                    "Playback was not idle when the probe armed.",
+                    playbackProbe.baselineActiveCount() == 0
+                );
+
+                long submitAtNanos = SystemClock.elapsedRealtimeNanos();
+                tap("Submit", button("Submit"));
+                int expectedRevision = 2 + (index * 2);
+                long commitObservedAtNanos = waitForRevision(database, expectedRevision);
+                assertTrue("SQLite revision was not externally observed.", commitObservedAtNanos >= 0);
+                long audioActiveAtNanos = playbackProbe.waitForNewActivePlayback();
+                assertTrue("A new native audio player did not become active.", audioActiveAtNanos >= 0);
+                waitForNode("Continue after answer " + (index + 1), button("Continue"));
+                long feedbackVisibleAtNanos = SystemClock.elapsedRealtimeNanos();
+                assertTrue(
+                    "The native player became active before the committed revision was observed.",
+                    audioActiveAtNanos >= commitObservedAtNanos
+                );
+                assertTrue(
+                    "Feedback became visible before native playback was active.",
+                    feedbackVisibleAtNanos >= audioActiveAtNanos
+                );
+
+                observations.put(new JSONObject()
+                    .put("answerIndex", index + 1)
+                    .put("expectedRevision", expectedRevision)
+                    .put("submitElapsedRealtimeNanos", submitAtNanos)
+                    .put("commitObservedElapsedRealtimeNanos", commitObservedAtNanos)
+                    .put("audioActiveElapsedRealtimeNanos", audioActiveAtNanos)
+                    .put("feedbackVisibleElapsedRealtimeNanos", feedbackVisibleAtNanos)
+                    .put("replayToAudioPlayingVisibleMs", replayToAudioPlayingVisibleMs));
+
+                dismissKeyboard();
+                tap("Continue", button("Continue"));
+                if (index < FROZEN_ANSWERS.length - 1) {
+                    waitForNode("the next spelling input", spellingInput());
+                }
+            }
+        } finally {
+            audioManager.unregisterAudioPlaybackCallback(playbackProbe);
+        }
+
+        waitForNode("Round complete", text("Round complete"));
+        writeEvidence("split", new JSONObject()
+            .put("schemaVersion", 1)
+            .put("clock", "SystemClock.elapsedRealtimeNanos")
+            .put("observations", observations)
+            .put("completed", true));
+    }
+
+    @Test
     public void testTabletLayout() throws Exception {
         device.setOrientationNatural();
         launchApplication();
@@ -298,4 +429,5 @@ public class B4DevelopmentTest {
             .put("naturalMinimumControlHeightDp", naturalMinimumDp)
             .put("rotatedMinimumControlHeightDp", rotatedMinimumDp));
     }
+
 }

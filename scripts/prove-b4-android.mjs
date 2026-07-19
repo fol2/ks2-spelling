@@ -687,6 +687,35 @@ async function proveB4Android() {
   }
 }
 
+export async function captureB4AndroidSplitTiming() {
+  const lease = await acquireB4AndroidRunnerLease();
+  try {
+    if (!await imageIsHosted(PRODUCT_IMAGE)) {
+      throw proofError(
+        'b4_android_emulator_unavailable',
+        `The required hosted Android image is missing: ${PRODUCT_IMAGE}.`,
+      );
+    }
+    await buildOfflineApplication();
+    return withOwnedAvd(
+      { label: 'Split', image: PRODUCT_IMAGE, device: 'pixel_9' },
+      async (profile) => {
+        await installApplications();
+        await adbChecked(['shell', 'pm', 'clear', APP_ID]);
+        await configureDevice('1.0');
+        const prefix = `split-${process.pid}`;
+        await runInstrumentation('testSplitTimingJourney', prefix);
+        return Object.freeze({
+          device: await deviceMetadata(profile),
+          capture: await readPhase(prefix, 'split'),
+        });
+      },
+    );
+  } finally {
+    await lease.close();
+  }
+}
+
 export async function main() {
   try {
     printJson(await proveB4Android());

@@ -399,3 +399,67 @@ test('genuine A3 audio effects run post-commit while replay stays independent of
   await controller.dispose();
   assert.deepEqual(paths.slice(-2), ['stop', 'dispose']);
 });
+
+function mockCommandServices({ autoSpeak, playAudio }) {
+  let snapshot = freshSnapshot(autoSpeak);
+  let reads = 0;
+  const repository = {
+    async runCommandTransaction(_learnerId, planner) {
+      const plan = planner(structuredClone(snapshot), { nowMs: B4_START_TIMESTAMP + snapshot.revision });
+      snapshot = commit(snapshot, plan);
+      return plan;
+    },
+  };
+  const controller = createB4RoundController({
+    catalogue: loadStarterSpellingCatalogue(),
+    repository,
+    snapshotStore: {
+      async read() {
+        reads += 1;
+        return structuredClone(snapshot);
+      },
+    },
+    audioManifest: placeholderManifest(),
+    playAudio,
+  });
+  return { controller, countReads: () => reads };
+}
+
+test('a committed command publishes from its validated plan without a second snapshot read', async () => {
+  const { controller, countReads } = mockCommandServices({
+    autoSpeak: false,
+    playAudio: silentPlayer(),
+  });
+  const started = await controller.start();
+  assert.equal(started.revision, 1);
+  const readsBeforeSubmit = countReads();
+  const state = await controller.submit('definitely-wrong');
+  assert.equal(countReads() - readsBeforeSubmit, 1,
+    'submit must read the snapshot once for the revision guard and never re-read after commit');
+  assert.equal(state.revision, 2);
+  assert.equal(state.feedback.kind, 'error');
+  await controller.dispose();
+});
+
+test('committed state publishes before the audio cue starts playing', async () => {
+  let release = null;
+  const play = (path) => new Promise((resolve) => {
+    release = () => resolve({ status: 'playing', path });
+  });
+  play.stop = () => {};
+  play.dispose = () => {};
+  const { controller } = mockCommandServices({ autoSpeak: true, playAudio: play });
+  const published = [];
+  controller.subscribe((state) => published.push(state));
+  const startPromise = controller.start();
+  for (let waited = 0; waited < 200 && !published.some(({ revision }) => revision === 1); waited += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  assert.equal(published.some(({ revision }) => revision === 1), true,
+    'the committed state must reach subscribers while the audio cue is still starting');
+  assert.equal(typeof release, 'function');
+  release();
+  const final = await startPromise;
+  assert.equal(final.audio.status, 'playing');
+  await controller.dispose();
+});

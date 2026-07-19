@@ -155,12 +155,21 @@ export function createB4RoundController({
         random: randomAtB4Command(fresh.revision),
       });
     });
-    const committed = await read();
-    if (committed.revision !== before.revision + 1) {
+    if (plan.nextRevision !== before.revision + 1) {
       throw controllerError('b4_round_commit_missing');
     }
+    // The repository has already verified the committed rows match this
+    // validated plan, so the committed view derives from the plan without a
+    // second full snapshot read over the storage bridge.
+    const committed = {
+      revision: plan.nextRevision,
+      subjectState: plan.nextSubjectState,
+      practiceSession: plan.nextPracticeSession,
+    };
+    const state = publish(viewState(committed, audio));
     const effect = plan.transientEffects.find(({ type }) => type === 'audio-cue');
-    if (effect) await playCue(effect.payload);
+    if (!effect) return state;
+    await playCue(effect.payload);
     return publish(viewState(committed, audio));
   }
 

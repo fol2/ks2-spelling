@@ -66,9 +66,11 @@ threshold relabelling, no statistical-certification claim.
    plus one focused test) reusing the frozen trace from
    `src/app/b4-round-contract.js`. No product-code changes in this task.
 2. Run reproductions 1–3; write one investigation report
-   (`reports/b4/performance-investigation.json` + a short findings section in
-   this plan) recording raw numbers, attribution, and the owning seam for each
-   breach. Fail closed: any unattributable breach stays
+   (`reports/b4-investigation/performance-investigation.json` + a short
+   findings section in this plan) recording raw numbers, attribution, and the
+   owning seam for each breach. The report must not enter `reports/b4`: that
+   directory is verified to contain exactly the ten allow-listed evidence
+   files. Fail closed: any unattributable breach stays
    `investigation-required`.
 3. Decision from evidence only. Attribution alone never yields `GO`:
    - `GO` requires that, after any owed minimal product correction (for

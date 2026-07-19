@@ -1,4 +1,5 @@
 import { validateB4AudioManifest } from './b4-round-contract.js';
+import { markB4, measureB4 } from './b4-performance-marks.js';
 
 const SAFE_LOCAL_PATH = /^audio\/b4\/[a-z0-9-]+\.wav$/u;
 const CACHE_CAP = 8;
@@ -116,6 +117,7 @@ export function createB4LocalAudioPlayer({
       active.reject = null;
       if (!settle.started) {
         settle.started = true;
+        measureB4('b4:audio-start', 'b4:audio-play-start');
         settle.resolve(Object.freeze({ status: 'playing', path: paths[0] }));
       }
     }, { once: true });
@@ -139,6 +141,7 @@ export function createB4LocalAudioPlayer({
     if (sequence.length === 0 || sequence.some((path) => typeof path !== 'string' || !SAFE_LOCAL_PATH.test(path))) {
       return Promise.reject(audioError('b4_audio_path_invalid'));
     }
+    markB4('b4:audio-play-start');
     stop();
     const token = generation;
     return new Promise((resolve, reject) => {

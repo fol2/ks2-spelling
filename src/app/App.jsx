@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { B4_AUDIO_AUTHORITY } from './b4-round-contract.js';
 import { createB4LearnerAction } from './b4-learner-action.js';
+import { markB4, measureB4 } from './b4-performance-marks.js';
 
 function B1App({ services }) {
   if (services.native.capabilities.mode !== 'prototype-only') {
@@ -128,6 +129,16 @@ function B4App({ services }) {
     });
     return () => subscription.remove();
   }, [services]);
+
+  const feedbackForPaint = roundState.feedback;
+  useEffect(() => {
+    if (!feedbackForPaint || typeof requestAnimationFrame !== 'function') return undefined;
+    const frame = requestAnimationFrame(() => {
+      markB4('b4:feedback-painted');
+      measureB4('b4:action-to-paint', 'b4:action-start');
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [feedbackForPaint]);
 
   const starting = roundState.phase === 'ready';
   const runAudio = (method) => {

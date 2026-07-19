@@ -6,6 +6,7 @@ import {
   randomAtB4Command,
 } from './b4-round-contract.js';
 import { resolveB4AudioPath } from './b4-local-audio.js';
+import { markB4, measureB4 } from './b4-performance-marks.js';
 
 const LEARNER_ID = 'learner-a';
 
@@ -165,6 +166,7 @@ export function createB4RoundController({
   }
 
   async function runCommand(command) {
+    markB4('b4:commit-start');
     const before = await read();
     const plan = await repository.runCommandTransaction(LEARNER_ID, (fresh, context) => {
       if (fresh.revision !== before.revision) {
@@ -189,7 +191,10 @@ export function createB4RoundController({
       subjectState: plan.nextSubjectState,
       practiceSession: plan.nextPracticeSession,
     };
+    measureB4('b4:commit', 'b4:commit-start');
     const state = publish(viewState(committed, audio));
+    markB4('b4:state-published');
+    measureB4('b4:action-to-publish', 'b4:action-start');
     const effect = plan.transientEffects.find(({ type }) => type === 'audio-cue');
     if (!effect) return state;
     await playCue(effect.payload);

@@ -229,3 +229,139 @@ test('local player refuses every non-local runtime source', async () => {
     await assert.rejects(play(path), (error) => error?.code === 'b4_audio_path_invalid');
   }
 });
+
+function fakeAudioContext() {
+  let decodeCount = 0;
+  const sources = [];
+  return {
+    state: 'running',
+    resume() {},
+    destination: {},
+    async decodeAudioData(buf) {
+      decodeCount += 1;
+      return { duration: 0.1, byteLength: buf.byteLength };
+    },
+    createBufferSource() {
+      const source = {
+        buffer: null,
+        connected: null,
+        started: false,
+        connect(destination) { this.connected = destination; },
+        start() { this.started = true; },
+        stop() {},
+        disconnect() {},
+        onended: null,
+      };
+      sources.push(source);
+      return source;
+    },
+    close() {},
+    get decodeCount() { return decodeCount; },
+    get sources() { return sources; },
+  };
+}
+
+function stubAudioData(paths) {
+  const data = Object.fromEntries(
+    paths.map((path) => [
+      path,
+      `data:audio/wav;base64,${Buffer.from('RIFFdata').toString('base64')}`,
+    ]),
+  );
+  return async () => data;
+}
+
+test('web audio play resolves without creating an audio element', async () => {
+  const ctx = fakeAudioContext();
+  let elementCreates = 0;
+  const play = createB4LocalAudioPlayer({
+    createAudioElement: () => {
+      elementCreates += 1;
+      assert.fail('web audio path must not create an audio element');
+    },
+    createAudioContext: () => ctx,
+    loadAudioData: stubAudioData(['audio/b4/b4-01.wav']),
+  });
+  const result = await play('audio/b4/b4-01.wav');
+  assert.deepEqual(result, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+  assert.equal(ctx.sources.length, 1);
+  assert.equal(ctx.sources[0].started, true);
+  assert.equal(elementCreates, 0);
+});
+
+test('web audio sequences the next path when the source ends', async () => {
+  const ctx = fakeAudioContext();
+  const play = createB4LocalAudioPlayer({
+    createAudioElement: () => assert.fail('web audio path must not create an audio element'),
+    createAudioContext: () => ctx,
+    loadAudioData: stubAudioData(['audio/b4/b4-01.wav', 'audio/b4/b4-02.wav']),
+  });
+  const result = await play(['audio/b4/b4-01.wav', 'audio/b4/b4-02.wav']);
+  assert.deepEqual(result, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+  assert.equal(ctx.sources.length, 1);
+  ctx.sources[0].onended();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(ctx.sources.length, 2);
+  assert.equal(ctx.sources[1].started, true);
+});
+
+test('web audio stop before onended prevents the next source', async () => {
+  const ctx = fakeAudioContext();
+  const play = createB4LocalAudioPlayer({
+    createAudioElement: () => assert.fail('web audio path must not create an audio element'),
+    createAudioContext: () => ctx,
+    loadAudioData: stubAudioData([
+      'audio/b4/b4-01.wav',
+      'audio/b4/b4-02.wav',
+      'audio/b4/b4-03.wav',
+    ]),
+  });
+  const first = play(['audio/b4/b4-01.wav', 'audio/b4/b4-02.wav']);
+  assert.deepEqual(await first, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+  assert.equal(ctx.sources.length, 1);
+
+  const interrupted = play('audio/b4/b4-03.wav');
+  assert.deepEqual(await interrupted, { status: 'playing', path: 'audio/b4/b4-03.wav' });
+  assert.equal(ctx.sources.length, 2);
+
+  ctx.sources[0].onended?.();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(ctx.sources.length, 2, 'stale onended must not start the second path of the interrupted sequence');
+  assert.equal(ctx.sources[1].started, true);
+});
+
+test('web audio warm decodes each path exactly once across repeated warms', async () => {
+  const ctx = fakeAudioContext();
+  const play = createB4LocalAudioPlayer({
+    createAudioElement: () => assert.fail('web audio warm must not create an audio element'),
+    createAudioContext: () => ctx,
+    loadAudioData: stubAudioData(['audio/b4/b4-01.wav', 'audio/b4/b4-02.wav']),
+  });
+  await play.warm(['audio/b4/b4-01.wav', 'audio/b4/b4-02.wav']);
+  assert.equal(ctx.decodeCount, 2);
+  await play.warm(['audio/b4/b4-01.wav', 'audio/b4/b4-02.wav']);
+  assert.equal(ctx.decodeCount, 2, 'repeated warm must not re-decode');
+  await play.warm(['audio/b4/b4-01.wav']);
+  assert.equal(ctx.decodeCount, 2);
+});
+
+test('web audio falls back to the element path when decode-on-demand fails', async () => {
+  const fake = fakeAudioFactory();
+  const ctx = fakeAudioContext();
+  ctx.decodeAudioData = async () => {
+    throw new Error('decode failed');
+  };
+  const play = createB4LocalAudioPlayer({
+    createAudioElement: fake.create,
+    createAudioContext: () => ctx,
+    loadAudioData: async () => {
+      throw new Error('audio data unavailable');
+    },
+  });
+  const resultPromise = play('audio/b4/b4-01.wav');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(fake.elements.length, 1, 'failed web audio decode must fall back to the element path');
+  fake.elements[0].playCall.resolve();
+  fake.elements[0].emit('playing');
+  assert.deepEqual(await resultPromise, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+});

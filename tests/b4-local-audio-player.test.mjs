@@ -183,6 +183,39 @@ test('play rejection, interruption, stale completion and rapid replay are safe',
   assert.deepEqual(errors, []);
 });
 
+test('a stalled load retries once through a fresh element and then plays', async () => {
+  const fake = fakeAudioFactory();
+  const play = createB4LocalAudioPlayer({ createAudioElement: fake.create, stallRetryMs: 20 });
+  const result = play('audio/b4/b4-01.wav');
+  assert.equal(fake.elements.length, 1);
+  // First element stalls: play() never settles, no events fire.
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(fake.elements.length, 2, 'a stalled element must be replaced by a fresh one');
+  assert.equal(fake.elements[0].removed.includes('src'), true, 'the stalled element must be fully reset');
+  fake.elements[1].playCall.resolve();
+  fake.elements[1].emit('playing');
+  assert.deepEqual(await result, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+});
+
+test('a stall on the retry rejects instead of hanging forever', async () => {
+  const fake = fakeAudioFactory();
+  const play = createB4LocalAudioPlayer({ createAudioElement: fake.create, stallRetryMs: 20 });
+  const result = play('audio/b4/b4-01.wav');
+  await assert.rejects(result, (error) => error?.code === 'b4_audio_play_failed');
+  assert.equal(fake.elements.length, 2, 'exactly one retry is allowed');
+});
+
+test('a fast playing start never triggers the stall retry', async () => {
+  const fake = fakeAudioFactory();
+  const play = createB4LocalAudioPlayer({ createAudioElement: fake.create, stallRetryMs: 20 });
+  const result = play('audio/b4/b4-01.wav');
+  fake.elements[0].playCall.resolve();
+  fake.elements[0].emit('playing');
+  assert.deepEqual(await result, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(fake.elements.length, 1, 'no retry element may be created after a clean start');
+});
+
 test('local player refuses every non-local runtime source', async () => {
   const play = createB4LocalAudioPlayer({ createAudioElement: () => assert.fail('must not create audio') });
   for (const path of [

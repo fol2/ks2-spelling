@@ -27,6 +27,7 @@ export function resolveB4AudioPath(manifestValue, { runtimeItemId, sentence = nu
 export function createB4LocalAudioPlayer({
   createAudioElement = () => new Audio(),
   onError = () => {},
+  stallRetryMs = 1_500,
 } = {}) {
   if (typeof createAudioElement !== 'function') throw new TypeError('createAudioElement must be a function.');
   if (typeof onError !== 'function') throw new TypeError('onError must be a function.');
@@ -89,24 +90,47 @@ export function createB4LocalAudioPlayer({
     current.reject?.(audioError(reason));
   }
 
-  async function startPath(paths, index, token, settle) {
+  async function startPath(paths, index, token, settle, retried = false) {
     if (disposed || token !== generation) return;
     const path = paths[index];
     if (!path) return;
     const element = acquire(path);
     element.currentTime = 0;
     let playing = false;
+    let watchdog = null;
+    const clearWatchdog = () => {
+      if (watchdog !== null) clearTimeout(watchdog);
+      watchdog = null;
+    };
     const rejectPending = (error) => {
       if (token !== generation) return;
+      clearWatchdog();
       active = null;
       softReset(element);
       const normalised = error?.code ? error : audioError('b4_audio_play_failed', { cause: error });
       if (!settle.started) settle.reject(normalised);
       else onError(normalised);
     };
+    // WebKit can stall a media load without ever firing 'error' or settling
+    // play(); the watchdog discards the stalled element and retries once
+    // through a fresh one so a single stall cannot hang the round.
+    watchdog = setTimeout(() => {
+      watchdog = null;
+      if (token !== generation || playing) return;
+      cache.delete(path);
+      fullReset(element);
+      if (retried) {
+        rejectPending(audioError('b4_audio_play_failed'));
+        return;
+      }
+      active = null;
+      void startPath(paths, index, token, settle, true).catch(rejectPending);
+    }, stallRetryMs);
+    watchdog.unref?.();
     active = {
       element,
       reject(error) {
+        clearWatchdog();
         if (!playing) settle.reject(error);
         else onError(error);
       },
@@ -114,6 +138,7 @@ export function createB4LocalAudioPlayer({
     element.addEventListener('playing', () => {
       if (token !== generation || playing) return;
       playing = true;
+      clearWatchdog();
       active.reject = null;
       if (!settle.started) {
         settle.started = true;
@@ -123,6 +148,7 @@ export function createB4LocalAudioPlayer({
     }, { once: true });
     element.addEventListener('ended', () => {
       if (token !== generation) return;
+      clearWatchdog();
       softReset(element);
       active = null;
       void startPath(paths, index + 1, token, settle).catch(rejectPending);

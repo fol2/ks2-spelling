@@ -8,6 +8,8 @@ const DEFAULT_ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const FROZEN_B2_COMMIT = '39ef90a5a33efb41368272c4c6d4d002f04658b3';
 const PLAN_PATH =
   'docs/superpowers/plans/2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md';
+const B4_PLAN_PATH =
+  'docs/superpowers/plans/2026-07-18-standalone-spelling-mobile-b4-capacitor-development-certification.md';
 const PROTECTED_PATHS = Object.freeze([
   'scripts/build-b2-native-plugin-report.mjs',
   'scripts/lib/frozen-b2-git.mjs',
@@ -41,6 +43,21 @@ export const B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
     'node scripts/verify-b3-installed-distribution.mjs',
   'verify:b3':
     'npm run verify:b2-authority && npm run verify:vendor && npm run test:upstream:a3 && npm test && npm run lint && npm run build && npm run native:sync:check && npm run test:ios && node scripts/test-ios-pack-inspector.mjs && npm run prove:b3:ios-storekit-test && npm run test:android && npm run certify:android && npm run test:android-resolved-policy && npm run report:b3-native && npm run prove:b3:deterministic && npm run audit:dependencies && node scripts/build-b3-exit-report.mjs --check-ci',
+});
+
+export const B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
+  'build:b4-development': 'vite build --mode B4Development',
+  'sync:b4-development': 'npm run build:b4-development && cap sync',
+  'prove:b4:ios': 'node scripts/prove-b4-ios.mjs',
+  'prove:b4:android': 'node scripts/prove-b4-android.mjs',
+  'report:b4-development': 'node scripts/collect-b4-development-evidence.mjs',
+  'report:b4-development:check':
+    'node scripts/collect-b4-development-evidence.mjs --check',
+});
+
+const PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
+  ...B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+  ...B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
 });
 
 function transitionError(message) {
@@ -91,15 +108,17 @@ export async function verifyB3PackageTransitionAuthority({ root = DEFAULT_ROOT }
       'schemaVersion',
       'frozenB2Commit',
       'approvedPlanPath',
+      'approvedB4PlanPath',
       'allowedPackageScriptAdditions',
       'protectedCurrentFiles',
     ]) ||
-    authority.schemaVersion !== 1 ||
+    authority.schemaVersion !== 2 ||
     authority.frozenB2Commit !== FROZEN_B2_COMMIT ||
     authority.approvedPlanPath !== PLAN_PATH ||
+    authority.approvedB4PlanPath !== B4_PLAN_PATH ||
     !isDeepStrictEqual(
       authority.allowedPackageScriptAdditions,
-      B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+      PLANNED_PACKAGE_SCRIPT_ADDITIONS,
     ) ||
     !Array.isArray(authority.protectedCurrentFiles) ||
     authority.protectedCurrentFiles.length !== PROTECTED_PATHS.length ||
@@ -136,7 +155,7 @@ export function assertB2PackageTransition(frozenPackage, currentPackage, authori
     !authority ||
     !isDeepStrictEqual(
       authority.allowedPackageScriptAdditions,
-      B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+      PLANNED_PACKAGE_SCRIPT_ADDITIONS,
     ) ||
     !hasExactKeys(frozenPackage, Object.keys(currentPackage ?? {})) ||
     !hasExactKeys(currentPackage, Object.keys(frozenPackage ?? {})) ||
@@ -161,8 +180,8 @@ export function assertB2PackageTransition(frozenPackage, currentPackage, authori
   }
   for (const [name, command] of Object.entries(currentPackage.scripts)) {
     if (Object.hasOwn(frozenPackage.scripts, name)) continue;
-    if (B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS[name] !== command) {
-      throw transitionError(`Package script is not authorised by the approved B3 plan: ${name}`);
+    if (PLANNED_PACKAGE_SCRIPT_ADDITIONS[name] !== command) {
+      throw transitionError(`Package script is not authorised by the approved plans: ${name}`);
     }
   }
 }

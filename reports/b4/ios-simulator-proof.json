@@ -1,0 +1,477 @@
+{
+  "schemaVersion": 1,
+  "platform": "ios-simulator",
+  "runner": {
+    "runnerImage": "local-macos",
+    "hostOS": "macOS 26.5.2 (25F84)",
+    "runtime": "iOS 26.5 (23F73)",
+    "deviceProfile": "iPhone 17 (KS2 Spelling B4 Phone 13224)",
+    "buildConfiguration": "B4Development unsigned Simulator"
+  },
+  "limitations": [
+    "Simulator only; not physical-device, signed-distribution or App Store evidence."
+  ],
+  "offlineBoundary": {
+    "web": "connect-src 'none'",
+    "nativeNetworkPlugins": "not registered for the marked B4 bundle",
+    "clientTts": "none"
+  },
+  "journeys": {
+    "default": {
+      "answerFeedbackMs": [
+        500.095009803772,
+        580.2599191665649,
+        611.5900278091431,
+        595.168948173523,
+        631.242036819458,
+        577.9869556427002,
+        786.5250110626221,
+        555.0510883331299,
+        601.8980741500854,
+        595.7299470901489
+      ],
+      "audioStartMs": [
+        1588.230013847351,
+        390.8599615097046
+      ],
+      "backgroundAudioStoppedCount": 2,
+      "coldLaunchMs": 5502.002000808716,
+      "completed": true,
+      "enterSubmitted": true,
+      "minimumControlHeightPoints": 49,
+      "referenceTextHeightPoints": 23,
+      "resumeProgressAfter": "Card 2 of 5",
+      "resumeProgressBefore": "Card 2 of 5",
+      "schemaVersion": 1,
+      "softwareKeyboardObserved": true
+    },
+    "scaled": {
+      "contentSizeCategory": "accessibility-extra-extra-extra-large",
+      "measuredTextScale": 2.826,
+      "atLeast200Percent": true,
+      "answerFeedbackMs": [
+        500.82409381866455,
+        555.5911064147949,
+        560.7008934020996,
+        584.4759941101074,
+        594.0699577331543,
+        609.2289686203003,
+        611.8350028991699,
+        585.24489402771,
+        584.0250253677368,
+        572.8459358215332
+      ],
+      "audioStartMs": [
+        1576.704978942871,
+        1545.307993888855
+      ],
+      "backgroundAudioStoppedCount": 2,
+      "coldLaunchMs": 8471.505045890808,
+      "completed": true,
+      "enterSubmitted": true,
+      "minimumControlHeightPoints": 89,
+      "referenceTextHeightPoints": 65,
+      "resumeProgressAfter": "Card 2 of 5",
+      "resumeProgressBefore": "Card 2 of 5",
+      "schemaVersion": 1,
+      "softwareKeyboardObserved": true
+    }
+  },
+  "rawSizes": {
+    "nativePayloadBytes": 18215685,
+    "localDatabaseBytes": 534912
+  },
+  "layout": {
+    "phonePortrait": "ios-phone.png",
+    "phoneAt200Percent": "ios-phone.png",
+    "tabletPortrait": "ios-tablet-portrait.png",
+    "tabletLandscape": "ios-tablet-landscape.png",
+    "dimensions": {
+      "portrait": {
+        "width": 1640,
+        "height": 2360
+      },
+      "landscape": {
+        "width": 2360,
+        "height": 1640
+      }
+    },
+    "landscapeNormalisation": "XCTest portrait framebuffer rotated -90 degrees after landscape scene validation"
+  },
+  "platformRiskReport": {
+    "schemaVersion": 1,
+    "productIdentifier": "b4-starter-product",
+    "evidenceClass": "virtual-development-risk-observation",
+    "platform": "ios-simulator",
+    "runner": {
+      "runnerImage": "local-macos",
+      "hostOS": "macOS 26.5.2 (25F84)",
+      "runtime": "iOS 26.5 (23F73)",
+      "deviceProfile": "iPhone 17 (KS2 Spelling B4 Phone 13224)",
+      "buildConfiguration": "B4Development unsigned Simulator"
+    },
+    "observations": [
+      {
+        "kind": "coldLaunch",
+        "sequence": 1,
+        "rawValue": 5502.002000808716,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 2000,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "B4 control risk observation; not profile-picker certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "answerFeedback",
+        "sequence": 1,
+        "rawValue": 500.095009803772,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 100,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-render raw observation; not p95 certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "answerFeedback",
+        "sequence": 2,
+        "rawValue": 580.2599191665649,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 100,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-render raw observation; not p95 certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "answerFeedback",
+        "sequence": 3,
+        "rawValue": 611.5900278091431,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 100,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-render raw observation; not p95 certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "answerFeedback",
+        "sequence": 4,
+        "rawValue": 595.168948173523,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 100,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-render raw observation; not p95 certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "answerFeedback",
+        "sequence": 5,
+        "rawValue": 631.242036819458,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 100,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-render raw observation; not p95 certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "answerFeedback",
+        "sequence": 6,
+        "rawValue": 577.9869556427002,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 100,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-render raw observation; not p95 certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "answerFeedback",
+        "sequence": 7,
+        "rawValue": 786.5250110626221,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 100,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-render raw observation; not p95 certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "answerFeedback",
+        "sequence": 8,
+        "rawValue": 555.0510883331299,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 100,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-render raw observation; not p95 certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "answerFeedback",
+        "sequence": 9,
+        "rawValue": 601.8980741500854,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 100,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-render raw observation; not p95 certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "answerFeedback",
+        "sequence": 10,
+        "rawValue": 595.7299470901489,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 100,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-render raw observation; not p95 certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "sqliteTransactionUpperBound",
+        "sequence": 1,
+        "rawValue": 500.095009803772,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 50,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-feedback upper bound; not isolated SQLite timing certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "sqliteTransactionUpperBound",
+        "sequence": 2,
+        "rawValue": 580.2599191665649,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 50,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-feedback upper bound; not isolated SQLite timing certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "sqliteTransactionUpperBound",
+        "sequence": 3,
+        "rawValue": 611.5900278091431,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 50,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-feedback upper bound; not isolated SQLite timing certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "sqliteTransactionUpperBound",
+        "sequence": 4,
+        "rawValue": 595.168948173523,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 50,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-feedback upper bound; not isolated SQLite timing certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "sqliteTransactionUpperBound",
+        "sequence": 5,
+        "rawValue": 631.242036819458,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 50,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-feedback upper bound; not isolated SQLite timing certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "sqliteTransactionUpperBound",
+        "sequence": 6,
+        "rawValue": 577.9869556427002,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 50,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-feedback upper bound; not isolated SQLite timing certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "sqliteTransactionUpperBound",
+        "sequence": 7,
+        "rawValue": 786.5250110626221,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 50,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-feedback upper bound; not isolated SQLite timing certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "sqliteTransactionUpperBound",
+        "sequence": 8,
+        "rawValue": 555.0510883331299,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 50,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-feedback upper bound; not isolated SQLite timing certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "sqliteTransactionUpperBound",
+        "sequence": 9,
+        "rawValue": 601.8980741500854,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 50,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-feedback upper bound; not isolated SQLite timing certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "sqliteTransactionUpperBound",
+        "sequence": 10,
+        "rawValue": 595.7299470901489,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 50,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "submit-to-feedback upper bound; not isolated SQLite timing certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "audioStart",
+        "sequence": 1,
+        "rawValue": 1588.230013847351,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 250,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "fresh local player to visible playing; not p95 certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "audioStart",
+        "sequence": 2,
+        "rawValue": 390.8599615097046,
+        "unit": "ms",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 250,
+          "unit": "ms",
+          "source": "frozen source design section 18"
+        },
+        "label": "fresh local player to visible playing; not p95 certification",
+        "result": "investigation-required"
+      },
+      {
+        "kind": "nativePayload",
+        "sequence": 1,
+        "rawValue": 18215685,
+        "unit": "bytes",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 125829120,
+          "unit": "bytes",
+          "source": "frozen source design section 18"
+        },
+        "label": "raw unsigned native payload; not compressed store download",
+        "result": "pass"
+      },
+      {
+        "kind": "localDatabase",
+        "sequence": 1,
+        "rawValue": 534912,
+        "unit": "bytes",
+        "comparator": {
+          "operator": "less-than-or-equal",
+          "threshold": 20971520,
+          "unit": "bytes",
+          "source": "frozen source design section 18"
+        },
+        "label": "raw local database; not compacted backup.sqlite",
+        "result": "pass"
+      }
+    ],
+    "technicalOutcome": "investigation-required"
+  },
+  "applicationCheckpoint": {
+    "commit": "9f4820e0ab95c51b0d390ff9b7d472da9a4e9a62",
+    "tree": "8235d76c6ab2d2ed6e323f9754cf2511c3a577db"
+  },
+  "bundleInput": {
+    "kind": "directory-sha256",
+    "sha256": "35d184b6109621c34493045f6bdd12768020d95a41ba50f9043a5cbc1b6a5ae8",
+    "fileCount": 64,
+    "byteSize": 18215685
+  }
+}

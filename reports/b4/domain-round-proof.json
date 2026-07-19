@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "productIdentifier": "b4-starter-product",
+  "entryAuthority": {
+    "planPath": "docs/superpowers/plans/2026-07-18-standalone-spelling-mobile-b4-capacitor-development-certification.md",
+    "planSha256": "6e32b3203277ad269223929223b976b6e6c0533e3a0745a02dab5dae7b7153c5",
+    "b3MergedMainCommit": "c6fedd9f554a2873fb993ad4ae21e0cde54cba9d",
+    "b3MergedTree": "4802611ff79ea6d56bb78f25f65eed4826159d22"
+  },
+  "applicationCheckpoint": {
+    "commit": "9f4820e0ab95c51b0d390ff9b7d472da9a4e9a62",
+    "tree": "8235d76c6ab2d2ed6e323f9754cf2511c3a577db"
+  },
+  "characterisation": {
+    "randomSeed": 42,
+    "runtimeItemIds": [
+      "ks2-core:answer",
+      "ks2-core:appear",
+      "ks2-core:arrive",
+      "ks2-core:bicycle",
+      "ks2-core:build"
+    ],
+    "commandCount": 21,
+    "commandTraceSha256": "d705e6f9181f44aeb29b3269d94e0c3a6d06df66bf2cd64595d124e73387c57e",
+    "sentencePromptCount": 10,
+    "sentencePromptsSha256": "c8cde219638b5b41f58d37cadeb8c366ea57165b96807da9bb03ff4a04e9fee7",
+    "summarySha256": "7ea976c446e18cfdf21ccaf268d250e378af6b278733ab24c6bc07e754a6c329"
+  },
+  "audioAuthority": {
+    "manifestSha256": "264d5133364e08aedc0e4045836dd05d0fa9feb54a022f497e391f44cf244af8",
+    "authoritySha256": "3bf250b12f31c22ecef511f940e18d48959443e110d38ff7123d7a18253b2fae",
+    "traceSha256": "407d7142d4ec5a021ffad210ce7aeba02f4a7b838d801c872c47100a1ec36c37",
+    "assetCount": 25
+  },
+  "outcomes": {
+    "composition": "pass",
+    "deterministicRound": "pass",
+    "audioAuthority": "pass"
+  }
+}

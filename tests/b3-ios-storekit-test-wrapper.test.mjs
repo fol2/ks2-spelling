@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  assertCompletedStoreKitTimeoutEvidence,
   assertStoreKitConfiguration,
   assertExecutedStoreKitEvidence,
   parseAvailableIosSimulators,
@@ -43,7 +44,11 @@ test('the B3 StoreKit proof command is explicitly a non-live Xcode StoreKit Test
   assert.match(source, /timeoutMs:\s*STOREKIT_TEST_TIMEOUT_MS/);
   assert.match(source, /simulatorResult\.timedOut[\s\S]*?'storekit_simulator_timeout'/);
   assert.match(source, /buildResult\.timedOut[\s\S]*?'storekit_build_timeout'/);
-  assert.match(source, /result\.timedOut[\s\S]*?'storekit_test_timeout'/);
+  assert.match(
+    source,
+    /result\.timedOut[\s\S]*?assertCompletedStoreKitTimeoutEvidence\(executionOutput, transcript\)/,
+  );
+  assert.match(source, /completed-suite-before-xcode-process-timeout/);
   assert.doesNotMatch(source, /platform=iOS(?:,|$)(?! Simulator)/m);
   assert.doesNotMatch(source, /mobileprovision|App Store Connect|sandbox account/i);
 });
@@ -149,4 +154,46 @@ test('the wrapper derives exact observations from executed test output and fails
     () => assertStoreKitConfiguration(storeKitConfiguration, 'full_ks2'),
     ({ code }) => code === 'storekit_configuration_mismatch',
   );
+});
+
+test('the wrapper accepts only a fully completed StoreKit suite when Xcode lingers', async () => {
+  const transcript = JSON.parse(
+    await readFile(new URL('tests/fixtures/storekit-bridge-transcript.json', ROOT), 'utf8'),
+  );
+  const completed = [
+    "Test Case '-[AppTests.B3StoreKitDelayedTests testDelayedApproveProducesVerifiedPurchasedObservation]' started.",
+    `B3_STOREKIT_OBSERVATION case=delayed-approve productId=${transcript.productId} initial=pending final=purchased verifiedProof=true`,
+    "Test Case '-[AppTests.B3StoreKitDelayedTests testDelayedApproveProducesVerifiedPurchasedObservation]' passed (9.702 seconds).",
+    "Test Case '-[AppTests.B3StoreKitDelayedTests testDelayedDeclineProducesNoPurchasedEntitlement]' started.",
+    `B3_STOREKIT_OBSERVATION case=delayed-decline productId=${transcript.productId} initial=pending final=cancelled verifiedProof=false`,
+    "Test Case '-[AppTests.B3StoreKitDelayedTests testDelayedDeclineProducesNoPurchasedEntitlement]' passed (5.504 seconds).",
+    "Test Suite 'B3StoreKitDelayedTests' passed at 2026-07-18 22:01:41.703.",
+    '\t Executed 2 tests, with 0 failures (0 unexpected) in 15.206 (15.207) seconds',
+  ].join('\n');
+
+  assert.equal(assertCompletedStoreKitTimeoutEvidence(completed, transcript).length, 2);
+  const selectedSuiteSummary = completed.split('\n').slice(-2).join('\n');
+  const duplicatePassedCase =
+    "Test Case '-[AppTests.B3StoreKitDelayedTests testDelayedApproveProducesVerifiedPurchasedObservation]' passed (9.702 seconds).";
+  for (const contradictory of [
+    `${completed}\n${selectedSuiteSummary}`,
+    `${completed}\nTest Suite 'B3StoreKitDelayedTests' failed at 2026-07-18 22:01:42.703.\n\t Executed 2 tests, with 1 failure (0 unexpected) in 15.206 (15.207) seconds`,
+    `${completed}\n${duplicatePassedCase}`,
+  ]) {
+    assert.throws(
+      () => assertCompletedStoreKitTimeoutEvidence(contradictory, transcript),
+      ({ code }) => code === 'storekit_test_timeout',
+    );
+  }
+  for (const incomplete of [
+    completed.replace("Test Suite 'B3StoreKitDelayedTests' passed", "Test Suite 'B3StoreKitDelayedTests' failed"),
+    completed.replace('Executed 2 tests, with 0 failures (0 unexpected)', 'Executed 2 tests, with 1 failure (0 unexpected)'),
+    completed.replace("Test Case '-[AppTests.B3StoreKitDelayedTests testDelayedDeclineProducesNoPurchasedEntitlement]' passed (5.504 seconds).", ''),
+    completed.replace('verifiedProof=true', 'verifiedProof=false'),
+  ]) {
+    assert.throws(
+      () => assertCompletedStoreKitTimeoutEvidence(incomplete, transcript),
+      ({ code }) => code === 'storekit_test_timeout',
+    );
+  }
 });

@@ -185,7 +185,10 @@ hosted Simulator readiness phase, allowed up to five minutes, and
 `build-for-testing`, allowed up to ten minutes, from a bounded
 `test-without-building`. The latter consumes the generated `.xctestrun` manifest
 instead of reloading the project graph. Execution is allowed 90 seconds while
-preserving the 20/30-second XCTest limits.
+preserving the 20/30-second XCTest limits. A process that lingers after that bound
+is accepted only when XCTest has already recorded both selected cases as passed,
+the selected suite as exactly two tests with zero failures, and both closed
+observations; every incomplete, failed or ambiguous timeout remains fail-closed.
 
 ### T4 — Document the checkpoint boundary
 

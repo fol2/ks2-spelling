@@ -5,14 +5,14 @@
     "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "spmResolvedVersion": 3,
     "nativePluginBuildSha256": "a72e95958e287be21f34588a167f12fd59058ab003dfe3f559b3ba244988a6f9",
-    "webViewBundleEvidenceSha256": "043bed0532f116430767cf79ce2d87edbc21e7c45812cfc4fb0aee816802550c"
+    "webViewBundleEvidenceSha256": "2000f04e4791fd9fd6d99648a7af4c79a66b102f4e07c2a0b6820c69325b666a"
   },
   "npm": {
     "lockfileVersion": 3,
     "lockPackageCount": 189,
     "webViewBundle": {
       "mode": "vite-rollup-write-false",
-      "moduleCount": 107,
+      "moduleCount": 115,
       "packageNames": [
         "@capacitor-community/sqlite",
         "@capacitor/app",
@@ -65,6 +65,18 @@
           "kind": "file",
           "npmLocator": null,
           "sha256": "5449b0052d78abd1aa6e8a3bbab62cbe62de151288ec0cf6f38dde6e20a908b4"
+        },
+        {
+          "id": "config/b4-audio-authority.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "077dfbfc6b7310a37d5444cda5e7fdb8a29cb552913adf7a3a08ad976d2d3f01"
+        },
+        {
+          "id": "config/b4-audio-manifest.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "8307d3816266443d44f25e613c66cba65032e79f3404c7f72e25dcd396984ab5"
         },
         {
           "id": "config/pack-signing-public-keys.json",
@@ -184,13 +196,13 @@
           "id": "src/app/App.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "78ec459d3b4f604a35dc0bfc7efd4ef4baf76f838adfd0713b8fc3d17d7a65a3"
+          "sha256": "0a815942b6ca0dbddcbec0786061b9ae0473d3ccd9d32920706fbf3a962905a4"
         },
         {
           "id": "src/app/app.css",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "01f0f4bf2e113ec42b6a8dcc8ff6da90ec317503bbad871413a5603f72b1c08e"
+          "sha256": "2e74ba1defa53459589165a4150e8bd1cc1c1d70ae213cd9d73167c23cd26f22"
         },
         {
           "id": "src/app/b2-proof-controller.js",
@@ -223,6 +235,30 @@
           "sha256": "b280b072bf6df589f0a855c2a16e99368a2904c747a45d9aa4aef9e96fd70554"
         },
         {
+          "id": "src/app/b4-learner-action.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "3ec820860b2a96a7c2f1872d9b5e4747b6878cf5605468c5e74315e1beb34873"
+        },
+        {
+          "id": "src/app/b4-local-audio.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "73e759fd811a01a701a0b0e2a3f76fefa1355668ff05754b7ebe88420bc83e7d"
+        },
+        {
+          "id": "src/app/b4-round-contract.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "bded2088c1af3fb347391ef150a25db5a2d06dc347c8763d1e938b6c1095deab"
+        },
+        {
+          "id": "src/app/b4-round-controller.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "a8310af2280f0375ad56e4ee4ac8bc972a1ec4cc8383cbe9716a7cf136b536bc"
+        },
+        {
           "id": "src/app/commerce-reconciler.js",
           "kind": "file",
           "npmLocator": null,
@@ -232,19 +268,25 @@
           "id": "src/app/create-app-services.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "77edd0e0b4d735d23c82f40c4e3a6b058d3c424e84fe1c6b7173eca9eba2a2e0"
+          "sha256": "6302fe51d4a9a0c92e561c553d522a2e512205318a175b789134b4e390c5520f"
         },
         {
           "id": "src/app/create-b2-app-services.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "58959afcdf7b894badd5a20d503f61de80fbb80f051a8ede75eb05f0bff61501"
+          "sha256": "3644c92157b38af87f263c8a0a51051cec665aec77bf3d43cc4778c8956a1799"
         },
         {
           "id": "src/app/create-b3-app-services.js",
           "kind": "file",
           "npmLocator": null,
           "sha256": "fc52c3886a8f0c63a6746143333b3e75debbc1f057cd4a4bf5f7fa0f1a187458"
+        },
+        {
+          "id": "src/app/create-b4-app-services.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "534b00898643ece77ef586b48f1a76e3682737562c385aa75497e2730787352a"
         },
         {
           "id": "src/app/database-lifecycle-coordinator.js",
@@ -275,6 +317,12 @@
           "kind": "file",
           "npmLocator": null,
           "sha256": "89b8be35dae253d614108deb3428d5c285b2eaeefb466589c67e07299a78311e"
+        },
+        {
+          "id": "src/app/switchable-sql-connection.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "f641d6a8f543285e6f25f416635f8ecf1ec806649f830ba28f34f625b82bf014"
         },
         {
           "id": "src/domain/commerce/commerce-contracts.js",
@@ -328,7 +376,7 @@
           "id": "src/main.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "b79f091e450785334b1fddd63ea3ca80e66f513ed06fe58438d2288198cd9ea2"
+          "sha256": "6cfae3d2b1ceda4500914bf24cc8c251aff1a9716aa50ca0542efd9fe15b7d9a"
         },
         {
           "id": "src/platform/commerce/capacitor-store.js",
@@ -675,32 +723,37 @@
       ],
       "outputInventory": [
         {
-          "fileName": "assets/index-BeLyIKEd.css",
+          "fileName": "assets/b4-audio-manifest-CtukroTL.js",
+          "kind": "chunk",
+          "sha256": "f6f509e08ad4fa25e565a5c5993e3a1496254483b95c166bca624f000ff1c2cf"
+        },
+        {
+          "fileName": "assets/index-8mfvoroy.css",
           "kind": "asset",
-          "sha256": "61cf1c7a20158a534da47c5bb453604b8d0ca9d8d5aac9d1d450942de33af3f1"
+          "sha256": "09fae0aaa4aa7bc9cc743c1d8f2ede4a6f9ddbf48ebbdf7305bf1bdbeefda8cc"
         },
         {
-          "fileName": "assets/index-ri-vSev_.js",
+          "fileName": "assets/index-Ct3t9pZ_.js",
           "kind": "chunk",
-          "sha256": "8736b2055bcb7d929b2372f44641934aee1fe28d7357fe9cfd8b42aa0255389a"
+          "sha256": "c93e35056b20b9ae43f61c7568d459442c809ba3ab4dbf0235db688d439f8f5a"
         },
         {
-          "fileName": "assets/web-B981aNzd.js",
+          "fileName": "assets/web-DamFAhBk.js",
           "kind": "chunk",
-          "sha256": "6d16c638bbfb3e1418c2d9e9e799c0b01c316cc4bb066297db6f7a981b5268d4"
+          "sha256": "ee5f56735a5b6d232fea9489b079ba752364c6bb296dbd136de03eb57f124a2c"
         },
         {
-          "fileName": "assets/web-DY6F8oeQ.js",
+          "fileName": "assets/web-DEdot-l7.js",
           "kind": "chunk",
-          "sha256": "0ecf85811c4d7a27cdb4aa77ff28948c37954399a904972bc5da5b9dcd8f3ae3"
+          "sha256": "6ca80e067ebb14501e890f989092e3c18b3ba1df78bebc2743ecf94fe54a1ced"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "ef0ba9d148bf30caa0882ffbef729a68431bf6b69af7817079004de34a636902"
+          "sha256": "1193d44db5adc71215c560e8b6a0ede7caa16ec4b3d5081d34168af06794fab7"
         }
       ],
-      "evidenceSha256": "043bed0532f116430767cf79ce2d87edbc21e7c45812cfc4fb0aee816802550c"
+      "evidenceSha256": "2000f04e4791fd9fd6d99648a7af4c79a66b102f4e07c2a0b6820c69325b666a"
     },
     "allPackages": [
       {
@@ -4139,7 +4192,7 @@
         "restrictedClassification": "none",
         "exportClassification": "SQLCipher is packaged; US export classification remains unresolved before store release",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@capacitor-community/sqlite"
       },
       {
@@ -4164,7 +4217,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@capacitor/android"
       },
       {
@@ -4189,7 +4242,7 @@
         "restrictedClassification": "none",
         "exportClassification": "None identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@capacitor/app"
       },
       {
@@ -4214,7 +4267,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@capacitor/core"
       },
       {
@@ -4239,7 +4292,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@capacitor/ios"
       },
       {
@@ -4264,7 +4317,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@rollup/rollup-darwin-arm64"
       },
       {
@@ -4289,7 +4342,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@rollup/rollup-darwin-x64"
       },
       {
@@ -4314,7 +4367,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@rollup/rollup-linux-arm64-gnu"
       },
       {
@@ -4339,7 +4392,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@rollup/rollup-linux-arm64-musl"
       },
       {
@@ -4364,7 +4417,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@rollup/rollup-linux-x64-gnu"
       },
       {
@@ -4389,7 +4442,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@rollup/rollup-linux-x64-musl"
       },
       {
@@ -4414,7 +4467,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@rollup/rollup-win32-arm64-msvc"
       },
       {
@@ -4439,7 +4492,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@rollup/rollup-win32-x64-msvc"
       },
       {
@@ -4464,7 +4517,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/@stencil/core"
       },
       {
@@ -4489,7 +4542,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/browser-fs-access"
       },
       {
@@ -4514,7 +4567,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/core-util-is"
       },
       {
@@ -4539,7 +4592,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/immediate"
       },
       {
@@ -4564,7 +4617,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/inherits"
       },
       {
@@ -4589,7 +4642,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/isarray"
       },
       {
@@ -4614,7 +4667,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/jeep-sqlite"
       },
       {
@@ -4639,7 +4692,7 @@
         "restrictedClassification": "exact-licence-notice-override",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/jszip"
       },
       {
@@ -4664,7 +4717,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/lie"
       },
       {
@@ -4689,7 +4742,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/localforage/node_modules/lie"
       },
       {
@@ -4714,7 +4767,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/localforage"
       },
       {
@@ -4739,7 +4792,7 @@
         "restrictedClassification": "exact-licence-notice-override",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/pako"
       },
       {
@@ -4764,7 +4817,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/process-nextick-args"
       },
       {
@@ -4789,7 +4842,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/react"
       },
       {
@@ -4814,7 +4867,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/react-dom"
       },
       {
@@ -4839,7 +4892,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/jszip/node_modules/readable-stream"
       },
       {
@@ -4864,7 +4917,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/jszip/node_modules/safe-buffer"
       },
       {
@@ -4889,7 +4942,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/scheduler"
       },
       {
@@ -4914,7 +4967,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/setimmediate"
       },
       {
@@ -4939,7 +4992,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/sql.js"
       },
       {
@@ -4964,7 +5017,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/jszip/node_modules/string_decoder"
       },
       {
@@ -4989,7 +5042,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/tslib"
       },
       {
@@ -5014,7 +5067,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15",
+        "reviewDate": "2026-07-18",
         "locator": "node_modules/util-deprecate"
       }
     ],
@@ -5041,7 +5094,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15"
+        "reviewDate": "2026-07-18"
       },
       {
         "name": "@vitejs/plugin-react",
@@ -5065,7 +5118,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15"
+        "reviewDate": "2026-07-18"
       },
       {
         "name": "oxlint",
@@ -5089,7 +5142,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15"
+        "reviewDate": "2026-07-18"
       },
       {
         "name": "vite",
@@ -5113,7 +5166,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-15"
+        "reviewDate": "2026-07-18"
       }
     ]
   },
@@ -5140,7 +5193,7 @@
       "applePrivacyManifest": "Capacitor and Cordova framework privacy manifests supplied",
       "googleDataSafety": "Not applicable",
       "owner": "KS2 Spelling maintainer",
-      "reviewDate": "2026-07-15",
+      "reviewDate": "2026-07-18",
       "privacyManifests": [
         "node_modules/@capacitor/ios/Capacitor/Capacitor/PrivacyInfo.xcprivacy",
         "node_modules/@capacitor/ios/CapacitorCordova/CapacitorCordova/PrivacyInfo.xcprivacy"
@@ -5168,7 +5221,7 @@
       "applePrivacyManifest": "Local database implementation; the current app opens it in no-encryption mode",
       "googleDataSafety": "Not applicable",
       "owner": "KS2 Spelling maintainer",
-      "reviewDate": "2026-07-15"
+      "reviewDate": "2026-07-18"
     },
     {
       "identity": "zipfoundation",
@@ -5192,7 +5245,7 @@
       "applePrivacyManifest": "No data collection or transmission",
       "googleDataSafety": "Not applicable",
       "owner": "KS2 Spelling maintainer",
-      "reviewDate": "2026-07-15"
+      "reviewDate": "2026-07-18"
     }
   ],
   "ios": {
@@ -5255,15 +5308,15 @@
   "android": {
     "schemaVersion": 1,
     "mode": "resolved-toolchain",
-    "componentCount": 326,
-    "scopeMembershipCount": 5568,
+    "componentCount": 327,
+    "scopeMembershipCount": 5570,
     "packagedRuntimeCount": 74,
     "scopeRestrictedToolingCount": 25,
     "taskCreatedBuildToolCount": 13,
     "generatedFrom": [
       {
         "path": "package.json",
-        "sha256": "7ee56ff4b4d385e43f0be04ce7622efe412084f72a99a5582bc588bbb498a551"
+        "sha256": "54f3e0febad3e84c2be1e7ee3cd4a3a3126358c8a09b03e55dcef735fccbff53"
       },
       {
         "path": "scripts/certify-android-dependencies.mjs",
@@ -5279,7 +5332,7 @@
       },
       {
         "path": "config/dependency-policy.json",
-        "sha256": "6bb79b4dc87745882b396db43f355b28d68a5a32b4ec3d4cad2585c39d9eb808"
+        "sha256": "a3dca7b7ad2aba35082cc8193e7523562054cd6cd3ab001bc5480e12cf6a441d"
       },
       {
         "path": "config/maven-licence-policy.json",
@@ -5291,11 +5344,11 @@
       },
       {
         "path": "android/gradle/verification-metadata.xml",
-        "sha256": "e5739ef7e6033bffea4606a3e2396c95c52f1a58636b5ab6cf90b733677834f4"
+        "sha256": "8e9396986f3e9fa6ba0d6acc51a1192ce242155322ac2dc8d167cbb543aa4088"
       },
       {
         "path": "android/gradle/dependency-locks/app.lockfile",
-        "sha256": "5292621d9c0b50de32c18c928e572d797b172b91b44d36a06b90c481815a97fd"
+        "sha256": "35696befbea0ebdab10cf9ee8aad4bae30b44ce075dc47826b4e5724acc420db"
       },
       {
         "path": "android/gradle/dependency-locks/capacitor-android.lockfile",
@@ -5317,7 +5370,7 @@
     "lockfiles": [
       {
         "path": "android/gradle/dependency-locks/app.lockfile",
-        "sha256": "5292621d9c0b50de32c18c928e572d797b172b91b44d36a06b90c481815a97fd"
+        "sha256": "35696befbea0ebdab10cf9ee8aad4bae30b44ce075dc47826b4e5724acc420db"
       },
       {
         "path": "android/gradle/dependency-locks/capacitor-android.lockfile",
@@ -16725,6 +16778,63 @@
           "pom": {
             "sha256": "8e5d72e2bceef6ef807bc38834dbc7aa53177fd20da349f53dce5a4f2a028bbf",
             "sourceUrl": "https://dl.google.com/dl/android/maven2/androidx/test/services/storage/1.6.0/storage-1.6.0.pom",
+            "repository": "https://dl.google.com/dl/android/maven2/"
+          }
+        }
+      },
+      {
+        "coordinate": "androidx.test.uiautomator:uiautomator:2.3.0",
+        "group": "androidx.test.uiautomator",
+        "name": "uiautomator",
+        "version": "2.3.0",
+        "scopes": [
+          {
+            "project": ":app",
+            "configuration": "debugAndroidTestCompileClasspath",
+            "buildscript": false
+          },
+          {
+            "project": ":app",
+            "configuration": "debugAndroidTestRuntimeClasspath",
+            "buildscript": false
+          }
+        ],
+        "artifacts": [
+          {
+            "name": "uiautomator-2.3.0.aar",
+            "sha256": "884c675c336b663f53a1d0de440642ee80d2bdf9d0049abdae2a3ecd5e6320fc",
+            "sourceUrl": "https://dl.google.com/dl/android/maven2/androidx/test/uiautomator/uiautomator/2.3.0/uiautomator-2.3.0.aar"
+          }
+        ],
+        "pom": {
+          "sha256": "9608320331d20afcf2f79bcd8ae1bc3d8fd8ee95c8b7ae77f0b4b36b42bee472",
+          "repository": "https://dl.google.com/dl/android/maven2/",
+          "sourceUrl": "https://dl.google.com/dl/android/maven2/androidx/test/uiautomator/uiautomator/2.3.0/uiautomator-2.3.0.pom"
+        },
+        "distribution": "tooling-or-test-only",
+        "packaged": false,
+        "privacyRole": "Build or test only",
+        "restrictedClassification": "any",
+        "exportClassification": "none-identified",
+        "licence": {
+          "expression": "Apache-2.0",
+          "scopePolicy": "any",
+          "entrySignatures": [
+            "sha256:821ed8c190738556daf02a67020b48b29ddf8b479a534826981806e58de36b9b"
+          ],
+          "rawDeclarations": [
+            {
+              "name": "The Apache Software License, Version 2.0",
+              "url": "http://www.apache.org/licenses/LICENSE-2.0.txt",
+              "distribution": "repo",
+              "comments": ""
+            }
+          ],
+          "declaredBy": "androidx.test.uiautomator:uiautomator:2.3.0",
+          "inherited": false,
+          "pom": {
+            "sha256": "9608320331d20afcf2f79bcd8ae1bc3d8fd8ee95c8b7ae77f0b4b36b42bee472",
+            "sourceUrl": "https://dl.google.com/dl/android/maven2/androidx/test/uiautomator/uiautomator/2.3.0/uiautomator-2.3.0.pom",
             "repository": "https://dl.google.com/dl/android/maven2/"
           }
         }
@@ -49539,6 +49649,13 @@
         "selectedModule": true
       },
       {
+        "coordinate": "androidx.test.uiautomator:uiautomator:2.3.0",
+        "sha256": "9608320331d20afcf2f79bcd8ae1bc3d8fd8ee95c8b7ae77f0b4b36b42bee472",
+        "repository": "https://dl.google.com/dl/android/maven2/",
+        "sourceUrl": "https://dl.google.com/dl/android/maven2/androidx/test/uiautomator/uiautomator/2.3.0/uiautomator-2.3.0.pom",
+        "selectedModule": true
+      },
+      {
         "coordinate": "androidx.tracing:tracing:1.0.0",
         "sha256": "cd0299a90d4720d78f1cfb5ff7505f4dbc1a70d05fe23fd9f4d4b77ea59ca05e",
         "repository": "https://dl.google.com/dl/android/maven2/",
@@ -51746,8 +51863,8 @@
         "trustedKeys": [],
         "ignoredKeys": []
       },
-      "componentCount": 441,
-      "artifactCount": 875,
+      "componentCount": 442,
+      "artifactCount": 878,
       "components": [
         {
           "coordinate": "androidx.activity:activity:1.11.0",
@@ -53349,6 +53466,27 @@
             {
               "name": "storage-1.6.0.pom",
               "sha256": "8e5d72e2bceef6ef807bc38834dbc7aa53177fd20da349f53dce5a4f2a028bbf"
+            }
+          ],
+          "reason": "selected-module"
+        },
+        {
+          "coordinate": "androidx.test.uiautomator:uiautomator:2.3.0",
+          "group": "androidx.test.uiautomator",
+          "name": "uiautomator",
+          "version": "2.3.0",
+          "artifacts": [
+            {
+              "name": "uiautomator-2.3.0.aar",
+              "sha256": "884c675c336b663f53a1d0de440642ee80d2bdf9d0049abdae2a3ecd5e6320fc"
+            },
+            {
+              "name": "uiautomator-2.3.0.module",
+              "sha256": "639b1bbaae4eaa538675ba9866a55888e08d640440f0911e26667553b2af3f71"
+            },
+            {
+              "name": "uiautomator-2.3.0.pom",
+              "sha256": "9608320331d20afcf2f79bcd8ae1bc3d8fd8ee95c8b7ae77f0b4b36b42bee472"
             }
           ],
           "reason": "selected-module"
@@ -59233,18 +59371,18 @@
   "androidResolution": {
     "status": "resolved-toolchain",
     "evidencePath": "live-locked-policy",
-    "componentCount": 326,
-    "scopeMembershipCount": 5568,
+    "componentCount": 327,
+    "scopeMembershipCount": 5570,
     "packagedRuntimeCount": 74,
     "scopeRestrictedToolingCount": 25,
     "taskCreatedBuildToolCount": 13,
-    "verificationComponentCount": 441,
-    "verificationArtifactCount": 875
+    "verificationComponentCount": 442,
+    "verificationArtifactCount": 878
   },
   "gradleInputs": [
     {
       "path": "android/app/build.gradle",
-      "sha256": "86823fcec7e308b70d829f706f4b36d2f6fde25093bda9fe7b94b7641d3390ce"
+      "sha256": "7adc2b3507949f1754c8d217122c3c7bae125fda87b8ac49162e6341eaccbc8a"
     },
     {
       "path": "android/app/capacitor.build.gradle",
@@ -59415,6 +59553,13 @@
       "coordinate": "androidx.test.espresso:espresso-core",
       "version": "3.7.0",
       "scope": "instrumented test declaration",
+      "resolution": "resolved-toolchain",
+      "distribution": "tooling-or-test-only"
+    },
+    {
+      "coordinate": "androidx.test.uiautomator:uiautomator",
+      "version": "2.3.0",
+      "scope": "B4 instrumented test declaration",
       "resolution": "resolved-toolchain",
       "distribution": "tooling-or-test-only"
     },

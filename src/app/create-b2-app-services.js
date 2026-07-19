@@ -9,7 +9,6 @@ import {
   SCHEMA_VERSION as B2_PROOF_SCHEMA_VERSION,
 } from '../platform/database/schema-v1.js';
 import { SCHEMA_VERSION as DATABASE_SCHEMA_VERSION } from '../platform/database/schema-v2.js';
-import { assertSqlConnection } from '../platform/database/sql-connection-contract.js';
 import { createSQLiteSpellingCommandRepository } from '../platform/database/sqlite-spelling-command-repository.js';
 import { createSQLiteSpellingSnapshotStore } from '../platform/database/sqlite-spelling-snapshot-store.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
@@ -20,6 +19,7 @@ import {
   createB2ProofController,
 } from './b2-proof-controller.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
+import { createSwitchableSqlConnection } from './switchable-sql-connection.js';
 
 const START_TIMESTAMP = 1_768_478_400_000;
 const MIGRATION_FAILURE_STEP = 2;
@@ -42,62 +42,6 @@ function userVersionFrom(rows) {
     throw serviceError('b2_user_version_invalid');
   }
   return rows[0].user_version;
-}
-
-function createSwitchableConnection(connectionFactory) {
-  if (typeof connectionFactory !== 'function') {
-    throw new TypeError('connectionFactory must be a function.');
-  }
-  let active = null;
-
-  function requireActive() {
-    if (active === null) throw serviceError('b2_database_connection_closed');
-    return active;
-  }
-
-  return assertSqlConnection(
-    Object.freeze({
-      async open() {
-        if (active !== null) return;
-        const candidate = assertSqlConnection(await connectionFactory());
-        try {
-          await candidate.open();
-          active = candidate;
-        } catch (error) {
-          try {
-            await candidate.close();
-          } catch {
-            // The opening error remains the authoritative diagnostic.
-          }
-          throw error;
-        }
-      },
-      async close() {
-        if (active === null) return;
-        const closing = active;
-        await closing.close();
-        if (active === closing) active = null;
-      },
-      async execute(sql, values) {
-        return requireActive().execute(sql, values);
-      },
-      async query(sql, values) {
-        return requireActive().query(sql, values);
-      },
-      async begin() {
-        return requireActive().begin();
-      },
-      async commit() {
-        return requireActive().commit();
-      },
-      async rollback() {
-        return requireActive().rollback();
-      },
-      async isTransactionActive() {
-        return requireActive().isTransactionActive();
-      },
-    }),
-  );
 }
 
 async function proveFreshMigrationRollback(connection, migrate) {
@@ -284,7 +228,7 @@ export async function createB2AppServices(options = {}) {
       options.connectionFactory ?? (() => createCapacitorSqliteConnection());
     const migrate = options.migrate ?? configureAndMigrateDatabase;
     const seed = options.seed ?? seedB2Learners;
-    connection = createSwitchableConnection(connectionFactory);
+    connection = createSwitchableSqlConnection(connectionFactory);
     const catalogue = loadStarterSpellingCatalogue();
     if (catalogue.items.length !== 20) {
       throw serviceError('b2_starter_catalogue_count_invalid');

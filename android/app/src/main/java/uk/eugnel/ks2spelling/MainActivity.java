@@ -4,17 +4,35 @@ import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.Plugin;
 import android.content.Intent;
 import android.os.Bundle;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Scanner;
 
 public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        registerPlugin(PackTransferPlugin.class);
-        registerPlugin(CommercePlugin.class);
+        if (!isOfflineB4Bundle()) {
+            registerPlugin(PackTransferPlugin.class);
+            registerPlugin(CommercePlugin.class);
+        }
         if (BuildConfig.B3_SANDBOX_PROOF) {
             registerPlugin(BuildAuthorityPlugin.class);
             registerB3ProofObservationPlugin();
         }
         super.onCreate(savedInstanceState);
+    }
+
+    private boolean isOfflineB4Bundle() {
+        try (Scanner scanner = new Scanner(
+            getAssets().open("public/index.html"),
+            StandardCharsets.UTF_8.name()
+        )) {
+            String source = scanner.useDelimiter("\\A").hasNext() ? scanner.next() : "";
+            return source.contains("name=\"ks2-spelling-build-mode\"") &&
+                source.contains("content=\"B4Development\"");
+        } catch (IOException error) {
+            return false;
+        }
     }
 
     @Override

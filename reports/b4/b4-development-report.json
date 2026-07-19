@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "productIdentifier": "b4-starter-product",
   "applicationCheckpoint": {
-    "commit": "ba22251c52975d0bc3610651d0d93cb21be6d66d",
-    "tree": "5df90570eb7964d97fcb122f3271415bcdcf6994"
+    "commit": "4e46527bf7fec605ef350279cf8c79edff5b07b9",
+    "tree": "39fe701db4d009a560a22b85bd537f2c47714652"
   },
   "bundleInputs": {
     "ios": {
@@ -19,15 +19,15 @@
     }
   },
   "evidenceSha256": {
-    "reports/b4/domain-round-proof.json": "cf56506deb9fb7f542751a2bfa4b8281660e7ede6a43af6d115f0f261d72111d",
-    "reports/b4/ios-simulator-proof.json": "e83995e6e4412eb0f4163a581b0f3ee3e944ba2feeafd1982b173bfa64a4c55b",
-    "reports/b4/ios-phone.png": "70b3a78a94b75aef7c450862277f51106662cfc2431d0176cf885f293ed20396",
-    "reports/b4/ios-tablet-portrait.png": "640fed88502e5b6c89cfdf88f73f00494b8ba79f0ee0877e804f23ea9cee10a2",
-    "reports/b4/ios-tablet-landscape.png": "d445f621172133ad93f97441f941ee2b51a32751868e39129d44accb1d3cd9b0",
-    "reports/b4/android-emulator-proof.json": "8f1948ffa56863054ca0af5361cebb0967e6d5519334ab8fcaed41f2c6fa8d6e",
-    "reports/b4/android-phone.png": "e175b13d9b983a4219865e41c02e2aa20522eaff7ba10d81c5c2893d55e81492",
-    "reports/b4/android-tablet-portrait.png": "ed9428f825e013c868d44f88c6fbcbfba5865d2e4ec1b0c2b37bf05c6c27d613",
-    "reports/b4/android-tablet-landscape.png": "f725c0a267ec68726634a9fe73aa2c790404edbf215c93f22bd6a2bf1140e75d"
+    "reports/b4/domain-round-proof.json": "116d7ac01412fc0e76b84f20d57331e5c323b62993bc4c0b3b937612f86ecea8",
+    "reports/b4/ios-simulator-proof.json": "5e38856584e81a17d5a242182cfc2b64b732d214803e0ed94214d58e2e5b2249",
+    "reports/b4/ios-phone.png": "a4832b7c3a2ef36c6f120c582b35494f9ec7b85aaa08d398b924801016d964ba",
+    "reports/b4/ios-tablet-portrait.png": "a0df34550078d443d41bb97fdd71759d6a1b408644de7344702088f7859389f4",
+    "reports/b4/ios-tablet-landscape.png": "d29649e9f915f0ae137f1a3536be1126628c73ad5962da58a161ce5e7ca1343c",
+    "reports/b4/android-emulator-proof.json": "35df5ffee86fa0232fa70d83ae5708822b1c1f120cc42e72593072220dea44b2",
+    "reports/b4/android-phone.png": "fd64e4c5c84f351edfc96e7ad9907b7a7b5d87e55d07b151b748d9ece2842796",
+    "reports/b4/android-tablet-portrait.png": "dc7fec443fd41b4396f05c30e6d2b2db44d0319c3c8722819f483fa008271d78",
+    "reports/b4/android-tablet-landscape.png": "261726db8d9d970cdc02410f19faf21f13a07e4ab7f94f711f7569af3824c687"
   },
   "claims": {
     "composition": "pass",

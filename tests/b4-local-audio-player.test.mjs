@@ -36,7 +36,7 @@ function fakeAudioFactory() {
   return { create, elements };
 }
 
-test('local player resolves on playing and sequences fresh cache-reset elements', async () => {
+test('local player resolves on playing and sequences pooled path elements', async () => {
   const fake = fakeAudioFactory();
   const play = createB4LocalAudioPlayer({ createAudioElement: fake.create });
   const resultPromise = play(['audio/b4/b4-01.wav', 'audio/b4/b4-02.wav']);
@@ -52,9 +52,72 @@ test('local player resolves on playing and sequences fresh cache-reset elements'
   await Promise.resolve();
   assert.equal(fake.elements.length, 2);
   assert.equal(fake.elements[0].currentTime, 0);
-  assert.deepEqual(fake.elements[0].removed, ['src']);
-  assert.equal(fake.elements[0].loaded, 1);
+  assert.equal(fake.elements[0].src, 'audio/b4/b4-01.wav', 'post-play reset keeps src for reuse');
+  assert.deepEqual(fake.elements[0].removed, []);
   assert.equal(fake.elements[1].src, 'audio/b4/b4-02.wav');
+
+  fake.elements[1].playCall.resolve();
+  fake.elements[1].emit('playing');
+  fake.elements[1].emit('ended');
+  await Promise.resolve();
+  const replay = play('audio/b4/b4-01.wav');
+  assert.equal(fake.elements.length, 2, 'replay reuses the pooled element for the same path');
+  fake.elements[0].playCall.resolve();
+  fake.elements[0].emit('playing');
+  assert.deepEqual(await replay, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+});
+
+test('warm preloads paths without playing and play reuses warmed elements', async () => {
+  const fake = fakeAudioFactory();
+  const play = createB4LocalAudioPlayer({ createAudioElement: fake.create });
+  play.warm(['audio/b4/b4-01.wav', 'audio/b4/b4-02.wav']);
+  assert.equal(fake.elements.length, 2);
+  assert.equal(fake.elements[0].preload, 'auto');
+  assert.equal(fake.elements[0].src, 'audio/b4/b4-01.wav');
+  assert.equal(fake.elements[0].loaded, 1);
+  assert.equal(fake.elements[0].paused, false);
+  assert.equal(fake.elements[1].preload, 'auto');
+  assert.equal(fake.elements[1].src, 'audio/b4/b4-02.wav');
+  assert.equal(fake.elements[1].loaded, 1);
+
+  const resultPromise = play('audio/b4/b4-01.wav');
+  assert.equal(fake.elements.length, 2, 'play after warm must not create another element');
+  fake.elements[0].playCall.resolve();
+  fake.elements[0].emit('playing');
+  assert.deepEqual(await resultPromise, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+});
+
+test('warming a ninth path evicts the oldest element with a full reset', () => {
+  const fake = fakeAudioFactory();
+  const play = createB4LocalAudioPlayer({ createAudioElement: fake.create });
+  const paths = Array.from({ length: 8 }, (_, index) => `audio/b4/b4-0${index + 1}.wav`);
+  play.warm(paths);
+  assert.equal(fake.elements.length, 8);
+  const oldest = fake.elements[0];
+  assert.equal(oldest.src, 'audio/b4/b4-01.wav');
+
+  play.warm(['audio/b4/b4-09.wav']);
+  assert.equal(fake.elements.length, 9);
+  assert.equal(oldest.paused, true);
+  assert.equal(oldest.currentTime, 0);
+  assert.deepEqual(oldest.removed, ['src']);
+  assert.equal(oldest.src, '');
+  assert.ok(oldest.loaded >= 2, 'eviction must call load after clearing src');
+  assert.equal(fake.elements[8].src, 'audio/b4/b4-09.wav');
+});
+
+test('warm ignores invalid paths without throwing', () => {
+  const fake = fakeAudioFactory();
+  const play = createB4LocalAudioPlayer({ createAudioElement: fake.create });
+  assert.doesNotThrow(() => play.warm([
+    'https://example.test/audio.wav',
+    'audio/b4/b4-01.wav',
+    '/audio/b4/b4-02.wav',
+    null,
+    'audio/b4/../secret.wav',
+  ]));
+  assert.equal(fake.elements.length, 1);
+  assert.equal(fake.elements[0].src, 'audio/b4/b4-01.wav');
 });
 
 test('play rejection, interruption, stale completion and rapid replay are safe', async () => {

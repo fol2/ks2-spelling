@@ -1,6 +1,7 @@
 import { validateB4AudioManifest } from './b4-round-contract.js';
 
 const SAFE_LOCAL_PATH = /^audio\/b4\/[a-z0-9-]+\.wav$/u;
+const CACHE_CAP = 8;
 
 function audioError(code, options) {
   const error = new Error(code, options);
@@ -31,12 +32,42 @@ export function createB4LocalAudioPlayer({
   let active = null;
   let generation = 0;
   let disposed = false;
+  const cache = new Map();
 
-  function reset(element) {
+  function softReset(element) {
     element.pause();
     element.currentTime = 0;
+  }
+
+  function fullReset(element) {
+    softReset(element);
     element.removeAttribute?.('src');
     element.load?.();
+  }
+
+  function remember(path, element) {
+    if (cache.has(path)) return;
+    while (cache.size >= CACHE_CAP) {
+      const oldest = [...cache.keys()].find((key) => cache.get(key) !== active?.element);
+      if (oldest === undefined) break;
+      const evicted = cache.get(oldest);
+      cache.delete(oldest);
+      fullReset(evicted);
+    }
+    cache.set(path, element);
+  }
+
+  function acquire(path) {
+    const cached = cache.get(path);
+    if (cached) return cached;
+    const element = createAudioElement();
+    if (!element || typeof element.play !== 'function' || typeof element.pause !== 'function') {
+      throw new TypeError('createAudioElement must return an audio-like element.');
+    }
+    element.preload = 'auto';
+    element.src = path;
+    remember(path, element);
+    return element;
   }
 
   function stop(reason = 'b4_audio_interrupted') {
@@ -44,7 +75,7 @@ export function createB4LocalAudioPlayer({
     if (!active) return;
     const current = active;
     active = null;
-    reset(current.element);
+    softReset(current.element);
     current.reject?.(audioError(reason));
   }
 
@@ -52,18 +83,13 @@ export function createB4LocalAudioPlayer({
     if (disposed || token !== generation) return;
     const path = paths[index];
     if (!path) return;
-    const element = createAudioElement();
-    if (!element || typeof element.play !== 'function' || typeof element.pause !== 'function') {
-      throw new TypeError('createAudioElement must return an audio-like element.');
-    }
-    element.preload = 'auto';
+    const element = acquire(path);
     element.currentTime = 0;
-    element.src = path;
     let playing = false;
     const rejectPending = (error) => {
       if (token !== generation) return;
       active = null;
-      reset(element);
+      softReset(element);
       const normalised = error?.code ? error : audioError('b4_audio_play_failed', { cause: error });
       if (!settle.started) settle.reject(normalised);
       else onError(normalised);
@@ -86,7 +112,7 @@ export function createB4LocalAudioPlayer({
     }, { once: true });
     element.addEventListener('ended', () => {
       if (token !== generation) return;
-      reset(element);
+      softReset(element);
       active = null;
       void startPath(paths, index + 1, token, settle).catch(rejectPending);
     }, { once: true });
@@ -111,11 +137,33 @@ export function createB4LocalAudioPlayer({
     });
   }
 
+  function warm(paths) {
+    if (disposed) return;
+    const sequence = Array.isArray(paths) ? paths : [paths];
+    for (const path of sequence) {
+      if (typeof path !== 'string' || !SAFE_LOCAL_PATH.test(path)) continue;
+      if (cache.has(path)) continue;
+      try {
+        const element = createAudioElement();
+        if (!element || typeof element.play !== 'function' || typeof element.pause !== 'function') continue;
+        element.preload = 'auto';
+        element.src = path;
+        element.load?.();
+        remember(path, element);
+      } catch {
+        // Warming is best-effort.
+      }
+    }
+  }
+
   play.stop = () => stop();
+  play.warm = warm;
   play.dispose = () => {
     if (disposed) return;
     disposed = true;
     stop('b4_audio_player_disposed');
+    for (const element of cache.values()) fullReset(element);
+    cache.clear();
   };
   return Object.freeze(play);
 }

@@ -441,6 +441,22 @@ test('a committed command publishes from its validated plan without a second sna
   await controller.dispose();
 });
 
+test('start warms the current card word-natural and dictation variants', async () => {
+  const warmed = [];
+  const playAudio = silentPlayer();
+  playAudio.warm = (paths) => {
+    warmed.push(...(Array.isArray(paths) ? paths : [paths]));
+  };
+  const { controller } = mockCommandServices({ autoSpeak: false, playAudio });
+  const state = await controller.start();
+  assert.equal(state.currentRuntimeItemId, 'ks2-core:arrive');
+  assert.equal(state.currentSentence, 'The parcel should arrive tomorrow.');
+  assert.ok(warmed.includes('audio/b4/b4-03.wav'), 'word-natural cue must be warmed');
+  assert.ok(warmed.includes('audio/b4/b4-06.wav'), 'dictation-normal variant must be warmed');
+  assert.ok(warmed.includes('audio/b4/b4-07.wav'), 'dictation-slow variant must be warmed');
+  await controller.dispose();
+});
+
 test('committed state publishes before the audio cue starts playing', async () => {
   let release = null;
   const play = (path) => new Promise((resolve) => {

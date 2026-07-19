@@ -93,9 +93,28 @@ export function createB4RoundController({
   let startPromise = null;
   const listeners = new Set();
 
+  function warmCurrentPrompt(state) {
+    if (disposed || !state.currentRuntimeItemId) return;
+    if (typeof playAudio.warm !== 'function') return;
+    try {
+      const { currentRuntimeItemId: runtimeItemId, currentSentence: sentence } = state;
+      const paths = [resolveB4AudioPath(audioManifest, { runtimeItemId, sentence: null })];
+      if (sentence != null) {
+        paths.push(
+          resolveB4AudioPath(audioManifest, { runtimeItemId, sentence, slow: false }),
+          resolveB4AudioPath(audioManifest, { runtimeItemId, sentence, slow: true }),
+        );
+      }
+      playAudio.warm(paths);
+    } catch {
+      // Warming is best-effort and must not break the round.
+    }
+  }
+
   function publish(state) {
     currentState = state;
     for (const listener of listeners) listener(state);
+    warmCurrentPrompt(state);
     return state;
   }
 

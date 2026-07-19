@@ -365,3 +365,50 @@ test('web audio falls back to the element path when decode-on-demand fails', asy
   fake.elements[0].emit('playing');
   assert.deepEqual(await resultPromise, { status: 'playing', path: 'audio/b4/b4-01.wav' });
 });
+
+test('concurrent warm and play decode the same path only once', async () => {
+  const ctx = fakeAudioContext();
+  const path = 'audio/b4/b4-01.wav';
+  const play = createB4LocalAudioPlayer({
+    createAudioElement: () => assert.fail('web audio path must not create an audio element'),
+    createAudioContext: () => ctx,
+    loadAudioData: stubAudioData([path]),
+  });
+  const warmPromise = play.warm([path]);
+  const resultPromise = play([path]);
+  await warmPromise;
+  assert.deepEqual(await resultPromise, { status: 'playing', path });
+  assert.equal(ctx.decodeCount, 1, 'concurrent warm+play must share one in-flight decode');
+});
+
+test('a stale error on the discarded stall element does not reject the retry', async () => {
+  const fake = fakeAudioFactory();
+  const play = createB4LocalAudioPlayer({ createAudioElement: fake.create, stallRetryMs: 20 });
+  const result = play('audio/b4/b4-01.wav');
+  assert.equal(fake.elements.length, 1);
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(fake.elements.length, 2, 'a stalled element must be replaced by a fresh one');
+  fake.elements[0].emit('error');
+  fake.elements[1].playCall.resolve();
+  fake.elements[1].emit('playing');
+  assert.deepEqual(await result, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+});
+
+test('a suspended AudioContext that fails to resume falls back to the element path', async () => {
+  const fake = fakeAudioFactory();
+  const ctx = fakeAudioContext();
+  ctx.state = 'suspended';
+  ctx.resume = async () => {};
+  const play = createB4LocalAudioPlayer({
+    createAudioElement: fake.create,
+    createAudioContext: () => ctx,
+    loadAudioData: stubAudioData(['audio/b4/b4-01.wav']),
+  });
+  const resultPromise = play('audio/b4/b4-01.wav');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(fake.elements.length, 1, 'suspended context must fall back to the element path');
+  assert.equal(ctx.sources.length, 0, 'web audio must not start when resume leaves the context suspended');
+  fake.elements[0].playCall.resolve();
+  fake.elements[0].emit('playing');
+  assert.deepEqual(await resultPromise, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+});

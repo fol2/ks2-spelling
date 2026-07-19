@@ -165,8 +165,8 @@ test('the app-owned façade exposes only the certified runtime and read-only cat
   );
   assert.doesNotMatch(facadeSource, /(?:from|import\s*)\s*['"]node:/);
   assert.doesNotMatch(
-    facadeSource,
-    /^import[^\n]*mobile-runtime-full/mu,
+    facadeSource.replace(/\s+/g, ' '),
+    /(?:^|;)\s*import(?!\()[^;]*mobile-runtime-full/,
     'the full catalogue must stay off the launch path — load it lazily, not with a static import',
   );
   const facade = await import(

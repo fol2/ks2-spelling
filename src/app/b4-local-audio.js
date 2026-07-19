@@ -77,16 +77,20 @@ export function createB4LocalAudioPlayer({
     if (buffers.has(path)) return buffers.get(path);
     const ctx = getContext();
     if (!ctx) return null;
-    try {
-      const data = await ensureAudioData();
-      const dataUri = data?.[path];
-      if (typeof dataUri !== 'string') return null;
-      const buffer = await ctx.decodeAudioData(dataUriToArrayBuffer(dataUri));
-      buffers.set(path, buffer);
-      return buffer;
-    } catch {
-      return null;
-    }
+    const pending = (async () => {
+      try {
+        const data = await ensureAudioData();
+        const dataUri = data?.[path];
+        if (typeof dataUri !== 'string') return null;
+        return await ctx.decodeAudioData(dataUriToArrayBuffer(dataUri));
+      } catch {
+        return null;
+      }
+    })();
+    buffers.set(path, pending);
+    const buffer = await pending;
+    if (buffer === null) buffers.delete(path);
+    return buffer;
   }
 
   function softReset(element) {
@@ -158,6 +162,13 @@ export function createB4LocalAudioPlayer({
     current.reject?.(audioError(reason));
   }
 
+  function settleFailure(token, settle, error) {
+    if (token !== generation) return;
+    const normalised = error?.code ? error : audioError('b4_audio_play_failed', { cause: error });
+    if (!settle.started) settle.reject(normalised);
+    else onError(normalised);
+  }
+
   async function startPath(paths, index, token, settle, retried = false) {
     if (disposed || token !== generation) return;
     const path = paths[index];
@@ -165,12 +176,14 @@ export function createB4LocalAudioPlayer({
     const element = acquire(path);
     element.currentTime = 0;
     let playing = false;
+    let dead = false;
     let watchdog = null;
     const clearWatchdog = () => {
       if (watchdog !== null) clearTimeout(watchdog);
       watchdog = null;
     };
     const rejectPending = (error) => {
+      if (dead) return;
       if (token !== generation) return;
       clearWatchdog();
       active = null;
@@ -185,14 +198,16 @@ export function createB4LocalAudioPlayer({
     watchdog = setTimeout(() => {
       watchdog = null;
       if (token !== generation || playing) return;
+      dead = true;
       cache.delete(path);
       fullReset(element);
       if (retried) {
-        rejectPending(audioError('b4_audio_play_failed'));
+        active = null;
+        settleFailure(token, settle, audioError('b4_audio_play_failed'));
         return;
       }
       active = null;
-      void startPath(paths, index, token, settle, true).catch(rejectPending);
+      void startPath(paths, index, token, settle, true).catch((error) => settleFailure(token, settle, error));
     }, stallRetryMs);
     watchdog.unref?.();
     active = {
@@ -205,6 +220,7 @@ export function createB4LocalAudioPlayer({
       },
     };
     element.addEventListener('playing', () => {
+      if (dead) return;
       if (token !== generation || playing) return;
       playing = true;
       clearWatchdog();
@@ -216,13 +232,18 @@ export function createB4LocalAudioPlayer({
       }
     }, { once: true });
     element.addEventListener('ended', () => {
+      if (dead) return;
       if (token !== generation) return;
       clearWatchdog();
       softReset(element);
       active = null;
-      void startPath(paths, index + 1, token, settle).catch(rejectPending);
+      dead = true;
+      void startPath(paths, index + 1, token, settle).catch((error) => settleFailure(token, settle, error));
     }, { once: true });
-    element.addEventListener('error', () => rejectPending(audioError('b4_audio_play_failed')), { once: true });
+    element.addEventListener('error', () => {
+      if (dead) return;
+      rejectPending(audioError('b4_audio_play_failed'));
+    }, { once: true });
     try {
       await element.play();
     } catch (error) {
@@ -239,14 +260,24 @@ export function createB4LocalAudioPlayer({
     if (disposed || token !== generation) return;
     if (!buffer) {
       if (index === 0) {
-        void startPath(paths, 0, token, settle).catch((error) => {
-          if (!settle.started) settle.reject(error);
-          else onError(error);
-        });
+        void startPath(paths, 0, token, settle).catch((error) => settleFailure(token, settle, error));
       }
       return;
     }
-    if (ctx.state !== 'running') void ctx.resume();
+    if (ctx.state !== 'running') {
+      try {
+        await ctx.resume();
+      } catch {
+        // Fall through to the running-state check below.
+      }
+      if (disposed || token !== generation) return;
+      if (ctx.state !== 'running') {
+        if (index === 0) {
+          void startPath(paths, 0, token, settle).catch((error) => settleFailure(token, settle, error));
+        }
+        return;
+      }
+    }
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(ctx.destination);

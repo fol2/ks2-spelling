@@ -253,9 +253,12 @@ export async function buildWebViewBundleEvidence(lock) {
       modules.push({ id: absoluteId, kind: 'virtual', npmLocator: null, sha256: null });
       continue;
     }
-    // Vite asset module ids keep their import query (for example ?inline);
-    // the file on disk does not.
-    const filesystemPath = absoluteId.replace(/\?[^/]*$/u, '');
+    // Vite asset module ids may keep a ?inline import query; the file on
+    // disk does not. Only ?inline is recognised — any other query suffix
+    // stays on the path and fails the read loudly (fail-closed).
+    const filesystemPath = absoluteId.endsWith('?inline')
+      ? absoluteId.slice(0, -'?inline'.length)
+      : absoluteId;
     const id = relative(ROOT, filesystemPath);
     if (id.startsWith('..') || id === '') {
       throw policyError('webview_bundle_evidence_invalid', `Bundle input is outside root: ${absoluteId}`);

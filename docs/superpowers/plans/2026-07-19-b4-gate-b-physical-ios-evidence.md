@@ -144,3 +144,73 @@ The exact plan candidate requires Gstack (scope and contract), Matt
 approval before Task 1, and the same three gates on the resulting
 evidence candidate before the Gate B record.
 
+## Findings (2026-07-19)
+
+Every figure below is pinned to
+`reports/b4-physical/ios-physical-proof.json` (application checkpoint
+`c468600`, iPhone 16 Pro Max on iOS 27.0, Release configuration, built
+with Xcode 26.6 RC / SDK `iphoneos26.5`), which lands in the
+evidence-only successor commit immediately following this edit. All
+journey and split-timing observations were extracted exclusively from
+xcresult attachments (`b4-ios-journey-observations.json`,
+`b4-ios-split-timing.json`), exported via
+`xcrun xcresulttool export attachments` and matched by
+`suggestedHumanReadableName` prefix — no on-device database polling.
+
+Toolchain finding (`reports/b4-physical/smoke.json`): the identical
+source built against the iOS 27 SDK (Xcode 27 beta) crashes at launch on
+the iOS 27 device (`EXC_BREAKPOINT` in the UIScene lifecycle-adoption
+runtime check); built with Xcode 26.6 RC (SDK 26.5) it passes. UIScene
+adoption is a recorded C-series obligation. Simulators never exposed
+this because they run the iOS 26.5 runtime.
+
+Three full journeys plus one split-timing journey ran on the device,
+fresh install per run, so every cold launch is first-launch-after-install
+(the frozen journey requires a fresh round state). All four runs
+completed; layout, keyboard, Enter-submit, background-audio-stop and
+resume checks all passed on the physical device.
+
+| Comparator | Physical Release observed | Virtual reference | Verdict |
+|---|---|---|---|
+| sqliteTransactionUpperBound (≤ 50 ms) | 27.664 ms isolated | 29 ms isolated | settled — within |
+| coldLaunch (≤ 2000 ms) | 3453 / 3711 / 4062 ms | 5502 ms Debug / 11837 ms Release fresh-simulator | breach persists (~2×) |
+| audioStart (≤ 250 ms) | 472–634 ms normal replay; 1745–1840 ms slow-variant replay | 1588–1708 ms fresh / 327–631 ms warm | breach persists |
+| answerFeedback (≤ 100 ms) | 725–859 ms across all thirty answers | 500–787 ms (one 2078 ms tail) | breach persists |
+
+Physical-versus-virtual behaviour, per comparator:
+
+- `sqliteTransactionUpperBound` behaves identically to virtual (27.664 ms
+  against 29 ms) and is settled; the SQLite path carries no
+  physical-device concern.
+- `coldLaunch` behaves the same way as virtual but roughly 3× faster
+  than the virtual Release figure; the breach is real product latency,
+  not a simulator artefact, and all three observations are
+  first-launch-after-install.
+- `audioStart` behaves differently on hardware: virtually, the first
+  play was slow (1588–1708 ms) and warm replays fast (327–631 ms); on
+  the device the normal-variant replay is 472–634 ms while the
+  slow-variant replay is 1745–1840 ms in every journey. The cost tracks
+  the asset variant, not element warm-up — pointing at per-variant
+  decode on the replay path. The split-timing journey shows the same
+  split (replay-to-audio 391–465 ms on eight answers, 1526–1536 ms on
+  the two answers that hit the slow-variant path).
+- `answerFeedback` behaves the same way as virtual at slightly higher
+  values: 725–859 ms externally observed against a ≤ 100 ms internal
+  seam, confirmed by the split-timing journey (submit-to-feedback
+  849–881 ms on the same answers).
+
+Tail behaviour: no isolated outlier occurred in the committed runs (the
+worst of thirty submit-to-feedback observations is 859 ms). A superseded
+measurement run — regenerated when the committed identifier scrub
+rewrote the branch, and therefore not part of the committed evidence —
+once recorded a single 60.6 s submit-to-feedback outlier that did not
+reproduce; it is noted here only so the observation is not lost.
+
+Consequence under the unchanged Task 8 trichotomy: the journey passes on
+the physical device and one comparator settles, but three breaches
+persist and no reproduced, attributed, disproportionate WebView ceiling
+is demonstrated — every breach is attributed to a product seam (audio
+asset decode on replay, first-launch work on the cold path, feedback
+publication ordering). That is the `INCOMPLETE` outcome; the formal
+decision lands in the dated Gate B successor record after integration.
+

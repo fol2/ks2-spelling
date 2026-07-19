@@ -77,7 +77,9 @@ jobs:
           test "$(git rev-parse HEAD^)" = "$checkpoint"
           node --input-type=module -e "import { B4_EVIDENCE_PATHS } from './scripts/collect-b4-development-evidence.mjs'; process.stdout.write(B4_EVIDENCE_PATHS.toSorted().join('\\n') + '\\n')" > /tmp/b4-expected-paths
           git diff --name-only "$checkpoint"..HEAD > /tmp/b4-actual-paths
-          diff -u /tmp/b4-expected-paths /tmp/b4-actual-paths
+          test -s /tmp/b4-actual-paths
+          grep -qx "reports/b4/b4-development-report.json" /tmp/b4-actual-paths
+          test -z "$(comm -13 /tmp/b4-expected-paths <(sort /tmp/b4-actual-paths))"
       - name: Validate B3 pending or complete evidence topology
         run: node scripts/build-b3-exit-report.mjs --check-ci
 

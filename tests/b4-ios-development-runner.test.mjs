@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import {
   createB4IosXcodeTestArguments,
+  fingerprintB4IosBuiltApplication,
   measuredB4IosTextScale,
+  selectB4IosResumeLegs,
   selectB4IosRuntimeProfiles,
   validateB4IosLayoutDimensions,
 } from '../scripts/prove-b4-ios.mjs';
@@ -127,4 +131,43 @@ test('the bounded runner records 200% layout, raw sizes and honest Simulator lim
     assert.match(source, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
   assert.match(packageJson, /"prove:b4:ios":\s*"node scripts\/prove-b4-ios\.mjs"/u);
+});
+
+test('built-application fingerprint is stable for the same tree and changes when a byte changes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'b4-ios-fingerprint-'));
+  try {
+    await mkdir(join(root, 'nested'), { recursive: true });
+    await writeFile(join(root, 'a.txt'), 'alpha');
+    await writeFile(join(root, 'nested', 'b.txt'), 'beta');
+    const first = await fingerprintB4IosBuiltApplication(root);
+    const second = await fingerprintB4IosBuiltApplication(root);
+    assert.equal(first, second);
+    assert.equal(first, '02473d81b44ae7a94c45eb008cc203d0a2da455f40ae0f9c6502bb74dc5ca272');
+    await writeFile(join(root, 'a.txt'), 'alphA');
+    assert.equal(
+      await fingerprintB4IosBuiltApplication(root),
+      'bb7dff04382410939affceb3a443b36a2ecdaa2feea194bbfd5c93edd77b1c57',
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('resume leg selection runs only legs that are not already persisted', () => {
+  assert.deepEqual(
+    selectB4IosResumeLegs(['phone-default', 'phone-200-percent']),
+    ['tablet-layout'],
+  );
+  assert.deepEqual(
+    selectB4IosResumeLegs([]),
+    ['phone-default', 'phone-200-percent', 'tablet-layout'],
+  );
+  assert.deepEqual(
+    selectB4IosResumeLegs(['phone-default', 'phone-200-percent', 'tablet-layout']),
+    [],
+  );
+  assert.deepEqual(
+    selectB4IosResumeLegs(['tablet-layout']),
+    ['phone-default', 'phone-200-percent'],
+  );
 });

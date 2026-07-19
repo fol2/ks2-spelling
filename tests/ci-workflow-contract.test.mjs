@@ -135,6 +135,22 @@ test('iOS runs normal and B3 unsigned builds, the pack inspector and StoreKit Te
   assert.match(ios, /npm run prove:b3:ios-storekit-test/);
 });
 
+test('branch evidence contract accepts a non-empty subset anchored to the report', async () => {
+  const domain = extractJob(await readWorkflow(), 'domain-web');
+  const step = domain.slice(
+    domain.indexOf('Prove the branch candidate is one evidence-only successor'),
+  );
+  assert.match(step, /if: github\.ref != 'refs\/heads\/main'/);
+  assert.match(step, /test "\$\(git rev-parse HEAD\^\)" = "\$checkpoint"/);
+  assert.match(step, /test -s \/tmp\/b4-actual-paths/);
+  assert.match(step, /grep -qx "reports\/b4\/b4-development-report\.json" \/tmp\/b4-actual-paths/);
+  assert.match(
+    step,
+    /test -z "\$\(comm -13 \/tmp\/b4-expected-paths <\(sort \/tmp\/b4-actual-paths\)\)"/,
+  );
+  assert.doesNotMatch(step, /diff -u \/tmp\/b4-expected-paths/);
+});
+
 test('Android runs normal and B3 unsigned builds before certification', async () => {
   const android = extractJob(await readWorkflow(), 'android-compile');
 

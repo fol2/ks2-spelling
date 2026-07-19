@@ -5,7 +5,7 @@
     "runnerImage": "local-macos",
     "hostOS": "macOS 26.5.2 (25F84)",
     "runtime": "iOS 26.5 (23F73)",
-    "deviceProfile": "iPhone 17 (KS2 Spelling B4 Phone 86810)",
+    "deviceProfile": "iPhone 17 (KS2 Spelling B4 Phone 41015)",
     "buildConfiguration": "B4Development unsigned Simulator"
   },
   "limitations": [
@@ -19,23 +19,23 @@
   "journeys": {
     "default": {
       "answerFeedbackMs": [
-        526.7480611801147,
-        738.745927810669,
-        637.7459764480591,
-        664.1100645065308,
-        615.9080266952515,
-        586.0300064086914,
-        597.681999206543,
-        597.7399349212646,
-        613.8389110565186,
-        590.4759168624878
+        533.2510471343994,
+        575.9099721908569,
+        566.7790174484253,
+        567.641019821167,
+        589.5190238952637,
+        577.0601034164429,
+        588.7809991836548,
+        550.9459972381592,
+        575.3860473632812,
+        583.1320285797119
       ],
       "audioStartMs": [
-        1562.8089904785156,
-        387.241005897522
+        1590.013027191162,
+        370.23794651031494
       ],
       "backgroundAudioStoppedCount": 2,
-      "coldLaunchMs": 5797.590017318726,
+      "coldLaunchMs": 3659.1720581054688,
       "completed": true,
       "enterSubmitted": true,
       "minimumControlHeightPoints": 49,
@@ -50,23 +50,23 @@
       "measuredTextScale": 2.826,
       "atLeast200Percent": true,
       "answerFeedbackMs": [
-        498.86906147003174,
-        602.1209955215454,
-        678.9929866790771,
-        635.4730129241943,
-        619.3540096282959,
-        589.9059772491455,
-        612.2760772705078,
-        603.8839817047119,
-        636.7141008377075,
-        618.2550191879272
+        507.6519250869751,
+        567.6000118255615,
+        559.014081954956,
+        569.5470571517944,
+        580.1800489425659,
+        577.0699977874756,
+        695.4599618911743,
+        602.869987487793,
+        606.9350242614746,
+        578.4759521484375
       ],
       "audioStartMs": [
-        1564.7900104522705,
-        355.55100440979004
+        1558.3899021148682,
+        327.9179334640503
       ],
       "backgroundAudioStoppedCount": 2,
-      "coldLaunchMs": 3678.7840127944946,
+      "coldLaunchMs": 3223.6781120300293,
       "completed": true,
       "enterSubmitted": true,
       "minimumControlHeightPoints": 89,
@@ -107,14 +107,14 @@
       "runnerImage": "local-macos",
       "hostOS": "macOS 26.5.2 (25F84)",
       "runtime": "iOS 26.5 (23F73)",
-      "deviceProfile": "iPhone 17 (KS2 Spelling B4 Phone 86810)",
+      "deviceProfile": "iPhone 17 (KS2 Spelling B4 Phone 41015)",
       "buildConfiguration": "B4Development unsigned Simulator"
     },
     "observations": [
       {
         "kind": "coldLaunch",
         "sequence": 1,
-        "rawValue": 5797.590017318726,
+        "rawValue": 3659.1720581054688,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -128,7 +128,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 1,
-        "rawValue": 526.7480611801147,
+        "rawValue": 533.2510471343994,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -142,7 +142,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 2,
-        "rawValue": 738.745927810669,
+        "rawValue": 575.9099721908569,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -156,7 +156,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 3,
-        "rawValue": 637.7459764480591,
+        "rawValue": 566.7790174484253,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -170,7 +170,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 4,
-        "rawValue": 664.1100645065308,
+        "rawValue": 567.641019821167,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -184,7 +184,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 5,
-        "rawValue": 615.9080266952515,
+        "rawValue": 589.5190238952637,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -198,7 +198,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 6,
-        "rawValue": 586.0300064086914,
+        "rawValue": 577.0601034164429,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -212,7 +212,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 7,
-        "rawValue": 597.681999206543,
+        "rawValue": 588.7809991836548,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -226,7 +226,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 8,
-        "rawValue": 597.7399349212646,
+        "rawValue": 550.9459972381592,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -240,7 +240,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 9,
-        "rawValue": 613.8389110565186,
+        "rawValue": 575.3860473632812,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -254,7 +254,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 10,
-        "rawValue": 590.4759168624878,
+        "rawValue": 583.1320285797119,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -268,7 +268,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 1,
-        "rawValue": 526.7480611801147,
+        "rawValue": 533.2510471343994,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -282,7 +282,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 2,
-        "rawValue": 738.745927810669,
+        "rawValue": 575.9099721908569,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -296,7 +296,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 3,
-        "rawValue": 637.7459764480591,
+        "rawValue": 566.7790174484253,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -310,7 +310,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 4,
-        "rawValue": 664.1100645065308,
+        "rawValue": 567.641019821167,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -324,7 +324,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 5,
-        "rawValue": 615.9080266952515,
+        "rawValue": 589.5190238952637,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -338,7 +338,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 6,
-        "rawValue": 586.0300064086914,
+        "rawValue": 577.0601034164429,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -352,7 +352,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 7,
-        "rawValue": 597.681999206543,
+        "rawValue": 588.7809991836548,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -366,7 +366,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 8,
-        "rawValue": 597.7399349212646,
+        "rawValue": 550.9459972381592,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -380,7 +380,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 9,
-        "rawValue": 613.8389110565186,
+        "rawValue": 575.3860473632812,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -394,7 +394,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 10,
-        "rawValue": 590.4759168624878,
+        "rawValue": 583.1320285797119,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -408,7 +408,7 @@
       {
         "kind": "audioStart",
         "sequence": 1,
-        "rawValue": 1562.8089904785156,
+        "rawValue": 1590.013027191162,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -422,7 +422,7 @@
       {
         "kind": "audioStart",
         "sequence": 2,
-        "rawValue": 387.241005897522,
+        "rawValue": 370.23794651031494,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -465,8 +465,8 @@
     "technicalOutcome": "investigation-required"
   },
   "applicationCheckpoint": {
-    "commit": "ba22251c52975d0bc3610651d0d93cb21be6d66d",
-    "tree": "5df90570eb7964d97fcb122f3271415bcdcf6994"
+    "commit": "4e46527bf7fec605ef350279cf8c79edff5b07b9",
+    "tree": "39fe701db4d009a560a22b85bd537f2c47714652"
   },
   "bundleInput": {
     "kind": "directory-sha256",

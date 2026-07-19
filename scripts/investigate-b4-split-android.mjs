@@ -9,7 +9,7 @@ function roundMs(nanoseconds) {
   return Math.round((nanoseconds / 1_000_000) * 1_000) / 1_000;
 }
 
-function createReport(result) {
+export function createB4AndroidSplitReport(result) {
   const capture = result?.capture;
   if (capture?.schemaVersion !== 1 || capture.completed !== true ||
       !Array.isArray(capture.observations) || capture.observations.length !== 10) {
@@ -48,11 +48,11 @@ function createReport(result) {
         observation.commitObservedElapsedRealtimeNanos -
           observation.submitElapsedRealtimeNanos,
       ),
-      commitObservationToNativeAudioActiveMs: roundMs(
+      commitObservationToNativeAudioActiveLowerBoundMs: roundMs(
         observation.audioActiveElapsedRealtimeNanos -
           observation.commitObservedElapsedRealtimeNanos,
       ),
-      nativeAudioActiveToFeedbackVisibleMs: roundMs(
+      nativeAudioActiveToFeedbackVisibleUpperBoundMs: roundMs(
         observation.feedbackVisibleElapsedRealtimeNanos -
           observation.audioActiveElapsedRealtimeNanos,
       ),
@@ -79,6 +79,7 @@ function createReport(result) {
     limitations: Object.freeze([
       'Emulator only; not physical-device or Play-signed distribution evidence.',
       'SQLite polling records an upper bound on command commit and includes polling latency.',
+      'The controlled emulator must have no active native player before submission; unprivileged AudioManager callbacks do not expose an attributable player identifier.',
       'AudioManager reports the Chromium native player becoming active, not the later HTML audio playing callback itself.',
       'The native-audio-to-feedback interval includes JavaScript event delivery, controller publish, WebView render and accessibility observation latency.',
     ]),
@@ -86,7 +87,7 @@ function createReport(result) {
 }
 
 export async function run() {
-  return createReport(await captureB4AndroidSplitTiming());
+  return createB4AndroidSplitReport(await captureB4AndroidSplitTiming());
 }
 
 export async function main() {

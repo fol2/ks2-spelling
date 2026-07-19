@@ -359,6 +359,9 @@ public class B4DevelopmentTest {
                 null,
                 SQLiteDatabase.OPEN_READONLY)) {
             for (int index = 0; index < FROZEN_ANSWERS.length; index += 1) {
+                assertTrue("The Android Home action was rejected.", device.pressHome());
+                launchApplication();
+                waitForAbsence("Audio playing", text("Audio playing"));
                 double replayToAudioPlayingVisibleMs = interruptAudio("Replay");
                 setAnswer(FROZEN_ANSWERS[index]);
                 dismissKeyboard();

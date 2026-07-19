@@ -1,6 +1,7 @@
 import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { DatabaseSync } from 'node:sqlite';
 
 import {
@@ -120,9 +121,16 @@ async function watchRevisions(databasePath, testPromise) {
         }
       }
       if (database !== null) {
-        const row = database.prepare(
-          'SELECT revision FROM spelling_aggregates WHERE learner_id = ?',
-        ).get('learner-a');
+        let row;
+        try {
+          row = database.prepare(
+            'SELECT revision FROM spelling_aggregates WHERE learner_id = ?',
+          ).get('learner-a');
+        } catch (error) {
+          if (error?.code !== 'ERR_SQLITE_ERROR') throw error;
+          await delay(2);
+          continue;
+        }
         if (row && row.revision !== lastRevision) {
           const revision = Number(row.revision);
           if (!Number.isSafeInteger(revision) || revision < lastRevision ||
@@ -132,7 +140,7 @@ async function watchRevisions(databasePath, testPromise) {
               `SQLite revision observation jumped from ${lastRevision} to ${revision}.`,
             );
           }
-          revisions.set(revision, Date.now());
+          revisions.set(revision, performance.timeOrigin + performance.now());
           lastRevision = revision;
         }
       }
@@ -144,7 +152,7 @@ async function watchRevisions(databasePath, testPromise) {
   }
 }
 
-function createReport(capture, revisions) {
+export function createB4IosSplitReport(capture, revisions) {
   if (capture?.schemaVersion !== 1 || capture.completed !== true ||
       !Array.isArray(capture.observations) || capture.observations.length !== 10) {
     throw investigationError(
@@ -262,7 +270,7 @@ export async function run() {
     const manifest = JSON.parse(await readFile(join(attachmentsDirectory, 'manifest.json'), 'utf8'));
     const captureFile = exactAttachment(manifest, 'b4-ios-split-timing_');
     const capture = JSON.parse(await readFile(join(attachmentsDirectory, captureFile), 'utf8'));
-    return createReport(capture, revisions);
+    return createB4IosSplitReport(capture, revisions);
   } finally {
     if (simulatorUdid) {
       await attempt('xcrun', ['simctl', 'shutdown', simulatorUdid]);

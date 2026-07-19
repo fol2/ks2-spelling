@@ -367,8 +367,11 @@ final class B4DevelopmentTests: XCTestCase {
 
         var observations: [SplitTimingObservation] = []
         for (index, answer) in frozenAnswers.enumerated() {
+            XCUIDevice.shared.press(.home)
+            application.activate()
+            XCTAssertTrue(waitUntilPresent(heading), "The learner surface did not foreground.")
+            XCTAssertTrue(waitUntilAbsent(audioPlaying), "Foregrounding did not clear playback.")
             XCTAssertTrue(waitUntilEnabled(replay), "Replay was unavailable for answer \(index + 1).")
-            XCTAssertTrue(waitUntilAbsent(audioPlaying), "Playback was not idle before replay \(index + 1).")
             let replayStarted = Date()
             replay.tap()
             XCTAssertTrue(

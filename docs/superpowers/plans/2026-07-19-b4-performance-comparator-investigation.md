@@ -12,11 +12,12 @@ threshold relabelling, no statistical-certification claim.
 ## Authorities
 
 - Gate B Development record (`INCOMPLETE`, 2026-07-19) in
-  `docs/superpowers/plans/2026-07-18-standalone-spelling-mobile-b4-capacitor-development-certification.md`
+  `docs/superpowers/plans/2026-07-19-b4-gate-b-development-record.md`
 - Comparators: frozen source design section 18 via
   `src/app/b4-development-report.js` `RISK_DEFINITIONS`
-- Evidence base: merged `main` commit `0daa0cc` (candidate `3935a0e`,
-  checkpoint `9f4820e`)
+- Evidence base: candidate `3935a0e` (evidence-only successor of checkpoint
+  `9f4820e`), merged to `main` as `8b91515`; the Gate B record and this plan
+  are later docs-only commits on `main`
 
 ## Observed breaches to attribute
 
@@ -32,26 +33,32 @@ threshold relabelling, no statistical-certification claim.
 ## Hypotheses to test (each needs one independent reproduction)
 
 1. **Measurement composition owns most of the answerFeedback breach.**
-   `src/app/b4-round-controller.js` `runCommand` awaits `playCue()` — which
-   resolves only on the audio element `playing` event — before `publish`.
+   `src/app/b4-round-controller.js` `runCommand` awaits `playCue()` — which,
+   on successful playback, resolves on the audio element `playing` event —
+   before `publish`.
    Submit-to-render therefore structurally includes audio-start latency, and
    `sqliteTransactionUpperBound` reuses the same raw series, so neither
    measures its labelled seam in isolation.
-   Reproduction: a Node-level timing harness that runs the frozen B4 command
-   trace against the real SQLite repository with a no-op audio player and
-   records per-command transaction plus apply time. If the isolated
-   transaction time is comfortably inside 50 ms, the breach attributes to
-   composition, not SQLite or the WebView.
+   Reproduction, two required parts: (a) a Node-level timing harness running
+   the frozen B4 command trace against the real SQLite repository with a
+   no-op audio player, recording per-command transaction plus apply time —
+   this isolates the SQLite seam only; and (b) an instrumented split-timing
+   run of the real installed journey on the iOS Simulator and Android
+   emulator, separating command-commit, state-publish and audio-`playing`
+   intervals — only (b) reproduces the platform breach independently.
+   Attribution to composition requires both: (a) inside 50 ms and (b)
+   showing the audio interval owns the remainder on each platform.
 2. **Debug builds on virtual devices own the coldLaunch breach.**
    The journeys ran Debug configuration on Simulator/emulator. Reproduction:
    measure cold launch of the same bundle in Release configuration on the
    same virtual devices, recorded beside the Debug number. No threshold is
    redefined; the comparison is attribution evidence only.
 3. **Audio element start latency owns the audioStart breach.** The first
-   observation (fresh player) is 3–5× the second on both platforms.
-   Reproduction: the Node/WebView-level player timing split — element
-   creation, `src` set, `play()` call, `playing` event — to locate the
-   dominant interval.
+   observation (fresh player) exceeds the second by ~4.1× on iOS
+   (1588/391 ms) and ~1.6× on Android (504/315 ms).
+   Reproduction: within the hypothesis 1(b) instrumented platform journeys,
+   split the player timing — element creation, `src` set, `play()` call,
+   `playing` event — to locate the dominant interval on each platform.
 
 ## Tasks
 
@@ -63,13 +70,15 @@ threshold relabelling, no statistical-certification claim.
    this plan) recording raw numbers, attribution, and the owning seam for each
    breach. Fail closed: any unattributable breach stays
    `investigation-required`.
-3. Decision from evidence only:
-   - all breaches attributed to measurement composition or virtual/debug
-     environment, with isolated seams inside comparators → propose the
-     minimal product correction if one is owed (for example publishing state
-     before awaiting audio, if the design intends feedback to render before
-     audio starts) as its own gated candidate; otherwise record attribution
-     and re-run Task 8 gates for `GO`;
+3. Decision from evidence only. Attribution alone never yields `GO`:
+   - `GO` requires that, after any owed minimal product correction (for
+     example publishing state before awaiting audio, if the design intends
+     feedback to render before audio starts) lands as its own gated
+     candidate, re-run sequential platform proofs record the labelled seams
+     inside their comparators on both virtual platforms;
+   - breaches attributed but not resolved on the platforms (for example
+     audio start still above 250 ms) → Gate B stays `INCOMPLETE` with the
+     attribution recorded;
    - a reproduced, attributed, disproportionate WebView ceiling →
      `NO_GO` path per the B4 plan.
 4. Any code change creates a new exact candidate: full Task 8 local gate,

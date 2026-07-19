@@ -112,10 +112,12 @@ export function createB4RoundController({
     }
   }
 
+  // Warming is invoked explicitly after action-driven publishes only: the
+  // pause path also publishes, and elements created while the WebView is
+  // suspending have their loads aborted and become unplayable duds.
   function publish(state) {
     currentState = state;
     for (const listener of listeners) listener(state);
-    warmCurrentPrompt(state);
     return state;
   }
 
@@ -195,6 +197,7 @@ export function createB4RoundController({
     const state = publish(viewState(committed, audio));
     markB4('b4:state-published');
     measureB4('b4:action-to-publish', 'b4:action-start');
+    warmCurrentPrompt(state);
     const effect = plan.transientEffects.find(({ type }) => type === 'audio-cue');
     if (!effect) return state;
     await playCue(effect.payload);
@@ -223,9 +226,10 @@ export function createB4RoundController({
     start() {
       startPromise ??= (async () => {
         const snapshot = await read();
-        return snapshot.revision === 0
-          ? runCommand(B4_START_COMMAND)
-          : publish(viewState(snapshot, audio));
+        if (snapshot.revision === 0) return runCommand(B4_START_COMMAND);
+        const state = publish(viewState(snapshot, audio));
+        warmCurrentPrompt(state);
+        return state;
       })().finally(() => {
         startPromise = null;
       });
@@ -256,7 +260,9 @@ export function createB4RoundController({
     },
     async rehydrate() {
       stopPlayback();
-      return publish(viewState(await read(), audio));
+      const state = publish(viewState(await read(), audio));
+      warmCurrentPrompt(state);
+      return state;
     },
     async dispose() {
       if (disposed) return;

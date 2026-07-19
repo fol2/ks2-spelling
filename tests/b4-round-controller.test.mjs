@@ -488,6 +488,45 @@ test('start warms the current card word-natural and dictation variants', async (
   await controller.dispose();
 });
 
+test('pausing never re-warms the pool while the app is suspending', async () => {
+  const warmed = [];
+  const playAudio = silentPlayer();
+  playAudio.warm = (paths) => warmed.push(...(Array.isArray(paths) ? paths : [paths]));
+  playAudio.flush = () => {};
+  let pauseListener = () => {};
+  const lifecycle = {
+    onPause(listener) {
+      pauseListener = listener;
+      return { async remove() {} };
+    },
+  };
+  let snapshot = freshSnapshot(false);
+  const controller = createB4RoundController({
+    catalogue: loadStarterSpellingCatalogue(),
+    repository: {
+      async runCommandTransaction(_learnerId, planner) {
+        const plan = planner(structuredClone(snapshot), { nowMs: B4_START_TIMESTAMP + snapshot.revision });
+        snapshot = commit(snapshot, plan);
+        return plan;
+      },
+    },
+    snapshotStore: { async read() { return structuredClone(snapshot); } },
+    audioManifest: placeholderManifest(),
+    playAudio,
+    lifecycle,
+  });
+  await controller.start();
+  assert.ok(warmed.length > 0, 'starting must warm the current card');
+  warmed.length = 0;
+  pauseListener();
+  assert.equal(warmed.length, 0,
+    'elements created while the WebView suspends become duds - pausing must not warm');
+  const beforeRehydrate = warmed.length;
+  await controller.rehydrate();
+  assert.ok(warmed.length > beforeRehydrate, 'resuming via rehydrate must re-warm the pool');
+  await controller.dispose();
+});
+
 test('stopping playback flushes the warm pool so resumed sessions start clean', async () => {
   const calls = [];
   const playAudio = silentPlayer(calls);

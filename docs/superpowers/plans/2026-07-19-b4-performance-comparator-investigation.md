@@ -129,7 +129,12 @@ installed. Full raw data:
   Virtual-device first-launch work (fresh simulator, WebView
   initialisation, migration and seeding) with high run-to-run variance
   dominates. The unsigned Android release APK cannot be installed, so no
-  Android release comparison exists.
+  Android release comparison exists. The comparison figures in this
+  section are pinned to the investigation's evidence base (candidate
+  `3935a0e`); recertification re-runs on this branch re-measure the same
+  journeys and record their own values in `reports/b4`, where
+  run-to-run differences from the pinned figures are expected and
+  further illustrate the first-launch variance.
 
 Gate B remains `INCOMPLETE`. Every breach is now attributed with
 reproductions; none is resolved against its comparator on virtual devices,

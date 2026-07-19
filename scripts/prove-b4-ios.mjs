@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   copyFile,
   lstat,
@@ -10,7 +11,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 
 import { createB4PlatformRiskReport } from '../src/app/b4-development-report.js';
 import {
@@ -27,12 +28,18 @@ const APP_PATH = join(
   '.native-build/ios/Build/Products/Debug-iphonesimulator/App.app',
 );
 const OUTPUT_DIRECTORY = join(ROOT, '.native-build/b4/ios');
+const RESUME_DIRECTORY = join(ROOT, '.native-build/b4/ios-resume');
 const DATABASE_DIRECTORY = join('Library', 'CapacitorDatabase');
 const DATABASE_NAME = 'ks2-spellingSQLite.db';
 const COMMAND_TIMEOUT_MS = 15 * 60 * 1_000;
 const KEYBOARD_DOMAIN = 'com.apple.iphonesimulator';
 const KEYBOARD_KEY = 'ConnectHardwareKeyboard';
 const LIMITATION = 'Simulator only; not physical-device, signed-distribution or App Store evidence.';
+const B4_IOS_LEGS = Object.freeze([
+  'phone-default',
+  'phone-200-percent',
+  'tablet-layout',
+]);
 
 function proofError(code, message, options) {
   const error = new Error(message, options);
@@ -131,6 +138,33 @@ export function measuredB4IosTextScale({ defaultHeightPoints, scaledHeightPoints
     );
   }
   return Number(ratio.toFixed(3));
+}
+
+export function selectB4IosResumeLegs(persistedLegs) {
+  const persisted = new Set(persistedLegs);
+  return Object.freeze(B4_IOS_LEGS.filter((leg) => !persisted.has(leg)));
+}
+
+async function walkBuiltApplicationFiles(directory) {
+  const files = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...await walkBuiltApplicationFiles(path));
+    else if (entry.isFile()) files.push(path);
+  }
+  return files;
+}
+
+export async function fingerprintB4IosBuiltApplication(directory) {
+  const files = (await walkBuiltApplicationFiles(directory))
+    .toSorted((left, right) => relative(directory, left).localeCompare(relative(directory, right)));
+  const digest = createHash('sha256');
+  for (const file of files) {
+    const relativePath = relative(directory, file).replaceAll('\\', '/');
+    const fileSha256 = createHash('sha256').update(await readFile(file)).digest('hex');
+    digest.update(`${relativePath}\0${fileSha256}\n`);
+  }
+  return digest.digest('hex');
 }
 
 async function checked(command, args, { stream = false } = {}) {
@@ -308,6 +342,54 @@ async function hostDescription() {
   return `macOS ${version} (${build})`;
 }
 
+async function prepareResumeDirectory(appSha256) {
+  const fingerprintPath = join(RESUME_DIRECTORY, 'fingerprint.json');
+  try {
+    const existing = JSON.parse(await readFile(fingerprintPath, 'utf8'));
+    if (existing?.appSha256 === appSha256) return;
+  } catch {
+    // Absent or invalid fingerprint means a fresh resume directory.
+  }
+  await rm(RESUME_DIRECTORY, { recursive: true, force: true });
+  await mkdir(RESUME_DIRECTORY, { recursive: true });
+  await writeFile(
+    fingerprintPath,
+    `${JSON.stringify({ appSha256 }, null, 2)}\n`,
+  );
+}
+
+async function listPersistedB4IosLegs() {
+  const persisted = [];
+  for (const name of B4_IOS_LEGS) {
+    try {
+      JSON.parse(await readFile(join(RESUME_DIRECTORY, `${name}.json`), 'utf8'));
+      persisted.push(name);
+    } catch {
+      // Absent or invalid JSON is treated as not persisted.
+    }
+  }
+  return Object.freeze(persisted);
+}
+
+async function writeResumeJson(name, value) {
+  await writeFile(
+    join(RESUME_DIRECTORY, `${name}.json`),
+    `${JSON.stringify(value, null, 2)}\n`,
+  );
+}
+
+async function readResumeJson(name) {
+  try {
+    return JSON.parse(await readFile(join(RESUME_DIRECTORY, `${name}.json`), 'utf8'));
+  } catch (error) {
+    throw proofError(
+      'b4_ios_resume_leg_invalid',
+      `Persisted resume leg ${name} is missing or invalid.`,
+      { cause: error },
+    );
+  }
+}
+
 async function proveB4Ios() {
   const workDirectory = await mkdtemp(join(tmpdir(), 'ks2-b4-ios-'));
   const ownedSimulatorUdids = [];
@@ -320,89 +402,142 @@ async function proveB4Ios() {
       'simctl', 'list', 'runtimes', 'available', '--json',
     ])));
     const nativePayloadBytes = await buildOfflineApplication();
+    const appSha256 = await fingerprintB4IosBuiltApplication(APP_PATH);
+    await prepareResumeDirectory(appSha256);
+
+    const persistedLegs = await listPersistedB4IosLegs();
+    const legsToRun = selectB4IosResumeLegs(persistedLegs);
+    const reusedLegs = B4_IOS_LEGS.filter((leg) => !legsToRun.includes(leg));
+    if (reusedLegs.length > 0) {
+      process.stderr.write(`Resuming: reusing passed legs ${reusedLegs.join(', ')}\n`);
+    }
+
     await rm(OUTPUT_DIRECTORY, { recursive: true, force: true });
     await mkdir(OUTPUT_DIRECTORY, { recursive: true });
 
-    restoreKeyboard = await configureSoftwareKeyboard();
-    phoneUdid = await createSimulator(
-      `KS2 Spelling B4 Phone ${process.pid}`,
-      profiles.phoneTypeIdentifier,
-      profiles.runtimeIdentifier,
-    );
-    ownedSimulatorUdids.push(phoneUdid);
-    scaledPhoneUdid = await createSimulator(
-      `KS2 Spelling B4 Scaled Phone ${process.pid}`,
-      profiles.phoneTypeIdentifier,
-      profiles.runtimeIdentifier,
-    );
-    ownedSimulatorUdids.push(scaledPhoneUdid);
-    tabletUdid = await createSimulator(
-      `KS2 Spelling B4 Tablet ${process.pid}`,
-      profiles.tabletTypeIdentifier,
-      profiles.runtimeIdentifier,
-    );
-    ownedSimulatorUdids.push(tabletUdid);
-    await bootSimulator(phoneUdid);
-    await bootSimulator(scaledPhoneUdid);
-    await bootSimulator(tabletUdid);
+    if (legsToRun.length > 0) {
+      restoreKeyboard = await configureSoftwareKeyboard();
+    }
 
-    await setContentSize(phoneUdid, 'large');
-    const defaultResult = await runInstalledTest({
-      udid: phoneUdid,
-      workDirectory,
-      name: 'phone-default',
-      testMethod: 'testInstalledFiveCardJourney',
-    });
-    const defaultJourney = await readJourneyCapture(defaultResult);
-    const localDatabaseBytes = await databaseFamilyBytes(phoneUdid);
+    if (legsToRun.includes('phone-default')) {
+      phoneUdid = await createSimulator(
+        `KS2 Spelling B4 Phone ${process.pid}`,
+        profiles.phoneTypeIdentifier,
+        profiles.runtimeIdentifier,
+      );
+      ownedSimulatorUdids.push(phoneUdid);
+      await bootSimulator(phoneUdid);
+      await setContentSize(phoneUdid, 'large');
+      const defaultResult = await runInstalledTest({
+        udid: phoneUdid,
+        workDirectory,
+        name: 'phone-default',
+        testMethod: 'testInstalledFiveCardJourney',
+      });
+      const defaultJourney = await readJourneyCapture(defaultResult);
+      const localDatabaseBytes = await databaseFamilyBytes(phoneUdid);
+      const device = defaultResult.summary.devicesAndConfigurations[0]?.device;
+      if (!device) throw proofError('b4_ios_device_metadata_missing', 'Simulator metadata is missing.');
+      await copyFile(
+        defaultJourney.screenshotPath,
+        join(RESUME_DIRECTORY, 'phone-default.png'),
+      );
+      await writeResumeJson('phone-default', {
+        observations: defaultJourney.observations,
+        localDatabaseBytes,
+        device,
+      });
+    }
 
-    await setContentSize(scaledPhoneUdid, 'accessibility-extra-extra-extra-large');
-    const scaledResult = await runInstalledTest({
-      udid: scaledPhoneUdid,
-      workDirectory,
-      name: 'phone-200-percent',
-      testMethod: 'testInstalledFiveCardJourney',
-    });
-    const scaledJourney = await readJourneyCapture(scaledResult);
+    if (legsToRun.includes('phone-200-percent')) {
+      scaledPhoneUdid = await createSimulator(
+        `KS2 Spelling B4 Scaled Phone ${process.pid}`,
+        profiles.phoneTypeIdentifier,
+        profiles.runtimeIdentifier,
+      );
+      ownedSimulatorUdids.push(scaledPhoneUdid);
+      await bootSimulator(scaledPhoneUdid);
+      await setContentSize(scaledPhoneUdid, 'accessibility-extra-extra-extra-large');
+      const scaledResult = await runInstalledTest({
+        udid: scaledPhoneUdid,
+        workDirectory,
+        name: 'phone-200-percent',
+        testMethod: 'testInstalledFiveCardJourney',
+      });
+      const scaledJourney = await readJourneyCapture(scaledResult);
+      await copyFile(
+        scaledJourney.screenshotPath,
+        join(RESUME_DIRECTORY, 'phone-200-percent.png'),
+      );
+      await writeResumeJson('phone-200-percent', {
+        observations: scaledJourney.observations,
+      });
+    }
+
+    if (legsToRun.includes('tablet-layout')) {
+      tabletUdid = await createSimulator(
+        `KS2 Spelling B4 Tablet ${process.pid}`,
+        profiles.tabletTypeIdentifier,
+        profiles.runtimeIdentifier,
+      );
+      ownedSimulatorUdids.push(tabletUdid);
+      await bootSimulator(tabletUdid);
+      await setContentSize(tabletUdid, 'large');
+      const tabletResult = await runInstalledTest({
+        udid: tabletUdid,
+        workDirectory,
+        name: 'tablet-layout',
+        testMethod: 'testTabletLayoutScreenshots',
+      });
+      const portraitFile = exactAttachment(tabletResult.manifest, 'b4-ios-layout-portrait_');
+      const landscapeFile = exactAttachment(tabletResult.manifest, 'b4-ios-layout-landscape_');
+      const portraitPath = join(tabletResult.attachmentsDirectory, portraitFile);
+      const landscapeFramebufferPath = join(tabletResult.attachmentsDirectory, landscapeFile);
+      const landscapePath = join(workDirectory, 'ios-tablet-landscape-normalised.png');
+      await checked('sips', [
+        '--rotate', '-90', landscapeFramebufferPath, '--out', landscapePath,
+      ]);
+      const dimensions = validateB4IosLayoutDimensions({
+        portrait: await pngDimensions(portraitPath),
+        landscape: await pngDimensions(landscapePath),
+      });
+      await copyFile(portraitPath, join(RESUME_DIRECTORY, 'tablet-portrait.png'));
+      await copyFile(landscapePath, join(RESUME_DIRECTORY, 'tablet-landscape.png'));
+      await writeResumeJson('tablet-layout', { dimensions });
+    }
+
+    const phoneDefault = await readResumeJson('phone-default');
+    const phoneScaled = await readResumeJson('phone-200-percent');
+    await readResumeJson('tablet-layout');
     const measuredTextScale = measuredB4IosTextScale({
-      defaultHeightPoints: defaultJourney.observations.referenceTextHeightPoints,
-      scaledHeightPoints: scaledJourney.observations.referenceTextHeightPoints,
+      defaultHeightPoints: phoneDefault.observations.referenceTextHeightPoints,
+      scaledHeightPoints: phoneScaled.observations.referenceTextHeightPoints,
     });
-
-    await setContentSize(tabletUdid, 'large');
-    const tabletResult = await runInstalledTest({
-      udid: tabletUdid,
-      workDirectory,
-      name: 'tablet-layout',
-      testMethod: 'testTabletLayoutScreenshots',
-    });
-    const portraitFile = exactAttachment(tabletResult.manifest, 'b4-ios-layout-portrait_');
-    const landscapeFile = exactAttachment(tabletResult.manifest, 'b4-ios-layout-landscape_');
-    const portraitPath = join(tabletResult.attachmentsDirectory, portraitFile);
-    const landscapeFramebufferPath = join(tabletResult.attachmentsDirectory, landscapeFile);
-    const landscapePath = join(workDirectory, 'ios-tablet-landscape-normalised.png');
-    await checked('sips', [
-      '--rotate', '-90', landscapeFramebufferPath, '--out', landscapePath,
-    ]);
     const layoutDimensions = validateB4IosLayoutDimensions({
-      portrait: await pngDimensions(portraitPath),
-      landscape: await pngDimensions(landscapePath),
+      portrait: await pngDimensions(join(RESUME_DIRECTORY, 'tablet-portrait.png')),
+      landscape: await pngDimensions(join(RESUME_DIRECTORY, 'tablet-landscape.png')),
     });
 
     await Promise.all([
-      copyFile(defaultJourney.screenshotPath, join(OUTPUT_DIRECTORY, 'ios-phone.png')),
-      copyFile(scaledJourney.screenshotPath, join(OUTPUT_DIRECTORY, 'ios-phone-200-percent.png')),
       copyFile(
-        portraitPath,
+        join(RESUME_DIRECTORY, 'phone-default.png'),
+        join(OUTPUT_DIRECTORY, 'ios-phone.png'),
+      ),
+      copyFile(
+        join(RESUME_DIRECTORY, 'phone-200-percent.png'),
+        join(OUTPUT_DIRECTORY, 'ios-phone-200-percent.png'),
+      ),
+      copyFile(
+        join(RESUME_DIRECTORY, 'tablet-portrait.png'),
         join(OUTPUT_DIRECTORY, 'ios-tablet-portrait.png'),
       ),
       copyFile(
-        landscapePath,
+        join(RESUME_DIRECTORY, 'tablet-landscape.png'),
         join(OUTPUT_DIRECTORY, 'ios-tablet-landscape.png'),
       ),
     ]);
 
-    const device = defaultResult.summary.devicesAndConfigurations[0]?.device;
+    const { device, localDatabaseBytes } = phoneDefault;
     if (!device) throw proofError('b4_ios_device_metadata_missing', 'Simulator metadata is missing.');
     const runner = {
       runnerImage: process.env.ImageOS
@@ -414,9 +549,9 @@ async function proveB4Ios() {
       buildConfiguration: 'B4Development unsigned Simulator',
     };
     const raw = {
-      coldLaunchMs: defaultJourney.observations.coldLaunchMs,
-      answerFeedbackMs: defaultJourney.observations.answerFeedbackMs,
-      audioStartMs: defaultJourney.observations.audioStartMs,
+      coldLaunchMs: phoneDefault.observations.coldLaunchMs,
+      answerFeedbackMs: phoneDefault.observations.answerFeedbackMs,
+      audioStartMs: phoneDefault.observations.audioStartMs,
       nativePayloadBytes,
       localDatabaseBytes,
     };
@@ -439,12 +574,12 @@ async function proveB4Ios() {
         clientTts: 'none',
       },
       journeys: {
-        default: defaultJourney.observations,
+        default: phoneDefault.observations,
         scaled: {
           contentSizeCategory: 'accessibility-extra-extra-extra-large',
           measuredTextScale,
           atLeast200Percent: measuredTextScale >= 2,
-          ...scaledJourney.observations,
+          ...phoneScaled.observations,
         },
       },
       rawSizes: { nativePayloadBytes, localDatabaseBytes },
@@ -463,6 +598,7 @@ async function proveB4Ios() {
       `${JSON.stringify(capture, null, 2)}\n`,
       { flag: 'wx' },
     );
+    await rm(RESUME_DIRECTORY, { recursive: true, force: true });
     return {
       ok: true,
       platform: capture.platform,

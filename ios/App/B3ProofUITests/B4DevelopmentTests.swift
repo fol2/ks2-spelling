@@ -31,6 +31,22 @@ final class B4DevelopmentTests: XCTestCase {
         let completed: Bool
     }
 
+    private struct SplitTimingObservation: Encodable {
+        let answerIndex: Int
+        let expectedRevision: Int
+        let submitEpochMs: Double
+        let audioPlayingVisibleEpochMs: Double
+        let feedbackVisibleEpochMs: Double
+        let replayToAudioPlayingVisibleMs: Double
+    }
+
+    private struct SplitTimingObservations: Encodable {
+        let schemaVersion = 1
+        let clock = "Unix epoch milliseconds"
+        let observations: [SplitTimingObservation]
+        let completed: Bool
+    }
+
     private func installedApplication() -> XCUIApplication {
         XCUIApplication(bundleIdentifier: "uk.eugnel.ks2spelling")
     }
@@ -81,6 +97,32 @@ final class B4DevelopmentTests: XCTestCase {
 
     private func elapsedMilliseconds(since start: Date) -> Double {
         Date().timeIntervalSince(start) * 1_000
+    }
+
+    private func epochMilliseconds() -> Double {
+        Date().timeIntervalSince1970 * 1_000
+    }
+
+    private func waitForFeedbackObservingAudio(
+        audioPlaying: XCUIElement,
+        continueButton: XCUIElement,
+        timeout: TimeInterval = 10
+    ) -> (audioEpochMs: Double, feedbackEpochMs: Double)? {
+        // A correct-answer submission renders feedback without an audio cue, so
+        // feedback is the required event; audio visibility is recorded only if
+        // it happens to appear first, using -1 as the explicit absent marker.
+        let deadline = Date().addingTimeInterval(timeout)
+        var audioEpochMs: Double = -1
+        while Date() < deadline {
+            if audioEpochMs < 0 && audioPlaying.exists {
+                audioEpochMs = epochMilliseconds()
+            }
+            if continueButton.exists {
+                return (audioEpochMs, epochMilliseconds())
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.002))
+        }
+        return nil
     }
 
     private func progressLabel(in application: XCUIApplication) -> XCUIElement {
@@ -307,6 +349,80 @@ final class B4DevelopmentTests: XCTestCase {
 
         revealCompletionForScreenshot(in: application)
         attachScreenshot(name: "b4-ios-completed-round")
+    }
+
+    func testSplitTimingJourney() throws {
+        continueAfterFailure = false
+
+        let application = installedApplication()
+        application.terminate()
+        application.launch()
+
+        let heading = application.staticTexts["Listen, type, learn"]
+        let input = application.textFields["Type the spelling"]
+        let replay = application.buttons["Replay"]
+        let audioPlaying = application.staticTexts["Audio playing"]
+        XCTAssertTrue(waitUntilPresent(heading), "The split-timing learner surface did not appear.")
+
+        var observations: [SplitTimingObservation] = []
+        for (index, answer) in frozenAnswers.enumerated() {
+            XCUIDevice.shared.press(.home)
+            application.activate()
+            XCTAssertTrue(waitUntilPresent(heading), "The learner surface did not foreground.")
+            XCTAssertTrue(waitUntilAbsent(audioPlaying), "Foregrounding did not clear playback.")
+            XCTAssertTrue(waitUntilEnabled(replay), "Replay was unavailable for answer \(index + 1).")
+            let replayStarted = Date()
+            replay.tap()
+            XCTAssertTrue(
+                waitUntilPresent(audioPlaying),
+                "Replay did not expose the playing state for answer \(index + 1)."
+            )
+            let replayToAudioPlayingVisibleMs = elapsedMilliseconds(since: replayStarted)
+
+            XCUIDevice.shared.press(.home)
+            application.activate()
+            XCTAssertTrue(waitUntilPresent(heading), "The learner surface did not foreground.")
+            XCTAssertTrue(waitUntilAbsent(audioPlaying), "Foregrounding did not clear playback.")
+
+            XCTAssertTrue(waitUntilEnabled(input), "The spelling input was unavailable.")
+            XCTAssertTrue(
+                focusForTyping(input, in: application),
+                "The spelling input did not acquire keyboard focus."
+            )
+            input.typeText(answer)
+
+            let submitEpochMs = epochMilliseconds()
+            application.buttons["Submit"].tap()
+            let continueButton = application.buttons["Continue"]
+            guard let visible = waitForFeedbackObservingAudio(
+                audioPlaying: audioPlaying,
+                continueButton: continueButton
+            ) else {
+                XCTFail("Feedback was not externally visible for answer \(index + 1).")
+                return
+            }
+            observations.append(SplitTimingObservation(
+                answerIndex: index + 1,
+                expectedRevision: 2 + (index * 2),
+                submitEpochMs: submitEpochMs,
+                audioPlayingVisibleEpochMs: visible.audioEpochMs,
+                feedbackVisibleEpochMs: visible.feedbackEpochMs,
+                replayToAudioPlayingVisibleMs: replayToAudioPlayingVisibleMs
+            ))
+
+            continueButton.tap()
+            if index == frozenAnswers.count - 1 {
+                XCTAssertTrue(waitUntilPresent(application.staticTexts["Round complete"]))
+            } else {
+                XCTAssertTrue(waitUntilEnabled(input), "The next spelling prompt did not become ready.")
+            }
+        }
+
+        XCTAssertEqual(observations.count, frozenAnswers.count)
+        try attachJSON(
+            SplitTimingObservations(observations: observations, completed: true),
+            name: "b4-ios-split-timing.json"
+        )
     }
 
     func testTabletLayoutScreenshots() throws {

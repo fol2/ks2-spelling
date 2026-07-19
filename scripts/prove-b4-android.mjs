@@ -2,7 +2,6 @@ import {
   mkdir,
   mkdtemp,
   readFile,
-  rename,
   rm,
   stat,
   writeFile,
@@ -12,6 +11,7 @@ import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 
 import { createB4PlatformRiskReport } from '../src/app/b4-development-report.js';
+import { movePath } from './lib/move-path.mjs';
 import {
   EXIT_CODES,
   isMain,
@@ -500,8 +500,8 @@ async function captureTabletLayout(workDirectory) {
   const portraitOutput = join(OUTPUT_DIRECTORY, 'android-tablet-portrait.png');
   const landscapeOutput = join(OUTPUT_DIRECTORY, 'android-tablet-landscape.png');
   await Promise.all([
-    rename(portrait.path, portraitOutput),
-    rename(landscape.path, landscapeOutput),
+    movePath(portrait.path, portraitOutput),
+    movePath(landscape.path, landscapeOutput),
   ]);
   return Object.freeze({
     controlEvidence,
@@ -684,6 +684,35 @@ async function proveB4Android() {
     } finally {
       await lease.close();
     }
+  }
+}
+
+export async function captureB4AndroidSplitTiming() {
+  const lease = await acquireB4AndroidRunnerLease();
+  try {
+    if (!await imageIsHosted(PRODUCT_IMAGE)) {
+      throw proofError(
+        'b4_android_emulator_unavailable',
+        `The required hosted Android image is missing: ${PRODUCT_IMAGE}.`,
+      );
+    }
+    await buildOfflineApplication();
+    return withOwnedAvd(
+      { label: 'Split', image: PRODUCT_IMAGE, device: 'pixel_9' },
+      async (profile) => {
+        await installApplications();
+        await adbChecked(['shell', 'pm', 'clear', APP_ID]);
+        await configureDevice('1.0');
+        const prefix = `split-${process.pid}`;
+        await runInstrumentation('testSplitTimingJourney', prefix);
+        return Object.freeze({
+          device: await deviceMetadata(profile),
+          capture: await readPhase(prefix, 'split'),
+        });
+      },
+    );
+  } finally {
+    await lease.close();
   }
 }
 

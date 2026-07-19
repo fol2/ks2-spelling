@@ -61,7 +61,8 @@ function preferredDeviceType(types, family, name) {
 
 export function selectB4IosRuntimeProfiles(payload) {
   const runtime = payload?.runtimes
-    ?.filter((candidate) => candidate.isAvailable === true)
+    ?.filter((candidate) => candidate.isAvailable === true &&
+      candidate.identifier?.startsWith('com.apple.CoreSimulator.SimRuntime.iOS'))
     .toSorted((left, right) => compareVersions(right.version, left.version))[0];
   if (!runtime || !Array.isArray(runtime.supportedDeviceTypes)) {
     throw proofError('b4_ios_runtime_unavailable', 'No hosted iOS Simulator runtime is available.');
@@ -469,6 +470,11 @@ async function proveB4Ios() {
       outputDirectory: '.native-build/b4/ios',
       limitations: capture.limitations,
     };
+  } catch (error) {
+    const preserved = join(tmpdir(), `ks2-b4-ios-failure-${process.pid}`);
+    await attempt('cp', ['-R', workDirectory, preserved]);
+    error.message = `${error.message} Evidence preserved at ${preserved}.`;
+    throw error;
   } finally {
     for (const udid of ownedSimulatorUdids) {
       await attempt('xcrun', ['simctl', 'shutdown', udid]);

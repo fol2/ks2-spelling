@@ -1,0 +1,279 @@
+{
+  "schemaVersion": 1,
+  "productIdentifier": "b4-starter-product",
+  "evidenceClass": "virtual-development-performance-investigation",
+  "evidenceBase": {
+    "candidate": "3935a0e2b08015ce095395f804f6c58eff294359",
+    "applicationCheckpoint": "9f4820e0ab95c51b0d390ff9b7d472da9a4e9a62",
+    "mergedMain": "8b91515ab86cce4769521df16c1c1a4d194063d2"
+  },
+  "reproductions": {
+    "nodeSqliteIsolation": {
+      "ok": true,
+      "harness": "scripts/investigate-b4-performance.mjs",
+      "perCommandMsMax": 29.454,
+      "perCommandMsMeanApprox": 16.5,
+      "comparator": {
+        "sqliteTransactionUpperBoundMs": 50
+      },
+      "withinComparator": true,
+      "limitations": [
+        "Node-process isolation; not a WebView or installed-application measurement."
+      ]
+    },
+    "iosSplitTiming": {
+      "ok": true,
+      "schemaVersion": 1,
+      "platform": "ios-simulator",
+      "splitKind": "bounded",
+      "observations": [
+        {
+          "answerIndex": 1,
+          "expectedRevision": 2,
+          "commandCommitUpperBoundMs": 212.376,
+          "commitToFeedbackVisibleMs": 369.337,
+          "audioPlayingObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 581.713,
+          "replayToAudioPlayingAndPublishVisibleMs": 1707.647
+        },
+        {
+          "answerIndex": 2,
+          "expectedRevision": 4,
+          "commandCommitUpperBoundMs": 185.286,
+          "commitToFeedbackVisibleMs": 382.368,
+          "audioPlayingObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 567.654,
+          "replayToAudioPlayingAndPublishVisibleMs": 373.303
+        },
+        {
+          "answerIndex": 3,
+          "expectedRevision": 6,
+          "commandCommitUpperBoundMs": 201.68,
+          "commitToFeedbackVisibleMs": 418.195,
+          "audioPlayingObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 619.875,
+          "replayToAudioPlayingAndPublishVisibleMs": 360.484
+        },
+        {
+          "answerIndex": 4,
+          "expectedRevision": 8,
+          "commandCommitUpperBoundMs": 208.328,
+          "commitToFeedbackVisibleMs": 402.59,
+          "audioPlayingObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 610.918,
+          "replayToAudioPlayingAndPublishVisibleMs": 335.651
+        },
+        {
+          "answerIndex": 5,
+          "expectedRevision": 10,
+          "commandCommitUpperBoundMs": 223.528,
+          "commitToFeedbackVisibleMs": 2078.076,
+          "audioPlayingObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 2301.604,
+          "replayToAudioPlayingAndPublishVisibleMs": 337.684
+        },
+        {
+          "answerIndex": 6,
+          "expectedRevision": 12,
+          "commandCommitUpperBoundMs": 229.089,
+          "commitToFeedbackVisibleMs": 364.632,
+          "audioPlayingObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 593.721,
+          "replayToAudioPlayingAndPublishVisibleMs": 339.035
+        },
+        {
+          "answerIndex": 7,
+          "expectedRevision": 14,
+          "commandCommitUpperBoundMs": 180.898,
+          "commitToFeedbackVisibleMs": 395.285,
+          "audioPlayingObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 576.183,
+          "replayToAudioPlayingAndPublishVisibleMs": 333.242
+        },
+        {
+          "answerIndex": 8,
+          "expectedRevision": 16,
+          "commandCommitUpperBoundMs": 209.029,
+          "commitToFeedbackVisibleMs": 420.965,
+          "audioPlayingObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 629.994,
+          "replayToAudioPlayingAndPublishVisibleMs": 327.793
+        },
+        {
+          "answerIndex": 9,
+          "expectedRevision": 18,
+          "commandCommitUpperBoundMs": 212.923,
+          "commitToFeedbackVisibleMs": 399.622,
+          "audioPlayingObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 612.545,
+          "replayToAudioPlayingAndPublishVisibleMs": 327.136
+        },
+        {
+          "answerIndex": 10,
+          "expectedRevision": 20,
+          "commandCommitUpperBoundMs": 228.668,
+          "commitToFeedbackVisibleMs": 394.022,
+          "audioPlayingObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 622.69,
+          "replayToAudioPlayingAndPublishVisibleMs": 360.621
+        }
+      ],
+      "limitations": [
+        "Simulator only; not physical-device or signed-distribution evidence.",
+        "SQLite polling records an upper bound on command commit and includes polling latency.",
+        "XCUITest cannot observe the installed WKWebView JavaScript playing event or controller publish separately.",
+        "A correct-answer submission emits no audio cue, so the commit-to-feedback interval is publish, render and accessibility observation; replay measurements carry the audio-start seam."
+      ]
+    },
+    "androidSplitTiming": {
+      "ok": true,
+      "schemaVersion": 1,
+      "platform": "android-emulator",
+      "splitKind": "native-playback-bound",
+      "runner": {
+        "runtime": "Android 16 / API 36 (BE2A.250530.026.F3)",
+        "deviceProfile": "sdk_gphone64_arm64; arm64-v8a; pixel_9",
+        "buildConfiguration": "B4Development debug APK and Android instrumentation APK"
+      },
+      "freshReplayToAudioPlayingAndPublishVisibleMs": 1032.028,
+      "observations": [
+        {
+          "answerIndex": 1,
+          "expectedRevision": 2,
+          "commandCommitUpperBoundMs": 236.668,
+          "commitToFeedbackVisibleMs": 135.927,
+          "nativeAudioObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 372.595
+        },
+        {
+          "answerIndex": 2,
+          "expectedRevision": 4,
+          "commandCommitUpperBoundMs": 361.433,
+          "commitToFeedbackVisibleMs": 215.184,
+          "nativeAudioObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 576.617
+        },
+        {
+          "answerIndex": 3,
+          "expectedRevision": 6,
+          "commandCommitUpperBoundMs": 197.592,
+          "commitToFeedbackVisibleMs": 106.035,
+          "nativeAudioObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 303.627
+        },
+        {
+          "answerIndex": 4,
+          "expectedRevision": 8,
+          "commandCommitUpperBoundMs": 229.412,
+          "commitToFeedbackVisibleMs": 538.749,
+          "nativeAudioObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 768.161
+        },
+        {
+          "answerIndex": 5,
+          "expectedRevision": 10,
+          "commandCommitUpperBoundMs": 141.5,
+          "commitToFeedbackVisibleMs": 629.274,
+          "nativeAudioObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 770.775
+        },
+        {
+          "answerIndex": 6,
+          "expectedRevision": 12,
+          "commandCommitUpperBoundMs": 153.784,
+          "commitToFeedbackVisibleMs": 104.288,
+          "nativeAudioObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 258.072
+        },
+        {
+          "answerIndex": 7,
+          "expectedRevision": 14,
+          "commandCommitUpperBoundMs": 152.18,
+          "commitToFeedbackVisibleMs": 533.385,
+          "nativeAudioObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 685.565
+        },
+        {
+          "answerIndex": 8,
+          "expectedRevision": 16,
+          "commandCommitUpperBoundMs": 146.528,
+          "commitToFeedbackVisibleMs": 104.652,
+          "nativeAudioObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 251.18
+        },
+        {
+          "answerIndex": 9,
+          "expectedRevision": 18,
+          "commandCommitUpperBoundMs": 141.281,
+          "commitToFeedbackVisibleMs": 209.338,
+          "nativeAudioObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 350.619
+        },
+        {
+          "answerIndex": 10,
+          "expectedRevision": 20,
+          "commandCommitUpperBoundMs": 222.846,
+          "commitToFeedbackVisibleMs": 227.857,
+          "nativeAudioObservedDuringFeedbackWait": false,
+          "submitToFeedbackVisibleMs": 450.703
+        }
+      ],
+      "limitations": [
+        "Emulator only; not physical-device or Play-signed distribution evidence.",
+        "SQLite polling records an upper bound on command commit and includes polling latency.",
+        "The controlled emulator must have no active native player before submission; unprivileged AudioManager callbacks do not expose an attributable player identifier.",
+        "AudioManager reports the Chromium native player becoming active, not the later HTML audio playing callback itself.",
+        "The native-audio-to-feedback interval includes JavaScript event delivery, controller publish, WebView render and accessibility observation latency."
+      ]
+    },
+    "iosReleaseConfigurationJourney": {
+      "ok": true,
+      "harness": "scripts/investigate-b4-release-launch-ios.mjs",
+      "platform": "ios-simulator",
+      "buildConfiguration": "Release",
+      "coldLaunchMs": 11836.766,
+      "answerFeedbackMsRange": [
+        499.991,
+        608.701
+      ],
+      "audioStartMs": [
+        1662.843,
+        631.161
+      ],
+      "limitations": [
+        "Simulator only; a Release-configuration launch on a virtual device is attribution evidence, not device certification.",
+        "The unsigned Android release APK cannot be installed, so no Android release comparison exists."
+      ]
+    }
+  },
+  "attribution": {
+    "sqliteTransactionUpperBound": {
+      "status": "attributed",
+      "owningSeam": "measurement composition",
+      "evidence": "The committed raw series reuses the whole submit-to-feedback interval; the isolated SQLite transaction measures at most 29 ms against the 50 ms comparator, and on-platform commit upper bounds (141-361 ms) include host polling and bridge latency, not SQLite work."
+    },
+    "answerFeedback": {
+      "status": "attributed-not-resolved",
+      "owningSeam": "WebView bridge, state publish, render and accessibility observation on debug virtual devices",
+      "evidence": "No audio cue exists on a correct-answer submission (audio observed on zero of twenty split observations across both platforms), so audio-start cannot own this interval. The split places commit at 141-361 ms upper bound and commit-to-feedback typically at 104-629 ms, with one isolated 2078 ms tail spike (iOS answer 5) whose commit upper bound stayed a normal 224 ms, placing the spike inside the publish, render and observation segment. The previously committed Android progressive ramp to 2680 ms did not reproduce as a ramp in an isolated run and is attributed to concurrent measurement load, though the iOS tail spike shows single observations of comparable magnitude do occur in isolation.",
+      "openConcern": "Totals of roughly 250-770 ms, with one isolated 2302 ms observation, remain above the 100 ms comparator; test observation latency inflates the raw values but the residual product latency on virtual debug builds is not isolated from it."
+    },
+    "audioStart": {
+      "status": "reproduced-open",
+      "owningSeam": "fresh audio element creation and first decode inside the WebView",
+      "evidence": "Fresh-player starts measured 1708 ms and 1663 ms (iOS) and 1032 ms (Android); warm starts measured 327-631 ms (iOS). All exceed the 250 ms comparator."
+    },
+    "coldLaunch": {
+      "status": "attributed-not-resolved",
+      "owningSeam": "virtual-device first-launch environment, not build configuration",
+      "evidence": "A Release-configuration launch on a fresh simulator measured 11837 ms against Debug's committed 5502 ms, and Release answerFeedback (500-609 ms) matches Debug (500-787 ms); build configuration moves neither. First-launch work (fresh simulator, WebView initialisation, migration and seeding) with high run-to-run variance dominates; no evidence isolates a WebView product ceiling.",
+      "openConcern": "The 2000 ms comparator expresses device-class expectations that virtual first-launch environments have not met in any configuration; resolution requires physical-device or hosted-real-device evidence, which B4 explicitly does not claim."
+    }
+  },
+  "technicalOutcome": "investigation-required",
+  "limitations": [
+    "Virtual devices in Debug configuration only; no physical-device evidence.",
+    "External observation latency is included in every on-platform interval.",
+    "No statistical certification claim; raw observations only."
+  ]
+}

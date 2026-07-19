@@ -57,9 +57,18 @@ export function createB4LocalAudioPlayer({
     cache.set(path, element);
   }
 
+  function flush() {
+    for (const element of cache.values()) fullReset(element);
+    cache.clear();
+  }
+
   function acquire(path) {
     const cached = cache.get(path);
-    if (cached) return cached;
+    if (cached && !cached.error) return cached;
+    if (cached) {
+      cache.delete(path);
+      fullReset(cached);
+    }
     const element = createAudioElement();
     if (!element || typeof element.play !== 'function' || typeof element.pause !== 'function') {
       throw new TypeError('createAudioElement must return an audio-like element.');
@@ -158,12 +167,12 @@ export function createB4LocalAudioPlayer({
 
   play.stop = () => stop();
   play.warm = warm;
+  play.flush = flush;
   play.dispose = () => {
     if (disposed) return;
     disposed = true;
     stop('b4_audio_player_disposed');
-    for (const element of cache.values()) fullReset(element);
-    cache.clear();
+    flush();
   };
   return Object.freeze(play);
 }

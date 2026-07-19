@@ -120,6 +120,36 @@ test('warm ignores invalid paths without throwing', () => {
   assert.equal(fake.elements[0].src, 'audio/b4/b4-01.wav');
 });
 
+test('flush fully resets the pool so post-background plays start from fresh elements', async () => {
+  const fake = fakeAudioFactory();
+  const play = createB4LocalAudioPlayer({ createAudioElement: fake.create });
+  play.warm(['audio/b4/b4-01.wav', 'audio/b4/b4-02.wav']);
+  assert.equal(fake.elements.length, 2);
+
+  play.flush();
+  assert.equal(fake.elements[0].removed.includes('src'), true, 'flush must fully reset pooled elements');
+  assert.equal(fake.elements[1].removed.includes('src'), true);
+
+  const replay = play('audio/b4/b4-01.wav');
+  assert.equal(fake.elements.length, 3, 'a flushed path must play through a fresh element');
+  fake.elements[2].playCall.resolve();
+  fake.elements[2].emit('playing');
+  assert.deepEqual(await replay, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+});
+
+test('an errored pooled element is discarded instead of reused', async () => {
+  const fake = fakeAudioFactory();
+  const play = createB4LocalAudioPlayer({ createAudioElement: fake.create });
+  play.warm(['audio/b4/b4-01.wav']);
+  fake.elements[0].error = { code: 4 };
+
+  const replay = play('audio/b4/b4-01.wav');
+  assert.equal(fake.elements.length, 2, 'an errored element must be replaced with a fresh one');
+  fake.elements[1].playCall.resolve();
+  fake.elements[1].emit('playing');
+  assert.deepEqual(await replay, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+});
+
 test('play rejection, interruption, stale completion and rapid replay are safe', async () => {
   const fake = fakeAudioFactory();
   const errors = [];

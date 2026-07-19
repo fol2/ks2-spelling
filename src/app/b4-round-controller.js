@@ -121,6 +121,10 @@ export function createB4RoundController({
   function stopPlayback() {
     playbackGeneration += 1;
     playAudio.stop();
+    // Backgrounding can purge WebKit media buffers, leaving pooled elements
+    // unable to reach the playing state; a paused/rehydrated session must
+    // start from fresh elements (the next publish re-warms the pool).
+    playAudio.flush?.();
     audio = { status: 'idle', error: null };
     publish(Object.freeze({
       ...currentState,

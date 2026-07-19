@@ -457,6 +457,18 @@ test('start warms the current card word-natural and dictation variants', async (
   await controller.dispose();
 });
 
+test('stopping playback flushes the warm pool so resumed sessions start clean', async () => {
+  const calls = [];
+  const playAudio = silentPlayer(calls);
+  playAudio.warm = () => {};
+  playAudio.flush = () => calls.push('flush');
+  const { controller } = mockCommandServices({ autoSpeak: false, playAudio });
+  await controller.start();
+  await controller.rehydrate();
+  assert.ok(calls.includes('flush'), 'pause/rehydrate must flush pooled media elements');
+  await controller.dispose();
+});
+
 test('committed state publishes before the audio cue starts playing', async () => {
   let release = null;
   const play = (path) => new Promise((resolve) => {

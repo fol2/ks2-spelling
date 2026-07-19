@@ -1,0 +1,226 @@
+{
+  "applicationCheckpoint": {
+    "commit": "c468600a3b3eafe7e9d4e11969baffe62eea30d1",
+    "tree": "ae7a7844ce27e4bd68e8d98dca01e96b4d0da69f"
+  },
+  "coldLaunchSeriesMs": [
+    3452.913,
+    4061.774,
+    3710.613
+  ],
+  "comparators": {
+    "answerFeedback": {
+      "observedMs": 858.9,
+      "thresholdMs": 100,
+      "within": false
+    },
+    "audioStart": {
+      "observedMs": 1839.641,
+      "thresholdMs": 250,
+      "within": false
+    },
+    "coldLaunch": {
+      "observedMs": 4061.774,
+      "thresholdMs": 2000,
+      "within": false
+    },
+    "sqliteTransactionUpperBound": {
+      "observedMs": 27.664,
+      "thresholdMs": 50,
+      "within": true
+    }
+  },
+  "isolatedSqlite": {
+    "maxTransactionMs": 27.664
+  },
+  "journeys": {
+    "default": {
+      "answerFeedbackMs": [
+        733.5250377655029,
+        824.7779607772827,
+        796.5980768203735,
+        820.747971534729,
+        814.8689270019531,
+        830.7880163192749,
+        858.9000701904297,
+        816.2970542907715,
+        827.6729583740234,
+        823.3979940414429
+      ],
+      "audioStartMs": [
+        634.4588994979858,
+        1783.1660509109497
+      ],
+      "backgroundAudioStoppedCount": 2,
+      "coldLaunchMs": 3452.9130458831787,
+      "completed": true,
+      "enterSubmitted": true,
+      "minimumControlHeightPoints": 49,
+      "referenceTextHeightPoints": 23,
+      "resumeProgressAfter": "Card 2 of 5",
+      "resumeProgressBefore": "Card 2 of 5",
+      "schemaVersion": 1,
+      "softwareKeyboardObserved": true
+    }
+  },
+  "limitations": [
+    "Development-signed install only; this is not distribution, App Store or production signing evidence.",
+    "Comparator values are specific to this physical device and must not be treated as transferable across devices or platforms."
+  ],
+  "platform": "ios-physical",
+  "repeatJourneys": [
+    {
+      "answerFeedbackMs": [
+        726.3550758361816,
+        820.4799890518188,
+        817.7560567855835,
+        824.7400522232056,
+        797.639012336731,
+        827.1589279174805,
+        822.4219083786011,
+        810.2109432220459,
+        826.3810873031616,
+        835.1689577102661
+      ],
+      "audioStartMs": [
+        472.0510244369507,
+        1839.6409749984741
+      ],
+      "backgroundAudioStoppedCount": 2,
+      "coldLaunchMs": 4061.7740154266357,
+      "completed": true,
+      "enterSubmitted": true,
+      "minimumControlHeightPoints": 49,
+      "referenceTextHeightPoints": 23,
+      "resumeProgressAfter": "Card 2 of 5",
+      "resumeProgressBefore": "Card 2 of 5",
+      "schemaVersion": 1,
+      "softwareKeyboardObserved": true
+    },
+    {
+      "answerFeedbackMs": [
+        725.274920463562,
+        806.2750101089478,
+        802.7439117431641,
+        795.6099510192871,
+        811.4410638809204,
+        814.5380020141602,
+        817.8000450134277,
+        823.8170146942139,
+        824.9349594116211,
+        795.0119972229004
+      ],
+      "audioStartMs": [
+        497.9029893875122,
+        1744.6420192718506
+      ],
+      "backgroundAudioStoppedCount": 2,
+      "coldLaunchMs": 3710.613012313843,
+      "completed": true,
+      "enterSubmitted": true,
+      "minimumControlHeightPoints": 49,
+      "referenceTextHeightPoints": 23,
+      "resumeProgressAfter": "Card 2 of 5",
+      "resumeProgressBefore": "Card 2 of 5",
+      "schemaVersion": 1,
+      "softwareKeyboardObserved": true
+    }
+  ],
+  "runner": {
+    "buildConfiguration": "Release",
+    "deviceModel": "iPhone 16 Pro Max",
+    "deviceOsVersion": "27.0",
+    "hostOS": "macOS 27.0 (26A5378n)",
+    "reality": "physical",
+    "sdk": "iphoneos26.5",
+    "xcodeVersion": "26.6 (17F109)"
+  },
+  "schemaVersion": 1,
+  "splitTimings": {
+    "clock": "Unix epoch milliseconds",
+    "completed": true,
+    "observations": [
+      {
+        "answerIndex": 1,
+        "audioPlayingVisibleEpochMs": -1,
+        "expectedRevision": 2,
+        "feedbackVisibleEpochMs": 1784473129426.712,
+        "replayToAudioPlayingVisibleMs": 394.5549726486206,
+        "submitEpochMs": 1784473128574.2249
+      },
+      {
+        "answerIndex": 2,
+        "audioPlayingVisibleEpochMs": -1,
+        "expectedRevision": 4,
+        "feedbackVisibleEpochMs": 1784473138901.206,
+        "replayToAudioPlayingVisibleMs": 1526.1900424957275,
+        "submitEpochMs": 1784473138051.312
+      },
+      {
+        "answerIndex": 3,
+        "audioPlayingVisibleEpochMs": -1,
+        "expectedRevision": 6,
+        "feedbackVisibleEpochMs": 1784473146635.451,
+        "replayToAudioPlayingVisibleMs": 411.97502613067627,
+        "submitEpochMs": 1784473145761.864
+      },
+      {
+        "answerIndex": 4,
+        "audioPlayingVisibleEpochMs": -1,
+        "expectedRevision": 8,
+        "feedbackVisibleEpochMs": 1784473154600.675,
+        "replayToAudioPlayingVisibleMs": 459.1400623321533,
+        "submitEpochMs": 1784473153739.59
+      },
+      {
+        "answerIndex": 5,
+        "audioPlayingVisibleEpochMs": -1,
+        "expectedRevision": 10,
+        "feedbackVisibleEpochMs": 1784473162445.911,
+        "replayToAudioPlayingVisibleMs": 391.1769390106201,
+        "submitEpochMs": 1784473161593.896
+      },
+      {
+        "answerIndex": 6,
+        "audioPlayingVisibleEpochMs": -1,
+        "expectedRevision": 12,
+        "feedbackVisibleEpochMs": 1784473170316.603,
+        "replayToAudioPlayingVisibleMs": 402.47809886932373,
+        "submitEpochMs": 1784473169435.355
+      },
+      {
+        "answerIndex": 7,
+        "audioPlayingVisibleEpochMs": -1,
+        "expectedRevision": 14,
+        "feedbackVisibleEpochMs": 1784473179327.7122,
+        "replayToAudioPlayingVisibleMs": 1536.0180139541626,
+        "submitEpochMs": 1784473178449.228
+      },
+      {
+        "answerIndex": 8,
+        "audioPlayingVisibleEpochMs": -1,
+        "expectedRevision": 16,
+        "feedbackVisibleEpochMs": 1784473187266.8328,
+        "replayToAudioPlayingVisibleMs": 465.0000333786011,
+        "submitEpochMs": 1784473186417.411
+      },
+      {
+        "answerIndex": 9,
+        "audioPlayingVisibleEpochMs": -1,
+        "expectedRevision": 18,
+        "feedbackVisibleEpochMs": 1784473195167.84,
+        "replayToAudioPlayingVisibleMs": 431.28693103790283,
+        "submitEpochMs": 1784473194311.718
+      },
+      {
+        "answerIndex": 10,
+        "audioPlayingVisibleEpochMs": -1,
+        "expectedRevision": 20,
+        "feedbackVisibleEpochMs": 1784473203028.6208,
+        "replayToAudioPlayingVisibleMs": 441.9659376144409,
+        "submitEpochMs": 1784473202167.561
+      }
+    ],
+    "schemaVersion": 1
+  }
+}

@@ -152,18 +152,35 @@ function assertExactStoreKitObservations(output, transcript, errorCode) {
 }
 
 export function assertCompletedStoreKitTimeoutEvidence(output, transcript) {
-  const completedSuite =
-    /Test Suite 'B3StoreKitDelayedTests' passed at [^\n]+\n\s*Executed 2 tests, with 0 failures \(0 unexpected\)/u;
-  if (output.includes('** TEST EXECUTE FAILED **') || !completedSuite.test(output)) {
+  const lines = output.split(/\r?\n/u);
+  const suitePrefix = "Test Suite 'B3StoreKitDelayedTests' ";
+  const terminalSuiteMarkers = lines
+    .map((line, index) => ({ index, line }))
+    .filter(
+      ({ line }) => line.startsWith(suitePrefix) && !line.startsWith(`${suitePrefix}started at `),
+    );
+  const [terminalSuite] = terminalSuiteMarkers;
+  const cleanSuiteSummary = terminalSuite
+    && terminalSuiteMarkers.length === 1
+    && terminalSuite.line.startsWith(`${suitePrefix}passed at `)
+    && /^\s*Executed 2 tests, with 0 failures \(0 unexpected\)(?: .*)?$/u.test(
+      lines[terminalSuite.index + 1] ?? '',
+    );
+  if (output.includes('** TEST EXECUTE FAILED **') || !cleanSuiteSummary) {
     throw proofError(
       'storekit_test_timeout',
       'Xcode StoreKit execution timed out before the selected suite completed cleanly',
     );
   }
   for (const method of STOREKIT_TEST_METHODS) {
-    const passed = `Test Case '-[AppTests.B3StoreKitDelayedTests ${method}]' passed (`;
-    const failed = `Test Case '-[AppTests.B3StoreKitDelayedTests ${method}]' failed (`;
-    if (!output.includes(passed) || output.includes(failed)) {
+    const casePrefix = `Test Case '-[AppTests.B3StoreKitDelayedTests ${method}]' `;
+    const terminalCaseMarkers = lines.filter(
+      (line) => line.startsWith(casePrefix) && line !== `${casePrefix}started.`,
+    );
+    if (
+      terminalCaseMarkers.length !== 1
+      || !terminalCaseMarkers[0].startsWith(`${casePrefix}passed (`)
+    ) {
       throw proofError(
         'storekit_test_timeout',
         `Xcode StoreKit execution timed out without a clean result for ${method}`,

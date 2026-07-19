@@ -172,6 +172,19 @@ test('the wrapper accepts only a fully completed StoreKit suite when Xcode linge
   ].join('\n');
 
   assert.equal(assertCompletedStoreKitTimeoutEvidence(completed, transcript).length, 2);
+  const selectedSuiteSummary = completed.split('\n').slice(-2).join('\n');
+  const duplicatePassedCase =
+    "Test Case '-[AppTests.B3StoreKitDelayedTests testDelayedApproveProducesVerifiedPurchasedObservation]' passed (9.702 seconds).";
+  for (const contradictory of [
+    `${completed}\n${selectedSuiteSummary}`,
+    `${completed}\nTest Suite 'B3StoreKitDelayedTests' failed at 2026-07-18 22:01:42.703.\n\t Executed 2 tests, with 1 failure (0 unexpected) in 15.206 (15.207) seconds`,
+    `${completed}\n${duplicatePassedCase}`,
+  ]) {
+    assert.throws(
+      () => assertCompletedStoreKitTimeoutEvidence(contradictory, transcript),
+      ({ code }) => code === 'storekit_test_timeout',
+    );
+  }
   for (const incomplete of [
     completed.replace("Test Suite 'B3StoreKitDelayedTests' passed", "Test Suite 'B3StoreKitDelayedTests' failed"),
     completed.replace('Executed 2 tests, with 0 failures (0 unexpected)', 'Executed 2 tests, with 1 failure (0 unexpected)'),

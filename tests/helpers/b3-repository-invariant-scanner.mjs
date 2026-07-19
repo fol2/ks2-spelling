@@ -62,7 +62,12 @@ const EXCLUDED_DIRECTORY_NAMES = new Set([
   'reports',
   'vendor',
 ]);
-const EXCLUDED_PREFIXES = Object.freeze(['tests/fixtures/']);
+const EXCLUDED_PREFIXES = Object.freeze([
+  'tests/fixtures/',
+  // Generated `cap sync` copies of dist/, not source.
+  'android/app/src/main/assets/public/',
+  'ios/App/App/public/',
+]);
 const TEXT_EXTENSIONS = new Set([
   '.cjs', '.gradle', '.java', '.js', '.json', '.jsx', '.kt', '.kts', '.mjs',
   '.properties', '.sh', '.swift', '.ts', '.tsx', '.xml', '.yaml', '.yml',

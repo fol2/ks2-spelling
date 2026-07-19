@@ -403,8 +403,10 @@ test('genuine A3 audio effects run post-commit while replay stays independent of
 function mockCommandServices({ autoSpeak, playAudio }) {
   let snapshot = freshSnapshot(autoSpeak);
   let reads = 0;
+  let transactions = 0;
   const repository = {
     async runCommandTransaction(_learnerId, planner) {
+      transactions += 1;
       const plan = planner(structuredClone(snapshot), { nowMs: B4_START_TIMESTAMP + snapshot.revision });
       snapshot = commit(snapshot, plan);
       return plan;
@@ -422,8 +424,37 @@ function mockCommandServices({ autoSpeak, playAudio }) {
     audioManifest: placeholderManifest(),
     playAudio,
   });
-  return { controller, countReads: () => reads };
+  return { controller, countReads: () => reads, countTransactions: () => transactions };
 }
+
+test('every learner action stays within its storage round-trip budget', async () => {
+  // Structural performance invariant: on-device answer latency scales with
+  // storage-bridge round-trips, so the budget is pinned as operation counts
+  // (deterministic) rather than wall time (flaky). A submit or continue may
+  // cost at most one snapshot read and one transaction.
+  const { controller, countReads, countTransactions } = mockCommandServices({
+    autoSpeak: false,
+    playAudio: silentPlayer(),
+  });
+  await controller.start();
+  const catalogue = loadStarterSpellingCatalogue();
+  for (let answers = 0; answers < 3; answers += 1) {
+    const readsBefore = countReads();
+    const transactionsBefore = countTransactions();
+    const target = catalogue.items.find(
+      ({ runtimeItemId }) => runtimeItemId === controller.getState().currentRuntimeItemId,
+    ).target;
+    const state = await controller.submit(target);
+    assert.ok(countReads() - readsBefore <= 1, 'submit must cost at most one snapshot read');
+    assert.equal(countTransactions() - transactionsBefore, 1, 'submit must cost exactly one transaction');
+    if (state.awaitingAdvance) {
+      const continueReadsBefore = countReads();
+      await controller.continue();
+      assert.ok(countReads() - continueReadsBefore <= 1, 'continue must cost at most one snapshot read');
+    }
+  }
+  await controller.dispose();
+});
 
 test('a committed command publishes from its validated plan without a second snapshot read', async () => {
   const { controller, countReads } = mockCommandServices({

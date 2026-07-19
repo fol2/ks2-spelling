@@ -469,6 +469,11 @@ async function proveB4Ios() {
       outputDirectory: '.native-build/b4/ios',
       limitations: capture.limitations,
     };
+  } catch (error) {
+    const preserved = join(tmpdir(), `ks2-b4-ios-failure-${process.pid}`);
+    await attempt('cp', ['-R', workDirectory, preserved]);
+    error.message = `${error.message} Evidence preserved at ${preserved}.`;
+    throw error;
   } finally {
     for (const udid of ownedSimulatorUdids) {
       await attempt('xcrun', ['simctl', 'shutdown', udid]);

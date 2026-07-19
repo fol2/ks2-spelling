@@ -117,13 +117,24 @@ cold-launch comparison) is still owed. Full raw data:
   and 1032 ms (Android) against the 250 ms comparator; warm iOS starts
   327–373 ms. Owned by fresh element creation and first decode in the
   WebView.
-- **`coldLaunch` — still `investigation-required`**, fail closed, pending
-  the release-configuration comparison.
+- **`coldLaunch` — attributed, not resolved.** Hypothesis 2 is falsified as
+  stated: a Release-configuration launch on a fresh simulator measured
+  11837 ms against Debug's committed 5502 ms, and Release answerFeedback
+  (500–609 ms) matches Debug — build configuration moves neither breach.
+  Virtual-device first-launch work (fresh simulator, WebView
+  initialisation, migration and seeding) with high run-to-run variance
+  dominates. The unsigned Android release APK cannot be installed, so no
+  Android release comparison exists.
 
-Gate B remains `INCOMPLETE`. No reproduced, attributed, disproportionate
-WebView ceiling is demonstrated: the dominant contributors are measurement
-composition, debug virtual environments and observation latency, none of
-which certifies a product ceiling.
+Gate B remains `INCOMPLETE`. Every breach is now attributed with
+reproductions; none is resolved against its comparator on virtual devices,
+and no reproduced, attributed, disproportionate WebView ceiling is
+demonstrated. The dominant contributors — measurement composition, virtual
+first-launch environments, WebView bridge/render latency under external
+observation, and fresh audio element decode — do not certify a product
+ceiling, and the comparators express device-class expectations that only
+physical-device or hosted-real-device evidence (explicitly outside B4) can
+settle.
 
 ## Review gates
 

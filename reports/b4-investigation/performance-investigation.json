@@ -225,6 +225,25 @@
         "AudioManager reports the Chromium native player becoming active, not the later HTML audio playing callback itself.",
         "The native-audio-to-feedback interval includes JavaScript event delivery, controller publish, WebView render and accessibility observation latency."
       ]
+    },
+    "iosReleaseConfigurationJourney": {
+      "ok": true,
+      "harness": "scripts/investigate-b4-release-launch-ios.mjs",
+      "platform": "ios-simulator",
+      "buildConfiguration": "Release",
+      "coldLaunchMs": 11836.766,
+      "answerFeedbackMsRange": [
+        499.991,
+        608.701
+      ],
+      "audioStartMs": [
+        1662.843,
+        631.161
+      ],
+      "limitations": [
+        "Simulator only; a Release-configuration launch on a virtual device is attribution evidence, not device certification.",
+        "The unsigned Android release APK cannot be installed, so no Android release comparison exists."
+      ]
     }
   },
   "attribution": {
@@ -245,8 +264,10 @@
       "evidence": "Fresh-player starts measured 1708 ms (iOS) and 1032 ms (Android); warm starts measured 327-373 ms (iOS). All exceed the 250 ms comparator; warm starts approach it."
     },
     "coldLaunch": {
-      "status": "investigation-required",
-      "evidence": "The release-configuration launch comparison (hypothesis 2) has not been run; the breach stays unattributed and fail-closed."
+      "status": "attributed-not-resolved",
+      "owningSeam": "virtual-device first-launch environment, not build configuration",
+      "evidence": "A Release-configuration launch on a fresh simulator measured 11837 ms against Debug's committed 5502 ms, and Release answerFeedback (500-609 ms) matches Debug (500-787 ms); build configuration moves neither. First-launch work (fresh simulator, WebView initialisation, migration and seeding) with high run-to-run variance dominates; no evidence isolates a WebView product ceiling.",
+      "openConcern": "The 2000 ms comparator expresses device-class expectations that virtual first-launch environments have not met in any configuration; resolution requires physical-device or hosted-real-device evidence, which B4 explicitly does not claim."
     }
   },
   "technicalOutcome": "investigation-required",

@@ -3,7 +3,13 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { selectB4IosRuntimeProfiles } from './prove-b4-ios.mjs';
-import { EXIT_CODES, isMain, printJson, runCommand } from './lib/run-command.mjs';
+import {
+  configureSoftwareKeyboard,
+  createInvestigationRunner,
+  exactAttachment,
+  investigationError,
+} from './lib/investigation.mjs';
+import { EXIT_CODES, isMain, printJson } from './lib/run-command.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const RELEASE_APP_PATH = join(
@@ -11,59 +17,12 @@ const RELEASE_APP_PATH = join(
   '.native-build/b4-release/Build/Products/Release-iphonesimulator/App.app',
 );
 const COMMAND_TIMEOUT_MS = 15 * 60 * 1_000;
-const KEYBOARD_DOMAIN = 'com.apple.iphonesimulator';
-const KEYBOARD_KEY = 'ConnectHardwareKeyboard';
 
-function investigationError(code, message) {
-  return Object.assign(new Error(message), { code });
-}
-
-async function execute(command, args, { stream = false } = {}) {
-  return runCommand(command, args, { cwd: ROOT, stream, timeoutMs: COMMAND_TIMEOUT_MS });
-}
-
-async function checked(command, args, options) {
-  const result = await execute(command, args, options);
-  if (result.exitCode !== 0) {
-    throw investigationError(
-      'b4_ios_release_command_failed',
-      `${command} failed with exit code ${result.exitCode}.`,
-    );
-  }
-  return result.stdout.trim();
-}
-
-async function attempt(command, args) {
-  return execute(command, args);
-}
-
-function exactAttachment(manifest, suggestedPrefix) {
-  const matches = manifest.flatMap((entry) => entry.attachments ?? []).filter(
-    ({ suggestedHumanReadableName }) => suggestedHumanReadableName?.startsWith(suggestedPrefix),
-  );
-  if (matches.length !== 1) {
-    throw investigationError(
-      'b4_ios_release_attachment_invalid',
-      `Expected one ${suggestedPrefix} attachment.`,
-    );
-  }
-  return matches[0].exportedFileName;
-}
-
-async function configureSoftwareKeyboard() {
-  const original = await attempt('defaults', ['read', KEYBOARD_DOMAIN, KEYBOARD_KEY]);
-  await checked('defaults', ['write', KEYBOARD_DOMAIN, KEYBOARD_KEY, '-bool', 'false']);
-  return async () => {
-    if (original.exitCode === 0) {
-      const enabled = /^(?:1|true|yes)$/iu.test(original.stdout.trim());
-      await checked('defaults', [
-        'write', KEYBOARD_DOMAIN, KEYBOARD_KEY, '-bool', enabled ? 'true' : 'false',
-      ]);
-    } else {
-      await checked('defaults', ['delete', KEYBOARD_DOMAIN, KEYBOARD_KEY]);
-    }
-  };
-}
+const { execute, checked } = createInvestigationRunner({
+  root: ROOT,
+  timeoutMs: COMMAND_TIMEOUT_MS,
+  failureCode: 'b4_ios_release_command_failed',
+});
 
 export async function run() {
   const workDirectory = await mkdtemp(join(tmpdir(), 'ks2-b4-release-ios-'));
@@ -102,7 +61,7 @@ export async function run() {
     const profiles = selectB4IosRuntimeProfiles(JSON.parse(await checked('xcrun', [
       'simctl', 'list', 'runtimes', 'available', '--json',
     ])));
-    restoreKeyboard = await configureSoftwareKeyboard();
+    restoreKeyboard = await configureSoftwareKeyboard({ execute, checked });
     simulatorUdid = await checked('xcrun', [
       'simctl', 'create', `KS2 Spelling B4 Release ${process.pid}`,
       profiles.phoneTypeIdentifier, profiles.runtimeIdentifier,
@@ -125,7 +84,7 @@ export async function run() {
     ], { stream: true });
     if (testResult.exitCode !== 0) {
       const preserved = join(tmpdir(), `ks2-b4-release-ios-failure-${process.pid}.xcresult`);
-      await attempt('cp', ['-R', resultPath, preserved]);
+      await execute('cp', ['-R', resultPath, preserved]);
       throw investigationError(
         'b4_ios_release_test_failed',
         `xcodebuild failed with exit code ${testResult.exitCode}; result preserved at ${preserved}.`,
@@ -137,7 +96,7 @@ export async function run() {
       '--path', resultPath, '--output-path', attachmentsDirectory,
     ]);
     const manifest = JSON.parse(await readFile(join(attachmentsDirectory, 'manifest.json'), 'utf8'));
-    const observationFile = exactAttachment(manifest, 'b4-ios-journey-observations_');
+    const observationFile = exactAttachment(manifest, 'b4-ios-journey-observations_', 'b4_ios_release_attachment_invalid');
     const journey = JSON.parse(await readFile(join(attachmentsDirectory, observationFile), 'utf8'));
     if (journey.schemaVersion !== 1 || journey.completed !== true) {
       throw investigationError(
@@ -159,8 +118,8 @@ export async function run() {
     });
   } finally {
     if (simulatorUdid) {
-      await attempt('xcrun', ['simctl', 'shutdown', simulatorUdid]);
-      await attempt('xcrun', ['simctl', 'delete', simulatorUdid]);
+      await execute('xcrun', ['simctl', 'shutdown', simulatorUdid]);
+      await execute('xcrun', ['simctl', 'delete', simulatorUdid]);
     }
     if (restoreKeyboard) await restoreKeyboard();
     await rm(workDirectory, { recursive: true, force: true });

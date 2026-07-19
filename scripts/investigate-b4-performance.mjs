@@ -16,6 +16,7 @@ import { configureAndMigrateDatabase } from '../src/platform/database/migrate-da
 import { createSQLiteSpellingCommandRepository } from '../src/platform/database/sqlite-spelling-command-repository.js';
 import { createSQLiteSpellingSnapshotStore } from '../src/platform/database/sqlite-spelling-snapshot-store.js';
 import { createNodeSqliteConnection } from '../tests/helpers/node-sqlite-connection.mjs';
+import { investigationError, roundMs } from './lib/investigation.mjs';
 import { EXIT_CODES, isMain, printJson } from './lib/run-command.mjs';
 
 const LEARNER_ID = 'learner-a';
@@ -23,14 +24,6 @@ const SQLITE_TRANSACTION_UPPER_BOUND_MS = 50;
 const LIMITATIONS = Object.freeze([
   'Node-process isolation; not a WebView or installed-application measurement.',
 ]);
-
-function investigationError(code, message) {
-  return Object.assign(new Error(message), { code });
-}
-
-function roundMs(value) {
-  return Math.round(value * 1_000) / 1_000;
-}
 
 function buildReport(perCommandMs) {
   const maxMs = roundMs(Math.max(...perCommandMs));

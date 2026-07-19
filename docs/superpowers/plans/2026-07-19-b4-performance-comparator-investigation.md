@@ -96,8 +96,9 @@ threshold relabelling, no statistical-certification claim.
 
 ## Findings — 2026-07-19
 
-Reproductions 1 and 3 are complete; reproduction 2 (release-configuration
-cold-launch comparison) is still owed. Full raw data:
+Reproductions 1-3 are complete, with one bounded exception: the Android half
+of reproduction 2 is impossible because the unsigned release APK cannot be
+installed. Full raw data:
 `reports/b4-investigation/performance-investigation.json`.
 
 - **`sqliteTransactionUpperBound` — attributed to measurement composition.**
@@ -109,14 +110,18 @@ cold-launch comparison) is still owed. Full raw data:
   (zero of twenty split observations saw audio on either platform). The
   interval decomposes into command commit (141–361 ms upper bound including
   polling and bridge) plus publish/render/accessibility observation
-  (104–629 ms). The previously committed Android ramp to 2680 ms did not
-  reproduce in isolation and is attributed to concurrent measurement load.
-  Totals of ~250–770 ms still exceed the 100 ms comparator on debug virtual
-  builds, with test-observation latency not separable externally.
-- **`audioStart` — reproduced, open.** Fresh-player starts of 1708 ms (iOS)
-  and 1032 ms (Android) against the 250 ms comparator; warm iOS starts
-  327–373 ms. Owned by fresh element creation and first decode in the
-  WebView.
+  (typically 104–629 ms, with one isolated 2078 ms tail spike on iOS
+  answer 5 whose commit upper bound stayed a normal 224 ms). The
+  previously committed Android progressive ramp to 2680 ms did not
+  reproduce as a ramp in isolation and is attributed to concurrent
+  measurement load, though the iOS tail spike shows single observations
+  of comparable magnitude do occur in isolation. Totals of ~250–770 ms
+  (one isolated 2302 ms) still exceed the 100 ms comparator on debug
+  virtual builds, with test-observation latency not separable externally.
+- **`audioStart` — reproduced, open.** Fresh-player starts of 1708 ms and
+  1663 ms (iOS) and 1032 ms (Android) against the 250 ms comparator; warm
+  iOS starts 327–631 ms. Owned by fresh element creation and first decode
+  in the WebView.
 - **`coldLaunch` — attributed, not resolved.** Hypothesis 2 is falsified as
   stated: a Release-configuration launch on a fresh simulator measured
   11837 ms against Debug's committed 5502 ms, and Release answerFeedback

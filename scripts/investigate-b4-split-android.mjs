@@ -1,12 +1,9 @@
 import { captureB4AndroidSplitTiming } from './prove-b4-android.mjs';
+import { investigationError, roundMs } from './lib/investigation.mjs';
 import { EXIT_CODES, isMain, printJson } from './lib/run-command.mjs';
 
-function investigationError(code, message) {
-  return Object.assign(new Error(message), { code });
-}
-
-function roundMs(nanoseconds) {
-  return Math.round((nanoseconds / 1_000_000) * 1_000) / 1_000;
+function nanosToMs(nanoseconds) {
+  return roundMs(nanoseconds / 1_000_000);
 }
 
 export function createB4AndroidSplitReport(result) {
@@ -46,16 +43,16 @@ export function createB4AndroidSplitReport(result) {
     return Object.freeze({
       answerIndex: index + 1,
       expectedRevision,
-      commandCommitUpperBoundMs: roundMs(
+      commandCommitUpperBoundMs: nanosToMs(
         observation.commitObservedElapsedRealtimeNanos -
           observation.submitElapsedRealtimeNanos,
       ),
-      commitToFeedbackVisibleMs: roundMs(
+      commitToFeedbackVisibleMs: nanosToMs(
         observation.feedbackVisibleElapsedRealtimeNanos -
           observation.commitObservedElapsedRealtimeNanos,
       ),
       nativeAudioObservedDuringFeedbackWait: audioSeen,
-      submitToFeedbackVisibleMs: roundMs(
+      submitToFeedbackVisibleMs: nanosToMs(
         observation.feedbackVisibleElapsedRealtimeNanos -
           observation.submitElapsedRealtimeNanos,
       ),
@@ -71,9 +68,9 @@ export function createB4AndroidSplitReport(result) {
       deviceProfile: `${result.device.model}; ${result.device.abi}; ${result.device.requestedDevice}`,
       buildConfiguration: 'B4Development debug APK and Android instrumentation APK',
     }),
-    freshReplayToAudioPlayingAndPublishVisibleMs: Math.round(
-      capture.freshReplayToAudioPlayingVisibleMs * 1_000,
-    ) / 1_000,
+    freshReplayToAudioPlayingAndPublishVisibleMs: roundMs(
+      capture.freshReplayToAudioPlayingVisibleMs,
+    ),
     observations,
     limitations: Object.freeze([
       'Emulator only; not physical-device or Play-signed distribution evidence.',

@@ -8,49 +8,29 @@ import {
   createB4IosXcodeTestArguments,
   selectB4IosRuntimeProfiles,
 } from './prove-b4-ios.mjs';
-import { EXIT_CODES, isMain, printJson, runCommand } from './lib/run-command.mjs';
+import {
+  configureSoftwareKeyboard,
+  createInvestigationRunner,
+  exactAttachment,
+  investigationError,
+  roundMs,
+} from './lib/investigation.mjs';
+import { EXIT_CODES, isMain, printJson } from './lib/run-command.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const APP_ID = 'uk.eugnel.ks2spelling';
 const APP_PATH = join(ROOT, '.native-build/ios/Build/Products/Debug-iphonesimulator/App.app');
 const DATABASE_NAME = 'ks2-spellingSQLite.db';
 const COMMAND_TIMEOUT_MS = 15 * 60 * 1_000;
-const KEYBOARD_DOMAIN = 'com.apple.iphonesimulator';
-const KEYBOARD_KEY = 'ConnectHardwareKeyboard';
 
-function investigationError(code, message, options) {
-  return Object.assign(new Error(message, options), { code });
-}
-
-function roundMs(value) {
-  return Math.round(value * 1_000) / 1_000;
-}
+const { execute, checked } = createInvestigationRunner({
+  root: ROOT,
+  timeoutMs: COMMAND_TIMEOUT_MS,
+  failureCode: 'b4_ios_split_command_failed',
+});
 
 function delay(milliseconds) {
   return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
-}
-
-async function execute(command, args, { stream = false } = {}) {
-  return runCommand(command, args, {
-    cwd: ROOT,
-    stream,
-    timeoutMs: COMMAND_TIMEOUT_MS,
-  });
-}
-
-async function checked(command, args, options) {
-  const result = await execute(command, args, options);
-  if (result.exitCode !== 0) {
-    throw investigationError(
-      'b4_ios_split_command_failed',
-      `${command} failed with exit code ${result.exitCode}.`,
-    );
-  }
-  return result.stdout.trim();
-}
-
-async function attempt(command, args) {
-  return execute(command, args);
 }
 
 async function buildOfflineApplication() {
@@ -74,34 +54,6 @@ async function buildOfflineApplication() {
       'The built B4 application is not network-denied.',
     );
   }
-}
-
-async function configureSoftwareKeyboard() {
-  const original = await attempt('defaults', ['read', KEYBOARD_DOMAIN, KEYBOARD_KEY]);
-  await checked('defaults', ['write', KEYBOARD_DOMAIN, KEYBOARD_KEY, '-bool', 'false']);
-  return async () => {
-    if (original.exitCode === 0) {
-      const enabled = /^(?:1|true|yes)$/iu.test(original.stdout.trim());
-      await checked('defaults', [
-        'write', KEYBOARD_DOMAIN, KEYBOARD_KEY, '-bool', enabled ? 'true' : 'false',
-      ]);
-    } else {
-      await checked('defaults', ['delete', KEYBOARD_DOMAIN, KEYBOARD_KEY]);
-    }
-  };
-}
-
-function exactAttachment(manifest, suggestedPrefix) {
-  const matches = manifest.flatMap((entry) => entry.attachments ?? []).filter(
-    ({ suggestedHumanReadableName }) => suggestedHumanReadableName?.startsWith(suggestedPrefix),
-  );
-  if (matches.length !== 1) {
-    throw investigationError(
-      'b4_ios_split_attachment_invalid',
-      `Expected one ${suggestedPrefix} attachment.`,
-    );
-  }
-  return matches[0].exportedFileName;
 }
 
 async function watchRevisions(databasePath, testPromise) {
@@ -219,7 +171,7 @@ export async function run() {
     const profiles = selectB4IosRuntimeProfiles(JSON.parse(await checked('xcrun', [
       'simctl', 'list', 'runtimes', 'available', '--json',
     ])));
-    restoreKeyboard = await configureSoftwareKeyboard();
+    restoreKeyboard = await configureSoftwareKeyboard({ execute, checked });
     simulatorUdid = await checked('xcrun', [
       'simctl', 'create', `KS2 Spelling B4 Split ${process.pid}`,
       profiles.phoneTypeIdentifier, profiles.runtimeIdentifier,
@@ -245,7 +197,7 @@ export async function run() {
     const revisions = await revisionsPromise;
     if (testResult.exitCode !== 0) {
       const preserved = join(tmpdir(), `ks2-b4-split-ios-failure-${process.pid}.xcresult`);
-      await attempt('cp', ['-R', resultPath, preserved]);
+      await execute('cp', ['-R', resultPath, preserved]);
       throw investigationError(
         'b4_ios_split_test_failed',
         `xcodebuild failed with exit code ${testResult.exitCode}; result preserved at ${preserved}.`,
@@ -264,13 +216,13 @@ export async function run() {
       '--path', resultPath, '--output-path', attachmentsDirectory,
     ]);
     const manifest = JSON.parse(await readFile(join(attachmentsDirectory, 'manifest.json'), 'utf8'));
-    const captureFile = exactAttachment(manifest, 'b4-ios-split-timing_');
+    const captureFile = exactAttachment(manifest, 'b4-ios-split-timing_', 'b4_ios_split_attachment_invalid');
     const capture = JSON.parse(await readFile(join(attachmentsDirectory, captureFile), 'utf8'));
     return createB4IosSplitReport(capture, revisions);
   } finally {
     if (simulatorUdid) {
-      await attempt('xcrun', ['simctl', 'shutdown', simulatorUdid]);
-      await attempt('xcrun', ['simctl', 'delete', simulatorUdid]);
+      await execute('xcrun', ['simctl', 'shutdown', simulatorUdid]);
+      await execute('xcrun', ['simctl', 'delete', simulatorUdid]);
     }
     if (restoreKeyboard) await restoreKeyboard();
     await rm(workDirectory, { recursive: true, force: true });

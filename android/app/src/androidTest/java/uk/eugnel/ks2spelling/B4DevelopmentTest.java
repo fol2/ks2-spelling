@@ -435,5 +435,4 @@ public class B4DevelopmentTest {
             .put("naturalMinimumControlHeightDp", naturalMinimumDp)
             .put("rotatedMinimumControlHeightDp", rotatedMinimumDp));
     }
-
 }

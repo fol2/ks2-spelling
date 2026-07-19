@@ -255,13 +255,13 @@
     "answerFeedback": {
       "status": "attributed-not-resolved",
       "owningSeam": "WebView bridge, state publish, render and accessibility observation on debug virtual devices",
-      "evidence": "No audio cue exists on a correct-answer submission (audio observed on zero of twenty split observations across both platforms), so audio-start cannot own this interval. The split places commit at 141-361 ms upper bound and commit-to-feedback at 104-629 ms. The previously committed Android ramp to 2680 ms did not reproduce in an isolated run and is attributed to concurrent measurement load.",
-      "openConcern": "Totals of roughly 250-770 ms remain above the 100 ms comparator; test observation latency inflates the raw values but the residual product latency on virtual debug builds is not isolated from it."
+      "evidence": "No audio cue exists on a correct-answer submission (audio observed on zero of twenty split observations across both platforms), so audio-start cannot own this interval. The split places commit at 141-361 ms upper bound and commit-to-feedback typically at 104-629 ms, with one isolated 2078 ms tail spike (iOS answer 5) whose commit upper bound stayed a normal 224 ms, placing the spike inside the publish, render and observation segment. The previously committed Android progressive ramp to 2680 ms did not reproduce as a ramp in an isolated run and is attributed to concurrent measurement load, though the iOS tail spike shows single observations of comparable magnitude do occur in isolation.",
+      "openConcern": "Totals of roughly 250-770 ms, with one isolated 2302 ms observation, remain above the 100 ms comparator; test observation latency inflates the raw values but the residual product latency on virtual debug builds is not isolated from it."
     },
     "audioStart": {
       "status": "reproduced-open",
       "owningSeam": "fresh audio element creation and first decode inside the WebView",
-      "evidence": "Fresh-player starts measured 1708 ms (iOS) and 1032 ms (Android); warm starts measured 327-373 ms (iOS). All exceed the 250 ms comparator; warm starts approach it."
+      "evidence": "Fresh-player starts measured 1708 ms and 1663 ms (iOS) and 1032 ms (Android); warm starts measured 327-631 ms (iOS). All exceed the 250 ms comparator."
     },
     "coldLaunch": {
       "status": "attributed-not-resolved",

@@ -164,6 +164,11 @@ test('the app-owned façade exposes only the certified runtime and read-only cat
     'utf8',
   );
   assert.doesNotMatch(facadeSource, /(?:from|import\s*)\s*['"]node:/);
+  assert.doesNotMatch(
+    facadeSource,
+    /^import[^\n]*mobile-runtime-full/mu,
+    'the full catalogue must stay off the launch path — load it lazily, not with a static import',
+  );
   const facade = await import(
     `${pathToFileURL(join(ROOT, 'src/domain/spelling/index.js')).href}?test=${crypto.randomUUID()}`
   );

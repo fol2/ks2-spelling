@@ -264,7 +264,9 @@ function specifiersFromSource(source) {
     if (match) specifiers.push(match[2]);
   }
 
-  const dynamicPattern = /\b(import|require)\s*\(\s*(['"])([^'"]+)\2\s*\)/g;
+  // No closing-paren anchor: a dynamic import may carry an import-attributes
+  // second argument (import('x.json', { with: { type: 'json' } })).
+  const dynamicPattern = /\b(import|require)\s*\(\s*(['"])([^'"]+)\2/g;
   let dynamic;
   while ((dynamic = dynamicPattern.exec(source)) !== null) specifiers.push(dynamic[3]);
   return specifiers;

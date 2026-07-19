@@ -465,8 +465,8 @@
     "technicalOutcome": "investigation-required"
   },
   "applicationCheckpoint": {
-    "commit": "bd94df6c909a2eee96bcf6944ac9adfa1e60138b",
-    "tree": "5a72d626c16e5d7a2e5e705eea8f753c5aec10a6"
+    "commit": "8ba206987299856a9b1b71fa4e3c5c9058176b0f",
+    "tree": "af8dfec65cc75550104aeb697f3caf7aa9e1e78d"
   },
   "bundleInput": {
     "kind": "directory-sha256",

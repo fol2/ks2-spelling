@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "productIdentifier": "b4-starter-product",
   "applicationCheckpoint": {
-    "commit": "bd94df6c909a2eee96bcf6944ac9adfa1e60138b",
-    "tree": "5a72d626c16e5d7a2e5e705eea8f753c5aec10a6"
+    "commit": "8ba206987299856a9b1b71fa4e3c5c9058176b0f",
+    "tree": "af8dfec65cc75550104aeb697f3caf7aa9e1e78d"
   },
   "bundleInputs": {
     "ios": {
@@ -19,12 +19,12 @@
     }
   },
   "evidenceSha256": {
-    "reports/b4/domain-round-proof.json": "c3a26d0405e1b12fc2bc7c19ca518cf31de600298f0cfbc0f9b738acee114b4a",
-    "reports/b4/ios-simulator-proof.json": "e55a3b438813bbdf9f6665cc131c86d6a3afa562894aac4e230334b233eacdb3",
+    "reports/b4/domain-round-proof.json": "83d319ff5365b6944630246d0206e2863b3651b421a0e1a6d526b322da5aa961",
+    "reports/b4/ios-simulator-proof.json": "a045ca25774b80e85ebd43f837ace088af5668ed9f815c16fc0625224320b80c",
     "reports/b4/ios-phone.png": "ea72530a90516f04c75980ad9b36f49da5f3ee93dfcc62a729cc9fe975bc4050",
     "reports/b4/ios-tablet-portrait.png": "04dbd5777b376a3fd170f68ded3fbf3aaab5cb099c72699a3c891b6504a7cb5d",
     "reports/b4/ios-tablet-landscape.png": "24257e8bc9151187bdfac0149c6c6348ebb487c6681771ccb826e10f590bb6ae",
-    "reports/b4/android-emulator-proof.json": "81e7c2b37e047da0755e450e20f91fcc013ae7a540463b7aaccd0fc0295990d1",
+    "reports/b4/android-emulator-proof.json": "908d9e61ecc09e961cec1c7bdb33460274d1758e0111bcade1157d416f13dd97",
     "reports/b4/android-phone.png": "039b24070448e60ecca604ca93e4514be745a2084ce2f1719db8617f184fec3f",
     "reports/b4/android-tablet-portrait.png": "28e19a155fb91dbb992ab5eca08f4ad82e910fb15be5ae167fa9d62a4a3ac0d2",
     "reports/b4/android-tablet-landscape.png": "8ceda945cab171ede0a4749695587ef14714b43211d60aa07a7613b28c50cfab"

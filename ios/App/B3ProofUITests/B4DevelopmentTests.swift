@@ -103,23 +103,22 @@ final class B4DevelopmentTests: XCTestCase {
         Date().timeIntervalSince1970 * 1_000
     }
 
-    private func waitForAudioAndFeedback(
+    private func waitForFeedbackObservingAudio(
         audioPlaying: XCUIElement,
         continueButton: XCUIElement,
         timeout: TimeInterval = 10
     ) -> (audioEpochMs: Double, feedbackEpochMs: Double)? {
+        // A correct-answer submission renders feedback without an audio cue, so
+        // feedback is the required event; audio visibility is recorded only if
+        // it happens to appear first, using -1 as the explicit absent marker.
         let deadline = Date().addingTimeInterval(timeout)
-        var audioEpochMs: Double?
-        var feedbackEpochMs: Double?
+        var audioEpochMs: Double = -1
         while Date() < deadline {
-            if audioEpochMs == nil && audioPlaying.exists {
+            if audioEpochMs < 0 && audioPlaying.exists {
                 audioEpochMs = epochMilliseconds()
             }
-            if feedbackEpochMs == nil && continueButton.exists {
-                feedbackEpochMs = epochMilliseconds()
-            }
-            if let audioEpochMs, let feedbackEpochMs {
-                return (audioEpochMs, feedbackEpochMs)
+            if continueButton.exists {
+                return (audioEpochMs, epochMilliseconds())
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.002))
         }
@@ -395,11 +394,11 @@ final class B4DevelopmentTests: XCTestCase {
             let submitEpochMs = epochMilliseconds()
             application.buttons["Submit"].tap()
             let continueButton = application.buttons["Continue"]
-            guard let visible = waitForAudioAndFeedback(
+            guard let visible = waitForFeedbackObservingAudio(
                 audioPlaying: audioPlaying,
                 continueButton: continueButton
             ) else {
-                XCTFail("Audio and feedback were not both externally visible for answer \(index + 1).")
+                XCTFail("Feedback was not externally visible for answer \(index + 1).")
                 return
             }
             observations.append(SplitTimingObservation(

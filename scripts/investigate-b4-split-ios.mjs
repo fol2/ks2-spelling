@@ -163,6 +163,7 @@ export function createB4IosSplitReport(capture, revisions) {
   const observations = capture.observations.map((observation, index) => {
     const expectedRevision = 2 + (index * 2);
     const commitEpochMs = revisions.get(expectedRevision);
+    const audioSeen = observation.audioPlayingVisibleEpochMs !== -1;
     if (observation.answerIndex !== index + 1 ||
         observation.expectedRevision !== expectedRevision ||
         !Number.isFinite(commitEpochMs) ||
@@ -171,7 +172,7 @@ export function createB4IosSplitReport(capture, revisions) {
         !Number.isFinite(observation.feedbackVisibleEpochMs) ||
         !Number.isFinite(observation.replayToAudioPlayingVisibleMs) ||
         commitEpochMs < observation.submitEpochMs ||
-        observation.audioPlayingVisibleEpochMs < commitEpochMs ||
+        (audioSeen && observation.audioPlayingVisibleEpochMs < commitEpochMs) ||
         observation.feedbackVisibleEpochMs < commitEpochMs) {
       throw investigationError(
         'b4_ios_split_observation_invalid',
@@ -182,17 +183,10 @@ export function createB4IosSplitReport(capture, revisions) {
       answerIndex: index + 1,
       expectedRevision,
       commandCommitUpperBoundMs: roundMs(commitEpochMs - observation.submitEpochMs),
-      commitToAudioPlayingAndPublishVisibleMs: roundMs(
-        Math.min(
-          observation.audioPlayingVisibleEpochMs,
-          observation.feedbackVisibleEpochMs,
-        ) - commitEpochMs,
+      commitToFeedbackVisibleMs: roundMs(
+        observation.feedbackVisibleEpochMs - commitEpochMs,
       ),
-      accessibilityObservationSkewMs: roundMs(
-        Math.abs(
-          observation.audioPlayingVisibleEpochMs - observation.feedbackVisibleEpochMs,
-        ),
-      ),
+      audioPlayingObservedDuringFeedbackWait: audioSeen,
       submitToFeedbackVisibleMs: roundMs(
         observation.feedbackVisibleEpochMs - observation.submitEpochMs,
       ),
@@ -211,7 +205,7 @@ export function createB4IosSplitReport(capture, revisions) {
       'Simulator only; not physical-device or signed-distribution evidence.',
       'SQLite polling records an upper bound on command commit and includes polling latency.',
       'XCUITest cannot observe the installed WKWebView JavaScript playing event or controller publish separately.',
-      'Audio playing and feedback are DOM-driven accessibility nodes from the same post-playing render; their combined interval cannot attribute audio versus publish time.',
+      'A correct-answer submission emits no audio cue, so the commit-to-feedback interval is publish, render and accessibility observation; replay measurements carry the audio-start seam.',
     ]),
   });
 }
@@ -250,9 +244,11 @@ export async function run() {
     const testResult = await testPromise;
     const revisions = await revisionsPromise;
     if (testResult.exitCode !== 0) {
+      const preserved = join(tmpdir(), `ks2-b4-split-ios-failure-${process.pid}.xcresult`);
+      await attempt('cp', ['-R', resultPath, preserved]);
       throw investigationError(
         'b4_ios_split_test_failed',
-        `xcodebuild failed with exit code ${testResult.exitCode}.`,
+        `xcodebuild failed with exit code ${testResult.exitCode}; result preserved at ${preserved}.`,
       );
     }
 

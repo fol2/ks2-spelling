@@ -20,22 +20,23 @@ export function createB4AndroidSplitReport(result) {
   }
   const observations = capture.observations.map((observation, index) => {
     const expectedRevision = 2 + (index * 2);
+    const audioSeen = observation.audioActiveElapsedRealtimeNanos !== -1;
     const values = [
       observation.submitElapsedRealtimeNanos,
       observation.commitObservedElapsedRealtimeNanos,
-      observation.audioActiveElapsedRealtimeNanos,
       observation.feedbackVisibleElapsedRealtimeNanos,
       observation.replayToAudioPlayingVisibleMs,
     ];
     if (observation.answerIndex !== index + 1 ||
         observation.expectedRevision !== expectedRevision ||
         !values.every((value) => Number.isFinite(value) && value >= 0) ||
+        !Number.isFinite(observation.audioActiveElapsedRealtimeNanos) ||
         observation.commitObservedElapsedRealtimeNanos <
           observation.submitElapsedRealtimeNanos ||
-        observation.audioActiveElapsedRealtimeNanos <
-          observation.commitObservedElapsedRealtimeNanos ||
+        (audioSeen && observation.audioActiveElapsedRealtimeNanos <
+          observation.commitObservedElapsedRealtimeNanos) ||
         observation.feedbackVisibleElapsedRealtimeNanos <
-          observation.audioActiveElapsedRealtimeNanos) {
+          observation.commitObservedElapsedRealtimeNanos) {
       throw investigationError(
         'b4_android_split_observation_invalid',
         `The Android split-timing observation for answer ${index + 1} is invalid.`,
@@ -48,14 +49,11 @@ export function createB4AndroidSplitReport(result) {
         observation.commitObservedElapsedRealtimeNanos -
           observation.submitElapsedRealtimeNanos,
       ),
-      commitObservationToNativeAudioActiveLowerBoundMs: roundMs(
-        observation.audioActiveElapsedRealtimeNanos -
+      commitToFeedbackVisibleMs: roundMs(
+        observation.feedbackVisibleElapsedRealtimeNanos -
           observation.commitObservedElapsedRealtimeNanos,
       ),
-      nativeAudioActiveToFeedbackVisibleUpperBoundMs: roundMs(
-        observation.feedbackVisibleElapsedRealtimeNanos -
-          observation.audioActiveElapsedRealtimeNanos,
-      ),
+      nativeAudioObservedDuringFeedbackWait: audioSeen,
       submitToFeedbackVisibleMs: roundMs(
         observation.feedbackVisibleElapsedRealtimeNanos -
           observation.submitElapsedRealtimeNanos,

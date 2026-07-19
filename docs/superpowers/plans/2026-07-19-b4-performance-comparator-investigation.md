@@ -94,6 +94,37 @@ threshold relabelling, no statistical-certification claim.
 - Task 22 / C-series scope stays out.
 - Virtual-device limitation language stays in every report.
 
+## Findings — 2026-07-19
+
+Reproductions 1 and 3 are complete; reproduction 2 (release-configuration
+cold-launch comparison) is still owed. Full raw data:
+`reports/b4-investigation/performance-investigation.json`.
+
+- **`sqliteTransactionUpperBound` — attributed to measurement composition.**
+  The isolated SQLite transaction runs the whole frozen trace at 29 ms
+  maximum against the 50 ms comparator. The committed raw series reuses the
+  entire submit-to-feedback interval, so the labelled seam never breached.
+- **`answerFeedback` — attributed, not resolved.** Hypothesis 1's audio
+  ownership is falsified: a correct-answer submission emits no audio cue
+  (zero of twenty split observations saw audio on either platform). The
+  interval decomposes into command commit (141–361 ms upper bound including
+  polling and bridge) plus publish/render/accessibility observation
+  (104–629 ms). The previously committed Android ramp to 2680 ms did not
+  reproduce in isolation and is attributed to concurrent measurement load.
+  Totals of ~250–770 ms still exceed the 100 ms comparator on debug virtual
+  builds, with test-observation latency not separable externally.
+- **`audioStart` — reproduced, open.** Fresh-player starts of 1708 ms (iOS)
+  and 1032 ms (Android) against the 250 ms comparator; warm iOS starts
+  327–373 ms. Owned by fresh element creation and first decode in the
+  WebView.
+- **`coldLaunch` — still `investigation-required`**, fail closed, pending
+  the release-configuration comparison.
+
+Gate B remains `INCOMPLETE`. No reproduced, attributed, disproportionate
+WebView ceiling is demonstrated: the dominant contributors are measurement
+composition, debug virtual environments and observation latency, none of
+which certifies a product ceiling.
+
 ## Review gates
 
 The exact plan candidate requires Gstack (scope and contract), Matt

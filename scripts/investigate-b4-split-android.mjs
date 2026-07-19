@@ -12,6 +12,8 @@ function roundMs(nanoseconds) {
 export function createB4AndroidSplitReport(result) {
   const capture = result?.capture;
   if (capture?.schemaVersion !== 1 || capture.completed !== true ||
+      !Number.isFinite(capture.freshReplayToAudioPlayingVisibleMs) ||
+      capture.freshReplayToAudioPlayingVisibleMs < 0 ||
       !Array.isArray(capture.observations) || capture.observations.length !== 10) {
     throw investigationError(
       'b4_android_split_capture_invalid',
@@ -25,7 +27,6 @@ export function createB4AndroidSplitReport(result) {
       observation.submitElapsedRealtimeNanos,
       observation.commitObservedElapsedRealtimeNanos,
       observation.feedbackVisibleElapsedRealtimeNanos,
-      observation.replayToAudioPlayingVisibleMs,
     ];
     if (observation.answerIndex !== index + 1 ||
         observation.expectedRevision !== expectedRevision ||
@@ -58,9 +59,6 @@ export function createB4AndroidSplitReport(result) {
         observation.feedbackVisibleElapsedRealtimeNanos -
           observation.submitElapsedRealtimeNanos,
       ),
-      replayToAudioPlayingAndPublishVisibleMs: Math.round(
-        observation.replayToAudioPlayingVisibleMs * 1_000,
-      ) / 1_000,
     });
   });
   return Object.freeze({
@@ -73,6 +71,9 @@ export function createB4AndroidSplitReport(result) {
       deviceProfile: `${result.device.model}; ${result.device.abi}; ${result.device.requestedDevice}`,
       buildConfiguration: 'B4Development debug APK and Android instrumentation APK',
     }),
+    freshReplayToAudioPlayingAndPublishVisibleMs: Math.round(
+      capture.freshReplayToAudioPlayingVisibleMs * 1_000,
+    ) / 1_000,
     observations,
     limitations: Object.freeze([
       'Emulator only; not physical-device or Play-signed distribution evidence.',

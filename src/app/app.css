@@ -274,6 +274,12 @@ h1 {
 .b4-entry-form input {
   color: #0d1d29;
   background: #fff;
+  /* The default size attribute gives the input an intrinsic width that
+     forces the whole page into horizontal overflow at accessibility text
+     sizes; sizing it to its container keeps the layout inside the
+     viewport so every control stays reachable. */
+  width: 100%;
+  min-width: 0;
 }
 
 .b4-learner-shell button {

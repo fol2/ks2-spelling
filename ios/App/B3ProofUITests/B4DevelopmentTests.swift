@@ -88,6 +88,12 @@ final class B4DevelopmentTests: XCTestCase {
         in application: XCUIApplication
     ) -> Bool {
         let keyboard = application.keyboards.firstMatch
+        // Scaled text pushes the input below the fold and backgrounding can
+        // reset the scroll position, so bring it on screen before tapping.
+        let webView = application.webViews.firstMatch
+        for _ in 0..<8 where !input.isHittable {
+            webView.swipeUp()
+        }
         input.tap()
         guard input.wait(for: \.hasFocus, toEqual: true, timeout: 5) else {
             return false

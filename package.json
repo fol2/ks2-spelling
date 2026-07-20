@@ -53,7 +53,7 @@
   },
   "dependencies": {
     "@capacitor-community/sqlite": "8.1.0",
-    "@capacitor/android": "8.4.1",
+    "@capacitor/android": "8.4.2",
     "@capacitor/app": "8.1.0",
     "@capacitor/core": "8.4.1",
     "@capacitor/ios": "8.4.1",

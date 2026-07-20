@@ -394,21 +394,24 @@ test('a stale error on the discarded stall element does not reject the retry', a
   assert.deepEqual(await result, { status: 'playing', path: 'audio/b4/b4-01.wav' });
 });
 
-test('a suspended AudioContext that fails to resume falls back to the element path', async () => {
+test('a suspended AudioContext still starts the buffer source and requests resume', async () => {
   const fake = fakeAudioFactory();
   const ctx = fakeAudioContext();
   ctx.state = 'suspended';
-  ctx.resume = async () => {};
+  let resumeRequested = false;
+  ctx.resume = async () => {
+    resumeRequested = true;
+  };
   const play = createB4LocalAudioPlayer({
     createAudioElement: fake.create,
     createAudioContext: () => ctx,
     loadAudioData: stubAudioData(['audio/b4/b4-01.wav']),
   });
-  const resultPromise = play('audio/b4/b4-01.wav');
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.equal(fake.elements.length, 1, 'suspended context must fall back to the element path');
-  assert.equal(ctx.sources.length, 0, 'web audio must not start when resume leaves the context suspended');
-  fake.elements[0].playCall.resolve();
-  fake.elements[0].emit('playing');
-  assert.deepEqual(await resultPromise, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+  // WebKit queues sources started on a suspended context and plays them at
+  // its gesture-driven resume; the element path is the stall-prone fallback,
+  // so a suspended context must stay on the Web Audio path.
+  assert.deepEqual(await play('audio/b4/b4-01.wav'), { status: 'playing', path: 'audio/b4/b4-01.wav' });
+  assert.equal(resumeRequested, true, 'a suspended context must be asked to resume');
+  assert.equal(ctx.sources.length, 1, 'the buffer source must start without waiting for resume');
+  assert.equal(fake.elements.length, 0, 'a suspended context must not trigger the element fallback');
 });

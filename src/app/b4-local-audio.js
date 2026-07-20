@@ -264,20 +264,12 @@ export function createB4LocalAudioPlayer({
       }
       return;
     }
-    if (ctx.state !== 'running') {
-      try {
-        await ctx.resume();
-      } catch {
-        // Fall through to the running-state check below.
-      }
-      if (disposed || token !== generation) return;
-      if (ctx.state !== 'running') {
-        if (index === 0) {
-          void startPath(paths, 0, token, settle).catch((error) => settleFailure(token, settle, error));
-        }
-        return;
-      }
-    }
+    // WebKit reports 'suspended' until its gesture-driven resume completes,
+    // yet a BufferSource started on a suspended context queues and plays at
+    // resume. Waiting for resume (or falling back to the element path) loses
+    // that race under load — the element path is the stall class this Web
+    // Audio path exists to escape — so request resume and start optimistically.
+    if (ctx.state !== 'running') void ctx.resume();
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(ctx.destination);

@@ -156,7 +156,8 @@ function B4App({ services }) {
   const liveMessage = actionError || (
     roundState.audio.error
       ? 'Audio is unavailable just now. You can still continue.'
-      : roundState.audio.status === 'playing' ? 'Audio playing' : ''
+      : roundState.audio.status === 'playing' ? 'Audio playing'
+        : roundState.audio.status === 'starting' ? 'Audio starting' : ''
   );
   const liveRegion = (
     <p className="b4-live-region" aria-live="polite" aria-atomic="true">

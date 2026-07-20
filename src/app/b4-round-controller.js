@@ -137,6 +137,14 @@ export function createB4RoundController({
 
   async function playCue(cue) {
     const token = ++playbackGeneration;
+    // Surfacing the starting state in the live region separates "playback
+    // never invoked" from "playback invoked but never reached playing" in
+    // journey failure snapshots.
+    audio = { status: 'starting', error: null };
+    publish(Object.freeze({
+      ...currentState,
+      audio: Object.freeze({ ...audio }),
+    }));
     try {
       const path = resolveB4AudioPath(audioManifest, cue);
       const result = await playAudio(path);

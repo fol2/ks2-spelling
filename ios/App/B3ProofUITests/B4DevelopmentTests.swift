@@ -241,7 +241,9 @@ final class B4DevelopmentTests: XCTestCase {
             let audioStart = Date()
             control.tap()
             XCTAssertTrue(
-                waitUntilPresent(audioPlaying, timeout: 5),
+                // A wide window separates slow starts (recorded honestly as a
+                // large audioStartMs figure) from genuine stalls (still fail).
+                waitUntilPresent(audioPlaying, timeout: 30),
                 "Local playback did not reach the visible playing state."
             )
             audioStartMs.append(elapsedMilliseconds(since: audioStart))

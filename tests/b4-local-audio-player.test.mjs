@@ -415,3 +415,55 @@ test('a suspended AudioContext still starts the buffer source and requests resum
   assert.equal(ctx.sources.length, 1, 'the buffer source must start without waiting for resume');
   assert.equal(fake.elements.length, 0, 'a suspended context must not trigger the element fallback');
 });
+
+test('a stalled audio-data load falls back to the element path without poisoning the cache', async () => {
+  const fake = fakeAudioFactory();
+  const ctx = fakeAudioContext();
+  const play = createB4LocalAudioPlayer({
+    createAudioElement: fake.create,
+    createAudioContext: () => ctx,
+    loadAudioData: () => new Promise(() => {}),
+    stallRetryMs: 20,
+  });
+  const first = play('audio/b4/b4-01.wav');
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(fake.elements.length, 1, 'a stalled decode must hand over to the element path');
+  assert.equal(ctx.sources.length, 0, 'no buffer source can start without a decoded buffer');
+  fake.elements[0].playCall.resolve();
+  fake.elements[0].emit('playing');
+  assert.deepEqual(await first, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+
+  const second = play('audio/b4/b4-01.wav');
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(fake.elements.length, 1, 'the second attempt reuses the pooled element after its own deadline');
+  fake.elements[0].playCall.resolve();
+  fake.elements[0].emit('playing');
+  assert.deepEqual(await second, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+});
+
+test('a failed audio-data load is retried on the next attempt', async () => {
+  const fake = fakeAudioFactory();
+  const ctx = fakeAudioContext();
+  let calls = 0;
+  const data = stubAudioData(['audio/b4/b4-01.wav']);
+  const play = createB4LocalAudioPlayer({
+    createAudioElement: fake.create,
+    createAudioContext: () => ctx,
+    loadAudioData: () => {
+      calls += 1;
+      if (calls === 1) return Promise.reject(new Error('boom'));
+      return data();
+    },
+    stallRetryMs: 20,
+  });
+  const first = play('audio/b4/b4-01.wav');
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(fake.elements.length, 1, 'a failed load must fall back to the element path');
+  fake.elements[0].playCall.resolve();
+  fake.elements[0].emit('playing');
+  assert.deepEqual(await first, { status: 'playing', path: 'audio/b4/b4-01.wav' });
+
+  assert.deepEqual(await play('audio/b4/b4-01.wav'), { status: 'playing', path: 'audio/b4/b4-01.wav' });
+  assert.equal(calls, 2, 'the loader must be retried after a failure');
+  assert.equal(ctx.sources.length, 1, 'the retried load must restore the web audio path');
+});

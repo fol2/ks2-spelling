@@ -3,6 +3,7 @@ import { markB4, measureB4 } from './b4-performance-marks.js';
 
 const SAFE_LOCAL_PATH = /^audio\/b4\/[a-z0-9-]+\.wav$/u;
 const CACHE_CAP = 8;
+const DECODE_TIMED_OUT = Symbol('b4-decode-timed-out');
 
 function audioError(code, options) {
   const error = new Error(code, options);
@@ -49,7 +50,7 @@ export function createB4LocalAudioPlayer({
   let generation = 0;
   let disposed = false;
   let context = undefined;
-  let audioData = undefined;
+  let audioDataPromise = null;
   const cache = new Map();
   const buffers = new Map();
 
@@ -63,20 +64,18 @@ export function createB4LocalAudioPlayer({
     return context;
   }
 
-  async function ensureAudioData() {
-    if (audioData !== undefined) return audioData;
-    try {
-      audioData = await loadAudioData();
-    } catch {
-      audioData = null;
-    }
-    return audioData;
+  function ensureAudioData() {
+    audioDataPromise ??= loadAudioData().catch(() => {
+      audioDataPromise = null;
+      return null;
+    });
+    return audioDataPromise;
   }
 
-  async function decodePath(path) {
+  function decodePath(path) {
     if (buffers.has(path)) return buffers.get(path);
     const ctx = getContext();
-    if (!ctx) return null;
+    if (!ctx) return Promise.resolve(null);
     const pending = (async () => {
       try {
         const data = await ensureAudioData();
@@ -86,11 +85,32 @@ export function createB4LocalAudioPlayer({
       } catch {
         return null;
       }
-    })();
+    })().then((buffer) => {
+      if (buffer === null && buffers.get(path) === pending) buffers.delete(path);
+      return buffer;
+    });
     buffers.set(path, pending);
-    const buffer = await pending;
-    if (buffer === null) buffers.delete(path);
-    return buffer;
+    return pending;
+  }
+
+  // WebKit can stall the audio-data import or a decode the same way it
+  // stalls media loads; a bounded wait drops the stalled entry so it cannot
+  // poison later attempts, and lets the element path (which has its own
+  // watchdog) take over.
+  async function decodeWithDeadline(path) {
+    const pending = decodePath(path);
+    let timer = null;
+    const outcome = await Promise.race([
+      pending,
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(DECODE_TIMED_OUT), stallRetryMs);
+        timer.unref?.();
+      }),
+    ]);
+    if (timer !== null) clearTimeout(timer);
+    if (outcome !== DECODE_TIMED_OUT) return outcome;
+    if (buffers.get(path) === pending) buffers.delete(path);
+    return null;
   }
 
   function softReset(element) {
@@ -256,7 +276,7 @@ export function createB4LocalAudioPlayer({
     const path = paths[index];
     if (!path) return;
     const ctx = getContext();
-    const buffer = await decodePath(path);
+    const buffer = await decodeWithDeadline(path);
     if (disposed || token !== generation) return;
     if (!buffer) {
       if (index === 0) {

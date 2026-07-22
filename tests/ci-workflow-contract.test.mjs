@@ -135,12 +135,23 @@ test('iOS runs normal and B3 unsigned builds, the pack inspector and StoreKit Te
   assert.match(ios, /npm run prove:b3:ios-storekit-test/);
 });
 
-test('branch evidence contract accepts a non-empty subset anchored to the report', async () => {
+test('branch evidence contract self-gates to evidence commits and stays a non-empty subset', async () => {
   const domain = extractJob(await readWorkflow(), 'domain-web');
   const step = domain.slice(
-    domain.indexOf('Prove the branch candidate is one evidence-only successor'),
+    domain.indexOf('Prove B4 evidence commits are evidence-only successors'),
   );
-  assert.match(step, /if: github\.ref != 'refs\/heads\/main'/);
+  // The contract no longer taxes ordinary commits: it enforces only when the
+  // commit actually changes the B4 development report (self-gating), and it
+  // does not run inside the merge queue.
+  assert.match(
+    step,
+    /if: github\.event_name != 'merge_group' && github\.ref != 'refs\/heads\/main'/,
+  );
+  assert.match(
+    step,
+    /if git diff --name-only HEAD\^ HEAD \| grep -qx "reports\/b4\/b4-development-report\.json"; then/,
+  );
+  // When it does apply, the full subset contract is unchanged.
   assert.match(step, /test "\$\(git rev-parse HEAD\^\)" = "\$checkpoint"/);
   assert.match(step, /test -s \/tmp\/b4-actual-paths/);
   assert.match(step, /grep -qx "reports\/b4\/b4-development-report\.json" \/tmp\/b4-actual-paths/);
@@ -149,6 +160,33 @@ test('branch evidence contract accepts a non-empty subset anchored to the report
     /test -z "\$\(comm -13 \/tmp\/b4-expected-paths <\(sort \/tmp\/b4-actual-paths\)\)"/,
   );
   assert.doesNotMatch(step, /diff -u \/tmp\/b4-expected-paths/);
+});
+
+test('CI is tiered: pull requests run only the fast lane, native compiles are merge-gated', async () => {
+  const workflow = await readWorkflow();
+  // New triggers: the merge queue is the heavy gate, plus a nightly cold sweep.
+  assert.match(workflow, /^  merge_group:$/m);
+  assert.match(workflow, /^  schedule:\n\s+- cron: "0 6 \* \* \*"$/m);
+  // Both native jobs are skipped entirely on a pull request (keeps PR < 1m),
+  // and run as a fail-closed gate on merge_group / push / schedule.
+  const android = extractJob(workflow, 'android-compile');
+  const ios = extractJob(workflow, 'ios-compile');
+  assert.match(android, /^    if: github\.event_name != 'pull_request'$/m);
+  assert.match(ios, /^    if: github\.event_name != 'pull_request'$/m);
+  // The native compile steps are behind a fail-safe path filter that always
+  // runs on the nightly schedule.
+  assert.match(
+    android,
+    /if: steps\.filter\.outputs\.native == 'true' \|\| github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'/,
+  );
+  assert.match(ios, /id: filter/);
+  // domain-web splits the fast PR lane from the full merge lane.
+  const domain = extractJob(workflow, 'domain-web');
+  assert.match(domain, /if: github\.event_name == 'pull_request'\n\s+run: npm run test:fast/);
+  assert.match(
+    domain,
+    /if: github\.event_name != 'pull_request'\n\s+run: >-\n\s+node --test/,
+  );
 });
 
 test('Android runs normal and B3 unsigned builds before certification', async () => {

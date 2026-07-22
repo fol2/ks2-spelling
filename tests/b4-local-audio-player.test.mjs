@@ -10,6 +10,14 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
+async function waitFor(predicate, message, timeoutMs = 500) {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() >= deadline) throw new Error(message);
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+}
+
 function fakeAudioFactory() {
   const elements = [];
   function create() {
@@ -20,11 +28,12 @@ function fakeAudioFactory() {
       preload: '',
       src: '',
       paused: false,
+      playCount: 0,
       loaded: 0,
       removed: [],
       addEventListener(name, listener) { listeners.set(name, listener); },
       emit(name) { listeners.get(name)?.(); },
-      play() { return playCall.promise; },
+      play() { this.playCount += 1; return playCall.promise; },
       pause() { this.paused = true; },
       load() { this.loaded += 1; },
       removeAttribute(name) { this.removed.push(name); this.src = ''; },
@@ -189,7 +198,10 @@ test('a stalled load retries once through a fresh element and then plays', async
   const result = play('audio/b4/b4-01.wav');
   assert.equal(fake.elements.length, 1);
   // First element stalls: play() never settles, no events fire.
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await waitFor(
+    () => fake.elements.length === 2,
+    'timed out waiting for the stalled element retry',
+  );
   assert.equal(fake.elements.length, 2, 'a stalled element must be replaced by a fresh one');
   assert.equal(fake.elements[0].removed.includes('src'), true, 'the stalled element must be fully reset');
   fake.elements[1].playCall.resolve();
@@ -386,7 +398,10 @@ test('a stale error on the discarded stall element does not reject the retry', a
   const play = createB4LocalAudioPlayer({ createAudioElement: fake.create, stallRetryMs: 20 });
   const result = play('audio/b4/b4-01.wav');
   assert.equal(fake.elements.length, 1);
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await waitFor(
+    () => fake.elements.length === 2,
+    'timed out waiting for the stalled element retry',
+  );
   assert.equal(fake.elements.length, 2, 'a stalled element must be replaced by a fresh one');
   fake.elements[0].emit('error');
   fake.elements[1].playCall.resolve();
@@ -426,7 +441,10 @@ test('a stalled audio-data load falls back to the element path without poisoning
     stallRetryMs: 20,
   });
   const first = play('audio/b4/b4-01.wav');
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await waitFor(
+    () => fake.elements.length === 1,
+    'timed out waiting for the stalled decode fallback',
+  );
   assert.equal(fake.elements.length, 1, 'a stalled decode must hand over to the element path');
   assert.equal(ctx.sources.length, 0, 'no buffer source can start without a decoded buffer');
   fake.elements[0].playCall.resolve();
@@ -434,7 +452,10 @@ test('a stalled audio-data load falls back to the element path without poisoning
   assert.deepEqual(await first, { status: 'playing', path: 'audio/b4/b4-01.wav' });
 
   const second = play('audio/b4/b4-01.wav');
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await waitFor(
+    () => fake.elements[0].playCount === 2,
+    'timed out waiting for the second stalled decode fallback',
+  );
   assert.equal(fake.elements.length, 1, 'the second attempt reuses the pooled element after its own deadline');
   fake.elements[0].playCall.resolve();
   fake.elements[0].emit('playing');

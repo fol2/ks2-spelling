@@ -6,13 +6,14 @@ import test from 'node:test';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const WORKFLOW_PATH = join(ROOT, '.github/workflows/ci.yml');
+const CERTIFY_WORKFLOW_PATH = join(ROOT, '.github/workflows/certify.yml');
 const PACKAGE_PATH = join(ROOT, 'package.json');
 
 const VERIFY_B3_COMMAND =
   'npm run verify:b2-authority && npm run verify:vendor && npm run test:upstream:a3 && npm test && npm run lint && npm run build && npm run native:sync:check && npm run test:ios && node scripts/test-ios-pack-inspector.mjs && npm run prove:b3:ios-storekit-test && npm run test:android && npm run certify:android && npm run test:android-resolved-policy && npm run report:b3-native && npm run prove:b3:deterministic && npm run audit:dependencies && node scripts/build-b3-exit-report.mjs --check-ci';
 
-async function readWorkflow() {
-  return readFile(WORKFLOW_PATH, 'utf8');
+async function readWorkflow(path = WORKFLOW_PATH) {
+  return readFile(path, 'utf8');
 }
 
 function extractJob(workflow, jobName) {
@@ -187,6 +188,86 @@ test('CI is tiered: pull requests run only the fast lane, native compiles are me
     domain,
     /if: github\.event_name != 'pull_request'\n\s+run: >-\n\s+node --test/,
   );
+});
+
+test('the heavy CI gate is reusable by milestone certification without changing its three lanes', async () => {
+  const workflow = await readWorkflow();
+  assert.match(workflow, /^  workflow_call:$/m);
+  assert.match(
+    workflow,
+    /^  workflow_call:\n    inputs:\n      certification:\n        required: false\n        type: boolean\n        default: false$/m,
+  );
+  assert.equal((workflow.match(/^  [a-z][a-z-]+:\n    name:/gm) ?? []).length, 3);
+
+  for (const [jobName, archive] of [
+    ['domain-web', 'domain-web.tar'],
+    ['android-compile', 'android-compile.tar'],
+    ['ios-compile', 'ios-compile.tar'],
+  ]) {
+    const job = extractJob(workflow, jobName);
+    assert.match(job, /if: inputs\.certification == true/);
+    assert.ok(job.includes(`tar -cf .native-build/certification-artifacts/${archive}`));
+    assert.match(
+      job,
+      /uses: actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\.0\.1/,
+    );
+    assert.match(job, /if-no-files-found: error/);
+  }
+  const android = extractJob(workflow, 'android-compile');
+  assert.match(
+    android,
+    /Compile the B4 unsigned Android release for certification[\s\S]*if: inputs\.certification == true[\s\S]*:app:assembleRelease/,
+  );
+  assert.match(android, /android\/app\/build\/outputs\/apk\/release\/app-release-unsigned\.apk/);
+
+  const ios = extractJob(workflow, 'ios-compile');
+  assert.match(
+    ios,
+    /Compile the B4 unsigned iOS release for certification[\s\S]*if: inputs\.certification == true[\s\S]*-configuration Release[\s\S]*-derivedDataPath \.native-build\/b4-release-ci/,
+  );
+  assert.match(workflow, /-derivedDataPath \.native-build\/b3-ci/);
+});
+
+test('certification tags reuse the heavy gate before deriving one immutable evidence bundle', async () => {
+  const workflow = await readWorkflow(CERTIFY_WORKFLOW_PATH);
+  assert.match(workflow, /^name: B4 milestone certification$/m);
+  assert.match(workflow, /^  push:\n    tags:\n      - "cert-\*"$/m);
+  assert.match(workflow, /^permissions:\n  contents: read$/m);
+  assert.match(workflow, /group: b4-certify-\$\{\{ github\.ref \}\}/);
+  assert.match(workflow, /cancel-in-progress: false/);
+
+  const verify = extractJob(workflow, 'verify');
+  assert.match(verify, /uses: \.\/\.github\/workflows\/ci\.yml/);
+  assert.match(verify, /with:\n      certification: true/);
+  assert.match(verify, /permissions:\n      contents: read/);
+  assert.doesNotMatch(verify, /secrets:/);
+
+  const bundle = extractJob(workflow, 'bundle');
+  assert.match(bundle, /needs: verify/);
+  assert.match(bundle, /runs-on: ubuntu-24\.04/);
+  assert.match(
+    bundle,
+    /uses: actions\/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6\n\s+with:\n\s+fetch-depth: 0\n\s+ref: \$\{\{ github\.sha \}\}/,
+  );
+  assert.match(
+    bundle,
+    /uses: actions\/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8\.0\.1/,
+  );
+  assert.match(bundle, /pattern: certification-\*/);
+  assert.match(bundle, /merge-multiple: true/);
+  assert.match(
+    bundle,
+    /node scripts\/build-certification-bundle\.mjs --builds-directory "\.native-build\/certification-inputs" --output-directory "\.native-build\/certification\/\$GITHUB_REF_NAME"/,
+  );
+  assert.match(
+    bundle,
+    /uses: actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\.0\.1/,
+  );
+  assert.match(bundle, /name: ks2-spelling-\$\{\{ github\.ref_name \}\}-\$\{\{ github\.sha \}\}/);
+  assert.match(bundle, /path: \.native-build\/certification\/\$\{\{ github\.ref_name \}\}/);
+  assert.match(bundle, /if-no-files-found: error/);
+  assert.match(bundle, /retention-days: 90/);
+  assert.doesNotMatch(workflow, /(?:gh release|softprops\/action-gh-release|deploy:b3:sandbox)/);
 });
 
 test('Android runs normal and B3 unsigned builds before certification', async () => {

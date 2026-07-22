@@ -1,6 +1,12 @@
 name: B4 continuous integration
 
 on:
+  workflow_call:
+    inputs:
+      certification:
+        required: false
+        type: boolean
+        default: false
   pull_request:
   merge_group:
   push:
@@ -105,6 +111,20 @@ jobs:
           fi
       - name: Validate B3 pending or complete evidence topology
         run: node scripts/build-b3-exit-report.mjs --check-ci
+      - name: Package the verified domain and web build bytes
+        if: inputs.certification == true
+        run: |
+          mkdir -p .native-build/certification-artifacts
+          tar -cf .native-build/certification-artifacts/domain-web.tar dist
+      - name: Retain the domain and web build for milestone derivation
+        if: inputs.certification == true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: certification-domain-web
+          path: .native-build/certification-artifacts/domain-web.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
   android-compile:
     name: Android unsigned debug and release compile
@@ -135,7 +155,9 @@ jobs:
         run: |
           base="${{ github.event.merge_group.base_sha }}"
           [ -z "$base" ] && base="${{ github.event.before }}"
-          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git rev-parse "$base^{commit}" >/dev/null 2>&1; then
+          if [ "${{ inputs.certification }}" = "true" ]; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          elif [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git rev-parse "$base^{commit}" >/dev/null 2>&1; then
             echo "native=true" >> "$GITHUB_OUTPUT"
           elif git diff --name-only "$base" HEAD | grep -qE '^(ios/|android/|capacitor\.config|package-lock\.json|config/dependency-policy\.json|config/maven-licence-policy\.json|android/gradle/verification-metadata\.xml|tests/fixtures/b3-hostile-zips/|scripts/(native-sync-check|certify-android-dependencies|test-ios-pack-inspector|prove-b3-ios-storekit-test))'; then
             echo "native=true" >> "$GITHUB_OUTPUT"
@@ -176,6 +198,9 @@ jobs:
           npm run sync:b4-development
           ./android/gradlew -p android :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon
           npm run report:b4-development:check
+      - name: Compile the B4 unsigned Android release for certification
+        if: inputs.certification == true
+        run: ./android/gradlew -p android :app:assembleRelease --no-daemon
       - name: Test and compile the unsigned B3 application
         if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         working-directory: android
@@ -192,6 +217,26 @@ jobs:
       - name: Run fresh resolved Android dependency policy tests
         if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run test:android-resolved-policy
+      - name: Package the verified Android build bytes
+        if: inputs.certification == true
+        run: |
+          mkdir -p .native-build/certification-artifacts
+          tar -cf .native-build/certification-artifacts/android-compile.tar \
+            .native-build/android/build/app/outputs/apk/debug/app-debug.apk \
+            .native-build/android/build/app/outputs/apk/release/app-release-unsigned.apk \
+            android/app/build/outputs/apk/debug/app-debug.apk \
+            android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
+            android/app/build/outputs/apk/release/app-release-unsigned.apk \
+            android/app/build/outputs/bundle/b3SandboxProofRelease/app-b3SandboxProof-release.aab
+      - name: Retain the Android builds for milestone derivation
+        if: inputs.certification == true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: certification-android-compile
+          path: .native-build/certification-artifacts/android-compile.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
   ios-compile:
     name: iOS unsigned Simulator compile
@@ -218,7 +263,9 @@ jobs:
         run: |
           base="${{ github.event.merge_group.base_sha }}"
           [ -z "$base" ] && base="${{ github.event.before }}"
-          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git rev-parse "$base^{commit}" >/dev/null 2>&1; then
+          if [ "${{ inputs.certification }}" = "true" ]; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          elif [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git rev-parse "$base^{commit}" >/dev/null 2>&1; then
             echo "native=true" >> "$GITHUB_OUTPUT"
           elif git diff --name-only "$base" HEAD | grep -qE '^(ios/|android/|capacitor\.config|package-lock\.json|config/dependency-policy\.json|config/maven-licence-policy\.json|android/gradle/verification-metadata\.xml|tests/fixtures/b3-hostile-zips/|scripts/(native-sync-check|certify-android-dependencies|test-ios-pack-inspector|prove-b3-ios-storekit-test))'; then
             echo "native=true" >> "$GITHUB_OUTPUT"
@@ -255,6 +302,18 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build-for-testing
           npm run report:b4-development:check
+      - name: Compile the B4 unsigned iOS release for certification
+        if: inputs.certification == true
+        run: |
+          xcodebuild \
+            -quiet \
+            -project ios/App/App.xcodeproj \
+            -scheme B4DevelopmentUITests \
+            -configuration Release \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .native-build/b4-release-ci \
+            CODE_SIGNING_ALLOWED=NO \
+            build-for-testing
       - name: Compile unsigned B3 iOS Simulator application
         if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: >-
@@ -263,6 +322,7 @@ jobs:
           -scheme B3SandboxProof
           -configuration B3SandboxProof
           -sdk iphonesimulator
+          -derivedDataPath .native-build/b3-ci
           CODE_SIGNING_ALLOWED=NO
           B3_TESTED_APPLICATION_COMMIT=1111111111111111111111111111111111111111
           B3_APPLICATION_FINGERPRINT=2222222222222222222222222222222222222222222222222222222222222222
@@ -275,3 +335,21 @@ jobs:
       - name: Run non-live iOS StoreKit Test
         if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run prove:b3:ios-storekit-test
+      - name: Package the verified iOS build bytes
+        if: inputs.certification == true
+        run: |
+          mkdir -p .native-build/certification-artifacts
+          tar -cf .native-build/certification-artifacts/ios-compile.tar \
+            .native-build/ios/Build/Products \
+            .native-build/b4-ci/Build/Products \
+            .native-build/b4-release-ci/Build/Products \
+            .native-build/b3-ci/Build/Products
+      - name: Retain the iOS builds for milestone derivation
+        if: inputs.certification == true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: certification-ios-compile
+          path: .native-build/certification-artifacts/ios-compile.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0

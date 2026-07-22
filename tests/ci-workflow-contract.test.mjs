@@ -188,3 +188,10 @@ test('package exposes only the frozen B3 verification chain', async () => {
   const packageJson = JSON.parse(await readFile(PACKAGE_PATH, 'utf8'));
   assert.equal(packageJson.scripts['verify:b3'], VERIFY_B3_COMMAND);
 });
+
+test('package exposes the fast-tier daily-loop scripts', async () => {
+  const pkg = JSON.parse(await readFile(PACKAGE_PATH, 'utf8'));
+  for (const key of ['test:fast', 'test:watch', 'test:changed', 'hooks:install']) {
+    assert.equal(typeof pkg.scripts[key], 'string', `missing script: ${key}`);
+  }
+});

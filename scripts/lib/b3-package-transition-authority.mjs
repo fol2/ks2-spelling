@@ -55,9 +55,25 @@ export const B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
     'node scripts/collect-b4-development-evidence.mjs --check',
 });
 
+// SDLC velocity tier (2026-07-22): the local fast-test daily loop and pre-push
+// hook. Developer tooling, not certification steps — they add no CI surface and
+// exclude test files by name only for speed. Registered here because the
+// package-transition authority requires every package script to be pre-approved;
+// values must stay byte-identical to package.json and provenance.
+export const SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
+  'test:fast':
+    "node --test $(find tests -maxdepth 1 -name '*.test.mjs' ! -name '*.slow.test.mjs' ! -name 'native-wrapper-contract.test.mjs' ! -name 'b3-store-backed-live-capture.test.mjs' ! -name 'gateway-workerd-runtime.test.mjs')",
+  'test:watch':
+    "node --test --watch $(find tests -maxdepth 1 -name '*.test.mjs' ! -name '*.slow.test.mjs' ! -name 'native-wrapper-contract.test.mjs' ! -name 'b3-store-backed-live-capture.test.mjs' ! -name 'gateway-workerd-runtime.test.mjs')",
+  'test:changed':
+    `files=$(git diff --name-only --diff-filter=ACMR HEAD -- 'tests/*.test.mjs'); [ -n "$files" ] && node --test $files || echo 'no changed tests'`,
+  'hooks:install': 'git config core.hooksPath scripts/git-hooks',
+});
+
 const PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
   ...B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   ...B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+  ...SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS,
 });
 
 function transitionError(message) {

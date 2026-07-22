@@ -9,6 +9,7 @@ import test from 'node:test';
 import {
   B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+  SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS,
   assertB2PackageTransition,
   verifyB3PackageTransitionAuthority,
 } from '../scripts/lib/b3-package-transition-authority.mjs';
@@ -41,6 +42,13 @@ const EXPECTED_B4_SCRIPT_NAMES = Object.freeze([
   'report:b4-development:check',
 ]);
 
+const EXPECTED_SDLC_SCRIPT_NAMES = Object.freeze([
+  'test:fast',
+  'test:watch',
+  'test:changed',
+  'hooks:install',
+]);
+
 function frozenPackage() {
   return JSON.parse(
     execFileSync('git', ['cat-file', 'blob', `${FROZEN_COMMIT}:package.json`], {
@@ -71,10 +79,15 @@ test('transition authority freezes every package script declared by the approved
   assert.deepEqual(Object.keys(B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS), EXPECTED_SCRIPT_NAMES);
   assert.deepEqual(Object.keys(B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS), EXPECTED_B4_SCRIPT_NAMES);
   assert.deepEqual(
+    Object.keys(SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS),
+    EXPECTED_SDLC_SCRIPT_NAMES,
+  );
+  assert.deepEqual(
     authority.allowedPackageScriptAdditions,
     {
       ...B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
       ...B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+      ...SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS,
     },
   );
   assert.deepEqual(authority.protectedCurrentFiles.map(({ path }) => path), [

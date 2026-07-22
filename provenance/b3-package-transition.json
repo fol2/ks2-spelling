@@ -22,7 +22,11 @@
     "report:b4-development:check": "node scripts/collect-b4-development-evidence.mjs --check",
     "prepare:b3:distribution": "node scripts/prepare-b3-distribution.mjs",
     "verify:b3:installed-distribution": "node scripts/verify-b3-installed-distribution.mjs",
-    "verify:b3": "npm run verify:b2-authority && npm run verify:vendor && npm run test:upstream:a3 && npm test && npm run lint && npm run build && npm run native:sync:check && npm run test:ios && node scripts/test-ios-pack-inspector.mjs && npm run prove:b3:ios-storekit-test && npm run test:android && npm run certify:android && npm run test:android-resolved-policy && npm run report:b3-native && npm run prove:b3:deterministic && npm run audit:dependencies && node scripts/build-b3-exit-report.mjs --check-ci"
+    "verify:b3": "npm run verify:b2-authority && npm run verify:vendor && npm run test:upstream:a3 && npm test && npm run lint && npm run build && npm run native:sync:check && npm run test:ios && node scripts/test-ios-pack-inspector.mjs && npm run prove:b3:ios-storekit-test && npm run test:android && npm run certify:android && npm run test:android-resolved-policy && npm run report:b3-native && npm run prove:b3:deterministic && npm run audit:dependencies && node scripts/build-b3-exit-report.mjs --check-ci",
+    "test:fast": "node --test $(find tests -maxdepth 1 -name '*.test.mjs' ! -name '*.slow.test.mjs' ! -name 'native-wrapper-contract.test.mjs' ! -name 'b3-store-backed-live-capture.test.mjs' ! -name 'gateway-workerd-runtime.test.mjs')",
+    "test:watch": "node --test --watch $(find tests -maxdepth 1 -name '*.test.mjs' ! -name '*.slow.test.mjs' ! -name 'native-wrapper-contract.test.mjs' ! -name 'b3-store-backed-live-capture.test.mjs' ! -name 'gateway-workerd-runtime.test.mjs')",
+    "test:changed": "files=$(git diff --name-only --diff-filter=ACMR HEAD -- 'tests/*.test.mjs'); [ -n \"$files\" ] && node --test $files || echo 'no changed tests'",
+    "hooks:install": "git config core.hooksPath scripts/git-hooks"
   },
   "protectedCurrentFiles": [
     {

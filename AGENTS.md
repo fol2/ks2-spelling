@@ -51,3 +51,10 @@
   package.
 - Keep generated outputs, local machine settings and secrets out of version
   control.
+
+## Documented solutions
+
+- `docs/solutions/` holds solutions to past problems (bugs, conventions,
+  workflow patterns), organised by category with YAML frontmatter (`module`,
+  `tags`, `problem_type`). Relevant when implementing or debugging in a
+  documented area.

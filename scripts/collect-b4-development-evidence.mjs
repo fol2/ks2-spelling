@@ -9,7 +9,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, relative, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import audioManifest from '../config/b4-audio-manifest.json' with { type: 'json' };
 import {
@@ -23,6 +23,10 @@ import {
   characteriseB4Round,
   validateB4AudioManifest,
 } from '../src/app/b4-round-contract.js';
+import {
+  hashDirectoryBundleInput,
+  hashFileBundleInput,
+} from './lib/bundle-input.mjs';
 import { movePath } from './lib/move-path.mjs';
 import {
   EXIT_CODES,
@@ -157,6 +161,7 @@ export function createB4PlatformProof({
   assertNoPrivateKeys(capture);
   const checkpoint = validateCheckpoint(applicationCheckpoint);
   const bundle = validateBundleInput(bundleInput);
+  const capturedBundle = validateBundleInput(capture?.bundleInput);
   const risk = validateB4PlatformRiskReport(capture?.platformRiskReport);
   const validJourney = capture?.journeys?.default?.completed === true &&
     capture.journeys.default.softwareKeyboardObserved === true &&
@@ -165,6 +170,13 @@ export function createB4PlatformProof({
     capture.journeys.default.resumeProgressBefore === capture.journeys.default.resumeProgressAfter &&
     capture?.journeys?.scaled?.atLeast200Percent === true &&
     capture.journeys.scaled.completed === true;
+  if (JSON.stringify(capturedBundle) !== JSON.stringify(bundle) ||
+      capture?.rawSizes?.nativePayloadBytes !== bundle.byteSize) {
+    throw evidenceError(
+      'b4_evidence_bundle_stale',
+      'The proof-time application bundle does not match the collected bundle.',
+    );
+  }
   if (capture?.schemaVersion !== 1 || capture.platform !== risk.platform ||
       capture?.offlineBoundary?.web !== "connect-src 'none'" ||
       capture?.offlineBoundary?.clientTts !== 'none' ||
@@ -252,40 +264,6 @@ async function readJson(path) {
   }
 }
 
-async function hashFile(path) {
-  const bytes = await readFile(path);
-  return { kind: 'file-sha256', sha256: sha256(bytes), byteSize: bytes.length };
-}
-
-async function directoryFiles(root, directory = root) {
-  const files = [];
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...await directoryFiles(root, path));
-    else if (entry.isFile()) files.push(path);
-    else throw evidenceError('b4_evidence_bundle_invalid', 'The iOS bundle contains a non-regular entry.');
-  }
-  return files.toSorted((left, right) => relative(root, left).localeCompare(relative(root, right)));
-}
-
-async function hashDirectory(path) {
-  const digest = createHash('sha256');
-  const files = await directoryFiles(path);
-  let byteSize = 0;
-  for (const file of files) {
-    const bytes = await readFile(file);
-    const name = relative(path, file).replaceAll('\\', '/');
-    digest.update(name).update('\0').update(String(bytes.length)).update('\0').update(bytes);
-    byteSize += bytes.length;
-  }
-  return {
-    kind: 'directory-sha256',
-    sha256: digest.digest('hex'),
-    fileCount: files.length,
-    byteSize,
-  };
-}
-
 async function writeJson(path, value) {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
 }
@@ -313,8 +291,8 @@ async function collectEvidence() {
   const [iosCapture, androidCapture, iosBundle, androidBundle, domain] = await Promise.all([
     readJson(join(IOS_CAPTURE_DIRECTORY, 'capture.json')),
     readJson(join(ANDROID_CAPTURE_DIRECTORY, 'capture.json')),
-    hashDirectory(IOS_APP),
-    hashFile(ANDROID_APK),
+    hashDirectoryBundleInput(IOS_APP),
+    hashFileBundleInput(ANDROID_APK),
     expectedDomainProof(checkpoint),
   ]);
   const ios = createB4PlatformProof({
@@ -346,7 +324,7 @@ async function collectEvidence() {
     const evidenceSha256 = Object.fromEntries(await Promise.all(
       B4_EVIDENCE_PATHS.slice(0, -1).map(async (path) => [
         path,
-        (await hashFile(join(temporary, path.split('/').at(-1)))).sha256,
+        (await hashFileBundleInput(join(temporary, path.split('/').at(-1)))).sha256,
       ]),
     ));
     const aggregate = createB4DevelopmentAggregate({
@@ -398,7 +376,10 @@ async function verifyEvidence() {
     phoneFile: 'android-phone.png',
   });
   const evidenceSha256 = Object.fromEntries(await Promise.all(
-    B4_EVIDENCE_PATHS.slice(0, -1).map(async (path) => [path, (await hashFile(join(ROOT, path))).sha256]),
+    B4_EVIDENCE_PATHS.slice(0, -1).map(async (path) => [
+      path,
+      (await hashFileBundleInput(join(ROOT, path))).sha256,
+    ]),
   ));
   const expectedAggregate = createB4DevelopmentAggregate({
     applicationCheckpoint: checkpoint,

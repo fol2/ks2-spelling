@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import {
   copyFile,
-  lstat,
   mkdir,
   mkdtemp,
   readFile,
@@ -14,6 +13,7 @@ import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 
 import { createB4PlatformRiskReport } from '../src/app/b4-development-report.js';
+import { hashDirectoryBundleInput } from './lib/bundle-input.mjs';
 import {
   EXIT_CODES,
   isMain,
@@ -186,16 +186,6 @@ async function attempt(command, args) {
   return runCommand(command, args, { cwd: ROOT, timeoutMs: COMMAND_TIMEOUT_MS });
 }
 
-async function sumDirectoryBytes(path) {
-  let total = 0;
-  for (const entry of await readdir(path, { withFileTypes: true })) {
-    const child = join(path, entry.name);
-    if (entry.isDirectory()) total += await sumDirectoryBytes(child);
-    else total += (await lstat(child)).size;
-  }
-  return total;
-}
-
 async function pngDimensions(path) {
   const bytes = await readFile(path);
   if (bytes.length < 24 || bytes.toString('ascii', 1, 4) !== 'PNG') {
@@ -243,7 +233,7 @@ async function buildOfflineApplication() {
       !/connect-src (?:&#39;|')none(?:&#39;|')/u.test(index)) {
     throw proofError('b4_ios_offline_boundary_missing', 'The built B4 application is not network-denied.');
   }
-  return sumDirectoryBytes(APP_PATH);
+  return hashDirectoryBundleInput(APP_PATH);
 }
 
 async function createSimulator(name, deviceType, runtime) {
@@ -401,7 +391,8 @@ async function proveB4Ios() {
     const profiles = selectB4IosRuntimeProfiles(JSON.parse(await checked('xcrun', [
       'simctl', 'list', 'runtimes', 'available', '--json',
     ])));
-    const nativePayloadBytes = await buildOfflineApplication();
+    const bundleInput = await buildOfflineApplication();
+    const nativePayloadBytes = bundleInput.byteSize;
     const appSha256 = await fingerprintB4IosBuiltApplication(APP_PATH);
     await prepareResumeDirectory(appSha256);
 
@@ -567,6 +558,7 @@ async function proveB4Ios() {
       schemaVersion: 1,
       platform: 'ios-simulator',
       runner,
+      bundleInput,
       limitations: [LIMITATION],
       offlineBoundary: {
         web: "connect-src 'none'",

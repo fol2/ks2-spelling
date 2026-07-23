@@ -2,10 +2,15 @@
 
 Review date: 23 July 2026
 
-`THIRD_PARTY_NOTICES.md` is the deterministic identity, version, source,
-distribution-role and declared-licence inventory. It covers npm, SwiftPM and
-Maven inputs and distinguishes packaged runtime components from build and test
-tools.
+This document is the current C5 product licence authority. It identifies the
+third-party components in the current product candidate and the release work
+that remains before store distribution.
+
+`THIRD_PARTY_NOTICES.md` remains the generated B3 technical dependency audit.
+It supplies exact identities, versions, sources, distribution roles and
+declared licences for npm, SwiftPM and Maven inputs. Its B3 sandbox mode and
+gateway statements are historical certification context; they do not describe
+ProductApp's runtime mode or network endpoints.
 
 The packaged WebView closure is Capacitor Community SQLite, Capacitor App,
 Capacitor Core, React, React DOM and Scheduler. The packaged iOS closure also

@@ -58,3 +58,32 @@ test('the iOS App Icon is an opaque 8-bit 1024-pixel PNG', async () => {
     colourType: 2,
   });
 });
+
+test('the current product licence authority is distinct from the B3 technical audit', async () => {
+  const [licenceNotice, terms, b3Inventory] = await Promise.all([
+    readFile('docs/legal/third-party-licence-notice.md', 'utf8'),
+    readFile('docs/legal/terms-of-use.md', 'utf8'),
+    readFile('THIRD_PARTY_NOTICES.md', 'utf8'),
+  ]);
+
+  assert.match(
+    licenceNotice,
+    /current C5 product licence authority/u,
+  );
+  assert.match(
+    licenceNotice,
+    /`THIRD_PARTY_NOTICES\.md` remains the generated B3 technical dependency audit/u,
+  );
+  assert.match(
+    licenceNotice,
+    /do not describe\s+ProductApp's runtime mode or network endpoints/u,
+  );
+  assert.match(
+    terms,
+    /current product licence authority is\s+`docs\/legal\/third-party-licence-notice\.md`/u,
+  );
+  assert.match(
+    b3Inventory,
+    /deterministic dependency inventory for the B3 compiled sandbox capability/u,
+  );
+});

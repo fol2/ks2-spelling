@@ -17,7 +17,8 @@ available. Loss of network access must not erase already saved learning.
 
 Application code and original artwork are reserved to the publisher. Bundled
 third-party software remains available under its respective licence. The
-tracked identity and licence inventory is `THIRD_PARTY_NOTICES.md`.
+current product licence authority is
+`docs/legal/third-party-licence-notice.md`.
 
 Store-specific end-user terms, publisher identity, support URL and purchase
 wording must be checked against the final store record during the final release

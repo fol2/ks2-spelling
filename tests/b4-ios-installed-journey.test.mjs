@@ -51,6 +51,17 @@ test('the iOS installed journey follows the frozen B4 answers without a proof br
   assert.doesNotMatch(source, /B3|proof bridge|target word|currentRuntimeItemId/i);
   assert.doesNotMatch(source, /currentInteractionOptions|SkipPreEventQuiescence/u);
   assert.doesNotMatch(source, /webView\.swipeDown\(\)/u);
+
+  const replayLoop = source.match(
+    /for label in \["Replay", "Slow replay"\] \{([\s\S]*?)\n        \}/u,
+  );
+  assert.ok(replayLoop, 'The installed journey must query each replay control by label.');
+  const queryIndex = replayLoop[1].indexOf('application.buttons[label]');
+  const tapIndex = replayLoop[1].indexOf('control.tap()');
+  assert.ok(
+    queryIndex >= 0 && tapIndex > queryIndex,
+    'Each replay control must be queried after foregrounding and before its tap.',
+  );
 });
 
 test('the B4 learner surface uses the standard WebKit Dynamic Type root', async () => {

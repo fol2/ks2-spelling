@@ -242,7 +242,8 @@ final class B4DevelopmentTests: XCTestCase {
         var audioStartMs: [Double] = []
         var backgroundAudioStoppedCount = 0
         let audioPlaying = application.staticTexts["Audio playing"]
-        for control in [replay, slowReplay] {
+        for label in ["Replay", "Slow replay"] {
+            let control = application.buttons[label]
             XCTAssertTrue(waitUntilAbsent(audioPlaying), "Playback state was not idle before replay.")
             let audioStart = Date()
             control.tap()

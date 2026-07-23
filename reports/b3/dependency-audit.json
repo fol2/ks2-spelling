@@ -5,14 +5,14 @@
     "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "spmResolvedVersion": 3,
     "nativePluginBuildSha256": "a72e95958e287be21f34588a167f12fd59058ab003dfe3f559b3ba244988a6f9",
-    "webViewBundleEvidenceSha256": "2000f04e4791fd9fd6d99648a7af4c79a66b102f4e07c2a0b6820c69325b666a"
+    "webViewBundleEvidenceSha256": "994d8ffda4c926be4325696fb400eba33c9ed07a51dce85d25f5ca0efe8c9fb2"
   },
   "npm": {
     "lockfileVersion": 3,
     "lockPackageCount": 189,
     "webViewBundle": {
       "mode": "vite-rollup-write-false",
-      "moduleCount": 115,
+      "moduleCount": 141,
       "packageNames": [
         "@capacitor-community/sqlite",
         "@capacitor/app",
@@ -193,16 +193,166 @@
           "sha256": "145965504d60007bc25486ab930b0367867dcd5d579ccd343c148d69349a7cfb"
         },
         {
+          "id": "public/audio/b4/b4-01.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "a5f6ed9a13aa5189b6ac1ddd951ff5f9a0167748d73ae47239b32433b23b4090"
+        },
+        {
+          "id": "public/audio/b4/b4-02.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "b674034bc25d9b2e83d1e50c61b5d94e734e3e6097b2eaa7509ec4106ea5c60c"
+        },
+        {
+          "id": "public/audio/b4/b4-03.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "ba7a343c39b9c131c6c6f72329ae0f7c0428d2120d3cbb68d39a772a1fc34b2a"
+        },
+        {
+          "id": "public/audio/b4/b4-04.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "1b9853d527d5ee07b9b48ef4c7e31ba244cadee9ae45fb9cc12577b0631d8018"
+        },
+        {
+          "id": "public/audio/b4/b4-05.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "e2f7e376067c2362b5c19c07293b47cb2ee03d1293dfed013164a21701fe1637"
+        },
+        {
+          "id": "public/audio/b4/b4-06.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "b9568b61527713418eeff8db9cbf15f587dd4092d62cf1c5b3af748d62112ca0"
+        },
+        {
+          "id": "public/audio/b4/b4-07.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "a0fe9928d780d8f5f23cf5fe897d4dba2b11290e0c3215043da77f6e375cd81f"
+        },
+        {
+          "id": "public/audio/b4/b4-08.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "8cdb1355b871eca1f986d91ed210c3305ec193fbf39b076d9e72b96a38b8f2b3"
+        },
+        {
+          "id": "public/audio/b4/b4-09.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "7bc533dcbfa2545c8cb9f72ae6aa5bd0a415b0f5e1fde5e42cb93aa717679b62"
+        },
+        {
+          "id": "public/audio/b4/b4-10.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "70543b365c5535773c51522ab8e90d4e1c508ea661a6d439734260db6167f659"
+        },
+        {
+          "id": "public/audio/b4/b4-11.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "e8137856e4a48f86a235accf9c3e7b47c03726f6dd8194b2d346a5c2734e6c39"
+        },
+        {
+          "id": "public/audio/b4/b4-12.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "b8482970de8ff8615384db90e432608d6625e1116e0be7a11ff4874a3e2ae31f"
+        },
+        {
+          "id": "public/audio/b4/b4-13.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "6e3dab68080302bf247b3a399a872b09f2beebe4c9887fbf249e88cc5a0f8bad"
+        },
+        {
+          "id": "public/audio/b4/b4-14.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "ff713f4ac8c14489fa54d30057507fe8a2cacf02cb459a5e6349c7f9f2fe14cf"
+        },
+        {
+          "id": "public/audio/b4/b4-15.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "b81aebecb9517e654064cccadcd0096238d4262eca8bdba5c061cdc8b465e299"
+        },
+        {
+          "id": "public/audio/b4/b4-16.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "1a2c77838c2d63784373e68fabfccac98c6c1e71f073ba0405b26ee99463809f"
+        },
+        {
+          "id": "public/audio/b4/b4-17.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "96dfcfbea9afe54d8baec02d9f6045a656cad2979843fbde2ab9bf011ffc4003"
+        },
+        {
+          "id": "public/audio/b4/b4-18.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "44edf47af619b38112eb76e47cd9db9aab9b9c2b41cb6dff7dc4fdc7daf2da79"
+        },
+        {
+          "id": "public/audio/b4/b4-19.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "9ea6f7451a2fc419679befb2058fa7925ca36f455c2dc5613236f8117c8f136a"
+        },
+        {
+          "id": "public/audio/b4/b4-20.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "3e0d89731f00764036b80e9dbdde64908543d4c15d03582ffb72193f778d5352"
+        },
+        {
+          "id": "public/audio/b4/b4-21.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "e5957e0ad866aabc47686ad9baa2958f2ebfd4734d8680980184c6358e16ba12"
+        },
+        {
+          "id": "public/audio/b4/b4-22.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "17ed48a8876fd93aa3da5f8168a2b8bcd3be5e54dd5ed11d3acb266c3fbb8655"
+        },
+        {
+          "id": "public/audio/b4/b4-23.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "693ae6250e9beb763039f8bdbab2b526529acd1e2156c4864adab1aea070949a"
+        },
+        {
+          "id": "public/audio/b4/b4-24.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "ce10d60aed413655046762b31dd0d03de35d477992b624cc764e722af05bad52"
+        },
+        {
+          "id": "public/audio/b4/b4-25.wav",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "dcf6c3533b8071897c0de462dc890acb8397f04a75ecf16e90ce824464da1f18"
+        },
+        {
           "id": "src/app/App.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "0a815942b6ca0dbddcbec0786061b9ae0473d3ccd9d32920706fbf3a962905a4"
+          "sha256": "c981108478718831af100bf9d56308bc4914e72e9d560ca4a4a294b034ea7afb"
         },
         {
           "id": "src/app/app.css",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "2e74ba1defa53459589165a4150e8bd1cc1c1d70ae213cd9d73167c23cd26f22"
+          "sha256": "950dd10e5658bd63dc3c7ab5c910561a230dfc7abbdeaa167f14893c83d3f347"
         },
         {
           "id": "src/app/b2-proof-controller.js",
@@ -235,16 +385,28 @@
           "sha256": "b280b072bf6df589f0a855c2a16e99368a2904c747a45d9aa4aef9e96fd70554"
         },
         {
+          "id": "src/app/b4-audio-data.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "0cf782abde26d7928ebb865caf56bda82aa666e09e212cb460cee4a50d68e285"
+        },
+        {
           "id": "src/app/b4-learner-action.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "3ec820860b2a96a7c2f1872d9b5e4747b6878cf5605468c5e74315e1beb34873"
+          "sha256": "5f398fc1e1240423c67d5100a978813d2d8e656c58435c37c3a431f8e0b408ae"
         },
         {
           "id": "src/app/b4-local-audio.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "73e759fd811a01a701a0b0e2a3f76fefa1355668ff05754b7ebe88420bc83e7d"
+          "sha256": "34ef7a486083aa6a6d22bf709459a8fec31eb025c55034dbfd9350265d97e595"
+        },
+        {
+          "id": "src/app/b4-performance-marks.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "4013d0e90bd19819ea77d0ded18d37de71ef7b76b47e156073f36b2784764e56"
         },
         {
           "id": "src/app/b4-round-contract.js",
@@ -256,7 +418,7 @@
           "id": "src/app/b4-round-controller.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "a8310af2280f0375ad56e4ee4ac8bc972a1ec4cc8383cbe9716a7cf136b536bc"
+          "sha256": "1299ce3ddc3d23c5f7d6bfc8003202fcd8d75641b63d09a27265571a68b52ac2"
         },
         {
           "id": "src/app/commerce-reconciler.js",
@@ -370,7 +532,7 @@
           "id": "src/domain/spelling/index.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "0a2a2d26c0e97a72dba68004cfcbe4ab19509a7a2cacf5337b1f7df7e816e0b3"
+          "sha256": "a00afe0d3ff6811a402fa1ae2f5189a1d045fae6a64f530839bf00b515818fbf"
         },
         {
           "id": "src/main.jsx",
@@ -565,12 +727,6 @@
           "sha256": "9fd38e9b10db927032eba25820920d566e7cff496c24871bbb666c3e7b532949"
         },
         {
-          "id": "vendor/ks2-mastery/content/spelling.mobile-runtime-full.json",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "50918c93043eba984cb2472238ac9370be4f46fb52a55c76cf5c469beb330d84"
-        },
-        {
           "id": "vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json",
           "kind": "file",
           "npmLocator": null,
@@ -723,37 +879,42 @@
       ],
       "outputInventory": [
         {
+          "fileName": "assets/b4-audio-data-DRy1yfZx.js",
+          "kind": "chunk",
+          "sha256": "facc1cede2d0ff00e2159b46a715b01bc8a7b5c2084e4b177394cb77baa5bc0c"
+        },
+        {
           "fileName": "assets/b4-audio-manifest-CtukroTL.js",
           "kind": "chunk",
           "sha256": "f6f509e08ad4fa25e565a5c5993e3a1496254483b95c166bca624f000ff1c2cf"
         },
         {
-          "fileName": "assets/index-8mfvoroy.css",
+          "fileName": "assets/index-CDftI4-I.css",
           "kind": "asset",
-          "sha256": "09fae0aaa4aa7bc9cc743c1d8f2ede4a6f9ddbf48ebbdf7305bf1bdbeefda8cc"
+          "sha256": "900141fdbfc6d2370e8341204a76da333d5ae8f30427de6a70702c7175581cef"
         },
         {
-          "fileName": "assets/index-Ct3t9pZ_.js",
+          "fileName": "assets/index-Dm7lRLFh.js",
           "kind": "chunk",
-          "sha256": "c93e35056b20b9ae43f61c7568d459442c809ba3ab4dbf0235db688d439f8f5a"
+          "sha256": "5259888ccc7e4259a3e8ac72bda1cc2f91ad3c81d3d463c1efa1d11eb69162b7"
         },
         {
-          "fileName": "assets/web-DamFAhBk.js",
+          "fileName": "assets/web-D9UHd4Xf.js",
           "kind": "chunk",
-          "sha256": "ee5f56735a5b6d232fea9489b079ba752364c6bb296dbd136de03eb57f124a2c"
+          "sha256": "c8445fb1d74794ba2f17cfe894c179e7ded5a7ccace15866da4ae08d649c4736"
         },
         {
-          "fileName": "assets/web-DEdot-l7.js",
+          "fileName": "assets/web-DCSitljQ.js",
           "kind": "chunk",
-          "sha256": "6ca80e067ebb14501e890f989092e3c18b3ba1df78bebc2743ecf94fe54a1ced"
+          "sha256": "045822e46f5933324ad80bf8f408c4fea447b0bfa810fda907d7a4c847d22fff"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "1193d44db5adc71215c560e8b6a0ede7caa16ec4b3d5081d34168af06794fab7"
+          "sha256": "42512b7a05f6a9f3cf8ea85d026415c25ecc6ed1930fc819eff507fc7fd6bb17"
         }
       ],
-      "evidenceSha256": "2000f04e4791fd9fd6d99648a7af4c79a66b102f4e07c2a0b6820c69325b666a"
+      "evidenceSha256": "994d8ffda4c926be4325696fb400eba33c9ed07a51dce85d25f5ca0efe8c9fb2"
     },
     "allPackages": [
       {
@@ -5316,7 +5477,7 @@
     "generatedFrom": [
       {
         "path": "package.json",
-        "sha256": "54f3e0febad3e84c2be1e7ee3cd4a3a3126358c8a09b03e55dcef735fccbff53"
+        "sha256": "005bebdbf7aed4b1331e0a13df739b26d022b64a241a8781c0f445acb2eb2b02"
       },
       {
         "path": "scripts/certify-android-dependencies.mjs",

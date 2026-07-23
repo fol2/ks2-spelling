@@ -92,6 +92,18 @@ function B2App({ services }) {
   );
 }
 
+export function activateB4Audio({ event, method, runAudio, source }) {
+  if (typeof runAudio !== 'function') {
+    throw new TypeError('runAudio must be a function.');
+  }
+  const accepted = source === 'pointer-up'
+    ? event?.isPrimary === true && event?.button === 0
+    : source === 'click' && event?.detail === 0;
+  if (!accepted) return false;
+  runAudio(method);
+  return true;
+}
+
 function B4App({ services }) {
   const [roundState, setRoundState] = useState(() => services.controller.getState());
   const [answer, setAnswer] = useState('');
@@ -196,10 +208,28 @@ function B4App({ services }) {
         >
           <h2 id="b4-practice-title">Hear the word, then spell it</h2>
           <div className="b4-audio-actions" aria-label="Listening controls">
-            <button type="button" disabled={busy || starting} onClick={() => runAudio('replay')}>
+            <button
+              type="button"
+              disabled={busy || starting}
+              onPointerUp={(event) => {
+                activateB4Audio({ event, method: 'replay', runAudio, source: 'pointer-up' });
+              }}
+              onClick={(event) => {
+                activateB4Audio({ event, method: 'replay', runAudio, source: 'click' });
+              }}
+            >
               Replay
             </button>
-            <button type="button" disabled={busy || starting} onClick={() => runAudio('slowReplay')}>
+            <button
+              type="button"
+              disabled={busy || starting}
+              onPointerUp={(event) => {
+                activateB4Audio({ event, method: 'slowReplay', runAudio, source: 'pointer-up' });
+              }}
+              onClick={(event) => {
+                activateB4Audio({ event, method: 'slowReplay', runAudio, source: 'click' });
+              }}
+            >
               Slow replay
             </button>
           </div>

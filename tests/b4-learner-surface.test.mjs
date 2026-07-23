@@ -122,7 +122,34 @@ test('B4 surface renders native learner controls without target leakage or comme
     appType: 'custom',
   });
   t.after(() => vite.close());
-  const { default: App } = await vite.ssrLoadModule('/src/app/App.jsx');
+  const { default: App, activateB4Audio } = await vite.ssrLoadModule('/src/app/App.jsx');
+  const audioActivations = [];
+  const runAudio = (method) => audioActivations.push(method);
+  assert.equal(activateB4Audio({
+    event: { button: 0, isPrimary: true },
+    method: 'slowReplay',
+    runAudio,
+    source: 'pointer-up',
+  }), true);
+  assert.equal(activateB4Audio({
+    event: { detail: 1 },
+    method: 'slowReplay',
+    runAudio,
+    source: 'click',
+  }), false);
+  assert.equal(activateB4Audio({
+    event: { detail: 0 },
+    method: 'replay',
+    runAudio,
+    source: 'click',
+  }), true);
+  assert.equal(activateB4Audio({
+    event: { button: 0, isPrimary: false },
+    method: 'replay',
+    runAudio,
+    source: 'pointer-up',
+  }), false);
+  assert.deepEqual(audioActivations, ['slowReplay', 'replay']);
   const state = activeState();
   const controller = Object.freeze({
     getState: () => state,

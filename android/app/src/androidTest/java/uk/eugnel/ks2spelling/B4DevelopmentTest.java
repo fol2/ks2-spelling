@@ -108,6 +108,29 @@ public class B4DevelopmentTest {
         return node;
     }
 
+    private UiObject2 scrollUntilVisible(String label, BySelector selector) {
+        UiObject2 node = null;
+        int width = device.getDisplayWidth();
+        int height = device.getDisplayHeight();
+        for (int attempt = 0; attempt < 5; attempt += 1) {
+            node = device.wait(Until.findObject(selector), 1_000);
+            if (node != null && node.getVisibleBounds().height() > 0) {
+                return node;
+            }
+            if (attempt == 4) break;
+            assertTrue(
+                "The Android scroll gesture was rejected while waiting for " + label + ".",
+                device.swipe(width / 2, height * 3 / 4, width / 2, height / 4, 20)
+            );
+        }
+        assertNotNull("Timed out waiting for " + label + " after scrolling.", node);
+        assertTrue(
+            label + " did not expose visible bounds after scrolling.",
+            node.getVisibleBounds().height() > 0
+        );
+        return node;
+    }
+
     private void waitForAbsence(String label, BySelector selector) {
         assertTrue(
             "Timed out waiting for " + label + " to disappear.",
@@ -126,7 +149,7 @@ public class B4DevelopmentTest {
     }
 
     private UiObject2 tap(String label, BySelector selector) {
-        UiObject2 node = waitForNode(label, selector);
+        UiObject2 node = scrollUntilVisible(label, selector);
         node.click();
         return node;
     }
@@ -249,10 +272,10 @@ public class B4DevelopmentTest {
         float density = context.getResources().getDisplayMetrics().density;
         double minimum = Double.POSITIVE_INFINITY;
         for (UiObject2 node : new UiObject2[] {
-            waitForNode("Replay", button("Replay")),
-            waitForNode("Slow replay", button("Slow replay")),
-            waitForNode("Submit", button("Submit")),
-            waitForNode("the spelling input", spellingInput())
+            scrollUntilVisible("Replay", button("Replay")),
+            scrollUntilVisible("Slow replay", button("Slow replay")),
+            scrollUntilVisible("Submit", button("Submit")),
+            scrollUntilVisible("the spelling input", spellingInput())
         }) {
             Rect bounds = node.getVisibleBounds();
             minimum = Math.min(minimum, bounds.height() / density);

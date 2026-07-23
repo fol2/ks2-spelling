@@ -49,6 +49,17 @@ function productFailureServices() {
     activeVersion: null,
     actionError: 'starter_audio_check_failed',
   });
+  const learningState = Object.freeze({
+    status: 'ready',
+    screen: 'profiles',
+    learnerId: null,
+    practice: null,
+    summary: null,
+    progress: Object.freeze([]),
+    monsters: Object.freeze([]),
+    camp: null,
+    actionError: 'product_startup_failed',
+  });
   return Object.freeze({
     mode: 'product',
     controller: Object.freeze({
@@ -73,6 +84,25 @@ function productFailureServices() {
       recover: rejectAction,
       reportPlaybackFailure() {},
       async dispose() {},
+    }),
+    learning: Object.freeze({
+      getState: () => learningState,
+      subscribe(listener) {
+        listener(learningState);
+        return Object.freeze({ remove() {} });
+      },
+      selectLearner: rejectAction,
+      showScreen() {
+        throw new Error('product_startup_failed');
+      },
+      startSmartRound: rejectAction,
+      submitAnswer: rejectAction,
+      continueRound: rejectAction,
+      endRound: rejectAction,
+      async dispose() {},
+    }),
+    audio: Object.freeze({
+      play: rejectAction,
     }),
   });
 }

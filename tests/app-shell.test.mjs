@@ -207,11 +207,53 @@ test('the production shell renders local profiles without proof or commerce cont
     reportPlaybackFailure() {},
     async dispose() {},
   });
-  const html = renderToStaticMarkup(
-    React.createElement(App, {
-      services: Object.freeze({ mode: 'product', controller, audioAvailability }),
+  let learningState = Object.freeze({
+    status: 'ready',
+    screen: 'profiles',
+    learnerId: 'learner-a',
+    practice: null,
+    summary: null,
+    progress: [],
+    monsters: Object.freeze([Object.freeze({
+      rewardTrackId: 'spelling-core-inklet',
+      packId: 'ks2-core',
+      monsterId: 'inklet',
+      thresholds: Object.freeze([1, 10, 30, 60, 100]),
+      branch: null,
+      secureCount: 0,
+      caught: false,
+      derivedStage: 0,
+      earnedStageHighWater: 0,
+    })]),
+    camp: Object.freeze({
+      packId: 'ks2-core',
+      campHighWater: 0,
+      lastCreditedGuardianDay: null,
     }),
+    actionError: null,
+  });
+  const learning = Object.freeze({
+    getState: () => learningState,
+    subscribe: () => Object.freeze({ remove() {} }),
+    async selectLearner() {},
+    showScreen() {},
+    async startSmartRound() {},
+    async submitAnswer() {},
+    async continueRound() {},
+    async endRound() {},
+    async dispose() {},
+  });
+  const services = Object.freeze({
+    mode: 'product',
+    controller,
+    learning,
+    audioAvailability,
+    audio: Object.freeze({ async play() {} }),
+  });
+  const render = () => renderToStaticMarkup(
+    React.createElement(App, { services }),
   );
+  const html = render();
 
   assert.match(html, /Who is practising\?/);
   assert.match(html, /Ada/);
@@ -226,6 +268,76 @@ test('the production shell renders local profiles without proof or commerce cont
     html,
     /B1|B2|B3|B4|proof|diagnostic|buy|restore|price|commerce|remove|delete/i,
   );
+
+  learningState = Object.freeze({
+    ...learningState,
+    screen: 'home',
+  });
+  const homeHtml = render();
+  assert.match(homeHtml, /Ada&#x27;s spelling trail/);
+  assert.match(homeHtml, /Start a Smart Review/);
+  assert.match(homeHtml, /Inklet/);
+  assert.match(homeHtml, /Listening pack needs setup/);
+  assert.match(homeHtml, /Progress/);
+  assert.match(homeHtml, /Camp/);
+  assert.doesNotMatch(homeHtml, /buy|restore|price|commerce/i);
+
+  learningState = Object.freeze({
+    ...learningState,
+    screen: 'practice',
+    practice: Object.freeze({
+      sessionId: 'session-a',
+      label: 'Smart review',
+      phase: 'question',
+      runtimeItemId: 'ks2-core:build',
+      sentence: 'I build model cars with my brother.',
+      cloze: 'I _____ model cars with my brother.',
+      explanation: 'To build means to make something.',
+      progress: Object.freeze({
+        total: 5,
+        checked: 0,
+        done: 0,
+        wrongCount: 0,
+      }),
+      awaitingAdvance: false,
+      feedback: null,
+    }),
+  });
+  const practiceHtml = render();
+  assert.match(practiceHtml, /Card 1 of 5/);
+  assert.match(practiceHtml, /Hear word/);
+  assert.match(practiceHtml, /Hear sentence/);
+  assert.match(practiceHtml, /Slow sentence/);
+  assert.match(practiceHtml, /I _____ model cars with my brother\./);
+  assert.match(practiceHtml, /Check spelling/);
+  assert.doesNotMatch(practiceHtml, />build</i);
+
+  learningState = Object.freeze({
+    ...learningState,
+    screen: 'summary',
+    practice: null,
+    summary: Object.freeze({
+      mode: 'smart',
+      label: 'Smart review',
+      message: 'Excellent work.',
+      cards: Object.freeze([
+        Object.freeze({
+          label: 'Words in round',
+          value: 5,
+          sub: 'Unique words selected',
+        }),
+      ]),
+      totalWords: 5,
+      correct: 5,
+      accuracy: 100,
+      mistakes: Object.freeze([]),
+    }),
+  });
+  const summaryHtml = render();
+  assert.match(summaryHtml, /Trail complete/);
+  assert.match(summaryHtml, /Excellent work\./);
+  assert.match(summaryHtml, /100%/);
+  assert.match(summaryHtml, /Back to trail/);
 });
 
 test('the B3 shell is a Parent-only diagnostic with sanitised commerce and pack evidence', async (t) => {

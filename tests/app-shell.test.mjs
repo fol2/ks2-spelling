@@ -160,7 +160,7 @@ test('the B2 shell renders exact persistence diagnostics and sanitises failures'
   assert.match(browserFailureHtml, /Learner isolation: not verified/);
 });
 
-test('the production shell renders local profiles without proof or commerce controls', async (t) => {
+test('the production shell keeps Parent progress and commerce behind the local gate', async (t) => {
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { createServer } = await import('vite');
@@ -242,6 +242,52 @@ test('the production shell renders local profiles without proof or commerce cont
       return Object.freeze({ cancelled: true });
     },
   });
+  const parentProgressState = Object.freeze({
+    status: 'ready',
+    learners: Object.freeze([Object.freeze({
+      learnerId: 'learner-a',
+      nickname: 'Ada',
+      yearGroup: 'Y3',
+      colour: '#2E7D8A',
+      publishedItemCount: 20,
+      secureItemCount: 1,
+      dueItemCount: 2,
+      troubleItemCount: 1,
+      correctCount: 5,
+      wrongCount: 1,
+      accuracyPercent: 83,
+      guardianDueCount: 0,
+      wobblingDueCount: 0,
+      nextGuardianReviewDay: null,
+      recentRevisionSessions: Object.freeze([]),
+    })]),
+    actionError: null,
+  });
+  const parentProgress = Object.freeze({
+    getState: () => parentProgressState,
+    subscribe: () => Object.freeze({ remove() {} }),
+    async refresh() {},
+    async dispose() {},
+  });
+  const parentCommerceState = Object.freeze({
+    status: 'ready',
+    displayPrice: '£4.99',
+    entitlementState: 'none',
+    packState: 'missing',
+    action: null,
+    actionError: null,
+  });
+  const parentCommerce = Object.freeze({
+    getState: () => parentCommerceState,
+    subscribe: () => Object.freeze({ remove() {} }),
+    async start() {},
+    async refresh() {},
+    async purchase() {},
+    async restore() {},
+    async download() {},
+    async recover() {},
+    async dispose() {},
+  });
   let learningState = Object.freeze({
     status: 'ready',
     screen: 'profiles',
@@ -284,6 +330,8 @@ test('the production shell renders local profiles without proof or commerce cont
     learning,
     audioAvailability,
     parent,
+    parentProgress,
+    parentCommerce,
     parentAdministration,
     parentBackup,
     audio: Object.freeze({ async play() {} }),
@@ -320,6 +368,8 @@ test('the production shell renders local profiles without proof or commerce cont
     React.createElement(ParentArea, {
       state: parentState,
       profiles: state.profiles,
+      progressState: parentProgressState,
+      commerceState: parentCommerceState,
       onClose() {},
       async onSetPin() {},
       async onUnlockPin() {},
@@ -330,6 +380,11 @@ test('the production shell renders local profiles without proof or commerce cont
       async onResetLearning() {},
       async onExportBackup() {},
       async onImportBackup() {},
+      async onRefreshProgress() {},
+      async onPurchase() {},
+      async onRestore() {},
+      async onDownload() {},
+      async onRecoverCommerce() {},
     }),
   );
   assert.match(lockedParentHtml, /Parent access/);
@@ -347,6 +402,8 @@ test('the production shell renders local profiles without proof or commerce cont
         status: 'unlocked',
       }),
       profiles: state.profiles,
+      progressState: parentProgressState,
+      commerceState: parentCommerceState,
       onClose() {},
       async onSetPin() {},
       async onUnlockPin() {},
@@ -357,6 +414,11 @@ test('the production shell renders local profiles without proof or commerce cont
       async onResetLearning() {},
       async onExportBackup() {},
       async onImportBackup() {},
+      async onRefreshProgress() {},
+      async onPurchase() {},
+      async onRestore() {},
+      async onDownload() {},
+      async onRecoverCommerce() {},
     }),
   );
   assert.match(unlockedParentHtml, /Parent area/);
@@ -369,7 +431,13 @@ test('the production shell renders local profiles without proof or commerce cont
   assert.match(unlockedParentHtml, /Import learning backup/);
   assert.match(unlockedParentHtml, /replaces every learner/i);
   assert.match(unlockedParentHtml, /Face ID is on/);
-  assert.doesNotMatch(unlockedParentHtml, /Restore purchase|Buy/i);
+  assert.match(unlockedParentHtml, /Spelling progress/);
+  assert.match(unlockedParentHtml, /5 of 6 attempts correct/);
+  assert.match(unlockedParentHtml, /1 secure · 2 due/);
+  assert.match(unlockedParentHtml, /Full KS2 spelling/);
+  assert.match(unlockedParentHtml, /£4\.99/);
+  assert.match(unlockedParentHtml, /Buy Full KS2/);
+  assert.match(unlockedParentHtml, /Restore purchases/);
 
   learningState = Object.freeze({
     ...learningState,

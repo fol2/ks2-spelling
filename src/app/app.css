@@ -1464,6 +1464,39 @@ h1 {
   gap: 0.55rem;
 }
 
+.parent-progress-list {
+  display: grid;
+  gap: 0.7rem;
+  margin: 1rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.parent-progress-list li {
+  display: grid;
+  gap: 0.2rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.7rem;
+}
+
+.parent-progress-list span,
+.parent-progress-list small {
+  color: var(--ink-soft);
+}
+
+.parent-commerce-price {
+  margin-bottom: 0.65rem;
+  color: var(--trail);
+  font-size: 1.45rem;
+  font-weight: 900;
+}
+
+.parent-commerce-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
 .parent-backup-warning {
   border-left: 0.25rem solid var(--coral);
   padding-left: 0.8rem;

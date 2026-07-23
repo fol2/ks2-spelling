@@ -41,6 +41,19 @@ export function createProductFailureServices() {
     lockedUntil: 0,
     actionError: 'parent_security_unavailable',
   });
+  const parentProgressState = Object.freeze({
+    status: 'unavailable',
+    learners: Object.freeze([]),
+    actionError: 'parent_progress_unavailable',
+  });
+  const parentCommerceState = Object.freeze({
+    status: 'failed',
+    displayPrice: '',
+    entitlementState: 'none',
+    packState: 'missing',
+    action: null,
+    actionError: 'parent_commerce_action_failed',
+  });
 
   return Object.freeze({
     mode: 'product',
@@ -83,6 +96,23 @@ export function createProductFailureServices() {
       unlockWithBiometrics: rejectedAction,
       setBiometricsEnabled: rejectedAction,
       lock() {},
+      async dispose() {},
+    }),
+    parentProgress: Object.freeze({
+      getState: () => parentProgressState,
+      subscribe: (listener) => subscription(listener, parentProgressState),
+      refresh: rejectedAction,
+      async dispose() {},
+    }),
+    parentCommerce: Object.freeze({
+      getState: () => parentCommerceState,
+      subscribe: (listener) => subscription(listener, parentCommerceState),
+      start: rejectedAction,
+      refresh: rejectedAction,
+      purchase: rejectedAction,
+      restore: rejectedAction,
+      download: rejectedAction,
+      recover: rejectedAction,
       async dispose() {},
     }),
     parentAdministration: Object.freeze({

@@ -1,4 +1,4 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 
 import gatewayAuthorityJson from '../../config/b3-gateway-authority.json' with { type: 'json' };
 import packKeyring from '../../config/pack-signing-public-keys.json' with { type: 'json' };
@@ -10,6 +10,9 @@ import {
 import { verifySignedPackManifest } from '../domain/packs/pack-signature-verifier.js';
 import { B3_DOWNLOAD_CHUNK_BYTES } from '../domain/packs/signed-download-access-contract.js';
 import { createCapacitorStore } from '../platform/commerce/capacitor-store.js';
+import {
+  CommercePlugin,
+} from '../platform/commerce/capacitor-commerce-plugin.js';
 import { createCapacitorSqliteConnection } from '../platform/database/capacitor-sqlite-connection.js';
 import { seedB2Learners } from '../platform/database/b2-seed.js';
 import { configureAndMigrateDatabase } from '../platform/database/migrate-database.js';
@@ -42,7 +45,6 @@ import { createPackActivationCoordinator } from './pack-activation-coordinator.j
 import { createPackReconciler } from './pack-reconciler.js';
 import { createPurchaseCoordinator } from './purchase-coordinator.js';
 
-const CommercePlugin = registerPlugin('Commerce');
 const SHA256 = /^[a-f0-9]{64}$/;
 
 function defaultRuntime() {
@@ -154,7 +156,7 @@ function safeTimestampClock(clock) {
   return value;
 }
 
-function isRecoverableExternalFailure(error) {
+export function isRecoverableExternalFailure(error) {
   if (!(error instanceof Error)) return false;
   if (error.code === 'STORE_NATIVE_FAILURE') return true;
   if (
@@ -195,7 +197,7 @@ function p256DerToRaw(signatureDer) {
   return raw;
 }
 
-async function verifyManifest(input) {
+export async function verifyManifest(input) {
   return verifySignedPackManifest({
     ...input,
     async verifyP256Der({ publicKeySpkiDer, signatureDer, signingInput }) {

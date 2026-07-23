@@ -67,7 +67,13 @@ export async function createSelectedAppServices({
     const composition = selectNativeAppComposition({ buildMode, platform });
     if (composition.serviceMode === 'b4') return createB4AppServices(b4Options);
     if (composition.serviceMode === 'product') {
-      return createProductAppServices(productOptions);
+      if (Object.hasOwn(productOptions, 'runtime')) {
+        throw new TypeError('Product runtime authority is application-owned.');
+      }
+      return createProductAppServices({
+        ...productOptions,
+        runtime: composition.runtime,
+      });
     }
     if (composition.serviceMode !== 'b3') return createB2AppServices();
     if (Object.hasOwn(b3Options, 'proofObservationPort')) {

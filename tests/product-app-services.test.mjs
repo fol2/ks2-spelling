@@ -121,6 +121,32 @@ test('production services persist profile CRUD and selected learner across a cle
     'exportBackup',
     'importBackup',
   ]);
+  assert.deepEqual(Object.keys(first.parentProgress), [
+    'getState',
+    'subscribe',
+    'refresh',
+    'dispose',
+  ]);
+  assert.deepEqual(Object.keys(first.parentCommerce), [
+    'getState',
+    'subscribe',
+    'start',
+    'refresh',
+    'purchase',
+    'restore',
+    'download',
+    'recover',
+    'dispose',
+  ]);
+  await first.parentCommerce.refresh();
+  assert.deepEqual(first.parentCommerce.getState(), {
+    status: 'offline',
+    displayPrice: '',
+    entitlementState: 'none',
+    packState: 'missing',
+    action: null,
+    actionError: null,
+  });
   assert.deepEqual(first.parent.getState(), {
     status: 'setup-required',
     biometric: {
@@ -183,6 +209,28 @@ test('production services persist profile CRUD and selected learner across a cle
   await first.learning.startSmartRound({ length: 5 });
   assert.equal(first.learning.getState().screen, 'practice');
   const activeSessionId = first.learning.getState().practice.sessionId;
+  await first.parentProgress.refresh();
+  assert.deepEqual(first.parentProgress.getState(), {
+    status: 'ready',
+    learners: [{
+      learnerId: ben.learnerId,
+      nickname: 'Ben',
+      yearGroup: 'Y5',
+      colour: '#A7633B',
+      publishedItemCount: 20,
+      secureItemCount: 0,
+      dueItemCount: 0,
+      troubleItemCount: 0,
+      correctCount: 0,
+      wrongCount: 0,
+      accuracyPercent: null,
+      guardianDueCount: 0,
+      wobblingDueCount: 0,
+      nextGuardianReviewDay: null,
+      recentRevisionSessions: [],
+    }],
+    actionError: null,
+  });
   await first.dispose();
 
   const second = await createProductAppServices({

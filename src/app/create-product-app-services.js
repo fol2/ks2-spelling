@@ -40,8 +40,21 @@ import {
 import {
   LearningBackupFilePlugin,
 } from '../platform/backup/capacitor-learning-backup-file-plugin.js';
+import {
+  createProductCommerceWorkflow,
+  createUnavailableProductCommerceWorkflow,
+} from './create-product-commerce-workflow.js';
+import {
+  createDatabaseGatedRepository,
+} from './database-gated-repository.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
 import { createParentBackupService } from './parent-backup-service.js';
+import {
+  createParentCommerceController,
+} from './parent-commerce-controller.js';
+import {
+  createParentProgressController,
+} from './parent-progress-controller.js';
 import { createParentSecurityController } from './parent-security-controller.js';
 import { createProductAudioPlayer } from './product-audio-player.js';
 import { createProductLearningController } from './product-learning-controller.js';
@@ -139,6 +152,8 @@ export async function createProductAppServices(options = {}) {
   let audioAvailability = null;
   let parent = null;
   let parentBackup = null;
+  let parentCommerce = null;
+  let parentProgress = null;
   let dataPolicy = null;
 
   try {
@@ -164,6 +179,10 @@ export async function createProductAppServices(options = {}) {
       now,
     });
     const packRepository = createSqlitePackRepositories(connection);
+    const gatedPackRepository = createDatabaseGatedRepository(
+      packRepository,
+      gate,
+    );
     const packTransfer = options.packTransfer ??
       createCapacitorPackTransfer({ PackTransfer: PackTransferPlugin });
     lifecycle =
@@ -245,16 +264,44 @@ export async function createProductAppServices(options = {}) {
       installedAudio,
     });
     audioAvailability = createStarterPackAvailabilityController({
-      packRepository,
+      packRepository: gatedPackRepository,
       packTransfer,
     });
     await audioAvailability.refresh().catch(() => undefined);
+    parentProgress = createParentProgressController({
+      profileRepository: profileStore.profiles,
+      snapshotStore: createDatabaseGatedRepository(Object.freeze({
+        async read(learnerId) {
+          return snapshotStore.read(learnerId);
+        },
+      }), gate),
+      catalogue,
+      now,
+    });
+    void parentProgress.refresh().catch(() => undefined);
+    const commerceWorkflow = options.commerceWorkflow ?? (
+      options.runtime
+        ? createProductCommerceWorkflow({
+            runtime: options.runtime,
+            connection,
+            commandGate: gate,
+            packRepository,
+            packTransfer,
+            clock: now,
+          })
+        : createUnavailableProductCommerceWorkflow()
+    );
+    parentCommerce = createParentCommerceController({
+      workflow: commerceWorkflow,
+    });
+    void parentCommerce.start().catch(() => undefined);
     const parentAdministration = Object.freeze({
       async resetLearning(learnerId) {
         await profileStore.administration.resetLearning(learnerId);
         if (learning.getState().learnerId === learnerId) {
           await learning.selectLearner(learnerId);
         }
+        await parentProgress.refresh();
         return true;
       },
     });
@@ -271,7 +318,10 @@ export async function createProductAppServices(options = {}) {
     parentBackup = createParentBackupService({
       repository: learningBackupRepository,
       files: learningBackupFiles,
-      afterImport: () => controller.reload(),
+      afterImport: async () => {
+        await controller.reload();
+        await parentProgress.refresh();
+      },
       now,
     });
     let disposePromise;
@@ -285,10 +335,14 @@ export async function createProductAppServices(options = {}) {
       audio,
       audioAvailability,
       parent,
+      parentProgress,
+      parentCommerce,
       parentAdministration,
       parentBackup,
       dispose() {
         disposePromise ??= disposeAll([
+          () => parentCommerce.dispose(),
+          () => parentProgress.dispose(),
           () => parent.dispose(),
           () => audio.dispose(),
           () => audioAvailability.dispose(),
@@ -305,6 +359,8 @@ export async function createProductAppServices(options = {}) {
     try {
       await disposeAll([
         parent && (() => parent.dispose()),
+        parentCommerce && (() => parentCommerce.dispose()),
+        parentProgress && (() => parentProgress.dispose()),
         audio && (() => audio.dispose()),
         audioAvailability && (() => audioAvailability.dispose()),
         learning && (() => learning.dispose()),

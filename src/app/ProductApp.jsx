@@ -373,9 +373,165 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
   );
 }
 
+function ParentProgressCard({ state, onRefresh }) {
+  return (
+    <section className="paper-card parent-card" aria-labelledby="parent-progress-title">
+      <p className="product-kicker">Learning on this device</p>
+      <h2 id="parent-progress-title">Spelling progress</h2>
+      <p>
+        A private summary of spelling practice. Inklet and Camp rewards stay
+        separate from these learning figures.
+      </p>
+      {state.learners.length === 0 ? (
+        <p>
+          {state.status === 'checking'
+            ? 'Checking saved progress…'
+            : 'No learner progress has been saved yet.'}
+        </p>
+      ) : (
+        <ul className="parent-progress-list">
+          {state.learners.map((summary) => {
+            const attempts = summary.correctCount + summary.wrongCount;
+            return (
+              <li key={summary.learnerId}>
+                <strong>{summary.nickname}</strong>
+                <span>
+                  {attempts === 0
+                    ? 'No spelling attempts saved yet.'
+                    : `${summary.correctCount} of ${attempts} attempts correct${
+                        summary.accuracyPercent === null
+                          ? ''
+                          : ` · ${summary.accuracyPercent}%`
+                      }`}
+                </span>
+                <small>
+                  {summary.secureItemCount} secure · {summary.dueItemCount} due ·{' '}
+                  {summary.troubleItemCount} needing support
+                </small>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {state.status === 'unavailable' && (
+        <p className="inline-error" role="alert">
+          Progress could not be checked. Saved learning was not changed.
+        </p>
+      )}
+      <button
+        type="button"
+        className="button-quiet"
+        disabled={state.status === 'checking'}
+        onClick={() => void onRefresh().catch(() => undefined)}
+      >
+        {state.status === 'checking' ? 'Checking…' : 'Refresh progress'}
+      </button>
+    </section>
+  );
+}
+
+function commerceMessage(state) {
+  if (state.status === 'offline') {
+    return state.entitlementState === 'active'
+      ? 'The store is unavailable. Last verified access and installed data remain unchanged.'
+      : 'The store is unavailable. No local purchase has been changed.';
+  }
+  if (state.status === 'failed') {
+    return 'Purchase status could not be checked. Local access and installed data were not changed.';
+  }
+  if (state.entitlementState === 'revoked') {
+    return 'The store has verified that access ended. Installed files have not been deleted.';
+  }
+  if (state.entitlementState !== 'active') {
+    return 'Unlock the complete statutory spelling catalogue for this family device.';
+  }
+  if (state.packState === 'installed') {
+    return 'Purchased and installed. The pack is available offline on this device.';
+  }
+  if (state.packState === 'failed') {
+    return 'Access is verified, but the local pack needs another download attempt.';
+  }
+  if (['queued', 'downloading'].includes(state.packState)) {
+    return 'Access is verified and the spelling pack is being prepared locally.';
+  }
+  return 'Access is verified. Download the spelling pack to use it offline.';
+}
+
+function ParentCommerceCard({
+  state,
+  onPurchase,
+  onRestore,
+  onDownload,
+  onRecover,
+}) {
+  const busy = state.status === 'checking' || state.status === 'working';
+  const canBuy =
+    state.entitlementState === 'none' &&
+    state.displayPrice !== '' &&
+    !['offline', 'failed'].includes(state.status);
+  const canDownload =
+    state.entitlementState === 'active' &&
+    ['missing', 'failed'].includes(state.packState);
+  return (
+    <section className="paper-card parent-card" aria-labelledby="parent-commerce-title">
+      <p className="product-kicker">Packs and purchases</p>
+      <h2 id="parent-commerce-title">Full KS2 spelling</h2>
+      {state.displayPrice && state.entitlementState === 'none' && (
+        <p className="parent-commerce-price">{state.displayPrice}</p>
+      )}
+      <p aria-live="polite">{commerceMessage(state)}</p>
+      <div className="parent-commerce-actions">
+        {state.entitlementState === 'none' && (
+          <button
+            type="button"
+            className="button-primary"
+            disabled={busy || !canBuy}
+            onClick={() => void onPurchase().catch(() => undefined)}
+          >
+            Buy Full KS2{state.displayPrice ? ` — ${state.displayPrice}` : ''}
+          </button>
+        )}
+        {canDownload && (
+          <button
+            type="button"
+            className="button-primary"
+            disabled={busy}
+            onClick={() => void onDownload().catch(() => undefined)}
+          >
+            {state.packState === 'failed' ? 'Retry download' : 'Download pack'}
+          </button>
+        )}
+        <button
+          type="button"
+          className="button-quiet"
+          disabled={busy}
+          onClick={() => void onRestore().catch(() => undefined)}
+        >
+          Restore purchases
+        </button>
+        <button
+          type="button"
+          className="button-quiet"
+          disabled={busy}
+          onClick={() => void onRecover().catch(() => undefined)}
+        >
+          {busy ? 'Checking…' : 'Check again'}
+        </button>
+      </div>
+      {state.actionError && (
+        <p className="inline-error" role="alert">
+          That purchase action did not complete. Local access was not changed.
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function ParentArea({
   state,
   profiles,
+  progressState,
+  commerceState,
   onClose,
   onSetPin,
   onUnlockPin,
@@ -386,6 +542,11 @@ export function ParentArea({
   onResetLearning,
   onExportBackup,
   onImportBackup,
+  onRefreshProgress,
+  onPurchase,
+  onRestore,
+  onDownload,
+  onRecoverCommerce,
 }) {
   const [pin, setPin] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -505,6 +666,19 @@ export function ParentArea({
               </p>
             )}
           </section>
+
+          <ParentProgressCard
+            state={progressState}
+            onRefresh={onRefreshProgress}
+          />
+
+          <ParentCommerceCard
+            state={commerceState}
+            onPurchase={onPurchase}
+            onRestore={onRestore}
+            onDownload={onDownload}
+            onRecover={onRecoverCommerce}
+          />
 
           <section className="paper-card parent-card" aria-labelledby="parent-backup-title">
             <p className="product-kicker">Move or recover learning</p>
@@ -1341,6 +1515,12 @@ export default function ProductApp({ services }) {
   const [parentState, setParentState] = useState(() =>
     services.parent.getState(),
   );
+  const [parentProgressState, setParentProgressState] = useState(() =>
+    services.parentProgress.getState(),
+  );
+  const [parentCommerceState, setParentCommerceState] = useState(() =>
+    services.parentCommerce.getState(),
+  );
   const [parentOpen, setParentOpen] = useState(false);
   const [voiceId, setVoiceId] = useState('Iapetus');
 
@@ -1350,13 +1530,25 @@ export default function ProductApp({ services }) {
     const audioSubscription =
       services.audioAvailability.subscribe(setAudioState);
     const parentSubscription = services.parent.subscribe(setParentState);
+    const parentProgressSubscription =
+      services.parentProgress.subscribe(setParentProgressState);
+    const parentCommerceSubscription =
+      services.parentCommerce.subscribe(setParentCommerceState);
     return () => {
       profileSubscription.remove();
       learningSubscription.remove();
       audioSubscription.remove();
       parentSubscription.remove();
+      parentProgressSubscription.remove();
+      parentCommerceSubscription.remove();
     };
   }, [services]);
+
+  useEffect(() => {
+    if (!parentOpen || parentState.status !== 'unlocked') return;
+    void services.parentProgress.refresh().catch(() => undefined);
+    void services.parentCommerce.recover().catch(() => undefined);
+  }, [parentOpen, parentState.status, services]);
 
   if (profileState.status === 'failed') {
     return (
@@ -1388,6 +1580,8 @@ export default function ProductApp({ services }) {
       <ParentArea
         state={parentState}
         profiles={profileState.profiles}
+        progressState={parentProgressState}
+        commerceState={parentCommerceState}
         onClose={closeParent}
         onSetPin={(candidate) => services.parent.setPin(candidate)}
         onUnlockPin={(candidate) => services.parent.unlockWithPin(candidate)}
@@ -1395,12 +1589,19 @@ export default function ProductApp({ services }) {
         onSetBiometricsEnabled={(enabled) =>
           services.parent.setBiometricsEnabled(enabled)}
         onEditProfile={(draft) => services.controller.editProfile(draft)}
-        onRemoveProfile={(learnerId) =>
-          services.controller.removeProfile(learnerId)}
+        onRemoveProfile={async (learnerId) => {
+          await services.controller.removeProfile(learnerId);
+          await services.parentProgress.refresh();
+        }}
         onResetLearning={(learnerId) =>
           services.parentAdministration.resetLearning(learnerId)}
         onExportBackup={() => services.parentBackup.exportBackup()}
         onImportBackup={() => services.parentBackup.importBackup()}
+        onRefreshProgress={() => services.parentProgress.refresh()}
+        onPurchase={() => services.parentCommerce.purchase()}
+        onRestore={() => services.parentCommerce.restore()}
+        onDownload={() => services.parentCommerce.download()}
+        onRecoverCommerce={() => services.parentCommerce.recover()}
       />
     );
   }

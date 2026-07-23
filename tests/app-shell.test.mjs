@@ -164,6 +164,10 @@ test('the production shell keeps Parent progress and commerce behind the local g
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { createServer } = await import('vite');
+  const productSource = await readFile(
+    join(ROOT, 'src/app/ProductApp.jsx'),
+    'utf8',
+  );
   const vite = await createServer({
     configFile: join(ROOT, 'vite.config.js'),
     server: { middlewareMode: true },
@@ -518,6 +522,27 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(leaveRoundHtml, /aria-labelledby="leave-round-title"/);
   assert.match(leaveRoundHtml, /Keep practising/);
   assert.match(leaveRoundHtml, /Leave round/);
+
+  const failedLeaveRoundHtml = renderToStaticMarkup(
+    React.createElement(LeaveRoundDialog, {
+      error: 'This round could not be saved as unfinished. Please try again or keep practising.',
+      leaving: false,
+      onKeep() {},
+      onLeave() {},
+    }),
+  );
+  assert.match(failedLeaveRoundHtml, /id="leave-round-error"/);
+  assert.match(failedLeaveRoundHtml, /role="alert"/);
+  assert.match(
+    failedLeaveRoundHtml,
+    /This round could not be saved as unfinished\. Please try again or keep practising\./,
+  );
+  assert.match(productSource, /await onEnd\(\)/);
+  assert.match(productSource, /setExitError\(/);
+  assert.doesNotMatch(
+    productSource,
+    /void services\.learning\.endRound\(\)\.catch\(\(\) => undefined\)/,
+  );
 
   learningState = Object.freeze({
     ...learningState,

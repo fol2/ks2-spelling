@@ -1198,13 +1198,21 @@ function PracticeSetup({
   );
 }
 
-export function LeaveRoundDialog({ onKeep, onLeave }) {
+export function LeaveRoundDialog({
+  onKeep,
+  onLeave,
+  error = '',
+  leaving = false,
+}) {
   const keepButton = useRef(null);
   const leaveButton = useRef(null);
+  const leavingRef = useRef(leaving);
+  leavingRef.current = leaving;
 
   useEffect(() => {
     const previousFocus = document.activeElement;
     const handleKeyDown = (event) => {
+      if (leavingRef.current) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         onKeep();
@@ -1236,18 +1244,29 @@ export function LeaveRoundDialog({ onKeep, onLeave }) {
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="leave-round-title"
-      aria-describedby="leave-round-description"
+      aria-describedby={
+        error
+          ? 'leave-round-description leave-round-error'
+          : 'leave-round-description'
+      }
+      aria-busy={leaving}
     >
       <div>
         <h2 id="leave-round-title">Leave this round?</h2>
         <p id="leave-round-description">
           Your earlier saved learning stays safe. This round will be marked unfinished.
         </p>
+        {error && (
+          <p id="leave-round-error" className="inline-error" role="alert">
+            {error}
+          </p>
+        )}
         <div>
           <button
             ref={keepButton}
             type="button"
             className="button-quiet"
+            disabled={leaving}
             onClick={onKeep}
           >
             Keep practising
@@ -1256,9 +1275,10 @@ export function LeaveRoundDialog({ onKeep, onLeave }) {
             ref={leaveButton}
             type="button"
             className="button-danger"
+            disabled={leaving}
             onClick={onLeave}
           >
-            Leave round
+            {leaving ? 'Leaving…' : 'Leave round'}
           </button>
         </div>
       </div>
@@ -1279,7 +1299,12 @@ function PracticeScreen({
   const [answer, setAnswer] = useState('');
   const [localError, setLocalError] = useState('');
   const [confirmExit, setConfirmExit] = useState(false);
-  const closeExit = useCallback(() => setConfirmExit(false), []);
+  const [exitError, setExitError] = useState('');
+  const [leaving, setLeaving] = useState(false);
+  const closeExit = useCallback(() => {
+    setExitError('');
+    setConfirmExit(false);
+  }, []);
   const practice = state.practice;
   const busy = state.status === 'saving';
 
@@ -1343,6 +1368,20 @@ function PracticeScreen({
     }
   }
 
+  async function leaveRound() {
+    if (leaving || busy) return;
+    setExitError('');
+    setLeaving(true);
+    try {
+      await onEnd();
+    } catch {
+      setExitError(
+        'This round could not be saved as unfinished. Please try again or keep practising.',
+      );
+      setLeaving(false);
+    }
+  }
+
   return (
     <main className="product-app practice-page" aria-labelledby="practice-title">
       <ProductTopBar
@@ -1351,7 +1390,11 @@ function PracticeScreen({
           <button
             type="button"
             className="topbar-action"
-            onClick={() => setConfirmExit(true)}
+            disabled={busy}
+            onClick={() => {
+              setExitError('');
+              setConfirmExit(true);
+            }}
           >
             Leave
           </button>
@@ -1447,7 +1490,12 @@ function PracticeScreen({
       </section>
 
       {confirmExit && (
-        <LeaveRoundDialog onKeep={closeExit} onLeave={onEnd} />
+        <LeaveRoundDialog
+          error={exitError}
+          leaving={leaving || busy}
+          onKeep={closeExit}
+          onLeave={() => void leaveRound()}
+        />
       )}
     </main>
   );
@@ -1748,9 +1796,7 @@ export default function ProductApp({ services }) {
         audio={services.audio}
         onSubmit={(typed) => services.learning.submitAnswer(typed)}
         onContinue={() => services.learning.continueRound()}
-        onEnd={() => {
-          void services.learning.endRound().catch(() => undefined);
-        }}
+        onEnd={() => services.learning.endRound()}
         onPlaybackFailure={() =>
           services.audioAvailability.reportPlaybackFailure()}
       />

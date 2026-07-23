@@ -110,8 +110,9 @@ retains only the pure inventory and authority contract.
   remote fonts or images.
 - Define accessible focus, contrast, text scaling, reduced-motion and
   non-colour feedback rules before C3 child UI.
-- Approve side-by-side reference frames for onboarding, child home, practice,
-  feedback, results, Monster, Camp and Parent entry.
+- Record implementation-reference layouts for onboarding, child home, practice,
+  feedback, results, Monster, Camp and Parent entry without creating a separate
+  approval gate.
 
 ### C3 — complete child journey
 

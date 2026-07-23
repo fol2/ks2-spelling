@@ -57,3 +57,10 @@ test('application fingerprint has fail-closed anchors for gateway, proof fixture
     );
   }
 });
+
+test('application fingerprint accepts the current bounded tracked inventory', async () => {
+  const result = await fingerprintB3Application();
+  assert.match(result.sha256, /^[a-f0-9]{64}$/u);
+  assert.ok(result.files.includes('ios/App/App.xcodeproj/project.pbxproj'));
+  assert.ok(result.files.includes('android/app/build.gradle'));
+});

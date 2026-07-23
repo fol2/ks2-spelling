@@ -24,22 +24,24 @@ exact bytes.
 
 Use the smallest evidence set that can falsify the changed behaviour:
 
-1. state the observed gap or failing behaviour;
-2. identify the root cause and close an evidence gate before editing;
+1. state the desired behaviour or observed failure;
+2. for a bug, identify its root cause and the evidence that distinguishes it
+   from a guess;
 3. add or select one focused RED contract;
-4. implement the smallest production fix and obtain focused GREEN;
-5. run only the focused GREEN check during the milestone; run `test:fast` and
-   the affected build, native compile or migration matrix once at the next
-   integration checkpoint;
-6. obtain one independent read-only verification at a milestone boundary; and
-7. commit one coherent GREEN checkpoint locally.
+4. implement the smallest complete production change and obtain focused GREEN;
+5. commit coherent GREEN slices locally and continue.
 
-Do not run the full test, native or device estate after every small change. The
-full suite, both unsigned native compiles and hosted CI belong at integration
-checkpoints. Physical-device and signed/store journeys belong only at the final
-release-candidate gate. If a check fails, use
+Milestones are work slices, not approval gates. During implementation, run
+focused tests and only the affected build or native compile when that boundary
+changes. `test:fast`, the full local estate, hosted CI and independent
+verification are not repeated after every milestone; they are bundled into the
+single C5 development-acceptance checkpoint.
+
+Physical-device and signed/store journeys belong only to the later final
+release proof. If a check fails, use
 `observe -> root cause -> evidence gate -> TDD -> fix -> independent
-verification`; do not make speculative changes.
+verification`; the evidence gate in this debugging sequence is a factual
+diagnostic decision, not an additional programme checkpoint.
 
 Large generated-content checks are milestone commands, not daily-suite tests.
 For C1, one verifier scans the complete audio candidate once; the fast lane
@@ -150,8 +152,8 @@ retains only the pure inventory and authority contract.
   time before making any performance threshold claim.
 - Run the full local suites and both affected unsigned native compiles, then
   hosted exact-head CI. Resolve only evidence-backed failures.
-- Obtain independent product-direction, engineering-completeness and simplicity
-  reviews on one exact checkpoint, then freeze the release candidate.
+- Obtain one independent read-only verification of the complete product
+  contract on the exact checkpoint, then freeze the release candidate.
 
 ### Task 22/23 — final real-world proof and release
 
@@ -161,9 +163,18 @@ the physical iPhone/iOS 27, approved real Android, VoiceOver/TalkBack, acoustic,
 performance, live-commerce, download, store and exact-main evidence sequence.
 Any application-byte change restarts the affected final proof.
 
-## Integration checkpoints
+## Two acceptance gates
 
-Create one integration checkpoint after C2A, C1, C3 and C5. Each checkpoint must
-record the exact commit, focused RED/GREEN evidence, `test:fast`, affected
-compile/build results, independent verdict and remaining narrower gates. No
-intermediate checkpoint grants release authority.
+There are only two formal acceptance gates:
+
+1. **C5 development acceptance:** one exact checkpoint, one bundled full local
+   verification set, affected unsigned native compiles, hosted exact-head CI
+   and one independent read-only verdict.
+2. **Task 22/23 final release proof:** the deferred physical-device, signed
+   distribution, live-commerce and store evidence against the frozen C5 bytes.
+
+C2A, C1, V1, C3, C2B and C4 are implementation milestones, not gates. Their
+focused RED/GREEN evidence may be retained in commits without separate
+checkpoint documents, independent reviews or owner approvals. The completed C1
+checkpoint remains historical evidence only and does not create a recurring
+process requirement.

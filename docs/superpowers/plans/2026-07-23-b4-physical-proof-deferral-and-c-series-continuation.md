@@ -92,5 +92,7 @@ sequence is:
 5. obtain an independent review of the exact local candidate.
 
 This milestone does not attempt a fresh physical iPhone run. After it closes,
-continued work proceeds through small separately gated C-series milestones; the
-Visual / Theme / Asset Migration authority must close before C3.
+continued work proceeds through C-series implementation slices with one bundled
+C5 development-acceptance checkpoint. Visual / Theme / Asset Migration remains
+the required implementation order before C3, but it is not a separate approval
+gate.

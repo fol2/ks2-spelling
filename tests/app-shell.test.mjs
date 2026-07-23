@@ -595,6 +595,18 @@ test('the product shell consumes native safe-area insets', async () => {
       ),
     );
   }
+  assert.match(
+    productCss,
+    /\.product-topbar\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/su,
+  );
+  assert.match(
+    productCss,
+    /\.product-topbar p\s*\{[^}]*min-width:\s*0;[^}]*flex:\s*1 1 8rem;/su,
+  );
+  assert.match(
+    productCss,
+    /\.topbar-action\s*\{[^}]*max-width:\s*100%;[^}]*overflow-wrap:\s*anywhere;/su,
+  );
 });
 
 test('the B3 shell is a Parent-only diagnostic with sanitised commerce and pack evidence', async (t) => {

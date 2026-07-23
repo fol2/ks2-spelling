@@ -19,26 +19,6 @@ fresh distributions and performs the deferred physical, accessibility,
 acoustic, performance, signing, live-commerce and store proof against those
 exact bytes.
 
-## Swift evidence loop
-
-Use the smallest evidence set that can falsify the changed behaviour:
-
-1. state the observed gap or failing behaviour;
-2. identify the root cause and close an evidence gate before editing;
-3. add or select one focused RED contract;
-4. implement the smallest production fix and obtain focused GREEN;
-5. run `test:fast`, plus only the affected build, native compile or migration
-   matrix;
-6. obtain one independent read-only verification at a milestone boundary; and
-7. commit one coherent GREEN checkpoint locally.
-
-Do not run the full test, native or device estate after every small change. The
-full suite, both unsigned native compiles and hosted CI belong at integration
-checkpoints. Physical-device and signed/store journeys belong only at the final
-release-candidate gate. If a check fails, use
-`observe -> root cause -> evidence gate -> TDD -> fix -> independent
-verification`; do not make speculative changes.
-
 ## Permanent product boundaries
 
 - Production mode is a first-class composition. It must never fall back to a B1,

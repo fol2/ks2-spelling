@@ -77,6 +77,7 @@ const REQUIRED_AUTHORITY_INPUTS = Object.freeze([
   'ios/App/App.xcodeproj/project.pbxproj',
   'ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved',
   'ios/App/App/AppDelegate.swift',
+  'ios/App/App/SceneDelegate.swift',
   'ios/App/App/Info.plist',
   'ios/App/App/capacitor.config.json',
   'ios/App/App/public/index.html',

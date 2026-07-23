@@ -52,6 +52,58 @@ test('the committed iOS project freezes the unsigned B1 identity', async () => {
   assert.match(scheme, /BlueprintName = "App"/);
 });
 
+test('the iOS host adopts one storyboard-backed UIScene without losing app-owned plugins', async () => {
+  const [project, infoPlist, appDelegate, sceneDelegate] = await Promise.all([
+    readFile(PROJECT, 'utf8'),
+    readFile(INFO_PLIST, 'utf8'),
+    readFile(join(IOS_ROOT, 'App/AppDelegate.swift'), 'utf8'),
+    readFile(join(IOS_ROOT, 'App/SceneDelegate.swift'), 'utf8'),
+  ]);
+
+  assert.match(infoPlist, /<key>UIApplicationSceneManifest<\/key>/);
+  assert.match(
+    infoPlist,
+    /<key>UIApplicationSupportsMultipleScenes<\/key>\s*<false\/>/,
+  );
+  assert.match(infoPlist, /<key>UIWindowSceneSessionRoleApplication<\/key>/);
+  assert.match(
+    infoPlist,
+    /<key>UISceneConfigurationName<\/key>\s*<string>Default Configuration<\/string>/,
+  );
+  assert.match(
+    infoPlist,
+    /<key>UISceneDelegateClassName<\/key>\s*<string>\$\(PRODUCT_MODULE_NAME\)\.SceneDelegate<\/string>/,
+  );
+  assert.match(
+    infoPlist,
+    /<key>UISceneStoryboardFile<\/key>\s*<string>Main<\/string>/,
+  );
+
+  assert.match(project, /SceneDelegate\.swift in Sources/);
+  assert.match(
+    appDelegate,
+    /application\(\s*_ application: UIApplication,\s*configurationForConnecting connectingSceneSession: UISceneSession,/s,
+  );
+  assert.doesNotMatch(appDelegate, /var window: UIWindow/);
+  assert.doesNotMatch(appDelegate, /registerPluginInstance/);
+
+  assert.match(sceneDelegate, /class SceneDelegate: UIResponder, UIWindowSceneDelegate/);
+  assert.match(sceneDelegate, /var window: UIWindow\?/);
+  assert.match(
+    sceneDelegate,
+    /window\?\.rootViewController as\? CAPBridgeViewController/,
+  );
+  assert.match(sceneDelegate, /bridgeViewController\.loadViewIfNeeded\(\)/);
+  assert.match(
+    sceneDelegate,
+    /if !isOfflineB4Bundle\(\)[\s\S]*PackTransferPlugin[\s\S]*CommercePlugin/,
+  );
+  assert.match(
+    sceneDelegate,
+    /#if B3_SANDBOX_PROOF[\s\S]*BuildAuthorityPlugin[\s\S]*B3ProofObservationPlugin[\s\S]*#endif/,
+  );
+});
+
 test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', async () => {
   assert.ok(existsSync(IOS_ROOT), 'missing committed iOS SPM project');
 
@@ -164,7 +216,7 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
 
 test('the iOS app target explicitly links the frozen ZIPFoundation extraction product', async () => {
   const project = await readFile(PROJECT, 'utf8');
-  const appDelegate = await readFile(join(IOS_ROOT, 'App/AppDelegate.swift'), 'utf8');
+  const sceneDelegate = await readFile(join(IOS_ROOT, 'App/SceneDelegate.swift'), 'utf8');
   assert.match(project, /XCRemoteSwiftPackageReference "ZIPFoundation"/);
   assert.match(project, /repositoryURL = "https:\/\/github\.com\/weichsel\/ZIPFoundation\.git"/);
   assert.match(project, /requirement = \{\s*kind = exactVersion;\s*version = 0\.9\.20;/s);
@@ -175,8 +227,8 @@ test('the iOS app target explicitly links the frozen ZIPFoundation extraction pr
   assert.match(project, /PackInstallSealer\.swift in Sources/);
   assert.match(project, /ZipCentralDirectoryInspector\.swift in Sources/);
   assert.match(project, /pack-signing-public-keys\.json in Resources/);
-  assert.match(appDelegate, /PackTransferPlugin/);
-  assert.match(appDelegate, /registerPluginInstance/);
+  assert.match(sceneDelegate, /PackTransferPlugin/);
+  assert.match(sceneDelegate, /registerPluginInstance/);
   assert.deepEqual(
     JSON.parse(await readFile(join(IOS_ROOT, 'App/Resources/pack-signing-public-keys.json'))),
     JSON.parse(await readFile(join(ROOT, 'config/pack-signing-public-keys.json'))),
@@ -190,7 +242,7 @@ test('the iOS project owns a hosted StoreKit Test target and exact B3 product co
   const storeKitConfiguration = JSON.parse(
     await readFile(join(IOS_ROOT, 'App/B3Sandbox.storekit'), 'utf8'),
   );
-  const appDelegate = await readFile(join(IOS_ROOT, 'App/AppDelegate.swift'), 'utf8');
+  const sceneDelegate = await readFile(join(IOS_ROOT, 'App/SceneDelegate.swift'), 'utf8');
 
   assert.match(project, /PBXNativeTarget "AppTests"/);
   assert.match(project, /B3StoreKitDelayedTests\.swift in Sources/);
@@ -211,8 +263,8 @@ test('the iOS project owns a hosted StoreKit Test target and exact B3 product co
   );
   const launchAction = scheme.match(/<LaunchAction[\s\S]*?<\/LaunchAction>/)?.[0] ?? '';
   assert.doesNotMatch(launchAction, /StoreKitConfigurationFileReference/);
-  assert.match(appDelegate, /CommercePlugin/);
-  assert.match(appDelegate, /registerPluginInstance/);
+  assert.match(sceneDelegate, /CommercePlugin/);
+  assert.match(sceneDelegate, /registerPluginInstance/);
 
   assert.equal(storeKitConfiguration.products.length, 1);
   assert.equal(storeKitConfiguration.products[0].productID, 'uk.eugnel.ks2spelling.fullks2');

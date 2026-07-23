@@ -78,6 +78,7 @@ export const B3_FINGERPRINT_REQUIRED_INPUTS = Object.freeze([
   'scripts/prove-b3-ios.mjs',
   'scripts/prove-b3-android.mjs',
   'ios/App/App.xcodeproj/project.pbxproj',
+  'ios/App/App/SceneDelegate.swift',
   'android/app/build.gradle',
   'tests/fixtures/b3-signed-manifest.json',
   'tests/fixtures/keys/b3-sandbox-proof-manifest-signature.der',

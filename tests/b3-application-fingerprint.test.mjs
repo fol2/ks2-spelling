@@ -14,7 +14,8 @@ test('application fingerprint covers app, gateway, native, lock and proof-wrappe
   const root = await mkdtemp(join(tmpdir(), 'b3-fingerprint-'));
   const files = [
     'src/app.js', 'gateway/src/handler.js', 'config/mobile-identity.json',
-    'ios/App/App/AppDelegate.swift', 'android/app/build.gradle',
+    'ios/App/App/AppDelegate.swift', 'ios/App/App/SceneDelegate.swift',
+    'android/app/build.gradle',
     'scripts/prove-b3-ios.mjs', 'package-lock.json', 'gateway/package-lock.json',
   ];
   for (const path of files) {

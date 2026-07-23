@@ -279,9 +279,9 @@ test('Capacitor build authority is closed and binds the installed platform ident
 
 test('native projects register BuildAuthority and keep generated authority in ignored output', async () => {
   const root = new URL('../', import.meta.url);
-  const [swift, appDelegate, project, scheme, b3Scheme, loader, java, activity, gradle] = await Promise.all([
+  const [swift, sceneDelegate, project, scheme, b3Scheme, loader, java, activity, gradle] = await Promise.all([
     readFile(new URL('ios/App/App/BuildAuthorityPlugin.swift', root), 'utf8'),
-    readFile(new URL('ios/App/App/AppDelegate.swift', root), 'utf8'),
+    readFile(new URL('ios/App/App/SceneDelegate.swift', root), 'utf8'),
     readFile(new URL('ios/App/App.xcodeproj/project.pbxproj', root), 'utf8'),
     readFile(new URL('ios/App/App.xcodeproj/xcshareddata/xcschemes/KS2Spelling.xcscheme', root), 'utf8'),
     readFile(new URL('ios/App/App.xcodeproj/xcshareddata/xcschemes/B3SandboxProof.xcscheme', root), 'utf8'),
@@ -291,7 +291,7 @@ test('native projects register BuildAuthority and keep generated authority in ig
     readFile(new URL('android/app/build.gradle', root), 'utf8'),
   ]);
   assert.match(swift, /CAPBridgedPlugin/);
-  assert.match(appDelegate, /registerPluginInstance\(BuildAuthorityPlugin\(\)\)/);
+  assert.match(sceneDelegate, /registerPluginInstance\(BuildAuthorityPlugin\(\)\)/);
   assert.match(project, /BuildAuthorityPlugin\.swift in Sources/);
   assert.match(project, /name = B3SandboxProof/);
   assert.match(scheme, /<ArchiveAction\s+buildConfiguration = "Release"/u);

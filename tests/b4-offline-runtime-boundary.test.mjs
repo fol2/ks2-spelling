@@ -30,7 +30,7 @@ test('the B4 bundle denies runtime connections and marks the ordinary native wra
 
 test('both native wrappers disable network-capable plugins for the marked B4 bundle', async () => {
   const [ios, android] = await Promise.all([
-    readFile(new URL('../ios/App/App/AppDelegate.swift', import.meta.url), 'utf8'),
+    readFile(new URL('../ios/App/App/SceneDelegate.swift', import.meta.url), 'utf8'),
     readFile(new URL(
       '../android/app/src/main/java/uk/eugnel/ks2spelling/MainActivity.java',
       import.meta.url,

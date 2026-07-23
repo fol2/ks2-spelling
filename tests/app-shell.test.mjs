@@ -160,6 +160,57 @@ test('the B2 shell renders exact persistence diagnostics and sanitises failures'
   assert.match(browserFailureHtml, /Learner isolation: not verified/);
 });
 
+test('the production shell renders local profiles without proof or commerce controls', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { default: App } = await vite.ssrLoadModule('/src/app/App.jsx');
+  const state = Object.freeze({
+    status: 'ready',
+    profiles: Object.freeze([Object.freeze({
+      learnerId: 'learner-a',
+      nickname: 'Ada',
+      yearGroup: 'Y3',
+      goal: 10,
+      colour: '#2E7D8A',
+      createdAt: 100,
+      updatedAt: 100,
+    })]),
+    selectedLearnerId: 'learner-a',
+    actionError: null,
+  });
+  const controller = Object.freeze({
+    getState: () => state,
+    subscribe: () => Object.freeze({ remove() {} }),
+    async createProfile() {},
+    async editProfile() {},
+    async selectProfile() {},
+    async removeProfile() {},
+    async dispose() {},
+  });
+  const html = renderToStaticMarkup(
+    React.createElement(App, {
+      services: Object.freeze({ mode: 'product', controller }),
+    }),
+  );
+
+  assert.match(html, /Who is practising\?/);
+  assert.match(html, /Ada/);
+  assert.match(html, /Year 3/);
+  assert.match(html, /Selected/);
+  assert.match(html, /Add a learner/);
+  assert.doesNotMatch(
+    html,
+    /B1|B2|B3|B4|proof|diagnostic|buy|restore|price|commerce|remove|delete/i,
+  );
+});
+
 test('the B3 shell is a Parent-only diagnostic with sanitised commerce and pack evidence', async (t) => {
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -232,12 +283,14 @@ test('the B3 shell is a Parent-only diagnostic with sanitised commerce and pack 
   assert.match(productOfflineHtml, /<button type="button">Redownload<\/button>/);
 });
 
-test('main selects compile-time B2/B3 composition without a web SQLite fallback', async () => {
+test('main selects compile-time product and proof compositions without a web SQLite fallback', async () => {
   const main = await readFile(join(ROOT, 'src/main.jsx'), 'utf8');
   assert.match(main, /Capacitor\.isNativePlatform\(\)/);
   assert.match(main, /createB2AppServices/);
   assert.match(main, /createSelectedAppServices/);
   assert.match(main, /buildMode:\s*import\.meta\.env\.MODE/);
+  assert.match(main, /composition\.serviceMode === 'product'/);
+  assert.match(main, /productFailureServices\(\)/);
   assert.match(
     main,
     /\?\? failureServices\('Native platform required'\)/,

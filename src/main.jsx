@@ -34,6 +34,33 @@ function failureServices(platformRequirement) {
   });
 }
 
+function productFailureServices() {
+  const state = Object.freeze({
+    status: 'failed',
+    profiles: Object.freeze([]),
+    selectedLearnerId: null,
+    actionError: 'product_startup_failed',
+  });
+  const rejectAction = () => Promise.reject(
+    new Error('product_startup_failed'),
+  );
+  return Object.freeze({
+    mode: 'product',
+    controller: Object.freeze({
+      getState: () => state,
+      subscribe(listener) {
+        listener(state);
+        return Object.freeze({ remove() {} });
+      },
+      createProfile: rejectAction,
+      editProfile: rejectAction,
+      selectProfile: rejectAction,
+      removeProfile: rejectAction,
+      async dispose() {},
+    }),
+  });
+}
+
 async function bootstrap() {
   let services;
   if (Capacitor.isNativePlatform()) {
@@ -41,7 +68,20 @@ async function bootstrap() {
       buildMode: import.meta.env.MODE,
       platform: Capacitor.getPlatform(),
     });
-    if (composition.serviceMode === 'b3' || composition.serviceMode === 'b4') {
+    if (composition.serviceMode === 'product') {
+      try {
+        services = await createSelectedAppServices({
+          buildMode: import.meta.env.MODE,
+          isNativePlatform: true,
+          platform: Capacitor.getPlatform(),
+        });
+      } catch {
+        services = productFailureServices();
+      }
+    } else if (
+      composition.serviceMode === 'b3' ||
+      composition.serviceMode === 'b4'
+    ) {
       services = await createSelectedAppServices({
         buildMode: import.meta.env.MODE,
         isNativePlatform: true,

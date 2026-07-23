@@ -92,6 +92,115 @@ function B2App({ services }) {
   );
 }
 
+function displayYearGroup(value) {
+  return `Year ${value.slice(1)}`;
+}
+
+function ProductApp({ services }) {
+  const [profileState, setProfileState] = useState(() =>
+    services.controller.getState(),
+  );
+  const [nickname, setNickname] = useState('');
+
+  useEffect(() => {
+    const subscription = services.controller.subscribe(setProfileState);
+    return () => subscription.remove();
+  }, [services]);
+
+  const busy = profileState.status === 'saving';
+  const submitProfile = (event) => {
+    event.preventDefault();
+    const nextNickname = nickname.trim();
+    if (!nextNickname || busy) return;
+    void services.controller.createProfile({
+      nickname: nextNickname,
+      yearGroup: 'Y3',
+      goal: 10,
+      colour: '#2E7D8A',
+    }).then(() => setNickname('')).catch(() => undefined);
+  };
+
+  if (profileState.status === 'failed') {
+    return (
+      <main className="shell product-shell">
+        <section className="product-panel" aria-labelledby="product-data-title">
+          <p className="eyebrow">KS2 Spelling</p>
+          <h1 id="product-data-title">Your local data could not open</h1>
+          <p>Close and reopen the app. Your saved learning has not been replaced.</p>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="shell product-shell" aria-labelledby="profile-title">
+      <header className="product-heading">
+        <p className="eyebrow">KS2 Spelling</p>
+        <h1 id="profile-title">Who is practising?</h1>
+        <p>Choose a learner on this device, or add one to get started.</p>
+      </header>
+
+      {profileState.profiles.length > 0 && (
+        <ul className="profile-list" aria-label="Learners on this device">
+          {profileState.profiles.map((profile) => {
+            const selected = profile.learnerId === profileState.selectedLearnerId;
+            return (
+              <li key={profile.learnerId} className="profile-card">
+                <span
+                  className="profile-colour"
+                  style={{ backgroundColor: profile.colour }}
+                  aria-hidden="true"
+                />
+                <div>
+                  <h2>{profile.nickname}</h2>
+                  <p>{displayYearGroup(profile.yearGroup)} · {profile.goal} words a week</p>
+                </div>
+                <div className="profile-actions">
+                  <button
+                    type="button"
+                    disabled={busy || selected}
+                    aria-pressed={selected}
+                    onClick={() => {
+                      void services.controller
+                        .selectProfile(profile.learnerId)
+                        .catch(() => undefined);
+                    }}
+                  >
+                    {selected ? 'Selected' : 'Choose'}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <section className="product-panel" aria-labelledby="add-learner-title">
+        <h2 id="add-learner-title">Add a learner</h2>
+        <form className="profile-form" onSubmit={submitProfile}>
+          <label htmlFor="profile-nickname">First name or nickname</label>
+          <input
+            id="profile-nickname"
+            name="nickname"
+            type="text"
+            value={nickname}
+            maxLength="40"
+            autoComplete="off"
+            disabled={busy}
+            onChange={(event) => setNickname(event.target.value)}
+          />
+          <button type="submit" disabled={busy || nickname.trim() === ''}>
+            {busy ? 'Saving' : 'Add learner'}
+          </button>
+        </form>
+        {profileState.actionError && (
+          <p role="alert">That change did not save. Please try again.</p>
+        )}
+      </section>
+    </main>
+  );
+}
+
 export function activateB4Audio({ event, method, runAudio, source }) {
   if (typeof runAudio !== 'function') {
     throw new TypeError('runAudio must be a function.');
@@ -374,6 +483,7 @@ export default function App({ services }) {
   if (!services || typeof services !== 'object') {
     throw new TypeError('Application services are required.');
   }
+  if (services.mode === 'product') return <ProductApp services={services} />;
   if (services.mode === 'b4-starter-product') return <B4App services={services} />;
   if (services.mode === 'b3-parent-proof') return <B3App services={services} />;
   if (services.mode === 'b2-native-proof') return <B2App services={services} />;

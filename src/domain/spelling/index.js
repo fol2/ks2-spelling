@@ -1,6 +1,9 @@
 import starterCatalogue from '../../../vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json' with { type: 'json' };
 
 export * from '../../../vendor/ks2-mastery/shared/spelling/mobile/a3/index.js';
+export {
+  validateSpellingProfile,
+} from '../../../vendor/ks2-mastery/shared/spelling/mobile/a3/profile-repository.js';
 
 function freezeCatalogue(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {

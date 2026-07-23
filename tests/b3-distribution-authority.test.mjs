@@ -279,9 +279,10 @@ test('Capacitor build authority is closed and binds the installed platform ident
 
 test('native projects register BuildAuthority and keep generated authority in ignored output', async () => {
   const root = new URL('../', import.meta.url);
-  const [swift, sceneDelegate, project, scheme, b3Scheme, loader, java, activity, gradle] = await Promise.all([
+  const [swift, sceneDelegate, infoPlist, project, scheme, b3Scheme, loader, java, activity, gradle] = await Promise.all([
     readFile(new URL('ios/App/App/BuildAuthorityPlugin.swift', root), 'utf8'),
     readFile(new URL('ios/App/App/SceneDelegate.swift', root), 'utf8'),
+    readFile(new URL('ios/App/App/Info.plist', root), 'utf8'),
     readFile(new URL('ios/App/App.xcodeproj/project.pbxproj', root), 'utf8'),
     readFile(new URL('ios/App/App.xcodeproj/xcshareddata/xcschemes/KS2Spelling.xcscheme', root), 'utf8'),
     readFile(new URL('ios/App/App.xcodeproj/xcshareddata/xcschemes/B3SandboxProof.xcscheme', root), 'utf8'),
@@ -298,6 +299,20 @@ test('native projects register BuildAuthority and keep generated authority in ig
   assert.doesNotMatch(scheme, /buildConfiguration = "B3SandboxProof"/u);
   assert.match(b3Scheme, /<ArchiveAction\s+buildConfiguration = "B3SandboxProof"/u);
   assert.match(loader, /\.native-build\/b3\/distribution\/b3-distribution\.xcconfig/);
+  for (const key of [
+    'B3ApplicationFingerprint',
+    'B3Distribution',
+    'B3Mode',
+    'B3ProofKind',
+    'B3PublicSandboxOrigin',
+    'B3TestedApplicationCommit',
+    'B3WorkerName',
+  ]) {
+    assert.match(
+      infoPlist,
+      new RegExp(`<key>${key}</key>\\s*<string>\\$\\(INFOPLIST_KEY_${key}\\)</string>`, 'u'),
+    );
+  }
   assert.match(java, /@CapacitorPlugin\(name = "BuildAuthority"\)/);
   assert.match(activity, /registerPlugin\(BuildAuthorityPlugin\.class\)/);
   assert.match(activity, /BuildConfig\.B3_SANDBOX_PROOF/u);

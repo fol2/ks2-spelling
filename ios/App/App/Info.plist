@@ -4,6 +4,20 @@
 <dict>
     <key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
+	<key>B3ApplicationFingerprint</key>
+	<string>$(INFOPLIST_KEY_B3ApplicationFingerprint)</string>
+	<key>B3Distribution</key>
+	<string>$(INFOPLIST_KEY_B3Distribution)</string>
+	<key>B3Mode</key>
+	<string>$(INFOPLIST_KEY_B3Mode)</string>
+	<key>B3ProofKind</key>
+	<string>$(INFOPLIST_KEY_B3ProofKind)</string>
+	<key>B3PublicSandboxOrigin</key>
+	<string>$(INFOPLIST_KEY_B3PublicSandboxOrigin)</string>
+	<key>B3TestedApplicationCommit</key>
+	<string>$(INFOPLIST_KEY_B3TestedApplicationCommit)</string>
+	<key>B3WorkerName</key>
+	<string>$(INFOPLIST_KEY_B3WorkerName)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>

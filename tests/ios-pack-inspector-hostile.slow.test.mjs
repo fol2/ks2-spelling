@@ -12,6 +12,7 @@ test('compiled owned Swift inspector accepts the proof pack and rejects the full
   assert.deepEqual(evidence, {
     ok: true,
     approvedRuntimeSmoke: true,
+    starterPayloadFiles: 841,
     securityMatrix: true,
     hostileFixturesRejected: 53,
   });

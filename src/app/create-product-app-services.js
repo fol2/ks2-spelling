@@ -9,6 +9,7 @@ import {
   createSQLiteSpellingProfileStore,
   readSQLiteSelectedLearnerId,
 } from '../platform/database/sqlite-spelling-profile-store.js';
+import { createSQLiteSpellingCommandRepository } from '../platform/database/sqlite-spelling-command-repository.js';
 import { createSQLiteSpellingSnapshotStore } from '../platform/database/sqlite-spelling-snapshot-store.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
 import { createCapacitorPackTransfer } from '../platform/pack-transfer/capacitor-pack-transfer.js';
@@ -16,6 +17,7 @@ import {
   PackTransferPlugin,
 } from '../platform/pack-transfer/capacitor-pack-transfer-plugin.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
+import { createProductLearningController } from './product-learning-controller.js';
 import { createProductProfileController } from './product-profile-controller.js';
 import {
   createStarterPackAvailabilityController,
@@ -27,6 +29,45 @@ function defaultLearnerId() {
     throw new Error('product_profile_id_source_unavailable');
   }
   return `learner-${globalThis.crypto.randomUUID().toLowerCase()}`;
+}
+
+function defaultProductRandom() {
+  if (typeof globalThis.crypto?.getRandomValues !== 'function') {
+    throw new Error('product_random_source_unavailable');
+  }
+  const value = new Uint32Array(1);
+  globalThis.crypto.getRandomValues(value);
+  return value[0] / 4_294_967_296;
+}
+
+function linkProfileAndLearningControllers(profileController, learningController) {
+  async function alignSelectedLearner() {
+    await learningController.selectLearner(
+      profileController.getState().selectedLearnerId,
+    );
+  }
+
+  return Object.freeze({
+    getState: () => profileController.getState(),
+    subscribe: (listener) => profileController.subscribe(listener),
+    async createProfile(draft) {
+      const profile = await profileController.createProfile(draft);
+      await alignSelectedLearner();
+      return profile;
+    },
+    editProfile: (draft) => profileController.editProfile(draft),
+    async selectProfile(learnerId) {
+      const selected = await profileController.selectProfile(learnerId);
+      await alignSelectedLearner();
+      return selected;
+    },
+    async removeProfile(learnerId) {
+      const removed = await profileController.removeProfile(learnerId);
+      await alignSelectedLearner();
+      return removed;
+    },
+    dispose: () => profileController.dispose(),
+  });
 }
 
 async function disposeAll(parts) {
@@ -49,6 +90,7 @@ export async function createProductAppServices(options = {}) {
     options.connectionFactory ?? (() => createCapacitorSqliteConnection());
   const migrate = options.migrate ?? configureAndMigrateDatabase;
   const now = options.now ?? Date.now;
+  const random = options.random ?? defaultProductRandom;
   const createLearnerId = options.createLearnerId ?? defaultLearnerId;
   const connection = createSwitchableSqlConnection(connectionFactory);
   const gate = createDatabaseCommandGate();
@@ -57,6 +99,7 @@ export async function createProductAppServices(options = {}) {
   let lifecycle = null;
   let coordinator = null;
   let controller = null;
+  let learning = null;
   let audioAvailability = null;
 
   try {
@@ -71,6 +114,13 @@ export async function createProductAppServices(options = {}) {
       connection,
       cataloguesById,
     });
+    const commandRepository = createSQLiteSpellingCommandRepository({
+      connection,
+      gate,
+      store: snapshotStore,
+      cataloguesById,
+      now,
+    });
     const packRepository = createSqlitePackRepositories(connection);
     const packTransfer = options.packTransfer ??
       createCapacitorPackTransfer({ PackTransfer: PackTransferPlugin });
@@ -83,7 +133,11 @@ export async function createProductAppServices(options = {}) {
       migrate,
       resolveSelectedLearnerId: readSQLiteSelectedLearnerId,
       rehydrateSelectedLearner: async (_connection, learnerId) => {
-        await snapshotStore.read(learnerId);
+        if (learning) {
+          await learning.selectLearner(learnerId);
+        } else {
+          await snapshotStore.read(learnerId);
+        }
       },
     });
 
@@ -93,13 +147,27 @@ export async function createProductAppServices(options = {}) {
       profileStore.profiles.listProfiles(),
       profileStore.selection.readSelectedLearnerId(),
     ]);
-    controller = createProductProfileController({
+    const initialSnapshot = initialSelectedLearnerId === null
+      ? null
+      : await snapshotStore.read(initialSelectedLearnerId);
+    learning = createProductLearningController({
+      repository: commandRepository,
+      snapshotStore,
+      catalogue,
+      initialSnapshot,
+      random,
+    });
+    const profileController = createProductProfileController({
       profiles: profileStore.profiles,
       selection: profileStore.selection,
       initialProfiles,
       initialSelectedLearnerId,
       createLearnerId,
     });
+    controller = linkProfileAndLearningControllers(
+      profileController,
+      learning,
+    );
     audioAvailability = createStarterPackAvailabilityController({
       packRepository,
       packTransfer,
@@ -111,10 +179,12 @@ export async function createProductAppServices(options = {}) {
       databaseName: DATABASE_NAME,
       schemaVersion: SCHEMA_VERSION,
       controller,
+      learning,
       audioAvailability,
       dispose() {
         disposePromise ??= disposeAll([
           () => audioAvailability.dispose(),
+          () => learning.dispose(),
           () => controller.dispose(),
           () => coordinator.dispose(),
           () => lifecycle.dispose(),
@@ -127,6 +197,7 @@ export async function createProductAppServices(options = {}) {
     try {
       await disposeAll([
         audioAvailability && (() => audioAvailability.dispose()),
+        learning && (() => learning.dispose()),
         controller && (() => controller.dispose()),
         coordinator && (() => coordinator.dispose()),
         lifecycle && (() => lifecycle.dispose()),

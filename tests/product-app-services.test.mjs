@@ -33,6 +33,7 @@ test('production services persist profile CRUD and selected learner across a cle
       async inventoryInstalledVersions() { return Object.freeze([]); },
     }),
     now: () => timestamp,
+    random: () => 0.25,
     createLearnerId() {
       learnerSequence += 1;
       return `learner-${learnerSequence}`;
@@ -57,6 +58,19 @@ test('production services persist profile CRUD and selected learner across a cle
     activeVersion: null,
     actionError: null,
   });
+  assert.deepEqual(Object.keys(first.learning), [
+    'getState',
+    'subscribe',
+    'selectLearner',
+    'showScreen',
+    'startSmartRound',
+    'submitAnswer',
+    'continueRound',
+    'endRound',
+    'dispose',
+  ]);
+  assert.equal(first.learning.getState().screen, 'profiles');
+  assert.equal(first.learning.getState().learnerId, null);
   assert.deepEqual(first.controller.getState(), {
     status: 'ready',
     profiles: [],
@@ -71,6 +85,8 @@ test('production services persist profile CRUD and selected learner across a cle
     colour: '#2E7D8A',
   });
   assert.equal(ada.learnerId, 'learner-1');
+  assert.equal(first.learning.getState().screen, 'home');
+  assert.equal(first.learning.getState().learnerId, ada.learnerId);
   timestamp = 200;
   const ben = await first.controller.createProfile({
     nickname: 'Ben',
@@ -100,6 +116,10 @@ test('production services persist profile CRUD and selected learner across a cle
     selectedLearnerId: ben.learnerId,
     actionError: null,
   });
+  assert.equal(first.learning.getState().learnerId, ben.learnerId);
+  await first.learning.startSmartRound({ length: 5 });
+  assert.equal(first.learning.getState().screen, 'practice');
+  const activeSessionId = first.learning.getState().practice.sessionId;
   await first.dispose();
 
   const second = await createProductAppServices({
@@ -111,5 +131,8 @@ test('production services persist profile CRUD and selected learner across a cle
     second.controller.getState().profiles.map(({ nickname }) => nickname),
     ['Ben'],
   );
+  assert.equal(second.learning.getState().screen, 'practice');
+  assert.equal(second.learning.getState().learnerId, ben.learnerId);
+  assert.equal(second.learning.getState().practice.sessionId, activeSessionId);
   await second.dispose();
 });

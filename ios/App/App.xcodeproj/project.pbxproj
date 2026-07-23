@@ -33,6 +33,7 @@
 		C31900000000000000000002 /* B3ProofObservationPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31900000000000000000013 /* B3ProofObservationPlugin.swift */; };
 		D31900000000000000000001 /* B3ProofScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D31900000000000000000011 /* B3ProofScreenshotTests.swift */; };
 		E41900000000000000000001 /* B4DevelopmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41900000000000000000011 /* B4DevelopmentTests.swift */; };
+		C52300000000000000000001 /* C5ProductLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C52300000000000000000011 /* C5ProductLayoutTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -76,6 +77,7 @@
 		D31900000000000000000011 /* B3ProofScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = B3ProofScreenshotTests.swift; sourceTree = "<group>"; };
 		D31900000000000000000012 /* B3ProofUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = B3ProofUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E41900000000000000000011 /* B4DevelopmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = B4DevelopmentTests.swift; sourceTree = "<group>"; };
+		C52300000000000000000011 /* C5ProductLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = C5ProductLayoutTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -169,6 +171,7 @@
 			children = (
 				D31900000000000000000011 /* B3ProofScreenshotTests.swift */,
 				E41900000000000000000011 /* B4DevelopmentTests.swift */,
+				C52300000000000000000011 /* C5ProductLayoutTests.swift */,
 			);
 			path = B3ProofUITests;
 			sourceTree = "<group>";
@@ -360,6 +363,7 @@
 			files = (
 				D31900000000000000000001 /* B3ProofScreenshotTests.swift in Sources */,
 				E41900000000000000000001 /* B4DevelopmentTests.swift in Sources */,
+				C52300000000000000000001 /* C5ProductLayoutTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

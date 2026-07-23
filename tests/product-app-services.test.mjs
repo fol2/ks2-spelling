@@ -69,6 +69,7 @@ test('production services persist profile CRUD and selected learner across a cle
     'endRound',
     'dispose',
   ]);
+  assert.deepEqual(Object.keys(first.audio), ['play', 'dispose']);
   assert.equal(first.learning.getState().screen, 'profiles');
   assert.equal(first.learning.getState().learnerId, null);
   assert.deepEqual(first.controller.getState(), {

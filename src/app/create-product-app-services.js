@@ -11,12 +11,15 @@ import {
 } from '../platform/database/sqlite-spelling-profile-store.js';
 import { createSQLiteSpellingCommandRepository } from '../platform/database/sqlite-spelling-command-repository.js';
 import { createSQLiteSpellingSnapshotStore } from '../platform/database/sqlite-spelling-snapshot-store.js';
+import { createCapacitorInstalledAudio } from '../platform/audio/capacitor-installed-audio.js';
+import { InstalledAudioPlugin } from '../platform/audio/capacitor-installed-audio-plugin.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
 import { createCapacitorPackTransfer } from '../platform/pack-transfer/capacitor-pack-transfer.js';
 import {
   PackTransferPlugin,
 } from '../platform/pack-transfer/capacitor-pack-transfer-plugin.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
+import { createProductAudioPlayer } from './product-audio-player.js';
 import { createProductLearningController } from './product-learning-controller.js';
 import { createProductProfileController } from './product-profile-controller.js';
 import {
@@ -100,6 +103,7 @@ export async function createProductAppServices(options = {}) {
   let coordinator = null;
   let controller = null;
   let learning = null;
+  let audio = null;
   let audioAvailability = null;
 
   try {
@@ -168,6 +172,12 @@ export async function createProductAppServices(options = {}) {
       profileController,
       learning,
     );
+    const installedAudio = options.installedAudio ??
+      createCapacitorInstalledAudio({ InstalledAudio: InstalledAudioPlugin });
+    audio = options.audio ?? createProductAudioPlayer({
+      catalogue,
+      installedAudio,
+    });
     audioAvailability = createStarterPackAvailabilityController({
       packRepository,
       packTransfer,
@@ -180,9 +190,11 @@ export async function createProductAppServices(options = {}) {
       schemaVersion: SCHEMA_VERSION,
       controller,
       learning,
+      audio,
       audioAvailability,
       dispose() {
         disposePromise ??= disposeAll([
+          () => audio.dispose(),
           () => audioAvailability.dispose(),
           () => learning.dispose(),
           () => controller.dispose(),
@@ -196,6 +208,7 @@ export async function createProductAppServices(options = {}) {
   } catch (error) {
     try {
       await disposeAll([
+        audio && (() => audio.dispose()),
         audioAvailability && (() => audioAvailability.dispose()),
         learning && (() => learning.dispose()),
         controller && (() => controller.dispose()),

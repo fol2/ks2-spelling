@@ -1,5 +1,10 @@
 # B4 physical-proof deferral and C-series continuation record — 2026-07-23
 
+The later `2026-07-23-b4-owner-go.md` supersedes this record's programme
+decision and sequencing classification. The historical technical result and
+deferred-proof boundaries below remain evidence of what was known when this
+record was written.
+
 This record lives outside
 `2026-07-18-standalone-spelling-mobile-b4-capacitor-development-certification.md`
 because that plan is a hash-frozen evidence input. It succeeds

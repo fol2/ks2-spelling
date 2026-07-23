@@ -54,9 +54,10 @@ content.
 Monster is a motivational presentation around spelling, not an independently
 cloud-tracked Parent metric. A dedicated Visual / Theme / Asset Migration Spec
 remains mandatory before C3 child UI. The dated
-[C-series continuation record](docs/superpowers/plans/2026-07-23-b4-physical-proof-deferral-and-c-series-continuation.md)
-authorises that continued development without relabelling the incomplete B4
-technical result. B3
+[B4 owner GO](docs/superpowers/plans/2026-07-23-b4-owner-go.md)
+accepts Capacitor as the product direction. Historical timing observations are
+retained, but their external measurement method is not accepted as an
+application-threshold verdict and will be replaced during later optimisation. B3
 Development proves deterministic and compiled commerce/signed-download capability
 only. Signed App Store/Google Play, deployed Cloudflare/R2 and physical-device
 truth remain one Release Commerce Certification blocker before public submission.

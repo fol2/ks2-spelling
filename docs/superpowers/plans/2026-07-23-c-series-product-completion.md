@@ -3,8 +3,9 @@
 ## Authority and outcome
 
 This plan is the lean successor for continued product development after
-`2fd0641`. It is governed by
-`2026-07-23-b4-physical-proof-deferral-and-c-series-continuation.md` and does
+`2fd0641`. It is governed by `2026-07-23-b4-owner-go.md`, retains the proof
+deferrals in
+`2026-07-23-b4-physical-proof-deferral-and-c-series-continuation.md`, and does
 not modify the hash-frozen B4 plan.
 
 James has authorised completing the product before repeating physical iPhone,
@@ -139,6 +140,9 @@ verification`; do not make speculative changes.
 
 - Close accessibility, performance, privacy, dependency, licence, legal copy,
   icons/splash, orientation, lifecycle, migration and failure-recovery work.
+- Replace the rejected B4 external timing method with a reviewed measurement
+  authority that isolates app-owned latency from system, bridge and harness
+  time before making any performance threshold claim.
 - Run the full local suites and both affected unsigned native compiles, then
   hosted exact-head CI. Resolve only evidence-backed failures.
 - Obtain independent product-direction, engineering-completeness and simplicity

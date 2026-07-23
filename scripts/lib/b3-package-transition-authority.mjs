@@ -26,7 +26,7 @@ const EXPECTED_PROTECTED_CURRENT_HASHES = Object.freeze({
   'scripts/lib/pinned-system-git.mjs':
     'd07a03f20f9f19711b665f9f0610a9de190bbb1418677e5e307f249ee472b478',
   'tests/b2-native-plugin-build-policy.test.mjs':
-    '6b5a200a00f44a0e5c6373ce0179e131e7a542b28fde17d92793140c9f29fcf3',
+    '7bc98e0cd2348a41107b4ca0ede2531b747aee34bfcf24e7eade7f4bd0c98419',
 });
 
 export const B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({

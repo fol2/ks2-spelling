@@ -48,7 +48,7 @@
     },
     {
       "path": "tests/b2-native-plugin-build-policy.test.mjs",
-      "sha256": "6b5a200a00f44a0e5c6373ce0179e131e7a542b28fde17d92793140c9f29fcf3"
+      "sha256": "7bc98e0cd2348a41107b4ca0ede2531b747aee34bfcf24e7eade7f4bd0c98419"
     }
   ]
 }

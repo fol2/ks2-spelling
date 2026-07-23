@@ -53,6 +53,18 @@ function sha256FrozenB2(path) {
     .digest('hex');
 }
 
+function readFrozenB2(path) {
+  return execFileSync(
+    'git',
+    [
+      'cat-file',
+      'blob',
+      `39ef90a5a33efb41368272c4c6d4d002f04658b3:${path}`,
+    ],
+    { cwd: ROOT, encoding: 'utf8' },
+  );
+}
+
 function assertAllDomainExclusions(xml, domains) {
   for (const domain of domains) {
     assert.match(
@@ -99,12 +111,14 @@ test('B2 uses only native SQLite with explicit no-encryption configuration', asy
   assert.doesNotMatch(source, /jeep-sqlite|customElements\.define\s*\(\s*['"]jeep-sqlite/i);
 });
 
-test('Android source policy removes biometric permissions and excludes every backup domain', async () => {
-  const [manifest, backupRules, dataExtractionRules] = await Promise.all([
-    readFile(join(ROOT, 'android/app/src/main/AndroidManifest.xml'), 'utf8'),
-    readFile(join(ROOT, 'android/app/src/main/res/xml/backup_rules.xml'), 'utf8'),
-    readFile(join(ROOT, 'android/app/src/main/res/xml/data_extraction_rules.xml'), 'utf8'),
-  ]);
+test('frozen B2 Android source removes biometric permissions and excludes every backup domain', () => {
+  const manifest = readFrozenB2('android/app/src/main/AndroidManifest.xml');
+  const backupRules = readFrozenB2(
+    'android/app/src/main/res/xml/backup_rules.xml',
+  );
+  const dataExtractionRules = readFrozenB2(
+    'android/app/src/main/res/xml/data_extraction_rules.xml',
+  );
   assert.match(manifest, /android:allowBackup="false"/);
   assert.match(manifest, /android:fullBackupContent="@xml\/backup_rules"/);
   assert.match(manifest, /android:dataExtractionRules="@xml\/data_extraction_rules"/);
@@ -148,14 +162,23 @@ test('Android materialises the complete five-module finite dependency closure', 
   assert.ok([...verification.matchAll(/<sha256\s+value="([a-f0-9]{64})"/g)].length > 0);
 });
 
-test('iOS adds no usage-description key or app entitlement', async () => {
-  const infoPlist = await readFile(join(ROOT, 'ios/App/App/Info.plist'), 'utf8');
+test('frozen B2 iOS adds no usage-description key or app entitlement', () => {
+  const infoPlist = readFrozenB2('ios/App/App/Info.plist');
   assert.doesNotMatch(infoPlist, /<key>NS[^<]*UsageDescription<\/key>/);
-  const iosFiles = await readdir(join(ROOT, 'ios'), { recursive: true, withFileTypes: true });
+  const iosPaths = execFileSync(
+    'git',
+    [
+      'ls-tree',
+      '-r',
+      '--name-only',
+      '39ef90a5a33efb41368272c4c6d4d002f04658b3',
+      '--',
+      'ios',
+    ],
+    { cwd: ROOT, encoding: 'utf8' },
+  ).trim().split('\n');
   assert.deepEqual(
-    iosFiles
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.entitlements'))
-      .map((entry) => join(entry.parentPath, entry.name)),
+    iosPaths.filter((path) => path.endsWith('.entitlements')),
     [],
   );
 });

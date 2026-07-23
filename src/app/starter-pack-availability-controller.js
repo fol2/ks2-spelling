@@ -1,39 +1,19 @@
-const STARTER_PACK_ID = 'ks2-core';
-
 function requireMethod(value, method, label) {
   if (!value || typeof value !== 'object' || typeof value[method] !== 'function') {
     throw new TypeError(`${label}.${method} must be a function.`);
   }
 }
 
+const SAFE_VERSION = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
+
 function freezeState(status, activeVersion, actionError) {
   return Object.freeze({ status, activeVersion, actionError });
 }
 
-function sameInstalledAuthority(active, installed, native) {
-  return (
-    active.packId === STARTER_PACK_ID &&
-    installed.packId === active.packId &&
-    installed.version === active.version &&
-    installed.state === 'ready' &&
-    installed.manifestSha256 === active.manifestSha256 &&
-    installed.pathToken === active.pathToken &&
-    native.packId === active.packId &&
-    native.version === active.version &&
-    native.manifestSha256 === active.manifestSha256 &&
-    native.installedPathToken === active.pathToken &&
-    native.activationMarkerSha256 === installed.activationMarkerSha256
-  );
-}
-
 export function createStarterPackAvailabilityController({
-  packRepository,
-  packTransfer,
+  audioSource,
 } = {}) {
-  for (const method of ['getActiveVersion', 'listInstalledVersions']) {
-    requireMethod(packRepository, method, 'packRepository');
-  }
-  requireMethod(packTransfer, 'inventoryInstalledVersions', 'packTransfer');
+  requireMethod(audioSource, 'checkAvailability', 'audioSource');
 
   let state = freezeState('checking', null, null);
   let disposed = false;
@@ -52,32 +32,24 @@ export function createStarterPackAvailabilityController({
     const operation = queue.then(async () => {
       publish('checking', state.activeVersion);
       try {
-        const [active, installedRows, inventory] = await Promise.all([
-          packRepository.getActiveVersion({ packId: STARTER_PACK_ID }),
-          packRepository.listInstalledVersions({ packId: STARTER_PACK_ID }),
-          packTransfer.inventoryInstalledVersions(),
-        ]);
-        if (active === null) {
-          publish('missing');
-          return state;
+        const result = await audioSource.checkAvailability();
+        if (
+          !result ||
+          typeof result !== 'object' ||
+          Array.isArray(result) ||
+          Reflect.ownKeys(result).length !== 1 ||
+          !SAFE_VERSION.test(result.version)
+        ) {
+          throw new TypeError('Starter audio availability result is invalid.');
         }
-        const activeVersion = active.version;
-        const installedMatches = installedRows.filter(
-          (record) => record.version === activeVersion,
-        );
-        const nativeMatches = inventory.filter(
-          (record) =>
-            record.packId === STARTER_PACK_ID &&
-            record.version === activeVersion,
-        );
-        const ready =
-          installedMatches.length === 1 &&
-          nativeMatches.length === 1 &&
-          sameInstalledAuthority(active, installedMatches[0], nativeMatches[0]);
-        publish(ready ? 'ready' : 'corrupt', activeVersion);
+        publish('ready', result.version);
         return state;
       } catch (error) {
-        publish('unavailable', null, 'starter_audio_check_failed');
+        publish(
+          'unavailable',
+          state.activeVersion,
+          'starter_audio_check_failed',
+        );
         throw error;
       }
     });
@@ -112,7 +84,11 @@ export function createStarterPackAvailabilityController({
     recover: refresh,
     reportPlaybackFailure() {
       if (disposed) throw new Error('starter_pack_availability_controller_disposed');
-      publish('corrupt', state.activeVersion);
+      publish(
+        'corrupt',
+        state.activeVersion,
+        'starter_audio_playback_failed',
+      );
     },
     async dispose() {
       if (disposed) return;

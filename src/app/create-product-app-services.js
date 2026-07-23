@@ -4,7 +4,6 @@ import { createDatabaseCommandGate } from '../platform/database/database-command
 import { configureAndMigrateDatabase } from '../platform/database/migrate-database.js';
 import { DATABASE_NAME } from '../platform/database/schema-v1.js';
 import { SCHEMA_VERSION } from '../platform/database/schema-v2.js';
-import { createSqlitePackRepositories } from '../platform/database/sqlite-pack-repositories.js';
 import {
   createSQLiteSpellingProfileStore,
   readSQLiteSelectedLearnerId,
@@ -15,13 +14,7 @@ import { createSQLiteParentSecurityRepository } from '../platform/database/sqlit
 import {
   createSQLiteLearningBackupRepository,
 } from '../platform/database/sqlite-learning-backup-repository.js';
-import { createCapacitorInstalledAudio } from '../platform/audio/capacitor-installed-audio.js';
-import { InstalledAudioPlugin } from '../platform/audio/capacitor-installed-audio-plugin.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
-import { createCapacitorPackTransfer } from '../platform/pack-transfer/capacitor-pack-transfer.js';
-import {
-  PackTransferPlugin,
-} from '../platform/pack-transfer/capacitor-pack-transfer-plugin.js';
 import {
   createCapacitorParentBiometrics,
 } from '../platform/security/capacitor-parent-biometrics.js';
@@ -41,12 +34,12 @@ import {
   LearningBackupFilePlugin,
 } from '../platform/backup/capacitor-learning-backup-file-plugin.js';
 import {
-  createProductCommerceWorkflow,
   createUnavailableProductCommerceWorkflow,
-} from './create-product-commerce-workflow.js';
+} from './unavailable-product-commerce-workflow.js';
 import {
   createDatabaseGatedRepository,
 } from './database-gated-repository.js';
+import { createBundledStarterAudio } from './bundled-starter-audio.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
 import { createParentBackupService } from './parent-backup-service.js';
 import {
@@ -178,13 +171,6 @@ export async function createProductAppServices(options = {}) {
       cataloguesById,
       now,
     });
-    const packRepository = createSqlitePackRepositories(connection);
-    const gatedPackRepository = createDatabaseGatedRepository(
-      packRepository,
-      gate,
-    );
-    const packTransfer = options.packTransfer ??
-      createCapacitorPackTransfer({ PackTransfer: PackTransferPlugin });
     lifecycle =
       options.lifecycle ?? (options.lifecycleFactory ?? createCapacitorAppLifecycle)();
     coordinator = createDatabaseLifecycleCoordinator({
@@ -257,15 +243,14 @@ export async function createProductAppServices(options = {}) {
       pinCrypto: options.parentPinCrypto,
       now,
     });
-    const installedAudio = options.installedAudio ??
-      createCapacitorInstalledAudio({ InstalledAudio: InstalledAudioPlugin });
+    const starterAudioSource = options.bundledStarterAudio ??
+      createBundledStarterAudio();
     audio = options.audio ?? createProductAudioPlayer({
       catalogue,
-      installedAudio,
+      installedAudio: starterAudioSource,
     });
     audioAvailability = createStarterPackAvailabilityController({
-      packRepository: gatedPackRepository,
-      packTransfer,
+      audioSource: starterAudioSource,
     });
     await audioAvailability.refresh().catch(() => undefined);
     parentProgress = createParentProgressController({
@@ -279,18 +264,8 @@ export async function createProductAppServices(options = {}) {
       now,
     });
     void parentProgress.refresh().catch(() => undefined);
-    const commerceWorkflow = options.commerceWorkflow ?? (
-      options.runtime
-        ? createProductCommerceWorkflow({
-            runtime: options.runtime,
-            connection,
-            commandGate: gate,
-            packRepository,
-            packTransfer,
-            clock: now,
-          })
-        : createUnavailableProductCommerceWorkflow()
-    );
+    const commerceWorkflow = options.commerceWorkflow ??
+      createUnavailableProductCommerceWorkflow();
     parentCommerce = createParentCommerceController({
       workflow: commerceWorkflow,
     });

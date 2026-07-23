@@ -1,13 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Capacitor } from '@capacitor/core';
-import App from './app/App.jsx';
+import App from '@ks2/app-root';
 import './app/app.css';
 import {
   createB2AppServices,
   createSelectedAppServices,
   selectNativeAppComposition,
-} from './app/create-app-services.js';
+} from '@ks2/app-composition';
 import {
   createProductFailureServices,
 } from './app/product-failure-services.js';

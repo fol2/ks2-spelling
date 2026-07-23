@@ -38,6 +38,9 @@ import {
 } from './pack-activation-coordinator.js';
 import { createPackReconciler } from './pack-reconciler.js';
 import { createPurchaseCoordinator } from './purchase-coordinator.js';
+export {
+  createUnavailableProductCommerceWorkflow,
+} from './unavailable-product-commerce-workflow.js';
 
 const SHA256 = /^[a-f0-9]{64}$/u;
 
@@ -124,33 +127,6 @@ function projectPackState({
     return 'failed';
   }
   return 'missing';
-}
-
-function unavailableSnapshot() {
-  return Object.freeze({
-    displayPrice: '',
-    entitlementState: 'none',
-    packState: 'missing',
-    syncFailed: true,
-  });
-}
-
-export function createUnavailableProductCommerceWorkflow() {
-  const snapshot = unavailableSnapshot();
-  const unavailable = async () => {
-    throw Object.assign(new Error('product_commerce_native_runtime_unavailable'), {
-      code: 'product_commerce_native_runtime_unavailable',
-    });
-  };
-  return Object.freeze({
-    async start() { return snapshot; },
-    async refresh() { return snapshot; },
-    purchase: unavailable,
-    restore: unavailable,
-    download: unavailable,
-    async recover() { return snapshot; },
-    async dispose() {},
-  });
 }
 
 export function createProductCommerceWorkflow(options = {}) {

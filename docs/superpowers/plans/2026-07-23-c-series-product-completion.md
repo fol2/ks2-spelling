@@ -95,10 +95,10 @@ retains only the pure inventory and authority contract.
 - Record engine, model, voice, redistribution and generation-input authority;
   generate deterministically and verify byte hashes, duration, format,
   loudness, silence, completeness and orphan absence.
-- Assemble the production Starter 20 data-only pack in the existing bounded
-  signed-pack format. The application may verify and install final signed bytes,
-  but production signing material remains outside the repository and outside
-  this development session.
+- Bundle the exact Starter 20 audio as an installed application resource and
+  verify each requested asset against the compiled size and SHA-256 authority
+  before playback. Retain the bounded signed-pack format for downloaded or paid
+  content; production signing material remains outside the repository.
 - Provide an explicit recoverable state for absent or corrupt audio; never use
   device or network speech as fallback.
 
@@ -140,6 +140,9 @@ retains only the pure inventory and authority contract.
   Monster/Camp state.
 - Promote the existing purchase, restore, entitlement, download and pack
   recovery paths into the secured Parent surface.
+- Production defaults fail closed when release commerce authority is absent and
+  must never substitute B3 sandbox or test-only keys. Release authority and live
+  store enablement remain part of Task 22.
 - Preserve last verified active access and installed data during offline,
   timeout and gateway failure; only live store-verified revocation may lock paid
   access.
@@ -173,6 +176,11 @@ There are only two formal acceptance gates:
    and one independent read-only verdict.
 2. **Task 22/23 final release proof:** the deferred physical-device, signed
    distribution, live-commerce and store evidence against the frozen C5 bytes.
+
+This section is the complete active gate list. Earlier Gate A, Gate B, B1–B4,
+milestone checkpoints and their review records remain source or historical
+evidence only; they do not accumulate into extra approvals, reruns or stop
+points for this plan.
 
 C2A, C1, V1, C3, C2B and C4 are implementation milestones, not gates. Their
 focused RED/GREEN evidence may be retained in commits without separate

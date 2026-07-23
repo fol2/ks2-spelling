@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const VOICES = Object.freeze([
   Object.freeze({
@@ -771,6 +771,34 @@ export function ParentArea({
               <p className="inline-error" role="alert">{backupError}</p>
             )}
           </section>
+
+          <section className="paper-card parent-card" aria-labelledby="parent-privacy-title">
+            <p className="product-kicker">About this app</p>
+            <h2 id="parent-privacy-title">Privacy &amp; app information</h2>
+            <p>
+              Learner nicknames, year groups, spelling progress and Parent
+              settings stay on this device. A Parent-controlled backup leaves
+              the app only when you choose where to save or share it.
+            </p>
+            <p>
+              <strong>No advertising, analytics or tracking.</strong> The app
+              does not create child accounts or send learner profiles or
+              spelling progress to a purchase service.
+            </p>
+            <p>
+              Delete a learner in Manage learners to remove that learner&apos;s
+              local data. Removing the app removes its remaining local data;
+              exported backup copies remain under your control.
+            </p>
+            <details>
+              <summary>Third-party notices</summary>
+              <p>
+                KS2 Spelling uses audited open-source application and platform
+                libraries. The release distribution includes their identity,
+                source and licence notice inventory.
+              </p>
+            </details>
+          </section>
         </div>
       </main>
     );
@@ -895,7 +923,9 @@ function ProfilePicker({
       yearGroup,
       goal,
       colour: '#157A76',
-    }).then(() => setNickname(''));
+    })
+      .then(() => setNickname(''))
+      .catch(() => undefined);
   }
 
   return (
@@ -1085,6 +1115,7 @@ function ChildHome({
 
 function PracticeSetup({
   audioState,
+  actionError,
   voiceId,
   onVoice,
   onStart,
@@ -1153,12 +1184,85 @@ function PracticeSetup({
           type="button"
           className="button-primary button-large"
           disabled={busy || audioState.status !== 'ready'}
-          onClick={() => onStart(length)}
+          onClick={() => void onStart(length).catch(() => undefined)}
         >
           {busy ? 'Preparing…' : 'Start trail'}
         </button>
+        {actionError && (
+          <p className="inline-error" role="alert">
+            That trail could not start. Please try again.
+          </p>
+        )}
       </section>
     </main>
+  );
+}
+
+export function LeaveRoundDialog({ onKeep, onLeave }) {
+  const keepButton = useRef(null);
+  const leaveButton = useRef(null);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onKeep();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      if (event.shiftKey && document.activeElement === keepButton.current) {
+        event.preventDefault();
+        leaveButton.current?.focus();
+      } else if (
+        !event.shiftKey &&
+        document.activeElement === leaveButton.current
+      ) {
+        event.preventDefault();
+        keepButton.current?.focus();
+      }
+    };
+    keepButton.current?.focus();
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      if (typeof previousFocus?.focus === 'function') previousFocus.focus();
+    };
+  }, [onKeep]);
+
+  return (
+    <section
+      className="exit-confirmation"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="leave-round-title"
+      aria-describedby="leave-round-description"
+    >
+      <div>
+        <h2 id="leave-round-title">Leave this round?</h2>
+        <p id="leave-round-description">
+          Your earlier saved learning stays safe. This round will be marked unfinished.
+        </p>
+        <div>
+          <button
+            ref={keepButton}
+            type="button"
+            className="button-quiet"
+            onClick={onKeep}
+          >
+            Keep practising
+          </button>
+          <button
+            ref={leaveButton}
+            type="button"
+            className="button-danger"
+            onClick={onLeave}
+          >
+            Leave round
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -1175,6 +1279,7 @@ function PracticeScreen({
   const [answer, setAnswer] = useState('');
   const [localError, setLocalError] = useState('');
   const [confirmExit, setConfirmExit] = useState(false);
+  const closeExit = useCallback(() => setConfirmExit(false), []);
   const practice = state.practice;
   const busy = state.status === 'saving';
 
@@ -1220,18 +1325,22 @@ function PracticeScreen({
   async function submit(event) {
     event.preventDefault();
     if (busy) return;
-    if (practice.awaitingAdvance) {
-      await onContinue();
+    try {
+      if (practice.awaitingAdvance) {
+        await onContinue();
+        setAnswer('');
+        return;
+      }
+      if (answer.trim() === '') {
+        setLocalError('Type the spelling before checking it.');
+        return;
+      }
+      await onSubmit(answer);
       setAnswer('');
-      return;
+      setLocalError('');
+    } catch {
+      setLocalError('That answer did not save. Please try again.');
     }
-    if (answer.trim() === '') {
-      setLocalError('Type the spelling before checking it.');
-      return;
-    }
-    await onSubmit(answer);
-    setAnswer('');
-    setLocalError('');
   }
 
   return (
@@ -1338,24 +1447,7 @@ function PracticeScreen({
       </section>
 
       {confirmExit && (
-        <section className="exit-confirmation" role="alertdialog" aria-labelledby="leave-round-title">
-          <div>
-            <h2 id="leave-round-title">Leave this round?</h2>
-            <p>Your earlier saved learning stays safe. This round will be marked unfinished.</p>
-            <div>
-              <button
-                type="button"
-                className="button-quiet"
-                onClick={() => setConfirmExit(false)}
-              >
-                Keep practising
-              </button>
-              <button type="button" className="button-danger" onClick={onEnd}>
-                Leave round
-              </button>
-            </div>
-          </div>
-        </section>
+        <LeaveRoundDialog onKeep={closeExit} onLeave={onEnd} />
       )}
     </main>
   );
@@ -1401,7 +1493,7 @@ function SummaryScreen({ summary, monster, onScreen }) {
   );
 }
 
-function ProgressScreen({ progress, onBack }) {
+function ProgressScreen({ progress, onBack, onStart }) {
   return (
     <main className="product-app product-page" aria-labelledby="progress-title">
       <ProductTopBar
@@ -1417,6 +1509,9 @@ function ProgressScreen({ progress, onBack }) {
         <section className="paper-card empty-state">
           <h2>Your trail is ready</h2>
           <p>Finish a Smart Review and your practised words will appear here.</p>
+          <button type="button" className="button-primary" onClick={onStart}>
+            Start a Smart Review
+          </button>
         </section>
       ) : (
         <ul className="word-progress-list">
@@ -1557,7 +1652,14 @@ export default function ProductApp({ services }) {
         <section className="paper-card empty-state" aria-labelledby="product-data-title">
           <p className="product-kicker">Local data</p>
           <h1 id="product-data-title">Your saved learning could not open</h1>
-          <p>Close and reopen the app. Your local data has not been replaced.</p>
+          <p>Your local data has not been replaced.</p>
+          <button
+            type="button"
+            className="button-primary"
+            onClick={() => globalThis.location?.reload()}
+          >
+            Try opening again
+          </button>
         </section>
       </main>
     );
@@ -1627,11 +1729,10 @@ export default function ProductApp({ services }) {
     return (
       <PracticeSetup
         audioState={audioState}
+        actionError={learningState.actionError}
         voiceId={voiceId}
         onVoice={setVoiceId}
-        onStart={(length) => {
-          void services.learning.startSmartRound({ length }).catch(() => undefined);
-        }}
+        onStart={(length) => services.learning.startSmartRound({ length })}
         onBack={() => showScreen('home')}
         onRecoverAudio={recoverAudio}
         busy={learningState.status === 'saving'}
@@ -1669,6 +1770,7 @@ export default function ProductApp({ services }) {
       <ProgressScreen
         progress={learningState.progress}
         onBack={() => showScreen('home')}
+        onStart={() => showScreen('setup')}
       />
     );
   }

@@ -23,3 +23,14 @@ Status: development-GREEN at
 Production signing and public-key installation, hosted CI, physical devices,
 accessibility and acoustic listening remain deferred to the frozen
 release-candidate proof. This checkpoint grants no release or store authority.
+
+## Product integration amendment
+
+The later product journey exposed that requiring the free Starter hand-off to
+be installed through the signed download path left a first installation stuck
+in `missing` before a production signing key existed. The exact same verified
+840 audio assets are therefore bundled as installed application resources.
+Each playback request is constrained to the Starter namespace and verifies the
+compiled byte size and SHA-256 before exposing audio. The signed-pack hand-off
+above remains valid historical and hostile-archive evidence for downloaded
+content; it is no longer the first-run Starter delivery mechanism.

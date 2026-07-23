@@ -200,6 +200,34 @@ third-party Capacitor filesystem package or storage permission is added.
 Exported copies are controlled by the Parent and are outside later in-app
 deletion.
 
+## C5 product privacy transition
+
+The product Parent area now carries local privacy and retention copy. Learner
+nicknames, year groups, goals, answers, progress, active practice, Inklet and
+Camp state remain in the local SQLite authority. Parent PINs remain represented
+only by a salted verifier, and platform biometrics do not expose biometric data
+to the application. Parent-controlled backup is the only route by which
+learning data leaves the application's local storage.
+
+The product contains no configured advertising, analytics or tracking service
+and creates no child account. Learner or spelling data is not supplied to
+commerce. Production composition now fails closed when release commerce
+authority is absent and does not substitute the B3 sandbox gateway, proof pack
+or test-only keyring. Live store and gateway enablement, vendor data-practice
+confirmation, final Apple App Privacy and Google Play Data Safety answers, and
+US export classification remain final-release evidence.
+
+The exact Starter 20 audio is bundled as an application resource and is
+verified against compiled size and SHA-256 authority before playback. It has no
+runtime speech or network fallback. Downloaded and paid content remains behind
+the signed data-pack boundary.
+
+The repository-owned privacy notice, terms copy and third-party licence
+transition record are under `docs/legal/`. `THIRD_PARTY_NOTICES.md` remains the
+deterministic component inventory. Exact upstream licence-text assembly and
+store exposure are verified against the final signed distribution during Task
+22 rather than inferred from this development candidate.
+
 ## Not approved candidates
 
 | Capability | Candidate package | Status |

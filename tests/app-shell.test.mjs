@@ -171,7 +171,10 @@ test('the production shell keeps Parent progress and commerce behind the local g
   });
   t.after(() => vite.close());
   const { default: App } = await vite.ssrLoadModule('/src/app/App.jsx');
-  const { ParentArea } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
+  const {
+    LeaveRoundDialog,
+    ParentArea,
+  } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
   const { createProductFailureServices } = await vite.ssrLoadModule(
     '/src/app/product-failure-services.js',
   );
@@ -348,6 +351,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
   );
   assert.match(failureHtml, /Your saved learning could not open/);
   assert.match(failureHtml, /Your local data has not been replaced/);
+  assert.match(failureHtml, /Try opening again/);
 
   assert.match(html, /Who is practising\?/);
   assert.match(html, /Ada/);
@@ -438,6 +442,9 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(unlockedParentHtml, /£4\.99/);
   assert.match(unlockedParentHtml, /Buy Full KS2/);
   assert.match(unlockedParentHtml, /Restore purchases/);
+  assert.match(unlockedParentHtml, /Privacy &amp; app information/);
+  assert.match(unlockedParentHtml, /No advertising, analytics or tracking/);
+  assert.match(unlockedParentHtml, /Third-party notices/);
 
   learningState = Object.freeze({
     ...learningState,
@@ -454,7 +461,25 @@ test('the production shell keeps Parent progress and commerce behind the local g
 
   learningState = Object.freeze({
     ...learningState,
+    screen: 'progress',
+    progress: Object.freeze([]),
+  });
+  const emptyProgressHtml = render();
+  assert.match(emptyProgressHtml, /Your trail is ready/);
+  assert.match(emptyProgressHtml, /Start a Smart Review/);
+
+  learningState = Object.freeze({
+    ...learningState,
+    screen: 'setup',
+    actionError: 'learning_action_failed',
+  });
+  const failedSetupHtml = render();
+  assert.match(failedSetupHtml, /That trail could not start\. Please try again\./);
+
+  learningState = Object.freeze({
+    ...learningState,
     screen: 'practice',
+    actionError: null,
     practice: Object.freeze({
       sessionId: 'session-a',
       label: 'Smart review',
@@ -482,6 +507,18 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(practiceHtml, /Check spelling/);
   assert.doesNotMatch(practiceHtml, />build</i);
 
+  const leaveRoundHtml = renderToStaticMarkup(
+    React.createElement(LeaveRoundDialog, {
+      onKeep() {},
+      onLeave() {},
+    }),
+  );
+  assert.match(leaveRoundHtml, /role="alertdialog"/);
+  assert.match(leaveRoundHtml, /aria-modal="true"/);
+  assert.match(leaveRoundHtml, /aria-labelledby="leave-round-title"/);
+  assert.match(leaveRoundHtml, /Keep practising/);
+  assert.match(leaveRoundHtml, /Leave round/);
+
   learningState = Object.freeze({
     ...learningState,
     screen: 'summary',
@@ -508,6 +545,31 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(summaryHtml, /Excellent work\./);
   assert.match(summaryHtml, /100%/);
   assert.match(summaryHtml, /Back to trail/);
+
+  const productCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
+  assert.match(productCss, /@media\s*\(forced-colors:\s*active\)/);
+  assert.match(productCss, /@media\s*\(prefers-contrast:\s*more\)/);
+});
+
+test('the product shell consumes native safe-area insets', async () => {
+  const [indexHtml, productCss] = await Promise.all([
+    readFile(join(ROOT, 'index.html'), 'utf8'),
+    readFile(join(ROOT, 'src/app/app.css'), 'utf8'),
+  ]);
+  const viewport = indexHtml.match(
+    /<meta\s+name="viewport"\s+content="([^"]+)"/u,
+  );
+  assert.ok(viewport, 'the app must declare a viewport');
+  assert.match(viewport[1], /(?:^|,\s*)viewport-fit=cover(?:,|$)/u);
+  for (const side of ['top', 'right', 'bottom', 'left']) {
+    assert.match(
+      productCss,
+      new RegExp(
+        `var\\(--safe-area-inset-${side},\\s*env\\(safe-area-inset-${side},\\s*0px\\)\\)`,
+        'u',
+      ),
+    );
+  }
 });
 
 test('the B3 shell is a Parent-only diagnostic with sanitised commerce and pack evidence', async (t) => {
@@ -649,4 +711,18 @@ test('Capacitor and the built shell remain local-only', async () => {
     bundledJavaScript.includes(starter.items[0].target),
     'the certified Starter catalogue must be included in the Vite bundle',
   );
+  for (const forbiddenProofAuthority of [
+    'b3-gateway.eugnel.uk',
+    'b3-test-p256-2026-07',
+    'b3-sandbox-proof',
+    'b4-starter-product',
+    'B3DeterministicTest',
+    'B4Development',
+  ]) {
+    assert.equal(
+      bundledJavaScript.includes(forbiddenProofAuthority),
+      false,
+      `production JavaScript must exclude ${forbiddenProofAuthority}`,
+    );
+  }
 });

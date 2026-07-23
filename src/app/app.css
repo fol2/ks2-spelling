@@ -362,10 +362,10 @@ h1 {
   min-width: 320px;
   min-height: 100vh;
   padding:
-    max(1rem, env(safe-area-inset-top))
-    max(1rem, env(safe-area-inset-right))
-    max(1.5rem, env(safe-area-inset-bottom))
-    max(1rem, env(safe-area-inset-left));
+    max(1rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+    max(1rem, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)))
+    max(1.5rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))
+    max(1rem, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
   color: var(--ink);
   background:
     radial-gradient(circle at 86% 8%, rgb(226 166 43 / 21%), transparent 20rem),
@@ -1550,6 +1550,50 @@ h1 {
   }
 }
 
+@media (forced-colors: active) {
+  .paper-card,
+  .practice-card,
+  .trail-hero,
+  .audio-state,
+  .trail-navigation button,
+  .exit-confirmation > div {
+    border: 2px solid CanvasText;
+    box-shadow: none;
+  }
+
+  .product-app button:focus-visible,
+  .product-app input:focus-visible,
+  .product-app select:focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 3px;
+  }
+
+  .practice-progress span {
+    background: Highlight;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .product-app {
+    --ink-soft: #25384a;
+    --line: #526373;
+  }
+
+  .paper-card,
+  .practice-card,
+  .trail-hero,
+  .audio-state,
+  .trail-navigation button {
+    border-width: 2px;
+  }
+
+  .product-app button:focus-visible,
+  .product-app input:focus-visible,
+  .product-app select:focus-visible {
+    outline-width: 4px;
+  }
+}
+
 @media (max-width: 44rem) {
   .add-learner-card,
   .trail-hero,
@@ -1573,8 +1617,16 @@ h1 {
 
 @media (max-width: 34rem) {
   .product-app {
-    padding-right: max(0.75rem, env(safe-area-inset-right));
-    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right:
+      max(
+        0.75rem,
+        var(--safe-area-inset-right, env(safe-area-inset-right, 0px))
+      );
+    padding-left:
+      max(
+        0.75rem,
+        var(--safe-area-inset-left, env(safe-area-inset-left, 0px))
+      );
   }
 
   .product-app h1 {

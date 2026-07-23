@@ -28,10 +28,22 @@ test('production services persist profile CRUD and selected learner across a cle
   let learnerSequence = 0;
   const protectionCalls = [];
   const options = {
+    runtime: Object.freeze({
+      isNativePlatform: true,
+      platform: 'ios',
+    }),
     connectionFactory: async () => createNodeSqliteConnection(databasePath),
     lifecycle: createLifecycle(),
     packTransfer: Object.freeze({
       async inventoryInstalledVersions() { return Object.freeze([]); },
+    }),
+    bundledStarterAudio: Object.freeze({
+      async checkAvailability() {
+        return Object.freeze({ version: '1.0.0' });
+      },
+      async readInstalledAudio() {
+        throw new Error('Audio playback is outside this composition test.');
+      },
     }),
     parentBiometrics: Object.freeze({
       async getAvailability() {
@@ -90,8 +102,8 @@ test('production services persist profile CRUD and selected learner across a cle
     'dispose',
   ]);
   assert.deepEqual(first.audioAvailability.getState(), {
-    status: 'missing',
-    activeVersion: null,
+    status: 'ready',
+    activeVersion: '1.0.0',
     actionError: null,
   });
   assert.deepEqual(Object.keys(first.learning), [

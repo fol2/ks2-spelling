@@ -135,6 +135,7 @@ test('B3 native audit is rebuilt from closed fresh inputs without weakening B2',
     assert.deepEqual(report.nativeParity.ios.executedHarness, {
       ok: true,
       approvedRuntimeSmoke: true,
+      starterPayloadFiles: 841,
       securityMatrix: true,
       hostileFixturesRejected: 53,
       harnessSha256: report.nativeParity.ios.executedHarness.harnessSha256,
@@ -152,10 +153,14 @@ test('B3 native audit is rebuilt from closed fresh inputs without weakening B2',
     );
     assert.ok(report.nativeParity.android.junit.every(({ sha256: digest }) => SHA256.test(digest)));
     assert.deepEqual(report.runtimeSurface.capacitorServer, { url: null });
-    assert.deepEqual(report.runtimeSurface.ios.addedUsageDescriptionKeys, []);
+    assert.deepEqual(
+      report.runtimeSurface.ios.addedUsageDescriptionKeys,
+      ['NSFaceIDUsageDescription'],
+    );
     assert.deepEqual(report.runtimeSurface.ios.addedEntitlements, []);
     assert.deepEqual(report.runtimeSurface.android.declaredPermissions, []);
     assert.deepEqual(report.runtimeSurface.android.requestedPermissions, [
+      'android.permission.USE_BIOMETRIC',
       'android.permission.INTERNET',
       'com.android.vending.BILLING',
       'android.permission.ACCESS_NETWORK_STATE',

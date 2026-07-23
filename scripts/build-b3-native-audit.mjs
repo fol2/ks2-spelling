@@ -43,6 +43,7 @@ const COMMERCE_METHODS = Object.freeze([
   'queryProducts', 'purchase', 'queryTransactions', 'restore', 'finishTransaction',
 ]);
 const EXPECTED_ANDROID_PERMISSIONS = Object.freeze([
+  'android.permission.USE_BIOMETRIC',
   'android.permission.INTERNET',
   'com.android.vending.BILLING',
   'android.permission.ACCESS_NETWORK_STATE',
@@ -125,6 +126,7 @@ async function iosHostileHarnessEvidence(root) {
   const expected = {
     ok: true,
     approvedRuntimeSmoke: true,
+    starterPayloadFiles: 841,
     securityMatrix: true,
     hostileFixturesRejected: 53,
   };
@@ -351,7 +353,12 @@ export async function buildB3NativeAudit({
   const entitlements = (await listFiles(root, 'ios')).filter((path) => path.endsWith('.entitlements'));
   const usageKeys = readPlistKeys(infoPlist, /<key>(NS[^<]*UsageDescription)<\/key>/g);
   requireExactList(entitlements, [], 'b3_ios_runtime_surface_drift', 'iOS entitlements');
-  requireExactList(usageKeys, [], 'b3_ios_runtime_surface_drift', 'iOS usage-description keys');
+  requireExactList(
+    usageKeys,
+    ['NSFaceIDUsageDescription'],
+    'b3_ios_runtime_surface_drift',
+    'iOS usage-description keys',
+  );
 
   const methodAuthority = {
     javascriptPackTransfer: requireExactList(

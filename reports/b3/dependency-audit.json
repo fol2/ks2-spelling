@@ -5,14 +5,14 @@
     "packageLockSha256": "534b10c7f317622eba32b277b8755a0ac3d04aaf30359117fdeb7510050b6479",
     "spmResolvedVersion": 3,
     "nativePluginBuildSha256": "a72e95958e287be21f34588a167f12fd59058ab003dfe3f559b3ba244988a6f9",
-    "webViewBundleEvidenceSha256": "994d8ffda4c926be4325696fb400eba33c9ed07a51dce85d25f5ca0efe8c9fb2"
+    "webViewBundleEvidenceSha256": "38291382815910702d1989dfd39b176e5cff9886dd9215350fbd455f8979c728"
   },
   "npm": {
     "lockfileVersion": 3,
     "lockPackageCount": 189,
     "webViewBundle": {
       "mode": "vite-rollup-write-false",
-      "moduleCount": 141,
+      "moduleCount": 94,
       "packageNames": [
         "@capacitor-community/sqlite",
         "@capacitor/app",
@@ -49,52 +49,16 @@
           "sha256": null
         },
         {
-          "id": "config/b3-gateway-authority.json",
+          "id": "config/starter-audio-runtime.json",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "2c338dd1fd72ce0062c0b1dc257f2933ed1421e7be295b2fb1df831d94e3ba9d"
-        },
-        {
-          "id": "config/b3-pack-object-authority.json",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "32887edb5374b37c92615f7423f0e2ed8a328c39d86e4990f8f5fc9f25e81a1f"
-        },
-        {
-          "id": "config/b3-synthetic-learners.json",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "5449b0052d78abd1aa6e8a3bbab62cbe62de151288ec0cf6f38dde6e20a908b4"
-        },
-        {
-          "id": "config/b4-audio-authority.json",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "077dfbfc6b7310a37d5444cda5e7fdb8a29cb552913adf7a3a08ad976d2d3f01"
-        },
-        {
-          "id": "config/b4-audio-manifest.json",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "8307d3816266443d44f25e613c66cba65032e79f3404c7f72e25dcd396984ab5"
-        },
-        {
-          "id": "config/pack-signing-public-keys.json",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "34f69734459c07cf10253499d5df60aa0bb20668610fa30b535ed54cf9b745c2"
-        },
-        {
-          "id": "config/store-products.json",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "0acd25008272b63ba29c4851453a3388355aad852f654a090a8b5a46e748ab3b"
+          "sha256": "be338e8cb742cd0f8d05083d1197d36feb200723471056f9671f4dda03948b09"
         },
         {
           "id": "index.html",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "ef7c045b13d4d72bdb19fc8ee17918dce4385e511f0a72b3b54ac8bc9ad9de9d"
+          "sha256": "ae0657c9204472f94f3a99df44fae219d45fe08df54b17760e481ec0da8a74fd"
         },
         {
           "id": "node_modules/@capacitor-community/sqlite/dist/esm/definitions.js",
@@ -193,292 +157,112 @@
           "sha256": "145965504d60007bc25486ab930b0367867dcd5d579ccd343c148d69349a7cfb"
         },
         {
-          "id": "public/audio/b4/b4-01.wav",
+          "id": "reports/c1/starter-audio-evidence.json",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "a5f6ed9a13aa5189b6ac1ddd951ff5f9a0167748d73ae47239b32433b23b4090"
+          "sha256": "8dc92171c8dcf0afeda1ba407fa06ad3085f890e821d8bc89bf0e1863faa3a77"
         },
         {
-          "id": "public/audio/b4/b4-02.wav",
+          "id": "src/app/ProductApp.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "b674034bc25d9b2e83d1e50c61b5d94e734e3e6097b2eaa7509ec4106ea5c60c"
+          "sha256": "9ec1a7a08c87f1407e74e3c8faa3ded0a113df607907bc6d8191b2389a507de7"
         },
         {
-          "id": "public/audio/b4/b4-03.wav",
+          "id": "src/app/ProductRoot.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "ba7a343c39b9c131c6c6f72329ae0f7c0428d2120d3cbb68d39a772a1fc34b2a"
-        },
-        {
-          "id": "public/audio/b4/b4-04.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "1b9853d527d5ee07b9b48ef4c7e31ba244cadee9ae45fb9cc12577b0631d8018"
-        },
-        {
-          "id": "public/audio/b4/b4-05.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "e2f7e376067c2362b5c19c07293b47cb2ee03d1293dfed013164a21701fe1637"
-        },
-        {
-          "id": "public/audio/b4/b4-06.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "b9568b61527713418eeff8db9cbf15f587dd4092d62cf1c5b3af748d62112ca0"
-        },
-        {
-          "id": "public/audio/b4/b4-07.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "a0fe9928d780d8f5f23cf5fe897d4dba2b11290e0c3215043da77f6e375cd81f"
-        },
-        {
-          "id": "public/audio/b4/b4-08.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "8cdb1355b871eca1f986d91ed210c3305ec193fbf39b076d9e72b96a38b8f2b3"
-        },
-        {
-          "id": "public/audio/b4/b4-09.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "7bc533dcbfa2545c8cb9f72ae6aa5bd0a415b0f5e1fde5e42cb93aa717679b62"
-        },
-        {
-          "id": "public/audio/b4/b4-10.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "70543b365c5535773c51522ab8e90d4e1c508ea661a6d439734260db6167f659"
-        },
-        {
-          "id": "public/audio/b4/b4-11.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "e8137856e4a48f86a235accf9c3e7b47c03726f6dd8194b2d346a5c2734e6c39"
-        },
-        {
-          "id": "public/audio/b4/b4-12.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "b8482970de8ff8615384db90e432608d6625e1116e0be7a11ff4874a3e2ae31f"
-        },
-        {
-          "id": "public/audio/b4/b4-13.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "6e3dab68080302bf247b3a399a872b09f2beebe4c9887fbf249e88cc5a0f8bad"
-        },
-        {
-          "id": "public/audio/b4/b4-14.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "ff713f4ac8c14489fa54d30057507fe8a2cacf02cb459a5e6349c7f9f2fe14cf"
-        },
-        {
-          "id": "public/audio/b4/b4-15.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "b81aebecb9517e654064cccadcd0096238d4262eca8bdba5c061cdc8b465e299"
-        },
-        {
-          "id": "public/audio/b4/b4-16.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "1a2c77838c2d63784373e68fabfccac98c6c1e71f073ba0405b26ee99463809f"
-        },
-        {
-          "id": "public/audio/b4/b4-17.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "96dfcfbea9afe54d8baec02d9f6045a656cad2979843fbde2ab9bf011ffc4003"
-        },
-        {
-          "id": "public/audio/b4/b4-18.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "44edf47af619b38112eb76e47cd9db9aab9b9c2b41cb6dff7dc4fdc7daf2da79"
-        },
-        {
-          "id": "public/audio/b4/b4-19.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "9ea6f7451a2fc419679befb2058fa7925ca36f455c2dc5613236f8117c8f136a"
-        },
-        {
-          "id": "public/audio/b4/b4-20.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "3e0d89731f00764036b80e9dbdde64908543d4c15d03582ffb72193f778d5352"
-        },
-        {
-          "id": "public/audio/b4/b4-21.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "e5957e0ad866aabc47686ad9baa2958f2ebfd4734d8680980184c6358e16ba12"
-        },
-        {
-          "id": "public/audio/b4/b4-22.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "17ed48a8876fd93aa3da5f8168a2b8bcd3be5e54dd5ed11d3acb266c3fbb8655"
-        },
-        {
-          "id": "public/audio/b4/b4-23.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "693ae6250e9beb763039f8bdbab2b526529acd1e2156c4864adab1aea070949a"
-        },
-        {
-          "id": "public/audio/b4/b4-24.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "ce10d60aed413655046762b31dd0d03de35d477992b624cc764e722af05bad52"
-        },
-        {
-          "id": "public/audio/b4/b4-25.wav",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "dcf6c3533b8071897c0de462dc890acb8397f04a75ecf16e90ce824464da1f18"
-        },
-        {
-          "id": "src/app/App.jsx",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "c981108478718831af100bf9d56308bc4914e72e9d560ca4a4a294b034ea7afb"
+          "sha256": "8123fa667f5b887a228e1c56d8b288631cf4780d6157e48cdb5693882fba2b07"
         },
         {
           "id": "src/app/app.css",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "950dd10e5658bd63dc3c7ab5c910561a230dfc7abbdeaa167f14893c83d3f347"
+          "sha256": "065b8845682feb7d0dc97a98deaa1ba4d39cd15fa86ef8935fc80f51f4f9fd73"
         },
         {
-          "id": "src/app/b2-proof-controller.js",
+          "id": "src/app/bundled-starter-audio.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "8e61c433bc631c9d28ab31f92252a629ae9f8bfe692d0cd7cbbff15aa230fa11"
+          "sha256": "37fdd688d97806b9eaeced75c044f1554441c33ccde966101ddf2c7b8d225916"
         },
         {
-          "id": "src/app/b3-device-gateway-smoke.js",
+          "id": "src/app/create-product-app-services.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "a56cbaee9fa309c7c05bf576b64af663ccccb3ececaa3c38feecdd48d15c94dd"
+          "sha256": "4e329f41dd211802d8f4bc64f2397ae1a7600d7d8470d0d2c6723d940e7f7644"
         },
         {
-          "id": "src/app/b3-live-proof-composition.js",
+          "id": "src/app/create-production-app-services.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "1410818d213ed3cd1ccb576b9b10e02d4252f789576f308c419e833832769eb5"
+          "sha256": "aa1995d0bcc99f339b1635f70bdb82bbf8b8c580f37ad7a50277f3479f441b5e"
         },
         {
-          "id": "src/app/b3-live-proof-protocol.js",
+          "id": "src/app/database-gated-repository.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "a0b3325e8230585e97d87d3ee4b915becb3e800fd7a19d4da1efbed790088288"
-        },
-        {
-          "id": "src/app/b3-proof-controller.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "b280b072bf6df589f0a855c2a16e99368a2904c747a45d9aa4aef9e96fd70554"
-        },
-        {
-          "id": "src/app/b4-audio-data.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "0cf782abde26d7928ebb865caf56bda82aa666e09e212cb460cee4a50d68e285"
-        },
-        {
-          "id": "src/app/b4-learner-action.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "5f398fc1e1240423c67d5100a978813d2d8e656c58435c37c3a431f8e0b408ae"
-        },
-        {
-          "id": "src/app/b4-local-audio.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "34ef7a486083aa6a6d22bf709459a8fec31eb025c55034dbfd9350265d97e595"
-        },
-        {
-          "id": "src/app/b4-performance-marks.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "4013d0e90bd19819ea77d0ded18d37de71ef7b76b47e156073f36b2784764e56"
-        },
-        {
-          "id": "src/app/b4-round-contract.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "bded2088c1af3fb347391ef150a25db5a2d06dc347c8763d1e938b6c1095deab"
-        },
-        {
-          "id": "src/app/b4-round-controller.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "1299ce3ddc3d23c5f7d6bfc8003202fcd8d75641b63d09a27265571a68b52ac2"
-        },
-        {
-          "id": "src/app/commerce-reconciler.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "2b31cbe5eae0b5151668f7ed008cd8e68d9543b3a2b327cdf64703e7f6125d19"
-        },
-        {
-          "id": "src/app/create-app-services.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "6302fe51d4a9a0c92e561c553d522a2e512205318a175b789134b4e390c5520f"
-        },
-        {
-          "id": "src/app/create-b2-app-services.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "3644c92157b38af87f263c8a0a51051cec665aec77bf3d43cc4778c8956a1799"
-        },
-        {
-          "id": "src/app/create-b3-app-services.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "fc52c3886a8f0c63a6746143333b3e75debbc1f057cd4a4bf5f7fa0f1a187458"
-        },
-        {
-          "id": "src/app/create-b4-app-services.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "534b00898643ece77ef586b48f1a76e3682737562c385aa75497e2730787352a"
+          "sha256": "ba2916ed7418c88b640d493ca696ce04abc1d0eaf95f9cd62d5697cc153bc99f"
         },
         {
           "id": "src/app/database-lifecycle-coordinator.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "76f6ce6a8b728a170b4792f484696c564eba5b4681c2526a2dce5412a20f150d"
+          "sha256": "da07637da7978ab7844db20e41545624bc636289ea7fb499a79802365619e289"
         },
         {
-          "id": "src/app/download-coordinator.js",
+          "id": "src/app/parent-backup-service.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "896ba066b5dcebb98386445cb5c725e2e3872104191f56ac36bfbf18ac85e516"
+          "sha256": "dd8cfa5ef16117ecad52a7dd211893c985d4c029768613f6be4f9862822300f5"
         },
         {
-          "id": "src/app/pack-activation-coordinator.js",
+          "id": "src/app/parent-commerce-controller.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "d987127e2f64ed9d6f44e3f440c5524fd6670628bd462e7126ed0f69a9ea0ddd"
+          "sha256": "34da31f41aa491ddfcc51bcc02dec267c8fe18474120cd93e036e0b620c28287"
         },
         {
-          "id": "src/app/pack-reconciler.js",
+          "id": "src/app/parent-progress-controller.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "e36a1b7430b41399658e85191a589a6bbaf35b66f0bac7845e900b7956756e59"
+          "sha256": "5e066dd27c8ed45d82498d5c2ebe0fdfa6aeebf6e2cfbe0c0c57d211096d9e9b"
         },
         {
-          "id": "src/app/purchase-coordinator.js",
+          "id": "src/app/parent-security-controller.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "89b8be35dae253d614108deb3428d5c285b2eaeefb466589c67e07299a78311e"
+          "sha256": "894dda2fb446c5ec5c115967cb36237a76dcf3abb873cdea26c6cbc7b466e79c"
+        },
+        {
+          "id": "src/app/product-audio-player.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "76f515708aace7d8b5fed61d446aabc15f3811e6a4d803a7af50b46f569484b1"
+        },
+        {
+          "id": "src/app/product-failure-services.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "53117af25b7e1bc59b13906d97d6eb5416d3ea42a536be7d4b8f378c60e3923a"
+        },
+        {
+          "id": "src/app/product-learning-controller.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "42243a11cdb8adc059b15186f73e112d6f41a75ebb618d1a685a159e54c66c42"
+        },
+        {
+          "id": "src/app/product-profile-controller.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "d572a103464e525ab32f84cd2bac56fdd9c49433dc3568fc4160180b7f4183ae"
+        },
+        {
+          "id": "src/app/starter-pack-availability-controller.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "0ac660495fecfef628fdcbfe8ef74dabdc8672a63ddc157713fde3c2f1cb890b"
         },
         {
           "id": "src/app/switchable-sql-connection.js",
@@ -487,46 +271,28 @@
           "sha256": "f641d6a8f543285e6f25f416635f8ecf1ec806649f830ba28f34f625b82bf014"
         },
         {
-          "id": "src/domain/commerce/commerce-contracts.js",
+          "id": "src/app/unavailable-product-commerce-workflow.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "32fce6ca33df70f9d6d652141fa8b9d4a7a8b31f019b770ad1accf96f0dbceca"
+          "sha256": "19ff78da7a6e677bf1e6efda6e9873619ae129f087ad170d7c60c0e42cc7e54f"
         },
         {
-          "id": "src/domain/commerce/purchase-state.js",
+          "id": "src/domain/security/learning-backup-contract.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "a898514ca7673d465c81f499d33abeb753f1545a9788bad3a0c078c6c17e6fd1"
+          "sha256": "769fe48195a63541886e29bc4072501f09b46e873cef5f1e5c23176d51c18900"
         },
         {
-          "id": "src/domain/packs/pack-keyring.js",
+          "id": "src/domain/security/parent-pin-contract.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "1d55be03555e8063f230880f5a899ec0b15d5951a96a0bdc5c461eb792bf35a6"
+          "sha256": "4e09e8b1222e52412490356a7c165744a0dead3e3f7ad860f18408ba093eae73"
         },
         {
-          "id": "src/domain/packs/pack-signature-verifier.js",
+          "id": "src/domain/security/parent-security-record.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "bde83da889331a9eb36e53df4c6844a8a62b3bd91ae6b11da695e844a5522519"
-        },
-        {
-          "id": "src/domain/packs/rfc8785.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "ab30c7536cd2fe20b77e4b26fa5b37316bab9a281eba65c0c9837cb0e41e6e25"
-        },
-        {
-          "id": "src/domain/packs/signed-download-access-contract.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "1722621d7e8533ae2b452b777e1027def70a5d51f1d8332892e3fc2c80707ca4"
-        },
-        {
-          "id": "src/domain/packs/signed-manifest-contract.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "0d6a522c43754ed48106c93df2fac92b42e28d27cf39572567951ccc1d789a95"
+          "sha256": "50529bf2d148ac3033fe2ea71f18bb163fa46962ef5ce0f3b747a78c0ffb0a26"
         },
         {
           "id": "src/domain/spelling/index.js",
@@ -535,28 +301,34 @@
           "sha256": "a00afe0d3ff6811a402fa1ae2f5189a1d045fae6a64f530839bf00b515818fbf"
         },
         {
+          "id": "src/domain/spelling/profile-contract.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "031f2068a32f5661ea3e5a4590c082a9a990800c2e36aa3ad59d08723c0b0611"
+        },
+        {
+          "id": "src/domain/spelling/starter-audio-contract.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "b57c9fc6f77955dd24d225bdd8fa49761791e62f7b2d28b260291946aa80e8ab"
+        },
+        {
           "id": "src/main.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "6cfae3d2b1ceda4500914bf24cc8c251aff1a9716aa50ca0542efd9fe15b7d9a"
+          "sha256": "eaee1fb67f915a86584e7f8296a432b72ddec8dee1b55930d9a2e9db096c8644"
         },
         {
-          "id": "src/platform/commerce/capacitor-store.js",
+          "id": "src/platform/backup/capacitor-learning-backup-file-plugin.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "98ed45c83c9840d268f3f9bd3d3176797043ab4706ed98f1cdf23068a73a102e"
+          "sha256": "7afef67652dbddf918d3452d532f39a6b79408da2d1fe94d5a25a21108447996"
         },
         {
-          "id": "src/platform/commerce/store-port.js",
+          "id": "src/platform/backup/capacitor-learning-backup-files.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "0809202b585272f73ca1faaf3ffc2aebc2bb61b36726802f1aac31f9e595f605"
-        },
-        {
-          "id": "src/platform/database/b2-seed.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "c4201a731fc5e40bca84481a6d90ac71b9c40d899c6739e9845a040d557ca3ad"
+          "sha256": "b08a5e8aea553b0a0e4eec577848fe57db8c1d08ae1050110ec275b02c0ceb1c"
         },
         {
           "id": "src/platform/database/canonical-json.js",
@@ -601,28 +373,28 @@
           "sha256": "640e2f5238d55e732675017446eda9c7489b1f007bd48d505e59fac68e69c537"
         },
         {
-          "id": "src/platform/database/sqlite-commerce-attempt-repository.js",
+          "id": "src/platform/database/sqlite-learning-backup-repository.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "43a1560a463173e2d5ff1ff795b3bd6888ced9e416f49f447e17a0339eaeef03"
+          "sha256": "513b201d57153a842ede126ba7e0731db56edf0c0a11ba87df4dff87e69539ae"
         },
         {
-          "id": "src/platform/database/sqlite-commerce-repositories.js",
+          "id": "src/platform/database/sqlite-parent-security-repository.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "4b132be1f7b408cd2d7f7d97c3f9cea20ba4f773f371fb1400dfdad26f61513d"
-        },
-        {
-          "id": "src/platform/database/sqlite-pack-repositories.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "fcc82f45d87cb2ead71754185a5d7005d88b772d266c677331280289ee89a360"
+          "sha256": "92fe8f9ba11b5d9379d06111d627139afe5ea6d09cb9e9ca04f871e90bdeb989"
         },
         {
           "id": "src/platform/database/sqlite-spelling-command-repository.js",
           "kind": "file",
           "npmLocator": null,
           "sha256": "34f8e828a57e9664875448ddfc661d655979bc1424dece5139035a2554f405e4"
+        },
+        {
+          "id": "src/platform/database/sqlite-spelling-profile-store.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "30ae2491acf0a87f1f57889b695bf99dd9d6aa22ac545f7d71d309e1af69f5d7"
         },
         {
           "id": "src/platform/database/sqlite-spelling-snapshot-store.js",
@@ -637,54 +409,6 @@
           "sha256": "d5a4aa2977cd2e7d41da9b80e06a4fceb469873d15715685c66a90121df31b31"
         },
         {
-          "id": "src/platform/distribution/capacitor-build-authority.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "7ffdd3b4c5cfb033fa60a222fb2bed7bffe7412684378a740530377f292821c4"
-        },
-        {
-          "id": "src/platform/fakes/create-b1-fake-native-ports.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "db9319da2c59ec72c519e0538b21df66ed41cab1391fd2d55510c27c615aea90"
-        },
-        {
-          "id": "src/platform/fakes/create-b3-fake-gateway.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "1ea2470b6596633ee543e11a4fb6e0d1c5c1cddc64f421ae31534351cd12a70c"
-        },
-        {
-          "id": "src/platform/fakes/create-b3-fake-pack-transfer.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "c8cebb52b298cbe3cf902bade6608619e2b5da4e43cf2d7c7246c508d3c65326"
-        },
-        {
-          "id": "src/platform/fakes/create-b3-fake-store.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "649a160a0e29e609275af19cb3d424e107d03c3e809ae3e706ba59954c18bcf2"
-        },
-        {
-          "id": "src/platform/gateway/entitlement-gateway-port.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "2dc4c9da00ce4db2666f4f6763d6521a3b69023a4a2e3bd2b483ec2eecc5761c"
-        },
-        {
-          "id": "src/platform/gateway/gateway-payload-limits.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "5377c0412f99a589117da3cebfc163014206dc42deac782a70d29c0f0d3d055f"
-        },
-        {
-          "id": "src/platform/gateway/http-entitlement-gateway.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "545238d99d8c4daeae2fcdcf692790837f164b6898f946567332f054e9be8c8c"
-        },
-        {
           "id": "src/platform/lifecycle/app-lifecycle-contract.js",
           "kind": "file",
           "npmLocator": null,
@@ -697,34 +421,28 @@
           "sha256": "f779bceee5f3397dc2765d5768804338d2e292a255df7c154dd5933b8f468156"
         },
         {
-          "id": "src/platform/native-port-contract.js",
+          "id": "src/platform/security/capacitor-local-data-protection-plugin.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "1673abb07d26dd2f4ad70e6262405988f021aa01ca70ad17feab982f11ce4a40"
+          "sha256": "f3a3db237e6c6c116a4a44fe480484bee9e6a701bbed67ca3a88dd7bb759dc04"
         },
         {
-          "id": "src/platform/pack-transfer/capacitor-pack-transfer.js",
+          "id": "src/platform/security/capacitor-local-data-protection.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "c3c97c4d169e2fe2b45bcec18e4e38ecaf69cc93ef0e7230a434fb5a2ebe5458"
+          "sha256": "5003d7e67b44d1bf3be409332b3f0f980f7f8b12a4a1057fc533900ea6fc85da"
         },
         {
-          "id": "src/platform/pack-transfer/pack-transfer-port.js",
+          "id": "src/platform/security/capacitor-parent-access-plugin.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "15f0a20bce420b344983cc3e4f6145aca0b1aabe11a1874ff102a427c541bbc5"
+          "sha256": "c6ad320f16ea604e3fcae930090d0dc7624d1294a159e10744a6edb70195e27b"
         },
         {
-          "id": "src/platform/proof/b3-proof-observation-port.js",
+          "id": "src/platform/security/capacitor-parent-biometrics.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "53a0f76528307de8e8606ed8ec974ff315457a339030661450ca06b93edc85da"
-        },
-        {
-          "id": "src/platform/proof/capacitor-b3-proof-observation.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "9fd38e9b10db927032eba25820920d566e7cff496c24871bbb666c3e7b532949"
+          "sha256": "64eddc842e7942113e38e00066e12d275fbb712bf19ff6f59aa07a6cd3ee7fae"
         },
         {
           "id": "vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json",
@@ -879,42 +597,32 @@
       ],
       "outputInventory": [
         {
-          "fileName": "assets/b4-audio-data-DRy1yfZx.js",
+          "fileName": "assets/index-D50VeXaq.js",
           "kind": "chunk",
-          "sha256": "facc1cede2d0ff00e2159b46a715b01bc8a7b5c2084e4b177394cb77baa5bc0c"
+          "sha256": "2c8bf877e353a1d11908d12b93a89b23959bba21d6679cae0d1b2e17f9cfe062"
         },
         {
-          "fileName": "assets/b4-audio-manifest-CtukroTL.js",
-          "kind": "chunk",
-          "sha256": "f6f509e08ad4fa25e565a5c5993e3a1496254483b95c166bca624f000ff1c2cf"
-        },
-        {
-          "fileName": "assets/index-CDftI4-I.css",
+          "fileName": "assets/index-gd_orMNf.css",
           "kind": "asset",
-          "sha256": "900141fdbfc6d2370e8341204a76da333d5ae8f30427de6a70702c7175581cef"
+          "sha256": "dca25c927cf6de0ccb959cd7c182cccd598601a94d4130ae491009e152a676ae"
         },
         {
-          "fileName": "assets/index-Dm7lRLFh.js",
+          "fileName": "assets/web-BbeZGNDy.js",
           "kind": "chunk",
-          "sha256": "5259888ccc7e4259a3e8ac72bda1cc2f91ad3c81d3d463c1efa1d11eb69162b7"
+          "sha256": "152d33a1193a00407962ba2749715ca35316a49789cf4a1745139e32d51e3c1a"
         },
         {
-          "fileName": "assets/web-D9UHd4Xf.js",
+          "fileName": "assets/web-xDmaq7Lm.js",
           "kind": "chunk",
-          "sha256": "c8445fb1d74794ba2f17cfe894c179e7ded5a7ccace15866da4ae08d649c4736"
-        },
-        {
-          "fileName": "assets/web-DCSitljQ.js",
-          "kind": "chunk",
-          "sha256": "045822e46f5933324ad80bf8f408c4fea447b0bfa810fda907d7a4c847d22fff"
+          "sha256": "a58568a059abb0298955f3aa1b83a8a3f92a118b10998af9e237ac9408e16c1d"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "42512b7a05f6a9f3cf8ea85d026415c25ecc6ed1930fc819eff507fc7fd6bb17"
+          "sha256": "daac1081385fc702d3208569b25d7313b77a2d5ea444503deeb66374411ca0e6"
         }
       ],
-      "evidenceSha256": "994d8ffda4c926be4325696fb400eba33c9ed07a51dce85d25f5ca0efe8c9fb2"
+      "evidenceSha256": "38291382815910702d1989dfd39b176e5cff9886dd9215350fbd455f8979c728"
     },
     "allPackages": [
       {
@@ -4353,7 +4061,7 @@
         "restrictedClassification": "none",
         "exportClassification": "SQLCipher is packaged; US export classification remains unresolved before store release",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@capacitor-community/sqlite"
       },
       {
@@ -4378,7 +4086,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@capacitor/android"
       },
       {
@@ -4403,7 +4111,7 @@
         "restrictedClassification": "none",
         "exportClassification": "None identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@capacitor/app"
       },
       {
@@ -4428,7 +4136,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@capacitor/core"
       },
       {
@@ -4453,7 +4161,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@capacitor/ios"
       },
       {
@@ -4478,7 +4186,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@rollup/rollup-darwin-arm64"
       },
       {
@@ -4503,7 +4211,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@rollup/rollup-darwin-x64"
       },
       {
@@ -4528,7 +4236,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@rollup/rollup-linux-arm64-gnu"
       },
       {
@@ -4553,7 +4261,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@rollup/rollup-linux-arm64-musl"
       },
       {
@@ -4578,7 +4286,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@rollup/rollup-linux-x64-gnu"
       },
       {
@@ -4603,7 +4311,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@rollup/rollup-linux-x64-musl"
       },
       {
@@ -4628,7 +4336,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@rollup/rollup-win32-arm64-msvc"
       },
       {
@@ -4653,7 +4361,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@rollup/rollup-win32-x64-msvc"
       },
       {
@@ -4678,7 +4386,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/@stencil/core"
       },
       {
@@ -4703,7 +4411,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/browser-fs-access"
       },
       {
@@ -4728,7 +4436,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/core-util-is"
       },
       {
@@ -4753,7 +4461,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/immediate"
       },
       {
@@ -4778,7 +4486,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/inherits"
       },
       {
@@ -4803,7 +4511,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/isarray"
       },
       {
@@ -4828,7 +4536,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/jeep-sqlite"
       },
       {
@@ -4853,7 +4561,7 @@
         "restrictedClassification": "exact-licence-notice-override",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/jszip"
       },
       {
@@ -4878,7 +4586,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/lie"
       },
       {
@@ -4903,7 +4611,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/localforage/node_modules/lie"
       },
       {
@@ -4928,7 +4636,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/localforage"
       },
       {
@@ -4953,7 +4661,7 @@
         "restrictedClassification": "exact-licence-notice-override",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/pako"
       },
       {
@@ -4978,7 +4686,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/process-nextick-args"
       },
       {
@@ -5003,7 +4711,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/react"
       },
       {
@@ -5028,7 +4736,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/react-dom"
       },
       {
@@ -5053,7 +4761,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/jszip/node_modules/readable-stream"
       },
       {
@@ -5078,7 +4786,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/jszip/node_modules/safe-buffer"
       },
       {
@@ -5103,7 +4811,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/scheduler"
       },
       {
@@ -5128,7 +4836,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/setimmediate"
       },
       {
@@ -5153,7 +4861,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/sql.js"
       },
       {
@@ -5178,7 +4886,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/jszip/node_modules/string_decoder"
       },
       {
@@ -5203,7 +4911,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/tslib"
       },
       {
@@ -5228,7 +4936,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18",
+        "reviewDate": "2026-07-23",
         "locator": "node_modules/util-deprecate"
       }
     ],
@@ -5255,7 +4963,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18"
+        "reviewDate": "2026-07-23"
       },
       {
         "name": "@vitejs/plugin-react",
@@ -5279,7 +4987,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18"
+        "reviewDate": "2026-07-23"
       },
       {
         "name": "oxlint",
@@ -5303,7 +5011,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18"
+        "reviewDate": "2026-07-23"
       },
       {
         "name": "vite",
@@ -5327,7 +5035,7 @@
         "restrictedClassification": "none",
         "exportClassification": "none-identified",
         "owner": "KS2 Spelling maintainer",
-        "reviewDate": "2026-07-18"
+        "reviewDate": "2026-07-23"
       }
     ]
   },
@@ -5354,7 +5062,7 @@
       "applePrivacyManifest": "Capacitor and Cordova framework privacy manifests supplied",
       "googleDataSafety": "Not applicable",
       "owner": "KS2 Spelling maintainer",
-      "reviewDate": "2026-07-18",
+      "reviewDate": "2026-07-23",
       "privacyManifests": [
         "node_modules/@capacitor/ios/Capacitor/Capacitor/PrivacyInfo.xcprivacy",
         "node_modules/@capacitor/ios/CapacitorCordova/CapacitorCordova/PrivacyInfo.xcprivacy"
@@ -5382,7 +5090,7 @@
       "applePrivacyManifest": "Local database implementation; the current app opens it in no-encryption mode",
       "googleDataSafety": "Not applicable",
       "owner": "KS2 Spelling maintainer",
-      "reviewDate": "2026-07-18"
+      "reviewDate": "2026-07-23"
     },
     {
       "identity": "zipfoundation",
@@ -5406,7 +5114,7 @@
       "applePrivacyManifest": "No data collection or transmission",
       "googleDataSafety": "Not applicable",
       "owner": "KS2 Spelling maintainer",
-      "reviewDate": "2026-07-18"
+      "reviewDate": "2026-07-23"
     }
   ],
   "ios": {
@@ -5470,14 +5178,14 @@
     "schemaVersion": 1,
     "mode": "resolved-toolchain",
     "componentCount": 327,
-    "scopeMembershipCount": 5570,
+    "scopeMembershipCount": 5575,
     "packagedRuntimeCount": 74,
     "scopeRestrictedToolingCount": 25,
     "taskCreatedBuildToolCount": 13,
     "generatedFrom": [
       {
         "path": "package.json",
-        "sha256": "005bebdbf7aed4b1331e0a13df739b26d022b64a241a8781c0f445acb2eb2b02"
+        "sha256": "c8424dbd5693fb5eb1a2b6fa424d9affd3be78afaab0dab6479f5e20fb003f59"
       },
       {
         "path": "scripts/certify-android-dependencies.mjs",
@@ -5493,7 +5201,7 @@
       },
       {
         "path": "config/dependency-policy.json",
-        "sha256": "a3dca7b7ad2aba35082cc8193e7523562054cd6cd3ab001bc5480e12cf6a441d"
+        "sha256": "258a468a19d5f64563b2d101bd77433dbcf557d5da380c4d651f951fbabd9582"
       },
       {
         "path": "config/maven-licence-policy.json",
@@ -5509,7 +5217,7 @@
       },
       {
         "path": "android/gradle/dependency-locks/app.lockfile",
-        "sha256": "35696befbea0ebdab10cf9ee8aad4bae30b44ce075dc47826b4e5724acc420db"
+        "sha256": "296e129afeb18d85972e23b9fce04fc574cb26005b814bdf5686f36cd7dab7ba"
       },
       {
         "path": "android/gradle/dependency-locks/capacitor-android.lockfile",
@@ -5531,7 +5239,7 @@
     "lockfiles": [
       {
         "path": "android/gradle/dependency-locks/app.lockfile",
-        "sha256": "35696befbea0ebdab10cf9ee8aad4bae30b44ce075dc47826b4e5724acc420db"
+        "sha256": "296e129afeb18d85972e23b9fce04fc574cb26005b814bdf5686f36cd7dab7ba"
       },
       {
         "path": "android/gradle/dependency-locks/capacitor-android.lockfile",
@@ -8050,7 +7758,22 @@
         "scopes": [
           {
             "project": ":app",
+            "configuration": "debugAndroidTestCompileClasspath",
+            "buildscript": false
+          },
+          {
+            "project": ":app",
+            "configuration": "debugCompileClasspath",
+            "buildscript": false
+          },
+          {
+            "project": ":app",
             "configuration": "debugRuntimeClasspath",
+            "buildscript": false
+          },
+          {
+            "project": ":app",
+            "configuration": "debugUnitTestCompileClasspath",
             "buildscript": false
           },
           {
@@ -8060,7 +7783,17 @@
           },
           {
             "project": ":app",
+            "configuration": "releaseCompileClasspath",
+            "buildscript": false
+          },
+          {
+            "project": ":app",
             "configuration": "releaseRuntimeClasspath",
+            "buildscript": false
+          },
+          {
+            "project": ":app",
+            "configuration": "releaseUnitTestCompileClasspath",
             "buildscript": false
           },
           {
@@ -59533,7 +59266,7 @@
     "status": "resolved-toolchain",
     "evidencePath": "live-locked-policy",
     "componentCount": 327,
-    "scopeMembershipCount": 5570,
+    "scopeMembershipCount": 5575,
     "packagedRuntimeCount": 74,
     "scopeRestrictedToolingCount": 25,
     "taskCreatedBuildToolCount": 13,
@@ -59543,7 +59276,7 @@
   "gradleInputs": [
     {
       "path": "android/app/build.gradle",
-      "sha256": "7adc2b3507949f1754c8d217122c3c7bae125fda87b8ac49162e6341eaccbc8a"
+      "sha256": "71776fb4ceffdca7cb1ecaaf54e9b219f7465ad10bd32e61cc74b92e4e522530"
     },
     {
       "path": "android/app/capacitor.build.gradle",
@@ -59651,6 +59384,13 @@
       "coordinate": "androidx.appcompat:appcompat",
       "version": "1.7.1",
       "scope": "runtime declaration",
+      "resolution": "resolved-toolchain",
+      "distribution": "packaged-runtime"
+    },
+    {
+      "coordinate": "androidx.biometric:biometric",
+      "version": "1.1.0",
+      "scope": "app-owned Parent biometric runtime declaration",
       "resolution": "resolved-toolchain",
       "distribution": "packaged-runtime"
     },
@@ -59775,6 +59515,34 @@
         "version": "B3",
         "status": "B3 compiled capability only",
         "source": "App-owned Swift and Java pack-transfer sources"
+      },
+      {
+        "capability": "ParentAccess",
+        "packageName": "app-owned-parent-access-bridge",
+        "version": "C2B",
+        "status": "C2B local capability; final physical proof deferred",
+        "source": "App-owned Swift LocalAuthentication and Java AndroidX Biometric sources"
+      },
+      {
+        "capability": "InstalledAudio",
+        "packageName": "app-owned-installed-audio-bridge",
+        "version": "C3",
+        "status": "C3 local capability; final acoustic proof deferred",
+        "source": "App-owned bounded Swift and Java installed-pack readers"
+      },
+      {
+        "capability": "LearningBackupFile",
+        "packageName": "app-owned-learning-backup-file-bridge",
+        "version": "C2B",
+        "status": "C2B local capability; final physical proof deferred",
+        "source": "App-owned Swift and Java system document bridges"
+      },
+      {
+        "capability": "LocalDataProtection",
+        "packageName": "app-owned-local-data-protection-bridge",
+        "version": "C2B",
+        "status": "C2B local capability; final physical proof deferred",
+        "source": "App-owned Swift and Java local storage policy enforcement"
       }
     ],
     "candidates": [
@@ -59797,22 +59565,25 @@
   },
   "permissionEvidence": {
     "androidUsesPermissions": [
-      "android.permission.INTERNET"
+      "android.permission.INTERNET",
+      "android.permission.USE_BIOMETRIC"
     ],
     "androidPermissionRemovalMarkers": [
       "permission:${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
       "uses-permission:${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
-      "uses-permission:android.permission.USE_BIOMETRIC",
       "uses-permission:android.permission.USE_FINGERPRINT"
     ],
     "iosEntitlements": [],
-    "iosUsageDescriptionKeys": [],
+    "iosUsageDescriptionKeys": [
+      "NSFaceIDUsageDescription"
+    ],
     "packagedAndroid": {
       "appIdentity": "uk.eugnel.ks2spelling",
       "buildToolsVersion": "36.0.0",
-      "permissionSurfaceSha256": "a711ae95cba3942ebe2dc54216f123d0b80926038040ba15cf252be2ca1978de",
+      "permissionSurfaceSha256": "1c489f696ee213c63d1d7dccbf98c5b7419f21019ae168a3680922d476973946",
       "declaredPermissions": [],
       "requestedPermissions": [
+        "android.permission.USE_BIOMETRIC",
         "android.permission.INTERNET",
         "com.android.vending.BILLING",
         "android.permission.ACCESS_NETWORK_STATE"
@@ -59829,12 +59600,15 @@
       "https://b3-gateway.eugnel.uk"
     ],
     "androidRequestedPermissions": [
+      "android.permission.USE_BIOMETRIC",
       "android.permission.INTERNET",
       "com.android.vending.BILLING",
       "android.permission.ACCESS_NETWORK_STATE"
     ],
     "androidDangerousPermissions": [],
-    "iosUsageDescriptionKeys": [],
+    "iosUsageDescriptionKeys": [
+      "NSFaceIDUsageDescription"
+    ],
     "iosEntitlements": [],
     "localDatabase": true,
     "sqliteMode": "no-encryption",

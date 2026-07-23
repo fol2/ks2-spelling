@@ -8,4 +8,3 @@ application.
 The SVG sources and their geometry were created for KS2 Spelling in this
 repository. They contain no third-party artwork, font, logo or remote asset.
 The native PNG files are rasterised derivatives of these sources.
-

@@ -126,11 +126,585 @@ function ProductTopBar({ title = 'KS2 Spelling', action }) {
   );
 }
 
+function biometricName(type) {
+  if (type === 'face') return 'Face ID';
+  if (type === 'fingerprint') return 'fingerprint';
+  return 'device biometrics';
+}
+
+function parentErrorCopy(state, localError) {
+  if (localError) return localError;
+  if (state.actionError === 'parent_pin_incorrect') {
+    return `That PIN was not recognised. ${state.attemptsRemaining} attempts remain.`;
+  }
+  if (state.actionError === 'parent_pin_temporarily_locked') {
+    return 'Too many attempts. Wait five minutes, then try again.';
+  }
+  return state.actionError
+    ? 'Parent access needs attention. Please try again.'
+    : '';
+}
+
+function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
+  const [editing, setEditing] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [nickname, setNickname] = useState(profile.nickname);
+  const [yearGroup, setYearGroup] = useState(profile.yearGroup);
+  const [goal, setGoal] = useState(profile.goal);
+  const [resetConfirmation, setResetConfirmation] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
+
+  async function save(event) {
+    event.preventDefault();
+    if (busy || nickname.trim() === '') return;
+    setBusy(true);
+    setActionError('');
+    try {
+      await onEdit({
+        learnerId: profile.learnerId,
+        nickname: nickname.trim(),
+        yearGroup,
+        goal,
+        colour: profile.colour,
+      });
+      setEditing(false);
+    } catch {
+      setActionError('That learner change did not save. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (busy || deleteConfirmation !== profile.nickname) return;
+    setBusy(true);
+    setActionError('');
+    try {
+      await onRemove(profile.learnerId);
+    } catch {
+      setActionError('That learner was not deleted. Please try again.');
+      setBusy(false);
+    }
+  }
+
+  async function resetLearning() {
+    if (busy || resetConfirmation !== profile.nickname) return;
+    setBusy(true);
+    setActionError('');
+    try {
+      await onReset(profile.learnerId);
+      setConfirmingReset(false);
+      setResetConfirmation('');
+    } catch {
+      setActionError('That learning was not reset. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li>
+      <div className="parent-learner-summary">
+        <span
+          className="learner-avatar parent-learner-avatar"
+          style={{ '--learner-colour': profile.colour }}
+          aria-hidden="true"
+        >
+          {profile.nickname.slice(0, 1).toUpperCase()}
+        </span>
+        <span>
+          <strong>{profile.nickname}</strong>
+          <small>
+            {displayYearGroup(profile.yearGroup)} · {profile.goal} words a week
+          </small>
+        </span>
+      </div>
+      <div className="parent-learner-actions">
+        <button
+          type="button"
+          className="button-quiet"
+          disabled={busy}
+          onClick={() => {
+            setEditing((value) => !value);
+            setConfirmingReset(false);
+            setConfirmingDelete(false);
+            setActionError('');
+          }}
+        >
+          Edit {profile.nickname}
+        </button>
+        <button
+          type="button"
+          className="button-quiet"
+          disabled={busy}
+          onClick={() => {
+            setConfirmingReset((value) => !value);
+            setEditing(false);
+            setConfirmingDelete(false);
+            setResetConfirmation('');
+            setActionError('');
+          }}
+        >
+          Reset learning
+        </button>
+        <button
+          type="button"
+          className="button-quiet"
+          disabled={busy}
+          onClick={() => {
+            setConfirmingDelete((value) => !value);
+            setEditing(false);
+            setConfirmingReset(false);
+            setDeleteConfirmation('');
+            setActionError('');
+          }}
+        >
+          Delete learner
+        </button>
+      </div>
+
+      {editing && (
+        <form className="parent-edit-form" onSubmit={(event) => void save(event)}>
+          <label>
+            Name or nickname
+            <input
+              type="text"
+              maxLength="40"
+              autoComplete="off"
+              value={nickname}
+              disabled={busy}
+              onChange={(event) => setNickname(event.target.value)}
+            />
+          </label>
+          <div className="field-pair">
+            <label>
+              Year group
+              <select
+                value={yearGroup}
+                disabled={busy}
+                onChange={(event) => setYearGroup(event.target.value)}
+              >
+                {['Y3', 'Y4', 'Y5', 'Y6'].map((year) => (
+                  <option key={year} value={year}>{displayYearGroup(year)}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Weekly goal
+              <select
+                value={goal}
+                disabled={busy}
+                onChange={(event) => setGoal(Number(event.target.value))}
+              >
+                {[5, 10, 15, 20].map((value) => (
+                  <option key={value} value={value}>{value} words</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <button type="submit" className="button-primary" disabled={busy}>
+            Save learner
+          </button>
+        </form>
+      )}
+
+      {confirmingReset && (
+        <section className="parent-reset-confirmation" aria-label={`Reset ${profile.nickname}`}>
+          <p>
+            This clears {profile.nickname}&apos;s spelling progress, active
+            round, Inklet and Camp. The learner profile remains. Type{' '}
+            <strong>{profile.nickname}</strong> to confirm.
+          </p>
+          <label>
+            Confirmation
+            <input
+              type="text"
+              autoComplete="off"
+              value={resetConfirmation}
+              disabled={busy}
+              onChange={(event) => setResetConfirmation(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="button-danger"
+            disabled={busy || resetConfirmation !== profile.nickname}
+            onClick={() => void resetLearning()}
+          >
+            Reset {profile.nickname}&apos;s learning
+          </button>
+        </section>
+      )}
+
+      {confirmingDelete && (
+        <section className="parent-delete-confirmation" aria-label={`Delete ${profile.nickname}`}>
+          <p>
+            This permanently deletes {profile.nickname}&apos;s local learning.
+            Type <strong>{profile.nickname}</strong> to confirm.
+          </p>
+          <label>
+            Confirmation
+            <input
+              type="text"
+              autoComplete="off"
+              value={deleteConfirmation}
+              disabled={busy}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="button-danger"
+            disabled={busy || deleteConfirmation !== profile.nickname}
+            onClick={() => void remove()}
+          >
+            Permanently delete {profile.nickname}
+          </button>
+        </section>
+      )}
+
+      {actionError && (
+        <p className="inline-error" role="alert">{actionError}</p>
+      )}
+    </li>
+  );
+}
+
+export function ParentArea({
+  state,
+  profiles,
+  onClose,
+  onSetPin,
+  onUnlockPin,
+  onUnlockBiometrics,
+  onSetBiometricsEnabled,
+  onEditProfile,
+  onRemoveProfile,
+  onResetLearning,
+  onExportBackup,
+  onImportBackup,
+}) {
+  const [pin, setPin] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [localError, setLocalError] = useState('');
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupMessage, setBackupMessage] = useState('');
+  const [backupError, setBackupError] = useState('');
+  const [confirmingImport, setConfirmingImport] = useState(false);
+  const [importConfirmation, setImportConfirmation] = useState('');
+  const biometric = biometricName(state.biometric.type);
+
+  async function run(action) {
+    if (busy) return;
+    setBusy(true);
+    setLocalError('');
+    try {
+      await action();
+      setPin('');
+      setConfirmation('');
+    } catch {
+      setLocalError('That did not work. Check the details and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runBackup(action, successMessage) {
+    if (backupBusy) return;
+    setBackupBusy(true);
+    setBackupMessage('');
+    setBackupError('');
+    try {
+      const result = await action();
+      setBackupMessage(
+        result?.cancelled === true
+          ? 'No backup was imported.'
+          : successMessage,
+      );
+      setConfirmingImport(false);
+      setImportConfirmation('');
+    } catch {
+      setBackupError('The backup did not complete. No learning was replaced.');
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+  if (state.status === 'unlocked') {
+    return (
+      <main className="product-app product-page parent-page" aria-labelledby="parent-title">
+        <ProductTopBar
+          title="Parent area"
+          action={(
+            <button type="button" className="topbar-action" onClick={onClose}>
+              Done
+            </button>
+          )}
+        />
+        <section className="welcome-panel parent-heading">
+          <p className="product-kicker">Grown-ups only</p>
+          <h1 id="parent-title">Parent area</h1>
+          <p>Manage local learners and device security.</p>
+        </section>
+
+        <div className="parent-grid">
+          <section className="paper-card parent-card" aria-labelledby="manage-learners-title">
+            <p className="product-kicker">This device</p>
+            <h2 id="manage-learners-title">Manage learners</h2>
+            {profiles.length === 0 ? (
+              <p>No learners have been added yet.</p>
+            ) : (
+              <ul className="parent-learner-list">
+                {profiles.map((profile) => (
+                  <ParentLearnerManager
+                    key={profile.learnerId}
+                    profile={profile}
+                    onEdit={onEditProfile}
+                    onRemove={onRemoveProfile}
+                    onReset={onResetLearning}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="paper-card parent-card" aria-labelledby="parent-security-title">
+            <p className="product-kicker">Device security</p>
+            <h2 id="parent-security-title">Quick unlock</h2>
+            {state.biometric.available ? (
+              <>
+                <p>
+                  {state.biometric.enabled
+                    ? `${biometric} is on.`
+                    : `${biometric} is off.`}
+                  {' '}The Parent PIN still works at any time.
+                </p>
+                <button
+                  type="button"
+                  className="button-quiet"
+                  disabled={busy}
+                  onClick={() => void run(
+                    () => onSetBiometricsEnabled(!state.biometric.enabled),
+                  )}
+                >
+                  {state.biometric.enabled
+                    ? `Turn off ${biometric}`
+                    : `Turn on ${biometric}`}
+                </button>
+              </>
+            ) : (
+              <p>Biometric unlock is not available on this device.</p>
+            )}
+            {parentErrorCopy(state, localError) && (
+              <p className="inline-error" role="alert">
+                {parentErrorCopy(state, localError)}
+              </p>
+            )}
+          </section>
+
+          <section className="paper-card parent-card" aria-labelledby="parent-backup-title">
+            <p className="product-kicker">Move or recover learning</p>
+            <h2 id="parent-backup-title">Learning backup</h2>
+            <p>
+              Export saves learner profiles and learning to a file you control.
+              Deleting a learner here does not delete copies exported elsewhere.
+            </p>
+            <div className="parent-backup-actions">
+              <button
+                type="button"
+                className="button-quiet"
+                disabled={backupBusy}
+                onClick={() => void runBackup(
+                  onExportBackup,
+                  'The learning backup is ready to save.',
+                )}
+              >
+                Export learning backup
+              </button>
+              {!confirmingImport && (
+                <button
+                  type="button"
+                  className="button-quiet"
+                  disabled={backupBusy}
+                  onClick={() => {
+                    setBackupMessage('');
+                    setBackupError('');
+                    setConfirmingImport(true);
+                  }}
+                >
+                  Import learning backup
+                </button>
+              )}
+            </div>
+            <p className="parent-backup-warning">
+              Import replaces every learner and learning snapshot on this
+              device. The Parent PIN, purchases and installed packs stay
+              unchanged.
+            </p>
+            {confirmingImport && (
+              <section
+                className="parent-import-confirmation"
+                aria-label="Confirm learning backup import"
+              >
+                <label htmlFor="parent-backup-confirmation">
+                  Type <strong>REPLACE</strong> to continue
+                </label>
+                <input
+                  id="parent-backup-confirmation"
+                  type="text"
+                  value={importConfirmation}
+                  autoComplete="off"
+                  disabled={backupBusy}
+                  onChange={(event) =>
+                    setImportConfirmation(event.target.value)}
+                />
+                <div className="parent-backup-actions">
+                  <button
+                    type="button"
+                    className="button-danger"
+                    disabled={
+                      backupBusy || importConfirmation !== 'REPLACE'
+                    }
+                    onClick={() => void runBackup(
+                      onImportBackup,
+                      'The learning backup was imported.',
+                    )}
+                  >
+                    Choose backup and replace learners
+                  </button>
+                  <button
+                    type="button"
+                    className="button-quiet"
+                    disabled={backupBusy}
+                    onClick={() => {
+                      setConfirmingImport(false);
+                      setImportConfirmation('');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </section>
+            )}
+            {backupMessage && (
+              <p className="inline-status" role="status">{backupMessage}</p>
+            )}
+            {backupError && (
+              <p className="inline-error" role="alert">{backupError}</p>
+            )}
+          </section>
+        </div>
+      </main>
+    );
+  }
+
+  const settingUp = state.status === 'setup-required';
+  return (
+    <main className="product-app product-page parent-page" aria-labelledby="parent-access-title">
+      <ProductTopBar
+        title="Parent access"
+        action={(
+          <button type="button" className="topbar-action" onClick={onClose}>
+            Back
+          </button>
+        )}
+      />
+      <section className="paper-card parent-gate-card">
+        <p className="product-kicker">Grown-ups only</p>
+        <h1 id="parent-access-title">
+          {settingUp ? 'Set a Parent PIN' : 'Enter Parent PIN'}
+        </h1>
+        <p>
+          {settingUp
+            ? 'Choose six digits that are not repeated or in a simple sequence.'
+            : 'Enter the six-digit Parent PIN to continue.'}
+        </p>
+        <form
+          className="parent-pin-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void run(() => settingUp
+              ? onSetPin({ pin, confirmation })
+              : onUnlockPin(pin));
+          }}
+        >
+          <label htmlFor="parent-pin">
+            {settingUp ? 'New Parent PIN' : 'Parent PIN'}
+          </label>
+          <input
+            id="parent-pin"
+            name="parent-pin"
+            type="password"
+            inputMode="numeric"
+            pattern="[0-9]{6}"
+            maxLength="6"
+            autoComplete={settingUp ? 'new-password' : 'current-password'}
+            value={pin}
+            disabled={busy}
+            onChange={(event) => setPin(event.target.value)}
+          />
+          {settingUp && (
+            <>
+              <label htmlFor="parent-pin-confirmation">Confirm Parent PIN</label>
+              <input
+                id="parent-pin-confirmation"
+                name="parent-pin-confirmation"
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength="6"
+                autoComplete="new-password"
+                value={confirmation}
+                disabled={busy}
+                onChange={(event) => setConfirmation(event.target.value)}
+              />
+            </>
+          )}
+          <button
+            type="submit"
+            className="button-primary"
+            disabled={
+              busy ||
+              pin.length !== 6 ||
+              (settingUp && confirmation.length !== 6)
+            }
+          >
+            {busy ? 'Checking…' : settingUp ? 'Set Parent PIN' : 'Unlock'}
+          </button>
+        </form>
+
+        {!settingUp &&
+          state.biometric.available &&
+          state.biometric.enabled && (
+            <button
+              type="button"
+              className="button-quiet parent-biometric-button"
+              disabled={busy}
+              onClick={() => void run(onUnlockBiometrics)}
+            >
+              Use {biometric}
+            </button>
+          )}
+        {parentErrorCopy(state, localError) && (
+          <p className="inline-error" role="alert">
+            {parentErrorCopy(state, localError)}
+          </p>
+        )}
+      </section>
+    </main>
+  );
+}
+
 function ProfilePicker({
   profileState,
   audioState,
   onChoose,
   onCreate,
+  onOpenParent,
   onRecoverAudio,
 }) {
   const [nickname, setNickname] = useState('');
@@ -152,7 +726,13 @@ function ProfilePicker({
 
   return (
     <main className="product-app product-page" aria-labelledby="profile-title">
-      <ProductTopBar />
+      <ProductTopBar
+        action={(
+          <button type="button" className="topbar-action" onClick={onOpenParent}>
+            For parents
+          </button>
+        )}
+      />
       <section className="welcome-panel">
         <p className="product-kicker">Your pocket expedition</p>
         <h1 id="profile-title">Who is practising?</h1>
@@ -758,6 +1338,10 @@ export default function ProductApp({ services }) {
   const [audioState, setAudioState] = useState(() =>
     services.audioAvailability.getState(),
   );
+  const [parentState, setParentState] = useState(() =>
+    services.parent.getState(),
+  );
+  const [parentOpen, setParentOpen] = useState(false);
   const [voiceId, setVoiceId] = useState('Iapetus');
 
   useEffect(() => {
@@ -765,10 +1349,12 @@ export default function ProductApp({ services }) {
     const learningSubscription = services.learning.subscribe(setLearningState);
     const audioSubscription =
       services.audioAvailability.subscribe(setAudioState);
+    const parentSubscription = services.parent.subscribe(setParentState);
     return () => {
       profileSubscription.remove();
       learningSubscription.remove();
       audioSubscription.remove();
+      parentSubscription.remove();
     };
   }, [services]);
 
@@ -792,6 +1378,32 @@ export default function ProductApp({ services }) {
     void services.audioAvailability.recover().catch(() => undefined);
   };
   const showScreen = (screen) => services.learning.showScreen(screen);
+  const closeParent = () => {
+    services.parent.lock();
+    setParentOpen(false);
+  };
+
+  if (parentOpen) {
+    return (
+      <ParentArea
+        state={parentState}
+        profiles={profileState.profiles}
+        onClose={closeParent}
+        onSetPin={(candidate) => services.parent.setPin(candidate)}
+        onUnlockPin={(candidate) => services.parent.unlockWithPin(candidate)}
+        onUnlockBiometrics={() => services.parent.unlockWithBiometrics()}
+        onSetBiometricsEnabled={(enabled) =>
+          services.parent.setBiometricsEnabled(enabled)}
+        onEditProfile={(draft) => services.controller.editProfile(draft)}
+        onRemoveProfile={(learnerId) =>
+          services.controller.removeProfile(learnerId)}
+        onResetLearning={(learnerId) =>
+          services.parentAdministration.resetLearning(learnerId)}
+        onExportBackup={() => services.parentBackup.exportBackup()}
+        onImportBackup={() => services.parentBackup.importBackup()}
+      />
+    );
+  }
 
   if (
     learningState.screen === 'profiles' ||
@@ -804,6 +1416,7 @@ export default function ProductApp({ services }) {
         onChoose={(learnerId) =>
           services.controller.selectProfile(learnerId).catch(() => undefined)}
         onCreate={(draft) => services.controller.createProfile(draft)}
+        onOpenParent={() => setParentOpen(true)}
         onRecoverAudio={recoverAudio}
       />
     );

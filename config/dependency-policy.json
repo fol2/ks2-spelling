@@ -386,6 +386,27 @@
       "version": "C2B",
       "status": "C2B local capability; final physical proof deferred",
       "source": "App-owned Swift LocalAuthentication and Java AndroidX Biometric sources"
+    },
+    {
+      "capability": "InstalledAudio",
+      "packageName": "app-owned-installed-audio-bridge",
+      "version": "C3",
+      "status": "C3 local capability; final acoustic proof deferred",
+      "source": "App-owned bounded Swift and Java installed-pack readers"
+    },
+    {
+      "capability": "LearningBackupFile",
+      "packageName": "app-owned-learning-backup-file-bridge",
+      "version": "C2B",
+      "status": "C2B local capability; final physical proof deferred",
+      "source": "App-owned Swift and Java system document bridges"
+    },
+    {
+      "capability": "LocalDataProtection",
+      "packageName": "app-owned-local-data-protection-bridge",
+      "version": "C2B",
+      "status": "C2B local capability; final physical proof deferred",
+      "source": "App-owned Swift and Java local storage policy enforcement"
     }
   ],
   "candidatePlugins": [

@@ -8,6 +8,9 @@ import {
   createSelectedAppServices,
   selectNativeAppComposition,
 } from './app/create-app-services.js';
+import {
+  createProductFailureServices,
+} from './app/product-failure-services.js';
 
 const root = document.getElementById('root');
 
@@ -34,79 +37,6 @@ function failureServices(platformRequirement) {
   });
 }
 
-function productFailureServices() {
-  const state = Object.freeze({
-    status: 'failed',
-    profiles: Object.freeze([]),
-    selectedLearnerId: null,
-    actionError: 'product_startup_failed',
-  });
-  const rejectAction = () => Promise.reject(
-    new Error('product_startup_failed'),
-  );
-  const audioState = Object.freeze({
-    status: 'unavailable',
-    activeVersion: null,
-    actionError: 'starter_audio_check_failed',
-  });
-  const learningState = Object.freeze({
-    status: 'ready',
-    screen: 'profiles',
-    learnerId: null,
-    practice: null,
-    summary: null,
-    progress: Object.freeze([]),
-    monsters: Object.freeze([]),
-    camp: null,
-    actionError: 'product_startup_failed',
-  });
-  return Object.freeze({
-    mode: 'product',
-    controller: Object.freeze({
-      getState: () => state,
-      subscribe(listener) {
-        listener(state);
-        return Object.freeze({ remove() {} });
-      },
-      createProfile: rejectAction,
-      editProfile: rejectAction,
-      selectProfile: rejectAction,
-      removeProfile: rejectAction,
-      async dispose() {},
-    }),
-    audioAvailability: Object.freeze({
-      getState: () => audioState,
-      subscribe(listener) {
-        listener(audioState);
-        return Object.freeze({ remove() {} });
-      },
-      refresh: rejectAction,
-      recover: rejectAction,
-      reportPlaybackFailure() {},
-      async dispose() {},
-    }),
-    learning: Object.freeze({
-      getState: () => learningState,
-      subscribe(listener) {
-        listener(learningState);
-        return Object.freeze({ remove() {} });
-      },
-      selectLearner: rejectAction,
-      showScreen() {
-        throw new Error('product_startup_failed');
-      },
-      startSmartRound: rejectAction,
-      submitAnswer: rejectAction,
-      continueRound: rejectAction,
-      endRound: rejectAction,
-      async dispose() {},
-    }),
-    audio: Object.freeze({
-      play: rejectAction,
-    }),
-  });
-}
-
 async function bootstrap() {
   let services;
   if (Capacitor.isNativePlatform()) {
@@ -122,7 +52,7 @@ async function bootstrap() {
           platform: Capacitor.getPlatform(),
         });
       } catch {
-        services = productFailureServices();
+        services = createProductFailureServices();
       }
     } else if (
       composition.serviceMode === 'b3' ||

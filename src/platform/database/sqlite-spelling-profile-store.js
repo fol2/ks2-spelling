@@ -6,7 +6,8 @@ import { canonicalJson } from './canonical-json.js';
 import { assertSqlConnection } from './sql-connection-contract.js';
 import { runOwnedTransaction } from './sqlite-transaction-runner.js';
 
-const SELECTED_LEARNER_KEY = 'product-selected-learner-v1';
+export const PRODUCT_SELECTED_LEARNER_KEY = 'product-selected-learner-v1';
+const SELECTED_LEARNER_KEY = PRODUCT_SELECTED_LEARNER_KEY;
 const CANONICAL_LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const EMPTY_ENTITLEMENTS_JSON = canonicalJson([]);
 const INITIAL_SUBJECT_STATE_JSON = canonicalJson({
@@ -290,5 +291,26 @@ export function createSQLiteSpellingProfileStore({ connection, gate, now } = {})
     },
   });
 
-  return Object.freeze({ profiles, selection });
+  const administration = Object.freeze({
+    async resetLearning(learnerId) {
+      requireLearnerId(learnerId);
+      const sampledAt = sampleTimestamp(now);
+      return gate.run(() => runOwnedTransaction(connection, async () => {
+        if ((await queryProfile(connection, learnerId)) === null) {
+          throw storeError('sqlite_profile_missing');
+        }
+        const removed = await connection.execute(
+          'DELETE FROM spelling_aggregates WHERE learner_id = ?',
+          [learnerId],
+        );
+        if (removed.changes !== 1) {
+          throw storeError('sqlite_profile_learning_reset_failed');
+        }
+        await insertInitialSnapshot(connection, learnerId, sampledAt);
+        return true;
+      }));
+    },
+  });
+
+  return Object.freeze({ profiles, selection, administration });
 }

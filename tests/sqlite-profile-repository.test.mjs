@@ -43,12 +43,13 @@ async function createHarness(t, { now = () => 100 } = {}) {
 test('SQLite profile store exposes the frozen async profile contract and selects its first learner', async (t) => {
   const { connection, store } = await createHarness(t);
 
-  assert.deepEqual(Object.keys(store), ['profiles', 'selection']);
+  assert.deepEqual(Object.keys(store), ['profiles', 'selection', 'administration']);
   assert.equal(validateSpellingProfileRepository(store.profiles), store.profiles);
   assert.deepEqual(Object.keys(store.selection), [
     'readSelectedLearnerId',
     'selectLearner',
   ]);
+  assert.deepEqual(Object.keys(store.administration), ['resetLearning']);
   assert.deepEqual(await store.profiles.listProfiles(), []);
   assert.equal(await store.selection.readSelectedLearnerId(), null);
 
@@ -78,6 +79,71 @@ test('SQLite profile store exposes the frozen async profile contract and selects
       state_json: '{"data":{"achievements":{},"guardianMap":{},"pattern":{"wobblingByRuntimeItemId":{}},"persistenceWarning":null,"postMega":null,"prefs":{"autoSpeak":false},"progress":{}},"ui":{}}',
     }],
   );
+});
+
+test('resetting learning is atomic, learner-scoped and preserves the profile', async (t) => {
+  let timestamp = 100;
+  const { connection, store } = await createHarness(t, { now: () => timestamp });
+  const ada = await store.profiles.writeProfile(profile('learner-a'));
+  timestamp = 200;
+  await store.profiles.writeProfile(profile('learner-b'));
+  await connection.execute(
+    'UPDATE spelling_aggregates SET revision = ? WHERE learner_id = ?',
+    [7, 'learner-a'],
+  );
+  await connection.execute(
+    'UPDATE spelling_aggregates SET revision = ? WHERE learner_id = ?',
+    [9, 'learner-b'],
+  );
+  await connection.execute(
+    'INSERT INTO spelling_practice_sessions (learner_id, session_id, status, state_json) VALUES (?, ?, ?, ?)',
+    ['learner-a', 'session-a', 'active', '{}'],
+  );
+  await connection.execute(
+    'INSERT INTO spelling_events (learner_id, event_id, sequence_no, created_at, event_json) VALUES (?, ?, ?, ?, ?)',
+    ['learner-a', 'event-a', 0, 100, '{}'],
+  );
+  await connection.execute(
+    'INSERT INTO spelling_monster_states (learner_id, reward_track_id, state_json) VALUES (?, ?, ?)',
+    ['learner-a', 'track-a', '{}'],
+  );
+  await connection.execute(
+    'INSERT INTO spelling_camp_states (learner_id, pack_id, state_json) VALUES (?, ?, ?)',
+    ['learner-a', 'ks2-core', '{}'],
+  );
+
+  timestamp = 300;
+  assert.equal(await store.administration.resetLearning('learner-a'), true);
+  assert.deepEqual(await store.profiles.readProfile('learner-a'), ada);
+  assert.equal(await store.selection.readSelectedLearnerId(), 'learner-a');
+  assert.deepEqual(
+    await connection.query(
+      'SELECT revision, updated_at FROM spelling_aggregates WHERE learner_id = ?',
+      ['learner-a'],
+    ),
+    [{ revision: 0, updated_at: 300 }],
+  );
+  assert.deepEqual(
+    await connection.query(
+      'SELECT revision FROM spelling_aggregates WHERE learner_id = ?',
+      ['learner-b'],
+    ),
+    [{ revision: 9 }],
+  );
+  for (const table of [
+    'spelling_practice_sessions',
+    'spelling_events',
+    'spelling_monster_states',
+    'spelling_camp_states',
+  ]) {
+    assert.deepEqual(
+      await connection.query(
+        `SELECT learner_id FROM ${table} WHERE learner_id = ?`,
+        ['learner-a'],
+      ),
+      [],
+    );
+  }
 });
 
 test('profile writes retain creation time and list deterministically without resetting progress', async (t) => {

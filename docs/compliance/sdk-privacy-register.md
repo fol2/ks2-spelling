@@ -169,6 +169,37 @@ biometric behaviour remains deferred to the final device proof.
 The frozen B2 reports and their historical statements above are not rewritten
 by this C2B transition.
 
+The production database continues to use the explicit `no-encryption` SQLite
+mode. SQLCipher remains packaged, but the app does not claim application-level
+database encryption and does not perform the plugin's destructive encryption
+migration. Instead, one app-owned policy bridge runs before the first database
+open and again after initial migration. On iOS it applies and verifies Complete
+file protection on `Library/CapacitorDatabase`, rejects symbolic links and
+excludes that directory from automatic backup. On Android it verifies that
+automatic backup is disabled and that the database directory is private to the
+application. A mismatch fails product bootstrap without replacing or
+transforming the database bytes. Physical-device storage behaviour remains
+part of the final proof.
+
+The iOS Simulator app process currently returns no protection attribute
+immediately after Complete protection is requested; a later host-side read
+reports Complete Until First User Authentication. The native bridge records
+the in-process result as unobservable and does not promote the later host
+observation to a physical-device claim. The physical branch continues to
+require Complete protection.
+
+Parent-controlled learning backup is explicit rather than automatic. A backup
+is canonical JSON bounded to 5 MiB and 20 learners. It contains only learner
+profiles, the selected learner and validated spelling snapshots. It excludes
+the Parent credential record, commerce state, download jobs and installed
+packs. Import verifies the native file hash and complete application contract
+before one SQLite transaction replaces learner state; cancellation, invalid
+input or an interrupted write cannot partially replace it. The system document
+picker and share sheet are exposed by one bounded app-owned bridge. No
+third-party Capacitor filesystem package or storage permission is added.
+Exported copies are controlled by the Parent and are outside later in-app
+deletion.
+
 ## Not approved candidates
 
 | Capability | Candidate package | Status |

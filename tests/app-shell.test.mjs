@@ -171,6 +171,10 @@ test('the production shell renders local profiles without proof or commerce cont
   });
   t.after(() => vite.close());
   const { default: App } = await vite.ssrLoadModule('/src/app/App.jsx');
+  const { ParentArea } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
+  const { createProductFailureServices } = await vite.ssrLoadModule(
+    '/src/app/product-failure-services.js',
+  );
   const state = Object.freeze({
     status: 'ready',
     profiles: Object.freeze([Object.freeze({
@@ -206,6 +210,37 @@ test('the production shell renders local profiles without proof or commerce cont
     async recover() {},
     reportPlaybackFailure() {},
     async dispose() {},
+  });
+  const parentState = Object.freeze({
+    status: 'locked',
+    biometric: Object.freeze({
+      available: true,
+      type: 'face',
+      enabled: true,
+    }),
+    attemptsRemaining: 5,
+    lockedUntil: 0,
+    actionError: null,
+  });
+  const parent = Object.freeze({
+    getState: () => parentState,
+    subscribe: () => Object.freeze({ remove() {} }),
+    async setPin() {},
+    async unlockWithPin() {},
+    async unlockWithBiometrics() {},
+    async setBiometricsEnabled() {},
+    lock() {},
+  });
+  const parentAdministration = Object.freeze({
+    async resetLearning() {},
+  });
+  const parentBackup = Object.freeze({
+    async exportBackup() {
+      return Object.freeze({ presented: true });
+    },
+    async importBackup() {
+      return Object.freeze({ cancelled: true });
+    },
   });
   let learningState = Object.freeze({
     status: 'ready',
@@ -248,12 +283,23 @@ test('the production shell renders local profiles without proof or commerce cont
     controller,
     learning,
     audioAvailability,
+    parent,
+    parentAdministration,
+    parentBackup,
     audio: Object.freeze({ async play() {} }),
   });
   const render = () => renderToStaticMarkup(
     React.createElement(App, { services }),
   );
   const html = render();
+
+  const failureHtml = renderToStaticMarkup(
+    React.createElement(App, {
+      services: createProductFailureServices(),
+    }),
+  );
+  assert.match(failureHtml, /Your saved learning could not open/);
+  assert.match(failureHtml, /Your local data has not been replaced/);
 
   assert.match(html, /Who is practising\?/);
   assert.match(html, /Ada/);
@@ -263,11 +309,67 @@ test('the production shell renders local profiles without proof or commerce cont
   assert.match(html, /Listening pack needs setup/);
   assert.match(html, /pre-recorded audio/i);
   assert.match(html, /Check again/);
+  assert.match(html, /For parents/);
   assert.doesNotMatch(html, /speech synthesis|text.to.speech|network speech/i);
   assert.doesNotMatch(
     html,
-    /B1|B2|B3|B4|proof|diagnostic|buy|restore|price|commerce|remove|delete/i,
+    /B1|B2|B3|B4|proof|diagnostic|buy|restore|price|commerce|remove|delete|Manage learners/i,
   );
+
+  const lockedParentHtml = renderToStaticMarkup(
+    React.createElement(ParentArea, {
+      state: parentState,
+      profiles: state.profiles,
+      onClose() {},
+      async onSetPin() {},
+      async onUnlockPin() {},
+      async onUnlockBiometrics() {},
+      async onSetBiometricsEnabled() {},
+      async onEditProfile() {},
+      async onRemoveProfile() {},
+      async onResetLearning() {},
+      async onExportBackup() {},
+      async onImportBackup() {},
+    }),
+  );
+  assert.match(lockedParentHtml, /Parent access/);
+  assert.match(lockedParentHtml, /Enter Parent PIN/);
+  assert.match(lockedParentHtml, /Use Face ID/);
+  assert.doesNotMatch(
+    lockedParentHtml,
+    /Manage learners|Delete learner|Reset learning|learning backup|Restore purchase|Buy/i,
+  );
+
+  const unlockedParentHtml = renderToStaticMarkup(
+    React.createElement(ParentArea, {
+      state: Object.freeze({
+        ...parentState,
+        status: 'unlocked',
+      }),
+      profiles: state.profiles,
+      onClose() {},
+      async onSetPin() {},
+      async onUnlockPin() {},
+      async onUnlockBiometrics() {},
+      async onSetBiometricsEnabled() {},
+      async onEditProfile() {},
+      async onRemoveProfile() {},
+      async onResetLearning() {},
+      async onExportBackup() {},
+      async onImportBackup() {},
+    }),
+  );
+  assert.match(unlockedParentHtml, /Parent area/);
+  assert.match(unlockedParentHtml, /Manage learners/);
+  assert.match(unlockedParentHtml, /Ada/);
+  assert.match(unlockedParentHtml, /Edit Ada/);
+  assert.match(unlockedParentHtml, /Delete learner/);
+  assert.match(unlockedParentHtml, /Reset learning/);
+  assert.match(unlockedParentHtml, /Export learning backup/);
+  assert.match(unlockedParentHtml, /Import learning backup/);
+  assert.match(unlockedParentHtml, /replaces every learner/i);
+  assert.match(unlockedParentHtml, /Face ID is on/);
+  assert.doesNotMatch(unlockedParentHtml, /Restore purchase|Buy/i);
 
   learningState = Object.freeze({
     ...learningState,
@@ -419,7 +521,7 @@ test('main selects compile-time product and proof compositions without a web SQL
   assert.match(main, /createSelectedAppServices/);
   assert.match(main, /buildMode:\s*import\.meta\.env\.MODE/);
   assert.match(main, /composition\.serviceMode === 'product'/);
-  assert.match(main, /productFailureServices\(\)/);
+  assert.match(main, /createProductFailureServices\(\)/);
   assert.match(
     main,
     /\?\? failureServices\('Native platform required'\)/,

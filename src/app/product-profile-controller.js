@@ -170,6 +170,9 @@ export function createProductProfileController({
     removeProfile(learnerId) {
       return run(() => profiles.removeProfile(learnerId));
     },
+    reload() {
+      return run(async () => undefined);
+    },
     async dispose() {
       if (disposed) return;
       disposed = true;

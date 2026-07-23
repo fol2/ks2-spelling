@@ -26,6 +26,7 @@ test('production services persist profile CRUD and selected learner across a cle
   t.after(() => rm(directory, { force: true, recursive: true }));
   let timestamp = 100;
   let learnerSequence = 0;
+  const protectionCalls = [];
   const options = {
     connectionFactory: async () => createNodeSqliteConnection(databasePath),
     lifecycle: createLifecycle(),
@@ -40,6 +41,23 @@ test('production services persist profile CRUD and selected learner across a cle
         throw new Error('Biometrics unavailable in this test.');
       },
     }),
+    learningBackupFiles: Object.freeze({
+      async presentExport() {
+        return Object.freeze({ presented: true });
+      },
+      async pickImport() {
+        return Object.freeze({ cancelled: true });
+      },
+    }),
+    localDataProtection: Object.freeze({
+      async applyPolicy(request) {
+        protectionCalls.push(structuredClone(request));
+        return Object.freeze({
+          automaticBackupDisabled: true,
+          platformProtection: 'ios-complete',
+        });
+      },
+    }),
     now: () => timestamp,
     random: () => 0.25,
     createLearnerId() {
@@ -52,6 +70,15 @@ test('production services persist profile CRUD and selected learner across a cle
   assert.equal(first.mode, 'product');
   assert.equal(first.databaseName, 'ks2-spelling');
   assert.equal(first.schemaVersion, 2);
+  assert.deepEqual(first.dataPolicy, {
+    applicationEncryption: 'none',
+    automaticBackupDisabled: true,
+    platformProtection: 'ios-complete',
+  });
+  assert.deepEqual(protectionCalls, [
+    { databaseName: 'ks2-spelling' },
+    { databaseName: 'ks2-spelling' },
+  ]);
   assert.deepEqual(Object.keys(first.controller), [
     'getState',
     'subscribe',
@@ -59,6 +86,7 @@ test('production services persist profile CRUD and selected learner across a cle
     'editProfile',
     'selectProfile',
     'removeProfile',
+    'reload',
     'dispose',
   ]);
   assert.deepEqual(first.audioAvailability.getState(), {
@@ -87,6 +115,11 @@ test('production services persist profile CRUD and selected learner across a cle
     'setBiometricsEnabled',
     'lock',
     'dispose',
+  ]);
+  assert.deepEqual(Object.keys(first.parentAdministration), ['resetLearning']);
+  assert.deepEqual(Object.keys(first.parentBackup), [
+    'exportBackup',
+    'importBackup',
   ]);
   assert.deepEqual(first.parent.getState(), {
     status: 'setup-required',
@@ -164,5 +197,10 @@ test('production services persist profile CRUD and selected learner across a cle
   assert.equal(second.learning.getState().screen, 'practice');
   assert.equal(second.learning.getState().learnerId, ben.learnerId);
   assert.equal(second.learning.getState().practice.sessionId, activeSessionId);
+  await second.parentAdministration.resetLearning(ben.learnerId);
+  assert.equal(second.learning.getState().screen, 'home');
+  assert.equal(second.learning.getState().practice, null);
+  assert.deepEqual(second.learning.getState().progress, []);
+  assert.equal(protectionCalls.length, 4);
   await second.dispose();
 });

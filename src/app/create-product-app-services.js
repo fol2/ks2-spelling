@@ -12,6 +12,9 @@ import {
 import { createSQLiteSpellingCommandRepository } from '../platform/database/sqlite-spelling-command-repository.js';
 import { createSQLiteSpellingSnapshotStore } from '../platform/database/sqlite-spelling-snapshot-store.js';
 import { createSQLiteParentSecurityRepository } from '../platform/database/sqlite-parent-security-repository.js';
+import {
+  createSQLiteLearningBackupRepository,
+} from '../platform/database/sqlite-learning-backup-repository.js';
 import { createCapacitorInstalledAudio } from '../platform/audio/capacitor-installed-audio.js';
 import { InstalledAudioPlugin } from '../platform/audio/capacitor-installed-audio-plugin.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
@@ -25,7 +28,20 @@ import {
 import {
   ParentAccessPlugin,
 } from '../platform/security/capacitor-parent-access-plugin.js';
+import {
+  createCapacitorLocalDataProtection,
+} from '../platform/security/capacitor-local-data-protection.js';
+import {
+  LocalDataProtectionPlugin,
+} from '../platform/security/capacitor-local-data-protection-plugin.js';
+import {
+  createCapacitorLearningBackupFiles,
+} from '../platform/backup/capacitor-learning-backup-files.js';
+import {
+  LearningBackupFilePlugin,
+} from '../platform/backup/capacitor-learning-backup-file-plugin.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
+import { createParentBackupService } from './parent-backup-service.js';
 import { createParentSecurityController } from './parent-security-controller.js';
 import { createProductAudioPlayer } from './product-audio-player.js';
 import { createProductLearningController } from './product-learning-controller.js';
@@ -77,6 +93,10 @@ function linkProfileAndLearningControllers(profileController, learningController
       await alignSelectedLearner();
       return removed;
     },
+    async reload() {
+      await profileController.reload();
+      await alignSelectedLearner();
+    },
     dispose: () => profileController.dispose(),
   });
 }
@@ -107,6 +127,10 @@ export async function createProductAppServices(options = {}) {
   const gate = createDatabaseCommandGate();
   const catalogue = loadStarterSpellingCatalogue();
   const cataloguesById = Object.freeze({ [catalogue.catalogueId]: catalogue });
+  const localDataProtection = options.localDataProtection ??
+    createCapacitorLocalDataProtection({
+      LocalDataProtection: LocalDataProtectionPlugin,
+    });
   let lifecycle = null;
   let coordinator = null;
   let controller = null;
@@ -114,8 +138,13 @@ export async function createProductAppServices(options = {}) {
   let audio = null;
   let audioAvailability = null;
   let parent = null;
+  let parentBackup = null;
+  let dataPolicy = null;
 
   try {
+    const initialDataProtection = await localDataProtection.applyPolicy({
+      databaseName: DATABASE_NAME,
+    });
     await connection.open();
     await migrate(connection);
     const profileStore = createSQLiteSpellingProfileStore({
@@ -155,6 +184,21 @@ export async function createProductAppServices(options = {}) {
     });
 
     await connection.close();
+    const verifiedDataProtection = await localDataProtection.applyPolicy({
+      databaseName: DATABASE_NAME,
+    });
+    if (
+      initialDataProtection.automaticBackupDisabled !==
+        verifiedDataProtection.automaticBackupDisabled ||
+      initialDataProtection.platformProtection !==
+        verifiedDataProtection.platformProtection
+    ) {
+      throw new Error('local_data_protection_changed_during_bootstrap');
+    }
+    dataPolicy = Object.freeze({
+      applicationEncryption: 'none',
+      ...verifiedDataProtection,
+    });
     await coordinator.start();
     const [initialProfiles, initialSelectedLearnerId] = await Promise.all([
       profileStore.profiles.listProfiles(),
@@ -205,16 +249,44 @@ export async function createProductAppServices(options = {}) {
       packTransfer,
     });
     await audioAvailability.refresh().catch(() => undefined);
+    const parentAdministration = Object.freeze({
+      async resetLearning(learnerId) {
+        await profileStore.administration.resetLearning(learnerId);
+        if (learning.getState().learnerId === learnerId) {
+          await learning.selectLearner(learnerId);
+        }
+        return true;
+      },
+    });
+    const learningBackupRepository = createSQLiteLearningBackupRepository({
+      connection,
+      gate,
+      cataloguesById,
+      now,
+    });
+    const learningBackupFiles = options.learningBackupFiles ??
+      createCapacitorLearningBackupFiles({
+        LearningBackupFile: LearningBackupFilePlugin,
+      });
+    parentBackup = createParentBackupService({
+      repository: learningBackupRepository,
+      files: learningBackupFiles,
+      afterImport: () => controller.reload(),
+      now,
+    });
     let disposePromise;
     return Object.freeze({
       mode: 'product',
       databaseName: DATABASE_NAME,
       schemaVersion: SCHEMA_VERSION,
+      dataPolicy,
       controller,
       learning,
       audio,
       audioAvailability,
       parent,
+      parentAdministration,
+      parentBackup,
       dispose() {
         disposePromise ??= disposeAll([
           () => parent.dispose(),

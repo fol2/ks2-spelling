@@ -1309,6 +1309,188 @@ h1 {
   font-size: 2rem;
 }
 
+.parent-heading {
+  max-width: 42rem;
+}
+
+.parent-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.parent-card {
+  align-self: start;
+}
+
+.parent-card > p:not(.product-kicker, .inline-error),
+.parent-gate-card > p:not(.product-kicker, .inline-error) {
+  color: var(--ink-soft);
+}
+
+.parent-gate-card {
+  width: min(100%, 34rem);
+  margin: clamp(2rem, 8vh, 5rem) auto 0;
+}
+
+.parent-gate-card h1 {
+  font-size: clamp(2.1rem, 8vw, 3.6rem);
+}
+
+.parent-pin-form {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1.5rem;
+}
+
+.parent-pin-form label {
+  margin-top: 0.35rem;
+  font-weight: 850;
+}
+
+.parent-pin-form input {
+  width: 100%;
+  border: 1px solid rgb(23 50 77 / 28%);
+  padding: 0.7rem 0.9rem;
+  color: var(--ink);
+  background: #fff;
+  font-size: 1.45rem;
+  letter-spacing: 0.32em;
+  text-align: center;
+}
+
+.parent-pin-form .button-primary {
+  margin-top: 0.5rem;
+}
+
+.parent-biometric-button {
+  width: 100%;
+  margin-top: 0.8rem;
+}
+
+.parent-learner-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.parent-learner-list li {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+}
+
+.parent-learner-summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.85rem;
+  align-items: center;
+}
+
+.parent-learner-list strong,
+.parent-learner-list small {
+  display: block;
+}
+
+.parent-learner-list small {
+  color: var(--ink-soft);
+}
+
+.parent-learner-avatar {
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 0.9rem 0.9rem 0.9rem 0.25rem;
+  font-size: 1rem;
+}
+
+.parent-learner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+
+.parent-edit-form,
+.parent-edit-form label,
+.parent-reset-confirmation,
+.parent-reset-confirmation label,
+.parent-delete-confirmation,
+.parent-delete-confirmation label {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.parent-edit-form,
+.parent-reset-confirmation,
+.parent-delete-confirmation {
+  margin-top: 0.8rem;
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgb(21 122 118 / 7%);
+}
+
+.parent-edit-form label,
+.parent-delete-confirmation label {
+  font-weight: 800;
+}
+
+.parent-edit-form input,
+.parent-edit-form select,
+.parent-reset-confirmation input,
+.parent-delete-confirmation input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgb(23 50 77 / 28%);
+  padding: 0.7rem 0.8rem;
+  color: var(--ink);
+  background: #fff;
+}
+
+.parent-reset-confirmation,
+.parent-delete-confirmation {
+  background: rgb(164 73 55 / 8%);
+}
+
+.parent-reset-confirmation p,
+.parent-delete-confirmation p {
+  margin-bottom: 0;
+  color: var(--ink-soft);
+}
+
+.parent-backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.parent-backup-warning {
+  border-left: 0.25rem solid var(--coral);
+  padding-left: 0.8rem;
+}
+
+.parent-import-confirmation {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.8rem;
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgb(164 73 55 / 8%);
+}
+
+.parent-import-confirmation label {
+  font-weight: 800;
+}
+
+.parent-import-confirmation input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgb(23 50 77 / 28%);
+  padding: 0.7rem 0.8rem;
+  color: var(--ink);
+  background: #fff;
+}
+
 @supports (font: -apple-system-body) {
   .product-app {
     font: -apple-system-body;
@@ -1337,7 +1519,8 @@ h1 {
 
 @media (max-width: 44rem) {
   .add-learner-card,
-  .trail-hero {
+  .trail-hero,
+  .parent-grid {
     grid-template-columns: 1fr;
   }
 

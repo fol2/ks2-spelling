@@ -6,6 +6,15 @@ import ZIPFoundation
 
 @objc(PackTransferPlugin)
 public final class PackTransferPlugin: CAPPlugin, CAPBridgedPlugin {
+    private static let freeStarterPackId = "ks2-core"
+    private static let packEnvironment: String = {
+#if B3_SANDBOX_PROOF
+        "sandbox"
+#else
+        "production"
+#endif
+    }()
+
     public let identifier = "PackTransferPlugin"
     public let jsName = "PackTransfer"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -127,6 +136,7 @@ public final class PackTransferPlugin: CAPPlugin, CAPBridgedPlugin {
                     archiveName: archiveName
                 )
                 try self.ensureOwnedDirectory(archiveURL.deletingLastPathComponent())
+                try ZipCentralDirectoryInspector.validateManifestCeilings(verified.manifest)
                 guard try self.existingRegularFileBytes(archiveURL) == verified.manifest.archive.bytes else {
                     throw PackTransferError.rejected
                 }
@@ -479,8 +489,8 @@ public final class PackTransferPlugin: CAPPlugin, CAPBridgedPlugin {
         guard let key = keyring.keys.first(where: { $0.keyId == envelope.keyId }),
               keyring.keys.filter({ $0.keyId == envelope.keyId }).count == 1,
               key.algorithm == envelope.algorithm,
-              key.testOnly,
-              key.allowedEnvironments.contains("sandbox"),
+              key.testOnly == (Self.packEnvironment == "sandbox"),
+              key.allowedEnvironments.contains(Self.packEnvironment),
               let keyBytes = Data(base64Encoded: key.publicKeySpkiDerBase64),
               sha256(keyBytes) == key.publicKeySpkiSha256,
               let notBefore = Self.iso8601.date(from: key.notBefore),
@@ -511,7 +521,9 @@ public final class PackTransferPlugin: CAPPlugin, CAPBridgedPlugin {
               let manifest = try? JSONDecoder().decode(PackArchiveManifest.self, from: canonicalBytes),
               manifest.schemaVersion == 1,
               key.allowedPackIds.contains(manifest.packId),
-              manifest.requiredEntitlementId == "full-ks2",
+              manifest.requiredEntitlementId == nil
+                ? manifest.packId == Self.freeStarterPackId
+                : manifest.requiredEntitlementId == "full-ks2",
               manifest.allowedExtensions == [".json", ".m4a"] else {
             throw PackTransferError.rejected
         }

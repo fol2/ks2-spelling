@@ -194,9 +194,22 @@ test('the production shell renders local profiles without proof or commerce cont
     async removeProfile() {},
     async dispose() {},
   });
+  const audioState = Object.freeze({
+    status: 'missing',
+    activeVersion: null,
+    actionError: null,
+  });
+  const audioAvailability = Object.freeze({
+    getState: () => audioState,
+    subscribe: () => Object.freeze({ remove() {} }),
+    async refresh() {},
+    async recover() {},
+    reportPlaybackFailure() {},
+    async dispose() {},
+  });
   const html = renderToStaticMarkup(
     React.createElement(App, {
-      services: Object.freeze({ mode: 'product', controller }),
+      services: Object.freeze({ mode: 'product', controller, audioAvailability }),
     }),
   );
 
@@ -205,6 +218,10 @@ test('the production shell renders local profiles without proof or commerce cont
   assert.match(html, /Year 3/);
   assert.match(html, /Selected/);
   assert.match(html, /Add a learner/);
+  assert.match(html, /Listening pack needs setup/);
+  assert.match(html, /pre-recorded audio/i);
+  assert.match(html, /Check again/);
+  assert.doesNotMatch(html, /speech synthesis|text.to.speech|network speech/i);
   assert.doesNotMatch(
     html,
     /B1|B2|B3|B4|proof|diagnostic|buy|restore|price|commerce|remove|delete/i,

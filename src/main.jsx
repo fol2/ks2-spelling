@@ -44,6 +44,11 @@ function productFailureServices() {
   const rejectAction = () => Promise.reject(
     new Error('product_startup_failed'),
   );
+  const audioState = Object.freeze({
+    status: 'unavailable',
+    activeVersion: null,
+    actionError: 'starter_audio_check_failed',
+  });
   return Object.freeze({
     mode: 'product',
     controller: Object.freeze({
@@ -56,6 +61,17 @@ function productFailureServices() {
       editProfile: rejectAction,
       selectProfile: rejectAction,
       removeProfile: rejectAction,
+      async dispose() {},
+    }),
+    audioAvailability: Object.freeze({
+      getState: () => audioState,
+      subscribe(listener) {
+        listener(audioState);
+        return Object.freeze({ remove() {} });
+      },
+      refresh: rejectAction,
+      recover: rejectAction,
+      reportPlaybackFailure() {},
       async dispose() {},
     }),
   });

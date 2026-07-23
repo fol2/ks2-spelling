@@ -841,6 +841,15 @@ test('combined registration and active flip are atomic and replay-safe', async (
 test('combined activation checks the required entitlement inside its owned transaction', async () => {
   await withDatabase(async ({ connection, repository }) => {
     const first = installedVersion();
+    await rejectsCode(
+      () =>
+        repository.registerAndFlipActiveVersion({
+          requiredEntitlementId: null,
+          installedVersion: first,
+          activeVersion: activeVersion(first),
+        }),
+      'sqlite_pack_input_invalid',
+    );
     await connection.execute(
       'UPDATE app_entitlements SET state = ?, sealed_refresh_handle = NULL, refresh_handle_version = NULL, revocation_at = ? WHERE entitlement_id = ?',
       ['revoked', 1_720_000_000_010, REQUIRED_ENTITLEMENT_ID],

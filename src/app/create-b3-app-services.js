@@ -23,6 +23,9 @@ import { createHttpEntitlementGateway } from '../platform/gateway/http-entitleme
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
 import { createCapacitorPackTransfer } from '../platform/pack-transfer/capacitor-pack-transfer.js';
 import {
+  PackTransferPlugin,
+} from '../platform/pack-transfer/capacitor-pack-transfer-plugin.js';
+import {
   isCapacitorB3ProofObservation,
 } from '../platform/proof/capacitor-b3-proof-observation.js';
 
@@ -40,7 +43,6 @@ import { createPackReconciler } from './pack-reconciler.js';
 import { createPurchaseCoordinator } from './purchase-coordinator.js';
 
 const CommercePlugin = registerPlugin('Commerce');
-const PackTransferPlugin = registerPlugin('PackTransfer');
 const SHA256 = /^[a-f0-9]{64}$/;
 
 function defaultRuntime() {

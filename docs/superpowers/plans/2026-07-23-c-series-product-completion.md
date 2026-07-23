@@ -28,8 +28,9 @@ Use the smallest evidence set that can falsify the changed behaviour:
 2. identify the root cause and close an evidence gate before editing;
 3. add or select one focused RED contract;
 4. implement the smallest production fix and obtain focused GREEN;
-5. run `test:fast`, plus only the affected build, native compile or migration
-   matrix;
+5. run only the focused GREEN check during the milestone; run `test:fast` and
+   the affected build, native compile or migration matrix once at the next
+   integration checkpoint;
 6. obtain one independent read-only verification at a milestone boundary; and
 7. commit one coherent GREEN checkpoint locally.
 
@@ -39,6 +40,10 @@ checkpoints. Physical-device and signed/store journeys belong only at the final
 release-candidate gate. If a check fails, use
 `observe -> root cause -> evidence gate -> TDD -> fix -> independent
 verification`; do not make speculative changes.
+
+Large generated-content checks are milestone commands, not daily-suite tests.
+For C1, one verifier scans the complete audio candidate once; the fast lane
+retains only the pure inventory and authority contract.
 
 ## Permanent product boundaries
 

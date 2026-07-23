@@ -24,7 +24,7 @@ struct PackArchiveManifest: Decodable {
     let ceilings: Ceilings
     let files: [FileRecord]
     let packId: String
-    let requiredEntitlementId: String
+    let requiredEntitlementId: String?
     let schemaVersion: Int
     let version: String
 }
@@ -177,6 +177,10 @@ enum PackRangeResponseValidator {
 }
 
 enum ZipCentralDirectoryInspector {
+    static let maximumFileCount = 1_024
+    static let maximumCompressedBytes = 32 * 1_024 * 1_024
+    static let maximumExtractedBytes = 32 * 1_024 * 1_024
+
     private static let endSignature: UInt32 = 0x06054b50
     private static let centralSignature: UInt32 = 0x02014b50
     private static let localSignature: UInt32 = 0x04034b50
@@ -189,20 +193,26 @@ enum ZipCentralDirectoryInspector {
         let end: Int
     }
 
+    static func validateManifestCeilings(_ manifest: PackArchiveManifest) throws {
+        guard manifest.schemaVersion == 1,
+              manifest.archive.bytes > 0,
+              manifest.archive.bytes <= maximumCompressedBytes,
+              manifest.ceilings.fileCount > 0,
+              manifest.ceilings.fileCount <= maximumFileCount,
+              manifest.ceilings.compressedBytes > 0,
+              manifest.ceilings.compressedBytes <= maximumCompressedBytes,
+              manifest.ceilings.extractedBytes > 0,
+              manifest.ceilings.extractedBytes <= maximumExtractedBytes,
+              Set(manifest.allowedExtensions) == allowedExtensions else {
+            throw PackInspectionError.rejected
+        }
+    }
+
     static func inspect(
         archiveURL: URL,
         manifest: PackArchiveManifest
     ) throws -> InspectedPackInventory {
-        guard manifest.schemaVersion == 1,
-              manifest.ceilings.fileCount > 0,
-              manifest.ceilings.fileCount <= 16,
-              manifest.ceilings.compressedBytes > 0,
-              manifest.ceilings.compressedBytes <= 1_048_576,
-              manifest.ceilings.extractedBytes > 0,
-              manifest.ceilings.extractedBytes <= 4_194_304,
-              Set(manifest.allowedExtensions) == allowedExtensions else {
-            throw PackInspectionError.rejected
-        }
+        try validateManifestCeilings(manifest)
         let data = try Data(contentsOf: archiveURL, options: [.mappedIfSafe])
         guard data.count == manifest.archive.bytes,
               data.count <= manifest.ceilings.compressedBytes,

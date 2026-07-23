@@ -49,6 +49,8 @@ import org.json.JSONObject;
 @CapacitorPlugin(name = "PackTransfer")
 public final class PackTransferPlugin extends Plugin {
     private static final int MAX_RANGE_BYTES = 1_048_576;
+    private static final String PACK_ENVIRONMENT =
+        BuildConfig.B3_SANDBOX_PROOF ? "sandbox" : "production";
     private static final Pattern SAFE_ID = Pattern.compile("^[a-z0-9][a-z0-9._-]{0,63}$");
     private static final Pattern ARCHIVE_NAME = Pattern.compile("^[a-z0-9][a-z0-9._-]{0,119}\\.zip$");
     private static final Pattern SHA256 = Pattern.compile("^[0-9a-f]{64}$");
@@ -56,6 +58,7 @@ public final class PackTransferPlugin extends Plugin {
     private static final Pattern CONTENT_RANGE = Pattern.compile("^bytes ([0-9]+)-([0-9]+)/([1-9][0-9]*)$");
     private static final String GATEWAY_ORIGIN = "https://b3-gateway.eugnel.uk";
     private static final String SIGNING_DOMAIN = "ks2-spelling-pack-manifest-v1";
+    private static final String FREE_STARTER_PACK_ID = "ks2-core";
     private static final Set<String> ALLOWED_EXTENSIONS = Collections.unmodifiableSet(
         new HashSet<>(Arrays.asList(".json", ".m4a"))
     );
@@ -167,6 +170,7 @@ public final class PackTransferPlugin extends Plugin {
             require(verified.archiveName.equals(archiveName));
 
             File archive = partialArchive(packId, version, archiveName);
+            ZipCentralDirectoryInspector.validateManifestCeilings(verified.inventory);
             byte[] archiveBytes = readRegularFile(archive, verified.archiveBytes);
             require(archiveBytes.length == verified.archiveBytes);
             require(sha256(archiveBytes).equals(verified.archiveSha256));
@@ -377,8 +381,10 @@ public final class PackTransferPlugin extends Plugin {
         }
         require(selected != null);
         require(exactKeys(selected, setOf("keyId", "algorithm", "publicKeySpkiDerBase64", "publicKeySpkiSha256", "testOnly", "notBefore", "notAfter", "allowedEnvironments", "allowedPackIds")));
-        require(selected.getBoolean("testOnly"));
-        require(arrayStrings(selected.getJSONArray("allowedEnvironments")).contains("sandbox"));
+        require(selected.getBoolean("testOnly") == "sandbox".equals(PACK_ENVIRONMENT));
+        List<String> allowedEnvironments =
+            arrayStrings(selected.getJSONArray("allowedEnvironments"));
+        require(allowedEnvironments.contains(PACK_ENVIRONMENT));
         require(selected.getString("algorithm").equals(envelope.getString("algorithm")));
         Date now = new Date();
         require(!now.before(parseIso8601(selected.getString("notBefore"))));
@@ -402,7 +408,10 @@ public final class PackTransferPlugin extends Plugin {
         require(manifest.getInt("schemaVersion") == 1);
         String packId = manifest.getString("packId");
         require(arrayStrings(selected.getJSONArray("allowedPackIds")).contains(packId));
-        require("full-ks2".equals(manifest.getString("requiredEntitlementId")));
+        Object requiredEntitlementId = manifest.get("requiredEntitlementId");
+        require(requiredEntitlementId == JSONObject.NULL
+            ? FREE_STARTER_PACK_ID.equals(packId)
+            : "full-ks2".equals(requiredEntitlementId));
         List<String> extensions = arrayStrings(manifest.getJSONArray("allowedExtensions"));
         require(new HashSet<>(extensions).equals(ALLOWED_EXTENSIONS) && extensions.size() == 2);
         JSONObject archive = manifest.getJSONObject("archive");

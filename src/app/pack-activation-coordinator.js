@@ -1,6 +1,7 @@
 const IDENTITY = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
 const REQUIRED_ENTITLEMENT_ID = 'full-ks2';
+const FREE_STARTER_PACK_ID = 'ks2-core';
 
 function activationError(code) {
   return Object.assign(new Error(code), { code });
@@ -93,7 +94,9 @@ function requireVerifiedManifest(result, packId, version) {
   const manifest = result?.manifest;
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest) ||
       manifest.packId !== packId || manifest.version !== version ||
-      manifest.requiredEntitlementId !== REQUIRED_ENTITLEMENT_ID ||
+      (manifest.requiredEntitlementId === null
+        ? manifest.packId !== FREE_STARTER_PACK_ID
+        : manifest.requiredEntitlementId !== REQUIRED_ENTITLEMENT_ID) ||
       !manifest.archive || typeof manifest.archive.name !== 'string' ||
       typeof manifest.archive.sha256 !== 'string' ||
       !Number.isSafeInteger(manifest.archive.bytes) || manifest.archive.bytes <= 0 ||

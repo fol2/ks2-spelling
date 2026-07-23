@@ -29,6 +29,9 @@ test('production services persist profile CRUD and selected learner across a cle
   const options = {
     connectionFactory: async () => createNodeSqliteConnection(databasePath),
     lifecycle: createLifecycle(),
+    packTransfer: Object.freeze({
+      async inventoryInstalledVersions() { return Object.freeze([]); },
+    }),
     now: () => timestamp,
     createLearnerId() {
       learnerSequence += 1;
@@ -49,6 +52,11 @@ test('production services persist profile CRUD and selected learner across a cle
     'removeProfile',
     'dispose',
   ]);
+  assert.deepEqual(first.audioAvailability.getState(), {
+    status: 'missing',
+    activeVersion: null,
+    actionError: null,
+  });
   assert.deepEqual(first.controller.getState(), {
     status: 'ready',
     profiles: [],

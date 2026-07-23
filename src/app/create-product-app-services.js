@@ -4,14 +4,22 @@ import { createDatabaseCommandGate } from '../platform/database/database-command
 import { configureAndMigrateDatabase } from '../platform/database/migrate-database.js';
 import { DATABASE_NAME } from '../platform/database/schema-v1.js';
 import { SCHEMA_VERSION } from '../platform/database/schema-v2.js';
+import { createSqlitePackRepositories } from '../platform/database/sqlite-pack-repositories.js';
 import {
   createSQLiteSpellingProfileStore,
   readSQLiteSelectedLearnerId,
 } from '../platform/database/sqlite-spelling-profile-store.js';
 import { createSQLiteSpellingSnapshotStore } from '../platform/database/sqlite-spelling-snapshot-store.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
+import { createCapacitorPackTransfer } from '../platform/pack-transfer/capacitor-pack-transfer.js';
+import {
+  PackTransferPlugin,
+} from '../platform/pack-transfer/capacitor-pack-transfer-plugin.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
 import { createProductProfileController } from './product-profile-controller.js';
+import {
+  createStarterPackAvailabilityController,
+} from './starter-pack-availability-controller.js';
 import { createSwitchableSqlConnection } from './switchable-sql-connection.js';
 
 function defaultLearnerId() {
@@ -49,6 +57,7 @@ export async function createProductAppServices(options = {}) {
   let lifecycle = null;
   let coordinator = null;
   let controller = null;
+  let audioAvailability = null;
 
   try {
     await connection.open();
@@ -62,6 +71,9 @@ export async function createProductAppServices(options = {}) {
       connection,
       cataloguesById,
     });
+    const packRepository = createSqlitePackRepositories(connection);
+    const packTransfer = options.packTransfer ??
+      createCapacitorPackTransfer({ PackTransfer: PackTransferPlugin });
     lifecycle =
       options.lifecycle ?? (options.lifecycleFactory ?? createCapacitorAppLifecycle)();
     coordinator = createDatabaseLifecycleCoordinator({
@@ -88,14 +100,21 @@ export async function createProductAppServices(options = {}) {
       initialSelectedLearnerId,
       createLearnerId,
     });
+    audioAvailability = createStarterPackAvailabilityController({
+      packRepository,
+      packTransfer,
+    });
+    await audioAvailability.refresh().catch(() => undefined);
     let disposePromise;
     return Object.freeze({
       mode: 'product',
       databaseName: DATABASE_NAME,
       schemaVersion: SCHEMA_VERSION,
       controller,
+      audioAvailability,
       dispose() {
         disposePromise ??= disposeAll([
+          () => audioAvailability.dispose(),
           () => controller.dispose(),
           () => coordinator.dispose(),
           () => lifecycle.dispose(),
@@ -107,6 +126,7 @@ export async function createProductAppServices(options = {}) {
   } catch (error) {
     try {
       await disposeAll([
+        audioAvailability && (() => audioAvailability.dispose()),
         controller && (() => controller.dispose()),
         coordinator && (() => coordinator.dispose()),
         lifecycle && (() => lifecycle.dispose()),

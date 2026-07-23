@@ -23,6 +23,10 @@ import java.util.zip.ZipInputStream;
 
 /** Owns every ZIP metadata decision before platform extraction is allowed. */
 public final class ZipCentralDirectoryInspector {
+    static final int MAXIMUM_FILE_COUNT = 1_024;
+    static final int MAXIMUM_COMPRESSED_BYTES = 32 * 1_024 * 1_024;
+    static final int MAXIMUM_EXTRACTED_BYTES = 32 * 1_024 * 1_024;
+
     private static final long END_SIGNATURE = 0x06054b50L;
     private static final long CENTRAL_SIGNATURE = 0x02014b50L;
     private static final long LOCAL_SIGNATURE = 0x04034b50L;
@@ -37,12 +41,20 @@ public final class ZipCentralDirectoryInspector {
 
     private ZipCentralDirectoryInspector() {}
 
-    public static Inventory inspect(byte[] bytes, ManifestInventory manifest) throws IOException {
+    static void validateManifestCeilings(ManifestInventory manifest) throws IOException {
         require(manifest != null && manifest.schemaVersion == 1);
-        require(manifest.fileCountCeiling > 0 && manifest.fileCountCeiling <= 16);
-        require(manifest.compressedBytesCeiling > 0 && manifest.compressedBytesCeiling <= 1_048_576);
-        require(manifest.extractedBytesCeiling > 0 && manifest.extractedBytesCeiling <= 4_194_304);
+        require(manifest.archiveBytes > 0 && manifest.archiveBytes <= MAXIMUM_COMPRESSED_BYTES);
+        require(manifest.fileCountCeiling > 0
+            && manifest.fileCountCeiling <= MAXIMUM_FILE_COUNT);
+        require(manifest.compressedBytesCeiling > 0
+            && manifest.compressedBytesCeiling <= MAXIMUM_COMPRESSED_BYTES);
+        require(manifest.extractedBytesCeiling > 0
+            && manifest.extractedBytesCeiling <= MAXIMUM_EXTRACTED_BYTES);
         require(new HashSet<>(manifest.allowedExtensions).equals(ALLOWED_EXTENSIONS));
+    }
+
+    public static Inventory inspect(byte[] bytes, ManifestInventory manifest) throws IOException {
+        validateManifestCeilings(manifest);
         require(bytes.length == manifest.archiveBytes
             && bytes.length <= manifest.compressedBytesCeiling && bytes.length >= 22);
 
@@ -148,7 +160,8 @@ public final class ZipCentralDirectoryInspector {
     public static int consumeVerifiedEntries(byte[] archiveBytes, Inventory inventory,
         int extractedBytesCeiling, VerifiedEntryConsumer consumer) throws Exception {
         require(archiveBytes != null && inventory != null && consumer != null);
-        require(extractedBytesCeiling > 0 && extractedBytesCeiling <= 4_194_304);
+        require(extractedBytesCeiling > 0
+            && extractedBytesCeiling <= MAXIMUM_EXTRACTED_BYTES);
         int extractedTotal = 0;
         try (ZipInputStream input = new ZipInputStream(new ByteArrayInputStream(archiveBytes))) {
             for (Entry approved : inventory.entries) {

@@ -8,6 +8,7 @@ const IDENTIFIER = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
 const ARCHIVE_NAME = /^[a-z0-9][a-z0-9._-]{0,59}\.zip$/;
 const REQUIRED_ENTITLEMENT_ID = 'full-ks2';
+const FREE_STARTER_PACK_ID = 'ks2-core';
 const JOB_STATES = Object.freeze([
   'queued',
   'downloading',
@@ -571,10 +572,14 @@ export function createSqlitePackRepositories(connection) {
       input,
       ['requiredEntitlementId', 'installedVersion', 'activeVersion'],
     );
-    requireIdentifier(value.requiredEntitlementId);
-    if (value.requiredEntitlementId !== REQUIRED_ENTITLEMENT_ID) throw inputError();
     const installed = validateInstalled(value.installedVersion);
     const active = validateActive(value.activeVersion);
+    if (value.requiredEntitlementId === null) {
+      if (installed.packId !== FREE_STARTER_PACK_ID) throw inputError();
+    } else {
+      requireIdentifier(value.requiredEntitlementId);
+      if (value.requiredEntitlementId !== REQUIRED_ENTITLEMENT_ID) throw inputError();
+    }
     if (
       installed.packId !== active.packId ||
       installed.version !== active.version ||
@@ -584,12 +589,14 @@ export function createSqlitePackRepositories(connection) {
       throw packError('sqlite_pack_activation_conflict');
     }
     return runOwnedTransaction(connection, async () => {
-      const entitlement = optionalRow(await connection.query(
-        'SELECT state FROM app_entitlements WHERE entitlement_id = ?',
-        [value.requiredEntitlementId],
-      ));
-      if (entitlement?.state !== 'active') {
-        throw packError('sqlite_pack_entitlement_inactive');
+      if (value.requiredEntitlementId !== null) {
+        const entitlement = optionalRow(await connection.query(
+          'SELECT state FROM app_entitlements WHERE entitlement_id = ?',
+          [value.requiredEntitlementId],
+        ));
+        if (entitlement?.state !== 'active') {
+          throw packError('sqlite_pack_entitlement_inactive');
+        }
       }
       await registerInstalledWithinTransaction(connection, installed);
       return flipActiveWithinTransaction(connection, active);

@@ -10,6 +10,8 @@ const PLAN_PATH =
   'docs/superpowers/plans/2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md';
 const B4_PLAN_PATH =
   'docs/superpowers/plans/2026-07-18-standalone-spelling-mobile-b4-capacitor-development-certification.md';
+const C_SERIES_PLAN_PATH =
+  'docs/superpowers/plans/2026-07-23-c-series-product-completion.md';
 const PROTECTED_PATHS = Object.freeze([
   'scripts/build-b2-native-plugin-report.mjs',
   'scripts/lib/frozen-b2-git.mjs',
@@ -55,6 +57,13 @@ export const B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
     'node scripts/collect-b4-development-evidence.mjs --check',
 });
 
+export const C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
+  'build:starter-pack': 'node scripts/build-starter-pack.mjs',
+  'generate:starter-audio': 'node scripts/generate-starter-audio.mjs',
+  'verify:starter-audio': 'node scripts/generate-starter-audio.mjs --check',
+  'verify:starter-pack': 'node scripts/build-starter-pack.mjs',
+});
+
 // SDLC velocity tier (2026-07-22): the local fast-test daily loop and pre-push
 // hook. Developer tooling, not certification steps — they add no CI surface and
 // exclude test files by name only for speed. Registered here because the
@@ -73,6 +82,7 @@ export const SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
 const PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
   ...B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   ...B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+  ...C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   ...SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS,
 });
 
@@ -125,13 +135,15 @@ export async function verifyB3PackageTransitionAuthority({ root = DEFAULT_ROOT }
       'frozenB2Commit',
       'approvedPlanPath',
       'approvedB4PlanPath',
+      'approvedCSeriesPlanPath',
       'allowedPackageScriptAdditions',
       'protectedCurrentFiles',
     ]) ||
-    authority.schemaVersion !== 2 ||
+    authority.schemaVersion !== 3 ||
     authority.frozenB2Commit !== FROZEN_B2_COMMIT ||
     authority.approvedPlanPath !== PLAN_PATH ||
     authority.approvedB4PlanPath !== B4_PLAN_PATH ||
+    authority.approvedCSeriesPlanPath !== C_SERIES_PLAN_PATH ||
     !isDeepStrictEqual(
       authority.allowedPackageScriptAdditions,
       PLANNED_PACKAGE_SCRIPT_ADDITIONS,

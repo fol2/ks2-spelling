@@ -4,7 +4,6 @@ import {
   ARCHIVE_ETAG,
   ARCHIVE_SHA,
   ENVELOPE_SHA,
-  JOB_ID,
   NOW,
   PACK_ID,
   VERSION,
@@ -20,15 +19,18 @@ export function activationHarness({
   jobUpdatedAt = NOW - 10,
   activeActivatedAt = NOW - 20,
   entitlementActive = true,
+  packId = PACK_ID,
+  requiredEntitlementId = 'full-ks2',
   sealFailure = null,
+  version = VERSION,
 } = {}) {
   const calls = [];
   let job = {
-    jobId: JOB_ID,
-    packId: PACK_ID,
-    version: VERSION,
+    jobId: `${packId}.${version}`,
+    packId,
+    version,
     manifestSha256: ENVELOPE_SHA,
-    archiveName: `${PACK_ID}.zip`,
+    archiveName: `${packId}.zip`,
     archiveSha256: ARCHIVE_SHA,
     expectedBytes: 1_324,
     completedBytes: 1_324,
@@ -37,10 +39,10 @@ export function activationHarness({
     updatedAt: jobUpdatedAt,
   };
   let active = {
-    packId: PACK_ID,
+    packId,
     version: '0.9.0',
     manifestSha256: '9'.repeat(64),
-    pathToken: `installed/${PACK_ID}/0.9.0`,
+    pathToken: `installed/${packId}/0.9.0`,
     activatedAt: activeActivatedAt,
   };
   const installedRows = [];
@@ -58,7 +60,7 @@ export function activationHarness({
         manifestSha256: ENVELOPE_SHA,
         extractedBytes: 1_082,
         fileCount: 2,
-        stagingToken: `staging/${PACK_ID}/${VERSION}`,
+        stagingToken: `staging/${packId}/${version}`,
       };
     },
     async sealAndInstall() {
@@ -70,10 +72,10 @@ export function activationHarness({
         });
       }
       const sealed = {
-        packId: PACK_ID,
-        version: VERSION,
+        packId,
+        version,
         manifestSha256: ENVELOPE_SHA,
-        installedPathToken: `installed/${PACK_ID}/${VERSION}`,
+        installedPathToken: `installed/${packId}/${version}`,
         activationMarkerSha256: 'a'.repeat(64),
       };
       inventory = [sealed];
@@ -100,10 +102,10 @@ export function activationHarness({
       return structuredClone(job);
     },
     async registerAndFlipActiveVersion({
-      requiredEntitlementId, installedVersion, activeVersion,
+      requiredEntitlementId: receivedEntitlementId, installedVersion, activeVersion,
     }) {
       calls.push('register+flip');
-      assert.equal(requiredEntitlementId, 'full-ks2');
+      assert.equal(receivedEntitlementId, requiredEntitlementId);
       if (!entitlementActive) {
         throw Object.assign(new Error('sqlite_pack_entitlement_inactive'), {
           code: 'sqlite_pack_entitlement_inactive',
@@ -123,13 +125,31 @@ export function activationHarness({
     dependencies: {
       packTransfer,
       packRepository,
-      manifestVerifier: realManifestVerifier,
+      manifestVerifier: requiredEntitlementId === 'full-ks2' &&
+          packId === PACK_ID && version === VERSION
+        ? realManifestVerifier
+        : async (input) => {
+          const verified = await realManifestVerifier(input);
+          return {
+            ...verified,
+            manifest: {
+              ...verified.manifest,
+              archive: {
+                ...verified.manifest.archive,
+                name: `${packId}.zip`,
+              },
+              packId,
+              requiredEntitlementId,
+              version,
+            },
+          };
+        },
       keyring,
       environment: 'sandbox',
       clock: () => new Date(NOW),
       crashInjector,
     },
-    input: { packId: PACK_ID, version: VERSION, signedManifestEnvelope: ENVELOPE },
+    input: { packId, version, signedManifestEnvelope: ENVELOPE },
     snapshot: () => structuredClone({ active, installedRows, inventory, job }),
   };
 }

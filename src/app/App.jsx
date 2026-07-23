@@ -100,11 +100,19 @@ function ProductApp({ services }) {
   const [profileState, setProfileState] = useState(() =>
     services.controller.getState(),
   );
+  const [audioState, setAudioState] = useState(() =>
+    services.audioAvailability.getState(),
+  );
   const [nickname, setNickname] = useState('');
 
   useEffect(() => {
-    const subscription = services.controller.subscribe(setProfileState);
-    return () => subscription.remove();
+    const profileSubscription = services.controller.subscribe(setProfileState);
+    const audioSubscription =
+      services.audioAvailability.subscribe(setAudioState);
+    return () => {
+      profileSubscription.remove();
+      audioSubscription.remove();
+    };
   }, [services]);
 
   const busy = profileState.status === 'saving';
@@ -174,6 +182,43 @@ function ProductApp({ services }) {
           })}
         </ul>
       )}
+
+      <section
+        className="product-panel"
+        aria-labelledby="starter-audio-title"
+        aria-live="polite"
+      >
+        <h2 id="starter-audio-title">
+          {audioState.status === 'ready'
+            ? 'Listening pack ready'
+            : audioState.status === 'corrupt'
+              ? 'Listening pack needs repair'
+              : audioState.status === 'checking'
+                ? 'Checking the listening pack'
+                : audioState.status === 'unavailable'
+                  ? 'Listening pack could not be checked'
+                  : 'Listening pack needs setup'}
+        </h2>
+        <p>
+          {audioState.status === 'ready'
+            ? 'The verified pre-recorded audio is available on this device.'
+            : audioState.status === 'corrupt'
+              ? 'The local pre-recorded audio did not match its verified pack.'
+              : audioState.status === 'checking'
+                ? 'Checking the local pre-recorded audio now.'
+                : 'Pre-recorded audio is not ready on this device yet.'}
+        </p>
+        {audioState.status !== 'ready' && audioState.status !== 'checking' && (
+          <button
+            type="button"
+            onClick={() => {
+              void services.audioAvailability.recover().catch(() => undefined);
+            }}
+          >
+            Check again
+          </button>
+        )}
+      </section>
 
       <section className="product-panel" aria-labelledby="add-learner-title">
         <h2 id="add-learner-title">Add a learner</h2>

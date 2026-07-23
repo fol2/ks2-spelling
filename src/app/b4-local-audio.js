@@ -53,6 +53,7 @@ export function createB4LocalAudioPlayer({
   let audioDataPromise = null;
   const cache = new Map();
   const buffers = new Map();
+  const warmedPaths = new Set();
 
   function getContext() {
     if (context !== undefined) return context;
@@ -96,9 +97,14 @@ export function createB4LocalAudioPlayer({
   // WebKit can stall the audio-data import or a decode the same way it
   // stalls media loads; a bounded wait drops the stalled entry so it cannot
   // poison later attempts, and lets the element path (which has its own
-  // watchdog) take over.
+  // watchdog) take over. Warm-started decodes are exempt: abandoning them
+  // at the deadline forces slow variants onto a cold element path.
   async function decodeWithDeadline(path) {
+    // Trust an existing in-flight decode even after flush clears warmedPaths
+    // (pause): abandoning that promise reintroduces the cold slow-variant path.
+    const inFlight = buffers.has(path);
     const pending = decodePath(path);
+    if (inFlight || warmedPaths.has(path)) return pending;
     let timer = null;
     const outcome = await Promise.race([
       pending,
@@ -139,6 +145,7 @@ export function createB4LocalAudioPlayer({
   function flush() {
     for (const element of cache.values()) fullReset(element);
     cache.clear();
+    warmedPaths.clear();
   }
 
   function acquire(path) {
@@ -350,6 +357,7 @@ export function createB4LocalAudioPlayer({
   async function warmWebAudio(paths) {
     for (const path of paths) {
       if (typeof path !== 'string' || !SAFE_LOCAL_PATH.test(path)) continue;
+      warmedPaths.add(path);
       if (buffers.has(path)) continue;
       await decodePath(path);
     }
@@ -361,6 +369,7 @@ export function createB4LocalAudioPlayer({
     if (getContext()) return warmWebAudio(sequence);
     for (const path of sequence) {
       if (typeof path !== 'string' || !SAFE_LOCAL_PATH.test(path)) continue;
+      warmedPaths.add(path);
       if (cache.has(path)) continue;
       try {
         const element = createAudioElement();

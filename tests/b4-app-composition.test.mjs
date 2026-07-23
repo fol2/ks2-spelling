@@ -59,7 +59,7 @@ test('normal native composition is the production product and explicit B3 remain
 });
 
 test('B4 uses mode-baked web assets with the ordinary native wrappers', async () => {
-  const [main, packageJson, iosScheme, android] = await Promise.all([
+  const [main, packageJson, iosScheme, android, mountApp] = await Promise.all([
     readFile(new URL('../src/main.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../package.json', import.meta.url), 'utf8'),
     readFile(
@@ -67,8 +67,16 @@ test('B4 uses mode-baked web assets with the ordinary native wrappers', async ()
       'utf8',
     ),
     readFile(new URL('../android/app/build.gradle', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/mount-app.js', import.meta.url), 'utf8'),
   ]);
   assert.match(main, /buildMode:\s*import\.meta\.env\.MODE/u);
+  assert.match(main, /mountApp\(/u);
+  assert.match(main, /AppLoadingShell/u);
+  assert.match(mountApp, /renderLoading\(\)/u);
+  assert.match(
+    mountApp,
+    /Paint a lightweight shell before native service initialisation/u,
+  );
   assert.match(packageJson, /"build:b4-development":\s*"vite build --mode B4Development"/u);
   assert.match(
     packageJson,

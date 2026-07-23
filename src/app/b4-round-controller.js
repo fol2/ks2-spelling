@@ -94,7 +94,7 @@ export function createB4RoundController({
   let startPromise = null;
   const listeners = new Set();
 
-  function warmCurrentPrompt(state) {
+  function warmCurrentPrompt(state, session = null) {
     if (disposed || !state.currentRuntimeItemId) return;
     if (typeof playAudio.warm !== 'function') return;
     try {
@@ -105,6 +105,16 @@ export function createB4RoundController({
           resolveB4AudioPath(audioManifest, { runtimeItemId, sentence, slow: false }),
           resolveB4AudioPath(audioManifest, { runtimeItemId, sentence, slow: true }),
         );
+      }
+      // Bounded prefetch: current word + both dictation paces + next queued
+      // word-natural cue. Sentence prompts for the next card are unknown until
+      // continue commits, so only the word asset is warmed ahead.
+      const nextRuntimeItemId = session?.queueItemIds?.[0] ?? null;
+      if (nextRuntimeItemId) {
+        paths.push(resolveB4AudioPath(audioManifest, {
+          runtimeItemId: nextRuntimeItemId,
+          sentence: null,
+        }));
       }
       playAudio.warm(paths);
     } catch {
@@ -148,12 +158,18 @@ export function createB4RoundController({
     try {
       const path = resolveB4AudioPath(audioManifest, cue);
       const result = await playAudio(path);
-      if (token === playbackGeneration) audio = { status: result.status, error: null };
+      if (token !== playbackGeneration || disposed) return;
+      audio = { status: result.status, error: null };
     } catch (error) {
-      if (token === playbackGeneration) {
-        audio = { status: 'error', error: error?.code ?? 'b4_audio_play_failed' };
-      }
+      if (token !== playbackGeneration || disposed) return;
+      audio = { status: 'error', error: error?.code ?? 'b4_audio_play_failed' };
     }
+    // Audio status is a separate publish from committed feedback so learners
+    // see answer results without waiting for playback to reach "playing".
+    publish(Object.freeze({
+      ...currentState,
+      audio: Object.freeze({ ...audio }),
+    }));
   }
 
   async function replayCurrentPrompt(slow) {
@@ -162,10 +178,7 @@ export function createB4RoundController({
       sentence: currentState.currentSentence,
       slow,
     });
-    return publish(Object.freeze({
-      ...currentState,
-      audio: Object.freeze({ ...audio }),
-    }));
+    return currentState;
   }
 
   const pauseHandle = lifecycle?.onPause?.(() => stopPlayback()) ?? null;
@@ -205,11 +218,15 @@ export function createB4RoundController({
     const state = publish(viewState(committed, audio));
     markB4('b4:state-published');
     measureB4('b4:action-to-publish', 'b4:action-start');
-    warmCurrentPrompt(state);
+    warmCurrentPrompt(state, committed.subjectState?.ui?.session ?? null);
     const effect = plan.transientEffects.find(({ type }) => type === 'audio-cue');
-    if (!effect) return state;
-    await playCue(effect.payload);
-    return publish(viewState(committed, audio));
+    // Fire-and-forget: committed feedback must not wait on audio start.
+    // playCue publishes "starting" synchronously before its first await.
+    if (effect) {
+      void playCue(effect.payload);
+      return currentState;
+    }
+    return state;
   }
 
   async function advance() {
@@ -236,7 +253,7 @@ export function createB4RoundController({
         const snapshot = await read();
         if (snapshot.revision === 0) return runCommand(B4_START_COMMAND);
         const state = publish(viewState(snapshot, audio));
-        warmCurrentPrompt(state);
+        warmCurrentPrompt(state, snapshot.subjectState?.ui?.session ?? null);
         return state;
       })().finally(() => {
         startPromise = null;
@@ -268,8 +285,9 @@ export function createB4RoundController({
     },
     async rehydrate() {
       stopPlayback();
-      const state = publish(viewState(await read(), audio));
-      warmCurrentPrompt(state);
+      const snapshot = await read();
+      const state = publish(viewState(snapshot, audio));
+      warmCurrentPrompt(state, snapshot.subjectState?.ui?.session ?? null);
       return state;
     },
     async dispose() {

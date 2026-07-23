@@ -393,6 +393,64 @@ test('concurrent warm and play decode the same path only once', async () => {
   assert.equal(ctx.decodeCount, 1, 'concurrent warm+play must share one in-flight decode');
 });
 
+test('play waits for an in-flight warm decode instead of abandoning it at the stall deadline', async () => {
+  const fake = fakeAudioFactory();
+  const ctx = fakeAudioContext();
+  const path = 'audio/b4/b4-01.wav';
+  let releaseDecode;
+  const decodeGate = new Promise((resolve) => { releaseDecode = resolve; });
+  const originalDecode = ctx.decodeAudioData.bind(ctx);
+  ctx.decodeAudioData = async (buf) => {
+    await decodeGate;
+    return originalDecode(buf);
+  };
+  const play = createB4LocalAudioPlayer({
+    createAudioElement: fake.create,
+    createAudioContext: () => ctx,
+    loadAudioData: stubAudioData([path]),
+    stallRetryMs: 20,
+  });
+  const warmPromise = play.warm([path]);
+  const resultPromise = play(path);
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(fake.elements.length, 0,
+    'an in-flight warm decode must not fall back to a cold element at the stall deadline');
+  releaseDecode();
+  await warmPromise;
+  assert.deepEqual(await resultPromise, { status: 'playing', path });
+  assert.equal(ctx.sources.length, 1);
+  assert.equal(fake.elements.length, 0);
+});
+
+test('play still awaits an in-flight warm decode after flush clears the warm set', async () => {
+  const fake = fakeAudioFactory();
+  const ctx = fakeAudioContext();
+  const path = 'audio/b4/b4-01.wav';
+  let releaseDecode;
+  const decodeGate = new Promise((resolve) => { releaseDecode = resolve; });
+  const originalDecode = ctx.decodeAudioData.bind(ctx);
+  ctx.decodeAudioData = async (buf) => {
+    await decodeGate;
+    return originalDecode(buf);
+  };
+  const play = createB4LocalAudioPlayer({
+    createAudioElement: fake.create,
+    createAudioContext: () => ctx,
+    loadAudioData: stubAudioData([path]),
+    stallRetryMs: 20,
+  });
+  void play.warm([path]);
+  await Promise.resolve();
+  play.flush();
+  const resultPromise = play(path);
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(fake.elements.length, 0,
+    'flush must not force a cold element fallback over an in-flight decode');
+  releaseDecode();
+  assert.deepEqual(await resultPromise, { status: 'playing', path });
+  assert.equal(fake.elements.length, 0);
+});
+
 test('a stale error on the discarded stall element does not reject the retry', async () => {
   const fake = fakeAudioFactory();
   const play = createB4LocalAudioPlayer({ createAudioElement: fake.create, stallRetryMs: 20 });

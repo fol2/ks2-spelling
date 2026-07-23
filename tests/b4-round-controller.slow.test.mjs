@@ -376,7 +376,13 @@ test('genuine A3 audio effects run post-commit while replay stays independent of
 
   let state = await controller.start();
   assert.equal(state.revision, 1);
-  assert.equal(state.audio.status, 'playing');
+  assert.equal(state.currentRuntimeItemId, 'ks2-core:arrive');
+  // Auto-speak is deferred after commit, so the command resolves at
+  // "starting" and the playing status arrives on a later publish.
+  for (let waited = 0; waited < 50 && controller.getState().audio.status !== 'playing'; waited += 1) {
+    await Promise.resolve();
+  }
+  assert.equal(controller.getState().audio.status, 'playing');
   assert.equal(paths.at(-1), 'audio/b4/b4-06.wav');
   const durableBeforeReplay = structuredClone(snapshot);
 
@@ -485,6 +491,8 @@ test('start warms the current card word-natural and dictation variants', async (
   assert.ok(warmed.includes('audio/b4/b4-03.wav'), 'word-natural cue must be warmed');
   assert.ok(warmed.includes('audio/b4/b4-06.wav'), 'dictation-normal variant must be warmed');
   assert.ok(warmed.includes('audio/b4/b4-07.wav'), 'dictation-slow variant must be warmed');
+  assert.ok(warmed.includes('audio/b4/b4-01.wav'),
+    'next queued card word-natural cue must be warmed (answer)');
   await controller.dispose();
 });
 
@@ -556,8 +564,53 @@ test('committed state publishes before the audio cue starts playing', async () =
   assert.equal(published.some(({ revision }) => revision === 1), true,
     'the committed state must reach subscribers while the audio cue is still starting');
   assert.equal(typeof release, 'function');
+  const committed = await startPromise;
+  assert.equal(committed.revision, 1);
+  assert.equal(committed.audio.status, 'starting',
+    'command methods must resolve before audio reaches playing');
   release();
-  const final = await startPromise;
-  assert.equal(final.audio.status, 'playing');
+  for (let waited = 0; waited < 200 && controller.getState().audio.status !== 'playing'; waited += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  assert.equal(controller.getState().audio.status, 'playing');
+  await controller.dispose();
+});
+
+test('submit resolves with feedback while the audio cue is still starting', async () => {
+  let release = null;
+  let playCalls = 0;
+  const play = (path) => {
+    playCalls += 1;
+    return new Promise((resolve) => {
+      release = () => resolve({ status: 'playing', path });
+    });
+  };
+  play.stop = () => {};
+  play.dispose = () => {};
+  const { controller } = mockCommandServices({ autoSpeak: true, playAudio: play });
+  await controller.start();
+  release();
+  for (let waited = 0; waited < 200 && controller.getState().audio.status !== 'playing'; waited += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  release = null;
+  playCalls = 0;
+
+  const submitPromise = controller.submit('definitely-wrong');
+  for (let waited = 0; waited < 200 && typeof release !== 'function'; waited += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  assert.equal(typeof release, 'function');
+  assert.equal(playCalls, 1);
+  const state = await submitPromise;
+  assert.equal(state.feedback.kind, 'error');
+  assert.equal(state.audio.status, 'starting',
+    'submit must return committed feedback without waiting for audio playback');
+  release();
+  for (let waited = 0; waited < 200 && controller.getState().audio.status !== 'playing'; waited += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  assert.equal(controller.getState().audio.status, 'playing');
+  assert.equal(controller.getState().feedback.kind, 'error');
   await controller.dispose();
 });

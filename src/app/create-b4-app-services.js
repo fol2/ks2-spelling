@@ -52,6 +52,11 @@ export async function createB4AppServices(options = {}) {
   let controller = null;
   let playAudio = null;
   try {
+    // Overlap manifest import with first-launch database work; the audio
+    // player itself stays lazy until the first warm/play.
+    const audioManifestPromise = options.audioManifest != null
+      ? Promise.resolve(options.audioManifest)
+      : import('../../config/b4-audio-manifest.json').then((module) => module.default);
     await connection.open();
     await migrate(connection);
     await seed(connection);
@@ -68,9 +73,7 @@ export async function createB4AppServices(options = {}) {
     });
     const repository = successfulRepository(baseRepository, () => { timestampIndex += 1; });
     lifecycle = options.lifecycle ?? (options.lifecycleFactory ?? createCapacitorAppLifecycle)();
-    const audioManifest = options.audioManifest ?? (
-      await import('../../config/b4-audio-manifest.json')
-    ).default;
+    const audioManifest = await audioManifestPromise;
     playAudio = options.playAudio ?? createB4LocalAudioPlayer({
       createAudioElement: options.createAudioElement,
     });

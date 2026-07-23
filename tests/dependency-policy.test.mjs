@@ -28,6 +28,15 @@ test('the dependency policy and deterministic evidence files are committed', asy
     REQUIRED_FILES.every((path) => existsSync(join(ROOT, path))),
     'missing dependency policy, compliance register or generated evidence',
   );
+  const dependencyAuditSource = await readFile(
+    join(ROOT, 'scripts/audit-dependencies.mjs'),
+    'utf8',
+  );
+  assert.match(
+    dependencyAuditSource,
+    /build\(\{\s*build:\s*\{\s*write:\s*false\s*\},\s*logLevel:\s*'silent'\s*\}\)/u,
+    'the dependency inventory build must use Vite build.write=false',
+  );
   const packageJson = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
   assert.equal(
     packageJson.scripts['audit:dependencies'],

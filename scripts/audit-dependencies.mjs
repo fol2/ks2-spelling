@@ -237,7 +237,7 @@ function npmLocatorFromModulePath(path) {
 
 export async function buildWebViewBundleEvidence(lock) {
   const { build } = await import('vite');
-  const built = await build({ write: false, logLevel: 'silent' });
+  const built = await build({ build: { write: false }, logLevel: 'silent' });
   const outputs = Array.isArray(built) ? built : [built];
   const rollupOutputs = outputs.flatMap(({ output }) => output);
   const moduleIds = [

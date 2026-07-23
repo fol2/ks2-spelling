@@ -72,6 +72,7 @@ function iosArtifactRunner({
   profileApplicationIdentifier = 'TEAM123456.uk.eugnel.ks2spelling',
   profileApplicationIdentifierPrefix = 'TEAM123456',
   profileTeamIdentifier = 'TEAM123456',
+  modelDottedEntitlementKeyPath = false,
   commandLog = [],
 } = {}) {
   const infoValues = new Map([
@@ -122,6 +123,14 @@ function iosArtifactRunner({
     } else if (command.endsWith('/codesign') && args.includes('--entitlements')) {
       await writeFile(args[args.indexOf('--entitlements') + 1], 'fixture', { mode: 0o600 });
     } else if (command.endsWith('/plutil')) {
+      if (args[0] === '-convert' && args[1] === 'json' &&
+          args.at(-1).endsWith('signed-entitlements.plist')) {
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify(Object.fromEntries(signedEntitlementValues)),
+          stderr: '',
+        };
+      }
       const key = args[1];
       const certificate = /^DeveloperCertificates\.(\d+)$/u.exec(key);
       if (certificate) {
@@ -134,6 +143,11 @@ function iosArtifactRunner({
         : path.endsWith('profile.plist')
           ? profileValues
           : infoValues;
+      if (modelDottedEntitlementKeyPath &&
+          path.endsWith('signed-entitlements.plist') &&
+          key.includes('.')) {
+        return { exitCode: 1, stdout: '', stderr: 'key path does not exist' };
+      }
       return { exitCode: values.has(key) ? 0 : 1, stdout: values.get(key) ?? '', stderr: '' };
     }
     return { exitCode: 0, stdout: '', stderr: '' };
@@ -473,6 +487,33 @@ test('default iOS artefact inspector binds the IPA certificate and signed entitl
     extractionCalls[0].args.filter((argument) =>
       argument.startsWith('--extract-certificates=')).length,
     1,
+  );
+});
+
+test('default iOS artefact inspector reads a dotted root entitlement as plist data, not a key path', async (t) => {
+  const commandLog = [];
+  const { ipa, inspector } = await createIosArtifactInspectorFixture(t, {
+    modelDottedEntitlementKeyPath: true,
+    commandLog,
+  });
+
+  const result = await inspector({ platform: 'ios', signedPath: ipa });
+
+  assert.equal(result.mode, 'development');
+  assert.equal(
+    commandLog.some(({ command, args }) =>
+      command.endsWith('/plutil') &&
+      args[0] === '-convert' &&
+      args[1] === 'json' &&
+      args.at(-1).endsWith('signed-entitlements.plist')),
+    true,
+  );
+  assert.equal(
+    commandLog.some(({ command, args }) =>
+      command.endsWith('/plutil') &&
+      args[0] === '-extract' &&
+      args[1] === 'com.apple.developer.team-identifier'),
+    false,
   );
 });
 

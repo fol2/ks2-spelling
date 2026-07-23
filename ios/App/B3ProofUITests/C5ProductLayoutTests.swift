@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import XCTest
 
 @MainActor
@@ -40,8 +41,7 @@ final class C5ProductLayoutTests: XCTestCase {
     }
 
     private func assertProfilePicker(
-        in application: XCUIApplication,
-        verifyFormReachability: Bool
+        in application: XCUIApplication
     ) {
         let heading = application.staticTexts["Who is practising?"]
         let parentAction = application.buttons["For parents"]
@@ -56,7 +56,6 @@ final class C5ProductLayoutTests: XCTestCase {
         XCTAssertTrue(parentAction.isHittable, "The production Parent action is not reachable.")
         assertContained(parentAction, in: application)
 
-        guard verifyFormReachability else { return }
         let nickname = application.textFields["First name or nickname"]
         let webView = application.webViews.firstMatch
         for _ in 0..<12 where !nickname.isHittable {
@@ -84,6 +83,16 @@ final class C5ProductLayoutTests: XCTestCase {
     func testProductLargeTextProfilePicker() {
         continueAfterFailure = false
 
+        XCTAssertEqual(
+            UIDevice.current.userInterfaceIdiom,
+            .phone,
+            "The large-text product proof requires an iPhone destination."
+        )
+        XCTAssertEqual(
+            UIApplication.shared.preferredContentSizeCategory,
+            .accessibilityExtraExtraExtraLarge,
+            "The product proof requires the maximum accessibility text size."
+        )
         let application = installedApplication()
         XCUIDevice.shared.orientation = .portrait
         application.terminate()
@@ -93,13 +102,18 @@ final class C5ProductLayoutTests: XCTestCase {
             waitForOrientation(application, landscape: false),
             "The large-text production application did not settle in portrait."
         )
-        assertProfilePicker(in: application, verifyFormReachability: true)
+        assertProfilePicker(in: application)
         attachScreenshot(name: "c5-product-phone-large-text")
     }
 
     func testProductTabletLayouts() {
         continueAfterFailure = false
 
+        XCTAssertEqual(
+            UIDevice.current.userInterfaceIdiom,
+            .pad,
+            "The tablet product proof requires an iPad destination."
+        )
         let application = installedApplication()
         XCUIDevice.shared.orientation = .portrait
         application.terminate()
@@ -108,7 +122,7 @@ final class C5ProductLayoutTests: XCTestCase {
             waitForOrientation(application, landscape: false),
             "The production tablet application did not settle in portrait."
         )
-        assertProfilePicker(in: application, verifyFormReachability: true)
+        assertProfilePicker(in: application)
         attachScreenshot(name: "c5-product-tablet-portrait")
 
         application.terminate()
@@ -118,7 +132,7 @@ final class C5ProductLayoutTests: XCTestCase {
             waitForOrientation(application, landscape: true),
             "The production tablet application did not settle in landscape."
         )
-        assertProfilePicker(in: application, verifyFormReachability: true)
+        assertProfilePicker(in: application)
         attachScreenshot(name: "c5-product-tablet-landscape")
         XCUIDevice.shared.orientation = .portrait
     }

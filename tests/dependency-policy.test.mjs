@@ -110,14 +110,19 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
       '@capacitor/app',
       'app-owned-commerce-bridge',
       'app-owned-pack-transfer-bridge',
+      'app-owned-parent-access-bridge',
     ],
   );
   assert.deepEqual(report.permissionEvidence.androidUsesPermissions, [
     'android.permission.INTERNET',
+    'android.permission.USE_BIOMETRIC',
   ]);
-  assert.equal(report.permissionEvidence.androidPermissionRemovalMarkers.length, 4);
+  assert.equal(report.permissionEvidence.androidPermissionRemovalMarkers.length, 3);
   assert.deepEqual(report.permissionEvidence.iosEntitlements, []);
-  assert.deepEqual(report.permissionEvidence.iosUsageDescriptionKeys, []);
+  assert.deepEqual(
+    report.permissionEvidence.iosUsageDescriptionKeys,
+    ['NSFaceIDUsageDescription'],
+  );
   assert.deepEqual(report.permissionEvidence.packagedAndroid.requestedPermissions, []);
   assert.equal(report.b3Truth.sqliteMode, 'no-encryption');
   assert.equal(report.b3Truth.sqlCipherPackaged, true);

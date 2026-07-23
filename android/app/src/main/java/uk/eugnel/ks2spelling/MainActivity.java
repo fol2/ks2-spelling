@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         if (!isOfflineB4Bundle()) {
+            registerPlugin(ParentAccessPlugin.class);
             registerPlugin(InstalledAudioPlugin.class);
             registerPlugin(PackTransferPlugin.class);
             registerPlugin(CommercePlugin.class);

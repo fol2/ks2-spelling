@@ -588,30 +588,34 @@ async function verifyRuntimeBoundary(packageJson) {
   for (const marker of permissionRemovalMarkers) {
     manifestWithoutRemovalMarkers = manifestWithoutRemovalMarkers.replace(marker[0], '');
   }
-  const allowedInternetPermission =
-    /<uses-permission\s+android:name="android\.permission\.INTERNET"\s*\/>/;
-  const internetPermissionMarkers = manifestWithoutRemovalMarkers.match(
-    new RegExp(allowedInternetPermission.source, 'g'),
-  ) ?? [];
-  manifestWithoutRemovalMarkers = manifestWithoutRemovalMarkers.replace(
-    allowedInternetPermission,
-    '',
-  );
+  const usesPermissionPattern =
+    /<uses-permission\s+android:name="([^"]+)"\s*\/>/g;
+  const usesPermissionMarkers = [
+    ...manifestWithoutRemovalMarkers.matchAll(usesPermissionPattern),
+  ];
+  for (const marker of usesPermissionMarkers) {
+    manifestWithoutRemovalMarkers =
+      manifestWithoutRemovalMarkers.replace(marker[0], '');
+  }
+  const allowedUsesPermissions = [
+    'android.permission.INTERNET',
+    'android.permission.USE_BIOMETRIC',
+  ];
   if (
-    permissionRemovalMarkers.length !== 4 ||
+    permissionRemovalMarkers.length !== 3 ||
     JSON.stringify(permissionRemovalMarkers.map((match) => match[2]).sort()) !==
       JSON.stringify([
         '${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
         '${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
-        'android.permission.USE_BIOMETRIC',
         'android.permission.USE_FINGERPRINT',
       ].sort()) ||
-    internetPermissionMarkers.length !== 1 ||
+    JSON.stringify(usesPermissionMarkers.map((match) => match[1]).sort()) !==
+      JSON.stringify(allowedUsesPermissions) ||
     /<(?:permission|uses-permission)\b/.test(manifestWithoutRemovalMarkers)
   ) {
     throw policyError(
       'android_permission_declared',
-      'Android permission surface is not exact normal INTERNET plus merge removals',
+      'Android permission surface is not exact normal INTERNET and biometric plus merge removals',
     );
   }
   const iosAppFiles = await listFiles(resolve(ROOT, 'ios/App/App'));
@@ -622,7 +626,11 @@ async function verifyRuntimeBoundary(packageJson) {
   const usageDescriptionKeys = [
     ...infoPlist.matchAll(/<key>([^<]*UsageDescription)<\/key>/g),
   ].map(([, key]) => key);
-  if (entitlements.length || usageDescriptionKeys.length) {
+  if (
+    entitlements.length ||
+    JSON.stringify(usageDescriptionKeys) !==
+      JSON.stringify(['NSFaceIDUsageDescription'])
+  ) {
     throw policyError(
       'ios_permission_surface_declared',
       `iOS permission surface found: ${[...entitlements, ...usageDescriptionKeys].join(', ')}`,
@@ -674,7 +682,7 @@ async function verifyRuntimeBoundary(packageJson) {
     }
   }
   return {
-    androidUsesPermissions: ['android.permission.INTERNET'],
+    androidUsesPermissions: allowedUsesPermissions,
     androidPermissionRemovalMarkers: permissionRemovalMarkers
       .map((match) => `${match[1]}:${match[2]}`)
       .sort(),

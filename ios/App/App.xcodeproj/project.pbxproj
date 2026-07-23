@@ -17,6 +17,7 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		F72400000000000000000001 /* InstalledAudioPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72400000000000000000011 /* InstalledAudioPlugin.swift */; };
+		F72500000000000000000001 /* ParentAccessPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72500000000000000000011 /* ParentAccessPlugin.swift */; };
 		A12000000000000000000001 /* PackTransferPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000011 /* PackTransferPlugin.swift */; };
 		A12000000000000000000002 /* ZipCentralDirectoryInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000012 /* ZipCentralDirectoryInspector.swift */; };
 		A12000000000000000000003 /* pack-signing-public-keys.json in Resources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000013 /* pack-signing-public-keys.json */; };
@@ -55,6 +56,7 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		F72400000000000000000011 /* InstalledAudioPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstalledAudioPlugin.swift; sourceTree = "<group>"; };
+		F72500000000000000000011 /* ParentAccessPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParentAccessPlugin.swift; sourceTree = "<group>"; };
 		A12000000000000000000011 /* PackTransferPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackTransferPlugin.swift; sourceTree = "<group>"; };
 		A12000000000000000000012 /* ZipCentralDirectoryInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipCentralDirectoryInspector.swift; sourceTree = "<group>"; };
 		A12000000000000000000013 /* pack-signing-public-keys.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "pack-signing-public-keys.json"; sourceTree = "<group>"; };
@@ -128,6 +130,7 @@
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				F72300000000000000000011 /* SceneDelegate.swift */,
 				F72400000000000000000011 /* InstalledAudioPlugin.swift */,
+				F72500000000000000000011 /* ParentAccessPlugin.swift */,
 				A12000000000000000000011 /* PackTransferPlugin.swift */,
 				A12000000000000000000014 /* PackDownloadFlow.swift */,
 				A12000000000000000000015 /* PackInstallSealer.swift */,
@@ -324,6 +327,7 @@
 					504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 					F72300000000000000000001 /* SceneDelegate.swift in Sources */,
 				F72400000000000000000001 /* InstalledAudioPlugin.swift in Sources */,
+				F72500000000000000000001 /* ParentAccessPlugin.swift in Sources */,
 				A12000000000000000000001 /* PackTransferPlugin.swift in Sources */,
 				A12000000000000000000005 /* PackDownloadFlow.swift in Sources */,
 				A12000000000000000000006 /* PackInstallSealer.swift in Sources */,

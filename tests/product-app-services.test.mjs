@@ -32,6 +32,14 @@ test('production services persist profile CRUD and selected learner across a cle
     packTransfer: Object.freeze({
       async inventoryInstalledVersions() { return Object.freeze([]); },
     }),
+    parentBiometrics: Object.freeze({
+      async getAvailability() {
+        return Object.freeze({ available: false, type: 'none' });
+      },
+      async authenticate() {
+        throw new Error('Biometrics unavailable in this test.');
+      },
+    }),
     now: () => timestamp,
     random: () => 0.25,
     createLearnerId() {
@@ -70,6 +78,27 @@ test('production services persist profile CRUD and selected learner across a cle
     'dispose',
   ]);
   assert.deepEqual(Object.keys(first.audio), ['play', 'dispose']);
+  assert.deepEqual(Object.keys(first.parent), [
+    'getState',
+    'subscribe',
+    'setPin',
+    'unlockWithPin',
+    'unlockWithBiometrics',
+    'setBiometricsEnabled',
+    'lock',
+    'dispose',
+  ]);
+  assert.deepEqual(first.parent.getState(), {
+    status: 'setup-required',
+    biometric: {
+      available: false,
+      type: 'none',
+      enabled: false,
+    },
+    attemptsRemaining: 5,
+    lockedUntil: 0,
+    actionError: null,
+  });
   assert.equal(first.learning.getState().screen, 'profiles');
   assert.equal(first.learning.getState().learnerId, null);
   assert.deepEqual(first.controller.getState(), {

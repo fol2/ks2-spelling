@@ -11,6 +11,7 @@ import {
 } from '../platform/database/sqlite-spelling-profile-store.js';
 import { createSQLiteSpellingCommandRepository } from '../platform/database/sqlite-spelling-command-repository.js';
 import { createSQLiteSpellingSnapshotStore } from '../platform/database/sqlite-spelling-snapshot-store.js';
+import { createSQLiteParentSecurityRepository } from '../platform/database/sqlite-parent-security-repository.js';
 import { createCapacitorInstalledAudio } from '../platform/audio/capacitor-installed-audio.js';
 import { InstalledAudioPlugin } from '../platform/audio/capacitor-installed-audio-plugin.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
@@ -18,7 +19,14 @@ import { createCapacitorPackTransfer } from '../platform/pack-transfer/capacitor
 import {
   PackTransferPlugin,
 } from '../platform/pack-transfer/capacitor-pack-transfer-plugin.js';
+import {
+  createCapacitorParentBiometrics,
+} from '../platform/security/capacitor-parent-biometrics.js';
+import {
+  ParentAccessPlugin,
+} from '../platform/security/capacitor-parent-access-plugin.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
+import { createParentSecurityController } from './parent-security-controller.js';
 import { createProductAudioPlayer } from './product-audio-player.js';
 import { createProductLearningController } from './product-learning-controller.js';
 import { createProductProfileController } from './product-profile-controller.js';
@@ -105,6 +113,7 @@ export async function createProductAppServices(options = {}) {
   let learning = null;
   let audio = null;
   let audioAvailability = null;
+  let parent = null;
 
   try {
     await connection.open();
@@ -172,6 +181,19 @@ export async function createProductAppServices(options = {}) {
       profileController,
       learning,
     );
+    const parentRepository = createSQLiteParentSecurityRepository({
+      connection,
+      gate,
+    });
+    const parentBiometrics = options.parentBiometrics ??
+      createCapacitorParentBiometrics({ ParentAccess: ParentAccessPlugin });
+    parent = await createParentSecurityController({
+      repository: parentRepository,
+      biometrics: parentBiometrics,
+      lifecycle,
+      pinCrypto: options.parentPinCrypto,
+      now,
+    });
     const installedAudio = options.installedAudio ??
       createCapacitorInstalledAudio({ InstalledAudio: InstalledAudioPlugin });
     audio = options.audio ?? createProductAudioPlayer({
@@ -192,8 +214,10 @@ export async function createProductAppServices(options = {}) {
       learning,
       audio,
       audioAvailability,
+      parent,
       dispose() {
         disposePromise ??= disposeAll([
+          () => parent.dispose(),
           () => audio.dispose(),
           () => audioAvailability.dispose(),
           () => learning.dispose(),
@@ -208,6 +232,7 @@ export async function createProductAppServices(options = {}) {
   } catch (error) {
     try {
       await disposeAll([
+        parent && (() => parent.dispose()),
         audio && (() => audio.dispose()),
         audioAvailability && (() => audioAvailability.dispose()),
         learning && (() => learning.dispose()),

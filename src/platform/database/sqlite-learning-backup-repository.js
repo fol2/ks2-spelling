@@ -1,7 +1,9 @@
 import {
   createLearningBackupCodec,
 } from '../../domain/security/learning-backup-contract.js';
-import { validateSpellingProfile } from '../../domain/spelling/index.js';
+import {
+  validateSpellingProfile,
+} from '../../domain/spelling/profile-contract.js';
 import { canonicalJson } from './canonical-json.js';
 import { assertSqlConnection } from './sql-connection-contract.js';
 import {

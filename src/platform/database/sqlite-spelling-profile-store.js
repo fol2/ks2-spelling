@@ -1,7 +1,9 @@
 import {
-  validateSpellingProfile,
   validateSpellingProfileRepository,
 } from '../../domain/spelling/index.js';
+import {
+  validateSpellingProfile,
+} from '../../domain/spelling/profile-contract.js';
 import { canonicalJson } from './canonical-json.js';
 import { assertSqlConnection } from './sql-connection-contract.js';
 import { runOwnedTransaction } from './sqlite-transaction-runner.js';

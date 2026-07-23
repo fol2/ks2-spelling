@@ -1,8 +1,8 @@
 import {
   validateCatalogueV1,
   validateSpellingCommandSnapshotV1,
-  validateSpellingProfile,
 } from '../spelling/index.js';
+import { validateSpellingProfile } from '../spelling/profile-contract.js';
 import { canonicalJson } from '../../platform/database/canonical-json.js';
 
 export const LEARNING_BACKUP_MAXIMUM_BYTES = 5 * 1024 * 1024;

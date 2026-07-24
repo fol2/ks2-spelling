@@ -816,6 +816,19 @@ h1 {
   background: var(--hero-shell-ink);
 }
 
+/* Chrome that is *filled* with brand ink was still reading the colour
+   scheme, so on unchanged art the primary pill and the glyph medallions
+   inverted when the phone switched to dark — the one thing this page's rule
+   says must never happen. They take the tone the way `.brand-mark` does:
+   fill from the tone ink with brand mixed back in, glyph from the wash. */
+.product-app[data-hero-tone] .button-primary,
+.product-app[data-hero-tone] .voice-symbol,
+.product-app[data-hero-tone] .audio-state-icon,
+.product-app[data-hero-tone] .word-stage {
+  color: var(--hero-wash);
+  background: color-mix(in oklab, var(--brand) 40%, var(--hero-shell-ink));
+}
+
 /* Text standing directly on the art, where the wash alone carries it. */
 .product-app[data-hero-tone='2'] .product-topbar,
 .product-app[data-hero-tone='3'] .product-topbar,
@@ -3046,6 +3059,16 @@ button.codex-card:active:not(.is-locked) {
 
 .codex-card.is-locked .codex-card-art {
   filter: brightness(0) opacity(0.42);
+}
+
+/* A silhouette is only a silhouette if you can see its outline. Blacked out
+   on a dark card it is a hole in the page, so in the dark scheme the same
+   featureless shape is struck in light instead. The meadow never needs this:
+   its hero tone keeps that panel light in both appearances. */
+@media (prefers-color-scheme: dark) {
+  .codex-card.is-locked .codex-card-art {
+    filter: brightness(0) invert(1) opacity(0.3);
+  }
 }
 
 /* A grid of creature cards wants a taller silhouette than a list row. */

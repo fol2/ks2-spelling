@@ -1613,12 +1613,13 @@ h1 {
   background: var(--good);
 }
 
+/* The halo is drawn by the pulse ring in the polish layer, not by a shadow —
+   see the note there for why that distinction is worth a pseudo-element. */
 .round-step.is-current {
   width: 1rem;
   height: 1rem;
   border-color: var(--ink);
   background: var(--brand);
-  box-shadow: 0 0 0 0.3rem color-mix(in oklab, var(--brand) 22%, transparent);
 }
 
 .practice-progress p {
@@ -2766,6 +2767,7 @@ button.codex-card:active:not(.is-locked) {
  * when its word is secured, and the current one breathes a ring. This is the
  * webapp's single most legible piece of session feedback. */
 .round-step {
+  position: relative;
   transform-origin: center;
   animation: polish-step-in 220ms var(--ease-out) backwards;
 }
@@ -2775,9 +2777,23 @@ button.codex-card:active:not(.is-locked) {
 }
 
 .round-step.is-current {
-  animation:
-    polish-step-current 520ms cubic-bezier(0.2, 0.9, 0.2, 1) both,
-    polish-step-pulse 2s var(--ease-in-out) 560ms infinite;
+  animation: polish-step-current 520ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+/* The current word's halo is a real ring rather than a box-shadow, because
+   this is the one animation that runs for the whole round. Animating a
+   shadow repaints the layer every frame — measured on device it doubled the
+   round's CPU on its own — while scaling and fading a ring stays on the
+   compositor and costs nothing. Under reduced motion the animation stops and
+   the ring simply stays, which is the halo the dot needs anyway. */
+.round-step.is-current::after {
+  content: '';
+  position: absolute;
+  inset: -0.3rem;
+  border: 0.3rem solid color-mix(in oklab, var(--brand) 22%, transparent);
+  border-radius: 999px;
+  animation: polish-step-pulse 2s var(--ease-in-out) 560ms infinite;
+  pointer-events: none;
 }
 
 @keyframes polish-step-in {
@@ -2812,30 +2828,29 @@ button.codex-card:active:not(.is-locked) {
   0% {
     opacity: 0.6;
     transform: scale(0.72);
-    box-shadow: 0 0 0 0 transparent;
   }
 
   62% {
     opacity: 1;
     transform: scale(1.08);
-    box-shadow: 0 0 0 0.54rem color-mix(in oklab, var(--brand) 16%, transparent);
   }
 
   100% {
     opacity: 1;
     transform: scale(1);
-    box-shadow: 0 0 0 0.3rem color-mix(in oklab, var(--brand) 22%, transparent);
   }
 }
 
 @keyframes polish-step-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0.3rem color-mix(in oklab, var(--brand) 22%, transparent);
+    opacity: 1;
+    transform: scale(1);
   }
 
   50% {
-    box-shadow: 0 0 0 0.48rem color-mix(in oklab, var(--brand) 10%, transparent);
+    opacity: 0.42;
+    transform: scale(1.34);
   }
 }
 

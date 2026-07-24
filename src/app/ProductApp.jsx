@@ -2006,6 +2006,20 @@ function SummaryScreen({
           </div>
         ))}
       </dl>
+      {/* The engine already names the words that needed a correction; the
+          port only ever showed the count. Upstream lists them as chips so a
+          child leaves the round knowing which spellings to look at again. */}
+      {(summary?.mistakes?.length ?? 0) > 0 && (
+        <section className="summary-drill" aria-labelledby="summary-drill-title">
+          <h2 id="summary-drill-title">Words that slipped today</h2>
+          <p>These came back for a second look. They stay due for next time.</p>
+          <ul className="summary-drill-chips">
+            {summary.mistakes.map((entry) => (
+              <li key={entry.slug ?? entry.word}>{entry.word ?? entry.slug}</li>
+            ))}
+          </ul>
+        </section>
+      )}
       <section className="paper-card reward-summary">
         <InkletArt stage={monster?.derivedStage ?? 0} />
         <div>

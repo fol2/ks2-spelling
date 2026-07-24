@@ -641,6 +641,25 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(summaryHtml, /Excellent work\./);
   assert.match(summaryHtml, /100%/);
   assert.match(summaryHtml, /Back to trail/);
+  // A clean round names nothing: the drill only appears when it has words.
+  assert.doesNotMatch(summaryHtml, /Words that slipped today/);
+
+  // The engine already names the words that needed a correction, so the
+  // summary lists them rather than only counting them.
+  learningState = Object.freeze({
+    ...learningState,
+    summary: Object.freeze({
+      ...learningState.summary,
+      mistakes: Object.freeze([
+        Object.freeze({ slug: 'famous', word: 'famous' }),
+        Object.freeze({ slug: 'busy', word: 'busy' }),
+      ]),
+    }),
+  });
+  const slippedHtml = render();
+  assert.match(slippedHtml, /Words that slipped today/);
+  assert.match(slippedHtml, /<li[^>]*>famous<\/li>/);
+  assert.match(slippedHtml, /<li[^>]*>busy<\/li>/);
 
   const productCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
   assert.match(productCss, /@media\s*\(forced-colors:\s*active\)/);

@@ -1912,6 +1912,54 @@ h1 {
   letter-spacing: -0.03em;
 }
 
+/* `.summary-drill` + `.fchip`: the words that needed a correction, named
+   rather than counted. A warn-tinted panel so it reads as a gentle flag
+   next to the neutral stat grid, never as a failure. */
+.summary-drill {
+  margin-top: 1.25rem;
+  padding: 0.9rem 1.15rem 1rem;
+  border: 1px solid color-mix(in oklab, var(--warn) 26%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--warn-soft) 70%, var(--control-surface));
+}
+
+.summary-drill h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.summary-drill p {
+  margin: 0.2rem 0 0;
+  color: var(--ink-2);
+  font-size: 0.92rem;
+}
+
+.summary-drill-chips {
+  display: flex;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  list-style: none;
+}
+
+.summary-drill-chips li {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--control-surface);
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));

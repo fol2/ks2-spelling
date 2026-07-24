@@ -1927,9 +1927,19 @@ function PracticeScreen({
         </form>
 
         {(localError || state.actionError) && (
-          <p className="inline-error" role="alert">
-            {localError || 'That answer did not save. Please try again.'}
-          </p>
+          <div className="answer-notice is-warn" role="alert">
+            <span className="feedback-symbol" aria-hidden="true">!</span>
+            <div>
+              <p className="answer-notice-head">
+                {localError || 'That answer did not save.'}
+              </p>
+              <p className="answer-notice-body">
+                {localError
+                  ? 'The spelling box is still empty.'
+                  : 'Your earlier saved learning is safe. Please try again.'}
+              </p>
+            </div>
+          </div>
         )}
 
         {practice.feedback && (

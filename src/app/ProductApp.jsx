@@ -20,6 +20,25 @@ const VOICES = Object.freeze([
   }),
 ]);
 const ROUND_LENGTHS = Object.freeze([5, 10, 20]);
+const WORKSHOP_MODES = Object.freeze([
+  Object.freeze({
+    id: 'smart',
+    label: 'Smart Review',
+    description: 'Due words, weak words and one fresh word',
+  }),
+  Object.freeze({
+    id: 'trouble',
+    label: 'Trouble Drill',
+    description: 'Words that need rescue from earlier mistakes',
+    emptyDescription:
+      'Starts as a Smart Review until some words need rescue',
+  }),
+  Object.freeze({
+    id: 'test',
+    label: 'SATs Test',
+    description: 'The full 20 words, one try each. Answers shown at the end.',
+  }),
+]);
 
 function displayYearGroup(value) {
   return `Year ${value.slice(1)}`;
@@ -1148,6 +1167,7 @@ function ChildHome({
 function PracticeSetup({
   audioState,
   actionError,
+  progress,
   voiceId,
   onVoice,
   onStart,
@@ -1156,14 +1176,16 @@ function PracticeSetup({
   busy,
 }) {
   const [length, setLength] = useState(5);
-  // Mode stays smart until C6.3 adds the workshop mode trio.
-  const practiceMode = 'smart';
+  const [mode, setMode] = useState('smart');
   const heroTone = '1';
-  const heroUrl = heroBgForMode(practiceMode, { tone: heroTone });
+  const heroUrl = heroBgForMode(mode, { tone: heroTone });
+  const hasTroubleWords = (progress ?? []).some(
+    (item) => Number(item.wrong) > 0,
+  );
 
   useEffect(() => {
-    preloadHeroToneUrls(practiceMode);
-  }, [practiceMode]);
+    preloadHeroToneUrls(mode);
+  }, [mode]);
 
   return (
     <main
@@ -1181,7 +1203,7 @@ function PracticeSetup({
         )}
       />
       <section className="paper-card setup-card">
-        <p className="product-kicker">Smart Review</p>
+        <p className="product-kicker">Workshop</p>
         <h1 id="setup-title">Choose today&apos;s trail</h1>
         <p>
           The Starter trail covers Years 3–4 words and adapts from learning
@@ -1189,21 +1211,57 @@ function PracticeSetup({
         </p>
 
         <fieldset className="choice-group">
-          <legend>Round length</legend>
-          <div className="segmented-choice">
-            {ROUND_LENGTHS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={length === value}
-                onClick={() => setLength(value)}
-              >
-                <strong>{value}</strong>
-                <span>words</span>
-              </button>
-            ))}
+          <legend>Workshop mode</legend>
+          <div className="mode-choice">
+            {WORKSHOP_MODES.map((option) => {
+              const description = option.id === 'trouble' && !hasTroubleWords
+                ? option.emptyDescription
+                : option.description;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={mode === option.id}
+                  className="mode-choice-card"
+                  onClick={() => setMode(option.id)}
+                >
+                  <img
+                    className="mode-choice-thumb"
+                    src={heroBgForMode(option.id, { tone: '1' })}
+                    alt=""
+                  />
+                  <span>
+                    <strong>{option.label}</strong>
+                    <small>{description}</small>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </fieldset>
+
+        {mode === 'test' ? (
+          <p className="length-note">
+            A SATs test always covers the full 20 Starter words.
+          </p>
+        ) : (
+          <fieldset className="choice-group">
+            <legend>Round length</legend>
+            <div className="segmented-choice">
+              {ROUND_LENGTHS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={length === value}
+                  onClick={() => setLength(value)}
+                >
+                  <strong>{value}</strong>
+                  <span>words</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
 
         <fieldset className="choice-group">
           <legend>Listening voice</legend>
@@ -1230,7 +1288,7 @@ function PracticeSetup({
           type="button"
           className="button-primary button-large"
           disabled={busy || audioState.status !== 'ready'}
-          onClick={() => void onStart(length).catch(() => undefined)}
+          onClick={() => void onStart({ mode, length }).catch(() => undefined)}
         >
           {busy ? 'Preparing…' : 'Start trail'}
         </button>
@@ -1388,8 +1446,8 @@ function PracticeScreen({
   }, [audioRequest]);
 
   if (!practice) return null;
-  // Mode stays smart until C6.3 adds the workshop mode trio.
-  const practiceMode = 'smart';
+  const practiceMode = practice.mode || 'smart';
+  const isTestMode = practiceMode === 'test';
   const heroTone = heroToneForProgress(practice.progress, {
     awaitingAdvance: practice.awaitingAdvance,
   });
@@ -1466,9 +1524,16 @@ function PracticeScreen({
       </div>
 
       <section className="practice-card" aria-labelledby="practice-title" aria-busy={busy}>
-        <p className="product-kicker">Listen · spell · learn</p>
+        <p className="product-kicker">
+          {isTestMode ? 'Listen · spell · one try' : 'Listen · spell · learn'}
+        </p>
         <h1 id="practice-title">Hear the word, then spell it</h1>
-        <p className="cloze-prompt">{practice.cloze}</p>
+        {practice.fallbackToSmart && (
+          <p className="practice-mode-note" role="status" aria-live="polite">
+            Not enough tricky words yet — this round is a Smart Review.
+          </p>
+        )}
+        {!isTestMode && <p className="cloze-prompt">{practice.cloze}</p>}
 
         <div className="listening-controls" aria-label="Listening controls">
           <button
@@ -1532,18 +1597,22 @@ function PracticeScreen({
             aria-live="polite"
             aria-atomic="true"
           >
-            <span className="feedback-symbol" aria-hidden="true">
-              {practice.feedback.kind === 'success' ? '✓' : '↻'}
-            </span>
+            {!isTestMode && (
+              <span className="feedback-symbol" aria-hidden="true">
+                {practice.feedback.kind === 'success' ? '✓' : '↻'}
+              </span>
+            )}
             <div>
               <h2>{practice.feedback.headline}</h2>
-              {practice.feedback.answer && (
+              {!isTestMode && practice.feedback.answer && (
                 <p>
                   Correct spelling: <strong>{practice.feedback.answer}</strong>
                 </p>
               )}
               {practice.feedback.body && <p>{practice.feedback.body}</p>}
-              {practice.feedback.footer && <small>{practice.feedback.footer}</small>}
+              {!isTestMode && practice.feedback.footer && (
+                <small>{practice.feedback.footer}</small>
+              )}
             </div>
           </div>
         )}
@@ -1562,7 +1631,7 @@ function PracticeScreen({
 }
 
 function SummaryScreen({ summary, monster, onScreen }) {
-  const practiceMode = 'smart';
+  const practiceMode = summary?.mode || 'smart';
   const heroTone = '3';
   const heroUrl = heroBgForMode(practiceMode, {
     tone: heroTone,
@@ -1858,9 +1927,10 @@ export default function ProductApp({ services }) {
       <PracticeSetup
         audioState={audioState}
         actionError={learningState.actionError}
+        progress={learningState.progress}
         voiceId={voiceId}
         onVoice={setVoiceId}
-        onStart={(length) => services.learning.startSmartRound({ length })}
+        onStart={(options) => services.learning.startRound(options)}
         onBack={() => showScreen('home')}
         onRecoverAudio={recoverAudio}
         busy={learningState.status === 'saving'}

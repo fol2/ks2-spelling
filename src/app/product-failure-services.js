@@ -82,7 +82,7 @@ export function createProductFailureServices() {
       showScreen() {
         throw new Error('product_startup_failed');
       },
-      startSmartRound: rejectedAction,
+      startRound: rejectedAction,
       submitAnswer: rejectedAction,
       continueRound: rejectedAction,
       endRound: rejectedAction,

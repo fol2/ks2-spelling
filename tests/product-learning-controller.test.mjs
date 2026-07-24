@@ -77,6 +77,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
     screen: 'home',
     learnerId: 'learner-a',
     practice: null,
+    prefs: { voiceId: 'Iapetus', showCloze: true, autoSpeak: true },
     summary: null,
     progress: [],
     monsters: [{
@@ -165,14 +166,82 @@ test('product learning keeps correction and safe abandonment inside the A3 trans
   assert.equal(controller.getState().practice.awaitingAdvance, false);
 
   await controller.endRound();
-  assert.equal(controller.getState().screen, 'home');
-  assert.equal(controller.getState().summary, null);
+  assert.equal(controller.getState().screen, 'summary');
+  assert.equal(
+    controller.getState().summary.message,
+    'You ended this round early. Every word you answered has been saved.',
+    'ending early reports the words reached rather than discarding them',
+  );
+  assert.equal(controller.getState().summary.totalWords, 1);
   assert.equal(
     world.snapshots.get('learner-a').practiceSession.status,
     'abandoned',
   );
+  controller.showScreen('home');
+  assert.equal(controller.getState().summary, null);
 
   await controller.dispose();
+});
+
+test('product learning skips a word and ends an untouched round without a summary', async () => {
+  const world = createLearningWorld();
+  const controller = world.createController();
+  await controller.startRound({ mode: 'smart', length: 5 });
+  const firstWord = targetFor(controller, world.catalogue);
+
+  await controller.skipWord();
+  let state = controller.getState();
+  assert.equal(state.screen, 'practice');
+  assert.equal(state.practice.feedback.headline, 'Skipped for now.');
+  assert.notEqual(targetFor(controller, world.catalogue), firstWord);
+  assert.equal(state.practice.progress.checked, 0, 'a skip is not an answer');
+
+  await controller.endRound();
+  state = controller.getState();
+  assert.equal(state.screen, 'home', 'a round with no answers has no summary');
+  assert.equal(state.summary, null);
+
+  await controller.dispose();
+});
+
+test('product learning persists round preferences in the A3 prefs bag', async () => {
+  const world = createLearningWorld();
+  const controller = world.createController();
+  assert.deepEqual(controller.getState().prefs, {
+    voiceId: 'Iapetus',
+    showCloze: true,
+    autoSpeak: true,
+  });
+
+  controller.showScreen('setup');
+  await controller.savePrefs({ voiceId: 'Sulafat', showCloze: false });
+  assert.equal(
+    controller.getState().screen,
+    'setup',
+    'saving a preference must not move the learner off the setup screen',
+  );
+  assert.deepEqual(controller.getState().prefs, {
+    voiceId: 'Sulafat',
+    showCloze: false,
+    autoSpeak: true,
+  });
+  await controller.savePrefs({ autoSpeak: false });
+  assert.equal(controller.getState().prefs.autoSpeak, false);
+
+  await assert.rejects(controller.savePrefs({ voiceId: 'Nobody' }), TypeError);
+  await assert.rejects(controller.savePrefs({ showCloze: 'yes' }), TypeError);
+
+  const restored = world.createController(
+    structuredClone(world.snapshots.get('learner-a')),
+  );
+  assert.deepEqual(restored.getState().prefs, {
+    voiceId: 'Sulafat',
+    showCloze: false,
+    autoSpeak: false,
+  });
+
+  await controller.dispose();
+  await restored.dispose();
 });
 
 test('product learning projects saved progress, Monster and Camp views without changing learner bytes', async () => {

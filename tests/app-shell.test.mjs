@@ -178,7 +178,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
   t.after(() => vite.close());
   const { default: App } = await vite.ssrLoadModule('/src/app/App.jsx');
   const {
-    LeaveRoundDialog,
+    EndRoundDialog,
     ParentArea,
   } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
   const { createProductFailureServices } = await vite.ssrLoadModule(
@@ -304,6 +304,11 @@ test('the production shell keeps Parent progress and commerce behind the local g
     practice: null,
     summary: null,
     progress: [],
+    prefs: Object.freeze({
+      voiceId: 'Iapetus',
+      showCloze: true,
+      autoSpeak: true,
+    }),
     monsters: Object.freeze([Object.freeze({
       rewardTrackId: 'spelling-core-inklet',
       packId: 'ks2-core',
@@ -330,6 +335,8 @@ test('the production shell keeps Parent progress and commerce behind the local g
     async startRound() {},
     async submitAnswer() {},
     async continueRound() {},
+    async skipWord() {},
+    async savePrefs() {},
     async endRound() {},
     async dispose() {},
   });
@@ -511,38 +518,48 @@ test('the production shell keeps Parent progress and commerce behind the local g
     }),
   });
   const practiceHtml = render();
-  assert.match(practiceHtml, /Card 1 of 5/);
+  // The round head counts what has been banked, never a card position: a
+  // learner working through a retry must not see the same card number
+  // against three different words.
+  assert.match(practiceHtml, /You have answered 0 of 5\./);
+  assert.match(practiceHtml, /5 left in this round\./);
+  assert.doesNotMatch(practiceHtml, /Card \d+ of \d+/);
+  assert.match(practiceHtml, /aria-label="0 of 5 words secured"/);
   assert.match(practiceHtml, /Hear word/);
   assert.match(practiceHtml, /Hear sentence/);
-  assert.match(practiceHtml, /Slow sentence/);
+  assert.match(practiceHtml, /Replay slowly/);
+  assert.match(practiceHtml, /0\.5×/);
+  assert.match(practiceHtml, /AI-generated dictation voice/);
+  assert.match(practiceHtml, /Skip for now/);
   assert.match(practiceHtml, /I _____ model cars with my brother\./);
   assert.match(practiceHtml, /Check spelling/);
   assert.doesNotMatch(practiceHtml, />build</i);
 
-  const leaveRoundHtml = renderToStaticMarkup(
-    React.createElement(LeaveRoundDialog, {
+  const endRoundHtml = renderToStaticMarkup(
+    React.createElement(EndRoundDialog, {
       onKeep() {},
       onLeave() {},
     }),
   );
-  assert.match(leaveRoundHtml, /role="alertdialog"/);
-  assert.match(leaveRoundHtml, /aria-modal="true"/);
-  assert.match(leaveRoundHtml, /aria-labelledby="leave-round-title"/);
-  assert.match(leaveRoundHtml, /Keep practising/);
-  assert.match(leaveRoundHtml, /Leave round/);
+  assert.match(endRoundHtml, /role="alertdialog"/);
+  assert.match(endRoundHtml, /aria-modal="true"/);
+  assert.match(endRoundHtml, /aria-labelledby="end-round-title"/);
+  assert.match(endRoundHtml, /Keep practising/);
+  assert.match(endRoundHtml, /End round/);
+  assert.match(endRoundHtml, /Every word you have answered is saved/);
 
-  const failedLeaveRoundHtml = renderToStaticMarkup(
-    React.createElement(LeaveRoundDialog, {
+  const failedEndRoundHtml = renderToStaticMarkup(
+    React.createElement(EndRoundDialog, {
       error: 'This round could not be saved as unfinished. Please try again or keep practising.',
       leaving: false,
       onKeep() {},
       onLeave() {},
     }),
   );
-  assert.match(failedLeaveRoundHtml, /id="leave-round-error"/);
-  assert.match(failedLeaveRoundHtml, /role="alert"/);
+  assert.match(failedEndRoundHtml, /id="end-round-error"/);
+  assert.match(failedEndRoundHtml, /role="alert"/);
   assert.match(
-    failedLeaveRoundHtml,
+    failedEndRoundHtml,
     /This round could not be saved as unfinished\. Please try again or keep practising\./,
   );
   assert.match(productSource, /await onEnd\(\)/);

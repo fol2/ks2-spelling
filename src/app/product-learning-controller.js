@@ -3,8 +3,12 @@ import {
   validateCatalogueV1,
   validateSpellingCommandSnapshotV1,
 } from '../domain/spelling/index.js';
+import { earlyRoundSummary } from './practice-feel.js';
 
 const LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+// The vendored contract's own buffered-voice identifiers; the bundled
+// listening pack ships exactly these two.
+const VOICE_IDS = Object.freeze(['Iapetus', 'Sulafat']);
 const SCREENS = Object.freeze([
   'home',
   'setup',
@@ -118,6 +122,30 @@ function monsterProjection(snapshot, catalogue) {
   });
 }
 
+/**
+ * Round preferences live in the A3 snapshot's own prefs bag, so the listening
+ * voice, the sentence hint and auto-play all persist per learner with no new
+ * storage. `bufferedGeminiVoice` is the contract's existing voice preference.
+ *
+ * A new learner's seeded bag carries `autoSpeak: false`, which is an engine
+ * setting rather than a learner choice — it stops the planner emitting audio
+ * cues the app never consumes, because the app drives its own playback. So
+ * auto-play only reads as chosen once the learner has actually saved
+ * preferences, which the engine's own normaliser marks by writing the full
+ * record — `ttsProvider` included. Until then it starts on, as on the web.
+ */
+function prefsProjection(snapshot) {
+  const prefs = snapshot?.subjectState?.data?.prefs ?? {};
+  const chosen = Object.hasOwn(prefs, 'ttsProvider');
+  return {
+    voiceId: VOICE_IDS.includes(prefs.bufferedGeminiVoice)
+      ? prefs.bufferedGeminiVoice
+      : VOICE_IDS[0],
+    showCloze: prefs.showCloze !== false,
+    autoSpeak: chosen ? prefs.autoSpeak !== false : true,
+  };
+}
+
 function campProjection(snapshot) {
   if (!snapshot) return null;
   const saved = snapshot.campStateByPackId[snapshot.packId];
@@ -134,6 +162,7 @@ function createState({
   status = 'ready',
   screen = initialScreen(snapshot),
   actionError = null,
+  summary = null,
 }) {
   const ui = snapshot?.subjectState?.ui;
   return cloneFrozen({
@@ -141,7 +170,8 @@ function createState({
     screen,
     learnerId: snapshot?.learnerId ?? null,
     practice: practiceProjection(snapshot),
-    summary: ui?.summary ? structuredClone(ui.summary) : null,
+    prefs: prefsProjection(snapshot),
+    summary: summary ?? (ui?.summary ? structuredClone(ui.summary) : null),
     progress: progressProjection(snapshot, catalogue),
     monsters: monsterProjection(snapshot, catalogue),
     camp: campProjection(snapshot),
@@ -198,7 +228,7 @@ export function createProductLearningController({
     return result;
   }
 
-  function runCommand(command) {
+  function runCommand(command, options = {}) {
     return enqueue(async () => {
       if (!snapshot) {
         throw controllerError('product_learning_learner_required');
@@ -225,9 +255,14 @@ export function createProductLearningController({
         );
         const phase = plan.result.state?.phase;
         publishFromSnapshot({
-          screen: phase === 'summary'
-            ? 'summary'
-            : phase === 'session' ? 'practice' : 'home',
+          // A command that leaves the round phase alone — saving a preference
+          // — must leave the learner where they were standing.
+          screen: options.keepScreen
+            ? previousScreen
+            : options.summary || phase === 'summary'
+              ? 'summary'
+              : phase === 'session' ? 'practice' : 'home',
+          summary: options.summary ?? null,
         });
         return plan;
       } catch (error) {
@@ -355,11 +390,59 @@ export function createProductLearningController({
         payload: {},
       });
     },
-    endRound() {
+    skipWord() {
       return runCommand({
-        type: 'end-session',
+        type: 'skip-word',
         payload: {},
       });
+    },
+    savePrefs(patch) {
+      if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+        return Promise.reject(
+          new TypeError('Round preferences must be an object.'),
+        );
+      }
+      if (
+        Object.hasOwn(patch, 'voiceId') && !VOICE_IDS.includes(patch.voiceId)
+      ) {
+        return Promise.reject(
+          new TypeError('Listening voice must be a bundled voice.'),
+        );
+      }
+      for (const key of ['showCloze', 'autoSpeak']) {
+        if (Object.hasOwn(patch, key) && typeof patch[key] !== 'boolean') {
+          return Promise.reject(
+            new TypeError(`Round preference ${key} must be boolean.`),
+          );
+        }
+      }
+      // The whole visible set goes every time. A partial save would merge over
+      // the seeded bag and silently adopt its engine-level auto-play value as
+      // the learner's own choice.
+      const next = { ...state.prefs, ...patch };
+      return runCommand(
+        {
+          type: 'save-prefs',
+          payload: {
+            prefs: {
+              bufferedGeminiVoice: next.voiceId,
+              showCloze: next.showCloze,
+              autoSpeak: next.autoSpeak,
+            },
+          },
+        },
+        { keepScreen: true },
+      );
+    },
+    endRound() {
+      // Ending early is still `end-session` — the contract has no
+      // finalise-now command — but the learner lands on a summary of the
+      // words they did reach instead of losing the round to a bare discard.
+      const summary = earlyRoundSummary(state.practice);
+      return runCommand(
+        { type: 'end-session', payload: {} },
+        summary ? { summary } : {},
+      );
     },
     async dispose() {
       if (disposed) return;

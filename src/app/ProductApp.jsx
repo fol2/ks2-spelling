@@ -22,7 +22,7 @@ import {
   secureWordDelta,
 } from './celebrations/celebration-model.js';
 import { stageArtUrl } from './monster-stage/monster-stage-model.js';
-import { autoAdvanceDelayMs } from './practice-feel.js';
+import { autoAdvanceDelayMs, roundProgressDots } from './practice-feel.js';
 
 // Phaser + the living Monster Stage load only when the Monster screen mounts.
 const MonsterStage = lazy(() => import('./monster-stage/MonsterStage.jsx'));
@@ -40,6 +40,8 @@ const VOICES = Object.freeze([
   }),
 ]);
 const ROUND_LENGTHS = Object.freeze([5, 10, 20]);
+// The web session scene carries the same disclosure under its voice controls.
+const VOICE_NOTE = 'AI-generated dictation voice';
 // Home and setup sit in the daylight Downs; the round walks tone 1 → 3.
 const HOME_HERO_TONE = '1';
 const WORKSHOP_MODES = Object.freeze([
@@ -1197,12 +1199,26 @@ function ChildHome({
   );
 }
 
+function ToggleChip({ label, checked, onChange }) {
+  return (
+    <button
+      type="button"
+      className="toggle-chip"
+      aria-pressed={checked}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="toggle-box" aria-hidden="true">{checked ? '✓' : ''}</span>
+      {label}
+    </button>
+  );
+}
+
 function PracticeSetup({
   audioState,
   actionError,
   progress,
-  voiceId,
-  onVoice,
+  prefs,
+  onPrefs,
   onStart,
   onBack,
   onRecoverAudio,
@@ -1303,8 +1319,8 @@ function PracticeSetup({
               <button
                 key={voice.id}
                 type="button"
-                aria-pressed={voiceId === voice.id}
-                onClick={() => onVoice(voice.id)}
+                aria-pressed={prefs.voiceId === voice.id}
+                onClick={() => onPrefs({ voiceId: voice.id })}
               >
                 <span className="voice-symbol" aria-hidden="true">♪</span>
                 <span>
@@ -1313,6 +1329,23 @@ function PracticeSetup({
                 </span>
               </button>
             ))}
+          </div>
+          <p className="voice-note">{VOICE_NOTE}</p>
+        </fieldset>
+
+        <fieldset className="choice-group">
+          <legend>Options</legend>
+          <div className="toggle-choice">
+            <ToggleChip
+              label="Show sentence"
+              checked={prefs.showCloze}
+              onChange={(showCloze) => onPrefs({ showCloze })}
+            />
+            <ToggleChip
+              label="Auto-play audio"
+              checked={prefs.autoSpeak}
+              onChange={(autoSpeak) => onPrefs({ autoSpeak })}
+            />
           </div>
         </fieldset>
 
@@ -1335,7 +1368,7 @@ function PracticeSetup({
   );
 }
 
-export function LeaveRoundDialog({
+export function EndRoundDialog({
   onKeep,
   onLeave,
   error = '',
@@ -1380,21 +1413,22 @@ export function LeaveRoundDialog({
       className="exit-confirmation"
       role="alertdialog"
       aria-modal="true"
-      aria-labelledby="leave-round-title"
+      aria-labelledby="end-round-title"
       aria-describedby={
         error
-          ? 'leave-round-description leave-round-error'
-          : 'leave-round-description'
+          ? 'end-round-description end-round-error'
+          : 'end-round-description'
       }
       aria-busy={leaving}
     >
       <div>
-        <h2 id="leave-round-title">Leave this round?</h2>
-        <p id="leave-round-description">
-          Your earlier saved learning stays safe. This round will be marked unfinished.
+        <h2 id="end-round-title">End this round now?</h2>
+        <p id="end-round-description">
+          Every word you have answered is saved. The words you have not reached
+          stay due for next time.
         </p>
         {error && (
-          <p id="leave-round-error" className="inline-error" role="alert">
+          <p id="end-round-error" className="inline-error" role="alert">
             {error}
           </p>
         )}
@@ -1415,7 +1449,7 @@ export function LeaveRoundDialog({
             disabled={leaving}
             onClick={onLeave}
           >
-            {leaving ? 'Leaving…' : 'Leave round'}
+            {leaving ? 'Ending…' : 'End round'}
           </button>
         </div>
       </div>
@@ -1423,14 +1457,62 @@ export function LeaveRoundDialog({
   );
 }
 
+/**
+ * The web feedback ribbon: tone symbol, headline, the word in quotes — struck
+ * through while it is only the learner's attempt — then the reason, then the
+ * footer note under the card.
+ */
+function AnswerFeedback({ feedback, hideAnswer = false }) {
+  const tone = feedback.kind === 'error'
+    ? 'bad'
+    : feedback.kind === 'warn' ? 'warn' : 'good';
+  const attempt = String(feedback.attemptedAnswer ?? '').trim();
+  const answer = hideAnswer ? '' : String(feedback.answer ?? '');
+  const word = answer || attempt;
+  const isAttempt = !answer && Boolean(attempt);
+  const body = feedback.body ?? '';
+  const reason = isAttempt
+    ? (body ? `Your answer — ${body}` : 'Your answer')
+    : attempt && !hideAnswer
+      ? `You wrote “${attempt}”. ${body}`.trim()
+      : body;
+  return (
+    <div
+      className={`answer-feedback answer-feedback-${tone}`}
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      <div className="answer-feedback-ribbon">
+        <span className="feedback-symbol" aria-hidden="true">
+          {tone === 'good' ? '✓' : tone === 'warn' ? '!' : '×'}
+        </span>
+        <div>
+          <h2>
+            {feedback.headline}
+            {word && (
+              <em className={`feedback-word${isAttempt ? ' is-attempt' : ''}`}>
+                {`“${word}”`}
+              </em>
+            )}
+          </h2>
+          {reason && <p>{reason}</p>}
+        </div>
+      </div>
+      {!hideAnswer && feedback.footer && <small>{feedback.footer}</small>}
+    </div>
+  );
+}
+
 function PracticeScreen({
   state,
   audioState,
-  voiceId,
+  prefs,
   audio,
   haptics,
   onSubmit,
   onContinue,
+  onSkip,
   onEnd,
   onPlaybackFailure,
 }) {
@@ -1452,12 +1534,12 @@ function PracticeScreen({
     version: audioState.activeVersion,
     runtimeItemId: practice.runtimeItemId,
     sentence: practice.sentence,
-    voiceId,
+    voiceId: prefs.voiceId,
   }) : null, [
     audioState.activeVersion,
     practice?.runtimeItemId,
     practice?.sentence,
-    voiceId,
+    prefs.voiceId,
   ]);
 
   async function play(kind) {
@@ -1475,11 +1557,13 @@ function PracticeScreen({
   }
 
   useEffect(() => {
-    if (!audioRequest || audioState.status !== 'ready') return;
+    if (!audioRequest || audioState.status !== 'ready' || !prefs.autoSpeak) {
+      return;
+    }
     void play('word');
   // Autoplay exactly once for a newly projected card or voice.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audioRequest]);
+  }, [audioRequest, prefs.autoSpeak]);
 
   useEffect(() => {
     if (advanceTimerRef.current != null) {
@@ -1518,7 +1602,14 @@ function PracticeScreen({
   useEffect(() => {
     if (!practice?.runtimeItemId || practice.awaitingAdvance) return;
     answerInputRef.current?.focus();
-  }, [practice?.sessionId, practice?.runtimeItemId, practice?.awaitingAdvance]);
+  // The phase belongs in here: a retry and a correction keep the same word, so
+  // without it a learner who taps Check has to tap the field again to answer.
+  }, [
+    practice?.sessionId,
+    practice?.runtimeItemId,
+    practice?.phase,
+    practice?.awaitingAdvance,
+  ]);
 
   const feedbackKind = practice?.feedback?.kind ?? null;
   useEffect(() => {
@@ -1537,10 +1628,21 @@ function PracticeScreen({
     tone: heroTone,
     seed: practice.sessionId,
   });
-  const visibleCard = Math.min(
-    practice.progress.total,
-    practice.progress.done + 1,
-  );
+  const { total, done } = practice.progress;
+  const remaining = Math.max(0, total - done);
+  const canSkip =
+    !isTestMode && !practice.awaitingAdvance && practice.phase === 'question';
+
+  async function skip() {
+    if (busy || !canSkip) return;
+    try {
+      await onSkip();
+      setAnswer('');
+      setLocalError('');
+    } catch {
+      setLocalError('That word could not be skipped. Please try again.');
+    }
+  }
 
   async function submit(event) {
     event.preventDefault();
@@ -1600,13 +1702,33 @@ function PracticeScreen({
               setConfirmExit(true);
             }}
           >
-            Leave
+            End early
           </button>
         )}
       />
-      <div className="practice-progress" aria-label={`Card ${visibleCard} of ${practice.progress.total}`}>
-        <span style={{ '--round-progress': `${(visibleCard / practice.progress.total) * 100}%` }} />
-        <p>Card {visibleCard} of {practice.progress.total}</p>
+      {/* The web session head: a dot per word in the round, and a plain count
+          of what has been banked. The old "Card N of M" counted secured words
+          but read as a position, so a learner working through a retry saw the
+          same card number against three different words. */}
+      <div className="practice-progress">
+        <div
+          className="round-path"
+          role="img"
+          aria-label={`${done} of ${total} words secured`}
+        >
+          {/* The index is the identity here — a dot is a position in the
+              round, not a word. */}
+          {roundProgressDots(practice.progress).map((step, index) => (
+            <span
+              key={index}
+              className={`round-step${step ? ` is-${step}` : ''}`}
+            />
+          ))}
+        </div>
+        <p aria-live="polite">
+          <span>You have answered {done} of {total}.</span>
+          {remaining > 0 && <span>{remaining} left in this round.</span>}
+        </p>
       </div>
 
       <section className="practice-card" aria-labelledby="practice-title" aria-busy={busy}>
@@ -1619,7 +1741,9 @@ function PracticeScreen({
             Not enough tricky words yet — this round is a Smart Review.
           </p>
         )}
-        {!isTestMode && <p className="cloze-prompt">{practice.cloze}</p>}
+        {!isTestMode && prefs.showCloze && (
+          <p className="cloze-prompt">{practice.cloze}</p>
+        )}
 
         <div className="listening-controls" aria-label="Listening controls">
           <button
@@ -1643,8 +1767,8 @@ function PracticeScreen({
             disabled={busy || audioState.status !== 'ready'}
             onClick={() => void play('slow-sentence')}
           >
-            <span aria-hidden="true">½</span>
-            Slow sentence
+            <span aria-hidden="true">0.5×</span>
+            Replay slowly
           </button>
         </div>
 
@@ -1668,12 +1792,25 @@ function PracticeScreen({
               event.currentTarget.scrollIntoView({ block: 'nearest' });
             }}
           />
-          <button type="submit" className="button-primary" disabled={busy}>
-            {busy
-              ? 'Saving…'
-              : practice.awaitingAdvance ? 'Continue' : 'Check spelling'}
-          </button>
+          <div className="answer-actions">
+            <button type="submit" className="button-primary" disabled={busy}>
+              {busy
+                ? 'Saving…'
+                : practice.awaitingAdvance ? 'Continue' : 'Check spelling'}
+            </button>
+            {canSkip && (
+              <button
+                type="button"
+                className="button-quiet"
+                disabled={busy}
+                onClick={() => void skip()}
+              >
+                Skip for now
+              </button>
+            )}
+          </div>
         </form>
+        <p className="voice-note">{VOICE_NOTE}</p>
 
         {(localError || state.actionError) && (
           <p className="inline-error" role="alert">
@@ -1682,35 +1819,16 @@ function PracticeScreen({
         )}
 
         {practice.feedback && (
-          <div
-            className={`answer-feedback answer-feedback-${practice.feedback.kind}`}
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            {!isTestMode && (
-              <span className="feedback-symbol" aria-hidden="true">
-                {practice.feedback.kind === 'success' ? '✓' : '↻'}
-              </span>
-            )}
-            <div>
-              <h2>{practice.feedback.headline}</h2>
-              {!isTestMode && practice.feedback.answer && (
-                <p>
-                  Correct spelling: <strong>{practice.feedback.answer}</strong>
-                </p>
-              )}
-              {practice.feedback.body && <p>{practice.feedback.body}</p>}
-              {!isTestMode && practice.feedback.footer && (
-                <small>{practice.feedback.footer}</small>
-              )}
-            </div>
-          </div>
+          <AnswerFeedback
+            feedback={practice.feedback}
+            // A SATs test never shows a spelling back before the summary.
+            hideAnswer={isTestMode}
+          />
         )}
       </section>
 
       {confirmExit && (
-        <LeaveRoundDialog
+        <EndRoundDialog
           error={exitError}
           leaving={leaving || busy}
           onKeep={closeExit}
@@ -1751,8 +1869,12 @@ function SummaryScreen({
       <ProductTopBar title="Results" />
       <section className="summary-hero">
         <div className="summary-medal" aria-hidden="true">✓</div>
-        <p className="product-kicker">Trail complete</p>
-        <h1 id="summary-title">Well done</h1>
+        <p className="product-kicker">
+          {summary?.endedEarly ? 'Round ended early' : 'Trail complete'}
+        </p>
+        <h1 id="summary-title">
+          {summary?.endedEarly ? 'Saved so far' : 'Well done'}
+        </h1>
         <p>{summary?.message}</p>
         <strong className="accuracy-score">{summary?.accuracy ?? 0}%</strong>
         <span>round accuracy</span>
@@ -1957,7 +2079,6 @@ export default function ProductApp({ services }) {
     services.parentCommerce.getState(),
   );
   const [parentOpen, setParentOpen] = useState(false);
-  const [voiceId, setVoiceId] = useState('Iapetus');
   const [celebrationEvents, setCelebrationEvents] = useState([]);
   const [secureGain, setSecureGain] = useState(0);
   const learningScreenRef = useRef(learningState.screen);
@@ -2092,8 +2213,10 @@ export default function ProductApp({ services }) {
         audioState={audioState}
         actionError={learningState.actionError}
         progress={learningState.progress}
-        voiceId={voiceId}
-        onVoice={setVoiceId}
+        prefs={learningState.prefs}
+        onPrefs={(patch) => {
+          void services.learning.savePrefs(patch).catch(() => undefined);
+        }}
         onStart={(options) => services.learning.startRound(options)}
         onBack={() => showScreen('home')}
         onRecoverAudio={recoverAudio}
@@ -2106,11 +2229,12 @@ export default function ProductApp({ services }) {
       <PracticeScreen
         state={learningState}
         audioState={audioState}
-        voiceId={voiceId}
+        prefs={learningState.prefs}
         audio={services.audio}
         haptics={services.haptics}
         onSubmit={(typed) => services.learning.submitAnswer(typed)}
         onContinue={() => services.learning.continueRound()}
+        onSkip={() => services.learning.skipWord()}
         onEnd={() => services.learning.endRound()}
         onPlaybackFailure={() =>
           services.audioAvailability.reportPlaybackFailure()}

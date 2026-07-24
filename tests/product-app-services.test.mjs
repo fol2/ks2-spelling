@@ -114,6 +114,8 @@ test('production services persist profile CRUD and selected learner across a cle
     'startRound',
     'submitAnswer',
     'continueRound',
+    'skipWord',
+    'savePrefs',
     'endRound',
     'dispose',
   ]);

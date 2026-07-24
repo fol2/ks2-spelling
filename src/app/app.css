@@ -2860,7 +2860,10 @@ button.codex-card:active:not(.is-locked) {
   -webkit-backdrop-filter: blur(3px);
 }
 
+/* Over a blurred page the panel needs its own edge, or it dissolves into the
+   scrim it is supposed to sit on. */
 .exit-confirmation > div {
+  border: 1px solid color-mix(in oklab, var(--ink) 20%, transparent);
   animation: polish-panel-in 220ms cubic-bezier(0.2, 0.95, 0.26, 1) both;
 }
 
@@ -3092,12 +3095,14 @@ button.codex-card:active:not(.is-locked) {
   margin-top: 0.35rem;
 }
 
+/* An unreached stage is an empty socket, not a filled dot — on a selected
+   card a white fill reads as lit, which is the opposite of what it means. */
 .codex-stage-dot {
   aspect-ratio: 1;
   min-width: 0;
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in oklab, var(--ink) 22%, transparent);
   border-radius: 999px;
-  background: var(--panel);
+  background: color-mix(in oklab, var(--ink) 8%, transparent);
 }
 
 .codex-stage-dot.is-lit {
@@ -3188,12 +3193,99 @@ button.codex-card:active:not(.is-locked) {
     0 5px 5px -3px rgb(14 24 38 / 24%);
 }
 
+.listening-controls button,
 .voice-symbol,
 .feedback-symbol,
 .audio-state-icon,
 .word-stage,
 .summary-medal {
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 26%);
+}
+
+/* Each control cluster gets the journal's section rule above it, so setup
+   reads as a sequence of decisions rather than one undivided form. */
+.choice-group + .choice-group {
+  position: relative;
+  padding-top: 1.5rem;
+}
+
+.choice-group + .choice-group::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklab, var(--line-strong) 70%, transparent) 10%,
+    color-mix(in oklab, var(--line-strong) 70%, transparent) 90%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* ---------- Layer 4 · Trail navigation ----------
+ * Three near-identical rows of text is the shape a list takes when nobody
+ * has designed it. The webapp gives each of its section links a real object
+ * to point at, so the glyph becomes a struck medallion and a chevron marks
+ * the row as somewhere to go. */
+.trail-navigation button {
+  grid-template-columns: auto 1fr auto;
+  min-height: 4.75rem;
+  gap: 0.1rem 0.9rem;
+}
+
+.trail-navigation button > span {
+  grid-column: 1;
+  display: grid;
+  width: 2.85rem;
+  height: 2.85rem;
+  border: 1px solid color-mix(in oklab, var(--brand) 30%, transparent);
+  border-radius: 0.95rem;
+  place-items: center;
+  color: var(--brand-ink);
+  background: color-mix(in oklab, var(--brand) 24%, var(--control-surface));
+  font-size: 1.2rem;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 26%);
+}
+
+.trail-navigation strong,
+.trail-navigation small {
+  grid-column: 2;
+}
+
+.trail-navigation button::after {
+  content: '›';
+  grid-column: 3;
+  grid-row: 1 / 3;
+  align-self: center;
+  color: var(--muted);
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  line-height: 1;
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.trail-navigation button:active::after {
+  transform: translateX(2px);
+}
+
+.trail-navigation strong {
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* A caught creature stands in its own pool of light in the meadow too. */
+.meadow-slot.is-caught {
+  background-image: radial-gradient(
+    circle at 50% 38%,
+    color-mix(in oklab, var(--brand) 16%, transparent),
+    transparent 60%
+  );
 }
 
 /* Setup copy stands directly on the art, so on a dark region it takes the
@@ -3219,14 +3311,40 @@ button.codex-card:active:not(.is-locked) {
   text-align: center;
 }
 
+/* The field is focused from the moment the card mounts, so a ring around it
+   is permanent furniture rather than a state. The rule is the indicator
+   instead: it thickens and turns brand, and lights the paper under it. The
+   forced-colours and increased-contrast blocks below put a real outline back
+   for the users who need one. */
 .answer-form input:focus,
 .answer-form input:focus-visible {
+  outline: none;
+  border-bottom-width: 3.5px;
   border-bottom-color: var(--brand);
+  box-shadow: 0 6px 14px -8px color-mix(in oklab, var(--brand) 80%, transparent);
 }
 
 .answer-form input:disabled {
   border-bottom-style: dashed;
   opacity: 0.7;
+}
+
+/* The stage is a lit clearing, not a blank square: the creature stands in a
+   pool of warm light with the paper falling away behind it, which is how the
+   webapp's card top frames its portraits. */
+.monster-stage {
+  background:
+    radial-gradient(
+      circle at 50% 40%,
+      color-mix(in oklab, var(--warn) 20%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse 34% 5% at 50% 82%,
+      rgb(29 43 58 / 26%),
+      transparent 70%
+    ),
+    radial-gradient(circle at 50% 56%, var(--panel), var(--panel-sunken) 88%);
 }
 
 /* The medal reads as struck metal rather than a filled circle. */
@@ -3318,6 +3436,15 @@ button.codex-card:active:not(.is-locked) {
   .product-app select:focus-visible {
     outline-width: 4px;
   }
+
+  /* The spelling field trades its outline for a brand rule. At increased
+     contrast the outline comes back — a coloured underline is exactly the
+     kind of low-contrast cue this setting exists to replace. */
+  .answer-form input:focus,
+  .answer-form input:focus-visible {
+    outline: 4px solid var(--focus);
+    outline-offset: 0.2rem;
+  }
 }
 
 @media (max-width: 44rem) {
@@ -3326,8 +3453,15 @@ button.codex-card:active:not(.is-locked) {
     grid-template-columns: 1fr;
   }
 
+  /* Stacked into one column the cards no longer need to match a neighbour's
+     height, and three tall rows of mostly air is what that left behind. */
   .trail-navigation {
     grid-template-columns: 1fr;
+  }
+
+  .trail-navigation button {
+    min-height: 0;
+    padding: 0.85rem 1rem;
   }
 
   .reward-summary {

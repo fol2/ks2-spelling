@@ -11,6 +11,7 @@ import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 
 import { createB4PlatformRiskReport } from '../src/app/b4-development-report.js';
+import { hashFileBundleInput } from './lib/bundle-input.mjs';
 import { movePath } from './lib/move-path.mjs';
 import {
   EXIT_CODES,
@@ -307,7 +308,7 @@ async function buildOfflineApplication() {
       'The built B4 APK is not network-denied.',
     );
   }
-  return (await stat(APK_PATH)).size;
+  return hashFileBundleInput(APK_PATH);
 }
 
 async function adbChecked(args, options) {
@@ -554,7 +555,8 @@ async function proveB4Android() {
         `The required hosted Android image is missing: ${PRODUCT_IMAGE}.`,
       );
     }
-    const nativePayloadBytes = await buildOfflineApplication();
+    const bundleInput = await buildOfflineApplication();
+    const nativePayloadBytes = bundleInput.byteSize;
     await rm(OUTPUT_DIRECTORY, { recursive: true, force: true });
     await mkdir(OUTPUT_DIRECTORY, { recursive: true });
 
@@ -629,6 +631,7 @@ async function proveB4Android() {
       schemaVersion: 1,
       platform: 'android-emulator',
       runner,
+      bundleInput,
       limitations: [LIMITATION],
       offlineBoundary: {
         web: "connect-src 'none'",

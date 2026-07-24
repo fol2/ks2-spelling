@@ -1,3 +1,5 @@
+import { markB4 } from './b4-performance-marks.js';
+
 export function createB4LearnerAction({
   controller,
   readState,
@@ -25,6 +27,7 @@ export function createB4LearnerAction({
   async function submit(event) {
     event?.preventDefault?.();
     if (busy) return;
+    markB4('b4:action-start');
     busy = true;
     onBusy(true);
     try {

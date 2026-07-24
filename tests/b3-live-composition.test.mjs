@@ -1166,7 +1166,14 @@ test('tracked B3SandboxProof build mode selects B3 services without a runtime or
   );
   assert.deepEqual(
     selectNativeAppComposition({ buildMode: 'production', platform: 'android' }),
-    { serviceMode: 'b2', runtime: null },
+    {
+      serviceMode: 'product',
+      productIdentifier: 'ks2-spelling-product',
+      runtime: {
+        isNativePlatform: true,
+        platform: 'android',
+      },
+    },
   );
 });
 

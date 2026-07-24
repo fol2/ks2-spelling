@@ -1,12 +1,21 @@
 name: B4 continuous integration
 
 on:
+  workflow_call:
+    inputs:
+      certification:
+        required: false
+        type: boolean
+        default: false
   pull_request:
+  merge_group:
   push:
     branches:
       - main
       - jamesto/mobile-b3-billing-download
       - jamesto/mobile-b4-vertical-slice
+  schedule:
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -36,25 +45,36 @@ jobs:
         with:
           node-version: "24.18.0"
           cache: npm
-      - name: Install exact root and gateway dependencies
-        run: |
-          npm ci
-          npm --prefix gateway ci
+      - name: Install exact root dependencies
+        run: npm ci
       - name: Verify frozen B2, vendored and A3 authorities
         run: |
           npm run verify:b2-authority
           npm run verify:vendor
           npm run test:upstream:a3
-      - name: Materialise deterministic proof-pack and native bundle inputs
+      - name: Materialise deterministic proof-pack inputs
+        run: npm run build:b3-proof-pack
+      # Tier 1 (pull_request): the seconds-fast blocking lane. Pure invariants
+      # above run on every event; the full suite, native drift and builds are
+      # relocated to the merge tier below so a PR stays under a minute.
+      - name: Run the fast pull-request test lane
+        if: github.event_name == 'pull_request'
+        run: npm run test:fast
+      # Tier 2 (merge_group / push / schedule): the full, fail-closed gate that
+      # proves the post-merge tree before anything lands on a tracked branch.
+      - name: Install gateway dependencies and materialise native bundle inputs
+        if: github.event_name != 'pull_request'
         run: |
-          npm run build:b3-proof-pack
+          npm --prefix gateway ci
           npm run native:sync:check
       - name: Run host-neutral domain and web suite
+        if: github.event_name != 'pull_request'
         run: >-
           node --test
           --test-skip-pattern='^(?:B3 native audit is rebuilt from closed fresh inputs without weakening B2|compiled owned Swift inspector accepts the proof pack and rejects the full hostile corpus)$'
           tests/*.test.mjs
       - name: Run real gateway contracts and dry-run
+        if: github.event_name != 'pull_request'
         run: |
           npm --prefix gateway test
           npm --prefix gateway run lint
@@ -65,28 +85,55 @@ jobs:
       - name: Lint source and verification code
         run: npm run lint
       - name: Build bundled web application
+        if: github.event_name != 'pull_request'
         run: npm run build
       - name: Build the offline B4 web application and verify committed evidence
+        if: github.event_name != 'pull_request'
         run: |
           npm run build:b4-development
           npm run report:b4-development:check
-      - name: Prove the branch candidate is one evidence-only successor
-        if: github.ref != 'refs/heads/main'
+      # The evidence-only-successor contract is now self-gating: it enforces only
+      # for commits that actually change the B4 development report, so ordinary
+      # code changes are no longer taxed. Evidence commits stay fully verified.
+      - name: Prove B4 evidence commits are evidence-only successors
+        if: github.event_name != 'merge_group' && github.ref != 'refs/heads/main'
         run: |
-          checkpoint="$(node -e "const fs=require('node:fs'); process.stdout.write(JSON.parse(fs.readFileSync('reports/b4/b4-development-report.json')).applicationCheckpoint.commit)")"
-          test "$(git rev-parse HEAD^)" = "$checkpoint"
-          node --input-type=module -e "import { B4_EVIDENCE_PATHS } from './scripts/collect-b4-development-evidence.mjs'; process.stdout.write(B4_EVIDENCE_PATHS.toSorted().join('\\n') + '\\n')" > /tmp/b4-expected-paths
-          git diff --name-only "$checkpoint"..HEAD > /tmp/b4-actual-paths
-          test -s /tmp/b4-actual-paths
-          grep -qx "reports/b4/b4-development-report.json" /tmp/b4-actual-paths
-          test -z "$(comm -13 /tmp/b4-expected-paths <(sort /tmp/b4-actual-paths))"
+          if git diff --name-only HEAD^ HEAD | grep -qx "reports/b4/b4-development-report.json"; then
+            checkpoint="$(node -e "const fs=require('node:fs'); process.stdout.write(JSON.parse(fs.readFileSync('reports/b4/b4-development-report.json')).applicationCheckpoint.commit)")"
+            test "$(git rev-parse HEAD^)" = "$checkpoint"
+            node --input-type=module -e "import { B4_EVIDENCE_PATHS } from './scripts/collect-b4-development-evidence.mjs'; process.stdout.write(B4_EVIDENCE_PATHS.toSorted().join('\\n') + '\\n')" > /tmp/b4-expected-paths
+            git diff --name-only "$checkpoint"..HEAD > /tmp/b4-actual-paths
+            test -s /tmp/b4-actual-paths
+            grep -qx "reports/b4/b4-development-report.json" /tmp/b4-actual-paths
+            test -z "$(comm -13 /tmp/b4-expected-paths <(sort /tmp/b4-actual-paths))"
+          else
+            echo "No B4 evidence change in this commit; the evidence-only-successor contract does not apply."
+          fi
       - name: Validate B3 pending or complete evidence topology
         run: node scripts/build-b3-exit-report.mjs --check-ci
+      - name: Package the verified domain and web build bytes
+        if: inputs.certification == true
+        run: |
+          mkdir -p .native-build/certification-artifacts
+          tar -cf .native-build/certification-artifacts/domain-web.tar dist
+      - name: Retain the domain and web build for milestone derivation
+        if: inputs.certification == true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: certification-domain-web
+          path: .native-build/certification-artifacts/domain-web.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
   android-compile:
     name: Android unsigned debug and release compile
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    # Tier: native compilation never runs on a pull request (keeps the PR gate
+    # under a minute). It runs on merge_group/push/schedule as a fail-closed
+    # merge gate, and the nightly schedule runs it unconditionally cold.
+    if: github.event_name != 'pull_request'
     steps:
       - name: Check out repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -98,16 +145,38 @@ jobs:
         with:
           node-version: "24.18.0"
           cache: npm
+      - name: Validate B3 pending or complete evidence topology
+        run: node scripts/build-b3-exit-report.mjs --check-ci
+      # Fail-SAFE native path filter: defaults to running native on any doubt
+      # (unresolved base, empty diff, non-push/merge event). It can only ever
+      # make a merge slower, never let a native change skip its compile.
+      - name: Detect native-affecting changes
+        id: filter
+        run: |
+          base="${{ github.event.merge_group.base_sha }}"
+          [ -z "$base" ] && base="${{ github.event.before }}"
+          if [ "${{ inputs.certification }}" = "true" ]; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          elif [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git rev-parse "$base^{commit}" >/dev/null 2>&1; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$base" HEAD | grep -qE '^(ios/|android/|capacitor\.config|package-lock\.json|config/dependency-policy\.json|config/maven-licence-policy\.json|android/gradle/verification-metadata\.xml|tests/fixtures/b3-hostile-zips/|scripts/(native-sync-check|certify-android-dependencies|test-ios-pack-inspector|prove-b3-ios-storekit-test))'; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "native=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Set up Temurin 21 for CI only
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
         with:
           distribution: temurin
           java-version: "21"
       - name: Set up committed Gradle wrapper
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
         with:
           validate-wrappers: true
       - name: Require Android API and Build Tools 36
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
@@ -115,17 +184,25 @@ jobs:
           test -x "$ANDROID_HOME/build-tools/36.0.0/aapt2"
           test -f "$ANDROID_HOME/platforms/android-36/android.jar"
       - name: Install exact JavaScript dependencies
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm ci
       - name: Materialise and verify synced native bundle inputs
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run native:sync:check
       - name: Compile and test Android debug plus unsigned release application
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run test:android
       - name: Compile the installed B4 Android test seam
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           npm run sync:b4-development
           ./android/gradlew -p android :app:assembleDebug :app:assembleDebugAndroidTest --no-daemon
           npm run report:b4-development:check
+      - name: Compile the B4 unsigned Android release for certification
+        if: inputs.certification == true
+        run: ./android/gradlew -p android :app:assembleRelease --no-daemon
       - name: Test and compile the unsigned B3 application
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         working-directory: android
         run: >-
           ./gradlew test bundleB3SandboxProofRelease
@@ -135,16 +212,39 @@ jobs:
           -Pb3ApplicationFingerprint=2222222222222222222222222222222222222222222222222222222222222222
           --no-daemon
       - name: Certify resolved Android dependency closure
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run certify:android
       - name: Run fresh resolved Android dependency policy tests
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run test:android-resolved-policy
-      - name: Validate B3 pending or complete evidence topology
-        run: node scripts/build-b3-exit-report.mjs --check-ci
+      - name: Package the verified Android build bytes
+        if: inputs.certification == true
+        run: |
+          mkdir -p .native-build/certification-artifacts
+          tar -cf .native-build/certification-artifacts/android-compile.tar \
+            .native-build/android/build/app/outputs/apk/debug/app-debug.apk \
+            .native-build/android/build/app/outputs/apk/release/app-release-unsigned.apk \
+            android/app/build/outputs/apk/debug/app-debug.apk \
+            android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
+            android/app/build/outputs/apk/release/app-release-unsigned.apk \
+            android/app/build/outputs/bundle/b3SandboxProofRelease/app-b3SandboxProof-release.aab
+      - name: Retain the Android builds for milestone derivation
+        if: inputs.certification == true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: certification-android-compile
+          path: .native-build/certification-artifacts/android-compile.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
   ios-compile:
     name: iOS unsigned Simulator compile
     runs-on: macos-26
     timeout-minutes: 40
+    # Tier: same as Android — never on a pull request; a fail-closed merge gate
+    # on merge_group/push, unconditionally cold on the nightly schedule.
+    if: github.event_name != 'pull_request'
     steps:
       - name: Check out repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -158,19 +258,38 @@ jobs:
           cache: npm
       - name: Validate B3 pending or complete evidence topology
         run: node scripts/build-b3-exit-report.mjs --check-ci
+      - name: Detect native-affecting changes
+        id: filter
+        run: |
+          base="${{ github.event.merge_group.base_sha }}"
+          [ -z "$base" ] && base="${{ github.event.before }}"
+          if [ "${{ inputs.certification }}" = "true" ]; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          elif [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git rev-parse "$base^{commit}" >/dev/null 2>&1; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$base" HEAD | grep -qE '^(ios/|android/|capacitor\.config|package-lock\.json|config/dependency-policy\.json|config/maven-licence-policy\.json|android/gradle/verification-metadata\.xml|tests/fixtures/b3-hostile-zips/|scripts/(native-sync-check|certify-android-dependencies|test-ios-pack-inspector|prove-b3-ios-storekit-test))'; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "native=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Require Xcode 26 or newer
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           xcodebuild -version
           xcode_major="$(xcodebuild -version | awk '/^Xcode / { split($2, version, "."); print version[1] }')"
           test -n "$xcode_major"
           test "$xcode_major" -ge 26
       - name: Install exact JavaScript dependencies
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm ci
       - name: Materialise and verify synced native bundle inputs
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run native:sync:check
       - name: Compile unsigned iOS Simulator application
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run test:ios
       - name: Compile the installed B4 iOS test seam and verify committed evidence
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           npm run sync:b4-development
           xcodebuild \
@@ -183,13 +302,27 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build-for-testing
           npm run report:b4-development:check
+      - name: Compile the B4 unsigned iOS release for certification
+        if: inputs.certification == true
+        run: |
+          xcodebuild \
+            -quiet \
+            -project ios/App/App.xcodeproj \
+            -scheme B4DevelopmentUITests \
+            -configuration Release \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .native-build/b4-release-ci \
+            CODE_SIGNING_ALLOWED=NO \
+            build-for-testing
       - name: Compile unsigned B3 iOS Simulator application
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: >-
           xcodebuild
           -project ios/App/App.xcodeproj
           -scheme B3SandboxProof
           -configuration B3SandboxProof
           -sdk iphonesimulator
+          -derivedDataPath .native-build/b3-ci
           CODE_SIGNING_ALLOWED=NO
           B3_TESTED_APPLICATION_COMMIT=1111111111111111111111111111111111111111
           B3_APPLICATION_FINGERPRINT=2222222222222222222222222222222222222222222222222222222222222222
@@ -197,6 +330,26 @@ jobs:
           B3_IOS_BUILD_NUMBER=1
           build
       - name: Run owned hostile iOS pack inspector
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: node scripts/test-ios-pack-inspector.mjs
       - name: Run non-live iOS StoreKit Test
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run prove:b3:ios-storekit-test
+      - name: Package the verified iOS build bytes
+        if: inputs.certification == true
+        run: |
+          mkdir -p .native-build/certification-artifacts
+          tar -cf .native-build/certification-artifacts/ios-compile.tar \
+            .native-build/ios/Build/Products \
+            .native-build/b4-ci/Build/Products \
+            .native-build/b4-release-ci/Build/Products \
+            .native-build/b3-ci/Build/Products
+      - name: Retain the iOS builds for milestone derivation
+        if: inputs.certification == true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: certification-ios-compile
+          path: .native-build/certification-artifacts/ios-compile.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0

@@ -61,6 +61,14 @@ test('activation requires the exact verified manifest entitlement authority', as
     { code: 'PACK_ACTIVATION_MANIFEST_AUTHORITY_MISMATCH' },
   );
   assert.deepEqual(harness.calls, []);
+
+  const falseFreeClaim = activationHarness({ requiredEntitlementId: null });
+  await assert.rejects(
+    createPackActivationCoordinator(falseFreeClaim.dependencies)
+      .activate(falseFreeClaim.input),
+    { code: 'PACK_ACTIVATION_MANIFEST_AUTHORITY_MISMATCH' },
+  );
+  assert.deepEqual(falseFreeClaim.calls, []);
 });
 
 test('activation is idempotently recoverable when native rename completed before SQLite registration', async () => {
@@ -137,6 +145,45 @@ test('the real SQLite repository accepts the exact native installed path and ato
       VERSION,
     );
     assert.equal((await packRepository.getDownloadJob({ jobId: JOB_ID })).state, 'ready');
+  } finally {
+    await connection.close().catch(() => {});
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a free Starter pack activates atomically without inventing a commerce entitlement', async () => {
+  const starterPackId = 'ks2-core';
+  const starterVersion = '1.0.0';
+  const starterJobId = `${starterPackId}.${starterVersion}`;
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-activation-free-'));
+  const connection = createNodeSqliteConnection(join(directory, 'activation.sqlite'));
+  try {
+    await connection.open();
+    await configureAndMigrateDatabase(connection);
+    await connection.execute(
+      'INSERT INTO pack_download_jobs (job_id, pack_id, version, manifest_sha256, archive_name, archive_sha256, expected_bytes, completed_bytes, etag, state, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        starterJobId, starterPackId, starterVersion, ENVELOPE_SHA,
+        `${starterPackId}.zip`, ARCHIVE_SHA,
+        1_324, 1_324, ARCHIVE_ETAG, 'downloaded', NOW - 10,
+      ],
+    );
+    const harness = activationHarness({
+      packId: starterPackId,
+      requiredEntitlementId: null,
+      version: starterVersion,
+    });
+    const repository = createSqlitePackRepositories(connection);
+    const result = await createPackActivationCoordinator({
+      ...harness.dependencies,
+      packRepository: repository,
+    }).activate(harness.input);
+
+    assert.equal(result.state, 'ready');
+    assert.equal(
+      (await repository.getActiveVersion({ packId: starterPackId })).version,
+      starterVersion,
+    );
   } finally {
     await connection.close().catch(() => {});
     await rm(directory, { recursive: true, force: true });

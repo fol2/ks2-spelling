@@ -383,9 +383,23 @@ async function inspectIosArtifact({ bytes, copyPath, temporary, runner }) {
   await run(runner, '/usr/bin/codesign', [
     '--display', '--entitlements', signedEntitlements, '--xml', app,
   ]);
+  let signedEntitlementsPlist;
+  try {
+    signedEntitlementsPlist = JSON.parse(await run(runner, '/usr/bin/plutil', [
+      '-convert', 'json', '-o', '-', signedEntitlements,
+    ]));
+  } catch {
+    fail('iOS signed entitlements plist is invalid');
+  }
+  if (signedEntitlementsPlist === null ||
+      typeof signedEntitlementsPlist !== 'object' ||
+      Array.isArray(signedEntitlementsPlist)) {
+    fail('iOS signed entitlements plist is invalid');
+  }
+  const signedTeamIdentifier =
+    signedEntitlementsPlist['com.apple.developer.team-identifier'];
   const [
     signedApplicationIdentifier,
-    signedTeamIdentifier,
     signedGetTaskAllow,
     profileApplicationIdentifier,
     applicationPrefixCount,
@@ -394,7 +408,6 @@ async function inspectIosArtifact({ bytes, copyPath, temporary, runner }) {
     profileTeamIdentifier,
   ] = await Promise.all([
     run(runner, '/usr/bin/plutil', ['-extract', 'application-identifier', 'raw', '-expect', 'string', signedEntitlements]),
-    run(runner, '/usr/bin/plutil', ['-extract', 'com.apple.developer.team-identifier', 'raw', '-expect', 'string', signedEntitlements]),
     run(runner, '/usr/bin/plutil', ['-extract', 'get-task-allow', 'raw', '-expect', 'bool', signedEntitlements]),
     run(runner, '/usr/bin/plutil', ['-extract', 'Entitlements.application-identifier', 'raw', '-expect', 'string', profilePlist]),
     run(runner, '/usr/bin/plutil', ['-extract', 'ApplicationIdentifierPrefix', 'raw', '-expect', 'array', profilePlist]),

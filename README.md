@@ -2,7 +2,10 @@
 
 `ks2-spelling` is the standalone repository for the local-first KS2 Spelling
 mobile application. B1 established the independently versioned native shell;
-B2 adds its local transactional SQLite and lifecycle proof.
+B2 added local transactional SQLite and lifecycle proof, and B3/B4 established
+the bounded commerce, signed-pack and learner-journey development seams.
+Continued product work follows the
+[C-series product-completion plan](docs/superpowers/plans/2026-07-23-c-series-product-completion.md).
 
 ## Frozen identity
 
@@ -50,8 +53,11 @@ content.
 
 Monster is a motivational presentation around spelling, not an independently
 cloud-tracked Parent metric. A dedicated Visual / Theme / Asset Migration Spec
-remains mandatory after Gate B `GO` for the Development Checkpoint and before C3
-child UI. B3
+remains mandatory before C3 child UI. The dated
+[B4 owner GO](docs/superpowers/plans/2026-07-23-b4-owner-go.md)
+accepts Capacitor as the product direction. Historical timing observations are
+retained, but their external measurement method is not accepted as an
+application-threshold verdict and will be replaced during later optimisation. B3
 Development proves deterministic and compiled commerce/signed-download capability
 only. Signed App Store/Google Play, deployed Cloudflare/R2 and physical-device
 truth remain one Release Commerce Certification blocker before public submission.

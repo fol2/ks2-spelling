@@ -6,6 +6,7 @@ import {
   randomAtB4Command,
 } from './b4-round-contract.js';
 import { resolveB4AudioPath } from './b4-local-audio.js';
+import { markB4, measureB4 } from './b4-performance-marks.js';
 
 const LEARNER_ID = 'learner-a';
 
@@ -93,6 +94,37 @@ export function createB4RoundController({
   let startPromise = null;
   const listeners = new Set();
 
+  function warmCurrentPrompt(state, session = null) {
+    if (disposed || !state.currentRuntimeItemId) return;
+    if (typeof playAudio.warm !== 'function') return;
+    try {
+      const { currentRuntimeItemId: runtimeItemId, currentSentence: sentence } = state;
+      const paths = [resolveB4AudioPath(audioManifest, { runtimeItemId, sentence: null })];
+      if (sentence != null) {
+        paths.push(
+          resolveB4AudioPath(audioManifest, { runtimeItemId, sentence, slow: false }),
+          resolveB4AudioPath(audioManifest, { runtimeItemId, sentence, slow: true }),
+        );
+      }
+      // Bounded prefetch: current word + both dictation paces + next queued
+      // word-natural cue. Sentence prompts for the next card are unknown until
+      // continue commits, so only the word asset is warmed ahead.
+      const nextRuntimeItemId = session?.queueItemIds?.[0] ?? null;
+      if (nextRuntimeItemId) {
+        paths.push(resolveB4AudioPath(audioManifest, {
+          runtimeItemId: nextRuntimeItemId,
+          sentence: null,
+        }));
+      }
+      playAudio.warm(paths);
+    } catch {
+      // Warming is best-effort and must not break the round.
+    }
+  }
+
+  // Warming is invoked explicitly after action-driven publishes only: the
+  // pause path also publishes, and elements created while the WebView is
+  // suspending have their loads aborted and become unplayable duds.
   function publish(state) {
     currentState = state;
     for (const listener of listeners) listener(state);
@@ -102,6 +134,10 @@ export function createB4RoundController({
   function stopPlayback() {
     playbackGeneration += 1;
     playAudio.stop();
+    // Backgrounding can purge WebKit media buffers, leaving pooled elements
+    // unable to reach the playing state; a paused/rehydrated session must
+    // start from fresh elements (the next publish re-warms the pool).
+    playAudio.flush?.();
     audio = { status: 'idle', error: null };
     publish(Object.freeze({
       ...currentState,
@@ -111,15 +147,29 @@ export function createB4RoundController({
 
   async function playCue(cue) {
     const token = ++playbackGeneration;
+    // Surfacing the starting state in the live region separates "playback
+    // never invoked" from "playback invoked but never reached playing" in
+    // journey failure snapshots.
+    audio = { status: 'starting', error: null };
+    publish(Object.freeze({
+      ...currentState,
+      audio: Object.freeze({ ...audio }),
+    }));
     try {
       const path = resolveB4AudioPath(audioManifest, cue);
       const result = await playAudio(path);
-      if (token === playbackGeneration) audio = { status: result.status, error: null };
+      if (token !== playbackGeneration || disposed) return;
+      audio = { status: result.status, error: null };
     } catch (error) {
-      if (token === playbackGeneration) {
-        audio = { status: 'error', error: error?.code ?? 'b4_audio_play_failed' };
-      }
+      if (token !== playbackGeneration || disposed) return;
+      audio = { status: 'error', error: error?.code ?? 'b4_audio_play_failed' };
     }
+    // Audio status is a separate publish from committed feedback so learners
+    // see answer results without waiting for playback to reach "playing".
+    publish(Object.freeze({
+      ...currentState,
+      audio: Object.freeze({ ...audio }),
+    }));
   }
 
   async function replayCurrentPrompt(slow) {
@@ -128,10 +178,7 @@ export function createB4RoundController({
       sentence: currentState.currentSentence,
       slow,
     });
-    return publish(Object.freeze({
-      ...currentState,
-      audio: Object.freeze({ ...audio }),
-    }));
+    return currentState;
   }
 
   const pauseHandle = lifecycle?.onPause?.(() => stopPlayback()) ?? null;
@@ -142,6 +189,7 @@ export function createB4RoundController({
   }
 
   async function runCommand(command) {
+    markB4('b4:commit-start');
     const before = await read();
     const plan = await repository.runCommandTransaction(LEARNER_ID, (fresh, context) => {
       if (fresh.revision !== before.revision) {
@@ -155,13 +203,30 @@ export function createB4RoundController({
         random: randomAtB4Command(fresh.revision),
       });
     });
-    const committed = await read();
-    if (committed.revision !== before.revision + 1) {
+    if (plan.nextRevision !== before.revision + 1) {
       throw controllerError('b4_round_commit_missing');
     }
+    // The repository has already verified the committed rows match this
+    // validated plan, so the committed view derives from the plan without a
+    // second full snapshot read over the storage bridge.
+    const committed = {
+      revision: plan.nextRevision,
+      subjectState: plan.nextSubjectState,
+      practiceSession: plan.nextPracticeSession,
+    };
+    measureB4('b4:commit', 'b4:commit-start');
+    const state = publish(viewState(committed, audio));
+    markB4('b4:state-published');
+    measureB4('b4:action-to-publish', 'b4:action-start');
+    warmCurrentPrompt(state, committed.subjectState?.ui?.session ?? null);
     const effect = plan.transientEffects.find(({ type }) => type === 'audio-cue');
-    if (effect) await playCue(effect.payload);
-    return publish(viewState(committed, audio));
+    // Fire-and-forget: committed feedback must not wait on audio start.
+    // playCue publishes "starting" synchronously before its first await.
+    if (effect) {
+      void playCue(effect.payload);
+      return currentState;
+    }
+    return state;
   }
 
   async function advance() {
@@ -186,9 +251,10 @@ export function createB4RoundController({
     start() {
       startPromise ??= (async () => {
         const snapshot = await read();
-        return snapshot.revision === 0
-          ? runCommand(B4_START_COMMAND)
-          : publish(viewState(snapshot, audio));
+        if (snapshot.revision === 0) return runCommand(B4_START_COMMAND);
+        const state = publish(viewState(snapshot, audio));
+        warmCurrentPrompt(state, snapshot.subjectState?.ui?.session ?? null);
+        return state;
       })().finally(() => {
         startPromise = null;
       });
@@ -219,7 +285,10 @@ export function createB4RoundController({
     },
     async rehydrate() {
       stopPlayback();
-      return publish(viewState(await read(), audio));
+      const snapshot = await read();
+      const state = publish(viewState(snapshot, audio));
+      warmCurrentPrompt(state, snapshot.subjectState?.ui?.session ?? null);
+      return state;
     },
     async dispose() {
       if (disposed) return;

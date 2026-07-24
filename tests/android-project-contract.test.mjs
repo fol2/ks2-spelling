@@ -70,7 +70,7 @@ test('the committed Android project freezes the B1 identity and toolchain', asyn
   assert.equal(capacitorAndroidPackage.version, '8.4.1');
 });
 
-test('the Android app allows only normal INTERNET plus permission removals and disables backup', async () => {
+test('the Android app allows only normal INTERNET and biometric plus removals and disables backup', async () => {
   assert.ok(existsSync(MANIFEST), 'missing committed Android app manifest');
   assert.ok(
     existsSync(BACKUP_RULES) && existsSync(DATA_EXTRACTION_RULES),
@@ -95,7 +95,7 @@ test('the Android app allows only normal INTERNET plus permission removals and d
   ]);
   assert.deepEqual(
     biometricRemovalMarkers.map((match) => match[1]).sort(),
-    ['USE_BIOMETRIC', 'USE_FINGERPRINT'],
+    ['USE_FINGERPRINT'],
   );
   let manifestWithoutRemovalMarkers = manifest;
   for (const marker of [...removalMarkers, ...biometricRemovalMarkers]) {
@@ -106,11 +106,18 @@ test('the Android app allows only normal INTERNET plus permission removals and d
       /<uses-permission\s+android:name="([^"]+)"\s*\/>/g,
     ),
   ].map((match) => match[1]);
-  assert.deepEqual(remainingPermissions, ['android.permission.INTERNET']);
-  manifestWithoutRemovalMarkers = manifestWithoutRemovalMarkers.replace(
-    /<uses-permission\s+android:name="android\.permission\.INTERNET"\s*\/>/,
-    '',
-  );
+  assert.deepEqual(remainingPermissions, [
+    'android.permission.USE_BIOMETRIC',
+    'android.permission.INTERNET',
+  ]);
+  for (const permission of remainingPermissions) {
+    manifestWithoutRemovalMarkers = manifestWithoutRemovalMarkers.replace(
+      new RegExp(
+        `<uses-permission\\s+android:name="${permission.replaceAll('.', '\\.')}"\\s*\\/>`,
+      ),
+      '',
+    );
+  }
   assert.doesNotMatch(manifestWithoutRemovalMarkers, /<(?:permission|uses-permission)\b/);
   assert.match(manifest, /android:allowBackup="false"/);
   assert.match(manifest, /android:fullBackupContent="@xml\/backup_rules"/);

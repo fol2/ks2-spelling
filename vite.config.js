@@ -1,7 +1,20 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { cp, mkdir } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const B4_BUILD_MARKER = 'B4Development';
+const ROOT = dirname(fileURLToPath(import.meta.url));
+
+export function resolveAppComposition(mode) {
+  return resolve(
+    ROOT,
+    mode === 'production'
+      ? 'src/app/create-production-app-services.js'
+      : 'src/app/create-app-services.js',
+  );
+}
 
 export function createB4OfflineBoundary(mode) {
   if (mode !== B4_BUILD_MARKER) return null;
@@ -27,8 +40,44 @@ export function createB4OfflineBoundary(mode) {
   };
 }
 
+export function createBundledStarterAssets(mode) {
+  if (mode !== 'production') return null;
+  return {
+    name: 'bundled-starter-assets',
+    async writeBundle(outputOptions) {
+      const outputRoot = resolve(ROOT, outputOptions.dir ?? 'dist');
+      const target = resolve(outputRoot, 'starter/audio');
+      await mkdir(dirname(target), { recursive: true });
+      await cp(
+        resolve(ROOT, 'content/starter-pack/audio'),
+        target,
+        {
+          recursive: true,
+          force: false,
+          errorOnExist: true,
+        },
+      );
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), createB4OfflineBoundary(mode)].filter(Boolean),
+  plugins: [
+    react(),
+    createB4OfflineBoundary(mode),
+    createBundledStarterAssets(mode),
+  ].filter(Boolean),
+  resolve: {
+    alias: {
+      '@ks2/app-composition': resolveAppComposition(mode),
+      '@ks2/app-root': resolve(
+        ROOT,
+        mode === 'production'
+          ? 'src/app/ProductRoot.jsx'
+          : 'src/app/App.jsx',
+      ),
+    },
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

@@ -23,11 +23,18 @@ const runner = Object.freeze({
   buildConfiguration: 'B4Development test',
 });
 
-function capture(platform) {
+function bundleInput(platform, sha256 = HASH) {
+  return platform === 'ios-simulator'
+    ? { kind: 'directory-sha256', sha256, fileCount: 2, byteSize: 3 }
+    : { kind: 'file-sha256', sha256, byteSize: 3 };
+}
+
+function capture(platform, capturedBundle = bundleInput(platform)) {
   return {
     schemaVersion: 1,
     platform,
     runner,
+    bundleInput: capturedBundle,
     limitations: ['Virtual device only.'],
     offlineBoundary: { web: "connect-src 'none'", clientTts: 'none' },
     journeys: {
@@ -41,7 +48,7 @@ function capture(platform) {
       },
       scaled: { atLeast200Percent: true, completed: true },
     },
-    rawSizes: { nativePayloadBytes: 1, localDatabaseBytes: 1 },
+    rawSizes: { nativePayloadBytes: capturedBundle.byteSize, localDatabaseBytes: 1 },
     layout: {
       phonePortrait: 'source-phone.png',
       phoneAt200Percent: 'source-phone-200-percent.png',
@@ -55,7 +62,7 @@ function capture(platform) {
         coldLaunchMs: 1,
         answerFeedbackMs: Array(10).fill(1),
         audioStartMs: [1, 1],
-        nativePayloadBytes: 1,
+        nativePayloadBytes: capturedBundle.byteSize,
         localDatabaseBytes: 1,
       },
     }),
@@ -78,23 +85,38 @@ test('the B4 domain proof binds the frozen round and audio authority without lea
 });
 
 test('platform proofs retain raw observations and bind one committed large-text screenshot', () => {
+  const iosBundle = bundleInput('ios-simulator');
   const ios = createB4PlatformProof({
-    capture: capture('ios-simulator'),
+    capture: capture('ios-simulator', iosBundle),
     applicationCheckpoint: checkpoint,
-    bundleInput: { kind: 'directory-sha256', sha256: HASH, fileCount: 2, byteSize: 3 },
+    bundleInput: iosBundle,
     phoneFile: 'ios-phone.png',
   });
   assert.deepEqual(ios.applicationCheckpoint, checkpoint);
   assert.equal(ios.layout.phonePortrait, 'ios-phone.png');
   assert.equal(ios.layout.phoneAt200Percent, 'ios-phone.png');
   assert.equal(ios.platformRiskReport.technicalOutcome, 'pass');
+  const wrongHash = capture('ios-simulator', bundleInput('ios-simulator', 'b'.repeat(64)));
+  const wrongMeasuredSize = capture('ios-simulator', iosBundle);
+  wrongMeasuredSize.rawSizes.nativePayloadBytes += 347;
+  for (const staleCapture of [wrongHash, wrongMeasuredSize]) {
+    assert.throws(
+      () => createB4PlatformProof({
+        capture: staleCapture,
+        applicationCheckpoint: checkpoint,
+        bundleInput: iosBundle,
+        phoneFile: 'ios-phone.png',
+      }),
+      (error) => error?.code === 'b4_evidence_bundle_stale',
+    );
+  }
 });
 
 test('the aggregate is shallow, exact-path and cannot encode the future Gate B decision', () => {
   const ios = createB4PlatformProof({
     capture: capture('ios-simulator'),
     applicationCheckpoint: checkpoint,
-    bundleInput: { kind: 'directory-sha256', sha256: HASH, fileCount: 2, byteSize: 3 },
+    bundleInput: bundleInput('ios-simulator'),
     phoneFile: 'ios-phone.png',
   });
   const androidCapture = capture('android-emulator');
@@ -104,7 +126,7 @@ test('the aggregate is shallow, exact-path and cannot encode the future Gate B d
   const android = createB4PlatformProof({
     capture: androidCapture,
     applicationCheckpoint: checkpoint,
-    bundleInput: { kind: 'file-sha256', sha256: HASH, byteSize: 3 },
+    bundleInput: bundleInput('android-emulator'),
     phoneFile: 'android-phone.png',
   });
   const aggregate = createB4DevelopmentAggregate({

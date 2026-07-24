@@ -1,6 +1,6 @@
 # SDK and privacy register
 
-Review date: 15 July 2026
+Review date: 23 July 2026
 
 Owner: KS2 Spelling maintainer
 
@@ -143,6 +143,90 @@ ignored local SQLite schema-v2 database. Its final JSON and PNG files are
 immutable derived evidence, not a second mutable state store. Task 19 performs
 no live Cloudflare/R2, store or device mutation and makes no signed/live-evidence
 claim.
+
+## C2B Parent access transition
+
+The active product source now includes one app-owned Parent access bridge. On
+iOS it uses the system `LocalAuthentication` framework; on Android it uses the
+exact locked `androidx.biometric:biometric:1.1.0` artefact already present in
+the verified dependency inventory. No third-party Capacitor biometric plugin
+has been added.
+
+The active Android manifest declares the normal
+`android.permission.USE_BIOMETRIC` permission and continues to remove the
+legacy fingerprint permission. The iOS app declares only
+`NSFaceIDUsageDescription` for this capability. Android automatic cloud backup
+and device transfer remain disabled and excluded across every database and
+file domain.
+
+Parent access is local-only. A six-digit Parent PIN is represented by a random
+salt and a PBKDF2-SHA-256 verifier; the PIN itself is not persisted. Biometrics
+are an explicit opt-in from an already unlocked Parent session and never
+replace initial PIN setup. The app locks the Parent session on pause. These
+claims are compiled Simulator and local contract evidence only; physical
+biometric behaviour remains deferred to the final device proof.
+
+The frozen B2 reports and their historical statements above are not rewritten
+by this C2B transition.
+
+The production database continues to use the explicit `no-encryption` SQLite
+mode. SQLCipher remains packaged, but the app does not claim application-level
+database encryption and does not perform the plugin's destructive encryption
+migration. Instead, one app-owned policy bridge runs before the first database
+open and again after initial migration. On iOS it applies and verifies Complete
+file protection on `Library/CapacitorDatabase`, rejects symbolic links and
+excludes that directory from automatic backup. On Android it verifies that
+automatic backup is disabled and that the database directory is private to the
+application. A mismatch fails product bootstrap without replacing or
+transforming the database bytes. Physical-device storage behaviour remains
+part of the final proof.
+
+The iOS Simulator app process currently returns no protection attribute
+immediately after Complete protection is requested; a later host-side read
+reports Complete Until First User Authentication. The native bridge records
+the in-process result as unobservable and does not promote the later host
+observation to a physical-device claim. The physical branch continues to
+require Complete protection.
+
+Parent-controlled learning backup is explicit rather than automatic. A backup
+is canonical JSON bounded to 5 MiB and 20 learners. It contains only learner
+profiles, the selected learner and validated spelling snapshots. It excludes
+the Parent credential record, commerce state, download jobs and installed
+packs. Import verifies the native file hash and complete application contract
+before one SQLite transaction replaces learner state; cancellation, invalid
+input or an interrupted write cannot partially replace it. The system document
+picker and share sheet are exposed by one bounded app-owned bridge. No
+third-party Capacitor filesystem package or storage permission is added.
+Exported copies are controlled by the Parent and are outside later in-app
+deletion.
+
+## C5 product privacy transition
+
+The product Parent area now carries local privacy and retention copy. Learner
+nicknames, year groups, goals, answers, progress, active practice, Inklet and
+Camp state remain in the local SQLite authority. Parent PINs remain represented
+only by a salted verifier, and platform biometrics do not expose biometric data
+to the application. Parent-controlled backup is the only route by which
+learning data leaves the application's local storage.
+
+The product contains no configured advertising, analytics or tracking service
+and creates no child account. Learner or spelling data is not supplied to
+commerce. Production composition now fails closed when release commerce
+authority is absent and does not substitute the B3 sandbox gateway, proof pack
+or test-only keyring. Live store and gateway enablement, vendor data-practice
+confirmation, final Apple App Privacy and Google Play Data Safety answers, and
+US export classification remain final-release evidence.
+
+The exact Starter 20 audio is bundled as an application resource and is
+verified against compiled size and SHA-256 authority before playback. It has no
+runtime speech or network fallback. Downloaded and paid content remains behind
+the signed data-pack boundary.
+
+The repository-owned privacy notice, terms copy and third-party licence
+transition record are under `docs/legal/`. `THIRD_PARTY_NOTICES.md` remains the
+deterministic component inventory. Exact upstream licence-text assembly and
+store exposure are verified against the final signed distribution during Task
+22 rather than inferred from this development candidate.
 
 ## Not approved candidates
 

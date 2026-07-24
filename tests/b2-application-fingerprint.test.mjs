@@ -55,6 +55,7 @@ async function fixture() {
     'ios/App/App.xcodeproj/project.pbxproj',
     'ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved',
     'ios/App/App/AppDelegate.swift',
+    'ios/App/App/SceneDelegate.swift',
     'ios/App/App/Info.plist',
     'ios/App/App/capacitor.config.json',
     'ios/App/App/public/index.html',
@@ -89,6 +90,7 @@ test('B2 fingerprint includes every behavioural input and excludes evidence outp
       'scripts/fingerprint-b2-application.mjs',
       'android/app/src/main/assets/public/index.html',
       'ios/App/App/public/index.html',
+      'ios/App/App/SceneDelegate.swift',
     ]) assert.ok(paths.includes(required), `required fingerprint input omitted: ${required}`);
     assert.equal(paths.some((path) => path.startsWith('reports/')), false);
     assert.equal(paths.some((path) => path.startsWith('.native-build/')), false);

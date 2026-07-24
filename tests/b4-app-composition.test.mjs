@@ -29,10 +29,14 @@ test('B4Development selects the bounded Starter product on both native platforms
   assert.equal(B4_PRODUCT_IDENTIFIER, 'b4-starter-product');
 });
 
-test('normal native composition remains B2 and explicit B3 composition remains exact', () => {
+test('normal native composition is the production product and explicit B3 remains exact', () => {
   assert.deepEqual(
     selectNativeAppComposition({ buildMode: 'production', platform: 'android' }),
-    { serviceMode: 'b2', runtime: null },
+    {
+      serviceMode: 'product',
+      productIdentifier: 'ks2-spelling-product',
+      runtime: { isNativePlatform: true, platform: 'android' },
+    },
   );
   assert.deepEqual(
     selectNativeAppComposition({ buildMode: 'B3SandboxProof', platform: 'ios' }),
@@ -55,7 +59,7 @@ test('normal native composition remains B2 and explicit B3 composition remains e
 });
 
 test('B4 uses mode-baked web assets with the ordinary native wrappers', async () => {
-  const [main, packageJson, iosScheme, android] = await Promise.all([
+  const [main, packageJson, iosScheme, android, mountApp] = await Promise.all([
     readFile(new URL('../src/main.jsx', import.meta.url), 'utf8'),
     readFile(new URL('../package.json', import.meta.url), 'utf8'),
     readFile(
@@ -63,8 +67,16 @@ test('B4 uses mode-baked web assets with the ordinary native wrappers', async ()
       'utf8',
     ),
     readFile(new URL('../android/app/build.gradle', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/mount-app.js', import.meta.url), 'utf8'),
   ]);
   assert.match(main, /buildMode:\s*import\.meta\.env\.MODE/u);
+  assert.match(main, /mountApp\(/u);
+  assert.match(main, /AppLoadingShell/u);
+  assert.match(mountApp, /renderLoading\(\)/u);
+  assert.match(
+    mountApp,
+    /Paint a lightweight shell before native service initialisation/u,
+  );
   assert.match(packageJson, /"build:b4-development":\s*"vite build --mode B4Development"/u);
   assert.match(
     packageJson,

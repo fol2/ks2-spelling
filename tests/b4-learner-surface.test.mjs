@@ -122,7 +122,34 @@ test('B4 surface renders native learner controls without target leakage or comme
     appType: 'custom',
   });
   t.after(() => vite.close());
-  const { default: App } = await vite.ssrLoadModule('/src/app/App.jsx');
+  const { default: App, activateB4Audio } = await vite.ssrLoadModule('/src/app/App.jsx');
+  const audioActivations = [];
+  const runAudio = (method) => audioActivations.push(method);
+  assert.equal(activateB4Audio({
+    event: { button: 0, isPrimary: true },
+    method: 'slowReplay',
+    runAudio,
+    source: 'pointer-up',
+  }), true);
+  assert.equal(activateB4Audio({
+    event: { detail: 1 },
+    method: 'slowReplay',
+    runAudio,
+    source: 'click',
+  }), false);
+  assert.equal(activateB4Audio({
+    event: { detail: 0 },
+    method: 'replay',
+    runAudio,
+    source: 'click',
+  }), true);
+  assert.equal(activateB4Audio({
+    event: { button: 0, isPrimary: false },
+    method: 'replay',
+    runAudio,
+    source: 'pointer-up',
+  }), false);
+  assert.deepEqual(audioActivations, ['slowReplay', 'replay']);
   const state = activeState();
   const controller = Object.freeze({
     getState: () => state,
@@ -273,7 +300,9 @@ test('B4 surface has one semantic task order and non-duplicated polite announcem
 test('B4 CSS contracts preserve touch targets, focus, scaling and reduced motion', async () => {
   const css = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
   const b4Start = css.indexOf('.b4-learner-shell');
-  const b4Css = css.slice(b4Start);
+  const b4End = css.indexOf('.product-app {', b4Start);
+  assert.ok(b4Start >= 0 && b4End > b4Start);
+  const b4Css = css.slice(b4Start, b4End);
 
   assert.match(b4Css, /\.b4-entry-form input,\s*\.b4-learner-shell button\s*{[^}]*min-height:\s*3rem;[^}]*min-width:\s*3rem;/s);
   assert.match(b4Css, /\.b4-entry-form input:focus-visible,\s*\.b4-learner-shell button:focus-visible\s*{[^}]*outline:\s*[^;]+;[^}]*outline-offset:\s*[^;]+;/s);

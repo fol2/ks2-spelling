@@ -1,11 +1,24 @@
 import { validateB4AudioManifest } from './b4-round-contract.js';
+import { markB4, measureB4 } from './b4-performance-marks.js';
 
 const SAFE_LOCAL_PATH = /^audio\/b4\/[a-z0-9-]+\.wav$/u;
+const CACHE_CAP = 8;
+const DECODE_TIMED_OUT = Symbol('b4-decode-timed-out');
 
 function audioError(code, options) {
   const error = new Error(code, options);
   error.code = code;
   return error;
+}
+
+function dataUriToArrayBuffer(dataUri) {
+  const base64 = dataUri.slice(dataUri.indexOf(',') + 1);
+  const binary = globalThis.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes.buffer;
 }
 
 export function resolveB4AudioPath(manifestValue, { runtimeItemId, sentence = null, slow = false }) {
@@ -24,19 +37,146 @@ export function resolveB4AudioPath(manifestValue, { runtimeItemId, sentence = nu
 
 export function createB4LocalAudioPlayer({
   createAudioElement = () => new Audio(),
+  createAudioContext = () => (typeof AudioContext !== 'undefined' ? new AudioContext() : null),
+  loadAudioData = () => import('./b4-audio-data.js').then((module) => module.B4_AUDIO_DATA),
   onError = () => {},
+  stallRetryMs = 1_500,
 } = {}) {
   if (typeof createAudioElement !== 'function') throw new TypeError('createAudioElement must be a function.');
+  if (typeof createAudioContext !== 'function') throw new TypeError('createAudioContext must be a function.');
+  if (typeof loadAudioData !== 'function') throw new TypeError('loadAudioData must be a function.');
   if (typeof onError !== 'function') throw new TypeError('onError must be a function.');
   let active = null;
   let generation = 0;
   let disposed = false;
+  let context = undefined;
+  let audioDataPromise = null;
+  const cache = new Map();
+  const buffers = new Map();
+  const warmedPaths = new Set();
 
-  function reset(element) {
+  function getContext() {
+    if (context !== undefined) return context;
+    try {
+      context = createAudioContext() ?? null;
+    } catch {
+      context = null;
+    }
+    return context;
+  }
+
+  function ensureAudioData() {
+    audioDataPromise ??= loadAudioData().catch(() => {
+      audioDataPromise = null;
+      return null;
+    });
+    return audioDataPromise;
+  }
+
+  function decodePath(path) {
+    if (buffers.has(path)) return buffers.get(path);
+    const ctx = getContext();
+    if (!ctx) return Promise.resolve(null);
+    const pending = (async () => {
+      try {
+        const data = await ensureAudioData();
+        const dataUri = data?.[path];
+        if (typeof dataUri !== 'string') return null;
+        return await ctx.decodeAudioData(dataUriToArrayBuffer(dataUri));
+      } catch {
+        return null;
+      }
+    })().then((buffer) => {
+      if (buffer === null && buffers.get(path) === pending) buffers.delete(path);
+      return buffer;
+    });
+    buffers.set(path, pending);
+    return pending;
+  }
+
+  // WebKit can stall the audio-data import or a decode the same way it
+  // stalls media loads; a bounded wait drops the stalled entry so it cannot
+  // poison later attempts, and lets the element path (which has its own
+  // watchdog) take over. Warm-started decodes are exempt: abandoning them
+  // at the deadline forces slow variants onto a cold element path.
+  async function decodeWithDeadline(path) {
+    // Trust an existing in-flight decode even after flush clears warmedPaths
+    // (pause): abandoning that promise reintroduces the cold slow-variant path.
+    const inFlight = buffers.has(path);
+    const pending = decodePath(path);
+    if (inFlight || warmedPaths.has(path)) return pending;
+    let timer = null;
+    const outcome = await Promise.race([
+      pending,
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(DECODE_TIMED_OUT), stallRetryMs);
+        timer.unref?.();
+      }),
+    ]);
+    if (timer !== null) clearTimeout(timer);
+    if (outcome !== DECODE_TIMED_OUT) return outcome;
+    if (buffers.get(path) === pending) buffers.delete(path);
+    return null;
+  }
+
+  function softReset(element) {
     element.pause();
     element.currentTime = 0;
+  }
+
+  function fullReset(element) {
+    softReset(element);
     element.removeAttribute?.('src');
     element.load?.();
+  }
+
+  function remember(path, element) {
+    if (cache.has(path)) return;
+    while (cache.size >= CACHE_CAP) {
+      const oldest = [...cache.keys()].find((key) => cache.get(key) !== active?.element);
+      if (oldest === undefined) break;
+      const evicted = cache.get(oldest);
+      cache.delete(oldest);
+      fullReset(evicted);
+    }
+    cache.set(path, element);
+  }
+
+  function flush() {
+    for (const element of cache.values()) fullReset(element);
+    cache.clear();
+    warmedPaths.clear();
+  }
+
+  function acquire(path) {
+    const cached = cache.get(path);
+    if (cached && !cached.error) return cached;
+    if (cached) {
+      cache.delete(path);
+      fullReset(cached);
+    }
+    const element = createAudioElement();
+    if (!element || typeof element.play !== 'function' || typeof element.pause !== 'function') {
+      throw new TypeError('createAudioElement must return an audio-like element.');
+    }
+    element.preload = 'auto';
+    element.src = path;
+    remember(path, element);
+    return element;
+  }
+
+  function stopSource(source) {
+    if (!source) return;
+    try {
+      source.stop();
+    } catch {
+      // Stopping an already-finished BufferSource throws.
+    }
+    try {
+      source.disconnect?.();
+    } catch {
+      // Best-effort disconnect.
+    }
   }
 
   function stop(reason = 'b4_audio_interrupted') {
@@ -44,57 +184,154 @@ export function createB4LocalAudioPlayer({
     if (!active) return;
     const current = active;
     active = null;
-    reset(current.element);
+    stopSource(current.source);
+    if (current.element) softReset(current.element);
     current.reject?.(audioError(reason));
   }
 
-  async function startPath(paths, index, token, settle) {
+  function settleFailure(token, settle, error) {
+    if (token !== generation) return;
+    const normalised = error?.code ? error : audioError('b4_audio_play_failed', { cause: error });
+    if (!settle.started) settle.reject(normalised);
+    else onError(normalised);
+  }
+
+  async function startPath(paths, index, token, settle, retried = false) {
     if (disposed || token !== generation) return;
     const path = paths[index];
     if (!path) return;
-    const element = createAudioElement();
-    if (!element || typeof element.play !== 'function' || typeof element.pause !== 'function') {
-      throw new TypeError('createAudioElement must return an audio-like element.');
-    }
-    element.preload = 'auto';
+    const element = acquire(path);
     element.currentTime = 0;
-    element.src = path;
     let playing = false;
+    let dead = false;
+    let watchdog = null;
+    const clearWatchdog = () => {
+      if (watchdog !== null) clearTimeout(watchdog);
+      watchdog = null;
+    };
     const rejectPending = (error) => {
+      if (dead) return;
       if (token !== generation) return;
+      clearWatchdog();
       active = null;
-      reset(element);
+      softReset(element);
       const normalised = error?.code ? error : audioError('b4_audio_play_failed', { cause: error });
       if (!settle.started) settle.reject(normalised);
       else onError(normalised);
     };
+    // WebKit can stall a media load without ever firing 'error' or settling
+    // play(); the watchdog discards the stalled element and retries once
+    // through a fresh one so a single stall cannot hang the round.
+    watchdog = setTimeout(() => {
+      watchdog = null;
+      if (token !== generation || playing) return;
+      dead = true;
+      cache.delete(path);
+      fullReset(element);
+      if (retried) {
+        active = null;
+        settleFailure(token, settle, audioError('b4_audio_play_failed'));
+        return;
+      }
+      active = null;
+      void startPath(paths, index, token, settle, true).catch((error) => settleFailure(token, settle, error));
+    }, stallRetryMs);
+    watchdog.unref?.();
     active = {
       element,
+      source: null,
       reject(error) {
+        clearWatchdog();
         if (!playing) settle.reject(error);
         else onError(error);
       },
     };
     element.addEventListener('playing', () => {
+      if (dead) return;
       if (token !== generation || playing) return;
       playing = true;
+      clearWatchdog();
       active.reject = null;
       if (!settle.started) {
         settle.started = true;
+        measureB4('b4:audio-start', 'b4:audio-play-start');
         settle.resolve(Object.freeze({ status: 'playing', path: paths[0] }));
       }
     }, { once: true });
     element.addEventListener('ended', () => {
+      if (dead) return;
       if (token !== generation) return;
-      reset(element);
+      clearWatchdog();
+      softReset(element);
       active = null;
-      void startPath(paths, index + 1, token, settle).catch(rejectPending);
+      dead = true;
+      void startPath(paths, index + 1, token, settle).catch((error) => settleFailure(token, settle, error));
     }, { once: true });
-    element.addEventListener('error', () => rejectPending(audioError('b4_audio_play_failed')), { once: true });
+    element.addEventListener('error', () => {
+      if (dead) return;
+      rejectPending(audioError('b4_audio_play_failed'));
+    }, { once: true });
     try {
       await element.play();
     } catch (error) {
       rejectPending(error);
+    }
+  }
+
+  async function startWebAudioPath(paths, index, token, settle) {
+    if (disposed || token !== generation) return;
+    const path = paths[index];
+    if (!path) return;
+    const ctx = getContext();
+    const buffer = await decodeWithDeadline(path);
+    if (disposed || token !== generation) return;
+    if (!buffer) {
+      if (index === 0) {
+        void startPath(paths, 0, token, settle).catch((error) => settleFailure(token, settle, error));
+      }
+      return;
+    }
+    // WebKit reports 'suspended' until its gesture-driven resume completes,
+    // yet a BufferSource started on a suspended context queues and plays at
+    // resume. Waiting for resume (or falling back to the element path) loses
+    // that race under load — the element path is the stall class this Web
+    // Audio path exists to escape — so request resume and start optimistically.
+    if (ctx.state !== 'running') void ctx.resume();
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    const rejectPending = (error) => {
+      if (token !== generation) return;
+      active = null;
+      stopSource(source);
+      const normalised = error?.code ? error : audioError('b4_audio_play_failed', { cause: error });
+      if (!settle.started) settle.reject(normalised);
+      else onError(normalised);
+    };
+    active = {
+      element: null,
+      source,
+      reject(error) {
+        if (!settle.started) settle.reject(error);
+        else onError(error);
+      },
+    };
+    source.onended = () => {
+      if (token !== generation) return;
+      active = null;
+      void startWebAudioPath(paths, index + 1, token, settle).catch(rejectPending);
+    };
+    try {
+      source.start(0);
+    } catch (error) {
+      rejectPending(error);
+      return;
+    }
+    if (!settle.started) {
+      settle.started = true;
+      measureB4('b4:audio-start', 'b4:audio-play-start');
+      settle.resolve(Object.freeze({ status: 'playing', path: paths[0] }));
+      if (active) active.reject = null;
     }
   }
 
@@ -104,18 +341,64 @@ export function createB4LocalAudioPlayer({
     if (sequence.length === 0 || sequence.some((path) => typeof path !== 'string' || !SAFE_LOCAL_PATH.test(path))) {
       return Promise.reject(audioError('b4_audio_path_invalid'));
     }
+    markB4('b4:audio-play-start');
     stop();
     const token = generation;
     return new Promise((resolve, reject) => {
-      void startPath(sequence, 0, token, { resolve, reject, started: false }).catch(reject);
+      const settle = { resolve, reject, started: false };
+      if (getContext()) {
+        void startWebAudioPath(sequence, 0, token, settle).catch(reject);
+        return;
+      }
+      void startPath(sequence, 0, token, settle).catch(reject);
     });
   }
 
+  async function warmWebAudio(paths) {
+    for (const path of paths) {
+      if (typeof path !== 'string' || !SAFE_LOCAL_PATH.test(path)) continue;
+      warmedPaths.add(path);
+      if (buffers.has(path)) continue;
+      await decodePath(path);
+    }
+  }
+
+  function warm(paths) {
+    if (disposed) return;
+    const sequence = Array.isArray(paths) ? paths : [paths];
+    if (getContext()) return warmWebAudio(sequence);
+    for (const path of sequence) {
+      if (typeof path !== 'string' || !SAFE_LOCAL_PATH.test(path)) continue;
+      warmedPaths.add(path);
+      if (cache.has(path)) continue;
+      try {
+        const element = createAudioElement();
+        if (!element || typeof element.play !== 'function' || typeof element.pause !== 'function') continue;
+        element.preload = 'auto';
+        element.src = path;
+        element.load?.();
+        remember(path, element);
+      } catch {
+        // Warming is best-effort.
+      }
+    }
+  }
+
   play.stop = () => stop();
+  play.warm = warm;
+  play.flush = flush;
   play.dispose = () => {
     if (disposed) return;
     disposed = true;
     stop('b4_audio_player_disposed');
+    flush();
+    if (context) {
+      try {
+        void context.close?.();
+      } catch {
+        // Best-effort close.
+      }
+    }
   };
   return Object.freeze(play);
 }

@@ -502,7 +502,7 @@ test('iOS B3 proof transport is fixed-path, launch-argument only and absent outs
   const root = new URL('../', import.meta.url);
   const [plugin, delegate, project, normalScheme, proofScheme, info] = await Promise.all([
     readFile(new URL('ios/App/App/B3ProofObservationPlugin.swift', root), 'utf8'),
-    readFile(new URL('ios/App/App/AppDelegate.swift', root), 'utf8'),
+    readFile(new URL('ios/App/App/SceneDelegate.swift', root), 'utf8'),
     readFile(new URL('ios/App/App.xcodeproj/project.pbxproj', root), 'utf8'),
     readFile(new URL('ios/App/App.xcodeproj/xcshareddata/xcschemes/KS2Spelling.xcscheme', root), 'utf8'),
     readFile(new URL('ios/App/App.xcodeproj/xcshareddata/xcschemes/B3SandboxProof.xcscheme', root), 'utf8'),

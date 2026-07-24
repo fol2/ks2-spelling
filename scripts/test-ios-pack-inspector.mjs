@@ -70,6 +70,22 @@ let package = Package(
     throw new Error(approved.stderr || approved.stdout || 'approved fixture rejected');
   }
 
+  const starterBuild = spawnSync(process.execPath, [
+    'scripts/build-starter-pack.mjs',
+  ], { cwd: ROOT, encoding: 'utf8' });
+  if (starterBuild.status !== 0) {
+    throw new Error(starterBuild.stderr || starterBuild.stdout);
+  }
+  const starterRoot = join(ROOT, '.native-build/c1/starter-pack');
+  const starter = spawnSync(executable, [
+    join(starterRoot, 'ks2-core-starter-1.0.0.zip'),
+    join(starterRoot, 'unsigned-canonical-manifest.json'),
+    'accept-unsigned',
+  ], { encoding: 'utf8' });
+  if (starter.status !== 0 || !starter.stdout.includes('accepted:841')) {
+    throw new Error(starter.stderr || starter.stdout || 'Starter payload rejected');
+  }
+
   const hostile = JSON.parse(await readFile(
     join(ROOT, 'tests/fixtures/b3-hostile-zips/manifest.json'), 'utf8',
   ));
@@ -84,6 +100,7 @@ let package = Package(
   process.stdout.write(`${JSON.stringify({
     ok: true,
     approvedRuntimeSmoke: true,
+    starterPayloadFiles: 841,
     securityMatrix: true,
     hostileFixturesRejected: hostile.fixtures.length,
   })}\n`);

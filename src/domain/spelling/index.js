@@ -1,4 +1,3 @@
-import fullCatalogue from '../../../vendor/ks2-mastery/content/spelling.mobile-runtime-full.json' with { type: 'json' };
 import starterCatalogue from '../../../vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json' with { type: 'json' };
 
 export * from '../../../vendor/ks2-mastery/shared/spelling/mobile/a3/index.js';
@@ -12,12 +11,18 @@ function freezeCatalogue(value) {
 }
 
 const READ_ONLY_STARTER_CATALOGUE = freezeCatalogue(starterCatalogue);
-const READ_ONLY_FULL_CATALOGUE = freezeCatalogue(fullCatalogue);
+let readOnlyFullCataloguePromise = null;
 
 export function loadStarterSpellingCatalogue() {
   return READ_ONLY_STARTER_CATALOGUE;
 }
 
 export function loadFullSpellingCatalogue() {
-  return READ_ONLY_FULL_CATALOGUE;
+  // The full catalogue (371 KB) has no launch-path consumer; loading it
+  // lazily keeps its parse and deep-freeze cost off cold launch.
+  readOnlyFullCataloguePromise ??= import(
+    '../../../vendor/ks2-mastery/content/spelling.mobile-runtime-full.json',
+    { with: { type: 'json' } }
+  ).then((module) => freezeCatalogue(module.default));
+  return readOnlyFullCataloguePromise;
 }

@@ -28,6 +28,15 @@ test('the dependency policy and deterministic evidence files are committed', asy
     REQUIRED_FILES.every((path) => existsSync(join(ROOT, path))),
     'missing dependency policy, compliance register or generated evidence',
   );
+  const dependencyAuditSource = await readFile(
+    join(ROOT, 'scripts/audit-dependencies.mjs'),
+    'utf8',
+  );
+  assert.match(
+    dependencyAuditSource,
+    /build\(\{\s*build:\s*\{\s*write:\s*false\s*\},\s*logLevel:\s*'silent'\s*\}\)/u,
+    'the dependency inventory build must use Vite build.write=false',
+  );
   const packageJson = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
   assert.equal(
     packageJson.scripts['audit:dependencies'],
@@ -110,14 +119,22 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
       '@capacitor/app',
       'app-owned-commerce-bridge',
       'app-owned-pack-transfer-bridge',
+      'app-owned-parent-access-bridge',
+      'app-owned-installed-audio-bridge',
+      'app-owned-learning-backup-file-bridge',
+      'app-owned-local-data-protection-bridge',
     ],
   );
   assert.deepEqual(report.permissionEvidence.androidUsesPermissions, [
     'android.permission.INTERNET',
+    'android.permission.USE_BIOMETRIC',
   ]);
-  assert.equal(report.permissionEvidence.androidPermissionRemovalMarkers.length, 4);
+  assert.equal(report.permissionEvidence.androidPermissionRemovalMarkers.length, 3);
   assert.deepEqual(report.permissionEvidence.iosEntitlements, []);
-  assert.deepEqual(report.permissionEvidence.iosUsageDescriptionKeys, []);
+  assert.deepEqual(
+    report.permissionEvidence.iosUsageDescriptionKeys,
+    ['NSFaceIDUsageDescription'],
+  );
   assert.deepEqual(report.permissionEvidence.packagedAndroid.requestedPermissions, []);
   assert.equal(report.b3Truth.sqliteMode, 'no-encryption');
   assert.equal(report.b3Truth.sqlCipherPackaged, true);

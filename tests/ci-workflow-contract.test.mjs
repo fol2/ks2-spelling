@@ -6,13 +6,14 @@ import test from 'node:test';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const WORKFLOW_PATH = join(ROOT, '.github/workflows/ci.yml');
+const CERTIFY_WORKFLOW_PATH = join(ROOT, '.github/workflows/certify.yml');
 const PACKAGE_PATH = join(ROOT, 'package.json');
 
 const VERIFY_B3_COMMAND =
   'npm run verify:b2-authority && npm run verify:vendor && npm run test:upstream:a3 && npm test && npm run lint && npm run build && npm run native:sync:check && npm run test:ios && node scripts/test-ios-pack-inspector.mjs && npm run prove:b3:ios-storekit-test && npm run test:android && npm run certify:android && npm run test:android-resolved-policy && npm run report:b3-native && npm run prove:b3:deterministic && npm run audit:dependencies && node scripts/build-b3-exit-report.mjs --check-ci';
 
-async function readWorkflow() {
-  return readFile(WORKFLOW_PATH, 'utf8');
+async function readWorkflow(path = WORKFLOW_PATH) {
+  return readFile(path, 'utf8');
 }
 
 function extractJob(workflow, jobName) {
@@ -135,12 +136,23 @@ test('iOS runs normal and B3 unsigned builds, the pack inspector and StoreKit Te
   assert.match(ios, /npm run prove:b3:ios-storekit-test/);
 });
 
-test('branch evidence contract accepts a non-empty subset anchored to the report', async () => {
+test('branch evidence contract self-gates to evidence commits and stays a non-empty subset', async () => {
   const domain = extractJob(await readWorkflow(), 'domain-web');
   const step = domain.slice(
-    domain.indexOf('Prove the branch candidate is one evidence-only successor'),
+    domain.indexOf('Prove B4 evidence commits are evidence-only successors'),
   );
-  assert.match(step, /if: github\.ref != 'refs\/heads\/main'/);
+  // The contract no longer taxes ordinary commits: it enforces only when the
+  // commit actually changes the B4 development report (self-gating), and it
+  // does not run inside the merge queue.
+  assert.match(
+    step,
+    /if: github\.event_name != 'merge_group' && github\.ref != 'refs\/heads\/main'/,
+  );
+  assert.match(
+    step,
+    /if git diff --name-only HEAD\^ HEAD \| grep -qx "reports\/b4\/b4-development-report\.json"; then/,
+  );
+  // When it does apply, the full subset contract is unchanged.
   assert.match(step, /test "\$\(git rev-parse HEAD\^\)" = "\$checkpoint"/);
   assert.match(step, /test -s \/tmp\/b4-actual-paths/);
   assert.match(step, /grep -qx "reports\/b4\/b4-development-report\.json" \/tmp\/b4-actual-paths/);
@@ -149,6 +161,113 @@ test('branch evidence contract accepts a non-empty subset anchored to the report
     /test -z "\$\(comm -13 \/tmp\/b4-expected-paths <\(sort \/tmp\/b4-actual-paths\)\)"/,
   );
   assert.doesNotMatch(step, /diff -u \/tmp\/b4-expected-paths/);
+});
+
+test('CI is tiered: pull requests run only the fast lane, native compiles are merge-gated', async () => {
+  const workflow = await readWorkflow();
+  // New triggers: the merge queue is the heavy gate, plus a nightly cold sweep.
+  assert.match(workflow, /^  merge_group:$/m);
+  assert.match(workflow, /^  schedule:\n\s+- cron: "0 6 \* \* \*"$/m);
+  // Both native jobs are skipped entirely on a pull request (keeps PR < 1m),
+  // and run as a fail-closed gate on merge_group / push / schedule.
+  const android = extractJob(workflow, 'android-compile');
+  const ios = extractJob(workflow, 'ios-compile');
+  assert.match(android, /^    if: github\.event_name != 'pull_request'$/m);
+  assert.match(ios, /^    if: github\.event_name != 'pull_request'$/m);
+  // The native compile steps are behind a fail-safe path filter that always
+  // runs on the nightly schedule.
+  assert.match(
+    android,
+    /if: steps\.filter\.outputs\.native == 'true' \|\| github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'/,
+  );
+  assert.match(ios, /id: filter/);
+  // domain-web splits the fast PR lane from the full merge lane.
+  const domain = extractJob(workflow, 'domain-web');
+  assert.match(domain, /if: github\.event_name == 'pull_request'\n\s+run: npm run test:fast/);
+  assert.match(
+    domain,
+    /if: github\.event_name != 'pull_request'\n\s+run: >-\n\s+node --test/,
+  );
+});
+
+test('the heavy CI gate is reusable by milestone certification without changing its three lanes', async () => {
+  const workflow = await readWorkflow();
+  assert.match(workflow, /^  workflow_call:$/m);
+  assert.match(
+    workflow,
+    /^  workflow_call:\n    inputs:\n      certification:\n        required: false\n        type: boolean\n        default: false$/m,
+  );
+  assert.equal((workflow.match(/^  [a-z][a-z-]+:\n    name:/gm) ?? []).length, 3);
+
+  for (const [jobName, archive] of [
+    ['domain-web', 'domain-web.tar'],
+    ['android-compile', 'android-compile.tar'],
+    ['ios-compile', 'ios-compile.tar'],
+  ]) {
+    const job = extractJob(workflow, jobName);
+    assert.match(job, /if: inputs\.certification == true/);
+    assert.ok(job.includes(`tar -cf .native-build/certification-artifacts/${archive}`));
+    assert.match(
+      job,
+      /uses: actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\.0\.1/,
+    );
+    assert.match(job, /if-no-files-found: error/);
+  }
+  const android = extractJob(workflow, 'android-compile');
+  assert.match(
+    android,
+    /Compile the B4 unsigned Android release for certification[\s\S]*if: inputs\.certification == true[\s\S]*:app:assembleRelease/,
+  );
+  assert.match(android, /android\/app\/build\/outputs\/apk\/release\/app-release-unsigned\.apk/);
+
+  const ios = extractJob(workflow, 'ios-compile');
+  assert.match(
+    ios,
+    /Compile the B4 unsigned iOS release for certification[\s\S]*if: inputs\.certification == true[\s\S]*-configuration Release[\s\S]*-derivedDataPath \.native-build\/b4-release-ci/,
+  );
+  assert.match(workflow, /-derivedDataPath \.native-build\/b3-ci/);
+});
+
+test('certification tags reuse the heavy gate before deriving one immutable evidence bundle', async () => {
+  const workflow = await readWorkflow(CERTIFY_WORKFLOW_PATH);
+  assert.match(workflow, /^name: B4 milestone certification$/m);
+  assert.match(workflow, /^  push:\n    tags:\n      - "cert-\*"$/m);
+  assert.match(workflow, /^permissions:\n  contents: read$/m);
+  assert.match(workflow, /group: b4-certify-\$\{\{ github\.ref \}\}/);
+  assert.match(workflow, /cancel-in-progress: false/);
+
+  const verify = extractJob(workflow, 'verify');
+  assert.match(verify, /uses: \.\/\.github\/workflows\/ci\.yml/);
+  assert.match(verify, /with:\n      certification: true/);
+  assert.match(verify, /permissions:\n      contents: read/);
+  assert.doesNotMatch(verify, /secrets:/);
+
+  const bundle = extractJob(workflow, 'bundle');
+  assert.match(bundle, /needs: verify/);
+  assert.match(bundle, /runs-on: ubuntu-24\.04/);
+  assert.match(
+    bundle,
+    /uses: actions\/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6\n\s+with:\n\s+fetch-depth: 0\n\s+ref: \$\{\{ github\.sha \}\}/,
+  );
+  assert.match(
+    bundle,
+    /uses: actions\/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8\.0\.1/,
+  );
+  assert.match(bundle, /pattern: certification-\*/);
+  assert.match(bundle, /merge-multiple: true/);
+  assert.match(
+    bundle,
+    /node scripts\/build-certification-bundle\.mjs --builds-directory "\.native-build\/certification-inputs" --output-directory "\.native-build\/certification\/\$GITHUB_REF_NAME"/,
+  );
+  assert.match(
+    bundle,
+    /uses: actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\.0\.1/,
+  );
+  assert.match(bundle, /name: ks2-spelling-\$\{\{ github\.ref_name \}\}-\$\{\{ github\.sha \}\}/);
+  assert.match(bundle, /path: \.native-build\/certification\/\$\{\{ github\.ref_name \}\}/);
+  assert.match(bundle, /if-no-files-found: error/);
+  assert.match(bundle, /retention-days: 90/);
+  assert.doesNotMatch(workflow, /(?:gh release|softprops\/action-gh-release|deploy:b3:sandbox)/);
 });
 
 test('Android runs normal and B3 unsigned builds before certification', async () => {
@@ -187,4 +306,11 @@ test('Android CI uses the exact installed sdkmanager path', async () => {
 test('package exposes only the frozen B3 verification chain', async () => {
   const packageJson = JSON.parse(await readFile(PACKAGE_PATH, 'utf8'));
   assert.equal(packageJson.scripts['verify:b3'], VERIFY_B3_COMMAND);
+});
+
+test('package exposes the fast-tier daily-loop scripts', async () => {
+  const pkg = JSON.parse(await readFile(PACKAGE_PATH, 'utf8'));
+  for (const key of ['test:fast', 'test:watch', 'test:changed', 'hooks:install']) {
+    assert.equal(typeof pkg.scripts[key], 'string', `missing script: ${key}`);
+  }
 });

@@ -13,11 +13,20 @@ enum PackInspectorHarness {
             throw NSError(domain: "PackInspectorHarness", code: 2)
         }
         let archiveURL = URL(fileURLWithPath: CommandLine.arguments[1])
-        let envelopeData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
+        let authorityData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
         let expected = CommandLine.arguments[3]
-        let envelope = try JSONDecoder().decode(SignedEnvelopeFixture.self, from: envelopeData)
-        guard let manifestBytes = Data(base64Encoded: envelope.canonicalManifestBase64) else {
-            throw NSError(domain: "PackInspectorHarness", code: 3)
+        let manifestBytes: Data
+        if expected == "accept-unsigned" {
+            manifestBytes = authorityData
+        } else {
+            let envelope = try JSONDecoder().decode(
+                SignedEnvelopeFixture.self,
+                from: authorityData
+            )
+            guard let decoded = Data(base64Encoded: envelope.canonicalManifestBase64) else {
+                throw NSError(domain: "PackInspectorHarness", code: 3)
+            }
+            manifestBytes = decoded
         }
         let manifest = try JSONDecoder().decode(PackArchiveManifest.self, from: manifestBytes)
         do {
@@ -25,7 +34,7 @@ enum PackInspectorHarness {
                 archiveURL: archiveURL,
                 manifest: manifest
             )
-            guard expected == "accept" else {
+            guard expected == "accept" || expected == "accept-unsigned" else {
                 throw NSError(domain: "PackInspectorHarness", code: 4)
             }
             let extractionSmoke = try Archive(url: archiveURL, accessMode: .read)

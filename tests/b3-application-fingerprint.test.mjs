@@ -14,7 +14,8 @@ test('application fingerprint covers app, gateway, native, lock and proof-wrappe
   const root = await mkdtemp(join(tmpdir(), 'b3-fingerprint-'));
   const files = [
     'src/app.js', 'gateway/src/handler.js', 'config/mobile-identity.json',
-    'ios/App/App/AppDelegate.swift', 'android/app/build.gradle',
+    'ios/App/App/AppDelegate.swift', 'ios/App/App/SceneDelegate.swift',
+    'android/app/build.gradle',
     'scripts/prove-b3-ios.mjs', 'package-lock.json', 'gateway/package-lock.json',
   ];
   for (const path of files) {
@@ -55,4 +56,11 @@ test('application fingerprint has fail-closed anchors for gateway, proof fixture
       new RegExp(removed.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')),
     );
   }
+});
+
+test('application fingerprint accepts the current bounded tracked inventory', async () => {
+  const result = await fingerprintB3Application();
+  assert.match(result.sha256, /^[a-f0-9]{64}$/u);
+  assert.ok(result.files.includes('ios/App/App.xcodeproj/project.pbxproj'));
+  assert.ok(result.files.includes('android/app/build.gradle'));
 });

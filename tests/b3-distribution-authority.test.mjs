@@ -72,6 +72,7 @@ function iosArtifactRunner({
   profileApplicationIdentifier = 'TEAM123456.uk.eugnel.ks2spelling',
   profileApplicationIdentifierPrefix = 'TEAM123456',
   profileTeamIdentifier = 'TEAM123456',
+  modelDottedEntitlementKeyPath = false,
   commandLog = [],
 } = {}) {
   const infoValues = new Map([
@@ -122,6 +123,14 @@ function iosArtifactRunner({
     } else if (command.endsWith('/codesign') && args.includes('--entitlements')) {
       await writeFile(args[args.indexOf('--entitlements') + 1], 'fixture', { mode: 0o600 });
     } else if (command.endsWith('/plutil')) {
+      if (args[0] === '-convert' && args[1] === 'json' &&
+          args.at(-1).endsWith('signed-entitlements.plist')) {
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify(Object.fromEntries(signedEntitlementValues)),
+          stderr: '',
+        };
+      }
       const key = args[1];
       const certificate = /^DeveloperCertificates\.(\d+)$/u.exec(key);
       if (certificate) {
@@ -134,6 +143,11 @@ function iosArtifactRunner({
         : path.endsWith('profile.plist')
           ? profileValues
           : infoValues;
+      if (modelDottedEntitlementKeyPath &&
+          path.endsWith('signed-entitlements.plist') &&
+          key.includes('.')) {
+        return { exitCode: 1, stdout: '', stderr: 'key path does not exist' };
+      }
       return { exitCode: values.has(key) ? 0 : 1, stdout: values.get(key) ?? '', stderr: '' };
     }
     return { exitCode: 0, stdout: '', stderr: '' };
@@ -279,9 +293,10 @@ test('Capacitor build authority is closed and binds the installed platform ident
 
 test('native projects register BuildAuthority and keep generated authority in ignored output', async () => {
   const root = new URL('../', import.meta.url);
-  const [swift, appDelegate, project, scheme, b3Scheme, loader, java, activity, gradle] = await Promise.all([
+  const [swift, sceneDelegate, infoPlist, project, scheme, b3Scheme, loader, java, activity, gradle] = await Promise.all([
     readFile(new URL('ios/App/App/BuildAuthorityPlugin.swift', root), 'utf8'),
-    readFile(new URL('ios/App/App/AppDelegate.swift', root), 'utf8'),
+    readFile(new URL('ios/App/App/SceneDelegate.swift', root), 'utf8'),
+    readFile(new URL('ios/App/App/Info.plist', root), 'utf8'),
     readFile(new URL('ios/App/App.xcodeproj/project.pbxproj', root), 'utf8'),
     readFile(new URL('ios/App/App.xcodeproj/xcshareddata/xcschemes/KS2Spelling.xcscheme', root), 'utf8'),
     readFile(new URL('ios/App/App.xcodeproj/xcshareddata/xcschemes/B3SandboxProof.xcscheme', root), 'utf8'),
@@ -291,13 +306,27 @@ test('native projects register BuildAuthority and keep generated authority in ig
     readFile(new URL('android/app/build.gradle', root), 'utf8'),
   ]);
   assert.match(swift, /CAPBridgedPlugin/);
-  assert.match(appDelegate, /registerPluginInstance\(BuildAuthorityPlugin\(\)\)/);
+  assert.match(sceneDelegate, /registerPluginInstance\(BuildAuthorityPlugin\(\)\)/);
   assert.match(project, /BuildAuthorityPlugin\.swift in Sources/);
   assert.match(project, /name = B3SandboxProof/);
   assert.match(scheme, /<ArchiveAction\s+buildConfiguration = "Release"/u);
   assert.doesNotMatch(scheme, /buildConfiguration = "B3SandboxProof"/u);
   assert.match(b3Scheme, /<ArchiveAction\s+buildConfiguration = "B3SandboxProof"/u);
   assert.match(loader, /\.native-build\/b3\/distribution\/b3-distribution\.xcconfig/);
+  for (const key of [
+    'B3ApplicationFingerprint',
+    'B3Distribution',
+    'B3Mode',
+    'B3ProofKind',
+    'B3PublicSandboxOrigin',
+    'B3TestedApplicationCommit',
+    'B3WorkerName',
+  ]) {
+    assert.match(
+      infoPlist,
+      new RegExp(`<key>${key}</key>\\s*<string>\\$\\(INFOPLIST_KEY_${key}\\)</string>`, 'u'),
+    );
+  }
   assert.match(java, /@CapacitorPlugin\(name = "BuildAuthority"\)/);
   assert.match(activity, /registerPlugin\(BuildAuthorityPlugin\.class\)/);
   assert.match(activity, /BuildConfig\.B3_SANDBOX_PROOF/u);
@@ -458,6 +487,33 @@ test('default iOS artefact inspector binds the IPA certificate and signed entitl
     extractionCalls[0].args.filter((argument) =>
       argument.startsWith('--extract-certificates=')).length,
     1,
+  );
+});
+
+test('default iOS artefact inspector reads a dotted root entitlement as plist data, not a key path', async (t) => {
+  const commandLog = [];
+  const { ipa, inspector } = await createIosArtifactInspectorFixture(t, {
+    modelDottedEntitlementKeyPath: true,
+    commandLog,
+  });
+
+  const result = await inspector({ platform: 'ios', signedPath: ipa });
+
+  assert.equal(result.mode, 'development');
+  assert.equal(
+    commandLog.some(({ command, args }) =>
+      command.endsWith('/plutil') &&
+      args[0] === '-convert' &&
+      args[1] === 'json' &&
+      args.at(-1).endsWith('signed-entitlements.plist')),
+    true,
+  );
+  assert.equal(
+    commandLog.some(({ command, args }) =>
+      command.endsWith('/plutil') &&
+      args[0] === '-extract' &&
+      args[1] === 'com.apple.developer.team-identifier'),
+    false,
   );
 });
 

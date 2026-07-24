@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "status": "pass",
+  "artifactKind": "unsigned-production-payload-handoff",
+  "signingStatus": "deferred-to-final-visible-owner-gate",
+  "packId": "ks2-core",
+  "version": "1.0.0",
+  "catalogueId": "ks2-core:starter",
+  "source": {
+    "catalogue": {
+      "path": "vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json",
+      "sha256": "a67317764d1bae4e1796e070fa8d482c0b4702451c63ba7cacf9470c5272eb34",
+      "bytes": 34639
+    },
+    "audioEvidence": {
+      "path": "reports/c1/starter-audio-evidence.json",
+      "sha256": "8dc92171c8dcf0afeda1ba407fa06ad3085f890e821d8bc89bf0e1863faa3a77",
+      "bytes": 585753,
+      "assetCount": 840
+    }
+  },
+  "archive": {
+    "file": "ks2-core-starter-1.0.0.zip",
+    "sha256": "51b4c867275c5777202555c74ad766109940fe40267ba5bee337152b114ba2b9",
+    "bytes": 11340063,
+    "fileCount": 841,
+    "extractedBytes": 11206913
+  },
+  "canonicalManifest": {
+    "file": "unsigned-canonical-manifest.json",
+    "sha256": "6cdfd21a77f7c247aa221f40857341cff1694ded612ddc8b9e3f2dc557c3b69a",
+    "bytes": 120685,
+    "requiredEntitlementId": null
+  },
+  "ceilings": {
+    "fileCount": 841,
+    "compressedBytes": 16777216,
+    "extractedBytes": 16777216
+  }
+}

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { B4_AUDIO_AUTHORITY } from './b4-round-contract.js';
 import { createB4LearnerAction } from './b4-learner-action.js';
+import { markB4, measureB4 } from './b4-performance-marks.js';
+import ProductApp from './ProductApp.jsx';
 
 function B1App({ services }) {
   if (services.native.capabilities.mode !== 'prototype-only') {
@@ -91,6 +93,18 @@ function B2App({ services }) {
   );
 }
 
+export function activateB4Audio({ event, method, runAudio, source }) {
+  if (typeof runAudio !== 'function') {
+    throw new TypeError('runAudio must be a function.');
+  }
+  const accepted = source === 'pointer-up'
+    ? event?.isPrimary === true && event?.button === 0
+    : source === 'click' && event?.detail === 0;
+  if (!accepted) return false;
+  runAudio(method);
+  return true;
+}
+
 function B4App({ services }) {
   const [roundState, setRoundState] = useState(() => services.controller.getState());
   const [answer, setAnswer] = useState('');
@@ -129,6 +143,16 @@ function B4App({ services }) {
     return () => subscription.remove();
   }, [services]);
 
+  const feedbackForPaint = roundState.feedback;
+  useEffect(() => {
+    if (!feedbackForPaint || typeof requestAnimationFrame !== 'function') return undefined;
+    const frame = requestAnimationFrame(() => {
+      markB4('b4:feedback-painted');
+      measureB4('b4:action-to-paint', 'b4:action-start');
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [feedbackForPaint]);
+
   const starting = roundState.phase === 'ready';
   const runAudio = (method) => {
     if (busy || starting) return;
@@ -145,7 +169,8 @@ function B4App({ services }) {
   const liveMessage = actionError || (
     roundState.audio.error
       ? 'Audio is unavailable just now. You can still continue.'
-      : roundState.audio.status === 'playing' ? 'Audio playing' : ''
+      : roundState.audio.status === 'playing' ? 'Audio playing'
+        : roundState.audio.status === 'starting' ? 'Audio starting' : ''
   );
   const liveRegion = (
     <p className="b4-live-region" aria-live="polite" aria-atomic="true">
@@ -184,10 +209,28 @@ function B4App({ services }) {
         >
           <h2 id="b4-practice-title">Hear the word, then spell it</h2>
           <div className="b4-audio-actions" aria-label="Listening controls">
-            <button type="button" disabled={busy || starting} onClick={() => runAudio('replay')}>
+            <button
+              type="button"
+              disabled={busy || starting}
+              onPointerUp={(event) => {
+                activateB4Audio({ event, method: 'replay', runAudio, source: 'pointer-up' });
+              }}
+              onClick={(event) => {
+                activateB4Audio({ event, method: 'replay', runAudio, source: 'click' });
+              }}
+            >
               Replay
             </button>
-            <button type="button" disabled={busy || starting} onClick={() => runAudio('slowReplay')}>
+            <button
+              type="button"
+              disabled={busy || starting}
+              onPointerUp={(event) => {
+                activateB4Audio({ event, method: 'slowReplay', runAudio, source: 'pointer-up' });
+              }}
+              onClick={(event) => {
+                activateB4Audio({ event, method: 'slowReplay', runAudio, source: 'click' });
+              }}
+            >
               Slow replay
             </button>
           </div>
@@ -332,6 +375,7 @@ export default function App({ services }) {
   if (!services || typeof services !== 'object') {
     throw new TypeError('Application services are required.');
   }
+  if (services.mode === 'product') return <ProductApp services={services} />;
   if (services.mode === 'b4-starter-product') return <B4App services={services} />;
   if (services.mode === 'b3-parent-proof') return <B3App services={services} />;
   if (services.mode === 'b2-native-proof') return <B2App services={services} />;

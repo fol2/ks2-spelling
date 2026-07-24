@@ -5,8 +5,14 @@
     "runnerImage": "local-macos",
     "hostOS": "macOS 26.5.2 (25F84)",
     "runtime": "iOS 26.5 (23F73)",
-    "deviceProfile": "iPhone 17 (KS2 Spelling B4 Phone 10550)",
+    "deviceProfile": "iPhone 17 (KS2 Spelling B4 Phone 93649)",
     "buildConfiguration": "B4Development unsigned Simulator"
+  },
+  "bundleInput": {
+    "kind": "directory-sha256",
+    "sha256": "a28b7ea1d6a17db7a189082bc71e002ccf75d03edd21f71bc259bced30dea4e7",
+    "fileCount": 65,
+    "byteSize": 20829237
   },
   "limitations": [
     "Simulator only; not physical-device, signed-distribution or App Store evidence."
@@ -19,23 +25,23 @@
   "journeys": {
     "default": {
       "answerFeedbackMs": [
-        480.3849458694458,
-        597.511887550354,
-        581.5180540084839,
-        679.6239614486694,
-        571.694016456604,
-        600.721001625061,
-        577.3519277572632,
-        559.4300031661987,
-        602.349042892456,
-        576.4989852905273
+        525.0860452651978,
+        580.0340175628662,
+        579.4739723205566,
+        597.3930358886719,
+        591.2840366363525,
+        600.1719236373901,
+        577.4369239807129,
+        574.8389959335327,
+        571.1860656738281,
+        599.571943283081
       ],
       "audioStartMs": [
-        1608.3589792251587,
-        323.8029479980469
+        508.2160234451294,
+        381.680965423584
       ],
       "backgroundAudioStoppedCount": 2,
-      "coldLaunchMs": 3674.6439933776855,
+      "coldLaunchMs": 4562.197923660278,
       "completed": true,
       "enterSubmitted": true,
       "minimumControlHeightPoints": 49,
@@ -47,30 +53,30 @@
     },
     "scaled": {
       "contentSizeCategory": "accessibility-extra-extra-extra-large",
-      "measuredTextScale": 2.826,
+      "measuredTextScale": 5.609,
       "atLeast200Percent": true,
       "answerFeedbackMs": [
-        479.7869920730591,
-        576.9070386886597,
-        572.8409290313721,
-        561.6099834442139,
-        582.8639268875122,
-        568.2250261306763,
-        594.4210290908813,
-        593.9890146255493,
-        587.3969793319702,
-        576.6359567642212
+        475.9049415588379,
+        595.1830148696899,
+        573.9539861679077,
+        592.2499895095825,
+        590.7529592514038,
+        595.6140756607056,
+        600.275993347168,
+        579.6689987182617,
+        596.0490703582764,
+        594.4640636444092
       ],
       "audioStartMs": [
-        1565.335988998413,
-        539.1370058059692
+        1583.4600925445557,
+        329.5149803161621
       ],
       "backgroundAudioStoppedCount": 2,
-      "coldLaunchMs": 3267.3070430755615,
+      "coldLaunchMs": 3444.385051727295,
       "completed": true,
       "enterSubmitted": true,
       "minimumControlHeightPoints": 89,
-      "referenceTextHeightPoints": 65,
+      "referenceTextHeightPoints": 129,
       "resumeProgressAfter": "Card 2 of 5",
       "resumeProgressBefore": "Card 2 of 5",
       "schemaVersion": 1,
@@ -78,7 +84,7 @@
     }
   },
   "rawSizes": {
-    "nativePayloadBytes": 18216837,
+    "nativePayloadBytes": 20829237,
     "localDatabaseBytes": 534912
   },
   "layout": {
@@ -107,14 +113,14 @@
       "runnerImage": "local-macos",
       "hostOS": "macOS 26.5.2 (25F84)",
       "runtime": "iOS 26.5 (23F73)",
-      "deviceProfile": "iPhone 17 (KS2 Spelling B4 Phone 10550)",
+      "deviceProfile": "iPhone 17 (KS2 Spelling B4 Phone 93649)",
       "buildConfiguration": "B4Development unsigned Simulator"
     },
     "observations": [
       {
         "kind": "coldLaunch",
         "sequence": 1,
-        "rawValue": 3674.6439933776855,
+        "rawValue": 4562.197923660278,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -128,7 +134,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 1,
-        "rawValue": 480.3849458694458,
+        "rawValue": 525.0860452651978,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -142,7 +148,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 2,
-        "rawValue": 597.511887550354,
+        "rawValue": 580.0340175628662,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -156,7 +162,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 3,
-        "rawValue": 581.5180540084839,
+        "rawValue": 579.4739723205566,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -170,7 +176,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 4,
-        "rawValue": 679.6239614486694,
+        "rawValue": 597.3930358886719,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -184,7 +190,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 5,
-        "rawValue": 571.694016456604,
+        "rawValue": 591.2840366363525,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -198,7 +204,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 6,
-        "rawValue": 600.721001625061,
+        "rawValue": 600.1719236373901,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -212,7 +218,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 7,
-        "rawValue": 577.3519277572632,
+        "rawValue": 577.4369239807129,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -226,7 +232,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 8,
-        "rawValue": 559.4300031661987,
+        "rawValue": 574.8389959335327,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -240,7 +246,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 9,
-        "rawValue": 602.349042892456,
+        "rawValue": 571.1860656738281,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -254,7 +260,7 @@
       {
         "kind": "answerFeedback",
         "sequence": 10,
-        "rawValue": 576.4989852905273,
+        "rawValue": 599.571943283081,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -268,7 +274,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 1,
-        "rawValue": 480.3849458694458,
+        "rawValue": 525.0860452651978,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -282,7 +288,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 2,
-        "rawValue": 597.511887550354,
+        "rawValue": 580.0340175628662,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -296,7 +302,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 3,
-        "rawValue": 581.5180540084839,
+        "rawValue": 579.4739723205566,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -310,7 +316,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 4,
-        "rawValue": 679.6239614486694,
+        "rawValue": 597.3930358886719,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -324,7 +330,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 5,
-        "rawValue": 571.694016456604,
+        "rawValue": 591.2840366363525,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -338,7 +344,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 6,
-        "rawValue": 600.721001625061,
+        "rawValue": 600.1719236373901,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -352,7 +358,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 7,
-        "rawValue": 577.3519277572632,
+        "rawValue": 577.4369239807129,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -366,7 +372,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 8,
-        "rawValue": 559.4300031661987,
+        "rawValue": 574.8389959335327,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -380,7 +386,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 9,
-        "rawValue": 602.349042892456,
+        "rawValue": 571.1860656738281,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -394,7 +400,7 @@
       {
         "kind": "sqliteTransactionUpperBound",
         "sequence": 10,
-        "rawValue": 576.4989852905273,
+        "rawValue": 599.571943283081,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -408,7 +414,7 @@
       {
         "kind": "audioStart",
         "sequence": 1,
-        "rawValue": 1608.3589792251587,
+        "rawValue": 508.2160234451294,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -422,7 +428,7 @@
       {
         "kind": "audioStart",
         "sequence": 2,
-        "rawValue": 323.8029479980469,
+        "rawValue": 381.680965423584,
         "unit": "ms",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -436,7 +442,7 @@
       {
         "kind": "nativePayload",
         "sequence": 1,
-        "rawValue": 18216837,
+        "rawValue": 20829237,
         "unit": "bytes",
         "comparator": {
           "operator": "less-than-or-equal",
@@ -465,13 +471,7 @@
     "technicalOutcome": "investigation-required"
   },
   "applicationCheckpoint": {
-    "commit": "8ba206987299856a9b1b71fa4e3c5c9058176b0f",
-    "tree": "af8dfec65cc75550104aeb697f3caf7aa9e1e78d"
-  },
-  "bundleInput": {
-    "kind": "directory-sha256",
-    "sha256": "a0102e7ddc94ee7bc5bec475b40d27c567b18b7709832af341344e5a1fb99543",
-    "fileCount": 64,
-    "byteSize": 18216837
+    "commit": "6dad551722af64e51c2f0eaec625edfd53913068",
+    "tree": "e89cabccbefaf70702edb969cabdf36378b60958"
   }
 }

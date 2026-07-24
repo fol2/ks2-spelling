@@ -29,3 +29,4 @@ ios/App/App/public/
 # Editor and operating-system files
 .idea/
 .DS_Store
+.playwright-mcp/

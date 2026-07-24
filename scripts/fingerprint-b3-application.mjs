@@ -2,9 +2,10 @@ import { createHash } from 'node:crypto';
 import { lstat, readFile, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runSafeGitPolicyCommand } from './check-b3-external-prerequisites.mjs';
+import { runPinnedSystemGit } from './lib/pinned-system-git.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
+const MAXIMUM_TRACKED_PATH_BYTES = 1024 * 1024;
 
 export const B3_FINGERPRINT_EXCLUDED_PREFIXES = Object.freeze([
   '.git/',
@@ -50,7 +51,11 @@ export function isB3FingerprintInput(path) {
 }
 
 async function trackedFiles(root) {
-  const result = await runSafeGitPolicyCommand(['ls-files', '-z'], root);
+  const result = await runPinnedSystemGit(['ls-files', '-z'], {
+    root,
+    timeout: 5_000,
+    maxBuffer: MAXIMUM_TRACKED_PATH_BYTES,
+  });
   return result.stdout.split('\0').filter(Boolean);
 }
 
@@ -78,6 +83,7 @@ export const B3_FINGERPRINT_REQUIRED_INPUTS = Object.freeze([
   'scripts/prove-b3-ios.mjs',
   'scripts/prove-b3-android.mjs',
   'ios/App/App.xcodeproj/project.pbxproj',
+  'ios/App/App/SceneDelegate.swift',
   'android/app/build.gradle',
   'tests/fixtures/b3-signed-manifest.json',
   'tests/fixtures/keys/b3-sandbox-proof-manifest-signature.der',

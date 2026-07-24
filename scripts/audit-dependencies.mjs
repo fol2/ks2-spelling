@@ -237,7 +237,7 @@ function npmLocatorFromModulePath(path) {
 
 export async function buildWebViewBundleEvidence(lock) {
   const { build } = await import('vite');
-  const built = await build({ write: false, logLevel: 'silent' });
+  const built = await build({ build: { write: false }, logLevel: 'silent' });
   const outputs = Array.isArray(built) ? built : [built];
   const rollupOutputs = outputs.flatMap(({ output }) => output);
   const moduleIds = [
@@ -253,7 +253,13 @@ export async function buildWebViewBundleEvidence(lock) {
       modules.push({ id: absoluteId, kind: 'virtual', npmLocator: null, sha256: null });
       continue;
     }
-    const id = relative(ROOT, absoluteId);
+    // Vite asset module ids may keep a ?inline import query; the file on
+    // disk does not. Only ?inline is recognised — any other query suffix
+    // stays on the path and fails the read loudly (fail-closed).
+    const filesystemPath = absoluteId.endsWith('?inline')
+      ? absoluteId.slice(0, -'?inline'.length)
+      : absoluteId;
+    const id = relative(ROOT, filesystemPath);
     if (id.startsWith('..') || id === '') {
       throw policyError('webview_bundle_evidence_invalid', `Bundle input is outside root: ${absoluteId}`);
     }
@@ -268,7 +274,7 @@ export async function buildWebViewBundleEvidence(lock) {
       id,
       kind: 'file',
       npmLocator,
-      sha256: sha256(await readFile(absoluteId)),
+      sha256: sha256(await readFile(filesystemPath)),
     });
   }
   const outputInventory = rollupOutputs
@@ -582,30 +588,34 @@ async function verifyRuntimeBoundary(packageJson) {
   for (const marker of permissionRemovalMarkers) {
     manifestWithoutRemovalMarkers = manifestWithoutRemovalMarkers.replace(marker[0], '');
   }
-  const allowedInternetPermission =
-    /<uses-permission\s+android:name="android\.permission\.INTERNET"\s*\/>/;
-  const internetPermissionMarkers = manifestWithoutRemovalMarkers.match(
-    new RegExp(allowedInternetPermission.source, 'g'),
-  ) ?? [];
-  manifestWithoutRemovalMarkers = manifestWithoutRemovalMarkers.replace(
-    allowedInternetPermission,
-    '',
-  );
+  const usesPermissionPattern =
+    /<uses-permission\s+android:name="([^"]+)"\s*\/>/g;
+  const usesPermissionMarkers = [
+    ...manifestWithoutRemovalMarkers.matchAll(usesPermissionPattern),
+  ];
+  for (const marker of usesPermissionMarkers) {
+    manifestWithoutRemovalMarkers =
+      manifestWithoutRemovalMarkers.replace(marker[0], '');
+  }
+  const allowedUsesPermissions = [
+    'android.permission.INTERNET',
+    'android.permission.USE_BIOMETRIC',
+  ];
   if (
-    permissionRemovalMarkers.length !== 4 ||
+    permissionRemovalMarkers.length !== 3 ||
     JSON.stringify(permissionRemovalMarkers.map((match) => match[2]).sort()) !==
       JSON.stringify([
         '${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
         '${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
-        'android.permission.USE_BIOMETRIC',
         'android.permission.USE_FINGERPRINT',
       ].sort()) ||
-    internetPermissionMarkers.length !== 1 ||
+    JSON.stringify(usesPermissionMarkers.map((match) => match[1]).sort()) !==
+      JSON.stringify(allowedUsesPermissions) ||
     /<(?:permission|uses-permission)\b/.test(manifestWithoutRemovalMarkers)
   ) {
     throw policyError(
       'android_permission_declared',
-      'Android permission surface is not exact normal INTERNET plus merge removals',
+      'Android permission surface is not exact normal INTERNET and biometric plus merge removals',
     );
   }
   const iosAppFiles = await listFiles(resolve(ROOT, 'ios/App/App'));
@@ -616,7 +626,11 @@ async function verifyRuntimeBoundary(packageJson) {
   const usageDescriptionKeys = [
     ...infoPlist.matchAll(/<key>([^<]*UsageDescription)<\/key>/g),
   ].map(([, key]) => key);
-  if (entitlements.length || usageDescriptionKeys.length) {
+  if (
+    entitlements.length ||
+    JSON.stringify(usageDescriptionKeys) !==
+      JSON.stringify(['NSFaceIDUsageDescription'])
+  ) {
     throw policyError(
       'ios_permission_surface_declared',
       `iOS permission surface found: ${[...entitlements, ...usageDescriptionKeys].join(', ')}`,
@@ -668,7 +682,7 @@ async function verifyRuntimeBoundary(packageJson) {
     }
   }
   return {
-    androidUsesPermissions: ['android.permission.INTERNET'],
+    androidUsesPermissions: allowedUsesPermissions,
     androidPermissionRemovalMarkers: permissionRemovalMarkers
       .map((match) => `${match[1]}:${match[2]}`)
       .sort(),

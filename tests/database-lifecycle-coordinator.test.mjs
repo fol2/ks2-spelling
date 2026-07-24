@@ -217,6 +217,31 @@ test('coordinator exposes exact surface and starts by opening, migrating and reh
   await coordinator.dispose();
 });
 
+test('coordinator resolves the selected learner after each migration and permits no selection', async () => {
+  const { createDatabaseLifecycleCoordinator } = await import(
+    '../src/app/database-lifecycle-coordinator.js'
+  );
+  const harness = createHarness({
+    connections: [createConnectionProbe('first'), createConnectionProbe('second')],
+  });
+  let selectedLearnerId = null;
+  delete harness.options.selectedLearnerId;
+  harness.options.resolveSelectedLearnerId = async () => selectedLearnerId;
+  const coordinator = createDatabaseLifecycleCoordinator(harness.options);
+
+  await coordinator.start();
+  assert.deepEqual(harness.rehydrations, []);
+  harness.lifecycle.emit('pause');
+  await waitForState(coordinator, 'paused');
+  selectedLearnerId = 'learner-b';
+  harness.lifecycle.emit('resume');
+  await waitForState(coordinator, 'active');
+  assert.deepEqual(harness.rehydrations, [
+    [harness.available[1].connection, 'learner-b'],
+  ]);
+  await coordinator.dispose();
+});
+
 test('duplicate events join/no-op and resume-before-pause does not reopen', async () => {
   const { createDatabaseLifecycleCoordinator } = await import(
     '../src/app/database-lifecycle-coordinator.js'

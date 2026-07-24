@@ -29,7 +29,9 @@ test('public architecture states the exact local-first B3 claim boundary', async
     /spelling practice, installed packs, learner progress and child-owned Monster progress remain local and work offline/i,
     /online access is used only for commerce verification, pack download or redownload, entitlement refresh, restore and revocation/i,
     /Monster is a motivational presentation around spelling, not an independently cloud-tracked Parent metric/i,
-    /Visual \/ Theme \/ Asset Migration[^.]+after Gate B `GO`[^.]+before C3/i,
+    /Visual \/ Theme \/ Asset Migration[^.]+mandatory before C3 child UI/i,
+    /B4 owner GO.{0,400}accepts Capacitor as the product direction/i,
+    /external measurement method is not accepted as an application-threshold verdict and will be replaced during later optimisation/i,
     /B3 Development proves deterministic and compiled commerce\/signed-download capability only/i,
     /Signed App Store\/Google Play, deployed Cloudflare\/R2 and physical-device truth remain one Release Commerce Certification blocker before public submission/i,
   ]) {

@@ -92,6 +92,7 @@ test('default audit consumes the complete resolved Android certification', async
       report.permissionEvidence.packagedAndroid.permissionSurfaceSha256,
     declaredPermissions: [],
     requestedPermissions: [
+      'android.permission.USE_BIOMETRIC',
       'android.permission.INTERNET',
       'com.android.vending.BILLING',
       'android.permission.ACCESS_NETWORK_STATE',
@@ -113,7 +114,7 @@ test('default audit consumes the complete resolved Android certification', async
     {
       status: 'resolved-toolchain',
       componentCount: 327,
-      scopeMembershipCount: 5570,
+      scopeMembershipCount: 5575,
       packagedRuntimeCount: 74,
       scopeRestrictedToolingCount: 25,
       taskCreatedBuildToolCount: 13,
@@ -133,7 +134,7 @@ test('default audit consumes the complete resolved Android certification', async
   );
   assert.equal(
     report.gradleDeclared.filter(({ resolution }) => resolution === 'resolved-toolchain').length,
-    17,
+    18,
   );
   assert.equal(
     report.gradleDeclared.filter(({ resolution }) => resolution === 'inactive-condition').length,

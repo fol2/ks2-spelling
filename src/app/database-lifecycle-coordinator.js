@@ -56,13 +56,29 @@ export function createDatabaseLifecycleCoordinator(options = {}) {
     options.rehydrateSelectedLearner,
     'rehydrateSelectedLearner',
   );
-  if (
-    typeof options.selectedLearnerId !== 'string' ||
-    options.selectedLearnerId.length === 0
-  ) {
-    throw new TypeError('selectedLearnerId must be a non-empty string.');
+  const hasStaticSelection = Object.hasOwn(options, 'selectedLearnerId');
+  const hasSelectionResolver = Object.hasOwn(options, 'resolveSelectedLearnerId');
+  if (hasStaticSelection === hasSelectionResolver) {
+    throw new TypeError(
+      'Provide exactly one selectedLearnerId or resolveSelectedLearnerId.',
+    );
   }
-  const selectedLearnerId = options.selectedLearnerId;
+  let resolveSelectedLearnerId;
+  if (hasStaticSelection) {
+    if (
+      typeof options.selectedLearnerId !== 'string' ||
+      options.selectedLearnerId.length === 0
+    ) {
+      throw new TypeError('selectedLearnerId must be a non-empty string.');
+    }
+    const selectedLearnerId = options.selectedLearnerId;
+    resolveSelectedLearnerId = async () => selectedLearnerId;
+  } else {
+    resolveSelectedLearnerId = requireFunction(
+      options.resolveSelectedLearnerId,
+      'resolveSelectedLearnerId',
+    );
+  }
 
   let state = 'starting';
   let connection = null;
@@ -156,7 +172,21 @@ export function createDatabaseLifecycleCoordinator(options = {}) {
       if (disposedRequested) return;
       await migrate(candidate);
       if (disposedRequested) return;
-      await rehydrateSelectedLearner(candidate, selectedLearnerId);
+      const selectedLearnerId = await resolveSelectedLearnerId(candidate);
+      if (
+        selectedLearnerId !== null &&
+        (
+          typeof selectedLearnerId !== 'string' ||
+          selectedLearnerId.length === 0
+        )
+      ) {
+        throw new TypeError(
+          'resolveSelectedLearnerId must return null or a non-empty string.',
+        );
+      }
+      if (selectedLearnerId !== null) {
+        await rehydrateSelectedLearner(candidate, selectedLearnerId);
+      }
       if (disposedRequested) return;
       commandGate.resume();
       setState('active');

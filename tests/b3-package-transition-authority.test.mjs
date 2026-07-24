@@ -9,6 +9,8 @@ import test from 'node:test';
 import {
   B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+  C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+  SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS,
   assertB2PackageTransition,
   verifyB3PackageTransitionAuthority,
 } from '../scripts/lib/b3-package-transition-authority.mjs';
@@ -41,6 +43,20 @@ const EXPECTED_B4_SCRIPT_NAMES = Object.freeze([
   'report:b4-development:check',
 ]);
 
+const EXPECTED_SDLC_SCRIPT_NAMES = Object.freeze([
+  'test:fast',
+  'test:watch',
+  'test:changed',
+  'hooks:install',
+]);
+
+const EXPECTED_C_SERIES_SCRIPT_NAMES = Object.freeze([
+  'build:starter-pack',
+  'generate:starter-audio',
+  'verify:starter-audio',
+  'verify:starter-pack',
+]);
+
 function frozenPackage() {
   return JSON.parse(
     execFileSync('git', ['cat-file', 'blob', `${FROZEN_COMMIT}:package.json`], {
@@ -66,15 +82,25 @@ async function authorityFixture() {
   return root;
 }
 
-test('transition authority freezes every package script declared by the approved B3 and B4 plans', async () => {
+test('transition authority freezes every package script declared by the approved product plans', async () => {
   const authority = await verifyB3PackageTransitionAuthority({ root: ROOT });
   assert.deepEqual(Object.keys(B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS), EXPECTED_SCRIPT_NAMES);
   assert.deepEqual(Object.keys(B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS), EXPECTED_B4_SCRIPT_NAMES);
+  assert.deepEqual(
+    Object.keys(C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS),
+    EXPECTED_C_SERIES_SCRIPT_NAMES,
+  );
+  assert.deepEqual(
+    Object.keys(SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS),
+    EXPECTED_SDLC_SCRIPT_NAMES,
+  );
   assert.deepEqual(
     authority.allowedPackageScriptAdditions,
     {
       ...B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
       ...B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+      ...C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+      ...SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS,
     },
   );
   assert.deepEqual(authority.protectedCurrentFiles.map(({ path }) => path), [
@@ -101,6 +127,11 @@ test('package transition accepts any reviewed subset of exact planned additions 
     assert.doesNotThrow(() => assertB2PackageTransition(frozen, candidate, authority), name);
   }
   for (const [name, command] of Object.entries(B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS)) {
+    const candidate = structuredClone(current);
+    candidate.scripts[name] = command;
+    assert.doesNotThrow(() => assertB2PackageTransition(frozen, candidate, authority), name);
+  }
+  for (const [name, command] of Object.entries(C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS)) {
     const candidate = structuredClone(current);
     candidate.scripts[name] = command;
     assert.doesNotThrow(() => assertB2PackageTransition(frozen, candidate, authority), name);

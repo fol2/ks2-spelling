@@ -10,6 +10,8 @@ const PLAN_PATH =
   'docs/superpowers/plans/2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md';
 const B4_PLAN_PATH =
   'docs/superpowers/plans/2026-07-18-standalone-spelling-mobile-b4-capacitor-development-certification.md';
+const C_SERIES_PLAN_PATH =
+  'docs/superpowers/plans/2026-07-23-c-series-product-completion.md';
 const PROTECTED_PATHS = Object.freeze([
   'scripts/build-b2-native-plugin-report.mjs',
   'scripts/lib/frozen-b2-git.mjs',
@@ -24,7 +26,7 @@ const EXPECTED_PROTECTED_CURRENT_HASHES = Object.freeze({
   'scripts/lib/pinned-system-git.mjs':
     'd07a03f20f9f19711b665f9f0610a9de190bbb1418677e5e307f249ee472b478',
   'tests/b2-native-plugin-build-policy.test.mjs':
-    '6b5a200a00f44a0e5c6373ce0179e131e7a542b28fde17d92793140c9f29fcf3',
+    '7bc98e0cd2348a41107b4ca0ede2531b747aee34bfcf24e7eade7f4bd0c98419',
 });
 
 export const B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
@@ -55,9 +57,33 @@ export const B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
     'node scripts/collect-b4-development-evidence.mjs --check',
 });
 
+export const C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
+  'build:starter-pack': 'node scripts/build-starter-pack.mjs',
+  'generate:starter-audio': 'node scripts/generate-starter-audio.mjs',
+  'verify:starter-audio': 'node scripts/generate-starter-audio.mjs --check',
+  'verify:starter-pack': 'node scripts/build-starter-pack.mjs',
+});
+
+// SDLC velocity tier (2026-07-22): the local fast-test daily loop and pre-push
+// hook. Developer tooling, not certification steps — they add no CI surface and
+// exclude test files by name only for speed. Registered here because the
+// package-transition authority requires every package script to be pre-approved;
+// values must stay byte-identical to package.json and provenance.
+export const SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
+  'test:fast':
+    "node --test $(find tests -maxdepth 1 -name '*.test.mjs' ! -name '*.slow.test.mjs' ! -name 'native-wrapper-contract.test.mjs' ! -name 'b3-store-backed-live-capture.test.mjs' ! -name 'gateway-workerd-runtime.test.mjs')",
+  'test:watch':
+    "node --test --watch $(find tests -maxdepth 1 -name '*.test.mjs' ! -name '*.slow.test.mjs' ! -name 'native-wrapper-contract.test.mjs' ! -name 'b3-store-backed-live-capture.test.mjs' ! -name 'gateway-workerd-runtime.test.mjs')",
+  'test:changed':
+    `files=$(git diff --name-only --diff-filter=ACMR HEAD -- 'tests/*.test.mjs'); [ -n "$files" ] && node --test $files || echo 'no changed tests'`,
+  'hooks:install': 'git config core.hooksPath scripts/git-hooks',
+});
+
 const PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
   ...B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   ...B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+  ...C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+  ...SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS,
 });
 
 function transitionError(message) {
@@ -109,13 +135,15 @@ export async function verifyB3PackageTransitionAuthority({ root = DEFAULT_ROOT }
       'frozenB2Commit',
       'approvedPlanPath',
       'approvedB4PlanPath',
+      'approvedCSeriesPlanPath',
       'allowedPackageScriptAdditions',
       'protectedCurrentFiles',
     ]) ||
-    authority.schemaVersion !== 2 ||
+    authority.schemaVersion !== 3 ||
     authority.frozenB2Commit !== FROZEN_B2_COMMIT ||
     authority.approvedPlanPath !== PLAN_PATH ||
     authority.approvedB4PlanPath !== B4_PLAN_PATH ||
+    authority.approvedCSeriesPlanPath !== C_SERIES_PLAN_PATH ||
     !isDeepStrictEqual(
       authority.allowedPackageScriptAdditions,
       PLANNED_PACKAGE_SCRIPT_ADDITIONS,

@@ -1,17 +1,20 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Capacitor } from '@capacitor/core';
-import App from './app/App.jsx';
+import App from '@ks2/app-root';
+import AppLoadingShell from './app/AppLoadingShell.jsx';
 import './app/app.css';
 import {
   createB2AppServices,
   createSelectedAppServices,
   selectNativeAppComposition,
-} from './app/create-app-services.js';
+} from '@ks2/app-composition';
+import {
+  createProductFailureServices,
+} from './app/product-failure-services.js';
+import { mountApp } from './app/mount-app.js';
 
 const root = document.getElementById('root');
-
-if (!root) throw new Error('KS2 Spelling root element is missing.');
 
 function failureServices(platformRequirement) {
   const state = Object.freeze({
@@ -34,45 +37,61 @@ function failureServices(platformRequirement) {
   });
 }
 
-async function bootstrap() {
-  let services;
+async function createServices() {
   if (Capacitor.isNativePlatform()) {
     const composition = selectNativeAppComposition({
       buildMode: import.meta.env.MODE,
       platform: Capacitor.getPlatform(),
     });
-    if (composition.serviceMode === 'b3' || composition.serviceMode === 'b4') {
-      services = await createSelectedAppServices({
+    if (composition.serviceMode === 'product') {
+      try {
+        return await createSelectedAppServices({
+          buildMode: import.meta.env.MODE,
+          isNativePlatform: true,
+          platform: Capacitor.getPlatform(),
+        });
+      } catch {
+        return createProductFailureServices();
+      }
+    }
+    if (
+      composition.serviceMode === 'b3' ||
+      composition.serviceMode === 'b4'
+    ) {
+      return createSelectedAppServices({
         buildMode: import.meta.env.MODE,
         isNativePlatform: true,
         platform: Capacitor.getPlatform(),
       });
-    } else {
-      try {
-        services = await createB2AppServices();
-      } catch {
-        services = failureServices('Native proof unavailable');
-      }
     }
-  } else {
-    services = await createSelectedAppServices({
-      buildMode: import.meta.env.MODE,
-      isNativePlatform: false,
-      platform: 'web',
-    }) ?? failureServices('Native platform required');
+    try {
+      return await createB2AppServices();
+    } catch {
+      return failureServices('Native proof unavailable');
+    }
   }
-  if (typeof services.dispose === 'function') {
-    window.addEventListener(
-      'pagehide',
-      () => void services.dispose().catch(() => undefined),
-      { once: true },
-    );
-  }
-  createRoot(root).render(
-    <StrictMode>
-      <App services={services} />
-    </StrictMode>,
-  );
+  return await createSelectedAppServices({
+    buildMode: import.meta.env.MODE,
+    isNativePlatform: false,
+    platform: 'web',
+  }) ?? failureServices('Native platform required');
 }
 
-void bootstrap();
+void mountApp({
+  root,
+  createRoot,
+  createServices,
+  renderLoading: () => (
+    <StrictMode>
+      <AppLoadingShell />
+    </StrictMode>
+  ),
+  renderApp: (services) => (
+    <StrictMode>
+      <App services={services} />
+    </StrictMode>
+  ),
+  onPageHide: (listener, options) => {
+    window.addEventListener('pagehide', listener, options);
+  },
+});

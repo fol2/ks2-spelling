@@ -457,7 +457,13 @@ test('the production shell keeps Parent progress and commerce behind the local g
     screen: 'home',
   });
   const homeHtml = render();
-  assert.match(homeHtml, /Ada&#x27;s spelling trail/);
+  // The home hero is world-first: the art is behind the whole page and the
+  // mission block names the learner and the place.
+  assert.match(homeHtml, /class="hero-backdrop"/);
+  assert.match(homeHtml, /data-hero-tone="1"/);
+  assert.match(homeHtml, /The Scribe Downs/);
+  assert.match(homeHtml, /Hi Ada — ready for a short round\?/);
+  assert.match(homeHtml, /Today&#x27;s words are <em>waiting\.<\/em>/);
   assert.match(homeHtml, /Start a Smart Review/);
   assert.match(homeHtml, /Inklet/);
   assert.match(homeHtml, /Listening pack needs setup/);

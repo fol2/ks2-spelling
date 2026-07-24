@@ -424,11 +424,19 @@ h1 {
   --dur-slow: 320ms;
   --dur-slower: 520ms;
 
-  /* Fixed-tone inks. Text that sits on a surface which never re-tones with
-     the colour scheme — the backdrop art and the celebration scrim — picks
-     its ink from the surface, not from the theme. */
+  /* Fixed-tone inks and washes. A surface that never re-tones with the
+     colour scheme — the backdrop art, the celebration scrim — picks its ink
+     from the surface, not from the theme. The washes are the matching
+     surfaces: whatever floats over the art is filled from the wash that
+     belongs to that ink, so a panel can never invert against the art. */
   --ink-on-light: #1d2b3a;
   --ink-on-dark: #fff9ec;
+  --wash-on-light: #f8f5ec;
+  --wash-on-dark: #0e151d;
+
+  /* Control fills. Aliased so the surfaces that float over the backdrop can
+     be re-pointed in one place rather than per call site. */
+  --control-surface: var(--panel);
 
   /* Legacy aliases kept alive so existing rules keep working. */
   --paper: var(--bg);
@@ -442,7 +450,6 @@ h1 {
   --retry: var(--bad-strong);
   --focus: var(--ink);
 
-  --hero-image: url('/mastery-art/regions/the-scribe-downs/the-scribe-downs-a1.1280.webp');
   min-width: 320px;
   min-height: 100vh;
   padding:
@@ -562,8 +569,12 @@ h1 {
   position: relative;
 }
 
-.product-page > *:not(.hero-backdrop),
-.practice-page > *:not(.hero-backdrop) {
+/* Page children are centred and clamped to a readable measure. The layers
+   that deliberately cover the whole page — the backdrop below and the two
+   overlays above — opt out, or this rule's `position: relative` would win on
+   specificity and drop them back into the flow. */
+.product-page > *:not(.hero-backdrop, .exit-confirmation, .celebration-overlay),
+.practice-page > *:not(.hero-backdrop, .exit-confirmation, .celebration-overlay) {
   position: relative;
   z-index: 1;
   width: min(100%, 68rem);
@@ -630,14 +641,14 @@ h1 {
   to { opacity: 0; }
 }
 
-/* Tone contrast for chrome sitting directly on the backdrop. Card surfaces
-   keep the default ink tokens untouched — only shell text swaps, so no
-   component can inherit unreadable ink by omission. Correctness colours and
-   --focus stay fixed per the V2 authority.
-
-   On a backdrop page the ink comes from the art tone, never from the colour
-   scheme: the backdrop does not re-tone in dark mode, so theme ink would be
-   unreadable on it. Pages without a backdrop keep the theme ink. */
+/* A backdrop page is world-first: the art is full-bleed and every surface
+   floats over it. So on such a page ink AND surface both come from the art
+   tone, never from the colour scheme — the art does not re-tone in dark
+   mode, and a theme-coloured panel would invert against it. One tone
+   switch re-points the ink, the card fill, the control fill and the lines
+   together, so nothing can end up half-toned. Correctness colours keep their
+   hue; --focus follows the tone ink, because a focus ring has to contrast
+   with the art it lands on, not with a colour scheme the art ignores. */
 .product-app {
   --hero-shell-ink: var(--ink);
   --hero-shell-ink-soft: var(--ink-soft);
@@ -645,32 +656,106 @@ h1 {
 
 .product-app[data-hero-tone] {
   --hero-shell-ink: var(--ink-on-light);
-  --hero-shell-ink-soft: color-mix(in oklab, var(--ink-on-light) 82%, transparent);
+  --hero-wash: var(--wash-on-light);
+
+  --hero-shell-ink-soft: color-mix(in oklab, var(--hero-shell-ink) 88%, transparent);
+  --hero-panel: color-mix(in oklab, var(--hero-wash) 82%, transparent);
+  --hero-panel-line: color-mix(in oklab, var(--hero-shell-ink) 16%, transparent);
+
+  --ink: var(--hero-shell-ink);
+  --ink-2: var(--hero-shell-ink-soft);
+  --muted: var(--hero-shell-ink-soft);
+  --paper-raised: var(--hero-panel);
+  --control-surface: var(--hero-panel);
+  --line: var(--hero-panel-line);
+  --line-strong: color-mix(in oklab, var(--hero-shell-ink) 30%, transparent);
+  /* Brand-soft is only ever a fill, so it can carry the tone wholesale. */
+  --brand-soft: color-mix(in oklab, var(--brand) 26%, var(--hero-panel));
 }
 
 .product-app[data-hero-tone='2'],
 .product-app[data-hero-tone='3'] {
   --hero-shell-ink: var(--ink-on-dark);
-  --hero-shell-ink-soft: color-mix(in oklab, var(--ink-on-dark) 88%, transparent);
+  --hero-wash: var(--wash-on-dark);
+  --hero-panel: color-mix(in oklab, var(--hero-wash) 72%, transparent);
+  --hero-panel-line: color-mix(in oklab, var(--hero-shell-ink) 24%, transparent);
 }
 
+/* The art wash. One cheap gradient per layer lifts the art away from the
+   ink so text can sit on it directly — this is what the mission block and
+   the summary hero stand on, and it costs no compositing. */
+.product-app[data-hero-tone] .hero-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--hero-wash) 62%, transparent) 0%,
+      color-mix(in oklab, var(--hero-wash) 26%, transparent) 46%,
+      color-mix(in oklab, var(--hero-wash) 58%, transparent) 100%
+    );
+}
+
+/* Blur is reserved for the one surface a learner reads through for minutes
+   at a time — the round card. Every other surface floats on fill alone, so
+   a scrolling page never stacks compositing passes over the panning art. */
+.product-app[data-hero-tone] .practice-card {
+  backdrop-filter: blur(10px) saturate(1.06);
+  -webkit-backdrop-filter: blur(10px) saturate(1.06);
+}
+
+/* Semantic surfaces keep their meaning but take the tone, so their ink stays
+   the page ink rather than falling back to an inverted theme ink. */
+.product-app[data-hero-tone] .audio-state-ready,
+.product-app[data-hero-tone] .answer-feedback {
+  border-color: color-mix(in oklab, var(--good) 44%, transparent);
+  background: color-mix(in oklab, var(--good) 20%, var(--hero-panel));
+}
+
+.product-app[data-hero-tone] .audio-state-corrupt,
+.product-app[data-hero-tone] .audio-state-unavailable,
+.product-app[data-hero-tone] .audio-state-missing,
+.product-app[data-hero-tone] .answer-feedback-error {
+  border-color: color-mix(in oklab, var(--bad) 46%, transparent);
+  background: color-mix(in oklab, var(--bad) 20%, var(--hero-panel));
+}
+
+/* Brand-inked chrome would keep the theme's blue over the art; on a backdrop
+   page it takes the tone ink instead. */
 .product-app[data-hero-tone] .product-topbar,
 .product-app[data-hero-tone] .topbar-action,
-.product-app[data-hero-tone] .practice-progress p {
+.product-app[data-hero-tone] .practice-progress p,
+.product-app[data-hero-tone] .button-quiet,
+.product-app[data-hero-tone] .listening-controls button,
+.product-app[data-hero-tone] .trail-navigation button > span,
+.product-app[data-hero-tone] .accuracy-score,
+.product-app[data-hero-tone] .reward-secure-toast {
   color: var(--hero-shell-ink);
 }
 
-.product-app[data-hero-tone] .brand-mark {
-  color: var(--ink-on-dark);
-  background: var(--ink-on-light);
+/* An error still has to read as an error, so its hue is kept and only pulled
+   far enough toward the tone ink to survive the art behind it. */
+.product-app[data-hero-tone] .inline-error {
+  color: color-mix(in oklab, var(--bad) 55%, var(--hero-shell-ink));
 }
 
+.product-app[data-hero-tone] .brand-mark {
+  color: var(--hero-wash);
+  background: var(--hero-shell-ink);
+}
+
+/* Text standing directly on the art, where the wash alone carries it. */
 .product-app[data-hero-tone='2'] .product-topbar,
 .product-app[data-hero-tone='3'] .product-topbar,
 .product-app[data-hero-tone='2'] .topbar-action,
 .product-app[data-hero-tone='3'] .topbar-action,
 .product-app[data-hero-tone='2'] .practice-progress p,
-.product-app[data-hero-tone='3'] .practice-progress p {
+.product-app[data-hero-tone='3'] .practice-progress p,
+.product-app[data-hero-tone='2'] .trail-hero,
+.product-app[data-hero-tone='3'] .trail-hero,
+.product-app[data-hero-tone='2'] .summary-hero,
+.product-app[data-hero-tone='3'] .summary-hero {
   text-shadow: 0 1px 16px rgb(0 0 0 / 58%);
 }
 
@@ -697,11 +782,10 @@ h1 {
   display: grid;
   width: 2.7rem;
   height: 2.7rem;
-  border-radius: 0.85rem 0.85rem 0.85rem 0.2rem;
+  border-radius: 0.9rem;
   place-items: center;
   color: var(--panel);
   background: var(--brand-ink);
-  box-shadow: 0 0.35rem 0 color-mix(in oklab, var(--brand-ink) 24%, transparent);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -752,10 +836,8 @@ h1 {
 .paper-card,
 .audio-state,
 .learner-card,
-.trail-hero,
 .trail-navigation button,
 .practice-card,
-.summary-hero,
 .summary-grid > div,
 .companion-hero,
 .camp-hero,
@@ -766,9 +848,7 @@ h1 {
 }
 
 .paper-card,
-.trail-hero,
 .practice-card,
-.summary-hero,
 .companion-hero,
 .camp-hero {
   border-radius: var(--radius-lg);
@@ -926,7 +1006,7 @@ h1 {
   border: 1px solid var(--line-strong);
   padding: 0.75rem 0.85rem;
   color: var(--ink);
-  background: var(--panel);
+  background: var(--control-surface);
 }
 
 .field-pair {
@@ -935,22 +1015,35 @@ h1 {
   gap: 0.75rem;
 }
 
+/* Flat pills with a brightness press, as the web app has — no moulded
+   drop-shadow under the fill. */
 .button-primary,
 .button-quiet,
 .button-danger {
   border: 1px solid transparent;
-  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  padding: 0.7rem 1.25rem;
   font-weight: 850;
+  transition:
+    filter var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.button-primary:hover:not(:disabled),
+.button-quiet:hover:not(:disabled),
+.button-danger:hover:not(:disabled) {
+  filter: brightness(0.94);
+}
+
+.button-primary:active:not(:disabled),
+.button-quiet:active:not(:disabled),
+.button-danger:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .button-primary {
   color: var(--panel);
   background: var(--brand-ink);
-  box-shadow: 0 0.35rem 0 color-mix(in oklab, var(--brand-ink) 24%, transparent);
-}
-
-.button-primary:hover:not(:disabled) {
-  filter: brightness(0.94);
 }
 
 .button-quiet {
@@ -975,42 +1068,59 @@ h1 {
   font-weight: 750;
 }
 
+/* The home hero is not a card: the mission stands on the Downs themselves,
+   with only the companion chip taking a surface. */
 .trail-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(14rem, 0.75fr);
-  gap: clamp(1.5rem, 5vw, 3rem);
-  align-items: center;
-  overflow: hidden;
-  background:
-    linear-gradient(
-      100deg,
-      color-mix(in oklab, var(--panel) 96%, transparent) 0%,
-      color-mix(in oklab, var(--panel) 88%, transparent) 42%,
-      color-mix(in oklab, var(--bg) 34%, transparent) 100%
-    ),
-    var(--hero-image) center / cover no-repeat;
+  justify-items: start;
+  gap: 0.35rem;
+  padding: clamp(0.5rem, 3vw, 2rem) 0 clamp(2rem, 8vw, 4rem);
+}
+
+.hero-greet {
+  margin-bottom: 0.15rem;
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  letter-spacing: -0.01em;
 }
 
 .trail-hero h1 {
-  max-width: 13ch;
+  margin-bottom: 1.25rem;
+  max-width: 18ch;
+}
+
+/* The web hero's accent word is flat brand, but it sits there on a theme
+   panel. Here it sits on the art, so it takes the tone ink with a brand cast
+   — enough to read as an accent, not enough to dissolve into the sky. */
+.trail-hero h1 em {
+  color: color-mix(in oklab, var(--brand) 34%, var(--hero-shell-ink));
+  font-style: italic;
+}
+
+.trail-hero .button-primary {
+  margin-top: 0.35rem;
 }
 
 .hero-inklet {
   display: grid;
-  justify-items: center;
-  border-radius: 2rem 2rem 2rem 0.6rem;
-  padding: 1rem;
-  background:
-    linear-gradient(
-      145deg,
-      color-mix(in oklab, var(--brand) 13%, transparent),
-      color-mix(in oklab, var(--warn) 20%, transparent)
-    );
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  width: min(100%, 20rem);
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--hero-panel-line, var(--line));
+  border-radius: var(--radius);
+  padding: 0.6rem 1rem 0.6rem 0.6rem;
+  background: var(--hero-panel, var(--paper-raised));
+}
+
+.hero-inklet .inklet-art {
+  width: 4.5rem;
+  min-height: 0;
 }
 
 .hero-inklet p {
-  margin: -0.25rem 0 0;
-  text-align: center;
+  margin: 0;
 }
 
 .hero-inklet strong,
@@ -1109,8 +1219,11 @@ h1 {
   color: var(--ink-soft);
 }
 
+/* Setup is one region of the Downs with the controls floating on it, as the
+   web setup scene is — no intermediate sheet between art and control. */
 .setup-card {
   max-width: 52rem;
+  padding-bottom: clamp(1.5rem, 6vw, 3rem);
 }
 
 .choice-group {
@@ -1138,7 +1251,7 @@ h1 {
   border: 1px solid var(--line);
   padding: 0.85rem;
   color: var(--ink);
-  background: var(--panel);
+  background: var(--control-surface);
 }
 
 .segmented-choice button[aria-pressed="true"],
@@ -1191,7 +1304,7 @@ h1 {
   padding: 0.85rem;
   border: 1px solid var(--line);
   color: var(--ink);
-  background: var(--panel);
+  background: var(--control-surface);
   text-align: left;
 }
 
@@ -1406,7 +1519,10 @@ h1 {
   justify-content: flex-end;
 }
 
+/* The summary hero stands on the art too — the numbers below it are the
+   panels. */
 .summary-hero {
+  padding: clamp(1rem, 4vw, 2rem) 0 0;
   text-align: center;
 }
 
@@ -1919,7 +2035,6 @@ h1 {
 @media (forced-colors: active) {
   .paper-card,
   .practice-card,
-  .trail-hero,
   .audio-state,
   .trail-navigation button,
   .exit-confirmation > div {
@@ -1945,9 +2060,16 @@ h1 {
     --line: var(--line-strong);
   }
 
+  /* On the world the panels stop being translucent and the soft ink stops
+     being soft — the art can no longer eat either. */
+  .product-app[data-hero-tone] {
+    --hero-shell-ink-soft: var(--hero-shell-ink);
+    --hero-panel: var(--hero-wash);
+    --hero-panel-line: var(--hero-shell-ink);
+  }
+
   .paper-card,
   .practice-card,
-  .trail-hero,
   .audio-state,
   .trail-navigation button {
     border-width: 2px;
@@ -1962,14 +2084,8 @@ h1 {
 
 @media (max-width: 44rem) {
   .add-learner-card,
-  .trail-hero,
   .parent-grid {
     grid-template-columns: 1fr;
-  }
-
-  .hero-inklet {
-    grid-template-columns: minmax(7rem, 0.7fr) minmax(8rem, 1fr);
-    align-items: center;
   }
 
   .trail-navigation {

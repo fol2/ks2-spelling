@@ -14,6 +14,7 @@ import {
   heroPreloadUrlsForMode,
   heroToneForProgress,
 } from './backdrop-model.js';
+import { dueCopy, heroWelcomeLine } from './hero-copy.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
   diffMonsterCelebrations,
@@ -39,6 +40,8 @@ const VOICES = Object.freeze([
   }),
 ]);
 const ROUND_LENGTHS = Object.freeze([5, 10, 20]);
+// Home and setup sit in the daylight Downs; the round walks tone 1 → 3.
+const HOME_HERO_TONE = '1';
 const WORKSHOP_MODES = Object.freeze([
   Object.freeze({
     id: 'smart',
@@ -1122,8 +1125,18 @@ function ChildHome({
   onRecoverAudio,
 }) {
   const monster = learningState.monsters[0];
+  // Until C7.5 lands a due projection, "due" is the words that wobbled last
+  // time — the same signal Trouble Drill already reads.
+  const dueCount = learningState.progress.filter(
+    (item) => item.lastResult !== 'correct',
+  ).length;
   return (
-    <main className="product-app product-page child-home" aria-labelledby="home-title">
+    <main
+      className="product-app product-page child-home"
+      aria-labelledby="home-title"
+      data-hero-tone={HOME_HERO_TONE}
+    >
+      <HeroBackdrop url={heroBgForMode('smart', { tone: HOME_HERO_TONE })} />
       <ProductTopBar
         action={(
           <button type="button" className="topbar-action" onClick={onSwitchLearner}>
@@ -1132,21 +1145,6 @@ function ChildHome({
         )}
       />
       <section className="trail-hero">
-        <div>
-          <p className="product-kicker">{displayYearGroup(profile.yearGroup)} trail</p>
-          <h1 id="home-title">{profile.nickname}&apos;s spelling trail</h1>
-          <p>
-            A short Smart Review chooses the right Starter words from saved
-            progress on this device.
-          </p>
-          <button
-            type="button"
-            className="button-primary button-large"
-            onClick={() => onScreen('setup')}
-          >
-            Start a Smart Review
-          </button>
-        </div>
         <div className="hero-inklet">
           <InkletArt stage={monster?.derivedStage ?? 0} />
           <p>
@@ -1154,6 +1152,22 @@ function ChildHome({
             <span>{monster?.secureCount ?? 0} secure words</span>
           </p>
         </div>
+        <p className="product-kicker">
+          The Scribe Downs · {displayYearGroup(profile.yearGroup)}
+        </p>
+        <p className="hero-greet">{heroWelcomeLine(profile.nickname)}</p>
+        <h1 id="home-title">
+          Today&apos;s words are <em>waiting.</em>
+          <br />
+          {dueCopy(dueCount)}
+        </h1>
+        <button
+          type="button"
+          className="button-primary button-large"
+          onClick={() => onScreen('setup')}
+        >
+          Start a Smart Review
+        </button>
       </section>
 
       <AudioStatus
@@ -1196,7 +1210,7 @@ function PracticeSetup({
 }) {
   const [length, setLength] = useState(5);
   const [mode, setMode] = useState('smart');
-  const heroTone = '1';
+  const heroTone = HOME_HERO_TONE;
   const heroUrl = heroBgForMode(mode, { tone: heroTone });
   const hasTroubleWords = (progress ?? []).some(
     (item) => Number(item.wrong) > 0,
@@ -1221,12 +1235,12 @@ function PracticeSetup({
           </button>
         )}
       />
-      <section className="paper-card setup-card">
-        <p className="product-kicker">Workshop</p>
+      <section className="setup-card">
+        <p className="product-kicker">The Scribe Downs · round setup</p>
         <h1 id="setup-title">Choose today&apos;s trail</h1>
         <p>
-          The Starter trail covers Years 3–4 words and adapts from learning
-          already saved on this device.
+          The Starter trail crosses the Downs with Years 3–4 words, and adapts
+          from learning already saved on this device.
         </p>
 
         <fieldset className="choice-group">

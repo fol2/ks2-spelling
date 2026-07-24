@@ -1019,6 +1019,54 @@ h1 {
   text-align: left;
 }
 
+.mode-choice {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.mode-choice-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background: #fff;
+  text-align: left;
+}
+
+.mode-choice-card[aria-pressed="true"] {
+  border-color: var(--trail);
+  box-shadow: inset 0 0 0 0.12rem var(--trail);
+  background: #eef8f6;
+}
+
+.length-note {
+  margin: 0 0 0.85rem;
+  color: var(--ink-soft);
+}
+
+.mode-choice-thumb {
+  display: block;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 0.7rem;
+  object-fit: cover;
+  background: var(--paper-deep, #d9e4df);
+}
+
+.mode-choice-card strong,
+.mode-choice-card small {
+  display: block;
+}
+
+.mode-choice-card small {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
 .voice-symbol {
   display: grid;
   width: 2.5rem;
@@ -1027,6 +1075,12 @@ h1 {
   place-items: center;
   color: #fff;
   background: var(--trail);
+}
+
+.practice-mode-note {
+  margin: 0 0 0.85rem;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
 }
 
 .practice-page {

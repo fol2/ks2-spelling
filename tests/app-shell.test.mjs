@@ -325,7 +325,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
     subscribe: () => Object.freeze({ remove() {} }),
     async selectLearner() {},
     showScreen() {},
-    async startSmartRound() {},
+    async startRound() {},
     async submitAnswer() {},
     async continueRound() {},
     async endRound() {},

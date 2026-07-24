@@ -15,6 +15,7 @@ const SCREENS = Object.freeze([
   'camp',
 ]);
 const ROUND_LENGTHS = Object.freeze([5, 10, 20]);
+const WORKSHOP_MODES = Object.freeze(['smart', 'trouble', 'test']);
 
 function controllerError(code, message = code) {
   const error = new Error(message);
@@ -67,6 +68,8 @@ function practiceProjection(snapshot) {
   return {
     sessionId: session.id,
     label: session.label,
+    mode: session.mode,
+    fallbackToSmart: session.fallbackToSmart === true,
     phase: session.phase,
     runtimeItemId: session.currentRuntimeItemId,
     sentence: session.currentPrompt?.sentence ?? '',
@@ -304,23 +307,27 @@ export function createProductLearningController({
       publishFromSnapshot({ screen });
       return state;
     },
-    startSmartRound(options) {
+    startRound(options) {
       if (
         !options ||
         typeof options !== 'object' ||
         Array.isArray(options) ||
-        Reflect.ownKeys(options).length !== 1 ||
+        Reflect.ownKeys(options).length !== 2 ||
+        !Object.hasOwn(options, 'mode') ||
         !Object.hasOwn(options, 'length') ||
+        !WORKSHOP_MODES.includes(options.mode) ||
         !ROUND_LENGTHS.includes(options.length)
       ) {
         return Promise.reject(
-          new TypeError('Smart Review length must be exactly 5, 10 or 20.'),
+          new TypeError(
+            'Workshop round requires mode smart|trouble|test and length 5, 10 or 20.',
+          ),
         );
       }
       return runCommand({
         type: 'start-session',
         payload: {
-          mode: 'smart',
+          mode: options.mode,
           yearFilter: 'y3-4',
           length: options.length,
           practiceOnly: false,

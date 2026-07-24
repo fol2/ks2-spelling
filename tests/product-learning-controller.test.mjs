@@ -100,12 +100,14 @@ test('product learning starts a durable Smart Review and restores an interrupted
 
   first.showScreen('setup');
   assert.equal(first.getState().screen, 'setup');
-  await first.startSmartRound({ length: 5 });
+  await first.startRound({ mode: 'smart', length: 5 });
 
   const active = first.getState();
   assert.equal(active.status, 'ready');
   assert.equal(active.screen, 'practice');
   assert.equal(active.practice.label, 'Smart review');
+  assert.equal(active.practice.mode, 'smart');
+  assert.equal(active.practice.fallbackToSmart, false);
   assert.equal(active.practice.progress.total, 5);
   assert.equal(active.practice.progress.checked, 0);
   assert.equal(typeof active.practice.runtimeItemId, 'string');
@@ -135,7 +137,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
 test('product learning keeps correction and safe abandonment inside the A3 transaction result', async () => {
   const world = createLearningWorld();
   const controller = world.createController();
-  await controller.startSmartRound({ length: 5 });
+  await controller.startRound({ mode: 'smart', length: 5 });
 
   await assert.rejects(
     controller.submitAnswer('  '),
@@ -176,7 +178,7 @@ test('product learning keeps correction and safe abandonment inside the A3 trans
 test('product learning projects saved progress, Monster and Camp views without changing learner bytes', async () => {
   const world = createLearningWorld();
   const controller = world.createController();
-  await controller.startSmartRound({ length: 5 });
+  await controller.startRound({ mode: 'smart', length: 5 });
 
   while (controller.getState().screen === 'practice') {
     const state = controller.getState();
@@ -191,6 +193,7 @@ test('product learning projects saved progress, Monster and Camp views without c
   assert.equal(controller.getState().screen, 'summary');
   assert.equal(controller.getState().summary.totalWords, 5);
   assert.equal(controller.getState().summary.accuracy, 100);
+  assert.equal(controller.getState().summary.mode, 'smart');
 
   controller.showScreen('progress');
   assert.equal(controller.getState().screen, 'progress');

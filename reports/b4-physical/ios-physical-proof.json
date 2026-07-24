@@ -1,58 +1,58 @@
 {
   "applicationCheckpoint": {
-    "commit": "c468600a3b3eafe7e9d4e11969baffe62eea30d1",
-    "tree": "ae7a7844ce27e4bd68e8d98dca01e96b4d0da69f"
+    "commit": "46ff00bcff1267ef3c60e77e47c6d89d07fe0cd8",
+    "tree": "9ef7a30a2c6233d78df8f1dbcb5e95cd23d05745"
   },
   "coldLaunchSeriesMs": [
-    3452.913,
-    4061.774,
-    3710.613
+    5393.869,
+    4419.551,
+    5083.316
   ],
   "comparators": {
     "answerFeedback": {
-      "observedMs": 858.9,
+      "observedMs": 919.458,
       "thresholdMs": 100,
       "within": false
     },
     "audioStart": {
-      "observedMs": 1839.641,
+      "observedMs": 621.406,
       "thresholdMs": 250,
       "within": false
     },
     "coldLaunch": {
-      "observedMs": 4061.774,
+      "observedMs": 5393.869,
       "thresholdMs": 2000,
       "within": false
     },
     "sqliteTransactionUpperBound": {
-      "observedMs": 27.664,
+      "observedMs": 24.843,
       "thresholdMs": 50,
       "within": true
     }
   },
   "isolatedSqlite": {
-    "maxTransactionMs": 27.664
+    "maxTransactionMs": 24.843
   },
   "journeys": {
     "default": {
       "answerFeedbackMs": [
-        733.5250377655029,
-        824.7779607772827,
-        796.5980768203735,
-        820.747971534729,
-        814.8689270019531,
-        830.7880163192749,
-        858.9000701904297,
-        816.2970542907715,
-        827.6729583740234,
-        823.3979940414429
+        765.7699584960938,
+        919.4579124450684,
+        743.1089878082275,
+        831.8060636520386,
+        843.3719873428345,
+        809.7339868545532,
+        808.0040216445923,
+        829.367995262146,
+        830.3030729293823,
+        852.4119853973389
       ],
       "audioStartMs": [
-        634.4588994979858,
-        1783.1660509109497
+        621.4059591293335,
+        411.97705268859863
       ],
       "backgroundAudioStoppedCount": 2,
-      "coldLaunchMs": 3452.9130458831787,
+      "coldLaunchMs": 5393.868923187256,
       "completed": true,
       "enterSubmitted": true,
       "minimumControlHeightPoints": 49,
@@ -71,23 +71,23 @@
   "repeatJourneys": [
     {
       "answerFeedbackMs": [
-        726.3550758361816,
-        820.4799890518188,
-        817.7560567855835,
-        824.7400522232056,
-        797.639012336731,
-        827.1589279174805,
-        822.4219083786011,
-        810.2109432220459,
-        826.3810873031616,
-        835.1689577102661
+        834.6439599990845,
+        845.7319736480713,
+        838.716983795166,
+        871.4470863342285,
+        836.9829654693604,
+        845.8949327468872,
+        823.4130144119263,
+        832.8689336776733,
+        834.0380191802979,
+        823.6500024795532
       ],
       "audioStartMs": [
-        472.0510244369507,
-        1839.6409749984741
+        505.75506687164307,
+        431.07402324676514
       ],
       "backgroundAudioStoppedCount": 2,
-      "coldLaunchMs": 4061.7740154266357,
+      "coldLaunchMs": 4419.5510149002075,
       "completed": true,
       "enterSubmitted": true,
       "minimumControlHeightPoints": 49,
@@ -99,23 +99,23 @@
     },
     {
       "answerFeedbackMs": [
-        725.274920463562,
-        806.2750101089478,
-        802.7439117431641,
-        795.6099510192871,
-        811.4410638809204,
-        814.5380020141602,
-        817.8000450134277,
-        823.8170146942139,
-        824.9349594116211,
-        795.0119972229004
+        718.979001045227,
+        816.8870210647583,
+        819.0040588378906,
+        806.5029382705688,
+        763.1419897079468,
+        820.4259872436523,
+        812.5429153442383,
+        806.0989379882812,
+        829.3579816818237,
+        841.3000106811523
       ],
       "audioStartMs": [
-        497.9029893875122,
-        1744.6420192718506
+        495.1059818267822,
+        389.34898376464844
       ],
       "backgroundAudioStoppedCount": 2,
-      "coldLaunchMs": 3710.613012313843,
+      "coldLaunchMs": 5083.315968513489,
       "completed": true,
       "enterSubmitted": true,
       "minimumControlHeightPoints": 49,
@@ -130,7 +130,7 @@
     "buildConfiguration": "Release",
     "deviceModel": "iPhone 16 Pro Max",
     "deviceOsVersion": "27.0",
-    "hostOS": "macOS 27.0 (26A5378n)",
+    "hostOS": "macOS 27.0 (26A5388g)",
     "reality": "physical",
     "sdk": "iphoneos26.5",
     "xcodeVersion": "26.6 (17F109)"
@@ -144,81 +144,81 @@
         "answerIndex": 1,
         "audioPlayingVisibleEpochMs": -1,
         "expectedRevision": 2,
-        "feedbackVisibleEpochMs": 1784473129426.712,
-        "replayToAudioPlayingVisibleMs": 394.5549726486206,
-        "submitEpochMs": 1784473128574.2249
+        "feedbackVisibleEpochMs": 1784881722363.6821,
+        "replayToAudioPlayingVisibleMs": 471.2749719619751,
+        "submitEpochMs": 1784881721436.28
       },
       {
         "answerIndex": 2,
         "audioPlayingVisibleEpochMs": -1,
         "expectedRevision": 4,
-        "feedbackVisibleEpochMs": 1784473138901.206,
-        "replayToAudioPlayingVisibleMs": 1526.1900424957275,
-        "submitEpochMs": 1784473138051.312
+        "feedbackVisibleEpochMs": 1784881730781.9263,
+        "replayToAudioPlayingVisibleMs": 975.5669832229614,
+        "submitEpochMs": 1784881729953.22
       },
       {
         "answerIndex": 3,
         "audioPlayingVisibleEpochMs": -1,
         "expectedRevision": 6,
-        "feedbackVisibleEpochMs": 1784473146635.451,
-        "replayToAudioPlayingVisibleMs": 411.97502613067627,
-        "submitEpochMs": 1784473145761.864
+        "feedbackVisibleEpochMs": 1784881739693.517,
+        "replayToAudioPlayingVisibleMs": 409.55400466918945,
+        "submitEpochMs": 1784881738587.715
       },
       {
         "answerIndex": 4,
         "audioPlayingVisibleEpochMs": -1,
         "expectedRevision": 8,
-        "feedbackVisibleEpochMs": 1784473154600.675,
-        "replayToAudioPlayingVisibleMs": 459.1400623321533,
-        "submitEpochMs": 1784473153739.59
+        "feedbackVisibleEpochMs": 1784881747584.37,
+        "replayToAudioPlayingVisibleMs": 384.5961093902588,
+        "submitEpochMs": 1784881746731.643
       },
       {
         "answerIndex": 5,
         "audioPlayingVisibleEpochMs": -1,
         "expectedRevision": 10,
-        "feedbackVisibleEpochMs": 1784473162445.911,
-        "replayToAudioPlayingVisibleMs": 391.1769390106201,
-        "submitEpochMs": 1784473161593.896
+        "feedbackVisibleEpochMs": 1784881755825.9038,
+        "replayToAudioPlayingVisibleMs": 459.9260091781616,
+        "submitEpochMs": 1784881754906.293
       },
       {
         "answerIndex": 6,
         "audioPlayingVisibleEpochMs": -1,
         "expectedRevision": 12,
-        "feedbackVisibleEpochMs": 1784473170316.603,
-        "replayToAudioPlayingVisibleMs": 402.47809886932373,
-        "submitEpochMs": 1784473169435.355
+        "feedbackVisibleEpochMs": 1784881763870.881,
+        "replayToAudioPlayingVisibleMs": 404.155969619751,
+        "submitEpochMs": 1784881762983.681
       },
       {
         "answerIndex": 7,
         "audioPlayingVisibleEpochMs": -1,
         "expectedRevision": 14,
-        "feedbackVisibleEpochMs": 1784473179327.7122,
-        "replayToAudioPlayingVisibleMs": 1536.0180139541626,
-        "submitEpochMs": 1784473178449.228
+        "feedbackVisibleEpochMs": 1784881771770.3398,
+        "replayToAudioPlayingVisibleMs": 412.3950004577637,
+        "submitEpochMs": 1784881770912.19
       },
       {
         "answerIndex": 8,
         "audioPlayingVisibleEpochMs": -1,
         "expectedRevision": 16,
-        "feedbackVisibleEpochMs": 1784473187266.8328,
-        "replayToAudioPlayingVisibleMs": 465.0000333786011,
-        "submitEpochMs": 1784473186417.411
+        "feedbackVisibleEpochMs": 1784881780297.631,
+        "replayToAudioPlayingVisibleMs": 1073.2730627059937,
+        "submitEpochMs": 1784881779414.305
       },
       {
         "answerIndex": 9,
         "audioPlayingVisibleEpochMs": -1,
         "expectedRevision": 18,
-        "feedbackVisibleEpochMs": 1784473195167.84,
-        "replayToAudioPlayingVisibleMs": 431.28693103790283,
-        "submitEpochMs": 1784473194311.718
+        "feedbackVisibleEpochMs": 1784881788247.23,
+        "replayToAudioPlayingVisibleMs": 398.47397804260254,
+        "submitEpochMs": 1784881787356.717
       },
       {
         "answerIndex": 10,
         "audioPlayingVisibleEpochMs": -1,
         "expectedRevision": 20,
-        "feedbackVisibleEpochMs": 1784473203028.6208,
-        "replayToAudioPlayingVisibleMs": 441.9659376144409,
-        "submitEpochMs": 1784473202167.561
+        "feedbackVisibleEpochMs": 1784881796188.9119,
+        "replayToAudioPlayingVisibleMs": 409.0629816055298,
+        "submitEpochMs": 1784881795310.5203
       }
     ],
     "schemaVersion": 1

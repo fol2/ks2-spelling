@@ -41,6 +41,7 @@
     "generate:starter-audio": "node scripts/generate-starter-audio.mjs",
     "verify:starter-audio": "node scripts/generate-starter-audio.mjs --check",
     "verify:starter-pack": "node scripts/build-starter-pack.mjs",
+    "verify:art": "node scripts/verify-vendored-art.mjs",
     "prove:b3:ios-storekit-test": "node scripts/prove-b3-ios-storekit-test.mjs",
     "report:b3-native": "node scripts/build-b3-native-audit.mjs",
     "prove:b3:deterministic": "node scripts/run-b3-deterministic-proof.mjs",

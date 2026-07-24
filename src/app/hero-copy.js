@@ -26,3 +26,13 @@ export function dueCopy(due) {
   if (n === 1) return 'One word due — one careful try.';
   return `${n} due — you can do this.`;
 }
+
+/**
+ * "1 secure words" reads as a bug to anyone old enough to be using this, and
+ * this app is read by children learning to write English. One helper so the
+ * three places that count secure words agree.
+ */
+export function countWords(count) {
+  const n = Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
+  return `${n} ${n === 1 ? 'word' : 'words'}`;
+}

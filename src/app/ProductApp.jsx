@@ -14,7 +14,7 @@ import {
   heroPreloadUrlsForMode,
   heroToneForProgress,
 } from './backdrop-model.js';
-import { dueCopy, heroWelcomeLine } from './hero-copy.js';
+import { countWords, dueCopy, heroWelcomeLine } from './hero-copy.js';
 import { whereYouStand } from './where-you-stand.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
@@ -1168,7 +1168,7 @@ function MonsterMeadow({ monsters }) {
           {slot.kind === 'caught' ? (
             <p>
               <strong>{slot.name}</strong>
-              <span>{slot.secureCount} secure words</span>
+              <span>{countWords(slot.secureCount)} secure</span>
             </p>
           ) : (
             <p>
@@ -1599,16 +1599,6 @@ function SpeakerSentenceIcon({ size = 22 }) {
   );
 }
 
-// The single word on its own — one wave, a shorter read than the sentence.
-function SpeakerWordIcon({ size = 22 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M11 5 6 9H3v6h3l5 4Z" fill="currentColor" fillOpacity="0.12" />
-      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
-    </svg>
-  );
-}
-
 function SpeakerSlowIcon({ size = 22 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1850,9 +1840,12 @@ function PracticeScreen({
       </div>
 
       <section className="practice-card" aria-labelledby="practice-title" aria-busy={busy}>
-        <p className="product-kicker">
-          {isTestMode ? 'Listen · spell · one try' : 'Listen · spell · learn'}
-        </p>
+        {/* Upstream heads the card with metadata chips, not a slogan: which
+            year band this word belongs to, and whether the round counts. */}
+        <div className="info-chip-row">
+          {practice.yearLabel && <span className="chip">{practice.yearLabel}</span>}
+          <span className="chip">{isTestMode ? 'One try each' : 'Two clean recalls'}</span>
+        </div>
         {/* Upstream leads with a quiet instruction, not a headline — the
             sentence is what the child should be reading. Kept as the h1 so
             the round still has a document heading. */}
@@ -1899,9 +1892,9 @@ function PracticeScreen({
 
           {/* Below the answer line, as upstream has it: you type first and
               replay only if you need to. */}
-          {/* Sentence first: KS2 spelling is dictated in context, so the
-              sentence is the cue and the bare word is the narrower fallback
-              for a child who only needs to hear the shape again. */}
+          {/* Two controls, as upstream has: the dictation and a slower repeat
+              of it. KS2 spelling is examined in context, so both are the
+              sentence — the word on its own is not a cue this test gives. */}
           <div className="audio-row" role="group" aria-label="Listening controls">
             <button
               type="button"
@@ -1911,15 +1904,6 @@ function PracticeScreen({
               onClick={() => void play('sentence')}
             >
               <SpeakerSentenceIcon />
-            </button>
-            <button
-              type="button"
-              className="btn-icon"
-              aria-label="Replay the word on its own"
-              disabled={busy || audioState.status !== 'ready'}
-              onClick={() => void play('word')}
-            >
-              <SpeakerWordIcon />
             </button>
             <button
               type="button"
@@ -2046,7 +2030,7 @@ function SummaryScreen({
         <InkletArt stage={monster?.derivedStage ?? 0} />
         <div>
           <h2>Inklet noticed your practice</h2>
-          <p>{monster?.secureCount ?? 0} secure words are now helping Inklet grow.</p>
+          <p>{countWords(monster?.secureCount ?? 0)} now secure, helping Inklet grow.</p>
           {secureGain > 0 && (
             <p className="reward-secure-toast" role="status" aria-live="polite">
               {`+${secureGain} words secure`}
@@ -2263,7 +2247,7 @@ function CodexScreen({ monsters, onBack }) {
           </dl>
           <p className="next-reward">
             {nextThreshold
-              ? `${nextThreshold - selected.secureCount} more secure words until the next change.`
+              ? `${countWords(nextThreshold - selected.secureCount)} more until the next change.`
               : `${selected.name} has reached the final stage on this trail.`}
           </p>
         </section>

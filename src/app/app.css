@@ -1919,6 +1919,28 @@ h1 {
   letter-spacing: -0.03em;
 }
 
+/* `.info-chip-row` + `.chip`: the round card is headed by metadata, not by a
+   slogan — which year band the word comes from, and how the round counts. */
+.info-chip-row {
+  display: flex;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  justify-content: center;
+}
+
+.info-chip-row .chip {
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--control-surface);
+  color: var(--ink-2);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 /* `.ss-stat-grid`: the standing panel beside upstream's round setup. Numbers
    set in the display serif so they read as figures in a journal rather than
    as a dashboard. */

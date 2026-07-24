@@ -65,7 +65,7 @@ function initialScreen(snapshot) {
     : snapshot ? 'home' : 'profiles';
 }
 
-function practiceProjection(snapshot) {
+function practiceProjection(snapshot, catalogue) {
   const ui = snapshot?.subjectState?.ui;
   const session = ui?.phase === 'session' ? ui.session : null;
   if (!session) return null;
@@ -76,6 +76,10 @@ function practiceProjection(snapshot) {
     fallbackToSmart: session.fallbackToSmart === true,
     phase: session.phase,
     runtimeItemId: session.currentRuntimeItemId,
+    // The year band this word belongs to, for the card's metadata chip.
+    yearLabel: catalogue?.items?.find(
+      ({ runtimeItemId }) => runtimeItemId === session.currentRuntimeItemId,
+    )?.yearLabel ?? '',
     sentence: session.currentPrompt?.sentence ?? '',
     cloze: session.currentPrompt?.cloze ?? '',
     explanation: session.currentPrompt?.explanation ?? '',
@@ -169,7 +173,7 @@ function createState({
     status,
     screen,
     learnerId: snapshot?.learnerId ?? null,
-    practice: practiceProjection(snapshot),
+    practice: practiceProjection(snapshot, catalogue),
     prefs: prefsProjection(snapshot),
     summary: summary ?? (ui?.summary ? structuredClone(ui.summary) : null),
     progress: progressProjection(snapshot, catalogue),

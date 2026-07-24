@@ -1609,6 +1609,19 @@ function SpeakerSlowIcon({ size = 22 }) {
   );
 }
 
+// The vendored cloze spells its gap as a run of underscores. Upstream draws
+// it instead: a brand-coloured rule the width of the missing word, which is
+// what a child is actually looking at while they listen.
+function clozeParts(cloze) {
+  const text = typeof cloze === 'string' ? cloze : '';
+  const parts = text.split(/(_{2,})/u);
+  return parts.map((part, index) => (
+    /^_{2,}$/u.test(part)
+      ? <span className="cloze-blank" key={index} aria-label="missing word" />
+      : <span key={index}>{part}</span>
+  ));
+}
+
 function PracticeScreen({
   state,
   audioState,
@@ -1766,7 +1779,7 @@ function PracticeScreen({
         return;
       }
       if (answer.trim() === '') {
-        setLocalError('Type the spelling before checking it.');
+        setLocalError('Type the spelling before you submit it.');
         return;
       }
       await onSubmit(answer);
@@ -1798,22 +1811,7 @@ function PracticeScreen({
       data-hero-tone={heroTone}
     >
       <HeroBackdrop url={heroUrl} />
-      <ProductTopBar
-        title={practice.label}
-        action={(
-          <button
-            type="button"
-            className="topbar-action"
-            disabled={busy}
-            onClick={() => {
-              setExitError('');
-              setConfirmExit(true);
-            }}
-          >
-            End early
-          </button>
-        )}
-      />
+      <ProductTopBar title={practice.label} />
       {/* The web session head: a dot per word in the round, and a plain count
           of what has been banked. The old "Card N of M" counted secured words
           but read as a position, so a learner working through a retry saw the
@@ -1833,19 +1831,13 @@ function PracticeScreen({
             />
           ))}
         </div>
-        <p aria-live="polite">
+        <p className="round-count" aria-live="polite">
           <span>You have answered {done} of {total}.</span>
           {remaining > 0 && <span>{remaining} left in this round.</span>}
         </p>
       </div>
 
       <section className="practice-card" aria-labelledby="practice-title" aria-busy={busy}>
-        {/* Upstream heads the card with metadata chips, not a slogan: which
-            year band this word belongs to, and whether the round counts. */}
-        <div className="info-chip-row">
-          {practice.yearLabel && <span className="chip">{practice.yearLabel}</span>}
-          <span className="chip">{isTestMode ? 'One try each' : 'Two clean recalls'}</span>
-        </div>
         {/* Upstream leads with a quiet instruction, not a headline — the
             sentence is what the child should be reading. Kept as the h1 so
             the round still has a document heading. */}
@@ -1859,7 +1851,7 @@ function PracticeScreen({
             the sentence is the only thing that differs between cards, so it
             is the only thing that should re-enter. */}
         {!isTestMode && prefs.showCloze && (
-          <p className="cloze-prompt" key={practice.cloze}>{practice.cloze}</p>
+          <p className="cloze-prompt" key={practice.cloze}>{clozeParts(practice.cloze)}</p>
         )}
 
         <form className="answer-form" onSubmit={(event) => void submit(event)}>
@@ -1917,15 +1909,14 @@ function PracticeScreen({
           </div>
 
           <div className="answer-actions">
-            <button type="submit" className="button-primary" disabled={busy}>
-              {busy
-                ? 'Saving…'
-                : practice.awaitingAdvance ? 'Continue' : 'Check spelling'}
+            <button type="submit" className="button-primary button-submit" disabled={busy}>
+              {busy ? 'Saving…' : practice.awaitingAdvance ? 'Continue' : 'Submit'}
+              {!busy && <span aria-hidden="true"> →</span>}
             </button>
             {canSkip && (
               <button
                 type="button"
-                className="button-quiet"
+                className="button-link"
                 disabled={busy}
                 onClick={() => void skip()}
               >
@@ -1934,7 +1925,6 @@ function PracticeScreen({
             )}
           </div>
         </form>
-        <p className="voice-note">{VOICE_NOTE}</p>
 
         {(localError || state.actionError) && (
           <p className="inline-error" role="alert">
@@ -1950,6 +1940,24 @@ function PracticeScreen({
           />
         )}
       </section>
+
+      {/* Upstream keeps the round's housekeeping outside the card: the voice
+          disclosure sits quietly at one end and leaving the round at the
+          other, so the card itself holds nothing but the spelling. */}
+      <footer className="session-footer">
+        <p className="voice-note">{VOICE_NOTE}</p>
+        <button
+          type="button"
+          className="button-quiet"
+          disabled={busy}
+          onClick={() => {
+            setExitError('');
+            setConfirmExit(true);
+          }}
+        >
+          End round early
+        </button>
+      </footer>
 
       {confirmExit && (
         <EndRoundDialog

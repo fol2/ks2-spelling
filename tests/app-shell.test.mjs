@@ -578,8 +578,15 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.doesNotMatch(practiceHtml, /Hear the word, then spell it/);
   assert.match(practiceHtml, /AI-generated dictation voice/);
   assert.match(practiceHtml, /Skip for now/);
-  assert.match(practiceHtml, /I _____ model cars with my brother\./);
-  assert.match(practiceHtml, /Check spelling/);
+  // The gap is drawn as a rule rather than printed as underscores.
+  assert.match(practiceHtml, /class="cloze-blank"/);
+  assert.match(practiceHtml, /model cars with my brother/);
+  // Upstream's submit is "Submit →"; the round's housekeeping — the voice
+  // note and leaving early — sits in a footer outside the card.
+  assert.match(practiceHtml, /Submit/);
+  assert.match(practiceHtml, /class="session-footer"/);
+  assert.match(practiceHtml, /End round early/);
+  assert.doesNotMatch(practiceHtml, /Check spelling/);
   assert.doesNotMatch(practiceHtml, />build</i);
 
   const endRoundHtml = renderToStaticMarkup(

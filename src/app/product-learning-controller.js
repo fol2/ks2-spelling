@@ -383,7 +383,7 @@ export function createProductLearningController({
         return Promise.reject(
           controllerError(
             'product_answer_required',
-            'Type the spelling before checking it.',
+            'Type the spelling before you submit it.',
           ),
         );
       }

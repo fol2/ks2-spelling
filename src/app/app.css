@@ -493,6 +493,15 @@ h1 {
     --muted: #8b95a6;
     --subtle: #5f6a7c;
 
+    --theme-ink: #f3eee0;
+    --theme-ink-2: #d4d9e3;
+    --theme-muted: #8b95a6;
+    --theme-panel: #18212f;
+    --theme-line: #2a3444;
+    --theme-line-strong: #3d4a60;
+    --theme-brand-soft: color-mix(in oklab, #3e6fa8 26%, #0f1620);
+
+
     --line: #2a3444;
     --line-soft: #212a39;
     --line-strong: #3d4a60;
@@ -1585,7 +1594,10 @@ h1 {
 }
 
 .practice-progress {
+  display: flex;
   margin-bottom: 0.9rem;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 /* One dot per word in the round: filled once the word is secure, ringed while
@@ -1641,6 +1653,19 @@ h1 {
 
 .practice-card {
   max-width: 46rem;
+
+  /* Upstream's session card is `color-mix(--panel 80%, transparent)` with a
+     blur: theme glass that reads the same over every region. Resetting the
+     tone-driven tokens here restores the scheme for the whole card, so the
+     art tints what is behind the glass rather than the glass itself. */
+  --ink: var(--theme-ink);
+  --ink-2: var(--theme-ink-2);
+  --muted: var(--theme-muted);
+  --paper-raised: color-mix(in oklab, var(--theme-panel) 80%, transparent);
+  --control-surface: var(--theme-panel);
+  --line: color-mix(in oklab, var(--theme-line) 80%, transparent);
+  --line-strong: var(--theme-line-strong);
+  --brand-soft: var(--theme-brand-soft);
 }
 
 /* Ported from ks2-mastery `.spelling-in-session .prompt-instr`: a quiet
@@ -1660,6 +1685,14 @@ h1 {
 /* `.spelling-in-session .cloze` — centred display serif with no rule down the
    side. Upstream marks the gap with a brand underline, which the vendored
    cloze text already spells as underscores. */
+.cloze-blank {
+  display: inline-block;
+  width: 6ch;
+  margin: 0 0.3rem;
+  border-bottom: 3px solid var(--brand);
+  vertical-align: baseline;
+}
+
 .cloze-prompt {
   margin-bottom: 1.5rem;
   color: color-mix(in oklab, var(--ink) 92%, black);
@@ -1921,6 +1954,69 @@ h1 {
 
 /* `.info-chip-row` + `.chip`: the round card is headed by metadata, not by a
    slogan — which year band the word comes from, and how the round counts. */
+.round-count {
+  display: inline-flex;
+  margin: 0 0 0 auto;
+  padding: 0.45rem 0.8rem;
+  max-width: 60%;
+  flex-direction: column;
+  gap: 0.05rem;
+  text-align: right;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--control-surface);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+/* Upstream's submit is the brand pill with an arrow, and skipping is a quiet
+   text link rather than a second button competing with it. */
+.product-app[data-hero-tone] .practice-card .button-primary,
+.button-submit {
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+}
+
+/* The listening circles sit on the card's own glass, so they need to lift off
+   it rather than repeat it. */
+.product-app .practice-card .btn-icon {
+  border-color: color-mix(in oklab, var(--ink) 22%, transparent);
+  background: color-mix(in oklab, var(--ink) 12%, transparent);
+  color: var(--ink);
+}
+
+.button-link {
+  border: 0;
+  padding: 0.4rem 0.6rem;
+  background: none;
+  box-shadow: none;
+  color: var(--ink-2);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.button-link:active:not(:disabled) {
+  color: var(--ink);
+  transform: none;
+}
+
+/* The round's housekeeping sits outside the card, at either end. */
+.session-footer {
+  display: flex;
+  margin: 1rem auto 0;
+  max-width: 46rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.session-footer .voice-note {
+  margin: 0;
+}
+
 .info-chip-row {
   display: flex;
   margin-bottom: 0.75rem;

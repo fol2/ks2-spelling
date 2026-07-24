@@ -562,10 +562,15 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(practiceHtml, /5 left in this round\./);
   assert.doesNotMatch(practiceHtml, /Card \d+ of \d+/);
   assert.match(practiceHtml, /aria-label="0 of 5 words secured"/);
-  assert.match(practiceHtml, /Hear word/);
-  assert.match(practiceHtml, /Hear sentence/);
-  assert.match(practiceHtml, /Replay slowly/);
-  assert.match(practiceHtml, /0\.5×/);
+  // The listening controls are icon-only, as they are on the web card: the
+  // name lives in aria-label so the row stays quiet beside the sentence.
+  assert.match(practiceHtml, /aria-label="Replay the dictated word"/);
+  assert.match(practiceHtml, /aria-label="Replay the sentence"/);
+  assert.match(practiceHtml, /aria-label="Replay slowly"/);
+  assert.doesNotMatch(practiceHtml, />\s*Hear word\s*</);
+  // The card leads with a quiet instruction, never a headline.
+  assert.match(practiceHtml, /Spell the word you hear\./);
+  assert.doesNotMatch(practiceHtml, /Hear the word, then spell it/);
   assert.match(practiceHtml, /AI-generated dictation voice/);
   assert.match(practiceHtml, /Skip for now/);
   assert.match(practiceHtml, /I _____ model cars with my brother\./);

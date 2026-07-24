@@ -798,7 +798,7 @@ h1 {
 .product-app[data-hero-tone] .topbar-action,
 .product-app[data-hero-tone] .practice-progress p,
 .product-app[data-hero-tone] .button-quiet,
-.product-app[data-hero-tone] .listening-controls button,
+.product-app[data-hero-tone] .btn-icon,
 .product-app[data-hero-tone] .trail-navigation button > span,
 .product-app[data-hero-tone] .accuracy-score,
 .product-app[data-hero-tone] .reward-secure-toast {
@@ -1082,11 +1082,6 @@ h1 {
 
 .learner-form label,
 .choice-group legend,
-.answer-form label {
-  color: var(--ink);
-  font-weight: 850;
-}
-
 .learner-form input,
 .learner-form select,
 .answer-form input {
@@ -1641,57 +1636,114 @@ h1 {
   max-width: 46rem;
 }
 
-.practice-card h1 {
-  max-width: 16ch;
-  font-size: clamp(1.9rem, 5.5vw, 2.6rem);
-}
-
-/* The dictated sentence and the spelling itself carry the display serif, as
-   they do on the web session card. */
-.cloze-prompt {
-  border-left: 0.25rem solid var(--warn);
-  padding-left: 0.85rem;
-  color: var(--ink-2);
+/* Ported from ks2-mastery `.spelling-in-session .prompt-instr`: a quiet
+   centred line, not a headline. The card's voice is the sentence. */
+.practice-card h1.prompt-instr {
+  max-width: none;
+  margin-bottom: 1.1rem;
+  color: color-mix(in oklab, var(--ink) 85%, black);
   font-family: var(--font-serif);
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.005em;
+  line-height: 1.4;
+  text-align: center;
 }
 
-.listening-controls {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
-  margin: 1.25rem 0;
+/* `.spelling-in-session .cloze` — centred display serif with no rule down the
+   side. Upstream marks the gap with a brand underline, which the vendored
+   cloze text already spells as underscores. */
+.cloze-prompt {
+  margin-bottom: 1.5rem;
+  color: color-mix(in oklab, var(--ink) 92%, black);
+  font-family: var(--font-serif);
+  font-size: clamp(1.35rem, 4.6vw, 1.75rem);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  text-align: center;
+  text-decoration-color: var(--brand);
 }
 
-.listening-controls button {
-  display: grid;
-  gap: 0.35rem;
-  justify-items: center;
-  border: 1px solid color-mix(in oklab, var(--brand) 28%, transparent);
-  padding: 0.75rem 0.5rem;
-  color: var(--brand-ink);
-  background: var(--brand-soft);
-  font-size: 0.84rem;
-  font-weight: 800;
-}
-
-.listening-controls button span {
-  font-size: 1.25rem;
+/* `.word-input-wrap` + `.word-input`: no box. The answer sits on a single
+   underline that takes the brand colour on focus — upstream deliberately
+   suppresses the global focus ring here so the treatment stays minimal. */
+.word-input-wrap {
+  position: relative;
+  max-width: 35rem;
+  margin: 0 auto;
 }
 
 .answer-form {
-  display: grid;
-  gap: 0.7rem;
+  display: block;
 }
 
-.answer-form input {
-  min-height: 3.5rem;
+.answer-form input.word-input {
+  width: 100%;
+  min-height: 0;
+  padding: 0.85rem 1.25rem 1.15rem;
+  border: 0;
+  border-bottom: 2.5px solid var(--line-strong);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: color-mix(in oklab, var(--ink) 92%, black);
   font-family: var(--font-serif);
-  font-size: clamp(1.4rem, 5vw, 2rem);
+  font-size: clamp(1.7rem, 6.5vw, 2.4rem);
   font-weight: 500;
   letter-spacing: -0.005em;
+  text-align: center;
+  transition: border-color var(--dur) var(--ease-out);
+}
+
+.answer-form input.word-input:focus,
+.answer-form input.word-input:focus-visible {
+  border-radius: 0;
+  border-bottom-width: 3.5px;
+  border-bottom-color: var(--brand);
+  outline: none;
+  box-shadow: none;
+}
+
+/* `.audio-row` + `.btn.icon.lg` — icon-only circles under the answer line.
+   The name lives in `aria-label`; upstream shows no text at all here. */
+.audio-row {
+  display: flex;
+  gap: 0.625rem;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
+/* `.product-app button` sets a small radius for every control, so the circle
+   needs the extra class to win. The surface is the tone-aware alias, not a
+   theme token: this row sits on the backdrop art, which does not re-tone. */
+.product-app .btn-icon {
+  display: inline-flex;
+  width: 3.25rem;
+  height: 3.25rem;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--control-surface);
+  color: var(--ink);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    filter var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out);
+}
+
+.btn-icon:active:not(:disabled) {
+  transform: translateY(1px) scale(0.96);
+  border-color: color-mix(in oklab, var(--brand) 38%, var(--line));
+  filter: brightness(0.96);
+}
+
+.btn-icon[disabled] {
+  opacity: 0.55;
+  transform: none;
 }
 
 /* The web spells its prompt in serif italic; only the placeholder leans, so
@@ -2691,7 +2743,7 @@ button.codex-card:hover:not(.is-locked) {
 .segmented-choice button,
 .voice-choice button,
 .toggle-chip,
-.listening-controls button,
+.btn-icon,
 .topbar-action,
 .answer-actions button,
 button.codex-card,
@@ -2709,7 +2761,7 @@ button.codex-card,
 .mode-choice-card:active:not(:disabled),
 .segmented-choice button:active:not(:disabled),
 .voice-choice button:active:not(:disabled),
-.listening-controls button:active:not(:disabled),
+.btn-icon:active:not(:disabled),
 button.codex-card:active:not(.is-locked),
 .celebration-card:active {
   transform: scale(var(--press-scale));
@@ -3236,7 +3288,7 @@ button.codex-card:active:not(.is-locked) {
     0 5px 5px -3px rgb(14 24 38 / 24%);
 }
 
-.listening-controls button,
+.btn-icon,
 .voice-symbol,
 .feedback-symbol,
 .audio-state-icon,
@@ -3345,29 +3397,12 @@ button.codex-card:active:not(.is-locked) {
  * competes with it. The rule turns brand under the cursor. Focus keeps the
  * global halo — the webapp drops it, and on a phone that is one affordance
  * too few. */
-.answer-form input {
-  border: 0;
-  border-bottom: 2.5px solid var(--line-strong);
-  border-radius: 0;
-  padding: 0.75rem 1rem 1rem;
-  background: transparent;
-  text-align: center;
-}
-
 /* The field is focused from the moment the card mounts, so a ring around it
    is permanent furniture rather than a state. The rule is the indicator
    instead: it thickens and turns brand, and lights the paper under it. The
    forced-colours and increased-contrast blocks below put a real outline back
    for the users who need one. */
-.answer-form input:focus,
-.answer-form input:focus-visible {
-  outline: none;
-  border-bottom-width: 3.5px;
-  border-bottom-color: var(--brand);
-  box-shadow: 0 6px 14px -8px color-mix(in oklab, var(--brand) 80%, transparent);
-}
-
-.answer-form input:disabled {
+.answer-form input.word-input:disabled {
   border-bottom-style: dashed;
   opacity: 0.7;
 }
@@ -3541,16 +3576,6 @@ button.codex-card:active:not(.is-locked) {
   .field-pair,
   .voice-choice {
     grid-template-columns: 1fr;
-  }
-
-  .listening-controls {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .listening-controls button {
-    min-width: 0;
-    padding: 0.65rem 0.25rem;
-    font-size: 0.74rem;
   }
 
   .word-progress-list li {

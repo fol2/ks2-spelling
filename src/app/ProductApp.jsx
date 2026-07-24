@@ -1560,6 +1560,41 @@ function AnswerFeedback({ feedback, hideAnswer = false }) {
   );
 }
 
+// Listening-control glyphs, ported from ks2-mastery
+// `src/subjects/spelling/components/spelling-icons.jsx`. The round card's
+// audio controls are icon-only there — the label lives in `aria-label`, so
+// the row stays quiet and the sentence keeps the eye.
+function SpeakerIcon({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 5 6 9H3v6h3l5 4Z" fill="currentColor" fillOpacity="0.12" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+    </svg>
+  );
+}
+
+// No upstream equivalent: ks2-mastery dictates the word only, while the
+// vendored mobile pack also ships sentence audio. Same speaker, with the
+// sentence drawn as ruled lines rather than more waves.
+function SpeakerSentenceIcon({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 5 6 9H3v6h3l5 4Z" fill="currentColor" fillOpacity="0.12" />
+      <path d="M15.5 9h5M15.5 12h5M15.5 15h3" />
+    </svg>
+  );
+}
+
+function SpeakerSlowIcon({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 5 6 9H3v6h3l5 4Z" fill="currentColor" fillOpacity="0.12" />
+      <path d="M15.5 10a3 3 0 0 1 0 4" />
+      <text x="15.5" y="20" fontSize="5.5" fontFamily="Inter,system-ui" fontWeight="800" fill="currentColor" stroke="none">0.5x</text>
+    </svg>
+  );
+}
+
 function PracticeScreen({
   state,
   audioState,
@@ -1791,7 +1826,10 @@ function PracticeScreen({
         <p className="product-kicker">
           {isTestMode ? 'Listen · spell · one try' : 'Listen · spell · learn'}
         </p>
-        <h1 id="practice-title">Hear the word, then spell it</h1>
+        {/* Upstream leads with a quiet instruction, not a headline — the
+            sentence is what the child should be reading. Kept as the h1 so
+            the round still has a document heading. */}
+        <h1 id="practice-title" className="prompt-instr">Spell the word you hear.</h1>
         {practice.fallbackToSmart && (
           <p className="practice-mode-note" role="status" aria-live="polite">
             Not enough tricky words yet — this round is a Smart Review.
@@ -1804,53 +1842,66 @@ function PracticeScreen({
           <p className="cloze-prompt" key={practice.cloze}>{practice.cloze}</p>
         )}
 
-        <div className="listening-controls" aria-label="Listening controls">
-          <button
-            type="button"
-            disabled={busy || audioState.status !== 'ready'}
-            onClick={() => void play('word')}
-          >
-            <span aria-hidden="true">▶</span>
-            Hear word
-          </button>
-          <button
-            type="button"
-            disabled={busy || audioState.status !== 'ready'}
-            onClick={() => void play('sentence')}
-          >
-            <span aria-hidden="true">♪</span>
-            Hear sentence
-          </button>
-          <button
-            type="button"
-            disabled={busy || audioState.status !== 'ready'}
-            onClick={() => void play('slow-sentence')}
-          >
-            <span aria-hidden="true">0.5×</span>
-            Replay slowly
-          </button>
-        </div>
-
         <form className="answer-form" onSubmit={(event) => void submit(event)}>
-          <label htmlFor="product-spelling-input">Type the spelling</label>
-          <input
-            ref={answerInputRef}
-            id="product-spelling-input"
-            name="spelling"
-            type="text"
-            value={answer}
-            disabled={busy || practice.awaitingAdvance}
-            autoComplete="off"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck="false"
-            writingsuggestions="false"
-            enterKeyHint="done"
-            onChange={(event) => setAnswer(event.target.value)}
-            onFocus={(event) => {
-              event.currentTarget.scrollIntoView({ block: 'nearest' });
-            }}
-          />
+          {/* No visible label: upstream names the field through `aria-label`
+              and lets the italic placeholder carry the instruction, so the
+              card stays a sentence and an answer line. */}
+          <div className="word-input-wrap">
+            <input
+              ref={answerInputRef}
+              id="product-spelling-input"
+              className="word-input"
+              name="spelling"
+              type="text"
+              aria-label="Type the spelling"
+              placeholder="Type the spelling here"
+              value={answer}
+              disabled={busy || practice.awaitingAdvance}
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck="false"
+              writingsuggestions="false"
+              enterKeyHint="done"
+              onChange={(event) => setAnswer(event.target.value)}
+              onFocus={(event) => {
+                event.currentTarget.scrollIntoView({ block: 'nearest' });
+              }}
+            />
+          </div>
+
+          {/* Below the answer line, as upstream has it: you type first and
+              replay only if you need to. */}
+          <div className="audio-row" role="group" aria-label="Listening controls">
+            <button
+              type="button"
+              className="btn-icon"
+              aria-label="Replay the dictated word"
+              disabled={busy || audioState.status !== 'ready'}
+              onClick={() => void play('word')}
+            >
+              <SpeakerIcon />
+            </button>
+            <button
+              type="button"
+              className="btn-icon"
+              aria-label="Replay the sentence"
+              disabled={busy || audioState.status !== 'ready'}
+              onClick={() => void play('sentence')}
+            >
+              <SpeakerSentenceIcon />
+            </button>
+            <button
+              type="button"
+              className="btn-icon"
+              aria-label="Replay slowly"
+              disabled={busy || audioState.status !== 'ready'}
+              onClick={() => void play('slow-sentence')}
+            >
+              <SpeakerSlowIcon />
+            </button>
+          </div>
+
           <div className="answer-actions">
             <button type="submit" className="button-primary" disabled={busy}>
               {busy

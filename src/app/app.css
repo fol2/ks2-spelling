@@ -346,19 +346,102 @@ h1 {
   }
 }
 
+/* ==========================================================================
+ * Product design tokens.
+ *
+ * Ported from the ks2-mastery webapp (`styles/app.css`, the `:root` block and
+ * its `prefers-color-scheme: dark` variant) so the port reads as the same
+ * product. The webapp's brand is blue; this replaces the port's teal on
+ * purpose. The legacy `.product-app` property names are kept as aliases onto
+ * these tokens rather than renamed at every call site.
+ * ========================================================================== */
 .product-app {
-  --paper: #f7f1e3;
-  --paper-raised: #fffdf7;
-  --ink: #17324d;
-  --ink-soft: #526474;
-  --trail: #157a76;
-  --trail-strong: #0d625f;
-  --reward: #e2a62b;
-  --coral: #d96b53;
-  --correct: #247a4a;
-  --retry: #a44937;
-  --focus: #5b46b2;
-  --line: rgb(23 50 77 / 14%);
+  color-scheme: light dark;
+
+  /* Surfaces */
+  --bg: #f6f5f1;
+  --bg-tint: #efeadd;
+  --panel: #fff;
+  --panel-soft: #faf9f4;
+  --panel-sunken: #f1ecde;
+
+  /* Ink */
+  --ink: #1d2b3a;
+  --ink-2: #3b4a5c;
+  --muted: #7a8697;
+  --subtle: #a9b1bd;
+
+  /* Lines */
+  --line: #e5e1d6;
+  --line-soft: #efebe0;
+  --line-strong: #cfc8b6;
+
+  /* Semantic tones */
+  --good: #2f9e6a;
+  --good-strong: #1f7a4f;
+  --good-soft: #e4f5ec;
+  --warn: #d08a2c;
+  --warn-strong: #9e6a19;
+  --warn-soft: #fbefd9;
+  --bad: #d25757;
+  --bad-strong: #b03838;
+  --bad-soft: #fce5e3;
+
+  /* Brand */
+  --brand: #3e6fa8;
+  --brand-ink: #274d79;
+  --brand-soft: #dce6f3;
+
+  /* Shape */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius: 20px;
+  --radius-lg: 28px;
+  --radius-xl: 32px;
+
+  /* Elevation */
+  --shadow-xs: 0 1px 2px rgb(29 43 58 / 6%);
+  --shadow: 0 1px 2px rgb(29 43 58 / 4%), 0 8px 24px rgb(29 43 58 / 6%);
+  --shadow-lg: 0 2px 4px rgb(29 43 58 / 5%), 0 16px 40px rgb(29 43 58 / 10%);
+  --shadow-glow: 0 0 0 4px rgb(62 111 168 / 18%);
+
+  /* Touch-target minimum — WCAG 2.5.5 AAA, elevated to baseline for KS2. */
+  --tap-min: 44px;
+
+  /* Typography. No font files are bundled: Georgia and Iowan Old Style both
+     ship with iOS, so the fallback chain is a genuine editorial serif today
+     and upgrades on its own if Fraunces is ever vendored. */
+  --font-display: "Fraunces", Georgia, "Iowan Old Style", serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif: "Fraunces", Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 320ms;
+  --dur-slower: 520ms;
+
+  /* Fixed-tone inks. Text that sits on a surface which never re-tones with
+     the colour scheme — the backdrop art and the celebration scrim — picks
+     its ink from the surface, not from the theme. */
+  --ink-on-light: #1d2b3a;
+  --ink-on-dark: #fff9ec;
+
+  /* Legacy aliases kept alive so existing rules keep working. */
+  --paper: var(--bg);
+  --paper-raised: var(--panel);
+  --ink-soft: var(--ink-2);
+  --trail: var(--brand);
+  --trail-strong: var(--brand-ink);
+  --reward: var(--warn);
+  --coral: var(--bad);
+  --correct: var(--good-strong);
+  --retry: var(--bad-strong);
+  --focus: var(--ink);
+
   --hero-image: url('/mastery-art/regions/the-scribe-downs/the-scribe-downs-a1.1280.webp');
   min-width: 320px;
   min-height: 100vh;
@@ -369,13 +452,52 @@ h1 {
     max(1rem, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
   color: var(--ink);
   background:
-    radial-gradient(circle at 86% 8%, rgb(226 166 43 / 21%), transparent 20rem),
-    radial-gradient(circle at 7% 42%, rgb(21 122 118 / 13%), transparent 25rem),
-    var(--paper);
-  font-family:
-    ui-rounded, "SF Pro Rounded", "Segoe UI", sans-serif;
+    radial-gradient(circle at 86% 8%, var(--bg-tint), transparent 20rem),
+    radial-gradient(circle at 7% 42%, var(--bg-tint), transparent 25rem),
+    var(--bg);
+  font-family: var(--font-sans);
   font-size: 1rem;
   line-height: 1.5;
+  text-wrap: pretty;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  .product-app {
+    --bg: #0f1620;
+    --bg-tint: #131c29;
+    --panel: #18212f;
+    --panel-soft: #1e2837;
+    --panel-sunken: #14202f;
+
+    --ink: #f3eee0;
+    --ink-2: #d4d9e3;
+    --muted: #8b95a6;
+    --subtle: #5f6a7c;
+
+    --line: #2a3444;
+    --line-soft: #212a39;
+    --line-strong: #3d4a60;
+
+    --good: #57c48b;
+    --good-strong: #8ad7ae;
+    --good-soft: color-mix(in oklab, #2f9e6a 22%, #0f1620);
+    --warn: #e2a756;
+    --warn-strong: #f1c081;
+    --warn-soft: color-mix(in oklab, #d08a2c 22%, #0f1620);
+    --bad: #e87e7e;
+    --bad-strong: #f6a7a7;
+    --bad-soft: color-mix(in oklab, #d25757 22%, #0f1620);
+
+    --brand: #6e9ed6;
+    --brand-ink: #a7c2e4;
+    --brand-soft: color-mix(in oklab, #3e6fa8 26%, #0f1620);
+
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 35%);
+    --shadow: 0 1px 2px rgb(0 0 0 / 35%), 0 12px 28px rgb(0 0 0 / 35%);
+    --shadow-lg: 0 2px 4px rgb(0 0 0 / 40%), 0 24px 48px rgb(0 0 0 / 50%);
+    --shadow-glow: 0 0 0 4px rgb(110 158 214 / 26%);
+  }
 }
 
 .product-app *,
@@ -395,21 +517,27 @@ h1 {
   max-width: none;
   margin-bottom: 1rem;
   color: var(--ink);
-  font-size: clamp(2.35rem, 8vw, 4.6rem);
-  line-height: 0.98;
-  letter-spacing: -0.045em;
+  font-family: var(--font-display);
+  font-size: clamp(2.1rem, 6.5vw, 3.2rem);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
 }
 
 .product-app h2 {
   color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  font-weight: 500;
   line-height: 1.15;
+  letter-spacing: -0.01em;
 }
 
 .product-app button,
 .product-app input,
 .product-app select {
-  min-height: 2.75rem;
-  border-radius: 0.9rem;
+  min-height: var(--tap-min);
+  border-radius: var(--radius-sm);
   font: inherit;
 }
 
@@ -505,23 +633,44 @@ h1 {
 /* Tone contrast for chrome sitting directly on the backdrop. Card surfaces
    keep the default ink tokens untouched — only shell text swaps, so no
    component can inherit unreadable ink by omission. Correctness colours and
-   --focus stay fixed per the V2 authority. */
+   --focus stay fixed per the V2 authority.
+
+   On a backdrop page the ink comes from the art tone, never from the colour
+   scheme: the backdrop does not re-tone in dark mode, so theme ink would be
+   unreadable on it. Pages without a backdrop keep the theme ink. */
 .product-app {
   --hero-shell-ink: var(--ink);
   --hero-shell-ink-soft: var(--ink-soft);
 }
 
+.product-app[data-hero-tone] {
+  --hero-shell-ink: var(--ink-on-light);
+  --hero-shell-ink-soft: color-mix(in oklab, var(--ink-on-light) 82%, transparent);
+}
+
 .product-app[data-hero-tone='2'],
 .product-app[data-hero-tone='3'] {
-  --hero-shell-ink: #fff9ec;
-  --hero-shell-ink-soft: rgb(255 248 233 / 88%);
+  --hero-shell-ink: var(--ink-on-dark);
+  --hero-shell-ink-soft: color-mix(in oklab, var(--ink-on-dark) 88%, transparent);
+}
+
+.product-app[data-hero-tone] .product-topbar,
+.product-app[data-hero-tone] .topbar-action,
+.product-app[data-hero-tone] .practice-progress p {
+  color: var(--hero-shell-ink);
+}
+
+.product-app[data-hero-tone] .brand-mark {
+  color: var(--ink-on-dark);
+  background: var(--ink-on-light);
 }
 
 .product-app[data-hero-tone='2'] .product-topbar,
 .product-app[data-hero-tone='3'] .product-topbar,
+.product-app[data-hero-tone='2'] .topbar-action,
+.product-app[data-hero-tone='3'] .topbar-action,
 .product-app[data-hero-tone='2'] .practice-progress p,
 .product-app[data-hero-tone='3'] .practice-progress p {
-  color: var(--hero-shell-ink);
   text-shadow: 0 1px 16px rgb(0 0 0 / 58%);
 }
 
@@ -538,8 +687,10 @@ h1 {
   min-width: 0;
   margin: 0;
   flex: 1 1 8rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
 }
 
 .brand-mark {
@@ -548,11 +699,11 @@ h1 {
   height: 2.7rem;
   border-radius: 0.85rem 0.85rem 0.85rem 0.2rem;
   place-items: center;
-  color: var(--paper-raised);
-  background: var(--trail);
-  box-shadow: 0 0.35rem 0 rgb(13 98 95 / 24%);
+  color: var(--panel);
+  background: var(--brand-ink);
+  box-shadow: 0 0.35rem 0 color-mix(in oklab, var(--brand-ink) 24%, transparent);
   font-size: 0.78rem;
-  font-weight: 900;
+  font-weight: 800;
   letter-spacing: 0.06em;
 }
 
@@ -569,10 +720,10 @@ h1 {
 
 .product-kicker {
   margin-bottom: 0.65rem;
-  color: var(--trail-strong);
-  font-size: 0.78rem;
-  font-weight: 900;
-  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -611,7 +762,7 @@ h1 {
 .word-progress-list li {
   border: 1px solid var(--line);
   background: var(--paper-raised);
-  box-shadow: 0 1rem 2.6rem rgb(72 57 30 / 8%);
+  box-shadow: var(--shadow);
 }
 
 .paper-card,
@@ -620,7 +771,7 @@ h1 {
 .summary-hero,
 .companion-hero,
 .camp-hero {
-  border-radius: clamp(1.4rem, 4vw, 2rem);
+  border-radius: var(--radius-lg);
   padding: clamp(1.35rem, 5vw, 3rem);
 }
 
@@ -647,7 +798,7 @@ h1 {
 }
 
 .learner-card:hover {
-  border-color: rgb(21 122 118 / 45%);
+  border-color: color-mix(in oklab, var(--brand) 45%, transparent);
   transform: translateY(-0.08rem);
 }
 
@@ -657,6 +808,7 @@ h1 {
   height: 3.5rem;
   border-radius: 1.15rem 1.15rem 1.15rem 0.3rem;
   place-items: center;
+  /* The avatar background is learner data, not a token — its ink is fixed. */
   color: #fff;
   background: var(--learner-colour);
   font-size: 1.35rem;
@@ -704,15 +856,15 @@ h1 {
 }
 
 .audio-state-ready {
-  border-color: rgb(36 122 74 / 32%);
-  background: #f3faf4;
+  border-color: color-mix(in oklab, var(--good) 32%, transparent);
+  background: var(--good-soft);
 }
 
 .audio-state-corrupt,
 .audio-state-unavailable,
 .audio-state-missing {
-  border-color: rgb(164 73 55 / 26%);
-  background: #fff8f4;
+  border-color: color-mix(in oklab, var(--bad) 26%, transparent);
+  background: var(--bad-soft);
 }
 
 .audio-state-icon {
@@ -721,10 +873,10 @@ h1 {
   height: 2.55rem;
   border-radius: 50%;
   place-items: center;
-  color: #fff;
-  background: var(--trail);
+  color: var(--panel);
+  background: var(--brand-ink);
   font-size: 1.1rem;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .audio-state h2 {
@@ -771,10 +923,10 @@ h1 {
 .answer-form input {
   width: 100%;
   min-width: 0;
-  border: 1px solid rgb(23 50 77 / 28%);
+  border: 1px solid var(--line-strong);
   padding: 0.75rem 0.85rem;
   color: var(--ink);
-  background: #fff;
+  background: var(--panel);
 }
 
 .field-pair {
@@ -792,24 +944,24 @@ h1 {
 }
 
 .button-primary {
-  color: #fff;
-  background: var(--trail-strong);
-  box-shadow: 0 0.35rem 0 rgb(6 67 65 / 22%);
+  color: var(--panel);
+  background: var(--brand-ink);
+  box-shadow: 0 0.35rem 0 color-mix(in oklab, var(--brand-ink) 24%, transparent);
 }
 
 .button-primary:hover:not(:disabled) {
-  background: #084f4d;
+  filter: brightness(0.94);
 }
 
 .button-quiet {
-  border-color: rgb(21 122 118 / 28%);
-  color: var(--trail-strong);
-  background: #f7fbfa;
+  border-color: color-mix(in oklab, var(--brand) 28%, transparent);
+  color: var(--brand-ink);
+  background: var(--brand-soft);
 }
 
 .button-danger {
-  color: #fff;
-  background: var(--retry);
+  color: var(--panel);
+  background: var(--bad-strong);
 }
 
 .button-large {
@@ -832,9 +984,9 @@ h1 {
   background:
     linear-gradient(
       100deg,
-      rgb(255 253 247 / 96%) 0%,
-      rgb(255 253 247 / 88%) 42%,
-      rgb(247 241 227 / 34%) 100%
+      color-mix(in oklab, var(--panel) 96%, transparent) 0%,
+      color-mix(in oklab, var(--panel) 88%, transparent) 42%,
+      color-mix(in oklab, var(--bg) 34%, transparent) 100%
     ),
     var(--hero-image) center / cover no-repeat;
 }
@@ -849,7 +1001,11 @@ h1 {
   border-radius: 2rem 2rem 2rem 0.6rem;
   padding: 1rem;
   background:
-    linear-gradient(145deg, rgb(21 122 118 / 13%), rgb(226 166 43 / 20%));
+    linear-gradient(
+      145deg,
+      color-mix(in oklab, var(--brand) 13%, transparent),
+      color-mix(in oklab, var(--warn) 20%, transparent)
+    );
 }
 
 .hero-inklet p {
@@ -874,12 +1030,14 @@ h1 {
 }
 
 .inklet-shadow {
-  fill: rgb(23 50 77 / 13%);
+  fill: color-mix(in oklab, var(--ink) 13%, transparent);
 }
 
+/* The companion is brand-coloured chrome, so it follows the brand token
+   through both themes and through its growth stages. */
 .inklet-body {
-  fill: #49a7a0;
-  stroke: var(--trail-strong);
+  fill: color-mix(in oklab, var(--brand) 72%, var(--panel));
+  stroke: var(--brand-ink);
   stroke-width: 4;
 }
 
@@ -892,27 +1050,27 @@ h1 {
 }
 
 .inklet-eye {
-  fill: var(--ink);
+  fill: var(--ink-on-light);
 }
 
 .inklet-glint {
-  fill: #fff;
+  fill: var(--ink-on-dark);
 }
 
 .inklet-badge {
-  fill: var(--reward);
-  stroke: #9c6a08;
+  fill: var(--warn);
+  stroke: var(--warn-strong);
   stroke-width: 2;
 }
 
 .inklet-stage-2 .inklet-body,
 .inklet-stage-3 .inklet-body {
-  fill: #3a9791;
+  fill: var(--brand);
 }
 
 .inklet-stage-4 .inklet-body,
 .inklet-stage-5 .inklet-body {
-  fill: #2c8681;
+  fill: color-mix(in oklab, var(--brand) 62%, var(--brand-ink));
 }
 
 .trail-navigation {
@@ -980,14 +1138,14 @@ h1 {
   border: 1px solid var(--line);
   padding: 0.85rem;
   color: var(--ink);
-  background: #fff;
+  background: var(--panel);
 }
 
 .segmented-choice button[aria-pressed="true"],
 .voice-choice button[aria-pressed="true"] {
-  border-color: var(--trail);
-  box-shadow: inset 0 0 0 0.12rem var(--trail);
-  background: #eef8f6;
+  border-color: var(--brand);
+  box-shadow: inset 0 0 0 0.12rem var(--brand);
+  background: var(--brand-soft);
 }
 
 .segmented-choice strong,
@@ -1033,14 +1191,14 @@ h1 {
   padding: 0.85rem;
   border: 1px solid var(--line);
   color: var(--ink);
-  background: #fff;
+  background: var(--panel);
   text-align: left;
 }
 
 .mode-choice-card[aria-pressed="true"] {
-  border-color: var(--trail);
-  box-shadow: inset 0 0 0 0.12rem var(--trail);
-  background: #eef8f6;
+  border-color: var(--brand);
+  box-shadow: inset 0 0 0 0.12rem var(--brand);
+  background: var(--brand-soft);
 }
 
 .length-note {
@@ -1054,7 +1212,7 @@ h1 {
   height: 3.25rem;
   border-radius: 0.7rem;
   object-fit: cover;
-  background: var(--paper-deep, #d9e4df);
+  background: var(--panel-sunken);
 }
 
 .mode-choice-card strong,
@@ -1073,8 +1231,8 @@ h1 {
   height: 2.5rem;
   border-radius: 50%;
   place-items: center;
-  color: #fff;
-  background: var(--trail);
+  color: var(--panel);
+  background: var(--brand-ink);
 }
 
 .practice-mode-note {
@@ -1105,8 +1263,8 @@ h1 {
   background:
     linear-gradient(
       to right,
-      var(--trail) 0 var(--round-progress),
-      rgb(23 50 77 / 12%) var(--round-progress) 100%
+      var(--brand) 0 var(--round-progress),
+      color-mix(in oklab, var(--ink) 12%, transparent) var(--round-progress) 100%
     );
 }
 
@@ -1123,16 +1281,20 @@ h1 {
 }
 
 .practice-card h1 {
-  max-width: 13ch;
-  font-size: clamp(2.1rem, 7vw, 3.8rem);
+  max-width: 16ch;
+  font-size: clamp(1.9rem, 5.5vw, 2.6rem);
 }
 
+/* The dictated sentence and the spelling itself carry the display serif, as
+   they do on the web session card. */
 .cloze-prompt {
-  border-left: 0.25rem solid var(--reward);
+  border-left: 0.25rem solid var(--warn);
   padding-left: 0.85rem;
-  color: var(--ink-soft);
-  font-size: 1.05rem;
-  font-weight: 650;
+  color: var(--ink-2);
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .listening-controls {
@@ -1146,10 +1308,10 @@ h1 {
   display: grid;
   gap: 0.35rem;
   justify-items: center;
-  border: 1px solid rgb(21 122 118 / 28%);
+  border: 1px solid color-mix(in oklab, var(--brand) 28%, transparent);
   padding: 0.75rem 0.5rem;
-  color: var(--trail-strong);
-  background: #f1f9f7;
+  color: var(--brand-ink);
+  background: var(--brand-soft);
   font-size: 0.84rem;
   font-weight: 800;
 }
@@ -1165,8 +1327,10 @@ h1 {
 
 .answer-form input {
   min-height: 3.5rem;
-  font-size: clamp(1.2rem, 4vw, 1.6rem);
-  font-weight: 750;
+  font-family: var(--font-serif);
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  font-weight: 500;
+  letter-spacing: -0.005em;
 }
 
 .answer-feedback {
@@ -1174,15 +1338,15 @@ h1 {
   grid-template-columns: auto 1fr;
   gap: 0.85rem;
   margin-top: 1.2rem;
-  border: 1px solid rgb(36 122 74 / 28%);
+  border: 1px solid color-mix(in oklab, var(--good) 28%, transparent);
   border-radius: 1.1rem;
   padding: 1rem;
-  background: #f3faf4;
+  background: var(--good-soft);
 }
 
 .answer-feedback-error {
-  border-color: rgb(164 73 55 / 30%);
-  background: #fff7f3;
+  border-color: color-mix(in oklab, var(--bad) 30%, transparent);
+  background: var(--bad-soft);
 }
 
 .feedback-symbol {
@@ -1191,14 +1355,14 @@ h1 {
   height: 2.5rem;
   border-radius: 50%;
   place-items: center;
-  color: #fff;
-  background: var(--correct);
+  color: var(--panel);
+  background: var(--good-strong);
   font-size: 1.2rem;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .answer-feedback-error .feedback-symbol {
-  background: var(--retry);
+  background: var(--bad-strong);
 }
 
 .answer-feedback h2,
@@ -1223,7 +1387,7 @@ h1 {
   width: 100%;
   padding: 1rem;
   place-items: center;
-  background: rgb(23 50 77 / 44%);
+  background: rgb(0 0 0 / 44%);
 }
 
 .exit-confirmation > div {
@@ -1232,7 +1396,7 @@ h1 {
   padding: 1.4rem;
   color: var(--ink);
   background: var(--paper-raised);
-  box-shadow: 0 1.4rem 4rem rgb(23 50 77 / 32%);
+  box-shadow: var(--shadow-lg);
 }
 
 .exit-confirmation > div > div {
@@ -1251,24 +1415,27 @@ h1 {
   width: 4.25rem;
   height: 4.25rem;
   margin: 0 auto 1rem;
-  border: 0.35rem solid #f7d47e;
+  border: 0.35rem solid var(--warn-soft);
   border-radius: 50%;
   place-items: center;
-  color: #fff;
-  background: var(--reward);
+  color: var(--panel);
+  background: var(--warn-strong);
   font-size: 2rem;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .summary-hero h1 {
-  font-size: clamp(2.5rem, 8vw, 4.5rem);
+  font-size: clamp(2.2rem, 7vw, 3.4rem);
 }
 
 .accuracy-score {
   display: block;
-  color: var(--trail-strong);
-  font-size: clamp(2.5rem, 9vw, 5rem);
+  color: var(--brand-ink);
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 9vw, 4.2rem);
+  font-weight: 500;
   line-height: 1;
+  letter-spacing: -0.03em;
 }
 
 .summary-grid {
@@ -1292,8 +1459,9 @@ h1 {
 .summary-grid dd {
   margin: 0.25rem 0;
   color: var(--ink);
+  font-family: var(--font-serif);
   font-size: 1.7rem;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .summary-grid p {
@@ -1355,9 +1523,9 @@ h1 {
   height: 2.5rem;
   border-radius: 50%;
   place-items: center;
-  color: #fff;
-  background: var(--trail);
-  font-weight: 900;
+  color: var(--panel);
+  background: var(--brand-ink);
+  font-weight: 800;
 }
 
 .empty-state {
@@ -1383,10 +1551,10 @@ h1 {
   aspect-ratio: 1 / 1;
   margin: 0 auto 1.35rem;
   border: 1px solid var(--line);
-  border-radius: clamp(1.4rem, 4vw, 2rem);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  background: radial-gradient(circle at 50% 56%, var(--paper-raised), var(--paper) 74%);
-  box-shadow: inset 0 0 0 1px rgb(255 253 247 / 45%);
+  background: radial-gradient(circle at 50% 56%, var(--panel), var(--bg) 74%);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--panel) 45%, transparent);
   touch-action: manipulation;
 }
 
@@ -1416,7 +1584,7 @@ h1 {
 .companion-hero dl div {
   border-radius: 1rem;
   padding: 1rem;
-  background: rgb(21 122 118 / 8%);
+  background: color-mix(in oklab, var(--brand) 8%, transparent);
 }
 
 .companion-hero dt {
@@ -1427,9 +1595,10 @@ h1 {
 
 .companion-hero dd {
   margin: 0;
-  color: var(--trail-strong);
+  color: var(--brand-ink);
+  font-family: var(--font-serif);
   font-size: 1.7rem;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .next-reward {
@@ -1444,6 +1613,8 @@ h1 {
   min-height: 10rem;
 }
 
+/* Camp scenery is a picture, not chrome: like the backdrop art it keeps its
+   own fixed palette in both themes. Only the branded props take tokens. */
 .camp-ground {
   fill: #8ab47c;
 }
@@ -1459,7 +1630,7 @@ h1 {
 }
 
 .camp-tent {
-  fill: var(--coral);
+  fill: var(--bad);
   stroke: #9f4937;
   stroke-width: 3;
 }
@@ -1469,7 +1640,7 @@ h1 {
 }
 
 .camp-flag {
-  fill: var(--reward);
+  fill: var(--warn);
   stroke: #9c6a08;
   stroke-width: 3;
 }
@@ -1484,7 +1655,7 @@ h1 {
   border-radius: 1.2rem;
   padding: 0.8rem 1.2rem;
   color: var(--ink);
-  background: rgb(226 166 43 / 17%);
+  background: var(--warn-soft);
 }
 
 .camp-level span {
@@ -1522,7 +1693,7 @@ h1 {
 }
 
 .parent-gate-card h1 {
-  font-size: clamp(2.1rem, 8vw, 3.6rem);
+  font-size: clamp(1.9rem, 6vw, 2.8rem);
 }
 
 .parent-pin-form {
@@ -1538,10 +1709,10 @@ h1 {
 
 .parent-pin-form input {
   width: 100%;
-  border: 1px solid rgb(23 50 77 / 28%);
+  border: 1px solid var(--line-strong);
   padding: 0.7rem 0.9rem;
   color: var(--ink);
-  background: #fff;
+  background: var(--panel);
   font-size: 1.45rem;
   letter-spacing: 0.32em;
   text-align: center;
@@ -1615,7 +1786,7 @@ h1 {
   margin-top: 0.8rem;
   border-radius: 1rem;
   padding: 1rem;
-  background: rgb(21 122 118 / 7%);
+  background: color-mix(in oklab, var(--brand) 7%, transparent);
 }
 
 .parent-edit-form label,
@@ -1629,15 +1800,15 @@ h1 {
 .parent-delete-confirmation input {
   width: 100%;
   min-width: 0;
-  border: 1px solid rgb(23 50 77 / 28%);
+  border: 1px solid var(--line-strong);
   padding: 0.7rem 0.8rem;
   color: var(--ink);
-  background: #fff;
+  background: var(--panel);
 }
 
 .parent-reset-confirmation,
 .parent-delete-confirmation {
-  background: rgb(164 73 55 / 8%);
+  background: var(--bad-soft);
 }
 
 .parent-reset-confirmation p,
@@ -1674,7 +1845,7 @@ h1 {
 
 .parent-commerce-price {
   margin-bottom: 0.65rem;
-  color: var(--trail);
+  color: var(--brand-ink);
   font-size: 1.45rem;
   font-weight: 900;
 }
@@ -1686,7 +1857,7 @@ h1 {
 }
 
 .parent-backup-warning {
-  border-left: 0.25rem solid var(--coral);
+  border-left: 0.25rem solid var(--bad);
   padding-left: 0.8rem;
 }
 
@@ -1696,7 +1867,7 @@ h1 {
   margin-top: 0.8rem;
   border-radius: 1rem;
   padding: 1rem;
-  background: rgb(164 73 55 / 8%);
+  background: var(--bad-soft);
 }
 
 .parent-import-confirmation label {
@@ -1706,19 +1877,20 @@ h1 {
 .parent-import-confirmation input {
   width: 100%;
   min-width: 0;
-  border: 1px solid rgb(23 50 77 / 28%);
+  border: 1px solid var(--line-strong);
   padding: 0.7rem 0.8rem;
   color: var(--ink);
-  background: #fff;
+  background: var(--panel);
 }
 
+/* Dynamic Type: take the system body metrics, then put our own families back
+   — the `font` shorthand would otherwise reset them to the system face. */
 @supports (font: -apple-system-body) {
   .product-app {
     font: -apple-system-body;
+    font-family: var(--font-sans);
   }
 
-  .product-app h1,
-  .product-app h2,
   .product-app button {
     font-family: inherit;
   }
@@ -1769,8 +1941,8 @@ h1 {
 
 @media (prefers-contrast: more) {
   .product-app {
-    --ink-soft: #25384a;
-    --line: #526373;
+    --ink-soft: var(--ink);
+    --line: var(--line-strong);
   }
 
   .paper-card,
@@ -1824,7 +1996,7 @@ h1 {
   }
 
   .product-app h1 {
-    font-size: clamp(2.15rem, 12vw, 3.2rem);
+    font-size: clamp(1.95rem, 9vw, 2.6rem);
   }
 
   .audio-state {
@@ -1887,6 +2059,8 @@ h1 {
   position: relative;
 }
 
+/* The celebration scrim is a fixed dark stage in both themes — its scrim and
+   sparkle values are surface colours, not theme tokens. */
 .celebration-overlay {
   position: absolute;
   inset: 0;
@@ -1897,7 +2071,7 @@ h1 {
   background:
     radial-gradient(
       closest-side,
-      rgb(21 122 118 / 28%) 0%,
+      color-mix(in oklab, var(--brand) 28%, transparent) 0%,
       rgb(13 29 41 / 72%) 70%
     ),
     rgb(13 29 41 / 55%);
@@ -1921,19 +2095,20 @@ h1 {
   width: min(100%, 22rem);
   min-height: 2.75rem;
   margin: 0;
-  border: 1px solid rgb(255 253 247 / 28%);
+  border: 1px solid color-mix(in oklab, var(--ink-on-dark) 28%, transparent);
   border-radius: 1.35rem;
   padding: 1.35rem 1.15rem 1.2rem;
-  color: var(--paper-raised);
-  background: rgb(255 253 247 / 12%);
+  color: var(--ink-on-dark);
+  background: color-mix(in oklab, var(--ink-on-dark) 12%, transparent);
   box-shadow: 0 18px 48px rgb(0 0 0 / 35%);
   text-align: center;
   cursor: pointer;
-  animation: celebration-card-enter 360ms ease-out both;
+  animation: celebration-card-enter var(--dur-slow) var(--ease-out) both;
 }
 
+/* The scrim is dark in both themes, so this ring cannot use theme ink. */
 .celebration-card:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 3px solid var(--ink-on-dark);
   outline-offset: 3px;
 }
 
@@ -1956,7 +2131,7 @@ h1 {
   background:
     radial-gradient(circle at 30% 30%, rgb(255 255 255 / 35%) 0%, transparent 22%),
     radial-gradient(circle at 70% 65%, rgb(255 255 255 / 28%) 0%, transparent 28%),
-    radial-gradient(circle at 50% 50%, var(--reward) 0%, transparent 65%);
+    radial-gradient(circle at 50% 50%, var(--warn) 0%, transparent 65%);
   background-blend-mode: screen, screen, soft-light;
   mix-blend-mode: screen;
   opacity: 0.48;
@@ -2016,7 +2191,7 @@ h1 {
   position: relative;
   z-index: 1;
   margin: 0;
-  color: var(--paper-raised);
+  color: var(--ink-on-dark);
   font-size: 1.15rem;
   font-weight: 800;
   line-height: 1.25;
@@ -2037,7 +2212,7 @@ h1 {
 
 .reward-secure-toast {
   margin: 0.85rem 0 0;
-  color: var(--trail-strong);
+  color: var(--brand-ink);
   font-size: 0.95rem;
   font-weight: 800;
 }

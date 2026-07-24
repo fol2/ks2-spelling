@@ -7,9 +7,10 @@
  */
 import { evolutionDecision, stageArtUrl } from './monster-stage-model.js';
 
-// Palette lifted from the paper-world tokens (--trail, --reward, --coral, --ink).
-const TAP_COLOURS = [0x157a76, 0xe2a62b, 0xd96b53];
-const REWARD_COLOURS = [0xe2a62b, 0x157a76, 0xfffdf7];
+// Palette lifted from the design tokens (--brand, --warn, --bad, --panel).
+// Canvas cannot read CSS variables, so these track app.css by hand.
+const TAP_COLOURS = [0x3e6fa8, 0xd08a2c, 0xd25757];
+const REWARD_COLOURS = [0xd08a2c, 0x3e6fa8, 0xffffff];
 
 // Eye anchors per stage as fractions of the sprite's on-screen box (x from
 // left, y from top). Stage 0 is the egg — no face, so no blink. Decorative and

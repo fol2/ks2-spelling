@@ -2,22 +2,23 @@
   "schemaVersion": 2,
   "mode": "resolved-toolchain",
   "generatedFrom": {
-    "packageLockSha256": "f772794bdd82aaaf59d59c54e9e684a52b80b709f6c4c176667e104938432a2b",
+    "packageLockSha256": "e81135d770dbfb088bd3b81a720146440ac8096ca22ed45c4150fb3349f85f30",
     "spmResolvedVersion": 3,
     "nativePluginBuildSha256": "a72e95958e287be21f34588a167f12fd59058ab003dfe3f559b3ba244988a6f9",
-    "webViewBundleEvidenceSha256": "f70f5707769810cb86756e311b0cb007d3e2d1d43c6f25b462c97063924efdce"
+    "webViewBundleEvidenceSha256": "b57ea23529ad68c44366830c20fae20aab0ca04110dbd8b08e78712a1430fcf9"
   },
   "npm": {
     "lockfileVersion": 3,
-    "lockPackageCount": 190,
+    "lockPackageCount": 192,
     "webViewBundle": {
       "mode": "vite-rollup-write-false",
-      "moduleCount": 105,
+      "moduleCount": 109,
       "packageNames": [
         "@capacitor-community/sqlite",
         "@capacitor/app",
         "@capacitor/core",
         "@capacitor/haptics",
+        "phaser",
         "react",
         "react-dom",
         "scheduler"
@@ -27,6 +28,7 @@
         "node_modules/@capacitor/app",
         "node_modules/@capacitor/core",
         "node_modules/@capacitor/haptics",
+        "node_modules/phaser",
         "node_modules/react",
         "node_modules/react-dom",
         "node_modules/scheduler"
@@ -117,6 +119,12 @@
           "sha256": "efe5b1026aca65fd785b8dd62720c298f62e078c96b40c6ffdb707461af38eab"
         },
         {
+          "id": "node_modules/phaser/dist/phaser.esm.js",
+          "kind": "file",
+          "npmLocator": "node_modules/phaser",
+          "sha256": "68d02eaec107bb72b2b08dd88c1ae424369e198a7dc8b1f194d17eac3dbaef47"
+        },
+        {
           "id": "node_modules/react-dom/cjs/react-dom-client.production.js",
           "kind": "file",
           "npmLocator": "node_modules/react-dom",
@@ -198,7 +206,7 @@
           "id": "src/app/ProductApp.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "b2917fb5c0d0d73393454b985e711660708be7937ff69f7c68f929c6283fb63b"
+          "sha256": "d97c91e4afb252156edf11d1f453f77422c1a3438a315141a074314a8ca97f87"
         },
         {
           "id": "src/app/ProductRoot.jsx",
@@ -210,7 +218,7 @@
           "id": "src/app/app.css",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "0ecc8a21004aacffbcde0d6ae67be1d076fe709a492a95f46f1ff9ac11dd71de"
+          "sha256": "68c6e496e412f663d0fed78fbf17b2820eaa7e58f2ad52473136d5404d8b8f8b"
         },
         {
           "id": "src/app/backdrop-model.js",
@@ -259,6 +267,24 @@
           "kind": "file",
           "npmLocator": null,
           "sha256": "da07637da7978ab7844db20e41545624bc636289ea7fb499a79802365619e289"
+        },
+        {
+          "id": "src/app/monster-stage/MonsterStage.jsx",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "5786544cfdaad65e72511bb3c143eec6b7f2aba310f2c5667a692e5ea61ac130"
+        },
+        {
+          "id": "src/app/monster-stage/monster-scene.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "463ad8f41676b31b4a8eb6d15db6d28a204524724518437b7124607ef349e199"
+        },
+        {
+          "id": "src/app/monster-stage/monster-stage-model.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "6a558687198fbd6f03f1a7ec0f5889458f331feafe92810d09d042cdcf5a7d3d"
         },
         {
           "id": "src/app/mount-app.js",
@@ -665,37 +691,52 @@
       ],
       "outputInventory": [
         {
-          "fileName": "assets/index-BMIuKFT8.css",
+          "fileName": "assets/index-bMoWyMpA.js",
+          "kind": "chunk",
+          "sha256": "0e96e72414d48a170bde277fb3a31b8e0a84bd63f9763b3252d8af549a752473"
+        },
+        {
+          "fileName": "assets/index-CbNxksPL.css",
           "kind": "asset",
-          "sha256": "ef16c2e0992960e8372d6a891fa1b6fe4a1ea59d6d1b8d14bac419b9ae331177"
+          "sha256": "0f293294ed4904f0b92b88b3d455b36033a9d0a765f4d00ad8d35334aaab1818"
         },
         {
-          "fileName": "assets/index-DnpXJhxg.js",
+          "fileName": "assets/monster-scene-C8BBqcd3.js",
           "kind": "chunk",
-          "sha256": "45223f09c332d060c2a47d28a5918730e1b3cd8a7f032f862516a4aed73b2d94"
+          "sha256": "4fd9bc66561968849b4e19863ae907fa4d7474c839bf085b44c76deff884f590"
         },
         {
-          "fileName": "assets/web-D4tAw9fx.js",
+          "fileName": "assets/MonsterStage-BR_TjMUA.js",
           "kind": "chunk",
-          "sha256": "4bbb433b2c222b25634d280a764b2a8cc71ada79265703ddc1377b986ffc95a0"
+          "sha256": "5d7409b620b8962dbd54f0a25d69ce665f3b70d67c4abc210eeade3b5de96a11"
         },
         {
-          "fileName": "assets/web-DtkbaaXe.js",
+          "fileName": "assets/phaser.esm--VPvhPd0.js",
           "kind": "chunk",
-          "sha256": "255bd70744f046443630921d09dbcf87142275ee6d03f827d10b8c1fe3fb74ab"
+          "sha256": "d21e527e9fc319af3f25588d06db87e1062bf3feef937d2dc15412e69501d9d9"
         },
         {
-          "fileName": "assets/web-w4AFblyh.js",
+          "fileName": "assets/web-BOk9H94K.js",
           "kind": "chunk",
-          "sha256": "19f24e38d0104a7cc1f3d5d400eb18ce7b02f7c00f5c6ffe05904c216246acad"
+          "sha256": "82b88d9fae24183c944fe01eed7704582d9de3a888fe754c3aae24c7cb3363aa"
+        },
+        {
+          "fileName": "assets/web-DLFK1hPv.js",
+          "kind": "chunk",
+          "sha256": "9630da4caff27c97103a37d4916111c80114d747c7ba3ab448bb95c8c9105baf"
+        },
+        {
+          "fileName": "assets/web-sFceMfAT.js",
+          "kind": "chunk",
+          "sha256": "e0e3ad6e584b19502b7734db651dfbde732ce2eade15f52c8bc7fd9315172b32"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "61f8e73bee8fe66e88a84ac0289ace991b8f84ffaf1b789a69d46895ca35ba76"
+          "sha256": "f49fd40018d3289b152db599d102f2014c0d94b152515ddf3e0ce7f00db85257"
         }
       ],
-      "evidenceSha256": "f70f5707769810cb86756e311b0cb007d3e2d1d43c6f25b462c97063924efdce"
+      "evidenceSha256": "b57ea23529ad68c44366830c20fae20aab0ca04110dbd8b08e78712a1430fcf9"
     },
     "allPackages": [
       {
@@ -2391,6 +2432,24 @@
         "exportClassification": "none-identified"
       },
       {
+        "locator": "node_modules/eventemitter3",
+        "name": "eventemitter3",
+        "version": "5.0.4",
+        "source": "https://registry.npmjs.org/eventemitter3/-/eventemitter3-5.0.4.tgz",
+        "integrity": "sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==",
+        "declaredLicence": "MIT",
+        "licence": "MIT",
+        "dev": false,
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "role": "installed optional dependency code absent from the WebView bundle and native source set",
+        "platform": "Installed dependency closure only",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "None identified"
+      },
+      {
         "locator": "node_modules/fd-slicer",
         "name": "fd-slicer",
         "version": "1.1.0",
@@ -3271,6 +3330,24 @@
         "restrictedExportClassification": "None identified",
         "restrictedClassification": "none",
         "exportClassification": "none-identified"
+      },
+      {
+        "locator": "node_modules/phaser",
+        "name": "phaser",
+        "version": "4.1.0",
+        "source": "https://registry.npmjs.org/phaser/-/phaser-4.1.0.tgz",
+        "integrity": "sha512-ZXv5Bhyg2BqJGAAxNI2xvmzGXW9q+TwUG1RLri5ZDBYGGtcma6aWUO/eJ7EbozeqRd5fKdpo4ycNMQt+Bi5iYg==",
+        "declaredLicence": "MIT",
+        "licence": "MIT",
+        "dev": false,
+        "packaged": true,
+        "distribution": "webview-bundle",
+        "role": "runtime code physically included by the deterministic Vite/Rollup build",
+        "platform": "WebView JavaScript bundle",
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "None identified"
       },
       {
         "locator": "node_modules/picocolors",
@@ -4556,6 +4633,31 @@
         "locator": "node_modules/core-util-is"
       },
       {
+        "name": "eventemitter3",
+        "version": "5.0.4",
+        "source": "https://registry.npmjs.org/eventemitter3/-/eventemitter3-5.0.4.tgz",
+        "integrity": "sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==",
+        "licence": "MIT",
+        "declaredLicence": "MIT",
+        "role": "installed optional dependency code absent from the WebView bundle and native source set",
+        "platform": "Installed dependency closure only",
+        "permissions": [],
+        "dataAccess": [],
+        "networkEndpoints": [],
+        "applePrivacyManifest": "Not applicable",
+        "googleDataSafety": "No collection or transmission",
+        "sourceRepository": "https://github.com/primus/eventemitter3.git",
+        "packaged": false,
+        "distribution": "installed-not-packaged",
+        "privacyRole": "Conservative notice closure only; absent from the WebView bundle and native source set",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "None identified",
+        "owner": "KS2 Spelling maintainer",
+        "reviewDate": "2026-07-23",
+        "locator": "node_modules/eventemitter3"
+      },
+      {
         "name": "immediate",
         "version": "3.0.6",
         "source": "https://registry.npmjs.org/immediate/-/immediate-3.0.6.tgz",
@@ -4779,6 +4881,31 @@
         "owner": "KS2 Spelling maintainer",
         "reviewDate": "2026-07-23",
         "locator": "node_modules/pako"
+      },
+      {
+        "name": "phaser",
+        "version": "4.1.0",
+        "source": "https://registry.npmjs.org/phaser/-/phaser-4.1.0.tgz",
+        "integrity": "sha512-ZXv5Bhyg2BqJGAAxNI2xvmzGXW9q+TwUG1RLri5ZDBYGGtcma6aWUO/eJ7EbozeqRd5fKdpo4ycNMQt+Bi5iYg==",
+        "licence": "MIT",
+        "declaredLicence": "MIT",
+        "role": "runtime code physically included by the deterministic Vite/Rollup build",
+        "platform": "WebView JavaScript bundle",
+        "permissions": [],
+        "dataAccess": [],
+        "networkEndpoints": [],
+        "applePrivacyManifest": "Not applicable",
+        "googleDataSafety": "Presentation only; no collection or transmission",
+        "sourceRepository": "https://github.com/phaserjs/phaser.git",
+        "packaged": true,
+        "distribution": "webview-bundle",
+        "privacyRole": "Physically included in the local WebView JavaScript bundle",
+        "restrictedExportClassification": "None identified",
+        "restrictedClassification": "none",
+        "exportClassification": "None identified",
+        "owner": "KS2 Spelling maintainer",
+        "reviewDate": "2026-07-23",
+        "locator": "node_modules/phaser"
       },
       {
         "name": "process-nextick-args",
@@ -5301,7 +5428,7 @@
     "generatedFrom": [
       {
         "path": "package.json",
-        "sha256": "482b118fad02c92ccec3287e5ce185d42112e4217bdde1fbbe9ba965fae8b4b4"
+        "sha256": "00864120df018955e56babf2e07968cd274176ac6d93ce46c21018ba676acaa3"
       },
       {
         "path": "scripts/certify-android-dependencies.mjs",
@@ -5317,7 +5444,7 @@
       },
       {
         "path": "config/dependency-policy.json",
-        "sha256": "b846ae1bcddbe3094d612a4562dcc3ca9f9cc9893854a85204eb2314e7f59364"
+        "sha256": "a7fc8cf68043d2dbabd9bfa426f1b4c3f16659f664bc62d28160cb6cbbff96f6"
       },
       {
         "path": "config/maven-licence-policy.json",

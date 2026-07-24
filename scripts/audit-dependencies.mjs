@@ -61,6 +61,7 @@ const EXPECTED_WEBVIEW_BUNDLE_PACKAGES = Object.freeze([
   '@capacitor/app',
   '@capacitor/core',
   '@capacitor/haptics',
+  'phaser',
   'react',
   'react-dom',
   'scheduler',

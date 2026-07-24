@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { HeroBackdrop } from './HeroBackdrop.jsx';
+import {
+  heroBgForMode,
+  heroPreloadUrlsForMode,
+  heroToneForProgress,
+} from './backdrop-model.js';
 
 const VOICES = Object.freeze([
   Object.freeze({
@@ -16,6 +23,31 @@ const ROUND_LENGTHS = Object.freeze([5, 10, 20]);
 
 function displayYearGroup(value) {
   return `Year ${value.slice(1)}`;
+}
+
+function runViewTransition(update) {
+  if (
+    typeof document !== 'undefined'
+    && typeof document.startViewTransition === 'function'
+    && typeof matchMedia === 'function'
+    && !matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    // flushSync commits the React update inside the snapshot callback, so the
+    // transition captures the real before/after frames.
+    document.startViewTransition(() => {
+      flushSync(update);
+    });
+    return;
+  }
+  update();
+}
+
+function preloadHeroToneUrls(mode) {
+  if (typeof Image === 'undefined') return;
+  for (const url of heroPreloadUrlsForMode(mode)) {
+    const image = new Image();
+    image.src = url;
+  }
 }
 
 function InkletArt({ stage = 0 }) {
@@ -1124,8 +1156,22 @@ function PracticeSetup({
   busy,
 }) {
   const [length, setLength] = useState(5);
+  // Mode stays smart until C6.3 adds the workshop mode trio.
+  const practiceMode = 'smart';
+  const heroTone = '1';
+  const heroUrl = heroBgForMode(practiceMode, { tone: heroTone });
+
+  useEffect(() => {
+    preloadHeroToneUrls(practiceMode);
+  }, [practiceMode]);
+
   return (
-    <main className="product-app product-page" aria-labelledby="setup-title">
+    <main
+      className="product-app product-page"
+      aria-labelledby="setup-title"
+      data-hero-tone={heroTone}
+    >
+      <HeroBackdrop url={heroUrl} />
       <ProductTopBar
         title="New expedition"
         action={(
@@ -1342,6 +1388,15 @@ function PracticeScreen({
   }, [audioRequest]);
 
   if (!practice) return null;
+  // Mode stays smart until C6.3 adds the workshop mode trio.
+  const practiceMode = 'smart';
+  const heroTone = heroToneForProgress(practice.progress, {
+    awaitingAdvance: practice.awaitingAdvance,
+  });
+  const heroUrl = heroBgForMode(practiceMode, {
+    tone: heroTone,
+    seed: practice.sessionId,
+  });
   const visibleCard = Math.min(
     practice.progress.total,
     practice.progress.done + 1,
@@ -1383,7 +1438,12 @@ function PracticeScreen({
   }
 
   return (
-    <main className="product-app practice-page" aria-labelledby="practice-title">
+    <main
+      className="product-app practice-page"
+      aria-labelledby="practice-title"
+      data-hero-tone={heroTone}
+    >
+      <HeroBackdrop url={heroUrl} />
       <ProductTopBar
         title={practice.label}
         action={(
@@ -1502,8 +1562,19 @@ function PracticeScreen({
 }
 
 function SummaryScreen({ summary, monster, onScreen }) {
+  const practiceMode = 'smart';
+  const heroTone = '3';
+  const heroUrl = heroBgForMode(practiceMode, {
+    tone: heroTone,
+    seed: summary?.sessionId ?? null,
+  });
   return (
-    <main className="product-app product-page summary-page" aria-labelledby="summary-title">
+    <main
+      className="product-app product-page summary-page"
+      aria-labelledby="summary-title"
+      data-hero-tone={heroTone}
+    >
+      <HeroBackdrop url={heroUrl} />
       <ProductTopBar title="Results" />
       <section className="summary-hero">
         <div className="summary-medal" aria-hidden="true">✓</div>
@@ -1666,10 +1737,19 @@ export default function ProductApp({ services }) {
   );
   const [parentOpen, setParentOpen] = useState(false);
   const [voiceId, setVoiceId] = useState('Iapetus');
+  const learningScreenRef = useRef(learningState.screen);
 
   useEffect(() => {
     const profileSubscription = services.controller.subscribe(setProfileState);
-    const learningSubscription = services.learning.subscribe(setLearningState);
+    const learningSubscription = services.learning.subscribe((next) => {
+      const screenChanged = learningScreenRef.current !== next.screen;
+      learningScreenRef.current = next.screen;
+      if (screenChanged) {
+        runViewTransition(() => setLearningState(next));
+        return;
+      }
+      setLearningState(next);
+    });
     const audioSubscription =
       services.audioAvailability.subscribe(setAudioState);
     const parentSubscription = services.parent.subscribe(setParentState);

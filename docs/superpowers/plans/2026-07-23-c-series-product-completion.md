@@ -159,6 +159,21 @@ retains only the pure inventory and authority contract.
 - Obtain one independent read-only verification of the complete product
   contract on the exact checkpoint, then freeze the release candidate.
 
+### C6 — game-layer uplift
+
+C6 executes before C5 acceptance; the C5 checkpoint freezes the post-C6 bytes.
+
+- Supersede the V1 visual authority with V2.
+- Vendor the ks2-mastery spelling art slice under hash provenance.
+- Backdrop layer with in-round tone escalation.
+- Workshop mode trio (smart, trouble, test) over the frozen A3 contract.
+- Practice-feel parity (auto-advance, focus, keyboard hygiene).
+- Queued celebrations, one reward toast and haptics.
+- One bounded Phaser Monster Stage island.
+
+Detailed slices and evidence live in
+`docs/superpowers/plans/2026-07-24-c6-game-layer-uplift.md`.
+
 ### Task 22/23 — final real-world proof and release
 
 After James separately approves the visible credential and external-mutation
@@ -171,9 +186,9 @@ Any application-byte change restarts the affected final proof.
 
 There are only two formal acceptance gates:
 
-1. **C5 development acceptance:** one exact checkpoint, one bundled full local
-   verification set, affected unsigned native compiles, hosted exact-head CI
-   and one independent read-only verdict.
+1. **C5 development acceptance:** one exact checkpoint on the post-C6 bytes,
+   one bundled full local verification set, affected unsigned native compiles,
+   hosted exact-head CI and one independent read-only verdict.
 2. **Task 22/23 final release proof:** the deferred physical-device, signed
    distribution, live-commerce and store evidence against the frozen C5 bytes.
 
@@ -182,7 +197,7 @@ milestone checkpoints and their review records remain source or historical
 evidence only; they do not accumulate into extra approvals, reruns or stop
 points for this plan.
 
-C2A, C1, V1, C3, C2B and C4 are implementation milestones, not gates. Their
+C2A, C1, V1, C3, C2B, C4 and C6 are implementation milestones, not gates. Their
 focused RED/GREEN evidence may be retained in commits without separate
 checkpoint documents, independent reviews or owner approvals. The completed C1
 checkpoint remains historical evidence only and does not create a recurring

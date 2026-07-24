@@ -47,17 +47,18 @@ test('Android validates and bounds capability transport before opening a connect
 });
 
 test('Android freezes API-24 safety, memory-only capability logging and exact public key bytes', async () => {
-  const [plugin, inspector, keyring, trackedKeyring, config, generated] = await Promise.all([
+  // loggingBehavior is owned by the committed root Capacitor config. The
+  // android/assets copy is a gitignored `cap sync` artefact and is checked by
+  // the merge-tier native:sync:check, not the PR fast lane.
+  const [plugin, inspector, keyring, trackedKeyring, config] = await Promise.all([
     readFile(new URL('android/app/src/main/java/uk/eugnel/ks2spelling/PackTransferPlugin.java', ROOT), 'utf8'),
     readFile(new URL('android/app/src/main/java/uk/eugnel/ks2spelling/ZipCentralDirectoryInspector.java', ROOT), 'utf8'),
     readFile(new URL('android/app/src/main/assets/pack-signing-public-keys.json', ROOT)),
     readFile(new URL('config/pack-signing-public-keys.json', ROOT)),
     readFile(new URL('capacitor.config.json', ROOT), 'utf8'),
-    readFile(new URL('android/app/src/main/assets/capacitor.config.json', ROOT), 'utf8'),
   ]);
   assert.deepEqual(keyring, trackedKeyring);
   assert.equal(JSON.parse(config).loggingBehavior, 'none');
-  assert.equal(JSON.parse(generated).loggingBehavior, 'none');
   assert.doesNotMatch(`${plugin}\n${inspector}`, /java\.nio\.file\.(?:Path|Files)|List\.of\(|Set\.of\(|List\.copyOf\(/);
   assert.match(plugin, /android\.system\.Os/);
   assert.match(plugin, /O_NOFOLLOW/);

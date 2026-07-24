@@ -375,8 +375,14 @@ test('B2 npm packaging comes only from the deterministic write-false bundle inve
     );
   }
   const { assertWebViewBundleEvidenceCurrent } = await importAudit();
+  // The frozen B2 evidence carries the B2-era package set; the era set is
+  // passed explicitly so the current C6 approval does not rewrite history.
   assert.doesNotThrow(() =>
-    assertWebViewBundleEvidenceCurrent(audit.npm.webViewBundle, audit.npm.webViewBundle),
+    assertWebViewBundleEvidenceCurrent(
+      audit.npm.webViewBundle,
+      audit.npm.webViewBundle,
+      audit.npm.webViewBundle.packageNames,
+    ),
   );
   assert.throws(
     () =>

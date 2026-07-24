@@ -17,6 +17,7 @@
     "@capacitor/android": "8.4.1",
     "@capacitor/app": "8.1.0",
     "@capacitor/core": "8.4.1",
+    "@capacitor/haptics": "8.0.2",
     "@capacitor/ios": "8.4.1",
     "react": "19.2.7",
     "react-dom": "19.2.7"
@@ -53,6 +54,14 @@
       "platform": "Native build input",
       "applePrivacyManifest": "No app Required Reason API or usage-description key added by this dependency",
       "googleDataSafety": "Lifecycle notifications only; no app-configured collection or transmission",
+      "sourceRepository": "https://github.com/ionic-team/capacitor-plugins.git",
+      "restrictedExportClassification": "None identified"
+    },
+    "@capacitor/haptics": {
+      "role": "approved native haptic feedback source",
+      "platform": "Native build input",
+      "applePrivacyManifest": "No app Required Reason API or usage-description key added by this dependency",
+      "googleDataSafety": "Device vibration only; no app-configured collection or transmission; the Android manifest gains android.permission.VIBRATE",
       "sourceRepository": "https://github.com/ionic-team/capacitor-plugins.git",
       "restrictedExportClassification": "None identified"
     },
@@ -278,7 +287,10 @@
   "spm": [
     {
       "identity": "capacitor-swift-pm",
-      "requirement": { "kind": "version", "version": "8.4.1" },
+      "requirement": {
+        "kind": "version",
+        "version": "8.4.1"
+      },
       "revision": "2231987d85b8b0b289320b1d0947b4ae8345cde4",
       "source": "https://github.com/ionic-team/capacitor-swift-pm.git",
       "licence": "MIT",
@@ -290,7 +302,10 @@
     },
     {
       "identity": "sqlcipher.swift",
-      "requirement": { "kind": "version", "version": "4.17.0" },
+      "requirement": {
+        "kind": "version",
+        "version": "4.17.0"
+      },
       "revision": "205df55271aa1ba512a9bfe3fd1813bc9ac52a19",
       "source": "https://github.com/sqlcipher/SQLCipher.swift.git",
       "licence": "BSD-3-Clause",
@@ -302,7 +317,10 @@
     },
     {
       "identity": "zipfoundation",
-      "requirement": { "kind": "version", "version": "0.9.20" },
+      "requirement": {
+        "kind": "version",
+        "version": "0.9.20"
+      },
       "revision": "22787ffb59de99e5dc1fbfe80b19c97a904ad48d",
       "source": "https://github.com/weichsel/ZIPFoundation.git",
       "licence": "MIT",
@@ -314,42 +332,163 @@
     }
   ],
   "gradleDeclared": [
-    { "coordinate": "com.android.tools.build:gradle", "version": "8.13.0", "scope": "build" },
-    { "coordinate": "com.google.gms:google-services", "version": "4.4.4", "scope": "dormant build plugin; no google-services.json" },
-    { "coordinate": "io.github.gradle-nexus:publish-plugin", "version": "1.3.0", "scope": "conditional publish-only; CAP_PUBLISH is not enabled" },
-    { "coordinate": "androidx.activity:activity", "version": "1.11.0", "scope": "runtime declaration" },
-    { "coordinate": "androidx.appcompat:appcompat", "version": "1.7.1", "scope": "runtime declaration" },
-    { "coordinate": "androidx.biometric:biometric", "version": "1.1.0", "scope": "app-owned Parent biometric runtime declaration" },
-    { "coordinate": "androidx.coordinatorlayout:coordinatorlayout", "version": "1.3.0", "scope": "runtime declaration" },
-    { "coordinate": "androidx.core:core", "version": "1.17.0", "scope": "runtime declaration" },
-    { "coordinate": "androidx.core:core-splashscreen", "version": "1.2.0", "scope": "runtime declaration" },
-    { "coordinate": "androidx.fragment:fragment", "version": "1.8.9", "scope": "runtime declaration" },
-    { "coordinate": "androidx.webkit:webkit", "version": "1.14.0", "scope": "runtime declaration" },
-    { "coordinate": "org.apache.cordova:framework", "version": "14.0.1", "scope": "runtime declaration" },
-    { "coordinate": "junit:junit", "version": "4.13.2", "scope": "test declaration" },
-    { "coordinate": "androidx.test.ext:junit", "version": "1.3.0", "scope": "instrumented test declaration" },
-    { "coordinate": "androidx.test.espresso:espresso-core", "version": "3.7.0", "scope": "instrumented test declaration" },
-    { "coordinate": "androidx.test.uiautomator:uiautomator", "version": "2.3.0", "scope": "B4 instrumented test declaration" },
-    { "coordinate": "org.json:json", "version": "20250517", "scope": "test declaration" },
-    { "coordinate": "org.mockito:mockito-core", "version": "5.20.0", "scope": "test declaration" },
-    { "coordinate": "com.android.billingclient:billing", "version": "9.1.0", "scope": "app-owned Play Billing runtime declaration" }
+    {
+      "coordinate": "com.android.tools.build:gradle",
+      "version": "8.13.0",
+      "scope": "build"
+    },
+    {
+      "coordinate": "com.google.gms:google-services",
+      "version": "4.4.4",
+      "scope": "dormant build plugin; no google-services.json"
+    },
+    {
+      "coordinate": "io.github.gradle-nexus:publish-plugin",
+      "version": "1.3.0",
+      "scope": "conditional publish-only; CAP_PUBLISH is not enabled"
+    },
+    {
+      "coordinate": "androidx.activity:activity",
+      "version": "1.11.0",
+      "scope": "runtime declaration"
+    },
+    {
+      "coordinate": "androidx.appcompat:appcompat",
+      "version": "1.7.1",
+      "scope": "runtime declaration"
+    },
+    {
+      "coordinate": "androidx.biometric:biometric",
+      "version": "1.1.0",
+      "scope": "app-owned Parent biometric runtime declaration"
+    },
+    {
+      "coordinate": "androidx.coordinatorlayout:coordinatorlayout",
+      "version": "1.3.0",
+      "scope": "runtime declaration"
+    },
+    {
+      "coordinate": "androidx.core:core",
+      "version": "1.17.0",
+      "scope": "runtime declaration"
+    },
+    {
+      "coordinate": "androidx.core:core-splashscreen",
+      "version": "1.2.0",
+      "scope": "runtime declaration"
+    },
+    {
+      "coordinate": "androidx.fragment:fragment",
+      "version": "1.8.9",
+      "scope": "runtime declaration"
+    },
+    {
+      "coordinate": "androidx.webkit:webkit",
+      "version": "1.14.0",
+      "scope": "runtime declaration"
+    },
+    {
+      "coordinate": "org.apache.cordova:framework",
+      "version": "14.0.1",
+      "scope": "runtime declaration"
+    },
+    {
+      "coordinate": "junit:junit",
+      "version": "4.13.2",
+      "scope": "test declaration"
+    },
+    {
+      "coordinate": "androidx.test.ext:junit",
+      "version": "1.3.0",
+      "scope": "instrumented test declaration"
+    },
+    {
+      "coordinate": "androidx.test.espresso:espresso-core",
+      "version": "3.7.0",
+      "scope": "instrumented test declaration"
+    },
+    {
+      "coordinate": "androidx.test.uiautomator:uiautomator",
+      "version": "2.3.0",
+      "scope": "B4 instrumented test declaration"
+    },
+    {
+      "coordinate": "org.json:json",
+      "version": "20250517",
+      "scope": "test declaration"
+    },
+    {
+      "coordinate": "org.mockito:mockito-core",
+      "version": "5.20.0",
+      "scope": "test declaration"
+    },
+    {
+      "coordinate": "com.android.billingclient:billing",
+      "version": "9.1.0",
+      "scope": "app-owned Play Billing runtime declaration"
+    }
   ],
   "gradleInputFiles": [
-    { "path": "android/app/build.gradle", "sha256": "71776fb4ceffdca7cb1ecaaf54e9b219f7465ad10bd32e61cc74b92e4e522530" },
-    { "path": "android/app/capacitor.build.gradle", "sha256": "7a9785a4abc7b6679e4823065fd73f10701d5cf8fdc63ab0403cb1bfa5bb4b95" },
-    { "path": "android/build.gradle", "sha256": "766958866c15eeda5c88bfdbccfd5346a73fb68f29a4441206b472805176552b" },
-    { "path": "android/capacitor.settings.gradle", "sha256": "02359897c4208fc356ab91c0c385a2160ec92299e94855ccbd380a6139ff3ff4" },
-    { "path": "android/gradle.properties", "sha256": "3bab15c5b8bc4c2f4b6cf525497d15ad4abca53a460e6dd2eb0f0135817d31e6" },
-    { "path": "android/gradle/b1-dependency-resolution.init.gradle", "sha256": "2a38c13e917e3b68ae5918032a9c91cf58a4be094808cb020905fedc0e39d3c6" },
-    { "path": "android/gradle/wrapper/gradle-wrapper.jar", "sha256": "7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172" },
-    { "path": "android/gradle/wrapper/gradle-wrapper.properties", "sha256": "9a479a85aa879bb55284fc16d0de5b81a745c3854f4e2d88c42e7debaf007435" },
-    { "path": "android/gradlew", "sha256": "b187b4c52e749f5760afdd6fadc31b2a98ad35fb249bf0dff03b72650f320409" },
-    { "path": "android/gradlew.bat", "sha256": "94102713eb8fb22d032397924c0f38ab2da783ba60d07054339f1190a0c4e2cd" },
-    { "path": "android/settings.gradle", "sha256": "6ce098d15ebd69b44c4ecd786bca1bdc366340d2459b2af4d7bb0ab317aa9669" },
-    { "path": "android/variables.gradle", "sha256": "8d751d59653784d338a1f7cb2f012832c31184635557b8196cdb90b90a8829eb" },
-    { "path": "node_modules/@capacitor/android/capacitor/build.gradle", "sha256": "2b03df6b575178a8de490b4db114cc84647c06a580342046a2e5f9f797920717" },
-    { "path": "node_modules/@capacitor/app/android/build.gradle", "sha256": "f4f9b707e2619796f61babb4d5c13a8443b1a78bf380214ff7e413d51a4914ac" },
-    { "path": "node_modules/@capacitor-community/sqlite/android/build.gradle", "sha256": "6249a52bee0143a7d7995e4470e28fc808ad929ec6107c32dc25ea2b7081a51a" }
+    {
+      "path": "android/app/build.gradle",
+      "sha256": "71776fb4ceffdca7cb1ecaaf54e9b219f7465ad10bd32e61cc74b92e4e522530"
+    },
+    {
+      "path": "android/app/capacitor.build.gradle",
+      "sha256": "0ae7cc33129fb1a48a89d17403239552a8009fa192faf8cc75b97b4effe10a76"
+    },
+    {
+      "path": "android/build.gradle",
+      "sha256": "766958866c15eeda5c88bfdbccfd5346a73fb68f29a4441206b472805176552b"
+    },
+    {
+      "path": "android/capacitor.settings.gradle",
+      "sha256": "516729aff2668d8cab7d4784da98c6a2f9ba86f1517dda3c3e300f8ae2378c4b"
+    },
+    {
+      "path": "android/gradle.properties",
+      "sha256": "3bab15c5b8bc4c2f4b6cf525497d15ad4abca53a460e6dd2eb0f0135817d31e6"
+    },
+    {
+      "path": "android/gradle/b1-dependency-resolution.init.gradle",
+      "sha256": "2a38c13e917e3b68ae5918032a9c91cf58a4be094808cb020905fedc0e39d3c6"
+    },
+    {
+      "path": "android/gradle/wrapper/gradle-wrapper.jar",
+      "sha256": "7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172"
+    },
+    {
+      "path": "android/gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "9a479a85aa879bb55284fc16d0de5b81a745c3854f4e2d88c42e7debaf007435"
+    },
+    {
+      "path": "android/gradlew",
+      "sha256": "b187b4c52e749f5760afdd6fadc31b2a98ad35fb249bf0dff03b72650f320409"
+    },
+    {
+      "path": "android/gradlew.bat",
+      "sha256": "94102713eb8fb22d032397924c0f38ab2da783ba60d07054339f1190a0c4e2cd"
+    },
+    {
+      "path": "android/settings.gradle",
+      "sha256": "6ce098d15ebd69b44c4ecd786bca1bdc366340d2459b2af4d7bb0ab317aa9669"
+    },
+    {
+      "path": "android/variables.gradle",
+      "sha256": "8d751d59653784d338a1f7cb2f012832c31184635557b8196cdb90b90a8829eb"
+    },
+    {
+      "path": "node_modules/@capacitor/android/capacitor/build.gradle",
+      "sha256": "2b03df6b575178a8de490b4db114cc84647c06a580342046a2e5f9f797920717"
+    },
+    {
+      "path": "node_modules/@capacitor/app/android/build.gradle",
+      "sha256": "f4f9b707e2619796f61babb4d5c13a8443b1a78bf380214ff7e413d51a4914ac"
+    },
+    {
+      "path": "node_modules/@capacitor-community/sqlite/android/build.gradle",
+      "sha256": "6249a52bee0143a7d7995e4470e28fc808ad929ec6107c32dc25ea2b7081a51a"
+    }
   ],
   "approvedNativePlugins": [
     {
@@ -364,6 +503,13 @@
       "packageName": "@capacitor/app",
       "version": "8.1.0",
       "status": "B2 local proof and B3 compiled capability",
+      "source": "https://github.com/ionic-team/capacitor-plugins.git"
+    },
+    {
+      "capability": "Haptics",
+      "packageName": "@capacitor/haptics",
+      "version": "8.0.2",
+      "status": "C6 product capability",
       "source": "https://github.com/ionic-team/capacitor-plugins.git"
     },
     {
@@ -410,9 +556,21 @@
     }
   ],
   "candidatePlugins": [
-    { "capability": "Filesystem", "packageName": "@capacitor/filesystem", "status": "Not approved" },
-    { "capability": "Billing", "packageName": "@revenuecat/purchases-capacitor", "status": "Not approved" },
-    { "capability": "Biometric", "packageName": "capacitor-native-biometric", "status": "Not approved" }
+    {
+      "capability": "Filesystem",
+      "packageName": "@capacitor/filesystem",
+      "status": "Not approved"
+    },
+    {
+      "capability": "Billing",
+      "packageName": "@revenuecat/purchases-capacitor",
+      "status": "Not approved"
+    },
+    {
+      "capability": "Biometric",
+      "packageName": "capacitor-native-biometric",
+      "status": "Not approved"
+    }
   ],
   "allowedSources": {
     "npm": "https://registry.npmjs.org/",
@@ -425,19 +583,27 @@
       "https://github.com/capacitor-community/sqlite.git",
       "https://github.com/ionic-team/capacitor-plugins.git"
     ],
-    "gradleRepositories": ["google()", "mavenCentral()", "https://plugins.gradle.org/m2/"],
+    "gradleRepositories": [
+      "google()",
+      "mavenCentral()",
+      "https://plugins.gradle.org/m2/"
+    ],
     "mavenRepositoryUrls": [
       "https://dl.google.com/dl/android/maven2/",
       "https://repo.maven.apache.org/maven2/",
       "https://plugins.gradle.org/m2/"
     ],
-    "gradleFlatDirs": ["../capacitor-cordova-android-plugins/src/main/libs", "libs"],
+    "gradleFlatDirs": [
+      "../capacitor-cordova-android-plugins/src/main/libs",
+      "libs"
+    ],
     "gradleLocalDependencies": [
       "fileTree:libs",
       "project::capacitor-android",
       "project::capacitor-app",
       "project::capacitor-community-sqlite",
-      "project::capacitor-cordova-android-plugins"
+      "project::capacitor-cordova-android-plugins",
+      "project::capacitor-haptics"
     ]
   }
 }

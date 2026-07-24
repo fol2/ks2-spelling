@@ -3,13 +3,13 @@
 This is the deterministic dependency inventory for the B3 compiled sandbox capability. It records package identity, source and declared licence; it is not a substitute for the full licence texts or final store disclosure review.
 
 - Android resolution: `resolved-toolchain`
-- npm lock identities: 189
+- npm lock identities: 190
 - SwiftPM identities: 3
 - Maven selected module identities: 327
 - Maven task-created build-tool identities: 13
 - Maven verification inventory: 442 components and 878 artefacts
-- Notice rows: 532
-- Physically bundled WebView npm packages: @capacitor-community/sqlite, @capacitor/app, @capacitor/core, react, react-dom, scheduler
+- Notice rows: 533
+- Physically bundled WebView npm packages: @capacitor-community/sqlite, @capacitor/app, @capacitor/core, @capacitor/haptics, react, react-dom, scheduler
 - Notice inclusion is deliberately conservative and does not mean an npm artefact is packaged
 - App-owned runtime network endpoint: the exact tracked B3 public sandbox gateway origin; store-vendor runtime data-practice and live cloud proof remain separate
 - Native capability: app-owned StoreKit 2 and Play Billing 9.1.0 bridges plus PackTransfer; compiled capability only, not live store proof
@@ -23,6 +23,7 @@ This is the deterministic dependency inventory for the B3 compiled sandbox capab
 | @capacitor/app | 8.1.0 | MIT | npm | https://registry.npmjs.org/@capacitor/app/-/app-8.1.0.tgz | node_modules/@capacitor/app | webview-bundle; packaged=true |
 | @capacitor/cli | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/cli/-/cli-8.4.1.tgz | node_modules/@capacitor/cli | build-tool-not-packaged; packaged=false |
 | @capacitor/core | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/core/-/core-8.4.1.tgz | node_modules/@capacitor/core | webview-bundle; packaged=true |
+| @capacitor/haptics | 8.0.2 | MIT | npm | https://registry.npmjs.org/@capacitor/haptics/-/haptics-8.0.2.tgz | node_modules/@capacitor/haptics | webview-bundle; packaged=true |
 | @capacitor/ios | 8.4.1 | MIT | npm | https://registry.npmjs.org/@capacitor/ios/-/ios-8.4.1.tgz | node_modules/@capacitor/ios | native-build-source; packaged=false |
 | @emnapi/core | 1.11.1 | MIT | npm | https://registry.npmjs.org/@emnapi/core/-/core-1.11.1.tgz | node_modules/@emnapi/core | build-tool-not-packaged; packaged=false |
 | @emnapi/runtime | 1.11.1 | MIT | npm | https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.11.1.tgz | node_modules/@emnapi/runtime | build-tool-not-packaged; packaged=false |

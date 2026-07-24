@@ -26,7 +26,7 @@ const EXPECTED_PROTECTED_CURRENT_HASHES = Object.freeze({
   'scripts/lib/pinned-system-git.mjs':
     'd07a03f20f9f19711b665f9f0610a9de190bbb1418677e5e307f249ee472b478',
   'tests/b2-native-plugin-build-policy.test.mjs':
-    '7bc98e0cd2348a41107b4ca0ede2531b747aee34bfcf24e7eade7f4bd0c98419',
+    'f0488eda1e67f90765a158a0df0175792238c0e8c687f1664cef8665cd1e5647',
 });
 
 export const B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
@@ -63,6 +63,14 @@ export const C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
   'verify:starter-audio': 'node scripts/generate-starter-audio.mjs --check',
   'verify:starter-pack': 'node scripts/build-starter-pack.mjs',
   'verify:art': 'node scripts/verify-vendored-art.mjs',
+});
+
+// C6 game-layer uplift (2026-07-24 plan): the only approved dependency
+// additions since the frozen B2 package. Exact name and version; a reviewed
+// subset may land, nothing else may drift.
+export const C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS = Object.freeze({
+  '@capacitor/haptics': '8.0.2',
+  phaser: '4.1.0',
 });
 
 // SDLC velocity tier (2026-07-22): the local fast-test daily loop and pre-push
@@ -138,9 +146,10 @@ export async function verifyB3PackageTransitionAuthority({ root = DEFAULT_ROOT }
       'approvedB4PlanPath',
       'approvedCSeriesPlanPath',
       'allowedPackageScriptAdditions',
+      'allowedPackageDependencyAdditions',
       'protectedCurrentFiles',
     ]) ||
-    authority.schemaVersion !== 3 ||
+    authority.schemaVersion !== 4 ||
     authority.frozenB2Commit !== FROZEN_B2_COMMIT ||
     authority.approvedPlanPath !== PLAN_PATH ||
     authority.approvedB4PlanPath !== B4_PLAN_PATH ||
@@ -148,6 +157,10 @@ export async function verifyB3PackageTransitionAuthority({ root = DEFAULT_ROOT }
     !isDeepStrictEqual(
       authority.allowedPackageScriptAdditions,
       PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+    ) ||
+    !isDeepStrictEqual(
+      authority.allowedPackageDependencyAdditions,
+      C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS,
     ) ||
     !Array.isArray(authority.protectedCurrentFiles) ||
     authority.protectedCurrentFiles.length !== PROTECTED_PATHS.length ||
@@ -198,8 +211,26 @@ export function assertB2PackageTransition(frozenPackage, currentPackage, authori
   const frozenWithoutScripts = structuredClone(frozenPackage);
   delete currentWithoutScripts.scripts;
   delete frozenWithoutScripts.scripts;
+  delete currentWithoutScripts.dependencies;
+  delete frozenWithoutScripts.dependencies;
   if (!isDeepStrictEqual(currentWithoutScripts, frozenWithoutScripts)) {
     throw transitionError('Package drift is outside the approved B3 transition');
+  }
+
+  const frozenDependencies = frozenPackage.dependencies ?? {};
+  const currentDependencies = currentPackage.dependencies ?? {};
+  for (const [name, version] of Object.entries(frozenDependencies)) {
+    if (currentDependencies[name] !== version) {
+      throw transitionError(`Frozen package dependency drifted: ${name}`);
+    }
+  }
+  for (const [name, version] of Object.entries(currentDependencies)) {
+    if (Object.hasOwn(frozenDependencies, name)) continue;
+    if (C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS[name] !== version) {
+      throw transitionError(
+        `Package dependency is not authorised by the approved plans: ${name}`,
+      );
+    }
   }
 
   for (const [name, command] of Object.entries(frozenPackage.scripts)) {

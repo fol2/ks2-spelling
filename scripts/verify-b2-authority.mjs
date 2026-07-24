@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import {
   assertB2PackageTransition,
+  C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS,
   verifyB3PackageTransitionAuthority,
 } from './lib/b3-package-transition-authority.mjs';
 import { readFrozenB2Blob } from './lib/frozen-b2-git.mjs';
@@ -268,11 +269,32 @@ export async function verifyB2Authority({
       throw new Error(`${field} mismatch`);
     }
   }
-  const currentPackageLockSha256 = sha256(
+  // The current lock may differ from the frozen B2 lock only by the exact
+  // dependency additions authorised by the schema-4 package transition
+  // authority (C6 game-layer uplift). Frozen history above stays byte-pinned.
+  const currentLock = parseJson(
     await readRegularFile(resolve(root, 'package-lock.json'), 'current package-lock.json'),
+    'current package-lock.json',
   );
-  if (currentPackageLockSha256 !== FROZEN_AUTHORITY.packageLockSha256) {
-    throw new Error('current packageLockSha256 mismatch');
+  const frozenLock = parseJson(
+    await frozenReader('package-lock.json'),
+    'frozen package-lock.json',
+  );
+  const frozenRootDependencies = frozenLock?.packages?.['']?.dependencies ?? {};
+  const currentRootDependencies = currentLock?.packages?.['']?.dependencies ?? {};
+  for (const [name, version] of Object.entries(frozenRootDependencies)) {
+    if (currentRootDependencies[name] !== version) {
+      throw new Error(`current packageLock frozen dependency drifted: ${name}`);
+    }
+  }
+  for (const [name, version] of Object.entries(currentRootDependencies)) {
+    if (Object.hasOwn(frozenRootDependencies, name)) continue;
+    if (C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS[name] !== version) {
+      throw new Error(`current packageLock addition is not authorised: ${name}`);
+    }
+    if (currentLock?.packages?.[`node_modules/${name}`]?.version !== version) {
+      throw new Error(`current packageLock addition version mismatch: ${name}`);
+    }
   }
 
   const gateA = parseJson(

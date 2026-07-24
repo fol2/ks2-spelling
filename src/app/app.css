@@ -1845,3 +1845,237 @@ h1 {
     border-right: 0;
   }
 }
+
+/* ============================================================
+ * C6.5 — summary celebration layer
+ * Ported/adapted from ks2-mastery celebration shell + effects
+ * (particles-burst / sparkle visuals only; no registry/acks).
+ * ============================================================ */
+
+.summary-page {
+  position: relative;
+}
+
+.celebration-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background:
+    radial-gradient(
+      closest-side,
+      rgb(21 122 118 / 28%) 0%,
+      rgb(13 29 41 / 72%) 70%
+    ),
+    rgb(13 29 41 / 55%);
+}
+
+.celebration-overlay.celebration-caught {
+  background:
+    radial-gradient(
+      closest-side,
+      rgb(28 36 56 / 70%) 0%,
+      rgb(13 29 41 / 78%) 75%
+    ),
+    rgb(8 12 20 / 62%);
+}
+
+.celebration-card {
+  position: relative;
+  display: grid;
+  gap: 0.85rem;
+  justify-items: center;
+  width: min(100%, 22rem);
+  min-height: 2.75rem;
+  margin: 0;
+  border: 1px solid rgb(255 253 247 / 28%);
+  border-radius: 1.35rem;
+  padding: 1.35rem 1.15rem 1.2rem;
+  color: var(--paper-raised);
+  background: rgb(255 253 247 / 12%);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 35%);
+  text-align: center;
+  cursor: pointer;
+  animation: celebration-card-enter 360ms ease-out both;
+}
+
+.celebration-card:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.celebration-effects {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.celebration-sparkle.fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.celebration-sparkle.fx-shiny {
+  background:
+    radial-gradient(circle at 30% 30%, rgb(255 255 255 / 35%) 0%, transparent 22%),
+    radial-gradient(circle at 70% 65%, rgb(255 255 255 / 28%) 0%, transparent 28%),
+    radial-gradient(circle at 50% 50%, var(--reward) 0%, transparent 65%);
+  background-blend-mode: screen, screen, soft-light;
+  mix-blend-mode: screen;
+  opacity: 0.48;
+  animation: celebration-sparkle-twinkle 3.4s ease-in-out infinite;
+}
+
+.celebration-parts {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.celebration-part {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin: -0.25rem 0 0 -0.25rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 0 14px rgb(255 255 255 / 95%),
+    0 0 4px #fff;
+  opacity: 0;
+  animation: celebration-part-burst 1.8s linear forwards;
+}
+
+.celebration-part:nth-child(1)  { --tx:  7.5rem; --ty: -4rem; animation-delay: 0s; }
+.celebration-part:nth-child(2)  { --tx: -6.5rem; --ty: -5.5rem; animation-delay: 0.08s; }
+.celebration-part:nth-child(3)  { --tx: -2.75rem; --ty: -7.5rem; animation-delay: 0.04s; }
+.celebration-part:nth-child(4)  { --tx:  4.75rem; --ty:  6rem; animation-delay: 0.18s; }
+.celebration-part:nth-child(5)  { --tx: -7.5rem; --ty:  2rem; animation-delay: 0.1s; }
+.celebration-part:nth-child(6)  { --tx:  7.75rem; --ty:  1.35rem; animation-delay: 0.22s; }
+.celebration-part:nth-child(7)  { --tx: -2rem; --ty:  7.5rem; animation-delay: 0.14s; }
+.celebration-part:nth-child(8)  { --tx:  3.35rem; --ty: -7.5rem; animation-delay: 0.3s; }
+.celebration-part:nth-child(9)  { --tx: -5.5rem; --ty:  6.5rem; animation-delay: 0.26s; }
+.celebration-part:nth-child(10) { --tx:  6rem; --ty: -2rem; animation-delay: 0.36s; }
+
+.celebration-figure {
+  position: relative;
+  z-index: 1;
+  width: min(70%, 11rem);
+  margin: 0;
+}
+
+.celebration-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.celebration-headline {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: var(--paper-raised);
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.celebration-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  white-space: nowrap;
+}
+
+.reward-secure-toast {
+  margin: 0.85rem 0 0;
+  color: var(--trail-strong);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+@keyframes celebration-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes celebration-sparkle-twinkle {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+
+  50% {
+    transform: scale(1.04);
+    filter: brightness(1.18);
+  }
+}
+
+@keyframes celebration-part-burst {
+  0% {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty)) scale(0);
+  }
+
+  10% {
+    opacity: 1;
+    transform: translate(var(--tx), var(--ty)) scale(1);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.8);
+  }
+
+  85% {
+    opacity: 0.6;
+    transform: translate(0, 0) scale(0.6);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .celebration-card {
+    animation: none !important;
+  }
+
+  .celebration-effects,
+  .celebration-parts,
+  .celebration-sparkle {
+    display: none !important;
+  }
+
+  .celebration-sparkle,
+  .celebration-part {
+    animation: none !important;
+  }
+}

@@ -399,11 +399,22 @@ h1 {
   --radius-lg: 28px;
   --radius-xl: 32px;
 
-  /* Elevation */
+  /* Elevation. `--shadow-warm` is the webapp's paper shadow: a long, low,
+     colour-cast pool rather than a neutral drop, which is what makes a card
+     read as paper lying on a surface instead of a box floating over one. */
   --shadow-xs: 0 1px 2px rgb(29 43 58 / 6%);
   --shadow: 0 1px 2px rgb(29 43 58 / 4%), 0 8px 24px rgb(29 43 58 / 6%);
   --shadow-lg: 0 2px 4px rgb(29 43 58 / 5%), 0 16px 40px rgb(29 43 58 / 10%);
+  --shadow-warm: 0 24px 48px -24px rgb(176 132 66 / 35%);
   --shadow-glow: 0 0 0 4px rgb(62 111 168 / 18%);
+
+  /* Press. A touch app has no hover, so the press is the whole affordance:
+     one compression scale and one duration, shared by every control, so a
+     tap feels like the same physical act wherever it lands. */
+  --press-scale: 0.972;
+  --press-scale-subtle: 0.986;
+  --dur-press: 90ms;
+  --ease-press: cubic-bezier(0.3, 0, 0.2, 1);
 
   /* Touch-target minimum — WCAG 2.5.5 AAA, elevated to baseline for KS2. */
   --tap-min: 44px;
@@ -503,6 +514,7 @@ h1 {
     --shadow-xs: 0 1px 2px rgb(0 0 0 / 35%);
     --shadow: 0 1px 2px rgb(0 0 0 / 35%), 0 12px 28px rgb(0 0 0 / 35%);
     --shadow-lg: 0 2px 4px rgb(0 0 0 / 40%), 0 24px 48px rgb(0 0 0 / 50%);
+    --shadow-warm: 0 32px 60px -28px rgb(0 0 0 / 60%);
     --shadow-glow: 0 0 0 4px rgb(110 158 214 / 26%);
   }
 }
@@ -548,6 +560,17 @@ h1 {
   font: inherit;
 }
 
+/* The platform's own grey tap flash fires before our press state and outlives
+   it, so it reads as lag on a control that is already responding. Suppressing
+   it is only safe because every control below answers a press itself. */
+.product-app button,
+.product-app [role='button'],
+.product-app label,
+.product-app summary {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
 .product-app button {
   cursor: pointer;
 }
@@ -557,11 +580,54 @@ h1 {
   opacity: 0.5;
 }
 
+/* The editorial focus halo: an ink rule for the outline itself, then a soft
+   brand bloom outside it so keyboard focus reads as lit rather than boxed. */
 .product-app button:focus-visible,
 .product-app input:focus-visible,
 .product-app select:focus-visible {
   outline: 0.2rem solid var(--focus);
   outline-offset: 0.2rem;
+  box-shadow: 0 0 0 0.32rem color-mix(in oklab, var(--brand) 16%, transparent);
+}
+
+.button-primary:focus-visible {
+  box-shadow:
+    0 0 0 0.32rem color-mix(in oklab, var(--brand) 24%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 28%);
+}
+
+/* Text craft. A caret and a selection in the brand hue cost nothing and are
+   the difference between a page rendered in a browser and one that was
+   designed. */
+.product-app input,
+.product-app textarea {
+  caret-color: var(--brand);
+}
+
+.product-app ::selection {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--brand) 24%, transparent);
+}
+
+/* Warm paper scrollbars instead of OS chrome, on every scrollable surface. */
+.product-app * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.product-app *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.product-app *::-webkit-scrollbar-track,
+.product-app *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.product-app *::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--line-strong);
 }
 
 .product-page,
@@ -1020,8 +1086,9 @@ h1 {
   gap: 0.75rem;
 }
 
-/* Flat pills with a brightness press, as the web app has — no moulded
-   drop-shadow under the fill. */
+/* Pills are moulded, not flat: the web app's primary carries a hairline of
+   light along its top edge so the fill reads as a raised surface rather than
+   a painted rectangle, and it presses back down under the finger. */
 .button-primary,
 .button-quiet,
 .button-danger {
@@ -1029,21 +1096,31 @@ h1 {
   border-radius: 999px;
   padding: 0.7rem 1.25rem;
   font-weight: 850;
+  box-shadow: var(--shadow-xs), inset 0 1px 0 rgb(255 255 255 / 20%);
   transition:
-    filter var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
+    filter var(--dur-press) var(--ease-press),
+    box-shadow var(--dur) var(--ease-out),
+    transform var(--dur-press) var(--ease-press);
 }
 
 .button-primary:hover:not(:disabled),
 .button-quiet:hover:not(:disabled),
 .button-danger:hover:not(:disabled) {
-  filter: brightness(0.94);
+  filter: brightness(0.96);
+  box-shadow:
+    var(--shadow),
+    inset 0 1px 0 rgb(255 255 255 / 28%),
+    0 6px 18px -4px color-mix(in oklab, var(--brand) 38%, transparent);
 }
 
+/* The press is the whole affordance on a phone: the pill compresses under the
+   finger and dims, and the raised highlight flattens with it. */
 .button-primary:active:not(:disabled),
 .button-quiet:active:not(:disabled),
 .button-danger:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(var(--press-scale));
+  filter: brightness(0.92);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%);
 }
 
 .button-primary {
@@ -2379,6 +2456,630 @@ button.codex-card:hover:not(.is-locked) {
   }
 }
 
+/* ==========================================================================
+ * Polish layer.
+ *
+ * Ported from the ks2-mastery webapp's own named polish system (`styles/
+ * app.css`, "Polish layer" — Layer 1 motion choreography, Layer 2 affordance,
+ * Layer 3 detail, Layer 4 texture) onto this app's class vocabulary. The
+ * webapp's layers were written for a pointer; Layer 2 here translates its
+ * hover states into presses, because a hover state on a phone is a state no
+ * learner will ever see.
+ *
+ * Every animation is short (<= 560ms), eased with `--ease-out`, and bows out
+ * under `prefers-reduced-motion` through the blanket guard above plus the
+ * transform guard at the foot of this block.
+ * ========================================================================== */
+
+/* ---------- Layer 1 · Page entrance choreography ----------
+ * `animation-fill-mode: backwards` holds the from-keyframe through the delay,
+ * so a staggered element never flashes at full opacity before its turn. */
+@keyframes polish-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes polish-rise-soft {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes polish-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+
+  60% {
+    transform: scale(1.06);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* The home hero is choreographed rather than simply shown: the meadow settles,
+   then the greeting, then the mission lands, then the CTA arrives. The three
+   named beats keep the webapp's own timings (60 / 140 / 240ms). */
+.trail-hero .monster-meadow,
+.trail-hero .monster-meadow-empty,
+.trail-hero .hero-inklet {
+  animation: polish-rise-soft 460ms var(--ease-out) 20ms backwards;
+}
+
+.trail-hero .product-kicker {
+  animation: polish-rise-soft 420ms var(--ease-out) 40ms backwards;
+}
+
+.trail-hero .hero-greet {
+  animation: polish-rise 480ms var(--ease-out) 60ms backwards;
+}
+
+.trail-hero h1 {
+  animation: polish-rise 520ms var(--ease-out) 140ms backwards;
+}
+
+.trail-hero .button-primary {
+  animation: polish-rise 480ms var(--ease-out) 240ms backwards;
+}
+
+/* Section heads rise softly behind the hero. */
+.welcome-panel,
+.page-heading,
+.setup-card > .product-kicker,
+.setup-card > h1,
+.setup-card > p {
+  animation: polish-rise-soft 420ms var(--ease-out) 60ms backwards;
+}
+
+/* Wave staggers. Every grid of peers arrives as a wave rather than a block,
+   which is what stops a dense screen reading as a table of contents. */
+.learner-grid > *,
+.trail-navigation > *,
+.codex-grid > *,
+.word-progress-list > *,
+.summary-grid > *,
+.mode-choice > *,
+.segmented-choice > *,
+.voice-choice > *,
+.toggle-choice > *,
+.monster-meadow > * {
+  animation: polish-rise 460ms var(--ease-out) backwards;
+}
+
+.learner-grid > *:nth-child(1),
+.trail-navigation > *:nth-child(1),
+.codex-grid > *:nth-child(1),
+.word-progress-list > *:nth-child(1),
+.summary-grid > *:nth-child(1),
+.mode-choice > *:nth-child(1),
+.segmented-choice > *:nth-child(1),
+.voice-choice > *:nth-child(1),
+.toggle-choice > *:nth-child(1),
+.monster-meadow > *:nth-child(1) {
+  animation-delay: 80ms;
+}
+
+.learner-grid > *:nth-child(2),
+.trail-navigation > *:nth-child(2),
+.codex-grid > *:nth-child(2),
+.word-progress-list > *:nth-child(2),
+.summary-grid > *:nth-child(2),
+.mode-choice > *:nth-child(2),
+.segmented-choice > *:nth-child(2),
+.voice-choice > *:nth-child(2),
+.toggle-choice > *:nth-child(2),
+.monster-meadow > *:nth-child(2) {
+  animation-delay: 140ms;
+}
+
+.learner-grid > *:nth-child(3),
+.trail-navigation > *:nth-child(3),
+.codex-grid > *:nth-child(3),
+.word-progress-list > *:nth-child(3),
+.summary-grid > *:nth-child(3),
+.mode-choice > *:nth-child(3),
+.segmented-choice > *:nth-child(3),
+.voice-choice > *:nth-child(3),
+.toggle-choice > *:nth-child(3),
+.monster-meadow > *:nth-child(3) {
+  animation-delay: 200ms;
+}
+
+.learner-grid > *:nth-child(4),
+.codex-grid > *:nth-child(4),
+.word-progress-list > *:nth-child(4),
+.summary-grid > *:nth-child(4),
+.monster-meadow > *:nth-child(4) {
+  animation-delay: 260ms;
+}
+
+.learner-grid > *:nth-child(5),
+.codex-grid > *:nth-child(5),
+.word-progress-list > *:nth-child(5),
+.monster-meadow > *:nth-child(5) {
+  animation-delay: 320ms;
+}
+
+.learner-grid > *:nth-child(n + 6),
+.codex-grid > *:nth-child(n + 6),
+.word-progress-list > *:nth-child(n + 6),
+.monster-meadow > *:nth-child(n + 6) {
+  animation-delay: 380ms;
+}
+
+/* The round card and its progress strip. */
+.practice-progress {
+  animation: polish-rise-soft 420ms var(--ease-out) 40ms backwards;
+}
+
+.practice-card {
+  animation: polish-rise 480ms var(--ease-out) 100ms backwards;
+}
+
+/* The word is the only thing that changes between cards, so it is the only
+   thing that re-enters. Keyed on the prompt in the JSX so React remounts it. */
+.cloze-prompt {
+  animation: polish-rise-soft var(--dur-slow) var(--ease-out) backwards;
+}
+
+/* The summary lands as a result: the medal pops, the score rises under it. */
+.summary-medal {
+  animation: polish-pop 460ms var(--ease-out) 60ms backwards;
+}
+
+.summary-hero .product-kicker {
+  animation: polish-rise-soft 420ms var(--ease-out) 140ms backwards;
+}
+
+.summary-hero h1 {
+  animation: polish-rise 480ms var(--ease-out) 200ms backwards;
+}
+
+.accuracy-score {
+  font-variant-numeric: tabular-nums;
+  animation: polish-rise 520ms var(--ease-out) 280ms backwards;
+}
+
+.reward-summary,
+.summary-actions {
+  animation: polish-rise 460ms var(--ease-out) 440ms backwards;
+}
+
+/* ---------- Layer 2 · Press affordance ----------
+ * The webapp lifts on hover. A phone has no hover, so every one of those
+ * lifts becomes a compression: the surface moves toward the finger, on a
+ * fast ease, and springs back on release. */
+.learner-card,
+.trail-navigation button,
+.mode-choice-card,
+.segmented-choice button,
+.voice-choice button,
+.toggle-chip,
+.listening-controls button,
+.topbar-action,
+.answer-actions button,
+button.codex-card,
+.celebration-card {
+  transition:
+    transform var(--dur-press) var(--ease-press),
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background-color var(--dur) var(--ease-out),
+    filter var(--dur-press) var(--ease-press);
+}
+
+.learner-card:active:not(:disabled),
+.trail-navigation button:active:not(:disabled),
+.mode-choice-card:active:not(:disabled),
+.segmented-choice button:active:not(:disabled),
+.voice-choice button:active:not(:disabled),
+.listening-controls button:active:not(:disabled),
+button.codex-card:active:not(.is-locked),
+.celebration-card:active {
+  transform: scale(var(--press-scale));
+  filter: brightness(0.97);
+}
+
+/* Chips and the bare topbar action are small enough that a full compression
+   overshoots — they take the subtle one. */
+.toggle-chip:active:not(:disabled),
+.topbar-action:active:not(:disabled) {
+  transform: scale(var(--press-scale-subtle));
+  filter: brightness(0.95);
+}
+
+/* A pressed surface loses its elevation, the way a card pushed into paper
+   would. Only the surfaces that carry a shadow at rest need this. */
+.learner-card:active:not(:disabled),
+.trail-navigation button:active:not(:disabled),
+button.codex-card:active:not(.is-locked) {
+  box-shadow: var(--shadow-xs);
+}
+
+/* A locked codex card is inert: it should not answer a press at all. */
+.codex-card.is-locked:active {
+  transform: none;
+  filter: none;
+}
+
+/* Selection feedback. The tick fills and the chip warms as a single beat. */
+.toggle-box {
+  transition:
+    transform var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    background-color var(--dur) var(--ease-out);
+}
+
+.toggle-chip[aria-pressed='true'] .toggle-box {
+  transform: scale(1.08);
+}
+
+/* Layer 2 · Ken-Burns on the mode thumbnails. The webapp scales its card
+   banner art on hover; here the selected mode holds the scale, so the chosen
+   trail is the one whose picture leans in. */
+.mode-choice-thumb {
+  transform: scale(1.02);
+  transition: transform 700ms var(--ease-out);
+  will-change: transform;
+}
+
+.mode-choice-card[aria-pressed='true'] .mode-choice-thumb {
+  transform: scale(1.08);
+}
+
+.mode-choice-card:active .mode-choice-thumb {
+  transform: scale(1.1);
+}
+
+/* ---------- Layer 3 · Session texture ----------
+ * The round-path dots, ported near-verbatim: a dot eases in on mount, snaps
+ * when its word is secured, and the current one breathes a ring. This is the
+ * webapp's single most legible piece of session feedback. */
+.round-step {
+  transform-origin: center;
+  animation: polish-step-in 220ms var(--ease-out) backwards;
+}
+
+.round-step.is-done {
+  animation: polish-step-secured 320ms cubic-bezier(0.18, 0.88, 0.3, 1.2) both;
+}
+
+.round-step.is-current {
+  animation:
+    polish-step-current 520ms cubic-bezier(0.2, 0.9, 0.2, 1) both,
+    polish-step-pulse 2s var(--ease-in-out) 560ms infinite;
+}
+
+@keyframes polish-step-in {
+  from {
+    opacity: 0.42;
+    transform: translateY(4px) scale(0.8);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes polish-step-secured {
+  0% {
+    transform: scale(0.78);
+  }
+
+  58% {
+    transform: scale(1.16);
+    box-shadow: 0 0 0 0.36rem color-mix(in oklab, var(--good) 20%, transparent);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes polish-step-current {
+  0% {
+    opacity: 0.6;
+    transform: scale(0.72);
+    box-shadow: 0 0 0 0 transparent;
+  }
+
+  62% {
+    opacity: 1;
+    transform: scale(1.08);
+    box-shadow: 0 0 0 0.54rem color-mix(in oklab, var(--brand) 16%, transparent);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0.3rem color-mix(in oklab, var(--brand) 22%, transparent);
+  }
+}
+
+@keyframes polish-step-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0.3rem color-mix(in oklab, var(--brand) 22%, transparent);
+  }
+
+  50% {
+    box-shadow: 0 0 0 0.48rem color-mix(in oklab, var(--brand) 10%, transparent);
+  }
+}
+
+/* The verdict arrives rather than appears — the webapp's `ribbon-in`. */
+.answer-feedback,
+.audio-state {
+  animation: polish-ribbon-in var(--dur-slow) var(--ease-out) backwards;
+}
+
+@keyframes polish-ribbon-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The spelling field is a single ruled line, and focus moves the rule to
+   brand rather than boxing the field. */
+.answer-form input {
+  transition:
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+
+/* The end-round dialogue is a real modal: the scrim fades and the panel pops
+   up out of it, ported from the webapp's lightbox. */
+.exit-confirmation {
+  animation: polish-scrim-in 160ms ease-out both;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.exit-confirmation > div {
+  animation: polish-panel-in 220ms cubic-bezier(0.2, 0.95, 0.26, 1) both;
+}
+
+@keyframes polish-scrim-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes polish-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ---------- Layer 4 · Paper texture ----------
+ * A paper card is not a flat rectangle: it carries a warm shadow pool, two
+ * faint washes cast in from opposite corners, and the twin ruled hairlines
+ * that give the webapp's hero its journal feel. */
+.paper-card,
+.practice-card {
+  position: relative;
+  background-image:
+    radial-gradient(
+      140% 100% at 100% 0%,
+      color-mix(in oklab, var(--brand) 10%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      120% 100% at 0% 100%,
+      color-mix(in oklab, var(--warn) 8%, transparent),
+      transparent 62%
+    );
+  box-shadow: var(--shadow), var(--shadow-warm);
+}
+
+.paper-card::before,
+.paper-card::after,
+.practice-card::before,
+.practice-card::after {
+  content: '';
+  position: absolute;
+  right: clamp(1rem, 4vw, 2rem);
+  left: clamp(1rem, 4vw, 2rem);
+  height: 1px;
+  background: color-mix(in oklab, var(--line-strong) 60%, transparent);
+  pointer-events: none;
+}
+
+.paper-card::before,
+.practice-card::before {
+  top: 0.9rem;
+}
+
+.paper-card::after,
+.practice-card::after {
+  bottom: 0.9rem;
+}
+
+/* The setup scene is a bare region of the Downs, so it takes the single
+   top rule the webapp's setup card carries rather than the pair. */
+.setup-card {
+  position: relative;
+  padding-top: 1rem;
+}
+
+.setup-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklab, var(--line-strong) 70%, transparent) 14%,
+    color-mix(in oklab, var(--line-strong) 70%, transparent) 86%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* Section-divider hairline above a page heading — the journal rhythm that
+   separates the masthead from the first section. */
+.page-heading {
+  position: relative;
+  padding-top: 1.75rem;
+}
+
+.page-heading::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklab, var(--line-strong) 70%, transparent) 14%,
+    color-mix(in oklab, var(--line-strong) 70%, transparent) 86%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* Layer 4 · Italic-em editorial pop. The hero's accent word lifts off the
+   art with a bloom in its own hue — barely perceptible, and the difference
+   between an italic word and an accent. */
+.trail-hero h1 em {
+  text-shadow: 0 0 18px color-mix(in oklab, var(--brand) 30%, transparent);
+}
+
+.cloze-prompt {
+  border-left-color: color-mix(in oklab, var(--warn) 78%, transparent);
+}
+
+/* Creature art casts a shadow onto the surface it stands on, and breathes
+   where it is alive. Ported from the webapp's meadow and codex portraits. */
+.meadow-slot-art,
+.codex-card-art {
+  filter: drop-shadow(0 8px 10px rgb(29 43 58 / 16%));
+}
+
+.meadow-slot.is-caught .meadow-slot-art {
+  animation: polish-breathe 4.8s var(--ease-in-out) infinite;
+}
+
+.monster-meadow > *:nth-child(2) .meadow-slot-art {
+  animation-delay: 0.7s;
+}
+
+.monster-meadow > *:nth-child(3) .meadow-slot-art {
+  animation-delay: 1.4s;
+}
+
+.monster-meadow > *:nth-child(4) .meadow-slot-art {
+  animation-delay: 2.1s;
+}
+
+.monster-meadow > *:nth-child(5) .meadow-slot-art {
+  animation-delay: 2.8s;
+}
+
+.monster-meadow > *:nth-child(6) .meadow-slot-art {
+  animation-delay: 3.5s;
+}
+
+@keyframes polish-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-4px) scale(1.03);
+  }
+}
+
+/* A caught creature stands in its own pool of light; a locked silhouette
+   stands on bare paper. */
+.codex-card.is-caught {
+  background-image: radial-gradient(
+    circle at 50% 34%,
+    color-mix(in oklab, var(--brand) 16%, transparent),
+    transparent 58%
+  );
+}
+
+.codex-card.is-locked .codex-card-art {
+  filter: brightness(0) opacity(0.42);
+}
+
+/* A grid of creature cards wants a taller silhouette than a list row. */
+.codex-card strong {
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* The medal reads as struck metal rather than a filled circle. */
+.summary-medal {
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 32%),
+    0 8px 20px -8px color-mix(in oklab, var(--warn) 60%, transparent);
+}
+
+/* ---------- Reduced motion ----------
+ * The blanket guard above already kills every animation and transition. What
+ * it cannot reach is a resting transform, so the lifts and Ken-Burns scales
+ * are flattened here. The press compressions are deliberately kept: with the
+ * transition gone they are instant, and a control that does not acknowledge a
+ * touch is a broken control, not a calm one. */
+@media (prefers-reduced-motion: reduce) {
+  .mode-choice-thumb,
+  .mode-choice-card[aria-pressed='true'] .mode-choice-thumb,
+  .mode-choice-card:active .mode-choice-thumb,
+  .toggle-chip[aria-pressed='true'] .toggle-box {
+    transform: none;
+  }
+
+  .exit-confirmation {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
 @media (forced-colors: active) {
   .paper-card,
   .practice-card,
@@ -2386,7 +3087,19 @@ button.codex-card:hover:not(.is-locked) {
   .trail-navigation button,
   .exit-confirmation > div {
     border: 2px solid CanvasText;
+    background-image: none;
     box-shadow: none;
+  }
+
+  /* Decorative rules and washes carry no meaning a forced palette can keep. */
+  .paper-card::before,
+  .paper-card::after,
+  .practice-card::before,
+  .practice-card::after,
+  .setup-card::before,
+  .page-heading::before,
+  .codex-card.is-caught {
+    background: none;
   }
 
   .product-app button:focus-visible,

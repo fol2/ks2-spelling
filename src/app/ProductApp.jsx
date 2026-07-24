@@ -1793,8 +1793,11 @@ function PracticeScreen({
             Not enough tricky words yet — this round is a Smart Review.
           </p>
         )}
+        {/* Keyed on the prompt so React remounts it when the word changes:
+            the sentence is the only thing that differs between cards, so it
+            is the only thing that should re-enter. */}
         {!isTestMode && prefs.showCloze && (
-          <p className="cloze-prompt">{practice.cloze}</p>
+          <p className="cloze-prompt" key={practice.cloze}>{practice.cloze}</p>
         )}
 
         <div className="listening-controls" aria-label="Listening controls">

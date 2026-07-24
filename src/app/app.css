@@ -886,9 +886,14 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+/* The webapp's eyebrow is `--muted`, which measures 3.36:1 against the page
+   at this size — below the 4.5:1 an 11px label needs, and the webapp is the
+   floor here rather than the target. On a backdrop page `--muted` is already
+   re-pointed to the tone ink and passes comfortably; this is the un-toned
+   case. Soft ink is still visibly quieter than the heading it sits over. */
 .product-kicker {
   margin-bottom: 0.65rem;
-  color: var(--muted);
+  color: var(--ink-2);
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.08em;

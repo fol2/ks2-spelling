@@ -3053,6 +3053,182 @@ button.codex-card:active:not(.is-locked) {
   letter-spacing: -0.01em;
 }
 
+/* Creature art stands on the surface rather than floating over it: one
+   flattened ellipse of contact shadow under each silhouette, the same trick
+   the webapp's mini-meadow cells use — no extra element, one declaration. */
+.meadow-slot-art,
+.codex-card-art {
+  background: radial-gradient(
+      ellipse 42% 6% at 50% 94%,
+      rgb(29 43 58 / 30%),
+      rgb(29 43 58 / 10%) 55%,
+      transparent 74%
+    )
+    no-repeat;
+}
+
+@media (prefers-color-scheme: dark) {
+  .meadow-slot-art,
+  .codex-card-art {
+    background: radial-gradient(
+        ellipse 42% 6% at 50% 94%,
+        rgb(0 0 0 / 52%),
+        rgb(0 0 0 / 20%) 55%,
+        transparent 74%
+      )
+      no-repeat;
+  }
+}
+
+/* Layer 2 · Codex stage track. Five dots per creature: lit up to the stage
+   reached, the current one breathing a ring, and the fifth carrying the mega
+   glow. Ported from the webapp's codex card and its dot-pulse layer. */
+.codex-stage-track {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.28rem;
+  width: 100%;
+  max-width: 5.5rem;
+  margin-top: 0.35rem;
+}
+
+.codex-stage-dot {
+  aspect-ratio: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+}
+
+.codex-stage-dot.is-lit {
+  border-color: color-mix(in oklab, var(--brand) 52%, var(--line));
+  background: color-mix(in oklab, var(--brand) 55%, var(--panel));
+}
+
+.codex-stage-dot.is-mega {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--warn) 24%, transparent);
+}
+
+.codex-stage-dot.is-mega.is-lit {
+  border-color: color-mix(in oklab, var(--warn) 62%, var(--line));
+  background: color-mix(in oklab, var(--warn) 62%, var(--panel));
+  box-shadow:
+    0 0 14px color-mix(in oklab, var(--warn) 32%, transparent),
+    inset 0 0 0 1px rgb(255 255 255 / 40%);
+}
+
+.codex-stage-dot.is-current:not(.is-mega) {
+  animation: polish-stage-pulse 2.4s var(--ease-in-out) infinite;
+}
+
+.codex-stage-dot.is-current.is-mega {
+  animation: polish-stage-pulse-mega 2.6s var(--ease-in-out) infinite;
+}
+
+@keyframes polish-stage-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 18%, transparent);
+  }
+
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in oklab, var(--brand) 8%, transparent);
+  }
+}
+
+@keyframes polish-stage-pulse-mega {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px color-mix(in oklab, var(--warn) 20%, transparent),
+      0 0 18px color-mix(in oklab, var(--warn) 32%, transparent),
+      inset 0 0 0 1px rgb(255 255 255 / 42%);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 5px color-mix(in oklab, var(--warn) 10%, transparent),
+      0 0 26px color-mix(in oklab, var(--warn) 42%, transparent),
+      inset 0 0 0 1px rgb(255 255 255 / 50%);
+  }
+}
+
+/* ---------- Layer 4 · Setup scene ----------
+ * The webapp's mode cards are glass floating on the hero art. We keep the
+ * repo's standing rule that blur belongs to the round card alone — the
+ * backdrop pans, and a scrolling page must not stack compositing passes over
+ * it — so the glass is built from fill, stroke and inset light instead.
+ */
+.mode-choice-card,
+.segmented-choice button,
+.voice-choice button,
+.toggle-chip {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 14%);
+}
+
+.mode-choice-card[aria-pressed='true'],
+.segmented-choice button[aria-pressed='true'],
+.voice-choice button[aria-pressed='true'],
+.toggle-chip[aria-pressed='true'] {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--brand) 16%, transparent) 0%,
+    transparent 76%
+  );
+  box-shadow:
+    inset 0 0 0 0.12rem var(--brand),
+    inset 0 1px 0 rgb(255 255 255 / 26%),
+    0 6px 18px -8px color-mix(in oklab, var(--brand) 45%, transparent);
+}
+
+/* The mode thumbnail is a picture on a card, so it takes a picture's frame. */
+.mode-choice-thumb {
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 22%),
+    0 5px 5px -3px rgb(14 24 38 / 24%);
+}
+
+.voice-symbol,
+.feedback-symbol,
+.audio-state-icon,
+.word-stage,
+.summary-medal {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 26%);
+}
+
+/* Setup copy stands directly on the art, so on a dark region it takes the
+   same lift the hero and summary already get. text-shadow inherits, so one
+   selector carries the whole scene. */
+.product-app[data-hero-tone='2'] .setup-card,
+.product-app[data-hero-tone='3'] .setup-card {
+  text-shadow: 0 1px 16px rgb(0 0 0 / 58%);
+}
+
+/* ---------- Layer 4 · The spelling itself ----------
+ * The web session sets the word on a single ruled line rather than in a box:
+ * the card is already the container, so a second frame around the field only
+ * competes with it. The rule turns brand under the cursor. Focus keeps the
+ * global halo — the webapp drops it, and on a phone that is one affordance
+ * too few. */
+.answer-form input {
+  border: 0;
+  border-bottom: 2.5px solid var(--line-strong);
+  border-radius: 0;
+  padding: 0.75rem 1rem 1rem;
+  background: transparent;
+  text-align: center;
+}
+
+.answer-form input:focus,
+.answer-form input:focus-visible {
+  border-bottom-color: var(--brand);
+}
+
+.answer-form input:disabled {
+  border-bottom-style: dashed;
+  opacity: 0.7;
+}
+
 /* The medal reads as struck metal rather than a filled circle. */
 .summary-medal {
   box-shadow:

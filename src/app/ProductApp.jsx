@@ -46,6 +46,10 @@ const VOICES = Object.freeze([
   }),
 ]);
 const ROUND_LENGTHS = Object.freeze([5, 10, 20]);
+
+/* The codex growth track: five stages, the last of which is the mega form. */
+const CODEX_STAGES = Object.freeze([1, 2, 3, 4, 5]);
+const CODEX_FINAL_STAGE = 5;
 // The web session scene carries the same disclosure under its voice controls.
 const VOICE_NOTE = 'AI-generated dictation voice';
 // Home and setup sit in the daylight Downs; the round walks tone 1 → 3.
@@ -2099,6 +2103,22 @@ function CodexScreen({ monsters, onBack }) {
                 />
                 <strong>{entry.name}</strong>
                 <small>Stage {entry.stage}</small>
+                {/* The growth track the web codex card carries. The stage is
+                    already named above for assistive tech, so the dots are
+                    decoration and stay hidden from it. */}
+                <span className="codex-stage-track" aria-hidden="true">
+                  {CODEX_STAGES.map((stage) => (
+                    <span
+                      key={stage}
+                      className={[
+                        'codex-stage-dot',
+                        stage <= entry.stage ? 'is-lit' : '',
+                        stage === entry.stage ? 'is-current' : '',
+                        stage === CODEX_FINAL_STAGE ? 'is-mega' : '',
+                      ].filter(Boolean).join(' ')}
+                    />
+                  ))}
+                </span>
               </button>
             </li>
           );

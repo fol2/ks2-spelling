@@ -429,11 +429,100 @@ h1 {
   outline-offset: 0.2rem;
 }
 
-.product-page > *,
-.practice-page > * {
+.product-page,
+.practice-page {
+  position: relative;
+}
+
+.product-page > *:not(.hero-backdrop),
+.practice-page > *:not(.hero-backdrop) {
+  position: relative;
+  z-index: 1;
   width: min(100%, 68rem);
   margin-right: auto;
   margin-left: auto;
+}
+
+.product-app > .hero-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.product-app .hero-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--hero-bg, none) center 42% / cover no-repeat;
+  pointer-events: none;
+}
+
+.product-app .hero-art.pan {
+  animation: hero-pan 96s ease-in-out var(--hero-pan-delay, 0s) infinite alternate;
+  will-change: background-position;
+}
+
+.product-app .hero-backdrop .hero-layer {
+  opacity: 0;
+  transition: opacity 880ms ease-in-out;
+}
+
+.product-app .hero-backdrop .hero-layer.is-entering {
+  opacity: 1;
+  animation:
+    hero-pan 96s ease-in-out var(--hero-pan-delay, 0s) infinite alternate,
+    hero-dissolve-in 880ms ease-in-out 0s both;
+}
+
+.product-app .hero-backdrop .hero-layer.is-active {
+  opacity: 1;
+}
+
+.product-app .hero-backdrop .hero-layer.is-exiting {
+  opacity: 0;
+  animation:
+    hero-pan 96s ease-in-out var(--hero-pan-delay, 0s) infinite alternate,
+    hero-dissolve-out 880ms ease-in-out 0s both;
+}
+
+@keyframes hero-pan {
+  from { background-position: 0% 42%; }
+  to { background-position: 100% 42%; }
+}
+
+@keyframes hero-dissolve-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes hero-dissolve-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Tone contrast for chrome sitting directly on the backdrop. Card surfaces
+   keep the default ink tokens untouched — only shell text swaps, so no
+   component can inherit unreadable ink by omission. Correctness colours and
+   --focus stay fixed per the V2 authority. */
+.product-app {
+  --hero-shell-ink: var(--ink);
+  --hero-shell-ink-soft: var(--ink-soft);
+}
+
+.product-app[data-hero-tone='2'],
+.product-app[data-hero-tone='3'] {
+  --hero-shell-ink: #fff9ec;
+  --hero-shell-ink-soft: rgb(255 248 233 / 88%);
+}
+
+.product-app[data-hero-tone='2'] .product-topbar,
+.product-app[data-hero-tone='3'] .product-topbar,
+.product-app[data-hero-tone='2'] .practice-progress p,
+.product-app[data-hero-tone='3'] .practice-progress p {
+  color: var(--hero-shell-ink);
+  text-shadow: 0 1px 16px rgb(0 0 0 / 58%);
 }
 
 .product-topbar {
@@ -1555,6 +1644,12 @@ h1 {
   .product-app *::before,
   .product-app *::after {
     scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .product-app .hero-art.pan,
+  .product-app .hero-backdrop .hero-layer {
     animation: none !important;
     transition: none !important;
   }

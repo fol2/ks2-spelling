@@ -62,6 +62,7 @@ export const C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
   'generate:starter-audio': 'node scripts/generate-starter-audio.mjs',
   'verify:starter-audio': 'node scripts/generate-starter-audio.mjs --check',
   'verify:starter-pack': 'node scripts/build-starter-pack.mjs',
+  'verify:art': 'node scripts/verify-vendored-art.mjs',
 });
 
 // SDLC velocity tier (2026-07-22): the local fast-test daily loop and pre-push

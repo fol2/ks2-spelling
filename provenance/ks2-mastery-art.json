@@ -1,0 +1,341 @@
+{
+  "authority": "C6.1 vendored ks2-mastery art slice",
+  "extraction": "Exact bytes extracted from the frozen upstream commit via git show; no upstream worktree files.",
+  "upstreamRepository": "https://github.com/fol2/ks2-mastery.git",
+  "upstreamCommit": "3be4e7ad205bad7691edcce22f579ccc5fa6aa06",
+  "fileCount": 55,
+  "totalBytes": 5469658,
+  "totalBytesBudget": 6291456,
+  "files": [
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-a1.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-a1.1280.webp",
+      "sha256": "2a930afe6e5c221abe1a275bb17ed761e17aae194856b718cfb114784199f245",
+      "bytes": 131392
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-a2.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-a2.1280.webp",
+      "sha256": "cb27fd68a7cac58365236b23985fc8998021caedd09c94a5d178efc1e91580c7",
+      "bytes": 118936
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-a3.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-a3.1280.webp",
+      "sha256": "7446df9cee0d9b253be82bfbea071d4b78a2f8530d14212988ac9888fe8c7a79",
+      "bytes": 145492
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-b1.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-b1.1280.webp",
+      "sha256": "4ad6998c14bf6a0059884fdd9d08c1b56587ea6bea3f947ead9c5b5f2cef07ee",
+      "bytes": 137946
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-b2.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-b2.1280.webp",
+      "sha256": "24e0cec44254dc2cfd4ce2c2a2ad99d2df4175a03bbe09d13eb0ea8a8f8e3cea",
+      "bytes": 95020
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-b3.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-b3.1280.webp",
+      "sha256": "4bb6ad06d74cb6b988da90c15f650cdbd1409a881619626329485a1144fbe6d3",
+      "bytes": 126178
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-c1.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-c1.1280.webp",
+      "sha256": "58ce66ce95de5962a4c7a146aba2cf74bbf12c2804f65f021351801632a80e7a",
+      "bytes": 154762
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-c2.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-c2.1280.webp",
+      "sha256": "2ac13817e962e913a381a0844ae924674d976526339b764be4079ce87d6374cc",
+      "bytes": 142938
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-c3.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-c3.1280.webp",
+      "sha256": "c0a706a976b339cc9bf5abd0bea25c43e2d66bcdf91f9ec14707c91fdade6c26",
+      "bytes": 120858
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-d1.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-d1.1280.webp",
+      "sha256": "6b5d7fc76b680a17ae0c7bd60c0601515f17289fa16550e01bf0f9c1286475cd",
+      "bytes": 114320
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-d2.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-d2.1280.webp",
+      "sha256": "968d8f7e125e866636ce0270434b78f9a8d46fd3f9298576285334536d9293b6",
+      "bytes": 122884
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-d3.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-d3.1280.webp",
+      "sha256": "396b42f6cce21f55b3650a4321e7e8d512e460cac00b8b82eebb559d63ce8461",
+      "bytes": 124658
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-e1.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-e1.1280.webp",
+      "sha256": "48945559d110f856516f29cb9a0db59ffb0d6fc2d8d2fe841c1a745e57b8e31a",
+      "bytes": 146172
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-e2.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-e2.1280.webp",
+      "sha256": "44841f6f477ea8b42e2b980eafab1ce5e2abea8b3fbb4051592c721e37f87cc6",
+      "bytes": 150700
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-e3.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-e3.1280.webp",
+      "sha256": "11491519a6fc38eae5362c92e1835721ba71a739fe592b307a3befb9182a2c08",
+      "bytes": 166282
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b1/inklet-b1-0.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b1/inklet-b1-0.640.webp",
+      "sha256": "0389e4d976aef014aab65a1b090e5dd0ab1f91f5e51c83314f00d77debe6e43c",
+      "bytes": 55864
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b1/inklet-b1-1.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b1/inklet-b1-1.640.webp",
+      "sha256": "09e86f8eaf9b5bf86208c646e1c3e7273fb7128d31b2f6b10b3de996dc31cf85",
+      "bytes": 49218
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b1/inklet-b1-2.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b1/inklet-b1-2.640.webp",
+      "sha256": "ce16d25bb0d86358ee118e8d54b86f40501cf0f15d9cf096461226f0eb52d4b7",
+      "bytes": 67974
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b1/inklet-b1-3.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b1/inklet-b1-3.640.webp",
+      "sha256": "0eaef25da2f5b486461a3853382aa7062225fd8bdca357c0e009f9d1b8b0eb3c",
+      "bytes": 93580
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b1/inklet-b1-4.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b1/inklet-b1-4.640.webp",
+      "sha256": "876723235a1e2dc263d0d407c3ce783d6319f2bb070d098a61be33970bc7e04f",
+      "bytes": 109386
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b2/inklet-b2-0.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b2/inklet-b2-0.640.webp",
+      "sha256": "b531020de1ddaabbaba23abf7e8ca8c156759f1cf79fe3596f5d16df5cd61c49",
+      "bytes": 56500
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b2/inklet-b2-1.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b2/inklet-b2-1.640.webp",
+      "sha256": "2320999ddc2bd6c1834934064e1521927bdbe16aa35a7b70c8486256c2f24284",
+      "bytes": 46496
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b2/inklet-b2-2.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b2/inklet-b2-2.640.webp",
+      "sha256": "c249a361db1d86d958720dbfe6f1f2721c24cf17c44b4529ba7cb1fb5298b9ee",
+      "bytes": 68016
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b2/inklet-b2-3.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b2/inklet-b2-3.640.webp",
+      "sha256": "f63da2de41946db4df1b550b6e0754d78848560ad43a14151eefd129d0eeb3e3",
+      "bytes": 109234
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b2/inklet-b2-4.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b2/inklet-b2-4.640.webp",
+      "sha256": "50dae7168363a5f4ab0563883cc6c8f12818bc89d44cb9e2710f1956e47173d0",
+      "bytes": 157406
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b1/glimmerbug-b1-0.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b1/glimmerbug-b1-0.640.webp",
+      "sha256": "69c873a0167ffea8b475ed819da84cc0b22d38e638dc806ef3b295e52a62c652",
+      "bytes": 72780
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b1/glimmerbug-b1-1.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b1/glimmerbug-b1-1.640.webp",
+      "sha256": "b3372342415855caf75dae2a8396bc9153164742a86dda872c637fab76857b06",
+      "bytes": 68678
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b1/glimmerbug-b1-2.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b1/glimmerbug-b1-2.640.webp",
+      "sha256": "2faa6d1aa8552e9657d2f1f83316aaef754056156e9207117f32c8f92f53dd73",
+      "bytes": 102472
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b1/glimmerbug-b1-3.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b1/glimmerbug-b1-3.640.webp",
+      "sha256": "e7ce24104bb2a4a10b7c6abcab15c64676be23e3cfd6427e1e140a199ca419aa",
+      "bytes": 98898
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b1/glimmerbug-b1-4.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b1/glimmerbug-b1-4.640.webp",
+      "sha256": "dbf33c9ecf6b40381f732d274e88b5a2de0d4459965efa2adfc5f746948d3c00",
+      "bytes": 122422
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b2/glimmerbug-b2-0.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b2/glimmerbug-b2-0.640.webp",
+      "sha256": "e988a051d0fe3c9ffceffa10300a9fafed197240fa6e4bbcec966285c41f1a42",
+      "bytes": 73558
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b2/glimmerbug-b2-1.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b2/glimmerbug-b2-1.640.webp",
+      "sha256": "1df6458cbb2d12812b81748a0cd16ff4ffd7bb63cdc6f90314d28d3898297f43",
+      "bytes": 84160
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b2/glimmerbug-b2-2.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b2/glimmerbug-b2-2.640.webp",
+      "sha256": "4629a0ecd031db2688fff7cc1a5176d9aad603f64bde821d040d8c77e790f259",
+      "bytes": 112238
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b2/glimmerbug-b2-3.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b2/glimmerbug-b2-3.640.webp",
+      "sha256": "c8b993e261f8b36e00420ac9add1ed0f30f4d1a1a687dccc07a23e075090348d",
+      "bytes": 130936
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b2/glimmerbug-b2-4.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b2/glimmerbug-b2-4.640.webp",
+      "sha256": "483852f9bb8a4df54b3f20e2ee2389f817796c1431857d71750373bb755ae84c",
+      "bytes": 118024
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b1/vellhorn-b1-0.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b1/vellhorn-b1-0.640.webp",
+      "sha256": "6c98648d845dfafdfa9679b408ff12e6e4cfaac94c8f29cc889a5e568c1561f0",
+      "bytes": 61708
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b1/vellhorn-b1-1.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b1/vellhorn-b1-1.640.webp",
+      "sha256": "47cf003241bc24ee1cac6480e65627e4fe6e831cf9a79b2773cde74beaca16d7",
+      "bytes": 51578
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b1/vellhorn-b1-2.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b1/vellhorn-b1-2.640.webp",
+      "sha256": "2fadb20f93df88e9b59fcc98042603e4c3d67479132fcc02ba8a1bc372375b5e",
+      "bytes": 67006
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b1/vellhorn-b1-3.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b1/vellhorn-b1-3.640.webp",
+      "sha256": "63fbec4b616bfee52d019f3d81fc2ba3c85fd5e83e0ae551381324b33e863fb3",
+      "bytes": 89530
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b1/vellhorn-b1-4.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b1/vellhorn-b1-4.640.webp",
+      "sha256": "ff06f73a19fc313a9fed86813b59a44f5974b162b482bb4dfbb001fada25e321",
+      "bytes": 109994
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b2/vellhorn-b2-0.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b2/vellhorn-b2-0.640.webp",
+      "sha256": "232ae3c01158f76cc80ef372714528e713399cbd480a270e8989b6a691341797",
+      "bytes": 53970
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b2/vellhorn-b2-1.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b2/vellhorn-b2-1.640.webp",
+      "sha256": "36cb7c2ab4e2e14369f567d93c1498a8a42100d6f572e75183a3320304e87909",
+      "bytes": 44088
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b2/vellhorn-b2-2.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b2/vellhorn-b2-2.640.webp",
+      "sha256": "4dad78037a82c260da142a395481b99a40b7c2677ea620e59956881935e61488",
+      "bytes": 66172
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b2/vellhorn-b2-3.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b2/vellhorn-b2-3.640.webp",
+      "sha256": "c43f4c768b9d5f96e95c6dfecdb546adf54eb344679547bfabe6629163df9c22",
+      "bytes": 82186
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b2/vellhorn-b2-4.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b2/vellhorn-b2-4.640.webp",
+      "sha256": "e491d55dfcd0c3754f7569551f39ed93ef50f68129898531a7ee56c23561583c",
+      "bytes": 101950
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b1/phaeton-b1-0.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b1/phaeton-b1-0.640.webp",
+      "sha256": "39bab4788e3b5ea2d337ae23a3542a276861893c2956f020fdfa5d45cccea087",
+      "bytes": 59062
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b1/phaeton-b1-1.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b1/phaeton-b1-1.640.webp",
+      "sha256": "1fe52d1f74684c1b21587aa859aa1e29317a820d3def7c2dc2a2f7ae19ffb19d",
+      "bytes": 49994
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b1/phaeton-b1-2.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b1/phaeton-b1-2.640.webp",
+      "sha256": "67713c723d09c75db0a6e7464c10c6811c0ac48a0a26417009cf7fa47efb864c",
+      "bytes": 89538
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b1/phaeton-b1-3.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b1/phaeton-b1-3.640.webp",
+      "sha256": "8674fbdc5133fed12fa4299ac9a139b712e7c43e178b2c459d7489b0bb076ab1",
+      "bytes": 112456
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b1/phaeton-b1-4.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b1/phaeton-b1-4.640.webp",
+      "sha256": "978217d8940566deffbfd73779c4f680047f66d946876b9ccdb436b9a89490be",
+      "bytes": 121150
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b2/phaeton-b2-0.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b2/phaeton-b2-0.640.webp",
+      "sha256": "e34ccc9bf5f6597ea91cbbcd2525585dc8201a985cffbeb7b5cae3952af13b04",
+      "bytes": 74908
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b2/phaeton-b2-1.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b2/phaeton-b2-1.640.webp",
+      "sha256": "24f763820c1bb595474c62fb975481d0df7bcc801e8c25f2d92503662a98a22e",
+      "bytes": 57760
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b2/phaeton-b2-2.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b2/phaeton-b2-2.640.webp",
+      "sha256": "779cf4b6889696d6517a28621d51b44b0158c94dd552052b799b919a6673d74a",
+      "bytes": 99654
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b2/phaeton-b2-3.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b2/phaeton-b2-3.640.webp",
+      "sha256": "8d1cb566d38e21ab4f4556cc946dcc834cfd3bbde2b4baa28b7b523de1e85938",
+      "bytes": 130114
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b2/phaeton-b2-4.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b2/phaeton-b2-4.640.webp",
+      "sha256": "477ce08cc11f4ca0cc48874b2799360e44cc00328db849548187273359625df6",
+      "bytes": 150462
+    }
+  ]
+}

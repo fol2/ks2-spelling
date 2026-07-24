@@ -571,6 +571,7 @@ export async function buildAndroidCertification({
     'android/gradle/dependency-locks/capacitor-app.lockfile',
     'android/gradle/dependency-locks/capacitor-community-sqlite.lockfile',
     'android/gradle/dependency-locks/capacitor-cordova-android-plugins.lockfile',
+    'android/gradle/dependency-locks/capacitor-haptics.lockfile',
   ];
   const inputs = await Promise.all(
     [

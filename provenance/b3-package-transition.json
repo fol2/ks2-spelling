@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "frozenB2Commit": "39ef90a5a33efb41368272c4c6d4d002f04658b3",
   "approvedPlanPath": "docs/superpowers/plans/2026-07-12-standalone-spelling-mobile-b3-sandbox-billing-signed-download-proof.md",
   "approvedB4PlanPath": "docs/superpowers/plans/2026-07-18-standalone-spelling-mobile-b4-capacitor-development-certification.md",
@@ -34,6 +34,10 @@
     "test:changed": "files=$(git diff --name-only --diff-filter=ACMR HEAD -- 'tests/*.test.mjs'); [ -n \"$files\" ] && node --test $files || echo 'no changed tests'",
     "hooks:install": "git config core.hooksPath scripts/git-hooks"
   },
+  "allowedPackageDependencyAdditions": {
+    "@capacitor/haptics": "8.0.2",
+    "phaser": "4.1.0"
+  },
   "protectedCurrentFiles": [
     {
       "path": "scripts/build-b2-native-plugin-report.mjs",
@@ -49,7 +53,7 @@
     },
     {
       "path": "tests/b2-native-plugin-build-policy.test.mjs",
-      "sha256": "7bc98e0cd2348a41107b4ca0ede2531b747aee34bfcf24e7eade7f4bd0c98419"
+      "sha256": "f0488eda1e67f90765a158a0df0175792238c0e8c687f1664cef8665cd1e5647"
     }
   ]
 }

@@ -6,6 +6,11 @@ import {
   heroPreloadUrlsForMode,
   heroToneForProgress,
 } from './backdrop-model.js';
+import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
+import {
+  diffMonsterCelebrations,
+  secureWordDelta,
+} from './celebrations/celebration-model.js';
 import { autoAdvanceDelayMs } from './practice-feel.js';
 
 const VOICES = Object.freeze([
@@ -1396,6 +1401,7 @@ function PracticeScreen({
   audioState,
   voiceId,
   audio,
+  haptics,
   onSubmit,
   onContinue,
   onEnd,
@@ -1486,6 +1492,13 @@ function PracticeScreen({
     if (!practice?.runtimeItemId || practice.awaitingAdvance) return;
     answerInputRef.current?.focus();
   }, [practice?.sessionId, practice?.runtimeItemId, practice?.awaitingAdvance]);
+
+  const feedbackKind = practice?.feedback?.kind ?? null;
+  useEffect(() => {
+    if (feedbackKind === 'success') haptics?.answerCorrect();
+    // haptics is an injected fire-and-forget adapter; identity is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feedbackKind, practice?.runtimeItemId]);
 
   if (!practice) return null;
   const practiceMode = practice.mode || 'smart';
@@ -1681,7 +1694,15 @@ function PracticeScreen({
   );
 }
 
-function SummaryScreen({ summary, monster, onScreen }) {
+function SummaryScreen({
+  summary,
+  monster,
+  celebrationEvents,
+  secureGain,
+  haptics,
+  onCelebrationDone,
+  onScreen,
+}) {
   const practiceMode = summary?.mode || 'smart';
   const heroTone = '3';
   const heroUrl = heroBgForMode(practiceMode, {
@@ -1695,6 +1716,11 @@ function SummaryScreen({ summary, monster, onScreen }) {
       data-hero-tone={heroTone}
     >
       <HeroBackdrop url={heroUrl} />
+      <CelebrationLayer
+        events={celebrationEvents}
+        haptics={haptics}
+        onDone={onCelebrationDone}
+      />
       <ProductTopBar title="Results" />
       <section className="summary-hero">
         <div className="summary-medal" aria-hidden="true">✓</div>
@@ -1718,6 +1744,11 @@ function SummaryScreen({ summary, monster, onScreen }) {
         <div>
           <h2>Inklet noticed your practice</h2>
           <p>{monster?.secureCount ?? 0} secure words are now helping Inklet grow.</p>
+          {secureGain > 0 && (
+            <p className="reward-secure-toast" role="status" aria-live="polite">
+              {`+${secureGain} words secure`}
+            </p>
+          )}
         </div>
       </section>
       <div className="summary-actions">
@@ -1857,12 +1888,24 @@ export default function ProductApp({ services }) {
   );
   const [parentOpen, setParentOpen] = useState(false);
   const [voiceId, setVoiceId] = useState('Iapetus');
+  const [celebrationEvents, setCelebrationEvents] = useState([]);
+  const [secureGain, setSecureGain] = useState(0);
   const learningScreenRef = useRef(learningState.screen);
+  const monstersAtRoundStartRef = useRef(null);
 
   useEffect(() => {
     const profileSubscription = services.controller.subscribe(setProfileState);
     const learningSubscription = services.learning.subscribe((next) => {
-      const screenChanged = learningScreenRef.current !== next.screen;
+      const previousScreen = learningScreenRef.current;
+      const screenChanged = previousScreen !== next.screen;
+      if (previousScreen !== 'practice' && next.screen === 'practice') {
+        monstersAtRoundStartRef.current = next.monsters;
+      }
+      if (previousScreen !== 'summary' && next.screen === 'summary') {
+        const before = monstersAtRoundStartRef.current ?? [];
+        setCelebrationEvents(diffMonsterCelebrations(before, next.monsters));
+        setSecureGain(secureWordDelta(before, next.monsters));
+      }
       learningScreenRef.current = next.screen;
       if (screenChanged) {
         runViewTransition(() => setLearningState(next));
@@ -1995,6 +2038,7 @@ export default function ProductApp({ services }) {
         audioState={audioState}
         voiceId={voiceId}
         audio={services.audio}
+        haptics={services.haptics}
         onSubmit={(typed) => services.learning.submitAnswer(typed)}
         onContinue={() => services.learning.continueRound()}
         onEnd={() => services.learning.endRound()}
@@ -2008,6 +2052,10 @@ export default function ProductApp({ services }) {
       <SummaryScreen
         summary={learningState.summary}
         monster={learningState.monsters[0]}
+        celebrationEvents={celebrationEvents}
+        secureGain={secureGain}
+        haptics={services.haptics}
+        onCelebrationDone={() => setCelebrationEvents([])}
         onScreen={showScreen}
       />
     );

@@ -86,7 +86,7 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
   assert.equal(report.schemaVersion, 2);
   assert.equal(report.mode, 'pre-bootstrap');
   assert.equal(report.androidResolution, 'pending-toolchain');
-  assert.equal(report.npm.production.length, 36);
+  assert.equal(report.npm.production.length, 37);
   assert.equal(report.npm.directBuildTools.length, 4);
   assert.ok(report.npm.lockPackageCount >= 150);
   for (const dependency of [
@@ -117,6 +117,7 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
     [
       '@capacitor-community/sqlite',
       '@capacitor/app',
+      '@capacitor/haptics',
       'app-owned-commerce-bridge',
       'app-owned-pack-transfer-bridge',
       'app-owned-parent-access-bridge',

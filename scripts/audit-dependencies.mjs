@@ -60,6 +60,7 @@ const EXPECTED_WEBVIEW_BUNDLE_PACKAGES = Object.freeze([
   '@capacitor-community/sqlite',
   '@capacitor/app',
   '@capacitor/core',
+  '@capacitor/haptics',
   'react',
   'react-dom',
   'scheduler',
@@ -68,6 +69,7 @@ const NATIVE_BUILD_SOURCE_NPM_PACKAGES = new Set([
   '@capacitor-community/sqlite',
   '@capacitor/android',
   '@capacitor/app',
+  '@capacitor/haptics',
   '@capacitor/ios',
 ]);
 
@@ -212,14 +214,18 @@ export async function resolveIosPackagedPrivacyManifestEvidence({
   return committed;
 }
 
-export function assertWebViewBundleEvidenceCurrent(actual, committed) {
+export function assertWebViewBundleEvidenceCurrent(
+  actual,
+  committed,
+  expectedPackages = EXPECTED_WEBVIEW_BUNDLE_PACKAGES,
+) {
   if (exactJson(actual) !== exactJson(committed)) {
     throw policyError(
       'webview_bundle_evidence_drift',
       'Committed WebView bundle module evidence does not match the fresh write-false build',
     );
   }
-  if (exactJson(actual?.packageNames) !== exactJson(EXPECTED_WEBVIEW_BUNDLE_PACKAGES)) {
+  if (exactJson(actual?.packageNames) !== exactJson(expectedPackages)) {
     throw policyError(
       'webview_bundle_evidence_drift',
       'WebView bundle npm package set requires explicit policy review',
@@ -568,6 +574,7 @@ async function verifyRuntimeBoundary(packageJson) {
     '@capacitor/android',
     '@capacitor/app',
     '@capacitor/core',
+    '@capacitor/haptics',
     '@capacitor/ios',
   ]);
   const unexpectedPlugins = Object.keys(packageJson.dependencies ?? {}).filter(
@@ -646,7 +653,7 @@ async function verifyRuntimeBoundary(packageJson) {
     .sort();
   if (
     JSON.stringify(generatedProjects) !==
-      JSON.stringify([':capacitor-app', ':capacitor-community-sqlite']) ||
+      JSON.stringify([':capacitor-app', ':capacitor-community-sqlite', ':capacitor-haptics']) ||
     /\b(?:api|classpath)\b/.test(generatedDependencies)
   ) {
     throw policyError('unapproved_native_plugin', 'Generated Android plugin dependency drifted');
@@ -657,7 +664,7 @@ async function verifyRuntimeBoundary(packageJson) {
   );
   if (
     products.join(',') !==
-    'Capacitor,Cordova,CapacitorCommunitySqlite,CapacitorApp'
+    'Capacitor,Cordova,CapacitorCommunitySqlite,CapacitorApp,CapacitorHaptics'
   ) {
     throw policyError('unapproved_native_plugin', `Unexpected iOS products: ${products.join(',')}`);
   }

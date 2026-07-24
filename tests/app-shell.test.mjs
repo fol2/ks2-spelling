@@ -472,11 +472,48 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(homeHtml, /Hi Ada — ready for a short round\?/);
   assert.match(homeHtml, /Today&#x27;s words are <em>waiting\.<\/em>/);
   assert.match(homeHtml, /Start a Smart Review/);
-  assert.match(homeHtml, /Inklet/);
+  assert.match(homeHtml, /Nothing caught yet/);
+  assert.match(homeHtml, /meadow stays tidy/);
+  assert.match(homeHtml, /Codex/);
+  assert.match(homeHtml, /Your creatures/);
   assert.match(homeHtml, /Listening pack needs setup/);
   assert.match(homeHtml, /Progress/);
   assert.match(homeHtml, /Camp/);
   assert.doesNotMatch(homeHtml, /buy|restore|price|commerce/i);
+
+  learningState = Object.freeze({
+    ...learningState,
+    screen: 'home',
+    monsters: Object.freeze([Object.freeze({
+      rewardTrackId: 'spelling-core-inklet',
+      packId: 'ks2-core',
+      monsterId: 'inklet',
+      thresholds: Object.freeze([1, 10, 30, 60, 100]),
+      branch: 'b1',
+      secureCount: 1,
+      caught: true,
+      derivedStage: 0,
+      earnedStageHighWater: 0,
+    })]),
+  });
+  const meadowHtml = render();
+  assert.match(meadowHtml, /monster-meadow/);
+  assert.match(meadowHtml, /Inklet/);
+  assert.match(meadowHtml, /Glimmerbug locked/);
+  assert.match(meadowHtml, /Phaeton locked/);
+  assert.doesNotMatch(meadowHtml, /buy|restore|price|commerce/i);
+
+  learningState = Object.freeze({
+    ...learningState,
+    screen: 'monster',
+  });
+  const codexHtml = render();
+  assert.match(codexHtml, /Your spelling creatures/);
+  assert.match(codexHtml, /Unknown creature/);
+  assert.match(codexHtml, /Locked/);
+  assert.match(codexHtml, /Meet Inklet/);
+  assert.match(codexHtml, /codex-card is-locked/);
+  assert.doesNotMatch(codexHtml, /Buy Full KS2|buy|restore|price|commerce/i);
 
   learningState = Object.freeze({
     ...learningState,

@@ -18,13 +18,19 @@ import { dueCopy, heroWelcomeLine } from './hero-copy.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
   diffMonsterCelebrations,
-  monsterDisplayName,
   secureWordDelta,
 } from './celebrations/celebration-model.js';
+import {
+  MEADOW_EMPTY_BODY,
+  MEADOW_EMPTY_TITLE,
+  buildCodexEntries,
+  buildMeadowSlots,
+  pickFeaturedCodexEntry,
+} from './meadow/meadow-model.js';
 import { stageArtUrl } from './monster-stage/monster-stage-model.js';
 import { autoAdvanceDelayMs, roundProgressDots } from './practice-feel.js';
 
-// Phaser + the living Monster Stage load only when the Monster screen mounts.
+// Phaser + the living Monster Stage load only when a caught codex entry is open.
 const MonsterStage = lazy(() => import('./monster-stage/MonsterStage.jsx'));
 
 const VOICES = Object.freeze([
@@ -1118,6 +1124,59 @@ function ProfilePicker({
   );
 }
 
+function MonsterMeadow({ monsters }) {
+  const slots = buildMeadowSlots(monsters);
+  if (slots.length === 0) {
+    return (
+      <div className="monster-meadow-empty" role="status">
+        <strong>{MEADOW_EMPTY_TITLE}</strong>
+        <p>{MEADOW_EMPTY_BODY}</p>
+      </div>
+    );
+  }
+  const caughtCount = slots.filter((slot) => slot.kind === 'caught').length;
+  return (
+    <div
+      className="monster-meadow"
+      aria-label={`${caughtCount} codex creatures in the hero meadow`}
+    >
+      {slots.map((slot) => (
+        <div
+          key={slot.monsterId}
+          className={`meadow-slot is-${slot.kind}`}
+          // Locked Full-pack slots are inert on purpose: purchase stays behind
+          // the existing Parent PIN gate, never on a child-facing tap target.
+          aria-label={
+            slot.kind === 'caught'
+              ? `${slot.name}, stage ${slot.stage}`
+              : `${slot.name} locked`
+          }
+        >
+          <img
+            className="meadow-slot-art"
+            src={slot.artUrl}
+            alt=""
+            width={128}
+            height={128}
+            decoding="async"
+          />
+          {slot.kind === 'caught' ? (
+            <p>
+              <strong>{slot.name}</strong>
+              <span>{slot.secureCount} secure words</span>
+            </p>
+          ) : (
+            <p>
+              <strong>Locked</strong>
+              <span>More of the roster</span>
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ChildHome({
   profile,
   learningState,
@@ -1126,7 +1185,6 @@ function ChildHome({
   onSwitchLearner,
   onRecoverAudio,
 }) {
-  const monster = learningState.monsters[0];
   // Until C7.5 lands a due projection, "due" is the words that wobbled last
   // time — the same signal Trouble Drill already reads.
   const dueCount = learningState.progress.filter(
@@ -1147,13 +1205,7 @@ function ChildHome({
         )}
       />
       <section className="trail-hero">
-        <div className="hero-inklet">
-          <InkletArt stage={monster?.derivedStage ?? 0} />
-          <p>
-            <strong>Inklet</strong>
-            <span>{monster?.secureCount ?? 0} secure words</span>
-          </p>
-        </div>
+        <MonsterMeadow monsters={learningState.monsters} />
         <p className="product-kicker">
           The Scribe Downs · {displayYearGroup(profile.yearGroup)}
         </p>
@@ -1184,10 +1236,10 @@ function ChildHome({
           <strong>Progress</strong>
           <small>{learningState.progress.length} words practised</small>
         </button>
-        <button type="button" onClick={() => onScreen('monster')}>
+        <button type="button" aria-label="Codex" onClick={() => onScreen('monster')}>
           <span aria-hidden="true">✦</span>
-          <strong>Monster</strong>
-          <small>Visit Inklet</small>
+          <strong>Codex</strong>
+          <small>Your creatures</small>
         </button>
         <button type="button" onClick={() => onScreen('camp')}>
           <span aria-hidden="true">⌂</span>
@@ -1970,67 +2022,142 @@ function useReducedMotion() {
   return reduced;
 }
 
-function MonsterScreen({ monster, onBack }) {
+function CodexScreen({ monsters, onBack }) {
   const reducedMotion = useReducedMotion();
-  const monsterId = monster?.monsterId ?? 'inklet';
-  const branch = monster?.branch ?? 'b1';
-  const stage = monster?.derivedStage ?? 0;
-  const secureCount = monster?.secureCount ?? 0;
-  const name = monsterDisplayName(monsterId);
-  const nextThreshold = monster?.thresholds.find(
-    (threshold) => threshold > secureCount,
+  const entries = useMemo(() => buildCodexEntries(monsters), [monsters]);
+  const featured = useMemo(() => pickFeaturedCodexEntry(entries), [entries]);
+  const [selectedId, setSelectedId] = useState(
+    () => featured?.monsterId ?? null,
   );
+  const selected = entries.find(
+    (entry) => entry.monsterId === selectedId && entry.caught,
+  ) ?? featured;
+  const nextThreshold = selected?.thresholds.find(
+    (threshold) => threshold > selected.secureCount,
+  );
+
   return (
-    <main className="product-app product-page companion-page" aria-labelledby="monster-title">
+    <main className="product-app product-page companion-page codex-page" aria-labelledby="codex-title">
       <ProductTopBar
-        title="Monster"
+        title="Codex"
         action={<button type="button" className="topbar-action" onClick={onBack}>Back</button>}
       />
-      <section className="companion-hero">
-        <Suspense
-          fallback={(
-            <div className="monster-stage is-static" aria-hidden="true">
-              <img
-                className="monster-stage-img"
-                src={stageArtUrl(monsterId, branch, stage)}
-                alt=""
-                width={640}
-                height={640}
-                decoding="async"
-              />
-            </div>
-          )}
-        >
-          <MonsterStage
-            monsterId={monsterId}
-            branch={branch}
-            stage={stage}
-            secureCount={secureCount}
-            reducedMotion={reducedMotion}
-          />
-        </Suspense>
-        <p className="product-kicker">Trail companion</p>
-        <h1 id="monster-title">Meet {name}</h1>
+      <section className="page-heading">
+        <p className="product-kicker">Monster roster</p>
+        <h1 id="codex-title">Your spelling creatures</h1>
         <p>
-          {name} grows from secure spelling progress, never from purchases or
-          time spent tapping.
-        </p>
-        <dl>
-          <div>
-            <dt>Secure words</dt>
-            <dd>{secureCount}</dd>
-          </div>
-          <div>
-            <dt>Growth stage</dt>
-            <dd>{stage}</dd>
-          </div>
-        </dl>
-        <p className="next-reward">
-          {nextThreshold
-            ? `${nextThreshold - secureCount} more secure words until the next change.`
-            : `${name} has reached the final Starter stage.`}
+          Caught companions grow from secure spelling progress. Locked slots
+          show more of the roster — they open through play, never through a
+          child-facing purchase.
         </p>
       </section>
+
+      <ul className="codex-grid">
+        {entries.map((entry) => {
+          if (!entry.caught) {
+            return (
+              <li
+                key={entry.monsterId}
+                className="codex-card is-locked"
+                // Inert on purpose: Full KS2 purchase stays in the Parent
+                // area behind the existing PIN gate.
+                aria-label={entry.imageAlt}
+              >
+                <img
+                  className="codex-card-art"
+                  src={entry.artUrl}
+                  alt=""
+                  width={160}
+                  height={160}
+                  decoding="async"
+                />
+                <strong>Unknown creature</strong>
+                <small>Locked</small>
+              </li>
+            );
+          }
+          const selectedCaught = selected?.monsterId === entry.monsterId;
+          return (
+            <li key={entry.monsterId}>
+              <button
+                type="button"
+                className={`codex-card is-caught${selectedCaught ? ' is-selected' : ''}`}
+                aria-pressed={selectedCaught}
+                aria-label={`View ${entry.name}`}
+                onClick={() => setSelectedId(entry.monsterId)}
+              >
+                <img
+                  className="codex-card-art"
+                  src={entry.artUrl}
+                  alt=""
+                  width={160}
+                  height={160}
+                  decoding="async"
+                />
+                <strong>{entry.name}</strong>
+                <small>Stage {entry.stage}</small>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      {selected ? (
+        <section className="companion-hero" aria-labelledby="codex-stage-title">
+          <Suspense
+            fallback={(
+              <div className="monster-stage is-static" aria-hidden="true">
+                <img
+                  className="monster-stage-img"
+                  src={stageArtUrl(
+                    selected.monsterId,
+                    selected.branch,
+                    selected.stage,
+                  )}
+                  alt=""
+                  width={640}
+                  height={640}
+                  decoding="async"
+                />
+              </div>
+            )}
+          >
+            <MonsterStage
+              monsterId={selected.monsterId}
+              branch={selected.branch}
+              stage={selected.stage}
+              secureCount={selected.secureCount}
+              reducedMotion={reducedMotion}
+            />
+          </Suspense>
+          <p className="product-kicker">Trail companion</p>
+          <h2 id="codex-stage-title">Meet {selected.name}</h2>
+          <p>{selected.blurb}</p>
+          <dl>
+            <div>
+              <dt>Secure words</dt>
+              <dd>{selected.secureCount}</dd>
+            </div>
+            <div>
+              <dt>Growth stage</dt>
+              <dd>{selected.stage}</dd>
+            </div>
+          </dl>
+          <p className="next-reward">
+            {nextThreshold
+              ? `${nextThreshold - selected.secureCount} more secure words until the next change.`
+              : `${selected.name} has reached the final stage on this trail.`}
+          </p>
+        </section>
+      ) : (
+        <section className="paper-card empty-state" role="status">
+          <h2>Codex is empty</h2>
+          <p>
+            Codex is empty. Progress is stored safely. Complete a round to
+            unlock your first entry.
+          </p>
+        </section>
+      )}
     </main>
   );
 }
@@ -2265,8 +2392,8 @@ export default function ProductApp({ services }) {
   }
   if (learningState.screen === 'monster') {
     return (
-      <MonsterScreen
-        monster={learningState.monsters[0]}
+      <CodexScreen
+        monsters={learningState.monsters}
         onBack={() => showScreen('home')}
       />
     );

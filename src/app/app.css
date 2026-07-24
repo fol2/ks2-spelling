@@ -1106,6 +1106,79 @@ h1 {
   margin-top: 0.35rem;
 }
 
+/* Home meadow: caught companions plus inert Full-pack silhouette slots. The
+   empty branch is a status card, not an absolute decorative layer, so it can
+   sit in the hero's normal flow the way the web meadow empty state does. */
+.monster-meadow-empty {
+  width: min(100%, 24rem);
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--hero-panel-line, var(--line));
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  background: var(--hero-panel, var(--paper-raised));
+}
+
+.monster-meadow-empty strong,
+.monster-meadow-empty p {
+  display: block;
+  margin: 0;
+}
+
+.monster-meadow-empty p {
+  margin-top: 0.25rem;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.monster-meadow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  width: min(100%, 24rem);
+  margin-bottom: 1.5rem;
+}
+
+.meadow-slot {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--hero-panel-line, var(--line));
+  border-radius: var(--radius);
+  padding: 0.55rem 0.4rem 0.65rem;
+  background: var(--hero-panel, var(--paper-raised));
+  text-align: center;
+}
+
+.meadow-slot-art {
+  display: block;
+  width: 4.25rem;
+  height: 4.25rem;
+  object-fit: contain;
+}
+
+.meadow-slot.is-locked .meadow-slot-art {
+  filter: brightness(0) opacity(0.42);
+}
+
+.meadow-slot p {
+  margin: 0;
+}
+
+.meadow-slot strong,
+.meadow-slot span {
+  display: block;
+}
+
+.meadow-slot strong {
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+.meadow-slot span {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
 .hero-inklet {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -1794,6 +1867,143 @@ h1 {
 
 .companion-hero .inklet-art {
   width: min(100%, 20rem);
+}
+
+.codex-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.codex-card {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.85rem 0.55rem;
+  color: var(--ink);
+  background: var(--paper-raised);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+button.codex-card {
+  cursor: pointer;
+}
+
+.codex-card.is-selected {
+  border-color: var(--brand);
+  box-shadow: inset 0 0 0 0.12rem var(--brand);
+  background: var(--brand-soft);
+}
+
+.codex-card-art {
+  display: block;
+  width: 5rem;
+  height: 5rem;
+  object-fit: contain;
+}
+
+.codex-card.is-locked .codex-card-art {
+  filter: brightness(0) opacity(0.42);
+}
+
+.codex-card strong,
+.codex-card small {
+  display: block;
+}
+
+.codex-card small {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+
+button.codex-card:hover:not(.is-locked) {
+  border-color: color-mix(in oklab, var(--brand) 52%, var(--line));
+  box-shadow: 
+    0 0 0 1px color-mix(in oklab, var(--brand) 52%, var(--line)),
+    var(--shadow-warm);
+  transform: translateY(-2px);
+}
+
+.codex-card {
+  transition: border-color 200ms ease, box-shadow 200ms ease, 
+    background-color 200ms ease, transform 200ms var(--ease-out);
+  position: relative;
+}
+
+.codex-card.is-locked {
+  cursor: default;
+}
+
+.codex-card.is-locked:hover {
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+  transform: none;
+}
+
+.codex-card.is-caught .codex-card-art {
+  animation: codex-monster-float 5.8s ease-in-out infinite;
+  animation-delay: var(--monster-float-delay, 0s);
+}
+
+@keyframes codex-monster-float {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  36% {
+    transform:
+      translate3d(var(--monster-float-pan-a, 3px), 
+        calc(var(--monster-float-lift-a, 4px) * -1), 0)
+      scale(var(--monster-float-scale-a, 1.008))
+      rotate(var(--monster-float-tilt-a, 0.6deg));
+  }
+  72% {
+    transform:
+      translate3d(var(--monster-float-pan-b, -2px), 
+        calc(var(--monster-float-lift-b, 2px) * -1), 0)
+      scale(var(--monster-float-scale-b, 1.002))
+      rotate(var(--monster-float-tilt-b, -0.3deg));
+  }
+}
+
+@keyframes codex-egg-breathe {
+  0%, 100% { 
+    transform: translateY(0) scale(1); 
+  }
+  50% { 
+    transform: translateY(var(--egg-breathe-lift, -3px)) 
+      scale(var(--egg-breathe-scale, 1.01)); 
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .codex-card {
+    transition: none;
+  }
+  .codex-card.is-caught .codex-card-art {
+    animation: none;
+  }
+}
+
+.codex-page .companion-hero {
+  margin-top: 0.25rem;
+}
+
+.codex-page .companion-hero h2 {
+  margin: 0.15rem 0 0.55rem;
+  font-family: var(--font-serif);
+  font-size: clamp(1.7rem, 5vw, 2.4rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
 }
 
 /* The Monster Stage island: one bounded, presentation-only canvas square. */

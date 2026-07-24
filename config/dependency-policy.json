@@ -19,6 +19,7 @@
     "@capacitor/core": "8.4.1",
     "@capacitor/haptics": "8.0.2",
     "@capacitor/ios": "8.4.1",
+    "phaser": "4.1.0",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },
@@ -282,6 +283,22 @@
       "platform": "Build host",
       "applePrivacyManifest": "Build-only",
       "googleDataSafety": "Build-only"
+    },
+    "phaser": {
+      "role": "bundled WebView presentation runtime for the bounded Monster Stage; lazy-loaded off the launch path",
+      "platform": "WebView",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "Presentation only; no collection or transmission",
+      "sourceRepository": "https://github.com/phaserjs/phaser.git",
+      "restrictedExportClassification": "None identified"
+    },
+    "eventemitter3": {
+      "role": "bundled transitive event emitter required by phaser for the Monster Stage chunk",
+      "platform": "WebView",
+      "applePrivacyManifest": "Not applicable",
+      "googleDataSafety": "No collection or transmission",
+      "sourceRepository": "https://github.com/primus/eventemitter3.git",
+      "restrictedExportClassification": "None identified"
     }
   },
   "spm": [

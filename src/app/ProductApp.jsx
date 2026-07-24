@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { flushSync } from 'react-dom';
 import { HeroBackdrop } from './HeroBackdrop.jsx';
 import {
@@ -9,9 +17,14 @@ import {
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
   diffMonsterCelebrations,
+  monsterDisplayName,
   secureWordDelta,
 } from './celebrations/celebration-model.js';
+import { stageArtUrl } from './monster-stage/monster-stage-model.js';
 import { autoAdvanceDelayMs } from './practice-feel.js';
+
+// Phaser + the living Monster Stage load only when the Monster screen mounts.
+const MonsterStage = lazy(() => import('./monster-stage/MonsterStage.jsx'));
 
 const VOICES = Object.freeze([
   Object.freeze({
@@ -1805,9 +1818,31 @@ function ProgressScreen({ progress, onBack, onStart }) {
   );
 }
 
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(
+    () => typeof matchMedia === 'function'
+      && matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return undefined;
+    const media = matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => setReduced(media.matches);
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, []);
+  return reduced;
+}
+
 function MonsterScreen({ monster, onBack }) {
+  const reducedMotion = useReducedMotion();
+  const monsterId = monster?.monsterId ?? 'inklet';
+  const branch = monster?.branch ?? 'b1';
+  const stage = monster?.derivedStage ?? 0;
+  const secureCount = monster?.secureCount ?? 0;
+  const name = monsterDisplayName(monsterId);
   const nextThreshold = monster?.thresholds.find(
-    (threshold) => threshold > (monster?.secureCount ?? 0),
+    (threshold) => threshold > secureCount,
   );
   return (
     <main className="product-app product-page companion-page" aria-labelledby="monster-title">
@@ -1816,27 +1851,48 @@ function MonsterScreen({ monster, onBack }) {
         action={<button type="button" className="topbar-action" onClick={onBack}>Back</button>}
       />
       <section className="companion-hero">
-        <InkletArt stage={monster?.derivedStage ?? 0} />
+        <Suspense
+          fallback={(
+            <div className="monster-stage is-static" aria-hidden="true">
+              <img
+                className="monster-stage-img"
+                src={stageArtUrl(monsterId, branch, stage)}
+                alt=""
+                width={640}
+                height={640}
+                decoding="async"
+              />
+            </div>
+          )}
+        >
+          <MonsterStage
+            monsterId={monsterId}
+            branch={branch}
+            stage={stage}
+            secureCount={secureCount}
+            reducedMotion={reducedMotion}
+          />
+        </Suspense>
         <p className="product-kicker">Trail companion</p>
-        <h1 id="monster-title">Meet Inklet</h1>
+        <h1 id="monster-title">Meet {name}</h1>
         <p>
-          Inklet grows from secure spelling progress, never from purchases or
+          {name} grows from secure spelling progress, never from purchases or
           time spent tapping.
         </p>
         <dl>
           <div>
             <dt>Secure words</dt>
-            <dd>{monster?.secureCount ?? 0}</dd>
+            <dd>{secureCount}</dd>
           </div>
           <div>
             <dt>Growth stage</dt>
-            <dd>{monster?.derivedStage ?? 0}</dd>
+            <dd>{stage}</dd>
           </div>
         </dl>
         <p className="next-reward">
           {nextThreshold
-            ? `${nextThreshold - (monster?.secureCount ?? 0)} more secure words until the next change.`
-            : 'Inklet has reached the final Starter stage.'}
+            ? `${nextThreshold - secureCount} more secure words until the next change.`
+            : `${name} has reached the final Starter stage.`}
         </p>
       </section>
     </main>

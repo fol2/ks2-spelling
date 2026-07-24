@@ -3,13 +3,13 @@
 This is the deterministic dependency inventory for the B3 compiled sandbox capability. It records package identity, source and declared licence; it is not a substitute for the full licence texts or final store disclosure review.
 
 - Android resolution: `resolved-toolchain`
-- npm lock identities: 190
+- npm lock identities: 192
 - SwiftPM identities: 3
 - Maven selected module identities: 327
 - Maven task-created build-tool identities: 13
 - Maven verification inventory: 442 components and 878 artefacts
-- Notice rows: 533
-- Physically bundled WebView npm packages: @capacitor-community/sqlite, @capacitor/app, @capacitor/core, @capacitor/haptics, react, react-dom, scheduler
+- Notice rows: 535
+- Physically bundled WebView npm packages: @capacitor-community/sqlite, @capacitor/app, @capacitor/core, @capacitor/haptics, phaser, react, react-dom, scheduler
 - Notice inclusion is deliberately conservative and does not mean an npm artefact is packaged
 - App-owned runtime network endpoint: the exact tracked B3 public sandbox gateway origin; store-vendor runtime data-practice and live cloud proof remain separate
 - Native capability: app-owned StoreKit 2 and Play Billing 9.1.0 bridges plus PackTransfer; compiled capability only, not live store proof
@@ -112,6 +112,7 @@ This is the deterministic dependency inventory for the B3 compiled sandbox capab
 | elementtree | 0.1.7 | Apache-2.0 | npm | https://registry.npmjs.org/elementtree/-/elementtree-0.1.7.tgz | node_modules/elementtree | build-tool-not-packaged; packaged=false |
 | emoji-regex | 8.0.0 | MIT | npm | https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz | node_modules/emoji-regex | build-tool-not-packaged; packaged=false |
 | env-paths | 2.2.1 | MIT | npm | https://registry.npmjs.org/env-paths/-/env-paths-2.2.1.tgz | node_modules/env-paths | build-tool-not-packaged; packaged=false |
+| eventemitter3 | 5.0.4 | MIT | npm | https://registry.npmjs.org/eventemitter3/-/eventemitter3-5.0.4.tgz | node_modules/eventemitter3 | installed-not-packaged; packaged=false |
 | fd-slicer | 1.1.0 | MIT | npm | https://registry.npmjs.org/fd-slicer/-/fd-slicer-1.1.0.tgz | node_modules/fd-slicer | build-tool-not-packaged; packaged=false |
 | fdir | 6.5.0 | MIT | npm | https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz | node_modules/fdir | build-tool-not-packaged; packaged=false |
 | fs-extra | 11.3.6 | MIT | npm | https://registry.npmjs.org/fs-extra/-/fs-extra-11.3.6.tgz | node_modules/fs-extra | build-tool-not-packaged; packaged=false |
@@ -161,6 +162,7 @@ This is the deterministic dependency inventory for the B3 compiled sandbox capab
 | path-key | 3.1.1 | MIT | npm | https://registry.npmjs.org/path-key/-/path-key-3.1.1.tgz | node_modules/path-key | build-tool-not-packaged; packaged=false |
 | path-scurry | 2.0.2 | BlueOak-1.0.0 | npm | https://registry.npmjs.org/path-scurry/-/path-scurry-2.0.2.tgz | node_modules/path-scurry | build-tool-not-packaged; packaged=false |
 | pend | 1.2.0 | MIT | npm | https://registry.npmjs.org/pend/-/pend-1.2.0.tgz | node_modules/pend | build-tool-not-packaged; packaged=false |
+| phaser | 4.1.0 | MIT | npm | https://registry.npmjs.org/phaser/-/phaser-4.1.0.tgz | node_modules/phaser | webview-bundle; packaged=true |
 | picocolors | 1.1.1 | ISC | npm | https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz | node_modules/picocolors | build-tool-not-packaged; packaged=false |
 | picomatch | 4.0.5 | MIT | npm | https://registry.npmjs.org/picomatch/-/picomatch-4.0.5.tgz | node_modules/picomatch | build-tool-not-packaged; packaged=false |
 | plist | 3.1.1 | MIT | npm | https://registry.npmjs.org/plist/-/plist-3.1.1.tgz | node_modules/plist | build-tool-not-packaged; packaged=false |

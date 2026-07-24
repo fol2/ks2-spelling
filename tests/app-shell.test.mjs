@@ -16,6 +16,7 @@ const EXPECTED_DIRECT_VERSIONS = Object.freeze({
   '@capacitor/ios': '8.4.1',
   '@vitejs/plugin-react': '6.0.3',
   oxlint: '1.71.0',
+  phaser: '4.1.0',
   react: '19.2.7',
   'react-dom': '19.2.7',
   vite: '8.1.4',

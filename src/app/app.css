@@ -1375,6 +1375,37 @@ h1 {
   width: min(100%, 20rem);
 }
 
+/* The Monster Stage island: one bounded, presentation-only canvas square. */
+.monster-stage {
+  position: relative;
+  width: min(100%, 22rem);
+  min-width: min(100%, 280px);
+  aspect-ratio: 1 / 1;
+  margin: 0 auto 1.35rem;
+  border: 1px solid var(--line);
+  border-radius: clamp(1.4rem, 4vw, 2rem);
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 56%, var(--paper-raised), var(--paper) 74%);
+  box-shadow: inset 0 0 0 1px rgb(255 253 247 / 45%);
+  touch-action: manipulation;
+}
+
+.monster-stage canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.monster-stage-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 6%;
+  box-sizing: border-box;
+  object-fit: contain;
+}
+
 .companion-hero dl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

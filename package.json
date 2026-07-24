@@ -67,6 +67,7 @@
     "@capacitor/core": "8.4.1",
     "@capacitor/haptics": "8.0.2",
     "@capacitor/ios": "8.4.1",
+    "phaser": "4.1.0",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },

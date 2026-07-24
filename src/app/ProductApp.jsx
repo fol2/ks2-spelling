@@ -6,6 +6,7 @@ import {
   heroPreloadUrlsForMode,
   heroToneForProgress,
 } from './backdrop-model.js';
+import { autoAdvanceDelayMs } from './practice-feel.js';
 
 const VOICES = Object.freeze([
   Object.freeze({
@@ -1405,6 +1406,8 @@ function PracticeScreen({
   const [confirmExit, setConfirmExit] = useState(false);
   const [exitError, setExitError] = useState('');
   const [leaving, setLeaving] = useState(false);
+  const answerInputRef = useRef(null);
+  const advanceTimerRef = useRef(null);
   const closeExit = useCallback(() => {
     setExitError('');
     setConfirmExit(false);
@@ -1445,6 +1448,45 @@ function PracticeScreen({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioRequest]);
 
+  useEffect(() => {
+    if (advanceTimerRef.current != null) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+    if (!practice?.awaitingAdvance || state.actionError) return undefined;
+    const delayMs = autoAdvanceDelayMs(practice.mode);
+    advanceTimerRef.current = setTimeout(() => {
+      advanceTimerRef.current = null;
+      void Promise.resolve(onContinue())
+        .then(() => {
+          setAnswer('');
+        })
+        .catch(() => {
+          setLocalError('That answer did not save. Please try again.');
+        });
+    }, delayMs);
+    return () => {
+      if (advanceTimerRef.current != null) {
+        clearTimeout(advanceTimerRef.current);
+        advanceTimerRef.current = null;
+      }
+    };
+  // onContinue is an inline service call whose identity changes per render;
+  // keying on it would restart the pending advance timer on unrelated updates.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    practice?.sessionId,
+    practice?.runtimeItemId,
+    practice?.awaitingAdvance,
+    practice?.mode,
+    state.actionError,
+  ]);
+
+  useEffect(() => {
+    if (!practice?.runtimeItemId || practice.awaitingAdvance) return;
+    answerInputRef.current?.focus();
+  }, [practice?.sessionId, practice?.runtimeItemId, practice?.awaitingAdvance]);
+
   if (!practice) return null;
   const practiceMode = practice.mode || 'smart';
   const isTestMode = practiceMode === 'test';
@@ -1465,6 +1507,10 @@ function PracticeScreen({
     if (busy) return;
     try {
       if (practice.awaitingAdvance) {
+        if (advanceTimerRef.current != null) {
+          clearTimeout(advanceTimerRef.current);
+          advanceTimerRef.current = null;
+        }
         await onContinue();
         setAnswer('');
         return;
@@ -1565,6 +1611,7 @@ function PracticeScreen({
         <form className="answer-form" onSubmit={(event) => void submit(event)}>
           <label htmlFor="product-spelling-input">Type the spelling</label>
           <input
+            ref={answerInputRef}
             id="product-spelling-input"
             name="spelling"
             type="text"
@@ -1574,8 +1621,12 @@ function PracticeScreen({
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck="false"
+            writingsuggestions="false"
             enterKeyHint="done"
             onChange={(event) => setAnswer(event.target.value)}
+            onFocus={(event) => {
+              event.currentTarget.scrollIntoView({ block: 'nearest' });
+            }}
           />
           <button type="submit" className="button-primary" disabled={busy}>
             {busy

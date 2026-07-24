@@ -564,9 +564,13 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(practiceHtml, /aria-label="0 of 5 words secured"/);
   // The listening controls are icon-only, as they are on the web card: the
   // name lives in aria-label so the row stays quiet beside the sentence.
-  assert.match(practiceHtml, /aria-label="Replay the dictated word"/);
-  assert.match(practiceHtml, /aria-label="Replay the sentence"/);
-  assert.match(practiceHtml, /aria-label="Replay slowly"/);
+  // Sentence first: KS2 spelling is dictated in context, so the sentence is
+  // the primary cue and the bare word is the narrower fallback.
+  const sentenceCue = practiceHtml.indexOf('aria-label="Replay the sentence"');
+  const wordCue = practiceHtml.indexOf('aria-label="Replay the word on its own"');
+  assert.ok(sentenceCue > -1 && wordCue > -1);
+  assert.ok(sentenceCue < wordCue);
+  assert.match(practiceHtml, /aria-label="Replay the sentence slowly"/);
   assert.doesNotMatch(practiceHtml, />\s*Hear word\s*</);
   // The card leads with a quiet instruction, never a headline.
   assert.match(practiceHtml, /Spell the word you hear\./);

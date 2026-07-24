@@ -1564,7 +1564,11 @@ function AnswerFeedback({ feedback, hideAnswer = false }) {
 // `src/subjects/spelling/components/spelling-icons.jsx`. The round card's
 // audio controls are icon-only there — the label lives in `aria-label`, so
 // the row stays quiet and the sentence keeps the eye.
-function SpeakerIcon({ size = 22 }) {
+//
+// The full read: the word inside its sentence. KS2 spelling is dictated in
+// context — the administrator reads the sentence, not a bare word — so this
+// is the primary cue here, where upstream leads with the word.
+function SpeakerSentenceIcon({ size = 22 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M11 5 6 9H3v6h3l5 4Z" fill="currentColor" fillOpacity="0.12" />
@@ -1573,14 +1577,12 @@ function SpeakerIcon({ size = 22 }) {
   );
 }
 
-// No upstream equivalent: ks2-mastery dictates the word only, while the
-// vendored mobile pack also ships sentence audio. Same speaker, with the
-// sentence drawn as ruled lines rather than more waves.
-function SpeakerSentenceIcon({ size = 22 }) {
+// The single word on its own — one wave, a shorter read than the sentence.
+function SpeakerWordIcon({ size = 22 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M11 5 6 9H3v6h3l5 4Z" fill="currentColor" fillOpacity="0.12" />
-      <path d="M15.5 9h5M15.5 12h5M15.5 15h3" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
     </svg>
   );
 }
@@ -1651,7 +1653,10 @@ function PracticeScreen({
     if (!audioRequest || audioState.status !== 'ready' || !prefs.autoSpeak) {
       return;
     }
-    void play('word');
+    // The sentence is the dictation, matching how a KS2 spelling test is
+    // administered. A card with no sentence prompt falls back to the word so
+    // autoplay never lands on a cue the pack cannot resolve.
+    void play(practice?.sentence ? 'sentence' : 'word');
   // Autoplay exactly once for a newly projected card or voice.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioRequest, prefs.autoSpeak]);
@@ -1872,16 +1877,10 @@ function PracticeScreen({
 
           {/* Below the answer line, as upstream has it: you type first and
               replay only if you need to. */}
+          {/* Sentence first: KS2 spelling is dictated in context, so the
+              sentence is the cue and the bare word is the narrower fallback
+              for a child who only needs to hear the shape again. */}
           <div className="audio-row" role="group" aria-label="Listening controls">
-            <button
-              type="button"
-              className="btn-icon"
-              aria-label="Replay the dictated word"
-              disabled={busy || audioState.status !== 'ready'}
-              onClick={() => void play('word')}
-            >
-              <SpeakerIcon />
-            </button>
             <button
               type="button"
               className="btn-icon"
@@ -1894,7 +1893,16 @@ function PracticeScreen({
             <button
               type="button"
               className="btn-icon"
-              aria-label="Replay slowly"
+              aria-label="Replay the word on its own"
+              disabled={busy || audioState.status !== 'ready'}
+              onClick={() => void play('word')}
+            >
+              <SpeakerWordIcon />
+            </button>
+            <button
+              type="button"
+              className="btn-icon"
+              aria-label="Replay the sentence slowly"
               disabled={busy || audioState.status !== 'ready'}
               onClick={() => void play('slow-sentence')}
             >

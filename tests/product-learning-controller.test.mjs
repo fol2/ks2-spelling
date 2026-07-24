@@ -80,6 +80,8 @@ test('product learning starts a durable Smart Review and restores an interrupted
     prefs: { voiceId: 'Iapetus', showCloze: true, autoSpeak: true },
     summary: null,
     progress: [],
+    // The active pack's size, so the setup panel can report what is unseen.
+    packSize: 20,
     monsters: [{
       rewardTrackId: 'spelling-core-inklet',
       packId: 'ks2-core',

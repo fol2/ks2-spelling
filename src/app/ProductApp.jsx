@@ -15,6 +15,7 @@ import {
   heroToneForProgress,
 } from './backdrop-model.js';
 import { dueCopy, heroWelcomeLine } from './hero-copy.js';
+import { whereYouStand } from './where-you-stand.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
   diffMonsterCelebrations,
@@ -1273,6 +1274,7 @@ function PracticeSetup({
   audioState,
   actionError,
   progress,
+  packSize,
   prefs,
   onPrefs,
   onStart,
@@ -1282,6 +1284,12 @@ function PracticeSetup({
 }) {
   const [length, setLength] = useState(5);
   const [mode, setMode] = useState('smart');
+  // The clock is read here, not inside the model, so the model stays pure and
+  // the deterministic proofs can pin the day.
+  const standCells = useMemo(
+    () => whereYouStand(progress, packSize, Math.floor(Date.now() / 86400000)),
+    [progress, packSize],
+  );
   const heroTone = HOME_HERO_TONE;
   const heroUrl = heroBgForMode(mode, { tone: heroTone });
   const hasTroubleWords = (progress ?? []).some(
@@ -1314,6 +1322,20 @@ function PracticeSetup({
           The Starter trail crosses the Downs with Years 3–4 words, and adapts
           from learning already saved on this device.
         </p>
+
+        {/* Upstream keeps a standing panel beside the round setup so the
+            learner can see the shape of the pack before choosing. */}
+        <section className="stand-panel" aria-labelledby="stand-title">
+          <p className="product-kicker" id="stand-title">Where you stand</p>
+          <dl className="stand-grid">
+            {standCells.map((cell) => (
+              <div key={cell.label} className={cell.warn ? 'is-warn' : undefined}>
+                <dt>{cell.label}</dt>
+                <dd>{cell.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
 
         <fieldset className="choice-group">
           <legend>Workshop mode</legend>
@@ -2436,6 +2458,7 @@ export default function ProductApp({ services }) {
         audioState={audioState}
         actionError={learningState.actionError}
         progress={learningState.progress}
+        packSize={learningState.packSize}
         prefs={learningState.prefs}
         onPrefs={(patch) => {
           void services.learning.savePrefs(patch).catch(() => undefined);

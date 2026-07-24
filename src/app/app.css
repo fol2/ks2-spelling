@@ -1081,7 +1081,6 @@ h1 {
 }
 
 .learner-form label,
-.choice-group legend,
 .learner-form input,
 .learner-form select,
 .answer-form input {
@@ -1402,6 +1401,14 @@ h1 {
 
 .choice-group legend {
   margin-bottom: 0.75rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .segmented-choice,
@@ -1910,6 +1917,48 @@ h1 {
   font-weight: 500;
   line-height: 1;
   letter-spacing: -0.03em;
+}
+
+/* `.ss-stat-grid`: the standing panel beside upstream's round setup. Numbers
+   set in the display serif so they read as figures in a journal rather than
+   as a dashboard. */
+.stand-panel {
+  margin: 1.25rem 0 0;
+  padding: 0.9rem 1.1rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--control-surface);
+}
+
+.stand-grid {
+  display: grid;
+  margin: 0.7rem 0 0;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: 0.7rem 0.9rem;
+}
+
+.stand-grid dt {
+  color: var(--ink-2);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.stand-grid dd {
+  margin: 0.1rem 0 0;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+/* Due today is the one figure that asks for action, so it takes the warn ink
+   the webapp gives it. */
+.stand-grid .is-warn dd {
+  color: var(--warn-strong);
 }
 
 /* `.summary-drill` + `.fchip`: the words that needed a correction, named

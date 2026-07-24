@@ -173,6 +173,10 @@ function createState({
     prefs: prefsProjection(snapshot),
     summary: summary ?? (ui?.summary ? structuredClone(ui.summary) : null),
     progress: progressProjection(snapshot, catalogue),
+    // How many words the active pack holds, so the setup panel can say how
+    // much of it the learner has still to meet. The controller owns the
+    // catalogue; the view should not have to reach for it.
+    packSize: catalogue.items.length,
     monsters: monsterProjection(snapshot, catalogue),
     camp: campProjection(snapshot),
     actionError,

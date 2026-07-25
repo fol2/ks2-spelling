@@ -422,6 +422,14 @@ h1 {
   /* Typography. No font files are bundled: Georgia and Iowan Old Style both
      ship with iOS, so the fallback chain is a genuine editorial serif today
      and upgrades on its own if Fraunces is ever vendored. */
+  /* Figures. No serif that ships with iOS has a lining set — Georgia and Iowan
+     Old Style are both old-style by design — so a stat grid set in the display
+     face rendered "52" with the 5 below the baseline and the 2 at x-height,
+     which reads as a broken glyph rather than as a number. Data is set in the
+     grotesque, prose in the serif; that is a choice serious data design makes
+     anyway, and here it is also the only one available. */
+  --font-figure: var(--font-sans);
+
   --font-display: "Fraunces", Georgia, "Iowan Old Style", serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-serif: "Fraunces", Georgia, serif;
@@ -663,12 +671,12 @@ h1 {
 
 /* Page children are centred and clamped to a readable measure. The layers
    that deliberately cover the whole page — the backdrop below, the two
-   overlays above, and the two fixed bars — opt out, or this rule's
+   overlays above, and the fixed bars — opt out, or this rule's
    `position: relative` would win on specificity and drop them back into the
    flow. The bars align their *contents* with this measure instead, so their
    fill can still reach the screen edge. */
-.product-page > *:not(.hero-backdrop, .exit-confirmation, .celebration-overlay, .product-topbar, .trail-tabs),
-.practice-page > *:not(.hero-backdrop, .exit-confirmation, .celebration-overlay, .product-topbar, .trail-tabs) {
+.product-page > *:not(.hero-backdrop, .exit-confirmation, .celebration-overlay, .product-topbar, .trail-tabs, .page-action),
+.practice-page > *:not(.hero-backdrop, .exit-confirmation, .celebration-overlay, .product-topbar, .trail-tabs, .page-action) {
   position: relative;
   z-index: 1;
   width: min(100%, 68rem);
@@ -810,15 +818,29 @@ h1 {
 /* Blur is reserved for the one surface a learner reads through for minutes
    at a time — the round card. Every other surface floats on fill alone, so
    a scrolling page never stacks compositing passes over the panning art. */
+/* Two kinds of surface float over the art, and they want different fills.
+ *
+ * A surface you *glance* at — a companion slot, a mode card — can stay at 82%
+ * and let the land through; that is the webapp's own position and it is what
+ * keeps the screens feeling like one place.
+ *
+ * A surface you *read and work in* cannot. At 82% the painted horizon ran
+ * straight through the settings panel and the standing figures, where it read
+ * as a rule the app had drawn, and an empty text field looked like a window
+ * onto the grass rather than somewhere to type. Those get the round card's
+ * treatment: near-opaque, and the blur that was already reserved for the one
+ * surface a learner reads through for minutes at a time. */
 .product-app[data-hero-tone] .practice-card,
-.product-app[data-hero-tone] .add-learner-card {
+.product-app[data-hero-tone] .add-learner-card,
+.product-app[data-hero-tone] .setup-more,
+.product-app[data-hero-tone] .stand-panel {
   backdrop-filter: blur(10px) saturate(1.06);
   -webkit-backdrop-filter: blur(10px) saturate(1.06);
 }
 
-/* And a stronger fill under it: an empty text field at 82% over grass looked
-   like a window onto the field rather than somewhere to type. */
-.product-app[data-hero-tone] .add-learner-card {
+.product-app[data-hero-tone] .add-learner-card,
+.product-app[data-hero-tone] .setup-more,
+.product-app[data-hero-tone] .stand-panel {
   background: color-mix(in oklab, var(--hero-wash) 94%, transparent);
 }
 
@@ -1130,6 +1152,118 @@ h1 {
   width: 1.35rem;
   height: 1.35rem;
   stroke-width: 1.9;
+}
+
+/* ---------- The pinned action ----------
+ * A task screen's one action, held at the bottom of the screen instead of at
+ * the bottom of the document. On round setup that button was behind six stat
+ * cells, three round types, three length chips, two voices, two toggles and a
+ * status panel — a scroll away from a child who had already decided. */
+.product-app[data-chrome~='action'] {
+  padding-bottom: calc(var(--safe-bottom) + 5.25rem);
+}
+
+.page-action {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  display: flex;
+  padding: 0.7rem var(--page-gutter) calc(var(--safe-bottom) + 0.7rem);
+  background: var(--shell-strip);
+  backdrop-filter: blur(18px) saturate(1.12);
+  -webkit-backdrop-filter: blur(18px) saturate(1.12);
+}
+
+/* Same dissolve as under the app bar, mirrored: the page fades into the strip
+   rather than being sliced by it. */
+.page-action::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  height: 1.5rem;
+  background: linear-gradient(
+    0deg,
+    color-mix(in oklab, var(--shell-strip) 78%, transparent),
+    transparent
+  );
+  pointer-events: none;
+}
+
+.page-action .button-primary {
+  flex: 1 1 auto;
+  max-width: 30rem;
+  margin: 0 auto;
+}
+
+/* ---------- Settings that are set once ----------
+ * Folded rather than hidden: the summary line names the choices currently in
+ * force, so nothing has to be opened to find out what a round will do. */
+.setup-more {
+  margin: 1.5rem 0 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--control-surface);
+}
+
+.setup-more > summary {
+  display: flex;
+  min-height: var(--tap-min);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.setup-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.setup-more-label {
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.setup-more-value {
+  margin-left: auto;
+  color: var(--ink-2);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+/* A chevron that turns, so the control says which way it is about to go. */
+.setup-more > summary::after {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: 0 0 auto;
+  border-right: 2px solid var(--ink-2);
+  border-bottom: 2px solid var(--ink-2);
+  transform: rotate(45deg) translate(-0.1em, -0.1em);
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.setup-more[open] > summary::after {
+  transform: rotate(225deg) translate(-0.1em, -0.1em);
+}
+
+.setup-more[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.setup-more > fieldset:last-child {
+  padding-bottom: 1.1rem;
+}
+
+.setup-more .choice-group {
+  margin: 1.1rem 1rem 0;
 }
 
 /* ---------- Regular width ----------
@@ -2389,11 +2523,11 @@ h1 {
 .accuracy-score {
   display: block;
   color: var(--brand-ink);
-  font-family: var(--font-display);
+  font-family: var(--font-figure);
   font-size: clamp(2.6rem, 9vw, 4.2rem);
-  font-weight: 500;
+  font-weight: 800;
   line-height: 1;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
 }
 
 /* Upstream's submit is the brand pill with an arrow, and skipping is a quiet
@@ -2584,27 +2718,38 @@ h1 {
   background: var(--control-surface);
 }
 
+/* Figure first, then its label. With the label above, "Total spellings"
+   wrapping to two lines pushed its number a line lower than the ones beside
+   it, so the row of figures no longer scanned as a row. */
 .stand-grid {
   display: grid;
   margin: 0.7rem 0 0;
-  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
-  gap: 0.7rem 0.9rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem 0.75rem;
+}
+
+.stand-grid > div {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
 }
 
 .stand-grid dt {
   color: var(--ink-2);
-  font-size: 0.78rem;
+  font-size: 0.66rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  line-height: 1.25;
   text-transform: uppercase;
 }
 
 .stand-grid dd {
   margin: 0.1rem 0 0;
   color: var(--ink);
-  font-family: var(--font-serif);
+  font-family: var(--font-figure);
   font-size: 1.5rem;
-  font-weight: 500;
+  font-weight: 700;
+  font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: -0.02em;
   line-height: 1.1;
 }
@@ -2684,9 +2829,10 @@ h1 {
 .summary-grid dd {
   margin: 0.25rem 0;
   color: var(--ink);
-  font-family: var(--font-serif);
+  font-family: var(--font-figure);
   font-size: 1.7rem;
-  font-weight: 500;
+  font-weight: 700;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .summary-grid p {
@@ -3027,7 +3173,10 @@ button.codex-card:hover:not(.is-locked) {
 }
 
 .camp-level strong {
+  font-family: var(--font-figure);
   font-size: 2rem;
+  font-weight: 800;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .parent-heading {
@@ -4042,28 +4191,14 @@ button.codex-card:active:not(.is-locked) {
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 26%);
 }
 
-/* Each control cluster gets the journal's section rule above it, so setup
-   reads as a sequence of decisions rather than one undivided form. */
+/* A section rule between control clusters, so setup reads as a sequence of
+   decisions rather than one undivided form.
+   The rule sits on the following group and is drawn at its padding-box top —
+   but a `<legend>` renders outside that box, so the line landed *under* its own
+   heading and read as an underline on the wrong element. The panel these groups
+   now live in already separates them, so the spacing stays and the line goes. */
 .choice-group + .choice-group {
-  position: relative;
   padding-top: 1.5rem;
-}
-
-.choice-group + .choice-group::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    color-mix(in oklab, var(--line-strong) 70%, transparent) 10%,
-    color-mix(in oklab, var(--line-strong) 70%, transparent) 90%,
-    transparent
-  );
-  pointer-events: none;
 }
 
 /* A caught creature stands in its own pool of light in the meadow too. */

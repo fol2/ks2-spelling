@@ -1499,7 +1499,7 @@ function PracticeSetup({
     <main
       className="product-app product-page setup-page"
       aria-labelledby="setup-title"
-      data-chrome="bar"
+      data-chrome="bar action"
       data-hero-tone={heroTone}
     >
       <HeroBackdrop url={heroUrl} />
@@ -1522,10 +1522,6 @@ function PracticeSetup({
       <section className="setup-card">
         <p className="product-kicker">The Scribe Downs · round setup</p>
         <h1 id="setup-title">Choose today&apos;s trail</h1>
-        <p>
-          The Starter trail crosses the Downs with Years 3–4 words, and adapts
-          from learning already saved on this device.
-        </p>
 
         {/* Upstream keeps a standing panel beside the round setup so the
             learner can see the shape of the pack before choosing. */}
@@ -1542,7 +1538,9 @@ function PracticeSetup({
         </section>
 
         <fieldset className="choice-group">
-          <legend>Workshop mode</legend>
+          {/* "Workshop mode" is a word from inside the app. This is the one
+              decision the screen exists to take, and it is named as one. */}
+          <legend>Round type</legend>
           <div className="mode-choice">
             {WORKSHOP_MODES.map((option) => {
               const description = option.id === 'trouble' && !hasTroubleWords
@@ -1571,67 +1569,103 @@ function PracticeSetup({
           </div>
         </fieldset>
 
-        {mode === 'test' ? (
+        {mode === 'test' && (
           <p className="length-note">
             A SATs test always covers the full 20 Starter words.
           </p>
-        ) : (
+        )}
+
+        {/* Length, voice and the two reading aids are set once and then left
+            alone for months, and they were between a child and the button that
+            starts the round: six stat cells, three round types, three length
+            chips, two voices, two toggles and a status panel to scroll past.
+            They fold away, with the current choices named on the summary line
+            so nothing is hidden — only put down. */}
+        <details className="setup-more">
+          <summary>
+            <span className="setup-more-label">Round settings</span>
+            <span className="setup-more-value">
+              {mode === 'test' ? '20 words' : `${length} words`}
+              {' · '}
+              {prefs.voiceId}
+            </span>
+          </summary>
+
+          {mode !== 'test' && (
+            <fieldset className="choice-group">
+              <legend>How many words</legend>
+              <div className="segmented-choice">
+                {ROUND_LENGTHS.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={length === value}
+                    onClick={() => setLength(value)}
+                  >
+                    <strong>{value}</strong>
+                    <span>words</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
           <fieldset className="choice-group">
-            <legend>Round length</legend>
-            <div className="segmented-choice">
-              {ROUND_LENGTHS.map((value) => (
+            <legend>Reading voice</legend>
+            <div className="voice-choice">
+              {VOICES.map((voice) => (
                 <button
-                  key={value}
+                  key={voice.id}
                   type="button"
-                  aria-pressed={length === value}
-                  onClick={() => setLength(value)}
+                  aria-pressed={prefs.voiceId === voice.id}
+                  onClick={() => onPrefs({ voiceId: voice.id })}
                 >
-                  <strong>{value}</strong>
-                  <span>words</span>
+                  <span className="voice-symbol" aria-hidden="true">♪</span>
+                  <span>
+                    <strong>{voice.label}</strong>
+                    <small>{voice.description}</small>
+                  </span>
                 </button>
               ))}
             </div>
+            <p className="voice-note">{VOICE_NOTE}</p>
           </fieldset>
+
+          <fieldset className="choice-group">
+            {/* "Options" names nothing. These two decide how much help the
+                round gives, which is what a parent or a child is choosing. */}
+            <legend>Help during the round</legend>
+            <div className="toggle-choice">
+              <ToggleChip
+                label="Show the sentence"
+                checked={prefs.showCloze}
+                onChange={(showCloze) => onPrefs({ showCloze })}
+              />
+              <ToggleChip
+                label="Read it out straight away"
+                checked={prefs.autoSpeak}
+                onChange={(autoSpeak) => onPrefs({ autoSpeak })}
+              />
+            </div>
+          </fieldset>
+        </details>
+
+        {/* A working pack is not news, and it was the last thing between the
+            settings and the button. A broken one stops the round, so it stays
+            loud and keeps its repair action. */}
+        {audioState.status !== 'ready' && (
+          <AudioStatus audioState={audioState} onRecover={onRecoverAudio} />
         )}
+        {actionError && (
+          <p className="inline-error" role="alert">
+            That trail could not start. Please try again.
+          </p>
+        )}
+      </section>
 
-        <fieldset className="choice-group">
-          <legend>Listening voice</legend>
-          <div className="voice-choice">
-            {VOICES.map((voice) => (
-              <button
-                key={voice.id}
-                type="button"
-                aria-pressed={prefs.voiceId === voice.id}
-                onClick={() => onPrefs({ voiceId: voice.id })}
-              >
-                <span className="voice-symbol" aria-hidden="true">♪</span>
-                <span>
-                  <strong>{voice.label}</strong>
-                  <small>{voice.description}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-          <p className="voice-note">{VOICE_NOTE}</p>
-        </fieldset>
-
-        <fieldset className="choice-group">
-          <legend>Options</legend>
-          <div className="toggle-choice">
-            <ToggleChip
-              label="Show sentence"
-              checked={prefs.showCloze}
-              onChange={(showCloze) => onPrefs({ showCloze })}
-            />
-            <ToggleChip
-              label="Auto-play audio"
-              checked={prefs.autoSpeak}
-              onChange={(autoSpeak) => onPrefs({ autoSpeak })}
-            />
-          </div>
-        </fieldset>
-
-        <AudioStatus audioState={audioState} onRecover={onRecoverAudio} />
+      {/* The one thing this screen is for, always within reach of a thumb
+          rather than at the far end of a scroll. */}
+      <div className="page-action">
         <button
           type="button"
           className="button-primary button-large"
@@ -1639,13 +1673,9 @@ function PracticeSetup({
           onClick={() => void onStart({ mode, length }).catch(() => undefined)}
         >
           {busy ? 'Preparing…' : 'Start trail'}
+          {!busy && <span aria-hidden="true"> →</span>}
         </button>
-        {actionError && (
-          <p className="inline-error" role="alert">
-            That trail could not start. Please try again.
-          </p>
-        )}
-      </section>
+      </div>
     </main>
   );
 }

@@ -581,6 +581,35 @@ test('the production shell keeps Parent progress and commerce behind the local g
   const failedSetupHtml = render();
   assert.match(failedSetupHtml, /That trail could not start\. Please try again\./);
 
+  // Starting the round is pinned, not appended: it used to be the last node in
+  // the scrolling card, behind six stat cells, three round types, three length
+  // chips, two voices, two toggles and a status panel.
+  assert.match(failedSetupHtml, /<div class="page-action"><button[^>]*class="button-primary button-large"/);
+  assert.match(failedSetupHtml, /data-chrome="bar action"/);
+  assert.ok(
+    failedSetupHtml.indexOf('class="setup-card"')
+      < failedSetupHtml.indexOf('class="page-action"'),
+    'the action bar is a sibling of the scrolling card, not inside it',
+  );
+
+  // Folded, not hidden: the summary line names the settings currently in force,
+  // so a round's shape can be read without opening anything.
+  assert.match(failedSetupHtml, /class="setup-more-value">5 words · Iapetus</);
+
+  // Every group is named in words a learner reads, not in words from inside
+  // the app. "Options" in particular named nothing at all.
+  for (const legend of [
+    'Round type',
+    'How many words',
+    'Reading voice',
+    'Help during the round',
+  ]) {
+    assert.match(failedSetupHtml, new RegExp(`<legend>${legend}</legend>`, 'u'));
+  }
+  for (const jargon of ['Workshop mode', 'Round length', '<legend>Options<']) {
+    assert.doesNotMatch(failedSetupHtml, new RegExp(jargon, 'u'));
+  }
+
   learningState = Object.freeze({
     ...learningState,
     screen: 'practice',

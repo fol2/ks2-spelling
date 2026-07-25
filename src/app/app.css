@@ -878,7 +878,8 @@ h1 {
   background: color-mix(in oklab, var(--good) 20%, var(--hero-panel));
 }
 
-.product-app[data-hero-tone] .answer-feedback-warn {
+.product-app[data-hero-tone] .answer-feedback-warn,
+.product-app[data-hero-tone] .summary-drill {
   border-color: color-mix(in oklab, var(--warn) 46%, transparent);
   background: color-mix(in oklab, var(--warn) 20%, var(--hero-panel));
 }
@@ -992,8 +993,8 @@ h1 {
 }
 
 .product-app[data-hero-tone] {
-  --shell-strip: color-mix(in oklab, var(--hero-wash) 78%, transparent);
-  --shell-raised: color-mix(in oklab, var(--hero-wash) 95%, transparent);
+  --shell-strip: color-mix(in oklab, var(--hero-wash) 62%, transparent);
+  --shell-raised: color-mix(in oklab, var(--hero-wash) 92%, transparent);
 }
 
 .product-app[data-chrome~='bar'] {
@@ -1028,10 +1029,11 @@ h1 {
   top: 100%;
   right: 0;
   left: 0;
-  height: 1.1rem;
+  height: 1.75rem;
   background: linear-gradient(
     180deg,
-    color-mix(in oklab, var(--shell-strip) 70%, transparent),
+    color-mix(in oklab, var(--shell-strip) 82%, transparent),
+    color-mix(in oklab, var(--shell-strip) 30%, transparent) 55%,
     transparent
   );
   pointer-events: none;
@@ -1721,6 +1723,15 @@ h1 {
   background: var(--brand-soft);
 }
 
+/* On a backdrop page `--brand-soft` is the brand mixed into the region's own
+   wash, which on a night region is a filled navy pill — a second primary
+   standing beside the first, with nothing to say which of the two the round
+   was leading to. Over art, quiet means a hairline and the tone ink. */
+.product-app[data-hero-tone] .button-quiet {
+  border-color: color-mix(in oklab, var(--hero-shell-ink) 34%, transparent);
+  background: color-mix(in oklab, var(--hero-shell-ink) 8%, transparent);
+}
+
 .button-danger {
   color: var(--panel);
   background: var(--bad-strong);
@@ -1932,88 +1943,8 @@ h1 {
   font-size: 0.72rem;
 }
 
-.hero-inklet {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.75rem;
-  align-items: center;
-  width: min(100%, 20rem);
-  margin-bottom: 1.5rem;
-  border: 1px solid var(--hero-panel-line, var(--line));
-  border-radius: var(--radius);
-  padding: 0.6rem 1rem 0.6rem 0.6rem;
-  background: var(--hero-panel, var(--paper-raised));
-}
-
-.hero-inklet .inklet-art {
-  width: 4.5rem;
-  min-height: 0;
-}
-
-.hero-inklet p {
-  margin: 0;
-}
-
-.hero-inklet strong,
-.hero-inklet span {
-  display: block;
-}
-
-.hero-inklet span {
-  color: var(--ink-soft);
-  font-size: 0.88rem;
-}
-
-.inklet-art {
-  width: min(100%, 15rem);
-  min-height: 9rem;
-  overflow: visible;
-}
-
-.inklet-shadow {
-  fill: color-mix(in oklab, var(--ink) 13%, transparent);
-}
-
 /* The companion is brand-coloured chrome, so it follows the brand token
    through both themes and through its growth stages. */
-.inklet-body {
-  fill: color-mix(in oklab, var(--brand) 72%, var(--panel));
-  stroke: var(--brand-ink);
-  stroke-width: 4;
-}
-
-.inklet-flourish,
-.inklet-smile {
-  fill: none;
-  stroke: var(--trail-strong);
-  stroke-linecap: round;
-  stroke-width: 5;
-}
-
-.inklet-eye {
-  fill: var(--ink-on-light);
-}
-
-.inklet-glint {
-  fill: var(--ink-on-dark);
-}
-
-.inklet-badge {
-  fill: var(--warn);
-  stroke: var(--warn-strong);
-  stroke-width: 2;
-}
-
-.inklet-stage-2 .inklet-body,
-.inklet-stage-3 .inklet-body {
-  fill: var(--brand);
-}
-
-.inklet-stage-4 .inklet-body,
-.inklet-stage-5 .inklet-body {
-  fill: color-mix(in oklab, var(--brand) 62%, var(--brand-ink));
-}
-
 /* Setup is one region of the Downs with the controls floating on it, as the
    web setup scene is — no intermediate sheet between art and control. */
 .setup-card {
@@ -2926,48 +2857,71 @@ h1 {
   letter-spacing: -0.005em;
 }
 
+/* Three results as three rows of one panel, not three cards. As a
+   `minmax(10rem, 1fr)` grid the cells fell two-and-one on a phone, so the last
+   one sat alone on a row of its own and the set stopped reading as a set;
+   three-across left no room for the line that explains each figure. Rows keep
+   every word, cost a third of the height, and read as what they are — a short
+   table of what just happened. */
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: 0.8rem;
-  margin: 1rem auto;
+  margin: 1.25rem auto;
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 .summary-grid > div {
-  border-radius: 1.1rem;
-  padding: 1rem;
+  display: grid;
+  grid-template-columns: 3rem 1fr;
+  gap: 0 0.85rem;
+  align-items: baseline;
+  padding: 0.8rem 1.1rem;
+}
+
+.summary-grid > div + div {
+  border-top: 1px solid var(--line);
 }
 
 .summary-grid dt {
-  color: var(--ink-soft);
-  font-size: 0.8rem;
-  font-weight: 800;
+  grid-column: 2;
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
 .summary-grid dd {
-  margin: 0.25rem 0;
+  grid-row: 1 / 3;
+  grid-column: 1;
+  margin: 0;
   color: var(--ink);
   font-family: var(--font-figure);
-  font-size: 1.7rem;
+  font-size: 1.75rem;
   font-weight: 700;
   font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  text-align: right;
 }
 
 .summary-grid p {
+  grid-column: 2;
   margin-bottom: 0;
   color: var(--ink-soft);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
 }
 
 .reward-summary {
   display: grid;
-  grid-template-columns: minmax(8rem, 0.45fr) minmax(12rem, 1fr);
+  grid-template-columns: minmax(7rem, 0.4fr) minmax(11rem, 1fr);
   gap: 1rem;
   align-items: center;
 }
 
-.reward-summary .inklet-art {
-  max-height: 9rem;
+.reward-art {
+  display: block;
+  width: 100%;
+  max-height: 9.5rem;
+  object-fit: contain;
 }
 
 .summary-actions {
@@ -3026,10 +2980,6 @@ h1 {
 .camp-hero {
   max-width: 50rem;
   text-align: center;
-}
-
-.companion-hero .inklet-art {
-  width: min(100%, 20rem);
 }
 
 .codex-grid {

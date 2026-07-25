@@ -21,6 +21,7 @@ import { whereYouStand } from './where-you-stand.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
   diffMonsterCelebrations,
+  monsterDisplayName,
   secureWordDelta,
 } from './celebrations/celebration-model.js';
 import {
@@ -108,41 +109,6 @@ function preloadHeroToneUrls(mode) {
     const image = new Image();
     image.src = url;
   }
-}
-
-function InkletArt({ stage = 0 }) {
-  return (
-    <svg
-      className={`inklet-art inklet-stage-${Math.min(stage, 5)}`}
-      viewBox="0 0 180 150"
-      role="img"
-      aria-label={`Inklet is at stage ${stage}`}
-    >
-      <path
-        className="inklet-shadow"
-        d="M34 126c21 17 91 18 116-1-21 25-94 26-116 1Z"
-      />
-      <path
-        className="inklet-body"
-        d="M91 20c24 0 46 20 47 50 1 16 13 28 5 43-10 19-34 22-52 22-25 0-54-7-58-29-3-16 10-25 11-41 2-27 22-45 47-45Z"
-      />
-      <path
-        className="inklet-flourish"
-        d="M58 39c-13-14-9-25 4-27-3 8 3 14 12 19M122 42c15-13 12-25 0-29 1 9-6 14-14 20"
-      />
-      <circle className="inklet-eye" cx="73" cy="76" r="7" />
-      <circle className="inklet-eye" cx="111" cy="76" r="7" />
-      <circle className="inklet-glint" cx="75" cy="73" r="2" />
-      <circle className="inklet-glint" cx="113" cy="73" r="2" />
-      <path className="inklet-smile" d="M78 96c8 8 19 8 27 0" />
-      {stage > 0 && (
-        <path
-          className="inklet-badge"
-          d="m91 7 5 9 10 2-7 8 1 11-9-5-10 5 2-11-8-8 11-2 5-9Z"
-        />
-      )}
-    </svg>
-  );
 }
 
 function CampArt({ level = 0 }) {
@@ -2255,6 +2221,7 @@ function SummaryScreen({
     tone: heroTone,
     seed: summary?.sessionId ?? null,
   });
+  const rewardName = monsterDisplayName(monster?.monsterId ?? 'inklet');
   return (
     <main
       className="product-app product-page summary-page"
@@ -2304,11 +2271,30 @@ function SummaryScreen({
           </ul>
         </section>
       )}
+      {/* The painted companion, not a stand-in for one. This panel drew a flat
+          blue SVG blob while the same creature at the same growth stage was
+          already on the home screen and in the codex as painted art — so the
+          one screen that hands out the reward showed the placeholder. And it
+          called every companion Inklet regardless of which one it had. */}
       <section className="paper-card reward-summary">
-        <InkletArt stage={monster?.derivedStage ?? 0} />
+        <img
+          className="reward-art"
+          src={stageArtUrl(
+            monster?.monsterId ?? 'inklet',
+            monster?.branch ?? 'b1',
+            monster?.derivedStage ?? 0,
+          )}
+          alt=""
+          width={320}
+          height={320}
+          decoding="async"
+        />
         <div>
-          <h2>Inklet noticed your practice</h2>
-          <p>{countWords(monster?.secureCount ?? 0)} now secure, helping Inklet grow.</p>
+          <h2>{`${rewardName} noticed your practice`}</h2>
+          <p>
+            {countWords(monster?.secureCount ?? 0)} now secure, helping
+            {` ${rewardName}`} grow.
+          </p>
           {secureGain > 0 && (
             <p className="reward-secure-toast" role="status" aria-live="polite">
               {`+${secureGain} words secure`}

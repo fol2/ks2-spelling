@@ -3327,11 +3327,57 @@ button.codex-card:hover:not(.is-locked) {
   color: var(--ink-soft);
 }
 
+/* The learner's own colour, the same one the bar chip and the picker plate use.
+   The variable was already being set here and nothing painted with it, so every
+   learner in this list was an unfilled initial. */
 .parent-learner-avatar {
+  display: grid;
   width: 2.8rem;
   height: 2.8rem;
+  flex: 0 0 auto;
+  place-items: center;
   border-radius: 0.9rem 0.9rem 0.9rem 0.25rem;
+  color: var(--panel);
+  background: var(--learner-colour, var(--brand-ink));
   font-size: 1rem;
+  font-weight: 800;
+}
+
+/* Two weights of consequence, both quiet enough for a settings list. A filled
+   red pill for "Delete learner" would be the loudest thing on the screen; a
+   pill identical to "Edit" is worse, because it hides that the two differ at
+   all. Ink and edge carry the meaning, and the confirmation that follows
+   carries the weight. */
+.button-warning,
+.button-destructive {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.7rem 1.25rem;
+  background: none;
+  font-weight: 800;
+  transition:
+    background-color var(--dur) var(--ease-out),
+    transform var(--dur-press) var(--ease-press);
+}
+
+.button-warning {
+  border-color: color-mix(in oklab, var(--warn) 42%, transparent);
+  color: var(--warn-strong);
+}
+
+.button-destructive {
+  border-color: color-mix(in oklab, var(--bad) 46%, transparent);
+  color: var(--bad-strong);
+}
+
+.button-warning:active:not(:disabled) {
+  transform: scale(var(--press-scale));
+  background: color-mix(in oklab, var(--warn) 14%, transparent);
+}
+
+.button-destructive:active:not(:disabled) {
+  transform: scale(var(--press-scale));
+  background: color-mix(in oklab, var(--bad) 14%, transparent);
 }
 
 .parent-learner-actions {

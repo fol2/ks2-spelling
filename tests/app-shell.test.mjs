@@ -469,6 +469,36 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(unlockedParentHtml, /No advertising, analytics or tracking/);
   assert.match(unlockedParentHtml, /Third-party notices/);
 
+  // A control that destroys something must not look like one that does not.
+  // "Edit Ada", "Reset learning" and "Delete learner" were three identical
+  // lavender pills, one of them irreversible, on a screen a parent taps through
+  // quickly. Each level of consequence has its own weight now.
+  assert.match(
+    unlockedParentHtml,
+    /class="button-quiet"[^>]*>Edit Ada/,
+    'editing a learner stays the benign control',
+  );
+  assert.match(unlockedParentHtml, /class="button-warning"[^>]*>Reset learning/);
+  assert.match(unlockedParentHtml, /class="button-destructive"[^>]*>Delete learner/);
+
+  // Import replaces every learner on the device. It was a fourth identical
+  // pill, with its warning printed underneath — read after the tap, if at all.
+  assert.match(unlockedParentHtml, /class="button-warning"[^>]*>Import learning backup/);
+  assert.ok(
+    unlockedParentHtml.indexOf('replaces every learner')
+      < unlockedParentHtml.indexOf('Import learning backup'),
+    'the caution comes before the control it is about',
+  );
+  assert.match(unlockedParentHtml, /class="button-quiet"[^>]*>Export learning backup/);
+
+  // Each learner carries the colour their name derives, the same one the bar
+  // chip and the picker plate use — the variable was already being set on this
+  // avatar and nothing painted with it.
+  assert.match(
+    unlockedParentHtml,
+    /parent-learner-avatar[^>]*--learner-colour:\s*#[0-9a-f]{6}/u,
+  );
+
   learningState = Object.freeze({
     ...learningState,
     screen: 'home',

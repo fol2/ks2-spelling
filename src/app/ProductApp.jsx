@@ -372,7 +372,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
       <div className="parent-learner-summary">
         <span
           className="learner-avatar parent-learner-avatar"
-          style={{ '--learner-colour': profile.colour }}
+          style={{ '--learner-colour': learnerColour(profile.nickname) }}
           aria-hidden="true"
         >
           {profile.nickname.slice(0, 1).toUpperCase()}
@@ -398,9 +398,14 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
         >
           Edit {profile.nickname}
         </button>
+        {/* All three of these were the same lavender pill, so wiping a
+            child's learning and deleting a child looked exactly like editing
+            one — three identical targets, one of them irreversible, on a
+            screen a parent taps through quickly. The two that destroy
+            something say so before they are pressed. */}
         <button
           type="button"
-          className="button-quiet"
+          className="button-warning"
           disabled={busy}
           onClick={() => {
             setConfirmingReset((value) => !value);
@@ -414,7 +419,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
         </button>
         <button
           type="button"
-          className="button-quiet"
+          className="button-destructive"
           disabled={busy}
           onClick={() => {
             setConfirmingDelete((value) => !value);
@@ -764,8 +769,10 @@ export function ParentArea({
         aria-labelledby="parent-title"
         data-chrome="bar"
       >
+        {/* A sheet's bar carries the way out of the sheet. The title was
+            saying "Parent area" at the same moment the large title below it
+            said "Parent area". */}
         <ProductTopBar
-          title="Parent area"
           action={(
             <button type="button" className="topbar-action" onClick={onClose}>
               Done
@@ -865,10 +872,21 @@ export function ParentArea({
               >
                 Export learning backup
               </button>
-              {!confirmingImport && (
+            </div>
+            {/* The caution comes before the control it is about, and the control
+                looks like what it does. Import replaces every learner on the
+                device, and it was a lavender pill identical to Export with the
+                warning printed underneath — read after the tap, if at all. */}
+            <p className="parent-backup-warning">
+              Import replaces every learner and learning snapshot on this
+              device. The Parent PIN, purchases and installed packs stay
+              unchanged.
+            </p>
+            {!confirmingImport && (
+              <div className="parent-backup-actions">
                 <button
                   type="button"
-                  className="button-quiet"
+                  className="button-warning"
                   disabled={backupBusy}
                   onClick={() => {
                     setBackupMessage('');
@@ -878,13 +896,8 @@ export function ParentArea({
                 >
                   Import learning backup
                 </button>
-              )}
-            </div>
-            <p className="parent-backup-warning">
-              Import replaces every learner and learning snapshot on this
-              device. The Parent PIN, purchases and installed packs stay
-              unchanged.
-            </p>
+              </div>
+            )}
             {confirmingImport && (
               <section
                 className="parent-import-confirmation"

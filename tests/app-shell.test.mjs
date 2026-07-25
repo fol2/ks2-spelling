@@ -557,12 +557,26 @@ test('the production shell keeps Parent progress and commerce behind the local g
     screen: 'monster',
   });
   const codexHtml = render();
-  assert.match(codexHtml, /Your spelling creatures/);
-  assert.match(codexHtml, /Unknown creature/);
-  assert.match(codexHtml, /Locked/);
+  assert.match(codexHtml, /Your companions/);
+  assert.match(codexHtml, /Not found yet/);
   assert.match(codexHtml, /Meet Inklet/);
   assert.match(codexHtml, /codex-card is-locked/);
   assert.doesNotMatch(codexHtml, /Buy Full KS2|buy|restore|price|commerce/i);
+  // One word for one thing. This screen called them monsters in the eyebrow,
+  // creatures in the heading and companions in the body, while the home screen
+  // called them companions and the tab calls the place the Codex. Asserted over
+  // the visible words only — `monster-stage` is a class name, not copy.
+  const codexWords = codexHtml.replace(/<[^>]*>/gu, ' ');
+  assert.doesNotMatch(codexWords, /roster|creature|monster/iu);
+  // The sentence ruling out a child-facing purchase was written for a reviewer,
+  // and took four lines of a child's screen to say so.
+  assert.doesNotMatch(codexWords, /child-facing|purchase/iu);
+  // An uncaught entry shows an empty slot rather than the stage-0 art of the
+  // creature turned to a grey lump: two locked entries, two empty slots, and
+  // painted art only for the one that has actually been caught.
+  assert.equal((codexHtml.match(/codex-card is-locked/gu) ?? []).length, 2);
+  assert.equal((codexHtml.match(/codex-card-empty/gu) ?? []).length, 2);
+  assert.equal((codexHtml.match(/class="codex-card-art"/gu) ?? []).length, 1);
 
   learningState = Object.freeze({
     ...learningState,

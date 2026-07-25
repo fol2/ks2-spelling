@@ -58,6 +58,11 @@ const ROUND_LENGTHS = Object.freeze([5, 10, 20]);
 /* The codex growth track: five stages, the last of which is the mega form. */
 const CODEX_STAGES = Object.freeze([1, 2, 3, 4, 5]);
 const CODEX_FINAL_STAGE = 5;
+/* A word's own ladder, and the rung the engine calls secure (`SECURE_STAGE` in
+   where-you-stand.js). Shown as pips rather than a numeral: "4" alone never
+   said what it was four out of. */
+const WORD_STAGES = Object.freeze([1, 2, 3, 4, 5]);
+const SECURE_STAGE = 4;
 // The web session scene carries the same disclosure under its voice controls.
 const VOICE_NOTE = 'AI-generated dictation voice';
 // Home and setup sit in the daylight Downs; the round walks tone 1 → 3.
@@ -109,25 +114,6 @@ function preloadHeroToneUrls(mode) {
     const image = new Image();
     image.src = url;
   }
-}
-
-function CampArt({ level = 0 }) {
-  return (
-    <svg
-      className="camp-art"
-      viewBox="0 0 260 150"
-      role="img"
-      aria-label={`Expedition Camp is at level ${level}`}
-    >
-      <path className="camp-ground" d="M8 132c53-25 188-24 244 0H8Z" />
-      <path className="camp-mountain" d="m34 111 52-80 49 80H34Z" />
-      <path className="camp-mountain camp-mountain-far" d="m112 111 45-62 57 62H112Z" />
-      <path className="camp-tent" d="m102 126 30-54 32 54h-62Z" />
-      <path className="camp-door" d="m132 78 13 48h-26l13-48Z" />
-      <path className="camp-flag" d="M132 72V35l28 10-28 10" />
-      {level > 0 && <circle className="camp-sun" cx="218" cy="31" r="17" />}
-    </svg>
-  );
 }
 
 function AudioStatus({ audioState, onRecover, compact = false }) {
@@ -2323,10 +2309,21 @@ function ProgressScreen({ progress, onScreen, onStart }) {
     >
       {/* No bar and no Back: the page's own title says where you are, and the
           tabs say how to leave. Two of the three were saying the same thing. */}
+      {/* The eyebrow used to say "Saved on this device" and the line under the
+          heading "Each row comes from this learner's local spelling progress" —
+          both true, both written about the app rather than about the words. A
+          child opening this screen wants to know how many words they have and
+          what the marks beside them mean. */}
       <section className="page-heading">
-        <p className="product-kicker">Saved on this device</p>
+        <p className="product-kicker">
+          {progress.length === 0
+            ? 'Nothing practised yet'
+            : `${countWords(progress.length)} practised`}
+        </p>
         <h1 id="progress-title">Your word trail</h1>
-        <p>Each row comes from this learner&apos;s local spelling progress.</p>
+        <p>
+          Four marks means a word is yours. Five means it is not going anywhere.
+        </p>
       </section>
       {progress.length === 0 ? (
         <section className="paper-card empty-state">
@@ -2337,19 +2334,35 @@ function ProgressScreen({ progress, onScreen, onStart }) {
           </button>
         </section>
       ) : (
+        /* The word is the subject of a spelling app, so it leads the row. The
+           stage was a numeral in a filled circle — a number out of an unstated
+           total — beside a status word that said the same thing again in prose,
+           and on a phone that third column wrapped onto its own line and made
+           every row 135px tall for one word. Five pips say the stage and its
+           ceiling at once, and the row is a row. */
         <ul className="word-progress-list">
           {progress.map((item) => (
             <li key={item.runtimeItemId}>
-              <span className={`word-stage word-stage-${Math.min(item.stage, 5)}`}>
-                {item.stage}
+              <strong>{item.target}</strong>
+              <small>
+                {item.correct} correct · {item.wrong} to revisit
+              </small>
+              <span
+                className="word-progress-stage"
+                role="img"
+                aria-label={
+                  item.stage >= SECURE_STAGE
+                    ? `Secure — stage ${item.stage} of ${WORD_STAGES.length}`
+                    : `Stage ${item.stage} of ${WORD_STAGES.length}`
+                }
+              >
+                {WORD_STAGES.map((step) => (
+                  <span
+                    key={step}
+                    className={step <= item.stage ? 'is-reached' : undefined}
+                  />
+                ))}
               </span>
-              <div>
-                <strong>{item.target}</strong>
-                <small>
-                  {item.correct} correct · {item.wrong} to revisit
-                </small>
-              </div>
-              <span>{item.lastResult === 'correct' ? 'On trail' : 'Practising'}</span>
             </li>
           ))}
         </ul>
@@ -2396,13 +2409,16 @@ function CodexScreen({ monsters, onScreen }) {
       data-chrome="tabs"
     >
       <section className="page-heading">
-        <p className="product-kicker">Monster roster</p>
-        <h1 id="codex-title">Your spelling creatures</h1>
-        <p>
-          Caught companions grow from secure spelling progress. Locked slots
-          show more of the roster — they open through play, never through a
-          child-facing purchase.
-        </p>
+        {/* One word for one thing. This screen called them monsters in the
+            eyebrow, creatures in the heading and companions in the body, while
+            the home screen called them companions and the tab calls the place
+            the Codex. Companions everywhere; the Codex is where they live.
+            The sentence about purchases was written for a reviewer, not for a
+            child, and it took four lines of a child's screen to say it. It is
+            true and it belongs in the parent area. */}
+        <p className="product-kicker">The Codex</p>
+        <h1 id="codex-title">Your companions</h1>
+        <p>Each one grows as your spellings become secure.</p>
       </section>
 
       <ul className="codex-grid">
@@ -2416,16 +2432,9 @@ function CodexScreen({ monsters, onScreen }) {
                 // area behind the existing PIN gate.
                 aria-label={entry.imageAlt}
               >
-                <img
-                  className="codex-card-art"
-                  src={entry.artUrl}
-                  alt=""
-                  width={160}
-                  height={160}
-                  decoding="async"
-                />
-                <strong>Unknown creature</strong>
-                <small>Locked</small>
+                <span className="codex-card-empty" aria-hidden="true">◆</span>
+                <strong>Not found yet</strong>
+                <small>An empty slot</small>
               </li>
             );
           }
@@ -2533,24 +2542,43 @@ function CodexScreen({ monsters, onScreen }) {
 }
 
 function CampScreen({ camp, onScreen }) {
+  const level = camp?.campHighWater ?? 0;
   return (
     <main
       className="product-app product-page camp-page"
       aria-labelledby="camp-title"
+      // The camp stands on the Downs like everywhere else does. This was the one
+      // screen with no land under it at all: a flat vector tent in a visual
+      // language the app uses nowhere else, on bare paper.
       data-chrome="tabs"
+      data-hero-tone={HOME_HERO_TONE}
     >
+      <HeroBackdrop url={heroBgForMode('trouble', { tone: HOME_HERO_TONE })} />
       <section className="camp-hero">
-        <CampArt level={camp?.campHighWater ?? 0} />
-        <p className="product-kicker">Expedition Camp</p>
-        <h1 id="camp-title">A quiet place to see progress</h1>
+        {/* The level is the one fact this screen holds, so it is the headline
+            rather than a pill underneath a heading that said "Camp" directly
+            below an eyebrow that also said "Expedition Camp". The figure is
+            spanned out of the display face: Georgia's numerals are old-style,
+            so "3" set in the heading dropped below its own baseline. */}
+        <p className="product-kicker">The Scribe Downs · Camp</p>
+        <h1 id="camp-title">
+          Camp level <span className="camp-level-figure">{level}</span>
+        </h1>
+        {/* "Camp grows only from eligible revision missions. Ordinary practice
+            still helps spelling and Inklet, but does not invent Camp credit."
+            was the rule as an engineer would state it, on a child's screen —
+            and it named a companion that may not be theirs. The rule itself is
+            worth keeping: coming back to old words is what raises camp, and a
+            child who does not know that cannot aim for it. */}
         <p>
-          Camp grows only from eligible revision missions. Ordinary practice
-          still helps spelling and Inklet, but does not invent Camp credit.
+          Camp rises when you come back to words you met a while ago — not from
+          fresh practice, however much of it you do.
         </p>
-        <div className="camp-level">
-          <span>Camp level</span>
-          <strong>{camp?.campHighWater ?? 0}</strong>
-        </div>
+        {level === 0 && (
+          <p className="camp-note">
+            Nothing pitched yet. Your first revision round starts it.
+          </p>
+        )}
       </section>
       <TrailTabs current="camp" onScreen={onScreen} />
     </main>

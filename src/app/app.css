@@ -942,11 +942,6 @@ h1 {
 .product-app[data-hero-tone] .button-primary:not(:disabled),
 .product-app[data-hero-tone] .voice-symbol,
 .product-app[data-hero-tone] .audio-state-icon,
-.product-app[data-hero-tone] .word-stage {
-  color: var(--hero-wash);
-  background: color-mix(in oklab, var(--brand) 40%, var(--hero-shell-ink));
-}
-
 /* Text standing directly on the art, where the wash alone carries it. */
 .product-app[data-hero-tone='2'] .product-topbar,
 .product-app[data-hero-tone='3'] .product-topbar,
@@ -2940,13 +2935,50 @@ h1 {
   list-style: none;
 }
 
+/* Word, then how it is going, then how far it has climbed. The stage used to
+   lead as a numeral in a filled circle, with a status word repeating it in
+   prose at the far end of the row — which wrapped onto its own line on a phone
+   and made every row 135px tall to hold one spelling. */
 .word-progress-list li {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 0.85rem;
+  grid-template-columns: 1fr auto;
+  gap: 0 1rem;
   align-items: center;
   border-radius: 1rem;
-  padding: 0.85rem 1rem;
+  padding: 0.7rem 1rem 0.75rem;
+}
+
+.word-progress-list strong {
+  grid-column: 1;
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.word-progress-stage {
+  display: flex;
+  grid-row: 1 / 3;
+  grid-column: 2;
+  gap: 0.22rem;
+  align-items: center;
+}
+
+.word-progress-stage span {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--ink) 18%, transparent);
+}
+
+/* The fourth pip is the rung the engine calls secure, so it is where the strip
+   changes colour: a child can see "two more and this word is mine". */
+.word-progress-stage span.is-reached {
+  background: var(--brand);
+}
+
+.word-progress-stage span.is-reached:nth-child(n + 4) {
+  background: var(--good-strong);
 }
 
 .word-progress-list strong,
@@ -2958,17 +2990,6 @@ h1 {
 .word-progress-list li > span:last-child {
   color: var(--ink-soft);
   font-size: 0.82rem;
-}
-
-.word-stage {
-  display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
-  place-items: center;
-  color: var(--panel);
-  background: var(--brand-ink);
-  font-weight: 800;
 }
 
 .empty-state {
@@ -3023,8 +3044,27 @@ button.codex-card {
   object-fit: contain;
 }
 
+/* An uncaught entry is an empty space in a collection, the same shape the home
+   strip uses for the same thing — not a grey lump the size of the painted art
+   beside it. */
+.codex-card.is-locked {
+  border-style: dashed;
+  border-color: color-mix(in oklab, var(--ink) 26%, transparent);
+  background: color-mix(in oklab, var(--paper-raised) 45%, transparent);
+  box-shadow: none;
+}
+
 .codex-card.is-locked .codex-card-art {
-  filter: brightness(0) opacity(0.42);
+  display: none;
+}
+
+.codex-card-empty {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1;
+  place-items: center;
+  color: color-mix(in oklab, var(--ink) 24%, transparent);
+  font-size: 1.15rem;
 }
 
 .codex-card strong,
@@ -3184,67 +3224,19 @@ button.codex-card:hover:not(.is-locked) {
   font-weight: 750;
 }
 
-.camp-art {
-  width: min(100%, 28rem);
-  min-height: 10rem;
-}
-
 /* Camp scenery is a picture, not chrome: like the backdrop art it keeps its
    own fixed palette in both themes. Only the branded props take tokens. */
-.camp-ground {
-  fill: #8ab47c;
-}
-
-.camp-mountain {
-  fill: #9cb6bb;
-  stroke: #6a8790;
-  stroke-width: 3;
-}
-
-.camp-mountain-far {
-  fill: #bdd0ce;
-}
-
-.camp-tent {
-  fill: var(--bad);
-  stroke: #9f4937;
-  stroke-width: 3;
-}
-
-.camp-door {
-  fill: #7d372a;
-}
-
-.camp-flag {
-  fill: var(--warn);
-  stroke: #9c6a08;
-  stroke-width: 3;
-}
-
-.camp-sun {
-  fill: #f3c558;
-}
-
-.camp-level {
-  display: inline-grid;
-  min-width: 9rem;
-  border-radius: 1.2rem;
-  padding: 0.8rem 1.2rem;
-  color: var(--ink);
-  background: var(--warn-soft);
-}
-
-.camp-level span {
-  color: var(--ink-soft);
-  font-size: 0.8rem;
-  font-weight: 800;
-}
-
-.camp-level strong {
+.camp-level-figure {
   font-family: var(--font-figure);
-  font-size: 2rem;
   font-weight: 800;
   font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+.camp-note {
+  margin: 0.9rem 0 0;
+  color: var(--ink-2);
+  font-size: 0.92rem;
 }
 
 .parent-heading {
@@ -4091,10 +4083,6 @@ button.codex-card:active:not(.is-locked) {
   );
 }
 
-.codex-card.is-locked .codex-card-art {
-  filter: brightness(0) opacity(0.42);
-}
-
 /* A silhouette is only a silhouette if you can see its outline. Blacked out
    on a dark card it is a hole in the page, so in the dark scheme the same
    featureless shape is struck in light instead. The meadow never needs this:
@@ -4254,7 +4242,6 @@ button.codex-card:active:not(.is-locked) {
 .voice-symbol,
 .feedback-symbol,
 .audio-state-icon,
-.word-stage,
 .summary-medal {
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 26%);
 }
@@ -4457,14 +4444,9 @@ button.codex-card:active:not(.is-locked) {
     grid-template-columns: 1fr;
   }
 
-  .word-progress-list li {
-    grid-template-columns: auto 1fr;
-  }
-
-  .word-progress-list li > span:last-child {
-    grid-column: 2;
-  }
-
+  /* The narrow-phone override that dropped the old third column onto a second
+     line is gone with the column: two columns fit at every width now, and this
+     rule was pinning the stage strip into the middle of the row. */
   .reward-summary {
     grid-template-columns: 1fr;
     text-align: center;

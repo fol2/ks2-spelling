@@ -913,14 +913,21 @@ h1 {
 }
 
 /* Brand-inked chrome would keep the theme's blue over the art; on a backdrop
-   page it takes the tone ink instead. */
+   page it takes the page's ink instead.
+   `var(--ink)` rather than `var(--hero-shell-ink)`, which is the same colour at
+   page level — the token block above points one at the other — but follows any
+   surface that re-points it further down. Naming the tone ink directly reached
+   straight through the two theme-locked surfaces: it put tone-1's near-black
+   ink on the round card's dark panel and on the end-round alert's, where "Keep
+   practising" became dark navy on near-navy and the only legible way out of
+   that alert was the one that ends the round. */
 .product-app[data-hero-tone] .product-topbar,
 .product-app[data-hero-tone] .topbar-action,
 .product-app[data-hero-tone] .button-quiet,
 .product-app[data-hero-tone] .btn-icon,
 .product-app[data-hero-tone] .accuracy-score,
 .product-app[data-hero-tone] .reward-secure-toast {
-  color: var(--hero-shell-ink);
+  color: var(--ink);
 }
 
 /* An error still has to read as an error, so its hue is kept and only pulled
@@ -2509,13 +2516,41 @@ h1 {
   background: rgb(0 0 0 / 44%);
 }
 
+/* An alert floats over a scrim, not over the land, so the region's tone has
+   nothing to say about it — and taking the tone was the bug. The panel came out
+   cream from `--hero-panel` while "End round" inside it read `--bad-strong` and
+   `--panel` from the colour scheme, so on a dark phone a pale pink button with
+   dark text sat on a light panel: the two halves of one control disagreeing
+   about which scheme they were in. Theme-locked, like the round card.
+   Opaque, too: at 82% the Submit button underneath showed through the middle of
+   the sentence explaining what ending the round would do. */
 .exit-confirmation > div {
+  --ink: var(--theme-ink);
+  --ink-2: var(--theme-ink-2);
+  --muted: var(--theme-muted);
+  --panel: var(--theme-panel);
+  --line: var(--theme-line);
+  --line-strong: var(--theme-line-strong);
+  --brand-soft: var(--theme-brand-soft);
+
   width: min(100%, 30rem);
   border-radius: 1.3rem;
   padding: 1.4rem;
   color: var(--ink);
-  background: var(--paper-raised);
+  background: var(--theme-panel);
   box-shadow: var(--shadow-lg);
+}
+
+/* The safe way out of an alert must be at least as legible as the destructive
+   one. `--brand-soft` is the brand mixed into the panel, so on a dark panel
+   "Keep practising" was dark navy on near-navy while "End round" was a pale pink
+   slab — the calm choice was the one you had to hunt for. Full ink and a
+   hairline: quieter than the marked action, and never harder to find. */
+.exit-confirmation .button-quiet {
+  border-color: color-mix(in oklab, var(--ink) 32%, transparent);
+  color: var(--ink);
+  background: none;
+  box-shadow: none;
 }
 
 .exit-confirmation > div > div {

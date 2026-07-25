@@ -1735,9 +1735,8 @@ export function EndRoundDialog({
 }
 
 /**
- * The web feedback ribbon: tone symbol, headline, the word in quotes — struck
- * through while it is only the learner's attempt — then the reason, then the
- * footer note under the card.
+ * The web feedback ribbon: tone symbol, headline, the spelling being taught in
+ * quotes, then the reason, then the footer note under the card.
  */
 function AnswerFeedback({ feedback }) {
   const tone = feedback.kind === 'error'

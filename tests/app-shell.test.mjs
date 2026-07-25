@@ -708,6 +708,55 @@ test('the production shell keeps Parent progress and commerce behind the local g
       assert.doesNotMatch(html, /Skip for now/, `skip must be hidden for ${label}`);
     }
   }
+  // A wrong answer names the spelling being taught and quotes what the learner
+  // wrote in the sentence about it. The attempt used to be displayed beside the
+  // headline and struck through whenever the engine gave no target, which reads
+  // as the app crossing out the correct answer — under the line "Your answer — "
+  // whose second half came from a body the engine had not filled, so it read
+  // "Your answer — No answer shown yet." while showing one.
+  const wrongFeedback = Object.freeze({
+    kind: 'error',
+    headline: 'Not yet',
+    attemptedAnswer: 'bild',
+    answer: 'build',
+    body: 'Look at the letters, then type it again.',
+  });
+  learningState = Object.freeze({
+    ...learningState,
+    practice: Object.freeze({
+      ...questionPractice,
+      phase: 'retry',
+      feedback: wrongFeedback,
+    }),
+  });
+  const wrongHtml = render();
+  assert.match(wrongHtml, /class="feedback-word">“build”/);
+  assert.match(wrongHtml, /You wrote “bild”\. Look at the letters/);
+  assert.doesNotMatch(wrongHtml, /is-attempt/);
+  assert.doesNotMatch(wrongHtml, /Your answer/);
+  assert.doesNotMatch(
+    wrongHtml,
+    /class="feedback-word[^"]*">“bild”/,
+    'the learner\'s own spelling is never the word beside the headline',
+  );
+
+  // A test round says up front that answers come at the end, so it can report
+  // neither the spelling nor a tone — a red cross is the result said without
+  // words.
+  learningState = Object.freeze({
+    ...learningState,
+    practice: Object.freeze({
+      ...questionPractice,
+      mode: 'test',
+      feedback: wrongFeedback,
+    }),
+  });
+  const testModeHtml = render();
+  assert.match(testModeHtml, /class="answer-recorded"[^>]*>Answer saved\./);
+  assert.doesNotMatch(testModeHtml, /answer-feedback/);
+  assert.doesNotMatch(testModeHtml, /build/);
+  assert.doesNotMatch(testModeHtml, /Not yet/);
+
   learningState = Object.freeze({
     ...learningState,
     practice: questionPractice,
@@ -846,6 +895,35 @@ test('the product shell consumes native safe-area insets', async () => {
   assert.match(
     productCss,
     /\.product-topbar p\s*\{[^}]*white-space:\s*nowrap;[^}]*text-overflow:\s*ellipsis;/su,
+  );
+
+  // The round card is theme-locked glass: it re-points the palette tokens so
+  // the art tints what is behind it rather than the glass itself. Every token it
+  // reads has to exist in the default scheme too. Declared only inside the
+  // dark-scheme block, each `var(--theme-*)` was guaranteed-invalid in light
+  // mode — and an invalid var in a border shorthand takes the whole declaration
+  // with it, so in light mode that card had no writing line under the answer,
+  // no border on either listening control and no hairline of its own.
+  const baseTokens = productCss.match(/^\.product-app \{\n(.*?)^\}/msu);
+  assert.ok(baseTokens, 'the base token block must be findable');
+  const themeTokensRead = new Set(
+    [...productCss.matchAll(/var\((--theme-[a-z0-9-]+)\)/gu)].map(([, name]) => name),
+  );
+  assert.ok(themeTokensRead.size > 0);
+  for (const token of themeTokensRead) {
+    assert.match(
+      baseTokens[1],
+      new RegExp(`^\\s*${token}:\\s*\\S`, 'mu'),
+      `${token} is read but never declared for the default colour scheme`,
+    );
+  }
+
+  // Re-pointing the tokens is not enough on its own: `color` still inherits the
+  // page's tone ink, so headings took the theme while plain paragraphs in the
+  // same card stayed the region's cream.
+  assert.match(
+    productCss,
+    /\.practice-card \{[^}]*--brand-soft: var\(--theme-brand-soft\);[^}]*color: var\(--ink\);/su,
   );
 
   // On a regular-width screen the strip is a rail down the leading edge, and

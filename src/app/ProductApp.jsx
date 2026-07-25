@@ -1774,20 +1774,21 @@ export function EndRoundDialog({
  * through while it is only the learner's attempt — then the reason, then the
  * footer note under the card.
  */
-function AnswerFeedback({ feedback, hideAnswer = false }) {
+function AnswerFeedback({ feedback }) {
   const tone = feedback.kind === 'error'
     ? 'bad'
     : feedback.kind === 'warn' ? 'warn' : 'good';
   const attempt = String(feedback.attemptedAnswer ?? '').trim();
-  const answer = hideAnswer ? '' : String(feedback.answer ?? '');
-  const word = answer || attempt;
-  const isAttempt = !answer && Boolean(attempt);
+  // The word beside the headline is only ever the spelling being taught. The
+  // learner's own attempt used to appear there struck through whenever the
+  // engine gave no target — which reads as the app crossing out the correct
+  // answer — under the line "Your answer — ", whose second half came from a
+  // body the engine had not filled in, so it read "Your answer — No answer
+  // shown yet." while showing one. What they wrote belongs in the sentence
+  // about what they wrote.
+  const word = String(feedback.answer ?? '').trim();
   const body = feedback.body ?? '';
-  const reason = isAttempt
-    ? (body ? `Your answer — ${body}` : 'Your answer')
-    : attempt && !hideAnswer
-      ? `You wrote “${attempt}”. ${body}`.trim()
-      : body;
+  const reason = attempt ? `You wrote “${attempt}”. ${body}`.trim() : body;
   return (
     <div
       className={`answer-feedback answer-feedback-${tone}`}
@@ -1802,16 +1803,12 @@ function AnswerFeedback({ feedback, hideAnswer = false }) {
         <div>
           <h2>
             {feedback.headline}
-            {word && (
-              <em className={`feedback-word${isAttempt ? ' is-attempt' : ''}`}>
-                {`“${word}”`}
-              </em>
-            )}
+            {word && <em className="feedback-word">{`“${word}”`}</em>}
           </h2>
           {reason && <p>{reason}</p>}
         </div>
       </div>
-      {!hideAnswer && feedback.footer && <small>{feedback.footer}</small>}
+      {feedback.footer && <small>{feedback.footer}</small>}
     </div>
   );
 }
@@ -2053,13 +2050,18 @@ function PracticeScreen({
           out is gone — the label on the strip is what a screen reader reads,
           and it announces as the round moves. */}
       <div className="practice-progress">
+        {/* The round drawn as what the app calls it: a trail. The marks used to
+            be a loose row of identical dots with nothing joining them, which
+            said how many but never that they went anywhere. They stand on a
+            chalk line now, spread along its length, and the line ends at the
+            same flag that marks this section in the tab strip. */}
         <div
           className="round-path"
           role="img"
           aria-live="polite"
           aria-label={`${done} of ${total} words secured`}
         >
-          {/* The index is the identity here — a dot is a position in the
+          {/* The index is the identity here — a mark is a position in the
               round, not a word. */}
           {roundProgressDots(practice.progress).map((step, index) => (
             <span
@@ -2067,6 +2069,9 @@ function PracticeScreen({
               className={`round-step${step ? ` is-${step}` : ''}`}
             />
           ))}
+          <span className="round-goal" aria-hidden="true">
+            <TrailIcon size={15} />
+          </span>
         </div>
       </div>
 
@@ -2099,7 +2104,9 @@ function PracticeScreen({
               name="spelling"
               type="text"
               aria-label="Type the spelling"
-              placeholder="Type the spelling here"
+              // The card's own heading already says what to do, so the line
+              // itself only has to say what goes on it.
+              placeholder="your spelling"
               value={answer}
               disabled={busy || practice.awaitingAdvance}
               // A spelling test must not be told the answer: no autocomplete,
@@ -2128,6 +2135,11 @@ function PracticeScreen({
           {/* Two controls, as upstream has: the dictation and a slower repeat
               of it. KS2 spelling is examined in context, so both are the
               sentence — the word on its own is not a cue this test gives. */}
+          {/* Hearing the sentence again is the verb this whole screen turns on,
+              and it was two unlabelled outline circles. They are named while
+              there is room for a name, and fall back to the glyph alone once
+              the keyboard has taken the height — the aria-label carries the
+              full instruction either way. */}
           <div className="audio-row" role="group" aria-label="Listening controls">
             <button
               type="button"
@@ -2137,6 +2149,7 @@ function PracticeScreen({
               onClick={() => void play('sentence')}
             >
               <SpeakerSentenceIcon />
+              <span className="btn-icon-label">Hear it again</span>
             </button>
             <button
               type="button"
@@ -2146,6 +2159,7 @@ function PracticeScreen({
               onClick={() => void play('slow-sentence')}
             >
               <SpeakerSlowIcon />
+              <span className="btn-icon-label">Slower</span>
             </button>
           </div>
 
@@ -2183,13 +2197,17 @@ function PracticeScreen({
           </div>
         )}
 
-        {practice.feedback && (
-          <AnswerFeedback
-            feedback={practice.feedback}
-            // A SATs test never shows a spelling back before the summary.
-            hideAnswer={isTestMode}
-          />
-        )}
+        {/* A SATs test says up front that answers are shown at the end, so the
+            round cannot report one. It cannot report a tone either: a green
+            tick or a red cross is the result, said without words. The test
+            confirms only that the answer went in. */}
+        {practice.feedback && (isTestMode ? (
+          <p className="answer-recorded" role="status" aria-live="polite">
+            Answer saved. Every word is shown at the end.
+          </p>
+        ) : (
+          <AnswerFeedback feedback={practice.feedback} />
+        ))}
       </section>
 
       {/* Upstream keeps the round's housekeeping outside the card: the voice

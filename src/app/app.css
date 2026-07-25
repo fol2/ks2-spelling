@@ -457,6 +457,24 @@ h1 {
      be re-pointed in one place rather than per call site. */
   --control-surface: var(--panel);
 
+  /* Theme-locked copies of the palette, for the one surface that must not
+     re-tone with the region behind it: the round card is glass that reads the
+     same over every region, so the art tints what is behind it rather than the
+     glass itself.
+     These were declared only inside the dark-scheme block, which meant every
+     `var(--theme-*)` on that card was guaranteed-invalid in light mode. An
+     invalid var in a border shorthand takes the whole declaration with it, so
+     in light mode the round card had no writing line under the answer, no
+     border on either listening control and no hairline of its own — on the one
+     screen a learner spends the most time looking at. */
+  --theme-ink: #1d2b3a;
+  --theme-ink-2: #3b4a5c;
+  --theme-muted: #7a8697;
+  --theme-panel: #fff;
+  --theme-line: #e5e1d6;
+  --theme-line-strong: #cfc8b6;
+  --theme-brand-soft: #dce6f3;
+
   /* Legacy aliases kept alive so existing rules keep working. */
   --paper: var(--bg);
   --paper-raised: var(--panel);
@@ -844,9 +862,11 @@ h1 {
   background: color-mix(in oklab, var(--hero-wash) 94%, transparent);
 }
 
+/* Only the fields that are boxes. The answer line is deliberately a ruled
+   writing line on a transparent ground, and on a dusk region the wash is
+   near-black, so filling it turned the line into a hole in the card. */
 .product-app[data-hero-tone] .learner-form input,
-.product-app[data-hero-tone] .learner-form select,
-.product-app[data-hero-tone] .answer-form input {
+.product-app[data-hero-tone] .learner-form select {
   background: var(--hero-wash);
 }
 
@@ -869,6 +889,26 @@ h1 {
 .product-app[data-hero-tone] .answer-feedback-bad {
   border-color: color-mix(in oklab, var(--bad) 46%, transparent);
   background: color-mix(in oklab, var(--bad) 20%, var(--hero-panel));
+}
+
+/* Except inside the round card, which is theme-locked glass: taking its fill
+   from the region's wash while taking its ink from the theme put the card's own
+   dark ink on a dark muddy panel, and "Not yet" was the least readable thing on
+   a screen whose whole job is telling a child what to look at again. Inside the
+   card, a semantic panel is semantic in the theme, like every other panel. */
+.product-app[data-hero-tone] .practice-card .answer-feedback {
+  border-color: color-mix(in oklab, var(--good) 28%, transparent);
+  background: var(--good-soft);
+}
+
+.product-app[data-hero-tone] .practice-card .answer-feedback-warn {
+  border-color: color-mix(in oklab, var(--warn) 30%, transparent);
+  background: var(--warn-soft);
+}
+
+.product-app[data-hero-tone] .practice-card .answer-feedback-bad {
+  border-color: color-mix(in oklab, var(--bad) 30%, transparent);
+  background: var(--bad-soft);
 }
 
 /* Brand-inked chrome would keep the theme's blue over the art; on a backdrop
@@ -2179,12 +2219,39 @@ h1 {
 
 /* One dot per word in the round: filled once the word is secure, ringed while
    it is the one being worked on. */
+/* A chalk line with the round's waypoints standing on it. A loose row of
+   identical dots said how many words there were and never that they led
+   anywhere; the line is what makes it a trail, and it ends at the flag that
+   marks this section in the tab strip. */
 .round-path {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  width: 100%;
+  min-height: 1.25rem;
+  gap: 0.25rem;
   align-items: center;
-  min-height: 1rem;
+  justify-content: space-between;
+}
+
+.round-path::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0.9rem;
+  left: 0.2rem;
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    color-mix(in oklab, var(--ink) 32%, transparent) 0 4px,
+    transparent 4px 9px
+  );
+}
+
+.round-goal {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: color-mix(in oklab, var(--ink) 62%, transparent);
 }
 
 /* The strip stands directly on the art, so each dot is ringed in the page ink
@@ -2196,7 +2263,9 @@ h1 {
   height: 0.625rem;
   border: 2px solid color-mix(in oklab, var(--ink) 62%, transparent);
   border-radius: 999px;
-  background: color-mix(in oklab, var(--paper-raised) 85%, transparent);
+  /* Opaque, not 85%: a mark standing on the line has to interrupt it, or the
+     dashes run straight through the middle of every waypoint. */
+  background: var(--shell-raised);
   flex-shrink: 0;
   transition:
     background-color 220ms var(--ease-out),
@@ -2233,6 +2302,13 @@ h1 {
   --line: color-mix(in oklab, var(--theme-line) 80%, transparent);
   --line-strong: var(--theme-line-strong);
   --brand-soft: var(--theme-brand-soft);
+
+  /* Re-declaring the tokens is not enough: `color` itself still inherited the
+     page's tone ink, so headings — which set `color: var(--ink)` explicitly —
+     took the theme while every plain paragraph in the card stayed the region's
+     cream. On a dusk region that put the sentence explaining a wrong answer in
+     near-white on pale pink. */
+  color: var(--ink);
 }
 
 /* Ported from ks2-mastery `.spelling-in-session .prompt-instr`: a quiet
@@ -2292,7 +2368,7 @@ h1 {
 .answer-form input.word-input {
   width: 100%;
   min-height: 0;
-  padding: 0.85rem 1.25rem 1.15rem;
+  padding: 0.4rem 1.25rem 0.9rem;
   border: 0;
   border-bottom: 2.5px solid var(--line-strong);
   border-radius: 0;
@@ -2320,9 +2396,25 @@ h1 {
    The name lives in `aria-label`; upstream shows no text at all here. */
 .audio-row {
   display: flex;
-  gap: 0.625rem;
+  gap: 0.55rem;
   justify-content: center;
   margin-top: 1.25rem;
+}
+
+/* Named while there is room for a name. `.btn-icon` is a circle everywhere
+   else in the app; on the round card it grows into a pill around its label and
+   drops back to the circle when the keyboard takes the height. */
+.practice-card .audio-row .btn-icon {
+  width: auto;
+  gap: 0.45rem;
+  padding: 0 1rem 0 0.85rem;
+  border-radius: 999px;
+}
+
+.btn-icon-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
 }
 
 /* `.product-app button` sets a small radius for every control, so the circle
@@ -2359,9 +2451,14 @@ h1 {
 
 /* The web spells its prompt in serif italic; only the placeholder leans, so
    the learner's own spelling stays upright and legible. */
+/* The hint is not the answer, so it does not take the answer's size: at the
+   full 2.4rem it was the largest type on the card and read as a word already
+   written on the line. */
 .answer-form input::placeholder {
-  color: color-mix(in oklab, var(--ink) 55%, transparent);
+  color: color-mix(in oklab, var(--ink) 46%, transparent);
+  font-size: 1.35rem;
   font-style: italic;
+  letter-spacing: 0.01em;
 }
 
 /* The web centres submit and skip on one row; on a phone the primary takes the
@@ -2453,9 +2550,14 @@ h1 {
   letter-spacing: -0.01em;
 }
 
-.feedback-word.is-attempt {
-  opacity: 0.75;
-  text-decoration: line-through;
+/* A neutral confirmation for a test round, where a tone would be the result
+   said without words. */
+.answer-recorded {
+  margin: 1.1rem 0 0;
+  color: var(--ink-2);
+  font-size: 0.94rem;
+  font-weight: 600;
+  text-align: center;
 }
 
 .answer-feedback p {
@@ -2581,13 +2683,21 @@ h1 {
   margin: 0;
 }
 
+/* Leaving a round is not destructive — every answered word is already saved,
+   and the confirmation says so. As a filled red pill it was the loudest thing
+   on the screen a child is meant to be spelling on, and it out-shouted Submit.
+   It is a quiet control that keeps its edge, and the dialog behind it carries
+   the weight. */
 .product-app[data-hero-tone] .session-footer .button-quiet,
 .session-footer .button-quiet {
-  border-color: color-mix(in oklab, var(--bad) 40%, transparent);
+  border-color: color-mix(in oklab, var(--ink) 22%, transparent);
   border-radius: 999px;
-  background: color-mix(in oklab, var(--bad) 78%, #1a0d10);
-  color: #fff;
-  font-weight: 800;
+  padding: 0.5rem 0.95rem;
+  background: none;
+  box-shadow: none;
+  color: color-mix(in oklab, var(--ink) 76%, transparent);
+  font-size: 0.88rem;
+  font-weight: 700;
 }
 
 /* ---------- The card with the keyboard up ----------
@@ -2622,9 +2732,17 @@ h1 {
   margin-top: 0.85rem;
 }
 
+/* Back to circles: the names are worth their width when the card has room, and
+   the aria-label carries the same instruction when it does not. */
 :root[data-keyboard='up'] .product-app .practice-card .btn-icon {
   width: 2.75rem;
   height: 2.75rem;
+  gap: 0;
+  padding: 0;
+}
+
+:root[data-keyboard='up'] .btn-icon-label {
+  display: none;
 }
 
 :root[data-keyboard='up'] .answer-actions {

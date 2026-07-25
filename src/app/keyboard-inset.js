@@ -12,11 +12,13 @@
 // nothing smaller can be one.
 const KEYBOARD_FLOOR_PX = 24;
 
-// iOS also gives a focused field its form accessory bar — the `‹ › ✓` strip —
-// and that alone costs about 55pt. It is worth giving back as space, but it is
-// not a reason to compact the layout: with a hardware keyboard attached the bar
-// appears on its own, and compacting then leaves a shrunken card in a full
-// screen. Only a loss on the scale of actual keys is one.
+// Compacting the card is a bigger claim than giving space back, so it wants a
+// bigger threshold. Chrome around a focused field can cost tens of points on its
+// own — the iOS form accessory bar is about 55pt, and it appears without any keys
+// when a hardware keyboard is attached — and shrinking the card for that leaves
+// it stranded in a full screen. Only a loss on the scale of actual keys is one.
+// (The bar itself is hidden at startup; see
+// `src/platform/keyboard/capacitor-keyboard.js`.)
 const COMPACT_FLOOR_PX = 180;
 
 export function keyboardInset(layoutHeight, visual) {

@@ -14,6 +14,7 @@ const EXPECTED_DIRECT_VERSIONS = Object.freeze({
   '@capacitor/core': '8.4.1',
   '@capacitor/haptics': '8.0.2',
   '@capacitor/ios': '8.4.1',
+  '@capacitor/keyboard': '8.0.5',
   '@vitejs/plugin-react': '6.0.3',
   oxlint: '1.71.0',
   phaser: '4.1.0',
@@ -852,6 +853,9 @@ test('Capacitor and the built shell remain local-only', async () => {
     webDir: 'dist',
     loggingBehavior: 'none',
     plugins: {
+      // No Keyboard entry: the plugin's accessory-bar and resize-mode calls are
+      // made at runtime from `src/platform/keyboard/capacitor-keyboard.js`, so
+      // this file stays byte-identical to its sealed B2 policy hash.
       CapacitorSQLite: {
         iosDatabaseLocation: 'Library/CapacitorDatabase',
         iosIsEncryption: false,

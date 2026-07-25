@@ -61,6 +61,7 @@ const EXPECTED_WEBVIEW_BUNDLE_PACKAGES = Object.freeze([
   '@capacitor/app',
   '@capacitor/core',
   '@capacitor/haptics',
+  '@capacitor/keyboard',
   'phaser',
   'react',
   'react-dom',
@@ -72,6 +73,7 @@ const NATIVE_BUILD_SOURCE_NPM_PACKAGES = new Set([
   '@capacitor/app',
   '@capacitor/haptics',
   '@capacitor/ios',
+  '@capacitor/keyboard',
 ]);
 
 function policyError(code, message) {
@@ -577,6 +579,7 @@ async function verifyRuntimeBoundary(packageJson) {
     '@capacitor/core',
     '@capacitor/haptics',
     '@capacitor/ios',
+    '@capacitor/keyboard',
   ]);
   const unexpectedPlugins = Object.keys(packageJson.dependencies ?? {}).filter(
     (name) => name.startsWith('@capacitor/') && !approvedCapacitorPackages.has(name),
@@ -654,7 +657,12 @@ async function verifyRuntimeBoundary(packageJson) {
     .sort();
   if (
     JSON.stringify(generatedProjects) !==
-      JSON.stringify([':capacitor-app', ':capacitor-community-sqlite', ':capacitor-haptics']) ||
+      JSON.stringify([
+        ':capacitor-app',
+        ':capacitor-community-sqlite',
+        ':capacitor-haptics',
+        ':capacitor-keyboard',
+      ]) ||
     /\b(?:api|classpath)\b/.test(generatedDependencies)
   ) {
     throw policyError('unapproved_native_plugin', 'Generated Android plugin dependency drifted');
@@ -665,7 +673,7 @@ async function verifyRuntimeBoundary(packageJson) {
   );
   if (
     products.join(',') !==
-    'Capacitor,Cordova,CapacitorCommunitySqlite,CapacitorApp,CapacitorHaptics'
+    'Capacitor,Cordova,CapacitorCommunitySqlite,CapacitorApp,CapacitorHaptics,CapacitorKeyboard'
   ) {
     throw policyError('unapproved_native_plugin', `Unexpected iOS products: ${products.join(',')}`);
   }

@@ -73,6 +73,21 @@ export const C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS = Object.freeze({
   phaser: '4.1.0',
 });
 
+// C7 spelling feel parity (2026-07-24 plan): iOS gives every WKWebView text
+// field the system form accessory bar — the `‹ › ✓` strip above the keys — and
+// WebKit exposes no web API to remove it. The Keyboard plugin is the only seam,
+// and it is used for that call alone: its own native resize is switched off in
+// `capacitor.config.json` because it shrinks the whole WebView, backdrop art
+// included.
+export const C7_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS = Object.freeze({
+  '@capacitor/keyboard': '8.0.5',
+});
+
+export const PLANNED_PACKAGE_DEPENDENCY_ADDITIONS = Object.freeze({
+  ...C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS,
+  ...C7_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS,
+});
+
 // SDLC velocity tier (2026-07-22): the local fast-test daily loop and pre-push
 // hook. Developer tooling, not certification steps — they add no CI surface and
 // exclude test files by name only for speed. Registered here because the
@@ -160,7 +175,7 @@ export async function verifyB3PackageTransitionAuthority({ root = DEFAULT_ROOT }
     ) ||
     !isDeepStrictEqual(
       authority.allowedPackageDependencyAdditions,
-      C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS,
+      PLANNED_PACKAGE_DEPENDENCY_ADDITIONS,
     ) ||
     !Array.isArray(authority.protectedCurrentFiles) ||
     authority.protectedCurrentFiles.length !== PROTECTED_PATHS.length ||
@@ -226,7 +241,7 @@ export function assertB2PackageTransition(frozenPackage, currentPackage, authori
   }
   for (const [name, version] of Object.entries(currentDependencies)) {
     if (Object.hasOwn(frozenDependencies, name)) continue;
-    if (C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS[name] !== version) {
+    if (PLANNED_PACKAGE_DEPENDENCY_ADDITIONS[name] !== version) {
       throw transitionError(
         `Package dependency is not authorised by the approved plans: ${name}`,
       );

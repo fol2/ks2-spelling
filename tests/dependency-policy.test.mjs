@@ -86,7 +86,8 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
   assert.equal(report.schemaVersion, 2);
   assert.equal(report.mode, 'pre-bootstrap');
   assert.equal(report.androidResolution, 'pending-toolchain');
-  assert.equal(report.npm.production.length, 39);
+  // 39 through C6; @capacitor/keyboard is the fortieth (C7).
+  assert.equal(report.npm.production.length, 40);
   assert.equal(report.npm.directBuildTools.length, 4);
   assert.ok(report.npm.lockPackageCount >= 150);
   for (const dependency of [
@@ -118,6 +119,7 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
       '@capacitor-community/sqlite',
       '@capacitor/app',
       '@capacitor/haptics',
+      '@capacitor/keyboard',
       'app-owned-commerce-bridge',
       'app-owned-pack-transfer-bridge',
       'app-owned-parent-access-bridge',

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import {
   assertB2PackageTransition,
-  C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS,
+  PLANNED_PACKAGE_DEPENDENCY_ADDITIONS,
   verifyB3PackageTransitionAuthority,
 } from './lib/b3-package-transition-authority.mjs';
 import { readFrozenB2Blob } from './lib/frozen-b2-git.mjs';
@@ -289,7 +289,7 @@ export async function verifyB2Authority({
   }
   for (const [name, version] of Object.entries(currentRootDependencies)) {
     if (Object.hasOwn(frozenRootDependencies, name)) continue;
-    if (C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS[name] !== version) {
+    if (PLANNED_PACKAGE_DEPENDENCY_ADDITIONS[name] !== version) {
       throw new Error(`current packageLock addition is not authorised: ${name}`);
     }
     if (currentLock?.packages?.[`node_modules/${name}`]?.version !== version) {

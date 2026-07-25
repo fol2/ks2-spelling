@@ -38,8 +38,16 @@ test('meadow is empty until something is caught', () => {
     buildMeadowSlots([monster({ caught: false, secureCount: 0 })]),
     [],
   );
-  assert.match(MEADOW_EMPTY_TITLE, /Nothing caught yet/);
-  assert.match(MEADOW_EMPTY_BODY, /meadow stays tidy/);
+  // An empty strip invites rather than reports: it names what will be there
+  // and what puts it there. The title used also to be the body's own opening
+  // sentence, which read as a fault in the app rather than as a fresh start.
+  assert.match(MEADOW_EMPTY_TITLE, /Your first companion/);
+  assert.match(MEADOW_EMPTY_BODY, /Finish a round/);
+  assert.doesNotMatch(
+    MEADOW_EMPTY_BODY,
+    new RegExp(MEADOW_EMPTY_TITLE, 'iu'),
+    'the body must not repeat its own title',
+  );
 });
 
 test('caught Inklet fills the meadow and leaves Full-pack slots locked', () => {

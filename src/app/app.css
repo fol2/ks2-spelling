@@ -589,6 +589,17 @@ h1 {
   opacity: 0.5;
 }
 
+/* A filled pill at half opacity over painted land became a grey slab that read
+   as a fault rather than as "not yet". Unavailable is quiet: it keeps the shape
+   and gives up the fill. */
+.product-app .button-primary:disabled {
+  border-color: color-mix(in oklab, var(--ink) 18%, transparent);
+  color: var(--ink-2);
+  background: color-mix(in oklab, var(--ink) 7%, transparent);
+  opacity: 1;
+  box-shadow: none;
+}
+
 /* The editorial focus halo: an ink rule for the outline itself, then a soft
    brand bloom outside it so keyboard focus reads as lit rather than boxed. */
 .product-app button:focus-visible,
@@ -780,17 +791,46 @@ h1 {
     );
 }
 
+/* On the home screen the land is the subject, not a texture behind one. The
+   wash lifts across the top third, where the only things standing on the art
+   are the greeting and one short headline in display type, and closes back
+   down over the lower half, where the companion strip and any device notice
+   need a surface to sit on. */
+.child-home[data-hero-tone] .hero-art::after {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--hero-wash) 44%, transparent) 0%,
+      color-mix(in oklab, var(--hero-wash) 30%, transparent) 34%,
+      color-mix(in oklab, var(--hero-wash) 58%, transparent) 72%,
+      color-mix(in oklab, var(--hero-wash) 74%, transparent) 100%
+    );
+}
+
 /* Blur is reserved for the one surface a learner reads through for minutes
    at a time — the round card. Every other surface floats on fill alone, so
    a scrolling page never stacks compositing passes over the panning art. */
-.product-app[data-hero-tone] .practice-card {
+.product-app[data-hero-tone] .practice-card,
+.product-app[data-hero-tone] .add-learner-card {
   backdrop-filter: blur(10px) saturate(1.06);
   -webkit-backdrop-filter: blur(10px) saturate(1.06);
 }
 
+/* And a stronger fill under it: an empty text field at 82% over grass looked
+   like a window onto the field rather than somewhere to type. */
+.product-app[data-hero-tone] .add-learner-card {
+  background: color-mix(in oklab, var(--hero-wash) 94%, transparent);
+}
+
+.product-app[data-hero-tone] .learner-form input,
+.product-app[data-hero-tone] .learner-form select,
+.product-app[data-hero-tone] .answer-form input {
+  background: var(--hero-wash);
+}
+
 /* Semantic surfaces keep their meaning but take the tone, so their ink stays
    the page ink rather than falling back to an inverted theme ink. */
-.product-app[data-hero-tone] .audio-state-ready,
+.product-app[data-hero-tone] .audio-state-ready:not(.audio-state-compact),
 .product-app[data-hero-tone] .answer-feedback {
   border-color: color-mix(in oklab, var(--good) 44%, transparent);
   background: color-mix(in oklab, var(--good) 20%, var(--hero-panel));
@@ -836,7 +876,7 @@ h1 {
    inverted when the phone switched to dark — the one thing this page's rule
    says must never happen. They take the tone the way `.brand-mark` does:
    fill from the tone ink with brand mixed back in, glyph from the wash. */
-.product-app[data-hero-tone] .button-primary,
+.product-app[data-hero-tone] .button-primary:not(:disabled),
 .product-app[data-hero-tone] .voice-symbol,
 .product-app[data-hero-tone] .audio-state-icon,
 .product-app[data-hero-tone] .word-stage {
@@ -1387,8 +1427,31 @@ h1 {
   font-size: 0.9rem;
 }
 
+/* Good news, said quietly. Compact used to keep the panel, its border and its
+   semantic green fill and only drop the body line, which left the loudest
+   element on the front door saying that nothing was wrong. It is a colophon at
+   the foot of the page now: no panel, no fill, one line. */
 .audio-state-compact {
   grid-template-columns: auto 1fr;
+  gap: 0.55rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+}
+
+.audio-state-compact .audio-state-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  font-size: 0.72rem;
+}
+
+.product-app .audio-state-compact h2 {
+  margin-bottom: 0;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 650;
+  letter-spacing: 0;
 }
 
 .add-learner-card {
@@ -1506,7 +1569,81 @@ h1 {
   display: grid;
   justify-items: start;
   gap: 0.35rem;
-  padding: clamp(0.5rem, 3vw, 2rem) 0 clamp(2rem, 8vw, 4rem);
+  padding: clamp(0.5rem, 3vw, 2rem) 0 clamp(1.75rem, 6vw, 3rem);
+}
+
+/* With the second sentence moved out of it, the headline is short enough to be
+   the one piece of display type on the screen, so it takes the size that role
+   deserves. Set here rather than on `.product-app h1` because the narrow-phone
+   cap further down the sheet would otherwise win on source order. */
+.child-home .trail-hero h1 {
+  margin-bottom: 0.55rem;
+  max-width: 15ch;
+  font-size: clamp(2.5rem, 10.5vw, 4rem);
+  line-height: 0.98;
+}
+
+/* Today's status, sized as a status. A marker rather than a bullet: it is one
+   sentence about one day, and the diamond is the same mark the trail uses for
+   a waypoint. */
+.hero-due {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin-bottom: 1.15rem;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.hero-due::before {
+  content: '◆';
+  color: var(--brand);
+  font-size: 0.62em;
+  line-height: 1.9;
+}
+
+.hero-due[data-due='none'] {
+  color: var(--ink-2);
+  font-weight: 550;
+}
+
+.hero-due[data-due='none']::before {
+  color: color-mix(in oklab, var(--ink) 40%, transparent);
+}
+
+/* The one filled control on the screen, and the only reason the screen exists.
+   Full width up to a comfortable measure so the target is unmissable rather
+   than pill-sized in the middle of a painted field. */
+.child-home .trail-hero .button-primary {
+  justify-self: stretch;
+  max-width: 26rem;
+}
+
+/* A quiet rule-and-label for the sections below the fold: they are captions on
+   a page, not headings competing with the display type above them. */
+.product-app .section-label {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  margin-bottom: 0.8rem;
+  color: var(--ink-2);
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.product-app .section-label::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--line);
+}
+
+.companions {
+  margin-bottom: 1.5rem;
 }
 
 .hero-greet {
@@ -1583,8 +1720,23 @@ h1 {
   object-fit: contain;
 }
 
-.meadow-slot.is-locked .meadow-slot-art {
-  filter: brightness(0) opacity(0.42);
+/* An uncaught slot is an empty space in a collection, not a grey lump: a
+   dashed edge, a quieter fill and one small waypoint mark where the creature
+   will stand. Same footprint as the art it replaces, so the strip keeps its
+   rhythm whether it holds three companions or none. */
+.meadow-slot.is-locked {
+  border-style: dashed;
+  border-color: color-mix(in oklab, var(--ink) 26%, transparent);
+  background: color-mix(in oklab, var(--hero-panel, var(--paper-raised)) 48%, transparent);
+}
+
+.meadow-slot-empty {
+  display: grid;
+  width: 4.25rem;
+  height: 4.25rem;
+  place-items: center;
+  color: color-mix(in oklab, var(--ink) 24%, transparent);
+  font-size: 1.15rem;
 }
 
 .meadow-slot p {

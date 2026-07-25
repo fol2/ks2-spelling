@@ -1337,23 +1337,35 @@ function MonsterMeadow({ monsters }) {
               : `${slot.name} locked`
           }
         >
-          <img
-            className="meadow-slot-art"
-            src={slot.artUrl}
-            alt=""
-            width={128}
-            height={128}
-            decoding="async"
-          />
+          {/* A silhouette of the creature you have not met was `brightness(0)`
+              at 42% — a flat grey lump, and the loudest thing in the strip. An
+              uncaught slot is drawn as what it is instead: an empty space in a
+              collection, which is a shape every child who has ever filled a
+              sticker album already reads. */}
+          {slot.kind === 'caught' ? (
+            <img
+              className="meadow-slot-art"
+              src={slot.artUrl}
+              alt=""
+              width={128}
+              height={128}
+              decoding="async"
+            />
+          ) : (
+            <span className="meadow-slot-empty" aria-hidden="true">◆</span>
+          )}
           {slot.kind === 'caught' ? (
             <p>
               <strong>{slot.name}</strong>
               <span>{countWords(slot.secureCount)} secure</span>
             </p>
           ) : (
+            /* "Locked · More of the roster" read as a shop window to a child,
+               and naming the species would promise one the Starter pack cannot
+               reach. The slot says only that it is empty and worth filling. */
             <p>
-              <strong>Locked</strong>
-              <span>More of the roster</span>
+              <strong>Not yet</strong>
+              <span>Room to grow</span>
             </p>
           )}
         </div>
@@ -1392,31 +1404,47 @@ function ChildHome({
           </button>
         )}
       />
+      {/* The screen now reads in the order the job runs in: who is here, what
+          today asks, then the one way to begin. The companion strip used to be
+          first, which gave the most prominent slot on a new learner's very
+          first screen to a panel saying nothing had happened yet. */}
       <section className="trail-hero">
-        <MonsterMeadow monsters={learningState.monsters} />
         <p className="product-kicker">
           The Scribe Downs · {displayYearGroup(profile.yearGroup)}
         </p>
         <p className="hero-greet">{heroWelcomeLine(profile.nickname)}</p>
         <h1 id="home-title">
           Today&apos;s words are <em>waiting.</em>
-          <br />
-          {dueCopy(dueCount)}
         </h1>
+        {/* `dueCopy` is today's status, and it was being read as the second
+            half of the headline: "words are waiting" and "nothing due today"
+            then contradicted each other inside one sentence. Same string,
+            given the weight it actually carries. */}
+        <p className="hero-due" data-due={dueCount > 0 ? 'some' : 'none'}>
+          {dueCopy(dueCount)}
+        </p>
         <button
           type="button"
           className="button-primary button-large"
           onClick={() => onScreen('setup')}
         >
           Start a Smart Review
+          <span aria-hidden="true"> →</span>
         </button>
       </section>
 
-      <AudioStatus
-        audioState={audioState}
-        onRecover={onRecoverAudio}
-        compact={audioState.status === 'ready'}
-      />
+      <section className="companions" aria-labelledby="companions-title">
+        <h2 id="companions-title" className="section-label">Your companions</h2>
+        <MonsterMeadow monsters={learningState.monsters} />
+      </section>
+
+      {/* A device-status panel earns a place on a child's home screen only when
+          something is wrong with it. Working audio is not news, and it was
+          taking a full row above the sections. The picker and the parent area
+          both still report it either way. */}
+      {audioState.status !== 'ready' && (
+        <AudioStatus audioState={audioState} onRecover={onRecoverAudio} />
+      )}
 
       <TrailTabs current="home" onScreen={onScreen} />
     </main>

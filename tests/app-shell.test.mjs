@@ -482,10 +482,28 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(homeHtml, /Hi Ada — ready for a short round\?/);
   assert.match(homeHtml, /Today&#x27;s words are <em>waiting\.<\/em>/);
   assert.match(homeHtml, /Start a Smart Review/);
-  assert.match(homeHtml, /Nothing caught yet/);
-  assert.match(homeHtml, /meadow stays tidy/);
-  assert.match(homeHtml, /Listening pack needs setup/);
+  assert.match(homeHtml, /Your first companion/);
+  assert.match(homeHtml, /Finish a round/);
   assert.doesNotMatch(homeHtml, /buy|restore|price|commerce/i);
+
+  // The screen reads in the order the job runs in. `dueCopy` is today's status
+  // and used to be glued onto the headline as its second line, where "words are
+  // waiting" and "nothing due today" contradicted each other inside one
+  // sentence. Both strings are still there; only one of them is the headline.
+  assert.match(homeHtml, /<h1 id="home-title">Today&#x27;s words are <em>waiting\.<\/em><\/h1>/);
+  assert.match(homeHtml, /class="hero-due" data-due="none">Nothing due today/);
+  assert.ok(
+    homeHtml.indexOf('hero-due') < homeHtml.indexOf('Start a Smart Review'),
+    'the day\'s status comes before the action it explains',
+  );
+  assert.ok(
+    homeHtml.indexOf('Start a Smart Review') < homeHtml.indexOf('companions-title'),
+    'the action outranks the collection strip it used to sit below',
+  );
+
+  // A device-status panel is on a child's home screen only when something is
+  // wrong with it: working audio was taking a full row to say so.
+  assert.match(homeHtml, /Listening pack needs setup/);
 
   // The four sections are a persistent strip, not rows on the home screen, so
   // every one of them is reachable from every one of the others. Order is part

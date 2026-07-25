@@ -10,9 +10,12 @@
 import { stageArtUrl } from '../monster-stage/monster-stage-model.js';
 import { monsterDisplayName } from '../celebrations/celebration-model.js';
 
-export const MEADOW_EMPTY_TITLE = 'Nothing caught yet';
+/* An empty strip is an invitation, so it says what to do rather than what has
+   not happened. The title used to be the body's own first sentence as well,
+   which read as a fault in the app. */
+export const MEADOW_EMPTY_TITLE = 'Your first companion';
 export const MEADOW_EMPTY_BODY =
-  'Nothing caught yet. Your meadow stays tidy. Finish a round to see your first monster appear.';
+  'Finish a round and it appears here, then grows as words become secure.';
 
 /** Spelling species that may appear in meadow / codex. Order is display order. */
 export const REACHABLE_SPECIES = Object.freeze([

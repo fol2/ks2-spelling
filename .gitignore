@@ -30,3 +30,6 @@ ios/App/App/public/
 .idea/
 .DS_Store
 .playwright-mcp/
+
+# Local agent configuration
+.claude/

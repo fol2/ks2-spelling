@@ -2626,69 +2626,74 @@ h1 {
   font-weight: 700;
 }
 
-/* ---------- The card with the keyboard up ----------
- * Half the screen is gone the moment a learner taps the answer line, so the
- * card gives up the room it was only using to breathe: the sentence and the
- * line under it are what has to stay on screen, everything else tightens
- * around them. `data-keyboard` is set from `keyboard-inset.js`; a media query
- * cannot do this because iOS never changes the layout viewport.
+/* ---------- The card with no room ----------
+ * Half the screen is gone the moment a learner taps the answer line, and all of
+ * that height is gone before they touch anything if the phone is in landscape,
+ * where the whole screen is 430pt tall. Both look the same to this layout, so
+ * both get the same answer: the card gives up the room it was only using to
+ * breathe, and the sentence and the line under it are what stays.
+ *
+ * `data-room` is set from `keyboard-inset.js`, which measures the visual
+ * viewport. A media query cannot do the keyboard half of this — iOS never
+ * changes the layout viewport — and measuring what is left rather than what was
+ * taken is what lets one signal cover both.
  *
  * Note the instruction is tightened rather than hidden — it is the round's
  * `<h1>`, and `display: none` would take the page's accessible name with it. */
-:root[data-keyboard='up'] .practice-card {
+:root[data-room='tight'] .practice-card {
   padding: 1.1rem 1.1rem 1.25rem;
 }
 
-:root[data-keyboard='up'] .practice-card h1.prompt-instr {
+:root[data-room='tight'] .practice-card h1.prompt-instr {
   margin-bottom: 0.5rem;
   font-size: 0.8rem;
 }
 
-:root[data-keyboard='up'] .cloze-prompt {
+:root[data-room='tight'] .cloze-prompt {
   margin-bottom: 0.75rem;
   font-size: clamp(1.15rem, 4vw, 1.4rem);
 }
 
-:root[data-keyboard='up'] .answer-form input.word-input {
+:root[data-room='tight'] .answer-form input.word-input {
   padding: 0.5rem 1rem 0.7rem;
   font-size: clamp(1.45rem, 5.5vw, 1.9rem);
 }
 
-:root[data-keyboard='up'] .audio-row {
+:root[data-room='tight'] .audio-row {
   margin-top: 0.85rem;
 }
 
 /* Back to circles: the names are worth their width when the card has room, and
    the aria-label carries the same instruction when it does not. */
-:root[data-keyboard='up'] .product-app .practice-card .btn-icon {
+:root[data-room='tight'] .product-app .practice-card .btn-icon {
   width: 2.75rem;
   height: 2.75rem;
   gap: 0;
   padding: 0;
 }
 
-:root[data-keyboard='up'] .btn-icon-label {
+:root[data-room='tight'] .btn-icon-label {
   display: none;
 }
 
-:root[data-keyboard='up'] .answer-actions {
+:root[data-room='tight'] .answer-actions {
   margin-top: 1rem;
 }
 
 /* The dots stay: they are the round's live region, and hiding them would take
    the progress announcement away from a screen reader mid-round. They only
    give up their margin. */
-:root[data-keyboard='up'] .practice-progress {
+:root[data-room='tight'] .practice-progress {
   margin-bottom: 0.4rem;
 }
 
 /* With the note gone the footer has one child, and `space-between` would park
    the danger pill on the left where the note used to start. */
-:root[data-keyboard='up'] .session-footer {
+:root[data-room='tight'] .session-footer {
   justify-content: flex-end;
 }
 
-:root[data-keyboard='up'] .session-footer .voice-note {
+:root[data-room='tight'] .session-footer .voice-note {
   display: none;
 }
 
@@ -4911,5 +4916,65 @@ button.codex-card:active:not(.is-locked) {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
     gap: 0.75rem;
+  }
+}
+
+/* ---------- The round, wide and short ----------
+ * A phone in landscape is 430pt tall before anything is focused, and the round
+ * card compacted is still taller than that once the trail line, the footer and
+ * the safe areas have taken their share — so a child who turned the phone lost
+ * the Submit button off the bottom of the screen.
+ *
+ * With width instead of height, the card stops being a column: what to read on
+ * one side, what to do on the other. This is also the shape an iPad in
+ * landscape wants once its keyboard is up, which is why it keys off `data-room`
+ * rather than a height query — a media query cannot see the iOS keyboard. */
+@media (min-width: 45rem) {
+  :root[data-room='tight'] .practice-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(13rem, 0.85fr);
+    gap: 0.4rem 2rem;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+  }
+
+  :root[data-room='tight'] .practice-card h1.prompt-instr,
+  :root[data-room='tight'] .practice-card .cloze-prompt,
+  :root[data-room='tight'] .practice-card .practice-mode-note {
+    grid-column: 1;
+    text-align: left;
+  }
+
+  :root[data-room='tight'] .practice-card .cloze-prompt {
+    margin-bottom: 0;
+  }
+
+  :root[data-room='tight'] .practice-card .answer-form {
+    grid-row: 1 / 4;
+    grid-column: 2;
+  }
+
+  /* Anything the engine says about the answer is about both halves. */
+  :root[data-room='tight'] .practice-card .answer-notice,
+  :root[data-room='tight'] .practice-card .answer-feedback,
+  :root[data-room='tight'] .practice-card .answer-recorded {
+    grid-column: 1 / -1;
+  }
+
+  :root[data-room='tight'] .practice-card .audio-row {
+    margin-top: 0.7rem;
+  }
+
+  /* The height was the scarce thing, not the width, so the listening controls
+     keep their names here. */
+  :root[data-room='tight'] .btn-icon-label {
+    display: inline;
+  }
+
+  :root[data-room='tight'] .product-app .practice-card .btn-icon {
+    width: auto;
+    height: 2.6rem;
+    gap: 0.4rem;
+    padding: 0 0.9rem 0 0.75rem;
   }
 }

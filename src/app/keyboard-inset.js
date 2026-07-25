@@ -12,14 +12,26 @@
 // nothing smaller can be one.
 const KEYBOARD_FLOOR_PX = 24;
 
-// Compacting the card is a bigger claim than giving space back, so it wants a
-// bigger threshold. Chrome around a focused field can cost tens of points on its
-// own — the iOS form accessory bar is about 55pt, and it appears without any keys
-// when a hardware keyboard is attached — and shrinking the card for that leaves
-// it stranded in a full screen. Only a loss on the scale of actual keys is one.
-// (The bar itself is hidden at startup; see
+// Whether the card still has room is a different question from how much space
+// the keyboard took, and it has two answers that look identical to a layout: the
+// keyboard is drawn over the page, or the phone is in landscape and the whole
+// screen is 430pt tall. Both show up as the visual viewport being short, so one
+// measurement covers both — and measuring what is left rather than what was
+// taken closes the false positive that used to need its own threshold, because
+// the iOS form accessory bar costing 55pt of a portrait phone still leaves
+// plenty. (The bar itself is hidden at startup; see
 // `src/platform/keyboard/capacitor-keyboard.js`.)
-const COMPACT_FLOOR_PX = 180;
+//
+// The floor is the height at which the round card stops fitting at full size:
+// its own content plus the trail line and the footer under it.
+const ROOM_FLOOR_PX = 620;
+
+export function hasRoomForCard(visualHeight) {
+  // Unknown means do not compact: a full-size card in a short screen can be
+  // scrolled, and a compacted one in a tall screen is stranded.
+  if (!Number.isFinite(visualHeight) || visualHeight <= 0) return true;
+  return visualHeight >= ROOM_FLOOR_PX;
+}
 
 export function keyboardInset(layoutHeight, visual) {
   if (!visual) return 0;
@@ -31,9 +43,10 @@ export function keyboardInset(layoutHeight, visual) {
   return covered > KEYBOARD_FLOOR_PX ? Math.round(covered) : 0;
 }
 
-// Publishes the inset on the document element as `--keyboard-inset`, plus a
-// `data-keyboard` flag so a layout can compact itself rather than only shift.
-// Returns a teardown; safe to call where neither viewport exists.
+// Publishes the inset on the document element as `--keyboard-inset` so a layout
+// can give the space back, plus a `data-room` flag so it can compact when there
+// is no longer room to give. Returns a teardown; safe to call where neither
+// viewport exists.
 export function observeKeyboardInset(view = globalThis, element = null) {
   const visual = view?.visualViewport;
   const root = element ?? view?.document?.documentElement ?? null;
@@ -42,7 +55,7 @@ export function observeKeyboardInset(view = globalThis, element = null) {
   const publish = () => {
     const inset = keyboardInset(view.innerHeight, visual);
     root.style.setProperty('--keyboard-inset', `${inset}px`);
-    root.dataset.keyboard = inset >= COMPACT_FLOOR_PX ? 'up' : 'down';
+    root.dataset.room = hasRoomForCard(visual.height) ? 'ample' : 'tight';
   };
 
   publish();
@@ -52,6 +65,6 @@ export function observeKeyboardInset(view = globalThis, element = null) {
     visual.removeEventListener('resize', publish);
     visual.removeEventListener('scroll', publish);
     root.style.removeProperty('--keyboard-inset');
-    delete root.dataset.keyboard;
+    delete root.dataset.room;
   };
 }

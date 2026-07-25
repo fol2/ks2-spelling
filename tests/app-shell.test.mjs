@@ -370,8 +370,17 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(html, /Who is practising\?/);
   assert.match(html, /Ada/);
   assert.match(html, /Year 3/);
-  assert.match(html, /Selected/);
+  // The device's saved selection says who was open here, never that they
+  // practised: the picker has no answer data to make that claim from.
+  assert.match(html, /Last opened/);
+  assert.doesNotMatch(html, /Last practised/);
   assert.match(html, /Add a learner/);
+  // A name is set in the display serif at headline size and carries its own
+  // colour as a spine. The letter-in-a-square avatar is gone: it pushed the
+  // name down to a caption to make room for itself.
+  assert.match(html, /class="learner-name"/);
+  assert.doesNotMatch(html, /learner-avatar/);
+  assert.match(html, /--learner-colour/);
   assert.match(html, /Listening pack needs setup/);
   assert.match(html, /pre-recorded audio/i);
   assert.match(html, /Check again/);

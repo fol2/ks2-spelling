@@ -16,6 +16,7 @@ import {
 } from './backdrop-model.js';
 import { countWords, dueCopy, heroWelcomeLine } from './hero-copy.js';
 import { observeKeyboardInset } from './keyboard-inset.js';
+import { learnerColour } from './learner-colour.js';
 import { whereYouStand } from './where-you-stand.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
@@ -1004,6 +1005,10 @@ function ProfilePicker({
   const [yearGroup, setYearGroup] = useState('Y3');
   const [goal, setGoal] = useState(10);
   const busy = profileState.status === 'saving';
+  const hasLearners = profileState.profiles.length > 0;
+  // The form is the whole job on a device with nobody on it, and a once-ever
+  // task after that. It opens itself only while it is the job.
+  const [addOpen, setAddOpen] = useState(!hasLearners);
 
   function submit(event) {
     event.preventDefault();
@@ -1013,14 +1018,26 @@ function ProfilePicker({
       nickname: nextNickname,
       yearGroup,
       goal,
-      colour: '#157A76',
+      colour: learnerColour(nextNickname),
     })
-      .then(() => setNickname(''))
+      .then(() => {
+        setNickname('');
+        setAddOpen(false);
+      })
       .catch(() => undefined);
   }
 
   return (
-    <main className="product-app product-page" aria-labelledby="profile-title">
+    <main
+      className="product-app product-page picker-page"
+      aria-labelledby="profile-title"
+      data-hero-tone={HOME_HERO_TONE}
+    >
+      {/* Every other screen stands on the Downs; this one was the only card
+          floating on nothing. It takes the same land as the home screen it
+          opens onto, deliberately: the trailhead and the trail are one place,
+          so walking through the door does not change the view. */}
+      <HeroBackdrop url={heroBgForMode('smart', { tone: HOME_HERO_TONE })} />
       <ProductTopBar
         action={(
           <button type="button" className="topbar-action" onClick={onOpenParent}>
@@ -1028,13 +1045,20 @@ function ProfilePicker({
           </button>
         )}
       />
-      <section className="welcome-panel">
-        <p className="product-kicker">Your pocket expedition</p>
+      {/* On a device that already knows its learners the heading is a question
+          they have read a hundred times, and their own name is what they came
+          for — so the heading steps down and the names become the largest type
+          on the screen. With nobody here yet it stays the headline, because
+          then there is nothing else to look at. */}
+      <section className="trailhead" data-state={hasLearners ? 'known' : 'empty'}>
+        <p className="product-kicker">The Scribe Downs</p>
         <h1 id="profile-title">Who is practising?</h1>
-        <p>Choose a learner on this device, or add one to begin a spelling trail.</p>
+        {!hasLearners && (
+          <p>Add the first learner to open a spelling trail on this device.</p>
+        )}
       </section>
 
-      {profileState.profiles.length > 0 && (
+      {hasLearners && (
         <ul className="learner-grid" aria-label="Learners on this device">
           {profileState.profiles.map((profile) => {
             const selected =
@@ -1044,22 +1068,17 @@ function ProfilePicker({
                 <button
                   type="button"
                   className="learner-card"
+                  style={{ '--learner-colour': learnerColour(profile.nickname) }}
                   disabled={busy}
                   onClick={() => onChoose(profile.learnerId)}
                 >
-                  <span
-                    className="learner-avatar"
-                    style={{ '--learner-colour': profile.colour }}
-                    aria-hidden="true"
-                  >
-                    {profile.nickname.slice(0, 1).toUpperCase()}
-                  </span>
-                  <span>
-                    <strong>{profile.nickname}</strong>
-                    <small>
-                      {displayYearGroup(profile.yearGroup)} · {profile.goal} words a week
-                    </small>
-                    {selected && <em>Selected</em>}
+                  <span className="learner-name">{profile.nickname}</span>
+                  {/* "Last opened", not "last practised": the flag is the
+                      device's saved selection, which says who was open here and
+                      nothing about whether they answered anything. */}
+                  <span className="learner-meta">
+                    {displayYearGroup(profile.yearGroup)} · {profile.goal} words a week
+                    {selected && <em>Last opened</em>}
                   </span>
                   <span className="learner-arrow" aria-hidden="true">→</span>
                 </button>
@@ -1069,9 +1088,24 @@ function ProfilePicker({
         </ul>
       )}
 
-      <AudioStatus audioState={audioState} onRecover={onRecoverAudio} />
+      {hasLearners && !addOpen && (
+        <button
+          type="button"
+          className="add-learner-toggle"
+          aria-expanded="false"
+          aria-controls="add-learner-panel"
+          onClick={() => setAddOpen(true)}
+        >
+          <span aria-hidden="true">+</span> Add a learner
+        </button>
+      )}
 
-      <section className="paper-card add-learner-card" aria-labelledby="add-learner-title">
+      {addOpen && (
+      <section
+        id="add-learner-panel"
+        className="paper-card add-learner-card"
+        aria-labelledby="add-learner-title"
+      >
         <div>
           <p className="product-kicker">Local to this device</p>
           <h2 id="add-learner-title">Add a learner</h2>
@@ -1130,6 +1164,16 @@ function ProfilePicker({
           </p>
         )}
       </section>
+      )}
+
+      {/* A status panel should be quiet when the status is fine and loud when it
+          is not: ready is one line at the foot of the page, anything else keeps
+          the full panel and its repair action. */}
+      <AudioStatus
+        audioState={audioState}
+        onRecover={onRecoverAudio}
+        compact={audioState.status === 'ready'}
+      />
     </main>
   );
 }

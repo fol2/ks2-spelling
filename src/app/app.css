@@ -913,6 +913,7 @@ h1 {
 }
 
 .welcome-panel,
+.trailhead,
 .page-heading {
   margin-bottom: 1.5rem;
 }
@@ -924,7 +925,42 @@ h1 {
   text-align: center;
 }
 
+/* The page holds two anchors and lets the Downs breathe between them: the
+   trailhead and its plates at the top, the device's own status at the foot like
+   a colophon. Without this the content stopped wherever it happened to end and
+   left the bottom half looking unfinished rather than open. */
+.picker-page {
+  display: flex;
+  min-height: calc(100vh - var(--keyboard-inset, 0px));
+  flex-direction: column;
+}
+
+.picker-page > .audio-state {
+  margin-top: auto;
+}
+
+/* ---------- The trailhead ----------
+ * The front door, left-aligned to sit in the same column as the home screen it
+ * opens onto rather than centred against it.
+ *
+ * The heading trades places with the names. On a device that already knows its
+ * learners, "Who is practising?" is a question a child has read a hundred times
+ * and their own name is what they came for, so the heading steps down to a line
+ * of running text and the names take the display size. With nobody here yet it
+ * stays the headline, because then it is the only thing to read. The element is
+ * the page's `<h1>` in both states — this is size, not structure. */
+.trailhead[data-state='known'] h1 {
+  margin-bottom: 0;
+  color: var(--ink-soft);
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+
 .welcome-panel p:last-child,
+.trailhead p:last-child,
 .page-heading p:last-child,
 .trail-hero p,
 .setup-card > p,
@@ -969,64 +1005,99 @@ h1 {
   list-style: none;
 }
 
+/* ---------- Name plates ----------
+ * The plate is the signature of this screen: a child's own name, set at
+ * headline size in the same display serif the dictation sentence uses, with
+ * their colour as a spine down the binding edge.
+ *
+ * A letter in a coloured square is what every account picker on every platform
+ * already does, and it forces the name down to a caption to make room for
+ * itself. A spine gives the same recognition at a glance, costs no width, and
+ * belongs to a world made of paper and records — a row of plates reads as a
+ * shelf of ledgers rather than a list of accounts. */
 .learner-card {
   display: grid;
-  grid-template-columns: auto 1fr auto;
   width: 100%;
-  min-height: 5.5rem;
-  gap: 1rem;
+  gap: 0 1rem;
+  grid-template-areas:
+    'name arrow'
+    'meta arrow';
+  grid-template-columns: 1fr auto;
   align-items: center;
-  border-radius: 1.25rem;
-  padding: 1rem;
+  border-left: 0.4rem solid var(--learner-colour);
+  border-radius: 0.4rem 1.25rem 1.25rem 0.4rem;
+  padding: 0.95rem 1.15rem;
   color: var(--ink);
   text-align: left;
 }
 
 .learner-card:hover {
   border-color: color-mix(in oklab, var(--brand) 45%, transparent);
+  border-left-color: var(--learner-colour);
   transform: translateY(-0.08rem);
 }
 
-.learner-avatar {
-  display: grid;
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 1.15rem 1.15rem 1.15rem 0.3rem;
-  place-items: center;
-  /* The avatar background is learner data, not a token — its ink is fixed. */
-  color: #fff;
-  background: var(--learner-colour);
-  font-size: 1.35rem;
-  font-weight: 900;
+.learner-name {
+  grid-area: name;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 6vw, 2rem);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
-.learner-card strong,
-.learner-card small,
-.learner-card em {
-  display: block;
-}
-
-.learner-card strong {
-  margin-bottom: 0.15rem;
-  font-size: 1.15rem;
-}
-
-.learner-card small {
+.learner-meta {
+  grid-area: meta;
+  margin-top: 0.2rem;
   color: var(--ink-soft);
+  font-size: 0.82rem;
 }
 
-.learner-card em {
-  margin-top: 0.25rem;
+/* Which learner the device last opened. It marks the plate rather than making
+   its own row: the fact is about this name, not about the list. */
+.learner-meta em {
+  display: block;
+  margin-top: 0.1rem;
   color: var(--trail-strong);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-style: normal;
   font-weight: 850;
 }
 
 .learner-arrow {
+  grid-area: arrow;
   color: var(--trail);
   font-size: 1.45rem;
   font-weight: 900;
+}
+
+/* Adding somebody is a once-ever task, so it asks for the form rather than
+   occupying the page with it. Quiet, and aligned with the plates it follows. */
+.add-learner-toggle {
+  display: inline-flex;
+  margin: 0 0 1.25rem;
+  padding: 0.6rem 0.9rem 0.6rem 0.75rem;
+  gap: 0.5rem;
+  align-items: baseline;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  font-weight: 750;
+}
+
+/* The mark says "add"; it does not need to say it in the accent colour, where
+   it outshouted its own label. */
+.add-learner-toggle span {
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.add-learner-toggle:active:not(:disabled) {
+  color: var(--ink);
+  transform: none;
 }
 
 .audio-state {
@@ -1096,7 +1167,17 @@ h1 {
   gap: 0.9rem;
 }
 
-.learner-form label,
+/* Labels are labels. They were grouped with the controls below and so were
+   drawn with a border, a padding and a control surface: "First name or
+   nickname" rendered as an empty field above the real one, and each wrapping
+   label drew a second box around its own select. */
+.learner-form label {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
 .learner-form input,
 .learner-form select,
 .answer-form input {
@@ -2925,6 +3006,7 @@ button.codex-card:hover:not(.is-locked) {
 
 /* Section heads rise softly behind the hero. */
 .welcome-panel,
+.trailhead,
 .page-heading,
 .setup-card > .product-kicker,
 .setup-card > h1,

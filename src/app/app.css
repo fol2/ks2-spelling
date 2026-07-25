@@ -941,12 +941,14 @@ h1 {
    fill from the tone ink with brand mixed back in, glyph from the wash. */
 .product-app[data-hero-tone] .button-primary:not(:disabled),
 .product-app[data-hero-tone] .voice-symbol,
-.product-app[data-hero-tone] .audio-state-icon,
-/* Text standing directly on the art, where the wash alone carries it. */
-.product-app[data-hero-tone='2'] .product-topbar,
-.product-app[data-hero-tone='3'] .product-topbar,
-.product-app[data-hero-tone='2'] .topbar-action,
-.product-app[data-hero-tone='3'] .topbar-action,
+.product-app[data-hero-tone] .audio-state-icon {
+  color: var(--hero-wash);
+  background: color-mix(in oklab, var(--brand) 40%, var(--hero-shell-ink));
+}
+
+/* Text standing directly on the art, where the wash alone carries it. The bars
+   are filled surfaces now, so they are not on the art and do not want a shadow:
+   over a blurred wash it only muddies them. */
 .product-app[data-hero-tone='2'] .trail-hero,
 .product-app[data-hero-tone='3'] .trail-hero,
 .product-app[data-hero-tone='2'] .summary-hero,

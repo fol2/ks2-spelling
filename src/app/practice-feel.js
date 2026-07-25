@@ -65,3 +65,14 @@ export function earlyRoundSummary(practice) {
     mistakes: [],
   };
 }
+
+// iOS hands every text field the same keyboard, so its `123` page can put a
+// digit into a spelling and the web platform offers no way to take that page
+// away. Filtering on the way in closes it from this side: no pack target has
+// ever held anything but letters, with an apostrophe or hyphen where a word
+// carries one, so everything else is dropped as it is typed.
+const NOT_SPELLING = /[^\p{L}'’-]+/gu;
+
+export function spellingOnly(typed) {
+  return typeof typed === 'string' ? typed.replace(NOT_SPELLING, '') : '';
+}

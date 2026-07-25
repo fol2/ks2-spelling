@@ -15,6 +15,7 @@ import {
   heroToneForProgress,
 } from './backdrop-model.js';
 import { countWords, dueCopy, heroWelcomeLine } from './hero-copy.js';
+import { observeKeyboardInset } from './keyboard-inset.js';
 import { whereYouStand } from './where-you-stand.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
@@ -29,7 +30,11 @@ import {
   pickFeaturedCodexEntry,
 } from './meadow/meadow-model.js';
 import { stageArtUrl } from './monster-stage/monster-stage-model.js';
-import { autoAdvanceDelayMs, roundProgressDots } from './practice-feel.js';
+import {
+  autoAdvanceDelayMs,
+  roundProgressDots,
+  spellingOnly,
+} from './practice-feel.js';
 
 // Phaser + the living Monster Stage load only when a caught codex entry is open.
 const MonsterStage = lazy(() => import('./monster-stage/MonsterStage.jsx'));
@@ -1750,7 +1755,6 @@ function PracticeScreen({
     seed: practice.sessionId,
   });
   const { total, done } = practice.progress;
-  const remaining = Math.max(0, total - done);
   const canSkip =
     !isTestMode && !practice.awaitingAdvance && practice.phase === 'question';
 
@@ -1811,15 +1815,19 @@ function PracticeScreen({
       data-hero-tone={heroTone}
     >
       <HeroBackdrop url={heroUrl} />
-      <ProductTopBar title={practice.label} />
-      {/* The web session head: a dot per word in the round, and a plain count
-          of what has been banked. The old "Card N of M" counted secured words
-          but read as a position, so a learner working through a retry saw the
-          same card number against three different words. */}
+      {/* No topbar in a round: the brand mark and the mode name are known by
+          the time a word is being dictated, and the height they cost is height
+          the card needs once the keyboard is up. Leaving the round lives in the
+          footer instead. */}
+      {/* The web session head: a dot per word in the round. The dots already
+          say how far along the round is, so the sentence that used to spell it
+          out is gone — the label on the strip is what a screen reader reads,
+          and it announces as the round moves. */}
       <div className="practice-progress">
         <div
           className="round-path"
           role="img"
+          aria-live="polite"
           aria-label={`${done} of ${total} words secured`}
         >
           {/* The index is the identity here — a dot is a position in the
@@ -1831,10 +1839,6 @@ function PracticeScreen({
             />
           ))}
         </div>
-        <p className="round-count" aria-live="polite">
-          <span>You have answered {done} of {total}.</span>
-          {remaining > 0 && <span>{remaining} left in this round.</span>}
-        </p>
       </div>
 
       <section className="practice-card" aria-labelledby="practice-title" aria-busy={busy}>
@@ -1869,13 +1873,21 @@ function PracticeScreen({
               placeholder="Type the spelling here"
               value={answer}
               disabled={busy || practice.awaitingAdvance}
+              // A spelling test must not be told the answer: no autocomplete,
+              // no autocorrect, no spellcheck and no writing suggestions, which
+              // together also take away the predictive strip above the keys.
               autoComplete="off"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck="false"
               writingsuggestions="false"
-              enterKeyHint="done"
-              onChange={(event) => setAnswer(event.target.value)}
+              // The pack is a British English word list, so name the language:
+              // iOS reads it when it decides which keyboard to open.
+              lang="en-GB"
+              // "go" is the submit key. `done` asked iOS to dismiss instead,
+              // which left a typed answer sitting unsubmitted.
+              enterKeyHint="go"
+              onChange={(event) => setAnswer(spellingOnly(event.target.value))}
               onFocus={(event) => {
                 event.currentTarget.scrollIntoView({ block: 'nearest' });
               }}
@@ -2330,6 +2342,10 @@ export default function ProductApp({ services }) {
   const [secureGain, setSecureGain] = useState(0);
   const learningScreenRef = useRef(learningState.screen);
   const monstersAtRoundStartRef = useRef(null);
+
+  // Every screen that takes typing needs the keyboard's height, so the watch
+  // lives once at the root rather than per form.
+  useEffect(() => observeKeyboardInset(), []);
 
   useEffect(() => {
     const profileSubscription = services.controller.subscribe(setProfileState);

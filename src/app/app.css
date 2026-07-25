@@ -642,6 +642,12 @@ h1 {
 .product-page,
 .practice-page {
   position: relative;
+
+  /* Every page that takes typing gives the keyboard back the room it took, so
+     a field near the bottom can still be scrolled clear of the keys. See
+     `keyboard-inset.js` for why iOS has to be asked; with no keyboard the
+     inset is 0 and this is nothing. */
+  padding-bottom: var(--keyboard-inset, 0px);
 }
 
 /* Page children are centred and clamped to a readable measure. The layers
@@ -805,7 +811,6 @@ h1 {
    page it takes the tone ink instead. */
 .product-app[data-hero-tone] .product-topbar,
 .product-app[data-hero-tone] .topbar-action,
-.product-app[data-hero-tone] .practice-progress p,
 .product-app[data-hero-tone] .button-quiet,
 .product-app[data-hero-tone] .btn-icon,
 .product-app[data-hero-tone] .trail-navigation button > span,
@@ -843,8 +848,6 @@ h1 {
 .product-app[data-hero-tone='3'] .product-topbar,
 .product-app[data-hero-tone='2'] .topbar-action,
 .product-app[data-hero-tone='3'] .topbar-action,
-.product-app[data-hero-tone='2'] .practice-progress p,
-.product-app[data-hero-tone='3'] .practice-progress p,
 .product-app[data-hero-tone='2'] .trail-hero,
 .product-app[data-hero-tone='3'] .trail-hero,
 .product-app[data-hero-tone='2'] .summary-hero,
@@ -1587,14 +1590,12 @@ h1 {
   font-size: 0.92rem;
 }
 
+/* The round is laid out against the space the keyboard leaves, not the screen,
+   so the card is centred in what a learner can actually see. */
 .practice-page {
   display: grid;
   align-content: start;
-  min-height: 100vh;
-}
-
-.practice-page .product-topbar {
-  margin-bottom: 1rem;
+  min-height: calc(100vh - var(--keyboard-inset, 0px));
 }
 
 .practice-progress {
@@ -1645,16 +1646,6 @@ h1 {
   background: var(--brand);
 }
 
-.practice-progress p {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.15rem 0.6rem;
-  margin: 0.6rem 0 0;
-  color: var(--ink-soft);
-  font-size: 0.9rem;
-  font-weight: 800;
-}
-
 .practice-card {
   max-width: 46rem;
 
@@ -1676,10 +1667,10 @@ h1 {
    centred line, not a headline. The card's voice is the sentence. */
 .practice-card h1.prompt-instr {
   max-width: none;
-  margin-bottom: 1.1rem;
-  color: color-mix(in oklab, var(--ink) 85%, black);
+  margin-bottom: 1rem;
+  color: color-mix(in oklab, var(--ink) 72%, transparent);
   font-family: var(--font-serif);
-  font-size: 1.05rem;
+  font-size: 0.9rem;
   font-weight: 500;
   letter-spacing: -0.005em;
   line-height: 1.4;
@@ -1689,12 +1680,16 @@ h1 {
 /* `.spelling-in-session .cloze` — centred display serif with no rule down the
    side. Upstream marks the gap with a brand underline, which the vendored
    cloze text already spells as underscores. */
+/* An empty inline-block takes its baseline from its bottom edge, which put the
+   rule in the 3px directly *above* the baseline — floating in the line rather
+   than sitting under it. Dropping it clear of the baseline makes it read as the
+   writing line the gap is asking to be filled on. */
 .cloze-blank {
   display: inline-block;
   min-width: 120px;
   margin: 0 0.375rem;
   border-bottom: 3px solid var(--brand);
-  vertical-align: baseline;
+  vertical-align: -0.22em;
 }
 
 .cloze-prompt {
@@ -1799,9 +1794,13 @@ h1 {
 
 /* The web centres submit and skip on one row; on a phone the primary takes the
    width and the skip sits centred under it rather than wrapping to one side. */
+/* The listening circles and the submit pill are two different decisions, so
+   they need air between them — pressed together the row read as one control
+   group with submit stuck to its bottom edge. */
 .answer-actions {
   display: grid;
-  gap: 0.6rem;
+  margin-top: 1.75rem;
+  gap: 0.75rem;
   justify-items: center;
 }
 
@@ -1809,10 +1808,13 @@ h1 {
   width: 100%;
 }
 
+/* A disclosure, not a caption: it has to be readable if you look for it and
+   invisible if you are not. */
 .voice-note {
   margin: 0.9rem 0 0;
   color: var(--ink-soft);
-  font-size: 0.8rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.01em;
   text-align: center;
 }
 
@@ -1956,31 +1958,6 @@ h1 {
   letter-spacing: -0.03em;
 }
 
-/* `.info-chip-row` + `.chip`: the round card is headed by metadata, not by a
-   slogan — which year band the word comes from, and how the round counts. */
-.round-count {
-  --ink: var(--theme-ink);
-  --ink-2: var(--theme-ink-2);
-  --line: color-mix(in oklab, var(--theme-line) 80%, transparent);
-  --control-surface: color-mix(in oklab, var(--theme-panel) 80%, transparent);
-
-  display: inline-flex;
-  margin: 0 0 0 auto;
-  padding: 0.45rem 0.8rem;
-  max-width: 60%;
-  flex-direction: column;
-  gap: 0.05rem;
-  text-align: right;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--control-surface);
-  color: var(--ink-2);
-  font-size: 0.8rem;
-  font-weight: 700;
-  backdrop-filter: blur(8px) saturate(1.05);
-  -webkit-backdrop-filter: blur(8px) saturate(1.05);
-}
-
 /* Upstream's submit is the brand pill with an arrow, and skipping is a quiet
    text link rather than a second button competing with it. */
 .product-app[data-hero-tone] .practice-card .button-primary,
@@ -1999,15 +1976,17 @@ h1 {
   color: var(--ink);
 }
 
+/* No underline: on a phone this is a button, and the rule under it read as a
+   second answer line right below the real one. */
 .button-link {
   border: 0;
-  padding: 0.4rem 0.6rem;
+  padding: 0.4rem 0.75rem;
   background: none;
   box-shadow: none;
-  color: var(--ink-2);
+  color: color-mix(in oklab, var(--ink) 62%, transparent);
+  font-size: 0.92rem;
   font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
+  text-decoration: none;
 }
 
 .button-link:active:not(:disabled) {
@@ -2037,6 +2016,64 @@ h1 {
   background: color-mix(in oklab, var(--bad) 78%, #1a0d10);
   color: #fff;
   font-weight: 800;
+}
+
+/* ---------- The card with the keyboard up ----------
+ * Half the screen is gone the moment a learner taps the answer line, so the
+ * card gives up the room it was only using to breathe: the sentence and the
+ * line under it are what has to stay on screen, everything else tightens
+ * around them. `data-keyboard` is set from `keyboard-inset.js`; a media query
+ * cannot do this because iOS never changes the layout viewport.
+ *
+ * Note the instruction is tightened rather than hidden — it is the round's
+ * `<h1>`, and `display: none` would take the page's accessible name with it. */
+:root[data-keyboard='up'] .practice-card {
+  padding: 1.1rem 1.1rem 1.25rem;
+}
+
+:root[data-keyboard='up'] .practice-card h1.prompt-instr {
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+}
+
+:root[data-keyboard='up'] .cloze-prompt {
+  margin-bottom: 0.75rem;
+  font-size: clamp(1.15rem, 4vw, 1.4rem);
+}
+
+:root[data-keyboard='up'] .answer-form input.word-input {
+  padding: 0.5rem 1rem 0.7rem;
+  font-size: clamp(1.45rem, 5.5vw, 1.9rem);
+}
+
+:root[data-keyboard='up'] .audio-row {
+  margin-top: 0.85rem;
+}
+
+:root[data-keyboard='up'] .product-app .practice-card .btn-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+:root[data-keyboard='up'] .answer-actions {
+  margin-top: 1rem;
+}
+
+/* The dots stay: they are the round's live region, and hiding them would take
+   the progress announcement away from a screen reader mid-round. They only
+   give up their margin. */
+:root[data-keyboard='up'] .practice-progress {
+  margin-bottom: 0.4rem;
+}
+
+/* With the note gone the footer has one child, and `space-between` would park
+   the danger pill on the left where the note used to start. */
+:root[data-keyboard='up'] .session-footer {
+  justify-content: flex-end;
+}
+
+:root[data-keyboard='up'] .session-footer .voice-note {
+  display: none;
 }
 
 /* `.feedback.warn`: a mark, a headline and a quieter line under it. */

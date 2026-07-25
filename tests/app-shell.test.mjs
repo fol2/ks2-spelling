@@ -555,13 +555,28 @@ test('the production shell keeps Parent progress and commerce behind the local g
     }),
   });
   const practiceHtml = render();
-  // The round head counts what has been banked, never a card position: a
-  // learner working through a retry must not see the same card number
-  // against three different words.
-  assert.match(practiceHtml, /You have answered 0 of 5\./);
-  assert.match(practiceHtml, /5 left in this round\./);
-  assert.doesNotMatch(practiceHtml, /Card \d+ of \d+/);
+  // The dot strip is the whole round head: it counts what has been banked,
+  // never a card position, so a learner working through a retry does not see
+  // the same card number against three different words. The sentence that
+  // used to spell the same count out in words is gone — the strip's label is
+  // what a screen reader reads, and it is a live region.
   assert.match(practiceHtml, /aria-label="0 of 5 words secured"/);
+  assert.match(practiceHtml, /aria-live="polite"[^>]*aria-label="0 of 5 words secured"/);
+  assert.doesNotMatch(practiceHtml, /Card \d+ of \d+/);
+  assert.doesNotMatch(practiceHtml, /You have answered/);
+  assert.doesNotMatch(practiceHtml, /left in this round/);
+  // No chrome over a round: the brand mark and the mode name cost height the
+  // card needs once the keyboard is up.
+  assert.doesNotMatch(practiceHtml, /class="product-topbar"/);
+  assert.doesNotMatch(practiceHtml, /class="brand-mark"/);
+  // The answer line takes a spelling keyboard: British English, a submit key
+  // rather than a dismiss key, and none of the aids that would give the
+  // answer away.
+  assert.match(practiceHtml, /lang="en-GB"/);
+  assert.match(practiceHtml, /enterkeyhint="go"/i);
+  assert.match(practiceHtml, /autocorrect="off"/i);
+  assert.match(practiceHtml, /spellcheck="false"/i);
+  assert.match(practiceHtml, /writingsuggestions="false"/i);
   // The listening controls are icon-only, as they are on the web card: the
   // name lives in aria-label so the row stays quiet beside the sentence.
   // Two listening controls, both the sentence: KS2 spelling is dictated in
@@ -588,6 +603,37 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(practiceHtml, /End round early/);
   assert.doesNotMatch(practiceHtml, /Check spelling/);
   assert.doesNotMatch(practiceHtml, />build</i);
+
+  // Skip is offered exactly where the engine will accept it. `skipCurrent` in
+  // the vendored legacy engine returns null unless the session is a learning
+  // one on phase 'question', so any other phase must not show a control that
+  // would come back refused — a learner part-way through a teach loop is being
+  // taught this word, not being asked whether they want it.
+  const skipCases = [
+    { patch: { phase: 'retry' }, offered: false },
+    { patch: { phase: 'correction' }, offered: false },
+    { patch: { phase: 'question', awaitingAdvance: true }, offered: false },
+    { patch: { phase: 'question', mode: 'test' }, offered: false },
+    { patch: { phase: 'question' }, offered: true },
+  ];
+  const questionPractice = learningState.practice;
+  for (const { patch, offered } of skipCases) {
+    learningState = Object.freeze({
+      ...learningState,
+      practice: Object.freeze({ ...questionPractice, ...patch }),
+    });
+    const html = render();
+    const label = JSON.stringify(patch);
+    if (offered) {
+      assert.match(html, /Skip for now/, `skip must be offered for ${label}`);
+    } else {
+      assert.doesNotMatch(html, /Skip for now/, `skip must be hidden for ${label}`);
+    }
+  }
+  learningState = Object.freeze({
+    ...learningState,
+    practice: questionPractice,
+  });
 
   const endRoundHtml = renderToStaticMarkup(
     React.createElement(EndRoundDialog, {

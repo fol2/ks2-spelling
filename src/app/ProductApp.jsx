@@ -2247,6 +2247,10 @@ function SummaryScreen({
         <strong className="accuracy-score">{summary?.accuracy ?? 0}%</strong>
         <span>round accuracy</span>
       </section>
+      {/* Wrapped so that at regular width the figures and what slipped sit on
+          one side and the companion that grew sits on the other, instead of the
+          reward being the thing you have to scroll to reach. */}
+      <div className="summary-columns">
       <dl className="summary-grid">
         {(summary?.cards ?? []).map((card) => (
           <div key={card.label}>
@@ -2301,6 +2305,7 @@ function SummaryScreen({
           )}
         </div>
       </section>
+      </div>
       <div className="summary-actions">
         <button type="button" className="button-primary" onClick={() => onScreen('setup')}>
           Practise again

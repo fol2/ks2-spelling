@@ -3209,12 +3209,16 @@ button.codex-card:hover:not(.is-locked) {
   font-weight: 800;
 }
 
+/* The last pair of old-style figures in the app: "34" set in the display serif
+   put the 3 below its own baseline beside a 4 at cap height. */
 .companion-hero dd {
   margin: 0;
   color: var(--brand-ink);
-  font-family: var(--font-serif);
+  font-family: var(--font-figure);
   font-size: 1.7rem;
-  font-weight: 500;
+  font-weight: 700;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .next-reward {
@@ -4746,5 +4750,166 @@ button.codex-card:active:not(.is-locked) {
   .celebration-sparkle,
   .celebration-part {
     animation: none !important;
+  }
+}
+
+/* ==========================================================================
+ * Regular width
+ *
+ * There was not one `min-width` query in this sheet, so an iPad rendered a
+ * phone at iPad size: one narrow column of content against an empty half-screen
+ * of painted land, with type that had already hit the top of its clamp.
+ *
+ * The rule followed here is that the extra width buys either a second column of
+ * real content or a bigger version of the thing the screen is about — never
+ * wider paragraphs. The measure stays where it is legible and the land keeps the
+ * room it is given, because on this app the land is content too.
+ *
+ * The breakpoint is the same 45rem the section rail turns on at, so a screen
+ * never has a rail and a phone layout at the same time.
+ * ========================================================================== */
+@media (min-width: 45rem) {
+  /* ---------- Trail ----------
+     The mission on the leading side, the companions beside it as a roster
+     rather than three thumbnails, and the Downs below both. */
+  .child-home {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.72fr);
+    gap: 0 2.5rem;
+    align-content: start;
+  }
+
+  .child-home > .trail-hero {
+    grid-column: 1;
+  }
+
+  .child-home > .companions {
+    grid-row: 1;
+    grid-column: 2;
+    padding-top: 0.4rem;
+  }
+
+  .child-home > .audio-state {
+    grid-column: 1 / -1;
+  }
+
+  .child-home .monster-meadow,
+  .child-home .monster-meadow-empty {
+    width: 100%;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .child-home .meadow-slot {
+    grid-template-columns: auto 1fr;
+    gap: 0.9rem;
+    align-items: center;
+    justify-items: start;
+    padding: 0.6rem 0.9rem;
+    text-align: left;
+  }
+
+  .child-home .meadow-slot-art,
+  .child-home .meadow-slot-empty {
+    width: 3.4rem;
+    height: 3.4rem;
+  }
+
+  /* ---------- Round setup ----------
+     The one decision on the leading side at full size; the figures and the
+     settings that are set once beside it, out of the way of the choice. */
+  .setup-card {
+    display: grid;
+    max-width: none;
+    grid-template-columns: minmax(0, 1fr) minmax(17rem, 0.7fr);
+    gap: 0 2.5rem;
+    align-content: start;
+  }
+
+  .setup-card > .product-kicker,
+  .setup-card > h1 {
+    grid-column: 1 / -1;
+  }
+
+  .setup-card > .choice-group,
+  .setup-card > .length-note {
+    grid-column: 1;
+  }
+
+  .setup-card > .stand-panel {
+    grid-row: 3;
+    grid-column: 2;
+    align-self: start;
+    margin-top: 0;
+  }
+
+  .setup-card > .setup-more {
+    grid-column: 2;
+  }
+
+  .setup-card > .audio-state,
+  .setup-card > .inline-error {
+    grid-column: 1 / -1;
+  }
+
+  /* ---------- Words ----------
+     Two columns of rows rather than one row stretched across the sheet: a word
+     and five pips do not need 68rem between them. */
+  .word-progress-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem 1rem;
+  }
+
+  /* ---------- Codex ----------
+     The roster runs along the top and the open companion takes the width under
+     it, which is the room the painted art has been waiting for. */
+  .codex-grid {
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  }
+
+  /* ---------- Summary ----------
+     The figures and what slipped on one side, the companion that grew on the
+     other, so the reward is not the thing you have to scroll to reach. */
+  /* `margin: auto` on a stretched grid item shrinks it back to its content
+     width, so the results panel sat narrower than the panel beneath it and the
+     two columns no longer lined up on the left. */
+  .summary-page .summary-grid,
+  .summary-page .summary-drill {
+    grid-column: 1;
+    margin-inline: 0;
+  }
+
+  .summary-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.8fr);
+    gap: 1.25rem 2rem;
+    align-items: start;
+  }
+
+  .summary-columns > .reward-summary {
+    grid-row: 1 / 3;
+    grid-column: 2;
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .summary-columns > .reward-summary .reward-art {
+    max-height: 13rem;
+  }
+
+  /* ---------- The parent sheet ----------
+     Cards that are read side by side rather than as one long scroll. */
+  .parent-grid {
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    align-items: start;
+  }
+
+  /* ---------- Who is practising ----------
+     Names two abreast: on a device with four children the plates were a column
+     of four full-width slabs. */
+  .learner-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 0.75rem;
   }
 }

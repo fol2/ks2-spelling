@@ -980,6 +980,30 @@ test('the product shell consumes native safe-area insets', async () => {
     productCss,
     /@media \(min-width: 45rem\) \{\s*\.product-app\[data-chrome~='tabs'\]\s*\{[^}]*padding-left:\s*calc\(var\(--rail-w\)/su,
   );
+
+  // And the content gets a regular-width layout of its own, not just the rail:
+  // for a long time this sheet had no `min-width` query at all, so an iPad
+  // rendered a phone at iPad size — one narrow column against an empty
+  // half-screen, with type already at the top of its clamp. Every screen a
+  // learner reaches has to say what it does with the extra width.
+  const regularWidth = productCss
+    .split(/@media \(min-width: 45rem\)/u)
+    .slice(1)
+    .join('');
+  for (const surface of [
+    '.child-home',
+    '.setup-card',
+    '.word-progress-list',
+    '.codex-grid',
+    '.summary-columns',
+    '.parent-grid',
+    '.learner-grid',
+  ]) {
+    assert.ok(
+      regularWidth.includes(`${surface} {`) || regularWidth.includes(`${surface} >`),
+      `${surface} has no regular-width layout`,
+    );
+  }
 });
 
 test('the B3 shell is a Parent-only diagnostic with sanitised commerce and pack evidence', async (t) => {

@@ -208,13 +208,131 @@ function AudioStatus({ audioState, onRecover, compact = false }) {
   );
 }
 
-function ProductTopBar({ title = 'KS2 Spelling', action }) {
+/* The app bar. Fixed, not in the flow: a bar that scrolls takes the status
+   bar's space with it on the way past, which is what left the brand mark and
+   the switch control sitting under the Dynamic Island. Content passes beneath
+   it now, and the bar carries a wash so both stay legible while it does.
+   `lead` is a slot rather than a fixed brand mark, because on a screen you are
+   already inside, the app's own name is the least useful thing it could say. */
+function ProductTopBar({ lead, title, action }) {
   return (
     <header className="product-topbar">
-      <div className="brand-mark" aria-hidden="true">KS2</div>
-      <p>{title}</p>
+      {lead ?? <span />}
+      {title && <p>{title}</p>}
       {action ?? <span />}
     </header>
+  );
+}
+
+function ChevronDownIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m6 10 6 6 6-6" />
+    </svg>
+  );
+}
+
+function BackIcon({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14.5 5 8 12l6.5 7" />
+    </svg>
+  );
+}
+
+/* Who is practising, and the way to change it, in one control — because they
+   are one question. A name in the bar also answers it without being asked,
+   which a "Switch learner" button never did. */
+function LearnerChip({ profile, onClick }) {
+  return (
+    <button
+      type="button"
+      className="learner-chip"
+      style={{ '--learner-colour': learnerColour(profile.nickname) }}
+      aria-label={`Switch learner — ${profile.nickname} is practising`}
+      onClick={onClick}
+    >
+      <span className="learner-chip-dot" aria-hidden="true" />
+      <span className="learner-chip-name">{profile.nickname}</span>
+      <ChevronDownIcon />
+    </button>
+  );
+}
+
+/* Tab glyphs, drawn in the same stroke language as the listening controls:
+   24px box, 1.8 stroke, round joins. The three text glyphs these replace
+   (↗ ✦ ⌂) came from three different type families and sat at three different
+   weights, which is why the old navigation rows never looked like a set. */
+function TrailIcon({ size = 24 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6.5 20.5V4" />
+      <path d="M6.5 4.8h11l-2.4 3.9 2.4 3.9h-11" />
+    </svg>
+  );
+}
+
+function WordsIcon({ size = 24 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7.5h16M4 12h16M4 16.5h9" />
+    </svg>
+  );
+}
+
+function CodexIcon({ size = 24 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 7.2v12.6" />
+      <path d="M12 7.2C10.1 5.7 7.3 5 4.2 5v12.6c3.1 0 5.9.7 7.8 2.2 1.9-1.5 4.7-2.2 7.8-2.2V5c-3.1 0-5.9.7-7.8 2.2Z" />
+    </svg>
+  );
+}
+
+function CampIcon({ size = 24 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 4.4 4 19h16L12 4.4Z" />
+      <path d="M12 11.4 8.6 19M12 11.4 15.4 19" />
+      <path d="M2.4 19h19.2" />
+    </svg>
+  );
+}
+
+const TRAIL_TABS = Object.freeze([
+  Object.freeze({ screen: 'home', label: 'Trail', Icon: TrailIcon }),
+  Object.freeze({ screen: 'progress', label: 'Words', Icon: WordsIcon }),
+  Object.freeze({ screen: 'monster', label: 'Codex', Icon: CodexIcon }),
+  Object.freeze({ screen: 'camp', label: 'Camp', Icon: CampIcon }),
+]);
+
+/* The four places a learner moves between, always on screen and always in the
+   same order. They used to be three list rows below the fold on the home
+   screen, reachable only from there and left only by a Back button in the
+   far top corner — the one place a thumb cannot go.
+   On a wide screen the same strip becomes a rail down the leading edge, which
+   is where iPad puts its sections; the markup does not change, only the axis. */
+function TrailTabs({ current, onScreen }) {
+  return (
+    <nav className="trail-tabs" aria-label="Sections">
+      {TRAIL_TABS.map(({ screen, label, Icon }) => {
+        const here = screen === current;
+        return (
+          <button
+            key={screen}
+            type="button"
+            className="trail-tab"
+            aria-current={here ? 'page' : undefined}
+            onClick={() => {
+              if (!here) onScreen(screen);
+            }}
+          >
+            <Icon />
+            <span>{label}</span>
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -689,7 +807,11 @@ export function ParentArea({
 
   if (state.status === 'unlocked') {
     return (
-      <main className="product-app product-page parent-page" aria-labelledby="parent-title">
+      <main
+        className="product-app product-page parent-page"
+        aria-labelledby="parent-title"
+        data-chrome="bar"
+      >
         <ProductTopBar
           title="Parent area"
           action={(
@@ -898,7 +1020,11 @@ export function ParentArea({
 
   const settingUp = state.status === 'setup-required';
   return (
-    <main className="product-app product-page parent-page" aria-labelledby="parent-access-title">
+    <main
+      className="product-app product-page parent-page"
+      aria-labelledby="parent-access-title"
+      data-chrome="bar"
+    >
       <ProductTopBar
         title="Parent access"
         action={(
@@ -1031,6 +1157,7 @@ function ProfilePicker({
     <main
       className="product-app product-page picker-page"
       aria-labelledby="profile-title"
+      data-chrome="bar"
       data-hero-tone={HOME_HERO_TONE}
     >
       {/* Every other screen stands on the Downs; this one was the only card
@@ -1038,7 +1165,11 @@ function ProfilePicker({
           opens onto, deliberately: the trailhead and the trail are one place,
           so walking through the door does not change the view. */}
       <HeroBackdrop url={heroBgForMode('smart', { tone: HOME_HERO_TONE })} />
+      {/* The one screen where the app's own name belongs in the bar: it is the
+          front door, reached from the home screen rather than from inside. */}
       <ProductTopBar
+        lead={<div className="brand-mark" aria-hidden="true">KS2</div>}
+        title="KS2 Spelling"
         action={(
           <button type="button" className="topbar-action" onClick={onOpenParent}>
             For parents
@@ -1237,6 +1368,7 @@ function ChildHome({
   audioState,
   onScreen,
   onSwitchLearner,
+  onOpenParent,
   onRecoverAudio,
 }) {
   // Until C7.5 lands a due projection, "due" is the words that wobbled last
@@ -1248,13 +1380,15 @@ function ChildHome({
     <main
       className="product-app product-page child-home"
       aria-labelledby="home-title"
+      data-chrome="bar tabs"
       data-hero-tone={HOME_HERO_TONE}
     >
       <HeroBackdrop url={heroBgForMode('smart', { tone: HOME_HERO_TONE })} />
       <ProductTopBar
+        lead={<LearnerChip profile={profile} onClick={onSwitchLearner} />}
         action={(
-          <button type="button" className="topbar-action" onClick={onSwitchLearner}>
-            Switch learner
+          <button type="button" className="topbar-action" onClick={onOpenParent}>
+            For parents
           </button>
         )}
       />
@@ -1284,23 +1418,7 @@ function ChildHome({
         compact={audioState.status === 'ready'}
       />
 
-      <nav className="trail-navigation" aria-label="Spelling trail">
-        <button type="button" onClick={() => onScreen('progress')}>
-          <span aria-hidden="true">↗</span>
-          <strong>Progress</strong>
-          <small>{learningState.progress.length} words practised</small>
-        </button>
-        <button type="button" aria-label="Codex" onClick={() => onScreen('monster')}>
-          <span aria-hidden="true">✦</span>
-          <strong>Codex</strong>
-          <small>Your creatures</small>
-        </button>
-        <button type="button" onClick={() => onScreen('camp')}>
-          <span aria-hidden="true">⌂</span>
-          <strong>Camp</strong>
-          <small>Expedition level {learningState.camp?.campHighWater ?? 0}</small>
-        </button>
-      </nav>
+      <TrailTabs current="home" onScreen={onScreen} />
     </main>
   );
 }
@@ -1351,18 +1469,27 @@ function PracticeSetup({
 
   return (
     <main
-      className="product-app product-page"
+      className="product-app product-page setup-page"
       aria-labelledby="setup-title"
+      data-chrome="bar"
       data-hero-tone={heroTone}
     >
       <HeroBackdrop url={heroUrl} />
+      {/* Setting up a round is a task you are inside, so it gets a way out on
+          the leading edge rather than a section tab: this screen is not a place
+          on the trail, it is the door to one. */}
       <ProductTopBar
-        title="New expedition"
-        action={(
-          <button type="button" className="topbar-action" onClick={onBack}>
-            Back
+        lead={(
+          <button
+            type="button"
+            className="topbar-back"
+            aria-label="Back to the trail"
+            onClick={onBack}
+          >
+            <BackIcon />
           </button>
         )}
+        title="New expedition"
       />
       <section className="setup-card">
         <p className="product-kicker">The Scribe Downs · round setup</p>
@@ -2056,6 +2183,7 @@ function SummaryScreen({
     <main
       className="product-app product-page summary-page"
       aria-labelledby="summary-title"
+      data-chrome="bar"
       data-hero-tone={heroTone}
     >
       <HeroBackdrop url={heroUrl} />
@@ -2124,13 +2252,15 @@ function SummaryScreen({
   );
 }
 
-function ProgressScreen({ progress, onBack, onStart }) {
+function ProgressScreen({ progress, onScreen, onStart }) {
   return (
-    <main className="product-app product-page" aria-labelledby="progress-title">
-      <ProductTopBar
-        title="Progress"
-        action={<button type="button" className="topbar-action" onClick={onBack}>Back</button>}
-      />
+    <main
+      className="product-app product-page"
+      aria-labelledby="progress-title"
+      data-chrome="tabs"
+    >
+      {/* No bar and no Back: the page's own title says where you are, and the
+          tabs say how to leave. Two of the three were saying the same thing. */}
       <section className="page-heading">
         <p className="product-kicker">Saved on this device</p>
         <h1 id="progress-title">Your word trail</h1>
@@ -2162,6 +2292,7 @@ function ProgressScreen({ progress, onBack, onStart }) {
           ))}
         </ul>
       )}
+      <TrailTabs current="progress" onScreen={onScreen} />
     </main>
   );
 }
@@ -2182,7 +2313,7 @@ function useReducedMotion() {
   return reduced;
 }
 
-function CodexScreen({ monsters, onBack }) {
+function CodexScreen({ monsters, onScreen }) {
   const reducedMotion = useReducedMotion();
   const entries = useMemo(() => buildCodexEntries(monsters), [monsters]);
   const featured = useMemo(() => pickFeaturedCodexEntry(entries), [entries]);
@@ -2197,11 +2328,11 @@ function CodexScreen({ monsters, onBack }) {
   );
 
   return (
-    <main className="product-app product-page companion-page codex-page" aria-labelledby="codex-title">
-      <ProductTopBar
-        title="Codex"
-        action={<button type="button" className="topbar-action" onClick={onBack}>Back</button>}
-      />
+    <main
+      className="product-app product-page companion-page codex-page"
+      aria-labelledby="codex-title"
+      data-chrome="tabs"
+    >
       <section className="page-heading">
         <p className="product-kicker">Monster roster</p>
         <h1 id="codex-title">Your spelling creatures</h1>
@@ -2334,17 +2465,18 @@ function CodexScreen({ monsters, onBack }) {
           </p>
         </section>
       )}
+      <TrailTabs current="monster" onScreen={onScreen} />
     </main>
   );
 }
 
-function CampScreen({ camp, onBack }) {
+function CampScreen({ camp, onScreen }) {
   return (
-    <main className="product-app product-page camp-page" aria-labelledby="camp-title">
-      <ProductTopBar
-        title="Camp"
-        action={<button type="button" className="topbar-action" onClick={onBack}>Back</button>}
-      />
+    <main
+      className="product-app product-page camp-page"
+      aria-labelledby="camp-title"
+      data-chrome="tabs"
+    >
       <section className="camp-hero">
         <CampArt level={camp?.campHighWater ?? 0} />
         <p className="product-kicker">Expedition Camp</p>
@@ -2358,6 +2490,7 @@ function CampScreen({ camp, onBack }) {
           <strong>{camp?.campHighWater ?? 0}</strong>
         </div>
       </section>
+      <TrailTabs current="camp" onScreen={onScreen} />
     </main>
   );
 }
@@ -2436,8 +2569,8 @@ export default function ProductApp({ services }) {
 
   if (profileState.status === 'failed') {
     return (
-      <main className="product-app product-page">
-        <ProductTopBar />
+      <main className="product-app product-page" data-chrome="bar">
+        <ProductTopBar title="KS2 Spelling" />
         <section className="paper-card empty-state" aria-labelledby="product-data-title">
           <p className="product-kicker">Local data</p>
           <h1 id="product-data-title">Your saved learning could not open</h1>
@@ -2566,26 +2699,18 @@ export default function ProductApp({ services }) {
     return (
       <ProgressScreen
         progress={learningState.progress}
-        onBack={() => showScreen('home')}
+        onScreen={showScreen}
         onStart={() => showScreen('setup')}
       />
     );
   }
   if (learningState.screen === 'monster') {
     return (
-      <CodexScreen
-        monsters={learningState.monsters}
-        onBack={() => showScreen('home')}
-      />
+      <CodexScreen monsters={learningState.monsters} onScreen={showScreen} />
     );
   }
   if (learningState.screen === 'camp') {
-    return (
-      <CampScreen
-        camp={learningState.camp}
-        onBack={() => showScreen('home')}
-      />
-    );
+    return <CampScreen camp={learningState.camp} onScreen={showScreen} />;
   }
   return (
     <ChildHome
@@ -2596,6 +2721,7 @@ export default function ProductApp({ services }) {
       onSwitchLearner={() => {
         void services.learning.selectLearner(null).catch(() => undefined);
       }}
+      onOpenParent={() => setParentOpen(true)}
       onRecoverAudio={recoverAudio}
     />
   );

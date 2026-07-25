@@ -651,11 +651,13 @@ h1 {
 }
 
 /* Page children are centred and clamped to a readable measure. The layers
-   that deliberately cover the whole page — the backdrop below and the two
-   overlays above — opt out, or this rule's `position: relative` would win on
-   specificity and drop them back into the flow. */
-.product-page > *:not(.hero-backdrop, .exit-confirmation, .celebration-overlay),
-.practice-page > *:not(.hero-backdrop, .exit-confirmation, .celebration-overlay) {
+   that deliberately cover the whole page — the backdrop below, the two
+   overlays above, and the two fixed bars — opt out, or this rule's
+   `position: relative` would win on specificity and drop them back into the
+   flow. The bars align their *contents* with this measure instead, so their
+   fill can still reach the screen edge. */
+.product-page > *:not(.hero-backdrop, .exit-confirmation, .celebration-overlay, .product-topbar, .trail-tabs),
+.practice-page > *:not(.hero-backdrop, .exit-confirmation, .celebration-overlay, .product-topbar, .trail-tabs) {
   position: relative;
   z-index: 1;
   width: min(100%, 68rem);
@@ -813,7 +815,6 @@ h1 {
 .product-app[data-hero-tone] .topbar-action,
 .product-app[data-hero-tone] .button-quiet,
 .product-app[data-hero-tone] .btn-icon,
-.product-app[data-hero-tone] .trail-navigation button > span,
 .product-app[data-hero-tone] .accuracy-score,
 .product-app[data-hero-tone] .reward-secure-toast {
   color: var(--hero-shell-ink);
@@ -855,47 +856,288 @@ h1 {
   text-shadow: 0 1px 16px rgb(0 0 0 / 58%);
 }
 
+/* ==========================================================================
+ * The app shell
+ *
+ * Both bars are fixed and own their safe areas, and the page is inset to clear
+ * them. In the flow, the top bar scrolled away and took the status bar's space
+ * with it on the way past — which is how the brand mark and the switch control
+ * ended up under the Dynamic Island. `data-chrome` on the page says which bars
+ * are present, because the alternative (`:has()`) is not in Safari before 15.4
+ * and the deployment target is iOS 15.0.
+ * ========================================================================== */
+.product-app {
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --bar-h: 3.25rem;
+  --tabs-h: 3.5rem;
+  --rail-w: 5rem;
+  --page-measure: 68rem;
+
+  /* Aligns bar and rail contents with the page's own centred measure at any
+     width, without either of them being clamped to it — they must stay full
+     bleed so their fill reaches the screen edge. */
+  --page-gutter: max(1rem, calc((100% - var(--page-measure)) / 2));
+
+  /* Shell surfaces. The strip is a wash you read the page through; the raised
+     one is opaque enough to be a piece of paper lying on top of it. On a
+     backdrop page both are struck from the art's own wash, so the chrome can
+     never invert against the land behind it. */
+  --shell-strip: color-mix(in oklab, var(--bg) 84%, transparent);
+  --shell-raised: var(--bg);
+  --shell-ink-quiet: color-mix(in oklab, var(--ink) 66%, transparent);
+}
+
+.product-app[data-hero-tone] {
+  --shell-strip: color-mix(in oklab, var(--hero-wash) 78%, transparent);
+  --shell-raised: color-mix(in oklab, var(--hero-wash) 95%, transparent);
+}
+
+.product-app[data-chrome~='bar'] {
+  padding-top: calc(var(--safe-top) + var(--bar-h) + 1.25rem);
+}
+
+.product-app[data-chrome~='tabs'] {
+  padding-bottom: calc(var(--safe-bottom) + var(--tabs-h) + 0.75rem);
+}
+
 .product-topbar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 40;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: center;
-  min-height: 3.5rem;
-  margin-bottom: clamp(1.75rem, 5vw, 3.5rem);
+  height: calc(var(--safe-top) + var(--bar-h));
+  padding: var(--safe-top) var(--page-gutter) 0;
+  background: var(--shell-strip);
+  backdrop-filter: blur(18px) saturate(1.12);
+  -webkit-backdrop-filter: blur(18px) saturate(1.12);
+}
+
+/* Content dissolves under the bar instead of being cut off by it: a hairline
+   over painted land reads as a seam, a short fade reads as depth. */
+.product-topbar::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  height: 1.1rem;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--shell-strip) 70%, transparent),
+    transparent
+  );
+  pointer-events: none;
 }
 
 .product-topbar p {
   min-width: 0;
   margin: 0;
-  flex: 1 1 8rem;
+  flex: 1 1 auto;
+  overflow: hidden;
   font-family: var(--font-serif);
-  font-size: 1.2rem;
-  font-weight: 500;
+  font-size: 1.05rem;
+  font-weight: 600;
   letter-spacing: -0.015em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .brand-mark {
   display: grid;
-  width: 2.7rem;
-  height: 2.7rem;
-  border-radius: 0.9rem;
+  width: 2.1rem;
+  height: 2.1rem;
+  flex: 0 0 auto;
+  border-radius: 0.65rem;
   place-items: center;
   color: var(--panel);
   background: var(--brand-ink);
-  font-size: 0.78rem;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.06em;
 }
 
 .topbar-action {
-  max-width: 100%;
+  flex: 0 0 auto;
   margin-left: auto;
   border: 0;
-  padding: 0.55rem 0.85rem;
+  padding: 0.45rem 0.6rem;
+  margin-right: -0.6rem;
   color: var(--trail-strong);
   background: transparent;
-  font-weight: 800;
-  overflow-wrap: anywhere;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.topbar-back {
+  display: grid;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  flex: 0 0 auto;
+  margin-left: -0.7rem;
+  border: 0;
+  place-items: center;
+  color: var(--ink);
+  background: transparent;
+}
+
+/* Who is practising, answered without being asked. */
+.learner-chip {
+  display: flex;
+  min-height: var(--tap-min);
+  flex: 0 1 auto;
+  gap: 0.45rem;
+  align-items: center;
+  margin-left: -0.5rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.3rem 0.5rem;
+  color: var(--ink);
+  background: transparent;
+}
+
+.learner-chip-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--learner-colour, var(--brand));
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--learner-colour, var(--brand)) 24%, transparent);
+}
+
+.learner-chip-name {
+  overflow: hidden;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------- The section strip ----------
+ * Four places, always on screen, always in the same order, and inside a
+ * thumb's reach. The active one is drawn as a divider tab that has risen out
+ * of the strip and joined the page above it — the way a physical index tab in
+ * a notebook does. That is the whole indicator: no pill, no underline, no
+ * sliding marker, because a journal already had a way of showing this. */
+.trail-tabs {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  display: grid;
+  height: calc(var(--safe-bottom) + var(--tabs-h));
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 0 var(--page-gutter) var(--safe-bottom);
+  border-top: 1px solid var(--line);
+  background: var(--shell-strip);
+  backdrop-filter: blur(18px) saturate(1.12);
+  -webkit-backdrop-filter: blur(18px) saturate(1.12);
+}
+
+.trail-tab {
+  position: relative;
+  display: grid;
+  min-height: var(--tabs-h);
+  gap: 0.05rem;
+  place-items: center;
+  align-content: center;
+  border: 0;
+  padding: 0;
+  color: var(--shell-ink-quiet);
+  background: transparent;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* An absolutely positioned child paints above its parent's border, which is
+   what lets the risen tab interrupt the strip's own top hairline and carry it
+   around itself. The glyph and label are lifted back over the fill. */
+.trail-tab > * {
+  position: relative;
+  z-index: 1;
+}
+
+.trail-tab[aria-current='page'] {
+  color: var(--ink);
+}
+
+.trail-tab[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  top: -0.6rem;
+  right: 0.2rem;
+  /* Down through the safe area: a tab that stopped at the label left a band of
+     strip beneath it, which read as a seam rather than as one piece of paper. */
+  bottom: calc(-1 * var(--safe-bottom));
+  left: 0.2rem;
+  border-top: 1px solid var(--line-strong);
+  border-right: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  border-radius: 0.7rem 0.7rem 0 0;
+  background: var(--shell-raised);
+}
+
+.trail-tab svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  stroke-width: 1.9;
+}
+
+/* ---------- Regular width ----------
+ * The same four destinations become a rail down the leading edge, which is
+ * where iPad puts its sections and where a hand holding the device already
+ * is. Only the axis changes: same markup, same tab, rotated a quarter turn so
+ * it now sticks out of the page edge toward the content. */
+@media (min-width: 45rem) {
+  .product-app[data-chrome~='tabs'] {
+    padding-bottom: max(1.5rem, var(--safe-bottom));
+    padding-left: calc(var(--rail-w) + var(--safe-left) + 1.5rem);
+  }
+
+  .product-app[data-chrome~='tabs'] .product-topbar {
+    left: calc(var(--rail-w) + var(--safe-left));
+  }
+
+  .trail-tabs {
+    top: 0;
+    right: auto;
+    bottom: 0;
+    display: flex;
+    width: calc(var(--rail-w) + var(--safe-left));
+    height: auto;
+    flex-direction: column;
+    gap: 0.2rem;
+    justify-content: center;
+    padding: var(--safe-top) 0.4rem max(1rem, var(--safe-bottom)) calc(var(--safe-left) + 0.4rem);
+    border-top: 0;
+    border-right: 1px solid var(--line);
+  }
+
+  .trail-tab {
+    min-height: 3.9rem;
+    border-radius: 0.7rem;
+  }
+
+  .trail-tab[aria-current='page']::before {
+    top: 0.2rem;
+    right: -0.55rem;
+    bottom: 0.2rem;
+    left: 0.25rem;
+    border-top: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    border-left: 0;
+    border-radius: 0 0.7rem 0.7rem 0;
+  }
 }
 
 /* The webapp's eyebrow is `--muted`, which measures 3.36:1 against the page
@@ -973,7 +1215,6 @@ h1 {
 .paper-card,
 .audio-state,
 .learner-card,
-.trail-navigation button,
 .practice-card,
 .summary-grid > div,
 .companion-hero,
@@ -1445,42 +1686,6 @@ h1 {
 .inklet-stage-4 .inklet-body,
 .inklet-stage-5 .inklet-body {
   fill: color-mix(in oklab, var(--brand) 62%, var(--brand-ink));
-}
-
-.trail-navigation {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.85rem;
-  margin-top: 1rem;
-}
-
-.trail-navigation button {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  min-height: 6.4rem;
-  gap: 0.2rem 0.7rem;
-  align-content: center;
-  border-radius: 1.2rem;
-  padding: 1rem;
-  color: var(--ink);
-  text-align: left;
-}
-
-.trail-navigation button > span {
-  grid-row: 1 / 3;
-  align-self: center;
-  color: var(--trail);
-  font-size: 1.4rem;
-  font-weight: 900;
-}
-
-.trail-navigation strong,
-.trail-navigation small {
-  display: block;
-}
-
-.trail-navigation small {
-  color: var(--ink-soft);
 }
 
 /* Setup is one region of the Downs with the controls floating on it, as the
@@ -3017,7 +3222,6 @@ button.codex-card:hover:not(.is-locked) {
 /* Wave staggers. Every grid of peers arrives as a wave rather than a block,
    which is what stops a dense screen reading as a table of contents. */
 .learner-grid > *,
-.trail-navigation > *,
 .codex-grid > *,
 .word-progress-list > *,
 .summary-grid > *,
@@ -3030,7 +3234,6 @@ button.codex-card:hover:not(.is-locked) {
 }
 
 .learner-grid > *:nth-child(1),
-.trail-navigation > *:nth-child(1),
 .codex-grid > *:nth-child(1),
 .word-progress-list > *:nth-child(1),
 .summary-grid > *:nth-child(1),
@@ -3043,7 +3246,6 @@ button.codex-card:hover:not(.is-locked) {
 }
 
 .learner-grid > *:nth-child(2),
-.trail-navigation > *:nth-child(2),
 .codex-grid > *:nth-child(2),
 .word-progress-list > *:nth-child(2),
 .summary-grid > *:nth-child(2),
@@ -3056,7 +3258,6 @@ button.codex-card:hover:not(.is-locked) {
 }
 
 .learner-grid > *:nth-child(3),
-.trail-navigation > *:nth-child(3),
 .codex-grid > *:nth-child(3),
 .word-progress-list > *:nth-child(3),
 .summary-grid > *:nth-child(3),
@@ -3133,7 +3334,6 @@ button.codex-card:hover:not(.is-locked) {
  * lifts becomes a compression: the surface moves toward the finger, on a
  * fast ease, and springs back on release. */
 .learner-card,
-.trail-navigation button,
 .mode-choice-card,
 .segmented-choice button,
 .voice-choice button,
@@ -3152,7 +3352,6 @@ button.codex-card,
 }
 
 .learner-card:active:not(:disabled),
-.trail-navigation button:active:not(:disabled),
 .mode-choice-card:active:not(:disabled),
 .segmented-choice button:active:not(:disabled),
 .voice-choice button:active:not(:disabled),
@@ -3174,7 +3373,6 @@ button.codex-card:active:not(.is-locked),
 /* A pressed surface loses its elevation, the way a card pushed into paper
    would. Only the surfaces that carry a shadow at rest need this. */
 .learner-card:active:not(:disabled),
-.trail-navigation button:active:not(:disabled),
 button.codex-card:active:not(.is-locked) {
   box-shadow: var(--shadow-xs);
 }
@@ -3716,59 +3914,6 @@ button.codex-card:active:not(.is-locked) {
   pointer-events: none;
 }
 
-/* ---------- Layer 4 · Trail navigation ----------
- * Three near-identical rows of text is the shape a list takes when nobody
- * has designed it. The webapp gives each of its section links a real object
- * to point at, so the glyph becomes a struck medallion and a chevron marks
- * the row as somewhere to go. */
-.trail-navigation button {
-  grid-template-columns: auto 1fr auto;
-  min-height: 4.75rem;
-  gap: 0.1rem 0.9rem;
-}
-
-.trail-navigation button > span {
-  grid-column: 1;
-  display: grid;
-  width: 2.85rem;
-  height: 2.85rem;
-  border: 1px solid color-mix(in oklab, var(--brand) 30%, transparent);
-  border-radius: 0.95rem;
-  place-items: center;
-  color: var(--brand-ink);
-  background: color-mix(in oklab, var(--brand) 24%, var(--control-surface));
-  font-size: 1.2rem;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 26%);
-}
-
-.trail-navigation strong,
-.trail-navigation small {
-  grid-column: 2;
-}
-
-.trail-navigation button::after {
-  content: '›';
-  grid-column: 3;
-  grid-row: 1 / 3;
-  align-self: center;
-  color: var(--muted);
-  font-family: var(--font-serif);
-  font-size: 1.5rem;
-  line-height: 1;
-  transition: transform var(--dur) var(--ease-out);
-}
-
-.trail-navigation button:active::after {
-  transform: translateX(2px);
-}
-
-.trail-navigation strong {
-  font-family: var(--font-serif);
-  font-size: 1.1rem;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-
 /* A caught creature stands in its own pool of light in the meadow too. */
 .meadow-slot.is-caught {
   background-image: radial-gradient(
@@ -3851,7 +3996,6 @@ button.codex-card:active:not(.is-locked) {
   .paper-card,
   .practice-card,
   .audio-state,
-  .trail-navigation button,
   .exit-confirmation > div {
     border: 2px solid CanvasText;
     background-image: none;
@@ -3900,10 +4044,6 @@ button.codex-card:active:not(.is-locked) {
   .paper-card,
   .practice-card,
   .audio-state,
-  .trail-navigation button {
-    border-width: 2px;
-  }
-
   .product-app button:focus-visible,
   .product-app input:focus-visible,
   .product-app select:focus-visible {
@@ -3924,17 +4064,6 @@ button.codex-card:active:not(.is-locked) {
   .add-learner-card,
   .parent-grid {
     grid-template-columns: 1fr;
-  }
-
-  /* Stacked into one column the cards no longer need to match a neighbour's
-     height, and three tall rows of mostly air is what that left behind. */
-  .trail-navigation {
-    grid-template-columns: 1fr;
-  }
-
-  .trail-navigation button {
-    min-height: 0;
-    padding: 0.85rem 1rem;
   }
 
   .reward-summary {

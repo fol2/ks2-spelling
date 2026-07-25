@@ -484,12 +484,33 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(homeHtml, /Start a Smart Review/);
   assert.match(homeHtml, /Nothing caught yet/);
   assert.match(homeHtml, /meadow stays tidy/);
-  assert.match(homeHtml, /Codex/);
-  assert.match(homeHtml, /Your creatures/);
   assert.match(homeHtml, /Listening pack needs setup/);
-  assert.match(homeHtml, /Progress/);
-  assert.match(homeHtml, /Camp/);
   assert.doesNotMatch(homeHtml, /buy|restore|price|commerce/i);
+
+  // The four sections are a persistent strip, not rows on the home screen, so
+  // every one of them is reachable from every one of the others. Order is part
+  // of the contract: a tab strip that reorders itself is a different app each
+  // time it is opened.
+  assert.match(homeHtml, /<nav class="trail-tabs" aria-label="Sections">/);
+  assert.deepEqual(
+    [...homeHtml.matchAll(/<span>(Trail|Words|Codex|Camp)<\/span>/gu)]
+      .map(([, label]) => label),
+    ['Trail', 'Words', 'Codex', 'Camp'],
+  );
+  // Exactly one tab is current, and on the home screen it is the first.
+  assert.equal(homeHtml.match(/aria-current="page"/gu)?.length, 1);
+  assert.match(
+    homeHtml,
+    /class="trail-tab" aria-current="page">.*?<span>Trail<\/span>/su,
+  );
+  // The bar carries who is practising rather than the app's own name, and the
+  // page declares which bars it has so the CSS can reserve their space.
+  assert.match(homeHtml, /data-chrome="bar tabs"/);
+  assert.match(
+    homeHtml,
+    /class="learner-chip"[^>]*aria-label="Switch learner — Ada is practising"/,
+  );
+  assert.doesNotMatch(homeHtml, /KS2 Spelling/);
 
   learningState = Object.freeze({
     ...learningState,
@@ -749,17 +770,46 @@ test('the product shell consumes native safe-area insets', async () => {
       ),
     );
   }
+  // Both bars are fixed and own their safe area, so neither can scroll into
+  // the status bar or the home indicator.
   assert.match(
     productCss,
-    /\.product-topbar\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/su,
+    /\.product-topbar\s*\{[^}]*position:\s*fixed;[^}]*height:\s*calc\(var\(--safe-top\) \+ var\(--bar-h\)\);[^}]*padding:\s*var\(--safe-top\)/su,
   );
   assert.match(
     productCss,
-    /\.product-topbar p\s*\{[^}]*min-width:\s*0;[^}]*flex:\s*1 1 8rem;/su,
+    /\.trail-tabs\s*\{[^}]*position:\s*fixed;[^}]*height:\s*calc\(var\(--safe-bottom\) \+ var\(--tabs-h\)\);/su,
+  );
+
+  // The inset the page reserves has to name the same heights the bars are
+  // built from. Reserving a literal instead is how a bar and its clearance
+  // drift apart, and the symptom is content sitting under the chrome.
+  assert.match(
+    productCss,
+    /\.product-app\[data-chrome~='bar'\]\s*\{\s*padding-top:\s*calc\(var\(--safe-top\) \+ var\(--bar-h\)/su,
   );
   assert.match(
     productCss,
-    /\.topbar-action\s*\{[^}]*max-width:\s*100%;[^}]*overflow-wrap:\s*anywhere;/su,
+    /\.product-app\[data-chrome~='tabs'\]\s*\{\s*padding-bottom:\s*calc\(var\(--safe-bottom\) \+ var\(--tabs-h\)/su,
+  );
+
+  // A fixed bar cannot grow, so its title truncates rather than wrapping: at
+  // an accessibility text size a wrapping title used to push the bar taller
+  // than the space the page had reserved for it.
+  assert.match(
+    productCss,
+    /\.product-topbar p\s*\{[^}]*white-space:\s*nowrap;[^}]*text-overflow:\s*ellipsis;/su,
+  );
+
+  // On a regular-width screen the strip is a rail down the leading edge, and
+  // the page is inset from the side instead of from the bottom.
+  assert.match(
+    productCss,
+    /@media \(min-width: 45rem\) \{[^@]*\.trail-tabs\s*\{[^}]*flex-direction:\s*column;/su,
+  );
+  assert.match(
+    productCss,
+    /@media \(min-width: 45rem\) \{\s*\.product-app\[data-chrome~='tabs'\]\s*\{[^}]*padding-left:\s*calc\(var\(--rail-w\)/su,
   );
 });
 

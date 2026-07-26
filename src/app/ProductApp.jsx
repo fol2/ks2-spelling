@@ -1,114 +1,225 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { buildCodex } from './codex-model.js';
+import { artUrl, monsterArt, regionArt } from './mastery-art.js';
+import { buildWordBank } from './word-bank-model.js';
 
-const VOICES = Object.freeze([
-  Object.freeze({
-    id: 'Iapetus',
-    label: 'Iapetus',
-    description: 'A clear British-English voice',
-  }),
-  Object.freeze({
-    id: 'Sulafat',
-    label: 'Sulafat',
-    description: 'A warm British-English voice',
-  }),
-]);
 const ROUND_LENGTHS = Object.freeze([5, 10, 20]);
+const REGION = 'the-scribe-downs';
+
+// One drawing hand: 24px box, 1.8 stroke, round cap and join, no fills.
+function Glyph({ size = 22, children, ...rest }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      {...rest}
+    >
+      {children}
+    </svg>
+  );
+}
+
+const IconTrail = (props) => (
+  <Glyph {...props}>
+    <path d="M6.5 20.5V4" />
+    <path d="M6.5 4.8h11l-2.4 3.9 2.4 3.9h-11" />
+  </Glyph>
+);
+const IconWords = (props) => (
+  <Glyph {...props}><path d="M4 7.5h16M4 12h16M4 16.5h9" /></Glyph>
+);
+const IconCodex = (props) => (
+  <Glyph {...props}>
+    <path d="M12 7.2v12.6" />
+    <path d="M12 7.2C10.1 5.7 7.3 5 4.2 5v12.6c3.1 0 5.9.7 7.8 2.2 1.9-1.5 4.7-2.2 7.8-2.2V5c-3.1 0-5.9.7-7.8 2.2Z" />
+  </Glyph>
+);
+const IconCamp = (props) => (
+  <Glyph {...props}>
+    <path d="M12 4.4 4 19h16L12 4.4Z" />
+    <path d="M12 11.4 8.6 19M12 11.4 15.4 19" />
+    <path d="M2.4 19h19.2" />
+  </Glyph>
+);
+const IconBack = (props) => (
+  <Glyph {...props}><path d="M14.5 5 8 12l6.5 7" /></Glyph>
+);
+const IconForward = (props) => (
+  <Glyph {...props}><path d="M4 12h15M13 6l6 6-6 6" /></Glyph>
+);
+const IconChevron = (props) => (
+  <Glyph {...props}><path d="m9 6 6 6-6 6" /></Glyph>
+);
+const IconChevronDown = (props) => (
+  <Glyph {...props}><path d="m6 10 6 6 6-6" /></Glyph>
+);
+const IconLock = (props) => (
+  <Glyph {...props}>
+    <rect x="4.5" y="10.5" width="15" height="9.5" rx="2.6" />
+    <path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7" />
+  </Glyph>
+);
+const IconSpeaker = (props) => (
+  <Glyph {...props}>
+    <path d="M11 5 6 9H3v6h3l5 4Z" />
+    <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+  </Glyph>
+);
+const IconSpeakerSlow = (props) => (
+  <Glyph {...props}>
+    <path d="M11 5 6 9H3v6h3l5 4Z" />
+    <path d="M15.5 10a3 3 0 0 1 0 4" />
+  </Glyph>
+);
+const IconTick = (props) => (
+  <Glyph {...props}><path d="m5 13 4.5 4.5L19 7" /></Glyph>
+);
+const IconReturn = (props) => (
+  <Glyph {...props}>
+    <path d="M3.2 12a8.8 8.8 0 1 0 3.4-7" />
+    <path d="M3 4.6V10h5.4" />
+  </Glyph>
+);
+const IconPlus = (props) => (
+  <Glyph {...props}><path d="M12 5v14M5 12h14" /></Glyph>
+);
+const IconNote = (props) => (
+  <Glyph {...props}>
+    <path d="M9 18V6l10-2v12" />
+    <circle cx="7" cy="18" r="2" />
+    <circle cx="17" cy="16" r="2" />
+  </Glyph>
+);
+const IconWarning = (props) => (
+  <Glyph {...props}>
+    <path d="M12 8.6v5" />
+    <path d="M12 17h.01" />
+    <path d="M10.3 4.2 2.9 17.4A1.9 1.9 0 0 0 4.6 20.2h14.8a1.9 1.9 0 0 0 1.7-2.8L13.7 4.2a1.9 1.9 0 0 0-3.4 0Z" />
+  </Glyph>
+);
 
 function displayYearGroup(value) {
   return `Year ${value.slice(1)}`;
 }
 
-function InkletArt({ stage = 0 }) {
+function initialOf(nickname) {
+  return nickname.slice(0, 1).toUpperCase();
+}
+
+/**
+ * One painted scene. `plate` and `veil` drive the backdrop through custom
+ * properties so every screen mixes the same recipe rather than its own.
+ */
+function Scene({
+  className = '',
+  dusk = false,
+  plate = null,
+  plateY,
+  plateOpacity,
+  veil,
+  waypoints = false,
+  children,
+  ...rest
+}) {
+  const style = {};
+  if (plate) style['--plate'] = artUrl(plate);
+  if (plateY) style['--plate-y'] = plateY;
+  if (plateOpacity !== undefined) style['--plate-opacity'] = String(plateOpacity);
+  if (veil) style['--veil'] = veil;
   return (
-    <svg
-      className={`inklet-art inklet-stage-${Math.min(stage, 5)}`}
-      viewBox="0 0 180 150"
-      role="img"
-      aria-label={`Inklet is at stage ${stage}`}
+    <div
+      className={[
+        'product-scene',
+        dusk ? 'scene-dusk' : '',
+        waypoints ? 'has-waypoints' : '',
+        className,
+      ].filter(Boolean).join(' ')}
+      style={style}
+      {...rest}
     >
-      <path
-        className="inklet-shadow"
-        d="M34 126c21 17 91 18 116-1-21 25-94 26-116 1Z"
-      />
-      <path
-        className="inklet-body"
-        d="M91 20c24 0 46 20 47 50 1 16 13 28 5 43-10 19-34 22-52 22-25 0-54-7-58-29-3-16 10-25 11-41 2-27 22-45 47-45Z"
-      />
-      <path
-        className="inklet-flourish"
-        d="M58 39c-13-14-9-25 4-27-3 8 3 14 12 19M122 42c15-13 12-25 0-29 1 9-6 14-14 20"
-      />
-      <circle className="inklet-eye" cx="73" cy="76" r="7" />
-      <circle className="inklet-eye" cx="111" cy="76" r="7" />
-      <circle className="inklet-glint" cx="75" cy="73" r="2" />
-      <circle className="inklet-glint" cx="113" cy="73" r="2" />
-      <path className="inklet-smile" d="M78 96c8 8 19 8 27 0" />
-      {stage > 0 && (
-        <path
-          className="inklet-badge"
-          d="m91 7 5 9 10 2-7 8 1 11-9-5-10 5 2-11-8-8 11-2 5-9Z"
-        />
-      )}
-    </svg>
+      {plate && <span className="scene-plate" />}
+      {veil && <span className="scene-veil" />}
+      {children}
+    </div>
   );
 }
 
-function CampArt({ level = 0 }) {
+const WAYPOINTS = Object.freeze([
+  Object.freeze({ screen: 'home', label: 'Trail', Icon: IconTrail }),
+  Object.freeze({ screen: 'progress', label: 'Words', Icon: IconWords }),
+  Object.freeze({ screen: 'monster', label: 'Codex', Icon: IconCodex }),
+  Object.freeze({ screen: 'camp', label: 'Camp', Icon: IconCamp }),
+]);
+
+function WaypointBar({ screen, onScreen }) {
   return (
-    <svg
-      className="camp-art"
-      viewBox="0 0 260 150"
-      role="img"
-      aria-label={`Expedition Camp is at level ${level}`}
-    >
-      <path className="camp-ground" d="M8 132c53-25 188-24 244 0H8Z" />
-      <path className="camp-mountain" d="m34 111 52-80 49 80H34Z" />
-      <path className="camp-mountain camp-mountain-far" d="m112 111 45-62 57 62H112Z" />
-      <path className="camp-tent" d="m102 126 30-54 32 54h-62Z" />
-      <path className="camp-door" d="m132 78 13 48h-26l13-48Z" />
-      <path className="camp-flag" d="M132 72V35l28 10-28 10" />
-      {level > 0 && <circle className="camp-sun" cx="218" cy="31" r="17" />}
-    </svg>
+    <nav className="waypoint-bar" aria-label="Places on the trail">
+      {WAYPOINTS.map(({ screen: target, label, Icon }) => (
+        <button
+          key={target}
+          type="button"
+          className="press-soft press"
+          aria-current={screen === target ? 'page' : undefined}
+          onClick={() => onScreen(target)}
+        >
+          <Icon size={23} />
+          <span>{label}</span>
+        </button>
+      ))}
+    </nav>
   );
 }
 
-function AudioStatus({ audioState, onRecover, compact = false }) {
-  const copy = {
-    ready: [
-      'Listening pack ready',
-      'Verified pre-recorded audio is available on this device.',
-    ],
-    corrupt: [
-      'Listening pack needs repair',
-      'The local audio no longer matches its verified pack.',
-    ],
-    checking: [
-      'Checking the listening pack',
-      'Checking the local pre-recorded audio now.',
-    ],
-    unavailable: [
-      'Listening pack could not be checked',
-      'Your learning is still saved. Check the local pack again.',
-    ],
-    missing: [
-      'Listening pack needs setup',
-      'Pre-recorded audio is not ready on this device yet.',
-    ],
-  };
-  const [title, body] = copy[audioState.status] ?? copy.missing;
+const AUDIO_COPY = Object.freeze({
+  ready: Object.freeze([
+    'Listening pack ready',
+    'Verified pre-recorded audio is available on this device.',
+  ]),
+  corrupt: Object.freeze([
+    'Listening pack needs repair',
+    'The local audio no longer matches its verified pack.',
+  ]),
+  checking: Object.freeze([
+    'Checking the listening pack',
+    'Checking the local pre-recorded audio now.',
+  ]),
+  unavailable: Object.freeze([
+    'Listening pack could not be checked',
+    'Your learning is still saved. Check the local pack again.',
+  ]),
+  missing: Object.freeze([
+    'Listening pack needs setup',
+    'Pre-recorded audio is not ready on this device yet.',
+  ]),
+});
+
+function AudioStatus({ audioState, onRecover, compact = false, dusk = false }) {
+  const [title, body] = AUDIO_COPY[audioState.status] ?? AUDIO_COPY.missing;
   return (
     <section
-      className={`audio-state audio-state-${audioState.status}${compact ? ' audio-state-compact' : ''}`}
+      className={[
+        'audio-state',
+        `audio-state-${audioState.status}`,
+        dusk ? 'audio-state-dusk' : '',
+      ].filter(Boolean).join(' ')}
       aria-labelledby="starter-audio-title"
       aria-live="polite"
     >
-      <span className="audio-state-icon" aria-hidden="true">♪</span>
+      <span className="audio-state-icon"><IconNote size={18} /></span>
       <div>
         <h2 id="starter-audio-title">{title}</h2>
         {!compact && <p>{body}</p>}
       </div>
       {!['ready', 'checking'].includes(audioState.status) && (
-        <button type="button" className="button-quiet" onClick={onRecover}>
+        <button type="button" className="button-quiet press" onClick={onRecover}>
           Check again
         </button>
       )}
@@ -119,7 +230,6 @@ function AudioStatus({ audioState, onRecover, compact = false }) {
 function ProductTopBar({ title = 'KS2 Spelling', action }) {
   return (
     <header className="product-topbar">
-      <div className="brand-mark" aria-hidden="true">KS2</div>
       <p>{title}</p>
       {action ?? <span />}
     </header>
@@ -901,303 +1011,6 @@ export function ParentArea({
   );
 }
 
-function ProfilePicker({
-  profileState,
-  audioState,
-  onChoose,
-  onCreate,
-  onOpenParent,
-  onRecoverAudio,
-}) {
-  const [nickname, setNickname] = useState('');
-  const [yearGroup, setYearGroup] = useState('Y3');
-  const [goal, setGoal] = useState(10);
-  const busy = profileState.status === 'saving';
-
-  function submit(event) {
-    event.preventDefault();
-    const nextNickname = nickname.trim();
-    if (!nextNickname || busy) return;
-    void onCreate({
-      nickname: nextNickname,
-      yearGroup,
-      goal,
-      colour: '#157A76',
-    })
-      .then(() => setNickname(''))
-      .catch(() => undefined);
-  }
-
-  return (
-    <main className="product-app product-page" aria-labelledby="profile-title">
-      <ProductTopBar
-        action={(
-          <button type="button" className="topbar-action" onClick={onOpenParent}>
-            For parents
-          </button>
-        )}
-      />
-      <section className="welcome-panel">
-        <p className="product-kicker">Your pocket expedition</p>
-        <h1 id="profile-title">Who is practising?</h1>
-        <p>Choose a learner on this device, or add one to begin a spelling trail.</p>
-      </section>
-
-      {profileState.profiles.length > 0 && (
-        <ul className="learner-grid" aria-label="Learners on this device">
-          {profileState.profiles.map((profile) => {
-            const selected =
-              profile.learnerId === profileState.selectedLearnerId;
-            return (
-              <li key={profile.learnerId}>
-                <button
-                  type="button"
-                  className="learner-card"
-                  disabled={busy}
-                  onClick={() => onChoose(profile.learnerId)}
-                >
-                  <span
-                    className="learner-avatar"
-                    style={{ '--learner-colour': profile.colour }}
-                    aria-hidden="true"
-                  >
-                    {profile.nickname.slice(0, 1).toUpperCase()}
-                  </span>
-                  <span>
-                    <strong>{profile.nickname}</strong>
-                    <small>
-                      {displayYearGroup(profile.yearGroup)} · {profile.goal} words a week
-                    </small>
-                    {selected && <em>Selected</em>}
-                  </span>
-                  <span className="learner-arrow" aria-hidden="true">→</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      <AudioStatus audioState={audioState} onRecover={onRecoverAudio} />
-
-      <section className="paper-card add-learner-card" aria-labelledby="add-learner-title">
-        <div>
-          <p className="product-kicker">Local to this device</p>
-          <h2 id="add-learner-title">Add a learner</h2>
-        </div>
-        <form className="learner-form" onSubmit={submit}>
-          <label htmlFor="profile-nickname">First name or nickname</label>
-          <input
-            id="profile-nickname"
-            name="nickname"
-            type="text"
-            value={nickname}
-            maxLength="40"
-            autoComplete="off"
-            disabled={busy}
-            onChange={(event) => setNickname(event.target.value)}
-          />
-          <div className="field-pair">
-            <label>
-              Year group
-              <select
-                name="yearGroup"
-                value={yearGroup}
-                disabled={busy}
-                onChange={(event) => setYearGroup(event.target.value)}
-              >
-                {['Y3', 'Y4', 'Y5', 'Y6'].map((year) => (
-                  <option key={year} value={year}>{displayYearGroup(year)}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Weekly goal
-              <select
-                name="goal"
-                value={goal}
-                disabled={busy}
-                onChange={(event) => setGoal(Number(event.target.value))}
-              >
-                {[5, 10, 15, 20].map((value) => (
-                  <option key={value} value={value}>{value} words</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <button
-            type="submit"
-            className="button-primary"
-            disabled={busy || nickname.trim() === ''}
-          >
-            {busy ? 'Saving…' : 'Add learner'}
-          </button>
-        </form>
-        {profileState.actionError && (
-          <p className="inline-error" role="alert">
-            That change did not save. Please try again.
-          </p>
-        )}
-      </section>
-    </main>
-  );
-}
-
-function ChildHome({
-  profile,
-  learningState,
-  audioState,
-  onScreen,
-  onSwitchLearner,
-  onRecoverAudio,
-}) {
-  const monster = learningState.monsters[0];
-  return (
-    <main className="product-app product-page child-home" aria-labelledby="home-title">
-      <ProductTopBar
-        action={(
-          <button type="button" className="topbar-action" onClick={onSwitchLearner}>
-            Switch learner
-          </button>
-        )}
-      />
-      <section className="trail-hero">
-        <div>
-          <p className="product-kicker">{displayYearGroup(profile.yearGroup)} trail</p>
-          <h1 id="home-title">{profile.nickname}&apos;s spelling trail</h1>
-          <p>
-            A short Smart Review chooses the right Starter words from saved
-            progress on this device.
-          </p>
-          <button
-            type="button"
-            className="button-primary button-large"
-            onClick={() => onScreen('setup')}
-          >
-            Start a Smart Review
-          </button>
-        </div>
-        <div className="hero-inklet">
-          <InkletArt stage={monster?.derivedStage ?? 0} />
-          <p>
-            <strong>Inklet</strong>
-            <span>{monster?.secureCount ?? 0} secure words</span>
-          </p>
-        </div>
-      </section>
-
-      <AudioStatus
-        audioState={audioState}
-        onRecover={onRecoverAudio}
-        compact={audioState.status === 'ready'}
-      />
-
-      <nav className="trail-navigation" aria-label="Spelling trail">
-        <button type="button" onClick={() => onScreen('progress')}>
-          <span aria-hidden="true">↗</span>
-          <strong>Progress</strong>
-          <small>{learningState.progress.length} words practised</small>
-        </button>
-        <button type="button" onClick={() => onScreen('monster')}>
-          <span aria-hidden="true">✦</span>
-          <strong>Monster</strong>
-          <small>Visit Inklet</small>
-        </button>
-        <button type="button" onClick={() => onScreen('camp')}>
-          <span aria-hidden="true">⌂</span>
-          <strong>Camp</strong>
-          <small>Expedition level {learningState.camp?.campHighWater ?? 0}</small>
-        </button>
-      </nav>
-    </main>
-  );
-}
-
-function PracticeSetup({
-  audioState,
-  actionError,
-  voiceId,
-  onVoice,
-  onStart,
-  onBack,
-  onRecoverAudio,
-  busy,
-}) {
-  const [length, setLength] = useState(5);
-  return (
-    <main className="product-app product-page" aria-labelledby="setup-title">
-      <ProductTopBar
-        title="New expedition"
-        action={(
-          <button type="button" className="topbar-action" onClick={onBack}>
-            Back
-          </button>
-        )}
-      />
-      <section className="paper-card setup-card">
-        <p className="product-kicker">Smart Review</p>
-        <h1 id="setup-title">Choose today&apos;s trail</h1>
-        <p>
-          The Starter trail covers Years 3–4 words and adapts from learning
-          already saved on this device.
-        </p>
-
-        <fieldset className="choice-group">
-          <legend>Round length</legend>
-          <div className="segmented-choice">
-            {ROUND_LENGTHS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={length === value}
-                onClick={() => setLength(value)}
-              >
-                <strong>{value}</strong>
-                <span>words</span>
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset className="choice-group">
-          <legend>Listening voice</legend>
-          <div className="voice-choice">
-            {VOICES.map((voice) => (
-              <button
-                key={voice.id}
-                type="button"
-                aria-pressed={voiceId === voice.id}
-                onClick={() => onVoice(voice.id)}
-              >
-                <span className="voice-symbol" aria-hidden="true">♪</span>
-                <span>
-                  <strong>{voice.label}</strong>
-                  <small>{voice.description}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <AudioStatus audioState={audioState} onRecover={onRecoverAudio} />
-        <button
-          type="button"
-          className="button-primary button-large"
-          disabled={busy || audioState.status !== 'ready'}
-          onClick={() => void onStart(length).catch(() => undefined)}
-        >
-          {busy ? 'Preparing…' : 'Start trail'}
-        </button>
-        {actionError && (
-          <p className="inline-error" role="alert">
-            That trail could not start. Please try again.
-          </p>
-        )}
-      </section>
-    </main>
-  );
-}
-
 export function LeaveRoundDialog({
   onKeep,
   onLeave,
@@ -1286,10 +1099,1016 @@ export function LeaveRoundDialog({
   );
 }
 
-function PracticeScreen({
+// A drag past a third of the sheet, or a quick flick in that direction, closes
+// it. Anything shorter settles back so a mis-grab never loses the screen.
+const SHEET_DISMISS_FRACTION = 0.33;
+const SHEET_FLICK_SPEED = 0.5;
+const SHEET_FLICK_TRAVEL = 24;
+
+/**
+ * Drag-to-dismiss for a bottom sheet. The sheet follows the pointer downwards
+ * only, because it is anchored to the bottom edge and cannot be lifted off it.
+ * Returns null when the sheet has nowhere to go, so the caller can leave the
+ * grip out rather than offer a gesture that does nothing.
+ */
+function useSheetDrag(onDismiss) {
+  const sheetRef = useRef(null);
+  const dragRef = useRef(null);
+  const [offset, setOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+
+  const onPointerDown = useCallback((event) => {
+    const sheet = sheetRef.current;
+    if (!sheet || event.button !== 0) return;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startedAt: event.timeStamp,
+      height: sheet.getBoundingClientRect().height,
+    };
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }, []);
+
+  const onPointerMove = useCallback((event) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setOffset(Math.max(0, event.clientY - drag.startY));
+  }, []);
+
+  const onPointerUp = useCallback((event) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    setDragging(false);
+    setOffset(0);
+    const travel = Math.max(0, event.clientY - drag.startY);
+    const speed = travel / Math.max(1, event.timeStamp - drag.startedAt);
+    const flicked = travel >= SHEET_FLICK_TRAVEL && speed >= SHEET_FLICK_SPEED;
+    if (flicked || travel >= drag.height * SHEET_DISMISS_FRACTION) onDismiss();
+  }, [onDismiss]);
+
+  if (!onDismiss) return null;
+  return {
+    sheetRef,
+    dragging,
+    style: offset === 0 ? undefined : { translate: `0 ${offset}px` },
+    handlers: {
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
+      onPointerCancel: onPointerUp,
+    },
+  };
+}
+
+function SwitchScreen({
+  profileState,
+  audioState,
+  onChoose,
+  onCreate,
+  onOpenParent,
+  onRecoverAudio,
+  onDismiss,
+}) {
+  const drag = useSheetDrag(onDismiss);
+  const [nickname, setNickname] = useState('');
+  const [yearGroup, setYearGroup] = useState('Y3');
+  const [goal, setGoal] = useState(10);
+  const [adding, setAdding] = useState(false);
+  const busy = profileState.status === 'saving';
+
+  function submit(event) {
+    event.preventDefault();
+    const nextNickname = nickname.trim();
+    if (!nextNickname || busy) return;
+    void onCreate({
+      nickname: nextNickname,
+      yearGroup,
+      goal,
+      colour: '#157A76',
+    })
+      .then(() => {
+        setNickname('');
+        setAdding(false);
+      })
+      .catch(() => undefined);
+  }
+
+  return (
+    <main className="product-app" aria-labelledby="switch-title">
+      <Scene
+        className="switch-scene"
+        plate={regionArt(REGION, 'a1')}
+        veil="rgba(29,43,58,.38)"
+      >
+        <div className="scene-body">
+          {drag && (
+            <button
+              type="button"
+              className="sheet-scrim"
+              aria-label="Close the learner list"
+              onClick={onDismiss}
+            />
+          )}
+          <div
+            className="switch-sheet"
+            ref={drag?.sheetRef}
+            data-dragging={drag?.dragging ? 'true' : undefined}
+            style={drag?.style}
+          >
+            {drag && (
+              <div
+                className="sheet-grip"
+                aria-hidden="true"
+                {...drag.handlers}
+              />
+            )}
+            <div className="switch-head">
+              <p id="switch-title">Who is practising?</p>
+              <button
+                type="button"
+                className="topbar-action press-soft press"
+                onClick={onOpenParent}
+              >
+                For parents
+              </button>
+            </div>
+
+            {profileState.profiles.length > 0 && (
+              <ul className="switch-list" aria-label="Learners on this device">
+                {profileState.profiles.map((profile) => {
+                  const selected =
+                    profile.learnerId === profileState.selectedLearnerId;
+                  return (
+                    <li key={profile.learnerId}>
+                      <button
+                        type="button"
+                        className="learner-card press"
+                        style={{ '--learner-colour': profile.colour }}
+                        disabled={busy}
+                        onClick={() => onChoose(profile.learnerId)}
+                      >
+                        <span className="learner-avatar" aria-hidden="true">
+                          {initialOf(profile.nickname)}
+                        </span>
+                        <span>
+                          <strong>{profile.nickname}</strong>
+                          <small>
+                            {displayYearGroup(profile.yearGroup)} · {profile.goal} words a week
+                            {selected ? ' · here now' : ''}
+                          </small>
+                        </span>
+                        {selected ? (
+                          <span className="learner-selected">
+                            <IconTick size={14} />
+                            <span className="visually-hidden">Selected</span>
+                          </span>
+                        ) : (
+                          <IconChevron size={18} />
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {adding ? (
+              <form className="learner-form" onSubmit={submit}>
+                <label htmlFor="profile-nickname">First name or nickname</label>
+                <input
+                  id="profile-nickname"
+                  name="nickname"
+                  type="text"
+                  value={nickname}
+                  maxLength="40"
+                  autoComplete="off"
+                  disabled={busy}
+                  onChange={(event) => setNickname(event.target.value)}
+                />
+                <div className="field-pair">
+                  <label>
+                    Year group
+                    <select
+                      name="yearGroup"
+                      value={yearGroup}
+                      disabled={busy}
+                      onChange={(event) => setYearGroup(event.target.value)}
+                    >
+                      {['Y3', 'Y4', 'Y5', 'Y6'].map((year) => (
+                        <option key={year} value={year}>{displayYearGroup(year)}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Weekly goal
+                    <select
+                      name="goal"
+                      value={goal}
+                      disabled={busy}
+                      onChange={(event) => setGoal(Number(event.target.value))}
+                    >
+                      {[5, 10, 15, 20].map((value) => (
+                        <option key={value} value={value}>{value} words</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <button
+                  type="submit"
+                  className="button-primary press"
+                  disabled={busy || nickname.trim() === ''}
+                >
+                  {busy ? 'Saving…' : 'Add learner'}
+                </button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                className="learner-add press-soft press"
+                onClick={() => setAdding(true)}
+              >
+                <IconPlus size={18} />
+                Add a learner
+              </button>
+            )}
+
+            {profileState.actionError && (
+              <p className="inline-error" role="alert">
+                That change did not save. Please try again.
+              </p>
+            )}
+
+            {audioState.status === 'ready' ? (
+              <p className="switch-note">
+                <span className="switch-note-mark"><IconNote size={12} /></span>
+                Listening pack ready · everything works offline
+              </p>
+            ) : (
+              <AudioStatus audioState={audioState} onRecover={onRecoverAudio} />
+            )}
+          </div>
+        </div>
+      </Scene>
+    </main>
+  );
+}
+
+// Four painted positions on the downs, nearest and largest first so a single
+// companion still stands where the eye expects it.
+const MEADOW_SLOTS = Object.freeze([
+  Object.freeze({
+    left: '8%', top: '44%', size: '46%', zIndex: 14, face: -1, bob: '6px',
+    roam: 'roamG 25s ease-in-out -6s infinite',
+    gait: 'bob 4.8s ease-in-out .9s infinite',
+    emerge: '80ms', shadow: '0.5rem',
+  }),
+  Object.freeze({
+    left: '60%', top: '34%', size: '34%', zIndex: 13, face: -1, bob: '5px',
+    roam: 'roamG 27s ease-in-out -11s infinite',
+    gait: 'bob 5.2s ease-in-out .3s infinite',
+    emerge: '360ms', shadow: '0.4rem',
+  }),
+  Object.freeze({
+    left: '3%', top: '18%', size: '36%', zIndex: 12, face: 1, bob: '9px',
+    roam: 'roamA 19.6s ease-in-out -8s infinite',
+    gait: 'flap 4.6s ease-in-out 1.4s infinite',
+    emerge: '220ms', shadow: '-1.6rem',
+  }),
+  Object.freeze({
+    left: '64%', top: '6%', size: '24%', zIndex: 11, face: -1, bob: '8px',
+    roam: 'roamA 16.4s ease-in-out -5s infinite',
+    gait: 'flap 3.4s ease-in-out .8s infinite',
+    emerge: '300ms', shadow: '-2rem',
+  }),
+]);
+
+const ROAM_VARIABLES = Object.freeze([
+  Object.freeze({ '--fwd': '-32px', '--back': '24px' }),
+  Object.freeze({ '--fwd': '-26px', '--back': '20px' }),
+  Object.freeze({ '--fwd': '36px', '--back': '-26px', '--fy': '-9px', '--by': '14px' }),
+  Object.freeze({ '--fwd': '-38px', '--back': '24px', '--fy': '-7px', '--by': '12px' }),
+]);
+
+function MeadowPet({ companion, slot, roam, poked, onPoke }) {
+  return (
+    <button
+      type="button"
+      className="meadow-pet press-soft press"
+      aria-label={companion.found ? companion.name : 'An undiscovered companion'}
+      style={{
+        '--pet-left': slot.left,
+        '--pet-top': slot.top,
+        '--pet-size': slot.size,
+        '--pet-roam': slot.roam,
+        '--pet-gait': slot.gait,
+        '--shadow-bottom': slot.shadow,
+        zIndex: slot.zIndex,
+        ...roam,
+      }}
+      onClick={onPoke}
+    >
+      <span className="meadow-shadow" aria-hidden="true" />
+      <span
+        className="meadow-emerge"
+        style={{ animationDelay: slot.emerge }}
+      >
+        <img
+          src={companion.art ?? undefined}
+          alt=""
+          style={{ '--face': slot.face, '--bob': slot.bob }}
+        />
+      </span>
+      {poked && (
+        <span className="meadow-tag">
+          <span>
+            {companion.found ? companion.name : '???'}
+            <small>{companion.band}</small>
+          </span>
+        </span>
+      )}
+    </button>
+  );
+}
+
+function TrailScreen({
+  profile,
+  learningState,
+  audioState,
+  dueCount,
+  onScreen,
+  onSwitchLearner,
+  onOpenParent,
+  onRecoverAudio,
+}) {
+  const [poked, setPoked] = useState(null);
+  const codex = useMemo(
+    () => buildCodex(learningState.monsters),
+    [learningState.monsters],
+  );
+
+  useEffect(() => {
+    if (!poked) return undefined;
+    const timer = setTimeout(() => setPoked(null), 2600);
+    return () => clearTimeout(timer);
+  }, [poked]);
+
+  const dueLabel = dueCount === 1 ? 'word due today' : 'words due today';
+
+  return (
+    <main className="product-app" aria-labelledby="home-title">
+      <Scene
+        className="trail-scene"
+        dusk
+        waypoints
+        plate={regionArt(REGION, 'a1')}
+        veil={[
+          'radial-gradient(110% 58% at 66% 30%,rgba(8,12,18,.02),rgba(8,12,18,.54) 58%,rgba(8,12,18,.92))',
+          'linear-gradient(180deg,rgba(8,12,18,.68) 0%,rgba(8,12,18,.1) 16%,rgba(8,12,18,.22) 44%,rgba(8,12,18,.62) 74%,rgba(8,12,18,.92) 100%)',
+        ].join(',')}
+      >
+        <div className="scene-body">
+          <div className="trail-chrome">
+            <button
+              type="button"
+              className="glass-button press-soft press"
+              onClick={onSwitchLearner}
+            >
+              <span
+                className="learner-chip"
+                style={{ '--learner-colour': profile.colour }}
+                aria-hidden="true"
+              >
+                {initialOf(profile.nickname)}
+              </span>
+              <strong>{profile.nickname}</strong>
+              <IconChevronDown size={15} />
+            </button>
+            <button
+              type="button"
+              className="glass-button icon-button press-soft press"
+              style={{ marginLeft: 'auto' }}
+              onClick={onOpenParent}
+            >
+              <IconLock size={21} />
+              <span className="visually-hidden">For parents</span>
+            </button>
+          </div>
+
+          <p className="trail-topline">
+            The Scribe Downs
+            <span aria-hidden="true" />
+            {displayYearGroup(profile.yearGroup)}
+          </p>
+
+          <h1 id="home-title" className="visually-hidden">
+            {profile.nickname}&apos;s spelling trail
+          </h1>
+
+          <div className="meadow">
+            <span className="meadow-halo" aria-hidden="true" />
+            {codex.roster.slice(0, MEADOW_SLOTS.length).map((companion, index) => (
+              <MeadowPet
+                key={companion.rewardTrackId}
+                companion={companion}
+                slot={MEADOW_SLOTS[index]}
+                roam={ROAM_VARIABLES[index]}
+                poked={poked === companion.rewardTrackId}
+                onPoke={() => setPoked(companion.rewardTrackId)}
+              />
+            ))}
+          </div>
+
+          {audioState.status !== 'ready' && (
+            <AudioStatus
+              audioState={audioState}
+              onRecover={onRecoverAudio}
+              dusk
+              compact
+            />
+          )}
+
+          <p className="trail-due">
+            <span className="figure">{dueCount}</span>
+            {dueLabel}
+          </p>
+
+          <div className="trail-launch">
+            <button
+              type="button"
+              className="button-primary press"
+              onClick={() => onScreen('setup')}
+            >
+              Set off
+              <IconForward size={19} />
+            </button>
+            <p>Smart Review · pick your length</p>
+          </div>
+        </div>
+        <WaypointBar screen="home" onScreen={onScreen} />
+      </Scene>
+    </main>
+  );
+}
+
+const FILTER_DOTS = Object.freeze({
+  all: 'rgba(29,43,58,.3)',
+  due: '#a06b22',
+  trouble: '#c0603f',
+  learning: '#3e6fa8',
+  secure: '#1f7a4f',
+});
+
+function WordBankScreen({ progress, onScreen, onStart }) {
+  const [filter, setFilter] = useState('all');
+  const bank = useMemo(
+    () => buildWordBank({ progress, filter }),
+    [progress, filter],
+  );
+
+  return (
+    <main className="product-app" aria-labelledby="bank-title">
+      <Scene
+        className="bank-scene"
+        waypoints
+        plate={regionArt(REGION, 'a1')}
+        plateY="30%"
+        veil="linear-gradient(180deg,rgba(246,245,241,.44),rgba(246,245,241,.9) 42%,#f8f5ec 62%)"
+      >
+        <div className="scene-body">
+          <div className="bank-head">
+            <div>
+              <p className="product-kicker">Word bank</p>
+              <h1 id="bank-title">Your words</h1>
+            </div>
+            <span className="figure">{bank.countLabel}</span>
+          </div>
+
+          <div className="rail bank-filters" role="group" aria-label="Filter words">
+            {bank.filters.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className="pill press-soft press"
+                aria-pressed={option.selected}
+                onClick={() => setFilter(option.id)}
+              >
+                <span
+                  className="bank-dot"
+                  style={{ '--dot': FILTER_DOTS[option.id] }}
+                  aria-hidden="true"
+                />
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="scene-scroll">
+            <ul className="bank-list">
+              {bank.rows.map((row) => (
+                <li
+                  key={row.runtimeItemId}
+                  className="bank-row"
+                  data-status={row.status}
+                  data-due={row.due ? 'true' : 'false'}
+                >
+                  <span className="bank-row-bar" aria-hidden="true" />
+                  <strong>{row.word}</strong>
+                  <small>{row.note}</small>
+                  <span className="bank-rungs" aria-hidden="true">
+                    {row.rungs.map((lit, index) => (
+                      // eslint-disable-next-line react/no-array-index-key
+                      <span key={index} data-lit={lit ? 'true' : 'false'} />
+                    ))}
+                  </span>
+                </li>
+              ))}
+              {bank.empty && (
+                <li className="bank-empty">
+                  <strong>{bank.emptyHeading}</strong>
+                  <small className="body-copy">{bank.emptyBody}</small>
+                  {bank.total === 0 ? (
+                    <button
+                      type="button"
+                      className="button-quiet press-soft press"
+                      onClick={onStart}
+                    >
+                      Set off on a round
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="button-quiet press-soft press"
+                      onClick={() => setFilter('all')}
+                    >
+                      Show every word in the bank
+                    </button>
+                  )}
+                </li>
+              )}
+            </ul>
+          </div>
+        </div>
+        <WaypointBar screen="progress" onScreen={onScreen} />
+      </Scene>
+    </main>
+  );
+}
+
+function CodexScreen({ monsters, onScreen }) {
+  const [selected, setSelected] = useState(null);
+  const [zoomed, setZoomed] = useState(false);
+  const codex = useMemo(
+    () => buildCodex(monsters, selected),
+    [monsters, selected],
+  );
+  const hero = codex.hero;
+
+  return (
+    <main className="product-app" aria-labelledby="codex-title">
+      <Scene
+        className="codex-scene"
+        dusk
+        waypoints
+        plate={regionArt(REGION, 'd3')}
+        plateOpacity={0.42}
+        veil="linear-gradient(180deg,rgba(9,15,23,.8) 0%,rgba(9,15,23,.5) 32%,rgba(9,15,23,.94) 100%)"
+      >
+        <div className="scene-body">
+          <div className="codex-head">
+            <div>
+              <p className="product-kicker">The Codex</p>
+              <h1 id="codex-title">Companions</h1>
+            </div>
+            <span className="codex-count">
+              <span className="figure">{codex.foundCount}</span>
+              <span className="figure figure-total">/ {codex.rosterCount}</span>
+              <span className="label">Found</span>
+            </span>
+          </div>
+
+          {hero && (
+            <>
+              <section
+                className="codex-hero"
+                data-found={hero.found ? 'true' : 'false'}
+                style={{ '--accent': hero.accent }}
+              >
+                <span className="codex-hero-glow" aria-hidden="true" />
+                <span className="codex-hero-sheen" aria-hidden="true" />
+                {['tl', 'tr', 'bl', 'br'].map((corner) => (
+                  <span key={corner} className="codex-corner" data-corner={corner} aria-hidden="true" />
+                ))}
+                <span className="codex-no">NO. {hero.number}</span>
+                <span className="codex-band">{hero.band}</span>
+
+                <button
+                  type="button"
+                  className="codex-stage press"
+                  onClick={() => setZoomed(true)}
+                >
+                  <span className="codex-stage-shadow" aria-hidden="true" />
+                  <img src={hero.art ?? undefined} alt="" />
+                  <span className="visually-hidden">Look closer at {hero.title}</span>
+                </button>
+
+                <div className="codex-hero-foot">
+                  <div className="codex-hero-title">
+                    <h2>{hero.title}</h2>
+                    <span>{hero.stageLabel}</span>
+                  </div>
+                  <p>{hero.blurb}</p>
+                  <div className="codex-meter">
+                    <span className="codex-meter-track">
+                      <span style={{ '--percent': `${hero.percent}%` }} />
+                    </span>
+                    <span className="figure">{hero.count}</span>
+                  </div>
+                  <p className="codex-next">{hero.next}</p>
+                </div>
+              </section>
+
+              <p className="codex-rule label">
+                Growth line<span aria-hidden="true" />
+              </p>
+              <ul className="codex-growth" style={{ '--accent': hero.accent }}>
+                {hero.growth.map((stage) => (
+                  <li
+                    key={stage.key}
+                    data-reached={stage.reached ? 'true' : 'false'}
+                    data-here={stage.here ? 'true' : 'false'}
+                  >
+                    <img src={stage.art ?? undefined} alt="" />
+                    <span>{stage.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          <p className="codex-rule label">
+            Roster<span aria-hidden="true" />
+          </p>
+          <div className="codex-roster">
+            {codex.roster.map((companion) => (
+              <button
+                key={companion.rewardTrackId}
+                type="button"
+                className="press"
+                data-found={companion.found ? 'true' : 'false'}
+                aria-pressed={companion.rewardTrackId === hero?.rewardTrackId}
+                style={{ '--accent': companion.accent }}
+                onClick={() => {
+                  setSelected(companion.rewardTrackId);
+                  setZoomed(false);
+                }}
+              >
+                <span className="codex-roster-no">{companion.number}</span>
+                <img src={companion.art ?? undefined} alt="" />
+                <strong>{companion.name}</strong>
+                <span className="codex-pips" aria-hidden="true">
+                  {companion.pips.map((lit, index) => (
+                    // eslint-disable-next-line react/no-array-index-key
+                    <span key={index} data-lit={lit ? 'true' : 'false'} />
+                  ))}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="codex-stats">
+            <div>
+              <span className="figure">{codex.secureWords}</span>
+              <span className="label">Secure words</span>
+            </div>
+            <div>
+              <span className="figure">{codex.highestStage}</span>
+              <span className="label">Highest stage</span>
+            </div>
+            <div>
+              <span className="figure">{codex.leftToFind}</span>
+              <span className="label">Left to find</span>
+            </div>
+          </div>
+
+          {zoomed && hero && (
+            <button
+              type="button"
+              className="codex-zoom"
+              style={{ '--accent': hero.accent }}
+              onClick={() => setZoomed(false)}
+            >
+              <span className="codex-hero-glow" aria-hidden="true" />
+              <span>
+                <img src={hero.art ?? undefined} alt="" />
+                <div>
+                  <strong>{hero.title}</strong>
+                  <small>{hero.count} secure · tap to close</small>
+                </div>
+              </span>
+            </button>
+          )}
+        </div>
+        <WaypointBar screen="monster" onScreen={onScreen} />
+      </Scene>
+    </main>
+  );
+}
+
+function CampScreen({ camp, revisitsWaiting, onScreen }) {
+  const level = camp?.campHighWater ?? 0;
+  const circumference = 333;
+  const offset = Math.max(0, circumference * (1 - Math.min(level, 10) / 10));
+
+  return (
+    <main className="product-app" aria-labelledby="camp-title">
+      <Scene
+        className="camp-scene"
+        waypoints
+        plate={regionArt(REGION, 'd1')}
+        veil="linear-gradient(180deg,rgba(248,245,236,.34) 0%,rgba(248,245,236,.2) 26%,rgba(248,245,236,.66) 68%,rgba(248,245,236,.9) 100%)"
+      >
+        <div className="scene-body">
+          <p className="product-kicker">The Scribe Downs · Camp</p>
+
+          <div className="camp-ring">
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+              <circle cx="60" cy="60" r="53" fill="none" stroke="rgba(29,43,58,.13)" strokeWidth="7" />
+              <circle
+                cx="60"
+                cy="60"
+                r="53"
+                fill="none"
+                stroke="#a06b22"
+                strokeWidth="7"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+              />
+            </svg>
+            <div className="camp-ring-face">
+              <div>
+                <IconCamp size={30} />
+                <span className="figure">{level}</span>
+                <span className="label">Camp level</span>
+              </div>
+            </div>
+          </div>
+
+          <section className="vellum camp-card">
+            <h1 id="camp-title">
+              {revisitsWaiting > 0
+                ? 'Words are waiting to return'
+                : 'Camp is steady for now'}
+            </h1>
+            <p className="body-copy">
+              Camp rises when you come back to words you met a while ago — not
+              from fresh practice, however much of it you do.
+            </p>
+            <div className="camp-figures">
+              <div>
+                <span className="figure">{level}</span>
+                <span className="label">Camp level</span>
+              </div>
+              <div>
+                <span className="figure">{revisitsWaiting}</span>
+                <span className="label">Words waiting to return</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="button-primary press"
+              onClick={() => onScreen('setup')}
+            >
+              Set off on a round
+              <IconForward size={18} />
+            </button>
+          </section>
+        </div>
+        <WaypointBar screen="camp" onScreen={onScreen} />
+      </Scene>
+    </main>
+  );
+}
+
+const QUESTS = Object.freeze([
+  Object.freeze({
+    id: 'smart',
+    short: 'Smart',
+    name: 'Smart Review',
+    tag: 'Adaptive',
+    plate: 'a1',
+    line: 'Inklet picks the words your memory is about to drop, then slips one new spelling in at the end.',
+  }),
+  Object.freeze({
+    id: 'trouble',
+    short: 'Trouble',
+    name: 'Trouble Drill',
+    tag: 'Targeted',
+    plate: 'd1',
+    line: 'Nothing but the spellings that keep slipping. Short, steep, and over quickly.',
+  }),
+  Object.freeze({
+    id: 'test',
+    short: 'SATs',
+    name: 'SATs Test',
+    tag: 'Assessed',
+    plate: 'e1',
+    line: 'One attempt per word, with marks held back until the end.',
+  }),
+]);
+
+function SetupScreen({
+  audioState,
+  actionError,
+  onStart,
+  onBack,
+  onRecoverAudio,
+  busy,
+  dueCount,
+  troubleCount,
+  bankTotal,
+  vocabularySets,
+}) {
+  const [length, setLength] = useState(5);
+  const [quest, setQuest] = useState('smart');
+  const [yearFilter, setYearFilter] = useState(vocabularySets[0]?.id ?? 'core');
+  const active = QUESTS.find(({ id }) => id === quest) ?? QUESTS[0];
+  const effectiveYearFilter = quest === 'test' ? 'core' : yearFilter;
+  const effectiveLength = quest === 'test' ? 20 : length;
+  const companion = monsterArt('inklet', 3);
+
+  return (
+    <main className="product-app" aria-labelledby="setup-title">
+      <Scene
+        className="setup-scene"
+        dusk
+        plate={regionArt(REGION, active.plate)}
+        plateY="32%"
+        veil={[
+          'radial-gradient(118% 66% at 50% 4%,rgba(10,15,22,.06),rgba(9,14,20,.6) 56%,rgba(8,12,18,.94))',
+          'linear-gradient(180deg,rgba(9,14,20,.74) 0%,rgba(9,14,20,.08) 22%,rgba(8,12,18,.72) 62%,#080c12 92%)',
+        ].join(',')}
+      >
+        <div className="scene-body">
+          <div className="setup-chrome">
+            <button
+              type="button"
+              className="glass-button icon-button press-soft press"
+              onClick={onBack}
+            >
+              <IconBack size={21} />
+              <span className="visually-hidden">Back to the trail</span>
+            </button>
+            <span>New expedition</span>
+            <span className="icon-button" aria-hidden="true" />
+          </div>
+
+          <div className="setup-quest">
+            {companion && <img src={companion} alt="" />}
+            <p className="product-kicker">
+              Today&apos;s quest<span aria-hidden="true" />
+            </p>
+            <h1 id="setup-title">{active.name}</h1>
+            <p>{active.line}</p>
+            <div className="setup-tally">
+              <div>
+                <span className="figure">{dueCount}</span>
+                <span className="label">due</span>
+              </div>
+              <div>
+                <span className="figure">{troubleCount}</span>
+                <span className="label">trouble</span>
+              </div>
+              <div>
+                <span className="figure">{bankTotal}</span>
+                <span className="label">in bank</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="quest-tiles" role="group" aria-label="Choose a quest">
+            {QUESTS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className="quest-tile press"
+                aria-pressed={quest === option.id}
+                onClick={() => setQuest(option.id)}
+              >
+                <span style={{ '--plate': artUrl(regionArt(REGION, option.plate)) }}>
+                  <span className="quest-tile-art" aria-hidden="true" />
+                  <span className="quest-tile-tint" aria-hidden="true" />
+                  {quest === option.id && (
+                    <span className="quest-tile-sheen" aria-hidden="true" />
+                  )}
+                  <span className="quest-tile-tag">{option.tag}</span>
+                  <span className="quest-tile-name">{option.short}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="setup-tray">
+          <p className="label">Vocabulary set</p>
+          <div className="rail setup-pools">
+            {vocabularySets.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className="pill press-soft press"
+                aria-pressed={effectiveYearFilter === option.id}
+                disabled={quest === 'test' && option.id !== 'core'}
+                onClick={() => setYearFilter(option.id)}
+              >
+                {option.label}
+                <span>{option.count} words</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="setup-lengths">
+            <p className="label">Round length</p>
+            <div className="length-choice">
+              {ROUND_LENGTHS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="press"
+                  aria-pressed={effectiveLength === value}
+                  disabled={quest === 'test' && value !== 20}
+                  onClick={() => setLength(value)}
+                >
+                  <strong className="figure">{value}</strong>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {audioState.status !== 'ready' && (
+            <AudioStatus audioState={audioState} onRecover={onRecoverAudio} dusk />
+          )}
+
+          <button
+            type="button"
+            className="button-primary press"
+            disabled={busy || audioState.status !== 'ready'}
+            onClick={() => void onStart({
+              length: effectiveLength,
+              mode: quest,
+              yearFilter: effectiveYearFilter,
+            }).catch(() => undefined)}
+          >
+            {busy ? 'Preparing…' : (
+              <>
+                Set off
+                <span aria-hidden="true" style={{ opacity: 0.4 }}>·</span>
+                <span className="figure">{effectiveLength}</span>
+                words
+                <IconForward size={18} />
+              </>
+            )}
+          </button>
+
+          {actionError && (
+            <p className="inline-error" role="alert">
+              That trail could not start. Please try again.
+            </p>
+          )}
+        </div>
+      </Scene>
+    </main>
+  );
+}
+
+// The round engine reports four feedback kinds. `success` and `info` both mean
+// the learner spelled it correctly — `info` only adds that the word returns —
+// so both must read as a win. Only `error` is a wrong answer.
+const FEEDBACK_TONE = Object.freeze({
+  success: 'success',
+  info: 'success',
+  warn: 'notice',
+  error: 'retry',
+});
+
+function feedbackTone(kind) {
+  return FEEDBACK_TONE[kind] ?? 'notice';
+}
+
+function clozeParts(cloze) {
+  const match = /_{2,}/u.exec(cloze ?? '');
+  if (!match) return { before: cloze ?? '', after: '' };
+  return {
+    before: cloze.slice(0, match.index).trimEnd(),
+    after: cloze.slice(match.index + match[0].length).trimStart(),
+  };
+}
+
+function RoundScreen({
   state,
   audioState,
-  voiceId,
   audio,
   onSubmit,
   onContinue,
@@ -1312,12 +2131,10 @@ function PracticeScreen({
     version: audioState.activeVersion,
     runtimeItemId: practice.runtimeItemId,
     sentence: practice.sentence,
-    voiceId,
   }) : null, [
     audioState.activeVersion,
     practice?.runtimeItemId,
     practice?.sentence,
-    voiceId,
   ]);
 
   async function play(kind) {
@@ -1336,22 +2153,24 @@ function PracticeScreen({
 
   useEffect(() => {
     if (!audioRequest || audioState.status !== 'ready') return;
-    void play('word');
-  // Autoplay exactly once for a newly projected card or voice.
+    void play('sentence');
+  // Autoplay exactly once for a newly projected card.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioRequest]);
 
   if (!practice) return null;
-  const visibleCard = Math.min(
-    practice.progress.total,
-    practice.progress.done + 1,
-  );
+  const total = practice.progress.total;
+  const done = practice.progress.done;
+  const answered = practice.awaitingAdvance;
+  const visibleCard = Math.min(total, done + 1);
+  const { before, after } = clozeParts(practice.cloze);
+  const feedbackKind = feedbackTone(practice.feedback?.kind);
 
   async function submit(event) {
     event.preventDefault();
     if (busy) return;
     try {
-      if (practice.awaitingAdvance) {
+      if (answered) {
         await onContinue();
         setAnswer('');
         return;
@@ -1383,264 +2202,293 @@ function PracticeScreen({
   }
 
   return (
-    <main className="product-app practice-page" aria-labelledby="practice-title">
-      <ProductTopBar
-        title={practice.label}
-        action={(
-          <button
-            type="button"
-            className="topbar-action"
-            disabled={busy}
-            onClick={() => {
-              setExitError('');
-              setConfirmExit(true);
-            }}
+    <main className="product-app" aria-labelledby="practice-title">
+      <Scene
+        className="round-scene"
+        dusk
+        plate={regionArt(REGION, 'a2')}
+        veil="linear-gradient(180deg,rgba(14,21,29,.6) 0%,rgba(14,21,29,.3) 42%,rgba(14,21,29,.66) 100%)"
+      >
+        <div className="scene-body">
+          <ol
+            className="round-dots"
+            aria-label={`Card ${visibleCard} of ${total}`}
           >
-            Leave
-          </button>
-        )}
-      />
-      <div className="practice-progress" aria-label={`Card ${visibleCard} of ${practice.progress.total}`}>
-        <span style={{ '--round-progress': `${(visibleCard / practice.progress.total) * 100}%` }} />
-        <p>Card {visibleCard} of {practice.progress.total}</p>
-      </div>
+            {Array.from({ length: total }, (_, index) => {
+              const complete = index < done || (index === done && answered);
+              const here = index === done && !answered;
+              return (
+                <li
+                  // eslint-disable-next-line react/no-array-index-key
+                  key={index}
+                  data-state={complete ? 'done' : here ? 'here' : 'ahead'}
+                />
+              );
+            })}
+            <span className="round-flag" aria-hidden="true"><IconTrail size={15} /></span>
+          </ol>
 
-      <section className="practice-card" aria-labelledby="practice-title" aria-busy={busy}>
-        <p className="product-kicker">Listen · spell · learn</p>
-        <h1 id="practice-title">Hear the word, then spell it</h1>
-        <p className="cloze-prompt">{practice.cloze}</p>
+          <section
+            className="round-card"
+            aria-labelledby="practice-title"
+            aria-busy={busy}
+          >
+            <h1 id="practice-title" className="product-kicker">
+              Spell the word you hear
+            </h1>
 
-        <div className="listening-controls" aria-label="Listening controls">
-          <button
-            type="button"
-            disabled={busy || audioState.status !== 'ready'}
-            onClick={() => void play('word')}
-          >
-            <span aria-hidden="true">▶</span>
-            Hear word
-          </button>
-          <button
-            type="button"
-            disabled={busy || audioState.status !== 'ready'}
-            onClick={() => void play('sentence')}
-          >
-            <span aria-hidden="true">♪</span>
-            Hear sentence
-          </button>
-          <button
-            type="button"
-            disabled={busy || audioState.status !== 'ready'}
-            onClick={() => void play('slow-sentence')}
-          >
-            <span aria-hidden="true">½</span>
-            Slow sentence
-          </button>
+            <p className="cloze-line">
+              <span>{before}</span>
+              <span className="cloze-blank" aria-hidden="true" />
+              <span>{after}</span>
+            </p>
+
+            <form className="answer-form" onSubmit={(event) => void submit(event)}>
+              <div className="answer-line">
+                <label htmlFor="product-spelling-input" className="visually-hidden">
+                  Type the spelling
+                </label>
+                <input
+                  id="product-spelling-input"
+                  name="spelling"
+                  type="text"
+                  value={answer}
+                  placeholder="your spelling"
+                  disabled={busy || answered}
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck="false"
+                  enterKeyHint="done"
+                  style={{
+                    '--line-colour': answered
+                      ? (feedbackKind === 'success' ? '#2f9e6a' : '#d25757')
+                      : undefined,
+                  }}
+                  onChange={(event) => setAnswer(event.target.value)}
+                />
+              </div>
+
+              <div className="listen-row" aria-label="Listening controls">
+                <button
+                  type="button"
+                  className="press"
+                  disabled={busy || audioState.status !== 'ready'}
+                  onClick={() => void play('sentence')}
+                >
+                  <IconSpeaker size={21} />
+                  Hear it again
+                </button>
+                <button
+                  type="button"
+                  className="slow-replay press"
+                  aria-label="Replay slowly"
+                  disabled={busy || audioState.status !== 'ready'}
+                  onClick={() => void play('slow-sentence')}
+                >
+                  <IconSpeakerSlow size={21} />
+                  <span aria-hidden="true">0.5×</span>
+                </button>
+              </div>
+
+              <button type="submit" className="button-brand press" disabled={busy}>
+                {busy ? 'Saving…' : answered ? 'Continue' : 'Submit'}
+                <IconForward size={19} />
+              </button>
+            </form>
+
+            {(localError || state.actionError) && (
+              <p className="inline-error" role="alert">
+                {localError || 'That answer did not save. Please try again.'}
+              </p>
+            )}
+
+            {practice.feedback && (
+              <div
+                className="round-feedback"
+                data-kind={feedbackKind}
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <span className="round-feedback-mark" aria-hidden="true">
+                  {feedbackKind === 'success' ? <IconTick size={18} />
+                    : feedbackKind === 'notice' ? <IconWarning size={18} />
+                      : <IconReturn size={18} />}
+                </span>
+                <div>
+                  <h2>{practice.feedback.headline}</h2>
+                  {practice.feedback.answer && (
+                    <p>Correct spelling: <strong>{practice.feedback.answer}</strong></p>
+                  )}
+                  {practice.feedback.body && <p>{practice.feedback.body}</p>}
+                  {practice.feedback.footer && <p>{practice.feedback.footer}</p>}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <footer className="round-foot">
+            <p>AI-generated dictation voice</p>
+            <button
+              type="button"
+              className="button-quiet press-soft press"
+              disabled={busy}
+              onClick={() => {
+                setExitError('');
+                setConfirmExit(true);
+              }}
+            >
+              End round
+            </button>
+          </footer>
         </div>
 
-        <form className="answer-form" onSubmit={(event) => void submit(event)}>
-          <label htmlFor="product-spelling-input">Type the spelling</label>
-          <input
-            id="product-spelling-input"
-            name="spelling"
-            type="text"
-            value={answer}
-            disabled={busy || practice.awaitingAdvance}
-            autoComplete="off"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck="false"
-            enterKeyHint="done"
-            onChange={(event) => setAnswer(event.target.value)}
+        {confirmExit && (
+          <LeaveRoundDialog
+            error={exitError}
+            leaving={leaving || busy}
+            onKeep={closeExit}
+            onLeave={() => void leaveRound()}
           />
-          <button type="submit" className="button-primary" disabled={busy}>
-            {busy
-              ? 'Saving…'
-              : practice.awaitingAdvance ? 'Continue' : 'Check spelling'}
-          </button>
-        </form>
-
-        {(localError || state.actionError) && (
-          <p className="inline-error" role="alert">
-            {localError || 'That answer did not save. Please try again.'}
-          </p>
         )}
+      </Scene>
+    </main>
+  );
+}
 
-        {practice.feedback && (
-          <div
-            className={`answer-feedback answer-feedback-${practice.feedback.kind}`}
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            <span className="feedback-symbol" aria-hidden="true">
-              {practice.feedback.kind === 'success' ? '✓' : '↻'}
-            </span>
-            <div>
-              <h2>{practice.feedback.headline}</h2>
-              {practice.feedback.answer && (
-                <p>
-                  Correct spelling: <strong>{practice.feedback.answer}</strong>
+function mistakeWord(mistake) {
+  if (typeof mistake === 'string') return mistake;
+  return mistake?.target ?? mistake?.word ?? mistake?.slug ?? '';
+}
+
+function ResultsScreen({ summary, monsters, onScreen }) {
+  const codex = useMemo(() => buildCodex(monsters), [monsters]);
+  const hero = codex.hero;
+  const accuracy = summary?.accuracy ?? 0;
+  const total = summary?.totalWords ?? 0;
+  const correct = summary?.correct ?? 0;
+  const mistakes = (summary?.mistakes ?? []).map(mistakeWord).filter(Boolean);
+  const clean = mistakes.length === 0;
+
+  return (
+    <main className="product-app" aria-labelledby="summary-title">
+      <Scene
+        className="results-scene"
+        dusk
+        plate={regionArt(REGION, 'a3')}
+        plateY="26%"
+        veil={[
+          'radial-gradient(96% 52% at 50% 20%,rgba(7,11,16,.05),rgba(7,11,16,.66) 58%,rgba(7,11,16,.96))',
+          'linear-gradient(180deg,rgba(7,11,16,.7) 0%,rgba(7,11,16,.1) 18%,rgba(7,11,16,.86) 56%,#070b10 84%)',
+        ].join(',')}
+      >
+        <div className="scene-body">
+          <div className="results-halo">
+            <p className="product-kicker">Expedition logged</p>
+            {hero?.art && <img src={hero.art} alt={hero.name} />}
+          </div>
+
+          <div className="field-record">
+            <div className="field-record-sheet">
+              <div className="field-record-head">
+                <div>
+                  <p className="product-kicker">
+                    Field record<span aria-hidden="true" />
+                  </p>
+                  <h1 id="summary-title">{clean ? 'Clean sweep' : 'Well done'}</h1>
+                  <p>{summary?.message}</p>
+                </div>
+                <span className="record-stamp">
+                  <span className="figure">{accuracy}</span>
+                  <small>percent</small>
+                </span>
+              </div>
+
+              <div className="record-tally">
+                <div>
+                  <span className="figure" style={{ color: '#1f7a4f' }}>{correct}</span>
+                  <span className="label">correct</span>
+                </div>
+                <div>
+                  <span className="figure" style={{ color: '#a2472a' }}>{mistakes.length}</span>
+                  <span className="label">return</span>
+                </div>
+                <div>
+                  <span className="figure" style={{ color: '#9e6a19' }}>{total}</span>
+                  <span className="label">words walked</span>
+                </div>
+              </div>
+
+              {clean ? (
+                <p className="record-roll-clean body-copy">
+                  Every word held on the first try.
                 </p>
+              ) : (
+                <>
+                  <p className="product-kicker" style={{ margin: '0.7rem 0 0.35rem' }}>
+                    Coming back<span className="figure"> {mistakes.length}</span>
+                  </p>
+                  <ul className="record-roll">
+                    {mistakes.map((word) => (
+                      <li key={word} data-ok="false">
+                        <strong>{word}</strong>
+                        <span className="record-roll-rule" aria-hidden="true" />
+                        <span className="record-roll-status">comes back</span>
+                        <span className="record-roll-mark" aria-hidden="true">
+                          <IconReturn size={12} />
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               )}
-              {practice.feedback.body && <p>{practice.feedback.body}</p>}
-              {practice.feedback.footer && <small>{practice.feedback.footer}</small>}
+
+              {hero && (
+                <div className="record-growth">
+                  <span>
+                    <span className="record-growth-name">
+                      <strong>{hero.displayName}</strong>
+                      <span>{hero.stageLabel}</span>
+                    </span>
+                    <span className="record-growth-bars" aria-hidden="true">
+                      {hero.pips.map((filled, index) => (
+                        <span
+                          // eslint-disable-next-line react/no-array-index-key
+                          key={index}
+                          data-filled={filled ? 'true' : 'false'}
+                          data-latest={filled && index === hero.stage ? 'true' : 'false'}
+                        />
+                      ))}
+                    </span>
+                  </span>
+                  <span className="record-growth-secure">
+                    <span className="figure">{hero.secureCount}</span>
+                    <span className="label">words secure</span>
+                  </span>
+                </div>
+              )}
             </div>
           </div>
-        )}
-      </section>
 
-      {confirmExit && (
-        <LeaveRoundDialog
-          error={exitError}
-          leaving={leaving || busy}
-          onKeep={closeExit}
-          onLeave={() => void leaveRound()}
-        />
-      )}
-    </main>
-  );
-}
-
-function SummaryScreen({ summary, monster, onScreen }) {
-  return (
-    <main className="product-app product-page summary-page" aria-labelledby="summary-title">
-      <ProductTopBar title="Results" />
-      <section className="summary-hero">
-        <div className="summary-medal" aria-hidden="true">✓</div>
-        <p className="product-kicker">Trail complete</p>
-        <h1 id="summary-title">Well done</h1>
-        <p>{summary?.message}</p>
-        <strong className="accuracy-score">{summary?.accuracy ?? 0}%</strong>
-        <span>round accuracy</span>
-      </section>
-      <dl className="summary-grid">
-        {(summary?.cards ?? []).map((card) => (
-          <div key={card.label}>
-            <dt>{card.label}</dt>
-            <dd>{card.value}</dd>
-            <p>{card.sub}</p>
+          <div className="results-actions">
+            <button
+              type="button"
+              className="button-primary press"
+              onClick={() => onScreen('setup')}
+            >
+              Walk again
+            </button>
+            <button
+              type="button"
+              className="button-quiet press"
+              onClick={() => onScreen('home')}
+            >
+              Trail
+            </button>
           </div>
-        ))}
-      </dl>
-      <section className="paper-card reward-summary">
-        <InkletArt stage={monster?.derivedStage ?? 0} />
-        <div>
-          <h2>Inklet noticed your practice</h2>
-          <p>{monster?.secureCount ?? 0} secure words are now helping Inklet grow.</p>
         </div>
-      </section>
-      <div className="summary-actions">
-        <button type="button" className="button-primary" onClick={() => onScreen('setup')}>
-          Practise again
-        </button>
-        <button type="button" className="button-quiet" onClick={() => onScreen('home')}>
-          Back to trail
-        </button>
-      </div>
-    </main>
-  );
-}
-
-function ProgressScreen({ progress, onBack, onStart }) {
-  return (
-    <main className="product-app product-page" aria-labelledby="progress-title">
-      <ProductTopBar
-        title="Progress"
-        action={<button type="button" className="topbar-action" onClick={onBack}>Back</button>}
-      />
-      <section className="page-heading">
-        <p className="product-kicker">Saved on this device</p>
-        <h1 id="progress-title">Your word trail</h1>
-        <p>Each row comes from this learner&apos;s local spelling progress.</p>
-      </section>
-      {progress.length === 0 ? (
-        <section className="paper-card empty-state">
-          <h2>Your trail is ready</h2>
-          <p>Finish a Smart Review and your practised words will appear here.</p>
-          <button type="button" className="button-primary" onClick={onStart}>
-            Start a Smart Review
-          </button>
-        </section>
-      ) : (
-        <ul className="word-progress-list">
-          {progress.map((item) => (
-            <li key={item.runtimeItemId}>
-              <span className={`word-stage word-stage-${Math.min(item.stage, 5)}`}>
-                {item.stage}
-              </span>
-              <div>
-                <strong>{item.target}</strong>
-                <small>
-                  {item.correct} correct · {item.wrong} to revisit
-                </small>
-              </div>
-              <span>{item.lastResult === 'correct' ? 'On trail' : 'Practising'}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
-  );
-}
-
-function MonsterScreen({ monster, onBack }) {
-  const nextThreshold = monster?.thresholds.find(
-    (threshold) => threshold > (monster?.secureCount ?? 0),
-  );
-  return (
-    <main className="product-app product-page companion-page" aria-labelledby="monster-title">
-      <ProductTopBar
-        title="Monster"
-        action={<button type="button" className="topbar-action" onClick={onBack}>Back</button>}
-      />
-      <section className="companion-hero">
-        <InkletArt stage={monster?.derivedStage ?? 0} />
-        <p className="product-kicker">Trail companion</p>
-        <h1 id="monster-title">Meet Inklet</h1>
-        <p>
-          Inklet grows from secure spelling progress, never from purchases or
-          time spent tapping.
-        </p>
-        <dl>
-          <div>
-            <dt>Secure words</dt>
-            <dd>{monster?.secureCount ?? 0}</dd>
-          </div>
-          <div>
-            <dt>Growth stage</dt>
-            <dd>{monster?.derivedStage ?? 0}</dd>
-          </div>
-        </dl>
-        <p className="next-reward">
-          {nextThreshold
-            ? `${nextThreshold - (monster?.secureCount ?? 0)} more secure words until the next change.`
-            : 'Inklet has reached the final Starter stage.'}
-        </p>
-      </section>
-    </main>
-  );
-}
-
-function CampScreen({ camp, onBack }) {
-  return (
-    <main className="product-app product-page camp-page" aria-labelledby="camp-title">
-      <ProductTopBar
-        title="Camp"
-        action={<button type="button" className="topbar-action" onClick={onBack}>Back</button>}
-      />
-      <section className="camp-hero">
-        <CampArt level={camp?.campHighWater ?? 0} />
-        <p className="product-kicker">Expedition Camp</p>
-        <h1 id="camp-title">A quiet place to see progress</h1>
-        <p>
-          Camp grows only from eligible revision missions. Ordinary practice
-          still helps spelling and Inklet, but does not invent Camp credit.
-        </p>
-        <div className="camp-level">
-          <span>Camp level</span>
-          <strong>{camp?.campHighWater ?? 0}</strong>
-        </div>
-      </section>
+      </Scene>
     </main>
   );
 }
@@ -1665,7 +2513,10 @@ export default function ProductApp({ services }) {
     services.parentCommerce.getState(),
   );
   const [parentOpen, setParentOpen] = useState(false);
-  const [voiceId, setVoiceId] = useState('Iapetus');
+  // Opening the learner sheet is a presentation decision, not a learning one.
+  // Clearing the selected learner to reach it would throw away the loaded
+  // snapshot and leave the sheet with nothing to return to.
+  const [switchOpen, setSwitchOpen] = useState(false);
 
   useEffect(() => {
     const profileSubscription = services.controller.subscribe(setProfileState);
@@ -1693,22 +2544,31 @@ export default function ProductApp({ services }) {
     void services.parentCommerce.recover().catch(() => undefined);
   }, [parentOpen, parentState.status, services]);
 
+  const bank = useMemo(
+    () => buildWordBank({ progress: learningState.progress }),
+    [learningState.progress],
+  );
+
   if (profileState.status === 'failed') {
     return (
-      <main className="product-app product-page">
-        <ProductTopBar />
-        <section className="paper-card empty-state" aria-labelledby="product-data-title">
-          <p className="product-kicker">Local data</p>
-          <h1 id="product-data-title">Your saved learning could not open</h1>
-          <p>Your local data has not been replaced.</p>
-          <button
-            type="button"
-            className="button-primary"
-            onClick={() => globalThis.location?.reload()}
-          >
-            Try opening again
-          </button>
-        </section>
+      <main className="product-app">
+        <Scene className="parent-scene">
+          <div className="scene-body">
+            <ProductTopBar />
+            <section className="vellum" aria-labelledby="product-data-title">
+              <p className="product-kicker">Local data</p>
+              <h1 id="product-data-title">Your saved learning could not open</h1>
+              <p className="body-copy">Your local data has not been replaced.</p>
+              <button
+                type="button"
+                className="button-primary press"
+                onClick={() => globalThis.location?.reload()}
+              >
+                Try opening again
+              </button>
+            </section>
+          </div>
+        </Scene>
       </main>
     );
   }
@@ -1724,6 +2584,8 @@ export default function ProductApp({ services }) {
     services.parent.lock();
     setParentOpen(false);
   };
+  const filterCount = (id) =>
+    bank.filters.find((option) => option.id === id)?.count ?? 0;
 
   if (parentOpen) {
     return (
@@ -1756,43 +2618,47 @@ export default function ProductApp({ services }) {
     );
   }
 
-  if (
-    learningState.screen === 'profiles' ||
-    !selectedProfile
-  ) {
+  if (switchOpen || learningState.screen === 'profiles' || !selectedProfile) {
     return (
-      <ProfilePicker
+      <SwitchScreen
         profileState={profileState}
         audioState={audioState}
         onChoose={(learnerId) =>
-          services.controller.selectProfile(learnerId).catch(() => undefined)}
+          services.controller
+            .selectProfile(learnerId)
+            .then(() => setSwitchOpen(false))
+            .catch(() => undefined)}
         onCreate={(draft) => services.controller.createProfile(draft)}
         onOpenParent={() => setParentOpen(true)}
         onRecoverAudio={recoverAudio}
+        // Until a learner is chosen this is the only screen there is, so the
+        // sheet stays put and shows no grip to drag.
+        onDismiss={selectedProfile ? () => setSwitchOpen(false) : undefined}
       />
     );
   }
 
   if (learningState.screen === 'setup') {
     return (
-      <PracticeSetup
+      <SetupScreen
         audioState={audioState}
         actionError={learningState.actionError}
-        voiceId={voiceId}
-        onVoice={setVoiceId}
-        onStart={(length) => services.learning.startSmartRound({ length })}
+        onStart={(options) => services.learning.startSmartRound(options)}
         onBack={() => showScreen('home')}
         onRecoverAudio={recoverAudio}
         busy={learningState.status === 'saving'}
+        dueCount={filterCount('due')}
+        troubleCount={filterCount('trouble')}
+        bankTotal={bank.total}
+        vocabularySets={learningState.vocabularySets}
       />
     );
   }
   if (learningState.screen === 'practice') {
     return (
-      <PracticeScreen
+      <RoundScreen
         state={learningState}
         audioState={audioState}
-        voiceId={voiceId}
         audio={services.audio}
         onSubmit={(typed) => services.learning.submitAnswer(typed)}
         onContinue={() => services.learning.continueRound()}
@@ -1804,47 +2670,45 @@ export default function ProductApp({ services }) {
   }
   if (learningState.screen === 'summary') {
     return (
-      <SummaryScreen
+      <ResultsScreen
         summary={learningState.summary}
-        monster={learningState.monsters[0]}
+        monsters={learningState.monsters}
         onScreen={showScreen}
       />
     );
   }
   if (learningState.screen === 'progress') {
     return (
-      <ProgressScreen
+      <WordBankScreen
         progress={learningState.progress}
-        onBack={() => showScreen('home')}
+        onScreen={showScreen}
         onStart={() => showScreen('setup')}
       />
     );
   }
   if (learningState.screen === 'monster') {
     return (
-      <MonsterScreen
-        monster={learningState.monsters[0]}
-        onBack={() => showScreen('home')}
-      />
+      <CodexScreen monsters={learningState.monsters} onScreen={showScreen} />
     );
   }
   if (learningState.screen === 'camp') {
     return (
       <CampScreen
         camp={learningState.camp}
-        onBack={() => showScreen('home')}
+        revisitsWaiting={filterCount('due')}
+        onScreen={showScreen}
       />
     );
   }
   return (
-    <ChildHome
+    <TrailScreen
       profile={selectedProfile}
       learningState={learningState}
       audioState={audioState}
+      dueCount={filterCount('due')}
       onScreen={showScreen}
-      onSwitchLearner={() => {
-        void services.learning.selectLearner(null).catch(() => undefined);
-      }}
+      onSwitchLearner={() => setSwitchOpen(true)}
+      onOpenParent={() => setParentOpen(true)}
       onRecoverAudio={recoverAudio}
     />
   );

@@ -1,0 +1,195 @@
+{
+  "artefact": "ks2-mastery mastery art",
+  "purpose": "Painted companion stages and Scribe Downs plates rendered by the KS2 Spelling product surfaces.",
+  "upstream": {
+    "repository": "https://github.com/fol2/ks2-mastery.git",
+    "ref": "origin/main",
+    "commit": "dff6f57f8bf0b24e960c46d712afdbcf59c54b7d"
+  },
+  "fileCount": 26,
+  "totalBytes": 2434258,
+  "files": [
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b1/glimmerbug-b1-0.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b1/glimmerbug-b1-0.640.webp",
+      "gitBlob": "df8ec4e678f4bafece79cbcd112b7b51c41c76a9",
+      "sha256": "69c873a0167ffea8b475ed819da84cc0b22d38e638dc806ef3b295e52a62c652",
+      "bytes": 72780
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b1/glimmerbug-b1-1.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b1/glimmerbug-b1-1.640.webp",
+      "gitBlob": "411f98bf7056a4a8e8feb3b9983cc639422127ad",
+      "sha256": "b3372342415855caf75dae2a8396bc9153164742a86dda872c637fab76857b06",
+      "bytes": 68678
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b1/glimmerbug-b1-2.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b1/glimmerbug-b1-2.640.webp",
+      "gitBlob": "e7eeab54e2322f3c2542b2c185abd617bc1e3331",
+      "sha256": "2faa6d1aa8552e9657d2f1f83316aaef754056156e9207117f32c8f92f53dd73",
+      "bytes": 102472
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b1/glimmerbug-b1-3.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b1/glimmerbug-b1-3.640.webp",
+      "gitBlob": "56a64b3fbc985493d5afe3b3a10c70764c8831e8",
+      "sha256": "e7ce24104bb2a4a10b7c6abcab15c64676be23e3cfd6427e1e140a199ca419aa",
+      "bytes": 98898
+    },
+    {
+      "path": "content/mastery-art/monsters/glimmerbug/b1/glimmerbug-b1-4.640.webp",
+      "upstreamPath": "assets/monsters/glimmerbug/b1/glimmerbug-b1-4.640.webp",
+      "gitBlob": "b11d2d58b2f9588764cc0577ebd5279c78725cfb",
+      "sha256": "dbf33c9ecf6b40381f732d274e88b5a2de0d4459965efa2adfc5f746948d3c00",
+      "bytes": 122422
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b1/inklet-b1-0.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b1/inklet-b1-0.640.webp",
+      "gitBlob": "f69d54c1a339a4d11257b19bdfc40ece2b098541",
+      "sha256": "0389e4d976aef014aab65a1b090e5dd0ab1f91f5e51c83314f00d77debe6e43c",
+      "bytes": 55864
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b1/inklet-b1-1.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b1/inklet-b1-1.640.webp",
+      "gitBlob": "05efeb578d7cf3451c05c0a45e4ff94cc70a18ab",
+      "sha256": "09e86f8eaf9b5bf86208c646e1c3e7273fb7128d31b2f6b10b3de996dc31cf85",
+      "bytes": 49218
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b1/inklet-b1-2.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b1/inklet-b1-2.640.webp",
+      "gitBlob": "896d1a2e446cf02a777c660fd29f31061dd47a2e",
+      "sha256": "ce16d25bb0d86358ee118e8d54b86f40501cf0f15d9cf096461226f0eb52d4b7",
+      "bytes": 67974
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b1/inklet-b1-3.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b1/inklet-b1-3.640.webp",
+      "gitBlob": "f0a102104e2ef4d8a547f9d2e7b98fabe47105cf",
+      "sha256": "0eaef25da2f5b486461a3853382aa7062225fd8bdca357c0e009f9d1b8b0eb3c",
+      "bytes": 93580
+    },
+    {
+      "path": "content/mastery-art/monsters/inklet/b1/inklet-b1-4.640.webp",
+      "upstreamPath": "assets/monsters/inklet/b1/inklet-b1-4.640.webp",
+      "gitBlob": "6fabeb824f270ff940d1adf43e34e26f37b360b7",
+      "sha256": "876723235a1e2dc263d0d407c3ce783d6319f2bb070d098a61be33970bc7e04f",
+      "bytes": 109386
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b1/phaeton-b1-0.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b1/phaeton-b1-0.640.webp",
+      "gitBlob": "42e8ca2a3351e6904e678b24e31065a675d43bcc",
+      "sha256": "39bab4788e3b5ea2d337ae23a3542a276861893c2956f020fdfa5d45cccea087",
+      "bytes": 59062
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b1/phaeton-b1-1.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b1/phaeton-b1-1.640.webp",
+      "gitBlob": "a4b48e1017a8a1af9d32099156ae7129dbde6b59",
+      "sha256": "1fe52d1f74684c1b21587aa859aa1e29317a820d3def7c2dc2a2f7ae19ffb19d",
+      "bytes": 49994
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b1/phaeton-b1-2.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b1/phaeton-b1-2.640.webp",
+      "gitBlob": "0697a74ebf6cab1c3ae8754e25e4754d5e4fa795",
+      "sha256": "67713c723d09c75db0a6e7464c10c6811c0ac48a0a26417009cf7fa47efb864c",
+      "bytes": 89538
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b1/phaeton-b1-3.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b1/phaeton-b1-3.640.webp",
+      "gitBlob": "1d90afd7c0a7a44d3f5b0994fe0125a88b22f32d",
+      "sha256": "8674fbdc5133fed12fa4299ac9a139b712e7c43e178b2c459d7489b0bb076ab1",
+      "bytes": 112456
+    },
+    {
+      "path": "content/mastery-art/monsters/phaeton/b1/phaeton-b1-4.640.webp",
+      "upstreamPath": "assets/monsters/phaeton/b1/phaeton-b1-4.640.webp",
+      "gitBlob": "caa3183a453d2fcc253f5cc03519934202ee7351",
+      "sha256": "978217d8940566deffbfd73779c4f680047f66d946876b9ccdb436b9a89490be",
+      "bytes": 121150
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b1/vellhorn-b1-0.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b1/vellhorn-b1-0.640.webp",
+      "gitBlob": "68125d86007636644bd06fee4ead9bd4b7496591",
+      "sha256": "6c98648d845dfafdfa9679b408ff12e6e4cfaac94c8f29cc889a5e568c1561f0",
+      "bytes": 61708
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b1/vellhorn-b1-1.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b1/vellhorn-b1-1.640.webp",
+      "gitBlob": "ba9a408e79eea8d78b2dc66d00274325740a90fa",
+      "sha256": "47cf003241bc24ee1cac6480e65627e4fe6e831cf9a79b2773cde74beaca16d7",
+      "bytes": 51578
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b1/vellhorn-b1-2.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b1/vellhorn-b1-2.640.webp",
+      "gitBlob": "11a981471d3fc4ab88dcb711cca316ed0390ea26",
+      "sha256": "2fadb20f93df88e9b59fcc98042603e4c3d67479132fcc02ba8a1bc372375b5e",
+      "bytes": 67006
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b1/vellhorn-b1-3.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b1/vellhorn-b1-3.640.webp",
+      "gitBlob": "5333807635a747737b12b5368f8d93689b5ea977",
+      "sha256": "63fbec4b616bfee52d019f3d81fc2ba3c85fd5e83e0ae551381324b33e863fb3",
+      "bytes": 89530
+    },
+    {
+      "path": "content/mastery-art/monsters/vellhorn/b1/vellhorn-b1-4.640.webp",
+      "upstreamPath": "assets/monsters/vellhorn/b1/vellhorn-b1-4.640.webp",
+      "gitBlob": "4bb617ae5371cafb71478a6d279736a017ac918a",
+      "sha256": "ff06f73a19fc313a9fed86813b59a44f5974b162b482bb4dfbb001fada25e321",
+      "bytes": 109994
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-a1.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-a1.1280.webp",
+      "gitBlob": "f9cabe7fd1fc9e727a7f20966863723e31de0611",
+      "sha256": "2a930afe6e5c221abe1a275bb17ed761e17aae194856b718cfb114784199f245",
+      "bytes": 131392
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-a2.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-a2.1280.webp",
+      "gitBlob": "52298b82f20db3843ef89423994cacaf2beb9e00",
+      "sha256": "cb27fd68a7cac58365236b23985fc8998021caedd09c94a5d178efc1e91580c7",
+      "bytes": 118936
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-a3.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-a3.1280.webp",
+      "gitBlob": "0f8776bad1bea9dc6f3a3a9ed8f2fb121cb97dab",
+      "sha256": "7446df9cee0d9b253be82bfbea071d4b78a2f8530d14212988ac9888fe8c7a79",
+      "bytes": 145492
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-d1.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-d1.1280.webp",
+      "gitBlob": "25f645317742c0ee44b901ea1630b9e02c172004",
+      "sha256": "6b5d7fc76b680a17ae0c7bd60c0601515f17289fa16550e01bf0f9c1286475cd",
+      "bytes": 114320
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-d3.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-d3.1280.webp",
+      "gitBlob": "c33c46589610a35b1b368f4df6add7c73b99b52b",
+      "sha256": "396b42f6cce21f55b3650a4321e7e8d512e460cac00b8b82eebb559d63ce8461",
+      "bytes": 124658
+    },
+    {
+      "path": "content/mastery-art/regions/the-scribe-downs/the-scribe-downs-e1.1280.webp",
+      "upstreamPath": "assets/regions/the-scribe-downs/the-scribe-downs-e1.1280.webp",
+      "gitBlob": "f1b138663c697af24d13a6fa528c5a037a7d49c1",
+      "sha256": "48945559d110f856516f29cb9a0db59ffb0d6fc2d8d2fe841c1a745e57b8e31a",
+      "bytes": 146172
+    }
+  ]
+}

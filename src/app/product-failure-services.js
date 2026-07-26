@@ -26,6 +26,9 @@ export function createProductFailureServices() {
     practice: null,
     summary: null,
     progress: Object.freeze([]),
+    // The failing shell publishes the same shape as the working controller, so
+    // a screen that reads a projection never has to guard against startup.
+    vocabularySets: Object.freeze([]),
     monsters: Object.freeze([]),
     camp: null,
     actionError: 'product_startup_failed',

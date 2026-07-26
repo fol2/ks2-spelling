@@ -15,6 +15,9 @@ const SCREENS = Object.freeze([
   'camp',
 ]);
 const ROUND_LENGTHS = Object.freeze([5, 10, 20]);
+const ROUND_MODES = Object.freeze(['smart', 'trouble', 'test']);
+const YEAR_FILTERS = Object.freeze(['core', 'y3-4', 'y5-6']);
+const ROUND_OPTION_KEYS = new Set(['length', 'mode', 'yearFilter']);
 
 function controllerError(code, message = code) {
   const error = new Error(message);
@@ -66,6 +69,7 @@ function practiceProjection(snapshot) {
   if (!session) return null;
   return {
     sessionId: session.id,
+    mode: session.mode,
     label: session.label,
     phase: session.phase,
     runtimeItemId: session.currentRuntimeItemId,
@@ -76,6 +80,25 @@ function practiceProjection(snapshot) {
     awaitingAdvance: ui.awaitingAdvance === true,
     feedback: ui.feedback === null ? null : structuredClone(ui.feedback),
   };
+}
+
+function vocabularySetProjection(catalogue) {
+  const core = catalogue.items.filter(
+    ({ coverageTier }) => coverageTier === 'statutory-core',
+  );
+  return [
+    { id: 'core', label: 'All', count: core.length },
+    {
+      id: 'y3-4',
+      label: 'Y3–4',
+      count: core.filter(({ yearBand }) => yearBand === '3-4').length,
+    },
+    {
+      id: 'y5-6',
+      label: 'Y5–6',
+      count: core.filter(({ yearBand }) => yearBand === '5-6').length,
+    },
+  ].filter(({ count }) => count > 0);
 }
 
 function progressProjection(snapshot, catalogue) {
@@ -140,6 +163,7 @@ function createState({
     practice: practiceProjection(snapshot),
     summary: ui?.summary ? structuredClone(ui.summary) : null,
     progress: progressProjection(snapshot, catalogue),
+    vocabularySets: vocabularySetProjection(catalogue),
     monsters: monsterProjection(snapshot, catalogue),
     camp: campProjection(snapshot),
     actionError,
@@ -305,23 +329,33 @@ export function createProductLearningController({
       return state;
     },
     startSmartRound(options) {
+      const keys = options && typeof options === 'object' && !Array.isArray(options)
+        ? Reflect.ownKeys(options)
+        : [];
+      const mode = options?.mode ?? 'smart';
+      const yearFilter = options?.yearFilter ?? 'y3-4';
       if (
         !options ||
         typeof options !== 'object' ||
         Array.isArray(options) ||
-        Reflect.ownKeys(options).length !== 1 ||
+        keys.some((key) => !ROUND_OPTION_KEYS.has(key)) ||
         !Object.hasOwn(options, 'length') ||
-        !ROUND_LENGTHS.includes(options.length)
+        !ROUND_LENGTHS.includes(options.length) ||
+        !ROUND_MODES.includes(mode) ||
+        !YEAR_FILTERS.includes(yearFilter) ||
+        (mode === 'test' && options.length !== 20)
       ) {
         return Promise.reject(
-          new TypeError('Smart Review length must be exactly 5, 10 or 20.'),
+          new TypeError(
+            'Round options must use a supported quest, vocabulary set and length of 5, 10 or 20; SATs Test uses 20.',
+          ),
         );
       }
       return runCommand({
         type: 'start-session',
         payload: {
-          mode: 'smart',
-          yearFilter: 'y3-4',
+          mode,
+          yearFilter,
           length: options.length,
           practiceOnly: false,
           words: [],

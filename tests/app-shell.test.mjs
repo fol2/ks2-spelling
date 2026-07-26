@@ -302,6 +302,10 @@ test('the production shell keeps Parent progress and commerce behind the local g
     practice: null,
     summary: null,
     progress: [],
+    vocabularySets: Object.freeze([
+      Object.freeze({ id: 'core', label: 'All', count: 20 }),
+      Object.freeze({ id: 'y3-4', label: 'Y3–4', count: 20 }),
+    ]),
     monsters: Object.freeze([Object.freeze({
       rewardTrackId: 'spelling-core-inklet',
       packId: 'ks2-core',
@@ -456,12 +460,16 @@ test('the production shell keeps Parent progress and commerce behind the local g
   });
   const homeHtml = render();
   assert.match(homeHtml, /Ada&#x27;s spelling trail/);
-  assert.match(homeHtml, /Start a Smart Review/);
-  assert.match(homeHtml, /Inklet/);
+  assert.match(homeHtml, /The Scribe Downs/);
+  assert.match(homeHtml, /Set off/);
+  assert.match(homeHtml, /words due today/);
   assert.match(homeHtml, /Listening pack needs setup/);
-  assert.match(homeHtml, /Progress/);
-  assert.match(homeHtml, /Camp/);
+  for (const waypoint of ['Trail', 'Words', 'Codex', 'Camp']) {
+    assert.match(homeHtml, new RegExp(`<span>${waypoint}</span>`));
+  }
   assert.doesNotMatch(homeHtml, /buy|restore|price|commerce/i);
+  // A companion the learner has not caught is never named on the trail.
+  assert.doesNotMatch(homeHtml, /Inklet/);
 
   learningState = Object.freeze({
     ...learningState,
@@ -469,8 +477,36 @@ test('the production shell keeps Parent progress and commerce behind the local g
     progress: Object.freeze([]),
   });
   const emptyProgressHtml = render();
-  assert.match(emptyProgressHtml, /Your trail is ready/);
-  assert.match(emptyProgressHtml, /Start a Smart Review/);
+  assert.match(emptyProgressHtml, /Word bank/);
+  assert.match(emptyProgressHtml, /Your word bank is ready/);
+  assert.match(emptyProgressHtml, /Set off on a round/);
+
+  learningState = Object.freeze({
+    ...learningState,
+    progress: Object.freeze([Object.freeze({
+      runtimeItemId: 'ks2-core:museum',
+      target: 'museum',
+      stage: 5,
+      attempts: 9,
+      correct: 9,
+      wrong: 0,
+      dueDay: 99_999,
+      lastResult: 'correct',
+    })]),
+  });
+  const wordBankHtml = render();
+  assert.match(wordBankHtml, /data-status="secure"/);
+  assert.match(wordBankHtml, /museum/);
+  assert.match(wordBankHtml, /9 correct · never missed/);
+
+  learningState = Object.freeze({ ...learningState, screen: 'monster' });
+  const codexHtml = render();
+  assert.match(codexHtml, /Companions/);
+  assert.match(codexHtml, /Growth line/);
+  assert.match(codexHtml, /Roster/);
+  // The roster only ever holds reward tracks this learner's content publishes.
+  assert.match(codexHtml, /Left to find/);
+  assert.equal((codexHtml.match(/class="codex-roster-no"/g) ?? []).length, 1);
 
   learningState = Object.freeze({
     ...learningState,
@@ -479,6 +515,13 @@ test('the production shell keeps Parent progress and commerce behind the local g
   });
   const failedSetupHtml = render();
   assert.match(failedSetupHtml, /That trail could not start\. Please try again\./);
+  assert.match(failedSetupHtml, /Vocabulary set/);
+  assert.match(failedSetupHtml, /Y3–4/);
+  assert.match(failedSetupHtml, />20 words</);
+  assert.match(failedSetupHtml, />Trouble</);
+  assert.match(failedSetupHtml, />SATs</);
+  assert.doesNotMatch(failedSetupHtml, /Listening voice|Iapetus|Sulafat/);
+  assert.doesNotMatch(failedSetupHtml, /data-locked="true"|Not on this trail yet/);
 
   learningState = Object.freeze({
     ...learningState,
@@ -503,13 +546,26 @@ test('the production shell keeps Parent progress and commerce behind the local g
     }),
   });
   const practiceHtml = render();
-  assert.match(practiceHtml, /Card 1 of 5/);
-  assert.match(practiceHtml, /Hear word/);
-  assert.match(practiceHtml, /Hear sentence/);
-  assert.match(practiceHtml, /Slow sentence/);
-  assert.match(practiceHtml, /I _____ model cars with my brother\./);
-  assert.match(practiceHtml, /Check spelling/);
+  assert.match(practiceHtml, /aria-label="Card 1 of 5"/);
+  assert.match(practiceHtml, /Spell the word you hear/);
+  assert.match(practiceHtml, /Hear it again/);
+  assert.match(practiceHtml, /aria-label="Replay slowly"/);
+  assert.match(practiceHtml, />0\.5×</);
+  const listeningControls = practiceHtml.match(
+    /<div class="listen-row"[^>]*>(.*?)<\/div>/u,
+  )?.[1] ?? '';
+  assert.equal((listeningControls.match(/<button\b/gu) ?? []).length, 2);
+  assert.doesNotMatch(listeningControls, />Sentence<|Slow sentence/);
+  // The cloze keeps the sentence either side of a ruled blank, never the word.
+  assert.match(practiceHtml, /<span>I<\/span>/);
+  assert.match(practiceHtml, /<span>model cars with my brother\.<\/span>/);
+  assert.match(practiceHtml, /class="cloze-blank"/);
+  assert.match(practiceHtml, />Submit</);
+  assert.match(practiceHtml, />End round</);
   assert.doesNotMatch(practiceHtml, />build</i);
+
+  assert.match(productSource, /void play\('sentence'\)/u);
+  assert.doesNotMatch(productSource, /play\('word'\)/u);
 
   const leaveRoundHtml = renderToStaticMarkup(
     React.createElement(LeaveRoundDialog, {
@@ -566,10 +622,14 @@ test('the production shell keeps Parent progress and commerce behind the local g
     }),
   });
   const summaryHtml = render();
-  assert.match(summaryHtml, /Trail complete/);
+  assert.match(summaryHtml, /Expedition logged/);
+  assert.match(summaryHtml, /Field record/);
+  assert.match(summaryHtml, /Clean sweep/);
   assert.match(summaryHtml, /Excellent work\./);
-  assert.match(summaryHtml, /100%/);
-  assert.match(summaryHtml, /Back to trail/);
+  assert.match(summaryHtml, /<span class="figure">100<\/span><small>percent<\/small>/);
+  assert.match(summaryHtml, /Every word held on the first try\./);
+  assert.match(summaryHtml, />Walk again</);
+  assert.match(summaryHtml, />Trail</);
 
   const productCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
   assert.match(productCss, /@media\s*\(forced-colors:\s*active\)/);

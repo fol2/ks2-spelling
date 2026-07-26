@@ -79,6 +79,18 @@ test('product learning starts a durable Smart Review and restores an interrupted
     practice: null,
     summary: null,
     progress: [],
+    vocabularySets: [
+      {
+        id: 'core',
+        label: 'All',
+        count: 20,
+      },
+      {
+        id: 'y3-4',
+        label: 'Y3–4',
+        count: 20,
+      },
+    ],
     monsters: [{
       rewardTrackId: 'spelling-core-inklet',
       packId: 'ks2-core',
@@ -100,11 +112,16 @@ test('product learning starts a durable Smart Review and restores an interrupted
 
   first.showScreen('setup');
   assert.equal(first.getState().screen, 'setup');
-  await first.startSmartRound({ length: 5 });
+  await first.startSmartRound({
+    length: 5,
+    mode: 'smart',
+    yearFilter: 'y3-4',
+  });
 
   const active = first.getState();
   assert.equal(active.status, 'ready');
   assert.equal(active.screen, 'practice');
+  assert.equal(active.practice.mode, 'smart');
   assert.equal(active.practice.label, 'Smart review');
   assert.equal(active.practice.progress.total, 5);
   assert.equal(active.practice.progress.checked, 0);
@@ -130,6 +147,61 @@ test('product learning starts a durable Smart Review and restores an interrupted
 
   await first.dispose();
   await restored.dispose();
+});
+
+test('product learning starts each supported quest and rejects unavailable options', async () => {
+  const testWorld = createLearningWorld();
+  const testController = testWorld.createController();
+
+  await testController.startSmartRound({
+    length: 20,
+    mode: 'test',
+    yearFilter: 'core',
+  });
+  assert.equal(testController.getState().practice.mode, 'test');
+  assert.equal(testController.getState().practice.label, 'SATs 20 test');
+  for (
+    let steps = 0;
+    testController.getState().screen === 'practice' && steps < 50;
+    steps += 1
+  ) {
+    if (testController.getState().practice.awaitingAdvance) {
+      await testController.continueRound();
+    } else {
+      await testController.submitAnswer(
+        targetFor(testController, testWorld.catalogue),
+      );
+    }
+  }
+  assert.equal(testController.getState().screen, 'summary');
+  assert.equal(testController.getState().summary.mode, 'test');
+  assert.equal(testController.getState().summary.accuracy, 100);
+
+  const troubleWorld = createLearningWorld();
+  const troubleController = troubleWorld.createController();
+  await troubleController.startSmartRound({
+    length: 5,
+    mode: 'trouble',
+    yearFilter: 'y3-4',
+  });
+  assert.equal(
+    troubleController.getState().practice.mode,
+    'smart',
+    'Trouble Drill keeps the engine fallback when no trouble words exist',
+  );
+
+  for (const options of [
+    { length: 5, mode: 'boss', yearFilter: 'core' },
+    { length: 5, mode: 'test', yearFilter: 'core' },
+    { length: 5, mode: 'smart', yearFilter: 'extra' },
+    { length: 5, mode: 'smart', yearFilter: 'core', unexpected: true },
+  ]) {
+    const world = createLearningWorld();
+    await assert.rejects(world.createController().startSmartRound(options), TypeError);
+  }
+
+  await testController.dispose();
+  await troubleController.dispose();
 });
 
 test('product learning keeps correction and safe abandonment inside the A3 transaction result', async () => {

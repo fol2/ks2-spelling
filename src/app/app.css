@@ -1,23 +1,3 @@
-/* The type scale already asks for Fraunces and Inter by name. Both are packaged
-   with the app under the SIL Open Font Licence 1.1 so those names resolve on a
-   device instead of silently falling back to Georgia and the system sans, and
-   so nothing is fetched from a font CDN at runtime. */
-@font-face {
-  font-family: Fraunces;
-  src: url('./fonts/fraunces-latin-variable.woff2') format('woff2');
-  font-weight: 400 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: Inter;
-  src: url('./fonts/inter-latin-variable.woff2') format('woff2');
-  font-weight: 400 900;
-  font-style: normal;
-  font-display: swap;
-}
-
 :root {
   color: #f5f1e8;
   background: #0d1d29;
@@ -367,211 +347,78 @@ h1 {
 }
 
 /* ==========================================================================
- * Product design tokens.
- *
- * Ported from the ks2-mastery webapp (`styles/app.css`, the `:root` block and
- * its `prefers-color-scheme: dark` variant) so the port reads as the same
- * product. The webapp's brand is blue; this replaces the port's teal on
- * purpose. The legacy `.product-app` property names are kept as aliases onto
- * these tokens rather than renamed at every call site.
- * ========================================================================== */
-.product-app {
-  color-scheme: light dark;
+   Product surface — The Scribe Downs
+   One vellum surface, one type rule, one drawing hand.
+   Serif (Fraunces) carries content and figures; sans (Inter) carries chrome.
+   ========================================================================== */
 
-  /* Surfaces */
-  --bg: #f6f5f1;
-  --bg-tint: #efeadd;
-  --panel: #fff;
-  --panel-soft: #faf9f4;
-  --panel-sunken: #f1ecde;
-
-  /* Ink */
-  --ink: #1d2b3a;
-  --ink-2: #3b4a5c;
-  --muted: #7a8697;
-  --subtle: #a9b1bd;
-
-  /* Lines */
-  --line: #e5e1d6;
-  --line-soft: #efebe0;
-  --line-strong: #cfc8b6;
-
-  /* Semantic tones */
-  --good: #2f9e6a;
-  --good-strong: #1f7a4f;
-  --good-soft: #e4f5ec;
-  --warn: #d08a2c;
-  --warn-strong: #9e6a19;
-  --warn-soft: #fbefd9;
-  --bad: #d25757;
-  --bad-strong: #b03838;
-  --bad-soft: #fce5e3;
-
-  /* Brand */
-  --brand: #3e6fa8;
-  --brand-ink: #274d79;
-  --brand-soft: #dce6f3;
-
-  /* Shape */
-  --radius-xs: 8px;
-  --radius-sm: 12px;
-  --radius: 20px;
-  --radius-lg: 28px;
-  --radius-xl: 32px;
-
-  /* Elevation. `--shadow-warm` is the webapp's paper shadow: a long, low,
-     colour-cast pool rather than a neutral drop, which is what makes a card
-     read as paper lying on a surface instead of a box floating over one. */
-  --shadow-xs: 0 1px 2px rgb(29 43 58 / 6%);
-  --shadow: 0 1px 2px rgb(29 43 58 / 4%), 0 8px 24px rgb(29 43 58 / 6%);
-  --shadow-lg: 0 2px 4px rgb(29 43 58 / 5%), 0 16px 40px rgb(29 43 58 / 10%);
-  --shadow-warm: 0 24px 48px -24px rgb(176 132 66 / 35%);
-  --shadow-glow: 0 0 0 4px rgb(62 111 168 / 18%);
-
-  /* Press. A touch app has no hover, so the press is the whole affordance:
-     one compression scale and one duration, shared by every control, so a
-     tap feels like the same physical act wherever it lands. */
-  --press-scale: 0.972;
-  --press-scale-subtle: 0.986;
-  --dur-press: 90ms;
-  --ease-press: cubic-bezier(0.3, 0, 0.2, 1);
-
-  /* Touch-target minimum — WCAG 2.5.5 AAA, elevated to baseline for KS2. */
-  --tap-min: 44px;
-
-  /* Typography. No font files are bundled: Georgia and Iowan Old Style both
-     ship with iOS, so the fallback chain is a genuine editorial serif today
-     and upgrades on its own if Fraunces is ever vendored. */
-  /* Figures. No serif that ships with iOS has a lining set — Georgia and Iowan
-     Old Style are both old-style by design — so a stat grid set in the display
-     face rendered "52" with the 5 below the baseline and the 2 at x-height,
-     which reads as a broken glyph rather than as a number. Data is set in the
-     grotesque, prose in the serif; that is a choice serious data design makes
-     anyway, and here it is also the only one available. */
-  --font-figure: var(--font-sans);
-
-  --font-display: "Fraunces", Georgia, "Iowan Old Style", serif;
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-serif: "Fraunces", Georgia, serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-
-  /* Motion */
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --dur-fast: 120ms;
-  --dur: 200ms;
-  --dur-slow: 320ms;
-  --dur-slower: 520ms;
-
-  /* Fixed-tone inks and washes. A surface that never re-tones with the
-     colour scheme — the backdrop art, the celebration scrim — picks its ink
-     from the surface, not from the theme. The washes are the matching
-     surfaces: whatever floats over the art is filled from the wash that
-     belongs to that ink, so a panel can never invert against the art. */
-  --ink-on-light: #1d2b3a;
-  --ink-on-dark: #fff9ec;
-  --wash-on-light: #f8f5ec;
-  --wash-on-dark: #0e151d;
-
-  /* Control fills. Aliased so the surfaces that float over the backdrop can
-     be re-pointed in one place rather than per call site. */
-  --control-surface: var(--panel);
-
-  /* Theme-locked copies of the palette, for the one surface that must not
-     re-tone with the region behind it: the round card is glass that reads the
-     same over every region, so the art tints what is behind it rather than the
-     glass itself.
-     These were declared only inside the dark-scheme block, which meant every
-     `var(--theme-*)` on that card was guaranteed-invalid in light mode. An
-     invalid var in a border shorthand takes the whole declaration with it, so
-     in light mode the round card had no writing line under the answer, no
-     border on either listening control and no hairline of its own — on the one
-     screen a learner spends the most time looking at. */
-  --theme-ink: #1d2b3a;
-  --theme-ink-2: #3b4a5c;
-  --theme-muted: #7a8697;
-  --theme-panel: #fff;
-  --theme-line: #e5e1d6;
-  --theme-line-strong: #cfc8b6;
-  --theme-brand-soft: #dce6f3;
-
-  /* Legacy aliases kept alive so existing rules keep working. */
-  --paper: var(--bg);
-  --paper-raised: var(--panel);
-  --ink-soft: var(--ink-2);
-  --trail: var(--brand);
-  --trail-strong: var(--brand-ink);
-  --reward: var(--warn);
-  --coral: var(--bad);
-  --correct: var(--good-strong);
-  --retry: var(--bad-strong);
-  --focus: var(--ink);
-
-  min-width: 320px;
-  min-height: 100vh;
-  padding:
-    max(1rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
-    max(1rem, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)))
-    max(1.5rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))
-    max(1rem, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
-  color: var(--ink);
-  background:
-    radial-gradient(circle at 86% 8%, var(--bg-tint), transparent 20rem),
-    radial-gradient(circle at 7% 42%, var(--bg-tint), transparent 25rem),
-    var(--bg);
-  font-family: var(--font-sans);
-  font-size: 1rem;
-  line-height: 1.5;
-  text-wrap: pretty;
-  -webkit-font-smoothing: antialiased;
+@font-face {
+  font-family: Fraunces;
+  src: url('./fonts/fraunces-latin-variable.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
 }
 
-@media (prefers-color-scheme: dark) {
-  .product-app {
-    --bg: #0f1620;
-    --bg-tint: #131c29;
-    --panel: #18212f;
-    --panel-soft: #1e2837;
-    --panel-sunken: #14202f;
+@font-face {
+  font-family: Inter;
+  src: url('./fonts/inter-latin-variable.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
 
-    --ink: #f3eee0;
-    --ink-2: #d4d9e3;
-    --muted: #8b95a6;
-    --subtle: #5f6a7c;
+.product-app {
+  --serif: Fraunces, Georgia, "Times New Roman", serif;
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
 
-    --theme-ink: #f3eee0;
-    --theme-ink-2: #d4d9e3;
-    --theme-muted: #8b95a6;
-    --theme-panel: #18212f;
-    --theme-line: #2a3444;
-    --theme-line-strong: #3d4a60;
-    --theme-brand-soft: color-mix(in oklab, #3e6fa8 26%, #0f1620);
+  /* Vellum */
+  --paper: #f8f5ec;
+  --paper-raised: #fffdf7;
+  --paper-sunk: #faf6ec;
+  --ink: #1d2b3a;
+  --ink-soft: rgb(29 43 58 / 62%);
+  --ink-faint: rgb(29 43 58 / 45%);
+  --line: rgb(29 43 58 / 12%);
+  --line-strong: rgb(29 43 58 / 22%);
 
+  /* Dusk */
+  --dusk: #080c12;
+  --dusk-raised: #101a26;
+  --dusk-ink: #fff9ec;
+  --dusk-ink-soft: rgb(255 249 236 / 62%);
+  --dusk-line: rgb(255 249 236 / 16%);
 
-    --line: #2a3444;
-    --line-soft: #212a39;
-    --line-strong: #3d4a60;
+  /* Semantics */
+  --brand: #3e6fa8;
+  --gold: #e6cb8e;
+  --brass: #a06b22;
+  --brass-deep: #8a5a1a;
+  --good: #1f7a4f;
+  --retry: #a2472a;
+  --focus: #3e6fa8;
 
-    --good: #57c48b;
-    --good-strong: #8ad7ae;
-    --good-soft: color-mix(in oklab, #2f9e6a 22%, #0f1620);
-    --warn: #e2a756;
-    --warn-strong: #f1c081;
-    --warn-soft: color-mix(in oklab, #d08a2c 22%, #0f1620);
-    --bad: #e87e7e;
-    --bad-strong: #f6a7a7;
-    --bad-soft: color-mix(in oklab, #d25757 22%, #0f1620);
+  --plate-shadow: 0 1px 2px rgb(29 43 58 / 5%), 0 18px 40px -20px rgb(140 105 55 / 45%);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
-    --brand: #6e9ed6;
-    --brand-ink: #a7c2e4;
-    --brand-soft: color-mix(in oklab, #3e6fa8 26%, #0f1620);
+  /* Scene gutters. Every screen keeps the same clearance from the physical
+     screen edge, and a surface that must meet that edge — a bottom sheet, a
+     docked tray — cancels exactly the gutter it sits in rather than guessing. */
+  --gutter-top: max(0.75rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  --gutter-right: max(1rem, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
+  --gutter-bottom: max(1rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  --gutter-left: max(1rem, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
 
-    --shadow-xs: 0 1px 2px rgb(0 0 0 / 35%);
-    --shadow: 0 1px 2px rgb(0 0 0 / 35%), 0 12px 28px rgb(0 0 0 / 35%);
-    --shadow-lg: 0 2px 4px rgb(0 0 0 / 40%), 0 24px 48px rgb(0 0 0 / 50%);
-    --shadow-warm: 0 32px 60px -28px rgb(0 0 0 / 60%);
-    --shadow-glow: 0 0 0 4px rgb(110 158 214 / 26%);
-  }
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  flex-direction: column;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: anywhere;
 }
 
 .product-app *,
@@ -580,3004 +427,3014 @@ h1 {
   box-sizing: border-box;
 }
 
-.product-app h1,
-.product-app h2,
-.product-app h3,
-.product-app p {
-  margin-top: 0;
-}
-
-.product-app h1 {
+/* The element reset is wrapped in :where() so it carries no more weight than a
+   single class. Component classes below can then set their own background,
+   size and type without needing an ever-longer selector to win. */
+.product-app :where(h1, h2, h3, p, ul, ol, dl, figure) {
+  margin: 0;
+  /* The proof shells above set a global h1 measure; the product surface sets
+     its own measure per screen and must not inherit that cap. */
   max-width: none;
-  margin-bottom: 1rem;
-  color: var(--ink);
-  font-family: var(--font-display);
-  font-size: clamp(2.1rem, 6.5vw, 3.2rem);
-  font-weight: 500;
-  line-height: 1.02;
-  letter-spacing: -0.02em;
 }
 
-.product-app h2 {
-  color: var(--ink);
-  font-family: var(--font-serif);
-  font-size: 1.35rem;
-  font-weight: 500;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
+.product-app :where(ul, ol) {
+  padding: 0;
+  list-style: none;
 }
 
-.product-app button,
-.product-app input,
-.product-app select {
-  min-height: var(--tap-min);
-  border-radius: var(--radius-sm);
+.product-app :where(button, input, select) {
   font: inherit;
+  color: inherit;
 }
 
-/* The platform's own grey tap flash fires before our press state and outlives
-   it, so it reads as lag on a control that is already responding. Suppressing
-   it is only safe because every control below answers a press itself. */
-.product-app button,
-.product-app [role='button'],
-.product-app label,
-.product-app summary {
+.product-app :where(button) {
+  border: 0;
+  background: none;
+  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
 
-.product-app button {
-  cursor: pointer;
-}
-
 .product-app button:disabled {
-  cursor: wait;
-  opacity: 0.5;
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
-/* A filled pill at half opacity over painted land became a grey slab that read
-   as a fault rather than as "not yet". Unavailable is quiet: it keeps the shape
-   and gives up the fill. */
-.product-app .button-primary:disabled {
-  border-color: color-mix(in oklab, var(--ink) 18%, transparent);
-  color: var(--ink-2);
-  background: color-mix(in oklab, var(--ink) 7%, transparent);
-  opacity: 1;
-  box-shadow: none;
-}
-
-/* The editorial focus halo: an ink rule for the outline itself, then a soft
-   brand bloom outside it so keyboard focus reads as lit rather than boxed. */
 .product-app button:focus-visible,
 .product-app input:focus-visible,
-.product-app select:focus-visible {
-  outline: 0.2rem solid var(--focus);
-  outline-offset: 0.2rem;
-  box-shadow: 0 0 0 0.32rem color-mix(in oklab, var(--brand) 16%, transparent);
+.product-app select:focus-visible,
+.product-app a:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
 }
 
-.button-primary:focus-visible {
-  box-shadow:
-    0 0 0 0.32rem color-mix(in oklab, var(--brand) 24%, transparent),
-    inset 0 1px 0 rgb(255 255 255 / 28%);
+/* --- type rule ----------------------------------------------------------- */
+
+.product-app :where(h1, h2, h3) {
+  font-family: var(--serif);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
 }
 
-/* Text craft. A caret and a selection in the brand hue cost nothing and are
-   the difference between a page rendered in a browser and one that was
-   designed. */
-.product-app input,
-.product-app textarea {
-  caret-color: var(--brand);
+.product-app :where(h1) {
+  font-size: clamp(1.85rem, 8.5vw, 2.75rem);
 }
 
-.product-app ::selection {
-  color: var(--ink);
-  background: color-mix(in oklab, var(--brand) 24%, transparent);
+.product-app :where(h2) {
+  font-size: clamp(1.25rem, 5.5vw, 1.6rem);
 }
 
-/* Warm paper scrollbars instead of OS chrome, on every scrollable surface. */
-.product-app * {
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
+.figure {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.03em;
 }
 
-.product-app *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.product-kicker,
+.label {
+  font-family: var(--sans);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
 
-.product-app *::-webkit-scrollbar-track,
-.product-app *::-webkit-scrollbar-corner {
-  background: transparent;
+.product-app .body-copy {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  text-wrap: pretty;
 }
 
-.product-app *::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: var(--line-strong);
-}
-
-.product-page,
-.practice-page {
-  position: relative;
-
-  /* Every page that takes typing gives the keyboard back the room it took, so
-     a field near the bottom can still be scrolled clear of the keys. See
-     `keyboard-inset.js` for why iOS has to be asked; with no keyboard the
-     inset is 0 and this is nothing. */
-  padding-bottom: var(--keyboard-inset, 0px);
-}
-
-/* Page children are centred and clamped to a readable measure. The layers
-   that deliberately cover the whole page — the backdrop below, the two
-   overlays above, and the fixed bars — opt out, or this rule's
-   `position: relative` would win on specificity and drop them back into the
-   flow. The bars align their *contents* with this measure instead, so their
-   fill can still reach the screen edge. */
-.product-page > *:not(.hero-backdrop, .exit-confirmation, .celebration-overlay, .product-topbar, .trail-tabs, .page-action),
-.practice-page > *:not(.hero-backdrop, .exit-confirmation, .celebration-overlay, .product-topbar, .trail-tabs, .page-action) {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 68rem);
-  margin-right: auto;
-  margin-left: auto;
-}
-
-.product-app > .hero-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.product-app .hero-art {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: var(--hero-bg, none) center 42% / cover no-repeat;
-  pointer-events: none;
-}
-
-.product-app .hero-art.pan {
-  animation: hero-pan 96s ease-in-out var(--hero-pan-delay, 0s) infinite alternate;
-  will-change: background-position;
-}
-
-.product-app .hero-backdrop .hero-layer {
-  opacity: 0;
-  transition: opacity 880ms ease-in-out;
-}
-
-.product-app .hero-backdrop .hero-layer.is-entering {
-  opacity: 1;
-  animation:
-    hero-pan 96s ease-in-out var(--hero-pan-delay, 0s) infinite alternate,
-    hero-dissolve-in 880ms ease-in-out 0s both;
-}
-
-.product-app .hero-backdrop .hero-layer.is-active {
-  opacity: 1;
-}
-
-.product-app .hero-backdrop .hero-layer.is-exiting {
-  opacity: 0;
-  animation:
-    hero-pan 96s ease-in-out var(--hero-pan-delay, 0s) infinite alternate,
-    hero-dissolve-out 880ms ease-in-out 0s both;
-}
-
-@keyframes hero-pan {
-  from { background-position: 0% 42%; }
-  to { background-position: 100% 42%; }
-}
-
-@keyframes hero-dissolve-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes hero-dissolve-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-/* A backdrop page is world-first: the art is full-bleed and every surface
-   floats over it. So on such a page ink AND surface both come from the art
-   tone, never from the colour scheme — the art does not re-tone in dark
-   mode, and a theme-coloured panel would invert against it. One tone
-   switch re-points the ink, the card fill, the control fill and the lines
-   together, so nothing can end up half-toned. Correctness colours keep their
-   hue; --focus follows the tone ink, because a focus ring has to contrast
-   with the art it lands on, not with a colour scheme the art ignores. */
-.product-app {
-  --hero-shell-ink: var(--ink);
-  --hero-shell-ink-soft: var(--ink-soft);
-}
-
-.product-app[data-hero-tone] {
-  --hero-shell-ink: var(--ink-on-light);
-  --hero-wash: var(--wash-on-light);
-
-  --hero-shell-ink-soft: color-mix(in oklab, var(--hero-shell-ink) 88%, transparent);
-  --hero-panel: color-mix(in oklab, var(--hero-wash) 82%, transparent);
-  --hero-panel-line: color-mix(in oklab, var(--hero-shell-ink) 16%, transparent);
-
-  --ink: var(--hero-shell-ink);
-  --ink-2: var(--hero-shell-ink-soft);
-  --muted: var(--hero-shell-ink-soft);
-  --paper-raised: var(--hero-panel);
-  --control-surface: var(--hero-panel);
-  --line: var(--hero-panel-line);
-  --line-strong: color-mix(in oklab, var(--hero-shell-ink) 30%, transparent);
-  /* Brand-soft is only ever a fill, so it can carry the tone wholesale. */
-  --brand-soft: color-mix(in oklab, var(--brand) 26%, var(--hero-panel));
-}
-
-.product-app[data-hero-tone='2'],
-.product-app[data-hero-tone='3'] {
-  --hero-shell-ink: var(--ink-on-dark);
-  --hero-wash: var(--wash-on-dark);
-  --hero-panel: color-mix(in oklab, var(--hero-wash) 72%, transparent);
-  --hero-panel-line: color-mix(in oklab, var(--hero-shell-ink) 24%, transparent);
-}
-
-/* The art wash. One cheap gradient per layer lifts the art away from the
-   ink so text can sit on it directly — this is what the mission block and
-   the summary hero stand on, and it costs no compositing. */
-.product-app[data-hero-tone] .hero-art::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--hero-wash) 62%, transparent) 0%,
-      color-mix(in oklab, var(--hero-wash) 26%, transparent) 46%,
-      color-mix(in oklab, var(--hero-wash) 58%, transparent) 100%
-    );
-}
-
-/* On the home screen the land is the subject, not a texture behind one. The
-   wash lifts across the top third, where the only things standing on the art
-   are the greeting and one short headline in display type, and closes back
-   down over the lower half, where the companion strip and any device notice
-   need a surface to sit on. */
-.child-home[data-hero-tone] .hero-art::after {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--hero-wash) 44%, transparent) 0%,
-      color-mix(in oklab, var(--hero-wash) 30%, transparent) 34%,
-      color-mix(in oklab, var(--hero-wash) 58%, transparent) 72%,
-      color-mix(in oklab, var(--hero-wash) 74%, transparent) 100%
-    );
-}
-
-/* Blur is reserved for the one surface a learner reads through for minutes
-   at a time — the round card. Every other surface floats on fill alone, so
-   a scrolling page never stacks compositing passes over the panning art. */
-/* Two kinds of surface float over the art, and they want different fills.
- *
- * A surface you *glance* at — a companion slot, a mode card — can stay at 82%
- * and let the land through; that is the webapp's own position and it is what
- * keeps the screens feeling like one place.
- *
- * A surface you *read and work in* cannot. At 82% the painted horizon ran
- * straight through the settings panel and the standing figures, where it read
- * as a rule the app had drawn, and an empty text field looked like a window
- * onto the grass rather than somewhere to type. Those get the round card's
- * treatment: near-opaque, and the blur that was already reserved for the one
- * surface a learner reads through for minutes at a time. */
-.product-app[data-hero-tone] .practice-card,
-.product-app[data-hero-tone] .add-learner-card,
-.product-app[data-hero-tone] .setup-more,
-.product-app[data-hero-tone] .stand-panel {
-  backdrop-filter: blur(10px) saturate(1.06);
-  -webkit-backdrop-filter: blur(10px) saturate(1.06);
-}
-
-.product-app[data-hero-tone] .add-learner-card,
-.product-app[data-hero-tone] .setup-more,
-.product-app[data-hero-tone] .stand-panel {
-  background: color-mix(in oklab, var(--hero-wash) 94%, transparent);
-}
-
-/* Only the fields that are boxes. The answer line is deliberately a ruled
-   writing line on a transparent ground, and on a dusk region the wash is
-   near-black, so filling it turned the line into a hole in the card. */
-.product-app[data-hero-tone] .learner-form input,
-.product-app[data-hero-tone] .learner-form select {
-  background: var(--hero-wash);
-}
-
-/* Semantic surfaces keep their meaning but take the tone, so their ink stays
-   the page ink rather than falling back to an inverted theme ink. */
-.product-app[data-hero-tone] .audio-state-ready:not(.audio-state-compact),
-.product-app[data-hero-tone] .answer-feedback {
-  border-color: color-mix(in oklab, var(--good) 44%, transparent);
-  background: color-mix(in oklab, var(--good) 20%, var(--hero-panel));
-}
-
-.product-app[data-hero-tone] .answer-feedback-warn,
-.product-app[data-hero-tone] .summary-drill {
-  border-color: color-mix(in oklab, var(--warn) 46%, transparent);
-  background: color-mix(in oklab, var(--warn) 20%, var(--hero-panel));
-}
-
-.product-app[data-hero-tone] .audio-state-corrupt,
-.product-app[data-hero-tone] .audio-state-unavailable,
-.product-app[data-hero-tone] .audio-state-missing,
-.product-app[data-hero-tone] .answer-feedback-bad {
-  border-color: color-mix(in oklab, var(--bad) 46%, transparent);
-  background: color-mix(in oklab, var(--bad) 20%, var(--hero-panel));
-}
-
-/* Except inside the round card, which is theme-locked glass: taking its fill
-   from the region's wash while taking its ink from the theme put the card's own
-   dark ink on a dark muddy panel, and "Not yet" was the least readable thing on
-   a screen whose whole job is telling a child what to look at again. Inside the
-   card, a semantic panel is semantic in the theme, like every other panel. */
-.product-app[data-hero-tone] .practice-card .answer-feedback {
-  border-color: color-mix(in oklab, var(--good) 28%, transparent);
-  background: var(--good-soft);
-}
-
-.product-app[data-hero-tone] .practice-card .answer-feedback-warn {
-  border-color: color-mix(in oklab, var(--warn) 30%, transparent);
-  background: var(--warn-soft);
-}
-
-.product-app[data-hero-tone] .practice-card .answer-feedback-bad {
-  border-color: color-mix(in oklab, var(--bad) 30%, transparent);
-  background: var(--bad-soft);
-}
-
-/* Brand-inked chrome would keep the theme's blue over the art; on a backdrop
-   page it takes the page's ink instead.
-   `var(--ink)` rather than `var(--hero-shell-ink)`, which is the same colour at
-   page level — the token block above points one at the other — but follows any
-   surface that re-points it further down. Naming the tone ink directly reached
-   straight through the two theme-locked surfaces: it put tone-1's near-black
-   ink on the round card's dark panel and on the end-round alert's, where "Keep
-   practising" became dark navy on near-navy and the only legible way out of
-   that alert was the one that ends the round. */
-.product-app[data-hero-tone] .product-topbar,
-.product-app[data-hero-tone] .topbar-action,
-.product-app[data-hero-tone] .button-quiet,
-.product-app[data-hero-tone] .btn-icon,
-.product-app[data-hero-tone] .accuracy-score,
-.product-app[data-hero-tone] .reward-secure-toast {
-  color: var(--ink);
-}
-
-/* An error still has to read as an error, so its hue is kept and only pulled
-   far enough toward the tone ink to survive the art behind it. */
-.product-app[data-hero-tone] .inline-error {
-  color: color-mix(in oklab, var(--bad) 55%, var(--hero-shell-ink));
-}
-
-.product-app[data-hero-tone] .brand-mark {
-  color: var(--hero-wash);
-  background: var(--hero-shell-ink);
-}
-
-/* Chrome that is *filled* with brand ink was still reading the colour
-   scheme, so on unchanged art the primary pill and the glyph medallions
-   inverted when the phone switched to dark — the one thing this page's rule
-   says must never happen. They take the tone the way `.brand-mark` does:
-   fill from the tone ink with brand mixed back in, glyph from the wash. */
-.product-app[data-hero-tone] .button-primary:not(:disabled),
-.product-app[data-hero-tone] .voice-symbol,
-.product-app[data-hero-tone] .audio-state-icon {
-  color: var(--hero-wash);
-  background: color-mix(in oklab, var(--brand) 40%, var(--hero-shell-ink));
-}
-
-/* Text standing directly on the art, where the wash alone carries it. The bars
-   are filled surfaces now, so they are not on the art and do not want a shadow:
-   over a blurred wash it only muddies them. */
-.product-app[data-hero-tone='2'] .trail-hero,
-.product-app[data-hero-tone='3'] .trail-hero,
-.product-app[data-hero-tone='2'] .summary-hero,
-.product-app[data-hero-tone='3'] .summary-hero {
-  text-shadow: 0 1px 16px rgb(0 0 0 / 58%);
-}
-
-/* ==========================================================================
- * The app shell
- *
- * Both bars are fixed and own their safe areas, and the page is inset to clear
- * them. In the flow, the top bar scrolled away and took the status bar's space
- * with it on the way past — which is how the brand mark and the switch control
- * ended up under the Dynamic Island. `data-chrome` on the page says which bars
- * are present, because the alternative (`:has()`) is not in Safari before 15.4
- * and the deployment target is iOS 15.0.
- * ========================================================================== */
-.product-app {
-  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
-  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
-  --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
-  --bar-h: 3.25rem;
-  --tabs-h: 3.5rem;
-  --rail-w: 5rem;
-  --page-measure: 68rem;
-
-  /* Aligns bar and rail contents with the page's own centred measure at any
-     width, without either of them being clamped to it — they must stay full
-     bleed so their fill reaches the screen edge. */
-  --page-gutter: max(1rem, calc((100% - var(--page-measure)) / 2));
-
-  /* Shell surfaces. The strip is a wash you read the page through; the raised
-     one is opaque enough to be a piece of paper lying on top of it. On a
-     backdrop page both are struck from the art's own wash, so the chrome can
-     never invert against the land behind it. */
-  --shell-strip: color-mix(in oklab, var(--bg) 84%, transparent);
-  --shell-raised: var(--bg);
-  --shell-ink-quiet: color-mix(in oklab, var(--ink) 66%, transparent);
-}
-
-.product-app[data-hero-tone] {
-  --shell-strip: color-mix(in oklab, var(--hero-wash) 62%, transparent);
-  --shell-raised: color-mix(in oklab, var(--hero-wash) 92%, transparent);
-}
-
-.product-app[data-chrome~='bar'] {
-  padding-top: calc(var(--safe-top) + var(--bar-h) + 1.25rem);
-}
-
-.product-app[data-chrome~='tabs'] {
-  padding-bottom: calc(var(--safe-bottom) + var(--tabs-h) + 0.75rem);
-}
+/* --- shared furniture ---------------------------------------------------- */
 
 .product-topbar {
-  position: fixed;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 40;
+  position: relative;
+  z-index: 3;
   display: flex;
-  gap: 0.5rem;
+  flex-wrap: wrap;
   align-items: center;
-  height: calc(var(--safe-top) + var(--bar-h));
-  padding: var(--safe-top) var(--page-gutter) 0;
-  background: var(--shell-strip);
-  backdrop-filter: blur(18px) saturate(1.12);
-  -webkit-backdrop-filter: blur(18px) saturate(1.12);
-}
-
-/* Content dissolves under the bar instead of being cut off by it: a hairline
-   over painted land reads as a seam, a short fade reads as depth. */
-.product-topbar::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  right: 0;
-  left: 0;
-  height: 1.75rem;
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--shell-strip) 82%, transparent),
-    color-mix(in oklab, var(--shell-strip) 30%, transparent) 55%,
-    transparent
-  );
-  pointer-events: none;
+  gap: 0.5rem 0.75rem;
+  padding:
+    max(0.75rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+    max(1rem, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)))
+    0.75rem
+    max(1rem, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
 }
 
 .product-topbar p {
   min-width: 0;
-  margin: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  font-family: var(--font-serif);
+  flex: 1 1 8rem;
+  font-family: var(--serif);
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -0.015em;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.brand-mark {
-  display: grid;
-  width: 2.1rem;
-  height: 2.1rem;
-  flex: 0 0 auto;
-  border-radius: 0.65rem;
-  place-items: center;
-  color: var(--panel);
-  background: var(--brand-ink);
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
 }
 
 .topbar-action {
-  flex: 0 0 auto;
-  margin-left: auto;
-  border: 0;
-  padding: 0.45rem 0.6rem;
-  margin-right: -0.6rem;
-  color: var(--trail-strong);
-  background: transparent;
-  font-size: 0.92rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  min-height: 2.75rem;
+  padding: 0 0.6rem;
+  color: #274d79;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.icon-button {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.pill {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper-raised);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pill[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.button-primary {
+  display: flex;
+  width: 100%;
+  min-height: 3.4rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border: 1px solid rgb(230 203 142 / 55%);
+  border-radius: 999px;
+  padding: 0 1.25rem;
+  background: linear-gradient(180deg, #fffaf0, #f0e3c9);
+  color: #131b25;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  box-shadow:
+    0 14px 26px -14px rgb(0 0 0 / 55%),
+    inset 0 1px 0 rgb(255 255 255 / 80%);
+}
+
+.button-brand {
+  display: flex;
+  width: 100%;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  box-shadow: 0 8px 18px -8px rgb(62 111 168 / 70%);
+}
+
+.button-quiet,
+.button-warning,
+.button-destructive {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0 0.95rem;
+  background: none;
+  font-size: 0.85rem;
   font-weight: 700;
 }
 
-.topbar-back {
-  display: grid;
-  width: var(--tap-min);
-  height: var(--tap-min);
-  flex: 0 0 auto;
-  margin-left: -0.7rem;
-  border: 0;
-  place-items: center;
-  color: var(--ink);
-  background: transparent;
+/* Editing a learner, resetting their learning and deleting them were three
+   identical pills, one of them irreversible, on a screen a parent taps through
+   quickly. Each level of consequence carries its own weight now, so the shape
+   of the control says what it costs before the label is read. */
+.button-warning {
+  border-color: color-mix(in oklab, var(--brass) 45%, transparent);
+  color: var(--brass-deep);
 }
 
-/* Who is practising, answered without being asked. */
-.learner-chip {
+.button-destructive {
+  border-color: color-mix(in oklab, var(--retry) 48%, transparent);
+  color: var(--retry);
+  font-weight: 800;
+}
+
+.press {
+  transition:
+    transform 90ms cubic-bezier(0.3, 0, 0.2, 1),
+    filter 90ms cubic-bezier(0.3, 0, 0.2, 1),
+    border-color 200ms var(--ease),
+    background-color 200ms var(--ease),
+    box-shadow 200ms var(--ease);
+}
+
+.press:active:not(:disabled) {
+  transform: scale(0.972);
+  filter: brightness(0.96);
+}
+
+.press-soft:active:not(:disabled) {
+  transform: scale(0.986);
+}
+
+.rail {
   display: flex;
-  min-height: var(--tap-min);
-  flex: 0 1 auto;
   gap: 0.45rem;
-  align-items: center;
-  margin-left: -0.5rem;
-  border: 0;
-  border-radius: 999px;
-  padding: 0.3rem 0.5rem;
-  color: var(--ink);
-  background: transparent;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.learner-chip-dot {
-  width: 0.7rem;
-  height: 0.7rem;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--learner-colour, var(--brand));
-  box-shadow: 0 0 0 2px color-mix(in oklab, var(--learner-colour, var(--brand)) 24%, transparent);
+.rail::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
-.learner-chip-name {
-  overflow: hidden;
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
+.vellum {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 1.75rem;
+  padding: 1.15rem 1.25rem;
+  background: var(--paper-raised);
+  box-shadow: var(--plate-shadow);
+}
+
+.vellum::before {
+  position: absolute;
+  top: 0.7rem;
+  right: 1.25rem;
+  left: 1.25rem;
+  height: 1px;
+  background: rgb(29 43 58 / 9%);
+  content: '';
+}
+
+.inline-error {
+  margin-top: 0.75rem;
+  border: 1px solid rgb(164 73 55 / 35%);
+  border-radius: 1rem;
+  padding: 0.6rem 0.8rem;
+  background: rgb(252 229 227 / 70%);
+  color: #8d3a29;
+  font-size: 0.85rem;
   font-weight: 600;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
-/* ---------- The section strip ----------
- * Four places, always on screen, always in the same order, and inside a
- * thumb's reach. The active one is drawn as a divider tab that has risen out
- * of the strip and joined the page above it — the way a physical index tab in
- * a notebook does. That is the whole indicator: no pill, no underline, no
- * sliding marker, because a journal already had a way of showing this. */
-.trail-tabs {
-  position: fixed;
+/* --- scenes -------------------------------------------------------------- */
+
+.product-scene {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.scene-dusk {
+  background: var(--dusk);
+  color: var(--dusk-ink);
+}
+
+.scene-plate,
+.scene-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.scene-plate {
+  background-image: var(--plate, none);
+  background-position: center var(--plate-y, 34%);
+  background-size: cover;
+  opacity: var(--plate-opacity, 1);
+  animation: pan 64s ease-in-out infinite alternate;
+}
+
+.scene-veil {
+  background: var(--veil, none);
+}
+
+.scene-body {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--gutter-top) var(--gutter-right) var(--gutter-bottom) var(--gutter-left);
+}
+
+.scene-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.has-waypoints .scene-body {
+  padding-bottom: calc(5.25rem + var(--gutter-bottom));
+}
+
+/* --- waypoint bar -------------------------------------------------------- */
+
+.waypoint-bar {
+  /* The foot is the home-indicator strip. The waypoints themselves sit above
+     it, but the selected tab is drawn as a card attached to the screen edge, so
+     it has to reach through the foot rather than stop short of it. */
+  --waypoint-foot: max(0.5rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+
+  position: absolute;
   right: 0;
   bottom: 0;
   left: 0;
   z-index: 40;
   display: grid;
-  height: calc(var(--safe-bottom) + var(--tabs-h));
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  padding: 0 var(--page-gutter) var(--safe-bottom);
   border-top: 1px solid var(--line);
-  background: var(--shell-strip);
-  backdrop-filter: blur(18px) saturate(1.12);
-  -webkit-backdrop-filter: blur(18px) saturate(1.12);
+  padding: 0 0.75rem var(--waypoint-foot);
+  /* Opaque, so the bar reads the same on every place. A translucent bar takes
+     its colour from whatever scene is behind it, which made the same control
+     look grey on the dusk places and cream on the paper one. Nothing shows
+     through an opaque surface, so the blur is dropped with it. */
+  background: var(--paper);
 }
 
-.trail-tab {
+.waypoint-bar button {
   position: relative;
   display: grid;
-  min-height: var(--tabs-h);
-  gap: 0.05rem;
-  place-items: center;
+  min-height: 3.5rem;
   align-content: center;
-  border: 0;
-  padding: 0;
-  color: var(--shell-ink-quiet);
-  background: transparent;
-  font-size: 0.68rem;
+  place-items: center;
+  gap: 0.1rem;
+  padding: 0.4rem 0;
+  color: var(--ink-soft);
+  font-size: 0.66rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
 }
 
-/* An absolutely positioned child paints above its parent's border, which is
-   what lets the risen tab interrupt the strip's own top hairline and carry it
-   around itself. The glyph and label are lifted back over the fill. */
-.trail-tab > * {
+.waypoint-bar button[aria-current='page'] {
+  color: var(--ink);
+}
+
+.waypoint-bar button[aria-current='page']::before {
+  position: absolute;
+  inset: -0.625rem 0.125rem calc(-1 * var(--waypoint-foot));
+  border: 1px solid var(--line);
+  border-top-color: var(--line-strong);
+  border-bottom: 0;
+  border-radius: 0.8rem 0.8rem 0 0;
+  /* The selected tab has to separate from an opaque bar of almost the same
+     colour, so it takes the raised paper tone rather than a wash of the bar's
+     own. */
+  background: var(--paper-raised);
+  content: '';
+}
+
+.waypoint-bar svg,
+.waypoint-bar span {
   position: relative;
   z-index: 1;
 }
 
-.trail-tab[aria-current='page'] {
-  color: var(--ink);
+/* --- trail --------------------------------------------------------------- */
+
+.trail-scene .scene-body {
+  color: var(--dusk-ink);
 }
 
-.trail-tab[aria-current='page']::before {
-  content: '';
-  position: absolute;
-  top: -0.6rem;
-  right: 0.2rem;
-  /* Down through the safe area: a tab that stopped at the label left a band of
-     strip beneath it, which read as a seam rather than as one piece of paper. */
-  bottom: calc(-1 * var(--safe-bottom));
-  left: 0.2rem;
-  border-top: 1px solid var(--line-strong);
-  border-right: 1px solid var(--line);
-  border-left: 1px solid var(--line);
-  border-radius: 0.7rem 0.7rem 0 0;
-  background: var(--shell-raised);
-}
-
-.trail-tab svg {
-  width: 1.35rem;
-  height: 1.35rem;
-  stroke-width: 1.9;
-}
-
-/* ---------- The pinned action ----------
- * A task screen's one action, held at the bottom of the screen instead of at
- * the bottom of the document. On round setup that button was behind six stat
- * cells, three round types, three length chips, two voices, two toggles and a
- * status panel — a scroll away from a child who had already decided. */
-.product-app[data-chrome~='action'] {
-  padding-bottom: calc(var(--safe-bottom) + 5.25rem);
-}
-
-.page-action {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 40;
+.trail-chrome {
   display: flex;
-  padding: 0.7rem var(--page-gutter) calc(var(--safe-bottom) + 0.7rem);
-  background: var(--shell-strip);
-  backdrop-filter: blur(18px) saturate(1.12);
-  -webkit-backdrop-filter: blur(18px) saturate(1.12);
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-/* Same dissolve as under the app bar, mirrored: the page fades into the strip
-   rather than being sliced by it. */
-.page-action::before {
-  content: '';
+.glass-button {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgb(255 249 236 / 20%);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  background: rgb(255 249 236 / 9%);
+  color: var(--dusk-ink);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.learner-chip {
+  display: grid;
+  width: 1.65rem;
+  height: 1.65rem;
+  place-items: center;
+  border-radius: 0.55rem 0.55rem 0.55rem 0.2rem;
+  background: var(--learner-colour, #2b8f96);
+  color: #04151a;
+  font-family: var(--serif);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.glass-button strong {
+  font-family: var(--serif);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.trail-topline {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+  color: rgb(230 203 142 / 90%);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  animation: riseSoft 460ms var(--ease) backwards;
+}
+
+.trail-topline span {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgb(230 203 142 / 55%), rgb(230 203 142 / 0%));
+}
+
+.meadow {
+  position: relative;
+  flex: 1;
+  min-height: 15rem;
+}
+
+.meadow-halo {
+  position: absolute;
+  top: 12%;
+  left: 50%;
+  width: min(22rem, 90%);
+  aspect-ratio: 1;
+  translate: -50% 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgb(230 203 142 / 28%),
+    rgb(43 143 150 / 16%),
+    rgb(230 203 142 / 28%)
+  );
+  filter: blur(48px);
+  animation: spin 34s linear infinite;
+  pointer-events: none;
+}
+
+.meadow-pet {
+  position: absolute;
+  top: var(--pet-top);
+  left: var(--pet-left);
+  width: var(--pet-size);
+  height: var(--pet-size);
+  padding: 0;
+  animation: var(--pet-roam);
+}
+
+.meadow-pet img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 16px 20px rgb(0 0 0 / 55%));
+  animation: var(--pet-gait);
+}
+
+.meadow-shadow {
+  position: absolute;
+  bottom: var(--shadow-bottom, 0.4rem);
+  left: 50%;
+  width: 78%;
+  height: 0.75rem;
+  translate: -50% 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(8 12 18 / 55%), transparent);
+}
+
+.meadow-emerge {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: emerge 720ms var(--ease) backwards;
+}
+
+.meadow-tag {
   position: absolute;
   right: 0;
   bottom: 100%;
   left: 0;
-  height: 1.5rem;
-  background: linear-gradient(
-    0deg,
-    color-mix(in oklab, var(--shell-strip) 78%, transparent),
-    transparent
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.meadow-tag span {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  border: 1px solid rgb(230 203 142 / 45%);
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  background: rgb(10 15 22 / 86%);
+  color: var(--dusk-ink);
+  font-family: var(--serif);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  animation: riseSoft 200ms var(--ease) backwards;
+}
+
+.meadow-tag small {
+  font-family: var(--sans);
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(230 203 142 / 85%);
+}
+
+.trail-due {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.7rem;
+  margin-bottom: 1.1rem;
+  color: rgb(255 249 236 / 72%);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  animation: riseSoft 520ms var(--ease) 260ms backwards;
+}
+
+.trail-due .figure {
+  font-size: 2.5rem;
+  line-height: 1;
+  color: var(--gold);
+  letter-spacing: -0.03em;
+}
+
+.trail-launch {
+  flex: none;
+  animation: rise 560ms var(--ease) 380ms backwards;
+}
+
+.trail-launch p {
+  margin-top: 0.6rem;
+  text-align: center;
+  color: rgb(255 249 236 / 45%);
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* --- word bank ----------------------------------------------------------- */
+
+.bank-head {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  animation: riseSoft 440ms var(--ease) 40ms backwards;
+}
+
+.bank-head .figure {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.bank-filters {
+  flex: none;
+  margin-top: 0.8rem;
+  padding-bottom: 0.15rem;
+}
+
+.bank-filters .pill {
+  min-height: 2.25rem;
+  font-size: 0.75rem;
+}
+
+.bank-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  flex: none;
+  border-radius: 999px;
+  background: var(--dot, var(--line-strong));
+}
+
+.bank-list {
+  display: grid;
+  gap: 0.4rem;
+  align-content: start;
+  margin-top: 0.75rem;
+  padding-bottom: 1.5rem;
+}
+
+.bank-row {
+  display: grid;
+  align-items: center;
+  grid-template-columns: auto 1fr auto;
+  gap: 0 0.75rem;
+  border: 1px solid var(--row-edge, var(--line));
+  border-radius: 1.15rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--row-fill, var(--paper-sunk));
+}
+
+.bank-row-bar {
+  grid-row: 1 / 3;
+  grid-column: 1;
+  width: 0.25rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--row-bar, var(--line-strong));
+}
+
+.bank-row strong {
+  grid-column: 2;
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+.bank-row small {
+  grid-column: 2;
+  font-size: 0.75rem;
+  color: var(--row-note, var(--ink-soft));
+}
+
+.bank-rungs {
+  display: flex;
+  grid-row: 1 / 3;
+  grid-column: 3;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.bank-rungs span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.bank-rungs span[data-lit='true'] {
+  background: var(--row-bar, var(--brand));
+}
+
+.bank-row[data-status='secure'] {
+  --row-edge: rgb(47 158 106 / 22%);
+  --row-fill: rgb(228 245 236 / 60%);
+  --row-bar: var(--good);
+}
+
+.bank-row[data-status='learning'] {
+  --row-edge: rgb(62 111 168 / 22%);
+  --row-fill: rgb(232 240 250 / 62%);
+  --row-bar: var(--brand);
+}
+
+.bank-row[data-status='trouble'] {
+  --row-edge: rgb(208 138 44 / 30%);
+  --row-fill: rgb(251 239 217 / 68%);
+  --row-bar: #c0603f;
+}
+
+.bank-row[data-due='true'] {
+  --row-note: var(--brass-deep);
+}
+
+.bank-empty {
+  display: grid;
+  justify-items: start;
+  gap: 0.65rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: 1.25rem;
+  padding: 1.15rem;
+  background: rgb(250 246 236 / 60%);
+}
+
+/* --- codex --------------------------------------------------------------- */
+
+.codex-scene .scene-body {
+  color: var(--dusk-ink);
+}
+
+.codex-head {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+  animation: riseSoft 420ms var(--ease) backwards;
+}
+
+.codex-head > div {
+  min-width: 0;
+}
+
+.codex-head h1 {
+  font-size: clamp(1.5rem, 7vw, 1.95rem);
+}
+
+.codex-head .product-kicker {
+  color: rgb(226 166 43 / 92%);
+}
+
+.codex-count {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgb(226 166 43 / 40%);
+  border-radius: 0.95rem;
+  padding: 0.35rem 0.7rem;
+  background: rgb(226 166 43 / 12%);
+}
+
+.codex-count .figure {
+  font-size: 1.3rem;
+  color: #f0cd88;
+}
+
+.codex-count .figure-total {
+  font-size: 0.85rem;
+  color: rgb(240 205 136 / 50%);
+}
+
+.codex-count .label {
+  color: rgb(255 249 236 / 55%);
+}
+
+.codex-hero {
+  position: relative;
+  flex: none;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 1.85rem;
+  overflow: hidden;
+  background: var(--dusk-raised);
+  box-shadow: 0 30px 60px -26px rgb(0 0 0 / 95%);
+  animation: rise 480ms var(--ease) 60ms backwards;
+}
+
+.codex-hero[data-found='false'] {
+  border-color: var(--dusk-line);
+}
+
+.codex-hero-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    120% 70% at 50% 30%,
+    color-mix(in srgb, var(--accent) 42%, transparent) 0%,
+    rgb(16 26 38 / 0%) 68%
   );
   pointer-events: none;
 }
 
-.page-action .button-primary {
-  flex: 1 1 auto;
-  max-width: 30rem;
-  margin: 0 auto;
-}
-
-/* ---------- Settings that are set once ----------
- * Folded rather than hidden: the summary line names the choices currently in
- * force, so nothing has to be opened to find out what a round will do. */
-.setup-more {
-  margin: 1.5rem 0 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--control-surface);
-}
-
-.setup-more > summary {
-  display: flex;
-  min-height: var(--tap-min);
-  gap: 0.75rem;
-  align-items: center;
-  padding: 0.7rem 1rem;
-  cursor: pointer;
-  list-style: none;
-}
-
-.setup-more > summary::-webkit-details-marker {
-  display: none;
-}
-
-.setup-more-label {
-  color: var(--ink);
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.setup-more-value {
-  margin-left: auto;
-  color: var(--ink-2);
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-/* A chevron that turns, so the control says which way it is about to go. */
-.setup-more > summary::after {
-  content: '';
-  width: 0.5rem;
-  height: 0.5rem;
-  flex: 0 0 auto;
-  border-right: 2px solid var(--ink-2);
-  border-bottom: 2px solid var(--ink-2);
-  transform: rotate(45deg) translate(-0.1em, -0.1em);
-  transition: transform var(--dur) var(--ease-out);
-}
-
-.setup-more[open] > summary::after {
-  transform: rotate(225deg) translate(-0.1em, -0.1em);
-}
-
-.setup-more[open] > summary {
-  border-bottom: 1px solid var(--line);
-}
-
-.setup-more > fieldset:last-child {
-  padding-bottom: 1.1rem;
-}
-
-.setup-more .choice-group {
-  margin: 1.1rem 1rem 0;
-}
-
-/* ---------- Regular width ----------
- * The same four destinations become a rail down the leading edge, which is
- * where iPad puts its sections and where a hand holding the device already
- * is. Only the axis changes: same markup, same tab, rotated a quarter turn so
- * it now sticks out of the page edge toward the content. */
-@media (min-width: 45rem) {
-  .product-app[data-chrome~='tabs'] {
-    padding-bottom: max(1.5rem, var(--safe-bottom));
-    padding-left: calc(var(--rail-w) + var(--safe-left) + 1.5rem);
-  }
-
-  .product-app[data-chrome~='tabs'] .product-topbar {
-    left: calc(var(--rail-w) + var(--safe-left));
-  }
-
-  .trail-tabs {
-    top: 0;
-    right: auto;
-    bottom: 0;
-    display: flex;
-    width: calc(var(--rail-w) + var(--safe-left));
-    height: auto;
-    flex-direction: column;
-    gap: 0.2rem;
-    justify-content: center;
-    padding: var(--safe-top) 0.4rem max(1rem, var(--safe-bottom)) calc(var(--safe-left) + 0.4rem);
-    border-top: 0;
-    border-right: 1px solid var(--line);
-  }
-
-  .trail-tab {
-    min-height: 3.9rem;
-    border-radius: 0.7rem;
-  }
-
-  .trail-tab[aria-current='page']::before {
-    top: 0.2rem;
-    right: -0.55rem;
-    bottom: 0.2rem;
-    left: 0.25rem;
-    border-top: 1px solid var(--line);
-    border-right: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-    border-left: 0;
-    border-radius: 0 0.7rem 0.7rem 0;
-  }
-}
-
-/* The webapp's eyebrow is `--muted`, which measures 3.36:1 against the page
-   at this size — below the 4.5:1 an 11px label needs, and the webapp is the
-   floor here rather than the target. On a backdrop page `--muted` is already
-   re-pointed to the tone ink and passes comfortably; this is the un-toned
-   case. Soft ink is still visibly quieter than the heading it sits over. */
-.product-kicker {
-  margin-bottom: 0.65rem;
-  color: var(--ink-2);
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.welcome-panel,
-.trailhead,
-.page-heading {
-  margin-bottom: 1.5rem;
-}
-
-.welcome-panel {
-  max-width: 50rem;
-  margin-right: auto;
-  margin-left: auto;
-  text-align: center;
-}
-
-/* The page holds two anchors and lets the Downs breathe between them: the
-   trailhead and its plates at the top, the device's own status at the foot like
-   a colophon. Without this the content stopped wherever it happened to end and
-   left the bottom half looking unfinished rather than open. */
-.picker-page {
-  display: flex;
-  min-height: calc(100vh - var(--keyboard-inset, 0px));
-  flex-direction: column;
-}
-
-.picker-page > .audio-state {
-  margin-top: auto;
-}
-
-/* ---------- The trailhead ----------
- * The front door, left-aligned to sit in the same column as the home screen it
- * opens onto rather than centred against it.
- *
- * The heading trades places with the names. On a device that already knows its
- * learners, "Who is practising?" is a question a child has read a hundred times
- * and their own name is what they came for, so the heading steps down to a line
- * of running text and the names take the display size. With nobody here yet it
- * stays the headline, because then it is the only thing to read. The element is
- * the page's `<h1>` in both states — this is size, not structure. */
-.trailhead[data-state='known'] h1 {
-  margin-bottom: 0;
-  color: var(--ink-soft);
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
-  font-weight: 500;
-  line-height: 1.3;
-  letter-spacing: 0;
-}
-
-.welcome-panel p:last-child,
-.trailhead p:last-child,
-.page-heading p:last-child,
-.trail-hero p,
-.setup-card > p,
-.companion-hero > p,
-.camp-hero > p {
-  color: var(--ink-soft);
-  font-size: clamp(1rem, 2.5vw, 1.15rem);
-}
-
-.paper-card,
-.audio-state,
-.learner-card,
-.practice-card,
-.summary-grid > div,
-.companion-hero,
-.camp-hero,
-.word-progress-list li {
-  border: 1px solid var(--line);
-  background: var(--paper-raised);
-  box-shadow: var(--shadow);
-}
-
-.paper-card,
-.companion-hero,
-.camp-hero {
-  border-radius: var(--radius-lg);
-  padding: clamp(1.35rem, 5vw, 3rem);
-}
-
-.practice-card {
-  border-radius: var(--radius-xl);
-  padding: clamp(1.75rem, 6vw, 2.5rem) clamp(1.35rem, 5vw, 2.25rem) clamp(1.5rem, 5vw, 2rem);
-}
-
-.learner-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
-  gap: 0.85rem;
-  margin: 0 auto 1.25rem;
-  padding: 0;
-  list-style: none;
-}
-
-/* ---------- Name plates ----------
- * The plate is the signature of this screen: a child's own name, set at
- * headline size in the same display serif the dictation sentence uses, with
- * their colour as a spine down the binding edge.
- *
- * A letter in a coloured square is what every account picker on every platform
- * already does, and it forces the name down to a caption to make room for
- * itself. A spine gives the same recognition at a glance, costs no width, and
- * belongs to a world made of paper and records — a row of plates reads as a
- * shelf of ledgers rather than a list of accounts. */
-.learner-card {
-  display: grid;
-  width: 100%;
-  gap: 0 1rem;
-  grid-template-areas:
-    'name arrow'
-    'meta arrow';
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  border-left: 0.4rem solid var(--learner-colour);
-  border-radius: 0.4rem 1.25rem 1.25rem 0.4rem;
-  padding: 0.95rem 1.15rem;
-  color: var(--ink);
-  text-align: left;
-}
-
-.learner-card:hover {
-  border-color: color-mix(in oklab, var(--brand) 45%, transparent);
-  border-left-color: var(--learner-colour);
-  transform: translateY(-0.08rem);
-}
-
-.learner-name {
-  grid-area: name;
-  color: var(--ink);
-  font-family: var(--font-display);
-  font-size: clamp(1.6rem, 6vw, 2rem);
-  font-weight: 500;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-}
-
-.learner-meta {
-  grid-area: meta;
-  margin-top: 0.2rem;
-  color: var(--ink-soft);
-  font-size: 0.82rem;
-}
-
-/* Which learner the device last opened. It marks the plate rather than making
-   its own row: the fact is about this name, not about the list. */
-.learner-meta em {
-  display: block;
-  margin-top: 0.1rem;
-  color: var(--trail-strong);
-  font-size: 0.75rem;
-  font-style: normal;
-  font-weight: 850;
-}
-
-.learner-arrow {
-  grid-area: arrow;
-  color: var(--trail);
-  font-size: 1.45rem;
-  font-weight: 900;
-}
-
-/* Adding somebody is a once-ever task, so it asks for the form rather than
-   occupying the page with it. Quiet, and aligned with the plates it follows. */
-.add-learner-toggle {
-  display: inline-flex;
-  margin: 0 0 1.25rem;
-  padding: 0.6rem 0.9rem 0.6rem 0.75rem;
-  gap: 0.5rem;
-  align-items: baseline;
-  border: 0;
-  background: none;
-  box-shadow: none;
-  color: var(--ink-soft);
-  font-size: 0.95rem;
-  font-weight: 750;
-}
-
-/* The mark says "add"; it does not need to say it in the accent colour, where
-   it outshouted its own label. */
-.add-learner-toggle span {
-  font-size: 1.2rem;
-  font-weight: 900;
-}
-
-.add-learner-toggle:active:not(:disabled) {
-  color: var(--ink);
-  transform: none;
-}
-
-.audio-state {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 0.9rem;
-  align-items: center;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-  border-radius: 1.2rem;
-  padding: 1rem 1.1rem;
-}
-
-.audio-state-ready {
-  border-color: color-mix(in oklab, var(--good) 32%, transparent);
-  background: var(--good-soft);
-}
-
-.audio-state-corrupt,
-.audio-state-unavailable,
-.audio-state-missing {
-  border-color: color-mix(in oklab, var(--bad) 26%, transparent);
-  background: var(--bad-soft);
-}
-
-.audio-state-icon {
-  display: grid;
-  width: 2.55rem;
-  height: 2.55rem;
-  border-radius: 50%;
-  place-items: center;
-  color: var(--panel);
-  background: var(--brand-ink);
-  font-size: 1.1rem;
-  font-weight: 800;
-}
-
-.audio-state h2 {
-  margin-bottom: 0.2rem;
-  font-size: 1rem;
-}
-
-.audio-state p {
-  margin-bottom: 0;
-  color: var(--ink-soft);
-  font-size: 0.9rem;
-}
-
-/* Good news, said quietly. Compact used to keep the panel, its border and its
-   semantic green fill and only drop the body line, which left the loudest
-   element on the front door saying that nothing was wrong. It is a colophon at
-   the foot of the page now: no panel, no fill, one line. */
-.audio-state-compact {
-  grid-template-columns: auto 1fr;
-  gap: 0.55rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink-2);
-}
-
-.audio-state-compact .audio-state-icon {
-  width: 1.35rem;
-  height: 1.35rem;
-  font-size: 0.72rem;
-}
-
-.product-app .audio-state-compact h2 {
-  margin-bottom: 0;
-  font-family: var(--font-sans);
-  font-size: 0.82rem;
-  font-weight: 650;
-  letter-spacing: 0;
-}
-
-.add-learner-card {
-  display: grid;
-  grid-template-columns: minmax(10rem, 0.7fr) minmax(16rem, 1.3fr);
-  gap: clamp(1.5rem, 5vw, 3rem);
-  margin-top: 1rem;
-}
-
-.learner-form,
-.learner-form label {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.learner-form {
-  gap: 0.9rem;
-}
-
-/* Labels are labels. They were grouped with the controls below and so were
-   drawn with a border, a padding and a control surface: "First name or
-   nickname" rendered as an empty field above the real one, and each wrapping
-   label drew a second box around its own select. */
-.learner-form label {
-  color: var(--ink-soft);
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-
-.learner-form input,
-.learner-form select,
-.answer-form input {
-  width: 100%;
-  min-width: 0;
-  border: 1px solid var(--line-strong);
-  padding: 0.75rem 0.85rem;
-  color: var(--ink);
-  background: var(--control-surface);
-}
-
-.field-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-/* Pills are moulded, not flat: the web app's primary carries a hairline of
-   light along its top edge so the fill reads as a raised surface rather than
-   a painted rectangle, and it presses back down under the finger. */
-.button-primary,
-.button-quiet,
-.button-danger {
-  border: 1px solid transparent;
-  border-radius: 999px;
-  padding: 0.7rem 1.25rem;
-  font-weight: 850;
-  box-shadow: var(--shadow-xs), inset 0 1px 0 rgb(255 255 255 / 20%);
-  transition:
-    filter var(--dur-press) var(--ease-press),
-    box-shadow var(--dur) var(--ease-out),
-    transform var(--dur-press) var(--ease-press);
-}
-
-.button-primary:hover:not(:disabled),
-.button-quiet:hover:not(:disabled),
-.button-danger:hover:not(:disabled) {
-  filter: brightness(0.96);
-  box-shadow:
-    var(--shadow),
-    inset 0 1px 0 rgb(255 255 255 / 28%),
-    0 6px 18px -4px color-mix(in oklab, var(--brand) 38%, transparent);
-}
-
-/* The press is the whole affordance on a phone: the pill compresses under the
-   finger and dims, and the raised highlight flattens with it. */
-.button-primary:active:not(:disabled),
-.button-quiet:active:not(:disabled),
-.button-danger:active:not(:disabled) {
-  transform: scale(var(--press-scale));
-  filter: brightness(0.92);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%);
-}
-
-.button-primary {
-  color: var(--panel);
-  background: var(--brand-ink);
-}
-
-.button-quiet {
-  border-color: color-mix(in oklab, var(--brand) 28%, transparent);
-  color: var(--brand-ink);
-  background: var(--brand-soft);
-}
-
-/* On a backdrop page `--brand-soft` is the brand mixed into the region's own
-   wash, which on a night region is a filled navy pill — a second primary
-   standing beside the first, with nothing to say which of the two the round
-   was leading to. Over art, quiet means a hairline and the tone ink. */
-.product-app[data-hero-tone] .button-quiet {
-  border-color: color-mix(in oklab, var(--hero-shell-ink) 34%, transparent);
-  background: color-mix(in oklab, var(--hero-shell-ink) 8%, transparent);
-}
-
-.button-danger {
-  color: var(--panel);
-  background: var(--bad-strong);
-}
-
-.button-large {
-  min-height: 3.35rem;
-  padding: 0.85rem 1.25rem;
-}
-
-.inline-error {
-  margin: 0.85rem 0 0;
-  color: var(--retry);
-  font-weight: 750;
-}
-
-/* The home hero is not a card: the mission stands on the Downs themselves,
-   with only the companion chip taking a surface. */
-.trail-hero {
-  display: grid;
-  justify-items: start;
-  gap: 0.35rem;
-  padding: clamp(0.5rem, 3vw, 2rem) 0 clamp(1.75rem, 6vw, 3rem);
-}
-
-/* With the second sentence moved out of it, the headline is short enough to be
-   the one piece of display type on the screen, so it takes the size that role
-   deserves. Set here rather than on `.product-app h1` because the narrow-phone
-   cap further down the sheet would otherwise win on source order. */
-.child-home .trail-hero h1 {
-  margin-bottom: 0.55rem;
-  max-width: 15ch;
-  font-size: clamp(2.5rem, 10.5vw, 4rem);
-  line-height: 0.98;
-}
-
-/* Today's status, sized as a status. A marker rather than a bullet: it is one
-   sentence about one day, and the diamond is the same mark the trail uses for
-   a waypoint. */
-.hero-due {
-  display: flex;
-  gap: 0.5rem;
-  align-items: baseline;
-  margin-bottom: 1.15rem;
-  color: var(--ink);
-  font-size: 1rem;
-  font-weight: 650;
-}
-
-.hero-due::before {
-  content: '◆';
-  color: var(--brand);
-  font-size: 0.62em;
-  line-height: 1.9;
-}
-
-.hero-due[data-due='none'] {
-  color: var(--ink-2);
-  font-weight: 550;
-}
-
-.hero-due[data-due='none']::before {
-  color: color-mix(in oklab, var(--ink) 40%, transparent);
-}
-
-/* The one filled control on the screen, and the only reason the screen exists.
-   Full width up to a comfortable measure so the target is unmissable rather
-   than pill-sized in the middle of a painted field. */
-.child-home .trail-hero .button-primary {
-  justify-self: stretch;
-  max-width: 26rem;
-}
-
-/* A quiet rule-and-label for the sections below the fold: they are captions on
-   a page, not headings competing with the display type above them. */
-.product-app .section-label {
-  display: flex;
-  gap: 0.7rem;
-  align-items: center;
-  margin-bottom: 0.8rem;
-  color: var(--ink-2);
-  font-family: var(--font-sans);
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.product-app .section-label::after {
-  content: '';
-  flex: 1 1 auto;
-  height: 1px;
-  background: var(--line);
-}
-
-.companions {
-  margin-bottom: 1.5rem;
-}
-
-.hero-greet {
-  margin-bottom: 0.15rem;
-  font-family: var(--font-serif);
-  font-size: 1rem;
-  letter-spacing: -0.01em;
-}
-
-.trail-hero h1 {
-  margin-bottom: 1.25rem;
-  max-width: 18ch;
-}
-
-/* The web hero's accent word is flat brand, but it sits there on a theme
-   panel. Here it sits on the art, so it takes the tone ink with a brand cast
-   — enough to read as an accent, not enough to dissolve into the sky. */
-.trail-hero h1 em {
-  color: color-mix(in oklab, var(--brand) 34%, var(--hero-shell-ink));
-  font-style: italic;
-}
-
-.trail-hero .button-primary {
-  margin-top: 0.35rem;
-}
-
-/* Home meadow: caught companions plus inert Full-pack silhouette slots. The
-   empty branch is a status card, not an absolute decorative layer, so it can
-   sit in the hero's normal flow the way the web meadow empty state does. */
-.monster-meadow-empty {
-  width: min(100%, 24rem);
-  margin-bottom: 1.5rem;
-  border: 1px solid var(--hero-panel-line, var(--line));
-  border-radius: var(--radius);
-  padding: 0.85rem 1rem;
-  background: var(--hero-panel, var(--paper-raised));
-}
-
-.monster-meadow-empty strong,
-.monster-meadow-empty p {
-  display: block;
-  margin: 0;
-}
-
-.monster-meadow-empty p {
-  margin-top: 0.25rem;
-  color: var(--ink-soft);
-  font-size: 0.92rem;
-}
-
-.monster-meadow {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
-  width: min(100%, 24rem);
-  margin-bottom: 1.5rem;
-}
-
-.meadow-slot {
-  display: grid;
-  justify-items: center;
-  gap: 0.35rem;
-  border: 1px solid var(--hero-panel-line, var(--line));
-  border-radius: var(--radius);
-  padding: 0.55rem 0.4rem 0.65rem;
-  background: var(--hero-panel, var(--paper-raised));
-  text-align: center;
-}
-
-.meadow-slot-art {
-  display: block;
-  width: 4.25rem;
-  height: 4.25rem;
-  object-fit: contain;
-}
-
-/* An uncaught slot is an empty space in a collection, not a grey lump: a
-   dashed edge, a quieter fill and one small waypoint mark where the creature
-   will stand. Same footprint as the art it replaces, so the strip keeps its
-   rhythm whether it holds three companions or none. */
-.meadow-slot.is-locked {
-  border-style: dashed;
-  border-color: color-mix(in oklab, var(--ink) 26%, transparent);
-  background: color-mix(in oklab, var(--hero-panel, var(--paper-raised)) 48%, transparent);
-}
-
-.meadow-slot-empty {
-  display: grid;
-  width: 4.25rem;
-  height: 4.25rem;
-  place-items: center;
-  color: color-mix(in oklab, var(--ink) 24%, transparent);
-  font-size: 1.15rem;
-}
-
-.meadow-slot p {
-  margin: 0;
-}
-
-.meadow-slot strong,
-.meadow-slot span {
-  display: block;
-}
-
-.meadow-slot strong {
-  font-size: 0.82rem;
-  line-height: 1.2;
-}
-
-.meadow-slot span {
-  color: var(--ink-soft);
-  font-size: 0.72rem;
-}
-
-/* The companion is brand-coloured chrome, so it follows the brand token
-   through both themes and through its growth stages. */
-/* Setup is one region of the Downs with the controls floating on it, as the
-   web setup scene is — no intermediate sheet between art and control. */
-.setup-card {
-  max-width: 52rem;
-  padding-bottom: clamp(1.5rem, 6vw, 3rem);
-}
-
-.choice-group {
-  margin: 1.5rem 0 0;
-  border: 0;
-  padding: 0;
-}
-
-.choice-group legend {
-  margin-bottom: 0.75rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink-2);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.segmented-choice,
-.voice-choice {
-  display: grid;
-  gap: 0.7rem;
-}
-
-.segmented-choice {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.segmented-choice button,
-.voice-choice button {
-  border: 1px solid var(--line);
-  padding: 0.85rem;
-  color: var(--ink);
-  background: var(--control-surface);
-}
-
-.segmented-choice button[aria-pressed="true"],
-.voice-choice button[aria-pressed="true"] {
-  border-color: var(--brand);
-  box-shadow: inset 0 0 0 0.12rem var(--brand);
-  background: var(--brand-soft);
-}
-
-.segmented-choice strong,
-.segmented-choice span,
-.voice-choice strong,
-.voice-choice small {
-  display: block;
-}
-
-.segmented-choice strong {
-  font-size: 1.35rem;
-}
-
-.segmented-choice span,
-.voice-choice small {
-  color: var(--ink-soft);
-  font-size: 0.8rem;
-}
-
-.voice-choice {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.voice-choice button {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.75rem;
-  align-items: center;
-  text-align: left;
-}
-
-.choice-group .voice-note {
-  margin-top: 0.6rem;
-  text-align: left;
-}
-
-.toggle-choice {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-}
-
-.toggle-chip {
-  display: inline-flex;
-  gap: 0.55rem;
-  align-items: center;
-  min-height: var(--tap-min);
-  border: 1px solid var(--line);
-  padding: 0.6rem 0.95rem;
-  color: var(--ink);
-  background: var(--control-surface);
-  font-weight: 800;
-}
-
-.toggle-chip[aria-pressed="true"] {
-  border-color: var(--brand);
-  box-shadow: inset 0 0 0 0.12rem var(--brand);
-  background: var(--brand-soft);
-}
-
-.toggle-box {
-  display: grid;
-  width: 1.25rem;
-  height: 1.25rem;
-  border: 1.5px solid var(--line-strong);
-  border-radius: 0.4rem;
-  place-items: center;
-  font-size: 0.8rem;
-}
-
-.toggle-chip[aria-pressed="true"] .toggle-box {
-  border-color: var(--brand);
-  color: var(--panel);
-  background: var(--brand);
-}
-
-.mode-choice {
-  display: grid;
-  gap: 0.7rem;
-}
-
-.mode-choice-card {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.75rem;
-  align-items: center;
-  min-height: 2.75rem;
-  padding: 0.85rem;
-  border: 1px solid var(--line);
-  color: var(--ink);
-  background: var(--control-surface);
-  text-align: left;
-}
-
-.mode-choice-card[aria-pressed="true"] {
-  border-color: var(--brand);
-  box-shadow: inset 0 0 0 0.12rem var(--brand);
-  background: var(--brand-soft);
-}
-
-.length-note {
-  margin: 0 0 0.85rem;
-  color: var(--ink-soft);
-}
-
-.mode-choice-thumb {
-  display: block;
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 0.7rem;
-  object-fit: cover;
-  background: var(--panel-sunken);
-}
-
-.mode-choice-card strong,
-.mode-choice-card small {
-  display: block;
-}
-
-.mode-choice-card small {
-  color: var(--ink-soft);
-  font-size: 0.8rem;
-}
-
-.voice-symbol {
-  display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
-  place-items: center;
-  color: var(--panel);
-  background: var(--brand-ink);
-}
-
-.practice-mode-note {
-  margin: 0 0 0.85rem;
-  color: var(--ink-soft);
-  font-size: 0.92rem;
-}
-
-/* The round is laid out against the space the keyboard leaves, not the screen,
-   so the card is centred in what a learner can actually see. */
-.practice-page {
-  display: grid;
-  align-content: start;
-  min-height: calc(100vh - var(--keyboard-inset, 0px));
-}
-
-.practice-progress {
-  display: flex;
-  margin-bottom: 0.9rem;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-/* One dot per word in the round: filled once the word is secure, ringed while
-   it is the one being worked on. */
-/* A chalk line with the round's waypoints standing on it. A loose row of
-   identical dots said how many words there were and never that they led
-   anywhere; the line is what makes it a trail, and it ends at the flag that
-   marks this section in the tab strip. */
-.round-path {
-  position: relative;
-  display: flex;
-  width: 100%;
-  min-height: 1.25rem;
-  gap: 0.25rem;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.round-path::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  right: 0.9rem;
-  left: 0.2rem;
-  height: 2px;
-  background: repeating-linear-gradient(
-    to right,
-    color-mix(in oklab, var(--ink) 32%, transparent) 0 4px,
-    transparent 4px 9px
+.codex-hero[data-found='false'] .codex-hero-glow {
+  background: radial-gradient(
+    120% 70% at 50% 30%,
+    rgb(255 249 236 / 8%) 0%,
+    rgb(16 26 38 / 0%) 68%
   );
 }
 
-.round-goal {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  color: color-mix(in oklab, var(--ink) 62%, transparent);
+.codex-hero-sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 42%;
+  background: linear-gradient(
+    100deg,
+    rgb(255 255 255 / 0%),
+    rgb(255 255 255 / 8.5%) 46%,
+    rgb(255 255 255 / 0%)
+  );
+  animation: sheen 8s ease-in-out 1.4s infinite;
+  pointer-events: none;
 }
 
-/* The strip stands directly on the art, so each dot is ringed in the page ink
-   rather than in its own fill: the ink is the one colour already chosen to
-   survive whatever the art does, so the ring carries the contrast and the
-   fill is free to be brand or good. */
-.round-step {
-  width: 0.625rem;
-  height: 0.625rem;
-  border: 2px solid color-mix(in oklab, var(--ink) 62%, transparent);
+.codex-corner {
+  position: absolute;
+  width: 0.95rem;
+  height: 0.95rem;
+  border: 0 solid rgb(226 166 43 / 45%);
+  pointer-events: none;
+}
+
+.codex-corner[data-corner='tl'] {
+  top: 0.7rem;
+  left: 0.7rem;
+  border-top-width: 1.5px;
+  border-left-width: 1.5px;
+  border-radius: 0.45rem 0 0;
+}
+
+.codex-corner[data-corner='tr'] {
+  top: 0.7rem;
+  right: 0.7rem;
+  border-top-width: 1.5px;
+  border-right-width: 1.5px;
+  border-radius: 0 0.45rem 0 0;
+}
+
+.codex-corner[data-corner='bl'] {
+  bottom: 0.7rem;
+  left: 0.7rem;
+  border-bottom-width: 1.5px;
+  border-left-width: 1.5px;
+  border-radius: 0 0 0 0.45rem;
+}
+
+.codex-corner[data-corner='br'] {
+  right: 0.7rem;
+  bottom: 0.7rem;
+  border-right-width: 1.5px;
+  border-bottom-width: 1.5px;
+  border-radius: 0 0 0.45rem;
+}
+
+.codex-no {
+  position: absolute;
+  top: 1rem;
+  left: 1.4rem;
+  z-index: 3;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: rgb(255 249 236 / 50%);
+}
+
+.codex-band {
+  position: absolute;
+  top: 0.85rem;
+  right: 1.3rem;
+  z-index: 3;
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
   border-radius: 999px;
-  /* Opaque, not 85%: a mark standing on the line has to interrupt it, or the
-     dashes run straight through the middle of every waypoint. */
-  background: var(--shell-raised);
-  flex-shrink: 0;
-  transition:
-    background-color 220ms var(--ease-out),
-    border-color 220ms var(--ease-out),
-    box-shadow 220ms var(--ease-out);
+  padding: 0.2rem 0.6rem;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  color: var(--dusk-ink);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
 }
 
-.round-step.is-done {
-  border-color: color-mix(in oklab, var(--ink) 80%, transparent);
-  background: var(--good);
+.codex-hero[data-found='false'] .codex-band {
+  border-color: rgb(255 249 236 / 20%);
+  background: rgb(255 249 236 / 6%);
+  color: rgb(255 249 236 / 55%);
 }
 
-/* The halo is drawn by the pulse ring in the polish layer, not by a shadow —
-   see the note there for why that distinction is worth a pseudo-element. */
-.round-step.is-current {
-  width: 1rem;
-  height: 1rem;
-  border-color: var(--ink);
-  background: var(--brand);
-}
-
-.practice-card {
-  max-width: 46rem;
-
-  /* Upstream's session card is `color-mix(--panel 80%, transparent)` with a
-     blur: theme glass that reads the same over every region. Resetting the
-     tone-driven tokens here restores the scheme for the whole card, so the
-     art tints what is behind the glass rather than the glass itself. */
-  --ink: var(--theme-ink);
-  --ink-2: var(--theme-ink-2);
-  --muted: var(--theme-muted);
-  --paper-raised: color-mix(in oklab, var(--theme-panel) 80%, transparent);
-  --control-surface: var(--theme-panel);
-  --line: color-mix(in oklab, var(--theme-line) 80%, transparent);
-  --line-strong: var(--theme-line-strong);
-  --brand-soft: var(--theme-brand-soft);
-
-  /* Re-declaring the tokens is not enough: `color` itself still inherited the
-     page's tone ink, so headings — which set `color: var(--ink)` explicitly —
-     took the theme while every plain paragraph in the card stayed the region's
-     cream. On a dusk region that put the sentence explaining a wrong answer in
-     near-white on pale pink. */
-  color: var(--ink);
-}
-
-/* Ported from ks2-mastery `.spelling-in-session .prompt-instr`: a quiet
-   centred line, not a headline. The card's voice is the sentence. */
-.practice-card h1.prompt-instr {
-  max-width: none;
-  margin-bottom: 1rem;
-  color: color-mix(in oklab, var(--ink) 72%, transparent);
-  font-family: var(--font-serif);
-  font-size: 0.9rem;
-  font-weight: 500;
-  letter-spacing: -0.005em;
-  line-height: 1.4;
-  text-align: center;
-}
-
-/* `.spelling-in-session .cloze` — centred display serif with no rule down the
-   side. Upstream marks the gap with a brand underline, which the vendored
-   cloze text already spells as underscores. */
-/* An empty inline-block takes its baseline from its bottom edge, which put the
-   rule in the 3px directly *above* the baseline — floating in the line rather
-   than sitting under it. Dropping it clear of the baseline makes it read as the
-   writing line the gap is asking to be filled on. */
-.cloze-blank {
-  display: inline-block;
-  min-width: 120px;
-  margin: 0 0.375rem;
-  border-bottom: 3px solid var(--brand);
-  vertical-align: -0.22em;
-}
-
-.cloze-prompt {
-  margin-bottom: 1.5rem;
-  color: color-mix(in oklab, var(--ink) 92%, black);
-  font-family: var(--font-serif);
-  font-size: clamp(1.35rem, 4.6vw, 1.75rem);
-  font-weight: 500;
-  letter-spacing: -0.015em;
-  line-height: 1.35;
-  text-align: center;
-  text-decoration-color: var(--brand);
-}
-
-/* `.word-input-wrap` + `.word-input`: no box. The answer sits on a single
-   underline that takes the brand colour on focus — upstream deliberately
-   suppresses the global focus ring here so the treatment stays minimal. */
-.word-input-wrap {
+.codex-stage {
   position: relative;
-  max-width: 35rem;
-  margin: 0 auto;
-}
-
-.answer-form {
-  display: block;
-}
-
-.answer-form input.word-input {
+  display: grid;
   width: 100%;
-  min-height: 0;
-  padding: 0.4rem 1.25rem 0.9rem;
-  border: 0;
-  border-bottom: 2.5px solid var(--line-strong);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: color-mix(in oklab, var(--ink) 92%, black);
-  font-family: var(--font-serif);
-  font-size: clamp(1.7rem, 6.5vw, 2.4rem);
-  font-weight: 500;
-  letter-spacing: -0.005em;
-  text-align: center;
-  transition: border-color var(--dur) var(--ease-out);
+  height: clamp(11rem, 34vw, 13rem);
+  place-items: center;
+  padding: 2.25rem 0 0;
 }
 
-.answer-form input.word-input:focus,
-.answer-form input.word-input:focus-visible {
-  border-radius: 0;
-  border-bottom-width: 3.5px;
-  border-bottom-color: var(--brand);
-  outline: none;
-  box-shadow: none;
+.codex-stage img {
+  width: min(11.5rem, 60%);
+  height: 100%;
+  object-fit: contain;
+  animation: float 6.4s ease-in-out infinite;
 }
 
-/* `.audio-row` + `.btn.icon.lg` — icon-only circles under the answer line.
-   The name lives in `aria-label`; upstream shows no text at all here. */
-.audio-row {
-  display: flex;
-  gap: 0.55rem;
-  justify-content: center;
-  margin-top: 1.25rem;
+.codex-hero[data-found='false'] .codex-stage img,
+.codex-growth li[data-reached='false'] img,
+.codex-roster button[data-found='false'] img {
+  filter: brightness(0) invert(1) opacity(0.15);
 }
 
-/* Named while there is room for a name. `.btn-icon` is a circle everywhere
-   else in the app; on the round card it grows into a pill around its label and
-   drops back to the circle when the keyboard takes the height. */
-.practice-card .audio-row .btn-icon {
-  width: auto;
-  gap: 0.45rem;
-  padding: 0 1rem 0 0.85rem;
-  border-radius: 999px;
-}
-
-.btn-icon-label {
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: -0.005em;
-}
-
-/* `.product-app button` sets a small radius for every control, so the circle
-   needs the extra class to win. The surface is the tone-aware alias, not a
-   theme token: this row sits on the backdrop art, which does not re-tone. */
-.product-app .btn-icon {
-  display: inline-flex;
-  width: 3.25rem;
-  height: 3.25rem;
-  min-height: 0;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--control-surface);
-  color: var(--ink);
-  transition:
-    transform var(--dur-fast) var(--ease-out),
-    filter var(--dur) var(--ease-out),
-    border-color var(--dur) var(--ease-out);
-}
-
-.btn-icon:active:not(:disabled) {
-  transform: translateY(1px) scale(0.96);
-  border-color: color-mix(in oklab, var(--brand) 38%, var(--line));
-  filter: brightness(0.96);
-}
-
-.btn-icon[disabled] {
-  opacity: 0.55;
-  transform: none;
-}
-
-/* The web spells its prompt in serif italic; only the placeholder leans, so
-   the learner's own spelling stays upright and legible. */
-/* The hint is not the answer, so it does not take the answer's size: at the
-   full 2.4rem it was the largest type on the card and read as a word already
-   written on the line. */
-.answer-form input::placeholder {
-  color: color-mix(in oklab, var(--ink) 46%, transparent);
-  font-size: 1.35rem;
-  font-style: italic;
-  letter-spacing: 0.01em;
-}
-
-/* The web centres submit and skip on one row; on a phone the primary takes the
-   width and the skip sits centred under it rather than wrapping to one side. */
-/* The listening circles and the submit pill are two different decisions, so
-   they need air between them — pressed together the row read as one control
-   group with submit stuck to its bottom edge. */
-.answer-actions {
-  display: grid;
-  margin-top: 1.75rem;
-  gap: 0.75rem;
-  justify-items: center;
-}
-
-.answer-actions .button-primary {
-  width: 100%;
-}
-
-/* A disclosure, not a caption: it has to be readable if you look for it and
-   invisible if you are not. */
-.voice-note {
-  margin: 0.9rem 0 0;
-  color: var(--ink-soft);
-  font-size: 0.7rem;
-  letter-spacing: 0.01em;
-  text-align: center;
-}
-
-.answer-feedback {
-  display: grid;
-  gap: 0.5rem;
-  margin-top: 1.2rem;
-  border: 1px solid color-mix(in oklab, var(--good) 28%, transparent);
-  border-radius: 1.1rem;
-  padding: 1rem;
-  background: var(--good-soft);
-}
-
-.answer-feedback-warn {
-  border-color: color-mix(in oklab, var(--warn) 30%, transparent);
-  background: var(--warn-soft);
-}
-
-.answer-feedback-bad {
-  border-color: color-mix(in oklab, var(--bad) 30%, transparent);
-  background: var(--bad-soft);
-}
-
-.answer-feedback-ribbon {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.85rem;
-  align-items: center;
-}
-
-.feedback-symbol {
-  display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
+.codex-stage-shadow {
+  position: absolute;
+  bottom: 0.4rem;
+  left: 50%;
+  width: 9rem;
+  height: 1.25rem;
+  translate: -50% 0;
   border-radius: 50%;
-  place-items: center;
-  color: var(--panel);
-  background: var(--good-strong);
-  font-size: 1.2rem;
-  font-weight: 800;
+  background: rgb(0 0 0 / 55%);
+  filter: blur(8px);
 }
 
-.answer-feedback-warn .feedback-symbol {
-  background: var(--warn-strong);
+.codex-hero-foot {
+  position: relative;
+  padding: 0.9rem 1.25rem 1rem;
+  background: linear-gradient(0deg, rgb(7 12 18 / 97%) 42%, rgb(7 12 18 / 0%));
 }
 
-.answer-feedback-bad .feedback-symbol {
-  background: var(--bad-strong);
+.codex-hero-foot h2 {
+  color: var(--dusk-ink);
 }
 
-.answer-feedback h2 {
-  margin-bottom: 0.15rem;
-  font-size: 1.15rem;
-}
-
-/* The word itself carries the display serif, as it does in the web ribbon,
-   and is struck through while it is only what the learner typed. */
-.feedback-word {
-  margin-left: 0.35rem;
-  font-family: var(--font-serif);
-  font-size: 1.25rem;
-  font-style: normal;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-
-/* A neutral confirmation for a test round, where a tone would be the result
-   said without words. */
-.answer-recorded {
-  margin: 1.1rem 0 0;
-  color: var(--ink-2);
-  font-size: 0.94rem;
-  font-weight: 600;
-  text-align: center;
-}
-
-.answer-feedback p {
-  margin-bottom: 0;
-  font-size: 0.92rem;
-}
-
-.answer-feedback small {
-  display: block;
-  color: var(--ink-soft);
-}
-
-.exit-confirmation {
-  position: fixed;
-  z-index: 20;
-  inset: 0;
-  display: grid;
-  width: 100%;
-  padding: 1rem;
-  place-items: center;
-  background: rgb(0 0 0 / 44%);
-}
-
-/* An alert floats over a scrim, not over the land, so the region's tone has
-   nothing to say about it — and taking the tone was the bug. The panel came out
-   cream from `--hero-panel` while "End round" inside it read `--bad-strong` and
-   `--panel` from the colour scheme, so on a dark phone a pale pink button with
-   dark text sat on a light panel: the two halves of one control disagreeing
-   about which scheme they were in. Theme-locked, like the round card.
-   Opaque, too: at 82% the Submit button underneath showed through the middle of
-   the sentence explaining what ending the round would do. */
-.exit-confirmation > div {
-  --ink: var(--theme-ink);
-  --ink-2: var(--theme-ink-2);
-  --muted: var(--theme-muted);
-  --panel: var(--theme-panel);
-  --line: var(--theme-line);
-  --line-strong: var(--theme-line-strong);
-  --brand-soft: var(--theme-brand-soft);
-
-  width: min(100%, 30rem);
-  border-radius: 1.3rem;
-  padding: 1.4rem;
-  color: var(--ink);
-  background: var(--theme-panel);
-  box-shadow: var(--shadow-lg);
-}
-
-/* The safe way out of an alert must be at least as legible as the destructive
-   one. `--brand-soft` is the brand mixed into the panel, so on a dark panel
-   "Keep practising" was dark navy on near-navy while "End round" was a pale pink
-   slab — the calm choice was the one you had to hunt for. Full ink and a
-   hairline: quieter than the marked action, and never harder to find. */
-.exit-confirmation .button-quiet {
-  border-color: color-mix(in oklab, var(--ink) 32%, transparent);
-  color: var(--ink);
-  background: none;
-  box-shadow: none;
-}
-
-.exit-confirmation > div > div {
+.codex-hero-title {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.7rem;
-  justify-content: flex-end;
-}
-
-/* The summary hero stands on the art too — the numbers below it are the
-   panels. */
-.summary-hero {
-  padding: clamp(1rem, 4vw, 2rem) 0 0;
-  text-align: center;
-}
-
-.summary-medal {
-  display: grid;
-  width: 4.25rem;
-  height: 4.25rem;
-  margin: 0 auto 1rem;
-  border: 0.35rem solid var(--warn-soft);
-  border-radius: 50%;
-  place-items: center;
-  color: var(--panel);
-  background: var(--warn-strong);
-  font-size: 2rem;
-  font-weight: 800;
-}
-
-.summary-hero h1 {
-  font-size: clamp(2.2rem, 7vw, 3.4rem);
-}
-
-.accuracy-score {
-  display: block;
-  color: var(--brand-ink);
-  font-family: var(--font-figure);
-  font-size: clamp(2.6rem, 9vw, 4.2rem);
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.04em;
-}
-
-/* Upstream's submit is the brand pill with an arrow, and skipping is a quiet
-   text link rather than a second button competing with it. */
-.product-app[data-hero-tone] .practice-card .button-primary,
-.button-submit {
-  border-radius: 999px;
-  font-weight: 800;
-  background: var(--brand);
-  color: #fff;
-}
-
-/* The listening circles sit on the card's own glass, so they need to lift off
-   it rather than repeat it. */
-.product-app .practice-card .btn-icon {
-  border-color: color-mix(in oklab, var(--ink) 22%, transparent);
-  background: color-mix(in oklab, var(--ink) 12%, transparent);
-  color: var(--ink);
-}
-
-/* No underline: on a phone this is a button, and the rule under it read as a
-   second answer line right below the real one. */
-.button-link {
-  border: 0;
-  padding: 0.4rem 0.75rem;
-  background: none;
-  box-shadow: none;
-  color: color-mix(in oklab, var(--ink) 62%, transparent);
-  font-size: 0.92rem;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.button-link:active:not(:disabled) {
-  color: var(--ink);
-  transform: none;
-}
-
-/* The round's housekeeping sits outside the card, at either end. */
-.session-footer {
-  display: flex;
-  margin: 1rem auto 0;
-  max-width: 46rem;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.session-footer .voice-note {
-  margin: 0;
-}
-
-/* Leaving a round is not destructive — every answered word is already saved,
-   and the confirmation says so. As a filled red pill it was the loudest thing
-   on the screen a child is meant to be spelling on, and it out-shouted Submit.
-   It is a quiet control that keeps its edge, and the dialog behind it carries
-   the weight. */
-.product-app[data-hero-tone] .session-footer .button-quiet,
-.session-footer .button-quiet {
-  border-color: color-mix(in oklab, var(--ink) 22%, transparent);
-  border-radius: 999px;
-  padding: 0.5rem 0.95rem;
-  background: none;
-  box-shadow: none;
-  color: color-mix(in oklab, var(--ink) 76%, transparent);
-  font-size: 0.88rem;
-  font-weight: 700;
-}
-
-/* ---------- The card with no room ----------
- * Half the screen is gone the moment a learner taps the answer line, and all of
- * that height is gone before they touch anything if the phone is in landscape,
- * where the whole screen is 430pt tall. Both look the same to this layout, so
- * both get the same answer: the card gives up the room it was only using to
- * breathe, and the sentence and the line under it are what stays.
- *
- * `data-room` is set from `keyboard-inset.js`, which measures the visual
- * viewport. A media query cannot do the keyboard half of this — iOS never
- * changes the layout viewport — and measuring what is left rather than what was
- * taken is what lets one signal cover both.
- *
- * Note the instruction is tightened rather than hidden — it is the round's
- * `<h1>`, and `display: none` would take the page's accessible name with it. */
-:root[data-room='tight'] .practice-card {
-  padding: 1.1rem 1.1rem 1.25rem;
-}
-
-:root[data-room='tight'] .practice-card h1.prompt-instr {
-  margin-bottom: 0.5rem;
-  font-size: 0.8rem;
-}
-
-:root[data-room='tight'] .cloze-prompt {
-  margin-bottom: 0.75rem;
-  font-size: clamp(1.15rem, 4vw, 1.4rem);
-}
-
-:root[data-room='tight'] .answer-form input.word-input {
-  padding: 0.5rem 1rem 0.7rem;
-  font-size: clamp(1.45rem, 5.5vw, 1.9rem);
-}
-
-:root[data-room='tight'] .audio-row {
-  margin-top: 0.85rem;
-}
-
-/* Back to circles: the names are worth their width when the card has room, and
-   the aria-label carries the same instruction when it does not. */
-:root[data-room='tight'] .product-app .practice-card .btn-icon {
-  width: 2.75rem;
-  height: 2.75rem;
-  gap: 0;
-  padding: 0;
-}
-
-:root[data-room='tight'] .btn-icon-label {
-  display: none;
-}
-
-:root[data-room='tight'] .answer-actions {
-  margin-top: 1rem;
-}
-
-/* The dots stay: they are the round's live region, and hiding them would take
-   the progress announcement away from a screen reader mid-round. They only
-   give up their margin. */
-:root[data-room='tight'] .practice-progress {
-  margin-bottom: 0.4rem;
-}
-
-/* With the note gone the footer has one child, and `space-between` would park
-   the danger pill on the left where the note used to start. */
-:root[data-room='tight'] .session-footer {
-  justify-content: flex-end;
-}
-
-:root[data-room='tight'] .session-footer .voice-note {
-  display: none;
-}
-
-/* `.feedback.warn`: a mark, a headline and a quieter line under it. */
-.answer-notice {
-  display: grid;
-  margin-top: 1rem;
-  padding: 0.85rem 1rem;
-  grid-template-columns: auto 1fr;
-  gap: 0.75rem;
-  align-items: start;
-  border: 1px solid color-mix(in oklab, var(--warn) 34%, transparent);
-  border-radius: var(--radius-sm);
-  background: color-mix(in oklab, var(--warn) 16%, var(--paper-raised));
-}
-
-.answer-notice .feedback-symbol {
-  display: inline-flex;
-  width: 1.75rem;
-  height: 1.75rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--warn) 32%, transparent);
-  color: var(--warn-strong);
-  font-weight: 800;
-}
-
-.answer-notice-head {
-  margin: 0;
-  color: var(--ink);
-  font-family: var(--font-serif);
-  font-size: 1.02rem;
-  font-weight: 500;
-}
-
-.answer-notice-body {
-  margin: 0.15rem 0 0;
-  color: var(--ink-2);
-  font-size: 0.88rem;
-}
-
-.info-chip-row {
-  display: flex;
-  margin-bottom: 0.75rem;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-  justify-content: center;
-}
-
-.info-chip-row .chip {
-  padding: 0.2rem 0.65rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--control-surface);
-  color: var(--ink-2);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-/* `.ss-stat-grid`: the standing panel beside upstream's round setup. Numbers
-   set in the display serif so they read as figures in a journal rather than
-   as a dashboard. */
-.stand-panel {
-  margin: 1.25rem 0 0;
-  padding: 0.9rem 1.1rem 1rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--control-surface);
-}
-
-/* Figure first, then its label. With the label above, "Total spellings"
-   wrapping to two lines pushed its number a line lower than the ones beside
-   it, so the row of figures no longer scanned as a row. */
-.stand-grid {
-  display: grid;
-  margin: 0.7rem 0 0;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.85rem 0.75rem;
-}
-
-.stand-grid > div {
-  display: flex;
-  flex-direction: column-reverse;
-  justify-content: flex-end;
-}
-
-.stand-grid dt {
-  color: var(--ink-2);
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  line-height: 1.25;
-  text-transform: uppercase;
-}
-
-.stand-grid dd {
-  margin: 0.1rem 0 0;
-  color: var(--ink);
-  font-family: var(--font-figure);
-  font-size: 1.5rem;
-  font-weight: 700;
-  font-variant-numeric: lining-nums tabular-nums;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-
-/* Due today is the one figure that asks for action, so it takes the warn ink
-   the webapp gives it. */
-.stand-grid .is-warn dd {
-  color: var(--warn-strong);
-}
-
-/* `.summary-drill` + `.fchip`: the words that needed a correction, named
-   rather than counted. A warn-tinted panel so it reads as a gentle flag
-   next to the neutral stat grid, never as a failure. */
-.summary-drill {
-  margin-top: 1.25rem;
-  padding: 0.9rem 1.15rem 1rem;
-  border: 1px solid color-mix(in oklab, var(--warn) 26%, transparent);
-  border-radius: var(--radius);
-  background: color-mix(in oklab, var(--warn-soft) 70%, var(--control-surface));
-}
-
-.summary-drill h2 {
-  margin: 0;
-  color: var(--ink);
-  font-family: var(--font-serif);
-  font-size: 1.1rem;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-
-.summary-drill p {
-  margin: 0.2rem 0 0;
-  color: var(--ink-2);
-  font-size: 0.92rem;
-}
-
-.summary-drill-chips {
-  display: flex;
-  margin: 0.75rem 0 0;
-  padding: 0;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  list-style: none;
-}
-
-.summary-drill-chips li {
-  padding: 0.3rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--control-surface);
-  color: var(--ink);
-  font-family: var(--font-serif);
-  font-size: 1.02rem;
-  font-weight: 500;
-  letter-spacing: -0.005em;
-}
-
-/* Three results as three rows of one panel, not three cards. As a
-   `minmax(10rem, 1fr)` grid the cells fell two-and-one on a phone, so the last
-   one sat alone on a row of its own and the set stopped reading as a set;
-   three-across left no room for the line that explains each figure. Rows keep
-   every word, cost a third of the height, and read as what they are — a short
-   table of what just happened. */
-.summary-grid {
-  display: grid;
-  margin: 1.25rem auto;
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-.summary-grid > div {
-  display: grid;
-  grid-template-columns: 3rem 1fr;
-  gap: 0 0.85rem;
   align-items: baseline;
-  padding: 0.8rem 1.1rem;
+  gap: 0.55rem;
 }
 
-.summary-grid > div + div {
-  border-top: 1px solid var(--line);
+.codex-hero-title span {
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(255 249 236 / 42%);
 }
 
-.summary-grid dt {
-  grid-column: 2;
-  color: var(--ink);
-  font-size: 0.95rem;
-  font-weight: 700;
+.codex-hero-foot p {
+  margin-top: 0.3rem;
+  color: rgb(255 249 236 / 58%);
+  font-size: 0.78rem;
+  line-height: 1.4;
 }
 
-.summary-grid dd {
-  grid-row: 1 / 3;
-  grid-column: 1;
-  margin: 0;
-  color: var(--ink);
-  font-family: var(--font-figure);
-  font-size: 1.75rem;
-  font-weight: 700;
-  font-variant-numeric: lining-nums tabular-nums;
-  letter-spacing: -0.03em;
-  line-height: 1;
-  text-align: right;
-}
-
-.summary-grid p {
-  grid-column: 2;
-  margin-bottom: 0;
-  color: var(--ink-soft);
-  font-size: 0.82rem;
-}
-
-.reward-summary {
-  display: grid;
-  grid-template-columns: minmax(7rem, 0.4fr) minmax(11rem, 1fr);
-  gap: 1rem;
+.codex-meter {
+  display: flex;
   align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
 }
 
-.reward-art {
-  display: block;
-  width: 100%;
-  max-height: 9.5rem;
+.codex-meter-track {
+  position: relative;
+  flex: 1;
+  height: 0.45rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgb(255 249 236 / 13%);
+}
+
+.codex-meter-track span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--percent, 0%);
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+}
+
+.codex-meter .figure {
+  flex: none;
+  font-size: 0.85rem;
+  color: rgb(255 249 236 / 82%);
+}
+
+.codex-next {
+  margin-top: 0.5rem;
+  color: color-mix(in srgb, var(--accent) 92%, transparent);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.codex-hero[data-found='false'] .codex-next {
+  color: rgb(255 249 236 / 40%);
+}
+
+.codex-rule {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0.85rem 0 0.45rem;
+  color: rgb(255 249 236 / 42%);
+}
+
+.codex-rule span {
+  flex: 1;
+  height: 1px;
+  background: rgb(255 249 236 / 13%);
+}
+
+.codex-growth {
+  display: flex;
+  flex: none;
+  gap: 0.35rem;
+}
+
+.codex-growth li {
+  position: relative;
+  display: grid;
+  flex: 1;
+  place-items: center;
+  gap: 0.2rem;
+  border: 1px solid rgb(255 249 236 / 7%);
+  border-radius: 0.9rem;
+  padding: 0.45rem 0.2rem 0.4rem;
+  background: rgb(255 249 236 / 2%);
+}
+
+.codex-growth li[data-reached='true'] {
+  border-color: rgb(255 249 236 / 16%);
+  background: rgb(255 249 236 / 5%);
+}
+
+.codex-growth li[data-here='true'] {
+  border-color: color-mix(in srgb, var(--accent) 85%, transparent);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.codex-growth img {
+  width: 2rem;
+  height: 2rem;
   object-fit: contain;
 }
 
-.summary-actions {
+.codex-growth span {
+  height: 1.25rem;
+  overflow: hidden;
+  color: rgb(255 249 236 / 24%);
+  font-size: 0.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.codex-growth li[data-reached='true'] span {
+  color: rgb(255 249 236 / 55%);
+}
+
+.codex-growth li[data-here='true'] span {
+  color: var(--dusk-ink);
+}
+
+.codex-roster {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  flex: none;
   justify-content: center;
+  gap: 0.45rem;
+}
+
+.codex-roster button {
+  position: relative;
+  display: grid;
+  /* Grow to share the row, but never stretch a short roster across it. */
+  flex: 1 1 5.25rem;
+  max-width: 8rem;
+  place-items: center;
+  gap: 0.2rem;
+  border: 1px solid rgb(255 249 236 / 12%);
+  border-radius: 1.1rem;
+  padding: 0.55rem 0.2rem 0.5rem;
+  background: rgb(255 249 236 / 4.5%);
+}
+
+.codex-roster button[aria-pressed='true'] {
+  border-color: color-mix(in srgb, var(--accent) 90%, transparent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 10px 24px -12px var(--accent);
+}
+
+.codex-roster-no {
+  position: absolute;
+  top: 0.3rem;
+  left: 0.55rem;
+  font-size: 0.45rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgb(255 249 236 / 32%);
+}
+
+.codex-roster img {
+  width: 2.4rem;
+  height: 2.4rem;
+  object-fit: contain;
+}
+
+.codex-roster strong {
+  font-family: var(--serif);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgb(255 249 236 / 40%);
+}
+
+.codex-roster button[data-found='true'] strong {
+  color: var(--dusk-ink);
+}
+
+.codex-pips {
+  display: flex;
+  gap: 0.18rem;
+}
+
+.codex-pips span {
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: rgb(255 249 236 / 16%);
+}
+
+.codex-pips span[data-lit='true'] {
+  background: var(--accent);
+}
+
+.codex-stats {
+  display: flex;
+  flex: none;
+  gap: 0.45rem;
+  margin-top: auto;
+  padding: 0.75rem 0 0.5rem;
+}
+
+.codex-stats div {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  gap: 0.1rem;
+  border: 1px solid rgb(226 166 43 / 22%);
+  border-radius: 0.9rem;
+  padding: 0.55rem 0.25rem 0.5rem;
+  background: rgb(226 166 43 / 7%);
+}
+
+.codex-stats .figure {
+  font-size: 1.2rem;
+  color: #f0cd88;
+}
+
+.codex-stats .label {
+  color: rgb(255 249 236 / 45%);
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.codex-zoom {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  width: 100%;
+  place-items: center;
+  background: rgb(6 10 16 / 95%);
+  animation: riseSoft 200ms ease backwards;
+}
+
+.codex-zoom img {
+  width: min(18rem, 74vw);
+  height: min(18rem, 74vw);
+  object-fit: contain;
+  animation: float 6.4s ease-in-out infinite;
+}
+
+.codex-zoom div {
+  display: grid;
+  place-items: center;
+  gap: 0.3rem;
   margin-top: 1rem;
 }
 
-.word-progress-list {
-  display: grid;
-  gap: 0.65rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* Word, then how it is going, then how far it has climbed. The stage used to
-   lead as a numeral in a filled circle, with a status word repeating it in
-   prose at the far end of the row — which wrapped onto its own line on a phone
-   and made every row 135px tall to hold one spelling. */
-.word-progress-list li {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0 1rem;
-  align-items: center;
-  border-radius: 1rem;
-  padding: 0.7rem 1rem 0.75rem;
-}
-
-.word-progress-list strong {
-  grid-column: 1;
-  font-family: var(--font-serif);
-  font-size: 1.2rem;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-
-.word-progress-stage {
-  display: flex;
-  grid-row: 1 / 3;
-  grid-column: 2;
-  gap: 0.22rem;
-  align-items: center;
-}
-
-.word-progress-stage span {
-  width: 0.42rem;
-  height: 0.42rem;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--ink) 18%, transparent);
-}
-
-/* The fourth pip is the rung the engine calls secure, so it is where the strip
-   changes colour: a child can see "two more and this word is mine". */
-.word-progress-stage span.is-reached {
-  background: var(--brand);
-}
-
-.word-progress-stage span.is-reached:nth-child(n + 4) {
-  background: var(--good-strong);
-}
-
-.word-progress-list strong,
-.word-progress-list small {
-  display: block;
-}
-
-.word-progress-list small,
-.word-progress-list li > span:last-child {
-  color: var(--ink-soft);
-  font-size: 0.82rem;
-}
-
-.empty-state {
-  max-width: 38rem;
-  text-align: center;
-}
-
-.companion-hero,
-.camp-hero {
-  max-width: 50rem;
-  text-align: center;
-}
-
-.codex-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin: 0 0 1.25rem;
-  padding: 0;
-  list-style: none;
-}
-
-.codex-card {
-  display: grid;
-  justify-items: center;
-  gap: 0.35rem;
-  width: 100%;
-  min-height: 100%;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 0.85rem 0.55rem;
-  color: var(--ink);
-  background: var(--paper-raised);
-  box-shadow: var(--shadow);
-  text-align: center;
-}
-
-button.codex-card {
-  cursor: pointer;
-}
-
-.codex-card.is-selected {
-  border-color: var(--brand);
-  box-shadow: inset 0 0 0 0.12rem var(--brand);
-  background: var(--brand-soft);
-}
-
-.codex-card-art {
-  display: block;
-  width: 5rem;
-  height: 5rem;
-  object-fit: contain;
-}
-
-/* An uncaught entry is an empty space in a collection, the same shape the home
-   strip uses for the same thing — not a grey lump the size of the painted art
-   beside it. */
-.codex-card.is-locked {
-  border-style: dashed;
-  border-color: color-mix(in oklab, var(--ink) 26%, transparent);
-  background: color-mix(in oklab, var(--paper-raised) 45%, transparent);
-  box-shadow: none;
-}
-
-.codex-card.is-locked .codex-card-art {
-  display: none;
-}
-
-.codex-card-empty {
-  display: grid;
-  width: 100%;
-  aspect-ratio: 1;
-  place-items: center;
-  color: color-mix(in oklab, var(--ink) 24%, transparent);
-  font-size: 1.15rem;
-}
-
-.codex-card strong,
-.codex-card small {
-  display: block;
-}
-
-.codex-card small {
-  color: var(--ink-soft);
-  font-size: 0.78rem;
-}
-
-
-button.codex-card:hover:not(.is-locked) {
-  border-color: color-mix(in oklab, var(--brand) 52%, var(--line));
-  box-shadow: 
-    0 0 0 1px color-mix(in oklab, var(--brand) 52%, var(--line)),
-    var(--shadow-warm);
-  transform: translateY(-2px);
-}
-
-.codex-card {
-  transition: border-color 200ms ease, box-shadow 200ms ease, 
-    background-color 200ms ease, transform 200ms var(--ease-out);
-  position: relative;
-}
-
-.codex-card.is-locked {
-  cursor: default;
-}
-
-.codex-card.is-locked:hover {
-  border-color: var(--line);
-  box-shadow: var(--shadow);
-  transform: none;
-}
-
-.codex-card.is-caught .codex-card-art {
-  animation: codex-monster-float 5.8s ease-in-out infinite;
-  animation-delay: var(--monster-float-delay, 0s);
-}
-
-@keyframes codex-monster-float {
-  0%, 100% {
-    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
-  }
-  36% {
-    transform:
-      translate3d(var(--monster-float-pan-a, 3px), 
-        calc(var(--monster-float-lift-a, 4px) * -1), 0)
-      scale(var(--monster-float-scale-a, 1.008))
-      rotate(var(--monster-float-tilt-a, 0.6deg));
-  }
-  72% {
-    transform:
-      translate3d(var(--monster-float-pan-b, -2px), 
-        calc(var(--monster-float-lift-b, 2px) * -1), 0)
-      scale(var(--monster-float-scale-b, 1.002))
-      rotate(var(--monster-float-tilt-b, -0.3deg));
-  }
-}
-
-@keyframes codex-egg-breathe {
-  0%, 100% { 
-    transform: translateY(0) scale(1); 
-  }
-  50% { 
-    transform: translateY(var(--egg-breathe-lift, -3px)) 
-      scale(var(--egg-breathe-scale, 1.01)); 
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .codex-card {
-    transition: none;
-  }
-  .codex-card.is-caught .codex-card-art {
-    animation: none;
-  }
-}
-
-.codex-page .companion-hero {
-  margin-top: 0.25rem;
-}
-
-.codex-page .companion-hero h2 {
-  margin: 0.15rem 0 0.55rem;
-  font-family: var(--font-serif);
-  font-size: clamp(1.7rem, 5vw, 2.4rem);
+.codex-zoom strong {
+  font-family: var(--serif);
+  font-size: 1.85rem;
   font-weight: 500;
   letter-spacing: -0.03em;
-  line-height: 1.05;
+  color: var(--dusk-ink);
 }
 
-/* The Monster Stage island: one bounded, presentation-only canvas square. */
-.monster-stage {
+.codex-zoom small {
+  color: rgb(255 249 236 / 55%);
+  font-size: 0.75rem;
+}
+
+/* --- camp ---------------------------------------------------------------- */
+
+.camp-ring {
   position: relative;
-  width: min(100%, 22rem);
-  min-width: min(100%, 280px);
-  aspect-ratio: 1 / 1;
-  margin: 0 auto 1.35rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: radial-gradient(circle at 50% 56%, var(--panel), var(--bg) 74%);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--panel) 45%, transparent);
-  touch-action: manipulation;
+  width: min(13.5rem, 58vw);
+  aspect-ratio: 1;
+  margin: 0.9rem auto 0;
+  flex: none;
+  animation: rise 520ms var(--ease) 60ms backwards;
 }
 
-.monster-stage canvas {
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
-}
-
-.monster-stage-img {
+.camp-ring svg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  padding: 6%;
-  box-sizing: border-box;
-  object-fit: contain;
+  rotate: -90deg;
 }
 
-.companion-hero dl {
+.camp-ring-face {
+  position: absolute;
+  inset: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
-  margin: 1.25rem 0;
+  place-items: center;
+  text-align: center;
 }
 
-.companion-hero dl div {
+.camp-ring-face svg {
+  position: static;
+  width: 1.85rem;
+  height: 1.85rem;
+  rotate: none;
+  color: var(--brass);
+}
+
+.camp-ring-face .figure {
+  display: block;
+  font-size: 4.25rem;
+  line-height: 0.86;
+  letter-spacing: -0.05em;
+}
+
+.camp-card {
+  flex: none;
+  margin-top: 1.1rem;
+  animation: rise 500ms var(--ease) 140ms backwards;
+}
+
+.camp-card h1 {
+  margin-bottom: 0.5rem;
+  font-size: clamp(1.5rem, 6.5vw, 1.7rem);
+  line-height: 1.08;
+}
+
+.camp-figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.camp-figures div {
   border-radius: 1rem;
-  padding: 1rem;
-  background: color-mix(in oklab, var(--brand) 8%, transparent);
+  padding: 0.7rem 0.8rem;
+  background: rgb(29 43 58 / 5%);
 }
 
-.companion-hero dt {
+.camp-figures .figure {
+  display: block;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.camp-figures .label {
+  display: block;
+  margin-top: 0.2rem;
+  letter-spacing: 0.09em;
+  color: var(--ink-soft);
+}
+
+.camp-card .button-primary {
+  margin-top: 0.9rem;
+  border-color: rgb(160 107 34 / 40%);
+  background: rgb(160 107 34 / 10%);
+  color: var(--brass-deep);
+  box-shadow: none;
+}
+
+/* --- setup --------------------------------------------------------------- */
+
+.setup-scene .scene-body {
+  color: var(--dusk-ink);
+  padding-bottom: 0;
+}
+
+.setup-chrome {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.75rem;
+  animation: riseSoft 340ms var(--ease) backwards;
+}
+
+.setup-chrome .glass-button {
+  justify-content: center;
+  width: 2.75rem;
+  padding: 0;
+}
+
+.setup-chrome > span {
+  flex: 1;
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgb(255 249 236 / 60%);
+}
+
+.setup-quest {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 0;
+  padding-bottom: 1.25rem;
+}
+
+.setup-quest img {
+  position: absolute;
+  right: -1rem;
+  bottom: 0.9rem;
+  width: min(11rem, 45%);
+  object-fit: contain;
+  filter: drop-shadow(0 22px 26px rgb(0 0 0 / 62%));
+  animation: float 7.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.setup-quest .product-kicker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.7rem;
+  letter-spacing: 0.22em;
+  color: rgb(230 203 142 / 86%);
+}
+
+.setup-quest .product-kicker span {
+  width: 2.75rem;
+  height: 1px;
+  flex: none;
+  background: linear-gradient(90deg, rgb(230 203 142 / 70%), rgb(230 203 142 / 0%));
+}
+
+.setup-quest h1 {
+  position: relative;
+  max-width: 14rem;
+  font-size: clamp(2.35rem, 11.5vw, 2.75rem);
+  line-height: 0.94;
+  letter-spacing: -0.035em;
+  color: var(--dusk-ink);
+  text-shadow: 0 2px 22px rgb(0 0 0 / 60%);
+}
+
+.setup-quest p {
+  position: relative;
+  max-width: 15rem;
+  margin-top: 0.7rem;
+  color: rgb(255 249 236 / 70%);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.setup-tally {
+  position: relative;
+  display: flex;
+  width: max-content;
+  margin-top: 1rem;
+  border-top: 1px solid rgb(230 203 142 / 30%);
+  border-bottom: 1px solid rgb(255 249 236 / 10%);
+}
+
+.setup-tally div {
+  display: grid;
+  gap: 0.05rem;
+  padding: 0.45rem 0.95rem;
+}
+
+.setup-tally div:first-child {
+  padding-left: 0;
+}
+
+.setup-tally div + div {
+  border-left: 1px solid rgb(255 249 236 / 13%);
+}
+
+.setup-tally .figure {
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--dusk-ink);
+}
+
+.setup-tally .label {
+  font-size: 0.53rem;
+  letter-spacing: 0.16em;
+  color: rgb(230 203 142 / 80%);
+}
+
+.quest-tiles {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.55rem;
+}
+
+.quest-tile {
+  display: block;
+  padding: 0;
+}
+
+.quest-tile > span {
+  position: relative;
+  display: block;
+  height: 7rem;
+  border: 1px solid rgb(255 249 236 / 14%);
+  border-radius: 1.05rem;
+  overflow: hidden;
+  box-shadow: 0 8px 18px -14px rgb(0 0 0 / 70%);
+  transition:
+    transform 360ms var(--ease),
+    box-shadow 360ms ease,
+    border-color 360ms ease;
+}
+
+.quest-tile[aria-pressed='true'] > span {
+  border-color: rgb(230 203 142 / 80%);
+  translate: 0 -0.4rem;
+  box-shadow:
+    0 20px 32px -16px rgb(0 0 0 / 85%),
+    inset 0 0 0 1px rgb(230 203 142 / 50%);
+}
+
+.quest-tile-art {
+  position: absolute;
+  inset: 0;
+  background-image: var(--plate, none);
+  background-position: center;
+  background-size: cover;
+  filter: saturate(0.28) brightness(0.72);
+  transition: filter 420ms ease;
+}
+
+.quest-tile[aria-pressed='true'] .quest-tile-art {
+  filter: saturate(1.06) contrast(1.02);
+}
+
+.quest-tile-tint {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgb(8 12 18 / 58%), rgb(8 12 18 / 92%));
+}
+
+.quest-tile[aria-pressed='true'] .quest-tile-tint {
+  background: linear-gradient(
+    180deg,
+    rgb(8 12 18 / 50%) 0%,
+    rgb(8 12 18 / 6%) 34%,
+    rgb(8 12 18 / 58%) 68%,
+    rgb(8 12 18 / 92%)
+  );
+}
+
+.quest-tile-sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 38%;
+  background: linear-gradient(
+    90deg,
+    rgb(255 249 236 / 0%),
+    rgb(255 249 236 / 30%),
+    rgb(255 249 236 / 0%)
+  );
+  animation: sheen 3.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+.quest-tile-tag {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.55rem;
+  right: 0.55rem;
+  font-size: 0.53rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-align: left;
+  text-transform: uppercase;
+  color: rgb(255 249 236 / 34%);
+}
+
+.quest-tile[aria-pressed='true'] .quest-tile-tag {
+  color: var(--gold);
+}
+
+.quest-tile-name {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  left: 0.55rem;
+  display: block;
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-align: left;
+  color: rgb(255 249 236 / 62%);
+}
+
+.quest-tile[aria-pressed='true'] .quest-tile-name {
+  color: var(--dusk-ink);
+}
+
+.setup-tray {
+  flex: none;
+  margin-top: 0.9rem;
+  border-top: 1px solid rgb(255 249 236 / 14%);
+  padding:
+    0.85rem
+    var(--gutter-right)
+    max(1.25rem, var(--gutter-bottom))
+    var(--gutter-left);
+  background: linear-gradient(
+    180deg,
+    rgb(12 18 26 / 40%),
+    rgb(8 12 18 / 92%) 46%,
+    var(--dusk)
+  );
+  backdrop-filter: blur(16px) saturate(1.05);
+  -webkit-backdrop-filter: blur(16px) saturate(1.05);
+}
+
+.setup-tray .label {
+  color: rgb(255 249 236 / 42%);
+  font-size: 0.56rem;
+  letter-spacing: 0.2em;
+}
+
+.setup-pools {
+  margin: 0.5rem 0 0.8rem;
+}
+
+.setup-pools .pill {
+  border-color: rgb(255 249 236 / 15%);
+  background: rgb(255 249 236 / 5%);
+  color: rgb(255 249 236 / 74%);
+}
+
+.setup-pools .pill[aria-pressed='true'] {
+  border-color: rgb(230 203 142 / 72%);
+  background: rgb(230 203 142 / 15%);
+  color: #f4e6c4;
+}
+
+.setup-pools .pill span {
+  color: currentcolor;
+  font-size: 0.68rem;
+  font-weight: 500;
+  opacity: 0.62;
+}
+
+.setup-lengths {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+}
+
+.setup-lengths .label {
+  flex: 1;
+}
+
+.length-choice {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.length-choice button {
+  display: grid;
+  min-width: 3.25rem;
+  min-height: 2.75rem;
+  place-items: center;
+  border: 1px solid rgb(255 249 236 / 16%);
+  border-radius: 0.8rem;
+  color: rgb(255 249 236 / 66%);
+}
+
+.length-choice button[aria-pressed='true'] {
+  border-color: rgb(230 203 142 / 50%);
+  background: linear-gradient(180deg, #fffaf0, #f0e3c9);
+  color: #131b25;
+  box-shadow: 0 8px 16px -9px rgb(0 0 0 / 75%);
+}
+
+.length-choice .figure {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+/* --- round --------------------------------------------------------------- */
+
+.round-scene .scene-body {
+  gap: 0.9rem;
+}
+
+.round-dots {
+  position: relative;
+  display: flex;
+  flex: none;
+  height: 1.4rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.round-dots::before {
+  position: absolute;
+  top: 50%;
+  right: 1rem;
+  left: 0.2rem;
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    rgb(255 249 236 / 34%) 0 4px,
+    transparent 4px 9px
+  );
+  content: '';
+}
+
+.round-dots li {
+  position: relative;
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border: 2px solid rgb(255 249 236 / 58%);
+  border-radius: 999px;
+  background: rgb(14 21 29 / 90%);
+}
+
+.round-dots li[data-state='done'] {
+  border-color: rgb(255 249 236 / 85%);
+  background: #2f9e6a;
+}
+
+.round-dots li[data-state='here'] {
+  width: 1rem;
+  height: 1rem;
+  border-color: var(--dusk-ink);
+  background: var(--brand);
+  box-shadow: 0 0 0 5px rgb(62 111 168 / 24%);
+}
+
+.round-flag {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  color: rgb(255 249 236 / 60%);
+}
+
+.round-card {
+  position: relative;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 2rem;
+  padding: 1.5rem 1.25rem 1.35rem;
+  background: rgb(252 249 241 / 93%);
+  color: var(--ink);
+  backdrop-filter: blur(16px) saturate(1.06);
+  -webkit-backdrop-filter: blur(16px) saturate(1.06);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 12%),
+    0 26px 52px -22px rgb(0 0 0 / 50%);
+}
+
+.round-card > .product-kicker {
+  display: block;
+  margin-bottom: 0.85rem;
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  line-height: 1.3;
+  letter-spacing: 0.09em;
+  text-align: center;
+  color: var(--ink-faint);
+}
+
+.cloze-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.25rem 0.55rem;
+  margin-bottom: 1.35rem;
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  text-align: center;
+  color: #1a2735;
+}
+
+.cloze-blank {
+  display: inline-block;
+  width: 6.5rem;
+  height: 1.25rem;
+  translate: 0 5px;
+  border-bottom: 3px solid var(--brand);
+  border-radius: 2px;
+}
+
+.answer-line {
+  position: relative;
+  max-width: 19rem;
+  margin: 0 auto;
+}
+
+.answer-line input {
+  width: 100%;
+  border: 0;
+  border-bottom: 3px solid var(--line-colour, var(--brand));
+  padding: 0.4rem 0.75rem 0.85rem;
+  background: transparent;
+  color: #1a2735;
+  font-family: var(--serif);
+  font-size: 1.85rem;
+  font-weight: 500;
+  text-align: center;
+  outline: none;
+  transition: border-color 200ms var(--ease);
+}
+
+.answer-line input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 4px;
+}
+
+.listen-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 1.25rem;
+}
+
+.listen-row button {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 3.1rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid rgb(29 43 58 / 16%);
+  border-radius: 999px;
+  padding: 0 0.8rem;
+  background: rgb(29 43 58 / 6%);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.listen-row button svg {
+  flex: none;
+}
+
+.listen-row button.slow-replay {
+  flex: none;
+  gap: 0.2rem;
+}
+
+.listen-row button.slow-replay span {
+  font-size: 0.7rem;
+}
+
+.round-card .button-brand {
+  margin-top: 1.35rem;
+}
+
+.round-feedback {
+  display: grid;
+  align-items: center;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  border: 1px solid var(--fb-edge);
+  border-radius: 1.25rem;
+  padding: 0.8rem 0.95rem;
+  background: var(--fb-fill);
+  animation: rise 300ms var(--ease);
+}
+
+.round-feedback[data-kind='success'] {
+  --fb-edge: rgb(47 158 106 / 30%);
+  --fb-fill: rgb(228 245 236 / 90%);
+  --fb-mark: var(--good);
+}
+
+.round-feedback[data-kind='retry'] {
+  --fb-edge: rgb(210 87 87 / 30%);
+  --fb-fill: rgb(252 229 227 / 90%);
+  --fb-mark: #b03838;
+}
+
+.round-feedback[data-kind='notice'] {
+  --fb-edge: rgb(208 138 44 / 32%);
+  --fb-fill: rgb(251 239 217 / 85%);
+  --fb-mark: #9e6a19;
+}
+
+.round-feedback-mark {
+  display: grid;
+  width: 2.4rem;
+  height: 2.4rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fb-mark);
+  color: #fff;
+}
+
+.round-feedback h2 {
+  font-size: 1.15rem;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+.round-feedback p {
+  margin-top: 0.15rem;
   color: var(--ink-soft);
   font-size: 0.82rem;
-  font-weight: 800;
 }
 
-/* The last pair of old-style figures in the app: "34" set in the display serif
-   put the 3 below its own baseline beside a 4 at cap height. */
-.companion-hero dd {
-  margin: 0;
-  color: var(--brand-ink);
-  font-family: var(--font-figure);
-  font-size: 1.7rem;
+.round-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+.round-foot p {
+  color: rgb(255 249 236 / 66%);
+  font-size: 0.7rem;
+}
+
+.round-foot .button-quiet {
+  border-color: rgb(255 249 236 / 24%);
+  color: rgb(255 249 236 / 82%);
+}
+
+/* --- results ------------------------------------------------------------- */
+
+.results-scene .scene-body {
+  color: var(--dusk-ink);
+}
+
+.results-halo {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 9rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.results-halo::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(17rem, 72vw);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgb(230 203 142 / 42%),
+    rgb(230 203 142 / 9%) 46%,
+    transparent 70%
+  );
+  animation: haloBreathe 5.4s ease-in-out infinite;
+  content: '';
+  pointer-events: none;
+}
+
+.results-halo .product-kicker {
+  position: relative;
+  letter-spacing: 0.26em;
+  color: rgb(230 203 142 / 90%);
+  animation: riseSoft 400ms var(--ease) backwards;
+}
+
+.results-halo img {
+  position: relative;
+  width: min(13rem, 54vw);
+  height: min(13rem, 54vw);
+  margin-top: -0.75rem;
+  object-fit: contain;
+  filter: drop-shadow(0 26px 30px rgb(0 0 0 / 70%));
+  animation:
+    emerge 640ms var(--ease) 60ms backwards,
+    float 7s ease-in-out 700ms infinite;
+}
+
+.field-record {
+  position: relative;
+  flex: none;
+  animation: recordIn 620ms var(--ease) 200ms backwards;
+}
+
+.field-record::before,
+.field-record::after {
+  position: absolute;
+  border-radius: 1.5rem;
+  content: '';
+}
+
+.field-record::before {
+  inset: 0.5rem 0.4rem -0.35rem;
+  background: rgb(226 214 188 / 34%);
+  rotate: 2.1deg;
+}
+
+.field-record::after {
+  inset: 0.3rem 0.25rem -0.2rem;
+  background: rgb(238 228 204 / 50%);
+  rotate: -1.2deg;
+}
+
+.field-record-sheet {
+  position: relative;
+  border: 1px solid rgb(158 106 25 / 32%);
+  border-radius: 1.45rem;
+  padding: 0.95rem 1.05rem 0.9rem;
+  overflow: hidden;
+  background: linear-gradient(168deg, #fdf8ec, #f3ead4 62%, #eee2c6);
+  color: var(--ink);
+  box-shadow:
+    0 26px 48px -22px rgb(0 0 0 / 90%),
+    inset 0 1px 0 rgb(255 255 255 / 70%);
+}
+
+.field-record-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.field-record-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-record-head .product-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  letter-spacing: 0.2em;
+  color: rgb(158 106 25 / 95%);
+}
+
+.field-record-head .product-kicker span {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgb(158 106 25 / 42%), rgb(158 106 25 / 0%));
+}
+
+.field-record-head h1 {
+  margin-top: 0.3rem;
+  font-size: clamp(1.7rem, 8vw, 2.05rem);
+  line-height: 0.98;
+  letter-spacing: -0.032em;
+}
+
+.field-record-head p {
+  margin-top: 0.35rem;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.record-stamp {
+  position: relative;
+  display: grid;
+  width: 3.85rem;
+  height: 3.85rem;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: radial-gradient(120% 120% at 30% 20%, #b57c22, #8a5a15);
+  color: #fff5df;
+  box-shadow:
+    0 8px 16px -7px rgb(90 58 10 / 85%),
+    inset 0 1px 0 rgb(255 255 255 / 32%);
+  animation: stampIn 560ms cubic-bezier(0.2, 0.9, 0.2, 1) 420ms backwards;
+}
+
+.record-stamp::before {
+  position: absolute;
+  inset: 0.3rem;
+  border: 1px dashed rgb(255 245 223 / 50%);
+  border-radius: 50%;
+  content: '';
+}
+
+.record-stamp .figure {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.record-stamp small {
+  position: absolute;
+  bottom: 0.55rem;
+  font-size: 0.4rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.record-tally {
+  display: flex;
+  margin-top: 0.85rem;
+  border-top: 1px solid rgb(29 43 58 / 14%);
+  border-bottom: 1px solid rgb(29 43 58 / 14%);
+}
+
+.record-tally div {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.55rem 0;
+}
+
+.record-tally div + div {
+  border-left: 1px solid rgb(29 43 58 / 14%);
+  padding-left: 0.85rem;
+}
+
+.record-tally .figure {
+  font-size: 1.65rem;
+  line-height: 1;
+}
+
+.record-tally .label {
+  font-size: 0.58rem;
   font-weight: 700;
-  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0.11em;
+  color: var(--ink-faint);
+}
+
+.record-roll {
+  display: grid;
+  gap: 1px;
+  margin-top: 0.35rem;
+}
+
+.record-roll li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  padding: 0.25rem 0;
+}
+
+.record-roll strong {
+  flex: none;
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+.record-roll-rule {
+  flex: 1;
+  min-width: 0.85rem;
+  height: 1px;
+  translate: 0 -3px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgb(29 43 58 / 30%) 0 1.5px,
+    transparent 1.5px 5px
+  );
+}
+
+.record-roll-status {
+  flex: none;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.record-roll li[data-ok='false'] .record-roll-status {
+  color: var(--retry);
+}
+
+.record-roll-mark {
+  display: grid;
+  width: 1.2rem;
+  height: 1.2rem;
+  flex: none;
+  place-items: center;
+  translate: 0 3px;
+  border: 1px solid rgb(31 122 79 / 30%);
+  border-radius: 50%;
+  background: rgb(31 122 79 / 13%);
+  color: var(--good);
+}
+
+.record-roll li[data-ok='false'] .record-roll-mark {
+  border-color: rgb(184 84 58 / 34%);
+  background: rgb(184 84 58 / 15%);
+  color: var(--retry);
+}
+
+.record-growth {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 0.8rem;
+  border-top: 1px solid rgb(29 43 58 / 14%);
+  padding-top: 0.75rem;
+}
+
+.record-growth > span {
+  flex: 1;
+}
+
+.record-growth-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.45rem;
+}
+
+/* A companion name is one word: let the row wrap between name and stage
+   rather than breaking the word itself. */
+.record-growth-name strong,
+.record-growth-name span,
+.codex-roster strong,
+.codex-growth span {
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.record-growth-name strong {
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  font-weight: 500;
+  line-height: 1;
   letter-spacing: -0.02em;
 }
 
-.next-reward {
-  margin-bottom: 0;
-  border-top: 1px solid var(--line);
-  padding-top: 1rem;
-  font-weight: 750;
-}
-
-/* Camp scenery is a picture, not chrome: like the backdrop art it keeps its
-   own fixed palette in both themes. Only the branded props take tokens. */
-.camp-level-figure {
-  font-family: var(--font-figure);
+.record-growth-name span {
+  font-size: 0.53rem;
   font-weight: 800;
-  font-variant-numeric: lining-nums tabular-nums;
-  letter-spacing: -0.03em;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(158 106 25 / 95%);
 }
 
-.camp-note {
-  margin: 0.9rem 0 0;
-  color: var(--ink-2);
-  font-size: 0.92rem;
+.record-growth-bars {
+  display: flex;
+  gap: 0.18rem;
+  margin-top: 0.45rem;
 }
 
-.parent-heading {
-  max-width: 42rem;
+.record-growth-bars span {
+  flex: 1;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: rgb(29 43 58 / 13%);
+  transform-origin: left;
 }
 
-.parent-grid {
+.record-growth-bars span[data-filled='true'] {
+  background: #9e6a19;
+}
+
+.record-growth-bars span[data-latest='true'] {
+  background: linear-gradient(90deg, #9e6a19, #e0b463);
+  animation: growSeg 900ms var(--ease) 620ms backwards;
+}
+
+.record-growth-secure {
+  flex: none;
+  text-align: right;
+}
+
+.record-growth-secure .figure {
+  display: block;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.record-growth-secure .label {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.53rem;
+  letter-spacing: 0.13em;
+}
+
+.results-actions {
+  display: flex;
+  flex: none;
+  gap: 0.55rem;
+  padding-top: 1.1rem;
+  animation: rise 460ms var(--ease) 520ms backwards;
+}
+
+.results-actions .button-primary {
+  flex: 1.25;
+}
+
+.results-actions .button-quiet {
+  flex: 1;
+  min-height: 3.25rem;
+  border-color: rgb(255 249 236 / 26%);
+  background: rgb(255 249 236 / 6%);
+  color: var(--dusk-ink);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+/* --- learner switch sheet ------------------------------------------------ */
+
+.switch-scene .scene-veil {
+  background: rgb(29 43 58 / 38%);
+}
+
+/* The learner sheet is a bottom sheet, so it has to meet the left, right and
+   bottom edges of the screen. The scene therefore drops its own gutter here and
+   the sheet carries the safe-area padding itself. */
+.switch-scene .scene-body {
+  padding: 0;
+}
+
+/* The area above the sheet dismisses it, exactly like the grip does. It is a
+   button so the same escape exists for keyboard and assistive technology. */
+.sheet-scrim {
+  flex: 1;
+  min-height: 4rem;
+  cursor: default;
+}
+
+/* The grip is the drag affordance. It is only rendered when the sheet can
+   actually be dismissed, so the handle never promises a gesture that does
+   nothing. */
+.sheet-grip {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  height: 1.6rem;
+  place-items: center;
+  touch-action: none;
 }
 
-.parent-card {
-  align-self: start;
+.sheet-grip::before {
+  width: 2.75rem;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: rgb(29 43 58 / 20%);
+  content: '';
 }
 
-.parent-card > p:not(.product-kicker, .inline-error),
-.parent-gate-card > p:not(.product-kicker, .inline-error) {
+.switch-sheet {
+  position: relative;
+  z-index: 2;
+  margin-top: auto;
+  border-radius: 2.15rem 2.15rem 0 0;
+  padding:
+    1.35rem
+    var(--gutter-right)
+    max(1.5rem, var(--gutter-bottom))
+    var(--gutter-left);
+  background: rgb(248 245 236 / 97%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 -20px 50px -20px rgb(29 43 58 / 45%);
+  transition: translate 240ms var(--ease);
+  animation: sheetUp 320ms var(--ease) backwards;
+}
+
+/* While a finger is on the sheet it must track that finger exactly, so the
+   settle transition is suspended for the length of the drag. */
+.switch-sheet[data-dragging='true'] {
+  transition: none;
+}
+
+.switch-head {
+  display: flex;
+  height: 3.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.switch-head p {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.switch-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.learner-card {
+  display: grid;
+  width: 100%;
+  align-items: center;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.85rem;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--learner-colour, var(--brand));
+  border-radius: 0.5rem 1.4rem 1.4rem 0.5rem;
+  padding: 0.8rem 1rem;
+  background: var(--paper-raised);
+  box-shadow: var(--plate-shadow);
+  text-align: left;
+}
+
+.learner-avatar {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: 0.8rem 0.8rem 0.8rem 0.25rem;
+  background: var(--learner-colour, var(--brand));
+  color: var(--dusk-ink);
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.learner-card strong {
+  display: block;
+  font-family: var(--serif);
+  font-size: 1.45rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.025em;
+}
+
+.learner-card small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.learner-selected {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--good);
+  color: var(--dusk-ink);
+}
+
+.learner-add {
+  display: flex;
+  width: 100%;
+  min-height: 3.15rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  border: 1px dashed rgb(29 43 58 / 26%);
+  border-radius: 1.4rem;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.switch-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
+.switch-note-mark {
+  display: grid;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(47 158 106 / 18%);
+  color: var(--good);
+}
+
+.learner-form {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+.learner-form label {
+  font-size: 0.75rem;
+  font-weight: 700;
   color: var(--ink-soft);
 }
 
-.parent-gate-card {
-  width: min(100%, 34rem);
-  margin: clamp(2rem, 8vh, 5rem) auto 0;
+.learner-form input,
+.learner-form select {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.9rem;
+  padding: 0 0.8rem;
+  background: var(--paper-raised);
 }
 
-.parent-gate-card h1 {
-  font-size: clamp(1.9rem, 6vw, 2.8rem);
+.field-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.field-pair label {
+  display: grid;
+  gap: 0.3rem;
+}
+
+/* --- audio state --------------------------------------------------------- */
+
+.audio-state {
+  display: grid;
+  align-items: center;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--paper-raised);
+}
+
+.audio-state h2 {
+  font-size: 1rem;
+}
+
+.audio-state p {
+  margin-top: 0.15rem;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.audio-state-icon {
+  display: grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(47 158 106 / 18%);
+  color: var(--good);
+}
+
+.audio-state-missing .audio-state-icon,
+.audio-state-corrupt .audio-state-icon,
+.audio-state-unavailable .audio-state-icon {
+  background: rgb(208 138 44 / 20%);
+  color: var(--brass-deep);
+}
+
+.audio-state-dusk {
+  border-color: var(--dusk-line);
+  background: rgb(255 249 236 / 7%);
+  color: var(--dusk-ink);
+}
+
+.audio-state-dusk p {
+  color: var(--dusk-ink-soft);
+}
+
+.audio-state-dusk .button-quiet {
+  border-color: rgb(255 249 236 / 26%);
+  color: var(--dusk-ink);
+}
+
+/* --- leave-round dialog -------------------------------------------------- */
+
+.exit-confirmation {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgb(6 10 16 / 72%);
+}
+
+.exit-confirmation > div {
+  display: grid;
+  width: min(24rem, 100%);
+  gap: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 1.75rem;
+  padding: 1.35rem;
+  background: var(--paper-raised);
+  box-shadow: 0 30px 60px -26px rgb(0 0 0 / 70%);
+}
+
+.exit-confirmation p {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.exit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.exit-actions .button-brand {
+  width: auto;
+  flex: 1 1 9rem;
+}
+
+.exit-actions .button-quiet {
+  flex: 1 1 7rem;
+}
+
+/* --- parent gate and area ------------------------------------------------ */
+
+.parent-scene {
+  background: #eae6db;
+}
+
+.parent-gate {
+  display: grid;
+  flex: 1;
+  align-content: start;
+  justify-items: center;
+  gap: 0.4rem;
+  padding-top: 1.5rem;
+  text-align: center;
+}
+
+.parent-gate-mark {
+  display: grid;
+  width: 3.25rem;
+  height: 3.25rem;
+  place-items: center;
+  border-radius: 1.1rem;
+  background: rgb(29 43 58 / 7%);
+}
+
+.parent-gate h1 {
+  margin-top: 0.6rem;
+}
+
+.parent-gate > p {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
 }
 
 .parent-pin-form {
   display: grid;
-  gap: 0.65rem;
-  margin-top: 1.5rem;
-}
-
-.parent-pin-form label {
-  margin-top: 0.35rem;
-  font-weight: 850;
+  width: min(20rem, 100%);
+  gap: 0.6rem;
+  margin-top: 1.25rem;
 }
 
 .parent-pin-form input {
   width: 100%;
+  min-height: 3.25rem;
   border: 1px solid var(--line-strong);
-  padding: 0.7rem 0.9rem;
-  color: var(--ink);
-  background: var(--panel);
-  font-size: 1.45rem;
-  letter-spacing: 0.32em;
+  border-radius: 1rem;
+  padding: 0 1rem;
+  background: var(--paper-raised);
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  letter-spacing: 0.35em;
   text-align: center;
 }
 
-.parent-pin-form .button-primary {
-  margin-top: 0.5rem;
-}
-
 .parent-biometric-button {
+  display: flex;
   width: 100%;
-  margin-top: 0.8rem;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: none;
+  font-weight: 700;
 }
 
-.parent-learner-list {
+.parent-heading {
   display: grid;
-  gap: 0.75rem;
-  margin: 1rem 0 0;
-  padding: 0;
-  list-style: none;
+  gap: 0.3rem;
+  margin-bottom: 1rem;
 }
 
-.parent-learner-list li {
-  border-top: 1px solid var(--line);
-  padding-top: 0.75rem;
+.parent-grid {
+  display: grid;
+  gap: 0.85rem;
+  padding-bottom: 1.5rem;
+}
+
+.parent-card {
+  display: grid;
+  gap: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 1.4rem;
+  padding: 1rem 1.05rem;
+  background: var(--paper-raised);
+  box-shadow: var(--plate-shadow);
+}
+
+.parent-card h2 {
+  font-size: 1.2rem;
+}
+
+.parent-card p,
+.parent-card li {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.parent-card dl {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.parent-card dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.parent-card dt {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.parent-card dd {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.parent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.parent-actions button {
+  flex: 1 1 8rem;
+}
+
+.parent-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.parent-price {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: #274d79;
+  font-variant-numeric: lining-nums;
+}
+
+.parent-note {
+  color: var(--ink-faint);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.answer-form {
+  display: grid;
+}
+
+.record-roll-clean {
+  margin-top: 0.7rem;
+  font-size: 0.82rem;
+}
+
+.button-danger {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid rgb(164 73 55 / 45%);
+  border-radius: 999px;
+  padding: 0 1rem;
+  background: rgb(252 229 227 / 80%);
+  color: #8d3a29;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.exit-confirmation > div > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.exit-confirmation > div > div:last-child button {
+  flex: 1 1 8rem;
+}
+
+/* The parent surface keeps its own document flow: it is a settings list, not
+   a painted place, so it uses the vellum plate at one elevation throughout. */
+.product-page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding:
+    max(0.75rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+    max(1rem, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)))
+    max(1.5rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))
+    max(1rem, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+  overflow-y: auto;
+}
+
+.parent-page {
+  background: #eae6db;
+}
+
+.paper-card {
+  position: relative;
+  display: grid;
+  gap: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 1.4rem;
+  padding: 1rem 1.05rem;
+  background: var(--paper-raised);
+  box-shadow: var(--plate-shadow);
+}
+
+.welcome-panel {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.parent-learner-list,
+.parent-progress-list {
+  display: grid;
+  gap: 0.6rem;
 }
 
 .parent-learner-summary {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.85rem;
   align-items: center;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
 }
 
-.parent-learner-list strong,
-.parent-learner-list small {
+.parent-learner-summary strong,
+.parent-learner-summary small {
   display: block;
 }
 
-.parent-learner-list small {
-  color: var(--ink-soft);
+.parent-learner-summary strong {
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  font-weight: 500;
+  line-height: 1.1;
 }
 
-/* The learner's own colour, the same one the bar chip and the picker plate use.
-   The variable was already being set here and nothing painted with it, so every
-   learner in this list was an unfilled initial. */
-.parent-learner-avatar {
+.parent-learner-summary small {
+  margin-top: 0.15rem;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.parent-learner-avatar,
+.learner-avatar {
   display: grid;
-  width: 2.8rem;
-  height: 2.8rem;
-  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 2.4rem;
   place-items: center;
-  border-radius: 0.9rem 0.9rem 0.9rem 0.25rem;
-  color: var(--panel);
-  background: var(--learner-colour, var(--brand-ink));
-  font-size: 1rem;
-  font-weight: 800;
+  border-radius: 0.75rem 0.75rem 0.75rem 0.25rem;
+  background: var(--learner-colour, var(--brand));
+  color: var(--dusk-ink);
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
-/* Two weights of consequence, both quiet enough for a settings list. A filled
-   red pill for "Delete learner" would be the loudest thing on the screen; a
-   pill identical to "Edit" is worse, because it hides that the two differ at
-   all. Ink and edge carry the meaning, and the confirmation that follows
-   carries the weight. */
-.button-warning,
-.button-destructive {
-  border: 1px solid transparent;
-  border-radius: 999px;
-  padding: 0.7rem 1.25rem;
-  background: none;
-  font-weight: 800;
-  transition:
-    background-color var(--dur) var(--ease-out),
-    transform var(--dur-press) var(--ease-press);
-}
-
-.button-warning {
-  border-color: color-mix(in oklab, var(--warn) 42%, transparent);
-  color: var(--warn-strong);
-}
-
-.button-destructive {
-  border-color: color-mix(in oklab, var(--bad) 46%, transparent);
-  color: var(--bad-strong);
-}
-
-.button-warning:active:not(:disabled) {
-  transform: scale(var(--press-scale));
-  background: color-mix(in oklab, var(--warn) 14%, transparent);
-}
-
-.button-destructive:active:not(:disabled) {
-  transform: scale(var(--press-scale));
-  background: color-mix(in oklab, var(--bad) 14%, transparent);
-}
-
-.parent-learner-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-top: 0.75rem;
-}
-
-.parent-edit-form,
-.parent-edit-form label,
-.parent-reset-confirmation,
-.parent-reset-confirmation label,
-.parent-delete-confirmation,
-.parent-delete-confirmation label {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.parent-edit-form,
-.parent-reset-confirmation,
-.parent-delete-confirmation {
-  margin-top: 0.8rem;
-  border-radius: 1rem;
-  padding: 1rem;
-  background: color-mix(in oklab, var(--brand) 7%, transparent);
-}
-
-.parent-edit-form label,
-.parent-delete-confirmation label {
-  font-weight: 800;
-}
-
-.parent-edit-form input,
-.parent-edit-form select,
-.parent-reset-confirmation input,
-.parent-delete-confirmation input {
-  width: 100%;
-  min-width: 0;
-  border: 1px solid var(--line-strong);
-  padding: 0.7rem 0.8rem;
-  color: var(--ink);
-  background: var(--panel);
-}
-
-.parent-reset-confirmation,
-.parent-delete-confirmation {
-  background: var(--bad-soft);
-}
-
-.parent-reset-confirmation p,
-.parent-delete-confirmation p {
-  margin-bottom: 0;
-  color: var(--ink-soft);
-}
-
+.parent-learner-actions,
+.parent-commerce-actions,
 .parent-backup-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.5rem;
 }
 
-.parent-progress-list {
+.parent-learner-actions button,
+.parent-commerce-actions button,
+.parent-backup-actions button {
+  flex: 1 1 8rem;
+}
+
+.parent-edit-form,
+.parent-reset-confirmation,
+.parent-delete-confirmation,
+.parent-import-confirmation {
   display: grid;
-  gap: 0.7rem;
-  margin: 1rem 0;
-  padding: 0;
-  list-style: none;
+  gap: 0.6rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 1.1rem;
+  padding: 0.85rem;
+  background: var(--paper-sunk);
 }
 
-.parent-progress-list li {
+.parent-edit-form label {
   display: grid;
-  gap: 0.2rem;
-  border-top: 1px solid var(--line);
-  padding-top: 0.7rem;
-}
-
-.parent-progress-list span,
-.parent-progress-list small {
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 700;
   color: var(--ink-soft);
 }
 
-.parent-commerce-price {
-  margin-bottom: 0.65rem;
-  color: var(--brand-ink);
-  font-size: 1.45rem;
-  font-weight: 900;
-}
-
-.parent-commerce-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
+.parent-edit-form input,
+.parent-edit-form select {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.9rem;
+  padding: 0 0.8rem;
+  background: var(--paper-raised);
 }
 
 .parent-backup-warning {
-  border-left: 0.25rem solid var(--bad);
-  padding-left: 0.8rem;
+  color: var(--brass-deep);
+  font-size: 0.8rem;
 }
 
-.parent-import-confirmation {
-  display: grid;
-  gap: 0.65rem;
-  margin-top: 0.8rem;
-  border-radius: 1rem;
-  padding: 1rem;
-  background: var(--bad-soft);
+.parent-commerce-price {
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 500;
+  color: #274d79;
+  font-variant-numeric: lining-nums;
 }
 
-.parent-import-confirmation label {
-  font-weight: 800;
+.inline-status {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
 }
 
-.parent-import-confirmation input {
-  width: 100%;
-  min-width: 0;
-  border: 1px solid var(--line-strong);
-  padding: 0.7rem 0.8rem;
-  color: var(--ink);
-  background: var(--panel);
+/* --- motion -------------------------------------------------------------- */
+
+@keyframes rise {
+  from { opacity: 0; translate: 0 10px; }
+  to { opacity: 1; translate: 0 0; }
 }
 
-/* Dynamic Type: take the system body metrics, then put our own families back
-   — the `font` shorthand would otherwise reset them to the system face. */
-@supports (font: -apple-system-body) {
-  .product-app {
-    font: -apple-system-body;
-    font-family: var(--font-sans);
-  }
-
-  .product-app button {
-    font-family: inherit;
-  }
+@keyframes riseSoft {
+  from { opacity: 0; translate: 0 4px; }
+  to { opacity: 1; translate: 0 0; }
 }
+
+@keyframes sheetUp {
+  from { opacity: 0; translate: 0 26px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes stampIn {
+  0% { opacity: 0; transform: scale(1.5) rotate(-14deg); }
+  60% { opacity: 1; transform: scale(0.94) rotate(-6deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-7deg); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  36% { transform: translateY(-5px) rotate(0.7deg); }
+  72% { transform: translateY(-2px) rotate(-0.4deg); }
+}
+
+@keyframes pan {
+  from { transform: scale(1.18) translate3d(-2.2%, 1.1%, 0); }
+  to { transform: scale(1.18) translate3d(2.2%, -1.1%, 0); }
+}
+
+@keyframes sheen {
+  0% { transform: translateX(-170%) skewX(-16deg); }
+  58%, 100% { transform: translateX(340%) skewX(-16deg); }
+}
+
+@keyframes growSeg {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes recordIn {
+  0% { opacity: 0; transform: translateY(30px) scale(0.965); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes emerge {
+  0% { opacity: 0; transform: translateY(18px) scale(0.9); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes haloBreathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.06); }
+}
+
+@keyframes spin {
+  to { rotate: 360deg; }
+}
+
+@keyframes drift {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  18% { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(14px, -116px) scale(1); }
+}
+
+@keyframes roamG {
+  0% { transform: translate3d(0, 0, 0); }
+  26% { transform: translate3d(var(--fwd), 0, 0); }
+  50% { transform: translate3d(var(--fwd), 0, 0); }
+  76% { transform: translate3d(var(--back), 0, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes roamA {
+  0% { transform: translate3d(0, 0, 0); }
+  28% { transform: translate3d(var(--fwd), var(--fy), 0); }
+  52% { transform: translate3d(var(--fwd), 0, 0); }
+  78% { transform: translate3d(var(--back), var(--by), 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes bob {
+  0%, 100% { transform: scaleX(var(--face)) translateY(0); }
+  50% { transform: scaleX(var(--face)) translateY(calc(var(--bob) * -1)); }
+}
+
+@keyframes flap {
+  0%, 100% { transform: scaleX(var(--face)) translateY(0) rotate(0); }
+  42% { transform: scaleX(var(--face)) translateY(calc(var(--bob) * -1)) rotate(1.1deg); }
+  72% { transform: scaleX(var(--face)) translateY(calc(var(--bob) * -0.35)) rotate(-0.8deg); }
+}
+
+/* --- accessibility ------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
   .product-app *,
@@ -3587,884 +3444,31 @@ button.codex-card:hover:not(.is-locked) {
     animation: none !important;
     transition: none !important;
   }
-
-  .product-app .hero-art.pan,
-  .product-app .hero-backdrop .hero-layer {
-    animation: none !important;
-    transition: none !important;
-  }
-
-  .learner-card:hover {
-    transform: none;
-  }
-}
-
-/* ==========================================================================
- * Polish layer.
- *
- * Ported from the ks2-mastery webapp's own named polish system (`styles/
- * app.css`, "Polish layer" — Layer 1 motion choreography, Layer 2 affordance,
- * Layer 3 detail, Layer 4 texture) onto this app's class vocabulary. The
- * webapp's layers were written for a pointer; Layer 2 here translates its
- * hover states into presses, because a hover state on a phone is a state no
- * learner will ever see.
- *
- * Every animation is short (<= 560ms), eased with `--ease-out`, and bows out
- * under `prefers-reduced-motion` through the blanket guard above plus the
- * transform guard at the foot of this block.
- * ========================================================================== */
-
-/* ---------- Layer 1 · Page entrance choreography ----------
- * `animation-fill-mode: backwards` holds the from-keyframe through the delay,
- * so a staggered element never flashes at full opacity before its turn. */
-@keyframes polish-rise {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes polish-rise-soft {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes polish-pop {
-  from {
-    opacity: 0;
-    transform: scale(0.82);
-  }
-
-  60% {
-    transform: scale(1.06);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* The home hero is choreographed rather than simply shown: the meadow settles,
-   then the greeting, then the mission lands, then the CTA arrives. The three
-   named beats keep the webapp's own timings (60 / 140 / 240ms). */
-.trail-hero .monster-meadow,
-.trail-hero .monster-meadow-empty,
-.trail-hero .hero-inklet {
-  animation: polish-rise-soft 460ms var(--ease-out) 20ms backwards;
-}
-
-.trail-hero .product-kicker {
-  animation: polish-rise-soft 420ms var(--ease-out) 40ms backwards;
-}
-
-.trail-hero .hero-greet {
-  animation: polish-rise 480ms var(--ease-out) 60ms backwards;
-}
-
-.trail-hero h1 {
-  animation: polish-rise 520ms var(--ease-out) 140ms backwards;
-}
-
-.trail-hero .button-primary {
-  animation: polish-rise 480ms var(--ease-out) 240ms backwards;
-}
-
-/* Section heads rise softly behind the hero. */
-.welcome-panel,
-.trailhead,
-.page-heading,
-.setup-card > .product-kicker,
-.setup-card > h1,
-.setup-card > p {
-  animation: polish-rise-soft 420ms var(--ease-out) 60ms backwards;
-}
-
-/* Wave staggers. Every grid of peers arrives as a wave rather than a block,
-   which is what stops a dense screen reading as a table of contents. */
-.learner-grid > *,
-.codex-grid > *,
-.word-progress-list > *,
-.summary-grid > *,
-.mode-choice > *,
-.segmented-choice > *,
-.voice-choice > *,
-.toggle-choice > *,
-.monster-meadow > * {
-  animation: polish-rise 460ms var(--ease-out) backwards;
-}
-
-.learner-grid > *:nth-child(1),
-.codex-grid > *:nth-child(1),
-.word-progress-list > *:nth-child(1),
-.summary-grid > *:nth-child(1),
-.mode-choice > *:nth-child(1),
-.segmented-choice > *:nth-child(1),
-.voice-choice > *:nth-child(1),
-.toggle-choice > *:nth-child(1),
-.monster-meadow > *:nth-child(1) {
-  animation-delay: 80ms;
-}
-
-.learner-grid > *:nth-child(2),
-.codex-grid > *:nth-child(2),
-.word-progress-list > *:nth-child(2),
-.summary-grid > *:nth-child(2),
-.mode-choice > *:nth-child(2),
-.segmented-choice > *:nth-child(2),
-.voice-choice > *:nth-child(2),
-.toggle-choice > *:nth-child(2),
-.monster-meadow > *:nth-child(2) {
-  animation-delay: 140ms;
-}
-
-.learner-grid > *:nth-child(3),
-.codex-grid > *:nth-child(3),
-.word-progress-list > *:nth-child(3),
-.summary-grid > *:nth-child(3),
-.mode-choice > *:nth-child(3),
-.segmented-choice > *:nth-child(3),
-.voice-choice > *:nth-child(3),
-.toggle-choice > *:nth-child(3),
-.monster-meadow > *:nth-child(3) {
-  animation-delay: 200ms;
-}
-
-.learner-grid > *:nth-child(4),
-.codex-grid > *:nth-child(4),
-.word-progress-list > *:nth-child(4),
-.summary-grid > *:nth-child(4),
-.monster-meadow > *:nth-child(4) {
-  animation-delay: 260ms;
-}
-
-.learner-grid > *:nth-child(5),
-.codex-grid > *:nth-child(5),
-.word-progress-list > *:nth-child(5),
-.monster-meadow > *:nth-child(5) {
-  animation-delay: 320ms;
-}
-
-.learner-grid > *:nth-child(n + 6),
-.codex-grid > *:nth-child(n + 6),
-.word-progress-list > *:nth-child(n + 6),
-.monster-meadow > *:nth-child(n + 6) {
-  animation-delay: 380ms;
-}
-
-/* The round card and its progress strip. */
-.practice-progress {
-  animation: polish-rise-soft 420ms var(--ease-out) 40ms backwards;
-}
-
-.practice-card {
-  animation: polish-rise 480ms var(--ease-out) 100ms backwards;
-}
-
-/* The word is the only thing that changes between cards, so it is the only
-   thing that re-enters. Keyed on the prompt in the JSX so React remounts it. */
-.cloze-prompt {
-  animation: polish-rise-soft var(--dur-slow) var(--ease-out) backwards;
-}
-
-/* The summary lands as a result: the medal pops, the score rises under it. */
-.summary-medal {
-  animation: polish-pop 460ms var(--ease-out) 60ms backwards;
-}
-
-.summary-hero .product-kicker {
-  animation: polish-rise-soft 420ms var(--ease-out) 140ms backwards;
-}
-
-.summary-hero h1 {
-  animation: polish-rise 480ms var(--ease-out) 200ms backwards;
-}
-
-.accuracy-score {
-  font-variant-numeric: tabular-nums;
-  animation: polish-rise 520ms var(--ease-out) 280ms backwards;
-}
-
-.reward-summary,
-.summary-actions {
-  animation: polish-rise 460ms var(--ease-out) 440ms backwards;
-}
-
-/* ---------- Layer 2 · Press affordance ----------
- * The webapp lifts on hover. A phone has no hover, so every one of those
- * lifts becomes a compression: the surface moves toward the finger, on a
- * fast ease, and springs back on release. */
-.learner-card,
-.mode-choice-card,
-.segmented-choice button,
-.voice-choice button,
-.toggle-chip,
-.btn-icon,
-.topbar-action,
-.answer-actions button,
-button.codex-card,
-.celebration-card {
-  transition:
-    transform var(--dur-press) var(--ease-press),
-    border-color var(--dur) var(--ease-out),
-    box-shadow var(--dur) var(--ease-out),
-    background-color var(--dur) var(--ease-out),
-    filter var(--dur-press) var(--ease-press);
-}
-
-.learner-card:active:not(:disabled),
-.mode-choice-card:active:not(:disabled),
-.segmented-choice button:active:not(:disabled),
-.voice-choice button:active:not(:disabled),
-.btn-icon:active:not(:disabled),
-button.codex-card:active:not(.is-locked),
-.celebration-card:active {
-  transform: scale(var(--press-scale));
-  filter: brightness(0.97);
-}
-
-/* Chips and the bare topbar action are small enough that a full compression
-   overshoots — they take the subtle one. */
-.toggle-chip:active:not(:disabled),
-.topbar-action:active:not(:disabled) {
-  transform: scale(var(--press-scale-subtle));
-  filter: brightness(0.95);
-}
-
-/* A pressed surface loses its elevation, the way a card pushed into paper
-   would. Only the surfaces that carry a shadow at rest need this. */
-.learner-card:active:not(:disabled),
-button.codex-card:active:not(.is-locked) {
-  box-shadow: var(--shadow-xs);
-}
-
-/* A locked codex card is inert: it should not answer a press at all. */
-.codex-card.is-locked:active {
-  transform: none;
-  filter: none;
-}
-
-/* Selection feedback. The tick fills and the chip warms as a single beat. */
-.toggle-box {
-  transition:
-    transform var(--dur) var(--ease-out),
-    border-color var(--dur) var(--ease-out),
-    background-color var(--dur) var(--ease-out);
-}
-
-.toggle-chip[aria-pressed='true'] .toggle-box {
-  transform: scale(1.08);
-}
-
-/* Layer 2 · Ken-Burns on the mode thumbnails. The webapp scales its card
-   banner art on hover; here the selected mode holds the scale, so the chosen
-   trail is the one whose picture leans in. */
-.mode-choice-thumb {
-  transform: scale(1.02);
-  transition: transform 700ms var(--ease-out);
-  will-change: transform;
-}
-
-.mode-choice-card[aria-pressed='true'] .mode-choice-thumb {
-  transform: scale(1.08);
-}
-
-.mode-choice-card:active .mode-choice-thumb {
-  transform: scale(1.1);
-}
-
-/* ---------- Layer 3 · Session texture ----------
- * The round-path dots, ported near-verbatim: a dot eases in on mount, snaps
- * when its word is secured, and the current one breathes a ring. This is the
- * webapp's single most legible piece of session feedback. */
-.round-step {
-  position: relative;
-  transform-origin: center;
-  animation: polish-step-in 220ms var(--ease-out) backwards;
-}
-
-.round-step.is-done {
-  animation: polish-step-secured 320ms cubic-bezier(0.18, 0.88, 0.3, 1.2) both;
-}
-
-.round-step.is-current {
-  animation: polish-step-current 520ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
-}
-
-/* The current word's halo is a real ring rather than a box-shadow, because
-   this is the one animation that runs for the whole round. Animating a
-   shadow repaints the layer every frame — measured on device it doubled the
-   round's CPU on its own — while scaling and fading a ring stays on the
-   compositor and costs nothing. Under reduced motion the animation stops and
-   the ring simply stays, which is the halo the dot needs anyway. */
-.round-step.is-current::after {
-  content: '';
-  position: absolute;
-  inset: -0.3rem;
-  border: 0.3rem solid color-mix(in oklab, var(--brand) 22%, transparent);
-  border-radius: 999px;
-  animation: polish-step-pulse 2s var(--ease-in-out) 560ms infinite;
-  pointer-events: none;
-}
-
-@keyframes polish-step-in {
-  from {
-    opacity: 0.42;
-    transform: translateY(4px) scale(0.8);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes polish-step-secured {
-  0% {
-    transform: scale(0.78);
-  }
-
-  58% {
-    transform: scale(1.16);
-    box-shadow: 0 0 0 0.36rem color-mix(in oklab, var(--good) 20%, transparent);
-  }
-
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 transparent;
-  }
-}
-
-@keyframes polish-step-current {
-  0% {
-    opacity: 0.6;
-    transform: scale(0.72);
-  }
-
-  62% {
-    opacity: 1;
-    transform: scale(1.08);
-  }
-
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes polish-step-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 0.42;
-    transform: scale(1.34);
-  }
-}
-
-/* The verdict arrives rather than appears — the webapp's `ribbon-in`. */
-.answer-feedback,
-.audio-state {
-  animation: polish-ribbon-in var(--dur-slow) var(--ease-out) backwards;
-}
-
-@keyframes polish-ribbon-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* The spelling field is a single ruled line, and focus moves the rule to
-   brand rather than boxing the field. */
-.answer-form input {
-  transition:
-    border-color var(--dur) var(--ease-out),
-    box-shadow var(--dur) var(--ease-out);
-}
-
-/* The end-round dialogue is a real modal: the scrim fades and the panel pops
-   up out of it, ported from the webapp's lightbox. */
-.exit-confirmation {
-  animation: polish-scrim-in 160ms ease-out both;
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-}
-
-/* Over a blurred page the panel needs its own edge, or it dissolves into the
-   scrim it is supposed to sit on. */
-.exit-confirmation > div {
-  border: 1px solid color-mix(in oklab, var(--ink) 20%, transparent);
-  animation: polish-panel-in 220ms cubic-bezier(0.2, 0.95, 0.26, 1) both;
-}
-
-@keyframes polish-scrim-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes polish-panel-in {
-  from {
-    opacity: 0;
-    transform: translateY(14px) scale(0.92);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* ---------- Layer 4 · Paper texture ----------
- * A paper card is not a flat rectangle: it carries a warm shadow pool, two
- * faint washes cast in from opposite corners, and the twin ruled hairlines
- * that give the webapp's hero its journal feel. */
-.paper-card,
-.practice-card {
-  position: relative;
-  background-image:
-    radial-gradient(
-      140% 100% at 100% 0%,
-      color-mix(in oklab, var(--brand) 10%, transparent),
-      transparent 60%
-    ),
-    radial-gradient(
-      120% 100% at 0% 100%,
-      color-mix(in oklab, var(--warn) 8%, transparent),
-      transparent 62%
-    );
-  box-shadow: var(--shadow), var(--shadow-warm);
-}
-
-.paper-card::before,
-.paper-card::after,
-.practice-card::before,
-.practice-card::after {
-  content: '';
-  position: absolute;
-  right: clamp(1rem, 4vw, 2rem);
-  left: clamp(1rem, 4vw, 2rem);
-  height: 1px;
-  background: color-mix(in oklab, var(--line-strong) 60%, transparent);
-  pointer-events: none;
-}
-
-.paper-card::before,
-.practice-card::before {
-  top: 0.9rem;
-}
-
-.paper-card::after,
-.practice-card::after {
-  bottom: 0.9rem;
-}
-
-/* The setup scene is a bare region of the Downs, so it takes the single
-   top rule the webapp's setup card carries rather than the pair. */
-.setup-card {
-  position: relative;
-  padding-top: 1rem;
-}
-
-.setup-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    color-mix(in oklab, var(--line-strong) 70%, transparent) 14%,
-    color-mix(in oklab, var(--line-strong) 70%, transparent) 86%,
-    transparent
-  );
-  pointer-events: none;
-}
-
-/* Section-divider hairline above a page heading — the journal rhythm that
-   separates the masthead from the first section. */
-.page-heading {
-  position: relative;
-  padding-top: 1.75rem;
-}
-
-.page-heading::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    color-mix(in oklab, var(--line-strong) 70%, transparent) 14%,
-    color-mix(in oklab, var(--line-strong) 70%, transparent) 86%,
-    transparent
-  );
-  pointer-events: none;
-}
-
-/* Layer 4 · Italic-em editorial pop. The hero's accent word lifts off the
-   art with a bloom in its own hue — barely perceptible, and the difference
-   between an italic word and an accent. */
-.trail-hero h1 em {
-  text-shadow: 0 0 18px color-mix(in oklab, var(--brand) 30%, transparent);
-}
-
-.cloze-prompt {
-  border-left-color: color-mix(in oklab, var(--warn) 78%, transparent);
-}
-
-/* Creature art casts a shadow onto the surface it stands on, and breathes
-   where it is alive. Ported from the webapp's meadow and codex portraits. */
-.meadow-slot-art,
-.codex-card-art {
-  filter: drop-shadow(0 8px 10px rgb(29 43 58 / 16%));
-}
-
-.meadow-slot.is-caught .meadow-slot-art {
-  animation: polish-breathe 4.8s var(--ease-in-out) infinite;
-}
-
-.monster-meadow > *:nth-child(2) .meadow-slot-art {
-  animation-delay: 0.7s;
-}
-
-.monster-meadow > *:nth-child(3) .meadow-slot-art {
-  animation-delay: 1.4s;
-}
-
-.monster-meadow > *:nth-child(4) .meadow-slot-art {
-  animation-delay: 2.1s;
-}
-
-.monster-meadow > *:nth-child(5) .meadow-slot-art {
-  animation-delay: 2.8s;
-}
-
-.monster-meadow > *:nth-child(6) .meadow-slot-art {
-  animation-delay: 3.5s;
-}
-
-@keyframes polish-breathe {
-  0%,
-  100% {
-    transform: translateY(0) scale(1);
-  }
-
-  50% {
-    transform: translateY(-4px) scale(1.03);
-  }
-}
-
-/* A caught creature stands in its own pool of light; a locked silhouette
-   stands on bare paper. */
-.codex-card.is-caught {
-  background-image: radial-gradient(
-    circle at 50% 34%,
-    color-mix(in oklab, var(--brand) 16%, transparent),
-    transparent 58%
-  );
-}
-
-/* A silhouette is only a silhouette if you can see its outline. Blacked out
-   on a dark card it is a hole in the page, so in the dark scheme the same
-   featureless shape is struck in light instead. The meadow never needs this:
-   its hero tone keeps that panel light in both appearances. */
-@media (prefers-color-scheme: dark) {
-  .codex-card.is-locked .codex-card-art {
-    filter: brightness(0) invert(1) opacity(0.3);
-  }
-}
-
-/* A grid of creature cards wants a taller silhouette than a list row. */
-.codex-card strong {
-  font-family: var(--font-serif);
-  font-size: 0.95rem;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-
-/* Creature art stands on the surface rather than floating over it: one
-   flattened ellipse of contact shadow under each silhouette, the same trick
-   the webapp's mini-meadow cells use — no extra element, one declaration. */
-.meadow-slot-art,
-.codex-card-art {
-  background: radial-gradient(
-      ellipse 42% 6% at 50% 94%,
-      rgb(29 43 58 / 30%),
-      rgb(29 43 58 / 10%) 55%,
-      transparent 74%
-    )
-    no-repeat;
-}
-
-@media (prefers-color-scheme: dark) {
-  .meadow-slot-art,
-  .codex-card-art {
-    background: radial-gradient(
-        ellipse 42% 6% at 50% 94%,
-        rgb(0 0 0 / 52%),
-        rgb(0 0 0 / 20%) 55%,
-        transparent 74%
-      )
-      no-repeat;
-  }
-}
-
-/* Layer 2 · Codex stage track. Five dots per creature: lit up to the stage
-   reached, the current one breathing a ring, and the fifth carrying the mega
-   glow. Ported from the webapp's codex card and its dot-pulse layer. */
-.codex-stage-track {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.28rem;
-  width: 100%;
-  max-width: 5.5rem;
-  margin-top: 0.35rem;
-}
-
-/* An unreached stage is an empty socket, not a filled dot — on a selected
-   card a white fill reads as lit, which is the opposite of what it means. */
-.codex-stage-dot {
-  aspect-ratio: 1;
-  min-width: 0;
-  border: 1px solid color-mix(in oklab, var(--ink) 22%, transparent);
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--ink) 8%, transparent);
-}
-
-.codex-stage-dot.is-lit {
-  border-color: color-mix(in oklab, var(--brand) 52%, var(--line));
-  background: color-mix(in oklab, var(--brand) 55%, var(--panel));
-}
-
-.codex-stage-dot.is-mega {
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--warn) 24%, transparent);
-}
-
-.codex-stage-dot.is-mega.is-lit {
-  border-color: color-mix(in oklab, var(--warn) 62%, var(--line));
-  background: color-mix(in oklab, var(--warn) 62%, var(--panel));
-  box-shadow:
-    0 0 14px color-mix(in oklab, var(--warn) 32%, transparent),
-    inset 0 0 0 1px rgb(255 255 255 / 40%);
-}
-
-.codex-stage-dot.is-current:not(.is-mega) {
-  animation: polish-stage-pulse 2.4s var(--ease-in-out) infinite;
-}
-
-.codex-stage-dot.is-current.is-mega {
-  animation: polish-stage-pulse-mega 2.6s var(--ease-in-out) infinite;
-}
-
-@keyframes polish-stage-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 18%, transparent);
-  }
-
-  50% {
-    box-shadow: 0 0 0 5px color-mix(in oklab, var(--brand) 8%, transparent);
-  }
-}
-
-@keyframes polish-stage-pulse-mega {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 3px color-mix(in oklab, var(--warn) 20%, transparent),
-      0 0 18px color-mix(in oklab, var(--warn) 32%, transparent),
-      inset 0 0 0 1px rgb(255 255 255 / 42%);
-  }
-
-  50% {
-    box-shadow:
-      0 0 0 5px color-mix(in oklab, var(--warn) 10%, transparent),
-      0 0 26px color-mix(in oklab, var(--warn) 42%, transparent),
-      inset 0 0 0 1px rgb(255 255 255 / 50%);
-  }
-}
-
-/* ---------- Layer 4 · Setup scene ----------
- * The webapp's mode cards are glass floating on the hero art. We keep the
- * repo's standing rule that blur belongs to the round card alone — the
- * backdrop pans, and a scrolling page must not stack compositing passes over
- * it — so the glass is built from fill, stroke and inset light instead.
- */
-.mode-choice-card,
-.segmented-choice button,
-.voice-choice button,
-.toggle-chip {
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 14%);
-}
-
-.mode-choice-card[aria-pressed='true'],
-.segmented-choice button[aria-pressed='true'],
-.voice-choice button[aria-pressed='true'],
-.toggle-chip[aria-pressed='true'] {
-  background-image: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--brand) 16%, transparent) 0%,
-    transparent 76%
-  );
-  box-shadow:
-    inset 0 0 0 0.12rem var(--brand),
-    inset 0 1px 0 rgb(255 255 255 / 26%),
-    0 6px 18px -8px color-mix(in oklab, var(--brand) 45%, transparent);
-}
-
-/* The mode thumbnail is a picture on a card, so it takes a picture's frame. */
-.mode-choice-thumb {
-  box-shadow:
-    inset 0 0 0 1px rgb(255 255 255 / 22%),
-    0 5px 5px -3px rgb(14 24 38 / 24%);
-}
-
-.btn-icon,
-.voice-symbol,
-.feedback-symbol,
-.audio-state-icon,
-.summary-medal {
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 26%);
-}
-
-/* A section rule between control clusters, so setup reads as a sequence of
-   decisions rather than one undivided form.
-   The rule sits on the following group and is drawn at its padding-box top —
-   but a `<legend>` renders outside that box, so the line landed *under* its own
-   heading and read as an underline on the wrong element. The panel these groups
-   now live in already separates them, so the spacing stays and the line goes. */
-.choice-group + .choice-group {
-  padding-top: 1.5rem;
-}
-
-/* A caught creature stands in its own pool of light in the meadow too. */
-.meadow-slot.is-caught {
-  background-image: radial-gradient(
-    circle at 50% 38%,
-    color-mix(in oklab, var(--brand) 16%, transparent),
-    transparent 60%
-  );
-}
-
-/* Setup copy stands directly on the art, so on a dark region it takes the
-   same lift the hero and summary already get. text-shadow inherits, so one
-   selector carries the whole scene. */
-.product-app[data-hero-tone='2'] .setup-card,
-.product-app[data-hero-tone='3'] .setup-card {
-  text-shadow: 0 1px 16px rgb(0 0 0 / 58%);
-}
-
-/* ---------- Layer 4 · The spelling itself ----------
- * The web session sets the word on a single ruled line rather than in a box:
- * the card is already the container, so a second frame around the field only
- * competes with it. The rule turns brand under the cursor. Focus keeps the
- * global halo — the webapp drops it, and on a phone that is one affordance
- * too few. */
-/* The field is focused from the moment the card mounts, so a ring around it
-   is permanent furniture rather than a state. The rule is the indicator
-   instead: it thickens and turns brand, and lights the paper under it. The
-   forced-colours and increased-contrast blocks below put a real outline back
-   for the users who need one. */
-.answer-form input.word-input:disabled {
-  border-bottom-style: dashed;
-  opacity: 0.7;
-}
-
-/* The stage is a lit clearing, not a blank square: the creature stands in a
-   pool of warm light with the paper falling away behind it, which is how the
-   webapp's card top frames its portraits. */
-.monster-stage {
-  background:
-    radial-gradient(
-      circle at 50% 40%,
-      color-mix(in oklab, var(--warn) 20%, transparent),
-      transparent 58%
-    ),
-    radial-gradient(
-      ellipse 34% 5% at 50% 82%,
-      rgb(29 43 58 / 26%),
-      transparent 70%
-    ),
-    radial-gradient(circle at 50% 56%, var(--panel), var(--panel-sunken) 88%);
-}
-
-/* The medal reads as struck metal rather than a filled circle. */
-.summary-medal {
-  box-shadow:
-    inset 0 2px 0 rgb(255 255 255 / 32%),
-    0 8px 20px -8px color-mix(in oklab, var(--warn) 60%, transparent);
-}
-
-/* ---------- Reduced motion ----------
- * The blanket guard above already kills every animation and transition. What
- * it cannot reach is a resting transform, so the lifts and Ken-Burns scales
- * are flattened here. The press compressions are deliberately kept: with the
- * transition gone they are instant, and a control that does not acknowledge a
- * touch is a broken control, not a calm one. */
-@media (prefers-reduced-motion: reduce) {
-  .mode-choice-thumb,
-  .mode-choice-card[aria-pressed='true'] .mode-choice-thumb,
-  .mode-choice-card:active .mode-choice-thumb,
-  .toggle-chip[aria-pressed='true'] .toggle-box {
-    transform: none;
-  }
-
-  .exit-confirmation {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
 }
 
 @media (forced-colors: active) {
-  .paper-card,
-  .practice-card,
+  .vellum,
+  .round-card,
+  .codex-hero,
+  .field-record-sheet,
+  .bank-row,
   .audio-state,
+  .learner-card,
+  .parent-card,
+  .waypoint-bar,
   .exit-confirmation > div {
     border: 2px solid CanvasText;
-    background-image: none;
     box-shadow: none;
   }
 
-  /* Decorative rules and washes carry no meaning a forced palette can keep. */
-  .paper-card::before,
-  .paper-card::after,
-  .practice-card::before,
-  .practice-card::after,
-  .setup-card::before,
-  .page-heading::before,
-  .codex-card.is-caught {
-    background: none;
+  .scene-plate,
+  .scene-veil,
+  .codex-hero-glow,
+  .codex-hero-sheen,
+  .quest-tile-sheen,
+  .meadow-halo,
+  .results-halo::before {
+    display: none;
   }
 
   .product-app button:focus-visible,
@@ -4474,564 +3478,68 @@ button.codex-card:active:not(.is-locked) {
     outline-offset: 3px;
   }
 
-  .round-step.is-done,
-  .round-step.is-current {
-    border-color: Highlight;
+  .round-dots li[data-state='here'],
+  .codex-meter-track span {
     background: Highlight;
   }
 }
 
 @media (prefers-contrast: more) {
   .product-app {
-    --ink-soft: var(--ink);
-    --line: var(--line-strong);
+    --ink-soft: #25384a;
+    --ink-faint: #33475a;
+    --line: #526373;
+    --line-strong: #3c4d5e;
   }
 
-  /* On the world the panels stop being translucent and the soft ink stops
-     being soft — the art can no longer eat either. */
-  .product-app[data-hero-tone] {
-    --hero-shell-ink-soft: var(--hero-shell-ink);
-    --hero-panel: var(--hero-wash);
-    --hero-panel-line: var(--hero-shell-ink);
-  }
-
-  .paper-card,
-  .practice-card,
+  .vellum,
+  .round-card,
+  .bank-row,
   .audio-state,
+  .learner-card,
+  .parent-card {
+    border-width: 2px;
+  }
+
+  /* A scene's veil is a bespoke gradient tuned to the plate behind it, handed
+     in per scene, so there is no second one to swap to here — a `--veil-strong`
+     was read for a while and never declared anywhere, which meant this rule
+     had always been a no-op. High contrast gets its separation from the
+     borders and the focus ring above instead. */
+  .scene-veil {
+    background: var(--veil, none);
+  }
+
   .product-app button:focus-visible,
   .product-app input:focus-visible,
   .product-app select:focus-visible {
     outline-width: 4px;
   }
+}
 
-  /* The spelling field trades its outline for a brand rule. At increased
-     contrast the outline comes back — a coloured underline is exactly the
-     kind of low-contrast cue this setting exists to replace. */
-  .answer-form input:focus,
-  .answer-form input:focus-visible {
-    outline: 4px solid var(--focus);
-    outline-offset: 0.2rem;
+@media (max-width: 22rem) {
+  .listen-row button {
+    padding: 0 0.7rem;
+    font-size: 0.78rem;
+  }
+
+  .codex-stats .label,
+  .setup-tally .label {
+    font-size: 0.5rem;
   }
 }
 
-@media (max-width: 44rem) {
-  .add-learner-card,
-  .parent-grid {
-    grid-template-columns: 1fr;
+@media (min-width: 46rem) {
+  .scene-body,
+  .switch-sheet,
+  .setup-tray {
+    width: min(100%, 34rem);
+    margin-right: auto;
+    margin-left: auto;
   }
 
-  .reward-summary {
-    grid-template-columns: minmax(7rem, 0.5fr) minmax(10rem, 1fr);
-  }
-}
-
-@media (max-width: 34rem) {
-  .product-app {
-    padding-right:
-      max(
-        0.75rem,
-        var(--safe-area-inset-right, env(safe-area-inset-right, 0px))
-      );
-    padding-left:
-      max(
-        0.75rem,
-        var(--safe-area-inset-left, env(safe-area-inset-left, 0px))
-      );
-  }
-
-  .product-app h1 {
-    font-size: clamp(1.95rem, 9vw, 2.6rem);
-  }
-
-  .audio-state {
-    grid-template-columns: auto 1fr;
-  }
-
-  .audio-state .button-quiet {
-    grid-column: 1 / -1;
-  }
-
-  .field-pair,
-  .voice-choice {
-    grid-template-columns: 1fr;
-  }
-
-  /* The narrow-phone override that dropped the old third column onto a second
-     line is gone with the column: two columns fit at every width now, and this
-     rule was pinning the stage strip into the middle of the row. */
-  .reward-summary {
-    grid-template-columns: 1fr;
-    text-align: center;
-  }
-
-  .status-card {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .evidence-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .evidence-grid div:nth-child(odd) {
-    border-right: 0;
-  }
-}
-
-/* ============================================================
- * C6.5 — summary celebration layer
- * Ported/adapted from ks2-mastery celebration shell + effects
- * (particles-burst / sparkle visuals only; no registry/acks).
- * ============================================================ */
-
-.summary-page {
-  position: relative;
-}
-
-/* The celebration scrim is a fixed dark stage in both themes — its scrim and
-   sparkle values are surface colours, not theme tokens. */
-.celebration-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 40;
-  display: grid;
-  place-items: center;
-  padding: 1.25rem;
-  background:
-    radial-gradient(
-      closest-side,
-      color-mix(in oklab, var(--brand) 28%, transparent) 0%,
-      rgb(13 29 41 / 72%) 70%
-    ),
-    rgb(13 29 41 / 55%);
-}
-
-.celebration-overlay.celebration-caught {
-  background:
-    radial-gradient(
-      closest-side,
-      rgb(28 36 56 / 70%) 0%,
-      rgb(13 29 41 / 78%) 75%
-    ),
-    rgb(8 12 20 / 62%);
-}
-
-.celebration-card {
-  position: relative;
-  display: grid;
-  gap: 0.85rem;
-  justify-items: center;
-  width: min(100%, 22rem);
-  min-height: 2.75rem;
-  margin: 0;
-  border: 1px solid color-mix(in oklab, var(--ink-on-dark) 28%, transparent);
-  border-radius: 1.35rem;
-  padding: 1.35rem 1.15rem 1.2rem;
-  color: var(--ink-on-dark);
-  background: color-mix(in oklab, var(--ink-on-dark) 12%, transparent);
-  box-shadow: 0 18px 48px rgb(0 0 0 / 35%);
-  text-align: center;
-  cursor: pointer;
-  animation: celebration-card-enter var(--dur-slow) var(--ease-out) both;
-}
-
-/* The scrim is dark in both themes, so this ring cannot use theme ink. */
-.celebration-card:focus-visible {
-  outline: 3px solid var(--ink-on-dark);
-  outline-offset: 3px;
-}
-
-.celebration-effects {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: inherit;
-  pointer-events: none;
-}
-
-.celebration-sparkle.fx {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-radius: inherit;
-}
-
-.celebration-sparkle.fx-shiny {
-  background:
-    radial-gradient(circle at 30% 30%, rgb(255 255 255 / 35%) 0%, transparent 22%),
-    radial-gradient(circle at 70% 65%, rgb(255 255 255 / 28%) 0%, transparent 28%),
-    radial-gradient(circle at 50% 50%, var(--warn) 0%, transparent 65%);
-  background-blend-mode: screen, screen, soft-light;
-  mix-blend-mode: screen;
-  opacity: 0.48;
-  animation: celebration-sparkle-twinkle 3.4s ease-in-out infinite;
-}
-
-.celebration-parts {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.celebration-part {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0.5rem;
-  height: 0.5rem;
-  margin: -0.25rem 0 0 -0.25rem;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow:
-    0 0 14px rgb(255 255 255 / 95%),
-    0 0 4px #fff;
-  opacity: 0;
-  animation: celebration-part-burst 1.8s linear forwards;
-}
-
-.celebration-part:nth-child(1)  { --tx:  7.5rem; --ty: -4rem; animation-delay: 0s; }
-.celebration-part:nth-child(2)  { --tx: -6.5rem; --ty: -5.5rem; animation-delay: 0.08s; }
-.celebration-part:nth-child(3)  { --tx: -2.75rem; --ty: -7.5rem; animation-delay: 0.04s; }
-.celebration-part:nth-child(4)  { --tx:  4.75rem; --ty:  6rem; animation-delay: 0.18s; }
-.celebration-part:nth-child(5)  { --tx: -7.5rem; --ty:  2rem; animation-delay: 0.1s; }
-.celebration-part:nth-child(6)  { --tx:  7.75rem; --ty:  1.35rem; animation-delay: 0.22s; }
-.celebration-part:nth-child(7)  { --tx: -2rem; --ty:  7.5rem; animation-delay: 0.14s; }
-.celebration-part:nth-child(8)  { --tx:  3.35rem; --ty: -7.5rem; animation-delay: 0.3s; }
-.celebration-part:nth-child(9)  { --tx: -5.5rem; --ty:  6.5rem; animation-delay: 0.26s; }
-.celebration-part:nth-child(10) { --tx:  6rem; --ty: -2rem; animation-delay: 0.36s; }
-
-.celebration-figure {
-  position: relative;
-  z-index: 1;
-  width: min(70%, 11rem);
-  margin: 0;
-}
-
-.celebration-art {
-  display: block;
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
-.celebration-headline {
-  position: relative;
-  z-index: 1;
-  margin: 0;
-  color: var(--ink-on-dark);
-  font-size: 1.15rem;
-  font-weight: 800;
-  line-height: 1.25;
-  letter-spacing: -0.02em;
-}
-
-.celebration-status {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  border: 0;
-  white-space: nowrap;
-}
-
-.reward-secure-toast {
-  margin: 0.85rem 0 0;
-  color: var(--brand-ink);
-  font-size: 0.95rem;
-  font-weight: 800;
-}
-
-@keyframes celebration-card-enter {
-  from {
-    opacity: 0;
-    transform: translateY(0.75rem) scale(0.96);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes celebration-sparkle-twinkle {
-  0%,
-  100% {
-    transform: scale(1);
-    filter: brightness(1);
-  }
-
-  50% {
-    transform: scale(1.04);
-    filter: brightness(1.18);
-  }
-}
-
-@keyframes celebration-part-burst {
-  0% {
-    opacity: 0;
-    transform: translate(var(--tx), var(--ty)) scale(0);
-  }
-
-  10% {
-    opacity: 1;
-    transform: translate(var(--tx), var(--ty)) scale(1);
-  }
-
-  70% {
-    opacity: 1;
-    transform: translate(0, 0) scale(1.8);
-  }
-
-  85% {
-    opacity: 0.6;
-    transform: translate(0, 0) scale(0.6);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translate(0, 0) scale(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .celebration-card {
-    animation: none !important;
-  }
-
-  .celebration-effects,
-  .celebration-parts,
-  .celebration-sparkle {
-    display: none !important;
-  }
-
-  .celebration-sparkle,
-  .celebration-part {
-    animation: none !important;
-  }
-}
-
-/* ==========================================================================
- * Regular width
- *
- * There was not one `min-width` query in this sheet, so an iPad rendered a
- * phone at iPad size: one narrow column of content against an empty half-screen
- * of painted land, with type that had already hit the top of its clamp.
- *
- * The rule followed here is that the extra width buys either a second column of
- * real content or a bigger version of the thing the screen is about — never
- * wider paragraphs. The measure stays where it is legible and the land keeps the
- * room it is given, because on this app the land is content too.
- *
- * The breakpoint is the same 45rem the section rail turns on at, so a screen
- * never has a rail and a phone layout at the same time.
- * ========================================================================== */
-@media (min-width: 45rem) {
-  /* ---------- Trail ----------
-     The mission on the leading side, the companions beside it as a roster
-     rather than three thumbnails, and the Downs below both. */
-  .child-home {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.72fr);
-    gap: 0 2.5rem;
-    align-content: start;
-  }
-
-  .child-home > .trail-hero {
-    grid-column: 1;
-  }
-
-  .child-home > .companions {
-    grid-row: 1;
-    grid-column: 2;
-    padding-top: 0.4rem;
-  }
-
-  .child-home > .audio-state {
-    grid-column: 1 / -1;
-  }
-
-  .child-home .monster-meadow,
-  .child-home .monster-meadow-empty {
-    width: 100%;
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-
-  .child-home .meadow-slot {
-    grid-template-columns: auto 1fr;
-    gap: 0.9rem;
-    align-items: center;
-    justify-items: start;
-    padding: 0.6rem 0.9rem;
-    text-align: left;
-  }
-
-  .child-home .meadow-slot-art,
-  .child-home .meadow-slot-empty {
-    width: 3.4rem;
-    height: 3.4rem;
-  }
-
-  /* ---------- Round setup ----------
-     The one decision on the leading side at full size; the figures and the
-     settings that are set once beside it, out of the way of the choice. */
-  .setup-card {
-    display: grid;
-    max-width: none;
-    grid-template-columns: minmax(0, 1fr) minmax(17rem, 0.7fr);
-    gap: 0 2.5rem;
-    align-content: start;
-  }
-
-  .setup-card > .product-kicker,
-  .setup-card > h1 {
-    grid-column: 1 / -1;
-  }
-
-  .setup-card > .choice-group,
-  .setup-card > .length-note {
-    grid-column: 1;
-  }
-
-  .setup-card > .stand-panel {
-    grid-row: 3;
-    grid-column: 2;
-    align-self: start;
-    margin-top: 0;
-  }
-
-  .setup-card > .setup-more {
-    grid-column: 2;
-  }
-
-  .setup-card > .audio-state,
-  .setup-card > .inline-error {
-    grid-column: 1 / -1;
-  }
-
-  /* ---------- Words ----------
-     Two columns of rows rather than one row stretched across the sheet: a word
-     and five pips do not need 68rem between them. */
-  .word-progress-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.65rem 1rem;
-  }
-
-  /* ---------- Codex ----------
-     The roster runs along the top and the open companion takes the width under
-     it, which is the room the painted art has been waiting for. */
-  .codex-grid {
-    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-  }
-
-  /* ---------- Summary ----------
-     The figures and what slipped on one side, the companion that grew on the
-     other, so the reward is not the thing you have to scroll to reach. */
-  /* `margin: auto` on a stretched grid item shrinks it back to its content
-     width, so the results panel sat narrower than the panel beneath it and the
-     two columns no longer lined up on the left. */
-  .summary-page .summary-grid,
-  .summary-page .summary-drill {
-    grid-column: 1;
-    margin-inline: 0;
-  }
-
-  .summary-columns {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.8fr);
-    gap: 1.25rem 2rem;
-    align-items: start;
-  }
-
-  .summary-columns > .reward-summary {
-    grid-row: 1 / 3;
-    grid-column: 2;
-    grid-template-columns: 1fr;
-    text-align: center;
-  }
-
-  .summary-columns > .reward-summary .reward-art {
-    max-height: 13rem;
-  }
-
-  /* ---------- The parent sheet ----------
-     Cards that are read side by side rather than as one long scroll. */
-  .parent-grid {
-    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-    align-items: start;
-  }
-
-  /* ---------- Who is practising ----------
-     Names two abreast: on a device with four children the plates were a column
-     of four full-width slabs. */
-  .learner-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-    gap: 0.75rem;
-  }
-}
-
-/* ---------- The round, wide and short ----------
- * A phone in landscape is 430pt tall before anything is focused, and the round
- * card compacted is still taller than that once the trail line, the footer and
- * the safe areas have taken their share — so a child who turned the phone lost
- * the Submit button off the bottom of the screen.
- *
- * With width instead of height, the card stops being a column: what to read on
- * one side, what to do on the other. This is also the shape an iPad in
- * landscape wants once its keyboard is up, which is why it keys off `data-room`
- * rather than a height query — a media query cannot see the iOS keyboard. */
-@media (min-width: 45rem) {
-  :root[data-room='tight'] .practice-card {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(13rem, 0.85fr);
-    gap: 0.4rem 2rem;
-    align-items: center;
-    padding: 1.25rem 1.5rem;
-  }
-
-  :root[data-room='tight'] .practice-card h1.prompt-instr,
-  :root[data-room='tight'] .practice-card .cloze-prompt,
-  :root[data-room='tight'] .practice-card .practice-mode-note {
-    grid-column: 1;
-    text-align: left;
-  }
-
-  :root[data-room='tight'] .practice-card .cloze-prompt {
-    margin-bottom: 0;
-  }
-
-  :root[data-room='tight'] .practice-card .answer-form {
-    grid-row: 1 / 4;
-    grid-column: 2;
-  }
-
-  /* Anything the engine says about the answer is about both halves. */
-  :root[data-room='tight'] .practice-card .answer-notice,
-  :root[data-room='tight'] .practice-card .answer-feedback,
-  :root[data-room='tight'] .practice-card .answer-recorded {
-    grid-column: 1 / -1;
-  }
-
-  :root[data-room='tight'] .practice-card .audio-row {
-    margin-top: 0.7rem;
-  }
-
-  /* The height was the scarce thing, not the width, so the listening controls
-     keep their names here. */
-  :root[data-room='tight'] .btn-icon-label {
-    display: inline;
-  }
-
-  :root[data-room='tight'] .product-app .practice-card .btn-icon {
-    width: auto;
-    height: 2.6rem;
-    gap: 0.4rem;
-    padding: 0 0.9rem 0 0.75rem;
+  .waypoint-bar {
+    padding-right: max(25%, 0.75rem);
+    padding-left: max(25%, 0.75rem);
   }
 }

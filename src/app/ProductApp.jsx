@@ -7,152 +7,246 @@ import {
   useRef,
   useState,
 } from 'react';
-import { flushSync } from 'react-dom';
-import { HeroBackdrop } from './HeroBackdrop.jsx';
-import {
-  heroBgForMode,
-  heroPreloadUrlsForMode,
-  heroToneForProgress,
-} from './backdrop-model.js';
-import { countWords, dueCopy, heroWelcomeLine } from './hero-copy.js';
-import { observeKeyboardInset } from './keyboard-inset.js';
-import { learnerColour } from './learner-colour.js';
-import { whereYouStand } from './where-you-stand.js';
+import { buildCodex } from './codex-model.js';
+import { artUrl, monsterArt, regionArt } from './mastery-art.js';
+import { buildWordBank } from './word-bank-model.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
   diffMonsterCelebrations,
-  monsterDisplayName,
   secureWordDelta,
 } from './celebrations/celebration-model.js';
-import {
-  MEADOW_EMPTY_BODY,
-  MEADOW_EMPTY_TITLE,
-  buildCodexEntries,
-  buildMeadowSlots,
-  pickFeaturedCodexEntry,
-} from './meadow/meadow-model.js';
-import { stageArtUrl } from './monster-stage/monster-stage-model.js';
-import {
-  autoAdvanceDelayMs,
-  roundProgressDots,
-  spellingOnly,
-} from './practice-feel.js';
 
-// Phaser + the living Monster Stage load only when a caught codex entry is open.
+// Phaser + the living Monster Stage load only when a caught codex entry is
+// opened for a closer look.
 const MonsterStage = lazy(() => import('./monster-stage/MonsterStage.jsx'));
 
-const VOICES = Object.freeze([
-  Object.freeze({
-    id: 'Iapetus',
-    label: 'Iapetus',
-    description: 'A clear British-English voice',
-  }),
-  Object.freeze({
-    id: 'Sulafat',
-    label: 'Sulafat',
-    description: 'A warm British-English voice',
-  }),
-]);
 const ROUND_LENGTHS = Object.freeze([5, 10, 20]);
+const REGION = 'the-scribe-downs';
+// The dictation voice a round falls back to. It is not a choice a learner
+// makes any more, so this is the whole of the app's opinion about it.
+const PACKAGED_VOICE = 'Iapetus';
 
-/* The codex growth track: five stages, the last of which is the mega form. */
-const CODEX_STAGES = Object.freeze([1, 2, 3, 4, 5]);
-const CODEX_FINAL_STAGE = 5;
-/* A word's own ladder, and the rung the engine calls secure (`SECURE_STAGE` in
-   where-you-stand.js). Shown as pips rather than a numeral: "4" alone never
-   said what it was four out of. */
-const WORD_STAGES = Object.freeze([1, 2, 3, 4, 5]);
-const SECURE_STAGE = 4;
-// The web session scene carries the same disclosure under its voice controls.
-const VOICE_NOTE = 'AI-generated dictation voice';
-// Home and setup sit in the daylight Downs; the round walks tone 1 → 3.
-const HOME_HERO_TONE = '1';
-const WORKSHOP_MODES = Object.freeze([
-  Object.freeze({
-    id: 'smart',
-    label: 'Smart Review',
-    description: 'Due words, weak words and one fresh word',
-  }),
-  Object.freeze({
-    id: 'trouble',
-    label: 'Trouble Drill',
-    description: 'Words that need rescue from earlier mistakes',
-    emptyDescription:
-      'Starts as a Smart Review until some words need rescue',
-  }),
-  Object.freeze({
-    id: 'test',
-    label: 'SATs Test',
-    description: 'The full 20 words, one try each. Answers shown at the end.',
-  }),
-]);
+function prefersReducedMotion() {
+  return (
+    typeof matchMedia === 'function'
+    && matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
+// One drawing hand: 24px box, 1.8 stroke, round cap and join, no fills.
+function Glyph({ size = 22, children, ...rest }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      {...rest}
+    >
+      {children}
+    </svg>
+  );
+}
+
+const IconTrail = (props) => (
+  <Glyph {...props}>
+    <path d="M6.5 20.5V4" />
+    <path d="M6.5 4.8h11l-2.4 3.9 2.4 3.9h-11" />
+  </Glyph>
+);
+const IconWords = (props) => (
+  <Glyph {...props}><path d="M4 7.5h16M4 12h16M4 16.5h9" /></Glyph>
+);
+const IconCodex = (props) => (
+  <Glyph {...props}>
+    <path d="M12 7.2v12.6" />
+    <path d="M12 7.2C10.1 5.7 7.3 5 4.2 5v12.6c3.1 0 5.9.7 7.8 2.2 1.9-1.5 4.7-2.2 7.8-2.2V5c-3.1 0-5.9.7-7.8 2.2Z" />
+  </Glyph>
+);
+const IconCamp = (props) => (
+  <Glyph {...props}>
+    <path d="M12 4.4 4 19h16L12 4.4Z" />
+    <path d="M12 11.4 8.6 19M12 11.4 15.4 19" />
+    <path d="M2.4 19h19.2" />
+  </Glyph>
+);
+const IconBack = (props) => (
+  <Glyph {...props}><path d="M14.5 5 8 12l6.5 7" /></Glyph>
+);
+const IconForward = (props) => (
+  <Glyph {...props}><path d="M4 12h15M13 6l6 6-6 6" /></Glyph>
+);
+const IconChevron = (props) => (
+  <Glyph {...props}><path d="m9 6 6 6-6 6" /></Glyph>
+);
+const IconChevronDown = (props) => (
+  <Glyph {...props}><path d="m6 10 6 6 6-6" /></Glyph>
+);
+const IconLock = (props) => (
+  <Glyph {...props}>
+    <rect x="4.5" y="10.5" width="15" height="9.5" rx="2.6" />
+    <path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7" />
+  </Glyph>
+);
+const IconSpeaker = (props) => (
+  <Glyph {...props}>
+    <path d="M11 5 6 9H3v6h3l5 4Z" />
+    <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+  </Glyph>
+);
+const IconSpeakerSlow = (props) => (
+  <Glyph {...props}>
+    <path d="M11 5 6 9H3v6h3l5 4Z" />
+    <path d="M15.5 10a3 3 0 0 1 0 4" />
+  </Glyph>
+);
+const IconTick = (props) => (
+  <Glyph {...props}><path d="m5 13 4.5 4.5L19 7" /></Glyph>
+);
+const IconReturn = (props) => (
+  <Glyph {...props}>
+    <path d="M3.2 12a8.8 8.8 0 1 0 3.4-7" />
+    <path d="M3 4.6V10h5.4" />
+  </Glyph>
+);
+const IconPlus = (props) => (
+  <Glyph {...props}><path d="M12 5v14M5 12h14" /></Glyph>
+);
+const IconNote = (props) => (
+  <Glyph {...props}>
+    <path d="M9 18V6l10-2v12" />
+    <circle cx="7" cy="18" r="2" />
+    <circle cx="17" cy="16" r="2" />
+  </Glyph>
+);
+const IconWarning = (props) => (
+  <Glyph {...props}>
+    <path d="M12 8.6v5" />
+    <path d="M12 17h.01" />
+    <path d="M10.3 4.2 2.9 17.4A1.9 1.9 0 0 0 4.6 20.2h14.8a1.9 1.9 0 0 0 1.7-2.8L13.7 4.2a1.9 1.9 0 0 0-3.4 0Z" />
+  </Glyph>
+);
 
 function displayYearGroup(value) {
   return `Year ${value.slice(1)}`;
 }
 
-function runViewTransition(update) {
-  if (
-    typeof document !== 'undefined'
-    && typeof document.startViewTransition === 'function'
-    && typeof matchMedia === 'function'
-    && !matchMedia('(prefers-reduced-motion: reduce)').matches
-  ) {
-    // flushSync commits the React update inside the snapshot callback, so the
-    // transition captures the real before/after frames.
-    document.startViewTransition(() => {
-      flushSync(update);
-    });
-    return;
-  }
-  update();
+function initialOf(nickname) {
+  return nickname.slice(0, 1).toUpperCase();
 }
 
-function preloadHeroToneUrls(mode) {
-  if (typeof Image === 'undefined') return;
-  for (const url of heroPreloadUrlsForMode(mode)) {
-    const image = new Image();
-    image.src = url;
-  }
+/**
+ * One painted scene. `plate` and `veil` drive the backdrop through custom
+ * properties so every screen mixes the same recipe rather than its own.
+ */
+function Scene({
+  className = '',
+  dusk = false,
+  plate = null,
+  plateY,
+  plateOpacity,
+  veil,
+  waypoints = false,
+  children,
+  ...rest
+}) {
+  const style = {};
+  if (plate) style['--plate'] = artUrl(plate);
+  if (plateY) style['--plate-y'] = plateY;
+  if (plateOpacity !== undefined) style['--plate-opacity'] = String(plateOpacity);
+  if (veil) style['--veil'] = veil;
+  return (
+    <div
+      className={[
+        'product-scene',
+        dusk ? 'scene-dusk' : '',
+        waypoints ? 'has-waypoints' : '',
+        className,
+      ].filter(Boolean).join(' ')}
+      style={style}
+      {...rest}
+    >
+      {plate && <span className="scene-plate" />}
+      {veil && <span className="scene-veil" />}
+      {children}
+    </div>
+  );
 }
 
-function AudioStatus({ audioState, onRecover, compact = false }) {
-  const copy = {
-    ready: [
-      'Listening pack ready',
-      'Verified pre-recorded audio is available on this device.',
-    ],
-    corrupt: [
-      'Listening pack needs repair',
-      'The local audio no longer matches its verified pack.',
-    ],
-    checking: [
-      'Checking the listening pack',
-      'Checking the local pre-recorded audio now.',
-    ],
-    unavailable: [
-      'Listening pack could not be checked',
-      'Your learning is still saved. Check the local pack again.',
-    ],
-    missing: [
-      'Listening pack needs setup',
-      'Pre-recorded audio is not ready on this device yet.',
-    ],
-  };
-  const [title, body] = copy[audioState.status] ?? copy.missing;
+const WAYPOINTS = Object.freeze([
+  Object.freeze({ screen: 'home', label: 'Trail', Icon: IconTrail }),
+  Object.freeze({ screen: 'progress', label: 'Words', Icon: IconWords }),
+  Object.freeze({ screen: 'monster', label: 'Codex', Icon: IconCodex }),
+  Object.freeze({ screen: 'camp', label: 'Camp', Icon: IconCamp }),
+]);
+
+function WaypointBar({ screen, onScreen }) {
+  return (
+    <nav className="waypoint-bar" aria-label="Places on the trail">
+      {WAYPOINTS.map(({ screen: target, label, Icon }) => (
+        <button
+          key={target}
+          type="button"
+          className="press-soft press"
+          aria-current={screen === target ? 'page' : undefined}
+          onClick={() => onScreen(target)}
+        >
+          <Icon size={23} />
+          <span>{label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+const AUDIO_COPY = Object.freeze({
+  ready: Object.freeze([
+    'Listening pack ready',
+    'Verified pre-recorded audio is available on this device.',
+  ]),
+  corrupt: Object.freeze([
+    'Listening pack needs repair',
+    'The local audio no longer matches its verified pack.',
+  ]),
+  checking: Object.freeze([
+    'Checking the listening pack',
+    'Checking the local pre-recorded audio now.',
+  ]),
+  unavailable: Object.freeze([
+    'Listening pack could not be checked',
+    'Your learning is still saved. Check the local pack again.',
+  ]),
+  missing: Object.freeze([
+    'Listening pack needs setup',
+    'Pre-recorded audio is not ready on this device yet.',
+  ]),
+});
+
+function AudioStatus({ audioState, onRecover, compact = false, dusk = false }) {
+  const [title, body] = AUDIO_COPY[audioState.status] ?? AUDIO_COPY.missing;
   return (
     <section
-      className={`audio-state audio-state-${audioState.status}${compact ? ' audio-state-compact' : ''}`}
+      className={[
+        'audio-state',
+        `audio-state-${audioState.status}`,
+        dusk ? 'audio-state-dusk' : '',
+      ].filter(Boolean).join(' ')}
       aria-labelledby="starter-audio-title"
       aria-live="polite"
     >
-      <span className="audio-state-icon" aria-hidden="true">♪</span>
+      <span className="audio-state-icon"><IconNote size={18} /></span>
       <div>
         <h2 id="starter-audio-title">{title}</h2>
         {!compact && <p>{body}</p>}
       </div>
       {!['ready', 'checking'].includes(audioState.status) && (
-        <button type="button" className="button-quiet" onClick={onRecover}>
+        <button type="button" className="button-quiet press" onClick={onRecover}>
           Check again
         </button>
       )}
@@ -160,131 +254,12 @@ function AudioStatus({ audioState, onRecover, compact = false }) {
   );
 }
 
-/* The app bar. Fixed, not in the flow: a bar that scrolls takes the status
-   bar's space with it on the way past, which is what left the brand mark and
-   the switch control sitting under the Dynamic Island. Content passes beneath
-   it now, and the bar carries a wash so both stay legible while it does.
-   `lead` is a slot rather than a fixed brand mark, because on a screen you are
-   already inside, the app's own name is the least useful thing it could say. */
-function ProductTopBar({ lead, title, action }) {
+function ProductTopBar({ title = 'KS2 Spelling', action }) {
   return (
     <header className="product-topbar">
-      {lead ?? <span />}
-      {title && <p>{title}</p>}
+      <p>{title}</p>
       {action ?? <span />}
     </header>
-  );
-}
-
-function ChevronDownIcon({ size = 16 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="m6 10 6 6 6-6" />
-    </svg>
-  );
-}
-
-function BackIcon({ size = 22 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M14.5 5 8 12l6.5 7" />
-    </svg>
-  );
-}
-
-/* Who is practising, and the way to change it, in one control — because they
-   are one question. A name in the bar also answers it without being asked,
-   which a "Switch learner" button never did. */
-function LearnerChip({ profile, onClick }) {
-  return (
-    <button
-      type="button"
-      className="learner-chip"
-      style={{ '--learner-colour': learnerColour(profile.nickname) }}
-      aria-label={`Switch learner — ${profile.nickname} is practising`}
-      onClick={onClick}
-    >
-      <span className="learner-chip-dot" aria-hidden="true" />
-      <span className="learner-chip-name">{profile.nickname}</span>
-      <ChevronDownIcon />
-    </button>
-  );
-}
-
-/* Tab glyphs, drawn in the same stroke language as the listening controls:
-   24px box, 1.8 stroke, round joins. The three text glyphs these replace
-   (↗ ✦ ⌂) came from three different type families and sat at three different
-   weights, which is why the old navigation rows never looked like a set. */
-function TrailIcon({ size = 24 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6.5 20.5V4" />
-      <path d="M6.5 4.8h11l-2.4 3.9 2.4 3.9h-11" />
-    </svg>
-  );
-}
-
-function WordsIcon({ size = 24 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 7.5h16M4 12h16M4 16.5h9" />
-    </svg>
-  );
-}
-
-function CodexIcon({ size = 24 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 7.2v12.6" />
-      <path d="M12 7.2C10.1 5.7 7.3 5 4.2 5v12.6c3.1 0 5.9.7 7.8 2.2 1.9-1.5 4.7-2.2 7.8-2.2V5c-3.1 0-5.9.7-7.8 2.2Z" />
-    </svg>
-  );
-}
-
-function CampIcon({ size = 24 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 4.4 4 19h16L12 4.4Z" />
-      <path d="M12 11.4 8.6 19M12 11.4 15.4 19" />
-      <path d="M2.4 19h19.2" />
-    </svg>
-  );
-}
-
-const TRAIL_TABS = Object.freeze([
-  Object.freeze({ screen: 'home', label: 'Trail', Icon: TrailIcon }),
-  Object.freeze({ screen: 'progress', label: 'Words', Icon: WordsIcon }),
-  Object.freeze({ screen: 'monster', label: 'Codex', Icon: CodexIcon }),
-  Object.freeze({ screen: 'camp', label: 'Camp', Icon: CampIcon }),
-]);
-
-/* The four places a learner moves between, always on screen and always in the
-   same order. They used to be three list rows below the fold on the home
-   screen, reachable only from there and left only by a Back button in the
-   far top corner — the one place a thumb cannot go.
-   On a wide screen the same strip becomes a rail down the leading edge, which
-   is where iPad puts its sections; the markup does not change, only the axis. */
-function TrailTabs({ current, onScreen }) {
-  return (
-    <nav className="trail-tabs" aria-label="Sections">
-      {TRAIL_TABS.map(({ screen, label, Icon }) => {
-        const here = screen === current;
-        return (
-          <button
-            key={screen}
-            type="button"
-            className="trail-tab"
-            aria-current={here ? 'page' : undefined}
-            onClick={() => {
-              if (!here) onScreen(screen);
-            }}
-          >
-            <Icon />
-            <span>{label}</span>
-          </button>
-        );
-      })}
-    </nav>
   );
 }
 
@@ -372,7 +347,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
       <div className="parent-learner-summary">
         <span
           className="learner-avatar parent-learner-avatar"
-          style={{ '--learner-colour': learnerColour(profile.nickname) }}
+          style={{ '--learner-colour': profile.colour }}
           aria-hidden="true"
         >
           {profile.nickname.slice(0, 1).toUpperCase()}
@@ -398,11 +373,6 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
         >
           Edit {profile.nickname}
         </button>
-        {/* All three of these were the same lavender pill, so wiping a
-            child's learning and deleting a child looked exactly like editing
-            one — three identical targets, one of them irreversible, on a
-            screen a parent taps through quickly. The two that destroy
-            something say so before they are pressed. */}
         <button
           type="button"
           className="button-warning"
@@ -764,15 +734,9 @@ export function ParentArea({
 
   if (state.status === 'unlocked') {
     return (
-      <main
-        className="product-app product-page parent-page"
-        aria-labelledby="parent-title"
-        data-chrome="bar"
-      >
-        {/* A sheet's bar carries the way out of the sheet. The title was
-            saying "Parent area" at the same moment the large title below it
-            said "Parent area". */}
+      <main className="product-app product-page parent-page" aria-labelledby="parent-title">
         <ProductTopBar
+          title="Parent area"
           action={(
             <button type="button" className="topbar-action" onClick={onClose}>
               Done
@@ -860,6 +824,14 @@ export function ParentArea({
               Export saves learner profiles and learning to a file you control.
               Deleting a learner here does not delete copies exported elsewhere.
             </p>
+            {/* The caution stands above the control it is about. Printed
+                underneath, it was read after the tap, if at all — and the tap
+                it followed replaces every learner on the device. */}
+            <p className="parent-backup-warning">
+              Import replaces every learner and learning snapshot on this
+              device. The Parent PIN, purchases and installed packs stay
+              unchanged.
+            </p>
             <div className="parent-backup-actions">
               <button
                 type="button"
@@ -872,18 +844,7 @@ export function ParentArea({
               >
                 Export learning backup
               </button>
-            </div>
-            {/* The caution comes before the control it is about, and the control
-                looks like what it does. Import replaces every learner on the
-                device, and it was a lavender pill identical to Export with the
-                warning printed underneath — read after the tap, if at all. */}
-            <p className="parent-backup-warning">
-              Import replaces every learner and learning snapshot on this
-              device. The Parent PIN, purchases and installed packs stay
-              unchanged.
-            </p>
-            {!confirmingImport && (
-              <div className="parent-backup-actions">
+              {!confirmingImport && (
                 <button
                   type="button"
                   className="button-warning"
@@ -896,8 +857,8 @@ export function ParentArea({
                 >
                   Import learning backup
                 </button>
-              </div>
-            )}
+              )}
+            </div>
             {confirmingImport && (
               <section
                 className="parent-import-confirmation"
@@ -985,11 +946,7 @@ export function ParentArea({
 
   const settingUp = state.status === 'setup-required';
   return (
-    <main
-      className="product-app product-page parent-page"
-      aria-labelledby="parent-access-title"
-      data-chrome="bar"
-    >
+    <main className="product-app product-page parent-page" aria-labelledby="parent-access-title">
       <ProductTopBar
         title="Parent access"
         action={(
@@ -1084,568 +1041,7 @@ export function ParentArea({
   );
 }
 
-function ProfilePicker({
-  profileState,
-  audioState,
-  onChoose,
-  onCreate,
-  onOpenParent,
-  onRecoverAudio,
-}) {
-  const [nickname, setNickname] = useState('');
-  const [yearGroup, setYearGroup] = useState('Y3');
-  const [goal, setGoal] = useState(10);
-  const busy = profileState.status === 'saving';
-  const hasLearners = profileState.profiles.length > 0;
-  // The form is the whole job on a device with nobody on it, and a once-ever
-  // task after that. It opens itself only while it is the job.
-  const [addOpen, setAddOpen] = useState(!hasLearners);
-
-  function submit(event) {
-    event.preventDefault();
-    const nextNickname = nickname.trim();
-    if (!nextNickname || busy) return;
-    void onCreate({
-      nickname: nextNickname,
-      yearGroup,
-      goal,
-      colour: learnerColour(nextNickname),
-    })
-      .then(() => {
-        setNickname('');
-        setAddOpen(false);
-      })
-      .catch(() => undefined);
-  }
-
-  return (
-    <main
-      className="product-app product-page picker-page"
-      aria-labelledby="profile-title"
-      data-chrome="bar"
-      data-hero-tone={HOME_HERO_TONE}
-    >
-      {/* Every other screen stands on the Downs; this one was the only card
-          floating on nothing. It takes the same land as the home screen it
-          opens onto, deliberately: the trailhead and the trail are one place,
-          so walking through the door does not change the view. */}
-      <HeroBackdrop url={heroBgForMode('smart', { tone: HOME_HERO_TONE })} />
-      {/* The one screen where the app's own name belongs in the bar: it is the
-          front door, reached from the home screen rather than from inside. */}
-      <ProductTopBar
-        lead={<div className="brand-mark" aria-hidden="true">KS2</div>}
-        title="KS2 Spelling"
-        action={(
-          <button type="button" className="topbar-action" onClick={onOpenParent}>
-            For parents
-          </button>
-        )}
-      />
-      {/* On a device that already knows its learners the heading is a question
-          they have read a hundred times, and their own name is what they came
-          for — so the heading steps down and the names become the largest type
-          on the screen. With nobody here yet it stays the headline, because
-          then there is nothing else to look at. */}
-      <section className="trailhead" data-state={hasLearners ? 'known' : 'empty'}>
-        <p className="product-kicker">The Scribe Downs</p>
-        <h1 id="profile-title">Who is practising?</h1>
-        {!hasLearners && (
-          <p>Add the first learner to open a spelling trail on this device.</p>
-        )}
-      </section>
-
-      {hasLearners && (
-        <ul className="learner-grid" aria-label="Learners on this device">
-          {profileState.profiles.map((profile) => {
-            const selected =
-              profile.learnerId === profileState.selectedLearnerId;
-            return (
-              <li key={profile.learnerId}>
-                <button
-                  type="button"
-                  className="learner-card"
-                  style={{ '--learner-colour': learnerColour(profile.nickname) }}
-                  disabled={busy}
-                  onClick={() => onChoose(profile.learnerId)}
-                >
-                  <span className="learner-name">{profile.nickname}</span>
-                  {/* "Last opened", not "last practised": the flag is the
-                      device's saved selection, which says who was open here and
-                      nothing about whether they answered anything. */}
-                  <span className="learner-meta">
-                    {displayYearGroup(profile.yearGroup)} · {profile.goal} words a week
-                    {selected && <em>Last opened</em>}
-                  </span>
-                  <span className="learner-arrow" aria-hidden="true">→</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {hasLearners && !addOpen && (
-        <button
-          type="button"
-          className="add-learner-toggle"
-          aria-expanded="false"
-          aria-controls="add-learner-panel"
-          onClick={() => setAddOpen(true)}
-        >
-          <span aria-hidden="true">+</span> Add a learner
-        </button>
-      )}
-
-      {addOpen && (
-      <section
-        id="add-learner-panel"
-        className="paper-card add-learner-card"
-        aria-labelledby="add-learner-title"
-      >
-        <div>
-          <p className="product-kicker">Local to this device</p>
-          <h2 id="add-learner-title">Add a learner</h2>
-        </div>
-        <form className="learner-form" onSubmit={submit}>
-          <label htmlFor="profile-nickname">First name or nickname</label>
-          <input
-            id="profile-nickname"
-            name="nickname"
-            type="text"
-            value={nickname}
-            maxLength="40"
-            autoComplete="off"
-            disabled={busy}
-            onChange={(event) => setNickname(event.target.value)}
-          />
-          <div className="field-pair">
-            <label>
-              Year group
-              <select
-                name="yearGroup"
-                value={yearGroup}
-                disabled={busy}
-                onChange={(event) => setYearGroup(event.target.value)}
-              >
-                {['Y3', 'Y4', 'Y5', 'Y6'].map((year) => (
-                  <option key={year} value={year}>{displayYearGroup(year)}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Weekly goal
-              <select
-                name="goal"
-                value={goal}
-                disabled={busy}
-                onChange={(event) => setGoal(Number(event.target.value))}
-              >
-                {[5, 10, 15, 20].map((value) => (
-                  <option key={value} value={value}>{value} words</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <button
-            type="submit"
-            className="button-primary"
-            disabled={busy || nickname.trim() === ''}
-          >
-            {busy ? 'Saving…' : 'Add learner'}
-          </button>
-        </form>
-        {profileState.actionError && (
-          <p className="inline-error" role="alert">
-            That change did not save. Please try again.
-          </p>
-        )}
-      </section>
-      )}
-
-      {/* A status panel should be quiet when the status is fine and loud when it
-          is not: ready is one line at the foot of the page, anything else keeps
-          the full panel and its repair action. */}
-      <AudioStatus
-        audioState={audioState}
-        onRecover={onRecoverAudio}
-        compact={audioState.status === 'ready'}
-      />
-    </main>
-  );
-}
-
-function MonsterMeadow({ monsters }) {
-  const slots = buildMeadowSlots(monsters);
-  if (slots.length === 0) {
-    return (
-      <div className="monster-meadow-empty" role="status">
-        <strong>{MEADOW_EMPTY_TITLE}</strong>
-        <p>{MEADOW_EMPTY_BODY}</p>
-      </div>
-    );
-  }
-  const caughtCount = slots.filter((slot) => slot.kind === 'caught').length;
-  return (
-    <div
-      className="monster-meadow"
-      aria-label={`${caughtCount} codex creatures in the hero meadow`}
-    >
-      {slots.map((slot) => (
-        <div
-          key={slot.monsterId}
-          className={`meadow-slot is-${slot.kind}`}
-          // Locked Full-pack slots are inert on purpose: purchase stays behind
-          // the existing Parent PIN gate, never on a child-facing tap target.
-          aria-label={
-            slot.kind === 'caught'
-              ? `${slot.name}, stage ${slot.stage}`
-              : `${slot.name} locked`
-          }
-        >
-          {/* A silhouette of the creature you have not met was `brightness(0)`
-              at 42% — a flat grey lump, and the loudest thing in the strip. An
-              uncaught slot is drawn as what it is instead: an empty space in a
-              collection, which is a shape every child who has ever filled a
-              sticker album already reads. */}
-          {slot.kind === 'caught' ? (
-            <img
-              className="meadow-slot-art"
-              src={slot.artUrl}
-              alt=""
-              width={128}
-              height={128}
-              decoding="async"
-            />
-          ) : (
-            <span className="meadow-slot-empty" aria-hidden="true">◆</span>
-          )}
-          {slot.kind === 'caught' ? (
-            <p>
-              <strong>{slot.name}</strong>
-              <span>{countWords(slot.secureCount)} secure</span>
-            </p>
-          ) : (
-            /* "Locked · More of the roster" read as a shop window to a child,
-               and naming the species would promise one the Starter pack cannot
-               reach. The slot says only that it is empty and worth filling. */
-            <p>
-              <strong>Not yet</strong>
-              <span>Room to grow</span>
-            </p>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ChildHome({
-  profile,
-  learningState,
-  audioState,
-  onScreen,
-  onSwitchLearner,
-  onOpenParent,
-  onRecoverAudio,
-}) {
-  // Until C7.5 lands a due projection, "due" is the words that wobbled last
-  // time — the same signal Trouble Drill already reads.
-  const dueCount = learningState.progress.filter(
-    (item) => item.lastResult !== 'correct',
-  ).length;
-  return (
-    <main
-      className="product-app product-page child-home"
-      aria-labelledby="home-title"
-      data-chrome="bar tabs"
-      data-hero-tone={HOME_HERO_TONE}
-    >
-      <HeroBackdrop url={heroBgForMode('smart', { tone: HOME_HERO_TONE })} />
-      <ProductTopBar
-        lead={<LearnerChip profile={profile} onClick={onSwitchLearner} />}
-        action={(
-          <button type="button" className="topbar-action" onClick={onOpenParent}>
-            For parents
-          </button>
-        )}
-      />
-      {/* The screen now reads in the order the job runs in: who is here, what
-          today asks, then the one way to begin. The companion strip used to be
-          first, which gave the most prominent slot on a new learner's very
-          first screen to a panel saying nothing had happened yet. */}
-      <section className="trail-hero">
-        <p className="product-kicker">
-          The Scribe Downs · {displayYearGroup(profile.yearGroup)}
-        </p>
-        <p className="hero-greet">{heroWelcomeLine(profile.nickname)}</p>
-        <h1 id="home-title">
-          Today&apos;s words are <em>waiting.</em>
-        </h1>
-        {/* `dueCopy` is today's status, and it was being read as the second
-            half of the headline: "words are waiting" and "nothing due today"
-            then contradicted each other inside one sentence. Same string,
-            given the weight it actually carries. */}
-        <p className="hero-due" data-due={dueCount > 0 ? 'some' : 'none'}>
-          {dueCopy(dueCount)}
-        </p>
-        <button
-          type="button"
-          className="button-primary button-large"
-          onClick={() => onScreen('setup')}
-        >
-          Start a Smart Review
-          <span aria-hidden="true"> →</span>
-        </button>
-      </section>
-
-      <section className="companions" aria-labelledby="companions-title">
-        <h2 id="companions-title" className="section-label">Your companions</h2>
-        <MonsterMeadow monsters={learningState.monsters} />
-      </section>
-
-      {/* A device-status panel earns a place on a child's home screen only when
-          something is wrong with it. Working audio is not news, and it was
-          taking a full row above the sections. The picker and the parent area
-          both still report it either way. */}
-      {audioState.status !== 'ready' && (
-        <AudioStatus audioState={audioState} onRecover={onRecoverAudio} />
-      )}
-
-      <TrailTabs current="home" onScreen={onScreen} />
-    </main>
-  );
-}
-
-function ToggleChip({ label, checked, onChange }) {
-  return (
-    <button
-      type="button"
-      className="toggle-chip"
-      aria-pressed={checked}
-      onClick={() => onChange(!checked)}
-    >
-      <span className="toggle-box" aria-hidden="true">{checked ? '✓' : ''}</span>
-      {label}
-    </button>
-  );
-}
-
-function PracticeSetup({
-  audioState,
-  actionError,
-  progress,
-  packSize,
-  prefs,
-  onPrefs,
-  onStart,
-  onBack,
-  onRecoverAudio,
-  busy,
-}) {
-  const [length, setLength] = useState(5);
-  const [mode, setMode] = useState('smart');
-  // The clock is read here, not inside the model, so the model stays pure and
-  // the deterministic proofs can pin the day.
-  const standCells = useMemo(
-    () => whereYouStand(progress, packSize, Math.floor(Date.now() / 86400000)),
-    [progress, packSize],
-  );
-  const heroTone = HOME_HERO_TONE;
-  const heroUrl = heroBgForMode(mode, { tone: heroTone });
-  const hasTroubleWords = (progress ?? []).some(
-    (item) => Number(item.wrong) > 0,
-  );
-
-  useEffect(() => {
-    preloadHeroToneUrls(mode);
-  }, [mode]);
-
-  return (
-    <main
-      className="product-app product-page setup-page"
-      aria-labelledby="setup-title"
-      data-chrome="bar action"
-      data-hero-tone={heroTone}
-    >
-      <HeroBackdrop url={heroUrl} />
-      {/* Setting up a round is a task you are inside, so it gets a way out on
-          the leading edge rather than a section tab: this screen is not a place
-          on the trail, it is the door to one. */}
-      <ProductTopBar
-        lead={(
-          <button
-            type="button"
-            className="topbar-back"
-            aria-label="Back to the trail"
-            onClick={onBack}
-          >
-            <BackIcon />
-          </button>
-        )}
-        title="New expedition"
-      />
-      <section className="setup-card">
-        <p className="product-kicker">The Scribe Downs · round setup</p>
-        <h1 id="setup-title">Choose today&apos;s trail</h1>
-
-        {/* Upstream keeps a standing panel beside the round setup so the
-            learner can see the shape of the pack before choosing. */}
-        <section className="stand-panel" aria-labelledby="stand-title">
-          <p className="product-kicker" id="stand-title">Where you stand</p>
-          <dl className="stand-grid">
-            {standCells.map((cell) => (
-              <div key={cell.label} className={cell.warn ? 'is-warn' : undefined}>
-                <dt>{cell.label}</dt>
-                <dd>{cell.value}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-
-        <fieldset className="choice-group">
-          {/* "Workshop mode" is a word from inside the app. This is the one
-              decision the screen exists to take, and it is named as one. */}
-          <legend>Round type</legend>
-          <div className="mode-choice">
-            {WORKSHOP_MODES.map((option) => {
-              const description = option.id === 'trouble' && !hasTroubleWords
-                ? option.emptyDescription
-                : option.description;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  aria-pressed={mode === option.id}
-                  className="mode-choice-card"
-                  onClick={() => setMode(option.id)}
-                >
-                  <img
-                    className="mode-choice-thumb"
-                    src={heroBgForMode(option.id, { tone: '1' })}
-                    alt=""
-                  />
-                  <span>
-                    <strong>{option.label}</strong>
-                    <small>{description}</small>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
-
-        {mode === 'test' && (
-          <p className="length-note">
-            A SATs test always covers the full 20 Starter words.
-          </p>
-        )}
-
-        {/* Length, voice and the two reading aids are set once and then left
-            alone for months, and they were between a child and the button that
-            starts the round: six stat cells, three round types, three length
-            chips, two voices, two toggles and a status panel to scroll past.
-            They fold away, with the current choices named on the summary line
-            so nothing is hidden — only put down. */}
-        <details className="setup-more">
-          <summary>
-            <span className="setup-more-label">Round settings</span>
-            <span className="setup-more-value">
-              {mode === 'test' ? '20 words' : `${length} words`}
-              {' · '}
-              {prefs.voiceId}
-            </span>
-          </summary>
-
-          {mode !== 'test' && (
-            <fieldset className="choice-group">
-              <legend>How many words</legend>
-              <div className="segmented-choice">
-                {ROUND_LENGTHS.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={length === value}
-                    onClick={() => setLength(value)}
-                  >
-                    <strong>{value}</strong>
-                    <span>words</span>
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-          )}
-
-          <fieldset className="choice-group">
-            <legend>Reading voice</legend>
-            <div className="voice-choice">
-              {VOICES.map((voice) => (
-                <button
-                  key={voice.id}
-                  type="button"
-                  aria-pressed={prefs.voiceId === voice.id}
-                  onClick={() => onPrefs({ voiceId: voice.id })}
-                >
-                  <span className="voice-symbol" aria-hidden="true">♪</span>
-                  <span>
-                    <strong>{voice.label}</strong>
-                    <small>{voice.description}</small>
-                  </span>
-                </button>
-              ))}
-            </div>
-            <p className="voice-note">{VOICE_NOTE}</p>
-          </fieldset>
-
-          <fieldset className="choice-group">
-            {/* "Options" names nothing. These two decide how much help the
-                round gives, which is what a parent or a child is choosing. */}
-            <legend>Help during the round</legend>
-            <div className="toggle-choice">
-              <ToggleChip
-                label="Show the sentence"
-                checked={prefs.showCloze}
-                onChange={(showCloze) => onPrefs({ showCloze })}
-              />
-              <ToggleChip
-                label="Read it out straight away"
-                checked={prefs.autoSpeak}
-                onChange={(autoSpeak) => onPrefs({ autoSpeak })}
-              />
-            </div>
-          </fieldset>
-        </details>
-
-        {/* A working pack is not news, and it was the last thing between the
-            settings and the button. A broken one stops the round, so it stays
-            loud and keeps its repair action. */}
-        {audioState.status !== 'ready' && (
-          <AudioStatus audioState={audioState} onRecover={onRecoverAudio} />
-        )}
-        {actionError && (
-          <p className="inline-error" role="alert">
-            That trail could not start. Please try again.
-          </p>
-        )}
-      </section>
-
-      {/* The one thing this screen is for, always within reach of a thumb
-          rather than at the far end of a scroll. */}
-      <div className="page-action">
-        <button
-          type="button"
-          className="button-primary button-large"
-          disabled={busy || audioState.status !== 'ready'}
-          onClick={() => void onStart({ mode, length }).catch(() => undefined)}
-        >
-          {busy ? 'Preparing…' : 'Start trail'}
-          {!busy && <span aria-hidden="true"> →</span>}
-        </button>
-      </div>
-    </main>
-  );
-}
-
-export function EndRoundDialog({
+export function LeaveRoundDialog({
   onKeep,
   onLeave,
   error = '',
@@ -1690,22 +1086,21 @@ export function EndRoundDialog({
       className="exit-confirmation"
       role="alertdialog"
       aria-modal="true"
-      aria-labelledby="end-round-title"
+      aria-labelledby="leave-round-title"
       aria-describedby={
         error
-          ? 'end-round-description end-round-error'
-          : 'end-round-description'
+          ? 'leave-round-description leave-round-error'
+          : 'leave-round-description'
       }
       aria-busy={leaving}
     >
       <div>
-        <h2 id="end-round-title">End this round now?</h2>
-        <p id="end-round-description">
-          Every word you have answered is saved. The words you have not reached
-          stay due for next time.
+        <h2 id="leave-round-title">Leave this round?</h2>
+        <p id="leave-round-description">
+          Your earlier saved learning stays safe. This round will be marked unfinished.
         </p>
         {error && (
-          <p id="end-round-error" className="inline-error" role="alert">
+          <p id="leave-round-error" className="inline-error" role="alert">
             {error}
           </p>
         )}
@@ -1726,7 +1121,7 @@ export function EndRoundDialog({
             disabled={leaving}
             onClick={onLeave}
           >
-            {leaving ? 'Ending…' : 'End round'}
+            {leaving ? 'Leaving…' : 'Leave round'}
           </button>
         </div>
       </div>
@@ -1734,98 +1129,1043 @@ export function EndRoundDialog({
   );
 }
 
+// A drag past a third of the sheet, or a quick flick in that direction, closes
+// it. Anything shorter settles back so a mis-grab never loses the screen.
+const SHEET_DISMISS_FRACTION = 0.33;
+const SHEET_FLICK_SPEED = 0.5;
+const SHEET_FLICK_TRAVEL = 24;
+
 /**
- * The web feedback ribbon: tone symbol, headline, the spelling being taught in
- * quotes, then the reason, then the footer note under the card.
+ * Drag-to-dismiss for a bottom sheet. The sheet follows the pointer downwards
+ * only, because it is anchored to the bottom edge and cannot be lifted off it.
+ * Returns null when the sheet has nowhere to go, so the caller can leave the
+ * grip out rather than offer a gesture that does nothing.
  */
-function AnswerFeedback({ feedback }) {
-  const tone = feedback.kind === 'error'
-    ? 'bad'
-    : feedback.kind === 'warn' ? 'warn' : 'good';
-  const attempt = String(feedback.attemptedAnswer ?? '').trim();
-  // The word beside the headline is only ever the spelling being taught. The
-  // learner's own attempt used to appear there struck through whenever the
-  // engine gave no target — which reads as the app crossing out the correct
-  // answer — under the line "Your answer — ", whose second half came from a
-  // body the engine had not filled in, so it read "Your answer — No answer
-  // shown yet." while showing one. What they wrote belongs in the sentence
-  // about what they wrote.
-  const word = String(feedback.answer ?? '').trim();
-  const body = feedback.body ?? '';
-  const reason = attempt ? `You wrote “${attempt}”. ${body}`.trim() : body;
+function useSheetDrag(onDismiss) {
+  const sheetRef = useRef(null);
+  const dragRef = useRef(null);
+  const [offset, setOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+
+  const onPointerDown = useCallback((event) => {
+    const sheet = sheetRef.current;
+    if (!sheet || event.button !== 0) return;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startedAt: event.timeStamp,
+      height: sheet.getBoundingClientRect().height,
+    };
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }, []);
+
+  const onPointerMove = useCallback((event) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setOffset(Math.max(0, event.clientY - drag.startY));
+  }, []);
+
+  const onPointerUp = useCallback((event) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    setDragging(false);
+    setOffset(0);
+    const travel = Math.max(0, event.clientY - drag.startY);
+    const speed = travel / Math.max(1, event.timeStamp - drag.startedAt);
+    const flicked = travel >= SHEET_FLICK_TRAVEL && speed >= SHEET_FLICK_SPEED;
+    if (flicked || travel >= drag.height * SHEET_DISMISS_FRACTION) onDismiss();
+  }, [onDismiss]);
+
+  if (!onDismiss) return null;
+  return {
+    sheetRef,
+    dragging,
+    style: offset === 0 ? undefined : { translate: `0 ${offset}px` },
+    handlers: {
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
+      onPointerCancel: onPointerUp,
+    },
+  };
+}
+
+function SwitchScreen({
+  profileState,
+  audioState,
+  onChoose,
+  onCreate,
+  onOpenParent,
+  onRecoverAudio,
+  onDismiss,
+}) {
+  const drag = useSheetDrag(onDismiss);
+  const [nickname, setNickname] = useState('');
+  const [yearGroup, setYearGroup] = useState('Y3');
+  const [goal, setGoal] = useState(10);
+  const [adding, setAdding] = useState(false);
+  const busy = profileState.status === 'saving';
+
+  function submit(event) {
+    event.preventDefault();
+    const nextNickname = nickname.trim();
+    if (!nextNickname || busy) return;
+    void onCreate({
+      nickname: nextNickname,
+      yearGroup,
+      goal,
+      colour: '#157A76',
+    })
+      .then(() => {
+        setNickname('');
+        setAdding(false);
+      })
+      .catch(() => undefined);
+  }
+
   return (
-    <div
-      className={`answer-feedback answer-feedback-${tone}`}
-      role="status"
-      aria-live="polite"
-      aria-atomic="true"
-    >
-      <div className="answer-feedback-ribbon">
-        <span className="feedback-symbol" aria-hidden="true">
-          {tone === 'good' ? '✓' : tone === 'warn' ? '!' : '×'}
-        </span>
-        <div>
-          <h2>
-            {feedback.headline}
-            {word && <em className="feedback-word">{`“${word}”`}</em>}
-          </h2>
-          {reason && <p>{reason}</p>}
+    <main className="product-app" aria-labelledby="switch-title">
+      <Scene
+        className="switch-scene"
+        plate={regionArt(REGION, 'a1')}
+        veil="rgba(29,43,58,.38)"
+      >
+        <div className="scene-body">
+          {drag && (
+            <button
+              type="button"
+              className="sheet-scrim"
+              aria-label="Close the learner list"
+              onClick={onDismiss}
+            />
+          )}
+          <div
+            className="switch-sheet"
+            ref={drag?.sheetRef}
+            data-dragging={drag?.dragging ? 'true' : undefined}
+            style={drag?.style}
+          >
+            {drag && (
+              <div
+                className="sheet-grip"
+                aria-hidden="true"
+                {...drag.handlers}
+              />
+            )}
+            <div className="switch-head">
+              <p id="switch-title">Who is practising?</p>
+              <button
+                type="button"
+                className="topbar-action press-soft press"
+                onClick={onOpenParent}
+              >
+                For parents
+              </button>
+            </div>
+
+            {profileState.profiles.length > 0 && (
+              <ul className="switch-list" aria-label="Learners on this device">
+                {profileState.profiles.map((profile) => {
+                  const selected =
+                    profile.learnerId === profileState.selectedLearnerId;
+                  return (
+                    <li key={profile.learnerId}>
+                      <button
+                        type="button"
+                        className="learner-card press"
+                        style={{ '--learner-colour': profile.colour }}
+                        disabled={busy}
+                        onClick={() => onChoose(profile.learnerId)}
+                      >
+                        <span className="learner-avatar" aria-hidden="true">
+                          {initialOf(profile.nickname)}
+                        </span>
+                        <span>
+                          <strong>{profile.nickname}</strong>
+                          <small>
+                            {displayYearGroup(profile.yearGroup)} · {profile.goal} words a week
+                            {selected ? ' · here now' : ''}
+                          </small>
+                        </span>
+                        {selected ? (
+                          <span className="learner-selected">
+                            <IconTick size={14} />
+                            <span className="visually-hidden">Selected</span>
+                          </span>
+                        ) : (
+                          <IconChevron size={18} />
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {adding ? (
+              <form className="learner-form" onSubmit={submit}>
+                <label htmlFor="profile-nickname">First name or nickname</label>
+                <input
+                  id="profile-nickname"
+                  name="nickname"
+                  type="text"
+                  value={nickname}
+                  maxLength="40"
+                  autoComplete="off"
+                  disabled={busy}
+                  onChange={(event) => setNickname(event.target.value)}
+                />
+                <div className="field-pair">
+                  <label>
+                    Year group
+                    <select
+                      name="yearGroup"
+                      value={yearGroup}
+                      disabled={busy}
+                      onChange={(event) => setYearGroup(event.target.value)}
+                    >
+                      {['Y3', 'Y4', 'Y5', 'Y6'].map((year) => (
+                        <option key={year} value={year}>{displayYearGroup(year)}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Weekly goal
+                    <select
+                      name="goal"
+                      value={goal}
+                      disabled={busy}
+                      onChange={(event) => setGoal(Number(event.target.value))}
+                    >
+                      {[5, 10, 15, 20].map((value) => (
+                        <option key={value} value={value}>{value} words</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <button
+                  type="submit"
+                  className="button-primary press"
+                  disabled={busy || nickname.trim() === ''}
+                >
+                  {busy ? 'Saving…' : 'Add learner'}
+                </button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                className="learner-add press-soft press"
+                onClick={() => setAdding(true)}
+              >
+                <IconPlus size={18} />
+                Add a learner
+              </button>
+            )}
+
+            {profileState.actionError && (
+              <p className="inline-error" role="alert">
+                That change did not save. Please try again.
+              </p>
+            )}
+
+            {audioState.status === 'ready' ? (
+              <p className="switch-note">
+                <span className="switch-note-mark"><IconNote size={12} /></span>
+                Listening pack ready · everything works offline
+              </p>
+            ) : (
+              <AudioStatus audioState={audioState} onRecover={onRecoverAudio} />
+            )}
+          </div>
         </div>
-      </div>
-      {feedback.footer && <small>{feedback.footer}</small>}
-    </div>
+      </Scene>
+    </main>
   );
 }
 
-// Listening-control glyphs, ported from ks2-mastery
-// `src/subjects/spelling/components/spelling-icons.jsx`. The round card's
-// audio controls are icon-only there — the label lives in `aria-label`, so
-// the row stays quiet and the sentence keeps the eye.
-//
-// The full read: the word inside its sentence. KS2 spelling is dictated in
-// context — the administrator reads the sentence, not a bare word — so this
-// is the primary cue here, where upstream leads with the word.
-function SpeakerSentenceIcon({ size = 22 }) {
+// Four painted positions on the downs, nearest and largest first so a single
+// companion still stands where the eye expects it.
+const MEADOW_SLOTS = Object.freeze([
+  Object.freeze({
+    left: '8%', top: '44%', size: '46%', zIndex: 14, face: -1, bob: '6px',
+    roam: 'roamG 25s ease-in-out -6s infinite',
+    gait: 'bob 4.8s ease-in-out .9s infinite',
+    emerge: '80ms', shadow: '0.5rem',
+  }),
+  Object.freeze({
+    left: '60%', top: '34%', size: '34%', zIndex: 13, face: -1, bob: '5px',
+    roam: 'roamG 27s ease-in-out -11s infinite',
+    gait: 'bob 5.2s ease-in-out .3s infinite',
+    emerge: '360ms', shadow: '0.4rem',
+  }),
+  Object.freeze({
+    left: '3%', top: '18%', size: '36%', zIndex: 12, face: 1, bob: '9px',
+    roam: 'roamA 19.6s ease-in-out -8s infinite',
+    gait: 'flap 4.6s ease-in-out 1.4s infinite',
+    emerge: '220ms', shadow: '-1.6rem',
+  }),
+  Object.freeze({
+    left: '64%', top: '6%', size: '24%', zIndex: 11, face: -1, bob: '8px',
+    roam: 'roamA 16.4s ease-in-out -5s infinite',
+    gait: 'flap 3.4s ease-in-out .8s infinite',
+    emerge: '300ms', shadow: '-2rem',
+  }),
+]);
+
+const ROAM_VARIABLES = Object.freeze([
+  Object.freeze({ '--fwd': '-32px', '--back': '24px' }),
+  Object.freeze({ '--fwd': '-26px', '--back': '20px' }),
+  Object.freeze({ '--fwd': '36px', '--back': '-26px', '--fy': '-9px', '--by': '14px' }),
+  Object.freeze({ '--fwd': '-38px', '--back': '24px', '--fy': '-7px', '--by': '12px' }),
+]);
+
+function MeadowPet({ companion, slot, roam, poked, onPoke }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M11 5 6 9H3v6h3l5 4Z" fill="currentColor" fillOpacity="0.12" />
-      <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
-    </svg>
+    <button
+      type="button"
+      className="meadow-pet press-soft press"
+      aria-label={companion.found ? companion.name : 'An undiscovered companion'}
+      style={{
+        '--pet-left': slot.left,
+        '--pet-top': slot.top,
+        '--pet-size': slot.size,
+        '--pet-roam': slot.roam,
+        '--pet-gait': slot.gait,
+        '--shadow-bottom': slot.shadow,
+        zIndex: slot.zIndex,
+        ...roam,
+      }}
+      onClick={onPoke}
+    >
+      <span className="meadow-shadow" aria-hidden="true" />
+      <span
+        className="meadow-emerge"
+        style={{ animationDelay: slot.emerge }}
+      >
+        <img
+          src={companion.art ?? undefined}
+          alt=""
+          style={{ '--face': slot.face, '--bob': slot.bob }}
+        />
+      </span>
+      {poked && (
+        <span className="meadow-tag">
+          <span>
+            {companion.found ? companion.name : '???'}
+            <small>{companion.band}</small>
+          </span>
+        </span>
+      )}
+    </button>
   );
 }
 
-function SpeakerSlowIcon({ size = 22 }) {
+function TrailScreen({
+  profile,
+  learningState,
+  audioState,
+  dueCount,
+  onScreen,
+  onSwitchLearner,
+  onOpenParent,
+  onRecoverAudio,
+}) {
+  const [poked, setPoked] = useState(null);
+  const codex = useMemo(
+    () => buildCodex(learningState.monsters),
+    [learningState.monsters],
+  );
+
+  useEffect(() => {
+    if (!poked) return undefined;
+    const timer = setTimeout(() => setPoked(null), 2600);
+    return () => clearTimeout(timer);
+  }, [poked]);
+
+  const dueLabel = dueCount === 1 ? 'word due today' : 'words due today';
+
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M11 5 6 9H3v6h3l5 4Z" fill="currentColor" fillOpacity="0.12" />
-      <path d="M15.5 10a3 3 0 0 1 0 4" />
-      <text x="15.5" y="20" fontSize="5.5" fontFamily="Inter,system-ui" fontWeight="800" fill="currentColor" stroke="none">0.5x</text>
-    </svg>
+    <main className="product-app" aria-labelledby="home-title">
+      <Scene
+        className="trail-scene"
+        dusk
+        waypoints
+        plate={regionArt(REGION, 'a1')}
+        veil={[
+          'radial-gradient(110% 58% at 66% 30%,rgba(8,12,18,.02),rgba(8,12,18,.54) 58%,rgba(8,12,18,.92))',
+          'linear-gradient(180deg,rgba(8,12,18,.68) 0%,rgba(8,12,18,.1) 16%,rgba(8,12,18,.22) 44%,rgba(8,12,18,.62) 74%,rgba(8,12,18,.92) 100%)',
+        ].join(',')}
+      >
+        <div className="scene-body">
+          <div className="trail-chrome">
+            <button
+              type="button"
+              className="glass-button press-soft press"
+              onClick={onSwitchLearner}
+            >
+              <span
+                className="learner-chip"
+                style={{ '--learner-colour': profile.colour }}
+                aria-hidden="true"
+              >
+                {initialOf(profile.nickname)}
+              </span>
+              <strong>{profile.nickname}</strong>
+              <IconChevronDown size={15} />
+            </button>
+            <button
+              type="button"
+              className="glass-button icon-button press-soft press"
+              style={{ marginLeft: 'auto' }}
+              onClick={onOpenParent}
+            >
+              <IconLock size={21} />
+              <span className="visually-hidden">For parents</span>
+            </button>
+          </div>
+
+          <p className="trail-topline">
+            The Scribe Downs
+            <span aria-hidden="true" />
+            {displayYearGroup(profile.yearGroup)}
+          </p>
+
+          <h1 id="home-title" className="visually-hidden">
+            {profile.nickname}&apos;s spelling trail
+          </h1>
+
+          <div className="meadow">
+            <span className="meadow-halo" aria-hidden="true" />
+            {codex.roster.slice(0, MEADOW_SLOTS.length).map((companion, index) => (
+              <MeadowPet
+                key={companion.rewardTrackId}
+                companion={companion}
+                slot={MEADOW_SLOTS[index]}
+                roam={ROAM_VARIABLES[index]}
+                poked={poked === companion.rewardTrackId}
+                onPoke={() => setPoked(companion.rewardTrackId)}
+              />
+            ))}
+          </div>
+
+          {audioState.status !== 'ready' && (
+            <AudioStatus
+              audioState={audioState}
+              onRecover={onRecoverAudio}
+              dusk
+              compact
+            />
+          )}
+
+          <p className="trail-due">
+            <span className="figure">{dueCount}</span>
+            {dueLabel}
+          </p>
+
+          <div className="trail-launch">
+            <button
+              type="button"
+              className="button-primary press"
+              onClick={() => onScreen('setup')}
+            >
+              Set off
+              <IconForward size={19} />
+            </button>
+            <p>Smart Review · pick your length</p>
+          </div>
+        </div>
+        <WaypointBar screen="home" onScreen={onScreen} />
+      </Scene>
+    </main>
   );
 }
 
-// The vendored cloze spells its gap as a run of underscores. Upstream draws
-// it instead: a brand-coloured rule the width of the missing word, which is
-// what a child is actually looking at while they listen.
+const FILTER_DOTS = Object.freeze({
+  all: 'rgba(29,43,58,.3)',
+  due: '#a06b22',
+  trouble: '#c0603f',
+  learning: '#3e6fa8',
+  secure: '#1f7a4f',
+});
+
+function WordBankScreen({ progress, onScreen, onStart }) {
+  const [filter, setFilter] = useState('all');
+  const bank = useMemo(
+    () => buildWordBank({ progress, filter }),
+    [progress, filter],
+  );
+
+  return (
+    <main className="product-app" aria-labelledby="bank-title">
+      <Scene
+        className="bank-scene"
+        waypoints
+        plate={regionArt(REGION, 'a1')}
+        plateY="30%"
+        veil="linear-gradient(180deg,rgba(246,245,241,.44),rgba(246,245,241,.9) 42%,#f8f5ec 62%)"
+      >
+        <div className="scene-body">
+          <div className="bank-head">
+            <div>
+              <p className="product-kicker">Word bank</p>
+              <h1 id="bank-title">Your words</h1>
+            </div>
+            <span className="figure">{bank.countLabel}</span>
+          </div>
+
+          <div className="rail bank-filters" role="group" aria-label="Filter words">
+            {bank.filters.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className="pill press-soft press"
+                aria-pressed={option.selected}
+                onClick={() => setFilter(option.id)}
+              >
+                <span
+                  className="bank-dot"
+                  style={{ '--dot': FILTER_DOTS[option.id] }}
+                  aria-hidden="true"
+                />
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="scene-scroll">
+            <ul className="bank-list">
+              {bank.rows.map((row) => (
+                <li
+                  key={row.runtimeItemId}
+                  className="bank-row"
+                  data-status={row.status}
+                  data-due={row.due ? 'true' : 'false'}
+                >
+                  <span className="bank-row-bar" aria-hidden="true" />
+                  <strong>{row.word}</strong>
+                  <small>{row.note}</small>
+                  <span className="bank-rungs" aria-hidden="true">
+                    {row.rungs.map((lit, index) => (
+                      // eslint-disable-next-line react/no-array-index-key
+                      <span key={index} data-lit={lit ? 'true' : 'false'} />
+                    ))}
+                  </span>
+                </li>
+              ))}
+              {bank.empty && (
+                <li className="bank-empty">
+                  <strong>{bank.emptyHeading}</strong>
+                  <small className="body-copy">{bank.emptyBody}</small>
+                  {bank.total === 0 ? (
+                    <button
+                      type="button"
+                      className="button-quiet press-soft press"
+                      onClick={onStart}
+                    >
+                      Set off on a round
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="button-quiet press-soft press"
+                      onClick={() => setFilter('all')}
+                    >
+                      Show every word in the bank
+                    </button>
+                  )}
+                </li>
+              )}
+            </ul>
+          </div>
+        </div>
+        <WaypointBar screen="progress" onScreen={onScreen} />
+      </Scene>
+    </main>
+  );
+}
+
+function CodexScreen({ monsters, onScreen }) {
+  const [selected, setSelected] = useState(null);
+  const [zoomed, setZoomed] = useState(false);
+  const codex = useMemo(
+    () => buildCodex(monsters, selected),
+    [monsters, selected],
+  );
+  const hero = codex.hero;
+
+  return (
+    <main className="product-app" aria-labelledby="codex-title">
+      <Scene
+        className="codex-scene"
+        dusk
+        waypoints
+        plate={regionArt(REGION, 'd3')}
+        plateOpacity={0.42}
+        veil="linear-gradient(180deg,rgba(9,15,23,.8) 0%,rgba(9,15,23,.5) 32%,rgba(9,15,23,.94) 100%)"
+      >
+        <div className="scene-body">
+          <div className="codex-head">
+            <div>
+              <p className="product-kicker">The Codex</p>
+              <h1 id="codex-title">Companions</h1>
+            </div>
+            <span className="codex-count">
+              <span className="figure">{codex.foundCount}</span>
+              <span className="figure figure-total">/ {codex.rosterCount}</span>
+              <span className="label">Found</span>
+            </span>
+          </div>
+
+          {hero && (
+            <>
+              <section
+                className="codex-hero"
+                data-found={hero.found ? 'true' : 'false'}
+                style={{ '--accent': hero.accent }}
+              >
+                <span className="codex-hero-glow" aria-hidden="true" />
+                <span className="codex-hero-sheen" aria-hidden="true" />
+                {['tl', 'tr', 'bl', 'br'].map((corner) => (
+                  <span key={corner} className="codex-corner" data-corner={corner} aria-hidden="true" />
+                ))}
+                <span className="codex-no">NO. {hero.number}</span>
+                <span className="codex-band">{hero.band}</span>
+
+                <button
+                  type="button"
+                  className="codex-stage press"
+                  onClick={() => setZoomed(true)}
+                >
+                  <span className="codex-stage-shadow" aria-hidden="true" />
+                  <img src={hero.art ?? undefined} alt="" />
+                  <span className="visually-hidden">Look closer at {hero.title}</span>
+                </button>
+
+                <div className="codex-hero-foot">
+                  <div className="codex-hero-title">
+                    <h2>{hero.title}</h2>
+                    <span>{hero.stageLabel}</span>
+                  </div>
+                  <p>{hero.blurb}</p>
+                  <div className="codex-meter">
+                    <span className="codex-meter-track">
+                      <span style={{ '--percent': `${hero.percent}%` }} />
+                    </span>
+                    <span className="figure">{hero.count}</span>
+                  </div>
+                  <p className="codex-next">{hero.next}</p>
+                </div>
+              </section>
+
+              <p className="codex-rule label">
+                Growth line<span aria-hidden="true" />
+              </p>
+              <ul className="codex-growth" style={{ '--accent': hero.accent }}>
+                {hero.growth.map((stage) => (
+                  <li
+                    key={stage.key}
+                    data-reached={stage.reached ? 'true' : 'false'}
+                    data-here={stage.here ? 'true' : 'false'}
+                  >
+                    <img src={stage.art ?? undefined} alt="" />
+                    <span>{stage.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          <p className="codex-rule label">
+            Roster<span aria-hidden="true" />
+          </p>
+          <div className="codex-roster">
+            {codex.roster.map((companion) => (
+              <button
+                key={companion.rewardTrackId}
+                type="button"
+                className="press"
+                data-found={companion.found ? 'true' : 'false'}
+                aria-pressed={companion.rewardTrackId === hero?.rewardTrackId}
+                style={{ '--accent': companion.accent }}
+                onClick={() => {
+                  setSelected(companion.rewardTrackId);
+                  setZoomed(false);
+                }}
+              >
+                <span className="codex-roster-no">{companion.number}</span>
+                <img src={companion.art ?? undefined} alt="" />
+                <strong>{companion.name}</strong>
+                <span className="codex-pips" aria-hidden="true">
+                  {companion.pips.map((lit, index) => (
+                    // eslint-disable-next-line react/no-array-index-key
+                    <span key={index} data-lit={lit ? 'true' : 'false'} />
+                  ))}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="codex-stats">
+            <div>
+              <span className="figure">{codex.secureWords}</span>
+              <span className="label">Secure words</span>
+            </div>
+            <div>
+              <span className="figure">{codex.highestStage}</span>
+              <span className="label">Highest stage</span>
+            </div>
+            <div>
+              <span className="figure">{codex.leftToFind}</span>
+              <span className="label">Left to find</span>
+            </div>
+          </div>
+
+          {zoomed && hero && (
+            <button
+              type="button"
+              className="codex-zoom"
+              style={{ '--accent': hero.accent }}
+              onClick={() => setZoomed(false)}
+            >
+              <span className="codex-hero-glow" aria-hidden="true" />
+              <span>
+                {/* Looking closer is where a living creature belongs: the
+                    roster and the hero card stay still plates, and only the
+                    one companion a child has chosen to look at costs a
+                    renderer. Phaser rides in its own chunk behind this lazy
+                    import, so a child who never opens the Codex never pays
+                    for it, and the still plate is the fallback for the load,
+                    for reduced motion and for a lost WebGL context. */}
+                <Suspense fallback={<img src={hero.art ?? undefined} alt="" />}>
+                  <MonsterStage
+                    monsterId={hero.monsterId}
+                    stage={hero.stage}
+                    secureCount={hero.secureCount}
+                    reducedMotion={prefersReducedMotion()}
+                  />
+                </Suspense>
+                <div>
+                  <strong>{hero.title}</strong>
+                  <small>{hero.count} secure · tap to close</small>
+                </div>
+              </span>
+            </button>
+          )}
+        </div>
+        <WaypointBar screen="monster" onScreen={onScreen} />
+      </Scene>
+    </main>
+  );
+}
+
+function CampScreen({ camp, revisitsWaiting, onScreen }) {
+  const level = camp?.campHighWater ?? 0;
+  const circumference = 333;
+  const offset = Math.max(0, circumference * (1 - Math.min(level, 10) / 10));
+
+  return (
+    <main className="product-app" aria-labelledby="camp-title">
+      <Scene
+        className="camp-scene"
+        waypoints
+        plate={regionArt(REGION, 'd1')}
+        veil="linear-gradient(180deg,rgba(248,245,236,.34) 0%,rgba(248,245,236,.2) 26%,rgba(248,245,236,.66) 68%,rgba(248,245,236,.9) 100%)"
+      >
+        <div className="scene-body">
+          <p className="product-kicker">The Scribe Downs · Camp</p>
+
+          <div className="camp-ring">
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+              <circle cx="60" cy="60" r="53" fill="none" stroke="rgba(29,43,58,.13)" strokeWidth="7" />
+              <circle
+                cx="60"
+                cy="60"
+                r="53"
+                fill="none"
+                stroke="#a06b22"
+                strokeWidth="7"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+              />
+            </svg>
+            <div className="camp-ring-face">
+              <div>
+                <IconCamp size={30} />
+                <span className="figure">{level}</span>
+                <span className="label">Camp level</span>
+              </div>
+            </div>
+          </div>
+
+          <section className="vellum camp-card">
+            <h1 id="camp-title">
+              {revisitsWaiting > 0
+                ? 'Words are waiting to return'
+                : 'Camp is steady for now'}
+            </h1>
+            <p className="body-copy">
+              Camp rises when you come back to words you met a while ago — not
+              from fresh practice, however much of it you do.
+            </p>
+            <div className="camp-figures">
+              <div>
+                <span className="figure">{level}</span>
+                <span className="label">Camp level</span>
+              </div>
+              <div>
+                <span className="figure">{revisitsWaiting}</span>
+                <span className="label">Words waiting to return</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="button-primary press"
+              onClick={() => onScreen('setup')}
+            >
+              Set off on a round
+              <IconForward size={18} />
+            </button>
+          </section>
+        </div>
+        <WaypointBar screen="camp" onScreen={onScreen} />
+      </Scene>
+    </main>
+  );
+}
+
+const QUESTS = Object.freeze([
+  Object.freeze({
+    id: 'smart',
+    short: 'Smart',
+    name: 'Smart Review',
+    tag: 'Adaptive',
+    plate: 'a1',
+    line: 'Inklet picks the words your memory is about to drop, then slips one new spelling in at the end.',
+  }),
+  Object.freeze({
+    id: 'trouble',
+    short: 'Trouble',
+    name: 'Trouble Drill',
+    tag: 'Targeted',
+    plate: 'd1',
+    line: 'Nothing but the spellings that keep slipping. Short, steep, and over quickly.',
+  }),
+  Object.freeze({
+    id: 'test',
+    short: 'SATs',
+    name: 'SATs Test',
+    tag: 'Assessed',
+    plate: 'e1',
+    line: 'One attempt per word, with marks held back until the end.',
+  }),
+]);
+
+function SetupScreen({
+  audioState,
+  actionError,
+  onStart,
+  onBack,
+  onRecoverAudio,
+  busy,
+  dueCount,
+  troubleCount,
+  bankTotal,
+  vocabularySets = [],
+}) {
+  const [length, setLength] = useState(5);
+  const [quest, setQuest] = useState('smart');
+  const [yearFilter, setYearFilter] = useState(vocabularySets[0]?.id ?? 'core');
+  const active = QUESTS.find(({ id }) => id === quest) ?? QUESTS[0];
+  const effectiveYearFilter = quest === 'test' ? 'core' : yearFilter;
+  const effectiveLength = quest === 'test' ? 20 : length;
+  const companion = monsterArt('inklet', 3);
+
+  return (
+    <main className="product-app" aria-labelledby="setup-title">
+      <Scene
+        className="setup-scene"
+        dusk
+        plate={regionArt(REGION, active.plate)}
+        plateY="32%"
+        veil={[
+          'radial-gradient(118% 66% at 50% 4%,rgba(10,15,22,.06),rgba(9,14,20,.6) 56%,rgba(8,12,18,.94))',
+          'linear-gradient(180deg,rgba(9,14,20,.74) 0%,rgba(9,14,20,.08) 22%,rgba(8,12,18,.72) 62%,#080c12 92%)',
+        ].join(',')}
+      >
+        <div className="scene-body">
+          <div className="setup-chrome">
+            <button
+              type="button"
+              className="glass-button icon-button press-soft press"
+              onClick={onBack}
+            >
+              <IconBack size={21} />
+              <span className="visually-hidden">Back to the trail</span>
+            </button>
+            <span>New expedition</span>
+            <span className="icon-button" aria-hidden="true" />
+          </div>
+
+          <div className="setup-quest">
+            {companion && <img src={companion} alt="" />}
+            <p className="product-kicker">
+              Today&apos;s quest<span aria-hidden="true" />
+            </p>
+            <h1 id="setup-title">{active.name}</h1>
+            <p>{active.line}</p>
+            <div className="setup-tally">
+              <div>
+                <span className="figure">{dueCount}</span>
+                <span className="label">due</span>
+              </div>
+              <div>
+                <span className="figure">{troubleCount}</span>
+                <span className="label">trouble</span>
+              </div>
+              <div>
+                <span className="figure">{bankTotal}</span>
+                <span className="label">in bank</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="quest-tiles" role="group" aria-label="Choose a quest">
+            {QUESTS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className="quest-tile press"
+                aria-pressed={quest === option.id}
+                onClick={() => setQuest(option.id)}
+              >
+                <span style={{ '--plate': artUrl(regionArt(REGION, option.plate)) }}>
+                  <span className="quest-tile-art" aria-hidden="true" />
+                  <span className="quest-tile-tint" aria-hidden="true" />
+                  {quest === option.id && (
+                    <span className="quest-tile-sheen" aria-hidden="true" />
+                  )}
+                  <span className="quest-tile-tag">{option.tag}</span>
+                  <span className="quest-tile-name">{option.short}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="setup-tray">
+          {/* The engine publishes the sets it can actually draw a round from.
+              Until it publishes any, there is no rail: a set picker that
+              cannot change what a round contains is a control that lies. */}
+          {vocabularySets.length > 0 && (
+            <>
+              <p className="label">Vocabulary set</p>
+              <div className="rail setup-pools">
+                {vocabularySets.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className="pill press-soft press"
+                    aria-pressed={effectiveYearFilter === option.id}
+                    disabled={quest === 'test' && option.id !== 'core'}
+                    onClick={() => setYearFilter(option.id)}
+                  >
+                    {option.label}
+                    <span>{option.count} words</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="setup-lengths">
+            <p className="label">Round length</p>
+            <div className="length-choice">
+              {ROUND_LENGTHS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="press"
+                  aria-pressed={effectiveLength === value}
+                  disabled={quest === 'test' && value !== 20}
+                  onClick={() => setLength(value)}
+                >
+                  <strong className="figure">{value}</strong>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {audioState.status !== 'ready' && (
+            <AudioStatus audioState={audioState} onRecover={onRecoverAudio} dusk />
+          )}
+
+          <button
+            type="button"
+            className="button-primary press"
+            disabled={busy || audioState.status !== 'ready'}
+            // Exactly the shape the engine accepts. The vocabulary set is not
+            // in it yet: the engine draws every round from the one installed
+            // pack, so sending a filter it would reject buys nothing. When it
+            // publishes sets, this is where the chosen one joins.
+            onClick={() => void onStart({
+              length: effectiveLength,
+              mode: quest,
+            }).catch(() => undefined)}
+          >
+            {busy ? 'Preparing…' : (
+              <>
+                Set off
+                <span aria-hidden="true" style={{ opacity: 0.4 }}>·</span>
+                <span className="figure">{effectiveLength}</span>
+                words
+                <IconForward size={18} />
+              </>
+            )}
+          </button>
+
+          {actionError && (
+            <p className="inline-error" role="alert">
+              That trail could not start. Please try again.
+            </p>
+          )}
+        </div>
+      </Scene>
+    </main>
+  );
+}
+
+// The round engine reports four feedback kinds. `success` and `info` both mean
+// the learner spelled it correctly — `info` only adds that the word returns —
+// so both must read as a win. Only `error` is a wrong answer.
+const FEEDBACK_TONE = Object.freeze({
+  success: 'success',
+  info: 'success',
+  warn: 'notice',
+  error: 'retry',
+});
+
+function feedbackTone(kind) {
+  return FEEDBACK_TONE[kind] ?? 'notice';
+}
+
 function clozeParts(cloze) {
-  const text = typeof cloze === 'string' ? cloze : '';
-  const parts = text.split(/(_{2,})/u);
-  return parts.map((part, index) => (
-    /^_{2,}$/u.test(part)
-      ? <span className="cloze-blank" key={index} aria-label="missing word" />
-      : <span key={index}>{part}</span>
-  ));
+  const match = /_{2,}/u.exec(cloze ?? '');
+  if (!match) return { before: cloze ?? '', after: '' };
+  return {
+    before: cloze.slice(0, match.index).trimEnd(),
+    after: cloze.slice(match.index + match[0].length).trimStart(),
+  };
 }
 
-function PracticeScreen({
+function RoundScreen({
   state,
   audioState,
-  prefs,
   audio,
-  haptics,
   onSubmit,
   onContinue,
-  onSkip,
   onEnd,
   onPlaybackFailure,
 }) {
@@ -1834,8 +2174,6 @@ function PracticeScreen({
   const [confirmExit, setConfirmExit] = useState(false);
   const [exitError, setExitError] = useState('');
   const [leaving, setLeaving] = useState(false);
-  const answerInputRef = useRef(null);
-  const advanceTimerRef = useRef(null);
   const closeExit = useCallback(() => {
     setExitError('');
     setConfirmExit(false);
@@ -1843,16 +2181,20 @@ function PracticeScreen({
   const practice = state.practice;
   const busy = state.status === 'saving';
 
+  // The voice is not a round setting a learner chooses, but the pack is
+  // recorded twice and the player still has to be told which recording to
+  // reach for. Saved preferences name one; a round that arrives without them
+  // still has a voice to be read in rather than a card that cannot speak.
   const audioRequest = useMemo(() => practice ? Object.freeze({
     version: audioState.activeVersion,
     runtimeItemId: practice.runtimeItemId,
     sentence: practice.sentence,
-    voiceId: prefs.voiceId,
+    voiceId: state.prefs?.voiceId ?? PACKAGED_VOICE,
   }) : null, [
     audioState.activeVersion,
     practice?.runtimeItemId,
     practice?.sentence,
-    prefs.voiceId,
+    state.prefs?.voiceId,
   ]);
 
   async function play(kind) {
@@ -1870,110 +2212,31 @@ function PracticeScreen({
   }
 
   useEffect(() => {
-    if (!audioRequest || audioState.status !== 'ready' || !prefs.autoSpeak) {
-      return;
-    }
-    // The sentence is the dictation, matching how a KS2 spelling test is
-    // administered. A card with no sentence prompt falls back to the word so
-    // autoplay never lands on a cue the pack cannot resolve.
-    void play(practice?.sentence ? 'sentence' : 'word');
-  // Autoplay exactly once for a newly projected card or voice.
+    if (!audioRequest || audioState.status !== 'ready') return;
+    void play('sentence');
+  // Autoplay exactly once for a newly projected card.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audioRequest, prefs.autoSpeak]);
-
-  useEffect(() => {
-    if (advanceTimerRef.current != null) {
-      clearTimeout(advanceTimerRef.current);
-      advanceTimerRef.current = null;
-    }
-    if (!practice?.awaitingAdvance || state.actionError) return undefined;
-    const delayMs = autoAdvanceDelayMs(practice.mode);
-    advanceTimerRef.current = setTimeout(() => {
-      advanceTimerRef.current = null;
-      void Promise.resolve(onContinue())
-        .then(() => {
-          setAnswer('');
-        })
-        .catch(() => {
-          setLocalError('That answer did not save. Please try again.');
-        });
-    }, delayMs);
-    return () => {
-      if (advanceTimerRef.current != null) {
-        clearTimeout(advanceTimerRef.current);
-        advanceTimerRef.current = null;
-      }
-    };
-  // onContinue is an inline service call whose identity changes per render;
-  // keying on it would restart the pending advance timer on unrelated updates.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    practice?.sessionId,
-    practice?.runtimeItemId,
-    practice?.awaitingAdvance,
-    practice?.mode,
-    state.actionError,
-  ]);
-
-  useEffect(() => {
-    if (!practice?.runtimeItemId || practice.awaitingAdvance) return;
-    answerInputRef.current?.focus();
-  // The phase belongs in here: a retry and a correction keep the same word, so
-  // without it a learner who taps Check has to tap the field again to answer.
-  }, [
-    practice?.sessionId,
-    practice?.runtimeItemId,
-    practice?.phase,
-    practice?.awaitingAdvance,
-  ]);
-
-  const feedbackKind = practice?.feedback?.kind ?? null;
-  useEffect(() => {
-    if (feedbackKind === 'success') haptics?.answerCorrect();
-    // haptics is an injected fire-and-forget adapter; identity is stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [feedbackKind, practice?.runtimeItemId]);
+  }, [audioRequest]);
 
   if (!practice) return null;
-  const practiceMode = practice.mode || 'smart';
-  const isTestMode = practiceMode === 'test';
-  const heroTone = heroToneForProgress(practice.progress, {
-    awaitingAdvance: practice.awaitingAdvance,
-  });
-  const heroUrl = heroBgForMode(practiceMode, {
-    tone: heroTone,
-    seed: practice.sessionId,
-  });
-  const { total, done } = practice.progress;
-  const canSkip =
-    !isTestMode && !practice.awaitingAdvance && practice.phase === 'question';
-
-  async function skip() {
-    if (busy || !canSkip) return;
-    try {
-      await onSkip();
-      setAnswer('');
-      setLocalError('');
-    } catch {
-      setLocalError('That word could not be skipped. Please try again.');
-    }
-  }
+  const total = practice.progress.total;
+  const done = practice.progress.done;
+  const answered = practice.awaitingAdvance;
+  const visibleCard = Math.min(total, done + 1);
+  const { before, after } = clozeParts(practice.cloze);
+  const feedbackKind = feedbackTone(practice.feedback?.kind);
 
   async function submit(event) {
     event.preventDefault();
     if (busy) return;
     try {
-      if (practice.awaitingAdvance) {
-        if (advanceTimerRef.current != null) {
-          clearTimeout(advanceTimerRef.current);
-          advanceTimerRef.current = null;
-        }
+      if (answered) {
         await onContinue();
         setAnswer('');
         return;
       }
       if (answer.trim() === '') {
-        setLocalError('Type the spelling before you submit it.');
+        setLocalError('Type the spelling before checking it.');
         return;
       }
       await onSubmit(answer);
@@ -1999,605 +2262,321 @@ function PracticeScreen({
   }
 
   return (
-    <main
-      className="product-app practice-page"
-      aria-labelledby="practice-title"
-      data-hero-tone={heroTone}
-    >
-      <HeroBackdrop url={heroUrl} />
-      {/* No topbar in a round: the brand mark and the mode name are known by
-          the time a word is being dictated, and the height they cost is height
-          the card needs once the keyboard is up. Leaving the round lives in the
-          footer instead. */}
-      {/* The web session head: a dot per word in the round. The dots already
-          say how far along the round is, so the sentence that used to spell it
-          out is gone — the label on the strip is what a screen reader reads,
-          and it announces as the round moves. */}
-      <div className="practice-progress">
-        {/* The round drawn as what the app calls it: a trail. The marks used to
-            be a loose row of identical dots with nothing joining them, which
-            said how many but never that they went anywhere. They stand on a
-            chalk line now, spread along its length, and the line ends at the
-            same flag that marks this section in the tab strip. */}
-        <div
-          className="round-path"
-          role="img"
-          aria-live="polite"
-          aria-label={`${done} of ${total} words secured`}
-        >
-          {/* The index is the identity here — a mark is a position in the
-              round, not a word. */}
-          {roundProgressDots(practice.progress).map((step, index) => (
-            <span
-              key={index}
-              className={`round-step${step ? ` is-${step}` : ''}`}
-            />
-          ))}
-          <span className="round-goal" aria-hidden="true">
-            <TrailIcon size={15} />
-          </span>
-        </div>
-      </div>
-
-      <section className="practice-card" aria-labelledby="practice-title" aria-busy={busy}>
-        {/* Upstream leads with a quiet instruction, not a headline — the
-            sentence is what the child should be reading. Kept as the h1 so
-            the round still has a document heading. */}
-        <h1 id="practice-title" className="prompt-instr">Spell the word you hear.</h1>
-        {practice.fallbackToSmart && (
-          <p className="practice-mode-note" role="status" aria-live="polite">
-            Not enough tricky words yet — this round is a Smart Review.
-          </p>
-        )}
-        {/* Keyed on the prompt so React remounts it when the word changes:
-            the sentence is the only thing that differs between cards, so it
-            is the only thing that should re-enter. */}
-        {!isTestMode && prefs.showCloze && (
-          <p className="cloze-prompt" key={practice.cloze}>{clozeParts(practice.cloze)}</p>
-        )}
-
-        <form className="answer-form" onSubmit={(event) => void submit(event)}>
-          {/* No visible label: upstream names the field through `aria-label`
-              and lets the italic placeholder carry the instruction, so the
-              card stays a sentence and an answer line. */}
-          <div className="word-input-wrap">
-            <input
-              ref={answerInputRef}
-              id="product-spelling-input"
-              className="word-input"
-              name="spelling"
-              type="text"
-              aria-label="Type the spelling"
-              // The card's own heading already says what to do, so the line
-              // itself only has to say what goes on it.
-              placeholder="your spelling"
-              value={answer}
-              disabled={busy || practice.awaitingAdvance}
-              // A spelling test must not be told the answer: no autocomplete,
-              // no autocorrect, no spellcheck and no writing suggestions, which
-              // together also take away the predictive strip above the keys.
-              autoComplete="off"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck="false"
-              writingsuggestions="false"
-              // The pack is a British English word list, so name the language:
-              // iOS reads it when it decides which keyboard to open.
-              lang="en-GB"
-              // "go" is the submit key. `done` asked iOS to dismiss instead,
-              // which left a typed answer sitting unsubmitted.
-              enterKeyHint="go"
-              onChange={(event) => setAnswer(spellingOnly(event.target.value))}
-              onFocus={(event) => {
-                event.currentTarget.scrollIntoView({ block: 'nearest' });
-              }}
-            />
-          </div>
-
-          {/* Below the answer line, as upstream has it: you type first and
-              replay only if you need to. */}
-          {/* Two controls, as upstream has: the dictation and a slower repeat
-              of it. KS2 spelling is examined in context, so both are the
-              sentence — the word on its own is not a cue this test gives. */}
-          {/* Hearing the sentence again is the verb this whole screen turns on,
-              and it was two unlabelled outline circles. They are named while
-              there is room for a name, and fall back to the glyph alone once
-              the keyboard has taken the height — the aria-label carries the
-              full instruction either way. */}
-          <div className="audio-row" role="group" aria-label="Listening controls">
-            <button
-              type="button"
-              className="btn-icon"
-              aria-label="Replay the sentence"
-              disabled={busy || audioState.status !== 'ready'}
-              onClick={() => void play('sentence')}
-            >
-              <SpeakerSentenceIcon />
-              <span className="btn-icon-label">Hear it again</span>
-            </button>
-            <button
-              type="button"
-              className="btn-icon"
-              aria-label="Replay the sentence slowly"
-              disabled={busy || audioState.status !== 'ready'}
-              onClick={() => void play('slow-sentence')}
-            >
-              <SpeakerSlowIcon />
-              <span className="btn-icon-label">Slower</span>
-            </button>
-          </div>
-
-          <div className="answer-actions">
-            <button type="submit" className="button-primary button-submit" disabled={busy}>
-              {busy ? 'Saving…' : practice.awaitingAdvance ? 'Continue' : 'Submit'}
-              {!busy && <span aria-hidden="true"> →</span>}
-            </button>
-            {canSkip && (
-              <button
-                type="button"
-                className="button-link"
-                disabled={busy}
-                onClick={() => void skip()}
-              >
-                Skip for now
-              </button>
-            )}
-          </div>
-        </form>
-
-        {(localError || state.actionError) && (
-          <div className="answer-notice is-warn" role="alert">
-            <span className="feedback-symbol" aria-hidden="true">!</span>
-            <div>
-              <p className="answer-notice-head">
-                {localError || 'That answer did not save.'}
-              </p>
-              <p className="answer-notice-body">
-                {localError
-                  ? 'The spelling box is still empty.'
-                  : 'Your earlier saved learning is safe. Please try again.'}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* A SATs test says up front that answers are shown at the end, so the
-            round cannot report one. It cannot report a tone either: a green
-            tick or a red cross is the result, said without words. The test
-            confirms only that the answer went in. */}
-        {practice.feedback && (isTestMode ? (
-          <p className="answer-recorded" role="status" aria-live="polite">
-            Answer saved. Every word is shown at the end.
-          </p>
-        ) : (
-          <AnswerFeedback feedback={practice.feedback} />
-        ))}
-      </section>
-
-      {/* Upstream keeps the round's housekeeping outside the card: the voice
-          disclosure sits quietly at one end and leaving the round at the
-          other, so the card itself holds nothing but the spelling. */}
-      <footer className="session-footer">
-        <p className="voice-note">{VOICE_NOTE}</p>
-        <button
-          type="button"
-          className="button-quiet"
-          disabled={busy}
-          onClick={() => {
-            setExitError('');
-            setConfirmExit(true);
-          }}
-        >
-          End round early
-        </button>
-      </footer>
-
-      {confirmExit && (
-        <EndRoundDialog
-          error={exitError}
-          leaving={leaving || busy}
-          onKeep={closeExit}
-          onLeave={() => void leaveRound()}
-        />
-      )}
-    </main>
-  );
-}
-
-function SummaryScreen({
-  summary,
-  monster,
-  celebrationEvents,
-  secureGain,
-  haptics,
-  onCelebrationDone,
-  onScreen,
-}) {
-  const practiceMode = summary?.mode || 'smart';
-  const heroTone = '3';
-  const heroUrl = heroBgForMode(practiceMode, {
-    tone: heroTone,
-    seed: summary?.sessionId ?? null,
-  });
-  const rewardName = monsterDisplayName(monster?.monsterId ?? 'inklet');
-  return (
-    <main
-      className="product-app product-page summary-page"
-      aria-labelledby="summary-title"
-      data-chrome="bar"
-      data-hero-tone={heroTone}
-    >
-      <HeroBackdrop url={heroUrl} />
-      <CelebrationLayer
-        events={celebrationEvents}
-        haptics={haptics}
-        onDone={onCelebrationDone}
-      />
-      <ProductTopBar title="Results" />
-      <section className="summary-hero">
-        <div className="summary-medal" aria-hidden="true">✓</div>
-        <p className="product-kicker">
-          {summary?.endedEarly ? 'Round ended early' : 'Trail complete'}
-        </p>
-        <h1 id="summary-title">
-          {summary?.endedEarly ? 'Saved so far' : 'Well done'}
-        </h1>
-        <p>{summary?.message}</p>
-        <strong className="accuracy-score">{summary?.accuracy ?? 0}%</strong>
-        <span>round accuracy</span>
-      </section>
-      {/* Wrapped so that at regular width the figures and what slipped sit on
-          one side and the companion that grew sits on the other, instead of the
-          reward being the thing you have to scroll to reach. */}
-      <div className="summary-columns">
-      <dl className="summary-grid">
-        {(summary?.cards ?? []).map((card) => (
-          <div key={card.label}>
-            <dt>{card.label}</dt>
-            <dd>{card.value}</dd>
-            <p>{card.sub}</p>
-          </div>
-        ))}
-      </dl>
-      {/* The engine already names the words that needed a correction; the
-          port only ever showed the count. Upstream lists them as chips so a
-          child leaves the round knowing which spellings to look at again. */}
-      {(summary?.mistakes?.length ?? 0) > 0 && (
-        <section className="summary-drill" aria-labelledby="summary-drill-title">
-          <h2 id="summary-drill-title">Words that slipped today</h2>
-          <p>These came back for a second look. They stay due for next time.</p>
-          <ul className="summary-drill-chips">
-            {summary.mistakes.map((entry) => (
-              <li key={entry.slug ?? entry.word}>{entry.word ?? entry.slug}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {/* The painted companion, not a stand-in for one. This panel drew a flat
-          blue SVG blob while the same creature at the same growth stage was
-          already on the home screen and in the codex as painted art — so the
-          one screen that hands out the reward showed the placeholder. And it
-          called every companion Inklet regardless of which one it had. */}
-      <section className="paper-card reward-summary">
-        <img
-          className="reward-art"
-          src={stageArtUrl(
-            monster?.monsterId ?? 'inklet',
-            monster?.branch ?? 'b1',
-            monster?.derivedStage ?? 0,
-          )}
-          alt=""
-          width={320}
-          height={320}
-          decoding="async"
-        />
-        <div>
-          <h2>{`${rewardName} noticed your practice`}</h2>
-          <p>
-            {countWords(monster?.secureCount ?? 0)} now secure, helping
-            {` ${rewardName}`} grow.
-          </p>
-          {secureGain > 0 && (
-            <p className="reward-secure-toast" role="status" aria-live="polite">
-              {`+${secureGain} words secure`}
-            </p>
-          )}
-        </div>
-      </section>
-      </div>
-      <div className="summary-actions">
-        <button type="button" className="button-primary" onClick={() => onScreen('setup')}>
-          Practise again
-        </button>
-        <button type="button" className="button-quiet" onClick={() => onScreen('home')}>
-          Back to trail
-        </button>
-      </div>
-    </main>
-  );
-}
-
-function ProgressScreen({ progress, onScreen, onStart }) {
-  return (
-    <main
-      className="product-app product-page"
-      aria-labelledby="progress-title"
-      data-chrome="tabs"
-    >
-      {/* No bar and no Back: the page's own title says where you are, and the
-          tabs say how to leave. Two of the three were saying the same thing. */}
-      {/* The eyebrow used to say "Saved on this device" and the line under the
-          heading "Each row comes from this learner's local spelling progress" —
-          both true, both written about the app rather than about the words. A
-          child opening this screen wants to know how many words they have and
-          what the marks beside them mean. */}
-      <section className="page-heading">
-        <p className="product-kicker">
-          {progress.length === 0
-            ? 'Nothing practised yet'
-            : `${countWords(progress.length)} practised`}
-        </p>
-        <h1 id="progress-title">Your word trail</h1>
-        <p>
-          Four marks means a word is yours. Five means it is not going anywhere.
-        </p>
-      </section>
-      {progress.length === 0 ? (
-        <section className="paper-card empty-state">
-          <h2>Your trail is ready</h2>
-          <p>Finish a Smart Review and your practised words will appear here.</p>
-          <button type="button" className="button-primary" onClick={onStart}>
-            Start a Smart Review
-          </button>
-        </section>
-      ) : (
-        /* The word is the subject of a spelling app, so it leads the row. The
-           stage was a numeral in a filled circle — a number out of an unstated
-           total — beside a status word that said the same thing again in prose,
-           and on a phone that third column wrapped onto its own line and made
-           every row 135px tall for one word. Five pips say the stage and its
-           ceiling at once, and the row is a row. */
-        <ul className="word-progress-list">
-          {progress.map((item) => (
-            <li key={item.runtimeItemId}>
-              <strong>{item.target}</strong>
-              <small>
-                {item.correct} correct · {item.wrong} to revisit
-              </small>
-              <span
-                className="word-progress-stage"
-                role="img"
-                aria-label={
-                  item.stage >= SECURE_STAGE
-                    ? `Secure — stage ${item.stage} of ${WORD_STAGES.length}`
-                    : `Stage ${item.stage} of ${WORD_STAGES.length}`
-                }
-              >
-                {WORD_STAGES.map((step) => (
-                  <span
-                    key={step}
-                    className={step <= item.stage ? 'is-reached' : undefined}
-                  />
-                ))}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      <TrailTabs current="progress" onScreen={onScreen} />
-    </main>
-  );
-}
-
-function useReducedMotion() {
-  const [reduced, setReduced] = useState(
-    () => typeof matchMedia === 'function'
-      && matchMedia('(prefers-reduced-motion: reduce)').matches,
-  );
-  useEffect(() => {
-    if (typeof matchMedia !== 'function') return undefined;
-    const media = matchMedia('(prefers-reduced-motion: reduce)');
-    const sync = () => setReduced(media.matches);
-    sync();
-    media.addEventListener('change', sync);
-    return () => media.removeEventListener('change', sync);
-  }, []);
-  return reduced;
-}
-
-function CodexScreen({ monsters, onScreen }) {
-  const reducedMotion = useReducedMotion();
-  const entries = useMemo(() => buildCodexEntries(monsters), [monsters]);
-  const featured = useMemo(() => pickFeaturedCodexEntry(entries), [entries]);
-  const [selectedId, setSelectedId] = useState(
-    () => featured?.monsterId ?? null,
-  );
-  const selected = entries.find(
-    (entry) => entry.monsterId === selectedId && entry.caught,
-  ) ?? featured;
-  const nextThreshold = selected?.thresholds.find(
-    (threshold) => threshold > selected.secureCount,
-  );
-
-  return (
-    <main
-      className="product-app product-page companion-page codex-page"
-      aria-labelledby="codex-title"
-      data-chrome="tabs"
-    >
-      <section className="page-heading">
-        {/* One word for one thing. This screen called them monsters in the
-            eyebrow, creatures in the heading and companions in the body, while
-            the home screen called them companions and the tab calls the place
-            the Codex. Companions everywhere; the Codex is where they live.
-            The sentence about purchases was written for a reviewer, not for a
-            child, and it took four lines of a child's screen to say it. It is
-            true and it belongs in the parent area. */}
-        <p className="product-kicker">The Codex</p>
-        <h1 id="codex-title">Your companions</h1>
-        <p>Each one grows as your spellings become secure.</p>
-      </section>
-
-      <ul className="codex-grid">
-        {entries.map((entry) => {
-          if (!entry.caught) {
-            return (
-              <li
-                key={entry.monsterId}
-                className="codex-card is-locked"
-                // Inert on purpose: Full KS2 purchase stays in the Parent
-                // area behind the existing PIN gate.
-                aria-label={entry.imageAlt}
-              >
-                <span className="codex-card-empty" aria-hidden="true">◆</span>
-                <strong>Not found yet</strong>
-                <small>An empty slot</small>
-              </li>
-            );
-          }
-          const selectedCaught = selected?.monsterId === entry.monsterId;
-          return (
-            <li key={entry.monsterId}>
-              <button
-                type="button"
-                className={`codex-card is-caught${selectedCaught ? ' is-selected' : ''}`}
-                aria-pressed={selectedCaught}
-                aria-label={`View ${entry.name}`}
-                onClick={() => setSelectedId(entry.monsterId)}
-              >
-                <img
-                  className="codex-card-art"
-                  src={entry.artUrl}
-                  alt=""
-                  width={160}
-                  height={160}
-                  decoding="async"
+    <main className="product-app" aria-labelledby="practice-title">
+      <Scene
+        className="round-scene"
+        dusk
+        plate={regionArt(REGION, 'a2')}
+        veil="linear-gradient(180deg,rgba(14,21,29,.6) 0%,rgba(14,21,29,.3) 42%,rgba(14,21,29,.66) 100%)"
+      >
+        <div className="scene-body">
+          <ol
+            className="round-dots"
+            aria-label={`Card ${visibleCard} of ${total}`}
+          >
+            {Array.from({ length: total }, (_, index) => {
+              const complete = index < done || (index === done && answered);
+              const here = index === done && !answered;
+              return (
+                <li
+                  // eslint-disable-next-line react/no-array-index-key
+                  key={index}
+                  data-state={complete ? 'done' : here ? 'here' : 'ahead'}
                 />
-                <strong>{entry.name}</strong>
-                <small>Stage {entry.stage}</small>
-                {/* The growth track the web codex card carries. The stage is
-                    already named above for assistive tech, so the dots are
-                    decoration and stay hidden from it. */}
-                <span className="codex-stage-track" aria-hidden="true">
-                  {CODEX_STAGES.map((stage) => (
-                    <span
-                      key={stage}
-                      className={[
-                        'codex-stage-dot',
-                        stage <= entry.stage ? 'is-lit' : '',
-                        stage === entry.stage ? 'is-current' : '',
-                        stage === CODEX_FINAL_STAGE ? 'is-mega' : '',
-                      ].filter(Boolean).join(' ')}
-                    />
-                  ))}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+              );
+            })}
+            <span className="round-flag" aria-hidden="true"><IconTrail size={15} /></span>
+          </ol>
 
-      {selected ? (
-        <section className="companion-hero" aria-labelledby="codex-stage-title">
-          <Suspense
-            fallback={(
-              <div className="monster-stage is-static" aria-hidden="true">
-                <img
-                  className="monster-stage-img"
-                  src={stageArtUrl(
-                    selected.monsterId,
-                    selected.branch,
-                    selected.stage,
-                  )}
-                  alt=""
-                  width={640}
-                  height={640}
-                  decoding="async"
+          <section
+            className="round-card"
+            aria-labelledby="practice-title"
+            aria-busy={busy}
+          >
+            <h1 id="practice-title" className="product-kicker">
+              Spell the word you hear
+            </h1>
+
+            <p className="cloze-line">
+              <span>{before}</span>
+              <span className="cloze-blank" aria-hidden="true" />
+              <span>{after}</span>
+            </p>
+
+            <form className="answer-form" onSubmit={(event) => void submit(event)}>
+              <div className="answer-line">
+                <label htmlFor="product-spelling-input" className="visually-hidden">
+                  Type the spelling
+                </label>
+                <input
+                  id="product-spelling-input"
+                  name="spelling"
+                  type="text"
+                  value={answer}
+                  placeholder="your spelling"
+                  disabled={busy || answered}
+                  // A spelling test must not be told the answer: no
+                  // autocomplete, no autocorrect, no spellcheck and no writing
+                  // suggestions, which together also take away the predictive
+                  // strip above the keys.
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck="false"
+                  writingsuggestions="false"
+                  enterKeyHint="done"
+                  style={{
+                    '--line-colour': answered
+                      ? (feedbackKind === 'success' ? '#2f9e6a' : '#d25757')
+                      : undefined,
+                  }}
+                  onChange={(event) => setAnswer(event.target.value)}
                 />
               </div>
+
+              <div className="listen-row" aria-label="Listening controls">
+                <button
+                  type="button"
+                  className="press"
+                  disabled={busy || audioState.status !== 'ready'}
+                  onClick={() => void play('sentence')}
+                >
+                  <IconSpeaker size={21} />
+                  Hear it again
+                </button>
+                <button
+                  type="button"
+                  className="slow-replay press"
+                  aria-label="Replay slowly"
+                  disabled={busy || audioState.status !== 'ready'}
+                  onClick={() => void play('slow-sentence')}
+                >
+                  <IconSpeakerSlow size={21} />
+                  <span aria-hidden="true">0.5×</span>
+                </button>
+              </div>
+
+              <button type="submit" className="button-brand press" disabled={busy}>
+                {busy ? 'Saving…' : answered ? 'Continue' : 'Submit'}
+                <IconForward size={19} />
+              </button>
+            </form>
+
+            {(localError || state.actionError) && (
+              <p className="inline-error" role="alert">
+                {localError || 'That answer did not save. Please try again.'}
+              </p>
             )}
-          >
-            <MonsterStage
-              monsterId={selected.monsterId}
-              branch={selected.branch}
-              stage={selected.stage}
-              secureCount={selected.secureCount}
-              reducedMotion={reducedMotion}
-            />
-          </Suspense>
-          <p className="product-kicker">Trail companion</p>
-          <h2 id="codex-stage-title">Meet {selected.name}</h2>
-          <p>{selected.blurb}</p>
-          <dl>
-            <div>
-              <dt>Secure words</dt>
-              <dd>{selected.secureCount}</dd>
-            </div>
-            <div>
-              <dt>Growth stage</dt>
-              <dd>{selected.stage}</dd>
-            </div>
-          </dl>
-          <p className="next-reward">
-            {nextThreshold
-              ? `${countWords(nextThreshold - selected.secureCount)} more until the next change.`
-              : `${selected.name} has reached the final stage on this trail.`}
-          </p>
-        </section>
-      ) : (
-        <section className="paper-card empty-state" role="status">
-          <h2>Codex is empty</h2>
-          <p>
-            Codex is empty. Progress is stored safely. Complete a round to
-            unlock your first entry.
-          </p>
-        </section>
-      )}
-      <TrailTabs current="monster" onScreen={onScreen} />
+
+            {practice.feedback && (
+              <div
+                className="round-feedback"
+                data-kind={feedbackKind}
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <span className="round-feedback-mark" aria-hidden="true">
+                  {feedbackKind === 'success' ? <IconTick size={18} />
+                    : feedbackKind === 'notice' ? <IconWarning size={18} />
+                      : <IconReturn size={18} />}
+                </span>
+                <div>
+                  <h2>{practice.feedback.headline}</h2>
+                  {practice.feedback.answer && (
+                    <p>Correct spelling: <strong>{practice.feedback.answer}</strong></p>
+                  )}
+                  {practice.feedback.body && <p>{practice.feedback.body}</p>}
+                  {practice.feedback.footer && <p>{practice.feedback.footer}</p>}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <footer className="round-foot">
+            <p>AI-generated dictation voice</p>
+            <button
+              type="button"
+              className="button-quiet press-soft press"
+              disabled={busy}
+              onClick={() => {
+                setExitError('');
+                setConfirmExit(true);
+              }}
+            >
+              End round
+            </button>
+          </footer>
+        </div>
+
+        {confirmExit && (
+          <LeaveRoundDialog
+            error={exitError}
+            leaving={leaving || busy}
+            onKeep={closeExit}
+            onLeave={() => void leaveRound()}
+          />
+        )}
+      </Scene>
     </main>
   );
 }
 
-function CampScreen({ camp, onScreen }) {
-  const level = camp?.campHighWater ?? 0;
+function mistakeWord(mistake) {
+  if (typeof mistake === 'string') return mistake;
+  return mistake?.target ?? mistake?.word ?? mistake?.slug ?? '';
+}
+
+function ResultsScreen({
+  summary,
+  monsters,
+  onScreen,
+  celebrationEvents = [],
+  secureGain = 0,
+  haptics,
+  onCelebrationDone,
+}) {
+  const codex = useMemo(() => buildCodex(monsters), [monsters]);
+  const hero = codex.hero;
+  const accuracy = summary?.accuracy ?? 0;
+  const total = summary?.totalWords ?? 0;
+  const correct = summary?.correct ?? 0;
+  const mistakes = (summary?.mistakes ?? []).map(mistakeWord).filter(Boolean);
+  const clean = mistakes.length === 0;
+
   return (
-    <main
-      className="product-app product-page camp-page"
-      aria-labelledby="camp-title"
-      // The camp stands on the Downs like everywhere else does. This was the one
-      // screen with no land under it at all: a flat vector tent in a visual
-      // language the app uses nowhere else, on bare paper.
-      data-chrome="tabs"
-      data-hero-tone={HOME_HERO_TONE}
-    >
-      <HeroBackdrop url={heroBgForMode('trouble', { tone: HOME_HERO_TONE })} />
-      <section className="camp-hero">
-        {/* The level is the one fact this screen holds, so it is the headline
-            rather than a pill underneath a heading that said "Camp" directly
-            below an eyebrow that also said "Expedition Camp". The figure is
-            spanned out of the display face: Georgia's numerals are old-style,
-            so "3" set in the heading dropped below its own baseline. */}
-        <p className="product-kicker">The Scribe Downs · Camp</p>
-        <h1 id="camp-title">
-          Camp level <span className="camp-level-figure">{level}</span>
-        </h1>
-        {/* "Camp grows only from eligible revision missions. Ordinary practice
-            still helps spelling and Inklet, but does not invent Camp credit."
-            was the rule as an engineer would state it, on a child's screen —
-            and it named a companion that may not be theirs. The rule itself is
-            worth keeping: coming back to old words is what raises camp, and a
-            child who does not know that cannot aim for it. */}
-        <p>
-          Camp rises when you come back to words you met a while ago — not from
-          fresh practice, however much of it you do.
-        </p>
-        {level === 0 && (
-          <p className="camp-note">
-            Nothing pitched yet. Your first revision round starts it.
-          </p>
-        )}
-      </section>
-      <TrailTabs current="camp" onScreen={onScreen} />
+    <main className="product-app" aria-labelledby="summary-title">
+      <Scene
+        className="results-scene"
+        dusk
+        plate={regionArt(REGION, 'a3')}
+        plateY="26%"
+        veil={[
+          'radial-gradient(96% 52% at 50% 20%,rgba(7,11,16,.05),rgba(7,11,16,.66) 58%,rgba(7,11,16,.96))',
+          'linear-gradient(180deg,rgba(7,11,16,.7) 0%,rgba(7,11,16,.1) 18%,rgba(7,11,16,.86) 56%,#070b10 84%)',
+        ].join(',')}
+      >
+        {/* The one screen a growth is allowed to interrupt. It sits above the
+            record rather than inside it, so the record is already written and
+            waiting underneath when the last card is tapped away. */}
+        <CelebrationLayer
+          events={celebrationEvents}
+          haptics={haptics}
+          onDone={onCelebrationDone}
+        />
+        <div className="scene-body">
+          <div className="results-halo">
+            <p className="product-kicker">Expedition logged</p>
+            {hero?.art && <img src={hero.art} alt={hero.name} />}
+            {secureGain > 0 && (
+              <p className="results-gain">
+                {secureGain === 1
+                  ? '1 word is now secure'
+                  : `${secureGain} words are now secure`}
+              </p>
+            )}
+          </div>
+
+          <div className="field-record">
+            <div className="field-record-sheet">
+              <div className="field-record-head">
+                <div>
+                  <p className="product-kicker">
+                    Field record<span aria-hidden="true" />
+                  </p>
+                  <h1 id="summary-title">{clean ? 'Clean sweep' : 'Well done'}</h1>
+                  <p>{summary?.message}</p>
+                </div>
+                <span className="record-stamp">
+                  <span className="figure">{accuracy}</span>
+                  <small>percent</small>
+                </span>
+              </div>
+
+              <div className="record-tally">
+                <div>
+                  <span className="figure" style={{ color: '#1f7a4f' }}>{correct}</span>
+                  <span className="label">correct</span>
+                </div>
+                <div>
+                  <span className="figure" style={{ color: '#a2472a' }}>{mistakes.length}</span>
+                  <span className="label">return</span>
+                </div>
+                <div>
+                  <span className="figure" style={{ color: '#9e6a19' }}>{total}</span>
+                  <span className="label">words walked</span>
+                </div>
+              </div>
+
+              {clean ? (
+                <p className="record-roll-clean body-copy">
+                  Every word held on the first try.
+                </p>
+              ) : (
+                <>
+                  <p className="product-kicker" style={{ margin: '0.7rem 0 0.35rem' }}>
+                    Coming back<span className="figure"> {mistakes.length}</span>
+                  </p>
+                  <ul className="record-roll">
+                    {mistakes.map((word) => (
+                      <li key={word} data-ok="false">
+                        <strong>{word}</strong>
+                        <span className="record-roll-rule" aria-hidden="true" />
+                        <span className="record-roll-status">comes back</span>
+                        <span className="record-roll-mark" aria-hidden="true">
+                          <IconReturn size={12} />
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              {hero && (
+                <div className="record-growth">
+                  <span>
+                    <span className="record-growth-name">
+                      <strong>{hero.displayName}</strong>
+                      <span>{hero.stageLabel}</span>
+                    </span>
+                    <span className="record-growth-bars" aria-hidden="true">
+                      {hero.pips.map((filled, index) => (
+                        <span
+                          // eslint-disable-next-line react/no-array-index-key
+                          key={index}
+                          data-filled={filled ? 'true' : 'false'}
+                          data-latest={filled && index === hero.stage ? 'true' : 'false'}
+                        />
+                      ))}
+                    </span>
+                  </span>
+                  <span className="record-growth-secure">
+                    <span className="figure">{hero.secureCount}</span>
+                    <span className="label">words secure</span>
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="results-actions">
+            <button
+              type="button"
+              className="button-primary press"
+              onClick={() => onScreen('setup')}
+            >
+              Walk again
+            </button>
+            <button
+              type="button"
+              className="button-quiet press"
+              onClick={() => onScreen('home')}
+            >
+              Trail
+            </button>
+          </div>
+        </div>
+      </Scene>
     </main>
   );
 }
@@ -2622,20 +2601,23 @@ export default function ProductApp({ services }) {
     services.parentCommerce.getState(),
   );
   const [parentOpen, setParentOpen] = useState(false);
+  // Opening the learner sheet is a presentation decision, not a learning one.
+  // Clearing the selected learner to reach it would throw away the loaded
+  // snapshot and leave the sheet with nothing to return to.
+  const [switchOpen, setSwitchOpen] = useState(false);
+  // What a round actually grew, worked out by comparing the roster the round
+  // started on with the roster it ended on. The reward track publishes totals,
+  // not events, so the difference is the event.
   const [celebrationEvents, setCelebrationEvents] = useState([]);
   const [secureGain, setSecureGain] = useState(0);
-  const learningScreenRef = useRef(learningState.screen);
   const monstersAtRoundStartRef = useRef(null);
-
-  // Every screen that takes typing needs the keyboard's height, so the watch
-  // lives once at the root rather than per form.
-  useEffect(() => observeKeyboardInset(), []);
+  const learningScreenRef = useRef(learningState.screen);
+  const clearCelebrations = useCallback(() => setCelebrationEvents([]), []);
 
   useEffect(() => {
     const profileSubscription = services.controller.subscribe(setProfileState);
     const learningSubscription = services.learning.subscribe((next) => {
       const previousScreen = learningScreenRef.current;
-      const screenChanged = previousScreen !== next.screen;
       if (previousScreen !== 'practice' && next.screen === 'practice') {
         monstersAtRoundStartRef.current = next.monsters;
       }
@@ -2645,10 +2627,6 @@ export default function ProductApp({ services }) {
         setSecureGain(secureWordDelta(before, next.monsters));
       }
       learningScreenRef.current = next.screen;
-      if (screenChanged) {
-        runViewTransition(() => setLearningState(next));
-        return;
-      }
       setLearningState(next);
     });
     const audioSubscription =
@@ -2674,22 +2652,31 @@ export default function ProductApp({ services }) {
     void services.parentCommerce.recover().catch(() => undefined);
   }, [parentOpen, parentState.status, services]);
 
+  const bank = useMemo(
+    () => buildWordBank({ progress: learningState.progress }),
+    [learningState.progress],
+  );
+
   if (profileState.status === 'failed') {
     return (
-      <main className="product-app product-page" data-chrome="bar">
-        <ProductTopBar title="KS2 Spelling" />
-        <section className="paper-card empty-state" aria-labelledby="product-data-title">
-          <p className="product-kicker">Local data</p>
-          <h1 id="product-data-title">Your saved learning could not open</h1>
-          <p>Your local data has not been replaced.</p>
-          <button
-            type="button"
-            className="button-primary"
-            onClick={() => globalThis.location?.reload()}
-          >
-            Try opening again
-          </button>
-        </section>
+      <main className="product-app">
+        <Scene className="parent-scene">
+          <div className="scene-body">
+            <ProductTopBar />
+            <section className="vellum" aria-labelledby="product-data-title">
+              <p className="product-kicker">Local data</p>
+              <h1 id="product-data-title">Your saved learning could not open</h1>
+              <p className="body-copy">Your local data has not been replaced.</p>
+              <button
+                type="button"
+                className="button-primary press"
+                onClick={() => globalThis.location?.reload()}
+              >
+                Try opening again
+              </button>
+            </section>
+          </div>
+        </Scene>
       </main>
     );
   }
@@ -2705,6 +2692,8 @@ export default function ProductApp({ services }) {
     services.parent.lock();
     setParentOpen(false);
   };
+  const filterCount = (id) =>
+    bank.filters.find((option) => option.id === id)?.count ?? 0;
 
   if (parentOpen) {
     return (
@@ -2737,52 +2726,50 @@ export default function ProductApp({ services }) {
     );
   }
 
-  if (
-    learningState.screen === 'profiles' ||
-    !selectedProfile
-  ) {
+  if (switchOpen || learningState.screen === 'profiles' || !selectedProfile) {
     return (
-      <ProfilePicker
+      <SwitchScreen
         profileState={profileState}
         audioState={audioState}
         onChoose={(learnerId) =>
-          services.controller.selectProfile(learnerId).catch(() => undefined)}
+          services.controller
+            .selectProfile(learnerId)
+            .then(() => setSwitchOpen(false))
+            .catch(() => undefined)}
         onCreate={(draft) => services.controller.createProfile(draft)}
         onOpenParent={() => setParentOpen(true)}
         onRecoverAudio={recoverAudio}
+        // Until a learner is chosen this is the only screen there is, so the
+        // sheet stays put and shows no grip to drag.
+        onDismiss={selectedProfile ? () => setSwitchOpen(false) : undefined}
       />
     );
   }
 
   if (learningState.screen === 'setup') {
     return (
-      <PracticeSetup
+      <SetupScreen
         audioState={audioState}
         actionError={learningState.actionError}
-        progress={learningState.progress}
-        packSize={learningState.packSize}
-        prefs={learningState.prefs}
-        onPrefs={(patch) => {
-          void services.learning.savePrefs(patch).catch(() => undefined);
-        }}
         onStart={(options) => services.learning.startRound(options)}
         onBack={() => showScreen('home')}
         onRecoverAudio={recoverAudio}
         busy={learningState.status === 'saving'}
+        dueCount={filterCount('due')}
+        troubleCount={filterCount('trouble')}
+        bankTotal={bank.total}
+        vocabularySets={learningState.vocabularySets}
       />
     );
   }
   if (learningState.screen === 'practice') {
     return (
-      <PracticeScreen
+      <RoundScreen
         state={learningState}
         audioState={audioState}
-        prefs={learningState.prefs}
         audio={services.audio}
-        haptics={services.haptics}
         onSubmit={(typed) => services.learning.submitAnswer(typed)}
         onContinue={() => services.learning.continueRound()}
-        onSkip={() => services.learning.skipWord()}
         onEnd={() => services.learning.endRound()}
         onPlaybackFailure={() =>
           services.audioAvailability.reportPlaybackFailure()}
@@ -2791,20 +2778,20 @@ export default function ProductApp({ services }) {
   }
   if (learningState.screen === 'summary') {
     return (
-      <SummaryScreen
+      <ResultsScreen
         summary={learningState.summary}
-        monster={learningState.monsters[0]}
+        monsters={learningState.monsters}
+        onScreen={showScreen}
         celebrationEvents={celebrationEvents}
         secureGain={secureGain}
         haptics={services.haptics}
-        onCelebrationDone={() => setCelebrationEvents([])}
-        onScreen={showScreen}
+        onCelebrationDone={clearCelebrations}
       />
     );
   }
   if (learningState.screen === 'progress') {
     return (
-      <ProgressScreen
+      <WordBankScreen
         progress={learningState.progress}
         onScreen={showScreen}
         onStart={() => showScreen('setup')}
@@ -2817,17 +2804,22 @@ export default function ProductApp({ services }) {
     );
   }
   if (learningState.screen === 'camp') {
-    return <CampScreen camp={learningState.camp} onScreen={showScreen} />;
+    return (
+      <CampScreen
+        camp={learningState.camp}
+        revisitsWaiting={filterCount('due')}
+        onScreen={showScreen}
+      />
+    );
   }
   return (
-    <ChildHome
+    <TrailScreen
       profile={selectedProfile}
       learningState={learningState}
       audioState={audioState}
+      dueCount={filterCount('due')}
       onScreen={showScreen}
-      onSwitchLearner={() => {
-        void services.learning.selectLearner(null).catch(() => undefined);
-      }}
+      onSwitchLearner={() => setSwitchOpen(true)}
       onOpenParent={() => setParentOpen(true)}
       onRecoverAudio={recoverAudio}
     />

@@ -2106,13 +2106,10 @@ function SetupScreen({
             type="button"
             className="button-primary press"
             disabled={busy || audioState.status !== 'ready'}
-            // Exactly the shape the engine accepts. The vocabulary set is not
-            // in it yet: the engine draws every round from the one installed
-            // pack, so sending a filter it would reject buys nothing. When it
-            // publishes sets, this is where the chosen one joins.
             onClick={() => void onStart({
               length: effectiveLength,
               mode: quest,
+              yearFilter: effectiveYearFilter,
             }).catch(() => undefined)}
           >
             {busy ? 'Preparing…' : (

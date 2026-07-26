@@ -220,14 +220,14 @@ test('production services persist profile CRUD and selected learner across a cle
     actionError: null,
   });
   assert.equal(first.learning.getState().learnerId, ben.learnerId);
-  // The engine draws every round from the one installed pack and publishes no
-  // vocabulary sets yet, so the setup screen shows no set rail. When it does
-  // publish them, this is the projection the rail reads and the filter joins
-  // the round options below.
-  assert.equal(first.learning.getState().vocabularySets, undefined);
+  assert.deepEqual(first.learning.getState().vocabularySets, [
+    { id: 'core', label: 'All', count: 20 },
+    { id: 'y3-4', label: 'Y3–4', count: 20 },
+  ]);
   await first.learning.startRound({
     length: 5,
     mode: 'smart',
+    yearFilter: 'core',
   });
   assert.equal(first.learning.getState().screen, 'practice');
   const activeSessionId = first.learning.getState().practice.sessionId;

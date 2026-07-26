@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  loadFullSpellingCatalogue,
   loadStarterSpellingCatalogue,
+  validateSpellingCommandSnapshotV1,
 } from '../src/domain/spelling/index.js';
 import { createProductLearningController } from '../src/app/product-learning-controller.js';
 import {
@@ -14,8 +16,8 @@ const NOW_MS = 1_768_478_400_000;
 
 function createLearningWorld(
   initialSnapshots = [expectedB2Snapshot('learner-a')],
+  catalogue = loadStarterSpellingCatalogue(),
 ) {
-  const catalogue = loadStarterSpellingCatalogue();
   const snapshots = new Map(
     initialSnapshots.map((snapshot) => [
       snapshot.learnerId,
@@ -47,6 +49,7 @@ function createLearningWorld(
   return Object.freeze({
     catalogue,
     snapshots,
+    transactionCount: () => tick,
     createController(initialSnapshot = initialSnapshots[0] ?? null) {
       return createProductLearningController({
         repository,
@@ -68,6 +71,13 @@ function targetFor(controller, catalogue) {
   return item.target;
 }
 
+function snapshotForCatalogue(catalogue) {
+  const snapshot = structuredClone(expectedB2Snapshot('learner-a'));
+  snapshot.catalogueId = catalogue.catalogueId;
+  snapshot.grantedEntitlementIds = [...catalogue.entitlementIds];
+  return validateSpellingCommandSnapshotV1(snapshot, catalogue);
+}
+
 test('product learning starts a durable Smart Review and restores an interrupted round', async () => {
   const world = createLearningWorld();
   const first = world.createController();
@@ -82,6 +92,10 @@ test('product learning starts a durable Smart Review and restores an interrupted
     progress: [],
     // The active pack's size, so the setup panel can report what is unseen.
     packSize: 20,
+    vocabularySets: [
+      { id: 'core', label: 'All', count: 20 },
+      { id: 'y3-4', label: 'Y3–4', count: 20 },
+    ],
     monsters: [{
       rewardTrackId: 'spelling-core-inklet',
       packId: 'ks2-core',
@@ -103,7 +117,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
 
   first.showScreen('setup');
   assert.equal(first.getState().screen, 'setup');
-  await first.startRound({ mode: 'smart', length: 5 });
+  await first.startRound({ mode: 'smart', length: 5, yearFilter: 'core' });
 
   const active = first.getState();
   assert.equal(active.status, 'ready');
@@ -137,10 +151,124 @@ test('product learning starts a durable Smart Review and restores an interrupted
   await restored.dispose();
 });
 
+test('product learning publishes only non-empty catalogue pools and draws from the selected year band', async () => {
+  const catalogue = await loadFullSpellingCatalogue();
+  const world = createLearningWorld(
+    [snapshotForCatalogue(catalogue)],
+    catalogue,
+  );
+  const controller = world.createController();
+
+  assert.deepEqual(controller.getState().vocabularySets, [
+    { id: 'core', label: 'All', count: 213 },
+    { id: 'y3-4', label: 'Y3–4', count: 109 },
+    { id: 'y5-6', label: 'Y5–6', count: 104 },
+  ]);
+
+  await controller.startRound({
+    mode: 'smart',
+    length: 5,
+    yearFilter: 'y5-6',
+  });
+  const runtimeItemId = controller.getState().practice.runtimeItemId;
+  assert.equal(
+    catalogue.items.find((item) => item.runtimeItemId === runtimeItemId)?.yearBand,
+    '5-6',
+  );
+
+  await controller.dispose();
+});
+
+test('product learning routes Trouble Drill and SATs Test through the shared controller', async () => {
+  const troubleWorld = createLearningWorld();
+  const trouble = troubleWorld.createController();
+  await trouble.startRound({
+    mode: 'trouble',
+    length: 5,
+    yearFilter: 'y3-4',
+  });
+  assert.equal(trouble.getState().practice.fallbackToSmart, true);
+  await trouble.dispose();
+
+  const testWorld = createLearningWorld();
+  const sats = testWorld.createController();
+  await sats.startRound({
+    mode: 'test',
+    length: 20,
+    yearFilter: 'core',
+  });
+  assert.equal(sats.getState().practice.mode, 'test');
+  assert.equal(sats.getState().practice.label, 'SATs 20 test');
+  assert.equal(sats.getState().practice.progress.total, 20);
+  await sats.dispose();
+});
+
+test('product learning rejects unavailable or malformed round options before persistence', async () => {
+  let getterReads = 0;
+  const accessorOptions = {
+    mode: 'smart',
+    length: 5,
+    get yearFilter() {
+      getterReads += 1;
+      return 'core';
+    },
+  };
+  const customPrototypeOptions = Object.assign(
+    Object.create({ inherited: true }),
+    { mode: 'smart', length: 5, yearFilter: 'core' },
+  );
+  const symbolOptions = {
+    mode: 'smart',
+    length: 5,
+    yearFilter: 'core',
+    [Symbol('extra')]: true,
+  };
+  const nonEnumerableOptions = {
+    mode: 'smart',
+    length: 5,
+    yearFilter: 'core',
+  };
+  Object.defineProperty(nonEnumerableOptions, 'yearFilter', {
+    value: 'core',
+    enumerable: false,
+  });
+
+  const invalidOptions = [
+    { mode: 'smart', length: 5, yearFilter: 'y5-6' },
+    { mode: 'test', length: 5, yearFilter: 'core' },
+    { mode: 'test', length: 20, yearFilter: 'y3-4' },
+    { mode: 'unknown', length: 5, yearFilter: 'core' },
+    { mode: 'smart', length: 5, yearFilter: 'core', extra: true },
+    accessorOptions,
+    customPrototypeOptions,
+    symbolOptions,
+    nonEnumerableOptions,
+  ];
+
+  const world = createLearningWorld();
+  const controller = world.createController();
+  const beforeState = controller.getState();
+  const beforeSnapshot = structuredClone(world.snapshots.get('learner-a'));
+
+  for (const options of invalidOptions) {
+    await assert.rejects(controller.startRound(options), TypeError);
+    assert.strictEqual(controller.getState(), beforeState);
+    assert.deepEqual(world.snapshots.get('learner-a'), beforeSnapshot);
+    assert.equal(world.transactionCount(), 0);
+  }
+  assert.equal(getterReads, 0);
+
+  await controller.dispose();
+});
+
 test('product learning keeps correction and safe abandonment inside the A3 transaction result', async () => {
   const world = createLearningWorld();
   const controller = world.createController();
-  await controller.startRound({ mode: 'smart', length: 5 });
+  await controller.startRound({
+    mode: 'smart',
+    length: 5,
+    yearFilter: 'core',
+  });
 
   await assert.rejects(
     controller.submitAnswer('  '),
@@ -188,7 +316,11 @@ test('product learning keeps correction and safe abandonment inside the A3 trans
 test('product learning skips a word and ends an untouched round without a summary', async () => {
   const world = createLearningWorld();
   const controller = world.createController();
-  await controller.startRound({ mode: 'smart', length: 5 });
+  await controller.startRound({
+    mode: 'smart',
+    length: 5,
+    yearFilter: 'core',
+  });
   const firstWord = targetFor(controller, world.catalogue);
 
   await controller.skipWord();
@@ -249,7 +381,11 @@ test('product learning persists round preferences in the A3 prefs bag', async ()
 test('product learning projects saved progress, Monster and Camp views without changing learner bytes', async () => {
   const world = createLearningWorld();
   const controller = world.createController();
-  await controller.startRound({ mode: 'smart', length: 5 });
+  await controller.startRound({
+    mode: 'smart',
+    length: 5,
+    yearFilter: 'core',
+  });
 
   while (controller.getState().screen === 'practice') {
     const state = controller.getState();

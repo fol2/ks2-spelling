@@ -20,6 +20,7 @@ const SCREENS = Object.freeze([
 ]);
 const ROUND_LENGTHS = Object.freeze([5, 10, 20]);
 const WORKSHOP_MODES = Object.freeze(['smart', 'trouble', 'test']);
+const ROUND_OPTION_KEYS = Object.freeze(['mode', 'length', 'yearFilter']);
 
 function controllerError(code, message = code) {
   const error = new Error(message);
@@ -43,6 +44,42 @@ function freezeDeep(value) {
 
 function cloneFrozen(value) {
   return freezeDeep(structuredClone(value));
+}
+
+function parseRoundOptions(value) {
+  try {
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      Array.isArray(value) ||
+      Object.getPrototypeOf(value) !== Object.prototype
+    ) {
+      return null;
+    }
+    const keys = Reflect.ownKeys(value);
+    if (
+      keys.length !== ROUND_OPTION_KEYS.length ||
+      keys.some((key) =>
+        typeof key !== 'string' || !ROUND_OPTION_KEYS.includes(key)
+      )
+    ) {
+      return null;
+    }
+    const options = {};
+    for (const key of ROUND_OPTION_KEYS) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (
+        !descriptor?.enumerable ||
+        !Object.hasOwn(descriptor, 'value')
+      ) {
+        return null;
+      }
+      options[key] = descriptor.value;
+    }
+    return options;
+  } catch {
+    return null;
+  }
 }
 
 function nextSnapshot(snapshot, plan) {
@@ -106,6 +143,25 @@ function progressProjection(snapshot, catalogue) {
         lastResult: progress.lastResult,
       };
     });
+}
+
+function vocabularySetsProjection(catalogue) {
+  const core = catalogue.items.filter(
+    ({ coverageTier }) => coverageTier === 'statutory-core',
+  );
+  return [
+    { id: 'core', label: 'All', count: core.length },
+    {
+      id: 'y3-4',
+      label: 'Y3–4',
+      count: core.filter(({ yearBand }) => yearBand === '3-4').length,
+    },
+    {
+      id: 'y5-6',
+      label: 'Y5–6',
+      count: core.filter(({ yearBand }) => yearBand === '5-6').length,
+    },
+  ].filter(({ count }) => count > 0);
 }
 
 function monsterProjection(snapshot, catalogue) {
@@ -181,6 +237,7 @@ function createState({
     // much of it the learner has still to meet. The controller owns the
     // catalogue; the view should not have to reach for it.
     packSize: catalogue.items.length,
+    vocabularySets: vocabularySetsProjection(catalogue),
     monsters: monsterProjection(snapshot, catalogue),
     camp: campProjection(snapshot),
     actionError,
@@ -351,28 +408,29 @@ export function createProductLearningController({
       return state;
     },
     startRound(options) {
+      const parsed = parseRoundOptions(options);
       if (
-        !options ||
-        typeof options !== 'object' ||
-        Array.isArray(options) ||
-        Reflect.ownKeys(options).length !== 2 ||
-        !Object.hasOwn(options, 'mode') ||
-        !Object.hasOwn(options, 'length') ||
-        !WORKSHOP_MODES.includes(options.mode) ||
-        !ROUND_LENGTHS.includes(options.length)
+        !parsed ||
+        !WORKSHOP_MODES.includes(parsed.mode) ||
+        !ROUND_LENGTHS.includes(parsed.length) ||
+        !state.vocabularySets.some(({ id }) => id === parsed.yearFilter) ||
+        (
+          parsed.mode === 'test' &&
+          (parsed.length !== 20 || parsed.yearFilter !== 'core')
+        )
       ) {
         return Promise.reject(
           new TypeError(
-            'Workshop round requires mode smart|trouble|test and length 5, 10 or 20.',
+            'Workshop round requires a published vocabulary set, mode smart|trouble|test and length 5, 10 or 20; test requires core and 20.',
           ),
         );
       }
       return runCommand({
         type: 'start-session',
         payload: {
-          mode: options.mode,
-          yearFilter: 'y3-4',
-          length: options.length,
+          mode: parsed.mode,
+          yearFilter: parsed.yearFilter,
+          length: parsed.length,
           practiceOnly: false,
           words: [],
         },

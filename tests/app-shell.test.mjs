@@ -332,7 +332,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
     subscribe: () => Object.freeze({ remove() {} }),
     async selectLearner() {},
     showScreen() {},
-    async startSmartRound() {},
+    async startRound() {},
     async submitAnswer() {},
     async continueRound() {},
     async endRound() {},
@@ -569,6 +569,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
 
   assert.match(productSource, /void play\('sentence'\)/u);
   assert.doesNotMatch(productSource, /play\('word'\)/u);
+  assert.match(productSource, /yearFilter:\s*effectiveYearFilter/u);
 
   const leaveRoundHtml = renderToStaticMarkup(
     React.createElement(LeaveRoundDialog, {

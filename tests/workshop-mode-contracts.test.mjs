@@ -15,10 +15,6 @@ import {
 // - Trouble with no weak words falls back to Smart Review (matched).
 // - Trouble after wrongs selects those weak words (matched).
 // - SATs Test is single-attempt with no retry/correction phase (matched).
-// Intentional product delta: this mobile shell starts rounds with yearFilter
-// 'y3-4' and product lengths 5|10|20; the A3 engine still forces test mode to
-// the statutory 20-word core pool regardless of the requested length/filter.
-
 const NOW_MS = 1_768_478_400_000;
 const START_PAYLOAD_BASE = Object.freeze({
   yearFilter: 'y3-4',

@@ -12,6 +12,7 @@ import {
   FULL_AUDIO_AUTHORING_AUTHORITY,
 } from '../scripts/lib/starter-audio-authoring-authority.mjs';
 import {
+  createAudioSourceKey,
   createFullAudioEvidenceAuthority,
   validateFullAudioEvidence,
 } from '../scripts/lib/starter-audio-evidence.mjs';
@@ -48,12 +49,25 @@ test('Full audio derives the complete frozen 8,946-asset matrix', async () => {
   assert.equal(FULL_AUDIO_AUTHORING_AUTHORITY.catalogueId, 'ks2-core:full');
   assert.equal(FULL_AUDIO_AUTHORING_AUTHORITY.assetCount, 8_946);
   assert.equal(
-    FULL_AUDIO_AUTHORING_AUTHORITY.engine.sourceUrl,
-    'https://pypi.org/project/piper-tts/1.5.0/',
+    FULL_AUDIO_AUTHORING_AUTHORITY.sources.sentence.model,
+    'gemini-3.1-flash-tts-preview',
+  );
+  assert.equal(
+    FULL_AUDIO_AUTHORING_AUTHORITY.sources.word.revision,
+    '3d6c0e939b298a9f5d7e22ec369cecf802a5dd80',
   );
   assert.equal(inventory.length, 8_946);
   assert.equal(new Set(inventory.map(({ audioKey }) => audioKey)).size, 8_946);
   assert.equal(new Set(inventory.map(({ assetPath }) => assetPath)).size, 8_946);
+  assert.equal(new Set(inventory.map(({ sourcePath }) => sourcePath)).size, 8_946);
+  assert.equal(
+    new Set(inventory.map(createAudioSourceKey)).size,
+    8_946,
+  );
+  assert.equal(
+    createAudioSourceKey(inventory[0]),
+    'git/3d6c0e939b298a9f5d7e22ec369cecf802a5dd80/content/full-pack/audio/iapetus/accident/word.m4a',
+  );
   assert.deepEqual(
     Object.fromEntries(
       ['Iapetus', 'Sulafat'].map((voiceId) => [
@@ -76,6 +90,15 @@ test('Full audio derives the complete frozen 8,946-asset matrix', async () => {
       'dictation-slow': 4_260,
     },
   );
+  assert.deepEqual(
+    Object.fromEntries(
+      ['word', 'sentence'].map((sourceKind) => [
+        sourceKind,
+        inventory.filter((asset) => asset.sourceKind === sourceKind).length,
+      ]),
+    ),
+    { word: 426, sentence: 8_520 },
+  );
   assert.equal(
     inventory[0].audioKey,
     'ks2-core:accident|word|Iapetus|natural|word-natural',
@@ -84,6 +107,20 @@ test('Full audio derives the complete frozen 8,946-asset matrix', async () => {
     inventory.at(-1).audioKey,
     'ks2-core:yacht|sentence-10|Sulafat|slow|dictation-slow',
   );
+  assert.equal(
+    createAudioSourceKey(inventory.at(-1)),
+    'spelling-audio/v1/gemini-3.1-flash-tts-preview/Sulafat/slow/yacht/9.mp3',
+  );
+  assert.equal(
+    inventory.at(-1).sourcePath,
+    'audio/Sulafat/slow/yacht/9.mp3',
+  );
+  assert.deepEqual(inventory.at(-1).generationSpec.slowTempoPolicy, {
+    triggerMinimumRatio: 1.05,
+    triggerMaximumRatio: 1.65,
+    targetRatio: 1.25,
+    filter: 'ffmpeg-atempo',
+  });
 });
 
 test('Full evidence binds all generated assets to the frozen authority', async () => {
@@ -100,6 +137,16 @@ test('Full evidence binds all generated assets to the frozen authority', async (
       sequence: asset.sequence,
       audioKey: asset.audioKey,
       assetPath: asset.assetPath,
+      sourceKind: asset.sourceKind,
+      sourceKey: createAudioSourceKey(asset),
+      sourcePath: asset.sourcePath,
+      sourceByteSize: asset.sourceKind === 'word'
+        ? 1_000 + asset.sequence
+        : 2_000 + asset.sequence,
+      sourceSha256: digest(Buffer.from(
+        `${asset.sourceKind === 'word' ? 'audio' : 'source'}-${asset.sequence}`,
+      )),
+      tempoFactor: 1,
       inputSha256: digest(Buffer.from(asset.input)),
       generationSpecSha256: digest(Buffer.from(JSON.stringify(asset.generationSpec))),
       byteSize: 1_000 + asset.sequence,
@@ -129,6 +176,12 @@ test('Full evidence binds all generated assets to the frozen authority', async (
     /Full audio evidence duration must be finite/u,
   );
   evidence.assets[0].durationMs = 800;
+  evidence.assets[0].sourcePath = evidence.assets[1].sourcePath;
+  assert.throws(
+    () => validateFullAudioEvidence(evidence, { catalogue }),
+    /Full audio evidence/u,
+  );
+  evidence.assets[0].sourcePath = inventory[0].sourcePath;
   evidence.assets[0].audioKey = evidence.assets[1].audioKey;
   assert.throws(
     () => validateFullAudioEvidence(evidence, { catalogue }),

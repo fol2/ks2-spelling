@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  copyFile,
   lstat,
   mkdir,
   mkdtemp,
@@ -10,7 +11,7 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises';
-import { dirname, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -27,6 +28,7 @@ import {
 } from './lib/starter-audio-authoring-authority.mjs';
 import {
   analysePcm16le,
+  createAudioSourceKey,
   createFullAudioEvidenceAuthority,
   createStarterAudioEvidenceAuthority,
   validateFullAudioEvidence,
@@ -34,10 +36,6 @@ import {
 } from './lib/starter-audio-evidence.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const CACHE = resolve(ROOT, '.native-build/c1/authoring');
-const PYTHON_HELPER = resolve(ROOT, 'scripts/lib/generate-starter-audio.py');
-const MAX_MODEL_BYTES = 128 * 1_024 * 1_024;
-const MAX_CONFIG_BYTES = 64 * 1_024;
 const MAX_AUDIO_BYTES = 2 * 1_024 * 1_024;
 const MAX_RUNTIME_MANIFEST_BYTES = 4 * 1_024 * 1_024;
 const PROCESS_ERROR_BYTES = 64 * 1_024;
@@ -158,60 +156,6 @@ function runProcess(command, arguments_, {
   });
 }
 
-async function ensureAuthoringFile({
-  url,
-  expectedSha256,
-  target,
-  maximumBytes,
-}) {
-  if (await exists(target)) {
-    const bytes = await readBoundedRegular(target, maximumBytes);
-    if (digest(bytes) !== expectedSha256) {
-      fail('cached authoring authority hash drifted');
-    }
-    return target;
-  }
-  const response = await fetch(url, { redirect: 'follow' });
-  const contentLength = Number(response.headers.get('content-length'));
-  if (
-    !response.ok ||
-    (Number.isFinite(contentLength) && contentLength > maximumBytes)
-  ) {
-    fail(`authoring authority download failed (${response.status})`);
-  }
-  const bytes = Buffer.from(await response.arrayBuffer());
-  if (
-    bytes.byteLength === 0 ||
-    bytes.byteLength > maximumBytes ||
-    digest(bytes) !== expectedSha256
-  ) {
-    fail('downloaded authoring authority hash drifted');
-  }
-  await writeFile(target, bytes, { flag: 'wx' });
-  return target;
-}
-
-async function authoringPaths(profile) {
-  await mkdir(CACHE, { recursive: true });
-  const model = resolve(CACHE, `${profile.model}.onnx`);
-  const config = resolve(CACHE, `${profile.model}.onnx.json`);
-  await Promise.all([
-    ensureAuthoringFile({
-      url: profile.modelUrl,
-      expectedSha256: profile.modelSha256,
-      target: model,
-      maximumBytes: MAX_MODEL_BYTES,
-    }),
-    ensureAuthoringFile({
-      url: profile.configUrl,
-      expectedSha256: profile.configSha256,
-      target: config,
-      maximumBytes: MAX_CONFIG_BYTES,
-    }),
-  ]);
-  return { model, config };
-}
-
 async function assertFfmpegAuthority(authority) {
   const { stdout } = await runProcess('ffmpeg', ['-version']);
   const firstLine = stdout.toString('utf8').split('\n')[0];
@@ -222,45 +166,6 @@ async function assertFfmpegAuthority(authority) {
   ) {
     fail('requires the exact reviewed FFmpeg version');
   }
-}
-
-async function generateWavAuthorities(
-  inventory,
-  temporaryRoot,
-  authority,
-  timeoutMs,
-) {
-  const wavRoot = resolve(temporaryRoot, 'wav');
-  await mkdir(wavRoot);
-  await Promise.all(authority.profiles.map(async (profile) => {
-    const paths = await authoringPaths(profile);
-    const jobs = inventory
-      .filter(({ voiceId }) => voiceId === profile.voiceId)
-      .map((asset) => ({
-        input: asset.input,
-        path: asset.assetPath.replace(/\.m4a$/u, '.wav'),
-        lengthScale: asset.generationSpec.lengthScale,
-      }));
-    const jobsPath = resolve(temporaryRoot, `${profile.voiceId}-jobs.json`);
-    await writeFile(jobsPath, jsonBytes(jobs), { flag: 'wx' });
-    await runProcess('uvx', [
-      '--from',
-      `piper-tts==${authority.engine.version}`,
-      'python',
-      PYTHON_HELPER,
-      '--model',
-      paths.model,
-      '--config',
-      paths.config,
-      '--jobs',
-      jobsPath,
-      '--output',
-      wavRoot,
-    ], {
-      timeoutMs,
-    });
-  }));
-  return wavRoot;
 }
 
 async function mapConcurrent(values, concurrency, operation) {
@@ -280,25 +185,24 @@ async function mapConcurrent(values, concurrency, operation) {
   return output;
 }
 
-async function encodeAssets(inventory, wavRoot, outputRoot, authority) {
+async function encodeAsset(asset, sourceRoot, target, authority, tempoFactor = 1) {
   const volumeDb = authority.catalogueId === 'ks2-core:full' ? -8 : -6;
-  await mapConcurrent(inventory, ENCODE_CONCURRENCY, async (asset) => {
-    const wav = resolve(
-      wavRoot,
-      asset.assetPath.replace(/\.m4a$/u, '.wav'),
-    );
-    const target = resolve(outputRoot, asset.assetPath);
-    await mkdir(dirname(target), { recursive: true });
-    await runProcess('ffmpeg', [
+  const filter = [
+    'silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.08:stop_periods=-1:stop_threshold=-50dB:stop_silence=0.12',
+    `volume=${volumeDb}dB`,
+    ...(tempoFactor === 1 ? [] : [`atempo=${tempoFactor.toFixed(8)}`]),
+  ].join(',');
+  await mkdir(dirname(target), { recursive: true });
+  await runProcess('ffmpeg', [
       '-hide_banner',
       '-loglevel',
       'error',
       '-nostdin',
       '-n',
       '-i',
-      wav,
+      resolve(sourceRoot, asset.sourcePath),
       '-af',
-      `silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.08:stop_periods=-1:stop_threshold=-50dB:stop_silence=0.12,volume=${volumeDb}dB`,
+      filter,
       '-ac',
       String(authority.encoding.channels),
       '-ar',
@@ -316,11 +220,110 @@ async function encodeAssets(inventory, wavRoot, outputRoot, authority) {
       '-flags:a',
       '+bitexact',
       target,
-    ]);
-  });
+  ]);
 }
 
-async function inspectAsset(asset, sourceRoot, authority, label) {
+async function decodedDurationMs(path, authority) {
+  const decoded = await runProcess('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-nostdin', '-i', path,
+    '-f', 's16le', '-acodec', 'pcm_s16le',
+    '-ac', String(authority.encoding.channels),
+    '-ar', String(authority.encoding.sampleRateHz), '-',
+  ], { maximumOutputBytes: 2 * MAX_AUDIO_BYTES });
+  return (decoded.stdout.byteLength / 2 / authority.encoding.sampleRateHz) * 1_000;
+}
+
+async function encodeAssets(inventory, sourceRoot, outputRoot, authority) {
+  await mapConcurrent(inventory, ENCODE_CONCURRENCY, async (asset) => {
+    const target = resolve(outputRoot, asset.assetPath);
+    if (asset.sourceKind === 'word') {
+      await mkdir(dirname(target), { recursive: true });
+      await copyFile(resolve(sourceRoot, asset.sourcePath), target);
+    } else {
+      await encodeAsset(asset, sourceRoot, target, authority);
+    }
+  });
+  const tempoFactors = new Map(inventory.map(({ audioKey }) => [audioKey, 1]));
+  const normalByPrompt = new Map(
+    inventory
+      .filter(({ audioKind }) => audioKind === 'dictation-normal')
+      .map((asset) => [
+        `${asset.runtimeItemId}|${asset.sentenceId}|${asset.voiceId}`,
+        asset,
+      ]),
+  );
+  await mapConcurrent(
+    inventory.filter(({ audioKind }) => audioKind === 'dictation-slow'),
+    ENCODE_CONCURRENCY,
+    async (asset) => {
+      const promptKey =
+        `${asset.runtimeItemId}|${asset.sentenceId}|${asset.voiceId}`;
+      const normal = normalByPrompt.get(promptKey);
+      if (!normal) fail('slow source has no matching normal source');
+      const [normalDuration, slowDuration] = await Promise.all([
+        decodedDurationMs(resolve(outputRoot, normal.assetPath), authority),
+        decodedDurationMs(resolve(outputRoot, asset.assetPath), authority),
+      ]);
+      const ratio =
+        (Math.round(slowDuration * 1_000) / 1_000) /
+        (Math.round(normalDuration * 1_000) / 1_000);
+      const bounds = authority.validation.slowDurationRatio;
+      if (ratio < bounds.minimum || ratio > bounds.maximum) {
+        const tempoFactor = slowDuration / (normalDuration * 1.25);
+        if (tempoFactor < 0.5 || tempoFactor > 100) {
+          fail('slow source requires an unsupported atempo adjustment');
+        }
+        const adjusted = `${resolve(outputRoot, asset.assetPath)}.adjusted.m4a`;
+        await encodeAsset(asset, sourceRoot, adjusted, authority, tempoFactor);
+        await rename(adjusted, resolve(outputRoot, asset.assetPath));
+        tempoFactors.set(asset.audioKey, tempoFactor);
+      }
+    },
+  );
+  return tempoFactors;
+}
+
+async function inspectSourceAsset(asset, sourceRoot, authority) {
+  const path = resolve(sourceRoot, asset.sourcePath);
+  const bytes = await readBoundedRegular(path, MAX_AUDIO_BYTES);
+  const sourceEncoding = authority.sourceEncoding[asset.sourceKind];
+  const probeResult = await runProcess('ffprobe', [
+    '-v', 'error', '-select_streams', 'a:0',
+    '-show_entries', 'stream=codec_name,sample_rate,channels',
+    '-of', 'json', path,
+  ]);
+  let probe;
+  try {
+    probe = JSON.parse(probeResult.stdout.toString('utf8'));
+  } catch (cause) {
+    fail('could not parse the source audio format evidence', { cause });
+  }
+  if (
+    !Array.isArray(probe.streams) ||
+    probe.streams.length !== 1 ||
+    probe.streams[0]?.codec_name !== sourceEncoding.codec ||
+    Number(probe.streams[0]?.sample_rate) !==
+      sourceEncoding.sampleRateHz ||
+    probe.streams[0]?.channels !== sourceEncoding.channels
+  ) {
+    fail(`source ${asset.sourceKind} audio format drifted from its reviewed authority`);
+  }
+  return {
+    sourceKind: asset.sourceKind,
+    sourceKey: createAudioSourceKey(asset),
+    sourcePath: asset.sourcePath,
+    sourceByteSize: bytes.byteLength,
+    sourceSha256: digest(bytes),
+  };
+}
+
+async function inspectAsset(
+  asset,
+  sourceRoot,
+  authority,
+  label,
+  provenance,
+) {
   const path = resolve(sourceRoot, asset.assetPath);
   const bytes = await readBoundedRegular(path, MAX_AUDIO_BYTES);
   const probeResult = await runProcess('ffprobe', [
@@ -377,6 +380,12 @@ async function inspectAsset(asset, sourceRoot, authority, label) {
     sequence: asset.sequence,
     audioKey: asset.audioKey,
     assetPath: asset.assetPath,
+    sourceKind: provenance.sourceKind,
+    sourceKey: provenance.sourceKey,
+    sourcePath: provenance.sourcePath,
+    sourceByteSize: provenance.sourceByteSize,
+    sourceSha256: provenance.sourceSha256,
+    tempoFactor: provenance.tempoFactor,
     inputSha256: digest(Buffer.from(asset.input)),
     generationSpecSha256: digest(
       Buffer.from(JSON.stringify(asset.generationSpec)),
@@ -408,10 +417,50 @@ async function inventoryFiles(root) {
   return paths.sort();
 }
 
+async function assertSourceInventoryLayout(sourceRoot, inventory) {
+  const root = await lstat(sourceRoot);
+  if (!root.isDirectory() || root.isSymbolicLink()) {
+    fail('--source must name a real directory, not a symbolic link');
+  }
+  const expectedPaths = inventory.map(({ sourcePath }) => sourcePath).sort();
+  const actualPaths = await inventoryFiles(sourceRoot);
+  if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) {
+    fail('source inventory has a missing or orphaned asset');
+  }
+}
+
+async function inspectSourceInventory(configuration) {
+  const { authority, importSourceRoot, inventory } = configuration;
+  await assertSourceInventoryLayout(importSourceRoot, inventory);
+  return mapConcurrent(
+    inventory,
+    ENCODE_CONCURRENCY,
+    (asset) => inspectSourceAsset(asset, importSourceRoot, authority),
+  );
+}
+
+async function stageSourceInventory(configuration, stagingRoot) {
+  const { importSourceRoot, inventory } = configuration;
+  await assertSourceInventoryLayout(importSourceRoot, inventory);
+  await mapConcurrent(inventory, ENCODE_CONCURRENCY, async (asset) => {
+    const bytes = await readBoundedRegular(
+      resolve(importSourceRoot, asset.sourcePath),
+      MAX_AUDIO_BYTES,
+    );
+    const target = resolve(stagingRoot, asset.sourcePath);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, bytes, { flag: 'wx' });
+  });
+  return inspectSourceInventory({
+    ...configuration,
+    importSourceRoot: stagingRoot,
+  });
+}
+
 async function createEvidence(
   configuration,
   sourceRoot,
-  { observationTarget = null } = {},
+  { observationTarget = null, provenanceAssets } = {},
 ) {
   const {
     authority,
@@ -426,10 +475,22 @@ async function createEvidence(
   if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) {
     fail('source inventory has a missing or orphaned asset');
   }
+  if (
+    !Array.isArray(provenanceAssets) ||
+    provenanceAssets.length !== inventory.length
+  ) {
+    fail('source provenance is incomplete');
+  }
   const assets = await mapConcurrent(
     inventory,
     ENCODE_CONCURRENCY,
-    (asset) => inspectAsset(asset, sourceRoot, authority, label),
+    (asset, index) => inspectAsset(
+      asset,
+      sourceRoot,
+      authority,
+      label,
+      provenanceAssets?.[index],
+    ),
   );
   const candidate = {
     schemaVersion: 1,
@@ -456,7 +517,6 @@ async function generate(configuration) {
     observationTarget,
     reportTarget,
     runtimeManifestTarget,
-    synthesisTimeoutMs,
   } = configuration;
   if (
     await exists(audioTarget) ||
@@ -476,17 +536,26 @@ async function generate(configuration) {
   let publishedRuntimeManifest = false;
   try {
     await mkdir(outputRoot);
-    const wavRoot = await generateWavAuthorities(
-      inventory,
-      temporaryRoot,
-      authority,
-      synthesisTimeoutMs,
+    const stagedSourceRoot = resolve(temporaryRoot, 'source');
+    await mkdir(stagedSourceRoot);
+    const sourceProvenance = await stageSourceInventory(
+      configuration,
+      stagedSourceRoot,
     );
-    await encodeAssets(inventory, wavRoot, outputRoot, authority);
+    const tempoFactors = await encodeAssets(
+      inventory,
+      stagedSourceRoot,
+      outputRoot,
+      authority,
+    );
+    const provenanceAssets = sourceProvenance.map((record, index) => ({
+      ...record,
+      tempoFactor: tempoFactors.get(inventory[index].audioKey),
+    }));
     const evidence = await createEvidence(
       configuration,
       outputRoot,
-      { observationTarget },
+      { observationTarget, provenanceAssets },
     );
     const stagedReport = resolve(temporaryRoot, `${label}-audio-evidence.json`);
     await writeFile(stagedReport, jsonBytes(evidence), { flag: 'wx' });
@@ -573,7 +642,9 @@ async function check(configuration) {
       fail('runtime manifest differs from the verified authoring evidence');
     }
   }
-  const current = await createEvidence(configuration, sourceRoot);
+  const current = await createEvidence(configuration, sourceRoot, {
+    provenanceAssets: report.assets,
+  });
   if (!jsonBytes(current).equals(reportBytes)) {
     fail('tracked report differs from the current audio candidate');
   }
@@ -611,7 +682,7 @@ async function writeRuntimeManifest(configuration) {
   );
 }
 
-async function configurationFor(mode) {
+async function configurationFor(mode, importSourceRoot = null) {
   const full = mode === 'full';
   const catalogue = full
     ? await loadFullSpellingCatalogue()
@@ -638,6 +709,7 @@ async function configurationFor(mode) {
       ? validateFullAudioEvidence
       : validateStarterAudioEvidence,
     sourceRoot,
+    importSourceRoot,
     audioTarget: resolve(sourceRoot, 'audio'),
     reportTarget: resolve(
       ROOT,
@@ -651,7 +723,6 @@ async function configurationFor(mode) {
       ROOT,
       `.native-build/${stage}/last-${full ? 'full' : 'starter'}-audio-observation.json`,
     ),
-    synthesisTimeoutMs: (full ? 60 : 15) * 60_000,
   });
 }
 
@@ -659,24 +730,36 @@ const arguments_ = process.argv.slice(2);
 const full = arguments_.includes('--catalogue=full');
 const checkOnly = arguments_.includes('--check');
 const manifestOnly = arguments_.includes('--runtime-manifest-only');
+const sourceArguments = arguments_.filter((argument) =>
+  argument.startsWith('--source='));
+const sourceValue = sourceArguments[0]?.slice('--source='.length) ?? null;
 if (
   arguments_.some(
     (argument) =>
+      !argument.startsWith('--source=') &&
       ![
         '--catalogue=full',
         '--check',
         '--runtime-manifest-only',
       ].includes(argument),
   ) ||
+  sourceArguments.length > 1 ||
   new Set(arguments_).size !== arguments_.length ||
   arguments_.length > 2 ||
-  (manifestOnly && (!full || checkOnly))
+  (manifestOnly && (!full || checkOnly)) ||
+  ((checkOnly || manifestOnly) && sourceValue !== null) ||
+  (!checkOnly && !manifestOnly &&
+    (sourceValue === null || sourceValue.length === 0 ||
+      !isAbsolute(sourceValue)))
 ) {
   fail(
-    'supports --catalogue=full, --check, or Full --runtime-manifest-only',
+    'requires create-only --source=<absolute directory>, or supports --check and Full --runtime-manifest-only without a source',
   );
 }
-const configuration = await configurationFor(full ? 'full' : 'starter');
+const configuration = await configurationFor(
+  full ? 'full' : 'starter',
+  sourceValue,
+);
 if (manifestOnly) await writeRuntimeManifest(configuration);
 else if (checkOnly) await check(configuration);
 else await generate(configuration);

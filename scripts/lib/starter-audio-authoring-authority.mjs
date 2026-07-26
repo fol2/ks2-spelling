@@ -11,7 +11,10 @@ const ROOT_KEYS = Object.freeze([
   'runtimeGeneration',
   'runtimeProviderAccess',
   'runtimeFallback',
-  'engine',
+  'sources',
+  'sentenceUpstream',
+  'sourceEncoding',
+  'sourceLayout',
   'encoding',
   'profiles',
   'validation',
@@ -19,30 +22,21 @@ const ROOT_KEYS = Object.freeze([
   'inputData',
   'disclosure',
 ]);
-const ENGINE_KEYS = Object.freeze([
+const SENTENCE_SOURCE_KEYS = Object.freeze([
   'id',
-  'version',
-  'licence',
+  'model',
   'distribution',
-  'sourceUrl',
-  'sourceSha256',
+]);
+const WORD_SOURCE_KEYS = Object.freeze([
+  'id',
+  'revision',
+  'assetRoot',
+  'distribution',
 ]);
 const PROFILE_KEYS = Object.freeze([
   'voiceId',
   'role',
   'description',
-  'model',
-  'modelCommit',
-  'modelUrl',
-  'modelSha256',
-  'configUrl',
-  'configSha256',
-  'modelCardUrl',
-  'modelCardSha256',
-  'datasetUrl',
-  'datasetLicence',
-  'outputLicence',
-  'attribution',
 ]);
 
 function fail(detail) {
@@ -69,54 +63,41 @@ function freezeDeep(value) {
   return value;
 }
 
-function stripAuthoringEndpoints(value) {
+function stripAuthoringFields(value) {
   const runtime = structuredClone(value);
-  delete runtime.engine.sourceUrl;
-  for (const profile of runtime.profiles) {
-    delete profile.modelUrl;
-    delete profile.configUrl;
-    delete profile.modelCardUrl;
-    delete profile.datasetUrl;
-  }
+  delete runtime.sentenceUpstream;
+  delete runtime.sourceLayout;
   return runtime;
 }
 
 function validate(value, runtimeAuthority) {
   exactKeys(value, ROOT_KEYS, 'root');
-  exactKeys(value.engine, ENGINE_KEYS, 'engine');
+  exactKeys(value.sources, ['word', 'sentence'], 'sources');
+  exactKeys(value.sources.word, WORD_SOURCE_KEYS, 'word source');
+  exactKeys(value.sources.sentence, SENTENCE_SOURCE_KEYS, 'sentence source');
   if (
-    typeof value.engine.sourceUrl !== 'string' ||
-    value.engine.sourceUrl !== 'https://pypi.org/project/piper-tts/1.5.0/'
+    value.sources.word.id !== 'piper-reviewed-word-assets' ||
+    value.sources.sentence.id !== 'gemini-pre-generated-audio' ||
+    value.sources.sentence.model !== 'gemini-3.1-flash-tts-preview'
   ) {
-    fail('engine source endpoint drifted');
+    fail('source identity drifted');
+  }
+  exactKeys(value.sourceLayout, ['word', 'sentence'], 'source layout');
+  if (
+    value.sourceLayout.word !== 'audio/<Voice>/word/<slug>.m4a' ||
+    value.sourceLayout.sentence !==
+      'audio/<Voice>/<standard|slow>/<slug>/<zero-based index>.mp3'
+  ) {
+    fail('source layout drifted');
   }
   if (!Array.isArray(value.profiles) || value.profiles.length !== 2) {
     fail('profiles must contain the exact two voices');
   }
   for (const profile of value.profiles) {
     exactKeys(profile, PROFILE_KEYS, 'profile');
-    const commit = profile.modelCommit;
-    if (
-      typeof profile.modelUrl !== 'string' ||
-      !profile.modelUrl.startsWith(
-        `https://huggingface.co/rhasspy/piper-voices/resolve/${commit}/`,
-      ) ||
-      typeof profile.configUrl !== 'string' ||
-      !profile.configUrl.startsWith(
-        `https://huggingface.co/rhasspy/piper-voices/resolve/${commit}/`,
-      ) ||
-      typeof profile.modelCardUrl !== 'string' ||
-      !profile.modelCardUrl.startsWith(
-        `https://huggingface.co/rhasspy/piper-voices/blob/${commit}/`,
-      ) ||
-      typeof profile.datasetUrl !== 'string' ||
-      !profile.datasetUrl.startsWith('https://')
-    ) {
-      fail(`${profile.voiceId} source endpoint drifted`);
-    }
   }
   if (
-    JSON.stringify(stripAuthoringEndpoints(value)) !==
+    JSON.stringify(stripAuthoringFields(value)) !==
       JSON.stringify(runtimeAuthority)
   ) {
     fail('does not reduce to the runtime-safe authority');
@@ -132,6 +113,7 @@ export const STARTER_AUDIO_AUTHORING_AUTHORITY = validate(
 const fullAuthority = structuredClone(authority);
 fullAuthority.catalogueId = 'ks2-core:full';
 fullAuthority.assetCount = 8_946;
+fullAuthority.sources.word.assetRoot = 'content/full-pack';
 fullAuthority.inputData =
   'repository-owned frozen Full catalogue only; no minor, learner or operator data';
 

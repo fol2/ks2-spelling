@@ -9,6 +9,7 @@ import {
 } from '../src/domain/spelling/starter-audio-contract.js';
 import {
   analysePcm16le,
+  createAudioSourceKey,
   createStarterAudioEvidenceAuthority,
   validateStarterAudioEvidence,
 } from '../scripts/lib/starter-audio-evidence.mjs';
@@ -30,6 +31,16 @@ function validEvidence() {
       sequence: asset.sequence,
       audioKey: asset.audioKey,
       assetPath: asset.assetPath,
+      sourceKind: asset.sourceKind,
+      sourceKey: createAudioSourceKey(asset),
+      sourcePath: asset.sourcePath,
+      sourceByteSize: asset.sourceKind === 'word'
+        ? 1_000 + asset.sequence
+        : 2_000 + asset.sequence,
+      sourceSha256: digest(Buffer.from(
+        `${asset.sourceKind === 'word' ? 'audio' : 'source'}-${asset.sequence}`,
+      )),
+      tempoFactor: 1,
       inputSha256: digest(Buffer.from(asset.input)),
       generationSpecSha256: digest(Buffer.from(JSON.stringify(asset.generationSpec))),
       byteSize: 1_000 + asset.sequence,
@@ -85,7 +96,7 @@ test('Starter evidence binds every generated asset to the frozen inventory', () 
 
 test('Starter evidence fails closed on one representative asset substitution', () => {
   const evidence = validEvidence();
-  evidence.assets[0].audioKey = evidence.assets[1].audioKey;
+  evidence.assets[0].sourceSha256 = 'not-a-source-hash';
   assert.throws(
     () => validateStarterAudioEvidence(evidence, {
       catalogue: loadStarterSpellingCatalogue(),

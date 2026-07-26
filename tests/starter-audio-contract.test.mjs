@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -17,6 +18,7 @@ test('Starter audio derives the complete frozen 840-asset matrix', () => {
   assert.equal(inventory.length, 840);
   assert.equal(new Set(inventory.map(({ audioKey }) => audioKey)).size, 840);
   assert.equal(new Set(inventory.map(({ assetPath }) => assetPath)).size, 840);
+  assert.equal(new Set(inventory.map(({ sourcePath }) => sourcePath)).size, 840);
   assert.deepEqual(
     Object.fromEntries(
       ['Iapetus', 'Sulafat'].map((voiceId) => [
@@ -38,6 +40,15 @@ test('Starter audio derives the complete frozen 840-asset matrix', () => {
       'dictation-normal': 400,
       'dictation-slow': 400,
     },
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      ['word', 'sentence'].map((sourceKind) => [
+        sourceKind,
+        inventory.filter((asset) => asset.sourceKind === sourceKind).length,
+      ]),
+    ),
+    { word: 40, sentence: 800 },
   );
 
   for (const asset of inventory) {
@@ -68,16 +79,18 @@ test('Starter audio derives the complete frozen 840-asset matrix', () => {
     voiceId: 'Iapetus',
     pace: 'natural',
     audioKind: 'word-natural',
-    input: 'answer.',
+    input: 'answer',
+    sourceKind: 'word',
+    sourcePath: 'audio/Iapetus/word/answer.m4a',
     generationSpec: {
-      engine: 'piper-tts',
-      engineVersion: '1.5.0',
-      model: 'en_GB-northern_english_male-medium',
-      modelSha256: '57a219ae8e638873db7d18893304be5069c42868f392bb95c3ff17f0690d0689',
-      configSha256: '69557ed3d974463453e9b0c09dd99a7ed0e52b8b87b64b357dbeeb2540a97d47',
-      noiseScale: 0,
-      noiseWScale: 0,
-      lengthScale: 1,
+      sourceId: 'piper-reviewed-word-assets',
+      sourceRevision: '3d6c0e939b298a9f5d7e22ec369cecf802a5dd80',
+      sourceModel: null,
+      sourceVoice: 'Iapetus',
+      sourceKind: 'word',
+      sourceFormat: 'm4a-aac-lc-mono-22050hz-48kbps',
+      sourceTrackedPath: 'content/full-pack/audio/iapetus/answer/word.m4a',
+      slowTempoPolicy: null,
       outputFormat: 'm4a-aac-lc-mono-22050hz-48kbps',
     },
   });
@@ -91,42 +104,55 @@ test('Starter audio derives the complete frozen 840-asset matrix', () => {
   );
 });
 
-test('Starter audio authority is authoring-only, local at runtime and licence-explicit', () => {
+test('Starter authoring copies interim words and encodes Gemini sentences', async () => {
+  const generator = await readFile(
+    new URL('../scripts/generate-starter-audio.mjs', import.meta.url),
+    'utf8',
+  );
+  assert.match(generator, /--source=<absolute directory>/u);
+  assert.match(generator, /sourceEncoding/u);
+  assert.match(generator, /copyFile/u);
+  assert.doesNotMatch(generator, /\buvx\b|\bfetch\s*\(/iu);
+});
+
+test('Starter audio authority distinguishes interim Piper words from Gemini sentences', () => {
   assert.equal(STARTER_AUDIO_AUTHORITY.schemaVersion, 1);
   assert.equal(STARTER_AUDIO_AUTHORITY.assetCount, 840);
   assert.equal(STARTER_AUDIO_AUTHORITY.runtimeGeneration, false);
   assert.equal(STARTER_AUDIO_AUTHORITY.runtimeProviderAccess, false);
   assert.equal(STARTER_AUDIO_AUTHORITY.runtimeFallback, null);
-  assert.equal(STARTER_AUDIO_AUTHORITY.engine.id, 'piper-tts');
-  assert.equal(STARTER_AUDIO_AUTHORITY.engine.version, '1.5.0');
   assert.equal(
-    STARTER_AUDIO_AUTHORITY.engine.sourceSha256,
-    '6053a505a61bbc8fa16dc06498355ae202c3470d0571397afa54e2d106ef5259',
+    STARTER_AUDIO_AUTHORITY.sources.word.id,
+    'piper-reviewed-word-assets',
+  );
+  assert.equal(
+    STARTER_AUDIO_AUTHORITY.sources.word.revision,
+    '3d6c0e939b298a9f5d7e22ec369cecf802a5dd80',
+  );
+  assert.equal(
+    STARTER_AUDIO_AUTHORITY.sources.sentence.model,
+    'gemini-3.1-flash-tts-preview',
+  );
+  assert.equal(Object.hasOwn(STARTER_AUDIO_AUTHORITY, 'sentenceUpstream'), false);
+  assert.notEqual(
+    STARTER_AUDIO_AUTHORITY.sources.word.id,
+    STARTER_AUDIO_AUTHORITY.sources.sentence.id,
   );
   assert.deepEqual(
     STARTER_AUDIO_AUTHORITY.profiles.map(
-      ({ voiceId, role, model, datasetLicence, outputLicence }) => ({
+      ({ voiceId, role }) => ({
         voiceId,
         role,
-        model,
-        datasetLicence,
-        outputLicence,
       }),
     ),
     [
       {
         voiceId: 'Iapetus',
         role: 'male',
-        model: 'en_GB-northern_english_male-medium',
-        datasetLicence: 'CC-BY-SA-4.0',
-        outputLicence: 'CC-BY-SA-4.0',
       },
       {
         voiceId: 'Sulafat',
         role: 'female',
-        model: 'en_GB-cori-medium',
-        datasetLicence: 'Public-Domain',
-        outputLicence: 'Public-Domain',
       },
     ],
   );

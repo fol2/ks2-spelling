@@ -40,6 +40,33 @@ async function createHarness(t, { now = () => 100 } = {}) {
   return { connection, store };
 }
 
+function readPreservedLearningState(connection) {
+  return connection.query(`
+    SELECT
+      aggregate.learner_id,
+      aggregate.snapshot_schema_version,
+      aggregate.revision,
+      aggregate.pack_id,
+      aggregate.granted_entitlement_ids_json,
+      aggregate.updated_at,
+      subject.state_json AS subject_state_json,
+      session.session_id,
+      session.status,
+      session.state_json AS session_state_json,
+      event.event_json,
+      monster.state_json AS monster_state_json,
+      camp.state_json AS camp_state_json,
+      metadata.value_json AS selected_learner_json
+    FROM spelling_aggregates aggregate
+    JOIN spelling_subject_states subject USING (learner_id)
+    JOIN spelling_practice_sessions session USING (learner_id)
+    JOIN spelling_events event USING (learner_id)
+    JOIN spelling_monster_states monster USING (learner_id)
+    JOIN spelling_camp_states camp USING (learner_id)
+    JOIN app_metadata metadata ON metadata.key = ?
+  `, ['product-selected-learner-v1']);
+}
+
 test('SQLite profile store exposes the frozen async profile contract and selects its first learner', async (t) => {
   const { connection, store } = await createHarness(t);
 
@@ -49,7 +76,10 @@ test('SQLite profile store exposes the frozen async profile contract and selects
     'readSelectedLearnerId',
     'selectLearner',
   ]);
-  assert.deepEqual(Object.keys(store.administration), ['resetLearning']);
+  assert.deepEqual(Object.keys(store.administration), [
+    'resetLearning',
+    'promoteStarterCatalogue',
+  ]);
   assert.deepEqual(await store.profiles.listProfiles(), []);
   assert.equal(await store.selection.readSelectedLearnerId(), null);
 
@@ -79,6 +109,94 @@ test('SQLite profile store exposes the frozen async profile contract and selects
       state_json: '{"data":{"achievements":{},"guardianMap":{},"pattern":{"wobblingByRuntimeItemId":{}},"persistenceWarning":null,"postMega":null,"prefs":{"autoSpeak":false},"progress":{}},"ui":{}}',
     }],
   );
+});
+
+test('Full catalogue initialisation and reset remain scoped to the configured product store', async (t) => {
+  const { connection } = await createHarness(t);
+  const fullStore = createSQLiteSpellingProfileStore({
+    connection,
+    gate: createDatabaseCommandGate(),
+    now: () => 200,
+    initialCatalogueId: 'ks2-core:full',
+  });
+
+  await fullStore.profiles.writeProfile(profile('learner-a'));
+  assert.deepEqual(
+    await connection.query(
+      'SELECT catalogue_id FROM spelling_aggregates WHERE learner_id = ?',
+      ['learner-a'],
+    ),
+    [{ catalogue_id: 'ks2-core:full' }],
+  );
+
+  await connection.execute(
+    'UPDATE spelling_aggregates SET catalogue_id = ? WHERE learner_id = ?',
+    ['ks2-core:starter', 'learner-a'],
+  );
+  await fullStore.administration.resetLearning('learner-a');
+  assert.deepEqual(
+    await connection.query(
+      'SELECT catalogue_id FROM spelling_aggregates WHERE learner_id = ?',
+      ['learner-a'],
+    ),
+    [{ catalogue_id: 'ks2-core:full' }],
+  );
+
+  assert.throws(
+    () => createSQLiteSpellingProfileStore({
+      connection,
+      gate: createDatabaseCommandGate(),
+      now: () => 200,
+      initialCatalogueId: 'KS2 core full',
+    }),
+    /catalogue|canonical/i,
+  );
+  assert.throws(
+    () => createSQLiteSpellingProfileStore({
+      connection,
+      gate: createDatabaseCommandGate(),
+      now: () => 200,
+      initialCatalogueId: 'ks2-core:other',
+    }),
+    /catalogue|supported/i,
+  );
+});
+
+test('Starter catalogue promotion is atomic, idempotent and preserves learner state', async (t) => {
+  const { connection, store } = await createHarness(t);
+  await store.profiles.writeProfile(profile('learner-a'));
+  await connection.execute(
+    'UPDATE spelling_aggregates SET revision = ?, granted_entitlement_ids_json = ?, updated_at = ? WHERE learner_id = ?',
+    [7, '["entitlement-a"]', 321, 'learner-a'],
+  );
+  await connection.execute(
+    'INSERT INTO spelling_practice_sessions (learner_id, session_id, status, state_json) VALUES (?, ?, ?, ?)',
+    ['learner-a', 'session-a', 'active', '{"id":"session-a","status":"active"}'],
+  );
+  await connection.execute(
+    'INSERT INTO spelling_events (learner_id, event_id, sequence_no, created_at, event_json) VALUES (?, ?, ?, ?, ?)',
+    ['learner-a', 'event-a', 0, 123, '{"event":"kept"}'],
+  );
+  await connection.execute(
+    'INSERT INTO spelling_monster_states (learner_id, reward_track_id, state_json) VALUES (?, ?, ?)',
+    ['learner-a', 'track-a', '{"reward":"kept"}'],
+  );
+  await connection.execute(
+    'INSERT INTO spelling_camp_states (learner_id, pack_id, state_json) VALUES (?, ?, ?)',
+    ['learner-a', 'ks2-core', '{"camp":"kept"}'],
+  );
+  const before = await readPreservedLearningState(connection);
+
+  assert.equal(await store.administration.promoteStarterCatalogue(), 1);
+  assert.equal(await store.administration.promoteStarterCatalogue(), 0);
+  assert.deepEqual(
+    await connection.query(
+      'SELECT catalogue_id FROM spelling_aggregates WHERE learner_id = ?',
+      ['learner-a'],
+    ),
+    [{ catalogue_id: 'ks2-core:full' }],
+  );
+  assert.deepEqual(await readPreservedLearningState(connection), before);
 });
 
 test('resetting learning is atomic, learner-scoped and preserves the profile', async (t) => {

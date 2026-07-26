@@ -1,5 +1,6 @@
 import authority from '../../config/starter-audio-authority.json' with { type: 'json' };
 import {
+  FULL_AUDIO_AUTHORITY,
   STARTER_AUDIO_AUTHORITY,
 } from '../../src/domain/spelling/starter-audio-contract.js';
 
@@ -45,7 +46,7 @@ const PROFILE_KEYS = Object.freeze([
 ]);
 
 function fail(detail) {
-  throw new TypeError(`Starter audio authoring authority ${detail}.`);
+  throw new TypeError(`Spelling audio authoring authority ${detail}.`);
 }
 
 function exactKeys(value, keys, label) {
@@ -80,7 +81,7 @@ function stripAuthoringEndpoints(value) {
   return runtime;
 }
 
-function validate(value) {
+function validate(value, runtimeAuthority) {
   exactKeys(value, ROOT_KEYS, 'root');
   exactKeys(value.engine, ENGINE_KEYS, 'engine');
   if (
@@ -116,11 +117,25 @@ function validate(value) {
   }
   if (
     JSON.stringify(stripAuthoringEndpoints(value)) !==
-      JSON.stringify(STARTER_AUDIO_AUTHORITY)
+      JSON.stringify(runtimeAuthority)
   ) {
     fail('does not reduce to the runtime-safe authority');
   }
   return freezeDeep(structuredClone(value));
 }
 
-export const STARTER_AUDIO_AUTHORING_AUTHORITY = validate(authority);
+export const STARTER_AUDIO_AUTHORING_AUTHORITY = validate(
+  authority,
+  STARTER_AUDIO_AUTHORITY,
+);
+
+const fullAuthority = structuredClone(authority);
+fullAuthority.catalogueId = 'ks2-core:full';
+fullAuthority.assetCount = 8_946;
+fullAuthority.inputData =
+  'repository-owned frozen Full catalogue only; no minor, learner or operator data';
+
+export const FULL_AUDIO_AUTHORING_AUTHORITY = validate(
+  fullAuthority,
+  FULL_AUDIO_AUTHORITY,
+);

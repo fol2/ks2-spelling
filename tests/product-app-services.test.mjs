@@ -1,10 +1,21 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
 import { createProductAppServices } from '../src/app/create-product-app-services.js';
+import { createProductLearningController } from '../src/app/product-learning-controller.js';
+import {
+  loadFullSpellingCatalogue,
+  loadStarterSpellingCatalogue,
+} from '../src/domain/spelling/index.js';
+import { createDatabaseCommandGate } from '../src/platform/database/database-command-gate.js';
+import { configureAndMigrateDatabase } from '../src/platform/database/migrate-database.js';
+import { createSQLiteSpellingCommandRepository } from '../src/platform/database/sqlite-spelling-command-repository.js';
+import { createSQLiteLearningBackupRepository } from '../src/platform/database/sqlite-learning-backup-repository.js';
+import { createSQLiteSpellingSnapshotStore } from '../src/platform/database/sqlite-spelling-snapshot-store.js';
 import { createNodeSqliteConnection } from './helpers/node-sqlite-connection.mjs';
 
 function createLifecycle() {
@@ -26,6 +37,7 @@ test('production services persist profile CRUD and selected learner across a cle
   t.after(() => rm(directory, { force: true, recursive: true }));
   let timestamp = 100;
   let learnerSequence = 0;
+  let backupImport = null;
   const protectionCalls = [];
   const options = {
     runtime: Object.freeze({
@@ -58,7 +70,7 @@ test('production services persist profile CRUD and selected learner across a cle
         return Object.freeze({ presented: true });
       },
       async pickImport() {
-        return Object.freeze({ cancelled: true });
+        return backupImport ?? Object.freeze({ cancelled: true });
       },
     }),
     localDataProtection: Object.freeze({
@@ -77,6 +89,7 @@ test('production services persist profile CRUD and selected learner across a cle
       return `learner-${learnerSequence}`;
     },
   };
+  const fullCatalogue = await loadFullSpellingCatalogue();
 
   const first = await createProductAppServices(options);
   assert.equal(first.mode, 'product');
@@ -221,15 +234,23 @@ test('production services persist profile CRUD and selected learner across a cle
   });
   assert.equal(first.learning.getState().learnerId, ben.learnerId);
   assert.deepEqual(first.learning.getState().vocabularySets, [
-    { id: 'core', label: 'All', count: 20 },
-    { id: 'y3-4', label: 'Y3–4', count: 20 },
+    { id: 'core', label: 'All', count: 213 },
+    { id: 'y3-4', label: 'Y3–4', count: 109 },
+    { id: 'y5-6', label: 'Y5–6', count: 104 },
   ]);
   await first.learning.startRound({
     length: 5,
     mode: 'smart',
-    yearFilter: 'core',
+    yearFilter: 'y5-6',
   });
   assert.equal(first.learning.getState().screen, 'practice');
+  assert.equal(
+    fullCatalogue.items.find(
+      ({ runtimeItemId }) =>
+        runtimeItemId === first.learning.getState().practice.runtimeItemId,
+    ).yearBand,
+    '5-6',
+  );
   const activeSessionId = first.learning.getState().practice.sessionId;
   await first.parentProgress.refresh();
   assert.deepEqual(first.parentProgress.getState(), {
@@ -239,7 +260,7 @@ test('production services persist profile CRUD and selected learner across a cle
       nickname: 'Ben',
       yearGroup: 'Y5',
       colour: '#A7633B',
-      publishedItemCount: 20,
+      publishedItemCount: 213,
       secureItemCount: 0,
       dueItemCount: 0,
       troubleItemCount: 0,
@@ -270,7 +291,118 @@ test('production services persist profile CRUD and selected learner across a cle
   await second.parentAdministration.resetLearning(ben.learnerId);
   assert.equal(second.learning.getState().screen, 'home');
   assert.equal(second.learning.getState().practice, null);
-  assert.deepEqual(second.learning.getState().progress, []);
+  assert.equal(second.learning.getState().progress.length, 213);
+  assert.ok(
+    second.learning.getState().progress.every(
+      ({ attempts, dueDay, lastResult }) =>
+        attempts === 0 && dueDay === null && lastResult === null,
+    ),
+  );
+  assert.deepEqual(second.learning.getState().vocabularySets, [
+    { id: 'core', label: 'All', count: 213 },
+    { id: 'y3-4', label: 'Y3–4', count: 109 },
+    { id: 'y5-6', label: 'Y5–6', count: 104 },
+  ]);
   assert.equal(protectionCalls.length, 4);
   await second.dispose();
+
+  const legacyConnection = createNodeSqliteConnection(databasePath);
+  await legacyConnection.open();
+  await configureAndMigrateDatabase(legacyConnection);
+  await legacyConnection.execute(
+    'UPDATE spelling_aggregates SET catalogue_id = ? WHERE learner_id = ?',
+    ['ks2-core:starter', ben.learnerId],
+  );
+  const starterCatalogue = loadStarterSpellingCatalogue();
+  const legacyCatalogues = Object.freeze({
+    [starterCatalogue.catalogueId]: starterCatalogue,
+  });
+  const legacyGate = createDatabaseCommandGate();
+  const legacySnapshots = createSQLiteSpellingSnapshotStore({
+    connection: legacyConnection,
+    cataloguesById: legacyCatalogues,
+  });
+  const legacyLearning = createProductLearningController({
+    repository: createSQLiteSpellingCommandRepository({
+      connection: legacyConnection,
+      gate: legacyGate,
+      store: legacySnapshots,
+      cataloguesById: legacyCatalogues,
+      now: () => 500,
+    }),
+    snapshotStore: legacySnapshots,
+    catalogue: starterCatalogue,
+    initialSnapshot: await legacySnapshots.read(ben.learnerId),
+    random: () => 0.25,
+  });
+  await legacyLearning.startRound({
+    length: 5,
+    mode: 'smart',
+    yearFilter: 'core',
+  });
+  await legacyLearning.submitAnswer('definitely wrong');
+  await legacyLearning.submitAnswer('still wrong');
+  const legacyRuntimeItemId =
+    legacyLearning.getState().practice.runtimeItemId;
+  await legacyLearning.submitAnswer(
+    starterCatalogue.items.find(
+      ({ runtimeItemId }) => runtimeItemId === legacyRuntimeItemId,
+    ).target,
+  );
+  await legacyLearning.continueRound();
+  const legacyState = legacyLearning.getState();
+  const legacySnapshot = await legacySnapshots.read(ben.learnerId);
+  const legacyBackup = await createSQLiteLearningBackupRepository({
+    connection: legacyConnection,
+    gate: legacyGate,
+    cataloguesById: legacyCatalogues,
+    now: () => 600,
+  }).exportBackup();
+  backupImport = Object.freeze({
+    cancelled: false,
+    bytesBase64: Buffer.from(legacyBackup, 'utf8').toString('base64'),
+    sha256: createHash('sha256').update(legacyBackup).digest('hex'),
+  });
+  assert.ok(legacySnapshot.revision > 0);
+  assert.equal(legacyState.practice.progress.checked, 1);
+  await legacyLearning.dispose();
+  await legacyConnection.close();
+
+  const third = await createProductAppServices({
+    ...options,
+    lifecycle: createLifecycle(),
+  });
+  const metProgress = (rows) => rows.filter(({ attempts }) => attempts > 0);
+  assert.equal(third.learning.getState().screen, 'practice');
+  assert.deepEqual(third.learning.getState().practice, legacyState.practice);
+  assert.deepEqual(
+    metProgress(third.learning.getState().progress),
+    metProgress(legacyState.progress),
+  );
+  assert.deepEqual(await third.parentBackup.importBackup(), {
+    cancelled: false,
+    learnerCount: 1,
+    selectedLearnerId: ben.learnerId,
+  });
+  assert.equal(third.learning.getState().screen, 'practice');
+  assert.deepEqual(third.learning.getState().practice, legacyState.practice);
+  assert.deepEqual(
+    metProgress(third.learning.getState().progress),
+    metProgress(legacyState.progress),
+  );
+  await third.dispose();
+
+  const promotedConnection = createNodeSqliteConnection(databasePath);
+  await promotedConnection.open();
+  const promotedSnapshot = await createSQLiteSpellingSnapshotStore({
+    connection: promotedConnection,
+    cataloguesById: Object.freeze({
+      [fullCatalogue.catalogueId]: fullCatalogue,
+    }),
+  }).read(ben.learnerId);
+  assert.deepEqual(promotedSnapshot, {
+    ...legacySnapshot,
+    catalogueId: 'ks2-core:full',
+  });
+  await promotedConnection.close();
 });

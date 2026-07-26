@@ -129,18 +129,17 @@ function practiceProjection(snapshot, catalogue) {
 function progressProjection(snapshot, catalogue) {
   const saved = snapshot?.subjectState?.data?.progress ?? {};
   return catalogue.items
-    .filter(({ runtimeItemId }) => Object.hasOwn(saved, runtimeItemId))
     .map(({ runtimeItemId, target }) => {
       const progress = saved[runtimeItemId];
       return {
         runtimeItemId,
         target,
-        stage: progress.stage,
-        attempts: progress.attempts,
-        correct: progress.correct,
-        wrong: progress.wrong,
-        dueDay: progress.dueDay,
-        lastResult: progress.lastResult,
+        stage: progress?.stage ?? 0,
+        attempts: progress?.attempts ?? 0,
+        correct: progress?.correct ?? 0,
+        wrong: progress?.wrong ?? 0,
+        dueDay: progress?.dueDay ?? null,
+        lastResult: progress?.lastResult ?? null,
       };
     });
 }

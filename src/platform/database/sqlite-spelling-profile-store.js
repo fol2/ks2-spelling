@@ -1,4 +1,5 @@
 import {
+  parseRuntimeItemId,
   validateSpellingProfileRepository,
 } from '../../domain/spelling/index.js';
 import {
@@ -11,6 +12,8 @@ import { runOwnedTransaction } from './sqlite-transaction-runner.js';
 export const PRODUCT_SELECTED_LEARNER_KEY = 'product-selected-learner-v1';
 const SELECTED_LEARNER_KEY = PRODUCT_SELECTED_LEARNER_KEY;
 const CANONICAL_LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+const STARTER_CATALOGUE_ID = 'ks2-core:starter';
+const FULL_CATALOGUE_ID = 'ks2-core:full';
 const EMPTY_ENTITLEMENTS_JSON = canonicalJson([]);
 const INITIAL_SUBJECT_STATE_JSON = canonicalJson({
   ui: {},
@@ -45,6 +48,19 @@ function requireLearnerId(value) {
     );
   }
   return value;
+}
+
+function requireCatalogueId(value) {
+  let identity;
+  try {
+    identity = parseRuntimeItemId(value);
+  } catch (cause) {
+    throw new TypeError('Profile catalogueId must be canonical.', { cause });
+  }
+  if (![STARTER_CATALOGUE_ID, FULL_CATALOGUE_ID].includes(identity.runtimeItemId)) {
+    throw new TypeError('Profile catalogueId must be a supported ks2-core catalogue.');
+  }
+  return identity.runtimeItemId;
 }
 
 function sampleTimestamp(now) {
@@ -143,7 +159,12 @@ async function writeSelectedLearner(connection, learnerId, updatedAt) {
   }
 }
 
-async function insertInitialSnapshot(connection, learnerId, updatedAt) {
+async function insertInitialSnapshot(
+  connection,
+  learnerId,
+  updatedAt,
+  catalogueId,
+) {
   const aggregate = await connection.execute(
     'INSERT INTO spelling_aggregates (learner_id, snapshot_schema_version, revision, pack_id, catalogue_id, granted_entitlement_ids_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
     [
@@ -151,7 +172,7 @@ async function insertInitialSnapshot(connection, learnerId, updatedAt) {
       1,
       0,
       'ks2-core',
-      'ks2-core:starter',
+      catalogueId,
       EMPTY_ENTITLEMENTS_JSON,
       updatedAt,
     ],
@@ -173,12 +194,18 @@ export async function readSQLiteSelectedLearnerId(connection) {
   return readSelectedLearnerIdUnchecked(connection);
 }
 
-export function createSQLiteSpellingProfileStore({ connection, gate, now } = {}) {
+export function createSQLiteSpellingProfileStore({
+  connection,
+  gate,
+  now,
+  initialCatalogueId = STARTER_CATALOGUE_ID,
+} = {}) {
   assertSqlConnection(connection);
   requireGate(gate);
   if (typeof now !== 'function') {
     throw new TypeError('Profile store requires an injected now() clock.');
   }
+  const initialCatalogue = requireCatalogueId(initialCatalogueId);
 
   const profiles = validateSpellingProfileRepository(Object.freeze({
     async listProfiles() {
@@ -227,7 +254,12 @@ export function createSQLiteSpellingProfileStore({ connection, gate, now } = {})
           );
         if (result.changes !== 1) throw storeError('sqlite_profile_write_failed');
         if (existing === null) {
-          await insertInitialSnapshot(connection, profile.learnerId, sampledAt);
+          await insertInitialSnapshot(
+            connection,
+            profile.learnerId,
+            sampledAt,
+            initialCatalogue,
+          );
         }
         if ((await readSelectedLearnerIdUnchecked(connection)) === null) {
           await writeSelectedLearner(connection, profile.learnerId, sampledAt);
@@ -308,8 +340,25 @@ export function createSQLiteSpellingProfileStore({ connection, gate, now } = {})
         if (removed.changes !== 1) {
           throw storeError('sqlite_profile_learning_reset_failed');
         }
-        await insertInitialSnapshot(connection, learnerId, sampledAt);
+        await insertInitialSnapshot(
+          connection,
+          learnerId,
+          sampledAt,
+          initialCatalogue,
+        );
         return true;
+      }));
+    },
+    async promoteStarterCatalogue() {
+      return gate.run(() => runOwnedTransaction(connection, async () => {
+        const result = await connection.execute(
+          'UPDATE spelling_aggregates SET catalogue_id = ? WHERE pack_id = ? AND catalogue_id = ?',
+          [FULL_CATALOGUE_ID, 'ks2-core', STARTER_CATALOGUE_ID],
+        );
+        if (!Number.isSafeInteger(result?.changes) || result.changes < 0) {
+          throw storeError('sqlite_profile_catalogue_promotion_failed');
+        }
+        return result.changes;
       }));
     },
   });

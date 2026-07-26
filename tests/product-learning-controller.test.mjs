@@ -78,6 +78,19 @@ function snapshotForCatalogue(catalogue) {
   return validateSpellingCommandSnapshotV1(snapshot, catalogue);
 }
 
+function unseenProgress(catalogue) {
+  return catalogue.items.map(({ runtimeItemId, target }) => ({
+    runtimeItemId,
+    target,
+    stage: 0,
+    attempts: 0,
+    correct: 0,
+    wrong: 0,
+    dueDay: null,
+    lastResult: null,
+  }));
+}
+
 test('product learning starts a durable Smart Review and restores an interrupted round', async () => {
   const world = createLearningWorld();
   const first = world.createController();
@@ -89,7 +102,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
     practice: null,
     prefs: { voiceId: 'Iapetus', showCloze: true, autoSpeak: true },
     summary: null,
-    progress: [],
+    progress: unseenProgress(world.catalogue),
     // The active pack's size, so the setup panel can report what is unseen.
     packSize: 20,
     vocabularySets: [
@@ -164,6 +177,13 @@ test('product learning publishes only non-empty catalogue pools and draws from t
     { id: 'y3-4', label: 'Y3–4', count: 109 },
     { id: 'y5-6', label: 'Y5–6', count: 104 },
   ]);
+  assert.equal(controller.getState().progress.length, 213);
+  assert.ok(
+    controller.getState().progress.every(
+      ({ attempts, dueDay, lastResult }) =>
+        attempts === 0 && dueDay === null && lastResult === null,
+    ),
+  );
 
   await controller.startRound({
     mode: 'smart',
@@ -404,9 +424,12 @@ test('product learning projects saved progress, Monster and Camp views without c
 
   controller.showScreen('progress');
   assert.equal(controller.getState().screen, 'progress');
-  assert.equal(controller.getState().progress.length, 5);
+  const attempted = controller.getState().progress.filter(
+    ({ attempts }) => attempts > 0,
+  );
+  assert.equal(attempted.length, 5);
   assert.ok(
-    controller.getState().progress.every(
+    attempted.every(
       ({ runtimeItemId, target, stage, correct }) =>
         runtimeItemId.startsWith('ks2-core:') &&
         typeof target === 'string' &&
@@ -429,7 +452,10 @@ test('product learning projects saved progress, Monster and Camp views without c
   assert.equal(controller.getState().learnerId, null);
   await controller.selectLearner('learner-a');
   assert.equal(controller.getState().screen, 'home');
-  assert.equal(controller.getState().progress.length, 5);
+  assert.equal(
+    controller.getState().progress.filter(({ attempts }) => attempts > 0).length,
+    5,
+  );
 
   await controller.dispose();
 });

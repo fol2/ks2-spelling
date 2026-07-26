@@ -1,8 +1,11 @@
-import evidence from '../../reports/c1/starter-audio-evidence.json' with { type: 'json' };
 import {
+  createFullAudioInventory,
   createStarterAudioInventory,
 } from '../domain/spelling/starter-audio-contract.js';
-import { validateCatalogueV1 } from '../domain/spelling/index.js';
+import {
+  createAudioKeyV1,
+  validateCatalogueV1,
+} from '../domain/spelling/index.js';
 
 const REQUEST_KEYS = Object.freeze([
   'version',
@@ -48,43 +51,50 @@ function requireRequest(value) {
   return value;
 }
 
-function createEvidenceByPath() {
+function createEvidenceByPath(candidate, catalogue, inventory) {
   if (
-    evidence.schemaVersion !== 1 ||
-    evidence.status !== 'pass' ||
-    evidence.assetCount !== 840 ||
-    !Array.isArray(evidence.assets) ||
-    evidence.assets.length !== evidence.assetCount
+    candidate?.schemaVersion !== 1 ||
+    candidate.status !== 'pass' ||
+    candidate.catalogueId !== catalogue.catalogueId ||
+    candidate.assetCount !== inventory.length ||
+    !Array.isArray(candidate.assets) ||
+    candidate.assets.length !== candidate.assetCount
   ) {
-    throw new TypeError('Starter audio playback evidence is invalid.');
+    throw new TypeError('Product audio playback evidence is invalid.');
   }
+  const expectedPaths = new Set(inventory.map(({ assetPath }) => assetPath));
   const byPath = new Map();
-  for (const asset of evidence.assets) {
+  for (const asset of candidate.assets) {
     if (
       !asset ||
       typeof asset.assetPath !== 'string' ||
+      !expectedPaths.has(asset.assetPath) ||
       !SHA256.test(asset.sha256) ||
       !Number.isSafeInteger(asset.byteSize) ||
       asset.byteSize < 1 ||
       asset.byteSize > 131_072 ||
       byPath.has(asset.assetPath)
     ) {
-      throw new TypeError('Starter audio playback evidence contains an invalid asset.');
+      throw new TypeError('Product audio playback evidence contains an invalid asset.');
     }
     byPath.set(asset.assetPath, Object.freeze({
       sha256: asset.sha256,
       byteSize: asset.byteSize,
     }));
   }
+  if (byPath.size !== expectedPaths.size) {
+    throw new TypeError('Product audio playback evidence is incomplete.');
+  }
   return byPath;
 }
 
-const EVIDENCE_BY_PATH = createEvidenceByPath();
-
-function resolveAsset({ request, catalogue, inventory }) {
-  const item = catalogue.items.find(
-    ({ runtimeItemId }) => runtimeItemId === request.runtimeItemId,
-  );
+function resolveAsset({
+  request,
+  itemByRuntimeId,
+  assetByAudioKey,
+  evidenceByPath,
+}) {
+  const item = itemByRuntimeId.get(request.runtimeItemId);
   if (!item) throw playerError('product_audio_request_invalid');
   let sentenceId = 'word';
   let audioKind = 'word-natural';
@@ -100,15 +110,15 @@ function resolveAsset({ request, catalogue, inventory }) {
       : 'dictation-slow';
     pace = request.kind === 'sentence' ? 'normal' : 'slow';
   }
-  const asset = inventory.find(
-    (candidate) =>
-      candidate.runtimeItemId === request.runtimeItemId &&
-      candidate.sentenceId === sentenceId &&
-      candidate.voiceId === request.voiceId &&
-      candidate.audioKind === audioKind &&
-      candidate.pace === pace,
-  );
-  const expected = asset && EVIDENCE_BY_PATH.get(asset.assetPath);
+  const audioKey = createAudioKeyV1({
+    runtimeItemId: request.runtimeItemId,
+    sentenceId,
+    voiceId: request.voiceId,
+    pace,
+    audioKind,
+  });
+  const asset = assetByAudioKey.get(audioKey);
+  const expected = asset && evidenceByPath.get(asset.assetPath);
   if (!asset || !expected) {
     throw playerError('product_audio_request_invalid');
   }
@@ -145,13 +155,30 @@ export function createProductAudioPlayer({
   catalogue: candidateCatalogue,
   installedAudio,
   audioFactory = defaultAudioFactory,
+  audioEvidence,
 } = {}) {
   requireMethod(installedAudio, 'readInstalledAudio', 'installedAudio');
   if (typeof audioFactory !== 'function') {
     throw new TypeError('Product audio player requires audioFactory().');
   }
   const catalogue = validateCatalogueV1(candidateCatalogue);
-  const inventory = createStarterAudioInventory(catalogue);
+  const inventory = catalogue.catalogueId === 'ks2-core:full'
+    ? createFullAudioInventory(catalogue)
+    : createStarterAudioInventory(catalogue);
+  const evidenceByPath = createEvidenceByPath(
+    audioEvidence,
+    catalogue,
+    inventory,
+  );
+  const itemByRuntimeId = new Map(
+    catalogue.items.map((item) => [item.runtimeItemId, item]),
+  );
+  const assetByAudioKey = new Map(
+    inventory.map(({ audioKey, assetPath }) => [
+      audioKey,
+      Object.freeze({ audioKey, assetPath }),
+    ]),
+  );
   let activePlayer = null;
   let generation = 0;
   let disposed = false;
@@ -162,8 +189,9 @@ export function createProductAudioPlayer({
       const request = requireRequest(candidate);
       const { asset, expected } = resolveAsset({
         request,
-        catalogue,
-        inventory,
+        itemByRuntimeId,
+        assetByAudioKey,
+        evidenceByPath,
       });
       const ownGeneration = ++generation;
       const { base64 } = await installedAudio.readInstalledAudio({

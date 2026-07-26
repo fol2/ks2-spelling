@@ -1,5 +1,3 @@
-import evidence from '../../reports/c1/starter-audio-evidence.json' with { type: 'json' };
-
 const REQUEST_KEYS = Object.freeze([
   'packId',
   'version',
@@ -12,13 +10,13 @@ const SAFE_AUDIO_PATH =
 const SHA256 = /^[a-f0-9]{64}$/u;
 const MAXIMUM_AUDIO_BYTES = 131_072;
 
-function sourceError() {
-  return Object.assign(new Error('Bundled Starter audio is unavailable.'), {
-    code: 'bundled_starter_audio_unavailable',
+function sourceError(label) {
+  return Object.assign(new Error(`Bundled ${label} audio is unavailable.`), {
+    code: `bundled_${label.toLowerCase()}_audio_unavailable`,
   });
 }
 
-function requireAuthority(value) {
+function requireAuthority(value, label) {
   const sentinel = value?.sentinel;
   if (
     !value ||
@@ -37,7 +35,7 @@ function requireAuthority(value) {
     sentinel.byteSize < 1 ||
     sentinel.byteSize > MAXIMUM_AUDIO_BYTES
   ) {
-    throw new TypeError('Bundled Starter audio authority is invalid.');
+    throw new TypeError(`Bundled ${label} audio authority is invalid.`);
   }
   return Object.freeze({
     packId: value.packId,
@@ -46,9 +44,9 @@ function requireAuthority(value) {
   });
 }
 
-function createDefaultAuthority() {
-  const sentinel = evidence.assets?.find(
-    ({ assetPath }) => assetPath === 'audio/iapetus/answer/word.m4a',
+function createDefaultAuthority(candidateEvidence, sentinelPath, label) {
+  const sentinel = candidateEvidence?.assets?.find(
+    ({ assetPath }) => assetPath === sentinelPath,
   );
   return requireAuthority({
     packId: 'ks2-core',
@@ -58,22 +56,22 @@ function createDefaultAuthority() {
       sha256: sentinel.sha256,
       byteSize: sentinel.byteSize,
     },
-  });
+  }, label);
 }
 
-function defaultBaseUrl() {
+function defaultBaseUrl(segment, label) {
   if (typeof globalThis.document?.baseURI !== 'string') {
-    throw new TypeError('Bundled Starter audio base URL is unavailable.');
+    throw new TypeError(`Bundled ${label} audio base URL is unavailable.`);
   }
-  return new URL('starter/', globalThis.document.baseURI).href;
+  return new URL(`${segment}/`, globalThis.document.baseURI).href;
 }
 
-function requireBaseUrl(value) {
+function requireBaseUrl(value, segment, label) {
   let parsed;
   try {
     parsed = new URL(value);
   } catch {
-    throw new TypeError('Bundled Starter audio base URL is invalid.');
+    throw new TypeError(`Bundled ${label} audio base URL is invalid.`);
   }
   if (
     !['capacitor:', 'http:', 'https:'].includes(parsed.protocol) ||
@@ -81,14 +79,14 @@ function requireBaseUrl(value) {
     parsed.password ||
     parsed.search ||
     parsed.hash ||
-    !parsed.pathname.endsWith('/starter/')
+    !parsed.pathname.endsWith(`/${segment}/`)
   ) {
-    throw new TypeError('Bundled Starter audio base URL is invalid.');
+    throw new TypeError(`Bundled ${label} audio base URL is invalid.`);
   }
   return parsed.href;
 }
 
-function requireRequest(value, authority) {
+function requireRequest(value, authority, error) {
   if (
     !value ||
     typeof value !== 'object' ||
@@ -104,14 +102,14 @@ function requireRequest(value, authority) {
     value.byteSize < 1 ||
     value.byteSize > MAXIMUM_AUDIO_BYTES
   ) {
-    throw sourceError();
+    throw error();
   }
   return value;
 }
 
-async function defaultDigest(bytes) {
+async function defaultDigest(bytes, error) {
   if (typeof globalThis.crypto?.subtle?.digest !== 'function') {
-    throw sourceError();
+    throw error();
   }
   const digest = new Uint8Array(
     await globalThis.crypto.subtle.digest('SHA-256', bytes),
@@ -121,8 +119,8 @@ async function defaultDigest(bytes) {
     .join('');
 }
 
-function defaultEncodeBase64(bytes) {
-  if (typeof globalThis.btoa !== 'function') throw sourceError();
+function defaultEncodeBase64(bytes, error) {
+  if (typeof globalThis.btoa !== 'function') throw error();
   let binary = '';
   for (let offset = 0; offset < bytes.length; offset += 16_384) {
     binary += String.fromCharCode(...bytes.subarray(offset, offset + 16_384));
@@ -130,26 +128,39 @@ function defaultEncodeBase64(bytes) {
   return globalThis.btoa(binary);
 }
 
-export function createBundledStarterAudio(options = {}) {
+function createBundledAudio(options, {
+  candidateEvidence,
+  label,
+  segment,
+  sentinelPath,
+}) {
+  const error = () => sourceError(label);
   const authority = requireAuthority(
-    options.authority ?? createDefaultAuthority(),
+    options.authority ??
+      createDefaultAuthority(candidateEvidence, sentinelPath, label),
+    label,
   );
-  const baseUrl = requireBaseUrl(options.baseUrl ?? defaultBaseUrl());
+  const baseUrl = requireBaseUrl(
+    options.baseUrl ?? defaultBaseUrl(segment, label),
+    segment,
+    label,
+  );
   const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
-  const digest = options.digest ?? defaultDigest;
-  const encodeBase64 = options.encodeBase64 ?? defaultEncodeBase64;
+  const digest = options.digest ?? ((bytes) => defaultDigest(bytes, error));
+  const encodeBase64 = options.encodeBase64 ??
+    ((bytes) => defaultEncodeBase64(bytes, error));
   if (
     typeof fetchImpl !== 'function' ||
     typeof digest !== 'function' ||
     typeof encodeBase64 !== 'function'
   ) {
-    throw new TypeError('Bundled Starter audio functions are invalid.');
+    throw new TypeError(`Bundled ${label} audio functions are invalid.`);
   }
 
   async function read(candidate) {
-    const request = requireRequest(candidate, authority);
+    const request = requireRequest(candidate, authority, error);
     const url = new URL(request.assetPath, baseUrl);
-    if (!url.href.startsWith(baseUrl)) throw sourceError();
+    if (!url.href.startsWith(baseUrl)) throw error();
     try {
       const response = await fetchImpl(url.href);
       const isCapacitorStatusZero =
@@ -161,7 +172,7 @@ export function createBundledStarterAudio(options = {}) {
         typeof response.arrayBuffer !== 'function' ||
         (response.ok !== true && !isCapacitorStatusZero)
       ) {
-        throw sourceError();
+        throw error();
       }
       const bytes = new Uint8Array(await response.arrayBuffer());
       const actualDigest = await digest(bytes);
@@ -169,11 +180,11 @@ export function createBundledStarterAudio(options = {}) {
         bytes.byteLength !== request.byteSize ||
         actualDigest !== request.sha256
       ) {
-        throw sourceError();
+        throw error();
       }
       return Object.freeze({ base64: encodeBase64(bytes) });
     } catch {
-      throw sourceError();
+      throw error();
     }
   }
 
@@ -187,5 +198,23 @@ export function createBundledStarterAudio(options = {}) {
       return Object.freeze({ version: authority.version });
     },
     readInstalledAudio: read,
+  });
+}
+
+export function createBundledStarterAudio(options = {}) {
+  return createBundledAudio(options, {
+    candidateEvidence: options.evidence,
+    label: 'Starter',
+    segment: 'starter',
+    sentinelPath: 'audio/iapetus/answer/word.m4a',
+  });
+}
+
+export function createBundledFullAudio(options = {}) {
+  return createBundledAudio(options, {
+    candidateEvidence: options.evidence,
+    label: 'Full',
+    segment: 'full',
+    sentinelPath: 'audio/iapetus/accident/word.m4a',
   });
 }

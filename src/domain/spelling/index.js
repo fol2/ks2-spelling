@@ -18,8 +18,8 @@ export function loadStarterSpellingCatalogue() {
 }
 
 export function loadFullSpellingCatalogue() {
-  // The full catalogue (371 KB) has no launch-path consumer; loading it
-  // lazily keeps its parse and deep-freeze cost off cold launch.
+  // Keep the larger catalogue behind the Product service's asynchronous
+  // bootstrap rather than paying its parse and deep-freeze cost at import time.
   readOnlyFullCataloguePromise ??= import(
     '../../../vendor/ks2-mastery/content/spelling.mobile-runtime-full.json',
     { with: { type: 'json' } }

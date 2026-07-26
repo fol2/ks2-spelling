@@ -46,6 +46,7 @@ function createAudioHarness() {
       catalogue: loadStarterSpellingCatalogue(),
       installedAudio,
       audioFactory,
+      audioEvidence: evidence,
     }),
   });
 }

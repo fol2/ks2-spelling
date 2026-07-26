@@ -1,4 +1,8 @@
-import { loadStarterSpellingCatalogue } from '../domain/spelling/index.js';
+import fullAudioManifest from '../../config/full-audio-manifest.json' with { type: 'json' };
+import {
+  loadFullSpellingCatalogue,
+  loadStarterSpellingCatalogue,
+} from '../domain/spelling/index.js';
 import { createCapacitorSqliteConnection } from '../platform/database/capacitor-sqlite-connection.js';
 import { createCapacitorHaptics } from '../platform/haptics/capacitor-haptics.js';
 import { createDatabaseCommandGate } from '../platform/database/database-command-gate.js';
@@ -40,7 +44,7 @@ import {
 import {
   createDatabaseGatedRepository,
 } from './database-gated-repository.js';
-import { createBundledStarterAudio } from './bundled-starter-audio.js';
+import { createBundledFullAudio } from './bundled-starter-audio.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
 import { createParentBackupService } from './parent-backup-service.js';
 import {
@@ -132,8 +136,12 @@ export async function createProductAppServices(options = {}) {
   const createLearnerId = options.createLearnerId ?? defaultLearnerId;
   const connection = createSwitchableSqlConnection(connectionFactory);
   const gate = createDatabaseCommandGate();
-  const catalogue = loadStarterSpellingCatalogue();
-  const cataloguesById = Object.freeze({ [catalogue.catalogueId]: catalogue });
+  const starterCatalogue = loadStarterSpellingCatalogue();
+  const catalogue = await loadFullSpellingCatalogue();
+  const cataloguesById = Object.freeze({
+    [starterCatalogue.catalogueId]: starterCatalogue,
+    [catalogue.catalogueId]: catalogue,
+  });
   const localDataProtection = options.localDataProtection ??
     createCapacitorLocalDataProtection({
       LocalDataProtection: LocalDataProtectionPlugin,
@@ -160,6 +168,7 @@ export async function createProductAppServices(options = {}) {
       connection,
       gate,
       now,
+      initialCatalogueId: catalogue.catalogueId,
     });
     const snapshotStore = createSQLiteSpellingSnapshotStore({
       connection,
@@ -206,6 +215,7 @@ export async function createProductAppServices(options = {}) {
       ...verifiedDataProtection,
     });
     await coordinator.start();
+    await profileStore.administration.promoteStarterCatalogue();
     const [initialProfiles, initialSelectedLearnerId] = await Promise.all([
       profileStore.profiles.listProfiles(),
       profileStore.selection.readSelectedLearnerId(),
@@ -244,14 +254,17 @@ export async function createProductAppServices(options = {}) {
       pinCrypto: options.parentPinCrypto,
       now,
     });
-    const starterAudioSource = options.bundledStarterAudio ??
-      createBundledStarterAudio();
+    const bundledAudioSource =
+      options.bundledAudio ??
+      options.bundledStarterAudio ??
+      createBundledFullAudio({ evidence: fullAudioManifest });
     audio = options.audio ?? createProductAudioPlayer({
       catalogue,
-      installedAudio: starterAudioSource,
+      installedAudio: bundledAudioSource,
+      audioEvidence: fullAudioManifest,
     });
     audioAvailability = createStarterPackAvailabilityController({
-      audioSource: starterAudioSource,
+      audioSource: bundledAudioSource,
     });
     await audioAvailability.refresh().catch(() => undefined);
     parentProgress = createParentProgressController({
@@ -295,6 +308,7 @@ export async function createProductAppServices(options = {}) {
       repository: learningBackupRepository,
       files: learningBackupFiles,
       afterImport: async () => {
+        await profileStore.administration.promoteStarterCatalogue();
         await controller.reload();
         await parentProgress.refresh();
       },

@@ -40,16 +40,16 @@ export function createB4OfflineBoundary(mode) {
   };
 }
 
-export function createBundledStarterAssets(mode) {
+export function createBundledFullAssets(mode) {
   if (mode !== 'production') return null;
   return {
-    name: 'bundled-starter-assets',
+    name: 'bundled-full-assets',
     async writeBundle(outputOptions) {
       const outputRoot = resolve(ROOT, outputOptions.dir ?? 'dist');
-      const target = resolve(outputRoot, 'starter/audio');
+      const target = resolve(outputRoot, 'full/audio');
       await mkdir(dirname(target), { recursive: true });
       await cp(
-        resolve(ROOT, 'content/starter-pack/audio'),
+        resolve(ROOT, 'content/full-pack/audio'),
         target,
         {
           recursive: true,
@@ -86,7 +86,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     createB4OfflineBoundary(mode),
-    createBundledStarterAssets(mode),
+    createBundledFullAssets(mode),
     createBundledArtAssets(mode),
   ].filter(Boolean),
   resolve: {

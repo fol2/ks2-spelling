@@ -30,6 +30,7 @@ function statusOf(marks) {
 }
 
 function noteFor(item, marks) {
+  if (item.attempts === 0) return 'Not met yet';
   const revisits = item.wrong === 1 ? '1 to revisit' : `${item.wrong} to revisit`;
   const correct = item.correct === 1 ? '1 correct' : `${item.correct} correct`;
   const tail = item.wrong === 0 ? 'never missed' : revisits;
@@ -45,9 +46,8 @@ function matches(filterId, marks, status) {
 }
 
 /**
- * Project the learner's saved spelling progress into the word bank. Only words
- * this learner has actually met appear, because those are the only words the
- * device holds progress for.
+ * Project the complete published catalogue into the word bank. Unseen words
+ * carry zero attempts, while saved per-word progress fills the same rows.
  */
 export function buildWordBank({
   progress = [],

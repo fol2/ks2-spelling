@@ -26,6 +26,12 @@ const ASSET_KEYS = Object.freeze([
   'sequence',
   'audioKey',
   'assetPath',
+  'sourceKind',
+  'sourceKey',
+  'sourcePath',
+  'sourceByteSize',
+  'sourceSha256',
+  'tempoFactor',
   'inputSha256',
   'generationSpecSha256',
   'byteSize',
@@ -50,6 +56,43 @@ function digest(bytes) {
 
 function canonicalDigest(value) {
   return digest(canonicaliseRfc8785Bytes(value));
+}
+
+export function createAudioSourceKey(asset) {
+  const prefix = `audio/${asset.voiceId}/`;
+  const extension = asset.sourceKind === 'word' ? '.m4a' : '.mp3';
+  const relativePath = asset.sourcePath.startsWith(prefix) &&
+    asset.sourcePath.endsWith(extension)
+    ? asset.sourcePath.slice(prefix.length, -extension.length)
+    : '';
+  if (asset.sourceKind === 'word') {
+    const slug = /^word\/([a-z0-9-]+)$/u.exec(relativePath)?.[1];
+    if (
+      !slug ||
+      asset.sentenceId !== 'word' ||
+      asset.audioKind !== 'word-natural' ||
+      asset.generationSpec.sourceId !== 'piper-reviewed-word-assets' ||
+      asset.generationSpec.sourceModel !== null ||
+      !asset.generationSpec.sourceTrackedPath?.endsWith(asset.assetPath)
+    ) {
+      fail('source mapping drifted');
+    }
+    return `git/${asset.generationSpec.sourceRevision}/${asset.generationSpec.sourceTrackedPath}`;
+  }
+  const match = /^(standard|slow)\/([a-z0-9-]+)\/([0-9]+)$/u
+    .exec(relativePath);
+  const speed = asset.pace === 'normal' ? 'standard' : 'slow';
+  const sentenceIndex = Number(asset.sentenceId.slice('sentence-'.length)) - 1;
+  if (
+    asset.sourceKind !== 'sentence' ||
+    !match ||
+    match[1] !== speed ||
+    Number(match[3]) !== sentenceIndex
+  ) {
+    fail('source mapping drifted');
+  }
+  const slug = match[2];
+  return `spelling-audio/v1/${asset.generationSpec.sourceModel}/${asset.voiceId}/${speed}/${slug}/${sentenceIndex}.mp3`;
 }
 
 function exactKeys(value, keys, field, label = 'Starter') {
@@ -214,10 +257,22 @@ function validateAudioEvidence(
       label,
     );
     const validation = authority.validation;
+    const sourceKey = createAudioSourceKey(expected);
     if (
       record.sequence !== expected.sequence ||
       record.audioKey !== expected.audioKey ||
       record.assetPath !== expected.assetPath ||
+      record.sourceKind !== expected.sourceKind ||
+      record.sourceKey !== sourceKey ||
+      record.sourcePath !== expected.sourcePath ||
+      !Number.isSafeInteger(record.sourceByteSize) ||
+      record.sourceByteSize <= 0 ||
+      typeof record.sourceSha256 !== 'string' ||
+      !HASH.test(record.sourceSha256) ||
+      typeof record.tempoFactor !== 'number' ||
+      !Number.isFinite(record.tempoFactor) ||
+      record.tempoFactor <= 0 ||
+      (expected.audioKind !== 'dictation-slow' && record.tempoFactor !== 1) ||
       record.inputSha256 !== inputSha256 ||
       record.generationSpecSha256 !== generationSpecSha256 ||
       !Number.isSafeInteger(record.byteSize) ||
@@ -238,6 +293,16 @@ function validateAudioEvidence(
     ) {
       fail(
         `asset ${index + 1} differs from its authority or quality bounds`,
+        label,
+      );
+    }
+    if (
+      expected.sourceKind === 'word' &&
+      (record.sourceByteSize !== record.byteSize ||
+        record.sourceSha256 !== record.sha256)
+    ) {
+      fail(
+        `asset ${index + 1} word bytes differ from the pinned interim source`,
         label,
       );
     }

@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Capacitor } from '@capacitor/core';
 import App from '@ks2/app-root';
+import AppErrorBoundary from './app/AppErrorBoundary.jsx';
 import AppLoadingShell from './app/AppLoadingShell.jsx';
 import './app/app.css';
 import {
@@ -92,7 +93,9 @@ void mountApp({
   ),
   renderApp: (services) => (
     <StrictMode>
-      <App services={services} />
+      <AppErrorBoundary>
+        <App services={services} />
+      </AppErrorBoundary>
     </StrictMode>
   ),
   onPageHide: (listener, options) => {

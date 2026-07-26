@@ -22,6 +22,9 @@ const MonsterStage = lazy(() => import('./monster-stage/MonsterStage.jsx'));
 
 const ROUND_LENGTHS = Object.freeze([5, 10, 20]);
 const REGION = 'the-scribe-downs';
+// The dictation voice a round falls back to. It is not a choice a learner
+// makes any more, so this is the whole of the app's opinion about it.
+const PACKAGED_VOICE = 'Iapetus';
 
 function prefersReducedMotion() {
   return (
@@ -2180,18 +2183,18 @@ function RoundScreen({
 
   // The voice is not a round setting a learner chooses, but the pack is
   // recorded twice and the player still has to be told which recording to
-  // reach for. It comes from the saved preferences, which name a packaged
-  // voice whether or not anything has ever set one.
+  // reach for. Saved preferences name one; a round that arrives without them
+  // still has a voice to be read in rather than a card that cannot speak.
   const audioRequest = useMemo(() => practice ? Object.freeze({
     version: audioState.activeVersion,
     runtimeItemId: practice.runtimeItemId,
     sentence: practice.sentence,
-    voiceId: state.prefs.voiceId,
+    voiceId: state.prefs?.voiceId ?? PACKAGED_VOICE,
   }) : null, [
     audioState.activeVersion,
     practice?.runtimeItemId,
     practice?.sentence,
-    state.prefs.voiceId,
+    state.prefs?.voiceId,
   ]);
 
   async function play(kind) {

@@ -5,7 +5,6 @@ import {
   validateCatalogueV1,
 } from './index.js';
 
-const HASH = /^[a-f0-9]{64}$/u;
 const GEMINI_MODEL = 'gemini-3.1-flash-tts-preview';
 const WORD_ASSET_REVISION = '3d6c0e939b298a9f5d7e22ec369cecf802a5dd80';
 const UPSTREAM_REVISION = 'dff6f57f8bf0b24e960c46d712afdbcf59c54b7d';
@@ -41,12 +40,6 @@ function exactKeys(value, keys, label) {
   return value;
 }
 
-function validateHash(value, label) {
-  if (typeof value !== 'string' || !HASH.test(value)) {
-    fail(`${label} must be a lower-case SHA-256 digest`);
-  }
-}
-
 function validateAuthority(value, { catalogueId, assetCount }) {
   exactKeys(value, [
     'schemaVersion',
@@ -56,7 +49,6 @@ function validateAuthority(value, { catalogueId, assetCount }) {
     'runtimeProviderAccess',
     'runtimeFallback',
     'sources',
-    'sentenceUpstream',
     'sourceEncoding',
     'encoding',
     'profiles',
@@ -105,39 +97,6 @@ function validateAuthority(value, { catalogueId, assetCount }) {
       'pre-generated source audio only; no provider SDK, credentials or network access at runtime'
   ) {
     fail('sentence source identity or distribution drifted');
-  }
-
-  exactKeys(value.sentenceUpstream, [
-    'repository',
-    'revision',
-    'sharedContractPath',
-    'sharedContractSha256',
-    'cacheGeneratorPath',
-    'cacheGeneratorSha256',
-  ], 'sentence upstream');
-  if (
-    value.sentenceUpstream.repository !== 'https://github.com/fol2/ks2-mastery.git' ||
-    value.sentenceUpstream.revision !== UPSTREAM_REVISION ||
-    value.sentenceUpstream.sharedContractPath !== 'shared/spelling-audio.js' ||
-    value.sentenceUpstream.cacheGeneratorPath !==
-      'scripts/precache-spelling-audio.mjs'
-  ) {
-    fail('upstream identity drifted');
-  }
-  for (const [label, hash, expected] of [
-    [
-      'shared contract',
-      value.sentenceUpstream.sharedContractSha256,
-      'f3e02bd5fcd734d6ffa70061a013ca7ba636a7dc16eac092e8e8dcac9166b14f',
-    ],
-    [
-      'cache generator',
-      value.sentenceUpstream.cacheGeneratorSha256,
-      'ac60867a652ce4e4e69b701c922b4c38fc449833fcefed723b81e16f43631689',
-    ],
-  ]) {
-    validateHash(hash, `upstream ${label}`);
-    if (hash !== expected) fail(`upstream ${label} hash drifted`);
   }
 
   exactKeys(value.sourceEncoding, ['word', 'sentence'], 'source encoding');
@@ -338,7 +297,7 @@ function createAsset({
       sourceId: source.id,
       sourceRevision: sourceKind === 'word'
         ? source.revision
-        : authority.sentenceUpstream.revision,
+        : UPSTREAM_REVISION,
       sourceModel: source.model ?? null,
       sourceVoice: profile.voiceId,
       sourceKind,

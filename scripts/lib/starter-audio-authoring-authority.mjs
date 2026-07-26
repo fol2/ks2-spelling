@@ -65,6 +65,7 @@ function freezeDeep(value) {
 
 function stripAuthoringFields(value) {
   const runtime = structuredClone(value);
+  delete runtime.sentenceUpstream;
   delete runtime.sourceLayout;
   return runtime;
 }

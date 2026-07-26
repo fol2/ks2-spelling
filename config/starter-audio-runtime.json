@@ -18,14 +18,6 @@
       "distribution": "pre-generated source audio only; no provider SDK, credentials or network access at runtime"
     }
   },
-  "sentenceUpstream": {
-    "repository": "https://github.com/fol2/ks2-mastery.git",
-    "revision": "dff6f57f8bf0b24e960c46d712afdbcf59c54b7d",
-    "sharedContractPath": "shared/spelling-audio.js",
-    "sharedContractSha256": "f3e02bd5fcd734d6ffa70061a013ca7ba636a7dc16eac092e8e8dcac9166b14f",
-    "cacheGeneratorPath": "scripts/precache-spelling-audio.mjs",
-    "cacheGeneratorSha256": "ac60867a652ce4e4e69b701c922b4c38fc449833fcefed723b81e16f43631689"
-  },
   "sourceEncoding": {
     "word": {
       "format": "m4a-aac-lc-mono-22050hz-48kbps",

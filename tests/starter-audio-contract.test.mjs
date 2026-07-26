@@ -133,10 +133,7 @@ test('Starter audio authority distinguishes interim Piper words from Gemini sent
     STARTER_AUDIO_AUTHORITY.sources.sentence.model,
     'gemini-3.1-flash-tts-preview',
   );
-  assert.equal(
-    STARTER_AUDIO_AUTHORITY.sentenceUpstream.revision,
-    'dff6f57f8bf0b24e960c46d712afdbcf59c54b7d',
-  );
+  assert.equal(Object.hasOwn(STARTER_AUDIO_AUTHORITY, 'sentenceUpstream'), false);
   assert.notEqual(
     STARTER_AUDIO_AUTHORITY.sources.word.id,
     STARTER_AUDIO_AUTHORITY.sources.sentence.id,

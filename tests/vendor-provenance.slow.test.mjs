@@ -164,11 +164,6 @@ test('the app-owned façade exposes only the certified runtime and read-only cat
     'utf8',
   );
   assert.doesNotMatch(facadeSource, /(?:from|import\s*)\s*['"]node:/);
-  assert.doesNotMatch(
-    facadeSource.replace(/\s+/g, ' '),
-    /(?:^|;)\s*import(?!\()[^;]*mobile-runtime-full/,
-    'the full catalogue must stay off the launch path — load it lazily, not with a static import',
-  );
   const facade = await import(
     `${pathToFileURL(join(ROOT, 'src/domain/spelling/index.js')).href}?test=${crypto.randomUUID()}`
   );
@@ -179,8 +174,13 @@ test('the app-owned façade exposes only the certified runtime and read-only cat
   ].sort();
   assert.deepEqual(Object.keys(facade).sort(), expectedExports);
 
-  const starter = await facade.loadStarterSpellingCatalogue();
-  const full = await facade.loadFullSpellingCatalogue();
+  const starter = facade.loadStarterSpellingCatalogue();
+  const full = facade.loadFullSpellingCatalogue();
+  assert.equal(
+    full instanceof Promise,
+    false,
+    'the required Product catalogue must be available without a WebView chunk load',
+  );
   assert.equal(starter.items.length, EXPECTED.starterCount);
   assert.equal(full.items.length, EXPECTED.fullCount);
   assert.ok(Object.isFrozen(starter));

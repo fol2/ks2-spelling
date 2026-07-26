@@ -2,9 +2,11 @@ import { createHash } from 'node:crypto';
 
 import { canonicaliseRfc8785Bytes } from '../../src/domain/packs/rfc8785.js';
 import {
+  createFullAudioInventory,
   createStarterAudioInventory,
 } from '../../src/domain/spelling/starter-audio-contract.js';
 import {
+  FULL_AUDIO_AUTHORING_AUTHORITY,
   STARTER_AUDIO_AUTHORING_AUTHORITY as STARTER_AUDIO_AUTHORITY,
 } from './starter-audio-authoring-authority.mjs';
 
@@ -38,8 +40,8 @@ const ASSET_KEYS = Object.freeze([
   'trailingSilenceMs',
 ]);
 
-function fail(detail) {
-  throw new TypeError(`Starter audio evidence ${detail}.`);
+function fail(detail, label = 'Starter') {
+  throw new TypeError(`${label} audio evidence ${detail}.`);
 }
 
 function digest(bytes) {
@@ -50,7 +52,7 @@ function canonicalDigest(value) {
   return digest(canonicaliseRfc8785Bytes(value));
 }
 
-function exactKeys(value, keys, label) {
+function exactKeys(value, keys, field, label = 'Starter') {
   if (
     !value ||
     typeof value !== 'object' ||
@@ -58,13 +60,13 @@ function exactKeys(value, keys, label) {
     Reflect.ownKeys(value).length !== keys.length ||
     keys.some((key) => !Object.hasOwn(value, key))
   ) {
-    fail(`${label} must contain exactly the approved fields`);
+    fail(`${field} must contain exactly the approved fields`, label);
   }
 }
 
-function finite(value, label) {
+function finite(value, field, label = 'Starter') {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
-    fail(`${label} must be finite`);
+    fail(`${field} must be finite`, label);
   }
   return value;
 }
@@ -77,6 +79,7 @@ export function analysePcm16le(
   bytes,
   {
     sampleRateHz,
+    label = 'Starter',
     silenceThresholdDbfs =
       STARTER_AUDIO_AUTHORITY.validation.silenceThresholdDbfs,
   } = {},
@@ -91,7 +94,7 @@ export function analysePcm16le(
     !Number.isFinite(silenceThresholdDbfs) ||
     silenceThresholdDbfs >= 0
   ) {
-    fail('PCM input is invalid');
+    fail('PCM input is invalid', label);
   }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const sampleCount = bytes.byteLength / 2;
@@ -111,7 +114,7 @@ export function analysePcm16le(
     }
   }
   if (firstSignal === -1 || peak === 0 || sumSquares === 0) {
-    fail('PCM input contains no measurable signal');
+    fail('PCM input contains no measurable signal', label);
   }
   const rms = Math.sqrt(sumSquares / sampleCount);
   return Object.freeze({
@@ -125,17 +128,38 @@ export function analysePcm16le(
   });
 }
 
-export function createStarterAudioEvidenceAuthority(catalogue) {
-  const inventory = createStarterAudioInventory(catalogue);
+function createAudioEvidenceAuthority(catalogue, authority, inventory) {
   return Object.freeze({
-    authoritySha256: canonicalDigest(STARTER_AUDIO_AUTHORITY),
+    authoritySha256: canonicalDigest(authority),
     catalogueSha256: canonicalDigest(catalogue),
     inventorySha256: canonicalDigest(inventory),
   });
 }
 
-function durationRange(audioKind) {
-  const validation = STARTER_AUDIO_AUTHORITY.validation;
+export function createStarterAudioEvidenceAuthority(
+  catalogue,
+  { inventory = createStarterAudioInventory(catalogue) } = {},
+) {
+  return createAudioEvidenceAuthority(
+    catalogue,
+    STARTER_AUDIO_AUTHORITY,
+    inventory,
+  );
+}
+
+export function createFullAudioEvidenceAuthority(
+  catalogue,
+  { inventory = createFullAudioInventory(catalogue) } = {},
+) {
+  return createAudioEvidenceAuthority(
+    catalogue,
+    FULL_AUDIO_AUTHORING_AUTHORITY,
+    inventory,
+  );
+}
+
+function durationRange(audioKind, authority) {
+  const validation = authority.validation;
   if (audioKind === 'word-natural') return validation.wordDurationMs;
   if (audioKind === 'dictation-normal') return validation.normalDurationMs;
   return validation.slowDurationMs;
@@ -145,39 +169,51 @@ function inRange(value, range) {
   return value >= range.minimum && value <= range.maximum;
 }
 
-export function validateStarterAudioEvidence(candidate, { catalogue } = {}) {
-  const inventory = createStarterAudioInventory(catalogue);
-  const authority = createStarterAudioEvidenceAuthority(catalogue);
-  exactKeys(candidate, ROOT_KEYS, 'root');
+function validateAudioEvidence(
+  candidate,
+  { catalogue, inventory: suppliedInventory },
+  { authority, createInventory, createEvidenceAuthority, label },
+) {
+  const inventory = suppliedInventory ?? createInventory(catalogue);
+  const evidenceAuthority = createEvidenceAuthority(catalogue, { inventory });
+  exactKeys(candidate, ROOT_KEYS, 'root', label);
   if (
     candidate.schemaVersion !== 1 ||
     candidate.status !== 'pass' ||
-    candidate.catalogueId !== STARTER_AUDIO_AUTHORITY.catalogueId ||
-    candidate.authoritySha256 !== authority.authoritySha256 ||
-    candidate.catalogueSha256 !== authority.catalogueSha256 ||
-    candidate.inventorySha256 !== authority.inventorySha256 ||
+    candidate.catalogueId !== authority.catalogueId ||
+    candidate.authoritySha256 !== evidenceAuthority.authoritySha256 ||
+    candidate.catalogueSha256 !== evidenceAuthority.catalogueSha256 ||
+    candidate.inventorySha256 !== evidenceAuthority.inventorySha256 ||
     candidate.assetCount !== inventory.length ||
-    candidate.format !== STARTER_AUDIO_AUTHORITY.encoding.format ||
+    candidate.format !== authority.encoding.format ||
     !Array.isArray(candidate.assets) ||
     candidate.assets.length !== inventory.length
   ) {
-    fail('root authority or inventory drifted');
+    fail('root authority or inventory drifted', label);
   }
 
   const normalDurationByPrompt = new Map();
   for (const [index, record] of candidate.assets.entries()) {
     const expected = inventory[index];
-    exactKeys(record, ASSET_KEYS, `asset ${index + 1}`);
+    exactKeys(record, ASSET_KEYS, `asset ${index + 1}`, label);
     const inputSha256 = digest(Buffer.from(expected.input));
     const generationSpecSha256 = digest(
       Buffer.from(JSON.stringify(expected.generationSpec)),
     );
-    const durationMs = finite(record.durationMs, 'duration');
-    const meanDbfs = finite(record.meanDbfs, 'mean level');
-    const peakDbfs = finite(record.peakDbfs, 'peak level');
-    const leadingSilenceMs = finite(record.leadingSilenceMs, 'leading silence');
-    const trailingSilenceMs = finite(record.trailingSilenceMs, 'trailing silence');
-    const validation = STARTER_AUDIO_AUTHORITY.validation;
+    const durationMs = finite(record.durationMs, 'duration', label);
+    const meanDbfs = finite(record.meanDbfs, 'mean level', label);
+    const peakDbfs = finite(record.peakDbfs, 'peak level', label);
+    const leadingSilenceMs = finite(
+      record.leadingSilenceMs,
+      'leading silence',
+      label,
+    );
+    const trailingSilenceMs = finite(
+      record.trailingSilenceMs,
+      'trailing silence',
+      label,
+    );
+    const validation = authority.validation;
     if (
       record.sequence !== expected.sequence ||
       record.audioKey !== expected.audioKey ||
@@ -189,9 +225,9 @@ export function validateStarterAudioEvidence(candidate, { catalogue } = {}) {
       typeof record.sha256 !== 'string' ||
       !HASH.test(record.sha256) ||
       record.codec !== 'aac' ||
-      record.sampleRateHz !== STARTER_AUDIO_AUTHORITY.encoding.sampleRateHz ||
-      record.channels !== STARTER_AUDIO_AUTHORITY.encoding.channels ||
-      !inRange(durationMs, durationRange(expected.audioKind)) ||
+      record.sampleRateHz !== authority.encoding.sampleRateHz ||
+      record.channels !== authority.encoding.channels ||
+      !inRange(durationMs, durationRange(expected.audioKind, authority)) ||
       !inRange(meanDbfs, validation.meanDbfs) ||
       !inRange(peakDbfs, validation.peakDbfs) ||
       peakDbfs < meanDbfs ||
@@ -200,7 +236,10 @@ export function validateStarterAudioEvidence(candidate, { catalogue } = {}) {
       trailingSilenceMs < 0 ||
       trailingSilenceMs > validation.maximumTrailingSilenceMs
     ) {
-      fail(`asset ${index + 1} differs from its authority or quality bounds`);
+      fail(
+        `asset ${index + 1} differs from its authority or quality bounds`,
+        label,
+      );
     }
     const promptKey =
       `${expected.runtimeItemId}|${expected.sentenceId}|${expected.voiceId}`;
@@ -208,15 +247,39 @@ export function validateStarterAudioEvidence(candidate, { catalogue } = {}) {
       normalDurationByPrompt.set(promptKey, durationMs);
     } else if (expected.audioKind === 'dictation-slow') {
       const normalDuration = normalDurationByPrompt.get(promptKey);
-      const ratio = STARTER_AUDIO_AUTHORITY.validation.slowDurationRatio;
+      const ratio = authority.validation.slowDurationRatio;
       if (
         normalDuration === undefined ||
         durationMs < normalDuration * ratio.minimum ||
         durationMs > normalDuration * ratio.maximum
       ) {
-        fail(`asset ${index + 1} is not a bounded slow variant`);
+        fail(`asset ${index + 1} is not a bounded slow variant`, label);
       }
     }
   }
   return structuredClone(candidate);
+}
+
+export function validateStarterAudioEvidence(
+  candidate,
+  { catalogue, inventory } = {},
+) {
+  return validateAudioEvidence(candidate, { catalogue, inventory }, {
+    authority: STARTER_AUDIO_AUTHORITY,
+    createInventory: createStarterAudioInventory,
+    createEvidenceAuthority: createStarterAudioEvidenceAuthority,
+    label: 'Starter',
+  });
+}
+
+export function validateFullAudioEvidence(
+  candidate,
+  { catalogue, inventory } = {},
+) {
+  return validateAudioEvidence(candidate, { catalogue, inventory }, {
+    authority: FULL_AUDIO_AUTHORING_AUTHORITY,
+    createInventory: createFullAudioInventory,
+    createEvidenceAuthority: createFullAudioEvidenceAuthority,
+    label: 'Full',
+  });
 }

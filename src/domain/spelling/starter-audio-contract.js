@@ -1,4 +1,5 @@
 import authority from '../../../config/starter-audio-runtime.json' with { type: 'json' };
+import fullAuthority from '../../../config/full-audio-runtime.json' with { type: 'json' };
 import {
   createAudioKeyV1,
   validateCatalogueV1,
@@ -14,7 +15,7 @@ const AUDIO_KINDS = Object.freeze([
 ]);
 
 function fail(detail) {
-  throw new TypeError(`Starter audio authority ${detail}.`);
+  throw new TypeError(`Spelling audio authority ${detail}.`);
 }
 
 function freezeDeep(value) {
@@ -44,7 +45,7 @@ function validateHash(value, label) {
   }
 }
 
-function validateAuthority(value) {
+function validateAuthority(value, { catalogueId, assetCount }) {
   exactKeys(value, [
     'schemaVersion',
     'catalogueId',
@@ -62,8 +63,8 @@ function validateAuthority(value) {
   ], 'root');
   if (
     value.schemaVersion !== 1 ||
-    value.catalogueId !== 'ks2-core:starter' ||
-    value.assetCount !== 840 ||
+    value.catalogueId !== catalogueId ||
+    value.assetCount !== assetCount ||
     value.runtimeGeneration !== false ||
     value.runtimeProviderAccess !== false ||
     value.runtimeFallback !== null
@@ -213,9 +214,17 @@ function validateAuthority(value) {
   return freezeDeep(structuredClone(value));
 }
 
-export const STARTER_AUDIO_AUTHORITY = validateAuthority(authority);
+export const STARTER_AUDIO_AUTHORITY = validateAuthority(authority, {
+  catalogueId: 'ks2-core:starter',
+  assetCount: 840,
+});
+export const FULL_AUDIO_AUTHORITY = validateAuthority(fullAuthority, {
+  catalogueId: 'ks2-core:full',
+  assetCount: 8_946,
+});
 
 function createAsset({
+  authority,
   item,
   prompt,
   profile,
@@ -248,33 +257,34 @@ function createAsset({
     audioKind,
     input: sentenceId === 'word' ? `${item.target}.` : prompt.text,
     generationSpec: {
-      engine: STARTER_AUDIO_AUTHORITY.engine.id,
-      engineVersion: STARTER_AUDIO_AUTHORITY.engine.version,
+      engine: authority.engine.id,
+      engineVersion: authority.engine.version,
       model: profile.model,
       modelSha256: profile.modelSha256,
       configSha256: profile.configSha256,
       noiseScale: 0,
       noiseWScale: 0,
       lengthScale,
-      outputFormat: STARTER_AUDIO_AUTHORITY.encoding.format,
+      outputFormat: authority.encoding.format,
     },
   });
 }
 
-export function createStarterAudioInventory(candidate) {
+function createAudioInventory(candidate, authority) {
   const catalogue = validateCatalogueV1(candidate);
   if (
-    catalogue.catalogueId !== STARTER_AUDIO_AUTHORITY.catalogueId ||
-    catalogue.audio.requiredAssetCount !== STARTER_AUDIO_AUTHORITY.assetCount ||
+    catalogue.catalogueId !== authority.catalogueId ||
+    catalogue.audio.requiredAssetCount !== authority.assetCount ||
     JSON.stringify(catalogue.audio.profiles) !== JSON.stringify(VOICE_IDS) ||
     JSON.stringify(catalogue.audio.kinds) !== JSON.stringify(AUDIO_KINDS)
   ) {
     fail('catalogue identity or complete audio matrix drifted');
   }
   const inventory = [];
-  for (const profile of STARTER_AUDIO_AUTHORITY.profiles) {
+  for (const profile of authority.profiles) {
     for (const item of catalogue.items) {
       inventory.push(createAsset({
+        authority,
         item,
         profile,
         audioKind: 'word-natural',
@@ -283,6 +293,7 @@ export function createStarterAudioInventory(candidate) {
       for (const prompt of item.sentencePrompts) {
         for (const audioKind of ['dictation-normal', 'dictation-slow']) {
           inventory.push(createAsset({
+            authority,
             item,
             prompt,
             profile,
@@ -294,11 +305,19 @@ export function createStarterAudioInventory(candidate) {
     }
   }
   if (
-    inventory.length !== STARTER_AUDIO_AUTHORITY.assetCount ||
+    inventory.length !== authority.assetCount ||
     new Set(inventory.map(({ audioKey }) => audioKey)).size !== inventory.length ||
     new Set(inventory.map(({ assetPath }) => assetPath)).size !== inventory.length
   ) {
     fail('derived inventory is incomplete or duplicated');
   }
   return Object.freeze(inventory);
+}
+
+export function createStarterAudioInventory(candidate) {
+  return createAudioInventory(candidate, STARTER_AUDIO_AUTHORITY);
+}
+
+export function createFullAudioInventory(candidate) {
+  return createAudioInventory(candidate, FULL_AUDIO_AUTHORITY);
 }

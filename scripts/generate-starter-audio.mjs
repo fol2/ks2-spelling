@@ -13,37 +13,38 @@ import {
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { loadStarterSpellingCatalogue } from '../src/domain/spelling/index.js';
 import {
+  loadFullSpellingCatalogue,
+  loadStarterSpellingCatalogue,
+} from '../src/domain/spelling/index.js';
+import {
+  createFullAudioInventory,
   createStarterAudioInventory,
 } from '../src/domain/spelling/starter-audio-contract.js';
 import {
+  FULL_AUDIO_AUTHORING_AUTHORITY,
   STARTER_AUDIO_AUTHORING_AUTHORITY as STARTER_AUDIO_AUTHORITY,
 } from './lib/starter-audio-authoring-authority.mjs';
 import {
   analysePcm16le,
+  createFullAudioEvidenceAuthority,
   createStarterAudioEvidenceAuthority,
+  validateFullAudioEvidence,
   validateStarterAudioEvidence,
 } from './lib/starter-audio-evidence.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CACHE = resolve(ROOT, '.native-build/c1/authoring');
-const SOURCE_ROOT = resolve(ROOT, 'content/starter-pack');
-const AUDIO_TARGET = resolve(SOURCE_ROOT, 'audio');
-const REPORT_TARGET = resolve(ROOT, 'reports/c1/starter-audio-evidence.json');
-const OBSERVATION_TARGET = resolve(
-  ROOT,
-  '.native-build/c1/last-starter-audio-observation.json',
-);
 const PYTHON_HELPER = resolve(ROOT, 'scripts/lib/generate-starter-audio.py');
 const MAX_MODEL_BYTES = 128 * 1_024 * 1_024;
 const MAX_CONFIG_BYTES = 64 * 1_024;
 const MAX_AUDIO_BYTES = 2 * 1_024 * 1_024;
+const MAX_RUNTIME_MANIFEST_BYTES = 4 * 1_024 * 1_024;
 const PROCESS_ERROR_BYTES = 64 * 1_024;
 const ENCODE_CONCURRENCY = 8;
 
 function generationError(detail, options) {
-  return new Error(`Starter audio generation ${detail}.`, options);
+  return new Error(`Spelling audio generation ${detail}.`, options);
 }
 
 function fail(detail, options) {
@@ -56,6 +57,20 @@ function digest(bytes) {
 
 function jsonBytes(value) {
   return Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+function createRuntimeManifest(evidence) {
+  return {
+    schemaVersion: evidence.schemaVersion,
+    status: evidence.status,
+    catalogueId: evidence.catalogueId,
+    assetCount: evidence.assetCount,
+    assets: evidence.assets.map(({ assetPath, sha256, byteSize }) => ({
+      assetPath,
+      sha256,
+      byteSize,
+    })),
+  };
 }
 
 async function exists(path) {
@@ -197,22 +212,27 @@ async function authoringPaths(profile) {
   return { model, config };
 }
 
-async function assertFfmpegAuthority() {
+async function assertFfmpegAuthority(authority) {
   const { stdout } = await runProcess('ffmpeg', ['-version']);
   const firstLine = stdout.toString('utf8').split('\n')[0];
   if (
     !firstLine.startsWith(
-      `ffmpeg version ${STARTER_AUDIO_AUTHORITY.encoding.version} `,
+      `ffmpeg version ${authority.encoding.version} `,
     )
   ) {
     fail('requires the exact reviewed FFmpeg version');
   }
 }
 
-async function generateWavAuthorities(inventory, temporaryRoot) {
+async function generateWavAuthorities(
+  inventory,
+  temporaryRoot,
+  authority,
+  timeoutMs,
+) {
   const wavRoot = resolve(temporaryRoot, 'wav');
   await mkdir(wavRoot);
-  await Promise.all(STARTER_AUDIO_AUTHORITY.profiles.map(async (profile) => {
+  await Promise.all(authority.profiles.map(async (profile) => {
     const paths = await authoringPaths(profile);
     const jobs = inventory
       .filter(({ voiceId }) => voiceId === profile.voiceId)
@@ -225,7 +245,7 @@ async function generateWavAuthorities(inventory, temporaryRoot) {
     await writeFile(jobsPath, jsonBytes(jobs), { flag: 'wx' });
     await runProcess('uvx', [
       '--from',
-      `piper-tts==${STARTER_AUDIO_AUTHORITY.engine.version}`,
+      `piper-tts==${authority.engine.version}`,
       'python',
       PYTHON_HELPER,
       '--model',
@@ -237,7 +257,7 @@ async function generateWavAuthorities(inventory, temporaryRoot) {
       '--output',
       wavRoot,
     ], {
-      timeoutMs: 15 * 60_000,
+      timeoutMs,
     });
   }));
   return wavRoot;
@@ -260,7 +280,8 @@ async function mapConcurrent(values, concurrency, operation) {
   return output;
 }
 
-async function encodeAssets(inventory, wavRoot, outputRoot) {
+async function encodeAssets(inventory, wavRoot, outputRoot, authority) {
+  const volumeDb = authority.catalogueId === 'ks2-core:full' ? -8 : -6;
   await mapConcurrent(inventory, ENCODE_CONCURRENCY, async (asset) => {
     const wav = resolve(
       wavRoot,
@@ -277,15 +298,15 @@ async function encodeAssets(inventory, wavRoot, outputRoot) {
       '-i',
       wav,
       '-af',
-      'silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.08:stop_periods=-1:stop_threshold=-50dB:stop_silence=0.12,volume=-6dB',
+      `silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.08:stop_periods=-1:stop_threshold=-50dB:stop_silence=0.12,volume=${volumeDb}dB`,
       '-ac',
-      String(STARTER_AUDIO_AUTHORITY.encoding.channels),
+      String(authority.encoding.channels),
       '-ar',
-      String(STARTER_AUDIO_AUTHORITY.encoding.sampleRateHz),
+      String(authority.encoding.sampleRateHz),
       '-c:a',
       'aac',
       '-b:a',
-      `${STARTER_AUDIO_AUTHORITY.encoding.bitrateKbps}k`,
+      `${authority.encoding.bitrateKbps}k`,
       '-movflags',
       '+faststart',
       '-map_metadata',
@@ -299,7 +320,7 @@ async function encodeAssets(inventory, wavRoot, outputRoot) {
   });
 }
 
-async function inspectAsset(asset, sourceRoot) {
+async function inspectAsset(asset, sourceRoot, authority, label) {
   const path = resolve(sourceRoot, asset.assetPath);
   const bytes = await readBoundedRegular(path, MAX_AUDIO_BYTES);
   const probeResult = await runProcess('ffprobe', [
@@ -324,8 +345,8 @@ async function inspectAsset(asset, sourceRoot) {
     probe.streams.length !== 1 ||
     probe.streams[0]?.codec_name !== 'aac' ||
     Number(probe.streams[0]?.sample_rate) !==
-      STARTER_AUDIO_AUTHORITY.encoding.sampleRateHz ||
-    probe.streams[0]?.channels !== STARTER_AUDIO_AUTHORITY.encoding.channels
+      authority.encoding.sampleRateHz ||
+    probe.streams[0]?.channels !== authority.encoding.channels
   ) {
     fail('audio format drifted from the reviewed M4A authority');
   }
@@ -341,15 +362,16 @@ async function inspectAsset(asset, sourceRoot) {
     '-acodec',
     'pcm_s16le',
     '-ac',
-    String(STARTER_AUDIO_AUTHORITY.encoding.channels),
+    String(authority.encoding.channels),
     '-ar',
-    String(STARTER_AUDIO_AUTHORITY.encoding.sampleRateHz),
+    String(authority.encoding.sampleRateHz),
     '-',
   ], {
     maximumOutputBytes: 2 * MAX_AUDIO_BYTES,
   });
   const analysis = analysePcm16le(decoded.stdout, {
-    sampleRateHz: STARTER_AUDIO_AUTHORITY.encoding.sampleRateHz,
+    label,
+    sampleRateHz: authority.encoding.sampleRateHz,
   });
   return {
     sequence: asset.sequence,
@@ -362,8 +384,8 @@ async function inspectAsset(asset, sourceRoot) {
     byteSize: bytes.byteLength,
     sha256: digest(bytes),
     codec: 'aac',
-    sampleRateHz: STARTER_AUDIO_AUTHORITY.encoding.sampleRateHz,
-    channels: STARTER_AUDIO_AUTHORITY.encoding.channels,
+    sampleRateHz: authority.encoding.sampleRateHz,
+    channels: authority.encoding.channels,
     ...analysis,
   };
 }
@@ -387,11 +409,18 @@ async function inventoryFiles(root) {
 }
 
 async function createEvidence(
-  catalogue,
-  inventory,
+  configuration,
   sourceRoot,
   { observationTarget = null } = {},
 ) {
+  const {
+    authority,
+    catalogue,
+    createEvidenceAuthority,
+    inventory,
+    label,
+    validateEvidence,
+  } = configuration;
   const expectedPaths = inventory.map(({ assetPath }) => assetPath).sort();
   const actualPaths = await inventoryFiles(sourceRoot);
   if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) {
@@ -400,92 +429,254 @@ async function createEvidence(
   const assets = await mapConcurrent(
     inventory,
     ENCODE_CONCURRENCY,
-    (asset) => inspectAsset(asset, sourceRoot),
+    (asset) => inspectAsset(asset, sourceRoot, authority, label),
   );
   const candidate = {
     schemaVersion: 1,
     status: 'pass',
     catalogueId: catalogue.catalogueId,
-    ...createStarterAudioEvidenceAuthority(catalogue),
+    ...createEvidenceAuthority(catalogue, { inventory }),
     assetCount: assets.length,
-    format: STARTER_AUDIO_AUTHORITY.encoding.format,
+    format: authority.encoding.format,
     assets,
   };
   if (observationTarget !== null) {
     await writeFile(observationTarget, jsonBytes(candidate));
   }
-  return validateStarterAudioEvidence(candidate, { catalogue });
+  return validateEvidence(candidate, { catalogue, inventory });
 }
 
-async function generate() {
-  if (await exists(AUDIO_TARGET) || await exists(REPORT_TARGET)) {
+async function generate(configuration) {
+  const {
+    audioTarget,
+    authority,
+    inventory,
+    label,
+    nativeRoot,
+    observationTarget,
+    reportTarget,
+    runtimeManifestTarget,
+    synthesisTimeoutMs,
+  } = configuration;
+  if (
+    await exists(audioTarget) ||
+    await exists(reportTarget) ||
+    (runtimeManifestTarget !== null && await exists(runtimeManifestTarget))
+  ) {
     fail('is create-only; use --check for an existing candidate');
   }
-  await assertFfmpegAuthority();
-  const catalogue = loadStarterSpellingCatalogue();
-  const inventory = createStarterAudioInventory(catalogue);
-  await mkdir(resolve(ROOT, '.native-build/c1'), { recursive: true });
+  await assertFfmpegAuthority(authority);
+  await mkdir(nativeRoot, { recursive: true });
   const temporaryRoot = await mkdtemp(
-    resolve(ROOT, '.native-build/c1/generation-'),
+    resolve(nativeRoot, 'generation-'),
   );
   const outputRoot = resolve(temporaryRoot, 'output');
   let publishedAudio = false;
+  let publishedReport = false;
+  let publishedRuntimeManifest = false;
   try {
     await mkdir(outputRoot);
-    const wavRoot = await generateWavAuthorities(inventory, temporaryRoot);
-    await encodeAssets(inventory, wavRoot, outputRoot);
-    const evidence = await createEvidence(
-      catalogue,
+    const wavRoot = await generateWavAuthorities(
       inventory,
-      outputRoot,
-      { observationTarget: OBSERVATION_TARGET },
+      temporaryRoot,
+      authority,
+      synthesisTimeoutMs,
     );
-    const stagedReport = resolve(temporaryRoot, 'starter-audio-evidence.json');
+    await encodeAssets(inventory, wavRoot, outputRoot, authority);
+    const evidence = await createEvidence(
+      configuration,
+      outputRoot,
+      { observationTarget },
+    );
+    const stagedReport = resolve(temporaryRoot, `${label}-audio-evidence.json`);
     await writeFile(stagedReport, jsonBytes(evidence), { flag: 'wx' });
-    await mkdir(dirname(AUDIO_TARGET), { recursive: true });
-    await mkdir(dirname(REPORT_TARGET), { recursive: true });
-    await rename(resolve(outputRoot, 'audio'), AUDIO_TARGET);
+    const stagedRuntimeManifest = runtimeManifestTarget === null
+      ? null
+      : resolve(temporaryRoot, 'full-audio-manifest.json');
+    if (stagedRuntimeManifest !== null) {
+      await writeFile(
+        stagedRuntimeManifest,
+        jsonBytes(createRuntimeManifest(evidence)),
+        { flag: 'wx' },
+      );
+    }
+    await mkdir(dirname(audioTarget), { recursive: true });
+    await mkdir(dirname(reportTarget), { recursive: true });
+    if (runtimeManifestTarget !== null) {
+      await mkdir(dirname(runtimeManifestTarget), { recursive: true });
+    }
+    await rename(resolve(outputRoot, 'audio'), audioTarget);
     publishedAudio = true;
     try {
-      await rename(stagedReport, REPORT_TARGET);
-      await rm(OBSERVATION_TARGET, { force: true });
+      await rename(stagedReport, reportTarget);
+      publishedReport = true;
+      if (runtimeManifestTarget !== null) {
+        await rename(stagedRuntimeManifest, runtimeManifestTarget);
+        publishedRuntimeManifest = true;
+      }
+      await rm(observationTarget, { force: true });
     } catch (error) {
-      await rm(AUDIO_TARGET, { recursive: true, force: true });
+      if (publishedRuntimeManifest) {
+        await rm(runtimeManifestTarget, { force: true });
+        publishedRuntimeManifest = false;
+      }
+      if (publishedReport) {
+        await rm(reportTarget, { force: true });
+        publishedReport = false;
+      }
+      await rm(audioTarget, { recursive: true, force: true });
       publishedAudio = false;
       throw error;
     }
   } finally {
-    if (publishedAudio && !(await exists(REPORT_TARGET))) {
-      await rm(AUDIO_TARGET, { recursive: true, force: true });
+    if (
+      publishedAudio &&
+      (!publishedReport ||
+        (runtimeManifestTarget !== null && !publishedRuntimeManifest))
+    ) {
+      await rm(audioTarget, { recursive: true, force: true });
     }
     await rm(temporaryRoot, { recursive: true, force: true });
   }
-  process.stdout.write('Starter audio generated and verified: 840 assets.\\n');
+  process.stdout.write(
+    `${label} audio generated and verified: ${inventory.length} assets.\\n`,
+  );
 }
 
-async function check() {
-  const reportBytes = await readBoundedRegular(REPORT_TARGET, 2 * 1_024 * 1_024);
+async function check(configuration) {
+  const {
+    catalogue,
+    inventory,
+    label,
+    reportTarget,
+    runtimeManifestTarget,
+    sourceRoot,
+    validateEvidence,
+  } = configuration;
+  const reportBytes = await readBoundedRegular(
+    reportTarget,
+    16 * 1_024 * 1_024,
+  );
   let report;
   try {
     report = JSON.parse(reportBytes.toString('utf8'));
   } catch (cause) {
     fail('report is not valid JSON', { cause });
   }
-  const catalogue = loadStarterSpellingCatalogue();
-  validateStarterAudioEvidence(report, { catalogue });
-  const inventory = createStarterAudioInventory(catalogue);
-  const current = await createEvidence(catalogue, inventory, SOURCE_ROOT);
+  validateEvidence(report, { catalogue, inventory });
+  if (runtimeManifestTarget !== null) {
+    const manifestBytes = await readBoundedRegular(
+      runtimeManifestTarget,
+      MAX_RUNTIME_MANIFEST_BYTES,
+    );
+    if (!manifestBytes.equals(jsonBytes(createRuntimeManifest(report)))) {
+      fail('runtime manifest differs from the verified authoring evidence');
+    }
+  }
+  const current = await createEvidence(configuration, sourceRoot);
   if (!jsonBytes(current).equals(reportBytes)) {
     fail('tracked report differs from the current audio candidate');
   }
-  process.stdout.write('Starter audio evidence current: 840 assets.\\n');
+  process.stdout.write(
+    `${label} audio evidence current: ${inventory.length} assets.\\n`,
+  );
+}
+
+async function writeRuntimeManifest(configuration) {
+  const {
+    catalogue,
+    inventory,
+    reportTarget,
+    runtimeManifestTarget,
+    validateEvidence,
+  } = configuration;
+  if (runtimeManifestTarget === null || await exists(runtimeManifestTarget)) {
+    fail('runtime manifest is create-only and Full-catalogue only');
+  }
+  const reportBytes = await readBoundedRegular(
+    reportTarget,
+    16 * 1_024 * 1_024,
+  );
+  let report;
+  try {
+    report = JSON.parse(reportBytes.toString('utf8'));
+  } catch (cause) {
+    fail('report is not valid JSON', { cause });
+  }
+  validateEvidence(report, { catalogue, inventory });
+  await writeFile(
+    runtimeManifestTarget,
+    jsonBytes(createRuntimeManifest(report)),
+    { flag: 'wx' },
+  );
+}
+
+async function configurationFor(mode) {
+  const full = mode === 'full';
+  const catalogue = full
+    ? await loadFullSpellingCatalogue()
+    : loadStarterSpellingCatalogue();
+  const stage = full ? 'c2' : 'c1';
+  const label = full ? 'Full' : 'Starter';
+  const sourceRoot = resolve(
+    ROOT,
+    full ? 'content/full-pack' : 'content/starter-pack',
+  );
+  return Object.freeze({
+    label,
+    authority: full
+      ? FULL_AUDIO_AUTHORING_AUTHORITY
+      : STARTER_AUDIO_AUTHORITY,
+    catalogue,
+    inventory: full
+      ? createFullAudioInventory(catalogue)
+      : createStarterAudioInventory(catalogue),
+    createEvidenceAuthority: full
+      ? createFullAudioEvidenceAuthority
+      : createStarterAudioEvidenceAuthority,
+    validateEvidence: full
+      ? validateFullAudioEvidence
+      : validateStarterAudioEvidence,
+    sourceRoot,
+    audioTarget: resolve(sourceRoot, 'audio'),
+    reportTarget: resolve(
+      ROOT,
+      `reports/${stage}/${full ? 'full' : 'starter'}-audio-evidence.json`,
+    ),
+    runtimeManifestTarget: full
+      ? resolve(ROOT, 'config/full-audio-manifest.json')
+      : null,
+    nativeRoot: resolve(ROOT, `.native-build/${stage}`),
+    observationTarget: resolve(
+      ROOT,
+      `.native-build/${stage}/last-${full ? 'full' : 'starter'}-audio-observation.json`,
+    ),
+    synthesisTimeoutMs: (full ? 60 : 15) * 60_000,
+  });
 }
 
 const arguments_ = process.argv.slice(2);
-if (arguments_.length === 0) {
-  await generate();
-} else if (arguments_.length === 1 && arguments_[0] === '--check') {
-  await check();
-} else {
-  fail('supports only no arguments or --check');
+const full = arguments_.includes('--catalogue=full');
+const checkOnly = arguments_.includes('--check');
+const manifestOnly = arguments_.includes('--runtime-manifest-only');
+if (
+  arguments_.some(
+    (argument) =>
+      ![
+        '--catalogue=full',
+        '--check',
+        '--runtime-manifest-only',
+      ].includes(argument),
+  ) ||
+  new Set(arguments_).size !== arguments_.length ||
+  arguments_.length > 2 ||
+  (manifestOnly && (!full || checkOnly))
+) {
+  fail(
+    'supports --catalogue=full, --check, or Full --runtime-manifest-only',
+  );
 }
+const configuration = await configurationFor(full ? 'full' : 'starter');
+if (manifestOnly) await writeRuntimeManifest(configuration);
+else if (checkOnly) await check(configuration);
+else await generate(configuration);

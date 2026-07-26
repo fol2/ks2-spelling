@@ -24,12 +24,12 @@ def parse_arguments():
 
 def load_jobs(path):
     jobs = json.loads(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(jobs, list) or not jobs or len(jobs) > 420:
-        raise ValueError("Starter audio jobs must be a bounded non-empty list.")
+    if not isinstance(jobs, list) or not jobs or len(jobs) > 4473:
+        raise ValueError("Audio jobs must be a bounded non-empty list.")
     seen = set()
     for job in jobs:
         if not isinstance(job, dict) or set(job) != {"input", "path", "lengthScale"}:
-            raise ValueError("Starter audio job shape is invalid.")
+            raise ValueError("Audio job shape is invalid.")
         if (
             not isinstance(job["input"], str)
             or not job["input"].strip()
@@ -39,7 +39,7 @@ def load_jobs(path):
             or job["path"] in seen
             or job["lengthScale"] not in (1, 1.35)
         ):
-            raise ValueError("Starter audio job authority is invalid.")
+            raise ValueError("Audio job authority is invalid.")
         seen.add(job["path"])
     return jobs
 
@@ -54,7 +54,7 @@ def main():
     for job in jobs:
         target = (output_root / job["path"]).resolve()
         if not target.is_relative_to(output_root) or target.exists():
-            raise ValueError("Starter audio output path is unsafe or already exists.")
+            raise ValueError("Audio output path is unsafe or already exists.")
         target.parent.mkdir(parents=True, exist_ok=True)
         synthesis = SynthesisConfig(
             length_scale=job["lengthScale"],
@@ -75,7 +75,7 @@ def main():
             target.unlink(missing_ok=True)
             raise
 
-    print(f"Generated {len(jobs)} Starter audio WAV authorities.")
+    print(f"Generated {len(jobs)} audio WAV authorities.")
 
 
 if __name__ == "__main__":

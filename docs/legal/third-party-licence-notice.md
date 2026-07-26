@@ -23,7 +23,7 @@ platform Android SDK licence.
 
 `content/mastery-art/` holds the painted companion stages and Scribe Downs
 plates the product surfaces render. They were copied from the frozen upstream
-authority `fol2/ks2-mastery` at commit `dff6f57f8bf0b24e960c46d712afdbcf59c54b7d`
+authority `fol2/ks2-mastery` at commit `3be4e7ad205bad7691edcce22f579ccc5fa6aa06`
 and are the same first-party work as the rest of that project; they are not a
 licensed third-party asset pack. `provenance/ks2-mastery-art.json` records the
 upstream path, Git blob identity and SHA-256 of every imported file, so the

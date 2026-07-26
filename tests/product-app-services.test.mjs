@@ -111,9 +111,11 @@ test('production services persist profile CRUD and selected learner across a cle
     'subscribe',
     'selectLearner',
     'showScreen',
-    'startSmartRound',
+    'startRound',
     'submitAnswer',
     'continueRound',
+    'skipWord',
+    'savePrefs',
     'endRound',
     'dispose',
   ]);
@@ -218,15 +220,7 @@ test('production services persist profile CRUD and selected learner across a cle
     actionError: null,
   });
   assert.equal(first.learning.getState().learnerId, ben.learnerId);
-  assert.deepEqual(first.learning.getState().vocabularySets, [
-    { id: 'core', label: 'All', count: 20 },
-    { id: 'y3-4', label: 'Y3–4', count: 20 },
-  ]);
-  await first.learning.startSmartRound({
-    length: 5,
-    mode: 'smart',
-    yearFilter: 'y3-4',
-  });
+  await first.learning.startRound({ mode: 'smart', length: 5 });
   assert.equal(first.learning.getState().screen, 'practice');
   const activeSessionId = first.learning.getState().practice.sessionId;
   await first.parentProgress.refresh();

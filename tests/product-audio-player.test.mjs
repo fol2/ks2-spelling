@@ -62,6 +62,7 @@ test('product audio reads and plays the exact verified installed word asset', as
     version: '1.0.0',
     runtimeItemId: 'ks2-core:answer',
     sentence: 'I knew the answer at once.',
+    voiceId: 'Iapetus',
     kind: 'word',
   });
   const expected = evidenceFor('audio/iapetus/answer/word.m4a');
@@ -94,20 +95,22 @@ test('product audio resolves normal and slow sentence variants without target fa
     version: '1.0.0',
     runtimeItemId: 'ks2-core:answer',
     sentence,
+    voiceId: 'Sulafat',
     kind: 'sentence',
   });
   await harness.player.play({
     version: '1.0.0',
     runtimeItemId: 'ks2-core:answer',
     sentence,
+    voiceId: 'Sulafat',
     kind: 'slow-sentence',
   });
 
   assert.deepEqual(
     harness.reads.map(({ assetPath }) => assetPath),
     [
-      'audio/iapetus/answer/sentence-01-normal.m4a',
-      'audio/iapetus/answer/sentence-01-slow.m4a',
+      'audio/sulafat/answer/sentence-01-normal.m4a',
+      'audio/sulafat/answer/sentence-01-slow.m4a',
     ],
   );
   assert.equal(harness.players.length, 2);
@@ -124,6 +127,7 @@ test('product audio rejects requests outside the Starter authority before native
       version: '1.0.0',
       runtimeItemId: 'ks2-core:answer',
       sentence: 'Not an approved sentence.',
+      voiceId: 'Iapetus',
       kind: 'sentence',
     },
     {
@@ -131,12 +135,13 @@ test('product audio rejects requests outside the Starter authority before native
       runtimeItemId: 'ks2-core:answer',
       sentence: 'I knew the answer at once.',
       voiceId: 'Device voice',
-      kind: 'sentence',
+      kind: 'word',
     },
     {
       version: '1.0.0',
       runtimeItemId: 'ks2-core:answer',
       sentence: 'I knew the answer at once.',
+      voiceId: 'Iapetus',
       kind: 'network-speech',
     },
   ]) {

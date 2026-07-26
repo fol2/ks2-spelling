@@ -578,7 +578,7 @@ test('B2 verifier reads historical package and A2 inventory from the frozen comm
     }),
     EXPECTED,
   );
-  assert.deepEqual(reads, [...FROZEN_GIT_INPUTS, 'package.json']);
+  assert.deepEqual(reads, [...FROZEN_GIT_INPUTS, 'package-lock.json', 'package.json']);
 
   await assert.rejects(
     verifyFixture(fixture, {
@@ -595,11 +595,26 @@ test('B2 verifier rejects current root package-lock drift', async (t) => {
   const fixture = await copyAuthorityFixture();
   t.after(() => rm(fixture, { recursive: true, force: true }));
   const packageLockPath = join(fixture, 'package-lock.json');
-  await writeFile(
-    packageLockPath,
-    Buffer.concat([await readFile(packageLockPath), Buffer.from('\n')]),
+  const lock = JSON.parse(await readFile(packageLockPath, 'utf8'));
+  lock.packages[''].dependencies.react = '0.0.0';
+  await writeFile(packageLockPath, `${JSON.stringify(lock, null, 2)}\n`);
+  await assert.rejects(
+    verifyFixture(fixture),
+    /current packageLock frozen dependency drifted: react/,
   );
-  await assert.rejects(verifyFixture(fixture), /current packageLockSha256 mismatch/);
+});
+
+test('B2 verifier rejects an unauthorised current package-lock addition', async (t) => {
+  const fixture = await copyAuthorityFixture();
+  t.after(() => rm(fixture, { recursive: true, force: true }));
+  const packageLockPath = join(fixture, 'package-lock.json');
+  const lock = JSON.parse(await readFile(packageLockPath, 'utf8'));
+  lock.packages[''].dependencies['left-pad'] = '1.3.0';
+  await writeFile(packageLockPath, `${JSON.stringify(lock, null, 2)}\n`);
+  await assert.rejects(
+    verifyFixture(fixture),
+    /current packageLock addition is not authorised: left-pad/,
+  );
 });
 
 test('B2 verifier rejects authority drift and a non-closed provenance shape', async (t) => {

@@ -208,6 +208,7 @@ export function parsePackagedAndroidPermissions(output, options = {}) {
   const expectedRequestedPermissions = options.expectedRequestedPermissions ?? [
     'android.permission.USE_BIOMETRIC',
     'android.permission.INTERNET',
+    'android.permission.VIBRATE',
     'com.android.vending.BILLING',
     'android.permission.ACCESS_NETWORK_STATE',
   ];

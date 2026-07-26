@@ -3,8 +3,12 @@ import {
   validateCatalogueV1,
   validateSpellingCommandSnapshotV1,
 } from '../domain/spelling/index.js';
+import { earlyRoundSummary } from './practice-feel.js';
 
 const LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+// The vendored contract's own buffered-voice identifiers; the bundled
+// listening pack ships exactly these two.
+const VOICE_IDS = Object.freeze(['Iapetus', 'Sulafat']);
 const SCREENS = Object.freeze([
   'home',
   'setup',
@@ -15,9 +19,7 @@ const SCREENS = Object.freeze([
   'camp',
 ]);
 const ROUND_LENGTHS = Object.freeze([5, 10, 20]);
-const ROUND_MODES = Object.freeze(['smart', 'trouble', 'test']);
-const YEAR_FILTERS = Object.freeze(['core', 'y3-4', 'y5-6']);
-const ROUND_OPTION_KEYS = new Set(['length', 'mode', 'yearFilter']);
+const WORKSHOP_MODES = Object.freeze(['smart', 'trouble', 'test']);
 
 function controllerError(code, message = code) {
   const error = new Error(message);
@@ -63,16 +65,21 @@ function initialScreen(snapshot) {
     : snapshot ? 'home' : 'profiles';
 }
 
-function practiceProjection(snapshot) {
+function practiceProjection(snapshot, catalogue) {
   const ui = snapshot?.subjectState?.ui;
   const session = ui?.phase === 'session' ? ui.session : null;
   if (!session) return null;
   return {
     sessionId: session.id,
-    mode: session.mode,
     label: session.label,
+    mode: session.mode,
+    fallbackToSmart: session.fallbackToSmart === true,
     phase: session.phase,
     runtimeItemId: session.currentRuntimeItemId,
+    // The year band this word belongs to, for the card's metadata chip.
+    yearLabel: catalogue?.items?.find(
+      ({ runtimeItemId }) => runtimeItemId === session.currentRuntimeItemId,
+    )?.yearLabel ?? '',
     sentence: session.currentPrompt?.sentence ?? '',
     cloze: session.currentPrompt?.cloze ?? '',
     explanation: session.currentPrompt?.explanation ?? '',
@@ -80,25 +87,6 @@ function practiceProjection(snapshot) {
     awaitingAdvance: ui.awaitingAdvance === true,
     feedback: ui.feedback === null ? null : structuredClone(ui.feedback),
   };
-}
-
-function vocabularySetProjection(catalogue) {
-  const core = catalogue.items.filter(
-    ({ coverageTier }) => coverageTier === 'statutory-core',
-  );
-  return [
-    { id: 'core', label: 'All', count: core.length },
-    {
-      id: 'y3-4',
-      label: 'Y3–4',
-      count: core.filter(({ yearBand }) => yearBand === '3-4').length,
-    },
-    {
-      id: 'y5-6',
-      label: 'Y5–6',
-      count: core.filter(({ yearBand }) => yearBand === '5-6').length,
-    },
-  ].filter(({ count }) => count > 0);
 }
 
 function progressProjection(snapshot, catalogue) {
@@ -138,6 +126,30 @@ function monsterProjection(snapshot, catalogue) {
   });
 }
 
+/**
+ * Round preferences live in the A3 snapshot's own prefs bag, so the listening
+ * voice, the sentence hint and auto-play all persist per learner with no new
+ * storage. `bufferedGeminiVoice` is the contract's existing voice preference.
+ *
+ * A new learner's seeded bag carries `autoSpeak: false`, which is an engine
+ * setting rather than a learner choice — it stops the planner emitting audio
+ * cues the app never consumes, because the app drives its own playback. So
+ * auto-play only reads as chosen once the learner has actually saved
+ * preferences, which the engine's own normaliser marks by writing the full
+ * record — `ttsProvider` included. Until then it starts on, as on the web.
+ */
+function prefsProjection(snapshot) {
+  const prefs = snapshot?.subjectState?.data?.prefs ?? {};
+  const chosen = Object.hasOwn(prefs, 'ttsProvider');
+  return {
+    voiceId: VOICE_IDS.includes(prefs.bufferedGeminiVoice)
+      ? prefs.bufferedGeminiVoice
+      : VOICE_IDS[0],
+    showCloze: prefs.showCloze !== false,
+    autoSpeak: chosen ? prefs.autoSpeak !== false : true,
+  };
+}
+
 function campProjection(snapshot) {
   if (!snapshot) return null;
   const saved = snapshot.campStateByPackId[snapshot.packId];
@@ -154,16 +166,21 @@ function createState({
   status = 'ready',
   screen = initialScreen(snapshot),
   actionError = null,
+  summary = null,
 }) {
   const ui = snapshot?.subjectState?.ui;
   return cloneFrozen({
     status,
     screen,
     learnerId: snapshot?.learnerId ?? null,
-    practice: practiceProjection(snapshot),
-    summary: ui?.summary ? structuredClone(ui.summary) : null,
+    practice: practiceProjection(snapshot, catalogue),
+    prefs: prefsProjection(snapshot),
+    summary: summary ?? (ui?.summary ? structuredClone(ui.summary) : null),
     progress: progressProjection(snapshot, catalogue),
-    vocabularySets: vocabularySetProjection(catalogue),
+    // How many words the active pack holds, so the setup panel can say how
+    // much of it the learner has still to meet. The controller owns the
+    // catalogue; the view should not have to reach for it.
+    packSize: catalogue.items.length,
     monsters: monsterProjection(snapshot, catalogue),
     camp: campProjection(snapshot),
     actionError,
@@ -219,7 +236,7 @@ export function createProductLearningController({
     return result;
   }
 
-  function runCommand(command) {
+  function runCommand(command, options = {}) {
     return enqueue(async () => {
       if (!snapshot) {
         throw controllerError('product_learning_learner_required');
@@ -246,9 +263,14 @@ export function createProductLearningController({
         );
         const phase = plan.result.state?.phase;
         publishFromSnapshot({
-          screen: phase === 'summary'
-            ? 'summary'
-            : phase === 'session' ? 'practice' : 'home',
+          // A command that leaves the round phase alone — saving a preference
+          // — must leave the learner where they were standing.
+          screen: options.keepScreen
+            ? previousScreen
+            : options.summary || phase === 'summary'
+              ? 'summary'
+              : phase === 'session' ? 'practice' : 'home',
+          summary: options.summary ?? null,
         });
         return plan;
       } catch (error) {
@@ -328,34 +350,28 @@ export function createProductLearningController({
       publishFromSnapshot({ screen });
       return state;
     },
-    startSmartRound(options) {
-      const keys = options && typeof options === 'object' && !Array.isArray(options)
-        ? Reflect.ownKeys(options)
-        : [];
-      const mode = options?.mode ?? 'smart';
-      const yearFilter = options?.yearFilter ?? 'y3-4';
+    startRound(options) {
       if (
         !options ||
         typeof options !== 'object' ||
         Array.isArray(options) ||
-        keys.some((key) => !ROUND_OPTION_KEYS.has(key)) ||
+        Reflect.ownKeys(options).length !== 2 ||
+        !Object.hasOwn(options, 'mode') ||
         !Object.hasOwn(options, 'length') ||
-        !ROUND_LENGTHS.includes(options.length) ||
-        !ROUND_MODES.includes(mode) ||
-        !YEAR_FILTERS.includes(yearFilter) ||
-        (mode === 'test' && options.length !== 20)
+        !WORKSHOP_MODES.includes(options.mode) ||
+        !ROUND_LENGTHS.includes(options.length)
       ) {
         return Promise.reject(
           new TypeError(
-            'Round options must use a supported quest, vocabulary set and length of 5, 10 or 20; SATs Test uses 20.',
+            'Workshop round requires mode smart|trouble|test and length 5, 10 or 20.',
           ),
         );
       }
       return runCommand({
         type: 'start-session',
         payload: {
-          mode,
-          yearFilter,
+          mode: options.mode,
+          yearFilter: 'y3-4',
           length: options.length,
           practiceOnly: false,
           words: [],
@@ -367,7 +383,7 @@ export function createProductLearningController({
         return Promise.reject(
           controllerError(
             'product_answer_required',
-            'Type the spelling before checking it.',
+            'Type the spelling before you submit it.',
           ),
         );
       }
@@ -382,11 +398,59 @@ export function createProductLearningController({
         payload: {},
       });
     },
-    endRound() {
+    skipWord() {
       return runCommand({
-        type: 'end-session',
+        type: 'skip-word',
         payload: {},
       });
+    },
+    savePrefs(patch) {
+      if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+        return Promise.reject(
+          new TypeError('Round preferences must be an object.'),
+        );
+      }
+      if (
+        Object.hasOwn(patch, 'voiceId') && !VOICE_IDS.includes(patch.voiceId)
+      ) {
+        return Promise.reject(
+          new TypeError('Listening voice must be a bundled voice.'),
+        );
+      }
+      for (const key of ['showCloze', 'autoSpeak']) {
+        if (Object.hasOwn(patch, key) && typeof patch[key] !== 'boolean') {
+          return Promise.reject(
+            new TypeError(`Round preference ${key} must be boolean.`),
+          );
+        }
+      }
+      // The whole visible set goes every time. A partial save would merge over
+      // the seeded bag and silently adopt its engine-level auto-play value as
+      // the learner's own choice.
+      const next = { ...state.prefs, ...patch };
+      return runCommand(
+        {
+          type: 'save-prefs',
+          payload: {
+            prefs: {
+              bufferedGeminiVoice: next.voiceId,
+              showCloze: next.showCloze,
+              autoSpeak: next.autoSpeak,
+            },
+          },
+        },
+        { keepScreen: true },
+      );
+    },
+    endRound() {
+      // Ending early is still `end-session` — the contract has no
+      // finalise-now command — but the learner lands on a summary of the
+      // words they did reach instead of losing the round to a bare discard.
+      const summary = earlyRoundSummary(state.practice);
+      return runCommand(
+        { type: 'end-session', payload: {} },
+        summary ? { summary } : {},
+      );
     },
     async dispose() {
       if (disposed) return;

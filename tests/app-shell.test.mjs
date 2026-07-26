@@ -12,9 +12,12 @@ const EXPECTED_DIRECT_VERSIONS = Object.freeze({
   '@capacitor/app': '8.1.0',
   '@capacitor/cli': '8.4.1',
   '@capacitor/core': '8.4.1',
+  '@capacitor/haptics': '8.0.2',
   '@capacitor/ios': '8.4.1',
+  '@capacitor/keyboard': '8.0.5',
   '@vitejs/plugin-react': '6.0.3',
   oxlint: '1.71.0',
+  phaser: '4.1.0',
   react: '19.2.7',
   'react-dom': '19.2.7',
   vite: '8.1.4',
@@ -176,7 +179,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
   t.after(() => vite.close());
   const { default: App } = await vite.ssrLoadModule('/src/app/App.jsx');
   const {
-    LeaveRoundDialog,
+    EndRoundDialog,
     ParentArea,
   } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
   const { createProductFailureServices } = await vite.ssrLoadModule(
@@ -302,10 +305,11 @@ test('the production shell keeps Parent progress and commerce behind the local g
     practice: null,
     summary: null,
     progress: [],
-    vocabularySets: Object.freeze([
-      Object.freeze({ id: 'core', label: 'All', count: 20 }),
-      Object.freeze({ id: 'y3-4', label: 'Y3–4', count: 20 }),
-    ]),
+    prefs: Object.freeze({
+      voiceId: 'Iapetus',
+      showCloze: true,
+      autoSpeak: true,
+    }),
     monsters: Object.freeze([Object.freeze({
       rewardTrackId: 'spelling-core-inklet',
       packId: 'ks2-core',
@@ -329,9 +333,11 @@ test('the production shell keeps Parent progress and commerce behind the local g
     subscribe: () => Object.freeze({ remove() {} }),
     async selectLearner() {},
     showScreen() {},
-    async startSmartRound() {},
+    async startRound() {},
     async submitAnswer() {},
     async continueRound() {},
+    async skipWord() {},
+    async savePrefs() {},
     async endRound() {},
     async dispose() {},
   });
@@ -364,8 +370,17 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(html, /Who is practising\?/);
   assert.match(html, /Ada/);
   assert.match(html, /Year 3/);
-  assert.match(html, /Selected/);
+  // The device's saved selection says who was open here, never that they
+  // practised: the picker has no answer data to make that claim from.
+  assert.match(html, /Last opened/);
+  assert.doesNotMatch(html, /Last practised/);
   assert.match(html, /Add a learner/);
+  // A name is set in the display serif at headline size and carries its own
+  // colour as a spine. The letter-in-a-square avatar is gone: it pushed the
+  // name down to a caption to make room for itself.
+  assert.match(html, /class="learner-name"/);
+  assert.doesNotMatch(html, /learner-avatar/);
+  assert.match(html, /--learner-colour/);
   assert.match(html, /Listening pack needs setup/);
   assert.match(html, /pre-recorded audio/i);
   assert.match(html, /Check again/);
@@ -454,22 +469,144 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(unlockedParentHtml, /No advertising, analytics or tracking/);
   assert.match(unlockedParentHtml, /Third-party notices/);
 
+  // A control that destroys something must not look like one that does not.
+  // "Edit Ada", "Reset learning" and "Delete learner" were three identical
+  // lavender pills, one of them irreversible, on a screen a parent taps through
+  // quickly. Each level of consequence has its own weight now.
+  assert.match(
+    unlockedParentHtml,
+    /class="button-quiet"[^>]*>Edit Ada/,
+    'editing a learner stays the benign control',
+  );
+  assert.match(unlockedParentHtml, /class="button-warning"[^>]*>Reset learning/);
+  assert.match(unlockedParentHtml, /class="button-destructive"[^>]*>Delete learner/);
+
+  // Import replaces every learner on the device. It was a fourth identical
+  // pill, with its warning printed underneath — read after the tap, if at all.
+  assert.match(unlockedParentHtml, /class="button-warning"[^>]*>Import learning backup/);
+  assert.ok(
+    unlockedParentHtml.indexOf('replaces every learner')
+      < unlockedParentHtml.indexOf('Import learning backup'),
+    'the caution comes before the control it is about',
+  );
+  assert.match(unlockedParentHtml, /class="button-quiet"[^>]*>Export learning backup/);
+
+  // Each learner carries the colour their name derives, the same one the bar
+  // chip and the picker plate use — the variable was already being set on this
+  // avatar and nothing painted with it.
+  assert.match(
+    unlockedParentHtml,
+    /parent-learner-avatar[^>]*--learner-colour:\s*#[0-9a-f]{6}/u,
+  );
+
   learningState = Object.freeze({
     ...learningState,
     screen: 'home',
   });
   const homeHtml = render();
-  assert.match(homeHtml, /Ada&#x27;s spelling trail/);
+  // The home hero is world-first: the art is behind the whole page and the
+  // mission block names the learner and the place.
+  assert.match(homeHtml, /class="hero-backdrop"/);
+  assert.match(homeHtml, /data-hero-tone="1"/);
   assert.match(homeHtml, /The Scribe Downs/);
-  assert.match(homeHtml, /Set off/);
-  assert.match(homeHtml, /words due today/);
-  assert.match(homeHtml, /Listening pack needs setup/);
-  for (const waypoint of ['Trail', 'Words', 'Codex', 'Camp']) {
-    assert.match(homeHtml, new RegExp(`<span>${waypoint}</span>`));
-  }
+  assert.match(homeHtml, /Hi Ada — ready for a short round\?/);
+  assert.match(homeHtml, /Today&#x27;s words are <em>waiting\.<\/em>/);
+  assert.match(homeHtml, /Start a Smart Review/);
+  assert.match(homeHtml, /Your first companion/);
+  assert.match(homeHtml, /Finish a round/);
   assert.doesNotMatch(homeHtml, /buy|restore|price|commerce/i);
-  // A companion the learner has not caught is never named on the trail.
-  assert.doesNotMatch(homeHtml, /Inklet/);
+
+  // The screen reads in the order the job runs in. `dueCopy` is today's status
+  // and used to be glued onto the headline as its second line, where "words are
+  // waiting" and "nothing due today" contradicted each other inside one
+  // sentence. Both strings are still there; only one of them is the headline.
+  assert.match(homeHtml, /<h1 id="home-title">Today&#x27;s words are <em>waiting\.<\/em><\/h1>/);
+  assert.match(homeHtml, /class="hero-due" data-due="none">Nothing due today/);
+  assert.ok(
+    homeHtml.indexOf('hero-due') < homeHtml.indexOf('Start a Smart Review'),
+    'the day\'s status comes before the action it explains',
+  );
+  assert.ok(
+    homeHtml.indexOf('Start a Smart Review') < homeHtml.indexOf('companions-title'),
+    'the action outranks the collection strip it used to sit below',
+  );
+
+  // A device-status panel is on a child's home screen only when something is
+  // wrong with it: working audio was taking a full row to say so.
+  assert.match(homeHtml, /Listening pack needs setup/);
+
+  // The four sections are a persistent strip, not rows on the home screen, so
+  // every one of them is reachable from every one of the others. Order is part
+  // of the contract: a tab strip that reorders itself is a different app each
+  // time it is opened.
+  assert.match(homeHtml, /<nav class="trail-tabs" aria-label="Sections">/);
+  assert.deepEqual(
+    [...homeHtml.matchAll(/<span>(Trail|Words|Codex|Camp)<\/span>/gu)]
+      .map(([, label]) => label),
+    ['Trail', 'Words', 'Codex', 'Camp'],
+  );
+  // Exactly one tab is current, and on the home screen it is the first.
+  assert.equal(homeHtml.match(/aria-current="page"/gu)?.length, 1);
+  assert.match(
+    homeHtml,
+    /class="trail-tab" aria-current="page">.*?<span>Trail<\/span>/su,
+  );
+  // The bar carries who is practising rather than the app's own name, and the
+  // page declares which bars it has so the CSS can reserve their space.
+  assert.match(homeHtml, /data-chrome="bar tabs"/);
+  assert.match(
+    homeHtml,
+    /class="learner-chip"[^>]*aria-label="Switch learner — Ada is practising"/,
+  );
+  assert.doesNotMatch(homeHtml, /KS2 Spelling/);
+
+  learningState = Object.freeze({
+    ...learningState,
+    screen: 'home',
+    monsters: Object.freeze([Object.freeze({
+      rewardTrackId: 'spelling-core-inklet',
+      packId: 'ks2-core',
+      monsterId: 'inklet',
+      thresholds: Object.freeze([1, 10, 30, 60, 100]),
+      branch: 'b1',
+      secureCount: 1,
+      caught: true,
+      derivedStage: 0,
+      earnedStageHighWater: 0,
+    })]),
+  });
+  const meadowHtml = render();
+  assert.match(meadowHtml, /monster-meadow/);
+  assert.match(meadowHtml, /Inklet/);
+  assert.match(meadowHtml, /Glimmerbug locked/);
+  assert.match(meadowHtml, /Phaeton locked/);
+  assert.doesNotMatch(meadowHtml, /buy|restore|price|commerce/i);
+
+  learningState = Object.freeze({
+    ...learningState,
+    screen: 'monster',
+  });
+  const codexHtml = render();
+  assert.match(codexHtml, /Your companions/);
+  assert.match(codexHtml, /Not found yet/);
+  assert.match(codexHtml, /Meet Inklet/);
+  assert.match(codexHtml, /codex-card is-locked/);
+  assert.doesNotMatch(codexHtml, /Buy Full KS2|buy|restore|price|commerce/i);
+  // One word for one thing. This screen called them monsters in the eyebrow,
+  // creatures in the heading and companions in the body, while the home screen
+  // called them companions and the tab calls the place the Codex. Asserted over
+  // the visible words only — `monster-stage` is a class name, not copy.
+  const codexWords = codexHtml.replace(/<[^>]*>/gu, ' ');
+  assert.doesNotMatch(codexWords, /roster|creature|monster/iu);
+  // The sentence ruling out a child-facing purchase was written for a reviewer,
+  // and took four lines of a child's screen to say so.
+  assert.doesNotMatch(codexWords, /child-facing|purchase/iu);
+  // An uncaught entry shows an empty slot rather than the stage-0 art of the
+  // creature turned to a grey lump: two locked entries, two empty slots, and
+  // painted art only for the one that has actually been caught.
+  assert.equal((codexHtml.match(/codex-card is-locked/gu) ?? []).length, 2);
+  assert.equal((codexHtml.match(/codex-card-empty/gu) ?? []).length, 2);
+  assert.equal((codexHtml.match(/class="codex-card-art"/gu) ?? []).length, 1);
 
   learningState = Object.freeze({
     ...learningState,
@@ -477,36 +614,8 @@ test('the production shell keeps Parent progress and commerce behind the local g
     progress: Object.freeze([]),
   });
   const emptyProgressHtml = render();
-  assert.match(emptyProgressHtml, /Word bank/);
-  assert.match(emptyProgressHtml, /Your word bank is ready/);
-  assert.match(emptyProgressHtml, /Set off on a round/);
-
-  learningState = Object.freeze({
-    ...learningState,
-    progress: Object.freeze([Object.freeze({
-      runtimeItemId: 'ks2-core:museum',
-      target: 'museum',
-      stage: 5,
-      attempts: 9,
-      correct: 9,
-      wrong: 0,
-      dueDay: 99_999,
-      lastResult: 'correct',
-    })]),
-  });
-  const wordBankHtml = render();
-  assert.match(wordBankHtml, /data-status="secure"/);
-  assert.match(wordBankHtml, /museum/);
-  assert.match(wordBankHtml, /9 correct · never missed/);
-
-  learningState = Object.freeze({ ...learningState, screen: 'monster' });
-  const codexHtml = render();
-  assert.match(codexHtml, /Companions/);
-  assert.match(codexHtml, /Growth line/);
-  assert.match(codexHtml, /Roster/);
-  // The roster only ever holds reward tracks this learner's content publishes.
-  assert.match(codexHtml, /Left to find/);
-  assert.equal((codexHtml.match(/class="codex-roster-no"/g) ?? []).length, 1);
+  assert.match(emptyProgressHtml, /Your trail is ready/);
+  assert.match(emptyProgressHtml, /Start a Smart Review/);
 
   learningState = Object.freeze({
     ...learningState,
@@ -515,13 +624,35 @@ test('the production shell keeps Parent progress and commerce behind the local g
   });
   const failedSetupHtml = render();
   assert.match(failedSetupHtml, /That trail could not start\. Please try again\./);
-  assert.match(failedSetupHtml, /Vocabulary set/);
-  assert.match(failedSetupHtml, /Y3–4/);
-  assert.match(failedSetupHtml, />20 words</);
-  assert.match(failedSetupHtml, />Trouble</);
-  assert.match(failedSetupHtml, />SATs</);
-  assert.doesNotMatch(failedSetupHtml, /Listening voice|Iapetus|Sulafat/);
-  assert.doesNotMatch(failedSetupHtml, /data-locked="true"|Not on this trail yet/);
+
+  // Starting the round is pinned, not appended: it used to be the last node in
+  // the scrolling card, behind six stat cells, three round types, three length
+  // chips, two voices, two toggles and a status panel.
+  assert.match(failedSetupHtml, /<div class="page-action"><button[^>]*class="button-primary button-large"/);
+  assert.match(failedSetupHtml, /data-chrome="bar action"/);
+  assert.ok(
+    failedSetupHtml.indexOf('class="setup-card"')
+      < failedSetupHtml.indexOf('class="page-action"'),
+    'the action bar is a sibling of the scrolling card, not inside it',
+  );
+
+  // Folded, not hidden: the summary line names the settings currently in force,
+  // so a round's shape can be read without opening anything.
+  assert.match(failedSetupHtml, /class="setup-more-value">5 words · Iapetus</);
+
+  // Every group is named in words a learner reads, not in words from inside
+  // the app. "Options" in particular named nothing at all.
+  for (const legend of [
+    'Round type',
+    'How many words',
+    'Reading voice',
+    'Help during the round',
+  ]) {
+    assert.match(failedSetupHtml, new RegExp(`<legend>${legend}</legend>`, 'u'));
+  }
+  for (const jargon of ['Workshop mode', 'Round length', '<legend>Options<']) {
+    assert.doesNotMatch(failedSetupHtml, new RegExp(jargon, 'u'));
+  }
 
   learningState = Object.freeze({
     ...learningState,
@@ -546,51 +677,160 @@ test('the production shell keeps Parent progress and commerce behind the local g
     }),
   });
   const practiceHtml = render();
-  assert.match(practiceHtml, /aria-label="Card 1 of 5"/);
-  assert.match(practiceHtml, /Spell the word you hear/);
-  assert.match(practiceHtml, /Hear it again/);
-  assert.match(practiceHtml, /aria-label="Replay slowly"/);
-  assert.match(practiceHtml, />0\.5×</);
-  const listeningControls = practiceHtml.match(
-    /<div class="listen-row"[^>]*>(.*?)<\/div>/u,
-  )?.[1] ?? '';
-  assert.equal((listeningControls.match(/<button\b/gu) ?? []).length, 2);
-  assert.doesNotMatch(listeningControls, />Sentence<|Slow sentence/);
-  // The cloze keeps the sentence either side of a ruled blank, never the word.
-  assert.match(practiceHtml, /<span>I<\/span>/);
-  assert.match(practiceHtml, /<span>model cars with my brother\.<\/span>/);
+  // The dot strip is the whole round head: it counts what has been banked,
+  // never a card position, so a learner working through a retry does not see
+  // the same card number against three different words. The sentence that
+  // used to spell the same count out in words is gone — the strip's label is
+  // what a screen reader reads, and it is a live region.
+  assert.match(practiceHtml, /aria-label="0 of 5 words secured"/);
+  assert.match(practiceHtml, /aria-live="polite"[^>]*aria-label="0 of 5 words secured"/);
+  assert.doesNotMatch(practiceHtml, /Card \d+ of \d+/);
+  assert.doesNotMatch(practiceHtml, /You have answered/);
+  assert.doesNotMatch(practiceHtml, /left in this round/);
+  // No chrome over a round: the brand mark and the mode name cost height the
+  // card needs once the keyboard is up.
+  assert.doesNotMatch(practiceHtml, /class="product-topbar"/);
+  assert.doesNotMatch(practiceHtml, /class="brand-mark"/);
+  // The answer line takes a spelling keyboard: British English, a submit key
+  // rather than a dismiss key, and none of the aids that would give the
+  // answer away.
+  assert.match(practiceHtml, /lang="en-GB"/);
+  assert.match(practiceHtml, /enterkeyhint="go"/i);
+  assert.match(practiceHtml, /autocorrect="off"/i);
+  assert.match(practiceHtml, /spellcheck="false"/i);
+  assert.match(practiceHtml, /writingsuggestions="false"/i);
+  // The listening controls are icon-only, as they are on the web card: the
+  // name lives in aria-label so the row stays quiet beside the sentence.
+  // Two listening controls, both the sentence: KS2 spelling is dictated in
+  // context, so a bare word is not a cue this test gives.
+  const sentenceCue = practiceHtml.indexOf('aria-label="Replay the sentence"');
+  const slowCue = practiceHtml.indexOf('aria-label="Replay the sentence slowly"');
+  assert.ok(sentenceCue > -1 && slowCue > -1);
+  assert.ok(sentenceCue < slowCue);
+  assert.equal((practiceHtml.match(/class="btn-icon"/g) ?? []).length, 2);
+  assert.doesNotMatch(practiceHtml, /Replay the word on its own/);
+  assert.doesNotMatch(practiceHtml, />\s*Hear word\s*</);
+  // The card leads with a quiet instruction, never a headline.
+  assert.match(practiceHtml, /Spell the word you hear\./);
+  assert.doesNotMatch(practiceHtml, /Hear the word, then spell it/);
+  assert.match(practiceHtml, /AI-generated dictation voice/);
+  assert.match(practiceHtml, /Skip for now/);
+  // The gap is drawn as a rule rather than printed as underscores.
   assert.match(practiceHtml, /class="cloze-blank"/);
-  assert.match(practiceHtml, />Submit</);
-  assert.match(practiceHtml, />End round</);
+  assert.match(practiceHtml, /model cars with my brother/);
+  // Upstream's submit is "Submit →"; the round's housekeeping — the voice
+  // note and leaving early — sits in a footer outside the card.
+  assert.match(practiceHtml, /Submit/);
+  assert.match(practiceHtml, /class="session-footer"/);
+  assert.match(practiceHtml, /End round early/);
+  assert.doesNotMatch(practiceHtml, /Check spelling/);
   assert.doesNotMatch(practiceHtml, />build</i);
 
-  assert.match(productSource, /void play\('sentence'\)/u);
-  assert.doesNotMatch(productSource, /play\('word'\)/u);
+  // Skip is offered exactly where the engine will accept it. `skipCurrent` in
+  // the vendored legacy engine returns null unless the session is a learning
+  // one on phase 'question', so any other phase must not show a control that
+  // would come back refused — a learner part-way through a teach loop is being
+  // taught this word, not being asked whether they want it.
+  const skipCases = [
+    { patch: { phase: 'retry' }, offered: false },
+    { patch: { phase: 'correction' }, offered: false },
+    { patch: { phase: 'question', awaitingAdvance: true }, offered: false },
+    { patch: { phase: 'question', mode: 'test' }, offered: false },
+    { patch: { phase: 'question' }, offered: true },
+  ];
+  const questionPractice = learningState.practice;
+  for (const { patch, offered } of skipCases) {
+    learningState = Object.freeze({
+      ...learningState,
+      practice: Object.freeze({ ...questionPractice, ...patch }),
+    });
+    const html = render();
+    const label = JSON.stringify(patch);
+    if (offered) {
+      assert.match(html, /Skip for now/, `skip must be offered for ${label}`);
+    } else {
+      assert.doesNotMatch(html, /Skip for now/, `skip must be hidden for ${label}`);
+    }
+  }
+  // A wrong answer names the spelling being taught and quotes what the learner
+  // wrote in the sentence about it. The attempt used to be displayed beside the
+  // headline and struck through whenever the engine gave no target, which reads
+  // as the app crossing out the correct answer — under the line "Your answer — "
+  // whose second half came from a body the engine had not filled, so it read
+  // "Your answer — No answer shown yet." while showing one.
+  const wrongFeedback = Object.freeze({
+    kind: 'error',
+    headline: 'Not yet',
+    attemptedAnswer: 'bild',
+    answer: 'build',
+    body: 'Look at the letters, then type it again.',
+  });
+  learningState = Object.freeze({
+    ...learningState,
+    practice: Object.freeze({
+      ...questionPractice,
+      phase: 'retry',
+      feedback: wrongFeedback,
+    }),
+  });
+  const wrongHtml = render();
+  assert.match(wrongHtml, /class="feedback-word">“build”/);
+  assert.match(wrongHtml, /You wrote “bild”\. Look at the letters/);
+  assert.doesNotMatch(wrongHtml, /is-attempt/);
+  assert.doesNotMatch(wrongHtml, /Your answer/);
+  assert.doesNotMatch(
+    wrongHtml,
+    /class="feedback-word[^"]*">“bild”/,
+    'the learner\'s own spelling is never the word beside the headline',
+  );
 
-  const leaveRoundHtml = renderToStaticMarkup(
-    React.createElement(LeaveRoundDialog, {
+  // A test round says up front that answers come at the end, so it can report
+  // neither the spelling nor a tone — a red cross is the result said without
+  // words.
+  learningState = Object.freeze({
+    ...learningState,
+    practice: Object.freeze({
+      ...questionPractice,
+      mode: 'test',
+      feedback: wrongFeedback,
+    }),
+  });
+  const testModeHtml = render();
+  assert.match(testModeHtml, /class="answer-recorded"[^>]*>Answer saved\./);
+  assert.doesNotMatch(testModeHtml, /answer-feedback/);
+  assert.doesNotMatch(testModeHtml, /build/);
+  assert.doesNotMatch(testModeHtml, /Not yet/);
+
+  learningState = Object.freeze({
+    ...learningState,
+    practice: questionPractice,
+  });
+
+  const endRoundHtml = renderToStaticMarkup(
+    React.createElement(EndRoundDialog, {
       onKeep() {},
       onLeave() {},
     }),
   );
-  assert.match(leaveRoundHtml, /role="alertdialog"/);
-  assert.match(leaveRoundHtml, /aria-modal="true"/);
-  assert.match(leaveRoundHtml, /aria-labelledby="leave-round-title"/);
-  assert.match(leaveRoundHtml, /Keep practising/);
-  assert.match(leaveRoundHtml, /Leave round/);
+  assert.match(endRoundHtml, /role="alertdialog"/);
+  assert.match(endRoundHtml, /aria-modal="true"/);
+  assert.match(endRoundHtml, /aria-labelledby="end-round-title"/);
+  assert.match(endRoundHtml, /Keep practising/);
+  assert.match(endRoundHtml, /End round/);
+  assert.match(endRoundHtml, /Every word you have answered is saved/);
 
-  const failedLeaveRoundHtml = renderToStaticMarkup(
-    React.createElement(LeaveRoundDialog, {
+  const failedEndRoundHtml = renderToStaticMarkup(
+    React.createElement(EndRoundDialog, {
       error: 'This round could not be saved as unfinished. Please try again or keep practising.',
       leaving: false,
       onKeep() {},
       onLeave() {},
     }),
   );
-  assert.match(failedLeaveRoundHtml, /id="leave-round-error"/);
-  assert.match(failedLeaveRoundHtml, /role="alert"/);
+  assert.match(failedEndRoundHtml, /id="end-round-error"/);
+  assert.match(failedEndRoundHtml, /role="alert"/);
   assert.match(
-    failedLeaveRoundHtml,
+    failedEndRoundHtml,
     /This round could not be saved as unfinished\. Please try again or keep practising\./,
   );
   assert.match(productSource, /await onEnd\(\)/);
@@ -622,14 +862,29 @@ test('the production shell keeps Parent progress and commerce behind the local g
     }),
   });
   const summaryHtml = render();
-  assert.match(summaryHtml, /Expedition logged/);
-  assert.match(summaryHtml, /Field record/);
-  assert.match(summaryHtml, /Clean sweep/);
+  assert.match(summaryHtml, /Trail complete/);
   assert.match(summaryHtml, /Excellent work\./);
-  assert.match(summaryHtml, /<span class="figure">100<\/span><small>percent<\/small>/);
-  assert.match(summaryHtml, /Every word held on the first try\./);
-  assert.match(summaryHtml, />Walk again</);
-  assert.match(summaryHtml, />Trail</);
+  assert.match(summaryHtml, /100%/);
+  assert.match(summaryHtml, /Back to trail/);
+  // A clean round names nothing: the drill only appears when it has words.
+  assert.doesNotMatch(summaryHtml, /Words that slipped today/);
+
+  // The engine already names the words that needed a correction, so the
+  // summary lists them rather than only counting them.
+  learningState = Object.freeze({
+    ...learningState,
+    summary: Object.freeze({
+      ...learningState.summary,
+      mistakes: Object.freeze([
+        Object.freeze({ slug: 'famous', word: 'famous' }),
+        Object.freeze({ slug: 'busy', word: 'busy' }),
+      ]),
+    }),
+  });
+  const slippedHtml = render();
+  assert.match(slippedHtml, /Words that slipped today/);
+  assert.match(slippedHtml, /<li[^>]*>famous<\/li>/);
+  assert.match(slippedHtml, /<li[^>]*>busy<\/li>/);
 
   const productCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
   assert.match(productCss, /@media\s*\(forced-colors:\s*active\)/);
@@ -655,18 +910,100 @@ test('the product shell consumes native safe-area insets', async () => {
       ),
     );
   }
+  // Both bars are fixed and own their safe area, so neither can scroll into
+  // the status bar or the home indicator.
   assert.match(
     productCss,
-    /\.product-topbar\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/su,
+    /\.product-topbar\s*\{[^}]*position:\s*fixed;[^}]*height:\s*calc\(var\(--safe-top\) \+ var\(--bar-h\)\);[^}]*padding:\s*var\(--safe-top\)/su,
   );
   assert.match(
     productCss,
-    /\.product-topbar p\s*\{[^}]*min-width:\s*0;[^}]*flex:\s*1 1 8rem;/su,
+    /\.trail-tabs\s*\{[^}]*position:\s*fixed;[^}]*height:\s*calc\(var\(--safe-bottom\) \+ var\(--tabs-h\)\);/su,
+  );
+
+  // The inset the page reserves has to name the same heights the bars are
+  // built from. Reserving a literal instead is how a bar and its clearance
+  // drift apart, and the symptom is content sitting under the chrome.
+  assert.match(
+    productCss,
+    /\.product-app\[data-chrome~='bar'\]\s*\{\s*padding-top:\s*calc\(var\(--safe-top\) \+ var\(--bar-h\)/su,
   );
   assert.match(
     productCss,
-    /\.topbar-action\s*\{[^}]*max-width:\s*100%;[^}]*overflow-wrap:\s*anywhere;/su,
+    /\.product-app\[data-chrome~='tabs'\]\s*\{\s*padding-bottom:\s*calc\(var\(--safe-bottom\) \+ var\(--tabs-h\)/su,
   );
+
+  // A fixed bar cannot grow, so its title truncates rather than wrapping: at
+  // an accessibility text size a wrapping title used to push the bar taller
+  // than the space the page had reserved for it.
+  assert.match(
+    productCss,
+    /\.product-topbar p\s*\{[^}]*white-space:\s*nowrap;[^}]*text-overflow:\s*ellipsis;/su,
+  );
+
+  // The round card is theme-locked glass: it re-points the palette tokens so
+  // the art tints what is behind it rather than the glass itself. Every token it
+  // reads has to exist in the default scheme too. Declared only inside the
+  // dark-scheme block, each `var(--theme-*)` was guaranteed-invalid in light
+  // mode — and an invalid var in a border shorthand takes the whole declaration
+  // with it, so in light mode that card had no writing line under the answer,
+  // no border on either listening control and no hairline of its own.
+  const baseTokens = productCss.match(/^\.product-app \{\n(.*?)^\}/msu);
+  assert.ok(baseTokens, 'the base token block must be findable');
+  const themeTokensRead = new Set(
+    [...productCss.matchAll(/var\((--theme-[a-z0-9-]+)\)/gu)].map(([, name]) => name),
+  );
+  assert.ok(themeTokensRead.size > 0);
+  for (const token of themeTokensRead) {
+    assert.match(
+      baseTokens[1],
+      new RegExp(`^\\s*${token}:\\s*\\S`, 'mu'),
+      `${token} is read but never declared for the default colour scheme`,
+    );
+  }
+
+  // Re-pointing the tokens is not enough on its own: `color` still inherits the
+  // page's tone ink, so headings took the theme while plain paragraphs in the
+  // same card stayed the region's cream.
+  assert.match(
+    productCss,
+    /\.practice-card \{[^}]*--brand-soft: var\(--theme-brand-soft\);[^}]*color: var\(--ink\);/su,
+  );
+
+  // On a regular-width screen the strip is a rail down the leading edge, and
+  // the page is inset from the side instead of from the bottom.
+  assert.match(
+    productCss,
+    /@media \(min-width: 45rem\) \{[^@]*\.trail-tabs\s*\{[^}]*flex-direction:\s*column;/su,
+  );
+  assert.match(
+    productCss,
+    /@media \(min-width: 45rem\) \{\s*\.product-app\[data-chrome~='tabs'\]\s*\{[^}]*padding-left:\s*calc\(var\(--rail-w\)/su,
+  );
+
+  // And the content gets a regular-width layout of its own, not just the rail:
+  // for a long time this sheet had no `min-width` query at all, so an iPad
+  // rendered a phone at iPad size — one narrow column against an empty
+  // half-screen, with type already at the top of its clamp. Every screen a
+  // learner reaches has to say what it does with the extra width.
+  const regularWidth = productCss
+    .split(/@media \(min-width: 45rem\)/u)
+    .slice(1)
+    .join('');
+  for (const surface of [
+    '.child-home',
+    '.setup-card',
+    '.word-progress-list',
+    '.codex-grid',
+    '.summary-columns',
+    '.parent-grid',
+    '.learner-grid',
+  ]) {
+    assert.ok(
+      regularWidth.includes(`${surface} {`) || regularWidth.includes(`${surface} >`),
+      `${surface} has no regular-width layout`,
+    );
+  }
 });
 
 test('the B3 shell is a Parent-only diagnostic with sanitised commerce and pack evidence', async (t) => {
@@ -768,6 +1105,9 @@ test('Capacitor and the built shell remain local-only', async () => {
     webDir: 'dist',
     loggingBehavior: 'none',
     plugins: {
+      // No Keyboard entry: the plugin's accessory-bar and resize-mode calls are
+      // made at runtime from `src/platform/keyboard/capacitor-keyboard.js`, so
+      // this file stays byte-identical to its sealed B2 policy hash.
       CapacitorSQLite: {
         iosDatabaseLocation: 'Library/CapacitorDatabase',
         iosIsEncryption: false,

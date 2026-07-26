@@ -13,6 +13,7 @@ import {
   createProductFailureServices,
 } from './app/product-failure-services.js';
 import { mountApp } from './app/mount-app.js';
+import { applyKeyboardChrome } from './platform/keyboard/capacitor-keyboard.js';
 
 const root = document.getElementById('root');
 
@@ -39,6 +40,9 @@ function failureServices(platformRequirement) {
 
 async function createServices() {
   if (Capacitor.isNativePlatform()) {
+    // The accessory bar and the resize mode belong to the WebView, not to a
+    // screen, so they are set once here.
+    applyKeyboardChrome();
     const composition = selectNativeAppComposition({
       buildMode: import.meta.env.MODE,
       platform: Capacitor.getPlatform(),

@@ -1,5 +1,9 @@
 # KS2 Spelling V1 visual authority
 
+**Superseded:** `docs/product/v2-visual-authority.md` replaces this document for
+all product screens from C6 onward. This file remains historical evidence for
+the pre-C6 checkpoints.
+
 ## Direction
 
 The product uses a **Pocket Expedition** direction: a calm paper field, an ink

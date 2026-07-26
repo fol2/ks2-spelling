@@ -61,11 +61,33 @@ export function createBundledStarterAssets(mode) {
   };
 }
 
+export function createBundledArtAssets(mode) {
+  if (mode !== 'production') return null;
+  return {
+    name: 'bundled-art-assets',
+    async writeBundle(outputOptions) {
+      const outputRoot = resolve(ROOT, outputOptions.dir ?? 'dist');
+      const target = resolve(outputRoot, 'mastery-art');
+      await mkdir(dirname(target), { recursive: true });
+      await cp(
+        resolve(ROOT, 'content/mastery-art'),
+        target,
+        {
+          recursive: true,
+          force: false,
+          errorOnExist: true,
+        },
+      );
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     createB4OfflineBoundary(mode),
     createBundledStarterAssets(mode),
+    createBundledArtAssets(mode),
   ].filter(Boolean),
   resolve: {
     alias: {

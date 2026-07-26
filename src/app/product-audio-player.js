@@ -8,8 +8,10 @@ const REQUEST_KEYS = Object.freeze([
   'version',
   'runtimeItemId',
   'sentence',
+  'voiceId',
   'kind',
 ]);
+const VOICES = new Set(['Iapetus', 'Sulafat']);
 const KINDS = new Set(['word', 'sentence', 'slow-sentence']);
 const SAFE_VERSION = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
 const SHA256 = /^[0-9a-f]{64}$/u;
@@ -38,6 +40,7 @@ function requireRequest(value) {
     !SAFE_VERSION.test(value.version) ||
     typeof value.runtimeItemId !== 'string' ||
     typeof value.sentence !== 'string' ||
+    !VOICES.has(value.voiceId) ||
     !KINDS.has(value.kind)
   ) {
     throw playerError('product_audio_request_invalid');
@@ -97,12 +100,11 @@ function resolveAsset({ request, catalogue, inventory }) {
       : 'dictation-slow';
     pace = request.kind === 'sentence' ? 'normal' : 'slow';
   }
-  const voiceId = catalogue.audio.profiles[0];
   const asset = inventory.find(
     (candidate) =>
       candidate.runtimeItemId === request.runtimeItemId &&
       candidate.sentenceId === sentenceId &&
-      candidate.voiceId === voiceId &&
+      candidate.voiceId === request.voiceId &&
       candidate.audioKind === audioKind &&
       candidate.pace === pace,
   );

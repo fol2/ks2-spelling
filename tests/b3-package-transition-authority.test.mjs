@@ -55,6 +55,7 @@ const EXPECTED_C_SERIES_SCRIPT_NAMES = Object.freeze([
   'generate:starter-audio',
   'verify:starter-audio',
   'verify:starter-pack',
+  'verify:art',
 ]);
 
 function frozenPackage() {

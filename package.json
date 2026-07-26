@@ -41,6 +41,7 @@
     "generate:starter-audio": "node scripts/generate-starter-audio.mjs",
     "verify:starter-audio": "node scripts/generate-starter-audio.mjs --check",
     "verify:starter-pack": "node scripts/build-starter-pack.mjs",
+    "verify:art": "node scripts/verify-vendored-art.mjs",
     "prove:b3:ios-storekit-test": "node scripts/prove-b3-ios-storekit-test.mjs",
     "report:b3-native": "node scripts/build-b3-native-audit.mjs",
     "prove:b3:deterministic": "node scripts/run-b3-deterministic-proof.mjs",
@@ -64,7 +65,10 @@
     "@capacitor/android": "8.4.1",
     "@capacitor/app": "8.1.0",
     "@capacitor/core": "8.4.1",
+    "@capacitor/haptics": "8.0.2",
     "@capacitor/ios": "8.4.1",
+    "@capacitor/keyboard": "8.0.5",
+    "phaser": "4.1.0",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },

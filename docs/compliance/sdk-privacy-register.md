@@ -228,6 +228,26 @@ deterministic component inventory. Exact upstream licence-text assembly and
 store exposure are verified against the final signed distribution during Task
 22 rather than inferred from this development candidate.
 
+## C6 game-layer transition
+
+The C6 game-layer uplift adds `@capacitor/haptics` 8.0.2 from the official
+Ionic Capacitor plugins repository as an approved product capability. Haptic
+feedback is device vibration only: the plugin collects nothing, transmits
+nothing and adds no iOS usage-description key, entitlement or Required Reason
+API. The packaged Android permission surface gains `android.permission.VIBRATE`
+from the plugin manifest merge; the machine-audited permission authority in
+`scripts/test-android.mjs` records the exact expected set. The machine-audited
+physically bundled WebView npm package set becomes exactly
+`@capacitor-community/sqlite`, `@capacitor/app`, `@capacitor/core`,
+`@capacitor/haptics`, `react`, `react-dom`, `scheduler`.
+
+The approved C6 plan also authorises `phaser` 4.1.0 as a WebView-only
+presentation dependency for the bounded Monster Stage. Phaser is not a native
+plugin, adds no permission and performs no collection or transmission; its
+entry is activated when the Monster Stage slice lands. Vendored ks2-mastery
+artwork is local raster data under `content/mastery-art` with hash provenance
+and contains no personal data.
+
 ## Not approved candidates
 
 | Capability | Candidate package | Status |

@@ -1,0 +1,21 @@
+/* Chrome for the design harness only.
+ *
+ * No frame and no toolbar on purpose: the browser viewport IS the device, so
+ * `100vh`, `100dvh` and every media query behave exactly as they do in the
+ * WebView. Pick the screen with `?screen=`, the size with the window itself.
+ *
+ * The app reads its safe areas as `var(--safe-area-inset-*, env(...))`, so
+ * setting the variables here reproduces a notched iPhone in a browser, where
+ * `env()` is always 0. Values are iPhone 17 portrait.
+ */
+:root {
+  --safe-area-inset-top: 59px;
+  --safe-area-inset-right: 0px;
+  --safe-area-inset-bottom: 34px;
+  --safe-area-inset-left: 0px;
+}
+
+html,
+body {
+  margin: 0;
+}

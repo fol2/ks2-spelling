@@ -137,7 +137,7 @@ test('frozen B2 Android source removes biometric permissions and excludes every 
   }
 });
 
-test('Android materialises the complete five-module finite dependency closure', async () => {
+test('Android materialises the complete six-module finite dependency closure', async () => {
   const lockDirectory = join(ROOT, 'android/gradle/dependency-locks');
   const lockfiles = (await readdir(lockDirectory))
     .filter((name) => name.endsWith('.lockfile'))
@@ -148,6 +148,7 @@ test('Android materialises the complete five-module finite dependency closure', 
     'capacitor-app.lockfile',
     'capacitor-community-sqlite.lockfile',
     'capacitor-cordova-android-plugins.lockfile',
+    'capacitor-haptics.lockfile',
   ]);
   for (const name of lockfiles) {
     const contents = await readFile(join(lockDirectory, name), 'utf8');

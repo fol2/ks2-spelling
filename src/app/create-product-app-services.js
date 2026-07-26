@@ -1,5 +1,6 @@
 import { loadStarterSpellingCatalogue } from '../domain/spelling/index.js';
 import { createCapacitorSqliteConnection } from '../platform/database/capacitor-sqlite-connection.js';
+import { createCapacitorHaptics } from '../platform/haptics/capacitor-haptics.js';
 import { createDatabaseCommandGate } from '../platform/database/database-command-gate.js';
 import { configureAndMigrateDatabase } from '../platform/database/migrate-database.js';
 import { DATABASE_NAME } from '../platform/database/schema-v1.js';
@@ -309,6 +310,7 @@ export async function createProductAppServices(options = {}) {
       learning,
       audio,
       audioAvailability,
+      haptics: options.haptics ?? createCapacitorHaptics(),
       parent,
       parentProgress,
       parentCommerce,

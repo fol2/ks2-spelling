@@ -1,3 +1,23 @@
+/* The type scale already asks for Fraunces and Inter by name. Both are packaged
+   with the app under the SIL Open Font Licence 1.1 so those names resolve on a
+   device instead of silently falling back to Georgia and the system sans, and
+   so nothing is fetched from a font CDN at runtime. */
+@font-face {
+  font-family: Fraunces;
+  src: url('./fonts/fraunces-latin-variable.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: Inter;
+  src: url('./fonts/inter-latin-variable.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color: #f5f1e8;
   background: #0d1d29;

@@ -126,11 +126,19 @@ function stopPlayer(player) {
   if (typeof player.load === 'function') player.load();
 }
 
+// One element serves the whole app. A fresh element per prompt left a media
+// element behind for every word a learner ever heard, each still holding the
+// encoded audio it was handed, and the WebKit renderer does not survive that
+// for long: it fell over part-way through a round and took the page with it.
+// Reusing one element keeps exactly one decoded source alive at a time.
+let sharedAudioElement = null;
+
 function defaultAudioFactory() {
   if (typeof globalThis.Audio !== 'function') {
     throw playerError('product_audio_runtime_unavailable');
   }
-  return new globalThis.Audio();
+  if (!sharedAudioElement) sharedAudioElement = new globalThis.Audio();
+  return sharedAudioElement;
 }
 
 export function createProductAudioPlayer({
@@ -184,7 +192,19 @@ export function createProductAudioPlayer({
       player.preload = 'auto';
       player.src = `data:audio/mp4;base64,${base64}`;
       activePlayer = player;
-      await player.play();
+      try {
+        await player.play();
+      } catch (error) {
+        // Loading the next prompt aborts the one still starting. That is this
+        // player replacing itself, not a fault with the listening pack, and
+        // reporting it as one puts a repair notice in front of a learner whose
+        // audio is about to play perfectly well.
+        if (error?.name !== 'AbortError' && ownGeneration === generation) throw error;
+        return Object.freeze({
+          status: 'superseded',
+          audioKey: asset.audioKey,
+        });
+      }
       return Object.freeze({
         status: 'playing',
         audioKey: asset.audioKey,

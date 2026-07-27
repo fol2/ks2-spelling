@@ -1972,6 +1972,7 @@ function SetupScreen({
   actionError,
   onStart,
   onBack,
+  onScreen,
   onRecoverAudio,
   busy,
   dueCount,
@@ -1992,6 +1993,7 @@ function SetupScreen({
       <Scene
         className="setup-scene"
         dusk
+        waypoints
         plate={regionArt(REGION, active.plate)}
         plateY="32%"
         veil={[
@@ -2133,6 +2135,7 @@ function SetupScreen({
             </p>
           )}
         </div>
+        <WaypointBar screen="home" onScreen={onScreen} />
       </Scene>
     </main>
   );
@@ -2787,6 +2790,7 @@ export default function ProductApp({ services }) {
         actionError={learningState.actionError}
         onStart={(options) => services.learning.startRound(options)}
         onBack={() => showScreen('home')}
+        onScreen={showScreen}
         onRecoverAudio={recoverAudio}
         busy={learningState.status === 'saving'}
         dueCount={filterCount('due')}

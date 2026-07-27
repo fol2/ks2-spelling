@@ -411,9 +411,16 @@ h1 {
 
   position: relative;
   display: flex;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* Lock to the visual viewport so place screens (Words especially) cannot
+     grow with their lists. The waypoint foot is position:absolute; bottom:0
+     inside this shell — if the shell grows, the menu scrolls away with the
+     words and the learner has to drag the page to find it. */
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
   flex-direction: column;
+  overflow: hidden;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
@@ -708,8 +715,9 @@ h1 {
   display: flex;
   flex: 1;
   flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* Fill .product-app without a second min-height:100vh that would let long
+     bank lists grow the scene past the viewport and drag the foot with them. */
+  min-height: 0;
   overflow: hidden;
   background: var(--paper);
 }
@@ -749,8 +757,13 @@ h1 {
 }
 
 .scene-scroll {
+  /* The only vertical scrollport on place screens. Long Words lists scroll
+     here while the waypoint foot stays pinned to the shell bottom. */
+  position: relative;
+  z-index: 0;
   flex: 1;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -764,7 +777,8 @@ h1 {
 .waypoint-bar {
   /* The foot is the home-indicator strip. The waypoints themselves sit above
      it, but the selected tab is drawn as a card attached to the screen edge, so
-     it has to reach through the foot rather than stop short of it. */
+     it has to reach through the foot rather than stop short of it. Pinned to
+     the viewport-locked .product-scene, not to the end of a tall word list. */
   --waypoint-foot: max(0.5rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 
   position: absolute;
@@ -772,6 +786,8 @@ h1 {
   bottom: 0;
   left: 0;
   z-index: 40;
+  isolation: isolate;
+  transform: translateZ(0);
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
@@ -1068,8 +1084,11 @@ h1 {
 .bank-row {
   display: grid;
   align-items: center;
-  grid-template-columns: auto 1fr auto;
+  /* minmax(0, 1fr) lets long spellings shrink and wrap inside the row instead
+     of forcing horizontal overflow over the waypoint foot. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0 0.75rem;
+  min-width: 0;
   border: 1px solid var(--row-edge, var(--line));
   border-radius: 1.15rem;
   padding: 0.6rem 0.9rem;
@@ -1087,6 +1106,8 @@ h1 {
 
 .bank-row strong {
   grid-column: 2;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-family: var(--serif);
   font-size: 1.25rem;
   font-weight: 500;
@@ -1096,6 +1117,8 @@ h1 {
 
 .bank-row small {
   grid-column: 2;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 0.75rem;
   color: var(--row-note, var(--ink-soft));
 }

@@ -689,6 +689,35 @@ test('the product shell consumes native safe-area insets', async () => {
   );
 });
 
+test('the product shell keeps the waypoint foot on the viewport while Words scroll', async () => {
+  const productCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
+
+  assert.match(
+    productCss,
+    /\.product-app\s*\{[^}]*height:\s*100dvh;[^}]*max-height:\s*100dvh;[^}]*overflow:\s*hidden;/su,
+  );
+  assert.match(
+    productCss,
+    /\.product-scene\s*\{[^}]*flex:\s*1;[^}]*min-height:\s*0;[^}]*overflow:\s*hidden;/su,
+  );
+  assert.match(
+    productCss,
+    /\.scene-scroll\s*\{[^}]*flex:\s*1;[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/su,
+  );
+  assert.match(
+    productCss,
+    /\.waypoint-bar\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*0;[^}]*z-index:\s*40;/su,
+  );
+  assert.match(
+    productCss,
+    /\.bank-row\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\) auto;[^}]*min-width:\s*0;/su,
+  );
+  assert.match(
+    productCss,
+    /\.bank-row strong\s*\{[^}]*min-width:\s*0;[^}]*overflow-wrap:\s*anywhere;/su,
+  );
+});
+
 test('the B3 shell is a Parent-only diagnostic with sanitised commerce and pack evidence', async (t) => {
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');

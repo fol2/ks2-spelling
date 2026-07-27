@@ -229,6 +229,7 @@ test('the product root owns the public-API iOS session and visual viewport layou
   assert.match(sessionSource, /pauseRoundInputSession\(\)/);
   assert.match(sessionSource, /record\.attributeName === 'disabled'/);
   assert.match(sessionSource, /!document\.querySelector\(EXIT_DIALOG_SELECTOR\)/);
+  assert.match(sessionSource, /resumeRoundInputSession\(\{ guardFocus: true \}\)/);
   assert.doesNotMatch(sessionSource, /Keyboard\.show|keyboardDisplayRequiresUserAction/);
 
   assert.match(sessionCss, /--keyboard-inset/);
@@ -382,6 +383,12 @@ test('one trusted Setup activation survives the async round mount', () => {
   view.observer.callback([{ type: 'childList', target: document.body }]);
   view.flushFrame();
   assert.equal(document.documentElement.dataset.dictationInputSession, 'round');
+  assert.equal(document.activeElement, sessionInput);
+
+  // The dialog's passive cleanup can restore End round after the mutation that
+  // removed it. Escape receives the same short focus guard as Keep.
+  endRound.focus();
+  document.emit('focusin', { target: endRound });
   assert.equal(document.activeElement, sessionInput);
 
   document.queries.set('.exit-confirmation', exitDialog);

@@ -1,5 +1,6 @@
+import { HIGHEST_COMPANION_STAGE } from './companion-stage-contract.js';
+
 const DEFAULT_CATCH_THRESHOLD = 1;
-const DEFAULT_HIGHEST_STAGE = 4;
 
 // The extracted KS2 core catalogue currently has one aggregate reward track:
 // Phaeton. Older product projections did not carry sourceRewardTrackIds, so keep
@@ -13,7 +14,9 @@ function nonNegativeInteger(value) {
 
 export function monsterSourceRewardTrackIds(monster) {
   return Array.isArray(monster?.sourceRewardTrackIds)
-    ? monster.sourceRewardTrackIds.filter((value) => typeof value === 'string' && value)
+    ? monster.sourceRewardTrackIds.filter(
+      (value) => typeof value === 'string' && value,
+    )
     : null;
 }
 
@@ -33,7 +36,7 @@ export function monsterCatchThreshold(monster) {
 
 export function monsterDisplayStage(
   monster,
-  highestStage = DEFAULT_HIGHEST_STAGE,
+  highestStage = HIGHEST_COMPANION_STAGE,
 ) {
   const ceiling = nonNegativeInteger(highestStage);
   const derived = nonNegativeInteger(monster?.derivedStage);

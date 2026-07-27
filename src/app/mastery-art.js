@@ -1,3 +1,8 @@
+import {
+  clampCompanionStage,
+  HIGHEST_COMPANION_STAGE,
+} from './companion-stage-contract.js';
+
 // Painted expedition art, bundled from the repository copy of the frozen
 // ks2-mastery authority recorded in provenance/ks2-mastery-art.json. Every URL
 // resolves through Vite so the built app carries the bytes locally and never
@@ -41,7 +46,7 @@ const REGION_ART = indexBy(
   (match) => `${match[1]}:${match[2]}`,
 );
 
-export const HIGHEST_MONSTER_STAGE = 4;
+export const HIGHEST_MONSTER_STAGE = HIGHEST_COMPANION_STAGE;
 
 /**
  * Resolve the painted art for one companion branch and stage. Stages clamp to
@@ -49,7 +54,7 @@ export const HIGHEST_MONSTER_STAGE = 4;
  * Monster Stage island's public path contract.
  */
 export function monsterArt(monsterId, stage = 0, branch = 'b1') {
-  const bounded = Math.max(0, Math.min(HIGHEST_MONSTER_STAGE, Math.trunc(stage) || 0));
+  const bounded = clampCompanionStage(stage);
   const resolvedBranch = branch === 'b2' ? 'b2' : 'b1';
   return MONSTER_ART.get(`${monsterId}:${resolvedBranch}:${bounded}`) ?? null;
 }

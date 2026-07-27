@@ -109,3 +109,35 @@ test('Codex found flag and Trail meadow omit unfound companions', async (t) => {
   assert.equal(meadow[1].title, 'Cometwing');
   assert.equal(meadow[1].art, mixed.roster[2].art);
 });
+
+test('Codex defaults to the first found companion but honours an explicit selection', async (t) => {
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+
+  const { buildCodex } = await vite.ssrLoadModule('/src/app/codex-model.js');
+  const roster = [
+    monster(),
+    monster({
+      rewardTrackId: 'spelling-core-glimmerbug',
+      monsterId: 'glimmerbug',
+      caught: true,
+      secureCount: 10,
+      derivedStage: 1,
+      earnedStageHighWater: 1,
+    }),
+  ];
+
+  const defaultCodex = buildCodex(roster);
+  assert.equal(defaultCodex.hero.monsterId, 'glimmerbug');
+  assert.equal(defaultCodex.hero.title, 'Glimmerbug');
+
+  const selectedCodex = buildCodex(roster, 'spelling-core-inklet');
+  assert.equal(selectedCodex.hero.monsterId, 'inklet');
+  assert.equal(selectedCodex.hero.found, false);
+  assert.equal(selectedCodex.hero.title, '???');
+});

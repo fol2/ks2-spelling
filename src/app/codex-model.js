@@ -1,3 +1,7 @@
+import {
+  companionPresentation,
+  HIGHEST_COMPANION_STAGE,
+} from './companion-presentation.js';
 import { HIGHEST_MONSTER_STAGE, monsterArt } from './mastery-art.js';
 import {
   directSecureWordTotal,
@@ -8,65 +12,6 @@ import {
   monsterIsFound,
   monsterSourceRewardTrackIds,
 } from './monster-progress-model.js';
-
-// Presentation facts about each painted companion. Growth itself always comes
-// from the learner's saved reward-track state; this table only supplies the
-// names, banding and accent the Codex needs to draw one.
-const COMPANIONS = Object.freeze({
-  inklet: Object.freeze({
-    name: 'Inklet',
-    band: 'Years 3–4',
-    accent: '#3e6fa8',
-    blurb: 'Grows as Year 3–4 spellings become secure.',
-    hint: 'Secure one Year 3–4 spelling to wake it',
-    stages: Object.freeze([
-      'Inklet Egg', 'Inklet', 'Scribbla', 'Quillorn', 'Mega Quillorn',
-    ]),
-  }),
-  glimmerbug: Object.freeze({
-    name: 'Glimmerbug',
-    band: 'Years 5–6',
-    accent: '#b43cd9',
-    blurb: 'Appears as Year 5–6 spellings settle into memory.',
-    hint: 'Secure one Year 5–6 spelling to wake it',
-    stages: Object.freeze([
-      'Glimmer Egg', 'Glimmerbug', 'Lumisprite', 'Lanternwing', 'Mega Lanternwing',
-    ]),
-  }),
-  vellhorn: Object.freeze({
-    name: 'Vellhorn',
-    band: 'Extra',
-    accent: '#2e8479',
-    blurb: 'Appears as Extra spellings stretch beyond the statutory pools.',
-    hint: 'Secure one Extra spelling to wake it',
-    stages: Object.freeze([
-      'Vellhorn Egg', 'Vellhorn', 'Mossvell', 'Cresthorn', 'Mega Cresthorn',
-    ]),
-  }),
-  phaeton: Object.freeze({
-    name: 'Phaeton',
-    band: 'Legendary',
-    accent: '#d08a2c',
-    blurb: 'Rises only when both spelling pools grow strong.',
-    hint: 'Keep both pools growing to find it',
-    stages: Object.freeze([
-      'Stardrop Egg', 'Aetherwisp', 'Cometwing', 'Starquill Owl', 'Phaeton',
-    ]),
-  }),
-});
-
-const FALLBACK = Object.freeze({
-  name: 'Companion',
-  band: 'Trail',
-  accent: '#3e6fa8',
-  blurb: 'Grows as spellings become secure.',
-  hint: 'Secure one spelling to wake it',
-  stages: Object.freeze(['Egg', 'Stage one', 'Stage two', 'Stage three', 'Stage four']),
-});
-
-function companionFacts(monsterId) {
-  return COMPANIONS[monsterId] ?? FALLBACK;
-}
 
 function catalogueNumber(index) {
   return String(index + 1).padStart(3, '0');
@@ -107,7 +52,7 @@ function undiscoveredHint(monster, facts, aggregate) {
 }
 
 function buildEntry(monster, index) {
-  const facts = companionFacts(monster.monsterId);
+  const facts = companionPresentation(monster.monsterId);
   const stage = stageOf(monster);
   const found = monsterIsFound(monster);
   const aggregate = isAggregateMonster(monster);
@@ -142,7 +87,7 @@ function buildEntry(monster, index) {
     percent: target === 0
       ? 0
       : Math.round(Math.min(1, secureCount / target) * 100),
-    count: `${secureCount} of ${target}`,
+    count: target > 0 ? `${secureCount} of ${target}` : `${secureCount} secure`,
     next: found
       ? (remaining === null
         ? 'Fully grown'
@@ -168,10 +113,13 @@ function buildEntry(monster, index) {
  */
 export function buildCodex(monsters = [], selectedRewardTrackId = null) {
   const roster = monsters.map(buildEntry);
-  const hero = roster.find(
-    (entry) => entry.rewardTrackId === selectedRewardTrackId,
-  ) ?? roster[0] ?? null;
   const found = roster.filter((entry) => entry.found);
+  const selected = roster.find(
+    (entry) => entry.rewardTrackId === selectedRewardTrackId,
+  ) ?? null;
+  // A learner opening the Codex should meet a companion they have actually
+  // found. Keep the first roster entry only as the empty-roster discovery hint.
+  const hero = selected ?? found[0] ?? roster[0] ?? null;
   return {
     roster,
     hero,
@@ -197,4 +145,10 @@ export function trailMeadowCompanions(roster = [], slotCount = Infinity) {
     ? Math.max(0, Math.trunc(slotCount))
     : Infinity;
   return roster.filter((entry) => entry.found).slice(0, limit);
+}
+
+// The companion copy authority and the art pipeline intentionally publish the
+// same authored stage count. Fail loudly in development if those drift apart.
+if (HIGHEST_COMPANION_STAGE !== HIGHEST_MONSTER_STAGE) {
+  throw new Error('companion_stage_authority_mismatch');
 }

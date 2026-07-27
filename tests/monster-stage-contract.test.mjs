@@ -29,6 +29,7 @@ test('shared companion stage contract owns the authored 0..4 range', () => {
   assert.equal(clampCompanionStage(2.8), 2);
   assert.equal(clampCompanionStage(9), 4);
   assert.equal(clampCompanionStage(Number.NaN), 0);
+  assert.equal(clampCompanionStage(Number.POSITIVE_INFINITY), 0);
 });
 
 test('stageArtUrl resolves to committed inklet art for every branch and stage', () => {
@@ -79,18 +80,33 @@ test('contextFallbackDecision picks static on context loss or reduced motion', (
   assert.equal(contextFallbackDecision(), 'live');
 });
 
-test('Monster Stage model and Phaser scene import the shared stage contract', async () => {
-  const [model, scene] = await Promise.all([
+test('all companion stage consumers import the shared contract', async () => {
+  const [model, scene, masteryArt, progress, celebrations] = await Promise.all([
     readFile(
       join(ROOT, 'src/app/monster-stage/monster-stage-model.js'),
       'utf8',
     ),
     readFile(join(ROOT, 'src/app/monster-stage/monster-scene.js'), 'utf8'),
+    readFile(join(ROOT, 'src/app/mastery-art.js'), 'utf8'),
+    readFile(join(ROOT, 'src/app/monster-progress-model.js'), 'utf8'),
+    readFile(
+      join(ROOT, 'src/app/celebrations/celebration-model.js'),
+      'utf8',
+    ),
   ]);
+
   assert.match(model, /from ['"]\.\.\/companion-stage-contract\.js['"]/u);
   assert.match(scene, /from ['"]\.\.\/companion-stage-contract\.js['"]/u);
+  assert.match(masteryArt, /from ['"]\.\/companion-stage-contract\.js['"]/u);
+  assert.match(progress, /from ['"]\.\/companion-stage-contract\.js['"]/u);
+  assert.match(
+    celebrations,
+    /from ['"]\.\.\/companion-stage-contract\.js['"]/u,
+  );
+
   assert.doesNotMatch(model, /STAGE_MAX\s*=\s*4/u);
   assert.doesNotMatch(scene, /Math\.min\(4/u);
+  assert.doesNotMatch(masteryArt, /Math\.min\(HIGHEST_MONSTER_STAGE/u);
 });
 
 test('ProductApp splits the monster stage behind React.lazy so the chunk cannot regress', async () => {

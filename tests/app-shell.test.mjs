@@ -689,20 +689,24 @@ test('the product shell consumes native safe-area insets', async () => {
   );
 });
 
-test('the Words tab keeps long bank rows under the waypoint foot', async () => {
+test('the product shell keeps the waypoint foot on the viewport while Words scroll', async () => {
   const productCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
 
   assert.match(
     productCss,
-    /\.scene-body\s*\{[^}]*z-index:\s*2;/su,
+    /\.product-app\s*\{[^}]*height:\s*100dvh;[^}]*max-height:\s*100dvh;[^}]*overflow:\s*hidden;/su,
   );
   assert.match(
     productCss,
-    /\.scene-scroll\s*\{[^}]*z-index:\s*0;[^}]*overflow-x:\s*hidden;[^}]*overflow-y:\s*auto;/su,
+    /\.product-scene\s*\{[^}]*flex:\s*1;[^}]*min-height:\s*0;[^}]*overflow:\s*hidden;/su,
   );
   assert.match(
     productCss,
-    /\.waypoint-bar\s*\{[^}]*z-index:\s*40;[^}]*isolation:\s*isolate;[^}]*transform:\s*translateZ\(0\);/su,
+    /\.scene-scroll\s*\{[^}]*flex:\s*1;[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/su,
+  );
+  assert.match(
+    productCss,
+    /\.waypoint-bar\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*0;[^}]*z-index:\s*40;/su,
   );
   assert.match(
     productCss,
@@ -711,10 +715,6 @@ test('the Words tab keeps long bank rows under the waypoint foot', async () => {
   assert.match(
     productCss,
     /\.bank-row strong\s*\{[^}]*min-width:\s*0;[^}]*overflow-wrap:\s*anywhere;/su,
-  );
-  assert.match(
-    productCss,
-    /\.bank-row small\s*\{[^}]*min-width:\s*0;[^}]*overflow-wrap:\s*anywhere;/su,
   );
 });
 

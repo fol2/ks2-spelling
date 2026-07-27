@@ -1,0 +1,74 @@
+name: Replay living Trail on latest main
+
+on:
+  push:
+    branches:
+      - agent/live-trail-meadow
+    paths:
+      - .github/workflows/live-trail-latest-main.yml
+      - scripts/apply-live-trail-current-main.mjs
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  replay:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      (github.event_name == 'push' || github.head_ref == 'agent/live-trail-meadow')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out latest-main PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/live-trail-meadow
+          fetch-depth: 0
+
+      - name: Fetch reviewed Trail snapshot
+        run: git fetch origin agent/live-trail-meadow-snapshot
+
+      - name: Copy Trail products and tests
+        run: |
+          git checkout origin/agent/live-trail-meadow-snapshot -- \
+            src/app/trail/TrailMeadow.jsx \
+            src/app/trail/trail-meadow-model.js \
+            src/app/trail/trail-meadow.css \
+            src/app/trail/trail-meadow-hardening.css \
+            tests/trail-meadow-contract.test.mjs \
+            tests/trail-meadow-model.test.mjs \
+            tests/trail-meadow-hardening.test.mjs
+
+      - name: Integrate latest ProductApp and CSS
+        run: node scripts/apply-live-trail-current-main.mjs
+
+      - name: Remove one-shot patch machinery
+        run: |
+          rm scripts/apply-live-trail-current-main.mjs
+          rm .github/workflows/live-trail-latest-main.yml
+
+      - name: Run Trail contracts
+        run: |
+          node --check src/app/trail/trail-meadow-model.js
+          node --check tests/trail-meadow-model.test.mjs
+          node --check tests/trail-meadow-contract.test.mjs
+          node --check tests/trail-meadow-hardening.test.mjs
+          node --test \
+            tests/trail-meadow-model.test.mjs \
+            tests/trail-meadow-contract.test.mjs \
+            tests/trail-meadow-hardening.test.mjs
+          git diff --check
+
+      - name: Commit clean latest-main Trail implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(trail): restore living companion meadow"
+          git push origin HEAD:agent/live-trail-meadow

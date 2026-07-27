@@ -118,10 +118,11 @@ another focus retry:
 5. Opening **End round** parks and blurs the stable field so its top-level
    `z-index` cannot intercept the modal. **Keep practising** restores it at the
    end of the same trusted click, after the dialog focus-restoration cleanup.
-6. `observeKeyboardInset()` is restored at the product root. A separate compact
-   round stylesheet consumes `--keyboard-inset` and `data-room` so the painted
-   Scribe Downs scene, answer line, listening controls and Submit remain usable
-   in the visual viewport without changing Capacitor’s `ResizeMode.None` rule.
+6. `observeKeyboardInset()` is restored at the native-iOS product root. A
+   separate compact round stylesheet consumes `--keyboard-inset` and `data-room`
+   so the painted Scribe Downs scene, answer line, listening controls and Submit
+   remain usable in the visual viewport without changing Capacitor’s
+   `ResizeMode.None` rule.
 7. Cleanup restores the original round field attributes, removes listeners,
    observers and the stable node, and clears document data attributes. React
    Strict Mode mount → cleanup → remount is supported.
@@ -149,8 +150,10 @@ The existing round form and `#product-spelling-input` remain in
 - [x] Keystrokes entered before Round mount are adopted by the controlled field
 - [x] Later input dispatches the bubbling event React expects
 - [x] Keyboard Return requests the existing form submit control
+- [x] A fast failed start releases the transparent shield for an immediate retry
 - [x] End-round modal pauses the top-level transparent field
-- [x] Keep-practising resumes after modal focus restoration
+- [x] Keep-practising and Escape resume after modal focus restoration
+- [x] A real answer-line tap reasserts first responder after app backgrounding
 - [x] Round removal restores the original field and tears down the session
 - [ ] Physical iPhone software-keyboard session (cannot be certified by Node/CI)
 

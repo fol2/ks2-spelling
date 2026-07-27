@@ -208,7 +208,6 @@ function createView() {
   return view;
 }
 
-
 test('the product root owns the public-API iOS session and visual viewport layout', async () => {
   const [productRoot, sessionSource, sessionCss] = await Promise.all([
     readFile(join(ROOT, 'src/app/ProductRoot.jsx'), 'utf8'),
@@ -217,7 +216,7 @@ test('the product root owns the public-API iOS session and visual viewport layou
   ]);
 
   assert.match(productRoot, /observeKeyboardInset\(\)/);
-  assert.match(productRoot, /Capacitor\.getPlatform\(\) === 'ios'/);
+  assert.match(productRoot, /Capacitor\.getPlatform\(\) !== 'ios'/);
   assert.match(productRoot, /installIOSDictationInputSession\(\)/);
   assert.match(productRoot, /stopInputSession\(\)[\s\S]*stopInset\(\)/);
 
@@ -228,6 +227,8 @@ test('the product root owns the public-API iOS session and visual viewport layou
   assert.match(sessionSource, /document\.addEventListener\('focusin', onDocumentFocusIn, true\)/);
   assert.match(sessionSource, /writeControlledInputValue\(roundInput, buffered, view\)/);
   assert.match(sessionSource, /pauseRoundInputSession\(\)/);
+  assert.match(sessionSource, /record\.attributeName === 'disabled'/);
+  assert.match(sessionSource, /!document\.querySelector\(EXIT_DIALOG_SELECTOR\)/);
   assert.doesNotMatch(sessionSource, /Keyboard\.show|keyboardDisplayRequiresUserAction/);
 
   assert.match(sessionCss, /--keyboard-inset/);
@@ -253,6 +254,35 @@ test('small dictation-session helpers preserve geometry and controlled input eve
   assert.equal(input.value, 'bicycle');
   assert.equal(input.dispatched.at(-1).type, 'input');
   assert.equal(input.dispatched.at(-1).bubbles, true);
+});
+
+test('a fast failed start releases the shield for an immediate retry', () => {
+  const view = createView();
+  const { document } = view;
+  const startButton = new FakeElement('button', document);
+  startButton.selectors.add('.setup-tray > .button-primary');
+  startButton.rect = { left: 20, top: 700, width: 350, height: 54 };
+  document.queries.set('.setup-tray > .button-primary', startButton);
+
+  const stop = installIOSDictationInputSession(view);
+  const sessionInput = document.body.children[0];
+  sessionInput.emit('pointerdown', { target: sessionInput });
+  sessionInput.emit('click', { target: sessionInput });
+
+  // Model React batching disabled=true and disabled=false before the observer
+  // callback. The mutation record still proves that a busy phase happened.
+  view.observer.callback([{
+    type: 'attributes',
+    attributeName: 'disabled',
+    target: startButton,
+  }]);
+  view.flushFrame();
+
+  assert.equal(document.documentElement.dataset.dictationInputSession, undefined);
+  assert.equal(document.activeElement, null);
+  assert.equal(sessionInput.style.pointerEvents, 'auto');
+  assert.equal(sessionInput.getAttribute('aria-hidden'), 'true');
+  stop();
 });
 
 test('one trusted Setup activation survives the async round mount', () => {
@@ -320,6 +350,10 @@ test('one trusted Setup activation survives the async round mount', () => {
   document.emit('scroll', { target: new FakeElement('div', document) });
   assert.equal(sessionInput.style.left, '72px', 'internal scene scrolling keeps the overlay aligned');
 
+  sessionInput.blur();
+  sessionInput.emit('pointerdown', { target: sessionInput });
+  assert.equal(document.activeElement, sessionInput, 'a real answer-line tap restores first responder');
+
   sessionInput.value = 'bicycle';
   sessionInput.emit('input', { target: sessionInput });
   assert.equal(roundInput.value, 'bicycle');
@@ -334,10 +368,25 @@ test('one trusted Setup activation survives the async round mount', () => {
 
   const endRound = new FakeElement('button', document);
   endRound.selectors.add('.round-foot button');
+  const exitDialog = new FakeElement('section', document);
+  exitDialog.selectors.add('.exit-confirmation');
+  document.queries.set('.exit-confirmation', exitDialog);
   document.emit('click', { target: endRound });
   assert.equal(document.documentElement.dataset.dictationInputSession, 'paused');
   assert.equal(document.activeElement, null);
   assert.equal(sessionInput.style.pointerEvents, 'none');
+
+  // Escape removes the dialog without a Keep button activation. Mutation
+  // reconciliation resumes because the round itself is still mounted.
+  document.queries.delete('.exit-confirmation');
+  view.observer.callback([{ type: 'childList', target: document.body }]);
+  view.flushFrame();
+  assert.equal(document.documentElement.dataset.dictationInputSession, 'round');
+  assert.equal(document.activeElement, sessionInput);
+
+  document.queries.set('.exit-confirmation', exitDialog);
+  document.emit('click', { target: endRound });
+  assert.equal(document.documentElement.dataset.dictationInputSession, 'paused');
 
   const keepRound = new FakeElement('button', document);
   keepRound.selectors.add('.exit-confirmation .button-quiet');

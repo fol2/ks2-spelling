@@ -1,42 +1,99 @@
-import { useCallback, useEffect, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
-  celebrationHeadline,
+  celebrationCopy,
+  celebrationDurationMs,
+  celebrationPalette,
   monsterCelebrationArtUrl,
 } from './celebration-model.js';
+import './celebrations.css';
 
-const AUTO_COMPLETE_MS = 2600;
-const PARTICLE_COUNT = 10;
+const PARTICLE_COUNT = 12;
 
 function prefersReducedMotion() {
   return typeof matchMedia === 'function'
     && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-function CelebrationEffects() {
+function pageIsVisible() {
+  return typeof document === 'undefined' || document.visibilityState !== 'hidden';
+}
+
+function CelebrationEffects({ finalEvolution, reducedMotion }) {
+  if (reducedMotion) return null;
   return (
-    <div className="celebration-effects" aria-hidden="true">
-      <span className="celebration-sparkle fx fx-shiny" />
-      <div className="celebration-parts">
+    <span className="celebration-effects" aria-hidden="true">
+      <span className="fx fx-shiny" />
+      {finalEvolution && <span className="fx fx-mega-aura" />}
+      <span className="celebration-parts">
         {Array.from({ length: PARTICLE_COUNT }, (_, index) => (
-          <span className="celebration-part" key={index} />
+          <span
+            className="celebration-part"
+            key={index}
+            style={{
+              '--particle-angle': `${index * (360 / PARTICLE_COUNT)}deg`,
+              '--particle-distance': `${-(72 + (index % 4) * 18)}px`,
+              '--particle-delay': `${index * 18}ms`,
+            }}
+          />
         ))}
-      </div>
-    </div>
+      </span>
+    </span>
+  );
+}
+
+function ProgressMeter({ event }) {
+  if (
+    event?.kind !== 'progress'
+    || !Number.isFinite(event.target)
+    || event.target <= 0
+  ) {
+    return null;
+  }
+  const from = Math.max(0, Math.min(100, event.percentBefore ?? 0)) / 100;
+  const to = Math.max(0, Math.min(100, event.percentAfter ?? 0)) / 100;
+  return (
+    <span
+      className="celebration-meter"
+      aria-hidden="true"
+      style={{
+        '--progress-from': from,
+        '--progress-to': to,
+      }}
+    >
+      <span className="celebration-meter-track">
+        <span className="celebration-meter-fill" />
+      </span>
+      <span className="celebration-meter-copy">
+        <strong>+{event.secureGain}</strong>
+        <span>{event.secureCount} / {event.target} secure</span>
+      </span>
+    </span>
   );
 }
 
 /**
- * Summary-only celebration overlay. Shows one event at a time; tap or
- * auto-complete (~2.6 s) advances. Reduced motion drops particles.
+ * Summary-only celebration overlay. Milestones and ordinary direct-companion
+ * progress share one bounded queue: tap to skip, or let the current card
+ * complete automatically. Backgrounding pauses the timer so a reward cannot
+ * disappear while the learner is outside the app.
  */
 export function CelebrationLayer({ events, haptics, onDone }) {
   const list = Array.isArray(events) ? events : [];
   const [index, setIndex] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion);
+  const [visible, setVisible] = useState(pageIsVisible);
+  const lastHapticKey = useRef('');
 
   useEffect(() => {
     setIndex(0);
+    lastHapticKey.current = '';
   }, [events]);
 
   useEffect(() => {
@@ -48,7 +105,20 @@ export function CelebrationLayer({ events, haptics, onDone }) {
     return () => media.removeEventListener('change', sync);
   }, []);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const sync = () => setVisible(pageIsVisible());
+    document.addEventListener('visibilitychange', sync);
+    return () => document.removeEventListener('visibilitychange', sync);
+  }, []);
+
   const event = list[index] ?? null;
+  const eventKey = event
+    ? `${event.rewardTrackId}:${event.kind}:${event.stage}:${index}`
+    : '';
+  const copy = useMemo(() => celebrationCopy(event), [event]);
+  const palette = useMemo(() => celebrationPalette(event), [event]);
+  const finalEvolution = event?.kind === 'evolve' && event?.stage >= 4;
 
   const advance = useCallback(() => {
     if (!event) return;
@@ -60,17 +130,19 @@ export function CelebrationLayer({ events, haptics, onDone }) {
   }, [event, index, list.length, onDone]);
 
   useEffect(() => {
-    if (!event) return undefined;
-    haptics?.celebrationStart();
-    const timer = setTimeout(advance, AUTO_COMPLETE_MS);
+    if (!event || !visible || lastHapticKey.current === eventKey) return;
+    lastHapticKey.current = eventKey;
+    haptics?.celebrationStart(event.kind, event.stage);
+  }, [event, eventKey, haptics, visible]);
+
+  useEffect(() => {
+    if (!event || !visible) return undefined;
+    const timer = setTimeout(advance, celebrationDurationMs(event));
     return () => clearTimeout(timer);
-    // haptics is an injected fire-and-forget adapter; identity is stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event, index, advance]);
+  }, [advance, event, visible]);
 
   if (!event || list.length === 0) return null;
 
-  const headline = celebrationHeadline(event);
   const artUrl = monsterCelebrationArtUrl(
     event.monsterId,
     event.branch,
@@ -78,14 +150,32 @@ export function CelebrationLayer({ events, haptics, onDone }) {
   );
 
   return (
-    <div className={`celebration-overlay celebration-${event.kind}`}>
+    <section
+      className={`celebration-overlay celebration-${event.kind}`}
+      data-final={finalEvolution ? 'true' : 'false'}
+      data-reduced-motion={reducedMotion ? 'true' : 'false'}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="celebration-title"
+      aria-describedby="celebration-description"
+      style={{
+        '--celebration-accent': palette.primary,
+        '--celebration-secondary': palette.secondary,
+        '--celebration-pale': palette.pale,
+      }}
+    >
       <button
         type="button"
         className="celebration-card"
         onClick={advance}
+        aria-label={`${copy.announcement} Tap to continue.`}
       >
-        {!reducedMotion && <CelebrationEffects />}
-        <figure className="celebration-figure" aria-hidden="true">
+        <span className="celebration-stage" aria-hidden="true">
+          <CelebrationEffects
+            finalEvolution={finalEvolution}
+            reducedMotion={reducedMotion}
+          />
+          <span className="celebration-halo" />
           <img
             className="celebration-art"
             src={artUrl}
@@ -94,12 +184,42 @@ export function CelebrationLayer({ events, haptics, onDone }) {
             height={640}
             decoding="async"
           />
-        </figure>
-        <p className="celebration-headline">{headline}</p>
+        </span>
+
+        <span className="celebration-copy">
+          <span className="celebration-eyebrow">{copy.eyebrow}</span>
+          <span
+            id="celebration-title"
+            className="celebration-headline"
+            role="heading"
+            aria-level="2"
+          >
+            {copy.headline}
+          </span>
+          <span className="celebration-stage-label">{copy.stageLabel}</span>
+          <span id="celebration-description" className="celebration-body">
+            {copy.body}
+          </span>
+          <ProgressMeter event={event} />
+          <span className="celebration-action">
+            <span>Tap to continue</span>
+            {list.length > 1 && (
+              <span className="celebration-position">
+                {index + 1} of {list.length}
+              </span>
+            )}
+          </span>
+        </span>
       </button>
-      <p className="celebration-status" role="status" aria-live="polite">
-        {headline}
+
+      <p
+        className="celebration-status visually-hidden"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {copy.announcement}
       </p>
-    </div>
+    </section>
   );
 }

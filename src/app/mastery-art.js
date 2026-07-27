@@ -1,4 +1,4 @@
-import { HIGHEST_COMPANION_STAGE } from './companion-presentation.js';
+import { HIGHEST_COMPANION_STAGE } from './companion-stage-contract.js';
 
 // Painted expedition art, bundled from the repository copy of the frozen
 // ks2-mastery authority recorded in provenance/ks2-mastery-art.json. Every URL

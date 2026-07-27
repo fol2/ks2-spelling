@@ -1844,6 +1844,7 @@ function CodexScreen({ monsters, onScreen }) {
                 <Suspense fallback={<img src={hero.art ?? undefined} alt="" />}>
                   <MonsterStage
                     monsterId={hero.monsterId}
+                    branch={hero.branch}
                     stage={hero.stage}
                     secureCount={hero.secureCount}
                     reducedMotion={prefersReducedMotion()}

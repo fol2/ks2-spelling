@@ -66,8 +66,41 @@ jobs:
       - name: Verify production shell SSR
         run: node --test tests/app-shell.test.mjs
 
-      - name: Verify Trail habitat model
-        run: node --test tests/trail-meadow-model.test.mjs
+      - name: Verify eggs remain nested
+        run: >-
+          node --test
+          --test-name-pattern='stage-zero companions stay grounded'
+          tests/trail-meadow-model.test.mjs
+
+      - name: Verify species locomotion mapping
+        run: >-
+          node --test
+          --test-name-pattern='mature species use their canonical'
+          tests/trail-meadow-model.test.mjs
+
+      - name: Verify stable separated habitat layout
+        run: >-
+          node --test
+          --test-name-pattern='layout is stable per learner'
+          tests/trail-meadow-model.test.mjs
+
+      - name: Verify evolution keeps companion homes
+        run: >-
+          node --test
+          --test-name-pattern='evolution matures motion and scale'
+          tests/trail-meadow-model.test.mjs
+
+      - name: Verify perspective and authored facing
+        run: >-
+          node --test
+          --test-name-pattern='perspective and authored facing'
+          tests/trail-meadow-model.test.mjs
+
+      - name: Verify hidden companions have no target
+        run: >-
+          node --test
+          --test-name-pattern='unfound or artless entries'
+          tests/trail-meadow-model.test.mjs
 
       - name: Verify Trail integration contract
         run: node --test tests/trail-meadow-contract.test.mjs

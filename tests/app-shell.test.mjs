@@ -595,7 +595,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
   const setupCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
   assert.match(
     setupCss,
-    /\.has-waypoints\s+\.setup-tray\s*\{[^}]*padding-bottom:\s*calc\(5\.25rem\s*\+\s*var\(--gutter-bottom\)\);/su,
+    /\.has-waypoints\s+\.setup-tray\s*\{[^}]*padding-bottom:\s*var\(--waypoint-clearance\);/su,
   );
 
   learningState = Object.freeze({
@@ -763,6 +763,18 @@ test('the product shell keeps the waypoint foot on the viewport while Words scro
   assert.match(
     productCss,
     /\.waypoint-bar\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*0;[^}]*z-index:\s*40;/su,
+  );
+  assert.match(
+    productCss,
+    /\.has-waypoints\s*\{[^}]*--waypoint-clearance:\s*calc\(5\.25rem\s*\+\s*var\(--gutter-bottom\)\);/su,
+  );
+  assert.match(
+    productCss,
+    /\.bank-scene\.has-waypoints\s+\.scene-body\s*\{[^}]*padding-bottom:\s*0;[^}]*overflow:\s*hidden;/su,
+  );
+  assert.match(
+    productCss,
+    /\.bank-list\s*\{[^}]*padding-bottom:\s*var\(--waypoint-clearance\);/su,
   );
   assert.match(
     productCss,

@@ -768,8 +768,14 @@ h1 {
   overscroll-behavior: contain;
 }
 
+.has-waypoints {
+  /* Shared clearance under place chrome so the absolute waypoint foot never
+     covers the last controls or list rows. Bank and Setup reuse this token. */
+  --waypoint-clearance: calc(5.25rem + var(--gutter-bottom));
+}
+
 .has-waypoints .scene-body {
-  padding-bottom: calc(5.25rem + var(--gutter-bottom));
+  padding-bottom: var(--waypoint-clearance);
 }
 
 /* --- waypoint bar -------------------------------------------------------- */
@@ -1100,12 +1106,19 @@ h1 {
   background: var(--dot, var(--line-strong));
 }
 
+/* Search + both pill rails stay pinned above the list. The list alone scrolls
+   and carries the waypoint clearance so the last rows clear the foot menu. */
+.bank-scene.has-waypoints .scene-body {
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
 .bank-list {
   display: grid;
   gap: 0.4rem;
   align-content: start;
   margin-top: 0.75rem;
-  padding-bottom: 1.5rem;
+  padding-bottom: var(--waypoint-clearance);
 }
 
 .bank-row {
@@ -2044,7 +2057,7 @@ h1 {
 /* Setup keeps its docked tray above the shared waypoint foot, same clearance
    the other place screens reserve on .scene-body. */
 .has-waypoints .setup-tray {
-  padding-bottom: calc(5.25rem + var(--gutter-bottom));
+  padding-bottom: var(--waypoint-clearance);
 }
 
 .setup-tray .label {

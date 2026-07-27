@@ -23,8 +23,8 @@ function removeRange(source, startMarker, endMarker, label) {
 let product = await readFile(PRODUCT_PATH, 'utf8');
 product = replaceOnce(
   product,
-  "import { buildCodex, trailMeadowCompanions } from './codex-model.js';\n",
-  "import { buildCodex, trailMeadowCompanions } from './codex-model.js';\n"
+  "import { buildCodex, setupExpeditionCompanion, trailMeadowCompanions } from './codex-model.js';\n",
+  "import { buildCodex, setupExpeditionCompanion, trailMeadowCompanions } from './codex-model.js';\n"
     + "import { TrailMeadow } from './trail/TrailMeadow.jsx';\n",
   'TrailMeadow import',
 );

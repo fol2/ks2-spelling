@@ -4,6 +4,7 @@ const ROUND_ACTION_SELECTOR = '.round-card button';
 const END_ROUND_SELECTOR = '.round-foot button';
 const KEEP_ROUND_SELECTOR = '.exit-confirmation .button-quiet';
 const LEAVE_ROUND_SELECTOR = '.exit-confirmation .button-danger';
+const EXIT_DIALOG_SELECTOR = '.exit-confirmation';
 const SESSION_INPUT_ID = 'ios-dictation-input-session';
 const ARM_TIMEOUT_MS = 12_000;
 
@@ -320,6 +321,12 @@ export function installIOSDictationInputSession(view = globalThis) {
   function reconcile() {
     const roundInput = document.querySelector(ROUND_INPUT_SELECTOR);
     if (roundInput) {
+      // Escape closes LeaveRoundDialog without a button click. Once the dialog is
+      // gone but the round remains, restore the spelling session as the modal's
+      // semantic equivalent of Keep practising.
+      if (paused && !document.querySelector(EXIT_DIALOG_SELECTOR)) {
+        resumeRoundInputSession();
+      }
       const changedRound = activeRoundInput !== roundInput;
       activateRoundInput(roundInput);
       if (paused) return;
@@ -367,6 +374,21 @@ export function installIOSDictationInputSession(view = globalThis) {
     });
   }
 
+  function onMutations(records = []) {
+    // React may add and remove `disabled` before one MutationObserver delivery
+    // when startRound fails quickly. Record that the busy phase happened even
+    // when the final button state is already enabled, so retry is not blocked by
+    // the armed overlay until its safety timeout.
+    if (armed && records.some((record) => (
+      record.type === 'attributes'
+      && record.attributeName === 'disabled'
+      && closestMatching(record.target, SETUP_START_SELECTOR)
+    ))) {
+      sawBusy = true;
+    }
+    scheduleReconcile();
+  }
+
   function pauseRoundInputSession() {
     if (!activeRoundInput) return;
     paused = true;
@@ -392,7 +414,13 @@ export function installIOSDictationInputSession(view = globalThis) {
   }
 
   function onSessionPointerDown() {
-    if (activeRoundInput) return;
+    if (activeRoundInput) {
+      // Backgrounding can leave the DOM focus token intact after UIKit has put
+      // the software keyboard away. A real tap on the answer line must reassert
+      // first responder ownership inside that new trusted pointer turn.
+      focusSessionInput();
+      return;
+    }
     const startButton = document.querySelector(SETUP_START_SELECTOR);
     if (isUsableControl(startButton)) armFrom(startButton, { direct: true });
   }
@@ -505,13 +533,14 @@ export function installIOSDictationInputSession(view = globalThis) {
 
   const MutationObserverConstructor = view.MutationObserver;
   const observer = typeof MutationObserverConstructor === 'function'
-    ? new MutationObserverConstructor(scheduleReconcile)
+    ? new MutationObserverConstructor(onMutations)
     : null;
   observer?.observe(body, {
     childList: true,
     subtree: true,
     attributes: true,
     attributeFilter: ['disabled'],
+    attributeOldValue: true,
   });
   reconcile();
 

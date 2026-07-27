@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { buildCodex } from './codex-model.js';
+import { buildCodex, trailMeadowCompanions } from './codex-model.js';
 import { artUrl, monsterArt, regionArt } from './mastery-art.js';
 import { autoAdvanceDelayMs } from './practice-feel.js';
 import { buildWordBank } from './word-bank-model.js';
@@ -1539,16 +1539,18 @@ function TrailScreen({
 
           <div className="meadow">
             <span className="meadow-halo" aria-hidden="true" />
-            {codex.roster.slice(0, MEADOW_SLOTS.length).map((companion, index) => (
-              <MeadowPet
-                key={companion.rewardTrackId}
-                companion={companion}
-                slot={MEADOW_SLOTS[index]}
-                roam={ROAM_VARIABLES[index]}
-                poked={poked === companion.rewardTrackId}
-                onPoke={() => setPoked(companion.rewardTrackId)}
-              />
-            ))}
+            {trailMeadowCompanions(codex.roster, MEADOW_SLOTS.length).map(
+              (companion, index) => (
+                <MeadowPet
+                  key={companion.rewardTrackId}
+                  companion={companion}
+                  slot={MEADOW_SLOTS[index]}
+                  roam={ROAM_VARIABLES[index]}
+                  poked={poked === companion.rewardTrackId}
+                  onPoke={() => setPoked(companion.rewardTrackId)}
+                />
+              ),
+            )}
           </div>
 
           {audioState.status !== 'ready' && (

@@ -471,8 +471,24 @@ test('the production shell keeps Parent progress and commerce behind the local g
     assert.match(homeHtml, new RegExp(`<span>${waypoint}</span>`));
   }
   assert.doesNotMatch(homeHtml, /buy|restore|price|commerce/i);
-  // A companion the learner has not caught is never named on the trail.
+  // Unfound companions stay off the Trail meadow — no floating egg art.
+  assert.doesNotMatch(homeHtml, /meadow-pet/);
   assert.doesNotMatch(homeHtml, /Inklet/);
+
+  learningState = Object.freeze({
+    ...learningState,
+    monsters: Object.freeze([Object.freeze({
+      ...learningState.monsters[0],
+      caught: true,
+      secureCount: 1,
+      derivedStage: 0,
+      branch: 'b1',
+    })]),
+  });
+  const trailFoundHtml = render();
+  assert.match(trailFoundHtml, /meadow-pet/);
+  assert.match(trailFoundHtml, /aria-label="Inklet"/);
+  assert.equal((trailFoundHtml.match(/class="meadow-pet /g) ?? []).length, 1);
 
   learningState = Object.freeze({
     ...learningState,

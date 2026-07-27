@@ -153,3 +153,16 @@ export function buildCodex(monsters = [], selectedRewardTrackId = null) {
     leftToFind: roster.length - found.length,
   };
 }
+
+/**
+ * Trail meadow pets mirror Codex Companions: only found creatures appear, in
+ * roster order, capped to the painted meadow slots. Unfound companions stay
+ * off the downs entirely — no floating egg art.
+ */
+export function trailMeadowCompanions(roster = [], slotCount = Infinity) {
+  if (!Array.isArray(roster)) return [];
+  const limit = Number.isFinite(slotCount)
+    ? Math.max(0, Math.trunc(slotCount))
+    : Infinity;
+  return roster.filter((entry) => entry.found).slice(0, limit);
+}

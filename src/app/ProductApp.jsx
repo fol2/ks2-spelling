@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { buildCodex, setupExpeditionCompanion, trailMeadowCompanions } from './codex-model.js';
 import { artUrl, regionArt } from './mastery-art.js';
 import { autoAdvanceDelayMs } from './practice-feel.js';
@@ -16,6 +17,7 @@ import {
   diffMonsterCelebrations,
   secureWordDelta,
 } from './celebrations/celebration-model.js';
+import { installIOSDictationInputSession } from '../platform/keyboard/ios-dictation-input-session.js';
 
 // Phaser + the living Monster Stage load only when a caught codex entry is
 // opened for a closer look.
@@ -2713,6 +2715,19 @@ export default function ProductApp({ services }) {
   const monstersAtRoundStartRef = useRef(null);
   const learningScreenRef = useRef(learningState.screen);
   const clearCelebrations = useCallback(() => setCelebrationEvents([]), []);
+
+  // Keep one stable dictation input across Setup → Practice only. Mounting it
+  // for Words / Switch / Camp left a body-level field that stopped ordinary
+  // iOS software keyboards (including typing a learner name). Depend on the
+  // boolean so Setup → Practice does not tear the node down mid-gesture.
+  const needsDictationSession = learningState.screen === 'setup'
+    || learningState.screen === 'practice';
+  useEffect(() => {
+    if (!needsDictationSession || Capacitor.getPlatform() !== 'ios') {
+      return undefined;
+    }
+    return installIOSDictationInputSession();
+  }, [needsDictationSession]);
 
   useEffect(() => {
     const profileSubscription = services.controller.subscribe(setProfileState);

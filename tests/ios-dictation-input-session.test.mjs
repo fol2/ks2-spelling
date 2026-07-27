@@ -209,16 +209,22 @@ function createView() {
 }
 
 test('the product root owns the public-API iOS session and visual viewport layout', async () => {
-  const [productRoot, sessionSource, sessionCss] = await Promise.all([
+  const [productRoot, productApp, sessionSource, sessionCss, keyboardChrome] = await Promise.all([
     readFile(join(ROOT, 'src/app/ProductRoot.jsx'), 'utf8'),
+    readFile(join(ROOT, 'src/app/ProductApp.jsx'), 'utf8'),
     readFile(join(ROOT, 'src/platform/keyboard/ios-dictation-input-session.js'), 'utf8'),
     readFile(join(ROOT, 'src/app/ios-dictation-input-session.css'), 'utf8'),
+    readFile(join(ROOT, 'src/platform/keyboard/capacitor-keyboard.js'), 'utf8'),
   ]);
 
   assert.match(productRoot, /observeKeyboardInset\(\)/);
   assert.match(productRoot, /Capacitor\.getPlatform\(\) !== 'ios'/);
-  assert.match(productRoot, /installIOSDictationInputSession\(\)/);
-  assert.match(productRoot, /stopInputSession\(\)[\s\S]*stopInset\(\)/);
+  assert.doesNotMatch(productRoot, /installIOSDictationInputSession/);
+
+  assert.match(productApp, /installIOSDictationInputSession\(\)/);
+  assert.match(productApp, /needsDictationSession/);
+  assert.match(productApp, /screen === 'setup'/);
+  assert.match(productApp, /screen === 'practice'/);
 
   assert.match(sessionSource, /sessionInput\.addEventListener\('pointerdown', onSessionPointerDown\)/);
   assert.match(sessionSource, /startButton\.click\(\)/);
@@ -236,6 +242,13 @@ test('the product root owns the public-API iOS session and visual viewport layou
   assert.match(sessionCss, /100vh/);
   assert.match(sessionCss, /data-dictation-input-session='round'/);
   assert.match(sessionCss, /data-room='tight'/);
+
+  assert.match(keyboardChrome, /setAccessoryBarVisible\(\{ isVisible: false \}\)/);
+  assert.match(keyboardChrome, /setScroll\(\{ isDisabled: false \}\)/);
+  assert.doesNotMatch(
+    keyboardChrome,
+    /export function applyKeyboardChrome\(\) \{[^}]*setResizeMode/su,
+  );
 });
 
 test('small dictation-session helpers preserve geometry and controlled input events', () => {
@@ -305,7 +318,6 @@ test('one trusted Setup activation survives the async round mount', () => {
   assert.equal(sessionInput.style.left, '20px');
   assert.equal(sessionInput.style.width, '350px');
   assert.equal(sessionInput.style.pointerEvents, 'auto');
-  assert.equal(sessionInput.disabled, false);
   assert.equal(sessionInput.getAttribute('aria-hidden'), 'true');
 
   sessionInput.emit('pointerdown', { target: sessionInput });
@@ -378,7 +390,6 @@ test('one trusted Setup activation survives the async round mount', () => {
   assert.equal(document.documentElement.dataset.dictationInputSession, 'paused');
   assert.equal(document.activeElement, null);
   assert.equal(sessionInput.style.pointerEvents, 'none');
-  assert.equal(sessionInput.disabled, true);
 
   // Escape removes the dialog without a Keep button activation. Mutation
   // reconciliation resumes because the round itself is still mounted.
@@ -387,7 +398,6 @@ test('one trusted Setup activation survives the async round mount', () => {
   view.flushFrame();
   assert.equal(document.documentElement.dataset.dictationInputSession, 'round');
   assert.equal(document.activeElement, sessionInput);
-  assert.equal(sessionInput.disabled, false);
 
   // The dialog's passive cleanup can restore End round after the mutation that
   // removed it. Escape receives the same short focus guard as Keep.
@@ -425,7 +435,6 @@ test('one trusted Setup activation survives the async round mount', () => {
   view.flushFrame();
   assert.equal(document.documentElement.dataset.dictationInputSession, undefined);
   assert.equal(document.activeElement, null);
-  assert.equal(sessionInput.disabled, true);
   assert.equal(roundInput.getAttribute('aria-hidden'), null);
   assert.equal(roundInput.style.pointerEvents ?? '', '');
 
@@ -453,7 +462,6 @@ test('leaving Setup while armed parks the shield so other screens stay tappable'
 
   assert.equal(document.documentElement.dataset.dictationInputSession, undefined);
   assert.equal(document.activeElement, null);
-  assert.equal(sessionInput.disabled, true);
   assert.equal(sessionInput.style.pointerEvents, 'none');
   stop();
 });

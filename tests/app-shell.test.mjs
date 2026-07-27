@@ -591,12 +591,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
   const ownedSetupHtml = render();
   assert.match(ownedSetupHtml, /glimmerbug-b1-2\.640\.webp/);
   assert.doesNotMatch(ownedSetupHtml, /inklet-b1-3\.640\.webp/);
-
-  const setupCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
-  assert.match(
-    setupCss,
-    /\.has-waypoints\s+\.setup-tray\s*\{[^}]*padding-bottom:\s*var\(--waypoint-clearance\);/su,
-  );
+  assert.match(ownedSetupHtml, /aria-label="Places on the trail"/);
 
   learningState = Object.freeze({
     ...learningState,
@@ -760,21 +755,19 @@ test('the product shell keeps the waypoint foot on the viewport while Words scro
     productCss,
     /\.scene-scroll\s*\{[^}]*flex:\s*1;[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/su,
   );
+  // Scene owns the foot in normal flex flow — no absolute overlay or clearance tokens.
   assert.match(
     productCss,
-    /\.waypoint-bar\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*0;[^}]*z-index:\s*40;/su,
+    /\.waypoint-bar\s*\{[^}]*position:\s*relative;[^}]*flex:\s*none;/su,
+  );
+  assert.doesNotMatch(productCss, /--waypoint-clearance/);
+  assert.doesNotMatch(
+    productCss,
+    /\.waypoint-bar\s*\{[^}]*position:\s*absolute;/su,
   );
   assert.match(
     productCss,
-    /\.has-waypoints\s*\{[^}]*--waypoint-clearance:\s*calc\(5\.25rem\s*\+\s*var\(--gutter-bottom\)\);/su,
-  );
-  assert.match(
-    productCss,
-    /\.bank-scene\.has-waypoints\s+\.scene-body\s*\{[^}]*padding-bottom:\s*0;[^}]*overflow:\s*hidden;/su,
-  );
-  assert.match(
-    productCss,
-    /\.bank-list\s*\{[^}]*padding-bottom:\s*var\(--waypoint-clearance\);/su,
+    /\.bank-list\s*\{[^}]*padding-bottom:\s*1\.5rem;/su,
   );
   assert.match(
     productCss,

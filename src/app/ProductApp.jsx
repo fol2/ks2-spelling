@@ -144,7 +144,8 @@ function initialOf(nickname) {
 
 /**
  * One painted scene. `plate` and `veil` drive the backdrop through custom
- * properties so every screen mixes the same recipe rather than its own.
+ * properties so every screen mixes the same recipe rather than its own. When
+ * `waypoints` is set, this scene owns the place foot in normal document flow.
  */
 function Scene({
   className = '',
@@ -154,6 +155,8 @@ function Scene({
   plateOpacity,
   veil,
   waypoints = false,
+  waypointScreen,
+  onScreen,
   children,
   ...rest
 }) {
@@ -176,6 +179,9 @@ function Scene({
       {plate && <span className="scene-plate" />}
       {veil && <span className="scene-veil" />}
       {children}
+      {waypoints && (
+        <WaypointBar screen={waypointScreen} onScreen={onScreen} />
+      )}
     </div>
   );
 }
@@ -1493,6 +1499,8 @@ function TrailScreen({
         className="trail-scene"
         dusk
         waypoints
+        waypointScreen="home"
+        onScreen={onScreen}
         plate={regionArt(REGION, 'a1')}
         veil={[
           'radial-gradient(110% 58% at 66% 30%,rgba(8,12,18,.02),rgba(8,12,18,.54) 58%,rgba(8,12,18,.92))',
@@ -1579,7 +1587,6 @@ function TrailScreen({
             <p>Smart Review · pick your length</p>
           </div>
         </div>
-        <WaypointBar screen="home" onScreen={onScreen} />
       </Scene>
     </main>
   );
@@ -1607,6 +1614,8 @@ function WordBankScreen({ progress, onScreen, onStart }) {
       <Scene
         className="bank-scene"
         waypoints
+        waypointScreen="progress"
+        onScreen={onScreen}
         plate={regionArt(REGION, 'a1')}
         plateY="30%"
         veil="linear-gradient(180deg,rgba(246,245,241,.44),rgba(246,245,241,.9) 42%,#f8f5ec 62%)"
@@ -1726,7 +1735,6 @@ function WordBankScreen({ progress, onScreen, onStart }) {
             </ul>
           </div>
         </div>
-        <WaypointBar screen="progress" onScreen={onScreen} />
       </Scene>
     </main>
   );
@@ -1747,6 +1755,8 @@ function CodexScreen({ monsters, onScreen }) {
         className="codex-scene"
         dusk
         waypoints
+        waypointScreen="monster"
+        onScreen={onScreen}
         plate={regionArt(REGION, 'd3')}
         plateOpacity={0.42}
         veil="linear-gradient(180deg,rgba(9,15,23,.8) 0%,rgba(9,15,23,.5) 32%,rgba(9,15,23,.94) 100%)"
@@ -1901,7 +1911,6 @@ function CodexScreen({ monsters, onScreen }) {
             </button>
           )}
         </div>
-        <WaypointBar screen="monster" onScreen={onScreen} />
       </Scene>
     </main>
   );
@@ -1917,6 +1926,8 @@ function CampScreen({ camp, revisitsWaiting, onScreen }) {
       <Scene
         className="camp-scene"
         waypoints
+        waypointScreen="camp"
+        onScreen={onScreen}
         plate={regionArt(REGION, 'd1')}
         veil="linear-gradient(180deg,rgba(248,245,236,.34) 0%,rgba(248,245,236,.2) 26%,rgba(248,245,236,.66) 68%,rgba(248,245,236,.9) 100%)"
       >
@@ -1977,7 +1988,6 @@ function CampScreen({ camp, revisitsWaiting, onScreen }) {
             </button>
           </section>
         </div>
-        <WaypointBar screen="camp" onScreen={onScreen} />
       </Scene>
     </main>
   );
@@ -2041,6 +2051,8 @@ function SetupScreen({
         className="setup-scene"
         dusk
         waypoints
+        waypointScreen="home"
+        onScreen={onScreen}
         plate={regionArt(REGION, active.plate)}
         plateY="32%"
         veil={[
@@ -2182,7 +2194,6 @@ function SetupScreen({
             </p>
           )}
         </div>
-        <WaypointBar screen="home" onScreen={onScreen} />
       </Scene>
     </main>
   );

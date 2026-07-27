@@ -757,8 +757,8 @@ h1 {
 }
 
 .scene-scroll {
-  /* The only vertical scrollport on place screens. Long Words lists scroll
-     here while the waypoint foot stays pinned to the shell bottom. */
+  /* The only vertical scrollport on place screens. The Scene-owned foot sits
+     below this column in normal flow, so the list never needs foot padding. */
   position: relative;
   z-index: 0;
   flex: 1;
@@ -768,32 +768,16 @@ h1 {
   overscroll-behavior: contain;
 }
 
-.has-waypoints {
-  /* Shared clearance under place chrome so the absolute waypoint foot never
-     covers the last controls or list rows. Bank and Setup reuse this token. */
-  --waypoint-clearance: calc(5.25rem + var(--gutter-bottom));
-}
-
-.has-waypoints .scene-body {
-  padding-bottom: var(--waypoint-clearance);
-}
-
 /* --- waypoint bar -------------------------------------------------------- */
 
 .waypoint-bar {
-  /* The foot is the home-indicator strip. The waypoints themselves sit above
-     it, but the selected tab is drawn as a card attached to the screen edge, so
-     it has to reach through the foot rather than stop short of it. Pinned to
-     the viewport-locked .product-scene, not to the end of a tall word list. */
+  /* Scene owns this foot as the last flex child. Safe-area padding keeps the
+     labels above the home indicator; the selected tab still reaches the edge. */
   --waypoint-foot: max(0.5rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 40;
-  isolation: isolate;
-  transform: translateZ(0);
+  position: relative;
+  z-index: 3;
+  flex: none;
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
@@ -1106,19 +1090,12 @@ h1 {
   background: var(--dot, var(--line-strong));
 }
 
-/* Search + both pill rails stay pinned above the list. The list alone scrolls
-   and carries the waypoint clearance so the last rows clear the foot menu. */
-.bank-scene.has-waypoints .scene-body {
-  padding-bottom: 0;
-  overflow: hidden;
-}
-
 .bank-list {
   display: grid;
   gap: 0.4rem;
   align-content: start;
   margin-top: 0.75rem;
-  padding-bottom: var(--waypoint-clearance);
+  padding-bottom: 1.5rem;
 }
 
 .bank-row {
@@ -2052,12 +2029,6 @@ h1 {
   );
   backdrop-filter: blur(16px) saturate(1.05);
   -webkit-backdrop-filter: blur(16px) saturate(1.05);
-}
-
-/* Setup keeps its docked tray above the shared waypoint foot, same clearance
-   the other place screens reserve on .scene-body. */
-.has-waypoints .setup-tray {
-  padding-bottom: var(--waypoint-clearance);
 }
 
 .setup-tray .label {

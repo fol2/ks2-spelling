@@ -1,4 +1,10 @@
 import {
+  companionPalette,
+  companionPresentation,
+  companionStageName,
+  HIGHEST_COMPANION_STAGE,
+} from '../companion-presentation.js';
+import {
   isAggregateMonster,
   monsterDisplayStage,
   monsterIsFound,
@@ -6,75 +12,8 @@ import {
 
 /** Pure diff and copy helpers for summary-only monster celebration events. */
 
-const HIGHEST_STAGE = 4;
-const DEFAULT_PRESENTATION = Object.freeze({
-  name: 'Companion',
-  accent: '#3e6fa8',
-  secondary: '#9fc1e8',
-  pale: '#e8f0fa',
-  stages: Object.freeze([
-    'Companion Egg',
-    'Companion',
-    'Growing companion',
-    'Strong companion',
-    'Grand companion',
-  ]),
-});
-
-const MONSTER_PRESENTATION = Object.freeze({
-  inklet: Object.freeze({
-    name: 'Inklet',
-    accent: '#3e6fa8',
-    secondary: '#9fc1e8',
-    pale: '#e8f0fa',
-    stages: Object.freeze([
-      'Inklet Egg',
-      'Inklet',
-      'Scribbla',
-      'Quillorn',
-      'Mega Quillorn',
-    ]),
-  }),
-  glimmerbug: Object.freeze({
-    name: 'Glimmerbug',
-    accent: '#b43cd9',
-    secondary: '#eab3d7',
-    pale: '#f8e7f1',
-    stages: Object.freeze([
-      'Glimmer Egg',
-      'Glimmerbug',
-      'Lumisprite',
-      'Lanternwing',
-      'Mega Lanternwing',
-    ]),
-  }),
-  vellhorn: Object.freeze({
-    name: 'Vellhorn',
-    accent: '#2e8479',
-    secondary: '#8fd6c7',
-    pale: '#e5f3ef',
-    stages: Object.freeze([
-      'Vellhorn Egg',
-      'Vellhorn',
-      'Mossvell',
-      'Cresthorn',
-      'Mega Cresthorn',
-    ]),
-  }),
-  phaeton: Object.freeze({
-    name: 'Phaeton',
-    accent: '#d08a2c',
-    secondary: '#e8c45a',
-    pale: '#f6eed7',
-    stages: Object.freeze([
-      'Stardrop Egg',
-      'Aetherwisp',
-      'Cometwing',
-      'Starquill Owl',
-      'Phaeton',
-    ]),
-  }),
-});
+const HIGHEST_STAGE = HIGHEST_COMPANION_STAGE;
+const CANONICAL_MONSTER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 
 function trackMap(monsters) {
   const map = new Map();
@@ -84,10 +23,6 @@ function trackMap(monsters) {
     map.set(monster.rewardTrackId, monster);
   }
   return map;
-}
-
-function presentationFor(monsterId) {
-  return MONSTER_PRESENTATION[monsterId] ?? DEFAULT_PRESENTATION;
 }
 
 function nonNegativeInteger(value) {
@@ -138,8 +73,9 @@ function progressEvent(beforeMonster, afterMonster) {
 
 /**
  * Diff two monster projection arrays into ordered celebration events.
- * Missing tracks on either side are ignored. When both caught and evolve
- * fire on the same track, caught comes first. Stage jumps emit one evolve.
+ * Missing tracks on either side are ignored. When both caught and evolve fire
+ * on the same transition, the egg reveal comes first and the evolved form
+ * follows. Stage jumps emit one evolution moment at the final earned stage.
  *
  * A direct companion that gained secure evidence without crossing a milestone
  * receives one compact progress moment. Aggregate tracks such as Phaeton reuse
@@ -167,7 +103,9 @@ export function diffMonsterCelebrations(before, after) {
         kind: 'caught',
         monsterId,
         branch,
-        stage,
+        // A combined catch/evolution transition first reveals the form the
+        // learner caught, rather than showing the final art twice in a row.
+        stage: evolvedNow ? beforeStage : stage,
         rewardTrackId,
       });
     }
@@ -187,6 +125,7 @@ export function diffMonsterCelebrations(before, after) {
       !caughtNow
       && !evolvedNow
       && gained > 0
+      && monsterIsFound(afterMonster)
       && !isAggregateMonster(afterMonster)
       && !isAggregateMonster(beforeMonster)
     ) {
@@ -221,25 +160,15 @@ export function secureWordDelta(before, after) {
 }
 
 export function monsterDisplayName(monsterId) {
-  return presentationFor(monsterId).name;
+  return companionPresentation(monsterId).name;
 }
 
 export function monsterStageName(monsterId, stage) {
-  const bounded = Math.max(
-    0,
-    Math.min(HIGHEST_STAGE, Number.isFinite(stage) ? Math.trunc(stage) : 0),
-  );
-  return presentationFor(monsterId).stages[bounded]
-    ?? `${monsterDisplayName(monsterId)} stage ${bounded}`;
+  return companionStageName(monsterId, stage);
 }
 
 export function celebrationPalette(event) {
-  const presentation = presentationFor(event?.monsterId);
-  return {
-    primary: presentation.accent,
-    secondary: presentation.secondary,
-    pale: presentation.pale,
-  };
+  return companionPalette(event?.monsterId);
 }
 
 function secureGainCopy(value) {
@@ -254,21 +183,35 @@ function progressNextCopy(event) {
   const threshold = nonNegativeInteger(event?.nextThreshold);
   const current = nonNegativeInteger(event?.secureCount);
   const remaining = Math.max(0, threshold - current);
-  const nextName = monsterStageName(event?.monsterId, nonNegativeInteger(event?.stage) + 1);
+  const nextName = monsterStageName(
+    event?.monsterId,
+    nonNegativeInteger(event?.stage) + 1,
+  );
   if (remaining === 0) return `${nextName} is ready.`;
   return remaining === 1
     ? `1 more secure spelling to ${nextName}.`
     : `${remaining} more secure spellings to ${nextName}.`;
 }
 
+export function celebrationProgressMeterCopy(event) {
+  const count = nonNegativeInteger(event?.secureCount);
+  const target = nonNegativeInteger(event?.target);
+  if (target <= 0) return `${count} secure`;
+  if (nonNegativeInteger(event?.stage) >= HIGHEST_STAGE && count >= target) {
+    return `${count} secure · fully evolved`;
+  }
+  return `${count} / ${target} secure`;
+}
+
 export function celebrationCopy(event) {
-  const name = monsterDisplayName(event?.monsterId);
+  const presentation = companionPresentation(event?.monsterId);
+  const name = presentation.name;
   const stageName = monsterStageName(event?.monsterId, event?.stage);
   const finalEvolution = nonNegativeInteger(event?.stage) >= HIGHEST_STAGE;
 
   if (event?.kind === 'caught') {
     return {
-      eyebrow: event?.monsterId === 'phaeton'
+      eyebrow: presentation.legendary
         ? 'Legendary companion found'
         : 'New companion',
       headline: `${name} joined your trail!`,
@@ -296,7 +239,7 @@ export function celebrationCopy(event) {
     return {
       eyebrow: 'Companion progress',
       headline: `${name} grew stronger`,
-      stageLabel: `${stageName} · ${nonNegativeInteger(event.secureCount)} of ${nonNegativeInteger(event.target)} secure`,
+      stageLabel: `${stageName} · ${celebrationProgressMeterCopy(event)}`,
       body: `${gain}. ${next}`,
       announcement: `${name} gained ${nonNegativeInteger(event.secureGain)} secure ${event.secureGain === 1 ? 'spelling' : 'spellings'}. ${next}`,
     };
@@ -324,14 +267,28 @@ export function celebrationDurationMs(event) {
   return 3000;
 }
 
+/** Stable identity for haptics and remaining-time bookkeeping. */
+export function celebrationEventKey(event, index = 0) {
+  if (!event) return '';
+  return [
+    event.rewardTrackId ?? '',
+    event.kind ?? '',
+    event.branch ?? '',
+    nonNegativeInteger(event.stage),
+    nonNegativeInteger(event.secureCount),
+    nonNegativeInteger(event.secureGain),
+    nonNegativeInteger(index),
+  ].join(':');
+}
+
 export function monsterCelebrationArtUrl(monsterId, branch, stage) {
-  const resolvedMonsterId = typeof monsterId === 'string' && monsterId
-    ? monsterId
-    : 'inklet';
+  if (typeof monsterId !== 'string' || !CANONICAL_MONSTER_ID.test(monsterId)) {
+    return null;
+  }
   const resolvedBranch = branch === 'b2' ? 'b2' : 'b1';
   const resolvedStage = Math.max(
     0,
     Math.min(HIGHEST_STAGE, Number.isFinite(stage) ? Math.trunc(stage) : 0),
   );
-  return `/mastery-art/monsters/${resolvedMonsterId}/${resolvedBranch}/${resolvedMonsterId}-${resolvedBranch}-${resolvedStage}.640.webp`;
+  return `/mastery-art/monsters/${monsterId}/${resolvedBranch}/${monsterId}-${resolvedBranch}-${resolvedStage}.640.webp`;
 }

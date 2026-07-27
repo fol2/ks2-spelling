@@ -1,0 +1,533 @@
+/*
+ * Summary-only companion celebrations.
+ *
+ * Caught/evolve cards are full milestone moments; ordinary direct-companion
+ * progress uses the same shell with a quieter scale and a count meter. All
+ * animation disappears under reduced motion while the complete text card stays.
+ */
+
+.celebration-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding:
+    max(1rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+    max(1rem, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)))
+    max(1rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))
+    max(1rem, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+  overflow: hidden;
+  background:
+    radial-gradient(
+      70% 44% at 50% 32%,
+      color-mix(in srgb, var(--celebration-accent) 28%, transparent),
+      transparent 78%
+    ),
+    rgb(4 8 13 / 88%);
+  backdrop-filter: blur(12px) saturate(0.92);
+  -webkit-backdrop-filter: blur(12px) saturate(0.92);
+  animation: celebrationScrimIn 240ms ease-out both;
+  isolation: isolate;
+}
+
+.celebration-card {
+  position: relative;
+  display: grid;
+  width: min(100%, 27rem);
+  max-height: calc(
+    100dvh
+    - max(1rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+    - max(1rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))
+    - 2rem
+  );
+  grid-template-rows: minmax(12rem, 46dvh) auto;
+  overflow: auto;
+  border: 1px solid color-mix(
+    in srgb,
+    var(--celebration-secondary) 56%,
+    rgb(255 255 255 / 18%)
+  );
+  border-radius: 2rem;
+  padding: 0;
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--celebration-pale) 96%, white),
+      #fffaf0 64%,
+      #efe3c9
+    );
+  color: #172636;
+  box-shadow:
+    0 36px 90px -34px rgb(0 0 0 / 96%),
+    0 0 0 1px rgb(255 255 255 / 18%),
+    inset 0 1px 0 rgb(255 255 255 / 90%);
+  text-align: left;
+  animation: celebrationCardIn 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.celebration-card:focus-visible {
+  outline: 4px solid var(--focus);
+  outline-offset: 5px;
+}
+
+.celebration-stage {
+  position: relative;
+  display: grid;
+  min-height: 12rem;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 50% 58%,
+      color-mix(in srgb, var(--celebration-pale) 88%, white) 0 22%,
+      color-mix(in srgb, var(--celebration-accent) 22%, transparent) 52%,
+      transparent 75%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--celebration-accent) 15%, #0c1723),
+      #0b111a
+    );
+}
+
+.celebration-halo {
+  position: absolute;
+  width: min(19rem, 78vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle,
+      color-mix(in srgb, var(--celebration-secondary) 72%, white) 0 5%,
+      color-mix(in srgb, var(--celebration-accent) 42%, transparent) 34%,
+      transparent 70%
+    );
+  filter: blur(3px);
+  opacity: 0.82;
+  animation: celebrationHalo 2.8s ease-in-out infinite;
+}
+
+.celebration-art {
+  position: relative;
+  z-index: 3;
+  display: block;
+  width: min(18rem, 72vw);
+  height: min(18rem, 72vw);
+  max-height: 42dvh;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 24px 25px rgb(0 0 0 / 66%))
+    drop-shadow(0 0 22px color-mix(in srgb, var(--celebration-accent) 34%, transparent));
+  animation: celebrationPetIn 720ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
+  transform-origin: 50% 84%;
+}
+
+.celebration-progress .celebration-stage {
+  min-height: 10rem;
+}
+
+.celebration-progress .celebration-art {
+  width: min(14rem, 58vw);
+  height: min(14rem, 58vw);
+  animation:
+    celebrationPetIn 560ms cubic-bezier(0.16, 1, 0.3, 1) 80ms both,
+    celebrationPetFloat 3.6s ease-in-out 720ms infinite;
+}
+
+.celebration-caught .celebration-art {
+  animation:
+    celebrationPetIn 720ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both,
+    celebrationCaughtBounce 900ms cubic-bezier(0.2, 0.9, 0.2, 1) 780ms both;
+}
+
+.celebration-evolve .celebration-stage::after {
+  position: absolute;
+  inset: -30%;
+  z-index: 2;
+  background:
+    conic-gradient(
+      from 0deg,
+      transparent 0 12deg,
+      color-mix(in srgb, var(--celebration-secondary) 70%, transparent) 12deg 18deg,
+      transparent 18deg 42deg
+    );
+  opacity: 0.6;
+  animation: celebrationRays 10s linear infinite;
+  content: '';
+  pointer-events: none;
+}
+
+.celebration-evolve .celebration-art {
+  animation:
+    celebrationEvolutionFlash 860ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both,
+    celebrationPetFloat 4.2s ease-in-out 1.05s infinite;
+}
+
+.celebration-overlay[data-final='true'] .celebration-stage::after {
+  opacity: 0.88;
+  animation-duration: 7s;
+}
+
+.celebration-overlay[data-final='true'] .celebration-card {
+  border-color: color-mix(in srgb, var(--celebration-secondary) 78%, white);
+  box-shadow:
+    0 40px 100px -30px rgb(0 0 0 / 98%),
+    0 0 38px color-mix(in srgb, var(--celebration-accent) 36%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 95%);
+}
+
+.celebration-effects,
+.celebration-effects .fx,
+.celebration-parts {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.celebration-effects .fx-shiny {
+  background:
+    radial-gradient(
+      circle at 30% 28%,
+      rgb(255 255 255 / 62%) 0 1.5%,
+      transparent 5%
+    ),
+    radial-gradient(
+      circle at 70% 62%,
+      rgb(255 255 255 / 48%) 0 2%,
+      transparent 7%
+    ),
+    radial-gradient(
+      circle at 50% 50%,
+      color-mix(in srgb, var(--celebration-secondary) 38%, transparent),
+      transparent 67%
+    );
+  background-blend-mode: screen, screen, soft-light;
+  mix-blend-mode: screen;
+  opacity: 0.68;
+  animation: celebrationTwinkle 3.2s ease-in-out infinite;
+}
+
+.celebration-effects .fx-mega-aura {
+  inset: -22%;
+  background:
+    conic-gradient(
+      from 0deg,
+      var(--celebration-secondary) 0deg,
+      transparent 18deg,
+      var(--celebration-accent) 36deg,
+      transparent 54deg,
+      var(--celebration-secondary) 72deg,
+      transparent 90deg,
+      var(--celebration-accent) 108deg,
+      transparent 126deg,
+      var(--celebration-secondary) 144deg,
+      transparent 162deg,
+      var(--celebration-accent) 180deg,
+      transparent 198deg,
+      var(--celebration-secondary) 216deg,
+      transparent 234deg,
+      var(--celebration-accent) 252deg,
+      transparent 270deg,
+      var(--celebration-secondary) 288deg,
+      transparent 306deg,
+      var(--celebration-accent) 324deg,
+      transparent 342deg,
+      var(--celebration-secondary) 360deg
+    );
+  mask-image: radial-gradient(circle, transparent 36%, black 62%, transparent 88%);
+  -webkit-mask-image: radial-gradient(circle, transparent 36%, black 62%, transparent 88%);
+  mix-blend-mode: screen;
+  opacity: 0.4;
+  animation: celebrationRays 12s linear infinite;
+}
+
+.celebration-part {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 50% 50% 50% 12%;
+  background: var(--celebration-secondary);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--celebration-secondary) 72%, transparent);
+  opacity: 0;
+  animation: celebrationBurst 980ms cubic-bezier(0.18, 0.75, 0.25, 1) var(--particle-delay) both;
+}
+
+.celebration-part:nth-child(3n + 2) {
+  width: 0.34rem;
+  height: 0.34rem;
+  background: white;
+}
+
+.celebration-part:nth-child(3n) {
+  background: var(--celebration-accent);
+}
+
+.celebration-copy {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  gap: 0.45rem;
+  padding: 1.2rem 1.25rem 1.1rem;
+}
+
+.celebration-eyebrow {
+  color: color-mix(in srgb, var(--celebration-accent) 80%, #27313b);
+  font-family: var(--sans);
+  font-size: 0.62rem;
+  font-weight: 850;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.celebration-headline {
+  font-family: var(--serif);
+  font-size: clamp(1.75rem, 8vw, 2.45rem);
+  font-weight: 600;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.celebration-stage-label {
+  color: color-mix(in srgb, var(--celebration-accent) 72%, #27313b);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.celebration-body {
+  color: rgb(23 38 54 / 72%);
+  font-size: 0.92rem;
+  line-height: 1.48;
+  text-wrap: pretty;
+}
+
+.celebration-meter {
+  display: grid;
+  gap: 0.38rem;
+  margin-top: 0.35rem;
+  border-top: 1px solid rgb(23 38 54 / 12%);
+  padding-top: 0.75rem;
+}
+
+.celebration-meter-track {
+  height: 0.55rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(23 38 54 / 12%);
+}
+
+.celebration-meter-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      90deg,
+      var(--celebration-accent),
+      var(--celebration-secondary)
+    );
+  box-shadow: 0 0 10px color-mix(in srgb, var(--celebration-accent) 38%, transparent);
+  transform: scaleX(var(--progress-to));
+  transform-origin: left;
+  animation: celebrationProgress 760ms cubic-bezier(0.16, 1, 0.3, 1) 420ms both;
+}
+
+.celebration-meter-copy {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.celebration-meter-copy strong {
+  color: color-mix(in srgb, var(--celebration-accent) 82%, #162535);
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 650;
+}
+
+.celebration-meter-copy span {
+  color: rgb(23 38 54 / 58%);
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.celebration-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-top: 0.35rem;
+  color: rgb(23 38 54 / 48%);
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.celebration-action::before {
+  width: 0.38rem;
+  height: 0.38rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--celebration-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--celebration-accent) 14%, transparent);
+  content: '';
+}
+
+.celebration-action > span:first-child {
+  margin-right: auto;
+}
+
+.celebration-position {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes celebrationScrimIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes celebrationCardIn {
+  0% { opacity: 0; transform: translateY(26px) scale(0.95); }
+  70% { opacity: 1; transform: translateY(-2px) scale(1.008); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes celebrationPetIn {
+  from { opacity: 0; transform: translateY(22px) scale(0.76); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes celebrationCaughtBounce {
+  0% { transform: translateY(0) scale(1); }
+  42% { transform: translateY(-10px) scale(1.045, 0.96); }
+  72% { transform: translateY(2px) scale(0.985, 1.02); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes celebrationEvolutionFlash {
+  0% {
+    opacity: 0;
+    filter:
+      brightness(2.4)
+      saturate(0.2)
+      drop-shadow(0 0 42px white);
+    transform: scale(0.58) rotate(-4deg);
+  }
+  48% {
+    opacity: 1;
+    filter:
+      brightness(1.7)
+      saturate(0.65)
+      drop-shadow(0 0 54px var(--celebration-secondary));
+    transform: scale(1.08) rotate(1deg);
+  }
+  100% {
+    opacity: 1;
+    filter:
+      brightness(1)
+      saturate(1)
+      drop-shadow(0 24px 25px rgb(0 0 0 / 66%));
+    transform: scale(1) rotate(0);
+  }
+}
+
+@keyframes celebrationPetFloat {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-6px) rotate(0.7deg); }
+}
+
+@keyframes celebrationHalo {
+  0%, 100% { opacity: 0.62; transform: scale(0.94); }
+  50% { opacity: 0.94; transform: scale(1.04); }
+}
+
+@keyframes celebrationTwinkle {
+  0%, 100% { opacity: 0.48; transform: scale(1); }
+  50% { opacity: 0.82; transform: scale(1.045); }
+}
+
+@keyframes celebrationRays {
+  from { transform: rotate(0); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes celebrationBurst {
+  0% {
+    opacity: 0;
+    transform:
+      rotate(var(--particle-angle))
+      translateY(-0.6rem)
+      scale(0.2);
+  }
+  18% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform:
+      rotate(var(--particle-angle))
+      translateY(var(--particle-distance))
+      scale(1.1);
+  }
+}
+
+@keyframes celebrationProgress {
+  from { transform: scaleX(var(--progress-from)); }
+  to { transform: scaleX(var(--progress-to)); }
+}
+
+@media (max-height: 42rem) {
+  .celebration-card {
+    grid-template-columns: minmax(9rem, 0.8fr) minmax(12rem, 1fr);
+    grid-template-rows: none;
+    width: min(100%, 42rem);
+  }
+
+  .celebration-stage,
+  .celebration-progress .celebration-stage {
+    min-height: 0;
+  }
+
+  .celebration-art,
+  .celebration-progress .celebration-art {
+    width: min(13rem, 34vw);
+    height: min(13rem, 34vw);
+    max-height: 76dvh;
+  }
+
+  .celebration-copy {
+    align-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .celebration-overlay,
+  .celebration-card,
+  .celebration-halo,
+  .celebration-art,
+  .celebration-evolve .celebration-stage::after,
+  .celebration-effects .fx-shiny,
+  .celebration-effects .fx-mega-aura,
+  .celebration-part,
+  .celebration-meter-fill {
+    animation: none !important;
+  }
+
+  .celebration-meter-fill {
+    transform: scaleX(var(--progress-to));
+  }
+}
+
+.celebration-overlay[data-reduced-motion='true'] .celebration-effects {
+  display: none;
+}

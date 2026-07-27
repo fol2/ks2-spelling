@@ -1,4 +1,4 @@
-name: One-shot Trail fast-lane diagnostic
+name: Finalise living Trail branch
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  diagnose:
+  finalise:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -19,34 +19,55 @@ jobs:
           ref: agent/live-trail-meadow
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24.18.0
-          cache: npm
+      - name: Fetch latest main
+        run: git fetch origin main
 
-      - name: Install exact dependencies
-        run: npm ci --silent
-
-      - name: Capture fast-lane failure
+      - name: Restore governed CI and update the Trail SSR contract
         run: |
-          set +e
-          npm run test:fast > /tmp/trail-fast.log 2>&1
-          status=$?
-          set -e
-          {
-            echo "exit_status=$status"
-            echo
-            grep -n -E 'not ok|AssertionError|ERR_|Error:|failure|fail [0-9]+' /tmp/trail-fast.log | tail -n 120 || true
-            echo
-            echo '--- tail ---'
-            tail -n 420 /tmp/trail-fast.log
-          } > tests/.trail-fast-failure.log
+          git checkout origin/main -- .github/workflows/ci.yml
+          node --input-type=module <<'NODE'
+          import { readFile, writeFile } from 'node:fs/promises';
 
-      - name: Commit diagnostic evidence
+          const path = 'tests/app-shell.test.mjs';
+          let source = await readFile(path, 'utf8');
+
+          const unfoundBefore = `  // Unfound companions stay off the Trail meadow — no floating egg art.\n  assert.doesNotMatch(homeHtml, /meadow-pet/);\n  assert.doesNotMatch(homeHtml, /Inklet/);\n`;
+          const unfoundAfter = `  // Unfound companions stay off the living Trail habitat.\n  assert.match(homeHtml, /class="trail-meadow"/);\n  assert.match(homeHtml, /The trail is waiting for its first companion/);\n  assert.match(homeHtml, /Your trail is quiet/);\n  assert.doesNotMatch(homeHtml, /class="trail-companion /);\n  assert.doesNotMatch(homeHtml, /Inklet/);\n`;
+
+          const foundBefore = `  const trailFoundHtml = render();\n  assert.match(trailFoundHtml, /meadow-pet/);\n  assert.match(trailFoundHtml, /aria-label="Inklet"/);\n  assert.equal((trailFoundHtml.match(/class="meadow-pet /g) ?? []).length, 1);\n`;
+          const foundAfter = `  const trailFoundHtml = render();\n  assert.match(trailFoundHtml, /class="trail-companion press-soft press"/);\n  assert.match(trailFoundHtml, /data-path="egg"/);\n  assert.match(trailFoundHtml, /data-motion="egg-breathe"/);\n  assert.match(trailFoundHtml, /class="trail-companion-nest"/);\n  assert.match(\n    trailFoundHtml,\n    /aria-label="Inklet, Inklet Egg, Stage 0 of 4, resting in a nest"/,\n  );\n  assert.equal(\n    (trailFoundHtml.match(/class="trail-companion press-soft press"/g) ?? []).length,\n    1,\n  );\n`;
+
+          if (!source.includes(unfoundBefore)) {
+            throw new Error('missing unfound Trail SSR assertion block');
+          }
+          if (!source.includes(foundBefore)) {
+            throw new Error('missing found Trail SSR assertion block');
+          }
+          source = source.replace(unfoundBefore, unfoundAfter).replace(foundBefore, foundAfter);
+          await writeFile(path, source);
+          NODE
+
+      - name: Remove diagnostic-only files
+        run: |
+          rm -f scripts/run-fast-tests-diagnostic.mjs
+          rm -f tests/.trail-fast-failure.log
+          rm .github/workflows/trail-fast-diagnostic.yml
+
+      - name: Install dependencies and verify the cleaned branch
+        run: |
+          npm ci --silent
+          node --test \
+            tests/app-shell.test.mjs \
+            tests/trail-meadow-model.test.mjs \
+            tests/trail-meadow-contract.test.mjs \
+            tests/trail-meadow-hardening.test.mjs \
+            tests/trail-meadow-motion-contract.test.mjs
+          git diff --check
+
+      - name: Commit final cleanup
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tests/.trail-fast-failure.log
-          git commit -m "chore(trail): capture fast-lane failure"
+          git add -A
+          git commit -m "test(trail): replace legacy floating-meadow contract"
           git push origin HEAD:agent/live-trail-meadow

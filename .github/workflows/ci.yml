@@ -59,7 +59,7 @@ jobs:
       # relocated to the merge tier below so a PR stays under a minute.
       - name: Run the fast pull-request test lane
         if: github.event_name == 'pull_request'
-        run: npm run test:fast
+        run: node scripts/run-fast-tests-diagnostic.mjs
       # Tier 2 (merge_group / push / schedule): the full, fail-closed gate that
       # proves the post-merge tree before anything lands on a tracked branch.
       - name: Install gateway dependencies and materialise native bundle inputs
@@ -101,7 +101,7 @@ jobs:
           if git diff --name-only HEAD^ HEAD | grep -qx "reports/b4/b4-development-report.json"; then
             checkpoint="$(node -e "const fs=require('node:fs'); process.stdout.write(JSON.parse(fs.readFileSync('reports/b4/b4-development-report.json')).applicationCheckpoint.commit)")"
             test "$(git rev-parse HEAD^)" = "$checkpoint"
-            node --input-type=module -e "import { B4_EVIDENCE_PATHS } from './scripts/collect-b4-development-evidence.mjs'; process.stdout.write(B4_EVIDENCE_PATHS.toSorted().join('\\n') + '\\n')" > /tmp/b4-expected-paths
+            node --input-type=module -e "import { B4_EVIDENCE_PATHS } from './scripts/collect-b4-development-evidence.mjs'; process.stdout.write(B4_EVIDENCE_PATHS.toSorted().join('\n') + '\n')" > /tmp/b4-expected-paths
             git diff --name-only "$checkpoint"..HEAD > /tmp/b4-actual-paths
             test -s /tmp/b4-actual-paths
             grep -qx "reports/b4/b4-development-report.json" /tmp/b4-actual-paths

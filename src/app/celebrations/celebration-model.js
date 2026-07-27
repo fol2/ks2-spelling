@@ -1,3 +1,8 @@
+import {
+  isAggregateMonster,
+  monsterDisplayStage,
+} from '../monster-progress-model.js';
+
 /** Pure diff helpers for summary-only monster celebration events. */
 
 function trackMap(monsters) {
@@ -26,7 +31,7 @@ export function diffMonsterCelebrations(before, after) {
 
     const monsterId = afterMonster.monsterId;
     const branch = afterMonster.branch ?? beforeMonster.branch ?? null;
-    const stage = afterMonster.derivedStage ?? 0;
+    const stage = monsterDisplayStage(afterMonster);
 
     if (!beforeMonster.caught && afterMonster.caught) {
       events.push({
@@ -38,7 +43,7 @@ export function diffMonsterCelebrations(before, after) {
       });
     }
 
-    const beforeStage = beforeMonster.derivedStage ?? 0;
+    const beforeStage = monsterDisplayStage(beforeMonster);
     if (stage > beforeStage) {
       events.push({
         kind: 'evolve',
@@ -53,7 +58,11 @@ export function diffMonsterCelebrations(before, after) {
   return events;
 }
 
-/** Sum secureCount increases across tracks present on both sides. */
+/**
+ * Sum newly secure words once across direct reward tracks. Aggregate tracks such
+ * as Phaeton reuse the same evidence and would otherwise double the result-card
+ * gain even though the learner secured only one word.
+ */
 export function secureWordDelta(before, after) {
   const beforeByTrack = trackMap(before);
   const afterByTrack = trackMap(after);
@@ -62,6 +71,9 @@ export function secureWordDelta(before, after) {
   for (const [rewardTrackId, afterMonster] of afterByTrack) {
     const beforeMonster = beforeByTrack.get(rewardTrackId);
     if (!beforeMonster) continue;
+    if (isAggregateMonster(afterMonster) || isAggregateMonster(beforeMonster)) {
+      continue;
+    }
     const delta = (afterMonster.secureCount ?? 0) - (beforeMonster.secureCount ?? 0);
     if (delta > 0) total += delta;
   }

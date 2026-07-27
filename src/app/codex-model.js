@@ -1,4 +1,13 @@
 import { HIGHEST_MONSTER_STAGE, monsterArt } from './mastery-art.js';
+import {
+  directSecureWordTotal,
+  isAggregateMonster,
+  monsterBranch,
+  monsterCatchThreshold,
+  monsterDisplayStage,
+  monsterIsFound,
+  monsterSourceRewardTrackIds,
+} from './monster-progress-model.js';
 
 // Presentation facts about each painted companion. Growth itself always comes
 // from the learner's saved reward-track state; this table only supplies the
@@ -63,41 +72,61 @@ function catalogueNumber(index) {
   return String(index + 1).padStart(3, '0');
 }
 
+function secureCountOf(monster) {
+  return Number.isSafeInteger(monster?.secureCount) && monster.secureCount >= 0
+    ? monster.secureCount
+    : 0;
+}
+
 function stageOf(monster) {
-  return Math.max(
-    0,
-    Math.min(HIGHEST_MONSTER_STAGE, Math.trunc(monster.derivedStage) || 0),
-  );
+  // Evolution is an earned reward, not a volatile diagnostic. The A3 authority
+  // keeps both the current derived stage and a monotonic earned high-water; the
+  // Codex and Trail must render the latter so a temporarily wobbly word cannot
+  // visually devolve a companion.
+  return monsterDisplayStage(monster, HIGHEST_MONSTER_STAGE);
 }
 
 function fullyGrownAt(thresholds) {
-  return thresholds.at(-1) ?? 0;
+  return Array.isArray(thresholds) ? thresholds.at(-1) ?? 0 : 0;
 }
 
 /** Words still to secure before the next painted stage, or null when grown. */
 function wordsToNextStage(monster, stage) {
   if (stage >= HIGHEST_MONSTER_STAGE) return null;
-  const next = monster.thresholds[stage + 1];
+  const next = Array.isArray(monster?.thresholds)
+    ? monster.thresholds[stage + 1]
+    : undefined;
   if (typeof next !== 'number') return null;
-  return Math.max(0, next - monster.secureCount);
+  return Math.max(0, next - secureCountOf(monster));
+}
+
+function undiscoveredHint(monster, facts, aggregate) {
+  if (!aggregate) return facts.hint;
+  const threshold = monsterCatchThreshold(monster);
+  return `Secure ${threshold} spellings across both pools to find it`;
 }
 
 function buildEntry(monster, index) {
   const facts = companionFacts(monster.monsterId);
   const stage = stageOf(monster);
-  // `caught` is the reward track's own answer; secureCount is the fallback for
-  // a snapshot written before that flag existed.
-  const found = monster.caught === true || monster.secureCount >= 1;
+  const found = monsterIsFound(monster);
+  const aggregate = isAggregateMonster(monster);
+  const branch = monsterBranch(monster);
+  const secureCount = secureCountOf(monster);
   const target = fullyGrownAt(monster.thresholds);
   const remaining = wordsToNextStage(monster, stage);
+  const sourceRewardTrackIds = monsterSourceRewardTrackIds(monster);
   return {
     rewardTrackId: monster.rewardTrackId,
     monsterId: monster.monsterId,
+    ...(sourceRewardTrackIds === null ? {} : { sourceRewardTrackIds }),
     number: catalogueNumber(index),
     accent: facts.accent,
+    aggregate,
+    branch,
     found,
     stage,
-    secureCount: monster.secureCount,
+    secureCount,
     target,
     // The Codex roster withholds an unfound creature's identity; screens that
     // are already growing this companion use displayName instead.
@@ -109,20 +138,20 @@ function buildEntry(monster, index) {
     stageLabel: found
       ? `Stage ${stage} of ${HIGHEST_MONSTER_STAGE}`
       : 'Not yet found',
-    art: monsterArt(monster.monsterId, found ? stage : 0),
+    art: monsterArt(monster.monsterId, found ? stage : 0, branch),
     percent: target === 0
       ? 0
-      : Math.round(Math.min(1, monster.secureCount / target) * 100),
-    count: `${monster.secureCount} of ${target}`,
+      : Math.round(Math.min(1, secureCount / target) * 100),
+    count: `${secureCount} of ${target}`,
     next: found
       ? (remaining === null
         ? 'Fully grown'
         : `${remaining} more to ${facts.stages[stage + 1]}`)
-      : facts.hint,
+      : undiscoveredHint(monster, facts, aggregate),
     growth: facts.stages.map((label, position) => ({
       key: `${monster.rewardTrackId}-${position}`,
       label: found && position <= stage ? label : '???',
-      art: monsterArt(monster.monsterId, position),
+      art: monsterArt(monster.monsterId, position, branch),
       reached: found && position <= stage,
       here: found && position === stage,
     })),
@@ -148,7 +177,10 @@ export function buildCodex(monsters = [], selectedRewardTrackId = null) {
     hero,
     foundCount: String(found.length).padStart(2, '0'),
     rosterCount: String(roster.length).padStart(2, '0'),
-    secureWords: found.reduce((total, entry) => total + entry.secureCount, 0),
+    // Phaeton is the union of Inklet and Glimmerbug evidence. Count the direct
+    // tracks once rather than adding the same secure words a second time through
+    // their legendary aggregate.
+    secureWords: directSecureWordTotal(roster),
     highestStage: roster.reduce((top, entry) => Math.max(top, entry.stage), 0),
     leftToFind: roster.length - found.length,
   };

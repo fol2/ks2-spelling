@@ -6,7 +6,7 @@
 // bundled URL, and a query suffix would leave the dependency-audit module graph
 // pointing at a path that does not exist on disk.
 const MONSTER_MODULES = import.meta.glob(
-  '../../content/mastery-art/monsters/*/b1/*.640.webp',
+  '../../content/mastery-art/monsters/*/*/*.640.webp',
   { eager: true, import: 'default' },
 );
 const REGION_MODULES = import.meta.glob(
@@ -14,31 +14,44 @@ const REGION_MODULES = import.meta.glob(
   { eager: true, import: 'default' },
 );
 
-const MONSTER_FILE = /\/monsters\/([^/]+)\/b1\/[^/]+-b1-(\d)\.640\.webp$/u;
+const MONSTER_FILE = /\/monsters\/([^/]+)\/(b[12])\/[^/]+-(b[12])-(\d)\.640\.webp$/u;
 const REGION_FILE = /\/regions\/([^/]+)\/[^/]+-([a-z]\d)\.1280\.webp$/u;
 
-function indexBy(modules, pattern) {
+function indexBy(modules, pattern, keyForMatch) {
   const index = new Map();
   for (const [path, url] of Object.entries(modules)) {
     const match = pattern.exec(path);
-    if (match) index.set(`${match[1]}:${match[2]}`, url);
+    if (!match) continue;
+    const key = keyForMatch(match);
+    if (key) index.set(key, url);
   }
   return index;
 }
 
-const MONSTER_ART = indexBy(MONSTER_MODULES, MONSTER_FILE);
-const REGION_ART = indexBy(REGION_MODULES, REGION_FILE);
+const MONSTER_ART = indexBy(
+  MONSTER_MODULES,
+  MONSTER_FILE,
+  (match) => match[2] === match[3]
+    ? `${match[1]}:${match[2]}:${match[4]}`
+    : '',
+);
+const REGION_ART = indexBy(
+  REGION_MODULES,
+  REGION_FILE,
+  (match) => `${match[1]}:${match[2]}`,
+);
 
 export const HIGHEST_MONSTER_STAGE = 4;
 
 /**
- * Resolve the painted art for one companion stage. Stages clamp to the
- * published range so an unexpected stage still renders the creature rather
- * than an empty frame.
+ * Resolve the painted art for one companion branch and stage. Stages clamp to
+ * the published range and an unknown branch falls back to b1, matching the
+ * Monster Stage island's public path contract.
  */
-export function monsterArt(monsterId, stage = 0) {
+export function monsterArt(monsterId, stage = 0, branch = 'b1') {
   const bounded = Math.max(0, Math.min(HIGHEST_MONSTER_STAGE, Math.trunc(stage) || 0));
-  return MONSTER_ART.get(`${monsterId}:${bounded}`) ?? null;
+  const resolvedBranch = branch === 'b2' ? 'b2' : 'b1';
+  return MONSTER_ART.get(`${monsterId}:${resolvedBranch}:${bounded}`) ?? null;
 }
 
 /** Resolve one region plate, for example ('the-scribe-downs', 'a1'). */

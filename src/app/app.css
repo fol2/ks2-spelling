@@ -2014,6 +2014,12 @@ h1 {
   -webkit-backdrop-filter: blur(16px) saturate(1.05);
 }
 
+/* Setup keeps its docked tray above the shared waypoint foot, same clearance
+   the other place screens reserve on .scene-body. */
+.has-waypoints .setup-tray {
+  padding-bottom: calc(5.25rem + var(--gutter-bottom));
+}
+
 .setup-tray .label {
   color: rgb(255 249 236 / 42%);
   font-size: 0.56rem;

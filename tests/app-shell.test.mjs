@@ -539,8 +539,19 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(failedSetupHtml, />20 words</);
   assert.match(failedSetupHtml, />Trouble</);
   assert.match(failedSetupHtml, />SATs</);
+  assert.match(failedSetupHtml, /aria-label="Places on the trail"/);
+  for (const waypoint of ['Trail', 'Words', 'Codex', 'Camp']) {
+    assert.match(failedSetupHtml, new RegExp(`<span>${waypoint}</span>`));
+  }
+  assert.match(failedSetupHtml, /aria-current="page"[^>]*>[\s\S]*?<span>Trail<\/span>/);
   assert.doesNotMatch(failedSetupHtml, /Listening voice|Iapetus|Sulafat/);
   assert.doesNotMatch(failedSetupHtml, /data-locked="true"|Not on this trail yet/);
+
+  const setupCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
+  assert.match(
+    setupCss,
+    /\.has-waypoints\s+\.setup-tray\s*\{[^}]*padding-bottom:\s*calc\(5\.25rem\s*\+\s*var\(--gutter-bottom\)\);/su,
+  );
 
   learningState = Object.freeze({
     ...learningState,

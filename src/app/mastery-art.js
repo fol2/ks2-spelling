@@ -1,3 +1,5 @@
+import { HIGHEST_COMPANION_STAGE } from './companion-presentation.js';
+
 // Painted expedition art, bundled from the repository copy of the frozen
 // ks2-mastery authority recorded in provenance/ks2-mastery-art.json. Every URL
 // resolves through Vite so the built app carries the bytes locally and never
@@ -41,7 +43,7 @@ const REGION_ART = indexBy(
   (match) => `${match[1]}:${match[2]}`,
 );
 
-export const HIGHEST_MONSTER_STAGE = 4;
+export const HIGHEST_MONSTER_STAGE = HIGHEST_COMPANION_STAGE;
 
 /**
  * Resolve the painted art for one companion branch and stage. Stages clamp to

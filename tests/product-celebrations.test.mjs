@@ -6,7 +6,9 @@ import test from 'node:test';
 import {
   celebrationCopy,
   celebrationDurationMs,
+  celebrationEventKey,
   celebrationPalette,
+  celebrationProgressMeterCopy,
   diffMonsterCelebrations,
   monsterCelebrationArtUrl,
   secureWordDelta,
@@ -27,7 +29,7 @@ function monster(overrides = {}) {
   };
 }
 
-test('diffMonsterCelebrations emits caught when caught flips false→true', () => {
+test('diffMonsterCelebrations emits caught when found state flips false→true', () => {
   assert.deepEqual(
     diffMonsterCelebrations(
       [monster({ caught: false, derivedStage: 0 })],
@@ -43,11 +45,16 @@ test('diffMonsterCelebrations emits caught when caught flips false→true', () =
   );
 });
 
-test('diffMonsterCelebrations emits evolve when derivedStage increases', () => {
+test('diffMonsterCelebrations emits evolve when earned display stage increases', () => {
   assert.deepEqual(
     diffMonsterCelebrations(
       [monster({ caught: true, derivedStage: 1, secureCount: 10 })],
-      [monster({ caught: true, derivedStage: 3, secureCount: 30 })],
+      [monster({
+        caught: true,
+        derivedStage: 1,
+        earnedStageHighWater: 3,
+        secureCount: 30,
+      })],
     ),
     [{
       kind: 'evolve',
@@ -59,7 +66,7 @@ test('diffMonsterCelebrations emits evolve when derivedStage increases', () => {
   );
 });
 
-test('diffMonsterCelebrations puts caught before evolve when both fire', () => {
+test('combined catch and evolution reveals the egg before the evolved form', () => {
   assert.deepEqual(
     diffMonsterCelebrations(
       [monster({ caught: false, derivedStage: 0, secureCount: 0 })],
@@ -70,7 +77,7 @@ test('diffMonsterCelebrations puts caught before evolve when both fire', () => {
         kind: 'caught',
         monsterId: 'inklet',
         branch: 'b1',
-        stage: 1,
+        stage: 0,
         rewardTrackId: 'spelling-core-inklet',
       },
       {
@@ -103,6 +110,17 @@ test('ordinary direct-companion gains receive one compact progress moment', () =
       percentBefore: 2,
       percentAfter: 4,
     }],
+  );
+});
+
+test('progress cannot reveal a direct companion before its catch threshold', () => {
+  const thresholds = [3, 10, 30, 60, 100];
+  assert.deepEqual(
+    diffMonsterCelebrations(
+      [monster({ thresholds, secureCount: 0, caught: false })],
+      [monster({ thresholds, secureCount: 1, caught: false })],
+    ),
+    [],
   );
 });
 
@@ -204,10 +222,11 @@ test('celebration copy distinguishes progress, catch and final evolution', () =>
   assert.deepEqual(celebrationCopy(progress), {
     eyebrow: 'Companion progress',
     headline: 'Inklet grew stronger',
-    stageLabel: 'Inklet Egg · 9 of 100 secure',
+    stageLabel: 'Inklet Egg · 9 / 100 secure',
     body: '1 spelling became secure. 1 more secure spelling to Inklet.',
     announcement: 'Inklet gained 1 secure spelling. 1 more secure spelling to Inklet.',
   });
+  assert.equal(celebrationProgressMeterCopy(progress), '9 / 100 secure');
   assert.equal(celebrationDurationMs(progress), 2400);
 
   const caught = {
@@ -233,7 +252,46 @@ test('celebration copy distinguishes progress, catch and final evolution', () =>
   assert.equal(celebrationDurationMs(finalEvolution), 4000);
 });
 
-test('celebration art keeps the saved branch and clamps authored stages', () => {
+test('fully evolved progress reports real secure count without an impossible fraction', () => {
+  const event = {
+    kind: 'progress',
+    monsterId: 'inklet',
+    stage: 4,
+    secureGain: 2,
+    secureCount: 109,
+    target: 100,
+    nextThreshold: null,
+  };
+  assert.equal(
+    celebrationProgressMeterCopy(event),
+    '109 secure · fully evolved',
+  );
+  assert.equal(
+    celebrationCopy(event).stageLabel,
+    'Mega Quillorn · 109 secure · fully evolved',
+  );
+});
+
+test('celebration event identity includes branch and progress payload', () => {
+  const event = {
+    kind: 'progress',
+    rewardTrackId: 'spelling-core-glimmerbug',
+    branch: 'b2',
+    stage: 2,
+    secureCount: 31,
+    secureGain: 2,
+  };
+  assert.equal(
+    celebrationEventKey(event, 3),
+    'spelling-core-glimmerbug:progress:b2:2:31:2:3',
+  );
+  assert.notEqual(
+    celebrationEventKey(event, 3),
+    celebrationEventKey({ ...event, secureCount: 32 }, 3),
+  );
+});
+
+test('celebration art keeps the saved branch, clamps stages and refuses fake IDs', () => {
   assert.equal(
     monsterCelebrationArtUrl('glimmerbug', 'b2', 4),
     '/mastery-art/monsters/glimmerbug/b2/glimmerbug-b2-4.640.webp',
@@ -242,6 +300,8 @@ test('celebration art keeps the saved branch and clamps authored stages', () => 
     monsterCelebrationArtUrl('inklet', 'unknown', 99),
     '/mastery-art/monsters/inklet/b1/inklet-b1-4.640.webp',
   );
+  assert.equal(monsterCelebrationArtUrl('', 'b1', 0), null);
+  assert.equal(monsterCelebrationArtUrl('../inklet', 'b1', 0), null);
 });
 
 test('ProductApp wires CelebrationLayer into the summary screen', async () => {
@@ -263,8 +323,8 @@ test('ProductApp wires CelebrationLayer into the summary screen', async () => {
   );
 });
 
-test('celebration layer ships real overlay polish, progress and motion fallbacks', async () => {
-  const [source, styles, haptics] = await Promise.all([
+test('celebration layer hardens modal focus, timers, scrolling and haptics', async () => {
+  const [source, styles, hardening, haptics] = await Promise.all([
     readFile(
       resolve(import.meta.dirname, '../src/app/celebrations/CelebrationLayer.jsx'),
       'utf8',
@@ -274,24 +334,43 @@ test('celebration layer ships real overlay polish, progress and motion fallbacks
       'utf8',
     ),
     readFile(
+      resolve(
+        import.meta.dirname,
+        '../src/app/celebrations/celebration-hardening.css',
+      ),
+      'utf8',
+    ),
+    readFile(
       resolve(import.meta.dirname, '../src/platform/haptics/capacitor-haptics.js'),
       'utf8',
     ),
   ]);
 
-  assert.match(source, /import ['"]\.\/celebrations\.css['"]/);
-  assert.match(source, /document\.visibilityState/);
-  assert.match(source, /celebrationDurationMs\(event\)/);
-  assert.match(source, /haptics\?\.celebrationStart\(event\.kind, event\.stage\)/);
-  assert.match(source, /className="celebration-meter"/);
+  assert.match(source, /import ['"]\.\/celebrations\.css['"]/u);
+  assert.match(source, /import ['"]\.\/celebration-hardening\.css['"]/u);
+  assert.match(source, /document\.visibilityState/u);
+  assert.match(source, /remainingMs\.current/u);
+  assert.match(source, /dialogRef\.current\?\.focus/u);
+  assert.match(source, /keyboardEvent\.key === 'Escape'/u);
+  assert.match(source, /keyboardEvent\.key === 'Tab'/u);
+  assert.match(source, /haptics\?\.celebrationStart\?\./u);
+  assert.match(source, /setIndex\(list\.length\)/u);
+  assert.match(source, /className="celebration-meter"/u);
+  assert.match(source, /className="celebration-scroll"/u);
 
-  assert.match(styles, /\.celebration-overlay\s*\{[\s\S]*?position:\s*fixed/);
-  assert.match(styles, /\.celebration-progress\s+\.celebration-art/);
-  assert.match(styles, /@keyframes celebrationEvolutionFlash/);
-  assert.match(styles, /@keyframes celebrationProgress/);
-  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(styles, /\.celebration-overlay\s*\{[\s\S]*?position:\s*fixed/u);
+  assert.match(styles, /\.celebration-progress\s+\.celebration-art/u);
+  assert.match(styles, /@keyframes celebrationEvolutionFlash/u);
+  assert.match(styles, /@keyframes celebrationProgress/u);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/u);
 
-  assert.match(haptics, /kind === 'caught'/);
-  assert.match(haptics, /ImpactStyle\.Heavy/);
-  assert.match(haptics, /ImpactStyle\.Light/);
+  assert.match(hardening, /\.celebration-scroll\s*\{/u);
+  assert.match(hardening, /overscroll-behavior:\s*contain/u);
+  assert.match(hardening, /@media \(forced-colors: active\)/u);
+
+  assert.match(haptics, /function fireAndForget/u);
+  assert.match(haptics, /Promise\.resolve\(operation\(\)\)/u);
+  assert.match(haptics, /kind === 'caught'/u);
+  assert.match(haptics, /ImpactStyle\.Heavy/u);
+  assert.match(haptics, /ImpactStyle\.Light/u);
 });

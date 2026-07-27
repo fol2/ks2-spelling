@@ -1,4 +1,4 @@
-import { readdir } from 'node:fs/promises';
+import { readdir, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 
@@ -7,6 +7,7 @@ const EXCLUDED = new Set([
   'b3-store-backed-live-capture.test.mjs',
   'gateway-workerd-runtime.test.mjs',
 ]);
+const DIAGNOSTIC_PATH = '/tmp/trail-fast-diagnostic.log';
 
 const tests = (await readdir('tests'))
   .filter((name) => (
@@ -28,17 +29,21 @@ function run(file) {
   });
 }
 
+let diagnostic = '';
 for (const name of tests) {
   const file = join('tests', name);
   const result = await run(file);
   if (result.code !== 0) {
-    console.error(`FAST_TEST_FAILURE: ${file}`);
-    console.error(result.output.trim());
+    diagnostic = `FAST_TEST_FAILURE: ${file}\n${result.output.trim()}\n`;
+    console.error(diagnostic);
     process.exitCode = result.code || 1;
     break;
   }
 }
 
 if (process.exitCode === undefined) {
-  console.log(`FAST_TEST_DIAGNOSTIC_PASS: ${tests.length} files`);
+  diagnostic = `FAST_TEST_DIAGNOSTIC_PASS: ${tests.length} files\n`;
+  console.log(diagnostic.trim());
 }
+
+await writeFile(DIAGNOSTIC_PATH, diagnostic);

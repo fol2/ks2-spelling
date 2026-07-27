@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-test('ProductApp delegates the Trail habitat to TrailMeadow', async () => {
+test('ProductApp delegates the Trail habitat without regressing Setup companions', async () => {
   const source = await readFile(
     resolve(import.meta.dirname, '../src/app/ProductApp.jsx'),
     'utf8',
@@ -11,6 +11,11 @@ test('ProductApp delegates the Trail habitat to TrailMeadow', async () => {
   assert.match(
     source,
     /import \{ TrailMeadow \} from ['"]\.\/trail\/TrailMeadow\.jsx['"]/u,
+  );
+  assert.match(
+    source,
+    /import \{ buildCodex, setupExpeditionCompanion, trailMeadowCompanions \} from ['"]\.\/codex-model\.js['"]/u,
+    'the Trail refactor must preserve the latest Setup owned-companion projection',
   );
   assert.match(source, /<TrailMeadow[\s\S]*?companions=\{/u);
   assert.match(source, /plateY="58%"/u);

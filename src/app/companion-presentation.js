@@ -1,7 +1,4 @@
-import {
-  clampCompanionStage,
-  HIGHEST_COMPANION_STAGE,
-} from './companion-stage-contract.js';
+import { clampCompanionStage } from './companion-stage-contract.js';
 
 export { HIGHEST_COMPANION_STAGE } from './companion-stage-contract.js';
 
@@ -118,7 +115,3 @@ export function companionPalette(monsterId) {
 export function isKnownCompanion(monsterId) {
   return Object.hasOwn(COMPANION_PRESENTATION, monsterId);
 }
-
-// Keep the imported stage ceiling live in this module so tree-shaking cannot
-// accidentally separate the presentation table from its authored range.
-void HIGHEST_COMPANION_STAGE;

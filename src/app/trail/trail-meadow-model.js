@@ -117,6 +117,15 @@ function stableNumber(key, label, minimum, maximum) {
   return valueBetween(hashString(`${key}:${label}`), minimum, maximum);
 }
 
+// ProductApp may append display context such as a year group. A companion's
+// home belongs to the learner, so presentation-only suffixes must not rearrange
+// the meadow when a profile is edited.
+function stableLearnerSeed(value) {
+  const text = String(value ?? 'trail-meadow');
+  const separator = text.indexOf(':');
+  return separator < 0 ? text : text.slice(0, separator);
+}
+
 function pathFor(companion) {
   const stage = clampCompanionStage(companion?.stage);
   if (stage === 0) return 'egg';
@@ -246,21 +255,22 @@ export function buildTrailMeadowCompanions(
   const found = Array.isArray(roster)
     ? roster.filter((companion) => companion?.found && companion?.art)
     : [];
+  const habitatSeed = stableLearnerSeed(seed);
   const placed = [];
   return found.map((companion, index) => {
     const stage = clampCompanionStage(companion.stage);
     const branch = companion.branch === 'b2' ? 'b2' : 'b1';
     const behaviour = trailCompanionBehaviour({ ...companion, stage });
-    const key = [
-      seed,
+    const homeKey = [
+      habitatSeed,
       companion.rewardTrackId,
       companion.monsterId,
       branch,
-      stage,
     ].join(':');
-    const slot = chooseSlot(behaviour.path, key, placed, found.length);
+    const motionKey = `${homeKey}:${stage}`;
+    const slot = chooseSlot(behaviour.path, homeKey, placed, found.length);
     placed.push(slot);
-    const route = routeFor(behaviour.path, key, stage);
+    const route = routeFor(behaviour.path, motionKey, stage);
     const face = visualFace(companion.monsterId, branch, stage);
     const flying = behaviour.lane === 'air';
     return Object.freeze({
@@ -279,17 +289,22 @@ export function buildTrailMeadowCompanions(
       reverseFace: face * -1,
       route,
       gaitDuration: GAIT_DURATION[behaviour.motion] ?? 1.6,
-      gaitDelay: Number((-stableNumber(key, 'gait-delay', 0, 1.5)).toFixed(2)),
+      gaitDelay: Number((-stableNumber(motionKey, 'gait-delay', 0, 1.5)).toFixed(2)),
       airLift: flying
-        ? Number((-stableNumber(key, 'air-lift', 18, companion.monsterId === 'glimmerbug' ? 31 : 26)).toFixed(1))
+        ? Number((-stableNumber(
+          motionKey,
+          'air-lift',
+          18,
+          companion.monsterId === 'glimmerbug' ? 31 : 26,
+        )).toFixed(1))
         : 0,
       visualOffsetY: visualOffsetY(behaviour.path, companion.monsterId, stage),
       shadowScale: Number((flying
-        ? stableNumber(key, 'shadow-scale', 0.46, 0.64)
-        : stableNumber(key, 'shadow-scale', 0.76, 0.98)).toFixed(3)),
+        ? stableNumber(homeKey, 'shadow-scale', 0.46, 0.64)
+        : stableNumber(homeKey, 'shadow-scale', 0.76, 0.98)).toFixed(3)),
       shadowOpacity: Number((flying
-        ? stableNumber(key, 'shadow-opacity', 0.24, 0.38)
-        : stableNumber(key, 'shadow-opacity', 0.48, 0.68)).toFixed(3)),
+        ? stableNumber(homeKey, 'shadow-opacity', 0.24, 0.38)
+        : stableNumber(homeKey, 'shadow-opacity', 0.48, 0.68)).toFixed(3)),
       emergeDelay: `${80 + index * 110}ms`,
     });
   });

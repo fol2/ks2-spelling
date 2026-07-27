@@ -4,6 +4,7 @@ import {
   companionStageName,
   HIGHEST_COMPANION_STAGE,
 } from '../companion-presentation.js';
+import { clampCompanionStage } from '../companion-stage-contract.js';
 import {
   isAggregateMonster,
   monsterDisplayStage,
@@ -286,9 +287,6 @@ export function monsterCelebrationArtUrl(monsterId, branch, stage) {
     return null;
   }
   const resolvedBranch = branch === 'b2' ? 'b2' : 'b1';
-  const resolvedStage = Math.max(
-    0,
-    Math.min(HIGHEST_STAGE, Number.isFinite(stage) ? Math.trunc(stage) : 0),
-  );
+  const resolvedStage = clampCompanionStage(stage);
   return `/mastery-art/monsters/${monsterId}/${resolvedBranch}/${monsterId}-${resolvedBranch}-${resolvedStage}.640.webp`;
 }

@@ -411,16 +411,26 @@ h1 {
 
   position: relative;
   display: flex;
-  /* Lock to the visual viewport so place screens (Words especially) cannot
-     grow with their lists. The waypoint foot is position:absolute; bottom:0
-     inside this shell — if the shell grows, the menu scrolls away with the
-     words and the learner has to drag the page to find it. */
+  /* Lock to the visible viewport so place screens cannot grow with their
+     lists and drag the Scene-owned foot away. Subtract --keyboard-inset
+     (published on native iOS) so a software keyboard shrinks this shell
+     instead of panning / zooming the WKWebView under overflow:hidden —
+     that pan is what dismissed the PR43 dictation session and made Words
+     search drift left-right after focus. */
+  width: 100%;
+  max-width: 100%;
   height: 100vh;
+  height: calc(100vh - var(--keyboard-inset, 0px));
   height: 100dvh;
+  height: calc(100dvh - var(--keyboard-inset, 0px));
   max-height: 100vh;
+  max-height: calc(100vh - var(--keyboard-inset, 0px));
   max-height: 100dvh;
+  max-height: calc(100dvh - var(--keyboard-inset, 0px));
   flex-direction: column;
   overflow: hidden;
+  overflow-x: hidden;
+  overscroll-behavior: none;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
@@ -1058,8 +1068,11 @@ h1 {
   padding: 0.55rem 0.9rem;
   background: var(--paper-raised);
   color: var(--ink);
-  font-size: 0.95rem;
+  /* iOS auto-zooms focused inputs below 16px, which pans the visual viewport
+     horizontally under the locked product shell and feels like a drift. */
+  font-size: max(16px, 1rem);
   font-weight: 600;
+  touch-action: manipulation;
 }
 
 .bank-search input::placeholder {

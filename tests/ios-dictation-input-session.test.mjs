@@ -233,6 +233,7 @@ test('the product root owns the public-API iOS session and visual viewport layou
   assert.doesNotMatch(sessionSource, /Keyboard\.show|keyboardDisplayRequiresUserAction/);
 
   assert.match(sessionCss, /--keyboard-inset/);
+  assert.match(sessionCss, /100dvh/);
   assert.match(sessionCss, /data-dictation-input-session='round'/);
   assert.match(sessionCss, /data-room='tight'/);
 });

@@ -1,0 +1,64 @@
+/*
+ * Interaction and accessibility hardening layered after celebrations.css.
+ * The scroll container is deliberately outside the full-card button: large
+ * text and short landscape screens can scroll without turning the control
+ * itself into a nested scrolling surface.
+ */
+
+.celebration-overlay:focus {
+  outline: none;
+}
+
+.celebration-scroll {
+  width: min(100%, 27rem);
+  max-height: calc(
+    100dvh
+    - max(1rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+    - max(1rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))
+    - 2rem
+  );
+  overflow: auto;
+  border-radius: 2rem;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.celebration-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.celebration-card {
+  width: 100%;
+  max-height: none;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+@media (max-height: 42rem) {
+  .celebration-scroll {
+    width: min(100%, 42rem);
+  }
+}
+
+@media (forced-colors: active) {
+  .celebration-card {
+    border: 2px solid CanvasText;
+    box-shadow: none;
+  }
+
+  .celebration-stage,
+  .celebration-overlay {
+    background: Canvas;
+  }
+
+  .celebration-headline,
+  .celebration-body,
+  .celebration-stage-label,
+  .celebration-action,
+  .celebration-eyebrow {
+    color: CanvasText;
+  }
+}

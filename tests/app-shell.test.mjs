@@ -689,6 +689,35 @@ test('the product shell consumes native safe-area insets', async () => {
   );
 });
 
+test('the Words tab keeps long bank rows under the waypoint foot', async () => {
+  const productCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
+
+  assert.match(
+    productCss,
+    /\.scene-body\s*\{[^}]*z-index:\s*2;/su,
+  );
+  assert.match(
+    productCss,
+    /\.scene-scroll\s*\{[^}]*z-index:\s*0;[^}]*overflow-x:\s*hidden;[^}]*overflow-y:\s*auto;/su,
+  );
+  assert.match(
+    productCss,
+    /\.waypoint-bar\s*\{[^}]*z-index:\s*40;[^}]*isolation:\s*isolate;[^}]*transform:\s*translateZ\(0\);/su,
+  );
+  assert.match(
+    productCss,
+    /\.bank-row\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\) auto;[^}]*min-width:\s*0;/su,
+  );
+  assert.match(
+    productCss,
+    /\.bank-row strong\s*\{[^}]*min-width:\s*0;[^}]*overflow-wrap:\s*anywhere;/su,
+  );
+  assert.match(
+    productCss,
+    /\.bank-row small\s*\{[^}]*min-width:\s*0;[^}]*overflow-wrap:\s*anywhere;/su,
+  );
+});
+
 test('the B3 shell is a Parent-only diagnostic with sanitised commerce and pack evidence', async (t) => {
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');

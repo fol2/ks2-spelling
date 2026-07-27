@@ -121,7 +121,7 @@ export function installIOSDictationInputSession(view = globalThis) {
   let sawBusy = false;
   let paused = false;
   let refocusAfterKeep = false;
-  let protectFocusAfterKeep = false;
+  let protectFocusAfterDialogClose = false;
   let startForwarded = false;
   let armTimer = null;
   let focusGuardTimer = null;
@@ -207,7 +207,7 @@ export function installIOSDictationInputSession(view = globalThis) {
   function clearFocusGuard() {
     if (focusGuardTimer != null) view.clearTimeout(focusGuardTimer);
     focusGuardTimer = null;
-    protectFocusAfterKeep = false;
+    protectFocusAfterDialogClose = false;
   }
 
   function scheduleArmExpiry() {
@@ -325,7 +325,7 @@ export function installIOSDictationInputSession(view = globalThis) {
       // gone but the round remains, restore the spelling session as the modal's
       // semantic equivalent of Keep practising.
       if (paused && !document.querySelector(EXIT_DIALOG_SELECTOR)) {
-        resumeRoundInputSession();
+        resumeRoundInputSession({ guardFocus: true });
       }
       const changedRound = activeRoundInput !== roundInput;
       activateRoundInput(roundInput);
@@ -399,13 +399,13 @@ export function installIOSDictationInputSession(view = globalThis) {
     park();
   }
 
-  function resumeRoundInputSession({ afterKeep = false } = {}) {
+  function resumeRoundInputSession({ afterKeep = false, guardFocus = false } = {}) {
     if (!activeRoundInput) return;
     paused = false;
     refocusAfterKeep = afterKeep;
-    if (afterKeep) {
+    if (afterKeep || guardFocus) {
       clearFocusGuard();
-      protectFocusAfterKeep = true;
+      protectFocusAfterDialogClose = true;
       focusGuardTimer = view.setTimeout(clearFocusGuard, 1_000);
     }
     setPhase('round');
@@ -476,15 +476,15 @@ export function installIOSDictationInputSession(view = globalThis) {
 
   function onDocumentFocusIn(event) {
     if (
-      !protectFocusAfterKeep
+      !protectFocusAfterDialogClose
       || paused
       || !activeRoundInput
       || event.target === sessionInput
     ) return;
     // LeaveRoundDialog correctly restores the control that was focused before it
-    // opened. On Keep, however, the persistent spelling field has already become
-    // first responder again inside the trusted click. Reclaim any later passive
-    // focus restoration before UIKit finishes dismissing that keyboard session.
+    // opened. The persistent spelling field has already become first responder
+    // again after Keep or Escape, so reclaim any later passive focus restoration
+    // before UIKit finishes dismissing that keyboard session.
     focusSessionInput();
   }
 

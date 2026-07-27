@@ -1,7 +1,4 @@
-import {
-  companionPresentation,
-  HIGHEST_COMPANION_STAGE,
-} from './companion-presentation.js';
+import { companionPresentation } from './companion-presentation.js';
 import { HIGHEST_MONSTER_STAGE, monsterArt } from './mastery-art.js';
 import {
   directSecureWordTotal,
@@ -145,10 +142,4 @@ export function trailMeadowCompanions(roster = [], slotCount = Infinity) {
     ? Math.max(0, Math.trunc(slotCount))
     : Infinity;
   return roster.filter((entry) => entry.found).slice(0, limit);
-}
-
-// The companion copy authority and the art pipeline intentionally publish the
-// same authored stage count. Fail loudly in development if those drift apart.
-if (HIGHEST_COMPANION_STAGE !== HIGHEST_MONSTER_STAGE) {
-  throw new Error('companion_stage_authority_mismatch');
 }

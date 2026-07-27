@@ -9,10 +9,13 @@ import {
 import {
   celebrationCopy,
   celebrationDurationMs,
+  celebrationEventKey,
   celebrationPalette,
+  celebrationProgressMeterCopy,
   monsterCelebrationArtUrl,
 } from './celebration-model.js';
 import './celebrations.css';
+import './celebration-hardening.css';
 
 const PARTICLE_COUNT = 12;
 
@@ -72,7 +75,7 @@ function ProgressMeter({ event }) {
       </span>
       <span className="celebration-meter-copy">
         <strong>+{event.secureGain}</strong>
-        <span>{event.secureCount} / {event.target} secure</span>
+        <span>{celebrationProgressMeterCopy(event)}</span>
       </span>
     </span>
   );
@@ -81,19 +84,26 @@ function ProgressMeter({ event }) {
 /**
  * Summary-only celebration overlay. Milestones and ordinary direct-companion
  * progress share one bounded queue: tap to skip, or let the current card
- * complete automatically. Backgrounding pauses the timer so a reward cannot
- * disappear while the learner is outside the app.
+ * complete automatically. Backgrounding or keyboard focus preserves the exact
+ * remaining time so a reward cannot disappear while the learner is away or
+ * actively reading it.
  */
 export function CelebrationLayer({ events, haptics, onDone }) {
   const list = Array.isArray(events) ? events : [];
   const [index, setIndex] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion);
   const [visible, setVisible] = useState(pageIsVisible);
+  const [interactionPaused, setInteractionPaused] = useState(false);
+  const dialogRef = useRef(null);
+  const cardRef = useRef(null);
   const lastHapticKey = useRef('');
+  const remainingMs = useRef(0);
 
   useEffect(() => {
     setIndex(0);
+    setInteractionPaused(false);
     lastHapticKey.current = '';
+    remainingMs.current = 0;
   }, [events]);
 
   useEffect(() => {
@@ -113,9 +123,8 @@ export function CelebrationLayer({ events, haptics, onDone }) {
   }, []);
 
   const event = list[index] ?? null;
-  const eventKey = event
-    ? `${event.rewardTrackId}:${event.kind}:${event.stage}:${index}`
-    : '';
+  const eventKey = celebrationEventKey(event, index);
+  const duration = celebrationDurationMs(event);
   const copy = useMemo(() => celebrationCopy(event), [event]);
   const palette = useMemo(() => celebrationPalette(event), [event]);
   const finalEvolution = event?.kind === 'evolve' && event?.stage >= 4;
@@ -123,6 +132,10 @@ export function CelebrationLayer({ events, haptics, onDone }) {
   const advance = useCallback(() => {
     if (!event) return;
     if (index + 1 >= list.length) {
+      // Always close locally as well as notifying the parent. This keeps the
+      // layer usable in isolated previews and prevents a missing callback from
+      // leaving an undismissable modal over the Results screen.
+      setIndex(list.length);
       onDone?.();
       return;
     }
@@ -130,16 +143,50 @@ export function CelebrationLayer({ events, haptics, onDone }) {
   }, [event, index, list.length, onDone]);
 
   useEffect(() => {
+    if (!eventKey) return;
+    remainingMs.current = duration;
+    setInteractionPaused(false);
+    dialogRef.current?.focus({ preventScroll: true });
+  }, [duration, eventKey]);
+
+  useEffect(() => {
     if (!event || !visible || lastHapticKey.current === eventKey) return;
     lastHapticKey.current = eventKey;
-    haptics?.celebrationStart(event.kind, event.stage);
+    haptics?.celebrationStart?.(event.kind, event.stage);
   }, [event, eventKey, haptics, visible]);
 
   useEffect(() => {
-    if (!event || !visible) return undefined;
-    const timer = setTimeout(advance, celebrationDurationMs(event));
-    return () => clearTimeout(timer);
-  }, [advance, event, visible]);
+    if (!eventKey || !visible || interactionPaused) return undefined;
+    const delay = Math.max(0, remainingMs.current);
+    const startedAt = Date.now();
+    let completed = false;
+    const timer = setTimeout(() => {
+      completed = true;
+      remainingMs.current = 0;
+      advance();
+    }, delay);
+    return () => {
+      clearTimeout(timer);
+      if (!completed) {
+        const elapsed = Math.max(0, Date.now() - startedAt);
+        remainingMs.current = Math.max(0, delay - elapsed);
+      }
+    };
+  }, [advance, eventKey, interactionPaused, visible]);
+
+  const handleDialogKeyDown = useCallback((keyboardEvent) => {
+    if (keyboardEvent.key === 'Escape') {
+      keyboardEvent.preventDefault();
+      advance();
+      return;
+    }
+    if (keyboardEvent.key === 'Tab') {
+      // This modal has one action. Keep keyboard and switch focus inside it
+      // rather than allowing the obscured Results controls to receive focus.
+      keyboardEvent.preventDefault();
+      cardRef.current?.focus({ preventScroll: true });
+    }
+  }, [advance]);
 
   if (!event || list.length === 0) return null;
 
@@ -151,66 +198,76 @@ export function CelebrationLayer({ events, haptics, onDone }) {
 
   return (
     <section
+      ref={dialogRef}
       className={`celebration-overlay celebration-${event.kind}`}
       data-final={finalEvolution ? 'true' : 'false'}
       data-reduced-motion={reducedMotion ? 'true' : 'false'}
+      data-interaction-paused={interactionPaused ? 'true' : 'false'}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="celebration-title"
-      aria-describedby="celebration-description"
+      aria-label="Companion reward"
+      tabIndex={-1}
+      onKeyDown={handleDialogKeyDown}
       style={{
         '--celebration-accent': palette.primary,
         '--celebration-secondary': palette.secondary,
         '--celebration-pale': palette.pale,
       }}
     >
-      <button
-        type="button"
-        className="celebration-card"
-        onClick={advance}
-        aria-label={`${copy.announcement} Tap to continue.`}
-      >
-        <span className="celebration-stage" aria-hidden="true">
-          <CelebrationEffects
-            finalEvolution={finalEvolution}
-            reducedMotion={reducedMotion}
-          />
-          <span className="celebration-halo" />
-          <img
-            className="celebration-art"
-            src={artUrl}
-            alt=""
-            width={640}
-            height={640}
-            decoding="async"
-          />
-        </span>
-
-        <span className="celebration-copy">
-          <span className="celebration-eyebrow">{copy.eyebrow}</span>
-          <span
-            id="celebration-title"
-            className="celebration-headline"
-            role="heading"
-            aria-level="2"
-          >
-            {copy.headline}
-          </span>
-          <span className="celebration-stage-label">{copy.stageLabel}</span>
-          <span id="celebration-description" className="celebration-body">
-            {copy.body}
-          </span>
-          <ProgressMeter event={event} />
-          <span className="celebration-action">
-            <span>Tap to continue</span>
-            {list.length > 1 && (
-              <span className="celebration-position">
-                {index + 1} of {list.length}
-              </span>
+      <div className="celebration-scroll">
+        <button
+          ref={cardRef}
+          type="button"
+          className="celebration-card"
+          onClick={advance}
+          onFocus={() => setInteractionPaused(true)}
+          onBlur={() => setInteractionPaused(false)}
+          aria-label={`Continue after ${copy.headline}`}
+        >
+          <span className="celebration-stage" aria-hidden="true">
+            <CelebrationEffects
+              finalEvolution={finalEvolution}
+              reducedMotion={reducedMotion}
+            />
+            <span className="celebration-halo" />
+            {artUrl && (
+              <img
+                className="celebration-art"
+                src={artUrl}
+                alt=""
+                width={640}
+                height={640}
+                decoding="async"
+              />
             )}
           </span>
-        </span>
-      </button>
+
+          <span className="celebration-copy">
+            <span className="celebration-eyebrow">{copy.eyebrow}</span>
+            <span
+              id="celebration-title"
+              className="celebration-headline"
+              role="heading"
+              aria-level="2"
+            >
+              {copy.headline}
+            </span>
+            <span className="celebration-stage-label">{copy.stageLabel}</span>
+            <span id="celebration-description" className="celebration-body">
+              {copy.body}
+            </span>
+            <ProgressMeter event={event} />
+            <span className="celebration-action">
+              <span>Tap or press to continue</span>
+              {list.length > 1 && (
+                <span className="celebration-position">
+                  {index + 1} of {list.length}
+                </span>
+              )}
+            </span>
+          </span>
+        </button>
+      </div>
 
       <p
         className="celebration-status visually-hidden"

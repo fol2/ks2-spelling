@@ -141,3 +141,68 @@ test('Codex defaults to the first found companion but honours an explicit select
   assert.equal(selectedCodex.hero.found, false);
   assert.equal(selectedCodex.hero.title, '???');
 });
+
+test('Set off picks the furthest grown owned companion, never a hard-coded Inklet', async (t) => {
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+
+  const { setupExpeditionCompanion } = await vite.ssrLoadModule(
+    '/src/app/codex-model.js',
+  );
+
+  assert.equal(setupExpeditionCompanion([]), null);
+  assert.equal(setupExpeditionCompanion([monster()]), null);
+
+  const owned = setupExpeditionCompanion([
+    monster({
+      caught: true,
+      secureCount: 10,
+      derivedStage: 1,
+      earnedStageHighWater: 1,
+    }),
+    monster({
+      rewardTrackId: 'spelling-core-glimmerbug',
+      monsterId: 'glimmerbug',
+      caught: true,
+      secureCount: 40,
+      derivedStage: 2,
+      earnedStageHighWater: 2,
+      thresholds: [1, 5, 15, 40, 80],
+    }),
+    monster({
+      rewardTrackId: 'spelling-core-phaeton',
+      monsterId: 'phaeton',
+      caught: false,
+      secureCount: 0,
+      thresholds: [1, 5, 15, 40, 80],
+    }),
+  ]);
+  assert.equal(owned.monsterId, 'glimmerbug');
+  assert.equal(owned.stage, 2);
+  assert.equal(owned.found, true);
+  assert.match(owned.art, /glimmerbug-b1-2\.640\.webp$/u);
+
+  const tied = setupExpeditionCompanion([
+    monster({
+      caught: true,
+      secureCount: 30,
+      derivedStage: 2,
+      earnedStageHighWater: 2,
+    }),
+    monster({
+      rewardTrackId: 'spelling-core-glimmerbug',
+      monsterId: 'glimmerbug',
+      caught: true,
+      secureCount: 15,
+      derivedStage: 2,
+      earnedStageHighWater: 2,
+      thresholds: [1, 5, 15, 40, 80],
+    }),
+  ]);
+  assert.equal(tied.monsterId, 'inklet');
+});

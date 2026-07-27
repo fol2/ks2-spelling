@@ -546,6 +546,40 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(failedSetupHtml, /aria-current="page"[^>]*>[\s\S]*?<span>Trail<\/span>/);
   assert.doesNotMatch(failedSetupHtml, /Listening voice|Iapetus|Sulafat/);
   assert.doesNotMatch(failedSetupHtml, /data-locked="true"|Not on this trail yet/);
+  // Owned egg progress paints; a hard-coded adult Inklet must not.
+  assert.match(failedSetupHtml, /inklet-b1-0\.640\.webp/);
+  assert.doesNotMatch(failedSetupHtml, /inklet-b1-3\.640\.webp/);
+
+  learningState = Object.freeze({
+    ...learningState,
+    monsters: Object.freeze([
+      Object.freeze({
+        rewardTrackId: 'spelling-core-inklet',
+        packId: 'ks2-core',
+        monsterId: 'inklet',
+        thresholds: Object.freeze([1, 10, 30, 60, 100]),
+        branch: 'b1',
+        secureCount: 10,
+        caught: true,
+        derivedStage: 1,
+        earnedStageHighWater: 1,
+      }),
+      Object.freeze({
+        rewardTrackId: 'spelling-core-glimmerbug',
+        packId: 'ks2-core',
+        monsterId: 'glimmerbug',
+        thresholds: Object.freeze([1, 5, 15, 40, 80]),
+        branch: 'b1',
+        secureCount: 40,
+        caught: true,
+        derivedStage: 2,
+        earnedStageHighWater: 2,
+      }),
+    ]),
+  });
+  const ownedSetupHtml = render();
+  assert.match(ownedSetupHtml, /glimmerbug-b1-2\.640\.webp/);
+  assert.doesNotMatch(ownedSetupHtml, /inklet-b1-3\.640\.webp/);
 
   const setupCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
   assert.match(

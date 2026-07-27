@@ -143,3 +143,16 @@ export function trailMeadowCompanions(roster = [], slotCount = Infinity) {
     : Infinity;
   return roster.filter((entry) => entry.found).slice(0, limit);
 }
+
+/**
+ * Set off paints one owned companion at its earned stage. Prefer the furthest
+ * grown found creature so the expedition screen reflects progress; with none
+ * found yet, paint nothing rather than a hard-coded Inklet.
+ */
+export function setupExpeditionCompanion(monsters = []) {
+  const found = buildCodex(monsters).roster.filter((entry) => entry.found);
+  if (found.length === 0) return null;
+  return found.reduce((best, entry) => (
+    entry.stage > best.stage ? entry : best
+  ));
+}

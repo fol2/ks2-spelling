@@ -4,13 +4,20 @@ on:
   push:
     branches:
       - agent/live-trail-meadow
+  pull_request:
+    branches:
+      - main
+    types:
+      - reopened
 
 permissions:
   contents: write
 
 jobs:
   finalise:
-    if: github.actor != 'github-actions[bot]'
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      (github.event_name == 'push' || github.head_ref == 'agent/live-trail-meadow')
     runs-on: ubuntu-latest
     steps:
       - name: Check out Trail branch

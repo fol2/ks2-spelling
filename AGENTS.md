@@ -58,3 +58,5 @@
   workflow patterns), organised by category with YAML frontmatter (`module`,
   `tags`, `problem_type`). Relevant when implementing or debugging in a
   documented area.
+- `CONCEPTS.md` holds shared domain vocabulary for the project. Relevant when
+  orienting to the codebase or discussing domain concepts.

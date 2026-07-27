@@ -1,7 +1,7 @@
-/** Auto-advance delay for the practice screen (ported delay rule only). */
+/** Leave enough time for the learner to read the correction before advancing. */
 
-export function autoAdvanceDelayMs(mode) {
-  return mode === 'test' ? 320 : 500;
+export function autoAdvanceDelayMs() {
+  return 2_000;
 }
 
 /**

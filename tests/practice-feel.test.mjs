@@ -9,11 +9,8 @@ import {
   roundProgressDots,
 } from '../src/app/practice-feel.js';
 
-test('autoAdvanceDelayMs returns 320 for test and 500 otherwise', () => {
-  assert.equal(autoAdvanceDelayMs('test'), 320);
-  assert.equal(autoAdvanceDelayMs('smart'), 500);
-  assert.equal(autoAdvanceDelayMs('trouble'), 500);
-  assert.equal(autoAdvanceDelayMs(undefined), 500);
+test('autoAdvanceDelayMs leaves the correction visible for two seconds', () => {
+  assert.equal(autoAdvanceDelayMs(), 2_000);
 });
 
 test('roundProgressDots marks secured words done and the next one current', () => {
@@ -62,5 +59,9 @@ test('PracticeScreen answer input keeps writingsuggestions="false"', async () =>
   assert.ok(
     source.includes('writingsuggestions="false"'),
     'answer input must keep writingsuggestions="false"',
+  );
+  assert.ok(
+    source.includes('}, autoAdvanceDelayMs());'),
+    'an accepted answer must schedule the next card',
   );
 });

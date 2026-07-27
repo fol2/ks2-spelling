@@ -37,9 +37,9 @@ AssertionError: Package script is not authorised by the approved plans: test:fas
 The failure surfaces through `tests/b3-package-transition-authority.test.mjs` and
 `npm run verify:b2-authority` (which is in the PR/`verify:b3` chain), so it blocks
 CI, not just a local run. The guard is intentional certification governance from
-the B3 gate, but it means a one-line script addition touches a cryptographically
-self-validated provenance file. This came up while adding the seconds-fast daily
-test loop (`test:fast` / `test:watch` / `test:changed` / `hooks:install`).
+the B3 gate, but it means a one-line script addition also touches a closed-schema
+provenance file. This came up while adding the seconds-fast daily test loop
+(`test:fast` / `test:watch` / `test:changed` / `hooks:install`).
 
 ## Guidance
 
@@ -47,22 +47,23 @@ A script that is not in the frozen B2 base `package.json` must be listed in the
 approved additions in **two** places, kept byte-identical, plus the contract
 test that pins the expected set:
 
-1. **`scripts/lib/b3-package-transition-authority.mjs`** — add the script to one
-   of the `*_PLANNED_PACKAGE_SCRIPT_ADDITIONS` buckets (`B3_…` at line 30, `B4_…`
-   at line 48), or a new exported bucket, and spread it into the merged
-   `PLANNED_PACKAGE_SCRIPT_ADDITIONS` (line 73). The check at line 200 rejects any
+1. **`scripts/lib/b3-package-transition-authority.mjs`** — add the script to the
+   relevant `*_PLANNED_PACKAGE_SCRIPT_ADDITIONS` bucket, or a new exported
+   bucket, and spread any new bucket into the merged
+   `PLANNED_PACKAGE_SCRIPT_ADDITIONS`. The package-transition check rejects any
    current script that is neither in the frozen base nor in this merged object.
 
 2. **`provenance/b3-package-transition.json`** — add the identical
-   `"name": "command"` entry under `allowedPackageScriptAdditions` (line 6). The
-   verifier requires `authority.allowedPackageScriptAdditions` to deep-equal the
-   module's `PLANNED_PACKAGE_SCRIPT_ADDITIONS` (lines 136–137), so the two files
-   must match exactly — same command string, quoting and all.
+   `"name": "command"` entry under `allowedPackageScriptAdditions`. The verifier
+   requires `authority.allowedPackageScriptAdditions` to deep-equal the module's
+   `PLANNED_PACKAGE_SCRIPT_ADDITIONS`, so the two files must match exactly — same
+   command string, quoting and all.
 
 3. **`tests/b3-package-transition-authority.test.mjs`** — the test asserts
-   `authority.allowedPackageScriptAdditions` deep-equals the union of the buckets
-   (lines 86–90). Import your new bucket and add it to that expected union (and to
-   the per-bucket `Object.keys` name assertion) or the test fails.
+   `authority.allowedPackageScriptAdditions` deep-equals the union of all current
+   buckets. Import a new bucket and add it to that expected union, and update its
+   `Object.keys` name assertion. If extending an existing bucket, update that
+   bucket's expected-name assertion.
 
 The command string in all three places must be identical to what is in
 `package.json`. A new bucket was used for the daily-loop scripts (an
@@ -72,10 +73,12 @@ way, so this is the designed extension mechanism, not a workaround.
 
 ## Why This Matters
 
-- **The provenance file is self-validated, not externally hash-pinned.** It is not
-  in `B4_EVIDENCE_PATHS` and no other authority hashes its bytes, so editing
-  `allowedPackageScriptAdditions` does not cascade into a chain of frozen-hash
-  updates. The only constraints are the module⇄provenance deep-equal and the
+- **The provenance file's own bytes are not independently hash-pinned.** It is
+  not in `B4_EVIDENCE_PATHS`; the package-transition verifier validates its
+  closed content against the module constants and separately SHA-checks only the
+  files listed in `protectedCurrentFiles`. Editing
+  `allowedPackageScriptAdditions` therefore does not cascade into frozen-hash
+  updates. The relevant constraints are the module⇄provenance deep-equal and the
   contract test — both verifiable locally with `npm run test:fast`.
 - **Miss any one of the three and CI stays red.** The module change alone fails the
   provenance deep-equal; the provenance change alone fails the module deep-equal;
@@ -90,12 +93,13 @@ way, so this is the designed extension mechanism, not a workaround.
 
 Any time `git diff` on a branch adds, renames, or removes a `package.json`
 `scripts` entry. Also relevant when **renaming a test file**: some
-`tests/*.test.mjs` files are referenced by path in `scripts/` and in the frozen
-B2 native-plugin report (`scripts/build-b2-native-plugin-report.mjs`), so renaming
-one (e.g. to a `*.slow.test.mjs` convention) breaks
-`npm run report:b2-native-plugins:check` and `npm run native:sync:check` — grep
-`scripts/ tests/helpers/` for the basename before renaming, and exclude referenced
-files by name rather than renaming them.
+`tests/*.test.mjs` files are hard-coded in scripts, while others are committed
+inputs in the frozen B2 native-plugin report
+(`scripts/build-b2-native-plugin-report.mjs`). A hard-coded native contract path
+can break `npm run native:sync:check`; a frozen report input can break
+`npm run report:b2-native-plugins:check`. Grep the repository for the basename
+before renaming, and exclude a referenced file by name rather than renaming it
+only to change the fast-test tier.
 
 ## Examples
 
@@ -110,6 +114,7 @@ export const SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
 const PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
   ...B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   ...B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+  ...C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   ...SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS, // <- add
 });
 ```
@@ -125,6 +130,7 @@ import { /* … */ SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS } from '../scripts/l
 assert.deepEqual(authority.allowedPackageScriptAdditions, {
   ...B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   ...B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+  ...C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   ...SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS, // <- add
 });
 ```

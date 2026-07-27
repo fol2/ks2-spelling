@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { buildCodex } from './codex-model.js';
 import { artUrl, monsterArt, regionArt } from './mastery-art.js';
+import { autoAdvanceDelayMs } from './practice-feel.js';
 import { buildWordBank } from './word-bank-model.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
@@ -2171,6 +2172,7 @@ function RoundScreen({
   const [confirmExit, setConfirmExit] = useState(false);
   const [exitError, setExitError] = useState('');
   const [leaving, setLeaving] = useState(false);
+  const advanceTimerRef = useRef(null);
   const closeExit = useCallback(() => {
     setExitError('');
     setConfirmExit(false);
@@ -2215,6 +2217,34 @@ function RoundScreen({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioRequest]);
 
+  useEffect(() => {
+    if (advanceTimerRef.current != null) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+    if (!practice?.awaitingAdvance || state.actionError) return undefined;
+    advanceTimerRef.current = setTimeout(() => {
+      advanceTimerRef.current = null;
+      void onContinue()
+        .then(() => setAnswer(''))
+        .catch(() => setLocalError('That answer did not save. Please try again.'));
+    }, autoAdvanceDelayMs());
+    return () => {
+      if (advanceTimerRef.current != null) {
+        clearTimeout(advanceTimerRef.current);
+        advanceTimerRef.current = null;
+      }
+    };
+  // onContinue is an inline service call whose identity changes per render;
+  // keying on it would restart the timer on unrelated updates.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    practice?.sessionId,
+    practice?.runtimeItemId,
+    practice?.awaitingAdvance,
+    state.actionError,
+  ]);
+
   if (!practice) return null;
   const total = practice.progress.total;
   const done = practice.progress.done;
@@ -2228,6 +2258,10 @@ function RoundScreen({
     if (busy) return;
     try {
       if (answered) {
+        if (advanceTimerRef.current != null) {
+          clearTimeout(advanceTimerRef.current);
+          advanceTimerRef.current = null;
+        }
         await onContinue();
         setAnswer('');
         return;

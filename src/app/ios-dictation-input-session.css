@@ -3,12 +3,9 @@
    is sized to what the learner can actually see while the persistent input
    session remains first responder. */
 :root[data-dictation-input-session='round'] {
-  /* Match .product-app’s always-on inset shrink, but keep an explicit round
-     floor so a missing inset token cannot collapse the scene to zero. */
-  --dictation-visible-height: max(
-    1px,
-    calc(100dvh - var(--keyboard-inset, 0px))
-  );
+  /* Shrink only after the persistent input is already first responder.
+     Applying the same inset to every product screen fights keyboard open. */
+  --dictation-visible-height: max(1px, calc(100dvh - var(--keyboard-inset, 0px)));
 }
 
 :root[data-dictation-input-session='round'] .product-app {

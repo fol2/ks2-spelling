@@ -745,7 +745,12 @@ test('the product shell keeps the waypoint foot on the viewport while Words scro
 
   assert.match(
     productCss,
-    /\.product-app\s*\{[^}]*height:\s*calc\(100dvh\s*-\s*var\(--keyboard-inset,\s*0px\)\);[^}]*max-height:\s*calc\(100dvh\s*-\s*var\(--keyboard-inset,\s*0px\)\);[^}]*overflow:\s*hidden;/su,
+    /\.product-app\s*\{[^}]*height:\s*100dvh;[^}]*max-height:\s*100dvh;[^}]*overflow:\s*hidden;/su,
+  );
+  // Shell height must not chase --keyboard-inset; that loop dismisses iOS keys.
+  assert.doesNotMatch(
+    productCss,
+    /\.product-app\s*\{[^}]*--keyboard-inset/su,
   );
   assert.match(
     productCss,

@@ -8,9 +8,16 @@ export function createCapacitorHaptics() {
       void Haptics.notification({ type: NotificationType.Success })
         .catch(() => undefined);
     },
-    celebrationStart() {
-      void Haptics.impact({ style: ImpactStyle.Medium })
-        .catch(() => undefined);
+    celebrationStart(kind = 'progress', stage = 0) {
+      if (kind === 'caught') {
+        void Haptics.notification({ type: NotificationType.Success })
+          .catch(() => undefined);
+        return;
+      }
+      const style = kind === 'evolve'
+        ? (stage >= 4 ? ImpactStyle.Heavy : ImpactStyle.Medium)
+        : ImpactStyle.Light;
+      void Haptics.impact({ style }).catch(() => undefined);
     },
   });
 }

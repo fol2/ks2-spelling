@@ -9,11 +9,9 @@ export default function ProductRoot({ services }) {
   const productMode = services?.mode === 'product';
 
   useEffect(() => {
-    if (!productMode) return undefined;
+    if (!productMode || Capacitor.getPlatform() !== 'ios') return undefined;
     const stopInset = observeKeyboardInset();
-    const stopInputSession = Capacitor.getPlatform() === 'ios'
-      ? installIOSDictationInputSession()
-      : () => undefined;
+    const stopInputSession = installIOSDictationInputSession();
     return () => {
       stopInputSession();
       stopInset();

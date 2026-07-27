@@ -7,8 +7,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { buildCodex, trailMeadowCompanions } from './codex-model.js';
-import { artUrl, monsterArt, regionArt } from './mastery-art.js';
+import { buildCodex, setupExpeditionCompanion, trailMeadowCompanions } from './codex-model.js';
+import { artUrl, regionArt } from './mastery-art.js';
 import { autoAdvanceDelayMs } from './practice-feel.js';
 import { buildWordBank } from './word-bank-model.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
@@ -1979,6 +1979,7 @@ function SetupScreen({
   troubleCount,
   bankTotal,
   vocabularySets = [],
+  monsters = [],
 }) {
   const [length, setLength] = useState(5);
   const [quest, setQuest] = useState('smart');
@@ -1986,7 +1987,10 @@ function SetupScreen({
   const active = QUESTS.find(({ id }) => id === quest) ?? QUESTS[0];
   const effectiveYearFilter = quest === 'test' ? 'core' : yearFilter;
   const effectiveLength = quest === 'test' ? 20 : length;
-  const companion = monsterArt('inklet', 3);
+  const companion = useMemo(
+    () => setupExpeditionCompanion(monsters),
+    [monsters],
+  );
 
   return (
     <main className="product-app" aria-labelledby="setup-title">
@@ -2016,7 +2020,7 @@ function SetupScreen({
           </div>
 
           <div className="setup-quest">
-            {companion && <img src={companion} alt="" />}
+            {companion?.art && <img src={companion.art} alt="" />}
             <p className="product-kicker">
               Today&apos;s quest<span aria-hidden="true" />
             </p>
@@ -2797,6 +2801,7 @@ export default function ProductApp({ services }) {
         troubleCount={filterCount('trouble')}
         bankTotal={bank.total}
         vocabularySets={learningState.vocabularySets}
+        monsters={learningState.monsters}
       />
     );
   }

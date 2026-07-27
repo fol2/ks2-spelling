@@ -1,15 +1,9 @@
+import { clampCompanionStage } from '../companion-stage-contract.js';
+
 /**
  * Pure, dependency-free decisions for the Monster Stage island. These get
  * unit-tested against the on-disk art inventory, so keep them small and exact.
  */
-
-const STAGE_MIN = 0;
-const STAGE_MAX = 4;
-
-function clampStage(stage) {
-  const value = Number.isFinite(stage) ? Math.trunc(stage) : 0;
-  return Math.min(STAGE_MAX, Math.max(STAGE_MIN, value));
-}
 
 /**
  * Web path to a stage's whole-creature webp. Unknown branch falls back to b1;
@@ -17,7 +11,7 @@ function clampStage(stage) {
  */
 export function stageArtUrl(monsterId, branch, stage) {
   const resolvedBranch = branch === 'b2' ? 'b2' : 'b1';
-  const resolvedStage = clampStage(stage);
+  const resolvedStage = clampCompanionStage(stage);
   return `/mastery-art/monsters/${monsterId}/${resolvedBranch}/${monsterId}-${resolvedBranch}-${resolvedStage}.640.webp`;
 }
 
@@ -26,8 +20,8 @@ export function stageArtUrl(monsterId, branch, stage) {
  * evolves; from/to are clamped to the authored range so callers can drive art.
  */
 export function evolutionDecision(previousStage, nextStage) {
-  const from = clampStage(previousStage);
-  const to = clampStage(nextStage);
+  const from = clampCompanionStage(previousStage);
+  const to = clampCompanionStage(nextStage);
   return to > from ? { kind: 'evolve', from, to } : { kind: 'none', from, to };
 }
 

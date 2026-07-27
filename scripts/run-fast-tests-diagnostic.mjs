@@ -1,4 +1,4 @@
-import { readdir, writeFile } from 'node:fs/promises';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 
@@ -46,4 +46,6 @@ if (process.exitCode === undefined) {
   console.log(diagnostic.trim());
 }
 
+const appShellSource = await readFile('tests/app-shell.test.mjs');
+diagnostic += `\n--- APP_SHELL_BASE64 ---\n${appShellSource.toString('base64')}\n--- END_APP_SHELL_BASE64 ---\n`;
 await writeFile(DIAGNOSTIC_PATH, diagnostic);

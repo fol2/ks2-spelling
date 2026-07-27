@@ -1,4 +1,9 @@
-export const HIGHEST_COMPANION_STAGE = 4;
+import {
+  clampCompanionStage,
+  HIGHEST_COMPANION_STAGE,
+} from './companion-stage-contract.js';
+
+export { HIGHEST_COMPANION_STAGE } from './companion-stage-contract.js';
 
 const DEFAULT_PRESENTATION = Object.freeze({
   name: 'Companion',
@@ -89,11 +94,6 @@ const COMPANION_PRESENTATION = Object.freeze({
   }),
 });
 
-function boundedStage(stage) {
-  const value = Number.isFinite(stage) ? Math.trunc(stage) : 0;
-  return Math.max(0, Math.min(HIGHEST_COMPANION_STAGE, value));
-}
-
 /** One immutable visual/copy authority shared by Trail, Codex and celebrations. */
 export function companionPresentation(monsterId) {
   return COMPANION_PRESENTATION[monsterId] ?? DEFAULT_PRESENTATION;
@@ -101,7 +101,7 @@ export function companionPresentation(monsterId) {
 
 export function companionStageName(monsterId, stage = 0) {
   const presentation = companionPresentation(monsterId);
-  const bounded = boundedStage(stage);
+  const bounded = clampCompanionStage(stage);
   return presentation.stages[bounded]
     ?? `${presentation.name} stage ${bounded}`;
 }
@@ -118,3 +118,7 @@ export function companionPalette(monsterId) {
 export function isKnownCompanion(monsterId) {
   return Object.hasOwn(COMPANION_PRESENTATION, monsterId);
 }
+
+// Keep the imported stage ceiling live in this module so tree-shaking cannot
+// accidentally separate the presentation table from its authored range.
+void HIGHEST_COMPANION_STAGE;

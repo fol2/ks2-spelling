@@ -28,6 +28,10 @@ function distance(left, right) {
   return Math.hypot(dx, dy);
 }
 
+function homes(companions) {
+  return companions.map(({ monsterId, x, footY }) => ({ monsterId, x, footY }));
+}
+
 test('stage-zero companions stay grounded in nests regardless of species', () => {
   for (const monsterId of ['inklet', 'glimmerbug', 'phaeton', 'vellhorn']) {
     assert.deepEqual(trailCompanionBehaviour(companion(monsterId, 0)), {
@@ -90,13 +94,19 @@ test('layout is stable per learner and separates the four habitat occupants', ()
   const repeat = buildTrailMeadowCompanions(roster, { seed: 'learner-a:Y5' });
   assert.deepEqual(repeat, first);
 
+  const editedYearGroup = buildTrailMeadowCompanions(roster, {
+    seed: 'learner-a:Y3',
+  });
+  assert.deepEqual(
+    homes(editedYearGroup),
+    homes(first),
+    'editing display context must not rearrange a learner\'s habitat',
+  );
+
   const anotherLearner = buildTrailMeadowCompanions(roster, {
     seed: 'learner-b:Y5',
   });
-  assert.notDeepEqual(
-    anotherLearner.map(({ x, footY }) => ({ x, footY })),
-    first.map(({ x, footY }) => ({ x, footY })),
-  );
+  assert.notDeepEqual(homes(anotherLearner), homes(first));
 
   for (let left = 0; left < first.length; left += 1) {
     for (let right = left + 1; right < first.length; right += 1) {
@@ -108,7 +118,26 @@ test('layout is stable per learner and separates the four habitat occupants', ()
   }
 });
 
-test('perspective, stage and authored facing affect presentation without changing progress', () => {
+test('evolution matures motion and scale without teleporting a companion home', () => {
+  const youngRoster = [
+    companion('inklet', 1),
+    companion('glimmerbug', 1),
+    companion('phaeton', 1),
+    companion('vellhorn', 1),
+  ];
+  const finalRoster = youngRoster.map((entry) => companion(entry.monsterId, 4));
+  const young = buildTrailMeadowCompanions(youngRoster, { seed: 'learner-a:Y5' });
+  const final = buildTrailMeadowCompanions(finalRoster, { seed: 'learner-a:Y5' });
+
+  assert.deepEqual(homes(final), homes(young));
+  assert.ok(final.every((entry, index) => entry.size > young[index].size));
+  assert.notDeepEqual(
+    final.map(({ motion, route }) => ({ motion, route })),
+    young.map(({ motion, route }) => ({ motion, route })),
+  );
+});
+
+test('perspective and authored facing affect presentation without changing progress', () => {
   const young = buildTrailMeadowCompanions([
     companion('phaeton', 1),
   ], { seed: 'learner-a' })[0];
@@ -116,6 +145,8 @@ test('perspective, stage and authored facing affect presentation without changin
     companion('phaeton', 4),
   ], { seed: 'learner-a' })[0];
   assert.ok(final.size > young.size);
+  assert.equal(final.x, young.x);
+  assert.equal(final.footY, young.footY);
   assert.equal(final.face, 1, 'Phaeton b1 is authored facing right');
   assert.equal(final.reverseFace, -1);
   assert.ok(final.airLift < 0);

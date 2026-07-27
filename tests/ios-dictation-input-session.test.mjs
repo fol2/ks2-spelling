@@ -233,7 +233,7 @@ test('the product root owns the public-API iOS session and visual viewport layou
   assert.doesNotMatch(sessionSource, /Keyboard\.show|keyboardDisplayRequiresUserAction/);
 
   assert.match(sessionCss, /--keyboard-inset/);
-  assert.match(sessionCss, /100dvh/);
+  assert.match(sessionCss, /100vh/);
   assert.match(sessionCss, /data-dictation-input-session='round'/);
   assert.match(sessionCss, /data-room='tight'/);
 });
@@ -305,6 +305,7 @@ test('one trusted Setup activation survives the async round mount', () => {
   assert.equal(sessionInput.style.left, '20px');
   assert.equal(sessionInput.style.width, '350px');
   assert.equal(sessionInput.style.pointerEvents, 'auto');
+  assert.equal(sessionInput.disabled, false);
   assert.equal(sessionInput.getAttribute('aria-hidden'), 'true');
 
   sessionInput.emit('pointerdown', { target: sessionInput });
@@ -377,6 +378,7 @@ test('one trusted Setup activation survives the async round mount', () => {
   assert.equal(document.documentElement.dataset.dictationInputSession, 'paused');
   assert.equal(document.activeElement, null);
   assert.equal(sessionInput.style.pointerEvents, 'none');
+  assert.equal(sessionInput.disabled, true);
 
   // Escape removes the dialog without a Keep button activation. Mutation
   // reconciliation resumes because the round itself is still mounted.
@@ -385,6 +387,7 @@ test('one trusted Setup activation survives the async round mount', () => {
   view.flushFrame();
   assert.equal(document.documentElement.dataset.dictationInputSession, 'round');
   assert.equal(document.activeElement, sessionInput);
+  assert.equal(sessionInput.disabled, false);
 
   // The dialog's passive cleanup can restore End round after the mutation that
   // removed it. Escape receives the same short focus guard as Keep.
@@ -422,10 +425,35 @@ test('one trusted Setup activation survives the async round mount', () => {
   view.flushFrame();
   assert.equal(document.documentElement.dataset.dictationInputSession, undefined);
   assert.equal(document.activeElement, null);
+  assert.equal(sessionInput.disabled, true);
   assert.equal(roundInput.getAttribute('aria-hidden'), null);
   assert.equal(roundInput.style.pointerEvents ?? '', '');
 
   stop();
   assert.equal(sessionInput.removed, true);
   assert.equal(view.observer.disconnected, true);
+});
+
+test('leaving Setup while armed parks the shield so other screens stay tappable', () => {
+  const view = createView();
+  const { document } = view;
+  const startButton = new FakeElement('button', document);
+  startButton.selectors.add('.setup-tray > .button-primary');
+  startButton.rect = { left: 20, top: 700, width: 350, height: 54 };
+  document.queries.set('.setup-tray > .button-primary', startButton);
+
+  const stop = installIOSDictationInputSession(view);
+  const sessionInput = document.body.children[0];
+  sessionInput.emit('pointerdown', { target: sessionInput });
+  assert.equal(document.documentElement.dataset.dictationInputSession, 'armed');
+
+  document.queries.delete('.setup-tray > .button-primary');
+  view.observer.callback([{ type: 'childList', target: document.body }]);
+  view.flushFrame();
+
+  assert.equal(document.documentElement.dataset.dictationInputSession, undefined);
+  assert.equal(document.activeElement, null);
+  assert.equal(sessionInput.disabled, true);
+  assert.equal(sessionInput.style.pointerEvents, 'none');
+  stop();
 });

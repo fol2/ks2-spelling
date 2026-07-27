@@ -1629,21 +1629,26 @@ function WordBankScreen({ progress, onScreen, onStart }) {
             <span className="figure">{bank.countLabel}</span>
           </div>
 
-          <label className="bank-search">
-            <span className="visually-hidden">Search the word bank</span>
+          <div className="bank-search">
+            <label htmlFor="bank-search-input" className="visually-hidden">
+              Search the word bank
+            </label>
             <input
-              type="search"
+              id="bank-search-input"
+              name="bank-search"
+              type="text"
+              inputMode="search"
               value={query}
               placeholder="Search spellings"
-              aria-label="Search the word bank"
               autoComplete="off"
-              autoCorrect="off"
               autoCapitalize="none"
-              spellCheck={false}
+              autoCorrect="off"
+              spellCheck="false"
+              writingsuggestions="false"
               enterKeyHint="search"
               onChange={(event) => setQuery(event.target.value)}
             />
-          </label>
+          </div>
 
           <div className="rail bank-filters bank-vocab-sets" role="group" aria-label="Vocabulary set">
             {bank.vocabSets.map((option) => (

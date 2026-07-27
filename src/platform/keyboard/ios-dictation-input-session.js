@@ -54,7 +54,7 @@ export function writeControlledInputValue(input, value, view = globalThis) {
   return true;
 }
 
-function configureSessionInput(input) {
+  function configureSessionInput(input) {
   input.id = SESSION_INPUT_ID;
   input.type = 'text';
   input.name = 'spelling-session';
@@ -65,6 +65,7 @@ function configureSessionInput(input) {
   input.enterKeyHint = 'go';
   input.lang = 'en-GB';
   input.tabIndex = -1;
+  input.disabled = true;
   input.setAttribute('autocorrect', 'off');
   input.setAttribute('writingsuggestions', 'false');
   input.setAttribute('aria-label', 'Type the spelling');
@@ -143,6 +144,7 @@ export function installIOSDictationInputSession(view = globalThis) {
   function placeOver(target, interactive) {
     if (!target?.getBoundingClientRect) return false;
     const placement = placementForRect(target.getBoundingClientRect());
+    sessionInput.disabled = false;
     Object.assign(sessionInput.style, placement, {
       pointerEvents: interactive ? 'auto' : 'none',
       transform: 'none',
@@ -158,6 +160,7 @@ export function installIOSDictationInputSession(view = globalThis) {
       return false;
     }
     const placement = placementForRect(startButton.getBoundingClientRect());
+    sessionInput.disabled = false;
     Object.assign(sessionInput.style, placement, {
       pointerEvents: 'auto',
       transform: 'none',
@@ -171,6 +174,8 @@ export function installIOSDictationInputSession(view = globalThis) {
   }
 
   function park() {
+    if (document.activeElement === sessionInput) sessionInput.blur();
+    sessionInput.disabled = true;
     Object.assign(sessionInput.style, {
       left: '0px',
       top: '0px',
@@ -360,10 +365,15 @@ export function installIOSDictationInputSession(view = globalThis) {
       return;
     }
 
-    if (!armed) {
-      setPhase(null);
-      if (!dockForSetup(startButton)) park();
+    // Armed without Setup (learner left the screen) or idle without a dock
+    // target: never leave an interactive shield floating over another place.
+    if (armed) {
+      disarm();
+      return;
     }
+
+    setPhase(null);
+    if (!dockForSetup(startButton)) park();
   }
 
   function scheduleReconcile() {

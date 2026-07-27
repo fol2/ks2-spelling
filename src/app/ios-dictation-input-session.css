@@ -5,7 +5,7 @@
 :root[data-dictation-input-session='round'] {
   /* Shrink only after the persistent input is already first responder.
      Applying the same inset to every product screen fights keyboard open. */
-  --dictation-visible-height: max(1px, calc(100dvh - var(--keyboard-inset, 0px)));
+  --dictation-visible-height: max(1px, calc(100vh - var(--keyboard-inset, 0px)));
 }
 
 :root[data-dictation-input-session='round'] .product-app {

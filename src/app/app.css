@@ -411,22 +411,19 @@ h1 {
 
   position: relative;
   display: flex;
-  /* Lock to the viewport so place screens cannot grow with their lists and
-     drag the Scene-owned foot away. Do NOT subtract --keyboard-inset here:
-     shrinking this shell as the keys rise dismisses the iOS software keyboard
-     (search and the PR43 dictation session). Round layout consumes the inset
-     only after that session is already first responder — see
-     ios-dictation-input-session.css. */
-  width: 100%;
-  max-width: 100%;
+  /* Lock to the visual viewport so place screens (Words especially) cannot
+     grow with their lists. The Scene-owned foot stays in normal flow under the
+     scroll column — if this shell grew with the list, the menu would scroll
+     away. Do not subtract --keyboard-inset here: chasing the inset as keys
+     rise dismisses the iOS software keyboard (Words search and the PR43
+     dictation session). Round layout consumes the inset only after that
+     session is already first responder — see ios-dictation-input-session.css. */
   height: 100vh;
   height: 100dvh;
   max-height: 100vh;
   max-height: 100dvh;
   flex-direction: column;
   overflow: hidden;
-  overflow-x: hidden;
-  overscroll-behavior: none;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
@@ -1064,11 +1061,11 @@ h1 {
   padding: 0.55rem 0.9rem;
   background: var(--paper-raised);
   color: var(--ink);
-  /* iOS auto-zooms focused inputs below 16px, which pans the visual viewport
-     horizontally under the locked product shell and feels like a drift. */
-  font-size: max(16px, 1rem);
+  /* Solid 16px — not rem — so iOS will not auto-zoom the focused field. */
+  font-size: 16px;
   font-weight: 600;
-  touch-action: manipulation;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .bank-search input::placeholder {

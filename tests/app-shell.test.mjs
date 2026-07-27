@@ -499,7 +499,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(emptyProgressHtml, /Word bank/);
   assert.match(emptyProgressHtml, /Your word bank is ready/);
   assert.match(emptyProgressHtml, /Set off on a round/);
-  assert.match(emptyProgressHtml, /aria-label="Search the word bank"/);
+  assert.match(emptyProgressHtml, /id="bank-search-input"/);
   assert.match(emptyProgressHtml, /placeholder="Search spellings"/);
   assert.match(emptyProgressHtml, /aria-label="Vocabulary set"/);
   assert.match(emptyProgressHtml, /aria-label="Filter words"/);
@@ -754,7 +754,7 @@ test('the product shell keeps the waypoint foot on the viewport while Words scro
   );
   assert.match(
     productCss,
-    /\.bank-search\s+input\s*\{[^}]*font-size:\s*max\(16px,\s*1rem\);/su,
+    /\.bank-search\s+input\s*\{[^}]*font-size:\s*16px;/su,
   );
   assert.match(
     productCss,

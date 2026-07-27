@@ -60,16 +60,26 @@ jobs:
           rm -f tests/.trail-fast-failure.log
           rm .github/workflows/trail-fast-diagnostic.yml
 
-      - name: Install dependencies and verify the cleaned branch
-        run: |
-          npm ci --silent
-          node --test \
-            tests/app-shell.test.mjs \
-            tests/trail-meadow-model.test.mjs \
-            tests/trail-meadow-contract.test.mjs \
-            tests/trail-meadow-hardening.test.mjs \
-            tests/trail-meadow-motion-contract.test.mjs
-          git diff --check
+      - name: Install exact dependencies
+        run: npm ci --silent
+
+      - name: Verify production shell SSR
+        run: node --test tests/app-shell.test.mjs
+
+      - name: Verify Trail habitat model
+        run: node --test tests/trail-meadow-model.test.mjs
+
+      - name: Verify Trail integration contract
+        run: node --test tests/trail-meadow-contract.test.mjs
+
+      - name: Verify Trail responsive and accessibility hardening
+        run: node --test tests/trail-meadow-hardening.test.mjs
+
+      - name: Verify Trail locomotion bounds
+        run: node --test tests/trail-meadow-motion-contract.test.mjs
+
+      - name: Check final patch whitespace
+        run: git diff --check
 
       - name: Commit final cleanup
         run: |

@@ -1,4 +1,7 @@
-import { HIGHEST_COMPANION_STAGE } from './companion-stage-contract.js';
+import {
+  clampCompanionStage,
+  HIGHEST_COMPANION_STAGE,
+} from './companion-stage-contract.js';
 
 // Painted expedition art, bundled from the repository copy of the frozen
 // ks2-mastery authority recorded in provenance/ks2-mastery-art.json. Every URL
@@ -51,7 +54,7 @@ export const HIGHEST_MONSTER_STAGE = HIGHEST_COMPANION_STAGE;
  * Monster Stage island's public path contract.
  */
 export function monsterArt(monsterId, stage = 0, branch = 'b1') {
-  const bounded = Math.max(0, Math.min(HIGHEST_MONSTER_STAGE, Math.trunc(stage) || 0));
+  const bounded = clampCompanionStage(stage);
   const resolvedBranch = branch === 'b2' ? 'b2' : 'b1';
   return MONSTER_ART.get(`${monsterId}:${resolvedBranch}:${bounded}`) ?? null;
 }

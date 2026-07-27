@@ -1054,10 +1054,37 @@ h1 {
   color: var(--ink-soft);
 }
 
+.bank-search {
+  display: block;
+  flex: none;
+  margin-top: 0.85rem;
+}
+
+.bank-search input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.95rem;
+  padding: 0.55rem 0.9rem;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.bank-search input::placeholder {
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+
 .bank-filters {
   flex: none;
-  margin-top: 0.8rem;
+  margin-top: 0.55rem;
   padding-bottom: 0.15rem;
+}
+
+.bank-vocab-sets {
+  margin-top: 0.7rem;
 }
 
 .bank-filters .pill {

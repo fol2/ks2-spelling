@@ -1595,9 +1595,11 @@ const FILTER_DOTS = Object.freeze({
 
 function WordBankScreen({ progress, onScreen, onStart }) {
   const [filter, setFilter] = useState('all');
+  const [vocabSet, setVocabSet] = useState('core');
+  const [query, setQuery] = useState('');
   const bank = useMemo(
-    () => buildWordBank({ progress, filter }),
-    [progress, filter],
+    () => buildWordBank({ progress, filter, vocabSet, query }),
+    [progress, filter, vocabSet, query],
   );
 
   return (
@@ -1616,6 +1618,36 @@ function WordBankScreen({ progress, onScreen, onStart }) {
               <h1 id="bank-title">Your words</h1>
             </div>
             <span className="figure">{bank.countLabel}</span>
+          </div>
+
+          <label className="bank-search">
+            <span className="visually-hidden">Search the word bank</span>
+            <input
+              type="search"
+              value={query}
+              placeholder="Search spellings"
+              aria-label="Search the word bank"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="search"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+
+          <div className="rail bank-filters bank-vocab-sets" role="group" aria-label="Vocabulary set">
+            {bank.vocabSets.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className="pill press-soft press"
+                aria-pressed={option.selected}
+                onClick={() => setVocabSet(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
 
           <div className="rail bank-filters" role="group" aria-label="Filter words">
@@ -1669,11 +1701,22 @@ function WordBankScreen({ progress, onScreen, onStart }) {
                     >
                       Set off on a round
                     </button>
+                  ) : query.trim() ? (
+                    <button
+                      type="button"
+                      className="button-quiet press-soft press"
+                      onClick={() => setQuery('')}
+                    >
+                      Clear search
+                    </button>
                   ) : (
                     <button
                       type="button"
                       className="button-quiet press-soft press"
-                      onClick={() => setFilter('all')}
+                      onClick={() => {
+                        setFilter('all');
+                        setVocabSet('core');
+                      }}
                     >
                       Show every word in the bank
                     </button>

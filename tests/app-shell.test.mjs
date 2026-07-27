@@ -306,7 +306,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
     summary: null,
     progress: [],
     vocabularySets: Object.freeze([
-      Object.freeze({ id: 'core', label: 'All', count: 20 }),
+      Object.freeze({ id: 'core', label: 'Core', count: 20 }),
       Object.freeze({ id: 'y3-4', label: 'Y3–4', count: 20 }),
     ]),
     monsters: Object.freeze([Object.freeze({
@@ -499,12 +499,20 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(emptyProgressHtml, /Word bank/);
   assert.match(emptyProgressHtml, /Your word bank is ready/);
   assert.match(emptyProgressHtml, /Set off on a round/);
+  assert.match(emptyProgressHtml, /aria-label="Search the word bank"/);
+  assert.match(emptyProgressHtml, /placeholder="Search spellings"/);
+  assert.match(emptyProgressHtml, /aria-label="Vocabulary set"/);
+  assert.match(emptyProgressHtml, /aria-label="Filter words"/);
+  for (const set of ['Core', 'Y3–4', 'Y5–6']) {
+    assert.match(emptyProgressHtml, new RegExp(`>${set}<`));
+  }
 
   learningState = Object.freeze({
     ...learningState,
     progress: Object.freeze([Object.freeze({
       runtimeItemId: 'ks2-core:museum',
       target: 'museum',
+      yearBand: '3-4',
       stage: 5,
       attempts: 9,
       correct: 9,
@@ -517,6 +525,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(wordBankHtml, /data-status="secure"/);
   assert.match(wordBankHtml, /museum/);
   assert.match(wordBankHtml, /9 correct · never missed/);
+  assert.match(wordBankHtml, /aria-pressed="true"[^>]*>Core</);
 
   learningState = Object.freeze({ ...learningState, screen: 'monster' });
   const codexHtml = render();
@@ -535,7 +544,9 @@ test('the production shell keeps Parent progress and commerce behind the local g
   const failedSetupHtml = render();
   assert.match(failedSetupHtml, /That trail could not start\. Please try again\./);
   assert.match(failedSetupHtml, /Vocabulary set/);
+  assert.match(failedSetupHtml, />Core</);
   assert.match(failedSetupHtml, /Y3–4/);
+  assert.doesNotMatch(failedSetupHtml, />All</);
   assert.match(failedSetupHtml, />20 words</);
   assert.match(failedSetupHtml, />Trouble</);
   assert.match(failedSetupHtml, />SATs</);

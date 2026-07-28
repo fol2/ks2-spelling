@@ -3,9 +3,6 @@
   "appName": "KS2 Spelling",
   "webDir": "dist",
   "loggingBehavior": "none",
-  "ios": {
-    "initialFocus": false
-  },
   "plugins": {
     "CapacitorSQLite": {
       "iosDatabaseLocation": "Library/CapacitorDatabase",

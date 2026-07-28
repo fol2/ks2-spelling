@@ -1,15 +1,19 @@
 name: Keyboard reset dependency regeneration
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/keyboard-reset-visible-input
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
 
 permissions:
   contents: write
 
 concurrency:
-  group: keyboard-reset-regenerate-${{ github.ref }}
+  group: keyboard-reset-regenerate-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 
 defaults:
@@ -18,7 +22,9 @@ defaults:
 
 jobs:
   regenerate:
-    if: github.actor != 'github-actions[bot]'
+    if: >-
+      github.event.pull_request.head.ref == 'agent/keyboard-reset-visible-input' &&
+      github.actor != 'github-actions[bot]'
     runs-on: macos-26
     timeout-minutes: 90
     steps:
@@ -46,6 +52,19 @@ jobs:
             scripts/lib/b3-package-transition-authority.mjs \
             scripts/lib/maven-evidence.mjs \
             tests/dependency-policy.test.mjs
+
+      - name: Remove the retired package from the direct-version contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('tests/app-shell.test.mjs')
+          source = path.read_text()
+          retired = "  '@capacitor/keyboard': '8.0.5',\n"
+          if source.count(retired) != 1:
+              raise SystemExit('expected exactly one direct Keyboard version entry')
+          path.write_text(source.replace(retired, '', 1))
+          PY
 
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -91,6 +110,7 @@ jobs:
             scripts/audit-dependencies.mjs \
             scripts/lib/b3-package-transition-authority.mjs \
             scripts/lib/maven-evidence.mjs \
+            tests/app-shell.test.mjs \
             tests/dependency-policy.test.mjs
           if git diff --cached --quiet; then
             echo "Dependency closure is already current."

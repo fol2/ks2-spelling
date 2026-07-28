@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -60,7 +61,10 @@ void main() {
       find.text('Correct. The egg has evolved into a companion.'),
       findsOneWidget,
     );
-    expect(find.text('1 correct from 1 attempts · saved in SQLite'), findsOneWidget);
+    expect(
+      find.text('1 correct from 1 attempts · saved in SQLite'),
+      findsOneWidget,
+    );
     final AttemptSnapshot saved = await repository.read();
     expect(saved.attempts, 1);
     expect(saved.correctCount, 1);

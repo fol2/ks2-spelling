@@ -1,0 +1,75 @@
+name: Temporary diagnose Keyboard removal evidence
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: diagnose-keyboard-evidence-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    name: Diagnose dependency evidence after Keyboard removal
+    if: github.event.pull_request.number == 53
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - name: Check out exact pull-request head
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: '24.18.0'
+          cache: npm
+
+      - name: Set up Temurin 21
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Require Android API and Build Tools 36
+        run: |
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' >/dev/null
+
+      - name: Install exact dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run active dependency evidence gate
+        id: audit
+        continue-on-error: true
+        run: |
+          npm run audit:dependencies -- --write > /tmp/keyboard-audit.log 2>&1
+
+      - name: Publish exact failure to PR
+        if: steps.audit.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          {
+            echo '## Native Keyboard removal — dependency evidence failure'
+            echo
+            echo "Exact head: \`${HEAD_SHA}\`"
+            echo
+            echo '```text'
+            tail -n 140 /tmp/keyboard-audit.log
+            echo '```'
+          } > /tmp/keyboard-audit-comment.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/keyboard-audit-comment.md
+          exit 1
+
+      - name: Confirm dependency evidence regeneration
+        if: steps.audit.outcome == 'success'
+        run: tail -n 40 /tmp/keyboard-audit.log

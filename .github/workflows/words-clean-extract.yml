@@ -4,10 +4,7 @@ on:
   pull_request:
     branches:
       - main
-    types:
-      - opened
-      - reopened
-      - synchronize
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: write
@@ -34,224 +31,76 @@ jobs:
           fetch-depth: 0
           ref: agent/words-search-vocabulary-sets-clean
 
-      - name: Reuse only reviewed Words-domain files
+      - name: Reuse the reviewed Words product bytes
         run: |
           git fetch --no-tags origin \
             refs/heads/agent/pr53-word-bank-sets-search:refs/remotes/origin/agent/pr53-word-bank-sets-search
           git checkout e14189b74897cf1696373e8e42d728674a283463 -- \
+            src/app/ProductApp.jsx \
+            src/app/app.css \
             src/app/product-learning-controller.js \
-            tests/word-bank-model.test.mjs \
+            tests/app-shell.test.mjs \
+            tests/product-app-services.test.mjs \
             tests/product-learning-controller.test.mjs \
-            tests/product-app-services.test.mjs
+            tests/word-bank-model.test.mjs
 
-      - name: Apply the isolated Words surface changes
+      - name: Strip every keyboard-only part from the extracted files
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          def replace_once(path, old, new):
-              file = Path(path)
-              source = file.read_text()
-              count = source.count(old)
-              if count != 1:
-                  raise SystemExit(f'{path}: expected one replacement, found {count}')
-              file.write_text(source.replace(old, new, 1))
+          product = Path('src/app/ProductApp.jsx')
+          source = product.read_text()
+          for retired_import in (
+              "import { Capacitor } from '@capacitor/core';\n",
+              "import { installIOSDictationInputSession } from '../platform/keyboard/ios-dictation-input-session.js';\n",
+          ):
+              if source.count(retired_import) != 1:
+                  raise SystemExit(f'missing expected keyboard import: {retired_import.strip()}')
+              source = source.replace(retired_import, '', 1)
 
-          replace_once(
-              'src/app/ProductApp.jsx',
-              """function WordBankScreen({ progress, onScreen, onStart }) {
-            const [filter, setFilter] = useState('all');
-            const bank = useMemo(
-              () => buildWordBank({ progress, filter }),
-              [progress, filter],
-            );
-          """,
-              """function WordBankScreen({ progress, onScreen, onStart }) {
-            const [filter, setFilter] = useState('all');
-            const [vocabSet, setVocabSet] = useState('core');
-            const [query, setQuery] = useState('');
-            const bank = useMemo(
-              () => buildWordBank({ progress, filter, vocabSet, query }),
-              [progress, filter, vocabSet, query],
-            );
-          """,
+          session_start = source.find('  // Keep one stable dictation input across Setup → Practice only.')
+          session_end = source.find(
+              '  useEffect(() => {\n    const profileSubscription',
+              session_start,
           )
+          if session_start < 0 or session_end < 0:
+              raise SystemExit('could not isolate the dictation-session effect')
+          source = source[:session_start] + source[session_end:]
+          product.write_text(source)
 
-          replace_once(
-              'src/app/ProductApp.jsx',
-              """          <div className=\"rail bank-filters\" role=\"group\" aria-label=\"Filter words\">
-          """,
-              """          <div className=\"bank-search\">
-                        <label htmlFor=\"bank-search-input\" className=\"visually-hidden\">
-                          Search the word bank
-                        </label>
-                        <input
-                          id=\"bank-search-input\"
-                          name=\"bank-search\"
-                          type=\"text\"
-                          inputMode=\"search\"
-                          value={query}
-                          placeholder=\"Search spellings\"
-                          autoComplete=\"off\"
-                          autoCapitalize=\"none\"
-                          autoCorrect=\"off\"
-                          spellCheck=\"false\"
-                          writingsuggestions=\"false\"
-                          enterKeyHint=\"search\"
-                          onChange={(event) => setQuery(event.target.value)}
-                        />
-                      </div>
-
-                      <div className=\"rail bank-filters bank-vocab-sets\" role=\"group\" aria-label=\"Vocabulary set\">
-                        {bank.vocabSets.map((option) => (
-                          <button
-                            key={option.id}
-                            type=\"button\"
-                            className=\"pill press-soft press\"
-                            aria-pressed={option.selected}
-                            onClick={() => setVocabSet(option.id)}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className=\"rail bank-filters\" role=\"group\" aria-label=\"Filter words\">
-          """,
+          css_path = Path('src/app/app.css')
+          css = css_path.read_text()
+          comment_start = css.find('  /* Lock to the visual viewport so place screens (Words especially) cannot')
+          comment_end = css.find('*/', comment_start)
+          if comment_start < 0 or comment_end < 0:
+              raise SystemExit('could not isolate the viewport-shell comment')
+          css_comment = (
+              '  /* Lock place screens to the visual viewport so long Words lists cannot\n'
+              '     grow the scene and push the Scene-owned waypoint foot away. */'
           )
+          css = css[:comment_start] + css_comment + css[comment_end + 2:]
+          css_path.write_text(css)
 
-          replace_once(
-              'src/app/ProductApp.jsx',
-              """                  ) : (
-                            <button
-                              type=\"button\"
-                              className=\"button-quiet press-soft press\"
-                              onClick={() => setFilter('all')}
-                            >
-                              Show every word in the bank
-                            </button>
-                          )}
-          """,
-              """                  ) : query.trim() ? (
-                            <button
-                              type=\"button\"
-                              className=\"button-quiet press-soft press\"
-                              onClick={() => setQuery('')}
-                            >
-                              Clear search
-                            </button>
-                          ) : (
-                            <button
-                              type=\"button\"
-                              className=\"button-quiet press-soft press\"
-                              onClick={() => {
-                                setFilter('all');
-                                setVocabSet('core');
-                              }}
-                            >
-                              Show every word in the bank
-                            </button>
-                          )}
-          """,
-          )
+          shell_path = Path('tests/app-shell.test.mjs')
+          shell = shell_path.read_text()
+          ios_line = "  '@capacitor/ios': '8.4.1',\n"
+          keyboard_line = "  '@capacitor/keyboard': '8.0.5',\n"
+          if keyboard_line not in shell:
+              if shell.count(ios_line) != 1:
+                  raise SystemExit('could not restore the unchanged Keyboard dependency expectation')
+              shell = shell.replace(ios_line, ios_line + keyboard_line, 1)
 
-          replace_once(
-              'src/app/app.css',
-              """.bank-filters {
-            flex: none;
-            margin-top: 0.8rem;
-            padding-bottom: 0.15rem;
-          }
-          """,
-              """.bank-search {
-            display: block;
-            flex: none;
-            margin-top: 0.85rem;
-          }
-
-          .bank-search input {
-            width: 100%;
-            min-height: 2.75rem;
-            border: 1px solid var(--line-strong);
-            border-radius: 0.95rem;
-            padding: 0.55rem 0.9rem;
-            background: var(--paper-raised);
-            color: var(--ink);
-            /* Solid 16px — not rem — so iOS will not auto-zoom the focused field. */
-            font-size: 16px;
-            font-weight: 600;
-            -webkit-user-select: text;
-            user-select: text;
-          }
-
-          .bank-search input::placeholder {
-            color: var(--ink-faint);
-            font-weight: 500;
-          }
-
-          .bank-filters {
-            flex: none;
-            margin-top: 0.55rem;
-            padding-bottom: 0.15rem;
-          }
-
-          .bank-vocab-sets {
-            margin-top: 0.7rem;
-          }
-          """,
+          keyboard_assertion = shell.find('  // Shell height must not chase --keyboard-inset;')
+          bank_search_assertion = shell.find(
+              '  assert.match(\n    productCss,\n    /\\.bank-search',
+              keyboard_assertion,
           )
-
-          app_shell = Path('tests/app-shell.test.mjs')
-          shell = app_shell.read_text()
-          shell = shell.replace(
-              "Object.freeze({ id: 'core', label: 'All', count: 20 })",
-              "Object.freeze({ id: 'core', label: 'Core', count: 20 })",
-              1,
-          )
-          shell = shell.replace(
-              """  assert.match(emptyProgressHtml, /Set off on a round/);
-          """,
-              """  assert.match(emptyProgressHtml, /Set off on a round/);
-            assert.match(emptyProgressHtml, /id=\"bank-search-input\"/);
-            assert.match(emptyProgressHtml, /placeholder=\"Search spellings\"/);
-            assert.match(emptyProgressHtml, /aria-label=\"Vocabulary set\"/);
-            assert.match(emptyProgressHtml, /aria-label=\"Filter words\"/);
-            for (const set of ['Core', 'Y3–4', 'Y5–6']) {
-              assert.match(emptyProgressHtml, new RegExp(`>${set}<`));
-            }
-          """,
-              1,
-          )
-          shell = shell.replace(
-              """      target: 'museum',
-                stage: 5,
-          """,
-              """      target: 'museum',
-                yearBand: '3-4',
-                stage: 5,
-          """,
-              1,
-          )
-          shell = shell.replace(
-              """  assert.match(wordBankHtml, /9 correct · never missed/);
-          """,
-              """  assert.match(wordBankHtml, /9 correct · never missed/);
-            assert.match(wordBankHtml, /aria-pressed=\"true\"[^>]*>Core</);
-          """,
-              1,
-          )
-          shell = shell.replace(
-              """  assert.match(failedSetupHtml, /Vocabulary set/);
-            assert.match(failedSetupHtml, /Y3–4/);
-          """,
-              """  assert.match(failedSetupHtml, /Vocabulary set/);
-            assert.match(failedSetupHtml, />Core</);
-            assert.match(failedSetupHtml, /Y3–4/);
-            assert.doesNotMatch(failedSetupHtml, />All</);
-          """,
-              1,
-          )
-          app_shell.write_text(shell)
+          if keyboard_assertion >= 0:
+              if bank_search_assertion < 0:
+                  raise SystemExit('could not preserve the bank-search CSS assertion')
+              shell = shell[:keyboard_assertion] + shell[bank_search_assertion:]
+          shell_path.write_text(shell)
           PY
 
       - name: Set up Node.js
@@ -263,7 +112,7 @@ jobs:
       - name: Install exact dependencies
         run: npm ci
 
-      - name: Verify the clean Words slice
+      - name: Verify the isolated Words slice
         run: |
           node --test \
             tests/word-bank-model.test.mjs \
@@ -273,7 +122,7 @@ jobs:
           npm run lint -- --quiet
           npm run build
 
-      - name: Commit the isolated feature
+      - name: Commit the tested product slice
         run: |
           git add \
             src/app/ProductApp.jsx \

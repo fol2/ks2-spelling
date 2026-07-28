@@ -27,6 +27,16 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         bridgeViewController.loadViewIfNeeded()
+
+        // Capacitor 8.4.1 marks every WKWebView focus as user-initiated through
+        // a private WKContentView method swizzle. On iOS 27 that can leave a
+        // genuinely tapped HTML input focused with only the form accessory bar
+        // visible and no software keyboard. Removing the per-WebView override
+        // makes the installed swizzle pass WebKit's real user-interaction value
+        // through unchanged. Direct taps still open the keyboard; delayed
+        // programmatic focus no longer pretends to be a trusted activation.
+        bridgeViewController.webView?.capacitor.setKeyboardShouldRequireUserInteraction(nil)
+
         if !isOfflineB4Bundle() {
             bridgeViewController.bridge?.registerPluginInstance(ParentAccessPlugin())
             bridgeViewController.bridge?.registerPluginInstance(LocalDataProtectionPlugin())

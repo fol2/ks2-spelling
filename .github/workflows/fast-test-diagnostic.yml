@@ -1,0 +1,44 @@
+name: Temporary fast-test diagnostic
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fast-test-diagnostic-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    name: Exact fast-test failure tail
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Fetch the exact pull-request head quietly
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          git init -q .
+          git remote add origin "https://github.com/${REPOSITORY}.git"
+          git fetch -q --depth=1 origin "$HEAD_SHA"
+          git checkout -q --detach FETCH_HEAD
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24.18.0"
+          cache: npm
+      - name: Install exact dependencies quietly
+        run: npm ci --silent --no-audit --no-fund
+      - name: Materialise required proof input quietly
+        run: npm run build:b3-proof-pack >/dev/null
+      - name: Run the exact fast lane and print only a failure tail
+        run: |
+          if npm run test:fast > /tmp/fast-test.log 2>&1; then
+            echo "Exact fast lane passed."
+          else
+            tail -n 220 /tmp/fast-test.log
+            exit 1
+          fi

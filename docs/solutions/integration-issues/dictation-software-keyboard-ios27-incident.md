@@ -1,17 +1,16 @@
 ---
 module: product-dictation-keyboard
-date: 2026-07-27
+date: 2026-07-28
 problem_type: bug
-component: spelling_round_input
+component: ios_text_input
 severity: high
 applies_when:
-  - "A dictation / practice round asks the learner to type a spelling on iOS"
-  - "The software keyboard must appear without an extra tap on the answer field"
-  - "WKWebView / Capacitor Keyboard is in use on a physical iPhone"
-resolution_type: candidate_fix_pending_device_validation
+  - "A Capacitor WKWebView field receives focus without prompt software keys"
+  - "Dictation crosses the asynchronous Setup to Practice boundary"
+resolution_type: product_simplification_pending_physical_device_validation
 related_components:
   - "product_ui"
-  - "capacitor_keyboard"
+  - "capacitor_core"
   - "ios_webview"
 tags:
   - "ios"
@@ -19,183 +18,146 @@ tags:
   - "wkwebview"
   - "dictation"
   - "focus"
-  - "gesture"
   - "incident"
 ---
 
-# Incident: dictation round software keyboard does not appear on iOS 27
+# Incident: iOS software keyboard is delayed or absent
 
-## Status
+## Current status
 
-**Candidate fix implemented; physical-device validation required.** The candidate
-starts from `96d39d60` and deliberately avoids `Keyboard.show()`, WebKit private
-selectors and native method swizzling. It keeps one real text input alive across
-Setup → Round, opens that input from the trusted **Set off** activation, and then
-mirrors it into the existing React-controlled round field.
+**The custom keyboard-ownership design is retired.** The product now leaves text
+input ownership with each real visible HTML field. The learner deliberately taps
+the visible spelling answer after Practice appears.
 
-The incident remains open until the physical iPhone checklist below passes.
+The recovery removes:
 
-## Product symptom
+- the body-level hidden dictation input;
+- the transparent input over **Set off** and the visible answer line;
+- value mirroring into React's controlled field;
+- custom visual-viewport keyboard inset ownership;
+- keyboard-driven round compaction;
+- startup keyboard-chrome mutation; and
+- `@capacitor/keyboard` from npm, SwiftPM and Android native plugin graphs.
 
-On the product dictation round (physical iPhone, product Debug composition
-`uk.eugnel.ks2spelling`):
+The physical-iPhone incident remains open until the checklist below passes on a
+clean product Debug build. Automated tests and an unsigned Simulator compile can
+prove composition and build integrity; they cannot prove software-keyboard
+creation on the affected device.
 
-- The answer field shows the familiar **“your spelling”** placeholder and
-  **underline**.
-- The iOS **software keyboard does not rise**, so the learner cannot type
-  without somehow forcing focus (and even then behaviour is unreliable).
-- Expected: after **Set off**, keys appear for the spelling field without an
-  extra tap on the input.
+## Product behaviour after the reset
 
-Confirmed on **James’ iPhone** (iPhone 16 Pro Max, iOS 27.0,
-UDID `00008140-000E79621407001C`) with product scheme `KS2Spelling` Debug,
-Team `V45S7U2LZB`.
+1. The learner taps **Set off**.
+2. The application completes the existing asynchronous repository transaction.
+3. Practice renders the real `#product-spelling-input` field.
+4. The learner taps that visible answer field.
+5. WebKit/UIKit creates the ordinary text-input session.
 
-## Locked technical observations (device evidence, 2026-07-27)
+The additional tap is intentional. Removing it would require either mounting the
+real Practice field before the asynchronous transition or once again owning a
+second input session. The latter is not an acceptable product architecture.
 
-1. **Programmatic `input.focus()` can succeed** (caret / `activeElement`) while
-   **`keyboardDidShow` never fires** and soft keys stay down
-   (`kbVisible=false`).
-2. `@capacitor/keyboard@8.0.5` does **not** provide an iOS keyboard-summon API.
-   Its public `Keyboard.show()` contract is Android-only and the iOS plugin
-   implementation reports that method as unimplemented. On iOS the plugin can
-   observe keyboard notifications and control resize, style, scrolling and the
-   accessory bar; none of those operations creates a software-keyboard session.
-3. Startup already calls `applyKeyboardChrome()` →
-   `Keyboard.setAccessoryBarVisible({ isVisible: false })` and
-   `Keyboard.setResizeMode({ mode: KeyboardResize.None })` so the WebView is
-   **not** meant to shrink and walk the painted plate off-screen; inset is owned
-   by `keyboard-inset.js` when wired.
-4. **Gesture timing matters**: focus that is not inside the learner’s
-   **Set off** pointer/click turn does not raise keys. Focus after
-   `await startRound(...)` or after sentence autoplay is too late for a
-   keyboard session.
-5. **Same DOM node matters**: remounting a new `<input>` on the round screen
-   cannot inherit a keyboard session opened on Setup. **Reparenting** a focused
-   node (for example `createPortal`) and **proxy-then-transfer** focus both proved
-   unreliable on device (keys dismiss; later `focus()` restores caret only).
-6. `startRound()` publishes `saving`, awaits the repository transaction, and
-   only then publishes the practice screen. Therefore
-   `#product-spelling-input` cannot exist during the trusted Set off activation;
-   the asynchronous screen boundary is the reproducible session break.
+## Why the previous design was retired
 
-## Approaches tried before the candidate (all reverted)
+The earlier solution kept one real but visually hidden input alive across Setup
+to Practice, placed it over different controls, buffered keystrokes and mirrored
+its value into the React field. It also measured the visual viewport and changed
+round layout around the keyboard.
 
-| Attempt | Idea | Result on device |
-| --- | --- | --- |
-| A | Round `useEffect` / rAF `focus()` after mount / after autoplay | Caret only; no keys |
-| B | Gesture **proxy** arm on Set off + claim on round field | Flaky; worked once under instrumentation, failed on clean build |
-| C | Shared input + **`createPortal`** into answer line | Reparent dismissed keys |
-| D | Shared input **parked** on Setup, **`position:fixed` dock** over answer line (no portal); focus on `pointerdown`/`click` of Set off | Briefly reported as keys up once; the experiment did not have a sealed lifecycle for React value mirroring, modal suspension, viewport ownership and cleanup. Follow-on backdrop/layout changes regressed both keyboard and display, so the whole experiment was reverted. |
-| E | Pin scene plate on `data-keyboard=open` + `scrollTo(0,0)` while keys up | Did **not** restore backdrop; associated with further regression; reverted |
+That grew a small product requirement—automatically show keys after **Set off**—
+into a second input subsystem spanning React, DOM focus, WebKit, Capacitor and
+UIKit. Device evidence then showed failures outside dictation as well: learner
+nickname, Word Bank search and Parent PIN could focus without usable key rows, and
+one run produced the keyboard only after a long unexplained delay.
 
-**Repo hygiene note:** none of A–E were committed or staged. A blanket
-`git restore` to `HEAD` also temporarily dropped the separate Trail ↔ Codex
-fix; that Trail fix was re-applied precisely and committed as `96d39d60`.
+The full investigation, including the custom WKWebView/controller experiment, is
+preserved in draft forensic PR #53. It is evidence, not mergeable product code.
 
-## Candidate F: persistent iOS input session
+## Locked observations
 
-The candidate treats keyboard ownership as an integration lifecycle rather than
-another focus retry:
+- Programmatic `input.focus()` can produce a caret or `activeElement` without a
+  usable software-keyboard session on the affected physical device.
+- `@capacitor/keyboard` provides keyboard observation and presentation settings;
+  it does not provide a dependable iOS command that creates the required session.
+- JavaScript callers are not the whole dependency boundary: an installed
+  Capacitor plugin is linked and auto-loaded natively.
+- `startRound()` publishes a saving state, awaits repository work and only then
+  mounts Practice. The visible spelling field therefore cannot own the original
+  **Set off** activation without changing that product transaction boundary.
+- A delayed keyboard appearing without a fresh field tap is stale-session
+  behaviour, not acceptable recovery.
 
-1. `ProductRoot` mounts one body-level text input for the lifetime of the product
-   app on native iOS. It is never portalled, reparented or replaced between
-   Setup and Round.
-2. While Setup is idle, that stable input is transparently docked over the real
-   **Set off** button but kept out of the accessibility tree. An ordinary touch
-   therefore lands directly on a genuine text control and opens the iOS input
-   session; its click forwards only the product action to the underlying React
-   button. Keyboard and assistive-technology activation retain a capture-listener
-   fallback, still before `startRound()` crosses its async repository boundary.
-3. While the transaction runs, early keystrokes remain buffered on that same
-   node. When the round input mounts, the stable input is positioned over the
-   visible answer line and its value is written through the native input setter
-   plus a bubbling `input` event, preserving React’s controlled state.
-4. The visible React field remains the visual/source-of-truth field for the
-   form. The stable field carries first-responder ownership, pointer input,
-   keyboard Return and software-keyboard continuity across Submit, feedback and
-   auto-advance.
-5. Opening **End round** parks and blurs the stable field so its top-level
-   `z-index` cannot intercept the modal. **Keep practising** restores it at the
-   end of the same trusted click, after the dialog focus-restoration cleanup.
-6. `observeKeyboardInset()` is restored at the native-iOS product root. A
-   separate compact round stylesheet consumes `--keyboard-inset` and `data-room`
-   so the painted Scribe Downs scene, answer line, listening controls and Submit
-   remain usable in the visual viewport without changing Capacitor’s
-   `ResizeMode.None` rule.
-7. Cleanup restores the original round field attributes, removes listeners,
-   observers and the stable node, and clears document data attributes. React
-   Strict Mode mount → cleanup → remount is supported.
+## Production policy
 
-This is intentionally a web/public-API fix. It does not ship a private WebKit
-selector and does not pretend Capacitor can call an iOS `Keyboard.show()` method
-that does not exist.
+- `#product-spelling-input` is the only spelling input and source of truth.
+- Ordinary nickname, search and PIN fields retain their own native WebKit input
+  sessions.
+- No transparent field may intercept **Set off**, answer-line or unrelated-screen
+  pointer events.
+- No app code may mirror typed text between two input elements.
+- No product root may publish a custom keyboard inset or compact dictation around
+  that inset.
+- The application does not hide the standard iOS input assistant at the cost of
+  another native keyboard mutation.
+- Any future automatic-keyboard proposal must first make the actual visible field
+  exist during a trusted activation; it must not restore the retired bridge.
 
-## Candidate files
+## Automated evidence on the reset branch
 
-- `src/app/ProductRoot.jsx` — owns inset observation and native-iOS session setup
-- `src/platform/keyboard/ios-dictation-input-session.js` — stable input,
-  first-responder lifecycle, React value bridge and modal handling
-- `src/app/ios-dictation-input-session.css` — visual-viewport height and tight
-  round layout
-- `tests/ios-dictation-input-session.test.mjs` — stable-node, buffered typing,
-  controlled-input event, Return-submit, modal pause/resume and cleanup contract
+The reset branch verifies that:
 
-The existing round form and `#product-spelling-input` remain in
-`src/app/ProductApp.jsx`; the candidate does not rewrite the learning flow.
+- the visible `#product-spelling-input` remains present;
+- Product root and startup code do not install keyboard ownership or chrome calls;
+- the retired hidden-input and viewport files are absent;
+- `@capacitor/keyboard` is absent from package, lock, SwiftPM, Android and policy
+  graphs;
+- native sync is stable;
+- the focused and fast test estate passes;
+- resolved dependency evidence regenerates cleanly;
+- lint passes; and
+- the unsigned iOS Simulator application compiles.
 
-## Validation completed before physical install
+## Required physical-device acceptance
 
-- [x] Stable input node survives Setup → asynchronous Round mount
-- [x] Keystrokes entered before Round mount are adopted by the controlled field
-- [x] Later input dispatches the bubbling event React expects
-- [x] Keyboard Return requests the existing form submit control
-- [x] A fast failed start releases the transparent shield for an immediate retry
-- [x] End-round modal pauses the top-level transparent field
-- [x] Keep-practising and Escape resume after modal focus restoration
-- [x] A real answer-line tap reasserts first responder after app backgrounding
-- [x] Round removal restores the original field and tears down the session
-- [ ] Physical iPhone software-keyboard session (cannot be certified by Node/CI)
+Use a clean product Debug build from the exact final reset head. Do not test PR
+#53, B4Development or B3SandboxProof.
 
-## Device QA checklist
+- [ ] Launch and leave the profile screen idle: no keyboard appears later by
+      itself.
+- [ ] Add learner, tap nickname: keys appear promptly and typing reaches the field.
+- [ ] Open Words, tap Search spellings: keys appear promptly and filtering works
+      when the Words feature is included.
+- [ ] Open Parent PIN: numeric keys appear promptly.
+- [ ] Tap **Set off**, wait for Practice, then tap the visible answer line: keys
+      appear promptly.
+- [ ] Typed letters, Return and visible Submit each affect the real answer exactly
+      once.
+- [ ] Correct/incorrect feedback and the next card leave the visible field usable.
+- [ ] End round, Keep practising and Leave round leave no invisible focus target.
+- [ ] Portrait and landscape keep the authored dictation layout usable without a
+      custom keyboard inset.
+- [ ] Background/foreground, then tap the answer line: ordinary typing resumes.
+- [ ] Repeat the bare visible-field checks on stable iOS 26 and the affected iOS
+      27 device when both are available.
 
-Use a clean product Debug build from the candidate branch. Do not test a
-B4Development or B3SandboxProof composition.
+## If the visible field still fails
 
-- [ ] Trail: unfound → empty meadow; found → matching Codex stage art
-- [ ] Setup: one tap on **Set off** raises keys without tapping the answer line
-- [ ] The first sentence still autoplays while the keyboard remains open
-- [ ] “your spelling” placeholder + underline remain visible and aligned
-- [ ] Typed letters appear in the visible answer field, including typing started
-      immediately after Set off
-- [ ] Keyboard Return and the visible Submit button both submit exactly once
-- [ ] Correct and incorrect feedback display without dismissing the keyboard
-- [ ] Auto-advance reaches the next card with an empty, typeable answer
-- [ ] Manual Continue reaches the next card with the keyboard still available
-- [ ] Scribe Downs plate remains visible with keys up
-- [ ] Submit, replay and slow replay remain reachable in portrait
-- [ ] Rotate to landscape with keys up; the round remains scrollable and Submit
-      remains reachable
-- [ ] End round opens an unobstructed confirmation dialog and hides the keyboard
-- [ ] Keep practising returns to the same answer and raises/retains the keyboard
-- [ ] Leave round reaches Results/Trail and leaves no invisible focus target
-- [ ] Background/foreground the app during a round; tapping the answer line
-      re-establishes typing normally
+Reduce the case further before changing product architecture:
 
-## If physical validation still fails
+1. Build one screen with one visible HTML input.
+2. Use no Keyboard plugin, hidden input, autofocus, viewport observer or custom
+   bridge controller.
+3. Compare the same bytes on stable iOS and the affected iOS 27 device.
+4. Capture focus/blur and UIKit keyboard-notification timing only after the bare
+   case reproduces.
 
-Capture `focus`, `blur`, `visualViewport`, `keyboardWillShow` and
-`keyboardDidShow` timestamps around the single Set off activation, while keeping
-repo-sealed logging policy unchanged. The next escalation should compare whether
-the stable input itself ever receives a real iOS keyboard session; it should not
-return to round-mount focus retries, portals or `Keyboard.show()` on iOS.
+A failure isolated to the beta operating system should be retained as a minimal
+framework/OS reproduction. A failure on stable iOS is evidence for reconsidering
+the WebView architecture through the separate Flutter + Flame decision spike,
+not for rebuilding the hidden session.
 
-Only if the stable field is focused during the trusted event and iOS still
-withholds keys should a native first-responder bridge be investigated. Any
-private WebKit selector must be treated as a separate App Store/security decision,
-not folded silently into this incident fix.
+## Related records
 
-## Related retained notes
-
+- Draft PR #53 — preserved forensic keyboard investigation; do not merge.
+- Draft PR #55 — visible-input production reset and device gate.
 - `docs/solutions/workflow-issues/gating-physical-ios-installs-on-application-composition.md`
-  — always gate physical installs on **product** vs proof composition.
+  — always gate physical installs on product versus proof composition.

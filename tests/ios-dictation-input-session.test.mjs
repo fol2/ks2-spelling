@@ -209,16 +209,22 @@ function createView() {
 }
 
 test('the product root owns the public-API iOS session and visual viewport layout', async () => {
-  const [productRoot, sessionSource, sessionCss] = await Promise.all([
+  const [productRoot, productApp, sessionSource, sessionCss, mainSource] = await Promise.all([
     readFile(join(ROOT, 'src/app/ProductRoot.jsx'), 'utf8'),
+    readFile(join(ROOT, 'src/app/ProductApp.jsx'), 'utf8'),
     readFile(join(ROOT, 'src/platform/keyboard/ios-dictation-input-session.js'), 'utf8'),
     readFile(join(ROOT, 'src/app/ios-dictation-input-session.css'), 'utf8'),
+    readFile(join(ROOT, 'src/main.jsx'), 'utf8'),
   ]);
 
   assert.match(productRoot, /observeKeyboardInset\(\)/);
   assert.match(productRoot, /Capacitor\.getPlatform\(\) !== 'ios'/);
-  assert.match(productRoot, /installIOSDictationInputSession\(\)/);
-  assert.match(productRoot, /stopInputSession\(\)[\s\S]*stopInset\(\)/);
+  assert.doesNotMatch(productRoot, /installIOSDictationInputSession/);
+
+  assert.match(productApp, /installIOSDictationInputSession\(\)/);
+  assert.match(productApp, /needsDictationSession/);
+  assert.match(productApp, /screen === 'setup'/);
+  assert.match(productApp, /screen === 'practice'/);
 
   assert.match(sessionSource, /sessionInput\.addEventListener\('pointerdown', onSessionPointerDown\)/);
   assert.match(sessionSource, /startButton\.click\(\)/);
@@ -233,8 +239,11 @@ test('the product root owns the public-API iOS session and visual viewport layou
   assert.doesNotMatch(sessionSource, /Keyboard\.show|keyboardDisplayRequiresUserAction/);
 
   assert.match(sessionCss, /--keyboard-inset/);
+  assert.match(sessionCss, /100vh/);
   assert.match(sessionCss, /data-dictation-input-session='round'/);
   assert.match(sessionCss, /data-room='tight'/);
+
+  assert.doesNotMatch(mainSource, /applyKeyboardChrome|@capacitor\/keyboard/);
 });
 
 test('small dictation-session helpers preserve geometry and controlled input events', () => {
@@ -427,4 +436,27 @@ test('one trusted Setup activation survives the async round mount', () => {
   stop();
   assert.equal(sessionInput.removed, true);
   assert.equal(view.observer.disconnected, true);
+});
+
+test('leaving Setup while armed parks the shield so other screens stay tappable', () => {
+  const view = createView();
+  const { document } = view;
+  const startButton = new FakeElement('button', document);
+  startButton.selectors.add('.setup-tray > .button-primary');
+  startButton.rect = { left: 20, top: 700, width: 350, height: 54 };
+  document.queries.set('.setup-tray > .button-primary', startButton);
+
+  const stop = installIOSDictationInputSession(view);
+  const sessionInput = document.body.children[0];
+  sessionInput.emit('pointerdown', { target: sessionInput });
+  assert.equal(document.documentElement.dataset.dictationInputSession, 'armed');
+
+  document.queries.delete('.setup-tray > .button-primary');
+  view.observer.callback([{ type: 'childList', target: document.body }]);
+  view.flushFrame();
+
+  assert.equal(document.documentElement.dataset.dictationInputSession, undefined);
+  assert.equal(document.activeElement, null);
+  assert.equal(sessionInput.style.pointerEvents, 'none');
+  stop();
 });

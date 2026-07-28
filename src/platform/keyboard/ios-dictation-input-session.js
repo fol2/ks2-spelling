@@ -171,6 +171,7 @@ export function installIOSDictationInputSession(view = globalThis) {
   }
 
   function park() {
+    if (document.activeElement === sessionInput) sessionInput.blur();
     Object.assign(sessionInput.style, {
       left: '0px',
       top: '0px',
@@ -360,10 +361,15 @@ export function installIOSDictationInputSession(view = globalThis) {
       return;
     }
 
-    if (!armed) {
-      setPhase(null);
-      if (!dockForSetup(startButton)) park();
+    // Armed without Setup (learner left the screen) or idle without a dock
+    // target: never leave an interactive shield floating over another place.
+    if (armed) {
+      disarm();
+      return;
     }
+
+    setPhase(null);
+    if (!dockForSetup(startButton)) park();
   }
 
   function scheduleReconcile() {

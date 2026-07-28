@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { buildCodex, setupExpeditionCompanion, trailMeadowCompanions } from './codex-model.js';
 import { artUrl, regionArt } from './mastery-art.js';
 import { autoAdvanceDelayMs } from './practice-feel.js';
@@ -16,6 +17,7 @@ import {
   diffMonsterCelebrations,
   secureWordDelta,
 } from './celebrations/celebration-model.js';
+import { installIOSDictationInputSession } from '../platform/keyboard/ios-dictation-input-session.js';
 
 // Phaser + the living Monster Stage load only when a caught codex entry is
 // opened for a closer look.
@@ -144,7 +146,8 @@ function initialOf(nickname) {
 
 /**
  * One painted scene. `plate` and `veil` drive the backdrop through custom
- * properties so every screen mixes the same recipe rather than its own.
+ * properties so every screen mixes the same recipe rather than its own. When
+ * `waypoints` is set, this scene owns the place foot in normal document flow.
  */
 function Scene({
   className = '',
@@ -154,6 +157,8 @@ function Scene({
   plateOpacity,
   veil,
   waypoints = false,
+  waypointScreen,
+  onScreen,
   children,
   ...rest
 }) {
@@ -176,6 +181,9 @@ function Scene({
       {plate && <span className="scene-plate" />}
       {veil && <span className="scene-veil" />}
       {children}
+      {waypoints && (
+        <WaypointBar screen={waypointScreen} onScreen={onScreen} />
+      )}
     </div>
   );
 }
@@ -1493,6 +1501,8 @@ function TrailScreen({
         className="trail-scene"
         dusk
         waypoints
+        waypointScreen="home"
+        onScreen={onScreen}
         plate={regionArt(REGION, 'a1')}
         veil={[
           'radial-gradient(110% 58% at 66% 30%,rgba(8,12,18,.02),rgba(8,12,18,.54) 58%,rgba(8,12,18,.92))',
@@ -1579,7 +1589,6 @@ function TrailScreen({
             <p>Smart Review · pick your length</p>
           </div>
         </div>
-        <WaypointBar screen="home" onScreen={onScreen} />
       </Scene>
     </main>
   );
@@ -1595,9 +1604,11 @@ const FILTER_DOTS = Object.freeze({
 
 function WordBankScreen({ progress, onScreen, onStart }) {
   const [filter, setFilter] = useState('all');
+  const [vocabSet, setVocabSet] = useState('core');
+  const [query, setQuery] = useState('');
   const bank = useMemo(
-    () => buildWordBank({ progress, filter }),
-    [progress, filter],
+    () => buildWordBank({ progress, filter, vocabSet, query }),
+    [progress, filter, vocabSet, query],
   );
 
   return (
@@ -1605,6 +1616,8 @@ function WordBankScreen({ progress, onScreen, onStart }) {
       <Scene
         className="bank-scene"
         waypoints
+        waypointScreen="progress"
+        onScreen={onScreen}
         plate={regionArt(REGION, 'a1')}
         plateY="30%"
         veil="linear-gradient(180deg,rgba(246,245,241,.44),rgba(246,245,241,.9) 42%,#f8f5ec 62%)"
@@ -1616,6 +1629,41 @@ function WordBankScreen({ progress, onScreen, onStart }) {
               <h1 id="bank-title">Your words</h1>
             </div>
             <span className="figure">{bank.countLabel}</span>
+          </div>
+
+          <div className="bank-search">
+            <label htmlFor="bank-search-input" className="visually-hidden">
+              Search the word bank
+            </label>
+            <input
+              id="bank-search-input"
+              name="bank-search"
+              type="text"
+              inputMode="search"
+              value={query}
+              placeholder="Search spellings"
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck="false"
+              writingsuggestions="false"
+              enterKeyHint="search"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+
+          <div className="rail bank-filters bank-vocab-sets" role="group" aria-label="Vocabulary set">
+            {bank.vocabSets.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className="pill press-soft press"
+                aria-pressed={option.selected}
+                onClick={() => setVocabSet(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
 
           <div className="rail bank-filters" role="group" aria-label="Filter words">
@@ -1669,11 +1717,22 @@ function WordBankScreen({ progress, onScreen, onStart }) {
                     >
                       Set off on a round
                     </button>
+                  ) : query.trim() ? (
+                    <button
+                      type="button"
+                      className="button-quiet press-soft press"
+                      onClick={() => setQuery('')}
+                    >
+                      Clear search
+                    </button>
                   ) : (
                     <button
                       type="button"
                       className="button-quiet press-soft press"
-                      onClick={() => setFilter('all')}
+                      onClick={() => {
+                        setFilter('all');
+                        setVocabSet('core');
+                      }}
                     >
                       Show every word in the bank
                     </button>
@@ -1683,7 +1742,6 @@ function WordBankScreen({ progress, onScreen, onStart }) {
             </ul>
           </div>
         </div>
-        <WaypointBar screen="progress" onScreen={onScreen} />
       </Scene>
     </main>
   );
@@ -1704,6 +1762,8 @@ function CodexScreen({ monsters, onScreen }) {
         className="codex-scene"
         dusk
         waypoints
+        waypointScreen="monster"
+        onScreen={onScreen}
         plate={regionArt(REGION, 'd3')}
         plateOpacity={0.42}
         veil="linear-gradient(180deg,rgba(9,15,23,.8) 0%,rgba(9,15,23,.5) 32%,rgba(9,15,23,.94) 100%)"
@@ -1858,7 +1918,6 @@ function CodexScreen({ monsters, onScreen }) {
             </button>
           )}
         </div>
-        <WaypointBar screen="monster" onScreen={onScreen} />
       </Scene>
     </main>
   );
@@ -1874,6 +1933,8 @@ function CampScreen({ camp, revisitsWaiting, onScreen }) {
       <Scene
         className="camp-scene"
         waypoints
+        waypointScreen="camp"
+        onScreen={onScreen}
         plate={regionArt(REGION, 'd1')}
         veil="linear-gradient(180deg,rgba(248,245,236,.34) 0%,rgba(248,245,236,.2) 26%,rgba(248,245,236,.66) 68%,rgba(248,245,236,.9) 100%)"
       >
@@ -1934,7 +1995,6 @@ function CampScreen({ camp, revisitsWaiting, onScreen }) {
             </button>
           </section>
         </div>
-        <WaypointBar screen="camp" onScreen={onScreen} />
       </Scene>
     </main>
   );
@@ -1998,6 +2058,8 @@ function SetupScreen({
         className="setup-scene"
         dusk
         waypoints
+        waypointScreen="home"
+        onScreen={onScreen}
         plate={regionArt(REGION, active.plate)}
         plateY="32%"
         veil={[
@@ -2139,7 +2201,6 @@ function SetupScreen({
             </p>
           )}
         </div>
-        <WaypointBar screen="home" onScreen={onScreen} />
       </Scene>
     </main>
   );
@@ -2654,6 +2715,19 @@ export default function ProductApp({ services }) {
   const monstersAtRoundStartRef = useRef(null);
   const learningScreenRef = useRef(learningState.screen);
   const clearCelebrations = useCallback(() => setCelebrationEvents([]), []);
+
+  // Keep one stable dictation input across Setup → Practice only. Mounting it
+  // for Words / Switch / Camp left a body-level field that stopped ordinary
+  // iOS software keyboards (including typing a learner name). Depend on the
+  // boolean so Setup → Practice does not tear the node down mid-gesture.
+  const needsDictationSession = learningState.screen === 'setup'
+    || learningState.screen === 'practice';
+  useEffect(() => {
+    if (!needsDictationSession || Capacitor.getPlatform() !== 'ios') {
+      return undefined;
+    }
+    return installIOSDictationInputSession();
+  }, [needsDictationSession]);
 
   useEffect(() => {
     const profileSubscription = services.controller.subscribe(setProfileState);

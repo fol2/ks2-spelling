@@ -14,7 +14,6 @@ const EXPECTED_DIRECT_VERSIONS = Object.freeze({
   '@capacitor/core': '8.4.1',
   '@capacitor/haptics': '8.0.2',
   '@capacitor/ios': '8.4.1',
-  '@capacitor/keyboard': '8.0.5',
   '@vitejs/plugin-react': '6.0.3',
   oxlint: '1.71.0',
   phaser: '4.1.0',
@@ -306,7 +305,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
     summary: null,
     progress: [],
     vocabularySets: Object.freeze([
-      Object.freeze({ id: 'core', label: 'All', count: 20 }),
+      Object.freeze({ id: 'core', label: 'Core', count: 20 }),
       Object.freeze({ id: 'y3-4', label: 'Y3–4', count: 20 }),
     ]),
     monsters: Object.freeze([Object.freeze({
@@ -499,12 +498,20 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(emptyProgressHtml, /Word bank/);
   assert.match(emptyProgressHtml, /Your word bank is ready/);
   assert.match(emptyProgressHtml, /Set off on a round/);
+  assert.match(emptyProgressHtml, /id="bank-search-input"/);
+  assert.match(emptyProgressHtml, /placeholder="Search spellings"/);
+  assert.match(emptyProgressHtml, /aria-label="Vocabulary set"/);
+  assert.match(emptyProgressHtml, /aria-label="Filter words"/);
+  for (const set of ['Core', 'Y3–4', 'Y5–6']) {
+    assert.match(emptyProgressHtml, new RegExp(`>${set}<`));
+  }
 
   learningState = Object.freeze({
     ...learningState,
     progress: Object.freeze([Object.freeze({
       runtimeItemId: 'ks2-core:museum',
       target: 'museum',
+      yearBand: '3-4',
       stage: 5,
       attempts: 9,
       correct: 9,
@@ -517,6 +524,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(wordBankHtml, /data-status="secure"/);
   assert.match(wordBankHtml, /museum/);
   assert.match(wordBankHtml, /9 correct · never missed/);
+  assert.match(wordBankHtml, /aria-pressed="true"[^>]*>Core</);
 
   learningState = Object.freeze({ ...learningState, screen: 'monster' });
   const codexHtml = render();
@@ -535,7 +543,9 @@ test('the production shell keeps Parent progress and commerce behind the local g
   const failedSetupHtml = render();
   assert.match(failedSetupHtml, /That trail could not start\. Please try again\./);
   assert.match(failedSetupHtml, /Vocabulary set/);
+  assert.match(failedSetupHtml, />Core</);
   assert.match(failedSetupHtml, /Y3–4/);
+  assert.doesNotMatch(failedSetupHtml, />All</);
   assert.match(failedSetupHtml, />20 words</);
   assert.match(failedSetupHtml, />Trouble</);
   assert.match(failedSetupHtml, />SATs</);
@@ -580,12 +590,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
   const ownedSetupHtml = render();
   assert.match(ownedSetupHtml, /glimmerbug-b1-2\.640\.webp/);
   assert.doesNotMatch(ownedSetupHtml, /inklet-b1-3\.640\.webp/);
-
-  const setupCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
-  assert.match(
-    setupCss,
-    /\.has-waypoints\s+\.setup-tray\s*\{[^}]*padding-bottom:\s*calc\(5\.25rem\s*\+\s*var\(--gutter-bottom\)\);/su,
-  );
+  assert.match(ownedSetupHtml, /aria-label="Places on the trail"/);
 
   learningState = Object.freeze({
     ...learningState,
@@ -741,6 +746,15 @@ test('the product shell keeps the waypoint foot on the viewport while Words scro
     productCss,
     /\.product-app\s*\{[^}]*height:\s*100dvh;[^}]*max-height:\s*100dvh;[^}]*overflow:\s*hidden;/su,
   );
+  // Shell height must not chase --keyboard-inset; that loop dismisses iOS keys.
+  assert.doesNotMatch(
+    productCss,
+    /\.product-app\s*\{[^}]*height:\s*calc\([^)]*--keyboard-inset/su,
+  );
+  assert.match(
+    productCss,
+    /\.bank-search\s+input\s*\{[^}]*font-size:\s*16px;/su,
+  );
   assert.match(
     productCss,
     /\.product-scene\s*\{[^}]*flex:\s*1;[^}]*min-height:\s*0;[^}]*overflow:\s*hidden;/su,
@@ -749,9 +763,19 @@ test('the product shell keeps the waypoint foot on the viewport while Words scro
     productCss,
     /\.scene-scroll\s*\{[^}]*flex:\s*1;[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/su,
   );
+  // Scene owns the foot in normal flex flow — no absolute overlay or clearance tokens.
   assert.match(
     productCss,
-    /\.waypoint-bar\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*0;[^}]*z-index:\s*40;/su,
+    /\.waypoint-bar\s*\{[^}]*position:\s*relative;[^}]*flex:\s*none;/su,
+  );
+  assert.doesNotMatch(productCss, /--waypoint-clearance/);
+  assert.doesNotMatch(
+    productCss,
+    /\.waypoint-bar\s*\{[^}]*position:\s*absolute;/su,
+  );
+  assert.match(
+    productCss,
+    /\.bank-list\s*\{[^}]*padding-bottom:\s*1\.5rem;/su,
   );
   assert.match(
     productCss,

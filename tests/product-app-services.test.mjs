@@ -234,7 +234,7 @@ test('production services persist profile CRUD and selected learner across a cle
   });
   assert.equal(first.learning.getState().learnerId, ben.learnerId);
   assert.deepEqual(first.learning.getState().vocabularySets, [
-    { id: 'core', label: 'All', count: 213 },
+    { id: 'core', label: 'Core', count: 213 },
     { id: 'y3-4', label: 'Y3–4', count: 109 },
     { id: 'y5-6', label: 'Y5–6', count: 104 },
   ]);
@@ -299,7 +299,7 @@ test('production services persist profile CRUD and selected learner across a cle
     ),
   );
   assert.deepEqual(second.learning.getState().vocabularySets, [
-    { id: 'core', label: 'All', count: 213 },
+    { id: 'core', label: 'Core', count: 213 },
     { id: 'y3-4', label: 'Y3–4', count: 109 },
     { id: 'y5-6', label: 'Y5–6', count: 104 },
   ]);

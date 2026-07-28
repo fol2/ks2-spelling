@@ -1,5 +1,52 @@
 import UIKit
+import WebKit
 import Capacitor
+
+private final class ProductWebView: WKWebView {
+    override var inputAssistantItem: UITextInputAssistantItem {
+        let item = super.inputAssistantItem
+        item.leadingBarButtonGroups = []
+        item.trailingBarButtonGroups = []
+        item.allowsHidingShortcuts = true
+        return item
+    }
+}
+
+@objc(ProductBridgeViewController)
+final class ProductBridgeViewController: CAPBridgeViewController {
+    private var releasedInitialWebViewFocus = false
+
+    override func webView(
+        with frame: CGRect,
+        configuration: WKWebViewConfiguration
+    ) -> WKWebView {
+        ProductWebView(frame: frame, configuration: configuration)
+    }
+
+    override func capacitorDidLoad() {
+        super.capacitorDidLoad()
+
+        // Capacitor 8.4.1 installs a process-wide private WebKit focus wrapper
+        // and marks each WebView as though every focus were user initiated.
+        // On iOS 27 that can leave a tapped HTML input focused with only the
+        // assistant bar visible while the software keyboard arrives much later.
+        // Nil makes the installed bridge pass WebKit's real interaction value.
+        webView?.capacitor.setKeyboardShouldRequireUserInteraction(nil)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        // CAPBridgeViewController gives the whole WebView initial responder
+        // status. Release that container-level focus once so the first real
+        // HTML-field tap owns the input session immediately.
+        guard !releasedInitialWebViewFocus else {
+            return
+        }
+        releasedInitialWebViewFocus = true
+        _ = webView?.resignFirstResponder()
+    }
+}
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
@@ -27,6 +74,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         bridgeViewController.loadViewIfNeeded()
+        bridgeViewController.webView?.capacitor.setKeyboardShouldRequireUserInteraction(nil)
+
         if !isOfflineB4Bundle() {
             bridgeViewController.bridge?.registerPluginInstance(ParentAccessPlugin())
             bridgeViewController.bridge?.registerPluginInstance(LocalDataProtectionPlugin())

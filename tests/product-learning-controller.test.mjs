@@ -79,9 +79,10 @@ function snapshotForCatalogue(catalogue) {
 }
 
 function unseenProgress(catalogue) {
-  return catalogue.items.map(({ runtimeItemId, target }) => ({
+  return catalogue.items.map(({ runtimeItemId, target, yearBand }) => ({
     runtimeItemId,
     target,
+    yearBand: yearBand ?? null,
     stage: 0,
     attempts: 0,
     correct: 0,
@@ -106,7 +107,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
     // The active pack's size, so the setup panel can report what is unseen.
     packSize: 20,
     vocabularySets: [
-      { id: 'core', label: 'All', count: 20 },
+      { id: 'core', label: 'Core', count: 20 },
       { id: 'y3-4', label: 'Y3–4', count: 20 },
     ],
     monsters: [{
@@ -173,7 +174,7 @@ test('product learning publishes only non-empty catalogue pools and draws from t
   const controller = world.createController();
 
   assert.deepEqual(controller.getState().vocabularySets, [
-    { id: 'core', label: 'All', count: 213 },
+    { id: 'core', label: 'Core', count: 213 },
     { id: 'y3-4', label: 'Y3–4', count: 109 },
     { id: 'y5-6', label: 'Y5–6', count: 104 },
   ]);

@@ -1,28 +1,28 @@
-name: Temporary diagnose Keyboard removal evidence
+name: Temporary finalise Keyboard removal evidence
 
 on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 concurrency:
-  group: diagnose-keyboard-evidence-${{ github.event.pull_request.number }}
+  group: finalise-keyboard-evidence-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  diagnose:
-    name: Diagnose dependency evidence after Keyboard removal
-    if: github.event.pull_request.number == 53
-    runs-on: ubuntu-24.04
-    timeout-minutes: 55
+  finalise:
+    name: Build both native platforms and commit dependency evidence
+    if: github.event.pull_request.number == 53 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: macos-26
+    timeout-minutes: 90
     steps:
-      - name: Check out exact pull-request head
+      - name: Check out the pull-request branch
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -36,46 +36,102 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Require Android API and Build Tools 36
+      - name: Set up committed Gradle wrapper
+        uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+        with:
+          validate-wrappers: true
+
+      - name: Require Xcode and Android API 36
         run: |
+          xcodebuild -version
+          xcode_major="$(xcodebuild -version | awk '/^Xcode / { split($2, version, "."); print version[1] }')"
+          test -n "$xcode_major"
+          test "$xcode_major" -ge 26
+          if [ -z "${ANDROID_HOME:-}" ]; then
+            echo "ANDROID_HOME=$HOME/Library/Android/sdk" >> "$GITHUB_ENV"
+            ANDROID_HOME="$HOME/Library/Android/sdk"
+          fi
           test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
             'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' >/dev/null
 
-      - name: Install exact dependencies
-        run: npm ci --no-audit --no-fund
-
-      - name: Materialise Capacitor native inputs
+      - name: Install exact dependencies and materialise Capacitor inputs
         run: |
+          npm ci --no-audit --no-fund
           npm run build
           npx --no-install cap sync
 
-      - name: Regenerate active dependency evidence
+      - name: Build fresh iOS packaged privacy evidence
+        id: ios
+        continue-on-error: true
+        run: npm run test:ios > /tmp/keyboard-ios.log 2>&1
+
+      - name: Regenerate cross-platform dependency evidence
         id: audit
+        if: steps.ios.outcome == 'success'
         continue-on-error: true
         run: npm run audit:dependencies -- --write > /tmp/keyboard-audit.log 2>&1
 
-      - name: Publish exact evidence failure to PR
-        if: steps.audit.outcome == 'failure'
+      - name: Publish exact finalisation failure to PR
+        if: steps.ios.outcome == 'failure' || steps.audit.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           {
-            echo '## Native Keyboard removal — dependency evidence failure after cap sync'
+            echo '## Native Keyboard removal — cross-platform evidence finalisation failure'
             echo
             echo "Exact head: \`${HEAD_SHA}\`"
             echo
+            echo '### iOS build tail'
             echo '```text'
-            tail -n 180 /tmp/keyboard-audit.log
+            tail -n 120 /tmp/keyboard-ios.log 2>/dev/null || true
             echo '```'
-          } > /tmp/keyboard-audit-comment.md
-          gh pr comment "$PR_NUMBER" --body-file /tmp/keyboard-audit-comment.md
+            echo
+            echo '### Dependency audit tail'
+            echo '```text'
+            tail -n 180 /tmp/keyboard-audit.log 2>/dev/null || true
+            echo '```'
+          } > /tmp/keyboard-finalise-comment.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/keyboard-finalise-comment.md
           exit 1
 
-      - name: Confirm dependency evidence regeneration
-        if: steps.audit.outcome == 'success'
+      - name: Validate regenerated evidence scope
+        if: steps.ios.outcome == 'success' && steps.audit.outcome == 'success'
         run: |
+          tail -n 40 /tmp/keyboard-ios.log
           tail -n 60 /tmp/keyboard-audit.log
-          git status --short
+          changed="$(git diff --name-only)"
+          test -n "$changed"
+          unexpected="$(printf '%s\n' "$changed" | grep -vE '^(THIRD_PARTY_NOTICES\.md|reports/b3/dependency-audit\.json)$' || true)"
+          test -z "$unexpected" || {
+            echo 'Unexpected tracked evidence changes:' >&2
+            printf '%s\n' "$unexpected" >&2
+            exit 1
+          }
+          printf '%s\n' "$changed"
+
+      - name: Run final host-neutral gates
+        if: steps.ios.outcome == 'success' && steps.audit.outcome == 'success'
+        run: |
+          npm run build:b3-proof-pack
+          npm run test:fast
+          npm run lint
+          node scripts/build-b3-exit-report.mjs --check-ci
+          git diff --check
+
+      - name: Remove temporary finalisation workflow
+        if: steps.ios.outcome == 'success' && steps.audit.outcome == 'success'
+        run: rm -f .github/workflows/tmp-diagnose-keyboard-audit.yml
+
+      - name: Commit and push regenerated evidence
+        if: steps.ios.outcome == 'success' && steps.audit.outcome == 'success'
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'chore(evidence): refresh inventory without Keyboard'
+          git push origin "HEAD:${HEAD_REF}"

@@ -1,0 +1,62 @@
+name: Temporary expose Keyboard removal audit failure
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: expose-keyboard-audit-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  patch-workflow:
+    if: github.event.pull_request.number == 53 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out pull-request branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Make the audit error bounded and visible
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/tmp-remove-native-keyboard-v2.yml')
+          text = path.read_text()
+          old = """      - name: Regenerate active dependency evidence
+                if: steps.guard.outputs.required == 'true'
+                run: npm run audit:dependencies -- --write
+          """
+          new = """      - name: Regenerate active dependency evidence
+                if: steps.guard.outputs.required == 'true'
+                run: |
+                  if npm run audit:dependencies -- --write > /tmp/dependency-audit.log 2>&1; then
+                    cat /tmp/dependency-audit.log
+                  else
+                    tail -n 220 /tmp/dependency-audit.log
+                    exit 1
+                  fi
+          """
+          if old in text:
+              path.write_text(text.replace(old, new, 1))
+          elif 'tail -n 220 /tmp/dependency-audit.log' not in text:
+              raise SystemExit('audit step shape changed unexpectedly')
+          PY
+      - name: Commit and push once
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if git diff --quiet -- .github/workflows/tmp-remove-native-keyboard-v2.yml; then
+            echo 'Audit tail is already enabled.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/tmp-remove-native-keyboard-v2.yml
+          git commit -m 'ci: expose Keyboard removal audit failure'
+          git push origin "HEAD:${HEAD_REF}"

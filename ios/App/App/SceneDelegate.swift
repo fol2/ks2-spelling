@@ -26,7 +26,7 @@ final class ProductBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
 
-        // Capacitor 8.4.1 installs a process-wide WKContentView focus swizzle
+        // Capacitor 8.4.1 installs a process-wide private WebKit focus wrapper
         // and marks each WebView as though every focus were user initiated.
         // On iOS 27 that can leave a tapped HTML input focused with only the
         // assistant bar visible while the software keyboard arrives much later.

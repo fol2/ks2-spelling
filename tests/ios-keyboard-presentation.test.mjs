@@ -7,8 +7,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
 test('the iOS host gives direct taps native keyboard ownership without assistant chrome', async () => {
-  const [sceneDelegate, packageJsonSource, packageLockSource] = await Promise.all([
+  const [sceneDelegate, storyboard, packageJsonSource, packageLockSource] = await Promise.all([
     readFile(join(ROOT, 'ios/App/App/SceneDelegate.swift'), 'utf8'),
+    readFile(join(ROOT, 'ios/App/App/Base.lproj/Main.storyboard'), 'utf8'),
     readFile(join(ROOT, 'package.json'), 'utf8'),
     readFile(join(ROOT, 'package-lock.json'), 'utf8'),
   ]);
@@ -21,9 +22,19 @@ test('the iOS host gives direct taps native keyboard ownership without assistant
     false,
   );
 
+  assert.match(storyboard, /customClass="ProductBridgeViewController"/);
+  assert.match(sceneDelegate, /final class ProductBridgeViewController: CAPBridgeViewController/);
+  assert.match(sceneDelegate, /override func webView\([\s\S]*?ProductWebView\(frame: frame, configuration: configuration\)/);
+  assert.match(sceneDelegate, /override var inputAssistantItem: UITextInputAssistantItem/);
+  assert.match(sceneDelegate, /assistantItem|let item = super\.inputAssistantItem/);
+  assert.match(sceneDelegate, /item\.leadingBarButtonGroups = \[\]/);
+  assert.match(sceneDelegate, /item\.trailingBarButtonGroups = \[\]/);
+  assert.match(sceneDelegate, /item\.allowsHidingShortcuts = true/);
+
+  assert.match(sceneDelegate, /override func capacitorDidLoad\(\)/);
   assert.match(
     sceneDelegate,
-    /webView\.capacitor\.setKeyboardShouldRequireUserInteraction\(nil\)/,
+    /setKeyboardShouldRequireUserInteraction\(nil\)/,
     'Capacitor core must pass WebKit the real user-interaction value',
   );
   assert.doesNotMatch(
@@ -31,10 +42,7 @@ test('the iOS host gives direct taps native keyboard ownership without assistant
     /setKeyboardShouldRequireUserInteraction\((?:true|false)\)/,
     'the host must not force every focus into either interaction state',
   );
-  assert.match(sceneDelegate, /assistantItem\.leadingBarButtonGroups = \[\]/);
-  assert.match(sceneDelegate, /assistantItem\.trailingBarButtonGroups = \[\]/);
-  assert.match(sceneDelegate, /assistantItem\.allowsHidingShortcuts = true/);
-  assert.match(sceneDelegate, /func sceneDidBecomeActive\(_ scene: UIScene\)/);
+  assert.match(sceneDelegate, /override func viewDidAppear\(_ animated: Bool\)/);
   assert.match(sceneDelegate, /releasedInitialWebViewFocus = true/);
   assert.match(sceneDelegate, /webView\?\.resignFirstResponder\(\)/);
 

@@ -1,10 +1,56 @@
 import UIKit
+import WebKit
 import Capacitor
+
+private final class ProductWebView: WKWebView {
+    override var inputAssistantItem: UITextInputAssistantItem {
+        let item = super.inputAssistantItem
+        item.leadingBarButtonGroups = []
+        item.trailingBarButtonGroups = []
+        item.allowsHidingShortcuts = true
+        return item
+    }
+}
+
+@objc(ProductBridgeViewController)
+final class ProductBridgeViewController: CAPBridgeViewController {
+    private var releasedInitialWebViewFocus = false
+
+    override func webView(
+        with frame: CGRect,
+        configuration: WKWebViewConfiguration
+    ) -> WKWebView {
+        ProductWebView(frame: frame, configuration: configuration)
+    }
+
+    override func capacitorDidLoad() {
+        super.capacitorDidLoad()
+
+        // Capacitor 8.4.1 installs a process-wide WKContentView focus swizzle
+        // and marks each WebView as though every focus were user initiated.
+        // On iOS 27 that can leave a tapped HTML input focused with only the
+        // assistant bar visible while the software keyboard arrives much later.
+        // Nil makes the installed bridge pass WebKit's real interaction value.
+        webView?.capacitor.setKeyboardShouldRequireUserInteraction(nil)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        // CAPBridgeViewController gives the whole WebView initial responder
+        // status. Release that container-level focus once so the first real
+        // HTML-field tap owns the input session immediately.
+        guard !releasedInitialWebViewFocus else {
+            return
+        }
+        releasedInitialWebViewFocus = true
+        _ = webView?.resignFirstResponder()
+    }
+}
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
-    private var releasedInitialWebViewFocus = false
 
     private func isOfflineB4Bundle() -> Bool {
         guard let url = Bundle.main.url(
@@ -18,30 +64,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             source.contains("content=\"B4Development\"")
     }
 
-    private func configureNativeTextInput(
-        for bridgeViewController: CAPBridgeViewController
-    ) {
-        guard let webView = bridgeViewController.webView else {
-            return
-        }
-
-        // Capacitor 8.4.1 installs a process-wide WKContentView focus swizzle and
-        // then marks this WebView as if every focus were user initiated. On iOS
-        // 27 that can leave a genuinely tapped HTML input focused with only the
-        // assistant bar visible, while the software keyboard appears much later.
-        // Clearing the per-WebView override makes the installed bridge pass
-        // WebKit's real user-interaction value through unchanged.
-        webView.capacitor.setKeyboardShouldRequireUserInteraction(nil)
-
-        // Use UIKit's public input-assistant API rather than reintroducing the
-        // Capacitor Keyboard plugin or another WKContentView swizzle. The app has
-        // no previous/next form workflow worth spending vertical space on.
-        let assistantItem = webView.inputAssistantItem
-        assistantItem.leadingBarButtonGroups = []
-        assistantItem.trailingBarButtonGroups = []
-        assistantItem.allowsHidingShortcuts = true
-    }
-
     func scene(
         _ scene: UIScene,
         willConnectTo session: UISceneSession,
@@ -53,7 +75,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         bridgeViewController.loadViewIfNeeded()
         bridgeViewController.webView?.capacitor.setKeyboardShouldRequireUserInteraction(nil)
-        configureNativeTextInput(for: bridgeViewController)
 
         if !isOfflineB4Bundle() {
             bridgeViewController.bridge?.registerPluginInstance(ParentAccessPlugin())
@@ -67,23 +88,5 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         bridgeViewController.bridge?.registerPluginInstance(BuildAuthorityPlugin())
         bridgeViewController.bridge?.registerPluginInstance(B3ProofObservationPlugin())
         #endif
-    }
-
-    func sceneDidBecomeActive(_ scene: UIScene) {
-        guard let bridgeViewController = window?.rootViewController as? CAPBridgeViewController else {
-            return
-        }
-        configureNativeTextInput(for: bridgeViewController)
-
-        // CAPBridgeViewController makes the whole WebView first responder in
-        // viewDidAppear. Release that container-level focus once, after launch,
-        // so the first real HTML-field tap owns the input session immediately.
-        guard !releasedInitialWebViewFocus else {
-            return
-        }
-        releasedInitialWebViewFocus = true
-        DispatchQueue.main.async { [weak bridgeViewController] in
-            _ = bridgeViewController?.webView?.resignFirstResponder()
-        }
     }
 }

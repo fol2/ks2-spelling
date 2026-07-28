@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   diagnose:
-    name: Exact fast-test failure tail
+    name: Exact fast-test failure summary
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
@@ -34,11 +34,14 @@ jobs:
         run: npm ci --silent --no-audit --no-fund
       - name: Materialise required proof input quietly
         run: npm run build:b3-proof-pack >/dev/null
-      - name: Run the exact fast lane and print only a failure tail
+      - name: Run the exact fast lane and print only failure context
         run: |
           if npm run test:fast > /tmp/fast-test.log 2>&1; then
             echo "Exact fast lane passed."
           else
-            tail -n 220 /tmp/fast-test.log
+            echo "=== failed-test context ==="
+            grep -n -E -B 8 -A 24 'Failed tests:|AssertionError|ERR_ASSERTION|not ok|✖|failureType|error:' /tmp/fast-test.log || true
+            echo "=== final summary ==="
+            tail -n 28 /tmp/fast-test.log
             exit 1
           fi

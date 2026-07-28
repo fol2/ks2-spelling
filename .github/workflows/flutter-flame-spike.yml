@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: flutter-flame-spike-${{ github.event.pull_request.number }}
-  cancel-in-progress: false
+  group: flutter-flame-spike-${{ github.event.pull_request.number }}-${{ github.actor }}
+  cancel-in-progress: true
 
 defaults:
   run:

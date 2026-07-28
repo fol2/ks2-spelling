@@ -1,24 +1,17 @@
 import { Keyboard } from '@capacitor/keyboard';
 
-/* iOS gives every WKWebView text field the system form accessory bar — the
- * `‹ › ✓` strip above the keys. A spelling round has one field and its own
- * Submit button, so the bar is three controls that do nothing but take the
- * bottom of the card. WebKit exposes no web API for it, and a native effect
- * cannot be reached from inside the page, so the plugin is the only seam.
+/*
+ * Legacy diagnostic seam only.
  *
- * Do NOT force KeyboardResize.None here. @capacitor/keyboard already removes
- * the WKWebView’s own keyboard frame observers on load (see Keyboard.m). Pairing
- * that with ResizeMode.None has left physical iPhones without a software
- * keyboard for ordinary inputs (learner name, Words search, and dictation).
- * Leave Capacitor’s default native resize so keys can rise; round layout still
- * reads --keyboard-inset from the visual viewport when a session is active.
+ * The installed Capacitor Keyboard plugin already starts iOS in its configured
+ * resize mode (native when no override is present) and owns the form accessory
+ * bar. Product startup must therefore not call this helper: app-wide runtime
+ * mutations have repeatedly coupled unrelated fields to spelling-round polish.
+ * `tests/ios-keyboard-ownership.test.mjs` rejects any runtime import.
  *
- * Also pin scroll back on: a stuck disableScroll leaves the WebView unable to
- * bring focused fields into view with the keys.
- *
- * Fire-and-forget and silent on failure: neither call is implemented on web, on
- * Android there is no such bar to hide, and a keyboard that keeps its chrome
- * must never stop the app from starting.
+ * Keep this bounded helper for native proof work that explicitly needs to
+ * re-assert the old chrome settings. It must be exercised on a physical device
+ * before any product caller is added.
  */
 export function applyKeyboardChrome() {
   void Keyboard.setAccessoryBarVisible({ isVisible: false })

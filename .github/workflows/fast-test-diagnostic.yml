@@ -12,11 +12,11 @@ concurrency:
 
 jobs:
   diagnose:
-    name: Exact fast-test failure summary
+    name: Direct dependency-audit failure
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 8
     steps:
-      - name: Fetch the exact pull-request head with full history quietly
+      - name: Fetch the exact pull-request head quietly
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REPOSITORY: ${{ github.repository }}
@@ -32,16 +32,25 @@ jobs:
           cache: npm
       - name: Install exact dependencies quietly
         run: npm ci --silent --no-audit --no-fund
-      - name: Materialise required proof input quietly
-        run: npm run build:b3-proof-pack >/dev/null
-      - name: Run the exact fast lane and print only failed-test context
+      - name: Run the pre-bootstrap audit directly
         run: |
-          if npm run test:fast > /tmp/fast-test.log 2>&1; then
-            echo "Exact fast lane passed."
-          else
-            echo "=== failed-test context ==="
-            grep -n -E -B 5 -A 18 'Failed tests:|AssertionError|ERR_ASSERTION|not ok|✖|failureType' /tmp/fast-test.log || true
-            echo "=== final summary ==="
-            tail -n 12 /tmp/fast-test.log
-            exit 1
-          fi
+          node --input-type=module <<'NODE'
+          import { buildDependencyArtifacts } from './scripts/audit-dependencies.mjs';
+
+          try {
+            const { report } = await buildDependencyArtifacts({ preBootstrap: true });
+            console.log(JSON.stringify({
+              result: 'passed',
+              webViewPackages: report.npm.webViewBundle.packageNames,
+              productionCount: report.npm.production.length,
+            }, null, 2));
+          } catch (error) {
+            console.error(JSON.stringify({
+              result: 'failed',
+              name: error?.name,
+              code: error?.code,
+              message: error?.message,
+            }, null, 2));
+            process.exit(1);
+          }
+          NODE

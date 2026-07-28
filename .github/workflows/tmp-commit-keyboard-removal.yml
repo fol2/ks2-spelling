@@ -61,6 +61,7 @@ jobs:
           npm run build
           npx --no-install cap sync
           python3 scripts/tmp-remove-native-keyboard.py
+          python3 scripts/tmp-update-dictation-keyboard-test.py
 
       - name: Prove generated native files are stable
         if: steps.guard.outputs.required == 'true'
@@ -111,6 +112,7 @@ jobs:
         if: steps.guard.outputs.required == 'true'
         run: |
           rm -f scripts/tmp-remove-native-keyboard.py
+          rm -f scripts/tmp-update-dictation-keyboard-test.py
           rm -f .github/workflows/tmp-commit-keyboard-removal.yml
 
       - name: Commit and push the root-cause fix

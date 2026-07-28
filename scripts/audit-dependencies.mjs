@@ -61,7 +61,8 @@ const EXPECTED_WEBVIEW_BUNDLE_PACKAGES = Object.freeze([
   '@capacitor/app',
   '@capacitor/core',
   '@capacitor/haptics',
-  '@capacitor/keyboard',
+  // The Keyboard plugin remains an audited native build source. Product
+  // JavaScript deliberately does not import or bundle its runtime facade.
   'phaser',
   'react',
   'react-dom',

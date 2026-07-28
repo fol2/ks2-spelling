@@ -90,6 +90,15 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
   assert.equal(report.npm.production.length, 40);
   assert.equal(report.npm.directBuildTools.length, 4);
   assert.ok(report.npm.lockPackageCount >= 150);
+  assert.ok(
+  report.npm.production.some(({ name }) => name === '@capacitor/keyboard'),
+  'the native Keyboard plugin must remain an audited production dependency',
+);
+  assert.equal(
+    report.npm.webViewBundle.packageNames.includes('@capacitor/keyboard'),
+    false,
+    'ordinary keyboard ownership must not require the Keyboard JavaScript facade',
+  );
   for (const dependency of [
     ...report.npm.production,
     ...report.npm.directBuildTools,

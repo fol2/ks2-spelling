@@ -1,4 +1,4 @@
-name: Temporary keyboard audit patch
+name: Temporary keyboard audit formatting patch
 
 on:
   pull_request:
@@ -7,12 +7,12 @@ permissions:
   contents: write
 
 concurrency:
-  group: keyboard-audit-patch-${{ github.event.pull_request.number }}
+  group: keyboard-audit-format-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   patch:
-    name: Classify Keyboard JavaScript as unbundled
+    name: Format the Keyboard audit assertion
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -28,33 +28,14 @@ jobs:
           git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPOSITORY}.git"
           git fetch -q --depth=1 origin "$HEAD_SHA"
           git checkout -q -B "$HEAD_REF" FETCH_HEAD
-      - name: Update the audited package boundary and its regression test
+      - name: Apply the exact formatting correction
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          audit = Path('scripts/audit-dependencies.mjs')
-          text = audit.read_text()
-          old = """  '@capacitor/haptics',
-            '@capacitor/keyboard',
-            'phaser',
-          """
-          new = """  '@capacitor/haptics',
-            // The Keyboard plugin remains an audited native build source. Product
-            // JavaScript deliberately does not import or bundle its runtime facade.
-            'phaser',
-          """
-          if old not in text:
-              if 'JavaScript deliberately does not import or bundle its runtime facade.' not in text:
-                  raise SystemExit('Expected WebView package authority was not found.')
-          else:
-              text = text.replace(old, new, 1)
-              audit.write_text(text)
-
-          test = Path('tests/dependency-policy.test.mjs')
-          text = test.read_text()
-          marker = "  assert.ok(report.npm.lockPackageCount >= 150);\n"
-          addition = marker + """  assert.ok(
+          path = Path('tests/dependency-policy.test.mjs')
+          text = path.read_text()
+          old = """  assert.ok(
             report.npm.production.some(({ name }) => name === '@capacitor/keyboard'),
             'the native Keyboard plugin must remain an audited production dependency',
           );
@@ -64,23 +45,33 @@ jobs:
               'ordinary keyboard ownership must not require the Keyboard JavaScript facade',
             );
           """
-          if 'ordinary keyboard ownership must not require the Keyboard JavaScript facade' not in text:
-              if text.count(marker) != 1:
-                  raise SystemExit('Expected dependency policy assertion marker was not found.')
-              text = text.replace(marker, addition, 1)
-              test.write_text(text)
+          new = """  assert.ok(
+              report.npm.production.some(({ name }) => name === '@capacitor/keyboard'),
+              'the native Keyboard plugin must remain an audited production dependency',
+            );
+            assert.equal(
+              report.npm.webViewBundle.packageNames.includes('@capacitor/keyboard'),
+              false,
+              'ordinary keyboard ownership must not require the Keyboard JavaScript facade',
+            );
+          """
+          if old not in text:
+              if "    report.npm.production.some(({ name }) => name === '@capacitor/keyboard')" not in text:
+                  raise SystemExit('Expected Keyboard audit assertion was not found.')
+          else:
+              path.write_text(text.replace(old, new, 1))
           PY
           git diff --check
-      - name: Commit and push the reviewed authority change once
+      - name: Commit and push once
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          if git diff --quiet -- scripts/audit-dependencies.mjs tests/dependency-policy.test.mjs; then
-            echo "No authority change to commit."
+          if git diff --quiet -- tests/dependency-policy.test.mjs; then
+            echo "No formatting correction to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/audit-dependencies.mjs tests/dependency-policy.test.mjs
-          git commit -m "fix(ios): classify Keyboard as native-only"
+          git add tests/dependency-policy.test.mjs
+          git commit -m "style(test): format Keyboard audit assertion"
           git push origin "HEAD:${HEAD_REF}"

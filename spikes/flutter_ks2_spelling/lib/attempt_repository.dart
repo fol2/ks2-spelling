@@ -22,7 +22,13 @@ final class AttemptSnapshot {
   final bool evolved;
 }
 
-final class AttemptRepository {
+abstract interface class AttemptStore {
+  Future<AttemptSnapshot> read();
+
+  Future<AttemptSnapshot> recordAnswer({required bool correct});
+}
+
+final class AttemptRepository implements AttemptStore {
   AttemptRepository({
     DatabaseFactory? databaseFactory,
     String? databasePath,
@@ -84,6 +90,7 @@ final class AttemptRepository {
     _database = database;
   }
 
+  @override
   Future<AttemptSnapshot> read() async {
     await open();
     final List<Map<String, Object?>> rows = await _requireDatabase().query(
@@ -98,6 +105,7 @@ final class AttemptRepository {
     return _snapshotFromRow(rows.single);
   }
 
+  @override
   Future<AttemptSnapshot> recordAnswer({required bool correct}) async {
     await open();
     final Database database = _requireDatabase();

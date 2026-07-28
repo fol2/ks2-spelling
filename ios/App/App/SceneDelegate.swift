@@ -52,6 +52,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         bridgeViewController.loadViewIfNeeded()
+        bridgeViewController.webView?.capacitor.setKeyboardShouldRequireUserInteraction(nil)
         configureNativeTextInput(for: bridgeViewController)
 
         if !isOfflineB4Bundle() {

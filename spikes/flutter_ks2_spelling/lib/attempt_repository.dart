@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as paths;
 import 'package:path_provider/path_provider.dart';
-import 'package:sqflite_common/sqlite_api.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 typedef DirectoryProvider = Future<Directory> Function();
@@ -123,7 +122,7 @@ final class AttemptRepository {
         <String, Object>{
           'attempts': attempts + 1,
           'correct_count': correctCount + (correct ? 1 : 0),
-          'evolved': evolved || correct ? 1 : 0,
+          'evolved': (evolved || correct) ? 1 : 0,
         },
         where: 'learner_id = ?',
         whereArgs: <Object>[learnerId],

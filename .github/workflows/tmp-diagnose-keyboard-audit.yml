@@ -112,14 +112,15 @@ jobs:
           }
           printf '%s\n' "$changed"
 
-      - name: Run final host-neutral gates
+      - name: Run final pre-commit gates
         if: steps.ios.outcome == 'success' && steps.audit.outcome == 'success'
         run: |
           npm run build:b3-proof-pack
           npm run test:fast
           npm run lint
-          node scripts/build-b3-exit-report.mjs --check-ci
           git diff --check
+          # build-b3-exit-report --check-ci intentionally runs only after the
+          # evidence commit, because its contract requires a clean worktree.
 
       - name: Remove temporary finalisation workflow
         if: steps.ios.outcome == 'success' && steps.audit.outcome == 'success'

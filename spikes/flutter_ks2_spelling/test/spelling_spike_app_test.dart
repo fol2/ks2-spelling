@@ -59,8 +59,6 @@ void main() {
   ) async {
     final MemoryAttemptStore repository = MemoryAttemptStore();
     final RecordingPromptAudio audio = RecordingPromptAudio();
-    final SemanticsHandle semantics = tester.ensureSemantics();
-    addTearDown(semantics.dispose);
 
     await tester.pumpWidget(
       SpellingSpikeApp(repository: repository, audio: audio),
@@ -100,9 +98,12 @@ void main() {
     expect(saved.correctCount, 1);
     expect(saved.evolved, isTrue);
 
+    final SemanticsHandle semantics = tester.ensureSemantics();
+    await tester.pump();
     final SemanticsNode companion = tester.getSemantics(
       find.byKey(const Key('companion-semantics')),
     );
+    semantics.dispose();
     expect(companion.label, contains('newly evolved'));
 
     await tester.pumpWidget(const SizedBox.shrink());

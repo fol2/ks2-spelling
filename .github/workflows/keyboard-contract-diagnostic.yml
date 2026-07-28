@@ -1,0 +1,29 @@
+name: Temporary keyboard contract diagnostic
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keyboard-contract-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  keyboard-contract:
+    name: Keyboard contract diagnostic
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fetch the exact pull-request head quietly
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          git init -q .
+          git remote add origin "https://github.com/${REPOSITORY}.git"
+          git fetch -q --depth=1 origin "$HEAD_SHA"
+          git checkout -q --detach FETCH_HEAD
+      - name: Run only the iOS keyboard ownership contract
+        run: node --test tests/ios-keyboard-ownership.test.mjs

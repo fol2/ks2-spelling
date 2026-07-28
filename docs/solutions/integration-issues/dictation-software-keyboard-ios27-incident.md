@@ -8,7 +8,7 @@ applies_when:
   - "A dictation / practice round asks the learner to type a spelling on iOS"
   - "The software keyboard must appear without an extra tap on the answer field"
   - "WKWebView / Capacitor Keyboard is in use on a physical iPhone"
-resolution_type: candidate_fix_pending_device_validation
+resolution_type: root_cause_fix_pending_device_validation
 related_components:
   - "product_ui"
   - "capacitor_keyboard"
@@ -27,13 +27,15 @@ tags:
 
 ## Status
 
-**Candidate fix implemented; physical-device validation required.** The candidate
-starts from `96d39d60` and deliberately avoids `Keyboard.show()`, WebKit private
-selectors and native method swizzling. It keeps one real text input alive across
-Setup → Round, opens that input from the trusted **Set off** activation, and then
-mirrors it into the existing React-controlled round field.
+**Root-cause fix implemented; physical-device validation required.** A clean
+uninstall, rebuild and reinstall of PR #53 at `3ce24c3c` reproduced the failure
+across every ordinary text field, not only dictation. Quarantining JavaScript calls
+was insufficient because Capacitor still auto-loaded the linked native Keyboard
+plugin. The correction removes that package from npm, SwiftPM and Android entirely,
+while retaining the Setup → Practice stable-input bridge.
 
-The incident remains open until the physical iPhone checklist below passes.
+The standard iOS form accessory bar is intentionally accepted. The incident remains
+open until a clean physical-iPhone build proves ordinary fields and dictation again.
 
 ## Product symptom
 
@@ -61,11 +63,11 @@ Team `V45S7U2LZB`.
    implementation reports that method as unimplemented. On iOS the plugin can
    observe keyboard notifications and control resize, style, scrolling and the
    accessory bar; none of those operations creates a software-keyboard session.
-3. Startup already calls `applyKeyboardChrome()` →
-   `Keyboard.setAccessoryBarVisible({ isVisible: false })` and
-   `Keyboard.setResizeMode({ mode: KeyboardResize.None })` so the WebView is
-   **not** meant to shrink and walk the painted plate off-screen; inset is owned
-   by `keyboard-inset.js` when wired.
+3. Removing every JavaScript caller did not remove the native side effect. When
+   `@capacitor/keyboard@8.0.5` remains linked, Capacitor auto-loads it. Its iOS
+   `load()` removes keyboard-frame observers from the WKWebView and changes private
+   `WKContentView` input methods. On the physical iOS 27 device, that native load
+   path coincides with every text field losing the software keyboard.
 4. **Gesture timing matters**: focus that is not inside the learner’s
    **Set off** pointer/click turn does not raise keys. Focus after
    `await startRound(...)` or after sentence autoplay is too late for a
@@ -93,7 +95,16 @@ Team `V45S7U2LZB`.
 `git restore` to `HEAD` also temporarily dropped the separate Trail ↔ Codex
 fix; that Trail fix was re-applied precisely and committed as `96d39d60`.
 
-## Candidate F: persistent iOS input session
+## Candidate G: remove the native Keyboard plugin
+
+The product does not need an API that can summon the keyboard on iOS—the official
+plugin does not provide one. It was linked only to hide the standard form accessory
+bar. That cosmetic benefit is not worth a native plugin which mutates every WKWebView
+text field during load. Candidate G removes the package and all generated native
+references, keeps Capacitor and WebKit defaults intact, and adds a closed regression
+contract against future npm, SwiftPM, Android or runtime reintroduction.
+
+## Candidate F: persistent iOS input session (insufficient while the plugin remained linked)
 
 The candidate treats keyboard ownership as an integration lifecycle rather than
 another focus retry:

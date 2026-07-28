@@ -209,12 +209,12 @@ function createView() {
 }
 
 test('the product root owns the public-API iOS session and visual viewport layout', async () => {
-  const [productRoot, productApp, sessionSource, sessionCss, keyboardChrome] = await Promise.all([
+  const [productRoot, productApp, sessionSource, sessionCss, mainSource] = await Promise.all([
     readFile(join(ROOT, 'src/app/ProductRoot.jsx'), 'utf8'),
     readFile(join(ROOT, 'src/app/ProductApp.jsx'), 'utf8'),
     readFile(join(ROOT, 'src/platform/keyboard/ios-dictation-input-session.js'), 'utf8'),
     readFile(join(ROOT, 'src/app/ios-dictation-input-session.css'), 'utf8'),
-    readFile(join(ROOT, 'src/platform/keyboard/capacitor-keyboard.js'), 'utf8'),
+    readFile(join(ROOT, 'src/main.jsx'), 'utf8'),
   ]);
 
   assert.match(productRoot, /observeKeyboardInset\(\)/);
@@ -243,12 +243,7 @@ test('the product root owns the public-API iOS session and visual viewport layou
   assert.match(sessionCss, /data-dictation-input-session='round'/);
   assert.match(sessionCss, /data-room='tight'/);
 
-  assert.match(keyboardChrome, /setAccessoryBarVisible\(\{ isVisible: false \}\)/);
-  assert.match(keyboardChrome, /setScroll\(\{ isDisabled: false \}\)/);
-  assert.doesNotMatch(
-    keyboardChrome,
-    /export function applyKeyboardChrome\(\) \{[^}]*setResizeMode/su,
-  );
+  assert.doesNotMatch(mainSource, /applyKeyboardChrome|@capacitor\/keyboard/);
 });
 
 test('small dictation-session helpers preserve geometry and controlled input events', () => {

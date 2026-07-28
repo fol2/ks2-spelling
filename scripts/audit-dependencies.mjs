@@ -61,8 +61,6 @@ const EXPECTED_WEBVIEW_BUNDLE_PACKAGES = Object.freeze([
   '@capacitor/app',
   '@capacitor/core',
   '@capacitor/haptics',
-  // The Keyboard plugin remains an audited native build source. Product
-  // JavaScript deliberately does not import or bundle its runtime facade.
   'phaser',
   'react',
   'react-dom',
@@ -74,7 +72,6 @@ const NATIVE_BUILD_SOURCE_NPM_PACKAGES = new Set([
   '@capacitor/app',
   '@capacitor/haptics',
   '@capacitor/ios',
-  '@capacitor/keyboard',
 ]);
 
 function policyError(code, message) {
@@ -580,7 +577,6 @@ async function verifyRuntimeBoundary(packageJson) {
     '@capacitor/core',
     '@capacitor/haptics',
     '@capacitor/ios',
-    '@capacitor/keyboard',
   ]);
   const unexpectedPlugins = Object.keys(packageJson.dependencies ?? {}).filter(
     (name) => name.startsWith('@capacitor/') && !approvedCapacitorPackages.has(name),
@@ -662,7 +658,6 @@ async function verifyRuntimeBoundary(packageJson) {
         ':capacitor-app',
         ':capacitor-community-sqlite',
         ':capacitor-haptics',
-        ':capacitor-keyboard',
       ]) ||
     /\b(?:api|classpath)\b/.test(generatedDependencies)
   ) {
@@ -674,7 +669,7 @@ async function verifyRuntimeBoundary(packageJson) {
   );
   if (
     products.join(',') !==
-    'Capacitor,Cordova,CapacitorCommunitySqlite,CapacitorApp,CapacitorHaptics,CapacitorKeyboard'
+    'Capacitor,Cordova,CapacitorCommunitySqlite,CapacitorApp,CapacitorHaptics'
   ) {
     throw policyError('unapproved_native_plugin', `Unexpected iOS products: ${products.join(',')}`);
   }

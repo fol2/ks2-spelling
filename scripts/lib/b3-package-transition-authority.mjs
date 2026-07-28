@@ -73,15 +73,10 @@ export const C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS = Object.freeze({
   phaser: '4.1.0',
 });
 
-// C7 spelling feel parity (2026-07-24 plan): iOS gives every WKWebView text
-// field the system form accessory bar — the `‹ › ✓` strip above the keys — and
-// WebKit exposes no web API to remove it. The Keyboard plugin is the only seam,
-// and it is used for that call alone: its own native resize is switched off in
-// `capacitor.config.json` because it shrinks the whole WebView, backdrop art
-// included.
-export const C7_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS = Object.freeze({
-  '@capacitor/keyboard': '8.0.5',
-});
+// C7 keyboard chrome was reverted after physical iOS 27 evidence showed that
+// merely linking the native plugin changes WKWebView keyboard internals during
+// plugin load. The product keeps the standard iOS accessory bar instead.
+export const C7_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS = Object.freeze({});
 
 export const PLANNED_PACKAGE_DEPENDENCY_ADDITIONS = Object.freeze({
   ...C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS,

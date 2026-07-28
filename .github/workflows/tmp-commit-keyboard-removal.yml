@@ -78,14 +78,29 @@ jobs:
       - name: Run source and native-boundary regression gates
         if: steps.guard.outputs.required == 'true'
         run: |
-          node --test \
+          if node --test \
             tests/ios-keyboard-ownership.test.mjs \
             tests/ios-dictation-input-session.test.mjs \
             tests/ios-project-contract.test.mjs \
             tests/android-project-contract.test.mjs \
-            tests/app-shell.test.mjs
-          npm run lint
-          npm run build
+            tests/app-shell.test.mjs > /tmp/keyboard-tests.log 2>&1; then
+            tail -n 40 /tmp/keyboard-tests.log
+          else
+            cat /tmp/keyboard-tests.log
+            exit 1
+          fi
+          if npm run lint > /tmp/keyboard-lint.log 2>&1; then
+            tail -n 40 /tmp/keyboard-lint.log
+          else
+            cat /tmp/keyboard-lint.log
+            exit 1
+          fi
+          if npm run build > /tmp/keyboard-build.log 2>&1; then
+            tail -n 40 /tmp/keyboard-build.log
+          else
+            cat /tmp/keyboard-build.log
+            exit 1
+          fi
           git diff --check
 
       - name: Remove migration-only tooling

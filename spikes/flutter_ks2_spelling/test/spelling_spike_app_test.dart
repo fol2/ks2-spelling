@@ -16,6 +16,19 @@ final class RecordingPromptAudio implements PromptAudio {
   }
 }
 
+Future<void> pumpUntilFound(
+  WidgetTester tester,
+  Finder finder,
+) async {
+  for (int frame = 0; frame < 100; frame += 1) {
+    await tester.pump(const Duration(milliseconds: 20));
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+  }
+  throw TestFailure('Timed out waiting for ${finder.description}.');
+}
+
 void main() {
   sqfliteFfiInit();
 
@@ -31,14 +44,15 @@ void main() {
     addTearDown(semantics.dispose);
     addTearDown(repository.close);
 
+    // Open the database before mounting so the widget test waits only for the
+    // product's asynchronous read and render, not FFI library initialisation.
+    await repository.open();
     await tester.pumpWidget(
       SpellingSpikeApp(repository: repository, audio: audio),
     );
-    for (int frame = 0; frame < 5; frame += 1) {
-      await tester.pump(const Duration(milliseconds: 20));
-    }
 
     final Finder inputFinder = find.byKey(const Key('spelling-input'));
+    await pumpUntilFound(tester, inputFinder);
     expect(inputFinder, findsOneWidget);
     final TextField input = tester.widget<TextField>(inputFinder);
     expect(input.autofocus, isFalse);
@@ -53,9 +67,10 @@ void main() {
     final Finder submit = find.byKey(const Key('submit-button'));
     await tester.ensureVisible(submit);
     await tester.tap(submit);
-    for (int frame = 0; frame < 6; frame += 1) {
-      await tester.pump(const Duration(milliseconds: 20));
-    }
+    await pumpUntilFound(
+      tester,
+      find.text('Correct. The egg has evolved into a companion.'),
+    );
 
     expect(
       find.text('Correct. The egg has evolved into a companion.'),

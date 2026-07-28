@@ -17,11 +17,17 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Check out the pull-request branch
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Fetch the pull-request branch quietly
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          git init -q .
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPOSITORY}.git"
+          git fetch -q --depth=1 origin "$HEAD_SHA"
+          git checkout -q -B "$HEAD_REF" FETCH_HEAD
       - name: Apply the bounded timeout correction
         run: |
           python3 - <<'PY'
@@ -29,13 +35,12 @@ jobs:
 
           path = Path('scripts/lib/maven-evidence.mjs')
           text = path.read_text()
-          helper_name = 'createMavenFetchTimeout'
-          if f'function {helper_name}(' in text:
+          if 'function createMavenFetchTimeout(' in text:
               print('Maven timeout correction is already present.')
               raise SystemExit(0)
 
           marker = 'export async function fetchVerifiedMavenPom({'
-          helper = '''function createMavenFetchTimeout(timeoutMilliseconds) {
+          helper = """function createMavenFetchTimeout(timeoutMilliseconds) {
             const controller = new AbortController();
             // Node implements AbortSignal.timeout() with an unref'ed timer. A mocked
             // or stalled fetch can therefore leave the awaited promise pending while
@@ -54,41 +59,37 @@ jobs:
             });
           }
 
-          '''
+          """
           if text.count(marker) != 1:
               raise SystemExit('Expected one fetchVerifiedMavenPom declaration.')
           text = text.replace(marker, helper + marker, 1)
 
-          old_start = '''    try {
-              const response = await fetchImpl(sourceUrl, {
-                redirect: 'manual',
-                signal: AbortSignal.timeout(timeoutMilliseconds),
-              });
-          '''
-          new_start = '''    const timeout = createMavenFetchTimeout(timeoutMilliseconds);
-              try {
-                const response = await fetchImpl(sourceUrl, {
-                  redirect: 'manual',
-                  signal: timeout.signal,
-                });
-          '''
-          if text.count(old_start) != 1:
-              raise SystemExit('Expected one AbortSignal.timeout fetch block.')
-          text = text.replace(old_start, new_start, 1)
+          loop_marker = """  for (const repository of repositories) {
+            const sourceUrl = `${repository}${relativePath}`;
+          """
+          loop_replacement = loop_marker + '    const timeout = createMavenFetchTimeout(timeoutMilliseconds);\n'
+          if text.count(loop_marker) != 1:
+              raise SystemExit('Expected one Maven repository loop.')
+          text = text.replace(loop_marker, loop_replacement, 1)
 
-          old_end = '''    } catch (error) {
-              failures.push(`${error.name}:${repository}`);
-            }
-          '''
-          new_end = '''    } catch (error) {
-              failures.push(`${error.name}:${repository}`);
-            } finally {
-              timeout.clear();
-            }
-          '''
-          if text.count(old_end) != 1:
+          signal = '        signal: AbortSignal.timeout(timeoutMilliseconds),'
+          if text.count(signal) != 1:
+              raise SystemExit('Expected one AbortSignal.timeout call.')
+          text = text.replace(signal, '        signal: timeout.signal,', 1)
+
+          catch = """    } catch (error) {
+            failures.push(`${error.name}:${repository}`);
+          }
+          """
+          replacement = """    } catch (error) {
+            failures.push(`${error.name}:${repository}`);
+          } finally {
+            timeout.clear();
+          }
+          """
+          if text.count(catch) != 1:
               raise SystemExit('Expected one Maven fetch catch block.')
-          text = text.replace(old_end, new_end, 1)
+          text = text.replace(catch, replacement, 1)
           path.write_text(text)
           PY
       - name: Commit and push the correction once

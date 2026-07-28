@@ -40,6 +40,23 @@ final class C5ProductLayoutTests: XCTestCase {
         XCTAssertLessThanOrEqual(frame.maxY, viewport.maxY, file: file, line: line)
     }
 
+    private func reachableNicknameField(
+        in application: XCUIApplication
+    ) -> XCUIElement {
+        let nickname = application.textFields["First name or nickname"]
+        let webView = application.webViews.firstMatch
+        for _ in 0..<12 where !nickname.isHittable {
+            webView.swipeUp()
+        }
+        XCTAssertTrue(
+            nickname.waitForExistence(timeout: 10),
+            "The production learner name field did not appear."
+        )
+        XCTAssertTrue(nickname.isHittable, "The production learner form is not reachable.")
+        assertContained(nickname, in: application)
+        return nickname
+    }
+
     private func assertProfilePicker(
         in application: XCUIApplication
     ) {
@@ -56,17 +73,8 @@ final class C5ProductLayoutTests: XCTestCase {
         XCTAssertTrue(parentAction.isHittable, "The production Parent action is not reachable.")
         assertContained(parentAction, in: application)
 
-        let nickname = application.textFields["First name or nickname"]
+        _ = reachableNicknameField(in: application)
         let webView = application.webViews.firstMatch
-        for _ in 0..<12 where !nickname.isHittable {
-            webView.swipeUp()
-        }
-        XCTAssertTrue(
-            nickname.waitForExistence(timeout: 10),
-            "The production learner name field did not appear."
-        )
-        XCTAssertTrue(nickname.isHittable, "The production learner form is not reachable.")
-        assertContained(nickname, in: application)
         for _ in 0..<12 where !heading.isHittable {
             webView.swipeDown()
         }
@@ -78,6 +86,43 @@ final class C5ProductLayoutTests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    func testProductNicknameFieldRaisesSoftwareKeyboard() {
+        continueAfterFailure = false
+
+        XCTAssertEqual(
+            UIDevice.current.userInterfaceIdiom,
+            .phone,
+            "The software-keyboard regression requires an iPhone destination."
+        )
+        let application = installedApplication()
+        XCUIDevice.shared.orientation = .portrait
+        application.terminate()
+        application.launch()
+
+        XCTAssertTrue(
+            waitForOrientation(application, landscape: false),
+            "The production application did not settle in portrait."
+        )
+        let nickname = reachableNicknameField(in: application)
+        nickname.tap()
+
+        let keyboard = application.keyboards.firstMatch
+        XCTAssertTrue(
+            keyboard.waitForExistence(timeout: 5),
+            "Tapping an ordinary product text field did not raise the iOS software keyboard."
+        )
+
+        let valueBeforeTyping = nickname.value as? String ?? ""
+        nickname.typeText("Keyboard guard")
+        let valueAfterTyping = nickname.value as? String ?? ""
+        XCTAssertNotEqual(valueAfterTyping, valueBeforeTyping)
+        XCTAssertTrue(
+            valueAfterTyping.contains("Keyboard guard"),
+            "The focused learner name field did not receive software-keyboard input."
+        )
+        attachScreenshot(name: "c5-product-phone-software-keyboard")
     }
 
     func testProductLargeTextProfilePicker() {

@@ -1,0 +1,460 @@
+name: Temporary remove native Keyboard plugin v2
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: remove-native-keyboard-v2-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    name: Remove native Keyboard plugin with split gates
+    if: github.event.pull_request.number == 53 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Check out the pull-request branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Detect whether correction is required
+        id: guard
+        run: |
+          if grep -q '"@capacitor/keyboard"' package.json; then
+            echo 'required=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'required=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node.js
+        if: steps.guard.outputs.required == 'true'
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: '24.18.0'
+          cache: npm
+
+      - name: Set up Temurin 21
+        if: steps.guard.outputs.required == 'true'
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Require Android API and Build Tools 36
+        if: steps.guard.outputs.required == 'true'
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' >/dev/null
+
+      - name: Remove package and regenerate native projects
+        if: steps.guard.outputs.required == 'true'
+        run: |
+          npm ci --no-audit --no-fund
+          npm uninstall --ignore-scripts @capacitor/keyboard
+          npm run build
+          npx --no-install cap sync
+          ! grep -R -n -E 'CapacitorKeyboard|@capacitor/keyboard|capacitor-keyboard' \
+            ios/App/CapApp-SPM/Package.swift \
+            android/capacitor.settings.gradle \
+            android/app/capacitor.build.gradle
+
+      - name: Patch dependency and package-transition authorities
+        if: steps.guard.outputs.required == 'true'
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import re
+          from pathlib import Path
+
+          root = Path('.')
+          package = '@capacitor/keyboard'
+
+          def load(path):
+              return json.loads((root / path).read_text())
+
+          def save(path, value):
+              (root / path).write_text(json.dumps(value, indent=2, ensure_ascii=False) + '\n')
+
+          policy_path = root / 'config/dependency-policy.json'
+          policy = load(policy_path)
+          policy['directDependencies'].pop(package, None)
+          policy['npmClassifications'].pop(package, None)
+          policy['approvedNativePlugins'] = [
+              item for item in policy['approvedNativePlugins']
+              if item.get('packageName') != package
+          ]
+          policy['allowedSources']['gradleLocalDependencies'] = [
+              item for item in policy['allowedSources']['gradleLocalDependencies']
+              if item != 'project::capacitor-keyboard'
+          ]
+          for item in policy['gradleInputFiles']:
+              path = item['path']
+              if path in {
+                  'android/app/capacitor.build.gradle',
+                  'android/capacitor.settings.gradle',
+              }:
+                  item['sha256'] = hashlib.sha256((root / path).read_bytes()).hexdigest()
+          save(policy_path, policy)
+
+          provenance_path = root / 'provenance/b3-package-transition.json'
+          provenance = load(provenance_path)
+          provenance['allowedPackageDependencyAdditions'].pop(package, None)
+          save(provenance_path, provenance)
+
+          authority_path = root / 'scripts/lib/b3-package-transition-authority.mjs'
+          authority = authority_path.read_text()
+          start = authority.index('// C7 spelling feel parity (2026-07-24 plan):')
+          end_marker = "export const C7_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS = Object.freeze({\n  '@capacitor/keyboard': '8.0.5',\n});"
+          end = authority.index(end_marker, start) + len(end_marker)
+          replacement = (
+              '// C7 keyboard chrome was reverted after physical iOS 27 evidence showed that\n'
+              '// merely linking the native plugin changes WKWebView keyboard internals during\n'
+              '// plugin load. The product keeps the standard iOS accessory bar instead.\n'
+              'export const C7_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS = Object.freeze({});'
+          )
+          authority_path.write_text(authority[:start] + replacement + authority[end:])
+
+          audit_path = root / 'scripts/audit-dependencies.mjs'
+          audit = audit_path.read_text()
+          audit = audit.replace(
+              '  // The Keyboard plugin remains an audited native build source. Product\n'
+              '  // JavaScript deliberately does not import or bundle its runtime facade.\n',
+              '',
+          )
+          audit = re.sub(r"^\s*'@capacitor/keyboard',\n", '', audit, flags=re.MULTILINE)
+          audit = re.sub(r"^\s*':capacitor-keyboard',\n", '', audit, flags=re.MULTILINE)
+          audit = audit.replace(
+              'Capacitor,Cordova,CapacitorCommunitySqlite,CapacitorApp,CapacitorHaptics,CapacitorKeyboard',
+              'Capacitor,Cordova,CapacitorCommunitySqlite,CapacitorApp,CapacitorHaptics',
+          )
+          leftovers = [
+              token for token in (package, 'CapacitorKeyboard', ':capacitor-keyboard')
+              if token in audit
+          ]
+          if leftovers:
+              raise SystemExit(f'Keyboard authority remains in audit script: {leftovers}')
+          audit_path.write_text(audit)
+          PY
+
+      - name: Patch dependency regression expectations
+        if: steps.guard.outputs.required == 'true'
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          app_shell_path = Path('tests/app-shell.test.mjs')
+          app_shell = app_shell_path.read_text()
+          app_shell, count = re.subn(
+              r"^\s*'@capacitor/keyboard': '8\.0\.5',\n",
+              '',
+              app_shell,
+              count=1,
+              flags=re.MULTILINE,
+          )
+          if count != 1:
+              raise SystemExit('app-shell Keyboard version authority not found')
+          app_shell_path.write_text(app_shell)
+
+          path = Path('tests/dependency-policy.test.mjs')
+          text = path.read_text()
+          text, count = re.subn(
+              r"  // 39 through C6; @capacitor/keyboard is the fortieth \(C7\)\.\n"
+              r"  assert\.equal\(report\.npm\.production\.length, 40\);",
+              "  // The C6 dependency set remains; the native Keyboard plugin was removed.\n"
+              "  assert.equal(report.npm.production.length, 39);",
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit('dependency production-count authority not found')
+          block = re.compile(
+              r"  assert\.ok\(\n"
+              r"    report\.npm\.production\.some\(\(\{ name \}\) => name === '@capacitor/keyboard'\),\n"
+              r"    'the native Keyboard plugin must remain an audited production dependency',\n"
+              r"  \);\n"
+              r"  assert\.equal\(\n"
+              r"    report\.npm\.webViewBundle\.packageNames\.includes\('@capacitor/keyboard'\),\n"
+              r"    false,\n"
+              r"    'ordinary keyboard ownership must not require the Keyboard JavaScript facade',\n"
+              r"  \);\n"
+          )
+          replacement = (
+              "  assert.equal(\n"
+              "    report.npm.production.some(({ name }) => name === '@capacitor/keyboard'),\n"
+              "    false,\n"
+              "    'the Keyboard plugin must stay outside the installed production closure',\n"
+              "  );\n"
+              "  assert.equal(\n"
+              "    report.npm.webViewBundle.packageNames.includes('@capacitor/keyboard'),\n"
+              "    false,\n"
+              "    'ordinary keyboard ownership must not require the Keyboard JavaScript facade',\n"
+              "  );\n"
+          )
+          text, count = block.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit('dependency Keyboard assertion block not found')
+          text, count = re.subn(
+              r"^\s*'@capacitor/keyboard',\n",
+              '',
+              text,
+              count=1,
+              flags=re.MULTILINE,
+          )
+          if count != 1:
+              raise SystemExit('approved Keyboard plugin entry not found')
+          path.write_text(text)
+          PY
+
+      - name: Write the closed keyboard ownership contract
+        if: steps.guard.outputs.required == 'true'
+        run: |
+          cat > tests/ios-keyboard-ownership.test.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import { existsSync } from 'node:fs';
+          import { readFile, readdir } from 'node:fs/promises';
+          import { dirname, join, relative } from 'node:path';
+          import test from 'node:test';
+          import { fileURLToPath } from 'node:url';
+
+          const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+          const KEYBOARD_PACKAGE = '@capacitor/keyboard';
+
+          async function collectRuntimeSources(directory) {
+            const entries = await readdir(directory, { withFileTypes: true });
+            const files = [];
+            for (const entry of entries) {
+              const path = join(directory, entry.name);
+              if (entry.isDirectory()) files.push(...await collectRuntimeSources(path));
+              else if (/\.[cm]?[jt]sx?$/.test(entry.name)) files.push(path);
+            }
+            return files;
+          }
+
+          test('ordinary iOS fields retain native keyboard ownership', async () => {
+            const [
+              packageJsonSource,
+              packageLockSource,
+              capacitorConfigSource,
+              dependencyPolicySource,
+              transitionAuthoritySource,
+              packageSwiftSource,
+              androidSettingsSource,
+              androidBuildSource,
+              dependencyAuditSource,
+              mainSource,
+              productRootSource,
+              productAppSource,
+              sessionSource,
+              nativeTestSource,
+            ] = await Promise.all([
+              readFile(join(ROOT, 'package.json'), 'utf8'),
+              readFile(join(ROOT, 'package-lock.json'), 'utf8'),
+              readFile(join(ROOT, 'capacitor.config.json'), 'utf8'),
+              readFile(join(ROOT, 'config/dependency-policy.json'), 'utf8'),
+              readFile(join(ROOT, 'provenance/b3-package-transition.json'), 'utf8'),
+              readFile(join(ROOT, 'ios/App/CapApp-SPM/Package.swift'), 'utf8'),
+              readFile(join(ROOT, 'android/capacitor.settings.gradle'), 'utf8'),
+              readFile(join(ROOT, 'android/app/capacitor.build.gradle'), 'utf8'),
+              readFile(join(ROOT, 'scripts/audit-dependencies.mjs'), 'utf8'),
+              readFile(join(ROOT, 'src/main.jsx'), 'utf8'),
+              readFile(join(ROOT, 'src/app/ProductRoot.jsx'), 'utf8'),
+              readFile(join(ROOT, 'src/app/ProductApp.jsx'), 'utf8'),
+              readFile(join(ROOT, 'src/platform/keyboard/ios-dictation-input-session.js'), 'utf8'),
+              readFile(join(ROOT, 'ios/App/B3ProofUITests/C5ProductLayoutTests.swift'), 'utf8'),
+            ]);
+
+            const packageJson = JSON.parse(packageJsonSource);
+            const packageLock = JSON.parse(packageLockSource);
+            const capacitorConfig = JSON.parse(capacitorConfigSource);
+            const dependencyPolicy = JSON.parse(dependencyPolicySource);
+            const transitionAuthority = JSON.parse(transitionAuthoritySource);
+
+            assert.equal(Object.hasOwn(packageJson.dependencies ?? {}, KEYBOARD_PACKAGE), false);
+            assert.equal(
+              Object.hasOwn(packageLock.packages?.['']?.dependencies ?? {}, KEYBOARD_PACKAGE),
+              false,
+            );
+            assert.equal(Object.hasOwn(packageLock.packages ?? {}, `node_modules/${KEYBOARD_PACKAGE}`), false);
+            assert.equal(Object.hasOwn(dependencyPolicy.directDependencies, KEYBOARD_PACKAGE), false);
+            assert.equal(Object.hasOwn(dependencyPolicy.npmClassifications, KEYBOARD_PACKAGE), false);
+            assert.equal(
+              dependencyPolicy.approvedNativePlugins.some(
+                ({ packageName }) => packageName === KEYBOARD_PACKAGE,
+              ),
+              false,
+            );
+            assert.equal(
+              dependencyPolicy.allowedSources.gradleLocalDependencies.includes(
+                'project::capacitor-keyboard',
+              ),
+              false,
+            );
+            assert.equal(
+              Object.hasOwn(transitionAuthority.allowedPackageDependencyAdditions, KEYBOARD_PACKAGE),
+              false,
+            );
+
+            assert.equal(capacitorConfig.plugins?.Keyboard, undefined);
+            assert.doesNotMatch(packageSwiftSource, /CapacitorKeyboard|@capacitor\/keyboard/);
+            assert.doesNotMatch(androidSettingsSource, /capacitor-keyboard|@capacitor\/keyboard/);
+            assert.doesNotMatch(androidBuildSource, /capacitor-keyboard|@capacitor\/keyboard/);
+            assert.doesNotMatch(
+              dependencyAuditSource,
+              /@capacitor\/keyboard|CapacitorKeyboard|:capacitor-keyboard/,
+            );
+            assert.equal(
+              existsSync(join(ROOT, 'src/platform/keyboard/capacitor-keyboard.js')),
+              false,
+            );
+
+            assert.doesNotMatch(mainSource, /applyKeyboardChrome|@capacitor\/keyboard/);
+            for (const path of await collectRuntimeSources(join(ROOT, 'src'))) {
+              const source = await readFile(path, 'utf8');
+              assert.doesNotMatch(
+                source,
+                /@capacitor\/keyboard|capacitor-keyboard\.js/,
+                `${relative(ROOT, path)} must not load the native Keyboard plugin`,
+              );
+              assert.doesNotMatch(
+                source,
+                /Keyboard\.(?:setResizeMode|setScroll|setAccessoryBarVisible|show|hide)\s*\(/,
+                `${relative(ROOT, path)} must not mutate app-wide keyboard behaviour`,
+              );
+            }
+
+            assert.doesNotMatch(productRootSource, /installIOSDictationInputSession/);
+            assert.match(
+              productAppSource,
+              /const needsDictationSession = learningState\.screen === 'setup'\s*\|\|\s*learningState\.screen === 'practice';/s,
+            );
+            assert.match(productAppSource, /return installIOSDictationInputSession\(\);/);
+            assert.match(productAppSource, /}, \[needsDictationSession\]\);/);
+            assert.match(productAppSource, /id="bank-search-input"[\s\S]*?type="text"/);
+            assert.match(
+              sessionSource,
+              /function park\(\)[\s\S]*?pointerEvents: 'none'[\s\S]*?translate\(-200vw, -200vh\)/,
+            );
+            assert.doesNotMatch(sessionSource, /Keyboard\.show|keyboardDisplayRequiresUserAction/);
+
+            assert.match(nativeTestSource, /func testProductNicknameFieldRaisesSoftwareKeyboard\(\)/);
+            assert.match(nativeTestSource, /nickname\.tap\(\)/);
+            assert.match(nativeTestSource, /application\.keyboards\.firstMatch/);
+            assert.match(nativeTestSource, /keyboard\.waitForExistence\(timeout: 5\)/);
+            assert.match(nativeTestSource, /nickname\.typeText\("Keyboard guard"\)/);
+          });
+          EOF
+          rm -f src/platform/keyboard/capacitor-keyboard.js
+
+      - name: Update the physical-device incident record
+        if: steps.guard.outputs.required == 'true'
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          path = Path('docs/solutions/integration-issues/dictation-software-keyboard-ios27-incident.md')
+          text = path.read_text()
+          text = text.replace(
+              'resolution_type: candidate_fix_pending_device_validation',
+              'resolution_type: root_cause_fix_pending_device_validation',
+              1,
+          )
+          text, count = re.subn(
+              r"\*\*Candidate fix implemented; physical-device validation required\.\*\*[\s\S]*?"
+              r"The incident remains open until the physical iPhone checklist below passes\.\n",
+              """**Root-cause fix implemented; physical-device validation required.** A clean
+          uninstall, rebuild and reinstall of PR #53 at `3ce24c3c` reproduced the failure
+          across every ordinary text field, not only dictation. Quarantining JavaScript calls
+          was insufficient because Capacitor still auto-loaded the linked native Keyboard
+          plugin. The correction removes that package from npm, SwiftPM and Android entirely,
+          while retaining the Setup → Practice stable-input bridge.
+
+          The standard iOS form accessory bar is intentionally accepted. The incident remains
+          open until a clean physical-iPhone build proves ordinary fields and dictation again.
+          """,
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit('incident status block not found')
+          text, count = re.subn(
+              r"3\. Startup already calls `applyKeyboardChrome\(\)` →[\s\S]*?"
+              r"by `keyboard-inset\.js` when wired\.\n",
+              """3. Removing every JavaScript caller did not remove the native side effect. When
+             `@capacitor/keyboard@8.0.5` remains linked, Capacitor auto-loads it. Its iOS
+             `load()` removes keyboard-frame observers from the WKWebView and changes private
+             `WKContentView` input methods. On the physical iOS 27 device, that native load
+             path coincides with every text field losing the software keyboard.
+          """,
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit('obsolete startup observation not found')
+          marker = '## Candidate F: persistent iOS input session'
+          if marker not in text:
+              raise SystemExit('Candidate F marker not found')
+          text = text.replace(
+              marker,
+              """## Candidate G: remove the native Keyboard plugin
+
+          The product does not need an API that can summon the keyboard on iOS—the official
+          plugin does not provide one. It was linked only to hide the standard form accessory
+          bar. That cosmetic benefit is not worth a native plugin which mutates every WKWebView
+          text field during load. Candidate G removes the package and all generated native
+          references, keeps Capacitor and WebKit defaults intact, and adds a closed regression
+          contract against future npm, SwiftPM, Android or runtime reintroduction.
+
+          ## Candidate F: persistent iOS input session (insufficient while the plugin remained linked)""",
+              1,
+          )
+          path.write_text(text)
+          PY
+
+      - name: Prove Capacitor regeneration is stable
+        if: steps.guard.outputs.required == 'true'
+        run: |
+          git diff -- ios android > /tmp/native-before.diff
+          npm run build >/dev/null
+          npx --no-install cap sync >/dev/null
+          git diff -- ios android > /tmp/native-after.diff
+          cmp /tmp/native-before.diff /tmp/native-after.diff
+
+      - name: Regenerate active dependency evidence
+        if: steps.guard.outputs.required == 'true'
+        run: npm run audit:dependencies -- --write
+
+      - name: Run regression gates
+        if: steps.guard.outputs.required == 'true'
+        run: |
+          npm run build:b3-proof-pack
+          node --test \
+            tests/ios-keyboard-ownership.test.mjs \
+            tests/ios-dictation-input-session.test.mjs \
+            tests/ios-project-contract.test.mjs \
+            tests/android-project-contract.test.mjs \
+            tests/app-shell.test.mjs \
+            tests/dependency-policy.test.mjs
+          npm run test:fast
+          npm run lint
+          npm run build
+          git diff --check
+
+      - name: Commit and push correction
+        if: steps.guard.outputs.required == 'true'
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(ios): remove native Keyboard plugin'
+          git push origin "HEAD:${HEAD_REF}"

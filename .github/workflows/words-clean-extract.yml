@@ -1,0 +1,288 @@
+name: Clean Words extraction
+
+on:
+  push:
+    branches:
+      - agent/words-search-vocabulary-sets-clean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: words-clean-extract-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  extract:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out clean Words branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: agent/words-search-vocabulary-sets-clean
+
+      - name: Reuse only reviewed Words-domain files
+        run: |
+          git fetch --no-tags origin \
+            refs/heads/agent/pr53-word-bank-sets-search:refs/remotes/origin/agent/pr53-word-bank-sets-search
+          git checkout e14189b74897cf1696373e8e42d728674a283463 -- \
+            src/app/product-learning-controller.js \
+            tests/word-bank-model.test.mjs \
+            tests/product-learning-controller.test.mjs \
+            tests/product-app-services.test.mjs
+
+      - name: Apply the isolated Words surface changes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              file = Path(path)
+              source = file.read_text()
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one replacement, found {count}')
+              file.write_text(source.replace(old, new, 1))
+
+          replace_once(
+              'src/app/ProductApp.jsx',
+              """function WordBankScreen({ progress, onScreen, onStart }) {
+            const [filter, setFilter] = useState('all');
+            const bank = useMemo(
+              () => buildWordBank({ progress, filter }),
+              [progress, filter],
+            );
+          """,
+              """function WordBankScreen({ progress, onScreen, onStart }) {
+            const [filter, setFilter] = useState('all');
+            const [vocabSet, setVocabSet] = useState('core');
+            const [query, setQuery] = useState('');
+            const bank = useMemo(
+              () => buildWordBank({ progress, filter, vocabSet, query }),
+              [progress, filter, vocabSet, query],
+            );
+          """,
+          )
+
+          replace_once(
+              'src/app/ProductApp.jsx',
+              """          <div className=\"rail bank-filters\" role=\"group\" aria-label=\"Filter words\">
+          """,
+              """          <div className=\"bank-search\">
+                        <label htmlFor=\"bank-search-input\" className=\"visually-hidden\">
+                          Search the word bank
+                        </label>
+                        <input
+                          id=\"bank-search-input\"
+                          name=\"bank-search\"
+                          type=\"text\"
+                          inputMode=\"search\"
+                          value={query}
+                          placeholder=\"Search spellings\"
+                          autoComplete=\"off\"
+                          autoCapitalize=\"none\"
+                          autoCorrect=\"off\"
+                          spellCheck=\"false\"
+                          writingsuggestions=\"false\"
+                          enterKeyHint=\"search\"
+                          onChange={(event) => setQuery(event.target.value)}
+                        />
+                      </div>
+
+                      <div className=\"rail bank-filters bank-vocab-sets\" role=\"group\" aria-label=\"Vocabulary set\">
+                        {bank.vocabSets.map((option) => (
+                          <button
+                            key={option.id}
+                            type=\"button\"
+                            className=\"pill press-soft press\"
+                            aria-pressed={option.selected}
+                            onClick={() => setVocabSet(option.id)}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className=\"rail bank-filters\" role=\"group\" aria-label=\"Filter words\">
+          """,
+          )
+
+          replace_once(
+              'src/app/ProductApp.jsx',
+              """                  ) : (
+                            <button
+                              type=\"button\"
+                              className=\"button-quiet press-soft press\"
+                              onClick={() => setFilter('all')}
+                            >
+                              Show every word in the bank
+                            </button>
+                          )}
+          """,
+              """                  ) : query.trim() ? (
+                            <button
+                              type=\"button\"
+                              className=\"button-quiet press-soft press\"
+                              onClick={() => setQuery('')}
+                            >
+                              Clear search
+                            </button>
+                          ) : (
+                            <button
+                              type=\"button\"
+                              className=\"button-quiet press-soft press\"
+                              onClick={() => {
+                                setFilter('all');
+                                setVocabSet('core');
+                              }}
+                            >
+                              Show every word in the bank
+                            </button>
+                          )}
+          """,
+          )
+
+          replace_once(
+              'src/app/app.css',
+              """.bank-filters {
+            flex: none;
+            margin-top: 0.8rem;
+            padding-bottom: 0.15rem;
+          }
+          """,
+              """.bank-search {
+            display: block;
+            flex: none;
+            margin-top: 0.85rem;
+          }
+
+          .bank-search input {
+            width: 100%;
+            min-height: 2.75rem;
+            border: 1px solid var(--line-strong);
+            border-radius: 0.95rem;
+            padding: 0.55rem 0.9rem;
+            background: var(--paper-raised);
+            color: var(--ink);
+            /* Solid 16px — not rem — so iOS will not auto-zoom the focused field. */
+            font-size: 16px;
+            font-weight: 600;
+            -webkit-user-select: text;
+            user-select: text;
+          }
+
+          .bank-search input::placeholder {
+            color: var(--ink-faint);
+            font-weight: 500;
+          }
+
+          .bank-filters {
+            flex: none;
+            margin-top: 0.55rem;
+            padding-bottom: 0.15rem;
+          }
+
+          .bank-vocab-sets {
+            margin-top: 0.7rem;
+          }
+          """,
+          )
+
+          app_shell = Path('tests/app-shell.test.mjs')
+          shell = app_shell.read_text()
+          shell = shell.replace(
+              "Object.freeze({ id: 'core', label: 'All', count: 20 })",
+              "Object.freeze({ id: 'core', label: 'Core', count: 20 })",
+              1,
+          )
+          shell = shell.replace(
+              """  assert.match(emptyProgressHtml, /Set off on a round/);
+          """,
+              """  assert.match(emptyProgressHtml, /Set off on a round/);
+            assert.match(emptyProgressHtml, /id=\"bank-search-input\"/);
+            assert.match(emptyProgressHtml, /placeholder=\"Search spellings\"/);
+            assert.match(emptyProgressHtml, /aria-label=\"Vocabulary set\"/);
+            assert.match(emptyProgressHtml, /aria-label=\"Filter words\"/);
+            for (const set of ['Core', 'Y3–4', 'Y5–6']) {
+              assert.match(emptyProgressHtml, new RegExp(`>${set}<`));
+            }
+          """,
+              1,
+          )
+          shell = shell.replace(
+              """      target: 'museum',
+                stage: 5,
+          """,
+              """      target: 'museum',
+                yearBand: '3-4',
+                stage: 5,
+          """,
+              1,
+          )
+          shell = shell.replace(
+              """  assert.match(wordBankHtml, /9 correct · never missed/);
+          """,
+              """  assert.match(wordBankHtml, /9 correct · never missed/);
+            assert.match(wordBankHtml, /aria-pressed=\"true\"[^>]*>Core</);
+          """,
+              1,
+          )
+          shell = shell.replace(
+              """  assert.match(failedSetupHtml, /Vocabulary set/);
+            assert.match(failedSetupHtml, /Y3–4/);
+          """,
+              """  assert.match(failedSetupHtml, /Vocabulary set/);
+            assert.match(failedSetupHtml, />Core</);
+            assert.match(failedSetupHtml, /Y3–4/);
+            assert.doesNotMatch(failedSetupHtml, />All</);
+          """,
+              1,
+          )
+          app_shell.write_text(shell)
+          PY
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24.18.0"
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Verify the clean Words slice
+        run: |
+          node --test \
+            tests/word-bank-model.test.mjs \
+            tests/product-learning-controller.test.mjs \
+            tests/product-app-services.test.mjs \
+            tests/app-shell.test.mjs
+          npm run lint -- --quiet
+          npm run build
+
+      - name: Commit the isolated feature
+        run: |
+          git add \
+            src/app/ProductApp.jsx \
+            src/app/app.css \
+            src/app/product-learning-controller.js \
+            src/app/word-bank-model.js \
+            tests/app-shell.test.mjs \
+            tests/product-app-services.test.mjs \
+            tests/product-learning-controller.test.mjs \
+            tests/word-bank-model.test.mjs
+          if git diff --cached --quiet; then
+            echo "Clean Words slice is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat(words): finish clean search and set filtering"
+          git push origin HEAD:agent/words-search-vocabulary-sets-clean

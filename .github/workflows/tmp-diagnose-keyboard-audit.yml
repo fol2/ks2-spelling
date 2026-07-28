@@ -13,10 +13,10 @@ concurrency:
 
 jobs:
   diagnose:
-    name: Diagnose Android evidence after Keyboard removal
+    name: Diagnose dependency evidence after Keyboard removal
     if: github.event.pull_request.number == 53
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 55
     steps:
       - name: Check out exact pull-request head
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -50,30 +50,32 @@ jobs:
           npm run build
           npx --no-install cap sync
 
-      - name: Run Android build and packaged-permission gate
-        id: android
+      - name: Regenerate active dependency evidence
+        id: audit
         continue-on-error: true
-        run: node scripts/test-android.mjs > /tmp/keyboard-android.log 2>&1
+        run: npm run audit:dependencies -- --write > /tmp/keyboard-audit.log 2>&1
 
-      - name: Publish exact Android failure to PR
-        if: steps.android.outcome == 'failure'
+      - name: Publish exact evidence failure to PR
+        if: steps.audit.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           {
-            echo '## Native Keyboard removal — Android evidence failure after cap sync'
+            echo '## Native Keyboard removal — dependency evidence failure after cap sync'
             echo
             echo "Exact head: \`${HEAD_SHA}\`"
             echo
             echo '```text'
-            tail -n 180 /tmp/keyboard-android.log
+            tail -n 180 /tmp/keyboard-audit.log
             echo '```'
-          } > /tmp/keyboard-android-comment.md
-          gh pr comment "$PR_NUMBER" --body-file /tmp/keyboard-android-comment.md
+          } > /tmp/keyboard-audit-comment.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/keyboard-audit-comment.md
           exit 1
 
-      - name: Confirm Android evidence gate
-        if: steps.android.outcome == 'success'
-        run: tail -n 60 /tmp/keyboard-android.log
+      - name: Confirm dependency evidence regeneration
+        if: steps.audit.outcome == 'success'
+        run: |
+          tail -n 60 /tmp/keyboard-audit.log
+          git status --short

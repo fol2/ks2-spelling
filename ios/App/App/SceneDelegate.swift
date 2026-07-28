@@ -17,6 +17,30 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             source.contains("content=\"B4Development\"")
     }
 
+    private func configureNativeTextInput(
+        for bridgeViewController: CAPBridgeViewController
+    ) {
+        guard let webView = bridgeViewController.webView else {
+            return
+        }
+
+        // Capacitor 8.4.1 installs a process-wide WKContentView focus swizzle and
+        // then marks this WebView as if every focus were user initiated. On iOS
+        // 27 that can leave a genuinely tapped HTML input focused with only the
+        // assistant bar visible, while the software keyboard appears much later.
+        // Clearing the per-WebView override makes the installed bridge pass
+        // WebKit's real user-interaction value through unchanged.
+        webView.capacitor.setKeyboardShouldRequireUserInteraction(nil)
+
+        // Use UIKit's public input-assistant API rather than reintroducing the
+        // Capacitor Keyboard plugin or another WKContentView swizzle. The app has
+        // no previous/next form workflow worth spending vertical space on.
+        let assistantItem = webView.inputAssistantItem
+        assistantItem.leadingBarButtonGroups = []
+        assistantItem.trailingBarButtonGroups = []
+        assistantItem.allowsHidingShortcuts = true
+    }
+
     func scene(
         _ scene: UIScene,
         willConnectTo session: UISceneSession,
@@ -27,15 +51,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         bridgeViewController.loadViewIfNeeded()
-
-        // Capacitor 8.4.1 marks every WKWebView focus as user-initiated through
-        // a private WKContentView method swizzle. On iOS 27 that can leave a
-        // genuinely tapped HTML input focused with only the form accessory bar
-        // visible and no software keyboard. Removing the per-WebView override
-        // makes the installed swizzle pass WebKit's real user-interaction value
-        // through unchanged. Direct taps still open the keyboard; delayed
-        // programmatic focus no longer pretends to be a trusted activation.
-        bridgeViewController.webView?.capacitor.setKeyboardShouldRequireUserInteraction(nil)
+        configureNativeTextInput(for: bridgeViewController)
 
         if !isOfflineB4Bundle() {
             bridgeViewController.bridge?.registerPluginInstance(ParentAccessPlugin())

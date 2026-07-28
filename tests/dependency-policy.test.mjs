@@ -86,10 +86,20 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
   assert.equal(report.schemaVersion, 2);
   assert.equal(report.mode, 'pre-bootstrap');
   assert.equal(report.androidResolution, 'pending-toolchain');
-  // 39 through C6; @capacitor/keyboard is the fortieth (C7).
-  assert.equal(report.npm.production.length, 40);
+  // The C6 dependency set remains; the native Keyboard plugin was removed.
+  assert.equal(report.npm.production.length, 39);
   assert.equal(report.npm.directBuildTools.length, 4);
   assert.ok(report.npm.lockPackageCount >= 150);
+  assert.equal(
+    report.npm.production.some(({ name }) => name === '@capacitor/keyboard'),
+    false,
+    'the Keyboard plugin must stay outside the installed production closure',
+  );
+  assert.equal(
+    report.npm.webViewBundle.packageNames.includes('@capacitor/keyboard'),
+    false,
+    'ordinary keyboard ownership must not require the Keyboard JavaScript facade',
+  );
   for (const dependency of [
     ...report.npm.production,
     ...report.npm.directBuildTools,
@@ -119,7 +129,6 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
       '@capacitor-community/sqlite',
       '@capacitor/app',
       '@capacitor/haptics',
-      '@capacitor/keyboard',
       'app-owned-commerce-bridge',
       'app-owned-pack-transfer-bridge',
       'app-owned-parent-access-bridge',

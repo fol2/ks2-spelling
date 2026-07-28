@@ -19,7 +19,6 @@
     "@capacitor/core": "8.4.1",
     "@capacitor/haptics": "8.0.2",
     "@capacitor/ios": "8.4.1",
-    "@capacitor/keyboard": "8.0.5",
     "phaser": "4.1.0",
     "react": "19.2.7",
     "react-dom": "19.2.7"
@@ -72,14 +71,6 @@
       "platform": "iOS",
       "applePrivacyManifest": "Capacitor and Cordova framework manifests supplied",
       "googleDataSafety": "Not applicable"
-    },
-    "@capacitor/keyboard": {
-      "role": "approved native keyboard chrome source; used only to hide the iOS form accessory bar over a spelling round, which WebKit exposes no web API for",
-      "platform": "Native build input",
-      "applePrivacyManifest": "No app Required Reason API or usage-description key added by this dependency",
-      "googleDataSafety": "Keyboard presentation only; no app-configured collection or transmission, and no Android permission added",
-      "sourceRepository": "https://github.com/ionic-team/capacitor-plugins.git",
-      "restrictedExportClassification": "None identified"
     },
     "react": {
       "role": "bundled runtime",
@@ -461,7 +452,7 @@
     },
     {
       "path": "android/app/capacitor.build.gradle",
-      "sha256": "ff3a875edf7956b4509fb3e4b02096e8c77c3165ab0c8a8199d33f59e5d5f7ac"
+      "sha256": "0ae7cc33129fb1a48a89d17403239552a8009fa192faf8cc75b97b4effe10a76"
     },
     {
       "path": "android/build.gradle",
@@ -469,7 +460,7 @@
     },
     {
       "path": "android/capacitor.settings.gradle",
-      "sha256": "941c8272f936c96d2b166803cd9cf077f51a1daf37382b9e9890f76f7a862900"
+      "sha256": "516729aff2668d8cab7d4784da98c6a2f9ba86f1517dda3c3e300f8ae2378c4b"
     },
     {
       "path": "android/gradle.properties",
@@ -536,13 +527,6 @@
       "packageName": "@capacitor/haptics",
       "version": "8.0.2",
       "status": "C6 product capability",
-      "source": "https://github.com/ionic-team/capacitor-plugins.git"
-    },
-    {
-      "capability": "Keyboard",
-      "packageName": "@capacitor/keyboard",
-      "version": "8.0.5",
-      "status": "C7 product capability",
       "source": "https://github.com/ionic-team/capacitor-plugins.git"
     },
     {
@@ -636,8 +620,7 @@
       "project::capacitor-app",
       "project::capacitor-community-sqlite",
       "project::capacitor-cordova-android-plugins",
-      "project::capacitor-haptics",
-      "project::capacitor-keyboard"
+      "project::capacitor-haptics"
     ]
   }
 }

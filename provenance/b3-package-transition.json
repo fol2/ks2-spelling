@@ -36,8 +36,7 @@
   },
   "allowedPackageDependencyAdditions": {
     "@capacitor/haptics": "8.0.2",
-    "phaser": "4.1.0",
-    "@capacitor/keyboard": "8.0.5"
+    "phaser": "4.1.0"
   },
   "protectedCurrentFiles": [
     {

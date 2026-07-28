@@ -4,6 +4,7 @@ import Capacitor
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
+    private var releasedInitialWebViewFocus = false
 
     private func isOfflineB4Bundle() -> Bool {
         guard let url = Bundle.main.url(
@@ -65,5 +66,23 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         bridgeViewController.bridge?.registerPluginInstance(BuildAuthorityPlugin())
         bridgeViewController.bridge?.registerPluginInstance(B3ProofObservationPlugin())
         #endif
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        guard let bridgeViewController = window?.rootViewController as? CAPBridgeViewController else {
+            return
+        }
+        configureNativeTextInput(for: bridgeViewController)
+
+        // CAPBridgeViewController makes the whole WebView first responder in
+        // viewDidAppear. Release that container-level focus once, after launch,
+        // so the first real HTML-field tap owns the input session immediately.
+        guard !releasedInitialWebViewFocus else {
+            return
+        }
+        releasedInitialWebViewFocus = true
+        DispatchQueue.main.async { [weak bridgeViewController] in
+            _ = bridgeViewController?.webView?.resignFirstResponder()
+        }
     }
 }

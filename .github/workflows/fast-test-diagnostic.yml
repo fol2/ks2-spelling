@@ -16,14 +16,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
-      - name: Fetch the exact pull-request head quietly
+      - name: Fetch the exact pull-request head with full history quietly
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REPOSITORY: ${{ github.repository }}
         run: |
           git init -q .
           git remote add origin "https://github.com/${REPOSITORY}.git"
-          git fetch -q --depth=1 origin "$HEAD_SHA"
+          git fetch -q origin "$HEAD_SHA"
           git checkout -q --detach FETCH_HEAD
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6

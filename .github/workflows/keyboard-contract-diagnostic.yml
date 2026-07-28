@@ -12,9 +12,9 @@ concurrency:
 
 jobs:
   keyboard-contract:
-    name: Keyboard contract diagnostic
+    name: Keyboard regression suites
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Fetch the exact pull-request head quietly
         env:
@@ -25,5 +25,13 @@ jobs:
           git remote add origin "https://github.com/${REPOSITORY}.git"
           git fetch -q --depth=1 origin "$HEAD_SHA"
           git checkout -q --detach FETCH_HEAD
-      - name: Run only the iOS keyboard ownership contract
+      - name: Install dependencies quietly
+        run: npm ci --silent --no-audit --no-fund
+      - name: Run keyboard ownership contract
         run: node --test tests/ios-keyboard-ownership.test.mjs
+      - name: Run dictation-session regression suite
+        run: node --test tests/ios-dictation-input-session.test.mjs
+      - name: Run product-shell regression suite
+        run: node --test tests/app-shell.test.mjs
+      - name: Run viewport and answer-keyboard suite
+        run: node --test tests/answer-keyboard.test.mjs

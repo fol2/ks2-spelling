@@ -1,31 +1,106 @@
-name: Temporary keyboard contract diagnostic
+name: Temporary Maven timeout patch
 
 on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: keyboard-contract-${{ github.event.pull_request.number }}
+  group: maven-timeout-patch-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  maven-evidence:
-    name: Maven evidence test in isolation
+  patch:
+    name: Apply ref-counted Maven timeout
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
-      - name: Fetch the exact pull-request head quietly
-        env:
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          REPOSITORY: ${{ github.repository }}
+      - name: Check out the pull-request branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Apply the bounded timeout correction
         run: |
-          git init -q .
-          git remote add origin "https://github.com/${REPOSITORY}.git"
-          git fetch -q --depth=1 origin "$HEAD_SHA"
-          git checkout -q --detach FETCH_HEAD
-      - name: Install dependencies quietly
-        run: npm ci --silent --no-audit --no-fund
-      - name: Run Maven evidence test by itself
-        run: node --test tests/maven-licence-evidence.test.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/lib/maven-evidence.mjs')
+          text = path.read_text()
+          helper_name = 'createMavenFetchTimeout'
+          if f'function {helper_name}(' in text:
+              print('Maven timeout correction is already present.')
+              raise SystemExit(0)
+
+          marker = 'export async function fetchVerifiedMavenPom({'
+          helper = '''function createMavenFetchTimeout(timeoutMilliseconds) {
+            const controller = new AbortController();
+            // Node implements AbortSignal.timeout() with an unref'ed timer. A mocked
+            // or stalled fetch can therefore leave the awaited promise pending while
+            // the process exits. This owned timer stays referenced until the fetch
+            // settles, then is always cleared by the caller.
+            const timer = setTimeout(() => {
+              const error = new Error(
+                `Maven POM fetch timed out after ${timeoutMilliseconds} ms`,
+              );
+              error.name = 'TimeoutError';
+              controller.abort(error);
+            }, timeoutMilliseconds);
+            return Object.freeze({
+              signal: controller.signal,
+              clear: () => clearTimeout(timer),
+            });
+          }
+
+          '''
+          if text.count(marker) != 1:
+              raise SystemExit('Expected one fetchVerifiedMavenPom declaration.')
+          text = text.replace(marker, helper + marker, 1)
+
+          old_start = '''    try {
+              const response = await fetchImpl(sourceUrl, {
+                redirect: 'manual',
+                signal: AbortSignal.timeout(timeoutMilliseconds),
+              });
+          '''
+          new_start = '''    const timeout = createMavenFetchTimeout(timeoutMilliseconds);
+              try {
+                const response = await fetchImpl(sourceUrl, {
+                  redirect: 'manual',
+                  signal: timeout.signal,
+                });
+          '''
+          if text.count(old_start) != 1:
+              raise SystemExit('Expected one AbortSignal.timeout fetch block.')
+          text = text.replace(old_start, new_start, 1)
+
+          old_end = '''    } catch (error) {
+              failures.push(`${error.name}:${repository}`);
+            }
+          '''
+          new_end = '''    } catch (error) {
+              failures.push(`${error.name}:${repository}`);
+            } finally {
+              timeout.clear();
+            }
+          '''
+          if text.count(old_end) != 1:
+              raise SystemExit('Expected one Maven fetch catch block.')
+          text = text.replace(old_end, new_end, 1)
+          path.write_text(text)
+          PY
+      - name: Commit and push the correction once
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if git diff --quiet -- scripts/lib/maven-evidence.mjs; then
+            echo "No correction to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/lib/maven-evidence.mjs
+          git commit -m "fix(build): keep Maven fetch timeout live"
+          git push origin "HEAD:${HEAD_REF}"

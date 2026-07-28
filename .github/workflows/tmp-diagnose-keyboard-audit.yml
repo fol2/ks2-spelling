@@ -45,6 +45,11 @@ jobs:
       - name: Install exact dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Materialise Capacitor native inputs
+        run: |
+          npm run build
+          npx --no-install cap sync
+
       - name: Run Android build and packaged-permission gate
         id: android
         continue-on-error: true
@@ -58,7 +63,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           {
-            echo '## Native Keyboard removal — Android evidence failure'
+            echo '## Native Keyboard removal — Android evidence failure after cap sync'
             echo
             echo "Exact head: \`${HEAD_SHA}\`"
             echo

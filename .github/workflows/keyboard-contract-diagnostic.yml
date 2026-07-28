@@ -11,10 +11,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  keyboard-contract:
-    name: Keyboard regression suites
+  fast-test-slice:
+    name: Fast tests ${{ matrix.group }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [a-f, g-l, m-r, s-z]
     steps:
       - name: Fetch the exact pull-request head quietly
         env:
@@ -27,11 +31,27 @@ jobs:
           git checkout -q --detach FETCH_HEAD
       - name: Install dependencies quietly
         run: npm ci --silent --no-audit --no-fund
-      - name: Run keyboard ownership contract
-        run: node --test tests/ios-keyboard-ownership.test.mjs
-      - name: Run dictation-session regression suite
-        run: node --test tests/ios-dictation-input-session.test.mjs
-      - name: Run product-shell regression suite
-        run: node --test tests/app-shell.test.mjs
-      - name: Run viewport and answer-keyboard suite
-        run: node --test tests/answer-keyboard.test.mjs
+      - name: Materialise proof inputs quietly
+        run: npm run build:b3-proof-pack >/dev/null
+      - name: Run test slice
+        env:
+          GROUP: ${{ matrix.group }}
+        run: |
+          case "$GROUP" in
+            a-f) pattern='^[a-f]' ;;
+            g-l) pattern='^[g-l]' ;;
+            m-r) pattern='^[m-r]' ;;
+            s-z) pattern='^[s-z]' ;;
+            *) exit 2 ;;
+          esac
+          files="$({
+            find tests -maxdepth 1 -name '*.test.mjs' \
+              ! -name '*.slow.test.mjs' \
+              ! -name 'native-wrapper-contract.test.mjs' \
+              ! -name 'b3-store-backed-live-capture.test.mjs' \
+              ! -name 'gateway-workerd-runtime.test.mjs' \
+              ! -name 'ci-workflow-contract.test.mjs' \
+              -printf '%f\n'
+          } | sort | grep -E "$pattern" | sed 's#^#tests/#')"
+          test -n "$files"
+          node --test --test-reporter=dot $files

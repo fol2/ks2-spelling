@@ -1,11 +1,9 @@
-// iOS does not shrink a WKWebView when the keyboard opens. The layout viewport
-// keeps its full height and the keys are simply drawn over the bottom of the
-// page, so `100vh` still measures the whole screen and a card laid out against
-// it puts its own submit button underneath the keyboard.
-//
-// The visual viewport is the one thing that does report the change. The height
-// it loses is the height the keyboard took, and publishing that as a custom
-// property lets the layout give it back as space.
+// Capacitor's native iOS keyboard resize is deliberately left at its default.
+// During the keyboard animation, WebKit versions can update the layout viewport
+// and visual viewport at slightly different times. The visual viewport remains
+// the useful measurement of what the learner can actually see: when native
+// resize has already reduced `innerHeight`, the covered inset naturally resolves
+// to zero, while the remaining height still tells the round when to compact.
 
 // Sub-pixel viewport rounding and elastic overscroll both report a few stray
 // pixels of loss with no keyboard on screen. A key is taller than this, so
@@ -13,14 +11,8 @@
 const KEYBOARD_FLOOR_PX = 24;
 
 // Whether the card still has room is a different question from how much space
-// the keyboard took, and it has two answers that look identical to a layout: the
-// keyboard is drawn over the page, or the phone is in landscape and the whole
-// screen is 430pt tall. Both show up as the visual viewport being short, so one
-// measurement covers both — and measuring what is left rather than what was
-// taken closes the false positive that used to need its own threshold, because
-// the iOS form accessory bar costing 55pt of a portrait phone still leaves
-// plenty. (The bar itself is hidden at startup; see
-// `src/platform/keyboard/capacitor-keyboard.js`.)
+// the keyboard took. Measuring what remains also covers landscape and split-view
+// layouts without pretending that every short visual viewport is a keyboard.
 //
 // The floor is the height at which the round card stops fitting at full size:
 // its own content plus the trail line and the footer under it.
@@ -43,10 +35,10 @@ export function keyboardInset(layoutHeight, visual) {
   return covered > KEYBOARD_FLOOR_PX ? Math.round(covered) : 0;
 }
 
-// Publishes the inset on the document element as `--keyboard-inset` so a layout
-// can give the space back, plus a `data-room` flag so it can compact when there
-// is no longer room to give. Returns a teardown; safe to call where neither
-// viewport exists.
+// Publishes the inset on the document element as `--keyboard-inset` so the
+// practice layout can give covered space back, plus a `data-room` flag so it can
+// compact whenever the visible viewport is genuinely short. Returns a teardown;
+// safe to call where no visual viewport exists.
 export function observeKeyboardInset(view = globalThis, element = null) {
   const visual = view?.visualViewport;
   const root = element ?? view?.document?.documentElement ?? null;

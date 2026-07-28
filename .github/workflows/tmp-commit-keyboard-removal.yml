@@ -1,0 +1,106 @@
+name: Temporary commit native Keyboard removal
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: commit-native-keyboard-removal-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  migrate:
+    name: Commit the native Keyboard root-cause fix
+    if: github.event.pull_request.number == 53 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out the pull-request branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Detect whether migration is required
+        id: guard
+        run: |
+          if grep -q '"@capacitor/keyboard"' package.json; then
+            echo 'required=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'required=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node.js
+        if: steps.guard.outputs.required == 'true'
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: '24.18.0'
+          cache: npm
+
+      - name: Set up Temurin 21
+        if: steps.guard.outputs.required == 'true'
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Require Android API and Build Tools 36
+        if: steps.guard.outputs.required == 'true'
+        run: |
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' >/dev/null
+
+      - name: Remove package and regenerate native plugin graphs
+        if: steps.guard.outputs.required == 'true'
+        run: |
+          npm ci --no-audit --no-fund
+          npm uninstall --ignore-scripts @capacitor/keyboard
+          npm run build
+          npx --no-install cap sync
+          python3 scripts/tmp-remove-native-keyboard.py
+
+      - name: Prove generated native files are stable
+        if: steps.guard.outputs.required == 'true'
+        run: |
+          git diff -- ios android > /tmp/native-before.diff
+          npm run build >/dev/null
+          npx --no-install cap sync >/dev/null
+          git diff -- ios android > /tmp/native-after.diff
+          cmp /tmp/native-before.diff /tmp/native-after.diff
+          ! grep -R -n -E 'CapacitorKeyboard|@capacitor/keyboard|capacitor-keyboard' \
+            ios/App/CapApp-SPM/Package.swift \
+            android/capacitor.settings.gradle \
+            android/app/capacitor.build.gradle
+
+      - name: Run source and native-boundary regression gates
+        if: steps.guard.outputs.required == 'true'
+        run: |
+          node --test \
+            tests/ios-keyboard-ownership.test.mjs \
+            tests/ios-dictation-input-session.test.mjs \
+            tests/ios-project-contract.test.mjs \
+            tests/android-project-contract.test.mjs \
+            tests/app-shell.test.mjs
+          npm run lint
+          npm run build
+          git diff --check
+
+      - name: Remove migration-only tooling
+        if: steps.guard.outputs.required == 'true'
+        run: |
+          rm -f scripts/tmp-remove-native-keyboard.py
+          rm -f .github/workflows/tmp-commit-keyboard-removal.yml
+
+      - name: Commit and push the root-cause fix
+        if: steps.guard.outputs.required == 'true'
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(ios): remove native Keyboard plugin'
+          git push origin "HEAD:${HEAD_REF}"

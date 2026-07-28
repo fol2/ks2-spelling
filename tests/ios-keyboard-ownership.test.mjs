@@ -34,6 +34,7 @@ test('ordinary iOS fields retain native keyboard ownership', async () => {
     productRootSource,
     productAppSource,
     sessionSource,
+    sceneDelegateSource,
     nativeTestSource,
   ] = await Promise.all([
     readFile(join(ROOT, 'package.json'), 'utf8'),
@@ -49,6 +50,7 @@ test('ordinary iOS fields retain native keyboard ownership', async () => {
     readFile(join(ROOT, 'src/app/ProductRoot.jsx'), 'utf8'),
     readFile(join(ROOT, 'src/app/ProductApp.jsx'), 'utf8'),
     readFile(join(ROOT, 'src/platform/keyboard/ios-dictation-input-session.js'), 'utf8'),
+    readFile(join(ROOT, 'ios/App/App/SceneDelegate.swift'), 'utf8'),
     readFile(join(ROOT, 'ios/App/B3ProofUITests/C5ProductLayoutTests.swift'), 'utf8'),
   ]);
 
@@ -117,6 +119,17 @@ test('ordinary iOS fields retain native keyboard ownership', async () => {
       `${relative(ROOT, path)} must not mutate app-wide keyboard behaviour`,
     );
   }
+
+  assert.match(
+    sceneDelegateSource,
+    /bridgeViewController\.loadViewIfNeeded\(\)[\s\S]*?bridgeViewController\.webView\?\.capacitor\.setKeyboardShouldRequireUserInteraction\(nil\)/,
+    'the app must clear Capacitor core’s per-WebView forced-interaction flag after bridge creation',
+  );
+  assert.doesNotMatch(
+    sceneDelegateSource,
+    /setKeyboardShouldRequireUserInteraction\((?:true|false)\)/,
+    'the app must preserve WebKit’s real user-interaction value instead of forcing either state',
+  );
 
   assert.doesNotMatch(productRootSource, /installIOSDictationInputSession/);
   assert.match(

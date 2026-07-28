@@ -40,34 +40,40 @@ jobs:
               raise SystemExit(0)
 
           marker = 'export async function fetchVerifiedMavenPom({'
-          helper = """function createMavenFetchTimeout(timeoutMilliseconds) {
-            const controller = new AbortController();
-            // Node implements AbortSignal.timeout() with an unref'ed timer. A mocked
-            // or stalled fetch can therefore leave the awaited promise pending while
-            // the process exits. This owned timer stays referenced until the fetch
-            // settles, then is always cleared by the caller.
-            const timer = setTimeout(() => {
-              const error = new Error(
-                `Maven POM fetch timed out after ${timeoutMilliseconds} ms`,
-              );
-              error.name = 'TimeoutError';
-              controller.abort(error);
-            }, timeoutMilliseconds);
-            return Object.freeze({
-              signal: controller.signal,
-              clear: () => clearTimeout(timer),
-            });
-          }
-
-          """
+          helper = '\n'.join([
+              'function createMavenFetchTimeout(timeoutMilliseconds) {',
+              '  const controller = new AbortController();',
+              "  // Node implements AbortSignal.timeout() with an unref'ed timer. A mocked",
+              '  // or stalled fetch can therefore leave the awaited promise pending while',
+              '  // the process exits. This owned timer stays referenced until the fetch',
+              '  // settles, then is always cleared by the caller.',
+              '  const timer = setTimeout(() => {',
+              '    const error = new Error(',
+              '      `Maven POM fetch timed out after ${timeoutMilliseconds} ms`,',
+              '    );',
+              "    error.name = 'TimeoutError';",
+              '    controller.abort(error);',
+              '  }, timeoutMilliseconds);',
+              '  return Object.freeze({',
+              '    signal: controller.signal,',
+              '    clear: () => clearTimeout(timer),',
+              '  });',
+              '}',
+              '',
+              '',
+          ])
           if text.count(marker) != 1:
               raise SystemExit('Expected one fetchVerifiedMavenPom declaration.')
           text = text.replace(marker, helper + marker, 1)
 
-          loop_marker = """  for (const repository of repositories) {
-            const sourceUrl = `${repository}${relativePath}`;
-          """
-          loop_replacement = loop_marker + '    const timeout = createMavenFetchTimeout(timeoutMilliseconds);\n'
+          loop_marker = (
+              '  for (const repository of repositories) {\n'
+              '    const sourceUrl = `${repository}${relativePath}`;\n'
+          )
+          loop_replacement = (
+              loop_marker
+              + '    const timeout = createMavenFetchTimeout(timeoutMilliseconds);\n'
+          )
           if text.count(loop_marker) != 1:
               raise SystemExit('Expected one Maven repository loop.')
           text = text.replace(loop_marker, loop_replacement, 1)
@@ -77,16 +83,18 @@ jobs:
               raise SystemExit('Expected one AbortSignal.timeout call.')
           text = text.replace(signal, '        signal: timeout.signal,', 1)
 
-          catch = """    } catch (error) {
-            failures.push(`${error.name}:${repository}`);
-          }
-          """
-          replacement = """    } catch (error) {
-            failures.push(`${error.name}:${repository}`);
-          } finally {
-            timeout.clear();
-          }
-          """
+          catch = (
+              '    } catch (error) {\n'
+              '      failures.push(`${error.name}:${repository}`);\n'
+              '    }\n'
+          )
+          replacement = (
+              '    } catch (error) {\n'
+              '      failures.push(`${error.name}:${repository}`);\n'
+              '    } finally {\n'
+              '      timeout.clear();\n'
+              '    }\n'
+          )
           if text.count(catch) != 1:
               raise SystemExit('Expected one Maven fetch catch block.')
           text = text.replace(catch, replacement, 1)

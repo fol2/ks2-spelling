@@ -34,14 +34,14 @@ jobs:
         run: npm ci --silent --no-audit --no-fund
       - name: Materialise required proof input quietly
         run: npm run build:b3-proof-pack >/dev/null
-      - name: Run the exact fast lane and print only failure context
+      - name: Run the exact fast lane and print only failed-test context
         run: |
           if npm run test:fast > /tmp/fast-test.log 2>&1; then
             echo "Exact fast lane passed."
           else
             echo "=== failed-test context ==="
-            grep -n -E -B 8 -A 24 'Failed tests:|AssertionError|ERR_ASSERTION|not ok|✖|failureType|error:' /tmp/fast-test.log || true
+            grep -n -E -B 5 -A 18 'Failed tests:|AssertionError|ERR_ASSERTION|not ok|✖|failureType' /tmp/fast-test.log || true
             echo "=== final summary ==="
-            tail -n 28 /tmp/fast-test.log
+            tail -n 12 /tmp/fast-test.log
             exit 1
           fi

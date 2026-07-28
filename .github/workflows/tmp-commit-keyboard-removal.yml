@@ -75,33 +75,37 @@ jobs:
             android/capacitor.settings.gradle \
             android/app/capacitor.build.gradle
 
-      - name: Run source and native-boundary regression gates
+      - name: Test closed iOS keyboard ownership
         if: steps.guard.outputs.required == 'true'
-        run: |
-          if node --test \
-            tests/ios-keyboard-ownership.test.mjs \
-            tests/ios-dictation-input-session.test.mjs \
-            tests/ios-project-contract.test.mjs \
-            tests/android-project-contract.test.mjs \
-            tests/app-shell.test.mjs > /tmp/keyboard-tests.log 2>&1; then
-            tail -n 40 /tmp/keyboard-tests.log
-          else
-            cat /tmp/keyboard-tests.log
-            exit 1
-          fi
-          if npm run lint > /tmp/keyboard-lint.log 2>&1; then
-            tail -n 40 /tmp/keyboard-lint.log
-          else
-            cat /tmp/keyboard-lint.log
-            exit 1
-          fi
-          if npm run build > /tmp/keyboard-build.log 2>&1; then
-            tail -n 40 /tmp/keyboard-build.log
-          else
-            cat /tmp/keyboard-build.log
-            exit 1
-          fi
-          git diff --check
+        run: node --test tests/ios-keyboard-ownership.test.mjs
+
+      - name: Test Setup to Practice input-session continuity
+        if: steps.guard.outputs.required == 'true'
+        run: node --test tests/ios-dictation-input-session.test.mjs
+
+      - name: Test iOS native project contract
+        if: steps.guard.outputs.required == 'true'
+        run: node --test tests/ios-project-contract.test.mjs
+
+      - name: Test Android native project contract
+        if: steps.guard.outputs.required == 'true'
+        run: node --test tests/android-project-contract.test.mjs
+
+      - name: Test product shell contract
+        if: steps.guard.outputs.required == 'true'
+        run: node --test tests/app-shell.test.mjs
+
+      - name: Lint migrated source
+        if: steps.guard.outputs.required == 'true'
+        run: npm run lint
+
+      - name: Build migrated product
+        if: steps.guard.outputs.required == 'true'
+        run: npm run build
+
+      - name: Check migrated diff
+        if: steps.guard.outputs.required == 'true'
+        run: git diff --check
 
       - name: Remove migration-only tooling
         if: steps.guard.outputs.required == 'true'

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../lib/attempt_repository.dart';
 import '../lib/prompt_audio.dart';
@@ -13,6 +12,31 @@ final class RecordingPromptAudio implements PromptAudio {
   @override
   Future<void> play() async {
     playCount += 1;
+  }
+}
+
+final class MemoryAttemptStore implements AttemptStore {
+  AttemptSnapshot _snapshot = const AttemptSnapshot(
+    learnerId: AttemptRepository.learnerId,
+    nickname: AttemptRepository.nickname,
+    attempts: 0,
+    correctCount: 0,
+    evolved: false,
+  );
+
+  @override
+  Future<AttemptSnapshot> read() async => _snapshot;
+
+  @override
+  Future<AttemptSnapshot> recordAnswer({required bool correct}) async {
+    _snapshot = AttemptSnapshot(
+      learnerId: _snapshot.learnerId,
+      nickname: _snapshot.nickname,
+      attempts: _snapshot.attempts + 1,
+      correctCount: _snapshot.correctCount + (correct ? 1 : 0),
+      evolved: _snapshot.evolved || correct,
+    );
+    return _snapshot;
   }
 }
 
@@ -30,23 +54,14 @@ Future<void> pumpUntilFound(
 }
 
 void main() {
-  sqfliteFfiInit();
-
   testWidgets('the visible field records and exposes a companion evolution', (
     WidgetTester tester,
   ) async {
-    final AttemptRepository repository = AttemptRepository(
-      databaseFactory: databaseFactoryFfi,
-      databasePath: inMemoryDatabasePath,
-    );
+    final MemoryAttemptStore repository = MemoryAttemptStore();
     final RecordingPromptAudio audio = RecordingPromptAudio();
     final SemanticsHandle semantics = tester.ensureSemantics();
     addTearDown(semantics.dispose);
-    addTearDown(repository.close);
 
-    // Open the database before mounting so the widget test waits only for the
-    // product's asynchronous read and render, not FFI library initialisation.
-    await repository.open();
     await tester.pumpWidget(
       SpellingSpikeApp(repository: repository, audio: audio),
     );

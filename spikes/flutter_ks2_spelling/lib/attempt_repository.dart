@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as paths;
@@ -26,6 +27,8 @@ abstract interface class AttemptStore {
   Future<AttemptSnapshot> read();
 
   Future<AttemptSnapshot> recordAnswer({required bool correct});
+
+  Future<void> close();
 }
 
 final class AttemptRepository implements AttemptStore {
@@ -44,38 +47,51 @@ final class AttemptRepository implements AttemptStore {
   final String? _databasePath;
   final DirectoryProvider _directoryProvider;
   Database? _database;
-  Future<Database>? _opening;
+  Future<void> _operationTail = Future<void>.value();
+  bool _closing = false;
+  bool _closed = false;
 
-  Future<void> open() async {
+  Future<T> _enqueue<T>(Future<T> Function() operation) {
+    if (_closing || _closed) {
+      return Future<T>.error(
+        StateError('AttemptRepository is closing or closed.'),
+      );
+    }
+
+    final Completer<T> completer = Completer<T>();
+    _operationTail = _operationTail.then((_) async {
+      if (_closing || _closed) {
+        completer.completeError(
+          StateError('AttemptRepository is closing or closed.'),
+        );
+        return;
+      }
+      try {
+        completer.complete(await operation());
+      } on Object catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
+    return completer.future;
+  }
+
+  Future<void> open() => _enqueue<void>(_ensureOpen);
+
+  Future<void> _ensureOpen() async {
     if (_database != null) {
       return;
     }
 
-    final Future<Database>? existing = _opening;
-    if (existing != null) {
-      await existing;
-      return;
-    }
-
-    final Future<Database> opening = _openDatabase();
-    _opening = opening;
-    try {
-      _database = await opening;
-    } finally {
-      if (identical(_opening, opening)) {
-        _opening = null;
-      }
-    }
-  }
-
-  Future<Database> _openDatabase() async {
     sqfliteFfiInit();
     final DatabaseFactory factory = _requestedFactory ?? databaseFactoryFfi;
-    final String path = _databasePath ??
-        paths.join(
-          (await _directoryProvider()).path,
-          'ks2-spelling-flutter-spike.sqlite',
-        );
+    final String path;
+    if (_databasePath != null) {
+      path = _databasePath;
+    } else {
+      final Directory directory = await _directoryProvider();
+      await directory.create(recursive: true);
+      path = paths.join(directory.path, 'ks2-spelling-flutter-spike.sqlite');
+    }
 
     final Database database = await factory.openDatabase(
       path,
@@ -86,8 +102,9 @@ final class AttemptRepository implements AttemptStore {
             CREATE TABLE learner_state (
               learner_id TEXT PRIMARY KEY,
               nickname TEXT NOT NULL,
-              attempts INTEGER NOT NULL,
-              correct_count INTEGER NOT NULL,
+              attempts INTEGER NOT NULL CHECK (attempts >= 0),
+              correct_count INTEGER NOT NULL
+                CHECK (correct_count >= 0 AND correct_count <= attempts),
               evolved INTEGER NOT NULL CHECK (evolved IN (0, 1))
             )
           ''');
@@ -107,7 +124,7 @@ final class AttemptRepository implements AttemptStore {
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
-      return database;
+      _database = database;
     } on Object {
       await database.close();
       rethrow;
@@ -115,9 +132,51 @@ final class AttemptRepository implements AttemptStore {
   }
 
   @override
-  Future<AttemptSnapshot> read() async {
-    await open();
-    final List<Map<String, Object?>> rows = await _requireDatabase().query(
+  Future<AttemptSnapshot> read() => _enqueue<AttemptSnapshot>(() async {
+    await _ensureOpen();
+    return _readSnapshot(_requireDatabase());
+  });
+
+  @override
+  Future<AttemptSnapshot> recordAnswer({required bool correct}) =>
+      _enqueue<AttemptSnapshot>(() async {
+        await _ensureOpen();
+        final Database database = _requireDatabase();
+        await database.transaction((Transaction transaction) async {
+          final List<Map<String, Object?>> rows = await transaction.query(
+            'learner_state',
+            columns: <String>['attempts', 'correct_count', 'evolved'],
+            where: 'learner_id = ?',
+            whereArgs: <Object>[learnerId],
+            limit: 1,
+          );
+          if (rows.length != 1) {
+            throw StateError('The bounded learner state is unavailable.');
+          }
+          final Map<String, Object?> row = rows.single;
+          final int attempts = row['attempts']! as int;
+          final int correctCount = row['correct_count']! as int;
+          final bool evolved = (row['evolved']! as int) == 1;
+
+          final int updated = await transaction.update(
+            'learner_state',
+            <String, Object>{
+              'attempts': attempts + 1,
+              'correct_count': correctCount + (correct ? 1 : 0),
+              'evolved': (evolved || correct) ? 1 : 0,
+            },
+            where: 'learner_id = ?',
+            whereArgs: <Object>[learnerId],
+          );
+          if (updated != 1) {
+            throw StateError('The bounded learner update was not singular.');
+          }
+        });
+        return _readSnapshot(database);
+      });
+
+  Future<AttemptSnapshot> _readSnapshot(Database database) async {
+    final List<Map<String, Object?>> rows = await database.query(
       'learner_state',
       where: 'learner_id = ?',
       whereArgs: <Object>[learnerId],
@@ -130,52 +189,22 @@ final class AttemptRepository implements AttemptStore {
   }
 
   @override
-  Future<AttemptSnapshot> recordAnswer({required bool correct}) async {
-    await open();
-    final Database database = _requireDatabase();
-    await database.transaction((Transaction transaction) async {
-      final List<Map<String, Object?>> rows = await transaction.query(
-        'learner_state',
-        columns: <String>['attempts', 'correct_count', 'evolved'],
-        where: 'learner_id = ?',
-        whereArgs: <Object>[learnerId],
-        limit: 1,
-      );
-      if (rows.length != 1) {
-        throw StateError('The bounded learner state is unavailable.');
-      }
-      final Map<String, Object?> row = rows.single;
-      final int attempts = row['attempts']! as int;
-      final int correctCount = row['correct_count']! as int;
-      final bool evolved = (row['evolved']! as int) == 1;
-
-      await transaction.update(
-        'learner_state',
-        <String, Object>{
-          'attempts': attempts + 1,
-          'correct_count': correctCount + (correct ? 1 : 0),
-          'evolved': (evolved || correct) ? 1 : 0,
-        },
-        where: 'learner_id = ?',
-        whereArgs: <Object>[learnerId],
-      );
-    });
-    return read();
-  }
-
   Future<void> close() async {
-    final Future<Database>? opening = _opening;
-    if (opening != null) {
-      try {
-        await opening;
-      } on Object {
-        return;
-      }
+    if (_closed || _closing) {
+      await _operationTail;
+      return;
     }
 
+    _closing = true;
+    await _operationTail;
     final Database? database = _database;
     _database = null;
-    await database?.close();
+    try {
+      await database?.close();
+    } finally {
+      _closed = true;
+      _closing = false;
+    }
   }
 
   Database _requireDatabase() {
@@ -187,11 +216,16 @@ final class AttemptRepository implements AttemptStore {
   }
 
   AttemptSnapshot _snapshotFromRow(Map<String, Object?> row) {
+    final int attempts = row['attempts']! as int;
+    final int correctCount = row['correct_count']! as int;
+    if (attempts < 0 || correctCount < 0 || correctCount > attempts) {
+      throw StateError('The bounded learner counters are invalid.');
+    }
     return AttemptSnapshot(
       learnerId: row['learner_id']! as String,
       nickname: row['nickname']! as String,
-      attempts: row['attempts']! as int,
-      correctCount: row['correct_count']! as int,
+      attempts: attempts,
+      correctCount: correctCount,
       evolved: (row['evolved']! as int) == 1,
     );
   }

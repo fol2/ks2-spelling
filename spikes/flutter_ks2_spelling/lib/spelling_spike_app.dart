@@ -9,11 +9,11 @@ import 'companion_game.dart';
 import 'prompt_audio.dart';
 
 Future<void> _reportCleanupFailure(
-  Future<void> operation,
+  Future<void> Function() operation,
   String context,
 ) async {
   try {
-    await operation;
+    await operation();
   } on Object catch (error, stackTrace) {
     FlutterError.reportError(
       FlutterErrorDetails(
@@ -93,13 +93,13 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
     _answerController.dispose();
     unawaited(
       _reportCleanupFailure(
-        widget.audio.dispose(),
+        () => widget.audio.dispose(),
         'while disposing the prompt-audio backend',
       ),
     );
     unawaited(
       _reportCleanupFailure(
-        widget.repository.close(),
+        () => widget.repository.close(),
         'while closing the learner-state repository',
       ),
     );

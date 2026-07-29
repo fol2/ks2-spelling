@@ -1,0 +1,136 @@
+name: PR56 preserve Return-key focus
+
+on:
+  push:
+    branches:
+      - spike/flutter-flame-vertical-slice
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr56-return-key-focus-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  harden:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out the exact spike branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: spike/flutter-flame-vertical-slice
+
+      - name: Keep the platform input connection across Return and save
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path_name: str, old: str, new: str) -> None:
+              path = Path(path_name)
+              source = path.read_text()
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(
+                      f'{path_name}: expected one replacement, found {count}'
+                  )
+              path.write_text(source.replace(old, new, 1))
+
+          app = 'spikes/flutter_ks2_spelling/lib/spelling_spike_app.dart'
+          replace_once(
+              app,
+              '                                textInputAction: TextInputAction.done,',
+              '                                textInputAction: TextInputAction.unspecified,',
+          )
+
+          test = 'spikes/flutter_ks2_spelling/test/spelling_spike_app_test.dart'
+          replace_once(
+              test,
+              '''  expect(input.readOnly, isFalse);
+          expect(input.inputFormatters, hasLength(1));
+          return inputFinder;''',
+              '''  expect(input.readOnly, isFalse);
+          expect(input.inputFormatters, hasLength(1));
+          expect(input.textInputAction, TextInputAction.unspecified);
+          return inputFinder;''',
+          )
+          replace_once(
+              test,
+              '''      await tester.enterText(inputFinder, 'accident');
+          await tester.tap(find.byKey(const Key('submit-button')));
+          await repository.recordStarted.future;
+          await tester.pump();
+
+          final TextField savingField = tester.widget<TextField>(inputFinder);''',
+              '''      await tester.enterText(inputFinder, 'accident');
+          expect(tester.testTextInput.isVisible, isTrue);
+          await tester.testTextInput.receiveAction(TextInputAction.unspecified);
+          await repository.recordStarted.future;
+          await tester.pump();
+
+          final Finder editableFinder = find.descendant(
+            of: inputFinder,
+            matching: find.byType(EditableText),
+          );
+          expect(
+            tester.widget<EditableText>(editableFinder).focusNode.hasFocus,
+            isTrue,
+          );
+          expect(tester.testTextInput.isVisible, isTrue);
+
+          final TextField savingField = tester.widget<TextField>(inputFinder);''',
+          )
+          replace_once(
+              test,
+              '''      expect(finishedField.controller?.text, isEmpty);
+
+          await unmountAndVerifyCleanup(tester, delegate, audio);''',
+              '''      expect(finishedField.controller?.text, isEmpty);
+          expect(
+            tester.widget<EditableText>(editableFinder).focusNode.hasFocus,
+            isTrue,
+          );
+          expect(tester.testTextInput.isVisible, isTrue);
+
+          await unmountAndVerifyCleanup(tester, delegate, audio);''',
+          )
+          PY
+
+      - name: Install the pinned Flutter toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libsqlite3-dev
+          git clone --depth 1 --branch 3.44.7 \
+            https://github.com/flutter/flutter.git \
+            "$RUNNER_TEMP/flutter"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = \
+            '84fc5cbb223bc12f83d65b647ff8a56caf779ffd'
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics
+          "$RUNNER_TEMP/flutter/bin/flutter" precache --linux
+
+      - name: Format, analyse and test the hardened slice
+        working-directory: spikes/flutter_ks2_spelling
+        run: |
+          flutter pub get --enforce-lockfile
+          dart format lib test
+          flutter analyze
+          flutter test
+
+      - name: Commit the hardened source and remove one-use machinery
+        run: |
+          git diff --check
+          git add \
+            spikes/flutter_ks2_spelling/lib/spelling_spike_app.dart \
+            spikes/flutter_ks2_spelling/test/spelling_spike_app_test.dart
+          git rm .github/workflows/pr56-return-key-focus-hardening.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(spike): preserve focus across Return saves'
+          git push origin HEAD:spike/flutter-flame-vertical-slice

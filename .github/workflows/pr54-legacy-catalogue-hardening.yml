@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: pr54-legacy-catalogue-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   harden:
@@ -40,42 +40,49 @@ jobs:
               path.write_text(source.replace(old, new, 1))
 
           controller = 'src/app/product-learning-controller.js'
-          replace_once(
-              controller,
-              '''  const core = catalogue.items.filter(
-            ({ coverageTier }) => coverageTier === 'statutory-core',
-          );''',
-              '''  const core = catalogue.items.filter(
-            ({ coverageTier }) =>
-              coverageTier == null || coverageTier === 'statutory-core',
-          );''',
+          old_controller = (
+              "  const core = catalogue.items.filter(\n"
+              "    ({ coverageTier }) => coverageTier === 'statutory-core',\n"
+              "  );"
           )
+          new_controller = (
+              "  const core = catalogue.items.filter(\n"
+              "    ({ coverageTier }) =>\n"
+              "      coverageTier == null || coverageTier === 'statutory-core',\n"
+              "  );"
+          )
+          replace_once(controller, old_controller, new_controller)
 
           tests = 'tests/product-learning-controller.test.mjs'
-          marker = "test('product learning routes Trouble Drill and SATs Test through the shared controller', async () => {"
-          addition = '''test('product learning publishes legacy catalogue rows as core vocabulary metadata', async () => {
-            const catalogue = structuredClone(loadStarterSpellingCatalogue());
-            for (const item of catalogue.items) delete item.coverageTier;
-            const world = createLearningWorld(
-              [snapshotForCatalogue(catalogue)],
-              catalogue,
-            );
-            const controller = world.createController();
-
-            assert.deepEqual(controller.getState().vocabularySets, [
-              { id: 'core', label: 'Core', count: 20 },
-              { id: 'y3-4', label: 'Y3–4', count: 20 },
-            ]);
-            assert.ok(
-              controller.getState().progress.every(
-                ({ coverageTier }) => coverageTier === null,
-              ),
-            );
-
-            await controller.dispose();
-          });
-
-          '''
+          marker = (
+              "test('product learning routes Trouble Drill and SATs Test through "
+              "the shared controller', async () => {"
+          )
+          addition = (
+              "test('product learning publishes legacy catalogue rows as core "
+              "vocabulary metadata', async () => {\n"
+              "  const catalogue = structuredClone(loadStarterSpellingCatalogue());\n"
+              "  for (const item of catalogue.items) delete item.coverageTier;\n"
+              "  const world = createLearningWorld(\n"
+              "    [snapshotForCatalogue(catalogue)],\n"
+              "    catalogue,\n"
+              "  );\n"
+              "  const controller = world.createController();\n"
+              "\n"
+              "  assert.deepEqual(controller.getState().vocabularySets, [\n"
+              "    { id: 'core', label: 'Core', count: 20 },\n"
+              "    { id: 'y3-4', label: 'Y3–4', count: 20 },\n"
+              "  ]);\n"
+              "  assert.ok(\n"
+              "    controller.getState().progress.every(\n"
+              "      ({ coverageTier }) => coverageTier === null,\n"
+              "    ),\n"
+              "  );\n"
+              "\n"
+              "  await controller.dispose();\n"
+              "});\n"
+              "\n"
+          )
           path = Path(tests)
           source = path.read_text()
           if source.count(marker) != 1:

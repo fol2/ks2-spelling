@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: pr56-return-key-focus-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   harden:
@@ -47,56 +47,66 @@ jobs:
           )
 
           test = 'spikes/flutter_ks2_spelling/test/spelling_spike_app_test.dart'
-          replace_once(
-              test,
-              '''  expect(input.readOnly, isFalse);
-          expect(input.inputFormatters, hasLength(1));
-          return inputFinder;''',
-              '''  expect(input.readOnly, isFalse);
-          expect(input.inputFormatters, hasLength(1));
-          expect(input.textInputAction, TextInputAction.unspecified);
-          return inputFinder;''',
+          old_field_contract = (
+              '  expect(input.readOnly, isFalse);\n'
+              '  expect(input.inputFormatters, hasLength(1));\n'
+              '  return inputFinder;'
           )
-          replace_once(
-              test,
-              '''      await tester.enterText(inputFinder, 'accident');
-          await tester.tap(find.byKey(const Key('submit-button')));
-          await repository.recordStarted.future;
-          await tester.pump();
-
-          final TextField savingField = tester.widget<TextField>(inputFinder);''',
-              '''      await tester.enterText(inputFinder, 'accident');
-          expect(tester.testTextInput.isVisible, isTrue);
-          await tester.testTextInput.receiveAction(TextInputAction.unspecified);
-          await repository.recordStarted.future;
-          await tester.pump();
-
-          final Finder editableFinder = find.descendant(
-            of: inputFinder,
-            matching: find.byType(EditableText),
-          );
-          expect(
-            tester.widget<EditableText>(editableFinder).focusNode.hasFocus,
-            isTrue,
-          );
-          expect(tester.testTextInput.isVisible, isTrue);
-
-          final TextField savingField = tester.widget<TextField>(inputFinder);''',
+          new_field_contract = (
+              '  expect(input.readOnly, isFalse);\n'
+              '  expect(input.inputFormatters, hasLength(1));\n'
+              '  expect(input.textInputAction, TextInputAction.unspecified);\n'
+              '  return inputFinder;'
           )
-          replace_once(
-              test,
-              '''      expect(finishedField.controller?.text, isEmpty);
+          replace_once(test, old_field_contract, new_field_contract)
 
-          await unmountAndVerifyCleanup(tester, delegate, audio);''',
-              '''      expect(finishedField.controller?.text, isEmpty);
-          expect(
-            tester.widget<EditableText>(editableFinder).focusNode.hasFocus,
-            isTrue,
-          );
-          expect(tester.testTextInput.isVisible, isTrue);
-
-          await unmountAndVerifyCleanup(tester, delegate, audio);''',
+          old_submit_start = (
+              "      await tester.enterText(inputFinder, 'accident');\n"
+              "      await tester.tap(find.byKey(const Key('submit-button')));\n"
+              '      await repository.recordStarted.future;\n'
+              '      await tester.pump();\n'
+              '\n'
+              '      final TextField savingField = tester.widget<TextField>(inputFinder);'
           )
+          new_submit_start = (
+              "      await tester.enterText(inputFinder, 'accident');\n"
+              '      expect(tester.testTextInput.isVisible, isTrue);\n'
+              '      await tester.testTextInput.receiveAction(\n'
+              '        TextInputAction.unspecified,\n'
+              '      );\n'
+              '      await repository.recordStarted.future;\n'
+              '      await tester.pump();\n'
+              '\n'
+              '      final Finder editableFinder = find.descendant(\n'
+              '        of: inputFinder,\n'
+              '        matching: find.byType(EditableText),\n'
+              '      );\n'
+              '      expect(\n'
+              '        tester.widget<EditableText>(editableFinder).focusNode.hasFocus,\n'
+              '        isTrue,\n'
+              '      );\n'
+              '      expect(tester.testTextInput.isVisible, isTrue);\n'
+              '\n'
+              '      final TextField savingField = tester.widget<TextField>(inputFinder);'
+          )
+          replace_once(test, old_submit_start, new_submit_start)
+
+          old_submit_finish = (
+              '      expect(finishedField.controller?.text, isEmpty);\n'
+              '\n'
+              '      await unmountAndVerifyCleanup(tester, delegate, audio);'
+          )
+          new_submit_finish = (
+              '      expect(finishedField.controller?.text, isEmpty);\n'
+              '      expect(\n'
+              '        tester.widget<EditableText>(editableFinder).focusNode.hasFocus,\n'
+              '        isTrue,\n'
+              '      );\n'
+              '      expect(tester.testTextInput.isVisible, isTrue);\n'
+              '\n'
+              '      await unmountAndVerifyCleanup(tester, delegate, audio);'
+          )
+          replace_once(test, old_submit_finish, new_submit_finish)
           PY
 
       - name: Install the pinned Flutter toolchain

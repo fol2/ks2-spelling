@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - agent/words-search-vocabulary-sets-clean
-    types: [opened, reopened, synchronize, edited, ready_for_review]
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - '.github/workflows/pr55-visible-input-gate.yml'
       - 'android/**'

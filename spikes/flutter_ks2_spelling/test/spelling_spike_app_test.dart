@@ -6,16 +6,22 @@ import '../lib/attempt_repository.dart';
 import '../lib/prompt_audio.dart';
 import '../lib/spelling_spike_app.dart';
 
-final class RecordingPromptAudio implements PromptAudio {
+class RecordingPromptAudio implements PromptAudio {
   int playCount = 0;
+  int disposeCount = 0;
 
   @override
   Future<void> play() async {
     playCount += 1;
   }
+
+  @override
+  Future<void> dispose() async {
+    disposeCount += 1;
+  }
 }
 
-final class MemoryAttemptStore implements AttemptStore {
+class MemoryAttemptStore implements AttemptStore {
   AttemptSnapshot _snapshot = const AttemptSnapshot(
     learnerId: AttemptRepository.learnerId,
     nickname: AttemptRepository.nickname,
@@ -23,6 +29,7 @@ final class MemoryAttemptStore implements AttemptStore {
     correctCount: 0,
     evolved: false,
   );
+  int closeCount = 0;
 
   @override
   Future<AttemptSnapshot> read() async => _snapshot;
@@ -38,6 +45,34 @@ final class MemoryAttemptStore implements AttemptStore {
     );
     return _snapshot;
   }
+
+  @override
+  Future<void> close() async {
+    closeCount += 1;
+  }
+}
+
+final class FailOnceAttemptStore implements AttemptStore {
+  FailOnceAttemptStore(this.delegate);
+
+  final MemoryAttemptStore delegate;
+  bool _shouldFail = true;
+
+  @override
+  Future<AttemptSnapshot> read() async {
+    if (_shouldFail) {
+      _shouldFail = false;
+      throw StateError('simulated open failure');
+    }
+    return delegate.read();
+  }
+
+  @override
+  Future<AttemptSnapshot> recordAnswer({required bool correct}) =>
+      delegate.recordAnswer(correct: correct);
+
+  @override
+  Future<void> close() => delegate.close();
 }
 
 Future<void> pumpUntilFound(
@@ -68,7 +103,20 @@ Future<Finder> mountVisibleField(
   expect(input.autofocus, isFalse);
   expect(input.autocorrect, isFalse);
   expect(input.enableSuggestions, isFalse);
+  expect(input.enableIMEPersonalizedLearning, isFalse);
+  expect(input.autofillHints, isEmpty);
   return inputFinder;
+}
+
+Future<void> unmountAndVerifyCleanup(
+  WidgetTester tester,
+  MemoryAttemptStore repository,
+  RecordingPromptAudio audio,
+) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pump();
+  expect(repository.closeCount, 1);
+  expect(audio.disposeCount, 1);
 }
 
 void main() {
@@ -97,7 +145,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.text('1 correct from 1 attempts · saved in SQLite'),
+      find.text('1 correct from 1 attempt · saved in SQLite'),
       findsOneWidget,
     );
     final AttemptSnapshot saved = await repository.read();
@@ -113,8 +161,7 @@ void main() {
     semantics.dispose();
     expect(companion.label, contains('newly evolved'));
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
+    await unmountAndVerifyCleanup(tester, repository, audio);
   });
 
   testWidgets('an incorrect spelling stays editable and does not evolve the egg', (
@@ -147,7 +194,35 @@ void main() {
     semantics.dispose();
     expect(egg.label, contains('waiting to hatch'));
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
+    await unmountAndVerifyCleanup(tester, repository, audio);
+  });
+
+  testWidgets('a startup failure is visible, preserves data wording and can retry', (
+    WidgetTester tester,
+  ) async {
+    final MemoryAttemptStore delegate = MemoryAttemptStore();
+    final FailOnceAttemptStore repository = FailOnceAttemptStore(delegate);
+    final RecordingPromptAudio audio = RecordingPromptAudio();
+
+    await tester.pumpWidget(
+      SpellingSpikeApp(repository: repository, audio: audio),
+    );
+    await pumpUntilFound(
+      tester,
+      find.byKey(const Key('load-error-title')),
+    );
+
+    expect(find.text('Local learner state needs attention'), findsOneWidget);
+    expect(
+      find.textContaining('Your existing data was not replaced.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('spelling-input')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('retry-load-button')));
+    await pumpUntilFound(tester, find.byKey(const Key('spelling-input')));
+    expect(find.byKey(const Key('spelling-input')), findsOneWidget);
+
+    await unmountAndVerifyCleanup(tester, delegate, audio);
   });
 }

@@ -43,8 +43,15 @@ jobs:
               r"\.map\(\(\{ runtimeItemId, target, yearBand \}\) => \{\n"
               r"(\s+const progress = saved\[runtimeItemId\];\n\s+return \{\n"
               r"\s+runtimeItemId,\n\s+target,\n\s+yearBand: yearBand \?\? null,)",
-              ".map(({ runtimeItemId, target, yearBand, coverageTier }) => {\n"
+              "    .map(({ runtimeItemId, target, yearBand, coverageTier }) => {\n"
               r"\1\n        coverageTier: coverageTier ?? null,",
+          )
+          replace_once(
+              'tests/product-learning-controller.test.mjs',
+              r"return catalogue\.items\.map\(\(\{ runtimeItemId, target, yearBand \}\) => \(\{\n"
+              r"(\s+runtimeItemId,\n\s+target,\n\s+yearBand: yearBand \?\? null,)",
+              "return catalogue.items.map(({ runtimeItemId, target, yearBand, coverageTier }) => ({\n"
+              r"\1\n    coverageTier: coverageTier ?? null,",
           )
 
           replace_once(
@@ -167,6 +174,7 @@ jobs:
           git add \
             src/app/ProductApp.jsx \
             src/app/product-learning-controller.js \
+            tests/product-learning-controller.test.mjs \
             tests/app-shell.test.mjs
           git rm .github/workflows/pr54-final-hardening.yml
           git config user.name "github-actions[bot]"

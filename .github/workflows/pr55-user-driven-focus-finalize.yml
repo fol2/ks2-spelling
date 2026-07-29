@@ -1,0 +1,65 @@
+name: Finalize PR55 user-driven keyboard focus policy
+
+on:
+  push:
+    branches:
+      - agent/keyboard-reset-visible-input
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr55-user-driven-focus-finalize
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out the exact staging head
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Update the frozen local-only configuration contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('tests/app-shell.test.mjs')
+          source = path.read_text()
+          old = """    loggingBehavior: 'none',
+    plugins: {
+"""
+          new = """    loggingBehavior: 'none',
+    ios: {
+      initialFocus: false,
+    },
+    plugins: {
+"""
+          if source.count(old) != 1:
+              raise SystemExit(f'expected one Capacitor config contract, found {source.count(old)}')
+          path.write_text(source.replace(old, new, 1))
+          PY
+          rm .github/workflows/pr55-user-driven-focus-finalize.yml
+          git diff --check
+
+      - name: Verify the focused policy estate
+        run: |
+          npm ci
+          node --test \
+            tests/app-shell.test.mjs \
+            tests/ios-project-contract.test.mjs \
+            tests/keyboard-reset-visible-input.test.mjs \
+            tests/ios-user-driven-keyboard-focus.test.mjs
+
+      - name: Commit the durable candidate
+        run: |
+          git add -A
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(ios): finish the user-driven focus candidate'
+          git push origin HEAD:agent/keyboard-reset-visible-input

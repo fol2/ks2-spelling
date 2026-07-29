@@ -1,0 +1,108 @@
+name: PR54 legacy catalogue metadata hardening
+
+on:
+  push:
+    branches:
+      - agent/words-search-vocabulary-sets-clean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr54-legacy-catalogue-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  harden:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out the exact Words branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: agent/words-search-vocabulary-sets-clean
+
+      - name: Align legacy controller metadata with the Word Bank model
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path_name: str, old: str, new: str) -> None:
+              path = Path(path_name)
+              source = path.read_text()
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(
+                      f'{path_name}: expected one replacement, found {count}'
+                  )
+              path.write_text(source.replace(old, new, 1))
+
+          controller = 'src/app/product-learning-controller.js'
+          replace_once(
+              controller,
+              '''  const core = catalogue.items.filter(
+            ({ coverageTier }) => coverageTier === 'statutory-core',
+          );''',
+              '''  const core = catalogue.items.filter(
+            ({ coverageTier }) =>
+              coverageTier == null || coverageTier === 'statutory-core',
+          );''',
+          )
+
+          tests = 'tests/product-learning-controller.test.mjs'
+          marker = "test('product learning routes Trouble Drill and SATs Test through the shared controller', async () => {"
+          addition = '''test('product learning publishes legacy catalogue rows as core vocabulary metadata', async () => {
+            const catalogue = structuredClone(loadStarterSpellingCatalogue());
+            for (const item of catalogue.items) delete item.coverageTier;
+            const world = createLearningWorld(
+              [snapshotForCatalogue(catalogue)],
+              catalogue,
+            );
+            const controller = world.createController();
+
+            assert.deepEqual(controller.getState().vocabularySets, [
+              { id: 'core', label: 'Core', count: 20 },
+              { id: 'y3-4', label: 'Y3–4', count: 20 },
+            ]);
+            assert.ok(
+              controller.getState().progress.every(
+                ({ coverageTier }) => coverageTier === null,
+              ),
+            );
+
+            await controller.dispose();
+          });
+
+          '''
+          path = Path(tests)
+          source = path.read_text()
+          if source.count(marker) != 1:
+              raise SystemExit('unexpected controller-test insertion marker')
+          path.write_text(source.replace(marker, addition + marker, 1))
+          PY
+
+      - name: Install and verify the hardened Words feature
+        run: |
+          npm ci
+          node --test \
+            tests/product-learning-controller.test.mjs \
+            tests/word-bank-model.test.mjs \
+            tests/product-app-services.test.mjs \
+            tests/app-shell.test.mjs
+          npm run test:fast
+          npm run lint -- --quiet
+          npm run build
+          git diff --check
+
+      - name: Commit the durable change and remove one-use machinery
+        run: |
+          git add \
+            src/app/product-learning-controller.js \
+            tests/product-learning-controller.test.mjs
+          git rm .github/workflows/pr54-legacy-catalogue-hardening.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(words): preserve legacy core metadata'
+          git push origin HEAD:agent/words-search-vocabulary-sets-clean

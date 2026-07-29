@@ -14,7 +14,7 @@ final class SpellingSpikeApp extends StatelessWidget {
     super.key,
   });
 
-  final AttemptRepository repository;
+  final AttemptStore repository;
   final PromptAudio audio;
 
   @override
@@ -42,7 +42,7 @@ final class SpellingPracticePage extends StatefulWidget {
     super.key,
   });
 
-  final AttemptRepository repository;
+  final AttemptStore repository;
   final PromptAudio audio;
 
   @override

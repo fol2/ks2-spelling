@@ -2414,7 +2414,7 @@ function RoundScreen({
                   type="text"
                   value={answer}
                   placeholder="your spelling"
-                  disabled={busy || answered}
+                  aria-readonly={busy || answered}
                   // A spelling test must not be told the answer: no
                   // autocomplete, no autocorrect, no spellcheck and no writing
                   // suggestions, which together also take away the predictive
@@ -2430,7 +2430,12 @@ function RoundScreen({
                       ? (feedbackKind === 'success' ? '#2f9e6a' : '#d25757')
                       : undefined,
                   }}
-                  onChange={(event) => setAnswer(event.target.value)}
+                  onBeforeInput={(event) => {
+          if (busy || answered) event.preventDefault();
+        }}
+        onChange={(event) => {
+          if (!busy && !answered) setAnswer(event.target.value);
+        }}
                 />
               </div>
 

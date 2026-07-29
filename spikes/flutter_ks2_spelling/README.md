@@ -18,7 +18,7 @@ Then keep the checked-in package graph exact:
 flutter pub get --enforce-lockfile
 flutter analyze
 flutter test
-flutter run
+flutter run --no-pub
 ```
 
 To prove the generated platform shells still match the pinned Flutter template and the repository-owned audio source:
@@ -28,7 +28,7 @@ bash ../../scripts/scaffold-flutter-spike.sh
 git diff --exit-code -- .
 ```
 
-The scaffold command deliberately fails if committed Dart source has the wrong repository interface. It does not repair source while generating shells.
+The scaffold command deliberately fails if committed Dart source has the wrong repository interface. It generates into a sibling staging directory and does not move the committed spike until generation, source restoration and audio verification succeed. A failed final replacement restores the original directory.
 
 ## Learner flow
 
@@ -41,8 +41,8 @@ The scaffold command deliberately fails if committed Dart source has the wrong r
 
 An incorrect spelling remains selected for correction and does not evolve the egg. During a save, the real field stays mounted and writable at the Flutter widget/input-connection level, while a formatter rejects new edits until the transaction finishes. Return uses `TextInputAction.unspecified`, so Flutter calls `onSubmitted` without its normal `done`-action unfocus/restart. A successful save clears to a valid caret position; a failed save preserves the answer and restores editing.
 
-The companion `GameWidget` is explicitly `autofocus: false`. Flame defaults game widgets to autofocus, which would otherwise let the egg-to-companion replacement steal focus and dismiss the software keyboard.
+The companion `GameWidget` has autofocus disabled and sits inside `ExcludeFocus`, so the decorative canvas cannot enter desktop tab traversal or take the software-keyboard connection during egg evolution.
 
-If local state cannot open, the app renders a non-destructive error and **Try opening again** action instead of remaining on a spinner. Persisted learner identity, nickname, counters and evolution state are validated before use.
+If local state cannot open, the app renders a non-destructive error and **Try opening again** action instead of remaining on a spinner. Persisted learner identity, nickname and counters are validated before use, and evolution must agree with whether at least one correct answer exists.
 
 Repeated **Listen** actions reuse one bounded audio backend. The previous playback must stop before a replacement starts; a failed stop retains its handle for retry rather than allowing overlapping untracked playback. Page disposal drains accepted database/audio work and then closes the owned resources.

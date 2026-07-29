@@ -176,6 +176,9 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
     appName: 'KS2 Spelling',
     webDir: 'dist',
     loggingBehavior: 'none',
+    ios: {
+      initialFocus: false,
+    },
     plugins: {
       CapacitorSQLite: {
         iosDatabaseLocation: 'Library/CapacitorDatabase',

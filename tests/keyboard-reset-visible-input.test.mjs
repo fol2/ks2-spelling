@@ -24,11 +24,22 @@ async function runtimeSources(directory) {
 }
 
 function visibleSpellingInput(productApp) {
-  const match = productApp.match(
-    /<input(?=[^>]*\bid="product-spelling-input")[^>]*\/>/u,
+  const identity = 'id="product-spelling-input"';
+  const identityOffset = productApp.indexOf(identity);
+  assert.notEqual(identityOffset, -1, 'the Practice screen must identify its spelling input');
+  assert.equal(
+    productApp.indexOf(identity, identityOffset + identity.length),
+    -1,
+    'the Practice screen must have exactly one spelling input identity',
   );
-  assert.ok(match, 'the Practice screen must render its real spelling input');
-  return match[0];
+
+  const start = productApp.lastIndexOf('<input', identityOffset);
+  const end = productApp.indexOf('/>', identityOffset);
+  assert.ok(
+    start >= 0 && end > identityOffset,
+    'the Practice spelling input must be one complete JSX input element',
+  );
+  return productApp.slice(start, end + 2);
 }
 
 test('the product leaves keyboard ownership with the real visible field', async () => {
@@ -46,7 +57,7 @@ test('the product leaves keyboard ownership with the real visible field', async 
   assert.match(input, /onChange=\{\(event\) => setAnswer\(event\.target\.value\)\}/u);
   assert.doesNotMatch(
     input,
-    /\b(?:autoFocus|readOnly|hidden|aria-hidden|inert|tabIndex=\{-1\})\b/u,
+    /(?:\bautoFocus\b|\breadOnly\b|\bhidden\b|aria-hidden|\binert\b|tabIndex=\{-1\})/u,
     'the visible spelling field must remain an ordinary interactive input',
   );
 

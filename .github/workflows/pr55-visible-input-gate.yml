@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - agent/words-search-vocabulary-sets-clean
-    types: [opened, reopened, synchronize, ready_for_review]
+    types: [opened, reopened, synchronize, edited, ready_for_review]
     paths:
       - '.github/workflows/pr55-visible-input-gate.yml'
       - 'android/**'
@@ -55,16 +55,37 @@ jobs:
             git fetch --no-tags origin "$PR_BASE_SHA"
           git merge-base --is-ancestor "$PR_BASE_SHA" HEAD
 
+      - name: Record a description-only edit
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.action == 'edited' &&
+          github.event.changes.base == null
+        run: >-
+          echo 'PR prose changed, but the exact head and base ancestry are unchanged;
+          the previously verified source/native tree does not need rebuilding.'
+
       - name: Set up Node.js
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.action != 'edited' ||
+          github.event.changes.base != null
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: '24.18.0'
           cache: npm
 
       - name: Install exact dependencies
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.action != 'edited' ||
+          github.event.changes.base != null
         run: npm ci
 
       - name: Verify field ownership and saving-state continuity
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.action != 'edited' ||
+          github.event.changes.base != null
         run: |
           node --test \
             tests/keyboard-reset-visible-input.test.mjs \
@@ -80,6 +101,10 @@ jobs:
           git diff --check
 
       - name: Verify native dependency and iOS composition
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.action != 'edited' ||
+          github.event.changes.base != null
         run: |
           npm run native:sync:check
           npm run test:ios

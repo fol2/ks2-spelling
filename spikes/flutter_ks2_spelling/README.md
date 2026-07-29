@@ -8,7 +8,11 @@ The authoritative decision and physical-device gates are in `../../docs/spikes/f
 
 ## Run the committed slice
 
-Use Flutter 3.44.7, then keep the checked-in package graph exact:
+Use Flutter 3.44.7 at exact framework commit:
+
+`84fc5cbb223bc12f83d65b647ff8a56caf779ffd`
+
+Then keep the checked-in package graph exact:
 
 ```sh
 flutter pub get --enforce-lockfile
@@ -35,6 +39,8 @@ The scaffold command deliberately fails if committed Dart source has the wrong r
 5. The SQLite counters update and the Flame egg becomes a companion.
 6. Close and reopen the app to confirm the state remains.
 
-An incorrect spelling remains selected for correction and does not evolve the egg. If local state cannot open, the app renders a non-destructive error and **Try opening again** action instead of remaining on a spinner.
+An incorrect spelling remains selected for correction and does not evolve the egg. During a save, the real field stays mounted and writable at the Flutter widget/input-connection level, while a formatter rejects new edits until the transaction finishes. A failed save preserves the answer and restores editing.
 
-Repeated **Listen** actions reuse one bounded audio backend and stop the superseded playback before starting again. Page disposal drains accepted database/audio work and then closes the owned resources.
+If local state cannot open, the app renders a non-destructive error and **Try opening again** action instead of remaining on a spinner. Persisted learner identity, nickname, counters and evolution state are validated before use.
+
+Repeated **Listen** actions reuse one bounded audio backend. The previous playback must stop before a replacement starts; a failed stop retains its handle for retry rather than allowing overlapping untracked playback. Page disposal drains accepted database/audio work and then closes the owned resources.

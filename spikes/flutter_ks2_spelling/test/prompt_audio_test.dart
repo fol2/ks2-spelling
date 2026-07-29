@@ -54,6 +54,24 @@ final class GatedPromptAudioBackend implements PromptAudioBackend {
   }
 }
 
+final class FailingStopPromptAudioBackend implements PromptAudioBackend {
+  final List<String> events = <String>[];
+
+  @override
+  Future<StopPlayback> start() async {
+    events.add('start');
+    return () async {
+      events.add('stop');
+      throw StateError('simulated stop failure');
+    };
+  }
+
+  @override
+  Future<void> dispose() async {
+    events.add('dispose');
+  }
+}
+
 void main() {
   test('repeated playback reuses one backend and stops superseded audio', () async {
     final RecordingPromptAudioBackend backend = RecordingPromptAudioBackend();
@@ -110,5 +128,17 @@ void main() {
         'dispose',
       ],
     );
+  });
+
+  test('backend disposal still runs when stopping playback fails', () async {
+    final FailingStopPromptAudioBackend backend =
+        FailingStopPromptAudioBackend();
+    final FlamePromptAudio audio = FlamePromptAudio(
+      backendFactory: () async => backend,
+    );
+
+    await audio.play();
+    await expectLater(audio.dispose(), throwsStateError);
+    expect(backend.events, <String>['start', 'stop', 'dispose']);
   });
 }

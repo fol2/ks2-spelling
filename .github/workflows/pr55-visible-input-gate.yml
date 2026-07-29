@@ -1,0 +1,91 @@
+name: Visible-input keyboard regression gate
+
+on:
+  pull_request:
+    branches:
+      - agent/words-search-vocabulary-sets-clean
+    types: [opened, reopened, synchronize]
+    paths:
+      - '.github/workflows/pr55-visible-input-gate.yml'
+      - 'android/**'
+      - 'config/dependency-policy.json'
+      - 'docs/solutions/integration-issues/dictation-software-keyboard-ios27-incident.md'
+      - 'ios/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'provenance/b3-package-transition.json'
+      - 'reports/b3/dependency-audit.json'
+      - 'scripts/audit-dependencies.mjs'
+      - 'scripts/lib/b3-package-transition-authority.mjs'
+      - 'scripts/lib/maven-evidence.mjs'
+      - 'src/**'
+      - 'tests/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visible-input-keyboard-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.ref == 'agent/keyboard-reset-visible-input'
+    runs-on: macos-26
+    timeout-minutes: 105
+    steps:
+      - name: Check out the exact reset branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: agent/keyboard-reset-visible-input
+
+      - name: Prove the reset remains stacked on the current Words head
+        run: |
+          git fetch --no-tags origin \
+            refs/heads/agent/words-search-vocabulary-sets-clean:refs/remotes/origin/agent/words-search-vocabulary-sets-clean
+          git merge-base --is-ancestor \
+            origin/agent/words-search-vocabulary-sets-clean \
+            HEAD
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: '24.18.0'
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Verify field ownership and saving-state continuity
+        run: |
+          node --test \
+            tests/keyboard-reset-visible-input.test.mjs \
+            tests/visible-input-saving-state.test.mjs \
+            tests/dependency-policy.test.mjs \
+            tests/word-bank-model.test.mjs \
+            tests/product-learning-controller.test.mjs \
+            tests/product-app-services.test.mjs \
+            tests/app-shell.test.mjs
+          npm run test:fast
+          npm run lint -- --quiet
+          npm run build
+          git diff --check
+
+      - name: Verify native dependency and iOS composition
+        run: |
+          npm run native:sync:check
+          npm run test:ios
+          npm run sync:b4-development
+          xcodebuild \
+            -quiet \
+            -project ios/App/App.xcodeproj \
+            -scheme B4DevelopmentUITests \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .native-build/visible-input-gate \
+            CODE_SIGNING_ALLOWED=NO \
+            build-for-testing

@@ -1,33 +1,41 @@
 name: PR55 feedback-to-next-card keyboard probe hardening
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/keyboard-reset-visible-input
+      - agent/words-search-vocabulary-sets-clean
+    types: [opened, reopened, synchronize]
+    paths:
+      - '.github/workflows/pr55-feedback-next-card-hardening.yml'
 
 permissions:
   contents: write
 
 concurrency:
-  group: pr55-feedback-next-card-${{ github.ref }}
+  group: pr55-feedback-next-card-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 
 jobs:
   harden:
-    if: github.actor != 'github-actions[bot]'
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'agent/keyboard-reset-visible-input'
     runs-on: macos-26
     timeout-minutes: 110
     env:
-      EXPECTED_PARENT: e2f7b2aedc7409668e2262463d6bf7d1de5a47a3
+      EXPECTED_PARENT: dd8d4f216fca5041534a7be760c179d5f0d85488
     steps:
-      - name: Check out the exact keyboard-reset branch
+      - name: Check out the exact keyboard-reset head
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
-          ref: agent/keyboard-reset-visible-input
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Prove the hardening starts at the reviewed head
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
           test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
           test "$(git diff --name-only HEAD^ HEAD)" = '.github/workflows/pr55-feedback-next-card-hardening.yml'
 

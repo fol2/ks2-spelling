@@ -105,16 +105,25 @@ preserved in draft forensic PR #53. It is evidence, not mergeable product code.
 
 The reset branch verifies that:
 
-- the visible `#product-spelling-input` remains present;
+- the visible `#product-spelling-input` remains one ordinary controlled JSX input;
+- that field is not hidden, read-only, inert, autofocus-driven or removed from the
+  tab order;
 - Product root and startup code do not install keyboard ownership or chrome calls;
 - the retired hidden-input and viewport files are absent;
+- runtime source does not recreate a second input or import the Keyboard plugin;
 - `@capacitor/keyboard` is absent from package, lock, SwiftPM, Android and policy
   graphs;
 - native sync is stable;
 - the focused and fast test estate passes;
 - resolved dependency evidence regenerates cleanly;
-- lint passes; and
-- the unsigned iOS Simulator application compiles.
+- lint passes;
+- the unsigned iOS Simulator application compiles; and
+- the native UI-test target compiles a real-field probe which taps the visible
+  nickname field, requires software keys within five seconds and types through
+  that same field.
+
+The UI probe is compilation evidence in CI. Its decisive keyboard assertion must
+still be executed on the clean physical device.
 
 ## Required physical-device acceptance
 
@@ -136,6 +145,9 @@ Use a clean product Debug build from the exact final reset head. Do not test PR
 - [ ] Portrait and landscape keep the authored dictation layout usable without a
       custom keyboard inset.
 - [ ] Background/foreground, then tap the answer line: ordinary typing resumes.
+- [ ] If the standard previous/next/done assistant strip appears, it remains
+      system-owned and does not replace or delay the software key rows. The app
+      makes no native attempt to suppress it in this recovery.
 - [ ] Repeat the bare visible-field checks on stable iOS 26 and the affected iOS
       27 device when both are available.
 

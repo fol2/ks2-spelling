@@ -501,11 +501,17 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(emptyProgressHtml, /Set off on a round/);
   assert.match(emptyProgressHtml, /id="bank-search-input"/);
   assert.match(emptyProgressHtml, /placeholder="Search spellings"/);
+  assert.match(emptyProgressHtml, /maxLength="64"/);
+  assert.match(emptyProgressHtml, /aria-describedby="bank-result-count"/);
+  assert.match(emptyProgressHtml, /id="bank-result-count"[^>]*role="status"/);
   assert.match(emptyProgressHtml, /aria-label="Vocabulary set"/);
   assert.match(emptyProgressHtml, /aria-label="Filter words"/);
-  for (const set of ['Core', 'Y3–4', 'Y5–6']) {
+  for (const set of ['Core', 'Y3–4']) {
     assert.match(emptyProgressHtml, new RegExp(`>${set}<`));
   }
+  assert.doesNotMatch(emptyProgressHtml, />Y5–6</);
+  assert.match(productSource, /vocabularySets=\{learningState\.vocabularySets\}/u);
+  assert.match(productSource, /event\.key === 'Escape'/u);
 
   learningState = Object.freeze({
     ...learningState,

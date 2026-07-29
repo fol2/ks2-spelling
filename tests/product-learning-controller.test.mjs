@@ -79,10 +79,11 @@ function snapshotForCatalogue(catalogue) {
 }
 
 function unseenProgress(catalogue) {
-  return catalogue.items.map(({ runtimeItemId, target, yearBand }) => ({
+  return catalogue.items.map(({ runtimeItemId, target, yearBand, coverageTier }) => ({
     runtimeItemId,
     target,
     yearBand: yearBand ?? null,
+    coverageTier: coverageTier ?? null,
     stage: 0,
     attempts: 0,
     correct: 0,

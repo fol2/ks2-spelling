@@ -129,12 +129,13 @@ function practiceProjection(snapshot, catalogue) {
 function progressProjection(snapshot, catalogue) {
   const saved = snapshot?.subjectState?.data?.progress ?? {};
   return catalogue.items
-    .map(({ runtimeItemId, target, yearBand }) => {
+    .map(({ runtimeItemId, target, yearBand, coverageTier }) => {
       const progress = saved[runtimeItemId];
       return {
         runtimeItemId,
         target,
         yearBand: yearBand ?? null,
+        coverageTier: coverageTier ?? null,
         stage: progress?.stage ?? 0,
         attempts: progress?.attempts ?? 0,
         correct: progress?.correct ?? 0,

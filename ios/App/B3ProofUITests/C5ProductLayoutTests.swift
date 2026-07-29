@@ -40,6 +40,23 @@ final class C5ProductLayoutTests: XCTestCase {
         XCTAssertLessThanOrEqual(frame.maxY, viewport.maxY, file: file, line: line)
     }
 
+    private func reachableNicknameField(
+        in application: XCUIApplication
+    ) -> XCUIElement {
+        let nickname = application.textFields["First name or nickname"]
+        let webView = application.webViews.firstMatch
+        XCTAssertTrue(
+            nickname.waitForExistence(timeout: 10),
+            "The production learner name field did not appear."
+        )
+        for _ in 0..<12 where !nickname.isHittable {
+            webView.swipeUp()
+        }
+        XCTAssertTrue(nickname.isHittable, "The production learner form is not reachable.")
+        assertContained(nickname, in: application)
+        return nickname
+    }
+
     private func assertProfilePicker(
         in application: XCUIApplication
     ) {
@@ -56,17 +73,8 @@ final class C5ProductLayoutTests: XCTestCase {
         XCTAssertTrue(parentAction.isHittable, "The production Parent action is not reachable.")
         assertContained(parentAction, in: application)
 
-        let nickname = application.textFields["First name or nickname"]
+        _ = reachableNicknameField(in: application)
         let webView = application.webViews.firstMatch
-        for _ in 0..<12 where !nickname.isHittable {
-            webView.swipeUp()
-        }
-        XCTAssertTrue(
-            nickname.waitForExistence(timeout: 10),
-            "The production learner name field did not appear."
-        )
-        XCTAssertTrue(nickname.isHittable, "The production learner form is not reachable.")
-        assertContained(nickname, in: application)
         for _ in 0..<12 where !heading.isHittable {
             webView.swipeDown()
         }
@@ -104,6 +112,43 @@ final class C5ProductLayoutTests: XCTestCase {
         )
         assertProfilePicker(in: application)
         attachScreenshot(name: "c5-product-phone-large-text")
+    }
+
+    // Run this probe on a clean physical-device install as well as Simulator.
+    // It deliberately taps and types into the actual visible WebView field; no
+    // hidden proxy, programmatic focus or keyboard plugin participates.
+    func testProductNicknameFieldRaisesSoftwareKeyboard() {
+        continueAfterFailure = false
+
+        XCTAssertEqual(
+            UIDevice.current.userInterfaceIdiom,
+            .phone,
+            "The software-keyboard probe requires an iPhone destination."
+        )
+        let application = installedApplication()
+        XCUIDevice.shared.orientation = .portrait
+        application.terminate()
+        application.launch()
+
+        XCTAssertTrue(
+            waitForOrientation(application, landscape: false),
+            "The keyboard-probe application did not settle in portrait."
+        )
+        let nickname = reachableNicknameField(in: application)
+        nickname.tap()
+
+        let keyboard = application.keyboards.firstMatch
+        XCTAssertTrue(
+            keyboard.waitForExistence(timeout: 5),
+            "A real tap focused the visible nickname field without promptly presenting software keys."
+        )
+        nickname.typeText("Keyboard guard")
+        XCTAssertEqual(
+            nickname.value as? String,
+            "Keyboard guard",
+            "Typed text did not remain owned by the visible nickname field."
+        )
+        attachScreenshot(name: "c5-product-visible-field-keyboard")
     }
 
     func testProductTabletLayouts() {

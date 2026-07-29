@@ -61,13 +61,18 @@ void main() {
     final String scaffoldSource = normaliseLines(await scaffold.readAsString());
     expect(
       scaffoldSource,
-      contains('mktemp -d "$repo_root/.flutter-spike-scaffold.XXXXXX"'),
+      contains(r'mktemp -d "$repo_root/.flutter-spike-scaffold.XXXXXX"'),
     );
-    expect(scaffoldSource, contains('if [ "$original_moved" -eq 1 ]'));
-    expect(scaffoldSource, contains('mv "$backup_dir" "$spike_dir"'));
+    expect(
+      scaffoldSource,
+      contains(r'if [ "$original_moved" -eq 1 ]'),
+    );
+    expect(scaffoldSource, contains(r'mv "$backup_dir" "$spike_dir"'));
     expect(
       scaffoldSource.indexOf('flutter create'),
-      lessThan(scaffoldSource.indexOf('mv "$spike_dir" "$backup_dir"')),
+      lessThan(
+        scaffoldSource.indexOf(r'mv "$spike_dir" "$backup_dir"'),
+      ),
       reason: 'generation must finish before the committed spike is moved',
     );
 

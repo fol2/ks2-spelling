@@ -36,7 +36,7 @@ jobs:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
 
-      - name: Keep the platform input connection across Return and save
+      - name: Keep the platform input connection across Return and evolution
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -69,6 +69,14 @@ jobs:
                     );
                   } else {''',
           )
+          replace_once(
+              app,
+              '''                    game: _game,
+                  ),''',
+              '''                    game: _game,
+                    autofocus: false,
+                  ),''',
+          )
 
           test = 'spikes/flutter_ks2_spelling/test/spelling_spike_app_test.dart'
           old_field_contract = (
@@ -83,6 +91,19 @@ jobs:
               '  return inputFinder;'
           )
           replace_once(test, old_field_contract, new_field_contract)
+
+          old_game_contract = (
+              '    final CompanionEvolutionGame gameBeforeListen = tester\n'
+              '        .widget<GameWidget<CompanionEvolutionGame>>(waitingGameFinder)\n'
+              '        .game!;'
+          )
+          new_game_contract = (
+              '    final GameWidget<CompanionEvolutionGame> waitingGame = tester\n'
+              '        .widget<GameWidget<CompanionEvolutionGame>>(waitingGameFinder);\n'
+              '    expect(waitingGame.autofocus, isFalse);\n'
+              '    final CompanionEvolutionGame gameBeforeListen = waitingGame.game!;'
+          )
+          replace_once(test, old_game_contract, new_game_contract)
 
           old_submit_start = (
               "      await tester.enterText(inputFinder, 'accident');\n"

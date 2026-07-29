@@ -176,6 +176,49 @@ test('legacy core rows stay isolated from explicitly marked extensions', () => {
   assert.equal(bank.vocabSets[0].selected, true);
 });
 
+test('published set metadata is data-only and keeps canonical product labels', () => {
+  let getterReads = 0;
+  const accessorBacked = {};
+  Object.defineProperty(accessorBacked, 'id', {
+    enumerable: true,
+    get() {
+      getterReads += 1;
+      return 'y5-6';
+    },
+  });
+  Object.defineProperty(accessorBacked, 'count', {
+    enumerable: true,
+    value: 1,
+  });
+
+  const bank = buildWordBank({
+    progress: [
+      word(),
+      word({
+        runtimeItemId: 'ks2-core:occupy',
+        target: 'occupy',
+        yearBand: '5-6',
+      }),
+    ],
+    vocabularySets: [
+      { id: 'core', label: 'All', count: 2 },
+      { id: 'y3-4', label: 'Lower years', count: '1' },
+      accessorBacked,
+      { id: 'y3-4', label: 'Custom label', count: 1 },
+    ],
+    now: 0,
+  });
+
+  assert.equal(getterReads, 0);
+  assert.deepEqual(
+    bank.vocabSets.map(({ id, label }) => ({ id, label })),
+    [
+      { id: 'core', label: 'Core' },
+      { id: 'y3-4', label: 'Y3–4' },
+    ],
+  );
+});
+
 test('word bank filters by vocabulary set, status and normalised live search', () => {
   const progress = [
     word({
@@ -229,7 +272,7 @@ test('word bank filters by vocabulary set, status and normalised live search', (
     now: 0,
   });
   assert.deepEqual(searched.rows.map((row) => row.word), ['self-respect']);
-  assert.equal(searched.countLabel, '1 of 3');
+  assert.equal(searched.countLabel, '1 of 3 words');
   // Set counts describe the catalogue and must not jump around while typing.
   assert.equal(searched.vocabSets.find(({ id }) => id === 'core').count, 3);
   assert.equal(searched.vocabSets.find(({ id }) => id === 'y3-4').count, 2);
@@ -243,7 +286,7 @@ test('word bank filters by vocabulary set, status and normalised live search', (
   });
   assert.equal(missed.empty, true);
   assert.equal(missed.emptyHeading, 'No matching words');
-  assert.equal(missed.countLabel, '0 of 2');
+  assert.equal(missed.countLabel, '0 of 2 words');
 
   const secureY34 = buildWordBank({
     progress,
@@ -254,7 +297,7 @@ test('word bank filters by vocabulary set, status and normalised live search', (
   });
   assert.deepEqual(secureY34.rows.map((row) => row.word), ['accident']);
   assert.equal(secureY34.filters.find(({ id }) => id === 'secure').count, 1);
-  assert.equal(secureY34.countLabel, '1 of 2');
+  assert.equal(secureY34.countLabel, '1 of 2 words');
 });
 
 test('programmatic queries are capped to the same boundary as the input', () => {
@@ -269,7 +312,7 @@ test('programmatic queries are capped to the same boundary as the input', () => 
   });
 
   assert.deepEqual(bank.rows.map((row) => row.word), [sixtyFourCharacters]);
-  assert.equal(bank.countLabel, '1 of 1');
+  assert.equal(bank.countLabel, '1 of 1 word');
 });
 
 test('unknown filters and empty set metadata fall back safely', () => {

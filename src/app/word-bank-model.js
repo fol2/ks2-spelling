@@ -85,24 +85,45 @@ function inferredVocabSets(words) {
   return WORD_BANK_VOCAB_SETS.filter(({ id }) => ids.has(id));
 }
 
+function publishedVocabSetCandidate(candidate, requireCount) {
+  try {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      return null;
+    }
+    const id = Object.getOwnPropertyDescriptor(candidate, 'id');
+    const count = Object.getOwnPropertyDescriptor(candidate, 'count');
+    if (!id?.enumerable || !Object.hasOwn(id, 'value')) return null;
+    if (
+      requireCount
+      && (
+        !count?.enumerable
+        || !Object.hasOwn(count, 'value')
+        || !Number.isSafeInteger(count.value)
+        || count.value <= 0
+      )
+    ) {
+      return null;
+    }
+    return VOCAB_SET_BY_ID.get(id.value) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Explicit controller metadata is authoritative when supplied. The Word Bank
 // can also stand alone in tests and previews: because progress projects every
 // catalogue item, its year bands are a complete fallback authority. Metadata
 // and rows are intersected so an unavailable or stale zero-sized set cannot be
-// offered as an empty control.
+// offered as an empty control. Supported IDs also own their visible labels, so
+// stale or accessor-backed metadata cannot silently rename product controls.
 function publishedVocabSets(value, words) {
-  const candidates = Array.isArray(value) ? value : inferredVocabSets(words);
+  const explicit = Array.isArray(value);
+  const candidates = explicit ? value : inferredVocabSets(words);
   const seen = new Set();
   const published = [];
   for (const candidate of candidates) {
-    const definition = VOCAB_SET_BY_ID.get(candidate?.id);
-    if (
-      !definition
-      || seen.has(definition.id)
-      || (Number.isSafeInteger(candidate?.count) && candidate.count <= 0)
-    ) {
-      continue;
-    }
+    const definition = publishedVocabSetCandidate(candidate, explicit);
+    if (!definition || seen.has(definition.id)) continue;
     if (
       words.length > 0
       && !words.some((entry) => matchesVocabSet(definition.id, entry))
@@ -112,9 +133,7 @@ function publishedVocabSets(value, words) {
     seen.add(definition.id);
     published.push({
       id: definition.id,
-      label: typeof candidate?.label === 'string' && candidate.label.trim()
-        ? candidate.label.trim()
-        : definition.label,
+      label: definition.label,
     });
   }
   return published.length > 0 ? published : [WORD_BANK_VOCAB_SETS[0]];
@@ -204,7 +223,7 @@ export function buildWordBank({
     visibleTotal: searched.length,
     countLabel: unfilteredSelection
       ? wordCount(inSet.length)
-      : `${rows.length} of ${inSet.length}`,
+      : `${rows.length} of ${wordCount(inSet.length)}`,
     empty: rows.length === 0,
     emptyHeading: words.length === 0
       ? 'Your word bank is ready'

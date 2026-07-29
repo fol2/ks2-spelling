@@ -11,7 +11,7 @@ test('the physical Practice probe respects feedback before typing the next card'
   const source = await readFile(probeUrl, 'utf8');
 
   assert.match(source, /label CONTAINS\[c\].*words a week/u);
-  assert.match(source, /The probe previously added one on[\s\S]*every run/u);
+  assert.match(source, /previous probe added one on[\s\S]*every run/u);
   assert.match(source, /let feedbackKeyboard = application\.keyboards\.firstMatch/u);
   assert.match(source, /Feedback left only the input assistant without software letter rows/u);
   assert.match(source, /let lockedValue = spelling\.value as\? String/u);

@@ -135,6 +135,21 @@ test('non-core catalogue rows never leak into statutory vocabulary sets', () => 
   assert.equal(bank.vocabSets.find(({ id }) => id === 'core').count, 1);
 });
 
+test('legacy rows without coverage metadata remain readable as core', () => {
+  const bank = buildWordBank({
+    progress: [word({ coverageTier: null })],
+    vocabularySets: [
+      { id: 'core', label: 'Core', count: 1 },
+      { id: 'y3-4', label: 'Y3–4', count: 1 },
+    ],
+    now: 0,
+  });
+
+  assert.equal(bank.total, 1);
+  assert.deepEqual(bank.rows.map((row) => row.word), ['accident']);
+  assert.deepEqual(bank.vocabSets.map(({ id }) => id), ['core', 'y3-4']);
+});
+
 test('word bank filters by vocabulary set, status and normalised live search', () => {
   const progress = [
     word({

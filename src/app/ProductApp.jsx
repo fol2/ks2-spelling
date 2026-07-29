@@ -1600,20 +1600,14 @@ const FILTER_DOTS = Object.freeze({
   secure: '#1f7a4f',
 });
 
-function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {
+function WordBankScreen({ progress, onScreen, onStart }) {
   const [filter, setFilter] = useState('all');
   const [vocabSet, setVocabSet] = useState('core');
   const [query, setQuery] = useState('');
   const bank = useMemo(
-  () => buildWordBank({
-    progress,
-    filter,
-    vocabSet,
-    vocabularySets,
-    query,
-  }),
-  [progress, filter, vocabSet, vocabularySets, query],
-);
+    () => buildWordBank({ progress, filter, vocabSet, query }),
+    [progress, filter, vocabSet, query],
+  );
 
   return (
     <main className="product-app" aria-labelledby="bank-title">
@@ -1632,15 +1626,7 @@ function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {
               <p className="product-kicker">Word bank</p>
               <h1 id="bank-title">Your words</h1>
             </div>
-            <span
-            id="bank-result-count"
-            className="figure"
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            {bank.countLabel}
-          </span>
+            <span className="figure">{bank.countLabel}</span>
           </div>
 
           <div className="bank-search">
@@ -1660,15 +1646,7 @@ function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {
               spellCheck="false"
               writingsuggestions="false"
               enterKeyHint="search"
-            maxLength={64}
-            aria-describedby="bank-result-count"
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape' && query) {
-                event.preventDefault();
-                setQuery('');
-              }
-            }}
+              onChange={(event) => setQuery(event.target.value)}
             />
           </div>
 
@@ -1679,8 +1657,7 @@ function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {
                 type="button"
                 className="pill press-soft press"
                 aria-pressed={option.selected}
-              aria-label={`${option.label}, ${option.count} ${option.count === 1 ? 'word' : 'words'}`}
-              onClick={() => setVocabSet(option.id)}
+                onClick={() => setVocabSet(option.id)}
               >
                 {option.label}
               </button>
@@ -1694,8 +1671,7 @@ function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {
                 type="button"
                 className="pill press-soft press"
                 aria-pressed={option.selected}
-              aria-label={`${option.label}, ${option.count} ${option.count === 1 ? 'word' : 'words'}`}
-              onClick={() => setFilter(option.id)}
+                onClick={() => setFilter(option.id)}
               >
                 <span
                   className="bank-dot"
@@ -2918,9 +2894,8 @@ export default function ProductApp({ services }) {
   if (learningState.screen === 'progress') {
     return (
       <WordBankScreen
-      progress={learningState.progress}
-      vocabularySets={learningState.vocabularySets}
-      onScreen={showScreen}
+        progress={learningState.progress}
+        onScreen={showScreen}
         onStart={() => showScreen('setup')}
       />
     );

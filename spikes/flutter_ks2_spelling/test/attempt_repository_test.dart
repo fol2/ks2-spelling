@@ -46,8 +46,18 @@ void main() {
     expect(laterIncorrect.correctCount, 1);
     expect(laterIncorrect.evolved, isTrue);
 
-    await first.close();
-    await first.close();
+    // A write already accepted by the queue must finish durably even when two
+    // shutdown callers arrive before it starts. Both close futures represent
+    // the same actual database close.
+    final Future<AttemptSnapshot> acceptedBeforeClose =
+        first.recordAnswer(correct: false);
+    final Future<void> firstClose = first.close();
+    final Future<void> secondClose = first.close();
+    final AttemptSnapshot drained = await acceptedBeforeClose;
+    expect(drained.attempts, 4);
+    expect(drained.correctCount, 1);
+    await Future.wait(<Future<void>>[firstClose, secondClose]);
+
     await expectLater(first.read(), throwsStateError);
 
     final AttemptRepository reopened = AttemptRepository(
@@ -58,7 +68,7 @@ void main() {
     final AttemptSnapshot recovered = await reopened.read();
     expect(recovered.learnerId, AttemptRepository.learnerId);
     expect(recovered.nickname, AttemptRepository.nickname);
-    expect(recovered.attempts, 3);
+    expect(recovered.attempts, 4);
     expect(recovered.correctCount, 1);
     expect(recovered.evolved, isTrue);
   });

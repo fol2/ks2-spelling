@@ -71,11 +71,8 @@ jobs:
           )
           replace_once(
               app,
-              '''                    game: _game,
-                  ),''',
-              '''                    game: _game,
-                    autofocus: false,
-                  ),''',
+              '                    game: _game,\n',
+              '                    game: _game,\n                    autofocus: false,\n',
           )
 
           test = 'spikes/flutter_ks2_spelling/test/spelling_spike_app_test.dart'

@@ -53,24 +53,31 @@ Future<void> pumpUntilFound(
   throw TestFailure('Timed out waiting for $finder.');
 }
 
+Future<Finder> mountVisibleField(
+  WidgetTester tester,
+  AttemptStore repository,
+  PromptAudio audio,
+) async {
+  await tester.pumpWidget(
+    SpellingSpikeApp(repository: repository, audio: audio),
+  );
+  final Finder inputFinder = find.byKey(const Key('spelling-input'));
+  await pumpUntilFound(tester, inputFinder);
+  expect(inputFinder, findsOneWidget);
+  final TextField input = tester.widget<TextField>(inputFinder);
+  expect(input.autofocus, isFalse);
+  expect(input.autocorrect, isFalse);
+  expect(input.enableSuggestions, isFalse);
+  return inputFinder;
+}
+
 void main() {
   testWidgets('the visible field records and exposes a companion evolution', (
     WidgetTester tester,
   ) async {
     final MemoryAttemptStore repository = MemoryAttemptStore();
     final RecordingPromptAudio audio = RecordingPromptAudio();
-
-    await tester.pumpWidget(
-      SpellingSpikeApp(repository: repository, audio: audio),
-    );
-
-    final Finder inputFinder = find.byKey(const Key('spelling-input'));
-    await pumpUntilFound(tester, inputFinder);
-    expect(inputFinder, findsOneWidget);
-    final TextField input = tester.widget<TextField>(inputFinder);
-    expect(input.autofocus, isFalse);
-    expect(input.autocorrect, isFalse);
-    expect(input.enableSuggestions, isFalse);
+    final Finder inputFinder = await mountVisibleField(tester, repository, audio);
 
     await tester.tap(find.byKey(const Key('listen-button')));
     await tester.pump();
@@ -105,6 +112,40 @@ void main() {
     );
     semantics.dispose();
     expect(companion.label, contains('newly evolved'));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('an incorrect spelling stays editable and does not evolve the egg', (
+    WidgetTester tester,
+  ) async {
+    final MemoryAttemptStore repository = MemoryAttemptStore();
+    final RecordingPromptAudio audio = RecordingPromptAudio();
+    final Finder inputFinder = await mountVisibleField(tester, repository, audio);
+
+    await tester.enterText(inputFinder, 'accidant');
+    final Finder submit = find.byKey(const Key('submit-button'));
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await pumpUntilFound(
+      tester,
+      find.text('Not yet. Listen again and try once more.'),
+    );
+
+    final AttemptSnapshot saved = await repository.read();
+    expect(saved.attempts, 1);
+    expect(saved.correctCount, 0);
+    expect(saved.evolved, isFalse);
+    expect(tester.widget<TextField>(inputFinder).controller?.text, 'accidant');
+
+    final SemanticsHandle semantics = tester.ensureSemantics();
+    await tester.pump();
+    final SemanticsNode egg = tester.getSemantics(
+      find.byKey(const Key('companion-semantics')),
+    );
+    semantics.dispose();
+    expect(egg.label, contains('waiting to hatch'));
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();

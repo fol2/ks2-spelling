@@ -75,7 +75,9 @@ export const C6_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS = Object.freeze({
 
 // C7 keyboard chrome was reverted after physical iOS 27 evidence showed that
 // merely linking the native plugin changes WKWebView keyboard internals during
-// plugin load. The product keeps the standard iOS accessory bar instead.
+// plugin load. The package dependency remains banned. The release App also does
+// not copy the plugin's private WKContentView inputAccessoryView swizzle: the
+// standard iPhone form accessory stays system-owned.
 export const C7_PLANNED_PACKAGE_DEPENDENCY_ADDITIONS = Object.freeze({});
 
 export const PLANNED_PACKAGE_DEPENDENCY_ADDITIONS = Object.freeze({

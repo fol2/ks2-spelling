@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: visible-input-keyboard-${{ github.event.pull_request.number || github.ref }}
@@ -39,9 +39,7 @@ jobs:
         github.event.pull_request.head.ref == 'agent/keyboard-reset-visible-input'
       )
     runs-on: macos-26
-    timeout-minutes: 110
-    env:
-      EXPECTED_PARENT: f7caf37855c4044b78ed743042a18cae9d0ea202
+    timeout-minutes: 105
     steps:
       - name: Check out the exact reset head
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -49,390 +47,50 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || 'agent/keyboard-reset-visible-input' }}
 
-      - name: Prove the exact source and base ancestry
+      - name: Prove the exact PR base is contained in the reset head
+        if: github.event_name == 'pull_request'
         env:
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          if [ -n "$PR_HEAD_SHA" ]; then
-            test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
-            git cat-file -e "$PR_BASE_SHA^{commit}" 2>/dev/null || \
-              git fetch --no-tags origin "$PR_BASE_SHA"
-            git merge-base --is-ancestor "$PR_BASE_SHA" HEAD
-          fi
-          test "$(git rev-parse HEAD^)" = "$EXPECTED_PARENT"
-          test "$(git diff --name-only HEAD^ HEAD)" = \
-            '.github/workflows/pr55-visible-input-gate.yml'
+          test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
+          git cat-file -e "$PR_BASE_SHA^{commit}" 2>/dev/null || \
+            git fetch --no-tags origin "$PR_BASE_SHA"
+          git merge-base --is-ancestor "$PR_BASE_SHA" HEAD
 
-      - name: Apply the final visible-field and physical-probe hardening
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          def replace_once(path_name: str, old: str, new: str) -> None:
-              path = Path(path_name)
-              source = path.read_text()
-              count = source.count(old)
-              if count != 1:
-                  raise SystemExit(
-                      f'{path_name}: expected one replacement, found {count}'
-                  )
-              path.write_text(source.replace(old, new, 1))
-
-          product = 'src/app/ProductApp.jsx'
-          replace_once(
-              product,
-              "import { autoAdvanceDelayMs } from './practice-feel.js';",
-              "import { autoAdvanceDelayMs, spellingOnly } from './practice-feel.js';",
-          )
-          replace_once(
-              product,
-              '''            <button
-                type="button"
-                className="glass-button press-soft press"
-                onClick={onSwitchLearner}
-              >''',
-              '''            <button
-                type="button"
-                className="glass-button press-soft press"
-                aria-label={`Switch learner. Current learner: ${profile.nickname}`}
-                onClick={onSwitchLearner}
-              >''',
-          )
-          replace_once(
-              product,
-              '''      if (answer.trim() === '') {
-                setLocalError('Type the spelling before checking it.');
-                return;
-              }
-              await onSubmit(answer);''',
-              '''      const spelling = spellingOnly(answer);
-              if (spelling === '') {
-                setLocalError('Type the spelling before checking it.');
-                return;
-              }
-              await onSubmit(spelling);''',
-          )
-          replace_once(
-              product,
-              '''                  onChange={(event) => {
-                    if (!busy && !answered) setAnswer(event.target.value);
-                  }}''',
-              '''                  onChange={(event) => {
-                    if (!busy && !answered) {
-                      setAnswer(spellingOnly(event.target.value));
-                    }
-                  }}''',
-          )
-
-          swift = 'ios/App/B3ProofUITests/C5ProductLayoutTests.swift'
-          replace_once(
-              swift,
-              '''            // A reused device may launch directly onto an existing learner's
-                // Trail. The learner chip is the first Trail button and opens the
-                // same switch sheet as a clean install.
-                let trailSetOff = application.buttons["Set off"]
-                XCTAssertTrue(
-                    trailSetOff.waitForExistence(timeout: 5),
-                    "Neither the learner picker nor the Trail appeared."
-                )
-                let learnerChip = application.buttons.element(boundBy: 0)
-                XCTAssertTrue(
-                    learnerChip.isHittable,
-                    "The existing learner switch action is not reachable."
-                )
-                learnerChip.tap()''',
-              '''            // A reused device may launch directly onto an existing learner's
-                // Trail. Use the authored accessible name instead of depending on
-                // the learner chip being the first button in WebKit's hierarchy.
-                let trailSetOff = application.buttons["Set off"]
-                XCTAssertTrue(
-                    trailSetOff.waitForExistence(timeout: 5),
-                    "Neither the learner picker nor the Trail appeared."
-                )
-                let learnerChip = application.buttons.matching(
-                    NSPredicate(format: "label BEGINSWITH %@", "Switch learner")
-                ).firstMatch
-                XCTAssertTrue(
-                    learnerChip.waitForExistence(timeout: 3) && learnerChip.isHittable,
-                    "The existing learner switch action is not reachable."
-                )
-                learnerChip.tap()''',
-          )
-
-          old_open_practice = '''    private func openPracticeForKeyboardProbe(
-              in application: XCUIApplication
-          ) -> XCUIElement {
-              let learnerName = "Keyboard runner \(Int(Date().timeIntervalSince1970))"
-              let nickname = reachableNicknameField(in: application)
-              nickname.tap()
-              let profileKeyboard = requireSoftwareLetterKeys(in: application)
-              nickname.typeText(learnerName)
-              pressSubmissionKey(on: profileKeyboard)
-
-              let trailSetOff = application.buttons["Set off"]
-              if !trailSetOff.waitForExistence(timeout: 5) {
-                  let addLearner = application.buttons["Add learner"]
-                  if addLearner.exists {
-                      reveal(
-                          addLearner,
-                          in: application,
-                          message: "The learner form could not be submitted."
-                      ).tap()
-                  }
-              }
-              if !trailSetOff.waitForExistence(timeout: 10) {
-                  let learner = application.staticTexts[learnerName]
-                  reveal(
-                      learner,
-                      in: application,
-                      message: "The newly created learner could not be selected."
-                  ).tap()
-              }
-              reveal(
-                  trailSetOff,
-                  in: application,
-                  message: "The Trail Set off action did not appear."
-              ).tap()
-
-              XCTAssertTrue(
-                  application.staticTexts["Vocabulary set"].waitForExistence(timeout: 10),
-                  "The round setup screen did not appear."
-              )
-              let setupSetOff = application.buttons.matching(
-                  NSPredicate(format: "label BEGINSWITH %@", "Set off")
-              ).firstMatch
-              reveal(
-                  setupSetOff,
-                  in: application,
-                  message: "The setup Set off action is not reachable."
-              ).tap()
-
-              let labelled = application.textFields["Type the spelling"]
-              let placeholder = application.textFields["your spelling"]
-              let spelling = labelled.waitForExistence(timeout: 3)
-                  ? labelled
-                  : placeholder
-              return reveal(
-                  spelling,
-                  in: application,
-                  message: "The actual visible Practice spelling field did not appear."
-              )
-          }
-'''
-          new_open_practice = '''    private func openPracticeForKeyboardProbe(
-              in application: XCUIApplication
-          ) -> XCUIElement {
-              let trailSetOff = application.buttons["Set off"]
-
-              // Reuse a learner already on the device. The probe previously added a
-              // new learner on every run, which could eventually exhaust the bounded
-              // profile list and turn repeated keyboard checks into setup failures.
-              if !trailSetOff.waitForExistence(timeout: 2) {
-                  let existingLearner = application.buttons.matching(
-                      NSPredicate(format: "label CONTAINS[c] %@", "words a week")
-                  ).firstMatch
-                  if existingLearner.waitForExistence(timeout: 1) {
-                      reveal(
-                          existingLearner,
-                          in: application,
-                          message: "An existing learner could not be selected."
-                      ).tap()
-                  }
-              }
-
-              if !trailSetOff.waitForExistence(timeout: 3) {
-                  let learnerName = "Keyboard runner \(Int(Date().timeIntervalSince1970))"
-                  let nickname = reachableNicknameField(in: application)
-                  nickname.tap()
-                  let profileKeyboard = requireSoftwareLetterKeys(in: application)
-                  nickname.typeText(learnerName)
-                  pressSubmissionKey(on: profileKeyboard)
-
-                  if !trailSetOff.waitForExistence(timeout: 5) {
-                      let addLearner = application.buttons["Add learner"]
-                      if addLearner.exists {
-                          reveal(
-                              addLearner,
-                              in: application,
-                              message: "The learner form could not be submitted."
-                          ).tap()
-                      }
-                  }
-                  if !trailSetOff.waitForExistence(timeout: 10) {
-                      let learner = application.staticTexts[learnerName]
-                      reveal(
-                          learner,
-                          in: application,
-                          message: "The newly created learner could not be selected."
-                      ).tap()
-                  }
-              }
-
-              reveal(
-                  trailSetOff,
-                  in: application,
-                  message: "The Trail Set off action did not appear."
-              ).tap()
-
-              XCTAssertTrue(
-                  application.staticTexts["Vocabulary set"].waitForExistence(timeout: 10),
-                  "The round setup screen did not appear."
-              )
-              let setupSetOff = application.buttons.matching(
-                  NSPredicate(format: "label BEGINSWITH %@", "Set off")
-              ).firstMatch
-              reveal(
-                  setupSetOff,
-                  in: application,
-                  message: "The setup Set off action is not reachable."
-              ).tap()
-
-              let labelled = application.textFields["Type the spelling"]
-              let placeholder = application.textFields["your spelling"]
-              let spelling = labelled.waitForExistence(timeout: 3)
-                  ? labelled
-                  : placeholder
-              return reveal(
-                  spelling,
-                  in: application,
-                  message: "The actual visible Practice spelling field did not appear."
-              )
-          }
-'''
-          replace_once(swift, old_open_practice, new_open_practice)
-
-          replace_once(
-              swift,
-              '''        _ = requireSoftwareLetterKeys(in: application)
-              spelling.typeText("a")
-              XCTAssertEqual(
-                  spelling.value as? String,
-                  "a",
-                  "The same visible Practice field did not retain keyboard ownership."
-              )
-              attachScreenshot(name: "c5-product-practice-return-keyboard")''',
-              '''        // Feedback intentionally locks edits for two seconds. Prove the
-              // software letter rows remain present during that lock, then let the
-              // real auto-advance expose the next card before typing again. The old
-              // probe typed immediately and contradicted the product's own lock.
-              let feedbackKeyboard = application.keyboards.firstMatch
-              XCTAssertTrue(
-                  feedbackKeyboard.exists,
-                  "The software keyboard disappeared while feedback locked edits."
-              )
-              let feedbackLowerA = feedbackKeyboard.keys["a"]
-              let feedbackUpperA = feedbackKeyboard.keys["A"]
-              XCTAssertTrue(
-                  (feedbackLowerA.exists && feedbackLowerA.isHittable)
-                      || (feedbackUpperA.exists && feedbackUpperA.isHittable),
-                  "Feedback left only the input assistant without software letter rows."
-              )
-
-              XCTAssertTrue(
-                  application.buttons["Submit"].waitForExistence(timeout: 10),
-                  "The next card did not appear after the real feedback interval."
-              )
-              _ = requireSoftwareLetterKeys(in: application)
-              spelling.typeText("a")
-              XCTAssertEqual(
-                  spelling.value as? String,
-                  "a",
-                  "The next card did not retain the same visible keyboard session."
-              )
-              attachScreenshot(name: "c5-product-practice-return-keyboard")''',
-          )
-
-          tests = 'tests/keyboard-reset-visible-input.test.mjs'
-          replace_once(
-              tests,
-              '''  assert.match(
-                input,
-                /onChange=\{\(event\) => \{[\s\S]*?if \(!busy && !answered\) setAnswer\(event\.target\.value\);[\s\S]*?\}\}/u,
-              );''',
-              '''  assert.match(
-                input,
-                /onChange=\{\(event\) => \{[\s\S]*?if \(!busy && !answered\) \{[\s\S]*?setAnswer\(spellingOnly\(event\.target\.value\)\);[\s\S]*?\}[\s\S]*?\}\}/u,
-              );
-              assert.match(productApp, /autoAdvanceDelayMs, spellingOnly/u);
-              assert.match(productApp, /const spelling = spellingOnly\(answer\);/u);
-              assert.match(productApp, /await onSubmit\(spelling\);/u);
-              assert.match(
-                productApp,
-                /aria-label=\{`Switch learner\. Current learner: \$\{profile\.nickname\}`\}/u,
-                'the reused-device probe must not depend on button ordering',
-              );''',
-          )
-          replace_once(
-              tests,
-              '''  assert.match(nativeProbe, /openPracticeForKeyboardProbe/u);
-              assert.match(nativeProbe, /spelling\.typeText\("zzzzzz"\)/u);
-              assert.match(nativeProbe, /pressSubmissionKey\(on: keyboard\)/u);
-              assert.match(nativeProbe, /requireSoftwareLetterKeys\(in: application\)/u);
-              assert.match(nativeProbe, /spelling\.typeText\("a"\)/u);''',
-              '''  assert.match(nativeProbe, /openPracticeForKeyboardProbe/u);
-              assert.match(nativeProbe, /label CONTAINS\[c\].*words a week/u);
-              assert.match(nativeProbe, /label BEGINSWITH.*Switch learner/u);
-              assert.match(nativeProbe, /spelling\.typeText\("zzzzzz"\)/u);
-              assert.match(nativeProbe, /pressSubmissionKey\(on: keyboard\)/u);
-              assert.match(nativeProbe, /feedbackKeyboard/u);
-              assert.match(nativeProbe, /buttons\["Submit"\]\.waitForExistence/u);
-              assert.match(nativeProbe, /requireSoftwareLetterKeys\(in: application\)/u);
-              assert.match(nativeProbe, /spelling\.typeText\("a"\)/u);''',
-          )
-          replace_once(
-              tests,
-              '''  assert.equal(
-                existsSync(join(root, '.github/workflows/pr55-practice-probe-hardening.yml')),
-                false,
-                'the one-use Practice probe workflow must not remain in the durable branch',
-              );''',
-              '''  assert.equal(
-                existsSync(join(root, '.github/workflows/pr55-practice-probe-hardening.yml')),
-                false,
-                'the one-use Practice probe workflow must not remain in the durable branch',
-              );
-              assert.equal(
-                existsSync(join(root, '.github/workflows/pr55-feedback-next-card-hardening.yml')),
-                false,
-                'the one-use feedback/next-card workflow must not remain in the durable branch',
-              );''',
-          )
-
-          incident = 'docs/solutions/integration-issues/dictation-software-keyboard-ios27-incident.md'
-          replace_once(
-              incident,
-              '''- `#product-spelling-input` is the only spelling input and source of truth.
-          - Ordinary nickname, search and PIN fields retain their own native WebKit input''',
-              '''- `#product-spelling-input` is the only spelling input and source of truth.
-          - The real field and its submit boundary both apply the shared `spellingOnly()`
-            contract, so digits, spaces and unrelated punctuation cannot survive while
-            letters, apostrophes and hyphens remain available.
-          - Ordinary nickname, search and PIN fields retain their own native WebKit input''',
-          )
-          replace_once(
-              incident,
-              '''  - type a deliberately wrong spelling, submit through the keyboard action key,
-                require the software letter rows to remain available, and type into that same
-                Practice field again.''',
-              '''  - type a deliberately wrong spelling and submit through the keyboard action key;
-              - require software letter rows to remain present while feedback deliberately
-                rejects edits; and
-              - wait for the real auto-advance, then type into the same field on the next card.''',
-          )
-          PY
+      - name: Record a description-only edit
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.action == 'edited' &&
+          github.event.changes.base == null
+        run: >-
+          echo 'PR prose changed, but the exact head and base ancestry are unchanged;
+          the previously verified source/native tree does not need rebuilding.'
 
       - name: Set up Node.js
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.action != 'edited' ||
+          github.event.changes.base != null
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: '24.18.0'
           cache: npm
 
-      - name: Verify field ownership, sanitization and saving continuity
+      - name: Install exact dependencies
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.action != 'edited' ||
+          github.event.changes.base != null
+        run: npm ci
+
+      - name: Verify field ownership and saving-state continuity
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.action != 'edited' ||
+          github.event.changes.base != null
         run: |
-          npm ci
           node --test \
-            tests/answer-keyboard.test.mjs \
             tests/keyboard-reset-visible-input.test.mjs \
             tests/visible-input-saving-state.test.mjs \
             tests/dependency-policy.test.mjs \
@@ -446,6 +104,10 @@ jobs:
           git diff --check
 
       - name: Verify native dependency and iOS composition
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.action != 'edited' ||
+          github.event.changes.base != null
         run: |
           npm run native:sync:check
           npm run test:ios
@@ -456,22 +118,6 @@ jobs:
             -scheme B4DevelopmentUITests \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath .native-build/final-visible-input-hardening \
+            -derivedDataPath .native-build/visible-input-gate \
             CODE_SIGNING_ALLOWED=NO \
             build-for-testing
-
-      - name: Commit the durable hardening and restore the read-only gate
-        run: |
-          git checkout HEAD^ -- .github/workflows/pr55-visible-input-gate.yml
-          git rm .github/workflows/pr55-feedback-next-card-hardening.yml
-          git add \
-            .github/workflows/pr55-visible-input-gate.yml \
-            docs/solutions/integration-issues/dictation-software-keyboard-ios27-incident.md \
-            ios/App/B3ProofUITests/C5ProductLayoutTests.swift \
-            src/app/ProductApp.jsx \
-            tests/keyboard-reset-visible-input.test.mjs
-          git diff --cached --check
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'fix(ios): harden the real field through feedback and next card'
-          git push origin HEAD:agent/keyboard-reset-visible-input

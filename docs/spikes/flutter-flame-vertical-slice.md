@@ -1,12 +1,32 @@
 # Flutter + Flame vertical-slice decision gate
 
-Date: 2026-07-28
+Date: 2026-07-28  
+Automated evidence updated: 2026-07-29
 
 ## Decision this spike must support
 
 This is not authorisation to rewrite `ks2-spelling`. It is a bounded comparison against the simplified Capacitor product recovery.
 
 The question is whether Flutter widgets for the application surfaces, with Flame used only for the living companion scene, materially reduce platform-specific fragility while preserving the local-first spelling contract.
+
+## Current decision
+
+**Automated platform gate: GREEN. Migration decision: HOLD.**
+
+Flutter and Flame vertical-slice proof run #15 completed successfully before the generated shells were frozen. It established:
+
+- strict `flutter analyze` and both repository/widget test files pass;
+- concurrent SQLite opening is serialized, incorrect attempts do not evolve the egg, a correct attempt does, and state survives close/reopen;
+- the real visible `TextField` handles correct and incorrect entry without a hidden proxy or autofocus;
+- semantic state distinguishes the waiting egg from the evolved companion;
+- Android APK and Linux debug builds pass;
+- Windows debug builds pass;
+- macOS and unsigned iOS Simulator debug builds pass; and
+- the copied prompt audio is byte-identical to the existing repository asset.
+
+The exact generated platform shells, audio copy and `pubspec.lock` were then committed. The one-use proof workflow was removed, and ordinary repository CI passed again after deterministic scaffold hardening.
+
+This is enough to retain Flutter as a serious migration candidate. It is not enough to choose migration: physical keyboard, relaunch, audio and accessibility checks remain open.
 
 ## Slice
 
@@ -36,7 +56,7 @@ Automated:
 6. Windows debug build passes on Windows.
 7. The exact generated `pubspec.lock` and platform shells are committed to this branch.
 
-Physical-device checks remain separate and must be performed before choosing a migration:
+All seven automated requirements are satisfied. Physical-device checks remain separate and must be performed before choosing a migration:
 
 - iPhone on stable iOS: tap the visible field and type immediately;
 - the affected iOS 27 device: repeat the same bare-field check;

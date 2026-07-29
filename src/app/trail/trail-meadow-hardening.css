@@ -1,0 +1,62 @@
+/* Small responsive and interaction corrections kept separate from the habitat
+   drawing so the movement vocabulary remains readable. */
+
+/* The near vignette should partially cover far occupants, but the nearest
+   ground creature must still read as standing in front of it. */
+.trail-meadow::after {
+  z-index: 106;
+}
+
+/* An inspected or keyboard-focused companion rises above every foreground
+   layer, keeping its label and focus ring readable. */
+.trail-companion[data-poked='true'],
+.trail-companion:focus-visible {
+  z-index: 130;
+}
+
+/* Stage names such as “Mega Lanternwing” must wrap under Dynamic Type rather
+   than overflowing a max-content pill. */
+.trail-companion-tag {
+  white-space: normal;
+  text-wrap: balance;
+}
+
+.trail-companion-tag strong,
+.trail-companion-tag small {
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+/* Phone landscape has less vertical room than the ordinary short-screen rule.
+   Preserve the habitat, but let it yield space to Set off and the waypoint foot. */
+@media (max-height: 32rem) and (orientation: landscape) {
+  .trail-meadow {
+    min-height: clamp(8.5rem, 36dvh, 11rem);
+    border-radius: 1.35rem 1.35rem 0.8rem 0.8rem;
+  }
+
+  .trail-meadow::after {
+    bottom: -26%;
+    height: 42%;
+  }
+
+  .trail-companion-tag {
+    bottom: 78%;
+    max-width: min(11rem, 62vw);
+  }
+
+  .trail-meadow-empty {
+    bottom: 10%;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .trail-companion-shadow {
+    opacity: 0.8;
+  }
+
+  .trail-companion-nest,
+  .trail-companion-tag {
+    border-width: 2px;
+  }
+}

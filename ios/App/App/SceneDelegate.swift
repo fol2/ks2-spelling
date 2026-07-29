@@ -20,15 +20,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func restoreUserDrivenKeyboardFocus(
         on bridgeViewController: CAPBridgeViewController
     ) {
-        // Capacitor Core normally marks this WKWebView as not requiring a user
-        // interaction before keyboard presentation. That behaviour is implemented
-        // through Capacitor's process-wide WKContentView focus hook and is useful
-        // for apps that call input.focus() programmatically.
+        // Capacitor Core normally marks this web view as not requiring a user
+        // interaction before keyboard presentation. That is useful for apps that
+        // call input.focus() programmatically.
         //
         // KS2 Spelling deliberately does not do that: each visible HTML field is
-        // tapped by the learner. Clearing the per-WebView override makes the hook
-        // preserve WebKit's real user-interaction value instead of forcing it.
-        // Together with ios.initialFocus=false, this avoids creating a stale
+        // tapped by the learner. Clearing the per-web-view override makes the
+        // runtime preserve WebKit's real user-interaction value instead of forcing
+        // it. Together with ios.initialFocus=false, this avoids creating a stale
         // first-responder session before any visible field has been touched.
         bridgeViewController.webView?.capacitor
             .setKeyboardShouldRequireUserInteraction(nil)

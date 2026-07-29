@@ -131,6 +131,14 @@ test('the retired hidden-input and viewport-ownership files stay absent', () => 
   }
 });
 
+test('one-use restack machinery stays out of the durable branch', () => {
+  assert.equal(
+    existsSync(join(root, '.github/workflows/pr55-final-words-restack.yml')),
+    false,
+    'the verified restack workflow must remove itself before the branch is reviewable',
+  );
+});
+
 test('the retained keyboard gate verifies exact heads and base retargets', async () => {
   const workflow = await source('.github/workflows/pr55-visible-input-gate.yml');
 

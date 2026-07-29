@@ -44,6 +44,13 @@ clean product Debug build. Automated tests and an unsigned Simulator compile can
 prove composition and build integrity; they cannot prove software-keyboard
 creation on the affected device.
 
+The iPhone form accessory bar is intentionally left system-owned in the release
+product. Capacitor's accessory-bar implementation is not a smaller public API
+hidden inside the plugin: it replaces `inputAccessoryView` on WebKit's private
+`WKContentView` and legacy `UIWebBrowserView` classes at runtime. Removing the
+plugin's notification, resize and scroll work would narrow the side effects, but
+would not make that private-class hook stable or App Store-safe.
+
 ## Product behaviour after the reset
 
 1. The learner taps **Set off**.
@@ -89,6 +96,14 @@ preserved in draft forensic PR #53. It is evidence, not mergeable product code.
   it does not provide a dependable iOS command that creates the required session.
 - JavaScript callers are not the whole dependency boundary: an installed
   Capacitor plugin is linked and auto-loaded natively.
+- Capacitor hides the iPhone form accessory by mutating the implementation of
+  `inputAccessoryView` on private WebKit classes. An app-owned copy of only that
+  code remains a private implementation dependency and a global mutation of all
+  matching WebKit content views in the process.
+- UIKit's public `UITextInputAssistantItem` can remove app shortcuts on iPad, but
+  iPhone ignores that item; it is not a supported route to remove this bar.
+- A launch-time one-shot is also timing-sensitive: it can run before WebKit has
+  realised the private content-view class, silently leaving the bar unchanged.
 - `startRound()` publishes a saving state, awaits repository work and only then
   mounts Practice. The visible spelling field therefore cannot own the original
   **Set off** activation without changing that product transaction boundary.
@@ -113,8 +128,13 @@ preserved in draft forensic PR #53. It is evidence, not mergeable product code.
 - Saving, feedback and auto-advance may not set the visible spelling input to
   `disabled`, `readOnly`, hidden, inert or `tabIndex=-1`; the field remains mounted
   and focusable while mutation is rejected in event/state handling.
-- The application does not hide the standard iOS input assistant at the cost of
-  another native keyboard mutation.
+- The shipping App target may not resolve private WebKit content-view classes,
+  replace `inputAccessoryView`, or use Objective-C runtime method mutation to hide
+  the form accessory bar. Splitting private class names into string fragments does
+  not make the implementation public.
+- The standard iPhone form accessory remains system-owned. Its small visual cost
+  is accepted rather than reopening a process-wide, OS-version-sensitive keyboard
+  implementation.
 - Any future automatic-keyboard proposal must first make the actual visible field
   exist during a trusted activation; it must not restore the retired bridge.
 
@@ -133,6 +153,9 @@ The reset branch verifies that:
 - runtime source does not recreate a second input or import the Keyboard plugin;
 - `@capacitor/keyboard` is absent from package, lock, SwiftPM, Android and policy
   graphs;
+- App-target Objective-C/Swift sources contain no private accessory-view class
+  dependency or runtime method replacement, and the Xcode project wires no
+  accessory-bar helper;
 - native sync is stable;
 - the focused and fast test estate passes;
 - resolved dependency evidence regenerates cleanly;
@@ -176,9 +199,9 @@ Use a clean product Debug build from the exact final reset head. Do not test PR
 - [ ] Portrait and landscape keep the authored dictation layout usable without a
       custom keyboard inset.
 - [ ] Background/foreground, then tap the answer line: ordinary typing resumes.
-- [ ] If the standard previous/next/done assistant strip appears, it remains
-      system-owned and does not replace or delay the software key rows. The app
-      makes no native attempt to suppress it in this recovery.
+- [ ] The standard previous/next/done form accessory may remain visible. It must
+      stay system-owned and must not replace, delay or outlive the software key
+      rows.
 - [ ] Repeat the bare visible-field checks on stable iOS 26 and the affected iOS
       27 device when both are available.
 

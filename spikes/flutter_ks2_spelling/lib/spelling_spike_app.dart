@@ -466,10 +466,15 @@ final class _CompanionCardState extends State<_CompanionCard> {
               child: ExcludeSemantics(
                 child: SizedBox(
                   height: 180,
-                  child: GameWidget<CompanionEvolutionGame>(
-                    key: ValueKey<String>('companion-game-${snapshot.evolved}'),
-                    game: _game,
-                    autofocus: false,
+                  child: ExcludeFocus(
+                    excluding: true,
+                    child: GameWidget<CompanionEvolutionGame>(
+                      key: ValueKey<String>(
+                        'companion-game-${snapshot.evolved}',
+                      ),
+                      game: _game,
+                      autofocus: false,
+                    ),
                   ),
                 ),
               ),

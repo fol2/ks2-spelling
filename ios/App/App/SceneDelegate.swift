@@ -4,18 +4,21 @@ import Capacitor
 final class ProductBridgeViewController: CAPBridgeViewController {
     override func instanceDescriptor() -> InstanceDescriptor {
         let descriptor = super.instanceDescriptor()
-        // The product never uses programmatic input focus. Do not make the whole
-        // web view first responder before the learner has touched a visible field.
+        // The product does not make the whole web view first responder at launch.
+        // Learners open nickname, search and PIN through real taps. Practice may
+        // later call input.focus() on its visible field after Set off.
         descriptor.hasInitialFocus = false
         return descriptor
     }
 
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
-        // Capacitor's default per-web-view flag is intended to let input.focus()
-        // raise the keyboard. Clearing it preserves WebKit's real tap provenance
-        // for this product instead of forcing every focus to look user initiated.
-        webView?.capacitor.setKeyboardShouldRequireUserInteraction(nil)
+        // Keep Capacitor Core's default: programmatic input.focus() may raise the
+        // software keyboard. Practice uses that after Set off, Hear it again and
+        // the next card. Launch-time WebView first-responder ownership stays off
+        // via hasInitialFocus = false above — that was the iOS 27 breakage, not
+        // this per-focus flag.
+        webView?.capacitor.setKeyboardShouldRequireUserInteraction(false)
     }
 }
 

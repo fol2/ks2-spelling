@@ -2266,12 +2266,21 @@ function RoundScreen({
   const [exitError, setExitError] = useState('');
   const [leaving, setLeaving] = useState(false);
   const advanceTimerRef = useRef(null);
+  const spellingInputRef = useRef(null);
   const closeExit = useCallback(() => {
     setExitError('');
     setConfirmExit(false);
   }, []);
   const practice = state.practice;
   const busy = state.status === 'saving';
+  const answered = Boolean(practice?.awaitingAdvance);
+
+  const focusSpellingField = useCallback(() => {
+    if (busy || answered) return;
+    const field = spellingInputRef.current;
+    if (!field || typeof field.focus !== 'function') return;
+    field.focus({ preventScroll: true });
+  }, [busy, answered]);
 
   // The voice is not a round setting a learner chooses, but the pack is
   // recorded twice and the player still has to be told which recording to
@@ -2291,6 +2300,9 @@ function RoundScreen({
 
   async function play(kind) {
     if (!audioRequest || audioState.status !== 'ready' || busy) return;
+    // Replay buttons are real taps: reclaim the visible field in the same
+    // gesture so the software keyboard returns with the spelling input.
+    focusSpellingField();
     try {
       if (!audio || typeof audio.play !== 'function') {
         throw new Error('product_audio_player_unavailable');
@@ -2300,6 +2312,8 @@ function RoundScreen({
     } catch {
       setLocalError('Audio needs attention. Check the listening pack and try again.');
       onPlaybackFailure();
+    } finally {
+      focusSpellingField();
     }
   }
 
@@ -2309,6 +2323,22 @@ function RoundScreen({
   // Autoplay exactly once for a newly projected card.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioRequest]);
+
+  // After Set off / next card mount, raise the ordinary visible field so the
+  // learner can type without an extra tap on "your spelling".
+  useEffect(() => {
+    if (!practice || busy || answered) return undefined;
+    const frame = requestAnimationFrame(() => {
+      focusSpellingField();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    practice?.sessionId,
+    practice?.runtimeItemId,
+    answered,
+    busy,
+    focusSpellingField,
+  ]);
 
   useEffect(() => {
     if (advanceTimerRef.current != null) {
@@ -2341,7 +2371,6 @@ function RoundScreen({
   if (!practice) return null;
   const total = practice.progress.total;
   const done = practice.progress.done;
-  const answered = practice.awaitingAdvance;
   const visibleCard = Math.min(total, done + 1);
   const { before, after } = clozeParts(practice.cloze);
   const feedbackKind = feedbackTone(practice.feedback?.kind);
@@ -2433,6 +2462,7 @@ function RoundScreen({
                   Type the spelling
                 </label>
                 <input
+                  ref={spellingInputRef}
                   id="product-spelling-input"
                   name="spelling"
                   type="text"

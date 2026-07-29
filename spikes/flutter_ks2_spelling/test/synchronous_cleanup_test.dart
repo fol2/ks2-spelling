@@ -61,7 +61,7 @@ void main() {
     final SynchronousCleanupPromptAudio audio =
         SynchronousCleanupPromptAudio();
     final List<FlutterErrorDetails> reported = <FlutterErrorDetails>[];
-    final FlutterExceptionHandler? previousHandler = FlutterError.onError;
+    final previousHandler = FlutterError.onError;
     FlutterError.onError = reported.add;
     addTearDown(() {
       FlutterError.onError = previousHandler;

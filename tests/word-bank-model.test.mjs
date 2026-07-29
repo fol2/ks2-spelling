@@ -87,6 +87,31 @@ test('word bank offers only vocabulary sets published by the controller', () => 
   assert.deepEqual(bank.rows.map((row) => row.word), ['accident']);
 });
 
+test('word bank infers only catalogue-backed year bands when metadata is absent', () => {
+  const y34Only = buildWordBank({
+    progress: [word()],
+    now: 0,
+  });
+  assert.deepEqual(y34Only.vocabSets.map(({ id }) => id), ['core', 'y3-4']);
+
+  const bothBands = buildWordBank({
+    progress: [
+      word(),
+      word({
+        runtimeItemId: 'ks2-core:occupy',
+        target: 'occupy',
+        yearBand: '5-6',
+      }),
+    ],
+    now: 0,
+  });
+  assert.deepEqual(bothBands.vocabSets.map(({ id }) => id), [
+    'core',
+    'y3-4',
+    'y5-6',
+  ]);
+});
+
 test('word bank filters by vocabulary set, status and normalised live search', () => {
   const progress = [
     word({

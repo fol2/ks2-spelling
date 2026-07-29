@@ -82,14 +82,15 @@ jobs:
         working-directory: spikes/flutter_ks2_spelling
         run: |
           flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
           flutter analyze
           flutter test
 
       - name: Build Android and Linux debug applications
         working-directory: spikes/flutter_ks2_spelling
         run: |
-          flutter build apk --debug
-          flutter build linux --debug
+          flutter build apk --debug --no-pub
+          flutter build linux --debug --no-pub
 
       - name: Prove scaffold regeneration is byte-stable
         run: |
@@ -126,6 +127,8 @@ jobs:
             https://github.com/flutter/flutter.git \
             "$RUNNER_TEMP/flutter"
           test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = "$FLUTTER_COMMIT"
+          grep -Fq "revision: \"$FLUTTER_COMMIT\"" \
+            spikes/flutter_ks2_spelling/.metadata
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics
           "$RUNNER_TEMP/flutter/bin/flutter" precache --ios --macos
@@ -134,14 +137,15 @@ jobs:
         working-directory: spikes/flutter_ks2_spelling
         run: |
           flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
           flutter analyze
           flutter test
 
       - name: Build unsigned Apple applications
         working-directory: spikes/flutter_ks2_spelling
         run: |
-          flutter build macos --debug
-          flutter build ios --simulator --debug --no-codesign
+          flutter build macos --debug --no-pub
+          flutter build ios --simulator --debug --no-codesign --no-pub
 
   windows:
     if: >-
@@ -172,6 +176,8 @@ jobs:
             https://github.com/flutter/flutter.git \
             "$temp_root/flutter"
           test "$(git -C "$temp_root/flutter" rev-parse HEAD)" = "$FLUTTER_COMMIT"
+          grep -Fq "revision: \"$FLUTTER_COMMIT\"" \
+            spikes/flutter_ks2_spelling/.metadata
           echo "$temp_root/flutter/bin" >> "$GITHUB_PATH"
           "$temp_root/flutter/bin/flutter" config --no-analytics
           "$temp_root/flutter/bin/flutter" precache --windows
@@ -180,9 +186,10 @@ jobs:
         working-directory: spikes/flutter_ks2_spelling
         run: |
           flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
           flutter analyze
           flutter test
 
       - name: Build the Windows debug application
         working-directory: spikes/flutter_ks2_spelling
-        run: flutter build windows --debug
+        run: flutter build windows --debug --no-pub

@@ -150,6 +150,32 @@ test('legacy rows without coverage metadata remain readable as core', () => {
   assert.deepEqual(bank.vocabSets.map(({ id }) => id), ['core', 'y3-4']);
 });
 
+test('legacy core rows stay isolated from explicitly marked extensions', () => {
+  const bank = buildWordBank({
+    progress: [
+      word({ coverageTier: null }),
+      word({
+        runtimeItemId: 'extension:occupy',
+        target: 'occupy',
+        yearBand: '5-6',
+        coverageTier: 'extension',
+      }),
+    ],
+    vocabularySets: [
+      { id: 'core', label: 'Core', count: 1 },
+      { id: 'y3-4', label: 'Y3–4', count: 1 },
+      { id: 'y5-6', label: 'Y5–6', count: 1 },
+    ],
+    vocabSet: 'y5-6',
+    now: 0,
+  });
+
+  assert.equal(bank.total, 1);
+  assert.deepEqual(bank.rows.map((row) => row.word), ['accident']);
+  assert.deepEqual(bank.vocabSets.map(({ id }) => id), ['core', 'y3-4']);
+  assert.equal(bank.vocabSets[0].selected, true);
+});
+
 test('word bank filters by vocabulary set, status and normalised live search', () => {
   const progress = [
     word({

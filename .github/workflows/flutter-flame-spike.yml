@@ -1,0 +1,146 @@
+name: Flutter and Flame vertical-slice gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, reopened, synchronize]
+    paths:
+      - '.github/workflows/flutter-flame-spike.yml'
+      - 'docs/spikes/flutter-flame-vertical-slice.md'
+      - 'scripts/scaffold-flutter-spike.sh'
+      - 'spikes/flutter_ks2_spelling/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-flame-spike-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  linux-and-android:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.ref == 'spike/flutter-flame-vertical-slice'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check out the exact spike branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Linux build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            cmake \
+            libgtk-3-dev \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            liblzma-dev \
+            libsqlite3-dev \
+            ninja-build \
+            pkg-config
+
+      - name: Install Flutter 3.44.7
+        run: |
+          git clone --depth 1 --branch 3.44.7 \
+            https://github.com/flutter/flutter.git \
+            "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics
+          "$RUNNER_TEMP/flutter/bin/flutter" precache --android --linux
+
+      - name: Regenerate the deterministic shells
+        run: bash scripts/scaffold-flutter-spike.sh
+
+      - name: Resolve, analyse and test the locked graph
+        working-directory: spikes/flutter_ks2_spelling
+        run: |
+          flutter pub get --enforce-lockfile
+          flutter analyze
+          flutter test
+
+      - name: Build Android and Linux debug applications
+        working-directory: spikes/flutter_ks2_spelling
+        run: |
+          flutter build apk --debug
+          flutter build linux --debug
+
+      - name: Prove scaffold regeneration is byte-stable
+        run: |
+          git diff --check
+          git diff --exit-code -- \
+            scripts/scaffold-flutter-spike.sh \
+            spikes/flutter_ks2_spelling
+
+  apple:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.ref == 'spike/flutter-flame-vertical-slice'
+    runs-on: macos-26
+    timeout-minutes: 120
+    steps:
+      - name: Check out the exact spike branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Install Flutter 3.44.7
+        run: |
+          git clone --depth 1 --branch 3.44.7 \
+            https://github.com/flutter/flutter.git \
+            "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics
+          "$RUNNER_TEMP/flutter/bin/flutter" precache --ios --macos
+
+      - name: Resolve, analyse and test the locked graph
+        working-directory: spikes/flutter_ks2_spelling
+        run: |
+          flutter pub get --enforce-lockfile
+          flutter analyze
+          flutter test
+
+      - name: Build unsigned Apple applications
+        working-directory: spikes/flutter_ks2_spelling
+        run: |
+          flutter build macos --debug
+          flutter build ios --simulator --debug --no-codesign
+
+  windows:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.ref == 'spike/flutter-flame-vertical-slice'
+    runs-on: windows-2025
+    timeout-minutes: 120
+    steps:
+      - name: Check out the exact spike branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Install Flutter 3.44.7
+        run: |
+          temp_root="$(cygpath -u "$RUNNER_TEMP")"
+          git clone --depth 1 --branch 3.44.7 \
+            https://github.com/flutter/flutter.git \
+            "$temp_root/flutter"
+          echo "$temp_root/flutter/bin" >> "$GITHUB_PATH"
+          "$temp_root/flutter/bin/flutter" config --no-analytics
+          "$temp_root/flutter/bin/flutter" precache --windows
+
+      - name: Resolve, analyse and test the locked graph
+        working-directory: spikes/flutter_ks2_spelling
+        run: |
+          flutter pub get --enforce-lockfile
+          flutter analyze
+          flutter test
+
+      - name: Build the Windows debug application
+        working-directory: spikes/flutter_ks2_spelling
+        run: flutter build windows --debug

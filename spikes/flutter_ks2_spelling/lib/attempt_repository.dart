@@ -253,7 +253,7 @@ final class AttemptRepository implements AttemptStore {
   AttemptSnapshot _snapshotFromRow(Map<String, Object?> row) {
     final Object? storedLearnerId = row['learner_id'];
     final Object? storedNickname = row['nickname'];
-    if (storedLearnerId != learnerId) {
+    if (storedLearnerId is! String || storedLearnerId != learnerId) {
       throw StateError('The bounded learner identity is invalid.');
     }
     if (storedNickname is! String || storedNickname.trim().isEmpty) {

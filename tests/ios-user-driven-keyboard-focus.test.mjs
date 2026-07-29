@@ -10,26 +10,30 @@ async function source(path) {
   return readFile(join(root, path), 'utf8');
 }
 
-test('the product does not create a WebView first responder before a real field tap', async () => {
-  const [configurationSource, sceneDelegate] = await Promise.all([
-    source('capacitor.config.json'),
+test('the product bridge waits for a real field tap before keyboard ownership', async () => {
+  const [sceneDelegate, storyboard] = await Promise.all([
     source('ios/App/App/SceneDelegate.swift'),
+    source('ios/App/App/Base.lproj/Main.storyboard'),
   ]);
-  const configuration = JSON.parse(configurationSource);
 
-  assert.equal(
-    configuration.ios?.initialFocus,
-    false,
-    'Capacitor must not make the whole WKWebView first responder at launch',
+  assert.match(
+    sceneDelegate,
+    /final class ProductBridgeViewController: CAPBridgeViewController/u,
   );
   assert.match(
     sceneDelegate,
-    /webView\?\.capacitor\s*\n?\s*\.setKeyboardShouldRequireUserInteraction\(nil\)/u,
-    'the App must clear Capacitor Core\'s programmatic-focus override for this WKWebView',
+    /override func instanceDescriptor\(\) -> InstanceDescriptor[\s\S]*descriptor\.hasInitialFocus = false/u,
+    'the whole web view must not become first responder before a visible field is tapped',
   );
-  assert.doesNotMatch(
+  assert.match(
     sceneDelegate,
-    /becomeFirstResponder\s*\(/u,
-    'the App must not recreate a keyboard session before a visible field is tapped',
+    /override func capacitorDidLoad\(\)[\s\S]*setKeyboardShouldRequireUserInteraction\(nil\)/u,
+    'the product host must clear Capacitor Core\'s programmatic-focus override',
+  );
+  assert.doesNotMatch(sceneDelegate, /becomeFirstResponder\s*\(/u);
+  assert.match(
+    storyboard,
+    /customClass="ProductBridgeViewController" customModule="App" customModuleProvider="target"/u,
+    'the shipping storyboard must instantiate the product bridge host',
   );
 });

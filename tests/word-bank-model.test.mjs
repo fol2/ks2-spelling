@@ -8,6 +8,7 @@ function word(overrides = {}) {
     runtimeItemId: 'ks2-core:accident',
     target: 'accident',
     yearBand: '3-4',
+    coverageTier: 'statutory-core',
     stage: 0,
     attempts: 0,
     correct: 0,
@@ -72,6 +73,7 @@ test('word bank offers only vocabulary sets published by the controller', () => 
     vocabularySets: [
       { id: 'core', label: 'Core', count: 1 },
       { id: 'y3-4', label: 'Y3–4', count: 1 },
+      { id: 'y5-6', label: 'Y5–6', count: 0 },
       { id: 'unknown', label: 'Invented', count: 99 },
       { id: 'core', label: 'Duplicate', count: 1 },
     ],
@@ -110,6 +112,27 @@ test('word bank infers only catalogue-backed year bands when metadata is absent'
     'y3-4',
     'y5-6',
   ]);
+});
+
+test('non-core catalogue rows never leak into statutory vocabulary sets', () => {
+  const bank = buildWordBank({
+    progress: [
+      word(),
+      word({
+        runtimeItemId: 'extension:occupy',
+        target: 'occupy',
+        yearBand: '5-6',
+        coverageTier: 'extension',
+      }),
+    ],
+    vocabularySets: ALL_SETS,
+    now: 0,
+  });
+
+  assert.equal(bank.total, 1);
+  assert.deepEqual(bank.rows.map((row) => row.word), ['accident']);
+  assert.deepEqual(bank.vocabSets.map(({ id }) => id), ['core', 'y3-4']);
+  assert.equal(bank.vocabSets.find(({ id }) => id === 'core').count, 1);
 });
 
 test('word bank filters by vocabulary set, status and normalised live search', () => {

@@ -32,7 +32,7 @@ That evidence establishes:
 - prompt playback reuses one bounded audio backend, stops superseded playback and drains accepted playback before disposal;
 - a failed replay stop retains its stop handle, prevents overlapping replacement playback and is retried by the next replay or disposal;
 - backend disposal still runs when a player stop throws;
-- asynchronous repository and audio cleanup failures are reported through `FlutterError` rather than escaping as unhandled futures;
+- synchronous and asynchronous repository/audio cleanup failures cross one closure-based boundary and are reported through `FlutterError` rather than escaping as unhandled failures;
 - Android APK, Linux, Windows, macOS and unsigned iOS Simulator debug builds pass;
 - deterministic shell regeneration is byte-stable and leaves committed source, shells, lockfile and audio unchanged; and
 - the copied prompt audio remains byte-identical to the repository-owned asset.

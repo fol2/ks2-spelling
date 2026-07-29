@@ -168,6 +168,21 @@ test('word bank filters by vocabulary set, status and normalised live search', (
   assert.equal(secureY34.countLabel, '1 of 2');
 });
 
+test('programmatic queries are capped to the same boundary as the input', () => {
+  const sixtyFourCharacters = 'a'.repeat(64);
+  const bank = buildWordBank({
+    progress: [word({
+      runtimeItemId: 'ks2-core:long-test-word',
+      target: sixtyFourCharacters,
+    })],
+    query: `${sixtyFourCharacters}ignored-tail`,
+    now: 0,
+  });
+
+  assert.deepEqual(bank.rows.map((row) => row.word), [sixtyFourCharacters]);
+  assert.equal(bank.countLabel, '1 of 1');
+});
+
 test('unknown filters and empty set metadata fall back safely', () => {
   const bank = buildWordBank({
     progress: [word()],

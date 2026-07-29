@@ -1,27 +1,40 @@
 name: PR54 legacy catalogue metadata hardening
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/words-search-vocabulary-sets-clean
+      - main
+    types: [opened, reopened, synchronize]
+    paths:
+      - '.github/workflows/pr54-legacy-catalogue-hardening.yml'
+      - 'src/app/product-learning-controller.js'
+      - 'tests/product-learning-controller.test.mjs'
 
 permissions:
   contents: write
 
 concurrency:
-  group: pr54-legacy-catalogue-${{ github.ref }}
+  group: pr54-legacy-catalogue-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   harden:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'agent/words-search-vocabulary-sets-clean'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Check out the exact Words branch
+      - name: Check out the exact Words head
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
-          ref: agent/words-search-vocabulary-sets-clean
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Prove the pull-request head is exact
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
 
       - name: Align legacy controller metadata with the Word Bank model
         run: |

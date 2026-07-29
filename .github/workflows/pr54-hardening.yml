@@ -35,43 +35,40 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
-          def replace_once(path, old, new):
-              file = Path(path)
-              source = file.read_text()
-              count = source.count(old)
+          def substitute_once(source, pattern, replacement, label, flags=0):
+              updated, count = re.subn(pattern, replacement, source, count=1, flags=flags)
               if count != 1:
-                  raise SystemExit(f'{path}: expected one replacement, found {count}')
-              file.write_text(source.replace(old, new, 1))
+                  raise SystemExit(f'{label}: expected one replacement, found {count}')
+              return updated
 
-          replace_once(
-              'src/app/ProductApp.jsx',
-              "function WordBankScreen({ progress, onScreen, onStart }) {\n",
-              "function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {\n",
+          product_path = Path('src/app/ProductApp.jsx')
+          product = product_path.read_text()
+          product = substitute_once(
+              product,
+              r'function WordBankScreen\(\{ progress, onScreen, onStart \}\)',
+              'function WordBankScreen({ progress, vocabularySets, onScreen, onStart })',
+              'WordBankScreen signature',
           )
-          replace_once(
-              'src/app/ProductApp.jsx',
+          product = substitute_once(
+              product,
+              r"  const bank = useMemo\(\n    \(\) => buildWordBank\(\{ progress, filter, vocabSet, query \}\),\n    \[progress, filter, vocabSet, query\],\n  \);",
               """  const bank = useMemo(
-              () => buildWordBank({ progress, filter, vocabSet, query }),
-              [progress, filter, vocabSet, query],
-            );
-          """,
-              """  const bank = useMemo(
-              () => buildWordBank({
-                progress,
-                filter,
-                vocabSet,
-                vocabularySets,
-                query,
-              }),
-              [progress, filter, vocabSet, vocabularySets, query],
-            );
-          """,
+            () => buildWordBank({
+              progress,
+              filter,
+              vocabSet,
+              vocabularySets,
+              query,
+            }),
+            [progress, filter, vocabSet, vocabularySets, query],
+          );""",
+              'WordBank model call',
           )
-          replace_once(
-              'src/app/ProductApp.jsx',
-              """            <span className="figure">{bank.countLabel}</span>
-          """,
+          product = substitute_once(
+              product,
+              r'            <span className="figure">\{bank\.countLabel\}</span>',
               """            <span
                       id="bank-result-count"
                       className="figure"
@@ -80,14 +77,12 @@ jobs:
                       aria-atomic="true"
                     >
                       {bank.countLabel}
-                    </span>
-          """,
+                    </span>""",
+              'WordBank result status',
           )
-          replace_once(
-              'src/app/ProductApp.jsx',
-              """              enterKeyHint="search"
-                      onChange={(event) => setQuery(event.target.value)}
-          """,
+          product = substitute_once(
+              product,
+              r'''              enterKeyHint="search"\n              onChange=\{\(event\) => setQuery\(event\.target\.value\)\}''',
               """              enterKeyHint="search"
                       maxLength={64}
                       aria-describedby="bank-result-count"
@@ -97,66 +92,57 @@ jobs:
                           event.preventDefault();
                           setQuery('');
                         }
-                      }}
-          """,
+                      }}""",
+              'WordBank search keyboard contract',
           )
-          replace_once(
-              'src/app/ProductApp.jsx',
-              """                aria-pressed={option.selected}
-                        onClick={() => setVocabSet(option.id)}
-          """,
+          product = substitute_once(
+              product,
+              r'''                aria-pressed=\{option\.selected\}\n                onClick=\{\(\) => setVocabSet\(option\.id\)\}''',
               """                aria-pressed={option.selected}
                         aria-label={`${option.label}, ${option.count} ${option.count === 1 ? 'word' : 'words'}`}
-                        onClick={() => setVocabSet(option.id)}
-          """,
+                        onClick={() => setVocabSet(option.id)}""",
+              'vocabulary-set accessible count',
           )
-          replace_once(
-              'src/app/ProductApp.jsx',
-              """                aria-pressed={option.selected}
-                        onClick={() => setFilter(option.id)}
-          """,
+          product = substitute_once(
+              product,
+              r'''                aria-pressed=\{option\.selected\}\n                onClick=\{\(\) => setFilter\(option\.id\)\}''',
               """                aria-pressed={option.selected}
                         aria-label={`${option.label}, ${option.count} ${option.count === 1 ? 'word' : 'words'}`}
-                        onClick={() => setFilter(option.id)}
-          """,
+                        onClick={() => setFilter(option.id)}""",
+              'status-filter accessible count',
           )
-          replace_once(
-              'src/app/ProductApp.jsx',
-              """      <WordBankScreen
-                progress={learningState.progress}
-                onScreen={showScreen}
-          """,
+          product = substitute_once(
+              product,
+              r'''      <WordBankScreen\n        progress=\{learningState\.progress\}\n        onScreen=\{showScreen\}''',
               """      <WordBankScreen
                 progress={learningState.progress}
                 vocabularySets={learningState.vocabularySets}
-                onScreen={showScreen}
-          """,
+                onScreen={showScreen}""",
+              'published vocabulary-set handoff',
           )
+          product_path.write_text(product)
 
           shell_path = Path('tests/app-shell.test.mjs')
           shell = shell_path.read_text()
-          old = """  assert.match(emptyProgressHtml, /id="bank-search-input"/);
-            assert.match(emptyProgressHtml, /placeholder="Search spellings"/);
-            assert.match(emptyProgressHtml, /aria-label="Vocabulary set"/);
-            assert.match(emptyProgressHtml, /aria-label="Filter words"/);
-            for (const set of ['Core', 'Y3–4', 'Y5–6']) {
-              assert.match(emptyProgressHtml, new RegExp(`>${set}<`));
-            }
-          """
-          new = """  assert.match(emptyProgressHtml, /id="bank-search-input"/);
-            assert.match(emptyProgressHtml, /placeholder="Search spellings"/);
+          shell = substitute_once(
+              shell,
+              r'''  assert\.match\(emptyProgressHtml, /placeholder="Search spellings"/\);\n  assert\.match\(emptyProgressHtml, /aria-label="Vocabulary set"/\);''',
+              """  assert.match(emptyProgressHtml, /placeholder="Search spellings"/);
             assert.match(emptyProgressHtml, /aria-describedby="bank-result-count"/);
             assert.match(emptyProgressHtml, /id="bank-result-count"[^>]*role="status"/);
-            assert.match(emptyProgressHtml, /aria-label="Vocabulary set"/);
-            assert.match(emptyProgressHtml, /aria-label="Filter words"/);
-            for (const set of ['Core', 'Y3–4']) {
+            assert.match(emptyProgressHtml, /aria-label="Vocabulary set"/);""",
+              'WordBank accessibility assertions',
+          )
+          shell = substitute_once(
+              shell,
+              r'''  for \(const set of \['Core', 'Y3–4', 'Y5–6'\]\) \{\n    assert\.match\(emptyProgressHtml, new RegExp\(`>\$\{set\}<`\)\);\n  \}''',
+              """  for (const set of ['Core', 'Y3–4']) {
               assert.match(emptyProgressHtml, new RegExp(`>${set}<`));
             }
-            assert.doesNotMatch(emptyProgressHtml, />Y5–6</);
-          """
-          if shell.count(old) != 1:
-              raise SystemExit('tests/app-shell.test.mjs: could not isolate Word Bank assertions')
-          shell_path.write_text(shell.replace(old, new, 1))
+            assert.doesNotMatch(emptyProgressHtml, />Y5–6</);""",
+              'published vocabulary-set assertions',
+          )
+          shell_path.write_text(shell)
           PY
 
       - name: Set up Node.js

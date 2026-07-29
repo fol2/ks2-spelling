@@ -109,10 +109,14 @@ final class FlamePromptAudio implements PromptAudio {
     await _operationTail;
     final StopPlayback? stop = _activeStop;
     _activeStop = null;
-    await stop?.call();
     final PromptAudioBackend? backend = _backend;
     _backend = null;
-    await backend?.dispose();
+    try {
+      await stop?.call();
+    } finally {
+      // A plugin/player stop failure must not leak the one owned pool.
+      await backend?.dispose();
+    }
   }
 }
 

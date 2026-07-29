@@ -243,10 +243,16 @@ final class AttemptRepository implements AttemptStore {
     if (storedEvolved is! int || (storedEvolved != 0 && storedEvolved != 1)) {
       throw StateError('The bounded learner evolution flag is invalid.');
     }
+    final bool evolved = storedEvolved == 1;
+    if (evolved != (storedCorrectCount > 0)) {
+      throw StateError(
+        'The bounded learner evolution state contradicts its correct count.',
+      );
+    }
     return _AttemptCounters(
       attempts: storedAttempts,
       correctCount: storedCorrectCount,
-      evolved: storedEvolved == 1,
+      evolved: evolved,
     );
   }
 

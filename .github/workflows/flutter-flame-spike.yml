@@ -4,7 +4,7 @@ on:
   pull_request:
     branches:
       - main
-    types: [opened, reopened, synchronize, edited, ready_for_review]
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - '.github/workflows/flutter-flame-spike.yml'
       - 'docs/spikes/flutter-flame-vertical-slice.md'

@@ -201,6 +201,28 @@ test('product learning publishes only non-empty catalogue pools and draws from t
   await controller.dispose();
 });
 
+test('product learning publishes legacy catalogue rows as core vocabulary metadata', async () => {
+  const catalogue = structuredClone(loadStarterSpellingCatalogue());
+  for (const item of catalogue.items) delete item.coverageTier;
+  const world = createLearningWorld(
+    [snapshotForCatalogue(catalogue)],
+    catalogue,
+  );
+  const controller = world.createController();
+
+  assert.deepEqual(controller.getState().vocabularySets, [
+    { id: 'core', label: 'Core', count: 20 },
+    { id: 'y3-4', label: 'Y3–4', count: 20 },
+  ]);
+  assert.ok(
+    controller.getState().progress.every(
+      ({ coverageTier }) => coverageTier === null,
+    ),
+  );
+
+  await controller.dispose();
+});
+
 test('product learning routes Trouble Drill and SATs Test through the shared controller', async () => {
   const troubleWorld = createLearningWorld();
   const trouble = troubleWorld.createController();

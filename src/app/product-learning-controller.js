@@ -148,7 +148,8 @@ function progressProjection(snapshot, catalogue) {
 
 function vocabularySetsProjection(catalogue) {
   const core = catalogue.items.filter(
-    ({ coverageTier }) => coverageTier === 'statutory-core',
+    ({ coverageTier }) =>
+      coverageTier == null || coverageTier === 'statutory-core',
   );
   return [
     { id: 'core', label: 'Core', count: core.length },

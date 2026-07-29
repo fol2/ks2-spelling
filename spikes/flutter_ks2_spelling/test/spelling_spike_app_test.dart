@@ -1,8 +1,10 @@
+import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../lib/attempt_repository.dart';
+import '../lib/companion_game.dart';
 import '../lib/prompt_audio.dart';
 import '../lib/spelling_spike_app.dart';
 
@@ -75,6 +77,22 @@ final class FailOnceAttemptStore implements AttemptStore {
   Future<void> close() => delegate.close();
 }
 
+final class FailingCleanupAttemptStore extends MemoryAttemptStore {
+  @override
+  Future<void> close() async {
+    await super.close();
+    throw StateError('simulated repository cleanup failure');
+  }
+}
+
+final class FailingCleanupPromptAudio extends RecordingPromptAudio {
+  @override
+  Future<void> dispose() async {
+    await super.dispose();
+    throw StateError('simulated audio cleanup failure');
+  }
+}
+
 Future<void> pumpUntilFound(
   WidgetTester tester,
   Finder finder,
@@ -127,9 +145,24 @@ void main() {
     final RecordingPromptAudio audio = RecordingPromptAudio();
     final Finder inputFinder = await mountVisibleField(tester, repository, audio);
 
+    final Finder waitingGameFinder = find.byKey(
+      const ValueKey<String>('companion-game-false'),
+    );
+    final CompanionEvolutionGame gameBeforeListen = tester
+        .widget<GameWidget<CompanionEvolutionGame>>(waitingGameFinder)
+        .game;
+
     await tester.tap(find.byKey(const Key('listen-button')));
     await tester.pump();
     expect(audio.playCount, 1);
+    final CompanionEvolutionGame gameAfterListen = tester
+        .widget<GameWidget<CompanionEvolutionGame>>(waitingGameFinder)
+        .game;
+    expect(
+      identical(gameBeforeListen, gameAfterListen),
+      isTrue,
+      reason: 'unrelated page state must not recreate the Flame game',
+    );
 
     await tester.enterText(inputFinder, 'accident');
     final Finder submit = find.byKey(const Key('submit-button'));
@@ -146,6 +179,10 @@ void main() {
     );
     expect(
       find.text('1 correct from 1 attempt · saved in SQLite'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('companion-game-true')),
       findsOneWidget,
     );
     final AttemptSnapshot saved = await repository.read();
@@ -224,5 +261,34 @@ void main() {
     expect(find.byKey(const Key('spelling-input')), findsOneWidget);
 
     await unmountAndVerifyCleanup(tester, delegate, audio);
+  });
+
+  testWidgets('cleanup failures are reported instead of escaping unhandled', (
+    WidgetTester tester,
+  ) async {
+    final FailingCleanupAttemptStore repository =
+        FailingCleanupAttemptStore();
+    final FailingCleanupPromptAudio audio = FailingCleanupPromptAudio();
+    final List<FlutterErrorDetails> reported = <FlutterErrorDetails>[];
+    final FlutterExceptionHandler? previousHandler = FlutterError.onError;
+    FlutterError.onError = reported.add;
+    addTearDown(() {
+      FlutterError.onError = previousHandler;
+    });
+
+    await mountVisibleField(tester, repository, audio);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+
+    expect(repository.closeCount, 1);
+    expect(audio.disposeCount, 1);
+    expect(reported, hasLength(2));
+    expect(
+      reported.map((FlutterErrorDetails details) => details.exceptionAsString()),
+      containsAll(<String>[
+        'Bad state: simulated repository cleanup failure',
+        'Bad state: simulated audio cleanup failure',
+      ]),
+    );
   });
 }

@@ -72,4 +72,38 @@ void main() {
     expect(recovered.correctCount, 1);
     expect(recovered.evolved, isTrue);
   });
+
+  test('malformed persisted learner data is rejected at the read boundary', () async {
+    final Directory directory = await Directory.systemTemp.createTemp(
+      'ks2-spelling-flutter-corrupt-',
+    );
+    final String databasePath = paths.join(directory.path, 'learner.sqlite');
+    addTearDown(() async {
+      await directory.delete(recursive: true);
+    });
+
+    final AttemptRepository seeded = AttemptRepository(
+      databaseFactory: databaseFactoryFfi,
+      databasePath: databasePath,
+    );
+    await seeded.read();
+    await seeded.close();
+
+    final Database raw = await databaseFactoryFfi.openDatabase(databasePath);
+    final int changed = await raw.update(
+      'learner_state',
+      <String, Object>{'nickname': '   '},
+      where: 'learner_id = ?',
+      whereArgs: <Object>[AttemptRepository.learnerId],
+    );
+    expect(changed, 1);
+    await raw.close();
+
+    final AttemptRepository corrupted = AttemptRepository(
+      databaseFactory: databaseFactoryFfi,
+      databasePath: databasePath,
+    );
+    await expectLater(corrupted.read(), throwsStateError);
+    await corrupted.close();
+  });
 }

@@ -1,20 +1,23 @@
 name: PR55 exact restack and verification
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/keyboard-reset-visible-input
+      - agent/words-search-vocabulary-sets-clean
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: write
 
 concurrency:
-  group: pr55-exact-restack-${{ github.ref }}
-  cancel-in-progress: false
+  group: pr55-exact-restack-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   restack:
-    if: github.actor != 'github-actions[bot]'
+    if: >-
+      github.event.pull_request.head.ref == 'agent/keyboard-reset-visible-input' &&
+      github.actor != 'github-actions[bot]'
     runs-on: macos-26
     timeout-minutes: 105
     env:

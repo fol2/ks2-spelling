@@ -294,15 +294,16 @@ void main() {
       );
 
       await tester.enterText(inputFinder, 'accident');
-      await tester.tap(find.byKey(const Key('submit-button')));
+      final Finder submit = find.byKey(const Key('submit-button'));
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
       await repository.recordStarted.future;
       await tester.pump();
 
       final TextField savingField = tester.widget<TextField>(inputFinder);
       expect(savingField.readOnly, isFalse);
       expect(
-        tester.widget<FilledButton>(find.byKey(const Key('submit-button')))
-            .onPressed,
+        tester.widget<FilledButton>(submit).onPressed,
         isNull,
       );
       final TextInputFormatter savingFormatter =
@@ -359,7 +360,9 @@ void main() {
     );
 
     await tester.enterText(inputFinder, 'accident');
-    await tester.tap(find.byKey(const Key('submit-button')));
+    final Finder submit = find.byKey(const Key('submit-button'));
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
     await pumpUntilFound(
       tester,
       find.text('The answer could not be saved locally.'),
@@ -375,8 +378,7 @@ void main() {
       newValue,
     );
     expect(
-      tester.widget<FilledButton>(find.byKey(const Key('submit-button')))
-          .onPressed,
+      tester.widget<FilledButton>(submit).onPressed,
       isNotNull,
     );
 

@@ -72,6 +72,36 @@ final class FailingStopPromptAudioBackend implements PromptAudioBackend {
   }
 }
 
+final class RecoveringStopPromptAudioBackend implements PromptAudioBackend {
+  final List<String> events = <String>[];
+  int startCount = 0;
+
+  @override
+  Future<StopPlayback> start() async {
+    startCount += 1;
+    final int playbackId = startCount;
+    events.add('start:$playbackId');
+    int stopAttempts = 0;
+    bool stopped = false;
+    return () async {
+      if (stopped) {
+        return;
+      }
+      stopAttempts += 1;
+      events.add('stop:$playbackId:$stopAttempts');
+      if (playbackId == 1 && stopAttempts == 1) {
+        throw StateError('transient stop failure');
+      }
+      stopped = true;
+    };
+  }
+
+  @override
+  Future<void> dispose() async {
+    events.add('dispose');
+  }
+}
+
 void main() {
   test('repeated playback reuses one backend and stops superseded audio', () async {
     final RecordingPromptAudioBackend backend = RecordingPromptAudioBackend();
@@ -101,6 +131,36 @@ void main() {
       ],
     );
     await expectLater(audio.play(), throwsStateError);
+  });
+
+  test('a failed replay stop is retried before replacement playback starts', () async {
+    final RecoveringStopPromptAudioBackend backend =
+        RecoveringStopPromptAudioBackend();
+    final FlamePromptAudio audio = FlamePromptAudio(
+      backendFactory: () async => backend,
+    );
+
+    await audio.play();
+    await expectLater(audio.play(), throwsStateError);
+    expect(
+      backend.events,
+      <String>['start:1', 'stop:1:1'],
+      reason: 'a replacement player must not start after a failed stop',
+    );
+
+    await audio.play();
+    await audio.dispose();
+    expect(
+      backend.events,
+      <String>[
+        'start:1',
+        'stop:1:1',
+        'stop:1:2',
+        'start:2',
+        'stop:2:1',
+        'dispose',
+      ],
+    );
   });
 
   test('dispose drains playback accepted before shutdown', () async {

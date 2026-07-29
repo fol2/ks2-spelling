@@ -64,6 +64,9 @@ function matchesVocabSet(vocabSetId, yearBand) {
   return false;
 }
 
+// The controller is the authority for which catalogue pools are actually
+// published. The local definitions only validate their ids and supply safe
+// labels; they must never make an unavailable pool appear in the interface.
 function publishedVocabSets(value) {
   const candidates = Array.isArray(value) ? value : WORD_BANK_VOCAB_SETS;
   const seen = new Set();

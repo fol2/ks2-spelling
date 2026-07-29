@@ -150,14 +150,14 @@ void main() {
     );
     final CompanionEvolutionGame gameBeforeListen = tester
         .widget<GameWidget<CompanionEvolutionGame>>(waitingGameFinder)
-        .game;
+        .game!;
 
     await tester.tap(find.byKey(const Key('listen-button')));
     await tester.pump();
     expect(audio.playCount, 1);
     final CompanionEvolutionGame gameAfterListen = tester
         .widget<GameWidget<CompanionEvolutionGame>>(waitingGameFinder)
-        .game;
+        .game!;
     expect(
       identical(gameBeforeListen, gameAfterListen),
       isTrue,
@@ -270,7 +270,7 @@ void main() {
         FailingCleanupAttemptStore();
     final FailingCleanupPromptAudio audio = FailingCleanupPromptAudio();
     final List<FlutterErrorDetails> reported = <FlutterErrorDetails>[];
-    final FlutterExceptionHandler? previousHandler = FlutterError.onError;
+    final previousHandler = FlutterError.onError;
     FlutterError.onError = reported.add;
     addTearDown(() {
       FlutterError.onError = previousHandler;

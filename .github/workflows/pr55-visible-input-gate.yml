@@ -49,12 +49,10 @@ jobs:
         env:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
-          git fetch --no-tags origin \
-            "refs/heads/$PR_BASE_REF:refs/remotes/origin/$PR_BASE_REF"
-          test "$(git rev-parse refs/remotes/origin/$PR_BASE_REF)" = "$PR_BASE_SHA"
+          git cat-file -e "$PR_BASE_SHA^{commit}" 2>/dev/null || \
+            git fetch --no-tags origin "$PR_BASE_SHA"
           git merge-base --is-ancestor "$PR_BASE_SHA" HEAD
 
       - name: Set up Node.js

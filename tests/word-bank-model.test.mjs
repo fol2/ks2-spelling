@@ -48,6 +48,24 @@ test('word bank keeps unseen catalogue words alongside saved progress', () => {
   assert.equal(bank.rows[1].note, '1 correct · never missed');
 });
 
+test('missing due dates do not coerce to guardian day zero', () => {
+  const bank = buildWordBank({
+    now: 0,
+    progress: [word({
+      attempts: 3,
+      correct: 2,
+      wrong: 1,
+      dueDay: null,
+    })],
+  });
+
+  assert.equal(bank.rows[0].due, false);
+  assert.equal(bank.rows[0].status, 'learning');
+  assert.equal(bank.rows[0].note, '2 correct · 1 to revisit');
+  assert.equal(bank.filters.find(({ id }) => id === 'due').count, 0);
+  assert.equal(bank.filters.find(({ id }) => id === 'trouble').count, 0);
+});
+
 test('word bank offers only vocabulary sets published by the controller', () => {
   const bank = buildWordBank({
     progress: [word()],

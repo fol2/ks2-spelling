@@ -17,6 +17,23 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             source.contains("content=\"B4Development\"")
     }
 
+    private func restoreUserDrivenKeyboardFocus(
+        on bridgeViewController: CAPBridgeViewController
+    ) {
+        // Capacitor Core normally marks this WKWebView as not requiring a user
+        // interaction before keyboard presentation. That behaviour is implemented
+        // through Capacitor's process-wide WKContentView focus hook and is useful
+        // for apps that call input.focus() programmatically.
+        //
+        // KS2 Spelling deliberately does not do that: each visible HTML field is
+        // tapped by the learner. Clearing the per-WebView override makes the hook
+        // preserve WebKit's real user-interaction value instead of forcing it.
+        // Together with ios.initialFocus=false, this avoids creating a stale
+        // first-responder session before any visible field has been touched.
+        bridgeViewController.webView?.capacitor
+            .setKeyboardShouldRequireUserInteraction(nil)
+    }
+
     func scene(
         _ scene: UIScene,
         willConnectTo session: UISceneSession,
@@ -27,6 +44,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         bridgeViewController.loadViewIfNeeded()
+        restoreUserDrivenKeyboardFocus(on: bridgeViewController)
         if !isOfflineB4Bundle() {
             bridgeViewController.bridge?.registerPluginInstance(ParentAccessPlugin())
             bridgeViewController.bridge?.registerPluginInstance(LocalDataProtectionPlugin())

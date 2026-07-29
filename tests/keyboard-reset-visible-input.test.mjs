@@ -25,7 +25,7 @@ async function runtimeSources(directory) {
 
 function visibleSpellingInput(productApp) {
   const match = productApp.match(
-    /<input\s+[\s\S]*?id="product-spelling-input"[\s\S]*?\/>/u,
+    /<input(?=[^>]*\bid="product-spelling-input")[^>]*\/>/u,
   );
   assert.ok(match, 'the Practice screen must render its real spelling input');
   return match[0];

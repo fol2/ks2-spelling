@@ -1,6 +1,24 @@
 import UIKit
 import Capacitor
 
+final class ProductBridgeViewController: CAPBridgeViewController {
+    override func instanceDescriptor() -> InstanceDescriptor {
+        let descriptor = super.instanceDescriptor()
+        // The product never uses programmatic input focus. Do not make the whole
+        // web view first responder before the learner has touched a visible field.
+        descriptor.hasInitialFocus = false
+        return descriptor
+    }
+
+    override func capacitorDidLoad() {
+        super.capacitorDidLoad()
+        // Capacitor's default per-web-view flag is intended to let input.focus()
+        // raise the keyboard. Clearing it preserves WebKit's real tap provenance
+        // for this product instead of forcing every focus to look user initiated.
+        webView?.capacitor.setKeyboardShouldRequireUserInteraction(nil)
+    }
+}
+
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?

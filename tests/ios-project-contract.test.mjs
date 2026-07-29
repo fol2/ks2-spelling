@@ -53,11 +53,12 @@ test('the committed iOS project freezes the unsigned B1 identity', async () => {
 });
 
 test('the iOS host adopts one storyboard-backed UIScene without losing app-owned plugins', async () => {
-  const [project, infoPlist, appDelegate, sceneDelegate] = await Promise.all([
+  const [project, infoPlist, appDelegate, sceneDelegate, storyboard] = await Promise.all([
     readFile(PROJECT, 'utf8'),
     readFile(INFO_PLIST, 'utf8'),
     readFile(join(IOS_ROOT, 'App/AppDelegate.swift'), 'utf8'),
     readFile(join(IOS_ROOT, 'App/SceneDelegate.swift'), 'utf8'),
+    readFile(join(IOS_ROOT, 'App/Base.lproj/Main.storyboard'), 'utf8'),
   ]);
 
   assert.match(infoPlist, /<key>UIApplicationSceneManifest<\/key>/);
@@ -88,6 +89,7 @@ test('the iOS host adopts one storyboard-backed UIScene without losing app-owned
   assert.doesNotMatch(appDelegate, /registerPluginInstance/);
 
   assert.match(sceneDelegate, /class SceneDelegate: UIResponder, UIWindowSceneDelegate/);
+  assert.match(sceneDelegate, /final class ProductBridgeViewController: CAPBridgeViewController/);
   assert.match(sceneDelegate, /var window: UIWindow\?/);
   assert.match(
     sceneDelegate,
@@ -101,6 +103,10 @@ test('the iOS host adopts one storyboard-backed UIScene without losing app-owned
   assert.match(
     sceneDelegate,
     /#if B3_SANDBOX_PROOF[\s\S]*BuildAuthorityPlugin[\s\S]*B3ProofObservationPlugin[\s\S]*#endif/,
+  );
+  assert.match(
+    storyboard,
+    /customClass="ProductBridgeViewController" customModule="App" customModuleProvider="target"/,
   );
 });
 

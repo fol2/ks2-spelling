@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'attempt_repository.dart';
 import 'companion_game.dart';
@@ -76,7 +77,10 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
   String? _loadError;
   bool _loading = true;
   bool _loadInFlight = false;
-  bool _busy = false;
+  bool _playing = false;
+  bool _saving = false;
+
+  bool get _busy => _playing || _saving;
 
   @override
   void initState() {
@@ -136,8 +140,11 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
   }
 
   Future<void> _playPrompt() async {
+    if (_busy) {
+      return;
+    }
     setState(() {
-      _busy = true;
+      _playing = true;
       _feedback = 'Playing the spelling prompt.';
     });
     try {
@@ -158,19 +165,20 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
     } finally {
       if (mounted) {
         setState(() {
-          _busy = false;
+          _playing = false;
         });
       }
     }
   }
 
   Future<void> _submit() async {
+    if (_busy) {
+      return;
+    }
     final String answer = _answerController.text.trim().toLowerCase();
-    if (answer.isEmpty || _busy) {
+    if (answer.isEmpty) {
       setState(() {
-        _feedback = answer.isEmpty
-            ? 'Type a spelling before submitting.'
-            : _feedback;
+        _feedback = 'Type a spelling before submitting.';
       });
       return;
     }
@@ -178,7 +186,8 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
     final bool correct = answer == target;
     final bool alreadyEvolved = _snapshot?.evolved ?? false;
     setState(() {
-      _busy = true;
+      _saving = true;
+      _feedback = 'Saving your answer locally.';
     });
     try {
       final AttemptSnapshot snapshot = await widget.repository.recordAnswer(
@@ -213,7 +222,7 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
     } finally {
       if (mounted) {
         setState(() {
-          _busy = false;
+          _saving = false;
         });
       }
     }
@@ -302,6 +311,14 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                                 enableSuggestions: false,
                                 enableIMEPersonalizedLearning: false,
                                 autofillHints: const <String>[],
+                                inputFormatters: <TextInputFormatter>[
+                                  TextInputFormatter.withFunction(
+                                    (
+                                      TextEditingValue oldValue,
+                                      TextEditingValue newValue,
+                                    ) => _saving ? oldValue : newValue,
+                                  ),
+                                ],
                                 smartDashesType: SmartDashesType.disabled,
                                 smartQuotesType: SmartQuotesType.disabled,
                                 textCapitalization: TextCapitalization.none,
@@ -323,7 +340,7 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                                   : () {
                                       unawaited(_submit());
                                     },
-                              child: const Text('Submit'),
+                              child: Text(_saving ? 'Saving…' : 'Submit'),
                             ),
                             const SizedBox(height: 12),
                             Semantics(

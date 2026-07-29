@@ -129,11 +129,13 @@ function practiceProjection(snapshot, catalogue) {
 function progressProjection(snapshot, catalogue) {
   const saved = snapshot?.subjectState?.data?.progress ?? {};
   return catalogue.items
-    .map(({ runtimeItemId, target }) => {
+    .map(({ runtimeItemId, target, yearBand, coverageTier }) => {
       const progress = saved[runtimeItemId];
       return {
         runtimeItemId,
         target,
+        yearBand: yearBand ?? null,
+        coverageTier: coverageTier ?? null,
         stage: progress?.stage ?? 0,
         attempts: progress?.attempts ?? 0,
         correct: progress?.correct ?? 0,
@@ -146,10 +148,11 @@ function progressProjection(snapshot, catalogue) {
 
 function vocabularySetsProjection(catalogue) {
   const core = catalogue.items.filter(
-    ({ coverageTier }) => coverageTier === 'statutory-core',
+    ({ coverageTier }) =>
+      coverageTier == null || coverageTier === 'statutory-core',
   );
   return [
-    { id: 'core', label: 'All', count: core.length },
+    { id: 'core', label: 'Core', count: core.length },
     {
       id: 'y3-4',
       label: 'Y3–4',

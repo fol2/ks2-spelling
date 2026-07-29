@@ -65,11 +65,21 @@ function matchesVocabSet(vocabSetId, yearBand) {
   return false;
 }
 
-// The controller is the authority for which catalogue pools are actually
-// published. The local definitions only validate their ids and supply safe
-// labels; they must never make an unavailable pool appear in the interface.
-function publishedVocabSets(value) {
-  const candidates = Array.isArray(value) ? value : WORD_BANK_VOCAB_SETS;
+function inferredVocabSets(words) {
+  if (words.length === 0) return WORD_BANK_VOCAB_SETS;
+  const ids = new Set(['core']);
+  for (const { yearBand } of words) {
+    if (yearBand === '3-4') ids.add('y3-4');
+    if (yearBand === '5-6') ids.add('y5-6');
+  }
+  return WORD_BANK_VOCAB_SETS.filter(({ id }) => ids.has(id));
+}
+
+// Explicit controller metadata is authoritative when supplied. The Word Bank
+// can also stand alone in tests and previews: because progress projects every
+// catalogue item, its year bands are a complete and honest fallback authority.
+function publishedVocabSets(value, words) {
+  const candidates = Array.isArray(value) ? value : inferredVocabSets(words);
   const seen = new Set();
   const published = [];
   for (const candidate of candidates) {
@@ -122,9 +132,6 @@ export function buildWordBank({
 } = {}) {
   const todayDay = canonicalGuardianDay(now);
   const needle = normaliseQuery(query);
-  const availableVocabSets = publishedVocabSets(vocabularySets);
-  const activeVocab = availableVocabSets.find(({ id }) => id === vocabSet)
-    ?? availableVocabSets[0];
   const activeFilter = WORD_BANK_FILTERS.find(({ id }) => id === filter)
     ?? WORD_BANK_FILTERS[0];
 
@@ -143,6 +150,9 @@ export function buildWordBank({
     };
   });
 
+  const availableVocabSets = publishedVocabSets(vocabularySets, words);
+  const activeVocab = availableVocabSets.find(({ id }) => id === vocabSet)
+    ?? availableVocabSets[0];
   const inSet = words.filter((entry) => matchesVocabSet(activeVocab.id, entry.yearBand));
   const searched = inSet.filter((entry) => matchesQuery(entry.word, needle));
   const rows = searched.filter((entry) => (

@@ -16,7 +16,10 @@ void main() {
     );
     expect(await workflow.exists(), isTrue);
 
-    final String source = await workflow.readAsString();
+    final String source = (await workflow.readAsString()).replaceAll(
+      '\r\n',
+      '\n',
+    );
     expect(
       source,
       contains('types: [opened, reopened, synchronize, ready_for_review]'),

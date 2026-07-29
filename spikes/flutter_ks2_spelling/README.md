@@ -2,7 +2,7 @@
 
 This directory is an isolated architecture comparison. It is not the shipping application and does not authorise a rewrite.
 
-The slice proves one visible Flutter text field, recoverable local startup, serialized SQLite answer persistence, one owned prompt-audio backend and one bounded Flame companion scene. Its committed native shells target Android, iOS, Linux, macOS and Windows.
+The slice proves one visible Flutter text field, recoverable local startup, serialized SQLite answer persistence, one owned prompt-audio backend and one bounded non-focusable Flame companion scene. Its committed native shells target Android, iOS, Linux, macOS and Windows.
 
 The authoritative decision and physical-device gates are in `../../docs/spikes/flutter-flame-vertical-slice.md`.
 
@@ -35,11 +35,13 @@ The scaffold command deliberately fails if committed Dart source has the wrong r
 1. Tap **Listen**.
 2. Tap the actual **Your spelling** field.
 3. Type `accident`.
-4. Submit.
-5. The SQLite counters update and the Flame egg becomes a companion.
+4. Press Return or tap **Submit**.
+5. The SQLite counters update and the Flame egg becomes a companion without taking focus from the spelling field.
 6. Close and reopen the app to confirm the state remains.
 
-An incorrect spelling remains selected for correction and does not evolve the egg. During a save, the real field stays mounted and writable at the Flutter widget/input-connection level, while a formatter rejects new edits until the transaction finishes. A failed save preserves the answer and restores editing.
+An incorrect spelling remains selected for correction and does not evolve the egg. During a save, the real field stays mounted and writable at the Flutter widget/input-connection level, while a formatter rejects new edits until the transaction finishes. Return uses `TextInputAction.unspecified`, so Flutter calls `onSubmitted` without its normal `done`-action unfocus/restart. A successful save clears to a valid caret position; a failed save preserves the answer and restores editing.
+
+The companion `GameWidget` is explicitly `autofocus: false`. Flame defaults game widgets to autofocus, which would otherwise let the egg-to-companion replacement steal focus and dismiss the software keyboard.
 
 If local state cannot open, the app renders a non-destructive error and **Try opening again** action instead of remaining on a spinner. Persisted learner identity, nickname, counters and evolution state are validated before use.
 

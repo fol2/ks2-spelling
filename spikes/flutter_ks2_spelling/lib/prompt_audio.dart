@@ -85,9 +85,12 @@ final class FlamePromptAudio implements PromptAudio {
   Future<void> play() => _enqueue<void>(() async {
     final PromptAudioBackend backend = await _requireBackend();
     final StopPlayback? previous = _activeStop;
-    _activeStop = null;
     if (previous != null) {
+      // Keep the handle until stopping succeeds. If a platform player reports a
+      // transient stop failure, the next replay or disposal must retry it rather
+      // than starting an overlapping player whose predecessor is untracked.
       await previous();
+      _activeStop = null;
     }
     _activeStop = await backend.start();
   });

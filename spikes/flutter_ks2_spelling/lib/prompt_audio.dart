@@ -2,19 +2,57 @@ import 'dart:async';
 
 import 'package:flame_audio/flame_audio.dart';
 
+typedef StopPlayback = Future<void> Function();
+typedef PromptAudioBackendFactory = Future<PromptAudioBackend> Function();
+
 abstract interface class PromptAudio {
   Future<void> play();
 
   Future<void> dispose();
 }
 
+abstract interface class PromptAudioBackend {
+  Future<StopPlayback> start();
+
+  Future<void> dispose();
+}
+
+final class _FlamePromptAudioBackend implements PromptAudioBackend {
+  const _FlamePromptAudioBackend(this.pool);
+
+  final AudioPool pool;
+
+  @override
+  Future<StopPlayback> start() async {
+    final StopFunction stop = await pool.start();
+    return () => stop();
+  }
+
+  @override
+  Future<void> dispose() => pool.dispose();
+}
+
 final class FlamePromptAudio implements PromptAudio {
+  FlamePromptAudio({PromptAudioBackendFactory? backendFactory})
+      : _backendFactory = backendFactory ?? _createBackend;
+
   static const String assetName = 'accident-word.m4a';
 
-  AudioPool? _pool;
-  StopFunction? _activeStop;
+  final PromptAudioBackendFactory _backendFactory;
+  PromptAudioBackend? _backend;
+  StopPlayback? _activeStop;
   Future<void> _operationTail = Future<void>.value();
+  Future<void>? _disposeFuture;
   bool _disposed = false;
+
+  static Future<PromptAudioBackend> _createBackend() async {
+    final AudioPool pool = await FlameAudio.createPool(
+      assetName,
+      minPlayers: 1,
+      maxPlayers: 1,
+    );
+    return _FlamePromptAudioBackend(pool);
+  }
 
   Future<T> _enqueue<T>(Future<T> Function() operation) {
     if (_disposed) {
@@ -22,10 +60,8 @@ final class FlamePromptAudio implements PromptAudio {
     }
     final Completer<T> completer = Completer<T>();
     _operationTail = _operationTail.then((_) async {
-      if (_disposed) {
-        completer.completeError(StateError('FlamePromptAudio is disposed.'));
-        return;
-      }
+      // A play accepted before dispose() starts is allowed to acquire a player;
+      // dispose then waits for it and stops it before releasing the pool.
       try {
         completer.complete(await operation());
       } on Object catch (error, stackTrace) {
@@ -35,44 +71,48 @@ final class FlamePromptAudio implements PromptAudio {
     return completer.future;
   }
 
-  Future<AudioPool> _requirePool() async {
-    final AudioPool? existing = _pool;
+  Future<PromptAudioBackend> _requireBackend() async {
+    final PromptAudioBackend? existing = _backend;
     if (existing != null) {
       return existing;
     }
-    final AudioPool created = await FlameAudio.createPool(
-      assetName,
-      minPlayers: 1,
-      maxPlayers: 1,
-    );
-    _pool = created;
+    final PromptAudioBackend created = await _backendFactory();
+    _backend = created;
     return created;
   }
 
   @override
   Future<void> play() => _enqueue<void>(() async {
-    final AudioPool pool = await _requirePool();
-    final StopFunction? previous = _activeStop;
+    final PromptAudioBackend backend = await _requireBackend();
+    final StopPlayback? previous = _activeStop;
     _activeStop = null;
     if (previous != null) {
       await previous();
     }
-    _activeStop = await pool.start();
+    _activeStop = await backend.start();
   });
 
   @override
-  Future<void> dispose() async {
-    if (_disposed) {
-      return;
+  Future<void> dispose() {
+    final Future<void>? existing = _disposeFuture;
+    if (existing != null) {
+      return existing;
     }
+
     _disposed = true;
+    final Future<void> disposing = _disposeOnce();
+    _disposeFuture = disposing;
+    return disposing;
+  }
+
+  Future<void> _disposeOnce() async {
     await _operationTail;
-    final StopFunction? stop = _activeStop;
+    final StopPlayback? stop = _activeStop;
     _activeStop = null;
     await stop?.call();
-    final AudioPool? pool = _pool;
-    _pool = null;
-    await pool?.dispose();
+    final PromptAudioBackend? backend = _backend;
+    _backend = null;
+    await backend?.dispose();
   }
 }
 

@@ -1,0 +1,99 @@
+name: PR55 visible-field focus retention
+
+on:
+  push:
+    branches:
+      - agent/keyboard-reset-visible-input
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr55-focus-retention-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  harden:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - name: Check out the exact reset branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: agent/keyboard-reset-visible-input
+
+      - name: Keep the real Practice field focused through save and feedback
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/app/ProductApp.jsx')
+          source = path.read_text()
+
+          old = '                  disabled={busy || answered}'
+          new = '                  aria-readonly={busy || answered}'
+          if source.count(old) != 1:
+              raise SystemExit(
+                  f'expected one disabled spelling-field lock, found {source.count(old)}'
+              )
+          source = source.replace(old, new, 1)
+
+          old = '                  onChange={(event) => setAnswer(event.target.value)}'
+          new = """                  onBeforeInput={(event) => {
+                    if (busy || answered) event.preventDefault();
+                  }}
+                  onChange={(event) => {
+                    if (!busy && !answered) setAnswer(event.target.value);
+                  }}"""
+          if source.count(old) != 1:
+              raise SystemExit(
+                  f'expected one spelling-field change handler, found {source.count(old)}'
+              )
+          path.write_text(source.replace(old, new, 1))
+          PY
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24.18.0"
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Verify visible-input behaviour and the full fast estate
+        run: |
+          node --test \
+            tests/keyboard-reset-visible-input.test.mjs \
+            tests/dependency-policy.test.mjs \
+            tests/app-shell.test.mjs
+          npm run test:fast
+          npm run lint -- --quiet
+          npm run build
+          git diff --check
+
+      - name: Verify native composition remains free of Keyboard ownership
+        run: |
+          npm run native:sync:check
+          npm run test:ios
+          npm run sync:b4-development
+          xcodebuild \
+            -quiet \
+            -project ios/App/App.xcodeproj \
+            -scheme B4DevelopmentUITests \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .native-build/pr55-focus-retention \
+            CODE_SIGNING_ALLOWED=NO \
+            build-for-testing
+
+      - name: Commit the focus-retention fix and remove this one-use gate
+        run: |
+          git add src/app/ProductApp.jsx
+          git rm .github/workflows/pr55-focus-retention-hardening.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(ios): keep visible spelling input focused"
+          git push origin HEAD:agent/keyboard-reset-visible-input

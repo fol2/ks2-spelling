@@ -48,6 +48,7 @@ final class AttemptRepository implements AttemptStore {
   final DirectoryProvider _directoryProvider;
   Database? _database;
   Future<void> _operationTail = Future<void>.value();
+  Future<void>? _closeFuture;
   bool _closing = false;
   bool _closed = false;
 
@@ -60,12 +61,8 @@ final class AttemptRepository implements AttemptStore {
 
     final Completer<T> completer = Completer<T>();
     _operationTail = _operationTail.then((_) async {
-      if (_closing || _closed) {
-        completer.completeError(
-          StateError('AttemptRepository is closing or closed.'),
-        );
-        return;
-      }
+      // Operations accepted before close() began are drained in order. New
+      // callers are rejected by the guard above as soon as shutdown starts.
       try {
         completer.complete(await operation());
       } on Object catch (error, stackTrace) {
@@ -189,17 +186,23 @@ final class AttemptRepository implements AttemptStore {
   }
 
   @override
-  Future<void> close() async {
-    if (_closed || _closing) {
-      await _operationTail;
-      return;
+  Future<void> close() {
+    final Future<void>? existing = _closeFuture;
+    if (existing != null) {
+      return existing;
     }
 
     _closing = true;
-    await _operationTail;
-    final Database? database = _database;
-    _database = null;
+    final Future<void> closing = _closeOnce();
+    _closeFuture = closing;
+    return closing;
+  }
+
+  Future<void> _closeOnce() async {
     try {
+      await _operationTail;
+      final Database? database = _database;
+      _database = null;
       await database?.close();
     } finally {
       _closed = true;

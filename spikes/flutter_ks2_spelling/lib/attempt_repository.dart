@@ -44,12 +44,31 @@ final class AttemptRepository implements AttemptStore {
   final String? _databasePath;
   final DirectoryProvider _directoryProvider;
   Database? _database;
+  Future<Database>? _opening;
 
   Future<void> open() async {
     if (_database != null) {
       return;
     }
 
+    final Future<Database>? existing = _opening;
+    if (existing != null) {
+      await existing;
+      return;
+    }
+
+    final Future<Database> opening = _openDatabase();
+    _opening = opening;
+    try {
+      _database = await opening;
+    } finally {
+      if (identical(_opening, opening)) {
+        _opening = null;
+      }
+    }
+  }
+
+  Future<Database> _openDatabase() async {
     sqfliteFfiInit();
     final DatabaseFactory factory = _requestedFactory ?? databaseFactoryFfi;
     final String path = _databasePath ??
@@ -76,18 +95,23 @@ final class AttemptRepository implements AttemptStore {
       ),
     );
 
-    await database.insert(
-      'learner_state',
-      <String, Object>{
-        'learner_id': learnerId,
-        'nickname': nickname,
-        'attempts': 0,
-        'correct_count': 0,
-        'evolved': 0,
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
-    _database = database;
+    try {
+      await database.insert(
+        'learner_state',
+        <String, Object>{
+          'learner_id': learnerId,
+          'nickname': nickname,
+          'attempts': 0,
+          'correct_count': 0,
+          'evolved': 0,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      return database;
+    } on Object {
+      await database.close();
+      rethrow;
+    }
   }
 
   @override
@@ -140,6 +164,15 @@ final class AttemptRepository implements AttemptStore {
   }
 
   Future<void> close() async {
+    final Future<Database>? opening = _opening;
+    if (opening != null) {
+      try {
+        await opening;
+      } on Object {
+        return;
+      }
+    }
+
     final Database? database = _database;
     _database = null;
     await database?.close();

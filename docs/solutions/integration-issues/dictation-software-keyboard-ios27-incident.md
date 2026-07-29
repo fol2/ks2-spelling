@@ -131,12 +131,19 @@ The reset branch verifies that:
 - resolved dependency evidence regenerates cleanly;
 - lint passes;
 - the unsigned iOS Simulator application compiles; and
-- the native UI-test target compiles a real-field probe which taps the visible
-  nickname field, requires an actual hittable alphabet key—not merely the input
-  assistant strip—and types through that same field.
+- the native UI-test target compiles real-field probes which:
+  - open **Add a learner** on both a clean install and a reused device before
+    tapping the visible nickname field;
+  - require actual hittable alphabet keys rather than accepting the input
+    assistant strip as a keyboard;
+  - create or select a learner, travel through Trail and Setup **Set off**, and
+    locate the actual visible Practice spelling field;
+  - type a deliberately wrong spelling, submit through the keyboard action key,
+    require the software letter rows to remain available, and type into that same
+    Practice field again.
 
-The UI probe is compilation evidence in CI. Its decisive keyboard assertion must
-still be executed on a clean physical device with no external hardware keyboard
+The UI probes are compilation evidence in CI. Their decisive keyboard assertions
+must still be executed on a physical device with no external hardware keyboard
 attached.
 
 ## Required physical-device acceptance

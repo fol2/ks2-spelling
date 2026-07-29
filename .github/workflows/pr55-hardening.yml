@@ -1,0 +1,68 @@
+name: PR55 visible-input hardening
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr55-visible-input-hardening-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    if: >-
+      github.event.pull_request.head.ref == 'agent/keyboard-reset-visible-input' &&
+      github.actor != 'github-actions[bot]'
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - name: Check out the exact PR branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: agent/keyboard-reset-visible-input
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24.18.0"
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Verify visible-field and dependency contracts
+        run: |
+          node --test \
+            tests/keyboard-reset-visible-input.test.mjs \
+            tests/dependency-policy.test.mjs \
+            tests/app-shell.test.mjs
+          npm run test:fast
+          npm run lint -- --quiet
+          git diff --check
+
+      - name: Verify native sync remains stable without Keyboard
+        run: npm run native:sync:check
+
+      - name: Compile the unsigned product and UI-test probe
+        run: |
+          npm run test:ios
+          npm run sync:b4-development
+          xcodebuild \
+            -quiet \
+            -project ios/App/App.xcodeproj \
+            -scheme B4DevelopmentUITests \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .native-build/pr55-hardening \
+            CODE_SIGNING_ALLOWED=NO \
+            build-for-testing

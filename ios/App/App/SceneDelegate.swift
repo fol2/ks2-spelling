@@ -1,6 +1,24 @@
 import UIKit
 import Capacitor
 
+final class ProductBridgeViewController: CAPBridgeViewController {
+    override func instanceDescriptor() -> InstanceDescriptor {
+        let descriptor = super.instanceDescriptor()
+        // The product never uses programmatic input focus. Do not make the whole
+        // web view first responder before the learner has touched a visible field.
+        descriptor.hasInitialFocus = false
+        return descriptor
+    }
+
+    override func capacitorDidLoad() {
+        super.capacitorDidLoad()
+        // Capacitor's default per-web-view flag is intended to let input.focus()
+        // raise the keyboard. Clearing it preserves WebKit's real tap provenance
+        // for this product instead of forcing every focus to look user initiated.
+        webView?.capacitor.setKeyboardShouldRequireUserInteraction(nil)
+    }
+}
+
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
@@ -17,22 +35,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             source.contains("content=\"B4Development\"")
     }
 
-    private func restoreUserDrivenKeyboardFocus(
-        on bridgeViewController: CAPBridgeViewController
-    ) {
-        // Capacitor Core normally marks this web view as not requiring a user
-        // interaction before keyboard presentation. That is useful for apps that
-        // call input.focus() programmatically.
-        //
-        // KS2 Spelling deliberately does not do that: each visible HTML field is
-        // tapped by the learner. Clearing the per-web-view override makes the
-        // runtime preserve WebKit's real user-interaction value instead of forcing
-        // it. Together with ios.initialFocus=false, this avoids creating a stale
-        // first-responder session before any visible field has been touched.
-        bridgeViewController.webView?.capacitor
-            .setKeyboardShouldRequireUserInteraction(nil)
-    }
-
     func scene(
         _ scene: UIScene,
         willConnectTo session: UISceneSession,
@@ -43,7 +45,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         bridgeViewController.loadViewIfNeeded()
-        restoreUserDrivenKeyboardFocus(on: bridgeViewController)
         if !isOfflineB4Bundle() {
             bridgeViewController.bridge?.registerPluginInstance(ParentAccessPlugin())
             bridgeViewController.bridge?.registerPluginInstance(LocalDataProtectionPlugin())

@@ -2,8 +2,6 @@ name: PR54 final source gate
 
 on:
   push:
-    branches:
-      - agent/words-search-vocabulary-sets-clean
 
 permissions:
   contents: write
@@ -18,7 +16,9 @@ defaults:
 
 jobs:
   finalize:
-    if: github.actor != 'github-actions[bot]'
+    if: >-
+      github.ref == 'refs/heads/agent/words-search-vocabulary-sets-clean' &&
+      github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:

@@ -9,7 +9,7 @@ import '../lib/attempt_repository.dart';
 void main() {
   sqfliteFfiInit();
 
-  test('answers are atomic and survive repository close and reopen', () async {
+  test('answers are serialized and survive repository close and reopen', () async {
     final Directory directory = await Directory.systemTemp.createTemp(
       'ks2-spelling-flutter-spike-',
     );
@@ -24,7 +24,7 @@ void main() {
     );
     addTearDown(first.close);
 
-    // Concurrent first use must share one opening lifecycle rather than racing
+    // Concurrent first use must share one ordered lifecycle rather than racing
     // two database handles into the same path.
     final List<AttemptSnapshot> initial = await Future.wait(<Future<AttemptSnapshot>>[
       first.read(),
@@ -32,21 +32,23 @@ void main() {
     ]);
     expect(initial.map((AttemptSnapshot value) => value.attempts), everyElement(0));
 
-    final AttemptSnapshot incorrect = await first.recordAnswer(correct: false);
-    expect(incorrect.attempts, 1);
-    expect(incorrect.correctCount, 0);
-    expect(incorrect.evolved, isFalse);
-
-    final AttemptSnapshot correct = await first.recordAnswer(correct: true);
-    expect(correct.attempts, 2);
-    expect(correct.correctCount, 1);
-    expect(correct.evolved, isTrue);
+    await Future.wait(<Future<AttemptSnapshot>>[
+      first.recordAnswer(correct: false),
+      first.recordAnswer(correct: true),
+    ]);
+    final AttemptSnapshot afterConcurrentAnswers = await first.read();
+    expect(afterConcurrentAnswers.attempts, 2);
+    expect(afterConcurrentAnswers.correctCount, 1);
+    expect(afterConcurrentAnswers.evolved, isTrue);
 
     final AttemptSnapshot laterIncorrect = await first.recordAnswer(correct: false);
     expect(laterIncorrect.attempts, 3);
     expect(laterIncorrect.correctCount, 1);
     expect(laterIncorrect.evolved, isTrue);
+
     await first.close();
+    await first.close();
+    await expectLater(first.read(), throwsStateError);
 
     final AttemptRepository reopened = AttemptRepository(
       databaseFactory: databaseFactoryFfi,

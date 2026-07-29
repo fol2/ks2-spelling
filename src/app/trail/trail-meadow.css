@@ -1,0 +1,575 @@
+/*
+ * The Trail is a habitat, not a row of reward stickers. The region plate stays
+ * behind it; these layers establish a readable ground plane, depth, nests and
+ * distinct ground/air locomotion without adding another canvas runtime.
+ */
+
+.trail-meadow {
+  position: relative;
+  flex: 1;
+  min-height: clamp(18rem, 49dvh, 31rem);
+  margin: 0 -0.35rem;
+  overflow: hidden;
+  border-radius: 2rem 2rem 1.1rem 1.1rem;
+  isolation: isolate;
+  contain: layout paint;
+}
+
+.trail-meadow::before {
+  position: absolute;
+  inset: 18% -12% -18%;
+  z-index: 0;
+  border-radius: 48% 48% 16% 16% / 58% 58% 12% 12%;
+  background:
+    radial-gradient(
+      ellipse at 50% 96%,
+      rgb(78 92 57 / 68%) 0%,
+      rgb(45 65 49 / 54%) 40%,
+      rgb(18 35 34 / 22%) 68%,
+      transparent 82%
+    );
+  filter: blur(0.5px);
+  content: '';
+  pointer-events: none;
+}
+
+.trail-meadow::after {
+  position: absolute;
+  right: -12%;
+  bottom: -18%;
+  left: -12%;
+  z-index: 110;
+  height: 34%;
+  background:
+    radial-gradient(ellipse at 18% 100%, rgb(11 25 24 / 88%) 0 28%, transparent 60%),
+    radial-gradient(ellipse at 78% 100%, rgb(12 28 25 / 88%) 0 31%, transparent 64%),
+    linear-gradient(180deg, transparent, rgb(5 14 15 / 82%) 78%);
+  content: '';
+  pointer-events: none;
+}
+
+.trail-meadow-ground {
+  position: absolute;
+  right: -8%;
+  bottom: -5%;
+  left: -8%;
+  z-index: 1;
+  height: 58%;
+  border-radius: 50% 50% 8% 8% / 38% 38% 8% 8%;
+  background:
+    radial-gradient(ellipse at 52% 82%, rgb(171 153 94 / 18%) 0 16%, transparent 46%),
+    linear-gradient(180deg, rgb(72 92 61 / 6%), rgb(33 55 45 / 48%) 62%, rgb(15 34 31 / 84%));
+  box-shadow: inset 0 22px 40px rgb(205 189 125 / 5%);
+  pointer-events: none;
+}
+
+.trail-meadow-path {
+  position: absolute;
+  bottom: -31%;
+  left: 50%;
+  z-index: 2;
+  width: 54%;
+  height: 88%;
+  translate: -50% 0;
+  rotate: -5deg;
+  border-radius: 52% 48% 18% 20%;
+  background:
+    radial-gradient(
+      ellipse at 50% 50%,
+      rgb(214 193 135 / 28%) 0 15%,
+      rgb(167 146 91 / 14%) 36%,
+      transparent 69%
+    );
+  filter: blur(1.5px);
+  transform: perspective(26rem) rotateX(58deg);
+  transform-origin: 50% 100%;
+  pointer-events: none;
+}
+
+.trail-meadow-foreground {
+  position: absolute;
+  right: -6%;
+  bottom: -2%;
+  left: -6%;
+  z-index: 105;
+  height: 16%;
+  background:
+    repeating-linear-gradient(
+      103deg,
+      transparent 0 10px,
+      rgb(97 116 70 / 24%) 10px 12px,
+      transparent 12px 24px
+    );
+  mask-image: linear-gradient(180deg, transparent, black 58%);
+  -webkit-mask-image: linear-gradient(180deg, transparent, black 58%);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.trail-meadow-grass {
+  position: absolute;
+  z-index: 8;
+  width: 8rem;
+  height: 5rem;
+  border-radius: 50%;
+  background:
+    repeating-linear-gradient(
+      82deg,
+      transparent 0 9px,
+      rgb(121 139 82 / 34%) 9px 11px,
+      transparent 11px 18px
+    );
+  filter: blur(0.25px);
+  mask-image: linear-gradient(180deg, transparent 5%, black 58%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 5%, black 58%, transparent 100%);
+  pointer-events: none;
+}
+
+.trail-meadow-grass.grass-left {
+  bottom: 9%;
+  left: -1.5rem;
+  rotate: -7deg;
+}
+
+.trail-meadow-grass.grass-right {
+  right: -1.8rem;
+  bottom: 15%;
+  rotate: 9deg;
+}
+
+.trail-meadow-grass.grass-near {
+  bottom: 1%;
+  left: 35%;
+  z-index: 104;
+  width: 10rem;
+  opacity: 0.5;
+}
+
+.trail-meadow-mote {
+  position: absolute;
+  top: var(--mote-top);
+  left: var(--mote-left);
+  z-index: 7;
+  width: 0.23rem;
+  height: 0.23rem;
+  border-radius: 50%;
+  background: #f5dfa1;
+  box-shadow: 0 0 0.7rem rgb(245 223 161 / 88%);
+  opacity: 0;
+  animation: trailMote var(--mote-duration) ease-in-out var(--mote-delay) infinite;
+  pointer-events: none;
+}
+
+.trail-companion {
+  position: absolute;
+  top: var(--trail-foot-y);
+  left: var(--trail-x);
+  z-index: var(--trail-z);
+  display: block;
+  width: var(--trail-size);
+  aspect-ratio: 1;
+  translate: -50% -100%;
+  border-radius: 42%;
+  padding: 0;
+  background: transparent;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  animation: trailCompanionArrive 620ms var(--ease) var(--trail-emerge-delay) backwards;
+}
+
+.trail-companion:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: -2px;
+}
+
+.trail-companion-route,
+.trail-companion-facing,
+.trail-companion-gait {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-origin: 50% 88%;
+}
+
+.trail-companion-route {
+  animation-duration: var(--trail-route-duration);
+  animation-delay: var(--trail-route-delay);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.trail-companion[data-path='egg'] .trail-companion-route {
+  animation: none;
+}
+
+.trail-companion[data-path='walk'] .trail-companion-route,
+.trail-companion[data-path='walk-b'] .trail-companion-route {
+  animation-name: trailGroundRoute;
+}
+
+.trail-companion[data-path='fly-a'] .trail-companion-route {
+  animation-name: trailFlyRouteA;
+}
+
+.trail-companion[data-path='fly-b'] .trail-companion-route {
+  animation-name: trailFlyRouteB;
+}
+
+.trail-companion-facing {
+  scale: var(--trail-face) 1;
+}
+
+.trail-companion:not([data-path='egg']) .trail-companion-facing {
+  animation: trailTurn var(--trail-route-duration) steps(1, end) var(--trail-route-delay) infinite;
+}
+
+.trail-companion-gait {
+  animation-duration: var(--trail-gait-duration);
+  animation-delay: var(--trail-gait-delay);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.trail-companion[data-motion='egg-breathe'] .trail-companion-gait {
+  animation-name: trailEggBreathe;
+}
+
+.trail-companion[data-motion='waddle'] .trail-companion-gait {
+  animation-name: trailWaddle;
+}
+
+.trail-companion[data-motion='trot'] .trail-companion-gait,
+.trail-companion[data-motion='stride'] .trail-companion-gait {
+  animation-name: trailGroundStride;
+}
+
+.trail-companion[data-motion='amble'] .trail-companion-gait,
+.trail-companion[data-motion='stalk'] .trail-companion-gait {
+  animation-name: trailGroundAmble;
+}
+
+.trail-companion[data-motion='hover'] .trail-companion-gait,
+.trail-companion[data-motion='flutter'] .trail-companion-gait {
+  animation-name: trailFlutter;
+}
+
+.trail-companion[data-motion='glide'] .trail-companion-gait,
+.trail-companion[data-motion='soar'] .trail-companion-gait {
+  animation-name: trailGlide;
+}
+
+.trail-companion-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  translate: 0 var(--trail-visual-y);
+  object-fit: contain;
+  filter:
+    drop-shadow(0 14px 18px rgb(0 0 0 / 48%))
+    drop-shadow(0 3px 4px rgb(0 0 0 / 28%));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.trail-companion[data-stage='0'] .trail-companion-art {
+  filter:
+    drop-shadow(0 9px 11px rgb(0 0 0 / 42%))
+    drop-shadow(0 2px 3px rgb(0 0 0 / 30%));
+}
+
+.trail-companion-shadow {
+  position: absolute;
+  bottom: 5%;
+  left: 50%;
+  z-index: -1;
+  width: 62%;
+  height: 7%;
+  translate: -50% 0;
+  scale: var(--trail-shadow-scale) 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(3 10 11 / 82%), transparent);
+  opacity: var(--trail-shadow-opacity);
+  transform-origin: center;
+}
+
+.trail-companion[data-lane='air'] .trail-companion-shadow {
+  animation: trailAirShadow var(--trail-gait-duration) ease-in-out var(--trail-gait-delay) infinite;
+}
+
+.trail-companion-nest {
+  position: absolute;
+  bottom: 3.5%;
+  left: 50%;
+  z-index: -1;
+  width: 58%;
+  height: 15%;
+  translate: -50% 0;
+  border: 2px solid rgb(205 177 103 / 34%);
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse, rgb(80 61 27 / 64%), rgb(43 38 24 / 22%) 58%, transparent 72%),
+    repeating-linear-gradient(12deg, transparent 0 7px, rgb(204 178 104 / 28%) 7px 9px);
+  box-shadow: 0 5px 9px rgb(0 0 0 / 34%);
+}
+
+.trail-companion-tag {
+  position: absolute;
+  bottom: calc(100% + 0.1rem);
+  left: 50%;
+  z-index: 130;
+  display: grid;
+  width: max-content;
+  max-width: min(12rem, 72vw);
+  translate: -50% 0;
+  border: 1px solid rgb(230 203 142 / 48%);
+  border-radius: 999px;
+  padding: 0.32rem 0.68rem 0.36rem;
+  background: rgb(8 14 20 / 91%);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 38%);
+  color: var(--dusk-ink);
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: trailTagIn 180ms var(--ease) backwards;
+}
+
+.trail-companion-tag strong {
+  font-family: var(--serif);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+.trail-companion-tag small {
+  margin-top: 0.12rem;
+  color: rgb(230 203 142 / 86%);
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.trail-companion[data-poked='true'][data-path='egg'] .trail-companion-gait {
+  animation: trailEggPoke 620ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+.trail-companion[data-poked='true'][data-lane='ground']:not([data-path='egg']) .trail-companion-gait {
+  animation: trailGroundPoke 620ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+.trail-companion[data-poked='true'][data-lane='air'] .trail-companion-gait {
+  animation: trailAirPoke 720ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+.trail-meadow-empty {
+  position: absolute;
+  bottom: 18%;
+  left: 50%;
+  z-index: 20;
+  display: grid;
+  width: min(18rem, 82%);
+  translate: -50% 0;
+  justify-items: center;
+  color: rgb(255 249 236 / 78%);
+  text-align: center;
+}
+
+.trail-empty-nest {
+  width: 5.6rem;
+  height: 1.5rem;
+  margin-bottom: 0.65rem;
+  border: 2px solid rgb(205 177 103 / 28%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgb(80 61 27 / 54%), transparent 68%);
+  box-shadow: 0 9px 12px rgb(0 0 0 / 30%);
+}
+
+.trail-meadow-empty strong {
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.trail-meadow-empty span:last-child {
+  margin-top: 0.25rem;
+  color: rgb(255 249 236 / 56%);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+@keyframes trailCompanionArrive {
+  from { opacity: 0; scale: 0.9; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes trailGroundRoute {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  28%, 43% { transform: translate3d(var(--trail-forward-x), 0, 0); }
+  67%, 82% { transform: translate3d(var(--trail-back-x), 0, 0); }
+}
+
+@keyframes trailFlyRouteA {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  28%, 43% {
+    transform: translate3d(var(--trail-forward-x), var(--trail-forward-y), 0);
+  }
+  67%, 82% {
+    transform: translate3d(var(--trail-back-x), var(--trail-back-y), 0);
+  }
+}
+
+@keyframes trailFlyRouteB {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0); }
+  26%, 44% {
+    transform: translate3d(var(--trail-forward-x), var(--trail-forward-y), 0) rotate(-1deg);
+  }
+  68%, 84% {
+    transform: translate3d(var(--trail-back-x), var(--trail-back-y), 0) rotate(1.2deg);
+  }
+}
+
+@keyframes trailTurn {
+  0%, 46% { scale: var(--trail-face) 1; }
+  47%, 90% { scale: var(--trail-face-back) 1; }
+  91%, 100% { scale: var(--trail-face) 1; }
+}
+
+@keyframes trailEggBreathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-1.5%) scale(1.015, 0.985); }
+}
+
+@keyframes trailWaddle {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  25% { transform: translateY(-1.8%) rotate(1.6deg); }
+  50% { transform: translateY(0) rotate(0); }
+  75% { transform: translateY(-1.4%) rotate(-1.5deg); }
+}
+
+@keyframes trailGroundStride {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  25% { transform: translateY(-2.2%) rotate(0.7deg); }
+  55% { transform: translateY(0) rotate(-0.4deg); }
+  78% { transform: translateY(-1.5%) rotate(0.5deg); }
+}
+
+@keyframes trailGroundAmble {
+  0%, 100% { transform: translateY(0) rotate(-0.35deg); }
+  50% { transform: translateY(-1.5%) rotate(0.5deg); }
+}
+
+@keyframes trailFlutter {
+  0%, 100% { transform: translateY(var(--trail-air-lift)) rotate(-0.6deg); }
+  38% { transform: translateY(calc(var(--trail-air-lift) - 7%)) rotate(1.1deg); }
+  72% { transform: translateY(calc(var(--trail-air-lift) - 3%)) rotate(-0.8deg); }
+}
+
+@keyframes trailGlide {
+  0%, 100% { transform: translateY(var(--trail-air-lift)) rotate(-1deg); }
+  50% { transform: translateY(calc(var(--trail-air-lift) - 5%)) rotate(1.2deg); }
+}
+
+@keyframes trailAirShadow {
+  0%, 100% { opacity: var(--trail-shadow-opacity); scale: var(--trail-shadow-scale) 1; }
+  50% {
+    opacity: var(--trail-shadow-opacity-far);
+    scale: var(--trail-shadow-scale-far) 0.86;
+  }
+}
+
+@keyframes trailEggPoke {
+  0%, 100% { transform: translateY(0) rotate(0) scale(1); }
+  28% { transform: translateY(-5%) rotate(-5deg) scale(1.035, 0.96); }
+  58% { transform: translateY(-2%) rotate(5deg) scale(0.98, 1.025); }
+}
+
+@keyframes trailGroundPoke {
+  0%, 100% { transform: translateY(0) scale(1); }
+  38% { transform: translateY(-8%) scale(1.035, 0.96); }
+  68% { transform: translateY(1%) scale(0.985, 1.02); }
+}
+
+@keyframes trailAirPoke {
+  0%, 100% { transform: translateY(var(--trail-air-lift)) rotate(0) scale(1); }
+  36% {
+    transform: translateY(calc(var(--trail-air-lift) - 14%)) rotate(4deg) scale(1.04);
+  }
+  68% {
+    transform: translateY(calc(var(--trail-air-lift) + 3%)) rotate(-2deg) scale(0.985);
+  }
+}
+
+@keyframes trailMote {
+  0%, 100% { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.7); }
+  22% { opacity: 0.8; }
+  58% { opacity: 0.35; transform: translate3d(13px, -12px, 0) scale(1); }
+  82% { opacity: 0.72; }
+}
+
+@keyframes trailTagIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-height: 44rem) {
+  .trail-meadow {
+    min-height: clamp(14rem, 45dvh, 21rem);
+  }
+
+  .trail-companion-tag {
+    bottom: 88%;
+  }
+}
+
+@media (min-width: 46rem) {
+  .trail-meadow {
+    min-height: min(52dvh, 34rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trail-meadow-mote {
+    display: none;
+  }
+
+  .trail-companion,
+  .trail-companion-route,
+  .trail-companion-facing,
+  .trail-companion-gait,
+  .trail-companion-shadow,
+  .trail-companion-tag {
+    animation: none !important;
+  }
+
+  .trail-companion-facing {
+    scale: var(--trail-face) 1;
+  }
+
+  .trail-companion[data-lane='air'] .trail-companion-gait {
+    transform: translateY(var(--trail-air-lift));
+  }
+}
+
+@media (forced-colors: active) {
+  .trail-meadow::before,
+  .trail-meadow::after,
+  .trail-meadow-ground,
+  .trail-meadow-path,
+  .trail-meadow-foreground,
+  .trail-meadow-grass,
+  .trail-meadow-mote {
+    display: none;
+  }
+
+  .trail-companion:focus-visible {
+    outline-color: Highlight;
+  }
+
+  .trail-companion-tag,
+  .trail-companion-nest {
+    border: 2px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+}

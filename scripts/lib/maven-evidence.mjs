@@ -320,6 +320,25 @@ async function readBoundedResponse(response, maximumBytes) {
   return Buffer.concat(chunks, byteLength);
 }
 
+function createMavenFetchTimeout(timeoutMilliseconds) {
+  const controller = new AbortController();
+  // Node implements AbortSignal.timeout() with an unref'ed timer. A mocked
+  // or stalled fetch can therefore leave the awaited promise pending while
+  // the process exits. This owned timer stays referenced until the fetch
+  // settles, then is always cleared by the caller.
+  const timer = setTimeout(() => {
+    const error = new Error(
+      `Maven POM fetch timed out after ${timeoutMilliseconds} ms`,
+    );
+    error.name = 'TimeoutError';
+    controller.abort(error);
+  }, timeoutMilliseconds);
+  return Object.freeze({
+    signal: controller.signal,
+    clear: () => clearTimeout(timer),
+  });
+}
+
 export async function fetchVerifiedMavenPom({
   coordinate,
   expectedSha256,
@@ -351,10 +370,11 @@ export async function fetchVerifiedMavenPom({
   const failures = [];
   for (const repository of repositories) {
     const sourceUrl = `${repository}${relativePath}`;
+    const timeout = createMavenFetchTimeout(timeoutMilliseconds);
     try {
       const response = await fetchImpl(sourceUrl, {
         redirect: 'manual',
-        signal: AbortSignal.timeout(timeoutMilliseconds),
+        signal: timeout.signal,
       });
       if (
         response.redirected ||
@@ -383,6 +403,8 @@ export async function fetchVerifiedMavenPom({
       };
     } catch (error) {
       failures.push(`${error.name}:${repository}`);
+    } finally {
+      timeout.clear();
     }
   }
   throw evidenceError(

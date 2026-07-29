@@ -3,7 +3,7 @@ import {
   validateCatalogueV1,
   validateSpellingCommandSnapshotV1,
 } from '../domain/spelling/index.js';
-import { earlyRoundSummary } from './practice-feel.js';
+import { earlyRoundSummary, spellingOnly } from './practice-feel.js';
 
 const LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 // The vendored contract's own buffered-voice identifiers; the bundled
@@ -439,7 +439,8 @@ export function createProductLearningController({
       });
     },
     submitAnswer(typed) {
-      if (typeof typed !== 'string' || typed.trim() === '') {
+      const spelling = spellingOnly(typed);
+      if (spelling === '') {
         return Promise.reject(
           controllerError(
             'product_answer_required',
@@ -449,7 +450,7 @@ export function createProductLearningController({
       }
       return runCommand({
         type: 'submit-answer',
-        payload: { typed: typed.trim() },
+        payload: { typed: spelling },
       });
     },
     continueRound() {

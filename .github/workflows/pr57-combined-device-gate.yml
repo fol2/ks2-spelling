@@ -1,0 +1,118 @@
+name: PR57 combined iOS device-test gate
+
+on:
+  pull_request:
+    branches:
+      - agent/keyboard-reset-visible-input
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+    paths:
+      - '.github/workflows/pr57-combined-device-gate.yml'
+      - 'src/app/ProductRoot.jsx'
+      - 'src/app/trail/**'
+      - 'tests/trail-meadow-*.test.mjs'
+      - 'src/**'
+      - 'tests/**'
+      - 'ios/**'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr57-combined-device-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.head.ref == 'agent/pr55-live-trail-device-test'
+      )
+    runs-on: macos-26
+    timeout-minutes: 105
+    steps:
+      - name: Check out the exact combined head
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || 'agent/pr55-live-trail-device-test' }}
+
+      - name: Prove the exact PR base is contained in the combined head
+        if: github.event_name == 'pull_request'
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
+          git cat-file -e "$PR_BASE_SHA^{commit}" 2>/dev/null || \
+            git fetch --no-tags origin "$PR_BASE_SHA"
+          git merge-base --is-ancestor "$PR_BASE_SHA" HEAD
+
+      - name: Record a description-only edit
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.action == 'edited' &&
+          github.event.changes.base == null
+        run: >-
+          echo 'PR prose changed, but the exact head and base ancestry are unchanged;
+          the verified source and native tree does not need rebuilding.'
+
+      - name: Set up Node.js
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.action != 'edited' ||
+          github.event.changes.base != null
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: '24.18.0'
+          cache: npm
+
+      - name: Install exact dependencies
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.action != 'edited' ||
+          github.event.changes.base != null
+        run: npm ci
+
+      - name: Verify keyboard recovery and living Trail together
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.action != 'edited' ||
+          github.event.changes.base != null
+        run: |
+          node --test \
+            tests/trail-meadow-contract.test.mjs \
+            tests/trail-meadow-hardening.test.mjs \
+            tests/trail-meadow-model.test.mjs \
+            tests/trail-meadow-motion-contract.test.mjs \
+            tests/keyboard-reset-visible-input.test.mjs \
+            tests/ios-practice-keyboard-probe-contract.test.mjs \
+            tests/product-answer-sanitization.test.mjs \
+            tests/visible-input-saving-state.test.mjs
+          npm run test:fast
+          npm run lint -- --quiet
+          npm run build
+          git diff --check
+
+      - name: Verify native sync and compile the iOS test seam
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.action != 'edited' ||
+          github.event.changes.base != null
+        run: |
+          npm run native:sync:check
+          npm run test:ios
+          npm run sync:b4-development
+          xcodebuild \
+            -quiet \
+            -project ios/App/App.xcodeproj \
+            -scheme B4DevelopmentUITests \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .native-build/pr57-combined-device-gate \
+            CODE_SIGNING_ALLOWED=NO \
+            build-for-testing

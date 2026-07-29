@@ -6,19 +6,35 @@ spike_dir="$repo_root/spikes/flutter_ks2_spelling"
 expected_spike_dir="$repo_root/spikes/flutter_ks2_spelling"
 [ "$spike_dir" = "$expected_spike_dir" ]
 [ -d "$spike_dir/lib" ]
+[ ! -L "$spike_dir" ]
 [ -f "$spike_dir/pubspec.yaml" ]
 [ -f "$spike_dir/pubspec.lock" ]
 command -v flutter >/dev/null
 command -v tar >/dev/null
 command -v cmp >/dev/null
+command -v mktemp >/dev/null
 
-temp_root="${RUNNER_TEMP:-/tmp}"
-if command -v cygpath >/dev/null 2>&1; then
-  temp_root="$(cygpath -u "$temp_root")"
-fi
-mkdir -p "$temp_root"
-archive="$temp_root/ks2-spelling-flutter-source-$$.tgz"
-trap 'rm -f "$archive"' EXIT
+# Stage the generated project beside the checkout so the final directory moves
+# stay on one filesystem. The committed spike is not moved until generation,
+# source restoration and audio verification have all succeeded.
+work_root="$(mktemp -d "$repo_root/.flutter-spike-scaffold.XXXXXX")"
+generated_dir="$work_root/generated"
+backup_dir="$work_root/original"
+archive="$work_root/source.tgz"
+original_moved=0
+cleanup() {
+  status=$?
+  trap - EXIT
+  if [ "$original_moved" -eq 1 ]; then
+    rm -rf "$spike_dir"
+    if [ -d "$backup_dir" ]; then
+      mv "$backup_dir" "$spike_dir"
+    fi
+  fi
+  rm -rf "$work_root"
+  exit "$status"
+}
+trap cleanup EXIT
 
 source_path="$spike_dir/lib/spelling_spike_app.dart"
 python_path="$source_path"
@@ -33,7 +49,7 @@ command -v "$python_command" >/dev/null
 
 # Regeneration must never repair or rewrite committed source. The checkout must
 # already expose the interface at both application boundaries; otherwise fail
-# before removing any generated shell.
+# before creating or moving any generated shell.
 "$python_command" - "$python_path" <<'PY'
 from pathlib import Path
 import sys
@@ -65,21 +81,27 @@ case "$spike_dir" in
     exit 1
     ;;
 esac
-rm -rf "$spike_dir"
+
 flutter create \
   --empty \
   --no-pub \
   --org uk.eugnel \
   --project-name ks2_spelling_spike \
   --platforms android,ios,linux,macos,windows \
-  "$spike_dir"
+  "$generated_dir"
 
-rm -rf "$spike_dir/lib" "$spike_dir/test"
-tar -xzf "$archive" -C "$spike_dir"
+rm -rf "$generated_dir/lib" "$generated_dir/test"
+tar -xzf "$archive" -C "$generated_dir"
 
 source_audio="$repo_root/content/full-pack/audio/iapetus/accident/word.m4a"
-destination_audio="$spike_dir/assets/audio/accident-word.m4a"
+destination_audio="$generated_dir/assets/audio/accident-word.m4a"
 [ -s "$source_audio" ]
 mkdir -p "$(dirname "$destination_audio")"
 cp "$source_audio" "$destination_audio"
 cmp -s "$source_audio" "$destination_audio"
+
+mv "$spike_dir" "$backup_dir"
+original_moved=1
+mv "$generated_dir" "$spike_dir"
+rm -rf "$backup_dir"
+original_moved=0

@@ -1,27 +1,40 @@
 name: PR56 preserve Return-key focus
 
 on:
-  push:
+  pull_request:
     branches:
-      - spike/flutter-flame-vertical-slice
+      - main
+    types: [opened, reopened, synchronize]
+    paths:
+      - '.github/workflows/pr56-return-key-focus-hardening.yml'
+      - 'spikes/flutter_ks2_spelling/lib/spelling_spike_app.dart'
+      - 'spikes/flutter_ks2_spelling/test/spelling_spike_app_test.dart'
 
 permissions:
   contents: write
 
 concurrency:
-  group: pr56-return-key-focus-${{ github.ref }}
+  group: pr56-return-key-focus-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   harden:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'spike/flutter-flame-vertical-slice'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - name: Check out the exact spike branch
+      - name: Check out the exact spike head
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
-          ref: spike/flutter-flame-vertical-slice
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Prove the pull-request head is exact
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
 
       - name: Keep the platform input connection across Return and save
         run: |

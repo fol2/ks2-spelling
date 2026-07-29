@@ -91,6 +91,21 @@ test('the product leaves keyboard ownership with the real visible field', async 
   );
 });
 
+test('the native probe opens the learner form and reaches the real Practice field', async () => {
+  const nativeProbe = await source(
+    'ios/App/B3ProofUITests/C5ProductLayoutTests.swift',
+  );
+
+  assert.match(nativeProbe, /buttons\["Add a learner"\]/u);
+  assert.match(nativeProbe, /buttons\["Set off"\]/u);
+  assert.match(nativeProbe, /textFields\["Type the spelling"\]/u);
+  assert.match(nativeProbe, /openPracticeForKeyboardProbe/u);
+  assert.match(nativeProbe, /spelling\.typeText\("zzzzzz"\)/u);
+  assert.match(nativeProbe, /pressSubmissionKey\(on: keyboard\)/u);
+  assert.match(nativeProbe, /requireSoftwareLetterKeys\(in: application\)/u);
+  assert.match(nativeProbe, /spelling\.typeText\("a"\)/u);
+});
+
 test('the native Keyboard plugin stays absent from runtime and dependency roots', async () => {
   const [packageJson, packageLock, capacitorConfig] = await Promise.all([
     source('package.json'),
@@ -136,6 +151,11 @@ test('one-use restack machinery stays out of the durable branch', () => {
     existsSync(join(root, '.github/workflows/pr55-final-words-restack.yml')),
     false,
     'the verified restack workflow must remove itself before the branch is reviewable',
+  );
+  assert.equal(
+    existsSync(join(root, '.github/workflows/pr55-practice-probe-hardening.yml')),
+    false,
+    'the one-use Practice probe workflow must not remain in the durable branch',
   );
 });
 

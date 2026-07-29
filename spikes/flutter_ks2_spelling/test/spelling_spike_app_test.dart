@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../lib/attempt_repository.dart';
@@ -77,6 +80,48 @@ final class FailOnceAttemptStore implements AttemptStore {
   Future<void> close() => delegate.close();
 }
 
+final class GatedAttemptStore implements AttemptStore {
+  GatedAttemptStore(this.delegate);
+
+  final MemoryAttemptStore delegate;
+  final Completer<void> recordStarted = Completer<void>();
+  final Completer<void> allowRecord = Completer<void>();
+
+  @override
+  Future<AttemptSnapshot> read() => delegate.read();
+
+  @override
+  Future<AttemptSnapshot> recordAnswer({required bool correct}) async {
+    if (!recordStarted.isCompleted) {
+      recordStarted.complete();
+    }
+    await allowRecord.future;
+    return delegate.recordAnswer(correct: correct);
+  }
+
+  @override
+  Future<void> close() => delegate.close();
+}
+
+final class FailingRecordAttemptStore implements AttemptStore {
+  FailingRecordAttemptStore(this.delegate);
+
+  final MemoryAttemptStore delegate;
+
+  @override
+  Future<AttemptSnapshot> read() => delegate.read();
+
+  @override
+  Future<AttemptSnapshot> recordAnswer({required bool correct}) {
+    return Future<AttemptSnapshot>.error(
+      StateError('simulated answer-save failure'),
+    );
+  }
+
+  @override
+  Future<void> close() => delegate.close();
+}
+
 final class FailingCleanupAttemptStore extends MemoryAttemptStore {
   @override
   Future<void> close() async {
@@ -123,6 +168,8 @@ Future<Finder> mountVisibleField(
   expect(input.enableSuggestions, isFalse);
   expect(input.enableIMEPersonalizedLearning, isFalse);
   expect(input.autofillHints, isEmpty);
+  expect(input.readOnly, isFalse);
+  expect(input.inputFormatters, hasLength(1));
   return inputFinder;
 }
 
@@ -232,6 +279,108 @@ void main() {
     expect(egg.label, contains('waiting to hatch'));
 
     await unmountAndVerifyCleanup(tester, repository, audio);
+  });
+
+  testWidgets(
+    'answer edits are blocked only while the local save is in flight',
+    (WidgetTester tester) async {
+      final MemoryAttemptStore delegate = MemoryAttemptStore();
+      final GatedAttemptStore repository = GatedAttemptStore(delegate);
+      final RecordingPromptAudio audio = RecordingPromptAudio();
+      final Finder inputFinder = await mountVisibleField(
+        tester,
+        repository,
+        audio,
+      );
+
+      await tester.enterText(inputFinder, 'accident');
+      await tester.tap(find.byKey(const Key('submit-button')));
+      await repository.recordStarted.future;
+      await tester.pump();
+
+      final TextField savingField = tester.widget<TextField>(inputFinder);
+      expect(savingField.readOnly, isFalse);
+      expect(
+        tester.widget<FilledButton>(find.byKey(const Key('submit-button')))
+            .onPressed,
+        isNull,
+      );
+      final TextInputFormatter savingFormatter =
+          savingField.inputFormatters!.single;
+      const TextEditingValue accepted = TextEditingValue(
+        text: 'accident',
+        selection: TextSelection.collapsed(offset: 8),
+      );
+      const TextEditingValue attempted = TextEditingValue(
+        text: 'accidental',
+        selection: TextSelection.collapsed(offset: 10),
+      );
+      expect(
+        savingFormatter.formatEditUpdate(accepted, attempted),
+        accepted,
+        reason: 'the active input connection stays open while edits are rejected',
+      );
+      expect(
+        tester.widget<TextField>(inputFinder).controller?.text,
+        'accident',
+      );
+
+      repository.allowRecord.complete();
+      await pumpUntilFound(
+        tester,
+        find.text('Correct. The egg has evolved into a companion.'),
+      );
+      final TextField finishedField = tester.widget<TextField>(inputFinder);
+      expect(finishedField.readOnly, isFalse);
+      expect(
+        finishedField.inputFormatters!.single.formatEditUpdate(
+          accepted,
+          attempted,
+        ),
+        attempted,
+      );
+      expect(finishedField.controller?.text, isEmpty);
+
+      await unmountAndVerifyCleanup(tester, delegate, audio);
+    },
+  );
+
+  testWidgets('a failed local save unlocks the field and preserves the answer', (
+    WidgetTester tester,
+  ) async {
+    final MemoryAttemptStore delegate = MemoryAttemptStore();
+    final FailingRecordAttemptStore repository =
+        FailingRecordAttemptStore(delegate);
+    final RecordingPromptAudio audio = RecordingPromptAudio();
+    final Finder inputFinder = await mountVisibleField(
+      tester,
+      repository,
+      audio,
+    );
+
+    await tester.enterText(inputFinder, 'accident');
+    await tester.tap(find.byKey(const Key('submit-button')));
+    await pumpUntilFound(
+      tester,
+      find.text('The answer could not be saved locally.'),
+    );
+
+    final TextField field = tester.widget<TextField>(inputFinder);
+    expect(field.readOnly, isFalse);
+    expect(field.controller?.text, 'accident');
+    const TextEditingValue oldValue = TextEditingValue(text: 'accident');
+    const TextEditingValue newValue = TextEditingValue(text: 'accidents');
+    expect(
+      field.inputFormatters!.single.formatEditUpdate(oldValue, newValue),
+      newValue,
+    );
+    expect(
+      tester.widget<FilledButton>(find.byKey(const Key('submit-button')))
+          .onPressed,
+      isNotNull,
+    );
+
+    await unmountAndVerifyCleanup(tester, delegate, audio);
   });
 
   testWidgets('a startup failure is visible, preserves data wording and can retry', (

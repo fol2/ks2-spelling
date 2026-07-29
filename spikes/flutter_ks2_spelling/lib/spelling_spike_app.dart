@@ -7,6 +7,24 @@ import 'attempt_repository.dart';
 import 'companion_game.dart';
 import 'prompt_audio.dart';
 
+Future<void> _reportCleanupFailure(
+  Future<void> operation,
+  String context,
+) async {
+  try {
+    await operation;
+  } on Object catch (error, stackTrace) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'ks2_spelling_spike',
+        context: ErrorDescription(context),
+      ),
+    );
+  }
+}
+
 final class SpellingSpikeApp extends StatelessWidget {
   const SpellingSpikeApp({
     required this.repository,
@@ -69,8 +87,18 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
   @override
   void dispose() {
     _answerController.dispose();
-    unawaited(widget.audio.dispose());
-    unawaited(widget.repository.close());
+    unawaited(
+      _reportCleanupFailure(
+        widget.audio.dispose(),
+        'while disposing the prompt-audio backend',
+      ),
+    );
+    unawaited(
+      _reportCleanupFailure(
+        widget.repository.close(),
+        'while closing the learner-state repository',
+      ),
+    );
     super.dispose();
   }
 
@@ -91,7 +119,8 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
     try {
       snapshot = await widget.repository.read();
     } on Object {
-      error = 'The local learner state could not open. Your existing data was not replaced.';
+      error = 'The local learner state could not open. '
+          'Your existing data was not replaced.';
     } finally {
       _loadInFlight = false;
     }
@@ -216,7 +245,8 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'One ordinary text field, one local transaction, and one bounded game scene.',
+                    'One ordinary text field, one local transaction, '
+                    'and one bounded game scene.',
                   ),
                   const SizedBox(height: 24),
                   if (_loading)
@@ -227,7 +257,8 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                     )
                   else if (snapshot == null)
                     _LoadFailureCard(
-                      message: _loadError ?? 'The local learner state is unavailable.',
+                      message: _loadError
+                          ?? 'The local learner state is unavailable.',
                       onRetry: () {
                         unawaited(_load());
                       },
@@ -243,9 +274,10 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                           children: <Widget>[
                             Text(
                               'Spell the word you hear',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 12),
                             OutlinedButton.icon(
@@ -307,8 +339,10 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      '${snapshot.correctCount} correct from ${snapshot.attempts} '
-                      '${snapshot.attempts == 1 ? 'attempt' : 'attempts'} · saved in SQLite',
+                      '${snapshot.correctCount} correct from '
+                      '${snapshot.attempts} '
+                      '${snapshot.attempts == 1 ? 'attempt' : 'attempts'} '
+                      '· saved in SQLite',
                       key: const Key('saved-progress'),
                       textAlign: TextAlign.center,
                     ),
@@ -365,16 +399,35 @@ final class _LoadFailureCard extends StatelessWidget {
   }
 }
 
-final class _CompanionCard extends StatelessWidget {
+final class _CompanionCard extends StatefulWidget {
   const _CompanionCard({required this.snapshot});
 
   final AttemptSnapshot snapshot;
 
   @override
+  State<_CompanionCard> createState() => _CompanionCardState();
+}
+
+final class _CompanionCardState extends State<_CompanionCard> {
+  late CompanionEvolutionGame _game;
+
+  @override
+  void initState() {
+    super.initState();
+    _game = CompanionEvolutionGame(evolved: widget.snapshot.evolved);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CompanionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.snapshot.evolved != widget.snapshot.evolved) {
+      _game = CompanionEvolutionGame(evolved: widget.snapshot.evolved);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final CompanionEvolutionGame game = CompanionEvolutionGame(
-      evolved: snapshot.evolved,
-    );
+    final AttemptSnapshot snapshot = widget.snapshot;
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Padding(
@@ -391,14 +444,16 @@ final class _CompanionCard extends StatelessWidget {
             const SizedBox(height: 12),
             Semantics(
               key: const Key('companion-semantics'),
-              label: game.semanticsLabel,
+              label: _game.semanticsLabel,
               image: true,
               child: ExcludeSemantics(
                 child: SizedBox(
                   height: 180,
                   child: GameWidget<CompanionEvolutionGame>(
-                    key: ValueKey<bool>(snapshot.evolved),
-                    game: game,
+                    key: ValueKey<String>(
+                      'companion-game-${snapshot.evolved}',
+                    ),
+                    game: _game,
                   ),
                 ),
               ),

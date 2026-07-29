@@ -17,6 +17,10 @@ export const WORD_BANK_VOCAB_SETS = Object.freeze([
   Object.freeze({ id: 'y5-6', label: 'Y5–6' }),
 ]);
 
+const VOCAB_SET_BY_ID = new Map(
+  WORD_BANK_VOCAB_SETS.map((definition) => [definition.id, definition]),
+);
+
 // Secure, due and trouble follow the frozen a3 parent projection so the word
 // bank and the Parent area can never disagree about a word.
 function classify(item, todayDay) {
@@ -55,16 +59,42 @@ function matchesVocabSet(vocabSetId, yearBand) {
   if (vocabSetId === 'core') return true;
   if (vocabSetId === 'y3-4') return yearBand === '3-4';
   if (vocabSetId === 'y5-6') return yearBand === '5-6';
-  return true;
+  return false;
+}
+
+function publishedVocabSets(value) {
+  const candidates = Array.isArray(value) ? value : WORD_BANK_VOCAB_SETS;
+  const seen = new Set();
+  const published = [];
+  for (const candidate of candidates) {
+    const definition = VOCAB_SET_BY_ID.get(candidate?.id);
+    if (!definition || seen.has(definition.id)) continue;
+    seen.add(definition.id);
+    published.push({
+      id: definition.id,
+      label: typeof candidate?.label === 'string' && candidate.label.trim()
+        ? candidate.label.trim()
+        : definition.label,
+    });
+  }
+  return published.length > 0 ? published : [WORD_BANK_VOCAB_SETS[0]];
+}
+
+function searchKey(value) {
+  if (typeof value !== 'string') return '';
+  return value
+    .normalize('NFKC')
+    .toLocaleLowerCase('en-GB')
+    .replace(/[‘’]/gu, "'")
+    .replace(/[‐‑‒–—―]/gu, '-');
 }
 
 function normaliseQuery(query) {
-  return typeof query === 'string' ? query.trim().toLowerCase() : '';
+  return searchKey(query).trim();
 }
 
-function matchesQuery(word, query) {
-  if (!query) return true;
-  return word.includes(query);
+function wordCount(value) {
+  return `${value} ${value === 1 ? 'word' : 'words'}`;
 }
 
 /**
@@ -75,23 +105,24 @@ export function buildWordBank({
   progress = [],
   filter = 'all',
   vocabSet = 'core',
+  vocabularySets,
   query = '',
   now = Date.now(),
 } = {}) {
   const todayDay = canonicalGuardianDay(now);
   const needle = normaliseQuery(query);
-  const activeVocab = WORD_BANK_VOCAB_SETS.find(({ id }) => id === vocabSet)
-    ?? WORD_BANK_VOCAB_SETS[0];
+  const availableVocabSets = publishedVocabSets(vocabularySets);
+  const activeVocab = availableVocabSets.find(({ id }) => id === vocabSet)
+    ?? availableVocabSets[0];
   const activeFilter = WORD_BANK_FILTERS.find(({ id }) => id === filter)
     ?? WORD_BANK_FILTERS[0];
 
   const words = progress.map((item) => {
     const marks = classify(item, todayDay);
     const status = statusOf(marks);
-    const word = item.target;
     return {
       runtimeItemId: item.runtimeItemId,
-      word,
+      word: item.target,
       yearBand: item.yearBand ?? null,
       status,
       due: marks.due,
@@ -101,45 +132,52 @@ export function buildWordBank({
     };
   });
 
-  const searched = words.filter((entry) => matchesQuery(entry.word.toLowerCase(), needle));
-  const inSet = searched.filter((entry) => matchesVocabSet(activeVocab.id, entry.yearBand));
-  const rows = inSet.filter((entry) => (
+  const inSet = words.filter((entry) => matchesVocabSet(activeVocab.id, entry.yearBand));
+  const searched = inSet.filter((entry) => matchesQuery(entry.word, needle));
+  const rows = searched.filter((entry) => (
     matchesFilter(activeFilter.id, entry.marks, entry.status)
   ));
+  const unfilteredSelection = activeFilter.id === 'all' && !needle;
 
   return {
     rows,
-    vocabSets: WORD_BANK_VOCAB_SETS.map(({ id, label }) => ({
+    vocabSets: availableVocabSets.map(({ id, label }) => ({
       id,
       label,
-      count: searched.filter((entry) => matchesVocabSet(id, entry.yearBand)).length,
+      count: words.filter((entry) => matchesVocabSet(id, entry.yearBand)).length,
       selected: id === activeVocab.id,
     })),
     filters: WORD_BANK_FILTERS.map(({ id, label }) => ({
       id,
       label,
-      count: inSet.filter((entry) => matchesFilter(id, entry.marks, entry.status)).length,
+      count: searched.filter((entry) => matchesFilter(id, entry.marks, entry.status)).length,
       selected: id === activeFilter.id,
     })),
     total: words.length,
-    visibleTotal: inSet.length,
-    countLabel: activeFilter.id === 'all' && activeVocab.id === 'core' && !needle
-      ? `${words.length} ${words.length === 1 ? 'word' : 'words'}`
-      : `${rows.length} of ${words.length}`,
+    setTotal: inSet.length,
+    visibleTotal: searched.length,
+    countLabel: unfilteredSelection
+      ? wordCount(inSet.length)
+      : `${rows.length} of ${inSet.length}`,
     empty: rows.length === 0,
     emptyHeading: words.length === 0
       ? 'Your word bank is ready'
-      : needle && searched.length === 0
-        ? 'No matching words'
-        : inSet.length === 0
-          ? `No ${activeVocab.label} words right now`
+      : inSet.length === 0
+        ? `No ${activeVocab.label} words in this catalogue`
+        : needle && searched.length === 0
+          ? 'No matching words'
           : `No ${activeFilter.label.toLowerCase()} words right now`,
     emptyBody: words.length === 0
       ? 'Walk a round and every word you meet is kept here, on this device.'
-      : needle && searched.length === 0
-        ? 'Try another spelling, or clear the search to see the full bank.'
-        : inSet.length === 0
-          ? `Nothing in ${activeVocab.label} is waiting in the bank today.`
+      : inSet.length === 0
+        ? `This installed catalogue does not publish a ${activeVocab.label} word set.`
+        : needle && searched.length === 0
+          ? 'Try another spelling, or clear the search to see the full bank.'
           : `Nothing in the bank is marked ${activeFilter.label.toLowerCase()} today. Progress is safe — this set just has nothing waiting.`,
   };
+}
+
+function matchesQuery(word, query) {
+  if (!query) return true;
+  return searchKey(word).includes(query);
 }

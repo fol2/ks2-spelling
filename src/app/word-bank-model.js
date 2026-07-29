@@ -2,6 +2,7 @@ import { canonicalGuardianDay } from '../domain/spelling/index.js';
 
 const SECURE_STAGE = 4;
 const HIGHEST_RUNG = 5;
+const MAXIMUM_QUERY_LENGTH = 64;
 
 export const WORD_BANK_FILTERS = Object.freeze([
   Object.freeze({ id: 'all', label: 'All' }),
@@ -95,7 +96,7 @@ function searchKey(value) {
 }
 
 function normaliseQuery(query) {
-  return searchKey(query).trim();
+  return searchKey(query).trim().slice(0, MAXIMUM_QUERY_LENGTH);
 }
 
 function matchesQuery(word, query) {

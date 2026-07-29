@@ -130,3 +130,31 @@ test('the retired hidden-input and viewport-ownership files stay absent', () => 
     );
   }
 });
+
+test('the retained keyboard gate verifies exact heads and base retargets', async () => {
+  const workflow = await source('.github/workflows/pr55-visible-input-gate.yml');
+
+  assert.match(
+    workflow,
+    /types:\s*\[[^\]]*synchronize[^\]]*edited[^\]]*ready_for_review[^\]]*\]/u,
+  );
+  assert.match(
+    workflow,
+    /ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\|\|/u,
+    'the gate must check out the immutable event head rather than a moving branch',
+  );
+  assert.match(workflow, /PR_BASE_SHA:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha\s*\}\}/u);
+  assert.match(workflow, /git merge-base --is-ancestor "\$PR_BASE_SHA" HEAD/u);
+  assert.match(
+    workflow,
+    /github\.event\.action == 'edited'[\s\S]*github\.event\.changes\.base == null/u,
+    'description-only edits must stop after exact-head/base verification',
+  );
+  assert.match(
+    workflow,
+    /github\.event\.action != 'edited' \|\|[\s\S]*github\.event\.changes\.base != null/u,
+    'base retargets must rerun the full web/native gate',
+  );
+  assert.match(workflow, /permissions:\s*\n\s*contents:\s*read/u);
+  assert.doesNotMatch(workflow, /contents:\s*write/u);
+});

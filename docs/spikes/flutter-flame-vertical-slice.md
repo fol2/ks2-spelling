@@ -28,7 +28,7 @@ That evidence establishes:
 - the real visible `TextField` has no hidden proxy, autofocus or focus transfer and remains `readOnly: false` while an answer is saved;
 - a formatter rejects attempted edits only during the SQLite transaction, preserving the active input connection; a failed save preserves the answer and unlocks editing;
 - Return uses Flutter's cross-platform `TextInputAction.unspecified`, so `onSubmitted` runs without the framework's `done` action unfocusing and restarting the input connection;
-- a successful save clears the field with an explicit valid caret position rather than the invalid `-1` selection produced by a bare controller clear;
+- a successful save uses the pinned Flutter controller's ordinary `clear()` operation, and a widget test proves the resulting selection remains valid at offset `0`;
 - the decorative Flame canvas is explicitly excluded from focus traversal, so replacing the egg scene on evolution cannot steal focus or dismiss the spelling keyboard;
 - personalised IME learning, suggestions, autocorrect, smart quotes/dashes and autofill are disabled for the spelling field;
 - semantic state distinguishes startup failure, waiting egg, evolved companion and live feedback;

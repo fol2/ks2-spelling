@@ -39,7 +39,7 @@ The scaffold command deliberately fails if committed Dart source has the wrong r
 5. The SQLite counters update and the Flame egg becomes a companion without taking focus from the spelling field.
 6. Close and reopen the app to confirm the state remains.
 
-An incorrect spelling remains selected for correction and does not evolve the egg. During a save, the real field stays mounted and writable at the Flutter widget/input-connection level, while a formatter rejects new edits until the transaction finishes. Return uses `TextInputAction.unspecified`, so Flutter calls `onSubmitted` without its normal `done`-action unfocus/restart. A successful save clears to a valid caret position; a failed save preserves the answer and restores editing.
+An incorrect spelling remains selected for correction and does not evolve the egg. During a save, the real field stays mounted and writable at the Flutter widget/input-connection level, while a formatter rejects new edits until the transaction finishes. Return uses `TextInputAction.unspecified`, so Flutter calls `onSubmitted` without its normal `done`-action unfocus/restart. A successful save uses Flutter's ordinary controller clear and the widget contract proves its caret remains valid at offset `0`; a failed save preserves the answer and restores editing.
 
 The companion `GameWidget` has autofocus disabled and sits inside `ExcludeFocus`, so the decorative canvas cannot enter desktop tab traversal or take the software-keyboard connection during egg evolution.
 

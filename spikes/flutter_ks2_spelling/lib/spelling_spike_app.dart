@@ -205,10 +205,7 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                   : 'Correct. The egg has evolved into a companion.'
             : 'Not yet. Listen again and try once more.';
         if (correct) {
-          _answerController.value = const TextEditingValue(
-            text: '',
-            selection: TextSelection.collapsed(offset: 0),
-          );
+          _answerController.clear();
         } else {
           _answerController.selection = TextSelection(
             baseOffset: 0,

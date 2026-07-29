@@ -140,6 +140,11 @@ test('the retained keyboard gate verifies exact heads and base retargets', async
   );
   assert.match(
     workflow,
+    /github\.event\.pull_request\.head\.repo\.full_name == github\.repository/u,
+    'a fork with the same branch name must not run the owned native gate',
+  );
+  assert.match(
+    workflow,
     /ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\|\|/u,
     'the gate must check out the immutable event head rather than a moving branch',
   );

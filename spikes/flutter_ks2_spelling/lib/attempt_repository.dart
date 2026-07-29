@@ -31,6 +31,18 @@ abstract interface class AttemptStore {
   Future<void> close();
 }
 
+final class _AttemptCounters {
+  const _AttemptCounters({
+    required this.attempts,
+    required this.correctCount,
+    required this.evolved,
+  });
+
+  final int attempts;
+  final int correctCount;
+  final bool evolved;
+}
+
 final class AttemptRepository implements AttemptStore {
   AttemptRepository({
     DatabaseFactory? databaseFactory,
@@ -150,17 +162,14 @@ final class AttemptRepository implements AttemptStore {
           if (rows.length != 1) {
             throw StateError('The bounded learner state is unavailable.');
           }
-          final Map<String, Object?> row = rows.single;
-          final int attempts = row['attempts']! as int;
-          final int correctCount = row['correct_count']! as int;
-          final bool evolved = (row['evolved']! as int) == 1;
+          final _AttemptCounters counters = _countersFromRow(rows.single);
 
           final int updated = await transaction.update(
             'learner_state',
             <String, Object>{
-              'attempts': attempts + 1,
-              'correct_count': correctCount + (correct ? 1 : 0),
-              'evolved': (evolved || correct) ? 1 : 0,
+              'attempts': counters.attempts + 1,
+              'correct_count': counters.correctCount + (correct ? 1 : 0),
+              'evolved': (counters.evolved || correct) ? 1 : 0,
             },
             where: 'learner_id = ?',
             whereArgs: <Object>[learnerId],
@@ -218,18 +227,45 @@ final class AttemptRepository implements AttemptStore {
     return database;
   }
 
-  AttemptSnapshot _snapshotFromRow(Map<String, Object?> row) {
-    final int attempts = row['attempts']! as int;
-    final int correctCount = row['correct_count']! as int;
-    if (attempts < 0 || correctCount < 0 || correctCount > attempts) {
+  _AttemptCounters _countersFromRow(Map<String, Object?> row) {
+    final Object? storedAttempts = row['attempts'];
+    final Object? storedCorrectCount = row['correct_count'];
+    final Object? storedEvolved = row['evolved'];
+    if (
+      storedAttempts is! int
+      || storedCorrectCount is! int
+      || storedAttempts < 0
+      || storedCorrectCount < 0
+      || storedCorrectCount > storedAttempts
+    ) {
       throw StateError('The bounded learner counters are invalid.');
     }
+    if (storedEvolved is! int || (storedEvolved != 0 && storedEvolved != 1)) {
+      throw StateError('The bounded learner evolution flag is invalid.');
+    }
+    return _AttemptCounters(
+      attempts: storedAttempts,
+      correctCount: storedCorrectCount,
+      evolved: storedEvolved == 1,
+    );
+  }
+
+  AttemptSnapshot _snapshotFromRow(Map<String, Object?> row) {
+    final Object? storedLearnerId = row['learner_id'];
+    final Object? storedNickname = row['nickname'];
+    if (storedLearnerId != learnerId) {
+      throw StateError('The bounded learner identity is invalid.');
+    }
+    if (storedNickname is! String || storedNickname.trim().isEmpty) {
+      throw StateError('The bounded learner nickname is invalid.');
+    }
+    final _AttemptCounters counters = _countersFromRow(row);
     return AttemptSnapshot(
-      learnerId: row['learner_id']! as String,
-      nickname: row['nickname']! as String,
-      attempts: attempts,
-      correctCount: correctCount,
-      evolved: (row['evolved']! as int) == 1,
+      learnerId: storedLearnerId,
+      nickname: storedNickname,
+      attempts: counters.attempts,
+      correctCount: counters.correctCount,
+      evolved: counters.evolved,
     );
   }
 }

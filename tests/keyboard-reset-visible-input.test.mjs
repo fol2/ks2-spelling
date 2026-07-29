@@ -54,11 +54,19 @@ test('the product leaves keyboard ownership with the real visible field', async 
   assert.match(input, /name="spelling"/u);
   assert.match(input, /type="text"/u);
   assert.match(input, /value=\{answer\}/u);
-  assert.match(input, /onChange=\{\(event\) => setAnswer\(event\.target\.value\)\}/u);
+  assert.match(input, /aria-readonly=\{busy \|\| answered\}/u);
+  assert.match(
+    input,
+    /onBeforeInput=\{\(event\) => \{[\s\S]*?if \(busy \|\| answered\) event\.preventDefault\(\);[\s\S]*?\}\}/u,
+  );
+  assert.match(
+    input,
+    /onChange=\{\(event\) => \{[\s\S]*?if \(!busy && !answered\) setAnswer\(event\.target\.value\);[\s\S]*?\}\}/u,
+  );
   assert.doesNotMatch(
     input,
-    /(?:\bautoFocus\b|\breadOnly\b|\bhidden\b|aria-hidden|\binert\b|tabIndex=\{-1\})/u,
-    'the visible spelling field must remain an ordinary interactive input',
+    /(?:\bautoFocus\b|\breadOnly\b|\bdisabled\b|\bhidden\b|aria-hidden|\binert\b|tabIndex=\{-1\})/u,
+    'the visible spelling field must remain mounted, enabled and focusable',
   );
 
   assert.doesNotMatch(
@@ -70,6 +78,11 @@ test('the product leaves keyboard ownership with the real visible field', async 
     productApp,
     /document\.createElement\(['"]input['"]\)|appendChild\([^)]*input|visualViewport|Keyboard\.(?:show|hide|setResizeMode|setAccessoryBarVisible)/u,
     'the product must not create or drive a second keyboard-owning input',
+  );
+  assert.doesNotMatch(
+    productApp,
+    /disabled=\{busy \|\| answered\}/u,
+    'saving and feedback must not disable the focused spelling field and dismiss iOS keys',
   );
   assert.doesNotMatch(
     productCss,

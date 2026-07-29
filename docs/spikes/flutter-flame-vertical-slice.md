@@ -13,7 +13,7 @@ The question is whether Flutter widgets for the application surfaces, with Flame
 
 **Automated platform gate: GREEN. Migration decision: HOLD.**
 
-The exact-head matrix proves the same committed bytes on Android, Linux, Windows, macOS and unsigned iOS Simulator. The retained gate checks out the pull request head SHA directly, verifies it, installs Flutter 3.44.7 at exact framework commit `84fc5cbb223bc12f83d65b647ff8a56caf779ffd`, enforces the committed package lock and then analyses, tests and builds the slice.
+The exact-head matrix proves the same committed bytes on Android, Linux, Windows, macOS and unsigned iOS Simulator. The retained gate checks out the repository-owned pull request head SHA directly, verifies it, installs Flutter 3.44.7 at exact framework commit `84fc5cbb223bc12f83d65b647ff8a56caf779ffd`, enforces the committed package lock and then analyses, tests and builds the slice.
 
 That evidence establishes:
 
@@ -26,6 +26,9 @@ That evidence establishes:
 - incorrect attempts do not evolve the egg, a correct attempt does, later incorrect attempts cannot undo evolution, and state survives close/reopen;
 - the real visible `TextField` has no hidden proxy, autofocus or focus transfer and remains `readOnly: false` while an answer is saved;
 - a formatter rejects attempted edits only during the SQLite transaction, preserving the active input connection; a failed save preserves the answer and unlocks editing;
+- Return uses Flutter's cross-platform `TextInputAction.unspecified`, so `onSubmitted` runs without the framework's `done` action unfocusing and restarting the input connection;
+- a successful save clears the field with an explicit valid caret position rather than the invalid `-1` selection produced by a bare controller clear;
+- the Flame `GameWidget` is explicitly `autofocus: false`, so replacing the egg scene on evolution cannot steal focus or dismiss the spelling keyboard;
 - personalised IME learning, suggestions, autocorrect, smart quotes/dashes and autofill are disabled for the spelling field;
 - semantic state distinguishes startup failure, waiting egg, evolved companion and live feedback;
 - unrelated Listen and feedback rebuilds reuse the same Flame game instance; only the egg/evolved transition replaces it;
@@ -51,7 +54,7 @@ The spike contains exactly:
 - SQLite attempts, correct count and evolved state that survive close and reopen;
 - recoverable startup failure and retry UI;
 - one owned, reusable prompt-audio backend;
-- one Flame-rendered egg that becomes an Inklet-like companion after a correct answer;
+- one non-focusable Flame-rendered egg that becomes an Inklet-like companion after a correct answer;
 - semantic labels for the prompt, text field, feedback and companion stage; and
 - committed Android, iOS, Linux, macOS and Windows platform shells plus `pubspec.lock`.
 
@@ -61,10 +64,10 @@ No commerce, Parent area, packs, cloud service, full catalogue, imported product
 
 The retained `.github/workflows/flutter-flame-spike.yml` is intentionally read-only. For changes to the spike it:
 
-1. checks out and proves the exact pull request head rather than GitHub's synthetic merge commit;
+1. accepts only the repository's own spike head, then checks out and proves its exact SHA rather than GitHub's synthetic merge commit;
 2. installs Flutter 3.44.7 at exact framework commit `84fc5cbb223bc12f83d65b647ff8a56caf779ffd` and cross-checks the generated metadata;
 3. resolves with `--enforce-lockfile`;
-4. runs strict analysis and all tests;
+4. runs strict analysis and all tests, including the workflow-policy and Return/save focus contracts;
 5. builds Android and Linux on Ubuntu, macOS and unsigned iOS Simulator on macOS, and Windows on Windows;
 6. regenerates the platform shells through `scripts/scaffold-flutter-spike.sh`; and
 7. fails unless regeneration leaves the committed spike byte-for-byte unchanged.
@@ -78,7 +81,7 @@ These remain required before choosing a migration:
 - stable-iOS iPhone: tap the visible field and type immediately;
 - affected iOS 27 device: repeat the same bare-field check;
 - Android phone: type, submit, replay audio and relaunch;
-- during a deliberately delayed save, confirm keys remain present while edits are rejected, then resume normally after success or failure;
+- press Return during a deliberately delayed save and confirm keys remain present while edits are rejected, then resume normally after success or failure and after egg evolution;
 - confirm the bundled prompt is audible and repeated Listen taps stop/restart cleanly on iOS, Android and desktop;
 - force-quit/relaunch preserves attempts and evolved state;
 - simulate or induce a local database-open failure and confirm the retry surface is usable on a packaged build;

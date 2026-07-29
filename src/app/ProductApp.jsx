@@ -1600,13 +1600,19 @@ const FILTER_DOTS = Object.freeze({
   secure: '#1f7a4f',
 });
 
-function WordBankScreen({ progress, onScreen, onStart }) {
+function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {
   const [filter, setFilter] = useState('all');
   const [vocabSet, setVocabSet] = useState('core');
   const [query, setQuery] = useState('');
   const bank = useMemo(
-    () => buildWordBank({ progress, filter, vocabSet, query }),
-    [progress, filter, vocabSet, query],
+    () => buildWordBank({
+      progress,
+      filter,
+      vocabSet,
+      vocabularySets,
+      query,
+    }),
+    [progress, filter, vocabSet, vocabularySets, query],
   );
 
   return (
@@ -1626,7 +1632,15 @@ function WordBankScreen({ progress, onScreen, onStart }) {
               <p className="product-kicker">Word bank</p>
               <h1 id="bank-title">Your words</h1>
             </div>
-            <span className="figure">{bank.countLabel}</span>
+            <span
+              id="bank-result-count"
+              className="figure"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {bank.countLabel}
+            </span>
           </div>
 
           <div className="bank-search">
@@ -1646,7 +1660,15 @@ function WordBankScreen({ progress, onScreen, onStart }) {
               spellCheck="false"
               writingsuggestions="false"
               enterKeyHint="search"
+              maxLength={64}
+              aria-describedby="bank-result-count"
               onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape' && query) {
+                  event.preventDefault();
+                  setQuery('');
+                }
+              }}
             />
           </div>
 
@@ -1657,6 +1679,7 @@ function WordBankScreen({ progress, onScreen, onStart }) {
                 type="button"
                 className="pill press-soft press"
                 aria-pressed={option.selected}
+                aria-label={`${option.label}, ${option.count} ${option.count === 1 ? 'word' : 'words'}`}
                 onClick={() => setVocabSet(option.id)}
               >
                 {option.label}
@@ -1671,6 +1694,7 @@ function WordBankScreen({ progress, onScreen, onStart }) {
                 type="button"
                 className="pill press-soft press"
                 aria-pressed={option.selected}
+                aria-label={`${option.label}, ${option.count} ${option.count === 1 ? 'word' : 'words'}`}
                 onClick={() => setFilter(option.id)}
               >
                 <span
@@ -2431,11 +2455,11 @@ function RoundScreen({
                       : undefined,
                   }}
                   onBeforeInput={(event) => {
-          if (busy || answered) event.preventDefault();
-        }}
-        onChange={(event) => {
-          if (!busy && !answered) setAnswer(event.target.value);
-        }}
+                    if (busy || answered) event.preventDefault();
+                  }}
+                  onChange={(event) => {
+                    if (!busy && !answered) setAnswer(event.target.value);
+                  }}
                 />
               </div>
 
@@ -2900,6 +2924,7 @@ export default function ProductApp({ services }) {
     return (
       <WordBankScreen
         progress={learningState.progress}
+        vocabularySets={learningState.vocabularySets}
         onScreen={showScreen}
         onStart={() => showScreen('setup')}
       />

@@ -3,6 +3,7 @@ import { canonicalGuardianDay } from '../domain/spelling/index.js';
 const SECURE_STAGE = 4;
 const HIGHEST_RUNG = 5;
 const MAXIMUM_QUERY_LENGTH = 64;
+const CORE_COVERAGE_TIER = 'statutory-core';
 
 export const WORD_BANK_FILTERS = Object.freeze([
   Object.freeze({ id: 'all', label: 'All' }),
@@ -58,33 +59,56 @@ function matchesFilter(filterId, marks, status) {
   return status === filterId;
 }
 
-function matchesVocabSet(vocabSetId, yearBand) {
+function isCoreWord(entry) {
+  // Older fixtures did not project coverageTier. Treating a missing value as
+  // core keeps those persisted/test rows readable, while a declared non-core
+  // tier can no longer leak into the statutory Word Bank.
+  return entry.coverageTier == null
+    || entry.coverageTier === CORE_COVERAGE_TIER;
+}
+
+function matchesVocabSet(vocabSetId, entry) {
+  if (!isCoreWord(entry)) return false;
   if (vocabSetId === 'core') return true;
-  if (vocabSetId === 'y3-4') return yearBand === '3-4';
-  if (vocabSetId === 'y5-6') return yearBand === '5-6';
+  if (vocabSetId === 'y3-4') return entry.yearBand === '3-4';
+  if (vocabSetId === 'y5-6') return entry.yearBand === '5-6';
   return false;
 }
 
 function inferredVocabSets(words) {
-  if (words.length === 0) return WORD_BANK_VOCAB_SETS;
   const ids = new Set(['core']);
-  for (const { yearBand } of words) {
-    if (yearBand === '3-4') ids.add('y3-4');
-    if (yearBand === '5-6') ids.add('y5-6');
+  for (const entry of words) {
+    if (!isCoreWord(entry)) continue;
+    if (entry.yearBand === '3-4') ids.add('y3-4');
+    if (entry.yearBand === '5-6') ids.add('y5-6');
   }
   return WORD_BANK_VOCAB_SETS.filter(({ id }) => ids.has(id));
 }
 
 // Explicit controller metadata is authoritative when supplied. The Word Bank
 // can also stand alone in tests and previews: because progress projects every
-// catalogue item, its year bands are a complete and honest fallback authority.
+// catalogue item, its year bands are a complete fallback authority. Metadata
+// and rows are intersected so an unavailable or stale zero-sized set cannot be
+// offered as an empty control.
 function publishedVocabSets(value, words) {
   const candidates = Array.isArray(value) ? value : inferredVocabSets(words);
   const seen = new Set();
   const published = [];
   for (const candidate of candidates) {
     const definition = VOCAB_SET_BY_ID.get(candidate?.id);
-    if (!definition || seen.has(definition.id)) continue;
+    if (
+      !definition
+      || seen.has(definition.id)
+      || (Number.isSafeInteger(candidate?.count) && candidate.count <= 0)
+    ) {
+      continue;
+    }
+    if (
+      words.length > 0
+      && !words.some((entry) => matchesVocabSet(definition.id, entry))
+    ) {
+      continue;
+    }
     seen.add(definition.id);
     published.push({
       id: definition.id,
@@ -135,13 +159,14 @@ export function buildWordBank({
   const activeFilter = WORD_BANK_FILTERS.find(({ id }) => id === filter)
     ?? WORD_BANK_FILTERS[0];
 
-  const words = progress.map((item) => {
+  const projected = progress.map((item) => {
     const marks = classify(item, todayDay);
     const status = statusOf(marks);
     return {
       runtimeItemId: item.runtimeItemId,
       word: item.target,
       yearBand: item.yearBand ?? null,
+      coverageTier: item.coverageTier ?? null,
       status,
       due: marks.due,
       note: noteFor(item, marks),
@@ -149,11 +174,11 @@ export function buildWordBank({
       marks,
     };
   });
-
-  const availableVocabSets = publishedVocabSets(vocabularySets, words);
+  const words = projected.filter(isCoreWord);
+  const availableVocabSets = publishedVocabSets(vocabularySets, projected);
   const activeVocab = availableVocabSets.find(({ id }) => id === vocabSet)
     ?? availableVocabSets[0];
-  const inSet = words.filter((entry) => matchesVocabSet(activeVocab.id, entry.yearBand));
+  const inSet = words.filter((entry) => matchesVocabSet(activeVocab.id, entry));
   const searched = inSet.filter((entry) => matchesQuery(entry.word, needle));
   const rows = searched.filter((entry) => (
     matchesFilter(activeFilter.id, entry.marks, entry.status)
@@ -165,7 +190,7 @@ export function buildWordBank({
     vocabSets: availableVocabSets.map(({ id, label }) => ({
       id,
       label,
-      count: words.filter((entry) => matchesVocabSet(id, entry.yearBand)).length,
+      count: words.filter((entry) => matchesVocabSet(id, entry)).length,
       selected: id === activeVocab.id,
     })),
     filters: WORD_BANK_FILTERS.map(({ id, label }) => ({

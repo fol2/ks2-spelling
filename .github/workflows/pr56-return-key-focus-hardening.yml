@@ -74,7 +74,9 @@ jobs:
 
           old_submit_start = (
               "      await tester.enterText(inputFinder, 'accident');\n"
-              "      await tester.tap(find.byKey(const Key('submit-button')));\n"
+              "      final Finder submit = find.byKey(const Key('submit-button'));\n"
+              '      await tester.ensureVisible(submit);\n'
+              '      await tester.tap(submit);\n'
               '      await repository.recordStarted.future;\n'
               '      await tester.pump();\n'
               '\n'
@@ -82,6 +84,8 @@ jobs:
           )
           new_submit_start = (
               "      await tester.enterText(inputFinder, 'accident');\n"
+              "      final Finder submit = find.byKey(const Key('submit-button'));\n"
+              '      await tester.ensureVisible(submit);\n'
               '      expect(tester.testTextInput.isVisible, isTrue);\n'
               '      await tester.testTextInput.receiveAction(\n'
               '        TextInputAction.unspecified,\n'

@@ -57,6 +57,18 @@ jobs:
               '                                textInputAction: TextInputAction.done,',
               '                                textInputAction: TextInputAction.unspecified,',
           )
+          replace_once(
+              app,
+              '''        if (correct) {
+                    _answerController.clear();
+                  } else {''',
+              '''        if (correct) {
+                    _answerController.value = const TextEditingValue(
+                      text: '',
+                      selection: TextSelection.collapsed(offset: 0),
+                    );
+                  } else {''',
+          )
 
           test = 'spikes/flutter_ks2_spelling/test/spelling_spike_app_test.dart'
           old_field_contract = (
@@ -114,6 +126,7 @@ jobs:
           )
           new_submit_finish = (
               '      expect(finishedField.controller?.text, isEmpty);\n'
+              '      expect(finishedField.controller?.selection.baseOffset, 0);\n'
               '      expect(\n'
               '        tester.widget<EditableText>(editableFinder).focusNode.hasFocus,\n'
               '        isTrue,\n'

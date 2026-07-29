@@ -55,37 +55,55 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
   final TextEditingController _answerController = TextEditingController();
   AttemptSnapshot? _snapshot;
   String _feedback = 'Tap Listen, then type the spelling in the visible field.';
+  String? _loadError;
+  bool _loading = true;
+  bool _loadInFlight = false;
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_load());
+    unawaited(_load(initial: true));
   }
 
   @override
   void dispose() {
     _answerController.dispose();
+    unawaited(widget.audio.dispose());
+    unawaited(widget.repository.close());
     super.dispose();
   }
 
-  Future<void> _load() async {
-    try {
-      final AttemptSnapshot snapshot = await widget.repository.read();
-      if (!mounted) {
-        return;
-      }
+  Future<void> _load({bool initial = false}) async {
+    if (_loadInFlight) {
+      return;
+    }
+    _loadInFlight = true;
+    if (!initial && mounted) {
       setState(() {
-        _snapshot = snapshot;
-      });
-    } on Object {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _feedback = 'The local learner state could not open.';
+        _loading = true;
+        _loadError = null;
       });
     }
+
+    AttemptSnapshot? snapshot;
+    String? error;
+    try {
+      snapshot = await widget.repository.read();
+    } on Object {
+      error = 'The local learner state could not open. Your existing data was not replaced.';
+    } finally {
+      _loadInFlight = false;
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _snapshot = snapshot;
+      _loadError = error;
+      _loading = false;
+    });
   }
 
   Future<void> _playPrompt() async {
@@ -129,6 +147,7 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
     }
 
     final bool correct = answer == target;
+    final bool alreadyEvolved = _snapshot?.evolved ?? false;
     setState(() {
       _busy = true;
     });
@@ -142,7 +161,9 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
       setState(() {
         _snapshot = snapshot;
         _feedback = correct
-            ? 'Correct. The egg has evolved into a companion.'
+            ? alreadyEvolved
+                ? 'Correct. Your companion remains safely evolved.'
+                : 'Correct. The egg has evolved into a companion.'
             : 'Not yet. Listen again and try once more.';
         if (correct) {
           _answerController.clear();
@@ -198,11 +219,18 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                     'One ordinary text field, one local transaction, and one bounded game scene.',
                   ),
                   const SizedBox(height: 24),
-                  if (snapshot == null)
+                  if (_loading)
                     const Center(
                       child: CircularProgressIndicator(
                         semanticsLabel: 'Opening local learner state',
                       ),
+                    )
+                  else if (snapshot == null)
+                    _LoadFailureCard(
+                      message: _loadError ?? 'The local learner state is unavailable.',
+                      onRetry: () {
+                        unawaited(_load());
+                      },
                     )
                   else ...<Widget>[
                     _CompanionCard(snapshot: snapshot),
@@ -240,6 +268,8 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                                 autofocus: false,
                                 autocorrect: false,
                                 enableSuggestions: false,
+                                enableIMEPersonalizedLearning: false,
+                                autofillHints: const <String>[],
                                 smartDashesType: SmartDashesType.disabled,
                                 smartQuotesType: SmartQuotesType.disabled,
                                 textCapitalization: TextCapitalization.none,
@@ -277,7 +307,8 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      '${snapshot.correctCount} correct from ${snapshot.attempts} attempts · saved in SQLite',
+                      '${snapshot.correctCount} correct from ${snapshot.attempts} '
+                      '${snapshot.attempts == 1 ? 'attempt' : 'attempts'} · saved in SQLite',
                       key: const Key('saved-progress'),
                       textAlign: TextAlign.center,
                     ),
@@ -285,6 +316,48 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+final class _LoadFailureCard extends StatelessWidget {
+  const _LoadFailureCard({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Text(
+                'Local learner state needs attention',
+                key: const Key('load-error-title'),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(message, key: const Key('load-error-message')),
+              const SizedBox(height: 16),
+              FilledButton(
+                key: const Key('retry-load-button'),
+                onPressed: onRetry,
+                child: const Text('Try opening again'),
+              ),
+            ],
           ),
         ),
       ),

@@ -1,20 +1,23 @@
 name: PR54 final Words hardening
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/words-search-vocabulary-sets-clean
+      - main
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: write
 
 concurrency:
-  group: pr54-final-hardening-${{ github.ref }}
-  cancel-in-progress: false
+  group: pr54-final-hardening-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   harden:
-    if: github.actor != 'github-actions[bot]'
+    if: >-
+      github.event.pull_request.head.ref == 'agent/words-search-vocabulary-sets-clean' &&
+      github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:

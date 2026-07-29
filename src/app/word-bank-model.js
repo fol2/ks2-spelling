@@ -25,11 +25,13 @@ const VOCAB_SET_BY_ID = new Map(
 // bank and the Parent area can never disagree about a word.
 function classify(item, todayDay) {
   const secure = item.stage >= SECURE_STAGE;
+  const dueDay = Number.isSafeInteger(item.dueDay) ? item.dueDay : null;
+  const dueToday = dueDay !== null && dueDay <= todayDay;
   return {
     secure,
-    due: item.attempts > 0 && item.dueDay <= todayDay && !secure,
+    due: item.attempts > 0 && dueToday && !secure,
     trouble: item.wrong > 0
-      && (item.wrong >= item.correct || item.dueDay <= todayDay),
+      && (item.wrong >= item.correct || dueToday),
   };
 }
 
@@ -91,6 +93,11 @@ function searchKey(value) {
 
 function normaliseQuery(query) {
   return searchKey(query).trim();
+}
+
+function matchesQuery(word, query) {
+  if (!query) return true;
+  return searchKey(word).includes(query);
 }
 
 function wordCount(value) {
@@ -175,9 +182,4 @@ export function buildWordBank({
           ? 'Try another spelling, or clear the search to see the full bank.'
           : `Nothing in the bank is marked ${activeFilter.label.toLowerCase()} today. Progress is safe — this set just has nothing waiting.`,
   };
-}
-
-function matchesQuery(word, query) {
-  if (!query) return true;
-  return searchKey(word).includes(query);
 }

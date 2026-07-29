@@ -7,8 +7,10 @@ expected_spike_dir="$repo_root/spikes/flutter_ks2_spelling"
 [ "$spike_dir" = "$expected_spike_dir" ]
 [ -d "$spike_dir/lib" ]
 [ -f "$spike_dir/pubspec.yaml" ]
+[ -f "$spike_dir/pubspec.lock" ]
 command -v flutter >/dev/null
 command -v tar >/dev/null
+command -v cmp >/dev/null
 
 temp_root="${RUNNER_TEMP:-/tmp}"
 if command -v cygpath >/dev/null 2>&1; then
@@ -29,38 +31,40 @@ if ! command -v "$python_command" >/dev/null 2>&1; then
 fi
 command -v "$python_command" >/dev/null
 
-# The committed source must compile before scaffolding as well as afterwards.
-# Older spike commits kept the AttemptStore substitution as a transient build
-# mutation, which meant a checkout was not independently runnable.
+# Regeneration must never repair or rewrite committed source. The checkout must
+# already expose the interface at both application boundaries; otherwise fail
+# before removing any generated shell.
 "$python_command" - "$python_path" <<'PY'
 from pathlib import Path
 import sys
 
 path = Path(sys.argv[1])
 source = path.read_text()
-old = 'final AttemptRepository repository;'
-new = 'final AttemptStore repository;'
-old_count = source.count(old)
-new_count = source.count(new)
-if old_count == 2 and new_count == 0:
-    path.write_text(source.replace(old, new))
-elif old_count == 0 and new_count == 2:
-    pass
-else:
+concrete = source.count('final AttemptRepository repository;')
+interface = source.count('final AttemptStore repository;')
+if concrete != 0 or interface != 2:
     raise SystemExit(
-        f'unexpected repository field topology: concrete={old_count}, interface={new_count}'
+        f'unexpected repository field topology: concrete={concrete}, interface={interface}'
     )
 PY
 
 tar -czf "$archive" \
   -C "$spike_dir" \
   pubspec.yaml \
+  pubspec.lock \
   analysis_options.yaml \
   README.md \
   lib \
   test
 [ -s "$archive" ]
 
+case "$spike_dir" in
+  "$repo_root"/spikes/flutter_ks2_spelling) ;;
+  *)
+    echo "Refusing to replace unexpected path: $spike_dir" >&2
+    exit 1
+    ;;
+esac
 rm -rf "$spike_dir"
 flutter create \
   --empty \

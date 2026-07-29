@@ -22,7 +22,7 @@ test('ProductRoot layers the living habitat over PR55 without replacing ProductA
   assert.match(portal, /\.trail-scene \.meadow/u);
   assert.match(portal, /target\.dataset\.integratedTrail = 'true'/u);
   assert.match(portal, /<TrailMeadow/u);
-  assert.match(portal, /trailMeadowCompanions\(learningState\.monsters\)/u);
+  assert.match(portal, /trailMeadowCompanions\(buildCodex\(learningState\.monsters\)\.roster\)/u);
 
   assert.doesNotMatch(
     product,

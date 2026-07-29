@@ -704,8 +704,47 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(summaryHtml, /Excellent work\./);
   assert.match(summaryHtml, /<span class="figure">100<\/span><small>percent<\/small>/);
   assert.match(summaryHtml, /Every word held on the first try\./);
+  assert.match(summaryHtml, /record-growth/);
+  assert.match(summaryHtml, /Glimmerbug/);
+  assert.match(summaryHtml, /glimmerbug-b1-2\.640\.webp/);
   assert.match(summaryHtml, />Walk again</);
   assert.match(summaryHtml, />Trail</);
+
+  // With no companion found yet, Field Record keeps the expedition sheet but
+  // paints no creature art — same empty rule as the Trail meadow.
+  learningState = Object.freeze({
+    ...learningState,
+    monsters: Object.freeze([
+      Object.freeze({
+        rewardTrackId: 'spelling-core-inklet',
+        packId: 'ks2-core',
+        monsterId: 'inklet',
+        thresholds: Object.freeze([1, 10, 30, 60, 100]),
+        branch: null,
+        secureCount: 0,
+        caught: false,
+        derivedStage: 0,
+        earnedStageHighWater: 0,
+      }),
+      Object.freeze({
+        rewardTrackId: 'spelling-core-glimmerbug',
+        packId: 'ks2-core',
+        monsterId: 'glimmerbug',
+        thresholds: Object.freeze([1, 5, 15, 40, 80]),
+        branch: null,
+        secureCount: 0,
+        caught: false,
+        derivedStage: 0,
+        earnedStageHighWater: 0,
+      }),
+    ]),
+  });
+  const emptyFieldRecordHtml = render();
+  assert.match(emptyFieldRecordHtml, /Field record/);
+  assert.match(emptyFieldRecordHtml, /Clean sweep/);
+  assert.doesNotMatch(emptyFieldRecordHtml, /record-growth/);
+  assert.doesNotMatch(emptyFieldRecordHtml, /Inklet|Glimmerbug/);
+  assert.doesNotMatch(emptyFieldRecordHtml, /results-halo[\s\S]*<img/u);
 
   const productCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
   assert.match(productCss, /@media\s*\(forced-colors:\s*active\)/);

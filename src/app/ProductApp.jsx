@@ -2595,8 +2595,12 @@ function ResultsScreen({
   haptics,
   onCelebrationDone,
 }) {
-  const codex = useMemo(() => buildCodex(monsters), [monsters]);
-  const hero = codex.hero;
+  // Field Record mirrors Trail: only a caught or evolved companion is painted.
+  // With none found yet, leave the record blank of creature art — no phantom egg.
+  const companion = useMemo(
+    () => setupExpeditionCompanion(monsters),
+    [monsters],
+  );
   const accuracy = summary?.accuracy ?? 0;
   const total = summary?.totalWords ?? 0;
   const correct = summary?.correct ?? 0;
@@ -2626,7 +2630,9 @@ function ResultsScreen({
         <div className="scene-body">
           <div className="results-halo">
             <p className="product-kicker">Expedition logged</p>
-            {hero?.art && <img src={hero.art} alt={hero.name} />}
+            {companion?.art && (
+              <img src={companion.art} alt={companion.displayName ?? companion.name} />
+            )}
             {secureGain > 0 && (
               <p className="results-gain">
                 {secureGain === 1
@@ -2691,26 +2697,26 @@ function ResultsScreen({
                 </>
               )}
 
-              {hero && (
+              {companion && (
                 <div className="record-growth">
                   <span>
                     <span className="record-growth-name">
-                      <strong>{hero.displayName}</strong>
-                      <span>{hero.stageLabel}</span>
+                      <strong>{companion.displayName}</strong>
+                      <span>{companion.stageLabel}</span>
                     </span>
                     <span className="record-growth-bars" aria-hidden="true">
-                      {hero.pips.map((filled, index) => (
+                      {companion.pips.map((filled, index) => (
                         <span
                           // eslint-disable-next-line react/no-array-index-key
                           key={index}
                           data-filled={filled ? 'true' : 'false'}
-                          data-latest={filled && index === hero.stage ? 'true' : 'false'}
+                          data-latest={filled && index === companion.stage ? 'true' : 'false'}
                         />
                       ))}
                     </span>
                   </span>
                   <span className="record-growth-secure">
-                    <span className="figure">{hero.secureCount}</span>
+                    <span className="figure">{companion.secureCount}</span>
                     <span className="label">words secure</span>
                   </span>
                 </div>

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { readFile, readdir } from 'node:fs/promises';
+import { dirname, join, relative } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -11,19 +12,85 @@ async function source(path) {
   return readFile(join(root, path), 'utf8');
 }
 
+async function runtimeSources(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...await runtimeSources(path));
+    else if (/\.[cm]?[jt]sx?$/u.test(entry.name)) files.push(path);
+  }
+  return files;
+}
+
+function visibleSpellingInput(productApp) {
+  const match = productApp.match(
+    /<input\s+[\s\S]*?id="product-spelling-input"[\s\S]*?\/>/u,
+  );
+  assert.ok(match, 'the Practice screen must render its real spelling input');
+  return match[0];
+}
+
 test('the product leaves keyboard ownership with the real visible field', async () => {
-  const [productRoot, main, productApp] = await Promise.all([
+  const [productRoot, main, productApp, productCss] = await Promise.all([
     source('src/app/ProductRoot.jsx'),
     source('src/main.jsx'),
     source('src/app/ProductApp.jsx'),
+    source('src/app/app.css'),
   ]);
+  const input = visibleSpellingInput(productApp);
 
-  assert.match(productApp, /id="product-spelling-input"/u);
-  assert.doesNotMatch(productRoot, /ios-dictation-input-session|installIOSDictationInputSession|observeKeyboardInset/u);
+  assert.match(input, /name="spelling"/u);
+  assert.match(input, /type="text"/u);
+  assert.match(input, /value=\{answer\}/u);
+  assert.match(input, /onChange=\{\(event\) => setAnswer\(event\.target\.value\)\}/u);
+  assert.doesNotMatch(
+    input,
+    /\b(?:autoFocus|readOnly|hidden|aria-hidden|inert|tabIndex=\{-1\})\b/u,
+    'the visible spelling field must remain an ordinary interactive input',
+  );
+
+  assert.doesNotMatch(
+    productRoot,
+    /ios-dictation-input-session|installIOSDictationInputSession|observeKeyboardInset/u,
+  );
   assert.doesNotMatch(main, /applyKeyboardChrome|@capacitor\/keyboard/u);
+  assert.doesNotMatch(
+    productApp,
+    /document\.createElement\(['"]input['"]\)|appendChild\([^)]*input|visualViewport|Keyboard\.(?:show|hide|setResizeMode|setAccessoryBarVisible)/u,
+    'the product must not create or drive a second keyboard-owning input',
+  );
+  assert.doesNotMatch(
+    productCss,
+    /--keyboard-inset|data-dictation-input-session|dictation-visible-height/u,
+    'layout must not own software-keyboard geometry',
+  );
 });
 
-test('the retired hidden-input and viewport-ownership files stay absent', async () => {
+test('the native Keyboard plugin stays absent from runtime and dependency roots', async () => {
+  const [packageJson, packageLock, capacitorConfig] = await Promise.all([
+    source('package.json'),
+    source('package-lock.json'),
+    source('capacitor.config.json'),
+  ]);
+
+  assert.equal(Object.hasOwn(JSON.parse(packageJson).dependencies ?? {}, '@capacitor/keyboard'), false);
+  const lock = JSON.parse(packageLock);
+  assert.equal(Object.hasOwn(lock.packages?.['']?.dependencies ?? {}, '@capacitor/keyboard'), false);
+  assert.equal(Object.hasOwn(lock.packages ?? {}, 'node_modules/@capacitor/keyboard'), false);
+  assert.equal(JSON.parse(capacitorConfig).plugins?.Keyboard, undefined);
+
+  for (const path of await runtimeSources(join(root, 'src'))) {
+    const contents = await readFile(path, 'utf8');
+    assert.doesNotMatch(
+      contents,
+      /@capacitor\/keyboard|capacitor-keyboard\.js/u,
+      `${relative(root, path)} must not load the retired Keyboard plugin`,
+    );
+  }
+});
+
+test('the retired hidden-input and viewport-ownership files stay absent', () => {
   const retired = [
     'src/app/keyboard-inset.js',
     'src/app/ios-dictation-input-session.css',
@@ -32,9 +99,9 @@ test('the retired hidden-input and viewport-ownership files stay absent', async 
   ];
 
   for (const path of retired) {
-    await assert.rejects(
-      readFile(join(root, path), 'utf8'),
-      { code: 'ENOENT' },
+    assert.equal(
+      existsSync(join(root, path)),
+      false,
       `${path} must not return as a second keyboard subsystem`,
     );
   }

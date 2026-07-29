@@ -23,6 +23,17 @@ async function runtimeSources(directory) {
   return files;
 }
 
+async function nativeAppSources(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...await nativeAppSources(path));
+    else if (/\.(?:h|m|mm|swift)$/u.test(entry.name)) files.push(path);
+  }
+  return files;
+}
+
 function visibleSpellingInput(productApp) {
   const identity = 'id="product-spelling-input"';
   const identityOffset = productApp.indexOf(identity);
@@ -125,6 +136,31 @@ test('the native Keyboard plugin stays absent from runtime and dependency roots'
       contents,
       /@capacitor\/keyboard|capacitor-keyboard\.js/u,
       `${relative(root, path)} must not load the retired Keyboard plugin`,
+    );
+  }
+});
+
+test('the App target does not swizzle private WebKit accessory-view implementations', async () => {
+  const project = await source('ios/App/App.xcodeproj/project.pbxproj');
+  assert.doesNotMatch(
+    project,
+    /HideFormAccessoryBar|FormAccessoryBar/u,
+    'the shipping App target must not wire a private accessory-bar helper',
+  );
+
+  const runtimeMutation = /(?:method_setImplementation|method_exchangeImplementations|class_replaceMethod|class_addMethod|objc_allocateClassPair|object_setClass|imp_implementationWithBlock)/u;
+  const privateAccessory = /(?:WKContentView|UIWebBrowserView|HideFormAccessoryBar|inputAccessoryView)/u;
+  for (const path of await nativeAppSources(join(root, 'ios', 'App', 'App'))) {
+    const contents = await readFile(path, 'utf8');
+    assert.doesNotMatch(
+      contents,
+      runtimeMutation,
+      `${relative(root, path)} must not mutate Objective-C method implementations to hide keyboard chrome`,
+    );
+    assert.doesNotMatch(
+      contents,
+      privateAccessory,
+      `${relative(root, path)} must not depend on private WebKit accessory-view classes`,
     );
   }
 });

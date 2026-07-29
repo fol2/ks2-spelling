@@ -57,6 +57,37 @@ final class C5ProductLayoutTests: XCTestCase {
         return nickname
     }
 
+    @discardableResult
+    private func requireSoftwareLetterKeys(
+        in application: XCUIApplication,
+        timeout: TimeInterval = 5
+    ) -> XCUIElement {
+        let keyboard = application.keyboards.firstMatch
+        XCTAssertTrue(
+            keyboard.waitForExistence(timeout: timeout),
+            "A real field tap did not promptly present a software keyboard."
+        )
+
+        // A keyboard container or the previous/next/done assistant strip alone
+        // is not enough. The original device failure exposed those controls with
+        // no usable key rows, so require an actual alphabet key before claiming
+        // that software typing is available. Run physical-device probes with no
+        // external hardware keyboard attached.
+        let lowerA = keyboard.keys["a"]
+        let upperA = keyboard.keys["A"]
+        let hasLetterKey = lowerA.waitForExistence(timeout: 2)
+            || upperA.waitForExistence(timeout: 1)
+        XCTAssertTrue(
+            hasLetterKey,
+            "The input assistant appeared without usable software letter keys."
+        )
+        XCTAssertTrue(
+            lowerA.exists ? lowerA.isHittable : upperA.isHittable,
+            "The software letter row exists but is not hittable."
+        )
+        return keyboard
+    }
+
     private func assertProfilePicker(
         in application: XCUIApplication
     ) {
@@ -136,12 +167,8 @@ final class C5ProductLayoutTests: XCTestCase {
         )
         let nickname = reachableNicknameField(in: application)
         nickname.tap()
+        _ = requireSoftwareLetterKeys(in: application)
 
-        let keyboard = application.keyboards.firstMatch
-        XCTAssertTrue(
-            keyboard.waitForExistence(timeout: 5),
-            "A real tap focused the visible nickname field without promptly presenting software keys."
-        )
         nickname.typeText("Keyboard guard")
         XCTAssertEqual(
             nickname.value as? String,

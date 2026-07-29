@@ -28,8 +28,9 @@ jobs:
 
       - name: Merge the exact hardened Words head without committing
         run: |
-          git fetch --no-tags origin "$WORDS_HEAD"
-          test "$(git rev-parse FETCH_HEAD)" = "$WORDS_HEAD"
+          git fetch --no-tags origin \
+            refs/heads/agent/words-search-vocabulary-sets-clean:refs/remotes/origin/agent/words-search-vocabulary-sets-clean
+          test "$(git rev-parse origin/agent/words-search-vocabulary-sets-clean)" = "$WORDS_HEAD"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git merge --no-commit --no-ff "$WORDS_HEAD"

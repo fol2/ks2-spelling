@@ -138,10 +138,7 @@ final class FailingCleanupPromptAudio extends RecordingPromptAudio {
   }
 }
 
-Future<void> pumpUntilFound(
-  WidgetTester tester,
-  Finder finder,
-) async {
+Future<void> pumpUntilFound(WidgetTester tester, Finder finder) async {
   for (int frame = 0; frame < 100; frame += 1) {
     await tester.pump(const Duration(milliseconds: 20));
     if (finder.evaluate().isNotEmpty) {
@@ -170,6 +167,7 @@ Future<Finder> mountVisibleField(
   expect(input.autofillHints, isEmpty);
   expect(input.readOnly, isFalse);
   expect(input.inputFormatters, hasLength(1));
+  expect(input.textInputAction, TextInputAction.unspecified);
   return inputFinder;
 }
 
@@ -190,14 +188,19 @@ void main() {
   ) async {
     final MemoryAttemptStore repository = MemoryAttemptStore();
     final RecordingPromptAudio audio = RecordingPromptAudio();
-    final Finder inputFinder = await mountVisibleField(tester, repository, audio);
+    final Finder inputFinder = await mountVisibleField(
+      tester,
+      repository,
+      audio,
+    );
 
     final Finder waitingGameFinder = find.byKey(
       const ValueKey<String>('companion-game-false'),
     );
-    final CompanionEvolutionGame gameBeforeListen = tester
-        .widget<GameWidget<CompanionEvolutionGame>>(waitingGameFinder)
-        .game!;
+    final GameWidget<CompanionEvolutionGame> waitingGame = tester
+        .widget<GameWidget<CompanionEvolutionGame>>(waitingGameFinder);
+    expect(waitingGame.autofocus, isFalse);
+    final CompanionEvolutionGame gameBeforeListen = waitingGame.game!;
 
     await tester.tap(find.byKey(const Key('listen-button')));
     await tester.pump();
@@ -248,38 +251,46 @@ void main() {
     await unmountAndVerifyCleanup(tester, repository, audio);
   });
 
-  testWidgets('an incorrect spelling stays editable and does not evolve the egg', (
-    WidgetTester tester,
-  ) async {
-    final MemoryAttemptStore repository = MemoryAttemptStore();
-    final RecordingPromptAudio audio = RecordingPromptAudio();
-    final Finder inputFinder = await mountVisibleField(tester, repository, audio);
+  testWidgets(
+    'an incorrect spelling stays editable and does not evolve the egg',
+    (WidgetTester tester) async {
+      final MemoryAttemptStore repository = MemoryAttemptStore();
+      final RecordingPromptAudio audio = RecordingPromptAudio();
+      final Finder inputFinder = await mountVisibleField(
+        tester,
+        repository,
+        audio,
+      );
 
-    await tester.enterText(inputFinder, 'accidant');
-    final Finder submit = find.byKey(const Key('submit-button'));
-    await tester.ensureVisible(submit);
-    await tester.tap(submit);
-    await pumpUntilFound(
-      tester,
-      find.text('Not yet. Listen again and try once more.'),
-    );
+      await tester.enterText(inputFinder, 'accidant');
+      final Finder submit = find.byKey(const Key('submit-button'));
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
+      await pumpUntilFound(
+        tester,
+        find.text('Not yet. Listen again and try once more.'),
+      );
 
-    final AttemptSnapshot saved = await repository.read();
-    expect(saved.attempts, 1);
-    expect(saved.correctCount, 0);
-    expect(saved.evolved, isFalse);
-    expect(tester.widget<TextField>(inputFinder).controller?.text, 'accidant');
+      final AttemptSnapshot saved = await repository.read();
+      expect(saved.attempts, 1);
+      expect(saved.correctCount, 0);
+      expect(saved.evolved, isFalse);
+      expect(
+        tester.widget<TextField>(inputFinder).controller?.text,
+        'accidant',
+      );
 
-    final SemanticsHandle semantics = tester.ensureSemantics();
-    await tester.pump();
-    final SemanticsNode egg = tester.getSemantics(
-      find.byKey(const Key('companion-semantics')),
-    );
-    semantics.dispose();
-    expect(egg.label, contains('waiting to hatch'));
+      final SemanticsHandle semantics = tester.ensureSemantics();
+      await tester.pump();
+      final SemanticsNode egg = tester.getSemantics(
+        find.byKey(const Key('companion-semantics')),
+      );
+      semantics.dispose();
+      expect(egg.label, contains('waiting to hatch'));
 
-    await unmountAndVerifyCleanup(tester, repository, audio);
-  });
+      await unmountAndVerifyCleanup(tester, repository, audio);
+    },
+  );
 
   testWidgets(
     'answer edits are blocked only while the local save is in flight',
@@ -296,16 +307,24 @@ void main() {
       await tester.enterText(inputFinder, 'accident');
       final Finder submit = find.byKey(const Key('submit-button'));
       await tester.ensureVisible(submit);
-      await tester.tap(submit);
+      expect(tester.testTextInput.isVisible, isTrue);
+      await tester.testTextInput.receiveAction(TextInputAction.unspecified);
       await repository.recordStarted.future;
       await tester.pump();
 
+      final Finder editableFinder = find.descendant(
+        of: inputFinder,
+        matching: find.byType(EditableText),
+      );
+      expect(
+        tester.widget<EditableText>(editableFinder).focusNode.hasFocus,
+        isTrue,
+      );
+      expect(tester.testTextInput.isVisible, isTrue);
+
       final TextField savingField = tester.widget<TextField>(inputFinder);
       expect(savingField.readOnly, isFalse);
-      expect(
-        tester.widget<FilledButton>(submit).onPressed,
-        isNull,
-      );
+      expect(tester.widget<FilledButton>(submit).onPressed, isNull);
       final TextInputFormatter savingFormatter =
           savingField.inputFormatters!.single;
       const TextEditingValue accepted = TextEditingValue(
@@ -319,7 +338,8 @@ void main() {
       expect(
         savingFormatter.formatEditUpdate(accepted, attempted),
         accepted,
-        reason: 'the active input connection stays open while edits are rejected',
+        reason:
+            'the active input connection stays open while edits are rejected',
       );
       expect(
         tester.widget<TextField>(inputFinder).controller?.text,
@@ -341,84 +361,86 @@ void main() {
         attempted,
       );
       expect(finishedField.controller?.text, isEmpty);
+      expect(finishedField.controller?.selection.baseOffset, 0);
+      expect(
+        tester.widget<EditableText>(editableFinder).focusNode.hasFocus,
+        isTrue,
+      );
+      expect(tester.testTextInput.isVisible, isTrue);
 
       await unmountAndVerifyCleanup(tester, delegate, audio);
     },
   );
 
-  testWidgets('a failed local save unlocks the field and preserves the answer', (
-    WidgetTester tester,
-  ) async {
-    final MemoryAttemptStore delegate = MemoryAttemptStore();
-    final FailingRecordAttemptStore repository =
-        FailingRecordAttemptStore(delegate);
-    final RecordingPromptAudio audio = RecordingPromptAudio();
-    final Finder inputFinder = await mountVisibleField(
-      tester,
-      repository,
-      audio,
-    );
+  testWidgets(
+    'a failed local save unlocks the field and preserves the answer',
+    (WidgetTester tester) async {
+      final MemoryAttemptStore delegate = MemoryAttemptStore();
+      final FailingRecordAttemptStore repository = FailingRecordAttemptStore(
+        delegate,
+      );
+      final RecordingPromptAudio audio = RecordingPromptAudio();
+      final Finder inputFinder = await mountVisibleField(
+        tester,
+        repository,
+        audio,
+      );
 
-    await tester.enterText(inputFinder, 'accident');
-    final Finder submit = find.byKey(const Key('submit-button'));
-    await tester.ensureVisible(submit);
-    await tester.tap(submit);
-    await pumpUntilFound(
-      tester,
-      find.text('The answer could not be saved locally.'),
-    );
+      await tester.enterText(inputFinder, 'accident');
+      final Finder submit = find.byKey(const Key('submit-button'));
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
+      await pumpUntilFound(
+        tester,
+        find.text('The answer could not be saved locally.'),
+      );
 
-    final TextField field = tester.widget<TextField>(inputFinder);
-    expect(field.readOnly, isFalse);
-    expect(field.controller?.text, 'accident');
-    const TextEditingValue oldValue = TextEditingValue(text: 'accident');
-    const TextEditingValue newValue = TextEditingValue(text: 'accidents');
-    expect(
-      field.inputFormatters!.single.formatEditUpdate(oldValue, newValue),
-      newValue,
-    );
-    expect(
-      tester.widget<FilledButton>(submit).onPressed,
-      isNotNull,
-    );
+      final TextField field = tester.widget<TextField>(inputFinder);
+      expect(field.readOnly, isFalse);
+      expect(field.controller?.text, 'accident');
+      const TextEditingValue oldValue = TextEditingValue(text: 'accident');
+      const TextEditingValue newValue = TextEditingValue(text: 'accidents');
+      expect(
+        field.inputFormatters!.single.formatEditUpdate(oldValue, newValue),
+        newValue,
+      );
+      expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
 
-    await unmountAndVerifyCleanup(tester, delegate, audio);
-  });
+      await unmountAndVerifyCleanup(tester, delegate, audio);
+    },
+  );
 
-  testWidgets('a startup failure is visible, preserves data wording and can retry', (
-    WidgetTester tester,
-  ) async {
-    final MemoryAttemptStore delegate = MemoryAttemptStore();
-    final FailOnceAttemptStore repository = FailOnceAttemptStore(delegate);
-    final RecordingPromptAudio audio = RecordingPromptAudio();
+  testWidgets(
+    'a startup failure is visible, preserves data wording and can retry',
+    (WidgetTester tester) async {
+      final MemoryAttemptStore delegate = MemoryAttemptStore();
+      final FailOnceAttemptStore repository = FailOnceAttemptStore(delegate);
+      final RecordingPromptAudio audio = RecordingPromptAudio();
 
-    await tester.pumpWidget(
-      SpellingSpikeApp(repository: repository, audio: audio),
-    );
-    await pumpUntilFound(
-      tester,
-      find.byKey(const Key('load-error-title')),
-    );
+      await tester.pumpWidget(
+        SpellingSpikeApp(repository: repository, audio: audio),
+      );
+      await pumpUntilFound(tester, find.byKey(const Key('load-error-title')));
 
-    expect(find.text('Local learner state needs attention'), findsOneWidget);
-    expect(
-      find.textContaining('Your existing data was not replaced.'),
-      findsOneWidget,
-    );
-    expect(find.byKey(const Key('spelling-input')), findsNothing);
+      expect(find.text('Local learner state needs attention'), findsOneWidget);
+      expect(
+        find.textContaining('Your existing data was not replaced.'),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('spelling-input')), findsNothing);
 
-    await tester.tap(find.byKey(const Key('retry-load-button')));
-    await pumpUntilFound(tester, find.byKey(const Key('spelling-input')));
-    expect(find.byKey(const Key('spelling-input')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('retry-load-button')));
+      await pumpUntilFound(tester, find.byKey(const Key('spelling-input')));
+      expect(find.byKey(const Key('spelling-input')), findsOneWidget);
 
-    await unmountAndVerifyCleanup(tester, delegate, audio);
-  });
+      await unmountAndVerifyCleanup(tester, delegate, audio);
+    },
+  );
 
   testWidgets('cleanup failures are reported instead of escaping unhandled', (
     WidgetTester tester,
   ) async {
-    final FailingCleanupAttemptStore repository =
-        FailingCleanupAttemptStore();
+    final FailingCleanupAttemptStore repository = FailingCleanupAttemptStore();
     final FailingCleanupPromptAudio audio = FailingCleanupPromptAudio();
     final List<FlutterErrorDetails> reported = <FlutterErrorDetails>[];
     final previousHandler = FlutterError.onError;
@@ -435,7 +457,9 @@ void main() {
     expect(audio.disposeCount, 1);
     expect(reported, hasLength(2));
     expect(
-      reported.map((FlutterErrorDetails details) => details.exceptionAsString()),
+      reported.map(
+        (FlutterErrorDetails details) => details.exceptionAsString(),
+      ),
       containsAll(<String>[
         'Bad state: simulated repository cleanup failure',
         'Bad state: simulated audio cleanup failure',

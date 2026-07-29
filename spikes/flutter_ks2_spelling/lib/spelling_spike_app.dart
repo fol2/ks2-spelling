@@ -123,7 +123,8 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
     try {
       snapshot = await widget.repository.read();
     } on Object {
-      error = 'The local learner state could not open. '
+      error =
+          'The local learner state could not open. '
           'Your existing data was not replaced.';
     } finally {
       _loadInFlight = false;
@@ -200,11 +201,14 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
         _snapshot = snapshot;
         _feedback = correct
             ? alreadyEvolved
-                ? 'Correct. Your companion remains safely evolved.'
-                : 'Correct. The egg has evolved into a companion.'
+                  ? 'Correct. Your companion remains safely evolved.'
+                  : 'Correct. The egg has evolved into a companion.'
             : 'Not yet. Listen again and try once more.';
         if (correct) {
-          _answerController.clear();
+          _answerController.value = const TextEditingValue(
+            text: '',
+            selection: TextSelection.collapsed(offset: 0),
+          );
         } else {
           _answerController.selection = TextSelection(
             baseOffset: 0,
@@ -266,8 +270,9 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                     )
                   else if (snapshot == null)
                     _LoadFailureCard(
-                      message: _loadError
-                          ?? 'The local learner state is unavailable.',
+                      message:
+                          _loadError ??
+                          'The local learner state is unavailable.',
                       onRetry: () {
                         unawaited(_load());
                       },
@@ -283,9 +288,7 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                           children: <Widget>[
                             Text(
                               'Spell the word you hear',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
+                              style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 12),
@@ -322,7 +325,7 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
                                 smartDashesType: SmartDashesType.disabled,
                                 smartQuotesType: SmartQuotesType.disabled,
                                 textCapitalization: TextCapitalization.none,
-                                textInputAction: TextInputAction.done,
+                                textInputAction: TextInputAction.unspecified,
                                 decoration: const InputDecoration(
                                   border: OutlineInputBorder(),
                                   hintText: 'Your spelling',
@@ -375,10 +378,7 @@ final class _SpellingPracticePageState extends State<SpellingPracticePage> {
 }
 
 final class _LoadFailureCard extends StatelessWidget {
-  const _LoadFailureCard({
-    required this.message,
-    required this.onRetry,
-  });
+  const _LoadFailureCard({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -396,9 +396,9 @@ final class _LoadFailureCard extends StatelessWidget {
               Text(
                 'Local learner state needs attention',
                 key: const Key('load-error-title'),
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               Text(message, key: const Key('load-error-message')),
@@ -454,9 +454,9 @@ final class _CompanionCardState extends State<_CompanionCard> {
           children: <Widget>[
             Text(
               snapshot.evolved ? 'Companion found' : 'Egg waiting',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
             Semantics(
@@ -467,10 +467,9 @@ final class _CompanionCardState extends State<_CompanionCard> {
                 child: SizedBox(
                   height: 180,
                   child: GameWidget<CompanionEvolutionGame>(
-                    key: ValueKey<String>(
-                      'companion-game-${snapshot.evolved}',
-                    ),
+                    key: ValueKey<String>('companion-game-${snapshot.evolved}'),
                     game: _game,
+                    autofocus: false,
                   ),
                 ),
               ),

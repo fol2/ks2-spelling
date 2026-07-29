@@ -106,4 +106,48 @@ void main() {
     await expectLater(corrupted.read(), throwsStateError);
     await corrupted.close();
   });
+
+  test('evolution must agree with whether a correct answer exists', () async {
+    final Directory directory = await Directory.systemTemp.createTemp(
+      'ks2-spelling-flutter-evolution-',
+    );
+    addTearDown(() async {
+      await directory.delete(recursive: true);
+    });
+
+    final List<Map<String, Object>> contradictions = <Map<String, Object>>[
+      <String, Object>{'attempts': 1, 'correct_count': 1, 'evolved': 0},
+      <String, Object>{'attempts': 1, 'correct_count': 0, 'evolved': 1},
+    ];
+
+    for (int index = 0; index < contradictions.length; index += 1) {
+      final String databasePath = paths.join(
+        directory.path,
+        'learner-$index.sqlite',
+      );
+      final AttemptRepository seeded = AttemptRepository(
+        databaseFactory: databaseFactoryFfi,
+        databasePath: databasePath,
+      );
+      await seeded.read();
+      await seeded.close();
+
+      final Database raw = await databaseFactoryFfi.openDatabase(databasePath);
+      final int changed = await raw.update(
+        'learner_state',
+        contradictions[index],
+        where: 'learner_id = ?',
+        whereArgs: <Object>[AttemptRepository.learnerId],
+      );
+      expect(changed, 1);
+      await raw.close();
+
+      final AttemptRepository corrupted = AttemptRepository(
+        databaseFactory: databaseFactoryFfi,
+        databasePath: databasePath,
+      );
+      await expectLater(corrupted.read(), throwsStateError);
+      await corrupted.close();
+    }
+  });
 }

@@ -1,0 +1,194 @@
+name: PR54 Words hardening
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr54-words-hardening-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  harden:
+    if: >-
+      github.event.pull_request.head.ref == 'agent/words-search-vocabulary-sets-clean' &&
+      github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out the exact PR branch
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          ref: agent/words-search-vocabulary-sets-clean
+
+      - name: Connect the Word Bank to published catalogue metadata
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              file = Path(path)
+              source = file.read_text()
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one replacement, found {count}')
+              file.write_text(source.replace(old, new, 1))
+
+          replace_once(
+              'src/app/ProductApp.jsx',
+              "function WordBankScreen({ progress, onScreen, onStart }) {\n",
+              "function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {\n",
+          )
+          replace_once(
+              'src/app/ProductApp.jsx',
+              """  const bank = useMemo(
+              () => buildWordBank({ progress, filter, vocabSet, query }),
+              [progress, filter, vocabSet, query],
+            );
+          """,
+              """  const bank = useMemo(
+              () => buildWordBank({
+                progress,
+                filter,
+                vocabSet,
+                vocabularySets,
+                query,
+              }),
+              [progress, filter, vocabSet, vocabularySets, query],
+            );
+          """,
+          )
+          replace_once(
+              'src/app/ProductApp.jsx',
+              """            <span className="figure">{bank.countLabel}</span>
+          """,
+              """            <span
+                      id="bank-result-count"
+                      className="figure"
+                      role="status"
+                      aria-live="polite"
+                      aria-atomic="true"
+                    >
+                      {bank.countLabel}
+                    </span>
+          """,
+          )
+          replace_once(
+              'src/app/ProductApp.jsx',
+              """              enterKeyHint="search"
+                      onChange={(event) => setQuery(event.target.value)}
+          """,
+              """              enterKeyHint="search"
+                      maxLength={64}
+                      aria-describedby="bank-result-count"
+                      onChange={(event) => setQuery(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape' && query) {
+                          event.preventDefault();
+                          setQuery('');
+                        }
+                      }}
+          """,
+          )
+          replace_once(
+              'src/app/ProductApp.jsx',
+              """                aria-pressed={option.selected}
+                        onClick={() => setVocabSet(option.id)}
+          """,
+              """                aria-pressed={option.selected}
+                        aria-label={`${option.label}, ${option.count} ${option.count === 1 ? 'word' : 'words'}`}
+                        onClick={() => setVocabSet(option.id)}
+          """,
+          )
+          replace_once(
+              'src/app/ProductApp.jsx',
+              """                aria-pressed={option.selected}
+                        onClick={() => setFilter(option.id)}
+          """,
+              """                aria-pressed={option.selected}
+                        aria-label={`${option.label}, ${option.count} ${option.count === 1 ? 'word' : 'words'}`}
+                        onClick={() => setFilter(option.id)}
+          """,
+          )
+          replace_once(
+              'src/app/ProductApp.jsx',
+              """      <WordBankScreen
+                progress={learningState.progress}
+                onScreen={showScreen}
+          """,
+              """      <WordBankScreen
+                progress={learningState.progress}
+                vocabularySets={learningState.vocabularySets}
+                onScreen={showScreen}
+          """,
+          )
+
+          shell_path = Path('tests/app-shell.test.mjs')
+          shell = shell_path.read_text()
+          old = """  assert.match(emptyProgressHtml, /id="bank-search-input"/);
+            assert.match(emptyProgressHtml, /placeholder="Search spellings"/);
+            assert.match(emptyProgressHtml, /aria-label="Vocabulary set"/);
+            assert.match(emptyProgressHtml, /aria-label="Filter words"/);
+            for (const set of ['Core', 'Y3–4', 'Y5–6']) {
+              assert.match(emptyProgressHtml, new RegExp(`>${set}<`));
+            }
+          """
+          new = """  assert.match(emptyProgressHtml, /id="bank-search-input"/);
+            assert.match(emptyProgressHtml, /placeholder="Search spellings"/);
+            assert.match(emptyProgressHtml, /aria-describedby="bank-result-count"/);
+            assert.match(emptyProgressHtml, /id="bank-result-count"[^>]*role="status"/);
+            assert.match(emptyProgressHtml, /aria-label="Vocabulary set"/);
+            assert.match(emptyProgressHtml, /aria-label="Filter words"/);
+            for (const set of ['Core', 'Y3–4']) {
+              assert.match(emptyProgressHtml, new RegExp(`>${set}<`));
+            }
+            assert.doesNotMatch(emptyProgressHtml, />Y5–6</);
+          """
+          if shell.count(old) != 1:
+              raise SystemExit('tests/app-shell.test.mjs: could not isolate Word Bank assertions')
+          shell_path.write_text(shell.replace(old, new, 1))
+          PY
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24.18.0"
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Verify the hardened Words slice
+        run: |
+          node --test \
+            tests/word-bank-model.test.mjs \
+            tests/product-learning-controller.test.mjs \
+            tests/product-app-services.test.mjs \
+            tests/app-shell.test.mjs
+          npm run lint -- --quiet
+          npm run build
+          git diff --check
+
+      - name: Commit the reviewed hardening
+        run: |
+          git add \
+            src/app/ProductApp.jsx \
+            tests/app-shell.test.mjs
+          if git diff --cached --quiet; then
+            echo "PR54 hardening is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "refactor(words): follow published set metadata"
+          git push origin HEAD:agent/words-search-vocabulary-sets-clean

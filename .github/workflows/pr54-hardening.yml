@@ -4,14 +4,14 @@ on:
   pull_request:
     branches:
       - main
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, edited]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: pr54-words-hardening-${{ github.event.pull_request.number }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 defaults:
   run:
@@ -19,9 +19,7 @@ defaults:
 
 jobs:
   harden:
-    if: >-
-      github.event.pull_request.head.ref == 'agent/words-search-vocabulary-sets-clean' &&
-      github.actor != 'github-actions[bot]'
+    if: github.event.pull_request.head.ref == 'agent/words-search-vocabulary-sets-clean'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -31,14 +29,14 @@ jobs:
           fetch-depth: 0
           ref: agent/words-search-vocabulary-sets-clean
 
-      - name: Normalize the hardened Word Bank source
+      - name: Normalize the reviewed Word Bank JSX
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
           path = Path('src/app/ProductApp.jsx')
           source = path.read_text()
-          bad_to_good = [
+          pairs = [
               (
                   """  const bank = useMemo(
             () => buildWordBank({
@@ -51,15 +49,15 @@ jobs:
             [progress, filter, vocabSet, vocabularySets, query],
           );""".replace('            ()', '  ()').replace('              progress', '    progress').replace('              filter', '    filter').replace('              vocabSet', '    vocabSet').replace('              vocabularySets', '    vocabularySets').replace('              query', '    query').replace('            }),', '  }),').replace('            [progress', '  [progress').replace('          );', ');'),
                   """  const bank = useMemo(
-              () => buildWordBank({
-                progress,
-                filter,
-                vocabSet,
-                vocabularySets,
-                query,
-              }),
-              [progress, filter, vocabSet, vocabularySets, query],
-            );""",
+    () => buildWordBank({
+      progress,
+      filter,
+      vocabSet,
+      vocabularySets,
+      query,
+    }),
+    [progress, filter, vocabSet, vocabularySets, query],
+  );""",
               ),
               (
                   """            <span
@@ -134,10 +132,10 @@ jobs:
         onStart={() => showScreen('setup')}""",
               ),
           ]
-          for bad, good in bad_to_good:
+          for bad, good in pairs:
               count = source.count(bad)
               if count != 1:
-                  raise SystemExit(f'expected one source-normalization target, found {count}')
+                  raise SystemExit(f'unexpected JSX topology for reviewed hunk: {count}')
               source = source.replace(bad, good, 1)
           path.write_text(source)
           PY
@@ -151,7 +149,7 @@ jobs:
       - name: Install exact dependencies
         run: npm ci
 
-      - name: Verify the hardened Words slice
+      - name: Verify the normalized Words product
         run: |
           node --test \
             tests/word-bank-model.test.mjs \
@@ -161,15 +159,13 @@ jobs:
           npm run lint -- --quiet
           npm run build
           git diff --check
+          test "$(git diff --name-only)" = "src/app/ProductApp.jsx"
 
-      - name: Commit the normalized source
-        run: |
-          git add src/app/ProductApp.jsx
-          if git diff --cached --quiet; then
-            echo "PR54 source is already normalized."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "style(words): normalize the hardened Word Bank"
-          git push origin HEAD:agent/words-search-vocabulary-sets-clean
+      - name: Retain the exact normalized source
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pr54-normalized-product-app
+          path: src/app/ProductApp.jsx
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0

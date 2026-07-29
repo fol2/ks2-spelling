@@ -76,18 +76,52 @@ void main() {
       reason: 'generation must finish before the committed spike is moved',
     );
 
-    final File temporaryHardening = File(
+    final File applicationSource = File(
       paths.join(
         repositoryRoot,
-        '.github',
-        'workflows',
-        'pr56-return-key-focus-hardening.yml',
+        'spikes',
+        'flutter_ks2_spelling',
+        'lib',
+        'spelling_spike_app.dart',
       ),
     );
-    expect(
-      await temporaryHardening.exists(),
-      isFalse,
-      reason: 'one-use source-generating workflows must remove themselves',
+    final String application = normaliseLines(
+      await applicationSource.readAsString(),
     );
+    expect(application, contains('_answerController.clear();'));
+    expect(
+      application,
+      isNot(contains('_answerController.value = const TextEditingValue(')),
+      reason: 'the spike should use the pinned Flutter controller contract',
+    );
+
+    final File decisionRecord = File(
+      paths.join(
+        repositoryRoot,
+        'docs',
+        'spikes',
+        'flutter-flame-vertical-slice.md',
+      ),
+    );
+    final String decision = normaliseLines(await decisionRecord.readAsString());
+    expect(decision, contains('ordinary `clear()` operation'));
+    expect(
+      decision,
+      isNot(contains('invalid `-1` selection produced by a bare controller clear')),
+    );
+
+    for (final String name in <String>[
+      'pr56-return-key-focus-hardening.yml',
+      'pr56-clear-contract-correction.yml',
+    ]) {
+      final File temporaryHardening = File(
+        paths.join(repositoryRoot, '.github', 'workflows', name),
+      );
+      expect(
+        await temporaryHardening.exists(),
+        isFalse,
+        reason: '$name must remove itself after its one-use correction',
+      );
+    }
   });
 }

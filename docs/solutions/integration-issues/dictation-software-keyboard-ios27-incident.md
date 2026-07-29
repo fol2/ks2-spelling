@@ -54,7 +54,10 @@ creation on the affected device.
 6. Saving and feedback leave that same input mounted, enabled and focused. React
    blocks edits through `beforeinput`/controlled-state guards while the answer is
    locked; it does not set the HTML `disabled` or `readOnly` property.
-7. Continue/auto-advance reuses the same input element for the next card, so the
+7. The product command boundary applies the shared `spellingOnly()` contract
+   before grading, so digits, spaces and unrelated punctuation cannot reach the
+   spelling engine while letters, apostrophes and hyphens remain valid.
+8. Continue/auto-advance reuses the same input element for the next card, so the
    operating-system keyboard is not intentionally dismissed between answers.
 
 The additional first tap is intentional. Removing it would require either
@@ -98,6 +101,8 @@ preserved in draft forensic PR #53. It is evidence, not mergeable product code.
 ## Production policy
 
 - `#product-spelling-input` is the only spelling input and source of truth.
+- Every submitted visible-field value crosses `spellingOnly()` at the product
+  controller boundary before the command engine receives it.
 - Ordinary nickname, search and PIN fields retain their own native WebKit input
   sessions.
 - No transparent field may intercept **Set off**, answer-line or unrelated-screen
@@ -121,6 +126,8 @@ The reset branch verifies that:
 - that field remains mounted, enabled and focusable through saving and feedback;
 - `aria-readonly`, `beforeinput` and controlled-state guards lock an answered card
   without transferring keyboard ownership;
+- the product controller normalises every submitted answer with the shared
+  spelling-only contract before constructing `submit-answer`;
 - Product root and startup code do not install keyboard ownership or chrome calls;
 - the retired hidden-input and viewport files are absent;
 - runtime source does not recreate a second input or import the Keyboard plugin;
@@ -132,15 +139,17 @@ The reset branch verifies that:
 - lint passes;
 - the unsigned iOS Simulator application compiles; and
 - the native UI-test target compiles real-field probes which:
-  - open **Add a learner** on both a clean install and a reused device before
-    tapping the visible nickname field;
+  - open **Add a learner** on a clean install and reuse an existing learner on a
+    repeated run rather than exhausting the bounded profile list;
   - require actual hittable alphabet keys rather than accepting the input
     assistant strip as a keyboard;
-  - create or select a learner, travel through Trail and Setup **Set off**, and
-    locate the actual visible Practice spelling field;
-  - type a deliberately wrong spelling, submit through the keyboard action key,
-    require the software letter rows to remain available, and type into that same
-    Practice field again.
+  - travel through Trail and Setup **Set off**, then locate the actual visible
+    Practice spelling field;
+  - type a deliberately wrong spelling and submit through the keyboard action key;
+  - require software letter rows to remain present while feedback rejects edits;
+    and
+  - wait for the real auto-advance before typing into the same field on the next
+    card.
 
 The UI probes are compilation evidence in CI. Their decisive keyboard assertions
 must still be executed on a physical device with no external hardware keyboard

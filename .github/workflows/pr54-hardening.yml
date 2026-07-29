@@ -38,57 +38,6 @@ jobs:
 
           path = Path('src/app/ProductApp.jsx')
           source = path.read_text()
-          replacements = [
-              (
-                  """  const bank = useMemo(
-            () => buildWordBank({
-              progress,
-              filter,
-              vocabSet,
-              vocabularySets,
-              query,
-            }),
-            [progress, filter, vocabSet, vocabularySets, query],
-          );
-          """,
-                  """  const bank = useMemo(
-              () => buildWordBank({
-                progress,
-                filter,
-                vocabSet,
-                vocabularySets,
-                query,
-              }),
-              [progress, filter, vocabSet, vocabularySets, query],
-            );
-          """,
-              ),
-              (
-                  """            <span
-                      id="bank-result-count"
-                      className="figure"
-                      role="status"
-                      aria-live="polite"
-                      aria-atomic="true"
-                    >
-                      {bank.countLabel}
-                    </span>
-          """,
-                  """            <span
-                      id="bank-result-count"
-                      className="figure"
-                      role="status"
-                      aria-live="polite"
-                      aria-atomic="true"
-                    >
-                      {bank.countLabel}
-                    </span>
-          """,
-              ),
-          ]
-
-          # The bot-authored functional commit used deliberately loose regexes.
-          # Replace its exact current indentation, then assert the bad forms are gone.
           bad_to_good = [
               (
                   """  const bank = useMemo(
@@ -100,7 +49,7 @@ jobs:
               query,
             }),
             [progress, filter, vocabSet, vocabularySets, query],
-          );""",
+          );""".replace('            ()', '  ()').replace('              progress', '    progress').replace('              filter', '    filter').replace('              vocabSet', '    vocabSet').replace('              vocabularySets', '    vocabularySets').replace('              query', '    query').replace('            }),', '  }),').replace('            [progress', '  [progress').replace('          );', ');'),
                   """  const bank = useMemo(
               () => buildWordBank({
                 progress,

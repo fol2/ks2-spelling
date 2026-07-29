@@ -75,9 +75,9 @@ final class C5ProductLayoutTests: XCTestCase {
 
         let addLearner = application.buttons["Add a learner"]
         if !addLearner.waitForExistence(timeout: 2) {
-            // A reused device may launch directly onto an existing learner's
-            // Trail. The learner chip is the first Trail button and opens the
-            // same switch sheet as a clean install.
+            // The nickname smoke test is intended for a clean install, but a
+            // reused device may launch on Trail. The learner chip remains the
+            // first authored Trail button and opens the same switch sheet.
             let trailSetOff = application.buttons["Set off"]
             XCTAssertTrue(
                 trailSetOff.waitForExistence(timeout: 5),
@@ -153,32 +153,52 @@ final class C5ProductLayoutTests: XCTestCase {
     private func openPracticeForKeyboardProbe(
         in application: XCUIApplication
     ) -> XCUIElement {
-        let learnerName = "Keyboard runner \(Int(Date().timeIntervalSince1970))"
-        let nickname = reachableNicknameField(in: application)
-        nickname.tap()
-        let profileKeyboard = requireSoftwareLetterKeys(in: application)
-        nickname.typeText(learnerName)
-        pressSubmissionKey(on: profileKeyboard)
-
         let trailSetOff = application.buttons["Set off"]
-        if !trailSetOff.waitForExistence(timeout: 5) {
-            let addLearner = application.buttons["Add learner"]
-            if addLearner.exists {
+
+        // Reuse a learner already on the device. The previous probe added one on
+        // every run, eventually risking a full profile list that could no longer
+        // reach Practice for the keyboard assertion.
+        if !trailSetOff.waitForExistence(timeout: 2) {
+            let existingLearner = application.buttons.matching(
+                NSPredicate(format: "label CONTAINS[c] %@", "words a week")
+            ).firstMatch
+            if existingLearner.waitForExistence(timeout: 1) {
                 reveal(
-                    addLearner,
+                    existingLearner,
                     in: application,
-                    message: "The learner form could not be submitted."
+                    message: "An existing learner could not be selected."
                 ).tap()
             }
         }
-        if !trailSetOff.waitForExistence(timeout: 10) {
-            let learner = application.staticTexts[learnerName]
-            reveal(
-                learner,
-                in: application,
-                message: "The newly created learner could not be selected."
-            ).tap()
+
+        if !trailSetOff.waitForExistence(timeout: 3) {
+            let learnerName = "Keyboard runner \(Int(Date().timeIntervalSince1970))"
+            let nickname = reachableNicknameField(in: application)
+            nickname.tap()
+            let profileKeyboard = requireSoftwareLetterKeys(in: application)
+            nickname.typeText(learnerName)
+            pressSubmissionKey(on: profileKeyboard)
+
+            if !trailSetOff.waitForExistence(timeout: 5) {
+                let addLearner = application.buttons["Add learner"]
+                if addLearner.exists {
+                    reveal(
+                        addLearner,
+                        in: application,
+                        message: "The learner form could not be submitted."
+                    ).tap()
+                }
+            }
+            if !trailSetOff.waitForExistence(timeout: 10) {
+                let learner = application.staticTexts[learnerName]
+                reveal(
+                    learner,
+                    in: application,
+                    message: "The newly created learner could not be selected."
+                ).tap()
+            }
         }
+
         reveal(
             trailSetOff,
             in: application,
@@ -336,12 +356,42 @@ final class C5ProductLayoutTests: XCTestCase {
             .completed,
             "The Return submission did not finish."
         )
+
+        // Feedback deliberately keeps the same field focused but rejects edits.
+        // Require real software letter rows during that lock, not only the input
+        // assistant strip, and prove an attempted edit cannot change the value.
+        let feedbackKeyboard = application.keyboards.firstMatch
+        XCTAssertTrue(
+            feedbackKeyboard.exists,
+            "The software keyboard disappeared while feedback locked edits."
+        )
+        let feedbackLowerA = feedbackKeyboard.keys["a"]
+        let feedbackUpperA = feedbackKeyboard.keys["A"]
+        XCTAssertTrue(
+            (feedbackLowerA.exists && feedbackLowerA.isHittable)
+                || (feedbackUpperA.exists && feedbackUpperA.isHittable),
+            "Feedback left only the input assistant without software letter rows."
+        )
+        let lockedValue = spelling.value as? String
+        spelling.typeText("x")
+        XCTAssertEqual(
+            spelling.value as? String,
+            lockedValue,
+            "The feedback lock accepted an edit before the next card."
+        )
+
+        // Wait for the product's real two-second auto-advance. Only then should
+        // the next card accept another spelling through the same keyboard session.
+        XCTAssertTrue(
+            application.buttons["Submit"].waitForExistence(timeout: 10),
+            "The next card did not appear after the feedback interval."
+        )
         _ = requireSoftwareLetterKeys(in: application)
         spelling.typeText("a")
         XCTAssertEqual(
             spelling.value as? String,
             "a",
-            "The same visible Practice field did not retain keyboard ownership."
+            "The next card did not retain the same visible keyboard session."
         )
         attachScreenshot(name: "c5-product-practice-return-keyboard")
     }

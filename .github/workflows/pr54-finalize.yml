@@ -1,16 +1,15 @@
 name: PR54 final source gate
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
-    types: [opened, reopened, synchronize]
+      - agent/words-search-vocabulary-sets-clean
 
 permissions:
   contents: write
 
 concurrency:
-  group: pr54-final-source-${{ github.event.pull_request.number }}
+  group: pr54-final-source-${{ github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -19,9 +18,7 @@ defaults:
 
 jobs:
   finalize:
-    if: >-
-      github.event.pull_request.head.ref == 'agent/words-search-vocabulary-sets-clean' &&
-      github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:

@@ -334,6 +334,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
     async startRound() {},
     async submitAnswer() {},
     async continueRound() {},
+    async skipWord() {},
     async endRound() {},
     async dispose() {},
   });
@@ -348,6 +349,20 @@ test('the production shell keeps Parent progress and commerce behind the local g
     parentAdministration,
     parentBackup,
     audio: Object.freeze({ async play() {} }),
+    haptics: Object.freeze({
+      answerCorrect() {},
+      celebrationStart() {},
+      uiTick() {},
+    }),
+    sfx: Object.freeze({
+      play() {},
+      noteSpeechStarted() {},
+      setEnabled() {},
+      isEnabled() { return true; },
+      attachGestureUnlock() {},
+      dispose() {},
+    }),
+    setSfxEnabled() {},
   });
   const render = () => renderToStaticMarkup(
     React.createElement(App, { services }),
@@ -563,6 +578,8 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(failedSetupHtml, />20 words</);
   assert.match(failedSetupHtml, />Trouble</);
   assert.match(failedSetupHtml, />SATs</);
+  assert.match(failedSetupHtml, /Sound effects/);
+  assert.match(failedSetupHtml, /role="switch"/);
   assert.match(failedSetupHtml, /aria-label="Places on the trail"/);
   for (const waypoint of ['Trail', 'Words', 'Codex', 'Camp']) {
     assert.match(failedSetupHtml, new RegExp(`<span>${waypoint}</span>`));
@@ -645,6 +662,8 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(practiceHtml, /class="cloze-blank"/);
   assert.match(practiceHtml, />Submit</);
   assert.match(practiceHtml, />End round</);
+  assert.match(practiceHtml, />Skip for now</);
+  assert.match(practiceHtml, /Answered 0 of 5/);
   assert.doesNotMatch(practiceHtml, />build</i);
 
   assert.match(productSource, /void play\('sentence'\)/u);

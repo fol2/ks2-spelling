@@ -256,7 +256,20 @@ function makeServices(query) {
       async importBackup() { return { cancelled: true }; },
     },
     audio: { async play() {} },
-    haptics: { answerCorrect() {}, celebrate() {}, tap() {} },
+    haptics: {
+      answerCorrect() {},
+      celebrationStart() {},
+      uiTick() {},
+    },
+    sfx: {
+      play() {},
+      noteSpeechStarted() {},
+      setEnabled() {},
+      isEnabled() { return true; },
+      attachGestureUnlock() {},
+      dispose() {},
+    },
+    setSfxEnabled() {},
   };
 }
 

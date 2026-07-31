@@ -1150,7 +1150,7 @@ const SHEET_FLICK_TRAVEL = 24;
  * Returns null when the sheet has nowhere to go, so the caller can leave the
  * grip out rather than offer a gesture that does nothing.
  */
-function useSheetDrag(onDismiss) {
+function useSheetDrag(onDismiss, haptics) {
   const sheetRef = useRef(null);
   const dragRef = useRef(null);
   const [offset, setOffset] = useState(0);
@@ -1184,8 +1184,11 @@ function useSheetDrag(onDismiss) {
     const travel = Math.max(0, event.clientY - drag.startY);
     const speed = travel / Math.max(1, event.timeStamp - drag.startedAt);
     const flicked = travel >= SHEET_FLICK_TRAVEL && speed >= SHEET_FLICK_SPEED;
-    if (flicked || travel >= drag.height * SHEET_DISMISS_FRACTION) onDismiss();
-  }, [onDismiss]);
+    if (flicked || travel >= drag.height * SHEET_DISMISS_FRACTION) {
+      haptics?.uiTick?.();
+      onDismiss();
+    }
+  }, [haptics, onDismiss]);
 
   if (!onDismiss) return null;
   return {
@@ -1209,8 +1212,9 @@ function SwitchScreen({
   onOpenParent,
   onRecoverAudio,
   onDismiss,
+  haptics,
 }) {
-  const drag = useSheetDrag(onDismiss);
+  const drag = useSheetDrag(onDismiss, haptics);
   const [nickname, setNickname] = useState('');
   const [yearGroup, setYearGroup] = useState('Y3');
   const [goal, setGoal] = useState(10);
@@ -1969,10 +1973,13 @@ function SetupScreen({
   bankTotal,
   vocabularySets = [],
   monsters = [],
+  sfxEnabled = true,
+  onSetSfxEnabled,
 }) {
   const [length, setLength] = useState(5);
   const [quest, setQuest] = useState('smart');
   const [yearFilter, setYearFilter] = useState(vocabularySets[0]?.id ?? 'core');
+  const [soundOn, setSoundOn] = useState(sfxEnabled === true);
   const active = QUESTS.find(({ id }) => id === quest) ?? QUESTS[0];
   const effectiveYearFilter = quest === 'test' ? 'core' : yearFilter;
   const effectiveLength = quest === 'test' ? 20 : length;
@@ -1980,6 +1987,10 @@ function SetupScreen({
     () => setupExpeditionCompanion(monsters),
     [monsters],
   );
+
+  useEffect(() => {
+    setSoundOn(sfxEnabled === true);
+  }, [sfxEnabled]);
 
   return (
     <main className="product-app" aria-labelledby="setup-title">
@@ -2103,6 +2114,24 @@ function SetupScreen({
             <AudioStatus audioState={audioState} onRecover={onRecoverAudio} dusk />
           )}
 
+          <div className="setup-sfx">
+            <span id="setup-sfx-label">Sound effects</span>
+            <button
+              type="button"
+              role="switch"
+              className="pill press-soft press"
+              aria-checked={soundOn}
+              aria-labelledby="setup-sfx-label"
+              onClick={() => {
+                const next = !soundOn;
+                setSoundOn(next);
+                onSetSfxEnabled?.(next);
+              }}
+            >
+              {soundOn ? 'On' : 'Off'}
+            </button>
+          </div>
+
           <button
             type="button"
             className="button-primary press"
@@ -2162,8 +2191,11 @@ function RoundScreen({
   state,
   audioState,
   audio,
+  haptics,
+  sfx,
   onSubmit,
   onContinue,
+  onSkip,
   onEnd,
   onPlaybackFailure,
 }) {
@@ -2174,6 +2206,7 @@ function RoundScreen({
   const [leaving, setLeaving] = useState(false);
   const advanceTimerRef = useRef(null);
   const spellingInputRef = useRef(null);
+  const lastCueKeyRef = useRef('');
   const closeExit = useCallback(() => {
     setExitError('');
     setConfirmExit(false);
@@ -2214,6 +2247,7 @@ function RoundScreen({
       if (!audio || typeof audio.play !== 'function') {
         throw new Error('product_audio_player_unavailable');
       }
+      sfx?.noteSpeechStarted(6000);
       await audio.play({ ...audioRequest, kind });
       setLocalError('');
     } catch (error) {
@@ -2250,6 +2284,21 @@ function RoundScreen({
     busy,
     focusSpellingField,
   ]);
+
+  useEffect(() => {
+    const kind = practice?.feedback?.kind;
+    if (!kind || !practice?.runtimeItemId) return;
+    const cueKey = `${practice.runtimeItemId}:${kind}`;
+    if (lastCueKeyRef.current === cueKey) return;
+    lastCueKeyRef.current = cueKey;
+    const tone = feedbackTone(kind);
+    if (tone === 'success') {
+      haptics?.answerCorrect?.();
+      sfx?.play('correct');
+    } else if (tone === 'retry') {
+      sfx?.play('retry');
+    }
+  }, [practice?.runtimeItemId, practice?.feedback?.kind, haptics, sfx]);
 
   useEffect(() => {
     if (advanceTimerRef.current != null) {
@@ -2351,6 +2400,9 @@ function RoundScreen({
             })}
             <span className="round-flag" aria-hidden="true"><IconTrail size={15} /></span>
           </ol>
+          <p className="round-attempts">
+            Answered {practice.progress.checked} of {practice.progress.total ?? total}
+          </p>
 
           <section
             className="round-card"
@@ -2465,17 +2517,38 @@ function RoundScreen({
 
           <footer className="round-foot">
             <p>AI-generated dictation voice</p>
-            <button
-              type="button"
-              className="button-quiet press-soft press"
-              disabled={busy}
-              onClick={() => {
-                setExitError('');
-                setConfirmExit(true);
-              }}
-            >
-              End round
-            </button>
+            <div className="round-foot-actions">
+              {!answered && (
+                <button
+                  type="button"
+                  className="button-quiet press-soft press"
+                  disabled={busy}
+                  onClick={() => {
+                    focusSpellingField();
+                    sfx?.play('tick');
+                    haptics?.uiTick?.();
+                    void onSkip()
+                      .then(() => setAnswer(''))
+                      .catch(() => setLocalError(
+                        'That word could not be skipped. Please try again.',
+                      ));
+                  }}
+                >
+                  Skip for now
+                </button>
+              )}
+              <button
+                type="button"
+                className="button-quiet press-soft press"
+                disabled={busy}
+                onClick={() => {
+                  setExitError('');
+                  setConfirmExit(true);
+                }}
+              >
+                End round
+              </button>
+            </div>
           </footer>
         </div>
 
@@ -2483,7 +2556,10 @@ function RoundScreen({
           <LeaveRoundDialog
             error={exitError}
             leaving={leaving || busy}
-            onKeep={closeExit}
+            onKeep={() => {
+              closeExit();
+              focusSpellingField();
+            }}
             onLeave={() => void leaveRound()}
           />
         )}
@@ -2504,6 +2580,7 @@ function ResultsScreen({
   celebrationEvents = [],
   secureGain = 0,
   haptics,
+  sfx,
   onCelebrationDone,
 }) {
   // Field Record mirrors Trail: only a caught or evolved companion is painted.
@@ -2517,6 +2594,18 @@ function ResultsScreen({
   const correct = summary?.correct ?? 0;
   const mistakes = (summary?.mistakes ?? []).map(mistakeWord).filter(Boolean);
   const clean = mistakes.length === 0;
+  const stampedRef = useRef(false);
+
+  // Timed with .record-stamp's stampIn delay (280ms) so the thud lands with the ink.
+  useEffect(() => {
+    if (!summary || stampedRef.current) return undefined;
+    stampedRef.current = true;
+    const timer = setTimeout(() => {
+      sfx?.play('stamp');
+      haptics?.uiTick?.();
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [summary, sfx, haptics]);
 
   return (
     <main className="product-app" aria-labelledby="summary-title">
@@ -2536,6 +2625,7 @@ function ResultsScreen({
         <CelebrationLayer
           events={celebrationEvents}
           haptics={haptics}
+          sfx={sfx}
           onDone={onCelebrationDone}
         />
         <div className="scene-body">
@@ -2760,7 +2850,12 @@ export default function ProductApp({ services }) {
   const recoverAudio = () => {
     void services.audioAvailability.recover().catch(() => undefined);
   };
-  const showScreen = (screen) => services.learning.showScreen(screen);
+  const showScreen = (screen) => {
+    if (screen !== learningState.screen) {
+      services.haptics?.uiTick?.();
+    }
+    services.learning.showScreen(screen);
+  };
   const closeParent = () => {
     services.parent.lock();
     setParentOpen(false);
@@ -2812,6 +2907,7 @@ export default function ProductApp({ services }) {
         onCreate={(draft) => services.controller.createProfile(draft)}
         onOpenParent={() => setParentOpen(true)}
         onRecoverAudio={recoverAudio}
+        haptics={services.haptics}
         // Until a learner is chosen this is the only screen there is, so the
         // sheet stays put and shows no grip to drag.
         onDismiss={selectedProfile ? () => setSwitchOpen(false) : undefined}
@@ -2834,6 +2930,8 @@ export default function ProductApp({ services }) {
         bankTotal={bank.total}
         vocabularySets={learningState.vocabularySets}
         monsters={learningState.monsters}
+        sfxEnabled={services.sfx?.isEnabled?.() !== false}
+        onSetSfxEnabled={(enabled) => services.setSfxEnabled?.(enabled)}
       />
     );
   }
@@ -2843,8 +2941,11 @@ export default function ProductApp({ services }) {
         state={learningState}
         audioState={audioState}
         audio={services.audio}
+        haptics={services.haptics}
+        sfx={services.sfx}
         onSubmit={(typed) => services.learning.submitAnswer(typed)}
         onContinue={() => services.learning.continueRound()}
+        onSkip={() => services.learning.skipWord()}
         onEnd={() => services.learning.endRound()}
         onPlaybackFailure={() =>
           services.audioAvailability.reportPlaybackFailure()}
@@ -2860,6 +2961,7 @@ export default function ProductApp({ services }) {
         celebrationEvents={celebrationEvents}
         secureGain={secureGain}
         haptics={services.haptics}
+        sfx={services.sfx}
         onCelebrationDone={clearCelebrations}
       />
     );

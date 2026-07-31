@@ -1994,6 +1994,27 @@ h1 {
   flex: 1;
 }
 
+.setup-sfx {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  color: rgb(255 249 236 / 78%);
+  font-size: 0.82rem;
+}
+
+.setup-sfx .pill {
+  min-width: 3.5rem;
+  justify-content: center;
+}
+
+.setup-sfx .pill[aria-checked='true'] {
+  border-color: rgb(230 203 142 / 50%);
+  background: linear-gradient(180deg, #fffaf0, #f0e3c9);
+  color: #131b25;
+}
+
 .length-choice {
   display: flex;
   gap: 0.4rem;
@@ -2079,6 +2100,14 @@ h1 {
   flex: none;
   place-items: center;
   color: rgb(255 249 236 / 60%);
+}
+
+.round-attempts {
+  margin: 0.35rem 0 0;
+  color: rgb(255 249 236 / 62%);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-align: center;
 }
 
 .round-card {
@@ -2268,6 +2297,15 @@ h1 {
 .round-foot .button-quiet {
   border-color: rgb(255 249 236 / 24%);
   color: rgb(255 249 236 / 82%);
+}
+
+.round-foot-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
 }
 
 /* --- results ------------------------------------------------------------- */

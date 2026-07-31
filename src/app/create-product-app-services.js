@@ -22,7 +22,11 @@ import {
 import {
   createSQLiteLearningBackupRepository,
 } from '../platform/database/sqlite-learning-backup-repository.js';
+import {
+  createSQLiteSoundPrefsStore,
+} from '../platform/database/sqlite-sound-prefs-store.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
+import { createSfxEngine } from './sfx/sfx-engine.js';
 import {
   createCapacitorParentBiometrics,
 } from '../platform/security/capacitor-parent-biometrics.js';
@@ -155,6 +159,7 @@ export async function createProductAppServices(options = {}) {
   let learning = null;
   let audio = null;
   let audioAvailability = null;
+  let sfx = null;
   let parent = null;
   let parentBackup = null;
   let parentCommerce = null;
@@ -333,6 +338,26 @@ export async function createProductAppServices(options = {}) {
       },
       now,
     });
+    const soundPrefsStore = createSQLiteSoundPrefsStore({
+      connection,
+      gate,
+      now,
+    });
+    const soundPrefs = await soundPrefsStore.read().catch(() => null);
+    sfx = options.sfx ?? createSfxEngine({
+      createContext: () => new AudioContext(),
+      lifecycle,
+      initiallyEnabled: soundPrefs?.sfxEnabled !== false,
+      now,
+    });
+    if (typeof document !== 'undefined') {
+      sfx.attachGestureUnlock(document);
+    }
+    const setSfxEnabled = (value) => {
+      const enabled = value === true;
+      sfx.setEnabled(enabled);
+      void soundPrefsStore.write({ sfxEnabled: enabled }).catch(() => undefined);
+    };
     let disposePromise;
     return Object.freeze({
       mode: 'product',
@@ -343,6 +368,8 @@ export async function createProductAppServices(options = {}) {
       learning,
       audio,
       audioAvailability,
+      sfx,
+      setSfxEnabled,
       haptics: options.haptics ?? createCapacitorHaptics(),
       parent,
       parentProgress,
@@ -354,6 +381,7 @@ export async function createProductAppServices(options = {}) {
           () => parentCommerce.dispose(),
           () => parentProgress.dispose(),
           () => parent.dispose(),
+          () => sfx.dispose(),
           () => audio.dispose(),
           () => audioAvailability.dispose(),
           () => learning.dispose(),
@@ -371,6 +399,7 @@ export async function createProductAppServices(options = {}) {
         parent && (() => parent.dispose()),
         parentCommerce && (() => parentCommerce.dispose()),
         parentProgress && (() => parentProgress.dispose()),
+        sfx && (() => sfx.dispose()),
         audio && (() => audio.dispose()),
         audioAvailability && (() => audioAvailability.dispose()),
         learning && (() => learning.dispose()),

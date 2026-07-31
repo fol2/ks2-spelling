@@ -88,7 +88,7 @@ function ProgressMeter({ event }) {
  * remaining time so a reward cannot disappear while the learner is away or
  * actively reading it.
  */
-export function CelebrationLayer({ events, haptics, onDone }) {
+export function CelebrationLayer({ events, haptics, sfx, onDone }) {
   const list = Array.isArray(events) ? events : [];
   const [index, setIndex] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion);
@@ -153,7 +153,14 @@ export function CelebrationLayer({ events, haptics, onDone }) {
     if (!event || !visible || lastHapticKey.current === eventKey) return;
     lastHapticKey.current = eventKey;
     haptics?.celebrationStart?.(event.kind, event.stage);
-  }, [event, eventKey, haptics, visible]);
+    sfx?.play(
+      event.kind === 'caught'
+        ? 'catch'
+        : event.kind === 'evolve'
+          ? 'evolve'
+          : 'tick',
+    );
+  }, [event, eventKey, haptics, sfx, visible]);
 
   useEffect(() => {
     if (!eventKey || !visible || interactionPaused) return undefined;

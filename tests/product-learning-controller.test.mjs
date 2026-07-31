@@ -535,7 +535,11 @@ test('product learning captures a round baseline at startRound and persists it',
   assert.equal(state.roundBaseline.sessionId, state.practice.sessionId);
   // Captured after start-session lands, so it matches the practice roster.
   assert.deepEqual(state.roundBaseline.monsters, state.monsters);
-  assert.deepEqual(state.roundBaseline.camp, state.camp);
+  assert.deepEqual(state.roundBaseline.camp, {
+    packId: 'ks2-core',
+    campHighWater: 0,
+    lastCreditedGuardianDay: null,
+  });
   assert.equal(writes.length, 1);
   assert.equal(writes[0].learnerId, 'learner-a');
   assert.deepEqual(writes[0].record, {
@@ -543,7 +547,7 @@ test('product learning captures a round baseline at startRound and persists it',
     learnerId: 'learner-a',
     sessionId: state.practice.sessionId,
     monsters: state.monsters,
-    camp: state.camp,
+    camp: state.roundBaseline.camp,
   });
 
   await controller.dispose();

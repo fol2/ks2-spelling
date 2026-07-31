@@ -373,4 +373,8 @@ test('celebration layer hardens modal focus, timers, scrolling and haptics', asy
   assert.match(haptics, /kind === 'caught'/u);
   assert.match(haptics, /ImpactStyle\.Heavy/u);
   assert.match(haptics, /ImpactStyle\.Light/u);
+  assert.match(haptics, /uiTick\(\)/u);
+  assert.match(source, /sfx\?\.play\(/u);
+  assert.match(source, /'catch'/u);
+  assert.match(source, /'evolve'/u);
 });

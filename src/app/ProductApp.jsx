@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import { buildCodex, setupExpeditionCompanion, trailMeadowCompanions } from './codex-model.js';
+import { learnerColour } from './learner-colour.js';
 import { artUrl, regionArt } from './mastery-art.js';
 import { autoAdvanceDelayMs } from './practice-feel.js';
 import { buildWordBank } from './word-bank-model.js';
@@ -1223,7 +1224,7 @@ function SwitchScreen({
       nickname: nextNickname,
       yearGroup,
       goal,
-      colour: '#157A76',
+      colour: learnerColour(nextNickname),
     })
       .then(() => {
         setNickname('');

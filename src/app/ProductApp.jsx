@@ -2309,9 +2309,13 @@ function RoundScreen({
       }
       await audio.play({ ...audioRequest, kind });
       setLocalError('');
-    } catch {
-      setLocalError('Audio needs attention. Check the listening pack and try again.');
-      onPlaybackFailure();
+    } catch (error) {
+      if (error?.name === 'NotAllowedError') {
+        setLocalError('Tap Hear it again to listen.');
+      } else {
+        setLocalError('Audio needs attention. Check the listening pack and try again.');
+        onPlaybackFailure();
+      }
     } finally {
       focusSpellingField();
     }

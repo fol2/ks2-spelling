@@ -24,6 +24,8 @@
     "build:starter-pack": "node scripts/build-starter-pack.mjs",
     "generate:starter-audio": "node scripts/generate-starter-audio.mjs",
     "verify:starter-audio": "node scripts/generate-starter-audio.mjs --check",
+    "generate:product-sfx": "node scripts/generate-product-sfx.mjs",
+    "verify:product-sfx": "node scripts/verify-product-sfx.mjs",
     "verify:starter-pack": "node scripts/build-starter-pack.mjs",
     "verify:art": "node scripts/verify-vendored-art.mjs",
     "prepare:b3:distribution": "node scripts/prepare-b3-distribution.mjs",

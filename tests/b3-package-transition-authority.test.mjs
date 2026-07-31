@@ -10,6 +10,7 @@ import {
   B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+  PRODUCT_SFX_PACKAGE_SCRIPT_ADDITIONS,
   SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS,
   assertB2PackageTransition,
   verifyB3PackageTransitionAuthority,
@@ -58,6 +59,11 @@ const EXPECTED_C_SERIES_SCRIPT_NAMES = Object.freeze([
   'verify:art',
 ]);
 
+const EXPECTED_PRODUCT_SFX_SCRIPT_NAMES = Object.freeze([
+  'generate:product-sfx',
+  'verify:product-sfx',
+]);
+
 function frozenPackage() {
   return JSON.parse(
     execFileSync('git', ['cat-file', 'blob', `${FROZEN_COMMIT}:package.json`], {
@@ -92,6 +98,10 @@ test('transition authority freezes every package script declared by the approved
     EXPECTED_C_SERIES_SCRIPT_NAMES,
   );
   assert.deepEqual(
+    Object.keys(PRODUCT_SFX_PACKAGE_SCRIPT_ADDITIONS),
+    EXPECTED_PRODUCT_SFX_SCRIPT_NAMES,
+  );
+  assert.deepEqual(
     Object.keys(SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS),
     EXPECTED_SDLC_SCRIPT_NAMES,
   );
@@ -101,6 +111,7 @@ test('transition authority freezes every package script declared by the approved
       ...B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
       ...B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
       ...C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+      ...PRODUCT_SFX_PACKAGE_SCRIPT_ADDITIONS,
       ...SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS,
     },
   );

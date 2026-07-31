@@ -55,7 +55,7 @@ Evidence: `reports/polish-after/*-device.png`.
 ## Known follow-ups (none block release readiness of this pass)
 
 1. Physical-device keyboard checklist
-   (`docs/solutions/integration-issues/dictation-software-keyboard-ios27-incident.md:181-207`)
+   (`docs/solutions/integration-issues/dictation-software-keyboard-ios27-incident.md:187-212`)
    still needs one run on a real iPhone — simulator-side evidence is complete.
 2. C5 practice-probe hardening (wait on a button query rather than staticTexts).
 3. Import-flow archaeology: under a double-triggered import a superseded learner

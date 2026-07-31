@@ -1,7 +1,7 @@
 ---
 module: product-dictation-keyboard
 date: 2026-07-29
-problem_type: bug
+problem_type: integration_issue
 component: ios_text_input
 severity: high
 applies_when:
@@ -178,6 +178,12 @@ The UI probes are compilation evidence in CI. Their decisive keyboard assertions
 must still be executed on a physical device with no external hardware keyboard
 attached.
 
+Simulator checks carry a false-positive trap. Driving typing through an
+accessibility or HID automation bridge switches the simulator into
+hardware-keyboard mode: the letter rows vanish and only the assistant strip
+remains, which mimics this incident exactly. Recover with `xcrun simctl erase`,
+and trust the XCUITest probes over hand-driven simulator typing.
+
 ## Required physical-device acceptance
 
 Use a clean product Debug build from the exact final reset head. Do not test PR
@@ -224,6 +230,6 @@ not for rebuilding the hidden session.
 ## Related records
 
 - Draft PR #53 — preserved forensic keyboard investigation; do not merge.
-- Draft PR #55 — visible-input production reset and device gate.
+- PR #55 — visible-input production reset and device gate; merged 2026-07-29.
 - `docs/solutions/workflow-issues/gating-physical-ios-installs-on-application-composition.md`
   — always gate physical installs on product versus proof composition.

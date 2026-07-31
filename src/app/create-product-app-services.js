@@ -313,7 +313,9 @@ export async function createProductAppServices(options = {}) {
         if (learning.getState().learnerId === learnerId) {
           await learning.selectLearner(learnerId);
         }
-        await parentProgress.refresh();
+        // A committed reset must not be reported as failed because the
+        // auxiliary summary could not be rebuilt; it carries its own notice.
+        await parentProgress.refresh().catch(() => undefined);
         return true;
       },
     });

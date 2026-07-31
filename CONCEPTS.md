@@ -22,6 +22,16 @@ The catalogue-owned unit that gives one target spelling its accepted forms, teac
 
 A catalogue-owned example sentence attached to one spelling item and used as the source of its normal and slow dictation cues.
 
+### Dictation
+
+The process of speaking a spelling cue to the learner — the word alone, or the
+word inside its sentence prompt — so that the spelling is heard rather than
+shown.
+
+Each cue has a normal and a slow rendering. Because dictation never presents the
+target spelling as text, the learner must be able to hear a cue and write their
+answer in the same moment.
+
 ### Spelling audio authority
 
 The reviewed contract that fixes which word and sentence sources, playback profiles, encodings, validation rules, and runtime-generation boundaries are valid for a spelling catalogue.
@@ -35,6 +45,35 @@ An approved bundled voice identity that binds the word and sentence sources, pro
 ### Complete audio matrix
 
 The exhaustive set containing one natural word recording per playback profile plus normal and slow dictation recordings for every sentence prompt and playback profile in a spelling catalogue.
+
+## Learner state and backup
+
+### Learner snapshot
+
+The complete saved state of one learner's progress through a spelling
+catalogue, owned and validated by the spelling engine rather than by the app.
+
+It is stored and restored as a single unit under an exact-key contract, so the
+app may not add fields to it; app-side state that needs persisting lives
+outside the snapshot.
+
+### Learning backup
+
+The transferable file carrying every local learner's profile and learner
+snapshot together with which learner was selected.
+
+Importing one replaces the entire local learner store rather than merging into
+it, so a partial or selective restore is not expressible; the file's bytes are
+checked against their recorded digest before any part of it is applied.
+
+### Parent progress summary
+
+The derived view of every learner's progress presented to a parent.
+
+It owns no data and is recomputed from saved learning on demand, so a failure
+to produce it never means saved learning changed — and no operation that has
+already committed may be reported as failed because the summary could not be
+rebuilt.
 
 ## Native packaging
 

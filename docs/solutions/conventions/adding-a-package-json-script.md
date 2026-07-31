@@ -30,7 +30,7 @@ even a pure developer-convenience alias like `test:fast` — makes the suite fai
 with:
 
 ```
-AssertionError: Package script is not authorised by the approved plans: test:fast
+Error: Package script is not authorised by the approved plans: test:fast
   code: 'b3_package_transition_invalid'
 ```
 

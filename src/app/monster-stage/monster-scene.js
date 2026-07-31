@@ -1,5 +1,6 @@
 import { clampCompanionStage } from '../companion-stage-contract.js';
 import { evolutionDecision, stageArtUrl } from './monster-stage-model.js';
+import { glowPulse, shockwaveRing, spawnBurst } from './stage-fx.js';
 
 /**
  * The Monster Stage scene: procedural life on static art. A factory that takes
@@ -41,6 +42,7 @@ export function createMonsterScene(Phaser, props) {
     constructor() {
       super('monster');
       this.props = props;
+      this.Phaser = Phaser;
       this.stage = clampCompanionStage(props.stage);
     }
 
@@ -67,6 +69,7 @@ export function createMonsterScene(Phaser, props) {
       this.startBreathing();
       this.scheduleBlink();
       this.scheduleHop();
+      this.scheduleSway();
       this.startMotes();
 
       this.sprite.setInteractive({ useHandCursor: false });
@@ -107,7 +110,7 @@ export function createMonsterScene(Phaser, props) {
         (height * 0.82) / this.sprite.height,
       );
       this.baseScale = fit;
-      this.sprite.setPosition(width / 2, this.groundY).setScale(fit);
+      this.sprite.setPosition(width / 2, this.groundY).setScale(fit).setAngle(0);
       this.buildVignette(width, height);
       this.children.bringToTop(this.sprite);
       if (this.breath) this.startBreathing();
@@ -117,7 +120,7 @@ export function createMonsterScene(Phaser, props) {
     startBreathing() {
       this.breath?.stop();
       const scale = this.baseScale;
-      this.sprite.setScale(scale);
+      this.sprite.setScale(scale).setAngle(0);
       this.breath = this.tweens.add({
         targets: this.sprite,
         scaleY: scale * 1.03,
@@ -137,6 +140,7 @@ export function createMonsterScene(Phaser, props) {
       build(() => {
         this.sprite
           .setScale(this.baseScale)
+          .setAngle(0)
           .setPosition(this.sprite.x, this.groundY);
         this.busy = false;
         this.startBreathing();
@@ -209,16 +213,53 @@ export function createMonsterScene(Phaser, props) {
       this.scheduleHop();
     }
 
+    /** Occasional soft lean — second idle variety, still LCG-timed. */
+    scheduleSway() {
+      this.time.delayedCall(12000 + this.rng() * 8000, () => this.sway());
+    }
+
+    sway() {
+      const scale = this.baseScale;
+      this.interrupt((done) => {
+        this.tweens.chain({
+          targets: this.sprite,
+          tweens: [
+            {
+              scaleX: scale * 1.04,
+              angle: 4,
+              duration: 280,
+              ease: 'Sine.Out',
+            },
+            {
+              scaleX: scale * 0.98,
+              angle: -3,
+              duration: 320,
+              ease: 'Sine.InOut',
+            },
+            {
+              scaleX: scale,
+              angle: 0,
+              duration: 240,
+              ease: 'Sine.InOut',
+            },
+          ],
+          onComplete: done,
+        });
+      });
+      this.scheduleSway();
+    }
+
     /** Tap: squash-and-stretch with an overshoot settle plus a soft burst. */
     react() {
       if (this.evolving) return;
+      spawnBurst(this, {
+        x: this.sprite.x,
+        y: this.sprite.y - this.sprite.displayHeight * 0.5,
+        count: 8,
+        colours: TAP_COLOURS,
+        rng: () => this.rng(),
+      });
       const scale = this.baseScale;
-      this.spawnBurst(
-        this.sprite.x,
-        this.sprite.y - this.sprite.displayHeight * 0.5,
-        8,
-        TAP_COLOURS,
-      );
       this.interrupt((done) => {
         this.tweens.chain({
           targets: this.sprite,
@@ -245,29 +286,6 @@ export function createMonsterScene(Phaser, props) {
           onComplete: done,
         });
       });
-    }
-
-    spawnBurst(x, y, count, colours) {
-      for (let index = 0; index < count; index += 1) {
-        const circle = this.add
-          .circle(
-            x + (this.rng() * 40 - 20),
-            y + (this.rng() * 20 - 10),
-            3 + this.rng() * 3,
-            colours[(this.rng() * colours.length) | 0],
-            0.9,
-          )
-          .setDepth(4);
-        this.tweens.add({
-          targets: circle,
-          y: circle.y - 40 - this.rng() * 40,
-          alpha: 0,
-          scale: 0.4,
-          duration: 600 + this.rng() * 300,
-          ease: 'Sine.Out',
-          onComplete: () => circle.destroy(),
-        });
-      }
     }
 
     /** 3–4 slow motes drifting up over the vignette; self-cleaning, calm. */
@@ -329,25 +347,21 @@ export function createMonsterScene(Phaser, props) {
       const x = this.sprite.x;
       const y = this.groundY;
       const old = this.sprite;
+      const centreY = y - old.displayHeight * 0.5;
 
-      const glow = this.add
-        .circle(
-          x,
-          y - old.displayHeight * 0.5,
-          old.displayWidth * 0.5,
-          0xe2a62b,
-          0,
-        )
-        .setDepth(1)
-        .setBlendMode(Phaser.BlendModes.ADD);
-      this.tweens.add({
-        targets: glow,
-        alpha: 0.5,
-        scale: 1.4,
-        duration: 500,
-        yoyo: true,
-        ease: 'Sine.InOut',
-        onComplete: () => glow.destroy(),
+      glowPulse(this, this.Phaser, {
+        x,
+        y: centreY,
+        radius: old.displayWidth * 0.5,
+        colour: 0xe2a62b,
+      });
+      shockwaveRing(this, {
+        x,
+        y: centreY,
+        colour: 0xe2a62b,
+        startRadius: Math.max(14, old.displayWidth * 0.18),
+        endScale: 4.8,
+        duration: 620,
       });
       this.tweens.add({
         targets: old,
@@ -364,12 +378,13 @@ export function createMonsterScene(Phaser, props) {
         (height * 0.82) / next.height,
       );
       next.setScale(nextScale * 0.6).setAlpha(0);
-      this.spawnBurst(
+      spawnBurst(this, {
         x,
-        y - next.displayHeight * 0.5,
-        12,
-        REWARD_COLOURS,
-      );
+        y: y - next.displayHeight * 0.5,
+        count: 12,
+        colours: REWARD_COLOURS,
+        rng: () => this.rng(),
+      });
       this.tweens.add({
         targets: next,
         scaleX: nextScale,

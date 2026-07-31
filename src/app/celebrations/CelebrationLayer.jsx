@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -12,10 +14,13 @@ import {
   celebrationEventKey,
   celebrationPalette,
   celebrationProgressMeterCopy,
+  celebrationStageDecision,
   monsterCelebrationArtUrl,
 } from './celebration-model.js';
 import './celebrations.css';
 import './celebration-hardening.css';
+
+const CelebrationStage = lazy(() => import('./CelebrationStage.jsx'));
 
 const PARTICLE_COUNT = 12;
 
@@ -202,6 +207,12 @@ export function CelebrationLayer({ events, haptics, sfx, onDone }) {
     event.branch,
     event.stage,
   );
+  const stageMode = celebrationStageDecision({
+    kind: event.kind,
+    reducedMotion,
+    contextLost: false,
+    backgrounded: !visible,
+  });
 
   return (
     <section
@@ -246,6 +257,23 @@ export function CelebrationLayer({ events, haptics, sfx, onDone }) {
                 height={640}
                 decoding="async"
               />
+            )}
+            {stageMode === 'live' && artUrl && (
+              <Suspense fallback={null}>
+                <CelebrationStage
+                  key={eventKey}
+                  monsterId={event.monsterId}
+                  branch={event.branch}
+                  stage={event.stage}
+                  kind={event.kind}
+                  accent={palette.primary}
+                  secondary={palette.secondary}
+                  eventKey={eventKey}
+                  durationMs={duration}
+                  reducedMotion={reducedMotion}
+                  visible={visible}
+                />
+              </Suspense>
             )}
           </span>
 

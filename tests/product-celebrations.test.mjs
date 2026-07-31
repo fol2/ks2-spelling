@@ -9,6 +9,7 @@ import {
   celebrationEventKey,
   celebrationPalette,
   celebrationProgressMeterCopy,
+  celebrationStageDecision,
   diffMonsterCelebrations,
   monsterCelebrationArtUrl,
   secureWordDelta,
@@ -304,6 +305,24 @@ test('celebration art keeps the saved branch, clamps stages and refuses fake IDs
   assert.equal(monsterCelebrationArtUrl('../inklet', 'b1', 0), null);
 });
 
+test('celebrationStageDecision gates the live canvas to catch and evolve moments', () => {
+  assert.equal(celebrationStageDecision({ kind: 'caught' }), 'live');
+  assert.equal(celebrationStageDecision({ kind: 'evolve' }), 'live');
+  assert.equal(celebrationStageDecision({ kind: 'progress' }), 'static');
+  assert.equal(
+    celebrationStageDecision({ kind: 'caught', reducedMotion: true }),
+    'static',
+  );
+  assert.equal(
+    celebrationStageDecision({ kind: 'evolve', backgrounded: true }),
+    'static',
+  );
+  assert.equal(
+    celebrationStageDecision({ kind: 'caught', contextLost: true }),
+    'static',
+  );
+});
+
 test('ProductApp wires CelebrationLayer into the summary screen', async () => {
   const source = await readFile(
     resolve(import.meta.dirname, '../src/app/ProductApp.jsx'),
@@ -357,6 +376,13 @@ test('celebration layer hardens modal focus, timers, scrolling and haptics', asy
   assert.match(source, /setIndex\(list\.length\)/u);
   assert.match(source, /className="celebration-meter"/u);
   assert.match(source, /className="celebration-scroll"/u);
+  assert.match(
+    source,
+    /lazy\(\s*\(\)\s*=>\s*import\(\s*['"]\.\/CelebrationStage\.jsx['"]\s*\)\s*\)/u,
+  );
+  assert.match(source, /<Suspense\s+fallback=\{null\}>/u);
+  assert.match(source, /className="celebration-art"/u);
+  assert.match(source, /celebrationStageDecision\(/u);
 
   assert.match(styles, /\.celebration-overlay\s*\{[\s\S]*?position:\s*fixed/u);
   assert.match(styles, /\.celebration-progress\s+\.celebration-art/u);

@@ -290,3 +290,20 @@ export function monsterCelebrationArtUrl(monsterId, branch, stage) {
   const resolvedStage = clampCompanionStage(stage);
   return `/mastery-art/monsters/${monsterId}/${resolvedBranch}/${monsterId}-${resolvedBranch}-${resolvedStage}.640.webp`;
 }
+
+/**
+ * Whether the Celebration Stage may mount a live Phaser canvas over the card
+ * art. Only catch and evolution moments qualify, and only when motion, WebGL
+ * context and foreground visibility are all clear. Progress cards and any
+ * guard failure keep the static celebration image.
+ */
+export function celebrationStageDecision({
+  kind,
+  reducedMotion = false,
+  contextLost = false,
+  backgrounded = false,
+} = {}) {
+  if (kind !== 'caught' && kind !== 'evolve') return 'static';
+  if (reducedMotion || contextLost || backgrounded) return 'static';
+  return 'live';
+}

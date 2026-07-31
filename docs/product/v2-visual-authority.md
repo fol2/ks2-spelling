@@ -171,11 +171,15 @@ forbidden.
 
 ## Canvas island
 
-Exactly one bounded canvas stage (Phaser) may present monster state. It never
-hosts input or navigation, is hidden from accessibility APIs behind a text
-equivalent, always ships a static image fallback for context loss and reduced
-motion, and is destroyed while the app is backgrounded. All learning logic
-stays in the frozen domain contract; the canvas is presentation only.
+At most one bounded canvas island per screen may present companion state — the
+Monster Stage on the Monster screen and the Celebration Stage over the Results
+screen. A canvas never appears during a question card.
+
+A canvas island never hosts input or navigation. It is hidden from accessibility
+APIs (`aria-hidden`) behind a text equivalent on the same screen. It always ships
+a static image fallback for context loss, boot failure and reduced motion, and
+is destroyed while the app is backgrounded. All learning logic stays in the
+frozen domain contract; the canvas is presentation only.
 
 ## Reference layouts
 

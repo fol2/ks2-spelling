@@ -1,0 +1,56 @@
+{
+  "generatorVersion": "1",
+  "sampleRateHz": 24000,
+  "synthesisParameterDigest": "f65632727d4140cfb8858edab580b7a2c100aa2ee0df014918f43f0345040243",
+  "totalBytes": 168832,
+  "files": [
+    {
+      "name": "catch",
+      "path": "public/sfx/catch.wav",
+      "sha256": "54951e53a0e89711741fc1cd20d90bbbe6f42e280a8f7abaa7aefa91742d57cc",
+      "byteSize": 33644
+    },
+    {
+      "name": "correct",
+      "path": "public/sfx/correct.wav",
+      "sha256": "a361b62a75ce9d8c90300286f7b069225095a5a6341e74f19171842c0e5a86a7",
+      "byteSize": 16844
+    },
+    {
+      "name": "evolve",
+      "path": "public/sfx/evolve.wav",
+      "sha256": "b22a1448c52772f1d6bb7e9905ff6ad3a935dba3b1272144333ed93227ef2782",
+      "byteSize": 43244
+    },
+    {
+      "name": "flourish",
+      "path": "public/sfx/flourish.wav",
+      "sha256": "376cff80b6ddd9e0dde280151bccb36c35a13418d8c8e486e56edce73a78de29",
+      "byteSize": 28844
+    },
+    {
+      "name": "retry",
+      "path": "public/sfx/retry.wav",
+      "sha256": "912b5e9d79e72a0bfde076f0927c0754f83ea8272d5a9169ab895c5688f2dec4",
+      "byteSize": 14444
+    },
+    {
+      "name": "sheet",
+      "path": "public/sfx/sheet.wav",
+      "sha256": "e4dfc71d330187b37a802d30399823fc490bc1db4a72db202069c8583aff9a5e",
+      "byteSize": 8684
+    },
+    {
+      "name": "stamp",
+      "path": "public/sfx/stamp.wav",
+      "sha256": "a12b1321f36a700c8ae52960518e7e9d0da1d205d248d497536046af14ad46a6",
+      "byteSize": 19244
+    },
+    {
+      "name": "tick",
+      "path": "public/sfx/tick.wav",
+      "sha256": "4586d4fcb95209fc86e5e3382b15fd6a9daf1a397a33f670bb1674663c78d64e",
+      "byteSize": 3884
+    }
+  ]
+}

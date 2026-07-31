@@ -125,6 +125,7 @@ test('production services persist profile CRUD and selected learner across a cle
     'selectLearner',
     'showScreen',
     'startRound',
+    'startGuardianMission',
     'submitAnswer',
     'continueRound',
     'skipWord',
@@ -403,6 +404,7 @@ test('production services persist profile CRUD and selected learner across a cle
   assert.deepEqual(promotedSnapshot, {
     ...legacySnapshot,
     catalogueId: 'ks2-core:full',
+    grantedEntitlementIds: ['full-ks2'],
   });
   await promotedConnection.close();
 });

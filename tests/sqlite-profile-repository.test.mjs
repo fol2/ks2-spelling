@@ -79,6 +79,7 @@ test('SQLite profile store exposes the frozen async profile contract and selects
   assert.deepEqual(Object.keys(store.administration), [
     'resetLearning',
     'promoteStarterCatalogue',
+    'grantFullEntitlement',
   ]);
   assert.deepEqual(await store.profiles.listProfiles(), []);
   assert.equal(await store.selection.readSelectedLearnerId(), null);
@@ -197,6 +198,38 @@ test('Starter catalogue promotion is atomic, idempotent and preserves learner st
     [{ catalogue_id: 'ks2-core:full' }],
   );
   assert.deepEqual(await readPreservedLearningState(connection), before);
+});
+
+test('Full entitlement grant is idempotent and preserves existing grants', async (t) => {
+  let timestamp = 100;
+  const { connection, store } = await createHarness(t, { now: () => timestamp });
+  await store.profiles.writeProfile(profile('learner-a'));
+  await store.profiles.writeProfile(profile('learner-b'));
+  await connection.execute(
+    'UPDATE spelling_aggregates SET granted_entitlement_ids_json = ?, updated_at = ? WHERE learner_id = ?',
+    ['["entitlement-a"]', 321, 'learner-b'],
+  );
+
+  timestamp = 400;
+  assert.equal(await store.administration.grantFullEntitlement(), 1);
+  assert.equal(await store.administration.grantFullEntitlement(), 0);
+  assert.deepEqual(
+    await connection.query(
+      'SELECT learner_id, granted_entitlement_ids_json, updated_at FROM spelling_aggregates ORDER BY learner_id',
+    ),
+    [
+      {
+        learner_id: 'learner-a',
+        granted_entitlement_ids_json: '["full-ks2"]',
+        updated_at: 400,
+      },
+      {
+        learner_id: 'learner-b',
+        granted_entitlement_ids_json: '["entitlement-a"]',
+        updated_at: 321,
+      },
+    ],
+  );
 });
 
 test('resetting learning is atomic, learner-scoped and preserves the profile', async (t) => {

@@ -15,6 +15,7 @@ const CANONICAL_LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const STARTER_CATALOGUE_ID = 'ks2-core:starter';
 const FULL_CATALOGUE_ID = 'ks2-core:full';
 const EMPTY_ENTITLEMENTS_JSON = canonicalJson([]);
+const FULL_ENTITLEMENTS_JSON = canonicalJson(['full-ks2']);
 const INITIAL_SUBJECT_STATE_JSON = canonicalJson({
   ui: {},
   data: {
@@ -357,6 +358,19 @@ export function createSQLiteSpellingProfileStore({
         );
         if (!Number.isSafeInteger(result?.changes) || result.changes < 0) {
           throw storeError('sqlite_profile_catalogue_promotion_failed');
+        }
+        return result.changes;
+      }));
+    },
+    async grantFullEntitlement() {
+      const sampledAt = sampleTimestamp(now);
+      return gate.run(() => runOwnedTransaction(connection, async () => {
+        const result = await connection.execute(
+          'UPDATE spelling_aggregates SET granted_entitlement_ids_json = ?, updated_at = ? WHERE granted_entitlement_ids_json = ?',
+          [FULL_ENTITLEMENTS_JSON, sampledAt, EMPTY_ENTITLEMENTS_JSON],
+        );
+        if (!Number.isSafeInteger(result?.changes) || result.changes < 0) {
+          throw storeError('sqlite_profile_entitlement_grant_failed');
         }
         return result.changes;
       }));

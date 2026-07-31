@@ -109,6 +109,18 @@ test('all companion stage consumers import the shared contract', async () => {
   assert.doesNotMatch(masteryArt, /Math\.min\(HIGHEST_MONSTER_STAGE/u);
 });
 
+test('monster-scene imports shared stage-fx primitives', async () => {
+  const source = await readFile(
+    join(ROOT, 'src/app/monster-stage/monster-scene.js'),
+    'utf8',
+  );
+  assert.match(source, /from ['"]\.\/stage-fx\.js['"]/u);
+  assert.match(source, /spawnBurst\(/u);
+  assert.match(source, /glowPulse\(/u);
+  assert.match(source, /shockwaveRing\(/u);
+  assert.match(source, /scheduleSway/u);
+});
+
 test('ProductApp splits the monster stage behind React.lazy so the chunk cannot regress', async () => {
   const source = await readFile(join(ROOT, 'src/app/ProductApp.jsx'), 'utf8');
   assert.match(

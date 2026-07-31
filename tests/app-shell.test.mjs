@@ -319,10 +319,16 @@ test('the production shell keeps Parent progress and commerce behind the local g
       derivedStage: 0,
       earnedStageHighWater: 0,
     })]),
+    packSize: 213,
+    // Guardian is the endgame: the default fixture is a learner who has not
+    // reached it, which is the state every other assertion in this test
+    // renders against.
+    revisionMission: null,
     camp: Object.freeze({
       packId: 'ks2-core',
       campHighWater: 0,
       lastCreditedGuardianDay: null,
+      canEarnToday: false,
     }),
     actionError: null,
   });
@@ -332,8 +338,10 @@ test('the production shell keeps Parent progress and commerce behind the local g
     async selectLearner() {},
     showScreen() {},
     async startRound() {},
+    async startGuardianMission() {},
     async submitAnswer() {},
     async continueRound() {},
+    async skipWord() {},
     async endRound() {},
     async dispose() {},
   });
@@ -348,6 +356,20 @@ test('the production shell keeps Parent progress and commerce behind the local g
     parentAdministration,
     parentBackup,
     audio: Object.freeze({ async play() {} }),
+    haptics: Object.freeze({
+      answerCorrect() {},
+      celebrationStart() {},
+      uiTick() {},
+    }),
+    sfx: Object.freeze({
+      play() {},
+      noteSpeechStarted() {},
+      setEnabled() {},
+      isEnabled() { return true; },
+      attachGestureUnlock() {},
+      dispose() {},
+    }),
+    setSfxEnabled() {},
   });
   const render = () => renderToStaticMarkup(
     React.createElement(App, { services }),
@@ -470,8 +492,13 @@ test('the production shell keeps Parent progress and commerce behind the local g
     assert.match(homeHtml, new RegExp(`<span>${waypoint}</span>`));
   }
   assert.doesNotMatch(homeHtml, /buy|restore|price|commerce/i);
-  // Unfound companions stay off the Trail meadow — no floating egg art.
-  assert.doesNotMatch(homeHtml, /meadow-pet/);
+  // Unfound companions stay off the Trail meadow — empty habitat, no creature art.
+  assert.match(homeHtml, /class="trail-meadow"/);
+  assert.match(homeHtml, /aria-label="The trail is waiting for its first companion"/);
+  assert.match(homeHtml, /class="trail-meadow-empty"/);
+  assert.match(homeHtml, /Your trail is quiet/);
+  assert.match(homeHtml, /Secure a spelling to wake your first companion\./);
+  assert.doesNotMatch(homeHtml, /class="trail-companion /);
   assert.doesNotMatch(homeHtml, /Inklet/);
 
   learningState = Object.freeze({
@@ -485,9 +512,12 @@ test('the production shell keeps Parent progress and commerce behind the local g
     })]),
   });
   const trailFoundHtml = render();
-  assert.match(trailFoundHtml, /meadow-pet/);
-  assert.match(trailFoundHtml, /aria-label="Inklet"/);
-  assert.equal((trailFoundHtml.match(/class="meadow-pet /g) ?? []).length, 1);
+  assert.match(trailFoundHtml, /class="trail-companion /);
+  assert.match(
+    trailFoundHtml,
+    /aria-label="Inklet, Inklet Egg, Stage 0 of 4, resting in a nest"/,
+  );
+  assert.equal((trailFoundHtml.match(/class="trail-companion /g) ?? []).length, 1);
 
   learningState = Object.freeze({
     ...learningState,
@@ -555,13 +585,20 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(failedSetupHtml, />20 words</);
   assert.match(failedSetupHtml, />Trouble</);
   assert.match(failedSetupHtml, />SATs</);
+  assert.match(failedSetupHtml, /Sound effects/);
+  assert.match(failedSetupHtml, /role="switch"/);
   assert.match(failedSetupHtml, /aria-label="Places on the trail"/);
   for (const waypoint of ['Trail', 'Words', 'Codex', 'Camp']) {
     assert.match(failedSetupHtml, new RegExp(`<span>${waypoint}</span>`));
   }
   assert.match(failedSetupHtml, /aria-current="page"[^>]*>[\s\S]*?<span>Trail<\/span>/);
   assert.doesNotMatch(failedSetupHtml, /Listening voice|Iapetus|Sulafat/);
-  assert.doesNotMatch(failedSetupHtml, /data-locked="true"|Not on this trail yet/);
+  // No revision mission at all reads exactly like no access: the fourth quest
+  // is painted, locked and named, and it says so under the row.
+  assert.match(failedSetupHtml, /data-locked="true"/);
+  assert.match(failedSetupHtml, /Not on this trail yet/);
+  assert.match(failedSetupHtml, />Guardian</);
+  assert.match(failedSetupHtml, />Daily</);
   // Owned egg progress paints; a hard-coded adult Inklet must not.
   assert.match(failedSetupHtml, /inklet-b1-0\.640\.webp/);
   assert.doesNotMatch(failedSetupHtml, /inklet-b1-3\.640\.webp/);
@@ -637,6 +674,8 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(practiceHtml, /class="cloze-blank"/);
   assert.match(practiceHtml, />Submit</);
   assert.match(practiceHtml, />End round</);
+  assert.match(practiceHtml, />Skip for now</);
+  assert.match(practiceHtml, /Answered 0 of 5/);
   assert.doesNotMatch(practiceHtml, />build</i);
 
   assert.match(productSource, /void play\('sentence'\)/u);
@@ -746,9 +785,338 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.doesNotMatch(emptyFieldRecordHtml, /Inklet|Glimmerbug/);
   assert.doesNotMatch(emptyFieldRecordHtml, /results-halo[\s\S]*<img/u);
 
+  // --- Guardian ------------------------------------------------------------
+  // Guardian is locked until every core word is Mega, so Setup and Camp have
+  // to read one projection the same way through five states.
+  const TODAY_GUARDIAN_DAY = 4200;
+  const guardianMission = (patch) => Object.freeze({
+    missionState: 'locked',
+    eligibleMissionKind: null,
+    guardianDueCount: 0,
+    wobblingDueCount: 0,
+    nextGuardianDueDay: null,
+    todayGuardianDay: TODAY_GUARDIAN_DAY,
+    canStartRewardBearing: false,
+    canContinueUnrewarded: false,
+    campCreditState: 'available',
+    ...patch,
+  });
+  // A pack-sized progress table with an exact Mega count, so the meter reads a
+  // real figure rather than a fixture constant.
+  const guardianProgress = (mega) => Object.freeze(
+    Array.from({ length: 213 }, (unused, index) => Object.freeze({
+      runtimeItemId: `ks2-core:word-${index}`,
+      target: `word${index}`,
+      yearBand: '3-4',
+      stage: index < mega ? 5 : 1,
+      attempts: 4,
+      correct: 3,
+      wrong: 1,
+      dueDay: 99_999,
+      lastResult: 'correct',
+    })),
+  );
+
+  learningState = Object.freeze({
+    ...learningState,
+    screen: 'setup',
+    summary: null,
+    progress: guardianProgress(34),
+    revisionMission: guardianMission({ campCreditState: 'unavailable' }),
+  });
+  const noAccessSetupHtml = render();
+  assert.match(noAccessSetupHtml, /data-locked="true"/);
+  assert.match(noAccessSetupHtml, /Not on this trail yet/);
+
+  learningState = Object.freeze({
+    ...learningState,
+    revisionMission: guardianMission({}),
+  });
+  const teaserSetupHtml = render();
+  // Access, but not a single word guarded yet: the tile is a destination the
+  // learner can open, never a locked plate.
+  assert.doesNotMatch(teaserSetupHtml, /data-locked="true"/);
+  assert.doesNotMatch(teaserSetupHtml, /Not on this trail yet/);
+  assert.match(teaserSetupHtml, />Guardian</);
+  // A walk is still the selected quest, so the walking rails stay put.
+  assert.match(teaserSetupHtml, /Round length/);
+
+  learningState = Object.freeze({
+    ...learningState,
+    progress: guardianProgress(213),
+    revisionMission: guardianMission({
+      missionState: 'first-patrol',
+      eligibleMissionKind: 'first-patrol',
+      guardianDueCount: 6,
+      wobblingDueCount: 2,
+      nextGuardianDueDay: TODAY_GUARDIAN_DAY,
+      canStartRewardBearing: true,
+    }),
+    camp: Object.freeze({
+      packId: 'ks2-core',
+      campHighWater: 3,
+      lastCreditedGuardianDay: null,
+      canEarnToday: true,
+    }),
+  });
+  const dueSetupHtml = render();
+  // A waiting mission is today's quest, so Setup opens on it.
+  assert.match(dueSetupHtml, /Guardian Mission/);
+  assert.match(dueSetupHtml, /6 due · 2 wobbling/);
+  assert.match(dueSetupHtml, /Begin the patrol/);
+  assert.match(dueSetupHtml, /Guardian chooses its own words/);
+  // A Guardian mission has no options at all, so neither rail is offered.
+  assert.doesNotMatch(dueSetupHtml, /Round length/);
+  assert.doesNotMatch(dueSetupHtml, /Vocabulary set/);
+  assert.doesNotMatch(dueSetupHtml, /Not on this trail yet/);
+
+  learningState = Object.freeze({
+    ...learningState,
+    revisionMission: guardianMission({
+      missionState: 'due',
+      eligibleMissionKind: 'due',
+      guardianDueCount: 4,
+      nextGuardianDueDay: TODAY_GUARDIAN_DAY,
+      canContinueUnrewarded: true,
+      campCreditState: 'complete-for-today',
+    }),
+    camp: Object.freeze({
+      packId: 'ks2-core',
+      campHighWater: 7,
+      lastCreditedGuardianDay: TODAY_GUARDIAN_DAY,
+      canEarnToday: false,
+    }),
+  });
+  const doneSetupHtml = render();
+  // Credited today: the walk takes the button back, and the extra patrol is
+  // offered quietly with what it no longer carries said out loud.
+  assert.match(doneSetupHtml, /Round length/);
+  assert.doesNotMatch(doneSetupHtml, /Begin the patrol/);
+  assert.doesNotMatch(doneSetupHtml, /data-locked="true"/);
+
+  learningState = Object.freeze({
+    ...learningState,
+    screen: 'camp',
+    progress: guardianProgress(34),
+    revisionMission: null,
+    camp: Object.freeze({
+      packId: 'ks2-core',
+      campHighWater: 0,
+      lastCreditedGuardianDay: null,
+      canEarnToday: false,
+    }),
+  });
+  const preUnlockCampHtml = render();
+  assert.match(preUnlockCampHtml, /Guardian sleeps here/);
+  assert.match(preUnlockCampHtml, /Guardian wakes when every core word is Mega/);
+  assert.match(preUnlockCampHtml, /<span class="figure">34<\/span>/);
+  assert.match(preUnlockCampHtml, /of 213/);
+  assert.match(preUnlockCampHtml, /aria-label="34 of 213 words at Mega"/);
+  assert.match(preUnlockCampHtml, /still to reach Mega/);
+  assert.match(preUnlockCampHtml, /Set off on a round/);
+  // No fake ring and no camp level at zero before the fire is ever lit.
+  assert.doesNotMatch(preUnlockCampHtml, /camp-ring/);
+  assert.doesNotMatch(preUnlockCampHtml, /Camp level/);
+  assert.doesNotMatch(preUnlockCampHtml, /revisits|waiting to return/i);
+
+  learningState = Object.freeze({
+    ...learningState,
+    revisionMission: guardianMission({ campCreditState: 'unavailable' }),
+  });
+  const noAccessCampHtml = render();
+  assert.match(noAccessCampHtml, /Guardian sleeps here/);
+  assert.doesNotMatch(noAccessCampHtml, /camp-ring/);
+
+  learningState = Object.freeze({
+    ...learningState,
+    progress: guardianProgress(213),
+    revisionMission: guardianMission({
+      missionState: 'first-patrol',
+      eligibleMissionKind: 'first-patrol',
+      guardianDueCount: 6,
+      wobblingDueCount: 2,
+      nextGuardianDueDay: TODAY_GUARDIAN_DAY,
+      canStartRewardBearing: true,
+    }),
+    camp: Object.freeze({
+      packId: 'ks2-core',
+      campHighWater: 3,
+      lastCreditedGuardianDay: null,
+      canEarnToday: true,
+    }),
+  });
+  const dueCampHtml = render();
+  assert.match(dueCampHtml, /6 words due for guarding today/);
+  assert.match(dueCampHtml, /Begin the patrol/);
+  assert.match(dueCampHtml, /camp-ring/);
+  assert.match(dueCampHtml, /Camp level/);
+  // The ring reads the run to the next banner, not the whole climb.
+  assert.match(dueCampHtml, /7<\/span> to the next\s+banner/);
+  // Guardian needs the listening pack exactly as a walk does, and this
+  // fixture has none, so Begin cannot be pressed and says why.
+  assert.match(dueCampHtml, /Listening pack needs setup/);
+  assert.match(
+    dueCampHtml,
+    /<button type="button" class="button-primary press" disabled=""[\s\S]*?Begin the patrol/u,
+  );
+
+  learningState = Object.freeze({
+    ...learningState,
+    revisionMission: guardianMission({
+      missionState: 'rested',
+      nextGuardianDueDay: TODAY_GUARDIAN_DAY + 3,
+    }),
+    camp: Object.freeze({
+      packId: 'ks2-core',
+      campHighWater: 5,
+      lastCreditedGuardianDay: null,
+      canEarnToday: false,
+    }),
+  });
+  const restedCampHtml = render();
+  assert.match(restedCampHtml, /All guarded/);
+  assert.match(restedCampHtml, /Next mission in 3 days\./);
+  assert.doesNotMatch(restedCampHtml, /Begin the patrol/);
+  // The Guardian day turns at 01:00 BST, so Camp counts days and never
+  // promises a clock time.
+  assert.doesNotMatch(
+    restedCampHtml,
+    /midnight|tonight|\b\d{1,2}(?::\d{2})?\s?(?:am|pm)\b/i,
+  );
+
+  learningState = Object.freeze({
+    ...learningState,
+    revisionMission: guardianMission({
+      missionState: 'rested',
+      nextGuardianDueDay: TODAY_GUARDIAN_DAY + 1,
+    }),
+  });
+  assert.match(render(), /Next mission tomorrow\./);
+
+  learningState = Object.freeze({
+    ...learningState,
+    revisionMission: guardianMission({
+      missionState: 'due',
+      eligibleMissionKind: 'due',
+      guardianDueCount: 4,
+      nextGuardianDueDay: TODAY_GUARDIAN_DAY,
+      canContinueUnrewarded: true,
+      campCreditState: 'complete-for-today',
+    }),
+    camp: Object.freeze({
+      packId: 'ks2-core',
+      campHighWater: 7,
+      lastCreditedGuardianDay: TODAY_GUARDIAN_DAY,
+      canEarnToday: false,
+    }),
+  });
+  const doneCampHtml = render();
+  assert.match(doneCampHtml, /Done today/);
+  assert.match(doneCampHtml, /Patrol again — no Camp credit/);
+  assert.match(doneCampHtml, /3<\/span> to the next\s+banner/);
+  assert.doesNotMatch(doneCampHtml, /Begin the patrol/);
+
+  // A Guardian round names its errand and asks for honesty rather than a skip.
+  learningState = Object.freeze({
+    ...learningState,
+    screen: 'practice',
+    practice: Object.freeze({
+      sessionId: 'session-guardian',
+      label: 'Guardian Mission',
+      mode: 'guardian',
+      phase: 'question',
+      runtimeItemId: 'ks2-core:build',
+      sentence: 'I build model cars with my brother.',
+      cloze: 'I _____ model cars with my brother.',
+      explanation: '',
+      progress: Object.freeze({ total: 6, checked: 0, done: 0, wrongCount: 0 }),
+      awaitingAdvance: false,
+      feedback: null,
+    }),
+  });
+  const guardianRoundHtml = render();
+  assert.match(guardianRoundHtml, /class="round-mission"/);
+  assert.match(guardianRoundHtml, /Guardian Mission/);
+  assert.match(guardianRoundHtml, /I don’t know/);
+  assert.doesNotMatch(guardianRoundHtml, /Skip for now/);
+  assert.match(guardianRoundHtml, /Spell the word you hear/);
+  assert.match(guardianRoundHtml, /id="product-spelling-input"/);
+
   const productCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
   assert.match(productCss, /@media\s*\(forced-colors:\s*active\)/);
   assert.match(productCss, /@media\s*\(prefers-contrast:\s*more\)/);
+});
+
+test('Results credits Camp only against the round-start baseline', async () => {
+  const productSource = await readFile(
+    join(ROOT, 'src/app/ProductApp.jsx'),
+    'utf8',
+  );
+  // The camp gain is a difference, measured once on the way into the summary
+  // against the camp the round started on, exactly as the monster roster is.
+  assert.match(
+    productSource,
+    /setCampGain\(\s*\(next\.camp\?\.campHighWater \?\? 0\)\s*-\s*\(next\.roundBaseline\?\.camp\?\.campHighWater\s*\?\? next\.camp\?\.campHighWater\s*\?\? 0\),\s*\);/u,
+  );
+  assert.match(productSource, /campGain=\{campGain\}/u);
+  assert.match(productSource, /The camp fire rises — Camp level \{camp\?\.campHighWater \?\? 0\}/u);
+});
+
+test('Results tells a Guardian wobble it returns tomorrow', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { ResultsScreen } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
+  const summary = Object.freeze({
+    mode: 'guardian',
+    label: 'Guardian Mission',
+    message: 'Guarded.',
+    cards: Object.freeze([]),
+    totalWords: 6,
+    correct: 5,
+    accuracy: 83,
+    mistakes: Object.freeze([Object.freeze({ slug: 'rhythm', word: 'rhythm' })]),
+  });
+  const camp = Object.freeze({
+    packId: 'ks2-core',
+    campHighWater: 4,
+    lastCreditedGuardianDay: 4200,
+    canEarnToday: false,
+  });
+  const guardianHtml = renderToStaticMarkup(
+    React.createElement(ResultsScreen, {
+      summary,
+      monsters: [],
+      camp,
+      campGain: 1,
+      onScreen() {},
+    }),
+  );
+  assert.match(guardianHtml, /The camp fire rises — Camp level 4/);
+  assert.match(guardianHtml, /comes back tomorrow/);
+  assert.match(guardianHtml, /Back tomorrow/);
+
+  const walkHtml = renderToStaticMarkup(
+    React.createElement(ResultsScreen, {
+      summary: Object.freeze({ ...summary, mode: 'smart', label: 'Smart Review' }),
+      monsters: [],
+      camp,
+      campGain: 0,
+      onScreen() {},
+    }),
+  );
+  // A walk cannot raise Camp, so the strip stays away and nothing is promised
+  // for tomorrow.
+  assert.doesNotMatch(walkHtml, /camp fire rises/);
+  assert.doesNotMatch(walkHtml, /comes back tomorrow/);
+  assert.match(walkHtml, /comes back/);
+  assert.match(walkHtml, /Coming back/);
 });
 
 test('the product shell consumes native safe-area insets', async () => {

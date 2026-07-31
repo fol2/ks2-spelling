@@ -36,3 +36,18 @@ test('a learner colour is always one of the six and always storable', () => {
     assert.equal(learnerColour(value), LEARNER_COLOURS[0]);
   }
 });
+
+test('profile creation derives the stored colour from the nickname', async () => {
+  // The module header promises the stored colour field is written from
+  // learnerColour at creation. This pins the wiring: ProductApp must import
+  // the derivation and must not fall back to the retired hardcoded teal that
+  // made two children on one device two identical squares.
+  const { readFile } = await import('node:fs/promises');
+  const productApp = await readFile(
+    new URL('../src/app/ProductApp.jsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(productApp, /import \{ learnerColour \} from '\.\/learner-colour\.js';/u);
+  assert.match(productApp, /colour: learnerColour\(nextNickname\)/u);
+  assert.doesNotMatch(productApp, /#157A76/u);
+});

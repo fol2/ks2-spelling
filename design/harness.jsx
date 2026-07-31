@@ -6,7 +6,7 @@
  * enough to reach every visual state, and the real engine is out of scope for
  * design work.
  */
-import { StrictMode, useState } from 'react';
+import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import ProductApp from '../src/app/ProductApp.jsx';
 import '../src/app/app.css';
@@ -37,6 +37,108 @@ const MONSTERS = [
   { rewardTrackId: 'r3', packId: 'ks2-full', monsterId: 'vellhorn', thresholds: [1, 10, 30, 60, 100], branch: 'b2', secureCount: 0, caught: false, derivedStage: 0, earnedStageHighWater: 0 },
   { rewardTrackId: 'r4', packId: 'ks2-full', monsterId: 'phaeton', thresholds: [1, 10, 30, 60, 100], branch: 'b1', secureCount: 0, caught: false, derivedStage: 0, earnedStageHighWater: 0 },
 ];
+
+/* Guardian states, walked with ?guardian=locked|teaser|active|rested|done on
+   ?screen=camp and ?screen=setup. `locked` is the projection an unentitled
+   learner gets; leaving the parameter off keeps revisionMission null, which is
+   the other pre-unlock shape the screens have to survive. */
+const GUARDIAN_DAY = 4200;
+
+const GUARDIAN_STATES = {
+  locked: {
+    mission: {
+      missionState: 'locked',
+      eligibleMissionKind: null,
+      guardianDueCount: 0,
+      wobblingDueCount: 0,
+      nextGuardianDueDay: null,
+      todayGuardianDay: GUARDIAN_DAY,
+      canStartRewardBearing: false,
+      canContinueUnrewarded: false,
+      campCreditState: 'unavailable',
+    },
+    mega: 12,
+    campHighWater: 0,
+  },
+  teaser: {
+    mission: {
+      missionState: 'locked',
+      eligibleMissionKind: null,
+      guardianDueCount: 0,
+      wobblingDueCount: 0,
+      nextGuardianDueDay: null,
+      todayGuardianDay: GUARDIAN_DAY,
+      canStartRewardBearing: false,
+      canContinueUnrewarded: false,
+      campCreditState: 'available',
+    },
+    mega: 34,
+    campHighWater: 0,
+  },
+  active: {
+    mission: {
+      missionState: 'first-patrol',
+      eligibleMissionKind: 'first-patrol',
+      guardianDueCount: 6,
+      wobblingDueCount: 2,
+      nextGuardianDueDay: GUARDIAN_DAY,
+      todayGuardianDay: GUARDIAN_DAY,
+      canStartRewardBearing: true,
+      canContinueUnrewarded: false,
+      campCreditState: 'available',
+    },
+    mega: 213,
+    campHighWater: 3,
+  },
+  rested: {
+    mission: {
+      missionState: 'rested',
+      eligibleMissionKind: null,
+      guardianDueCount: 0,
+      wobblingDueCount: 0,
+      nextGuardianDueDay: GUARDIAN_DAY + 3,
+      todayGuardianDay: GUARDIAN_DAY,
+      canStartRewardBearing: false,
+      canContinueUnrewarded: false,
+      campCreditState: 'available',
+    },
+    mega: 213,
+    campHighWater: 5,
+  },
+  done: {
+    mission: {
+      missionState: 'due',
+      eligibleMissionKind: 'due',
+      guardianDueCount: 4,
+      wobblingDueCount: 0,
+      nextGuardianDueDay: GUARDIAN_DAY,
+      todayGuardianDay: GUARDIAN_DAY,
+      canStartRewardBearing: false,
+      canContinueUnrewarded: true,
+      campCreditState: 'complete-for-today',
+    },
+    mega: 213,
+    campHighWater: 7,
+  },
+};
+
+const GUARDIAN_PACK_SIZE = 213;
+
+// A pack-sized progress table with an exact Mega count, so the Camp teaser
+// meter reads a real number rather than a hard-coded one.
+function guardianProgress(mega) {
+  return Array.from({ length: GUARDIAN_PACK_SIZE }, (_, index) => {
+    const word = WORDS[index % WORDS.length];
+    return {
+      runtimeItemId: `guardian-${index}`,
+      target: word.target,
+      stage: index < mega ? 5 : index % 4,
+      correct: index < mega ? 9 : 2,
+      wrong: index < mega ? 0 : 3,
+      lastResult: index < mega ? 'correct' : 'wrong',
+    };
+  });
+}
 
 const SUMMARY = {
   mode: 'smart',
@@ -76,7 +178,9 @@ function card(index, mode, extra = {}) {
   return {
     sessionId: 'session-demo',
     runtimeItemId: `runtime-${index}`,
-    label: mode === 'test' ? 'SATs Test' : mode === 'trouble' ? 'Trouble Drill' : 'Smart Review',
+    label: mode === 'test' ? 'SATs Test'
+      : mode === 'trouble' ? 'Trouble Drill'
+        : mode === 'guardian' ? 'Guardian Mission' : 'Smart Review',
     mode,
     phase: 'question',
     awaitingAdvance: false,
@@ -108,17 +212,51 @@ function makeServices(query) {
     activeVersion: 'starter-1',
     actionError: null,
   });
+  const rosterBeforeRound = (empty ? [] : MONSTERS).map((monster) => ({
+    ...monster,
+    secureCount: Math.max(0, (monster.secureCount ?? 0) - 5),
+  }));
+  const guardian = GUARDIAN_STATES[query.get('guardian')] ?? null;
+  const mode = query.get('mode') ?? (guardian ? 'guardian' : 'smart');
+  const campHighWater = guardian?.campHighWater ?? 3;
+  const wantsSummary = query.get('screen') === 'summary';
+  const showsRound = wantsSummary || query.get('screen') === 'practice';
   const learning = store({
     status: 'ready',
-    screen: query.get('screen') ?? 'home',
+    // Results reads what a round changed by comparing the ending state with
+    // the round-start baseline, and only on the way in. A deep link to the
+    // summary therefore starts on the round and steps forward once mounted,
+    // so celebrations and the camp strip paint as they do in the app.
+    screen: wantsSummary ? 'practice' : query.get('screen') ?? 'home',
     learnerId: 'learner-a',
-    practice: query.get('screen') === 'practice' ? card(2, query.get('mode') ?? 'smart') : null,
-    summary: SUMMARY,
-    progress: empty ? [] : PROGRESS,
-    packSize: 60,
+    practice: showsRound ? card(2, mode) : null,
+    summary: mode === 'guardian'
+      ? { ...SUMMARY, mode: 'guardian', label: 'Guardian Mission' }
+      : SUMMARY,
+    progress: empty ? [] : guardian ? guardianProgress(guardian.mega) : PROGRESS,
+    packSize: guardian ? GUARDIAN_PACK_SIZE : 60,
     prefs: { voiceId: 'Iapetus', showCloze: true, autoSpeak: false },
     monsters: empty ? [] : MONSTERS,
-    camp: { packId: 'ks2-core', campHighWater: 3, lastCreditedGuardianDay: null },
+    revisionMission: guardian?.mission ?? null,
+    roundBaseline: showsRound
+      ? {
+        sessionId: 'session-demo',
+        monsters: rosterBeforeRound,
+        // A Guardian summary is the one place Camp is allowed to rise, so the
+        // baseline sits one banner behind the current level.
+        camp: guardian
+          ? { packId: 'ks2-core', campHighWater: Math.max(0, campHighWater - 1), lastCreditedGuardianDay: null }
+          : null,
+      }
+      : null,
+    camp: {
+      packId: 'ks2-core',
+      campHighWater,
+      lastCreditedGuardianDay: guardian?.mission.campCreditState === 'complete-for-today'
+        ? GUARDIAN_DAY
+        : null,
+      canEarnToday: guardian?.mission.canStartRewardBearing ?? false,
+    },
     actionError: null,
   });
   const parent = store({
@@ -184,7 +322,34 @@ function makeServices(query) {
       async selectLearner() { learning.set({ screen: 'profiles' }); },
       showScreen(screen) { learning.set({ screen }); },
       async startRound(options) {
-        learning.set({ screen: 'practice', practice: card(0, options?.mode ?? 'smart') });
+        learning.set({
+          screen: 'practice',
+          practice: card(0, options?.mode ?? 'smart'),
+          roundBaseline: {
+            sessionId: 'session-demo',
+            monsters: rosterBeforeRound,
+            camp: null,
+          },
+        });
+      },
+      async startGuardianMission() {
+        learning.set({
+          screen: 'practice',
+          practice: {
+            ...card(0, 'guardian'),
+            label: 'Guardian Mission',
+          },
+          summary: { ...SUMMARY, mode: 'guardian', label: 'Guardian Mission' },
+          roundBaseline: {
+            sessionId: 'session-demo',
+            monsters: rosterBeforeRound,
+            camp: {
+              packId: 'ks2-core',
+              campHighWater: Math.max(0, campHighWater - 1),
+              lastCreditedGuardianDay: null,
+            },
+          },
+        });
       },
       async submitAnswer(typed) {
         const practice = learning.getState().practice;
@@ -205,7 +370,13 @@ function makeServices(query) {
       async savePrefs(patch) {
         learning.set({ prefs: { ...learning.getState().prefs, ...patch } });
       },
-      async endRound() { learning.set({ screen: 'summary', practice: null, summary: { ...SUMMARY, endedEarly: true } }); },
+      async endRound() {
+        learning.set({
+          screen: 'summary',
+          practice: null,
+          summary: { ...SUMMARY, endedEarly: true },
+        });
+      },
       async dispose() {},
     },
     audioAvailability: {
@@ -235,7 +406,20 @@ function makeServices(query) {
       async importBackup() { return { cancelled: true }; },
     },
     audio: { async play() {} },
-    haptics: { answerCorrect() {}, celebrate() {}, tap() {} },
+    haptics: {
+      answerCorrect() {},
+      celebrationStart() {},
+      uiTick() {},
+    },
+    sfx: {
+      play() {},
+      noteSpeechStarted() {},
+      setEnabled() {},
+      isEnabled() { return true; },
+      attachGestureUnlock() {},
+      dispose() {},
+    },
+    setSfxEnabled() {},
   };
 }
 
@@ -243,6 +427,12 @@ function Harness() {
   const [services] = useState(
     () => makeServices(new URLSearchParams(globalThis.location.search)),
   );
+  useEffect(() => {
+    const query = new URLSearchParams(globalThis.location.search);
+    if (query.get('screen') === 'summary') {
+      services.learning.set({ screen: 'summary', practice: null });
+    }
+  }, [services]);
   return <ProductApp services={services} />;
 }
 

@@ -17,9 +17,16 @@ import { createSQLiteSpellingCommandRepository } from '../platform/database/sqli
 import { createSQLiteSpellingSnapshotStore } from '../platform/database/sqlite-spelling-snapshot-store.js';
 import { createSQLiteParentSecurityRepository } from '../platform/database/sqlite-parent-security-repository.js';
 import {
+  createSQLiteRoundBaselineStore,
+} from '../platform/database/sqlite-round-baseline-store.js';
+import {
   createSQLiteLearningBackupRepository,
 } from '../platform/database/sqlite-learning-backup-repository.js';
+import {
+  createSQLiteSoundPrefsStore,
+} from '../platform/database/sqlite-sound-prefs-store.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
+import { createSfxEngine } from './sfx/sfx-engine.js';
 import {
   createCapacitorParentBiometrics,
 } from '../platform/security/capacitor-parent-biometrics.js';
@@ -152,6 +159,7 @@ export async function createProductAppServices(options = {}) {
   let learning = null;
   let audio = null;
   let audioAvailability = null;
+  let sfx = null;
   let parent = null;
   let parentBackup = null;
   let parentCommerce = null;
@@ -216,6 +224,7 @@ export async function createProductAppServices(options = {}) {
     });
     await coordinator.start();
     await profileStore.administration.promoteStarterCatalogue();
+    await profileStore.administration.grantFullEntitlement();
     const [initialProfiles, initialSelectedLearnerId] = await Promise.all([
       profileStore.profiles.listProfiles(),
       profileStore.selection.readSelectedLearnerId(),
@@ -223,12 +232,26 @@ export async function createProductAppServices(options = {}) {
     const initialSnapshot = initialSelectedLearnerId === null
       ? null
       : await snapshotStore.read(initialSelectedLearnerId);
+    const roundBaselineStore = createSQLiteRoundBaselineStore({
+      connection,
+      gate,
+      now,
+    });
+    let initialRoundBaseline = null;
+    if (initialSnapshot?.subjectState?.ui?.phase === 'session') {
+      initialRoundBaseline = await roundBaselineStore
+        .read(initialSelectedLearnerId)
+        .catch(() => null);
+    }
     learning = createProductLearningController({
       repository: commandRepository,
       snapshotStore,
       catalogue,
       initialSnapshot,
+      roundBaselineStore,
+      initialRoundBaseline,
       random,
+      now,
     });
     const profileController = createProductProfileController({
       profiles: profileStore.profiles,
@@ -309,11 +332,35 @@ export async function createProductAppServices(options = {}) {
       files: learningBackupFiles,
       afterImport: async () => {
         await profileStore.administration.promoteStarterCatalogue();
+        await profileStore.administration.grantFullEntitlement();
         await controller.reload();
-        await parentProgress.refresh();
+        // The progress summary is auxiliary and carries its own notice when a
+        // refresh fails; a committed import must not be reported as failed
+        // because of it.
+        await parentProgress.refresh().catch(() => undefined);
       },
       now,
     });
+    const soundPrefsStore = createSQLiteSoundPrefsStore({
+      connection,
+      gate,
+      now,
+    });
+    const soundPrefs = await soundPrefsStore.read().catch(() => null);
+    sfx = options.sfx ?? createSfxEngine({
+      createContext: () => new AudioContext(),
+      lifecycle,
+      initiallyEnabled: soundPrefs?.sfxEnabled !== false,
+      now,
+    });
+    if (typeof document !== 'undefined') {
+      sfx.attachGestureUnlock(document);
+    }
+    const setSfxEnabled = (value) => {
+      const enabled = value === true;
+      sfx.setEnabled(enabled);
+      void soundPrefsStore.write({ sfxEnabled: enabled }).catch(() => undefined);
+    };
     let disposePromise;
     return Object.freeze({
       mode: 'product',
@@ -324,6 +371,8 @@ export async function createProductAppServices(options = {}) {
       learning,
       audio,
       audioAvailability,
+      sfx,
+      setSfxEnabled,
       haptics: options.haptics ?? createCapacitorHaptics(),
       parent,
       parentProgress,
@@ -335,6 +384,7 @@ export async function createProductAppServices(options = {}) {
           () => parentCommerce.dispose(),
           () => parentProgress.dispose(),
           () => parent.dispose(),
+          () => sfx.dispose(),
           () => audio.dispose(),
           () => audioAvailability.dispose(),
           () => learning.dispose(),
@@ -352,6 +402,7 @@ export async function createProductAppServices(options = {}) {
         parent && (() => parent.dispose()),
         parentCommerce && (() => parentCommerce.dispose()),
         parentProgress && (() => parentProgress.dispose()),
+        sfx && (() => sfx.dispose()),
         audio && (() => audio.dispose()),
         audioAvailability && (() => audioAvailability.dispose()),
         learning && (() => learning.dispose()),

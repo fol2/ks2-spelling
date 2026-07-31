@@ -65,6 +65,13 @@ export const C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
   'verify:art': 'node scripts/verify-vendored-art.mjs',
 });
 
+// Product SFX layer (offline synthesis + provenance verify). Developer/content
+// tooling — values must stay byte-identical to package.json and provenance.
+export const PRODUCT_SFX_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
+  'generate:product-sfx': 'node scripts/generate-product-sfx.mjs',
+  'verify:product-sfx': 'node scripts/verify-product-sfx.mjs',
+});
+
 // C6 game-layer uplift (2026-07-24 plan): the only approved dependency
 // additions since the frozen B2 package. Exact name and version; a reviewed
 // subset may land, nothing else may drift.
@@ -104,6 +111,7 @@ const PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
   ...B3_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   ...B4_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
   ...C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS,
+  ...PRODUCT_SFX_PACKAGE_SCRIPT_ADDITIONS,
   ...SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS,
 });
 

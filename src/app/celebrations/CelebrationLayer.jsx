@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -12,12 +14,37 @@ import {
   celebrationEventKey,
   celebrationPalette,
   celebrationProgressMeterCopy,
+  celebrationStageDecision,
   monsterCelebrationArtUrl,
 } from './celebration-model.js';
 import './celebrations.css';
 import './celebration-hardening.css';
 
+const CelebrationStage = lazy(() => import('./CelebrationStage.jsx'));
+
 const PARTICLE_COUNT = 12;
+
+/** Shield mark for camp-level cards — mirrors the Field Record Guardian glyph. */
+function CampLevelMark() {
+  return (
+    <span className="celebration-mark" aria-hidden="true">
+      <svg
+        width="88"
+        height="88"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        focusable="false"
+      >
+        <path d="M12 3.2 19.1 6v6.1c0 4.2-3 7.3-7.1 8.7-4.1-1.4-7.1-4.5-7.1-8.7V6L12 3.2Z" />
+        <path d="m9 11.9 2.1 2.2 3.9-4.2" />
+      </svg>
+    </span>
+  );
+}
 
 function prefersReducedMotion() {
   return typeof matchMedia === 'function'
@@ -88,7 +115,7 @@ function ProgressMeter({ event }) {
  * remaining time so a reward cannot disappear while the learner is away or
  * actively reading it.
  */
-export function CelebrationLayer({ events, haptics, onDone }) {
+export function CelebrationLayer({ events, haptics, sfx, onDone }) {
   const list = Array.isArray(events) ? events : [];
   const [index, setIndex] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion);
@@ -152,8 +179,17 @@ export function CelebrationLayer({ events, haptics, onDone }) {
   useEffect(() => {
     if (!event || !visible || lastHapticKey.current === eventKey) return;
     lastHapticKey.current = eventKey;
-    haptics?.celebrationStart?.(event.kind, event.stage);
-  }, [event, eventKey, haptics, visible]);
+    haptics?.celebrationStart?.(event.kind, event.stage ?? event.level);
+    sfx?.play(
+      event.kind === 'caught'
+        ? 'catch'
+        : event.kind === 'evolve'
+          ? 'evolve'
+          : event.kind === 'camp-level'
+            ? 'flourish'
+            : 'tick',
+    );
+  }, [event, eventKey, haptics, sfx, visible]);
 
   useEffect(() => {
     if (!eventKey || !visible || interactionPaused) return undefined;
@@ -195,6 +231,12 @@ export function CelebrationLayer({ events, haptics, onDone }) {
     event.branch,
     event.stage,
   );
+  const stageMode = celebrationStageDecision({
+    kind: event.kind,
+    reducedMotion,
+    contextLost: false,
+    backgrounded: !visible,
+  });
 
   return (
     <section
@@ -230,6 +272,7 @@ export function CelebrationLayer({ events, haptics, onDone }) {
               reducedMotion={reducedMotion}
             />
             <span className="celebration-halo" />
+            {event.kind === 'camp-level' && <CampLevelMark />}
             {artUrl && (
               <img
                 className="celebration-art"
@@ -239,6 +282,23 @@ export function CelebrationLayer({ events, haptics, onDone }) {
                 height={640}
                 decoding="async"
               />
+            )}
+            {stageMode === 'live' && artUrl && (
+              <Suspense fallback={null}>
+                <CelebrationStage
+                  key={eventKey}
+                  monsterId={event.monsterId}
+                  branch={event.branch}
+                  stage={event.stage}
+                  kind={event.kind}
+                  accent={palette.primary}
+                  secondary={palette.secondary}
+                  eventKey={eventKey}
+                  durationMs={duration}
+                  reducedMotion={reducedMotion}
+                  visible={visible}
+                />
+              </Suspense>
             )}
           </span>
 

@@ -30,6 +30,9 @@ export function createCapacitorHaptics() {
         : ImpactStyle.Light;
       fireAndForget(() => Haptics.impact({ style }));
     },
+    uiTick() {
+      fireAndForget(() => Haptics.impact({ style: ImpactStyle.Light }));
+    },
   });
 }
 
@@ -37,5 +40,6 @@ export function createSilentHaptics() {
   return Object.freeze({
     answerCorrect() {},
     celebrationStart() {},
+    uiTick() {},
   });
 }

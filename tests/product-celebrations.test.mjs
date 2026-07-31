@@ -4,11 +4,13 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 
 import {
+  campLevelCelebration,
   celebrationCopy,
   celebrationDurationMs,
   celebrationEventKey,
   celebrationPalette,
   celebrationProgressMeterCopy,
+  celebrationStageDecision,
   diffMonsterCelebrations,
   monsterCelebrationArtUrl,
   secureWordDelta,
@@ -304,6 +306,45 @@ test('celebration art keeps the saved branch, clamps stages and refuses fake IDs
   assert.equal(monsterCelebrationArtUrl('../inklet', 'b1', 0), null);
 });
 
+test('celebrationStageDecision gates the live canvas to catch and evolve moments', () => {
+  assert.equal(celebrationStageDecision({ kind: 'caught' }), 'live');
+  assert.equal(celebrationStageDecision({ kind: 'evolve' }), 'live');
+  assert.equal(celebrationStageDecision({ kind: 'progress' }), 'static');
+  assert.equal(celebrationStageDecision({ kind: 'camp-level' }), 'static');
+  assert.equal(
+    celebrationStageDecision({ kind: 'caught', reducedMotion: true }),
+    'static',
+  );
+  assert.equal(
+    celebrationStageDecision({ kind: 'evolve', backgrounded: true }),
+    'static',
+  );
+  assert.equal(
+    celebrationStageDecision({ kind: 'caught', contextLost: true }),
+    'static',
+  );
+});
+
+test('camp-level celebration has copy, duration, key and brass palette', () => {
+  const event = campLevelCelebration(4);
+  assert.deepEqual(event, { kind: 'camp-level', level: 4 });
+  assert.deepEqual(celebrationCopy(event), {
+    eyebrow: 'Camp rises',
+    headline: 'The camp fire rises',
+    stageLabel: 'Camp level 4',
+    body: 'Camp level 4. Every day you keep watch, the fire climbs.',
+    announcement: 'The camp fire rises. Camp level 4.',
+  });
+  assert.equal(celebrationDurationMs(event), 2800);
+  assert.equal(celebrationEventKey(event, 1), ':camp-level::4:0:0:1');
+  assert.deepEqual(celebrationPalette(event), {
+    primary: '#a06b22',
+    secondary: '#e0b463',
+    pale: '#f6eed7',
+  });
+  assert.equal(celebrationStageDecision({ kind: 'camp-level' }), 'static');
+});
+
 test('ProductApp wires CelebrationLayer into the summary screen', async () => {
   const source = await readFile(
     resolve(import.meta.dirname, '../src/app/ProductApp.jsx'),
@@ -320,6 +361,15 @@ test('ProductApp wires CelebrationLayer into the summary screen', async () => {
   assert.ok(
     source.includes('diffMonsterCelebrations'),
     'ProductApp must diff monsters at summary entry',
+  );
+  assert.ok(
+    source.includes('campLevelCelebration'),
+    'ProductApp must append a camp-level celebration when the fire rises',
+  );
+  assert.match(
+    source,
+    /void\s+import\(\s*['"]\.\/celebrations\/CelebrationStage\.jsx['"]\s*\)/u,
+    'ProductApp must prefetch CelebrationStage when catch/evolve are queued',
   );
 });
 
@@ -357,12 +407,23 @@ test('celebration layer hardens modal focus, timers, scrolling and haptics', asy
   assert.match(source, /setIndex\(list\.length\)/u);
   assert.match(source, /className="celebration-meter"/u);
   assert.match(source, /className="celebration-scroll"/u);
+  assert.match(
+    source,
+    /lazy\(\s*\(\)\s*=>\s*import\(\s*['"]\.\/CelebrationStage\.jsx['"]\s*\)\s*\)/u,
+  );
+  assert.match(source, /<Suspense\s+fallback=\{null\}>/u);
+  assert.match(source, /className="celebration-art"/u);
+  assert.match(source, /celebrationStageDecision\(/u);
+  assert.match(source, /'flourish'/u);
+  assert.match(source, /camp-level/u);
+  assert.match(source, /className="celebration-mark"/u);
 
   assert.match(styles, /\.celebration-overlay\s*\{[\s\S]*?position:\s*fixed/u);
   assert.match(styles, /\.celebration-progress\s+\.celebration-art/u);
   assert.match(styles, /@keyframes celebrationEvolutionFlash/u);
   assert.match(styles, /@keyframes celebrationProgress/u);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/u);
+  assert.match(styles, /\.celebration-mark/u);
 
   assert.match(hardening, /\.celebration-scroll\s*\{/u);
   assert.match(hardening, /overscroll-behavior:\s*contain/u);
@@ -373,4 +434,36 @@ test('celebration layer hardens modal focus, timers, scrolling and haptics', asy
   assert.match(haptics, /kind === 'caught'/u);
   assert.match(haptics, /ImpactStyle\.Heavy/u);
   assert.match(haptics, /ImpactStyle\.Light/u);
+  assert.match(haptics, /uiTick\(\)/u);
+  assert.match(source, /sfx\?\.play\(/u);
+  assert.match(source, /'catch'/u);
+  assert.match(source, /'evolve'/u);
+});
+
+test('camp-level celebration layer renders the shield mark without monster art', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: resolve(import.meta.dirname, '../vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { CelebrationLayer } = await vite.ssrLoadModule(
+    '/src/app/celebrations/CelebrationLayer.jsx',
+  );
+  const html = renderToStaticMarkup(
+    React.createElement(CelebrationLayer, {
+      events: [campLevelCelebration(3)],
+      haptics: { celebrationStart() {} },
+      sfx: { play() {} },
+      onDone() {},
+    }),
+  );
+  assert.match(html, /The camp fire rises/);
+  assert.match(html, /Camp level 3/);
+  assert.match(html, /celebration-mark/);
+  assert.doesNotMatch(html, /<img\b/u);
+  assert.doesNotMatch(html, /celebration-art/u);
 });

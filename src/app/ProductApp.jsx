@@ -1501,10 +1501,10 @@ function TrailScreen({
 
 const FILTER_DOTS = Object.freeze({
   all: 'rgba(29,43,58,.3)',
-  due: '#a06b22',
-  trouble: '#c0603f',
-  learning: '#3e6fa8',
-  secure: '#1f7a4f',
+  due: 'var(--brass)',
+  trouble: 'var(--retry)',
+  learning: 'var(--brand)',
+  secure: 'var(--good)',
 });
 
 function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {
@@ -1878,7 +1878,7 @@ function CampScreen({ camp, revisitsWaiting, onScreen }) {
                 cy="60"
                 r="53"
                 fill="none"
-                stroke="#a06b22"
+                style={{ stroke: 'var(--brass)' }}
                 strokeWidth="7"
                 strokeLinecap="round"
                 strokeDasharray={circumference}
@@ -2392,7 +2392,7 @@ function RoundScreen({
                   enterKeyHint="done"
                   style={{
                     '--line-colour': answered
-                      ? (feedbackKind === 'success' ? '#2f9e6a' : '#d25757')
+                      ? (feedbackKind === 'success' ? 'var(--good-bright)' : 'var(--retry-soft)')
                       : undefined,
                   }}
                   onBeforeInput={(event) => {
@@ -2571,15 +2571,15 @@ function ResultsScreen({
 
               <div className="record-tally">
                 <div>
-                  <span className="figure" style={{ color: '#1f7a4f' }}>{correct}</span>
+                  <span className="figure" style={{ color: 'var(--good)' }}>{correct}</span>
                   <span className="label">correct</span>
                 </div>
                 <div>
-                  <span className="figure" style={{ color: '#a2472a' }}>{mistakes.length}</span>
+                  <span className="figure" style={{ color: 'var(--retry)' }}>{mistakes.length}</span>
                   <span className="label">return</span>
                 </div>
                 <div>
-                  <span className="figure" style={{ color: '#9e6a19' }}>{total}</span>
+                  <span className="figure" style={{ color: 'var(--brass-ink)' }}>{total}</span>
                   <span className="label">words walked</span>
                 </div>
               </div>

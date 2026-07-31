@@ -42,6 +42,11 @@ product artefact at
 `uk.eugnel.ks2spelling` as their bundle identifier, so the proof installation
 looked like an update to the existing product application.
 
+Every `.native-build/` path cited in this record is a measurement captured in
+the ignored working directory during the incident, not a file kept in the
+repository. Expect them to be absent on any other checkout; they are quoted as
+evidence of what was observed, not as artefacts to reopen.
+
 ## Root-cause attribution
 
 The retained task trace supports the following incident attribution; these are
@@ -111,8 +116,10 @@ separate evidence:
 
 1. Copy the permitted application-container directories and run
    `PRAGMA quick_check` on the copied SQLite database.
-2. Run the normal `npm run build`, sync iOS, and fail if the synced
-   `index.html` contains a B4 or B3 proof marker.
+2. Run the normal `npm run build`, then `npx cap sync ios`, and fail if the
+   synced `index.html` contains a B4 or B3 proof marker. There is no product
+   `sync:*` npm script — the only one is `sync:b4-development`, which syncs the
+   proof composition and is the very mistake this record exists to prevent.
 3. Build the `KS2Spelling` Debug application for the exact physical destination
    into a fresh derived-data directory.
 4. Verify the built application exists, has no proof marker, passes signature

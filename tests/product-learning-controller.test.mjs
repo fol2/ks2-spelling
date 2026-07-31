@@ -50,13 +50,14 @@ function createLearningWorld(
     catalogue,
     snapshots,
     transactionCount: () => tick,
-    createController(initialSnapshot = initialSnapshots[0] ?? null) {
+    createController(initialSnapshot = initialSnapshots[0] ?? null, options = {}) {
       return createProductLearningController({
         repository,
         snapshotStore,
         catalogue,
         initialSnapshot,
         random: () => 0.25,
+        ...options,
       });
     },
   });
@@ -127,6 +128,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
       campHighWater: 0,
       lastCreditedGuardianDay: null,
     },
+    roundBaseline: null,
     actionError: null,
   });
 
@@ -479,6 +481,157 @@ test('product learning projects saved progress, Monster and Camp views without c
   assert.equal(
     controller.getState().progress.filter(({ attempts }) => attempts > 0).length,
     5,
+  );
+
+  await controller.dispose();
+});
+
+test('product learning captures a round baseline at startRound and persists it', async () => {
+  const writes = [];
+  const fakeStore = Object.freeze({
+    async read() {
+      return null;
+    },
+    async write(learnerId, record) {
+      writes.push({ learnerId, record: structuredClone(record) });
+      return structuredClone(record);
+    },
+  });
+  const world = createLearningWorld();
+  const controller = world.createController(world.snapshots.get('learner-a'), {
+    roundBaselineStore: fakeStore,
+  });
+
+  await controller.startRound({
+    mode: 'smart',
+    length: 5,
+    yearFilter: 'core',
+  });
+
+  const state = controller.getState();
+  assert.equal(state.roundBaseline.sessionId, state.practice.sessionId);
+  // Captured after start-session lands, so it matches the practice roster.
+  assert.deepEqual(state.roundBaseline.monsters, state.monsters);
+  assert.deepEqual(state.roundBaseline.camp, state.camp);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].learnerId, 'learner-a');
+  assert.deepEqual(writes[0].record, {
+    schemaVersion: 1,
+    learnerId: 'learner-a',
+    sessionId: state.practice.sessionId,
+    monsters: state.monsters,
+    camp: state.camp,
+  });
+
+  await controller.dispose();
+});
+
+test('product learning adopts a matching initialRoundBaseline mid-session', async () => {
+  const world = createLearningWorld();
+  const first = world.createController();
+  await first.startRound({ mode: 'smart', length: 5, yearFilter: 'core' });
+  const midSession = structuredClone(world.snapshots.get('learner-a'));
+  const baseline = {
+    schemaVersion: 1,
+    learnerId: 'learner-a',
+    sessionId: first.getState().practice.sessionId,
+    monsters: structuredClone(first.getState().roundBaseline.monsters),
+    camp: structuredClone(first.getState().roundBaseline.camp),
+  };
+  await first.dispose();
+
+  const restored = world.createController(midSession, {
+    initialRoundBaseline: baseline,
+  });
+  assert.equal(restored.getState().screen, 'practice');
+  assert.equal(
+    restored.getState().roundBaseline.sessionId,
+    midSession.subjectState.ui.session.id,
+  );
+  assert.deepEqual(
+    restored.getState().roundBaseline.monsters,
+    baseline.monsters,
+  );
+  await restored.dispose();
+
+  const mismatched = world.createController(midSession, {
+    initialRoundBaseline: { ...baseline, sessionId: 'session-other' },
+  });
+  assert.equal(mismatched.getState().roundBaseline, null);
+  await mismatched.dispose();
+});
+
+test('product learning selectLearner clears and re-reads the round baseline', async () => {
+  const world = createLearningWorld([
+    expectedB2Snapshot('learner-a'),
+    expectedB2Snapshot('learner-b'),
+  ]);
+  const first = world.createController();
+  await first.startRound({ mode: 'smart', length: 5, yearFilter: 'core' });
+  const midA = structuredClone(world.snapshots.get('learner-a'));
+  const baselineA = {
+    schemaVersion: 1,
+    learnerId: 'learner-a',
+    sessionId: first.getState().practice.sessionId,
+    monsters: structuredClone(first.getState().roundBaseline.monsters),
+    camp: structuredClone(first.getState().roundBaseline.camp),
+  };
+  await first.dispose();
+
+  world.snapshots.set('learner-a', midA);
+  const reads = [];
+  const fakeStore = Object.freeze({
+    async read(learnerId) {
+      reads.push(learnerId);
+      return learnerId === 'learner-a' ? structuredClone(baselineA) : null;
+    },
+    async write() {
+      throw new Error('write should not run in this test');
+    },
+  });
+
+  const controller = world.createController(expectedB2Snapshot('learner-b'), {
+    roundBaselineStore: fakeStore,
+  });
+  assert.equal(controller.getState().roundBaseline, null);
+
+  await controller.selectLearner('learner-a');
+  assert.deepEqual(reads, ['learner-a']);
+  assert.equal(
+    controller.getState().roundBaseline.sessionId,
+    baselineA.sessionId,
+  );
+
+  await controller.selectLearner(null);
+  assert.equal(controller.getState().roundBaseline, null);
+  assert.equal(controller.getState().screen, 'profiles');
+
+  await controller.dispose();
+});
+
+test('product learning startRound ignores round baseline store write failures', async () => {
+  const fakeStore = Object.freeze({
+    async read() {
+      return null;
+    },
+    async write() {
+      throw new Error('disk full');
+    },
+  });
+  const world = createLearningWorld();
+  const controller = world.createController(world.snapshots.get('learner-a'), {
+    roundBaselineStore: fakeStore,
+  });
+
+  await controller.startRound({
+    mode: 'smart',
+    length: 5,
+    yearFilter: 'core',
+  });
+  assert.equal(controller.getState().screen, 'practice');
+  assert.equal(
+    controller.getState().roundBaseline.sessionId,
+    controller.getState().practice.sessionId,
   );
 
   await controller.dispose();

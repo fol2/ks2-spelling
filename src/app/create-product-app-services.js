@@ -17,6 +17,9 @@ import { createSQLiteSpellingCommandRepository } from '../platform/database/sqli
 import { createSQLiteSpellingSnapshotStore } from '../platform/database/sqlite-spelling-snapshot-store.js';
 import { createSQLiteParentSecurityRepository } from '../platform/database/sqlite-parent-security-repository.js';
 import {
+  createSQLiteRoundBaselineStore,
+} from '../platform/database/sqlite-round-baseline-store.js';
+import {
   createSQLiteLearningBackupRepository,
 } from '../platform/database/sqlite-learning-backup-repository.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
@@ -223,11 +226,24 @@ export async function createProductAppServices(options = {}) {
     const initialSnapshot = initialSelectedLearnerId === null
       ? null
       : await snapshotStore.read(initialSelectedLearnerId);
+    const roundBaselineStore = createSQLiteRoundBaselineStore({
+      connection,
+      gate,
+      now,
+    });
+    let initialRoundBaseline = null;
+    if (initialSnapshot?.subjectState?.ui?.phase === 'session') {
+      initialRoundBaseline = await roundBaselineStore
+        .read(initialSelectedLearnerId)
+        .catch(() => null);
+    }
     learning = createProductLearningController({
       repository: commandRepository,
       snapshotStore,
       catalogue,
       initialSnapshot,
+      roundBaselineStore,
+      initialRoundBaseline,
       random,
     });
     const profileController = createProductProfileController({

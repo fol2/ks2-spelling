@@ -2772,10 +2772,10 @@ export default function ProductApp({ services }) {
   const [switchOpen, setSwitchOpen] = useState(false);
   // What a round actually grew, worked out by comparing the roster the round
   // started on with the roster it ended on. The reward track publishes totals,
-  // not events, so the difference is the event.
+  // not events, so the difference is the event. The round-start roster is
+  // captured by the controller so it survives relaunch.
   const [celebrationEvents, setCelebrationEvents] = useState([]);
   const [secureGain, setSecureGain] = useState(0);
-  const monstersAtRoundStartRef = useRef(null);
   const learningScreenRef = useRef(learningState.screen);
   const clearCelebrations = useCallback(() => setCelebrationEvents([]), []);
 
@@ -2783,11 +2783,8 @@ export default function ProductApp({ services }) {
     const profileSubscription = services.controller.subscribe(setProfileState);
     const learningSubscription = services.learning.subscribe((next) => {
       const previousScreen = learningScreenRef.current;
-      if (previousScreen !== 'practice' && next.screen === 'practice') {
-        monstersAtRoundStartRef.current = next.monsters;
-      }
       if (previousScreen !== 'summary' && next.screen === 'summary') {
-        const before = monstersAtRoundStartRef.current ?? [];
+        const before = next.roundBaseline?.monsters ?? [];
         setCelebrationEvents(diffMonsterCelebrations(before, next.monsters));
         setSecureGain(secureWordDelta(before, next.monsters));
       }

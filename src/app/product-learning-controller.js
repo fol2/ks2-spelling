@@ -218,6 +218,21 @@ function campProjection(snapshot) {
   };
 }
 
+function adoptRoundBaseline(candidate, snapshot) {
+  if (
+    !candidate ||
+    snapshot?.subjectState?.ui?.phase !== 'session' ||
+    candidate.sessionId !== snapshot.subjectState.ui.session.id
+  ) {
+    return null;
+  }
+  return {
+    sessionId: candidate.sessionId,
+    monsters: candidate.monsters,
+    camp: candidate.camp ?? null,
+  };
+}
+
 function createState({
   snapshot,
   catalogue,
@@ -225,6 +240,7 @@ function createState({
   screen = initialScreen(snapshot),
   actionError = null,
   summary = null,
+  roundBaseline = null,
 }) {
   const ui = snapshot?.subjectState?.ui;
   return cloneFrozen({
@@ -242,6 +258,7 @@ function createState({
     vocabularySets: vocabularySetsProjection(catalogue),
     monsters: monsterProjection(snapshot, catalogue),
     camp: campProjection(snapshot),
+    roundBaseline,
     actionError,
   });
 }
@@ -256,6 +273,8 @@ export function createProductLearningController({
   snapshotStore,
   catalogue: candidateCatalogue,
   initialSnapshot = null,
+  roundBaselineStore = null,
+  initialRoundBaseline = null,
   random,
 } = {}) {
   requireMethod(repository, 'runCommandTransaction', 'repository');
@@ -263,9 +282,19 @@ export function createProductLearningController({
   if (typeof random !== 'function') {
     throw new TypeError('Product learning controller requires random().');
   }
+  if (
+    roundBaselineStore !== null &&
+    (typeof roundBaselineStore !== 'object' ||
+      typeof roundBaselineStore.read !== 'function' ||
+      typeof roundBaselineStore.write !== 'function')
+  ) {
+    throw new TypeError('roundBaselineStore must expose read() and write().');
+  }
   const catalogue = validateCatalogueV1(candidateCatalogue);
   let snapshot = validateInitialSnapshot(initialSnapshot, catalogue);
-  let state = createState({ snapshot, catalogue });
+  // Round-start roster, kept so summary celebrations survive relaunch mid-round.
+  let roundBaseline = adoptRoundBaseline(initialRoundBaseline, snapshot);
+  let state = createState({ snapshot, catalogue, roundBaseline });
   let queue = Promise.resolve();
   let disposed = false;
   const listeners = new Set();
@@ -280,6 +309,7 @@ export function createProductLearningController({
       snapshot,
       catalogue,
       ...options,
+      roundBaseline,
     }));
   }
 
@@ -321,6 +351,20 @@ export function createProductLearningController({
           catalogue,
         );
         const phase = plan.result.state?.phase;
+        if (options.captureBaseline === true && phase === 'session') {
+          roundBaseline = {
+            sessionId: snapshot.subjectState.ui.session.id,
+            monsters: monsterProjection(snapshot, catalogue),
+            camp: campProjection(snapshot),
+          };
+          if (roundBaselineStore) {
+            void roundBaselineStore.write(snapshot.learnerId, {
+              schemaVersion: 1,
+              learnerId: snapshot.learnerId,
+              ...roundBaseline,
+            }).catch(() => undefined);
+          }
+        }
         publishFromSnapshot({
           // A command that leaves the round phase alone — saving a preference
           // — must leave the learner where they were standing.
@@ -374,6 +418,7 @@ export function createProductLearningController({
       return enqueue(async () => {
         if (learnerId === null) {
           snapshot = null;
+          roundBaseline = null;
           publishFromSnapshot({ screen: 'profiles' });
           return null;
         }
@@ -387,6 +432,16 @@ export function createProductLearningController({
             await snapshotStore.read(learnerId),
             catalogue,
           );
+          roundBaseline = null;
+          if (
+            roundBaselineStore &&
+            snapshot.subjectState?.ui?.phase === 'session'
+          ) {
+            const stored = await roundBaselineStore.read(learnerId).catch(
+              () => null,
+            );
+            roundBaseline = adoptRoundBaseline(stored, snapshot);
+          }
           publishFromSnapshot({ screen: initialScreen(snapshot) });
           return learnerId;
         } catch (error) {
@@ -436,7 +491,7 @@ export function createProductLearningController({
           practiceOnly: false,
           words: [],
         },
-      });
+      }, { captureBaseline: true });
     },
     submitAnswer(typed) {
       const spelling = spellingOnly(typed);

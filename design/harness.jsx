@@ -108,6 +108,10 @@ function makeServices(query) {
     activeVersion: 'starter-1',
     actionError: null,
   });
+  const rosterBeforeRound = (empty ? [] : MONSTERS).map((monster) => ({
+    ...monster,
+    secureCount: Math.max(0, (monster.secureCount ?? 0) - 5),
+  }));
   const learning = store({
     status: 'ready',
     screen: query.get('screen') ?? 'home',
@@ -118,6 +122,9 @@ function makeServices(query) {
     packSize: 60,
     prefs: { voiceId: 'Iapetus', showCloze: true, autoSpeak: false },
     monsters: empty ? [] : MONSTERS,
+    roundBaseline: query.get('screen') === 'summary' || query.get('screen') === 'practice'
+      ? { sessionId: 'session-demo', monsters: rosterBeforeRound, camp: null }
+      : null,
     camp: { packId: 'ks2-core', campHighWater: 3, lastCreditedGuardianDay: null },
     actionError: null,
   });
@@ -184,7 +191,15 @@ function makeServices(query) {
       async selectLearner() { learning.set({ screen: 'profiles' }); },
       showScreen(screen) { learning.set({ screen }); },
       async startRound(options) {
-        learning.set({ screen: 'practice', practice: card(0, options?.mode ?? 'smart') });
+        learning.set({
+          screen: 'practice',
+          practice: card(0, options?.mode ?? 'smart'),
+          roundBaseline: {
+            sessionId: 'session-demo',
+            monsters: rosterBeforeRound,
+            camp: null,
+          },
+        });
       },
       async submitAnswer(typed) {
         const practice = learning.getState().practice;
@@ -205,7 +220,13 @@ function makeServices(query) {
       async savePrefs(patch) {
         learning.set({ prefs: { ...learning.getState().prefs, ...patch } });
       },
-      async endRound() { learning.set({ screen: 'summary', practice: null, summary: { ...SUMMARY, endedEarly: true } }); },
+      async endRound() {
+        learning.set({
+          screen: 'summary',
+          practice: null,
+          summary: { ...SUMMARY, endedEarly: true },
+        });
+      },
       async dispose() {},
     },
     audioAvailability: {

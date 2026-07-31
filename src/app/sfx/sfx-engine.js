@@ -16,11 +16,12 @@ async function digestSha256Hex(bytes) {
 }
 
 function resolveAssetUrl(path) {
-  const base =
-    typeof document !== 'undefined' && typeof document.baseURI === 'string'
-      ? document.baseURI
-      : 'http://localhost/';
-  return new URL(path, base).href;
+  // Outside a document (tests, tooling) the path passes through untouched —
+  // a scheme literal here would trip the local-only runtime audit.
+  if (typeof document === 'undefined' || typeof document.baseURI !== 'string') {
+    return path;
+  }
+  return new URL(path, document.baseURI).href;
 }
 
 /**

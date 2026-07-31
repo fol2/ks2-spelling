@@ -210,14 +210,13 @@ function prefsProjection(snapshot) {
   };
 }
 
-function campProjection(snapshot, revisionMission = null) {
+function campProjection(snapshot) {
   if (!snapshot) return null;
   const saved = snapshot.campStateByPackId[snapshot.packId];
   return {
     packId: snapshot.packId,
     campHighWater: saved?.campHighWater ?? 0,
     lastCreditedGuardianDay: saved?.lastCreditedGuardianDay ?? null,
-    canEarnToday: revisionMission?.canStartRewardBearing ?? false,
   };
 }
 
@@ -247,6 +246,7 @@ function createState({
   revisionMission = null,
 }) {
   const ui = snapshot?.subjectState?.ui;
+  const camp = campProjection(snapshot);
   return cloneFrozen({
     status,
     screen,
@@ -262,7 +262,10 @@ function createState({
     vocabularySets: vocabularySetsProjection(catalogue),
     monsters: monsterProjection(snapshot, catalogue),
     revisionMission,
-    camp: campProjection(snapshot, revisionMission),
+    camp: camp === null ? null : {
+      ...camp,
+      canEarnToday: revisionMission?.canStartRewardBearing ?? false,
+    },
     roundBaseline,
     actionError,
   });
@@ -391,7 +394,7 @@ export function createProductLearningController({
           roundBaseline = {
             sessionId: snapshot.subjectState.ui.session.id,
             monsters: monsterProjection(snapshot, catalogue),
-            camp: campProjection(snapshot, revisionMissionProjection()),
+            camp: campProjection(snapshot),
           };
           if (roundBaselineStore) {
             void roundBaselineStore.write(snapshot.learnerId, {

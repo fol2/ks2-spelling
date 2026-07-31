@@ -24,6 +24,28 @@ const CelebrationStage = lazy(() => import('./CelebrationStage.jsx'));
 
 const PARTICLE_COUNT = 12;
 
+/** Shield mark for camp-level cards — mirrors the Field Record Guardian glyph. */
+function CampLevelMark() {
+  return (
+    <span className="celebration-mark" aria-hidden="true">
+      <svg
+        width="88"
+        height="88"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        focusable="false"
+      >
+        <path d="M12 3.2 19.1 6v6.1c0 4.2-3 7.3-7.1 8.7-4.1-1.4-7.1-4.5-7.1-8.7V6L12 3.2Z" />
+        <path d="m9 11.9 2.1 2.2 3.9-4.2" />
+      </svg>
+    </span>
+  );
+}
+
 function prefersReducedMotion() {
   return typeof matchMedia === 'function'
     && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -157,13 +179,15 @@ export function CelebrationLayer({ events, haptics, sfx, onDone }) {
   useEffect(() => {
     if (!event || !visible || lastHapticKey.current === eventKey) return;
     lastHapticKey.current = eventKey;
-    haptics?.celebrationStart?.(event.kind, event.stage);
+    haptics?.celebrationStart?.(event.kind, event.stage ?? event.level);
     sfx?.play(
       event.kind === 'caught'
         ? 'catch'
         : event.kind === 'evolve'
           ? 'evolve'
-          : 'tick',
+          : event.kind === 'camp-level'
+            ? 'flourish'
+            : 'tick',
     );
   }, [event, eventKey, haptics, sfx, visible]);
 
@@ -248,6 +272,7 @@ export function CelebrationLayer({ events, haptics, sfx, onDone }) {
               reducedMotion={reducedMotion}
             />
             <span className="celebration-halo" />
+            {event.kind === 'camp-level' && <CampLevelMark />}
             {artUrl && (
               <img
                 className="celebration-art"

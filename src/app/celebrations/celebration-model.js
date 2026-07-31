@@ -169,6 +169,14 @@ export function monsterStageName(monsterId, stage) {
 }
 
 export function celebrationPalette(event) {
+  if (event?.kind === 'camp-level') {
+    // Brass tones match the Camp ring and Field Record strip.
+    return Object.freeze({
+      primary: '#a06b22',
+      secondary: '#e0b463',
+      pale: '#f6eed7',
+    });
+  }
   return companionPalette(event?.monsterId);
 }
 
@@ -204,7 +212,29 @@ export function celebrationProgressMeterCopy(event) {
   return `${count} / ${target} secure`;
 }
 
+/**
+ * Camp-level rise on a rewarded Guardian mission. No monster art — the card
+ * is the moment; the Field Record strip remains the lasting record.
+ */
+export function campLevelCelebration(level) {
+  return {
+    kind: 'camp-level',
+    level: nonNegativeInteger(level),
+  };
+}
+
 export function celebrationCopy(event) {
+  if (event?.kind === 'camp-level') {
+    const level = nonNegativeInteger(event.level);
+    return {
+      eyebrow: 'Camp rises',
+      headline: 'The camp fire rises',
+      stageLabel: `Camp level ${level}`,
+      body: `Camp level ${level}. Every day you keep watch, the fire climbs.`,
+      announcement: `The camp fire rises. Camp level ${level}.`,
+    };
+  }
+
   const presentation = companionPresentation(event?.monsterId);
   const name = presentation.name;
   const stageName = monsterStageName(event?.monsterId, event?.stage);
@@ -260,6 +290,7 @@ export function celebrationHeadline(event) {
 }
 
 export function celebrationDurationMs(event) {
+  if (event?.kind === 'camp-level') return 2800;
   if (event?.kind === 'progress') return 2400;
   if (event?.kind === 'evolve' && nonNegativeInteger(event?.stage) >= HIGHEST_STAGE) {
     return 4000;
@@ -275,7 +306,8 @@ export function celebrationEventKey(event, index = 0) {
     event.rewardTrackId ?? '',
     event.kind ?? '',
     event.branch ?? '',
-    nonNegativeInteger(event.stage),
+    // Camp-level moments carry `level` rather than a companion stage.
+    nonNegativeInteger(event.stage ?? event.level),
     nonNegativeInteger(event.secureCount),
     nonNegativeInteger(event.secureGain),
     nonNegativeInteger(index),
@@ -294,8 +326,8 @@ export function monsterCelebrationArtUrl(monsterId, branch, stage) {
 /**
  * Whether the Celebration Stage may mount a live Phaser canvas over the card
  * art. Only catch and evolution moments qualify, and only when motion, WebGL
- * context and foreground visibility are all clear. Progress cards and any
- * guard failure keep the static celebration image.
+ * context and foreground visibility are all clear. Progress and camp-level
+ * cards (no monster art) and any guard failure keep the static presentation.
  */
 export function celebrationStageDecision({
   kind,

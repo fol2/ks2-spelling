@@ -14,6 +14,7 @@ import { autoAdvanceDelayMs } from './practice-feel.js';
 import { buildWordBank } from './word-bank-model.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
+  campLevelCelebration,
   diffMonsterCelebrations,
   secureWordDelta,
 } from './celebrations/celebration-model.js';
@@ -3126,7 +3127,17 @@ export default function ProductApp({ services }) {
       const previousScreen = learningScreenRef.current;
       if (previousScreen !== 'summary' && next.screen === 'summary') {
         const before = next.roundBaseline?.monsters ?? [];
-        setCelebrationEvents(diffMonsterCelebrations(before, next.monsters));
+        const monsterEvents = diffMonsterCelebrations(before, next.monsters);
+        const raisedCamp =
+          (next.camp?.campHighWater ?? 0)
+          - (next.roundBaseline?.camp?.campHighWater
+            ?? next.camp?.campHighWater
+            ?? 0);
+        // Companion moments lead; the camp-level card follows when the fire rose.
+        const events = raisedCamp > 0
+          ? [...monsterEvents, campLevelCelebration(next.camp?.campHighWater)]
+          : monsterEvents;
+        setCelebrationEvents(events);
         setSecureGain(secureWordDelta(before, next.monsters));
         setCampGain(
           (next.camp?.campHighWater ?? 0)
@@ -3134,6 +3145,10 @@ export default function ProductApp({ services }) {
             ?? next.camp?.campHighWater
             ?? 0),
         );
+        // Warm the Phaser chunk before CelebrationLayer lazy-mounts it.
+        if (events.some((event) => event.kind === 'caught' || event.kind === 'evolve')) {
+          void import('./celebrations/CelebrationStage.jsx');
+        }
       }
       learningScreenRef.current = next.screen;
       setLearningState(next);

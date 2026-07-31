@@ -37,6 +37,7 @@ test('celebrationStageDecision is live only for caught/evolve with all guards cl
   );
 
   assert.equal(celebrationStageDecision({ kind: 'progress' }), 'static');
+  assert.equal(celebrationStageDecision({ kind: 'camp-level' }), 'static');
   assert.equal(celebrationStageDecision({ kind: 'other' }), 'static');
   assert.equal(celebrationStageDecision({}), 'static');
   assert.equal(celebrationStageDecision(), 'static');
@@ -69,6 +70,15 @@ test('celebrationStageDecision is live only for caught/evolve with all guards cl
   assert.equal(
     celebrationStageDecision({
       kind: 'progress',
+      reducedMotion: false,
+      contextLost: false,
+      backgrounded: false,
+    }),
+    'static',
+  );
+  assert.equal(
+    celebrationStageDecision({
+      kind: 'camp-level',
       reducedMotion: false,
       contextLost: false,
       backgrounded: false,

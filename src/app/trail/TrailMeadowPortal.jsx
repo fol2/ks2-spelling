@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { trailMeadowCompanions } from '../codex-model.js';
+import { buildCodex, trailMeadowCompanions } from '../codex-model.js';
 import { TrailMeadow } from './TrailMeadow.jsx';
 import './trail-meadow-portal.css';
 
@@ -61,7 +61,7 @@ export function TrailMeadowPortal({ services }) {
     ({ learnerId }) => learnerId === learningState.learnerId,
   );
   const companions = useMemo(
-    () => trailMeadowCompanions(learningState.monsters),
+    () => trailMeadowCompanions(buildCodex(learningState.monsters).roster),
     [learningState.monsters],
   );
 

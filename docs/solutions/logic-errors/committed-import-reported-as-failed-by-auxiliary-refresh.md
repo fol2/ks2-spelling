@@ -103,7 +103,8 @@ path (`src/app/ProductApp.jsx:3175`) both already ran the same refresh as
 `void parentProgress.refresh().catch(() => undefined)`. The import path was the
 outlier, not the innovation.
 
-Implemented in PR #61, open and unmerged as of this writing.
+Shipped in PR #61; the two sibling sites and the contract test followed
+immediately after.
 
 ## Why This Works
 
@@ -141,27 +142,31 @@ Two honest caveats:
 3. **Two notices on one screen are a signal, not noise.** The second banner
    named the failing step and exposed the first as false. When two independent
    failure surfaces light up together, read the quieter one first.
-4. **Two sibling call sites still carry this shape** at the time of writing, and
-   are not addressed by this fix:
-   - `src/app/ProductApp.jsx:3247-3250` — `onRemoveProfile` awaits
-     `services.controller.removeProfile(learnerId)` and then
-     `await services.parentProgress.refresh()`. Its handler
-     (`src/app/ProductApp.jsx:334-343`) reports "That learner was not deleted.
-     Please try again."
-   - `src/app/create-product-app-services.js:311-318` —
-     `parentAdministration.resetLearning` awaits the reset and then
-     `await parentProgress.refresh()`. Its handler
-     (`src/app/ProductApp.jsx:346-359`) reports "That learning was not reset.
-     Please try again."
+4. **Sweep the whole class, not just the reported site.** The import path was
+   not the only offender. Two siblings carried the same shape and would have
+   misreported a committed mutation in exactly the same way — both on
+   destructive operations, where a false "it did not happen" is worse than a
+   false "it did":
+   - `onRemoveProfile` (`src/app/ProductApp.jsx:3247`) awaited
+     `services.controller.removeProfile(learnerId)` and then the refresh, while
+     its handler (`src/app/ProductApp.jsx:334-343`) reports "That learner was
+     not deleted. Please try again."
+   - `parentAdministration.resetLearning`
+     (`src/app/create-product-app-services.js:311-320`) awaited the reset and
+     then the refresh, while its handler (`src/app/ProductApp.jsx:346-359`)
+     reports "That learning was not reset. Please try again."
 
-   Both would misreport a committed mutation exactly as the import path did, and
-   both are destructive operations where a false "it did not happen" is worse
-   than a false "it did".
+   Both are now tolerant, and the rule is enforced rather than remembered:
+   `tests/post-commit-refresh-tolerance.test.mjs` fails if any awaited
+   parent-progress refresh loses its `.catch(...)`. The same test pins the
+   opposite case — the standalone "check progress" action must keep surfacing
+   its own failure, because there the refresh is the whole operation rather
+   than an epilogue to one.
 
 ## Related Issues
 
-- PR #61 (`agent/polish-phaser-guardian`) carries the fix alongside the wider
-  polish pass; `reports/polish-verification.md` records the on-device evidence.
+- PR #61 carried the fix alongside the wider polish pass;
+  `reports/polish-verification.md` records the on-device evidence.
 - `docs/solutions/workflow-issues/gating-physical-ios-installs-on-application-composition.md`
   covers the other side of the same boundary: how to prove learner SQLite data
   survived a native install, using a pre-install backup, `PRAGMA quick_check`

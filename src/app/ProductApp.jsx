@@ -3246,7 +3246,9 @@ export default function ProductApp({ services }) {
         onEditProfile={(draft) => services.controller.editProfile(draft)}
         onRemoveProfile={async (learnerId) => {
           await services.controller.removeProfile(learnerId);
-          await services.parentProgress.refresh();
+          // A committed removal must not be reported as failed because the
+          // auxiliary summary could not be rebuilt; it carries its own notice.
+          await services.parentProgress.refresh().catch(() => undefined);
         }}
         onResetLearning={(learnerId) =>
           services.parentAdministration.resetLearning(learnerId)}

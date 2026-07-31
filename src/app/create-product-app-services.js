@@ -334,7 +334,10 @@ export async function createProductAppServices(options = {}) {
         await profileStore.administration.promoteStarterCatalogue();
         await profileStore.administration.grantFullEntitlement();
         await controller.reload();
-        await parentProgress.refresh();
+        // The progress summary is auxiliary and carries its own notice when a
+        // refresh fails; a committed import must not be reported as failed
+        // because of it.
+        await parentProgress.refresh().catch(() => undefined);
       },
       now,
     });

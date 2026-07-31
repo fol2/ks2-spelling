@@ -135,6 +135,12 @@ const IconWarning = (props) => (
     <path d="M10.3 4.2 2.9 17.4A1.9 1.9 0 0 0 4.6 20.2h14.8a1.9 1.9 0 0 0 1.7-2.8L13.7 4.2a1.9 1.9 0 0 0-3.4 0Z" />
   </Glyph>
 );
+const IconGuardian = (props) => (
+  <Glyph {...props}>
+    <path d="M12 3.2 19.1 6v6.1c0 4.2-3 7.3-7.1 8.7-4.1-1.4-7.1-4.5-7.1-8.7V6L12 3.2Z" />
+    <path d="m9 11.9 2.1 2.2 3.9-4.2" />
+  </Glyph>
+);
 
 function displayYearGroup(value) {
   return `Year ${value.slice(1)}`;
@@ -1856,10 +1862,79 @@ function CodexScreen({ monsters, onScreen }) {
   );
 }
 
-function CampScreen({ camp, revisitsWaiting, onScreen }) {
+/* --- Guardian ------------------------------------------------------------
+   Guardian is the engine's endgame: it stays asleep until every core word is
+   Mega, so most learners meet the teaser for months before they meet the
+   mission. Setup and Camp read the same projection through these helpers so
+   the two surfaces can never disagree about what Guardian is doing today. */
+
+const MEGA_STAGE = 4;
+
+function countMegaWords(progress = []) {
+  return progress.filter((row) => (row?.stage ?? 0) >= MEGA_STAGE).length;
+}
+
+/**
+ * One of five readings of `state.revisionMission`:
+ * `locked` (not on this trail), `asleep` (the pre-Mega teaser), `due` (a
+ * mission is waiting), `rested` (nothing to guard yet) and `done` (credited
+ * today, an unrewarded patrol still allowed).
+ */
+function guardianPhase(mission) {
+  if (!mission || mission.campCreditState === 'unavailable') return 'locked';
+  if (mission.canStartRewardBearing) return 'due';
+  if (mission.canContinueUnrewarded) return 'done';
+  if (mission.missionState === 'rested') return 'rested';
+  return 'asleep';
+}
+
+// The Guardian day turns at 01:00 BST, so every promise the app makes is
+// counted in days and spoken as today or tomorrow. Never a clock time.
+function guardianDaysAway(mission) {
+  const next = mission?.nextGuardianDueDay;
+  const today = mission?.todayGuardianDay;
+  if (!Number.isFinite(next) || !Number.isFinite(today)) return 1;
+  return Math.max(1, next - today);
+}
+
+function guardianNextLine(mission, noun) {
+  const days = guardianDaysAway(mission);
+  return days === 1
+    ? `Next ${noun} tomorrow.`
+    : `Next ${noun} in ${days} days.`;
+}
+
+function guardianDueLine(mission) {
+  const due = mission?.guardianDueCount ?? 0;
+  const wobbling = mission?.wobblingDueCount ?? 0;
+  return wobbling > 0 ? `${due} due · ${wobbling} wobbling` : `${due} due`;
+}
+
+function CampScreen({
+  camp,
+  revisionMission = null,
+  megaWords = 0,
+  packSize = 0,
+  audioState,
+  busy = false,
+  onScreen,
+  onStartGuardian,
+  onRecoverAudio,
+}) {
+  const phase = guardianPhase(revisionMission);
+  const awake = phase !== 'locked' && phase !== 'asleep';
   const level = camp?.campHighWater ?? 0;
+  // A banner for every ten days guarded: the ring reads the run in progress,
+  // never the whole climb, so it is honest at level 10 and at level 70.
+  const intoBanner = level % 10;
   const circumference = 333;
-  const offset = Math.max(0, circumference * (1 - Math.min(level, 10) / 10));
+  const offset = Math.max(0, circumference * (1 - intoBanner / 10));
+  const megaLeft = Math.max(0, packSize - megaWords);
+  const megaPercent = packSize > 0
+    ? Math.min(100, Math.round((megaWords / packSize) * 100))
+    : 0;
+  const dueCount = revisionMission?.guardianDueCount ?? 0;
+  const audioReady = audioState?.status === 'ready';
 
   return (
     <main className="product-app" aria-labelledby="camp-title">
@@ -1874,58 +1949,157 @@ function CampScreen({ camp, revisitsWaiting, onScreen }) {
         <div className="scene-body">
           <p className="product-kicker">The Scribe Downs · Camp</p>
 
-          <div className="camp-ring">
-            <svg viewBox="0 0 120 120" aria-hidden="true">
-              <circle cx="60" cy="60" r="53" fill="none" stroke="rgba(29,43,58,.13)" strokeWidth="7" />
-              <circle
-                cx="60"
-                cy="60"
-                r="53"
-                fill="none"
-                style={{ stroke: 'var(--brass)' }}
-                strokeWidth="7"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={offset}
-              />
-            </svg>
-            <div className="camp-ring-face">
-              <div>
-                <IconCamp size={30} />
-                <span className="figure">{level}</span>
-                <span className="label">Camp level</span>
+          {awake ? (
+            <div className="camp-ring">
+              <svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle cx="60" cy="60" r="53" fill="none" stroke="rgba(29,43,58,.13)" strokeWidth="7" />
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="53"
+                  fill="none"
+                  style={{ stroke: 'var(--brass)' }}
+                  strokeWidth="7"
+                  strokeLinecap="round"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={offset}
+                />
+              </svg>
+              <div className="camp-ring-face">
+                <div>
+                  <IconCamp size={30} />
+                  <span className="figure">{level}</span>
+                  <span className="label">Camp level</span>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            /* Before Guardian wakes there is no camp fire to draw, so the
+               screen shows the climb that lights it instead of a ring at
+               zero. The Mega count is the whole promise. */
+            <div className="camp-mega">
+              <p className="camp-mega-figure">
+                <span className="figure">{megaWords}</span>
+                <span>of {packSize}</span>
+              </p>
+              <p className="label">words at Mega</p>
+              <div
+                className="camp-mega-track"
+                role="img"
+                aria-label={`${megaWords} of ${packSize} words at Mega`}
+              >
+                <span style={{ '--percent': `${megaPercent}%` }} />
+              </div>
+              <p className="camp-mega-left">
+                <span className="figure">{megaLeft}</span> still to reach Mega
+              </p>
+            </div>
+          )}
+
+          {awake && (
+            <p className="camp-banner-note">
+              <span className="figure">{10 - intoBanner}</span> to the next
+              banner
+            </p>
+          )}
 
           <section className="vellum camp-card">
-            <h1 id="camp-title">
-              {revisitsWaiting > 0
-                ? 'Words are waiting to return'
-                : 'Camp is steady for now'}
-            </h1>
-            <p className="body-copy">
-              Camp rises when you come back to words you met a while ago — not
-              from fresh practice, however much of it you do.
+            <p className="product-kicker camp-card-kicker">
+              <IconGuardian size={15} />
+              Guardian
             </p>
-            <div className="camp-figures">
-              <div>
-                <span className="figure">{level}</span>
-                <span className="label">Camp level</span>
-              </div>
-              <div>
-                <span className="figure">{revisitsWaiting}</span>
-                <span className="label">Words waiting to return</span>
-              </div>
+
+            {phase === 'due' && (
+              <>
+                <h1 id="camp-title">
+                  {dueCount === 1
+                    ? '1 word due for guarding today'
+                    : `${dueCount} words due for guarding today`}
+                </h1>
+                <p className="body-copy">
+                  Guardian walks the camp with you. Hold these today and the
+                  fire climbs a little higher.
+                </p>
+              </>
+            )}
+
+            {phase === 'rested' && (
+              <>
+                <h1 id="camp-title">All guarded</h1>
+                <p className="body-copy">
+                  {guardianNextLine(revisionMission, 'mission')} Nothing is
+                  slipping — this is what a kept camp looks like.
+                </p>
+              </>
+            )}
+
+            {phase === 'done' && (
+              <>
+                <h1 id="camp-title">Done today</h1>
+                <p className="body-copy">
+                  Camp rose today. The next mission that raises the fire comes
+                  tomorrow.
+                </p>
+              </>
+            )}
+
+            {!awake && (
+              <>
+                <h1 id="camp-title">Guardian sleeps here</h1>
+                <p className="body-copy">
+                  Guardian wakes when every core word is Mega. Then it walks
+                  the camp with you every day, and every ten days you keep
+                  watch raises a new banner over the fire.
+                </p>
+              </>
+            )}
+
+            {awake && phase === 'due' && !audioReady && (
+              <AudioStatus
+                audioState={audioState}
+                onRecover={onRecoverAudio}
+                compact
+              />
+            )}
+
+            <div className="camp-actions">
+              {phase === 'due' && (
+                <button
+                  type="button"
+                  className="button-primary press"
+                  disabled={busy || !audioReady}
+                  onClick={() => void onStartGuardian().catch(() => undefined)}
+                >
+                  {busy ? 'Preparing…' : 'Begin the patrol'}
+                  <IconForward size={18} />
+                </button>
+              )}
+
+              {phase !== 'due' && (
+                <button
+                  type="button"
+                  className="button-primary press"
+                  onClick={() => onScreen('setup')}
+                >
+                  Set off on a round
+                  <IconForward size={18} />
+                </button>
+              )}
+
+              {/* Camp is credited once a day. Another patrol is allowed, and
+                  the offer has to say plainly what it no longer carries. */}
+              {phase === 'done' && (
+                <button
+                  type="button"
+                  className="button-quiet press-soft press"
+                  disabled={busy || !audioReady}
+                  onClick={() => void onStartGuardian({ intent: 'unrewarded' })
+                    .catch(() => undefined)}
+                >
+                  Patrol again — no Camp credit
+                </button>
+              )}
             </div>
-            <button
-              type="button"
-              className="button-primary press"
-              onClick={() => onScreen('setup')}
-            >
-              Set off on a round
-              <IconForward size={18} />
-            </button>
           </section>
         </div>
       </Scene>
@@ -1958,7 +2132,29 @@ const QUESTS = Object.freeze([
     plate: 'e1',
     line: 'One attempt per word, with marks held back until the end.',
   }),
+  Object.freeze({
+    id: 'guardian',
+    short: 'Guardian',
+    name: 'Guardian Mission',
+    tag: 'Daily',
+    plate: 'b3',
+    line: 'A night patrol over the words you have already mastered, so they stay yours.',
+  }),
 ]);
+
+function guardianQuestLine(phase, { mission, megaWords, packSize }) {
+  if (phase === 'asleep') {
+    return `Guardian wakes when every core word is Mega — ${megaWords} of ${packSize}.`;
+  }
+  if (phase === 'rested') {
+    return `All guarded. ${guardianNextLine(mission, 'check')}`;
+  }
+  if (phase === 'done') return 'Done today. The camp fire is banked until tomorrow.';
+  if (phase === 'due') {
+    return 'The words you have already mastered are asking to be checked.';
+  }
+  return 'Guardian keeps watch over mastered words. Not on this trail yet.';
+}
 
 function SetupScreen({
   audioState,
@@ -1975,14 +2171,35 @@ function SetupScreen({
   monsters = [],
   sfxEnabled = true,
   onSetSfxEnabled,
+  revisionMission = null,
+  megaWords = 0,
+  packSize = 0,
+  onStartGuardian,
 }) {
   const [length, setLength] = useState(5);
-  const [quest, setQuest] = useState('smart');
+  // Guardian is the day's errand on the days it is waiting, and this screen
+  // calls itself Today's quest — so a waiting mission opens selected. One tap
+  // still moves to any walk.
+  const [quest, setQuest] = useState(
+    () => guardianPhase(revisionMission) === 'due' ? 'guardian' : 'smart',
+  );
+  // The walking quest Set off falls back to while Guardian is only a preview.
+  // A learner can sit on the Guardian tile for months; Set off must never
+  // become a button that cannot go anywhere.
+  const [practiceQuest, setPracticeQuest] = useState('smart');
   const [yearFilter, setYearFilter] = useState(vocabularySets[0]?.id ?? 'core');
   const [soundOn, setSoundOn] = useState(sfxEnabled === true);
+  const phase = guardianPhase(revisionMission);
   const active = QUESTS.find(({ id }) => id === quest) ?? QUESTS[0];
-  const effectiveYearFilter = quest === 'test' ? 'core' : yearFilter;
-  const effectiveLength = quest === 'test' ? 20 : length;
+  // What Set off actually starts. Only a Guardian with a mission waiting takes
+  // the button; every other Guardian reading hands it back to the walk.
+  const runQuest = quest !== 'guardian'
+    ? quest
+    : phase === 'due' ? 'guardian' : practiceQuest;
+  const runQuestName = QUESTS.find(({ id }) => id === runQuest)?.short ?? 'Smart';
+  const guardianRuns = runQuest === 'guardian';
+  const effectiveYearFilter = runQuest === 'test' ? 'core' : yearFilter;
+  const effectiveLength = runQuest === 'test' ? 20 : length;
   const companion = useMemo(
     () => setupExpeditionCompanion(monsters),
     [monsters],
@@ -2027,51 +2244,109 @@ function SetupScreen({
               Today&apos;s quest<span aria-hidden="true" />
             </p>
             <h1 id="setup-title">{active.name}</h1>
-            <p>{active.line}</p>
-            <div className="setup-tally">
-              <div>
-                <span className="figure">{dueCount}</span>
-                <span className="label">due</span>
+            <p>
+              {quest === 'guardian'
+                ? guardianQuestLine(phase, {
+                  mission: revisionMission,
+                  megaWords,
+                  packSize,
+                })
+                : active.line}
+            </p>
+            {quest === 'guardian' ? (
+              <>
+                {phase === 'due' && (
+                  <p className="setup-guardian-due">
+                    {guardianDueLine(revisionMission)}
+                  </p>
+                )}
+                {/* The climb to Mega, drawn rather than counted again: the
+                    line above already says how far. */}
+                {phase === 'asleep' && packSize > 0 && (
+                  <div className="setup-guardian-meter" aria-hidden="true">
+                    <span
+                      style={{
+                        '--percent': `${Math.min(100, Math.round((megaWords / packSize) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="setup-tally">
+                <div>
+                  <span className="figure">{dueCount}</span>
+                  <span className="label">due</span>
+                </div>
+                <div>
+                  <span className="figure">{troubleCount}</span>
+                  <span className="label">trouble</span>
+                </div>
+                <div>
+                  <span className="figure">{bankTotal}</span>
+                  <span className="label">in bank</span>
+                </div>
               </div>
-              <div>
-                <span className="figure">{troubleCount}</span>
-                <span className="label">trouble</span>
-              </div>
-              <div>
-                <span className="figure">{bankTotal}</span>
-                <span className="label">in bank</span>
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="quest-tiles" role="group" aria-label="Choose a quest">
-            {QUESTS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className="quest-tile press"
-                aria-pressed={quest === option.id}
-                onClick={() => setQuest(option.id)}
-              >
-                <span style={{ '--plate': artUrl(regionArt(REGION, option.plate)) }}>
-                  <span className="quest-tile-art" aria-hidden="true" />
-                  <span className="quest-tile-tint" aria-hidden="true" />
-                  {quest === option.id && (
-                    <span className="quest-tile-sheen" aria-hidden="true" />
-                  )}
-                  <span className="quest-tile-tag">{option.tag}</span>
-                  <span className="quest-tile-name">{option.short}</span>
-                </span>
-              </button>
-            ))}
+            {QUESTS.map((option) => {
+              const locked = option.id === 'guardian' && phase === 'locked';
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  className="quest-tile press"
+                  data-locked={locked ? 'true' : undefined}
+                  disabled={locked}
+                  aria-pressed={quest === option.id}
+                  onClick={() => {
+                    setQuest(option.id);
+                    if (option.id !== 'guardian') setPracticeQuest(option.id);
+                  }}
+                >
+                  <span style={{ '--plate': artUrl(regionArt(REGION, option.plate)) }}>
+                    <span className="quest-tile-art" aria-hidden="true" />
+                    <span className="quest-tile-tint" aria-hidden="true" />
+                    {quest === option.id && !locked && (
+                      <span className="quest-tile-sheen" aria-hidden="true" />
+                    )}
+                    <span className="quest-tile-tag">{option.tag}</span>
+                    <span className="quest-tile-name">{option.short}</span>
+                    {locked && (
+                      <span className="quest-tile-lock" aria-hidden="true">
+                        <IconLock size={17} />
+                      </span>
+                    )}
+                    {option.id === 'guardian'
+                      && phase === 'due'
+                      && (revisionMission?.guardianDueCount ?? 0) > 0 && (
+                      <span className="quest-tile-count figure">
+                        {revisionMission.guardianDueCount}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
           </div>
+
+          {phase === 'locked' && (
+            <p className="quest-note">
+              <IconLock size={13} />
+              Guardian · Not on this trail yet
+            </p>
+          )}
         </div>
 
         <div className="setup-tray">
           {/* The engine publishes the sets it can actually draw a round from.
               Until it publishes any, there is no rail: a set picker that
-              cannot change what a round contains is a control that lies. */}
-          {vocabularySets.length > 0 && (
+              cannot change what a round contains is a control that lies.
+              A Guardian mission has no options at all — the engine chooses
+              its words and its length — so both rails leave with it. */}
+          {vocabularySets.length > 0 && !guardianRuns && (
             <>
               <p className="label">Vocabulary set</p>
               <div className="rail setup-pools">
@@ -2081,7 +2356,7 @@ function SetupScreen({
                     type="button"
                     className="pill press-soft press"
                     aria-pressed={effectiveYearFilter === option.id}
-                    disabled={quest === 'test' && option.id !== 'core'}
+                    disabled={runQuest === 'test' && option.id !== 'core'}
                     onClick={() => setYearFilter(option.id)}
                   >
                     {option.label}
@@ -2092,23 +2367,32 @@ function SetupScreen({
             </>
           )}
 
-          <div className="setup-lengths">
-            <p className="label">Round length</p>
-            <div className="length-choice">
-              {ROUND_LENGTHS.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  className="press"
-                  aria-pressed={effectiveLength === value}
-                  disabled={quest === 'test' && value !== 20}
-                  onClick={() => setLength(value)}
-                >
-                  <strong className="figure">{value}</strong>
-                </button>
-              ))}
+          {!guardianRuns && (
+            <div className="setup-lengths">
+              <p className="label">Round length</p>
+              <div className="length-choice">
+                {ROUND_LENGTHS.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className="press"
+                    aria-pressed={effectiveLength === value}
+                    disabled={runQuest === 'test' && value !== 20}
+                    onClick={() => setLength(value)}
+                  >
+                    <strong className="figure">{value}</strong>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {guardianRuns && (
+            <p className="setup-guardian-note">
+              Guardian chooses its own words. No set, no length — just the
+              patrol.
+            </p>
+          )}
 
           {audioState.status !== 'ready' && (
             <AudioStatus audioState={audioState} onRecover={onRecoverAudio} dusk />
@@ -2136,15 +2420,23 @@ function SetupScreen({
             type="button"
             className="button-primary press"
             disabled={busy || audioState.status !== 'ready'}
-            onClick={() => void onStart({
-              length: effectiveLength,
-              mode: quest,
-              yearFilter: effectiveYearFilter,
-            }).catch(() => undefined)}
+            onClick={() => void (guardianRuns
+              ? onStartGuardian()
+              : onStart({
+                length: effectiveLength,
+                mode: runQuest,
+                yearFilter: effectiveYearFilter,
+              })).catch(() => undefined)}
           >
-            {busy ? 'Preparing…' : (
+            {busy ? 'Preparing…' : guardianRuns ? (
+              <>
+                Begin the patrol
+                <IconForward size={18} />
+              </>
+            ) : (
               <>
                 Set off
+                {quest === 'guardian' && ` on ${runQuestName}`}
                 <span aria-hidden="true" style={{ opacity: 0.4 }}>·</span>
                 <span className="figure">{effectiveLength}</span>
                 words
@@ -2152,6 +2444,20 @@ function SetupScreen({
               </>
             )}
           </button>
+
+          {/* Camp is credited once a day. A learner who wants another patrol
+              may have one, but the offer has to say what it does not carry. */}
+          {quest === 'guardian' && phase === 'done' && (
+            <button
+              type="button"
+              className="button-quiet press-soft press setup-guardian-again"
+              disabled={busy || audioState.status !== 'ready'}
+              onClick={() => void onStartGuardian({ intent: 'unrewarded' })
+                .catch(() => undefined)}
+            >
+              Patrol again — no Camp credit
+            </button>
+          )}
 
           {actionError && (
             <p className="inline-error" role="alert">
@@ -2409,6 +2715,15 @@ function RoundScreen({
             aria-labelledby="practice-title"
             aria-busy={busy}
           >
+            {/* A Guardian round is a different errand from a walk, and the
+                card is otherwise identical, so it says so above the kicker. */}
+            {practice.mode === 'guardian' && (
+              <p className="round-mission">
+                <IconGuardian size={14} />
+                {practice.label}
+              </p>
+            )}
+
             <h1 id="practice-title" className="product-kicker">
               Spell the word you hear
             </h1>
@@ -2534,7 +2849,9 @@ function RoundScreen({
                       ));
                   }}
                 >
-                  Skip for now
+                  {/* On a Guardian patrol a skip is recorded as a wobble, so
+                      the label has to be the honest thing to press. */}
+                  {practice.mode === 'guardian' ? 'I don’t know' : 'Skip for now'}
                 </button>
               )}
               <button
@@ -2576,9 +2893,11 @@ function mistakeWord(mistake) {
 function ResultsScreen({
   summary,
   monsters,
+  camp,
   onScreen,
   celebrationEvents = [],
   secureGain = 0,
+  campGain = 0,
   haptics,
   sfx,
   onCelebrationDone,
@@ -2594,6 +2913,9 @@ function ResultsScreen({
   const correct = summary?.correct ?? 0;
   const mistakes = (summary?.mistakes ?? []).map(mistakeWord).filter(Boolean);
   const clean = mistakes.length === 0;
+  // A wobbled Guardian word is not queued vaguely: it is due again on the
+  // next Guardian day, so the record says tomorrow and means it.
+  const guardian = summary?.mode === 'guardian';
   const stampedRef = useRef(false);
 
   // Timed with .record-stamp's stampIn delay (280ms) so the thud lands with the ink.
@@ -2674,6 +2996,13 @@ function ResultsScreen({
                 </div>
               </div>
 
+              {campGain > 0 && (
+                <p className="record-camp">
+                  <IconGuardian size={17} />
+                  The camp fire rises — Camp level {camp?.campHighWater ?? 0}
+                </p>
+              )}
+
               {clean ? (
                 <p className="record-roll-clean body-copy">
                   Every word held on the first try.
@@ -2681,14 +3010,17 @@ function ResultsScreen({
               ) : (
                 <>
                   <p className="product-kicker" style={{ margin: '0.7rem 0 0.35rem' }}>
-                    Coming back<span className="figure"> {mistakes.length}</span>
+                    {guardian ? 'Back tomorrow' : 'Coming back'}
+                    <span className="figure"> {mistakes.length}</span>
                   </p>
                   <ul className="record-roll">
                     {mistakes.map((word) => (
                       <li key={word} data-ok="false">
                         <strong>{word}</strong>
                         <span className="record-roll-rule" aria-hidden="true" />
-                        <span className="record-roll-status">comes back</span>
+                        <span className="record-roll-status">
+                          {guardian ? 'comes back tomorrow' : 'comes back'}
+                        </span>
                         <span className="record-roll-mark" aria-hidden="true">
                           <IconReturn size={12} />
                         </span>
@@ -2747,6 +3079,11 @@ function ResultsScreen({
   );
 }
 
+// Named so the record can be rendered on its own in tests. The declaration
+// itself stays a plain function: the round contract reads this file as text
+// and finds the round by the two function headings around it.
+export { ResultsScreen };
+
 export default function ProductApp({ services }) {
   const [profileState, setProfileState] = useState(() =>
     services.controller.getState(),
@@ -2777,6 +3114,9 @@ export default function ProductApp({ services }) {
   // captured by the controller so it survives relaunch.
   const [celebrationEvents, setCelebrationEvents] = useState([]);
   const [secureGain, setSecureGain] = useState(0);
+  // Camp only ever rises on a rewarded Guardian mission, so the round-start
+  // camp is the only honest thing to compare the ending camp with.
+  const [campGain, setCampGain] = useState(0);
   const learningScreenRef = useRef(learningState.screen);
   const clearCelebrations = useCallback(() => setCelebrationEvents([]), []);
 
@@ -2788,6 +3128,12 @@ export default function ProductApp({ services }) {
         const before = next.roundBaseline?.monsters ?? [];
         setCelebrationEvents(diffMonsterCelebrations(before, next.monsters));
         setSecureGain(secureWordDelta(before, next.monsters));
+        setCampGain(
+          (next.camp?.campHighWater ?? 0)
+          - (next.roundBaseline?.camp?.campHighWater
+            ?? next.camp?.campHighWater
+            ?? 0),
+        );
       }
       learningScreenRef.current = next.screen;
       setLearningState(next);
@@ -2817,6 +3163,10 @@ export default function ProductApp({ services }) {
 
   const bank = useMemo(
     () => buildWordBank({ progress: learningState.progress }),
+    [learningState.progress],
+  );
+  const megaWords = useMemo(
+    () => countMegaWords(learningState.progress),
     [learningState.progress],
   );
 
@@ -2862,6 +3212,8 @@ export default function ProductApp({ services }) {
   };
   const filterCount = (id) =>
     bank.filters.find((option) => option.id === id)?.count ?? 0;
+  const startGuardian = (options) =>
+    services.learning.startGuardianMission(options);
 
   if (parentOpen) {
     return (
@@ -2932,6 +3284,10 @@ export default function ProductApp({ services }) {
         monsters={learningState.monsters}
         sfxEnabled={services.sfx?.isEnabled?.() !== false}
         onSetSfxEnabled={(enabled) => services.setSfxEnabled?.(enabled)}
+        revisionMission={learningState.revisionMission}
+        megaWords={megaWords}
+        packSize={learningState.packSize ?? 0}
+        onStartGuardian={startGuardian}
       />
     );
   }
@@ -2957,9 +3313,11 @@ export default function ProductApp({ services }) {
       <ResultsScreen
         summary={learningState.summary}
         monsters={learningState.monsters}
+        camp={learningState.camp}
         onScreen={showScreen}
         celebrationEvents={celebrationEvents}
         secureGain={secureGain}
+        campGain={campGain}
         haptics={services.haptics}
         sfx={services.sfx}
         onCelebrationDone={clearCelebrations}
@@ -2985,8 +3343,14 @@ export default function ProductApp({ services }) {
     return (
       <CampScreen
         camp={learningState.camp}
-        revisitsWaiting={filterCount('due')}
+        revisionMission={learningState.revisionMission}
+        megaWords={megaWords}
+        packSize={learningState.packSize ?? 0}
+        audioState={audioState}
+        busy={learningState.status === 'saving'}
         onScreen={showScreen}
+        onStartGuardian={startGuardian}
+        onRecoverAudio={recoverAudio}
       />
     );
   }

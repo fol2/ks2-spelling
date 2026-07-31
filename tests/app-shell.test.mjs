@@ -470,8 +470,13 @@ test('the production shell keeps Parent progress and commerce behind the local g
     assert.match(homeHtml, new RegExp(`<span>${waypoint}</span>`));
   }
   assert.doesNotMatch(homeHtml, /buy|restore|price|commerce/i);
-  // Unfound companions stay off the Trail meadow — no floating egg art.
-  assert.doesNotMatch(homeHtml, /meadow-pet/);
+  // Unfound companions stay off the Trail meadow — empty habitat, no creature art.
+  assert.match(homeHtml, /class="trail-meadow"/);
+  assert.match(homeHtml, /aria-label="The trail is waiting for its first companion"/);
+  assert.match(homeHtml, /class="trail-meadow-empty"/);
+  assert.match(homeHtml, /Your trail is quiet/);
+  assert.match(homeHtml, /Secure a spelling to wake your first companion\./);
+  assert.doesNotMatch(homeHtml, /class="trail-companion /);
   assert.doesNotMatch(homeHtml, /Inklet/);
 
   learningState = Object.freeze({
@@ -485,9 +490,12 @@ test('the production shell keeps Parent progress and commerce behind the local g
     })]),
   });
   const trailFoundHtml = render();
-  assert.match(trailFoundHtml, /meadow-pet/);
-  assert.match(trailFoundHtml, /aria-label="Inklet"/);
-  assert.equal((trailFoundHtml.match(/class="meadow-pet /g) ?? []).length, 1);
+  assert.match(trailFoundHtml, /class="trail-companion /);
+  assert.match(
+    trailFoundHtml,
+    /aria-label="Inklet, Inklet Egg, Stage 0 of 4, resting in a nest"/,
+  );
+  assert.equal((trailFoundHtml.match(/class="trail-companion /g) ?? []).length, 1);
 
   learningState = Object.freeze({
     ...learningState,

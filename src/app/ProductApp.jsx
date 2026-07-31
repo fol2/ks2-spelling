@@ -17,6 +17,7 @@ import {
   diffMonsterCelebrations,
   secureWordDelta,
 } from './celebrations/celebration-model.js';
+import { TrailMeadow } from './trail/TrailMeadow.jsx';
 
 // Phaser + the living Monster Stage load only when a caught codex entry is
 // opened for a closer look.
@@ -1393,83 +1394,6 @@ function SwitchScreen({
   );
 }
 
-// Four painted positions on the downs, nearest and largest first so a single
-// companion still stands where the eye expects it.
-const MEADOW_SLOTS = Object.freeze([
-  Object.freeze({
-    left: '8%', top: '44%', size: '46%', zIndex: 14, face: -1, bob: '6px',
-    roam: 'roamG 25s ease-in-out -6s infinite',
-    gait: 'bob 4.8s ease-in-out .9s infinite',
-    emerge: '80ms', shadow: '0.5rem',
-  }),
-  Object.freeze({
-    left: '60%', top: '34%', size: '34%', zIndex: 13, face: -1, bob: '5px',
-    roam: 'roamG 27s ease-in-out -11s infinite',
-    gait: 'bob 5.2s ease-in-out .3s infinite',
-    emerge: '360ms', shadow: '0.4rem',
-  }),
-  Object.freeze({
-    left: '3%', top: '18%', size: '36%', zIndex: 12, face: 1, bob: '9px',
-    roam: 'roamA 19.6s ease-in-out -8s infinite',
-    gait: 'flap 4.6s ease-in-out 1.4s infinite',
-    emerge: '220ms', shadow: '-1.6rem',
-  }),
-  Object.freeze({
-    left: '64%', top: '6%', size: '24%', zIndex: 11, face: -1, bob: '8px',
-    roam: 'roamA 16.4s ease-in-out -5s infinite',
-    gait: 'flap 3.4s ease-in-out .8s infinite',
-    emerge: '300ms', shadow: '-2rem',
-  }),
-]);
-
-const ROAM_VARIABLES = Object.freeze([
-  Object.freeze({ '--fwd': '-32px', '--back': '24px' }),
-  Object.freeze({ '--fwd': '-26px', '--back': '20px' }),
-  Object.freeze({ '--fwd': '36px', '--back': '-26px', '--fy': '-9px', '--by': '14px' }),
-  Object.freeze({ '--fwd': '-38px', '--back': '24px', '--fy': '-7px', '--by': '12px' }),
-]);
-
-function MeadowPet({ companion, slot, roam, poked, onPoke }) {
-  return (
-    <button
-      type="button"
-      className="meadow-pet press-soft press"
-      aria-label={companion.found ? companion.name : 'An undiscovered companion'}
-      style={{
-        '--pet-left': slot.left,
-        '--pet-top': slot.top,
-        '--pet-size': slot.size,
-        '--pet-roam': slot.roam,
-        '--pet-gait': slot.gait,
-        '--shadow-bottom': slot.shadow,
-        zIndex: slot.zIndex,
-        ...roam,
-      }}
-      onClick={onPoke}
-    >
-      <span className="meadow-shadow" aria-hidden="true" />
-      <span
-        className="meadow-emerge"
-        style={{ animationDelay: slot.emerge }}
-      >
-        <img
-          src={companion.art ?? undefined}
-          alt=""
-          style={{ '--face': slot.face, '--bob': slot.bob }}
-        />
-      </span>
-      {poked && (
-        <span className="meadow-tag">
-          <span>
-            {companion.found ? companion.name : '???'}
-            <small>{companion.band}</small>
-          </span>
-        </span>
-      )}
-    </button>
-  );
-}
-
 function TrailScreen({
   profile,
   learningState,
@@ -1480,17 +1404,11 @@ function TrailScreen({
   onOpenParent,
   onRecoverAudio,
 }) {
-  const [poked, setPoked] = useState(null);
-  const codex = useMemo(
-    () => buildCodex(learningState.monsters),
+  const companions = useMemo(
+    () => trailMeadowCompanions(buildCodex(learningState.monsters).roster),
     [learningState.monsters],
   );
-
-  useEffect(() => {
-    if (!poked) return undefined;
-    const timer = setTimeout(() => setPoked(null), 2600);
-    return () => clearTimeout(timer);
-  }, [poked]);
+  const meadowSeed = `${learningState.learnerId}:${profile.yearGroup}`;
 
   const dueLabel = dueCount === 1 ? 'word due today' : 'words due today';
 
@@ -1547,19 +1465,7 @@ function TrailScreen({
           </h1>
 
           <div className="meadow">
-            <span className="meadow-halo" aria-hidden="true" />
-            {trailMeadowCompanions(codex.roster, MEADOW_SLOTS.length).map(
-              (companion, index) => (
-                <MeadowPet
-                  key={companion.rewardTrackId}
-                  companion={companion}
-                  slot={MEADOW_SLOTS[index]}
-                  roam={ROAM_VARIABLES[index]}
-                  poked={poked === companion.rewardTrackId}
-                  onPoke={() => setPoked(companion.rewardTrackId)}
-                />
-              ),
-            )}
+            <TrailMeadow companions={companions} seed={meadowSeed} />
           </div>
 
           {audioState.status !== 'ready' && (

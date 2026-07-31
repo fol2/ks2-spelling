@@ -1,34 +1,39 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 
+const root = resolve(import.meta.dirname, '..');
+
 async function source(path) {
-  return readFile(resolve(import.meta.dirname, '..', path), 'utf8');
+  return readFile(resolve(root, path), 'utf8');
 }
 
-test('ProductRoot layers the living habitat over PR55 without replacing ProductApp', async () => {
-  const [root, portal, product] = await Promise.all([
+test('TrailScreen mounts TrailMeadow directly with codex-derived companions', async () => {
+  const [rootSource, product] = await Promise.all([
     source('src/app/ProductRoot.jsx'),
-    source('src/app/trail/TrailMeadowPortal.jsx'),
     source('src/app/ProductApp.jsx'),
   ]);
 
-  assert.match(root, /<ProductApp services=\{services\} \/>/u);
-  assert.match(root, /<TrailMeadowPortal services=\{services\} \/>/u);
-  assert.match(portal, /import \{ createPortal \} from 'react-dom'/u);
-  assert.match(portal, /services\.controller\.subscribe\(setProfileState\)/u);
-  assert.match(portal, /services\.learning\.subscribe\(setLearningState\)/u);
-  assert.match(portal, /\.trail-scene \.meadow/u);
-  assert.match(portal, /target\.dataset\.integratedTrail = 'true'/u);
-  assert.match(portal, /<TrailMeadow/u);
-  assert.match(portal, /trailMeadowCompanions\(buildCodex\(learningState\.monsters\)\.roster\)/u);
-
+  assert.match(rootSource, /<ProductApp services=\{services\} \/>/u);
   assert.doesNotMatch(
-    product,
-    /TrailMeadowPortal/u,
-    'the device-test layer must not fork PR55\'s shipping app shell',
+    rootSource,
+    /TrailMeadowPortal|trail-meadow-portal/u,
+    'production root must not reintroduce the portal layer',
   );
+
+  assert.match(product, /import \{ TrailMeadow \} from '\.\/trail\/TrailMeadow\.jsx'/u);
+  assert.match(product, /<TrailMeadow companions=\{companions\} seed=\{meadowSeed\} \/>/u);
+  assert.match(
+    product,
+    /trailMeadowCompanions\(buildCodex\(learningState\.monsters\)\.roster\)/u,
+  );
+  assert.match(
+    product,
+    /`\$\{learningState\.learnerId\}:\$\{profile\.yearGroup\}`/u,
+  );
+  assert.doesNotMatch(product, /MeadowPet|MEADOW_SLOTS|ROAM_VARIABLES/u);
   assert.match(
     product,
     /id="product-spelling-input"/u,
@@ -36,21 +41,19 @@ test('ProductRoot layers the living habitat over PR55 without replacing ProductA
   );
 });
 
-test('the portal hides only the superseded meadow children and preserves the screen controls', async () => {
-  const styles = await source('src/app/trail/trail-meadow-portal.css');
-  assert.match(
-    styles,
-    /\.meadow\[data-integrated-trail='true'\] > \.meadow-halo/u,
-  );
-  assert.match(
-    styles,
-    /\.meadow\[data-integrated-trail='true'\] > \.meadow-pet/u,
-  );
-  assert.match(
-    styles,
-    /> \.trail-meadow/u,
-  );
-  assert.doesNotMatch(styles, /trail-launch|trail-chrome|trail-due/u);
+test('the retired meadow portal files stay absent', () => {
+  const retired = [
+    'src/app/trail/TrailMeadowPortal.jsx',
+    'src/app/trail/trail-meadow-portal.css',
+  ];
+
+  for (const path of retired) {
+    assert.equal(
+      existsSync(join(root, path)),
+      false,
+      `${path} must not return as a second meadow mount path`,
+    );
+  }
 });
 
 test('Trail remains a DOM habitat and does not add a second canvas runtime', async () => {

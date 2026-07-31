@@ -219,6 +219,7 @@ export async function createProductAppServices(options = {}) {
     });
     await coordinator.start();
     await profileStore.administration.promoteStarterCatalogue();
+    await profileStore.administration.grantFullEntitlement();
     const [initialProfiles, initialSelectedLearnerId] = await Promise.all([
       profileStore.profiles.listProfiles(),
       profileStore.selection.readSelectedLearnerId(),
@@ -245,6 +246,7 @@ export async function createProductAppServices(options = {}) {
       roundBaselineStore,
       initialRoundBaseline,
       random,
+      now,
     });
     const profileController = createProductProfileController({
       profiles: profileStore.profiles,
@@ -325,6 +327,7 @@ export async function createProductAppServices(options = {}) {
       files: learningBackupFiles,
       afterImport: async () => {
         await profileStore.administration.promoteStarterCatalogue();
+        await profileStore.administration.grantFullEntitlement();
         await controller.reload();
         await parentProgress.refresh();
       },

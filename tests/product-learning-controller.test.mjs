@@ -57,6 +57,7 @@ function createLearningWorld(
         catalogue,
         initialSnapshot,
         random: () => 0.25,
+        now: () => NOW_MS,
         ...options,
       });
     },
@@ -123,10 +124,22 @@ test('product learning starts a durable Smart Review and restores an interrupted
       derivedStage: 0,
       earnedStageHighWater: 0,
     }],
+    revisionMission: {
+      missionState: 'locked',
+      eligibleMissionKind: null,
+      guardianDueCount: 0,
+      wobblingDueCount: 0,
+      nextGuardianDueDay: null,
+      todayGuardianDay: 20_468,
+      canStartRewardBearing: false,
+      canContinueUnrewarded: false,
+      campCreditState: 'unavailable',
+    },
     camp: {
       packId: 'ks2-core',
       campHighWater: 0,
       lastCreditedGuardianDay: null,
+      canEarnToday: false,
     },
     roundBaseline: null,
     actionError: null,
@@ -166,6 +179,14 @@ test('product learning starts a durable Smart Review and restores an interrupted
 
   await first.dispose();
   await restored.dispose();
+});
+
+test('product learning requires a clock function', () => {
+  const world = createLearningWorld();
+  assert.throws(
+    () => world.createController(undefined, { now: null }),
+    /now.*function/i,
+  );
 });
 
 test('product learning publishes only non-empty catalogue pools and draws from the selected year band', async () => {
@@ -476,6 +497,8 @@ test('product learning projects saved progress, Monster and Camp views without c
   await controller.selectLearner(null);
   assert.equal(controller.getState().screen, 'profiles');
   assert.equal(controller.getState().learnerId, null);
+  assert.equal(controller.getState().revisionMission, null);
+  assert.equal(controller.getState().camp, null);
   await controller.selectLearner('learner-a');
   assert.equal(controller.getState().screen, 'home');
   assert.equal(

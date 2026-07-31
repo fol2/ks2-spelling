@@ -1,5 +1,7 @@
 import {
   applySpellingCommand,
+  canonicalGuardianDay,
+  projectSpellingRevisionMission,
   validateCatalogueV1,
   validateSpellingCommandSnapshotV1,
 } from '../domain/spelling/index.js';
@@ -208,13 +210,14 @@ function prefsProjection(snapshot) {
   };
 }
 
-function campProjection(snapshot) {
+function campProjection(snapshot, revisionMission = null) {
   if (!snapshot) return null;
   const saved = snapshot.campStateByPackId[snapshot.packId];
   return {
     packId: snapshot.packId,
     campHighWater: saved?.campHighWater ?? 0,
     lastCreditedGuardianDay: saved?.lastCreditedGuardianDay ?? null,
+    canEarnToday: revisionMission?.canStartRewardBearing ?? false,
   };
 }
 
@@ -241,6 +244,7 @@ function createState({
   actionError = null,
   summary = null,
   roundBaseline = null,
+  revisionMission = null,
 }) {
   const ui = snapshot?.subjectState?.ui;
   return cloneFrozen({
@@ -257,7 +261,8 @@ function createState({
     packSize: catalogue.items.length,
     vocabularySets: vocabularySetsProjection(catalogue),
     monsters: monsterProjection(snapshot, catalogue),
-    camp: campProjection(snapshot),
+    revisionMission,
+    camp: campProjection(snapshot, revisionMission),
     roundBaseline,
     actionError,
   });
@@ -276,11 +281,15 @@ export function createProductLearningController({
   roundBaselineStore = null,
   initialRoundBaseline = null,
   random,
+  now = Date.now,
 } = {}) {
   requireMethod(repository, 'runCommandTransaction', 'repository');
   requireMethod(snapshotStore, 'read', 'snapshotStore');
   if (typeof random !== 'function') {
     throw new TypeError('Product learning controller requires random().');
+  }
+  if (typeof now !== 'function') {
+    throw new TypeError('Product learning controller now must be a function.');
   }
   if (
     roundBaselineStore !== null &&
@@ -292,9 +301,35 @@ export function createProductLearningController({
   }
   const catalogue = validateCatalogueV1(candidateCatalogue);
   let snapshot = validateInitialSnapshot(initialSnapshot, catalogue);
+  let revisionMissionCache = null;
+
+  function revisionMissionProjection() {
+    if (!snapshot) return null;
+    const nowMs = now();
+    const todayGuardianDay = canonicalGuardianDay(nowMs);
+    if (
+      revisionMissionCache?.revision === snapshot.revision &&
+      revisionMissionCache.todayGuardianDay === todayGuardianDay
+    ) {
+      return revisionMissionCache.value;
+    }
+    const value = projectSpellingRevisionMission({
+      snapshot,
+      contentSnapshot: catalogue,
+      nowMs,
+    });
+    revisionMissionCache = { revision: snapshot.revision, todayGuardianDay, value };
+    return value;
+  }
+
   // Round-start roster, kept so summary celebrations survive relaunch mid-round.
   let roundBaseline = adoptRoundBaseline(initialRoundBaseline, snapshot);
-  let state = createState({ snapshot, catalogue, roundBaseline });
+  let state = createState({
+    snapshot,
+    catalogue,
+    roundBaseline,
+    revisionMission: revisionMissionProjection(),
+  });
   let queue = Promise.resolve();
   let disposed = false;
   const listeners = new Set();
@@ -310,6 +345,7 @@ export function createProductLearningController({
       catalogue,
       ...options,
       roundBaseline,
+      revisionMission: revisionMissionProjection(),
     }));
   }
 
@@ -355,7 +391,7 @@ export function createProductLearningController({
           roundBaseline = {
             sessionId: snapshot.subjectState.ui.session.id,
             monsters: monsterProjection(snapshot, catalogue),
-            camp: campProjection(snapshot),
+            camp: campProjection(snapshot, revisionMissionProjection()),
           };
           if (roundBaselineStore) {
             void roundBaselineStore.write(snapshot.learnerId, {
@@ -418,6 +454,7 @@ export function createProductLearningController({
       return enqueue(async () => {
         if (learnerId === null) {
           snapshot = null;
+          revisionMissionCache = null;
           roundBaseline = null;
           publishFromSnapshot({ screen: 'profiles' });
           return null;
@@ -432,6 +469,7 @@ export function createProductLearningController({
             await snapshotStore.read(learnerId),
             catalogue,
           );
+          revisionMissionCache = null;
           roundBaseline = null;
           if (
             roundBaselineStore &&
@@ -492,6 +530,49 @@ export function createProductLearningController({
           words: [],
         },
       }, { captureBaseline: true });
+    },
+    startGuardianMission(options = {}) {
+      const intent = options?.intent;
+      if (
+        intent !== undefined &&
+        intent !== 'reward-bearing' &&
+        intent !== 'unrewarded'
+      ) {
+        return Promise.reject(
+          new TypeError(
+            'Guardian Mission intent must be reward-bearing or unrewarded.',
+          ),
+        );
+      }
+      if (!snapshot) {
+        return Promise.reject(controllerError('product_learning_learner_required'));
+      }
+      const mission = projectSpellingRevisionMission({
+        snapshot,
+        contentSnapshot: catalogue,
+        nowMs: now(),
+      });
+      const available = intent === 'unrewarded'
+        ? mission.canContinueUnrewarded
+        : mission.canStartRewardBearing;
+      if (!available) {
+        return Promise.reject(controllerError('guardian_mission_unavailable'));
+      }
+      const previousScreen = state.screen;
+      const payload = intent === 'unrewarded'
+        ? { mode: 'guardian', revisionIntent: 'unrewarded' }
+        : { mode: 'guardian' };
+      return runCommand(
+        { type: 'start-session', payload },
+        { captureBaseline: true },
+      ).then((plan) => {
+        if (plan.changed !== false) return plan;
+        publishFromSnapshot({
+          screen: previousScreen,
+          actionError: 'guardian_mission_unavailable',
+        });
+        throw controllerError('guardian_mission_unavailable');
+      });
     },
     submitAnswer(typed) {
       const spelling = spellingOnly(typed);

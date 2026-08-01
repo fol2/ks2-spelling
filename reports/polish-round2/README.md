@@ -2,6 +2,16 @@
 
 Branch `agent/polish-round-2` off `main @ 29b2e58e`. Plan: `~/.claude/plans/app-binary-river.md`.
 
+Contents of this folder:
+
+| File | What it holds |
+|---|---|
+| `baseline/` | The branch-point `test:fast` and full `npm test` logs and failing sets |
+| `before/`, `after/` | Design-harness galleries for the visual slices |
+| `e2e-simulator-run.md`, `e2e/` | Slice 4.3's end-to-end simulator run: scenarios, the four defects it found, residuals, and the closing gate |
+| `c5-probe-run.md` | Slice 4.1's C5 XCUITest run and the pre-existing `isHittable` finding |
+| `import-race-findings.md` | Slice 1.2's interleaving matrix (the race did not reproduce; the join guard landed anyway) |
+
 Environment note: Node is pinned at 24.18.0; this machine runs 24.2.0, so the
 b3-capture family fails environmentally (`DatabaseSync.enableDefensive` is
 missing). Compare failure **sets**, never counts.

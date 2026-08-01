@@ -210,6 +210,18 @@ select {
   letter-spacing: -0.03em;
 }
 
+.figure-good {
+  color: var(--good);
+}
+
+.figure-retry {
+  color: var(--retry);
+}
+
+.figure-brass {
+  color: var(--brass-ink);
+}
+
 .product-kicker,
 .label {
   font-family: var(--sans);
@@ -565,6 +577,10 @@ select {
   flex: none;
   align-items: center;
   gap: 0.5rem;
+}
+
+.trail-chrome .icon-button {
+  margin-left: auto;
 }
 
 .glass-button {
@@ -1343,6 +1359,10 @@ select {
   animation: rise 320ms var(--ease) 60ms backwards;
 }
 
+.camp-ring-progress {
+  stroke: var(--brass);
+}
+
 .camp-scene .camp-card {
   margin-bottom: auto;
 }
@@ -1976,6 +1996,10 @@ select {
   line-height: 1;
 }
 
+.dot-sep {
+  opacity: 0.4;
+}
+
 /* --- round --------------------------------------------------------------- */
 
 .round-scene .scene-body {
@@ -2496,6 +2520,10 @@ select {
 
 .record-camp svg {
   flex: none;
+}
+
+.record-roll-kicker {
+  margin: 0.7rem 0 0.35rem;
 }
 
 .record-roll {

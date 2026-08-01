@@ -1476,7 +1476,6 @@ function TrailScreen({
             <button
               type="button"
               className="glass-button icon-button press-soft press"
-              style={{ marginLeft: 'auto' }}
               onClick={onOpenParent}
             >
               <IconLock size={21} />
@@ -1976,11 +1975,11 @@ function CampScreen({
               <svg viewBox="0 0 120 120" aria-hidden="true">
                 <circle cx="60" cy="60" r="53" fill="none" stroke="rgba(29,43,58,.13)" strokeWidth="7" />
                 <circle
+                  className="camp-ring-progress"
                   cx="60"
                   cy="60"
                   r="53"
                   fill="none"
-                  style={{ stroke: 'var(--brass)' }}
                   strokeWidth="7"
                   strokeLinecap="round"
                   strokeDasharray={circumference}
@@ -2469,7 +2468,7 @@ function SetupScreen({
               <>
                 Set off
                 {quest === 'guardian' && ` on ${runQuestName}`}
-                <span aria-hidden="true" style={{ opacity: 0.4 }}>·</span>
+                <span aria-hidden="true" className="dot-sep">·</span>
                 <span className="figure">{effectiveLength}</span>
                 words
                 <IconForward size={18} />
@@ -3015,15 +3014,15 @@ function ResultsScreen({
 
               <div className="record-tally">
                 <div>
-                  <span className="figure" style={{ color: 'var(--good)' }}>{correct}</span>
+                  <span className="figure figure-good">{correct}</span>
                   <span className="label">correct</span>
                 </div>
                 <div>
-                  <span className="figure" style={{ color: 'var(--retry)' }}>{mistakes.length}</span>
+                  <span className="figure figure-retry">{mistakes.length}</span>
                   <span className="label">return</span>
                 </div>
                 <div>
-                  <span className="figure" style={{ color: 'var(--brass-ink)' }}>{total}</span>
+                  <span className="figure figure-brass">{total}</span>
                   <span className="label">words walked</span>
                 </div>
               </div>
@@ -3041,7 +3040,7 @@ function ResultsScreen({
                 </p>
               ) : (
                 <>
-                  <p className="product-kicker" style={{ margin: '0.7rem 0 0.35rem' }}>
+                  <p className="product-kicker record-roll-kicker">
                     {guardian ? 'Back tomorrow' : 'Coming back'}
                     <span className="figure"> {mistakes.length}</span>
                   </p>

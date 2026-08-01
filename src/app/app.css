@@ -1045,9 +1045,12 @@ select {
   animation: float 6.4s ease-in-out infinite;
 }
 
+/* Unfound art is a silhouette everywhere it appears, so nothing spoils a
+   creature before it is found. */
 .codex-hero[data-found='false'] .codex-stage img,
 .codex-growth li[data-reached='false'] img,
-.codex-roster button[data-found='false'] img {
+.codex-roster button[data-found='false'] img,
+.setup-quest img.companion-asleep {
   filter: brightness(0) invert(1) opacity(0.15);
 }
 
@@ -1748,11 +1751,6 @@ select {
   filter: drop-shadow(0 22px 26px rgb(0 0 0 / 62%));
   animation: float 7.5s ease-in-out infinite;
   pointer-events: none;
-}
-
-.setup-quest img.companion-asleep {
-  filter: grayscale(0.4) brightness(0.55);
-  opacity: 0.85;
 }
 
 .setup-quest .product-kicker {

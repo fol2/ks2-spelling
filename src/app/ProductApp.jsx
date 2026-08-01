@@ -1773,15 +1773,23 @@ function CodexScreen({ monsters, progress, onScreen }) {
                 <span className="codex-no">NO. {hero.number}</span>
                 <span className="codex-band">{hero.band}</span>
 
-                <button
-                  type="button"
-                  className="codex-stage press"
-                  onClick={() => setZoomed(true)}
-                >
-                  <span className="codex-stage-shadow" aria-hidden="true" />
-                  <img src={hero.art ?? undefined} alt="" />
-                  <span className="visually-hidden">Look closer at {hero.title}</span>
-                </button>
+                {/* Unfound companion is withheld everywhere, so it gets no closer look. */}
+                {hero.found ? (
+                  <button
+                    type="button"
+                    className="codex-stage press"
+                    onClick={() => setZoomed(true)}
+                  >
+                    <span className="codex-stage-shadow" aria-hidden="true" />
+                    <img src={hero.art ?? undefined} alt="" />
+                    <span className="visually-hidden">Look closer at {hero.title}</span>
+                  </button>
+                ) : (
+                  <div className="codex-stage">
+                    <span className="codex-stage-shadow" aria-hidden="true" />
+                    <img src={hero.art ?? undefined} alt="" />
+                  </div>
+                )}
 
                 <div className="codex-hero-foot">
                   <div className="codex-hero-title">
@@ -1877,7 +1885,7 @@ function CodexScreen({ monsters, progress, onScreen }) {
             ))}
           </ol>
 
-          {zoomed && hero && (
+          {zoomed && hero?.found && (
             <button
               type="button"
               className="codex-zoom"

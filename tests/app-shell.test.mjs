@@ -602,6 +602,30 @@ test('the production shell keeps Parent progress and commerce behind the local g
   // One secure word of the ten this companion's next stage wants: the hero card
   // is a long way from leaning forward.
   assert.match(codexHtml, /data-near="false"/);
+  // This fixture's hero is found, so the closer-look affordance is present —
+  // the unfound case below must discriminate against that baseline.
+  assert.match(codexHtml, /data-found="true"/);
+  assert.match(codexHtml, /Look closer at/);
+
+  const foundCodexMonsters = learningState.monsters;
+  learningState = Object.freeze({
+    ...learningState,
+    monsters: Object.freeze([Object.freeze({
+      ...learningState.monsters[0],
+      caught: false,
+      secureCount: 0,
+      derivedStage: 0,
+      earnedStageHighWater: 0,
+      branch: null,
+    })]),
+  });
+  const unfoundCodexHtml = render();
+  assert.match(unfoundCodexHtml, /data-found="false"/);
+  assert.doesNotMatch(unfoundCodexHtml, /Look closer at/);
+  learningState = Object.freeze({
+    ...learningState,
+    monsters: foundCodexMonsters,
+  });
 
   learningState = Object.freeze({
     ...learningState,
@@ -1281,6 +1305,17 @@ test('the product shell consumes native safe-area insets', async () => {
   assert.match(
     productCss,
     /\.setup-quest\s*\{[^}]*overflow:\s*visible clip;/su,
+  );
+  // The Setup companion is the one place a learner meets art for a creature
+  // they have not found, so it shares the Codex silhouette declaration rather
+  // than carrying a weaker treatment of its own.
+  assert.match(
+    productCss,
+    /\.setup-quest img\.companion-asleep[^{]*\{[^}]*filter:\s*brightness\(0\)\s*invert\(1\)\s*opacity\(0\.15\);/su,
+  );
+  assert.doesNotMatch(
+    productCss,
+    /\.setup-quest img\.companion-asleep\s*\{[^}]*grayscale/su,
   );
 });
 

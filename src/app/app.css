@@ -1522,6 +1522,35 @@ select {
   box-shadow: none;
 }
 
+/* Quiet unlock chips — records of the watch, not buttons. */
+.camp-records {
+  display: grid;
+  gap: 0.55rem;
+  flex: none;
+  margin-top: 0.85rem;
+  animation: rise 300ms var(--ease) 180ms backwards;
+}
+
+.camp-records ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.camp-record-chip {
+  border: 1px solid color-mix(in oklab, var(--brass) 45%, transparent);
+  border-radius: var(--r-pill);
+  padding: 0.3rem 0.7rem;
+  font-family: var(--sans);
+  font-size: var(--fs-note);
+  font-weight: 700;
+  color: var(--brass-deep);
+  background: rgb(255 253 247 / 55%);
+}
+
 /* --- setup --------------------------------------------------------------- */
 
 .setup-scene .scene-body {

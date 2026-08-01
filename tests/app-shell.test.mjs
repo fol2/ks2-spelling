@@ -988,6 +988,28 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.doesNotMatch(preUnlockCampHtml, /camp-ring/);
   assert.doesNotMatch(preUnlockCampHtml, /Camp level/);
   assert.doesNotMatch(preUnlockCampHtml, /revisits|waiting to return/i);
+  assert.doesNotMatch(preUnlockCampHtml, /Records of the watch/);
+
+  learningState = Object.freeze({
+    ...learningState,
+    achievements: Object.freeze([
+      Object.freeze({
+        id: 'GUARDIAN_7_DAY',
+        title: 'Guardian 7-day Maintainer',
+        body: 'Kept Guardian Missions going on 7 different days.',
+        unlockedAt: 1,
+      }),
+    ]),
+  });
+  const recordsCampHtml = render();
+  assert.match(recordsCampHtml, /Records of the watch/);
+  assert.match(recordsCampHtml, /aria-label="Records of the watch"/);
+  assert.match(recordsCampHtml, /camp-record-chip/);
+  assert.match(recordsCampHtml, /Guardian 7-day Maintainer/);
+  learningState = Object.freeze({
+    ...learningState,
+    achievements: Object.freeze([]),
+  });
 
   learningState = Object.freeze({
     ...learningState,
@@ -996,6 +1018,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
   const noAccessCampHtml = render();
   assert.match(noAccessCampHtml, /Guardian sleeps here/);
   assert.doesNotMatch(noAccessCampHtml, /camp-ring/);
+  assert.doesNotMatch(noAccessCampHtml, /Records of the watch/);
 
   learningState = Object.freeze({
     ...learningState,

@@ -7,6 +7,7 @@ import {
 } from '../domain/spelling/index.js';
 import { setupExpeditionCompanion } from './codex-model.js';
 import { earlyRoundSummary, spellingOnly } from './practice-feel.js';
+import { achievementChips } from './records-model.js';
 
 const LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 // The vendored contract's own buffered-voice identifiers; the bundled
@@ -249,30 +250,36 @@ function createState({
   summary = null,
   roundBaseline = null,
   revisionMission = null,
+  achievements = [],
 }) {
   const ui = snapshot?.subjectState?.ui;
   const camp = campProjection(snapshot);
-  return cloneFrozen({
-    status,
-    screen,
-    learnerId: snapshot?.learnerId ?? null,
-    practice: practiceProjection(snapshot, catalogue),
-    prefs: prefsProjection(snapshot),
-    summary: summary ?? (ui?.summary ? structuredClone(ui.summary) : null),
-    progress: progressProjection(snapshot, catalogue),
-    // How many words the active pack holds, so the setup panel can say how
-    // much of it the learner has still to meet. The controller owns the
-    // catalogue; the view should not have to reach for it.
-    packSize: catalogue.items.length,
-    vocabularySets: vocabularySetsProjection(catalogue),
-    monsters: monsterProjection(snapshot, catalogue),
-    revisionMission,
-    camp: camp === null ? null : {
-      ...camp,
-      canEarnToday: revisionMission?.canStartRewardBearing ?? false,
-    },
-    roundBaseline,
-    actionError,
+  // Achievements stay outside cloneFrozen so same-revision publishes keep the
+  // memoised array identity the Camp strip and its tests rely on.
+  return Object.freeze({
+    ...cloneFrozen({
+      status,
+      screen,
+      learnerId: snapshot?.learnerId ?? null,
+      practice: practiceProjection(snapshot, catalogue),
+      prefs: prefsProjection(snapshot),
+      summary: summary ?? (ui?.summary ? structuredClone(ui.summary) : null),
+      progress: progressProjection(snapshot, catalogue),
+      // How many words the active pack holds, so the setup panel can say how
+      // much of it the learner has still to meet. The controller owns the
+      // catalogue; the view should not have to reach for it.
+      packSize: catalogue.items.length,
+      vocabularySets: vocabularySetsProjection(catalogue),
+      monsters: monsterProjection(snapshot, catalogue),
+      revisionMission,
+      camp: camp === null ? null : {
+        ...camp,
+        canEarnToday: revisionMission?.canStartRewardBearing ?? false,
+      },
+      roundBaseline,
+      actionError,
+    }),
+    achievements,
   });
 }
 
@@ -310,6 +317,8 @@ export function createProductLearningController({
   const catalogue = validateCatalogueV1(candidateCatalogue);
   let snapshot = validateInitialSnapshot(initialSnapshot, catalogue);
   let revisionMissionCache = null;
+  let achievementsCache = null;
+  const emptyAchievements = Object.freeze([]);
 
   function revisionMissionProjection() {
     if (!snapshot) return null;
@@ -330,6 +339,18 @@ export function createProductLearningController({
     return value;
   }
 
+  function achievementsProjection() {
+    if (!snapshot) return emptyAchievements;
+    if (achievementsCache?.revision === snapshot.revision) {
+      return achievementsCache.value;
+    }
+    const value = freezeDeep(achievementChips(
+      snapshot.subjectState?.data?.achievements ?? {},
+    ));
+    achievementsCache = { revision: snapshot.revision, value };
+    return value;
+  }
+
   // Round-start roster, kept so summary celebrations survive relaunch mid-round.
   let roundBaseline = adoptRoundBaseline(initialRoundBaseline, snapshot);
   let state = createState({
@@ -337,6 +358,7 @@ export function createProductLearningController({
     catalogue,
     roundBaseline,
     revisionMission: revisionMissionProjection(),
+    achievements: achievementsProjection(),
   });
   let queue = Promise.resolve();
   let disposed = false;
@@ -354,6 +376,7 @@ export function createProductLearningController({
       ...options,
       roundBaseline,
       revisionMission: revisionMissionProjection(),
+      achievements: achievementsProjection(),
     }));
   }
 
@@ -468,6 +491,7 @@ export function createProductLearningController({
         if (learnerId === null) {
           snapshot = null;
           revisionMissionCache = null;
+          achievementsCache = null;
           roundBaseline = null;
           publishFromSnapshot({ screen: 'profiles' });
           return null;
@@ -483,6 +507,7 @@ export function createProductLearningController({
             catalogue,
           );
           revisionMissionCache = null;
+          achievementsCache = null;
           roundBaseline = null;
           if (
             roundBaselineStore &&

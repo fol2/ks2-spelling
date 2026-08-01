@@ -1944,6 +1944,7 @@ function CampScreen({
   onScreen,
   onStartGuardian,
   onRecoverAudio,
+  achievements = [],
 }) {
   const phase = guardianPhase(revisionMission);
   const awake = phase !== 'locked' && phase !== 'asleep';
@@ -2135,6 +2136,17 @@ function CampScreen({
               )}
             </div>
           </section>
+
+          {achievements.length > 0 && (
+            <section className="vellum camp-records" aria-label="Records of the watch">
+              <p className="product-kicker camp-card-kicker">Records of the watch</p>
+              <ul>
+                {achievements.map((chip) => (
+                  <li key={chip.id} className="camp-record-chip">{chip.title}</li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
       </Scene>
     </main>
@@ -3419,6 +3431,7 @@ export default function ProductApp({ services }) {
         packSize={learningState.packSize ?? 0}
         audioState={audioState}
         busy={learningState.status === 'saving'}
+        achievements={learningState.achievements}
         onScreen={showScreen}
         onStartGuardian={startGuardian}
         onRecoverAudio={recoverAudio}

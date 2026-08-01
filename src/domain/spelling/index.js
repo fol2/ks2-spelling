@@ -21,3 +21,9 @@ export function loadStarterSpellingCatalogue() {
 export function loadFullSpellingCatalogue() {
   return READ_ONLY_FULL_CATALOGUE;
 }
+
+export {
+  ACHIEVEMENT_DEFINITIONS,
+  ACHIEVEMENT_IDS,
+  isAchievementProgressKey,
+} from '../../../vendor/ks2-mastery/shared/spelling/core/achievements.js';

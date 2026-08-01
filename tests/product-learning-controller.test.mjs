@@ -144,6 +144,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
       canEarnToday: false,
     },
     roundBaseline: null,
+    achievements: [],
     actionError: null,
   });
 
@@ -699,6 +700,55 @@ test('product learning startRound ignores round baseline store write failures', 
     controller.getState().roundBaseline.sessionId,
     controller.getState().practice.sessionId,
   );
+
+  await controller.dispose();
+});
+
+test('product learning projects allowlisted achievement chips and memoises by revision', async () => {
+  const seeded = structuredClone(expectedB2Snapshot('learner-a'));
+  seeded.subjectState.data.achievements = {
+    GUARDIAN_7_DAY: { unlockedAt: 1_700_000_000_000 },
+    '_progress:guardian:days': { days: [20_461, 20_462, 20_463] },
+  };
+  const world = createLearningWorld([seeded]);
+  const controller = world.createController(seeded);
+
+  const chips = controller.getState().achievements;
+  assert.equal(chips.length, 1);
+  assert.equal(chips[0].id, 'GUARDIAN_7_DAY');
+  assert.equal(chips[0].title, 'Guardian 7-day Maintainer');
+  assert.equal(
+    chips[0].body,
+    'Kept Guardian Missions going on 7 different days.',
+  );
+  assert.equal(chips[0].unlockedAt, 1_700_000_000_000);
+
+  controller.showScreen('camp');
+  assert.equal(
+    controller.getState().achievements,
+    chips,
+    'same-revision publishes must reuse the memoised achievements array',
+  );
+  controller.showScreen('home');
+  assert.equal(controller.getState().achievements, chips);
+
+  const revisionBefore = world.snapshots.get('learner-a').revision;
+  await controller.savePrefs({ voiceId: 'Sulafat' });
+  assert.notEqual(
+    world.snapshots.get('learner-a').revision,
+    revisionBefore,
+    'savePrefs must bump the durable revision',
+  );
+  const afterBump = controller.getState().achievements;
+  assert.notEqual(
+    afterBump,
+    chips,
+    'a revision bump must recompute the achievements projection',
+  );
+  assert.deepEqual(afterBump, chips);
+
+  await controller.selectLearner(null);
+  assert.deepEqual(controller.getState().achievements, []);
 
   await controller.dispose();
 });

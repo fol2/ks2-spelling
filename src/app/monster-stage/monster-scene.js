@@ -1,6 +1,14 @@
-import { clampCompanionStage } from '../companion-stage-contract.js';
+import {
+  clampCompanionStage,
+  HIGHEST_COMPANION_STAGE,
+} from '../companion-stage-contract.js';
 import { evolutionDecision, stageArtUrl } from './monster-stage-model.js';
-import { glowPulse, shockwaveRing, spawnBurst } from './stage-fx.js';
+import {
+  glowPulse,
+  shockwaveRing,
+  spawnBurst,
+  twinkleSparks,
+} from './stage-fx.js';
 
 /**
  * The Monster Stage scene: procedural life on static art. A factory that takes
@@ -70,6 +78,7 @@ export function createMonsterScene(Phaser, props) {
       this.scheduleBlink();
       this.scheduleHop();
       this.scheduleSway();
+      this.schedulePreen();
       this.startMotes();
 
       this.sprite.setInteractive({ useHandCursor: false });
@@ -249,6 +258,63 @@ export function createMonsterScene(Phaser, props) {
       this.scheduleSway();
     }
 
+    /**
+     * The rare one. A preen is the beat a child only catches if they linger:
+     * a small settle-and-shine, with a few twinkles at the crown. Kept far
+     * slower than the other idles so it stays a surprise, not a tic.
+     */
+    schedulePreen() {
+      this.time.delayedCall(20000 + this.rng() * 15000, () => this.preen());
+    }
+
+    preen() {
+      const scale = this.baseScale;
+      this.interrupt((done) => {
+        const bounds = this.sprite.getBounds();
+        // Straddle the crown line rather than sit inside it: a 5px spark is
+        // lost against painted plumage and crisp against the open vignette.
+        twinkleSparks(this, {
+          x: bounds.centerX,
+          y: bounds.y + bounds.height * 0.03,
+          count: 3,
+          spreadX: bounds.width * 0.85,
+          spreadY: bounds.height * 0.1,
+          rng: () => this.rng(),
+          depth: 3,
+          duration: 560,
+          stagger: 150,
+        });
+        this.tweens.chain({
+          targets: this.sprite,
+          tweens: [
+            // Gather down, rise proud, settle — the shape of a small preen.
+            {
+              scaleY: scale * 0.95,
+              scaleX: scale * 1.05,
+              duration: 200,
+              ease: 'Sine.Out',
+            },
+            {
+              scaleY: scale * 1.05,
+              scaleX: scale * 0.97,
+              angle: 2.5,
+              duration: 240,
+              ease: 'Sine.InOut',
+            },
+            {
+              scaleY: scale,
+              scaleX: scale,
+              angle: 0,
+              duration: 280,
+              ease: 'Sine.InOut',
+            },
+          ],
+          onComplete: done,
+        });
+      });
+      this.schedulePreen();
+    }
+
     /** Tap: squash-and-stretch with an overshoot settle plus a soft burst. */
     react() {
       if (this.evolving) return;
@@ -348,6 +414,9 @@ export function createMonsterScene(Phaser, props) {
       const y = this.groundY;
       const old = this.sprite;
       const centreY = y - old.displayHeight * 0.5;
+      // The last evolution a companion will ever have earns the celebration
+      // card's double-ring language, brought home to the Monster Stage.
+      const finalForm = to >= HIGHEST_COMPANION_STAGE;
 
       glowPulse(this, this.Phaser, {
         x,
@@ -363,6 +432,19 @@ export function createMonsterScene(Phaser, props) {
         endScale: 4.8,
         duration: 620,
       });
+      if (finalForm) {
+        shockwaveRing(this, {
+          x,
+          y: centreY,
+          colour: 0xe2a62b,
+          startRadius: Math.max(10, old.displayWidth * 0.13),
+          endScale: 6.4,
+          duration: 1000,
+          delay: 240,
+          startAlpha: 0.42,
+          lineWidth: 2,
+        });
+      }
       this.tweens.add({
         targets: old,
         scale: this.baseScale * 0.6,
@@ -401,6 +483,21 @@ export function createMonsterScene(Phaser, props) {
           this.baseScale = nextScale;
           this.evolving = false;
           this.startBreathing();
+          if (finalForm) {
+            twinkleSparks(this, {
+              x,
+              y: y - next.displayHeight * 0.55,
+              count: 5,
+              colour: 0xe2a62b,
+              spreadX: next.displayWidth * 1.2,
+              spreadY: next.displayHeight * 0.8,
+              rng: () => this.rng(),
+              depth: 5,
+              size: 6,
+              duration: 620,
+              stagger: 110,
+            });
+          }
         },
       });
     }

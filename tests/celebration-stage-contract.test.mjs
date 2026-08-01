@@ -192,6 +192,7 @@ test('stage-fx is shared by celebration-scene and monster-scene', async () => {
   assert.match(fx, /export function spawnBurst/u);
   assert.match(fx, /export function glowPulse/u);
   assert.match(fx, /export function shockwaveRing/u);
+  assert.match(fx, /export function twinkleSparks/u);
   assert.match(celebration, /from ['"]\.\.\/monster-stage\/stage-fx\.js['"]/u);
   assert.match(monster, /from ['"]\.\/stage-fx\.js['"]/u);
   assert.match(celebration, /spawnBurst\(/u);

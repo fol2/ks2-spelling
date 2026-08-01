@@ -1817,6 +1817,11 @@ h1 {
   flex-direction: column;
   justify-content: flex-end;
   min-height: 0;
+  /* x stays visible so companion art can bleed right; y clips so flex-end
+     overflow never paints over the chrome (and never flashes through it on
+     enter). A hair of margin keeps the clip seam under the chrome, not flush. */
+  overflow: visible clip;
+  margin-top: 0.4rem;
   padding-bottom: 1.25rem;
 }
 
@@ -3812,6 +3817,136 @@ h1 {
 
   .quest-tile > span {
     height: 5.6rem;
+  }
+}
+
+/* Short-to-mid phones (covers 375×667). Free enough quest height for the
+   Guardian stack without collapsing the type — art, plates and tray give a
+   little; the brief drops to one line. */
+@media (max-height: 42rem) {
+  .setup-quest {
+    padding-bottom: 0.7rem;
+  }
+
+  .setup-quest .product-kicker {
+    margin-bottom: 0.35rem;
+  }
+
+  .setup-quest p {
+    margin-top: 0.35rem;
+    font-size: 0.74rem;
+  }
+
+  .setup-quest img {
+    width: min(9rem, 38%);
+    bottom: 0.7rem;
+  }
+
+  .setup-tally {
+    margin-top: 0.45rem;
+  }
+
+  .setup-quest .setup-guardian-due {
+    margin-top: 0.45rem;
+    padding: 0.32rem 0;
+  }
+
+  .setup-guardian-meter {
+    margin-top: 0.5rem;
+  }
+
+  .quest-tile > span {
+    height: 4.9rem;
+  }
+
+  .quest-tile[aria-pressed='true'] > span {
+    translate: 0 -0.25rem;
+  }
+
+  .setup-tray {
+    margin-top: 0.5rem;
+    padding-top: 0.55rem;
+  }
+
+  .setup-guardian-note {
+    margin-bottom: 0.5rem;
+  }
+
+  .setup-sfx {
+    margin-bottom: 0.55rem;
+  }
+}
+
+/* Very short phones (~560px). Guardian-active still needs another step down
+   so the clip has nothing to bite at rest. */
+@media (max-height: 36rem) {
+  .setup-quest {
+    padding-bottom: 0.5rem;
+  }
+
+  .setup-quest .product-kicker {
+    margin-bottom: 0.2rem;
+  }
+
+  .setup-quest h1 {
+    font-size: clamp(1.45rem, 7.5vw, 1.65rem);
+  }
+
+  .setup-quest p {
+    margin-top: 0.25rem;
+    /* One line only this far down — the two-line clamp above still holds at
+       taller short-phone heights. */
+    -webkit-line-clamp: 1;
+    font-size: 0.7rem;
+  }
+
+  .setup-quest img {
+    width: min(7.25rem, 34%);
+    bottom: 0.45rem;
+  }
+
+  .setup-tally {
+    margin-top: 0.35rem;
+  }
+
+  .setup-tally div {
+    padding: 0.2rem 0.65rem;
+  }
+
+  .setup-quest .setup-guardian-due {
+    margin-top: 0.3rem;
+    padding: 0.22rem 0;
+    font-size: 0.9rem;
+  }
+
+  .setup-guardian-meter {
+    margin-top: 0.4rem;
+  }
+
+  .quest-tile > span {
+    height: 3.75rem;
+  }
+
+  .quest-tile[aria-pressed='true'] > span {
+    translate: 0 -0.2rem;
+  }
+
+  .setup-tray {
+    margin-top: 0.4rem;
+    padding-top: 0.45rem;
+  }
+
+  .setup-guardian-note {
+    margin-bottom: 0.4rem;
+    font-size: 0.72rem;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .setup-sfx {
+    margin-bottom: 0.45rem;
   }
 }
 

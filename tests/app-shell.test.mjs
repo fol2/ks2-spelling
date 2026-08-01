@@ -1218,6 +1218,11 @@ test('the product shell consumes native safe-area insets', async () => {
     productCss,
     /\.topbar-action\s*\{[^}]*max-width:\s*100%;[^}]*overflow-wrap:\s*anywhere;/su,
   );
+  // Setup quest clips upward overflow without hiding the right-edge art bleed.
+  assert.match(
+    productCss,
+    /\.setup-quest\s*\{[^}]*overflow:\s*visible clip;/su,
+  );
 });
 
 test('the product shell keeps the waypoint foot on the viewport while Words scroll', async () => {

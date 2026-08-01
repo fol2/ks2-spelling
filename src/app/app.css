@@ -85,6 +85,13 @@ select {
   --brass-ink: #9e6a19;
   --focus: #3e6fa8;
 
+  --cream: #fffaf0;
+  --cream-deep: #f0e3c9;
+  --cream-ink: #131b25;
+  --brand-deep: #274d79;
+  --retry-ink-deep: #8d3a29;
+  --paper-parent: #eae6db;
+
   --plate-shadow: 0 1px 2px rgb(29 43 58 / 5%), 0 18px 40px -20px rgb(140 105 55 / 45%);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -238,7 +245,7 @@ select {
   overflow-wrap: anywhere;
   min-height: 2.75rem;
   padding: 0 0.6rem;
-  color: #274d79;
+  color: var(--brand-deep);
   font-weight: 700;
   font-size: 0.95rem;
 }
@@ -282,6 +289,7 @@ select {
   border: 1px solid rgb(230 203 142 / 55%);
   border-radius: 999px;
   padding: 0 1.25rem;
+  /* Serves product and boot/recovery; boot mounts outside .product-app so tokens would not resolve — cream stays deliberately spelt out. */
   background: linear-gradient(180deg, #fffaf0, #f0e3c9);
   color: #131b25;
   font-size: 1rem;
@@ -347,7 +355,7 @@ select {
   border-color: rgb(164 73 55 / 45%);
   padding: 0 1rem;
   background: rgb(252 229 227 / 80%);
-  color: #8d3a29;
+  color: var(--retry-ink-deep);
   font-size: 0.9rem;
   font-weight: 800;
 }
@@ -409,7 +417,7 @@ select {
   border-radius: 1rem;
   padding: 0.6rem 0.8rem;
   background: rgb(252 229 227 / 70%);
-  color: #8d3a29;
+  color: var(--retry-ink-deep);
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -813,6 +821,12 @@ select {
 
 /* --- codex --------------------------------------------------------------- */
 
+.codex-scene {
+  /* Gold is codex-local by design. */
+  --codex-gold: 226 166 43;
+  --codex-gold-ink: #f0cd88;
+}
+
 .codex-scene .scene-body {
   color: var(--dusk-ink);
 }
@@ -836,7 +850,7 @@ select {
 }
 
 .codex-head .product-kicker {
-  color: rgb(226 166 43 / 92%);
+  color: rgb(var(--codex-gold) / 92%);
 }
 
 .codex-count {
@@ -844,15 +858,15 @@ select {
   flex: none;
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid rgb(226 166 43 / 40%);
+  border: 1px solid rgb(var(--codex-gold) / 40%);
   border-radius: 0.95rem;
   padding: 0.35rem 0.7rem;
-  background: rgb(226 166 43 / 12%);
+  background: rgb(var(--codex-gold) / 12%);
 }
 
 .codex-count .figure {
   font-size: 1.3rem;
-  color: #f0cd88;
+  color: var(--codex-gold-ink);
 }
 
 .codex-count .figure-total {
@@ -918,7 +932,7 @@ select {
   position: absolute;
   width: 0.95rem;
   height: 0.95rem;
-  border: 0 solid rgb(226 166 43 / 45%);
+  border: 0 solid rgb(var(--codex-gold) / 45%);
   pointer-events: none;
 }
 
@@ -1248,15 +1262,15 @@ select {
   flex: 1;
   place-items: center;
   gap: 0.1rem;
-  border: 1px solid rgb(226 166 43 / 22%);
+  border: 1px solid rgb(var(--codex-gold) / 22%);
   border-radius: 0.9rem;
   padding: 0.55rem 0.25rem 0.5rem;
-  background: rgb(226 166 43 / 7%);
+  background: rgb(var(--codex-gold) / 7%);
 }
 
 .codex-stats .figure {
   font-size: 1.2rem;
-  color: #f0cd88;
+  color: var(--codex-gold-ink);
 }
 
 .codex-stats .label {
@@ -1770,6 +1784,7 @@ select {
   place-items: center;
   border-radius: 999px;
   padding: 0 0.25rem;
+  /* Bead warm pair is bespoke and stays literal (recorded round decision). */
   background: linear-gradient(180deg, #fffaf0, #eddcb6);
   color: #131b25;
   font-size: 0.8rem;
@@ -1918,8 +1933,8 @@ select {
 
 .setup-sfx .pill[aria-checked='true'] {
   border-color: rgb(230 203 142 / 50%);
-  background: linear-gradient(180deg, #fffaf0, #f0e3c9);
-  color: #131b25;
+  background: linear-gradient(180deg, var(--cream), var(--cream-deep));
+  color: var(--cream-ink);
 }
 
 .length-choice {
@@ -1939,8 +1954,8 @@ select {
 
 .length-choice button[aria-pressed='true'] {
   border-color: rgb(230 203 142 / 50%);
-  background: linear-gradient(180deg, #fffaf0, #f0e3c9);
-  color: #131b25;
+  background: linear-gradient(180deg, var(--cream), var(--cream-deep));
+  color: var(--cream-ink);
   box-shadow: 0 8px 16px -9px rgb(0 0 0 / 75%);
 }
 
@@ -2955,7 +2970,7 @@ select {
 /* --- parent gate and area ------------------------------------------------ */
 
 .parent-scene {
-  background: #eae6db;
+  background: var(--paper-parent);
 }
 
 /* The parent gate wears paper-card; parent-gate-card stays in the markup as a
@@ -3071,7 +3086,7 @@ select {
   font-family: var(--serif);
   font-size: 1.25rem;
   font-weight: 500;
-  color: #274d79;
+  color: var(--brand-deep);
   font-variant-numeric: lining-nums;
 }
 
@@ -3118,7 +3133,7 @@ select {
 }
 
 .parent-page {
-  background: #eae6db;
+  background: var(--paper-parent);
 }
 
 .paper-card {
@@ -3226,7 +3241,7 @@ select {
   font-family: var(--serif);
   font-size: 1.35rem;
   font-weight: 500;
-  color: #274d79;
+  color: var(--brand-deep);
   font-variant-numeric: lining-nums;
 }
 

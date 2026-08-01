@@ -97,12 +97,25 @@ npm run build && npx cap sync ios
 # Composition assertion (gating doc): the synced payload must be the product.
 grep -qE 'B4Development|B3SandboxProof' ios/App/App/public/index.html && echo "WRONG COMPOSITION — STOP" || echo "product composition OK"
 xcodebuild -project ios/App/App.xcodeproj -scheme KS2Spelling -configuration Debug \
-  -destination 'platform=iOS Simulator,name=KS2 Spelling iPhone 17,OS=26.5' build
-# install the built .app on the simulator, then:
+  -destination 'platform=iOS Simulator,name=KS2 Polish iPhone 17,OS=26.5' build
+# Install is NOT implied by the test scheme — on an erased simulator every
+# launch-dependent case fails with "FBSApplicationLibrary returned nil" without it.
+xcrun simctl install '<udid>' \
+  ~/Library/Developer/Xcode/DerivedData/App-*/Build/Products/Debug-iphonesimulator/App.app
 xcodebuild -project ios/App/App.xcodeproj -scheme B3ProofUITests -configuration Debug \
-  -destination 'platform=iOS Simulator,name=KS2 Spelling iPhone 17,OS=26.5' \
+  -destination 'platform=iOS Simulator,name=KS2 Polish iPhone 17,OS=26.5' \
   -only-testing:B3ProofUITests/C5ProductLayoutTests test
 ```
 
 Run on a freshly-erased simulator (`xcrun simctl erase`) so no earlier HID
-session can counterfeit a keyboard failure.
+session can counterfeit a keyboard failure. Per-test provisioning differs:
+the large-text case needs `xcrun simctl ui '<udid>' content_size
+accessibility-extra-extra-extra-large` and fails by design at the default;
+the two keyboard probes run at the default size; the tablet case needs an
+iPad destination. Change `content_size` only on an otherwise idle simulator —
+flipping it live between tests leaves SpringBoard unsettled until the next
+erase. Known environment-conditioned finding (also reproduced against the
+round-1 app at `29b2e58e`, so pre-existing): the practice probe's final
+`isHittable` refinement fails on this Mac's iOS 26.5 runtime although the
+letter keys exist — see `c5-probe-run.md`; the physical-device checklist
+stays the decisive keyboard authority.

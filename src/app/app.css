@@ -254,7 +254,7 @@ select {
 
 .pill {
   display: inline-flex;
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   align-items: center;
   gap: 0.45rem;
   padding: 0 0.85rem;
@@ -699,7 +699,6 @@ select {
 }
 
 .bank-filters .pill {
-  min-height: 2.25rem;
   font-size: 0.75rem;
 }
 

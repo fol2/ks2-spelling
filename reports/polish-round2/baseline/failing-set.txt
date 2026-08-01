@@ -48,7 +48,6 @@
 ✖ at-crossing:reinstall-launching:launched (195.328542ms)
 ✖ at-crossing:stop-executing:host-stopped (153.764833ms)
 ✖ B3 native audit is rebuilt from closed fresh inputs without weakening B2 (41.718542ms)
-✖ B4 Vite build contains all 25 exact WAV bytes and bound manifest authority (1648.575916ms)
 ✖ before-crossing:launching:launched (255.330708ms)
 ✖ before-crossing:reinstall-launching:launched (249.417833ms)
 ✖ before-crossing:stop-executing:host-stopped (199.216666ms)

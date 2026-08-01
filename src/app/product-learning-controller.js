@@ -5,6 +5,7 @@ import {
   validateCatalogueV1,
   validateSpellingCommandSnapshotV1,
 } from '../domain/spelling/index.js';
+import { setupExpeditionCompanion } from './codex-model.js';
 import { earlyRoundSummary, spellingOnly } from './practice-feel.js';
 
 const LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
@@ -230,6 +231,10 @@ function adoptRoundBaseline(candidate, snapshot) {
   }
   return {
     sessionId: candidate.sessionId,
+    companionRewardTrackId:
+      typeof candidate.companionRewardTrackId === 'string' && candidate.companionRewardTrackId.length > 0
+        ? candidate.companionRewardTrackId
+        : null,
     monsters: candidate.monsters,
     camp: candidate.camp ?? null,
   };
@@ -391,9 +396,14 @@ export function createProductLearningController({
         );
         const phase = plan.result.state?.phase;
         if (options.captureBaseline === true && phase === 'session') {
+          const monsters = monsterProjection(snapshot, catalogue);
           roundBaseline = {
             sessionId: snapshot.subjectState.ui.session.id,
-            monsters: monsterProjection(snapshot, catalogue),
+            companionRewardTrackId: setupExpeditionCompanion(
+              monsters,
+              options.companionYearFilter ?? null,
+            )?.rewardTrackId ?? null,
+            monsters,
             camp: campProjection(snapshot),
           };
           if (roundBaselineStore) {
@@ -532,7 +542,7 @@ export function createProductLearningController({
           practiceOnly: false,
           words: [],
         },
-      }, { captureBaseline: true });
+      }, { captureBaseline: true, companionYearFilter: parsed.yearFilter });
     },
     startGuardianMission(options = {}) {
       const intent = options?.intent;

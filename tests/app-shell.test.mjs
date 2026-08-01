@@ -657,6 +657,32 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.doesNotMatch(ownedSetupHtml, /inklet-b1-3\.640\.webp/);
   assert.match(ownedSetupHtml, /aria-label="Places on the trail"/);
 
+  const ownedMonsters = learningState.monsters;
+  learningState = Object.freeze({
+    ...learningState,
+    vocabularySets: Object.freeze([
+      Object.freeze({ id: 'y5-6', label: 'Y5–6', count: 104 }),
+      ...learningState.vocabularySets,
+    ]),
+    monsters: Object.freeze(learningState.monsters.map((entry) => Object.freeze(
+      entry.monsterId === 'inklet'
+        ? {
+          ...entry,
+          secureCount: 100,
+          derivedStage: 4,
+          earnedStageHighWater: 4,
+        }
+        : entry,
+    ))),
+  });
+  const yearFiveSixSetupHtml = render();
+  assert.match(yearFiveSixSetupHtml, /glimmerbug-b1-2\.640\.webp/);
+  assert.doesNotMatch(yearFiveSixSetupHtml, /inklet-b1-4\.640\.webp/);
+  learningState = Object.freeze({
+    ...learningState,
+    monsters: ownedMonsters,
+  });
+
   learningState = Object.freeze({
     ...learningState,
     screen: 'practice',

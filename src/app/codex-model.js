@@ -145,12 +145,18 @@ export function trailMeadowCompanions(roster = [], slotCount = Infinity) {
 }
 
 /**
- * Set off paints one owned companion at its earned stage. Prefer the furthest
- * grown found creature so the expedition screen reflects progress; with none
- * found yet, paint nothing rather than a hard-coded Inklet.
+ * Set off paints the selected band's companion, including its sleeping egg.
+ * Other filters prefer the furthest grown found creature; with none found yet,
+ * paint nothing rather than a hard-coded Inklet.
  */
-export function setupExpeditionCompanion(monsters = []) {
-  const found = buildCodex(monsters).roster.filter((entry) => entry.found);
+export function setupExpeditionCompanion(monsters = [], yearFilter = null) {
+  const roster = buildCodex(monsters).roster;
+  const bandCompanion = roster.find(({ monsterId }) => (
+    (yearFilter === 'y3-4' && monsterId === 'inklet')
+    || (yearFilter === 'y5-6' && monsterId === 'glimmerbug')
+  ));
+  if (bandCompanion) return bandCompanion;
+  const found = roster.filter((entry) => entry.found);
   if (found.length === 0) return null;
   return found.reduce((best, entry) => (
     entry.stage > best.stage ? entry : best

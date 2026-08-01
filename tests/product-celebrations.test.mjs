@@ -13,6 +13,7 @@ import {
   celebrationStageDecision,
   diffMonsterCelebrations,
   monsterCelebrationArtUrl,
+  primaryProgressedRewardTrackId,
   secureWordDelta,
 } from '../src/app/celebrations/celebration-model.js';
 
@@ -184,6 +185,49 @@ test('diffMonsterCelebrations ignores tracks missing on either side', () => {
     ),
     [],
   );
+});
+
+test('primary progressed track prefers direct milestones over progress', () => {
+  const glimmerbug = monster({
+    rewardTrackId: 'spelling-core-glimmerbug',
+    monsterId: 'glimmerbug',
+  });
+  const phaeton = monster({
+    rewardTrackId: 'spelling-core-phaeton',
+    monsterId: 'phaeton',
+  });
+  const monsters = [monster(), glimmerbug, phaeton];
+
+  assert.equal(
+    primaryProgressedRewardTrackId([
+      { kind: 'progress', rewardTrackId: glimmerbug.rewardTrackId },
+      { kind: 'caught', rewardTrackId: 'spelling-core-inklet' },
+    ], monsters),
+    'spelling-core-inklet',
+  );
+  assert.equal(
+    primaryProgressedRewardTrackId([
+      { kind: 'progress', rewardTrackId: glimmerbug.rewardTrackId },
+      { kind: 'evolve', rewardTrackId: 'spelling-core-inklet' },
+    ], monsters),
+    'spelling-core-inklet',
+  );
+  assert.equal(
+    primaryProgressedRewardTrackId([
+      { kind: 'caught', rewardTrackId: phaeton.rewardTrackId },
+      { kind: 'evolve', rewardTrackId: glimmerbug.rewardTrackId },
+      { kind: 'caught', rewardTrackId: 'spelling-core-inklet' },
+    ], monsters),
+    glimmerbug.rewardTrackId,
+  );
+  assert.equal(
+    primaryProgressedRewardTrackId([
+      { kind: 'progress', rewardTrackId: phaeton.rewardTrackId },
+      { kind: 'progress', rewardTrackId: glimmerbug.rewardTrackId },
+    ], monsters),
+    glimmerbug.rewardTrackId,
+  );
+  assert.equal(primaryProgressedRewardTrackId([], monsters), null);
 });
 
 test('secureWordDelta sums only direct secureCount increases', () => {

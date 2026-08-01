@@ -7,10 +7,12 @@ import {
   validateSpellingCommandSnapshotV1,
 } from '../src/domain/spelling/index.js';
 import { createProductLearningController } from '../src/app/product-learning-controller.js';
+import { setupExpeditionCompanion } from '../src/app/codex-model.js';
 import {
   expectedB2Snapshot,
   snapshotAfterPlan,
 } from './helpers/b2-database-harness.mjs';
+import { expectedGuardianSnapshot } from './helpers/guardian-fixture.mjs';
 
 const NOW_MS = 1_768_478_400_000;
 
@@ -520,7 +522,11 @@ test('product learning captures a round baseline at startRound and persists it',
       return structuredClone(record);
     },
   });
-  const world = createLearningWorld();
+  const catalogue = loadFullSpellingCatalogue();
+  const world = createLearningWorld(
+    [snapshotForCatalogue(catalogue)],
+    catalogue,
+  );
   const controller = world.createController(world.snapshots.get('learner-a'), {
     roundBaselineStore: fakeStore,
   });
@@ -528,11 +534,15 @@ test('product learning captures a round baseline at startRound and persists it',
   await controller.startRound({
     mode: 'smart',
     length: 5,
-    yearFilter: 'core',
+    yearFilter: 'y5-6',
   });
 
   const state = controller.getState();
   assert.equal(state.roundBaseline.sessionId, state.practice.sessionId);
+  assert.equal(
+    state.roundBaseline.companionRewardTrackId,
+    'spelling-core-glimmerbug',
+  );
   // Captured after start-session lands, so it matches the practice roster.
   assert.deepEqual(state.roundBaseline.monsters, state.monsters);
   assert.deepEqual(state.roundBaseline.camp, {
@@ -546,6 +556,7 @@ test('product learning captures a round baseline at startRound and persists it',
     schemaVersion: 1,
     learnerId: 'learner-a',
     sessionId: state.practice.sessionId,
+    companionRewardTrackId: 'spelling-core-glimmerbug',
     monsters: state.monsters,
     camp: state.roundBaseline.camp,
   });
@@ -553,15 +564,33 @@ test('product learning captures a round baseline at startRound and persists it',
   await controller.dispose();
 });
 
+test('product learning gives Guardian the furthest-grown found companion', async () => {
+  const catalogue = loadFullSpellingCatalogue();
+  const initialSnapshot = expectedGuardianSnapshot();
+  const world = createLearningWorld([initialSnapshot], catalogue);
+  const controller = world.createController();
+
+  await controller.startGuardianMission();
+  const state = controller.getState();
+  assert.equal(
+    state.roundBaseline.companionRewardTrackId,
+    setupExpeditionCompanion(state.monsters)?.rewardTrackId ?? null,
+  );
+
+  await controller.dispose();
+});
+
 test('product learning adopts a matching initialRoundBaseline mid-session', async () => {
   const world = createLearningWorld();
   const first = world.createController();
-  await first.startRound({ mode: 'smart', length: 5, yearFilter: 'core' });
+  await first.startRound({ mode: 'smart', length: 5, yearFilter: 'y3-4' });
   const midSession = structuredClone(world.snapshots.get('learner-a'));
   const baseline = {
     schemaVersion: 1,
     learnerId: 'learner-a',
     sessionId: first.getState().practice.sessionId,
+    companionRewardTrackId:
+      first.getState().roundBaseline.companionRewardTrackId,
     monsters: structuredClone(first.getState().roundBaseline.monsters),
     camp: structuredClone(first.getState().roundBaseline.camp),
   };
@@ -579,6 +608,10 @@ test('product learning adopts a matching initialRoundBaseline mid-session', asyn
     restored.getState().roundBaseline.monsters,
     baseline.monsters,
   );
+  assert.equal(
+    restored.getState().roundBaseline.companionRewardTrackId,
+    'spelling-core-inklet',
+  );
   await restored.dispose();
 
   const mismatched = world.createController(midSession, {
@@ -594,12 +627,14 @@ test('product learning selectLearner clears and re-reads the round baseline', as
     expectedB2Snapshot('learner-b'),
   ]);
   const first = world.createController();
-  await first.startRound({ mode: 'smart', length: 5, yearFilter: 'core' });
+  await first.startRound({ mode: 'smart', length: 5, yearFilter: 'y3-4' });
   const midA = structuredClone(world.snapshots.get('learner-a'));
   const baselineA = {
     schemaVersion: 1,
     learnerId: 'learner-a',
     sessionId: first.getState().practice.sessionId,
+    companionRewardTrackId:
+      first.getState().roundBaseline.companionRewardTrackId,
     monsters: structuredClone(first.getState().roundBaseline.monsters),
     camp: structuredClone(first.getState().roundBaseline.camp),
   };
@@ -627,6 +662,10 @@ test('product learning selectLearner clears and re-reads the round baseline', as
   assert.equal(
     controller.getState().roundBaseline.sessionId,
     baselineA.sessionId,
+  );
+  assert.equal(
+    controller.getState().roundBaseline.companionRewardTrackId,
+    'spelling-core-inklet',
   );
 
   await controller.selectLearner(null);

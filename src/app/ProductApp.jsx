@@ -16,6 +16,7 @@ import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
   campLevelCelebration,
   diffMonsterCelebrations,
+  primaryProgressedRewardTrackId,
   secureWordDelta,
 } from './celebrations/celebration-model.js';
 import { TrailMeadow } from './trail/TrailMeadow.jsx';
@@ -2234,8 +2235,8 @@ function SetupScreen({
   const effectiveYearFilter = runQuest === 'test' ? 'core' : yearFilter;
   const effectiveLength = runQuest === 'test' ? 20 : length;
   const companion = useMemo(
-    () => setupExpeditionCompanion(monsters),
-    [monsters],
+    () => setupExpeditionCompanion(monsters, guardianRuns ? null : effectiveYearFilter),
+    [monsters, guardianRuns, effectiveYearFilter],
   );
 
   useEffect(() => {
@@ -2272,7 +2273,16 @@ function SetupScreen({
           </div>
 
           <div className="setup-quest">
-            {companion?.art && <img src={companion.art} alt="" />}
+            {companion?.art && (
+              <img
+                src={companion.art}
+                alt=""
+                className={companion.found ? undefined : 'companion-asleep'}
+              />
+            )}
+            {companion && !companion.found && (
+              <p className="setup-companion-hint">Secure spellings here to wake this companion.</p>
+            )}
             <p className="product-kicker">
               Today&apos;s quest<span aria-hidden="true" />
             </p>
@@ -2934,13 +2944,17 @@ function ResultsScreen({
   haptics,
   sfx,
   onCelebrationDone,
+  preferredRewardTrackId = null,
 }) {
-  // Field Record mirrors Trail: only a caught or evolved companion is painted.
-  // With none found yet, leave the record blank of creature art — no phantom egg.
-  const companion = useMemo(
-    () => setupExpeditionCompanion(monsters),
-    [monsters],
-  );
+  // Field Record prefers the companion this round progressed, then mirrors
+  // Trail: only a caught or evolved companion is painted — no phantom egg.
+  const companion = useMemo(() => {
+    const roster = buildCodex(monsters).roster;
+    const preferred = roster.find(
+      (entry) => entry.rewardTrackId === preferredRewardTrackId && entry.found,
+    ) ?? null;
+    return preferred ?? setupExpeditionCompanion(monsters);
+  }, [monsters, preferredRewardTrackId]);
   const accuracy = summary?.accuracy ?? 0;
   const total = summary?.totalWords ?? 0;
   const correct = summary?.correct ?? 0;
@@ -3150,6 +3164,7 @@ export default function ProductApp({ services }) {
   // Camp only ever rises on a rewarded Guardian mission, so the round-start
   // camp is the only honest thing to compare the ending camp with.
   const [campGain, setCampGain] = useState(0);
+  const [preferredTrack, setPreferredTrack] = useState(null);
   const learningScreenRef = useRef(learningState.screen);
   const clearCelebrations = useCallback(() => setCelebrationEvents([]), []);
 
@@ -3176,6 +3191,11 @@ export default function ProductApp({ services }) {
           - (next.roundBaseline?.camp?.campHighWater
             ?? next.camp?.campHighWater
             ?? 0),
+        );
+        setPreferredTrack(
+          primaryProgressedRewardTrackId(monsterEvents, next.monsters)
+            ?? next.roundBaseline?.companionRewardTrackId
+            ?? null,
         );
         // Warm the Phaser chunk before CelebrationLayer lazy-mounts it.
         if (events.some((event) => event.kind === 'caught' || event.kind === 'evolve')) {
@@ -3368,6 +3388,7 @@ export default function ProductApp({ services }) {
         celebrationEvents={celebrationEvents}
         secureGain={secureGain}
         campGain={campGain}
+        preferredRewardTrackId={preferredTrack}
         haptics={services.haptics}
         sfx={services.sfx}
         onCelebrationDone={clearCelebrations}

@@ -1579,6 +1579,11 @@ select {
   pointer-events: none;
 }
 
+.setup-quest img.companion-asleep {
+  filter: grayscale(0.4) brightness(0.55);
+  opacity: 0.85;
+}
+
 .setup-quest .product-kicker {
   position: relative;
   display: flex;
@@ -1614,6 +1619,13 @@ select {
   font-size: 0.82rem;
   line-height: 1.45;
   text-wrap: pretty;
+}
+
+.setup-quest .setup-companion-hint {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-note);
+  color: var(--dusk-ink-soft);
 }
 
 .setup-tally {

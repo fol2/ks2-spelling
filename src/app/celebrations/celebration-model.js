@@ -137,6 +137,24 @@ export function diffMonsterCelebrations(before, after) {
   return events;
 }
 
+/** Pick the first direct reward track that meaningfully progressed. */
+export function primaryProgressedRewardTrackId(events, monsters) {
+  const afterByTrack = trackMap(monsters);
+  const list = Array.isArray(events) ? events : [];
+  const isDirect = (event) => {
+    const monster = afterByTrack.get(event?.rewardTrackId);
+    return monster !== undefined && !isAggregateMonster(monster);
+  };
+  return list.find(
+    (event) =>
+      (event?.kind === 'caught' || event?.kind === 'evolve') && isDirect(event),
+  )?.rewardTrackId
+    ?? list.find(
+      (event) => event?.kind === 'progress' && isDirect(event),
+    )?.rewardTrackId
+    ?? null;
+}
+
 /**
  * Sum newly secure words once across direct reward tracks. Aggregate tracks such
  * as Phaeton reuse the same evidence and would otherwise double the result-card

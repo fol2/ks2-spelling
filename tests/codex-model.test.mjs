@@ -156,9 +156,10 @@ test('Set off picks the furthest grown owned companion, never a hard-coded Inkle
   );
 
   assert.equal(setupExpeditionCompanion([]), null);
+  assert.equal(setupExpeditionCompanion([], 'y5-6'), null);
   assert.equal(setupExpeditionCompanion([monster()]), null);
 
-  const owned = setupExpeditionCompanion([
+  const ownedMonsters = [
     monster({
       caught: true,
       secureCount: 10,
@@ -181,11 +182,34 @@ test('Set off picks the furthest grown owned companion, never a hard-coded Inkle
       secureCount: 0,
       thresholds: [1, 5, 15, 40, 80],
     }),
-  ]);
+  ];
+  const owned = setupExpeditionCompanion(ownedMonsters);
   assert.equal(owned.monsterId, 'glimmerbug');
   assert.equal(owned.stage, 2);
   assert.equal(owned.found, true);
   assert.match(owned.art, /glimmerbug-b1-2\.640\.webp$/u);
+  assert.equal(
+    setupExpeditionCompanion(ownedMonsters, 'y3-4').monsterId,
+    'inklet',
+  );
+  assert.equal(
+    setupExpeditionCompanion(ownedMonsters, 'y5-6').monsterId,
+    'glimmerbug',
+  );
+  const sleeping = setupExpeditionCompanion([
+    monster({ caught: true, secureCount: 100, derivedStage: 4 }),
+    monster({
+      rewardTrackId: 'spelling-core-glimmerbug',
+      monsterId: 'glimmerbug',
+      thresholds: [1, 5, 15, 40, 80],
+    }),
+  ], 'y5-6');
+  assert.equal(sleeping.found, false);
+  assert.match(sleeping.art, /glimmerbug-b1-0\.640\.webp$/u);
+  assert.equal(
+    setupExpeditionCompanion(ownedMonsters, 'core').monsterId,
+    'glimmerbug',
+  );
 
   const tied = setupExpeditionCompanion([
     monster({

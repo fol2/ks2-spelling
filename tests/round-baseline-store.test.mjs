@@ -16,6 +16,7 @@ const RECORD = Object.freeze({
   schemaVersion: 1,
   learnerId: LEARNER_ID,
   sessionId: 'session-1',
+  companionRewardTrackId: 'spelling-core-inklet',
   monsters: Object.freeze([
     Object.freeze({
       rewardTrackId: 'spelling-core-inklet',
@@ -87,6 +88,32 @@ test('round baseline store treats malformed rows as a miss', async (t) => {
     [JSON.stringify({ ...RECORD, learnerId: 'learner-other' }), 102, key],
   );
   assert.equal(await store.read(LEARNER_ID), null);
+});
+
+test('round baseline store keeps legacy and malformed companion fields optional', async (t) => {
+  const { connection, store } = await openStore(t);
+  const key = `product.round-baseline.${LEARNER_ID}`;
+  const withoutCompanion = { ...RECORD, companionRewardTrackId: undefined };
+
+  await connection.execute(
+    'INSERT INTO app_metadata (key, value_json, updated_at) VALUES (?, ?, ?)',
+    [key, JSON.stringify(withoutCompanion), 100],
+  );
+  assert.deepEqual(await store.read(LEARNER_ID), {
+    ...RECORD,
+    companionRewardTrackId: null,
+  });
+
+  for (const companionRewardTrackId of [42, '']) {
+    await connection.execute(
+      'UPDATE app_metadata SET value_json = ? WHERE key = ?',
+      [JSON.stringify({ ...RECORD, companionRewardTrackId }), key],
+    );
+    assert.deepEqual(await store.read(LEARNER_ID), {
+      ...RECORD,
+      companionRewardTrackId: null,
+    });
+  }
 });
 
 test('round baseline store upsert overwrites the previous record', async (t) => {

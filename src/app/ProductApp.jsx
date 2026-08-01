@@ -1176,7 +1176,7 @@ const SHEET_FLICK_TRAVEL = 24;
  * Returns null when the sheet has nowhere to go, so the caller can leave the
  * grip out rather than offer a gesture that does nothing.
  */
-function useSheetDrag(onDismiss, haptics) {
+function useSheetDrag(onDismiss, haptics, sfx) {
   const sheetRef = useRef(null);
   const dragRef = useRef(null);
   const [offset, setOffset] = useState(0);
@@ -1212,9 +1212,10 @@ function useSheetDrag(onDismiss, haptics) {
     const flicked = travel >= SHEET_FLICK_TRAVEL && speed >= SHEET_FLICK_SPEED;
     if (flicked || travel >= drag.height * SHEET_DISMISS_FRACTION) {
       haptics?.uiTick?.();
+      sfx?.play('sheet');
       onDismiss();
     }
-  }, [haptics, onDismiss]);
+  }, [haptics, sfx, onDismiss]);
 
   if (!onDismiss) return null;
   return {
@@ -1239,8 +1240,9 @@ function SwitchScreen({
   onRecoverAudio,
   onDismiss,
   haptics,
+  sfx,
 }) {
-  const drag = useSheetDrag(onDismiss, haptics);
+  const drag = useSheetDrag(onDismiss, haptics, sfx);
   const [nickname, setNickname] = useState('');
   const [yearGroup, setYearGroup] = useState('Y3');
   const [goal, setGoal] = useState(10);
@@ -3307,6 +3309,7 @@ export default function ProductApp({ services }) {
         onOpenParent={() => setParentOpen(true)}
         onRecoverAudio={recoverAudio}
         haptics={services.haptics}
+        sfx={services.sfx}
         // Until a learner is chosen this is the only screen there is, so the
         // sheet stays put and shows no grip to drag.
         onDismiss={selectedProfile ? () => setSwitchOpen(false) : undefined}

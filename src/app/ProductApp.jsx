@@ -384,7 +384,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
       <div className="parent-learner-actions">
         <button
           type="button"
-          className="button-quiet"
+          className="button-quiet press-soft press"
           disabled={busy}
           onClick={() => {
             setEditing((value) => !value);
@@ -397,7 +397,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
         </button>
         <button
           type="button"
-          className="button-warning"
+          className="button-warning press-soft press"
           disabled={busy}
           onClick={() => {
             setConfirmingReset((value) => !value);
@@ -411,7 +411,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
         </button>
         <button
           type="button"
-          className="button-destructive"
+          className="button-destructive press-soft press"
           disabled={busy}
           onClick={() => {
             setConfirmingDelete((value) => !value);
@@ -464,7 +464,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
               </select>
             </label>
           </div>
-          <button type="submit" className="button-primary" disabled={busy}>
+          <button type="submit" className="button-primary press" disabled={busy}>
             Save learner
           </button>
         </form>
@@ -489,7 +489,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
           </label>
           <button
             type="button"
-            className="button-danger"
+            className="button-danger press"
             disabled={busy || resetConfirmation !== profile.nickname}
             onClick={() => void resetLearning()}
           >
@@ -516,7 +516,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
           </label>
           <button
             type="button"
-            className="button-danger"
+            className="button-danger press"
             disabled={busy || deleteConfirmation !== profile.nickname}
             onClick={() => void remove()}
           >
@@ -584,7 +584,7 @@ function ParentProgressCard({ state, onRefresh }) {
       )}
       <button
         type="button"
-        className="button-quiet"
+        className="button-quiet press-soft press"
         disabled={state.status === 'checking'}
         onClick={() => void onRefresh().catch(() => undefined)}
       >
@@ -648,7 +648,7 @@ function ParentCommerceCard({
         {state.entitlementState === 'none' && (
           <button
             type="button"
-            className="button-primary"
+            className="button-primary press"
             disabled={busy || !canBuy}
             onClick={() => void onPurchase().catch(() => undefined)}
           >
@@ -658,7 +658,7 @@ function ParentCommerceCard({
         {canDownload && (
           <button
             type="button"
-            className="button-primary"
+            className="button-primary press"
             disabled={busy}
             onClick={() => void onDownload().catch(() => undefined)}
           >
@@ -667,7 +667,7 @@ function ParentCommerceCard({
         )}
         <button
           type="button"
-          className="button-quiet"
+          className="button-quiet press-soft press"
           disabled={busy}
           onClick={() => void onRestore().catch(() => undefined)}
         >
@@ -675,7 +675,7 @@ function ParentCommerceCard({
         </button>
         <button
           type="button"
-          className="button-quiet"
+          className="button-quiet press-soft press"
           disabled={busy}
           onClick={() => void onRecover().catch(() => undefined)}
         >
@@ -773,7 +773,7 @@ export function ParentArea({
         <ProductTopBar
           title="Parent area"
           action={(
-            <button type="button" className="topbar-action" onClick={onClose}>
+            <button type="button" className="topbar-action press-soft press" onClick={onClose}>
               Done
             </button>
           )}
@@ -818,7 +818,7 @@ export function ParentArea({
                 </p>
                 <button
                   type="button"
-                  className="button-quiet"
+                  className="button-quiet press-soft press"
                   disabled={busy}
                   onClick={() => void run(
                     () => onSetBiometricsEnabled(!state.biometric.enabled),
@@ -870,7 +870,7 @@ export function ParentArea({
             <div className="parent-backup-actions">
               <button
                 type="button"
-                className="button-quiet"
+                className="button-quiet press-soft press"
                 disabled={backupBusy}
                 onClick={() => void runBackup(
                   onExportBackup,
@@ -882,7 +882,7 @@ export function ParentArea({
               {!confirmingImport && (
                 <button
                   type="button"
-                  className="button-warning"
+                  className="button-warning press-soft press"
                   disabled={backupBusy}
                   onClick={() => {
                     setBackupMessage('');
@@ -914,7 +914,7 @@ export function ParentArea({
                 <div className="parent-backup-actions">
                   <button
                     type="button"
-                    className="button-danger"
+                    className="button-danger press"
                     disabled={
                       backupBusy || importConfirmation !== 'REPLACE'
                     }
@@ -927,7 +927,7 @@ export function ParentArea({
                   </button>
                   <button
                     type="button"
-                    className="button-quiet"
+                    className="button-quiet press-soft press"
                     disabled={backupBusy}
                     onClick={() => {
                       setConfirmingImport(false);
@@ -985,7 +985,7 @@ export function ParentArea({
       <ProductTopBar
         title="Parent access"
         action={(
-          <button type="button" className="topbar-action" onClick={onClose}>
+          <button type="button" className="topbar-action press-soft press" onClick={onClose}>
             Back
           </button>
         )}
@@ -1043,7 +1043,7 @@ export function ParentArea({
           )}
           <button
             type="submit"
-            className="button-primary"
+            className="button-primary press"
             disabled={
               busy ||
               pin.length !== 6 ||
@@ -1059,7 +1059,7 @@ export function ParentArea({
           state.biometric.enabled && (
             <button
               type="button"
-              className="button-quiet parent-biometric-button"
+              className="button-quiet parent-biometric-button press-soft press"
               disabled={busy}
               onClick={() => void run(onUnlockBiometrics)}
             >
@@ -1143,7 +1143,7 @@ export function LeaveRoundDialog({
           <button
             ref={keepButton}
             type="button"
-            className="button-quiet"
+            className="button-quiet press-soft press"
             disabled={leaving}
             onClick={onKeep}
           >
@@ -1152,7 +1152,7 @@ export function LeaveRoundDialog({
           <button
             ref={leaveButton}
             type="button"
-            className="button-danger"
+            className="button-danger press"
             disabled={leaving}
             onClick={onLeave}
           >

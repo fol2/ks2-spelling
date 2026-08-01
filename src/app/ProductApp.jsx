@@ -563,10 +563,15 @@ function ParentProgressCard({ state, onRefresh }) {
                           : ` · ${summary.accuracyPercent}%`
                       }`}
                 </span>
-                <small>
-                  {summary.secureItemCount} secure · {summary.dueItemCount} due ·{' '}
-                  {summary.troubleItemCount} needing support
-                </small>
+                {(attempts > 0 ||
+                  summary.secureItemCount > 0 ||
+                  summary.dueItemCount > 0 ||
+                  summary.troubleItemCount > 0) && (
+                  <small>
+                    {summary.secureItemCount} secure · {summary.dueItemCount} due ·{' '}
+                    {summary.troubleItemCount} needing support
+                  </small>
+                )}
               </li>
             );
           })}
@@ -1922,6 +1927,8 @@ function guardianNextLine(mission, noun) {
 function guardianDueLine(mission) {
   const due = mission?.guardianDueCount ?? 0;
   const wobbling = mission?.wobblingDueCount ?? 0;
+  // Zero due + zero wobbling only reaches here in phase === 'due' — first patrol.
+  if (due === 0 && wobbling === 0) return 'First patrol';
   return wobbling > 0 ? `${due} due · ${wobbling} wobbling` : `${due} due`;
 }
 
@@ -2024,7 +2031,17 @@ function CampScreen({
               Guardian
             </p>
 
-            {phase === 'due' && (
+            {phase === 'due' && dueCount === 0 && (
+              <>
+                <h1 id="camp-title">The first patrol awaits</h1>
+                <p className="body-copy">
+                  Every core word is Mega. Walk the first patrol today and the
+                  camp fire is lit.
+                </p>
+              </>
+            )}
+
+            {phase === 'due' && dueCount > 0 && (
               <>
                 <h1 id="camp-title">
                   {dueCount === 1

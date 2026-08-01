@@ -38,7 +38,7 @@ const MONSTERS = [
   { rewardTrackId: 'r4', packId: 'ks2-full', monsterId: 'phaeton', thresholds: [1, 10, 30, 60, 100], branch: 'b1', secureCount: 0, caught: false, derivedStage: 0, earnedStageHighWater: 0 },
 ];
 
-/* Guardian states, walked with ?guardian=locked|teaser|active|rested|done on
+/* Guardian states, walked with ?guardian=locked|teaser|first|active|rested|done on
    ?screen=camp and ?screen=setup. `locked` is the projection an unentitled
    learner gets; leaving the parameter off keeps revisionMission null, which is
    the other pre-unlock shape the screens have to survive. */
@@ -73,6 +73,21 @@ const GUARDIAN_STATES = {
       campCreditState: 'available',
     },
     mega: 34,
+    campHighWater: 0,
+  },
+  first: {
+    mission: {
+      missionState: 'first-patrol',
+      eligibleMissionKind: 'first-patrol',
+      guardianDueCount: 0,
+      wobblingDueCount: 0,
+      nextGuardianDueDay: GUARDIAN_DAY,
+      todayGuardianDay: GUARDIAN_DAY,
+      canStartRewardBearing: true,
+      canContinueUnrewarded: false,
+      campCreditState: 'available',
+    },
+    mega: 213,
     campHighWater: 0,
   },
   active: {

@@ -253,23 +253,42 @@ test('the production shell keeps Parent progress and commerce behind the local g
   });
   const parentProgressState = Object.freeze({
     status: 'ready',
-    learners: Object.freeze([Object.freeze({
-      learnerId: 'learner-a',
-      nickname: 'Ada',
-      yearGroup: 'Y3',
-      colour: '#2E7D8A',
-      publishedItemCount: 20,
-      secureItemCount: 1,
-      dueItemCount: 2,
-      troubleItemCount: 1,
-      correctCount: 5,
-      wrongCount: 1,
-      accuracyPercent: 83,
-      guardianDueCount: 0,
-      wobblingDueCount: 0,
-      nextGuardianReviewDay: null,
-      recentRevisionSessions: Object.freeze([]),
-    })]),
+    learners: Object.freeze([
+      Object.freeze({
+        learnerId: 'learner-a',
+        nickname: 'Ada',
+        yearGroup: 'Y3',
+        colour: '#2E7D8A',
+        publishedItemCount: 20,
+        secureItemCount: 1,
+        dueItemCount: 2,
+        troubleItemCount: 1,
+        correctCount: 5,
+        wrongCount: 1,
+        accuracyPercent: 83,
+        guardianDueCount: 0,
+        wobblingDueCount: 0,
+        nextGuardianReviewDay: null,
+        recentRevisionSessions: Object.freeze([]),
+      }),
+      Object.freeze({
+        learnerId: 'learner-b',
+        nickname: 'Bea',
+        yearGroup: 'Y4',
+        colour: '#8A5A2E',
+        publishedItemCount: 0,
+        secureItemCount: 0,
+        dueItemCount: 0,
+        troubleItemCount: 0,
+        correctCount: 0,
+        wrongCount: 0,
+        accuracyPercent: null,
+        guardianDueCount: 0,
+        wobblingDueCount: 0,
+        nextGuardianReviewDay: null,
+        recentRevisionSessions: Object.freeze([]),
+      }),
+    ]),
     actionError: null,
   });
   const parentProgress = Object.freeze({
@@ -470,6 +489,9 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(unlockedParentHtml, /Spelling progress/);
   assert.match(unlockedParentHtml, /5 of 6 attempts correct/);
   assert.match(unlockedParentHtml, /1 secure · 2 due/);
+  assert.match(unlockedParentHtml, /No spelling attempts saved yet\./);
+  assert.doesNotMatch(unlockedParentHtml, /saved yet\.0 secure/);
+  assert.doesNotMatch(unlockedParentHtml, /0 secure · 0 due · 0 needing support/);
   assert.match(unlockedParentHtml, /Full KS2 spelling/);
   assert.match(unlockedParentHtml, /£4\.99/);
   assert.match(unlockedParentHtml, /Buy Full KS2/);
@@ -872,6 +894,28 @@ test('the production shell keeps Parent progress and commerce behind the local g
 
   learningState = Object.freeze({
     ...learningState,
+    progress: guardianProgress(213),
+    revisionMission: guardianMission({
+      missionState: 'first-patrol',
+      eligibleMissionKind: 'first-patrol',
+      guardianDueCount: 0,
+      wobblingDueCount: 0,
+      nextGuardianDueDay: TODAY_GUARDIAN_DAY,
+      canStartRewardBearing: true,
+    }),
+    camp: Object.freeze({
+      packId: 'ks2-core',
+      campHighWater: 0,
+      lastCreditedGuardianDay: null,
+      canEarnToday: true,
+    }),
+  });
+  const firstPatrolSetupHtml = render();
+  assert.match(firstPatrolSetupHtml, /First patrol/);
+  assert.doesNotMatch(firstPatrolSetupHtml, /0 due/);
+
+  learningState = Object.freeze({
+    ...learningState,
     revisionMission: guardianMission({
       missionState: 'due',
       eligibleMissionKind: 'due',
@@ -959,6 +1003,30 @@ test('the production shell keeps Parent progress and commerce behind the local g
     dueCampHtml,
     /<button type="button" class="button-primary press" disabled=""[\s\S]*?Begin the patrol/u,
   );
+
+  learningState = Object.freeze({
+    ...learningState,
+    progress: guardianProgress(213),
+    revisionMission: guardianMission({
+      missionState: 'first-patrol',
+      eligibleMissionKind: 'first-patrol',
+      guardianDueCount: 0,
+      wobblingDueCount: 0,
+      nextGuardianDueDay: TODAY_GUARDIAN_DAY,
+      canStartRewardBearing: true,
+    }),
+    camp: Object.freeze({
+      packId: 'ks2-core',
+      campHighWater: 0,
+      lastCreditedGuardianDay: null,
+      canEarnToday: true,
+    }),
+  });
+  const firstPatrolCampHtml = render();
+  assert.match(firstPatrolCampHtml, /The first patrol awaits/);
+  assert.match(firstPatrolCampHtml, /camp fire is lit/);
+  assert.doesNotMatch(firstPatrolCampHtml, /0 words due/);
+  assert.match(firstPatrolCampHtml, /Begin the patrol/);
 
   learningState = Object.freeze({
     ...learningState,

@@ -31,7 +31,11 @@
   isolation: isolate;
 }
 
-.celebration-card {
+/* Owned by the overlay, and said so: the product surface resets every bare
+   button (border 0, background none) later in the bundle at equal
+   specificity, which silently stripped this card's vellum and border. The
+   descendant selector outranks the reset without an !important. */
+.celebration-overlay .celebration-card {
   position: relative;
   display: grid;
   width: min(100%, 27rem);
@@ -650,7 +654,9 @@
 }
 
 @media (max-height: 42rem) {
-  .celebration-card {
+  /* Matches the base card's raised specificity so the short-viewport layout
+     still overrides it. */
+  .celebration-overlay .celebration-card {
     grid-template-columns: minmax(9rem, 0.8fr) minmax(12rem, 1fr);
     grid-template-rows: none;
     width: min(100%, 42rem);

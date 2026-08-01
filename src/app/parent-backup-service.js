@@ -169,8 +169,10 @@ export function createParentBackupService({
   now = Date.now,
 } = {}) {
   requireDependencies(repository, files, afterImport, now);
+  let exportInFlight = null;
+  let importInFlight = null;
 
-  return Object.freeze({
+  const operations = Object.freeze({
     async exportBackup() {
       const backup = await repository.exportBackup();
       if (typeof backup !== 'string') {
@@ -250,6 +252,21 @@ export function createParentBackupService({
       );
       await afterImport(result);
       return Object.freeze({ cancelled: false, ...result });
+    },
+  });
+
+  return Object.freeze({
+    exportBackup() {
+      exportInFlight ??= operations.exportBackup().finally(() => {
+        exportInFlight = null;
+      });
+      return exportInFlight;
+    },
+    importBackup() {
+      importInFlight ??= operations.importBackup().finally(() => {
+        importInFlight = null;
+      });
+      return importInFlight;
     },
   });
 }

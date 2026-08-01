@@ -25,8 +25,20 @@ recorded one such artefact — "B4 Vite build contains all 25 exact WAV bytes
 and bound manifest authority" on `ENOTEMPTY dist/full`. Standalone re-runs at
 the same tree pass it, so the line has been removed from
 `baseline/failing-set.txt`; the true environmental set is the remaining 208
-lines. The same artefact resurfaced in the slice 1.2 full run and passed
-standalone again, confirming the intra-run mechanism.
+lines. The same artefact resurfaced in the slice 1.2 and slice 2.1 full runs
+and passed standalone each time, confirming the intra-run mechanism.
+
+A second artefact class (recorded 2026-08-01, slice 2.1 gate): the Node-24.2
+environmental failures can manifest as a hang instead of a fast failure. One
+full run stalled after ~30 seconds of output because
+`tests/b3-capture-state-database.slow.test.mjs`'s spawned helper
+(`tests/helpers/b3-capture-state-database-child.mjs ios`) wedged with
+near-zero CPU rather than exiting on the usual `enableDefensive` TypeError.
+The signature: the run log stops growing for many minutes while a b3-capture
+child process sits alive doing nothing. Treatment mirrors the dist race —
+kill the whole run's process tree, re-run the named suite standalone (it
+terminates with exactly the baseline environmental failures; that is the
+artefact verdict), then start the full run afresh.
 
 ## The Slice Gate (run in order after every slice)
 

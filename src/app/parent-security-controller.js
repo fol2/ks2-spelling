@@ -221,7 +221,14 @@ export async function createParentSecurityController({
           );
           throw controllerError('parent_pin_temporarily_locked');
         }
-        if (await pinCrypto.verify(pin, record)) {
+        // The stored record carries lock state beside the credential, and the
+        // PIN crypto contract accepts exactly the four credential keys.
+        if (await pinCrypto.verify(pin, Object.freeze({
+          algorithm: record.algorithm,
+          iterations: record.iterations,
+          saltBase64: record.saltBase64,
+          verifierBase64: record.verifierBase64,
+        }))) {
           if (record.failedAttempts !== 0 || record.lockedUntil !== 0) {
             record = validateParentSecurityRecord(await repository.write({
               ...record,

@@ -25,6 +25,36 @@ function freezeState(status, learners, actionError) {
   });
 }
 
+// The snapshot validator accepts sparse progress entries (an imported backup
+// may carry only a stage), while the parent projection sums attempt counters
+// and would carry a NaN into its finite-number guard. Default the counters
+// here so every accepted snapshot projects.
+function projectionSafeSnapshot(snapshot) {
+  const progress = snapshot?.subjectState?.data?.progress;
+  if (!progress || typeof progress !== 'object') return snapshot;
+  const safeProgress = {};
+  for (const [runtimeItemId, entry] of Object.entries(progress)) {
+    safeProgress[runtimeItemId] = {
+      ...entry,
+      stage: Number.isSafeInteger(entry?.stage) ? entry.stage : 0,
+      attempts: Number.isSafeInteger(entry?.attempts) ? entry.attempts : 0,
+      correct: Number.isSafeInteger(entry?.correct) ? entry.correct : 0,
+      wrong: Number.isSafeInteger(entry?.wrong) ? entry.wrong : 0,
+      dueDay: Number.isSafeInteger(entry?.dueDay) ? entry.dueDay : 0,
+    };
+  }
+  return {
+    ...snapshot,
+    subjectState: {
+      ...snapshot.subjectState,
+      data: {
+        ...snapshot.subjectState.data,
+        progress: safeProgress,
+      },
+    },
+  };
+}
+
 export function createParentProgressController({
   profileRepository,
   snapshotStore,
@@ -64,7 +94,9 @@ export function createParentProgressController({
           if (typeof profile?.learnerId !== 'string') {
             throw new TypeError('Parent progress learner identity is invalid.');
           }
-          learnerSnapshots.push(await snapshotStore.read(profile.learnerId));
+          learnerSnapshots.push(
+            projectionSafeSnapshot(await snapshotStore.read(profile.learnerId)),
+          );
         }
         const completedSessions = learnerSnapshots
           .map(({ practiceSession }) => practiceSession)

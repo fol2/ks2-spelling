@@ -174,3 +174,54 @@ test('Parent progress fails closed without replacing its last redacted summary',
   });
   await controller.dispose();
 });
+
+test('Parent progress projects sparse imported progress entries without failing', async () => {
+  // The snapshot validator accepts stage-only progress entries, so an
+  // imported backup can store them; the projection sums attempt counters and
+  // must not fold the absent ones into NaN.
+  const catalogue = loadStarterSpellingCatalogue();
+  const seed = expectedB2Snapshot('learner-seed');
+  const [first, second] = catalogue.items;
+  seed.subjectState.data.progress[first.runtimeItemId] = { stage: 4 };
+  seed.subjectState.data.progress[second.runtimeItemId] = {
+    stage: 1,
+    attempts: 2,
+    correct: 2,
+    wrong: 0,
+    dueDay: 0,
+    lastDay: 20_467,
+    lastResult: 'correct',
+  };
+  const controller = createParentProgressController({
+    profileRepository: {
+      async listProfiles() {
+        return [{
+          learnerId: 'learner-seed',
+          nickname: 'Seed',
+          yearGroup: 'Y6',
+          goal: 10,
+          colour: '#A2543A',
+          createdAt: 100,
+          updatedAt: 100,
+        }];
+      },
+    },
+    snapshotStore: {
+      async read() {
+        return structuredClone(seed);
+      },
+    },
+    catalogue,
+    now: () => B2_NOW_MS,
+  });
+
+  await controller.refresh();
+
+  const state = controller.getState();
+  assert.equal(state.status, 'ready');
+  assert.equal(state.learners.length, 1);
+  assert.equal(state.learners[0].secureItemCount, 1);
+  assert.equal(state.learners[0].correctCount, 2);
+  assert.equal(state.learners[0].wrongCount, 0);
+  await controller.dispose();
+});

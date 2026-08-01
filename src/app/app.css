@@ -309,7 +309,8 @@ select {
 
 .button-quiet,
 .button-warning,
-.button-destructive {
+.button-destructive,
+.button-danger {
   display: inline-flex;
   min-height: 2.75rem;
   align-items: center;
@@ -325,8 +326,12 @@ select {
 
 /* Editing a learner, resetting their learning and deleting them were three
    identical pills, one of them irreversible, on a screen a parent taps through
-   quickly. Each level of consequence carries its own weight now, so the shape
-   of the control says what it costs before the label is read. */
+   quickly. Consequence now climbs in three documented tiers: reveal first —
+   the outlined quiet, warning and destructive pills, where the shape of the
+   control says what it costs before the label is read — then typed
+   confirmation, then commit. .button-danger is that final filled pill; its
+   fill is its weight, and its metrics match its quiet neighbours so the row
+   sits level when they stand side by side. */
 .button-warning {
   border-color: color-mix(in oklab, var(--brass) 45%, transparent);
   color: var(--brass-deep);
@@ -335,6 +340,15 @@ select {
 .button-destructive {
   border-color: color-mix(in oklab, var(--retry) 48%, transparent);
   color: var(--retry);
+  font-weight: 800;
+}
+
+.button-danger {
+  border-color: rgb(164 73 55 / 45%);
+  padding: 0 1rem;
+  background: rgb(252 229 227 / 80%);
+  color: #8d3a29;
+  font-size: 0.9rem;
   font-weight: 800;
 }
 
@@ -3087,21 +3101,6 @@ select {
 .record-roll-clean {
   margin-top: 0.7rem;
   font-size: 0.82rem;
-}
-
-.button-danger {
-  display: inline-flex;
-  min-height: 3rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  border: 1px solid rgb(164 73 55 / 45%);
-  border-radius: 999px;
-  padding: 0 1rem;
-  background: rgb(252 229 227 / 80%);
-  color: #8d3a29;
-  font-size: 0.9rem;
-  font-weight: 800;
 }
 
 /* The parent surface keeps its own document flow: it is a settings list, not

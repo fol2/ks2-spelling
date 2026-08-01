@@ -3,6 +3,7 @@ import { B4_AUDIO_AUTHORITY } from './b4-round-contract.js';
 import { createB4LearnerAction } from './b4-learner-action.js';
 import { markB4, measureB4 } from './b4-performance-marks.js';
 import ProductApp from './ProductApp.jsx';
+import './b4-shell.css';
 
 function B1App({ services }) {
   if (services.native.capabilities.mode !== 'prototype-only') {

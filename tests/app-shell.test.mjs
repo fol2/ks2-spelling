@@ -1426,4 +1426,15 @@ test('Capacitor and the built shell remain local-only', async () => {
       `production JavaScript must exclude ${forbiddenProofAuthority}`,
     );
   }
+
+  const bundledCss = (
+    await Promise.all(
+      (await readdir(join(ROOT, 'dist/assets')))
+        .filter((name) => name.endsWith('.css'))
+        .map((name) => readFile(join(ROOT, 'dist/assets', name), 'utf8')),
+    )
+  ).join('\n');
+  assert.match(bundledCss, /\.product-app/);
+  assert.doesNotMatch(bundledCss, /\.b4-learner-shell/);
+  assert.doesNotMatch(bundledCss, /\.status-pill/);
 });

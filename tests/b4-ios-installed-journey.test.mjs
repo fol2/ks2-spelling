@@ -65,7 +65,7 @@ test('the iOS installed journey follows the frozen B4 answers without a proof br
 });
 
 test('the B4 learner surface uses the standard WebKit Dynamic Type root', async () => {
-  const source = await readFile(new URL('../src/app/app.css', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../src/app/b4-shell.css', import.meta.url), 'utf8');
   assert.match(source, /@supports \(font: -apple-system-body\)/u);
   assert.match(source, /\.b4-learner-shell\s*\{\s*font: -apple-system-body;/u);
   assert.match(source, /\.b4-round-heading h1[\s\S]*?font-size: 2\.5em;/u);

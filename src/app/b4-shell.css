@@ -1,0 +1,321 @@
+/* B1–B4 proof-shell styles. Development-only: imported by App.jsx and the
+   B4 harness, never by ProductRoot or the production entry. */
+
+.shell {
+  display: grid;
+  width: min(100% - 2rem, 48rem);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: clamp(4rem, 12vh, 8rem) 0 2rem;
+  align-content: start;
+  gap: 1.25rem;
+}
+
+.hero,
+.status-card,
+.boundary,
+.evidence-grid,
+.commerce-card {
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 1.5rem;
+  background: rgb(9 27 38 / 72%);
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 24%);
+  backdrop-filter: blur(1rem);
+}
+
+.hero {
+  padding: clamp(2rem, 8vw, 4.5rem);
+}
+
+.eyebrow,
+.label {
+  margin: 0 0 0.75rem;
+  color: #82d2bd;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  max-width: 9ch;
+  margin-bottom: 1rem;
+  font-size: clamp(3.25rem, 13vw, 6.5rem);
+  line-height: 0.88;
+  letter-spacing: -0.065em;
+}
+
+.intro {
+  max-width: 34rem;
+  margin-bottom: 0;
+  color: #c4d0d5;
+  font-size: clamp(1.05rem, 3vw, 1.3rem);
+  line-height: 1.55;
+}
+
+.status-card {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+}
+
+.status-card h2 {
+  margin-bottom: 0;
+  font-size: clamp(1.25rem, 4vw, 1.75rem);
+}
+
+.status-pill {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 0.55rem 0.8rem;
+  color: #09241c;
+  background: #82d2bd;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.boundary {
+  padding: 1rem 1.25rem;
+  color: #b9c5ca;
+  font-size: 0.9rem;
+}
+
+.boundary p {
+  margin: 0;
+}
+
+.proof-status h2 {
+  color: #f5f1e8;
+}
+
+.proof-message {
+  max-width: 34rem;
+  margin: 0.65rem 0 0;
+  color: #c4d0d5;
+  line-height: 1.5;
+}
+
+.commerce-card {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.5rem;
+}
+
+.commerce-card h2,
+.localised-price {
+  margin-bottom: 0;
+}
+
+.localised-price {
+  margin-top: 0.45rem;
+  color: #f6d48b;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.proof-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.proof-actions button {
+  min-height: 3rem;
+  border: 1px solid rgb(130 210 189 / 55%);
+  border-radius: 0.9rem;
+  padding: 0.7rem 1rem;
+  color: #f5f1e8;
+  background: #173848;
+  font-weight: 750;
+}
+
+.proof-actions button:first-child {
+  color: #09241c;
+  background: #82d2bd;
+}
+
+.proof-actions button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.b3-proof-shell .evidence-grid dd {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  overflow: hidden;
+}
+
+.evidence-grid div {
+  padding: 1.25rem;
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
+}
+
+.evidence-grid div:nth-child(odd) {
+  border-right: 1px solid rgb(255 255 255 / 10%);
+}
+
+.evidence-grid dt {
+  margin-bottom: 0.45rem;
+  color: #82d2bd;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.evidence-grid dd {
+  margin: 0;
+  color: #d7e0e3;
+  font-weight: 650;
+}
+
+.b4-learner-shell {
+  width: min(100% - 2rem, 38rem);
+  padding-top: clamp(2rem, 8vh, 5rem);
+  overflow-wrap: anywhere;
+}
+
+.b4-round-heading,
+.b4-practice-card,
+.b4-audio-disclosure {
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 1.5rem;
+  background: rgb(9 27 38 / 82%);
+}
+
+.b4-round-heading,
+.b4-practice-card {
+  padding: clamp(1.4rem, 6vw, 2.5rem);
+}
+
+.b4-round-heading h1 {
+  max-width: 12ch;
+  margin-bottom: 1.25rem;
+  font-size: clamp(2.5rem, 11vw, 4.75rem);
+}
+
+.b4-progress,
+.b4-audio-disclosure {
+  margin: 0;
+  color: #c4d0d5;
+}
+
+.b4-audio-actions,
+.b4-entry-form {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.b4-audio-actions {
+  flex-wrap: wrap;
+  margin: 1.25rem 0;
+}
+
+.b4-entry-form {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.b4-entry-form label {
+  font-weight: 750;
+}
+
+.b4-entry-form input,
+.b4-learner-shell button {
+  min-height: 3rem;
+  min-width: 3rem;
+  border: 1px solid rgb(130 210 189 / 55%);
+  border-radius: 0.9rem;
+  padding: 0.7rem 1rem;
+}
+
+.b4-entry-form input {
+  color: #0d1d29;
+  background: #fff;
+  /* The default size attribute gives the input an intrinsic width that
+     forces the whole page into horizontal overflow at accessibility text
+     sizes; sizing it to its container keeps the layout inside the
+     viewport so every control stays reachable. */
+  width: 100%;
+  min-width: 0;
+}
+
+.b4-learner-shell button {
+  color: #09241c;
+  background: #82d2bd;
+  font-weight: 750;
+}
+
+.b4-learner-shell button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.b4-entry-form input:focus-visible,
+.b4-learner-shell button:focus-visible {
+  outline: 0.2rem solid #f6d48b;
+  outline-offset: 0.2rem;
+}
+
+.b4-feedback {
+  margin-top: 1.25rem;
+  border-left: 0.3rem solid #82d2bd;
+  padding-left: 1rem;
+}
+
+.b4-feedback h3,
+.b4-feedback p {
+  margin-bottom: 0.45rem;
+}
+
+.b4-feedback-error {
+  border-left-color: #f6d48b;
+}
+
+.b4-live-region {
+  min-height: 1.5rem;
+  margin: 0;
+}
+
+.b4-audio-disclosure {
+  padding: 1rem 1.25rem;
+  font-size: 0.9rem;
+}
+
+@supports (font: -apple-system-body) {
+  .b4-learner-shell {
+    font: -apple-system-body;
+  }
+
+  .b4-round-heading h1 {
+    font-family: inherit;
+    font-size: 2.5em;
+  }
+
+  .b4-audio-disclosure {
+    font-size: 0.9em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .b4-learner-shell * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

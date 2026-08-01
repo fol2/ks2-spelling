@@ -2278,6 +2278,15 @@ select {
     float 7s ease-in-out 700ms infinite;
 }
 
+.results-gain {
+  position: relative;
+  margin: 0;
+  color: rgb(230 203 142 / 92%);
+  font-family: var(--serif);
+  font-size: 1rem;
+  animation: riseSoft 400ms var(--ease) backwards;
+}
+
 .field-record {
   position: relative;
   flex: none;
@@ -2726,16 +2735,17 @@ select {
   text-align: left;
 }
 
+.parent-learner-avatar,
 .learner-avatar {
   display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.4rem;
+  height: 2.4rem;
   place-items: center;
-  border-radius: 0.8rem 0.8rem 0.8rem 0.25rem;
+  border-radius: 0.75rem 0.75rem 0.75rem 0.25rem;
   background: var(--learner-colour, var(--brand));
   color: var(--dusk-ink);
   font-family: var(--serif);
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 600;
 }
 
@@ -2918,20 +2928,15 @@ select {
   line-height: 1.5;
 }
 
-.exit-actions {
+.exit-confirmation > div > div:last-child {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.35rem;
 }
 
-.exit-actions .button-brand {
-  width: auto;
-  flex: 1 1 9rem;
-}
-
-.exit-actions .button-quiet {
-  flex: 1 1 7rem;
+.exit-confirmation > div > div:last-child button {
+  flex: 1 1 8rem;
 }
 
 /* --- parent gate and area ------------------------------------------------ */
@@ -2940,33 +2945,8 @@ select {
   background: #eae6db;
 }
 
-.parent-gate {
-  display: grid;
-  flex: 1;
-  align-content: start;
-  justify-items: center;
-  gap: 0.4rem;
-  padding-top: 1.5rem;
-  text-align: center;
-}
-
-.parent-gate-mark {
-  display: grid;
-  width: 3.25rem;
-  height: 3.25rem;
-  place-items: center;
-  border-radius: 1.1rem;
-  background: rgb(29 43 58 / 7%);
-}
-
-.parent-gate h1 {
-  margin-top: 0.6rem;
-}
-
-.parent-gate > p {
-  color: var(--ink-soft);
-  font-size: 0.9rem;
-}
+/* The parent gate wears paper-card; parent-gate-card stays in the markup as a
+   semantic hook with no styles of its own. */
 
 .parent-pin-form {
   display: grid;
@@ -3013,15 +2993,8 @@ select {
   padding-bottom: 1.5rem;
 }
 
-.parent-card {
-  display: grid;
-  gap: 0.6rem;
-  border: 1px solid var(--line);
-  border-radius: 1.4rem;
-  padding: 1rem 1.05rem;
-  background: var(--paper-raised);
-  box-shadow: var(--plate-shadow);
-}
+/* .parent-card rides .paper-card for its box and remains as the semantic hook
+   the child rules and the accessibility blocks key on. */
 
 .parent-card h2 {
   font-size: 1.2rem;
@@ -3056,6 +3029,12 @@ select {
   font-family: var(--serif);
   font-weight: 500;
   font-variant-numeric: lining-nums tabular-nums;
+}
+
+.parent-card summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
 }
 
 .parent-actions {
@@ -3123,17 +3102,6 @@ select {
   color: #8d3a29;
   font-size: 0.9rem;
   font-weight: 800;
-}
-
-.exit-confirmation > div > div:last-child {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.35rem;
-}
-
-.exit-confirmation > div > div:last-child button {
-  flex: 1 1 8rem;
 }
 
 /* The parent surface keeps its own document flow: it is a settings list, not
@@ -3205,20 +3173,6 @@ select {
   margin-top: 0.15rem;
   color: var(--ink-soft);
   font-size: 0.78rem;
-}
-
-.parent-learner-avatar,
-.learner-avatar {
-  display: grid;
-  width: 2.4rem;
-  height: 2.4rem;
-  place-items: center;
-  border-radius: 0.75rem 0.75rem 0.75rem 0.25rem;
-  background: var(--learner-colour, var(--brand));
-  color: var(--dusk-ink);
-  font-family: var(--serif);
-  font-size: 1.1rem;
-  font-weight: 600;
 }
 
 .parent-learner-actions,
@@ -3340,12 +3294,6 @@ select {
 @keyframes haloBreathe {
   0%, 100% { opacity: 0.55; transform: scale(1); }
   50% { opacity: 0.9; transform: scale(1.06); }
-}
-
-@keyframes drift {
-  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
-  18% { opacity: 0.9; }
-  100% { opacity: 0; transform: translate(14px, -116px) scale(1); }
 }
 
 /* --- accessibility ------------------------------------------------------- */

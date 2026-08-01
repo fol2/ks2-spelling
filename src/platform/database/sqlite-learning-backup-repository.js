@@ -236,7 +236,11 @@ export function createSQLiteLearningBackupRepository({
       const backup = codec.decode(bytes);
       const importedAt = sampleTimestamp(now);
       return gate.run(() => runOwnedTransaction(connection, async () => {
-        const deleted = await connection.execute('DELETE FROM learner_profiles');
+        // The empty values array keeps this on the adapter's single-statement
+        // run path: the Capacitor plugin's statement-batch API executes this
+        // DELETE as a no-op on iOS, which left every existing learner in
+        // place and failed a same-learner re-import on its primary key.
+        const deleted = await connection.execute('DELETE FROM learner_profiles', []);
         if (!Number.isSafeInteger(deleted?.changes) || deleted.changes < 0) {
           throw repositoryError('learning_backup_write_failed');
         }

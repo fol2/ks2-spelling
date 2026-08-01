@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import {
   campLevelCelebration,
+  celebrationBeats,
   celebrationCopy,
   celebrationDurationMs,
   celebrationEventKey,
@@ -298,6 +299,73 @@ test('celebration copy distinguishes progress, catch and final evolution', () =>
   assert.equal(celebrationDurationMs(finalEvolution), 4000);
 });
 
+test('celebrationBeats keeps every kind ascending and finished inside its card', () => {
+  const representative = {
+    caught: { kind: 'caught', monsterId: 'inklet', stage: 0 },
+    evolve: { kind: 'evolve', monsterId: 'inklet', stage: 2 },
+    progress: { kind: 'progress', monsterId: 'inklet', stage: 1, target: 100 },
+    'camp-level': campLevelCelebration(4),
+  };
+
+  for (const [kind, event] of Object.entries(representative)) {
+    const beats = celebrationBeats(kind);
+    assert.ok(Object.isFrozen(beats), `${kind} beats must be frozen`);
+
+    const offsets = Object.values(beats);
+    assert.ok(offsets.length >= 3, `${kind} needs a real schedule`);
+    assert.equal(beats.veil, 0, `${kind} must open on the veil at 0ms`);
+    for (let index = 1; index < offsets.length; index += 1) {
+      assert.ok(
+        offsets[index] > offsets[index - 1],
+        `${kind} beats must ascend: ${JSON.stringify(beats)}`,
+      );
+    }
+
+    const duration = celebrationDurationMs(event);
+    const last = offsets.at(-1);
+    assert.ok(last <= duration, `${kind} beat ${last}ms outruns ${duration}ms`);
+    assert.ok(
+      duration - last >= 600,
+      `${kind} must leave 600ms of rest, has ${duration - last}ms`,
+    );
+  }
+
+  // A final evolution runs the same beats inside its longer window.
+  assert.ok(
+    celebrationDurationMs({ kind: 'evolve', stage: 4 })
+      - celebrationBeats('evolve').settle >= 600,
+  );
+});
+
+test('celebrationBeats names the beats each kind is choreographed to', () => {
+  assert.deepEqual(
+    Object.keys(celebrationBeats('caught')),
+    ['veil', 'rise', 'burst', 'copy', 'settle'],
+  );
+  assert.deepEqual(
+    Object.keys(celebrationBeats('evolve')),
+    ['veil', 'silhouette', 'shockwave', 'reveal', 'copy', 'settle'],
+  );
+  // The quiet kinds stay a two-beat stagger: the mark, then all the copy.
+  assert.deepEqual(Object.keys(celebrationBeats('progress')), ['veil', 'mark', 'copy']);
+  assert.deepEqual(
+    Object.keys(celebrationBeats('camp-level')),
+    ['veil', 'mark', 'copy'],
+  );
+  assert.equal(celebrationBeats('caught').copy, 650);
+  assert.equal(celebrationBeats('evolve').reveal, 760);
+});
+
+test('celebrationBeats falls back to the progress shape for unknown kinds', () => {
+  const progress = celebrationBeats('progress');
+  assert.deepEqual(celebrationBeats('nonsense'), progress);
+  assert.deepEqual(celebrationBeats(), progress);
+  assert.deepEqual(celebrationBeats(null), progress);
+  // Inherited object keys are not kinds either.
+  assert.deepEqual(celebrationBeats('constructor'), progress);
+  assert.deepEqual(celebrationBeats('toString'), progress);
+});
+
 test('fully evolved progress reports real secure count without an impossible fraction', () => {
   const event = {
     kind: 'progress',
@@ -482,6 +550,47 @@ test('celebration layer hardens modal focus, timers, scrolling and haptics', asy
   assert.match(source, /sfx\?\.play\(/u);
   assert.match(source, /'catch'/u);
   assert.match(source, /'evolve'/u);
+});
+
+test('the quiet reward flourishes stay inside the product reduced-motion kill list', async () => {
+  const css = await readFile(
+    resolve(import.meta.dirname, '../src/app/app.css'),
+    'utf8',
+  );
+
+  const reduce = css.lastIndexOf('@media (prefers-reduced-motion: reduce)');
+  assert.ok(reduce > 0, 'app.css must keep a reduced-motion kill list');
+  const kill = css.slice(reduce, css.indexOf('@media (forced-colors: active)', reduce));
+  assert.match(kill, /\.product-app \*,/u);
+  assert.match(kill, /animation: none !important;/u);
+  // The camp ring sweeps with a transition, so the kill list must stop those too.
+  assert.match(kill, /transition: none !important;/u);
+
+  assert.match(css, /\.camp-ring-progress \{[^}]*transition: stroke-dashoffset/u);
+  assert.match(css, /@keyframes growPipSettle/u);
+  assert.match(
+    css,
+    /\.record-growth-bars span\[data-latest='true'\] \{[^}]*growPipSettle/u,
+  );
+
+  // Camp embers are CSS-only motes on existing elements: no canvas, no DOM,
+  // and invisible the moment their animation is stilled.
+  assert.doesNotMatch(css, /\.camp-ember/u);
+  const embers = css.match(
+    /\.camp-ring::after,[\s\S]{0,120}?\.camp-ring-face::after \{([^}]*)\}/u,
+  );
+  assert.ok(embers, 'the camp embers must share one base rule');
+  assert.match(embers[1], /opacity: 0;/u);
+  assert.match(css, /@keyframes campEmber/u);
+  const motes = ['.camp-ring::after', '.camp-ring-face::before', '.camp-ring-face::after'];
+  for (const mote of motes) {
+    const selector = mote.replace(/\./gu, '\\.');
+    assert.match(
+      css,
+      new RegExp(`${selector} \\{[^}]*animation: campEmber`, 'u'),
+      `${mote} must flicker on the shared ember keyframe`,
+    );
+  }
 });
 
 test('camp-level celebration layer renders the shield mark without monster art', async (t) => {

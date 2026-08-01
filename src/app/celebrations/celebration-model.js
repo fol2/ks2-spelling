@@ -317,6 +317,55 @@ export function celebrationDurationMs(event) {
   return 3000;
 }
 
+/*
+ * Entrance beats, in milliseconds from the moment a card mounts. A catch is a
+ * reveal and an evolution is a transformation, so each earns a rhythm; the
+ * quiet moments keep a gentle two-beat stagger instead.
+ *
+ *   caught      veil → rise → burst → copy → settle
+ *   evolve      veil → silhouette → shockwave → reveal → copy → settle
+ *   progress    veil → mark → copy
+ *   camp-level  veil → mark → copy
+ *
+ * Offsets ascend strictly and every last beat sits at least 600ms inside
+ * celebrationDurationMs for its kind, so the finished card is readable before
+ * the DOM timer advances the queue.
+ */
+const CELEBRATION_BEATS = Object.freeze({
+  // 120 lifts the art, 220 later the light breaks, then the copy opens out.
+  caught: Object.freeze({
+    veil: 0,
+    rise: 120,
+    burst: 340,
+    copy: 650,
+    settle: 1020,
+  }),
+  // A steady ~330ms pulse once the silhouette is up: ring, reveal, name, meter.
+  evolve: Object.freeze({
+    veil: 0,
+    silhouette: 90,
+    shockwave: 420,
+    reveal: 760,
+    copy: 1080,
+    settle: 1400,
+  }),
+  progress: Object.freeze({ veil: 0, mark: 90, copy: 380 }),
+  'camp-level': Object.freeze({ veil: 0, mark: 110, copy: 430 }),
+});
+
+/**
+ * Named entrance beats for one celebration kind. This model is the single
+ * source the stylesheet delays mirror — every per-kind `animation-delay` in
+ * celebrations.css, and the live evolve schedule in celebration-scene.js,
+ * quotes one of these numbers. Unknown kinds take the progress shape. Tests pin
+ * the monotonicity and the duration bound.
+ */
+export function celebrationBeats(kind) {
+  return Object.hasOwn(CELEBRATION_BEATS, kind)
+    ? CELEBRATION_BEATS[kind]
+    : CELEBRATION_BEATS.progress;
+}
+
 /** Stable identity for haptics and remaining-time bookkeeping. */
 export function celebrationEventKey(event, index = 0) {
   if (!event) return '';

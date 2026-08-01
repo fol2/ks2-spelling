@@ -128,11 +128,12 @@
   min-height: 10rem;
 }
 
+/* Progress opens on its mark beat and then simply breathes. */
 .celebration-progress .celebration-art {
   width: min(14rem, 58vw);
   height: min(14rem, 58vw);
   animation:
-    celebrationPetIn 560ms cubic-bezier(0.16, 1, 0.3, 1) 80ms both,
+    celebrationPetIn 560ms cubic-bezier(0.16, 1, 0.3, 1) 90ms both,
     celebrationPetFloat 3.6s ease-in-out 720ms infinite;
 }
 
@@ -159,10 +160,13 @@
   height: 100%;
 }
 
+/* The rise beat lifts the companion; the squash lands it exactly where the rise
+   ends (120 + 700). The landing fills forwards only — a `both` here would hold
+   its own first frame through the delay and cancel the rise it finishes. */
 .celebration-caught .celebration-art {
   animation:
-    celebrationPetIn 720ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both,
-    celebrationCaughtBounce 900ms cubic-bezier(0.2, 0.9, 0.2, 1) 780ms both;
+    celebrationPetIn 700ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both,
+    celebrationCaughtBounce 900ms cubic-bezier(0.2, 0.9, 0.2, 1) 820ms forwards;
 }
 
 .celebration-evolve .celebration-stage::after {
@@ -182,10 +186,24 @@
   pointer-events: none;
 }
 
+/* The form arrives as a black shape and holds it until the light takes it:
+   670ms of travel from the silhouette beat puts 49% on the shockwave (420ms)
+   and lands 100% on the reveal (760ms), where the flash picks it up. Only the
+   first animation may fill backwards — a later `both` would mask the ones
+   before it for the whole of its delay. */
 .celebration-evolve .celebration-art {
   animation:
-    celebrationEvolutionFlash 860ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both,
-    celebrationPetFloat 4.2s ease-in-out 1.05s infinite;
+    celebrationSilhouetteReveal 670ms cubic-bezier(0.16, 1, 0.3, 1) 90ms both,
+    celebrationEvolutionFlash 420ms cubic-bezier(0.16, 1, 0.3, 1) 760ms forwards,
+    celebrationPetFloat 4.2s ease-in-out 1.2s infinite;
+}
+
+/* The static card's shockwave: the halo blows outward on the beat, then hands
+   its own resting frame to the ambient loop. */
+.celebration-evolve .celebration-halo {
+  animation:
+    celebrationShockwave 620ms cubic-bezier(0.2, 0.7, 0.2, 1) 420ms both,
+    celebrationHalo 2.8s ease-in-out 1.04s infinite;
 }
 
 .celebration-overlay[data-final='true'] .celebration-stage::after {
@@ -416,6 +434,76 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Staged entrance — these delays mirror celebrationBeats(kind) in
+   celebration-model.js; change the model first, then these numbers. The action
+   line is deliberately absent: the way out of the card is never staged. */
+
+.celebration-eyebrow,
+.celebration-headline,
+.celebration-stage-label,
+.celebration-body,
+.celebration-meter {
+  animation: celebrationCopyIn 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* caught — the name arrives on the copy beat, the detail settles after it. */
+.celebration-caught .celebration-eyebrow,
+.celebration-caught .celebration-headline {
+  animation-delay: 650ms;
+}
+
+.celebration-caught .celebration-stage-label,
+.celebration-caught .celebration-body,
+.celebration-caught .celebration-meter {
+  animation-delay: 1020ms;
+}
+
+/* evolve — the new stage name is the reveal itself, so it lands with the art. */
+.celebration-evolve .celebration-eyebrow,
+.celebration-evolve .celebration-headline {
+  animation-delay: 760ms;
+}
+
+.celebration-evolve .celebration-stage-label,
+.celebration-evolve .celebration-body {
+  animation-delay: 1080ms;
+}
+
+.celebration-evolve .celebration-meter {
+  animation-delay: 1400ms;
+}
+
+/* progress and camp-level — one gentle beat for all the copy at once. */
+.celebration-progress .celebration-eyebrow,
+.celebration-progress .celebration-headline,
+.celebration-progress .celebration-stage-label,
+.celebration-progress .celebration-body,
+.celebration-progress .celebration-meter {
+  animation-delay: 380ms;
+}
+
+.celebration-camp-level .celebration-eyebrow,
+.celebration-camp-level .celebration-headline,
+.celebration-camp-level .celebration-stage-label,
+.celebration-camp-level .celebration-body,
+.celebration-camp-level .celebration-meter {
+  animation-delay: 430ms;
+}
+
+.celebration-camp-level .celebration-mark {
+  animation: celebrationPetIn 560ms cubic-bezier(0.16, 1, 0.3, 1) 110ms both;
+}
+
+/* The motes are the burst, so they wait for it. The quiet kinds keep their
+   sparkle where it is — small moments do not get choreographed. */
+.celebration-caught .celebration-part {
+  animation-delay: calc(340ms + var(--particle-delay));
+}
+
+.celebration-evolve .celebration-part {
+  animation-delay: calc(420ms + var(--particle-delay));
+}
+
 @keyframes celebrationScrimIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -439,22 +527,61 @@
   100% { transform: translateY(0) scale(1); }
 }
 
-@keyframes celebrationEvolutionFlash {
+/* The silhouette half of an evolution: the shape rises black, braces as the
+   shockwave passes it at 49%, and hands the light a gathering glow. */
+@keyframes celebrationSilhouetteReveal {
   0% {
     opacity: 0;
     filter:
-      brightness(2.4)
-      saturate(0.2)
-      drop-shadow(0 0 42px white);
-    transform: scale(0.58) rotate(-4deg);
+      brightness(0)
+      saturate(1)
+      drop-shadow(0 18px 22px rgb(0 0 0 / 62%));
+    transform: translateY(16px) scale(0.76);
   }
-  48% {
+  33% {
     opacity: 1;
     filter:
-      brightness(1.7)
-      saturate(0.65)
-      drop-shadow(0 0 54px var(--celebration-secondary));
-    transform: scale(1.08) rotate(1deg);
+      brightness(0)
+      saturate(1)
+      drop-shadow(0 16px 20px rgb(0 0 0 / 58%));
+    transform: translateY(0) scale(0.97);
+  }
+  49% {
+    opacity: 1;
+    filter:
+      brightness(0)
+      saturate(1)
+      drop-shadow(0 0 26px color-mix(in srgb, var(--celebration-secondary) 58%, transparent));
+    transform: translateY(0) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    filter:
+      brightness(0)
+      saturate(1)
+      drop-shadow(0 0 40px color-mix(in srgb, var(--celebration-secondary) 80%, transparent));
+    transform: translateY(0) scale(1.06);
+  }
+}
+
+/* The reveal half: it opens on exactly the frame the silhouette ended, so the
+   two read as one movement from dark shape to new form. */
+@keyframes celebrationEvolutionFlash {
+  0% {
+    opacity: 1;
+    filter:
+      brightness(0)
+      saturate(1)
+      drop-shadow(0 0 40px color-mix(in srgb, var(--celebration-secondary) 80%, transparent));
+    transform: translateY(0) scale(1.06);
+  }
+  30% {
+    opacity: 1;
+    filter:
+      brightness(2.4)
+      saturate(0.25)
+      drop-shadow(0 0 54px white);
+    transform: translateY(0) scale(1.045);
   }
   100% {
     opacity: 1;
@@ -462,8 +589,21 @@
       brightness(1)
       saturate(1)
       drop-shadow(0 24px 25px rgb(0 0 0 / 66%));
-    transform: scale(1) rotate(0);
+    transform: translateY(0) scale(1);
   }
+}
+
+/* The static card's shockwave, drawn by the halo it already owns. It ends on
+   the ambient loop's own first frame so the handover is invisible. */
+@keyframes celebrationShockwave {
+  0% { opacity: 0; transform: scale(0.3); }
+  30% { opacity: 0.95; transform: scale(1.2); }
+  100% { opacity: 0.62; transform: scale(0.94); }
+}
+
+@keyframes celebrationCopyIn {
+  from { opacity: 0; transform: translateY(9px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes celebrationPetFloat {
@@ -538,16 +678,31 @@
   .celebration-card,
   .celebration-halo,
   .celebration-art,
+  .celebration-mark,
   .celebration-evolve .celebration-stage::after,
   .celebration-effects .fx-shiny,
   .celebration-effects .fx-mega-aura,
   .celebration-part,
+  .celebration-eyebrow,
+  .celebration-headline,
+  .celebration-stage-label,
+  .celebration-body,
+  .celebration-meter,
   .celebration-meter-fill {
     animation: none !important;
   }
 
   .celebration-meter-fill {
     transform: scaleX(var(--progress-to));
+  }
+
+  /* The evolve silhouette lives only inside its keyframes, so cancelling the
+     animation already restores full-brightness art. Said out loud here so no
+     later static darkening can ever leave a black square in its place. */
+  .celebration-evolve .celebration-art {
+    filter:
+      drop-shadow(0 24px 25px rgb(0 0 0 / 66%))
+      drop-shadow(0 0 22px color-mix(in srgb, var(--celebration-accent) 34%, transparent));
   }
 }
 

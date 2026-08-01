@@ -1359,8 +1359,65 @@ select {
   animation: rise 320ms var(--ease) 60ms backwards;
 }
 
+/* The arc sweeps to its value instead of snapping there — from empty on first
+   paint, and from the old level on the day the fire climbs. 333 is the
+   circumference CampScreen draws the ring with. */
 .camp-ring-progress {
   stroke: var(--brass);
+  transition: stroke-dashoffset 820ms var(--ease);
+}
+
+@starting-style {
+  .camp-ring-progress {
+    stroke-dashoffset: 333;
+  }
+}
+
+/* Camp embers: two motes over the fire mark and one over the ring, drawn with
+   pseudo-elements so Camp gains no DOM and no canvas for them. They exist only
+   as motion — the static state is invisible, which is also the reduced-motion
+   state, since the kill list below stops the animation and leaves opacity 0. */
+.camp-ring::after,
+.camp-ring-face::before,
+.camp-ring-face::after {
+  --ember-peak: 0.46;
+
+  position: absolute;
+  width: 0.2rem;
+  height: 0.2rem;
+  border-radius: 50%;
+  background: var(--brass);
+  box-shadow: 0 0 6px rgb(224 180 99 / 75%);
+  opacity: 0;
+  content: '';
+  pointer-events: none;
+}
+
+.camp-ring::after {
+  top: 24%;
+  left: 50%;
+  animation: campEmber 4.6s ease-in-out 600ms infinite;
+}
+
+.camp-ring-face::before {
+  --ember-peak: 0.38;
+
+  top: 27%;
+  left: 43%;
+  width: 0.15rem;
+  height: 0.15rem;
+  background: var(--brass-deep);
+  animation: campEmber 5.8s ease-in-out -1900ms infinite;
+}
+
+.camp-ring-face::after {
+  --ember-peak: 0.32;
+
+  top: 26%;
+  left: 57%;
+  width: 0.13rem;
+  height: 0.13rem;
+  animation: campEmber 3.9s ease-in-out -900ms infinite;
 }
 
 .camp-scene .camp-card {
@@ -2697,9 +2754,14 @@ select {
   background: var(--brass-ink);
 }
 
+/* The newest pip lands rather than appears: it grows, then thickens and glows
+   once on the beat the grow ends (360ms + --t-reveal). The pulse drives the
+   independent `scale` property so it never fights growSeg's transform. */
 .record-growth-bars span[data-latest='true'] {
   background: linear-gradient(90deg, var(--brass-ink), #e0b463);
-  animation: growSeg var(--t-reveal) var(--ease) 360ms backwards;
+  animation:
+    growSeg var(--t-reveal) var(--ease) 360ms backwards,
+    growPipSettle 460ms var(--ease) 880ms backwards;
 }
 
 .record-growth-secure {
@@ -3375,6 +3437,21 @@ select {
   to { transform: scaleX(1); }
 }
 
+@keyframes growPipSettle {
+  0% { scale: 1 0.72; box-shadow: 0 0 0 rgb(224 180 99 / 0%); }
+  46% { scale: 1 1.6; box-shadow: 0 0 9px rgb(224 180 99 / 85%); }
+  100% { scale: 1 1; box-shadow: 0 0 0 rgb(224 180 99 / 0%); }
+}
+
+/* One ember: up, sideways a little, out. Three of them at different speeds
+   read as a fire rather than as a loop. */
+@keyframes campEmber {
+  0% { opacity: 0; translate: 0 0; scale: 0.7; }
+  24% { opacity: var(--ember-peak); }
+  60% { opacity: calc(var(--ember-peak) * 0.72); translate: 0.14rem -0.85rem; }
+  100% { opacity: 0; translate: -0.1rem -1.6rem; scale: 1.05; }
+}
+
 @keyframes recordIn {
   0% { opacity: 0; transform: translateY(30px) scale(0.965); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
@@ -3428,6 +3505,9 @@ select {
   .codex-hero-glow,
   .codex-hero-sheen,
   .quest-tile-sheen,
+  .camp-ring::after,
+  .camp-ring-face::before,
+  .camp-ring-face::after,
   .results-halo::before {
     display: none;
   }

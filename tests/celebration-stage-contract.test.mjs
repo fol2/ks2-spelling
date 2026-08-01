@@ -111,6 +111,58 @@ test('celebration-scene factory takes Phaser as an argument with no top-level im
   assert.doesNotMatch(source, /^import\s+.*['"]phaser['"]/mu);
   assert.doesNotMatch(source, /from\s+['"]phaser['"]/u);
   assert.match(source, /from ['"]\.\.\/monster-stage\/stage-fx\.js['"]/u);
+  // The live evolution keeps all three shared primitives and takes its schedule
+  // from the same beat model the stylesheet mirrors.
+  assert.match(source, /spawnBurst\(/u);
+  assert.match(source, /glowPulse\(/u);
+  assert.match(source, /shockwaveRing\(/u);
+  assert.match(source, /celebrationBeats\(/u);
+  assert.match(source, /beats\.shockwave/u);
+  assert.match(source, /beats\.reveal/u);
+});
+
+test('the evolve card opens as a silhouette and clears it at the reveal beat', async () => {
+  const styles = await readFile(
+    join(ROOT, 'src/app/celebrations/celebrations.css'),
+    'utf8',
+  );
+
+  assert.match(
+    styles,
+    /\.celebration-evolve \.celebration-art \{[^}]*celebrationSilhouetteReveal/u,
+    'the evolve art must run the silhouette keyframe',
+  );
+  assert.match(
+    styles,
+    /@keyframes celebrationSilhouetteReveal \{[\s\S]*?brightness\(0\)/u,
+    'the silhouette must open at brightness(0)',
+  );
+  assert.match(styles, /delays mirror celebrationBeats/u);
+
+  const reduce = styles.lastIndexOf('@media (prefers-reduced-motion: reduce)');
+  assert.ok(reduce > 0, 'celebrations.css must keep its reduce block');
+  const kill = styles.slice(reduce);
+  assert.match(kill, /animation: none !important;/u);
+  for (const selector of [
+    '.celebration-art',
+    '.celebration-part',
+    '.celebration-eyebrow',
+    '.celebration-headline',
+    '.celebration-stage-label',
+    '.celebration-body',
+    '.celebration-meter',
+  ]) {
+    assert.ok(
+      kill.includes(`${selector},`),
+      `${selector} must be inside the reduced-motion kill list`,
+    );
+  }
+  // Reduced motion must never be left holding a black square where the art is.
+  assert.doesNotMatch(kill, /brightness\(0\)/u);
+  assert.match(
+    kill,
+    /\.celebration-evolve \.celebration-art \{[^}]*filter:[^}]*drop-shadow/u,
+  );
 });
 
 test('CelebrationStage destroys on background and unmount and blocks pointer events', async () => {

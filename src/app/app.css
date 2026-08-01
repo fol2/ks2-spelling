@@ -3669,7 +3669,11 @@ h1 {
 @media (prefers-reduced-motion: reduce) {
   .product-app *,
   .product-app *::before,
-  .product-app *::after {
+  .product-app *::after,
+  .app-boot,
+  .app-boot *,
+  .app-boot *::before,
+  .app-boot *::after {
     scroll-behavior: auto !important;
     animation: none !important;
     transition: none !important;
@@ -3963,4 +3967,199 @@ h1 {
     padding-right: max(25%, 0.75rem);
     padding-left: max(25%, 0.75rem);
   }
+}
+
+/* ==========================================================================
+   Boot surface — the overture
+   The two screens that paint before a single service exists: the loading
+   shell and the recovery screen. They wear the product's vellum, its serif
+   and its tracked-out kicker so the very first frame already belongs to the
+   game, but they are written out in full rather than reaching for the
+   product's tokens: `.product-app` does not exist yet when these paint, and
+   they must not be nested inside it either, because that surface locks itself
+   to `100dvh` with `overflow: hidden` and would clip a long stack trace out
+   of reach. Every colour below is therefore a literal, matched to the palette
+   declared on `.product-app`.
+   ========================================================================== */
+
+.app-boot {
+  /* `.press`, reused by the restart button, reads `--ease` for its slower
+     half. The product surface declares that curve on `.product-app`, which is
+     not an ancestor here, so the boot surface declares the same one for
+     itself rather than letting the transition drop. */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  flex-direction: column;
+  justify-content: center;
+  /* A stack trace longer than the viewport must not be centred off the top of
+     the page, where nothing can scroll it back. Browsers without the `safe`
+     keyword drop this line and keep the plain centring above. */
+  justify-content: safe center;
+  padding:
+    max(1.75rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+    max(1.5rem, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)))
+    max(1.75rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))
+    max(1.5rem, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+  background:
+    radial-gradient(120% 68% at 50% -12%, #fffdf7 0%, rgb(255 253 247 / 0%) 62%),
+    #f8f5ec;
+  color: #1d2b3a;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: anywhere;
+}
+
+/* The footer margin is what lifts the block to the optical centre rather than
+   the arithmetic one, the way a title page carries more paper below the title
+   than above it. */
+.app-boot-panel {
+  width: min(100%, 26rem);
+  margin: 0 auto 8vh;
+}
+
+.app-boot-kicker {
+  margin: 0;
+  color: rgb(29 43 58 / 45%);
+  font-size: 0.66rem;
+  font-weight: 800;
+  /* `.product-kicker`'s treatment, opened up a little the way the trail opens
+     its topline: this one stands alone above a title rather than labelling a
+     card underneath it. */
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.app-boot-title {
+  max-width: 14ch;
+  margin: 0.6rem 0 0;
+  font-family: Fraunces, Georgia, "Times New Roman", serif;
+  font-size: clamp(1.85rem, 8.5vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+/* The one flourish on the page: the brass hairline the trail runs under its
+   topline, drawn here on vellum instead of dusk. */
+.app-boot-title::after {
+  content: '';
+  display: block;
+  width: 4.25rem;
+  height: 1px;
+  margin-top: 1.15rem;
+  background: linear-gradient(90deg, rgb(160 107 34 / 60%), rgb(160 107 34 / 0%));
+}
+
+.app-boot-body {
+  max-width: 30rem;
+  margin: 1.1rem 0 0;
+  color: rgb(29 43 58 / 62%);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.app-boot-action {
+  margin-top: 1.7rem;
+}
+
+.app-boot button {
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-boot button:focus-visible,
+.app-boot summary:focus-visible {
+  outline: 3px solid #3e6fa8;
+  outline-offset: 3px;
+}
+
+/* The diagnosis is for whoever is helping, not for the child, so it stays
+   folded away behind quiet chrome — and opens onto something legible and
+   scrollable rather than a wall of wrapped text that buries the one button
+   that recovers the app. */
+.app-boot-detail {
+  margin-top: 1.6rem;
+  border-top: 1px solid rgb(29 43 58 / 12%);
+}
+
+.app-boot-detail summary {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgb(29 43 58 / 45%);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  list-style: none;
+  cursor: pointer;
+}
+
+.app-boot-detail summary::-webkit-details-marker {
+  display: none;
+}
+
+.app-boot-detail summary::before {
+  content: '';
+  width: 0.32rem;
+  height: 0.32rem;
+  flex: none;
+  border-right: 1.25px solid rgb(29 43 58 / 45%);
+  border-bottom: 1.25px solid rgb(29 43 58 / 45%);
+  rotate: -45deg;
+  translate: 0 -0.05rem;
+  transition: rotate 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-boot-detail[open] summary::before {
+  rotate: 45deg;
+  translate: 0 -0.12rem;
+}
+
+.app-boot-detail pre {
+  max-height: min(38vh, 18rem);
+  margin: 0 0 0.4rem;
+  overflow: auto;
+  border: 1px solid rgb(29 43 58 / 12%);
+  border-radius: 0.85rem;
+  padding: 0.85rem 0.95rem;
+  background: #fffdf7;
+  color: rgb(29 43 58 / 72%);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Entrance: a page settling, not a spinner. One soft rise, staggered by a
+   hair so the eye lands on the title. Reduced motion stills all of it — see
+   the kill list above. */
+.app-boot-kicker,
+.app-boot-title,
+.app-boot-body,
+.app-boot-action,
+.app-boot-detail {
+  animation: riseSoft 380ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.app-boot-title {
+  animation-delay: 60ms;
+}
+
+.app-boot-body {
+  animation-delay: 110ms;
+}
+
+.app-boot-action,
+.app-boot-detail {
+  animation-delay: 160ms;
 }

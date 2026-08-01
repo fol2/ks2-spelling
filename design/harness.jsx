@@ -9,6 +9,8 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import ProductApp from '../src/app/ProductApp.jsx';
+import AppErrorBoundary from '../src/app/AppErrorBoundary.jsx';
+import AppLoadingShell from '../src/app/AppLoadingShell.jsx';
 import '../src/app/app.css';
 import './harness.css';
 
@@ -451,8 +453,41 @@ function Harness() {
   return <ProductApp services={services} />;
 }
 
+/* The boot surfaces paint before any service exists, so they are mounted
+   directly rather than through ProductApp. The recovery screen only has one
+   way in — a child that throws — and the error carries a short fixed stack so
+   the folded diagnosis has something realistic to lay out. */
+const BOOT_FAILURE = new Error('Cannot read properties of null (reading \'learnerId\')');
+
+BOOT_FAILURE.stack = [
+  'TypeError: Cannot read properties of null (reading \'learnerId\')',
+  '    at TrailScreen (ProductApp.jsx:1462:31)',
+  '    at renderWithHooks (react-dom-client.development.js:5529:16)',
+  '    at updateFunctionComponent (react-dom-client.development.js:8897:19)',
+  '    at beginWork (react-dom-client.development.js:10522:18)',
+  '    at runWithFiberInDEV (react-dom-client.development.js:1520:13)',
+  '    at performUnitOfWork (react-dom-client.development.js:15133:22)',
+].join('\n');
+
+function BootFailure() {
+  throw BOOT_FAILURE;
+}
+
+function Root() {
+  const screen = new URLSearchParams(globalThis.location.search).get('screen');
+  if (screen === 'boot-loading') return <AppLoadingShell />;
+  if (screen === 'boot-error') {
+    return (
+      <AppErrorBoundary>
+        <BootFailure />
+      </AppErrorBoundary>
+    );
+  }
+  return <Harness />;
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <Harness />
+    <Root />
   </StrictMode>,
 );

@@ -90,6 +90,9 @@ function buildEntry(monster, index) {
         ? 'Fully grown'
         : `${remaining} more to ${facts.stages[stage + 1]}`)
       : undiscoveredHint(monster, facts, aggregate),
+    // Leaning forward is only honest while a found companion is still growing:
+    // 0 left is a threshold already earned, and a grown one has nowhere to lean.
+    nearNextStage: found && remaining !== null && remaining >= 1 && remaining <= 3,
     growth: facts.stages.map((label, position) => ({
       key: `${monster.rewardTrackId}-${position}`,
       label: found && position <= stage ? label : '???',

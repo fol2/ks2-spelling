@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { achievementChips } from '../src/app/records-model.js';
+import { achievementChips, milestoneLadder } from '../src/app/records-model.js';
 import {
   ACHIEVEMENT_DEFINITIONS,
   ACHIEVEMENT_IDS,
+  SPELLING_MASTERY_MILESTONES,
 } from '../src/domain/spelling/index.js';
 
 test('achievement chips project unlock rows and drop progress, unreachable and garbage', () => {
@@ -47,4 +48,50 @@ test('achievement chips tolerate null, undefined and non-object input', () => {
   assert.deepEqual(achievementChips('nope'), []);
   assert.deepEqual(achievementChips(42), []);
   assert.deepEqual(achievementChips([]), []);
+});
+
+const rungsOf = (ladder, key) => ladder
+  .filter((rung) => rung[key])
+  .map((rung) => rung.milestone);
+
+test('the milestone ladder lights reached rungs and marks a single next target', () => {
+  const start = milestoneLadder(0);
+  // The ladder is the engine's own list of milestones, never a second opinion.
+  assert.deepEqual(
+    start.map((rung) => rung.milestone),
+    [...SPELLING_MASTERY_MILESTONES],
+  );
+  assert.deepEqual(start.map((rung) => rung.milestone), [1, 5, 10, 25, 50, 100, 150, 200]);
+  assert.deepEqual(rungsOf(start, 'reached'), []);
+  assert.deepEqual(rungsOf(start, 'next'), [1]);
+
+  const midway = milestoneLadder(25);
+  assert.deepEqual(rungsOf(midway, 'reached'), [1, 5, 10, 25]);
+  assert.deepEqual(rungsOf(midway, 'next'), [50]);
+
+  // Between rungs the reached set does not move; only the target is ahead.
+  const between = milestoneLadder(46);
+  assert.deepEqual(rungsOf(between, 'reached'), [1, 5, 10, 25]);
+  assert.deepEqual(rungsOf(between, 'next'), [50]);
+
+  const complete = milestoneLadder(200);
+  assert.deepEqual(rungsOf(complete, 'reached'), [1, 5, 10, 25, 50, 100, 150, 200]);
+  assert.deepEqual(rungsOf(complete, 'next'), []);
+  assert.deepEqual(rungsOf(milestoneLadder(4321), 'next'), []);
+});
+
+test('the milestone ladder reads garbage as a standing start', () => {
+  const start = milestoneLadder(0);
+  for (const input of [
+    undefined,
+    null,
+    Number.NaN,
+    -5,
+    Number.POSITIVE_INFINITY,
+    'lots',
+    {},
+  ]) {
+    assert.deepEqual(milestoneLadder(input), start);
+  }
+  assert.equal(milestoneLadder().length, 8);
 });

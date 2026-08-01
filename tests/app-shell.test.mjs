@@ -592,6 +592,12 @@ test('the production shell keeps Parent progress and commerce behind the local g
   // The roster only ever holds reward tracks this learner's content publishes.
   assert.match(codexHtml, /Left to find/);
   assert.equal((codexHtml.match(/class="codex-roster-no"/g) ?? []).length, 1);
+  // The milestone ladder is about secure words, so it renders beside the stats
+  // whether or not a companion is on the card.
+  assert.match(codexHtml, /class="codex-ladder"/);
+  // One secure word of the ten this companion's next stage wants: the hero card
+  // is a long way from leaning forward.
+  assert.match(codexHtml, /data-near="false"/);
 
   learningState = Object.freeze({
     ...learningState,

@@ -9,6 +9,7 @@
 import {
   ACHIEVEMENT_DEFINITIONS,
   ACHIEVEMENT_IDS,
+  SPELLING_MASTERY_MILESTONES,
   isAchievementProgressKey,
 } from '../domain/spelling/index.js';
 
@@ -48,4 +49,25 @@ export function achievementChips(achievements = {}) {
 
   chips.sort((left, right) => left.unlockedAt - right.unlockedAt);
   return chips;
+}
+
+/**
+ * The engine's own mastery milestones as a ladder: every rung, whether it is
+ * already behind the learner, and which single rung is the next one to reach.
+ *
+ * Why: the Codex should show where the journey goes next without inventing a
+ * second set of numbers the engine would never celebrate.
+ */
+export function milestoneLadder(secureWords = 0) {
+  const secure = Number.isFinite(secureWords) && secureWords > 0 ? secureWords : 0;
+  // Milestones ascend, so the first rung still out of reach is the next target;
+  // -1 (every rung reached) marks no rung at all.
+  const nextIndex = SPELLING_MASTERY_MILESTONES.findIndex(
+    (milestone) => secure < milestone,
+  );
+  return SPELLING_MASTERY_MILESTONES.map((milestone, index) => ({
+    milestone,
+    reached: secure >= milestone,
+    next: index === nextIndex,
+  }));
 }

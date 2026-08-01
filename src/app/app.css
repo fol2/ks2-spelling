@@ -1138,6 +1138,44 @@ select {
   color: rgb(255 249 236 / 40%);
 }
 
+/* Three secure words or fewer from an evolution, the card leans forward: the
+   sheen comes round in half the time and a little brighter, and the "N more"
+   line lifts out of the companion's own accent into codex brass behind a small
+   breathing mark. Brass because the line has stopped describing the creature
+   and started announcing a reward — and because an accent can be a mid blue
+   that barely lifts off the dusk card. Anticipation, not an alarm: the copy
+   itself never changes. */
+.codex-hero[data-near='true'] .codex-hero-sheen {
+  width: 48%;
+  background: linear-gradient(
+    100deg,
+    rgb(255 255 255 / 0%),
+    rgb(255 255 255 / 15%) 46%,
+    rgb(255 255 255 / 0%)
+  );
+  animation-duration: 4.4s;
+}
+
+.codex-hero[data-near='true'] .codex-next {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--codex-gold-ink);
+  font-weight: 900;
+  text-shadow: 0 0 14px rgb(var(--codex-gold) / 45%);
+}
+
+.codex-hero[data-near='true'] .codex-next::before {
+  content: '';
+  flex: none;
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: var(--r-pill);
+  background: var(--codex-gold-ink);
+  box-shadow: 0 0 8px rgb(var(--codex-gold) / 90%);
+  animation: nearGlint 2.6s ease-in-out infinite;
+}
+
 .codex-rule {
   display: flex;
   flex: none;
@@ -1306,6 +1344,53 @@ select {
   font-size: 0.55rem;
   letter-spacing: 0.12em;
   text-align: center;
+}
+
+/* The engine's mastery milestones, in the same gold idiom as the stats above
+   but a whisper of it: rungs already behind the learner are lit, the next one
+   is ringed, and the rest wait as ghosts. It sits under Secure words because
+   that is the figure it counts. */
+.codex-ladder {
+  display: flex;
+  flex: none;
+  gap: 0.25rem;
+  padding-bottom: 0.3rem;
+}
+
+.codex-ladder li {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  place-items: center;
+  border: 1px solid rgb(var(--codex-gold) / 10%);
+  border-radius: 0.5rem;
+  padding: 0.16rem 0.05rem 0.14rem;
+}
+
+.codex-ladder .figure {
+  font-size: 0.72rem;
+  line-height: 1.15;
+  color: rgb(255 249 236 / 35%);
+}
+
+.codex-ladder li[data-reached='true'] {
+  border-color: rgb(var(--codex-gold) / 22%);
+  background: rgb(var(--codex-gold) / 7%);
+}
+
+.codex-ladder li[data-reached='true'] .figure {
+  color: var(--codex-gold-ink);
+}
+
+/* The one rung that is neither earned nor far off keeps the unlit ground and
+   borrows the brighter edge, so the eye lands on where the road goes next. */
+.codex-ladder li[data-next='true'] {
+  border-color: rgb(var(--codex-gold) / 50%);
+  box-shadow: 0 0 10px -3px rgb(var(--codex-gold) / 60%);
+}
+
+.codex-ladder li[data-next='true'] .figure {
+  color: rgb(var(--codex-gold) / 80%);
 }
 
 .codex-zoom {
@@ -3432,6 +3517,12 @@ select {
   58%, 100% { transform: translateX(340%) skewX(-16deg); }
 }
 
+/* The mark beside a near-evolution line: a slow breath, never a blink. */
+@keyframes nearGlint {
+  0%, 100% { opacity: 0.45; scale: 0.78; }
+  50% { opacity: 1; scale: 1.15; }
+}
+
 @keyframes growSeg {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
@@ -3504,6 +3595,7 @@ select {
   .scene-veil,
   .codex-hero-glow,
   .codex-hero-sheen,
+  .codex-hero[data-near='true'] .codex-next::before,
   .quest-tile-sheen,
   .camp-ring::after,
   .camp-ring-face::before,
@@ -3523,6 +3615,11 @@ select {
   .codex-meter-track span,
   .camp-mega-track span,
   .setup-guardian-meter span,
+  /* A milestone ladder whose whole message is "these are behind you" cannot
+     spend that message on colour alone; the first unfilled rung is still the
+     next target. */
+  .codex-ladder li[data-reached='true'],
+  .codex-ladder li[data-reached='true'] .figure,
   .quest-tile-count {
     background: Highlight;
     box-shadow: none;

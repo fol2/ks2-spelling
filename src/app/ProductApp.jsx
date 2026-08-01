@@ -11,6 +11,7 @@ import { buildCodex, setupExpeditionCompanion, trailMeadowCompanions } from './c
 import { learnerColour } from './learner-colour.js';
 import { artUrl, regionArt } from './mastery-art.js';
 import { autoAdvanceDelayMs } from './practice-feel.js';
+import { milestoneLadder } from './records-model.js';
 import { buildWordBank } from './word-bank-model.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
@@ -1749,6 +1750,7 @@ function CodexScreen({ monsters, onScreen }) {
               <section
                 className="codex-hero"
                 data-found={hero.found ? 'true' : 'false'}
+                data-near={hero.nearNextStage ? 'true' : 'false'}
                 style={{ '--accent': hero.accent }}
               >
                 <span className="codex-hero-glow" aria-hidden="true" />
@@ -1847,6 +1849,21 @@ function CodexScreen({ monsters, onScreen }) {
               <span className="label">Left to find</span>
             </div>
           </div>
+
+          {/* The engine's mastery milestones, read straight from the engine so
+              the Codex can never advertise a number it would not celebrate.
+              Lit rungs are behind the learner; the marked one is next. */}
+          <ol className="codex-ladder" aria-label="Spelling milestones">
+            {milestoneLadder(codex.secureWords).map((rung) => (
+              <li
+                key={rung.milestone}
+                data-reached={rung.reached ? 'true' : 'false'}
+                data-next={rung.next ? 'true' : 'false'}
+              >
+                <span className="figure">{rung.milestone}</span>
+              </li>
+            ))}
+          </ol>
 
           {zoomed && hero && (
             <button

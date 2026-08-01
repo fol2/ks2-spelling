@@ -95,6 +95,18 @@ select {
   --plate-shadow: 0 1px 2px rgb(29 43 58 / 5%), 0 18px 40px -20px rgb(140 105 55 / 45%);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
+  /* Radius and type tokens. Mint only for a value that repeats three or more
+     times in one role among convertible sites; swap identical values only.
+     Headings, media overrides, asymmetric corners and the boot surface stay
+     literal. No spacing tokens — the hand-set rhythm is the design. */
+  --r-s: 0.9rem;
+  --r-pill: 999px;
+  --fs-note: 0.75rem;
+  --fs-caption: 0.78rem;
+  --fs-body-s: 0.85rem;
+  --fs-body: 0.95rem;
+  --fs-title: 1.05rem;
+
   /* Motion tiers, as durations. Input-path entrances never outlast
      --t-scene; the between-rounds reveal never starts later than
      --t-reveal. See docs/product/v2-visual-authority.md. */
@@ -209,7 +221,7 @@ select {
 }
 
 .product-app .body-copy {
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   line-height: 1.5;
   color: var(--ink-soft);
   text-wrap: pretty;
@@ -235,7 +247,7 @@ select {
   min-width: 0;
   flex: 1 1 8rem;
   font-family: var(--serif);
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
   letter-spacing: -0.015em;
 }
@@ -247,7 +259,7 @@ select {
   padding: 0 0.6rem;
   color: var(--brand-deep);
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
 }
 
 .icon-button {
@@ -266,7 +278,7 @@ select {
   gap: 0.45rem;
   padding: 0 0.85rem;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--paper-raised);
   font-size: 0.8rem;
   font-weight: 700;
@@ -307,7 +319,7 @@ select {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--brand);
   color: #fff;
   font-size: 1rem;
@@ -325,10 +337,10 @@ select {
   justify-content: center;
   gap: 0.4rem;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0 0.95rem;
   background: none;
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   font-weight: 700;
 }
 
@@ -418,7 +430,7 @@ select {
   padding: 0.6rem 0.8rem;
   background: rgb(252 229 227 / 70%);
   color: var(--retry-ink-deep);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   font-weight: 600;
 }
 
@@ -561,7 +573,7 @@ select {
   align-items: center;
   gap: 0.5rem;
   border: 1px solid rgb(255 249 236 / 20%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.3rem 0.75rem;
   background: rgb(255 249 236 / 9%);
   color: var(--dusk-ink);
@@ -578,7 +590,7 @@ select {
   background: var(--learner-colour, #1f6f77);
   color: #04151a;
   font-family: var(--serif);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   font-weight: 600;
 }
 
@@ -714,7 +726,7 @@ select {
   width: 0.45rem;
   height: 0.45rem;
   flex: none;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--dot, var(--line-strong));
 }
 
@@ -745,7 +757,7 @@ select {
   grid-column: 1;
   width: 0.25rem;
   height: 2rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--row-bar, var(--line-strong));
 }
 
@@ -764,7 +776,7 @@ select {
   grid-column: 2;
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
   color: var(--row-note, var(--ink-soft));
 }
 
@@ -779,7 +791,7 @@ select {
 .bank-rungs span {
   width: 0.45rem;
   height: 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--line-strong);
 }
 
@@ -870,7 +882,7 @@ select {
 }
 
 .codex-count .figure-total {
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   color: rgb(240 205 136 / 50%);
 }
 
@@ -985,7 +997,7 @@ select {
   right: 1.3rem;
   z-index: 3;
   border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.2rem 0.6rem;
   background: color-mix(in srgb, var(--accent) 24%, transparent);
   color: var(--dusk-ink);
@@ -1062,7 +1074,7 @@ select {
 .codex-hero-foot p {
   margin-top: 0.3rem;
   color: rgb(255 249 236 / 58%);
-  font-size: 0.78rem;
+  font-size: var(--fs-caption);
   line-height: 1.4;
 }
 
@@ -1077,7 +1089,7 @@ select {
   position: relative;
   flex: 1;
   height: 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
   background: rgb(255 249 236 / 13%);
 }
@@ -1086,14 +1098,14 @@ select {
   position: absolute;
   inset: 0 auto 0 0;
   width: var(--percent, 0%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--accent);
   box-shadow: 0 0 12px var(--accent);
 }
 
 .codex-meter .figure {
   flex: none;
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   color: rgb(255 249 236 / 82%);
 }
 
@@ -1138,7 +1150,7 @@ select {
   place-items: center;
   gap: 0.2rem;
   border: 1px solid rgb(255 249 236 / 7%);
-  border-radius: 0.9rem;
+  border-radius: var(--r-s);
   padding: 0.45rem 0.2rem 0.4rem;
   background: rgb(255 249 236 / 2%);
 }
@@ -1224,7 +1236,7 @@ select {
 
 .codex-roster strong {
   font-family: var(--serif);
-  font-size: 0.78rem;
+  font-size: var(--fs-caption);
   font-weight: 500;
   color: rgb(255 249 236 / 40%);
 }
@@ -1241,7 +1253,7 @@ select {
 .codex-pips span {
   width: 0.25rem;
   height: 0.25rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgb(255 249 236 / 16%);
 }
 
@@ -1263,7 +1275,7 @@ select {
   place-items: center;
   gap: 0.1rem;
   border: 1px solid rgb(var(--codex-gold) / 22%);
-  border-radius: 0.9rem;
+  border-radius: var(--r-s);
   padding: 0.55rem 0.25rem 0.5rem;
   background: rgb(var(--codex-gold) / 7%);
 }
@@ -1315,7 +1327,7 @@ select {
 
 .codex-zoom small {
   color: rgb(255 249 236 / 55%);
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
 }
 
 /* --- camp ---------------------------------------------------------------- */
@@ -1370,13 +1382,13 @@ select {
   flex: none;
   margin-top: 0.7rem;
   color: var(--brass-deep);
-  font-size: 0.78rem;
+  font-size: var(--fs-caption);
   text-align: center;
   animation: riseSoft 300ms var(--ease) 200ms backwards;
 }
 
 .camp-banner-note .figure {
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 
@@ -1420,7 +1432,7 @@ select {
   position: relative;
   height: 0.45rem;
   margin: 0.85rem auto 0;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
   background: rgb(29 43 58 / 10%);
 }
@@ -1429,7 +1441,7 @@ select {
   position: absolute;
   inset: 0 auto 0 0;
   width: var(--percent, 0%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: linear-gradient(90deg, var(--brass), var(--gold));
   transform-origin: left;
   animation: growSeg 520ms var(--ease) 180ms backwards;
@@ -1438,12 +1450,12 @@ select {
 .camp-mega-left {
   margin-top: 0.5rem;
   color: var(--ink-soft);
-  font-size: 0.78rem;
+  font-size: var(--fs-caption);
 }
 
 .camp-mega-left .figure {
   color: var(--ink);
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 
@@ -1782,7 +1794,7 @@ select {
   min-width: 1.35rem;
   height: 1.35rem;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0 0.25rem;
   /* Bead warm pair is bespoke and stays literal (recorded round decision). */
   background: linear-gradient(180deg, #fffaf0, #eddcb6);
@@ -1815,7 +1827,7 @@ select {
   border-bottom: 1px solid rgb(255 249 236 / 10%);
   padding: 0.4rem 0;
   font-family: var(--serif);
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   letter-spacing: -0.015em;
   color: var(--gold);
 }
@@ -1825,7 +1837,7 @@ select {
   width: min(15rem, 100%);
   height: 0.3rem;
   margin-top: 1rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
   background: rgb(255 249 236 / 14%);
 }
@@ -1834,7 +1846,7 @@ select {
   position: absolute;
   inset: 0 auto 0 0;
   width: var(--percent, 0%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: linear-gradient(90deg, rgb(230 203 142 / 70%), var(--gold));
   box-shadow: 0 0 12px rgb(230 203 142 / 45%);
   transform-origin: left;
@@ -1844,7 +1856,7 @@ select {
 .setup-guardian-note {
   margin-bottom: 0.85rem;
   color: rgb(255 249 236 / 55%);
-  font-size: 0.78rem;
+  font-size: var(--fs-caption);
   line-height: 1.4;
   text-wrap: pretty;
 }
@@ -1999,7 +2011,7 @@ select {
   width: 0.6rem;
   height: 0.6rem;
   border: 2px solid rgb(255 249 236 / 58%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgb(14 21 29 / 90%);
 }
 
@@ -2057,7 +2069,7 @@ select {
   gap: 0.35rem;
   margin: 0 auto 0.6rem;
   border: 1px solid rgb(160 107 34 / 30%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.25rem 0.7rem;
   background: rgb(160 107 34 / 9%);
   color: var(--brass-deep);
@@ -2145,7 +2157,7 @@ select {
   justify-content: center;
   gap: 0.4rem;
   border: 1px solid rgb(29 43 58 / 16%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0 0.8rem;
   background: rgb(29 43 58 / 6%);
   font-size: 0.82rem;
@@ -2388,7 +2400,7 @@ select {
 .field-record-head p {
   margin-top: 0.35rem;
   color: var(--ink-soft);
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
   line-height: 1.4;
   text-wrap: pretty;
 }
@@ -2476,7 +2488,7 @@ select {
   padding: 0.55rem 0.75rem;
   background: linear-gradient(100deg, rgb(230 203 142 / 42%), rgb(230 203 142 / 12%));
   color: var(--brass-deep);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   font-weight: 700;
   text-wrap: pretty;
   animation: rise 380ms var(--ease) 320ms backwards;
@@ -2502,7 +2514,7 @@ select {
 .record-roll strong {
   flex: none;
   font-family: var(--serif);
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 500;
   line-height: 1.15;
   letter-spacing: -0.015em;
@@ -2607,7 +2619,7 @@ select {
 .record-growth-bars span {
   flex: 1;
   height: 0.3rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgb(29 43 58 / 13%);
   transform-origin: left;
 }
@@ -2659,7 +2671,7 @@ select {
   border-color: rgb(255 249 236 / 26%);
   background: rgb(255 249 236 / 6%);
   color: var(--dusk-ink);
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   font-weight: 800;
 }
 
@@ -2701,7 +2713,7 @@ select {
 .sheet-grip::before {
   width: 2.75rem;
   height: 0.3rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgb(29 43 58 / 20%);
   content: '';
 }
@@ -2739,7 +2751,7 @@ select {
 
 .switch-head p {
   font-family: var(--serif);
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
 }
 
@@ -2790,7 +2802,7 @@ select {
   display: block;
   margin-top: 0.2rem;
   color: var(--ink-soft);
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
 }
 
 .learner-selected {
@@ -2824,7 +2836,7 @@ select {
   gap: 0.5rem;
   margin-top: 0.9rem;
   color: var(--ink-soft);
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
 }
 
 .switch-note-mark {
@@ -2845,7 +2857,7 @@ select {
 }
 
 .learner-form label {
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
   font-weight: 700;
   color: var(--ink-soft);
 }
@@ -2855,7 +2867,7 @@ select {
   width: 100%;
   min-height: 3rem;
   border: 1px solid var(--line-strong);
-  border-radius: 0.9rem;
+  border-radius: var(--r-s);
   padding: 0 0.8rem;
   background: var(--paper-raised);
 }
@@ -2892,7 +2904,7 @@ select {
 .audio-state p {
   margin-top: 0.15rem;
   color: var(--ink-soft);
-  font-size: 0.78rem;
+  font-size: var(--fs-caption);
 }
 
 .audio-state-icon {
@@ -3004,7 +3016,7 @@ select {
   justify-content: center;
   gap: 0.5rem;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: none;
   font-weight: 700;
 }
@@ -3031,7 +3043,7 @@ select {
 .parent-card p,
 .parent-card li {
   color: var(--ink-soft);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   line-height: 1.5;
 }
 
@@ -3049,7 +3061,7 @@ select {
 
 .parent-card dt {
   color: var(--ink-soft);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
 }
 
 .parent-card dd {
@@ -3061,7 +3073,7 @@ select {
 
 .parent-card summary {
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   color: var(--ink-soft);
 }
 
@@ -3092,7 +3104,7 @@ select {
 
 .parent-note {
   color: var(--ink-faint);
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
   line-height: 1.5;
 }
 
@@ -3185,7 +3197,7 @@ select {
 .parent-learner-summary small {
   margin-top: 0.15rem;
   color: var(--ink-soft);
-  font-size: 0.78rem;
+  font-size: var(--fs-caption);
 }
 
 .parent-learner-actions,
@@ -3217,7 +3229,7 @@ select {
 .parent-edit-form label {
   display: grid;
   gap: 0.3rem;
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
   font-weight: 700;
   color: var(--ink-soft);
 }
@@ -3227,7 +3239,7 @@ select {
   width: 100%;
   min-height: 3rem;
   border: 1px solid var(--line-strong);
-  border-radius: 0.9rem;
+  border-radius: var(--r-s);
   padding: 0 0.8rem;
   background: var(--paper-raised);
 }

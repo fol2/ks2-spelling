@@ -6,19 +6,27 @@ Environment note: Node is pinned at 24.18.0; this machine runs 24.2.0, so the
 b3-capture family fails environmentally (`DatabaseSync.enableDefensive` is
 missing). Compare failure **sets**, never counts.
 
-Serial-test rule: never run two test commands concurrently. Several suites
-(app-shell, the b4 shells, the audio-manifest build) build into the shared
-`dist/` tree and race each other to an `ENOTEMPTY` in vite's prepare-out-dir —
-a false failure that names whichever suite lost. The failing-set lines also
-carry per-run timings, so strip ` (…ms)` before diffing:
+The dist/ build race: suites that build into the shared `dist/` tree
+(app-shell's local-only build, the b4 shell builds, the B4 audio-manifest
+build) can race each other to an `ENOTEMPTY` in vite's prepare-out-dir. The
+race lives INSIDE a single `npm test` run — the node test runner executes
+files concurrently — so it can fire with nothing else running; parallel test
+commands only raise the odds. Two rules follow. First, never run two test
+commands concurrently. Second, when a failing-set diff shows exactly this
+signature (`ENOTEMPTY … dist/…` inside a build step), re-run the named suite
+standalone at the same tree: a standalone pass proves an artefact (record it
+beside the run log); a standalone fail is a real regression — stop the slice.
+
+The failing-set lines carry per-run timings, so strip ` (…ms)` before diffing:
 `sed -E 's/ \([0-9.]+ms\)$//' | sort -u` on both sides.
 
-Baseline correction (recorded 2026-08-01): the original full-run capture raced
-the test:fast capture and recorded exactly one such artefact — "B4 Vite build
-contains all 25 exact WAV bytes and bound manifest authority" failed on
-`ENOTEMPTY dist/full`. A serial re-run at the same tree passes it; the line has
-been removed from `baseline/failing-set.txt`. The true environmental set is the
-remaining 208 lines.
+Baseline correction (recorded 2026-08-01): the original full-run capture
+recorded one such artefact — "B4 Vite build contains all 25 exact WAV bytes
+and bound manifest authority" on `ENOTEMPTY dist/full`. Standalone re-runs at
+the same tree pass it, so the line has been removed from
+`baseline/failing-set.txt`; the true environmental set is the remaining 208
+lines. The same artefact resurfaced in the slice 1.2 full run and passed
+standalone again, confirming the intra-run mechanism.
 
 ## The Slice Gate (run in order after every slice)
 

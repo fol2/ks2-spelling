@@ -1711,12 +1711,24 @@ function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {
   );
 }
 
-function CodexScreen({ monsters, onScreen }) {
+function CodexScreen({ monsters, progress, onScreen }) {
   const [selected, setSelected] = useState(null);
   const [zoomed, setZoomed] = useState(false);
   const codex = useMemo(
     () => buildCodex(monsters, selected),
     [monsters, selected],
+  );
+  // The ladder advertises the engine's mastery milestones, so it must count
+  // the way the engine does: every word at the secure stage or beyond. The
+  // companion evidence beneath the hero card deliberately counts only words
+  // sitting exactly at the secure stage, and a word promoted past it would
+  // otherwise un-light a milestone the learner has already been celebrated
+  // for.
+  const secureWordTotal = useMemo(
+    () => (Array.isArray(progress)
+      ? progress.filter((row) => row.stage >= 4).length
+      : 0),
+    [progress],
   );
   const hero = codex.hero;
 
@@ -1854,7 +1866,7 @@ function CodexScreen({ monsters, onScreen }) {
               the Codex can never advertise a number it would not celebrate.
               Lit rungs are behind the learner; the marked one is next. */}
           <ol className="codex-ladder" aria-label="Spelling milestones">
-            {milestoneLadder(codex.secureWords).map((rung) => (
+            {milestoneLadder(secureWordTotal).map((rung) => (
               <li
                 key={rung.milestone}
                 data-reached={rung.reached ? 'true' : 'false'}
@@ -3450,7 +3462,11 @@ export default function ProductApp({ services }) {
   }
   if (learningState.screen === 'monster') {
     return (
-      <CodexScreen monsters={learningState.monsters} onScreen={showScreen} />
+      <CodexScreen
+        monsters={learningState.monsters}
+        progress={learningState.progress}
+        onScreen={showScreen}
+      />
     );
   }
   if (learningState.screen === 'camp') {

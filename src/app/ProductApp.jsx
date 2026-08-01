@@ -351,8 +351,14 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
       await onReset(profile.learnerId);
       setConfirmingReset(false);
       setResetConfirmation('');
-    } catch {
-      setActionError('That learning was not reset. Please try again.');
+    } catch (error) {
+      if (error?.postCommit === true) {
+        setActionError('That learning was reset, but the app could not refresh the view. Close and reopen the app.');
+        setConfirmingReset(false);
+        setResetConfirmation('');
+      } else {
+        setActionError('That learning was not reset. Please try again.');
+      }
     } finally {
       setBusy(false);
     }
@@ -741,8 +747,16 @@ export function ParentArea({
       );
       setConfirmingImport(false);
       setImportConfirmation('');
-    } catch {
-      setBackupError('The backup did not complete. No learning was replaced.');
+    } catch (error) {
+      if (error?.postCommit === true) {
+        // The import committed; only the in-app refresh failed. Reopening
+        // rebuilds every view from the imported data.
+        setBackupMessage('The backup was imported, but this screen could not refresh. Close and reopen the app.');
+        setConfirmingImport(false);
+        setImportConfirmation('');
+      } else {
+        setBackupError('The backup did not complete. No learning was replaced.');
+      }
     } finally {
       setBackupBusy(false);
     }

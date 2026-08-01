@@ -66,6 +66,13 @@ Importing one replaces the entire local learner store rather than merging into
 it, so a partial or selective restore is not expressible; the file's bytes are
 checked against their recorded digest before any part of it is applied.
 
+### Post-commit epilogue
+
+Work that follows a committed transaction. An auxiliary or self-healing step
+swallows its failure; a required follow-up re-throws an error stamped
+`postCommit: true` so the UI reports "done, but refresh failed" rather than
+"failed".
+
 ### Parent progress summary
 
 The derived view of every learner's progress presented to a parent.

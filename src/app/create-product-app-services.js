@@ -85,6 +85,19 @@ function defaultProductRandom() {
   return value[0] / 4_294_967_296;
 }
 
+async function runPostCommit(work) {
+  try {
+    return await work();
+  } catch (error) {
+    try {
+      error.postCommit = true;
+    } catch {
+      // A frozen or primitive throw cannot carry the marker; re-throw as-is.
+    }
+    throw error;
+  }
+}
+
 function linkProfileAndLearningControllers(profileController, learningController) {
   async function alignSelectedLearner() {
     await learningController.selectLearner(
@@ -97,18 +110,21 @@ function linkProfileAndLearningControllers(profileController, learningController
     subscribe: (listener) => profileController.subscribe(listener),
     async createProfile(draft) {
       const profile = await profileController.createProfile(draft);
-      await alignSelectedLearner();
+      // The profile is committed, and creation does not change the selection.
+      await alignSelectedLearner().catch(() => undefined);
       return profile;
     },
     editProfile: (draft) => profileController.editProfile(draft),
     async selectProfile(learnerId) {
       const selected = await profileController.selectProfile(learnerId);
-      await alignSelectedLearner();
+      // Swallowing would close the switch sheet on the wrong learner.
+      await runPostCommit(alignSelectedLearner);
       return selected;
     },
     async removeProfile(learnerId) {
       const removed = await profileController.removeProfile(learnerId);
-      await alignSelectedLearner();
+      // The removal is committed and the profile screen self-heals.
+      await alignSelectedLearner().catch(() => undefined);
       return removed;
     },
     async reload() {
@@ -311,7 +327,7 @@ export async function createProductAppServices(options = {}) {
       async resetLearning(learnerId) {
         await profileStore.administration.resetLearning(learnerId);
         if (learning.getState().learnerId === learnerId) {
-          await learning.selectLearner(learnerId);
+          await runPostCommit(() => learning.selectLearner(learnerId));
         }
         // A committed reset must not be reported as failed because the
         // auxiliary summary could not be rebuilt; it carries its own notice.
@@ -333,9 +349,11 @@ export async function createProductAppServices(options = {}) {
       repository: learningBackupRepository,
       files: learningBackupFiles,
       afterImport: async () => {
-        await profileStore.administration.promoteStarterCatalogue();
-        await profileStore.administration.grantFullEntitlement();
-        await controller.reload();
+        await runPostCommit(async () => {
+          await profileStore.administration.promoteStarterCatalogue();
+          await profileStore.administration.grantFullEntitlement();
+          await controller.reload();
+        });
         // The progress summary is auxiliary and carries its own notice when a
         // refresh fails; a committed import must not be reported as failed
         // because of it.

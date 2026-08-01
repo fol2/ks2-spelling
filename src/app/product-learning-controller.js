@@ -50,6 +50,8 @@ function cloneFrozen(value) {
   return freezeDeep(structuredClone(value));
 }
 
+const EMPTY_RECORDS = freezeDeep({ milestones: [] });
+
 function parseRoundOptions(value) {
   try {
     if (
@@ -236,6 +238,11 @@ function adoptRoundBaseline(candidate, snapshot) {
       typeof candidate.companionRewardTrackId === 'string' && candidate.companionRewardTrackId.length > 0
         ? candidate.companionRewardTrackId
         : null,
+    achievementIds: Array.isArray(candidate.achievementIds)
+      ? candidate.achievementIds.filter(
+        (id) => typeof id === 'string' && id.length > 0,
+      )
+      : [],
     monsters: candidate.monsters,
     camp: candidate.camp ?? null,
   };
@@ -251,11 +258,12 @@ function createState({
   roundBaseline = null,
   revisionMission = null,
   achievements = [],
+  records = EMPTY_RECORDS,
 }) {
   const ui = snapshot?.subjectState?.ui;
   const camp = campProjection(snapshot);
-  // Achievements stay outside cloneFrozen so same-revision publishes keep the
-  // memoised array identity the Camp strip and its tests rely on.
+  // Achievements and records stay outside cloneFrozen so same-revision
+  // publishes keep the memoised identities their views and tests rely on.
   return Object.freeze({
     ...cloneFrozen({
       status,
@@ -280,6 +288,7 @@ function createState({
       actionError,
     }),
     achievements,
+    records,
   });
 }
 
@@ -318,6 +327,7 @@ export function createProductLearningController({
   let snapshot = validateInitialSnapshot(initialSnapshot, catalogue);
   let revisionMissionCache = null;
   let achievementsCache = null;
+  let recordsCache = null;
   const emptyAchievements = Object.freeze([]);
 
   function revisionMissionProjection() {
@@ -351,6 +361,28 @@ export function createProductLearningController({
     return value;
   }
 
+  function recordsProjection() {
+    if (!snapshot) return EMPTY_RECORDS;
+    if (recordsCache?.revision === snapshot.revision) {
+      return recordsCache.value;
+    }
+    const value = freezeDeep({
+      milestones: snapshot.eventLog
+        .filter(
+          (record) =>
+            record.type === 'spelling.mastery-milestone'
+            && Number.isSafeInteger(record.milestone),
+        )
+        .map(({ milestone, sessionId, createdAt }) => ({
+          milestone,
+          sessionId,
+          createdAt,
+        })),
+    });
+    recordsCache = { revision: snapshot.revision, value };
+    return value;
+  }
+
   // Round-start roster, kept so summary celebrations survive relaunch mid-round.
   let roundBaseline = adoptRoundBaseline(initialRoundBaseline, snapshot);
   let state = createState({
@@ -359,6 +391,7 @@ export function createProductLearningController({
     roundBaseline,
     revisionMission: revisionMissionProjection(),
     achievements: achievementsProjection(),
+    records: recordsProjection(),
   });
   let queue = Promise.resolve();
   let disposed = false;
@@ -377,6 +410,7 @@ export function createProductLearningController({
       roundBaseline,
       revisionMission: revisionMissionProjection(),
       achievements: achievementsProjection(),
+      records: recordsProjection(),
     }));
   }
 
@@ -426,6 +460,9 @@ export function createProductLearningController({
               monsters,
               options.companionYearFilter ?? null,
             )?.rewardTrackId ?? null,
+            achievementIds: achievementChips(
+              snapshot.subjectState?.data?.achievements ?? {},
+            ).map((chip) => chip.id),
             monsters,
             camp: campProjection(snapshot),
           };
@@ -492,6 +529,7 @@ export function createProductLearningController({
           snapshot = null;
           revisionMissionCache = null;
           achievementsCache = null;
+          recordsCache = null;
           roundBaseline = null;
           publishFromSnapshot({ screen: 'profiles' });
           return null;
@@ -508,6 +546,7 @@ export function createProductLearningController({
           );
           revisionMissionCache = null;
           achievementsCache = null;
+          recordsCache = null;
           roundBaseline = null;
           if (
             roundBaselineStore &&

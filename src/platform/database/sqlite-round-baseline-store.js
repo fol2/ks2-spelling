@@ -50,6 +50,11 @@ function parseBaselineRecord(parsed, learnerId) {
       typeof parsed.companionRewardTrackId === 'string' && parsed.companionRewardTrackId.length > 0
         ? parsed.companionRewardTrackId
         : null,
+    achievementIds: Array.isArray(parsed.achievementIds)
+      ? parsed.achievementIds.filter(
+        (id) => typeof id === 'string' && id.length > 0,
+      )
+      : [],
     monsters: parsed.monsters,
     camp: parsed.camp,
   };

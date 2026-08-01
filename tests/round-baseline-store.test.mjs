@@ -17,6 +17,7 @@ const RECORD = Object.freeze({
   learnerId: LEARNER_ID,
   sessionId: 'session-1',
   companionRewardTrackId: 'spelling-core-inklet',
+  achievementIds: Object.freeze(['GUARDIAN_7_DAY']),
   monsters: Object.freeze([
     Object.freeze({
       rewardTrackId: 'spelling-core-inklet',
@@ -114,6 +115,42 @@ test('round baseline store keeps legacy and malformed companion fields optional'
       companionRewardTrackId: null,
     });
   }
+});
+
+test('round baseline store normalises legacy and malformed achievement ids', async (t) => {
+  const { connection, store } = await openStore(t);
+  const key = `product.round-baseline.${LEARNER_ID}`;
+  const withoutAchievements = { ...RECORD, achievementIds: undefined };
+
+  await connection.execute(
+    'INSERT INTO app_metadata (key, value_json, updated_at) VALUES (?, ?, ?)',
+    [key, JSON.stringify(withoutAchievements), 100],
+  );
+  assert.deepEqual(await store.read(LEARNER_ID), {
+    ...RECORD,
+    achievementIds: [],
+  });
+
+  await connection.execute(
+    'UPDATE app_metadata SET value_json = ? WHERE key = ?',
+    [JSON.stringify({ ...RECORD, achievementIds: 'GUARDIAN_7_DAY' }), key],
+  );
+  assert.deepEqual(await store.read(LEARNER_ID), {
+    ...RECORD,
+    achievementIds: [],
+  });
+
+  await connection.execute(
+    'UPDATE app_metadata SET value_json = ? WHERE key = ?',
+    [JSON.stringify({
+      ...RECORD,
+      achievementIds: ['GUARDIAN_7_DAY', 42, '', 'RECOVERY_EXPERT'],
+    }), key],
+  );
+  assert.deepEqual(await store.read(LEARNER_ID), {
+    ...RECORD,
+    achievementIds: ['GUARDIAN_7_DAY', 'RECOVERY_EXPERT'],
+  });
 });
 
 test('round baseline store upsert overwrites the previous record', async (t) => {

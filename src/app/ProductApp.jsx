@@ -14,8 +14,10 @@ import { autoAdvanceDelayMs } from './practice-feel.js';
 import { buildWordBank } from './word-bank-model.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
+  achievementCelebration,
   campLevelCelebration,
   diffMonsterCelebrations,
+  milestoneCelebration,
   primaryProgressedRewardTrackId,
   secureWordDelta,
 } from './celebrations/celebration-model.js';
@@ -3192,10 +3194,22 @@ export default function ProductApp({ services }) {
           - (next.roundBaseline?.camp?.campHighWater
             ?? next.camp?.campHighWater
             ?? 0);
-        // Companion moments lead; the camp-level card follows when the fire rose.
-        const events = raisedCamp > 0
-          ? [...monsterEvents, campLevelCelebration(next.camp?.campHighWater)]
-          : monsterEvents;
+        const roundSessionId = next.roundBaseline?.sessionId ?? null;
+        const milestoneCards = roundSessionId
+          ? (next.records?.milestones ?? [])
+            .filter((record) => record.sessionId === roundSessionId)
+            .map(milestoneCelebration)
+          : [];
+        const baselineAchievementIds = next.roundBaseline?.achievementIds ?? [];
+        const achievementCards = (next.achievements ?? [])
+          .filter((chip) => !baselineAchievementIds.includes(chip.id))
+          .map(achievementCelebration);
+        const events = [
+          ...monsterEvents,
+          ...milestoneCards,
+          ...achievementCards,
+          ...(raisedCamp > 0 ? [campLevelCelebration(next.camp?.campHighWater)] : []),
+        ];
         setCelebrationEvents(events);
         setSecureGain(secureWordDelta(before, next.monsters));
         setCampGain(

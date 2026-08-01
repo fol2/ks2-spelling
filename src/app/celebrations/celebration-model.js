@@ -187,7 +187,11 @@ export function monsterStageName(monsterId, stage) {
 }
 
 export function celebrationPalette(event) {
-  if (event?.kind === 'camp-level') {
+  if (
+    event?.kind === 'camp-level'
+    || event?.kind === 'milestone'
+    || event?.kind === 'achievement'
+  ) {
     // Brass tones match the Camp ring and Field Record strip.
     return Object.freeze({
       primary: '#a06b22',
@@ -241,6 +245,23 @@ export function campLevelCelebration(level) {
   };
 }
 
+export function milestoneCelebration(record) {
+  return Object.freeze({
+    kind: 'milestone',
+    level: nonNegativeInteger(record?.milestone),
+    secureCount: nonNegativeInteger(record?.secureCount),
+  });
+}
+
+export function achievementCelebration(chip) {
+  return Object.freeze({
+    kind: 'achievement',
+    achievementId: chip.id,
+    title: chip.title,
+    body: chip.body,
+  });
+}
+
 export function celebrationCopy(event) {
   if (event?.kind === 'camp-level') {
     const level = nonNegativeInteger(event.level);
@@ -250,6 +271,30 @@ export function celebrationCopy(event) {
       stageLabel: `Camp level ${level}`,
       body: `Camp level ${level}. Every day you keep watch, the fire climbs.`,
       announcement: `The camp fire rises. Camp level ${level}.`,
+    };
+  }
+
+  if (event?.kind === 'milestone') {
+    const level = nonNegativeInteger(event.level);
+    const noun = level === 1 ? 'spelling' : 'spellings';
+    const headline = `${level} ${noun} secure`;
+    const body = `Your trail has carried ${level} ${noun} to secure. Keep walking.`;
+    return {
+      eyebrow: 'Trail record',
+      headline,
+      stageLabel: `Milestone ${level}`,
+      body,
+      announcement: `${headline}. ${body}`,
+    };
+  }
+
+  if (event?.kind === 'achievement') {
+    return {
+      eyebrow: 'Record of the watch',
+      headline: event.title,
+      stageLabel: 'Achievement unlocked',
+      body: event.body,
+      announcement: `Achievement unlocked. ${event.title}.`,
     };
   }
 
@@ -308,7 +353,11 @@ export function celebrationHeadline(event) {
 }
 
 export function celebrationDurationMs(event) {
-  if (event?.kind === 'camp-level') return 2800;
+  if (
+    event?.kind === 'camp-level'
+    || event?.kind === 'milestone'
+    || event?.kind === 'achievement'
+  ) return 2800;
   if (event?.kind === 'progress') return 2400;
   if (event?.kind === 'evolve' && nonNegativeInteger(event?.stage) >= HIGHEST_STAGE) {
     return 4000;
@@ -350,6 +399,8 @@ const CELEBRATION_BEATS = Object.freeze({
     settle: 1400,
   }),
   progress: Object.freeze({ veil: 0, mark: 90, copy: 380 }),
+  milestone: Object.freeze({ veil: 0, mark: 110, copy: 430 }),
+  achievement: Object.freeze({ veil: 0, mark: 110, copy: 430 }),
   'camp-level': Object.freeze({ veil: 0, mark: 110, copy: 430 }),
 });
 

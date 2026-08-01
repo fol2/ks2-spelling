@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 
 import {
+  achievementCelebration,
   campLevelCelebration,
   celebrationBeats,
   celebrationCopy,
@@ -13,6 +14,7 @@ import {
   celebrationProgressMeterCopy,
   celebrationStageDecision,
   diffMonsterCelebrations,
+  milestoneCelebration,
   monsterCelebrationArtUrl,
   primaryProgressedRewardTrackId,
   secureWordDelta,
@@ -304,6 +306,12 @@ test('celebrationBeats keeps every kind ascending and finished inside its card',
     caught: { kind: 'caught', monsterId: 'inklet', stage: 0 },
     evolve: { kind: 'evolve', monsterId: 'inklet', stage: 2 },
     progress: { kind: 'progress', monsterId: 'inklet', stage: 1, target: 100 },
+    milestone: milestoneCelebration({ milestone: 5, secureCount: 5 }),
+    achievement: achievementCelebration({
+      id: 'GUARDIAN_7_DAY',
+      title: 'Guardian 7-day Maintainer',
+      body: 'Kept Guardian Missions going on 7 different days.',
+    }),
     'camp-level': campLevelCelebration(4),
   };
 
@@ -350,6 +358,14 @@ test('celebrationBeats names the beats each kind is choreographed to', () => {
   assert.deepEqual(Object.keys(celebrationBeats('progress')), ['veil', 'mark', 'copy']);
   assert.deepEqual(
     Object.keys(celebrationBeats('camp-level')),
+    ['veil', 'mark', 'copy'],
+  );
+  assert.deepEqual(
+    Object.keys(celebrationBeats('milestone')),
+    ['veil', 'mark', 'copy'],
+  );
+  assert.deepEqual(
+    Object.keys(celebrationBeats('achievement')),
     ['veil', 'mark', 'copy'],
   );
   assert.equal(celebrationBeats('caught').copy, 650);
@@ -422,6 +438,8 @@ test('celebrationStageDecision gates the live canvas to catch and evolve moments
   assert.equal(celebrationStageDecision({ kind: 'caught' }), 'live');
   assert.equal(celebrationStageDecision({ kind: 'evolve' }), 'live');
   assert.equal(celebrationStageDecision({ kind: 'progress' }), 'static');
+  assert.equal(celebrationStageDecision({ kind: 'milestone' }), 'static');
+  assert.equal(celebrationStageDecision({ kind: 'achievement' }), 'static');
   assert.equal(celebrationStageDecision({ kind: 'camp-level' }), 'static');
   assert.equal(
     celebrationStageDecision({ kind: 'caught', reducedMotion: true }),
@@ -457,11 +475,76 @@ test('camp-level celebration has copy, duration, key and brass palette', () => {
   assert.equal(celebrationStageDecision({ kind: 'camp-level' }), 'static');
 });
 
-test('ProductApp wires CelebrationLayer into the summary screen', async () => {
-  const source = await readFile(
-    resolve(import.meta.dirname, '../src/app/ProductApp.jsx'),
-    'utf8',
+test('milestone celebrations have singular and plural trail-record copy', () => {
+  const singular = milestoneCelebration({ milestone: 1, secureCount: 1 });
+  const plural = milestoneCelebration({ milestone: 5, secureCount: 5 });
+
+  assert.ok(Object.isFrozen(singular));
+  assert.deepEqual(singular, { kind: 'milestone', level: 1, secureCount: 1 });
+  assert.deepEqual(celebrationCopy(singular), {
+    eyebrow: 'Trail record',
+    headline: '1 spelling secure',
+    stageLabel: 'Milestone 1',
+    body: 'Your trail has carried 1 spelling to secure. Keep walking.',
+    announcement: '1 spelling secure. Your trail has carried 1 spelling to secure. Keep walking.',
+  });
+  assert.deepEqual(celebrationCopy(plural), {
+    eyebrow: 'Trail record',
+    headline: '5 spellings secure',
+    stageLabel: 'Milestone 5',
+    body: 'Your trail has carried 5 spellings to secure. Keep walking.',
+    announcement: '5 spellings secure. Your trail has carried 5 spellings to secure. Keep walking.',
+  });
+  assert.equal(celebrationDurationMs(singular), 2800);
+  assert.deepEqual(
+    celebrationPalette(singular),
+    celebrationPalette(campLevelCelebration(1)),
   );
+  assert.notEqual(
+    celebrationEventKey(singular),
+    celebrationEventKey(plural),
+  );
+});
+
+test('achievement celebrations carry their record copy onto a brass card', () => {
+  const event = achievementCelebration({
+    id: 'RECOVERY_EXPERT',
+    title: 'Recovery Expert',
+    body: 'Recovered 25 wobbling spellings.',
+  });
+
+  assert.ok(Object.isFrozen(event));
+  assert.deepEqual(event, {
+    kind: 'achievement',
+    achievementId: 'RECOVERY_EXPERT',
+    title: 'Recovery Expert',
+    body: 'Recovered 25 wobbling spellings.',
+  });
+  assert.deepEqual(celebrationCopy(event), {
+    eyebrow: 'Record of the watch',
+    headline: 'Recovery Expert',
+    stageLabel: 'Achievement unlocked',
+    body: 'Recovered 25 wobbling spellings.',
+    announcement: 'Achievement unlocked. Recovery Expert.',
+  });
+  assert.equal(celebrationDurationMs(event), 2800);
+  assert.deepEqual(
+    celebrationPalette(event),
+    celebrationPalette(campLevelCelebration(1)),
+  );
+});
+
+test('ProductApp wires CelebrationLayer into the summary screen', async () => {
+  const [source, layerSource] = await Promise.all([
+    readFile(
+      resolve(import.meta.dirname, '../src/app/ProductApp.jsx'),
+      'utf8',
+    ),
+    readFile(
+      resolve(import.meta.dirname, '../src/app/celebrations/CelebrationLayer.jsx'),
+      'utf8',
+    ),
+  ]);
   assert.ok(
     source.includes("from './celebrations/CelebrationLayer.jsx'"),
     'ProductApp must import CelebrationLayer',
@@ -477,6 +560,19 @@ test('ProductApp wires CelebrationLayer into the summary screen', async () => {
   assert.ok(
     source.includes('campLevelCelebration'),
     'ProductApp must append a camp-level celebration when the fire rises',
+  );
+  assert.match(
+    source,
+    /\[\s*\.\.\.monsterEvents,\s*\.\.\.milestoneCards,\s*\.\.\.achievementCards,/u,
+    'summary cards must keep monsters before milestones and achievements',
+  );
+  assert.ok(
+    layerSource.includes("{event.kind === 'milestone' && <MilestoneMark level={event.level} />}"),
+    'milestone cards must render their figure mark',
+  );
+  assert.ok(
+    layerSource.includes("{event.kind === 'achievement' && <AchievementMark />}"),
+    'achievement cards must render the watch shield',
   );
   assert.match(
     source,

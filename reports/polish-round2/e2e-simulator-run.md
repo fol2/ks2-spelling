@@ -51,7 +51,7 @@ behind the product's back.
 |---|---|---|
 | 1 | First run on a clean install — the switch sheet with no learners | `e2e/01-first-run-switch-sheet.png` |
 | 2 | Create a learner, pick a year group, land on the Trail | `e2e/01`, `e2e/21` |
-| 3 | Setup for a Y5-6 learner shows the band's own companion — an unfound Glimmerbug egg with its wake hint (slice 3.1) | `e2e/02-setup-y5-6-companion-egg.png` |
+| 3 | Setup for a Y5-6 learner shows the band's own companion — this capture is also the evidence for defects D5 and D6 below | `e2e/02-defect-setup-dimmed-egg-clipped-header.png` |
 | 4 | A full round: question, feedback, retry phase, correction phase | `e2e/03`–`e2e/06` |
 | 5 | Results / Field Record after the round | `e2e/07-results-field-record.png` |
 | 6 | Parent area behind the PIN gate; progress grid per learner (slice 1.3a) | `e2e/08`, `e2e/10` |
@@ -72,8 +72,9 @@ anything the screenshots and database queries do not already show.
 
 ## Defects found, and what was done about them
 
-Four defects surfaced. All four were reproduced away from the simulator
-before any code changed, fixed with a regression test, and re-verified live.
+Six defects surfaced — four during the run, two more when the resulting build
+was used on a real phone. Each was reproduced away from the device before any
+code changed, and re-verified afterwards.
 
 ### D1 — the Parent PIN gate rejected its own correct PIN
 
@@ -176,6 +177,58 @@ the old wiring from the new.
 secure) and `e2e/20-ladder-fresh-learner-after-d4.png` (nothing reached, only
 the "1" ringed as next) — both ends of the ladder. Commit `3eac529f`.
 
+### D5 — an unfound companion was legible everywhere but the Codex
+
+*Symptom.* Reported from the device after the run. Set off painted the art of
+a creature the learner has not found yet clearly enough to identify, and
+tapping the Codex's silhouetted hero opened the zoom island, which paints
+through Phaser with no filter at all — one tap revealed exactly what the
+silhouette hides.
+
+*Root cause.* Two treatments for one rule. The Codex withholds unfound art
+with `filter: brightness(0) invert(1) opacity(0.15)`; Setup had its own
+`grayscale(0.4) brightness(0.55)`, which reads as "a bit dark" rather than
+"withheld". Separately, the hero's closer-look button rendered whether or not
+the companion was found.
+
+*Fix.* One silhouette declaration now covers Setup and the three Codex
+surfaces. An unfound hero renders the same plate without the affordance, and
+the island is guarded on `hero?.found` so no other route can open it.
+Commit `13ca2346`. `e2e/25-setup-after-402x874.png`.
+
+*Checked and left alone.* The Field Record was examined for the same leak and
+has none: it already requires a found companion and falls back to the
+furthest-grown found one, so it paints no phantom egg. A first attempt at
+this fix removed that guard in order to "fix" a leak that did not exist; it
+was reverted.
+
+### D6 — the Setup quest block clipped its own kicker and the wake hint
+
+*Symptom.* On a 402×874 phone with the vocabulary rail up, "Smart Review" sat
+flush under the chrome: the "Today's quest" kicker and the wake hint that
+explains a sleeping companion were both gone. At 390×844 the title itself was
+clipped. Visible in `e2e/02-defect-setup-dimmed-egg-clipped-header.png`.
+
+*Root cause.* `.setup-quest` is bottom-aligned (`justify-content: flex-end`)
+behind slice 1.4's deliberate `overflow: visible clip`, so overflow comes off
+the **top**. Measured in the harness: content ran 72px past its share at
+402×874, putting the hint at −71px and the kicker at −25px.
+
+*Why no harness check caught it.* `design/harness.jsx` carried no
+`vocabularySets` at all, so the entire Vocabulary set rail — a row every real
+learner sees — was absent from every screenshot this round was verified
+against. The harness now carries the live catalogue shape and an
+`?unfound-companion=true` flag for the sleeping-companion state.
+
+*Fix.* Height came back from three places: the column's own rhythm tightened;
+the tray stopped reserving a bottom gutter for the home indicator that the
+waypoint bar beneath it already carries (34pt allowed twice for the same
+hardware); and the wake hint left the column for the bottom-right, beneath
+the silhouette it explains, where it costs the column nothing. The clip is
+untouched. After: kicker at +40, title at +66 (402×874) and both clear at
+390×844. Commit `68a4d47c`. `e2e/26-setup-after-390x844.png`,
+`e2e/27-setup-found-companion-unchanged.png`.
+
 ## Negative results worth recording
 
 - **The import resurrect race did not reproduce off-device.** Slice 1.2's
@@ -240,7 +293,10 @@ the "1" ringed as next) — both ends of the ladder. Commit `3eac529f`.
    what a track *is*. `earnedStageHighWater` keeps the monster's visual stage
    monotone so nothing appears to regress when a word is promoted past 4.
 4. **Codex overflows at 320×568** — pre-existing, recorded in the round-2
-   harness gallery, not introduced here.
+   harness gallery, not introduced here. The Setup quest block is
+   over-subscribed at the same sizes: D6 improved 375×667 (the title moved
+   from −24 to +7) but the block still collapses to 108px there and 30px at
+   320×568, where the tray and tiles consume the column. Not solved.
 5. **The practice screen's soft key reports `isHittable == false` in the
    simulator** — investigated at slice 4.1 against a round-1 control build and
    confirmed pre-existing, not a round-2 regression.

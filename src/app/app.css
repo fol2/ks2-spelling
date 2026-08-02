@@ -1736,10 +1736,16 @@ select {
   min-height: 0;
   /* x stays visible so companion art can bleed right; y clips so flex-end
      overflow never paints over the chrome (and never flashes through it on
-     enter). A hair of margin keeps the clip seam under the chrome, not flush. */
+     enter). A hair of margin keeps the clip seam under the chrome, not flush.
+
+     Clipping at flex-end takes the TOP of the block first, so this column's
+     rhythm is deliberately tight: on a 402x874 phone with the vocabulary rail
+     up, the content ran 72px past its share and the kicker was the first
+     thing to vanish. Every value below is load-bearing — measure before
+     loosening one. */
   overflow: visible clip;
-  margin-top: 0.4rem;
-  padding-bottom: 1.25rem;
+  margin-top: 0.2rem;
+  padding-bottom: 0.5rem;
 }
 
 .setup-quest img {
@@ -1758,7 +1764,8 @@ select {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-bottom: 0.7rem;
+  margin-top: 0;
+  margin-bottom: 0.45rem;
   letter-spacing: 0.22em;
   color: rgb(230 203 142 / 86%);
 }
@@ -1783,25 +1790,41 @@ select {
 .setup-quest p {
   position: relative;
   max-width: 15rem;
-  margin-top: 0.7rem;
+  margin-top: 0.5rem;
   color: rgb(255 249 236 / 70%);
   font-size: 0.82rem;
   line-height: 1.45;
   text-wrap: pretty;
 }
 
+/* The wake hint explains the silhouette, so it sits with the art rather than
+   in the text column: in the column it was the first line the flex-end clip
+   ate, which meant the one caption that makes a faint silhouette legible was
+   never seen on a phone. Out of flow it also costs the column nothing. */
 .setup-quest .setup-companion-hint {
+  position: absolute;
+  right: 0;
+  bottom: 0.6rem;
+  width: min(11rem, 45%);
   margin: 0;
   font-family: var(--sans);
   font-size: var(--fs-note);
+  line-height: 1.35;
+  text-align: right;
+  text-wrap: balance;
   color: var(--dusk-ink-soft);
+}
+
+/* The sleeping companion lifts to leave its caption room underneath. */
+.setup-quest img.companion-asleep {
+  bottom: 3.1rem;
 }
 
 .setup-tally {
   position: relative;
   display: flex;
   width: max-content;
-  margin-top: 1rem;
+  margin-top: 0.6rem;
   border-top: 1px solid rgb(230 203 142 / 30%);
   border-bottom: 1px solid rgb(255 249 236 / 10%);
 }
@@ -2072,12 +2095,16 @@ select {
 
 .setup-tray {
   flex: none;
-  margin-top: 0.9rem;
+  margin-top: 0.5rem;
   border-top: 1px solid rgb(255 249 236 / 14%);
+  /* The waypoint bar sits below this tray and already carries the home
+     indicator on its own safe-area foot, so a bottom gutter here was a second
+     allowance for the same hardware — 34pt of dead space that the quest block
+     above needed. The tray keeps its own rhythm instead. */
   padding:
     0.85rem
     var(--gutter-right)
-    max(1.25rem, var(--gutter-bottom))
+    0.85rem
     var(--gutter-left);
   background: linear-gradient(
     180deg,
@@ -2096,7 +2123,7 @@ select {
 }
 
 .setup-pools {
-  margin: 0.5rem 0 0.8rem;
+  margin: 0.35rem 0 0.55rem;
 }
 
 .setup-pools .pill {

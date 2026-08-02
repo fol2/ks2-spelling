@@ -5,6 +5,18 @@
  * faked: a fixed word list and a "right if you typed the target" rule is
  * enough to reach every visual state, and the real engine is out of scope for
  * design work.
+ *
+ * Query flags:
+ *   ?screen=…                 deep-link into a ProductApp screen
+ *   ?guardian=locked|teaser|first|active|rested|done
+ *                             Camp / Setup Guardian projection (see below)
+ *   ?empty                    empty learner / empty roster
+ *   ?audio=…                  audioAvailability status
+ *   ?parent=…                 parent lock status
+ *   ?mode=…                   practice / summary round mode
+ *   ?unfound-companion=true   Setup: band companion asleep (silhouette + hint).
+ *                             Selects the Y3–4 set so Inklet paints unfound;
+ *                             vocabulary set rail stays visible.
  */
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -141,6 +153,14 @@ const GUARDIAN_STATES = {
 
 const GUARDIAN_PACK_SIZE = 213;
 
+// Realistic set rail — matches the live catalogue shape so Setup paints the
+// Vocabulary set picker the real app shows once packs are published.
+const VOCABULARY_SETS = [
+  { id: 'core', label: 'Core', count: 213 },
+  { id: 'y3-4', label: 'Y3–4', count: 109 },
+  { id: 'y5-6', label: 'Y5–6', count: 104 },
+];
+
 // A pack-sized progress table with an exact Mega count, so the Camp teaser
 // meter reads a real number rather than a hard-coded one.
 function guardianProgress(mega) {
@@ -218,6 +238,7 @@ function makeServices(query) {
     { learnerId: 'learner-b', nickname: 'Sam', yearGroup: 'Y6', goal: 15, colour: '#a06b22', createdAt: 2, updatedAt: 2 },
   ];
   const empty = query.has('empty');
+  const unfoundCompanion = query.get('unfound-companion') === 'true';
   const controller = store({
     status: 'ready',
     profiles: empty ? [] : profiles,
@@ -229,7 +250,19 @@ function makeServices(query) {
     activeVersion: 'starter-1',
     actionError: null,
   });
-  const rosterBeforeRound = (empty ? [] : MONSTERS).map((monster) => ({
+  // Unfound Setup paints a band silhouette: Inklet (Y3–4) and Glimmerbug
+  // (Y5–6) sleep until their set is selected. Core still falls back to the
+  // best found creature, so both band tracks are unmarked when the flag is on.
+  const harnessMonsters = empty
+    ? []
+    : (unfoundCompanion
+      ? MONSTERS.map((monster) => (
+        monster.monsterId === 'inklet' || monster.monsterId === 'glimmerbug'
+          ? { ...monster, caught: false, secureCount: 0, derivedStage: 0, earnedStageHighWater: 0 }
+          : monster
+      ))
+      : MONSTERS);
+  const rosterBeforeRound = harnessMonsters.map((monster) => ({
     ...monster,
     secureCount: Math.max(0, (monster.secureCount ?? 0) - 5),
   }));
@@ -253,7 +286,8 @@ function makeServices(query) {
     progress: empty ? [] : guardian ? guardianProgress(guardian.mega) : PROGRESS,
     packSize: guardian ? GUARDIAN_PACK_SIZE : 60,
     prefs: { voiceId: 'Iapetus', showCloze: true, autoSpeak: false },
-    monsters: empty ? [] : MONSTERS,
+    monsters: harnessMonsters,
+    vocabularySets: empty ? [] : VOCABULARY_SETS,
     revisionMission: guardian?.mission ?? null,
     roundBaseline: showsRound
       ? {
@@ -448,6 +482,17 @@ function Harness() {
     const query = new URLSearchParams(globalThis.location.search);
     if (query.get('screen') === 'summary') {
       services.learning.set({ screen: 'summary', practice: null });
+    }
+    // Setup defaults to Core; band silhouettes only paint on Y3–4 / Y5–6.
+    // Click the Y3–4 pill once the rail is up so ?unfound-companion=true is
+    // a single deep link rather than a two-step walk.
+    if (query.get('unfound-companion') === 'true' && query.get('screen') === 'setup') {
+      const pickBand = () => {
+        const pill = [...document.querySelectorAll('.setup-pools .pill')]
+          .find((button) => button.textContent?.includes('Y3'));
+        pill?.click();
+      };
+      requestAnimationFrame(() => requestAnimationFrame(pickBand));
     }
   }, [services]);
   return <ProductApp services={services} />;

@@ -3,14 +3,14 @@ title: A value-less DELETE reaching the Capacitor statement-batch API does nothi
 date: 2026-08-01
 category: integration-issues
 module: sqlite-learning-backup-repository
-problem_type: platform_behaviour
+problem_type: integration_issue
 component: database_adapter
 symptoms:
   - "An import that promises to replace every learner leaves the existing learners in place"
   - "Re-importing a backup whose learner id already exists fails with the import's generic failure copy"
   - "sqlite3 inspection shows the old learner rows still present after a reported-successful import"
   - "The same import replayed in a Node harness against node:sqlite passes every time"
-root_cause: platform_behaviour
+root_cause: wrong_api
 resolution_type: code_fix
 severity: high
 related_components:
@@ -117,3 +117,15 @@ parameters, write `[]`.
 
 When those coincide, check which adapter path the statement took before
 suspecting the SQL, the transaction, or a race.
+
+## Related
+
+- `docs/solutions/workflow-issues/harness-omitting-a-field-photographs-a-screen-the-product-never-renders.md`
+  — the same failure class one instrument over: there a design harness omitted a
+  field and photographed a screen the product never renders; here a Node harness
+  ran both adapter paths correctly and could not see the one the device breaks.
+  An instrument can be silent for reasons that have nothing to do with the code
+  being correct.
+- `docs/solutions/logic-errors/committed-import-reported-as-failed-by-auxiliary-refresh.md`
+  — the same import from the app side: how a committed import must report itself
+  when its post-commit epilogue fails.

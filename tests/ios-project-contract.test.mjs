@@ -44,6 +44,17 @@ test('the committed iOS project freezes the unsigned B1 identity', async () => {
     [...project.matchAll(/DEVELOPMENT_TEAM = V45S7U2LZB;/g)].length >= 2,
     'the non-secret Apple team metadata must be stable',
   );
+  assert.equal(
+    [...project.matchAll(/MARKETING_VERSION = 0\.5\.0;/g)].length,
+    2,
+    'App Debug and Release must freeze marketing version 0.5.0',
+  );
+  assert.equal(
+    [...project.matchAll(/INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;/g)]
+      .length,
+    2,
+    'App Debug and Release must declare exempt encryption for store upload',
+  );
   assert.match(
     infoPlist,
     /<key>CFBundleDisplayName<\/key>\s*<string>KS2 Spelling<\/string>/,

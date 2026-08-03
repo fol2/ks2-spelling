@@ -361,9 +361,14 @@ if [[ -z "$ASC_APP_ID" ]]; then
   ASC_APP_ID="$(
     /opt/homebrew/bin/asc apps list --bundle-id uk.eugnel.ks2spelling --pretty 2>/dev/null \
       | /usr/bin/python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["data"][0]["id"] if d.get("data") else "")'
-  )"
+  )" || ASC_APP_ID=""
 fi
-[[ -n "$ASC_APP_ID" ]] || fail "ASC app for uk.eugnel.ks2spelling not found; create it before upload"
+if [[ -z "$ASC_APP_ID" ]]; then
+  log "WARN: ASC app for uk.eugnel.ks2spelling not found yet; upload may still create/process against the bundle id, but --wait-for-valid requires the app record"
+  if [[ "$WAIT_FOR_VALID" -eq 1 ]]; then
+    fail "ASC app for uk.eugnel.ks2spelling not found; create it before --wait-for-valid"
+  fi
+fi
 
 STAMP="$(date +%Y%m%d%H%M%S)"
 RUN_LABEL="${VERSION}-${BUILD_NUMBER}-${STAMP}"

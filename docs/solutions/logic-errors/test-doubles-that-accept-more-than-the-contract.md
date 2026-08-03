@@ -44,7 +44,7 @@ moved. The controller passed the whole stored security record to the verifier:
 if (await pinCrypto.verify(pin, record)) {   // record has nine keys
 ```
 
-`requireCredential` in `parent-pin-contract.js` accepts *exactly* the four
+`requireCredential` in `src/domain/security/parent-pin-contract.js` accepts *exactly* the four
 credential keys (`algorithm`, `iterations`, `saltBase64`, `verifierBase64`).
 The stored record carries five more — lock state, biometric flag, timestamps —
 so every verification threw `parent_pin_credential_invalid` before the PBKDF2
@@ -70,7 +70,9 @@ a **copy of the simulator's own database**, then calling the failing operation
 and reading the stack. The stack named the exact guard in each case
 (`requireCredential`, then the redaction walk), which turned a vague screen
 message into a one-line fix. Copying the device database is cheap and makes
-the real data the fixture; no seeding can match it for fidelity.
+the real data the fixture; no seeding can match it for fidelity. That technique
+is now permanent: `tests/post-commit-honesty.test.mjs` boots the same graph over
+`node:sqlite` and arms SQL-level failures at each service site.
 
 ## Fixes
 
@@ -110,7 +112,11 @@ loosened.
 2. **Fixtures must span what the validator accepts, not what the happy path
    produces.** If a validator permits sparse entries, some fixture must be
    sparse. The gap between "valid input" and "input we happened to write" is
-   exactly where these defects live.
+   exactly where these defects live. The rule governs any stand-in, not only a
+   unit fixture — see
+   `docs/solutions/workflow-issues/harness-omitting-a-field-photographs-a-screen-the-product-never-renders.md`
+   for the visual-harness dialect, where the fake supplies *less* than the real
+   store and nothing can go red.
 3. **A stricter contract downstream is a caller obligation, not a hint.**
    Exact-key validation (`Reflect.ownKeys(value).length !== 4`) is deliberate
    in this codebase; pass the projection, never the superset.
@@ -122,3 +128,13 @@ loosened.
 - An error message from a *validator* rather than from the operation the user
   asked for.
 - Green unit coverage over exactly the path that fails on device.
+
+## Related
+
+- `docs/solutions/workflow-issues/harness-omitting-a-field-photographs-a-screen-the-product-never-renders.md`
+  — the harness dialect of the same fixture-breadth rule, with the polarity
+  reversed: there the stand-in supplies less than the real store, and the
+  instrument has no failing state at all.
+- `docs/solutions/logic-errors/committed-import-reported-as-failed-by-auxiliary-refresh.md`
+  — the sparse-progress defect recorded here is what made that record's
+  auxiliary refresh throw; that doc had filed it as an unresolved caveat.

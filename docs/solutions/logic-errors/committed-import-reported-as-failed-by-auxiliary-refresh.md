@@ -89,19 +89,19 @@ afterImport: async () => {
 
 The chain that produced the false report:
 `repository.importBackup()`
-(`src/platform/database/sqlite-learning-backup-repository.js:235-257`) owns its
+(`src/platform/database/sqlite-learning-backup-repository.js:235-261`) owns its
 transaction and has therefore already committed by the time it returns.
-`src/app/parent-backup-service.js:248-252` then awaits the `afterImport`
+`src/app/parent-backup-service.js:250-253` then awaits the `afterImport`
 callback before resolving, so any rejection inside `afterImport` rejects the
 whole import promise. The app's `afterImport` ended with
 `await parentProgress.refresh()` — an auxiliary recomputation of the parent
 progress summary. When that refresh threw, the rejection reached the UI, whose
-`runBackup` handler (`src/app/ProductApp.jsx:730-749`) had a single bare `catch`
+`runBackup` handler (`src/app/ProductApp.jsx:745-772`) had a single bare `catch`
 rendering one fixed message that asserts a rollback the code never performs.
 
 The fix restores a convention the codebase already used everywhere else: the
-boot path (`src/app/create-product-app-services.js:303`) and the component mount
-path (`src/app/ProductApp.jsx:3175`) both already ran the same refresh as
+boot path (`src/app/create-product-app-services.js:319`) and the component mount
+path (`src/app/ProductApp.jsx:3290`) both already ran the same refresh as
 `void parentProgress.refresh().catch(() => undefined)`. The import path was the
 outlier, not the innovation.
 
@@ -111,7 +111,7 @@ immediately after.
 ## Why This Works
 
 The progress refresh owns an accurate failure surface of its own:
-`src/app/ProductApp.jsx:571` renders "Progress could not be checked. Saved
+`src/app/ProductApp.jsx:586` renders "Progress could not be checked. Saved
 learning was not changed." Swallowing the rejection inside `afterImport`
 therefore costs the user no information — the stale summary still announces
 itself — while removing a false rollback claim made over data that was
@@ -119,11 +119,17 @@ committed.
 
 Two honest caveats:
 
-- **Why the refresh threw was never root-caused.** The suspicion is that the
-  fixture's minimal progress rows, carrying only `{stage: 4}`, tripped the parent
-  projection. That question is independent of the defect: whatever made the
-  refresh fail, it should never have been able to report a committed import as
-  failed.
+- **Why the refresh threw was not root-caused here — it was root-caused the next
+  day.** The suspicion recorded at the time was that the fixture's minimal
+  progress rows, carrying only `{stage: 4}`, tripped the parent projection. It
+  was confirmed on 1 August: the projection summed `attempts`/`correct`/`wrong`
+  raw, one sparse entry folded `NaN` into the totals, and the engine's redaction
+  walk rejected the whole projection. The fix and the fixture rule behind it are
+  in
+  `docs/solutions/logic-errors/test-doubles-that-accept-more-than-the-contract.md`.
+  The question was always independent of the defect recorded here: whatever made
+  the refresh fail, it should never have been able to report a committed import
+  as failed.
 - **The fix trades observability for a truthful claim.** `.catch(() =>
   undefined)` discards the underlying error rather than surfacing it (session
   history — noted by the security review of this diff). That trade is acceptable
@@ -166,7 +172,11 @@ Two honest caveats:
    parent-progress refresh loses its `.catch(...)`. The same test pins the
    opposite case — the standalone "check progress" action must keep surfacing
    its own failure, because there the refresh is the whole operation rather
-   than an epilogue to one.
+   than an epilogue to one. `tests/post-commit-honesty.test.mjs` is the
+   behavioural half: it boots the real service graph over `node:sqlite`, arms an
+   SQL-level failure at each of the five sites, and asserts both the `postCommit`
+   marker and the truthful UI copy — plus a pre-commit control that must still
+   roll back.
 
 ## Related Issues
 
@@ -177,3 +187,8 @@ Two honest caveats:
   survived a native install, using a pre-install backup, `PRAGMA quick_check`
   and a before/after comparison. This learning is the complementary rule for
   what the app may *claim* about that data once a write has committed.
+- `docs/solutions/integration-issues/capacitor-sqlite-value-less-dml-executes-as-a-no-op.md`
+  — the same import one layer down: on iOS the replace-all DELETE this record
+  assumes had committed was deleting nothing at all.
+- `docs/solutions/logic-errors/test-doubles-that-accept-more-than-the-contract.md`
+  — root-causes the progress refresh this record could only swallow.

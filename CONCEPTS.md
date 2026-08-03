@@ -24,6 +24,11 @@ counted in a band is also counted in the core. A set that would be empty for
 the installed catalogue is never offered, so which sets a learner sees depends
 on which catalogue is installed rather than on the learner.
 
+### Set off
+
+The learner's act of starting a round: choosing a vocabulary set and committing
+to it, after which the chosen set is fixed for that round.
+
 ### Spelling item
 
 The catalogue-owned unit that gives one target spelling its accepted forms, teaching metadata, sentence prompts, and stable runtime identity.
@@ -41,6 +46,24 @@ shown.
 Each cue has a normal and a slow rendering. Because dictation never presents the
 target spelling as text, the learner must be able to hear a cue and write their
 answer in the same moment.
+
+The word also names the surface built around that constraint — the layout that
+must hold a cue, an answer field and a software keyboard at once. Where a
+sentence speaks of a dictation layout rather than a dictation cue, this second
+sense is meant.
+
+### Keyboard ownership
+
+Which element the operating system regards as the origin of the software
+keyboard.
+
+The rule this project settled on is that ownership belongs to the real, visible
+answer field and to nothing else: no hidden input, no plugin, no bridge
+controller, and no code that hides, disables or moves the field while the
+keyboard is up. Focus is reclaimed only inside the gesture that asked for it.
+The rule exists because a competing owner does not produce an error — it
+produces a focused field with a caret and no keys, which reads as a platform
+fault rather than an application one.
 
 ### Spelling audio authority
 
@@ -91,6 +114,18 @@ It owns no data and is recomputed from saved learning on demand, so a failure
 to produce it never means saved learning changed — and no operation that has
 already committed may be reported as failed because the summary could not be
 rebuilt.
+
+### Parent PIN credential
+
+The exact four-field projection of a stored parent security record that the PIN
+verifier will accept — the algorithm, the iteration count, the salt and the
+verifier.
+
+The stored record is deliberately a superset: it also carries lock state,
+failure counts and timestamps that the verifier must never see. The contract
+rejects anything but the exact four keys rather than ignoring the extras, so
+passing the whole record is not a tolerated shortcut but a hard failure, and it
+surfaces as a validator error rather than as a wrong-PIN result.
 
 ## Native packaging
 

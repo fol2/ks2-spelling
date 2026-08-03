@@ -4,10 +4,15 @@ date: 2026-07-29
 problem_type: integration_issue
 component: ios_text_input
 severity: high
+symptoms:
+  - "A focused WKWebView field shows a caret and an activeElement but no software key rows on the affected physical iPhone"
+  - "Learner nickname, Word Bank search and Parent PIN all focus without usable key rows"
+  - "The keyboard appears only after a long unexplained delay, without a fresh field tap"
+root_cause: wrong_api
 applies_when:
   - "A Capacitor WKWebView field receives focus without prompt software keys"
   - "Dictation crosses the asynchronous Setup to Practice boundary"
-resolution_type: product_simplification_pending_physical_device_validation
+resolution_type: code_fix
 related_components:
   - "product_ui"
   - "capacitor_core"
@@ -39,10 +44,12 @@ The recovery removes:
 - startup keyboard-chrome mutation; and
 - `@capacitor/keyboard` from npm, SwiftPM and Android native plugin graphs.
 
-The physical-iPhone incident remains open until the checklist below passes on a
-clean product Debug build. Automated tests and an unsigned Simulator compile can
-prove composition and build integrity; they cannot prove software-keyboard
-creation on the affected device.
+The physical-iPhone incident closed on the affected operating system on
+2026-08-03: the checklist below passed twelve of its thirteen items on iOS 27.0,
+and only row 13's stable-iOS-26 half stays open for want of a device. That gate
+always needed a person holding a phone — automated tests and an unsigned
+Simulator compile can prove composition and build integrity; they cannot prove
+software-keyboard creation on the affected device.
 
 The iPhone form accessory bar is intentionally left system-owned in the release
 product. Capacitor's accessory-bar implementation is not a smaller public API
@@ -175,8 +182,11 @@ The reset branch verifies that:
     card.
 
 The UI probes are compilation evidence in CI. Their decisive keyboard assertions
-must still be executed on a physical device with no external hardware keyboard
-attached.
+belong to a physical device with no external hardware keyboard attached; that run
+happened on 2026-08-03 and is recorded in
+`reports/polish-round2/physical-device-keyboard.md`. A suspected regression means
+running the checklist again rather than re-reading that record — it is the device
+owner's confirmation, not a screenshot set.
 
 Simulator checks carry a false-positive trap. Driving typing through an
 accessibility or HID automation bridge switches the simulator into
@@ -186,8 +196,8 @@ and trust the XCUITest probes over hand-driven simulator typing.
 
 ## Required physical-device acceptance
 
-Use a clean product Debug build from the exact final reset head. Do not test PR
-#53, B4Development or B3SandboxProof.
+Use a clean product Debug build from the exact head under test — the shipping
+tree, not a proof branch. Do not test PR #53, B4Development or B3SandboxProof.
 
 Ticked 2026-08-03 on an iPhone 16 Pro Max running iOS 27.0 (24A5380h) — the
 affected operating system — against the polish round-2 head `9ee4018a`, with no
@@ -243,3 +253,7 @@ not for rebuilding the hidden session.
   throughout. Evidence: `reports/polish-round2/physical-device-keyboard.md`.
 - `docs/solutions/workflow-issues/gating-physical-ios-installs-on-application-composition.md`
   — always gate physical installs on product versus proof composition.
+- `docs/solutions/workflow-issues/harness-omitting-a-field-photographs-a-screen-the-product-never-renders.md`
+  — the nearest sibling with the polarity reversed. The simulator trap above
+  manufactures a look-alike of this incident; a starved design-harness fixture
+  conceals a real defect instead. Same instrument class, opposite failure.

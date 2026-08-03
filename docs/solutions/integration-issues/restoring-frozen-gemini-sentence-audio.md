@@ -57,8 +57,8 @@ explicit interim source. It did not require a frontend change.
 - The first repair put an upstream repository URL and other authoring metadata
   into the runtime contract. That crossed the repository's no-remote-code
   boundary: the dependency audit rejects HTTP or HTTPS literals in runtime
-  source (`scripts/audit-dependencies.mjs:694`,
-  `scripts/audit-dependencies.mjs:697`).
+  source (`scripts/audit-dependencies.mjs:692`,
+  `scripts/audit-dependencies.mjs:693`).
 - A completed provider batch was easy to confuse with a deployed source
   replacement. The current runtime authority still identifies word-only clips
   as the complete interim Piper set at revision
@@ -91,7 +91,7 @@ complete replacement has been downloaded, verified, wired and evidenced.
 The upstream repository URL, contract paths and source-contract hashes are
 useful for reproducible authoring, but not for playback. Moving those fields
 around inside runtime source would not help because the no-remote-code audit is
-content-based (`scripts/audit-dependencies.mjs:694`).
+content-based (`scripts/audit-dependencies.mjs:692`).
 
 ### Replacing only some words
 

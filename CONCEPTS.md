@@ -14,6 +14,16 @@ The closed approval boundary that permits only reviewed additions to package scr
 
 A versioned spelling-content scope that contains its spelling items and binds their teaching, dictation, reward, access, and audio requirements for validation together.
 
+### Vocabulary set
+
+A selectable slice of a spelling catalogue's core content that a learner can
+set off with: either the whole core set, or one school-year band within it.
+
+Bands are subsets of the core set rather than separate content, so a spelling
+counted in a band is also counted in the core. A set that would be empty for
+the installed catalogue is never offered, so which sets a learner sees depends
+on which catalogue is installed rather than on the learner.
+
 ### Spelling item
 
 The catalogue-owned unit that gives one target spelling its accepted forms, teaching metadata, sentence prompts, and stable runtime identity.
@@ -91,3 +101,18 @@ The complete product or proof experience selected for a build, including its run
 ### Native build identity
 
 The complete evidence tuple identifying what will be installed: source revision, application composition, native project and scheme, configuration, destination, bundle identifier, and packaged-content checks.
+
+## Verification instruments
+
+### Design harness
+
+The development-only surface that renders the real product screens over an
+in-memory stand-in for saved learning, so any screen and any visual state can
+be reached in a browser at any viewport.
+
+It is not a test and has no failing state; its only failure mode is to
+photograph a screen the product never renders. That happens whenever the
+stand-in publishes a different shape from the real projection — an omitted
+field removes whatever that field draws and leaves a plausible screen behind —
+so the harness's value as evidence rests entirely on the stand-in matching the
+real contract.

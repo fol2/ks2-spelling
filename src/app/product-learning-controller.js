@@ -5,7 +5,9 @@ import {
   validateCatalogueV1,
   validateSpellingCommandSnapshotV1,
 } from '../domain/spelling/index.js';
+import { setupExpeditionCompanion } from './codex-model.js';
 import { earlyRoundSummary, spellingOnly } from './practice-feel.js';
+import { achievementChips } from './records-model.js';
 
 const LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 // The vendored contract's own buffered-voice identifiers; the bundled
@@ -47,6 +49,8 @@ function freezeDeep(value) {
 function cloneFrozen(value) {
   return freezeDeep(structuredClone(value));
 }
+
+const EMPTY_RECORDS = freezeDeep({ milestones: [] });
 
 function parseRoundOptions(value) {
   try {
@@ -230,6 +234,15 @@ function adoptRoundBaseline(candidate, snapshot) {
   }
   return {
     sessionId: candidate.sessionId,
+    companionRewardTrackId:
+      typeof candidate.companionRewardTrackId === 'string' && candidate.companionRewardTrackId.length > 0
+        ? candidate.companionRewardTrackId
+        : null,
+    achievementIds: Array.isArray(candidate.achievementIds)
+      ? candidate.achievementIds.filter(
+        (id) => typeof id === 'string' && id.length > 0,
+      )
+      : [],
     monsters: candidate.monsters,
     camp: candidate.camp ?? null,
   };
@@ -244,30 +257,38 @@ function createState({
   summary = null,
   roundBaseline = null,
   revisionMission = null,
+  achievements = [],
+  records = EMPTY_RECORDS,
 }) {
   const ui = snapshot?.subjectState?.ui;
   const camp = campProjection(snapshot);
-  return cloneFrozen({
-    status,
-    screen,
-    learnerId: snapshot?.learnerId ?? null,
-    practice: practiceProjection(snapshot, catalogue),
-    prefs: prefsProjection(snapshot),
-    summary: summary ?? (ui?.summary ? structuredClone(ui.summary) : null),
-    progress: progressProjection(snapshot, catalogue),
-    // How many words the active pack holds, so the setup panel can say how
-    // much of it the learner has still to meet. The controller owns the
-    // catalogue; the view should not have to reach for it.
-    packSize: catalogue.items.length,
-    vocabularySets: vocabularySetsProjection(catalogue),
-    monsters: monsterProjection(snapshot, catalogue),
-    revisionMission,
-    camp: camp === null ? null : {
-      ...camp,
-      canEarnToday: revisionMission?.canStartRewardBearing ?? false,
-    },
-    roundBaseline,
-    actionError,
+  // Achievements and records stay outside cloneFrozen so same-revision
+  // publishes keep the memoised identities their views and tests rely on.
+  return Object.freeze({
+    ...cloneFrozen({
+      status,
+      screen,
+      learnerId: snapshot?.learnerId ?? null,
+      practice: practiceProjection(snapshot, catalogue),
+      prefs: prefsProjection(snapshot),
+      summary: summary ?? (ui?.summary ? structuredClone(ui.summary) : null),
+      progress: progressProjection(snapshot, catalogue),
+      // How many words the active pack holds, so the setup panel can say how
+      // much of it the learner has still to meet. The controller owns the
+      // catalogue; the view should not have to reach for it.
+      packSize: catalogue.items.length,
+      vocabularySets: vocabularySetsProjection(catalogue),
+      monsters: monsterProjection(snapshot, catalogue),
+      revisionMission,
+      camp: camp === null ? null : {
+        ...camp,
+        canEarnToday: revisionMission?.canStartRewardBearing ?? false,
+      },
+      roundBaseline,
+      actionError,
+    }),
+    achievements,
+    records,
   });
 }
 
@@ -305,6 +326,9 @@ export function createProductLearningController({
   const catalogue = validateCatalogueV1(candidateCatalogue);
   let snapshot = validateInitialSnapshot(initialSnapshot, catalogue);
   let revisionMissionCache = null;
+  let achievementsCache = null;
+  let recordsCache = null;
+  const emptyAchievements = Object.freeze([]);
 
   function revisionMissionProjection() {
     if (!snapshot) return null;
@@ -325,6 +349,40 @@ export function createProductLearningController({
     return value;
   }
 
+  function achievementsProjection() {
+    if (!snapshot) return emptyAchievements;
+    if (achievementsCache?.revision === snapshot.revision) {
+      return achievementsCache.value;
+    }
+    const value = freezeDeep(achievementChips(
+      snapshot.subjectState?.data?.achievements ?? {},
+    ));
+    achievementsCache = { revision: snapshot.revision, value };
+    return value;
+  }
+
+  function recordsProjection() {
+    if (!snapshot) return EMPTY_RECORDS;
+    if (recordsCache?.revision === snapshot.revision) {
+      return recordsCache.value;
+    }
+    const value = freezeDeep({
+      milestones: snapshot.eventLog
+        .filter(
+          (record) =>
+            record.type === 'spelling.mastery-milestone'
+            && Number.isSafeInteger(record.milestone),
+        )
+        .map(({ milestone, sessionId, createdAt }) => ({
+          milestone,
+          sessionId,
+          createdAt,
+        })),
+    });
+    recordsCache = { revision: snapshot.revision, value };
+    return value;
+  }
+
   // Round-start roster, kept so summary celebrations survive relaunch mid-round.
   let roundBaseline = adoptRoundBaseline(initialRoundBaseline, snapshot);
   let state = createState({
@@ -332,6 +390,8 @@ export function createProductLearningController({
     catalogue,
     roundBaseline,
     revisionMission: revisionMissionProjection(),
+    achievements: achievementsProjection(),
+    records: recordsProjection(),
   });
   let queue = Promise.resolve();
   let disposed = false;
@@ -349,6 +409,8 @@ export function createProductLearningController({
       ...options,
       roundBaseline,
       revisionMission: revisionMissionProjection(),
+      achievements: achievementsProjection(),
+      records: recordsProjection(),
     }));
   }
 
@@ -391,9 +453,17 @@ export function createProductLearningController({
         );
         const phase = plan.result.state?.phase;
         if (options.captureBaseline === true && phase === 'session') {
+          const monsters = monsterProjection(snapshot, catalogue);
           roundBaseline = {
             sessionId: snapshot.subjectState.ui.session.id,
-            monsters: monsterProjection(snapshot, catalogue),
+            companionRewardTrackId: setupExpeditionCompanion(
+              monsters,
+              options.companionYearFilter ?? null,
+            )?.rewardTrackId ?? null,
+            achievementIds: achievementChips(
+              snapshot.subjectState?.data?.achievements ?? {},
+            ).map((chip) => chip.id),
+            monsters,
             camp: campProjection(snapshot),
           };
           if (roundBaselineStore) {
@@ -458,6 +528,8 @@ export function createProductLearningController({
         if (learnerId === null) {
           snapshot = null;
           revisionMissionCache = null;
+          achievementsCache = null;
+          recordsCache = null;
           roundBaseline = null;
           publishFromSnapshot({ screen: 'profiles' });
           return null;
@@ -473,6 +545,8 @@ export function createProductLearningController({
             catalogue,
           );
           revisionMissionCache = null;
+          achievementsCache = null;
+          recordsCache = null;
           roundBaseline = null;
           if (
             roundBaselineStore &&
@@ -532,7 +606,7 @@ export function createProductLearningController({
           practiceOnly: false,
           words: [],
         },
-      }, { captureBaseline: true });
+      }, { captureBaseline: true, companionYearFilter: parsed.yearFilter });
     },
     startGuardianMission(options = {}) {
       const intent = options?.intent;

@@ -253,23 +253,42 @@ test('the production shell keeps Parent progress and commerce behind the local g
   });
   const parentProgressState = Object.freeze({
     status: 'ready',
-    learners: Object.freeze([Object.freeze({
-      learnerId: 'learner-a',
-      nickname: 'Ada',
-      yearGroup: 'Y3',
-      colour: '#2E7D8A',
-      publishedItemCount: 20,
-      secureItemCount: 1,
-      dueItemCount: 2,
-      troubleItemCount: 1,
-      correctCount: 5,
-      wrongCount: 1,
-      accuracyPercent: 83,
-      guardianDueCount: 0,
-      wobblingDueCount: 0,
-      nextGuardianReviewDay: null,
-      recentRevisionSessions: Object.freeze([]),
-    })]),
+    learners: Object.freeze([
+      Object.freeze({
+        learnerId: 'learner-a',
+        nickname: 'Ada',
+        yearGroup: 'Y3',
+        colour: '#2E7D8A',
+        publishedItemCount: 20,
+        secureItemCount: 1,
+        dueItemCount: 2,
+        troubleItemCount: 1,
+        correctCount: 5,
+        wrongCount: 1,
+        accuracyPercent: 83,
+        guardianDueCount: 0,
+        wobblingDueCount: 0,
+        nextGuardianReviewDay: null,
+        recentRevisionSessions: Object.freeze([]),
+      }),
+      Object.freeze({
+        learnerId: 'learner-b',
+        nickname: 'Bea',
+        yearGroup: 'Y4',
+        colour: '#8A5A2E',
+        publishedItemCount: 0,
+        secureItemCount: 0,
+        dueItemCount: 0,
+        troubleItemCount: 0,
+        correctCount: 0,
+        wrongCount: 0,
+        accuracyPercent: null,
+        guardianDueCount: 0,
+        wobblingDueCount: 0,
+        nextGuardianReviewDay: null,
+        recentRevisionSessions: Object.freeze([]),
+      }),
+    ]),
     actionError: null,
   });
   const parentProgress = Object.freeze({
@@ -470,6 +489,9 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(unlockedParentHtml, /Spelling progress/);
   assert.match(unlockedParentHtml, /5 of 6 attempts correct/);
   assert.match(unlockedParentHtml, /1 secure · 2 due/);
+  assert.match(unlockedParentHtml, /No spelling attempts saved yet\./);
+  assert.doesNotMatch(unlockedParentHtml, /saved yet\.0 secure/);
+  assert.doesNotMatch(unlockedParentHtml, /0 secure · 0 due · 0 needing support/);
   assert.match(unlockedParentHtml, /Full KS2 spelling/);
   assert.match(unlockedParentHtml, /£4\.99/);
   assert.match(unlockedParentHtml, /Buy Full KS2/);
@@ -570,6 +592,40 @@ test('the production shell keeps Parent progress and commerce behind the local g
   // The roster only ever holds reward tracks this learner's content publishes.
   assert.match(codexHtml, /Left to find/);
   assert.equal((codexHtml.match(/class="codex-roster-no"/g) ?? []).length, 1);
+  // The milestone ladder is about secure words, so it renders beside the stats
+  // whether or not a companion is on the card.
+  assert.match(codexHtml, /class="codex-ladder"/);
+  // The ladder counts the engine's way — secure stage or beyond — so the
+  // stage-5 word above still lights its first rung even though the companion
+  // evidence (exactly at the secure stage) holds none.
+  assert.match(codexHtml, /data-reached="true"/);
+  // One secure word of the ten this companion's next stage wants: the hero card
+  // is a long way from leaning forward.
+  assert.match(codexHtml, /data-near="false"/);
+  // This fixture's hero is found, so the closer-look affordance is present —
+  // the unfound case below must discriminate against that baseline.
+  assert.match(codexHtml, /data-found="true"/);
+  assert.match(codexHtml, /Look closer at/);
+
+  const foundCodexMonsters = learningState.monsters;
+  learningState = Object.freeze({
+    ...learningState,
+    monsters: Object.freeze([Object.freeze({
+      ...learningState.monsters[0],
+      caught: false,
+      secureCount: 0,
+      derivedStage: 0,
+      earnedStageHighWater: 0,
+      branch: null,
+    })]),
+  });
+  const unfoundCodexHtml = render();
+  assert.match(unfoundCodexHtml, /data-found="false"/);
+  assert.doesNotMatch(unfoundCodexHtml, /Look closer at/);
+  learningState = Object.freeze({
+    ...learningState,
+    monsters: foundCodexMonsters,
+  });
 
   learningState = Object.freeze({
     ...learningState,
@@ -634,6 +690,32 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(ownedSetupHtml, /glimmerbug-b1-2\.640\.webp/);
   assert.doesNotMatch(ownedSetupHtml, /inklet-b1-3\.640\.webp/);
   assert.match(ownedSetupHtml, /aria-label="Places on the trail"/);
+
+  const ownedMonsters = learningState.monsters;
+  learningState = Object.freeze({
+    ...learningState,
+    vocabularySets: Object.freeze([
+      Object.freeze({ id: 'y5-6', label: 'Y5–6', count: 104 }),
+      ...learningState.vocabularySets,
+    ]),
+    monsters: Object.freeze(learningState.monsters.map((entry) => Object.freeze(
+      entry.monsterId === 'inklet'
+        ? {
+          ...entry,
+          secureCount: 100,
+          derivedStage: 4,
+          earnedStageHighWater: 4,
+        }
+        : entry,
+    ))),
+  });
+  const yearFiveSixSetupHtml = render();
+  assert.match(yearFiveSixSetupHtml, /glimmerbug-b1-2\.640\.webp/);
+  assert.doesNotMatch(yearFiveSixSetupHtml, /inklet-b1-4\.640\.webp/);
+  learningState = Object.freeze({
+    ...learningState,
+    monsters: ownedMonsters,
+  });
 
   learningState = Object.freeze({
     ...learningState,
@@ -872,6 +954,28 @@ test('the production shell keeps Parent progress and commerce behind the local g
 
   learningState = Object.freeze({
     ...learningState,
+    progress: guardianProgress(213),
+    revisionMission: guardianMission({
+      missionState: 'first-patrol',
+      eligibleMissionKind: 'first-patrol',
+      guardianDueCount: 0,
+      wobblingDueCount: 0,
+      nextGuardianDueDay: TODAY_GUARDIAN_DAY,
+      canStartRewardBearing: true,
+    }),
+    camp: Object.freeze({
+      packId: 'ks2-core',
+      campHighWater: 0,
+      lastCreditedGuardianDay: null,
+      canEarnToday: true,
+    }),
+  });
+  const firstPatrolSetupHtml = render();
+  assert.match(firstPatrolSetupHtml, /First patrol/);
+  assert.doesNotMatch(firstPatrolSetupHtml, /0 due/);
+
+  learningState = Object.freeze({
+    ...learningState,
     revisionMission: guardianMission({
       missionState: 'due',
       eligibleMissionKind: 'due',
@@ -918,6 +1022,28 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.doesNotMatch(preUnlockCampHtml, /camp-ring/);
   assert.doesNotMatch(preUnlockCampHtml, /Camp level/);
   assert.doesNotMatch(preUnlockCampHtml, /revisits|waiting to return/i);
+  assert.doesNotMatch(preUnlockCampHtml, /Records of the watch/);
+
+  learningState = Object.freeze({
+    ...learningState,
+    achievements: Object.freeze([
+      Object.freeze({
+        id: 'GUARDIAN_7_DAY',
+        title: 'Guardian 7-day Maintainer',
+        body: 'Kept Guardian Missions going on 7 different days.',
+        unlockedAt: 1,
+      }),
+    ]),
+  });
+  const recordsCampHtml = render();
+  assert.match(recordsCampHtml, /Records of the watch/);
+  assert.match(recordsCampHtml, /aria-label="Records of the watch"/);
+  assert.match(recordsCampHtml, /camp-record-chip/);
+  assert.match(recordsCampHtml, /Guardian 7-day Maintainer/);
+  learningState = Object.freeze({
+    ...learningState,
+    achievements: Object.freeze([]),
+  });
 
   learningState = Object.freeze({
     ...learningState,
@@ -926,6 +1052,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
   const noAccessCampHtml = render();
   assert.match(noAccessCampHtml, /Guardian sleeps here/);
   assert.doesNotMatch(noAccessCampHtml, /camp-ring/);
+  assert.doesNotMatch(noAccessCampHtml, /Records of the watch/);
 
   learningState = Object.freeze({
     ...learningState,
@@ -959,6 +1086,30 @@ test('the production shell keeps Parent progress and commerce behind the local g
     dueCampHtml,
     /<button type="button" class="button-primary press" disabled=""[\s\S]*?Begin the patrol/u,
   );
+
+  learningState = Object.freeze({
+    ...learningState,
+    progress: guardianProgress(213),
+    revisionMission: guardianMission({
+      missionState: 'first-patrol',
+      eligibleMissionKind: 'first-patrol',
+      guardianDueCount: 0,
+      wobblingDueCount: 0,
+      nextGuardianDueDay: TODAY_GUARDIAN_DAY,
+      canStartRewardBearing: true,
+    }),
+    camp: Object.freeze({
+      packId: 'ks2-core',
+      campHighWater: 0,
+      lastCreditedGuardianDay: null,
+      canEarnToday: true,
+    }),
+  });
+  const firstPatrolCampHtml = render();
+  assert.match(firstPatrolCampHtml, /The first patrol awaits/);
+  assert.match(firstPatrolCampHtml, /camp fire is lit/);
+  assert.doesNotMatch(firstPatrolCampHtml, /0 words due/);
+  assert.match(firstPatrolCampHtml, /Begin the patrol/);
 
   learningState = Object.freeze({
     ...learningState,
@@ -1149,6 +1300,22 @@ test('the product shell consumes native safe-area insets', async () => {
   assert.match(
     productCss,
     /\.topbar-action\s*\{[^}]*max-width:\s*100%;[^}]*overflow-wrap:\s*anywhere;/su,
+  );
+  // Setup quest clips upward overflow without hiding the right-edge art bleed.
+  assert.match(
+    productCss,
+    /\.setup-quest\s*\{[^}]*overflow:\s*visible clip;/su,
+  );
+  // The Setup companion is the one place a learner meets art for a creature
+  // they have not found, so it shares the Codex silhouette declaration rather
+  // than carrying a weaker treatment of its own.
+  assert.match(
+    productCss,
+    /\.setup-quest img\.companion-asleep[^{]*\{[^}]*filter:\s*brightness\(0\)\s*invert\(1\)\s*opacity\(0\.15\);/su,
+  );
+  assert.doesNotMatch(
+    productCss,
+    /\.setup-quest img\.companion-asleep\s*\{[^}]*grayscale/su,
   );
 });
 
@@ -1353,4 +1520,15 @@ test('Capacitor and the built shell remain local-only', async () => {
       `production JavaScript must exclude ${forbiddenProofAuthority}`,
     );
   }
+
+  const bundledCss = (
+    await Promise.all(
+      (await readdir(join(ROOT, 'dist/assets')))
+        .filter((name) => name.endsWith('.css'))
+        .map((name) => readFile(join(ROOT, 'dist/assets', name), 'utf8')),
+    )
+  ).join('\n');
+  assert.match(bundledCss, /\.product-app/);
+  assert.doesNotMatch(bundledCss, /\.b4-learner-shell/);
+  assert.doesNotMatch(bundledCss, /\.status-pill/);
 });

@@ -7,10 +7,12 @@ import {
   validateSpellingCommandSnapshotV1,
 } from '../src/domain/spelling/index.js';
 import { createProductLearningController } from '../src/app/product-learning-controller.js';
+import { setupExpeditionCompanion } from '../src/app/codex-model.js';
 import {
   expectedB2Snapshot,
   snapshotAfterPlan,
 } from './helpers/b2-database-harness.mjs';
+import { expectedGuardianSnapshot } from './helpers/guardian-fixture.mjs';
 
 const NOW_MS = 1_768_478_400_000;
 
@@ -142,6 +144,8 @@ test('product learning starts a durable Smart Review and restores an interrupted
       canEarnToday: false,
     },
     roundBaseline: null,
+    achievements: [],
+    records: { milestones: [] },
     actionError: null,
   });
 
@@ -520,7 +524,11 @@ test('product learning captures a round baseline at startRound and persists it',
       return structuredClone(record);
     },
   });
-  const world = createLearningWorld();
+  const catalogue = loadFullSpellingCatalogue();
+  const world = createLearningWorld(
+    [snapshotForCatalogue(catalogue)],
+    catalogue,
+  );
   const controller = world.createController(world.snapshots.get('learner-a'), {
     roundBaselineStore: fakeStore,
   });
@@ -528,11 +536,15 @@ test('product learning captures a round baseline at startRound and persists it',
   await controller.startRound({
     mode: 'smart',
     length: 5,
-    yearFilter: 'core',
+    yearFilter: 'y5-6',
   });
 
   const state = controller.getState();
   assert.equal(state.roundBaseline.sessionId, state.practice.sessionId);
+  assert.equal(
+    state.roundBaseline.companionRewardTrackId,
+    'spelling-core-glimmerbug',
+  );
   // Captured after start-session lands, so it matches the practice roster.
   assert.deepEqual(state.roundBaseline.monsters, state.monsters);
   assert.deepEqual(state.roundBaseline.camp, {
@@ -540,12 +552,15 @@ test('product learning captures a round baseline at startRound and persists it',
     campHighWater: 0,
     lastCreditedGuardianDay: null,
   });
+  assert.deepEqual(state.roundBaseline.achievementIds, []);
   assert.equal(writes.length, 1);
   assert.equal(writes[0].learnerId, 'learner-a');
   assert.deepEqual(writes[0].record, {
     schemaVersion: 1,
     learnerId: 'learner-a',
     sessionId: state.practice.sessionId,
+    companionRewardTrackId: 'spelling-core-glimmerbug',
+    achievementIds: [],
     monsters: state.monsters,
     camp: state.roundBaseline.camp,
   });
@@ -553,15 +568,33 @@ test('product learning captures a round baseline at startRound and persists it',
   await controller.dispose();
 });
 
+test('product learning gives Guardian the furthest-grown found companion', async () => {
+  const catalogue = loadFullSpellingCatalogue();
+  const initialSnapshot = expectedGuardianSnapshot();
+  const world = createLearningWorld([initialSnapshot], catalogue);
+  const controller = world.createController();
+
+  await controller.startGuardianMission();
+  const state = controller.getState();
+  assert.equal(
+    state.roundBaseline.companionRewardTrackId,
+    setupExpeditionCompanion(state.monsters)?.rewardTrackId ?? null,
+  );
+
+  await controller.dispose();
+});
+
 test('product learning adopts a matching initialRoundBaseline mid-session', async () => {
   const world = createLearningWorld();
   const first = world.createController();
-  await first.startRound({ mode: 'smart', length: 5, yearFilter: 'core' });
+  await first.startRound({ mode: 'smart', length: 5, yearFilter: 'y3-4' });
   const midSession = structuredClone(world.snapshots.get('learner-a'));
   const baseline = {
     schemaVersion: 1,
     learnerId: 'learner-a',
     sessionId: first.getState().practice.sessionId,
+    companionRewardTrackId:
+      first.getState().roundBaseline.companionRewardTrackId,
     monsters: structuredClone(first.getState().roundBaseline.monsters),
     camp: structuredClone(first.getState().roundBaseline.camp),
   };
@@ -579,6 +612,10 @@ test('product learning adopts a matching initialRoundBaseline mid-session', asyn
     restored.getState().roundBaseline.monsters,
     baseline.monsters,
   );
+  assert.equal(
+    restored.getState().roundBaseline.companionRewardTrackId,
+    'spelling-core-inklet',
+  );
   await restored.dispose();
 
   const mismatched = world.createController(midSession, {
@@ -594,12 +631,14 @@ test('product learning selectLearner clears and re-reads the round baseline', as
     expectedB2Snapshot('learner-b'),
   ]);
   const first = world.createController();
-  await first.startRound({ mode: 'smart', length: 5, yearFilter: 'core' });
+  await first.startRound({ mode: 'smart', length: 5, yearFilter: 'y3-4' });
   const midA = structuredClone(world.snapshots.get('learner-a'));
   const baselineA = {
     schemaVersion: 1,
     learnerId: 'learner-a',
     sessionId: first.getState().practice.sessionId,
+    companionRewardTrackId:
+      first.getState().roundBaseline.companionRewardTrackId,
     monsters: structuredClone(first.getState().roundBaseline.monsters),
     camp: structuredClone(first.getState().roundBaseline.camp),
   };
@@ -627,6 +666,10 @@ test('product learning selectLearner clears and re-reads the round baseline', as
   assert.equal(
     controller.getState().roundBaseline.sessionId,
     baselineA.sessionId,
+  );
+  assert.equal(
+    controller.getState().roundBaseline.companionRewardTrackId,
+    'spelling-core-inklet',
   );
 
   await controller.selectLearner(null);
@@ -659,6 +702,118 @@ test('product learning startRound ignores round baseline store write failures', 
   assert.equal(
     controller.getState().roundBaseline.sessionId,
     controller.getState().practice.sessionId,
+  );
+
+  await controller.dispose();
+});
+
+test('product learning projects allowlisted achievement chips and memoises by revision', async () => {
+  const seeded = structuredClone(expectedB2Snapshot('learner-a'));
+  seeded.subjectState.data.achievements = {
+    GUARDIAN_7_DAY: { unlockedAt: 1_700_000_000_000 },
+    '_progress:guardian:days': { days: [20_461, 20_462, 20_463] },
+  };
+  const world = createLearningWorld([seeded]);
+  const controller = world.createController(seeded);
+
+  const chips = controller.getState().achievements;
+  assert.equal(chips.length, 1);
+  assert.equal(chips[0].id, 'GUARDIAN_7_DAY');
+  assert.equal(chips[0].title, 'Guardian 7-day Maintainer');
+  assert.equal(
+    chips[0].body,
+    'Kept Guardian Missions going on 7 different days.',
+  );
+  assert.equal(chips[0].unlockedAt, 1_700_000_000_000);
+
+  controller.showScreen('camp');
+  assert.equal(
+    controller.getState().achievements,
+    chips,
+    'same-revision publishes must reuse the memoised achievements array',
+  );
+  controller.showScreen('home');
+  assert.equal(controller.getState().achievements, chips);
+
+  const revisionBefore = world.snapshots.get('learner-a').revision;
+  await controller.savePrefs({ voiceId: 'Sulafat' });
+  assert.notEqual(
+    world.snapshots.get('learner-a').revision,
+    revisionBefore,
+    'savePrefs must bump the durable revision',
+  );
+  const afterBump = controller.getState().achievements;
+  assert.notEqual(
+    afterBump,
+    chips,
+    'a revision bump must recompute the achievements projection',
+  );
+  assert.deepEqual(afterBump, chips);
+
+  await controller.startRound({ mode: 'smart', length: 5, yearFilter: 'core' });
+  assert.deepEqual(
+    controller.getState().roundBaseline.achievementIds,
+    ['GUARDIAN_7_DAY'],
+  );
+
+  await controller.selectLearner(null);
+  assert.deepEqual(controller.getState().achievements, []);
+
+  await controller.dispose();
+});
+
+test('product learning projects milestone records and memoises by revision', async () => {
+  const seeded = structuredClone(expectedB2Snapshot('learner-a'));
+  seeded.eventLog = [
+    {
+      id: 'spelling.mastery-milestone:learner-a:5',
+      type: 'spelling.mastery-milestone',
+      subjectId: 'spelling',
+      learnerId: 'learner-a',
+      sessionId: 'session-x',
+      mode: 'smart',
+      milestone: 5,
+      secureCount: 5,
+      createdAt: 1,
+    },
+    {
+      id: 'spelling.session-completed:learner-a:session-x',
+      type: 'spelling.session-completed',
+      subjectId: 'spelling',
+      learnerId: 'learner-a',
+      sessionId: 'session-x',
+      mode: 'smart',
+      sessionType: 'learning',
+      totalWords: 5,
+      mistakeCount: 0,
+      createdAt: 2,
+    },
+  ];
+  const world = createLearningWorld([seeded]);
+  const controller = world.createController(seeded);
+
+  const records = controller.getState().records;
+  assert.deepEqual(records.milestones, [{
+    milestone: 5,
+    sessionId: 'session-x',
+    createdAt: 1,
+  }]);
+  controller.showScreen('camp');
+  assert.equal(
+    controller.getState().records,
+    records,
+    'same-revision publishes must reuse the memoised records object',
+  );
+
+  await controller.selectLearner(null);
+  const emptyRecords = controller.getState().records;
+  assert.deepEqual(emptyRecords, { milestones: [] });
+  await controller.selectLearner('learner-a');
+  await controller.selectLearner(null);
+  assert.equal(
+    controller.getState().records,
+    emptyRecords,
+    'learner deselection must reuse the empty records singleton',
   );
 
   await controller.dispose();

@@ -10,14 +10,16 @@ import {
 // No import query is used: Vite already resolves a .webp default export to its
 // bundled URL, and a query suffix would leave the dependency-audit module graph
 // pointing at a path that does not exist on disk.
-const MONSTER_MODULES = import.meta.glob(
+// Codex is also imported by the service model under plain Node, where Vite's
+// asset-glob transform is unavailable and art is not consumed.
+const MONSTER_MODULES = import.meta.env ? import.meta.glob(
   '../../content/mastery-art/monsters/*/*/*.640.webp',
   { eager: true, import: 'default' },
-);
-const REGION_MODULES = import.meta.glob(
+) : {};
+const REGION_MODULES = import.meta.env ? import.meta.glob(
   '../../content/mastery-art/regions/*/*.1280.webp',
   { eager: true, import: 'default' },
-);
+) : {};
 
 const MONSTER_FILE = /\/monsters\/([^/]+)\/(b[12])\/[^/]+-(b[12])-(\d)\.640\.webp$/u;
 const REGION_FILE = /\/regions\/([^/]+)\/[^/]+-([a-z]\d)\.1280\.webp$/u;

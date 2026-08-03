@@ -217,3 +217,27 @@ test('Parent PIN validation rejects weak or mismatched values before persistence
   assert.deepEqual(harness.writes, []);
   await controller.dispose();
 });
+
+test('Parent security unlocks through the real PIN crypto against its own stored record', async () => {
+  // The fake crypto above accepts any candidate shape, so it cannot catch a
+  // controller that hands the whole security record to verify() when the
+  // contract validates exactly the four credential keys. This round trip runs
+  // the real PBKDF2 contract end to end.
+  const { createParentPinCrypto } = await import(
+    '../src/domain/security/parent-pin-contract.js'
+  );
+  const harness = createHarness();
+  const controller = await createParentSecurityController({
+    ...harness,
+    pinCrypto: createParentPinCrypto({ crypto: globalThis.crypto }),
+  });
+  await controller.setPin({ pin: '274913', confirmation: '274913' });
+  controller.lock();
+  await controller.unlockWithPin('274913');
+  assert.equal(controller.getState().status, 'unlocked');
+  await assert.rejects(
+    controller.unlockWithPin('274914'),
+    (error) => error?.code === 'parent_pin_incorrect',
+  );
+  await controller.dispose();
+});

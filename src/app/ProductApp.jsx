@@ -11,11 +11,15 @@ import { buildCodex, setupExpeditionCompanion, trailMeadowCompanions } from './c
 import { learnerColour } from './learner-colour.js';
 import { artUrl, regionArt } from './mastery-art.js';
 import { autoAdvanceDelayMs } from './practice-feel.js';
+import { milestoneLadder } from './records-model.js';
 import { buildWordBank } from './word-bank-model.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
+  achievementCelebration,
   campLevelCelebration,
   diffMonsterCelebrations,
+  milestoneCelebration,
+  primaryProgressedRewardTrackId,
   secureWordDelta,
 } from './celebrations/celebration-model.js';
 import { TrailMeadow } from './trail/TrailMeadow.jsx';
@@ -351,8 +355,14 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
       await onReset(profile.learnerId);
       setConfirmingReset(false);
       setResetConfirmation('');
-    } catch {
-      setActionError('That learning was not reset. Please try again.');
+    } catch (error) {
+      if (error?.postCommit === true) {
+        setActionError('That learning was reset, but the app could not refresh the view. Close and reopen the app.');
+        setConfirmingReset(false);
+        setResetConfirmation('');
+      } else {
+        setActionError('That learning was not reset. Please try again.');
+      }
     } finally {
       setBusy(false);
     }
@@ -378,7 +388,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
       <div className="parent-learner-actions">
         <button
           type="button"
-          className="button-quiet"
+          className="button-quiet press-soft press"
           disabled={busy}
           onClick={() => {
             setEditing((value) => !value);
@@ -391,7 +401,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
         </button>
         <button
           type="button"
-          className="button-warning"
+          className="button-warning press-soft press"
           disabled={busy}
           onClick={() => {
             setConfirmingReset((value) => !value);
@@ -405,7 +415,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
         </button>
         <button
           type="button"
-          className="button-destructive"
+          className="button-destructive press-soft press"
           disabled={busy}
           onClick={() => {
             setConfirmingDelete((value) => !value);
@@ -458,7 +468,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
               </select>
             </label>
           </div>
-          <button type="submit" className="button-primary" disabled={busy}>
+          <button type="submit" className="button-primary press" disabled={busy}>
             Save learner
           </button>
         </form>
@@ -483,7 +493,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
           </label>
           <button
             type="button"
-            className="button-danger"
+            className="button-danger press"
             disabled={busy || resetConfirmation !== profile.nickname}
             onClick={() => void resetLearning()}
           >
@@ -510,7 +520,7 @@ function ParentLearnerManager({ profile, onEdit, onRemove, onReset }) {
           </label>
           <button
             type="button"
-            className="button-danger"
+            className="button-danger press"
             disabled={busy || deleteConfirmation !== profile.nickname}
             onClick={() => void remove()}
           >
@@ -557,10 +567,15 @@ function ParentProgressCard({ state, onRefresh }) {
                           : ` · ${summary.accuracyPercent}%`
                       }`}
                 </span>
-                <small>
-                  {summary.secureItemCount} secure · {summary.dueItemCount} due ·{' '}
-                  {summary.troubleItemCount} needing support
-                </small>
+                {(attempts > 0 ||
+                  summary.secureItemCount > 0 ||
+                  summary.dueItemCount > 0 ||
+                  summary.troubleItemCount > 0) && (
+                  <small>
+                    {summary.secureItemCount} secure · {summary.dueItemCount} due ·{' '}
+                    {summary.troubleItemCount} needing support
+                  </small>
+                )}
               </li>
             );
           })}
@@ -573,7 +588,7 @@ function ParentProgressCard({ state, onRefresh }) {
       )}
       <button
         type="button"
-        className="button-quiet"
+        className="button-quiet press-soft press"
         disabled={state.status === 'checking'}
         onClick={() => void onRefresh().catch(() => undefined)}
       >
@@ -637,7 +652,7 @@ function ParentCommerceCard({
         {state.entitlementState === 'none' && (
           <button
             type="button"
-            className="button-primary"
+            className="button-primary press"
             disabled={busy || !canBuy}
             onClick={() => void onPurchase().catch(() => undefined)}
           >
@@ -647,7 +662,7 @@ function ParentCommerceCard({
         {canDownload && (
           <button
             type="button"
-            className="button-primary"
+            className="button-primary press"
             disabled={busy}
             onClick={() => void onDownload().catch(() => undefined)}
           >
@@ -656,7 +671,7 @@ function ParentCommerceCard({
         )}
         <button
           type="button"
-          className="button-quiet"
+          className="button-quiet press-soft press"
           disabled={busy}
           onClick={() => void onRestore().catch(() => undefined)}
         >
@@ -664,7 +679,7 @@ function ParentCommerceCard({
         </button>
         <button
           type="button"
-          className="button-quiet"
+          className="button-quiet press-soft press"
           disabled={busy}
           onClick={() => void onRecover().catch(() => undefined)}
         >
@@ -741,8 +756,16 @@ export function ParentArea({
       );
       setConfirmingImport(false);
       setImportConfirmation('');
-    } catch {
-      setBackupError('The backup did not complete. No learning was replaced.');
+    } catch (error) {
+      if (error?.postCommit === true) {
+        // The import committed; only the in-app refresh failed. Reopening
+        // rebuilds every view from the imported data.
+        setBackupMessage('The backup was imported, but this screen could not refresh. Close and reopen the app.');
+        setConfirmingImport(false);
+        setImportConfirmation('');
+      } else {
+        setBackupError('The backup did not complete. No learning was replaced.');
+      }
     } finally {
       setBackupBusy(false);
     }
@@ -754,7 +777,7 @@ export function ParentArea({
         <ProductTopBar
           title="Parent area"
           action={(
-            <button type="button" className="topbar-action" onClick={onClose}>
+            <button type="button" className="topbar-action press-soft press" onClick={onClose}>
               Done
             </button>
           )}
@@ -799,7 +822,7 @@ export function ParentArea({
                 </p>
                 <button
                   type="button"
-                  className="button-quiet"
+                  className="button-quiet press-soft press"
                   disabled={busy}
                   onClick={() => void run(
                     () => onSetBiometricsEnabled(!state.biometric.enabled),
@@ -851,7 +874,7 @@ export function ParentArea({
             <div className="parent-backup-actions">
               <button
                 type="button"
-                className="button-quiet"
+                className="button-quiet press-soft press"
                 disabled={backupBusy}
                 onClick={() => void runBackup(
                   onExportBackup,
@@ -863,7 +886,7 @@ export function ParentArea({
               {!confirmingImport && (
                 <button
                   type="button"
-                  className="button-warning"
+                  className="button-warning press-soft press"
                   disabled={backupBusy}
                   onClick={() => {
                     setBackupMessage('');
@@ -895,7 +918,7 @@ export function ParentArea({
                 <div className="parent-backup-actions">
                   <button
                     type="button"
-                    className="button-danger"
+                    className="button-danger press"
                     disabled={
                       backupBusy || importConfirmation !== 'REPLACE'
                     }
@@ -908,7 +931,7 @@ export function ParentArea({
                   </button>
                   <button
                     type="button"
-                    className="button-quiet"
+                    className="button-quiet press-soft press"
                     disabled={backupBusy}
                     onClick={() => {
                       setConfirmingImport(false);
@@ -966,7 +989,7 @@ export function ParentArea({
       <ProductTopBar
         title="Parent access"
         action={(
-          <button type="button" className="topbar-action" onClick={onClose}>
+          <button type="button" className="topbar-action press-soft press" onClick={onClose}>
             Back
           </button>
         )}
@@ -1024,7 +1047,7 @@ export function ParentArea({
           )}
           <button
             type="submit"
-            className="button-primary"
+            className="button-primary press"
             disabled={
               busy ||
               pin.length !== 6 ||
@@ -1040,7 +1063,7 @@ export function ParentArea({
           state.biometric.enabled && (
             <button
               type="button"
-              className="button-quiet parent-biometric-button"
+              className="button-quiet parent-biometric-button press-soft press"
               disabled={busy}
               onClick={() => void run(onUnlockBiometrics)}
             >
@@ -1124,7 +1147,7 @@ export function LeaveRoundDialog({
           <button
             ref={keepButton}
             type="button"
-            className="button-quiet"
+            className="button-quiet press-soft press"
             disabled={leaving}
             onClick={onKeep}
           >
@@ -1133,7 +1156,7 @@ export function LeaveRoundDialog({
           <button
             ref={leaveButton}
             type="button"
-            className="button-danger"
+            className="button-danger press"
             disabled={leaving}
             onClick={onLeave}
           >
@@ -1157,7 +1180,7 @@ const SHEET_FLICK_TRAVEL = 24;
  * Returns null when the sheet has nowhere to go, so the caller can leave the
  * grip out rather than offer a gesture that does nothing.
  */
-function useSheetDrag(onDismiss, haptics) {
+function useSheetDrag(onDismiss, haptics, sfx) {
   const sheetRef = useRef(null);
   const dragRef = useRef(null);
   const [offset, setOffset] = useState(0);
@@ -1193,9 +1216,10 @@ function useSheetDrag(onDismiss, haptics) {
     const flicked = travel >= SHEET_FLICK_TRAVEL && speed >= SHEET_FLICK_SPEED;
     if (flicked || travel >= drag.height * SHEET_DISMISS_FRACTION) {
       haptics?.uiTick?.();
+      sfx?.play('sheet');
       onDismiss();
     }
-  }, [haptics, onDismiss]);
+  }, [haptics, sfx, onDismiss]);
 
   if (!onDismiss) return null;
   return {
@@ -1220,8 +1244,9 @@ function SwitchScreen({
   onRecoverAudio,
   onDismiss,
   haptics,
+  sfx,
 }) {
-  const drag = useSheetDrag(onDismiss, haptics);
+  const drag = useSheetDrag(onDismiss, haptics, sfx);
   const [nickname, setNickname] = useState('');
   const [yearGroup, setYearGroup] = useState('Y3');
   const [goal, setGoal] = useState(10);
@@ -1457,7 +1482,6 @@ function TrailScreen({
             <button
               type="button"
               className="glass-button icon-button press-soft press"
-              style={{ marginLeft: 'auto' }}
               onClick={onOpenParent}
             >
               <IconLock size={21} />
@@ -1687,12 +1711,24 @@ function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {
   );
 }
 
-function CodexScreen({ monsters, onScreen }) {
+function CodexScreen({ monsters, progress, onScreen }) {
   const [selected, setSelected] = useState(null);
   const [zoomed, setZoomed] = useState(false);
   const codex = useMemo(
     () => buildCodex(monsters, selected),
     [monsters, selected],
+  );
+  // The ladder advertises the engine's mastery milestones, so it must count
+  // the way the engine does: every word at the secure stage or beyond. The
+  // companion evidence beneath the hero card deliberately counts only words
+  // sitting exactly at the secure stage, and a word promoted past it would
+  // otherwise un-light a milestone the learner has already been celebrated
+  // for.
+  const secureWordTotal = useMemo(
+    () => (Array.isArray(progress)
+      ? progress.filter((row) => row.stage >= 4).length
+      : 0),
+    [progress],
   );
   const hero = codex.hero;
 
@@ -1726,6 +1762,7 @@ function CodexScreen({ monsters, onScreen }) {
               <section
                 className="codex-hero"
                 data-found={hero.found ? 'true' : 'false'}
+                data-near={hero.nearNextStage ? 'true' : 'false'}
                 style={{ '--accent': hero.accent }}
               >
                 <span className="codex-hero-glow" aria-hidden="true" />
@@ -1736,15 +1773,23 @@ function CodexScreen({ monsters, onScreen }) {
                 <span className="codex-no">NO. {hero.number}</span>
                 <span className="codex-band">{hero.band}</span>
 
-                <button
-                  type="button"
-                  className="codex-stage press"
-                  onClick={() => setZoomed(true)}
-                >
-                  <span className="codex-stage-shadow" aria-hidden="true" />
-                  <img src={hero.art ?? undefined} alt="" />
-                  <span className="visually-hidden">Look closer at {hero.title}</span>
-                </button>
+                {/* Unfound companion is withheld everywhere, so it gets no closer look. */}
+                {hero.found ? (
+                  <button
+                    type="button"
+                    className="codex-stage press"
+                    onClick={() => setZoomed(true)}
+                  >
+                    <span className="codex-stage-shadow" aria-hidden="true" />
+                    <img src={hero.art ?? undefined} alt="" />
+                    <span className="visually-hidden">Look closer at {hero.title}</span>
+                  </button>
+                ) : (
+                  <div className="codex-stage">
+                    <span className="codex-stage-shadow" aria-hidden="true" />
+                    <img src={hero.art ?? undefined} alt="" />
+                  </div>
+                )}
 
                 <div className="codex-hero-foot">
                   <div className="codex-hero-title">
@@ -1825,7 +1870,22 @@ function CodexScreen({ monsters, onScreen }) {
             </div>
           </div>
 
-          {zoomed && hero && (
+          {/* The engine's mastery milestones, read straight from the engine so
+              the Codex can never advertise a number it would not celebrate.
+              Lit rungs are behind the learner; the marked one is next. */}
+          <ol className="codex-ladder" aria-label="Spelling milestones">
+            {milestoneLadder(secureWordTotal).map((rung) => (
+              <li
+                key={rung.milestone}
+                data-reached={rung.reached ? 'true' : 'false'}
+                data-next={rung.next ? 'true' : 'false'}
+              >
+                <span className="figure">{rung.milestone}</span>
+              </li>
+            ))}
+          </ol>
+
+          {zoomed && hero?.found && (
             <button
               type="button"
               className="codex-zoom"
@@ -1908,6 +1968,8 @@ function guardianNextLine(mission, noun) {
 function guardianDueLine(mission) {
   const due = mission?.guardianDueCount ?? 0;
   const wobbling = mission?.wobblingDueCount ?? 0;
+  // Zero due + zero wobbling only reaches here in phase === 'due' — first patrol.
+  if (due === 0 && wobbling === 0) return 'First patrol';
   return wobbling > 0 ? `${due} due · ${wobbling} wobbling` : `${due} due`;
 }
 
@@ -1921,6 +1983,7 @@ function CampScreen({
   onScreen,
   onStartGuardian,
   onRecoverAudio,
+  achievements = [],
 }) {
   const phase = guardianPhase(revisionMission);
   const awake = phase !== 'locked' && phase !== 'asleep';
@@ -1955,11 +2018,11 @@ function CampScreen({
               <svg viewBox="0 0 120 120" aria-hidden="true">
                 <circle cx="60" cy="60" r="53" fill="none" stroke="rgba(29,43,58,.13)" strokeWidth="7" />
                 <circle
+                  className="camp-ring-progress"
                   cx="60"
                   cy="60"
                   r="53"
                   fill="none"
-                  style={{ stroke: 'var(--brass)' }}
                   strokeWidth="7"
                   strokeLinecap="round"
                   strokeDasharray={circumference}
@@ -2010,7 +2073,17 @@ function CampScreen({
               Guardian
             </p>
 
-            {phase === 'due' && (
+            {phase === 'due' && dueCount === 0 && (
+              <>
+                <h1 id="camp-title">The first patrol awaits</h1>
+                <p className="body-copy">
+                  Every core word is Mega. Walk the first patrol today and the
+                  camp fire is lit.
+                </p>
+              </>
+            )}
+
+            {phase === 'due' && dueCount > 0 && (
               <>
                 <h1 id="camp-title">
                   {dueCount === 1
@@ -2102,6 +2175,17 @@ function CampScreen({
               )}
             </div>
           </section>
+
+          {achievements.length > 0 && (
+            <section className="vellum camp-records" aria-label="Records of the watch">
+              <p className="product-kicker camp-card-kicker">Records of the watch</p>
+              <ul>
+                {achievements.map((chip) => (
+                  <li key={chip.id} className="camp-record-chip">{chip.title}</li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
       </Scene>
     </main>
@@ -2202,8 +2286,8 @@ function SetupScreen({
   const effectiveYearFilter = runQuest === 'test' ? 'core' : yearFilter;
   const effectiveLength = runQuest === 'test' ? 20 : length;
   const companion = useMemo(
-    () => setupExpeditionCompanion(monsters),
-    [monsters],
+    () => setupExpeditionCompanion(monsters, guardianRuns ? null : effectiveYearFilter),
+    [monsters, guardianRuns, effectiveYearFilter],
   );
 
   useEffect(() => {
@@ -2240,7 +2324,16 @@ function SetupScreen({
           </div>
 
           <div className="setup-quest">
-            {companion?.art && <img src={companion.art} alt="" />}
+            {companion?.art && (
+              <img
+                src={companion.art}
+                alt=""
+                className={companion.found ? undefined : 'companion-asleep'}
+              />
+            )}
+            {companion && !companion.found && (
+              <p className="setup-companion-hint">Secure spellings here to wake this companion.</p>
+            )}
             <p className="product-kicker">
               Today&apos;s quest<span aria-hidden="true" />
             </p>
@@ -2438,7 +2531,7 @@ function SetupScreen({
               <>
                 Set off
                 {quest === 'guardian' && ` on ${runQuestName}`}
-                <span aria-hidden="true" style={{ opacity: 0.4 }}>·</span>
+                <span aria-hidden="true" className="dot-sep">·</span>
                 <span className="figure">{effectiveLength}</span>
                 words
                 <IconForward size={18} />
@@ -2902,13 +2995,17 @@ function ResultsScreen({
   haptics,
   sfx,
   onCelebrationDone,
+  preferredRewardTrackId = null,
 }) {
-  // Field Record mirrors Trail: only a caught or evolved companion is painted.
-  // With none found yet, leave the record blank of creature art — no phantom egg.
-  const companion = useMemo(
-    () => setupExpeditionCompanion(monsters),
-    [monsters],
-  );
+  // Field Record prefers the companion this round progressed, then mirrors
+  // Trail: only a caught or evolved companion is painted — no phantom egg.
+  const companion = useMemo(() => {
+    const roster = buildCodex(monsters).roster;
+    const preferred = roster.find(
+      (entry) => entry.rewardTrackId === preferredRewardTrackId && entry.found,
+    ) ?? null;
+    return preferred ?? setupExpeditionCompanion(monsters);
+  }, [monsters, preferredRewardTrackId]);
   const accuracy = summary?.accuracy ?? 0;
   const total = summary?.totalWords ?? 0;
   const correct = summary?.correct ?? 0;
@@ -2984,15 +3081,15 @@ function ResultsScreen({
 
               <div className="record-tally">
                 <div>
-                  <span className="figure" style={{ color: 'var(--good)' }}>{correct}</span>
+                  <span className="figure figure-good">{correct}</span>
                   <span className="label">correct</span>
                 </div>
                 <div>
-                  <span className="figure" style={{ color: 'var(--retry)' }}>{mistakes.length}</span>
+                  <span className="figure figure-retry">{mistakes.length}</span>
                   <span className="label">return</span>
                 </div>
                 <div>
-                  <span className="figure" style={{ color: 'var(--brass-ink)' }}>{total}</span>
+                  <span className="figure figure-brass">{total}</span>
                   <span className="label">words walked</span>
                 </div>
               </div>
@@ -3010,7 +3107,7 @@ function ResultsScreen({
                 </p>
               ) : (
                 <>
-                  <p className="product-kicker" style={{ margin: '0.7rem 0 0.35rem' }}>
+                  <p className="product-kicker record-roll-kicker">
                     {guardian ? 'Back tomorrow' : 'Coming back'}
                     <span className="figure"> {mistakes.length}</span>
                   </p>
@@ -3118,6 +3215,7 @@ export default function ProductApp({ services }) {
   // Camp only ever rises on a rewarded Guardian mission, so the round-start
   // camp is the only honest thing to compare the ending camp with.
   const [campGain, setCampGain] = useState(0);
+  const [preferredTrack, setPreferredTrack] = useState(null);
   const learningScreenRef = useRef(learningState.screen);
   const clearCelebrations = useCallback(() => setCelebrationEvents([]), []);
 
@@ -3133,10 +3231,22 @@ export default function ProductApp({ services }) {
           - (next.roundBaseline?.camp?.campHighWater
             ?? next.camp?.campHighWater
             ?? 0);
-        // Companion moments lead; the camp-level card follows when the fire rose.
-        const events = raisedCamp > 0
-          ? [...monsterEvents, campLevelCelebration(next.camp?.campHighWater)]
-          : monsterEvents;
+        const roundSessionId = next.roundBaseline?.sessionId ?? null;
+        const milestoneCards = roundSessionId
+          ? (next.records?.milestones ?? [])
+            .filter((record) => record.sessionId === roundSessionId)
+            .map(milestoneCelebration)
+          : [];
+        const baselineAchievementIds = next.roundBaseline?.achievementIds ?? [];
+        const achievementCards = (next.achievements ?? [])
+          .filter((chip) => !baselineAchievementIds.includes(chip.id))
+          .map(achievementCelebration);
+        const events = [
+          ...monsterEvents,
+          ...milestoneCards,
+          ...achievementCards,
+          ...(raisedCamp > 0 ? [campLevelCelebration(next.camp?.campHighWater)] : []),
+        ];
         setCelebrationEvents(events);
         setSecureGain(secureWordDelta(before, next.monsters));
         setCampGain(
@@ -3144,6 +3254,11 @@ export default function ProductApp({ services }) {
           - (next.roundBaseline?.camp?.campHighWater
             ?? next.camp?.campHighWater
             ?? 0),
+        );
+        setPreferredTrack(
+          primaryProgressedRewardTrackId(monsterEvents, next.monsters)
+            ?? next.roundBaseline?.companionRewardTrackId
+            ?? null,
         );
         // Warm the Phaser chunk before CelebrationLayer lazy-mounts it.
         if (events.some((event) => event.kind === 'caught' || event.kind === 'evolve')) {
@@ -3277,6 +3392,7 @@ export default function ProductApp({ services }) {
         onOpenParent={() => setParentOpen(true)}
         onRecoverAudio={recoverAudio}
         haptics={services.haptics}
+        sfx={services.sfx}
         // Until a learner is chosen this is the only screen there is, so the
         // sheet stays put and shows no grip to drag.
         onDismiss={selectedProfile ? () => setSwitchOpen(false) : undefined}
@@ -3335,6 +3451,7 @@ export default function ProductApp({ services }) {
         celebrationEvents={celebrationEvents}
         secureGain={secureGain}
         campGain={campGain}
+        preferredRewardTrackId={preferredTrack}
         haptics={services.haptics}
         sfx={services.sfx}
         onCelebrationDone={clearCelebrations}
@@ -3353,7 +3470,11 @@ export default function ProductApp({ services }) {
   }
   if (learningState.screen === 'monster') {
     return (
-      <CodexScreen monsters={learningState.monsters} onScreen={showScreen} />
+      <CodexScreen
+        monsters={learningState.monsters}
+        progress={learningState.progress}
+        onScreen={showScreen}
+      />
     );
   }
   if (learningState.screen === 'camp') {
@@ -3365,6 +3486,7 @@ export default function ProductApp({ services }) {
         packSize={learningState.packSize ?? 0}
         audioState={audioState}
         busy={learningState.status === 'saving'}
+        achievements={learningState.achievements}
         onScreen={showScreen}
         onStartGuardian={startGuardian}
         onRecoverAudio={recoverAudio}

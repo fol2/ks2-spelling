@@ -70,14 +70,16 @@ Both stayed on screen after the import had demonstrably committed.
 
 ## Solution
 
-Make the auxiliary post-commit step best-effort, in
-`src/app/create-product-app-services.js:333-341`:
+Separate required post-commit work from the best-effort progress refresh in the
+`afterImport` callback in `src/app/create-product-app-services.js`:
 
 ```javascript
 afterImport: async () => {
-  await profileStore.administration.promoteStarterCatalogue();
-  await profileStore.administration.grantFullEntitlement();
-  await controller.reload();
+  await runPostCommit(async () => {
+    await profileStore.administration.promoteStarterCatalogue();
+    await profileStore.administration.grantFullEntitlement();
+    await controller.reload();
+  });
   // The progress summary is auxiliary and carries its own notice when a
   // refresh fails; a committed import must not be reported as failed
   // because of it.
@@ -94,7 +96,7 @@ callback before resolving, so any rejection inside `afterImport` rejects the
 whole import promise. The app's `afterImport` ended with
 `await parentProgress.refresh()` — an auxiliary recomputation of the parent
 progress summary. When that refresh threw, the rejection reached the UI, whose
-`runBackup` handler (`src/app/ProductApp.jsx:730-749`) has a single bare `catch`
+`runBackup` handler (`src/app/ProductApp.jsx:730-749`) had a single bare `catch`
 rendering one fixed message that asserts a rollback the code never performs.
 
 The fix restores a convention the codebase already used everywhere else: the
@@ -130,10 +132,10 @@ Two honest caveats:
 
 ## Prevention
 
-1. **Post-commit work is best-effort by nature.** Once a transaction commits, no
-   later step in the same promise chain may reject the operation unless the
-   operation can genuinely be undone. Either await that work with
-   `.catch(() => undefined)`, or stop claiming a rollback in the failure copy.
+1. **Post-commit work needs an explicit treatment.** Once a transaction commits,
+   swallow an auxiliary or self-healing epilogue with `.catch(() => undefined)`.
+   If the UI must keep the operation open for recovery, re-throw an error stamped
+   `postCommit: true` and report that the mutation completed but refresh failed.
 2. **Failure copy is a factual claim, not an apology.** "No learning was
    replaced" asserts a rollback. A single bare `catch` rendering one fixed
    message across every reachable failure mode will eventually lie. Narrow the
@@ -142,21 +144,24 @@ Two honest caveats:
 3. **Two notices on one screen are a signal, not noise.** The second banner
    named the failing step and exposed the first as false. When two independent
    failure surfaces light up together, read the quieter one first.
-4. **Sweep the whole class, not just the reported site.** The import path was
-   not the only offender. Two siblings carried the same shape and would have
-   misreported a committed mutation in exactly the same way — both on
-   destructive operations, where a false "it did not happen" is worse than a
-   false "it did":
-   - `onRemoveProfile` (`src/app/ProductApp.jsx:3247`) awaited
-     `services.controller.removeProfile(learnerId)` and then the refresh, while
-     its handler (`src/app/ProductApp.jsx:334-343`) reports "That learner was
-     not deleted. Please try again."
-   - `parentAdministration.resetLearning`
-     (`src/app/create-product-app-services.js:311-320`) awaited the reset and
-     then the refresh, while its handler (`src/app/ProductApp.jsx:346-359`)
-     reports "That learning was not reset. Please try again."
+4. **Sweep the whole class, not just the reported site.** The complete five-site
+   matrix is:
+   - `createProfile`: swallow selected-learner alignment because the new row is
+     committed and creation does not change the selection.
+   - `selectProfile`: typed re-throw from alignment, because swallowing would
+     close the switch sheet on the wrong learner instead of allowing a retry.
+   - `removeProfile`: swallow alignment and the auxiliary progress refresh;
+     the committed removal self-heals through the profile-selection screen.
+   - `parentAdministration.resetLearning`: typed re-throw from the active
+     learner reload, then swallow the auxiliary progress refresh.
+   - backup `afterImport`: typed re-throw from catalogue promotion, entitlement
+     grant or controller reload, then swallow the auxiliary progress refresh.
 
-   Both are now tolerant, and the rule is enforced rather than remembered:
+   The two affected UI catch blocks now select truthful copy:
+   - "The backup was imported, but this screen could not refresh. Close and reopen the app."
+   - "That learning was reset, but the app could not refresh the view. Close and reopen the app."
+
+   The rule is enforced rather than remembered:
    `tests/post-commit-refresh-tolerance.test.mjs` fails if any awaited
    parent-progress refresh loses its `.catch(...)`. The same test pins the
    opposite case — the standalone "check progress" action must keep surfacing

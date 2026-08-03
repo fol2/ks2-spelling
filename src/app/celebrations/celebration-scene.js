@@ -1,5 +1,5 @@
 import { clampCompanionStage } from '../companion-stage-contract.js';
-import { monsterCelebrationArtUrl } from './celebration-model.js';
+import { celebrationBeats, monsterCelebrationArtUrl } from './celebration-model.js';
 import { glowPulse, shockwaveRing, spawnBurst } from '../monster-stage/stage-fx.js';
 
 /**
@@ -160,61 +160,103 @@ export function createCelebrationScene(Phaser, props) {
       });
     }
 
+    /**
+     * The live evolution runs the same beats as the card: the sprite opens as a
+     * black silhouette, the shockwave breaks over it, and the light climbs back
+     * into the form at the reveal. Offsets come from celebrationBeats('evolve')
+     * so the stylesheet and the canvas cannot drift apart.
+     */
     playEvolve() {
       const scale = this.baseScale;
       const centreY = this.groundY - this.sprite.displayHeight * 0.45;
-      this.sprite.setScale(scale * 0.55).setAlpha(0.15);
-
-      glowPulse(this, this.Phaser, {
-        x: this.sprite.x,
-        y: centreY,
-        radius: this.sprite.displayWidth * 0.55,
-        colour: this.palette[0],
-        peakAlpha: 0.55,
-        scaleTo: 1.55,
-        duration: 520,
-      });
-
-      spawnBurst(this, {
-        x: this.sprite.x,
-        y: centreY,
-        count: 16,
-        colours: this.palette,
-        rng: () => this.rng(),
-        driftY: 48,
-        durationBase: 700,
-      });
-
+      const spread = this.sprite.displayWidth;
+      const beats = celebrationBeats('evolve');
       const stage = clampCompanionStage(this.props.stage);
-      shockwaveRing(this, {
-        x: this.sprite.x,
-        y: centreY,
-        colour: this.palette[1],
-        startRadius: Math.max(12, this.sprite.displayWidth * 0.16),
-        endScale: 5.2,
-        duration: 720,
+
+      this.sprite.setScale(scale * 0.62).setAlpha(0).setTint(0x000000);
+
+      this.tweens.add({
+        targets: this.sprite,
+        alpha: 1,
+        scaleX: scale * 0.96,
+        scaleY: scale * 0.96,
+        duration: 340,
+        delay: beats.silhouette,
+        ease: 'Cubic.Out',
       });
-      if (stage >= 4) {
+
+      this.time.delayedCall(beats.shockwave, () => {
+        if (!this.sprite?.active) return;
+        glowPulse(this, this.Phaser, {
+          x: this.sprite.x,
+          y: centreY,
+          radius: spread * 0.55,
+          colour: this.palette[0],
+          peakAlpha: 0.55,
+          scaleTo: 1.55,
+          duration: 520,
+        });
+
+        spawnBurst(this, {
+          x: this.sprite.x,
+          y: centreY,
+          count: 16,
+          colours: this.palette,
+          rng: () => this.rng(),
+          driftY: 48,
+          durationBase: 700,
+        });
+
         shockwaveRing(this, {
           x: this.sprite.x,
           y: centreY,
-          colour: this.palette[0],
-          startRadius: Math.max(10, this.sprite.displayWidth * 0.12),
-          endScale: 6.4,
-          duration: 1100,
-          delay: 180,
-          startAlpha: 0.45,
-          lineWidth: 2,
+          colour: this.palette[1],
+          startRadius: Math.max(12, spread * 0.16),
+          endScale: 5.2,
+          duration: 720,
         });
-      }
+        if (stage >= 4) {
+          shockwaveRing(this, {
+            x: this.sprite.x,
+            y: centreY,
+            colour: this.palette[0],
+            startRadius: Math.max(10, spread * 0.12),
+            endScale: 6.4,
+            duration: 1100,
+            delay: 180,
+            startAlpha: 0.45,
+            lineWidth: 2,
+          });
+        }
+      });
+
+      // The darkness lifts as a grey ramp on the tint, which is the canvas
+      // equivalent of the card's brightness(0) clearing to full.
+      const light = { level: 0 };
+      this.tweens.add({
+        targets: light,
+        level: 1,
+        duration: 300,
+        delay: beats.reveal,
+        ease: 'Sine.Out',
+        onUpdate: () => {
+          if (!this.sprite?.active) return;
+          const value = Math.round(255 * light.level);
+          this.sprite.setTint(
+            this.Phaser.Display.Color.GetColor(value, value, value),
+          );
+        },
+        onComplete: () => {
+          if (this.sprite?.active) this.sprite.clearTint();
+        },
+      });
 
       this.tweens.add({
         targets: this.sprite,
         scaleX: scale,
         scaleY: scale,
-        alpha: 1,
-        duration: 820,
-        delay: 160,
+        duration: 420,
+        delay: beats.reveal,
         ease: 'Back.Out',
         onComplete: () => {
           this.startShimmer();

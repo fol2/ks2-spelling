@@ -1,0 +1,7 @@
+✖ android:planned-first (234.028792ms)
+✖ android:recovery-first (174.832792ms)
+✖ D1 full validation accepts a structurally valid step and rejects corruption (178.867625ms)
+✖ failing tests:
+✖ ios:planned-first (239.930291ms)
+✖ ios:recovery-first (189.825083ms)
+✖ public default adapters consume one shared reinstall acknowledgement in either order (840.017958ms)

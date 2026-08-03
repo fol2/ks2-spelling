@@ -110,6 +110,48 @@ test('Codex found flag and Trail meadow omit unfound companions', async (t) => {
   assert.equal(meadow[1].art, mixed.roster[2].art);
 });
 
+test('Codex leans forward only within three secure words of a reachable stage', async (t) => {
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+
+  const { buildCodex } = await vite.ssrLoadModule('/src/app/codex-model.js');
+  const near = (overrides) => buildCodex([monster(overrides)]).roster[0].nearNextStage;
+
+  // Stage 1 of thresholds [1, 10, 30, 60, 100]: the next painted stage is 30.
+  const growing = { caught: true, derivedStage: 1, earnedStageHighWater: 1 };
+  assert.equal(near({ ...growing, secureCount: 29 }), true, 'one word away');
+  assert.equal(near({ ...growing, secureCount: 28 }), true, 'two words away');
+  assert.equal(near({ ...growing, secureCount: 27 }), true, 'three words away');
+  assert.equal(near({ ...growing, secureCount: 26 }), false, 'four is not close');
+  // Nothing left to secure means the threshold is already earned and the stage
+  // derivation catches up inside the same projection, so "so close" would lie.
+  assert.equal(near({ ...growing, secureCount: 30 }), false, 'already earned');
+  assert.equal(
+    near({
+      caught: true,
+      secureCount: 100,
+      derivedStage: 4,
+      earnedStageHighWater: 4,
+    }),
+    false,
+    'a fully grown companion has nothing to lean towards',
+  );
+
+  // An unfound companion withholds its identity, so it never anticipates —
+  // not even three words from the stage above its catch threshold.
+  const undiscovered = buildCodex([monster({
+    thresholds: [8, 10, 30, 60, 100],
+    secureCount: 7,
+  })]).roster[0];
+  assert.equal(undiscovered.found, false);
+  assert.equal(undiscovered.nearNextStage, false);
+});
+
 test('Codex defaults to the first found companion but honours an explicit selection', async (t) => {
   const { createServer } = await import('vite');
   const vite = await createServer({
@@ -156,9 +198,10 @@ test('Set off picks the furthest grown owned companion, never a hard-coded Inkle
   );
 
   assert.equal(setupExpeditionCompanion([]), null);
+  assert.equal(setupExpeditionCompanion([], 'y5-6'), null);
   assert.equal(setupExpeditionCompanion([monster()]), null);
 
-  const owned = setupExpeditionCompanion([
+  const ownedMonsters = [
     monster({
       caught: true,
       secureCount: 10,
@@ -181,11 +224,34 @@ test('Set off picks the furthest grown owned companion, never a hard-coded Inkle
       secureCount: 0,
       thresholds: [1, 5, 15, 40, 80],
     }),
-  ]);
+  ];
+  const owned = setupExpeditionCompanion(ownedMonsters);
   assert.equal(owned.monsterId, 'glimmerbug');
   assert.equal(owned.stage, 2);
   assert.equal(owned.found, true);
   assert.match(owned.art, /glimmerbug-b1-2\.640\.webp$/u);
+  assert.equal(
+    setupExpeditionCompanion(ownedMonsters, 'y3-4').monsterId,
+    'inklet',
+  );
+  assert.equal(
+    setupExpeditionCompanion(ownedMonsters, 'y5-6').monsterId,
+    'glimmerbug',
+  );
+  const sleeping = setupExpeditionCompanion([
+    monster({ caught: true, secureCount: 100, derivedStage: 4 }),
+    monster({
+      rewardTrackId: 'spelling-core-glimmerbug',
+      monsterId: 'glimmerbug',
+      thresholds: [1, 5, 15, 40, 80],
+    }),
+  ], 'y5-6');
+  assert.equal(sleeping.found, false);
+  assert.match(sleeping.art, /glimmerbug-b1-0\.640\.webp$/u);
+  assert.equal(
+    setupExpeditionCompanion(ownedMonsters, 'core').monsterId,
+    'glimmerbug',
+  );
 
   const tied = setupExpeditionCompanion([
     monster({

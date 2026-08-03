@@ -137,6 +137,24 @@ export function diffMonsterCelebrations(before, after) {
   return events;
 }
 
+/** Pick the first direct reward track that meaningfully progressed. */
+export function primaryProgressedRewardTrackId(events, monsters) {
+  const afterByTrack = trackMap(monsters);
+  const list = Array.isArray(events) ? events : [];
+  const isDirect = (event) => {
+    const monster = afterByTrack.get(event?.rewardTrackId);
+    return monster !== undefined && !isAggregateMonster(monster);
+  };
+  return list.find(
+    (event) =>
+      (event?.kind === 'caught' || event?.kind === 'evolve') && isDirect(event),
+  )?.rewardTrackId
+    ?? list.find(
+      (event) => event?.kind === 'progress' && isDirect(event),
+    )?.rewardTrackId
+    ?? null;
+}
+
 /**
  * Sum newly secure words once across direct reward tracks. Aggregate tracks such
  * as Phaeton reuse the same evidence and would otherwise double the result-card
@@ -169,7 +187,11 @@ export function monsterStageName(monsterId, stage) {
 }
 
 export function celebrationPalette(event) {
-  if (event?.kind === 'camp-level') {
+  if (
+    event?.kind === 'camp-level'
+    || event?.kind === 'milestone'
+    || event?.kind === 'achievement'
+  ) {
     // Brass tones match the Camp ring and Field Record strip.
     return Object.freeze({
       primary: '#a06b22',
@@ -223,6 +245,23 @@ export function campLevelCelebration(level) {
   };
 }
 
+export function milestoneCelebration(record) {
+  return Object.freeze({
+    kind: 'milestone',
+    level: nonNegativeInteger(record?.milestone),
+    secureCount: nonNegativeInteger(record?.secureCount),
+  });
+}
+
+export function achievementCelebration(chip) {
+  return Object.freeze({
+    kind: 'achievement',
+    achievementId: chip.id,
+    title: chip.title,
+    body: chip.body,
+  });
+}
+
 export function celebrationCopy(event) {
   if (event?.kind === 'camp-level') {
     const level = nonNegativeInteger(event.level);
@@ -232,6 +271,30 @@ export function celebrationCopy(event) {
       stageLabel: `Camp level ${level}`,
       body: `Camp level ${level}. Every day you keep watch, the fire climbs.`,
       announcement: `The camp fire rises. Camp level ${level}.`,
+    };
+  }
+
+  if (event?.kind === 'milestone') {
+    const level = nonNegativeInteger(event.level);
+    const noun = level === 1 ? 'spelling' : 'spellings';
+    const headline = `${level} ${noun} secure`;
+    const body = `Your trail has carried ${level} ${noun} to secure. Keep walking.`;
+    return {
+      eyebrow: 'Trail record',
+      headline,
+      stageLabel: `Milestone ${level}`,
+      body,
+      announcement: `${headline}. ${body}`,
+    };
+  }
+
+  if (event?.kind === 'achievement') {
+    return {
+      eyebrow: 'Record of the watch',
+      headline: event.title,
+      stageLabel: 'Achievement unlocked',
+      body: event.body,
+      announcement: `Achievement unlocked. ${event.title}.`,
     };
   }
 
@@ -290,13 +353,68 @@ export function celebrationHeadline(event) {
 }
 
 export function celebrationDurationMs(event) {
-  if (event?.kind === 'camp-level') return 2800;
+  if (
+    event?.kind === 'camp-level'
+    || event?.kind === 'milestone'
+    || event?.kind === 'achievement'
+  ) return 2800;
   if (event?.kind === 'progress') return 2400;
   if (event?.kind === 'evolve' && nonNegativeInteger(event?.stage) >= HIGHEST_STAGE) {
     return 4000;
   }
   if (event?.kind === 'evolve') return 3400;
   return 3000;
+}
+
+/*
+ * Entrance beats, in milliseconds from the moment a card mounts. A catch is a
+ * reveal and an evolution is a transformation, so each earns a rhythm; the
+ * quiet moments keep a gentle two-beat stagger instead.
+ *
+ *   caught      veil → rise → burst → copy → settle
+ *   evolve      veil → silhouette → shockwave → reveal → copy → settle
+ *   progress    veil → mark → copy
+ *   camp-level  veil → mark → copy
+ *
+ * Offsets ascend strictly and every last beat sits at least 600ms inside
+ * celebrationDurationMs for its kind, so the finished card is readable before
+ * the DOM timer advances the queue.
+ */
+const CELEBRATION_BEATS = Object.freeze({
+  // 120 lifts the art, 220 later the light breaks, then the copy opens out.
+  caught: Object.freeze({
+    veil: 0,
+    rise: 120,
+    burst: 340,
+    copy: 650,
+    settle: 1020,
+  }),
+  // A steady ~330ms pulse once the silhouette is up: ring, reveal, name, meter.
+  evolve: Object.freeze({
+    veil: 0,
+    silhouette: 90,
+    shockwave: 420,
+    reveal: 760,
+    copy: 1080,
+    settle: 1400,
+  }),
+  progress: Object.freeze({ veil: 0, mark: 90, copy: 380 }),
+  milestone: Object.freeze({ veil: 0, mark: 110, copy: 430 }),
+  achievement: Object.freeze({ veil: 0, mark: 110, copy: 430 }),
+  'camp-level': Object.freeze({ veil: 0, mark: 110, copy: 430 }),
+});
+
+/**
+ * Named entrance beats for one celebration kind. This model is the single
+ * source the stylesheet delays mirror — every per-kind `animation-delay` in
+ * celebrations.css, and the live evolve schedule in celebration-scene.js,
+ * quotes one of these numbers. Unknown kinds take the progress shape. Tests pin
+ * the monotonicity and the duration bound.
+ */
+export function celebrationBeats(kind) {
+  return Object.hasOwn(CELEBRATION_BEATS, kind)
+    ? CELEBRATION_BEATS[kind]
+    : CELEBRATION_BEATS.progress;
 }
 
 /** Stable identity for haptics and remaining-time bookkeeping. */

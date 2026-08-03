@@ -565,6 +565,8 @@ export async function verifyVendoredContract({ rootDir = DEFAULT_ROOT } = {}) {
     const expectedFacadeSpecifiers = [
       '../../../vendor/ks2-mastery/content/spelling.mobile-runtime-full.json',
       '../../../vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json',
+      '../../../vendor/ks2-mastery/shared/spelling/core/achievements.js',
+      '../../../vendor/ks2-mastery/shared/spelling/core/events.js',
       '../../../vendor/ks2-mastery/shared/spelling/mobile/a3/index.js',
     ].sort();
     if (!isDeepStrictEqual(facadeSpecifiers, expectedFacadeSpecifiers)) {

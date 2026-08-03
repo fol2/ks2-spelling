@@ -5,10 +5,24 @@
  * faked: a fixed word list and a "right if you typed the target" rule is
  * enough to reach every visual state, and the real engine is out of scope for
  * design work.
+ *
+ * Query flags:
+ *   ?screen=…                 deep-link into a ProductApp screen
+ *   ?guardian=locked|teaser|first|active|rested|done
+ *                             Camp / Setup Guardian projection (see below)
+ *   ?empty                    empty learner / empty roster
+ *   ?audio=…                  audioAvailability status
+ *   ?parent=…                 parent lock status
+ *   ?mode=…                   practice / summary round mode
+ *   ?unfound-companion=true   Setup: band companion asleep (silhouette + hint).
+ *                             Selects the Y3–4 set so Inklet paints unfound;
+ *                             vocabulary set rail stays visible.
  */
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import ProductApp from '../src/app/ProductApp.jsx';
+import AppErrorBoundary from '../src/app/AppErrorBoundary.jsx';
+import AppLoadingShell from '../src/app/AppLoadingShell.jsx';
 import '../src/app/app.css';
 import './harness.css';
 
@@ -38,7 +52,7 @@ const MONSTERS = [
   { rewardTrackId: 'r4', packId: 'ks2-full', monsterId: 'phaeton', thresholds: [1, 10, 30, 60, 100], branch: 'b1', secureCount: 0, caught: false, derivedStage: 0, earnedStageHighWater: 0 },
 ];
 
-/* Guardian states, walked with ?guardian=locked|teaser|active|rested|done on
+/* Guardian states, walked with ?guardian=locked|teaser|first|active|rested|done on
    ?screen=camp and ?screen=setup. `locked` is the projection an unentitled
    learner gets; leaving the parameter off keeps revisionMission null, which is
    the other pre-unlock shape the screens have to survive. */
@@ -73,6 +87,21 @@ const GUARDIAN_STATES = {
       campCreditState: 'available',
     },
     mega: 34,
+    campHighWater: 0,
+  },
+  first: {
+    mission: {
+      missionState: 'first-patrol',
+      eligibleMissionKind: 'first-patrol',
+      guardianDueCount: 0,
+      wobblingDueCount: 0,
+      nextGuardianDueDay: GUARDIAN_DAY,
+      todayGuardianDay: GUARDIAN_DAY,
+      canStartRewardBearing: true,
+      canContinueUnrewarded: false,
+      campCreditState: 'available',
+    },
+    mega: 213,
     campHighWater: 0,
   },
   active: {
@@ -123,6 +152,14 @@ const GUARDIAN_STATES = {
 };
 
 const GUARDIAN_PACK_SIZE = 213;
+
+// Realistic set rail — matches the live catalogue shape so Setup paints the
+// Vocabulary set picker the real app shows once packs are published.
+const VOCABULARY_SETS = [
+  { id: 'core', label: 'Core', count: 213 },
+  { id: 'y3-4', label: 'Y3–4', count: 109 },
+  { id: 'y5-6', label: 'Y5–6', count: 104 },
+];
 
 // A pack-sized progress table with an exact Mega count, so the Camp teaser
 // meter reads a real number rather than a hard-coded one.
@@ -201,6 +238,7 @@ function makeServices(query) {
     { learnerId: 'learner-b', nickname: 'Sam', yearGroup: 'Y6', goal: 15, colour: '#a06b22', createdAt: 2, updatedAt: 2 },
   ];
   const empty = query.has('empty');
+  const unfoundCompanion = query.get('unfound-companion') === 'true';
   const controller = store({
     status: 'ready',
     profiles: empty ? [] : profiles,
@@ -212,7 +250,19 @@ function makeServices(query) {
     activeVersion: 'starter-1',
     actionError: null,
   });
-  const rosterBeforeRound = (empty ? [] : MONSTERS).map((monster) => ({
+  // Unfound Setup paints a band silhouette: Inklet (Y3–4) and Glimmerbug
+  // (Y5–6) sleep until their set is selected. Core still falls back to the
+  // best found creature, so both band tracks are unmarked when the flag is on.
+  const harnessMonsters = empty
+    ? []
+    : (unfoundCompanion
+      ? MONSTERS.map((monster) => (
+        monster.monsterId === 'inklet' || monster.monsterId === 'glimmerbug'
+          ? { ...monster, caught: false, secureCount: 0, derivedStage: 0, earnedStageHighWater: 0 }
+          : monster
+      ))
+      : MONSTERS);
+  const rosterBeforeRound = harnessMonsters.map((monster) => ({
     ...monster,
     secureCount: Math.max(0, (monster.secureCount ?? 0) - 5),
   }));
@@ -236,7 +286,8 @@ function makeServices(query) {
     progress: empty ? [] : guardian ? guardianProgress(guardian.mega) : PROGRESS,
     packSize: guardian ? GUARDIAN_PACK_SIZE : 60,
     prefs: { voiceId: 'Iapetus', showCloze: true, autoSpeak: false },
-    monsters: empty ? [] : MONSTERS,
+    monsters: harnessMonsters,
+    vocabularySets: empty ? [] : VOCABULARY_SETS,
     revisionMission: guardian?.mission ?? null,
     roundBaseline: showsRound
       ? {
@@ -432,12 +483,56 @@ function Harness() {
     if (query.get('screen') === 'summary') {
       services.learning.set({ screen: 'summary', practice: null });
     }
+    // Setup defaults to Core; band silhouettes only paint on Y3–4 / Y5–6.
+    // Click the Y3–4 pill once the rail is up so ?unfound-companion=true is
+    // a single deep link rather than a two-step walk.
+    if (query.get('unfound-companion') === 'true' && query.get('screen') === 'setup') {
+      const pickBand = () => {
+        const pill = [...document.querySelectorAll('.setup-pools .pill')]
+          .find((button) => button.textContent?.includes('Y3'));
+        pill?.click();
+      };
+      requestAnimationFrame(() => requestAnimationFrame(pickBand));
+    }
   }, [services]);
   return <ProductApp services={services} />;
 }
 
+/* The boot surfaces paint before any service exists, so they are mounted
+   directly rather than through ProductApp. The recovery screen only has one
+   way in — a child that throws — and the error carries a short fixed stack so
+   the folded diagnosis has something realistic to lay out. */
+const BOOT_FAILURE = new Error('Cannot read properties of null (reading \'learnerId\')');
+
+BOOT_FAILURE.stack = [
+  'TypeError: Cannot read properties of null (reading \'learnerId\')',
+  '    at TrailScreen (ProductApp.jsx:1462:31)',
+  '    at renderWithHooks (react-dom-client.development.js:5529:16)',
+  '    at updateFunctionComponent (react-dom-client.development.js:8897:19)',
+  '    at beginWork (react-dom-client.development.js:10522:18)',
+  '    at runWithFiberInDEV (react-dom-client.development.js:1520:13)',
+  '    at performUnitOfWork (react-dom-client.development.js:15133:22)',
+].join('\n');
+
+function BootFailure() {
+  throw BOOT_FAILURE;
+}
+
+function Root() {
+  const screen = new URLSearchParams(globalThis.location.search).get('screen');
+  if (screen === 'boot-loading') return <AppLoadingShell />;
+  if (screen === 'boot-error') {
+    return (
+      <AppErrorBoundary>
+        <BootFailure />
+      </AppErrorBoundary>
+    );
+  }
+  return <Harness />;
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <Harness />
+    <Root />
   </StrictMode>,
 );

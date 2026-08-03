@@ -119,6 +119,15 @@ test('monster-scene imports shared stage-fx primitives', async () => {
   assert.match(source, /glowPulse\(/u);
   assert.match(source, /shockwaveRing\(/u);
   assert.match(source, /scheduleSway/u);
+  // Round-2 depth: the rare preen idle and the shared twinkle primitive.
+  assert.match(source, /twinkleSparks\(/u);
+  assert.match(source, /schedulePreen/u);
+
+  const fx = await readFile(
+    join(ROOT, 'src/app/monster-stage/stage-fx.js'),
+    'utf8',
+  );
+  assert.match(fx, /export function twinkleSparks/u);
 });
 
 test('ProductApp splits the monster stage behind React.lazy so the chunk cannot regress', async () => {

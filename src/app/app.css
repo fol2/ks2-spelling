@@ -27,324 +27,8 @@ select {
   font: inherit;
 }
 
-.shell {
-  display: grid;
-  width: min(100% - 2rem, 48rem);
-  min-height: 100vh;
-  margin: 0 auto;
-  padding: clamp(4rem, 12vh, 8rem) 0 2rem;
-  align-content: start;
-  gap: 1.25rem;
-}
-
-.hero,
-.status-card,
-.boundary,
-.evidence-grid,
-.commerce-card {
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 1.5rem;
-  background: rgb(9 27 38 / 72%);
-  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 24%);
-  backdrop-filter: blur(1rem);
-}
-
-.hero {
-  padding: clamp(2rem, 8vw, 4.5rem);
-}
-
-.eyebrow,
-.label {
-  margin: 0 0 0.75rem;
-  color: #82d2bd;
-  font-size: 0.78rem;
-  font-weight: 750;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-}
-
-h1,
-h2,
-p {
-  margin-top: 0;
-}
-
-h1 {
-  max-width: 9ch;
-  margin-bottom: 1rem;
-  font-size: clamp(3.25rem, 13vw, 6.5rem);
-  line-height: 0.88;
-  letter-spacing: -0.065em;
-}
-
-.intro {
-  max-width: 34rem;
-  margin-bottom: 0;
-  color: #c4d0d5;
-  font-size: clamp(1.05rem, 3vw, 1.3rem);
-  line-height: 1.55;
-}
-
-.status-card {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.5rem;
-}
-
-.status-card h2 {
-  margin-bottom: 0;
-  font-size: clamp(1.25rem, 4vw, 1.75rem);
-}
-
-.status-pill {
-  flex: 0 0 auto;
-  border-radius: 999px;
-  padding: 0.55rem 0.8rem;
-  color: #09241c;
-  background: #82d2bd;
-  font-size: 0.78rem;
-  font-weight: 750;
-}
-
-.boundary {
-  padding: 1rem 1.25rem;
-  color: #b9c5ca;
-  font-size: 0.9rem;
-}
-
-.boundary p {
-  margin: 0;
-}
-
-.proof-status h2 {
-  color: #f5f1e8;
-}
-
-.proof-message {
-  max-width: 34rem;
-  margin: 0.65rem 0 0;
-  color: #c4d0d5;
-  line-height: 1.5;
-}
-
-.commerce-card {
-  display: grid;
-  gap: 1.25rem;
-  padding: 1.5rem;
-}
-
-.commerce-card h2,
-.localised-price {
-  margin-bottom: 0;
-}
-
-.localised-price {
-  margin-top: 0.45rem;
-  color: #f6d48b;
-  font-size: 1.35rem;
-  font-weight: 800;
-}
-
-.proof-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.proof-actions button {
-  min-height: 3rem;
-  border: 1px solid rgb(130 210 189 / 55%);
-  border-radius: 0.9rem;
-  padding: 0.7rem 1rem;
-  color: #f5f1e8;
-  background: #173848;
-  font-weight: 750;
-}
-
-.proof-actions button:first-child {
-  color: #09241c;
-  background: #82d2bd;
-}
-
-.proof-actions button:disabled {
-  cursor: wait;
-  opacity: 0.55;
-}
-
-.b3-proof-shell .evidence-grid dd {
-  overflow-wrap: anywhere;
-  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
-  font-size: 0.76rem;
-  line-height: 1.5;
-}
-
-.evidence-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin: 0;
-  overflow: hidden;
-}
-
-.evidence-grid div {
-  padding: 1.25rem;
-  border-bottom: 1px solid rgb(255 255 255 / 10%);
-}
-
-.evidence-grid div:nth-child(odd) {
-  border-right: 1px solid rgb(255 255 255 / 10%);
-}
-
-.evidence-grid dt {
-  margin-bottom: 0.45rem;
-  color: #82d2bd;
-  font-size: 0.78rem;
-  font-weight: 750;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.evidence-grid dd {
-  margin: 0;
-  color: #d7e0e3;
-  font-weight: 650;
-}
-
-.b4-learner-shell {
-  width: min(100% - 2rem, 38rem);
-  padding-top: clamp(2rem, 8vh, 5rem);
-  overflow-wrap: anywhere;
-}
-
-.b4-round-heading,
-.b4-practice-card,
-.b4-audio-disclosure {
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 1.5rem;
-  background: rgb(9 27 38 / 82%);
-}
-
-.b4-round-heading,
-.b4-practice-card {
-  padding: clamp(1.4rem, 6vw, 2.5rem);
-}
-
-.b4-round-heading h1 {
-  max-width: 12ch;
-  margin-bottom: 1.25rem;
-  font-size: clamp(2.5rem, 11vw, 4.75rem);
-}
-
-.b4-progress,
-.b4-audio-disclosure {
-  margin: 0;
-  color: #c4d0d5;
-}
-
-.b4-audio-actions,
-.b4-entry-form {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.b4-audio-actions {
-  flex-wrap: wrap;
-  margin: 1.25rem 0;
-}
-
-.b4-entry-form {
-  align-items: stretch;
-  flex-direction: column;
-}
-
-.b4-entry-form label {
-  font-weight: 750;
-}
-
-.b4-entry-form input,
-.b4-learner-shell button {
-  min-height: 3rem;
-  min-width: 3rem;
-  border: 1px solid rgb(130 210 189 / 55%);
-  border-radius: 0.9rem;
-  padding: 0.7rem 1rem;
-}
-
-.b4-entry-form input {
-  color: #0d1d29;
-  background: #fff;
-  /* The default size attribute gives the input an intrinsic width that
-     forces the whole page into horizontal overflow at accessibility text
-     sizes; sizing it to its container keeps the layout inside the
-     viewport so every control stays reachable. */
-  width: 100%;
-  min-width: 0;
-}
-
-.b4-learner-shell button {
-  color: #09241c;
-  background: #82d2bd;
-  font-weight: 750;
-}
-
-.b4-learner-shell button:disabled {
-  cursor: wait;
-  opacity: 0.55;
-}
-
-.b4-entry-form input:focus-visible,
-.b4-learner-shell button:focus-visible {
-  outline: 0.2rem solid #f6d48b;
-  outline-offset: 0.2rem;
-}
-
-.b4-feedback {
-  margin-top: 1.25rem;
-  border-left: 0.3rem solid #82d2bd;
-  padding-left: 1rem;
-}
-
-.b4-feedback h3,
-.b4-feedback p {
-  margin-bottom: 0.45rem;
-}
-
-.b4-feedback-error {
-  border-left-color: #f6d48b;
-}
-
-.b4-live-region {
-  min-height: 1.5rem;
-  margin: 0;
-}
-
-.b4-audio-disclosure {
-  padding: 1rem 1.25rem;
-  font-size: 0.9rem;
-}
-
-@supports (font: -apple-system-body) {
-  .b4-learner-shell {
-    font: -apple-system-body;
-  }
-
-  .b4-round-heading h1 {
-    font-family: inherit;
-    font-size: 2.5em;
-  }
-
-  .b4-audio-disclosure {
-    font-size: 0.9em;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .b4-learner-shell * {
-    animation: none !important;
-    transition: none !important;
-  }
-}
+/* Body stays dark deliberately: proof shells are translucent over it;
+   the product .app-boot / .product-app surfaces cover it. */
 
 /* ==========================================================================
    Product surface — The Scribe Downs
@@ -401,8 +85,27 @@ h1 {
   --brass-ink: #9e6a19;
   --focus: #3e6fa8;
 
+  --cream: #fffaf0;
+  --cream-deep: #f0e3c9;
+  --cream-ink: #131b25;
+  --brand-deep: #274d79;
+  --retry-ink-deep: #8d3a29;
+  --paper-parent: #eae6db;
+
   --plate-shadow: 0 1px 2px rgb(29 43 58 / 5%), 0 18px 40px -20px rgb(140 105 55 / 45%);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Radius and type tokens. Mint only for a value that repeats three or more
+     times in one role among convertible sites; swap identical values only.
+     Headings, media overrides, asymmetric corners and the boot surface stay
+     literal. No spacing tokens — the hand-set rhythm is the design. */
+  --r-s: 0.9rem;
+  --r-pill: 999px;
+  --fs-note: 0.75rem;
+  --fs-caption: 0.78rem;
+  --fs-body-s: 0.85rem;
+  --fs-body: 0.95rem;
+  --fs-title: 1.05rem;
 
   /* Motion tiers, as durations. Input-path entrances never outlast
      --t-scene; the between-rounds reveal never starts later than
@@ -507,6 +210,18 @@ h1 {
   letter-spacing: -0.03em;
 }
 
+.figure-good {
+  color: var(--good);
+}
+
+.figure-retry {
+  color: var(--retry);
+}
+
+.figure-brass {
+  color: var(--brass-ink);
+}
+
 .product-kicker,
 .label {
   font-family: var(--sans);
@@ -518,7 +233,7 @@ h1 {
 }
 
 .product-app .body-copy {
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   line-height: 1.5;
   color: var(--ink-soft);
   text-wrap: pretty;
@@ -544,7 +259,7 @@ h1 {
   min-width: 0;
   flex: 1 1 8rem;
   font-family: var(--serif);
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
   letter-spacing: -0.015em;
 }
@@ -554,9 +269,9 @@ h1 {
   overflow-wrap: anywhere;
   min-height: 2.75rem;
   padding: 0 0.6rem;
-  color: #274d79;
+  color: var(--brand-deep);
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
 }
 
 .icon-button {
@@ -570,12 +285,12 @@ h1 {
 
 .pill {
   display: inline-flex;
-  min-height: 2.5rem;
+  min-height: 2.75rem;
   align-items: center;
   gap: 0.45rem;
   padding: 0 0.85rem;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--paper-raised);
   font-size: 0.8rem;
   font-weight: 700;
@@ -598,6 +313,7 @@ h1 {
   border: 1px solid rgb(230 203 142 / 55%);
   border-radius: 999px;
   padding: 0 1.25rem;
+  /* Serves product and boot/recovery; boot mounts outside .product-app so tokens would not resolve — cream stays deliberately spelt out. */
   background: linear-gradient(180deg, #fffaf0, #f0e3c9);
   color: #131b25;
   font-size: 1rem;
@@ -615,7 +331,7 @@ h1 {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--brand);
   color: #fff;
   font-size: 1rem;
@@ -625,24 +341,29 @@ h1 {
 
 .button-quiet,
 .button-warning,
-.button-destructive {
+.button-destructive,
+.button-danger {
   display: inline-flex;
   min-height: 2.75rem;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0 0.95rem;
   background: none;
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   font-weight: 700;
 }
 
 /* Editing a learner, resetting their learning and deleting them were three
    identical pills, one of them irreversible, on a screen a parent taps through
-   quickly. Each level of consequence carries its own weight now, so the shape
-   of the control says what it costs before the label is read. */
+   quickly. Consequence now climbs in three documented tiers: reveal first —
+   the outlined quiet, warning and destructive pills, where the shape of the
+   control says what it costs before the label is read — then typed
+   confirmation, then commit. .button-danger is that final filled pill; its
+   fill is its weight, and its metrics match its quiet neighbours so the row
+   sits level when they stand side by side. */
 .button-warning {
   border-color: color-mix(in oklab, var(--brass) 45%, transparent);
   color: var(--brass-deep);
@@ -651,6 +372,15 @@ h1 {
 .button-destructive {
   border-color: color-mix(in oklab, var(--retry) 48%, transparent);
   color: var(--retry);
+  font-weight: 800;
+}
+
+.button-danger {
+  border-color: rgb(164 73 55 / 45%);
+  padding: 0 1rem;
+  background: rgb(252 229 227 / 80%);
+  color: var(--retry-ink-deep);
+  font-size: 0.9rem;
   font-weight: 800;
 }
 
@@ -711,8 +441,8 @@ h1 {
   border-radius: 1rem;
   padding: 0.6rem 0.8rem;
   background: rgb(252 229 227 / 70%);
-  color: #8d3a29;
-  font-size: 0.85rem;
+  color: var(--retry-ink-deep);
+  font-size: var(--fs-body-s);
   font-weight: 600;
 }
 
@@ -849,13 +579,17 @@ h1 {
   gap: 0.5rem;
 }
 
+.trail-chrome .icon-button {
+  margin-left: auto;
+}
+
 .glass-button {
   display: flex;
   min-height: 2.75rem;
   align-items: center;
   gap: 0.5rem;
   border: 1px solid rgb(255 249 236 / 20%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.3rem 0.75rem;
   background: rgb(255 249 236 / 9%);
   color: var(--dusk-ink);
@@ -872,7 +606,7 @@ h1 {
   background: var(--learner-colour, #1f6f77);
   color: #04151a;
   font-family: var(--serif);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   font-weight: 600;
 }
 
@@ -1001,7 +735,6 @@ h1 {
 }
 
 .bank-filters .pill {
-  min-height: 2.25rem;
   font-size: 0.75rem;
 }
 
@@ -1009,7 +742,7 @@ h1 {
   width: 0.45rem;
   height: 0.45rem;
   flex: none;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--dot, var(--line-strong));
 }
 
@@ -1040,7 +773,7 @@ h1 {
   grid-column: 1;
   width: 0.25rem;
   height: 2rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--row-bar, var(--line-strong));
 }
 
@@ -1059,7 +792,7 @@ h1 {
   grid-column: 2;
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
   color: var(--row-note, var(--ink-soft));
 }
 
@@ -1074,7 +807,7 @@ h1 {
 .bank-rungs span {
   width: 0.45rem;
   height: 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--line-strong);
 }
 
@@ -1116,6 +849,12 @@ h1 {
 
 /* --- codex --------------------------------------------------------------- */
 
+.codex-scene {
+  /* Gold is codex-local by design. */
+  --codex-gold: 226 166 43;
+  --codex-gold-ink: #f0cd88;
+}
+
 .codex-scene .scene-body {
   color: var(--dusk-ink);
 }
@@ -1139,7 +878,7 @@ h1 {
 }
 
 .codex-head .product-kicker {
-  color: rgb(226 166 43 / 92%);
+  color: rgb(var(--codex-gold) / 92%);
 }
 
 .codex-count {
@@ -1147,19 +886,19 @@ h1 {
   flex: none;
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid rgb(226 166 43 / 40%);
+  border: 1px solid rgb(var(--codex-gold) / 40%);
   border-radius: 0.95rem;
   padding: 0.35rem 0.7rem;
-  background: rgb(226 166 43 / 12%);
+  background: rgb(var(--codex-gold) / 12%);
 }
 
 .codex-count .figure {
   font-size: 1.3rem;
-  color: #f0cd88;
+  color: var(--codex-gold-ink);
 }
 
 .codex-count .figure-total {
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   color: rgb(240 205 136 / 50%);
 }
 
@@ -1221,7 +960,7 @@ h1 {
   position: absolute;
   width: 0.95rem;
   height: 0.95rem;
-  border: 0 solid rgb(226 166 43 / 45%);
+  border: 0 solid rgb(var(--codex-gold) / 45%);
   pointer-events: none;
 }
 
@@ -1274,7 +1013,7 @@ h1 {
   right: 1.3rem;
   z-index: 3;
   border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.2rem 0.6rem;
   background: color-mix(in srgb, var(--accent) 24%, transparent);
   color: var(--dusk-ink);
@@ -1306,9 +1045,12 @@ h1 {
   animation: float 6.4s ease-in-out infinite;
 }
 
+/* Unfound art is a silhouette everywhere it appears, so nothing spoils a
+   creature before it is found. */
 .codex-hero[data-found='false'] .codex-stage img,
 .codex-growth li[data-reached='false'] img,
-.codex-roster button[data-found='false'] img {
+.codex-roster button[data-found='false'] img,
+.setup-quest img.companion-asleep {
   filter: brightness(0) invert(1) opacity(0.15);
 }
 
@@ -1351,7 +1093,7 @@ h1 {
 .codex-hero-foot p {
   margin-top: 0.3rem;
   color: rgb(255 249 236 / 58%);
-  font-size: 0.78rem;
+  font-size: var(--fs-caption);
   line-height: 1.4;
 }
 
@@ -1366,7 +1108,7 @@ h1 {
   position: relative;
   flex: 1;
   height: 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
   background: rgb(255 249 236 / 13%);
 }
@@ -1375,14 +1117,14 @@ h1 {
   position: absolute;
   inset: 0 auto 0 0;
   width: var(--percent, 0%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--accent);
   box-shadow: 0 0 12px var(--accent);
 }
 
 .codex-meter .figure {
   flex: none;
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   color: rgb(255 249 236 / 82%);
 }
 
@@ -1397,6 +1139,44 @@ h1 {
 
 .codex-hero[data-found='false'] .codex-next {
   color: rgb(255 249 236 / 40%);
+}
+
+/* Three secure words or fewer from an evolution, the card leans forward: the
+   sheen comes round in half the time and a little brighter, and the "N more"
+   line lifts out of the companion's own accent into codex brass behind a small
+   breathing mark. Brass because the line has stopped describing the creature
+   and started announcing a reward — and because an accent can be a mid blue
+   that barely lifts off the dusk card. Anticipation, not an alarm: the copy
+   itself never changes. */
+.codex-hero[data-near='true'] .codex-hero-sheen {
+  width: 48%;
+  background: linear-gradient(
+    100deg,
+    rgb(255 255 255 / 0%),
+    rgb(255 255 255 / 15%) 46%,
+    rgb(255 255 255 / 0%)
+  );
+  animation-duration: 4.4s;
+}
+
+.codex-hero[data-near='true'] .codex-next {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--codex-gold-ink);
+  font-weight: 900;
+  text-shadow: 0 0 14px rgb(var(--codex-gold) / 45%);
+}
+
+.codex-hero[data-near='true'] .codex-next::before {
+  content: '';
+  flex: none;
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: var(--r-pill);
+  background: var(--codex-gold-ink);
+  box-shadow: 0 0 8px rgb(var(--codex-gold) / 90%);
+  animation: nearGlint 2.6s ease-in-out infinite;
 }
 
 .codex-rule {
@@ -1427,7 +1207,7 @@ h1 {
   place-items: center;
   gap: 0.2rem;
   border: 1px solid rgb(255 249 236 / 7%);
-  border-radius: 0.9rem;
+  border-radius: var(--r-s);
   padding: 0.45rem 0.2rem 0.4rem;
   background: rgb(255 249 236 / 2%);
 }
@@ -1513,7 +1293,7 @@ h1 {
 
 .codex-roster strong {
   font-family: var(--serif);
-  font-size: 0.78rem;
+  font-size: var(--fs-caption);
   font-weight: 500;
   color: rgb(255 249 236 / 40%);
 }
@@ -1530,7 +1310,7 @@ h1 {
 .codex-pips span {
   width: 0.25rem;
   height: 0.25rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgb(255 249 236 / 16%);
 }
 
@@ -1551,15 +1331,15 @@ h1 {
   flex: 1;
   place-items: center;
   gap: 0.1rem;
-  border: 1px solid rgb(226 166 43 / 22%);
-  border-radius: 0.9rem;
+  border: 1px solid rgb(var(--codex-gold) / 22%);
+  border-radius: var(--r-s);
   padding: 0.55rem 0.25rem 0.5rem;
-  background: rgb(226 166 43 / 7%);
+  background: rgb(var(--codex-gold) / 7%);
 }
 
 .codex-stats .figure {
   font-size: 1.2rem;
-  color: #f0cd88;
+  color: var(--codex-gold-ink);
 }
 
 .codex-stats .label {
@@ -1567,6 +1347,53 @@ h1 {
   font-size: 0.55rem;
   letter-spacing: 0.12em;
   text-align: center;
+}
+
+/* The engine's mastery milestones, in the same gold idiom as the stats above
+   but a whisper of it: rungs already behind the learner are lit, the next one
+   is ringed, and the rest wait as ghosts. It sits under Secure words because
+   that is the figure it counts. */
+.codex-ladder {
+  display: flex;
+  flex: none;
+  gap: 0.25rem;
+  padding-bottom: 0.3rem;
+}
+
+.codex-ladder li {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  place-items: center;
+  border: 1px solid rgb(var(--codex-gold) / 10%);
+  border-radius: 0.5rem;
+  padding: 0.16rem 0.05rem 0.14rem;
+}
+
+.codex-ladder .figure {
+  font-size: 0.72rem;
+  line-height: 1.15;
+  color: rgb(255 249 236 / 35%);
+}
+
+.codex-ladder li[data-reached='true'] {
+  border-color: rgb(var(--codex-gold) / 22%);
+  background: rgb(var(--codex-gold) / 7%);
+}
+
+.codex-ladder li[data-reached='true'] .figure {
+  color: var(--codex-gold-ink);
+}
+
+/* The one rung that is neither earned nor far off keeps the unlit ground and
+   borrows the brighter edge, so the eye lands on where the road goes next. */
+.codex-ladder li[data-next='true'] {
+  border-color: rgb(var(--codex-gold) / 50%);
+  box-shadow: 0 0 10px -3px rgb(var(--codex-gold) / 60%);
+}
+
+.codex-ladder li[data-next='true'] .figure {
+  color: rgb(var(--codex-gold) / 80%);
 }
 
 .codex-zoom {
@@ -1604,7 +1431,7 @@ h1 {
 
 .codex-zoom small {
   color: rgb(255 249 236 / 55%);
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
 }
 
 /* --- camp ---------------------------------------------------------------- */
@@ -1618,6 +1445,67 @@ h1 {
   margin: auto auto 0;
   flex: none;
   animation: rise 320ms var(--ease) 60ms backwards;
+}
+
+/* The arc sweeps to its value instead of snapping there — from empty on first
+   paint, and from the old level on the day the fire climbs. 333 is the
+   circumference CampScreen draws the ring with. */
+.camp-ring-progress {
+  stroke: var(--brass);
+  transition: stroke-dashoffset 820ms var(--ease);
+}
+
+@starting-style {
+  .camp-ring-progress {
+    stroke-dashoffset: 333;
+  }
+}
+
+/* Camp embers: two motes over the fire mark and one over the ring, drawn with
+   pseudo-elements so Camp gains no DOM and no canvas for them. They exist only
+   as motion — the static state is invisible, which is also the reduced-motion
+   state, since the kill list below stops the animation and leaves opacity 0. */
+.camp-ring::after,
+.camp-ring-face::before,
+.camp-ring-face::after {
+  --ember-peak: 0.46;
+
+  position: absolute;
+  width: 0.2rem;
+  height: 0.2rem;
+  border-radius: 50%;
+  background: var(--brass);
+  box-shadow: 0 0 6px rgb(224 180 99 / 75%);
+  opacity: 0;
+  content: '';
+  pointer-events: none;
+}
+
+.camp-ring::after {
+  top: 24%;
+  left: 50%;
+  animation: campEmber 4.6s ease-in-out 600ms infinite;
+}
+
+.camp-ring-face::before {
+  --ember-peak: 0.38;
+
+  top: 27%;
+  left: 43%;
+  width: 0.15rem;
+  height: 0.15rem;
+  background: var(--brass-deep);
+  animation: campEmber 5.8s ease-in-out -1900ms infinite;
+}
+
+.camp-ring-face::after {
+  --ember-peak: 0.32;
+
+  top: 26%;
+  left: 57%;
+  width: 0.13rem;
+  height: 0.13rem;
+  animation: campEmber 3.9s ease-in-out -900ms infinite;
 }
 
 .camp-scene .camp-card {
@@ -1659,13 +1547,13 @@ h1 {
   flex: none;
   margin-top: 0.7rem;
   color: var(--brass-deep);
-  font-size: 0.78rem;
+  font-size: var(--fs-caption);
   text-align: center;
   animation: riseSoft 300ms var(--ease) 200ms backwards;
 }
 
 .camp-banner-note .figure {
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 
@@ -1709,7 +1597,7 @@ h1 {
   position: relative;
   height: 0.45rem;
   margin: 0.85rem auto 0;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
   background: rgb(29 43 58 / 10%);
 }
@@ -1718,7 +1606,7 @@ h1 {
   position: absolute;
   inset: 0 auto 0 0;
   width: var(--percent, 0%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: linear-gradient(90deg, var(--brass), var(--gold));
   transform-origin: left;
   animation: growSeg 520ms var(--ease) 180ms backwards;
@@ -1727,12 +1615,12 @@ h1 {
 .camp-mega-left {
   margin-top: 0.5rem;
   color: var(--ink-soft);
-  font-size: 0.78rem;
+  font-size: var(--fs-caption);
 }
 
 .camp-mega-left .figure {
   color: var(--ink);
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 
@@ -1779,6 +1667,35 @@ h1 {
   box-shadow: none;
 }
 
+/* Quiet unlock chips — records of the watch, not buttons. */
+.camp-records {
+  display: grid;
+  gap: 0.55rem;
+  flex: none;
+  margin-top: 0.85rem;
+  animation: rise 300ms var(--ease) 180ms backwards;
+}
+
+.camp-records ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.camp-record-chip {
+  border: 1px solid color-mix(in oklab, var(--brass) 45%, transparent);
+  border-radius: var(--r-pill);
+  padding: 0.3rem 0.7rem;
+  font-family: var(--sans);
+  font-size: var(--fs-note);
+  font-weight: 700;
+  color: var(--brass-deep);
+  background: rgb(255 253 247 / 55%);
+}
+
 /* --- setup --------------------------------------------------------------- */
 
 .setup-scene .scene-body {
@@ -1817,7 +1734,18 @@ h1 {
   flex-direction: column;
   justify-content: flex-end;
   min-height: 0;
-  padding-bottom: 1.25rem;
+  /* x stays visible so companion art can bleed right; y clips so flex-end
+     overflow never paints over the chrome (and never flashes through it on
+     enter). A hair of margin keeps the clip seam under the chrome, not flush.
+
+     Clipping at flex-end takes the TOP of the block first, so this column's
+     rhythm is deliberately tight: on a 402x874 phone with the vocabulary rail
+     up, the content ran 72px past its share and the kicker was the first
+     thing to vanish. Every value below is load-bearing — measure before
+     loosening one. */
+  overflow: visible clip;
+  margin-top: 0.2rem;
+  padding-bottom: 0.5rem;
 }
 
 .setup-quest img {
@@ -1836,7 +1764,8 @@ h1 {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-bottom: 0.7rem;
+  margin-top: 0;
+  margin-bottom: 0.45rem;
   letter-spacing: 0.22em;
   color: rgb(230 203 142 / 86%);
 }
@@ -1861,18 +1790,41 @@ h1 {
 .setup-quest p {
   position: relative;
   max-width: 15rem;
-  margin-top: 0.7rem;
+  margin-top: 0.5rem;
   color: rgb(255 249 236 / 70%);
   font-size: 0.82rem;
   line-height: 1.45;
   text-wrap: pretty;
 }
 
+/* The wake hint explains the silhouette, so it sits with the art rather than
+   in the text column: in the column it was the first line the flex-end clip
+   ate, which meant the one caption that makes a faint silhouette legible was
+   never seen on a phone. Out of flow it also costs the column nothing. */
+.setup-quest .setup-companion-hint {
+  position: absolute;
+  right: 0;
+  bottom: 0.6rem;
+  width: min(11rem, 45%);
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-note);
+  line-height: 1.35;
+  text-align: right;
+  text-wrap: balance;
+  color: var(--dusk-ink-soft);
+}
+
+/* The sleeping companion lifts to leave its caption room underneath. */
+.setup-quest img.companion-asleep {
+  bottom: 3.1rem;
+}
+
 .setup-tally {
   position: relative;
   display: flex;
   width: max-content;
-  margin-top: 1rem;
+  margin-top: 0.6rem;
   border-top: 1px solid rgb(230 203 142 / 30%);
   border-bottom: 1px solid rgb(255 249 236 / 10%);
 }
@@ -2066,8 +2018,9 @@ h1 {
   min-width: 1.35rem;
   height: 1.35rem;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0 0.25rem;
+  /* Bead warm pair is bespoke and stays literal (recorded round decision). */
   background: linear-gradient(180deg, #fffaf0, #eddcb6);
   color: #131b25;
   font-size: 0.8rem;
@@ -2098,7 +2051,7 @@ h1 {
   border-bottom: 1px solid rgb(255 249 236 / 10%);
   padding: 0.4rem 0;
   font-family: var(--serif);
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   letter-spacing: -0.015em;
   color: var(--gold);
 }
@@ -2108,7 +2061,7 @@ h1 {
   width: min(15rem, 100%);
   height: 0.3rem;
   margin-top: 1rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
   background: rgb(255 249 236 / 14%);
 }
@@ -2117,7 +2070,7 @@ h1 {
   position: absolute;
   inset: 0 auto 0 0;
   width: var(--percent, 0%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: linear-gradient(90deg, rgb(230 203 142 / 70%), var(--gold));
   box-shadow: 0 0 12px rgb(230 203 142 / 45%);
   transform-origin: left;
@@ -2127,7 +2080,7 @@ h1 {
 .setup-guardian-note {
   margin-bottom: 0.85rem;
   color: rgb(255 249 236 / 55%);
-  font-size: 0.78rem;
+  font-size: var(--fs-caption);
   line-height: 1.4;
   text-wrap: pretty;
 }
@@ -2142,12 +2095,16 @@ h1 {
 
 .setup-tray {
   flex: none;
-  margin-top: 0.9rem;
+  margin-top: 0.5rem;
   border-top: 1px solid rgb(255 249 236 / 14%);
+  /* The waypoint bar sits below this tray and already carries the home
+     indicator on its own safe-area foot, so a bottom gutter here was a second
+     allowance for the same hardware — 34pt of dead space that the quest block
+     above needed. The tray keeps its own rhythm instead. */
   padding:
     0.85rem
     var(--gutter-right)
-    max(1.25rem, var(--gutter-bottom))
+    0.85rem
     var(--gutter-left);
   background: linear-gradient(
     180deg,
@@ -2166,7 +2123,7 @@ h1 {
 }
 
 .setup-pools {
-  margin: 0.5rem 0 0.8rem;
+  margin: 0.35rem 0 0.55rem;
 }
 
 .setup-pools .pill {
@@ -2216,8 +2173,8 @@ h1 {
 
 .setup-sfx .pill[aria-checked='true'] {
   border-color: rgb(230 203 142 / 50%);
-  background: linear-gradient(180deg, #fffaf0, #f0e3c9);
-  color: #131b25;
+  background: linear-gradient(180deg, var(--cream), var(--cream-deep));
+  color: var(--cream-ink);
 }
 
 .length-choice {
@@ -2237,14 +2194,18 @@ h1 {
 
 .length-choice button[aria-pressed='true'] {
   border-color: rgb(230 203 142 / 50%);
-  background: linear-gradient(180deg, #fffaf0, #f0e3c9);
-  color: #131b25;
+  background: linear-gradient(180deg, var(--cream), var(--cream-deep));
+  color: var(--cream-ink);
   box-shadow: 0 8px 16px -9px rgb(0 0 0 / 75%);
 }
 
 .length-choice .figure {
   font-size: 1.15rem;
   line-height: 1;
+}
+
+.dot-sep {
+  opacity: 0.4;
 }
 
 /* --- round --------------------------------------------------------------- */
@@ -2282,7 +2243,7 @@ h1 {
   width: 0.6rem;
   height: 0.6rem;
   border: 2px solid rgb(255 249 236 / 58%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgb(14 21 29 / 90%);
 }
 
@@ -2340,7 +2301,7 @@ h1 {
   gap: 0.35rem;
   margin: 0 auto 0.6rem;
   border: 1px solid rgb(160 107 34 / 30%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.25rem 0.7rem;
   background: rgb(160 107 34 / 9%);
   color: var(--brass-deep);
@@ -2428,7 +2389,7 @@ h1 {
   justify-content: center;
   gap: 0.4rem;
   border: 1px solid rgb(29 43 58 / 16%);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0 0.8rem;
   background: rgb(29 43 58 / 6%);
   font-size: 0.82rem;
@@ -2589,6 +2550,15 @@ h1 {
     float 7s ease-in-out 700ms infinite;
 }
 
+.results-gain {
+  position: relative;
+  margin: 0;
+  color: rgb(230 203 142 / 92%);
+  font-family: var(--serif);
+  font-size: 1rem;
+  animation: riseSoft 400ms var(--ease) backwards;
+}
+
 .field-record {
   position: relative;
   flex: none;
@@ -2662,7 +2632,7 @@ h1 {
 .field-record-head p {
   margin-top: 0.35rem;
   color: var(--ink-soft);
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
   line-height: 1.4;
   text-wrap: pretty;
 }
@@ -2750,7 +2720,7 @@ h1 {
   padding: 0.55rem 0.75rem;
   background: linear-gradient(100deg, rgb(230 203 142 / 42%), rgb(230 203 142 / 12%));
   color: var(--brass-deep);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   font-weight: 700;
   text-wrap: pretty;
   animation: rise 380ms var(--ease) 320ms backwards;
@@ -2758,6 +2728,10 @@ h1 {
 
 .record-camp svg {
   flex: none;
+}
+
+.record-roll-kicker {
+  margin: 0.7rem 0 0.35rem;
 }
 
 .record-roll {
@@ -2776,7 +2750,7 @@ h1 {
 .record-roll strong {
   flex: none;
   font-family: var(--serif);
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 500;
   line-height: 1.15;
   letter-spacing: -0.015em;
@@ -2881,7 +2855,7 @@ h1 {
 .record-growth-bars span {
   flex: 1;
   height: 0.3rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgb(29 43 58 / 13%);
   transform-origin: left;
 }
@@ -2890,9 +2864,14 @@ h1 {
   background: var(--brass-ink);
 }
 
+/* The newest pip lands rather than appears: it grows, then thickens and glows
+   once on the beat the grow ends (360ms + --t-reveal). The pulse drives the
+   independent `scale` property so it never fights growSeg's transform. */
 .record-growth-bars span[data-latest='true'] {
   background: linear-gradient(90deg, var(--brass-ink), #e0b463);
-  animation: growSeg var(--t-reveal) var(--ease) 360ms backwards;
+  animation:
+    growSeg var(--t-reveal) var(--ease) 360ms backwards,
+    growPipSettle 460ms var(--ease) 880ms backwards;
 }
 
 .record-growth-secure {
@@ -2933,7 +2912,7 @@ h1 {
   border-color: rgb(255 249 236 / 26%);
   background: rgb(255 249 236 / 6%);
   color: var(--dusk-ink);
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   font-weight: 800;
 }
 
@@ -2975,7 +2954,7 @@ h1 {
 .sheet-grip::before {
   width: 2.75rem;
   height: 0.3rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgb(29 43 58 / 20%);
   content: '';
 }
@@ -3013,7 +2992,7 @@ h1 {
 
 .switch-head p {
   font-family: var(--serif);
-  font-size: 1.05rem;
+  font-size: var(--fs-title);
   font-weight: 600;
 }
 
@@ -3037,16 +3016,17 @@ h1 {
   text-align: left;
 }
 
+.parent-learner-avatar,
 .learner-avatar {
   display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.4rem;
+  height: 2.4rem;
   place-items: center;
-  border-radius: 0.8rem 0.8rem 0.8rem 0.25rem;
+  border-radius: 0.75rem 0.75rem 0.75rem 0.25rem;
   background: var(--learner-colour, var(--brand));
   color: var(--dusk-ink);
   font-family: var(--serif);
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 600;
 }
 
@@ -3063,7 +3043,7 @@ h1 {
   display: block;
   margin-top: 0.2rem;
   color: var(--ink-soft);
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
 }
 
 .learner-selected {
@@ -3097,7 +3077,7 @@ h1 {
   gap: 0.5rem;
   margin-top: 0.9rem;
   color: var(--ink-soft);
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
 }
 
 .switch-note-mark {
@@ -3118,7 +3098,7 @@ h1 {
 }
 
 .learner-form label {
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
   font-weight: 700;
   color: var(--ink-soft);
 }
@@ -3128,7 +3108,7 @@ h1 {
   width: 100%;
   min-height: 3rem;
   border: 1px solid var(--line-strong);
-  border-radius: 0.9rem;
+  border-radius: var(--r-s);
   padding: 0 0.8rem;
   background: var(--paper-raised);
 }
@@ -3165,7 +3145,7 @@ h1 {
 .audio-state p {
   margin-top: 0.15rem;
   color: var(--ink-soft);
-  font-size: 0.78rem;
+  font-size: var(--fs-caption);
 }
 
 .audio-state-icon {
@@ -3229,55 +3209,25 @@ h1 {
   line-height: 1.5;
 }
 
-.exit-actions {
+.exit-confirmation > div > div:last-child {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.35rem;
 }
 
-.exit-actions .button-brand {
-  width: auto;
-  flex: 1 1 9rem;
-}
-
-.exit-actions .button-quiet {
-  flex: 1 1 7rem;
+.exit-confirmation > div > div:last-child button {
+  flex: 1 1 8rem;
 }
 
 /* --- parent gate and area ------------------------------------------------ */
 
 .parent-scene {
-  background: #eae6db;
+  background: var(--paper-parent);
 }
 
-.parent-gate {
-  display: grid;
-  flex: 1;
-  align-content: start;
-  justify-items: center;
-  gap: 0.4rem;
-  padding-top: 1.5rem;
-  text-align: center;
-}
-
-.parent-gate-mark {
-  display: grid;
-  width: 3.25rem;
-  height: 3.25rem;
-  place-items: center;
-  border-radius: 1.1rem;
-  background: rgb(29 43 58 / 7%);
-}
-
-.parent-gate h1 {
-  margin-top: 0.6rem;
-}
-
-.parent-gate > p {
-  color: var(--ink-soft);
-  font-size: 0.9rem;
-}
+/* The parent gate wears paper-card; parent-gate-card stays in the markup as a
+   semantic hook with no styles of its own. */
 
 .parent-pin-form {
   display: grid;
@@ -3307,7 +3257,7 @@ h1 {
   justify-content: center;
   gap: 0.5rem;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: none;
   font-weight: 700;
 }
@@ -3324,15 +3274,8 @@ h1 {
   padding-bottom: 1.5rem;
 }
 
-.parent-card {
-  display: grid;
-  gap: 0.6rem;
-  border: 1px solid var(--line);
-  border-radius: 1.4rem;
-  padding: 1rem 1.05rem;
-  background: var(--paper-raised);
-  box-shadow: var(--plate-shadow);
-}
+/* .parent-card rides .paper-card for its box and remains as the semantic hook
+   the child rules and the accessibility blocks key on. */
 
 .parent-card h2 {
   font-size: 1.2rem;
@@ -3341,7 +3284,7 @@ h1 {
 .parent-card p,
 .parent-card li {
   color: var(--ink-soft);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
   line-height: 1.5;
 }
 
@@ -3359,7 +3302,7 @@ h1 {
 
 .parent-card dt {
   color: var(--ink-soft);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-s);
 }
 
 .parent-card dd {
@@ -3367,6 +3310,12 @@ h1 {
   font-family: var(--serif);
   font-weight: 500;
   font-variant-numeric: lining-nums tabular-nums;
+}
+
+.parent-card summary {
+  cursor: pointer;
+  font-size: var(--fs-body-s);
+  color: var(--ink-soft);
 }
 
 .parent-actions {
@@ -3390,13 +3339,13 @@ h1 {
   font-family: var(--serif);
   font-size: 1.25rem;
   font-weight: 500;
-  color: #274d79;
+  color: var(--brand-deep);
   font-variant-numeric: lining-nums;
 }
 
 .parent-note {
   color: var(--ink-faint);
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
   line-height: 1.5;
 }
 
@@ -3421,32 +3370,6 @@ h1 {
   font-size: 0.82rem;
 }
 
-.button-danger {
-  display: inline-flex;
-  min-height: 3rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  border: 1px solid rgb(164 73 55 / 45%);
-  border-radius: 999px;
-  padding: 0 1rem;
-  background: rgb(252 229 227 / 80%);
-  color: #8d3a29;
-  font-size: 0.9rem;
-  font-weight: 800;
-}
-
-.exit-confirmation > div > div:last-child {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.35rem;
-}
-
-.exit-confirmation > div > div:last-child button {
-  flex: 1 1 8rem;
-}
-
 /* The parent surface keeps its own document flow: it is a settings list, not
    a painted place, so it uses the vellum plate at one elevation throughout. */
 .product-page {
@@ -3463,7 +3386,7 @@ h1 {
 }
 
 .parent-page {
-  background: #eae6db;
+  background: var(--paper-parent);
 }
 
 .paper-card {
@@ -3488,6 +3411,11 @@ h1 {
   gap: 0.6rem;
 }
 
+.parent-progress-list li {
+  display: grid;
+  gap: 0.15rem;
+}
+
 .parent-learner-summary {
   display: grid;
   align-items: center;
@@ -3510,21 +3438,7 @@ h1 {
 .parent-learner-summary small {
   margin-top: 0.15rem;
   color: var(--ink-soft);
-  font-size: 0.78rem;
-}
-
-.parent-learner-avatar,
-.learner-avatar {
-  display: grid;
-  width: 2.4rem;
-  height: 2.4rem;
-  place-items: center;
-  border-radius: 0.75rem 0.75rem 0.75rem 0.25rem;
-  background: var(--learner-colour, var(--brand));
-  color: var(--dusk-ink);
-  font-family: var(--serif);
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: var(--fs-caption);
 }
 
 .parent-learner-actions,
@@ -3556,7 +3470,7 @@ h1 {
 .parent-edit-form label {
   display: grid;
   gap: 0.3rem;
-  font-size: 0.75rem;
+  font-size: var(--fs-note);
   font-weight: 700;
   color: var(--ink-soft);
 }
@@ -3566,7 +3480,7 @@ h1 {
   width: 100%;
   min-height: 3rem;
   border: 1px solid var(--line-strong);
-  border-radius: 0.9rem;
+  border-radius: var(--r-s);
   padding: 0 0.8rem;
   background: var(--paper-raised);
 }
@@ -3580,7 +3494,7 @@ h1 {
   font-family: var(--serif);
   font-size: 1.35rem;
   font-weight: 500;
-  color: #274d79;
+  color: var(--brand-deep);
   font-variant-numeric: lining-nums;
 }
 
@@ -3628,9 +3542,30 @@ h1 {
   58%, 100% { transform: translateX(340%) skewX(-16deg); }
 }
 
+/* The mark beside a near-evolution line: a slow breath, never a blink. */
+@keyframes nearGlint {
+  0%, 100% { opacity: 0.45; scale: 0.78; }
+  50% { opacity: 1; scale: 1.15; }
+}
+
 @keyframes growSeg {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
+}
+
+@keyframes growPipSettle {
+  0% { scale: 1 0.72; box-shadow: 0 0 0 rgb(224 180 99 / 0%); }
+  46% { scale: 1 1.6; box-shadow: 0 0 9px rgb(224 180 99 / 85%); }
+  100% { scale: 1 1; box-shadow: 0 0 0 rgb(224 180 99 / 0%); }
+}
+
+/* One ember: up, sideways a little, out. Three of them at different speeds
+   read as a fire rather than as a loop. */
+@keyframes campEmber {
+  0% { opacity: 0; translate: 0 0; scale: 0.7; }
+  24% { opacity: var(--ember-peak); }
+  60% { opacity: calc(var(--ember-peak) * 0.72); translate: 0.14rem -0.85rem; }
+  100% { opacity: 0; translate: -0.1rem -1.6rem; scale: 1.05; }
 }
 
 @keyframes recordIn {
@@ -3648,18 +3583,16 @@ h1 {
   50% { opacity: 0.9; transform: scale(1.06); }
 }
 
-@keyframes drift {
-  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
-  18% { opacity: 0.9; }
-  100% { opacity: 0; transform: translate(14px, -116px) scale(1); }
-}
-
 /* --- accessibility ------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
   .product-app *,
   .product-app *::before,
-  .product-app *::after {
+  .product-app *::after,
+  .app-boot,
+  .app-boot *,
+  .app-boot *::before,
+  .app-boot *::after {
     scroll-behavior: auto !important;
     animation: none !important;
     transition: none !important;
@@ -3687,7 +3620,11 @@ h1 {
   .scene-veil,
   .codex-hero-glow,
   .codex-hero-sheen,
+  .codex-hero[data-near='true'] .codex-next::before,
   .quest-tile-sheen,
+  .camp-ring::after,
+  .camp-ring-face::before,
+  .camp-ring-face::after,
   .results-halo::before {
     display: none;
   }
@@ -3703,6 +3640,11 @@ h1 {
   .codex-meter-track span,
   .camp-mega-track span,
   .setup-guardian-meter span,
+  /* A milestone ladder whose whole message is "these are behind you" cannot
+     spend that message on colour alone; the first unfilled rung is still the
+     next target. */
+  .codex-ladder li[data-reached='true'],
+  .codex-ladder li[data-reached='true'] .figure,
   .quest-tile-count {
     background: Highlight;
     box-shadow: none;
@@ -3810,6 +3752,136 @@ h1 {
   }
 }
 
+/* Short-to-mid phones (covers 375×667). Free enough quest height for the
+   Guardian stack without collapsing the type — art, plates and tray give a
+   little; the brief drops to one line. */
+@media (max-height: 42rem) {
+  .setup-quest {
+    padding-bottom: 0.7rem;
+  }
+
+  .setup-quest .product-kicker {
+    margin-bottom: 0.35rem;
+  }
+
+  .setup-quest p {
+    margin-top: 0.35rem;
+    font-size: 0.74rem;
+  }
+
+  .setup-quest img {
+    width: min(9rem, 38%);
+    bottom: 0.7rem;
+  }
+
+  .setup-tally {
+    margin-top: 0.45rem;
+  }
+
+  .setup-quest .setup-guardian-due {
+    margin-top: 0.45rem;
+    padding: 0.32rem 0;
+  }
+
+  .setup-guardian-meter {
+    margin-top: 0.5rem;
+  }
+
+  .quest-tile > span {
+    height: 4.9rem;
+  }
+
+  .quest-tile[aria-pressed='true'] > span {
+    translate: 0 -0.25rem;
+  }
+
+  .setup-tray {
+    margin-top: 0.5rem;
+    padding-top: 0.55rem;
+  }
+
+  .setup-guardian-note {
+    margin-bottom: 0.5rem;
+  }
+
+  .setup-sfx {
+    margin-bottom: 0.55rem;
+  }
+}
+
+/* Very short phones (~560px). Guardian-active still needs another step down
+   so the clip has nothing to bite at rest. */
+@media (max-height: 36rem) {
+  .setup-quest {
+    padding-bottom: 0.5rem;
+  }
+
+  .setup-quest .product-kicker {
+    margin-bottom: 0.2rem;
+  }
+
+  .setup-quest h1 {
+    font-size: clamp(1.45rem, 7.5vw, 1.65rem);
+  }
+
+  .setup-quest p {
+    margin-top: 0.25rem;
+    /* One line only this far down — the two-line clamp above still holds at
+       taller short-phone heights. */
+    -webkit-line-clamp: 1;
+    font-size: 0.7rem;
+  }
+
+  .setup-quest img {
+    width: min(7.25rem, 34%);
+    bottom: 0.45rem;
+  }
+
+  .setup-tally {
+    margin-top: 0.35rem;
+  }
+
+  .setup-tally div {
+    padding: 0.2rem 0.65rem;
+  }
+
+  .setup-quest .setup-guardian-due {
+    margin-top: 0.3rem;
+    padding: 0.22rem 0;
+    font-size: 0.9rem;
+  }
+
+  .setup-guardian-meter {
+    margin-top: 0.4rem;
+  }
+
+  .quest-tile > span {
+    height: 3.75rem;
+  }
+
+  .quest-tile[aria-pressed='true'] > span {
+    translate: 0 -0.2rem;
+  }
+
+  .setup-tray {
+    margin-top: 0.4rem;
+    padding-top: 0.45rem;
+  }
+
+  .setup-guardian-note {
+    margin-bottom: 0.4rem;
+    font-size: 0.72rem;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .setup-sfx {
+    margin-bottom: 0.45rem;
+  }
+}
+
 @media (min-width: 46rem) {
   .scene-body,
   .switch-sheet,
@@ -3823,4 +3895,199 @@ h1 {
     padding-right: max(25%, 0.75rem);
     padding-left: max(25%, 0.75rem);
   }
+}
+
+/* ==========================================================================
+   Boot surface — the overture
+   The two screens that paint before a single service exists: the loading
+   shell and the recovery screen. They wear the product's vellum, its serif
+   and its tracked-out kicker so the very first frame already belongs to the
+   game, but they are written out in full rather than reaching for the
+   product's tokens: `.product-app` does not exist yet when these paint, and
+   they must not be nested inside it either, because that surface locks itself
+   to `100dvh` with `overflow: hidden` and would clip a long stack trace out
+   of reach. Every colour below is therefore a literal, matched to the palette
+   declared on `.product-app`.
+   ========================================================================== */
+
+.app-boot {
+  /* `.press`, reused by the restart button, reads `--ease` for its slower
+     half. The product surface declares that curve on `.product-app`, which is
+     not an ancestor here, so the boot surface declares the same one for
+     itself rather than letting the transition drop. */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  flex-direction: column;
+  justify-content: center;
+  /* A stack trace longer than the viewport must not be centred off the top of
+     the page, where nothing can scroll it back. Browsers without the `safe`
+     keyword drop this line and keep the plain centring above. */
+  justify-content: safe center;
+  padding:
+    max(1.75rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+    max(1.5rem, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)))
+    max(1.75rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))
+    max(1.5rem, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+  background:
+    radial-gradient(120% 68% at 50% -12%, #fffdf7 0%, rgb(255 253 247 / 0%) 62%),
+    #f8f5ec;
+  color: #1d2b3a;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: anywhere;
+}
+
+/* The footer margin is what lifts the block to the optical centre rather than
+   the arithmetic one, the way a title page carries more paper below the title
+   than above it. */
+.app-boot-panel {
+  width: min(100%, 26rem);
+  margin: 0 auto 8vh;
+}
+
+.app-boot-kicker {
+  margin: 0;
+  color: rgb(29 43 58 / 45%);
+  font-size: 0.66rem;
+  font-weight: 800;
+  /* `.product-kicker`'s treatment, opened up a little the way the trail opens
+     its topline: this one stands alone above a title rather than labelling a
+     card underneath it. */
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.app-boot-title {
+  max-width: 14ch;
+  margin: 0.6rem 0 0;
+  font-family: Fraunces, Georgia, "Times New Roman", serif;
+  font-size: clamp(1.85rem, 8.5vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+/* The one flourish on the page: the brass hairline the trail runs under its
+   topline, drawn here on vellum instead of dusk. */
+.app-boot-title::after {
+  content: '';
+  display: block;
+  width: 4.25rem;
+  height: 1px;
+  margin-top: 1.15rem;
+  background: linear-gradient(90deg, rgb(160 107 34 / 60%), rgb(160 107 34 / 0%));
+}
+
+.app-boot-body {
+  max-width: 30rem;
+  margin: 1.1rem 0 0;
+  color: rgb(29 43 58 / 62%);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.app-boot-action {
+  margin-top: 1.7rem;
+}
+
+.app-boot button {
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-boot button:focus-visible,
+.app-boot summary:focus-visible {
+  outline: 3px solid #3e6fa8;
+  outline-offset: 3px;
+}
+
+/* The diagnosis is for whoever is helping, not for the child, so it stays
+   folded away behind quiet chrome — and opens onto something legible and
+   scrollable rather than a wall of wrapped text that buries the one button
+   that recovers the app. */
+.app-boot-detail {
+  margin-top: 1.6rem;
+  border-top: 1px solid rgb(29 43 58 / 12%);
+}
+
+.app-boot-detail summary {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgb(29 43 58 / 45%);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  list-style: none;
+  cursor: pointer;
+}
+
+.app-boot-detail summary::-webkit-details-marker {
+  display: none;
+}
+
+.app-boot-detail summary::before {
+  content: '';
+  width: 0.32rem;
+  height: 0.32rem;
+  flex: none;
+  border-right: 1.25px solid rgb(29 43 58 / 45%);
+  border-bottom: 1.25px solid rgb(29 43 58 / 45%);
+  rotate: -45deg;
+  translate: 0 -0.05rem;
+  transition: rotate 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-boot-detail[open] summary::before {
+  rotate: 45deg;
+  translate: 0 -0.12rem;
+}
+
+.app-boot-detail pre {
+  max-height: min(38vh, 18rem);
+  margin: 0 0 0.4rem;
+  overflow: auto;
+  border: 1px solid rgb(29 43 58 / 12%);
+  border-radius: 0.85rem;
+  padding: 0.85rem 0.95rem;
+  background: #fffdf7;
+  color: rgb(29 43 58 / 72%);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Entrance: a page settling, not a spinner. One soft rise, staggered by a
+   hair so the eye lands on the title. Reduced motion stills all of it — see
+   the kill list above. */
+.app-boot-kicker,
+.app-boot-title,
+.app-boot-body,
+.app-boot-action,
+.app-boot-detail {
+  animation: riseSoft 380ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.app-boot-title {
+  animation-delay: 60ms;
+}
+
+.app-boot-body {
+  animation-delay: 110ms;
+}
+
+.app-boot-action,
+.app-boot-detail {
+  animation-delay: 160ms;
 }

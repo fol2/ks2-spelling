@@ -21,3 +21,12 @@ export function loadStarterSpellingCatalogue() {
 export function loadFullSpellingCatalogue() {
   return READ_ONLY_FULL_CATALOGUE;
 }
+
+export {
+  ACHIEVEMENT_DEFINITIONS,
+  ACHIEVEMENT_IDS,
+  isAchievementProgressKey,
+} from '../../../vendor/ks2-mastery/shared/spelling/core/achievements.js';
+
+// The Codex milestone ladder reads the engine's milestones, never a second set.
+export { SPELLING_MASTERY_MILESTONES } from '../../../vendor/ks2-mastery/shared/spelling/core/events.js';

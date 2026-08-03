@@ -76,6 +76,63 @@ export function glowPulse(scene, Phaser, {
 }
 
 /**
+ * A few tiny four-point stars that wink in and out at seeded points — the
+ * quiet cousin of `spawnBurst`, for beats that want light rather than motion.
+ * `rng` follows the same [0, 1) contract so an LCG-seeded caller keeps its
+ * cadence deterministic. No `Phaser` argument: the star factory and plain
+ * alpha carry the sparkle, so this one stays as light as `spawnBurst`.
+ */
+export function twinkleSparks(scene, {
+  x,
+  y,
+  count = 3,
+  colour = 0xffe9b8,
+  spreadX = 60,
+  spreadY = 40,
+  rng,
+  depth = 4,
+  size = 5,
+  duration = 520,
+  stagger = 90,
+}) {
+  const pick = typeof rng === 'function' ? rng : Math.random;
+
+  for (let index = 0; index < count; index += 1) {
+    const outerRadius = size * (0.7 + pick() * 0.6);
+    const spark = scene.add
+      // A thin inner radius is what makes four points read as a sparkle
+      // rather than a diamond; the birth angle keeps the set from lining up.
+      .star(
+        x + (pick() * spreadX - spreadX / 2),
+        y + (pick() * spreadY - spreadY / 2),
+        4,
+        outerRadius * 0.3,
+        outerRadius,
+        colour,
+        0.95,
+      )
+      .setDepth(depth)
+      .setAngle(pick() * 90)
+      .setScale(0);
+    scene.tweens.chain({
+      targets: spark,
+      delay: index * stagger,
+      tweens: [
+        { scale: 1, duration: duration * 0.35, ease: 'Back.Out' },
+        {
+          scale: 0,
+          alpha: 0,
+          delay: duration * 0.1,
+          duration: duration * 0.55,
+          ease: 'Sine.In',
+        },
+      ],
+      onComplete: () => spark.destroy(),
+    });
+  }
+}
+
+/**
  * Expanding stroke ring — used for evolution shockwaves and stage-4 flourish.
  */
 export function shockwaveRing(scene, {

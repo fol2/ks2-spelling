@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 
 import App from '../app/App.jsx';
 import '../app/app.css';
+import '../app/b4-shell.css';
 import manifest from '../../config/b4-audio-manifest.json';
 import { createB4RoundController } from '../app/b4-round-controller.js';
 import { createB4LocalAudioPlayer } from '../app/b4-local-audio.js';

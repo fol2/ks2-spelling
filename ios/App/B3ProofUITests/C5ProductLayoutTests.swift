@@ -205,10 +205,15 @@ final class C5ProductLayoutTests: XCTestCase {
             message: "The Trail Set off action did not appear."
         ).tap()
 
+        // Wait on the setup chrome's back button: static texts materialise
+        // late in WKWebView accessibility, and a Guardian-due Setup renders
+        // no vocabulary rail at all — the back control is on every variant.
         XCTAssertTrue(
-            application.staticTexts["Vocabulary set"].waitForExistence(timeout: 10),
+            application.buttons["Back to the trail"].waitForExistence(timeout: 10),
             "The round setup screen did not appear."
         )
+        // A fresh learner's Setup always offers Set off; this probe never
+        // runs against a Guardian-due Setup, which offers the patrol instead.
         let setupSetOff = application.buttons.matching(
             NSPredicate(format: "label BEGINSWITH %@", "Set off")
         ).firstMatch

@@ -169,6 +169,13 @@ test('the app-owned façade exposes only the certified runtime and read-only cat
   );
   const expectedExports = [
     ...a3Manifest.runtime.publicExports,
+    // Certified core re-exports the product façade adds for the Camp records
+    // surface and the Codex milestone ladder; verify-vendored-contract pins the
+    // matching import specifiers.
+    'ACHIEVEMENT_DEFINITIONS',
+    'ACHIEVEMENT_IDS',
+    'SPELLING_MASTERY_MILESTONES',
+    'isAchievementProgressKey',
     'loadFullSpellingCatalogue',
     'loadStarterSpellingCatalogue',
   ].sort();

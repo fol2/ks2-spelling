@@ -46,6 +46,35 @@ function CampLevelMark() {
   );
 }
 
+function MilestoneMark({ level }) {
+  return (
+    <span className="celebration-mark celebration-milestone-mark" aria-hidden="true">
+      <span className="figure">{level}</span>
+    </span>
+  );
+}
+
+function AchievementMark() {
+  return (
+    <span className="celebration-mark celebration-achievement-mark" aria-hidden="true">
+      <svg
+        width="88"
+        height="88"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        focusable="false"
+      >
+        <path d="M12 3.2 19.1 6v6.1c0 4.2-3 7.3-7.1 8.7-4.1-1.4-7.1-4.5-7.1-8.7V6L12 3.2Z" />
+        <path d="m9 11.9 2.1 2.2 3.9-4.2" />
+      </svg>
+    </span>
+  );
+}
+
 function prefersReducedMotion() {
   return typeof matchMedia === 'function'
     && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -186,6 +215,8 @@ export function CelebrationLayer({ events, haptics, sfx, onDone }) {
         : event.kind === 'evolve'
           ? 'evolve'
           : event.kind === 'camp-level'
+            || event.kind === 'milestone'
+            || event.kind === 'achievement'
             ? 'flourish'
             : 'tick',
     );
@@ -273,6 +304,8 @@ export function CelebrationLayer({ events, haptics, sfx, onDone }) {
             />
             <span className="celebration-halo" />
             {event.kind === 'camp-level' && <CampLevelMark />}
+            {event.kind === 'milestone' && <MilestoneMark level={event.level} />}
+            {event.kind === 'achievement' && <AchievementMark />}
             {artUrl && (
               <img
                 className="celebration-art"

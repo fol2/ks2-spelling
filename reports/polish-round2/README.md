@@ -8,7 +8,8 @@ Contents of this folder:
 |---|---|
 | `baseline/` | The branch-point `test:fast` and full `npm test` logs and failing sets |
 | `before/`, `after/` | Design-harness galleries for the visual slices |
-| `e2e-simulator-run.md`, `e2e/` | Slice 4.3's end-to-end simulator run: scenarios, the four defects it found, residuals, and the closing gate |
+| `e2e-simulator-run.md`, `e2e/` | Slice 4.3's end-to-end simulator run: scenarios, the six defects it found, residuals, and the closing gate |
+| `physical-device-keyboard.md` | Slice 4.2's acceptance run on a real iOS 27 phone, and the limits of that evidence |
 | `c5-probe-run.md` | Slice 4.1's C5 XCUITest run and the pre-existing `isHittable` finding |
 | `import-race-findings.md` | Slice 1.2's interleaving matrix (the race did not reproduce; the join guard landed anyway) |
 

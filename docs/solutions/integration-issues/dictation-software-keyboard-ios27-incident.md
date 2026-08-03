@@ -189,27 +189,34 @@ and trust the XCUITest probes over hand-driven simulator typing.
 Use a clean product Debug build from the exact final reset head. Do not test PR
 #53, B4Development or B3SandboxProof.
 
-- [ ] Launch and leave the profile screen idle: no keyboard appears later by
+Ticked 2026-08-03 on an iPhone 16 Pro Max running iOS 27.0 (24A5380h) — the
+affected operating system — against the polish round-2 head `9ee4018a`, with no
+external keyboard attached. Evidence, including what that evidence is and is
+not: `reports/polish-round2/physical-device-keyboard.md`.
+
+- [x] Launch and leave the profile screen idle: no keyboard appears later by
       itself.
-- [ ] Add learner, tap nickname: keys appear promptly and typing reaches the field.
-- [ ] Open Words, tap Search spellings: keys appear promptly and filtering works.
-- [ ] Open Parent PIN: numeric keys appear promptly.
-- [ ] Tap **Set off**, wait for Practice, then tap the visible answer line: keys
+- [x] Add learner, tap nickname: keys appear promptly and typing reaches the field.
+- [x] Open Words, tap Search spellings: keys appear promptly and filtering works.
+- [x] Open Parent PIN: numeric keys appear promptly.
+- [x] Tap **Set off**, wait for Practice, then tap the visible answer line: keys
       appear promptly.
-- [ ] During Submit/save, the key rows remain present and the answer is submitted
+- [x] During Submit/save, the key rows remain present and the answer is submitted
       exactly once.
-- [ ] During correct/incorrect feedback, the field remains focused but rejects
+- [x] During correct/incorrect feedback, the field remains focused but rejects
       edits until Continue/auto-advance.
-- [ ] The next card accepts typing without another unexplained delay.
-- [ ] End round, Keep practising and Leave round leave no invisible focus target.
-- [ ] Portrait and landscape keep the authored dictation layout usable without a
+- [x] The next card accepts typing without another unexplained delay.
+- [x] End round, Keep practising and Leave round leave no invisible focus target.
+- [x] Portrait and landscape keep the authored dictation layout usable without a
       custom keyboard inset.
-- [ ] Background/foreground, then tap the answer line: ordinary typing resumes.
-- [ ] The standard previous/next/done form accessory may remain visible. It must
+- [x] Background/foreground, then tap the answer line: ordinary typing resumes.
+- [x] The standard previous/next/done form accessory may remain visible. It must
       stay system-owned and must not replace, delay or outlive the software key
       rows.
 - [ ] Repeat the bare visible-field checks on stable iOS 26 and the affected iOS
-      27 device when both are available.
+      27 device when both are available. **iOS 27 done; iOS 26 outstanding** — no
+      stable-iOS-26 physical device is to hand, and a simulator cannot supply this
+      evidence for the reason given above.
 
 ## If the visible field still fails
 
@@ -231,5 +238,8 @@ not for rebuilding the hidden session.
 
 - Draft PR #53 — preserved forensic keyboard investigation; do not merge.
 - PR #55 — visible-input production reset and device gate; merged 2026-07-29.
+- PR #63 — polish round 2; the head this checklist was finally ticked against,
+  with the four keyboard suites byte-identical to their pre-round bytes
+  throughout. Evidence: `reports/polish-round2/physical-device-keyboard.md`.
 - `docs/solutions/workflow-issues/gating-physical-ios-installs-on-application-composition.md`
   — always gate physical installs on product versus proof composition.

@@ -59,6 +59,11 @@ test('the committed iOS project freezes the unsigned B1 identity', async () => {
     infoPlist,
     /<key>CFBundleDisplayName<\/key>\s*<string>KS2 Spelling<\/string>/,
   );
+  assert.match(
+    infoPlist,
+    /<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\/>/,
+    'Info.plist must declare exempt encryption for store upload',
+  );
   assert.match(scheme, /BuildableName = "App\.app"/);
   assert.match(scheme, /BlueprintName = "App"/);
 });

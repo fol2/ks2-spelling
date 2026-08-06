@@ -45,6 +45,7 @@ const COMMERCE_METHODS = Object.freeze([
 const EXPECTED_ANDROID_PERMISSIONS = Object.freeze([
   'android.permission.USE_BIOMETRIC',
   'android.permission.INTERNET',
+  'android.permission.VIBRATE',
   'com.android.vending.BILLING',
   'android.permission.ACCESS_NETWORK_STATE',
 ]);

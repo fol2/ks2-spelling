@@ -162,6 +162,7 @@ test('B3 native audit is rebuilt from closed fresh inputs without weakening B2',
     assert.deepEqual(report.runtimeSurface.android.requestedPermissions, [
       'android.permission.USE_BIOMETRIC',
       'android.permission.INTERNET',
+      'android.permission.VIBRATE',
       'com.android.vending.BILLING',
       'android.permission.ACCESS_NETWORK_STATE',
     ]);

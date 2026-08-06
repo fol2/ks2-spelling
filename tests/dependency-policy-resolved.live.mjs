@@ -94,6 +94,7 @@ test('default audit consumes the complete resolved Android certification', async
     requestedPermissions: [
       'android.permission.USE_BIOMETRIC',
       'android.permission.INTERNET',
+      'android.permission.VIBRATE',
       'com.android.vending.BILLING',
       'android.permission.ACCESS_NETWORK_STATE',
     ],

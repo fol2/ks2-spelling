@@ -1,0 +1,204 @@
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+
+import '../lib/prompt_audio.dart';
+
+final class RecordingPromptAudioBackend implements PromptAudioBackend {
+  final List<String> events = <String>[];
+  int startCount = 0;
+
+  @override
+  Future<StopPlayback> start() async {
+    startCount += 1;
+    final int playbackId = startCount;
+    events.add('start:$playbackId');
+    bool stopped = false;
+    return () async {
+      if (stopped) {
+        return;
+      }
+      stopped = true;
+      events.add('stop:$playbackId');
+    };
+  }
+
+  @override
+  Future<void> dispose() async {
+    events.add('dispose');
+  }
+}
+
+final class GatedPromptAudioBackend implements PromptAudioBackend {
+  final Completer<void> allowStart = Completer<void>();
+  final List<String> events = <String>[];
+
+  @override
+  Future<StopPlayback> start() async {
+    events.add('start-requested');
+    await allowStart.future;
+    events.add('start-completed');
+    bool stopped = false;
+    return () async {
+      if (stopped) {
+        return;
+      }
+      stopped = true;
+      events.add('stop');
+    };
+  }
+
+  @override
+  Future<void> dispose() async {
+    events.add('dispose');
+  }
+}
+
+final class FailingStopPromptAudioBackend implements PromptAudioBackend {
+  final List<String> events = <String>[];
+
+  @override
+  Future<StopPlayback> start() async {
+    events.add('start');
+    return () async {
+      events.add('stop');
+      throw StateError('simulated stop failure');
+    };
+  }
+
+  @override
+  Future<void> dispose() async {
+    events.add('dispose');
+  }
+}
+
+final class RecoveringStopPromptAudioBackend implements PromptAudioBackend {
+  final List<String> events = <String>[];
+  int startCount = 0;
+
+  @override
+  Future<StopPlayback> start() async {
+    startCount += 1;
+    final int playbackId = startCount;
+    events.add('start:$playbackId');
+    int stopAttempts = 0;
+    bool stopped = false;
+    return () async {
+      if (stopped) {
+        return;
+      }
+      stopAttempts += 1;
+      events.add('stop:$playbackId:$stopAttempts');
+      if (playbackId == 1 && stopAttempts == 1) {
+        throw StateError('transient stop failure');
+      }
+      stopped = true;
+    };
+  }
+
+  @override
+  Future<void> dispose() async {
+    events.add('dispose');
+  }
+}
+
+void main() {
+  test('repeated playback reuses one backend and stops superseded audio', () async {
+    final RecordingPromptAudioBackend backend = RecordingPromptAudioBackend();
+    int factoryCalls = 0;
+    final FlamePromptAudio audio = FlamePromptAudio(
+      backendFactory: () async {
+        factoryCalls += 1;
+        return backend;
+      },
+    );
+
+    await audio.play();
+    await audio.play();
+    final Future<void> firstDispose = audio.dispose();
+    final Future<void> secondDispose = audio.dispose();
+    await Future.wait(<Future<void>>[firstDispose, secondDispose]);
+
+    expect(factoryCalls, 1);
+    expect(
+      backend.events,
+      <String>[
+        'start:1',
+        'stop:1',
+        'start:2',
+        'stop:2',
+        'dispose',
+      ],
+    );
+    await expectLater(audio.play(), throwsStateError);
+  });
+
+  test('a failed replay stop is retried before replacement playback starts', () async {
+    final RecoveringStopPromptAudioBackend backend =
+        RecoveringStopPromptAudioBackend();
+    final FlamePromptAudio audio = FlamePromptAudio(
+      backendFactory: () async => backend,
+    );
+
+    await audio.play();
+    await expectLater(audio.play(), throwsStateError);
+    expect(
+      backend.events,
+      <String>['start:1', 'stop:1:1'],
+      reason: 'a replacement player must not start after a failed stop',
+    );
+
+    await audio.play();
+    await audio.dispose();
+    expect(
+      backend.events,
+      <String>[
+        'start:1',
+        'stop:1:1',
+        'stop:1:2',
+        'start:2',
+        'stop:2:1',
+        'dispose',
+      ],
+    );
+  });
+
+  test('dispose drains playback accepted before shutdown', () async {
+    final GatedPromptAudioBackend backend = GatedPromptAudioBackend();
+    final FlamePromptAudio audio = FlamePromptAudio(
+      backendFactory: () async => backend,
+    );
+
+    final Future<void> acceptedPlayback = audio.play();
+    final Future<void> firstDispose = audio.dispose();
+    final Future<void> secondDispose = audio.dispose();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(backend.events, <String>['start-requested']);
+    backend.allowStart.complete();
+    await acceptedPlayback;
+    await Future.wait(<Future<void>>[firstDispose, secondDispose]);
+
+    expect(
+      backend.events,
+      <String>[
+        'start-requested',
+        'start-completed',
+        'stop',
+        'dispose',
+      ],
+    );
+  });
+
+  test('backend disposal still runs when stopping playback fails', () async {
+    final FailingStopPromptAudioBackend backend =
+        FailingStopPromptAudioBackend();
+    final FlamePromptAudio audio = FlamePromptAudio(
+      backendFactory: () async => backend,
+    );
+
+    await audio.play();
+    await expectLater(audio.dispose(), throwsStateError);
+    expect(backend.events, <String>['start', 'stop', 'dispose']);
+  });
+}

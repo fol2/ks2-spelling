@@ -124,9 +124,21 @@ const HOSTILE_ZIP_COPY_PREFIXES = Object.freeze([
   GENERATED_ANDROID_B3_RELEASE_HOSTILE_ZIP_FIXTURE_PREFIX,
   GENERATED_NATIVE_ANDROID_HOSTILE_ZIP_FIXTURE_PREFIX,
 ]);
-const MAX_FILES = 20_000;
+// These bound the scanner's own work so a runaway tree cannot hang CI; they are
+// not security assertions. Exceeding one fails the scan closed, which means the
+// leak check never runs at all — so a ceiling set below the real packageable
+// surface removes coverage rather than adding safety.
+//
+// C6 vendored the Scribe Downs art and bundled the full audio set, and `cap
+// sync` copies that same payload into both native platforms. The result is
+// counted three times — once in `dist`, once in `ios`, once in `android` —
+// which took the surface to roughly 24.6k files and 1.5 GB against ceilings of
+// 20k and 512 MB set on 2026-07-12, before any of that landed.
+// ponytail: raised to ~2.5x the measured surface; the real fix is shrinking the
+// bundled asset payload, which also cuts the 474 MB TestFlight download.
+const MAX_FILES = 64_000;
 const MAX_FILE_BYTES = 128 * 1024 * 1024;
-const MAX_TOTAL_BYTES = 512 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 4 * 1024 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES = 50_000;
 const MAX_ARCHIVE_DEPTH = 3;
 const MAX_GENERATED_SNAPSHOT_ATTEMPTS = 32;

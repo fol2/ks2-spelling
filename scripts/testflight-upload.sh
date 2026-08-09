@@ -142,9 +142,7 @@ verify_project_version() {
     || fail "project MARKETING_VERSION does not match --version ${VERSION}"
   /usr/bin/grep -Eq "CURRENT_PROJECT_VERSION = ${BUILD_NUMBER};" "$project" \
     || fail "project CURRENT_PROJECT_VERSION does not match --build ${BUILD_NUMBER} for the App target"
-  /usr/bin/grep -Eq 'INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;' "$project" \
-    || fail "App target must declare INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO"
-  log "PASS project version ${VERSION} (${BUILD_NUMBER}) and exempt encryption"
+  log "PASS project version ${VERSION} (${BUILD_NUMBER})"
 }
 
 assert_product_composition() {

@@ -9,6 +9,7 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const IOS_ROOT = join(ROOT, 'ios/App');
 const PROJECT = join(IOS_ROOT, 'App.xcodeproj/project.pbxproj');
 const INFO_PLIST = join(IOS_ROOT, 'App/Info.plist');
+const TESTFLIGHT_UPLOAD = join(ROOT, 'scripts/testflight-upload.sh');
 const SCHEME = join(
   IOS_ROOT,
   'App.xcodeproj/xcshareddata/xcschemes/KS2Spelling.xcscheme',
@@ -49,23 +50,22 @@ test('the committed iOS project freezes the unsigned B1 identity', async () => {
     2,
     'App Debug and Release must freeze marketing version 0.5.0',
   );
-  assert.equal(
-    [...project.matchAll(/INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;/g)]
-      .length,
-    2,
-    'App Debug and Release must declare exempt encryption for store upload',
-  );
   assert.match(
     infoPlist,
     /<key>CFBundleDisplayName<\/key>\s*<string>KS2 Spelling<\/string>/,
   );
-  assert.match(
-    infoPlist,
-    /<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\/>/,
-    'Info.plist must declare exempt encryption for store upload',
-  );
   assert.match(scheme, /BuildableName = "App\.app"/);
   assert.match(scheme, /BlueprintName = "App"/);
+});
+
+test('the iOS release lane leaves export compliance unresolved', async () => {
+  const sources = await Promise.all(
+    [PROJECT, INFO_PLIST, TESTFLIGHT_UPLOAD].map((path) => readFile(path, 'utf8')),
+  );
+
+  for (const source of sources) {
+    assert.doesNotMatch(source, /ITSAppUsesNonExemptEncryption/);
+  }
 });
 
 test('the iOS host adopts one storyboard-backed UIScene without losing app-owned plugins', async () => {

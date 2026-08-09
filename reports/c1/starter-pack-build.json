@@ -14,22 +14,22 @@
     },
     "audioEvidence": {
       "path": "reports/c1/starter-audio-evidence.json",
-      "sha256": "8dc92171c8dcf0afeda1ba407fa06ad3085f890e821d8bc89bf0e1863faa3a77",
-      "bytes": 585753,
+      "sha256": "c5c72fbec70db0f96499acd98aadd22b93d992aefc5497b8b4f428756b2dcba6",
+      "bytes": 907564,
       "assetCount": 840
     }
   },
   "archive": {
     "file": "ks2-core-starter-1.0.0.zip",
-    "sha256": "51b4c867275c5777202555c74ad766109940fe40267ba5bee337152b114ba2b9",
-    "bytes": 11340063,
+    "sha256": "a8bbe9dde5050b6e6a9ff4a60f1eb219add7a971531e7401d1d5cb2b74460f43",
+    "bytes": 15635534,
     "fileCount": 841,
-    "extractedBytes": 11206913
+    "extractedBytes": 15502384
   },
   "canonicalManifest": {
     "file": "unsigned-canonical-manifest.json",
-    "sha256": "6cdfd21a77f7c247aa221f40857341cff1694ded612ddc8b9e3f2dc557c3b69a",
-    "bytes": 120685,
+    "sha256": "1b5c6dbd911cc54415d8c350f7dc156f5605b34abec3590fa2072d739fc7cb2b",
+    "bytes": 120704,
     "requiredEntitlementId": null
   },
   "ceilings": {

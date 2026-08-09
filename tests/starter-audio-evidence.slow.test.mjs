@@ -46,7 +46,7 @@ function validEvidence() {
       byteSize: 1_000 + asset.sequence,
       sha256: digest(Buffer.from(`audio-${asset.sequence}`)),
       codec: 'aac',
-      sampleRateHz: 22050,
+      sampleRateHz: asset.sourceKind === 'word' ? 22050 : 16000,
       channels: 1,
       durationMs:
         asset.audioKind === 'word-natural' ? 800

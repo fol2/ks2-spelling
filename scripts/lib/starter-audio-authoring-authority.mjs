@@ -22,9 +22,16 @@ const ROOT_KEYS = Object.freeze([
   'inputData',
   'disclosure',
 ]);
-const SENTENCE_SOURCE_KEYS = Object.freeze([
+const EXTERNAL_SENTENCE_SOURCE_KEYS = Object.freeze([
   'id',
   'model',
+  'distribution',
+]);
+const TRACKED_SENTENCE_SOURCE_KEYS = Object.freeze([
+  'id',
+  'model',
+  'revision',
+  'assetRoot',
   'distribution',
 ]);
 const WORD_SOURCE_KEYS = Object.freeze([
@@ -71,10 +78,15 @@ function stripAuthoringFields(value) {
 }
 
 function validate(value, runtimeAuthority) {
+  const starter = runtimeAuthority.catalogueId === 'ks2-core:starter';
   exactKeys(value, ROOT_KEYS, 'root');
   exactKeys(value.sources, ['word', 'sentence'], 'sources');
   exactKeys(value.sources.word, WORD_SOURCE_KEYS, 'word source');
-  exactKeys(value.sources.sentence, SENTENCE_SOURCE_KEYS, 'sentence source');
+  exactKeys(
+    value.sources.sentence,
+    starter ? TRACKED_SENTENCE_SOURCE_KEYS : EXTERNAL_SENTENCE_SOURCE_KEYS,
+    'sentence source',
+  );
   if (
     value.sources.word.id !== 'piper-reviewed-word-assets' ||
     value.sources.sentence.id !== 'gemini-pre-generated-audio' ||
@@ -84,9 +96,12 @@ function validate(value, runtimeAuthority) {
   }
   exactKeys(value.sourceLayout, ['word', 'sentence'], 'source layout');
   if (
-    value.sourceLayout.word !== 'audio/<Voice>/word/<slug>.m4a' ||
-    value.sourceLayout.sentence !==
-      'audio/<Voice>/<standard|slow>/<slug>/<zero-based index>.mp3'
+    value.sourceLayout.word !== (starter
+      ? 'content/full-pack/audio/<voice>/<slug>/word.m4a'
+      : 'audio/<Voice>/word/<slug>.m4a') ||
+    value.sourceLayout.sentence !== (starter
+      ? 'content/full-pack/audio/<voice>/<slug>/sentence-<one-based index>-<normal|slow>.m4a'
+      : 'audio/<Voice>/<standard|slow>/<slug>/<zero-based index>.mp3')
   ) {
     fail('source layout drifted');
   }
@@ -110,12 +125,14 @@ export const STARTER_AUDIO_AUTHORING_AUTHORITY = validate(
   STARTER_AUDIO_AUTHORITY,
 );
 
-const fullAuthority = structuredClone(authority);
-fullAuthority.catalogueId = 'ks2-core:full';
-fullAuthority.assetCount = 8_946;
-fullAuthority.sources.word.assetRoot = 'content/full-pack';
-fullAuthority.inputData =
-  'repository-owned frozen Full catalogue only; no minor, learner or operator data';
+const fullAuthority = {
+  ...structuredClone(FULL_AUDIO_AUTHORITY),
+  sentenceUpstream: structuredClone(authority.sentenceUpstream),
+  sourceLayout: {
+    word: 'audio/<Voice>/word/<slug>.m4a',
+    sentence: 'audio/<Voice>/<standard|slow>/<slug>/<zero-based index>.mp3',
+  },
+};
 
 export const FULL_AUDIO_AUTHORING_AUTHORITY = validate(
   fullAuthority,

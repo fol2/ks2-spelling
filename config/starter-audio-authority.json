@@ -15,7 +15,9 @@
     "sentence": {
       "id": "gemini-pre-generated-audio",
       "model": "gemini-3.1-flash-tts-preview",
-      "distribution": "pre-generated source audio only; no provider SDK, credentials or network access at runtime"
+      "revision": "2f838751806c75be26d78e1ebf89bd95a86a1f2e",
+      "assetRoot": "content/full-pack",
+      "distribution": "complete reviewed Full-pack M4A set re-encoded for the Starter payload; no provider access at runtime"
     }
   },
   "sentenceUpstream": {
@@ -34,24 +36,24 @@
       "channels": 1
     },
     "sentence": {
-      "format": "mp3-mpeg-layer-iii-mono-24000hz-48kbps",
-      "codec": "mp3",
-      "sampleRateHz": 24000,
+      "format": "m4a-aac-lc-mono-22050hz-48kbps",
+      "codec": "aac",
+      "sampleRateHz": 22050,
       "channels": 1
     }
   },
   "sourceLayout": {
-    "word": "audio/<Voice>/word/<slug>.m4a",
-    "sentence": "audio/<Voice>/<standard|slow>/<slug>/<zero-based index>.mp3"
+    "word": "content/full-pack/audio/<voice>/<slug>/word.m4a",
+    "sentence": "content/full-pack/audio/<voice>/<slug>/sentence-<one-based index>-<normal|slow>.m4a"
   },
   "encoding": {
     "tool": "ffmpeg",
     "version": "8.1.2",
     "distribution": "authoring tool only; never shipped or linked in the client",
-    "format": "m4a-aac-lc-mono-22050hz-48kbps",
-    "sampleRateHz": 22050,
+    "format": "m4a-aac-lc-mono",
+    "sampleRateHz": 16000,
     "channels": 1,
-    "bitrateKbps": 48
+    "bitrateKbps": 18
   },
   "profiles": [
     {

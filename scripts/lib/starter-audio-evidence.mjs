@@ -59,26 +59,41 @@ function canonicalDigest(value) {
 }
 
 export function createAudioSourceKey(asset) {
-  const prefix = `audio/${asset.voiceId}/`;
-  const extension = asset.sourceKind === 'word' ? '.m4a' : '.mp3';
-  const relativePath = asset.sourcePath.startsWith(prefix) &&
-    asset.sourcePath.endsWith(extension)
-    ? asset.sourcePath.slice(prefix.length, -extension.length)
-    : '';
+  const trackedPath = asset.generationSpec.sourceTrackedPath;
   if (asset.sourceKind === 'word') {
-    const slug = /^word\/([a-z0-9-]+)$/u.exec(relativePath)?.[1];
+    const legacyWordPath = new RegExp(
+      `^audio/${asset.voiceId}/word/[a-z0-9-]+\\.m4a$`,
+      'u',
+    );
     if (
-      !slug ||
       asset.sentenceId !== 'word' ||
       asset.audioKind !== 'word-natural' ||
       asset.generationSpec.sourceId !== 'piper-reviewed-word-assets' ||
       asset.generationSpec.sourceModel !== null ||
-      !asset.generationSpec.sourceTrackedPath?.endsWith(asset.assetPath)
+      !trackedPath?.endsWith(asset.assetPath) ||
+      (asset.sourcePath !== trackedPath && !legacyWordPath.test(asset.sourcePath))
     ) {
       fail('source mapping drifted');
     }
-    return `git/${asset.generationSpec.sourceRevision}/${asset.generationSpec.sourceTrackedPath}`;
+    return `git/${asset.generationSpec.sourceRevision}/${trackedPath}`;
   }
+  if (trackedPath !== null) {
+    if (
+      asset.sourcePath !== trackedPath ||
+      !trackedPath.endsWith(asset.assetPath) ||
+      !trackedPath.endsWith('.m4a') ||
+      asset.generationSpec.sourceId !== 'gemini-pre-generated-audio' ||
+      asset.generationSpec.sourceModel !== 'gemini-3.1-flash-tts-preview'
+    ) {
+      fail('source mapping drifted');
+    }
+    return `git/${asset.generationSpec.sourceRevision}/${trackedPath}`;
+  }
+  const prefix = `audio/${asset.voiceId}/`;
+  const relativePath = asset.sourcePath.startsWith(prefix) &&
+    asset.sourcePath.endsWith('.mp3')
+    ? asset.sourcePath.slice(prefix.length, -'.mp3'.length)
+    : '';
   const match = /^(standard|slow)\/([a-z0-9-]+)\/([0-9]+)$/u
     .exec(relativePath);
   const speed = asset.pace === 'normal' ? 'standard' : 'slow';
@@ -257,6 +272,9 @@ function validateAudioEvidence(
       label,
     );
     const validation = authority.validation;
+    const outputEncoding = expected.sourceKind === 'word'
+      ? authority.sourceEncoding.word
+      : authority.encoding;
     const sourceKey = createAudioSourceKey(expected);
     if (
       record.sequence !== expected.sequence ||
@@ -280,8 +298,8 @@ function validateAudioEvidence(
       typeof record.sha256 !== 'string' ||
       !HASH.test(record.sha256) ||
       record.codec !== 'aac' ||
-      record.sampleRateHz !== authority.encoding.sampleRateHz ||
-      record.channels !== authority.encoding.channels ||
+      record.sampleRateHz !== outputEncoding.sampleRateHz ||
+      record.channels !== outputEncoding.channels ||
       !inRange(durationMs, durationRange(expected.audioKind, authority)) ||
       !inRange(meanDbfs, validation.meanDbfs) ||
       !inRange(peakDbfs, validation.peakDbfs) ||

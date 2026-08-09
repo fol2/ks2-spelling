@@ -1,0 +1,98 @@
+name: Nightly CI failure alert
+
+# The B4 gate is deliberately two-tier: pull_request runs the fast subset, while
+# schedule/push/merge_group run the full fail-closed lane. A red pull_request
+# blocks its own merge and is therefore self-announcing; a red scheduled run is
+# announced by nothing. This workflow closes that loop for the scheduled lane.
+
+on:
+  workflow_run:
+    workflows:
+      - "B4 continuous integration"
+    types:
+      - completed
+
+permissions:
+  issues: write
+
+concurrency:
+  # Keyed to the triggering run, not to the workflow. Every CI completion enters
+  # this workflow — including the pull_request ones the job below skips — and a
+  # shared group would let a newer skipped run cancel a still-pending real alert,
+  # losing exactly the signal this workflow exists to deliver.
+  group: nightly-alert-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  track:
+    name: Track the scheduled tier-2 gate
+    # Scheduled runs only, and only the two conclusions that change the tracked
+    # state — cancelled and skipped runs must not spend a runner.
+    if: >-
+      github.event.workflow_run.event == 'schedule'
+      && (github.event.workflow_run.conclusion == 'failure'
+      || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-24.04
+    steps:
+      # No checkout: this job never reads the tree, so it never needs
+      # contents access.
+      - name: Ensure the tracking label exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create ci-nightly-red \
+            --repo "$GITHUB_REPOSITORY" \
+            --color B60205 \
+            --description "The scheduled B4 continuous integration gate is failing" \
+            --force
+
+      # One reusable issue, found by label rather than by title: titles carry
+      # run numbers, labels stay stable.
+      - name: Find the open tracking issue
+        id: tracking
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          number="$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --label ci-nightly-red \
+            --state open \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')"
+          echo "number=${number}" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the tracking issue
+        if: github.event.workflow_run.conclusion == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          EXISTING: ${{ steps.tracking.outputs.number }}
+        run: |
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" \
+              --repo "$GITHUB_REPOSITORY" \
+              --body "$(printf 'Still red — scheduled run #%s failed.\n\n%s' "$RUN_NUMBER" "$RUN_URL")"
+          else
+            gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Nightly CI red (scheduled run #${RUN_NUMBER})" \
+              --label ci-nightly-red \
+              --label manual-review \
+              --body "$(printf 'The scheduled `B4 continuous integration` gate failed.\n\nRun #%s: %s\n\nThis issue tracks the scheduled tier-2 gate. It gains a comment on each further red night and closes itself when a scheduled run goes green, so an open copy always means the gate is red right now.' "$RUN_NUMBER" "$RUN_URL")"
+          fi
+
+      - name: Close the tracking issue on recovery
+        if: >-
+          github.event.workflow_run.conclusion == 'success'
+          && steps.tracking.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          EXISTING: ${{ steps.tracking.outputs.number }}
+        run: |
+          gh issue close "$EXISTING" \
+            --repo "$GITHUB_REPOSITORY" \
+            --comment "$(printf 'Green again — scheduled run #%s passed.\n\n%s' "$RUN_NUMBER" "$RUN_URL")"

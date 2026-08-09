@@ -186,7 +186,8 @@ async function mapConcurrent(values, concurrency, operation) {
 }
 
 async function encodeAsset(asset, sourceRoot, target, authority, tempoFactor = 1) {
-  const volumeDb = authority.catalogueId === 'ks2-core:full' ? -8 : -6;
+  // Full inputs already carry -8 dB; +2 dB preserves Starter's -6 dB target.
+  const volumeDb = authority.catalogueId === 'ks2-core:full' ? -8 : 2;
   const filter = [
     'silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.08:stop_periods=-1:stop_threshold=-50dB:stop_silence=0.12',
     `volume=${volumeDb}dB`,
@@ -326,6 +327,9 @@ async function inspectAsset(
 ) {
   const path = resolve(sourceRoot, asset.assetPath);
   const bytes = await readBoundedRegular(path, MAX_AUDIO_BYTES);
+  const outputEncoding = asset.sourceKind === 'word'
+    ? authority.sourceEncoding.word
+    : authority.encoding;
   const probeResult = await runProcess('ffprobe', [
     '-v',
     'error',
@@ -348,8 +352,8 @@ async function inspectAsset(
     probe.streams.length !== 1 ||
     probe.streams[0]?.codec_name !== 'aac' ||
     Number(probe.streams[0]?.sample_rate) !==
-      authority.encoding.sampleRateHz ||
-    probe.streams[0]?.channels !== authority.encoding.channels
+      outputEncoding.sampleRateHz ||
+    probe.streams[0]?.channels !== outputEncoding.channels
   ) {
     fail('audio format drifted from the reviewed M4A authority');
   }
@@ -365,16 +369,16 @@ async function inspectAsset(
     '-acodec',
     'pcm_s16le',
     '-ac',
-    String(authority.encoding.channels),
+    String(outputEncoding.channels),
     '-ar',
-    String(authority.encoding.sampleRateHz),
+    String(outputEncoding.sampleRateHz),
     '-',
   ], {
     maximumOutputBytes: 2 * MAX_AUDIO_BYTES,
   });
   const analysis = analysePcm16le(decoded.stdout, {
     label,
-    sampleRateHz: authority.encoding.sampleRateHz,
+    sampleRateHz: outputEncoding.sampleRateHz,
   });
   return {
     sequence: asset.sequence,
@@ -393,8 +397,8 @@ async function inspectAsset(
     byteSize: bytes.byteLength,
     sha256: digest(bytes),
     codec: 'aac',
-    sampleRateHz: authority.encoding.sampleRateHz,
-    channels: authority.encoding.channels,
+    sampleRateHz: outputEncoding.sampleRateHz,
+    channels: outputEncoding.channels,
     ...analysis,
   };
 }
@@ -417,11 +421,12 @@ async function inventoryFiles(root) {
   return paths.sort();
 }
 
-async function assertSourceInventoryLayout(sourceRoot, inventory) {
+async function assertSourceInventoryLayout(sourceRoot, inventory, exact = true) {
   const root = await lstat(sourceRoot);
   if (!root.isDirectory() || root.isSymbolicLink()) {
     fail('--source must name a real directory, not a symbolic link');
   }
+  if (!exact) return;
   const expectedPaths = inventory.map(({ sourcePath }) => sourcePath).sort();
   const actualPaths = await inventoryFiles(sourceRoot);
   if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) {
@@ -430,8 +435,17 @@ async function assertSourceInventoryLayout(sourceRoot, inventory) {
 }
 
 async function inspectSourceInventory(configuration) {
-  const { authority, importSourceRoot, inventory } = configuration;
-  await assertSourceInventoryLayout(importSourceRoot, inventory);
+  const {
+    authority,
+    exactSourceInventory,
+    importSourceRoot,
+    inventory,
+  } = configuration;
+  await assertSourceInventoryLayout(
+    importSourceRoot,
+    inventory,
+    exactSourceInventory,
+  );
   return mapConcurrent(
     inventory,
     ENCODE_CONCURRENCY,
@@ -440,8 +454,12 @@ async function inspectSourceInventory(configuration) {
 }
 
 async function stageSourceInventory(configuration, stagingRoot) {
-  const { importSourceRoot, inventory } = configuration;
-  await assertSourceInventoryLayout(importSourceRoot, inventory);
+  const { exactSourceInventory, importSourceRoot, inventory } = configuration;
+  await assertSourceInventoryLayout(
+    importSourceRoot,
+    inventory,
+    exactSourceInventory,
+  );
   await mapConcurrent(inventory, ENCODE_CONCURRENCY, async (asset) => {
     const bytes = await readBoundedRegular(
       resolve(importSourceRoot, asset.sourcePath),
@@ -453,6 +471,7 @@ async function stageSourceInventory(configuration, stagingRoot) {
   });
   return inspectSourceInventory({
     ...configuration,
+    exactSourceInventory: true,
     importSourceRoot: stagingRoot,
   });
 }
@@ -709,7 +728,8 @@ async function configurationFor(mode, importSourceRoot = null) {
       ? validateFullAudioEvidence
       : validateStarterAudioEvidence,
     sourceRoot,
-    importSourceRoot,
+    exactSourceInventory: importSourceRoot !== null,
+    importSourceRoot: importSourceRoot ?? ROOT,
     audioTarget: resolve(sourceRoot, 'audio'),
     reportTarget: resolve(
       ROOT,
@@ -749,11 +769,12 @@ if (
   (manifestOnly && (!full || checkOnly)) ||
   ((checkOnly || manifestOnly) && sourceValue !== null) ||
   (!checkOnly && !manifestOnly &&
-    (sourceValue === null || sourceValue.length === 0 ||
-      !isAbsolute(sourceValue)))
+    ((full && sourceValue === null) ||
+      sourceValue === '' ||
+      (sourceValue !== null && !isAbsolute(sourceValue))))
 ) {
   fail(
-    'requires create-only --source=<absolute directory>, or supports --check and Full --runtime-manifest-only without a source',
+    'requires Full create-only --source=<absolute directory>; Starter create uses its reviewed tracked source; --check and Full --runtime-manifest-only take no source',
   );
 }
 const configuration = await configurationFor(

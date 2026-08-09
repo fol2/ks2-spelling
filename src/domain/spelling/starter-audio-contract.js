@@ -7,6 +7,8 @@ import {
 
 const GEMINI_MODEL = 'gemini-3.1-flash-tts-preview';
 const WORD_ASSET_REVISION = '3d6c0e939b298a9f5d7e22ec369cecf802a5dd80';
+const STARTER_SENTENCE_SOURCE_REVISION =
+  '2f838751806c75be26d78e1ebf89bd95a86a1f2e';
 const UPSTREAM_REVISION = 'dff6f57f8bf0b24e960c46d712afdbcf59c54b7d';
 const VOICE_IDS = Object.freeze(['Iapetus', 'Sulafat']);
 const AUDIO_KINDS = Object.freeze([
@@ -41,6 +43,7 @@ function exactKeys(value, keys, label) {
 }
 
 function validateAuthority(value, { catalogueId, assetCount }) {
+  const starter = catalogueId === 'ks2-core:starter';
   exactKeys(value, [
     'schemaVersion',
     'catalogueId',
@@ -85,16 +88,23 @@ function validateAuthority(value, { catalogueId, assetCount }) {
     fail('word source identity or atomic interim boundary drifted');
   }
 
-  exactKeys(value.sources.sentence, [
-    'id',
-    'model',
-    'distribution',
-  ], 'sentence source');
+  exactKeys(
+    value.sources.sentence,
+    starter
+      ? ['id', 'model', 'revision', 'assetRoot', 'distribution']
+      : ['id', 'model', 'distribution'],
+    'sentence source',
+  );
   if (
     value.sources.sentence.id !== 'gemini-pre-generated-audio' ||
     value.sources.sentence.model !== GEMINI_MODEL ||
-    value.sources.sentence.distribution !==
-      'pre-generated source audio only; no provider SDK, credentials or network access at runtime'
+    (starter
+      ? value.sources.sentence.revision !== STARTER_SENTENCE_SOURCE_REVISION ||
+        value.sources.sentence.assetRoot !== 'content/full-pack' ||
+        value.sources.sentence.distribution !==
+          'complete reviewed Full-pack M4A set re-encoded for the Starter payload; no provider access at runtime'
+      : value.sources.sentence.distribution !==
+        'pre-generated source audio only; no provider SDK, credentials or network access at runtime')
   ) {
     fail('sentence source identity or distribution drifted');
   }
@@ -122,10 +132,11 @@ function validateAuthority(value, { catalogueId, assetCount }) {
     'channels',
   ], 'sentence source encoding');
   if (
-    value.sourceEncoding.sentence.format !==
-      'mp3-mpeg-layer-iii-mono-24000hz-48kbps' ||
-    value.sourceEncoding.sentence.codec !== 'mp3' ||
-    value.sourceEncoding.sentence.sampleRateHz !== 24000 ||
+    value.sourceEncoding.sentence.format !== (starter
+      ? 'm4a-aac-lc-mono-22050hz-48kbps'
+      : 'mp3-mpeg-layer-iii-mono-24000hz-48kbps') ||
+    value.sourceEncoding.sentence.codec !== (starter ? 'aac' : 'mp3') ||
+    value.sourceEncoding.sentence.sampleRateHz !== (starter ? 22050 : 24000) ||
     value.sourceEncoding.sentence.channels !== 1
   ) {
     fail('sentence source encoding drifted');
@@ -145,10 +156,12 @@ function validateAuthority(value, { catalogueId, assetCount }) {
     value.encoding.version !== '8.1.2' ||
     value.encoding.distribution !==
       'authoring tool only; never shipped or linked in the client' ||
-    value.encoding.format !== 'm4a-aac-lc-mono-22050hz-48kbps' ||
-    value.encoding.sampleRateHz !== 22050 ||
+    value.encoding.format !== (starter
+      ? 'm4a-aac-lc-mono'
+      : 'm4a-aac-lc-mono-22050hz-48kbps') ||
+    value.encoding.sampleRateHz !== (starter ? 16000 : 22050) ||
     value.encoding.channels !== 1 ||
-    value.encoding.bitrateKbps !== 48
+    value.encoding.bitrateKbps !== (starter ? 18 : 48)
   ) {
     fail('encoding authority drifted');
   }
@@ -269,10 +282,13 @@ function createAsset({
   const sourceWord = String(item.target).replace(/\s+/gu, ' ').trim();
   const assetPath =
     `audio/${profile.voiceId.toLowerCase()}/${item.itemId}/${suffix}.m4a`;
-  const sourcePath = sourceKind === 'word'
-    ? `audio/${profile.voiceId}/word/${sourceSlug}.m4a`
-    : `audio/${profile.voiceId}/${sourceSpeed}/${sourceSlug}/${sentenceIndex}.mp3`;
   const source = authority.sources[sourceKind === 'word' ? 'word' : 'sentence'];
+  const trackedStarterSource = authority.catalogueId === 'ks2-core:starter';
+  const sourcePath = trackedStarterSource
+    ? `${source.assetRoot}/${assetPath}`
+    : sourceKind === 'word'
+      ? `audio/${profile.voiceId}/word/${sourceSlug}.m4a`
+      : `audio/${profile.voiceId}/${sourceSpeed}/${sourceSlug}/${sentenceIndex}.mp3`;
   return freezeDeep({
     sequence,
     audioKey: createAudioKeyV1({
@@ -295,14 +311,12 @@ function createAsset({
     sourcePath,
     generationSpec: {
       sourceId: source.id,
-      sourceRevision: sourceKind === 'word'
-        ? source.revision
-        : UPSTREAM_REVISION,
+      sourceRevision: source.revision ?? UPSTREAM_REVISION,
       sourceModel: source.model ?? null,
       sourceVoice: profile.voiceId,
       sourceKind,
       sourceFormat: authority.sourceEncoding[sourceKind].format,
-      sourceTrackedPath: sourceKind === 'word'
+      sourceTrackedPath: sourceKind === 'word' || trackedStarterSource
         ? `${source.assetRoot}/${assetPath}`
         : null,
       slowTempoPolicy: audioKind === 'dictation-slow'
@@ -313,7 +327,9 @@ function createAsset({
           filter: 'ffmpeg-atempo',
         }
         : null,
-      outputFormat: authority.encoding.format,
+      outputFormat: sourceKind === 'word'
+        ? authority.sourceEncoding.word.format
+        : authority.encoding.format,
     },
   });
 }

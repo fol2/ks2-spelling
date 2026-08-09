@@ -126,22 +126,19 @@ The runtime contract identifies sentences as pre-generated Gemini audio using
 to Iapetus and Sulafat (`src/domain/spelling/starter-audio-contract.js:11`,
 `src/domain/spelling/starter-audio-contract.js:156`).
 
-### 3. Import locally, then produce app-format assets
+### 3. Produce app-format assets from a pinned local source
 
-The authoring command requires an absolute local `--source` directory
-(`scripts/generate-starter-audio.mjs:729`,
-`scripts/generate-starter-audio.mjs:751`). It rejects missing, orphaned or
-symlinked source entries
-(`scripts/generate-starter-audio.mjs:402`,
-`scripts/generate-starter-audio.mjs:420`,
-`scripts/generate-starter-audio.mjs:427`).
+Full-pack authoring requires an absolute local `--source` directory and keeps
+the original frozen Gemini MP3 import path. Starter authoring instead reads the
+reviewed 48 kbps Full-pack M4As already tracked in this repository at the
+pinned restoration revision. This keeps Starter regeneration independent of a
+discarded external cache while retaining a byte-addressed source.
 
-Word M4As are copied byte-for-byte. Frozen Gemini sentence MP3s are transcoded
-to the app's M4A playback format
-(`scripts/generate-starter-audio.mjs:236`,
-`scripts/generate-starter-audio.mjs:239`,
-`scripts/generate-starter-audio.mjs:243`). This is authoring-time conversion,
-not a new TTS request.
+Word M4As are still copied byte-for-byte. Starter sentence assets are re-encoded
+to 16 kHz, 18 kbps AAC at authoring time; Full sentence assets remain 48 kbps.
+The authoring authorities are deliberately separate so reducing the bundled
+Starter payload cannot silently change the Full audio contract. No path makes
+a new TTS request.
 
 ### 4. Bind evidence to source and output bytes
 
@@ -153,6 +150,11 @@ hashes
 `scripts/lib/starter-audio-evidence.mjs:276`). Word clips additionally require
 the source and output byte sizes and hashes to be identical
 (`scripts/lib/starter-audio-evidence.mjs:299`).
+
+Starter sentence source keys now bind the restoration commit and tracked
+Full-pack path. Full sentence source keys continue to bind the frozen Gemini
+model, voice, speed, word slug and source index. The final stored Starter ZIP is
+also checked against the unchanged 16 MiB extracted and archive ceilings.
 
 Inventory construction rejects incomplete or duplicate audio keys and output
 paths (`src/domain/spelling/starter-audio-contract.js:355`). The Full contract
@@ -176,12 +178,10 @@ network generation or speech-synthesiser fallback in the playback contract
 ## Why This Works
 
 The evidence proves which source bytes were imported rather than relying on
-voice labels or output filenames. Sentence source keys bind the Gemini model,
-voice, speed, word slug and source index
-(`scripts/lib/starter-audio-evidence.mjs:82`,
-`scripts/lib/starter-audio-evidence.mjs:95`). Word source keys bind the pinned
-revision and tracked path (`scripts/lib/starter-audio-evidence.mjs:68`,
-`scripts/lib/starter-audio-evidence.mjs:80`).
+voice labels or output filenames. Starter source keys bind a pinned Git
+revision and tracked path; the Full evidence retains the original Gemini cache
+key and MP3 hash. Word source keys remain pinned to their reviewed revision and
+tracked path.
 
 Detailed upstream provenance remains available to the authoring pipeline, while
 the runtime reduction check prevents authoring-only fields from leaking into
@@ -198,6 +198,9 @@ has already been replaced.
   output paths, source paths and source keys.
 - Preserve the runtime boundary: no runtime generation, provider access,
   speech synthesiser or network fallback.
+- Keep Starter sentence encoding at its separately reviewed 16 kHz, 18 kbps
+  setting and keep Full at 48 kbps. `npm run build:starter-pack` must remain
+  below both unchanged 16 MiB ceilings before native evidence can pass.
 - Replace word-only clips atomically. When genuine Gemini word clips are
   integrated, replace all 426 Full clips and the corresponding 40 Starter
   clips, update the source authority, and regenerate evidence and manifests.

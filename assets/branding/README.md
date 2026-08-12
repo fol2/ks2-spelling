@@ -1,13 +1,19 @@
 # KS2 Spelling native branding
 
-The native icon and launch artwork follow the product's Pocket Expedition
-visual authority. The mark combines the Inklet companion, a reward star and a
-short expedition trail using the same semantic palette as the installed
-application.
+The default native app icon presents spelling and the product's companion
+world as one simple shelf-scale mark: Vellhorn watches a lowercase `b` beside
+an affirmative check. It is retained at
+`icon-concepts/vellhorn-spelling-b-selected.png`; the Inklet `CAT` and
+Glimmerbug lowercase-`a` explorations remain beside it as alternate concepts.
 
-The SVG sources and their geometry were created for KS2 Spelling in this
-repository. They contain no third-party artwork, font, logo or remote asset.
-The native PNG files are rasterised derivatives of these sources.
+These icon concepts were generated for KS2 Spelling from the repository-owned
+painted companion references in `content/mastery-art/`, then selected and
+prepared in this repository. The iOS PNG and Android launcher derivatives use
+the selected Vellhorn concept. Android's adaptive launcher uses the extracted
+transparent artwork in `vellhorn-spelling-b-adaptive-foreground.png` over its
+matched dark-green background. The earlier SVG icon sources remain only as the
+launch-artwork authority and historical vector source; they are not the
+current app icon.
 
 This statement covers the native icon and launch artwork only. The painted
 companion and region art the application renders lives in `content/mastery-art/`

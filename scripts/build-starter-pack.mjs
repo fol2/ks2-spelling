@@ -9,15 +9,16 @@ import {
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import payloadAuthority from '../config/starter-pack-payload.json' with { type: 'json' };
 import { validateDataOnlyInventory } from '../src/domain/packs/data-only-pack-contract.js';
 import { canonicaliseRfc8785Bytes } from '../src/domain/packs/rfc8785.js';
 import { loadStarterSpellingCatalogue } from '../src/domain/spelling/index.js';
 import { validateStarterAudioEvidence } from './lib/starter-audio-evidence.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const OUTPUT_ROOT = resolve(ROOT, '.native-build/c1/starter-pack');
+const DEFAULT_AUTHORITY = 'config/packs/ks2-core.json';
+const STARTER_OUTPUT_ROOT = resolve(ROOT, '.native-build/c1/starter-pack');
 const REPORT_TARGET = resolve(ROOT, 'reports/c1/starter-pack-build.json');
+const STARTER_CATALOGUE_ID = 'ks2-core:starter';
 const UTF8_FLAG = 0x0800;
 const REGULAR_MODE = 0o100644;
 const MAXIMUM_SOURCE_BYTES = 2 * 1_024 * 1_024;
@@ -60,6 +61,32 @@ function exactKeys(value, keys, label) {
   }
 }
 
+function isRepoRelativePath(value) {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    !value.startsWith('/') &&
+    !value.includes('\\') &&
+    value.split('/').every((segment) =>
+      segment.length > 0 && segment !== '.' && segment !== '..')
+  );
+}
+
+function resolveRepoPath(relativePath, label) {
+  if (!isRepoRelativePath(relativePath)) {
+    fail(`rejected unsafe ${label}`);
+  }
+  const resolved = resolve(ROOT, relativePath);
+  if (resolved !== ROOT && !resolved.startsWith(`${ROOT}${sep}`)) {
+    fail(`rejected ${label} outside the repository`);
+  }
+  return resolved;
+}
+
+function isStarterAuthority(value) {
+  return value.catalogueId === STARTER_CATALOGUE_ID;
+}
+
 function validateAuthority(value) {
   exactKeys(value, AUTHORITY_KEYS, 'authority');
   exactKeys(
@@ -69,22 +96,61 @@ function validateAuthority(value) {
   );
   if (
     value.schemaVersion !== 1 ||
-    value.packId !== 'ks2-core' ||
-    value.catalogueId !== 'ks2-core:starter' ||
-    value.version !== '1.0.0' ||
-    value.archiveName !== 'ks2-core-starter-1.0.0.zip' ||
-    value.requiredEntitlementId !== null ||
-    value.signingState !== 'deferred-to-final-visible-owner-gate' ||
+    typeof value.packId !== 'string' ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.packId) ||
+    typeof value.catalogueId !== 'string' ||
+    value.catalogueId.length === 0 ||
+    typeof value.version !== 'string' ||
+    value.version.length === 0 ||
+    typeof value.archiveName !== 'string' ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*\.zip$/.test(value.archiveName) ||
+    (value.requiredEntitlementId !== null &&
+      (typeof value.requiredEntitlementId !== 'string' ||
+        value.requiredEntitlementId.length === 0)) ||
+    typeof value.signingState !== 'string' ||
+    value.signingState.length === 0 ||
+    !Array.isArray(value.allowedExtensions) ||
     JSON.stringify(value.allowedExtensions) !== JSON.stringify(['.json', '.m4a']) ||
-    value.ceilings.fileCount !== 841 ||
-    value.ceilings.compressedBytes !== 16 * 1_024 * 1_024 ||
-    value.ceilings.extractedBytes !== 16 * 1_024 * 1_024 ||
-    value.catalogueSource !==
-      'vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json' ||
-    value.audioSourceRoot !== 'content/starter-pack' ||
-    value.audioEvidenceSource !== 'reports/c1/starter-audio-evidence.json'
+    !Number.isSafeInteger(value.ceilings.fileCount) ||
+    value.ceilings.fileCount < 1 ||
+    !Number.isSafeInteger(value.ceilings.compressedBytes) ||
+    value.ceilings.compressedBytes < 1 ||
+    !Number.isSafeInteger(value.ceilings.extractedBytes) ||
+    value.ceilings.extractedBytes < 1 ||
+    !isRepoRelativePath(value.catalogueSource) ||
+    !isRepoRelativePath(value.audioSourceRoot) ||
+    !isRepoRelativePath(value.audioEvidenceSource)
   ) {
     fail('authority identity, free-access boundary or ceilings drifted');
+  }
+  return value;
+}
+
+function validatePayloadEvidence(value) {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    !Number.isSafeInteger(value.assetCount) ||
+    value.assetCount < 1 ||
+    !Array.isArray(value.assets) ||
+    value.assets.length !== value.assetCount
+  ) {
+    fail('audio evidence inventory is invalid');
+  }
+  for (const record of value.assets) {
+    if (
+      !record ||
+      typeof record !== 'object' ||
+      typeof record.assetPath !== 'string' ||
+      !record.assetPath.startsWith('audio/') ||
+      !Number.isSafeInteger(record.byteSize) ||
+      record.byteSize <= 0 ||
+      typeof record.sha256 !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(record.sha256)
+    ) {
+      fail('audio evidence member is invalid');
+    }
   }
   return value;
 }
@@ -207,20 +273,75 @@ function createStoredZip(files) {
   return Buffer.concat([...locals, central, end]);
 }
 
-function parseArguments(arguments_) {
-  if (arguments_.length === 0) return { initialiseReport: false };
-  if (arguments_.length === 1 && arguments_[0] === '--initialise-report') {
-    return { initialiseReport: true };
+function readOption(arguments_, index, flag) {
+  const current = arguments_[index];
+  const prefix = `${flag}=`;
+  if (current.startsWith(prefix)) {
+    const value = current.slice(prefix.length);
+    if (!value) fail(`requires a value for ${flag}`);
+    return { value, next: index };
   }
-  fail('supports only no arguments or --initialise-report');
+  if (current === flag) {
+    const value = arguments_[index + 1];
+    if (!value || value.startsWith('--')) fail(`requires a value for ${flag}`);
+    return { value, next: index + 1 };
+  }
+  return null;
+}
+
+function parseArguments(arguments_) {
+  let initialiseReport = false;
+  let authority = DEFAULT_AUTHORITY;
+  let outputDirectory = null;
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const current = arguments_[index];
+    const authorityOption = readOption(arguments_, index, '--authority');
+    if (authorityOption) {
+      authority = authorityOption.value;
+      index = authorityOption.next;
+      continue;
+    }
+    const outputOption = readOption(arguments_, index, '--output-directory');
+    if (outputOption) {
+      outputDirectory = outputOption.value;
+      index = outputOption.next;
+      continue;
+    }
+    if (current === '--initialise-report') {
+      initialiseReport = true;
+      continue;
+    }
+    fail(`unsupported option ${JSON.stringify(current)}`);
+  }
+  return { initialiseReport, authority, outputDirectory };
 }
 
 async function main() {
   const options = parseArguments(process.argv.slice(2));
-  const authority = validateAuthority(payloadAuthority);
-  const cataloguePath = resolve(ROOT, authority.catalogueSource);
-  const audioRoot = resolve(ROOT, authority.audioSourceRoot, 'audio');
-  const evidencePath = resolve(ROOT, authority.audioEvidenceSource);
+  const authorityBytes = await readBoundedRegular(
+    resolveRepoPath(options.authority, 'authority'),
+    MAXIMUM_SOURCE_BYTES,
+  );
+  let parsedAuthority;
+  try {
+    parsedAuthority = JSON.parse(authorityBytes);
+  } catch (cause) {
+    fail('authority is not valid JSON', { cause });
+  }
+  const authority = validateAuthority(parsedAuthority);
+  const starter = isStarterAuthority(authority);
+  if (options.initialiseReport && !starter) {
+    fail('--initialise-report is only for the starter authority');
+  }
+  const outputRoot = options.outputDirectory
+    ? resolve(options.outputDirectory)
+    : starter
+      ? STARTER_OUTPUT_ROOT
+      : resolve(ROOT, '.native-build/packs', authority.packId);
+  const cataloguePath = resolveRepoPath(authority.catalogueSource, 'catalogue source');
+  const audioSourceRoot = resolveRepoPath(authority.audioSourceRoot, 'audio source root');
+  const audioRoot = resolve(audioSourceRoot, 'audio');
+  const evidencePath = resolveRepoPath(authority.audioEvidenceSource, 'audio evidence');
   const [catalogueBytes, evidenceBytes] = await Promise.all([
     readBoundedRegular(cataloguePath, MAXIMUM_SOURCE_BYTES),
     readBoundedRegular(evidencePath, MAXIMUM_SOURCE_BYTES),
@@ -233,11 +354,14 @@ async function main() {
   } catch (cause) {
     fail('source authority is not valid JSON', { cause });
   }
-  const catalogue = loadStarterSpellingCatalogue();
-  if (JSON.stringify(parsedCatalogue) !== JSON.stringify(catalogue)) {
-    fail('catalogue bytes differ from the frozen runtime catalogue');
+  validatePayloadEvidence(parsedEvidence);
+  if (starter) {
+    const catalogue = loadStarterSpellingCatalogue();
+    if (JSON.stringify(parsedCatalogue) !== JSON.stringify(catalogue)) {
+      fail('catalogue bytes differ from the frozen runtime catalogue');
+    }
+    validateStarterAudioEvidence(parsedEvidence, { catalogue });
   }
-  validateStarterAudioEvidence(parsedEvidence, { catalogue });
   const expectedAudioPaths = parsedEvidence.assets
     .map(({ assetPath }) => assetPath.slice('audio/'.length))
     .sort();
@@ -249,8 +373,12 @@ async function main() {
   }
 
   const audioFiles = await Promise.all(parsedEvidence.assets.map(async (record) => {
+    const audioPath = resolve(audioSourceRoot, record.assetPath);
+    if (!audioPath.startsWith(`${audioSourceRoot}${sep}`)) {
+      fail(`rejected audio path outside the payload root ${record.assetPath}`);
+    }
     const bytes = await readBoundedRegular(
-      resolve(ROOT, authority.audioSourceRoot, record.assetPath),
+      audioPath,
       MAXIMUM_AUDIO_BYTES,
     );
     if (bytes.length !== record.byteSize || digest(bytes) !== record.sha256) {
@@ -335,25 +463,28 @@ async function main() {
       file: 'unsigned-canonical-manifest.json',
       sha256: digest(canonicalManifest),
       bytes: canonicalManifest.length,
-      requiredEntitlementId: null,
+      requiredEntitlementId: authority.requiredEntitlementId,
     },
     ceilings: authority.ceilings,
   };
   const reportBytes = jsonBytes(report);
-  if (options.initialiseReport) {
-    await mkdir(dirname(REPORT_TARGET), { recursive: true });
-    await writeFile(REPORT_TARGET, reportBytes, { flag: 'wx' });
-  } else {
-    const tracked = await readBoundedRegular(REPORT_TARGET, MAXIMUM_SOURCE_BYTES);
-    if (!tracked.equals(reportBytes)) {
-      fail('tracked build report differs from the current payload');
+  if (starter) {
+    if (options.initialiseReport) {
+      await mkdir(dirname(REPORT_TARGET), { recursive: true });
+      await writeFile(REPORT_TARGET, reportBytes, { flag: 'wx' });
+    } else {
+      const tracked = await readBoundedRegular(REPORT_TARGET, MAXIMUM_SOURCE_BYTES);
+      if (!tracked.equals(reportBytes)) {
+        fail('tracked build report differs from the current payload');
+      }
     }
   }
-  await mkdir(OUTPUT_ROOT, { recursive: true });
+  const reportFile = starter ? 'starter-pack-build.json' : 'pack-build.json';
+  await mkdir(outputRoot, { recursive: true });
   await Promise.all([
-    writeFile(resolve(OUTPUT_ROOT, authority.archiveName), archive),
-    writeFile(resolve(OUTPUT_ROOT, 'unsigned-canonical-manifest.json'), canonicalManifest),
-    writeFile(resolve(OUTPUT_ROOT, 'starter-pack-build.json'), reportBytes),
+    writeFile(resolve(outputRoot, authority.archiveName), archive),
+    writeFile(resolve(outputRoot, 'unsigned-canonical-manifest.json'), canonicalManifest),
+    writeFile(resolve(outputRoot, reportFile), reportBytes),
   ]);
   process.stdout.write(
     `Starter pack payload verified: ${inventory.fileCount} files, ${archive.length} bytes, unsigned.\n`,

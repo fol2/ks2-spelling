@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "packId": "ks2-core",
+  "catalogueId": "ks2-core:starter",
+  "version": "1.0.0",
+  "archiveName": "ks2-core-starter-1.0.0.zip",
+  "requiredEntitlementId": null,
+  "signingState": "deferred-to-final-visible-owner-gate",
+  "allowedExtensions": [".json", ".m4a"],
+  "ceilings": {
+    "fileCount": 841,
+    "compressedBytes": 16777216,
+    "extractedBytes": 16777216
+  },
+  "catalogueSource": "vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json",
+  "audioSourceRoot": "content/starter-pack",
+  "audioEvidenceSource": "reports/c1/starter-audio-evidence.json"
+}

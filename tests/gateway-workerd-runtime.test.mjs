@@ -15,6 +15,10 @@ test('gateway dependency and Worker authority pins are exact', async () => {
   assert.equal(packageJson.dependencies['@apple/app-store-server-library'], '3.1.0');
   assert.equal(packageJson.devDependencies.wrangler, '4.110.0');
   assert.equal(packageJson.devDependencies.miniflare, '4.20260708.1');
+  assert.deepEqual(packageJson.overrides, {
+    sharp: '0.35.3',
+    undici: '7.29.0',
+  });
   assert.equal(wrangler.compatibility_date, '2026-07-12');
   assert.deepEqual(wrangler.compatibility_flags, ['nodejs_compat']);
   assert.deepEqual(wrangler.version_metadata, { binding: 'WORKER_VERSION_METADATA' });

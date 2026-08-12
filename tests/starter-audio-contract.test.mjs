@@ -7,6 +7,7 @@ import {
   loadStarterSpellingCatalogue,
 } from '../src/domain/spelling/index.js';
 import {
+  FULL_AUDIO_AUTHORITY,
   STARTER_AUDIO_AUTHORITY,
   createStarterAudioInventory,
 } from '../src/domain/spelling/starter-audio-contract.js';
@@ -81,7 +82,7 @@ test('Starter audio derives the complete frozen 840-asset matrix', () => {
     audioKind: 'word-natural',
     input: 'answer',
     sourceKind: 'word',
-    sourcePath: 'audio/Iapetus/word/answer.m4a',
+    sourcePath: 'content/full-pack/audio/iapetus/answer/word.m4a',
     generationSpec: {
       sourceId: 'piper-reviewed-word-assets',
       sourceRevision: '3d6c0e939b298a9f5d7e22ec369cecf802a5dd80',
@@ -94,6 +95,22 @@ test('Starter audio derives the complete frozen 840-asset matrix', () => {
       outputFormat: 'm4a-aac-lc-mono-22050hz-48kbps',
     },
   });
+  assert.equal(
+    inventory[1].sourcePath,
+    'content/full-pack/audio/iapetus/answer/sentence-01-normal.m4a',
+  );
+  assert.equal(
+    inventory[1].generationSpec.sourceRevision,
+    '2f838751806c75be26d78e1ebf89bd95a86a1f2e',
+  );
+  assert.equal(
+    inventory[1].generationSpec.sourceTrackedPath,
+    inventory[1].sourcePath,
+  );
+  assert.equal(
+    inventory[1].generationSpec.outputFormat,
+    'm4a-aac-lc-mono',
+  );
   assert.equal(
     inventory.at(-1).audioKey,
     'ks2-core:heart|sentence-10|Sulafat|slow|dictation-slow',
@@ -121,6 +138,9 @@ test('Starter audio authority distinguishes interim Piper words from Gemini sent
   assert.equal(STARTER_AUDIO_AUTHORITY.runtimeGeneration, false);
   assert.equal(STARTER_AUDIO_AUTHORITY.runtimeProviderAccess, false);
   assert.equal(STARTER_AUDIO_AUTHORITY.runtimeFallback, null);
+  assert.equal(STARTER_AUDIO_AUTHORITY.encoding.sampleRateHz, 16000);
+  assert.equal(STARTER_AUDIO_AUTHORITY.encoding.bitrateKbps, 18);
+  assert.equal(FULL_AUDIO_AUTHORITY.encoding.bitrateKbps, 48);
   assert.equal(
     STARTER_AUDIO_AUTHORITY.sources.word.id,
     'piper-reviewed-word-assets',

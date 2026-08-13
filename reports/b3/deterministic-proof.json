@@ -127,6 +127,11 @@
         "scenario": "revoked-locks-shards",
         "passed": true,
         "stateSha256": "7d15945cbc5c578c6a3a64b0ed047358bcc1c9dcc9ec9bd1f2d9119296dbcaba"
+      },
+      {
+        "scenario": "revoked-at-activation",
+        "passed": true,
+        "stateSha256": "f76971bc16c1dd42aa82e70c2def9d8d417f189c91119f2d5f760850d3b2b465"
       }
     ],
     "privacyContinuity": {
@@ -168,6 +173,6 @@
     "v1CellTypeAndBytesSha256": "f1c4876c485df887b3184b3a78852c0d0df895f5a5fa1c6b8983e138bdeb5a11",
     "syntheticLearnerAuthoritySha256": "5449b0052d78abd1aa6e8a3bbab62cbe62de151288ec0cf6f38dde6e20a908b4",
     "shardAuthoritySha256": "9556f0b2aacf849788c3c7f82958f85354fc2936a0c14b02e895e2a24ea00dba",
-    "scenarioMatrixSha256": "d179766c946406b61d2dcd8ebe74427fe6bc7b487eb34429e538b47d2ae77846"
+    "scenarioMatrixSha256": "36db272f167a2016e7d86cc5e5947215f6fad4dd62e672a63e030692995a7a21"
   }
 }

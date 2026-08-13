@@ -4,8 +4,8 @@ import test from 'node:test';
 import { createDownloadCoordinator } from '../src/app/download-coordinator.js';
 import { B3_DOWNLOAD_CHUNK_BYTES } from '../src/domain/packs/signed-download-access-contract.js';
 import {
-  ARCHIVE_ETAG, ARCHIVE_SHA, HANDLE, JOB_ID, PACK_ID, VERSION,
-  authorisation, createHarness,
+  ARCHIVE_SHA, HANDLE, JOB_ID, PACK_ID, VERSION,
+  authorisation, createHarness, createShardHarness,
 } from './helpers/range-fixture-server.mjs';
 
 test('coordinator exposes a frozen closed lifecycle and queues one fixed-size plan', async () => {
@@ -188,33 +188,52 @@ test('a rate-limited gateway is survivable: nothing is mutated and the next atte
   assert.equal(harness.calls.downloads.length, 1);
 });
 
-test('a rate-limited range transfer keeps the durable plan and the retry re-enters the loop', async () => {
-  const harness = createHarness({
-    outcomes: [rateLimited(), {
-      status: 206, startByte: 0, endByteExclusive: 1_324,
-      totalBytes: 1_324, bytesWritten: 1_324, etag: ARCHIVE_ETAG,
-    }],
-    authoriseOutcomes: [authorisation(), authorisation(), authorisation()],
+test('a rate-limited range transfer aborts the transfer by design and stays resumable across chunks', async () => {
+  // The design, stated plainly: RATE_LIMITED is NOT retried inside the
+  // transfer loop. download-coordinator.js rethrows everything that is not a
+  // capability/range fault, so a 429 ends the attempt with the durable job and
+  // chunk ledger intact, and recovery is an explicit resume — the Parent
+  // card's "Resume download" button. See deliberate call 12.
+  const harness = await createShardHarness({
+    failAtDownload: (request, callNumber) => callNumber === 4 ? rateLimited() : null,
   });
+  const CHUNK = B3_DOWNLOAD_CHUNK_BYTES;
+  assert.ok(harness.chunkCount > 1, 'the resume fixture must span several chunks');
   const coordinator = createDownloadCoordinator(harness.dependencies);
   await assert.rejects(coordinator.queue({ sealedRefreshHandle: HANDLE }), {
     code: 'RATE_LIMITED',
   });
+  // No in-loop retry: the coordinator made exactly the four requests, the
+  // fourth being the refused one, and then stopped.
+  assert.equal(harness.calls.downloads.length, 4);
   const interrupted = harness.memory.snapshot();
-  assert.equal(interrupted.job.jobId, JOB_ID);
-  assert.equal(interrupted.job.completedBytes, 0);
-  assert.equal(interrupted.chunks.length, 1);
-  assert.equal(interrupted.chunks[0].chunkSha256, null);
+  assert.equal(interrupted.job.state, 'downloading');
+  assert.equal(interrupted.job.completedBytes, 3 * CHUNK);
+  assert.equal(interrupted.chunks.length, harness.chunkCount);
+  assert.deepEqual(
+    interrupted.chunks.slice(0, 4).map((chunk) => chunk.state),
+    ['complete', 'complete', 'complete', 'pending'],
+  );
 
   const resumed = await coordinator.resume({ sealedRefreshHandle: HANDLE });
   assert.equal(resumed.state, 'downloaded');
-  // Exactly one further range request: the loop resumed at the chunk the 429
-  // interrupted rather than restarting or giving up.
-  assert.equal(harness.calls.downloads.length, 2);
+  // The resume picked up at the chunk the 429 interrupted. Three completed
+  // chunks were never re-fetched: with a single-chunk fixture this assertion
+  // would hold just as well for a restart from byte 0, which is why the
+  // fixture is a real ~30 MiB shard.
+  assert.equal(harness.calls.downloads.length, harness.chunkCount + 1);
+  assert.equal(harness.calls.downloads[4].startByte, 3 * CHUNK);
   assert.deepEqual(
     harness.calls.downloads.map((request) => request.startByte),
-    [0, 0],
+    [
+      ...Array.from({ length: 4 }, (_, index) => index * CHUNK),
+      ...Array.from({ length: harness.chunkCount - 3 }, (_, index) => (index + 3) * CHUNK),
+    ],
   );
+  // Every byte of the archive is accounted for exactly once in the ledger.
+  const chunks = harness.memory.snapshot().chunks;
+  assert.ok(chunks.every((chunk) => chunk.state === 'complete'));
+  assert.equal(chunks.at(-1).endByteExclusive, harness.row.archiveBytes);
 });
 
 test('a composition that forgets packAuthority cannot construct a coordinator', () => {

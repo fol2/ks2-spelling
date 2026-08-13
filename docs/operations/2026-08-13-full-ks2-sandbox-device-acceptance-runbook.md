@@ -15,6 +15,13 @@ and store-console/sandbox-account material that agents must not hold. This
 is the acceptance that closes #123 and #75 — the planner records the result
 on the issues.
 
+**Prerequisite: this acceptance is not complete until #135 (E2.7b) lands.**
+E2.7 delivers the purchase, the 15-shard install and the entitlement-driven
+audio *source*; it does not switch the learning *catalogue*, so a completed
+install still leaves the child practising the 20 Starter words. Step 3's
+full-catalogue verification is therefore deferred (marked in place below),
+and #123/#75 close only after E2.7b plus a full run of this checklist.
+
 ## What the repository delivers up to this boundary
 
 - The catalogue join sells the 15 shards: `config/store-products.json`
@@ -75,10 +82,19 @@ On a device signed into a **sandbox** store account:
    relaunch: the download resumes without re-fetching completed shards
    (watch the gateway logs — completed shards re-authorise but transfer no
    new ranges).
-3. **Offline playback**: enable airplane mode; the full catalogue plays
-   offline through `createFullProductAudioPlayer` (spot-check words from
-   several different shards, e.g. an early-alphabet and a late-alphabet
-   word — shards partition the catalogue alphabetically).
+3. **Offline playback — Starter words only until E2.7b lands.** Enable
+   airplane mode and practise. What is executable today: the words the
+   child practises are still the **20 Starter words**, and their audio now
+   comes from the installed shards through `createFullProductAudioPlayer`
+   rather than the bundled Starter evidence — verify playback is intact and
+   offline. Those words live in shards 01–04.
+   **Deferred to #135 (E2.7b):** the late-alphabet spot-check. E2.7 switches
+   the audio *source* on entitlement but not the learning *catalogue*, so no
+   late-alphabet word is reachable in the UI yet and 11 of the 15 shards are
+   installed but never read. Do not record this sub-step as a pass before
+   E2.7b: run it, in full, on the build that carries the catalogue switch
+   (spot-check words from several different shards, early- and
+   late-alphabet — shards partition the catalogue alphabetically).
 4. **Revocation**: refund/revoke the sandbox purchase; after refresh the
    entitlement reads revoked and every shard locks (no playback of
    full-catalogue words; Starter remains available).

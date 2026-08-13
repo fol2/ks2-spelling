@@ -546,26 +546,76 @@ test('one shard locked mid-loop locks the rest of the pass and recovers nothing 
   assert.ok(result.readiness.every((entry, index) => entry.accessLocked === (index >= 3)));
 });
 
-test('an ambiguous native inventory aborts the whole 15-shard pass before any mutation', async () => {
-  // Deliberate blast radius: duplicate native rows mean the device cannot say
-  // which bytes belong to which install, so no shard's identity is trustworthy
-  // and the pass fails closed with nothing deleted, registered or removed.
-  const duplicated = shardRow(SHARD_IDS[6], 6);
+function recoverableJob(item) {
+  return {
+    jobId: `${item.packId}.1.0.0`, packId: item.packId, version: '1.0.0',
+    manifestSha256: item.manifestSha256, archiveName: `${item.packId}.zip`,
+    archiveSha256: 'f'.repeat(64), expectedBytes: 10, completedBytes: 10,
+    etag: 'etag', state: 'extracting', updatedAt: NOW - 10,
+  };
+}
+
+test('an ambiguous native inventory aborts that shard only; the other fourteen reconcile', async () => {
+  // Duplicate native rows mean the device cannot say which bytes belong to
+  // that install — but the ambiguity is per (packId, version) and every match
+  // downstream is per-pack, so the abort is scoped to the pack it names.
+  const ambiguousShard = shardRow(SHARD_IDS[6], 7);
+  const recoverable = [shardRow(SHARD_IDS[0], 1), shardRow(SHARD_IDS[7], 8)];
   const harness = reconcileHarness({
-    inventory: [native(duplicated), native(duplicated)],
+    inventory: [
+      native(ambiguousShard), native(ambiguousShard),
+      ...recoverable.map((item) => native(item)),
+    ],
+    // The ambiguous shard has exactly what the other two have: native bytes
+    // and an extracting job. Only the duplicate row separates them.
+    jobs: [ambiguousShard, ...recoverable].map(recoverableJob),
+  });
+  delete harness.dependencies.packIds;
+  const result = await createPackReconciler(harness.dependencies).reconcileAtStartup();
+
+  assert.deepEqual([...result.ambiguousPacks], [SHARD_IDS[6]]);
+  // Nothing was registered, flipped, retired or removed for the ambiguous
+  // shard, and it never reports ready.
+  assert.deepEqual(
+    harness.events.filter((event) => event.includes(SHARD_IDS[6])),
+    [],
+  );
+  const ambiguousEntry = result.readiness.find((entry) => entry.packId === SHARD_IDS[6]);
+  assert.deepEqual(ambiguousEntry, { packId: SHARD_IDS[6], version: null, ready: false, accessLocked: false });
+  assert.equal(harness.snapshot().activeByPackId[SHARD_IDS[6]], undefined);
+  // 1/15 blast radius: the two unambiguous shards still recovered.
+  assert.deepEqual(
+    [...result.recovered],
+    [`${SHARD_IDS[0]}.1.0.0`, `${SHARD_IDS[7]}.1.0.0`],
+  );
+  assert.ok(result.readiness.filter((entry) => entry.ready).length === 2);
+});
+
+test('an ambiguous inventory blocks retirement of that pack before anything is deleted', async () => {
+  // Validate-before-mutate, with a job that is genuinely retirable: under the
+  // flipped catalogue the b3 pack is retired scope, so without the ambiguity
+  // gate ahead of the retirement loop this job row and its staging would be
+  // deleted on the strength of an inventory the device cannot trust.
+  const b3Installed = row('1.0.0-b3.1', 1);
+  const harness = reconcileHarness({
+    installed: [b3Installed],
+    inventory: [native(b3Installed), native(b3Installed)],
     jobs: [{
-      jobId: `${SHARD_IDS[0]}.1.0.0`, packId: SHARD_IDS[0], version: '1.0.0',
-      manifestSha256: '1'.repeat(64), archiveName: `${SHARD_IDS[0]}.zip`,
+      jobId: `${PACK_ID}.1.0.0-b3.1`, packId: PACK_ID, version: '1.0.0-b3.1',
+      manifestSha256: b3Installed.manifestSha256, archiveName: `${PACK_ID}.zip`,
       archiveSha256: 'f'.repeat(64), expectedBytes: 10, completedBytes: 10,
-      etag: 'etag', state: 'extracting', updatedAt: NOW - 10,
+      etag: 'a'.repeat(32), state: 'ready', updatedAt: NOW - 10,
     }],
   });
   delete harness.dependencies.packIds;
-  await assert.rejects(
-    createPackReconciler(harness.dependencies).reconcileAtStartup(),
-    { code: 'PACK_RECONCILIATION_INVENTORY_AMBIGUOUS' },
-  );
+  const result = await createPackReconciler(harness.dependencies).reconcileAtStartup();
+  assert.deepEqual([...result.ambiguousPacks], [PACK_ID]);
+  assert.deepEqual([...result.retiredPacks], []);
   assert.deepEqual(harness.events, []);
+  assert.deepEqual(
+    harness.snapshot().jobs.map((job) => job.jobId),
+    [`${PACK_ID}.1.0.0-b3.1`],
+  );
 });
 
 test('the B3 proof lane never retires the shards the live catalogue still sells', async () => {

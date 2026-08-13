@@ -187,12 +187,17 @@ export function createPackReconciler(rawDependencies) {
       }
       absorbTimestampFloor(...allJobs.map((job) => job.updatedAt));
 
+      // Ambiguity is a property of one (packId, version): duplicate native
+      // rows mean *that pack's* bytes cannot be identified, and every match
+      // below is already per-pack. The abort is therefore scoped to the
+      // affected pack — equally fail-closed for it (nothing deleted,
+      // registered, flipped or removed, and it never reports ready) without
+      // taking the other fourteen shards down with it.
       const identities = new Set();
+      const ambiguous = new Set();
       for (const record of inventory) {
         const identity = `${record.packId}\u0000${record.version}`;
-        if (identities.has(identity)) {
-          throw reconciliationError('PACK_RECONCILIATION_INVENTORY_AMBIGUOUS');
-        }
+        if (identities.has(identity)) ambiguous.add(record.packId);
         identities.add(identity);
       }
 
@@ -201,7 +206,7 @@ export function createPackReconciler(rawDependencies) {
       // their temporary native state removed. It runs only after every
       // validation gate above, because this module's contract is
       // validate-before-mutate — an ambiguous inventory must still fail closed
-      // with nothing deleted. Staging is removed before the row that names it,
+      // with nothing deleted for the pack it names. Staging is removed before the row that names it,
       // so a native removal that rejects leaves a job row to retry against
       // rather than orphaned bytes no record points at.
       // Installed/active database rows and sealed native bytes deliberately
@@ -211,7 +216,7 @@ export function createPackReconciler(rawDependencies) {
       // registry.
       const retiredPacks = [];
       for (const job of allJobs) {
-        if (!isRetiredScope(job.packId)) continue;
+        if (!isRetiredScope(job.packId) || ambiguous.has(job.packId)) continue;
         await packTransfer.removeOwnedTemporaryState({
           packId: job.packId,
           version: job.version,
@@ -226,6 +231,14 @@ export function createPackReconciler(rawDependencies) {
       const readiness = [];
 
       for (const packId of PACK_IDS) {
+        if (ambiguous.has(packId)) {
+          // Untrustworthy identity: recover nothing, activate nothing, report
+          // it as not ready. The pack stays exactly as the device left it.
+          readiness.push(Object.freeze({
+            packId, version: null, ready: false, accessLocked,
+          }));
+          continue;
+        }
         let installedRows = await packRepository.listInstalledVersions({ packId });
         let active = await packRepository.getActiveVersion({ packId });
         absorbTimestampFloor(
@@ -337,6 +350,7 @@ export function createPackReconciler(rawDependencies) {
       }
 
       for (const job of jobs) {
+        if (ambiguous.has(job.packId)) continue;
         const native = inventory.find((record) =>
           record.packId === job.packId && record.version === job.version &&
           record.manifestSha256 === job.manifestSha256);
@@ -347,6 +361,7 @@ export function createPackReconciler(rawDependencies) {
 
       return Object.freeze({
         accessLocked,
+        ambiguousPacks: Object.freeze([...ambiguous].toSorted()),
         readiness: Object.freeze(readiness),
         recovered: Object.freeze(recovered),
         removedTemporary: Object.freeze(removedTemporary),

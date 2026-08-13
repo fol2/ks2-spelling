@@ -626,7 +626,10 @@ function commerceMessage(state) {
   return 'Access is verified. Download the spelling pack to use it offline.';
 }
 
-function ParentCommerceCard({
+// Exported so the card can be rendered and its download button exercised
+// directly: a regex over this file's source text is not a guard — deleting the
+// button entirely left the suite green.
+export function ParentCommerceCard({
   state,
   onPurchase,
   onRestore,

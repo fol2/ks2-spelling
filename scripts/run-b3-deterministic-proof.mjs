@@ -73,6 +73,7 @@ const GROUPS = Object.freeze({
     'interrupted-resume',
     'integrity-failure-durable',
     'revoked-locks-shards',
+    'revoked-at-activation',
   ]),
 });
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -847,13 +848,17 @@ async function withShardComposition(context, {
   store = {},
   gateway = {},
   transfer = {},
+  // Harness-side only: the composition under proof is the shipping one, and
+  // the wrapper stands where the device's own database would if the
+  // entitlement went inactive between a shard's download and its activation.
+  wrapRepository = (repository) => repository,
 }, operation) {
   const connection = createNodeSqliteConnection(join(directory, 'shards.sqlite'));
   await connection.open();
   await configureAndMigrateDatabase(connection);
   const log = { authorised: [], downloads: [], removals: [] };
   const packTransfer = createShardPackTransfer(log, transfer);
-  const packRepository = createSqlitePackRepositories(connection);
+  const packRepository = wrapRepository(createSqlitePackRepositories(connection));
   let attemptSequence = 0;
   const workflow = createProductCommerceWorkflow({
     runtime: Object.freeze({ isNativePlatform: true, platform: 'android' }),
@@ -1104,6 +1109,55 @@ async function runShardScenario(scenario, context) {
             settled.entitlementState === 'revoked' && settled.packState === 'locked',
           everyShardKeepsItsInstalledBytes: shardsHoldingBytes === 15,
           everyShardRefusedReactivationWhileRevoked: shardsRefusingReactivation === 15,
+        });
+      });
+    }
+    if (scenario === 'revoked-at-activation') {
+      // The one entitlement boundary the other four cannot reach: revocation
+      // landing *between* a shard's download and its activation. activate()
+      // reports that by returning 'access-locked' rather than throwing, so an
+      // unchecked result would resolve install() as success with the shard
+      // downloaded, unactivated and unplayable.
+      const LOCKED_SHARD = 'full-ks2-shard-03';
+      return await withShardComposition(context, {
+        directory,
+        store: { purchaseOutcomes: [observation('purchased')] },
+        wrapRepository: (repository) => Object.freeze({
+          ...repository,
+          async registerAndFlipActiveVersion(command) {
+            if (command.activeVersion.packId === LOCKED_SHARD) {
+              throw Object.assign(new Error('entitlement inactive'), {
+                code: 'sqlite_pack_entitlement_inactive',
+              });
+            }
+            return repository.registerAndFlipActiveVersion(command);
+          },
+        }),
+      }, async ({ workflow, packRepository, log }) => {
+        await workflow.start();
+        await workflow.purchase();
+        let failure = null;
+        try {
+          await workflow.download();
+        } catch (error) {
+          failure = error;
+        }
+        const durable = await shardDurableState(packRepository);
+        const index = FULL_KS2_PACKS.findIndex((pack) => pack.packId === LOCKED_SHARD);
+        const activeById = new Map(durable.actives
+          .filter(Boolean).map((active) => [active.packId, active]));
+        const jobsById = new Map(durable.jobs.map((job) => [job.packId, job]));
+        return stateResult({
+          installRefusedToReportSuccess:
+            failure?.code === 'product_commerce_activation_incomplete' &&
+            failure.packId === LOCKED_SHARD && failure.activationState === 'access-locked',
+          lockedShardHasNoActiveVersion: !activeById.has(LOCKED_SHARD),
+          lockedShardKeptItsDurableJob: jobsById.get(LOCKED_SHARD)?.packId === LOCKED_SHARD,
+          earlierShardsStayActivated: FULL_KS2_PACKS.slice(0, index)
+            .every((pack) => activeById.get(pack.packId)?.version === pack.version),
+          laterShardsNeverStarted: FULL_KS2_PACKS.slice(index + 1)
+            .every((pack) => !activeById.has(pack.packId) &&
+              !log.downloads.some((entry) => entry.startsWith(`${pack.packId}:`))),
         });
       });
     }

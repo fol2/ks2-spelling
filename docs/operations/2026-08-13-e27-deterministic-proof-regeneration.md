@@ -115,10 +115,55 @@ Regeneration evidence from this slice: two consecutive
 report twice and asserts byte identity) produced report SHA-256
 `e9fe85c5a089558795a265b1af5ceffa9fb280eeadc7d11466ad63c429662dfd`.
 
-**Superseded by the round-1 hardening above.** The committed report is now
-SHA-256 `3720cbcbf218cce2b7f8e85a682b14e2c2adc786cfe71baf12e6bba317bd9647`,
+**Superseded by the round-1 hardening above.** The report was then SHA-256
+`3720cbcbf218cce2b7f8e85a682b14e2c2adc786cfe71baf12e6bba317bd9647`,
 again from two consecutive `npm run prove:b3:deterministic` runs (four builds
 in total, all byte-identical), the second from a clean worktree at the
 committed tree, which stayed clean afterwards. `node
 scripts/build-b3-exit-report.mjs --check-ci` on that tree returns
 `{"ok":true,"mode":"pending"}`.
+
+## Round-2 review: a fifth shard scenario (planner review R8)
+
+The planner's round-2 verification found that deleting the round-1 activation
+guard in `create-product-commerce-workflow.js` (`activation.state !== 'ready'`
+→ throw `product_commerce_activation_incomplete`) changed nothing observable
+in any test or in the regenerated proof. A fix with no failing-on-revert test
+is a coincidence, so the branch is now exercised by a fifth shard scenario,
+using the harness-side `packRepository` wrapper the planner accepted as the
+right instrument (the composition under proof stays the shipping one; the
+wrapper stands where the device's own database would).
+
+- **`revoked-at-activation`**: the entitlement goes inactive *between* a
+  shard's download and its activation — `registerAndFlipActiveVersion` is
+  refused for `full-ks2-shard-03` with `sqlite_pack_entitlement_inactive`,
+  which `activate()` reports by *returning* `{state:'access-locked'}` rather
+  than throwing. The scenario pins that `install()` refuses to report success
+  (`product_commerce_activation_incomplete`, naming the shard and the
+  activation state), that the locked shard has no active version but keeps
+  its durable job, that shards 01–02 stay activated, and that shards 04–15
+  are never started. Deleting the guard fails the proof run outright
+  (`b3_scenario_invariant_failed`), which is the point.
+
+Byte-class argument for this round's diff — exactly two classes, verified by
+`git diff` on the report:
+
+1. **`scenarioMatrix.shards` (additive):** one new row,
+   `revoked-at-activation` / `stateSha256`
+   `f76971bc16c1dd42aa82e70c2def9d8d417f189c91119f2d5f760850d3b2b465`.
+2. **`syntheticDigests.scenarioMatrixSha256` (recomputed):**
+   `d179766c…` → `36db272f167a2016e7d86cc5e5947215f6fad4dd62e672a63e030692995a7a21`.
+
+All 22 pre-existing scenario `stateSha256` values — including all four
+earlier shard scenarios — and every other `syntheticDigests` pin are
+byte-identical to the round-1 report. No round-3 change touched a proof
+input: the reconciler's ambiguity scoping is not exercised by any scenario
+(no scenario presents duplicate native inventory) and the remaining changes
+are tests and documentation.
+
+The committed report is now SHA-256
+`23d9db5e659c31be51f743d529135130a23b0a6ee211c635615ad35b090c5e41`, from two
+consecutive `npm run prove:b3:deterministic` runs (four builds in total, all
+byte-identical), the second from a clean worktree at the committed tree,
+which stayed clean afterwards. `node scripts/build-b3-exit-report.mjs
+--check-ci` on that tree returns `{"ok":true,"mode":"pending"}`.

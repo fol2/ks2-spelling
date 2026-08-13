@@ -66,7 +66,10 @@ test('B3 deterministic proof runs the closed fake matrix twice byte-identically'
     );
     assert.deepEqual(
       report.scenarioMatrix.shards.map(({ scenario }) => scenario),
-      ['purchased-all-shards', 'interrupted-resume', 'integrity-failure-durable', 'revoked-locks-shards'],
+      [
+        'purchased-all-shards', 'interrupted-resume', 'integrity-failure-durable',
+        'revoked-locks-shards', 'revoked-at-activation',
+      ],
     );
     assert.ok(
       [
@@ -137,8 +140,8 @@ test('B3 deterministic proof runs the closed fake matrix twice byte-identically'
           return runB3DeterministicScenario(input);
         },
       });
-      assert.equal(executed.length, 22);
-      assert.equal(new Set(executed).size, 22);
+      assert.equal(executed.length, 23);
+      assert.equal(new Set(executed).size, 23);
     } finally {
       await rm(wrappedDirectory, { recursive: true, force: true });
     }

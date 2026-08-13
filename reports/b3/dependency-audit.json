@@ -5,14 +5,14 @@
     "packageLockSha256": "e81135d770dbfb088bd3b81a720146440ac8096ca22ed45c4150fb3349f85f30",
     "spmResolvedVersion": 3,
     "nativePluginBuildSha256": "a72e95958e287be21f34588a167f12fd59058ab003dfe3f559b3ba244988a6f9",
-    "webViewBundleEvidenceSha256": "8907f6790e36ce7b15179b685c47ece407521c1637189362f76f7e358e399928"
+    "webViewBundleEvidenceSha256": "b75e2515d3af80c05c2b5dbcc5029cb4c642af17bc8c7fdeffb9ef68e7628faf"
   },
   "npm": {
     "lockfileVersion": 3,
     "lockPackageCount": 192,
     "webViewBundle": {
       "mode": "vite-rollup-write-false",
-      "moduleCount": 186,
+      "moduleCount": 227,
       "packageNames": [
         "@capacitor-community/sqlite",
         "@capacitor/app",
@@ -53,16 +53,64 @@
           "sha256": null
         },
         {
+          "id": "config/b3-gateway-authority.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "2c338dd1fd72ce0062c0b1dc257f2933ed1421e7be295b2fb1df831d94e3ba9d"
+        },
+        {
+          "id": "config/b3-pack-object-authority.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "32887edb5374b37c92615f7423f0e2ed8a328c39d86e4990f8f5fc9f25e81a1f"
+        },
+        {
+          "id": "config/b3-proof-pack.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "6f83e3fff3a936acaecc5fb9160d95a0e64d12126f79392f0d8ee94aeb37dff8"
+        },
+        {
+          "id": "config/downloadable-pack-authorities.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "678f20893467d3273aadd18898e8a9f3e84de21b47f0ae0942de087ad9930cbe"
+        },
+        {
+          "id": "config/full-audio-manifest.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "42b573fa55eeeb853757a79a42284ac6c405cf42ba20033edbb8e70bc602c86c"
+        },
+        {
           "id": "config/full-audio-runtime.json",
           "kind": "file",
           "npmLocator": null,
           "sha256": "8f53492d3159df5d85532b55516d763f4684d2a284d370f2a323e6d5f2954672"
         },
         {
+          "id": "config/full-ks2-shard-partition.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "d11dfef62053d999c5d00973ec5b1bd63a20c5985155f8bfe15344fa3572730b"
+        },
+        {
+          "id": "config/pack-signing-public-keys.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "5bc863f8a8b4a50a8564e94cd46f18e9a409947615755a39103801afbd09eeff"
+        },
+        {
           "id": "config/starter-audio-runtime.json",
           "kind": "file",
           "npmLocator": null,
           "sha256": "db9f083be4908834456b35b8613adeda8893dd8502e1708bc559798862a1b6b8"
+        },
+        {
+          "id": "config/store-products.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "e8625a13913b4db4e89b797ae2aa128a083427da36f1c896995a354add532e7d"
         },
         {
           "id": "content/mastery-art/monsters/glimmerbug/b1/glimmerbug-b1-0.640.webp",
@@ -542,7 +590,7 @@
           "id": "src/app/ProductApp.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "6e9ab76f4aca9dfd8ef5bf86ebdf7c9c2afaa95aca13b12623822ac0760a24e5"
+          "sha256": "a8fe40696cbf38b66e87e5295875d41f047f8cf93c052f03318815bffc333523"
         },
         {
           "id": "src/app/ProductRoot.jsx",
@@ -605,6 +653,18 @@
           "sha256": "92297a80970f87399d1b2b957fecd5e6a73872ae4cb859d5fbb12e828d2fb4e2"
         },
         {
+          "id": "src/app/commerce-reconciler.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "2b31cbe5eae0b5151668f7ed008cd8e68d9543b3a2b327cdf64703e7f6125d19"
+        },
+        {
+          "id": "src/app/commerce-runtime-support.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "fc1ea0efd18afa4313970bb01b4b2c1a0b21192f22cd22555359fc762c648376"
+        },
+        {
           "id": "src/app/companion-presentation.js",
           "kind": "file",
           "npmLocator": null,
@@ -620,7 +680,13 @@
           "id": "src/app/create-product-app-services.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "66ab5debf0fcbb4824657dbb393fb7324993eb9885801b4d7783b4656417047b"
+          "sha256": "ecfddc4bf0ec4d64bf2426c30605eb587b332bb334393e0dd0b079aa3e03f7bf"
+        },
+        {
+          "id": "src/app/create-product-commerce-workflow.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "29b94866b5178d4d7851934f5e24c22c343d69413967f5265b3e8fa8afc1e568"
         },
         {
           "id": "src/app/create-production-app-services.js",
@@ -639,6 +705,30 @@
           "kind": "file",
           "npmLocator": null,
           "sha256": "da07637da7978ab7844db20e41545624bc636289ea7fb499a79802365619e289"
+        },
+        {
+          "id": "src/app/download-coordinator.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "a587ebf7d9dce583f62989e746d91696cfbfdcbf368ee9d0e8743cb6f8ad75f1"
+        },
+        {
+          "id": "src/app/entitled-audio-switch.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "f946b64df6c0ee28352a78da2490b35824a55a3fb049a7dde06ef0a797b4783f"
+        },
+        {
+          "id": "src/app/full-product-audio.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "0cce69beba6180148e7fea5faefababd23aa92e61316c568cd768eb9210dc4f8"
+        },
+        {
+          "id": "src/app/installed-shard-audio.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "a94508eac76f3e81825679db4fb339a9ceeebe49320a6871a8a5f964ea39c1cd"
         },
         {
           "id": "src/app/learner-colour.js",
@@ -689,6 +779,18 @@
           "sha256": "81bf430a28ecea41a4925bdaf41b82e37e70c9404888c1328d6b5ee4404d4792"
         },
         {
+          "id": "src/app/pack-activation-coordinator.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "d9928b1ab1ba43cb3eb6282d4ef4b66f8a693ef62356804e4457add5a682fef9"
+        },
+        {
+          "id": "src/app/pack-reconciler.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "aa926afb0147296487df580908141648428a1330152f8651b07082d8724e2b21"
+        },
+        {
           "id": "src/app/parent-backup-service.js",
           "kind": "file",
           "npmLocator": null,
@@ -698,7 +800,7 @@
           "id": "src/app/parent-commerce-controller.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "34da31f41aa491ddfcc51bcc02dec267c8fe18474120cd93e036e0b620c28287"
+          "sha256": "2efaf97ca7b459af4c3f0358eacec45698655ceaa6a5733db97189675d2d284b"
         },
         {
           "id": "src/app/parent-progress-controller.js",
@@ -741,6 +843,12 @@
           "kind": "file",
           "npmLocator": null,
           "sha256": "d572a103464e525ab32f84cd2bac56fdd9c49433dc3568fc4160180b7f4183ae"
+        },
+        {
+          "id": "src/app/purchase-coordinator.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "0b17c9200e75176b4b8777b900a034832045becb092e7bb863ec3956370ad5b8"
         },
         {
           "id": "src/app/records-model.js",
@@ -809,6 +917,60 @@
           "sha256": "0167a641bed81606708e9431ef65ca8047a4fc4563f8831f0c5fbebc413e716d"
         },
         {
+          "id": "src/domain/commerce/commerce-contracts.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "908d8fb093ed22246db6ec3c9b1e463ed42ef15c5ad66f45d7e39d90b8ae98d7"
+        },
+        {
+          "id": "src/domain/commerce/entitlement-access-projection.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "3ebb41b774b10537d8d15457e3eb5ba14d36f2c7f10cd1187b6fd52f78e8bd9a"
+        },
+        {
+          "id": "src/domain/commerce/purchase-state.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "71ff25ca45d581d63a46a573430ca136fd712802ae0ef7deffe05d71222155f3"
+        },
+        {
+          "id": "src/domain/packs/pack-keyring.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "1d55be03555e8063f230880f5a899ec0b15d5951a96a0bdc5c461eb792bf35a6"
+        },
+        {
+          "id": "src/domain/packs/pack-registry.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "4b1e8af8cfad32ad0fa2a0712fac848cd04c2b87eb80e1830022c9c5fb73caa5"
+        },
+        {
+          "id": "src/domain/packs/pack-signature-verifier.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "bde83da889331a9eb36e53df4c6844a8a62b3bd91ae6b11da695e844a5522519"
+        },
+        {
+          "id": "src/domain/packs/rfc8785.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "ab30c7536cd2fe20b77e4b26fa5b37316bab9a281eba65c0c9837cb0e41e6e25"
+        },
+        {
+          "id": "src/domain/packs/signed-download-access-contract.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "6f9f9be0c7d74891087d0a5579ef58b130032c9d6e4546a55a962994160449bb"
+        },
+        {
+          "id": "src/domain/packs/signed-manifest-contract.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "0d6a522c43754ed48106c93df2fac92b42e28d27cf39572567951ccc1d789a95"
+        },
+        {
           "id": "src/domain/security/learning-backup-contract.js",
           "kind": "file",
           "npmLocator": null,
@@ -851,6 +1013,18 @@
           "sha256": "61c194e0ebf2b13f71f648ab54624b48bb8e2cd43b09f83d540e4e623454c62d"
         },
         {
+          "id": "src/platform/audio/capacitor-installed-audio-plugin.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "796a42155b828eeba135d6c5942d2bf5c8af1d9c6d3bcafdd15096bae96059dd"
+        },
+        {
+          "id": "src/platform/audio/capacitor-installed-audio.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "025bfff569344b8d692621356d24292839b27d413941bf068175010db1ab9da5"
+        },
+        {
           "id": "src/platform/backup/capacitor-learning-backup-file-plugin.js",
           "kind": "file",
           "npmLocator": null,
@@ -861,6 +1035,24 @@
           "kind": "file",
           "npmLocator": null,
           "sha256": "b08a5e8aea553b0a0e4eec577848fe57db8c1d08ae1050110ec275b02c0ceb1c"
+        },
+        {
+          "id": "src/platform/commerce/capacitor-commerce-plugin.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "305f8f767d56f496a04de56b10366d5553b34247ed690208cc3f9ef41a280a4b"
+        },
+        {
+          "id": "src/platform/commerce/capacitor-store.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "98ed45c83c9840d268f3f9bd3d3176797043ab4706ed98f1cdf23068a73a102e"
+        },
+        {
+          "id": "src/platform/commerce/store-port.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "fe9e023aaad47f6876ec6bad0fbc0d81cb94f3baa812f0214c91dbd89c900efb"
         },
         {
           "id": "src/platform/database/canonical-json.js",
@@ -905,10 +1097,28 @@
           "sha256": "640e2f5238d55e732675017446eda9c7489b1f007bd48d505e59fac68e69c537"
         },
         {
+          "id": "src/platform/database/sqlite-commerce-attempt-repository.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "efc959ea69767913bcc3372931e6b42f5de7f728e03a0bdd8c13545b2174676f"
+        },
+        {
+          "id": "src/platform/database/sqlite-commerce-repositories.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "332ed3c646398694c102082c72e3e2d1d0e51108d8576ec9d8c1cafc1463917e"
+        },
+        {
           "id": "src/platform/database/sqlite-learning-backup-repository.js",
           "kind": "file",
           "npmLocator": null,
           "sha256": "ff05d27ad010101234a2386b53289852802c6708c80b75910e85b72ca37636ee"
+        },
+        {
+          "id": "src/platform/database/sqlite-pack-repositories.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "3ad7ad42f981ba0af278201a471b0b2b5914574268b7c38d59e026210168effa"
         },
         {
           "id": "src/platform/database/sqlite-parent-security-repository.js",
@@ -953,6 +1163,24 @@
           "sha256": "d5a4aa2977cd2e7d41da9b80e06a4fceb469873d15715685c66a90121df31b31"
         },
         {
+          "id": "src/platform/gateway/entitlement-gateway-port.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "1a551f6894a6d5c9a93bb75ee86c712b6cb49a2eb62251a0e70d1cae3b58f5b7"
+        },
+        {
+          "id": "src/platform/gateway/gateway-payload-limits.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "37340e2486d1cc1fb9f628b187797aa07177a882da1682d2638b8db26695c662"
+        },
+        {
+          "id": "src/platform/gateway/http-entitlement-gateway.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "bd4589cc7275b3eb106b6a92e259fb6409b3beb7811c1ec867813f06ab863cbb"
+        },
+        {
           "id": "src/platform/haptics/capacitor-haptics.js",
           "kind": "file",
           "npmLocator": null,
@@ -969,6 +1197,24 @@
           "kind": "file",
           "npmLocator": null,
           "sha256": "f779bceee5f3397dc2765d5768804338d2e292a255df7c154dd5933b8f468156"
+        },
+        {
+          "id": "src/platform/pack-transfer/capacitor-pack-transfer-plugin.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "77e79be8719dab9d28b14e637c0d2a00121690e804dc82d1f2bc2b38d64f589b"
+        },
+        {
+          "id": "src/platform/pack-transfer/capacitor-pack-transfer.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "c3c97c4d169e2fe2b45bcec18e4e38ecaf69cc93ef0e7230a434fb5a2ebe5458"
+        },
+        {
+          "id": "src/platform/pack-transfer/pack-transfer-port.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "15f0a20bce420b344983cc3e4f6145aca0b1aabe11a1874ff102a427c541bbc5"
         },
         {
           "id": "src/platform/security/capacitor-local-data-protection-plugin.js",
@@ -1153,14 +1399,14 @@
       ],
       "outputInventory": [
         {
-          "fileName": "assets/celebration-scene-DtMokQXG.js",
+          "fileName": "assets/celebration-scene-CpzGiKfI.js",
           "kind": "chunk",
-          "sha256": "22c60f85cad80c199393104be85ffe3c906eab35e64d3f3a1ced51e883f2d75f"
+          "sha256": "e5b890b28825a6f56a4d4526ba8e63286c71eb4999ec6cb135168c978f8b1840"
         },
         {
-          "fileName": "assets/CelebrationStage-CHmFQCg8.js",
+          "fileName": "assets/CelebrationStage-DAUSIWXX.js",
           "kind": "chunk",
-          "sha256": "4e0fe42aa6957b82e021a5ddcf52f3445757ef1e88b57cb334d014886b4c5234"
+          "sha256": "788ff0fe2843ae45bd043f21f34e9b022d1bff24162fc7242cedff6b17886454"
         },
         {
           "fileName": "assets/fraunces-latin-variable-BOz5zopO.woff2",
@@ -1218,14 +1464,14 @@
           "sha256": "483852f9bb8a4df54b3f20e2ee2389f817796c1431857d71750373bb755ae84c"
         },
         {
-          "fileName": "assets/index-C3bvJ_rd.js",
-          "kind": "chunk",
-          "sha256": "210aed8413fbc2319168c769d943b4505d8c2d2563ca898b8e27755c99388092"
-        },
-        {
           "fileName": "assets/index-v4W5_si_.css",
           "kind": "asset",
           "sha256": "d75f694b8f1a60bb0211c53c013d28d9783860c119f7e5221067a2bec074d2ea"
+        },
+        {
+          "fileName": "assets/index-Xr1S6M0S.js",
+          "kind": "chunk",
+          "sha256": "7d3b68a8bc0d3cc544a29d8b3c5496cc7378f872452ae85e034aa38c0a1a25be"
         },
         {
           "fileName": "assets/inklet-b1-0.640-GboaFYkc.webp",
@@ -1283,19 +1529,19 @@
           "sha256": "c940764593d0fe5d596be327ca7558855e018039fb78509aa21921fd3644c3e4"
         },
         {
-          "fileName": "assets/monster-scene-50hHZxyP.js",
+          "fileName": "assets/monster-scene-DPjNxn95.js",
           "kind": "chunk",
-          "sha256": "199f0f5b6798f324f8628da5d9e3e8b0aa9a2a2a4ffadbaec8320e8778229455"
+          "sha256": "cb574bbb0e1ae342c173b48db6cac5ce8ff0bb7c116aa184ec7cc39f579a202a"
         },
         {
-          "fileName": "assets/monster-stage-model-CGa7frIS.js",
+          "fileName": "assets/monster-stage-model-Bq9ubuik.js",
           "kind": "chunk",
-          "sha256": "ea549c26ae8a36feee9559e3acb72c1b940e81958b28c20bb110e954f9230812"
+          "sha256": "10a972ebe2c802777a174293f409e231ba9bec770dbeee76bca2ed17be7a29ea"
         },
         {
-          "fileName": "assets/MonsterStage-UBZEzLhf.js",
+          "fileName": "assets/MonsterStage-BVV82l6d.js",
           "kind": "chunk",
-          "sha256": "013cbbdf63353ea68c5d59b62e04f4a959e725a830e25653dc43964bdb7ac025"
+          "sha256": "0010cbca6990704c56524df98210b97ed1c656e0e2446ca787e9d16fb63b100a"
         },
         {
           "fileName": "assets/phaeton-b1-0.640-BP21E3Yf.webp",
@@ -1483,27 +1729,27 @@
           "sha256": "e491d55dfcd0c3754f7569551f39ed93ef50f68129898531a7ee56c23561583c"
         },
         {
-          "fileName": "assets/web-5qvFgB1M.js",
+          "fileName": "assets/web-B4gH66Da.js",
           "kind": "chunk",
-          "sha256": "48434533931add38d38745173f1cbb85bc9838063ccf551e14fff3ffe59921b8"
+          "sha256": "9b69ff59cf64428467917a68b95b6396e355c95dd5a10e6a8522d211d674bbb6"
         },
         {
-          "fileName": "assets/web-D1ObscAd.js",
+          "fileName": "assets/web-CITQCsxW.js",
           "kind": "chunk",
-          "sha256": "99f00f8eaa1ae6716825f55dc2dd5981fbf4b250ff7fbae1f14bf03cb71d09bc"
+          "sha256": "b45bcd5bc1d962aa415afb8b7c9b5155de61aadb1c64af8bfcc45b00a8a19c74"
         },
         {
-          "fileName": "assets/web-DTKzkCHi.js",
+          "fileName": "assets/web-DDoBRgak.js",
           "kind": "chunk",
-          "sha256": "4a8b94744bd0a620f77895f20ec6617114181f09ac0657b0b0c9133422c2ad79"
+          "sha256": "c4ff2a0cbbedb52007949d25f810fda39c084e3adf800f3f21424ed0a98a5f62"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "e654ca3486a643e82e6433270f353f24ba4ea3450ba59b85058d2ebb350d567d"
+          "sha256": "b676793ff9e3d273f6ccada568b94996cc8652fedbddef42d31bbf884f69f02d"
         }
       ],
-      "evidenceSha256": "8907f6790e36ce7b15179b685c47ece407521c1637189362f76f7e358e399928"
+      "evidenceSha256": "b75e2515d3af80c05c2b5dbcc5029cb4c642af17bc8c7fdeffb9ef68e7628faf"
     },
     "allPackages": [
       {

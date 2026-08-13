@@ -1,5 +1,6 @@
 import b3PackObjectAuthority from '../../../config/b3-pack-object-authority.json' with { type: 'json' };
 import b3ProofPack from '../../../config/b3-proof-pack.json' with { type: 'json' };
+import downloadablePackAuthorities from '../../../config/downloadable-pack-authorities.json' with { type: 'json' };
 
 // The registry is the config-driven table of every pack the download path may
 // track: {packId, version, requiredEntitlementId, ceilings} plus the object
@@ -167,9 +168,28 @@ function readB3Row() {
   });
 }
 
-// ponytail: one config-backed row today; new shard packs add their per-pack
-// authority configs here when E2.6/E2.8 build them.
-export const PACK_REGISTRY = Object.freeze([readB3Row()]);
+// Downloadable shard rows are config-only: after the owner signing ceremony
+// and R2 upload, each shard's object facts (signed-envelope sha/bytes/etag and
+// archive sha/bytes/etag from the tracked authoring report) are appended to
+// config/downloadable-pack-authorities.json and appear here without a code
+// change. Rows are validated by the same closed authority contract as b3.
+export function readDownloadablePackRows(table = downloadablePackAuthorities) {
+  if (table?.schemaVersion !== 1 || !Array.isArray(table.packs)) {
+    fail('table is not the approved downloadable-pack document');
+  }
+  return table.packs.map((row) => assertPackAuthority(row));
+}
+
+export const PACK_REGISTRY = Object.freeze([
+  readB3Row(),
+  ...readDownloadablePackRows(),
+]);
+
+if (
+  new Set(PACK_REGISTRY.map(({ packId }) => packId)).size !== PACK_REGISTRY.length
+) {
+  fail('registry rows must be unique per packId');
+}
 
 export function findPackAuthority(packId, registry = PACK_REGISTRY) {
   if (!Array.isArray(registry)) fail('registry must be a table');

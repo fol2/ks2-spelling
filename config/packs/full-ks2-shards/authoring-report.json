@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "status": "pass",
+  "artifactKind": "unsigned-shard-payload-handoff",
+  "catalogueId": "ks2-core:full",
+  "requiredEntitlementId": "full-ks2",
+  "provenance": {
+    "audioEvidenceSource": "reports/c2/full-audio-evidence.json",
+    "audioEvidenceSha256": "8919c93afb9113c07519740be15567510f012652463c8a5fee133655a536da60",
+    "payloadTransform": "none; payload members are bit-exact copies of the tracked content/full-pack sources",
+    "encoder": "none; no re-encode was performed",
+    "hostFfmpeg": "not invoked (host has ffmpeg 9.0.1; the C2 evidence was authored under the pinned 8.1.2)"
+  },
+  "shardCount": 15,
+  "assetCount": 8946,
+  "shards": [
+    {
+      "packId": "full-ks2-shard-01",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-01-1.0.0.zip",
+      "fileCount": 547,
+      "archiveSha256": "1debf2909614037df7d5c6b2109192c18508e915e82202e2990b0a03f57713dc",
+      "archiveBytes": 29903190,
+      "archiveMd5Etag": "e5ddd0bfe55d70a1c2e61f452bcadae2",
+      "canonicalManifestSha256": "39af2c64f8b39f249c90ed80c70f16e9d9752d0d5798255eb3365247036175bc",
+      "canonicalManifestBytes": 79295
+    },
+    {
+      "packId": "full-ks2-shard-02",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-02-1.0.0.zip",
+      "fileCount": 589,
+      "archiveSha256": "4ed73ed23b05e32a85747f1e2ffcb4ca67ea0706786677d039f42a9b88a5e3ee",
+      "archiveBytes": 30516248,
+      "archiveMd5Etag": "4104062069f49fb99b872d287502f20a",
+      "canonicalManifestSha256": "5004421e123d1b8404a1a719801d0a5889eaf8f40161a93324902b2969b29f84",
+      "canonicalManifestBytes": 85399
+    },
+    {
+      "packId": "full-ks2-shard-03",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-03-1.0.0.zip",
+      "fileCount": 589,
+      "archiveSha256": "25f7034b3eaca66a54d23b8bf3e53959c4c7291f5a9cd3589f76c7d6c11407ff",
+      "archiveBytes": 30540965,
+      "archiveMd5Etag": "dbea51162d3220f8437f076515ff8cc6",
+      "canonicalManifestSha256": "f572baa513358529de9bf8288afc290c54a7c93f84066b0d662111865d857138",
+      "canonicalManifestBytes": 85569
+    },
+    {
+      "packId": "full-ks2-shard-04",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-04-1.0.0.zip",
+      "fileCount": 631,
+      "archiveSha256": "0217dd45763b542c98c5b87004a745a12afdafa92dec3a5518d0bec5c48fd984",
+      "archiveBytes": 31482320,
+      "archiveMd5Etag": "85784350d026c949528aca9018dbe638",
+      "canonicalManifestSha256": "815ecd1ae2518056a66bdf2cb421581f20abf1446e065b876ffc816506cc1b20",
+      "canonicalManifestBytes": 91083
+    },
+    {
+      "packId": "full-ks2-shard-05",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-05-1.0.0.zip",
+      "fileCount": 631,
+      "archiveSha256": "99654ca962228e95f51da10a2793fb12b59fba6ed62c4a15c6e4d43725d73aef",
+      "archiveBytes": 30708118,
+      "archiveMd5Etag": "f02789eb9886569a343b0141973afa54",
+      "canonicalManifestSha256": "cfd23ac8a882c7f9f332158cc33da6774e4c9319357b129bf301862658b63abe",
+      "canonicalManifestBytes": 91503
+    },
+    {
+      "packId": "full-ks2-shard-06",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-06-1.0.0.zip",
+      "fileCount": 631,
+      "archiveSha256": "8a4b5c98e4242757983dababdd1e49515a7b6f5847778d9829ec9a9c5e1cc763",
+      "archiveBytes": 31518849,
+      "archiveMd5Etag": "ae325951eee3db100348746a0a52bd2d",
+      "canonicalManifestSha256": "adbaa61e6cca6b0bd366c47547aadfefdb3c1f64e1b691f20877d61dfba66bb5",
+      "canonicalManifestBytes": 92007
+    },
+    {
+      "packId": "full-ks2-shard-07",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-07-1.0.0.zip",
+      "fileCount": 631,
+      "archiveSha256": "857144af6f065230147bcaee48d3f7518ef3a4308a5569ad71f2fee91bd41077",
+      "archiveBytes": 31603401,
+      "archiveMd5Etag": "b9354bc379723b002e6a2ef2816e5545",
+      "canonicalManifestSha256": "035f44be7d51d55bcb1938440cf53abcef3ec468840918716c581d931ad0605d",
+      "canonicalManifestBytes": 91671
+    },
+    {
+      "packId": "full-ks2-shard-08",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-08-1.0.0.zip",
+      "fileCount": 631,
+      "archiveSha256": "705f8a4f0b05598b66f08b20187c366c762751ff669fb2f13c89d9e1c0f342c5",
+      "archiveBytes": 31670056,
+      "archiveMd5Etag": "06743359d7123b0595bf340b715a243c",
+      "canonicalManifestSha256": "c1101996f6c1cdaecea2dcd27af15a33466fbd5374c2b5ac89f3680ac87b70f3",
+      "canonicalManifestBytes": 91671
+    },
+    {
+      "packId": "full-ks2-shard-09",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-09-1.0.0.zip",
+      "fileCount": 589,
+      "archiveSha256": "cfeea4bea6f1ab682083693c6dc217c72a1e8e1b5c336fd53482c79c8d719400",
+      "archiveBytes": 29345941,
+      "archiveMd5Etag": "b0a5ea3280276d8059f32dd5d4fc0071",
+      "canonicalManifestSha256": "d0fe2cf38f1f421883821bae91409818b644b04a5cdad4fd534e4f6ccf3a62da",
+      "canonicalManifestBytes": 86197
+    },
+    {
+      "packId": "full-ks2-shard-10",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-10-1.0.0.zip",
+      "fileCount": 589,
+      "archiveSha256": "42c4971d3c91fedcc780da97923a81cb9d87f11f6a70d6aea185dfff52cc343e",
+      "archiveBytes": 30777415,
+      "archiveMd5Etag": "56fe10a89ae908b7f03276bb7c83c467",
+      "canonicalManifestSha256": "1d84d7d521c8e99a7eac54a7b8dfa776fa20156a543ca5543b43d6769261c059",
+      "canonicalManifestBytes": 86785
+    },
+    {
+      "packId": "full-ks2-shard-11",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-11-1.0.0.zip",
+      "fileCount": 589,
+      "archiveSha256": "4ac56724085d9f96d5659ec1dd14af7db03aad5c3cd38689a67cd3aadbf7133e",
+      "archiveBytes": 30989155,
+      "archiveMd5Etag": "899857fa96bce3974adb0d984aef1cb7",
+      "canonicalManifestSha256": "c85e2ffc274f060dae9b85023f00fe4ffe738e98758a90cec103a1106fe83681",
+      "canonicalManifestBytes": 86366
+    },
+    {
+      "packId": "full-ks2-shard-12",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-12-1.0.0.zip",
+      "fileCount": 589,
+      "archiveSha256": "c00bf92a8619c191eb1b29b025e302b3e10e34d89e3798077f4842fe2d04c68f",
+      "archiveBytes": 30463493,
+      "archiveMd5Etag": "ac4ed5a4b3e80efc1dc85bfd48f806ea",
+      "canonicalManifestSha256": "551a812586ebbd2c145a1b5372728a6670df357e8492bead3b5ddb7cf85919dc",
+      "canonicalManifestBytes": 86492
+    },
+    {
+      "packId": "full-ks2-shard-13",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-13-1.0.0.zip",
+      "fileCount": 589,
+      "archiveSha256": "df2281f3cbbd77cd10ee88606de4287684ae858cc38ecdb9f1739abd458355e1",
+      "archiveBytes": 30518034,
+      "archiveMd5Etag": "a35b7da57f14e4c9d6389a0542f0cc2c",
+      "canonicalManifestSha256": "8dc08cc98cfc3284ef6695a360bf82d69ead345caa8486f4ede529f9e62de4f2",
+      "canonicalManifestBytes": 86155
+    },
+    {
+      "packId": "full-ks2-shard-14",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-14-1.0.0.zip",
+      "fileCount": 589,
+      "archiveSha256": "4a91867758bc18cc8a1359a41b10ac9a56af4e5a5ba4d1822658a9f66a291f55",
+      "archiveBytes": 30198014,
+      "archiveMd5Etag": "eaeb28c91d01f5382cf22fa0d0eddc70",
+      "canonicalManifestSha256": "27e0516dc303a90439df8a3daad252cff3b22e8b8c230be6398b19f4e726e86c",
+      "canonicalManifestBytes": 86113
+    },
+    {
+      "packId": "full-ks2-shard-15",
+      "version": "1.0.0",
+      "archiveName": "full-ks2-shard-15-1.0.0.zip",
+      "fileCount": 547,
+      "archiveSha256": "2a2ea513044d61976068cb87e7039349effab336d7334de2591a05b4aa4db6a3",
+      "archiveBytes": 27291512,
+      "archiveMd5Etag": "0a3b982d288957d463999b6221324dd4",
+      "canonicalManifestSha256": "7432daa7397196f9d3c61b54bf583af61574d814fd7cb13b298e2acbb54959e5",
+      "canonicalManifestBytes": 79547
+    }
+  ]
+}

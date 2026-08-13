@@ -1,0 +1,2952 @@
+{
+  "schemaVersion": 1,
+  "status": "pass",
+  "catalogueId": "ks2-core:full",
+  "packId": "full-ks2-shard-13",
+  "version": "1.0.0",
+  "shardIndex": 13,
+  "shardCount": 15,
+  "assetCount": 588,
+  "assets": [
+    {
+      "assetPath": "audio/iapetus/muscle/word.m4a",
+      "byteSize": 5284,
+      "sha256": "d780bcb6a48305888db1aac4846e53fe216d2e9984988f5187f45758433a759a"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-01-normal.m4a",
+      "byteSize": 46090,
+      "sha256": "ae6b448768bcfcc8ecfc5f1c74234e7ff6b170e09abbaec6817280d96332577c"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-01-slow.m4a",
+      "byteSize": 55236,
+      "sha256": "a746e1d11a1c40e97d0f0e6c60a2060a2695fd77d7c1656ede47802320f09aa3"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-02-normal.m4a",
+      "byteSize": 42733,
+      "sha256": "4a4c6b24402269521fcb5431274ac8bbcb39b93d1bc0e5c71ad41d01a03505a6"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-02-slow.m4a",
+      "byteSize": 54620,
+      "sha256": "82fd9cae724905b85c1f25b85fe885b5eaf69dc512398c0975d10ecca7dbe7f8"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-03-normal.m4a",
+      "byteSize": 44400,
+      "sha256": "229cdeed7a44b03986ce42a882184344338957f6f30f4c3d4841462353433d30"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-03-slow.m4a",
+      "byteSize": 55015,
+      "sha256": "4284b39c5e3a0250dba90fa1160c40a6571cbdc840d27cc129c51e61fbd30435"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-04-normal.m4a",
+      "byteSize": 41907,
+      "sha256": "1912dd008eebfee9fd7ffeccd1ef2130575f3e479a833a6b5696b2aa35c825eb"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-04-slow.m4a",
+      "byteSize": 48858,
+      "sha256": "6b3f1a0bcff891143f5bb245fa6cbd1db4abcd409529953b2e74d9cc7271bddb"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-05-normal.m4a",
+      "byteSize": 52043,
+      "sha256": "0b196a7d8b546f2f2b9b12469f22835378fa9f654eec369af5d6c7bd1029b75d"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-05-slow.m4a",
+      "byteSize": 63462,
+      "sha256": "0c9206f70849e0d7666892682a017dfdd0455192444794a1c2f66f8d09530ad2"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-06-normal.m4a",
+      "byteSize": 42439,
+      "sha256": "634630e5d3bcb6bdd58c998866a152e5820f6cef6ff794423c020ed618ee53a1"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-06-slow.m4a",
+      "byteSize": 55168,
+      "sha256": "9ce15b52b01490d87f9992019bfd08cde4baf9596c810230724da8e8597f14fa"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-07-normal.m4a",
+      "byteSize": 46919,
+      "sha256": "e739129f423d860236e93f28f097f67d38693fba17c6c55bd0da4dfd771a3eb7"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-07-slow.m4a",
+      "byteSize": 57966,
+      "sha256": "6e2e14923649d14acd2998b3b00fe6da9683c6b03f50afa10edb7c203c3157fe"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-08-normal.m4a",
+      "byteSize": 49989,
+      "sha256": "feaf4444d2a01a19f6134f237d53d81c2b2b0e1aabfd08cc15800f9294132920"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-08-slow.m4a",
+      "byteSize": 54126,
+      "sha256": "485186fb142bb05de9f83cbb4918d199519c757528f462c4c223cd619f6f9fd3"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-09-normal.m4a",
+      "byteSize": 46378,
+      "sha256": "35bc5a81db1f429357b156401efc0e4bda91c4e0eba07fc73496d30511c803c1"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-09-slow.m4a",
+      "byteSize": 58933,
+      "sha256": "6426f03588c17accf202d7c4d56c3db1d4cb4304216a0bdb7441a01de23e1fac"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-10-normal.m4a",
+      "byteSize": 51613,
+      "sha256": "bef2c2ef360cfed1eb5024db00a31351588ee82f474da74c9820011a95b4b7b3"
+    },
+    {
+      "assetPath": "audio/iapetus/muscle/sentence-10-slow.m4a",
+      "byteSize": 57907,
+      "sha256": "7457c9778e9268bf7ae13680dae7550496f615279315c5b413d715cc2aa255a7"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/word.m4a",
+      "byteSize": 5490,
+      "sha256": "43924e651d356d2ee40e561e6d1d022690c5dac4802755bcb9da2cf31a8ca955"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-01-normal.m4a",
+      "byteSize": 42156,
+      "sha256": "5362f954b0ac2253f73a59c4cb3eb176f3d834f600c3140c48f8176b7d084bbf"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-01-slow.m4a",
+      "byteSize": 50156,
+      "sha256": "34e63fd6cb305d1f89505ed1d16a18c7b48739475a03b0fbf9efba31caa6e0fb"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-02-normal.m4a",
+      "byteSize": 44298,
+      "sha256": "f0c468412d66b545870627b0934a4a907ae62378bea07030e4baced93896a68b"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-02-slow.m4a",
+      "byteSize": 51249,
+      "sha256": "6a21af48c38bf2b59f4c1d008ea37bf9acecdf335e102d84ee29b3de9b8976c1"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-03-normal.m4a",
+      "byteSize": 45182,
+      "sha256": "12bce6afcda451166f2ee689d8571cc23e9dc1908e43fc956072f39fbbda63e3"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-03-slow.m4a",
+      "byteSize": 56246,
+      "sha256": "707832104f45bdeea4b3c9164a9431e35b9f7727963da97ed89ccc5f9524529b"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-04-normal.m4a",
+      "byteSize": 50212,
+      "sha256": "7a6359400d06d122908bda15fc0b48196614c9f877097cac22505388d0be102c"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-04-slow.m4a",
+      "byteSize": 52957,
+      "sha256": "7985e3cf82a1d16f79101141d05decdeabc1022dd2dbf6bd1fedb6ed9c39feb8"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-05-normal.m4a",
+      "byteSize": 42385,
+      "sha256": "34d8d8d07d9b2d72a38c5bcdbf4570ce0a94611fc688a01da9d06d2ed62dc73f"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-05-slow.m4a",
+      "byteSize": 47543,
+      "sha256": "03383237244247c0a2fdf93290dd3d399b180a41c31de41e676eee5a983fda52"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-06-normal.m4a",
+      "byteSize": 43237,
+      "sha256": "63152ea5fc75330fa52354de806ecd3a74a64d4ffd8117c4f73be5e73f5ef40b"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-06-slow.m4a",
+      "byteSize": 53407,
+      "sha256": "55200e16f101f4f36d86871efcf1d76682330092c44881996a1dc388ed9f83c8"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-07-normal.m4a",
+      "byteSize": 56344,
+      "sha256": "74185e0cb3e6cc3fe0fe34d9f6d92d1d27a9cffb8081ac3c7230e181b32a7284"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-07-slow.m4a",
+      "byteSize": 66795,
+      "sha256": "786896cb531cc40ba0fd30e5bdf3afd5946c297dac7d7a189c83cbc9770f6034"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-08-normal.m4a",
+      "byteSize": 49522,
+      "sha256": "b4513218465a0de47a48e4db58ac930efeb03cf8e7b430a267499c761b0ae2af"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-08-slow.m4a",
+      "byteSize": 57594,
+      "sha256": "f4f2329dd849df24754e9d484ff94b408db8e148b68ba5d9a20fe396427f11f8"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-09-normal.m4a",
+      "byteSize": 43962,
+      "sha256": "8bc44858a6bee0140c4de67f222e5ca3025ef35c89a43718899754d4995c7468"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-09-slow.m4a",
+      "byteSize": 54379,
+      "sha256": "5bb61f83688c1ec6a6730377ed760812e83dad5df12f0b57b4a5b99640efb5e9"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-10-normal.m4a",
+      "byteSize": 44760,
+      "sha256": "d59e15895be74d8504b68f3374f0a7f537fe578c1059c5d236ec07d179e50845"
+    },
+    {
+      "assetPath": "audio/sulafat/muscle/sentence-10-slow.m4a",
+      "byteSize": 58168,
+      "sha256": "84d125670f66a09c86505cf2b5bf46536fb5fb02420a6d0f3222bb644a04544c"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/word.m4a",
+      "byteSize": 7467,
+      "sha256": "aa610ad9a0ae0a3f545621ba5bcf7918fc7e5665cd52db0c0bc82dbde235dc29"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-01-normal.m4a",
+      "byteSize": 45956,
+      "sha256": "a98277d4bb6d0fe7cd609eb94f00dc22ff9625882957a79f260d66d9a4241f75"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-01-slow.m4a",
+      "byteSize": 52999,
+      "sha256": "bfaccaf52f9ddb16d4cd3a7833bff64ae19652ebe1d60ca62450319b0ad05cfb"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-02-normal.m4a",
+      "byteSize": 48354,
+      "sha256": "bcd551f05d49cb217f1d7620dcf95cc8a39c4515e1706a2c6f9257daae3172a4"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-02-slow.m4a",
+      "byteSize": 58942,
+      "sha256": "1bb81c425b49e88c21d20505502d59a693aec5d9c16cade81cfa3fbea6f0633d"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-03-normal.m4a",
+      "byteSize": 46487,
+      "sha256": "946db6c58bcf5c57a3dbe2b96f0bcf92667b2f4adf46bd047f13170ef0dc652e"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-03-slow.m4a",
+      "byteSize": 55908,
+      "sha256": "ad1305d867817f23e89f0e00b8e8b1f7ad92a3d1a4dda63b36d6062374f7e1ef"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-04-normal.m4a",
+      "byteSize": 53207,
+      "sha256": "f9a3474665fd07288da92067cfd3feaa689c18d65c15856627131c6ed4b7b4a6"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-04-slow.m4a",
+      "byteSize": 64620,
+      "sha256": "73b42d071d8d63c4e5a00093498860ec0732990746276dca0f022fab99312c5e"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-05-normal.m4a",
+      "byteSize": 51251,
+      "sha256": "64b972f9850f9dde29fd2abe6fbc477f7bc74cea8c387659ed88bf141c46524b"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-05-slow.m4a",
+      "byteSize": 61754,
+      "sha256": "ed62fec8fbc63cd50e0ec8fc0fe682e16902fe781e1dee78028e1cb2dc712513"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-06-normal.m4a",
+      "byteSize": 43406,
+      "sha256": "d455c79e2dc40af88f46d60e67d8fb3ba2451ec57899c860c17f7a9e26c8acd6"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-06-slow.m4a",
+      "byteSize": 53553,
+      "sha256": "720bd94525fcc726675de3169bc102edea9b8e0fda8d6b25ac3e10e18614ded8"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-07-normal.m4a",
+      "byteSize": 43975,
+      "sha256": "44753181676764858b9ba10880edc6a5f3a64415dc4de5c46e351e0cf8edd102"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-07-slow.m4a",
+      "byteSize": 54794,
+      "sha256": "882b33aac5265faec1818de45f4a4bc3c8698a44cc0e9ba70f3eeea5a04d948c"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-08-normal.m4a",
+      "byteSize": 51804,
+      "sha256": "22fcab6cbf4de0443ad50d8853a1b30315afc8e34a8f9a6da333035f32979f7b"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-08-slow.m4a",
+      "byteSize": 54713,
+      "sha256": "d4ee66d66679bb47d6e113f621d4ab590820c0d2255b595fecf152ec0e550796"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-09-normal.m4a",
+      "byteSize": 50864,
+      "sha256": "4e08e2db7ed2e7db464e07bcdeb8fb46dd7d8444f2bd6fd814394e5f411d2d03"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-09-slow.m4a",
+      "byteSize": 61589,
+      "sha256": "271395f28c0c6d0e0c05064e32765befed5465ea27cbac57d9f7a69113be5247"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-10-normal.m4a",
+      "byteSize": 47297,
+      "sha256": "b7c910d0db19410d3aa7cafb4c49082266b5667185298ceb16994c8911bf0985"
+    },
+    {
+      "assetPath": "audio/iapetus/necessary/sentence-10-slow.m4a",
+      "byteSize": 54005,
+      "sha256": "ca5cfadb46c1874ad5132505538fec1ef142e547141b647c22876f82accd3e5c"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/word.m4a",
+      "byteSize": 6523,
+      "sha256": "f403fc3733e438036595e9bea6d89ed88a3c8f3700f0388668728cc51787a3bf"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-01-normal.m4a",
+      "byteSize": 50456,
+      "sha256": "57ea12a3575f1009a32c1929fc8a8291a1403e7638217a48ee106d0df1acb6d9"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-01-slow.m4a",
+      "byteSize": 60984,
+      "sha256": "208bff506ff1160eb3d4f1737d9fd1f83ab5a2a9202b70a636e0b17af65dcd5a"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-02-normal.m4a",
+      "byteSize": 49820,
+      "sha256": "b0200866fbefe4bb2fd590d3b12cce4a9133dbdf506eac199a20eb72dc3e56bb"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-02-slow.m4a",
+      "byteSize": 59739,
+      "sha256": "94417865918b8057e0254dafa85cf37f6c49fa52c6114ebd63a13695ff1f36d7"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-03-normal.m4a",
+      "byteSize": 46219,
+      "sha256": "7638502d3e2ee3aed5f733d5fdc2d6c359632dc2b207871a86d1798a840124e2"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-03-slow.m4a",
+      "byteSize": 48781,
+      "sha256": "fb87d33f7720f340592163e75ac1b0701cfc729bf40cd4e4b22db1a073764470"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-04-normal.m4a",
+      "byteSize": 51932,
+      "sha256": "4c48a4846f3eb6d770de22647d9d34500bf9eab1a07bda1bf532db0f876225ee"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-04-slow.m4a",
+      "byteSize": 63038,
+      "sha256": "aa5b92b2fb0b4fe8218c3ee86dd3bc591305534d76f693586a0cf137161d4d78"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-05-normal.m4a",
+      "byteSize": 61843,
+      "sha256": "7343a0e5d3c8f1a83d8bc3bfe7b35a234cf63bc46aabc8c8b58fb46b7fcc2030"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-05-slow.m4a",
+      "byteSize": 80394,
+      "sha256": "c9e209af21be9bfa6d47466864102fff6cbad39ad2a76e2c590dc58bd2d3eaeb"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-06-normal.m4a",
+      "byteSize": 48711,
+      "sha256": "ce0acf377892a2e2ce4639f827ca0a391b5c47abe77f822eb8b272c812ad57c4"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-06-slow.m4a",
+      "byteSize": 61756,
+      "sha256": "2b44e5cdb4cc952058053c470b40235e82ba5548fdca3cfc27079595a75e1075"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-07-normal.m4a",
+      "byteSize": 42566,
+      "sha256": "3aa19c03ad0d78baecec7867bcf6b36c865b2510b187e966f0a9254b42cb54d1"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-07-slow.m4a",
+      "byteSize": 59594,
+      "sha256": "3589f3686090eb5d9c9cd5ef1231aa2b8c060a56d138ae14b137c8eaee5465fe"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-08-normal.m4a",
+      "byteSize": 43805,
+      "sha256": "29f0f6e953d3568668f3f4afab2bebede27fbc26b77fdf04694c00c87ed06223"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-08-slow.m4a",
+      "byteSize": 46817,
+      "sha256": "117d6ddbdb9478186b8a55cc2e11f431e9d727b75ebedee1592aa7e1522423a3"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-09-normal.m4a",
+      "byteSize": 44367,
+      "sha256": "dfa53074a9e2bbde1a1c6ba317e974475738a5557b925213aa8a493af313d649"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-09-slow.m4a",
+      "byteSize": 54558,
+      "sha256": "7636e601c913a65c9844aed1d3aebb640f500e3c2249044d8d72a528946276c9"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-10-normal.m4a",
+      "byteSize": 44699,
+      "sha256": "b8bef6faf5c375feff34346d81dd0784456439cf05e652b469b200165c042930"
+    },
+    {
+      "assetPath": "audio/sulafat/necessary/sentence-10-slow.m4a",
+      "byteSize": 52092,
+      "sha256": "18da6436788c19951222320bd21d850e7c6cf65c10526e09fa1e48d21ac42cf2"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/word.m4a",
+      "byteSize": 4806,
+      "sha256": "4879fb0e2aaba933e536d64e7743a2df00d6a4680a66c890dfe440cc03cd9be9"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-01-normal.m4a",
+      "byteSize": 42300,
+      "sha256": "2ac4bc0d84a55c1371f5fb1f6b28fde0ab86330e844757c18fe55d7a37c89b53"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-01-slow.m4a",
+      "byteSize": 45213,
+      "sha256": "d23d527e6bb80ed70140723e3e98c0518518a8877ee0f811aae71975d7ee1907"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-02-normal.m4a",
+      "byteSize": 44158,
+      "sha256": "0a34c957401b9e69f6ca0c80e136082213950ee4c1c9ff22f54d51b6dd206613"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-02-slow.m4a",
+      "byteSize": 49254,
+      "sha256": "6df115c7c055f6da2cad35be8a3598dd1e4ac74e184f149dcf846347b0d769ab"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-03-normal.m4a",
+      "byteSize": 42739,
+      "sha256": "86ef1ac500978d0cf2172f0ff022fb27fa982bc3510e86155da650f8170fc10c"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-03-slow.m4a",
+      "byteSize": 50652,
+      "sha256": "30752ca934e75dec7e903538e3d766e3a5bd95f3022f01c1749b062c487324e7"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-04-normal.m4a",
+      "byteSize": 44589,
+      "sha256": "22e6c2438376903fea85afecfdd1808748109dd42a4544b285688dc421ff90fd"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-04-slow.m4a",
+      "byteSize": 57623,
+      "sha256": "a7da601fbb08fe909b36bd56f533442541c1d13948fce0a2a0cef3a17df7041a"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-05-normal.m4a",
+      "byteSize": 47066,
+      "sha256": "4e0955bdc7f522da726364fae5aa8eb135302e10cde7f73f67a1478dc1975894"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-05-slow.m4a",
+      "byteSize": 58311,
+      "sha256": "260eee695209e81c463f54293482ba5f8f0f31bcc7c87cf272e7ef42df442498"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-06-normal.m4a",
+      "byteSize": 44284,
+      "sha256": "40c03fb8776f8bc0095412ac647d72b32ace7ed1d10ef8e06c5e65dc30151744"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-06-slow.m4a",
+      "byteSize": 53540,
+      "sha256": "4f330cd04a37bc7f2f535e38387b081638c92e77b5979c9bff69a306bbdde2ea"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-07-normal.m4a",
+      "byteSize": 44849,
+      "sha256": "ff13cb7a28e9904e6a47516830ab48ba07075d8d96043d4a58f8e1253ad6c013"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-07-slow.m4a",
+      "byteSize": 56460,
+      "sha256": "b25c149c6b449bcfdc250499e3995a613b4663ca852240e3c37461bd4c820343"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-08-normal.m4a",
+      "byteSize": 43359,
+      "sha256": "50b10ce18c76309da99b85ff2bfeaf0a4c92a8fdc3f169d700401ee3ea2dd285"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-08-slow.m4a",
+      "byteSize": 49744,
+      "sha256": "fc65b3bb73a5813f0446a7fe672807fce0c0b1975cdbccb13a1eb19657b48a63"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-09-normal.m4a",
+      "byteSize": 44138,
+      "sha256": "b7450135351596ec2b53d741a7c51d625bcf286fed27796e3d09ae82dd714167"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-09-slow.m4a",
+      "byteSize": 50386,
+      "sha256": "7c774d02a0bd53326a93739229abc0df7af57dd89db0252546d982444b13d441"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-10-normal.m4a",
+      "byteSize": 46172,
+      "sha256": "7309f8df375c7c238a6ea06594386bb3c8b44dcdaa76242e08c772288520d005"
+    },
+    {
+      "assetPath": "audio/iapetus/neighbour/sentence-10-slow.m4a",
+      "byteSize": 51702,
+      "sha256": "2f6ffc882a7cde17ad1914d9c376790176b47904eb1d3db00adc1da83842aeed"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/word.m4a",
+      "byteSize": 5463,
+      "sha256": "8a4031098aa65927e97b7110579f3d97e87920f055d1b12197117937002bbd06"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-01-normal.m4a",
+      "byteSize": 41131,
+      "sha256": "12620d2da10f0fbd76529db85c47ca14fb23b0d2c9d09714abd78e2a8aec069e"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-01-slow.m4a",
+      "byteSize": 51033,
+      "sha256": "33fcf39b7b53c6f64fb0351f0e5dbe4ba5de6a49cb4036c07b3dbcf4934d8a14"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-02-normal.m4a",
+      "byteSize": 47796,
+      "sha256": "fa8f1a8c02069b7e8d49a2d4df6c41e9496e4c883ecf21ecebecf05aa5b20328"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-02-slow.m4a",
+      "byteSize": 54539,
+      "sha256": "2ed64b64209b990a365ae6d814dd91a21d2856bc47551270737dc87d48943454"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-03-normal.m4a",
+      "byteSize": 42117,
+      "sha256": "f83d091bf9886ffa63d1227faa48bcd43334831bb0ce6c9fff7baf6ebb6506fa"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-03-slow.m4a",
+      "byteSize": 45561,
+      "sha256": "b596bee87836cc732fdb742b8c3f231b519090b976660f80e0e6be5a6912c31d"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-04-normal.m4a",
+      "byteSize": 45593,
+      "sha256": "a58cde3aadf65a53a45ff618857b75378a262a9a531136f5f594e15e25945e59"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-04-slow.m4a",
+      "byteSize": 57403,
+      "sha256": "83ee56dcd4d8fca854814e52f489b0dfa08d25d86c6b29558644ad550015d1ae"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-05-normal.m4a",
+      "byteSize": 40153,
+      "sha256": "50bf240fc582a310c25f3e5934d98598f0e306398caf07f254e082b15fbe730a"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-05-slow.m4a",
+      "byteSize": 47956,
+      "sha256": "46ff3f354087fbe1bb7d406a23dca46ff2b6f79805b27a4ebbdd09e3e2fb7cf3"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-06-normal.m4a",
+      "byteSize": 50900,
+      "sha256": "fa23fa62417788749a68e1f19d7264dd7c7b167242b54df066525d170e448a9e"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-06-slow.m4a",
+      "byteSize": 62654,
+      "sha256": "d82aeef4e3ae8a470e3fec10b96a4db94f40c0ef1bd9c4263ee11d02358f88dd"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-07-normal.m4a",
+      "byteSize": 49288,
+      "sha256": "81d8bd4ffb6516603f122a138411fc5b4f84b8b8e1aebd3199b53f2136e0122f"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-07-slow.m4a",
+      "byteSize": 49216,
+      "sha256": "4940607450246be038f20bc8533a615ffcbf3bde68ac725288a7abc16ab5c69c"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-08-normal.m4a",
+      "byteSize": 48087,
+      "sha256": "531a48c823cff13143da1520c925016bae9aa4a16483678813f0b9236a038249"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-08-slow.m4a",
+      "byteSize": 51667,
+      "sha256": "d1a6f8a997ca0d22a48b0399e0d24f1f9a0fe1b36b157fbbc25c7404930224d7"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-09-normal.m4a",
+      "byteSize": 43586,
+      "sha256": "aec073c6d6d182751bd6c130a29284bd6330b5b4fd1270fec1114eb5f0683c25"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-09-slow.m4a",
+      "byteSize": 49153,
+      "sha256": "e406994ebec241f80b179b6e3b2a3394fd142c97e5d82308b6e10898ab10cb3c"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-10-normal.m4a",
+      "byteSize": 44378,
+      "sha256": "10698b091207d8f659f17bbc4a16431fea98d3b57875354e1c55e52f2e8ef82c"
+    },
+    {
+      "assetPath": "audio/sulafat/neighbour/sentence-10-slow.m4a",
+      "byteSize": 50410,
+      "sha256": "cb97e9d50211bd1c95725bb4b36c108b3fada8494380bc76bcf6c271461b0a15"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/word.m4a",
+      "byteSize": 6669,
+      "sha256": "bc94009d0e0bd8e5e1871bafeeb4efd449d42b98ab5f83f1cc3fefcb0574f928"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-01-normal.m4a",
+      "byteSize": 49656,
+      "sha256": "a5226d5f00a07fe394d4726c1d0dec7add11602061c25c7c5f3a163b73325458"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-01-slow.m4a",
+      "byteSize": 62989,
+      "sha256": "8c8b1392d773fd13c65d317edaf0f1268c30281b93bdf9c93764631cf0c48cdc"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-02-normal.m4a",
+      "byteSize": 42926,
+      "sha256": "e64e2da257460b8e6047255873ee643f2824ba9cb2e332f09c1654a1b5d3bc13"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-02-slow.m4a",
+      "byteSize": 54656,
+      "sha256": "6e0f4915bd0b3d260fdadfe30ce4f7fb3b100f54166985a687a3aadf98c036a3"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-03-normal.m4a",
+      "byteSize": 48196,
+      "sha256": "e175ad5fa87fb56809e7718db8ac0042e2ba56d6b7288f001a621aa1bb33a381"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-03-slow.m4a",
+      "byteSize": 53095,
+      "sha256": "f106704862f83fe248bd71b5434dda117c25ddb4ab87c86b3c36ddacf9579a48"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-04-normal.m4a",
+      "byteSize": 49113,
+      "sha256": "faf498f14f49edb9bc756b90ad917d470f4dfc4cbba6c328bd7874a78f685235"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-04-slow.m4a",
+      "byteSize": 59686,
+      "sha256": "90033887199ef97bd79102301d458f8daf9fa003172cdfcd0037715b1ac9c910"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-05-normal.m4a",
+      "byteSize": 46463,
+      "sha256": "6eb40803409d7972e48e816f654c9e669f8bc5eefaf58e046175feb7a031a87b"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-05-slow.m4a",
+      "byteSize": 50406,
+      "sha256": "121dd3328af45f0d5546f185a652ead04ee3fc4c9d610ea7a946ec8aad31263b"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-06-normal.m4a",
+      "byteSize": 52383,
+      "sha256": "d443ca01223b859d116df8bb3f2cca1bb9df6f85b7a7236bfcda628f0ab5eb01"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-06-slow.m4a",
+      "byteSize": 67726,
+      "sha256": "ba5a16d7b531b0ca224f483d3ab835086c382ce472b09af287f1b3c563c0156c"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-07-normal.m4a",
+      "byteSize": 47687,
+      "sha256": "5b351187b78b04828a8bd540611c59f23e135ff473efecc24bdfd3c31df678c9"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-07-slow.m4a",
+      "byteSize": 62160,
+      "sha256": "392622d2274bbb9aa9ae17aaba02a4611ca59e35ff6263e1847dc8b83854da9a"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-08-normal.m4a",
+      "byteSize": 49994,
+      "sha256": "7519f729e39f3b62ae628f611db27e372a5685e3183d5cdb85bb16c0c7452bfb"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-08-slow.m4a",
+      "byteSize": 64266,
+      "sha256": "a9f4d3ce1f6aca6bba9dfcfed0c010f94eef8f84e54f26f07f45a7e7fcdb5c86"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-09-normal.m4a",
+      "byteSize": 49291,
+      "sha256": "f82eb88ad9ee217b7547815f8fd8a9337ebe32176d927f16d5bdf4ab9edd488f"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-09-slow.m4a",
+      "byteSize": 65914,
+      "sha256": "14e831316e737eed1b2428edaea8ba272876ef681917cc474114f7d9e29bd95a"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-10-normal.m4a",
+      "byteSize": 43533,
+      "sha256": "26530798bd4f850d208c2553132817c38ec3cdf461f21179d3a13b7831d80950"
+    },
+    {
+      "assetPath": "audio/iapetus/nuisance/sentence-10-slow.m4a",
+      "byteSize": 54928,
+      "sha256": "8afc6508d2a6063630e85ac2fb5cb656c11300631be508b7f315063e4722abd3"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/word.m4a",
+      "byteSize": 6581,
+      "sha256": "df85a42cfd75746df3daf4b934510b621b9378033d8e45c02ce0d8be35071c74"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-01-normal.m4a",
+      "byteSize": 50676,
+      "sha256": "95a63e3c5526a2b70589e6e0416c1cf05ceb4f524097ff95edad5da403423e2c"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-01-slow.m4a",
+      "byteSize": 57023,
+      "sha256": "c9c247b87a6bcf4348e7070084ee76c07e9e1353b96c36a107757fde4bae40c5"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-02-normal.m4a",
+      "byteSize": 42071,
+      "sha256": "dce673d690048b4b65b4af60fa5cad71d68f223161a2990c7decdd7fe25b6d40"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-02-slow.m4a",
+      "byteSize": 60548,
+      "sha256": "74611442c4d62f6fc480e7577c070adb41060e4be4713a0debfecf93be78ec1d"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-03-normal.m4a",
+      "byteSize": 45689,
+      "sha256": "ac718d5c33ab8c8e5b1bd665ff279cee94c5ca0a454e97e0d802f5f8e476de65"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-03-slow.m4a",
+      "byteSize": 58430,
+      "sha256": "ee3cc019bb40ddc86455fc05087a7a176f7ffa83d1edc66a5920c5d42ae4a171"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-04-normal.m4a",
+      "byteSize": 44928,
+      "sha256": "fb7e2f1253fe5976cc70dd2a49270f2fbb81820cbb873907b89738b9320d930b"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-04-slow.m4a",
+      "byteSize": 59124,
+      "sha256": "47e5a0af73b88b45db1381ca0082c8b8d56a6d51cb99f1fa2d6e95c2c3977ca4"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-05-normal.m4a",
+      "byteSize": 46982,
+      "sha256": "0b94b9cac623caab40aeb0ac07a35bb8aaefacfa6c8280b5388eca49ac88c05e"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-05-slow.m4a",
+      "byteSize": 56526,
+      "sha256": "6ed0b7ffce5f9ca411b322779ce4ca4cf1fa718727028d310bc6fdf6139d2265"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-06-normal.m4a",
+      "byteSize": 45967,
+      "sha256": "ed6769e9d7ba0045e76edb85257edf7033e4e1a29040330be9554886885babef"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-06-slow.m4a",
+      "byteSize": 49096,
+      "sha256": "8bda434379892c20d2c526cc4f58fb0349278fc7cc693e41df33ef5274f61db6"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-07-normal.m4a",
+      "byteSize": 56888,
+      "sha256": "96a9555d50b8dac08a84a5e7d572dcf1ed0abb570a15c640c2a86a819d712a7c"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-07-slow.m4a",
+      "byteSize": 70005,
+      "sha256": "9251fe1f9ef4fc315a589cc9a0c3059971f414c45241fcb1590abc20760e9c78"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-08-normal.m4a",
+      "byteSize": 47332,
+      "sha256": "26ec88189837fb2e24a183949bd3d9eedc519894f82099dbdb090ee72069b05a"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-08-slow.m4a",
+      "byteSize": 62218,
+      "sha256": "42beecaf035b87aab95868b66612ea55f4d9c862d560d9558ab3ea6e9cfde1ee"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-09-normal.m4a",
+      "byteSize": 51068,
+      "sha256": "043558ebbb378b97443f0ee1fbad9634b4b512b1b029f7d77c0a5b1ffe74f64a"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-09-slow.m4a",
+      "byteSize": 57626,
+      "sha256": "f061052d427994e79e93d0c97f2848d4fb90283227464f9415c5656ab6cbda58"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-10-normal.m4a",
+      "byteSize": 50894,
+      "sha256": "9d760a5d195bcb10a496e3107adb7b553a7e6a5bf834e9d358c37837795b0e59"
+    },
+    {
+      "assetPath": "audio/sulafat/nuisance/sentence-10-slow.m4a",
+      "byteSize": 59642,
+      "sha256": "3a72ba8fea2771a85d5deb30e7f92c0b77ea0d0a4a736592313e7f6a6a3c871e"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/word.m4a",
+      "byteSize": 5658,
+      "sha256": "3c9aa9be6f261d45a1158efbbba92328613578905dd5bd0b9d1f85e7d81e745e"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-01-normal.m4a",
+      "byteSize": 48556,
+      "sha256": "7f58e0d38676771aab3dc1e6f2fea9bfd64564d2b63740bf815448a064e7784a"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-01-slow.m4a",
+      "byteSize": 52835,
+      "sha256": "5ce7bd79d7e4c20a0d9ab008771895fe214899173c3945e786d11ba797c44559"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-02-normal.m4a",
+      "byteSize": 50198,
+      "sha256": "9cdddb006701ccb84af8ee79d7fb33d54388143ba16e0688cf5e4e0d734526e2"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-02-slow.m4a",
+      "byteSize": 55569,
+      "sha256": "d9ee94efcaba7e2651ec7fc1c1d5b9d56525c5e9cad8073d83988faac80f88bf"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-03-normal.m4a",
+      "byteSize": 53342,
+      "sha256": "d9daeece84bb288b7d5c5fc73953ee13442d38c30e525fd0f3dc7bc3c1c5175a"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-03-slow.m4a",
+      "byteSize": 63279,
+      "sha256": "218b233b1722e5cefb0a2e5723e43907b6027d68bafaa0879189525498056bbc"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-04-normal.m4a",
+      "byteSize": 46762,
+      "sha256": "82feda66050b46e28c7d31501220111fb052a3ff84cb85c7678af5257042f555"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-04-slow.m4a",
+      "byteSize": 54837,
+      "sha256": "cfeb285dd3d9f931bca9a437696b46c33617d2bc031dd49c9c1754866802eed6"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-05-normal.m4a",
+      "byteSize": 47849,
+      "sha256": "3b230e9f8d9aa8607067cad63b42295dfcdf07b658847728c51cd0d01cc17fa8"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-05-slow.m4a",
+      "byteSize": 53691,
+      "sha256": "00ec5e66cbfc38804e22da914ba6cad60d2612a536ece230bb5525911ffd48e4"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-06-normal.m4a",
+      "byteSize": 47150,
+      "sha256": "eee607368eb02c1c91bc39ba2efc03d3675870c688fd2267e535cabfed76e96c"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-06-slow.m4a",
+      "byteSize": 63656,
+      "sha256": "133b6497582e322c19fdbb17eaad3c6ad28224b822f905fd55652acbd2975039"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-07-normal.m4a",
+      "byteSize": 53002,
+      "sha256": "b59a4369751796f5f7dde067f1e569e693b001618d29066f4a1f5cf64653bb6c"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-07-slow.m4a",
+      "byteSize": 57175,
+      "sha256": "c4327404120120f9d18625cfc7fafde5a37c78eed5ed3a31a6d45d1441222915"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-08-normal.m4a",
+      "byteSize": 57090,
+      "sha256": "f44d988e30f0bff214aed991150ba093fda32f744a10fe827bc54f185a609a3b"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-08-slow.m4a",
+      "byteSize": 66497,
+      "sha256": "bd7ce2738228de7389f106b1903c1c90a426c74ea7926bf9021ac5a581736e1a"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-09-normal.m4a",
+      "byteSize": 49533,
+      "sha256": "fb4179e26c6889c3e84360c3df4fbe7300f48690186e1ccde76350a2eaa748fa"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-09-slow.m4a",
+      "byteSize": 59837,
+      "sha256": "bd6833e571cccccd9f960837e2b2830c873575346ceb72ad4612b270493a8e98"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-10-normal.m4a",
+      "byteSize": 53303,
+      "sha256": "b1cb1dceb21d78ec11c29b2276c75db1652cd89e529d70a7af275d09d95b2ca2"
+    },
+    {
+      "assetPath": "audio/iapetus/occupy/sentence-10-slow.m4a",
+      "byteSize": 68140,
+      "sha256": "bd69727df9582056f2b6b048289b14e866f4863cde848eb58a2e84719f323db6"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/word.m4a",
+      "byteSize": 6233,
+      "sha256": "c0d8f4c2b805e7729ab436cf3fc2ddcfd2da5bc25935bdf482982a98c95fb952"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-01-normal.m4a",
+      "byteSize": 47362,
+      "sha256": "01e202c41697befd609de30867ff94fa86f09bbaa8b797905e072f06a5e96ee6"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-01-slow.m4a",
+      "byteSize": 55979,
+      "sha256": "a05065c9846cc8b2ea2c83ab559799644394033e47637a15e45723ce1d0d46fd"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-02-normal.m4a",
+      "byteSize": 47783,
+      "sha256": "b1ffab6cff27e2050484a9cf3b21f03b6d9525d5fc514a2f0ea024cef4ed897c"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-02-slow.m4a",
+      "byteSize": 57054,
+      "sha256": "ef9107d898ac435918b24d3476024e3443a5f6f62f2234bc766b10678c11fb49"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-03-normal.m4a",
+      "byteSize": 43110,
+      "sha256": "4706d72be18bd8c30b8dccd0b864b504395ded44d1f0482f22b0e738fd1fd7c0"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-03-slow.m4a",
+      "byteSize": 56403,
+      "sha256": "e54ac250b640772a53508c247e1d9470d03438a8c5c1fd9c284e5978e081c532"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-04-normal.m4a",
+      "byteSize": 48103,
+      "sha256": "feb52daea66c0c5a9ff96bdb83ca2f0f4caa7955a266b1661c5609f1df73c746"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-04-slow.m4a",
+      "byteSize": 55086,
+      "sha256": "334ca12d8a21d4f3fd58ecce894d60f48f8c838253bdc8dbe410c08bc3e60d55"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-05-normal.m4a",
+      "byteSize": 46877,
+      "sha256": "1449b99ec1dda78247894c86fca261874d314efb3d9a63fd76a6c61b4ed8f6e0"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-05-slow.m4a",
+      "byteSize": 57474,
+      "sha256": "19ec38a82a0b6f20bf3a123ad4a189b1fcb9fdbcd93456a8b1ef3df11cec65ca"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-06-normal.m4a",
+      "byteSize": 49189,
+      "sha256": "11b16e53c9e0e31619dce242e401a6b01c12ad330e9dbc5e68a1e324aeea5c08"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-06-slow.m4a",
+      "byteSize": 60244,
+      "sha256": "859c6bb68f673affef9f5951c00010f4e248186ffb0bbb1a7b3582d7442032f1"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-07-normal.m4a",
+      "byteSize": 56926,
+      "sha256": "04bf1b153567340fd74fb5772a88e00b7fecd5fa82b1a3f3f23f2aa1fee6044a"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-07-slow.m4a",
+      "byteSize": 62306,
+      "sha256": "5a57729abddf77eb07a7124b4daf0cb6014ad2768c0749ce92df4824a54461f7"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-08-normal.m4a",
+      "byteSize": 48882,
+      "sha256": "87801f38a6a07e7c3ba1c4849ebcfd6840a1660e0e210c9c78a4ad8472f13bb1"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-08-slow.m4a",
+      "byteSize": 61973,
+      "sha256": "1336cf0666a95b9c594545ba7d139684f1c8befa4380939dee4b135bfdfe2092"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-09-normal.m4a",
+      "byteSize": 48211,
+      "sha256": "c17461b3204a3747836114b44fc60f33db1abd625b1dd17522273732ec79e8b2"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-09-slow.m4a",
+      "byteSize": 61439,
+      "sha256": "bad15d7ec84629191e1de5cb1044d01ae92102b24ef05cc1c8084ae2a3e2eec1"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-10-normal.m4a",
+      "byteSize": 54903,
+      "sha256": "9cff1eabc2b8144aaa1e69b0f2bc1e096e8da71fdb462c15a1c10107b3de62b1"
+    },
+    {
+      "assetPath": "audio/sulafat/occupy/sentence-10-slow.m4a",
+      "byteSize": 63680,
+      "sha256": "31fade9797ec9335d48750385fe2add4980736cb034bc160ebebca20dfd344fa"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/word.m4a",
+      "byteSize": 4652,
+      "sha256": "7eda74decf2bc05dd12ba09f04e5a1399a1d605b68fe3695687fbe4233bf3f4f"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-01-normal.m4a",
+      "byteSize": 46225,
+      "sha256": "45cb402d9e1d3696877c5b6a912e86463987b659564aceb043068b26ab372c0e"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-01-slow.m4a",
+      "byteSize": 51420,
+      "sha256": "acb1345eba50924ec49087d50267f09c1822ec4fb3d5956ec8c59bb334188e64"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-02-normal.m4a",
+      "byteSize": 45422,
+      "sha256": "77aed88699def092de7ddc02b43f605ab5589e99ee88adb06f559dd863049e15"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-02-slow.m4a",
+      "byteSize": 54011,
+      "sha256": "9c59a4539b2c97419c82af70e4037759d8bb23ae090d15aeaad8034065c3fb88"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-03-normal.m4a",
+      "byteSize": 48184,
+      "sha256": "1fe4aef1bed4a71294942070cfb8b076ea128376f9436ae59e9ee2bb4a634676"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-03-slow.m4a",
+      "byteSize": 57452,
+      "sha256": "1aabb0de00704eae93bffdcd6fbc0fdfa6afdeb49838b867fbddc43f4ae74b0a"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-04-normal.m4a",
+      "byteSize": 45025,
+      "sha256": "3ccc6799aa80d81dc8bb113449a19d585a9733acce856878a8f2e3a53a7f4c14"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-04-slow.m4a",
+      "byteSize": 49540,
+      "sha256": "d98f70c68055cacbebcbc83cb19812b447523e049b63149063d6e73836d3d798"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-05-normal.m4a",
+      "byteSize": 49366,
+      "sha256": "877a5fc78f5f41418512ebad384c70d8ad75218ec8c4ac1ca44cfb93c20b3630"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-05-slow.m4a",
+      "byteSize": 54381,
+      "sha256": "f0bf01e6c2cfff792da23d90f8bb1cb6e29ba955e30b8cecec5f5e4bd6c3d536"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-06-normal.m4a",
+      "byteSize": 47789,
+      "sha256": "a04cb07e626bd172a4634aa12f86eb175835ab25ea9fc60f0647a6e367a773ba"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-06-slow.m4a",
+      "byteSize": 61439,
+      "sha256": "0d9bfb000b5c49cf22c473723b2a7b729a379c598839a5ae746f75407a5b4eca"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-07-normal.m4a",
+      "byteSize": 49257,
+      "sha256": "f08c9c627e8d06b4b69d612b3abd74579c62bd5e4daac8e2b98c7a17f317a4bc"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-07-slow.m4a",
+      "byteSize": 55727,
+      "sha256": "a5b52f5c4b561480b59280e71086e2470eb05826233927c48b7dde358b523c27"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-08-normal.m4a",
+      "byteSize": 40942,
+      "sha256": "81f4cb22ee4235eb5920b7245f4d72763619895fc9723311a10b9a0ecc751239"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-08-slow.m4a",
+      "byteSize": 47407,
+      "sha256": "7b07747a009206be711de738b3bf4db7daebf5c5f02303acdf3f6fd5f848dc4b"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-09-normal.m4a",
+      "byteSize": 46727,
+      "sha256": "21eec0e3277b23fc9773e35666295fb53426c865482253379ca7babd9805f884"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-09-slow.m4a",
+      "byteSize": 44845,
+      "sha256": "094a8a43479bb189f0973c60c77092005e9110bb96f2daee377ab0bba194bc1a"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-10-normal.m4a",
+      "byteSize": 41992,
+      "sha256": "7e937ae32109cd855d01d284ac18efcff59d262b2f665e8dded7ee38d302f775"
+    },
+    {
+      "assetPath": "audio/iapetus/occur/sentence-10-slow.m4a",
+      "byteSize": 55879,
+      "sha256": "4e3bf4e119f921a8ac27faae2af9bb50ed8d74698f9220c752b6e2c14eb9f82e"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/word.m4a",
+      "byteSize": 4791,
+      "sha256": "eb499eadaa32171531dde916440f2ed69ca94f985a50d24069abe5fe5173c8ba"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-01-normal.m4a",
+      "byteSize": 46882,
+      "sha256": "4a6d202f43a2784e9b60d3b86d1689d66828dae87134b69539bbbff0056a28ff"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-01-slow.m4a",
+      "byteSize": 59443,
+      "sha256": "a7bcb73586806f784d3dae4b4e9d78e943b8ba7c728bcf7abd8d66f633a7f2a2"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-02-normal.m4a",
+      "byteSize": 41589,
+      "sha256": "957661cc502a13bf7363dc351436c2549fb8619f429d2e8ea5eb5d0e8c3bd29f"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-02-slow.m4a",
+      "byteSize": 50388,
+      "sha256": "f013a6cf920e957f2bfa1c429d6ec81313f01190fbd90db21833acf948d85705"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-03-normal.m4a",
+      "byteSize": 46324,
+      "sha256": "485e741223bbeac46d62d706bfe7d0de89a814367eff3a188c3c3d7e0887454a"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-03-slow.m4a",
+      "byteSize": 53333,
+      "sha256": "3db0d1cbf639dccccf0672e25cdba9835f7e29dca9839e5784046e34e67d6706"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-04-normal.m4a",
+      "byteSize": 48859,
+      "sha256": "79ff25071de2acf8e6eb4919a314ab9c73bf4c9a90150bfe3476429eaf9054fa"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-04-slow.m4a",
+      "byteSize": 58177,
+      "sha256": "bba3a63e254d946fa9f850bd4ac0510402bcc661ea513423cf2f71ba476eb3fd"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-05-normal.m4a",
+      "byteSize": 54173,
+      "sha256": "c9eab39dfd37f34fcfc7b1910ac9546125def8134c5a72aa943485fc46b31e46"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-05-slow.m4a",
+      "byteSize": 66563,
+      "sha256": "e7d76ff415696581a0e5e052f70d68633b2c6bf0b63ee294484dec4ee3416846"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-06-normal.m4a",
+      "byteSize": 43449,
+      "sha256": "fb1406021fc686a68e60c056e67f8c5dfd7cc178e6f008d523e02189efd725dd"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-06-slow.m4a",
+      "byteSize": 57487,
+      "sha256": "08b2b3789e422c605130a1c3b184ce02f9283d80eac3e5aa9d97ebf6f621aea0"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-07-normal.m4a",
+      "byteSize": 44338,
+      "sha256": "573b26590184e2ab044a67bbeaf762d905fb12c7004e0a9262baa2d68647bb40"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-07-slow.m4a",
+      "byteSize": 47158,
+      "sha256": "d593ec21fbad3adca196281b502ba03ef622d28dbc081c754ef709fe11107844"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-08-normal.m4a",
+      "byteSize": 39732,
+      "sha256": "8afdf24711fc204ecb5f0f2ecc8b0cdd83dc3d1c4da79205d050be42440d9b20"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-08-slow.m4a",
+      "byteSize": 45845,
+      "sha256": "654c60ad2b0e662402375db5867604df3834b91f12bd38b4914bda0b963abb06"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-09-normal.m4a",
+      "byteSize": 41308,
+      "sha256": "ed30e43bce31b1d4e89d0811dc8db876f6174f663ff1cb7aac2e73ce3f03bcac"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-09-slow.m4a",
+      "byteSize": 51701,
+      "sha256": "4abea69b94ec48c9e1453150124c3c39c9f76a1f94ffa67927ced567e5c8565b"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-10-normal.m4a",
+      "byteSize": 43937,
+      "sha256": "66360170e25df01498235dcbd459c9ae9443ef39087ff44258924bc4918fa8a3"
+    },
+    {
+      "assetPath": "audio/sulafat/occur/sentence-10-slow.m4a",
+      "byteSize": 48195,
+      "sha256": "9c8a395846480c67aa51da2549184c783494d7b164d1857148336a02b72fc7b0"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/word.m4a",
+      "byteSize": 6340,
+      "sha256": "b32c3adb3fa8bf76ab97a8994d4f41ecaeca1d90ed5d682ce5d5368b6872dfd3"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-01-normal.m4a",
+      "byteSize": 50153,
+      "sha256": "1105389720e7f0e978fd9874898bc80f3ab95d0553fb3e525629c5d3b5aff4d2"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-01-slow.m4a",
+      "byteSize": 54479,
+      "sha256": "fbab8acd5c70c726b9d14a438ea0c26eb5da8ed7521a1c2a22488c407cb016db"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-02-normal.m4a",
+      "byteSize": 53516,
+      "sha256": "1d4c40c302fd28a03e61ae29b6af6624666dec38a746a6d7b24925aaa946d3fb"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-02-slow.m4a",
+      "byteSize": 62622,
+      "sha256": "ee01f9b9216cfa565f6a5bc602c28a79dc25a89c2a5108859fef91dd71c9aeba"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-03-normal.m4a",
+      "byteSize": 50385,
+      "sha256": "e07b67466eed28b20d4777a103159758ac18eb0df4f81e05ee23f24451161437"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-03-slow.m4a",
+      "byteSize": 62119,
+      "sha256": "83cfc07b1d7c5a79df889b01ee4b9aca291be169d54f1cc69499448d57133bbf"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-04-normal.m4a",
+      "byteSize": 50867,
+      "sha256": "d5a7131ff8c9467c6b23444c91569d95eba21965ebad3e293b162c50ade95e79"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-04-slow.m4a",
+      "byteSize": 60446,
+      "sha256": "0558d2f4723b8e21e413acb23df51479cf3e1d598ef816c40f491b771f61afdc"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-05-normal.m4a",
+      "byteSize": 50074,
+      "sha256": "538ebf2f5d227cb057f735666ad4ec91a1d3fc676006e48ff4ddf82b81b3e877"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-05-slow.m4a",
+      "byteSize": 55210,
+      "sha256": "4ed89e0d552462b4fe5720001ed049baad183571affc73a865ff270a5cb6365a"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-06-normal.m4a",
+      "byteSize": 54782,
+      "sha256": "069d9affa31c27275b9d16f119cf6e5236bdba0ba769a6d74722edc2d579cf2a"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-06-slow.m4a",
+      "byteSize": 56300,
+      "sha256": "fd256376b1768e2ab3790714e2f3478199380f747cddd155ebfeb553048336d1"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-07-normal.m4a",
+      "byteSize": 48465,
+      "sha256": "6e5463f34b47c015d2ff4b0c0d8cee39954d8dae1e59df52f20307191cd60781"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-07-slow.m4a",
+      "byteSize": 72066,
+      "sha256": "88d3b3591bf0ae34d28ec8352cfb354ff3f42694680eba39daccc3dbad83dd1d"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-08-normal.m4a",
+      "byteSize": 49191,
+      "sha256": "6c2ee43fe6ad7f704fb23b4bb6e9c3bbe1ae1aaa247a3ee374d03ba26f7685f2"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-08-slow.m4a",
+      "byteSize": 64030,
+      "sha256": "c99ca17821efe81fb177ab3476bbe2d905f2520425a1027afac0ce6ab989072b"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-09-normal.m4a",
+      "byteSize": 49584,
+      "sha256": "bc83b3a1c6808d001024b1ea8e55d221dac8ff7bf4423e02e42c30b100ae5e6b"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-09-slow.m4a",
+      "byteSize": 62935,
+      "sha256": "febaa92a0aa5730bf2afb522e0cf8514bccde233f32af90c91c5b5ffea4ce11a"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-10-normal.m4a",
+      "byteSize": 53142,
+      "sha256": "e6700ccbb5faa3557e96b2aa64b4976bce5e7ed3432cd8e2e3959b286669b8f5"
+    },
+    {
+      "assetPath": "audio/iapetus/opportunity/sentence-10-slow.m4a",
+      "byteSize": 65485,
+      "sha256": "e1fcfa4f32c52d12aff3e05ca2697c2f274a54f2f92e722a6c56fe05b8634037"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/word.m4a",
+      "byteSize": 6862,
+      "sha256": "c4d049a24c4841d6bd1d291df250bf6b264260c43c7b6f61a48fac069be1dfbc"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-01-normal.m4a",
+      "byteSize": 41300,
+      "sha256": "2e7f090883219b705bb4537e0d540563cf20ce3a862423b9cab5565f05b05adc"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-01-slow.m4a",
+      "byteSize": 50043,
+      "sha256": "433b8f313aaa068a3dfc5368c4818816a5514cfc9e35995fd38b4e32e3e1def5"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-02-normal.m4a",
+      "byteSize": 59091,
+      "sha256": "1d3e4eca9bd2623fd20da4cec610340457e255b1f36a22c7e66c81e93705b69b"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-02-slow.m4a",
+      "byteSize": 69361,
+      "sha256": "fbae3624dff861063356dec6160ce2ba14fab0726d16b8e8c8e69e5d3b39a394"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-03-normal.m4a",
+      "byteSize": 55037,
+      "sha256": "c1ff9c675555d88486ae15939fae1f97b58f7c87d3e6f2f6c4acb29a7233a411"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-03-slow.m4a",
+      "byteSize": 58874,
+      "sha256": "dbebf41941494266b20888ae9df4805069e7a88c994d9aa2e1905f5776143739"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-04-normal.m4a",
+      "byteSize": 55914,
+      "sha256": "8ddf52f9853a60171e5a084588c1adf64b1d52798ea17d3223d3297e69b1a2f2"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-04-slow.m4a",
+      "byteSize": 64760,
+      "sha256": "cb14a4bf59c616e1e46fa37130ca50d38739d79415ce592920401aed4e63ff9c"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-05-normal.m4a",
+      "byteSize": 51141,
+      "sha256": "ed88bb60581c5c37fbcddadc49e84d448bd2f3cc7c1478055507f8b7edfe1557"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-05-slow.m4a",
+      "byteSize": 53402,
+      "sha256": "e3e177178732a4f354581e2fc9306e5a373363324a1de232499e37df7ee32a4e"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-06-normal.m4a",
+      "byteSize": 50666,
+      "sha256": "f449782cadc8c5c3e0c0e47d7ff360253150abf4f6cc2f9f18f80332722af2cf"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-06-slow.m4a",
+      "byteSize": 57470,
+      "sha256": "0289f1739a653f858f29a3fcb4ef6cef562627e475c2948400c8876bcb4ac155"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-07-normal.m4a",
+      "byteSize": 60138,
+      "sha256": "34fcfcc28568f2b568caed88d6d6cf9b9592078ed24b9926a22207acb2f2b19a"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-07-slow.m4a",
+      "byteSize": 67508,
+      "sha256": "e4d6d6c16214062d1ae023236544c33fd8bfbee790b6cd185689c5b129aa8d12"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-08-normal.m4a",
+      "byteSize": 49981,
+      "sha256": "09cbce95ed5526628dc3a410486994f10d3b20f52bca16f9ef7514b3dc7910af"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-08-slow.m4a",
+      "byteSize": 53352,
+      "sha256": "a84f0f67c3ffe1ea0c0fb653cc68eeda3b4dd421d35aa98581a17b0f3a65d86d"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-09-normal.m4a",
+      "byteSize": 52720,
+      "sha256": "d63266c62f713b0ae2eedd7beb8549b24191e798c39e99449adc9556843ef0f6"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-09-slow.m4a",
+      "byteSize": 59946,
+      "sha256": "75d39b157d02d3583189f71db4e31fe08f7ffe0fc582515ffd2fe147e3c54303"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-10-normal.m4a",
+      "byteSize": 65500,
+      "sha256": "0edb6bbf2aae9f5f3ddbbf9348e513059db3fa792c3b158b0712f01ca22c0e39"
+    },
+    {
+      "assetPath": "audio/sulafat/opportunity/sentence-10-slow.m4a",
+      "byteSize": 80170,
+      "sha256": "24f9db29714986fdfc5effb0b66249f473853881af3aa61f08fe8806a7f748e4"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/word.m4a",
+      "byteSize": 5501,
+      "sha256": "221b5925deaa10e69806c81e67e16b1b5368190a9baf871db08a9a5e350d8c15"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-01-normal.m4a",
+      "byteSize": 45042,
+      "sha256": "e916ea9fbb223249a82836b3b933f84cd4c48bf8c6818d950666025e2ea6da54"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-01-slow.m4a",
+      "byteSize": 58603,
+      "sha256": "a6e47037e014ca06db7f134ac38a5ba5cf1957ca6befebfee8214187e9ba11b0"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-02-normal.m4a",
+      "byteSize": 54074,
+      "sha256": "44970c270dc474dca518e84a3381d253e98aab095409d24299d3824e7cd85914"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-02-slow.m4a",
+      "byteSize": 69123,
+      "sha256": "5326a47b2d02c51f078353ac96d83d629c17082685371e428c158e7cd99bb9aa"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-03-normal.m4a",
+      "byteSize": 41545,
+      "sha256": "7559f83da44fd954e98a5e7317a9e913e4b20865338fbaf78c5bc2c6a0fe7b55"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-03-slow.m4a",
+      "byteSize": 54592,
+      "sha256": "8dbb7acc7b66807a38b48b485844ec591d5931fe4fadcc111520e560914942ba"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-04-normal.m4a",
+      "byteSize": 46906,
+      "sha256": "1369e242482ae2cb0014847a6df933163a815e833f87da42d93340e94be8b16b"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-04-slow.m4a",
+      "byteSize": 53986,
+      "sha256": "6e2f18c95a19b7c4124cb354a9c0fb3580e17fd53d09e98205ec16fcf19bb25a"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-05-normal.m4a",
+      "byteSize": 49404,
+      "sha256": "eec530d7c1e96ddf3f972dead1c0fa7eaec5ab01ed90b735e2c67fe2bab46570"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-05-slow.m4a",
+      "byteSize": 55429,
+      "sha256": "956261a99d3b0a1b9b8e6c8f850e79df2075d2258a64a83ffc98fca7fe023d11"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-06-normal.m4a",
+      "byteSize": 41824,
+      "sha256": "bab1a10c00f60fcf1fa24a51b8fbb37620ff5752feb6da30c89f1cba079bb153"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-06-slow.m4a",
+      "byteSize": 49315,
+      "sha256": "ce39ca07fcaeadcfbbab586fc6c148c537141f4e0f2e4f0a7e566c7a18df913f"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-07-normal.m4a",
+      "byteSize": 50600,
+      "sha256": "dc7f52d94b6eee26125743a4c121870b1ac1943e92d582484a9a00d689b9de20"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-07-slow.m4a",
+      "byteSize": 65668,
+      "sha256": "de579247e64859d2494cf2cc2a3d1782148c9d147e961e609dc05f4b5adab33f"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-08-normal.m4a",
+      "byteSize": 44083,
+      "sha256": "de72ec9ab41860d4b8944989364e92fc06918cd106423cabbfcbc31ba343264f"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-08-slow.m4a",
+      "byteSize": 50599,
+      "sha256": "5a20647b30c5debdbc0261234440d9bf07c63779a09e8bf1cf5b3383fa7d8c72"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-09-normal.m4a",
+      "byteSize": 47132,
+      "sha256": "22f6c0b24e2ca768de2d915be33dfa489cda0841f634e24edb9419630c0aac94"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-09-slow.m4a",
+      "byteSize": 52201,
+      "sha256": "746c17f2276e1a434e332e55ebf112539daeac05241663f7fa5b22113adde8bf"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-10-normal.m4a",
+      "byteSize": 43983,
+      "sha256": "f783f81bf9e527bb26d3c5cb08fc8a0749eac7dac08c8f0f5420a19aa7787149"
+    },
+    {
+      "assetPath": "audio/iapetus/parliament/sentence-10-slow.m4a",
+      "byteSize": 53867,
+      "sha256": "fe50e6fdfe107c55f6f9ff69cb8c5562c74ba7c4cb9115d0953b9ef0c62c12ef"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/word.m4a",
+      "byteSize": 5818,
+      "sha256": "dbaf79993d8c97f89891d747ca29133d533448f84bacf787814509651695d1e6"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-01-normal.m4a",
+      "byteSize": 47527,
+      "sha256": "8f85cab0eb9a616c7b562c0e965a641996f43acb5e73f4960d1b091446c12a12"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-01-slow.m4a",
+      "byteSize": 50090,
+      "sha256": "a3e926e7a2de1136ef5d733f938b091b8a5d746ad8ce1021845112685e95338f"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-02-normal.m4a",
+      "byteSize": 48551,
+      "sha256": "9e5fddad6ff32e92527ea0a0a98cf8ffd7b48698128d8aacef8a3919a8f54140"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-02-slow.m4a",
+      "byteSize": 55677,
+      "sha256": "e9262e01a95c3be9db1e0140464bd93b17c374ceac977f0fc6ec7e393410c6ff"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-03-normal.m4a",
+      "byteSize": 47772,
+      "sha256": "badd140577c94145ec92394c5361d1f63658b20fd9049c12a3bf982b15598376"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-03-slow.m4a",
+      "byteSize": 61499,
+      "sha256": "01aa70bc46b42c9d470990753e13ed505d4d537e21178cba83a53a977a902692"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-04-normal.m4a",
+      "byteSize": 46228,
+      "sha256": "266989b325313cb0ea7114c79ccac2540731d1fb4d425b4f073be144982cea21"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-04-slow.m4a",
+      "byteSize": 61668,
+      "sha256": "15f25177279edbbee26506e4dfe86cc3f4221254764921001d1b0e389c0dffd0"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-05-normal.m4a",
+      "byteSize": 45655,
+      "sha256": "d1af111905ca064ca2b9f82109e73d4a05e74daa800d8423668949d9e0ef9f32"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-05-slow.m4a",
+      "byteSize": 58793,
+      "sha256": "153db2535ba0853398b436c2c2421f9c27f049f684aa004757a99e28e4952347"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-06-normal.m4a",
+      "byteSize": 45205,
+      "sha256": "e00c247800cad35cbcc316198e3c6c0a163d32dcdf559350055aa29dc89bc36b"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-06-slow.m4a",
+      "byteSize": 51240,
+      "sha256": "2294e5515cce5f2e766ac534055409cde09d72390fa25108c9204a5ee08fafaf"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-07-normal.m4a",
+      "byteSize": 61223,
+      "sha256": "41da3192b652355afdc7f4eeb19860db09f949971e00e6d4bfbabda511380efe"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-07-slow.m4a",
+      "byteSize": 73878,
+      "sha256": "f3fc326273cd12048d00dfa41e6ed1a883d78ec9985d4a30d8345796953aca22"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-08-normal.m4a",
+      "byteSize": 46593,
+      "sha256": "617eb04da65770c54d9291e0668515782b1445df4dcd2d132f15832d0da03d28"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-08-slow.m4a",
+      "byteSize": 54158,
+      "sha256": "d06ec8f1534869ac087438e18333f511bba81186d0e6ff11d16ca902356f6091"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-09-normal.m4a",
+      "byteSize": 38294,
+      "sha256": "3094bee8b14d7269556ec7033826948dc3b57da5d4b8223468656aeae32258c1"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-09-slow.m4a",
+      "byteSize": 51471,
+      "sha256": "e73de0bcef8dda1d3eb21eb56b47a1a7481a33fb9a3506389a4b44d00d8a1ae0"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-10-normal.m4a",
+      "byteSize": 51082,
+      "sha256": "65be7b83f138c33dab8a88c2abe1e0cb64146e3266b1acc741689bca7ff362d4"
+    },
+    {
+      "assetPath": "audio/sulafat/parliament/sentence-10-slow.m4a",
+      "byteSize": 58474,
+      "sha256": "0ed5158ca07447417367c9894e5fd7f24bfb761d9f417c9da6c383bffc436203"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/word.m4a",
+      "byteSize": 5883,
+      "sha256": "86d2770a2f4a1f71fd4288c64e04af8b25c1176bc0c115f3f50eeaa96f464353"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-01-normal.m4a",
+      "byteSize": 41160,
+      "sha256": "61288d6adb5844e34cb04b6c1b8a971b379b5bb3b099fe53a01e97c2f8a233ee"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-01-slow.m4a",
+      "byteSize": 49312,
+      "sha256": "a5d5e50bc5fee91b5b61a3400bc80c2587aa74b29400a6a6eac8b067418b1c52"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-02-normal.m4a",
+      "byteSize": 59250,
+      "sha256": "6456a6a8831e56cf3988a14b55ed7d34b3103728c2ad5065ae80aa75b80776d9"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-02-slow.m4a",
+      "byteSize": 73526,
+      "sha256": "2048ee20253263c5b20270725d697da38b2ad14d4fa6f38d4e594a17df8027fc"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-03-normal.m4a",
+      "byteSize": 53080,
+      "sha256": "de91fb441cba622a051a12affa2434359102920efebb431f13cb98672007427e"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-03-slow.m4a",
+      "byteSize": 61622,
+      "sha256": "1cd5f84b899759f5ab1972ba63e74ac81f3460ac3f42dc3b2a8758b93a28a0d9"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-04-normal.m4a",
+      "byteSize": 48798,
+      "sha256": "3d4478e85c5fb3b2cbd37e2fa12d77d07379a24d922003887580ce519d8aaa48"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-04-slow.m4a",
+      "byteSize": 63801,
+      "sha256": "f91500fa9f1dc784de96c71408d5b3583576cf85b16a3fb9af1a7891894b1f76"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-05-normal.m4a",
+      "byteSize": 47125,
+      "sha256": "9e4d836f9eb874b6849261f2324e33fe5c280764c7ab3ffe00365922b20d2426"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-05-slow.m4a",
+      "byteSize": 61653,
+      "sha256": "ed6a8cbcb44bbafa1e9bfde0db8028b33d6e7c6e96fd7949d33315902e4e9d51"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-06-normal.m4a",
+      "byteSize": 49933,
+      "sha256": "b0050428c13304f3af09ca7edc76e08d884f88f548ec09b6017f4d303d27350b"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-06-slow.m4a",
+      "byteSize": 60649,
+      "sha256": "dc7d66e82940b984089817424a3834fcf319e97c88f5197d87077af0bf20f356"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-07-normal.m4a",
+      "byteSize": 57254,
+      "sha256": "42721321cc15bf775658f930f18c233cfdcadbd508157cb6e8d43c685815ce6c"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-07-slow.m4a",
+      "byteSize": 62155,
+      "sha256": "72c6e975d6a986252d0adff25a973e8cf8364ebb7834d3fb7c69d47c28153ee4"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-08-normal.m4a",
+      "byteSize": 51008,
+      "sha256": "553911869d4c2786246381cc61e11b600425ea13cadbb48e2f2a6d7060939712"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-08-slow.m4a",
+      "byteSize": 55411,
+      "sha256": "66a95068612fe079bd17d76803ac702ba4b0ee6c17d763506cfe4c054a1d72c2"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-09-normal.m4a",
+      "byteSize": 50255,
+      "sha256": "71f1aa82c4fbc7590c7d62b287fdc5bb34f49cb478943e0aafc0f414b7bff81a"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-09-slow.m4a",
+      "byteSize": 59784,
+      "sha256": "0aa90e314784019593e79fa44d5971386d9af44c758286501bd6e9f6ddc98438"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-10-normal.m4a",
+      "byteSize": 53638,
+      "sha256": "26fd6882b0a4b424ad048b5d2b4421514a563756616f836465b1ae6e98677d57"
+    },
+    {
+      "assetPath": "audio/iapetus/persuade/sentence-10-slow.m4a",
+      "byteSize": 59086,
+      "sha256": "efd389e9606f424cf868cda18249b92518ae045694c578e31320d695b97e0cbd"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/word.m4a",
+      "byteSize": 6061,
+      "sha256": "b606c69c7defcea845b67600a731faae2725a27bc755afee7711ccea59c5c915"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-01-normal.m4a",
+      "byteSize": 47313,
+      "sha256": "7617c3a9df64f04c742a5befc5fc088a910a951020efa9b3ad0d4e61ecea8015"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-01-slow.m4a",
+      "byteSize": 61732,
+      "sha256": "ed6a4ed875a11c2f982c74113a406f4a1ddaa2d0375b5011dd654a44758c3be9"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-02-normal.m4a",
+      "byteSize": 56263,
+      "sha256": "96d6cc06e9452a9f3e12b31b654c376f0150169ab5452d9ca679979c1ff7e10a"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-02-slow.m4a",
+      "byteSize": 71229,
+      "sha256": "c600c7f886d5fb3966d958cee0d3f48cfeac929d180e388fded0f1ce5ce00e07"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-03-normal.m4a",
+      "byteSize": 55964,
+      "sha256": "8a5c11df2b98a58061785b156e331ef56f7ddcd1d4aa2f5c57a6b5272bb95da7"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-03-slow.m4a",
+      "byteSize": 65433,
+      "sha256": "fde4251243f732911dd6f74d431e2e93489ce1da8d00268738c52571f5dc8e7f"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-04-normal.m4a",
+      "byteSize": 49830,
+      "sha256": "b5565e0b88cbb651d66de79cda55215e730448d38d1ffd6cb0ab1e8c4db39f1b"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-04-slow.m4a",
+      "byteSize": 60492,
+      "sha256": "22876bd233bb12fba7a95ba0d739e99cf2f09b9e1641c356082d71111d8545a3"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-05-normal.m4a",
+      "byteSize": 56936,
+      "sha256": "694522a53207e1243383d441757acb3b4907de400b791f366a9611b1d34eda1f"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-05-slow.m4a",
+      "byteSize": 69614,
+      "sha256": "b95a53f22fa4ac16dac88eafa565ad5d4a0afcae86e7752280e416bdea89fca5"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-06-normal.m4a",
+      "byteSize": 57060,
+      "sha256": "fd7bc2fe9da16156c99df1c1c52df29b4b3c6974d7d3a0ef23328c671b7be319"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-06-slow.m4a",
+      "byteSize": 60222,
+      "sha256": "59ecf3a3e58aec055507aad6703d439f78bfce3a49d1e561944a6363e4a1c26f"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-07-normal.m4a",
+      "byteSize": 52659,
+      "sha256": "90a9e9c5780bb0cf7e0fba50d7df55780b3861ff2323bb89c5a8d8aac2feb55c"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-07-slow.m4a",
+      "byteSize": 56449,
+      "sha256": "d202bd349dd2414d4ec6e97ed48fdc88eb1c5979e7bafdae0ddd35304cb27b2a"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-08-normal.m4a",
+      "byteSize": 52146,
+      "sha256": "85a2ed5c526fc61f3cc79e49be98d903cd09a777f63d0421e7565c882d52620a"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-08-slow.m4a",
+      "byteSize": 66166,
+      "sha256": "82d7d923814eb92de0bdae8cf378c4efd942d4bc05b1ff20b9962904625956a1"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-09-normal.m4a",
+      "byteSize": 46092,
+      "sha256": "f92e77f352e6b03d1826788ea3873f1711c41cfb160b44dae1d2d66e13644b06"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-09-slow.m4a",
+      "byteSize": 56918,
+      "sha256": "8da794e149fc841ba73ef7561c6dbe460d3d15d49d7a93f1d22b2bf14a92275f"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-10-normal.m4a",
+      "byteSize": 56403,
+      "sha256": "836af5c442d031ae243ec9a2067dddc514e04e0fb84b0619f78e823c2265739b"
+    },
+    {
+      "assetPath": "audio/sulafat/persuade/sentence-10-slow.m4a",
+      "byteSize": 67886,
+      "sha256": "a0586ea733ddb16e0617e34b16117a099135ec627144989fd12277e6a22a9716"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/word.m4a",
+      "byteSize": 5048,
+      "sha256": "8334827c25965406d8c1260964e522100619e7ce500b45fdf8ad04a570998d0c"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-01-normal.m4a",
+      "byteSize": 45639,
+      "sha256": "91ee6e3b194aa153a62520edfe9937cf6eaa15169207da31885ce211ed85f009"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-01-slow.m4a",
+      "byteSize": 53203,
+      "sha256": "945091530bfdfb116f518221874f071840f12d6ac8e65c608f3de93466db85b1"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-02-normal.m4a",
+      "byteSize": 42489,
+      "sha256": "5b6c568887e55f426c3c0de3b318f31a075faf0ea9608ad9de66e08c1a04554d"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-02-slow.m4a",
+      "byteSize": 49341,
+      "sha256": "85ebdb9e162742680bf56eb6be9ab90fd674ebe905162d1efe3348708064d83e"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-03-normal.m4a",
+      "byteSize": 52579,
+      "sha256": "63214eb79fa2089d4e727ba4ee0fe8728494c379581fcefe2051b0cdaf021e34"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-03-slow.m4a",
+      "byteSize": 57823,
+      "sha256": "f68417d4caa5ff77453955117ec7d083cd37bb9229d4281690cc7877087e2448"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-04-normal.m4a",
+      "byteSize": 41858,
+      "sha256": "6b31d3ab02a69e9380fcf898097fb6f2571db603637e3d8e7bbf4896d7cdf468"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-04-slow.m4a",
+      "byteSize": 54629,
+      "sha256": "27c04db1948140fb69ab7907ae4d7646b07b417e3d9d3b4355ce82537b76a33c"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-05-normal.m4a",
+      "byteSize": 51575,
+      "sha256": "97d75cfe18d99f3514a2996c96cee04c90724718d22493449046c93eb061ea89"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-05-slow.m4a",
+      "byteSize": 54200,
+      "sha256": "442a2279fad9ec683a904d6cb41309fac527801e4673d5b5398a31c96c4b1f25"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-06-normal.m4a",
+      "byteSize": 46600,
+      "sha256": "bbb04fe820e5955f417aed3a19a52d24733042eea51c574a6af3bbe3c7487e05"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-06-slow.m4a",
+      "byteSize": 57408,
+      "sha256": "a0951ff86f83164608217b43eb87eea6cb7d3bca5fdedf98d966f2aed0b981da"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-07-normal.m4a",
+      "byteSize": 50742,
+      "sha256": "54a2bdb94190377e8b2d774a10635f5ad79833d62e479b482ffd2566846b7318"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-07-slow.m4a",
+      "byteSize": 64043,
+      "sha256": "a0a1024a848189f2147d8bea7d91556bb8341dd522a117652fc082f33ab54300"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-08-normal.m4a",
+      "byteSize": 45358,
+      "sha256": "a2842039633ae4a7d229e088bbf765156a97fa93afacd522c27fd39111164941"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-08-slow.m4a",
+      "byteSize": 54964,
+      "sha256": "204d712412ad9bd6d9be2cbbb05bb515e4b4e21b0f400bfec980d8dbd7ccb0fc"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-09-normal.m4a",
+      "byteSize": 48892,
+      "sha256": "2844cd3c2337dfa8251951671371d59b0e4029425b721d231fde8e0aa71f721b"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-09-slow.m4a",
+      "byteSize": 50805,
+      "sha256": "adb776999324be4ac7dcb2bcfb81e7785d3e2b7716e934bbfcd5377d5f599381"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-10-normal.m4a",
+      "byteSize": 40930,
+      "sha256": "06ec5d57f845c2e78952bea380356f0bc95573a9f5ad2916e17c1f8bc884d5ed"
+    },
+    {
+      "assetPath": "audio/iapetus/physical/sentence-10-slow.m4a",
+      "byteSize": 49940,
+      "sha256": "10eca5f7e0e254e7052dc41549d042cbc2bd90ff9e89c1812a790b327b980d3f"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/word.m4a",
+      "byteSize": 5195,
+      "sha256": "e6e8ae4230a1a0e2207f41321a5054d275d88c2654584480a0c052e12cbcefd4"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-01-normal.m4a",
+      "byteSize": 50530,
+      "sha256": "cde66352a045f98073914f1eff426565ce1d0393002870e7b2c43fa547525f50"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-01-slow.m4a",
+      "byteSize": 60525,
+      "sha256": "912f5ebc50180f6605f2a1a43924314f790440ff70dde3b8c5f4a86981c35fee"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-02-normal.m4a",
+      "byteSize": 51629,
+      "sha256": "861a36723bb1d818c6435677e995a69f534b471b0e742ba9fee7c8138c589af8"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-02-slow.m4a",
+      "byteSize": 64813,
+      "sha256": "6d6a74aa5d25652502dde69b6bac21f0ce944f5e1ec67f2a1b94f54dff07928e"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-03-normal.m4a",
+      "byteSize": 58872,
+      "sha256": "6c658b9086079362d622c73c7c5c6bae1195067d94ac7a3fe9760aa46d73aefb"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-03-slow.m4a",
+      "byteSize": 66108,
+      "sha256": "c988490843f176b5732424e5e6e10c76c709b3a07500ad024a5232dd8b837ca1"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-04-normal.m4a",
+      "byteSize": 43993,
+      "sha256": "4d8ef2395febd5cd42776b19eb5aaa51abd96dba38eea27fb3d17d7e8df15089"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-04-slow.m4a",
+      "byteSize": 57758,
+      "sha256": "3b65baa5a8f3e672595ba416b67acb03587023b24c62df1450a21bfc1b27c849"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-05-normal.m4a",
+      "byteSize": 46631,
+      "sha256": "9111c20f322a10f704fbc27450617acfbb592dea7cde33d376d2746943268a85"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-05-slow.m4a",
+      "byteSize": 54205,
+      "sha256": "e9959c250502854f20f77cef1ff059e58b2de48a2c74cb4d548d7082b79f1e8c"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-06-normal.m4a",
+      "byteSize": 57032,
+      "sha256": "45013dbbea26a89854423ff37205171426923c811fa003b4535c99963c1140b4"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-06-slow.m4a",
+      "byteSize": 69059,
+      "sha256": "c73b468163954a5b6f213a483b74d1ae835d4494469323825ed40edbd8b0f4aa"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-07-normal.m4a",
+      "byteSize": 52393,
+      "sha256": "4655d041e38701920b6e08f259bb60d4d1c1af3f02e2ef28b2b315a50c6c9bdf"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-07-slow.m4a",
+      "byteSize": 59840,
+      "sha256": "3c172cfa25079d3a65a9358f877665f51076d6c86421fe0f15ccad274e677add"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-08-normal.m4a",
+      "byteSize": 49612,
+      "sha256": "64e81b67e72ac1819cc34bf1ea0f97adde134d21edc249bdf5ab8ed8117002ee"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-08-slow.m4a",
+      "byteSize": 55760,
+      "sha256": "1dfbed82c51871e59f0a045f067b11a2ac76bdc8760b72959fba5994b7ae69b7"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-09-normal.m4a",
+      "byteSize": 52649,
+      "sha256": "bae3b8f317b05e99e4c655d8686b881d27614f389ddc0823dae3853fd39d97dc"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-09-slow.m4a",
+      "byteSize": 57796,
+      "sha256": "d16d22ffd57b4ba82063ddc6bbcce0bb373946db197eee82f156135699b10977"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-10-normal.m4a",
+      "byteSize": 48736,
+      "sha256": "0149344522c957704ae05ed35e4c94a8c154b39dc38a546c944c46c56f84bed2"
+    },
+    {
+      "assetPath": "audio/sulafat/physical/sentence-10-slow.m4a",
+      "byteSize": 52095,
+      "sha256": "adcc72f50cd358185b806259106c60ae2ae7686063cb2e64e52ecba92b2f4948"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/word.m4a",
+      "byteSize": 5624,
+      "sha256": "0b73e13d8fd0791f1781eea0981a363b1b2a1bd27f7d1d83113363c726daa8f1"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-01-normal.m4a",
+      "byteSize": 44933,
+      "sha256": "d65887a025debf9bdc96c8edf7683a2e7764f0ebb747618216d282448d83b29e"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-01-slow.m4a",
+      "byteSize": 54776,
+      "sha256": "b3b25bd7c9344edbf2baa8fe8ac7a2498c5e4fd04e445309e1f2a5688db2adef"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-02-normal.m4a",
+      "byteSize": 53096,
+      "sha256": "891f0485fa2b315a8be99c9d9ae1b0ebee27c9b79dc0c22ee82d5da34b0a9ae5"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-02-slow.m4a",
+      "byteSize": 57901,
+      "sha256": "a3e06674fd188c701bb8e3d0e4bc63b2b1bdee65e9a9bfac49862c45e98c1b18"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-03-normal.m4a",
+      "byteSize": 58813,
+      "sha256": "6c566157f286201ba805dfebbe9b97f3f5cfc39083dc0a7f5f99e64eacea6356"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-03-slow.m4a",
+      "byteSize": 70224,
+      "sha256": "32ade368845366d26f0df8a9018819ccddd64d508fb896903c8fe9292fcf8cf8"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-04-normal.m4a",
+      "byteSize": 57296,
+      "sha256": "c7ab363849d28205464866a1d5bf420e325d2a9ef5b86b10fd0e4032417569fa"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-04-slow.m4a",
+      "byteSize": 70708,
+      "sha256": "8ab8e3068b5ab81807f54f32808630f0bc09370291a20280cd7545c33af8a9e2"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-05-normal.m4a",
+      "byteSize": 48075,
+      "sha256": "632b34e0a15cafde7ceed803bc2e42a0e9129c8957256fea81207c8e2883114f"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-05-slow.m4a",
+      "byteSize": 60895,
+      "sha256": "c9076470767e9eee2b4cfcedd7b9189b862f9cf8c14a0266534e2e7c75354c46"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-06-normal.m4a",
+      "byteSize": 57092,
+      "sha256": "a133205e3458691a594fdb0d118035ba471922c2e58e585680cc610ec2c5bf31"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-06-slow.m4a",
+      "byteSize": 69724,
+      "sha256": "503255eb614ec1efbc0ab4f1b399eef94d2efe43d962b6d59adf3a1a078030f4"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-07-normal.m4a",
+      "byteSize": 52523,
+      "sha256": "d849316f46ca57d3f51a299a14582d9b6912b6243bf7c68a1e9baddd67fccecf"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-07-slow.m4a",
+      "byteSize": 63464,
+      "sha256": "6d62861897e70b7bd8175a343ea743ffc9459d6203e4c72751284af40616e1a8"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-08-normal.m4a",
+      "byteSize": 50683,
+      "sha256": "c0db0ff94fa691ade2eb641ea0a4543b93f6589cb9fa009c52e8c35ab1e42a4b"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-08-slow.m4a",
+      "byteSize": 64196,
+      "sha256": "3f44c755ad4d7f8a01c4c3eb5cb5f401aa188c2e33cce461bc48b8543ab45cf4"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-09-normal.m4a",
+      "byteSize": 49975,
+      "sha256": "8af78d84d23ad3ef099232ad6f4d7300460a83d57b693bb56d248e8121f6da9e"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-09-slow.m4a",
+      "byteSize": 62430,
+      "sha256": "9d00a3015b04d3a5d3377e63f07ea4899136c0d7d99d738062d655956835fa62"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-10-normal.m4a",
+      "byteSize": 48875,
+      "sha256": "9ab4ef9975991ef9fce670caedecb77a53f227d65ca53526e8ac8ccec1595f83"
+    },
+    {
+      "assetPath": "audio/iapetus/prejudice/sentence-10-slow.m4a",
+      "byteSize": 57778,
+      "sha256": "5312b9237e859663baf2898b6cf788ed626636f7560fc773f9db28c9f4c74ebf"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/word.m4a",
+      "byteSize": 6167,
+      "sha256": "a9e8d8c76f1bda4544934f652bfe990e48b63ff36d7012e973aa43c51d7a2c2e"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-01-normal.m4a",
+      "byteSize": 51046,
+      "sha256": "9adf43f9a6e8df62899cf41ed6bbae24bd943bfaea31ba17319ea80bfc61ad26"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-01-slow.m4a",
+      "byteSize": 63553,
+      "sha256": "b91902afeecee6fc556202187806694dad5c991173d2df3a33ce993166e96a6a"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-02-normal.m4a",
+      "byteSize": 46979,
+      "sha256": "72220c96097bcd067b081decca3598cc568fcd2f242029459631f14306b3118d"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-02-slow.m4a",
+      "byteSize": 58923,
+      "sha256": "4f8869fa2f6663abc84785d2b7eb8faa4af1934f6b074406899eb15ef0e6bf48"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-03-normal.m4a",
+      "byteSize": 54081,
+      "sha256": "8d0ff8ca9cdfa4ce3b052a6509387f857219a30faf23743c8c95de870eb2c514"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-03-slow.m4a",
+      "byteSize": 61449,
+      "sha256": "41c11d33ce9571288a1845d8c5adbbedda28be2438eb1a2d3e775fdc8affe7a3"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-04-normal.m4a",
+      "byteSize": 53674,
+      "sha256": "cc6d8ca623bb0367ff5680d50f0f4606796004d8c802f9c6a5962cb27baf4da7"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-04-slow.m4a",
+      "byteSize": 57507,
+      "sha256": "be622455ddd1e9a1869ac123a83c040e4332a737d2cb4fe7e25299aecf9d62e2"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-05-normal.m4a",
+      "byteSize": 58099,
+      "sha256": "9bf509521dc0ec9eb629cac636375e47787fda51e42e9e939474491173f3efc8"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-05-slow.m4a",
+      "byteSize": 72757,
+      "sha256": "dd1e373b240f6de7af308a47321d89b922fdcbccd2b857f1584a508d547965f0"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-06-normal.m4a",
+      "byteSize": 52306,
+      "sha256": "f60e2969d6ea1020895884fd3ef6024d3318fe93db0cf84fd950f353d888c549"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-06-slow.m4a",
+      "byteSize": 65597,
+      "sha256": "661d465c62a2130cbabb0342ae3b0ba6511e7e392df1304617c58072745fe466"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-07-normal.m4a",
+      "byteSize": 53454,
+      "sha256": "59869997e05c6b291d46fd4ad86895c7a5fed2e0d40ee785ee1e7b417d0a9547"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-07-slow.m4a",
+      "byteSize": 68190,
+      "sha256": "1599fb07888cd30f8f1929e648885862bdaa1054fd61fa5bd4b2301970e903cd"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-08-normal.m4a",
+      "byteSize": 56672,
+      "sha256": "a7bfaf709b1cb9a843d5577ebe199b3a716d3748b7fadb7bb859c4bfd99fa51d"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-08-slow.m4a",
+      "byteSize": 61179,
+      "sha256": "60884f1bc9efce9af0ca177358095792e5c636edc70876d6eb204375483150ae"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-09-normal.m4a",
+      "byteSize": 51161,
+      "sha256": "d2acad14c56b85a04addcf534e33a9d71e4eca862adb2805012951502bd58060"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-09-slow.m4a",
+      "byteSize": 60803,
+      "sha256": "62745799771e70f24158db9a149177dfee204f5c31bafae81048dd53493a563b"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-10-normal.m4a",
+      "byteSize": 58815,
+      "sha256": "d9ff8530da0442cc1eb531da0b212aebda36d6c69b9b4726a891aac732735929"
+    },
+    {
+      "assetPath": "audio/sulafat/prejudice/sentence-10-slow.m4a",
+      "byteSize": 69416,
+      "sha256": "279cd3c8c8398c6153fe71df986cfefe141b2eb740fcfd0b5567112183158e80"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/word.m4a",
+      "byteSize": 5789,
+      "sha256": "e244144db0c296eadc60d60221d1eb1528232c939af78991e7f56f2a7838c4f0"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-01-normal.m4a",
+      "byteSize": 41917,
+      "sha256": "b729960362e5fde322bbe04431bbea80b79cab89d4a6d75509f89e1a72a0be57"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-01-slow.m4a",
+      "byteSize": 58521,
+      "sha256": "378e609cd03a93df088b2f82f3b3953f2c3af49d3fcb43055c3c28abb11b89c2"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-02-normal.m4a",
+      "byteSize": 57390,
+      "sha256": "c25e3e48d6ff05fdebc719b827b3ed89e08c9feb8748f1576d72101fa8821c9a"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-02-slow.m4a",
+      "byteSize": 62421,
+      "sha256": "26a8e4f11f1900bd5d5d252d4f0fe5375835c89fd00a3e24da7c6ad6b7f3cbc4"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-03-normal.m4a",
+      "byteSize": 46589,
+      "sha256": "31f94142edbbd62d3a369c9baaf9b3266efb66255eadd371e70e53c013e64253"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-03-slow.m4a",
+      "byteSize": 50026,
+      "sha256": "7d7a982c98f47ff52555df017ea974afaa2d4291090a3caeed1ad18b64b7872a"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-04-normal.m4a",
+      "byteSize": 57089,
+      "sha256": "699e5dae686f80612fc08dec70e922b3064a4988696bb9bcf49d94f2abc23c09"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-04-slow.m4a",
+      "byteSize": 61807,
+      "sha256": "740bce03cd8c9794c7db3e3fdf91f73a19157bcbb9b0db871eeb6a5a54335193"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-05-normal.m4a",
+      "byteSize": 49013,
+      "sha256": "e39ee1b8280932036531f52250dc69c333313e759a41549ef0d290016b9b6677"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-05-slow.m4a",
+      "byteSize": 60535,
+      "sha256": "b1ef9da52c07c1d74341131db56c4c711ab9595bd9fede4debaa85bf74bf2a3e"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-06-normal.m4a",
+      "byteSize": 55254,
+      "sha256": "a7debe692bc20a97aca4ec5ee69430de8b8ac23169040db61d02df2f55df6156"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-06-slow.m4a",
+      "byteSize": 58776,
+      "sha256": "84500f1174a795532019751a1e4749d49c9e0be4ec02347db5ecfb180377d756"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-07-normal.m4a",
+      "byteSize": 56592,
+      "sha256": "567aa29a007b42fe6d768cd58e79c4752bfb4fa7b58c8917bcb40cf53170d2ac"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-07-slow.m4a",
+      "byteSize": 58768,
+      "sha256": "5db74401484d855e4d51b538fd386b13e5f2fcce797e7eedd8ba0711d050c919"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-08-normal.m4a",
+      "byteSize": 49877,
+      "sha256": "9f3cabb7f59203d6ad250ca93c48cb65f5f59b9ee02f5cbead78362a14cb724c"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-08-slow.m4a",
+      "byteSize": 56104,
+      "sha256": "caefaedff14f8f01dbf46ba89a22ffb93e77e172523b83d1207110c6a51cf216"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-09-normal.m4a",
+      "byteSize": 53440,
+      "sha256": "1ced272478542fe44baebdbcb48ad58a36549a893ec9d1a9c6842cf121bac329"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-09-slow.m4a",
+      "byteSize": 67098,
+      "sha256": "633b7bb6963ed354dab94322c285d52926491994ebfc5285be64ba4bea7e5141"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-10-normal.m4a",
+      "byteSize": 48028,
+      "sha256": "c48b0f96d63bc4aefd0dc7d63e71731d4392639ee5ff3de3e7fa438457a3c222"
+    },
+    {
+      "assetPath": "audio/iapetus/privilege/sentence-10-slow.m4a",
+      "byteSize": 52975,
+      "sha256": "27c8ebdc9d6087fb730f5379012658bde139c8576a10a8bbe9d622f7f74b949b"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/word.m4a",
+      "byteSize": 5759,
+      "sha256": "bbb0388e82bd1dc88c1b9d677e4c2ff87d585fc83e920e850c7c8097b0028ec9"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-01-normal.m4a",
+      "byteSize": 46417,
+      "sha256": "f5ceebc8f4000ddc1da1f50b4d0f09265865194c2ea303a52a0f9ade570fbe71"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-01-slow.m4a",
+      "byteSize": 53707,
+      "sha256": "326f1ea64cd71cca21077df801dde21df3b5f37eee7ef8528aff2c7fab180502"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-02-normal.m4a",
+      "byteSize": 61056,
+      "sha256": "340bfcaee65440245ad3b3ba101354ec271eb17e73bbb651d0e1a9aee3accd3b"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-02-slow.m4a",
+      "byteSize": 74828,
+      "sha256": "04ad46a2a875f5395cb2f0dafc5b4bfb44cc3b28f678edddc41d4e13abb47342"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-03-normal.m4a",
+      "byteSize": 48754,
+      "sha256": "087ba7bc61fd42334c3c1b801d459606d4283c4204b291532c135e1e7001fb96"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-03-slow.m4a",
+      "byteSize": 57578,
+      "sha256": "b6fa58f674af6c2e61c27c4b06a204983d862b1f7b48d7ed595cd8581386faa7"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-04-normal.m4a",
+      "byteSize": 49799,
+      "sha256": "cadaa36fa9d6d6febefe96e70fb340ab18313e7b8ed97f07bff6228f644fd003"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-04-slow.m4a",
+      "byteSize": 64267,
+      "sha256": "c55ae84a39fb8e5f553503425f07c008004e34e2a4ef748d7b337a5192718aad"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-05-normal.m4a",
+      "byteSize": 46584,
+      "sha256": "35995242d38cc974972c61433827f17cf34330f2d85510c6ce6006e3f355a630"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-05-slow.m4a",
+      "byteSize": 62307,
+      "sha256": "a9bd7b0e9a942518d6d654f059a48628fb7cec3b1ded259309aa66b1a2d7e780"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-06-normal.m4a",
+      "byteSize": 60432,
+      "sha256": "29de86829b398da8a18d5e01dfe23ebb328455c62daca6c1976dfcbb23665307"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-06-slow.m4a",
+      "byteSize": 69531,
+      "sha256": "57bcdabd758dd3b9952e8bb5acd1128bcc1379d9306058bd875ca083d44e6bfa"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-07-normal.m4a",
+      "byteSize": 54187,
+      "sha256": "291c5c0c739dcc79c33bd9952715fa1b0dc0db6e34a60868d661d3e46fcfe4fb"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-07-slow.m4a",
+      "byteSize": 62239,
+      "sha256": "c6d94488d9333eab3bb79254dc7122a5c18d04e563f1407cedc62933c47097d7"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-08-normal.m4a",
+      "byteSize": 49557,
+      "sha256": "9534e51a67b08f8c2288f5c7617ba88f0158e08d89d2f66237ca21a7774bf0f5"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-08-slow.m4a",
+      "byteSize": 58633,
+      "sha256": "895f9a35e94fae82460a728f0fe5b56037981453b536fe04a34f217c08129dc4"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-09-normal.m4a",
+      "byteSize": 52450,
+      "sha256": "3c9da133f0527fa69c756f2005a5aab9e47263de62dca234cd5ff75463a312a6"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-09-slow.m4a",
+      "byteSize": 60946,
+      "sha256": "05338a6ea580f33921676956ef563825b271d41d5ff8cf79fce4fe28b3b20d1e"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-10-normal.m4a",
+      "byteSize": 41895,
+      "sha256": "338341af72b932074234523f4785aa9a6c14125a9631564e271e40e21ad8abe5"
+    },
+    {
+      "assetPath": "audio/sulafat/privilege/sentence-10-slow.m4a",
+      "byteSize": 53846,
+      "sha256": "58efed0842dc121e316d1886412e8598eb1b0b8b39fe5ffff8c9145bca6c3f22"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/word.m4a",
+      "byteSize": 6057,
+      "sha256": "344d755ea50015cb4e0af9d83a2fafce1731e9dec447fd6ca36c16c9d48c02e6"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-01-normal.m4a",
+      "byteSize": 45808,
+      "sha256": "775dd46b095def4640c8781667b979a0bc96a37778d044918b364ace57486ca8"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-01-slow.m4a",
+      "byteSize": 52840,
+      "sha256": "d7c2855ad822883e770c78a1f0bcedf494827849fd1776270bb65ffe33f596de"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-02-normal.m4a",
+      "byteSize": 49846,
+      "sha256": "c2801fcdac7061f34d0e62be62e8f776acfcd19d0f86e7e3a93b6d999718c08b"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-02-slow.m4a",
+      "byteSize": 66861,
+      "sha256": "40d65017c5cd3e32c6a8c8568dad1ba728ac573536b8bdd70845b7a00e4214e8"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-03-normal.m4a",
+      "byteSize": 46861,
+      "sha256": "21c8bd6cc9707bc79c56b4145d6748492ba92642a62e31b36fd00cf33caa853d"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-03-slow.m4a",
+      "byteSize": 56944,
+      "sha256": "8ce62a9d501592a7ed69c1a7d548b12d2053bfa0c67136b80d259648504dc046"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-04-normal.m4a",
+      "byteSize": 54701,
+      "sha256": "ee77ea8321a985a23ca213045b2fff32fae780b23511484137a99047f7603373"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-04-slow.m4a",
+      "byteSize": 59078,
+      "sha256": "37f673fd59bfe63d9867acf86c96d58add32f86b5e110ffb6a8c72022df01120"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-05-normal.m4a",
+      "byteSize": 47835,
+      "sha256": "7bd8e469db6d5e21bc67741a6a44f04473cd9e6c4f4df267f8fe8777d55b88fb"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-05-slow.m4a",
+      "byteSize": 58050,
+      "sha256": "5c30f2503856cf483f70cd37c2890b2374deb5f15c72dbb47d9ec76f03228ef5"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-06-normal.m4a",
+      "byteSize": 52427,
+      "sha256": "a6d545ade87f2a15f8b18f12f59b0f8d87f6e02cca000eb18678280f79040d33"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-06-slow.m4a",
+      "byteSize": 58979,
+      "sha256": "ec51fb0478820de6e628bbe39692e47ba02184600b8e19da6cd755e6a03742fc"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-07-normal.m4a",
+      "byteSize": 49769,
+      "sha256": "2e670de7bd880455c7807ed4dfb6efe085e10277463c6bf080ef0f4902dfc7ec"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-07-slow.m4a",
+      "byteSize": 54161,
+      "sha256": "09f427e7ebf97426f622f31f398cad30c5f8023c82236f41edcc8282897d155a"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-08-normal.m4a",
+      "byteSize": 52300,
+      "sha256": "d37d31f04f6cb30a6bf2d1f086a2eb7903ebbe849e01ffbd6127cfe60acea03a"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-08-slow.m4a",
+      "byteSize": 64442,
+      "sha256": "b9d5d6e54e044899f1c471ae538a7f1df7a5b440ac28e48d18ac476077fd1cd3"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-09-normal.m4a",
+      "byteSize": 57832,
+      "sha256": "9c01781c8642680c726b7b8a79330a7206bdd91fc1423a5a8d846db0ae353372"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-09-slow.m4a",
+      "byteSize": 64971,
+      "sha256": "93899f7713c666b63adac95f417d58ce4c65f2bbcb51188eb8e0f475d3ca7869"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-10-normal.m4a",
+      "byteSize": 51769,
+      "sha256": "42ef0676be13e650add863d12ebf05d3d758861f4022b6f19ae93ec759660446"
+    },
+    {
+      "assetPath": "audio/iapetus/profession/sentence-10-slow.m4a",
+      "byteSize": 67974,
+      "sha256": "74d862f1721230f767df1f169ec504123dfd7e527d851334df8e93923c2e9672"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/word.m4a",
+      "byteSize": 6246,
+      "sha256": "59d4cce6d8cd403a63aef40c13cdb41c094cbf993ee9ce36b2106c10e754c4b3"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-01-normal.m4a",
+      "byteSize": 46805,
+      "sha256": "9674d134019e3b0b59b31edea35440c20a060211b81d6c16d45695cf534571b5"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-01-slow.m4a",
+      "byteSize": 51217,
+      "sha256": "316cffad4c07222815c70456d1767565ce84c78d8e6b062934f8b42d176d7d36"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-02-normal.m4a",
+      "byteSize": 49927,
+      "sha256": "877580d92edfd4903927e3676e11f2ec895ac1b2a6e32d25ddbc056aee7b24a8"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-02-slow.m4a",
+      "byteSize": 66289,
+      "sha256": "affdecad695b337cade4ffe18265cb549db92662260dea3eeaba9849ef03da48"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-03-normal.m4a",
+      "byteSize": 51930,
+      "sha256": "88ee3d373e82c9aefc3d030af522ce89ecd6b423ff1de732c4ba9a5babef1e96"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-03-slow.m4a",
+      "byteSize": 59120,
+      "sha256": "ddf96d4bc132aac4abd47e35ab450627270edf65158ff89ec164a9674847352c"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-04-normal.m4a",
+      "byteSize": 59984,
+      "sha256": "6ccaf991046be3b8fe1a74a644f182335251f09c90e77bba7ed52bf2740877d4"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-04-slow.m4a",
+      "byteSize": 75382,
+      "sha256": "295dc184fe58f184193de263940b2bc0a334922f9d7174c41d6a1f01c6a82d71"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-05-normal.m4a",
+      "byteSize": 43941,
+      "sha256": "19264532ed43f3c87f996c91ddeb6c76b3f927a0ef0e09bb84cf9bbd0fbc8631"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-05-slow.m4a",
+      "byteSize": 53801,
+      "sha256": "8440437509c05ae578c5fe6fef732e3e279a0b7f0ea7373690f346b6a486aa81"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-06-normal.m4a",
+      "byteSize": 50189,
+      "sha256": "e43a2f12e4eacbc25e4725136bc221d3edf36919d027e5cc28a9b54b88fd0d59"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-06-slow.m4a",
+      "byteSize": 60176,
+      "sha256": "a738899780b1805abea0cb45e0f762de4f59a7f19703b5b8f0102e74f2533a2c"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-07-normal.m4a",
+      "byteSize": 47695,
+      "sha256": "6a49790c44da4266f1a6ba823a8d74fb97cd897ac329493cda05b6e20a7c4f75"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-07-slow.m4a",
+      "byteSize": 52913,
+      "sha256": "80b92f1474305e378cac679ecb1f5826f69b05a049614f7b8873e5cf62fd03e2"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-08-normal.m4a",
+      "byteSize": 52593,
+      "sha256": "0be03fc11fddef96068e19087ef156be1f72466ea132cb13804156ff03cc7e1b"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-08-slow.m4a",
+      "byteSize": 59370,
+      "sha256": "a2acced637c677961bba2a825714a7903142a23bb14adc4b5082a91a50eae35f"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-09-normal.m4a",
+      "byteSize": 54958,
+      "sha256": "1e48537e21526d6541069885f5ffbe40617e0cd27bdfe7dd32be2c552f8e7e74"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-09-slow.m4a",
+      "byteSize": 64034,
+      "sha256": "0f1716af82aa77e491421c4ab9da0c8ca53f3e4dae5848f240cbb788ae464c97"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-10-normal.m4a",
+      "byteSize": 59027,
+      "sha256": "0bff9d75d4253f7505f4c61725f9cdfee97928c4b991cc096a20f858d5cff98e"
+    },
+    {
+      "assetPath": "audio/sulafat/profession/sentence-10-slow.m4a",
+      "byteSize": 74653,
+      "sha256": "8cf1574a67d0bf9d0050663f6cc631c26b5e8a5c6040fd3cc73adce1cb06368f"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/word.m4a",
+      "byteSize": 5295,
+      "sha256": "11f3d1c4296e3491dc9b449528298a2684b40d8a54eedea169e85e04bf62d6da"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-01-normal.m4a",
+      "byteSize": 49876,
+      "sha256": "a65c9fc0b869bedc4c2881ae4eb5bf61758a9d2b335e1e2acec87fa63c384c01"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-01-slow.m4a",
+      "byteSize": 59709,
+      "sha256": "a58d336c30ca18fdde1e70b0d498f47a073d8c18a1bcb72ed541944eba009ece"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-02-normal.m4a",
+      "byteSize": 46334,
+      "sha256": "149edc14fad50a5d7b836c454e2d7c1627b78899973027eb569431778bd1dc1c"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-02-slow.m4a",
+      "byteSize": 52133,
+      "sha256": "4414ca062eaa1b1dbc3f02e78d9532c0b4c99885a8330177c308a6dc920c37f1"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-03-normal.m4a",
+      "byteSize": 51994,
+      "sha256": "22a711563fb45c7d2540430db37c0a65c6faba4cb6a1fae0acec98c3cb2bf16a"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-03-slow.m4a",
+      "byteSize": 60842,
+      "sha256": "625f11f0e891daf57d165c642e698fd4f4d24e2a8f67ded487cfb19604ce45db"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-04-normal.m4a",
+      "byteSize": 45426,
+      "sha256": "186a973afb628f838eebb3c9ffa90ed1017b609a26106fe420f04342066433c4"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-04-slow.m4a",
+      "byteSize": 58164,
+      "sha256": "d47bb3718b805208bcaa1ccbf9e87854bb0157dbcfca24806de4f86a06b91a11"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-05-normal.m4a",
+      "byteSize": 45103,
+      "sha256": "8a4ab2712ea065554859a76f9f1917695030621b802fdac172da9665b6ac1c2f"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-05-slow.m4a",
+      "byteSize": 50810,
+      "sha256": "98e853a500b54cd92adba46c4ea71a23898ad34fa555c0883bad9f92aed49b28"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-06-normal.m4a",
+      "byteSize": 44402,
+      "sha256": "766b017e2eb1fca9aeb0e1d4bc07795c026fe232c2f07629f946337da702f354"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-06-slow.m4a",
+      "byteSize": 54875,
+      "sha256": "1ac90677af39c7dbd2ef8204158c54abb1f3126bbed6eda2dac7dff612e8f497"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-07-normal.m4a",
+      "byteSize": 45434,
+      "sha256": "f725319fec9b7dd2de35010100f1b885981c292db165c04b655de268bbb574fd"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-07-slow.m4a",
+      "byteSize": 53995,
+      "sha256": "f21d01ffa1a604b895fb02023a25a76fae3da1416a1a21f3796ca69b1a55faa8"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-08-normal.m4a",
+      "byteSize": 44270,
+      "sha256": "20564a051dc2b67e721d573a7fdad82fc5735a3468b45c1e60fc13e79572e7bf"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-08-slow.m4a",
+      "byteSize": 53965,
+      "sha256": "c5fbeab082fe5def785128ca3d04be91fd4f74d00fe2a4f2b755ca7b47fc4462"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-09-normal.m4a",
+      "byteSize": 50278,
+      "sha256": "fa679a50ab08f7798787fa8a17c7c08b4e81e65d1abdf7490db02d7d50bf5e6a"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-09-slow.m4a",
+      "byteSize": 67771,
+      "sha256": "68e7e625ad4cbe6d18913e8eb3fab2ebf24a770c5823a1dd650b777d7acca482"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-10-normal.m4a",
+      "byteSize": 51683,
+      "sha256": "ca61cc96080714d81bfe9582b8d8f7dd1dedfc52c642ce399eb9ac72587d64f4"
+    },
+    {
+      "assetPath": "audio/iapetus/programme/sentence-10-slow.m4a",
+      "byteSize": 56821,
+      "sha256": "8356c819bece3c28982093569a80a8a3a701d07e331c7723373a27112eba2f99"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/word.m4a",
+      "byteSize": 5927,
+      "sha256": "7957dd0a6ecb4766a25edb7c7a2ed00a53beed45e7f4a6887f5dc77d3a8f45cb"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-01-normal.m4a",
+      "byteSize": 49124,
+      "sha256": "627abf797cefbc5beedf9332b9acd8a49b49df7364b8598b0024509edf6b04f8"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-01-slow.m4a",
+      "byteSize": 54854,
+      "sha256": "3a9c405cc4a016dc840f8a0c4cdf8902f1cc7a81b095c5fb1e2277002bbd263f"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-02-normal.m4a",
+      "byteSize": 49161,
+      "sha256": "aec396d2c96c93eb25cec2208e881e1376e3258b624e331a561a3150b92cc752"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-02-slow.m4a",
+      "byteSize": 58252,
+      "sha256": "d919ffbecb03dc611fe574bed440d9db13befed8f7c202356ed3f8d48778b924"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-03-normal.m4a",
+      "byteSize": 61166,
+      "sha256": "3e8a057321e9f57aeb60839515bd38473185d974f766c8f8132fac121f08dbc1"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-03-slow.m4a",
+      "byteSize": 74751,
+      "sha256": "e0be70dbb12df8c433eb590d1473e55599be8def4b123a90bdab7dc6aa4c8089"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-04-normal.m4a",
+      "byteSize": 55549,
+      "sha256": "d131275b814d9e91df88badc101bcd5ce32dcebcaedf97a32721bfc1ddc5213a"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-04-slow.m4a",
+      "byteSize": 61820,
+      "sha256": "0d2189c002323a484a9abd66509b895017e2f79d254a21d310ef9781b414e33c"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-05-normal.m4a",
+      "byteSize": 50842,
+      "sha256": "3db63b48e9fcd3108a07c6fbaa43df8e9d922dba97e16cfe57bb3db296cab47b"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-05-slow.m4a",
+      "byteSize": 64036,
+      "sha256": "996f52245b9046fd09eabbb43dbc9b739999ca5d3018ed01d933e62d648d38bd"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-06-normal.m4a",
+      "byteSize": 45677,
+      "sha256": "bdffaeaa9b6bf68ca6d7b5aaeadb7eb0a92f91554a02946c28d9c1643df3e2d5"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-06-slow.m4a",
+      "byteSize": 53403,
+      "sha256": "e5e495f468afa35f5924782899590664c1e9bd089298b65e09307104140f4aa1"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-07-normal.m4a",
+      "byteSize": 52561,
+      "sha256": "3047a4e1a3415b12f2b0c673cd502d7fd97ba32e59c7d5761295f36c77753fc9"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-07-slow.m4a",
+      "byteSize": 55326,
+      "sha256": "95a9e0aff9787548cee4a8b6c8d57b526ebf387057ac114f774f401c2864d878"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-08-normal.m4a",
+      "byteSize": 49688,
+      "sha256": "6d44a428ed11f94dabaeaedc6fdfb91c506ae206b84d7dd0b6eb8a3d2ada20a2"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-08-slow.m4a",
+      "byteSize": 63014,
+      "sha256": "c448394b1e753e4a05a4fb987e2a1735c475e0706873e690a8ff63e37887aece"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-09-normal.m4a",
+      "byteSize": 43216,
+      "sha256": "17445711604f9a1206818c6e287187cb332a497c838dfcc0a24fb44ec7ed6a97"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-09-slow.m4a",
+      "byteSize": 57966,
+      "sha256": "16e7b71daf281b165e760ca7b03ff4a05b77f9b773b84b83ab9ee610e81a8900"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-10-normal.m4a",
+      "byteSize": 49611,
+      "sha256": "b750cef8eb62eb91796908c41bfc0d0e848f542bdd82e6e3fca1777bab7682f0"
+    },
+    {
+      "assetPath": "audio/sulafat/programme/sentence-10-slow.m4a",
+      "byteSize": 54515,
+      "sha256": "bf9c5def5fe9a8f299fc78930f570c78b2351104801ab998622b92d98ab1e6b1"
+    }
+  ]
+}

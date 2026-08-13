@@ -42,10 +42,36 @@ The pairs in the repository today are:
 | Starter | `config/packs/ks2-core.json` | `config/packs/ks2-core.audio.json` |
 | Full | audio lane only | `config/packs/ks2-core-full.audio.json` |
 | Fixture | `config/packs/e3-toy.json` | `config/packs/e3-toy.audio.json` |
+| Full shards | `config/packs/full-ks2-shard-01.json` … `-15.json` | shared: the Full audio lane |
 
 The Full catalogue has an audio lane but no build authority. At 8 947 files its
 canonical manifest measures 1 298 997 bytes, roughly 245 KiB over the 1 MiB
 signed-envelope bound, so it cannot ship as a single data-only pack.
+
+## The Full shard lane
+
+E2.6 ships the Full catalogue as fifteen `full-ks2-shard-NN` packs under the
+one `full-ks2` entitlement. The shards deliberately have **no per-shard audio
+authority pair**: their payload members are bit-exact copies of the tracked
+Full payload, so the Full lane's frozen audio authority and C2 evidence remain
+the single audio truth, and no encoder (and no FFmpeg at all) runs during
+shard authoring. Each shard's `catalogueSource` and `audioEvidenceSource` name
+the same committed manifest document — an exact
+`{assetPath, byteSize, sha256}` subset of the C2 evidence — under
+`config/packs/full-ks2-shards/`.
+
+The reviewed partition is `config/full-ks2-shard-partition.json`
+(item-granular, catalogue order, greedy fill under the native 32 MiB /
+1 024-file ceilings), and the whole lane is driven by one command:
+
+```bash
+node scripts/author-full-shards.mjs --check   # verify → stage → build ×2 → re-verify
+```
+
+Its tracked outcome is `config/packs/full-ks2-shards/authoring-report.json`,
+which pins every shard's archive and canonical-manifest digests. Signing and
+hosting stay owner-gated; see
+`2026-08-13-full-ks2-shard-signing-and-hosting-runbook.md`.
 
 ## The command sequence
 

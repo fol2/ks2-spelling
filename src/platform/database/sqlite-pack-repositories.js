@@ -7,7 +7,6 @@ import {
 const IDENTIFIER = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
 const ARCHIVE_NAME = /^[a-z0-9][a-z0-9._-]{0,59}\.zip$/;
-const REQUIRED_ENTITLEMENT_ID = 'full-ks2';
 const FREE_STARTER_PACK_ID = 'ks2-core';
 const JOB_STATES = Object.freeze([
   'queued',
@@ -577,8 +576,10 @@ export function createSqlitePackRepositories(connection) {
     if (value.requiredEntitlementId === null) {
       if (installed.packId !== FREE_STARTER_PACK_ID) throw inputError();
     } else {
+      // Callers name the entitlement from their own authority (the signed
+      // manifest or the catalogue); this layer's job is the fail-closed
+      // active-entitlement check inside the owned transaction below.
       requireIdentifier(value.requiredEntitlementId);
-      if (value.requiredEntitlementId !== REQUIRED_ENTITLEMENT_ID) throw inputError();
     }
     if (
       installed.packId !== active.packId ||

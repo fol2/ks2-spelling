@@ -43,6 +43,25 @@ test('native pack inspection keeps per-manifest ceilings inside the reviewed pro
     androidPlugin,
     /requiredEntitlementId == JSONObject\.NULL\s*\?\s*FREE_STARTER_PACK_ID\.equals\(packId\)/,
   );
+
+  // E2.2: a non-null requiredEntitlementId is a shape-checked identity, not a
+  // compiled-in entitlement literal; the registry pairing lives in the app layer.
+  assert.match(iosPlugin, /func isApprovedEntitlementIdentity\(_ value: String\) -> Bool/);
+  assert.match(
+    iosPlugin,
+    /:\s*Self\.isApprovedEntitlementIdentity\(manifest\.requiredEntitlementId \?\? ""\)/,
+  );
+  assert.doesNotMatch(iosPlugin, /"full-ks2"/);
+  assert.match(
+    androidPlugin,
+    /ENTITLEMENT_IDENTITY\s*=[\s\S]{0,40}Pattern\.compile\("\^\[a-z0-9\]\+\(\?:-\[a-z0-9\]\+\)\*\$"\)/,
+  );
+  assert.match(androidPlugin, /:\s*requiredEntitlementId instanceof String/);
+  assert.match(
+    androidPlugin,
+    /ENTITLEMENT_IDENTITY\.matcher\(\(String\) requiredEntitlementId\)\.matches\(\)/,
+  );
+  assert.doesNotMatch(androidPlugin, /"full-ks2"/);
   assert.match(iosPlugin, /#if B3_SANDBOX_PROOF[\s\S]*"sandbox"[\s\S]*"production"/);
   assert.match(
     androidPlugin,

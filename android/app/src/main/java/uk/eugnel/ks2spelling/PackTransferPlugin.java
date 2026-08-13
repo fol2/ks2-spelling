@@ -59,6 +59,11 @@ public final class PackTransferPlugin extends Plugin {
     private static final String GATEWAY_ORIGIN = "https://b3-gateway.eugnel.uk";
     private static final String SIGNING_DOMAIN = "ks2-spelling-pack-manifest-v1";
     private static final String FREE_STARTER_PACK_ID = "ks2-core";
+    // A non-null requiredEntitlementId must be a kebab-case identity; the
+    // registry-driven pack/entitlement pairing itself is enforced in the
+    // application layer against the signed manifest.
+    private static final Pattern ENTITLEMENT_IDENTITY =
+        Pattern.compile("^[a-z0-9]+(?:-[a-z0-9]+)*$");
     private static final Set<String> ALLOWED_EXTENSIONS = Collections.unmodifiableSet(
         new HashSet<>(Arrays.asList(".json", ".m4a"))
     );
@@ -411,7 +416,9 @@ public final class PackTransferPlugin extends Plugin {
         Object requiredEntitlementId = manifest.get("requiredEntitlementId");
         require(requiredEntitlementId == JSONObject.NULL
             ? FREE_STARTER_PACK_ID.equals(packId)
-            : "full-ks2".equals(requiredEntitlementId));
+            : requiredEntitlementId instanceof String
+                && ((String) requiredEntitlementId).length() <= 64
+                && ENTITLEMENT_IDENTITY.matcher((String) requiredEntitlementId).matches());
         List<String> extensions = arrayStrings(manifest.getJSONArray("allowedExtensions"));
         require(new HashSet<>(extensions).equals(ALLOWED_EXTENSIONS) && extensions.size() == 2);
         JSONObject archive = manifest.getJSONObject("archive");

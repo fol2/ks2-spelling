@@ -7,6 +7,27 @@ import ZIPFoundation
 @objc(PackTransferPlugin)
 public final class PackTransferPlugin: CAPPlugin, CAPBridgedPlugin {
     private static let freeStarterPackId = "ks2-core"
+
+    // A non-null requiredEntitlementId must be a kebab-case identity; the
+    // registry-driven pack/entitlement pairing itself is enforced in the
+    // application layer against the signed manifest.
+    private static func isApprovedEntitlementIdentity(_ value: String) -> Bool {
+        guard !value.isEmpty, value.count <= 64 else { return false }
+        var previousWasHyphen = true
+        for scalar in value.unicodeScalars {
+            switch scalar {
+            case "a"..."z", "0"..."9":
+                previousWasHyphen = false
+            case "-":
+                if previousWasHyphen { return false }
+                previousWasHyphen = true
+            default:
+                return false
+            }
+        }
+        return !previousWasHyphen
+    }
+
     private static let packEnvironment: String = {
 #if B3_SANDBOX_PROOF
         "sandbox"
@@ -523,7 +544,7 @@ public final class PackTransferPlugin: CAPPlugin, CAPBridgedPlugin {
               key.allowedPackIds.contains(manifest.packId),
               manifest.requiredEntitlementId == nil
                 ? manifest.packId == Self.freeStarterPackId
-                : manifest.requiredEntitlementId == "full-ks2",
+                : Self.isApprovedEntitlementIdentity(manifest.requiredEntitlementId ?? ""),
               manifest.allowedExtensions == [".json", ".m4a"] else {
             throw PackTransferError.rejected
         }

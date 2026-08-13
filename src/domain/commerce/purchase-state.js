@@ -1,46 +1,25 @@
-import packObjectAuthority from '../../../config/b3-pack-object-authority.json' with { type: 'json' };
+import { PACK_REGISTRY, findPackAuthority } from '../packs/pack-registry.js';
 
 import {
   findStoreProductByEntitlementId,
   mapStoreProductToEntitlement,
 } from './commerce-contracts.js';
 
-function readPackObjectAuthority(value) {
-  const archive = value?.objects?.find?.((entry) => entry?.role === 'archive');
-  const manifest = value?.objects?.find?.((entry) => entry?.role === 'signed-manifest');
-  const valid =
-    value?.schemaVersion === 1 &&
-    value?.packId === 'b3-sandbox-proof' &&
-    value?.version === '1.0.0-b3.1' &&
-    Array.isArray(value?.objects) &&
-    value.objects.length === 2 &&
-    archive &&
-    manifest &&
-    archive.key === 'packs/b3-sandbox-proof/1.0.0-b3.1/b3-sandbox-proof.zip' &&
-    manifest.key === 'packs/b3-sandbox-proof/1.0.0-b3.1/signed-manifest.json' &&
-    Number.isSafeInteger(archive.bytes) &&
-    archive.bytes > 0 &&
-    /^[a-f0-9]{64}$/.test(archive.sha256) &&
-    /^[a-f0-9]{32}$/.test(archive.etag) &&
-    Number.isSafeInteger(manifest.bytes) &&
-    manifest.bytes > 0 &&
-    /^[a-f0-9]{64}$/.test(manifest.sha256) &&
-    /^[a-f0-9]{32}$/.test(manifest.etag);
-  if (!valid) throw new TypeError('B3 pack object authority is invalid.');
+function packJobFacts(row) {
   return Object.freeze({
-    packId: value.packId,
-    version: value.version,
-    archiveName: 'b3-sandbox-proof.zip',
-    manifestSha256: manifest.sha256,
-    manifestBytes: manifest.bytes,
-    manifestEtag: manifest.etag,
-    archiveSha256: archive.sha256,
-    archiveBytes: archive.bytes,
-    archiveEtag: archive.etag,
+    packId: row.packId,
+    version: row.version,
+    archiveName: row.archiveName,
+    manifestSha256: row.manifestSha256,
+    manifestBytes: row.manifestBytes,
+    manifestEtag: row.manifestEtag,
+    archiveSha256: row.archiveSha256,
+    archiveBytes: row.archiveBytes,
+    archiveEtag: row.archiveEtag,
   });
 }
 
-export const B3_PACK_JOB_AUTHORITY = readPackObjectAuthority(packObjectAuthority);
+export const B3_PACK_JOB_AUTHORITY = packJobFacts(findPackAuthority('b3-sandbox-proof'));
 
 // The catalogue is the only place an entitlement's store products and packs are named.
 // Coordinators bind to one entitlementId and read everything else from here.
@@ -53,21 +32,29 @@ export function resolveCommerceProduct(entitlementId) {
   });
 }
 
-// ponytail: one tracked pack per entitlement is all the download/activation path
-// implements; E2.2 grows this to the N shard packs the owner decision calls for.
-export function resolvePackJobAuthority(product) {
-  if (product.packIds.length !== 1 || product.packIds[0] !== B3_PACK_JOB_AUTHORITY.packId) {
-    throw new TypeError('Only a single tracked pack per entitlement is implemented.');
+// Multi-shard resolution: every pack a product delivers must be a registry row
+// bound to that product's entitlement, else the download path fails closed.
+export function resolvePackJobAuthorities(product, registry = PACK_REGISTRY) {
+  if (!Array.isArray(product?.packIds) || product.packIds.length === 0) {
+    throw new TypeError('A product must deliver at least one tracked pack.');
   }
-  return Object.freeze({
-    entitlementId: product.entitlementId,
-    packId: B3_PACK_JOB_AUTHORITY.packId,
-    version: B3_PACK_JOB_AUTHORITY.version,
-    jobId: `${B3_PACK_JOB_AUTHORITY.packId}.${B3_PACK_JOB_AUTHORITY.version}`,
-  });
+  return Object.freeze(product.packIds.map((packId) => {
+    const pack = findPackAuthority(packId, registry);
+    if (pack.requiredEntitlementId !== product.entitlementId) {
+      throw new TypeError('A tracked pack is not bound to the product entitlement.');
+    }
+    return Object.freeze({
+      entitlementId: product.entitlementId,
+      packId: pack.packId,
+      version: pack.version,
+      jobId: `${pack.packId}.${pack.version}`,
+    });
+  }));
 }
 
-export const FULL_KS2_PACK = resolvePackJobAuthority(resolveCommerceProduct('full-ks2'));
+// ponytail: [0] is exact while the catalogue sells one pack; the composition
+// slices (E2.3/E2.7) replace this single-pack binding when real shards land.
+export const FULL_KS2_PACK = resolvePackJobAuthorities(resolveCommerceProduct('full-ks2'))[0];
 
 export const PURCHASE_CHECKPOINTS = Object.freeze([
   'journal',

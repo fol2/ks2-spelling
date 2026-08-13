@@ -6,19 +6,26 @@ tags:
 problem_type: operating-procedure
 ---
 
-# Agent wayfinder: picking up a GitHub issue in this repository
+# Work-order contract: picking up a GitHub issue in this repository
 
-Dated 2026-08-13. This is the standing operating document for ANY engineering
-agent (or human) taking an issue from the board. It replaces the per-dispatch
-briefing boilerplate: an issue plus this document is a complete work order.
-If something here conflicts with an issue body, the issue wins; if it
-conflicts with a frozen plan document, the plan document wins.
+Dated 2026-08-13, renamed 2026-08-13. This is the standing operating document
+for ANY engineering agent (or human) taking an issue from the board. It
+replaces the per-dispatch briefing boilerplate: an issue plus this document is
+a complete work order. If something here conflicts with an issue body, the
+issue wins; if it conflicts with a frozen plan document, the plan document
+wins.
+
+> Renamed from `agent-wayfinder.md`. That name collided with the `/wayfinder`
+> planning skill, which means something entirely different: a `wayfinder:map`
+> issue whose child tickets are *decisions*, resolved one per session. This
+> document is not that. It is the execution contract you hold yourself to
+> once a decision has been made and a build slice exists.
 
 ## Roles
 
 - **Executors** implement one slice, open a PR, and never merge.
-- **The planner** (usually a Claude session named `1st-polish`; any session
-  acting as planner) independently verifies claims and merges. If you can
+- **The planner** (a Claude session acting as planner, commonly named
+  `master-planner`) independently verifies claims and merges. If you can
   reach a planner session, report via SendMessage when your PR is up (send to
   every session bearing the name if it is ambiguous). If none is live, say
   clearly in the PR body that it awaits planner review.
@@ -29,7 +36,10 @@ conflicts with a frozen plan document, the plan document wins.
 ## Reading order for any slice
 
 1. The issue itself, then its epic issue **including comments** (consequence
-   notes from prior slices live there).
+   notes from prior slices live there). The route to the destination — every
+   decision already made, and the fog still ahead — is charted on the
+   repository's `wayfinder:map` issue; read it when you need to know *why*
+   your slice exists.
 2. `docs/superpowers/plans/2026-08-13-commercial-readiness-roadmap.md` — the
    epic tables and governance notes.
 3. The runbooks under `docs/operations/` touching your surfaces (authoring:
@@ -70,6 +80,12 @@ cd ../ks2-spelling-<slice> && npm ci        # never symlink node_modules —
     and Android bundled asset copies (byte-identical trio) and
     `EXPECTED_SIGNING_KEY` in `src/domain/commerce/commerce-contracts.js`,
     plus the slow-test pin;
+  - the gateway rate-limit bound: `gateway/wrangler.jsonc`, the derived deploy
+    config and `validateTrackedWranglerConfig` in
+    `scripts/lib/b3-cloudflare-live-adapter.mjs`, the expected remote-binding
+    config in `scripts/lib/b3-cloudflare-oauth-child.mjs`, and the pin in
+    `tests/b3-cloudflare-live-adapter.slow.test.mjs` (found the hard way in
+    PR #134);
   - registry/catalogue invariant: every packId in `config/store-products.json`
     must be inside an approved key's `allowedPackIds`, and every joined packId
     must resolve to a registry row bound to the same entitlement.
@@ -82,6 +98,12 @@ cd ../ks2-spelling-<slice> && npm ci        # never symlink node_modules —
 ## Verification bar before any PR
 
 - `npm run test:fast` green; `npm run lint` green.
+- **Every fix carries a test that fails when the fix is reverted.** A fix
+  whose removal leaves the suite green is a coincidence, not a fix. Mutate
+  your own change and watch something go red before you claim it (PR #134
+  round 2 shipped three fixes that failed this).
+- Test names must state what the test proves. A test named for a behaviour it
+  does not exercise is worse than no test.
 - Touched packs/commerce/proof surfaces ⇒ `npm run prove:b3:deterministic`
   must reproduce `reports/b3/deterministic-proof.json` byte-identically.
 - Any change under `ios/` or `android/` ⇒ trigger the full three-job run

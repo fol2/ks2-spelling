@@ -91,7 +91,10 @@ export function buildB3DerivedWranglerConfig({ accountId, mainModulePath, baseDi
     rules: [{ type: 'Data', globs: [APPROVED_DER_MODULE.name], fallthrough: false }],
     r2_buckets: [{ binding: 'PACKS', bucket_name: BUCKET_NAME, remote: true }],
     version_metadata: { binding: 'WORKER_VERSION_METADATA' },
-    ratelimits: [{ name: 'GATEWAY_RATE_LIMIT', namespace_id: '1001', simple: { limit: 60, period: 60 } }],
+    // E2.7: a full Full-KS2 install is ~462 requests (15 authorises plus one
+    // ranged GET per 1 MiB chunk) through this one global counter. This bound
+    // moves with gateway/wrangler.jsonc and the oauth-child validator.
+    ratelimits: [{ name: 'GATEWAY_RATE_LIMIT', namespace_id: '1001', simple: { limit: 600, period: 60 } }],
   });
 }
 
@@ -197,7 +200,7 @@ async function validateTrackedWranglerConfig(root) {
     workers_dev: false,
     r2_buckets: [{ binding: 'PACKS', bucket_name: BUCKET_NAME }],
     version_metadata: { binding: 'WORKER_VERSION_METADATA' },
-    ratelimits: [{ name: 'GATEWAY_RATE_LIMIT', namespace_id: '1001', simple: { limit: 60, period: 60 } }],
+    ratelimits: [{ name: 'GATEWAY_RATE_LIMIT', namespace_id: '1001', simple: { limit: 600, period: 60 } }],
   };
   if (!isDeepStrictEqual(actual, expected)) throw liveAdapterError('tracked Wrangler config has drifted');
   return path;

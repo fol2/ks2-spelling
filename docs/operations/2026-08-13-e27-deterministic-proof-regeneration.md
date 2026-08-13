@@ -52,6 +52,39 @@ The planner reproduces the regeneration independently before merge
    - `revoked-locks-shards`: a second composition over the same durable
      state observes a revocation and every shard locks.
 
+## Round-1 review hardening (same day, planner review R5)
+
+The planner's independent verification accepted the shape above and required
+four changes, all applied here and re-reproduced:
+
+1. **`revoked-locks-shards` was a tautology.** `packState === 'locked'` is
+   implied by `entitlementState === 'revoked'` in `aggregatePackStates`'
+   first line, so the scenario asserted its own precondition. It now reads
+   per-shard evidence out of the durable store: all 15 shards keep their
+   installed row and active pointer (`everyShardKeepsItsInstalledBytes`), and
+   all 15 are refused re-activation with `sqlite_pack_entitlement_inactive`
+   while the entitlement is revoked
+   (`everyShardRefusedReactivationWhileRevoked`). Both counts are pinned to
+   15, and that database refusal is the boundary a locked device actually
+   depends on.
+2. **`integrity-failure-durable` could pass vacuously.** Its two
+   `Array.every` invariants hold over an empty array, so a run that lost its
+   rows would have looked identical to one that preserved them.
+   `everyShardStillHasItsJob` pins `jobs.length === 15` before them.
+3. **`syntheticDigests.shardAuthoritySha256`** (new) pins the 15 resolved
+   registry rows in catalogue order, so the artifact freezes the shard
+   authority set its scenarios exercise: any drift in a sha256, byte count,
+   etag, version or ordering fails the proof instead of quietly changing what
+   was proved. `tests/b3-deterministic-proof.test.mjs` pins the literal
+   `9556f0b2aacf849788c3c7f82958f85354fc2936a0c14b02e895e2a24ea00dba`.
+4. **`shardChunkCount` imports `B3_DOWNLOAD_CHUNK_BYTES`** instead of
+   repeating `1_048_576`.
+
+Diff against the round-1 report: exactly four lines — the two hardened
+scenarios' `stateSha256`, the added `shardAuthoritySha256` and the recomputed
+`scenarioMatrixSha256`. `purchased-all-shards` and `interrupted-resume` are
+byte-identical to round 1, because their invariants did not change.
+
 ## Byte-class argument for the committed diff
 
 The regenerated report differs from the frozen report in exactly two byte
@@ -61,6 +94,11 @@ classes:
    their `stateSha256` values. New content, no prior bytes displaced.
 2. **`syntheticDigests.scenarioMatrixSha256` (recomputed):** the hash of the
    scenario matrix necessarily changes because the matrix gained a group.
+
+After the round-1 hardening a third class joins them:
+
+3. **`syntheticDigests.shardAuthoritySha256` (additive):** the new pin over
+   the 15 shard registry rows.
 
 Everything else is byte-identical, in particular:
 
@@ -76,3 +114,11 @@ Regeneration evidence from this slice: two consecutive
 `npm run prove:b3:deterministic` runs (each of which itself builds the
 report twice and asserts byte identity) produced report SHA-256
 `e9fe85c5a089558795a265b1af5ceffa9fb280eeadc7d11466ad63c429662dfd`.
+
+**Superseded by the round-1 hardening above.** The committed report is now
+SHA-256 `3720cbcbf218cce2b7f8e85a682b14e2c2adc786cfe71baf12e6bba317bd9647`,
+again from two consecutive `npm run prove:b3:deterministic` runs (four builds
+in total, all byte-identical), the second from a clean worktree at the
+committed tree, which stayed clean afterwards. `node
+scripts/build-b3-exit-report.mjs --check-ci` on that tree returns
+`{"ok":true,"mode":"pending"}`.

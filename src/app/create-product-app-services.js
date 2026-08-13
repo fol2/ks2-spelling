@@ -1,4 +1,9 @@
-import fullAudioManifest from '../../config/full-audio-manifest.json' with { type: 'json' };
+// The Starter audio evidence doubles as the runtime playback manifest: the
+// player only reads schemaVersion/status/catalogueId/assetCount and each
+// asset's {assetPath, sha256, byteSize}. A trimmed runtime manifest would
+// live in config/, which is frozen for this slice (config/packs/
+// ks2-core.audio.json records runtimeManifestTarget: null).
+import starterAudioEvidence from '../../reports/c1/starter-audio-evidence.json' with { type: 'json' };
 import {
   loadFullSpellingCatalogue,
   loadStarterSpellingCatalogue,
@@ -51,7 +56,7 @@ import {
 import {
   createDatabaseGatedRepository,
 } from './database-gated-repository.js';
-import { createBundledFullAudio } from './bundled-starter-audio.js';
+import { createBundledStarterAudio } from './bundled-starter-audio.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
 import { createParentBackupService } from './parent-backup-service.js';
 import {
@@ -159,11 +164,16 @@ export async function createProductAppServices(options = {}) {
   const createLearnerId = options.createLearnerId ?? defaultLearnerId;
   const connection = createSwitchableSqlConnection(connectionFactory);
   const gate = createDatabaseCommandGate();
-  const starterCatalogue = loadStarterSpellingCatalogue();
-  const catalogue = await loadFullSpellingCatalogue();
+  // The Starter catalogue is the active learning catalogue: this build
+  // bundles only the Starter audio, and full-catalogue access arrives with
+  // the downloaded pack (E2.6). The full catalogue stays registered so
+  // stored full-catalogue aggregates and backups can still be decoded
+  // before the startup migration resets them to Starter.
+  const catalogue = loadStarterSpellingCatalogue();
+  const fullCatalogue = await loadFullSpellingCatalogue();
   const cataloguesById = Object.freeze({
-    [starterCatalogue.catalogueId]: starterCatalogue,
     [catalogue.catalogueId]: catalogue,
+    [fullCatalogue.catalogueId]: fullCatalogue,
   });
   const localDataProtection = options.localDataProtection ??
     createCapacitorLocalDataProtection({
@@ -239,8 +249,7 @@ export async function createProductAppServices(options = {}) {
       ...verifiedDataProtection,
     });
     await coordinator.start();
-    await profileStore.administration.promoteStarterCatalogue();
-    await profileStore.administration.grantFullEntitlement();
+    await profileStore.administration.resetFullCatalogueLearning();
     const [initialProfiles, initialSelectedLearnerId] = await Promise.all([
       profileStore.profiles.listProfiles(),
       profileStore.selection.readSelectedLearnerId(),
@@ -296,11 +305,11 @@ export async function createProductAppServices(options = {}) {
     const bundledAudioSource =
       options.bundledAudio ??
       options.bundledStarterAudio ??
-      createBundledFullAudio({ evidence: fullAudioManifest });
+      createBundledStarterAudio({ evidence: starterAudioEvidence });
     audio = options.audio ?? createProductAudioPlayer({
       catalogue,
       installedAudio: bundledAudioSource,
-      audioEvidence: fullAudioManifest,
+      audioEvidence: starterAudioEvidence,
     });
     audioAvailability = createStarterPackAvailabilityController({
       audioSource: bundledAudioSource,
@@ -350,8 +359,10 @@ export async function createProductAppServices(options = {}) {
       files: learningBackupFiles,
       afterImport: async () => {
         await runPostCommit(async () => {
-          await profileStore.administration.promoteStarterCatalogue();
-          await profileStore.administration.grantFullEntitlement();
+          // A backup from a build that bundled the full audio restores
+          // full-catalogue aggregates; they degrade to Starter here just as
+          // they do at startup.
+          await profileStore.administration.resetFullCatalogueLearning();
           await controller.reload();
         });
         // The progress summary is auxiliary and carries its own notice when a

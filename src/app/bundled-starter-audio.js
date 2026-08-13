@@ -209,12 +209,3 @@ export function createBundledStarterAudio(options = {}) {
     sentinelPath: 'audio/iapetus/answer/word.m4a',
   });
 }
-
-export function createBundledFullAudio(options = {}) {
-  return createBundledAudio(options, {
-    candidateEvidence: options.evidence,
-    label: 'Full',
-    segment: 'full',
-    sentinelPath: 'audio/iapetus/accident/word.m4a',
-  });
-}

@@ -43,7 +43,7 @@ public final class CommercePluginTest {
         assertFalse(snapshot.isAcknowledged());
     }
 
-    @Test public void normalisationRejectsUnknownProductsAndUnspecifiedStates() {
+    @Test public void normalisationRejectsMalformedProductsAndUnspecifiedStates() {
         assertThrows(
             IllegalArgumentException.class,
             () -> CommercePlugin.normalisePurchaseSnapshot(
@@ -53,15 +53,25 @@ public final class CommercePluginTest {
                 "token"
             )
         );
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> CommercePlugin.normalisePurchaseSnapshot(
-                Purchase.PurchaseState.PURCHASED,
-                true,
-                List.of("foreign_product"),
-                "token"
-            )
-        );
+        // An Apple-shaped id, an uppercase id, and a multi-product purchase all
+        // violate the Google product identity shape the bridge fails closed on;
+        // exact catalogue membership is enforced in the application layer.
+        for (List<String> products : List.of(
+            List.of("uk.eugnel.ks2spelling.fullks2"),
+            List.of("FULL_KS2"),
+            List.of("full_ks2", "second_product"),
+            List.<String>of()
+        )) {
+            assertThrows(
+                IllegalArgumentException.class,
+                () -> CommercePlugin.normalisePurchaseSnapshot(
+                    Purchase.PurchaseState.PURCHASED,
+                    true,
+                    products,
+                    "token"
+                )
+            );
+        }
     }
 
     @Test public void completionRequiresTheRequeriedPurchaseToBeAcknowledged() {
@@ -89,12 +99,18 @@ public final class CommercePluginTest {
 
         assertEquals(
             purchased,
-            CommercePlugin.pendingSnapshotForSuccessfulQuery(List.of(purchased))
+            CommercePlugin.pendingSnapshotForSuccessfulQuery(List.of(purchased), "full_ks2")
         );
         CommercePlugin.PurchaseSnapshot cancelled =
-            CommercePlugin.pendingSnapshotForSuccessfulQuery(List.of());
+            CommercePlugin.pendingSnapshotForSuccessfulQuery(List.of(), "full_ks2");
         assertEquals("cancelled", cancelled.outcome());
         assertNull(cancelled.opaqueProof());
+
+        // A purchase of a different catalogue product cannot settle this call.
+        CommercePlugin.PurchaseSnapshot otherProduct =
+            CommercePlugin.pendingSnapshotForSuccessfulQuery(List.of(purchased), "other_pack");
+        assertEquals("cancelled", otherProduct.outcome());
+        assertEquals("other_pack", otherProduct.productId());
     }
 
     @Test public void ambiguousResumeQueryCannotSettleAPendingPurchase() {
@@ -112,7 +128,10 @@ public final class CommercePluginTest {
         );
         assertThrows(
             IllegalArgumentException.class,
-            () -> CommercePlugin.pendingSnapshotForSuccessfulQuery(List.of(first, second))
+            () -> CommercePlugin.pendingSnapshotForSuccessfulQuery(
+                List.of(first, second),
+                "full_ks2"
+            )
         );
     }
 }

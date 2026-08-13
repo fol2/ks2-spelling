@@ -3,11 +3,15 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const ROOT = new URL('../', import.meta.url);
-const PRODUCT_ID = 'uk.eugnel.ks2spelling.fullks2';
-const GOOGLE_PRODUCT_ID = 'full_ks2';
 
 async function commerceSource() {
   return readFile(new URL('ios/App/App/CommercePlugin.swift', ROOT), 'utf8');
+}
+
+async function storeProductCatalogue() {
+  return JSON.parse(
+    await readFile(new URL('config/store-products.json', ROOT), 'utf8'),
+  );
 }
 
 test('iOS Commerce exposes exactly the six StorePort operations and update event', async () => {
@@ -23,8 +27,42 @@ test('iOS Commerce exposes exactly the six StorePort operations and update event
     assert.match(source, new RegExp(`CAPPluginMethod\\(name: "${method}"`));
   }
   assert.match(source, /notifyListeners\(\s*"transactionUpdated"/s);
-  assert.match(source, new RegExp(PRODUCT_ID.replaceAll('.', '\\.')));
   assert.doesNotMatch(source, /appAccountToken|SKPaymentQueue|appStoreReceiptURL|receipt-data/);
+});
+
+test('the iOS bridge carries no hard-coded product identifiers', async () => {
+  const source = await commerceSource();
+  const catalogue = await storeProductCatalogue();
+  for (const product of catalogue.products) {
+    assert.doesNotMatch(source, new RegExp(product.appleProductId.replaceAll('.', '\\.')));
+    assert.doesNotMatch(source, new RegExp(product.googleProductId));
+  }
+  assert.match(source, /isAppleProductIdentity/);
+  assert.match(source, /isGoogleProductIdentity/);
+});
+
+test('the StoreKit test configuration product set follows the catalogue', async () => {
+  const catalogue = await storeProductCatalogue();
+  const storeKit = JSON.parse(
+    await readFile(new URL('ios/App/App/B3Sandbox.storekit', ROOT), 'utf8'),
+  );
+  const expectedTypes = { 'non-consumable': 'NonConsumable' };
+  assert.deepEqual(
+    storeKit.products
+      .map((product) => ({ productID: product.productID, type: product.type }))
+      .sort((left, right) => left.productID.localeCompare(right.productID)),
+    catalogue.products
+      .map((product) => ({
+        productID: product.appleProductId,
+        type: expectedTypes[product.type],
+      }))
+      .sort((left, right) => left.productID.localeCompare(right.productID)),
+  );
+  assert.deepEqual(storeKit.nonRenewingSubscriptions, []);
+  assert.deepEqual(storeKit.subscriptionGroups, []);
+  for (const product of storeKit.products) {
+    assert.equal(product.familyShareable, false);
+  }
 });
 
 test('StoreKit query, purchase and observations are closed and verified-only', async () => {
@@ -54,12 +92,13 @@ test('StoreKit query, purchase and observations are closed and verified-only', a
 
 test('iOS accepts the closed cross-platform product list and filters to Apple authority', async () => {
   const source = await commerceSource();
-  assert.match(source, new RegExp(GOOGLE_PRODUCT_ID));
   assert.match(source, /requestedAppleProductIds/);
   assert.match(source, /Set\(productIds\)\.count == productIds\.count/);
-  assert.match(source, /productIds\.allSatisfy\(b3ApprovedProductIds\.contains\)/);
-  assert.match(source, /productIds\.contains\(b3AppleProductId\)/);
-  assert.doesNotMatch(source, /productIds == \[b3AppleProductId\]/);
+  assert.match(
+    source,
+    /isAppleProductIdentity\(candidate\) \|\| isGoogleProductIdentity\(candidate\)/,
+  );
+  assert.match(source, /productIds\.filter\(isAppleProductIdentity\)/);
 });
 
 test('launch replay and proactive query never authenticate while explicit restore syncs once', async () => {
@@ -115,7 +154,9 @@ test('the StoreKit transcript is explicitly non-live and covers delayed approval
     ],
   );
   assert.equal(transcript.evidenceKind, 'xcode-storekit-test-non-live');
-  assert.equal(transcript.productId, PRODUCT_ID);
+  // The transcript is frozen B3 evidence: it pins the product id it was
+  // captured with, independent of the now catalogue-driven bridge.
+  assert.equal(transcript.productId, 'uk.eugnel.ks2spelling.fullks2');
   assert.equal(transcript.physicalSandbox, false);
   assert.equal(transcript.liveStore, false);
   assert.deepEqual(

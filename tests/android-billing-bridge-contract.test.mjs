@@ -71,7 +71,7 @@ test('the app-owned Commerce bridge configures reconnection and one-time pending
   );
   assert.match(
     source,
-    /pendingSnapshotForSuccessfulQuery[\s\S]*?snapshots\.isEmpty\(\)[\s\S]*?transientSnapshot\("cancelled"\)/,
+    /pendingSnapshotForSuccessfulQuery[\s\S]*?matching\.isEmpty\(\)[\s\S]*?transientSnapshot\(productId, "cancelled"\)/,
     'an authoritative empty resume query must settle as calm cancellation',
   );
   assert.doesNotMatch(source, /Map<String,\s*ProductDetails>|productDetailsById/);

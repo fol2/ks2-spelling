@@ -33,8 +33,20 @@ import org.json.JSONException;
 
 @CapacitorPlugin(name = "Commerce")
 public final class CommercePlugin extends Plugin implements PurchasesUpdatedListener, BillingClientStateListener {
-    private static final String APPLE_PRODUCT_ID = "uk.eugnel.ks2spelling.fullks2";
-    private static final String GOOGLE_PRODUCT_ID = "full_ks2";
+    // Product identity is shape-checked here; the exact allowlist is the store
+    // product catalogue (config/store-products.json read through
+    // listStoreProducts()), enforced in the application layer, and Play only
+    // sells products configured for this application.
+    // Mirrors the domain contract shapes; an Apple id always contains a dot and
+    // a Google id never does, so the two shapes are disjoint.
+    private static final int MAX_PRODUCT_IDENTITY_CHARS = 128;
+    private static final int MAX_REQUESTED_PRODUCT_IDS = 16;
+    private static final Pattern APPLE_PRODUCT_IDENTITY = Pattern.compile(
+        "^[a-z0-9]+(?:\\.[a-z0-9]+)+$"
+    );
+    private static final Pattern GOOGLE_PRODUCT_IDENTITY = Pattern.compile(
+        "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    );
     private static final String STORE_NATIVE_FAILURE = "STORE_NATIVE_FAILURE";
     private static final String STORE_COMPLETION_PENDING = "STORE_COMPLETION_PENDING";
     private static final int MAX_PROOF_CHARS = 65_536;
@@ -65,11 +77,12 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
     @PluginMethod public void queryProducts(PluginCall call) {
         List<String> productIds = requireProductIds(call);
         if (productIds == null) return;
-        if (!productIds.contains(GOOGLE_PRODUCT_ID)) {
+        List<String> googleProductIds = googleProductIds(productIds);
+        if (googleProductIds.isEmpty()) {
             resolveProducts(call, Collections.emptyList());
             return;
         }
-        withReady(call, () -> queryProductDetails(call, false));
+        withReady(call, () -> queryProductDetails(call, googleProductIds, false));
     }
 
     @PluginMethod public void purchase(PluginCall call) {
@@ -78,31 +91,34 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
             return;
         }
         String productId = call.getString("productId");
-        if (!GOOGLE_PRODUCT_ID.equals(productId)) {
+        if (!isGoogleProductIdentity(productId)) {
             reject(call);
             return;
         }
-        withReady(call, () -> queryProductDetails(call, true));
+        withReady(call, () ->
+            queryProductDetails(call, Collections.singletonList(productId), true));
     }
 
     @PluginMethod public void queryTransactions(PluginCall call) {
         List<String> productIds = requireProductIds(call);
         if (productIds == null) return;
-        if (!productIds.contains(GOOGLE_PRODUCT_ID)) {
+        List<String> googleProductIds = googleProductIds(productIds);
+        if (googleProductIds.isEmpty()) {
             resolveTransactions(call, Collections.emptyList());
             return;
         }
-        withReady(call, () -> queryPurchases(call, false));
+        withReady(call, () -> queryPurchases(call, new HashSet<>(googleProductIds)));
     }
 
     @PluginMethod public void restore(PluginCall call) {
         List<String> productIds = requireProductIds(call);
         if (productIds == null) return;
-        if (!productIds.contains(GOOGLE_PRODUCT_ID)) {
+        List<String> googleProductIds = googleProductIds(productIds);
+        if (googleProductIds.isEmpty()) {
             resolveTransactions(call, Collections.emptyList());
             return;
         }
-        withReady(call, () -> queryPurchases(call, false));
+        withReady(call, () -> queryPurchases(call, new HashSet<>(googleProductIds)));
     }
 
     @PluginMethod public void finishTransaction(PluginCall call) {
@@ -144,8 +160,12 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
         PluginCall purchaseCall = takePendingPurchaseCall();
 
         if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.USER_CANCELED) {
-            PurchaseSnapshot cancelled = transientSnapshot("cancelled");
-            if (purchaseCall != null) purchaseCall.resolve(cancelled.javascriptObject());
+            // Without a pending purchase call the cancelled product is unknown,
+            // so there is no truthful observation to emit.
+            if (purchaseCall == null) return;
+            PurchaseSnapshot cancelled =
+                transientSnapshot(purchaseCall.getString("productId"), "cancelled");
+            purchaseCall.resolve(cancelled.javascriptObject());
             notifyListeners("transactionUpdated", cancelled.javascriptObject());
             return;
         }
@@ -191,13 +211,20 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
         super.handleOnDestroy();
     }
 
-    private void queryProductDetails(PluginCall call, boolean launchAfterQuery) {
-        QueryProductDetailsParams.Product product = QueryProductDetailsParams.Product.newBuilder()
-            .setProductId(GOOGLE_PRODUCT_ID)
-            .setProductType(BillingClient.ProductType.INAPP)
-            .build();
+    private void queryProductDetails(
+        PluginCall call,
+        List<String> productIds,
+        boolean launchAfterQuery
+    ) {
+        List<QueryProductDetailsParams.Product> products = new ArrayList<>();
+        for (String productId : productIds) {
+            products.add(QueryProductDetailsParams.Product.newBuilder()
+                .setProductId(productId)
+                .setProductType(BillingClient.ProductType.INAPP)
+                .build());
+        }
         QueryProductDetailsParams params = QueryProductDetailsParams.newBuilder()
-            .setProductList(Collections.singletonList(product))
+            .setProductList(products)
             .build();
         billingClient.queryProductDetailsAsync(params, (result, detailsResult) -> {
             if (!isOk(result) || detailsResult == null) {
@@ -205,7 +232,8 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
                 return;
             }
             try {
-                List<ProductDetails> details = exactProductDetails(detailsResult);
+                List<ProductDetails> details =
+                    exactProductDetails(detailsResult, new HashSet<>(productIds));
                 if (launchAfterQuery) {
                     if (details.size() != 1) reject(call);
                     else launchPurchase(call, details.get(0));
@@ -224,7 +252,7 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
 
     private void launchPurchaseOnMainThread(PluginCall call, ProductDetails details) {
         Activity activity = getActivity();
-        if (activity == null || !GOOGLE_PRODUCT_ID.equals(details.getProductId())) {
+        if (activity == null || !details.getProductId().equals(call.getString("productId"))) {
             reject(call);
             return;
         }
@@ -254,7 +282,8 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
         }
         if (result.getResponseCode() == BillingClient.BillingResponseCode.USER_CANCELED) {
             clearPendingPurchase(call);
-            PurchaseSnapshot cancelled = transientSnapshot("cancelled");
+            PurchaseSnapshot cancelled =
+                transientSnapshot(call.getString("productId"), "cancelled");
             call.resolve(cancelled.javascriptObject());
             return;
         }
@@ -264,16 +293,20 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
         }
     }
 
-    private void queryPurchases(PluginCall call, boolean emit) {
+    private void queryPurchases(PluginCall call, Set<String> requestedProductIds) {
         queryPurchasesAsync((result, purchases) -> {
             if (!isOk(result) || purchases == null) {
                 reject(call);
                 return;
             }
             try {
-                List<PurchaseSnapshot> snapshots = normalisePurchases(purchases);
-                resolveTransactions(call, snapshots);
-                if (emit) emitSnapshots(snapshots);
+                List<PurchaseSnapshot> requested = new ArrayList<>();
+                for (PurchaseSnapshot snapshot : normalisePurchases(purchases)) {
+                    if (requestedProductIds.contains(snapshot.productId())) {
+                        requested.add(snapshot);
+                    }
+                }
+                resolveTransactions(call, requested);
             } catch (RuntimeException error) {
                 reject(call);
             }
@@ -290,7 +323,7 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
             boolean acknowledged = false;
             try {
                 for (Purchase purchase : purchases) {
-                    if (!isExactProductPurchase(purchase)) continue;
+                    if (!referencesBridgeProduct(purchase)) continue;
                     PurchaseSnapshot snapshot = normalisePurchaseSnapshot(
                         purchase.getPurchaseState(),
                         purchase.isAcknowledged(),
@@ -340,7 +373,10 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
         try {
             List<PurchaseSnapshot> snapshots = normalisePurchases(purchases);
             if (expectedPurchaseCall != null) {
-                PurchaseSnapshot recovered = pendingSnapshotForSuccessfulQuery(snapshots);
+                PurchaseSnapshot recovered = pendingSnapshotForSuccessfulQuery(
+                    snapshots,
+                    expectedPurchaseCall.getString("productId")
+                );
                 PluginCall purchaseCall = takePendingPurchaseCall(expectedPurchaseCall);
                 if (purchaseCall != null) purchaseCall.resolve(recovered.javascriptObject());
             }
@@ -351,11 +387,18 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
         }
     }
 
-    private List<ProductDetails> exactProductDetails(QueryProductDetailsResult result) {
+    private List<ProductDetails> exactProductDetails(
+        QueryProductDetailsResult result,
+        Set<String> requestedProductIds
+    ) {
         List<ProductDetails> details = result.getProductDetailsList();
-        if (details == null || details.size() > 1) throw new IllegalArgumentException();
+        if (details == null || details.size() > requestedProductIds.size()) {
+            throw new IllegalArgumentException();
+        }
+        Set<String> seen = new HashSet<>();
         for (ProductDetails entry : details) {
-            if (!GOOGLE_PRODUCT_ID.equals(entry.getProductId()) ||
+            if (!requestedProductIds.contains(entry.getProductId()) ||
+                !seen.add(entry.getProductId()) ||
                 !BillingClient.ProductType.INAPP.equals(entry.getProductType()) ||
                 entry.getOneTimePurchaseOfferDetails() == null) {
                 throw new IllegalArgumentException();
@@ -368,7 +411,7 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
         List<PurchaseSnapshot> snapshots = new ArrayList<>();
         Set<String> references = new HashSet<>();
         for (Purchase purchase : purchases) {
-            if (!isExactProductPurchase(purchase)) continue;
+            if (!referencesBridgeProduct(purchase)) continue;
             PurchaseSnapshot snapshot = normalisePurchaseSnapshot(
                 purchase.getPurchaseState(),
                 purchase.isAcknowledged(),
@@ -382,9 +425,32 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
         return snapshots;
     }
 
-    private boolean isExactProductPurchase(Purchase purchase) {
-        return purchase != null && purchase.getProducts() != null &&
-            purchase.getProducts().contains(GOOGLE_PRODUCT_ID);
+    // A purchase naming any bridge-shaped product must survive strict
+    // normalisation; anything else (foreign SKU shapes) is ignored, not trusted.
+    private static boolean referencesBridgeProduct(Purchase purchase) {
+        if (purchase == null || purchase.getProducts() == null) return false;
+        for (String productId : purchase.getProducts()) {
+            if (isGoogleProductIdentity(productId)) return true;
+        }
+        return false;
+    }
+
+    private static boolean isAppleProductIdentity(String value) {
+        return value != null && value.length() <= MAX_PRODUCT_IDENTITY_CHARS &&
+            APPLE_PRODUCT_IDENTITY.matcher(value).matches();
+    }
+
+    private static boolean isGoogleProductIdentity(String value) {
+        return value != null && value.length() <= MAX_PRODUCT_IDENTITY_CHARS &&
+            GOOGLE_PRODUCT_IDENTITY.matcher(value).matches();
+    }
+
+    private static List<String> googleProductIds(List<String> productIds) {
+        List<String> output = new ArrayList<>();
+        for (String productId : productIds) {
+            if (isGoogleProductIdentity(productId)) output.add(productId);
+        }
+        return output;
     }
 
     private void resolveProducts(PluginCall call, List<ProductDetails> details) {
@@ -432,7 +498,8 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
             return null;
         }
         JSArray values = call.getArray("productIds");
-        if (values == null || values.length() < 1 || values.length() > 2) {
+        if (values == null || values.length() < 1 ||
+            values.length() > MAX_REQUESTED_PRODUCT_IDS) {
             reject(call);
             return null;
         }
@@ -441,7 +508,7 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
         try {
             for (int index = 0; index < values.length(); index += 1) {
                 String value = values.getString(index);
-                if ((!APPLE_PRODUCT_ID.equals(value) && !GOOGLE_PRODUCT_ID.equals(value)) ||
+                if ((!isAppleProductIdentity(value) && !isGoogleProductIdentity(value)) ||
                     !unique.add(value)) {
                     reject(call);
                     return null;
@@ -552,7 +619,7 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
         List<String> products,
         String token
     ) {
-        if (products == null || products.size() != 1 || !GOOGLE_PRODUCT_ID.equals(products.get(0)) ||
+        if (products == null || products.size() != 1 || !isGoogleProductIdentity(products.get(0)) ||
             token == null || token.isEmpty() || token.length() > MAX_PROOF_CHARS || token.indexOf('\0') >= 0) {
             throw new IllegalArgumentException();
         }
@@ -568,7 +635,7 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
             throw new IllegalArgumentException();
         }
         return new PurchaseSnapshot(
-            GOOGLE_PRODUCT_ID,
+            products.get(0),
             outcome,
             referenceForToken(token),
             proof,
@@ -581,14 +648,24 @@ public final class CommercePlugin extends Plugin implements PurchasesUpdatedList
         return "finished";
     }
 
-    static PurchaseSnapshot pendingSnapshotForSuccessfulQuery(List<PurchaseSnapshot> snapshots) {
-        if (snapshots == null || snapshots.size() > 1) throw new IllegalArgumentException();
-        return snapshots.isEmpty() ? transientSnapshot("cancelled") : snapshots.get(0);
+    static PurchaseSnapshot pendingSnapshotForSuccessfulQuery(
+        List<PurchaseSnapshot> snapshots,
+        String productId
+    ) {
+        if (snapshots == null || productId == null) throw new IllegalArgumentException();
+        List<PurchaseSnapshot> matching = new ArrayList<>();
+        for (PurchaseSnapshot snapshot : snapshots) {
+            if (productId.equals(snapshot.productId())) matching.add(snapshot);
+        }
+        if (matching.size() > 1) throw new IllegalArgumentException();
+        return matching.isEmpty()
+            ? transientSnapshot(productId, "cancelled")
+            : matching.get(0);
     }
 
-    private static PurchaseSnapshot transientSnapshot(String outcome) {
+    private static PurchaseSnapshot transientSnapshot(String productId, String outcome) {
         return new PurchaseSnapshot(
-            GOOGLE_PRODUCT_ID,
+            productId,
             outcome,
             "google-play-transient-" + UUID.randomUUID().toString().toLowerCase(),
             null,

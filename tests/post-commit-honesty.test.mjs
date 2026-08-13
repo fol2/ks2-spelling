@@ -160,7 +160,7 @@ test('an import stamps a post-commit epilogue failure without rolling back', asy
   const harness = await createHarness(t);
   await prepareImportReplacement(harness.services);
   harness.failNextQueryMatching(
-    /^UPDATE spelling_aggregates SET catalogue_id = \?/u,
+    /^SELECT learner_id FROM spelling_aggregates WHERE catalogue_id = \?/u,
   );
 
   await assert.rejects(

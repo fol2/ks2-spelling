@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import {
-  createBundledFullAudio,
   createBundledStarterAudio,
 } from '../src/app/bundled-starter-audio.js';
 
@@ -123,38 +122,18 @@ test('bundled Starter audio fails closed on missing or changed bytes', async () 
   );
 });
 
-test('bundled Full audio reads only verified local Full-pack bytes', async () => {
-  const requested = [];
-  const source = createBundledFullAudio({
-    authority: AUTHORITY,
-    baseUrl: 'capacitor://localhost/full/',
-    fetchImpl: async (url) => {
-      requested.push(url);
-      return response();
-    },
-    encodeBase64: (bytes) => Buffer.from(bytes).toString('base64'),
-  });
-
-  assert.deepEqual(await source.checkAvailability(), {
-    version: '1.0.0',
-  });
-  assert.deepEqual(requested, [
-    'capacitor://localhost/full/audio/iapetus/answer/word.m4a',
-  ]);
-});
-
-test('bundled Full audio derives and verifies its Full sentinel', async () => {
+test('bundled Starter audio derives and verifies its sentinel from evidence', async () => {
   const evidence = {
     assets: [{
-      assetPath: 'audio/iapetus/accident/word.m4a',
+      assetPath: 'audio/iapetus/answer/word.m4a',
       sha256: SHA256,
       byteSize: BYTES.byteLength,
     }],
   };
   const requested = [];
-  const source = createBundledFullAudio({
+  const source = createBundledStarterAudio({
     evidence,
-    baseUrl: 'capacitor://localhost/full/',
+    baseUrl: 'capacitor://localhost/starter/',
     fetchImpl: async (url) => {
       requested.push(url);
       return response();
@@ -166,18 +145,18 @@ test('bundled Full audio derives and verifies its Full sentinel', async () => {
 
   assert.deepEqual(await source.checkAvailability(), { version: '1.0.0' });
   assert.deepEqual(requested, [
-    'capacitor://localhost/full/audio/iapetus/accident/word.m4a',
+    'capacitor://localhost/starter/audio/iapetus/answer/word.m4a',
   ]);
 
-  const changed = createBundledFullAudio({
+  const changed = createBundledStarterAudio({
     evidence,
-    baseUrl: 'capacitor://localhost/full/',
+    baseUrl: 'capacitor://localhost/starter/',
     fetchImpl: async () => response(Uint8Array.from([0, 1, 2])),
     digest: async (bytes) =>
       createHash('sha256').update(bytes).digest('hex'),
   });
   await assert.rejects(
     changed.checkAvailability(),
-    ({ code }) => code === 'bundled_full_audio_unavailable',
+    ({ code }) => code === 'bundled_starter_audio_unavailable',
   );
 });

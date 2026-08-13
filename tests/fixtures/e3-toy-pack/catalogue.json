@@ -2,10 +2,86 @@
   "schemaVersion": 1,
   "catalogueId": "e3-toy:fixture",
   "packId": "e3-toy",
+  "entitlementIds": [],
+  "rewardTracks": [
+    {
+      "rewardTrackId": "e3-toy-fixture",
+      "packId": "e3-toy",
+      "monsterId": "inklet",
+      "yearBand": "3-4",
+      "thresholds": [
+        1,
+        2
+      ]
+    }
+  ],
+  "audio": {
+    "profiles": [
+      "Iapetus",
+      "Sulafat"
+    ],
+    "kinds": [
+      "word-natural",
+      "dictation-normal",
+      "dictation-slow"
+    ],
+    "fallback": null,
+    "requiredAssetCount": 12
+  },
   "items": [
     {
       "runtimeItemId": "e3-toy:because",
-      "target": "because"
+      "packId": "e3-toy",
+      "itemId": "because",
+      "legacySlug": "because",
+      "target": "because",
+      "accepted": [
+        "because"
+      ],
+      "yearBand": "3-4",
+      "yearLabel": "Years 3-4",
+      "family": "because",
+      "familyWords": [
+        "because"
+      ],
+      "sentencePrompts": [
+        {
+          "sentenceId": "sentence-1",
+          "text": "We went inside because it started to rain."
+        }
+      ],
+      "explanation": "Because gives the reason something happened.",
+      "patternIds": [
+        "common-exception"
+      ],
+      "coverageTier": "statutory-core"
+    },
+    {
+      "runtimeItemId": "e3-toy:circle",
+      "packId": "e3-toy",
+      "itemId": "circle",
+      "legacySlug": "circle",
+      "target": "circle",
+      "accepted": [
+        "circle"
+      ],
+      "yearBand": "3-4",
+      "yearLabel": "Years 3-4",
+      "family": "circle",
+      "familyWords": [
+        "circle"
+      ],
+      "sentencePrompts": [
+        {
+          "sentenceId": "sentence-1",
+          "text": "We sat in a circle on the carpet."
+        }
+      ],
+      "explanation": "A circle is a perfectly round shape.",
+      "patternIds": [
+        "soft-c"
+      ],
+      "coverageTier": "statutory-core"
     }
   ]
 }

@@ -14,28 +14,14 @@ import {
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  loadFullSpellingCatalogue,
-  loadStarterSpellingCatalogue,
-} from '../src/domain/spelling/index.js';
-import {
-  createFullAudioInventory,
-  createStarterAudioInventory,
-} from '../src/domain/spelling/starter-audio-contract.js';
-import {
-  FULL_AUDIO_AUTHORING_AUTHORITY,
-  STARTER_AUDIO_AUTHORING_AUTHORITY as STARTER_AUDIO_AUTHORITY,
-} from './lib/starter-audio-authoring-authority.mjs';
+import { loadPackAudioAuthority } from './lib/pack-audio-authority.mjs';
 import {
   analysePcm16le,
   createAudioSourceKey,
-  createFullAudioEvidenceAuthority,
-  createStarterAudioEvidenceAuthority,
-  validateFullAudioEvidence,
-  validateStarterAudioEvidence,
 } from './lib/starter-audio-evidence.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const DEFAULT_AUTHORITY = 'config/packs/ks2-core.audio.json';
 const MAX_AUDIO_BYTES = 2 * 1_024 * 1_024;
 const MAX_RUNTIME_MANIFEST_BYTES = 4 * 1_024 * 1_024;
 const PROCESS_ERROR_BYTES = 64 * 1_024;
@@ -186,8 +172,10 @@ async function mapConcurrent(values, concurrency, operation) {
 }
 
 async function encodeAsset(asset, sourceRoot, target, authority, tempoFactor = 1) {
-  // Full inputs already carry -8 dB; +2 dB preserves Starter's -6 dB target.
-  const volumeDb = authority.catalogueId === 'ks2-core:full' ? -8 : 2;
+  // Externally sourced inputs already carry -8 dB; +2 dB preserves the level a
+  // tracked in-repository source (Starter) was reviewed at.
+  const volumeDb =
+    Object.hasOwn(authority.sources.sentence, 'assetRoot') ? 2 : -8;
   const filter = [
     'silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.08:stop_periods=-1:stop_threshold=-50dB:stop_silence=0.12',
     `volume=${volumeDb}dB`,
@@ -627,7 +615,7 @@ async function generate(configuration) {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
   process.stdout.write(
-    `${label} audio generated and verified: ${inventory.length} assets.\\n`,
+    `${label} audio generated and verified: ${inventory.length} assets.\n`,
   );
 }
 
@@ -668,7 +656,7 @@ async function check(configuration) {
     fail('tracked report differs from the current audio candidate');
   }
   process.stdout.write(
-    `${label} audio evidence current: ${inventory.length} assets.\\n`,
+    `${label} audio evidence current: ${inventory.length} assets.\n`,
   );
 }
 
@@ -681,7 +669,7 @@ async function writeRuntimeManifest(configuration) {
     validateEvidence,
   } = configuration;
   if (runtimeManifestTarget === null || await exists(runtimeManifestTarget)) {
-    fail('runtime manifest is create-only and Full-catalogue only');
+    fail('runtime manifest is create-only and needs a pack that declares one');
   }
   const reportBytes = await readBoundedRegular(
     reportTarget,
@@ -701,86 +689,67 @@ async function writeRuntimeManifest(configuration) {
   );
 }
 
-async function configurationFor(mode, importSourceRoot = null) {
-  const full = mode === 'full';
-  const catalogue = full
-    ? await loadFullSpellingCatalogue()
-    : loadStarterSpellingCatalogue();
-  const stage = full ? 'c2' : 'c1';
-  const label = full ? 'Full' : 'Starter';
-  const sourceRoot = resolve(
-    ROOT,
-    full ? 'content/full-pack' : 'content/starter-pack',
-  );
+async function configurationFor(authorityPath, importSourceRoot = null) {
+  const pack = await loadPackAudioAuthority(authorityPath);
   return Object.freeze({
-    label,
-    authority: full
-      ? FULL_AUDIO_AUTHORING_AUTHORITY
-      : STARTER_AUDIO_AUTHORITY,
-    catalogue,
-    inventory: full
-      ? createFullAudioInventory(catalogue)
-      : createStarterAudioInventory(catalogue),
-    createEvidenceAuthority: full
-      ? createFullAudioEvidenceAuthority
-      : createStarterAudioEvidenceAuthority,
-    validateEvidence: full
-      ? validateFullAudioEvidence
-      : validateStarterAudioEvidence,
-    sourceRoot,
+    label: pack.label,
+    authority: pack.authority,
+    catalogue: pack.catalogue,
+    inventory: pack.createInventory(pack.catalogue),
+    createEvidenceAuthority: pack.createEvidenceAuthority,
+    validateEvidence: pack.validateEvidence,
+    requiresExternalSource: pack.requiresExternalSource,
+    sourceRoot: pack.audioSourceRoot,
     exactSourceInventory: importSourceRoot !== null,
     importSourceRoot: importSourceRoot ?? ROOT,
-    audioTarget: resolve(sourceRoot, 'audio'),
-    reportTarget: resolve(
-      ROOT,
-      `reports/${stage}/${full ? 'full' : 'starter'}-audio-evidence.json`,
-    ),
-    runtimeManifestTarget: full
-      ? resolve(ROOT, 'config/full-audio-manifest.json')
-      : null,
-    nativeRoot: resolve(ROOT, `.native-build/${stage}`),
-    observationTarget: resolve(
-      ROOT,
-      `.native-build/${stage}/last-${full ? 'full' : 'starter'}-audio-observation.json`,
-    ),
+    audioTarget: resolve(pack.audioSourceRoot, 'audio'),
+    reportTarget: pack.audioEvidenceSource,
+    runtimeManifestTarget: pack.runtimeManifestTarget,
+    nativeRoot: pack.workspaceRoot,
+    observationTarget: pack.observationTarget,
   });
 }
 
+function readOption(arguments_, flag) {
+  const prefix = `${flag}=`;
+  const matches = arguments_.filter((argument) => argument.startsWith(prefix));
+  if (matches.length > 1) fail(`accepts at most one ${flag}`);
+  return matches.length === 0 ? null : matches[0].slice(prefix.length);
+}
+
 const arguments_ = process.argv.slice(2);
-const full = arguments_.includes('--catalogue=full');
 const checkOnly = arguments_.includes('--check');
 const manifestOnly = arguments_.includes('--runtime-manifest-only');
-const sourceArguments = arguments_.filter((argument) =>
-  argument.startsWith('--source='));
-const sourceValue = sourceArguments[0]?.slice('--source='.length) ?? null;
+const authorityValue = readOption(arguments_, '--authority');
+const sourceValue = readOption(arguments_, '--source');
 if (
   arguments_.some(
     (argument) =>
+      !argument.startsWith('--authority=') &&
       !argument.startsWith('--source=') &&
-      ![
-        '--catalogue=full',
-        '--check',
-        '--runtime-manifest-only',
-      ].includes(argument),
+      !['--check', '--runtime-manifest-only'].includes(argument),
   ) ||
-  sourceArguments.length > 1 ||
   new Set(arguments_).size !== arguments_.length ||
-  arguments_.length > 2 ||
-  (manifestOnly && (!full || checkOnly)) ||
+  (checkOnly && manifestOnly) ||
   ((checkOnly || manifestOnly) && sourceValue !== null) ||
-  (!checkOnly && !manifestOnly &&
-    ((full && sourceValue === null) ||
-      sourceValue === '' ||
-      (sourceValue !== null && !isAbsolute(sourceValue))))
+  authorityValue === '' ||
+  sourceValue === '' ||
+  (sourceValue !== null && !isAbsolute(sourceValue))
 ) {
   fail(
-    'requires Full create-only --source=<absolute directory>; Starter create uses its reviewed tracked source; --check and Full --runtime-manifest-only take no source',
+    'requires --authority=<repository-relative pack audio authority>; create takes --source=<absolute directory> when the catalogue is externally sourced; --check and --runtime-manifest-only take no source',
   );
 }
 const configuration = await configurationFor(
-  full ? 'full' : 'starter',
+  authorityValue ?? DEFAULT_AUTHORITY,
   sourceValue,
 );
+if (
+  !checkOnly && !manifestOnly &&
+  configuration.requiresExternalSource && sourceValue === null
+) {
+  fail('create requires --source=<absolute directory> for an externally sourced catalogue');
+}
 if (manifestOnly) await writeRuntimeManifest(configuration);
 else if (checkOnly) await check(configuration);
 else await generate(configuration);

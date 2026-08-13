@@ -487,7 +487,7 @@ async function main() {
     writeFile(resolve(outputRoot, reportFile), reportBytes),
   ]);
   process.stdout.write(
-    `Starter pack payload verified: ${inventory.fileCount} files, ${archive.length} bytes, unsigned.\n`,
+    `${authority.packId} pack payload verified: ${inventory.fileCount} files, ${archive.length} bytes, unsigned.\n`,
   );
 }
 

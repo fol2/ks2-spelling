@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { canonicaliseRfc8785Bytes } from '../../src/domain/packs/rfc8785.js';
 import {
+  createAudioInventory,
   createFullAudioInventory,
   createStarterAudioInventory,
 } from '../../src/domain/spelling/starter-audio-contract.js';
@@ -364,5 +365,26 @@ export function validateFullAudioEvidence(
     createInventory: createFullAudioInventory,
     createEvidenceAuthority: createFullAudioEvidenceAuthority,
     label: 'Full',
+  });
+}
+
+// The same inventory, evidence-authority and validation pair the two reviewed
+// catalogues use, bound to whichever audio authority a pack authority names.
+export function createAudioEvidenceContract(authority, label) {
+  const createInventory = (catalogue) => createAudioInventory(catalogue, authority);
+  const createEvidenceAuthority = (
+    catalogue,
+    { inventory = createInventory(catalogue) } = {},
+  ) => createAudioEvidenceAuthority(catalogue, authority, inventory);
+  return Object.freeze({
+    createInventory,
+    createEvidenceAuthority,
+    validateEvidence: (candidate, { catalogue, inventory } = {}) =>
+      validateAudioEvidence(candidate, { catalogue, inventory }, {
+        authority,
+        createInventory,
+        createEvidenceAuthority,
+        label,
+      }),
   });
 }

@@ -2,6 +2,7 @@ import authority from '../../config/starter-audio-authority.json' with { type: '
 import {
   FULL_AUDIO_AUTHORITY,
   STARTER_AUDIO_AUTHORITY,
+  validateAudioAuthority,
 } from '../../src/domain/spelling/starter-audio-contract.js';
 
 const ROOT_KEYS = Object.freeze([
@@ -118,6 +119,20 @@ function validate(value, runtimeAuthority) {
     fail('does not reduce to the runtime-safe authority');
   }
   return freezeDeep(structuredClone(value));
+}
+
+// Any pack's audio authority document is validated by the same closed runtime
+// validator its own declared identity selects; nothing here is looser than the
+// two reviewed documents, which still reduce to their bundled runtime twins.
+export function loadAudioAuthoringAuthority(document) {
+  if (!document || typeof document !== 'object' || Array.isArray(document)) {
+    fail('document must be an object');
+  }
+  const runtimeAuthority = validateAudioAuthority(stripAuthoringFields(document), {
+    catalogueId: document.catalogueId,
+    assetCount: document.assetCount,
+  });
+  return validate(document, runtimeAuthority);
 }
 
 export const STARTER_AUDIO_AUTHORING_AUTHORITY = validate(

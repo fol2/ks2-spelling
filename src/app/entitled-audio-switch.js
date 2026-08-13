@@ -5,6 +5,14 @@
 // shard-backed Full player. Never purchased, revoked, mid-download or one shard
 // short all keep the bundled Starter player, so a partial install can never
 // serve half a catalogue.
+//
+// The learning catalogue (E2.7b) reads the same predicate rather than a second
+// signal of its own, which is what makes the all-or-nothing shard rule cover
+// both: the child is never shown a word this device cannot say.
+export function isFullProductEntitled(state) {
+  return state?.entitlementState === 'active' && state?.packState === 'installed';
+}
+
 export function createEntitledAudioSwitch({ starter, full, observe } = {}) {
   for (const [player, label] of [[starter, 'starter'], [full, 'full']]) {
     if (
@@ -19,8 +27,7 @@ export function createEntitledAudioSwitch({ starter, full, observe } = {}) {
   }
   let entitled = false;
   const subscription = observe((state) => {
-    entitled = state?.entitlementState === 'active' &&
-      state?.packState === 'installed';
+    entitled = isFullProductEntitled(state);
   });
   if (typeof subscription?.remove !== 'function') {
     throw new TypeError('Entitled audio switch requires a removable observation.');

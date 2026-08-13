@@ -10,11 +10,18 @@ import { assertSqlConnection } from './sql-connection-contract.js';
 import { runOwnedTransaction } from './sqlite-transaction-runner.js';
 
 export const PRODUCT_SELECTED_LEARNER_KEY = 'product-selected-learner-v1';
+// Written the first time entitlement-driven alignment runs on a device. Its
+// absence is the only honest evidence that a full-catalogue aggregate came
+// from the dev-era build rather than from a purchase, because after this
+// build both look identical in the row (full catalogue + the 'full-ks2'
+// grant the Guardian/Camp projections require).
+export const CATALOGUE_ACTIVATION_KEY = 'catalogue-activation-v1';
 const SELECTED_LEARNER_KEY = PRODUCT_SELECTED_LEARNER_KEY;
 const CANONICAL_LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const STARTER_CATALOGUE_ID = 'ks2-core:starter';
 const FULL_CATALOGUE_ID = 'ks2-core:full';
 const EMPTY_ENTITLEMENTS_JSON = canonicalJson([]);
+const FULL_ENTITLEMENTS_JSON = canonicalJson(['full-ks2']);
 const INITIAL_SUBJECT_STATE_JSON = canonicalJson({
   ui: {},
   data: {
@@ -189,6 +196,59 @@ async function insertInitialSnapshot(
   }
 }
 
+async function readActivationMarker(connection) {
+  const rows = await connection.query(
+    'SELECT value_json FROM app_metadata WHERE key = ?',
+    [CATALOGUE_ACTIVATION_KEY],
+  );
+  if (!Array.isArray(rows) || rows.length > 1) {
+    throw storeError('sqlite_catalogue_activation_marker_invalid');
+  }
+  return rows.length === 1;
+}
+
+async function writeActivationMarker(connection, appliedAt) {
+  const result = await connection.execute(
+    'INSERT INTO app_metadata (key, value_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at',
+    [CATALOGUE_ACTIVATION_KEY, canonicalJson({ appliedAt }), appliedAt],
+  );
+  if (result.changes !== 1) {
+    throw storeError('sqlite_catalogue_activation_marker_write_failed');
+  }
+}
+
+// The dev-era repair, unchanged in effect from the E2.5 migration it replaces:
+// earlier builds promoted every learner to the full catalogue and granted
+// 'full-ks2' unconditionally, and that progress was never paid for. It now
+// runs at most once per device — guarded by the activation marker — so it can
+// never reach a full-catalogue aggregate this build itself produced.
+async function resetDevEraFullCatalogueLearning(connection, sampledAt) {
+  const rows = await connection.query(
+    'SELECT learner_id FROM spelling_aggregates WHERE catalogue_id = ? ORDER BY learner_id',
+    [FULL_CATALOGUE_ID],
+  );
+  if (!Array.isArray(rows)) {
+    throw storeError('sqlite_profile_rows_invalid');
+  }
+  for (const row of rows) {
+    const learnerId = requireLearnerId(row?.learner_id);
+    const removed = await connection.execute(
+      'DELETE FROM spelling_aggregates WHERE learner_id = ?',
+      [learnerId],
+    );
+    if (removed.changes !== 1) {
+      throw storeError('sqlite_profile_learning_reset_failed');
+    }
+    await insertInitialSnapshot(
+      connection,
+      learnerId,
+      sampledAt,
+      STARTER_CATALOGUE_ID,
+    );
+  }
+  return rows.length;
+}
+
 export async function readSQLiteSelectedLearnerId(connection) {
   assertSqlConnection(connection);
   return readSelectedLearnerIdUnchecked(connection);
@@ -349,38 +409,80 @@ export function createSQLiteSpellingProfileStore({
         return true;
       }));
     },
-    // E2.5 migration: earlier builds promoted every learner to the full
-    // catalogue and granted 'full-ks2' unconditionally, but this build no
-    // longer carries the full audio, so a full-catalogue aggregate cannot be
-    // served at all. Full-catalogue learners are reset to a fresh Starter
-    // aggregate; E2.6 replaces this call with entitlement-driven activation.
-    async resetFullCatalogueLearning() {
+    /**
+     * E2.7b, replacing the E2.5 unconditional reset: which catalogue a learner
+     * practises is an entitlement question, so it is answered here from the
+     * same authority the audio switch reads.
+     *
+     * The retag moves `catalogue_id` and `granted_entitlement_ids_json`
+     * together — the Guardian-mission and Camp projections read the grant off
+     * the snapshot, so a full catalogue without it would silently ship a
+     * crippled product — and touches nothing else: every progress row, event,
+     * Monster and Camp record stays exactly where it is, at the same revision.
+     *
+     * A retag only happens when the resulting aggregate is *provably*
+     * representable under the target catalogue, which `canRepresent` decides
+     * by re-validating it. Starter ⊂ Full makes the upgrade always provable;
+     * the downgrade is provable only while the learner has touched nothing
+     * outside Starter. When it is not, the row is left alone: destroying a
+     * paid-for history on a revocation is worse than presenting the catalogue
+     * the learner already owns progress in.
+     *
+     * Aggregates are aligned as one set, because the app composes exactly one
+     * learning catalogue for every learner on the device.
+     *
+     * @returns {Promise<string>} the catalogue every aggregate now carries.
+     */
+    async alignCatalogueLearning({ entitled, canRepresent } = {}) {
+      if (typeof entitled !== 'boolean') {
+        throw new TypeError('Catalogue alignment requires an entitled boolean.');
+      }
+      if (typeof canRepresent !== 'function') {
+        throw new TypeError('Catalogue alignment requires canRepresent().');
+      }
+      const target = entitled ? FULL_CATALOGUE_ID : STARTER_CATALOGUE_ID;
       const sampledAt = sampleTimestamp(now);
       return gate.run(() => runOwnedTransaction(connection, async () => {
-        const rows = await connection.query(
-          'SELECT learner_id FROM spelling_aggregates WHERE catalogue_id = ? ORDER BY learner_id',
-          [FULL_CATALOGUE_ID],
-        );
-        if (!Array.isArray(rows)) {
-          throw storeError('sqlite_profile_rows_invalid');
+        if (!(await readActivationMarker(connection))) {
+          // Never destroy while entitled: an entitled device's full-catalogue
+          // aggregate is already at its target and needs no repair.
+          if (!entitled) {
+            await resetDevEraFullCatalogueLearning(connection, sampledAt);
+          }
+          await writeActivationMarker(connection, sampledAt);
         }
+        const rows = await connection.query(
+          'SELECT learner_id, catalogue_id FROM spelling_aggregates ORDER BY learner_id',
+        );
+        if (!Array.isArray(rows)) throw storeError('sqlite_profile_rows_invalid');
+        if (rows.length === 0) return target;
+        const present = new Set(
+          rows.map((row) => requireCatalogueId(row?.catalogue_id)),
+        );
+        if (present.size !== 1) {
+          throw storeError('sqlite_profile_catalogue_not_uniform');
+        }
+        const [current] = present;
+        if (current === target) return current;
         for (const row of rows) {
           const learnerId = requireLearnerId(row?.learner_id);
-          const removed = await connection.execute(
-            'DELETE FROM spelling_aggregates WHERE learner_id = ?',
-            [learnerId],
-          );
-          if (removed.changes !== 1) {
-            throw storeError('sqlite_profile_learning_reset_failed');
-          }
-          await insertInitialSnapshot(
-            connection,
-            learnerId,
-            sampledAt,
-            STARTER_CATALOGUE_ID,
-          );
+          if ((await canRepresent(learnerId, target)) !== true) return current;
         }
-        return rows.length;
+        const result = await connection.execute(
+          'UPDATE spelling_aggregates SET catalogue_id = ?, granted_entitlement_ids_json = ?, updated_at = ? WHERE catalogue_id = ?',
+          [
+            target,
+            target === FULL_CATALOGUE_ID
+              ? FULL_ENTITLEMENTS_JSON
+              : EMPTY_ENTITLEMENTS_JSON,
+            sampledAt,
+            current,
+          ],
+        );
+        if (result.changes !== rows.length) {
+          throw storeError('sqlite_profile_catalogue_alignment_failed');
+        }
+        return target;
       }));
     },
   });

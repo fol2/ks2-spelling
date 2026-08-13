@@ -599,7 +599,12 @@ function ParentProgressCard({ state, onRefresh }) {
   );
 }
 
-function commerceMessage(state) {
+// `fullCatalogueActive` is what this running session actually composed. The
+// learning catalogue is chosen once, at startup, so an install that finishes
+// while the app is open leaves the child on the 20 Starter words until the
+// next launch. Saying "installed" and nothing else would be a lie the family
+// could not act on.
+function commerceMessage(state, fullCatalogueActive) {
   if (state.status === 'offline') {
     return state.entitlementState === 'active'
       ? 'The store is unavailable. Last verified access and installed data remain unchanged.'
@@ -615,7 +620,9 @@ function commerceMessage(state) {
     return 'Unlock the complete statutory spelling catalogue for this family device.';
   }
   if (state.packState === 'installed') {
-    return 'Purchased and installed. The pack is available offline on this device.';
+    return fullCatalogueActive
+      ? 'Purchased and installed. The full word list is available offline on this device.'
+      : 'Purchased and installed. Close and reopen the app to start practising the full word list.';
   }
   if (state.packState === 'failed') {
     return 'Access is verified, but the local pack needs another download attempt.';
@@ -631,6 +638,7 @@ function commerceMessage(state) {
 // button entirely left the suite green.
 export function ParentCommerceCard({
   state,
+  fullCatalogueActive = false,
   onPurchase,
   onRestore,
   onDownload,
@@ -649,7 +657,7 @@ export function ParentCommerceCard({
       {state.displayPrice && state.entitlementState === 'none' && (
         <p className="parent-commerce-price">{state.displayPrice}</p>
       )}
-      <p aria-live="polite">{commerceMessage(state)}</p>
+      <p aria-live="polite">{commerceMessage(state, fullCatalogueActive)}</p>
       <div className="parent-commerce-actions">
         {state.entitlementState === 'none' && (
           <button
@@ -702,6 +710,7 @@ export function ParentArea({
   profiles,
   progressState,
   commerceState,
+  fullCatalogueActive = false,
   onClose,
   onSetPin,
   onUnlockPin,
@@ -852,6 +861,7 @@ export function ParentArea({
 
           <ParentCommerceCard
             state={commerceState}
+            fullCatalogueActive={fullCatalogueActive}
             onPurchase={onPurchase}
             onRestore={onRestore}
             onDownload={onDownload}
@@ -3354,6 +3364,7 @@ export default function ProductApp({ services }) {
         profiles={profileState.profiles}
         progressState={parentProgressState}
         commerceState={parentCommerceState}
+        fullCatalogueActive={services.catalogueId === 'ks2-core:full'}
         onClose={closeParent}
         onSetPin={(candidate) => services.parent.setPin(candidate)}
         onUnlockPin={(candidate) => services.parent.unlockWithPin(candidate)}

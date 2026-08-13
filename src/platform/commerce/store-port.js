@@ -1,3 +1,5 @@
+import { listStoreProducts } from '../../domain/commerce/commerce-contracts.js';
+
 export const STORE_METHODS = Object.freeze([
   'queryProducts',
   'purchase',
@@ -187,13 +189,20 @@ export function assertProductId(value, label = 'Product identifier') {
   });
 }
 
+// The approved allowlist is the store product catalogue, read through the
+// domain contracts; no bridge-side literal may narrow or widen it.
+const APPROVED_PRODUCT_IDS_BY_STORE = Object.freeze({
+  apple: new Set(listStoreProducts().map((product) => product.appleProductId)),
+  google: new Set(listStoreProducts().map((product) => product.googleProductId)),
+});
+
 export function assertApprovedProductId(value, label = 'Product identifier') {
   const productId = assertProductId(value, label);
   if (
-    productId !== 'uk.eugnel.ks2spelling.fullks2' &&
-    productId !== 'full_ks2'
+    !APPROVED_PRODUCT_IDS_BY_STORE.apple.has(productId) &&
+    !APPROVED_PRODUCT_IDS_BY_STORE.google.has(productId)
   ) {
-    fail(label, 'is not an approved B3 product');
+    fail(label, 'is not an approved store product');
   }
   return productId;
 }
@@ -262,10 +271,7 @@ export function validateObservation(value) {
   if (base.store !== 'apple' && base.store !== 'google') fail('Store transaction store');
   if (base.environment !== 'sandbox') fail('Store transaction environment');
   const productId = assertProductId(base.productId);
-  if (
-    (base.store === 'apple' && productId !== 'uk.eugnel.ks2spelling.fullks2') ||
-    (base.store === 'google' && productId !== 'full_ks2')
-  ) {
+  if (!APPROVED_PRODUCT_IDS_BY_STORE[base.store].has(productId)) {
     fail('Store transaction product identity');
   }
   const output = {

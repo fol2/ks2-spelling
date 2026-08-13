@@ -2,9 +2,38 @@ import Capacitor
 import Foundation
 import StoreKit
 
-private let b3AppleProductId = "uk.eugnel.ks2spelling.fullks2"
-private let b3GoogleProductId = "full_ks2"
-private let b3ApprovedProductIds = Set([b3AppleProductId, b3GoogleProductId])
+// Product identity is shape-checked here; the exact allowlist is the store
+// product catalogue (config/store-products.json read through listStoreProducts()),
+// enforced in the application layer, and the store only sells configured products.
+private let maxProductIdentityLength = 128
+private let maxRequestedProductIds = 16
+
+private func isLowerAlphanumericScalar(_ scalar: Unicode.Scalar) -> Bool {
+    ("a"..."z").contains(scalar) || ("0"..."9").contains(scalar)
+}
+
+// Mirrors the domain contract APPLE_PRODUCT_ID: dot-joined lower-alphanumeric
+// segments, at least two of them.
+private func isAppleProductIdentity(_ value: String) -> Bool {
+    guard !value.isEmpty, value.count <= maxProductIdentityLength else { return false }
+    let segments = value.split(separator: ".", omittingEmptySubsequences: false)
+    guard segments.count >= 2 else { return false }
+    return segments.allSatisfy { segment in
+        !segment.isEmpty && segment.unicodeScalars.allSatisfy(isLowerAlphanumericScalar)
+    }
+}
+
+// Mirrors the domain contract GOOGLE_PRODUCT_ID: a leading letter, then
+// underscore-joined lower-alphanumeric segments. Never contains a dot, so the
+// Apple and Google identity shapes are disjoint.
+private func isGoogleProductIdentity(_ value: String) -> Bool {
+    guard let first = value.unicodeScalars.first, ("a"..."z").contains(first),
+          value.count <= maxProductIdentityLength else { return false }
+    let segments = value.split(separator: "_", omittingEmptySubsequences: false)
+    return segments.allSatisfy { segment in
+        !segment.isEmpty && segment.unicodeScalars.allSatisfy(isLowerAlphanumericScalar)
+    }
+}
 
 private struct CommerceProduct: Sendable {
     let productId: String
@@ -80,10 +109,11 @@ private actor CommerceStoreKitRuntime {
     func queryProducts(productIds: [String]) async throws -> [CommerceProduct] {
         let appleProductIds = try requestedAppleProductIds(productIds)
         guard !appleProductIds.isEmpty else { return [] }
+        let requested = Set(appleProductIds)
         let products = try await Product.products(for: appleProductIds)
-        guard products.count <= 1 else { throw CommerceBridgeError.rejected }
+        guard products.count <= appleProductIds.count else { throw CommerceBridgeError.rejected }
         return try products.map { product in
-            guard product.id == b3AppleProductId,
+            guard requested.contains(product.id),
                   product.type == .nonConsumable else {
                 throw CommerceBridgeError.rejected
             }
@@ -100,11 +130,11 @@ private actor CommerceStoreKitRuntime {
     }
 
     func purchase(productId: String) async throws -> CommerceObservation {
-        try requireExactProductId(productId)
-        let products = try await Product.products(for: [b3AppleProductId])
+        guard isAppleProductIdentity(productId) else { throw CommerceBridgeError.rejected }
+        let products = try await Product.products(for: [productId])
         guard products.count == 1,
               let product = products.first,
-              product.id == b3AppleProductId,
+              product.id == productId,
               product.type == .nonConsumable else {
             throw CommerceBridgeError.rejected
         }
@@ -116,16 +146,16 @@ private actor CommerceStoreKitRuntime {
                 }
                 return observation
             case .pending:
-                return transientObservation(outcome: "pending")
+                return transientObservation(productId: productId, outcome: "pending")
             case .userCancelled:
-                return transientObservation(outcome: "cancelled")
+                return transientObservation(productId: productId, outcome: "cancelled")
             @unknown default:
                 throw CommerceBridgeError.rejected
             }
         } catch is CancellationError {
-            return transientObservation(outcome: "cancelled")
+            return transientObservation(productId: productId, outcome: "cancelled")
         } catch StoreKitError.userCancelled {
-            return transientObservation(outcome: "cancelled")
+            return transientObservation(productId: productId, outcome: "cancelled")
         } catch {
             throw CommerceBridgeError.rejected
         }
@@ -134,7 +164,10 @@ private actor CommerceStoreKitRuntime {
     func queryTransactions(productIds: [String]) async throws -> [CommerceObservation] {
         let appleProductIds = try requestedAppleProductIds(productIds)
         guard !appleProductIds.isEmpty else { return [] }
-        return await collectTransactions(includeUnfinished: true, includeLatest: true)
+        return await collectTransactions(
+            allowedProductIds: Set(appleProductIds),
+            includeUnfinished: true
+        )
     }
 
     func restore(productIds: [String]) async throws -> [CommerceObservation] {
@@ -145,7 +178,10 @@ private actor CommerceStoreKitRuntime {
         } catch {
             throw CommerceBridgeError.rejected
         }
-        return await collectCurrentEntitlements(includeLatest: true)
+        return await collectTransactions(
+            allowedProductIds: Set(appleProductIds),
+            includeUnfinished: false
+        )
     }
 
     func finishTransaction(transactionRef: String) async -> Bool {
@@ -158,7 +194,7 @@ private actor CommerceStoreKitRuntime {
         if transaction == nil {
             for await result in Transaction.unfinished {
                 guard case .verified(let candidate) = result,
-                      candidate.productID == b3AppleProductId else {
+                      isAppleProductIdentity(candidate.productID) else {
                     continue
                 }
                 let candidateRef = reference(for: candidate)
@@ -179,51 +215,60 @@ private actor CommerceStoreKitRuntime {
     }
 
     private func launchReplay() async -> [CommerceObservation] {
-        await collectTransactions(includeUnfinished: true, includeLatest: true)
+        await collectTransactions(allowedProductIds: nil, includeUnfinished: true)
     }
 
+    // allowedProductIds nil means every shape-valid product: the launch replay
+    // has no request to bound it, while explicit queries pin their request set.
     private func collectTransactions(
-        includeUnfinished: Bool,
-        includeLatest: Bool
+        allowedProductIds: Set<String>?,
+        includeUnfinished: Bool
     ) async -> [CommerceObservation] {
         var observations: [String: CommerceObservation] = [:]
+        func admit(_ result: VerificationResult<Transaction>) {
+            guard let observation = normalise(result),
+                  allowedProductIds?.contains(observation.productId) ?? true else { return }
+            observations[observation.transactionRef] = observation
+        }
         if includeUnfinished {
             for await result in Transaction.unfinished {
-                if let observation = normalise(result) {
-                    observations[observation.transactionRef] = observation
-                }
+                admit(result)
             }
         }
         for await result in Transaction.currentEntitlements {
-            if let observation = normalise(result) {
-                observations[observation.transactionRef] = observation
-            }
+            admit(result)
         }
-        if includeLatest,
-           let result = await Transaction.latest(for: b3AppleProductId),
-           let observation = normalise(result),
-           observation.outcome == "revoked" {
+        for observation in await latestRevokedObservations(allowedProductIds: allowedProductIds) {
             observations[observation.transactionRef] = observation
         }
         return observations.values.sorted { $0.transactionRef < $1.transactionRef }
     }
 
-    private func collectCurrentEntitlements(
-        includeLatest: Bool
+    // Revoked products vanish from currentEntitlements, so the candidates for a
+    // latest-revoked probe come from the full transaction history instead of a
+    // hard-coded product list.
+    private func latestRevokedObservations(
+        allowedProductIds: Set<String>?
     ) async -> [CommerceObservation] {
-        var observations: [String: CommerceObservation] = [:]
-        for await result in Transaction.currentEntitlements {
-            if let observation = normalise(result) {
-                observations[observation.transactionRef] = observation
+        var candidateProductIds = Set<String>()
+        for await result in Transaction.all {
+            switch result {
+            case .verified(let transaction):
+                candidateProductIds.insert(transaction.productID)
+            case .unverified(let transaction, _):
+                candidateProductIds.insert(transaction.productID)
             }
         }
-        if includeLatest,
-           let result = await Transaction.latest(for: b3AppleProductId),
-           let observation = normalise(result),
-           observation.outcome == "revoked" {
-            observations[observation.transactionRef] = observation
+        var observations: [CommerceObservation] = []
+        for productId in candidateProductIds.sorted() {
+            guard isAppleProductIdentity(productId),
+                  allowedProductIds?.contains(productId) ?? true,
+                  let result = await Transaction.latest(for: productId),
+                  let observation = normalise(result),
+                  observation.outcome == "revoked" else { continue }
+            observations.append(observation)
         }
-        return observations.values.sorted { $0.transactionRef < $1.transactionRef }
+        return observations
     }
 
     private func normalise(
@@ -231,7 +276,7 @@ private actor CommerceStoreKitRuntime {
     ) -> CommerceObservation? {
         switch result {
         case .verified(let transaction):
-            guard transaction.productID == b3AppleProductId else { return nil }
+            guard isAppleProductIdentity(transaction.productID) else { return nil }
             let transactionRef = reference(for: transaction)
             verifiedTransactions[transactionRef] = transaction
             return CommerceObservation(
@@ -241,7 +286,7 @@ private actor CommerceStoreKitRuntime {
                 opaqueProof: result.jwsRepresentation
             )
         case .unverified(let transaction, _):
-            guard transaction.productID == b3AppleProductId else { return nil }
+            guard isAppleProductIdentity(transaction.productID) else { return nil }
             return CommerceObservation(
                 productId: transaction.productID,
                 outcome: "unverified",
@@ -251,9 +296,9 @@ private actor CommerceStoreKitRuntime {
         }
     }
 
-    private func transientObservation(outcome: String) -> CommerceObservation {
+    private func transientObservation(productId: String, outcome: String) -> CommerceObservation {
         CommerceObservation(
-            productId: b3AppleProductId,
+            productId: productId,
             outcome: outcome,
             transactionRef: "apple-sk2-transient-\(UUID().uuidString.lowercased())",
             opaqueProof: nil
@@ -270,18 +315,16 @@ private actor CommerceStoreKitRuntime {
         return value.dropFirst(prefix.count).allSatisfy(\.isNumber)
     }
 
-    private func requireExactProductId(_ productId: String) throws {
-        guard productId == b3AppleProductId else { throw CommerceBridgeError.rejected }
-    }
-
     private func requestedAppleProductIds(_ productIds: [String]) throws -> [String] {
         guard !productIds.isEmpty,
-              productIds.count <= b3ApprovedProductIds.count,
+              productIds.count <= maxRequestedProductIds,
               Set(productIds).count == productIds.count,
-              productIds.allSatisfy(b3ApprovedProductIds.contains) else {
+              productIds.allSatisfy({ candidate in
+                  isAppleProductIdentity(candidate) || isGoogleProductIdentity(candidate)
+              }) else {
             throw CommerceBridgeError.rejected
         }
-        return productIds.contains(b3AppleProductId) ? [b3AppleProductId] : []
+        return productIds.filter(isAppleProductIdentity)
     }
 }
 

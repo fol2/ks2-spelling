@@ -5,12 +5,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import { aggregatePackStates } from '../src/app/create-product-commerce-workflow.js';
 import { createProductAppServices } from '../src/app/create-product-app-services.js';
+import { isFullProductEntitled } from '../src/app/entitled-audio-switch.js';
 import {
   loadFullSpellingCatalogue,
   loadStarterSpellingCatalogue,
 } from '../src/domain/spelling/index.js';
 import { createDatabaseCommandGate } from '../src/platform/database/database-command-gate.js';
+import { CATALOGUE_ACTIVATION_KEY } from '../src/platform/database/sqlite-spelling-profile-store.js';
 import { configureAndMigrateDatabase } from '../src/platform/database/migrate-database.js';
 import { createSQLiteLearningBackupRepository } from '../src/platform/database/sqlite-learning-backup-repository.js';
 import { createSQLiteSpellingSnapshotStore } from '../src/platform/database/sqlite-spelling-snapshot-store.js';
@@ -335,10 +338,10 @@ test('production services persist profile CRUD and selected learner across a cle
   assert.equal(second.learning.getState().practice.progress.checked, 1);
   await second.dispose();
 
-  // A dev-era TestFlight build promoted every learner to the full catalogue
-  // and granted 'full-ks2' unconditionally. Recreate that stored state, then
-  // prove the next startup degrades it cleanly to a fresh Starter aggregate
-  // (owner decision: reset — no production users exist).
+  // A full-catalogue aggregate on a device that has already run activation is
+  // brought back down to Starter *with its progress intact* — the aggregate
+  // only holds Starter words, so the re-tag is provably lossless and there is
+  // nothing here worth destroying.
   const legacyConnection = createNodeSqliteConnection(databasePath);
   await legacyConnection.open();
   await configureAndMigrateDatabase(legacyConnection);
@@ -358,6 +361,7 @@ test('production services persist profile CRUD and selected learner across a cle
   assert.equal(legacySnapshot.catalogueId, 'ks2-core:full');
   assert.deepEqual(legacySnapshot.grantedEntitlementIds, ['full-ks2']);
   assert.ok(legacySnapshot.revision > 0);
+  assert.ok(legacySnapshot.eventLog.length > 0);
   const legacyBackup = await createSQLiteLearningBackupRepository({
     connection: legacyConnection,
     gate: createDatabaseCommandGate(),
@@ -375,25 +379,26 @@ test('production services persist profile CRUD and selected learner across a cle
     ...options,
     lifecycle: createLifecycle(),
   });
-  const assertDegradedToStarter = (services) => {
-    assert.equal(services.learning.getState().screen, 'home');
+  const assertRealignedToStarterKeepingProgress = (services) => {
+    assert.equal(services.catalogueId, 'ks2-core:starter');
     assert.equal(services.learning.getState().learnerId, ben.learnerId);
-    assert.equal(services.learning.getState().practice, null);
     assert.equal(services.learning.getState().progress.length, 20);
-    assert.ok(
-      services.learning.getState().progress.every(
-        ({ attempts }) => attempts === 0,
-      ),
+    assert.equal(services.learning.getState().screen, 'practice');
+    assert.equal(
+      services.learning.getState().practice.sessionId,
+      legacySnapshot.practiceSession.id,
     );
   };
-  assertDegradedToStarter(third);
-  // Importing a backup taken on the dev-era build degrades the same way.
+  assertRealignedToStarterKeepingProgress(third);
+  // A backup taken while the aggregate was full-catalogue realigns the same
+  // way on import, and the import reports success rather than post-commit
+  // because the composed catalogue did not have to change.
   assert.deepEqual(await third.parentBackup.importBackup(), {
     cancelled: false,
     learnerCount: 1,
     selectedLearnerId: ben.learnerId,
   });
-  assertDegradedToStarter(third);
+  assertRealignedToStarterKeepingProgress(third);
   await third.dispose();
 
   const migratedConnection = createNodeSqliteConnection(databasePath);
@@ -404,9 +409,14 @@ test('production services persist profile CRUD and selected learner across a cle
       [starterCatalogue.catalogueId]: starterCatalogue,
     }),
   }).read(ben.learnerId);
+  // The realignment moved the two catalogue columns and nothing else: every
+  // event, Monster, Camp and subject-state byte survives it.
+  assert.deepEqual(
+    { ...migratedSnapshot, catalogueId: null, grantedEntitlementIds: null },
+    { ...legacySnapshot, catalogueId: null, grantedEntitlementIds: null },
+  );
   assert.equal(migratedSnapshot.catalogueId, 'ks2-core:starter');
   assert.deepEqual(migratedSnapshot.grantedEntitlementIds, []);
-  assert.equal(migratedSnapshot.revision, 0);
   await migratedConnection.close();
 });
 
@@ -442,6 +452,23 @@ function compositionOptions({ databasePath, ...overrides }) {
     createLearnerId: () => 'learner-composition',
     ...overrides,
   };
+}
+
+function workflowFor(snapshot) {
+  const frozen = Object.freeze({
+    displayPrice: '£4.99',
+    syncFailed: false,
+    ...snapshot,
+  });
+  return Object.freeze({
+    async start() { return frozen; },
+    async refresh() { return frozen; },
+    async purchase() { return frozen; },
+    async restore() { return frozen; },
+    async download() { return frozen; },
+    async recover() { return frozen; },
+    async dispose() {},
+  });
 }
 
 function countingPackTransfer() {
@@ -501,15 +528,6 @@ test('playback follows the entitlement: installed shards serve the full catalogu
   const shardSource = Object.freeze({
     async readInstalledAudio() { throw new Error('shard-source'); },
   });
-  const workflowFor = (snapshot) => Object.freeze({
-    async start() { return snapshot; },
-    async refresh() { return snapshot; },
-    async purchase() { return snapshot; },
-    async restore() { return snapshot; },
-    async download() { return snapshot; },
-    async recover() { return snapshot; },
-    async dispose() {},
-  });
   const play = (services, catalogue) => services.audio.play({
     version: '1.0.0',
     runtimeItemId: catalogue.items[0].runtimeItemId,
@@ -521,12 +539,10 @@ test('playback follows the entitlement: installed shards serve the full catalogu
   const entitled = await createProductAppServices(compositionOptions({
     databasePath: join(directory, 'entitled.sqlite'),
     installedAudio: shardSource,
-    commerceWorkflow: workflowFor(Object.freeze({
-      displayPrice: '£4.99',
+    commerceWorkflow: workflowFor({
       entitlementState: 'active',
       packState: 'installed',
-      syncFailed: false,
-    })),
+    }),
   }));
   t.after(() => entitled.dispose());
   await entitled.parentCommerce.refresh();
@@ -540,13 +556,393 @@ test('playback follows the entitlement: installed shards serve the full catalogu
     const services = await createProductAppServices(compositionOptions({
       databasePath: join(directory, `${snapshot.entitlementState}-${snapshot.packState}.sqlite`),
       installedAudio: shardSource,
-      commerceWorkflow: workflowFor(Object.freeze({
-        displayPrice: '£4.99', syncFailed: false, ...snapshot,
-      })),
+      commerceWorkflow: workflowFor(snapshot),
     }));
     t.after(() => services.dispose());
     await services.parentCommerce.refresh();
     // A half-installed or revoked device must never serve the Full catalogue.
     await assert.rejects(play(services, starterCatalogue), /starter-source/);
   }
+});
+
+// --- E2.7b: entitlement-driven catalogue activation -------------------------
+
+const YACHT = 'ks2-core:yacht'; // audio lives in full-ks2-shard-15
+
+function activationOptions(directory, name, snapshot) {
+  let clock = 1_000;
+  return compositionOptions({
+    databasePath: join(directory, `${name}.sqlite`),
+    // A moving clock: identical timestamps collide the engine's deterministic
+    // event IDs once a test writes more than one event.
+    now: () => (clock += 1),
+    commerceWorkflow: workflowFor(snapshot),
+  });
+}
+
+async function readStoredSnapshot(databasePath, learnerId) {
+  const connection = createNodeSqliteConnection(databasePath);
+  await connection.open();
+  try {
+    return await createSQLiteSpellingSnapshotStore({
+      connection,
+      cataloguesById: Object.freeze({
+        [loadStarterSpellingCatalogue().catalogueId]: loadStarterSpellingCatalogue(),
+        [(await loadFullSpellingCatalogue()).catalogueId]:
+          await loadFullSpellingCatalogue(),
+      }),
+    }).read(learnerId);
+  } finally {
+    await connection.close();
+  }
+}
+
+function withoutCatalogueTag(snapshot) {
+  return { ...snapshot, catalogueId: null, grantedEntitlementIds: null };
+}
+
+async function seedLearner(services) {
+  await services.controller.createProfile({
+    nickname: 'Ada',
+    yearGroup: 'Y5',
+    goal: 10,
+    colour: '#2E7D8A',
+  });
+  await services.learning.startRound({
+    length: 5,
+    mode: 'smart',
+    yearFilter: 'core',
+  });
+  await services.learning.submitAnswer('definitely wrong');
+  return 'learner-composition';
+}
+
+test('the full catalogue publishes exactly the grant the re-tag writes', async () => {
+  // The alignment writes '["full-ks2"]' into the aggregate; the Guardian and
+  // Camp projections only unlock when the snapshot's grant covers every
+  // entitlement the catalogue names. A vendored catalogue that added a second
+  // entitlement would silently leave both features locked on a paid device.
+  assert.deepEqual((await loadFullSpellingCatalogue()).entitlementIds, ['full-ks2']);
+  assert.deepEqual(loadStarterSpellingCatalogue().entitlementIds, []);
+});
+
+test('an entitled device with every shard installed practises the full KS2 catalogue, carrying its Starter learning across unchanged', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-activation-up-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const databasePath = join(directory, 'upgrade.sqlite');
+  const options = (snapshot) => ({
+    ...activationOptions(directory, 'upgrade', snapshot),
+    databasePath,
+    connectionFactory: async () => createNodeSqliteConnection(databasePath),
+  });
+
+  const unentitled = await createProductAppServices(
+    options({ entitlementState: 'none', packState: 'missing' }),
+  );
+  assert.equal(unentitled.catalogueId, 'ks2-core:starter');
+  assert.equal(unentitled.learning.getState().packSize, 20);
+  const learnerId = await seedLearner(unentitled);
+  assert.ok(
+    !unentitled.learning.getState().progress.some(
+      ({ runtimeItemId }) => runtimeItemId === YACHT,
+    ),
+    'a Starter device must not publish a shard-15 word',
+  );
+  const unentitledMission = unentitled.learning.getState().revisionMission;
+  await unentitled.dispose();
+  const beforeUpgrade = await readStoredSnapshot(databasePath, learnerId);
+  assert.equal(beforeUpgrade.catalogueId, 'ks2-core:starter');
+
+  const entitled = await createProductAppServices(
+    options({ entitlementState: 'active', packState: 'installed' }),
+  );
+  t.after(() => entitled.dispose());
+  // The purchase delivers the words, not just the audio.
+  assert.equal(entitled.catalogueId, 'ks2-core:full');
+  assert.equal(entitled.learning.getState().packSize, 213);
+  assert.ok(
+    entitled.learning.getState().progress.some(
+      ({ runtimeItemId }) => runtimeItemId === YACHT,
+    ),
+    'an entitled device must be able to reach a shard-15 word',
+  );
+  // The Guardian Mission and Camp projections read the grant off the snapshot,
+  // not off the catalogue, so the re-tag has to move both columns. Camp credit
+  // reads 'unavailable' for exactly as long as the grant is missing, whatever
+  // the learner's progress.
+  assert.equal(
+    unentitledMission.campCreditState,
+    'unavailable',
+  );
+  assert.notEqual(
+    entitled.learning.getState().revisionMission.campCreditState,
+    'unavailable',
+  );
+  // Continuity: the round the learner was mid-way through is still live.
+  assert.equal(entitled.learning.getState().learnerId, learnerId);
+  assert.equal(entitled.learning.getState().screen, 'practice');
+  const afterUpgrade = await readStoredSnapshot(databasePath, learnerId);
+  assert.deepEqual(
+    withoutCatalogueTag(afterUpgrade),
+    withoutCatalogueTag(beforeUpgrade),
+  );
+  assert.equal(afterUpgrade.catalogueId, 'ks2-core:full');
+  assert.deepEqual(afterUpgrade.grantedEntitlementIds, ['full-ks2']);
+});
+
+test('a partial install, a revocation and a device that never bought all keep the Starter catalogue', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-activation-gate-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  for (const snapshot of [
+    { entitlementState: 'none', packState: 'missing' },
+    { entitlementState: 'active', packState: 'queued' },
+    { entitlementState: 'active', packState: 'downloading' },
+    // One shard short of the set: aggregatePackStates never reports
+    // 'installed' until every shard is in, which is what makes the catalogue
+    // switch and the audio switch share one all-or-nothing rule.
+    { entitlementState: 'active', packState: 'failed' },
+    { entitlementState: 'revoked', packState: 'locked' },
+  ]) {
+    const services = await createProductAppServices(activationOptions(
+      directory,
+      `${snapshot.entitlementState}-${snapshot.packState}`,
+      snapshot,
+    ));
+    t.after(() => services.dispose());
+    assert.equal(
+      services.catalogueId,
+      'ks2-core:starter',
+      `${snapshot.entitlementState}/${snapshot.packState} must stay on Starter`,
+    );
+    assert.equal(services.learning.getState().packSize, 20);
+  }
+});
+
+test('one shard short never aggregates to installed, so a partial install can never open the full catalogue', () => {
+  const installed = Array.from({ length: 15 }, () => 'installed');
+  assert.equal(aggregatePackStates('active', installed), 'installed');
+  assert.equal(isFullProductEntitled({
+    entitlementState: 'active',
+    packState: aggregatePackStates('active', installed),
+  }), true);
+  for (const short of ['missing', 'queued', 'downloading', 'failed']) {
+    const oneShort = [...installed.slice(0, 14), short];
+    assert.notEqual(aggregatePackStates('active', oneShort), 'installed');
+    assert.equal(isFullProductEntitled({
+      entitlementState: 'active',
+      packState: aggregatePackStates('active', oneShort),
+    }), false);
+  }
+});
+
+test('revocation preserves full-catalogue learning instead of resetting it, and restoring the purchase returns the learner to it', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-activation-down-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const databasePath = join(directory, 'revocation.sqlite');
+  const options = (snapshot) => ({
+    ...activationOptions(directory, 'revocation', snapshot),
+    databasePath,
+    connectionFactory: async () => createNodeSqliteConnection(databasePath),
+  });
+  const starterItemIds = new Set(
+    loadStarterSpellingCatalogue().items.map(({ runtimeItemId }) => runtimeItemId),
+  );
+
+  const entitled = await createProductAppServices(
+    options({ entitlementState: 'active', packState: 'installed' }),
+  );
+  assert.equal(entitled.catalogueId, 'ks2-core:full');
+  const learnerId = await seedLearner(entitled);
+  // Practise a word that exists only in the full catalogue: that is what makes
+  // the aggregate impossible to show under Starter without deleting it.
+  let reachedFullOnlyWord = false;
+  for (let step = 0; step < 20 && !reachedFullOnlyWord; step += 1) {
+    if (!starterItemIds.has(entitled.learning.getState().practice.runtimeItemId)) {
+      reachedFullOnlyWord = true;
+      break;
+    }
+    await entitled.learning.skipWord();
+    if (entitled.learning.getState().practice === null) break;
+  }
+  assert.ok(reachedFullOnlyWord, 'the round must reach a full-catalogue-only word');
+  await entitled.learning.submitAnswer('definitely wrong');
+  await entitled.dispose();
+  const earned = await readStoredSnapshot(databasePath, learnerId);
+  assert.equal(earned.catalogueId, 'ks2-core:full');
+
+  const revoked = await createProductAppServices(
+    options({ entitlementState: 'revoked', packState: 'locked' }),
+  );
+  // Not reset, not downgraded: a refunded family keeps every byte of the
+  // learning they earned.
+  assert.equal(revoked.catalogueId, 'ks2-core:full');
+  assert.deepEqual(await readStoredSnapshot(databasePath, learnerId), earned);
+  await revoked.dispose();
+
+  const restored = await createProductAppServices(
+    options({ entitlementState: 'active', packState: 'installed' }),
+  );
+  t.after(() => restored.dispose());
+  assert.equal(restored.catalogueId, 'ks2-core:full');
+  assert.equal(restored.learning.getState().packSize, 213);
+  assert.deepEqual(await readStoredSnapshot(databasePath, learnerId), earned);
+});
+
+test('the dev-era repair fires only on a device that has never run activation; the same state on a device that has is preserved', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-activation-devera-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+
+  async function buildFullCatalogueLearning(name) {
+    const databasePath = join(directory, `${name}.sqlite`);
+    const options = (snapshot) => ({
+      ...activationOptions(directory, name, snapshot),
+      databasePath,
+      connectionFactory: async () => createNodeSqliteConnection(databasePath),
+    });
+    const services = await createProductAppServices(
+      options({ entitlementState: 'active', packState: 'installed' }),
+    );
+    assert.equal(services.catalogueId, 'ks2-core:full');
+    const learnerId = await seedLearner(services);
+    await services.dispose();
+    return { databasePath, learnerId, options };
+  }
+
+  // A genuine pre-E2.5 device: full-catalogue aggregates written by a build
+  // that predates entitlement-driven activation, so it carries no activation
+  // marker. Its dev-era grant was never paid for and cannot be served.
+  const stale = await buildFullCatalogueLearning('stale');
+  const staleConnection = createNodeSqliteConnection(stale.databasePath);
+  await staleConnection.open();
+  const removed = await staleConnection.execute(
+    'DELETE FROM app_metadata WHERE key = ?',
+    [CATALOGUE_ACTIVATION_KEY],
+  );
+  assert.equal(removed.changes, 1);
+  await staleConnection.close();
+  const beforeRepair = await readStoredSnapshot(stale.databasePath, stale.learnerId);
+  assert.ok(beforeRepair.revision > 0);
+
+  const repaired = await createProductAppServices(
+    stale.options({ entitlementState: 'none', packState: 'missing' }),
+  );
+  t.after(() => repaired.dispose());
+  assert.equal(repaired.catalogueId, 'ks2-core:starter');
+  const afterRepair = await readStoredSnapshot(stale.databasePath, stale.learnerId);
+  assert.equal(afterRepair.catalogueId, 'ks2-core:starter');
+  assert.equal(afterRepair.revision, 0);
+  assert.deepEqual(afterRepair.eventLog, []);
+  assert.deepEqual(afterRepair.grantedEntitlementIds, []);
+
+  // Byte-identical stored state, marker intact: this one is a purchase, and
+  // the repair must not touch it.
+  const earnedDevice = await buildFullCatalogueLearning('earned');
+  const beforePreserve = await readStoredSnapshot(
+    earnedDevice.databasePath,
+    earnedDevice.learnerId,
+  );
+  const preserved = await createProductAppServices(
+    earnedDevice.options({ entitlementState: 'none', packState: 'missing' }),
+  );
+  t.after(() => preserved.dispose());
+  const afterPreserve = await readStoredSnapshot(
+    earnedDevice.databasePath,
+    earnedDevice.learnerId,
+  );
+  assert.ok(afterPreserve.revision > 0);
+  assert.deepEqual(
+    withoutCatalogueTag(afterPreserve),
+    withoutCatalogueTag(beforePreserve),
+  );
+});
+
+test('importing full-catalogue learning onto a device that is not entitled keeps it and reports post-commit rather than resetting it', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-activation-import-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const starterItemIds = new Set(
+    loadStarterSpellingCatalogue().items.map(({ runtimeItemId }) => runtimeItemId),
+  );
+
+  // Source device: entitled, with learning on a word only the full catalogue
+  // publishes.
+  const sourcePath = join(directory, 'source.sqlite');
+  const source = await createProductAppServices({
+    ...activationOptions(directory, 'source', {
+      entitlementState: 'active',
+      packState: 'installed',
+    }),
+    databasePath: sourcePath,
+    connectionFactory: async () => createNodeSqliteConnection(sourcePath),
+  });
+  assert.equal(source.catalogueId, 'ks2-core:full');
+  const learnerId = await seedLearner(source);
+  for (let step = 0; step < 20; step += 1) {
+    if (!starterItemIds.has(source.learning.getState().practice.runtimeItemId)) break;
+    await source.learning.skipWord();
+  }
+  assert.ok(
+    !starterItemIds.has(source.learning.getState().practice.runtimeItemId),
+    'the source device must hold learning outside the Starter catalogue',
+  );
+  await source.dispose();
+
+  const sourceConnection = createNodeSqliteConnection(sourcePath);
+  await sourceConnection.open();
+  const backup = await createSQLiteLearningBackupRepository({
+    connection: sourceConnection,
+    gate: createDatabaseCommandGate(),
+    cataloguesById: Object.freeze({
+      [loadStarterSpellingCatalogue().catalogueId]: loadStarterSpellingCatalogue(),
+      [(await loadFullSpellingCatalogue()).catalogueId]:
+        await loadFullSpellingCatalogue(),
+    }),
+    now: () => 9_000,
+  }).exportBackup();
+  await sourceConnection.close();
+
+  const targetPath = join(directory, 'target.sqlite');
+  const target = await createProductAppServices({
+    ...activationOptions(directory, 'target', {
+      entitlementState: 'none',
+      packState: 'missing',
+    }),
+    databasePath: targetPath,
+    connectionFactory: async () => createNodeSqliteConnection(targetPath),
+    learningBackupFiles: Object.freeze({
+      async presentExport() { return Object.freeze({ presented: true }); },
+      async pickImport() {
+        return Object.freeze({
+          cancelled: false,
+          bytesBase64: Buffer.from(backup, 'utf8').toString('base64'),
+          sha256: createHash('sha256').update(backup).digest('hex'),
+        });
+      },
+    }),
+  });
+  t.after(() => target.dispose());
+  assert.equal(target.catalogueId, 'ks2-core:starter');
+
+  await assert.rejects(target.parentBackup.importBackup(), (error) => {
+    // Committed, but the composed catalogue cannot change under a running
+    // app; the Parent screen turns this into "imported — reopen the app".
+    assert.equal(error.postCommit, true);
+    assert.equal(error.message, 'product_catalogue_changed_by_import');
+    return true;
+  });
+  const imported = await readStoredSnapshot(targetPath, learnerId);
+  assert.equal(imported.catalogueId, 'ks2-core:full');
+  assert.ok(imported.revision > 0);
+
+  // Reopening composes the catalogue the imported learning actually needs.
+  const reopened = await createProductAppServices({
+    ...activationOptions(directory, 'target', {
+      entitlementState: 'none',
+      packState: 'missing',
+    }),
+    databasePath: targetPath,
+    connectionFactory: async () => createNodeSqliteConnection(targetPath),
+  });
+  t.after(() => reopened.dispose());
+  assert.equal(reopened.catalogueId, 'ks2-core:full');
+  assert.equal(reopened.learning.getState().learnerId, learnerId);
 });

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "packId": "full-ks2-shard-04",
+  "catalogueId": "ks2-core:full",
+  "version": "1.0.0",
+  "archiveName": "full-ks2-shard-04-1.0.0.zip",
+  "requiredEntitlementId": "full-ks2",
+  "signingState": "deferred-to-final-visible-owner-gate",
+  "allowedExtensions": [
+    ".json",
+    ".m4a"
+  ],
+  "ceilings": {
+    "fileCount": 631,
+    "compressedBytes": 33554432,
+    "extractedBytes": 33554432
+  },
+  "catalogueSource": "config/packs/full-ks2-shards/full-ks2-shard-04.manifest.json",
+  "audioSourceRoot": ".native-build/packs/full-ks2-shard-04/payload",
+  "audioEvidenceSource": "config/packs/full-ks2-shards/full-ks2-shard-04.manifest.json"
+}

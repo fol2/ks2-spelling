@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "catalogueId": "ks2-core:full",
+  "catalogueSource": "vendor/ks2-mastery/content/spelling.mobile-runtime-full.json",
+  "audioAuthoritySource": "config/full-audio-authority.json",
+  "audioSourceRoot": "content/full-pack",
+  "audioEvidenceSource": "reports/c2/full-audio-evidence.json",
+  "runtimeManifestTarget": "config/full-audio-manifest.json"
+}

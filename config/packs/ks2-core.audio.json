@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "catalogueId": "ks2-core:starter",
+  "catalogueSource": "vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json",
+  "audioAuthoritySource": "config/starter-audio-authority.json",
+  "audioSourceRoot": "content/starter-pack",
+  "audioEvidenceSource": "reports/c1/starter-audio-evidence.json",
+  "runtimeManifestTarget": null
+}

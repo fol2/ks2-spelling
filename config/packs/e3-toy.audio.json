@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "catalogueId": "e3-toy:fixture",
+  "catalogueSource": "tests/fixtures/e3-toy-pack/catalogue.json",
+  "audioAuthoritySource": "tests/fixtures/e3-toy-pack/audio-authority.json",
+  "audioSourceRoot": "tests/fixtures/e3-toy-pack/payload",
+  "audioEvidenceSource": "tests/fixtures/e3-toy-pack/audio-evidence.json",
+  "runtimeManifestTarget": null
+}

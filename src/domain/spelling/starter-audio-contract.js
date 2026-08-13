@@ -42,7 +42,15 @@ function exactKeys(value, keys, label) {
   return value;
 }
 
-function validateAuthority(value, { catalogueId, assetCount }) {
+export function validateAudioAuthority(value, { catalogueId, assetCount }) {
+  if (
+    typeof catalogueId !== 'string' ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(catalogueId) ||
+    !Number.isSafeInteger(assetCount) ||
+    assetCount < 1
+  ) {
+    fail('expected catalogue identity or asset count is not a reviewed value');
+  }
   const starter = catalogueId === 'ks2-core:starter';
   exactKeys(value, [
     'schemaVersion',
@@ -248,11 +256,11 @@ function validateAuthority(value, { catalogueId, assetCount }) {
   return freezeDeep(structuredClone(value));
 }
 
-export const STARTER_AUDIO_AUTHORITY = validateAuthority(authority, {
+export const STARTER_AUDIO_AUTHORITY = validateAudioAuthority(authority, {
   catalogueId: 'ks2-core:starter',
   assetCount: 840,
 });
-export const FULL_AUDIO_AUTHORITY = validateAuthority(fullAuthority, {
+export const FULL_AUDIO_AUTHORITY = validateAudioAuthority(fullAuthority, {
   catalogueId: 'ks2-core:full',
   assetCount: 8_946,
 });
@@ -283,8 +291,10 @@ function createAsset({
   const assetPath =
     `audio/${profile.voiceId.toLowerCase()}/${item.itemId}/${suffix}.m4a`;
   const source = authority.sources[sourceKind === 'word' ? 'word' : 'sentence'];
-  const trackedStarterSource = authority.catalogueId === 'ks2-core:starter';
-  const sourcePath = trackedStarterSource
+  // A tracked sentence source is the one that declares an in-repository
+  // assetRoot; an external one is fetched by the authoring host.
+  const trackedSentenceSource = Object.hasOwn(authority.sources.sentence, 'assetRoot');
+  const sourcePath = trackedSentenceSource
     ? `${source.assetRoot}/${assetPath}`
     : sourceKind === 'word'
       ? `audio/${profile.voiceId}/word/${sourceSlug}.m4a`
@@ -316,7 +326,7 @@ function createAsset({
       sourceVoice: profile.voiceId,
       sourceKind,
       sourceFormat: authority.sourceEncoding[sourceKind].format,
-      sourceTrackedPath: sourceKind === 'word' || trackedStarterSource
+      sourceTrackedPath: sourceKind === 'word' || trackedSentenceSource
         ? `${source.assetRoot}/${assetPath}`
         : null,
       slowTempoPolicy: audioKind === 'dictation-slow'
@@ -334,7 +344,7 @@ function createAsset({
   });
 }
 
-function createAudioInventory(candidate, authority) {
+export function createAudioInventory(candidate, authority) {
   const catalogue = validateCatalogueV1(candidate);
   if (
     catalogue.catalogueId !== authority.catalogueId ||

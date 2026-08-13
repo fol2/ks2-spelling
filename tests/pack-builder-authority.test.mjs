@@ -53,7 +53,7 @@ test('toy authority builds a distinct valid pack artifact', async (t) => {
   assert.equal(manifest.version, '1.0.0');
   assert.equal(manifest.archive.name, 'e3-toy-1.0.0.zip');
   assert.equal(manifest.archive.sha256, sha256(archive));
-  assert.equal(manifest.files.length, 2);
+  assert.equal(manifest.files.length, 13);
   assert.deepEqual(
     validateDataOnlyInventory({
       manifest: {
@@ -67,7 +67,7 @@ test('toy authority builds a distinct valid pack artifact', async (t) => {
         extractedBytes: file.bytes,
       })),
     }).fileCount,
-    2,
+    13,
   );
 });
 

@@ -15,7 +15,6 @@ const CANONICAL_LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const STARTER_CATALOGUE_ID = 'ks2-core:starter';
 const FULL_CATALOGUE_ID = 'ks2-core:full';
 const EMPTY_ENTITLEMENTS_JSON = canonicalJson([]);
-const FULL_ENTITLEMENTS_JSON = canonicalJson(['full-ks2']);
 const INITIAL_SUBJECT_STATE_JSON = canonicalJson({
   ui: {},
   data: {
@@ -350,29 +349,38 @@ export function createSQLiteSpellingProfileStore({
         return true;
       }));
     },
-    async promoteStarterCatalogue() {
-      return gate.run(() => runOwnedTransaction(connection, async () => {
-        const result = await connection.execute(
-          'UPDATE spelling_aggregates SET catalogue_id = ? WHERE pack_id = ? AND catalogue_id = ?',
-          [FULL_CATALOGUE_ID, 'ks2-core', STARTER_CATALOGUE_ID],
-        );
-        if (!Number.isSafeInteger(result?.changes) || result.changes < 0) {
-          throw storeError('sqlite_profile_catalogue_promotion_failed');
-        }
-        return result.changes;
-      }));
-    },
-    async grantFullEntitlement() {
+    // E2.5 migration: earlier builds promoted every learner to the full
+    // catalogue and granted 'full-ks2' unconditionally, but this build no
+    // longer carries the full audio, so a full-catalogue aggregate cannot be
+    // served at all. Full-catalogue learners are reset to a fresh Starter
+    // aggregate; E2.6 replaces this call with entitlement-driven activation.
+    async resetFullCatalogueLearning() {
       const sampledAt = sampleTimestamp(now);
       return gate.run(() => runOwnedTransaction(connection, async () => {
-        const result = await connection.execute(
-          'UPDATE spelling_aggregates SET granted_entitlement_ids_json = ?, updated_at = ? WHERE granted_entitlement_ids_json = ?',
-          [FULL_ENTITLEMENTS_JSON, sampledAt, EMPTY_ENTITLEMENTS_JSON],
+        const rows = await connection.query(
+          'SELECT learner_id FROM spelling_aggregates WHERE catalogue_id = ? ORDER BY learner_id',
+          [FULL_CATALOGUE_ID],
         );
-        if (!Number.isSafeInteger(result?.changes) || result.changes < 0) {
-          throw storeError('sqlite_profile_entitlement_grant_failed');
+        if (!Array.isArray(rows)) {
+          throw storeError('sqlite_profile_rows_invalid');
         }
-        return result.changes;
+        for (const row of rows) {
+          const learnerId = requireLearnerId(row?.learner_id);
+          const removed = await connection.execute(
+            'DELETE FROM spelling_aggregates WHERE learner_id = ?',
+            [learnerId],
+          );
+          if (removed.changes !== 1) {
+            throw storeError('sqlite_profile_learning_reset_failed');
+          }
+          await insertInitialSnapshot(
+            connection,
+            learnerId,
+            sampledAt,
+            STARTER_CATALOGUE_ID,
+          );
+        }
+        return rows.length;
       }));
     },
   });

@@ -40,33 +40,6 @@ async function createHarness(t, { now = () => 100 } = {}) {
   return { connection, store };
 }
 
-function readPreservedLearningState(connection) {
-  return connection.query(`
-    SELECT
-      aggregate.learner_id,
-      aggregate.snapshot_schema_version,
-      aggregate.revision,
-      aggregate.pack_id,
-      aggregate.granted_entitlement_ids_json,
-      aggregate.updated_at,
-      subject.state_json AS subject_state_json,
-      session.session_id,
-      session.status,
-      session.state_json AS session_state_json,
-      event.event_json,
-      monster.state_json AS monster_state_json,
-      camp.state_json AS camp_state_json,
-      metadata.value_json AS selected_learner_json
-    FROM spelling_aggregates aggregate
-    JOIN spelling_subject_states subject USING (learner_id)
-    JOIN spelling_practice_sessions session USING (learner_id)
-    JOIN spelling_events event USING (learner_id)
-    JOIN spelling_monster_states monster USING (learner_id)
-    JOIN spelling_camp_states camp USING (learner_id)
-    JOIN app_metadata metadata ON metadata.key = ?
-  `, ['product-selected-learner-v1']);
-}
-
 test('SQLite profile store exposes the frozen async profile contract and selects its first learner', async (t) => {
   const { connection, store } = await createHarness(t);
 
@@ -78,8 +51,7 @@ test('SQLite profile store exposes the frozen async profile contract and selects
   ]);
   assert.deepEqual(Object.keys(store.administration), [
     'resetLearning',
-    'promoteStarterCatalogue',
-    'grantFullEntitlement',
+    'resetFullCatalogueLearning',
   ]);
   assert.deepEqual(await store.profiles.listProfiles(), []);
   assert.equal(await store.selection.readSelectedLearnerId(), null);
@@ -163,12 +135,16 @@ test('Full catalogue initialisation and reset remain scoped to the configured pr
   );
 });
 
-test('Starter catalogue promotion is atomic, idempotent and preserves learner state', async (t) => {
-  const { connection, store } = await createHarness(t);
+test('Full catalogue learning reset is idempotent, full-scoped and revokes dev-era grants', async (t) => {
+  let timestamp = 100;
+  const { connection, store } = await createHarness(t, { now: () => timestamp });
   await store.profiles.writeProfile(profile('learner-a'));
+  await store.profiles.writeProfile(profile('learner-b'));
+  // learner-a looks like a dev-era TestFlight install: promoted to the full
+  // catalogue, granted full-ks2, with learning state hanging off it.
   await connection.execute(
-    'UPDATE spelling_aggregates SET revision = ?, granted_entitlement_ids_json = ?, updated_at = ? WHERE learner_id = ?',
-    [7, '["entitlement-a"]', 321, 'learner-a'],
+    'UPDATE spelling_aggregates SET catalogue_id = ?, revision = ?, granted_entitlement_ids_json = ?, updated_at = ? WHERE learner_id = ?',
+    ['ks2-core:full', 7, '["full-ks2"]', 321, 'learner-a'],
   );
   await connection.execute(
     'INSERT INTO spelling_practice_sessions (learner_id, session_id, status, state_json) VALUES (?, ?, ?, ?)',
@@ -176,59 +152,65 @@ test('Starter catalogue promotion is atomic, idempotent and preserves learner st
   );
   await connection.execute(
     'INSERT INTO spelling_events (learner_id, event_id, sequence_no, created_at, event_json) VALUES (?, ?, ?, ?, ?)',
-    ['learner-a', 'event-a', 0, 123, '{"event":"kept"}'],
+    ['learner-a', 'event-a', 0, 123, '{"event":"wiped"}'],
   );
   await connection.execute(
     'INSERT INTO spelling_monster_states (learner_id, reward_track_id, state_json) VALUES (?, ?, ?)',
-    ['learner-a', 'track-a', '{"reward":"kept"}'],
+    ['learner-a', 'track-a', '{"reward":"wiped"}'],
   );
   await connection.execute(
     'INSERT INTO spelling_camp_states (learner_id, pack_id, state_json) VALUES (?, ?, ?)',
-    ['learner-a', 'ks2-core', '{"camp":"kept"}'],
+    ['learner-a', 'ks2-core', '{"camp":"wiped"}'],
   );
-  const before = await readPreservedLearningState(connection);
-
-  assert.equal(await store.administration.promoteStarterCatalogue(), 1);
-  assert.equal(await store.administration.promoteStarterCatalogue(), 0);
-  assert.deepEqual(
-    await connection.query(
-      'SELECT catalogue_id FROM spelling_aggregates WHERE learner_id = ?',
-      ['learner-a'],
-    ),
-    [{ catalogue_id: 'ks2-core:full' }],
-  );
-  assert.deepEqual(await readPreservedLearningState(connection), before);
-});
-
-test('Full entitlement grant is idempotent and preserves existing grants', async (t) => {
-  let timestamp = 100;
-  const { connection, store } = await createHarness(t, { now: () => timestamp });
-  await store.profiles.writeProfile(profile('learner-a'));
-  await store.profiles.writeProfile(profile('learner-b'));
-  await connection.execute(
-    'UPDATE spelling_aggregates SET granted_entitlement_ids_json = ?, updated_at = ? WHERE learner_id = ?',
-    ['["entitlement-a"]', 321, 'learner-b'],
+  const starterBefore = await connection.query(
+    'SELECT revision, granted_entitlement_ids_json, updated_at FROM spelling_aggregates WHERE learner_id = ?',
+    ['learner-b'],
   );
 
   timestamp = 400;
-  assert.equal(await store.administration.grantFullEntitlement(), 1);
-  assert.equal(await store.administration.grantFullEntitlement(), 0);
+  assert.equal(await store.administration.resetFullCatalogueLearning(), 1);
+  assert.equal(await store.administration.resetFullCatalogueLearning(), 0);
   assert.deepEqual(
     await connection.query(
-      'SELECT learner_id, granted_entitlement_ids_json, updated_at FROM spelling_aggregates ORDER BY learner_id',
+      'SELECT learner_id, revision, catalogue_id, granted_entitlement_ids_json, updated_at FROM spelling_aggregates ORDER BY learner_id',
     ),
     [
       {
         learner_id: 'learner-a',
-        granted_entitlement_ids_json: '["full-ks2"]',
+        revision: 0,
+        catalogue_id: 'ks2-core:starter',
+        granted_entitlement_ids_json: '[]',
         updated_at: 400,
       },
       {
         learner_id: 'learner-b',
-        granted_entitlement_ids_json: '["entitlement-a"]',
-        updated_at: 321,
+        revision: starterBefore[0].revision,
+        catalogue_id: 'ks2-core:starter',
+        granted_entitlement_ids_json:
+          starterBefore[0].granted_entitlement_ids_json,
+        updated_at: starterBefore[0].updated_at,
       },
     ],
+  );
+  // The cascade wipes every per-learner learning table for the reset learner.
+  for (const table of [
+    'spelling_practice_sessions',
+    'spelling_events',
+    'spelling_monster_states',
+    'spelling_camp_states',
+  ]) {
+    assert.deepEqual(
+      await connection.query(
+        `SELECT learner_id FROM ${table} WHERE learner_id = ?`,
+        ['learner-a'],
+      ),
+      [],
+    );
+  }
+  // Both profiles survive untouched.
+  assert.deepEqual(
+    (await store.profiles.listProfiles()).map(({ learnerId }) => learnerId),
+    ['learner-a', 'learner-b'],
   );
 });
 

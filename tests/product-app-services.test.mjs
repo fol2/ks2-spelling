@@ -6,14 +6,12 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { createProductAppServices } from '../src/app/create-product-app-services.js';
-import { createProductLearningController } from '../src/app/product-learning-controller.js';
 import {
   loadFullSpellingCatalogue,
   loadStarterSpellingCatalogue,
 } from '../src/domain/spelling/index.js';
 import { createDatabaseCommandGate } from '../src/platform/database/database-command-gate.js';
 import { configureAndMigrateDatabase } from '../src/platform/database/migrate-database.js';
-import { createSQLiteSpellingCommandRepository } from '../src/platform/database/sqlite-spelling-command-repository.js';
 import { createSQLiteLearningBackupRepository } from '../src/platform/database/sqlite-learning-backup-repository.js';
 import { createSQLiteSpellingSnapshotStore } from '../src/platform/database/sqlite-spelling-snapshot-store.js';
 import { createNodeSqliteConnection } from './helpers/node-sqlite-connection.mjs';
@@ -89,6 +87,7 @@ test('production services persist profile CRUD and selected learner across a cle
       return `learner-${learnerSequence}`;
     },
   };
+  const starterCatalogue = loadStarterSpellingCatalogue();
   const fullCatalogue = await loadFullSpellingCatalogue();
 
   const first = await createProductAppServices(options);
@@ -235,22 +234,21 @@ test('production services persist profile CRUD and selected learner across a cle
   });
   assert.equal(first.learning.getState().learnerId, ben.learnerId);
   assert.deepEqual(first.learning.getState().vocabularySets, [
-    { id: 'core', label: 'Core', count: 213 },
-    { id: 'y3-4', label: 'Y3–4', count: 109 },
-    { id: 'y5-6', label: 'Y5–6', count: 104 },
+    { id: 'core', label: 'Core', count: 20 },
+    { id: 'y3-4', label: 'Y3–4', count: 20 },
   ]);
   await first.learning.startRound({
     length: 5,
     mode: 'smart',
-    yearFilter: 'y5-6',
+    yearFilter: 'y3-4',
   });
   assert.equal(first.learning.getState().screen, 'practice');
   assert.equal(
-    fullCatalogue.items.find(
+    starterCatalogue.items.find(
       ({ runtimeItemId }) =>
         runtimeItemId === first.learning.getState().practice.runtimeItemId,
     ).yearBand,
-    '5-6',
+    '3-4',
   );
   const activeSessionId = first.learning.getState().practice.sessionId;
   await first.parentProgress.refresh();
@@ -261,7 +259,7 @@ test('production services persist profile CRUD and selected learner across a cle
       nickname: 'Ben',
       yearGroup: 'Y5',
       colour: '#A7633B',
-      publishedItemCount: 213,
+      publishedItemCount: 20,
       secureItemCount: 0,
       dueItemCount: 0,
       troubleItemCount: 0,
@@ -292,7 +290,7 @@ test('production services persist profile CRUD and selected learner across a cle
   await second.parentAdministration.resetLearning(ben.learnerId);
   assert.equal(second.learning.getState().screen, 'home');
   assert.equal(second.learning.getState().practice, null);
-  assert.equal(second.learning.getState().progress.length, 213);
+  assert.equal(second.learning.getState().progress.length, 20);
   assert.ok(
     second.learning.getState().progress.every(
       ({ attempts, dueDay, lastResult }) =>
@@ -300,62 +298,56 @@ test('production services persist profile CRUD and selected learner across a cle
     ),
   );
   assert.deepEqual(second.learning.getState().vocabularySets, [
-    { id: 'core', label: 'Core', count: 213 },
-    { id: 'y3-4', label: 'Y3–4', count: 109 },
-    { id: 'y5-6', label: 'Y5–6', count: 104 },
+    { id: 'core', label: 'Core', count: 20 },
+    { id: 'y3-4', label: 'Y3–4', count: 20 },
   ]);
   assert.equal(protectionCalls.length, 4);
-  await second.dispose();
 
-  const legacyConnection = createNodeSqliteConnection(databasePath);
-  await legacyConnection.open();
-  await configureAndMigrateDatabase(legacyConnection);
-  await legacyConnection.execute(
-    'UPDATE spelling_aggregates SET catalogue_id = ? WHERE learner_id = ?',
-    ['ks2-core:starter', ben.learnerId],
-  );
-  const starterCatalogue = loadStarterSpellingCatalogue();
-  const legacyCatalogues = Object.freeze({
-    [starterCatalogue.catalogueId]: starterCatalogue,
-  });
-  const legacyGate = createDatabaseCommandGate();
-  const legacySnapshots = createSQLiteSpellingSnapshotStore({
-    connection: legacyConnection,
-    cataloguesById: legacyCatalogues,
-  });
-  const legacyLearning = createProductLearningController({
-    repository: createSQLiteSpellingCommandRepository({
-      connection: legacyConnection,
-      gate: legacyGate,
-      store: legacySnapshots,
-      cataloguesById: legacyCatalogues,
-      now: () => 500,
-    }),
-    snapshotStore: legacySnapshots,
-    catalogue: starterCatalogue,
-    initialSnapshot: await legacySnapshots.read(ben.learnerId),
-    random: () => 0.25,
-  });
-  await legacyLearning.startRound({
+  // Rebuild real learning progress so the migration below has something to
+  // wipe: two misses and a hit on one starter word.
+  await second.learning.startRound({
     length: 5,
     mode: 'smart',
     yearFilter: 'core',
   });
-  await legacyLearning.submitAnswer('definitely wrong');
-  await legacyLearning.submitAnswer('still wrong');
-  const legacyRuntimeItemId =
-    legacyLearning.getState().practice.runtimeItemId;
-  await legacyLearning.submitAnswer(
+  await second.learning.submitAnswer('definitely wrong');
+  await second.learning.submitAnswer('still wrong');
+  const playedRuntimeItemId = second.learning.getState().practice.runtimeItemId;
+  await second.learning.submitAnswer(
     starterCatalogue.items.find(
-      ({ runtimeItemId }) => runtimeItemId === legacyRuntimeItemId,
+      ({ runtimeItemId }) => runtimeItemId === playedRuntimeItemId,
     ).target,
   );
-  await legacyLearning.continueRound();
-  const legacyState = legacyLearning.getState();
+  await second.learning.continueRound();
+  assert.equal(second.learning.getState().practice.progress.checked, 1);
+  await second.dispose();
+
+  // A dev-era TestFlight build promoted every learner to the full catalogue
+  // and granted 'full-ks2' unconditionally. Recreate that stored state, then
+  // prove the next startup degrades it cleanly to a fresh Starter aggregate
+  // (owner decision: reset — no production users exist).
+  const legacyConnection = createNodeSqliteConnection(databasePath);
+  await legacyConnection.open();
+  await configureAndMigrateDatabase(legacyConnection);
+  await legacyConnection.execute(
+    'UPDATE spelling_aggregates SET catalogue_id = ?, granted_entitlement_ids_json = ? WHERE learner_id = ?',
+    ['ks2-core:full', '["full-ks2"]', ben.learnerId],
+  );
+  const legacyCatalogues = Object.freeze({
+    [starterCatalogue.catalogueId]: starterCatalogue,
+    [fullCatalogue.catalogueId]: fullCatalogue,
+  });
+  const legacySnapshots = createSQLiteSpellingSnapshotStore({
+    connection: legacyConnection,
+    cataloguesById: legacyCatalogues,
+  });
   const legacySnapshot = await legacySnapshots.read(ben.learnerId);
+  assert.equal(legacySnapshot.catalogueId, 'ks2-core:full');
+  assert.deepEqual(legacySnapshot.grantedEntitlementIds, ['full-ks2']);
+  assert.ok(legacySnapshot.revision > 0);
   const legacyBackup = await createSQLiteLearningBackupRepository({
     connection: legacyConnection,
-    gate: legacyGate,
+    gate: createDatabaseCommandGate(),
     cataloguesById: legacyCatalogues,
     now: () => 600,
   }).exportBackup();
@@ -364,47 +356,43 @@ test('production services persist profile CRUD and selected learner across a cle
     bytesBase64: Buffer.from(legacyBackup, 'utf8').toString('base64'),
     sha256: createHash('sha256').update(legacyBackup).digest('hex'),
   });
-  assert.ok(legacySnapshot.revision > 0);
-  assert.equal(legacyState.practice.progress.checked, 1);
-  await legacyLearning.dispose();
   await legacyConnection.close();
 
   const third = await createProductAppServices({
     ...options,
     lifecycle: createLifecycle(),
   });
-  const metProgress = (rows) => rows.filter(({ attempts }) => attempts > 0);
-  assert.equal(third.learning.getState().screen, 'practice');
-  assert.deepEqual(third.learning.getState().practice, legacyState.practice);
-  assert.deepEqual(
-    metProgress(third.learning.getState().progress),
-    metProgress(legacyState.progress),
-  );
+  const assertDegradedToStarter = (services) => {
+    assert.equal(services.learning.getState().screen, 'home');
+    assert.equal(services.learning.getState().learnerId, ben.learnerId);
+    assert.equal(services.learning.getState().practice, null);
+    assert.equal(services.learning.getState().progress.length, 20);
+    assert.ok(
+      services.learning.getState().progress.every(
+        ({ attempts }) => attempts === 0,
+      ),
+    );
+  };
+  assertDegradedToStarter(third);
+  // Importing a backup taken on the dev-era build degrades the same way.
   assert.deepEqual(await third.parentBackup.importBackup(), {
     cancelled: false,
     learnerCount: 1,
     selectedLearnerId: ben.learnerId,
   });
-  assert.equal(third.learning.getState().screen, 'practice');
-  assert.deepEqual(third.learning.getState().practice, legacyState.practice);
-  assert.deepEqual(
-    metProgress(third.learning.getState().progress),
-    metProgress(legacyState.progress),
-  );
+  assertDegradedToStarter(third);
   await third.dispose();
 
-  const promotedConnection = createNodeSqliteConnection(databasePath);
-  await promotedConnection.open();
-  const promotedSnapshot = await createSQLiteSpellingSnapshotStore({
-    connection: promotedConnection,
+  const migratedConnection = createNodeSqliteConnection(databasePath);
+  await migratedConnection.open();
+  const migratedSnapshot = await createSQLiteSpellingSnapshotStore({
+    connection: migratedConnection,
     cataloguesById: Object.freeze({
-      [fullCatalogue.catalogueId]: fullCatalogue,
+      [starterCatalogue.catalogueId]: starterCatalogue,
     }),
   }).read(ben.learnerId);
-  assert.deepEqual(promotedSnapshot, {
-    ...legacySnapshot,
-    catalogueId: 'ks2-core:full',
-    grantedEntitlementIds: ['full-ks2'],
-  });
-  await promotedConnection.close();
+  assert.equal(migratedSnapshot.catalogueId, 'ks2-core:starter');
+  assert.deepEqual(migratedSnapshot.grantedEntitlementIds, []);
+  assert.equal(migratedSnapshot.revision, 0);
+  await migratedConnection.close();
 });

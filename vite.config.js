@@ -40,16 +40,19 @@ export function createB4OfflineBoundary(mode) {
   };
 }
 
-export function createBundledFullAssets(mode) {
+// E2.5: the production bundle preloads only the 16 MB Starter audio. The
+// full set is entitlement-gated and delivered by download (E2.6), never
+// packaged in the binary.
+export function createBundledStarterAssets(mode) {
   if (mode !== 'production') return null;
   return {
-    name: 'bundled-full-assets',
+    name: 'bundled-starter-assets',
     async writeBundle(outputOptions) {
       const outputRoot = resolve(ROOT, outputOptions.dir ?? 'dist');
-      const target = resolve(outputRoot, 'full/audio');
+      const target = resolve(outputRoot, 'starter/audio');
       await mkdir(dirname(target), { recursive: true });
       await cp(
-        resolve(ROOT, 'content/full-pack/audio'),
+        resolve(ROOT, 'content/starter-pack/audio'),
         target,
         {
           recursive: true,
@@ -86,7 +89,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     createB4OfflineBoundary(mode),
-    createBundledFullAssets(mode),
+    createBundledStarterAssets(mode),
     createBundledArtAssets(mode),
   ].filter(Boolean),
   resolve: {

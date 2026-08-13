@@ -1,12 +1,12 @@
 import {
-  B3_PACK_JOB_AUTHORITY,
   PURCHASE_CHECKPOINTS,
   assertApprovedProductId,
   classifyGatewayFailure,
   deriveTransactionReplayJournalId,
   resolveCommerceProduct,
-  resolvePackJobAuthority,
+  resolvePackJobAuthorities,
 } from '../domain/commerce/purchase-state.js';
+import { findPackAuthority } from '../domain/packs/pack-registry.js';
 import { validateObservation } from '../platform/commerce/store-port.js';
 
 const METHOD_NAMES = Object.freeze([
@@ -142,7 +142,9 @@ export function createPurchaseCoordinator(rawDependencies) {
   // This coordinator serves exactly one entitlement; its store products, packs and
   // journal identities all derive from that binding rather than from a baked-in product.
   const product = resolveCommerceProduct(entitlementId);
-  const pack = resolvePackJobAuthority(product);
+  // ponytail: the loop below runs N=1 until the catalogue's join grows a second
+  // shard (E2.6/E2.8); the resolver and every durable layer are N=2-tested.
+  const packs = resolvePackJobAuthorities(product);
   // The native application composition owns one coordinator and one reconciler per
   // database connection. This queue is therefore the single proof-processing lane.
   let tail = Promise.resolve();
@@ -338,8 +340,8 @@ export function createPurchaseCoordinator(rawDependencies) {
     });
   }
 
-  async function ensureDownloadJob(authority) {
-    const jobs = await downloadRepository.listDownloadJobs();
+  async function ensurePackDownloadJob(pack, jobs, authority, sealedRefreshHandle) {
+    const packObject = findPackAuthority(pack.packId);
     const existing = jobs.find((job) => job.jobId === pack.jobId);
     if (existing) {
       const safeStates = new Set([
@@ -348,11 +350,11 @@ export function createPurchaseCoordinator(rawDependencies) {
       const safeExisting =
         existing.packId === pack.packId &&
         existing.version === pack.version &&
-        existing.archiveName === B3_PACK_JOB_AUTHORITY.archiveName &&
-        existing.manifestSha256 === B3_PACK_JOB_AUTHORITY.manifestSha256 &&
-        existing.archiveSha256 === B3_PACK_JOB_AUTHORITY.archiveSha256 &&
-        existing.expectedBytes === B3_PACK_JOB_AUTHORITY.archiveBytes &&
-        existing.etag === B3_PACK_JOB_AUTHORITY.archiveEtag &&
+        existing.archiveName === packObject.archiveName &&
+        existing.manifestSha256 === packObject.manifestSha256 &&
+        existing.archiveSha256 === packObject.archiveSha256 &&
+        existing.expectedBytes === packObject.archiveBytes &&
+        existing.etag === packObject.archiveEtag &&
         Number.isSafeInteger(existing.completedBytes) &&
         existing.completedBytes >= 0 &&
         existing.completedBytes <= existing.expectedBytes &&
@@ -362,11 +364,11 @@ export function createPurchaseCoordinator(rawDependencies) {
           code: 'PURCHASE_DOWNLOAD_JOB_AUTHORITY_MISMATCH',
         });
       }
-      return existing;
+      return sealedRefreshHandle;
     }
     const response = await around('download-authorisation', () =>
       gateway.authorisePackDownload({
-        sealedRefreshHandle: authority.sealedRefreshHandle,
+        sealedRefreshHandle,
         packId: pack.packId,
         version: pack.version,
       }));
@@ -375,30 +377,30 @@ export function createPurchaseCoordinator(rawDependencies) {
     const manifestObject = response.objects?.[0];
     const archiveObject = response.objects?.[1];
     if (
-      response.signedEnvelopeSha256 !== B3_PACK_JOB_AUTHORITY.manifestSha256 ||
+      response.signedEnvelopeSha256 !== packObject.manifestSha256 ||
       !Array.isArray(response.objects) ||
       response.objects.length !== 2 ||
       manifestObject?.objectKind !== 'manifest' ||
-      manifestObject.sha256 !== B3_PACK_JOB_AUTHORITY.manifestSha256 ||
-      manifestObject.size !== B3_PACK_JOB_AUTHORITY.manifestBytes ||
-      manifestObject.etag !== B3_PACK_JOB_AUTHORITY.manifestEtag ||
+      manifestObject.sha256 !== packObject.manifestSha256 ||
+      manifestObject.size !== packObject.manifestBytes ||
+      manifestObject.etag !== packObject.manifestEtag ||
       archiveObject?.objectKind !== 'archive' ||
-      archiveObject.sha256 !== B3_PACK_JOB_AUTHORITY.archiveSha256 ||
-      archiveObject.size !== B3_PACK_JOB_AUTHORITY.archiveBytes ||
-      archiveObject.etag !== B3_PACK_JOB_AUTHORITY.archiveEtag ||
-      capability.packId !== B3_PACK_JOB_AUTHORITY.packId ||
-      capability.version !== B3_PACK_JOB_AUTHORITY.version ||
-      capability.archiveName !== B3_PACK_JOB_AUTHORITY.archiveName ||
-      capability.sha256 !== B3_PACK_JOB_AUTHORITY.archiveSha256 ||
-      capability.compressedBytes !== B3_PACK_JOB_AUTHORITY.archiveBytes ||
-      capability.etag !== B3_PACK_JOB_AUTHORITY.archiveEtag
+      archiveObject.sha256 !== packObject.archiveSha256 ||
+      archiveObject.size !== packObject.archiveBytes ||
+      archiveObject.etag !== packObject.archiveEtag ||
+      capability.packId !== packObject.packId ||
+      capability.version !== packObject.version ||
+      capability.archiveName !== packObject.archiveName ||
+      capability.sha256 !== packObject.archiveSha256 ||
+      capability.compressedBytes !== packObject.archiveBytes ||
+      capability.etag !== packObject.archiveEtag
     ) {
       throw Object.assign(new Error('The gateway pack authority does not match the tracked proof.'), {
         code: 'PURCHASE_DOWNLOAD_AUTHORITY_MISMATCH',
       });
     }
     await persistHandle(response, authority.refreshedAt ?? authority.updatedAt ?? -1);
-    return around('download-job', () => downloadRepository.upsertDownloadJob({
+    await around('download-job', () => downloadRepository.upsertDownloadJob({
       jobId: pack.jobId,
       packId: pack.packId,
       version: pack.version,
@@ -411,6 +413,21 @@ export function createPurchaseCoordinator(rawDependencies) {
       state: 'queued',
       updatedAt: timestampAfter(),
     }));
+    // A gateway authorisation may rotate the sealed handle; later shards must
+    // submit the rotated one.
+    return typeof response.sealedRefreshHandle === 'string' &&
+      response.sealedRefreshHandle.length > 0
+      ? response.sealedRefreshHandle
+      : sealedRefreshHandle;
+  }
+
+  async function ensureDownloadJob(authority) {
+    const jobs = await downloadRepository.listDownloadJobs();
+    let sealedRefreshHandle = authority.sealedRefreshHandle;
+    for (const pack of packs) {
+      sealedRefreshHandle =
+        await ensurePackDownloadJob(pack, jobs, authority, sealedRefreshHandle);
+    }
   }
 
   async function verifyJournal(journal, suppliedAuthority = null) {

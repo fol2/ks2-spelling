@@ -12,7 +12,7 @@ import {
 import {
   deriveTransactionReplayJournalId,
   resolveCommerceProduct,
-  resolvePackJobAuthority,
+  resolvePackJobAuthorities,
 } from '../src/domain/commerce/purchase-state.js';
 
 // The only pack any approved signing key can verify today. A catalogue may not sell a
@@ -218,21 +218,32 @@ test('commerce identities derive from the entitlement rather than a baked-in pro
   }
 });
 
-test('the download path admits one tracked pack per entitlement and says so', () => {
-  const authority = resolvePackJobAuthority(resolveCommerceProduct('full-ks2'));
-  assert.deepEqual(authority, {
+test('the download path resolves every tracked pack from the registry', () => {
+  const authorities = resolvePackJobAuthorities(resolveCommerceProduct('full-ks2'));
+  assert.deepEqual([...authorities].map((authority) => ({ ...authority })), [{
     entitlementId: 'full-ks2',
     packId: SIGNED_PACK_ID,
     version: '1.0.0-b3.1',
     jobId: `${SIGNED_PACK_ID}.1.0.0-b3.1`,
-  });
+  }]);
 
-  for (const packIds of [[], [SIGNED_PACK_ID, 'second-shard'], ['second-shard']]) {
-    assert.throws(
-      () => resolvePackJobAuthority({ entitlementId: 'full-ks2', packIds }),
-      /single tracked pack/,
-    );
-  }
+  // Fail closed: a product with no packs, an unregistered pack, or a registered
+  // pack bound to a different entitlement never yields a download authority.
+  assert.throws(
+    () => resolvePackJobAuthorities({ entitlementId: 'full-ks2', packIds: [] }),
+    /at least one tracked pack/,
+  );
+  assert.throws(
+    () => resolvePackJobAuthorities({ entitlementId: 'full-ks2', packIds: ['second-shard'] }),
+    /not registered/,
+  );
+  assert.throws(
+    () => resolvePackJobAuthorities({
+      entitlementId: 'year-3-spelling',
+      packIds: [SIGNED_PACK_ID],
+    }),
+    /not bound to the product entitlement/,
+  );
 });
 
 test('coordinators require an entitlement binding and reject an unapproved one', () => {

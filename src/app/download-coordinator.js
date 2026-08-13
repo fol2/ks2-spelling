@@ -1,12 +1,11 @@
 import {
   B3_DOWNLOAD_CHUNK_BYTES,
-  assertSubmittedDownloadEntitlement,
-  createVerifiedDownloadAuthority,
+  createSignedDownloadAccessContract,
 } from
   '../domain/packs/signed-download-access-contract.js';
+import { assertPackAuthority, findPackAuthority } from '../domain/packs/pack-registry.js';
+import { FULL_KS2_PACK } from '../domain/commerce/purchase-state.js';
 
-const PACK_ID = 'b3-sandbox-proof';
-const VERSION = '1.0.0-b3.1';
 const STAGING_METADATA_BYTES = 65_536;
 const METHODS = Object.freeze(['queue', 'resume', 'retry', 'cancelTemporary']);
 
@@ -40,10 +39,14 @@ function requireDependencies(value) {
     'currentAppVersion', 'currentSchemaVersion',
     'clock', 'chunkSize',
   ];
+  const ownKeys = value && typeof value === 'object' ? Reflect.ownKeys(value) : [];
+  // packAuthority is optional: the eleven-key form stays the b3 proof harness's
+  // construction and binds to the catalogue's sole tracked pack.
+  const expected = ownKeys.includes('packAuthority') ? [...keys, 'packAuthority'] : keys;
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Object.prototype ||
-      Reflect.ownKeys(value).length !== keys.length ||
-      Reflect.ownKeys(value).some((key) => !keys.includes(key))) {
+      ownKeys.length !== expected.length ||
+      ownKeys.some((key) => !expected.includes(key))) {
     throw new TypeError('Download coordinator dependencies are invalid.');
   }
   const requiredMethods = [
@@ -154,6 +157,12 @@ export function createDownloadCoordinator(rawDependencies) {
     activeEntitlementProjection, entitlementRepository,
     currentAppVersion, currentSchemaVersion, clock, chunkSize,
   } = dependencies;
+  // A present-but-undefined packAuthority must fail, never fall back: a missed
+  // registry lookup upstream would otherwise silently bind to the wrong pack.
+  const packAuthority = Object.hasOwn(dependencies, 'packAuthority')
+    ? assertPackAuthority(dependencies.packAuthority)
+    : findPackAuthority(FULL_KS2_PACK.packId);
+  const contract = createSignedDownloadAccessContract(packAuthority);
   let tail = Promise.resolve();
   let lastTimestamp = -1;
 
@@ -209,15 +218,15 @@ export function createDownloadCoordinator(rawDependencies) {
 
   async function authorise(sealedRefreshHandle) {
     const activeEntitlement = await readActiveEntitlement();
-    assertSubmittedDownloadEntitlement({
+    contract.assertSubmittedDownloadEntitlement({
       activeEntitlement,
       submittedSealedRefreshHandle: sealedRefreshHandle,
     });
     absorbEntitlementTimestampFloor(activeEntitlement);
     const authorisation = await gateway.authorisePackDownload({
       sealedRefreshHandle,
-      packId: PACK_ID,
-      version: VERSION,
+      packId: packAuthority.packId,
+      version: packAuthority.version,
     });
     const verificationMilliseconds = sampleWallMilliseconds();
     const envelopeBytes = decodeBase64(authorisation.signedManifestEnvelopeBase64);
@@ -227,7 +236,7 @@ export function createDownloadCoordinator(rawDependencies) {
       environment: 'sandbox',
       clock: () => new Date(verificationMilliseconds),
     });
-    const authority = createVerifiedDownloadAuthority({
+    const authority = contract.createVerifiedDownloadAuthority({
       authorisation,
       verifiedManifest,
       envelopeSha256: await sha256Hex(envelopeBytes),
@@ -239,13 +248,13 @@ export function createDownloadCoordinator(rawDependencies) {
     });
     if (authorisation.sealedRefreshHandle !== sealedRefreshHandle) {
       const adopted = await entitlementRepository.compareAndSwapSealedRefreshHandle({
-        entitlementId: 'full-ks2',
+        entitlementId: packAuthority.requiredEntitlementId,
         expectedSealedRefreshHandle: sealedRefreshHandle,
         sealedRefreshHandle: authorisation.sealedRefreshHandle,
         refreshHandleVersion: authorisation.refreshHandleVersion,
         refreshedAt: nextDurableTimestamp(),
       });
-      assertSubmittedDownloadEntitlement({
+      contract.assertSubmittedDownloadEntitlement({
         activeEntitlement: adopted,
         submittedSealedRefreshHandle: authorisation.sealedRefreshHandle,
       });
@@ -459,10 +468,15 @@ export function createDownloadCoordinator(rawDependencies) {
   async function cancelTemporary(input) {
     if (arguments.length !== 1) throw new TypeError('cancelTemporary requires one input.');
     const value = exactInput(input, ['jobId']);
-    if (value.jobId !== `${PACK_ID}.${VERSION}`) throw new TypeError('Download job is invalid.');
+    if (value.jobId !== `${packAuthority.packId}.${packAuthority.version}`) {
+      throw new TypeError('Download job is invalid.');
+    }
     return serialise(async () => {
       const deleted = await packRepository.deleteDownloadJob({ jobId: value.jobId });
-      await packTransfer.removeOwnedTemporaryState({ packId: PACK_ID, version: VERSION });
+      await packTransfer.removeOwnedTemporaryState({
+        packId: packAuthority.packId,
+        version: packAuthority.version,
+      });
       return deleted;
     });
   }

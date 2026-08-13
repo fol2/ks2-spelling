@@ -131,7 +131,8 @@ async function fixture() {
       products: [{
         entitlementId: 'full-ks2', type: 'non-consumable',
         appleProductId: 'uk.eugnel.ks2spelling.fullks2', googleProductId: 'full_ks2',
-        packIds: ['b3-sandbox-proof'],
+        packIds: Array.from({ length: 15 }, (_, index) =>
+          `full-ks2-shard-${String(index + 1).padStart(2, '0')}`),
       }],
     }),
     mkdir(join(root, 'config'), { recursive: true }).then(() =>

@@ -44,8 +44,21 @@ test('production services persist profile CRUD and selected learner across a cle
     }),
     connectionFactory: async () => createNodeSqliteConnection(databasePath),
     lifecycle: createLifecycle(),
+    // A native runtime composes the live commerce workflow, whose coordinators
+    // validate the full pack-transfer port surface up front.
     packTransfer: Object.freeze({
       async inventoryInstalledVersions() { return Object.freeze([]); },
+      async removeOwnedTemporaryState() { return Object.freeze({ removed: false }); },
+      async getFreeBytes() { return 1_073_741_824; },
+      async downloadRange() {
+        throw new Error('Pack downloads are outside this composition test.');
+      },
+      async inspectAndExtract() {
+        throw new Error('Pack extraction is outside this composition test.');
+      },
+      async sealAndInstall() {
+        throw new Error('Pack installation is outside this composition test.');
+      },
     }),
     bundledStarterAudio: Object.freeze({
       async checkAvailability() {
@@ -395,4 +408,145 @@ test('production services persist profile CRUD and selected learner across a cle
   assert.deepEqual(migratedSnapshot.grantedEntitlementIds, []);
   assert.equal(migratedSnapshot.revision, 0);
   await migratedConnection.close();
+});
+
+// --- E2.7 composition: live commerce and the entitled audio switch ----------
+
+function compositionOptions({ databasePath, ...overrides }) {
+  return {
+    runtime: Object.freeze({ isNativePlatform: true, platform: 'ios' }),
+    connectionFactory: async () => createNodeSqliteConnection(databasePath),
+    lifecycle: createLifecycle(),
+    bundledStarterAudio: Object.freeze({
+      async checkAvailability() { return Object.freeze({ version: '1.0.0' }); },
+      async readInstalledAudio() { throw new Error('starter-source'); },
+    }),
+    parentBiometrics: Object.freeze({
+      async getAvailability() { return Object.freeze({ available: false, type: 'none' }); },
+      async authenticate() { throw new Error('Biometrics unavailable in this test.'); },
+    }),
+    learningBackupFiles: Object.freeze({
+      async presentExport() { return Object.freeze({ presented: true }); },
+      async pickImport() { return Object.freeze({ cancelled: true }); },
+    }),
+    localDataProtection: Object.freeze({
+      async applyPolicy() {
+        return Object.freeze({
+          automaticBackupDisabled: true,
+          platformProtection: 'ios-complete',
+        });
+      },
+    }),
+    now: () => 1_000,
+    random: () => 0.25,
+    createLearnerId: () => 'learner-composition',
+    ...overrides,
+  };
+}
+
+function countingPackTransfer() {
+  const calls = { inventory: 0 };
+  return {
+    calls,
+    port: Object.freeze({
+      async inventoryInstalledVersions() {
+        calls.inventory += 1;
+        return Object.freeze([]);
+      },
+      async removeOwnedTemporaryState() { return Object.freeze({ removed: false }); },
+      async getFreeBytes() { return 1_073_741_824; },
+      async downloadRange() { throw new Error('outside this composition test'); },
+      async inspectAndExtract() { throw new Error('outside this composition test'); },
+      async sealAndInstall() { throw new Error('outside this composition test'); },
+    }),
+  };
+}
+
+test('a native runtime composes the live commerce workflow, a web runtime the unavailable one', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-composition-live-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+
+  const live = countingPackTransfer();
+  const nativeServices = await createProductAppServices(compositionOptions({
+    databasePath: join(directory, 'native.sqlite'),
+    packTransfer: live.port,
+  }));
+  t.after(() => nativeServices.dispose());
+  await nativeServices.parentCommerce.refresh();
+  // Only the live workflow reconciles native pack inventory; the unavailable
+  // workflow returns a constant snapshot and never reaches the device. The
+  // published snapshot is identical for both, so this is the evidence that
+  // separates them.
+  assert.ok(live.calls.inventory > 0);
+
+  const web = countingPackTransfer();
+  const webServices = await createProductAppServices(compositionOptions({
+    databasePath: join(directory, 'web.sqlite'),
+    runtime: Object.freeze({ isNativePlatform: false, platform: 'web' }),
+    packTransfer: web.port,
+  }));
+  t.after(() => webServices.dispose());
+  await webServices.parentCommerce.refresh();
+  assert.equal(web.calls.inventory, 0);
+  await assert.rejects(webServices.parentCommerce.purchase(), {
+    code: 'product_commerce_release_authority_unavailable',
+  });
+});
+
+test('playback follows the entitlement: installed shards serve the full catalogue, anything else stays on Starter', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-composition-audio-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const fullCatalogue = await loadFullSpellingCatalogue();
+  const starterCatalogue = loadStarterSpellingCatalogue();
+  const shardSource = Object.freeze({
+    async readInstalledAudio() { throw new Error('shard-source'); },
+  });
+  const workflowFor = (snapshot) => Object.freeze({
+    async start() { return snapshot; },
+    async refresh() { return snapshot; },
+    async purchase() { return snapshot; },
+    async restore() { return snapshot; },
+    async download() { return snapshot; },
+    async recover() { return snapshot; },
+    async dispose() {},
+  });
+  const play = (services, catalogue) => services.audio.play({
+    version: '1.0.0',
+    runtimeItemId: catalogue.items[0].runtimeItemId,
+    sentence: catalogue.items[0].sentencePrompts[0].text,
+    voiceId: 'Sulafat',
+    kind: 'sentence',
+  });
+
+  const entitled = await createProductAppServices(compositionOptions({
+    databasePath: join(directory, 'entitled.sqlite'),
+    installedAudio: shardSource,
+    commerceWorkflow: workflowFor(Object.freeze({
+      displayPrice: '£4.99',
+      entitlementState: 'active',
+      packState: 'installed',
+      syncFailed: false,
+    })),
+  }));
+  t.after(() => entitled.dispose());
+  await entitled.parentCommerce.refresh();
+  await assert.rejects(play(entitled, fullCatalogue), /shard-source/);
+
+  for (const snapshot of [
+    { entitlementState: 'none', packState: 'missing' },
+    { entitlementState: 'active', packState: 'downloading' },
+    { entitlementState: 'revoked', packState: 'locked' },
+  ]) {
+    const services = await createProductAppServices(compositionOptions({
+      databasePath: join(directory, `${snapshot.entitlementState}-${snapshot.packState}.sqlite`),
+      installedAudio: shardSource,
+      commerceWorkflow: workflowFor(Object.freeze({
+        displayPrice: '£4.99', syncFailed: false, ...snapshot,
+      })),
+    }));
+    t.after(() => services.dispose());
+    await services.parentCommerce.refresh();
+    // A half-installed or revoked device must never serve the Full catalogue.
+    await assert.rejects(play(services, starterCatalogue), /starter-source/);
+  }
 });

@@ -8,6 +8,12 @@ import {
   loadFullSpellingCatalogue,
   loadStarterSpellingCatalogue,
 } from '../domain/spelling/index.js';
+import {
+  createCapacitorInstalledAudio,
+} from '../platform/audio/capacitor-installed-audio.js';
+import {
+  InstalledAudioPlugin,
+} from '../platform/audio/capacitor-installed-audio-plugin.js';
 import { createCapacitorSqliteConnection } from '../platform/database/capacitor-sqlite-connection.js';
 import { createCapacitorHaptics } from '../platform/haptics/capacitor-haptics.js';
 import { createDatabaseCommandGate } from '../platform/database/database-command-gate.js';
@@ -51,6 +57,18 @@ import {
   LearningBackupFilePlugin,
 } from '../platform/backup/capacitor-learning-backup-file-plugin.js';
 import {
+  createSqlitePackRepositories,
+} from '../platform/database/sqlite-pack-repositories.js';
+import {
+  createCapacitorPackTransfer,
+} from '../platform/pack-transfer/capacitor-pack-transfer.js';
+import {
+  PackTransferPlugin,
+} from '../platform/pack-transfer/capacitor-pack-transfer-plugin.js';
+import {
+  createProductCommerceWorkflow,
+} from './create-product-commerce-workflow.js';
+import {
   createUnavailableProductCommerceWorkflow,
 } from './unavailable-product-commerce-workflow.js';
 import {
@@ -58,6 +76,12 @@ import {
 } from './database-gated-repository.js';
 import { createBundledStarterAudio } from './bundled-starter-audio.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
+import { createEntitledAudioSwitch } from './entitled-audio-switch.js';
+// ponytail: the Full player's asset evidence (config/full-audio-manifest.json,
+// ~1.7 MB) is a static import, so it parses at startup even for a device that
+// never buys. Move this module behind a dynamic import chunk if startup cost
+// ever shows up on the low-end device budget.
+import { createFullProductAudioPlayer } from './full-product-audio.js';
 import { createParentBackupService } from './parent-backup-service.js';
 import {
   createParentCommerceController,
@@ -302,15 +326,54 @@ export async function createProductAppServices(options = {}) {
       pinCrypto: options.parentPinCrypto,
       now,
     });
+    // Live commerce composes only on a native runtime: the real store bridge,
+    // the HTTP gateway and the N-shard download/activation coordinators, all
+    // reachable solely through the Parent-gated commerce controller. Every
+    // other composition (web, tests without commerce dependencies) keeps the
+    // unavailable workflow, which fails purchase/restore/download closed.
+    // It composes before playback because the commerce snapshot is what tells
+    // the audio switch which catalogue this device is entitled to hear.
+    const commerceWorkflow = options.commerceWorkflow ??
+      (options.runtime?.isNativePlatform === true
+        ? createProductCommerceWorkflow({
+            runtime: options.runtime,
+            connection,
+            commandGate: gate,
+            packRepository: createSqlitePackRepositories(connection),
+            packTransfer: options.packTransfer ??
+              createCapacitorPackTransfer({ PackTransfer: PackTransferPlugin }),
+            clock: now,
+          })
+        : createUnavailableProductCommerceWorkflow());
+    parentCommerce = createParentCommerceController({
+      workflow: commerceWorkflow,
+    });
+    void parentCommerce.start().catch(() => undefined);
     const bundledAudioSource =
       options.bundledAudio ??
       options.bundledStarterAudio ??
       createBundledStarterAudio({ evidence: starterAudioEvidence });
-    audio = options.audio ?? createProductAudioPlayer({
-      catalogue,
-      installedAudio: bundledAudioSource,
-      audioEvidence: starterAudioEvidence,
-    });
+    if (options.audio) {
+      audio = options.audio;
+    } else {
+      const starterPlayer = createProductAudioPlayer({
+        catalogue,
+        installedAudio: bundledAudioSource,
+        audioEvidence: starterAudioEvidence,
+      });
+      // Shard playback needs the native installed-audio reader; a runtime
+      // without one (web, tests) can only ever serve Starter, so no switch is
+      // composed and the Starter player is the whole player.
+      const shardInstalledAudio = options.installedAudio ??
+        (options.runtime?.isNativePlatform === true
+          ? createCapacitorInstalledAudio({ InstalledAudio: InstalledAudioPlugin })
+          : null);
+      audio = shardInstalledAudio === null ? starterPlayer : createEntitledAudioSwitch({
+        starter: starterPlayer,
+        full: createFullProductAudioPlayer({ installedAudio: shardInstalledAudio }),
+        observe: (listener) => parentCommerce.subscribe(listener),
+      });
+    }
     audioAvailability = createStarterPackAvailabilityController({
       audioSource: bundledAudioSource,
     });
@@ -326,12 +389,6 @@ export async function createProductAppServices(options = {}) {
       now,
     });
     void parentProgress.refresh().catch(() => undefined);
-    const commerceWorkflow = options.commerceWorkflow ??
-      createUnavailableProductCommerceWorkflow();
-    parentCommerce = createParentCommerceController({
-      workflow: commerceWorkflow,
-    });
-    void parentCommerce.start().catch(() => undefined);
     const parentAdministration = Object.freeze({
       async resetLearning(learnerId) {
         await profileStore.administration.resetLearning(learnerId);

@@ -412,3 +412,95 @@ test('HTTP gateway accepts only closed safe error codes and never logs endpoints
     );
   }
 });
+
+test('the largest hosted shard envelope passes both authorise caps, and an over-cap body dies before it is read', async () => {
+  const { createHttpEntitlementGateway } = await import(
+    '../src/platform/gateway/http-entitlement-gateway.js'
+  );
+  const {
+    MAX_AUTHORISE_RESPONSE_BYTES,
+    MAX_GATEWAY_BODY_BYTES,
+    MAX_SIGNED_ENVELOPE_BASE64_CHARS,
+  } = await import('../src/platform/gateway/gateway-payload-limits.js');
+  const { findPackAuthority } = await import('../src/domain/packs/pack-registry.js');
+  // Coherence, not two independent guesses: the authorise response is the one
+  // oversized field plus an ordinary gateway record, so the field cap is
+  // always the stricter of the two and a body can never pass the field check
+  // yet fail the response check.
+  assert.equal(
+    MAX_AUTHORISE_RESPONSE_BYTES,
+    MAX_SIGNED_ENVELOPE_BASE64_CHARS + MAX_GATEWAY_BODY_BYTES,
+  );
+
+  const registry = JSON.parse(await readFile(
+    new URL('../config/downloadable-pack-authorities.json', import.meta.url),
+    'utf8',
+  ));
+  const largest = registry.packs
+    .toSorted((left, right) => right.manifestBytes - left.manifestBytes)[0];
+  const row = findPackAuthority(largest.packId);
+  const envelope = await readFile(new URL(
+    `./fixtures/packs/full-ks2-shards/${row.packId}.signed-manifest.json`,
+    import.meta.url,
+  ));
+  assert.equal(envelope.byteLength, row.manifestBytes);
+  const base64 = envelope.toString('base64');
+  assert.ok(base64.length <= MAX_SIGNED_ENVELOPE_BASE64_CHARS);
+  const body = {
+    ...authorisedResponse(),
+    packId: row.packId,
+    version: row.version,
+    signedManifestEnvelopeBase64: base64,
+    signedEnvelopeSha256: row.manifestSha256,
+    objects: [
+      { objectKind: 'manifest', sha256: row.manifestSha256,
+        size: row.manifestBytes, etag: row.manifestEtag },
+      { objectKind: 'archive', sha256: row.archiveSha256,
+        size: row.archiveBytes, etag: row.archiveEtag },
+    ],
+    archiveCapability: {
+      packId: row.packId,
+      version: row.version,
+      archiveName: row.archiveName,
+      sha256: row.archiveSha256,
+      compressedBytes: row.archiveBytes,
+      etag: row.archiveEtag,
+      capabilityUrl: 'memory-only-capability',
+    },
+  };
+  const bodyBytes = new TextEncoder().encode(JSON.stringify(body)).byteLength;
+  // The real envelope is why the authorise route needed its own bound: it does
+  // not fit the 64 KiB every other route keeps.
+  assert.ok(bodyBytes > MAX_GATEWAY_BODY_BYTES);
+  assert.ok(bodyBytes <= MAX_AUTHORISE_RESPONSE_BYTES);
+  const request = {
+    sealedRefreshHandle: 'b3rh1.1.nonce.ciphertext',
+    packId: row.packId,
+    version: row.version,
+  };
+  const gateway = createHttpEntitlementGateway({
+    authority: await authority(),
+    fetchImpl: async () => jsonResponse(body),
+  });
+  const authorised = await gateway.authorisePackDownload(request);
+  assert.equal(authorised.signedManifestEnvelopeBase64, base64);
+  assert.equal(authorised.signedEnvelopeSha256, row.manifestSha256);
+
+  let served = null;
+  const oversized = createHttpEntitlementGateway({
+    authority: await authority(),
+    fetchImpl: async () => {
+      served = new Response('{}', {
+        status: 200,
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+          'content-length': String(MAX_AUTHORISE_RESPONSE_BYTES + 1),
+        },
+      });
+      return served;
+    },
+  });
+  await assert.rejects(oversized.authorisePackDownload(request));
+  // The declared length is refused before a single byte is read.
+  assert.equal(served.bodyUsed, false);
+});

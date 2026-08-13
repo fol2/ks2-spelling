@@ -1,18 +1,20 @@
 import objectAuthorityDocument from '../../config/b3-pack-object-authority.json' with { type: 'json' };
 import packAuthorityDocument from '../../config/b3-proof-pack.json' with { type: 'json' };
 import gatewayAuthorityDocument from '../../config/b3-gateway-authority.json' with { type: 'json' };
+import downloadablePackAuthorities from '../../config/downloadable-pack-authorities.json' with { type: 'json' };
 import { issueR2Capability, parseR2CapabilitySecret, verifyR2Capability } from './r2-capability.js';
-import { gatewayJsonByteLength, MAX_GATEWAY_BODY_BYTES } from '../../src/platform/gateway/gateway-payload-limits.js';
+import { gatewayJsonByteLength, MAX_AUTHORISE_RESPONSE_BYTES } from '../../src/platform/gateway/gateway-payload-limits.js';
 import { safeGatewayError } from './store-verifier-port.js';
 
 const AUTHORISE_KEYS = Object.freeze(['sealedRefreshHandle', 'packId', 'version']);
-const PACK_ID = packAuthorityDocument.packId;
-const REQUIRED_ENTITLEMENT_ID = packAuthorityDocument.requiredEntitlementId;
-const VERSION = packAuthorityDocument.version;
-const ARCHIVE_NAME = packAuthorityDocument.archiveName;
 const PUBLIC_ORIGIN = gatewayAuthorityDocument.publicSandboxOrigin;
 const EXPECTED_BUCKET = gatewayAuthorityDocument.privateR2BucketName;
 const CAPABILITY_TTL_SECONDS = 600;
+const SHA256_HEX = /^[a-f0-9]{64}$/;
+const ETAG_HEX = /^[a-f0-9]{32}$/;
+const IDENTITY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/;
+const ARCHIVE_NAME = /^[a-z0-9][a-z0-9.-]{0,127}\.zip$/;
 
 function authorityByRole(role) {
   const candidates = objectAuthorityDocument.objects.filter((object) => object.role === role);
@@ -20,18 +22,102 @@ function authorityByRole(role) {
   return Object.freeze(structuredClone(candidates[0]));
 }
 
-const MANIFEST_AUTHORITY = authorityByRole('signed-manifest');
-const ARCHIVE_AUTHORITY = authorityByRole('archive');
-const ARCHIVE_PATH = `/v1/packs/${PACK_ID}/${VERSION}/${ARCHIVE_NAME}`;
+function objectFacts({ key, bytes, sha256, etag, metadata }) {
+  if (
+    typeof key !== 'string' || key.length === 0 ||
+    !Number.isSafeInteger(bytes) || bytes <= 0 ||
+    !SHA256_HEX.test(sha256 ?? '') || !ETAG_HEX.test(etag ?? '') ||
+    !metadata || typeof metadata !== 'object' || Array.isArray(metadata) ||
+    Object.values(metadata).some((value) => typeof value !== 'string')
+  ) throw safeGatewayError();
+  return Object.freeze({ key, bytes, sha256, etag, metadata: Object.freeze({ ...metadata }) });
+}
 
-function assertStaticAuthority() {
+function packRow({ packId, version, archiveName, requiredEntitlementId, manifest, archive }) {
+  if (
+    !IDENTITY.test(packId ?? '') || !VERSION_PATTERN.test(version ?? '') ||
+    !ARCHIVE_NAME.test(archiveName ?? '') || !IDENTITY.test(requiredEntitlementId ?? '')
+  ) throw safeGatewayError();
+  return Object.freeze({
+    packId,
+    version,
+    archiveName,
+    requiredEntitlementId,
+    archivePath: `/v1/packs/${packId}/${version}/${archiveName}`,
+    manifest: objectFacts(manifest),
+    archive: objectFacts(archive),
+  });
+}
+
+// The b3 row keeps its frozen object authority verbatim, custom b3-* metadata
+// included: the two tracked b3 config documents are byte-frozen evidence.
+function readB3Row() {
+  const manifest = authorityByRole('signed-manifest');
+  const archive = authorityByRole('archive');
   if (
     objectAuthorityDocument.bucketName !== EXPECTED_BUCKET ||
-    objectAuthorityDocument.packId !== PACK_ID || objectAuthorityDocument.version !== VERSION ||
-    MANIFEST_AUTHORITY.sha256 !== packAuthorityDocument.signedEnvelopeSha256 ||
-    ARCHIVE_AUTHORITY.key !== `packs/${PACK_ID}/${VERSION}/${ARCHIVE_NAME}` ||
-    MANIFEST_AUTHORITY.key !== `packs/${PACK_ID}/${VERSION}/signed-manifest.json`
+    objectAuthorityDocument.packId !== packAuthorityDocument.packId ||
+    objectAuthorityDocument.version !== packAuthorityDocument.version ||
+    manifest.sha256 !== packAuthorityDocument.signedEnvelopeSha256 ||
+    archive.key !== `packs/${packAuthorityDocument.packId}/${packAuthorityDocument.version}/${packAuthorityDocument.archiveName}` ||
+    manifest.key !== `packs/${packAuthorityDocument.packId}/${packAuthorityDocument.version}/signed-manifest.json`
   ) throw safeGatewayError();
+  return packRow({
+    packId: packAuthorityDocument.packId,
+    version: packAuthorityDocument.version,
+    archiveName: packAuthorityDocument.archiveName,
+    requiredEntitlementId: packAuthorityDocument.requiredEntitlementId,
+    manifest,
+    archive,
+  });
+}
+
+// Shard rows are derived from the tracked downloadable-pack registry, never a
+// second hand-maintained object table: keys follow the packs/<packId>/<version>
+// layout and the object facts are the registry's signed-envelope and archive
+// pins. Shard objects deliberately declare EMPTY custom metadata (owner
+// decision, 2026-08-13 hosting runbook): the load-bearing pins are the
+// config-declared sha256/bytes/etag asserted per object plus device-side
+// signature verification; b3-* labels remain a b3-pack-only convention.
+function readShardRows() {
+  if (downloadablePackAuthorities?.schemaVersion !== 1 ||
+      !Array.isArray(downloadablePackAuthorities.packs)) {
+    throw safeGatewayError();
+  }
+  return downloadablePackAuthorities.packs.map((row) => packRow({
+    packId: row.packId,
+    version: row.version,
+    archiveName: row.archiveName,
+    requiredEntitlementId: row.requiredEntitlementId,
+    manifest: {
+      key: `packs/${row.packId}/${row.version}/signed-manifest.json`,
+      bytes: row.manifestBytes,
+      sha256: row.manifestSha256,
+      etag: row.manifestEtag,
+      metadata: {},
+    },
+    archive: {
+      key: `packs/${row.packId}/${row.version}/${row.archiveName}`,
+      bytes: row.archiveBytes,
+      sha256: row.archiveSha256,
+      etag: row.archiveEtag,
+      metadata: {},
+    },
+  }));
+}
+
+function buildPackTable() {
+  const rows = [readB3Row(), ...readShardRows()];
+  const byPackId = new Map();
+  const byArchivePath = new Map();
+  for (const row of rows) {
+    if (byPackId.has(row.packId) || byArchivePath.has(row.archivePath)) {
+      throw safeGatewayError();
+    }
+    byPackId.set(row.packId, row);
+    byArchivePath.set(row.archivePath, row);
+  }
+  return Object.freeze({ byPackId, byArchivePath });
 }
 
 function assertExactMetadata(object, authority, { range } = {}) {
@@ -110,12 +196,12 @@ function objectRecord(kind, authority) {
   });
 }
 
-function immutableHeaders(origin, extra = {}) {
+function immutableHeaders(origin, row, extra = {}) {
   const headers = new Headers({
     Vary: 'Origin',
     'Cache-Control': 'private, no-store',
     'Accept-Ranges': 'bytes',
-    ETag: `"${ARCHIVE_AUTHORITY.etag}"`,
+    ETag: `"${row.archive.etag}"`,
     'Access-Control-Expose-Headers': 'Accept-Ranges, Content-Range, ETag',
     ...extra,
   });
@@ -146,28 +232,32 @@ function parseRange(value, size) {
   return { offset: start, length: end - start + 1 };
 }
 
-function downloadRequest(url) {
-  if (url.pathname !== ARCHIVE_PATH) return null;
+function downloadRequest(url, packTable) {
+  const row = packTable.byArchivePath.get(url.pathname);
+  if (!row) return null;
   const match = /^\?expires=([1-9][0-9]*)&cap=([A-Za-z0-9_-]{43})$/.exec(url.search);
   if (!match) return null;
-  return Object.freeze({ expiresAt: match[1], capability: match[2] });
+  return Object.freeze({ row, expiresAt: match[1], capability: match[2] });
 }
 
 export function createPackAccessService({ clock = Date.now } = {}) {
-  assertStaticAuthority();
+  const packTable = buildPackTable();
 
   return Object.freeze({
     assertAuthoriseRequest(value) {
+      const row = value === null || typeof value !== 'object'
+        ? undefined
+        : packTable.byPackId.get(value.packId);
       if (
         value === null || typeof value !== 'object' || Array.isArray(value) ||
         Reflect.ownKeys(value).sort().join('\n') !== [...AUTHORISE_KEYS].sort().join('\n') ||
         typeof value.sealedRefreshHandle !== 'string' || value.sealedRefreshHandle.length < 1 ||
-        value.packId !== PACK_ID || value.version !== VERSION
+        !row || value.version !== row.version
       ) throw safeGatewayError('REQUEST_INVALID');
       return Object.freeze({
         sealedRefreshHandle: value.sealedRefreshHandle,
-        packId: PACK_ID,
-        version: VERSION,
+        packId: row.packId,
+        version: row.version,
       });
     },
 
@@ -176,52 +266,54 @@ export function createPackAccessService({ clock = Date.now } = {}) {
     },
 
     async authorise({ request, identity, env }) {
-      if (identity.state !== 'active' || identity.entitlementId !== REQUIRED_ENTITLEMENT_ID) {
+      const row = packTable.byPackId.get(request.packId);
+      if (!row || request.version !== row.version) throw safeGatewayError('REQUEST_INVALID');
+      if (identity.state !== 'active' || identity.entitlementId !== row.requiredEntitlementId) {
         throw safeGatewayError('ENTITLEMENT_REVOKED');
       }
       const { bucket, secret } = exactPackBinding(env);
       const manifestObject = assertExactMetadata(
-        await bucket.get(MANIFEST_AUTHORITY.key),
-        MANIFEST_AUTHORITY,
+        await bucket.get(row.manifest.key),
+        row.manifest,
       );
-      const manifestBytes = await readBoundedBody(manifestObject, MANIFEST_AUTHORITY.bytes);
-      if (await sha256(manifestBytes) !== MANIFEST_AUTHORITY.sha256) throw safeGatewayError();
-      assertExactMetadata(await bucket.head(ARCHIVE_AUTHORITY.key), ARCHIVE_AUTHORITY);
+      const manifestBytes = await readBoundedBody(manifestObject, row.manifest.bytes);
+      if (await sha256(manifestBytes) !== row.manifest.sha256) throw safeGatewayError();
+      assertExactMetadata(await bucket.head(row.archive.key), row.archive);
 
       const expiresAt = Math.floor(clock() / 1_000) + CAPABILITY_TTL_SECONDS;
       const capability = await issueR2Capability({
         method: 'GET',
-        objectKey: ARCHIVE_AUTHORITY.key,
+        objectKey: row.archive.key,
         expiresAt,
         secret,
         clock,
       });
       const result = Object.freeze({
         ...identity,
-        packId: request.packId,
-        version: request.version,
+        packId: row.packId,
+        version: row.version,
         signedManifestEnvelopeBase64: standardBase64(manifestBytes),
-        signedEnvelopeSha256: MANIFEST_AUTHORITY.sha256,
+        signedEnvelopeSha256: row.manifest.sha256,
         objects: Object.freeze([
-          objectRecord('manifest', MANIFEST_AUTHORITY),
-          objectRecord('archive', ARCHIVE_AUTHORITY),
+          objectRecord('manifest', row.manifest),
+          objectRecord('archive', row.archive),
         ]),
         archiveCapability: Object.freeze({
-          packId: request.packId,
-          version: request.version,
-          archiveName: ARCHIVE_NAME,
-          sha256: ARCHIVE_AUTHORITY.sha256,
-          compressedBytes: ARCHIVE_AUTHORITY.bytes,
-          etag: ARCHIVE_AUTHORITY.etag,
-          capabilityUrl: `${PUBLIC_ORIGIN}${ARCHIVE_PATH}?expires=${expiresAt}&cap=${capability}`,
+          packId: row.packId,
+          version: row.version,
+          archiveName: row.archiveName,
+          sha256: row.archive.sha256,
+          compressedBytes: row.archive.bytes,
+          etag: row.archive.etag,
+          capabilityUrl: `${PUBLIC_ORIGIN}${row.archivePath}?expires=${expiresAt}&cap=${capability}`,
         }),
       });
-      if (gatewayJsonByteLength(result) > MAX_GATEWAY_BODY_BYTES) throw safeGatewayError();
+      if (gatewayJsonByteLength(result) > MAX_AUTHORISE_RESPONSE_BYTES) throw safeGatewayError();
       return result;
     },
 
     matchesDownloadPath(pathname) {
-      return pathname === ARCHIVE_PATH;
+      return packTable.byArchivePath.has(pathname);
     },
 
     matchesDownloadNamespace(pathname) {
@@ -229,52 +321,53 @@ export function createPackAccessService({ clock = Date.now } = {}) {
     },
 
     matchesDownloadRequest(url) {
-      return downloadRequest(url) !== null;
+      return downloadRequest(url, packTable) !== null;
     },
 
     async download({ request, url, env, origin }) {
-      const submitted = downloadRequest(url);
+      const submitted = downloadRequest(url, packTable);
       if (submitted === null) throw safeGatewayError('REQUEST_INVALID');
+      const { row } = submitted;
       const { bucket, secret } = exactPackBinding(env);
       if (!await verifyR2Capability({
         method: request.method,
-        objectKey: ARCHIVE_AUTHORITY.key,
+        objectKey: row.archive.key,
         expiresAt: submitted.expiresAt,
         capability: submitted.capability,
         secret,
         clock,
       })) throw safeGatewayError('REQUEST_INVALID');
 
-      const range = parseRange(request.headers.get('range'), ARCHIVE_AUTHORITY.bytes);
+      const range = parseRange(request.headers.get('range'), row.archive.bytes);
       if (range === false) {
         return Object.freeze({
           status: 416,
           body: null,
-          headers: immutableHeaders(origin, {
-            'Content-Range': `bytes */${ARCHIVE_AUTHORITY.bytes}`,
+          headers: immutableHeaders(origin, row, {
+            'Content-Range': `bytes */${row.archive.bytes}`,
             'Content-Length': '0',
           }),
         });
       }
-      if (request.headers.get('if-none-match') === `"${ARCHIVE_AUTHORITY.etag}"`) {
-        assertExactMetadata(await bucket.head(ARCHIVE_AUTHORITY.key), ARCHIVE_AUTHORITY);
-        return Object.freeze({ status: 304, body: null, headers: immutableHeaders(origin) });
+      if (request.headers.get('if-none-match') === `"${row.archive.etag}"`) {
+        assertExactMetadata(await bucket.head(row.archive.key), row.archive);
+        return Object.freeze({ status: 304, body: null, headers: immutableHeaders(origin, row) });
       }
 
       const object = assertExactMetadata(
-        await bucket.get(ARCHIVE_AUTHORITY.key, range ? { range } : undefined),
-        ARCHIVE_AUTHORITY,
+        await bucket.get(row.archive.key, range ? { range } : undefined),
+        row.archive,
         range ? { range } : undefined,
       );
       if (!object.body || typeof object.body.getReader !== 'function') throw safeGatewayError();
-      const headers = immutableHeaders(origin, {
+      const headers = immutableHeaders(origin, row, {
         'Content-Type': 'application/zip',
-        'Content-Length': String(range?.length ?? ARCHIVE_AUTHORITY.bytes),
+        'Content-Length': String(range?.length ?? row.archive.bytes),
       });
       if (range) {
         headers.set(
           'Content-Range',
-          `bytes ${range.offset}-${range.offset + range.length - 1}/${ARCHIVE_AUTHORITY.bytes}`,
+          `bytes ${range.offset}-${range.offset + range.length - 1}/${row.archive.bytes}`,
         );
       }
       return Object.freeze({ status: range ? 206 : 200, body: object.body, headers });

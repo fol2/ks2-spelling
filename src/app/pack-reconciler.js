@@ -1,4 +1,5 @@
-import { resolveCommerceProduct } from '../domain/commerce/purchase-state.js';
+import { resolveCommerceProduct, resolvePackJobAuthorities } from '../domain/commerce/purchase-state.js';
+import { findPackAuthority } from '../domain/packs/pack-registry.js';
 
 const IDENTITY = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
 
@@ -31,14 +32,19 @@ function validateDependencies(value) {
   const keys = [
     'entitlementId', 'packTransfer', 'packRepository', 'activeEntitlementProjection', 'clock',
   ];
+  const ownKeys = value && typeof value === 'object' ? Reflect.ownKeys(value) : [];
+  // packIds is optional: the catalogue join stays the default pack set, and
+  // only the frozen B3 proof lane pins itself to the registry's b3 row after
+  // that pack left the sellable catalogue.
+  const expected = ownKeys.includes('packIds') ? [...keys, 'packIds'] : keys;
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Object.prototype ||
-      Reflect.ownKeys(value).length !== keys.length ||
-      Reflect.ownKeys(value).some((key) => typeof key !== 'string' || !keys.includes(key))) {
+      ownKeys.length !== expected.length ||
+      ownKeys.some((key) => typeof key !== 'string' || !expected.includes(key))) {
     throw new TypeError('Pack reconciler dependencies are invalid.');
   }
   const repositoryMethods = [
-    'getActiveVersion', 'listDownloadJobs',
+    'deleteDownloadJob', 'getActiveVersion', 'listDownloadJobs',
     'listInstalledVersions', 'registerAndFlipActiveVersion',
     'retireInstalledVersion', 'updateDownloadJob',
   ];
@@ -78,12 +84,37 @@ function requireReadonlyEntitlementSet(value) {
 }
 
 export function createPackReconciler(rawDependencies) {
+  const dependencies = validateDependencies(rawDependencies);
   const {
     entitlementId, packTransfer, packRepository, activeEntitlementProjection, clock,
-  } = validateDependencies(rawDependencies);
-  // One reconciler per entitlement; the catalogue names which packs that entitlement owns.
-  const { entitlementId: ENTITLEMENT_ID, packIds: PACK_IDS } =
-    resolveCommerceProduct(entitlementId);
+  } = dependencies;
+  // One reconciler per entitlement; the catalogue names which packs that
+  // entitlement owns unless a composition pins an explicit registry-backed set.
+  const ENTITLEMENT_ID = resolveCommerceProduct(entitlementId).entitlementId;
+  const PACK_IDS = Object.hasOwn(dependencies, 'packIds')
+    ? resolvePackJobAuthorities({ entitlementId, packIds: dependencies.packIds })
+      .map(({ packId }) => packId)
+    : resolveCommerceProduct(entitlementId).packIds;
+
+  // The live catalogue join is what the entitlement currently sells, whatever
+  // this composition pinned for itself. Nothing in it is ever retired: the B3
+  // proof lane pins packIds to the b3 row while the shipping catalogue sells
+  // the 15 shards, and without this guard that lane would delete every shard
+  // job and wipe its staging on the next startup.
+  const CATALOGUE_PACK_IDS = resolveCommerceProduct(entitlementId).packIds;
+
+  // A packId outside this reconciler's pack set is retired scope only when the
+  // registry still tracks it under the same entitlement and the catalogue has
+  // stopped selling it (b3-sandbox-proof after the E2.7 join flip). Anything
+  // else is foreign and fails closed.
+  function isRetiredScope(packId) {
+    if (PACK_IDS.includes(packId) || CATALOGUE_PACK_IDS.includes(packId)) return false;
+    try {
+      return findPackAuthority(packId).requiredEntitlementId === ENTITLEMENT_ID;
+    } catch {
+      return false;
+    }
+  }
   let tail = Promise.resolve();
   let lastTimestamp = -1;
 
@@ -139,7 +170,7 @@ export function createPackReconciler(rawDependencies) {
       throw new TypeError('reconcileAtStartup does not accept input.');
     }
     return serialise(async () => {
-      const [inventory, jobs, entitlements] = await Promise.all([
+      const [inventory, allJobs, entitlements] = await Promise.all([
         packTransfer.inventoryInstalledVersions(),
         packRepository.listDownloadJobs(),
         activeEntitlementProjection(),
@@ -147,26 +178,67 @@ export function createPackReconciler(rawDependencies) {
       requireReadonlyEntitlementSet(entitlements);
       let accessLocked = !entitlements.has(ENTITLEMENT_ID);
       if (
-        inventory.some((record) => !PACK_IDS.includes(record.packId)) ||
-        jobs.some((job) => !PACK_IDS.includes(job.packId))
+        inventory.some((record) =>
+          !PACK_IDS.includes(record.packId) && !isRetiredScope(record.packId)) ||
+        allJobs.some((job) =>
+          !PACK_IDS.includes(job.packId) && !isRetiredScope(job.packId))
       ) {
         throw reconciliationError('PACK_RECONCILIATION_PACK_AUTHORITY_MISMATCH');
       }
-      absorbTimestampFloor(...jobs.map((job) => job.updatedAt));
+      absorbTimestampFloor(...allJobs.map((job) => job.updatedAt));
+
+      // Ambiguity is a property of one (packId, version): duplicate native
+      // rows mean *that pack's* bytes cannot be identified, and every match
+      // below is already per-pack. The abort is therefore scoped to the
+      // affected pack — equally fail-closed for it (nothing deleted,
+      // registered, flipped or removed, and it never reports ready) without
+      // taking the other fourteen shards down with it.
       const identities = new Set();
+      const ambiguous = new Set();
       for (const record of inventory) {
         const identity = `${record.packId}\u0000${record.version}`;
-        if (identities.has(identity)) {
-          throw reconciliationError('PACK_RECONCILIATION_INVENTORY_AMBIGUOUS');
-        }
+        if (identities.has(identity)) ambiguous.add(record.packId);
         identities.add(identity);
       }
+
+      // Retired-scope cleanup is deliberate, not a crash: durable jobs for a
+      // registry-known pack the catalogue stopped selling are deleted and
+      // their temporary native state removed. It runs only after every
+      // validation gate above, because this module's contract is
+      // validate-before-mutate — an ambiguous inventory must still fail closed
+      // with nothing deleted for the pack it names. Staging is removed before the row that names it,
+      // so a native removal that rejects leaves a job row to retry against
+      // rather than orphaned bytes no record points at.
+      // Installed/active database rows and sealed native bytes deliberately
+      // stay: nothing reads them through this entitlement's catalogue any
+      // more, the repository has no deactivation operation for an active
+      // version, and the B3 proof lane still resolves its own row from the
+      // registry.
+      const retiredPacks = [];
+      for (const job of allJobs) {
+        if (!isRetiredScope(job.packId) || ambiguous.has(job.packId)) continue;
+        await packTransfer.removeOwnedTemporaryState({
+          packId: job.packId,
+          version: job.version,
+        });
+        await packRepository.deleteDownloadJob({ jobId: job.jobId });
+        retiredPacks.push(job.jobId);
+      }
+      const jobs = allJobs.filter((job) => !isRetiredScope(job.packId));
 
       const recovered = [];
       const removedTemporary = [];
       const readiness = [];
 
       for (const packId of PACK_IDS) {
+        if (ambiguous.has(packId)) {
+          // Untrustworthy identity: recover nothing, activate nothing, report
+          // it as not ready. The pack stays exactly as the device left it.
+          readiness.push(Object.freeze({
+            packId, version: null, ready: false, accessLocked,
+          }));
+          continue;
+        }
         let installedRows = await packRepository.listInstalledVersions({ packId });
         let active = await packRepository.getActiveVersion({ packId });
         absorbTimestampFloor(
@@ -278,6 +350,7 @@ export function createPackReconciler(rawDependencies) {
       }
 
       for (const job of jobs) {
+        if (ambiguous.has(job.packId)) continue;
         const native = inventory.find((record) =>
           record.packId === job.packId && record.version === job.version &&
           record.manifestSha256 === job.manifestSha256);
@@ -288,9 +361,11 @@ export function createPackReconciler(rawDependencies) {
 
       return Object.freeze({
         accessLocked,
+        ambiguousPacks: Object.freeze([...ambiguous].toSorted()),
         readiness: Object.freeze(readiness),
         recovered: Object.freeze(recovered),
         removedTemporary: Object.freeze(removedTemporary),
+        retiredPacks: Object.freeze(retiredPacks),
       });
     });
   }
@@ -316,7 +391,8 @@ export function createPackReconciler(rawDependencies) {
       const nativeForPack = inventory.filter((native) => native.packId === packId);
       const identities = new Set();
       const authorityInvalid =
-        inventory.some((native) => !PACK_IDS.includes(native.packId)) ||
+        inventory.some((native) =>
+          !PACK_IDS.includes(native.packId) && !isRetiredScope(native.packId)) ||
         nativeForPack.some((native) => {
           const identity = `${native.packId}\u0000${native.version}`;
           if (identities.has(identity)) return true;

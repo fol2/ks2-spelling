@@ -107,6 +107,33 @@
         "stateSha256": "2a1654e08e942d03088b986e0c84e506d52e8b9a369a80b918368166c7270d7b"
       }
     ],
+    "shards": [
+      {
+        "scenario": "purchased-all-shards",
+        "passed": true,
+        "stateSha256": "d24fba87cf9f884977b2ba8c8768a26faa2bfa5af5a522df59cd93c2f83eb137"
+      },
+      {
+        "scenario": "interrupted-resume",
+        "passed": true,
+        "stateSha256": "0f38b2fdc4917864704df803b4fbbf0a956652c1137149e804ca30716a4f75d2"
+      },
+      {
+        "scenario": "integrity-failure-durable",
+        "passed": true,
+        "stateSha256": "d81694ddfc4e78165f32f0c07adf493b69dce45e40a788520c992a4ad7f894bb"
+      },
+      {
+        "scenario": "revoked-locks-shards",
+        "passed": true,
+        "stateSha256": "7d15945cbc5c578c6a3a64b0ed047358bcc1c9dcc9ec9bd1f2d9119296dbcaba"
+      },
+      {
+        "scenario": "revoked-at-activation",
+        "passed": true,
+        "stateSha256": "f76971bc16c1dd42aa82e70c2def9d8d417f189c91119f2d5f760850d3b2b465"
+      }
+    ],
     "privacyContinuity": {
       "parentOnlyDiagnostic": true,
       "childSalesCopy": false,
@@ -145,6 +172,7 @@
     ],
     "v1CellTypeAndBytesSha256": "f1c4876c485df887b3184b3a78852c0d0df895f5a5fa1c6b8983e138bdeb5a11",
     "syntheticLearnerAuthoritySha256": "5449b0052d78abd1aa6e8a3bbab62cbe62de151288ec0cf6f38dde6e20a908b4",
-    "scenarioMatrixSha256": "2f878a435dd022121e7cacaa87fd98e00664046980a8dfaad012f50bb37c6d87"
+    "shardAuthoritySha256": "9556f0b2aacf849788c3c7f82958f85354fc2936a0c14b02e895e2a24ea00dba",
+    "scenarioMatrixSha256": "36db272f167a2016e7d86cc5e5947215f6fad4dd62e672a63e030692995a7a21"
   }
 }

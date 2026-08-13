@@ -3,6 +3,7 @@ import { createHash, createPublicKey, verify } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import { verifySignedPackManifest } from '../../src/domain/packs/pack-signature-verifier.js';
+import { findPackAuthority } from '../../src/domain/packs/pack-registry.js';
 
 export const PACK_ID = 'b3-sandbox-proof';
 export const VERSION = '1.0.0-b3.1';
@@ -206,6 +207,124 @@ export function createHarness({
       currentSchemaVersion: 2,
       clock,
       chunkSize: 1_048_576,
+      // Since the E2.7 join flip the coordinator has no default pack: the b3
+      // proof harness binds explicitly to the registry's b3 row.
+      packAuthority: findPackAuthority(PACK_ID),
+    },
+    calls,
+    memory,
+  };
+}
+
+// The b3 fixture archive is 1,324 bytes — a single chunk, which makes a
+// restart and a resume indistinguishable. Resume across chunks is the core
+// property of the N-shard install, so it is proven against a real shard row
+// (~30 MiB, 30 chunks) with the real hosted envelope. Bytes are never moved:
+// downloadRange is a fake that answers exactly what the registry authority
+// says the object is.
+export async function createShardHarness({
+  packId = 'full-ks2-shard-01',
+  failAtDownload = () => null,
+  freeBytes = 1_073_741_824,
+} = {}) {
+  const row = findPackAuthority(packId);
+  const envelope = await readFile(new URL(
+    `../fixtures/packs/full-ks2-shards/${packId}.signed-manifest.json`,
+    import.meta.url,
+  ));
+  const manifest = JSON.parse(Buffer.from(
+    JSON.parse(envelope.toString('utf8')).canonicalManifestBase64, 'base64',
+  ).toString('utf8'));
+  const chunkCount = Math.ceil(row.archiveBytes / 1_048_576);
+  const handle = HANDLE;
+  const calls = { gateway: [], downloads: [], inspections: [], removals: [] };
+  const memory = createMemoryPackRepository();
+  const gateway = {
+    async authorisePackDownload(request) {
+      calls.gateway.push(structuredClone(request));
+      return {
+        ...authorisation(),
+        packId,
+        version: row.version,
+        signedManifestEnvelopeBase64: envelope.toString('base64'),
+        signedEnvelopeSha256: row.manifestSha256,
+        objects: [
+          { objectKind: 'manifest', sha256: row.manifestSha256, size: row.manifestBytes, etag: row.manifestEtag },
+          { objectKind: 'archive', sha256: row.archiveSha256, size: row.archiveBytes, etag: row.archiveEtag },
+        ],
+        archiveCapability: {
+          packId,
+          version: row.version,
+          archiveName: row.archiveName,
+          sha256: row.archiveSha256,
+          compressedBytes: row.archiveBytes,
+          etag: row.archiveEtag,
+          capabilityUrl: `https://b3-gateway.eugnel.uk/v1/packs/${packId}/${row.version}/${row.archiveName}?expires=${Math.floor(NOW / 1_000) + 600}&cap=${'A'.repeat(43)}`,
+        },
+      };
+    },
+  };
+  const packTransfer = {
+    async getFreeBytes() { return freeBytes; },
+    async downloadRange(request) {
+      calls.downloads.push(structuredClone(request));
+      const failure = failAtDownload(request, calls.downloads.length);
+      if (failure) throw failure;
+      return {
+        status: 206,
+        startByte: request.startByte,
+        endByteExclusive: request.endByteExclusive,
+        totalBytes: row.archiveBytes,
+        bytesWritten: request.endByteExclusive - request.startByte,
+        etag: row.archiveEtag,
+      };
+    },
+    async inspectAndExtract(request) {
+      calls.inspections.push(structuredClone(request));
+      return {
+        archiveSha256: row.archiveSha256,
+        manifestSha256: row.manifestSha256,
+        extractedBytes: manifest.files.reduce((total, file) => total + file.bytes, 0),
+        fileCount: manifest.files.length,
+        stagingToken: `staging/${packId}/${row.version}`,
+      };
+    },
+    async removeOwnedTemporaryState(request) {
+      calls.removals.push(structuredClone(request));
+      return { removed: true };
+    },
+  };
+  let projectedActive = {
+    entitlementId: 'full-ks2', state: 'active', sealedRefreshHandle: handle,
+    refreshHandleVersion: 1, refreshedAt: NOW - 1,
+  };
+  const entitlementRepository = {
+    async compareAndSwapSealedRefreshHandle(command) {
+      projectedActive = {
+        ...projectedActive,
+        sealedRefreshHandle: command.sealedRefreshHandle,
+        refreshHandleVersion: command.refreshHandleVersion,
+        refreshedAt: command.refreshedAt,
+      };
+      return Object.freeze({ ...projectedActive });
+    },
+  };
+  return {
+    row,
+    chunkCount,
+    dependencies: {
+      gateway,
+      packTransfer,
+      packRepository: memory.repository,
+      manifestVerifier: realManifestVerifier,
+      keyring,
+      activeEntitlementProjection: async () => structuredClone(projectedActive),
+      entitlementRepository,
+      currentAppVersion: '0.3.0-b3',
+      currentSchemaVersion: 2,
+      clock: () => NOW,
+      chunkSize: 1_048_576,
+      packAuthority: row,
     },
     calls,
     memory,

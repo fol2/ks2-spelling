@@ -4,7 +4,8 @@ import test from 'node:test';
 import { createDownloadCoordinator } from '../src/app/download-coordinator.js';
 import { B3_DOWNLOAD_CHUNK_BYTES } from '../src/domain/packs/signed-download-access-contract.js';
 import {
-  ARCHIVE_SHA, HANDLE, JOB_ID, PACK_ID, VERSION, createHarness,
+  ARCHIVE_SHA, HANDLE, JOB_ID, PACK_ID, VERSION,
+  authorisation, createHarness, createShardHarness,
 } from './helpers/range-fixture-server.mjs';
 
 test('coordinator exposes a frozen closed lifecycle and queues one fixed-size plan', async () => {
@@ -158,4 +159,96 @@ test('cleanup failure after final mismatch leaves a reset ledger that safely red
   );
   assert.equal(harness.memory.snapshot().job.completedBytes, 0);
   assert.equal(harness.memory.snapshot().chunks[0].state, 'pending');
+});
+
+function rateLimited() {
+  // The shape createHttpEntitlementGateway produces for a worker 429.
+  return Object.assign(new Error('RATE_LIMITED'), {
+    code: 'RATE_LIMITED', status: 429, retryable: true,
+  });
+}
+
+test('a rate-limited gateway is survivable: nothing is mutated and the next attempt completes', async () => {
+  const { isRecoverableExternalFailure } = await import('../src/app/commerce-runtime-support.js');
+  assert.equal(isRecoverableExternalFailure(rateLimited()), true);
+  const harness = createHarness({
+    authoriseOutcomes: [rateLimited(), authorisation(), authorisation()],
+  });
+  const coordinator = createDownloadCoordinator(harness.dependencies);
+  await assert.rejects(coordinator.queue({ sealedRefreshHandle: HANDLE }), {
+    code: 'RATE_LIMITED',
+  });
+  // Authorisation precedes every job, chunk, network and native mutation, so a
+  // 429 there leaves no durable trace at all.
+  assert.equal(harness.memory.snapshot().job, null);
+  assert.equal(harness.calls.downloads.length, 0);
+
+  const result = await coordinator.queue({ sealedRefreshHandle: HANDLE });
+  assert.equal(result.state, 'downloaded');
+  assert.equal(harness.calls.downloads.length, 1);
+});
+
+test('a rate-limited range transfer aborts the transfer by design and stays resumable across chunks', async () => {
+  // The design, stated plainly: RATE_LIMITED is NOT retried inside the
+  // transfer loop. download-coordinator.js rethrows everything that is not a
+  // capability/range fault, so a 429 ends the attempt with the durable job and
+  // chunk ledger intact, and recovery is an explicit resume — the Parent
+  // card's "Resume download" button. See deliberate call 12.
+  const harness = await createShardHarness({
+    failAtDownload: (request, callNumber) => callNumber === 4 ? rateLimited() : null,
+  });
+  const CHUNK = B3_DOWNLOAD_CHUNK_BYTES;
+  assert.ok(harness.chunkCount > 1, 'the resume fixture must span several chunks');
+  const coordinator = createDownloadCoordinator(harness.dependencies);
+  await assert.rejects(coordinator.queue({ sealedRefreshHandle: HANDLE }), {
+    code: 'RATE_LIMITED',
+  });
+  // No in-loop retry: the coordinator made exactly the four requests, the
+  // fourth being the refused one, and then stopped.
+  assert.equal(harness.calls.downloads.length, 4);
+  const interrupted = harness.memory.snapshot();
+  assert.equal(interrupted.job.state, 'downloading');
+  assert.equal(interrupted.job.completedBytes, 3 * CHUNK);
+  assert.equal(interrupted.chunks.length, harness.chunkCount);
+  assert.deepEqual(
+    interrupted.chunks.slice(0, 4).map((chunk) => chunk.state),
+    ['complete', 'complete', 'complete', 'pending'],
+  );
+
+  const resumed = await coordinator.resume({ sealedRefreshHandle: HANDLE });
+  assert.equal(resumed.state, 'downloaded');
+  // The resume picked up at the chunk the 429 interrupted. Three completed
+  // chunks were never re-fetched: with a single-chunk fixture this assertion
+  // would hold just as well for a restart from byte 0, which is why the
+  // fixture is a real ~30 MiB shard.
+  assert.equal(harness.calls.downloads.length, harness.chunkCount + 1);
+  assert.equal(harness.calls.downloads[4].startByte, 3 * CHUNK);
+  assert.deepEqual(
+    harness.calls.downloads.map((request) => request.startByte),
+    [
+      ...Array.from({ length: 4 }, (_, index) => index * CHUNK),
+      ...Array.from({ length: harness.chunkCount - 3 }, (_, index) => (index + 3) * CHUNK),
+    ],
+  );
+  // Every byte of the archive is accounted for exactly once in the ledger.
+  const chunks = harness.memory.snapshot().chunks;
+  assert.ok(chunks.every((chunk) => chunk.state === 'complete'));
+  assert.equal(chunks.at(-1).endByteExclusive, harness.row.archiveBytes);
+});
+
+test('a composition that forgets packAuthority cannot construct a coordinator', () => {
+  const harness = createHarness();
+  const elevenKeys = { ...harness.dependencies };
+  delete elevenKeys.packAuthority;
+  assert.equal(Object.keys(elevenKeys).length, 11);
+  // No default pack since the join flip: an unnamed pack would silently bind
+  // every download to catalogue entry zero.
+  assert.throws(
+    () => createDownloadCoordinator(elevenKeys),
+    /Download coordinator dependencies are invalid/,
+  );
+  assert.throws(
+    () => createDownloadCoordinator({ ...elevenKeys, packAuthority: undefined }),
+    TypeError,
+  );
 });

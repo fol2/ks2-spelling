@@ -175,7 +175,7 @@ function assertDerivedConfig(config, document) {
     rules: [{ type: 'Data', globs: [APPROVED_DER_MODULE.name], fallthrough: false }],
     r2_buckets: [{ binding: 'PACKS', bucket_name: BUCKET_NAME, remote: true }],
     version_metadata: { binding: 'WORKER_VERSION_METADATA' },
-    ratelimits: [{ name: 'GATEWAY_RATE_LIMIT', namespace_id: '1001', simple: { limit: 60, period: 60 } }],
+    ratelimits: [{ name: 'GATEWAY_RATE_LIMIT', namespace_id: '1001', simple: { limit: 600, period: 60 } }],
   };
   if (typeof config?.main !== 'string' || typeof config?.base_dir !== 'string' ||
       config.main !== resolve(config.base_dir, 'worker.mjs') || !isDeepStrictEqual(config, expected) ||

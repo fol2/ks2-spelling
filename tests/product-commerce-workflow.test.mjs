@@ -55,3 +55,48 @@ test('product commerce composes the existing durable engines behind one Parent s
     syncFailed: false,
   });
 });
+
+test('a download that the device cannot hold fails before the first shard is authorised', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-product-commerce-space-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const connection = createNodeSqliteConnection(join(directory, 'commerce.sqlite'));
+  await connection.open();
+  await configureAndMigrateDatabase(connection);
+  const { findPackAuthority } = await import('../src/domain/packs/pack-registry.js');
+  const { resolveCommerceProduct } = await import('../src/domain/commerce/purchase-state.js');
+  const packIds = resolveCommerceProduct('full-ks2').packIds;
+  const authorisations = [];
+  const gateway = {
+    ...createB3FakeGateway(),
+    async authorisePackDownload(request) {
+      authorisations.push(request);
+      throw new Error('the aggregate preflight must run first');
+    },
+  };
+  // Room for one shard many times over, but not for fifteen: the per-pack
+  // preflight would wave this through and fail hundreds of MiB later.
+  const oneShard = findPackAuthority(packIds[0]);
+  const workflow = createProductCommerceWorkflow({
+    runtime: Object.freeze({ isNativePlatform: true, platform: 'android' }),
+    connection,
+    commandGate: createDatabaseCommandGate(),
+    packRepository: createSqlitePackRepositories(connection),
+    packTransfer: {
+      ...createB3FakePackTransfer({ inventoryOutcomes: [[], []] }),
+      async getFreeBytes() {
+        return (oneShard.archiveBytes + oneShard.ceilings.extractedBytes) * 4;
+      },
+    },
+    store: createB3FakeStore(),
+    gateway,
+    clock: () => 100,
+    idFactory: () => 'product-commerce-attempt',
+  });
+  t.after(async () => {
+    await workflow.dispose();
+    await connection.close();
+  });
+
+  await assert.rejects(workflow.download(), { code: 'DOWNLOAD_STORAGE_INSUFFICIENT' });
+  assert.deepEqual(authorisations, []);
+});

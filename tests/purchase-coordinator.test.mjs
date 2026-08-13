@@ -270,6 +270,9 @@ async function coordinator(harness, overrides = {}) {
   const { createPurchaseCoordinator } = await import('../src/app/purchase-coordinator.js');
   return createPurchaseCoordinator({
     entitlementId: 'full-ks2',
+    // The mechanics under test predate the E2.7 join flip; the harness pins
+    // the coordinator to the registry's b3 row exactly as the B3 proof lane does.
+    packIds: ['b3-sandbox-proof'],
     store: harness.store,
     gateway: harness.gateway,
     commerceRepository: harness.repository,
@@ -651,4 +654,78 @@ test('fresh coordinator seeds a rolled-back clock before an explicit Restore', a
   })).restore();
   assert.equal(harness.entitlements[0].refreshedAt > priorRefreshedAt, true);
   assert.equal(harness.entitlements[0].sealedRefreshHandle, 'b3rh1.2.lower-clock.handle');
+});
+
+test('a purchase opens one queued job per shard of the live catalogue join and rotates the sealed handle through the loop', async () => {
+  const { createPurchaseCoordinator } = await import('../src/app/purchase-coordinator.js');
+  const { findPackAuthority } = await import('../src/domain/packs/pack-registry.js');
+  const { resolveCommerceProduct } = await import('../src/domain/commerce/purchase-state.js');
+  // No packIds pin: this is the shipping catalogue join, N = 15.
+  const packIds = resolveCommerceProduct('full-ks2').packIds;
+  assert.equal(packIds.length, 15);
+  const harness = createHarness();
+  const authorisations = [];
+  const gateway = {
+    ...harness.gateway,
+    async authorisePackDownload(value) {
+      authorisations.push(value);
+      const row = findPackAuthority(value.packId);
+      return Object.freeze({
+        // Every authorisation rotates the handle, so a loop that reused the
+        // purchase's original handle would be caught by the sequence below.
+        ...identity({ sealedRefreshHandle: `${HANDLE}-${value.packId}` }),
+        packId: row.packId,
+        version: row.version,
+        signedManifestEnvelopeBase64: 'e30=',
+        signedEnvelopeSha256: row.manifestSha256,
+        objects: Object.freeze([
+          Object.freeze({ objectKind: 'manifest', sha256: row.manifestSha256,
+            size: row.manifestBytes, etag: row.manifestEtag }),
+          Object.freeze({ objectKind: 'archive', sha256: row.archiveSha256,
+            size: row.archiveBytes, etag: row.archiveEtag }),
+        ]),
+        archiveCapability: Object.freeze({
+          packId: row.packId,
+          version: row.version,
+          archiveName: row.archiveName,
+          sha256: row.archiveSha256,
+          compressedBytes: row.archiveBytes,
+          etag: row.archiveEtag,
+          capabilityUrl: `https://b3-gateway.eugnel.uk/v1/packs/${row.packId}/${row.version}/${row.archiveName}?expires=1&cap=${'A'.repeat(43)}`,
+        }),
+      });
+    },
+  };
+  const value = createPurchaseCoordinator({
+    entitlementId: 'full-ks2',
+    store: harness.store,
+    gateway,
+    commerceRepository: harness.repository,
+    attemptRepository: harness.attemptRepository,
+    downloadRepository: harness.downloadRepository,
+    clock: () => 1_000,
+    idFactory: () => 'journal-one',
+    failureInjector: async () => {},
+  });
+  await value.purchase({ productId: GOOGLE_PRODUCT_ID });
+
+  assert.deepEqual(authorisations.map((entry) => entry.packId), packIds);
+  assert.deepEqual(
+    authorisations.map((entry) => entry.sealedRefreshHandle),
+    [HANDLE, ...packIds.slice(0, -1).map((packId) => `${HANDLE}-${packId}`)],
+  );
+  assert.equal(harness.jobs.length, 15);
+  for (const [index, job] of harness.jobs.entries()) {
+    const row = findPackAuthority(packIds[index]);
+    assert.equal(job.jobId, `${row.packId}.${row.version}`);
+    assert.equal(job.packId, row.packId);
+    assert.equal(job.version, row.version);
+    assert.equal(job.state, 'queued');
+    assert.equal(job.completedBytes, 0);
+    assert.equal(job.manifestSha256, row.manifestSha256);
+    assert.equal(job.archiveName, row.archiveName);
+    assert.equal(job.archiveSha256, row.archiveSha256);
+    assert.equal(job.expectedBytes, row.archiveBytes);
+    assert.equal(job.etag, row.archiveEtag);
+  }
 });

@@ -14,6 +14,21 @@ const ACTIONS = Object.freeze([
   'recover',
 ]);
 
+// What, if anything, the Parent card's download button does in this state —
+// and the label that says so. A purchase leaves every shard job queued and an
+// interrupted install leaves them downloading; nothing else in the app can
+// start or resume a download, so both states must stay actionable or a paying
+// family is stranded with no way to get the content they bought.
+export function downloadActionLabel(state) {
+  if (state?.entitlementState !== 'active') return null;
+  if (state.packState === 'failed') return 'Retry download';
+  if (state.packState === 'downloading') return 'Resume download';
+  if (state.packState === 'missing' || state.packState === 'queued') {
+    return 'Download pack';
+  }
+  return null;
+}
+
 function requireMethod(value, method, label) {
   if (!value || typeof value !== 'object' || typeof value[method] !== 'function') {
     throw new TypeError(`${label}.${method} must be a function.`);

@@ -16,7 +16,9 @@ function objectMetadata(key, record, range = undefined) {
   return {
     key,
     version: 'fake-version',
-    size: record.bytes.byteLength,
+    // declaredSize lets head-only fixtures declare a large object (e.g. a
+    // ~30 MiB shard archive) without materialising the bytes in memory.
+    size: record.declaredSize ?? record.bytes.byteLength,
     etag: record.etag,
     httpEtag: `"${record.etag}"`,
     uploaded: new Date('2026-07-12T00:00:00.000Z'),
@@ -40,6 +42,7 @@ export function createFakeR2Bucket(initialObjects) {
       etag: value.etag,
       customMetadata: cloneMetadata(value.customMetadata),
       httpMetadata: cloneMetadata(value.httpMetadata),
+      ...(value.declaredSize === undefined ? {} : { declaredSize: value.declaredSize }),
     });
   }
   const calls = [];

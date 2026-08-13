@@ -8,9 +8,8 @@ import {
 } from '../domain/commerce/commerce-contracts.js';
 import {
   B3_PACK_JOB_AUTHORITY,
-  FULL_KS2_PACK,
 } from '../domain/commerce/purchase-state.js';
-import { verifySignedPackManifest } from '../domain/packs/pack-signature-verifier.js';
+import { findPackAuthority } from '../domain/packs/pack-registry.js';
 import { B3_DOWNLOAD_CHUNK_BYTES } from '../domain/packs/signed-download-access-contract.js';
 import { createCapacitorStore } from '../platform/commerce/capacitor-store.js';
 import {
@@ -35,6 +34,11 @@ import {
   isCapacitorB3ProofObservation,
 } from '../platform/proof/capacitor-b3-proof-observation.js';
 
+import {
+  createGatewayRecorder,
+  isRecoverableExternalFailure,
+  verifyManifest,
+} from './commerce-runtime-support.js';
 import { createB3ProofController } from './b3-proof-controller.js';
 import { createB3DeviceGatewaySmokeProbe } from './b3-device-gateway-smoke.js';
 import {
@@ -49,6 +53,11 @@ import { createPackReconciler } from './pack-reconciler.js';
 import { createPurchaseCoordinator } from './purchase-coordinator.js';
 
 const SHA256 = /^[a-f0-9]{64}$/;
+
+// The B3 proof lane is pinned to the registry's b3 row. Since the E2.7 join
+// flip the sellable catalogue delivers the 15 Full-KS2 shards, so this lane
+// binds its coordinators explicitly instead of reading the catalogue join.
+const B3_PACK = findPackAuthority('b3-sandbox-proof');
 
 function defaultRuntime() {
   return Object.freeze({
@@ -159,101 +168,9 @@ function safeTimestampClock(clock) {
   return value;
 }
 
-export function isRecoverableExternalFailure(error) {
-  if (!(error instanceof Error)) return false;
-  if (error.code === 'STORE_NATIVE_FAILURE') return true;
-  if (
-    (error.code === 'GATEWAY_OFFLINE' || error.code === 'GATEWAY_TIMEOUT') &&
-    error.retryable !== false
-  ) {
-    return true;
-  }
-  return error.retryable === true && (
-    error.status === 429 ||
-    (Number.isInteger(error.status) && error.status >= 500)
-  );
-}
-
-function p256DerToRaw(signatureDer) {
-  const bytes = new Uint8Array(signatureDer);
-  if (bytes[0] !== 0x30 || bytes[1] !== bytes.length - 2 || bytes[2] !== 0x02) {
-    throw new TypeError('P-256 DER signature is invalid.');
-  }
-  const rLength = bytes[3];
-  const sTag = 4 + rLength;
-  if (bytes[sTag] !== 0x02 || sTag + 2 + bytes[sTag + 1] !== bytes.length) {
-    throw new TypeError('P-256 DER signature is invalid.');
-  }
-  const normalise = (start, length) => {
-    const integer = bytes.slice(start, start + length);
-    const magnitude = integer[0] === 0 ? integer.slice(1) : integer;
-    if (magnitude.length === 0 || magnitude.length > 32) {
-      throw new TypeError('P-256 DER signature is invalid.');
-    }
-    const output = new Uint8Array(32);
-    output.set(magnitude, 32 - magnitude.length);
-    return output;
-  };
-  const raw = new Uint8Array(64);
-  raw.set(normalise(4, rLength), 0);
-  raw.set(normalise(sTag + 2, bytes[sTag + 1]), 32);
-  return raw;
-}
-
-export async function verifyManifest(input) {
-  return verifySignedPackManifest({
-    ...input,
-    async verifyP256Der({ publicKeySpkiDer, signatureDer, signingInput }) {
-      const key = await globalThis.crypto.subtle.importKey(
-        'spki',
-        publicKeySpkiDer,
-        { name: 'ECDSA', namedCurve: 'P-256' },
-        false,
-        ['verify'],
-      );
-      return globalThis.crypto.subtle.verify(
-        { name: 'ECDSA', hash: 'SHA-256' },
-        key,
-        p256DerToRaw(signatureDer),
-        signingInput,
-      );
-    },
-  });
-}
-
-export function createGatewayRecorder(
-  gateway,
-  recordEnvelope,
-  observeAuthorisation = () => {},
-  recordObservationFailure = () => {},
-) {
-  function markObservationFailure() {
-    try {
-      recordObservationFailure();
-    } catch {
-      // Proof bookkeeping cannot replace the production gateway result.
-    }
-  }
-  return Object.freeze({
-    verifyTransaction: (request) => gateway.verifyTransaction(request),
-    completeTransaction: (request) => gateway.completeTransaction(request),
-    refreshEntitlement: (request) => gateway.refreshEntitlement(request),
-    async authorisePackDownload(request) {
-      const result = await gateway.authorisePackDownload(request);
-      recordEnvelope(result.signedManifestEnvelopeBase64);
-      try {
-        const observation = observeAuthorisation(result);
-        if (observation && typeof observation.then === 'function') {
-          void observation.catch(markObservationFailure);
-        }
-      } catch {
-        // Proof observation cannot replace the production gateway result.
-        markObservationFailure();
-      }
-      return result;
-    },
-  });
-}
+// Re-exported for existing proof-lane importers; implementations live in
+// commerce-runtime-support.js so the product bundle never imports this module.
+export { createGatewayRecorder, isRecoverableExternalFailure, verifyManifest };
 
 async function closeQuietly(connection) {
   try {
@@ -322,7 +239,8 @@ export async function createB3AppServices(options = {}) {
     const activeEntitlementSet = async () =>
       readonlyEntitlementSet(await commerceRepository.listEntitlements());
     const packReconciler = createPackReconciler({
-      entitlementId: FULL_KS2_PACK.entitlementId,
+      entitlementId: B3_PACK.requiredEntitlementId,
+      packIds: [B3_PACK.packId],
       packTransfer,
       packRepository,
       activeEntitlementProjection: activeEntitlementSet,
@@ -374,10 +292,11 @@ export async function createB3AppServices(options = {}) {
     const storeKind = runtime.platform === 'ios' ? 'apple' : 'google';
     const attemptRepository = createSqliteCommerceAttemptRepository(
       connection,
-      { store: storeKind, entitlementId: FULL_KS2_PACK.entitlementId },
+      { store: storeKind, entitlementId: B3_PACK.requiredEntitlementId },
     );
     const purchaseCoordinator = createPurchaseCoordinator({
-      entitlementId: FULL_KS2_PACK.entitlementId,
+      entitlementId: B3_PACK.requiredEntitlementId,
+      packIds: [B3_PACK.packId],
       store,
       gateway,
       commerceRepository,
@@ -430,6 +349,7 @@ export async function createB3AppServices(options = {}) {
       currentSchemaVersion: 2,
       clock: () => safeTimestampClock(clock),
       chunkSize: B3_DOWNLOAD_CHUNK_BYTES,
+      packAuthority: B3_PACK,
     });
     const activationCoordinator = createPackActivationCoordinator({
       packTransfer,
@@ -454,7 +374,7 @@ export async function createB3AppServices(options = {}) {
       syncFailed = true;
     }
     startupSequence.push('refresh-handles-refreshed');
-    const catalogueProduct = findStoreProductByEntitlementId(FULL_KS2_PACK.entitlementId);
+    const catalogueProduct = findStoreProductByEntitlementId(B3_PACK.requiredEntitlementId);
     const productId = storeKind === 'apple'
       ? catalogueProduct.appleProductId
       : catalogueProduct.googleProductId;
@@ -476,11 +396,11 @@ export async function createB3AppServices(options = {}) {
     async function snapshot() {
       const [entitlements, activePack, installed] = await Promise.all([
         commerceRepository.listEntitlements(),
-        packRepository.getActiveVersion({ packId: FULL_KS2_PACK.packId }),
-        packRepository.listInstalledVersions({ packId: FULL_KS2_PACK.packId }),
+        packRepository.getActiveVersion({ packId: B3_PACK.packId }),
+        packRepository.listInstalledVersions({ packId: B3_PACK.packId }),
       ]);
       const entitlement = entitlements.find(
-        (entry) => entry.entitlementId === FULL_KS2_PACK.entitlementId,
+        (entry) => entry.entitlementId === B3_PACK.requiredEntitlementId,
       ) ?? null;
       const installedVersion = activePack
         ? installed.find((entry) => entry.version === activePack.version) ?? null
@@ -517,8 +437,8 @@ export async function createB3AppServices(options = {}) {
         throw new Error('B3 signed manifest was not observed.');
       }
       const result = await activationCoordinator.activate({
-        packId: FULL_KS2_PACK.packId,
-        version: FULL_KS2_PACK.version,
+        packId: B3_PACK.packId,
+        version: B3_PACK.version,
         signedManifestEnvelope: latestSignedManifestEnvelope,
       });
       const latest = await snapshot();

@@ -18,6 +18,9 @@ import {
 // The only pack any approved signing key can verify today. A catalogue may not sell a
 // pack outside this set, so every synthetic product below delivers this one.
 const SIGNED_PACK_ID = 'b3-sandbox-proof';
+// The shipped catalogue join since the E2.7 flip: the 15 Full-KS2 shards.
+const FULL_KS2_SHARD_IDS = Array.from({ length: 15 }, (_, index) =>
+  `full-ks2-shard-${String(index + 1).padStart(2, '0')}`);
 
 function product(overrides = {}) {
   return {
@@ -201,7 +204,7 @@ test('commerce identities derive from the entitlement rather than a baked-in pro
     'uk.eugnel.ks2spelling.fullks2',
     'full_ks2',
   ]);
-  assert.deepEqual([...resolved.packIds], [SIGNED_PACK_ID]);
+  assert.deepEqual([...resolved.packIds], FULL_KS2_SHARD_IDS);
   assert.throws(() => resolveCommerceProduct('year-3-spelling'), /Store product entitlement/);
 
   for (const store of ['apple', 'google']) {
@@ -220,12 +223,15 @@ test('commerce identities derive from the entitlement rather than a baked-in pro
 
 test('the download path resolves every tracked pack from the registry', () => {
   const authorities = resolvePackJobAuthorities(resolveCommerceProduct('full-ks2'));
-  assert.deepEqual([...authorities].map((authority) => ({ ...authority })), [{
-    entitlementId: 'full-ks2',
-    packId: SIGNED_PACK_ID,
-    version: '1.0.0-b3.1',
-    jobId: `${SIGNED_PACK_ID}.1.0.0-b3.1`,
-  }]);
+  assert.deepEqual(
+    [...authorities].map((authority) => ({ ...authority })),
+    FULL_KS2_SHARD_IDS.map((packId) => ({
+      entitlementId: 'full-ks2',
+      packId,
+      version: '1.0.0',
+      jobId: `${packId}.1.0.0`,
+    })),
+  );
 
   // Fail closed: a product with no packs, an unregistered pack, or a registered
   // pack bound to a different entitlement never yields a download authority.
@@ -282,6 +288,7 @@ test('coordinators require an entitlement binding and reject an unapproved one',
       removeOwnedTemporaryState: async () => undefined,
     },
     packRepository: {
+      deleteDownloadJob: async () => false,
       getActiveVersion: async () => null,
       listDownloadJobs: async () => [],
       listInstalledVersions: async () => [],

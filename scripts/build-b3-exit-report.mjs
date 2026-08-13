@@ -208,7 +208,23 @@ function validateTrackedAuthorities({
     type: 'non-consumable',
     appleProductId: ios.store.productId,
     googleProductId: android.store.productId,
-    packIds: ['b3-sandbox-proof'],
+    packIds: [
+      'full-ks2-shard-01',
+      'full-ks2-shard-02',
+      'full-ks2-shard-03',
+      'full-ks2-shard-04',
+      'full-ks2-shard-05',
+      'full-ks2-shard-06',
+      'full-ks2-shard-07',
+      'full-ks2-shard-08',
+      'full-ks2-shard-09',
+      'full-ks2-shard-10',
+      'full-ks2-shard-11',
+      'full-ks2-shard-12',
+      'full-ks2-shard-13',
+      'full-ks2-shard-14',
+      'full-ks2-shard-15',
+    ],
   };
   assert(
     storeProducts.value?.schemaVersion === 1 &&

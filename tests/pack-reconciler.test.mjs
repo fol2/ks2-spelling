@@ -51,6 +51,13 @@ function reconcileHarness({
     },
   };
   const packRepository = {
+    async deleteDownloadJob(command) {
+      events.push(`delete-job:${command.jobId}`);
+      const index = jobRows.findIndex((job) => job.jobId === command.jobId);
+      const existed = index !== -1;
+      if (existed) jobRows.splice(index, 1);
+      return existed;
+    },
     async listDownloadJobs() { return structuredClone(jobRows); },
     async listInstalledVersions() { return structuredClone(installedRows); },
     async getActiveVersion() { return structuredClone(activeRow); },
@@ -83,6 +90,9 @@ function reconcileHarness({
     events,
     dependencies: {
       entitlementId: 'full-ks2',
+      // The mechanics under test predate the E2.7 join flip; the harness pins
+      // the reconciler to the registry's b3 row exactly as the B3 proof lane does.
+      packIds: [PACK_ID],
       packTransfer,
       packRepository,
       activeEntitlementProjection: async () => projectActiveEntitlements(entitled ? [{
@@ -373,4 +383,64 @@ test('retirement rejects foreign pack input and never retires the sole valid rol
     .retireOldVersions({ packId: PACK_ID, keepVersions: 2 });
   assert.deepEqual(result.retired, []);
   assert.deepEqual(harness.events, []);
+});
+
+// E2.7 join flip: a sandbox device carrying prior b3-sandbox-proof state must
+// start cleanly under the shard catalogue — deliberate retirement, not a crash.
+test('startup retires registry-known uncatalogued pack state instead of throwing', async () => {
+  const b3Installed = row('1.0.0-b3.1', 1);
+  const b3Job = {
+    jobId: `${PACK_ID}.1.0.0-b3.1`, packId: PACK_ID, version: '1.0.0-b3.1',
+    manifestSha256: b3Installed.manifestSha256, archiveName: `${PACK_ID}.zip`,
+    archiveSha256: 'f'.repeat(64), expectedBytes: 10, completedBytes: 10,
+    etag: 'a'.repeat(32), state: 'ready', updatedAt: NOW - 10,
+  };
+  const harness = reconcileHarness({
+    installed: [b3Installed],
+    inventory: [native(b3Installed)],
+    active: {
+      packId: PACK_ID, version: b3Installed.version,
+      manifestSha256: b3Installed.manifestSha256, pathToken: b3Installed.pathToken,
+      activatedAt: NOW - 1,
+    },
+    jobs: [b3Job],
+  });
+  // The flipped catalogue join is the default pack set: no override.
+  delete harness.dependencies.packIds;
+  const result = await createPackReconciler(harness.dependencies).reconcileAtStartup();
+  assert.deepEqual([...result.retiredPacks], [`${PACK_ID}.1.0.0-b3.1`]);
+  assert.deepEqual(harness.events, [
+    `delete-job:${PACK_ID}.1.0.0-b3.1`,
+    `remove:${PACK_ID}.1.0.0-b3.1`,
+  ]);
+  // Every catalogued shard reports missing (nothing installed) and nothing crashed.
+  assert.equal(result.accessLocked, false);
+  assert.equal(result.readiness.length, 15);
+  assert.ok(result.readiness.every(({ ready, version }) => ready === false && version === null));
+  assert.deepEqual(harness.snapshot().jobs, []);
+});
+
+test('startup still fails closed on a genuinely foreign pack under the flipped catalogue', async () => {
+  const foreign = row('1.0.0', 1, {
+    packId: 'foreign-pack', pathToken: 'installed/foreign-pack/1.0.0',
+  });
+  const harness = reconcileHarness({ inventory: [native(foreign)] });
+  delete harness.dependencies.packIds;
+  await assert.rejects(
+    createPackReconciler(harness.dependencies).reconcileAtStartup(),
+    { code: 'PACK_RECONCILIATION_PACK_AUTHORITY_MISMATCH' },
+  );
+  assert.deepEqual(harness.events, []);
+});
+
+test('the explicit packIds override validates against the registry and entitlement', () => {
+  const harness = reconcileHarness();
+  assert.throws(
+    () => createPackReconciler({ ...harness.dependencies, packIds: ['unregistered-pack'] }),
+    /not registered/,
+  );
+  assert.throws(
+    () => createPackReconciler({ ...harness.dependencies, packIds: [] }),
+    /at least one tracked pack/,
+  );
 });

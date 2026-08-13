@@ -1506,10 +1506,13 @@ test('Capacitor and the built shell remain local-only', async () => {
     bundledJavaScript.includes(starter.items[0].target),
     'the certified Starter catalogue must be included in the Vite bundle',
   );
+  // Since the E2.7 live-commerce composition the product bundle legitimately
+  // carries the sandbox commerce runtime: the sandbox gateway authority
+  // (b3-gateway.eugnel.uk — the only gateway until the E2.10 production
+  // ceremony), the public sandbox signing keyring (b3-test-p256-2026-07) and
+  // the pack registry, whose b3 row keeps the b3-sandbox-proof identifier.
+  // Proof-lane mode and product identifiers stay excluded.
   for (const forbiddenProofAuthority of [
-    'b3-gateway.eugnel.uk',
-    'b3-test-p256-2026-07',
-    'b3-sandbox-proof',
     'b4-starter-product',
     'B3DeterministicTest',
     'B4Development',

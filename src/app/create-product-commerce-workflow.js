@@ -5,11 +5,13 @@ import {
   findStoreProductByEntitlementId,
 } from '../domain/commerce/commerce-contracts.js';
 import {
-  FULL_KS2_PACK,
+  resolveCommerceProduct,
+  resolvePackJobAuthorities,
 } from '../domain/commerce/purchase-state.js';
 import {
   projectActiveEntitlements,
 } from '../domain/commerce/entitlement-access-projection.js';
+import { findPackAuthority } from '../domain/packs/pack-registry.js';
 import {
   B3_DOWNLOAD_CHUNK_BYTES,
 } from '../domain/packs/signed-download-access-contract.js';
@@ -31,7 +33,7 @@ import {
   createGatewayRecorder,
   isRecoverableExternalFailure,
   verifyManifest,
-} from './create-b3-app-services.js';
+} from './commerce-runtime-support.js';
 import {
   createDatabaseGatedRepository,
 } from './database-gated-repository.js';
@@ -46,6 +48,12 @@ export {
 } from './unavailable-product-commerce-workflow.js';
 
 const SHA256 = /^[a-f0-9]{64}$/u;
+
+// The catalogue is the only product authority: every pack the full-ks2
+// entitlement delivers resolves here, in catalogue order. Since the E2.7 join
+// flip this is the 15 Full-KS2 shard set.
+const PRODUCT = resolveCommerceProduct('full-ks2');
+const PACKS = resolvePackJobAuthorities(PRODUCT);
 
 function requireMethod(value, method, label) {
   if (!value || typeof value !== 'object' || typeof value[method] !== 'function') {
@@ -96,15 +104,7 @@ function matchesInstalledAuthority(active, installed, native) {
   );
 }
 
-function projectPackState({
-  entitlementState,
-  activePack,
-  installed,
-  inventory,
-  jobs,
-}) {
-  if (entitlementState === 'revoked') return 'locked';
-  if (entitlementState !== 'active') return 'missing';
+function projectSinglePackState({ pack, activePack, installed, inventory, jobs }) {
   const installedRow = activePack
     ? installed.find((entry) => entry.version === activePack.version) ?? null
     : null;
@@ -120,8 +120,8 @@ function projectPackState({
     return 'installed';
   }
   const job = jobs.find((entry) =>
-    entry.packId === FULL_KS2_PACK.packId &&
-    entry.version === FULL_KS2_PACK.version) ?? null;
+    entry.packId === pack.packId &&
+    entry.version === pack.version) ?? null;
   if (job?.state === 'queued') return 'queued';
   if (['downloading', 'downloaded', 'extracting'].includes(job?.state)) {
     return 'downloading';
@@ -129,6 +129,21 @@ function projectPackState({
   if (job?.state === 'failed' || job?.state === 'ready' || activePack) {
     return 'failed';
   }
+  return 'missing';
+}
+
+// One product-level state over N shards: every shard installed reads
+// installed; any failed shard dominates in-flight work so the Parent area
+// surfaces the retry; otherwise the busiest in-flight state wins.
+export function aggregatePackStates(entitlementState, packStates) {
+  if (entitlementState === 'revoked') return 'locked';
+  if (entitlementState !== 'active') return 'missing';
+  if (packStates.length > 0 && packStates.every((state) => state === 'installed')) {
+    return 'installed';
+  }
+  if (packStates.includes('failed')) return 'failed';
+  if (packStates.includes('downloading')) return 'downloading';
+  if (packStates.includes('queued')) return 'queued';
   return 'missing';
 }
 
@@ -174,7 +189,7 @@ export function createProductCommerceWorkflow(options = {}) {
   const attemptRepository = createDatabaseGatedRepository(
     createSqliteCommerceAttemptRepository(connection, {
       store: runtime.platform === 'ios' ? 'apple' : 'google',
-      entitlementId: FULL_KS2_PACK.entitlementId,
+      entitlementId: PRODUCT.entitlementId,
     }),
     commandGate,
   );
@@ -185,20 +200,26 @@ export function createProductCommerceWorkflow(options = {}) {
   const activeEntitlementProjection = async () =>
     projectActiveEntitlements(await commerceRepository.listEntitlements());
   const packReconciler = createPackReconciler({
-    entitlementId: FULL_KS2_PACK.entitlementId,
+    entitlementId: PRODUCT.entitlementId,
     packTransfer,
     packRepository,
     activeEntitlementProjection,
     clock: () => safeTimestamp(clock),
   });
 
-  let latestSignedManifestEnvelope = null;
+  // Envelope capture is keyed per pack: a single-slot recorder would activate
+  // every shard against the last envelope observed in a 15-download sequence.
+  const envelopesByPackId = new Map();
   const recordedGateway = createGatewayRecorder(
     gateway,
-    (value) => { latestSignedManifestEnvelope = value; },
+    (value, authorisation) => {
+      if (typeof authorisation?.packId === 'string') {
+        envelopesByPackId.set(authorisation.packId, value);
+      }
+    },
   );
   const purchaseCoordinator = createPurchaseCoordinator({
-    entitlementId: FULL_KS2_PACK.entitlementId,
+    entitlementId: PRODUCT.entitlementId,
     store,
     gateway: recordedGateway,
     commerceRepository,
@@ -211,22 +232,26 @@ export function createProductCommerceWorkflow(options = {}) {
   const activeEntitlement = async () => {
     const entitlements = await commerceRepository.listEntitlements();
     return entitlements.find((entry) =>
-      entry.entitlementId === FULL_KS2_PACK.entitlementId &&
+      entry.entitlementId === PRODUCT.entitlementId &&
       entry.state === 'active') ?? null;
   };
-  const downloadCoordinator = createDownloadCoordinator({
-    gateway: recordedGateway,
-    packTransfer,
-    packRepository,
-    manifestVerifier,
-    keyring: packKeyring,
-    activeEntitlementProjection: activeEntitlement,
-    entitlementRepository: commerceRepository,
-    currentAppVersion: '0.3.0-b3',
-    currentSchemaVersion: 2,
-    clock: () => safeTimestamp(clock),
-    chunkSize: B3_DOWNLOAD_CHUNK_BYTES,
-  });
+  const downloadCoordinators = new Map(PACKS.map((pack) => [
+    pack.packId,
+    createDownloadCoordinator({
+      gateway: recordedGateway,
+      packTransfer,
+      packRepository,
+      manifestVerifier,
+      keyring: packKeyring,
+      activeEntitlementProjection: activeEntitlement,
+      entitlementRepository: commerceRepository,
+      currentAppVersion: '0.3.0-b3',
+      currentSchemaVersion: 2,
+      clock: () => safeTimestamp(clock),
+      chunkSize: B3_DOWNLOAD_CHUNK_BYTES,
+      packAuthority: findPackAuthority(pack.packId),
+    }),
+  ]));
   const activationCoordinator = createPackActivationCoordinator({
     packTransfer,
     packRepository,
@@ -253,7 +278,7 @@ export function createProductCommerceWorkflow(options = {}) {
     }),
   });
 
-  const catalogueProduct = findStoreProductByEntitlementId(FULL_KS2_PACK.entitlementId);
+  const catalogueProduct = findStoreProductByEntitlementId(PRODUCT.entitlementId);
   const productId = runtime.platform === 'ios'
     ? catalogueProduct.appleProductId
     : catalogueProduct.googleProductId;
@@ -272,36 +297,39 @@ export function createProductCommerceWorkflow(options = {}) {
   }
 
   async function snapshot() {
-    const [entitlements, activePack, installed, jobs, inventory] =
-      await Promise.all([
-        commerceRepository.listEntitlements(),
-        packRepository.getActiveVersion({ packId: FULL_KS2_PACK.packId }),
-        packRepository.listInstalledVersions({
-          packId: FULL_KS2_PACK.packId,
-        }),
-        packRepository.listDownloadJobs(),
-        packTransfer.inventoryInstalledVersions(),
-      ]);
+    const [entitlements, jobs, inventory] = await Promise.all([
+      commerceRepository.listEntitlements(),
+      packRepository.listDownloadJobs(),
+      packTransfer.inventoryInstalledVersions(),
+    ]);
     const entitlement = entitlements.find((entry) =>
-      entry.entitlementId === FULL_KS2_PACK.entitlementId) ?? null;
+      entry.entitlementId === PRODUCT.entitlementId) ?? null;
     const entitlementState = entitlement?.state ?? 'none';
-    const installDigest = activePack
-      ? installed.find((entry) => entry.version === activePack.version)
-        ?.activationMarkerSha256 ?? null
-      : null;
-    if (installDigest !== null && !SHA256.test(installDigest)) {
-      throw new TypeError('Installed Full KS2 pack authority is invalid.');
-    }
-    return Object.freeze({
-      displayPrice: product?.displayPrice ?? '',
-      entitlementState,
-      packState: projectPackState({
-        entitlementState,
+    const packStates = [];
+    for (const pack of PACKS) {
+      const [activePack, installed] = await Promise.all([
+        packRepository.getActiveVersion({ packId: pack.packId }),
+        packRepository.listInstalledVersions({ packId: pack.packId }),
+      ]);
+      const installDigest = activePack
+        ? installed.find((entry) => entry.version === activePack.version)
+          ?.activationMarkerSha256 ?? null
+        : null;
+      if (installDigest !== null && !SHA256.test(installDigest)) {
+        throw new TypeError('Installed Full KS2 pack authority is invalid.');
+      }
+      packStates.push(projectSinglePackState({
+        pack,
         activePack,
         installed,
         inventory,
         jobs,
-      }),
+      }));
+    }
+    return Object.freeze({
+      displayPrice: product?.displayPrice ?? '',
+      entitlementState,
+      packState: aggregatePackStates(entitlementState, packStates),
       syncFailed,
     });
   }
@@ -354,24 +382,32 @@ export function createProductCommerceWorkflow(options = {}) {
     return result;
   }
 
+  // The N-shard loop is deliberately sequential: each shard is authorised,
+  // downloaded and activated before the next starts, and the entitlement row
+  // is re-read per shard so a sealed-handle rotation (or a revocation) taken
+  // during one shard governs the next. Resume and partial failure ride the
+  // durable per-shard job/chunk rows.
   async function install() {
-    const entitlement = await activeEntitlement();
-    if (!entitlement) {
-      throw Object.assign(new Error('Full KS2 entitlement is not active.'), {
-        code: 'product_commerce_entitlement_inactive',
+    for (const pack of PACKS) {
+      const entitlement = await activeEntitlement();
+      if (!entitlement) {
+        throw Object.assign(new Error('Full KS2 entitlement is not active.'), {
+          code: 'product_commerce_entitlement_inactive',
+        });
+      }
+      await downloadCoordinators.get(pack.packId).queue({
+        sealedRefreshHandle: entitlement.sealedRefreshHandle,
+      });
+      const envelope = envelopesByPackId.get(pack.packId);
+      if (typeof envelope !== 'string') {
+        throw new Error('Signed Full KS2 manifest was not observed.');
+      }
+      await activationCoordinator.activate({
+        packId: pack.packId,
+        version: pack.version,
+        signedManifestEnvelope: envelope,
       });
     }
-    await downloadCoordinator.queue({
-      sealedRefreshHandle: entitlement.sealedRefreshHandle,
-    });
-    if (typeof latestSignedManifestEnvelope !== 'string') {
-      throw new Error('Signed Full KS2 manifest was not observed.');
-    }
-    await activationCoordinator.activate({
-      packId: FULL_KS2_PACK.packId,
-      version: FULL_KS2_PACK.version,
-      signedManifestEnvelope: latestSignedManifestEnvelope,
-    });
   }
 
   const workflow = {

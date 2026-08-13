@@ -3,8 +3,7 @@ import {
   createSignedDownloadAccessContract,
 } from
   '../domain/packs/signed-download-access-contract.js';
-import { assertPackAuthority, findPackAuthority } from '../domain/packs/pack-registry.js';
-import { FULL_KS2_PACK } from '../domain/commerce/purchase-state.js';
+import { assertPackAuthority } from '../domain/packs/pack-registry.js';
 
 const STAGING_METADATA_BYTES = 65_536;
 const METHODS = Object.freeze(['queue', 'resume', 'retry', 'cancelTemporary']);
@@ -33,16 +32,16 @@ export function requiredFreeBytes({
 }
 
 function requireDependencies(value) {
-  const keys = [
+  // packAuthority is required since the E2.7 join flip: with an N-pack
+  // catalogue there is no safe default pack, so every composition names the
+  // one registry row this coordinator serves.
+  const expected = [
     'gateway', 'packTransfer', 'packRepository', 'manifestVerifier', 'keyring',
     'activeEntitlementProjection', 'entitlementRepository',
     'currentAppVersion', 'currentSchemaVersion',
-    'clock', 'chunkSize',
+    'clock', 'chunkSize', 'packAuthority',
   ];
   const ownKeys = value && typeof value === 'object' ? Reflect.ownKeys(value) : [];
-  // packAuthority is optional: the eleven-key form stays the b3 proof harness's
-  // construction and binds to the catalogue's sole tracked pack.
-  const expected = ownKeys.includes('packAuthority') ? [...keys, 'packAuthority'] : keys;
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Object.prototype ||
       ownKeys.length !== expected.length ||
@@ -159,9 +158,7 @@ export function createDownloadCoordinator(rawDependencies) {
   } = dependencies;
   // A present-but-undefined packAuthority must fail, never fall back: a missed
   // registry lookup upstream would otherwise silently bind to the wrong pack.
-  const packAuthority = Object.hasOwn(dependencies, 'packAuthority')
-    ? assertPackAuthority(dependencies.packAuthority)
-    : findPackAuthority(FULL_KS2_PACK.packId);
+  const packAuthority = assertPackAuthority(dependencies.packAuthority);
   const contract = createSignedDownloadAccessContract(packAuthority);
   let tail = Promise.resolve();
   let lastTimestamp = -1;

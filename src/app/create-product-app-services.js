@@ -51,6 +51,18 @@ import {
   LearningBackupFilePlugin,
 } from '../platform/backup/capacitor-learning-backup-file-plugin.js';
 import {
+  createSqlitePackRepositories,
+} from '../platform/database/sqlite-pack-repositories.js';
+import {
+  createCapacitorPackTransfer,
+} from '../platform/pack-transfer/capacitor-pack-transfer.js';
+import {
+  PackTransferPlugin,
+} from '../platform/pack-transfer/capacitor-pack-transfer-plugin.js';
+import {
+  createProductCommerceWorkflow,
+} from './create-product-commerce-workflow.js';
+import {
   createUnavailableProductCommerceWorkflow,
 } from './unavailable-product-commerce-workflow.js';
 import {
@@ -326,8 +338,23 @@ export async function createProductAppServices(options = {}) {
       now,
     });
     void parentProgress.refresh().catch(() => undefined);
+    // Live commerce composes only on a native runtime: the real store bridge,
+    // the HTTP gateway and the N-shard download/activation coordinators, all
+    // reachable solely through the Parent-gated commerce controller. Every
+    // other composition (web, tests without commerce dependencies) keeps the
+    // unavailable workflow, which fails purchase/restore/download closed.
     const commerceWorkflow = options.commerceWorkflow ??
-      createUnavailableProductCommerceWorkflow();
+      (options.runtime?.isNativePlatform === true
+        ? createProductCommerceWorkflow({
+            runtime: options.runtime,
+            connection,
+            commandGate: gate,
+            packRepository: createSqlitePackRepositories(connection),
+            packTransfer: options.packTransfer ??
+              createCapacitorPackTransfer({ PackTransfer: PackTransferPlugin }),
+            clock: now,
+          })
+        : createUnavailableProductCommerceWorkflow());
     parentCommerce = createParentCommerceController({
       workflow: commerceWorkflow,
     });

@@ -174,6 +174,9 @@ async function withWorld(run) {
     const makeCoordinator = (failureInjector = async () => {}, overrides = {}) =>
       createPurchaseCoordinator({
         entitlementId: 'full-ks2',
+        // The mechanics under test predate the E2.7 join flip; the harness pins
+        // the coordinator to the registry's b3 row exactly as the B3 proof lane does.
+        packIds: ['b3-sandbox-proof'],
         store,
         gateway,
         commerceRepository,

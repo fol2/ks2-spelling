@@ -54,17 +54,23 @@ function requireFactoryInput(value) {
     'idFactory',
     'failureInjector',
   ];
+  const ownKeys = value && typeof value === 'object' ? Reflect.ownKeys(value) : [];
+  // packIds is optional: the catalogue join stays the default authority, and
+  // only the frozen B3 proof lane pins itself to the registry's b3 row after
+  // that pack left the sellable catalogue. Every override entry still resolves
+  // through the registry bound to this coordinator's entitlement.
+  const expected = ownKeys.includes('packIds') ? [...keys, 'packIds'] : keys;
   if (
     !value ||
     typeof value !== 'object' ||
     Array.isArray(value) ||
     Object.getPrototypeOf(value) !== Object.prototype ||
-    Reflect.ownKeys(value).length !== keys.length ||
-    Reflect.ownKeys(value).some((key) => typeof key !== 'string' || !keys.includes(key))
+    ownKeys.length !== expected.length ||
+    ownKeys.some((key) => typeof key !== 'string' || !expected.includes(key))
   ) {
     throw new TypeError('Purchase coordinator dependencies are invalid.');
   }
-  for (const key of keys) {
+  for (const key of expected) {
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
     if (!descriptor?.enumerable || !Object.hasOwn(descriptor, 'value')) {
       throw new TypeError('Purchase coordinator dependencies must be data fields.');
@@ -142,9 +148,9 @@ export function createPurchaseCoordinator(rawDependencies) {
   // This coordinator serves exactly one entitlement; its store products, packs and
   // journal identities all derive from that binding rather than from a baked-in product.
   const product = resolveCommerceProduct(entitlementId);
-  // ponytail: the loop below runs N=1 until the catalogue's join grows a second
-  // shard (E2.6/E2.8); the resolver and every durable layer are N=2-tested.
-  const packs = resolvePackJobAuthorities(product);
+  const packs = Object.hasOwn(dependencies, 'packIds')
+    ? resolvePackJobAuthorities({ entitlementId, packIds: dependencies.packIds })
+    : resolvePackJobAuthorities(product);
   // The native application composition owns one coordinator and one reconciler per
   // database connection. This queue is therefore the single proof-processing lane.
   let tail = Promise.resolve();

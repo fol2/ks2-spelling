@@ -44,8 +44,21 @@ test('production services persist profile CRUD and selected learner across a cle
     }),
     connectionFactory: async () => createNodeSqliteConnection(databasePath),
     lifecycle: createLifecycle(),
+    // A native runtime composes the live commerce workflow, whose coordinators
+    // validate the full pack-transfer port surface up front.
     packTransfer: Object.freeze({
       async inventoryInstalledVersions() { return Object.freeze([]); },
+      async removeOwnedTemporaryState() { return Object.freeze({ removed: false }); },
+      async getFreeBytes() { return 1_073_741_824; },
+      async downloadRange() {
+        throw new Error('Pack downloads are outside this composition test.');
+      },
+      async inspectAndExtract() {
+        throw new Error('Pack extraction is outside this composition test.');
+      },
+      async sealAndInstall() {
+        throw new Error('Pack installation is outside this composition test.');
+      },
     }),
     bundledStarterAudio: Object.freeze({
       async checkAvailability() {

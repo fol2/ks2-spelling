@@ -50,7 +50,7 @@ test('B3 deterministic proof runs the closed fake matrix twice byte-identically'
     assert.equal(report.traceIdsUnique, true);
     assert.deepEqual(
       Object.keys(report.scenarioMatrix),
-      ['commerce', 'download', 'activation', 'privacyContinuity'],
+      ['commerce', 'download', 'activation', 'shards', 'privacyContinuity'],
     );
     assert.deepEqual(
       report.scenarioMatrix.commerce.map(({ scenario }) => scenario),
@@ -64,9 +64,17 @@ test('B3 deterministic proof runs the closed fake matrix twice byte-identically'
       report.scenarioMatrix.activation.map(({ scenario }) => scenario),
       ['already-installed', 'crash-before-switch', 'fresh-install', 'reconcile-interrupted', 'rollback-preserved'],
     );
+    assert.deepEqual(
+      report.scenarioMatrix.shards.map(({ scenario }) => scenario),
+      ['purchased-all-shards', 'interrupted-resume', 'integrity-failure-durable', 'revoked-locks-shards'],
+    );
     assert.ok(
-      [...report.scenarioMatrix.commerce, ...report.scenarioMatrix.download, ...report.scenarioMatrix.activation]
-        .every(({ passed }) => passed === true),
+      [
+        ...report.scenarioMatrix.commerce,
+        ...report.scenarioMatrix.download,
+        ...report.scenarioMatrix.activation,
+        ...report.scenarioMatrix.shards,
+      ].every(({ passed }) => passed === true),
     );
     assert.deepEqual(report.scenarioMatrix.privacyContinuity, {
       parentOnlyDiagnostic: true,
@@ -122,8 +130,8 @@ test('B3 deterministic proof runs the closed fake matrix twice byte-identically'
           return runB3DeterministicScenario(input);
         },
       });
-      assert.equal(executed.length, 18);
-      assert.equal(new Set(executed).size, 18);
+      assert.equal(executed.length, 22);
+      assert.equal(new Set(executed).size, 22);
     } finally {
       await rm(wrappedDirectory, { recursive: true, force: true });
     }

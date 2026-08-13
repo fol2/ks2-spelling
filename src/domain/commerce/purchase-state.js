@@ -52,9 +52,10 @@ export function resolvePackJobAuthorities(product, registry = PACK_REGISTRY) {
   }));
 }
 
-// ponytail: [0] is exact while the catalogue sells one pack; the composition
-// slices (E2.3/E2.7) replace this single-pack binding when real shards land.
-export const FULL_KS2_PACK = resolvePackJobAuthorities(resolveCommerceProduct('full-ks2'))[0];
+// Every pack the full-ks2 product delivers, in catalogue order. Consumers that
+// need one pack must name it; there is deliberately no [0] convenience export —
+// a single-pack binding over an N-pack catalogue silently drops content.
+export const FULL_KS2_PACKS = resolvePackJobAuthorities(resolveCommerceProduct('full-ks2'));
 
 export const PURCHASE_CHECKPOINTS = Object.freeze([
   'journal',

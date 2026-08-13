@@ -14,7 +14,10 @@ import {
   validateIdentityResponse,
   validateVerifyRequest,
 } from './entitlement-gateway-port.js';
-import { MAX_GATEWAY_BODY_BYTES } from './gateway-payload-limits.js';
+import {
+  MAX_AUTHORISE_RESPONSE_BYTES,
+  MAX_GATEWAY_BODY_BYTES,
+} from './gateway-payload-limits.js';
 
 const SAFE_ERROR_CODES = new Set([
   'PROOF_REJECTED',
@@ -74,18 +77,18 @@ function validateOptions(options) {
   return { fetchImpl: options.fetchImpl, timeoutMs };
 }
 
-function parseContentLength(response) {
+function parseContentLength(response, maxBodyBytes) {
   const raw = response.headers?.get?.('content-length');
   if (raw === null || raw === undefined) return null;
   if (!/^(?:0|[1-9][0-9]*)$/.test(raw)) throw invalidResponse(response.status);
   const value = Number(raw);
-  if (!Number.isSafeInteger(value) || value > MAX_GATEWAY_BODY_BYTES) {
+  if (!Number.isSafeInteger(value) || value > maxBodyBytes) {
     throw invalidResponse(response.status);
   }
   return value;
 }
 
-async function readJson(response, signal) {
+async function readJson(response, signal, maxBodyBytes = MAX_GATEWAY_BODY_BYTES) {
   const contentType = response.headers?.get?.('content-type');
   if (
     typeof contentType !== 'string' ||
@@ -93,7 +96,7 @@ async function readJson(response, signal) {
   ) {
     throw invalidResponse(response.status);
   }
-  const declaredLength = parseContentLength(response);
+  const declaredLength = parseContentLength(response, maxBodyBytes);
   let bytes;
   const reader = response.body?.getReader?.();
   if (reader) {
@@ -111,7 +114,7 @@ async function readJson(response, signal) {
         if (result.done) break;
         if (!(result.value instanceof Uint8Array)) throw invalidResponse(response.status);
         byteLength += result.value.byteLength;
-        if (byteLength > MAX_GATEWAY_BODY_BYTES) {
+        if (byteLength > maxBodyBytes) {
           const cancelPromise = reader.cancel();
           assertPromise(cancelPromise, 'Gateway response body cancellation');
           await cancelPromise.catch(() => undefined);
@@ -150,7 +153,7 @@ async function readJson(response, signal) {
   }
   const byteLength = bytes.byteLength;
   if (
-    byteLength > MAX_GATEWAY_BODY_BYTES ||
+    byteLength > maxBodyBytes ||
     (declaredLength !== null && declaredLength !== byteLength)
   ) {
     throw invalidResponse(response.status);
@@ -243,7 +246,7 @@ export function createHttpEntitlementGateway(options) {
   const { fetchImpl, timeoutMs } = validateOptions(options);
   const origin = options.authority.publicSandboxOrigin;
 
-  async function post(route, body, validateResponse) {
+  async function post(route, body, validateResponse, maxBodyBytes = MAX_GATEWAY_BODY_BYTES) {
     return fetchWithTimeout(
       fetchImpl,
       `${origin}${route}`,
@@ -271,7 +274,7 @@ export function createHttpEntitlementGateway(options) {
           validateErrorResponse(bodyValue, response.status);
         }
         if (response.status !== 200) throw invalidResponse(response.status);
-        const value = await readJson(response, signal);
+        const value = await readJson(response, signal, maxBodyBytes);
         try {
           return validateResponse(value);
         } catch (error) {
@@ -316,6 +319,7 @@ export function createHttpEntitlementGateway(options) {
         ROUTES.authorisePackDownload,
         input,
         (value) => validateAuthoriseResponse(value, input),
+        MAX_AUTHORISE_RESPONSE_BYTES,
       );
     },
   };

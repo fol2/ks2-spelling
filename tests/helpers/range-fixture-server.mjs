@@ -3,6 +3,7 @@ import { createHash, createPublicKey, verify } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import { verifySignedPackManifest } from '../../src/domain/packs/pack-signature-verifier.js';
+import { findPackAuthority } from '../../src/domain/packs/pack-registry.js';
 
 export const PACK_ID = 'b3-sandbox-proof';
 export const VERSION = '1.0.0-b3.1';
@@ -206,6 +207,9 @@ export function createHarness({
       currentSchemaVersion: 2,
       clock,
       chunkSize: 1_048_576,
+      // Since the E2.7 join flip the coordinator has no default pack: the b3
+      // proof harness binds explicitly to the registry's b3 row.
+      packAuthority: findPackAuthority(PACK_ID),
     },
     calls,
     memory,

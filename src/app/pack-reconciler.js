@@ -1,4 +1,5 @@
-import { resolveCommerceProduct } from '../domain/commerce/purchase-state.js';
+import { resolveCommerceProduct, resolvePackJobAuthorities } from '../domain/commerce/purchase-state.js';
+import { findPackAuthority } from '../domain/packs/pack-registry.js';
 
 const IDENTITY = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
 
@@ -31,14 +32,19 @@ function validateDependencies(value) {
   const keys = [
     'entitlementId', 'packTransfer', 'packRepository', 'activeEntitlementProjection', 'clock',
   ];
+  const ownKeys = value && typeof value === 'object' ? Reflect.ownKeys(value) : [];
+  // packIds is optional: the catalogue join stays the default pack set, and
+  // only the frozen B3 proof lane pins itself to the registry's b3 row after
+  // that pack left the sellable catalogue.
+  const expected = ownKeys.includes('packIds') ? [...keys, 'packIds'] : keys;
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Object.prototype ||
-      Reflect.ownKeys(value).length !== keys.length ||
-      Reflect.ownKeys(value).some((key) => typeof key !== 'string' || !keys.includes(key))) {
+      ownKeys.length !== expected.length ||
+      ownKeys.some((key) => typeof key !== 'string' || !expected.includes(key))) {
     throw new TypeError('Pack reconciler dependencies are invalid.');
   }
   const repositoryMethods = [
-    'getActiveVersion', 'listDownloadJobs',
+    'deleteDownloadJob', 'getActiveVersion', 'listDownloadJobs',
     'listInstalledVersions', 'registerAndFlipActiveVersion',
     'retireInstalledVersion', 'updateDownloadJob',
   ];
@@ -78,12 +84,30 @@ function requireReadonlyEntitlementSet(value) {
 }
 
 export function createPackReconciler(rawDependencies) {
+  const dependencies = validateDependencies(rawDependencies);
   const {
     entitlementId, packTransfer, packRepository, activeEntitlementProjection, clock,
-  } = validateDependencies(rawDependencies);
-  // One reconciler per entitlement; the catalogue names which packs that entitlement owns.
-  const { entitlementId: ENTITLEMENT_ID, packIds: PACK_IDS } =
-    resolveCommerceProduct(entitlementId);
+  } = dependencies;
+  // One reconciler per entitlement; the catalogue names which packs that
+  // entitlement owns unless a composition pins an explicit registry-backed set.
+  const ENTITLEMENT_ID = resolveCommerceProduct(entitlementId).entitlementId;
+  const PACK_IDS = Object.hasOwn(dependencies, 'packIds')
+    ? resolvePackJobAuthorities({ entitlementId, packIds: dependencies.packIds })
+      .map(({ packId }) => packId)
+    : resolveCommerceProduct(entitlementId).packIds;
+
+  // A packId outside this reconciler's pack set is retired scope when the
+  // registry still tracks it under the same entitlement (a pack the catalogue
+  // stopped selling, e.g. b3-sandbox-proof after the E2.7 join flip). Anything
+  // else is foreign and fails closed.
+  function isRetiredScope(packId) {
+    if (PACK_IDS.includes(packId)) return false;
+    try {
+      return findPackAuthority(packId).requiredEntitlementId === ENTITLEMENT_ID;
+    } catch {
+      return false;
+    }
+  }
   let tail = Promise.resolve();
   let lastTimestamp = -1;
 
@@ -139,7 +163,7 @@ export function createPackReconciler(rawDependencies) {
       throw new TypeError('reconcileAtStartup does not accept input.');
     }
     return serialise(async () => {
-      const [inventory, jobs, entitlements] = await Promise.all([
+      const [inventory, allJobs, entitlements] = await Promise.all([
         packTransfer.inventoryInstalledVersions(),
         packRepository.listDownloadJobs(),
         activeEntitlementProjection(),
@@ -147,12 +171,33 @@ export function createPackReconciler(rawDependencies) {
       requireReadonlyEntitlementSet(entitlements);
       let accessLocked = !entitlements.has(ENTITLEMENT_ID);
       if (
-        inventory.some((record) => !PACK_IDS.includes(record.packId)) ||
-        jobs.some((job) => !PACK_IDS.includes(job.packId))
+        inventory.some((record) =>
+          !PACK_IDS.includes(record.packId) && !isRetiredScope(record.packId)) ||
+        allJobs.some((job) =>
+          !PACK_IDS.includes(job.packId) && !isRetiredScope(job.packId))
       ) {
         throw reconciliationError('PACK_RECONCILIATION_PACK_AUTHORITY_MISMATCH');
       }
-      absorbTimestampFloor(...jobs.map((job) => job.updatedAt));
+      absorbTimestampFloor(...allJobs.map((job) => job.updatedAt));
+
+      // Retired-scope cleanup is deliberate, not a crash: durable jobs for a
+      // registry-known pack the catalogue stopped selling are deleted and
+      // their temporary native state removed. Installed/active database rows
+      // and sealed native bytes stay in place — nothing reads them through
+      // this entitlement's catalogue any more, the repository has no
+      // deactivation operation for an active version, and the B3 proof lane
+      // still resolves its own row directly from the registry.
+      const retiredPacks = [];
+      for (const job of allJobs) {
+        if (!isRetiredScope(job.packId)) continue;
+        await packRepository.deleteDownloadJob({ jobId: job.jobId });
+        await packTransfer.removeOwnedTemporaryState({
+          packId: job.packId,
+          version: job.version,
+        });
+        retiredPacks.push(job.jobId);
+      }
+      const jobs = allJobs.filter((job) => !isRetiredScope(job.packId));
       const identities = new Set();
       for (const record of inventory) {
         const identity = `${record.packId}\u0000${record.version}`;
@@ -291,6 +336,7 @@ export function createPackReconciler(rawDependencies) {
         readiness: Object.freeze(readiness),
         recovered: Object.freeze(recovered),
         removedTemporary: Object.freeze(removedTemporary),
+        retiredPacks: Object.freeze(retiredPacks),
       });
     });
   }
@@ -316,7 +362,8 @@ export function createPackReconciler(rawDependencies) {
       const nativeForPack = inventory.filter((native) => native.packId === packId);
       const identities = new Set();
       const authorityInvalid =
-        inventory.some((native) => !PACK_IDS.includes(native.packId)) ||
+        inventory.some((native) =>
+          !PACK_IDS.includes(native.packId) && !isRetiredScope(native.packId)) ||
         nativeForPack.some((native) => {
           const identity = `${native.packId}\u0000${native.version}`;
           if (identities.has(identity)) return true;

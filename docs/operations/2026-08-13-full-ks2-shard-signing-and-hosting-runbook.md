@@ -141,3 +141,28 @@ After steps 1–4 land, the multi-shard sandbox acceptance from issue #123
 applies: sandbox purchase → all shards download resumably → full catalogue
 playable offline via `createFullProductAudioPlayer`; revocation locks every
 shard; non-entitled devices cannot fetch shard bytes.
+
+## Execution record and corrections (2026-08-13, planner)
+
+Executed same-day with the owner driving (option A: the public test key, sandbox
+only). Corrections to the steps above, learned in execution:
+
+1. **`wrangler r2 object put --metadata` does not exist** (checked at 4.110.0
+   and latest): the wrangler CLI cannot set R2 custom metadata. The B3 objects
+   got their metadata through the scoped `upload-object` OAuth child, which
+   pins keys to the b3 object authority and cannot serve shard keys.
+2. **Owner decision: shard object authorities declare EMPTY custom metadata.**
+   The load-bearing pins are the config-declared sha256/bytes/etag (asserted by
+   the gateway per object) plus the device-side signature verification; the
+   `b3-role`/`b3-sha256` labels remain a b3-pack-only convention. The future
+   shard gateway config must therefore declare `metadata: {}` for shard rows.
+3. **Execution evidence:** bucket `ks2-spelling-b3-sandbox-packs` created
+   2026-08-13T09:49Z (WEUR, default jurisdiction) — the B3 gateway worker has
+   never been live-deployed, so the bucket did not previously exist. All 30
+   objects uploaded via plain `wrangler r2 object put` and verified by listing:
+   every size and etag matches the tracked authoring report and the signed
+   envelopes recorded in `config/downloadable-pack-authorities.json`
+   (registration PR). Signing used the committed public test key
+   `b3-test-p256-2026-07`; every envelope was verified with the repository's
+   own contract primitives (closed envelope, canonical low-S DER, RFC 8785
+   recanonicalisation) before upload.

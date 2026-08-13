@@ -88,7 +88,24 @@ const EXPECTED_SIGNING_KEY = Object.freeze({
   notBefore: '2026-07-01T00:00:00Z',
   notAfter: '2027-07-01T00:00:00Z',
   allowedEnvironments: Object.freeze(['test', 'sandbox']),
-  allowedPackIds: Object.freeze(['b3-sandbox-proof']),
+  allowedPackIds: Object.freeze([
+    'b3-sandbox-proof',
+    'full-ks2-shard-01',
+    'full-ks2-shard-02',
+    'full-ks2-shard-03',
+    'full-ks2-shard-04',
+    'full-ks2-shard-05',
+    'full-ks2-shard-06',
+    'full-ks2-shard-07',
+    'full-ks2-shard-08',
+    'full-ks2-shard-09',
+    'full-ks2-shard-10',
+    'full-ks2-shard-11',
+    'full-ks2-shard-12',
+    'full-ks2-shard-13',
+    'full-ks2-shard-14',
+    'full-ks2-shard-15',
+  ]),
 });
 
 function fail(label, detail) {

@@ -1,4 +1,320 @@
 {
   "schemaVersion": 1,
-  "packs": []
+  "packs": [
+    {
+      "packId": "full-ks2-shard-01",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-01-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 547,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "ad161d91ad7d574623018c0506b00662174016e057d424dedcca1d1554a4f7fd",
+      "manifestBytes": 106067,
+      "manifestEtag": "1b5e77025761298fdc1ea63263debc72",
+      "archiveSha256": "1debf2909614037df7d5c6b2109192c18508e915e82202e2990b0a03f57713dc",
+      "archiveBytes": 29903190,
+      "archiveEtag": "e5ddd0bfe55d70a1c2e61f452bcadae2"
+    },
+    {
+      "packId": "full-ks2-shard-02",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-02-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 589,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "670837c9d3e6d648184ffbf26e58ced4c01814b89570893a607f4b755fd841bb",
+      "manifestBytes": 114207,
+      "manifestEtag": "0b283e79fa216bb7c652a6ea44591110",
+      "archiveSha256": "4ed73ed23b05e32a85747f1e2ffcb4ca67ea0706786677d039f42a9b88a5e3ee",
+      "archiveBytes": 30516248,
+      "archiveEtag": "4104062069f49fb99b872d287502f20a"
+    },
+    {
+      "packId": "full-ks2-shard-03",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-03-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 589,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "39fb960abc6992f5e96c196cb30b9dd4946eb695ece63d0617b0cd2fa8c00a0a",
+      "manifestBytes": 114431,
+      "manifestEtag": "688e9a2b97d14a302c59fc4c69226663",
+      "archiveSha256": "25f7034b3eaca66a54d23b8bf3e53959c4c7291f5a9cd3589f76c7d6c11407ff",
+      "archiveBytes": 30540965,
+      "archiveEtag": "dbea51162d3220f8437f076515ff8cc6"
+    },
+    {
+      "packId": "full-ks2-shard-04",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-04-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 631,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "a50503e3b213d243070c5c46ec27762994884ab46dadb2104cba866183705a4a",
+      "manifestBytes": 121783,
+      "manifestEtag": "290df1386fa1e44ce2d9eaaf8dd09ccb",
+      "archiveSha256": "0217dd45763b542c98c5b87004a745a12afdafa92dec3a5518d0bec5c48fd984",
+      "archiveBytes": 31482320,
+      "archiveEtag": "85784350d026c949528aca9018dbe638"
+    },
+    {
+      "packId": "full-ks2-shard-05",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-05-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 631,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "f6efe93571e01d5a0791806c4d5ce1e56f942614a6a7dde522623e7b331aa54b",
+      "manifestBytes": 122343,
+      "manifestEtag": "13f18751f153da31b3652ca92a5918e4",
+      "archiveSha256": "99654ca962228e95f51da10a2793fb12b59fba6ed62c4a15c6e4d43725d73aef",
+      "archiveBytes": 30708118,
+      "archiveEtag": "f02789eb9886569a343b0141973afa54"
+    },
+    {
+      "packId": "full-ks2-shard-06",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-06-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 631,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "9eed1d2d0b8f6aedc4e4faa9fdd3e1168d161991f76d90206a2bfdcaa8de0a3e",
+      "manifestBytes": 123015,
+      "manifestEtag": "a2e94085ef4be37c852fe92de030ea15",
+      "archiveSha256": "8a4b5c98e4242757983dababdd1e49515a7b6f5847778d9829ec9a9c5e1cc763",
+      "archiveBytes": 31518849,
+      "archiveEtag": "ae325951eee3db100348746a0a52bd2d"
+    },
+    {
+      "packId": "full-ks2-shard-07",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-07-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 631,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "e48f839421b9f9920613f6672597ff9750d3de39fc4ccb71f1004286b8e9f043",
+      "manifestBytes": 122567,
+      "manifestEtag": "66160cc53d663313c9677991e2e30505",
+      "archiveSha256": "857144af6f065230147bcaee48d3f7518ef3a4308a5569ad71f2fee91bd41077",
+      "archiveBytes": 31603401,
+      "archiveEtag": "b9354bc379723b002e6a2ef2816e5545"
+    },
+    {
+      "packId": "full-ks2-shard-08",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-08-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 631,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "d7bc52300cba5a5d253cde6c41930e60f7b434d637f1b33f9112649f5ef0d51e",
+      "manifestBytes": 122567,
+      "manifestEtag": "28b60db3793b376177996f68f2238e6f",
+      "archiveSha256": "705f8a4f0b05598b66f08b20187c366c762751ff669fb2f13c89d9e1c0f342c5",
+      "archiveBytes": 31670056,
+      "archiveEtag": "06743359d7123b0595bf340b715a243c"
+    },
+    {
+      "packId": "full-ks2-shard-09",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-09-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 589,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "cc3be4cb260179b4c4146a4b282f1534f95873dc87d0e4a23e8bb063d04424a7",
+      "manifestBytes": 115271,
+      "manifestEtag": "0154e889dea8ad7aa6479f777516f1d7",
+      "archiveSha256": "cfeea4bea6f1ab682083693c6dc217c72a1e8e1b5c336fd53482c79c8d719400",
+      "archiveBytes": 29345941,
+      "archiveEtag": "b0a5ea3280276d8059f32dd5d4fc0071"
+    },
+    {
+      "packId": "full-ks2-shard-10",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-10-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 589,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "b766232a780cb4d5c84fd5c1914bb7c12cb445e97d691e2d0c4107fb45cbee53",
+      "manifestBytes": 116055,
+      "manifestEtag": "f923b72ba56c536a17284cbbdfa5297d",
+      "archiveSha256": "42c4971d3c91fedcc780da97923a81cb9d87f11f6a70d6aea185dfff52cc343e",
+      "archiveBytes": 30777415,
+      "archiveEtag": "56fe10a89ae908b7f03276bb7c83c467"
+    },
+    {
+      "packId": "full-ks2-shard-11",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-11-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 589,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "f282da52ecf9685910fa001ef82a90d578429f80b0f810bcf5c9a26dbca1cacd",
+      "manifestBytes": 115495,
+      "manifestEtag": "0b8f07cb8fb980c6c23a7736969766e0",
+      "archiveSha256": "4ac56724085d9f96d5659ec1dd14af7db03aad5c3cd38689a67cd3aadbf7133e",
+      "archiveBytes": 30989155,
+      "archiveEtag": "899857fa96bce3974adb0d984aef1cb7"
+    },
+    {
+      "packId": "full-ks2-shard-12",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-12-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 589,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "35ae7957bdab1f6c33ce95246e7da868b08686802f3a49361601945ca7188eed",
+      "manifestBytes": 115663,
+      "manifestEtag": "1efc84eadf4d3ada328177fb9bc66ace",
+      "archiveSha256": "c00bf92a8619c191eb1b29b025e302b3e10e34d89e3798077f4842fe2d04c68f",
+      "archiveBytes": 30463493,
+      "archiveEtag": "ac4ed5a4b3e80efc1dc85bfd48f806ea"
+    },
+    {
+      "packId": "full-ks2-shard-13",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-13-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 589,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "fa8421a6b305d069ec83fa4d1bd525f797549cd748805829be5d997558131ec3",
+      "manifestBytes": 115215,
+      "manifestEtag": "fa4951d55afe8b9a9d76c6d092ef623a",
+      "archiveSha256": "df2281f3cbbd77cd10ee88606de4287684ae858cc38ecdb9f1739abd458355e1",
+      "archiveBytes": 30518034,
+      "archiveEtag": "a35b7da57f14e4c9d6389a0542f0cc2c"
+    },
+    {
+      "packId": "full-ks2-shard-14",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-14-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 589,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "414aaf3a8359a38135cfb2e3b1dd6f9a41d0d012753609885932741261644c89",
+      "manifestBytes": 115159,
+      "manifestEtag": "3847945336deaaf855f8d2cad10f2561",
+      "archiveSha256": "4a91867758bc18cc8a1359a41b10ac9a56af4e5a5ba4d1822658a9f66a291f55",
+      "archiveBytes": 30198014,
+      "archiveEtag": "eaeb28c91d01f5382cf22fa0d0eddc70"
+    },
+    {
+      "packId": "full-ks2-shard-15",
+      "version": "1.0.0",
+      "requiredEntitlementId": "full-ks2",
+      "archiveName": "full-ks2-shard-15-1.0.0.zip",
+      "allowedExtensions": [
+        ".json",
+        ".m4a"
+      ],
+      "ceilings": {
+        "fileCount": 547,
+        "compressedBytes": 33554432,
+        "extractedBytes": 33554432
+      },
+      "manifestSha256": "2f2a5034c90688eb83d58db35418a8f42eb7cb8ec97cbdc2339ea3dea897dc77",
+      "manifestBytes": 106403,
+      "manifestEtag": "9bb893371082f9a70ad5c907ac687335",
+      "archiveSha256": "2a2ea513044d61976068cb87e7039349effab336d7334de2591a05b4aa4db6a3",
+      "archiveBytes": 27291512,
+      "archiveEtag": "0a3b982d288957d463999b6221324dd4"
+    }
+  ]
 }

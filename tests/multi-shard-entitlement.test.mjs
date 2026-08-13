@@ -254,7 +254,24 @@ test('the registry resolves N shard packs per entitlement and fails closed other
 
   // Fixture shards are registry-only: the config registry never resolves them.
   assert.throws(() => findPackAuthority('e2-shard-alpha'), /not registered/);
-  assert.deepEqual(PACK_REGISTRY.map((row) => row.packId), ['b3-sandbox-proof']);
+  assert.deepEqual(PACK_REGISTRY.map((row) => row.packId), [
+    'b3-sandbox-proof',
+    'full-ks2-shard-01',
+    'full-ks2-shard-02',
+    'full-ks2-shard-03',
+    'full-ks2-shard-04',
+    'full-ks2-shard-05',
+    'full-ks2-shard-06',
+    'full-ks2-shard-07',
+    'full-ks2-shard-08',
+    'full-ks2-shard-09',
+    'full-ks2-shard-10',
+    'full-ks2-shard-11',
+    'full-ks2-shard-12',
+    'full-ks2-shard-13',
+    'full-ks2-shard-14',
+    'full-ks2-shard-15',
+  ]);
 
   // A registered pack bound to a different entitlement never joins the product.
   assert.throws(() => resolvePackJobAuthorities({

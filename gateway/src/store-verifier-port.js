@@ -1,3 +1,4 @@
+import { listStoreProducts } from '../../src/domain/commerce/commerce-contracts.js';
 import {
   MAX_GATEWAY_BODY_BYTES,
   MAX_OPAQUE_PROOF_CHARS,
@@ -9,10 +10,18 @@ import {
 const VERIFY_KEYS = Object.freeze(['store', 'environment', 'productId', 'opaqueProof']);
 const HANDLE_KEYS = Object.freeze(['sealedRefreshHandle']);
 const APPLICATION_ID = 'uk.eugnel.ks2spelling';
-const PRODUCT_BY_STORE = Object.freeze({
-  apple: Object.freeze({ productId: 'uk.eugnel.ks2spelling.fullks2', entitlementId: 'full-ks2' }),
-  google: Object.freeze({ productId: 'full_ks2', entitlementId: 'full-ks2' }),
-});
+
+// The store product catalogue read through the domain contracts is the only
+// product/entitlement authority: the gateway accepts exactly the (store,
+// productId) pairs the app can sell, and nothing else.
+export function deriveStoreProductAuthorities(products) {
+  return Object.freeze({
+    apple: new Map(products.map((product) => [product.appleProductId, product.entitlementId])),
+    google: new Map(products.map((product) => [product.googleProductId, product.entitlementId])),
+  });
+}
+
+const PRODUCTS_BY_STORE = deriveStoreProductAuthorities(listStoreProducts());
 
 export class GatewayError extends Error {
   constructor(code, status, retryable) {
@@ -67,17 +76,24 @@ function assertString(value, { min = 1, max = MAX_GATEWAY_BODY_BYTES, pattern } 
   return value;
 }
 
-export function productAuthority(store) {
-  const authority = PRODUCT_BY_STORE[store];
-  if (!authority) throw safeGatewayError('REQUEST_INVALID');
-  return authority;
+export function approvedProductIds(store) {
+  const products = PRODUCTS_BY_STORE[store];
+  if (!products) throw safeGatewayError('REQUEST_INVALID');
+  return Object.freeze([...products.keys()]);
+}
+
+export function entitlementAuthority(store, productId) {
+  const products = PRODUCTS_BY_STORE[store];
+  if (!products) throw safeGatewayError('REQUEST_INVALID');
+  const entitlementId = products.get(productId);
+  if (entitlementId === undefined) throw safeGatewayError('PRODUCT_MISMATCH');
+  return entitlementId;
 }
 
 export function assertVerifyRequest(value) {
   assertClosedObject(value, VERIFY_KEYS);
   if (value.environment !== 'sandbox') throw safeGatewayError('REQUEST_INVALID');
-  const authority = productAuthority(value.store);
-  if (value.productId !== authority.productId) throw safeGatewayError('PRODUCT_MISMATCH');
+  entitlementAuthority(value.store, value.productId);
   return Object.freeze({
     store: value.store,
     environment: 'sandbox',
@@ -107,11 +123,11 @@ export function assertStoreResult(value, expected) {
   ];
   const optionalAcknowledged = Object.hasOwn(value ?? {}, 'acknowledged');
   assertClosedObject(value, optionalAcknowledged ? [...keys, 'acknowledged'] : keys);
-  const authority = productAuthority(value.store);
+  const entitlementId = entitlementAuthority(value.store, value.productId);
   if (
     value.store !== expected.store || value.productId !== expected.productId ||
     value.environment !== 'sandbox' || value.applicationId !== APPLICATION_ID ||
-    value.entitlementId !== authority.entitlementId
+    value.entitlementId !== entitlementId
   ) throw safeGatewayError('PRODUCT_MISMATCH');
   if (!['active', 'revoked', 'pending', 'cancelled'].includes(value.state)) {
     throw safeGatewayError('PROOF_REJECTED');

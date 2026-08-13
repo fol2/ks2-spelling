@@ -44,7 +44,19 @@ function observationEventKind(value) {
 }
 
 function isActiveCallbackJournal(journal) {
-  return journal.journalId === `purchase-${journal.store}-full-ks2-active-callback`;
+  let entitlementId;
+  try {
+    entitlementId = mapStoreProductToEntitlement({
+      store: journal.store,
+      productId: journal.productId,
+    });
+  } catch {
+    // A journal for a product the catalogue no longer names cannot be the
+    // active-callback journal; the flows that consume it still fail closed
+    // on their own catalogue mapping.
+    return false;
+  }
+  return journal.journalId === `purchase-${journal.store}-${entitlementId}-active-callback`;
 }
 
 function commerceError(code, message = code, options) {

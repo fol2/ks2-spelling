@@ -2,7 +2,10 @@ import { Capacitor } from '@capacitor/core';
 
 import gatewayAuthorityJson from '../../config/b3-gateway-authority.json' with { type: 'json' };
 import packKeyring from '../../config/pack-signing-public-keys.json' with { type: 'json' };
-import { assertB3GatewayAuthority } from '../domain/commerce/commerce-contracts.js';
+import {
+  assertB3GatewayAuthority,
+  findStoreProductByEntitlementId,
+} from '../domain/commerce/commerce-contracts.js';
 import {
   B3_PACK_JOB_AUTHORITY,
   FULL_KS2_PACK,
@@ -371,7 +374,7 @@ export async function createB3AppServices(options = {}) {
     const storeKind = runtime.platform === 'ios' ? 'apple' : 'google';
     const attemptRepository = createSqliteCommerceAttemptRepository(
       connection,
-      { store: storeKind },
+      { store: storeKind, entitlementId: FULL_KS2_PACK.entitlementId },
     );
     const purchaseCoordinator = createPurchaseCoordinator({
       entitlementId: FULL_KS2_PACK.entitlementId,
@@ -451,9 +454,10 @@ export async function createB3AppServices(options = {}) {
       syncFailed = true;
     }
     startupSequence.push('refresh-handles-refreshed');
+    const catalogueProduct = findStoreProductByEntitlementId(FULL_KS2_PACK.entitlementId);
     const productId = storeKind === 'apple'
-      ? 'uk.eugnel.ks2spelling.fullks2'
-      : 'full_ks2';
+      ? catalogueProduct.appleProductId
+      : catalogueProduct.googleProductId;
     const queryApprovedProduct = async () => {
       const products = await store.queryProducts({ productIds: [productId] });
       if (products.length !== 1 || products[0].productId !== productId) {

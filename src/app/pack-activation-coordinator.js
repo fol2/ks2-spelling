@@ -1,7 +1,19 @@
+import { findPackAuthority } from '../domain/packs/pack-registry.js';
+
 const IDENTITY = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u;
-const REQUIRED_ENTITLEMENT_ID = 'full-ks2';
 const FREE_STARTER_PACK_ID = 'ks2-core';
+
+// The pack registry is the only pack → entitlement authority for downloaded
+// packs; a pack the registry does not track has no required entitlement and
+// fails the manifest authority check below.
+function registryRequiredEntitlementId(packId) {
+  try {
+    return findPackAuthority(packId).requiredEntitlementId;
+  } catch {
+    return undefined;
+  }
+}
 
 function activationError(code) {
   return Object.assign(new Error(code), { code });
@@ -96,7 +108,7 @@ function requireVerifiedManifest(result, packId, version) {
       manifest.packId !== packId || manifest.version !== version ||
       (manifest.requiredEntitlementId === null
         ? manifest.packId !== FREE_STARTER_PACK_ID
-        : manifest.requiredEntitlementId !== REQUIRED_ENTITLEMENT_ID) ||
+        : manifest.requiredEntitlementId !== registryRequiredEntitlementId(packId)) ||
       !manifest.archive || typeof manifest.archive.name !== 'string' ||
       typeof manifest.archive.sha256 !== 'string' ||
       !Number.isSafeInteger(manifest.archive.bytes) || manifest.archive.bytes <= 0 ||

@@ -1,10 +1,11 @@
+import { findStoreProductByEntitlementId } from '../../domain/commerce/commerce-contracts.js';
 import { assertSqlConnection } from './sql-connection-contract.js';
 import { runOwnedTransaction } from './sqlite-transaction-runner.js';
 
 const IDENTIFIER = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const PRODUCT_BY_STORE = Object.freeze({
-  apple: 'uk.eugnel.ks2spelling.fullks2',
-  google: 'full_ks2',
+const PRODUCT_FIELD_BY_STORE = Object.freeze({
+  apple: 'appleProductId',
+  google: 'googleProductId',
 });
 
 function attemptError(code, message = code) {
@@ -96,12 +97,20 @@ async function readJournal(connection, journalId) {
 
 export function createSqliteCommerceAttemptRepository(connection, rawAuthority) {
   assertSqlConnection(connection);
-  const authority = requireExactRecord(rawAuthority, ['store'], 'Commerce attempt authority');
-  if (!Object.hasOwn(PRODUCT_BY_STORE, authority.store)) {
+  const authority = requireExactRecord(
+    rawAuthority,
+    ['store', 'entitlementId'],
+    'Commerce attempt authority',
+  );
+  if (!Object.hasOwn(PRODUCT_FIELD_BY_STORE, authority.store)) {
     throw new TypeError('Commerce attempt store is invalid.');
   }
   const store = authority.store;
-  const productId = PRODUCT_BY_STORE[store];
+  // The catalogue is the only product authority; an unapproved entitlement
+  // fails closed here before any row is written.
+  const product = findStoreProductByEntitlementId(authority.entitlementId);
+  const entitlementId = product.entitlementId;
+  const productId = product[PRODUCT_FIELD_BY_STORE[store]];
 
   // A pending row is a one-shot Parent authorisation to verify the next matching
   // native acquisition. It deliberately survives an ambiguous process loss after
@@ -129,11 +138,11 @@ export function createSqliteCommerceAttemptRepository(connection, rawAuthority) 
       }
       if (pendingRows.length === 1) return mapJournal(pendingRows[0]);
 
-      const stableJournalId = `purchase-${store}-full-ks2-acquisition`;
+      const stableJournalId = `purchase-${store}-${entitlementId}-acquisition`;
       const stable = await readJournal(connection, stableJournalId);
       const entitlementRows = await connection.query(
         'SELECT entitlement_id FROM app_entitlements WHERE entitlement_id = ?',
-        ['full-ks2'],
+        [entitlementId],
       );
       if (!Array.isArray(entitlementRows) || entitlementRows.length > 1) {
         throw attemptError('sqlite_commerce_row_invalid');

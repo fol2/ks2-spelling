@@ -116,6 +116,7 @@ async function withWorld(run) {
     const commerceRepository = createSqliteCommerceRepositories(connection);
     const attemptRepository = createSqliteCommerceAttemptRepository(connection, {
       store: 'google',
+      entitlementId: 'full-ks2',
     });
     const calls = [];
     const native = [];

@@ -269,3 +269,72 @@ test('Google refuses OAuth, purchase and acknowledgement redirects without follo
     assert.equal(calls.every(([, init]) => init.redirect === 'manual'), true);
   }
 });
+
+test('gateway product authority is derived from the store product catalogue', async () => {
+  const { approvedProductIds, deriveStoreProductAuthorities, entitlementAuthority } =
+    await import('../gateway/src/store-verifier-port.js');
+  const { readFile } = await import('node:fs/promises');
+  const catalogue = JSON.parse(
+    await readFile(new URL('../config/store-products.json', import.meta.url), 'utf8'),
+  );
+  for (const product of catalogue.products) {
+    assert.equal(entitlementAuthority('apple', product.appleProductId), product.entitlementId);
+    assert.equal(entitlementAuthority('google', product.googleProductId), product.entitlementId);
+  }
+  assert.deepEqual(
+    [...approvedProductIds('apple')],
+    catalogue.products.map((product) => product.appleProductId),
+  );
+  assert.deepEqual(
+    [...approvedProductIds('google')],
+    catalogue.products.map((product) => product.googleProductId),
+  );
+  assert.throws(() => approvedProductIds('amazon'), (error) => error.code === 'REQUEST_INVALID');
+  assert.throws(
+    () => entitlementAuthority('apple', 'uk.eugnel.ks2spelling.unknown'),
+    (error) => error.code === 'PRODUCT_MISMATCH' && error.retryable === false,
+  );
+  assert.throws(
+    () => entitlementAuthority('google', catalogue.products[0].appleProductId),
+    (error) => error.code === 'PRODUCT_MISMATCH' && error.retryable === false,
+  );
+
+  // A second catalogue product is honoured with no gateway source edits.
+  const derived = deriveStoreProductAuthorities([
+    ...catalogue.products,
+    {
+      entitlementId: 'year-3-4',
+      type: 'non-consumable',
+      appleProductId: 'uk.eugnel.ks2spelling.year34',
+      googleProductId: 'year_3_4',
+      packIds: ['year-3-4-pack'],
+    },
+  ]);
+  assert.equal(derived.apple.get('uk.eugnel.ks2spelling.year34'), 'year-3-4');
+  assert.equal(derived.google.get('year_3_4'), 'year-3-4');
+  assert.equal(derived.apple.get(catalogue.products[0].appleProductId), catalogue.products[0].entitlementId);
+  assert.equal(derived.apple.has('year_3_4'), false);
+  assert.equal(derived.google.has('uk.eugnel.ks2spelling.year34'), false);
+});
+
+test('gateway sources carry no hard-coded product or entitlement identifiers', async () => {
+  const { readdir, readFile } = await import('node:fs/promises');
+  const directory = new URL('../gateway/src/', import.meta.url);
+  const catalogue = JSON.parse(
+    await readFile(new URL('../config/store-products.json', import.meta.url), 'utf8'),
+  );
+  const names = (await readdir(directory)).filter((name) => name.endsWith('.js'));
+  assert.equal(names.length > 0, true);
+  for (const name of names) {
+    const source = await readFile(new URL(name, directory), 'utf8');
+    for (const product of catalogue.products) {
+      assert.doesNotMatch(
+        source,
+        new RegExp(product.appleProductId.replaceAll('.', '\\.')),
+        `${name} pins ${product.appleProductId}`,
+      );
+      assert.doesNotMatch(source, new RegExp(product.googleProductId), `${name} pins ${product.googleProductId}`);
+      assert.doesNotMatch(source, new RegExp(`'${product.entitlementId}'`), `${name} pins ${product.entitlementId}`);
+    }
+  }
+});

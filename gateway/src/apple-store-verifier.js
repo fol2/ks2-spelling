@@ -1,4 +1,4 @@
-import { safeGatewayError } from './store-verifier-port.js';
+import { entitlementAuthority, safeGatewayError } from './store-verifier-port.js';
 
 const APPLE_SANDBOX = 'Sandbox';
 // @apple/app-store-server-library 3.1.0 VerificationStatus.RETRYABLE_VERIFICATION_FAILURE.
@@ -98,7 +98,8 @@ export function createAppleStoreVerifier(rawOptions) {
   }
 
   async function liveVerify({ productId, opaqueProof }) {
-    if (productId !== 'uk.eugnel.ks2spelling.fullks2' || typeof opaqueProof !== 'string' || opaqueProof.length === 0) {
+    const entitlementId = entitlementAuthority('apple', productId);
+    if (typeof opaqueProof !== 'string' || opaqueProof.length === 0) {
       fail('PRODUCT_MISMATCH');
     }
     const { signedDataVerifier, apiClient } = await dependencies();
@@ -129,7 +130,7 @@ export function createAppleStoreVerifier(rawOptions) {
       productId,
       environment: 'sandbox',
       applicationId: options.applicationId,
-      entitlementId: 'full-ks2',
+      entitlementId,
       state: live.revocationDate === undefined || live.revocationDate === null ? 'active' : 'revoked',
       storeTransactionId: live.transactionId,
       opaqueProof,

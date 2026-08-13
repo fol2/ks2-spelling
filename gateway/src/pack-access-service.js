@@ -7,6 +7,7 @@ import { safeGatewayError } from './store-verifier-port.js';
 
 const AUTHORISE_KEYS = Object.freeze(['sealedRefreshHandle', 'packId', 'version']);
 const PACK_ID = packAuthorityDocument.packId;
+const REQUIRED_ENTITLEMENT_ID = packAuthorityDocument.requiredEntitlementId;
 const VERSION = packAuthorityDocument.version;
 const ARCHIVE_NAME = packAuthorityDocument.archiveName;
 const PUBLIC_ORIGIN = gatewayAuthorityDocument.publicSandboxOrigin;
@@ -175,7 +176,7 @@ export function createPackAccessService({ clock = Date.now } = {}) {
     },
 
     async authorise({ request, identity, env }) {
-      if (identity.state !== 'active' || identity.entitlementId !== 'full-ks2') {
+      if (identity.state !== 'active' || identity.entitlementId !== REQUIRED_ENTITLEMENT_ID) {
         throw safeGatewayError('ENTITLEMENT_REVOKED');
       }
       const { bucket, secret } = exactPackBinding(env);

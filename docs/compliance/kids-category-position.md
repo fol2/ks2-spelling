@@ -121,6 +121,38 @@ This is a position that can be argued with. It is recorded here with its
 reasoning so that, if challenged, the reasoning is on the record rather than
 reconstructed after the fact. See [Tripwire](#tripwire--what-would-change-this-position).
 
+### The paywall moment: child-facing celebration, gated transaction
+
+The owner has fixed *when* the paywall lands — after the starter vocabulary is
+secured, around the point one or two companions have hatched. The child is the
+one at the screen at that moment, which puts it directly under the sentence the
+Kids Category is built around:
+
+> These apps must not include links out of the app, **purchasing opportunities**,
+> or other distractions to kids unless reserved for a designated area behind a
+> parental gate.
+
+**Position:** the *moment* may be child-facing; the *paywall* may not.
+
+- The child may see the celebration, and a factual statement that more words
+  exist, and a route that says to ask a grown-up. That route is what a parental
+  gate is for.
+- The child may not see the price, a Buy button, an upgrade call to action, or a
+  StoreKit sheet. **£9.99 must never render on a child-facing surface.**
+- The signpost shows once, calmly, with a permanent quiet affordance in the
+  Parent area. A recurring upsell aimed at a child is pester-power engineering,
+  which ICO standard 1 (best interests of the child) reaches even though standard
+  13's nudge language is confined to data.
+
+Execution and the trigger's domain definition are
+[#163](https://github.com/fol2/ks2-spelling/issues/163).
+
+### Price
+
+**£9.99** for the `full-ks2` unlock — `uk.eugnel.ks2spelling.fullks2`,
+non-consumable, base territory United Kingdom, proceeds £7.06. Created in App
+Store Connect on 13 August 2026 (IAP `6801319684`).
+
 ### Privacy policy: rendered in-app, no link out
 
 Guideline 5.1.1(i) requires a privacy policy link "within the app in an easily
@@ -319,28 +351,48 @@ can edit becomes an alternative unlock mechanism, which guideline 3.1.1 prohibit
 by name. Either sign the backup or derive `grantedEntitlementIds` from
 `app_entitlements` at read time, before #135 lands.
 
-## Owner-only actions
+## App Store Connect
 
-These cannot be performed by an agent.
+**These are agent-executable.** An App Store Connect API key is already
+provisioned — key `NA8CPX2ZL2`, private key at
+`~/.appstoreconnect/private_keys/`, credentials recorded in
+`scripts/testflight-upload.sh:16`, driven by the `asc` CLI. The app record is
+`KS2 Spelling`, id `6798866142`, bundle `uk.eugnel.ks2spelling`. The owner has
+delegated these actions standing; they are listed here as a record of what was
+done and what remains, not as a checklist for a human.
 
-### Owner checklist: App Store Connect
+### Done, 13 August 2026
 
-1. **Made for Kids** — select, and choose age band **9–11**. One-way door.
-2. **Age rating questionnaire** — answer so the calculated rating is **4+**. Do
-   not accept 9+; the 4+ rating is what keeps the app visible to a device
-   restricted for a 7-year-old, which is what makes the 9–11 band's cost
-   acceptable.
-3. **App Privacy** — declare **Data Not Collected**. Only after the Gap 2 fix has
-   merged and the deployed Worker has been confirmed to have observability
-   disabled. Declaring it before that is inaccurate.
-4. **Privacy policy URL** — the metadata field is mandatory. URL decided at #139.
-5. **App Review Information** — because the IAP sits behind the parental gate,
+1. **Made for Kids, age band 9–11** — `kidsAgeBand: NINE_TO_ELEVEN` set and
+   verified on age rating declaration `518674b3-b3f6-4df4-bdb2-23b3744d86cd`.
+   Reversible until App Review approves a version; a one-way door after that.
+2. **Age rating** — no action was needed. Every content attribute already reads
+   `NONE`/`false` and `ageRatingOverride` is `NONE`, so the calculated rating is
+   **4+**. The rating is an output of the questionnaire, not a free choice; what
+   matters is that nothing in the answers pushes it to 9+, because restriction
+   filtering compares the **rating**, not the band — a 4+ app stays visible on a
+   device restricted for a 7-year-old, which is exactly what makes the 9–11
+   band's cost acceptable. If a future content change would raise it, that is a
+   reach decision, not a formality.
+3. **In-app purchase** — `uk.eugnel.ks2spelling.fullks2`, `NON_CONSUMABLE`,
+   reference name "Full KS2", IAP id `6801319684`, base territory GBR, **£9.99**,
+   proceeds £7.06. Verified against the price schedule after creation.
+
+### Remaining
+
+4. **App Privacy** — declare **Data Not Collected**. Blocked on Gap 2: the
+   declaration is only accurate once the deployed Worker has observability
+   disabled, so it must follow #158 and a confirmation of the live setting.
+5. **Privacy policy URL** — the metadata field is mandatory. URL decided at #139.
+6. **App Review Information** — because the IAP sits behind the parental gate,
    guideline 2.1(b) requires an explanation. State: how to reach the Parent area,
    how the gate is passed, that the privacy policy is rendered in-app rather than
    linked out and why, and that the entitlement gateway and pack origin are live.
-6. **Export compliance** — confirm the questionnaire personally, per the standing
-   decision recorded on [#94](https://github.com/fol2/ks2-spelling/issues/94)
-   ([#76](https://github.com/fol2/ks2-spelling/issues/76)).
+7. **Export compliance** — the standing decision on
+   [#94](https://github.com/fol2/ks2-spelling/issues/94) records the owner
+   confirming this personally ([#76](https://github.com/fol2/ks2-spelling/issues/76)).
+   That predates the API key; whether it stays a personal confirmation is the
+   owner's to say, since it is a declaration made in their name.
 
 ### Before submission, not in App Store Connect
 

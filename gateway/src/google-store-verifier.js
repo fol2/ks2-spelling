@@ -1,4 +1,4 @@
-import { safeGatewayError } from './store-verifier-port.js';
+import { entitlementAuthority, safeGatewayError } from './store-verifier-port.js';
 
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const API_ORIGIN = 'https://androidpublisher.googleapis.com';
@@ -136,7 +136,8 @@ export function createGoogleStoreVerifier(options) {
   }
 
   async function query(productId, opaqueProof) {
-    if (productId !== 'full_ks2' || typeof opaqueProof !== 'string' || opaqueProof.length === 0) fail('PRODUCT_MISMATCH');
+    entitlementAuthority('google', productId);
+    if (typeof opaqueProof !== 'string' || opaqueProof.length === 0) fail('PRODUCT_MISMATCH');
     const token = await accessToken();
     const url = `${API_ORIGIN}/androidpublisher/v3/applications/${encodeURIComponent(options.applicationId)}/purchases/productsv2/tokens/${encodeURIComponent(opaqueProof)}`;
     const response = await fetchImpl(url, {
@@ -151,7 +152,7 @@ export function createGoogleStoreVerifier(options) {
     const state = purchase.purchaseStateContext.purchaseState.toLowerCase();
     return Object.freeze({
       store: 'google', productId, environment: 'sandbox', applicationId: options.applicationId,
-      entitlementId: 'full-ks2',
+      entitlementId: entitlementAuthority('google', productId),
       state: state === 'purchased' ? 'active' : state === 'cancelled' ? 'revoked' : state,
       storeTransactionId: purchase.orderId ?? null, opaqueProof, ...extra,
     });

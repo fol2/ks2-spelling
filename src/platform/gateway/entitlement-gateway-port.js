@@ -1,3 +1,4 @@
+import { mapStoreProductToEntitlement } from '../../domain/commerce/commerce-contracts.js';
 import {
   assertClosedArray,
   assertClosedRecord,
@@ -60,6 +61,16 @@ const SHA256 = /^[0-9a-f]{64}$/;
 const PACK_ID = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const VERSION = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.-]+)?$/;
 
+// The store product catalogue is the only (store, productId) → entitlement
+// authority; anything the catalogue does not name fails closed.
+function catalogueEntitlement(store, productId) {
+  try {
+    return mapStoreProductToEntitlement({ store, productId });
+  } catch {
+    fail('Gateway product identity');
+  }
+}
+
 export function validateVerifyRequest(value) {
   assertClosedRecord(
     value,
@@ -69,12 +80,7 @@ export function validateVerifyRequest(value) {
   if (value.store !== 'apple' && value.store !== 'google') fail('Gateway store');
   if (value.environment !== 'sandbox') fail('Gateway environment');
   const productId = assertApprovedProductId(value.productId);
-  if (
-    (value.store === 'apple' && productId !== 'uk.eugnel.ks2spelling.fullks2') ||
-    (value.store === 'google' && productId !== 'full_ks2')
-  ) {
-    fail('Gateway product identity');
-  }
+  catalogueEntitlement(value.store, productId);
   return Object.freeze({
     store: value.store,
     environment: value.environment,
@@ -129,14 +135,10 @@ function validateIdentityFields(value, keys = IDENTITY_KEYS) {
   if (value.store !== 'apple' && value.store !== 'google') fail('Gateway response store');
   if (value.environment !== 'sandbox') fail('Gateway response environment');
   if (value.applicationId !== 'uk.eugnel.ks2spelling') fail('Gateway application identity');
-  if (value.entitlementId !== 'full-ks2') fail('Gateway entitlement identity');
   if (value.state !== 'active' && value.state !== 'revoked') fail('Gateway entitlement state');
   const productId = assertProductId(value.productId);
-  if (
-    (value.store === 'apple' && productId !== 'uk.eugnel.ks2spelling.fullks2') ||
-    (value.store === 'google' && productId !== 'full_ks2')
-  ) {
-    fail('Gateway product identity');
+  if (value.entitlementId !== catalogueEntitlement(value.store, productId)) {
+    fail('Gateway entitlement identity');
   }
   const output = {
     store: value.store,

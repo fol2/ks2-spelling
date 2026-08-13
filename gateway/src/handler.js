@@ -10,12 +10,12 @@ import {
 } from './refresh-handle.js';
 import {
   applicationAuthority,
+  approvedProductIds,
   assertExactStoreVerifier,
   assertHandleRequest,
   assertStoreResult,
   assertVerifyRequest,
   GatewayError,
-  productAuthority,
   safeGatewayError,
 } from './store-verifier-port.js';
 import {
@@ -172,18 +172,23 @@ async function readJson(request) {
   }
 }
 
-function contextFor(store) {
-  return Object.freeze({
-    store,
-    productId: productAuthority(store).productId,
-    environment: 'sandbox',
-    applicationId: applicationAuthority(),
-  });
+function* handleContexts() {
+  for (const store of ['apple', 'google']) {
+    for (const productId of approvedProductIds(store)) {
+      yield Object.freeze({
+        store,
+        productId,
+        environment: 'sandbox',
+        applicationId: applicationAuthority(),
+      });
+    }
+  }
 }
 
+// The refresh-handle AAD binds (store, productId), so an opaque handle is
+// opened by trying every catalogue context until one authenticates.
 async function openOpaqueHandle(handle, keyring) {
-  for (const store of ['apple', 'google']) {
-    const context = contextFor(store);
+  for (const context of handleContexts()) {
     try {
       return Object.freeze({ context, payload: await openRefreshHandle(handle, context, { keyring }) });
     } catch (error) {

@@ -1,6 +1,9 @@
 import gatewayAuthorityJson from '../../config/b3-gateway-authority.json' with { type: 'json' };
 import packKeyring from '../../config/pack-signing-public-keys.json' with { type: 'json' };
-import { assertB3GatewayAuthority } from '../domain/commerce/commerce-contracts.js';
+import {
+  assertB3GatewayAuthority,
+  findStoreProductByEntitlementId,
+} from '../domain/commerce/commerce-contracts.js';
 import {
   FULL_KS2_PACK,
 } from '../domain/commerce/purchase-state.js';
@@ -171,6 +174,7 @@ export function createProductCommerceWorkflow(options = {}) {
   const attemptRepository = createDatabaseGatedRepository(
     createSqliteCommerceAttemptRepository(connection, {
       store: runtime.platform === 'ios' ? 'apple' : 'google',
+      entitlementId: FULL_KS2_PACK.entitlementId,
     }),
     commandGate,
   );
@@ -249,9 +253,10 @@ export function createProductCommerceWorkflow(options = {}) {
     }),
   });
 
+  const catalogueProduct = findStoreProductByEntitlementId(FULL_KS2_PACK.entitlementId);
   const productId = runtime.platform === 'ios'
-    ? 'uk.eugnel.ks2spelling.fullks2'
-    : 'full_ks2';
+    ? catalogueProduct.appleProductId
+    : catalogueProduct.googleProductId;
   let product = null;
   let started = false;
   let disposed = false;

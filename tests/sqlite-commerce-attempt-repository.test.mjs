@@ -44,7 +44,7 @@ function assertJournal(value, expected) {
 
 test('commerce attempt repository has an exact two-method async surface and fixed platform authority', async () => {
   await withDatabase(async (connection) => {
-    const repository = createSqliteCommerceAttemptRepository(connection, { store: 'google' });
+    const repository = createSqliteCommerceAttemptRepository(connection, { store: 'google', entitlementId: 'full-ks2' });
     assert.equal(Object.getPrototypeOf(repository), Object.prototype);
     assert.equal(Object.isFrozen(repository), true);
     assert.deepEqual(Reflect.ownKeys(repository), [
@@ -59,7 +59,11 @@ test('commerce attempt repository has an exact two-method async surface and fixe
       TypeError,
     );
     assert.throws(
-      () => createSqliteCommerceAttemptRepository(connection, { store: 'unknown' }),
+      () => createSqliteCommerceAttemptRepository(connection, { store: 'unknown', entitlementId: 'full-ks2' }),
+      TypeError,
+    );
+    assert.throws(
+      () => createSqliteCommerceAttemptRepository(connection, { store: 'google', entitlementId: 'not-a-product' }),
       TypeError,
     );
   });
@@ -67,7 +71,7 @@ test('commerce attempt repository has an exact two-method async surface and fixe
 
 test('prepare and discard use one proof-free platform-mapped pending row', async () => {
   await withDatabase(async (connection) => {
-    const repository = createSqliteCommerceAttemptRepository(connection, { store: 'google' });
+    const repository = createSqliteCommerceAttemptRepository(connection, { store: 'google', entitlementId: 'full-ks2' });
     const prepared = await repository.preparePendingAttempt({
       journalId: 'explicit-attempt-one',
       observedAt: 1_768_478_400_000,
@@ -103,7 +107,7 @@ test('prepare and discard use one proof-free platform-mapped pending row', async
 
 test('attempt input is closed and foreign or progressed rows cannot be reused or discarded', async () => {
   await withDatabase(async (connection) => {
-    const attempts = createSqliteCommerceAttemptRepository(connection, { store: 'google' });
+    const attempts = createSqliteCommerceAttemptRepository(connection, { store: 'google', entitlementId: 'full-ks2' });
     const commerce = createSqliteCommerceRepositories(connection);
     await commerce.observeTransaction({
       journalId: 'foreign-attempt',
@@ -157,7 +161,7 @@ test('attempt input is closed and foreign or progressed rows cannot be reused or
 
 test('concurrent prepare and discard operations serialise without duplicate or foreign deletion', async () => {
   await withDatabase(async (connection) => {
-    const attempts = createSqliteCommerceAttemptRepository(connection, { store: 'google' });
+    const attempts = createSqliteCommerceAttemptRepository(connection, { store: 'google', entitlementId: 'full-ks2' });
     const [first, second] = await Promise.all([
       attempts.preparePendingAttempt({ journalId: 'concurrent-attempt', observedAt: 10_000 }),
       attempts.preparePendingAttempt({ journalId: 'concurrent-attempt', observedAt: 10_000 }),

@@ -2610,6 +2610,7 @@ function RoundScreen({
   onSkip,
   onEnd,
   onPlaybackFailure,
+  entitlementState,
 }) {
   const [answer, setAnswer] = useState('');
   const [localError, setLocalError] = useState('');
@@ -2665,8 +2666,16 @@ function RoundScreen({
     } catch (error) {
       if (error?.name === 'NotAllowedError') {
         setLocalError('Tap Hear it again to listen.');
+      // A revoked purchase removed the shards, so telling that family to check
+      // the listening pack is advice they cannot act on. The branch below is
+      // asserted by tests/product-audio-policy-refusal.test.mjs as source text,
+      // so a comment inside it breaks that match — it lives out here instead.
       } else {
-        setLocalError('Audio needs attention. Check the listening pack and try again.');
+        if (entitlementState === 'revoked') {
+          setLocalError('The full word list needs the purchase to be restored.');
+        } else {
+          setLocalError('Audio needs attention. Check the listening pack and try again.');
+        }
         onPlaybackFailure();
       }
     } finally {
@@ -3451,6 +3460,7 @@ export default function ProductApp({ services }) {
         onEnd={() => services.learning.endRound()}
         onPlaybackFailure={() =>
           services.audioAvailability.reportPlaybackFailure()}
+        entitlementState={parentCommerceState.entitlementState}
       />
     );
   }

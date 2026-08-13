@@ -346,6 +346,74 @@ test('alignment refuses a caller that does not state the entitlement or supply a
   );
 });
 
+test('alignment preserves learning progress on an entitled device with full-catalogue aggregate and no marker', async (t) => {
+  let timestamp = 100;
+  const { connection, store } = await createHarness(t, { now: () => timestamp });
+  await store.profiles.writeProfile(profile('learner-a'));
+  
+  // Set up an entitled device (simulating a TestFlight user who purchased)
+  // with a full-catalogue aggregate and real learning progress, but no marker yet
+  await connection.execute(
+    'UPDATE spelling_aggregates SET catalogue_id = ?, revision = ?, granted_entitlement_ids_json = ?, updated_at = ? WHERE learner_id = ?',
+    ['ks2-core:full', 5, '["full-ks2"]', 150, 'learner-a'],
+  );
+  
+  // Add real learning progress
+  await connection.execute(
+    'INSERT INTO spelling_practice_sessions (learner_id, session_id, status, state_json) VALUES (?, ?, ?, ?)',
+    ['learner-a', 'session-progress', 'active', '{"progress":"learner_made_real_progress"}'],
+  );
+  await connection.execute(
+    'INSERT INTO spelling_events (learner_id, event_id, sequence_no, created_at, event_json) VALUES (?, ?, ?, ?, ?)',
+    ['learner-a', 'event-progress', 0, 123, '{"learned":"words"}'],
+  );
+  
+  // Verify progress exists before alignment
+  const sessionsBefore = await connection.query(
+    'SELECT COUNT(*) as count FROM spelling_practice_sessions WHERE learner_id = ?',
+    ['learner-a'],
+  );
+  assert.equal(sessionsBefore[0].count, 1);
+  
+  // Align as entitled (should NOT wipe progress)
+  timestamp = 200;
+  const result = await store.administration.alignCatalogueLearning({
+    entitled: true,
+    canRepresent: async () => true,
+  });
+  
+  // Verify catalogue remains full and progress is preserved
+  assert.equal(result, 'ks2-core:full');
+  const aggregate = await connection.query(
+    'SELECT catalogue_id, granted_entitlement_ids_json, revision FROM spelling_aggregates WHERE learner_id = ?',
+    ['learner-a'],
+  );
+  assert.equal(aggregate[0].catalogue_id, 'ks2-core:full');
+  assert.equal(aggregate[0].granted_entitlement_ids_json, '["full-ks2"]');
+  assert.equal(aggregate[0].revision, 5);
+  
+  // The critical assertion: learning progress must survive
+  const sessionsAfter = await connection.query(
+    'SELECT state_json FROM spelling_practice_sessions WHERE learner_id = ?',
+    ['learner-a'],
+  );
+  assert.equal(sessionsAfter.length, 1);
+  assert.deepEqual(
+    JSON.parse(sessionsAfter[0].state_json),
+    { progress: 'learner_made_real_progress' },
+  );
+  
+  const events = await connection.query(
+    'SELECT event_json FROM spelling_events WHERE learner_id = ?',
+    ['learner-a'],
+  );
+  assert.equal(events.length, 1);
+  assert.deepEqual(
+    JSON.parse(events[0].event_json),
+    { learned: 'words' },
+  );
+});
+
 test('resetting learning is atomic, learner-scoped and preserves the profile', async (t) => {
   let timestamp = 100;
   const { connection, store } = await createHarness(t, { now: () => timestamp });

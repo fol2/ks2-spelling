@@ -49,8 +49,7 @@ import org.json.JSONObject;
 @CapacitorPlugin(name = "PackTransfer")
 public final class PackTransferPlugin extends Plugin {
     private static final int MAX_RANGE_BYTES = 1_048_576;
-    private static final String PACK_ENVIRONMENT =
-        BuildConfig.B3_SANDBOX_PROOF ? "sandbox" : "production";
+    private static final String PACK_ENVIRONMENT = BuildConfig.KS2_RELEASE_CHANNEL;
     private static final Pattern SAFE_ID = Pattern.compile("^[a-z0-9][a-z0-9._-]{0,63}$");
     private static final Pattern ARCHIVE_NAME = Pattern.compile("^[a-z0-9][a-z0-9._-]{0,119}\\.zip$");
     private static final Pattern SHA256 = Pattern.compile("^[0-9a-f]{64}$");

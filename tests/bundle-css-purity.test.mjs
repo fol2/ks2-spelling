@@ -43,6 +43,6 @@ test('production vite alias resolves @ks2/app-root to ProductRoot.jsx', async ()
   const config = await read('vite.config.js');
   assert.match(
     config,
-    /'@ks2\/app-root':\s*resolve\(\s*ROOT,\s*mode === 'production'\s*\?\s*'src\/app\/ProductRoot\.jsx'\s*:\s*'src\/app\/App\.jsx'\s*,?\s*\)/s,
+    /'@ks2\/app-root':\s*resolve\(\s*ROOT,\s*isProductReleaseChannel\(mode\)\s*\?\s*'src\/app\/ProductRoot\.jsx'\s*:\s*'src\/app\/App\.jsx'\s*,?\s*\)/s,
   );
 });

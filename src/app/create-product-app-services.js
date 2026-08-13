@@ -342,6 +342,7 @@ export async function createProductAppServices(options = {}) {
             packRepository: createSqlitePackRepositories(connection),
             packTransfer: options.packTransfer ??
               createCapacitorPackTransfer({ PackTransfer: PackTransferPlugin }),
+            packTrustEnvironment: options.packTrustEnvironment ?? 'sandbox',
             clock: now,
           })
         : createUnavailableProductCommerceWorkflow());

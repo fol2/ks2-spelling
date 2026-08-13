@@ -62,11 +62,8 @@ test('native pack inspection keeps per-manifest ceilings inside the reviewed pro
     /ENTITLEMENT_IDENTITY\.matcher\(\(String\) requiredEntitlementId\)\.matches\(\)/,
   );
   assert.doesNotMatch(androidPlugin, /"full-ks2"/);
-  assert.match(iosPlugin, /#if B3_SANDBOX_PROOF[\s\S]*"sandbox"[\s\S]*"production"/);
-  assert.match(
-    androidPlugin,
-    /BuildConfig\.B3_SANDBOX_PROOF\s*\?\s*"sandbox"\s*:\s*"production"/,
-  );
+  assert.match(iosPlugin, /KS2ReleaseChannel[\s\S]*"sandbox", "production"/);
+  assert.match(androidPlugin, /BuildConfig\.KS2_RELEASE_CHANNEL/);
   assert.match(iosPlugin, /allowedEnvironments\.contains\(Self\.packEnvironment\)/);
   assert.match(androidPlugin, /allowedEnvironments[\s\S]*contains\(PACK_ENVIRONMENT\)/);
 

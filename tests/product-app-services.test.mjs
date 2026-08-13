@@ -7,6 +7,7 @@ import test from 'node:test';
 
 import { aggregatePackStates } from '../src/app/create-product-commerce-workflow.js';
 import { createProductAppServices } from '../src/app/create-product-app-services.js';
+import { createUnavailableProductCommerceWorkflow } from '../src/app/unavailable-product-commerce-workflow.js';
 import { isFullProductEntitled } from '../src/app/entitled-audio-switch.js';
 import {
   loadFullSpellingCatalogue,
@@ -945,4 +946,34 @@ test('importing full-catalogue learning onto a device that is not entitled keeps
   t.after(() => reopened.dispose());
   assert.equal(reopened.catalogueId, 'ks2-core:full');
   assert.equal(reopened.learning.getState().learnerId, learnerId);
+});
+
+test('a store bridge whose start never settles cannot stop the app opening: composition falls through to Starter', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-commerce-hang-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  let startCalls = 0;
+  let released = () => {};
+  // Never settles while composition runs — the pathological Capacitor bridge.
+  // Released in t.after so the pending promise cannot outlive the test.
+  const hangingWorkflow = Object.freeze({
+    ...createUnavailableProductCommerceWorkflow(),
+    async start() {
+      startCalls += 1;
+      await new Promise((resolve) => { released = resolve; });
+    },
+  });
+  t.after(() => released());
+
+  const services = await createProductAppServices(compositionOptions({
+    databasePath: join(directory, 'hang.sqlite'),
+    commerceWorkflow: hangingWorkflow,
+    commerceStartTimeoutMs: 25,
+  }));
+  t.after(() => services.dispose());
+
+  // Composition completed at all: without the bound this await never returns.
+  assert.equal(startCalls, 1);
+  // And it completed on the safe side of the switch, not merely completed.
+  assert.equal(services.catalogueId, 'ks2-core:starter');
+  assert.equal(services.parentCommerce.getState().entitlementState, 'none');
 });

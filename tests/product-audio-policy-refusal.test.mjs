@@ -25,6 +25,29 @@ test('autoplay policy refusal does not mark the listening pack corrupt', async (
   );
   assert.match(
     catchBlock,
-    /\} else \{\s*setLocalError\('Audio needs attention\. Check the listening pack and try again\.'\);\s*onPlaybackFailure\(\);\s*\}\s*$/u,
+    /\} else \{\s*if \(entitlementState === 'revoked'\) \{\s*setLocalError\('The full word list needs the purchase to be restored\.'\);\s*\} else \{\s*setLocalError\('Audio needs attention\. Check the listening pack and try again\.'\);\s*\}\s*onPlaybackFailure\(\);\s*\}\s*$/u,
+  );
+});
+
+test('revoked learners see purchase restoration message instead of pack check message', async () => {
+  const productApp = await readFile(join(root, 'src/app/ProductApp.jsx'), 'utf8');
+  const catchBlock = roundPlayCatch(productApp);
+
+  // Verify the error block contains both the revoked message and the standard pack message
+  assert.match(
+    catchBlock,
+    /if \(entitlementState === 'revoked'\)/u,
+    'must check entitlementState for revoked condition',
+  );
+  assert.match(
+    catchBlock,
+    /The full word list needs the purchase to be restored\./u,
+    'must show purchase restoration message for revoked learners',
+  );
+  // Verify the pack message is in the else clause (for non-revoked failures)
+  assert.match(
+    catchBlock,
+    /\} else \{\s*setLocalError\('Audio needs attention\. Check the listening pack and try again\.'\)/u,
+    'must show pack message for non-revoked audio failures',
   );
 });

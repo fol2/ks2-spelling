@@ -108,6 +108,26 @@ import { createSwitchableSqlConnection } from './switchable-sql-connection.js';
 // the vendored catalogue to it so the two can never drift apart silently.
 const FULL_ENTITLEMENT_ID = 'full-ks2';
 
+// The gateway bounds its own calls, but nothing bounds the Capacitor store
+// bridge — and this await sits on the startup path, so a bridge that never
+// settles would stop the app opening rather than merely leaving commerce
+// unavailable. When the bound wins, the un-started snapshot reads
+// none/missing, which composes Starter: the same safe state as a device that
+// never bought, and one the Parent card already has copy for.
+const COMMERCE_START_TIMEOUT_MS = 8_000;
+
+async function settleWithin(promise, milliseconds) {
+  let timer = null;
+  try {
+    await Promise.race([
+      promise,
+      new Promise((resolve) => { timer = setTimeout(resolve, milliseconds); }),
+    ]);
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+  }
+}
+
 /**
  * Whether a learner's stored aggregate can be re-tagged to `catalogue` without
  * losing anything. The catalogue contract is the oracle rather than a
@@ -340,7 +360,12 @@ export async function createProductAppServices(options = {}) {
     // device still reads 'active'/'installed' and keeps its full catalogue.
     // The cost is that a shard install finishing mid-session is not picked up
     // until relaunch — the Parent card says so.
-    await parentCommerce.start().catch(() => undefined);
+    // The catch is attached before the race, so a bridge that rejects after the
+    // bound has already won cannot surface as an unhandled rejection.
+    await settleWithin(
+      parentCommerce.start().catch(() => undefined),
+      options.commerceStartTimeoutMs ?? COMMERCE_START_TIMEOUT_MS,
+    );
     const alignCatalogueLearning = (store) =>
       store.administration.alignCatalogueLearning({
         entitled: isFullProductEntitled(parentCommerce.getState()),

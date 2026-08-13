@@ -109,11 +109,16 @@ On a device signed into a **sandbox** store account:
    that had earned full-catalogue learning keeps it rather than resetting to
    Starter, so the app still composes the full 213-word catalogue and every
    stage and due date survives. **Expected and deliberate:** in this state
-   the non-Starter words are visible but silent — the entitlement gates the
-   audio, and the alternative was deleting a refunded family's history. Note
-   what the card says and whether the family has an obvious route back
-   ("Restore purchases"). Then re-purchase or restore and confirm the same
-   learning is in front of the child with audio working again.
+   the non-Starter words are visible but the entitlement gates the audio. When
+   the child taps Hear it again on a non-Starter word, an error banner appears
+   saying "The full word list needs the purchase to be restored." This honest
+   message replaces the generic "Check the listening pack" copy shown for other
+   audio failures, directing the family to restore the purchase rather than
+   debugging pack issues they cannot act on. The alternative was deleting a
+   refunded family's history. Note what the card says and whether the family
+   has an obvious route back ("Restore purchases"). Then re-purchase or restore
+   and confirm the same learning is in front of the child with audio working
+   again.
    For comparison, a device revoked *before* the child practised any
    non-Starter word goes cleanly back to the 20 Starter words with its
    Starter progress intact — that downgrade is lossless, so it is taken.

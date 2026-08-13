@@ -82,6 +82,7 @@ function reconcileHarness({
   return {
     events,
     dependencies: {
+      entitlementId: 'full-ks2',
       packTransfer,
       packRepository,
       activeEntitlementProjection: async () => projectActiveEntitlements(entitled ? [{

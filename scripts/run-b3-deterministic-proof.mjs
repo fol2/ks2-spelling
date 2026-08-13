@@ -654,6 +654,7 @@ async function runActivationScenario(scenario) {
       },
     };
     const result = await createPackReconciler({
+      entitlementId: 'full-ks2',
       packTransfer: transfer,
       packRepository: repository,
       activeEntitlementProjection: async () => readonlyEntitlementSet('full-ks2'),
@@ -720,10 +721,10 @@ export async function buildB3DeterministicProof({
   if (!traceIdValid || !traceIdsUnique) {
     throw proofError('b3_trace_id_invalid', 'Deterministic trace ID proof failed');
   }
-  const [appSource, purchaseStateSource, repositorySource, manifest, archiveAuthority,
+  const [appSource, storeProductSource, repositorySource, manifest, archiveAuthority,
     syntheticAuthorityBytes, storeKitTranscript] = await Promise.all([
     readFile(resolve(root, 'src/app/App.jsx'), 'utf8'),
-    readFile(resolve(root, 'src/domain/commerce/purchase-state.js'), 'utf8'),
+    readFile(resolve(root, 'config/store-products.json'), 'utf8'),
     readFile(resolve(root, 'src/platform/database/sqlite-commerce-repositories.js'), 'utf8'),
     readFile(resolve(root, 'tests/fixtures/b3-signed-manifest.json')),
     readFile(resolve(root, 'config/b3-pack-object-authority.json')),
@@ -734,8 +735,8 @@ export async function buildB3DeterministicProof({
     parentOnlyDiagnostic: /Parent-only diagnostic/.test(appSource),
     childSalesCopy: /(?:Buy|purchase|price).*(?:child|monster|camp)/iu.test(appSource),
     safeStoreIdsOnly: executionEvidence.safeStoreIdsOnly &&
-      purchaseStateSource.includes('uk.eugnel.ks2spelling.fullks2') &&
-      purchaseStateSource.includes('full_ks2'),
+      storeProductSource.includes('uk.eugnel.ks2spelling.fullks2') &&
+      storeProductSource.includes('full_ks2'),
     sealedHandlesOnly: executionEvidence.sealedHandlesOnly &&
       repositorySource.includes('sealed_refresh_handle') &&
       !repositorySource.includes('capability_url'),

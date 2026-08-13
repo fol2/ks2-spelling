@@ -1,6 +1,6 @@
+import { resolveCommerceProduct } from '../domain/commerce/purchase-state.js';
+
 const IDENTITY = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
-const ENTITLEMENT_ID = 'full-ks2';
-const PACK_ID = 'b3-sandbox-proof';
 
 function reconciliationError(code) {
   return Object.assign(new Error(code), { code });
@@ -28,7 +28,9 @@ function requireIdentity(value, label) {
 }
 
 function validateDependencies(value) {
-  const keys = ['packTransfer', 'packRepository', 'activeEntitlementProjection', 'clock'];
+  const keys = [
+    'entitlementId', 'packTransfer', 'packRepository', 'activeEntitlementProjection', 'clock',
+  ];
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Object.prototype ||
       Reflect.ownKeys(value).length !== keys.length ||
@@ -77,8 +79,11 @@ function requireReadonlyEntitlementSet(value) {
 
 export function createPackReconciler(rawDependencies) {
   const {
-    packTransfer, packRepository, activeEntitlementProjection, clock,
+    entitlementId, packTransfer, packRepository, activeEntitlementProjection, clock,
   } = validateDependencies(rawDependencies);
+  // One reconciler per entitlement; the catalogue names which packs that entitlement owns.
+  const { entitlementId: ENTITLEMENT_ID, packIds: PACK_IDS } =
+    resolveCommerceProduct(entitlementId);
   let tail = Promise.resolve();
   let lastTimestamp = -1;
 
@@ -142,8 +147,8 @@ export function createPackReconciler(rawDependencies) {
       requireReadonlyEntitlementSet(entitlements);
       let accessLocked = !entitlements.has(ENTITLEMENT_ID);
       if (
-        inventory.some((record) => record.packId !== PACK_ID) ||
-        jobs.some((job) => job.packId !== PACK_ID)
+        inventory.some((record) => !PACK_IDS.includes(record.packId)) ||
+        jobs.some((job) => !PACK_IDS.includes(job.packId))
       ) {
         throw reconciliationError('PACK_RECONCILIATION_PACK_AUTHORITY_MISMATCH');
       }
@@ -161,7 +166,7 @@ export function createPackReconciler(rawDependencies) {
       const removedTemporary = [];
       const readiness = [];
 
-      for (const packId of [PACK_ID]) {
+      for (const packId of PACK_IDS) {
         let installedRows = await packRepository.listInstalledVersions({ packId });
         let active = await packRepository.getActiveVersion({ packId });
         absorbTimestampFloor(
@@ -294,7 +299,7 @@ export function createPackReconciler(rawDependencies) {
     if (arguments.length !== 1) throw new TypeError('retireOldVersions requires one input.');
     const value = exactRecord(input, ['packId', 'keepVersions'], 'Pack retirement input');
     const packId = requireIdentity(value.packId, 'Pack identifier');
-    if (packId !== PACK_ID) {
+    if (!PACK_IDS.includes(packId)) {
       throw reconciliationError('PACK_RECONCILIATION_PACK_AUTHORITY_MISMATCH');
     }
     if (!Number.isSafeInteger(value.keepVersions) || value.keepVersions !== 2) {
@@ -306,24 +311,30 @@ export function createPackReconciler(rawDependencies) {
         packRepository.listInstalledVersions({ packId }),
         packRepository.getActiveVersion({ packId }),
       ]);
+      // Installed rows and the active row are already scoped to the requested pack, so
+      // native inventory must be scoped too before the two are compared version by version.
+      const nativeForPack = inventory.filter((native) => native.packId === packId);
       const identities = new Set();
-      const authorityInvalid = inventory.some((native) => {
-        const identity = `${native.packId}\u0000${native.version}`;
-        if (identities.has(identity)) return true;
-        identities.add(identity);
-        const row = installed.find((candidate) => candidate.version === native.version);
-        return native.packId !== PACK_ID || !row || !sameAuthority(native, row);
-      }) || installed.some((row) =>
-        row.packId !== PACK_ID ||
-        (row.state === 'ready' && !inventory.some((native) => sameAuthority(native, row)))) ||
-        !active || active.packId !== PACK_ID;
+      const authorityInvalid =
+        inventory.some((native) => !PACK_IDS.includes(native.packId)) ||
+        nativeForPack.some((native) => {
+          const identity = `${native.packId}\u0000${native.version}`;
+          if (identities.has(identity)) return true;
+          identities.add(identity);
+          const row = installed.find((candidate) => candidate.version === native.version);
+          return !row || !sameAuthority(native, row);
+        }) || installed.some((row) =>
+          row.packId !== packId ||
+          (row.state === 'ready' &&
+            !nativeForPack.some((native) => sameAuthority(native, row)))) ||
+        !active || active.packId !== packId;
       const activeInstalled = active && installed.find((row) =>
         row.version === active.version && row.state === 'ready' &&
         row.manifestSha256 === active.manifestSha256 && row.pathToken === active.pathToken);
       if (
         authorityInvalid ||
         !activeInstalled ||
-        !inventory.some((native) => sameAuthority(native, activeInstalled))
+        !nativeForPack.some((native) => sameAuthority(native, activeInstalled))
       ) {
         throw reconciliationError('PACK_RECONCILIATION_RETIREMENT_AUTHORITY_MISMATCH');
       }

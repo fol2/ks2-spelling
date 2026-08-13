@@ -1,26 +1,17 @@
 import packObjectAuthority from '../../../config/b3-pack-object-authority.json' with { type: 'json' };
 
-import { mapStoreProductToEntitlement } from './commerce-contracts.js';
-
-export const FULL_KS2_PRODUCT_IDS = Object.freeze([
-  'uk.eugnel.ks2spelling.fullks2',
-  'full_ks2',
-]);
-
-export const FULL_KS2_PACK = Object.freeze({
-  entitlementId: 'full-ks2',
-  packId: 'b3-sandbox-proof',
-  version: '1.0.0-b3.1',
-  jobId: 'b3-sandbox-proof.1.0.0-b3.1',
-});
+import {
+  findStoreProductByEntitlementId,
+  mapStoreProductToEntitlement,
+} from './commerce-contracts.js';
 
 function readPackObjectAuthority(value) {
   const archive = value?.objects?.find?.((entry) => entry?.role === 'archive');
   const manifest = value?.objects?.find?.((entry) => entry?.role === 'signed-manifest');
   const valid =
     value?.schemaVersion === 1 &&
-    value?.packId === FULL_KS2_PACK.packId &&
-    value?.version === FULL_KS2_PACK.version &&
+    value?.packId === 'b3-sandbox-proof' &&
+    value?.version === '1.0.0-b3.1' &&
     Array.isArray(value?.objects) &&
     value.objects.length === 2 &&
     archive &&
@@ -50,6 +41,33 @@ function readPackObjectAuthority(value) {
 }
 
 export const B3_PACK_JOB_AUTHORITY = readPackObjectAuthority(packObjectAuthority);
+
+// The catalogue is the only place an entitlement's store products and packs are named.
+// Coordinators bind to one entitlementId and read everything else from here.
+export function resolveCommerceProduct(entitlementId) {
+  const product = findStoreProductByEntitlementId(entitlementId);
+  return Object.freeze({
+    entitlementId: product.entitlementId,
+    productIds: Object.freeze([product.appleProductId, product.googleProductId]),
+    packIds: product.packIds,
+  });
+}
+
+// ponytail: one tracked pack per entitlement is all the download/activation path
+// implements; E2.2 grows this to the N shard packs the owner decision calls for.
+export function resolvePackJobAuthority(product) {
+  if (product.packIds.length !== 1 || product.packIds[0] !== B3_PACK_JOB_AUTHORITY.packId) {
+    throw new TypeError('Only a single tracked pack per entitlement is implemented.');
+  }
+  return Object.freeze({
+    entitlementId: product.entitlementId,
+    packId: B3_PACK_JOB_AUTHORITY.packId,
+    version: B3_PACK_JOB_AUTHORITY.version,
+    jobId: `${B3_PACK_JOB_AUTHORITY.packId}.${B3_PACK_JOB_AUTHORITY.version}`,
+  });
+}
+
+export const FULL_KS2_PACK = resolvePackJobAuthority(resolveCommerceProduct('full-ks2'));
 
 export const PURCHASE_CHECKPOINTS = Object.freeze([
   'journal',
@@ -95,7 +113,7 @@ export function classifyGatewayFailure(error) {
   return 'recoverable';
 }
 
-export function assertApprovedFullKs2ProductId(value) {
+export function assertApprovedProductId(value, approvedProductIds) {
   if (
     !value ||
     typeof value !== 'object' ||
@@ -105,9 +123,9 @@ export function assertApprovedFullKs2ProductId(value) {
     !Object.hasOwn(value, 'productId') ||
     !Object.getOwnPropertyDescriptor(value, 'productId')?.enumerable ||
     !Object.hasOwn(Object.getOwnPropertyDescriptor(value, 'productId'), 'value') ||
-    !FULL_KS2_PRODUCT_IDS.includes(value.productId)
+    !approvedProductIds.includes(value.productId)
   ) {
-    throw new TypeError('A single approved Full KS2 platform product is required.');
+    throw new TypeError('A single approved platform product is required.');
   }
   return value.productId;
 }
@@ -115,12 +133,12 @@ export function assertApprovedFullKs2ProductId(value) {
 export function deriveTransactionReplayJournalId(observation) {
   const store = observation?.store;
   const productId = observation?.productId;
-  mapStoreProductToEntitlement({ store, productId });
+  const entitlementId = mapStoreProductToEntitlement({ store, productId });
   const eventKind = {
     pending: 'acquisition',
     purchased: 'acquisition',
     revoked: 'revocation',
   }[observation?.outcome];
   if (!eventKind) throw new TypeError('Purchase replay event kind is invalid.');
-  return `purchase-${store}-full-ks2-${eventKind}`;
+  return `purchase-${store}-${entitlementId}-${eventKind}`;
 }

@@ -172,6 +172,7 @@ async function withWorld(run) {
     };
     const makeCoordinator = (failureInjector = async () => {}, overrides = {}) =>
       createPurchaseCoordinator({
+        entitlementId: 'full-ks2',
         store,
         gateway,
         commerceRepository,
@@ -210,7 +211,7 @@ async function rows(connection) {
 
 async function bootstrapActive(world) {
   world.setPurchaseResult(purchased('first'));
-  await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID });
+  await world.makeCoordinator().purchase({ productId: PRODUCT_ID });
 }
 
 async function bootstrapRevoked(world) {
@@ -258,7 +259,7 @@ function configureRevocationAuthority(world) {
 
 function runExplicitParentOperation(coordinator, operation) {
   return operation === 'Buy'
-    ? coordinator.purchaseFullKs2({ productId: PRODUCT_ID })
+    ? coordinator.purchase({ productId: PRODUCT_ID })
     : coordinator.restore();
 }
 
@@ -276,7 +277,7 @@ test('explicit Buy persists one intent before native work and recovers a second 
     };
 
     await assert.rejects(
-      world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID }),
+      world.makeCoordinator().purchase({ productId: PRODUCT_ID }),
       { code: 'SIMULATED_PROCESS_LOSS' },
     );
     const beforeRecovery = await rows(world.connection);
@@ -309,7 +310,7 @@ test('Parent Buy preflights one purchased journal before any second store purcha
             code: 'SIMULATED_PROCESS_LOSS',
           });
         }
-      }).purchaseFullKs2({ productId: PRODUCT_ID }),
+      }).purchase({ productId: PRODUCT_ID }),
       { code: 'SIMULATED_PROCESS_LOSS' },
     );
     assert.equal((await rows(world.connection))[0].processing_state, 'observed');
@@ -321,7 +322,7 @@ test('Parent Buy preflights one purchased journal before any second store purcha
       secondStorePurchases += 1;
       return acquired;
     };
-    await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID });
+    await world.makeCoordinator().purchase({ productId: PRODUCT_ID });
 
     assert.equal(secondStorePurchases, 0);
     const durable = await rows(world.connection);
@@ -338,7 +339,7 @@ test('explicit pending Buy promotes the same intent and reactivates a revoked en
     await bootstrapRevoked(world);
     world.setGatewayIdentity(identity({ storeTransactionId: SECOND_STORE_ID }));
     world.setPurchaseResult(outcome('pending', 'second-pending'));
-    await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID });
+    await world.makeCoordinator().purchase({ productId: PRODUCT_ID });
     const pendingRows = (await rows(world.connection)).filter(
       (row) => row.observation_state === 'pending' && row.processing_state === 'observed',
     );
@@ -525,7 +526,7 @@ test('active entitlement Buy is a local no-op while explicit Restore still opens
     const durableBefore = await rows(world.connection);
     const callsBefore = world.calls.length;
     assert.deepEqual(
-      await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID }),
+      await world.makeCoordinator().purchase({ productId: PRODUCT_ID }),
       { state: 'complete' },
     );
     assert.deepEqual(await rows(world.connection), durableBefore);
@@ -557,14 +558,14 @@ test('active Buy reconciles one incomplete acquisition without opening a second 
             code: 'SIMULATED_PROCESS_LOSS',
           });
         }
-      }).purchaseFullKs2({ productId: PRODUCT_ID }),
+      }).purchase({ productId: PRODUCT_ID }),
       { code: 'SIMULATED_PROCESS_LOSS' },
     );
     assert.equal((await world.commerceRepository.listEntitlements())[0].state, 'active');
     assert.equal((await rows(world.connection))[0].processing_state, 'store-completion-pending');
     const callsBefore = world.calls.length;
 
-    await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID });
+    await world.makeCoordinator().purchase({ productId: PRODUCT_ID });
     assert.equal((await rows(world.connection))[0].processing_state, 'complete');
     assert.equal(
       world.calls.slice(callsBefore).some(([name]) => name === 'purchase'),
@@ -579,7 +580,7 @@ test('Parent Buy completes purchased recovery and clears a surviving empty inten
     const authority = await seedPurchasedRecoveryWithPendingIntent(world, 'buy');
     const callsBefore = world.calls.length;
 
-    const result = await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID });
+    const result = await world.makeCoordinator().purchase({ productId: PRODUCT_ID });
 
     assert.deepEqual(result, { state: 'complete' });
     assert.equal(
@@ -910,7 +911,7 @@ test('cancelled and empty explicit operations discard intent rows before any lat
       if (operation === 'unverified-buy') world.setPurchaseResult(outcome('unverified'));
       if (operation === 'cancelled-restore') world.setRestoreResults([outcome('cancelled')]);
       if (operation.endsWith('buy')) {
-        await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID });
+        await world.makeCoordinator().purchase({ productId: PRODUCT_ID });
       } else {
         await world.makeCoordinator().restore();
       }
@@ -941,7 +942,7 @@ test('a crash before cancelled or empty intent discard preserves one-shot author
       };
       await assert.rejects(
         operation === 'cancelled-buy'
-          ? world.makeCoordinator(crash).purchaseFullKs2({ productId: PRODUCT_ID })
+          ? world.makeCoordinator(crash).purchase({ productId: PRODUCT_ID })
           : world.makeCoordinator(crash).restore(),
         { code: 'SIMULATED_PROCESS_LOSS' },
       );
@@ -1040,7 +1041,7 @@ test('pre-existing one-shot intent reconciles native state without a second Buy 
         }
         const callsBefore = world.calls.length;
         const invoke = () => operation === 'purchase'
-          ? world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID })
+          ? world.makeCoordinator().purchase({ productId: PRODUCT_ID })
           : world.makeCoordinator().restore();
         const result = await invoke();
         assert.equal(
@@ -1083,7 +1084,7 @@ test('pre-existing intent preserves an unverified matching query snapshot withou
       const callsBefore = world.calls.length;
 
       const result = operation === 'purchase'
-        ? await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID })
+        ? await world.makeCoordinator().purchase({ productId: PRODUCT_ID })
         : await world.makeCoordinator().restore();
 
       assert.equal(result.state, 'unverified', operation);
@@ -1131,7 +1132,7 @@ test('unverified prevalidates a mixed pending-intent snapshot before any authori
       const jobsBefore = structuredClone(world.jobs);
       const callsBefore = world.calls.length;
 
-      const result = await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID });
+      const result = await world.makeCoordinator().purchase({ productId: PRODUCT_ID });
 
       assert.equal(result.state, 'unverified', authorityOutcome);
       assert.deepEqual(await rows(world.connection), durableBefore, authorityOutcome);
@@ -1176,7 +1177,7 @@ test('pre-existing intent processes a revocation-only query snapshot and remains
       const callsBefore = world.calls.length;
 
       const result = operation === 'purchase'
-        ? await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID })
+        ? await world.makeCoordinator().purchase({ productId: PRODUCT_ID })
         : await world.makeCoordinator().restore();
 
       assert.equal(result.state, 'revoked', operation);
@@ -1233,7 +1234,7 @@ test('pre-existing intent orders acquisition before revocation from one validate
     };
     const callsBefore = world.calls.length;
 
-    const result = await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID });
+    const result = await world.makeCoordinator().purchase({ productId: PRODUCT_ID });
 
     assert.equal(result.state, 'revoked');
     const relevantCalls = world.calls.slice(callsBefore);
@@ -1289,7 +1290,7 @@ test('pre-existing intent rejects a foreign authority-bearing snapshot before ef
       const callsBefore = world.calls.length;
 
       await assert.rejects(
-        world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID }),
+        world.makeCoordinator().purchase({ productId: PRODUCT_ID }),
         { code: 'PURCHASE_ATTEMPT_AUTHORITY_MISMATCH' },
       );
 
@@ -1381,7 +1382,7 @@ test('second lifecycle converges across every durable purchase arrow', async () 
         world.native.push(second);
       }
       await assert.rejects(
-        world.makeCoordinator(crash).purchaseFullKs2({ productId: PRODUCT_ID }),
+        world.makeCoordinator(crash).purchase({ productId: PRODUCT_ID }),
         { code: 'SIMULATED_PROCESS_LOSS' },
         `${target} occurrence ${occurrence}`,
       );
@@ -1391,7 +1392,7 @@ test('second lifecycle converges across every durable purchase arrow', async () 
       if (target.endsWith(':journal') && occurrence === 1) {
         assert.equal(entitlement.state, 'revoked');
         world.native.push(second);
-        await world.makeCoordinator().purchaseFullKs2({ productId: PRODUCT_ID });
+        await world.makeCoordinator().purchase({ productId: PRODUCT_ID });
         entitlement = (await world.commerceRepository.listEntitlements())[0];
       }
       assert.equal(entitlement.state, 'active', `${target} occurrence ${occurrence}`);

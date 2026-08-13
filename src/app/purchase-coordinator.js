@@ -1,16 +1,16 @@
 import {
   B3_PACK_JOB_AUTHORITY,
-  FULL_KS2_PACK,
-  FULL_KS2_PRODUCT_IDS,
   PURCHASE_CHECKPOINTS,
-  assertApprovedFullKs2ProductId,
+  assertApprovedProductId,
   classifyGatewayFailure,
   deriveTransactionReplayJournalId,
+  resolveCommerceProduct,
+  resolvePackJobAuthority,
 } from '../domain/commerce/purchase-state.js';
 import { validateObservation } from '../platform/commerce/store-port.js';
 
 const METHOD_NAMES = Object.freeze([
-  'purchaseFullKs2',
+  'purchase',
   'handleObservation',
   'restore',
   'refresh',
@@ -44,6 +44,7 @@ function requireAttemptPort(value) {
 
 function requireFactoryInput(value) {
   const keys = [
+    'entitlementId',
     'store',
     'gateway',
     'commerceRepository',
@@ -128,6 +129,7 @@ function frozenResult(state) {
 export function createPurchaseCoordinator(rawDependencies) {
   const dependencies = requireFactoryInput(rawDependencies);
   const {
+    entitlementId,
     store,
     gateway,
     commerceRepository,
@@ -137,6 +139,10 @@ export function createPurchaseCoordinator(rawDependencies) {
     idFactory,
     failureInjector,
   } = dependencies;
+  // This coordinator serves exactly one entitlement; its store products, packs and
+  // journal identities all derive from that binding rather than from a baked-in product.
+  const product = resolveCommerceProduct(entitlementId);
+  const pack = resolvePackJobAuthority(product);
   // The native application composition owns one coordinator and one reconciler per
   // database connection. This queue is therefore the single proof-processing lane.
   let tail = Promise.resolve();
@@ -210,7 +216,7 @@ export function createPurchaseCoordinator(rawDependencies) {
   }
 
   function activeCallbackJournalId(store) {
-    return `purchase-${store}-full-ks2-active-callback`;
+    return `purchase-${store}-${entitlementId}-active-callback`;
   }
 
   function isActiveCallbackJournal(journal) {
@@ -334,14 +340,14 @@ export function createPurchaseCoordinator(rawDependencies) {
 
   async function ensureDownloadJob(authority) {
     const jobs = await downloadRepository.listDownloadJobs();
-    const existing = jobs.find((job) => job.jobId === FULL_KS2_PACK.jobId);
+    const existing = jobs.find((job) => job.jobId === pack.jobId);
     if (existing) {
       const safeStates = new Set([
         'queued', 'downloading', 'downloaded', 'extracting', 'ready', 'failed',
       ]);
       const safeExisting =
-        existing.packId === FULL_KS2_PACK.packId &&
-        existing.version === FULL_KS2_PACK.version &&
+        existing.packId === pack.packId &&
+        existing.version === pack.version &&
         existing.archiveName === B3_PACK_JOB_AUTHORITY.archiveName &&
         existing.manifestSha256 === B3_PACK_JOB_AUTHORITY.manifestSha256 &&
         existing.archiveSha256 === B3_PACK_JOB_AUTHORITY.archiveSha256 &&
@@ -361,8 +367,8 @@ export function createPurchaseCoordinator(rawDependencies) {
     const response = await around('download-authorisation', () =>
       gateway.authorisePackDownload({
         sealedRefreshHandle: authority.sealedRefreshHandle,
-        packId: FULL_KS2_PACK.packId,
-        version: FULL_KS2_PACK.version,
+        packId: pack.packId,
+        version: pack.version,
       }));
     assertGatewayIdentity(response, authority, 'active');
     const capability = response.archiveCapability;
@@ -393,9 +399,9 @@ export function createPurchaseCoordinator(rawDependencies) {
     }
     await persistHandle(response, authority.refreshedAt ?? authority.updatedAt ?? -1);
     return around('download-job', () => downloadRepository.upsertDownloadJob({
-      jobId: FULL_KS2_PACK.jobId,
-      packId: FULL_KS2_PACK.packId,
-      version: FULL_KS2_PACK.version,
+      jobId: pack.jobId,
+      packId: pack.packId,
+      version: pack.version,
       manifestSha256: response.signedEnvelopeSha256,
       archiveName: capability.archiveName,
       archiveSha256: capability.sha256,
@@ -436,7 +442,7 @@ export function createPurchaseCoordinator(rawDependencies) {
       store: journal.store,
       productId: journal.productId,
       environment: 'sandbox',
-      entitlementId: FULL_KS2_PACK.entitlementId,
+      entitlementId: product.entitlementId,
       applicationId: 'uk.eugnel.ks2spelling',
     }, expectedState);
     if (journal.processingState === 'observed') {
@@ -520,7 +526,7 @@ export function createPurchaseCoordinator(rawDependencies) {
     if (!authority) {
       const entitlements = await listEntitlements();
       const active = entitlements.find((entitlement) =>
-        entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
+        entitlement.entitlementId === product.entitlementId &&
         entitlement.store === journal.store &&
         entitlement.productId === journal.productId &&
         entitlement.state === 'active');
@@ -572,7 +578,7 @@ export function createPurchaseCoordinator(rawDependencies) {
     if (activeCallback) {
       const entitlements = await listEntitlements();
       const active = entitlements.find((entitlement) =>
-        entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
+        entitlement.entitlementId === product.entitlementId &&
         entitlement.store === journal.store &&
         entitlement.productId === journal.productId &&
         entitlement.state === 'active') ?? null;
@@ -597,7 +603,7 @@ export function createPurchaseCoordinator(rawDependencies) {
         store: journal.store,
         productId: journal.productId,
         environment: 'sandbox',
-        entitlementId: FULL_KS2_PACK.entitlementId,
+        entitlementId: product.entitlementId,
         applicationId: 'uk.eugnel.ks2spelling',
       }, 'active');
       if (currentNativeAuthority.storeTransactionId !== verified.storeTransactionId) {
@@ -645,7 +651,7 @@ export function createPurchaseCoordinator(rawDependencies) {
     if (journal.observationState !== 'revoked') {
       const entitlements = await listEntitlements();
       const active = entitlements.find((entitlement) =>
-        entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
+        entitlement.entitlementId === product.entitlementId &&
         entitlement.state === 'active');
       if (active) await ensureDownloadJob(active);
     }
@@ -665,7 +671,7 @@ export function createPurchaseCoordinator(rawDependencies) {
     await seedTimestampFloor();
     const entitlements = await listEntitlements();
     const entitlement = entitlements.find((candidate) =>
-      candidate.entitlementId === FULL_KS2_PACK.entitlementId &&
+      candidate.entitlementId === product.entitlementId &&
       candidate.store === value.store &&
       candidate.productId === value.productId) ?? null;
     const stableJournalId =
@@ -734,7 +740,7 @@ export function createPurchaseCoordinator(rawDependencies) {
   async function recoverInternal() {
     await seedTimestampFloor();
     const native = normaliseNativeSnapshot(
-      await store.queryTransactions({ productIds: [...FULL_KS2_PRODUCT_IDS] }),
+      await store.queryTransactions({ productIds: [...product.productIds] }),
     );
     for (const observation of native) {
       await processObservation(observation, { nativeSnapshotKnown: true });
@@ -755,7 +761,7 @@ export function createPurchaseCoordinator(rawDependencies) {
     }
     const entitlements = await listEntitlements();
     for (const entitlement of entitlements) {
-      if (entitlement.entitlementId === FULL_KS2_PACK.entitlementId && entitlement.state === 'active') {
+      if (entitlement.entitlementId === product.entitlementId && entitlement.state === 'active') {
         await ensureDownloadJob(entitlement);
       }
     }
@@ -804,7 +810,7 @@ export function createPurchaseCoordinator(rawDependencies) {
       });
     }
     const native = normaliseNativeSnapshot(
-      await store.queryTransactions({ productIds: [...FULL_KS2_PRODUCT_IDS] }),
+      await store.queryTransactions({ productIds: [...product.productIds] }),
     );
     const belongsToAttempt = (observation) =>
       observation.store === authority.store && observation.productId === authority.productId;
@@ -915,10 +921,10 @@ export function createPurchaseCoordinator(rawDependencies) {
     return Object.freeze({ reconciled, priorAttempt });
   }
 
-  async function purchaseFullKs2(request) {
-    if (arguments.length !== 1) throw new TypeError('purchaseFullKs2 requires one input.');
+  async function purchase(request) {
+    if (arguments.length !== 1) throw new TypeError('purchase requires one input.');
     return serialise(async () => {
-      const productId = assertApprovedFullKs2ProductId(request);
+      const productId = assertApprovedProductId(request, product.productIds);
       await seedTimestampFloor();
       const recovery = await preflightExplicitOperation(productId, 'purchase');
       const priorAttempt = recovery.priorAttempt;
@@ -928,7 +934,7 @@ export function createPurchaseCoordinator(rawDependencies) {
       }
       let existingEntitlements = await listEntitlements();
       let active = existingEntitlements.find((entitlement) =>
-        entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
+        entitlement.entitlementId === product.entitlementId &&
         entitlement.productId === productId &&
         entitlement.state === 'active') ?? null;
       const recoverable = await listRecoverable();
@@ -937,7 +943,7 @@ export function createPurchaseCoordinator(rawDependencies) {
         await recoverInternal();
         existingEntitlements = await listEntitlements();
         active = existingEntitlements.find((entitlement) =>
-          entitlement.entitlementId === FULL_KS2_PACK.entitlementId &&
+          entitlement.entitlementId === product.entitlementId &&
           entitlement.productId === productId &&
           entitlement.state === 'active') ?? null;
       }
@@ -988,7 +994,7 @@ export function createPurchaseCoordinator(rawDependencies) {
       let observations;
       try {
         observations = normaliseNativeSnapshot(
-          await store.restore({ productIds: [...FULL_KS2_PRODUCT_IDS] }),
+          await store.restore({ productIds: [...product.productIds] }),
         );
       } catch (error) {
         await discardExplicitAttempt(attempt);
@@ -1051,7 +1057,7 @@ export function createPurchaseCoordinator(rawDependencies) {
           await persistHandle(response, entitlement.refreshedAt);
         } else {
           const native = await store.queryTransactions({
-            productIds: [...FULL_KS2_PRODUCT_IDS],
+            productIds: [...product.productIds],
           });
           const revocation = native.find((observation) =>
             observation.outcome === 'revoked' &&
@@ -1074,7 +1080,7 @@ export function createPurchaseCoordinator(rawDependencies) {
     return serialise(recoverInternal);
   }
 
-  const coordinator = { purchaseFullKs2, handleObservation, restore, refresh, recover };
+  const coordinator = { purchase, handleObservation, restore, refresh, recover };
   if (Reflect.ownKeys(coordinator).join('|') !== METHOD_NAMES.join('|')) {
     throw new TypeError('Purchase coordinator surface is invalid.');
   }

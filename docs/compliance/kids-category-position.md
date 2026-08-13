@@ -197,7 +197,7 @@ Paths are repository-relative. Line numbers were correct at the date above.
 | No PII or device information to third parties | Guideline 1.3 | Gateway request bodies are closed-record allowlists — `src/platform/gateway/entitlement-gateway-port.js:75`. Rejection of `deviceId`, `advertisingId`, `appAccountToken`, `learnerId`, `progress` is enforced at `tests/gateway-privacy-boundary.test.mjs:4`. Gateway source is scanned for learner fields at `tests/gateway-privacy-boundary.test.mjs:41`. |
 | Privacy policy exists and is in-app accessible | Guideline 5.1.4(b), 5.1.1(i) | Canonical text `docs/legal/privacy-notice.md`. **Not reachable in-app — see [Gap 3](#gap-3--the-in-app-privacy-surface-is-a-hand-written-summary).** |
 | The gate is not presented as parental consent | Guideline 5.1.4(b) | Apple states explicitly that the parental gate "is generally not the same as securing parental consent to collect personal data". No repository text claims otherwise; this document is the standing instruction that none may. |
-| IAP is the only unlock mechanism | Guideline 3.1.1 | The only writer that sets an entitlement to `active` requires the transaction journal to be `purchased` + `verified`, which requires the Worker to have verified the StoreKit JWS against the Apple root CA and re-read the transaction from the App Store Server API (`gateway/src/apple-store-verifier.js:109`, `:120`, `:127`). The B3 fake gateway is excluded from the production module graph by the Vite alias swap. **One latent exception — see [Gap 5](#gap-5--unsigned-backup-import-can-write-an-entitlement-shaped-field).** |
+| IAP is the only unlock mechanism | Guideline 3.1.1 | The only writer that sets an entitlement to `active` requires the transaction journal to be `purchased` + `verified`, which requires the Worker to have verified the StoreKit JWS against the Apple root CA and re-read the transaction from the App Store Server API (`gateway/src/apple-store-verifier.js:109`, `:120`, `:127`). The B3 fake gateway is excluded from the production module graph by the Vite alias swap. **Not satisfied — an unsigned import path grants the full catalogue; see [Gap 5](#gap-5--unsigned-backup-import-can-write-an-entitlement-shaped-field).** |
 | Restore mechanism exists | Guideline 3.1.1 | `src/app/ProductApp.jsx:680` → `src/app/parent-commerce-controller.js:166` → `src/app/create-product-commerce-workflow.js:488` |
 | Complete submission, working back end, reviewable IAP | Guideline 2.1(a), 2.1(b) | Not yet satisfied — a release-readiness obligation. The gateway and R2 origin must be live during review, and because the IAP sits behind a PIN the review notes must explain how to reach it. Recorded in [Owner checklist](#owner-checklist-app-store-connect). |
 | Downloaded content is data, not code | Guideline 2.5.2 | Packs are signed audio and catalogue data written inside the app container. No downloaded code path exists. |
@@ -277,6 +277,15 @@ Wording constraint until it is closed: the claim is "every purchase and restore
 affordance renders only after the Parent security gate reports unlocked" — not
 "a child cannot start a purchase".
 
+**Name the shape, because it recurs.** This gap is *structure verified in place
+of behaviour*. Auditing the gate's wiring passes — one commerce card, one render
+branch, re-locks on pause, pinned by a test — while the behaviour fails, because
+nothing checked what happens before a secret exists. It is the same shape as a CI
+lane that is green because it never ran on the shipped artifact, and the same
+shape as a regex-over-source "guard" that never executes the thing it guards.
+Three other instances were found on the same day. When a check is proposed for
+any of these gaps, ask what it actually exercises, not what it inspects.
+
 ### Gap 2 — Cloudflare platform logging is on by default
 
 **Guideline 1.3, COPPA § 312.5(c)(7), ICO standard 8, and the App Privacy label.**
@@ -338,18 +347,39 @@ validates shape and canonical JSON only — no signature or MAC — and
 `sqlite-learning-backup-repository.js:95` writes the file's `grantedEntitlementIds`
 straight into `spelling_aggregates.granted_entitlement_ids_json`.
 
-It is inert today for three independent reasons: it never touches
-`app_entitlements`, the audio switch ignores it, and both consuming gates
-additionally require `catalogueId === 'ks2-core:full'` while
-`resetFullCatalogueLearning` re-seeds every full-catalogue aggregate to Starter
-at startup and after each import.
+It was inert while it never touched `app_entitlements`, the audio switch ignored
+it, and both consuming gates additionally required a `catalogueId` the import
+could not raise — `resetFullCatalogueLearning` re-seeding every full-catalogue
+aggregate to Starter at startup and after each import.
 
-It stops being inert the moment
-[#135](https://github.com/fol2/ks2-spelling/issues/135) makes
-`grantedEntitlementIds` govern content — at which point an unsigned file a parent
-can edit becomes an alternative unlock mechanism, which guideline 3.1.1 prohibits
-by name. Either sign the backup or derive `grantedEntitlementIds` from
-`app_entitlements` at read time, before #135 lands.
+**That is no longer true.** Independent verification against
+[PR #154](https://github.com/fol2/ks2-spelling/pull/154) found the bypass
+asserted as *intended behaviour* at `tests/product-app-services.test.mjs:863-950`:
+an entitled source device exports; a device with `entitlementState: 'none'` and
+`packState: 'missing'` that never purchased imports; the reopened profile reports
+`catalogueId: 'ks2-core:full'`. All 213 words on a device that never paid, plus
+Guardian and Camp, since both gate on `grantedEntitlementIds`. Audio stays
+Starter, which limits the polish of the free unlock rather than the unlock. PR
+#154 is blocked on this.
+
+Guideline 3.1.1 prohibits it by name — *"Apps may not use their own mechanisms to
+unlock content or functionality, such as license keys…"*. An unsigned JSON file a
+parent can edit and re-import is such a mechanism.
+
+**The fix is one rule, not two patches.** Deriving `grantedEntitlementIds` from
+`app_entitlements` at read time is correct and should land, but it does not close
+this on its own: `catalogueId` is what raises composition to 213 words, and
+alignment declines to lower it whenever the aggregate is not representable under
+Starter — so the derived grant would read empty while the child still practises
+the full list. The governing rule instead:
+
+> The preservation exemption covers state a device **earned**, never state it
+> **imported**.
+
+A revoked purchaser keeps their history; an importer onto a never-entitled device
+gains nothing. Signing the backup remains the alternative and remains worse: it
+puts key management into a parent-facing export for the sake of a field that
+should not be authoritative in the first place.
 
 ## App Store Connect
 

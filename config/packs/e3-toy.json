@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "packId": "e3-toy",
+  "catalogueId": "e3-toy:fixture",
+  "version": "1.0.0",
+  "archiveName": "e3-toy-1.0.0.zip",
+  "requiredEntitlementId": null,
+  "signingState": "deferred-to-final-visible-owner-gate",
+  "allowedExtensions": [".json", ".m4a"],
+  "ceilings": {
+    "fileCount": 2,
+    "compressedBytes": 1048576,
+    "extractedBytes": 1048576
+  },
+  "catalogueSource": "tests/fixtures/e3-toy-pack/catalogue.json",
+  "audioSourceRoot": "tests/fixtures/e3-toy-pack",
+  "audioEvidenceSource": "tests/fixtures/e3-toy-pack/audio-evidence.json"
+}

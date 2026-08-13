@@ -1,2 +1,4 @@
 #!/bin/sh
+# Git sets GIT_DIR for hooks. Nested test repositories must not inherit it.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY
 exec npm run test:fast

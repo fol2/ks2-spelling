@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "catalogueId": "e3-toy:fixture",
+  "packId": "e3-toy",
+  "items": [
+    {
+      "runtimeItemId": "e3-toy:because",
+      "target": "because"
+    }
+  ]
+}

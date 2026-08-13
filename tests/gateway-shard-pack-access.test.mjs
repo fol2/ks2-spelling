@@ -251,3 +251,29 @@ test('unknown packs and drifted versions are rejected before any R2 work', async
   }
   assert.equal(bucket.calls.length, 0);
 });
+
+test('the worker rate limit budgets a whole 15-shard install with headroom', async () => {
+  const wrangler = JSON.parse(await readFile(
+    new URL('../gateway/wrangler.jsonc', import.meta.url),
+    'utf8',
+  ));
+  const { B3_DOWNLOAD_CHUNK_BYTES } = await import(
+    '../src/domain/packs/signed-download-access-contract.js'
+  );
+  // One authorise plus one ranged GET per chunk, for every shard: the whole
+  // install passes through this one global counter, so a limit below it turns
+  // a paid download into a 429 partway through.
+  const installRequests = SHARDS.reduce(
+    (total, row) => total + 1 + Math.ceil(row.archiveBytes / B3_DOWNLOAD_CHUNK_BYTES),
+    0,
+  );
+  const [limiter, ...extra] = wrangler.ratelimits;
+  assert.equal(extra.length, 0);
+  assert.equal(limiter.name, 'GATEWAY_RATE_LIMIT');
+  assert.equal(limiter.simple.period, 60);
+  assert.ok(
+    limiter.simple.limit >= installRequests,
+    `rate limit ${limiter.simple.limit} cannot serve ${installRequests} install requests`,
+  );
+  assert.equal(limiter.simple.limit, 600);
+});

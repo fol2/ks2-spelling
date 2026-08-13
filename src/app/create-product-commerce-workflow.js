@@ -37,7 +37,11 @@ import {
 import {
   createDatabaseGatedRepository,
 } from './database-gated-repository.js';
-import { createDownloadCoordinator } from './download-coordinator.js';
+import {
+  createDownloadCoordinator,
+  requiredFreeBytes,
+  STAGING_METADATA_BYTES,
+} from './download-coordinator.js';
 import {
   createPackActivationCoordinator,
 } from './pack-activation-coordinator.js';
@@ -382,12 +386,51 @@ export function createProductCommerceWorkflow(options = {}) {
     return result;
   }
 
+  // Each shard's per-pack preflight only ever sees one shard. Fifteen of them
+  // land ~436 MiB of archives and ~480 MiB of extracted payload, so a device
+  // with room for one shard but not the product would fail hundreds of MiB
+  // into a paid download. This is the product-level ceiling under the
+  // sequential loop: every shard still to install keeps its extracted payload,
+  // but only one archive plus its staging metadata is resident at a time.
+  // Shards already active at the catalogue version are excluded — their bytes
+  // are already on disk and counted by getFreeBytes().
+  async function assertAggregateStorage() {
+    const pending = [];
+    for (const pack of PACKS) {
+      const active = await packRepository.getActiveVersion({ packId: pack.packId });
+      if (active?.version === pack.version) continue;
+      pending.push(findPackAuthority(pack.packId));
+    }
+    if (pending.length === 0) return;
+    // Archive sizes are exact in the registry; extracted sizes are only exact
+    // inside each signed manifest, which does not exist until that shard is
+    // authorised. Before the first shard the registry ceiling is the only
+    // honest extracted figure, so this preflight is deliberately conservative.
+    const required = pending.reduce((total, authority) => total + requiredFreeBytes({
+      remainingCompressedBytes: 0,
+      fullExtractedBytes: authority.ceilings.extractedBytes,
+      stagingMetadataBytes: 0,
+    }), 0) + Math.max(...pending.map((authority) => requiredFreeBytes({
+      remainingCompressedBytes: authority.archiveBytes,
+      fullExtractedBytes: 0,
+      stagingMetadataBytes: STAGING_METADATA_BYTES,
+    })));
+    const free = await packTransfer.getFreeBytes();
+    if (!Number.isSafeInteger(free) || free < required) {
+      throw Object.assign(new Error('DOWNLOAD_STORAGE_INSUFFICIENT'), {
+        code: 'DOWNLOAD_STORAGE_INSUFFICIENT',
+        requiredBytes: required,
+      });
+    }
+  }
+
   // The N-shard loop is deliberately sequential: each shard is authorised,
   // downloaded and activated before the next starts, and the entitlement row
   // is re-read per shard so a sealed-handle rotation (or a revocation) taken
   // during one shard governs the next. Resume and partial failure ride the
   // durable per-shard job/chunk rows.
   async function install() {
+    await assertAggregateStorage();
     for (const pack of PACKS) {
       const entitlement = await activeEntitlement();
       if (!entitlement) {
@@ -402,11 +445,24 @@ export function createProductCommerceWorkflow(options = {}) {
       if (typeof envelope !== 'string') {
         throw new Error('Signed Full KS2 manifest was not observed.');
       }
-      await activationCoordinator.activate({
+      const activation = await activationCoordinator.activate({
         packId: pack.packId,
         version: pack.version,
         signedManifestEnvelope: envelope,
       });
+      // activate() reports a lost entitlement by returning 'access-locked'
+      // rather than throwing, so an unchecked result would resolve install()
+      // as success with the shard downloaded, unactivated and unplayable.
+      if (activation.state !== 'ready') {
+        throw Object.assign(
+          new Error('Full KS2 shard activation did not complete.'),
+          {
+            code: 'product_commerce_activation_incomplete',
+            packId: pack.packId,
+            activationState: activation.state,
+          },
+        );
+      }
     }
   }
 

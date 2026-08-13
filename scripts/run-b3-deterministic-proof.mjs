@@ -10,6 +10,9 @@ import { createPackReconciler } from '../src/app/pack-reconciler.js';
 import { createProductCommerceWorkflow } from '../src/app/create-product-commerce-workflow.js';
 import { FULL_KS2_PACKS } from '../src/domain/commerce/purchase-state.js';
 import { findPackAuthority } from '../src/domain/packs/pack-registry.js';
+import {
+  B3_DOWNLOAD_CHUNK_BYTES,
+} from '../src/domain/packs/signed-download-access-contract.js';
 import { createDatabaseCommandGate } from '../src/platform/database/database-command-gate.js';
 import { createSqlitePackRepositories } from '../src/platform/database/sqlite-pack-repositories.js';
 import { createB3FakeStore } from '../src/platform/fakes/create-b3-fake-store.js';
@@ -727,7 +730,7 @@ async function shardFixture(packId) {
 }
 
 function shardChunkCount(packId) {
-  return Math.ceil(findPackAuthority(packId).archiveBytes / 1_048_576);
+  return Math.ceil(findPackAuthority(packId).archiveBytes / B3_DOWNLOAD_CHUNK_BYTES);
 }
 
 const TOTAL_SHARD_CHUNKS = FULL_KS2_PACKS
@@ -1017,6 +1020,9 @@ async function runShardScenario(scenario, context) {
           integrityCode = error?.code ?? null;
         }
         const durable = await shardDurableState(packRepository);
+        // Pinned first: the two Array.every invariants below hold vacuously if
+        // the rows vanished instead of surviving the failure.
+        const everyShardStillHasItsJob = durable.jobs.length === 15;
         const failedJob = durable.jobs.find((job) => job.packId === 'full-ks2-shard-09');
         const earlierReady = durable.jobs
           .filter((job) => job.packId < 'full-ks2-shard-09')
@@ -1024,6 +1030,7 @@ async function runShardScenario(scenario, context) {
         const recovered = await workflow.download();
         return stateResult({
           integrityMismatchFailsClosed: integrityCode === 'DOWNLOAD_FINAL_INTEGRITY_MISMATCH',
+          everyShardStillHasItsJob,
           earlierShardsStayReady: earlierReady,
           failedShardLeftDurableAndResumable:
             failedJob?.state === 'downloading' && failedJob.completedBytes === 0 &&
@@ -1055,12 +1062,48 @@ async function runShardScenario(scenario, context) {
         store: { updateOutcomes: [observation('revoked')] },
         gateway: { verifyState: 'revoked' },
         transfer: { initialInstalled: installedInventory },
-      }, async ({ workflow }) => {
+      }, async ({ workflow, packRepository }) => {
         await workflow.start();
         const settled = await workflow.refresh();
+        // packState 'locked' follows from entitlementState 'revoked' by
+        // construction, so it proves nothing on its own. The per-shard
+        // evidence is the durable store itself: every one of the 15 shards
+        // keeps its installed bytes and its active pointer, and every one of
+        // them is refused re-activation while the entitlement is revoked —
+        // that refusal is the database boundary a locked device relies on.
+        let shardsHoldingBytes = 0;
+        let shardsRefusingReactivation = 0;
+        for (const pack of FULL_KS2_PACKS) {
+          const [installedRows, active] = await Promise.all([
+            packRepository.listInstalledVersions({ packId: pack.packId }),
+            packRepository.getActiveVersion({ packId: pack.packId }),
+          ]);
+          const installed = installedRows.find((row) => row.version === pack.version);
+          if (!installed || active?.version !== pack.version) continue;
+          shardsHoldingBytes += 1;
+          try {
+            await packRepository.registerAndFlipActiveVersion({
+              requiredEntitlementId: 'full-ks2',
+              installedVersion: installed,
+              activeVersion: {
+                packId: pack.packId,
+                version: pack.version,
+                manifestSha256: installed.manifestSha256,
+                pathToken: installed.pathToken,
+                activatedAt: NOW,
+              },
+            });
+          } catch (error) {
+            if (error?.code === 'sqlite_pack_entitlement_inactive') {
+              shardsRefusingReactivation += 1;
+            }
+          }
+        }
         return stateResult({
           revocationLocksEveryShard:
             settled.entitlementState === 'revoked' && settled.packState === 'locked',
+          everyShardKeepsItsInstalledBytes: shardsHoldingBytes === 15,
+          everyShardRefusedReactivationWhileRevoked: shardsRefusingReactivation === 15,
         });
       });
     }
@@ -1174,6 +1217,13 @@ export async function buildB3DeterministicProof({
       afterFreshInstallReseed: syntheticProof.afterFreshInstallReseed,
       v1CellTypeAndBytesSha256: syntheticProof.v1CellTypeAndBytesSha256,
       syntheticLearnerAuthoritySha256: sha256(syntheticAuthorityBytes),
+      // The shard scenarios are only as frozen as the authority set they run
+      // against: this pins the 15 resolved registry rows in catalogue order,
+      // so a drifted sha256, byte count, etag or ordering fails the proof
+      // rather than quietly changing what the scenarios proved.
+      shardAuthoritySha256: sha256(JSON.stringify(
+        FULL_KS2_PACKS.map((pack) => findPackAuthority(pack.packId)),
+      )),
       scenarioMatrixSha256: sha256(JSON.stringify(scenarioMatrix)),
     },
   };

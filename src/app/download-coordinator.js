@@ -5,7 +5,7 @@ import {
   '../domain/packs/signed-download-access-contract.js';
 import { assertPackAuthority } from '../domain/packs/pack-registry.js';
 
-const STAGING_METADATA_BYTES = 65_536;
+export const STAGING_METADATA_BYTES = 65_536;
 const METHODS = Object.freeze(['queue', 'resume', 'retry', 'cancelTemporary']);
 
 function downloadError(code) {

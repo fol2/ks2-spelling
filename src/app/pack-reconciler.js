@@ -96,12 +96,19 @@ export function createPackReconciler(rawDependencies) {
       .map(({ packId }) => packId)
     : resolveCommerceProduct(entitlementId).packIds;
 
-  // A packId outside this reconciler's pack set is retired scope when the
-  // registry still tracks it under the same entitlement (a pack the catalogue
-  // stopped selling, e.g. b3-sandbox-proof after the E2.7 join flip). Anything
+  // The live catalogue join is what the entitlement currently sells, whatever
+  // this composition pinned for itself. Nothing in it is ever retired: the B3
+  // proof lane pins packIds to the b3 row while the shipping catalogue sells
+  // the 15 shards, and without this guard that lane would delete every shard
+  // job and wipe its staging on the next startup.
+  const CATALOGUE_PACK_IDS = resolveCommerceProduct(entitlementId).packIds;
+
+  // A packId outside this reconciler's pack set is retired scope only when the
+  // registry still tracks it under the same entitlement and the catalogue has
+  // stopped selling it (b3-sandbox-proof after the E2.7 join flip). Anything
   // else is foreign and fails closed.
   function isRetiredScope(packId) {
-    if (PACK_IDS.includes(packId)) return false;
+    if (PACK_IDS.includes(packId) || CATALOGUE_PACK_IDS.includes(packId)) return false;
     try {
       return findPackAuthority(packId).requiredEntitlementId === ENTITLEMENT_ID;
     } catch {
@@ -180,24 +187,6 @@ export function createPackReconciler(rawDependencies) {
       }
       absorbTimestampFloor(...allJobs.map((job) => job.updatedAt));
 
-      // Retired-scope cleanup is deliberate, not a crash: durable jobs for a
-      // registry-known pack the catalogue stopped selling are deleted and
-      // their temporary native state removed. Installed/active database rows
-      // and sealed native bytes stay in place — nothing reads them through
-      // this entitlement's catalogue any more, the repository has no
-      // deactivation operation for an active version, and the B3 proof lane
-      // still resolves its own row directly from the registry.
-      const retiredPacks = [];
-      for (const job of allJobs) {
-        if (!isRetiredScope(job.packId)) continue;
-        await packRepository.deleteDownloadJob({ jobId: job.jobId });
-        await packTransfer.removeOwnedTemporaryState({
-          packId: job.packId,
-          version: job.version,
-        });
-        retiredPacks.push(job.jobId);
-      }
-      const jobs = allJobs.filter((job) => !isRetiredScope(job.packId));
       const identities = new Set();
       for (const record of inventory) {
         const identity = `${record.packId}\u0000${record.version}`;
@@ -206,6 +195,31 @@ export function createPackReconciler(rawDependencies) {
         }
         identities.add(identity);
       }
+
+      // Retired-scope cleanup is deliberate, not a crash: durable jobs for a
+      // registry-known pack the catalogue stopped selling are deleted and
+      // their temporary native state removed. It runs only after every
+      // validation gate above, because this module's contract is
+      // validate-before-mutate — an ambiguous inventory must still fail closed
+      // with nothing deleted. Staging is removed before the row that names it,
+      // so a native removal that rejects leaves a job row to retry against
+      // rather than orphaned bytes no record points at.
+      // Installed/active database rows and sealed native bytes deliberately
+      // stay: nothing reads them through this entitlement's catalogue any
+      // more, the repository has no deactivation operation for an active
+      // version, and the B3 proof lane still resolves its own row from the
+      // registry.
+      const retiredPacks = [];
+      for (const job of allJobs) {
+        if (!isRetiredScope(job.packId)) continue;
+        await packTransfer.removeOwnedTemporaryState({
+          packId: job.packId,
+          version: job.version,
+        });
+        await packRepository.deleteDownloadJob({ jobId: job.jobId });
+        retiredPacks.push(job.jobId);
+      }
+      const jobs = allJobs.filter((job) => !isRetiredScope(job.packId));
 
       const recovered = [];
       const removedTemporary = [];

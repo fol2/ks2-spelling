@@ -4,7 +4,8 @@ import test from 'node:test';
 import { createDownloadCoordinator } from '../src/app/download-coordinator.js';
 import { B3_DOWNLOAD_CHUNK_BYTES } from '../src/domain/packs/signed-download-access-contract.js';
 import {
-  ARCHIVE_SHA, HANDLE, JOB_ID, PACK_ID, VERSION, createHarness,
+  ARCHIVE_ETAG, ARCHIVE_SHA, HANDLE, JOB_ID, PACK_ID, VERSION,
+  authorisation, createHarness,
 } from './helpers/range-fixture-server.mjs';
 
 test('coordinator exposes a frozen closed lifecycle and queues one fixed-size plan', async () => {
@@ -158,4 +159,77 @@ test('cleanup failure after final mismatch leaves a reset ledger that safely red
   );
   assert.equal(harness.memory.snapshot().job.completedBytes, 0);
   assert.equal(harness.memory.snapshot().chunks[0].state, 'pending');
+});
+
+function rateLimited() {
+  // The shape createHttpEntitlementGateway produces for a worker 429.
+  return Object.assign(new Error('RATE_LIMITED'), {
+    code: 'RATE_LIMITED', status: 429, retryable: true,
+  });
+}
+
+test('a rate-limited gateway is survivable: nothing is mutated and the next attempt completes', async () => {
+  const { isRecoverableExternalFailure } = await import('../src/app/commerce-runtime-support.js');
+  assert.equal(isRecoverableExternalFailure(rateLimited()), true);
+  const harness = createHarness({
+    authoriseOutcomes: [rateLimited(), authorisation(), authorisation()],
+  });
+  const coordinator = createDownloadCoordinator(harness.dependencies);
+  await assert.rejects(coordinator.queue({ sealedRefreshHandle: HANDLE }), {
+    code: 'RATE_LIMITED',
+  });
+  // Authorisation precedes every job, chunk, network and native mutation, so a
+  // 429 there leaves no durable trace at all.
+  assert.equal(harness.memory.snapshot().job, null);
+  assert.equal(harness.calls.downloads.length, 0);
+
+  const result = await coordinator.queue({ sealedRefreshHandle: HANDLE });
+  assert.equal(result.state, 'downloaded');
+  assert.equal(harness.calls.downloads.length, 1);
+});
+
+test('a rate-limited range transfer keeps the durable plan and the retry re-enters the loop', async () => {
+  const harness = createHarness({
+    outcomes: [rateLimited(), {
+      status: 206, startByte: 0, endByteExclusive: 1_324,
+      totalBytes: 1_324, bytesWritten: 1_324, etag: ARCHIVE_ETAG,
+    }],
+    authoriseOutcomes: [authorisation(), authorisation(), authorisation()],
+  });
+  const coordinator = createDownloadCoordinator(harness.dependencies);
+  await assert.rejects(coordinator.queue({ sealedRefreshHandle: HANDLE }), {
+    code: 'RATE_LIMITED',
+  });
+  const interrupted = harness.memory.snapshot();
+  assert.equal(interrupted.job.jobId, JOB_ID);
+  assert.equal(interrupted.job.completedBytes, 0);
+  assert.equal(interrupted.chunks.length, 1);
+  assert.equal(interrupted.chunks[0].chunkSha256, null);
+
+  const resumed = await coordinator.resume({ sealedRefreshHandle: HANDLE });
+  assert.equal(resumed.state, 'downloaded');
+  // Exactly one further range request: the loop resumed at the chunk the 429
+  // interrupted rather than restarting or giving up.
+  assert.equal(harness.calls.downloads.length, 2);
+  assert.deepEqual(
+    harness.calls.downloads.map((request) => request.startByte),
+    [0, 0],
+  );
+});
+
+test('a composition that forgets packAuthority cannot construct a coordinator', () => {
+  const harness = createHarness();
+  const elevenKeys = { ...harness.dependencies };
+  delete elevenKeys.packAuthority;
+  assert.equal(Object.keys(elevenKeys).length, 11);
+  // No default pack since the join flip: an unnamed pack would silently bind
+  // every download to catalogue entry zero.
+  assert.throws(
+    () => createDownloadCoordinator(elevenKeys),
+    /Download coordinator dependencies are invalid/,
+  );
+  assert.throws(
+    () => createDownloadCoordinator({ ...elevenKeys, packAuthority: undefined }),
+    TypeError,
+  );
 });

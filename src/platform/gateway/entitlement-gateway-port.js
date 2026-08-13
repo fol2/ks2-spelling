@@ -13,6 +13,7 @@ import {
 import {
   MAX_OPAQUE_PROOF_CHARS,
   MAX_SEALED_REFRESH_HANDLE_CHARS,
+  MAX_SIGNED_ENVELOPE_BASE64_CHARS,
   OPAQUE_PROOF_PATTERN,
 } from './gateway-payload-limits.js';
 
@@ -257,7 +258,10 @@ export function validateAuthoriseResponse(value, expected) {
     signedManifestEnvelopeBase64: assertString(
       value.signedManifestEnvelopeBase64,
       'Signed manifest envelope',
-      { max: 1_048_576, pattern: /^[A-Za-z0-9+/]+={0,2}$/ },
+      {
+        max: MAX_SIGNED_ENVELOPE_BASE64_CHARS,
+        pattern: /^[A-Za-z0-9+/]+={0,2}$/,
+      },
     ),
     signedEnvelopeSha256: assertString(value.signedEnvelopeSha256, 'Envelope SHA-256', {
       min: 64, max: 64, pattern: SHA256,

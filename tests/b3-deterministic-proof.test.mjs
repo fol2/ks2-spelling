@@ -113,6 +113,13 @@ test('B3 deterministic proof runs the closed fake matrix twice byte-identically'
       report.syntheticDigests.syntheticLearnerAuthoritySha256,
       report.syntheticDigests.scenarioMatrixSha256,
     ].every((digest) => SHA256.test(digest)));
+    // The 15 shard registry rows the shard scenarios run against, in catalogue
+    // order. Drift in any sha256, byte count, etag, version or ordering flips
+    // this and fails the proof.
+    assert.equal(
+      report.syntheticDigests.shardAuthoritySha256,
+      '9556f0b2aacf849788c3c7f82958f85354fc2936a0c14b02e895e2a24ea00dba',
+    );
     assert.doesNotMatch(first.reportJson, PROHIBITED);
     assert.equal(
       await readFile(join(firstDirectory, 'deterministic-proof.json'), 'utf8'),

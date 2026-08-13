@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -118,4 +119,26 @@ test('Parent commerce serialises explicit purchase, restore, download and recove
   assert.equal(controller.getState().packState, 'installed');
   await controller.dispose();
   assert.equal(calls.at(-1), 'dispose');
+});
+
+test('the Parent card can start a purchased download and resume an interrupted one', async () => {
+  const { downloadActionLabel } = await import('../src/app/parent-commerce-controller.js');
+  // A purchase leaves the shard jobs queued; an interrupted install leaves
+  // them downloading. Both were unreachable before E2.7's fix round, which
+  // stranded a paying family with no way to obtain the content.
+  assert.equal(downloadActionLabel({ entitlementState: 'active', packState: 'queued' }), 'Download pack');
+  assert.equal(downloadActionLabel({ entitlementState: 'active', packState: 'downloading' }), 'Resume download');
+  assert.equal(downloadActionLabel({ entitlementState: 'active', packState: 'missing' }), 'Download pack');
+  assert.equal(downloadActionLabel({ entitlementState: 'active', packState: 'failed' }), 'Retry download');
+  // Nothing to do, or no right to do it.
+  assert.equal(downloadActionLabel({ entitlementState: 'active', packState: 'installed' }), null);
+  assert.equal(downloadActionLabel({ entitlementState: 'revoked', packState: 'locked' }), null);
+  assert.equal(downloadActionLabel({ entitlementState: 'none', packState: 'missing' }), null);
+  assert.equal(downloadActionLabel(), null);
+});
+
+test('the download button is driven by that selector, not by an inline state list', async () => {
+  const source = await readFile(new URL('../src/app/ProductApp.jsx', import.meta.url), 'utf8');
+  assert.match(source, /downloadActionLabel\(state\)/u);
+  assert.doesNotMatch(source, /\['missing', 'failed'\]\.includes\(state\.packState\)/u);
 });

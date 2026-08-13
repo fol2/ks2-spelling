@@ -11,6 +11,7 @@ import { buildCodex, setupExpeditionCompanion, trailMeadowCompanions } from './c
 import { learnerColour } from './learner-colour.js';
 import { artUrl, regionArt } from './mastery-art.js';
 import { autoAdvanceDelayMs } from './practice-feel.js';
+import { downloadActionLabel } from './parent-commerce-controller.js';
 import { milestoneLadder } from './records-model.js';
 import { buildWordBank } from './word-bank-model.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
@@ -619,8 +620,8 @@ function commerceMessage(state) {
   if (state.packState === 'failed') {
     return 'Access is verified, but the local pack needs another download attempt.';
   }
-  if (['queued', 'downloading'].includes(state.packState)) {
-    return 'Access is verified and the spelling pack is being prepared locally.';
+  if (state.packState === 'downloading') {
+    return 'The spelling pack download did not finish. Resume it to install the rest.';
   }
   return 'Access is verified. Download the spelling pack to use it offline.';
 }
@@ -637,9 +638,7 @@ function ParentCommerceCard({
     state.entitlementState === 'none' &&
     state.displayPrice !== '' &&
     !['offline', 'failed'].includes(state.status);
-  const canDownload =
-    state.entitlementState === 'active' &&
-    ['missing', 'failed'].includes(state.packState);
+  const downloadLabel = downloadActionLabel(state);
   return (
     <section className="paper-card parent-card" aria-labelledby="parent-commerce-title">
       <p className="product-kicker">Packs and purchases</p>
@@ -659,14 +658,14 @@ function ParentCommerceCard({
             Buy Full KS2{state.displayPrice ? ` — ${state.displayPrice}` : ''}
           </button>
         )}
-        {canDownload && (
+        {downloadLabel && (
           <button
             type="button"
             className="button-primary press"
             disabled={busy}
             onClick={() => void onDownload().catch(() => undefined)}
           >
-            {state.packState === 'failed' ? 'Retry download' : 'Download pack'}
+            {downloadLabel}
           </button>
         )}
         <button

@@ -319,6 +319,7 @@ export async function createB3AppServices(options = {}) {
     const activeEntitlementSet = async () =>
       readonlyEntitlementSet(await commerceRepository.listEntitlements());
     const packReconciler = createPackReconciler({
+      entitlementId: FULL_KS2_PACK.entitlementId,
       packTransfer,
       packRepository,
       activeEntitlementProjection: activeEntitlementSet,
@@ -373,6 +374,7 @@ export async function createB3AppServices(options = {}) {
       { store: storeKind },
     );
     const purchaseCoordinator = createPurchaseCoordinator({
+      entitlementId: FULL_KS2_PACK.entitlementId,
       store,
       gateway,
       commerceRepository,
@@ -527,7 +529,7 @@ export async function createB3AppServices(options = {}) {
       start: snapshot,
       sync: snapshot,
       async purchase() {
-        const result = await purchaseCoordinator.purchaseFullKs2({ productId });
+        const result = await purchaseCoordinator.purchase({ productId });
         const latest = await snapshot();
         return Object.freeze({
           state: latest.entitlementState === 'revoked' ? 'revoked' : result.state,

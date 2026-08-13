@@ -181,6 +181,7 @@ export function createProductCommerceWorkflow(options = {}) {
   const activeEntitlementProjection = async () =>
     projectActiveEntitlements(await commerceRepository.listEntitlements());
   const packReconciler = createPackReconciler({
+    entitlementId: FULL_KS2_PACK.entitlementId,
     packTransfer,
     packRepository,
     activeEntitlementProjection,
@@ -193,6 +194,7 @@ export function createProductCommerceWorkflow(options = {}) {
     (value) => { latestSignedManifestEnvelope = value; },
   );
   const purchaseCoordinator = createPurchaseCoordinator({
+    entitlementId: FULL_KS2_PACK.entitlementId,
     store,
     gateway: recordedGateway,
     commerceRepository,
@@ -384,7 +386,7 @@ export function createProductCommerceWorkflow(options = {}) {
     },
     purchase() {
       return enqueue(() => runAction(() =>
-        purchaseCoordinator.purchaseFullKs2({ productId })));
+        purchaseCoordinator.purchase({ productId })));
     },
     restore() {
       return enqueue(() => runAction(() => purchaseCoordinator.restore()));

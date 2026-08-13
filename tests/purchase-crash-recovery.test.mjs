@@ -153,6 +153,7 @@ async function makeCoordinator(world, checkpoint) {
   const { createPurchaseCoordinator } = await import('../src/app/purchase-coordinator.js');
   let crashed = false;
   return createPurchaseCoordinator({
+    entitlementId: 'full-ks2',
     store: world.store, gateway: world.gateway, commerceRepository: world.repository,
     attemptRepository: world.attemptRepository,
     downloadRepository: world.downloadRepository, clock: () => 10_000,
@@ -236,7 +237,7 @@ test('same-millisecond clocks allocate strictly monotonic repository timestamps'
       return original(input);
     };
   }
-  await (await makeCoordinator(world, 'never')).purchaseFullKs2({ productId: 'full_ks2' });
+  await (await makeCoordinator(world, 'never')).purchase({ productId: 'full_ks2' });
   assert.deepEqual(timestamps, timestamps.toSorted((left, right) => left - right));
   assert.equal(new Set(timestamps).size, timestamps.length);
 });
@@ -285,7 +286,7 @@ test('revocation crash matrix converges with the handle deleted and installed jo
     'before:proof-clear', 'after:proof-clear',
   ]) {
     const world = createWorld();
-    await (await makeCoordinator(world, 'never')).purchaseFullKs2({ productId: 'full_ks2' });
+    await (await makeCoordinator(world, 'never')).purchase({ productId: 'full_ks2' });
     const revoked = Object.freeze({
       store: 'google', environment: 'sandbox', productId: 'full_ks2', outcome: 'revoked',
       transactionRef: 'native-revocation', opaqueProof: 'fresh-revocation-proof',

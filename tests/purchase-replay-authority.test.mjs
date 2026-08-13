@@ -172,6 +172,7 @@ async function withWorld(run) {
     function coordinator({ failureAt = 'never' } = {}) {
       let failed = false;
       return createPurchaseCoordinator({
+        entitlementId: 'full-ks2',
         store,
         gateway,
         commerceRepository,
@@ -348,7 +349,7 @@ test('a later user purchase escapes a stable rejection and later callbacks stay 
   await withWorld(async ({ commerceRepository, calls, state, coordinator }) => {
     state.rejectVerification = true;
     await assert.rejects(
-      coordinator().purchaseFullKs2({ productId: 'full_ks2' }),
+      coordinator().purchase({ productId: 'full_ks2' }),
       { code: 'PROOF_REJECTED' },
     );
     state.rejectVerification = false;
@@ -357,7 +358,7 @@ test('a later user purchase escapes a stable rejection and later callbacks stay 
       opaqueProof: 'user-retry-proof',
     });
     state.authorisation = authorisation(identity({ version: 2 }));
-    await coordinator().purchaseFullKs2({ productId: 'full_ks2' });
+    await coordinator().purchase({ productId: 'full_ks2' });
     assert.equal((await commerceRepository.listEntitlements())[0].state, 'active');
     const beforeVerify = calls.verify.length;
     state.current = [purchased({
@@ -374,12 +375,12 @@ test('a pending user retry after stable rejection promotes its one fresh attempt
   await withWorld(async ({ connection, state, coordinator }) => {
     state.rejectVerification = true;
     await assert.rejects(
-      coordinator().purchaseFullKs2({ productId: 'full_ks2' }),
+      coordinator().purchase({ productId: 'full_ks2' }),
       { code: 'PROOF_REJECTED' },
     );
     state.rejectVerification = false;
     state.purchase = pending({ transactionRef: 'retry-pending-native' });
-    await coordinator().purchaseFullKs2({ productId: 'full_ks2' });
+    await coordinator().purchase({ productId: 'full_ks2' });
     state.authorisation = authorisation(identity({ version: 2 }));
     await coordinator().handleObservation(purchased({
       transactionRef: 'retry-approved-native',

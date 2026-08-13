@@ -1,3 +1,4 @@
+import packSigningKeyring from '../../../config/pack-signing-public-keys.json' with { type: 'json' };
 import storeProductCatalogue from '../../../config/store-products.json' with { type: 'json' };
 
 const STORE_CATALOGUE_KEYS = Object.freeze(['schemaVersion', 'products']);
@@ -60,13 +61,21 @@ const EXPECTED_ALLOWED_ORIGINS = Object.freeze([
   ['http:', '', 'localhost'].join('/'),
 ]);
 
-const EXPECTED_PRODUCT = Object.freeze({
-  entitlementId: 'full-ks2',
-  type: 'non-consumable',
-  appleProductId: 'uk.eugnel.ks2spelling.fullks2',
-  googleProductId: 'full_ks2',
-  packIds: Object.freeze(['b3-sandbox-proof']),
-});
+// The closed enum is the future-IAP seam: a new store product kind is admitted by
+// naming it here, and only then by growing an implementation for it. Nothing in this
+// slice branches on `type` — every approved product travels the one implemented path.
+const KNOWN_PRODUCT_TYPES = Object.freeze([
+  'non-consumable',
+  'consumable',
+  'auto-renewing-subscription',
+]);
+const IMPLEMENTED_PRODUCT_TYPES = Object.freeze(['non-consumable']);
+
+const KNOWN_STORE_FIELDS = Object.freeze(['appleProductId', 'googleProductId']);
+
+const KEBAB_IDENTITY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+const APPLE_PRODUCT_ID = /^[a-z0-9]+(?:\.[a-z0-9]+)+$/u;
+const GOOGLE_PRODUCT_ID = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/u;
 
 const EXPECTED_SIGNING_KEY = Object.freeze({
   keyId: 'b3-test-p256-2026-07',
@@ -180,29 +189,114 @@ function assertExactRecord(value, expected, keys, label) {
   }
 }
 
+function readOpenArray(value, label) {
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) {
+    fail(label, 'must contain an approved array');
+  }
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, 'length');
+  if (!lengthDescriptor || !Number.isSafeInteger(lengthDescriptor.value)) {
+    fail(label, 'must contain an approved array');
+  }
+  return readClosedArray(value, lengthDescriptor.value, label);
+}
+
+let signablePackIdCache = null;
+
+// A catalogue may only sell packs some approved signing key can verify: an unsignable
+// packId would be a product the device can pay for and then never trust on arrival.
+function signablePackIds() {
+  if (signablePackIdCache === null) {
+    assertPackKeyring(packSigningKeyring);
+    signablePackIdCache = new Set(
+      packSigningKeyring.keys.flatMap((key) => [...key.allowedPackIds]),
+    );
+  }
+  return signablePackIdCache;
+}
+
+function assertApprovedProduct(product, claimed, label) {
+  assertClosedRecord(product, PRODUCT_KEYS, label);
+  if (typeof product.entitlementId !== 'string' || !KEBAB_IDENTITY.test(product.entitlementId)) {
+    fail(label, 'has an unapproved entitlementId');
+  }
+  if (!KNOWN_PRODUCT_TYPES.includes(product.type)) {
+    fail(label, 'has an unapproved type');
+  }
+  if (!IMPLEMENTED_PRODUCT_TYPES.includes(product.type)) {
+    fail(label, `declares the ${product.type} type, which has no implementation`);
+  }
+  if (typeof product.appleProductId !== 'string' ||
+    !APPLE_PRODUCT_ID.test(product.appleProductId)) {
+    fail(label, 'has an unapproved appleProductId');
+  }
+  if (typeof product.googleProductId !== 'string' ||
+    !GOOGLE_PRODUCT_ID.test(product.googleProductId)) {
+    fail(label, 'has an unapproved googleProductId');
+  }
+  const packIds = readOpenArray(product.packIds, label);
+  if (packIds.length === 0) fail(label, 'must give every product at least one pack');
+  // Packs are deliberately NOT unique across products: a bundle and a narrower product
+  // may both deliver the same shard. Entitlements and store product ids must be unique.
+  const ownPackIds = new Set();
+  for (const packId of packIds) {
+    if (typeof packId !== 'string' || !KEBAB_IDENTITY.test(packId)) {
+      fail(label, 'has an unapproved packId');
+    }
+    if (!signablePackIds().has(packId)) {
+      fail(label, 'has a packId no approved signing key can verify');
+    }
+    if (ownPackIds.has(packId)) fail(label, 'must not repeat a packId within one product');
+    ownPackIds.add(packId);
+  }
+  for (const identity of [
+    `entitlement ${product.entitlementId}`,
+    `apple ${product.appleProductId}`,
+    `google ${product.googleProductId}`,
+  ]) {
+    if (claimed.has(identity)) fail(label, 'must not claim an identity twice');
+    claimed.add(identity);
+  }
+  return product;
+}
+
 export function assertStoreProductCatalogue(value) {
   const label = 'Store product catalogue';
   assertClosedRecord(value, STORE_CATALOGUE_KEYS, label);
   if (value.schemaVersion !== 1) {
-    fail(label, 'must contain the one approved schema V1 product');
+    fail(label, 'must declare the approved schema V1 shape');
   }
-  const [product] = readClosedArray(value.products, 1, label);
-  assertExactRecord(product, EXPECTED_PRODUCT, PRODUCT_KEYS, label);
+  const products = readOpenArray(value.products, label);
+  if (products.length === 0) fail(label, 'must contain at least one product');
+  const claimed = new Set();
+  for (const product of products) assertApprovedProduct(product, claimed, label);
   return value;
+}
+
+export function listStoreProducts() {
+  assertStoreProductCatalogue(storeProductCatalogue);
+  return Object.freeze(storeProductCatalogue.products.map((product) => Object.freeze({
+    ...product,
+    packIds: Object.freeze([...product.packIds]),
+  })));
+}
+
+export function findStoreProductByEntitlementId(entitlementId) {
+  const label = 'Store product entitlement';
+  if (typeof entitlementId !== 'string') fail(label, 'must be an identifier');
+  const product = listStoreProducts()
+    .find((candidate) => candidate.entitlementId === entitlementId) ?? null;
+  if (!product) fail(label, 'is not approved');
+  return product;
 }
 
 export function mapStoreProductToEntitlement(value) {
   const label = 'Store product mapping';
   assertClosedRecord(value, ['store', 'productId'], label);
-  assertStoreProductCatalogue(storeProductCatalogue);
-  const product = storeProductCatalogue.products[0];
-  const expectedProductId = {
-    apple: product.appleProductId,
-    google: product.googleProductId,
-  }[value.store];
-  if (typeof expectedProductId !== 'string' || value.productId !== expectedProductId) {
-    fail(label, 'is not approved');
-  }
+  const field = { apple: 'appleProductId', google: 'googleProductId' }[value.store];
+  const product = KNOWN_STORE_FIELDS.includes(field)
+    ? listStoreProducts().find((candidate) => candidate[field] === value.productId) ?? null
+    : null;
+  if (!product) fail(label, 'is not approved');
   return product.entitlementId;
 }
 

@@ -269,6 +269,7 @@ function createHarness({ purchaseOutcome = observation('purchased'), verifyError
 async function coordinator(harness, overrides = {}) {
   const { createPurchaseCoordinator } = await import('../src/app/purchase-coordinator.js');
   return createPurchaseCoordinator({
+    entitlementId: 'full-ks2',
     store: harness.store,
     gateway: harness.gateway,
     commerceRepository: harness.repository,
@@ -284,13 +285,13 @@ async function coordinator(harness, overrides = {}) {
 test('purchase coordinator exposes only the five frozen async methods', async () => {
   const value = await coordinator(createHarness());
   assert.deepEqual(Reflect.ownKeys(value), [
-    'purchaseFullKs2', 'handleObservation', 'restore', 'refresh', 'recover',
+    'purchase', 'handleObservation', 'restore', 'refresh', 'recover',
   ]);
   assert.equal(Object.isFrozen(value), true);
   for (const method of Reflect.ownKeys(value)) {
     assert.equal(Object.getPrototypeOf(value[method]), Object.getPrototypeOf(async function () {}));
   }
-  await assert.rejects(value.purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID }, 'extra'), TypeError);
+  await assert.rejects(value.purchase({ productId: GOOGLE_PRODUCT_ID }, 'extra'), TypeError);
   await assert.rejects(value.handleObservation(observation('cancelled'), 'extra'), TypeError);
   await assert.rejects(value.restore('extra'), TypeError);
   await assert.rejects(value.refresh('extra'), TypeError);
@@ -311,12 +312,12 @@ test('purchase coordinator exposes only the five frozen async methods', async ()
   );
   await assert.rejects(
     coordinator(createHarness(), { idFactory: () => 'journal.with-dot' })
-      .then((candidate) => candidate.purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID })),
+      .then((candidate) => candidate.purchase({ productId: GOOGLE_PRODUCT_ID })),
     TypeError,
   );
   await assert.rejects(
     coordinator(createHarness(), { idFactory: () => 'journal_with_underscore' })
-      .then((candidate) => candidate.purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID })),
+      .then((candidate) => candidate.purchase({ productId: GOOGLE_PRODUCT_ID })),
     TypeError,
   );
 });
@@ -324,7 +325,7 @@ test('purchase coordinator exposes only the five frozen async methods', async ()
 test('a purchased observation journals before verification and finishes before proof clear and job creation', async () => {
   const harness = createHarness();
   const value = await coordinator(harness);
-  await value.purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
+  await value.purchase({ productId: GOOGLE_PRODUCT_ID });
   assert.deepEqual(harness.calls.map(([name]) => name), [
     'listRecoverableTransactions',
     'listEntitlements',
@@ -372,7 +373,7 @@ test('a purchased observation journals before verification and finishes before p
 test('cancelled and unverified observations never journal or grant; pending journals without proof', async () => {
   for (const outcome of ['cancelled', 'unverified']) {
     const harness = createHarness({ purchaseOutcome: observation(outcome) });
-    await (await coordinator(harness)).purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
+    await (await coordinator(harness)).purchase({ productId: GOOGLE_PRODUCT_ID });
     assert.equal(harness.journals.length, 0, outcome);
     assert.equal(
       harness.calls.some(([name]) => name === 'discardPendingAttempt'),
@@ -382,7 +383,7 @@ test('cancelled and unverified observations never journal or grant; pending jour
     assert.equal(harness.entitlements.length, 0, outcome);
   }
   const pending = createHarness({ purchaseOutcome: observation('pending') });
-  await (await coordinator(pending)).purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
+  await (await coordinator(pending)).purchase({ productId: GOOGLE_PRODUCT_ID });
   assert.equal(pending.journals[0].observationState, 'pending');
   assert.equal(pending.journals[0].opaqueProof, null);
   assert.equal(pending.calls.some(([name]) => name === 'verifyTransaction'), false);
@@ -392,7 +393,7 @@ test('only authenticated permanent proof failures clear the durable proof', asyn
   for (const code of ['PROOF_REJECTED', 'PRODUCT_MISMATCH', 'STORE_TRANSACTION_ID_INVALID']) {
     const error = Object.assign(new Error('safe'), { code, status: 422, retryable: false });
     const harness = createHarness({ verifyError: error });
-    await assert.rejects((await coordinator(harness)).purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID }));
+    await assert.rejects((await coordinator(harness)).purchase({ productId: GOOGLE_PRODUCT_ID }));
     assert.equal(harness.journals[0].processingState, 'rejected', code);
     assert.equal(harness.journals[0].opaqueProof, null, code);
   }
@@ -402,7 +403,7 @@ test('only authenticated permanent proof failures clear the durable proof', asyn
     );
     const error = new DefinitiveMalformedSubmittedProofError();
     const harness = createHarness({ verifyError: error });
-    await assert.rejects((await coordinator(harness)).purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID }));
+    await assert.rejects((await coordinator(harness)).purchase({ productId: GOOGLE_PRODUCT_ID }));
     assert.equal(harness.journals[0].processingState, 'rejected');
     assert.equal(harness.journals[0].opaqueProof, null);
     assert.equal(
@@ -419,7 +420,7 @@ test('only authenticated permanent proof failures clear the durable proof', asyn
     Object.assign(new Error('spoofed permanent at rate limit'), { code: 'PROOF_REJECTED', status: 429, retryable: false }),
   ]) {
     const harness = createHarness({ verifyError: error });
-    await assert.rejects((await coordinator(harness)).purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID }));
+    await assert.rejects((await coordinator(harness)).purchase({ productId: GOOGLE_PRODUCT_ID }));
     assert.equal(harness.journals[0].processingState, 'observed', error.code);
     assert.equal(harness.journals[0].opaqueProof, 'purchased-proof', error.code);
     assert.equal(harness.calls.some(([name]) => name === 'markRejectedAndClearProof'), false, error.code);
@@ -429,15 +430,15 @@ test('only authenticated permanent proof failures clear the durable proof', asyn
 test('purchase accepts only one explicit approved platform product and restore requests both fixed products', async () => {
   const harness = createHarness();
   const value = await coordinator(harness);
-  await assert.rejects(value.purchaseFullKs2(), TypeError);
-  await assert.rejects(value.purchaseFullKs2({ productId: 'Full KS2' }), TypeError);
+  await assert.rejects(value.purchase(), TypeError);
+  await assert.rejects(value.purchase({ productId: 'Full KS2' }), TypeError);
   let getterCalled = false;
   const accessor = {};
   Object.defineProperty(accessor, 'productId', {
     enumerable: true,
     get() { getterCalled = true; return GOOGLE_PRODUCT_ID; },
   });
-  await assert.rejects(value.purchaseFullKs2(accessor), TypeError);
+  await assert.rejects(value.purchase(accessor), TypeError);
   assert.equal(getterCalled, false);
   harness.store.restore = async (request) => { harness.calls.push(['restore', request]); return []; };
   await value.restore();
@@ -449,7 +450,7 @@ test('purchase accepts only one explicit approved platform product and restore r
 test('pending promotes to purchased in one journal and leaves no recoverable orphan', async () => {
   const harness = createHarness({ purchaseOutcome: observation('pending') });
   const value = await coordinator(harness);
-  await value.purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
+  await value.purchase({ productId: GOOGLE_PRODUCT_ID });
   await value.handleObservation(observation('purchased', {
     transactionRef: 'native-promoted',
     opaqueProof: 'promoted-proof',
@@ -465,7 +466,7 @@ test('restore journals fresh proof, reseals the existing entitlement and never d
   const harness = createHarness();
   let identifier = 0;
   const value = await coordinator(harness, { idFactory: () => `journal-${identifier += 1}` });
-  await value.purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
+  await value.purchase({ productId: GOOGLE_PRODUCT_ID });
   const fresh = observation('purchased', {
     transactionRef: 'native-restore',
     opaqueProof: 'fresh-restore-proof',
@@ -496,7 +497,7 @@ test('verified revocation locks access and deletes its handle without deleting t
   const harness = createHarness();
   let identifier = 0;
   const value = await coordinator(harness, { idFactory: () => `journal-${identifier += 1}` });
-  await value.purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
+  await value.purchase({ productId: GOOGLE_PRODUCT_ID });
   const revoked = observation('revoked', {
     transactionRef: 'native-revocation',
     opaqueProof: 'fresh-revocation-proof',
@@ -518,7 +519,7 @@ test('refresh rotates active authority and requires a fresh store proof before r
   const harness = createHarness();
   let identifier = 0;
   const value = await coordinator(harness, { idFactory: () => `journal-${identifier += 1}` });
-  await value.purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
+  await value.purchase({ productId: GOOGLE_PRODUCT_ID });
   harness.gateway.refreshEntitlement = async () => identity({
     sealedRefreshHandle: 'b3rh1.2.refresh.handle',
     refreshHandleVersion: 2,
@@ -549,7 +550,7 @@ test('refresh rotates active authority and requires a fresh store proof before r
 test('an existing fixed job validates locally and recovery remains offline', async () => {
   const harness = createHarness();
   const value = await coordinator(harness);
-  await value.purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
+  await value.purchase({ productId: GOOGLE_PRODUCT_ID });
   let networkCalls = 0;
   harness.gateway.authorisePackDownload = async () => {
     networkCalls += 1;
@@ -582,7 +583,7 @@ test('repeated current-entitlement observations use one live-verified bounded ca
   });
   const harness = createHarness({ purchaseOutcome: purchased });
   await (await coordinator(harness, { idFactory: () => 'first-random-attempt' }))
-    .purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
+    .purchase({ productId: GOOGLE_PRODUCT_ID });
   const safeId = harness.entitlements[0].storeTransactionId;
   harness.store.queryTransactions = async () => [purchased];
   const before = harness.calls.length;
@@ -611,7 +612,7 @@ test('permanently rejected current observation never restores proof on a fresh c
   const harness = createHarness({ purchaseOutcome: purchased, verifyError: error });
   await assert.rejects(
     (await coordinator(harness, { idFactory: () => 'first-rejection-attempt' }))
-      .purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID }),
+      .purchase({ productId: GOOGLE_PRODUCT_ID }),
     { code: 'PROOF_REJECTED' },
   );
   assert.equal(harness.journals[0].opaqueProof, null);
@@ -631,7 +632,7 @@ test('fresh coordinator seeds a rolled-back clock before an explicit Restore', a
   await (await coordinator(harness, {
     clock: () => 50_000,
     idFactory: () => `initial-${firstIdentifier += 1}`,
-  })).purchaseFullKs2({ productId: GOOGLE_PRODUCT_ID });
+  })).purchase({ productId: GOOGLE_PRODUCT_ID });
   const priorRefreshedAt = harness.entitlements[0].refreshedAt;
   const fresh = observation('purchased', {
     transactionRef: 'native-lower-clock-restore',

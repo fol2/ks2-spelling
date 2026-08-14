@@ -162,6 +162,47 @@ function wordCount(value) {
 }
 
 /**
+ * One word, opened. The bank row already carries the learner's side of it —
+ * status, note and rungs — so the detail only adds what the installed pack
+ * says: what the word means, one sentence it lives in, and the rest of its
+ * family. One sentence is the whole example: a child reading a word is not
+ * reading ten. A word the bank is not currently listing has nothing to open,
+ * and neither has a word this pack does not publish.
+ */
+export function buildWordDetail({ material = null, row = null } = {}) {
+  if (!material || !row || material.runtimeItemId !== row.runtimeItemId) {
+    return null;
+  }
+  return {
+    runtimeItemId: row.runtimeItemId,
+    word: row.word,
+    yearLabel: material.yearLabel,
+    explanation: material.explanation,
+    sentence: material.sentencePrompts[0].text,
+    // The family list names the word itself; the detail is already showing it.
+    familyWords: material.familyWords.filter((entry) => entry !== row.word),
+    status: row.status,
+    note: row.note,
+    rungs: row.rungs,
+  };
+}
+
+/**
+ * Hearing a word on its own is the round's own playback port, asked for the
+ * `word` recording rather than a dictation sentence. That kind resolves its
+ * asset from the item alone, so there is no sentence to name.
+ */
+export function hearWordRequest({ runtimeItemId, version, voiceId }) {
+  return {
+    version,
+    runtimeItemId,
+    sentence: '',
+    voiceId,
+    kind: 'word',
+  };
+}
+
+/**
  * Project the complete published catalogue into the word bank. Unseen words
  * carry zero attempts, while saved per-word progress fills the same rows.
  */

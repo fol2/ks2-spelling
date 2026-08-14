@@ -579,6 +579,38 @@ export function createProductLearningController({
       publishFromSnapshot({ screen });
       return state;
     },
+    // The controller owns the catalogue, so the Word Bank detail asks it what
+    // the pack says about one word rather than reaching for a pack of its own
+    // — which is also the only way the detail can never disagree with the
+    // round about the word a learner is looking at. The reply is a frozen
+    // copy: content to read, never a handle on the loaded catalogue.
+    wordMaterial(runtimeItemId) {
+      const item = catalogue.items.find(
+        (candidate) => candidate.runtimeItemId === runtimeItemId,
+      );
+      return item ? cloneFrozen(item) : null;
+    },
+    // Practising one word from the Word Bank is the engine's own single-word
+    // drill: `words` names the item, and `practiceOnly` is what upstream calls
+    // "Word bank practice" — a rehearsal that moves neither the review
+    // schedule, the companions nor Camp. The baseline is captured all the
+    // same, because the summary this round ends on reads the round-start
+    // roster, and a stale one would replay the last round's celebrations.
+    practiseWord(runtimeItemId) {
+      if (!catalogue.items.some((item) => item.runtimeItemId === runtimeItemId)) {
+        return Promise.reject(
+          new TypeError('Word bank practice requires a word this pack publishes.'),
+        );
+      }
+      return runCommand({
+        type: 'start-session',
+        payload: {
+          mode: 'single',
+          words: [runtimeItemId],
+          practiceOnly: true,
+        },
+      }, { captureBaseline: true });
+    },
     startRound(options) {
       const parsed = parseRoundOptions(options);
       if (

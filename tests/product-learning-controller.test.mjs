@@ -250,6 +250,79 @@ test('product learning publishes legacy catalogue rows as core vocabulary metada
   await controller.dispose();
 });
 
+test('product learning hands the Word Bank one word of catalogue material, read-only', async () => {
+  const world = createLearningWorld();
+  const controller = world.createController();
+  const item = world.catalogue.items.find(
+    ({ runtimeItemId }) => runtimeItemId === 'ks2-core:busy',
+  );
+
+  const material = controller.wordMaterial('ks2-core:busy');
+  assert.deepEqual(material, item);
+  // The reply is a copy of the pack, not a handle on it.
+  assert.notEqual(material, item);
+  assert.throws(() => {
+    material.explanation = 'rewritten';
+  }, TypeError);
+  assert.throws(() => {
+    material.familyWords.push('invented');
+  }, TypeError);
+
+  assert.equal(controller.wordMaterial('ks2-core:not-in-this-pack'), null);
+  assert.equal(controller.wordMaterial(undefined), null);
+  assert.equal(world.transactionCount(), 0);
+
+  await controller.dispose();
+});
+
+test('product learning practises one Word Bank word without moving the review schedule', async () => {
+  const world = createLearningWorld();
+  const controller = world.createController();
+  const target = world.catalogue.items.find(
+    ({ runtimeItemId }) => runtimeItemId === 'ks2-core:busy',
+  );
+
+  await assert.rejects(controller.practiseWord('ks2-core:not-here'), TypeError);
+  assert.equal(world.transactionCount(), 0);
+
+  await controller.practiseWord(target.runtimeItemId);
+  const started = controller.getState();
+  assert.equal(started.screen, 'practice');
+  assert.equal(started.practice.mode, 'single');
+  // The engine's own name for a practiceOnly drill.
+  assert.equal(started.practice.label, 'Word bank practice');
+  assert.equal(started.practice.runtimeItemId, target.runtimeItemId);
+  assert.equal(started.practice.progress.total, 1);
+  // A fresh baseline, so the summary this round ends on cannot replay the
+  // celebrations of the round before it.
+  assert.equal(started.roundBaseline.sessionId, started.practice.sessionId);
+
+  await controller.submitAnswer(target.target);
+  await controller.continueRound();
+  // One word means the round only ever holds that word.
+  assert.equal(
+    controller.getState().practice.runtimeItemId,
+    target.runtimeItemId,
+  );
+  await controller.submitAnswer(target.target);
+  await controller.continueRound();
+
+  const finished = controller.getState();
+  assert.equal(finished.screen, 'summary');
+  assert.deepEqual(
+    finished.progress.find(
+      ({ runtimeItemId }) => runtimeItemId === target.runtimeItemId,
+    ),
+    unseenProgress(world.catalogue).find(
+      ({ runtimeItemId }) => runtimeItemId === target.runtimeItemId,
+    ),
+  );
+  // A rehearsal earns nothing either: no companion moves, no Camp credit.
+  assert.deepEqual(finished.monsters, controller.getState().roundBaseline.monsters);
+
+  await controller.dispose();
+});
+
 test('product learning routes Trouble Drill and SATs Test through the shared controller', async () => {
   const troubleWorld = createLearningWorld();
   const trouble = troubleWorld.createController();

@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildWordBank } from '../src/app/word-bank-model.js';
+import { loadStarterSpellingCatalogue } from '../src/domain/spelling/index.js';
+import {
+  buildWordBank,
+  buildWordDetail,
+  hearWordRequest,
+} from '../src/app/word-bank-model.js';
 
 function word(overrides = {}) {
   return {
@@ -328,4 +333,101 @@ test('unknown filters and empty set metadata fall back safely', () => {
   assert.equal(bank.filters.find(({ selected }) => selected).id, 'all');
   assert.equal(bank.vocabSets.find(({ selected }) => selected).id, 'core');
   assert.deepEqual(bank.rows.map((row) => row.word), ['accident']);
+});
+
+/* The opened word. Material comes from the installed catalogue rather than a
+   fixture: the projection's whole job is to present what the pack publishes,
+   and a hand-written item could agree with the code while disagreeing with
+   every word a learner can actually tap. */
+function starterMaterial(runtimeItemId) {
+  const item = loadStarterSpellingCatalogue().items.find(
+    (candidate) => candidate.runtimeItemId === runtimeItemId,
+  );
+  assert.ok(item, `the starter catalogue must publish ${runtimeItemId}`);
+  return item;
+}
+
+function bankRow(runtimeItemId, overrides = {}) {
+  const material = starterMaterial(runtimeItemId);
+  const bank = buildWordBank({
+    now: 0,
+    progress: [word({
+      runtimeItemId,
+      target: material.target,
+      yearBand: material.yearBand,
+      ...overrides,
+    })],
+  });
+  return bank.rows[0];
+}
+
+test('an opened word carries the pack meaning, one sentence and its other family spellings', () => {
+  const material = starterMaterial('ks2-core:busy');
+  const row = bankRow('ks2-core:busy', {
+    stage: 2,
+    attempts: 4,
+    correct: 3,
+    wrong: 1,
+  });
+
+  const detail = buildWordDetail({ material, row });
+
+  assert.equal(detail.runtimeItemId, 'ks2-core:busy');
+  assert.equal(detail.word, 'busy');
+  assert.equal(detail.yearLabel, 'Years 3-4');
+  assert.equal(
+    detail.explanation,
+    'Busy means having a lot to do or full of activity.',
+  );
+  // The first prompt, and only the first: ten sentences is a reading task.
+  assert.equal(detail.sentence, material.sentencePrompts[0].text);
+  assert.equal(material.sentencePrompts.length > 1, true);
+  // The family names this word too; the detail is already showing it.
+  assert.deepEqual(detail.familyWords, ['business']);
+  // The learner's side of the word is the row's, so the list and the detail
+  // cannot describe the same word differently.
+  assert.equal(detail.status, row.status);
+  assert.equal(detail.note, '3 correct · 1 to revisit');
+  assert.deepEqual(detail.rungs, [true, true, false, false, false]);
+});
+
+test('a word whose family holds nothing else offers no family list', () => {
+  const detail = buildWordDetail({
+    material: starterMaterial('ks2-core:answer'),
+    row: bankRow('ks2-core:answer'),
+  });
+
+  assert.deepEqual(detail.familyWords, []);
+  assert.equal(detail.note, 'Not met yet');
+});
+
+test('a word the bank is not listing has no detail to open', () => {
+  const material = starterMaterial('ks2-core:busy');
+  const row = bankRow('ks2-core:busy');
+
+  assert.equal(buildWordDetail({ material, row: null }), null);
+  assert.equal(buildWordDetail({ material: null, row }), null);
+  assert.equal(buildWordDetail(), null);
+  // A row and material that name different words are never merged into one.
+  assert.equal(
+    buildWordDetail({ material: starterMaterial('ks2-core:answer'), row }),
+    null,
+  );
+});
+
+test('hearing a word asks the round audio port for the word recording', () => {
+  assert.deepEqual(
+    hearWordRequest({
+      runtimeItemId: 'ks2-core:busy',
+      version: '1.0.0',
+      voiceId: 'Iapetus',
+    }),
+    {
+      version: '1.0.0',
+      runtimeItemId: 'ks2-core:busy',
+      sentence: '',
+      voiceId: 'Iapetus',
+      kind: 'word',
+    },
+  );
 });

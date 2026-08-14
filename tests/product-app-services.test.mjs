@@ -139,6 +139,9 @@ test('production services persist profile CRUD and selected learner across a cle
     'subscribe',
     'selectLearner',
     'showScreen',
+    // The Word Bank detail reads one word's material and can practise it.
+    'wordMaterial',
+    'practiseWord',
     'startRound',
     'startGuardianMission',
     'submitAnswer',

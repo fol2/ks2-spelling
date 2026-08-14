@@ -115,13 +115,14 @@ test('default audit consumes the complete resolved Android certification', async
     {
       status: 'resolved-toolchain',
       componentCount: 327,
-      // Re-attested 2026-08-06 against a live resolved toolchain. The count
-      // moved 5575 -> 6632 when the C6 haptics plugin landed on 2026-07-24, one
-      // day after this figure was frozen. Every other figure here is unchanged,
-      // which is the point: the same 327 components are simply members of more
-      // Gradle scopes. No component entered or left the graph, so this is
-      // configuration accounting rather than a supply-chain change.
-      scopeMembershipCount: 6632,
+      // Re-attested 2026-08-14 against the live CI resolution on run
+      // 31760141139. The count moved 6632 -> 6892 when E2.10's `sandbox`
+      // buildType added its Gradle configurations (#165). Every other figure
+      // here is unchanged, which is the point: the same 327 components are
+      // simply members of more Gradle scopes. No component entered or left
+      // the graph, so this is configuration accounting rather than a
+      // supply-chain change. (Previous move: 5575 -> 6632, C6 haptics.)
+      scopeMembershipCount: 6892,
       packagedRuntimeCount: 74,
       scopeRestrictedToolingCount: 25,
       taskCreatedBuildToolCount: 13,

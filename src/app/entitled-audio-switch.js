@@ -13,6 +13,13 @@ export function isFullProductEntitled(state) {
   return state?.entitlementState === 'active' && state?.packState === 'installed';
 }
 
+// A device that has a store-verified grant — active or revoked — earned the
+// product. `none` never did. Alignment uses this to park paid history and to
+// refuse an unsigned backup the power to raise the catalogue.
+export function hasEarnedFullProduct(state) {
+  return state?.entitlementState === 'active' || state?.entitlementState === 'revoked';
+}
+
 export function createEntitledAudioSwitch({ starter, full, observe } = {}) {
   for (const [player, label] of [[starter, 'starter'], [full, 'full']]) {
     if (

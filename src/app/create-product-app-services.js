@@ -80,6 +80,7 @@ import { createBundledStarterAudio } from './bundled-starter-audio.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
 import {
   createEntitledAudioSwitch,
+  hasEarnedFullProduct,
   isFullProductEntitled,
 } from './entitled-audio-switch.js';
 // ponytail: the Full player's asset evidence (config/full-audio-manifest.json,
@@ -366,13 +367,17 @@ export async function createProductAppServices(options = {}) {
       parentCommerce.start().catch(() => undefined),
       options.commerceStartTimeoutMs ?? COMMERCE_START_TIMEOUT_MS,
     );
-    const alignCatalogueLearning = (store) =>
+    const commerceState = parentCommerce.getState();
+    const alignCatalogueLearning = (store, extras = {}) =>
       store.administration.alignCatalogueLearning({
-        entitled: isFullProductEntitled(parentCommerce.getState()),
+        entitled: isFullProductEntitled(commerceState),
+        earned: hasEarnedFullProduct(commerceState),
         canRepresent: createCatalogueRepresentationCheck({
           snapshotStore,
           cataloguesById,
         }),
+        readSnapshot: (learnerId) => snapshotStore.read(learnerId),
+        ...extras,
       });
     // A profile store seeds newly created learners with its initialCatalogueId,
     // so the aligned catalogue must be known before the store the app keeps is
@@ -510,14 +515,12 @@ export async function createProductAppServices(options = {}) {
       afterImport: async () => {
         await runPostCommit(async () => {
           // An import can replace every aggregate with one taken on the other
-          // side of the switch, so the same alignment runs here — the startup
-          // path alone would leave a restored full-catalogue backup unaligned
-          // on a device that never bought, and a restored Starter backup
-          // stranded on an entitled one. Only the composed catalogue cannot
-          // change under a running app: when the import lands on the other
-          // catalogue this reports post-commit, and the Parent screen already
-          // says the import succeeded and to reopen the app.
-          const importedCatalogueId = await alignCatalogueLearning(profileStore);
+          // side of the switch. The same alignment runs here, with imported
+          // full-catalogue state parked rather than composed unless this
+          // device has already earned the product (Gap 5).
+          const importedCatalogueId = await alignCatalogueLearning(profileStore, {
+            preserveUnentitledFull: true,
+          });
           if (importedCatalogueId !== catalogue.catalogueId) {
             throw new Error('product_catalogue_changed_by_import');
           }

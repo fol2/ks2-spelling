@@ -105,27 +105,20 @@ On a device signed into a **sandbox** store account:
 4. **Revocation**: refund/revoke the sandbox purchase; after refresh the
    entitlement reads revoked and every shard locks (no playback of
    full-catalogue words; Starter remains available).
-   Relaunch and confirm the **learning is still there**: a revoked device
-   that had earned full-catalogue learning keeps it rather than resetting to
-   Starter, so the app still composes the full 213-word catalogue and every
-   stage and due date survives. **Expected and deliberate:** in this state
-   the non-Starter words are visible but the entitlement gates the audio. When
-   the child taps Hear it again on a non-Starter word, an error banner appears
-   saying "The full word list needs the purchase to be restored." This honest
-   message replaces the generic "Check the listening pack" copy shown for other
-   audio failures, directing the family to restore the purchase rather than
-   debugging pack issues they cannot act on. The alternative was deleting a
-   refunded family's history. Note what the card says and whether the family
-   has an obvious route back ("Restore purchases"). Then re-purchase or restore
-   and confirm the same learning is in front of the child with audio working
-   again.
-   For comparison, a device revoked *before* the child practised any
-   non-Starter word goes cleanly back to the 20 Starter words with its
-   Starter progress intact — that downgrade is lossless, so it is taken.
+   **Close and relaunch.** The child must now be on the **20 Starter words**
+   — a revoked device does not keep serving the paid catalogue. Progress on
+   those 20 words is still there; late-alphabet history is parked, not
+   deleted. Then restore or re-purchase, relaunch, and confirm the parked
+   full-catalogue learning is back (213 words, same stages, audio working).
+   A device revoked *before* the child practised any non-Starter word
+   losslessly re-tags to Starter with its Starter progress intact — no
+   parking needed.
 5. **Non-entitled device**: on a device without the entitlement, confirm
    shard bytes are unreachable: no authorise (403), and a captured
    capability URL from the entitled device fails after expiry (600 s) and
-   never matches another shard's path.
+   never matches another shard's path. Importing a full-catalogue learning
+   backup onto this device must **not** raise the word list to 213 — that is
+   Gap 5 of the kids-category position.
 6. **Legacy-state device**: on a device that previously ran the B3 proof
    app (carrying `b3-sandbox-proof` rows), the product app starts cleanly
    and reports the b3 job retired (deliberate retirement, not a crash).

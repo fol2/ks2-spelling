@@ -10,12 +10,7 @@ import { assertSqlConnection } from './sql-connection-contract.js';
 import { runOwnedTransaction } from './sqlite-transaction-runner.js';
 
 export const PRODUCT_SELECTED_LEARNER_KEY = 'product-selected-learner-v1';
-// Written the first time entitlement-driven alignment runs on a device. Its
-// absence is the only honest evidence that a full-catalogue aggregate came
-// from the dev-era build rather than from a purchase, because after this
-// build both look identical in the row (full catalogue + the 'full-ks2'
-// grant the Guardian/Camp projections require).
-export const CATALOGUE_ACTIVATION_KEY = 'catalogue-activation-v1';
+export const PRESERVED_FULL_LEARNING_KEY_PREFIX = 'preserved-full-learning-v1:';
 const SELECTED_LEARNER_KEY = PRODUCT_SELECTED_LEARNER_KEY;
 const CANONICAL_LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const STARTER_CATALOGUE_ID = 'ks2-core:starter';
@@ -180,7 +175,9 @@ async function insertInitialSnapshot(
       0,
       'ks2-core',
       catalogueId,
-      EMPTY_ENTITLEMENTS_JSON,
+      catalogueId === FULL_CATALOGUE_ID
+        ? FULL_ENTITLEMENTS_JSON
+        : EMPTY_ENTITLEMENTS_JSON,
       updatedAt,
     ],
   );
@@ -196,57 +193,194 @@ async function insertInitialSnapshot(
   }
 }
 
-async function readActivationMarker(connection) {
-  const rows = await connection.query(
-    'SELECT value_json FROM app_metadata WHERE key = ?',
-    [CATALOGUE_ACTIVATION_KEY],
-  );
-  if (!Array.isArray(rows) || rows.length > 1) {
-    throw storeError('sqlite_catalogue_activation_marker_invalid');
+function requireChanged(result, code) {
+  if (
+    !result ||
+    typeof result !== 'object' ||
+    Array.isArray(result) ||
+    result.changes !== 1
+  ) {
+    throw storeError(code);
   }
-  return rows.length === 1;
 }
 
-async function writeActivationMarker(connection, appliedAt) {
+function preservedFullLearningKey(learnerId) {
+  return `${PRESERVED_FULL_LEARNING_KEY_PREFIX}${learnerId}`;
+}
+
+async function replaceWorkingCopyWithStarter(connection, learnerId, sampledAt) {
+  const removed = await connection.execute(
+    'DELETE FROM spelling_aggregates WHERE learner_id = ?',
+    [learnerId],
+  );
+  if (removed.changes !== 1) {
+    throw storeError('sqlite_profile_learning_reset_failed');
+  }
+  await insertInitialSnapshot(
+    connection,
+    learnerId,
+    sampledAt,
+    STARTER_CATALOGUE_ID,
+  );
+}
+
+async function insertLearningSnapshot(connection, snapshot, updatedAt) {
+  requireChanged(
+    await connection.execute(
+      'INSERT INTO spelling_aggregates (learner_id, snapshot_schema_version, revision, pack_id, catalogue_id, granted_entitlement_ids_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        snapshot.learnerId,
+        snapshot.schemaVersion,
+        snapshot.revision,
+        snapshot.packId,
+        snapshot.catalogueId,
+        canonicalJson(snapshot.grantedEntitlementIds),
+        updatedAt,
+      ],
+    ),
+    'sqlite_profile_snapshot_insert_failed',
+  );
+  requireChanged(
+    await connection.execute(
+      'INSERT INTO spelling_subject_states (learner_id, state_json) VALUES (?, ?)',
+      [snapshot.learnerId, canonicalJson(snapshot.subjectState)],
+    ),
+    'sqlite_profile_snapshot_insert_failed',
+  );
+  if (snapshot.practiceSession !== null) {
+    requireChanged(
+      await connection.execute(
+        'INSERT INTO spelling_practice_sessions (learner_id, session_id, status, state_json) VALUES (?, ?, ?, ?)',
+        [
+          snapshot.learnerId,
+          snapshot.practiceSession.id,
+          snapshot.practiceSession.status,
+          canonicalJson(snapshot.practiceSession),
+        ],
+      ),
+      'sqlite_profile_snapshot_insert_failed',
+    );
+  }
+  for (const [sequenceNo, event] of snapshot.eventLog.entries()) {
+    requireChanged(
+      await connection.execute(
+        'INSERT INTO spelling_events (learner_id, event_id, sequence_no, created_at, event_json) VALUES (?, ?, ?, ?, ?)',
+        [
+          snapshot.learnerId,
+          event.id,
+          sequenceNo,
+          event.createdAt,
+          canonicalJson(event),
+        ],
+      ),
+      'sqlite_profile_snapshot_insert_failed',
+    );
+  }
+  for (const [rewardTrackId, state] of Object.entries(
+    snapshot.monsterStateByRewardTrackId,
+  ).sort(([left], [right]) => left.localeCompare(right, 'en'))) {
+    requireChanged(
+      await connection.execute(
+        'INSERT INTO spelling_monster_states (learner_id, reward_track_id, state_json) VALUES (?, ?, ?)',
+        [snapshot.learnerId, rewardTrackId, canonicalJson(state)],
+      ),
+      'sqlite_profile_snapshot_insert_failed',
+    );
+  }
+  for (const [packId, state] of Object.entries(
+    snapshot.campStateByPackId,
+  ).sort(([left], [right]) => left.localeCompare(right, 'en'))) {
+    requireChanged(
+      await connection.execute(
+        'INSERT INTO spelling_camp_states (learner_id, pack_id, state_json) VALUES (?, ?, ?)',
+        [snapshot.learnerId, packId, canonicalJson(state)],
+      ),
+      'sqlite_profile_snapshot_insert_failed',
+    );
+  }
+}
+
+async function retagLearner(connection, learnerId, catalogueId, sampledAt) {
   const result = await connection.execute(
-    'INSERT INTO app_metadata (key, value_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at',
-    [CATALOGUE_ACTIVATION_KEY, canonicalJson({ appliedAt }), appliedAt],
+    'UPDATE spelling_aggregates SET catalogue_id = ?, granted_entitlement_ids_json = ?, updated_at = ? WHERE learner_id = ?',
+    [
+      catalogueId,
+      catalogueId === FULL_CATALOGUE_ID
+        ? FULL_ENTITLEMENTS_JSON
+        : EMPTY_ENTITLEMENTS_JSON,
+      sampledAt,
+      learnerId,
+    ],
   );
   if (result.changes !== 1) {
-    throw storeError('sqlite_catalogue_activation_marker_write_failed');
+    throw storeError('sqlite_profile_catalogue_alignment_failed');
   }
 }
 
-// The dev-era repair, unchanged in effect from the E2.5 migration it replaces:
-// earlier builds promoted every learner to the full catalogue and granted
-// 'full-ks2' unconditionally, and that progress was never paid for. It now
-// runs at most once per device — guarded by the activation marker — so it can
-// never reach a full-catalogue aggregate this build itself produced.
-async function resetDevEraFullCatalogueLearning(connection, sampledAt) {
-  const rows = await connection.query(
-    'SELECT learner_id FROM spelling_aggregates WHERE catalogue_id = ? ORDER BY learner_id',
-    [FULL_CATALOGUE_ID],
+async function parkFullAggregate(connection, learnerId, snapshot, sampledAt) {
+  requireChanged(
+    await connection.execute(
+      'INSERT INTO app_metadata (key, value_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at',
+      [
+        preservedFullLearningKey(learnerId),
+        canonicalJson(snapshot),
+        sampledAt,
+      ],
+    ),
+    'sqlite_preserved_full_learning_write_failed',
   );
-  if (!Array.isArray(rows)) {
-    throw storeError('sqlite_profile_rows_invalid');
+  await replaceWorkingCopyWithStarter(connection, learnerId, sampledAt);
+}
+
+async function restorePreservedFullLearning(connection, learnerId, sampledAt) {
+  const rows = await connection.query(
+    'SELECT value_json FROM app_metadata WHERE key = ?',
+    [preservedFullLearningKey(learnerId)],
+  );
+  if (!Array.isArray(rows) || rows.length > 1) {
+    throw storeError('sqlite_preserved_full_learning_invalid');
   }
-  for (const row of rows) {
-    const learnerId = requireLearnerId(row?.learner_id);
-    const removed = await connection.execute(
-      'DELETE FROM spelling_aggregates WHERE learner_id = ?',
-      [learnerId],
-    );
-    if (removed.changes !== 1) {
-      throw storeError('sqlite_profile_learning_reset_failed');
-    }
-    await insertInitialSnapshot(
-      connection,
-      learnerId,
-      sampledAt,
-      STARTER_CATALOGUE_ID,
-    );
+  if (rows.length === 0) return false;
+  let snapshot;
+  try {
+    snapshot = JSON.parse(rows[0].value_json);
+  } catch (cause) {
+    throw storeError('sqlite_preserved_full_learning_invalid', { cause });
   }
-  return rows.length;
+  if (
+    !snapshot ||
+    typeof snapshot !== 'object' ||
+    snapshot.learnerId !== learnerId ||
+    snapshot.catalogueId !== FULL_CATALOGUE_ID
+  ) {
+    throw storeError('sqlite_preserved_full_learning_invalid');
+  }
+  const removed = await connection.execute(
+    'DELETE FROM spelling_aggregates WHERE learner_id = ?',
+    [learnerId],
+  );
+  if (removed.changes !== 1) {
+    throw storeError('sqlite_profile_learning_reset_failed');
+  }
+  await insertLearningSnapshot(connection, snapshot, sampledAt);
+  const cleared = await connection.execute(
+    'DELETE FROM app_metadata WHERE key = ?',
+    [preservedFullLearningKey(learnerId)],
+  );
+  if (cleared.changes !== 1) {
+    throw storeError('sqlite_preserved_full_learning_write_failed');
+  }
+  return true;
+}
+
+async function clearPreservedFullLearning(connection) {
+  const result = await connection.execute(
+    'DELETE FROM app_metadata WHERE key LIKE ?',
+    [`${PRESERVED_FULL_LEARNING_KEY_PREFIX}%`],
+  );
+  if (!Number.isSafeInteger(result?.changes) || result.changes < 0) {
+    throw storeError('sqlite_preserved_full_learning_write_failed');
+  }
 }
 
 export async function readSQLiteSelectedLearnerId(connection) {
@@ -410,77 +544,110 @@ export function createSQLiteSpellingProfileStore({
       }));
     },
     /**
-     * E2.7b, replacing the E2.5 unconditional reset: which catalogue a learner
-     * practises is an entitlement question, so it is answered here from the
-     * same authority the audio switch reads.
+     * E2.7b, replacing the E2.5 unconditional reset. The working catalogue is
+     * Full only while the commerce snapshot is active+installed; otherwise it
+     * is Starter. Both identity columns move together because Guardian and
+     * Camp read the grant off the snapshot.
      *
-     * The retag moves `catalogue_id` and `granted_entitlement_ids_json`
-     * together — the Guardian-mission and Camp projections read the grant off
-     * the snapshot, so a full catalogue without it would silently ship a
-     * crippled product — and touches nothing else: every progress row, event,
-     * Monster and Camp record stays exactly where it is, at the same revision.
+     * A lossless retag (Starter ⊂ Full, or Full that has never left Starter
+     * words) keeps the row. A Full aggregate that cannot be shown under
+     * Starter is parked when the device earned the product or when an import
+     * asked us to preserve it, and wiped only as unpaid pre-E2.5 residue.
      *
-     * A retag only happens when the resulting aggregate is *provably*
-     * representable under the target catalogue, which `canRepresent` decides
-     * by re-validating it. Starter ⊂ Full makes the upgrade always provable;
-     * the downgrade is provable only while the learner has touched nothing
-     * outside Starter. When it is not, the row is left alone: destroying a
-     * paid-for history on a revocation is worse than presenting the catalogue
-     * the learner already owns progress in.
-     *
-     * Aggregates are aligned as one set, because the app composes exactly one
-     * learning catalogue for every learner on the device.
-     *
-     * @returns {Promise<string>} the catalogue every aggregate now carries.
+     * @returns {Promise<string>} the catalogue the app should compose.
      */
-    async alignCatalogueLearning({ entitled, canRepresent } = {}) {
+    async alignCatalogueLearning({
+      entitled,
+      earned = false,
+      preserveUnentitledFull = false,
+      canRepresent,
+      readSnapshot,
+    } = {}) {
       if (typeof entitled !== 'boolean') {
         throw new TypeError('Catalogue alignment requires an entitled boolean.');
+      }
+      if (typeof earned !== 'boolean') {
+        throw new TypeError('Catalogue alignment requires an earned boolean.');
+      }
+      if (typeof preserveUnentitledFull !== 'boolean') {
+        throw new TypeError(
+          'Catalogue alignment requires a preserveUnentitledFull boolean.',
+        );
       }
       if (typeof canRepresent !== 'function') {
         throw new TypeError('Catalogue alignment requires canRepresent().');
       }
+      if (typeof readSnapshot !== 'function') {
+        throw new TypeError('Catalogue alignment requires readSnapshot().');
+      }
       const target = entitled ? FULL_CATALOGUE_ID : STARTER_CATALOGUE_ID;
       const sampledAt = sampleTimestamp(now);
       return gate.run(() => runOwnedTransaction(connection, async () => {
-        if (!(await readActivationMarker(connection))) {
-          // Never destroy while entitled: an entitled device's full-catalogue
-          // aggregate is already at its target and needs no repair.
-          if (!entitled) {
-            await resetDevEraFullCatalogueLearning(connection, sampledAt);
-          }
-          await writeActivationMarker(connection, sampledAt);
+        if (preserveUnentitledFull) {
+          await clearPreservedFullLearning(connection);
         }
         const rows = await connection.query(
           'SELECT learner_id, catalogue_id FROM spelling_aggregates ORDER BY learner_id',
         );
         if (!Array.isArray(rows)) throw storeError('sqlite_profile_rows_invalid');
-        if (rows.length === 0) return target;
-        const present = new Set(
-          rows.map((row) => requireCatalogueId(row?.catalogue_id)),
-        );
-        if (present.size !== 1) {
-          throw storeError('sqlite_profile_catalogue_not_uniform');
+        if (entitled) {
+          for (const row of rows) {
+            const learnerId = requireLearnerId(row?.learner_id);
+            await restorePreservedFullLearning(connection, learnerId, sampledAt);
+          }
+          const afterRestore = await connection.query(
+            'SELECT learner_id, catalogue_id FROM spelling_aggregates ORDER BY learner_id',
+          );
+          if (!Array.isArray(afterRestore)) {
+            throw storeError('sqlite_profile_rows_invalid');
+          }
+          for (const row of afterRestore) {
+            const learnerId = requireLearnerId(row?.learner_id);
+            if (requireCatalogueId(row?.catalogue_id) === FULL_CATALOGUE_ID) {
+              await retagLearner(
+                connection,
+                learnerId,
+                FULL_CATALOGUE_ID,
+                sampledAt,
+              );
+              continue;
+            }
+            if ((await canRepresent(learnerId, FULL_CATALOGUE_ID)) !== true) {
+              throw storeError('sqlite_profile_catalogue_alignment_failed');
+            }
+            await retagLearner(
+              connection,
+              learnerId,
+              FULL_CATALOGUE_ID,
+              sampledAt,
+            );
+          }
+          return target;
         }
-        const [current] = present;
-        if (current === target) return current;
         for (const row of rows) {
           const learnerId = requireLearnerId(row?.learner_id);
-          if ((await canRepresent(learnerId, target)) !== true) return current;
-        }
-        const result = await connection.execute(
-          'UPDATE spelling_aggregates SET catalogue_id = ?, granted_entitlement_ids_json = ?, updated_at = ? WHERE catalogue_id = ?',
-          [
-            target,
-            target === FULL_CATALOGUE_ID
-              ? FULL_ENTITLEMENTS_JSON
-              : EMPTY_ENTITLEMENTS_JSON,
-            sampledAt,
-            current,
-          ],
-        );
-        if (result.changes !== rows.length) {
-          throw storeError('sqlite_profile_catalogue_alignment_failed');
+          if (requireCatalogueId(row?.catalogue_id) === STARTER_CATALOGUE_ID) {
+            continue;
+          }
+          if ((await canRepresent(learnerId, STARTER_CATALOGUE_ID)) === true) {
+            await retagLearner(
+              connection,
+              learnerId,
+              STARTER_CATALOGUE_ID,
+              sampledAt,
+            );
+            continue;
+          }
+          if (earned || preserveUnentitledFull) {
+            await parkFullAggregate(
+              connection,
+              learnerId,
+              await readSnapshot(learnerId),
+              sampledAt,
+            );
+            continue;
+          }
+          await replaceWorkingCopyWithStarter(connection, learnerId, sampledAt);
         }
         return target;
       }));

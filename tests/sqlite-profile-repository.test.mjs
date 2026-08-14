@@ -10,6 +10,19 @@ import { configureAndMigrateDatabase } from '../src/platform/database/migrate-da
 import { createSQLiteSpellingProfileStore } from '../src/platform/database/sqlite-spelling-profile-store.js';
 import { createNodeSqliteConnection } from './helpers/node-sqlite-connection.mjs';
 
+function alignOpts(overrides = {}) {
+  return {
+    entitled: false,
+    earned: false,
+    preserveUnentitledFull: false,
+    canRepresent: async () => true,
+    readSnapshot: async () => {
+      throw new Error('readSnapshot should not run in this test');
+    },
+    ...overrides,
+  };
+}
+
 function profile(learnerId, overrides = {}) {
   return {
     learnerId,
@@ -135,13 +148,11 @@ test('Full catalogue initialisation and reset remain scoped to the configured pr
   );
 });
 
-test('the first alignment on an unmarked device wipes dev-era full-catalogue learning, and later alignments never wipe again', async (t) => {
+test('unpaid full-catalogue residue that cannot be shown under Starter is wiped; a representable row is only re-tagged', async (t) => {
   let timestamp = 100;
   const { connection, store } = await createHarness(t, { now: () => timestamp });
   await store.profiles.writeProfile(profile('learner-a'));
   await store.profiles.writeProfile(profile('learner-b'));
-  // learner-a looks like a dev-era TestFlight install: promoted to the full
-  // catalogue, granted full-ks2, with learning state hanging off it.
   await connection.execute(
     'UPDATE spelling_aggregates SET catalogue_id = ?, revision = ?, granted_entitlement_ids_json = ?, updated_at = ? WHERE learner_id = ?',
     ['ks2-core:full', 7, '["full-ks2"]', 321, 'learner-a'],
@@ -154,26 +165,18 @@ test('the first alignment on an unmarked device wipes dev-era full-catalogue lea
     'INSERT INTO spelling_events (learner_id, event_id, sequence_no, created_at, event_json) VALUES (?, ?, ?, ?, ?)',
     ['learner-a', 'event-a', 0, 123, '{"event":"wiped"}'],
   );
-  await connection.execute(
-    'INSERT INTO spelling_monster_states (learner_id, reward_track_id, state_json) VALUES (?, ?, ?)',
-    ['learner-a', 'track-a', '{"reward":"wiped"}'],
-  );
-  await connection.execute(
-    'INSERT INTO spelling_camp_states (learner_id, pack_id, state_json) VALUES (?, ?, ?)',
-    ['learner-a', 'ks2-core', '{"camp":"wiped"}'],
-  );
   const starterBefore = await connection.query(
     'SELECT revision, granted_entitlement_ids_json, updated_at FROM spelling_aggregates WHERE learner_id = ?',
     ['learner-b'],
   );
 
   timestamp = 400;
-  const alignToStarter = () => store.administration.alignCatalogueLearning({
-    entitled: false,
-    canRepresent: async () => true,
-  });
-  assert.equal(await alignToStarter(), 'ks2-core:starter');
-  assert.equal(await alignToStarter(), 'ks2-core:starter');
+  assert.equal(
+    await store.administration.alignCatalogueLearning(alignOpts({
+      canRepresent: async (learnerId) => learnerId !== 'learner-a',
+    })),
+    'ks2-core:starter',
+  );
   assert.deepEqual(
     await connection.query(
       'SELECT learner_id, revision, catalogue_id, granted_entitlement_ids_json, updated_at FROM spelling_aggregates ORDER BY learner_id',
@@ -196,64 +199,42 @@ test('the first alignment on an unmarked device wipes dev-era full-catalogue lea
       },
     ],
   );
-  // The cascade wipes every per-learner learning table for the reset learner.
-  for (const table of [
-    'spelling_practice_sessions',
-    'spelling_events',
-    'spelling_monster_states',
-    'spelling_camp_states',
-  ]) {
-    assert.deepEqual(
-      await connection.query(
-        `SELECT learner_id FROM ${table} WHERE learner_id = ?`,
-        ['learner-a'],
-      ),
-      [],
-    );
-  }
-  // Both profiles survive untouched.
+  assert.deepEqual(
+    await connection.query(
+      'SELECT learner_id FROM spelling_practice_sessions WHERE learner_id = ?',
+      ['learner-a'],
+    ),
+    [],
+  );
   assert.deepEqual(
     (await store.profiles.listProfiles()).map(({ learnerId }) => learnerId),
     ['learner-a', 'learner-b'],
   );
 
-  // The marker is now written, so a full-catalogue aggregate appearing after
-  // this point is a purchase, not dev-era residue: it is never wiped, only
-  // re-tagged when that is provably lossless.
   timestamp = 500;
   await connection.execute(
     'UPDATE spelling_aggregates SET catalogue_id = ?, revision = ?, granted_entitlement_ids_json = ? WHERE learner_id = ?',
     ['ks2-core:full', 11, '["full-ks2"]', 'learner-a'],
   );
-  await connection.execute(
-    'UPDATE spelling_aggregates SET catalogue_id = ?, granted_entitlement_ids_json = ? WHERE learner_id = ?',
-    ['ks2-core:full', '["full-ks2"]', 'learner-b'],
+  assert.equal(
+    await store.administration.alignCatalogueLearning(alignOpts()),
+    'ks2-core:starter',
   );
-  assert.equal(await alignToStarter(), 'ks2-core:starter');
   assert.deepEqual(
     await connection.query(
-      'SELECT learner_id, revision, catalogue_id, granted_entitlement_ids_json, updated_at FROM spelling_aggregates ORDER BY learner_id',
+      'SELECT revision, catalogue_id, granted_entitlement_ids_json, updated_at FROM spelling_aggregates WHERE learner_id = ?',
+      ['learner-a'],
     ),
-    [
-      {
-        learner_id: 'learner-a',
-        revision: 11,
-        catalogue_id: 'ks2-core:starter',
-        granted_entitlement_ids_json: '[]',
-        updated_at: 500,
-      },
-      {
-        learner_id: 'learner-b',
-        revision: starterBefore[0].revision,
-        catalogue_id: 'ks2-core:starter',
-        granted_entitlement_ids_json: '[]',
-        updated_at: 500,
-      },
-    ],
+    [{
+      revision: 11,
+      catalogue_id: 'ks2-core:starter',
+      granted_entitlement_ids_json: '[]',
+      updated_at: 500,
+    }],
   );
 });
 
-test('alignment re-tags the catalogue and its grant together, and refuses the move when a learner cannot be represented', async (t) => {
+test('alignment re-tags the catalogue and its grant together, and parks earned history that cannot be shown under Starter', async (t) => {
   let timestamp = 100;
   const { connection, store } = await createHarness(t, { now: () => timestamp });
   await store.profiles.writeProfile(profile('learner-a'));
@@ -266,13 +247,14 @@ test('alignment re-tags the catalogue and its grant together, and refuses the mo
   timestamp = 200;
   const asked = [];
   assert.equal(
-    await store.administration.alignCatalogueLearning({
+    await store.administration.alignCatalogueLearning(alignOpts({
       entitled: true,
+      earned: true,
       canRepresent: async (learnerId, catalogueId) => {
         asked.push([learnerId, catalogueId]);
         return true;
       },
-    }),
+    })),
     'ks2-core:full',
   );
   assert.deepEqual(asked, [
@@ -299,54 +281,107 @@ test('alignment re-tags the catalogue and its grant together, and refuses the mo
     ],
   );
 
-  // One learner who cannot be shown under Starter holds the whole device on
-  // Full: the app composes a single catalogue for every learner on it.
+  const parkedSnapshot = Object.freeze({
+    schemaVersion: 1,
+    learnerId: 'learner-b',
+    revision: 3,
+    packId: 'ks2-core',
+    catalogueId: 'ks2-core:full',
+    grantedEntitlementIds: ['full-ks2'],
+    subjectState: {
+      ui: {},
+      data: {
+        prefs: { autoSpeak: false },
+        progress: {},
+        guardianMap: {},
+        pattern: { wobblingByRuntimeItemId: {} },
+        postMega: null,
+        achievements: {},
+        persistenceWarning: null,
+      },
+    },
+    practiceSession: null,
+    eventLog: [],
+    monsterStateByRewardTrackId: {},
+    campStateByPackId: {},
+  });
   timestamp = 300;
   assert.equal(
-    await store.administration.alignCatalogueLearning({
-      entitled: false,
+    await store.administration.alignCatalogueLearning(alignOpts({
+      earned: true,
       canRepresent: async (learnerId) => learnerId !== 'learner-b',
-    }),
+      readSnapshot: async (learnerId) => {
+        assert.equal(learnerId, 'learner-b');
+        return parkedSnapshot;
+      },
+    })),
+    'ks2-core:starter',
+  );
+  assert.deepEqual(
+    await connection.query(
+      'SELECT learner_id, revision, catalogue_id FROM spelling_aggregates ORDER BY learner_id',
+    ),
+    [
+      { learner_id: 'learner-a', revision: 7, catalogue_id: 'ks2-core:starter' },
+      { learner_id: 'learner-b', revision: 0, catalogue_id: 'ks2-core:starter' },
+    ],
+  );
+
+  timestamp = 400;
+  assert.equal(
+    await store.administration.alignCatalogueLearning(alignOpts({
+      entitled: true,
+      earned: true,
+    })),
     'ks2-core:full',
   );
   assert.deepEqual(
     await connection.query(
-      'SELECT catalogue_id, granted_entitlement_ids_json FROM spelling_aggregates ORDER BY learner_id',
+      'SELECT learner_id, revision, catalogue_id, granted_entitlement_ids_json FROM spelling_aggregates ORDER BY learner_id',
     ),
     [
-      { catalogue_id: 'ks2-core:full', granted_entitlement_ids_json: '["full-ks2"]' },
-      { catalogue_id: 'ks2-core:full', granted_entitlement_ids_json: '["full-ks2"]' },
+      {
+        learner_id: 'learner-a',
+        revision: 7,
+        catalogue_id: 'ks2-core:full',
+        granted_entitlement_ids_json: '["full-ks2"]',
+      },
+      {
+        learner_id: 'learner-b',
+        revision: 3,
+        catalogue_id: 'ks2-core:full',
+        granted_entitlement_ids_json: '["full-ks2"]',
+      },
     ],
-  );
-
-  // Mixed aggregates would leave some learner unable to load under whichever
-  // catalogue the app composed, so they are reported rather than guessed at.
-  await connection.execute(
-    'UPDATE spelling_aggregates SET catalogue_id = ? WHERE learner_id = ?',
-    ['ks2-core:starter', 'learner-a'],
-  );
-  await assert.rejects(
-    store.administration.alignCatalogueLearning({
-      entitled: false,
-      canRepresent: async () => true,
-    }),
-    { code: 'sqlite_profile_catalogue_not_uniform' },
   );
 });
 
-test('alignment refuses a caller that does not state the entitlement or supply a representation check', async (t) => {
+test('alignment refuses a caller that omits the entitlement, the earned flag, the representation check or the snapshot reader', async (t) => {
   const { store } = await createHarness(t);
   await assert.rejects(
-    store.administration.alignCatalogueLearning({ canRepresent: async () => true }),
+    store.administration.alignCatalogueLearning({
+      canRepresent: async () => true,
+      readSnapshot: async () => ({}),
+    }),
     /entitled boolean/,
   );
   await assert.rejects(
-    store.administration.alignCatalogueLearning({ entitled: true }),
+    store.administration.alignCatalogueLearning(alignOpts({
+      entitled: true,
+      canRepresent: undefined,
+    })),
     /canRepresent/,
+  );
+  await assert.rejects(
+    store.administration.alignCatalogueLearning(alignOpts({
+      entitled: true,
+      readSnapshot: undefined,
+    })),
+    /readSnapshot/,
   );
 });
 
-test('alignment preserves learning progress on an entitled device with full-catalogue aggregate and no marker', async (t) => {
+test('alignment preserves learning progress on an entitled full-catalogue aggregate', async (t) => {
   let timestamp = 100;
   const { connection, store } = await createHarness(t, { now: () => timestamp });
   await store.profiles.writeProfile(profile('learner-a'));
@@ -377,10 +412,10 @@ test('alignment preserves learning progress on an entitled device with full-cata
   
   // Align as entitled (should NOT wipe progress)
   timestamp = 200;
-  const result = await store.administration.alignCatalogueLearning({
+  const result = await store.administration.alignCatalogueLearning(alignOpts({
     entitled: true,
-    canRepresent: async () => true,
-  });
+    earned: true,
+  }));
   
   // Verify catalogue remains full and progress is preserved
   assert.equal(result, 'ks2-core:full');

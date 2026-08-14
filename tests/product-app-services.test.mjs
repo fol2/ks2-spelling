@@ -8,13 +8,12 @@ import test from 'node:test';
 import { aggregatePackStates } from '../src/app/create-product-commerce-workflow.js';
 import { createProductAppServices } from '../src/app/create-product-app-services.js';
 import { createUnavailableProductCommerceWorkflow } from '../src/app/unavailable-product-commerce-workflow.js';
-import { isFullProductEntitled } from '../src/app/entitled-audio-switch.js';
+import { isFullProductEntitled, hasEarnedFullProduct } from '../src/app/entitled-audio-switch.js';
 import {
   loadFullSpellingCatalogue,
   loadStarterSpellingCatalogue,
 } from '../src/domain/spelling/index.js';
 import { createDatabaseCommandGate } from '../src/platform/database/database-command-gate.js';
-import { CATALOGUE_ACTIVATION_KEY } from '../src/platform/database/sqlite-spelling-profile-store.js';
 import { configureAndMigrateDatabase } from '../src/platform/database/migrate-database.js';
 import { createSQLiteLearningBackupRepository } from '../src/platform/database/sqlite-learning-backup-repository.js';
 import { createSQLiteSpellingSnapshotStore } from '../src/platform/database/sqlite-spelling-snapshot-store.js';
@@ -726,6 +725,18 @@ test('one shard short never aggregates to installed, so a partial install can ne
     entitlementState: 'active',
     packState: aggregatePackStates('active', installed),
   }), true);
+  assert.equal(hasEarnedFullProduct({
+    entitlementState: 'active',
+    packState: 'installed',
+  }), true);
+  assert.equal(hasEarnedFullProduct({
+    entitlementState: 'revoked',
+    packState: 'locked',
+  }), true);
+  assert.equal(hasEarnedFullProduct({
+    entitlementState: 'none',
+    packState: 'missing',
+  }), false);
   for (const short of ['missing', 'queued', 'downloading', 'failed']) {
     const oneShort = [...installed.slice(0, 14), short];
     assert.notEqual(aggregatePackStates('active', oneShort), 'installed');
@@ -736,7 +747,7 @@ test('one shard short never aggregates to installed, so a partial install can ne
   }
 });
 
-test('revocation preserves full-catalogue learning instead of resetting it, and restoring the purchase returns the learner to it', async (t) => {
+test('revocation parks full-catalogue learning behind Starter, and restoring the purchase returns the learner to it', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'ks2-activation-down-'));
   t.after(() => rm(directory, { force: true, recursive: true }));
   const databasePath = join(directory, 'revocation.sqlite');
@@ -755,7 +766,7 @@ test('revocation preserves full-catalogue learning instead of resetting it, and 
   assert.equal(entitled.catalogueId, 'ks2-core:full');
   const learnerId = await seedLearner(entitled);
   // Practise a word that exists only in the full catalogue: that is what makes
-  // the aggregate impossible to show under Starter without deleting it.
+  // the aggregate impossible to show under Starter without parking it.
   let reachedFullOnlyWord = false;
   for (let step = 0; step < 20 && !reachedFullOnlyWord; step += 1) {
     if (!starterItemIds.has(entitled.learning.getState().practice.runtimeItemId)) {
@@ -774,10 +785,12 @@ test('revocation preserves full-catalogue learning instead of resetting it, and 
   const revoked = await createProductAppServices(
     options({ entitlementState: 'revoked', packState: 'locked' }),
   );
-  // Not reset, not downgraded: a refunded family keeps every byte of the
-  // learning they earned.
-  assert.equal(revoked.catalogueId, 'ks2-core:full');
-  assert.deepEqual(await readStoredSnapshot(databasePath, learnerId), earned);
+  // Acceptance criterion 1: revoked composes Starter. The paid history is
+  // parked, not destroyed, so a later restore can put it back.
+  assert.equal(revoked.catalogueId, 'ks2-core:starter');
+  assert.equal(revoked.learning.getState().packSize, 20);
+  const parkedWorkingCopy = await readStoredSnapshot(databasePath, learnerId);
+  assert.equal(parkedWorkingCopy.catalogueId, 'ks2-core:starter');
   await revoked.dispose();
 
   const restored = await createProductAppServices(
@@ -789,75 +802,52 @@ test('revocation preserves full-catalogue learning instead of resetting it, and 
   assert.deepEqual(await readStoredSnapshot(databasePath, learnerId), earned);
 });
 
-test('the dev-era repair fires only on a device that has never run activation; the same state on a device that has is preserved', async (t) => {
+test('a genuine pre-E2.5 full-catalogue aggregate on a device that never bought is repaired to Starter', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'ks2-activation-devera-'));
   t.after(() => rm(directory, { force: true, recursive: true }));
-
-  async function buildFullCatalogueLearning(name) {
-    const databasePath = join(directory, `${name}.sqlite`);
-    const options = (snapshot) => ({
-      ...activationOptions(directory, name, snapshot),
-      databasePath,
-      connectionFactory: async () => createNodeSqliteConnection(databasePath),
-    });
-    const services = await createProductAppServices(
-      options({ entitlementState: 'active', packState: 'installed' }),
-    );
-    assert.equal(services.catalogueId, 'ks2-core:full');
-    const learnerId = await seedLearner(services);
-    await services.dispose();
-    return { databasePath, learnerId, options };
-  }
-
-  // A genuine pre-E2.5 device: full-catalogue aggregates written by a build
-  // that predates entitlement-driven activation, so it carries no activation
-  // marker. Its dev-era grant was never paid for and cannot be served.
-  const stale = await buildFullCatalogueLearning('stale');
-  const staleConnection = createNodeSqliteConnection(stale.databasePath);
-  await staleConnection.open();
-  const removed = await staleConnection.execute(
-    'DELETE FROM app_metadata WHERE key = ?',
-    [CATALOGUE_ACTIVATION_KEY],
+  const databasePath = join(directory, 'stale.sqlite');
+  const options = (snapshot) => ({
+    ...activationOptions(directory, 'stale', snapshot),
+    databasePath,
+    connectionFactory: async () => createNodeSqliteConnection(databasePath),
+  });
+  const starterItemIds = new Set(
+    loadStarterSpellingCatalogue().items.map(({ runtimeItemId }) => runtimeItemId),
   );
-  assert.equal(removed.changes, 1);
-  await staleConnection.close();
-  const beforeRepair = await readStoredSnapshot(stale.databasePath, stale.learnerId);
+
+  const entitled = await createProductAppServices(
+    options({ entitlementState: 'active', packState: 'installed' }),
+  );
+  assert.equal(entitled.catalogueId, 'ks2-core:full');
+  const learnerId = await seedLearner(entitled);
+  for (let step = 0; step < 20; step += 1) {
+    if (!starterItemIds.has(entitled.learning.getState().practice.runtimeItemId)) {
+      break;
+    }
+    await entitled.learning.skipWord();
+  }
+  assert.ok(
+    !starterItemIds.has(entitled.learning.getState().practice.runtimeItemId),
+    'the unpaid residue must hold a word Starter cannot represent',
+  );
+  await entitled.dispose();
+  const beforeRepair = await readStoredSnapshot(databasePath, learnerId);
   assert.ok(beforeRepair.revision > 0);
 
   const repaired = await createProductAppServices(
-    stale.options({ entitlementState: 'none', packState: 'missing' }),
+    options({ entitlementState: 'none', packState: 'missing' }),
   );
   t.after(() => repaired.dispose());
   assert.equal(repaired.catalogueId, 'ks2-core:starter');
-  const afterRepair = await readStoredSnapshot(stale.databasePath, stale.learnerId);
+  assert.equal(repaired.learning.getState().packSize, 20);
+  const afterRepair = await readStoredSnapshot(databasePath, learnerId);
   assert.equal(afterRepair.catalogueId, 'ks2-core:starter');
   assert.equal(afterRepair.revision, 0);
   assert.deepEqual(afterRepair.eventLog, []);
   assert.deepEqual(afterRepair.grantedEntitlementIds, []);
-
-  // Byte-identical stored state, marker intact: this one is a purchase, and
-  // the repair must not touch it.
-  const earnedDevice = await buildFullCatalogueLearning('earned');
-  const beforePreserve = await readStoredSnapshot(
-    earnedDevice.databasePath,
-    earnedDevice.learnerId,
-  );
-  const preserved = await createProductAppServices(
-    earnedDevice.options({ entitlementState: 'none', packState: 'missing' }),
-  );
-  t.after(() => preserved.dispose());
-  const afterPreserve = await readStoredSnapshot(
-    earnedDevice.databasePath,
-    earnedDevice.learnerId,
-  );
-  assert.ok(afterPreserve.revision > 0);
-  assert.deepEqual(
-    withoutCatalogueTag(afterPreserve),
-    withoutCatalogueTag(beforePreserve),
-  );
 });
 
-test('importing full-catalogue learning onto a device that is not entitled keeps it and reports post-commit rather than resetting it', async (t) => {
+test('importing full-catalogue learning onto a device that never bought does not unlock the paid catalogue', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'ks2-activation-import-'));
   t.after(() => rm(directory, { force: true, recursive: true }));
   const starterItemIds = new Set(
@@ -902,11 +892,8 @@ test('importing full-catalogue learning onto a device that is not entitled keeps
   await sourceConnection.close();
 
   const targetPath = join(directory, 'target.sqlite');
-  const target = await createProductAppServices({
-    ...activationOptions(directory, 'target', {
-      entitlementState: 'none',
-      packState: 'missing',
-    }),
+  const targetOptions = (snapshot) => ({
+    ...activationOptions(directory, 'target', snapshot),
     databasePath: targetPath,
     connectionFactory: async () => createNodeSqliteConnection(targetPath),
     learningBackupFiles: Object.freeze({
@@ -920,32 +907,68 @@ test('importing full-catalogue learning onto a device that is not entitled keeps
       },
     }),
   });
+  const target = await createProductAppServices(targetOptions({
+    entitlementState: 'none',
+    packState: 'missing',
+  }));
   t.after(() => target.dispose());
   assert.equal(target.catalogueId, 'ks2-core:starter');
 
-  await assert.rejects(target.parentBackup.importBackup(), (error) => {
-    // Committed, but the composed catalogue cannot change under a running
-    // app; the Parent screen turns this into "imported — reopen the app".
-    assert.equal(error.postCommit, true);
-    assert.equal(error.message, 'product_catalogue_changed_by_import');
-    return true;
+  // Gap 5: the unsigned file cannot raise the catalogue. The import commits,
+  // the child stays on Starter, and Guardian/Camp stay locked.
+  assert.deepEqual(await target.parentBackup.importBackup(), {
+    cancelled: false,
+    learnerCount: 1,
+    selectedLearnerId: learnerId,
   });
+  assert.equal(target.catalogueId, 'ks2-core:starter');
+  assert.equal(target.learning.getState().packSize, 20);
   const imported = await readStoredSnapshot(targetPath, learnerId);
-  assert.equal(imported.catalogueId, 'ks2-core:full');
-  assert.ok(imported.revision > 0);
+  assert.equal(imported.catalogueId, 'ks2-core:starter');
+  assert.deepEqual(imported.grantedEntitlementIds, []);
 
-  // Reopening composes the catalogue the imported learning actually needs.
-  const reopened = await createProductAppServices({
-    ...activationOptions(directory, 'target', {
-      entitlementState: 'none',
-      packState: 'missing',
-    }),
-    databasePath: targetPath,
-    connectionFactory: async () => createNodeSqliteConnection(targetPath),
-  });
+  const reopened = await createProductAppServices(targetOptions({
+    entitlementState: 'none',
+    packState: 'missing',
+  }));
   t.after(() => reopened.dispose());
-  assert.equal(reopened.catalogueId, 'ks2-core:full');
-  assert.equal(reopened.learning.getState().learnerId, learnerId);
+  assert.equal(reopened.catalogueId, 'ks2-core:starter');
+  assert.equal(reopened.learning.getState().packSize, 20);
+
+  const purchased = await createProductAppServices(targetOptions({
+    entitlementState: 'active',
+    packState: 'installed',
+  }));
+  t.after(() => purchased.dispose());
+  assert.equal(purchased.catalogueId, 'ks2-core:full');
+  assert.equal(purchased.learning.getState().packSize, 213);
+  assert.ok(
+    purchased.learning.getState().progress.some(
+      ({ runtimeItemId }) => runtimeItemId === YACHT,
+    ),
+  );
+});
+
+test('reverting the catalogue switch to an unconditional Starter reset fails this guard', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const composition = await readFile(
+    new URL('../src/app/create-product-app-services.js', import.meta.url),
+    'utf8',
+  );
+  const audio = await readFile(
+    new URL('../src/app/entitled-audio-switch.js', import.meta.url),
+    'utf8',
+  );
+  // One entitlement authority, not a second signal, and both columns closed
+  // together: earned devices park, never-entitled imports cannot raise the
+  // catalogue. Deleting any of these leaves the suite green only if the
+  // composition tests above are also deleted — which is the round-2 lesson.
+  assert.match(audio, /export function isFullProductEntitled/);
+  assert.match(audio, /export function hasEarnedFullProduct/);
+  assert.match(composition, /isFullProductEntitled\(commerceState\)/);
+  assert.match(composition, /hasEarnedFullProduct\(commerceState\)/);
+  assert.match(composition, /preserveUnentitledFull: true/);
+  assert.doesNotMatch(composition, /resetFullCatalogueLearning/);
 });
 
 test('a store bridge whose start never settles cannot stop the app opening: composition falls through to Starter', async (t) => {

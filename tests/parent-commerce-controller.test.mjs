@@ -45,6 +45,7 @@ test('Parent commerce preserves verified access and installed data through exter
     packState: 'installed',
     action: null,
     actionError: null,
+    downloadProgress: null,
   });
 
   await controller.refresh();
@@ -55,6 +56,7 @@ test('Parent commerce preserves verified access and installed data through exter
     packState: 'installed',
     action: null,
     actionError: null,
+    downloadProgress: null,
   });
 
   await controller.refresh();
@@ -65,6 +67,7 @@ test('Parent commerce preserves verified access and installed data through exter
     packState: 'locked',
     action: null,
     actionError: null,
+    downloadProgress: null,
   });
   await controller.dispose();
 });
@@ -119,6 +122,90 @@ test('Parent commerce serialises explicit purchase, restore, download and recove
   assert.equal(controller.getState().packState, 'installed');
   await controller.dispose();
   assert.equal(calls.at(-1), 'dispose');
+});
+
+test('Parent commerce publishes each shard the install starts and clears it when the run ends', async () => {
+  const published = [];
+  let emit = null;
+  const workflow = {
+    async start() { return snapshot({ packState: 'queued' }); },
+    async refresh() { return snapshot(); },
+    async purchase() { throw new Error('not used'); },
+    async restore() { throw new Error('not used'); },
+    async download(onProgress) {
+      emit = onProgress;
+      onProgress({ completedShards: 0, totalShards: 15 });
+      onProgress({ completedShards: 1, totalShards: 15 });
+      return snapshot();
+    },
+    async recover() { throw new Error('not used'); },
+    async dispose() {},
+  };
+  const controller = createParentCommerceController({ workflow });
+  controller.subscribe((state) => published.push(state));
+
+  await controller.start();
+  await controller.download();
+
+  // Every published state during the run, in order: the action starting, then
+  // one per shard, then the snapshot it resolved into.
+  assert.deepEqual(
+    published.slice(-4).map(({ status, action, downloadProgress }) =>
+      ({ status, action, downloadProgress })),
+    [
+      { status: 'working', action: 'download', downloadProgress: null },
+      {
+        status: 'working',
+        action: 'download',
+        downloadProgress: { completedShards: 0, totalShards: 15 },
+      },
+      {
+        status: 'working',
+        action: 'download',
+        downloadProgress: { completedShards: 1, totalShards: 15 },
+      },
+      { status: 'ready', action: null, downloadProgress: null },
+    ],
+  );
+  // The record is closed and frozen like every other state the card reads.
+  const midRun = published.at(-2);
+  assert.ok(Object.isFrozen(midRun.downloadProgress));
+  assert.deepEqual(Object.keys(midRun.downloadProgress), [
+    'completedShards',
+    'totalShards',
+  ]);
+  assert.equal(typeof emit, 'function');
+  await controller.dispose();
+});
+
+test('a download that fails leaves no shard count behind it', async () => {
+  const workflow = {
+    async start() { return snapshot({ packState: 'queued' }); },
+    async refresh() { return snapshot(); },
+    async purchase() { throw new Error('not used'); },
+    async restore() { throw new Error('not used'); },
+    async download(onProgress) {
+      onProgress({ completedShards: 6, totalShards: 15 });
+      throw new Error('shard 7 failed');
+    },
+    async recover() { throw new Error('not used'); },
+    async dispose() {},
+  };
+  const controller = createParentCommerceController({ workflow });
+
+  await controller.start();
+  await assert.rejects(controller.download());
+  // A failure message beside "installing pack 7 of 15" is two stories at once.
+  assert.deepEqual(controller.getState(), {
+    status: 'failed',
+    displayPrice: '£4.99',
+    entitlementState: 'active',
+    packState: 'queued',
+    action: null,
+    actionError: 'parent_commerce_action_failed',
+    downloadProgress: null,
+  });
+  await controller.dispose();
 });
 
 test('the Parent card can start a purchased download and resume an interrupted one', async () => {
@@ -212,7 +299,7 @@ test('the Parent card really renders that download button, enabled and wired', a
   assert.match(source, /downloadActionLabel\(state\)/u);
 });
 
-test('an installed pack that this session did not compose tells the family to reopen the app', async (t) => {
+test('an installed pack that this session did not compose offers the restart itself', async (t) => {
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { createServer } = await import('vite');
@@ -224,17 +311,93 @@ test('an installed pack that this session did not compose tells the family to re
   t.after(() => vite.close());
   const { ParentCommerceCard } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
 
-  const render = (fullCatalogueActive) => renderToStaticMarkup(React.createElement(
+  const props = (fullCatalogueActive, extra = {}) => ({
+    state: Object.freeze({
+      status: 'ready',
+      displayPrice: '£4.99',
+      entitlementState: 'active',
+      packState: 'installed',
+      action: null,
+      actionError: null,
+      downloadProgress: null,
+    }),
+    fullCatalogueActive,
+    async onPurchase() {},
+    async onRestore() {},
+    async onDownload() {},
+    async onRecover() {},
+    ...extra,
+  });
+  const render = (fullCatalogueActive) => renderToStaticMarkup(
+    React.createElement(ParentCommerceCard, props(fullCatalogueActive)),
+  );
+
+  // The learning catalogue is chosen at startup, so an install that finished
+  // while the app was open is installed but not yet in front of the child.
+  // Telling the family to close and reopen the app made them do by hand what
+  // the button below does for them.
+  assert.match(render(false), /Use the full word list now/u);
+  assert.doesNotMatch(render(false), /[Cc]lose and reopen/u);
+  assert.doesNotMatch(render(true), /Use the full word list now/u);
+  assert.match(render(true), /full word list is available offline/u);
+
+  // Wired: the button's own onClick reaches the handler.
+  const activations = [];
+  const buttons = [];
+  const walk = (node) => {
+    if (Array.isArray(node)) return node.forEach(walk);
+    if (!node || typeof node !== 'object') return;
+    if (node.type === 'button') buttons.push(node);
+    walk(node.props?.children);
+  };
+  walk(ParentCommerceCard(props(false, {
+    onActivateFullCatalogue: () => activations.push('activate'),
+  })));
+  const activate = buttons.find(
+    (node) => node.props.children === 'Use the full word list now',
+  );
+  assert.ok(activate, 'the full-catalogue button is not in the rendered tree');
+  assert.equal(activate.props.disabled, false);
+  activate.props.onClick();
+  assert.deepEqual(activations, ['activate']);
+
+  // And its default is the real restart: the same reload the boot-failure
+  // recovery button performs, which re-runs the whole startup composition.
+  const location = globalThis.location;
+  const reloads = [];
+  globalThis.location = { reload: () => reloads.push('reload') };
+  t.after(() => { globalThis.location = location; });
+  buttons.length = 0;
+  walk(ParentCommerceCard(props(false)));
+  buttons.find(
+    (node) => node.props.children === 'Use the full word list now',
+  ).props.onClick();
+  assert.deepEqual(reloads, ['reload']);
+});
+
+test('an install in flight shows the shard it is on, never the resume copy', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: new URL('../vite.config.js', import.meta.url).pathname,
+    server: { middlewareMode: true, hmr: false },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { ParentCommerceCard } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
+
+  const render = (state) => renderToStaticMarkup(React.createElement(
     ParentCommerceCard,
     {
       state: Object.freeze({
-        status: 'ready',
         displayPrice: '£4.99',
         entitlementState: 'active',
-        packState: 'installed',
+        packState: 'downloading',
         actionError: null,
+        downloadProgress: null,
+        ...state,
       }),
-      fullCatalogueActive,
       async onPurchase() {},
       async onRestore() {},
       async onDownload() {},
@@ -242,9 +405,30 @@ test('an installed pack that this session did not compose tells the family to re
     },
   ));
 
-  // The learning catalogue is chosen at startup, so an install that finished
-  // while the app was open is installed but not yet in front of the child.
-  assert.match(render(false), /Close and reopen the app/u);
-  assert.doesNotMatch(render(true), /Close and reopen the app/u);
-  assert.match(render(true), /full word list is available offline/u);
+  const running = render({
+    status: 'working',
+    action: 'download',
+    downloadProgress: { completedShards: 2, totalShards: 15 },
+  });
+  // The device report: fifteen shards downloading and the card said nothing,
+  // under the copy for a download that had stopped.
+  assert.match(running, /Installing word pack 3 of 15/u);
+  assert.doesNotMatch(running, /did not finish|Resume it/u);
+  assert.match(running, /Installing…<\/button>/u);
+  // One step per shard, two of them behind the one in flight, and the meter is
+  // decoration: the count above it is the text equivalent and the live region.
+  const steps = running.match(/data-state="(done|here|todo)"/gu) ?? [];
+  assert.equal(steps.length, 15);
+  assert.equal(steps.filter((step) => step.includes('done')).length, 2);
+  assert.equal(steps.filter((step) => step.includes('here')).length, 1);
+  assert.match(running, /<span class="parent-commerce-steps" aria-hidden="true">/u);
+  assert.match(running, /<p aria-live="polite">Installing word pack 3 of 15\.<\/p>/u);
+
+  // Before the first shard reports, and after the run ends.
+  const starting = render({ status: 'working', action: 'download' });
+  assert.match(starting, /Starting the word pack download/u);
+  assert.doesNotMatch(starting, /data-state=/u);
+  const interrupted = render({ status: 'ready', action: null });
+  assert.match(interrupted, /did not finish\. Resume it to install the rest/u);
+  assert.doesNotMatch(interrupted, /data-state=|Installing/u);
 });

@@ -3490,12 +3490,52 @@ select {
   font-size: 0.8rem;
 }
 
+/* The commerce card's primary action owns its row. Sharing one with Restore
+   purchases broke "Buy Full KS2 — £4.99" across two lines at every phone
+   width, and the same happens to the install and full-list actions. */
+.parent-commerce-actions .button-primary {
+  flex-basis: 100%;
+}
+
 .parent-commerce-price {
   font-family: var(--serif);
   font-size: 1.35rem;
   font-weight: 500;
   color: var(--brand-deep);
   font-variant-numeric: lining-nums;
+}
+
+/* The install is fifteen sequential shards and the coordinator reports nothing
+   finer, so the meter is fifteen steps rather than a percentage it would have
+   to invent. The shard in flight is a dimmed step, not an empty one: a family
+   watching a 437 MiB download needs the first minute to look like work. */
+.parent-commerce-install {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.parent-commerce-steps {
+  display: flex;
+  gap: 0.18rem;
+}
+
+.parent-commerce-steps span {
+  flex: 1;
+  height: 0.3rem;
+  border-radius: var(--r-pill);
+  background: rgb(29 43 58 / 13%);
+  transition:
+    background-color var(--t-input) var(--ease),
+    opacity var(--t-input) var(--ease);
+}
+
+.parent-commerce-steps span[data-state='done'],
+.parent-commerce-steps span[data-state='here'] {
+  background: var(--brass-ink);
+}
+
+.parent-commerce-steps span[data-state='here'] {
+  opacity: 0.45;
 }
 
 .inline-status {
@@ -3639,6 +3679,8 @@ select {
   .round-dots li[data-state='here'],
   .codex-meter-track span,
   .camp-mega-track span,
+  .parent-commerce-steps span[data-state='done'],
+  .parent-commerce-steps span[data-state='here'],
   .setup-guardian-meter span,
   /* A milestone ladder whose whole message is "these are behind you" cannot
      spend that message on colour alone; the first unfilled rung is still the

@@ -79,15 +79,18 @@ On a device signed into a **sandbox** store account:
 1. **Purchase** Full KS2 from the Parent area (behind the Parent PIN gate;
    verify the child surfaces show no price or purchase copy).
 2. **Download**: all 15 shards download and activate sequentially; the
-   Parent area reaches the installed state. Kill the app mid-download and
+   Parent area reaches the installed state. While it runs the card must say
+   which shard it is on ("Installing word pack 3 of 15") and light one meter
+   step per shard; a card that shows nothing, or shows the interrupted-resume
+   copy, fails this step. Kill the app mid-download and
    relaunch: the download resumes without re-fetching completed shards
    (watch the gateway logs — completed shards re-authorise but transfer no
    new ranges).
 3. **Full catalogue, offline.** The catalogue switch is decided at startup,
-   so **close and relaunch the app** once the install completes — the Parent
-   card says so itself ("Close and reopen the app to start practising the
-   full word list"); if it still says that after a relaunch, the switch did
-   not happen and this step fails.
+   so the app has to restart once the install completes. Press the Parent
+   card's **Use the full word list now** button (it reloads the webview,
+   re-running startup composition); if the button is still offered after
+   that, the switch did not happen and this step fails.
    Then, with airplane mode on:
    a. The word bank publishes **213** words, not 20 (Parent area → progress,
       or the setup panel's pack size).

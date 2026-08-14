@@ -434,9 +434,13 @@ export function createProductCommerceWorkflow(options = {}) {
   // is re-read per shard so a sealed-handle rotation (or a revocation) taken
   // during one shard governs the next. Resume and partial failure ride the
   // durable per-shard job/chunk rows.
-  async function install() {
+  // `onProgress` reports whole shards only: chunk counts live inside each
+  // download coordinator and are not lifted out of it. Fifteen sequential
+  // steps is what the Parent card can honestly draw.
+  async function install(onProgress) {
     await assertAggregateStorage();
-    for (const pack of PACKS) {
+    for (const [index, pack] of PACKS.entries()) {
+      onProgress?.({ completedShards: index, totalShards: PACKS.length });
       const entitlement = await activeEntitlement();
       if (!entitlement) {
         throw Object.assign(new Error('Full KS2 entitlement is not active.'), {
@@ -469,6 +473,7 @@ export function createProductCommerceWorkflow(options = {}) {
         );
       }
     }
+    onProgress?.({ completedShards: PACKS.length, totalShards: PACKS.length });
   }
 
   const workflow = {
@@ -493,8 +498,8 @@ export function createProductCommerceWorkflow(options = {}) {
     restore() {
       return enqueue(() => runAction(() => purchaseCoordinator.restore()));
     },
-    download() {
-      return enqueue(() => runAction(install));
+    download(onProgress) {
+      return enqueue(() => runAction(() => install(onProgress)));
     },
     recover() {
       return enqueue(async () => {

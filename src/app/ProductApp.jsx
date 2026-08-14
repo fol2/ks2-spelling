@@ -599,12 +599,28 @@ function ParentProgressCard({ state, onRefresh }) {
   );
 }
 
+const isInstalling = (state) =>
+  state.status === 'working' && state.action === 'download';
+// Whole shards only, so the count of finished ones is also the index of the
+// one in flight — except after the last, where there is nothing beyond 15.
+const installingShard = ({ completedShards, totalShards }) =>
+  Math.min(completedShards + 1, totalShards);
+
 // `fullCatalogueActive` is what this running session actually composed. The
 // learning catalogue is chosen once, at startup, so an install that finishes
 // while the app is open leaves the child on the 20 Starter words until the
 // next launch. Saying "installed" and nothing else would be a lie the family
 // could not act on.
 function commerceMessage(state, fullCatalogueActive) {
+  // A running download owns the message. `packState` still reads whatever the
+  // last snapshot said — 'downloading' for an interrupted install — so without
+  // this branch an install in progress reads as an install that stopped.
+  if (isInstalling(state)) {
+    const progress = state.downloadProgress;
+    return progress
+      ? `Installing word pack ${installingShard(progress)} of ${progress.totalShards}.`
+      : 'Starting the word pack download.';
+  }
   if (state.status === 'offline') {
     return state.entitlementState === 'active'
       ? 'The store is unavailable. Last verified access and installed data remain unchanged.'
@@ -622,7 +638,7 @@ function commerceMessage(state, fullCatalogueActive) {
   if (state.packState === 'installed') {
     return fullCatalogueActive
       ? 'Purchased and installed. The full word list is available offline on this device.'
-      : 'Purchased and installed. Close and reopen the app to start practising the full word list.';
+      : 'Purchased and installed. The app restarts once to put the full word list in front of your child.';
   }
   if (state.packState === 'failed') {
     return 'Access is verified, but the local pack needs another download attempt.';
@@ -643,6 +659,10 @@ export function ParentCommerceCard({
   onRestore,
   onDownload,
   onRecover,
+  // A reload re-runs the whole startup composition, which is what choosing the
+  // installed catalogue actually takes; it is the same call the boot-failure
+  // recovery button makes. Injectable so the wiring can be exercised.
+  onActivateFullCatalogue = () => globalThis.location?.reload(),
 }) {
   const busy = state.status === 'checking' || state.status === 'working';
   const canBuy =
@@ -650,6 +670,12 @@ export function ParentCommerceCard({
     state.displayPrice !== '' &&
     !['offline', 'failed'].includes(state.status);
   const downloadLabel = downloadActionLabel(state);
+  const installing = isInstalling(state);
+  const progress = installing ? state.downloadProgress ?? null : null;
+  const canActivateFullCatalogue =
+    state.entitlementState === 'active' &&
+    state.packState === 'installed' &&
+    !fullCatalogueActive;
   return (
     <section className="paper-card parent-card" aria-labelledby="parent-commerce-title">
       <p className="product-kicker">Packs and purchases</p>
@@ -658,7 +684,41 @@ export function ParentCommerceCard({
         <p className="parent-commerce-price">{state.displayPrice}</p>
       )}
       <p aria-live="polite">{commerceMessage(state, fullCatalogueActive)}</p>
+      {progress && (
+        <div className="parent-commerce-install">
+          {/* The count in the message above is the text equivalent, and it is
+              already a polite live region; announcing these steps a second
+              time would say the same thing twice per shard. */}
+          <span className="parent-commerce-steps" aria-hidden="true">
+            {Array.from({ length: progress.totalShards }, (unused, index) => (
+              <span
+                // eslint-disable-next-line react/no-array-index-key
+                key={index}
+                data-state={
+                  index < progress.completedShards
+                    ? 'done'
+                    : index === progress.completedShards ? 'here' : 'todo'
+                }
+              />
+            ))}
+          </span>
+          <p className="parent-note">
+            Keep the app open until every word pack is installed. A download
+            that stops picks up where it left off.
+          </p>
+        </div>
+      )}
       <div className="parent-commerce-actions">
+        {canActivateFullCatalogue && (
+          <button
+            type="button"
+            className="button-primary press"
+            disabled={busy}
+            onClick={() => onActivateFullCatalogue()}
+          >
+            Use the full word list now
+          </button>
+        )}
         {state.entitlementState === 'none' && (
           <button
             type="button"
@@ -676,7 +736,7 @@ export function ParentCommerceCard({
             disabled={busy}
             onClick={() => void onDownload().catch(() => undefined)}
           >
-            {downloadLabel}
+            {installing ? 'Installing…' : downloadLabel}
           </button>
         )}
         <button

@@ -57,6 +57,7 @@ function freezeState({
   packState,
   action = null,
   actionError = null,
+  downloadProgress = null,
 }) {
   return Object.freeze({
     status,
@@ -65,6 +66,7 @@ function freezeState({
     packState,
     action,
     actionError,
+    downloadProgress,
   });
 }
 
@@ -107,7 +109,21 @@ export function createParentCommerceController({ workflow } = {}) {
     return state;
   }
 
-  function run(method, action = null) {
+  // Live per-shard progress, published between the 'working' state and the
+  // snapshot the action resolves into. It is deliberately not part of the
+  // workflow snapshot: nothing durable records it, so every settled state
+  // clears it back to null.
+  function publishDownloadProgress(progress) {
+    publish(freezeState({
+      ...state,
+      downloadProgress: Object.freeze({
+        completedShards: progress.completedShards,
+        totalShards: progress.totalShards,
+      }),
+    }));
+  }
+
+  function run(method, action = null, onProgress = undefined) {
     if (disposed) {
       return Promise.reject(new Error('parent_commerce_controller_disposed'));
     }
@@ -122,13 +138,14 @@ export function createParentCommerceController({ workflow } = {}) {
         actionError: null,
       }));
       try {
-        return publishSnapshot(await workflow[method]());
+        return publishSnapshot(await workflow[method](onProgress));
       } catch (error) {
         publish(freezeState({
           ...state,
           status: 'failed',
           action: null,
           actionError: 'parent_commerce_action_failed',
+          downloadProgress: null,
         }));
         throw error;
       }
@@ -164,7 +181,7 @@ export function createParentCommerceController({ workflow } = {}) {
     refresh: () => run('refresh'),
     purchase: () => run('purchase', 'purchase'),
     restore: () => run('restore', 'restore'),
-    download: () => run('download', 'download'),
+    download: () => run('download', 'download', publishDownloadProgress),
     recover: () => run('recover', 'recover'),
     async dispose() {
       if (disposed) return;

@@ -13,6 +13,10 @@
  *   ?empty                    empty learner / empty roster
  *   ?audio=…                  audioAvailability status
  *   ?parent=…                 parent lock status
+ *   ?commerce=owned|installed Parent commerce: bought and waiting to download
+ *                             (press Download pack to walk the 15-shard
+ *                             install meter), or installed and offering the
+ *                             restart onto the full word list
  *   ?mode=…                   practice / summary round mode
  *   ?unfound-companion=true   Setup: band companion asleep (silhouette + hint).
  *                             Selects the Y3–4 set so Inklet paints unfound;
@@ -335,13 +339,15 @@ function makeServices(query) {
     })),
     actionError: null,
   });
+  const commerce = query.get('commerce');
   const parentCommerce = store({
     status: 'ready',
     displayPrice: '£4.99',
-    entitlementState: 'none',
-    packState: 'missing',
+    entitlementState: commerce ? 'active' : 'none',
+    packState: commerce === 'installed' ? 'installed' : commerce ? 'queued' : 'missing',
     action: null,
     actionError: null,
+    downloadProgress: null,
   });
 
   const advance = () => {
@@ -449,7 +455,26 @@ function makeServices(query) {
     parentCommerce: {
       ...parentCommerce,
       async start() {}, async refresh() {}, async purchase() {}, async restore() {},
-      async download() {}, async recover() {}, async dispose() {},
+      // Walks the fifteen shards on a timer so the install meter can be
+      // watched moving, which is the only way to judge it before a device.
+      async download() {
+        for (let completedShards = 0; completedShards <= 15; completedShards += 1) {
+          parentCommerce.set({
+            status: 'working',
+            action: 'download',
+            packState: 'downloading',
+            downloadProgress: { completedShards, totalShards: 15 },
+          });
+          await new Promise((resolve) => { setTimeout(resolve, 700); });
+        }
+        parentCommerce.set({
+          status: 'ready',
+          action: null,
+          packState: 'installed',
+          downloadProgress: null,
+        });
+      },
+      async recover() {}, async dispose() {},
     },
     parentAdministration: { async resetLearning() {} },
     parentBackup: {

@@ -100,3 +100,44 @@ test('a download that the device cannot hold fails before the first shard is aut
   await assert.rejects(workflow.download(), { code: 'DOWNLOAD_STORAGE_INSUFFICIENT' });
   assert.deepEqual(authorisations, []);
 });
+
+test('an install reports the shard it is starting, so the Parent card can say so', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-product-commerce-progress-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const connection = createNodeSqliteConnection(join(directory, 'commerce.sqlite'));
+  await connection.open();
+  await configureAndMigrateDatabase(connection);
+  const { resolveCommerceProduct } = await import('../src/domain/commerce/purchase-state.js');
+  const shardCount = resolveCommerceProduct('full-ks2').packIds.length;
+  const workflow = createProductCommerceWorkflow({
+    runtime: Object.freeze({ isNativePlatform: true, platform: 'android' }),
+    connection,
+    commandGate: createDatabaseCommandGate(),
+    packRepository: createSqlitePackRepositories(connection),
+    packTransfer: {
+      ...createB3FakePackTransfer({ inventoryOutcomes: [[], []] }),
+      // Room for the whole product: the aggregate preflight must wave this
+      // through so the shard loop is reached at all.
+      async getFreeBytes() {
+        return Number.MAX_SAFE_INTEGER;
+      },
+    },
+    store: createB3FakeStore(),
+    gateway: createB3FakeGateway(),
+    clock: () => 100,
+    idFactory: () => 'product-commerce-attempt',
+  });
+  t.after(async () => {
+    await workflow.dispose();
+    await connection.close();
+  });
+
+  // No entitlement row, so the first shard stops on the re-read that guards
+  // every iteration — after the loop has announced that it is starting it.
+  const progress = [];
+  await assert.rejects(
+    workflow.download((value) => progress.push(value)),
+    { code: 'product_commerce_entitlement_inactive' },
+  );
+  assert.deepEqual(progress, [{ completedShards: 0, totalShards: shardCount }]);
+});

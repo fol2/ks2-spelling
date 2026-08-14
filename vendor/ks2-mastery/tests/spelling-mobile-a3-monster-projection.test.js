@@ -149,12 +149,17 @@ test('Phaeton recursively aggregates unique direct evidence at every frozen boun
   }
 });
 
-test('Starter exposes only Inklet, cannot reach milestone 30 and upgrades without resetting Inklet', () => {
+test('Starter exposes Inklet and Glimmerbug, cannot reach milestone 30 and upgrades without resetting Inklet', () => {
   const starterProgress = securedProgress(starterCatalogue, starterCatalogue.items.length);
   const starterInklet = project({ catalogue: starterCatalogue, progress: starterProgress, random: () => 0.75 })[0];
-  assert.equal(project({ catalogue: starterCatalogue }).length, 1);
+  assert.equal(project({ catalogue: starterCatalogue }).length, 2);
+  const starterMonsters = project({ catalogue: starterCatalogue, progress: starterProgress, random: () => 0.75 });
+  assert.deepEqual(starterMonsters.map(({ rewardTrackId }) => rewardTrackId), ['spelling-core-inklet', 'spelling-core-glimmerbug']);
   assert.equal(starterInklet.rewardTrackId, 'spelling-core-inklet');
-  assert.equal(starterInklet.secureCount, 20);
+  assert.equal(starterInklet.secureCount, 10, 'Inklet yearBand 3-4 has 10 items');
+  const starterGlimmerbug = starterMonsters[1];
+  assert.equal(starterGlimmerbug.rewardTrackId, 'spelling-core-glimmerbug');
+  assert.equal(starterGlimmerbug.secureCount, 10, 'Glimmerbug yearBand 5-6 has 10 items');
   assert.equal(starterInklet.derivedStage, 1);
 
   let randomCalls = 0;
@@ -167,7 +172,9 @@ test('Starter exposes only Inklet, cannot reach milestone 30 and upgrades withou
     'spelling-core-inklet', 'spelling-core-glimmerbug', 'spelling-core-phaeton',
   ]);
   assert.deepEqual(full[0], starterInklet);
-  assert.equal(randomCalls, 2, 'Only the two newly installed Full tracks select branches.');
+  assert.equal(full[1].rewardTrackId, 'spelling-core-glimmerbug', 'Glimmerbug is freshly created from progress');
+  assert.equal(full[2].rewardTrackId, 'spelling-core-phaeton', 'Phaeton is freshly created from progress');
+  assert.equal(randomCalls, 2, 'Both Glimmerbug and Phaeton are newly created when upgrading, as currentState only provides Inklet.');
   assert.equal(full.some(({ monsterId }) => ['vellhorn', 'extra'].includes(monsterId)), false);
 });
 

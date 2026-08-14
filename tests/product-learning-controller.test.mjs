@@ -113,12 +113,23 @@ test('product learning starts a durable Smart Review and restores an interrupted
     packSize: 20,
     vocabularySets: [
       { id: 'core', label: 'Core', count: 20 },
-      { id: 'y3-4', label: 'Y3–4', count: 20 },
+      { id: 'y3-4', label: 'Y3–4', count: 10 },
+      { id: 'y5-6', label: 'Y5–6', count: 10 },
     ],
     monsters: [{
       rewardTrackId: 'spelling-core-inklet',
       packId: 'ks2-core',
       monsterId: 'inklet',
+      thresholds: [1, 10, 30, 60, 100],
+      branch: null,
+      secureCount: 0,
+      caught: false,
+      derivedStage: 0,
+      earnedStageHighWater: 0,
+    }, {
+      rewardTrackId: 'spelling-core-glimmerbug',
+      packId: 'ks2-core',
+      monsterId: 'glimmerbug',
       thresholds: [1, 10, 30, 60, 100],
       branch: null,
       secureCount: 0,
@@ -239,7 +250,8 @@ test('product learning publishes legacy catalogue rows as core vocabulary metada
 
   assert.deepEqual(controller.getState().vocabularySets, [
     { id: 'core', label: 'Core', count: 20 },
-    { id: 'y3-4', label: 'Y3–4', count: 20 },
+    { id: 'y3-4', label: 'Y3–4', count: 10 },
+    { id: 'y5-6', label: 'Y5–6', count: 10 },
   ]);
   assert.ok(
     controller.getState().progress.every(
@@ -378,7 +390,9 @@ test('product learning rejects unavailable or malformed round options before per
   });
 
   const invalidOptions = [
-    { mode: 'smart', length: 5, yearFilter: 'y5-6' },
+    // 'y5-6' stopped being invalid with the #168 Starter rebalance: the band
+    // now has published words, so its filter is selectable on a free install.
+    { mode: 'smart', length: 5, yearFilter: 'nonexistent-band' },
     { mode: 'test', length: 5, yearFilter: 'core' },
     { mode: 'test', length: 20, yearFilter: 'y3-4' },
     { mode: 'unknown', length: 5, yearFilter: 'core' },
@@ -887,6 +901,36 @@ test('product learning projects milestone records and memoises by revision', asy
     controller.getState().records,
     emptyRecords,
     'learner deselection must reuse the empty records singleton',
+  );
+
+  await controller.dispose();
+});
+
+test('the free Starter publishes both year bands and practises Years 5-6 (#168)', async () => {
+  // The rebalance's observable proof: Y5-6 was suppressed by the count > 0
+  // filter in vocabularySetsProjection, so its chip appearing and its filter
+  // starting a round are what show the swap actually landed on a free install.
+  const world = createLearningWorld();
+  const controller = world.createController();
+
+  const state = controller.getState();
+  assert.deepEqual(state.vocabularySets, [
+    { id: 'core', label: 'Core', count: 20 },
+    { id: 'y3-4', label: 'Y3–4', count: 10 },
+    { id: 'y5-6', label: 'Y5–6', count: 10 },
+  ]);
+  assert.deepEqual(
+    state.monsters.map(({ monsterId }) => monsterId),
+    ['inklet', 'glimmerbug'],
+  );
+  // Camp and Guardian stay behind the full entitlement on a free install.
+  assert.equal(state.revisionMission.missionState, 'locked');
+
+  await controller.startRound({ mode: 'smart', length: 5, yearFilter: 'y5-6' });
+  const { runtimeItemId } = controller.getState().practice;
+  assert.equal(
+    world.catalogue.items.find((item) => item.runtimeItemId === runtimeItemId)?.yearBand,
+    '5-6',
   );
 
   await controller.dispose();

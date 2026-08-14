@@ -3,8 +3,8 @@
   "authority": {
     "a1MergedCommit": "05e01aaac47126ffcf840530f1cde230407fb9e5",
     "a1ManifestSha256": "51af549ce31a30adc021d5fa0bd6a70ed9de2366887add0df3fc7f8f42dc312f",
-    "a0ManifestSha256": "7f22b840e15d605f0400a007deac6d70f0f6bbbd0d134f33ed9052025a812889",
-    "packConfigSha256": "70b5afa7e192a1f32a04a77f15859af34f09b863c80b6eb5ee2b1e869984f5d6"
+    "a0ManifestSha256": "e263b4a6e4192efb1daf2ca0b6bd884c877f965b9b9a103106636a3ea29ef4e7",
+    "packConfigSha256": "79402ac2aec5de0d2c5f4b6169761c8e341eb4f33404cf34872196e8ee50fd08"
   },
   "runtime": {
     "entry": "shared/spelling/mobile/index.js",
@@ -57,7 +57,7 @@
       },
       {
         "path": "content/spelling.mobile-runtime-starter.json",
-        "sha256": "a67317764d1bae4e1796e070fa8d482c0b4702451c63ba7cacf9470c5272eb34"
+        "sha256": "1416895f3e191a8385891756a56e38c3bd9f72aa594061cef618554fbed0437a"
       }
     ],
     "counts": {
@@ -65,7 +65,7 @@
       "full": 213
     },
     "inventorySha256": {
-      "starter": "cf251437aef7598baf871c967a4bbd8dc60b12a7faff6ab3d4dbd74707563002",
+      "starter": "8fb6a2f7e8f8dcea6199843fa78685a21c48c40e29456b93e94b9bc89f834364",
       "full": "f24755467f424b6a7d044ed7bbc7599cdbde0bdf8fa14c6e7fba77c3980fff06"
     },
     "sharedIdentityMismatchCount": 0,

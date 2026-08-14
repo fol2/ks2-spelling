@@ -11,8 +11,8 @@ const EXPECTED_PROVENANCE = Object.freeze({
   schemaVersion: 1,
   upstream: {
     repository: 'https://github.com/fol2/ks2-mastery.git',
-    commit: '4501607a9b58f2fb252b4cce64ba056e6f60c630',
-    tree: '129ba457cccf21df03f4be813b4f4ed6e7d9f6ad',
+    commit: '97c73783406914b271b98ad208091794d1f91ca3',
+    tree: '8f2b581efeaa12ad30395b75714e9178f5379379',
   },
   evidence: {
     a1Manifest: {
@@ -21,11 +21,11 @@ const EXPECTED_PROVENANCE = Object.freeze({
     },
     a2Manifest: {
       path: 'content/spelling.mobile-a2-contract-manifest.json',
-      sha256: '237b26b14e7506fa271bb3324f701d6205e6e0166d659a16789937478cc77b66',
+      sha256: '94b4d40733b55723e0078477d6382a8ab2b6b689019c9f0cf4c060bdc48a0bc9',
     },
     a3Manifest: {
       path: 'content/spelling.mobile-a3-contract-manifest.json',
-      sha256: '7fea17613ee10f747c1cfa9d5c923da4e506e23e61d1530ca71c283c0ce39465',
+      sha256: 'b5aedfb6ecd8df7276a9515bc13c9ad5b9602c6cea8822c7eedd14000b026d38',
     },
   },
   runtime: {
@@ -40,7 +40,7 @@ const EXPECTED_PROVENANCE = Object.freeze({
   catalogues: {
     starter: {
       path: 'content/spelling.mobile-runtime-starter.json',
-      sha256: 'a67317764d1bae4e1796e070fa8d482c0b4702451c63ba7cacf9470c5272eb34',
+      sha256: '1416895f3e191a8385891756a56e38c3bd9f72aa594061cef618554fbed0437a',
       itemCount: 20,
     },
     full: {
@@ -71,7 +71,7 @@ const EXPECTED_PROVENANCE = Object.freeze({
       'tests/spelling-mobile-a3-atomicity.test.js':
         'aa43b0e113397d544b9d0d1cd900f01744673e8e150cc852594b7edef14357b2',
       'tests/spelling-mobile-a3-monster-projection.test.js':
-        'c995de43c6ab5c3741c2c3ea7904240aebb82e930eeec6a521b1da1a29f4d1ec',
+        'a2f3979a566e69415a40aca2ec8e9e0f4846161189c08b8d8176e41d09e51f12',
       'tests/spelling-mobile-a3-camp-projection.test.js':
         '741190527be9a76ffcd8d4d33180981844700f16318e7aa72dc16bdb6bc1bae7',
       'tests/spelling-mobile-a3-revision-projection.test.js':

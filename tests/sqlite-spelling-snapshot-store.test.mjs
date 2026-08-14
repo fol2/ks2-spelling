@@ -490,6 +490,7 @@ test('snapshot store round-trips all populated targets with canonical logical by
   assert.equal(actual.practiceSession?.status, 'active');
   assert.equal(actual.eventLog.length, 1);
   assert.deepEqual(Object.keys(actual.monsterStateByRewardTrackId), [
+    'spelling-core-glimmerbug',
     'spelling-core-inklet',
   ]);
   assert.deepEqual(actual.campStateByPackId, {});
@@ -629,7 +630,7 @@ test('store covers practice, Monster and Camp upsert/delete, CAS and learner iso
         ['learner-a'],
       )
     )[0].count,
-    1,
+    2,
   );
 
   const camp = Object.freeze({

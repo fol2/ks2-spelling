@@ -205,6 +205,16 @@ test('Starter round stores only spelling-derived Monster state and no Parent or 
   assert.deepEqual(snapshot.grantedEntitlementIds, []);
   assert.deepEqual(snapshot.campStateByPackId, {});
   assert.deepEqual(snapshot.monsterStateByRewardTrackId, {
+    'spelling-core-glimmerbug': {
+      branch: 'b1',
+      caught: false,
+      derivedStage: 0,
+      earnedStageHighWater: 0,
+      monsterId: 'glimmerbug',
+      packId: 'ks2-core',
+      rewardTrackId: 'spelling-core-glimmerbug',
+      secureCount: 0,
+    },
     'spelling-core-inklet': {
       branch: 'b2',
       caught: false,

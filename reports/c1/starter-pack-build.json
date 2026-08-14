@@ -9,27 +9,27 @@
   "source": {
     "catalogue": {
       "path": "vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json",
-      "sha256": "a67317764d1bae4e1796e070fa8d482c0b4702451c63ba7cacf9470c5272eb34",
-      "bytes": 34639
+      "sha256": "1416895f3e191a8385891756a56e38c3bd9f72aa594061cef618554fbed0437a",
+      "bytes": 34933
     },
     "audioEvidence": {
       "path": "reports/c1/starter-audio-evidence.json",
-      "sha256": "c5c72fbec70db0f96499acd98aadd22b93d992aefc5497b8b4f428756b2dcba6",
-      "bytes": 907564,
+      "sha256": "2664d972f46cf969bdbf3229d16366cfda0d4f551e6537f9729ed28e9a52d030",
+      "bytes": 908466,
       "assetCount": 840
     }
   },
   "archive": {
     "file": "ks2-core-starter-1.0.0.zip",
-    "sha256": "a8bbe9dde5050b6e6a9ff4a60f1eb219add7a971531e7401d1d5cb2b74460f43",
-    "bytes": 15635534,
+    "sha256": "6627273386eb85354ac9fb31ab2f5b5543d8eeb2d657d78c9fb2475a1a25a4e2",
+    "bytes": 15353021,
     "fileCount": 841,
-    "extractedBytes": 15502384
+    "extractedBytes": 15219367
   },
   "canonicalManifest": {
     "file": "unsigned-canonical-manifest.json",
-    "sha256": "1b5c6dbd911cc54415d8c350f7dc156f5605b34abec3590fa2072d739fc7cb2b",
-    "bytes": 120704,
+    "sha256": "c350d09dc62c7d347b7fbfeb612c96ec60a625e91d3521484e1f1cd3f4993881",
+    "bytes": 120956,
     "requiredEntitlementId": null
   },
   "ceilings": {

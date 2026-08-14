@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import {
-  loadStarterSpellingCatalogue,
   validateSpellingCommandSnapshotV1,
 } from '../src/domain/spelling/index.js';
 import {
@@ -19,6 +18,7 @@ import {
   B4_SUMMARY,
   characteriseB4Round,
   createB4AudioInventory,
+  loadB4SpellingCatalogue,
 } from '../src/app/b4-round-contract.js';
 import { createB4AppServices } from '../src/app/create-b4-app-services.js';
 import { createB4LearnerAction } from '../src/app/b4-learner-action.js';
@@ -65,7 +65,7 @@ function freshSnapshot(autoSpeak) {
     eventLog: [],
     monsterStateByRewardTrackId: {},
     campStateByPackId: {},
-  }, loadStarterSpellingCatalogue());
+  }, loadB4SpellingCatalogue());
 }
 
 function commit(snapshot, plan) {
@@ -77,7 +77,7 @@ function commit(snapshot, plan) {
     eventLog: plan.nextEventLog,
     monsterStateByRewardTrackId: plan.nextMonsterStateByRewardTrackId,
     campStateByPackId: plan.nextCampStateByPackId,
-  }, loadStarterSpellingCatalogue());
+  }, loadB4SpellingCatalogue());
 }
 
 function placeholderManifest() {
@@ -197,7 +197,7 @@ test('real typed answers follow durable retry feedback and continue the committe
   let services = await createB4AppServices(options);
   let state = await services.controller.start();
   const committedRuntimeItemId = state.currentRuntimeItemId;
-  const target = loadStarterSpellingCatalogue().items.find(
+  const target = loadB4SpellingCatalogue().items.find(
     ({ runtimeItemId }) => runtimeItemId === committedRuntimeItemId,
   ).target;
 
@@ -237,7 +237,7 @@ test('the learner form action completes the genuine five-card domain round', asy
     playAudio: silentPlayer(),
   });
   t.after(() => services.dispose());
-  const catalogue = loadStarterSpellingCatalogue();
+  const catalogue = loadB4SpellingCatalogue();
   let state = await services.controller.start();
   let answer = '';
   const errors = [];
@@ -284,7 +284,7 @@ test('fresh round starts deterministically from a genuine committed summary', as
       state = await services.controller.freshRound();
       const freshState = state;
       const audioStates = [];
-      const catalogue = loadStarterSpellingCatalogue();
+      const catalogue = loadB4SpellingCatalogue();
       while (state.phase !== 'summary') {
         audioStates.push(await services.controller.replay());
         audioStates.push(await services.controller.slowReplay());
@@ -361,7 +361,7 @@ test('genuine A3 audio effects run post-commit while replay stays independent of
     },
   };
   const controller = createB4RoundController({
-    catalogue: loadStarterSpellingCatalogue(),
+    catalogue: loadB4SpellingCatalogue(),
     repository,
     snapshotStore: {
       async read() {
@@ -419,7 +419,7 @@ function mockCommandServices({ autoSpeak, playAudio }) {
     },
   };
   const controller = createB4RoundController({
-    catalogue: loadStarterSpellingCatalogue(),
+    catalogue: loadB4SpellingCatalogue(),
     repository,
     snapshotStore: {
       async read() {
@@ -443,7 +443,7 @@ test('every learner action stays within its storage round-trip budget', async ()
     playAudio: silentPlayer(),
   });
   await controller.start();
-  const catalogue = loadStarterSpellingCatalogue();
+  const catalogue = loadB4SpellingCatalogue();
   for (let answers = 0; answers < 3; answers += 1) {
     const readsBefore = countReads();
     const transactionsBefore = countTransactions();
@@ -510,7 +510,7 @@ test('pausing never re-warms the pool while the app is suspending', async () => 
   };
   let snapshot = freshSnapshot(false);
   const controller = createB4RoundController({
-    catalogue: loadStarterSpellingCatalogue(),
+    catalogue: loadB4SpellingCatalogue(),
     repository: {
       async runCommandTransaction(_learnerId, planner) {
         const plan = planner(structuredClone(snapshot), { nowMs: B4_START_TIMESTAMP + snapshot.revision });

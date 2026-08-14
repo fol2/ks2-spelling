@@ -211,3 +211,40 @@ test('the Parent card really renders that download button, enabled and wired', a
   const source = await readFile(new URL('../src/app/ProductApp.jsx', import.meta.url), 'utf8');
   assert.match(source, /downloadActionLabel\(state\)/u);
 });
+
+test('an installed pack that this session did not compose tells the family to reopen the app', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: new URL('../vite.config.js', import.meta.url).pathname,
+    server: { middlewareMode: true, hmr: false },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { ParentCommerceCard } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
+
+  const render = (fullCatalogueActive) => renderToStaticMarkup(React.createElement(
+    ParentCommerceCard,
+    {
+      state: Object.freeze({
+        status: 'ready',
+        displayPrice: '£4.99',
+        entitlementState: 'active',
+        packState: 'installed',
+        actionError: null,
+      }),
+      fullCatalogueActive,
+      async onPurchase() {},
+      async onRestore() {},
+      async onDownload() {},
+      async onRecover() {},
+    },
+  ));
+
+  // The learning catalogue is chosen at startup, so an install that finished
+  // while the app was open is installed but not yet in front of the child.
+  assert.match(render(false), /Close and reopen the app/u);
+  assert.doesNotMatch(render(true), /Close and reopen the app/u);
+  assert.match(render(true), /full word list is available offline/u);
+});

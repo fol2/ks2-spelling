@@ -599,7 +599,12 @@ function ParentProgressCard({ state, onRefresh }) {
   );
 }
 
-function commerceMessage(state) {
+// `fullCatalogueActive` is what this running session actually composed. The
+// learning catalogue is chosen once, at startup, so an install that finishes
+// while the app is open leaves the child on the 20 Starter words until the
+// next launch. Saying "installed" and nothing else would be a lie the family
+// could not act on.
+function commerceMessage(state, fullCatalogueActive) {
   if (state.status === 'offline') {
     return state.entitlementState === 'active'
       ? 'The store is unavailable. Last verified access and installed data remain unchanged.'
@@ -615,7 +620,9 @@ function commerceMessage(state) {
     return 'Unlock the complete statutory spelling catalogue for this family device.';
   }
   if (state.packState === 'installed') {
-    return 'Purchased and installed. The pack is available offline on this device.';
+    return fullCatalogueActive
+      ? 'Purchased and installed. The full word list is available offline on this device.'
+      : 'Purchased and installed. Close and reopen the app to start practising the full word list.';
   }
   if (state.packState === 'failed') {
     return 'Access is verified, but the local pack needs another download attempt.';
@@ -631,6 +638,7 @@ function commerceMessage(state) {
 // button entirely left the suite green.
 export function ParentCommerceCard({
   state,
+  fullCatalogueActive = false,
   onPurchase,
   onRestore,
   onDownload,
@@ -649,7 +657,7 @@ export function ParentCommerceCard({
       {state.displayPrice && state.entitlementState === 'none' && (
         <p className="parent-commerce-price">{state.displayPrice}</p>
       )}
-      <p aria-live="polite">{commerceMessage(state)}</p>
+      <p aria-live="polite">{commerceMessage(state, fullCatalogueActive)}</p>
       <div className="parent-commerce-actions">
         {state.entitlementState === 'none' && (
           <button
@@ -702,6 +710,7 @@ export function ParentArea({
   profiles,
   progressState,
   commerceState,
+  fullCatalogueActive = false,
   onClose,
   onSetPin,
   onUnlockPin,
@@ -852,6 +861,7 @@ export function ParentArea({
 
           <ParentCommerceCard
             state={commerceState}
+            fullCatalogueActive={fullCatalogueActive}
             onPurchase={onPurchase}
             onRestore={onRestore}
             onDownload={onDownload}
@@ -2600,6 +2610,7 @@ function RoundScreen({
   onSkip,
   onEnd,
   onPlaybackFailure,
+  entitlementState,
 }) {
   const [answer, setAnswer] = useState('');
   const [localError, setLocalError] = useState('');
@@ -2655,8 +2666,16 @@ function RoundScreen({
     } catch (error) {
       if (error?.name === 'NotAllowedError') {
         setLocalError('Tap Hear it again to listen.');
+      // A revoked purchase removed the shards, so telling that family to check
+      // the listening pack is advice they cannot act on. The branch below is
+      // asserted by tests/product-audio-policy-refusal.test.mjs as source text,
+      // so a comment inside it breaks that match — it lives out here instead.
       } else {
-        setLocalError('Audio needs attention. Check the listening pack and try again.');
+        if (entitlementState === 'revoked') {
+          setLocalError('The full word list needs the purchase to be restored.');
+        } else {
+          setLocalError('Audio needs attention. Check the listening pack and try again.');
+        }
         onPlaybackFailure();
       }
     } finally {
@@ -3354,6 +3373,7 @@ export default function ProductApp({ services }) {
         profiles={profileState.profiles}
         progressState={parentProgressState}
         commerceState={parentCommerceState}
+        fullCatalogueActive={services.catalogueId === 'ks2-core:full'}
         onClose={closeParent}
         onSetPin={(candidate) => services.parent.setPin(candidate)}
         onUnlockPin={(candidate) => services.parent.unlockWithPin(candidate)}
@@ -3440,6 +3460,7 @@ export default function ProductApp({ services }) {
         onEnd={() => services.learning.endRound()}
         onPlaybackFailure={() =>
           services.audioAvailability.reportPlaybackFailure()}
+        entitlementState={parentCommerceState.entitlementState}
       />
     );
   }

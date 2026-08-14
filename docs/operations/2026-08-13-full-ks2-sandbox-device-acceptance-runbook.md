@@ -15,12 +15,13 @@ and store-console/sandbox-account material that agents must not hold. This
 is the acceptance that closes #123 and #75 — the planner records the result
 on the issues.
 
-**Prerequisite: this acceptance is not complete until #135 (E2.7b) lands.**
-E2.7 delivers the purchase, the 15-shard install and the entitlement-driven
-audio *source*; it does not switch the learning *catalogue*, so a completed
-install still leaves the child practising the 20 Starter words. Step 3's
-full-catalogue verification is therefore deferred (marked in place below),
-and #123/#75 close only after E2.7b plus a full run of this checklist.
+**Prerequisite: run this on a build that carries #135 (E2.7b).** E2.7
+delivered the purchase, the 15-shard install and the entitlement-driven audio
+*source* only; on an E2.7 build a completed install still left the child
+practising the 20 Starter words, so step 3 was deferred. E2.7b adds the
+catalogue switch and step 3 below is now executable in full. #123 and #75
+stay open until this checklist has been run end to end and the planner has
+recorded the result.
 
 ## What the repository delivers up to this boundary
 
@@ -82,26 +83,42 @@ On a device signed into a **sandbox** store account:
    relaunch: the download resumes without re-fetching completed shards
    (watch the gateway logs — completed shards re-authorise but transfer no
    new ranges).
-3. **Offline playback — Starter words only until E2.7b lands.** Enable
-   airplane mode and practise. What is executable today: the words the
-   child practises are still the **20 Starter words**, and their audio now
-   comes from the installed shards through `createFullProductAudioPlayer`
-   rather than the bundled Starter evidence — verify playback is intact and
-   offline. Those words live in shards 01–04.
-   **Deferred to #135 (E2.7b):** the late-alphabet spot-check. E2.7 switches
-   the audio *source* on entitlement but not the learning *catalogue*, so no
-   late-alphabet word is reachable in the UI yet and 11 of the 15 shards are
-   installed but never read. Do not record this sub-step as a pass before
-   E2.7b: run it, in full, on the build that carries the catalogue switch
-   (spot-check words from several different shards, early- and
-   late-alphabet — shards partition the catalogue alphabetically).
+3. **Full catalogue, offline.** The catalogue switch is decided at startup,
+   so **close and relaunch the app** once the install completes — the Parent
+   card says so itself ("Close and reopen the app to start practising the
+   full word list"); if it still says that after a relaunch, the switch did
+   not happen and this step fails.
+   Then, with airplane mode on:
+   a. The word bank publishes **213** words, not 20 (Parent area → progress,
+      or the setup panel's pack size).
+   b. Practise and spot-check playback across the shard span — shards
+      partition the catalogue alphabetically, so take at least one word from
+      shards 01–04 (e.g. *accidentally*, shard 01), one mid (*language*,
+      shard 12) and one late (*yacht*, shard 15). Every one must speak,
+      offline. Shards 05–15 were installed but never read before E2.7b, so
+      the late words are the ones that prove the install was worth making.
+   c. Progress earned before the purchase is still there: the Starter words
+      the child had practised keep their stages and due dates. The switch
+      re-tags the aggregate; it does not reset it.
+   d. Guardian Missions and Camp are no longer locked out (they read the
+      `full-ks2` grant off the learner's own record, which the switch writes).
 4. **Revocation**: refund/revoke the sandbox purchase; after refresh the
    entitlement reads revoked and every shard locks (no playback of
    full-catalogue words; Starter remains available).
+   **Close and relaunch.** The child must now be on the **20 Starter words**
+   — a revoked device does not keep serving the paid catalogue. Progress on
+   those 20 words is still there; late-alphabet history is parked, not
+   deleted. Then restore or re-purchase, relaunch, and confirm the parked
+   full-catalogue learning is back (213 words, same stages, audio working).
+   A device revoked *before* the child practised any non-Starter word
+   losslessly re-tags to Starter with its Starter progress intact — no
+   parking needed.
 5. **Non-entitled device**: on a device without the entitlement, confirm
    shard bytes are unreachable: no authorise (403), and a captured
    capability URL from the entitled device fails after expiry (600 s) and
-   never matches another shard's path.
+   never matches another shard's path. Importing a full-catalogue learning
+   backup onto this device must **not** raise the word list to 213 — that is
+   Gap 5 of the kids-category position.
 6. **Legacy-state device**: on a device that previously ran the B3 proof
    app (carrying `b3-sandbox-proof` rows), the product app starts cleanly
    and reports the b3 job retired (deliberate retirement, not a crash).

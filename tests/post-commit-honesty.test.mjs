@@ -159,8 +159,11 @@ async function prepareImportReplacement(services) {
 test('an import stamps a post-commit epilogue failure without rolling back', async (t) => {
   const harness = await createHarness(t);
   await prepareImportReplacement(harness.services);
+  // The epilogue's first durable read is the catalogue alignment that follows
+  // every import: the imported aggregates may sit on the other side of the
+  // entitlement switch from the ones they replaced.
   harness.failNextQueryMatching(
-    /^SELECT learner_id FROM spelling_aggregates WHERE catalogue_id = \?/u,
+    /^SELECT learner_id, catalogue_id FROM spelling_aggregates ORDER BY learner_id$/u,
   );
 
   await assert.rejects(

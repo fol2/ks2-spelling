@@ -209,11 +209,15 @@ function preservedFullLearningKey(learnerId) {
 }
 
 async function replaceWorkingCopyWithStarter(connection, learnerId, sampledAt) {
+  // Deleting an aggregate cascades into the five learning child tables, and
+  // the native driver reports sqlite3_total_changes deltas, which count
+  // cascaded rows — a learner with practice history legitimately reports
+  // changes > 1 here. Only changes < 1 (no working copy) is a failure.
   const removed = await connection.execute(
     'DELETE FROM spelling_aggregates WHERE learner_id = ?',
     [learnerId],
   );
-  if (removed.changes !== 1) {
+  if (removed.changes < 1) {
     throw storeError('sqlite_profile_learning_reset_failed');
   }
   await insertInitialSnapshot(
@@ -359,7 +363,8 @@ async function restorePreservedFullLearning(connection, learnerId, sampledAt) {
     'DELETE FROM spelling_aggregates WHERE learner_id = ?',
     [learnerId],
   );
-  if (removed.changes !== 1) {
+  // Cascade-inclusive count: see replaceWorkingCopyWithStarter.
+  if (removed.changes < 1) {
     throw storeError('sqlite_profile_learning_reset_failed');
   }
   await insertLearningSnapshot(connection, snapshot, sampledAt);
@@ -470,11 +475,12 @@ export function createSQLiteSpellingProfileStore({
           'DELETE FROM learner_profiles WHERE learner_id = ?',
           [learnerId],
         );
-        if (result.changes !== 0 && result.changes !== 1) {
-          throw storeError('sqlite_profile_remove_failed');
-        }
-        if (result.changes === 0 || selectedLearnerId !== learnerId) {
-          return result.changes === 1;
+        // Cascade-inclusive count (see replaceWorkingCopyWithStarter):
+        // removing a learner with history reports every cascaded row, so any
+        // changes >= 1 means the profile row itself was removed.
+        const removedProfile = result.changes >= 1;
+        if (!removedProfile || selectedLearnerId !== learnerId) {
+          return removedProfile;
         }
         const remaining = await connection.query(
           'SELECT learner_id FROM learner_profiles ORDER BY learner_id LIMIT 1',
@@ -531,7 +537,8 @@ export function createSQLiteSpellingProfileStore({
           'DELETE FROM spelling_aggregates WHERE learner_id = ?',
           [learnerId],
         );
-        if (removed.changes !== 1) {
+        // Cascade-inclusive count: see replaceWorkingCopyWithStarter.
+        if (removed.changes < 1) {
           throw storeError('sqlite_profile_learning_reset_failed');
         }
         await insertInitialSnapshot(

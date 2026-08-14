@@ -7,12 +7,21 @@ function subscription(listener, state) {
   return Object.freeze({ remove() {} });
 }
 
-export function createProductFailureServices() {
+export function createProductFailureServices({ cause } = {}) {
+  const causeMessage =
+    typeof cause?.message === 'string' && cause.message !== ''
+      ? cause.message
+      : cause === undefined
+        ? null
+        : String(cause);
   const profileState = Object.freeze({
     status: 'failed',
     profiles: Object.freeze([]),
     selectedLearnerId: null,
     actionError: 'product_startup_failed',
+    startupFailureDetail: causeMessage === null
+      ? null
+      : causeMessage.slice(0, 200),
   });
   const audioState = Object.freeze({
     status: 'unavailable',

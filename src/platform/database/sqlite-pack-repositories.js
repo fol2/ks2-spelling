@@ -494,10 +494,13 @@ export function createSqlitePackRepositories(connection) {
         'DELETE FROM pack_download_jobs WHERE job_id = ?',
         [value.jobId],
       );
-      if (!result || ![0, 1].includes(result.changes)) {
+      // Deleting a job cascades into pack_download_chunks and the native
+      // driver counts cascaded rows (sqlite3_total_changes delta), so a job
+      // with persisted chunks legitimately reports changes > 1.
+      if (!result || !Number.isSafeInteger(result.changes) || result.changes < 0) {
         throw packError('sqlite_pack_job_conflict');
       }
-      return result.changes === 1;
+      return result.changes >= 1;
     });
   }
 

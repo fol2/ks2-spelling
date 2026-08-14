@@ -77,7 +77,7 @@ public final class PackTransferPlugin: CAPPlugin, CAPBridgedPlugin {
                       let truncate = call.getBool("truncate"),
                       startByte >= 0,
                       endByteExclusive > startByte,
-                      endByteExclusive <= 1_048_576,
+                      endByteExclusive - startByte <= 1_048_576,
                       !truncate || startByte == 0 else {
                     throw PackTransferError.rejected
                 }

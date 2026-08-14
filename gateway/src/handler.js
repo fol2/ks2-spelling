@@ -104,9 +104,14 @@ function hasUnapprovedRequestHeader(headers, routeHeaders = undefined) {
       continue;
     }
     if (name === 'x-forwarded-for') continue;
+    // x-real-ip is injected by the Cloudflare custom-domain route itself;
+    // priority (RFC 9218), cache-control and pragma are added by WKWebView's
+    // fetch on real devices. None of them carry entitlement authority, and
+    // without them every request from a real iPhone is rejected here.
     if (
       ['origin', 'content-type', 'accept', 'accept-language', 'content-language',
-        'content-length', 'accept-encoding', 'host', 'user-agent', 'connection', 'cdn-loop']
+        'content-length', 'accept-encoding', 'host', 'user-agent', 'connection', 'cdn-loop',
+        'x-real-ip', 'priority', 'cache-control', 'pragma']
         .includes(name) || routeHeaders?.has(name) || name.startsWith('cf-') || name.startsWith('sec-')
     ) continue;
     return true;

@@ -353,3 +353,49 @@ test('every issued near-limit refresh handle round-trips within the 64 KiB body 
   assert.deepEqual(await rejected.json(), { code: 'REQUEST_INVALID', retryable: false });
   assert.deepEqual(overLimitCounters, { upstream: 0, cryptography: 0 });
 });
+
+test('gateway accepts the headers a real device and the Cloudflare route add', async () => {
+  const { createGatewayHandler } = await import('../gateway/src/handler.js');
+  // Real random nonces: the shared nonce registry rejects the harness's
+  // constant randomBytes on every seal after the first in this process.
+  const handler = createGatewayHandler({
+    ...dependencies(),
+    randomBytes: (length) => crypto.getRandomValues(new Uint8Array(length)),
+  });
+  // Captured verbatim from an iPhone WKWebView request arriving through the
+  // b3-gateway.eugnel.uk custom domain on 2026-08-14: WebKit adds priority
+  // (RFC 9218), cache-control and pragma; the Cloudflare route injects
+  // x-real-ip, cf-* and x-forwarded-proto. The unapproved-header guard 403'd
+  // every one of these, so no real device could ever verify an entitlement.
+  const deviceHeaders = {
+    'accept': 'application/json',
+    'accept-encoding': 'gzip, br',
+    'accept-language': 'en-GB,en;q=0.9',
+    'cache-control': 'no-cache',
+    'cf-connecting-ip': '2a04:204::1',
+    'cf-ipcountry': 'GB',
+    'cf-ray': 'a2af69132b9f9418',
+    'cf-visitor': '{"scheme":"https"}',
+    'connection': 'Keep-Alive',
+    'pragma': 'no-cache',
+    'priority': 'u=3, i',
+    'sec-fetch-dest': 'empty',
+    'sec-fetch-mode': 'cors',
+    'sec-fetch-site': 'cross-site',
+    'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X)',
+    'x-forwarded-proto': 'https',
+    'x-real-ip': '2a04:204::1',
+  };
+  // Distinct opaqueProof per request: verification is receipt-once, so
+  // reusing another test's proof reports a replay, not a header failure.
+  const accepted = await handler.fetch(request('/v1/entitlements/verify', {
+    store: 'google', environment: 'sandbox', productId: 'full_ks2', opaqueProof: 'opaque-device-headers',
+  }, deviceHeaders), env());
+  assert.equal(accepted.status, 200);
+
+  const rejected = await handler.fetch(request('/v1/entitlements/verify', {
+    store: 'google', environment: 'sandbox', productId: 'full_ks2', opaqueProof: 'opaque-device-headers-2',
+  }, { ...deviceHeaders, 'x-entitlement-state': 'active' }), env());
+  assert.equal(rejected.status, 403);
+  assert.deepEqual(await rejected.json(), { code: 'REQUEST_INVALID', retryable: false });
+});

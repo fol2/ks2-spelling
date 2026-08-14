@@ -1,6 +1,8 @@
 ---
+title: Gate physical iOS installs on application composition
 module: native-ios-packaging
 date: 2026-07-27
+category: workflow-issues
 problem_type: workflow_issue
 component: development_workflow
 severity: high
@@ -85,9 +87,11 @@ as separate gates (`AGENTS.md:36`).
 `package.json:13` defines the normal Vite build, while `package.json:14` and
 `package.json:15` define the explicit B4 build and sync. B4Development changes
 the app composition and injects a marker into the bundled HTML
-(`vite.config.js:10`, `vite.config.js:19`, `vite.config.js:85`); production mode
-selects the product root and copies the full audio and art assets
-(`vite.config.js:43`, `vite.config.js:64`, `vite.config.js:94`).
+(`vite.config.js:14-21`, `vite.config.js:7`, `vite.config.js:46`); a product
+release channel — `sandbox` or `production` since PR #174 — selects the product
+root and copies the art assets plus the Starter audio only, the full set having
+moved to entitlement-gated download at E2.5 (`vite.config.js:10`,
+`vite.config.js:65`, `vite.config.js:86`).
 
 The service selector likewise maps B4Development to `b4-starter-product` and
 production to `ks2-spelling-product`
@@ -98,8 +102,8 @@ application experience before Xcode packages it.
 The native wrapper does not distinguish those experiences. Capacitor declares
 `uk.eugnel.ks2spelling` (`capacitor.config.json:2`), and both Debug and Release
 Xcode configurations use that identifier
-(`ios/App/App.xcodeproj/project.pbxproj:525`,
-`ios/App/App.xcodeproj/project.pbxproj:547`). The B4 physical-proof script uses
+(`ios/App/App.xcodeproj/project.pbxproj:601`,
+`ios/App/App.xcodeproj/project.pbxproj:624`). The B4 physical-proof script uses
 the same identifier, runs `sync:b4-development`, requires the B4 marker, and
 uninstalls then installs that application
 (`scripts/prove-b4-ios-physical.mjs:17`,
@@ -186,10 +190,16 @@ migration-aware comparison when the new build intentionally migrates data.
 Build success, install success, and process launch do not prove the requested
 product experience. Launch the exact physical device and verify a product-only
 screen or accessibility identifier before reporting the device hand-off as
-complete.
+complete. A reported build number is a fourth token of the same kind: a store
+can renumber an upload, so the number a device or a distribution service echoes
+back proves what the installer was told, not which archive was installed.
 
 ## Related
 
+- `docs/solutions/workflow-issues/store-renumbering-the-build-makes-every-verification-layer-test-the-wrong-binary.md`
+  — the same gate one layer out, on the token this section now names last.
+- `docs/solutions/workflow-issues/harness-omitting-a-field-photographs-a-screen-the-product-never-renders.md`
+  — the render-time member of the same family.
 - `docs/solutions/conventions/adding-a-package-json-script.md`
 - `docs/operations/native-development.md`
 - `docs/superpowers/plans/2026-07-18-standalone-spelling-mobile-b4-capacitor-development-certification.md`

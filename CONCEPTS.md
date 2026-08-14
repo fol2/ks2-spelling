@@ -133,9 +133,32 @@ surfaces as a validator error rather than as a wrong-PIN result.
 
 The complete product or proof experience selected for a build, including its runtime behaviour and bundled content; it is distinct from native application identity because different compositions may use the same wrapper and bundle identifier.
 
+### Release channel
+
+The product world a build is compiled for, which decides whose packs the
+running app will trust.
+
+A build carries exactly one channel, fixed when it is compiled rather than
+chosen at runtime, and the web bundle and the native layer each assert it
+independently so the two halves of an installation cannot disagree about which
+world's content is trustworthy. Channel is orthogonal to application
+composition: the composition says which experience is packaged, the channel
+says whose content that experience will accept. Proof and development
+compositions have no channel — only a product build has one.
+
 ### Native build identity
 
 The complete evidence tuple identifying what will be installed: source revision, application composition, native project and scheme, configuration, destination, bundle identifier, and packaged-content checks.
+
+The tuple describes an artefact built here, and travels only as far as the
+artefact's own bytes. A store that accepts an upload may assign its own build
+number, so the number a distributed build carries is a label the store owns
+rather than a property of the archive: it cannot stand in for any element of the
+tuple, and a device faithfully reporting that number may be reporting it about a
+different archive. Re-establishing identity after distribution therefore takes
+evidence the store cannot rewrite — pairing the upload event against when the
+archive was written, or probing the distributed bytes for content only the
+intended build contains.
 
 ## Verification instruments
 

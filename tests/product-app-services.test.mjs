@@ -256,7 +256,8 @@ test('production services persist profile CRUD and selected learner across a cle
   assert.equal(first.learning.getState().learnerId, ben.learnerId);
   assert.deepEqual(first.learning.getState().vocabularySets, [
     { id: 'core', label: 'Core', count: 20 },
-    { id: 'y3-4', label: 'Y3–4', count: 20 },
+    { id: 'y3-4', label: 'Y3–4', count: 10 },
+    { id: 'y5-6', label: 'Y5–6', count: 10 },
   ]);
   await first.learning.startRound({
     length: 5,
@@ -320,7 +321,8 @@ test('production services persist profile CRUD and selected learner across a cle
   );
   assert.deepEqual(second.learning.getState().vocabularySets, [
     { id: 'core', label: 'Core', count: 20 },
-    { id: 'y3-4', label: 'Y3–4', count: 20 },
+    { id: 'y3-4', label: 'Y3–4', count: 10 },
+    { id: 'y5-6', label: 'Y5–6', count: 10 },
   ]);
   assert.equal(protectionCalls.length, 4);
 
@@ -572,7 +574,9 @@ test('playback follows the entitlement: installed shards serve the full catalogu
 
 // --- E2.7b: entitlement-driven catalogue activation -------------------------
 
-const YACHT = 'ks2-core:yacht'; // audio lives in full-ks2-shard-15
+// A word only Full publishes (yacht joined the free Starter in #168); its
+// audio lives in full-ks2-shard-15.
+const VEHICLE = 'ks2-core:vehicle';
 
 function activationOptions(directory, name, snapshot) {
   let clock = 1_000;
@@ -649,7 +653,7 @@ test('an entitled device with every shard installed practises the full KS2 catal
   const learnerId = await seedLearner(unentitled);
   assert.ok(
     !unentitled.learning.getState().progress.some(
-      ({ runtimeItemId }) => runtimeItemId === YACHT,
+      ({ runtimeItemId }) => runtimeItemId === VEHICLE,
     ),
     'a Starter device must not publish a shard-15 word',
   );
@@ -667,7 +671,7 @@ test('an entitled device with every shard installed practises the full KS2 catal
   assert.equal(entitled.learning.getState().packSize, 213);
   assert.ok(
     entitled.learning.getState().progress.some(
-      ({ runtimeItemId }) => runtimeItemId === YACHT,
+      ({ runtimeItemId }) => runtimeItemId === VEHICLE,
     ),
     'an entitled device must be able to reach a shard-15 word',
   );
@@ -949,7 +953,7 @@ test('importing full-catalogue learning onto a device that never bought does not
   assert.equal(purchased.learning.getState().packSize, 213);
   assert.ok(
     purchased.learning.getState().progress.some(
-      ({ runtimeItemId }) => runtimeItemId === YACHT,
+      ({ runtimeItemId }) => runtimeItemId === VEHICLE,
     ),
   );
 });

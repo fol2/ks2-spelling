@@ -4,7 +4,7 @@
     "a2MergedCommit": "00cee5c4cfd520d583192222c95c994375ea6263",
     "a2Manifest": {
       "path": "content/spelling.mobile-a2-contract-manifest.json",
-      "sha256": "237b26b14e7506fa271bb3324f701d6205e6e0166d659a16789937478cc77b66"
+      "sha256": "94b4d40733b55723e0078477d6382a8ab2b6b689019c9f0cf4c060bdc48a0bc9"
     },
     "a1Manifest": {
       "path": "content/spelling.mobile-a1-kernel-manifest.json",
@@ -13,7 +13,7 @@
     "catalogues": {
       "starter": {
         "path": "content/spelling.mobile-runtime-starter.json",
-        "sha256": "a67317764d1bae4e1796e070fa8d482c0b4702451c63ba7cacf9470c5272eb34"
+        "sha256": "1416895f3e191a8385891756a56e38c3bd9f72aa594061cef618554fbed0437a"
       },
       "full": {
         "path": "content/spelling.mobile-runtime-full.json",

@@ -16,6 +16,19 @@
         60,
         100
       ]
+    },
+    {
+      "rewardTrackId": "spelling-core-glimmerbug",
+      "packId": "ks2-core",
+      "monsterId": "glimmerbug",
+      "yearBand": "5-6",
+      "thresholds": [
+        1,
+        10,
+        30,
+        60,
+        100
+      ]
     }
   ],
   "audio": {
@@ -222,67 +235,6 @@
       "coverageTier": "statutory-core"
     },
     {
-      "runtimeItemId": "ks2-core:bicycle",
-      "packId": "ks2-core",
-      "itemId": "bicycle",
-      "legacySlug": "bicycle",
-      "target": "bicycle",
-      "accepted": [
-        "bicycle"
-      ],
-      "yearBand": "3-4",
-      "yearLabel": "Years 3-4",
-      "family": "bicycle",
-      "familyWords": [
-        "bicycle"
-      ],
-      "sentencePrompts": [
-        {
-          "sentenceId": "sentence-1",
-          "text": "Her bicycle is leaning against the wall."
-        },
-        {
-          "sentenceId": "sentence-2",
-          "text": "My bicycle has a bright red bell."
-        },
-        {
-          "sentenceId": "sentence-3",
-          "text": "He parked his bicycle outside the shop."
-        },
-        {
-          "sentenceId": "sentence-4",
-          "text": "I fixed the tyre on my bicycle."
-        },
-        {
-          "sentenceId": "sentence-5",
-          "text": "Her bicycle is easy to ride."
-        },
-        {
-          "sentenceId": "sentence-6",
-          "text": "The bicycle leaned against the wall."
-        },
-        {
-          "sentenceId": "sentence-7",
-          "text": "We learned to lock the bicycle safely."
-        },
-        {
-          "sentenceId": "sentence-8",
-          "text": "His bicycle lights were very bright."
-        },
-        {
-          "sentenceId": "sentence-9",
-          "text": "I cleaned mud off the bicycle."
-        },
-        {
-          "sentenceId": "sentence-10",
-          "text": "The bicycle basket held my lunch."
-        }
-      ],
-      "explanation": "A bicycle is a vehicle with two wheels that you ride by pedalling.",
-      "patternIds": [],
-      "coverageTier": "statutory-core"
-    },
-    {
       "runtimeItemId": "ks2-core:build",
       "packId": "ks2-core",
       "itemId": "build",
@@ -408,189 +360,6 @@
       "coverageTier": "statutory-core"
     },
     {
-      "runtimeItemId": "ks2-core:calendar",
-      "packId": "ks2-core",
-      "itemId": "calendar",
-      "legacySlug": "calendar",
-      "target": "calendar",
-      "accepted": [
-        "calendar"
-      ],
-      "yearBand": "3-4",
-      "yearLabel": "Years 3-4",
-      "family": "calendar",
-      "familyWords": [
-        "calendar"
-      ],
-      "sentencePrompts": [
-        {
-          "sentenceId": "sentence-1",
-          "text": "I marked the date on the calendar."
-        },
-        {
-          "sentenceId": "sentence-2",
-          "text": "I marked the trip on my calendar."
-        },
-        {
-          "sentenceId": "sentence-3",
-          "text": "The calendar shows the school holidays."
-        },
-        {
-          "sentenceId": "sentence-4",
-          "text": "She tore a page from the calendar."
-        },
-        {
-          "sentenceId": "sentence-5",
-          "text": "We checked the calendar for the date."
-        },
-        {
-          "sentenceId": "sentence-6",
-          "text": "The calendar hung above the desk."
-        },
-        {
-          "sentenceId": "sentence-7",
-          "text": "Dad circled his birthday on the calendar."
-        },
-        {
-          "sentenceId": "sentence-8",
-          "text": "I lost my calendar during the move."
-        },
-        {
-          "sentenceId": "sentence-9",
-          "text": "The calendar helps me plan my week."
-        },
-        {
-          "sentenceId": "sentence-10",
-          "text": "Our class calendar has every club day."
-        }
-      ],
-      "explanation": "A calendar shows days, weeks and months of the year.",
-      "patternIds": [],
-      "coverageTier": "statutory-core"
-    },
-    {
-      "runtimeItemId": "ks2-core:caught",
-      "packId": "ks2-core",
-      "itemId": "caught",
-      "legacySlug": "caught",
-      "target": "caught",
-      "accepted": [
-        "caught"
-      ],
-      "yearBand": "3-4",
-      "yearLabel": "Years 3-4",
-      "family": "caught",
-      "familyWords": [
-        "caught"
-      ],
-      "sentencePrompts": [
-        {
-          "sentenceId": "sentence-1",
-          "text": "The goalkeeper caught the ball."
-        },
-        {
-          "sentenceId": "sentence-2",
-          "text": "He caught the ball one-handed."
-        },
-        {
-          "sentenceId": "sentence-3",
-          "text": "I caught a glimpse of the fox."
-        },
-        {
-          "sentenceId": "sentence-4",
-          "text": "The teacher caught the mistake quickly."
-        },
-        {
-          "sentenceId": "sentence-5",
-          "text": "We caught the bus after breakfast."
-        },
-        {
-          "sentenceId": "sentence-6",
-          "text": "She caught the ribbon before it fell."
-        },
-        {
-          "sentenceId": "sentence-7",
-          "text": "The net caught the leaves from the drain."
-        },
-        {
-          "sentenceId": "sentence-8",
-          "text": "I caught myself smiling at the joke."
-        },
-        {
-          "sentenceId": "sentence-9",
-          "text": "They caught the last train home."
-        },
-        {
-          "sentenceId": "sentence-10",
-          "text": "The bucket caught the rain from the roof."
-        }
-      ],
-      "explanation": "Caught is the past tense of catch; it can mean grabbed, trapped or noticed doing something.",
-      "patternIds": [],
-      "coverageTier": "statutory-core"
-    },
-    {
-      "runtimeItemId": "ks2-core:centre",
-      "packId": "ks2-core",
-      "itemId": "centre",
-      "legacySlug": "centre",
-      "target": "centre",
-      "accepted": [
-        "centre"
-      ],
-      "yearBand": "3-4",
-      "yearLabel": "Years 3-4",
-      "family": "centre",
-      "familyWords": [
-        "centre"
-      ],
-      "sentencePrompts": [
-        {
-          "sentenceId": "sentence-1",
-          "text": "We met in the centre of town."
-        },
-        {
-          "sentenceId": "sentence-2",
-          "text": "The fountain stands in the centre of the square."
-        },
-        {
-          "sentenceId": "sentence-3",
-          "text": "She drew a dot in the centre of the circle."
-        },
-        {
-          "sentenceId": "sentence-4",
-          "text": "The shop is in the centre of the village."
-        },
-        {
-          "sentenceId": "sentence-5",
-          "text": "Place the box in the centre of the table."
-        },
-        {
-          "sentenceId": "sentence-6",
-          "text": "The park lies in the centre of the estate."
-        },
-        {
-          "sentenceId": "sentence-7",
-          "text": "He walked to the centre of the hall."
-        },
-        {
-          "sentenceId": "sentence-8",
-          "text": "The museum is near the centre of the city."
-        },
-        {
-          "sentenceId": "sentence-9",
-          "text": "Put the star in the centre of the card."
-        },
-        {
-          "sentenceId": "sentence-10",
-          "text": "The school is close to the centre of the community."
-        }
-      ],
-      "explanation": "The centre is the middle point or main part of something.",
-      "patternIds": [],
-      "coverageTier": "statutory-core"
-    },
-    {
       "runtimeItemId": "ks2-core:circle",
       "packId": "ks2-core",
       "itemId": "circle",
@@ -649,132 +418,6 @@
       ],
       "explanation": "A circle is a round shape where every point on the edge is the same distance from the centre.",
       "patternIds": [],
-      "coverageTier": "statutory-core"
-    },
-    {
-      "runtimeItemId": "ks2-core:complete",
-      "packId": "ks2-core",
-      "itemId": "complete",
-      "legacySlug": "complete",
-      "target": "complete",
-      "accepted": [
-        "complete"
-      ],
-      "yearBand": "3-4",
-      "yearLabel": "Years 3-4",
-      "family": "complete",
-      "familyWords": [
-        "complete"
-      ],
-      "sentencePrompts": [
-        {
-          "sentenceId": "sentence-1",
-          "text": "Try to complete the puzzle."
-        },
-        {
-          "sentenceId": "sentence-2",
-          "text": "Please complete the map carefully."
-        },
-        {
-          "sentenceId": "sentence-3",
-          "text": "I will complete my reading before bed."
-        },
-        {
-          "sentenceId": "sentence-4",
-          "text": "She wants to complete the craft model."
-        },
-        {
-          "sentenceId": "sentence-5",
-          "text": "We complete the checklist together."
-        },
-        {
-          "sentenceId": "sentence-6",
-          "text": "The task is complete once the lid is on."
-        },
-        {
-          "sentenceId": "sentence-7",
-          "text": "He hopes to complete the course this term."
-        },
-        {
-          "sentenceId": "sentence-8",
-          "text": "Can you complete this final line?"
-        },
-        {
-          "sentenceId": "sentence-9",
-          "text": "They complete jobs in pairs."
-        },
-        {
-          "sentenceId": "sentence-10",
-          "text": "The meal is complete with fruit for pudding."
-        }
-      ],
-      "explanation": "Complete means finished or with nothing missing.",
-      "patternIds": [
-        "prefix-pre-re-de"
-      ],
-      "coverageTier": "statutory-core"
-    },
-    {
-      "runtimeItemId": "ks2-core:decide",
-      "packId": "ks2-core",
-      "itemId": "decide",
-      "legacySlug": "decide",
-      "target": "decide",
-      "accepted": [
-        "decide"
-      ],
-      "yearBand": "3-4",
-      "yearLabel": "Years 3-4",
-      "family": "decide",
-      "familyWords": [
-        "decide"
-      ],
-      "sentencePrompts": [
-        {
-          "sentenceId": "sentence-1",
-          "text": "You need to decide which game to play."
-        },
-        {
-          "sentenceId": "sentence-2",
-          "text": "I decide to save my work now."
-        },
-        {
-          "sentenceId": "sentence-3",
-          "text": "We decide after hearing both sides."
-        },
-        {
-          "sentenceId": "sentence-4",
-          "text": "She will decide on the class name."
-        },
-        {
-          "sentenceId": "sentence-5",
-          "text": "They decide which route to take."
-        },
-        {
-          "sentenceId": "sentence-6",
-          "text": "Please decide before the timer ends."
-        },
-        {
-          "sentenceId": "sentence-7",
-          "text": "He will decide to join the reading club."
-        },
-        {
-          "sentenceId": "sentence-8",
-          "text": "The team decide on a fair rule."
-        },
-        {
-          "sentenceId": "sentence-9",
-          "text": "Mum will decide once she checks the list."
-        },
-        {
-          "sentenceId": "sentence-10",
-          "text": "I decide to ask for help."
-        }
-      ],
-      "explanation": "To decide means to choose after thinking about the options.",
-      "patternIds": [
-        "prefix-pre-re-de"
-      ],
       "coverageTier": "statutory-core"
     },
     {
@@ -837,191 +480,6 @@
       "explanation": "Early means before the usual or expected time.",
       "patternIds": [
         "suffix-ly"
-      ],
-      "coverageTier": "statutory-core"
-    },
-    {
-      "runtimeItemId": "ks2-core:earth",
-      "packId": "ks2-core",
-      "itemId": "earth",
-      "legacySlug": "earth",
-      "target": "earth",
-      "accepted": [
-        "earth"
-      ],
-      "yearBand": "3-4",
-      "yearLabel": "Years 3-4",
-      "family": "earth",
-      "familyWords": [
-        "earth"
-      ],
-      "sentencePrompts": [
-        {
-          "sentenceId": "sentence-1",
-          "text": "Plants grow in rich earth."
-        },
-        {
-          "sentenceId": "sentence-2",
-          "text": "The earth moves around the sun."
-        },
-        {
-          "sentenceId": "sentence-3",
-          "text": "We can protect the earth by recycling."
-        },
-        {
-          "sentenceId": "sentence-4",
-          "text": "The earth felt damp after the rain."
-        },
-        {
-          "sentenceId": "sentence-5",
-          "text": "Seeds grow in the earth."
-        },
-        {
-          "sentenceId": "sentence-6",
-          "text": "The earth looked blue from space."
-        },
-        {
-          "sentenceId": "sentence-7",
-          "text": "Keep the earth loose in the pot."
-        },
-        {
-          "sentenceId": "sentence-8",
-          "text": "The earth shook during the storm."
-        },
-        {
-          "sentenceId": "sentence-9",
-          "text": "There is life all over the earth."
-        },
-        {
-          "sentenceId": "sentence-10",
-          "text": "The earth needs clean air and water."
-        }
-      ],
-      "explanation": "Earth can mean the planet we live on, or soil and ground.",
-      "patternIds": [],
-      "coverageTier": "statutory-core"
-    },
-    {
-      "runtimeItemId": "ks2-core:enough",
-      "packId": "ks2-core",
-      "itemId": "enough",
-      "legacySlug": "enough",
-      "target": "enough",
-      "accepted": [
-        "enough"
-      ],
-      "yearBand": "3-4",
-      "yearLabel": "Years 3-4",
-      "family": "enough",
-      "familyWords": [
-        "enough"
-      ],
-      "sentencePrompts": [
-        {
-          "sentenceId": "sentence-1",
-          "text": "We have enough chairs for everyone."
-        },
-        {
-          "sentenceId": "sentence-2",
-          "text": "We have enough pencils for everyone."
-        },
-        {
-          "sentenceId": "sentence-3",
-          "text": "Is there enough milk for tea?"
-        },
-        {
-          "sentenceId": "sentence-4",
-          "text": "She worked hard enough to pass."
-        },
-        {
-          "sentenceId": "sentence-5",
-          "text": "The soup is hot enough now."
-        },
-        {
-          "sentenceId": "sentence-6",
-          "text": "I do not feel brave enough yet."
-        },
-        {
-          "sentenceId": "sentence-7",
-          "text": "There was enough time to finish."
-        },
-        {
-          "sentenceId": "sentence-8",
-          "text": "The bag is big enough for books."
-        },
-        {
-          "sentenceId": "sentence-9",
-          "text": "They ran fast enough to win."
-        },
-        {
-          "sentenceId": "sentence-10",
-          "text": "The class had enough chairs."
-        }
-      ],
-      "explanation": "Enough means as much or as many as needed.",
-      "patternIds": [],
-      "coverageTier": "statutory-core"
-    },
-    {
-      "runtimeItemId": "ks2-core:famous",
-      "packId": "ks2-core",
-      "itemId": "famous",
-      "legacySlug": "famous",
-      "target": "famous",
-      "accepted": [
-        "famous"
-      ],
-      "yearBand": "3-4",
-      "yearLabel": "Years 3-4",
-      "family": "famous",
-      "familyWords": [
-        "famous"
-      ],
-      "sentencePrompts": [
-        {
-          "sentenceId": "sentence-1",
-          "text": "That actor is famous around the world."
-        },
-        {
-          "sentenceId": "sentence-2",
-          "text": "The museum is famous for its dinosaur bones."
-        },
-        {
-          "sentenceId": "sentence-3",
-          "text": "The town is famous for its old bridge."
-        },
-        {
-          "sentenceId": "sentence-4",
-          "text": "Our class read about a famous explorer."
-        },
-        {
-          "sentenceId": "sentence-5",
-          "text": "The singer became famous after the concert."
-        },
-        {
-          "sentenceId": "sentence-6",
-          "text": "The castle is famous with visitors from many countries."
-        },
-        {
-          "sentenceId": "sentence-7",
-          "text": "That footballer is famous across the world."
-        },
-        {
-          "sentenceId": "sentence-8",
-          "text": "The school choir sang a song by a famous composer."
-        },
-        {
-          "sentenceId": "sentence-9",
-          "text": "The park is famous for its bright spring flowers."
-        },
-        {
-          "sentenceId": "sentence-10",
-          "text": "We saw a famous painting on the trip."
-        }
-      ],
-      "explanation": "Famous means known by many people.",
-      "patternIds": [
-        "suffix-ous"
       ],
       "coverageTier": "statutory-core"
     },
@@ -1211,66 +669,627 @@
       "coverageTier": "statutory-core"
     },
     {
-      "runtimeItemId": "ks2-core:heart",
+      "runtimeItemId": "ks2-core:achieve",
       "packId": "ks2-core",
-      "itemId": "heart",
-      "legacySlug": "heart",
-      "target": "heart",
+      "itemId": "achieve",
+      "legacySlug": "achieve",
+      "target": "achieve",
       "accepted": [
-        "heart"
+        "achieve"
       ],
-      "yearBand": "3-4",
-      "yearLabel": "Years 3-4",
-      "family": "heart",
+      "yearBand": "5-6",
+      "yearLabel": "Years 5-6",
+      "family": "achieve",
       "familyWords": [
-        "heart"
+        "achieve"
       ],
       "sentencePrompts": [
         {
           "sentenceId": "sentence-1",
-          "text": "The doctor listened to her heart with a stethoscope."
+          "text": "You can achieve your goal with practice."
         },
         {
           "sentenceId": "sentence-2",
-          "text": "My heart beat faster before the race."
+          "text": "We work hard to achieve our goals."
         },
         {
           "sentenceId": "sentence-3",
-          "text": "Exercise helps to keep your heart strong."
+          "text": "She hopes to achieve a better score."
         },
         {
           "sentenceId": "sentence-4",
-          "text": "She drew a red heart on the card."
+          "text": "The class can achieve more with practice."
         },
         {
           "sentenceId": "sentence-5",
-          "text": "He placed his hand over his heart."
+          "text": "He wants to achieve a high mark."
         },
         {
           "sentenceId": "sentence-6",
-          "text": "The nurse checked his heart after the fall."
+          "text": "We must achieve calm before the show."
         },
         {
           "sentenceId": "sentence-7",
-          "text": "Fear made my heart thump loudly."
+          "text": "They tried to achieve a fair result."
         },
         {
           "sentenceId": "sentence-8",
-          "text": "The poster showed how the heart pumps blood."
+          "text": "The team can achieve success together."
         },
         {
           "sentenceId": "sentence-9",
-          "text": "A healthy heart needs regular exercise."
+          "text": "I will achieve my target this week."
         },
         {
           "sentenceId": "sentence-10",
-          "text": "Her heart was pounding at the start line."
+          "text": "The runner worked hard to achieve first place."
         }
       ],
-      "explanation": "The heart is the organ that pumps blood around the body; it can also mean feelings.",
+      "explanation": "To achieve means to succeed in doing something through effort.",
       "patternIds": [
-        "homophone"
+        "i-before-e"
       ],
+      "coverageTier": "statutory-core"
+    },
+    {
+      "runtimeItemId": "ks2-core:muscle",
+      "packId": "ks2-core",
+      "itemId": "muscle",
+      "legacySlug": "muscle",
+      "target": "muscle",
+      "accepted": [
+        "muscle"
+      ],
+      "yearBand": "5-6",
+      "yearLabel": "Years 5-6",
+      "family": "muscle",
+      "familyWords": [
+        "muscle"
+      ],
+      "sentencePrompts": [
+        {
+          "sentenceId": "sentence-1",
+          "text": "You use a muscle to lift your arm."
+        },
+        {
+          "sentenceId": "sentence-2",
+          "text": "The muscle in my arm felt sore."
+        },
+        {
+          "sentenceId": "sentence-3",
+          "text": "Exercise helps build a strong muscle."
+        },
+        {
+          "sentenceId": "sentence-4",
+          "text": "He pulled a muscle during football."
+        },
+        {
+          "sentenceId": "sentence-5",
+          "text": "The doctor checked the muscle in my leg."
+        },
+        {
+          "sentenceId": "sentence-6",
+          "text": "Warm up before you strain a muscle."
+        },
+        {
+          "sentenceId": "sentence-7",
+          "text": "The cat flexed a tiny muscle as it slept."
+        },
+        {
+          "sentenceId": "sentence-8",
+          "text": "The bike ride used every muscle in my legs."
+        },
+        {
+          "sentenceId": "sentence-9",
+          "text": "She stretched the muscle after running."
+        },
+        {
+          "sentenceId": "sentence-10",
+          "text": "A healthy diet helps each muscle grow."
+        }
+      ],
+      "explanation": "A muscle is body tissue that tightens and relaxes to help you move.",
+      "patternIds": [
+        "silent-letter"
+      ],
+      "coverageTier": "statutory-core"
+    },
+    {
+      "runtimeItemId": "ks2-core:occur",
+      "packId": "ks2-core",
+      "itemId": "occur",
+      "legacySlug": "occur",
+      "target": "occur",
+      "accepted": [
+        "occur"
+      ],
+      "yearBand": "5-6",
+      "yearLabel": "Years 5-6",
+      "family": "occur",
+      "familyWords": [
+        "occur"
+      ],
+      "sentencePrompts": [
+        {
+          "sentenceId": "sentence-1",
+          "text": "Mistakes can occur when we rush."
+        },
+        {
+          "sentenceId": "sentence-2",
+          "text": "Delays often occur in bad weather."
+        },
+        {
+          "sentenceId": "sentence-3",
+          "text": "Accidents can occur on icy roads."
+        },
+        {
+          "sentenceId": "sentence-4",
+          "text": "Problems can occur with old machines."
+        },
+        {
+          "sentenceId": "sentence-5",
+          "text": "The event will occur next week."
+        },
+        {
+          "sentenceId": "sentence-6",
+          "text": "A sudden change can occur overnight."
+        },
+        {
+          "sentenceId": "sentence-7",
+          "text": "Thunderstorms can occur in summer."
+        },
+        {
+          "sentenceId": "sentence-8",
+          "text": "It may occur to you later."
+        },
+        {
+          "sentenceId": "sentence-9",
+          "text": "Such errors occur quite often."
+        },
+        {
+          "sentenceId": "sentence-10",
+          "text": "Flooding can occur after heavy rain."
+        }
+      ],
+      "explanation": "To occur means to happen or take place.",
+      "patternIds": [
+        "double-consonant"
+      ],
+      "coverageTier": "statutory-core"
+    },
+    {
+      "runtimeItemId": "ks2-core:suggest",
+      "packId": "ks2-core",
+      "itemId": "suggest",
+      "legacySlug": "suggest",
+      "target": "suggest",
+      "accepted": [
+        "suggest"
+      ],
+      "yearBand": "5-6",
+      "yearLabel": "Years 5-6",
+      "family": "suggest",
+      "familyWords": [
+        "suggest"
+      ],
+      "sentencePrompts": [
+        {
+          "sentenceId": "sentence-1",
+          "text": "I suggest we leave now."
+        },
+        {
+          "sentenceId": "sentence-2",
+          "text": "I suggest a shorter route."
+        },
+        {
+          "sentenceId": "sentence-3",
+          "text": "The teacher did not suggest an easy answer."
+        },
+        {
+          "sentenceId": "sentence-4",
+          "text": "We suggest a picnic by the lake."
+        },
+        {
+          "sentenceId": "sentence-5",
+          "text": "Can you suggest a book for me?"
+        },
+        {
+          "sentenceId": "sentence-6",
+          "text": "The map may suggest a safer path."
+        },
+        {
+          "sentenceId": "sentence-7",
+          "text": "I suggest we start now."
+        },
+        {
+          "sentenceId": "sentence-8",
+          "text": "She would suggest a game after lunch."
+        },
+        {
+          "sentenceId": "sentence-9",
+          "text": "The clue may suggest the bird is nearby."
+        },
+        {
+          "sentenceId": "sentence-10",
+          "text": "They suggest keeping the door open."
+        }
+      ],
+      "explanation": "To suggest means to put forward an idea or plan.",
+      "patternIds": [
+        "double-consonant"
+      ],
+      "coverageTier": "statutory-core"
+    },
+    {
+      "runtimeItemId": "ks2-core:develop",
+      "packId": "ks2-core",
+      "itemId": "develop",
+      "legacySlug": "develop",
+      "target": "develop",
+      "accepted": [
+        "develop"
+      ],
+      "yearBand": "5-6",
+      "yearLabel": "Years 5-6",
+      "family": "develop",
+      "familyWords": [
+        "develop"
+      ],
+      "sentencePrompts": [
+        {
+          "sentenceId": "sentence-1",
+          "text": "Seeds develop best in warm soil."
+        },
+        {
+          "sentenceId": "sentence-2",
+          "text": "Plants develop from tiny seeds."
+        },
+        {
+          "sentenceId": "sentence-3",
+          "text": "We develop new skills in class."
+        },
+        {
+          "sentenceId": "sentence-4",
+          "text": "The baby will develop quickly."
+        },
+        {
+          "sentenceId": "sentence-5",
+          "text": "The town may develop by the river."
+        },
+        {
+          "sentenceId": "sentence-6",
+          "text": "Good habits develop over time."
+        },
+        {
+          "sentenceId": "sentence-7",
+          "text": "The class will develop a plan."
+        },
+        {
+          "sentenceId": "sentence-8",
+          "text": "Some films develop slowly."
+        },
+        {
+          "sentenceId": "sentence-9",
+          "text": "We should develop the idea further."
+        },
+        {
+          "sentenceId": "sentence-10",
+          "text": "The story will develop later."
+        }
+      ],
+      "explanation": "To develop means to grow, improve or become more advanced.",
+      "patternIds": [
+        "prefix-pre-re-de"
+      ],
+      "coverageTier": "statutory-core"
+    },
+    {
+      "runtimeItemId": "ks2-core:competition",
+      "packId": "ks2-core",
+      "itemId": "competition",
+      "legacySlug": "competition",
+      "target": "competition",
+      "accepted": [
+        "competition"
+      ],
+      "yearBand": "5-6",
+      "yearLabel": "Years 5-6",
+      "family": "competition",
+      "familyWords": [
+        "competition"
+      ],
+      "sentencePrompts": [
+        {
+          "sentenceId": "sentence-1",
+          "text": "She won the art competition."
+        },
+        {
+          "sentenceId": "sentence-2",
+          "text": "The race was a competition between two houses."
+        },
+        {
+          "sentenceId": "sentence-3",
+          "text": "The competition started at noon."
+        },
+        {
+          "sentenceId": "sentence-4",
+          "text": "She entered the art competition."
+        },
+        {
+          "sentenceId": "sentence-5",
+          "text": "There was strong competition for the prize."
+        },
+        {
+          "sentenceId": "sentence-6",
+          "text": "The competition rules were easy to follow."
+        },
+        {
+          "sentenceId": "sentence-7",
+          "text": "He trained hard for the swimming competition."
+        },
+        {
+          "sentenceId": "sentence-8",
+          "text": "The cooking competition smelled wonderful."
+        },
+        {
+          "sentenceId": "sentence-9",
+          "text": "A fun competition filled the school hall."
+        },
+        {
+          "sentenceId": "sentence-10",
+          "text": "They celebrated after the competition."
+        }
+      ],
+      "explanation": "A competition is an event where people try to win or do better than others.",
+      "patternIds": [
+        "suffix-tion"
+      ],
+      "coverageTier": "statutory-core"
+    },
+    {
+      "runtimeItemId": "ks2-core:frequently",
+      "packId": "ks2-core",
+      "itemId": "frequently",
+      "legacySlug": "frequently",
+      "target": "frequently",
+      "accepted": [
+        "frequently"
+      ],
+      "yearBand": "5-6",
+      "yearLabel": "Years 5-6",
+      "family": "frequently",
+      "familyWords": [
+        "frequently"
+      ],
+      "sentencePrompts": [
+        {
+          "sentenceId": "sentence-1",
+          "text": "We frequently visit our grandparents."
+        },
+        {
+          "sentenceId": "sentence-2",
+          "text": "We frequently visit the library after school."
+        },
+        {
+          "sentenceId": "sentence-3",
+          "text": "The dog frequently sleeps by the fire."
+        },
+        {
+          "sentenceId": "sentence-4",
+          "text": "She frequently helps her younger brother."
+        },
+        {
+          "sentenceId": "sentence-5",
+          "text": "We frequently hear birds in the morning."
+        },
+        {
+          "sentenceId": "sentence-6",
+          "text": "The road is frequently busy at rush hour."
+        },
+        {
+          "sentenceId": "sentence-7",
+          "text": "He frequently forgets his water bottle."
+        },
+        {
+          "sentenceId": "sentence-8",
+          "text": "The shop is frequently open on Saturdays."
+        },
+        {
+          "sentenceId": "sentence-9",
+          "text": "I frequently read before bed."
+        },
+        {
+          "sentenceId": "sentence-10",
+          "text": "The river frequently floods after heavy rain."
+        }
+      ],
+      "explanation": "Frequently means often or many times.",
+      "patternIds": [
+        "suffix-ly"
+      ],
+      "coverageTier": "statutory-core"
+    },
+    {
+      "runtimeItemId": "ks2-core:queue",
+      "packId": "ks2-core",
+      "itemId": "queue",
+      "legacySlug": "queue",
+      "target": "queue",
+      "accepted": [
+        "queue"
+      ],
+      "yearBand": "5-6",
+      "yearLabel": "Years 5-6",
+      "family": "queue",
+      "familyWords": [
+        "queue"
+      ],
+      "sentencePrompts": [
+        {
+          "sentenceId": "sentence-1",
+          "text": "We had to queue outside the museum."
+        },
+        {
+          "sentenceId": "sentence-2",
+          "text": "Please join the queue behind the blue line."
+        },
+        {
+          "sentenceId": "sentence-3",
+          "text": "The queue for ice cream stretched across the playground."
+        },
+        {
+          "sentenceId": "sentence-4",
+          "text": "We waited in a long queue for the tickets."
+        },
+        {
+          "sentenceId": "sentence-5",
+          "text": "He left the queue to fetch his coat."
+        },
+        {
+          "sentenceId": "sentence-6",
+          "text": "The queue moved slowly towards the till."
+        },
+        {
+          "sentenceId": "sentence-7",
+          "text": "Our class formed a neat queue before assembly."
+        },
+        {
+          "sentenceId": "sentence-8",
+          "text": "She stood at the back of the queue."
+        },
+        {
+          "sentenceId": "sentence-9",
+          "text": "The queue grew longer after lunch."
+        },
+        {
+          "sentenceId": "sentence-10",
+          "text": "The family joined the queue for the ferry."
+        }
+      ],
+      "explanation": "A queue is a line of people or things waiting for their turn.",
+      "patternIds": [],
+      "coverageTier": "statutory-core"
+    },
+    {
+      "runtimeItemId": "ks2-core:rhythm",
+      "packId": "ks2-core",
+      "itemId": "rhythm",
+      "legacySlug": "rhythm",
+      "target": "rhythm",
+      "accepted": [
+        "rhythm"
+      ],
+      "yearBand": "5-6",
+      "yearLabel": "Years 5-6",
+      "family": "rhythm",
+      "familyWords": [
+        "rhythm"
+      ],
+      "sentencePrompts": [
+        {
+          "sentenceId": "sentence-1",
+          "text": "The drummer kept a steady rhythm."
+        },
+        {
+          "sentenceId": "sentence-2",
+          "text": "The drum kept a steady rhythm."
+        },
+        {
+          "sentenceId": "sentence-3",
+          "text": "I could feel the rhythm of the music."
+        },
+        {
+          "sentenceId": "sentence-4",
+          "text": "The class clapped in rhythm."
+        },
+        {
+          "sentenceId": "sentence-5",
+          "text": "She found the rhythm of the song."
+        },
+        {
+          "sentenceId": "sentence-6",
+          "text": "A good rhythm helps dancers stay together."
+        },
+        {
+          "sentenceId": "sentence-7",
+          "text": "The rhythm of the waves was calming."
+        },
+        {
+          "sentenceId": "sentence-8",
+          "text": "He lost the rhythm and started again."
+        },
+        {
+          "sentenceId": "sentence-9",
+          "text": "We practised the rhythm on our desks."
+        },
+        {
+          "sentenceId": "sentence-10",
+          "text": "The runner found a strong rhythm."
+        }
+      ],
+      "explanation": "Rhythm is a regular pattern of sounds, beats or movements.",
+      "patternIds": [],
+      "coverageTier": "statutory-core"
+    },
+    {
+      "runtimeItemId": "ks2-core:yacht",
+      "packId": "ks2-core",
+      "itemId": "yacht",
+      "legacySlug": "yacht",
+      "target": "yacht",
+      "accepted": [
+        "yacht"
+      ],
+      "yearBand": "5-6",
+      "yearLabel": "Years 5-6",
+      "family": "yacht",
+      "familyWords": [
+        "yacht"
+      ],
+      "sentencePrompts": [
+        {
+          "sentenceId": "sentence-1",
+          "text": "We saw a white yacht on the sea."
+        },
+        {
+          "sentenceId": "sentence-2",
+          "text": "The yacht glided across the water."
+        },
+        {
+          "sentenceId": "sentence-3",
+          "text": "A long yacht was moored in the harbour."
+        },
+        {
+          "sentenceId": "sentence-4",
+          "text": "They waved from the yacht."
+        },
+        {
+          "sentenceId": "sentence-5",
+          "text": "The yacht had bright blue sails."
+        },
+        {
+          "sentenceId": "sentence-6",
+          "text": "We counted the windows on the yacht."
+        },
+        {
+          "sentenceId": "sentence-7",
+          "text": "The yacht trip was calm and quiet."
+        },
+        {
+          "sentenceId": "sentence-8",
+          "text": "A small yacht moved near the shore."
+        },
+        {
+          "sentenceId": "sentence-9",
+          "text": "He drew a yacht in his sketchbook."
+        },
+        {
+          "sentenceId": "sentence-10",
+          "text": "The yacht waited by the pier."
+        }
+      ],
+      "explanation": "A yacht is a boat used for sailing or pleasure trips.",
+      "patternIds": [],
       "coverageTier": "statutory-core"
     }
   ]

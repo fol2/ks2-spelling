@@ -32,6 +32,17 @@ const FROZEN_AUTHORITY = Object.freeze({
   a2ContractManifestSha256: '237b26b14e7506fa271bb3324f701d6205e6e0166d659a16789937478cc77b66',
 });
 
+// Authority-lock amendment (#168 Starter rebalance): the vendored Gate A moved
+// to the upstream commit that swaps Starter to 10 Y3-4 + 10 Y5-6. The frozen
+// record above keeps describing the B2-era blobs, which never change; the two
+// values below are the one authorised destination the current Gate A
+// provenance may name — anything else still fails closed.
+const AMENDED_GATE_A = Object.freeze({
+  commit: '5c9fdd043faeeecda5390cd24085e99e2dd2256c',
+  a2ContractManifestSha256:
+    '94b4d40733b55723e0078477d6382a8ab2b6b689019c9f0cf4c060bdc48a0bc9',
+});
+
 const HASHED_INPUTS = Object.freeze([
   ['exitReportSha256', 'reports/b2/b2-exit-report.json'],
   ['dependencyAuditSha256', 'reports/b2/dependency-audit.json'],
@@ -304,10 +315,10 @@ export async function verifyB2Authority({
     ),
     'Gate A provenance',
   );
-  if (gateA?.upstream?.commit !== FROZEN_AUTHORITY.gateACommit) {
+  if (gateA?.upstream?.commit !== AMENDED_GATE_A.commit) {
     throw new Error('Gate A commit mismatch');
   }
-  if (gateA?.evidence?.a2Manifest?.sha256 !== FROZEN_AUTHORITY.a2ContractManifestSha256) {
+  if (gateA?.evidence?.a2Manifest?.sha256 !== AMENDED_GATE_A.a2ContractManifestSha256) {
     throw new Error('Gate A A2 contract manifest mismatch');
   }
 

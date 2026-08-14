@@ -1,5 +1,6 @@
 import {
   applySpellingCommand,
+  loadFullSpellingCatalogue,
   loadStarterSpellingCatalogue,
   validateCatalogueV1,
   validateSpellingCommandSnapshotV1,
@@ -74,6 +75,19 @@ export const B4_SENTENCE_PROMPTS = Object.freeze([
 
 function createB4SpellingCatalogue() {
   const catalogue = structuredClone(loadStarterSpellingCatalogue());
+  // The B4 proof's five words are frozen, but the free Starter's roster is
+  // not (#168 swapped bicycle out). Any B4 word the Starter no longer
+  // publishes is grafted back from the Full catalogue: the item bytes are
+  // identical between the two, only the catalogue identity differs.
+  const published = new Set(catalogue.items.map((item) => item.runtimeItemId));
+  for (const runtimeItemId of B4_RUNTIME_ITEM_IDS) {
+    if (published.has(runtimeItemId)) continue;
+    catalogue.items.push(structuredClone(
+      loadFullSpellingCatalogue().items.find(
+        (item) => item.runtimeItemId === runtimeItemId,
+      ),
+    ));
+  }
   const orderedByRuntimeItemId = new Map(B4_RUNTIME_ITEM_IDS.map((runtimeItemId) => [
     runtimeItemId,
     B4_SENTENCE_PROMPTS

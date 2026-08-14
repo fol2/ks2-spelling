@@ -32,14 +32,14 @@ const TEMP_COPY_EXCLUDED_COMPONENTS = new Set([
 
 const EXPECTED = Object.freeze({
   repository: 'https://github.com/fol2/ks2-mastery.git',
-  commit: '4501607a9b58f2fb252b4cce64ba056e6f60c630',
-  tree: '129ba457cccf21df03f4be813b4f4ed6e7d9f6ad',
+  commit: '5c9fdd043faeeecda5390cd24085e99e2dd2256c',
+  tree: '5227787a684a5c4815d3c1082647f748edcb4643',
   manifestSha256:
-    '7fea17613ee10f747c1cfa9d5c923da4e506e23e61d1530ca71c283c0ce39465',
+    'b5aedfb6ecd8df7276a9515bc13c9ad5b9602c6cea8822c7eedd14000b026d38',
   runtimeEntry: 'shared/spelling/mobile/a3/index.js',
   runtimeFileCount: 24,
   starterSha256:
-    'a67317764d1bae4e1796e070fa8d482c0b4702451c63ba7cacf9470c5272eb34',
+    '1416895f3e191a8385891756a56e38c3bd9f72aa594061cef618554fbed0437a',
   starterCount: 20,
   fullSha256:
     '50918c93043eba984cb2472238ac9370be4f46fb52a55c76cf5c469beb330d84',

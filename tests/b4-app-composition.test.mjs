@@ -131,5 +131,8 @@ test('B4 content exposes only sentence prompts covered by its local audio manife
     assert.deepEqual(item.sentencePrompts.map(({ text }) => text).sort(), expected);
     assert.equal(item.sentencePrompts.length, 2);
   }
-  assert.equal(catalogue.audio.requiredAssetCount, 680);
+  // 21 items since #168: the Starter's 20 (four of them trimmed to the two B4
+  // prompts) plus bicycle grafted back from Full for the frozen B4 five.
+  // 2 profiles x (5 x (1 + 2x2) + 16 x (1 + 2x10)) = 722.
+  assert.equal(catalogue.audio.requiredAssetCount, 722);
 });

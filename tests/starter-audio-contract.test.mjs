@@ -113,11 +113,11 @@ test('Starter audio derives the complete frozen 840-asset matrix', () => {
   );
   assert.equal(
     inventory.at(-1).audioKey,
-    'ks2-core:heart|sentence-10|Sulafat|slow|dictation-slow',
+    'ks2-core:yacht|sentence-10|Sulafat|slow|dictation-slow',
   );
   assert.equal(
     inventory.at(-1).assetPath,
-    'audio/sulafat/heart/sentence-10-slow.m4a',
+    'audio/sulafat/yacht/sentence-10-slow.m4a',
   );
 });
 

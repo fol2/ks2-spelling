@@ -6,6 +6,7 @@ const repositoryRoot = new URL('../', import.meta.url);
 const gatewayPackageUrl = new URL('gateway/package.json', repositoryRoot);
 
 const EXPECTED_GATEWAY_TESTS = [
+  'gateway-compliance-tripwire.test.mjs',
   'gateway-contract.test.mjs',
   'gateway-pack-access.test.mjs',
   'gateway-package-scripts.test.mjs',

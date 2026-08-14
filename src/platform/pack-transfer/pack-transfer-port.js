@@ -188,8 +188,16 @@ export function validateDownloadRangeResult(value) {
     endByteExclusive,
     totalBytes,
     bytesWritten,
-    etag: assertString(value.etag, 'Archive ETag', { max: 256 }),
+    etag: unquoteEtag(assertString(value.etag, 'Archive ETag', { max: 256 })),
   });
+}
+
+// Native bridges hand back the raw ETag response header, which HTTP requires
+// to be quoted ("<etag>"); the download authority carries the bare value, so
+// the comparison in the coordinator needs the wire quotes stripped here.
+function unquoteEtag(value) {
+  const match = /^"(.+)"$/.exec(value);
+  return match ? match[1] : value;
 }
 
 export function validateInspectResult(value) {

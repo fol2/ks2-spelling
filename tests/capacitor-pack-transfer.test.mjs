@@ -78,6 +78,22 @@ test('Capacitor PackTransfer exposes the exact six-method port and validates nat
     bytesWritten: 100,
     etag: 'fixed-etag',
   });
+  // Real devices hand back the wire ETag header, which HTTP quotes; the
+  // download authority carries the bare value, so the port must strip the
+  // quotes or every live chunk fails the coordinator's authority comparison.
+  const quoted = createCapacitorPackTransfer({
+    PackTransfer: nativePlugin({
+      downloadRange: async () => ({
+        status: 206,
+        startByte: 0,
+        endByteExclusive: 100,
+        totalBytes: 1_324,
+        bytesWritten: 100,
+        etag: '"fixed-etag"',
+      }),
+    }),
+  });
+  assert.equal((await quoted.downloadRange(request)).etag, 'fixed-etag');
   assert.deepEqual(calls, [request]);
   assert.equal(Object.isFrozen(transfer), true);
 });

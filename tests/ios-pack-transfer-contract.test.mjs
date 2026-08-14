@@ -60,6 +60,24 @@ test('iOS validates capability authority before constructing a URLRequest', asyn
   assert.doesNotMatch(source, /withIntermediateDirectories:\s*true/);
 });
 
+test('iOS bounds the range guard on chunk width, not absolute offset', async () => {
+  // Shards are downloaded as sequential 1 MiB chunks; every chunk after the
+  // first starts beyond 1 MiB, so an absolute-offset bound rejects the whole
+  // multi-chunk download before any network request. Android already encodes
+  // the width form (requireValidRange: endExclusive - start <= MAX_RANGE_BYTES).
+  const plugin = await readFile(new URL('ios/App/App/PackTransferPlugin.swift', ROOT), 'utf8');
+  const flow = await readFile(new URL('ios/App/App/PackDownloadFlow.swift', ROOT), 'utf8');
+  const android = await readFile(
+    new URL('android/app/src/main/java/uk/eugnel/ks2spelling/PackTransferPlugin.java', ROOT),
+    'utf8',
+  );
+  assert.match(plugin, /endByteExclusive - startByte <= 1_048_576/);
+  assert.doesNotMatch(plugin, /endByteExclusive <= 1_048_576/);
+  assert.match(flow, /input\.endByteExclusive - input\.startByte <= 1_048_576/);
+  assert.doesNotMatch(flow, /input\.endByteExclusive <= 1_048_576/);
+  assert.match(android, /\(long\) endExclusive - \(long\) start <= MAX_RANGE_BYTES/);
+});
+
 test('iOS verifies signed bytes and inspects before ZIPFoundation extraction', async () => {
   const plugin = await readFile(new URL('ios/App/App/PackTransferPlugin.swift', ROOT), 'utf8');
   const sealer = await readFile(new URL('ios/App/App/PackInstallSealer.swift', ROOT), 'utf8');

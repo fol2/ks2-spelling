@@ -49,7 +49,9 @@ enum PackDownloadFlow {
     ) throws -> PackDownloadOutcome {
         guard input.startByte >= 0,
               input.endByteExclusive > input.startByte,
-              input.endByteExclusive <= 1_048_576,
+              // Bounds the chunk window, not the absolute offset: later chunks of a
+              // multi-chunk shard start beyond 1 MiB and must still be requestable.
+              input.endByteExclusive - input.startByte <= 1_048_576,
               !input.truncate || input.startByte == 0 else {
             throw PackTransferError.rejected
         }

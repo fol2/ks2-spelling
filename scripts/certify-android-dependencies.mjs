@@ -39,7 +39,7 @@ function classifyB2AndroidDistribution(component) {
     ...component,
     scopes: component.scopes.map((scope) => ({
       ...scope,
-      configuration: /^(?:debug|release)AnnotationProcessorClasspath$/.test(
+      configuration: /^(?:debug|release|sandbox)AnnotationProcessorClasspath$/.test(
         scope.configuration,
       )
         ? scope.configuration.replace('AnnotationProcessor', 'Compile')

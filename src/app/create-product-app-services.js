@@ -7,6 +7,7 @@ import starterAudioEvidence from '../../reports/c1/starter-audio-evidence.json' 
 import {
   loadFullSpellingCatalogue,
   loadStarterSpellingCatalogue,
+  validateSpellingCommandSnapshotV1,
 } from '../domain/spelling/index.js';
 import {
   createCapacitorInstalledAudio,
@@ -14,6 +15,7 @@ import {
 import {
   InstalledAudioPlugin,
 } from '../platform/audio/capacitor-installed-audio-plugin.js';
+import { canonicalJson } from '../platform/database/canonical-json.js';
 import { createCapacitorSqliteConnection } from '../platform/database/capacitor-sqlite-connection.js';
 import { createCapacitorHaptics } from '../platform/haptics/capacitor-haptics.js';
 import { createDatabaseCommandGate } from '../platform/database/database-command-gate.js';
@@ -76,7 +78,11 @@ import {
 } from './database-gated-repository.js';
 import { createBundledStarterAudio } from './bundled-starter-audio.js';
 import { createDatabaseLifecycleCoordinator } from './database-lifecycle-coordinator.js';
-import { createEntitledAudioSwitch } from './entitled-audio-switch.js';
+import {
+  createEntitledAudioSwitch,
+  hasEarnedFullProduct,
+  isFullProductEntitled,
+} from './entitled-audio-switch.js';
 // ponytail: the Full player's asset evidence (config/full-audio-manifest.json,
 // ~1.7 MB) is a static import, so it parses at startup even for a device that
 // never buys. Move this module behind a dynamic import chunk if startup cost
@@ -97,6 +103,65 @@ import {
   createStarterPackAvailabilityController,
 } from './starter-pack-availability-controller.js';
 import { createSwitchableSqlConnection } from './switchable-sql-connection.js';
+
+// The one entitlement the full catalogue publishes. The profile store writes
+// the same grant into the aggregate when it re-tags; a composition test pins
+// the vendored catalogue to it so the two can never drift apart silently.
+const FULL_ENTITLEMENT_ID = 'full-ks2';
+
+// The gateway bounds its own calls, but nothing bounds the Capacitor store
+// bridge — and this await sits on the startup path, so a bridge that never
+// settles would stop the app opening rather than merely leaving commerce
+// unavailable. When the bound wins, the un-started snapshot reads
+// none/missing, which composes Starter: the same safe state as a device that
+// never bought, and one the Parent card already has copy for.
+const COMMERCE_START_TIMEOUT_MS = 8_000;
+
+async function settleWithin(promise, milliseconds) {
+  let timer = null;
+  try {
+    await Promise.race([
+      promise,
+      new Promise((resolve) => { timer = setTimeout(resolve, milliseconds); }),
+    ]);
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+  }
+}
+
+/**
+ * Whether a learner's stored aggregate can be re-tagged to `catalogue` without
+ * losing anything. The catalogue contract is the oracle rather than a
+ * hand-written subset check: every progress key, event, Monster track and Camp
+ * record is resolved against the catalogue's items, so a snapshot that carries
+ * a word the target does not publish fails here instead of being silently
+ * trimmed. Requiring the validated form to come back byte-identical closes the
+ * other half — a normalisation that quietly rewrote the aggregate would not
+ * count as representable either.
+ */
+function createCatalogueRepresentationCheck({ snapshotStore, cataloguesById }) {
+  return async function canRepresent(learnerId, catalogueId) {
+    const catalogue = cataloguesById[catalogueId];
+    if (!catalogue) return false;
+    // Read outside the guard: a database that cannot be read is not the same
+    // answer as an aggregate that cannot be expressed, and swallowing the
+    // first would quietly deny an entitled family the words they bought.
+    const stored = await snapshotStore.read(learnerId);
+    const candidate = {
+      ...stored,
+      catalogueId,
+      grantedEntitlementIds: catalogue.entitlementIds.includes(FULL_ENTITLEMENT_ID)
+        ? [FULL_ENTITLEMENT_ID]
+        : [],
+    };
+    try {
+      const validated = validateSpellingCommandSnapshotV1(candidate, catalogue);
+      return canonicalJson(validated) === canonicalJson(candidate);
+    } catch {
+      return false;
+    }
+  };
+}
 
 function defaultLearnerId() {
   if (typeof globalThis.crypto?.randomUUID !== 'function') {
@@ -188,15 +253,14 @@ export async function createProductAppServices(options = {}) {
   const createLearnerId = options.createLearnerId ?? defaultLearnerId;
   const connection = createSwitchableSqlConnection(connectionFactory);
   const gate = createDatabaseCommandGate();
-  // The Starter catalogue is the active learning catalogue: this build
-  // bundles only the Starter audio, and full-catalogue access arrives with
-  // the downloaded pack (E2.6). The full catalogue stays registered so
-  // stored full-catalogue aggregates and backups can still be decoded
-  // before the startup migration resets them to Starter.
-  const catalogue = loadStarterSpellingCatalogue();
+  // Starter is the floor, not the ceiling: an entitled device with all 15
+  // shards installed practises the full KS2 catalogue (E2.7b), chosen below
+  // from the commerce snapshot. Both stay registered so stored aggregates and
+  // backups on either side of the switch can be decoded.
+  const starterCatalogue = loadStarterSpellingCatalogue();
   const fullCatalogue = await loadFullSpellingCatalogue();
   const cataloguesById = Object.freeze({
-    [catalogue.catalogueId]: catalogue,
+    [starterCatalogue.catalogueId]: starterCatalogue,
     [fullCatalogue.catalogueId]: fullCatalogue,
   });
   const localDataProtection = options.localDataProtection ??
@@ -222,12 +286,6 @@ export async function createProductAppServices(options = {}) {
     });
     await connection.open();
     await migrate(connection);
-    const profileStore = createSQLiteSpellingProfileStore({
-      connection,
-      gate,
-      now,
-      initialCatalogueId: catalogue.catalogueId,
-    });
     const snapshotStore = createSQLiteSpellingSnapshotStore({
       connection,
       cataloguesById,
@@ -273,7 +331,69 @@ export async function createProductAppServices(options = {}) {
       ...verifiedDataProtection,
     });
     await coordinator.start();
-    await profileStore.administration.resetFullCatalogueLearning();
+    // Live commerce composes only on a native runtime: the real store bridge,
+    // the HTTP gateway and the N-shard download/activation coordinators, all
+    // reachable solely through the Parent-gated commerce controller. Every
+    // other composition (web, tests without commerce dependencies) keeps the
+    // unavailable workflow, which fails purchase/restore/download closed.
+    // It composes before learning and playback because the commerce snapshot
+    // is what tells both which catalogue this device is entitled to.
+    const commerceWorkflow = options.commerceWorkflow ??
+      (options.runtime?.isNativePlatform === true
+        ? createProductCommerceWorkflow({
+            runtime: options.runtime,
+            connection,
+            commandGate: gate,
+            packRepository: createSqlitePackRepositories(connection),
+            packTransfer: options.packTransfer ??
+              createCapacitorPackTransfer({ PackTransfer: PackTransferPlugin }),
+            packTrustEnvironment: options.packTrustEnvironment ?? 'sandbox',
+            clock: now,
+          })
+        : createUnavailableProductCommerceWorkflow());
+    parentCommerce = createParentCommerceController({
+      workflow: commerceWorkflow,
+    });
+    // Awaited, unlike the audio switch's reactive observation: the learning
+    // controller validates its initial snapshot against one fixed catalogue,
+    // so the answer has to be settled before anything is composed. start()
+    // never rejects past this catch, absorbs its own transient store/gateway
+    // failures and resolves from durable local rows, so an offline entitled
+    // device still reads 'active'/'installed' and keeps its full catalogue.
+    // The cost is that a shard install finishing mid-session is not picked up
+    // until relaunch — the Parent card says so.
+    // The catch is attached before the race, so a bridge that rejects after the
+    // bound has already won cannot surface as an unhandled rejection.
+    await settleWithin(
+      parentCommerce.start().catch(() => undefined),
+      options.commerceStartTimeoutMs ?? COMMERCE_START_TIMEOUT_MS,
+    );
+    const commerceState = parentCommerce.getState();
+    const alignCatalogueLearning = (store, extras = {}) =>
+      store.administration.alignCatalogueLearning({
+        entitled: isFullProductEntitled(commerceState),
+        earned: hasEarnedFullProduct(commerceState),
+        canRepresent: createCatalogueRepresentationCheck({
+          snapshotStore,
+          cataloguesById,
+        }),
+        readSnapshot: (learnerId) => snapshotStore.read(learnerId),
+        ...extras,
+      });
+    // A profile store seeds newly created learners with its initialCatalogueId,
+    // so the aligned catalogue must be known before the store the app keeps is
+    // built. The store is a pure factory over (connection, gate, now); the
+    // throwaway instance below only runs the alignment.
+    const activeCatalogueId = await alignCatalogueLearning(
+      createSQLiteSpellingProfileStore({ connection, gate, now }),
+    );
+    const catalogue = cataloguesById[activeCatalogueId];
+    const profileStore = createSQLiteSpellingProfileStore({
+      connection,
+      gate,
+      now,
+      initialCatalogueId: activeCatalogueId,
+    });
     const [initialProfiles, initialSelectedLearnerId] = await Promise.all([
       profileStore.profiles.listProfiles(),
       profileStore.selection.readSelectedLearnerId(),
@@ -326,30 +446,6 @@ export async function createProductAppServices(options = {}) {
       pinCrypto: options.parentPinCrypto,
       now,
     });
-    // Live commerce composes only on a native runtime: the real store bridge,
-    // the HTTP gateway and the N-shard download/activation coordinators, all
-    // reachable solely through the Parent-gated commerce controller. Every
-    // other composition (web, tests without commerce dependencies) keeps the
-    // unavailable workflow, which fails purchase/restore/download closed.
-    // It composes before playback because the commerce snapshot is what tells
-    // the audio switch which catalogue this device is entitled to hear.
-    const commerceWorkflow = options.commerceWorkflow ??
-      (options.runtime?.isNativePlatform === true
-        ? createProductCommerceWorkflow({
-            runtime: options.runtime,
-            connection,
-            commandGate: gate,
-            packRepository: createSqlitePackRepositories(connection),
-            packTransfer: options.packTransfer ??
-              createCapacitorPackTransfer({ PackTransfer: PackTransferPlugin }),
-            packTrustEnvironment: options.packTrustEnvironment ?? 'sandbox',
-            clock: now,
-          })
-        : createUnavailableProductCommerceWorkflow());
-    parentCommerce = createParentCommerceController({
-      workflow: commerceWorkflow,
-    });
-    void parentCommerce.start().catch(() => undefined);
     const bundledAudioSource =
       options.bundledAudio ??
       options.bundledStarterAudio ??
@@ -357,8 +453,10 @@ export async function createProductAppServices(options = {}) {
     if (options.audio) {
       audio = options.audio;
     } else {
+      // Always the Starter catalogue: the bundled evidence publishes exactly
+      // those 20 words and the audio contract asserts the pair matches.
       const starterPlayer = createProductAudioPlayer({
-        catalogue,
+        catalogue: starterCatalogue,
         installedAudio: bundledAudioSource,
         audioEvidence: starterAudioEvidence,
       });
@@ -417,10 +515,16 @@ export async function createProductAppServices(options = {}) {
       files: learningBackupFiles,
       afterImport: async () => {
         await runPostCommit(async () => {
-          // A backup from a build that bundled the full audio restores
-          // full-catalogue aggregates; they degrade to Starter here just as
-          // they do at startup.
-          await profileStore.administration.resetFullCatalogueLearning();
+          // An import can replace every aggregate with one taken on the other
+          // side of the switch. The same alignment runs here, with imported
+          // full-catalogue state parked rather than composed unless this
+          // device has already earned the product (Gap 5).
+          const importedCatalogueId = await alignCatalogueLearning(profileStore, {
+            preserveUnentitledFull: true,
+          });
+          if (importedCatalogueId !== catalogue.catalogueId) {
+            throw new Error('product_catalogue_changed_by_import');
+          }
           await controller.reload();
         });
         // The progress summary is auxiliary and carries its own notice when a
@@ -455,6 +559,10 @@ export async function createProductAppServices(options = {}) {
       mode: 'product',
       databaseName: DATABASE_NAME,
       schemaVersion: SCHEMA_VERSION,
+      // The catalogue this session composed. The Parent card reads it to say
+      // honestly whether a finished install is already live or needs a
+      // relaunch, because the switch is startup-only.
+      catalogueId: catalogue.catalogueId,
       dataPolicy,
       controller,
       learning,

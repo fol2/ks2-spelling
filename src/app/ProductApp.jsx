@@ -24,6 +24,7 @@ import {
   secureWordDelta,
 } from './celebrations/celebration-model.js';
 import { TrailMeadow } from './trail/TrailMeadow.jsx';
+import { PrivacyNoticeCard } from './PrivacyNoticeCard.jsx';
 
 // Phaser + the living Monster Stage load only when a caught codex entry is
 // opened for a closer look.
@@ -1024,33 +1025,7 @@ export function ParentArea({
             )}
           </section>
 
-          <section className="paper-card parent-card" aria-labelledby="parent-privacy-title">
-            <p className="product-kicker">About this app</p>
-            <h2 id="parent-privacy-title">Privacy &amp; app information</h2>
-            <p>
-              Learner nicknames, year groups, spelling progress and Parent
-              settings stay on this device. A Parent-controlled backup leaves
-              the app only when you choose where to save or share it.
-            </p>
-            <p>
-              <strong>No advertising, analytics or tracking.</strong> The app
-              does not create child accounts or send learner profiles or
-              spelling progress to a purchase service.
-            </p>
-            <p>
-              Delete a learner in Manage learners to remove that learner&apos;s
-              local data. Removing the app removes its remaining local data;
-              exported backup copies remain under your control.
-            </p>
-            <details>
-              <summary>Third-party notices</summary>
-              <p>
-                KS2 Spelling uses audited open-source application and platform
-                libraries. The release distribution includes their identity,
-                source and licence notice inventory.
-              </p>
-            </details>
-          </section>
+          <PrivacyNoticeCard />
         </div>
       </main>
     );

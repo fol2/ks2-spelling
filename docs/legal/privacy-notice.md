@@ -1,6 +1,6 @@
 # KS2 Spelling privacy notice
 
-Effective date: 23 July 2026
+Effective date: 14 August 2026
 
 KS2 Spelling is a local-first learning application for children, with a
 separate Parent-controlled area.
@@ -27,6 +27,10 @@ proof to the entitlement service and contact the relevant app store to buy,
 restore or verify a purchase. It may then download signed spelling-pack data.
 Those operations use purchase and pack authority only, not learner data.
 
+An IP address necessarily reaches the entitlement gateway to service a
+purchase-verification or download request. It is used only for that purpose
+and is not retained or used to contact or profile anyone.
+
 A Parent may explicitly export a learning backup through the system share
 sheet or document picker. The exported copy is then controlled by the Parent
 and by the chosen destination.
@@ -34,8 +38,9 @@ and by the chosen destination.
 ## Retention and control
 
 A Parent can reset one learner's learning or delete that learner in the Parent
-area. Deleting the application removes its remaining application-controlled
-local data. It does not remove backup copies previously exported elsewhere.
+area. Nothing is retained off the device. Deleting the application removes
+its remaining application-controlled local data. It does not remove backup
+copies previously exported elsewhere.
 
 ## Publication contact
 

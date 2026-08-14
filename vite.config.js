@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { readFileSync } from 'node:fs';
 import { cp, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -83,6 +84,25 @@ export function createBundledStarterAssets(mode) {
   };
 }
 
+export function createPrivacyNoticeEmbed() {
+  // Inlined at build time. `?raw` is refused by the webview-bundle evidence
+  // reader, which only strips `?inline`; a \0 virtual module is already classified.
+  const sourceId = 'virtual:privacy-notice';
+  const resolvedId = `\0${sourceId}`;
+  const noticePath = resolve(ROOT, 'docs/legal/privacy-notice.md');
+  return {
+    name: 'privacy-notice-embed',
+    resolveId(id) {
+      if (id === sourceId) return resolvedId;
+      return undefined;
+    },
+    load(id) {
+      if (id !== resolvedId) return undefined;
+      return `export default ${JSON.stringify(readFileSync(noticePath, 'utf8'))};\n`;
+    },
+  };
+}
+
 export function createBundledArtAssets(mode) {
   if (!isProductReleaseChannel(mode)) return null;
   return {
@@ -107,6 +127,7 @@ export function createBundledArtAssets(mode) {
 export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
+    createPrivacyNoticeEmbed(),
     createB4OfflineBoundary(mode),
     createReleaseChannelAuthority(mode),
     createBundledStarterAssets(mode),

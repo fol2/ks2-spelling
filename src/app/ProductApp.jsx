@@ -759,6 +759,7 @@ export function ParentCommerceCard({
       {state.actionError && (
         <p className="inline-error" role="alert">
           That purchase action did not complete. Local access was not changed.
+          {state.actionErrorDetail ? <> <code>{state.actionErrorDetail}</code></> : null}
         </p>
       )}
     </section>

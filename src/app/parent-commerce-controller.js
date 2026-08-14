@@ -57,6 +57,7 @@ function freezeState({
   packState,
   action = null,
   actionError = null,
+  actionErrorDetail = null,
   downloadProgress = null,
 }) {
   return Object.freeze({
@@ -66,8 +67,19 @@ function freezeState({
     packState,
     action,
     actionError,
+    actionErrorDetail,
     downloadProgress,
   });
+}
+
+// The card renders this next to the generic failure copy. Every commerce
+// failure otherwise shows the same toast, which makes device reports
+// undiagnosable without a gateway tail.
+function actionErrorDetailFrom(error) {
+  const detail = typeof error?.code === 'string' && error.code.length > 0
+    ? error.code
+    : typeof error?.message === 'string' ? error.message : '';
+  return detail ? detail.slice(0, 200) : null;
 }
 
 export function createParentCommerceController({ workflow } = {}) {
@@ -145,6 +157,7 @@ export function createParentCommerceController({ workflow } = {}) {
           status: 'failed',
           action: null,
           actionError: 'parent_commerce_action_failed',
+          actionErrorDetail: actionErrorDetailFrom(error),
           downloadProgress: null,
         }));
         throw error;

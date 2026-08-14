@@ -189,6 +189,7 @@ test('production services persist profile CRUD and selected learner across a cle
     packState: 'missing',
     action: null,
     actionError: null,
+    actionErrorDetail: null,
     downloadProgress: null,
   });
   assert.deepEqual(first.parent.getState(), {

@@ -1372,7 +1372,8 @@ test('the product shell keeps the waypoint foot on the viewport while Words scro
   );
   assert.match(
     productCss,
-    /\.bank-row\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\) auto;[^}]*min-width:\s*0;/su,
+    // Bar, spelling, rungs, and the chevron that says the row opens.
+    /\.bank-row\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\) auto auto;[^}]*min-width:\s*0;/su,
   );
   assert.match(
     productCss,

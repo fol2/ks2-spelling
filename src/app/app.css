@@ -756,16 +756,26 @@ select {
 
 .bank-row {
   display: grid;
+  /* Every row opens its word, so the row itself is the control: full width,
+     ranged left, with the chevron closing the line. */
+  width: 100%;
   align-items: center;
   /* minmax(0, 1fr) lets long spellings shrink and wrap inside the row instead
      of forcing horizontal overflow over the waypoint foot. */
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: 0 0.75rem;
   min-width: 0;
   border: 1px solid var(--row-edge, var(--line));
   border-radius: 1.15rem;
   padding: 0.6rem 0.9rem;
   background: var(--row-fill, var(--paper-sunk));
+  text-align: left;
+}
+
+.bank-row-open {
+  grid-row: 1 / 3;
+  grid-column: 4;
+  color: var(--ink-faint);
 }
 
 .bank-row-bar {
@@ -815,19 +825,25 @@ select {
   background: var(--row-bar, var(--brand));
 }
 
-.bank-row[data-status='secure'] {
+/* One status palette. The opened word lights its rungs from the same three
+   declarations as the row it was tapped on, so a word cannot read as secure
+   in the list and learning on its own page. */
+.bank-row[data-status='secure'],
+.word-card[data-status='secure'] {
   --row-edge: rgb(47 158 106 / 22%);
   --row-fill: rgb(228 245 236 / 60%);
   --row-bar: var(--good);
 }
 
-.bank-row[data-status='learning'] {
+.bank-row[data-status='learning'],
+.word-card[data-status='learning'] {
   --row-edge: rgb(62 111 168 / 22%);
   --row-fill: rgb(232 240 250 / 62%);
   --row-bar: var(--brand);
 }
 
-.bank-row[data-status='trouble'] {
+.bank-row[data-status='trouble'],
+.word-card[data-status='trouble'] {
   --row-edge: rgb(208 138 44 / 30%);
   --row-fill: rgb(251 239 217 / 68%);
   --row-bar: var(--retry);
@@ -845,6 +861,113 @@ select {
   border-radius: 1.25rem;
   padding: 1.15rem;
   background: rgb(250 246 236 / 60%);
+}
+
+/* --- one word, opened ---------------------------------------------------- */
+
+.word-chrome {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.word-chrome > span {
+  flex: 1;
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.word-card {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  /* Input tier: the card carries the two things a learner came to press, so
+     it arrives inside 240ms and with no delay in front of them. */
+  animation: riseSoft var(--t-scene) var(--ease) backwards;
+}
+
+.word-card h1 {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: clamp(2.1rem, 10vw, 3rem);
+}
+
+/* Section labels are headings first and kickers second, so they keep the
+   heading's air above them without a spacing token the design does not have. */
+.word-card h2 {
+  margin-top: 0.55rem;
+}
+
+.word-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--fs-note);
+  color: var(--ink-soft);
+}
+
+.word-progress .bank-rungs {
+  flex: none;
+}
+
+.word-listen {
+  display: inline-flex;
+  min-height: 3.1rem;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.5rem 0 0.25rem;
+  border: 1px solid rgb(62 111 168 / 28%);
+  border-radius: var(--r-pill);
+  padding: 0 1.1rem;
+  background: rgb(62 111 168 / 10%);
+  color: var(--brand-deep);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.word-sentence {
+  /* A quotation rule, not a status one: the rungs above already carry how the
+     word is going, and a sentence is not right or wrong. */
+  border-left: 2px solid var(--line-strong);
+  padding-left: 0.75rem;
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.word-family {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.word-family li {
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  padding: 0.3rem 0.7rem;
+  background: var(--paper-sunk);
+  font-size: var(--fs-body-s);
+  font-weight: 700;
+}
+
+.word-actions {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.word-actions-note {
+  text-align: center;
+  font-size: var(--fs-note);
+  color: var(--ink-soft);
 }
 
 /* --- codex --------------------------------------------------------------- */

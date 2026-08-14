@@ -49,6 +49,30 @@ const PROGRESS = [
   { runtimeItemId: 'i8', target: 'conscience', stage: 1, correct: 0, wrong: 3, lastResult: 'wrong' },
 ];
 
+/* What the installed pack says about each bank word, in the catalogue's own
+   shape, so the opened word can be judged on real copy lengths. Transcribed
+   from the vendored runtime catalogue; `busy/business` and `occasion(ally)`
+   are the two families here that hold a second spelling. */
+const WORD_MATERIAL = Object.fromEntries([
+  ['i1', 'Years 3-4', 'A business is work or an organisation that sells goods or services.', 'The family business sells fresh bread.', ['busy', 'business']],
+  ['i2', 'Years 3-4', 'Separate means apart, not joined together.', 'Keep the white socks separate from the dark ones.', ['separate']],
+  ['i3', 'Years 5-6', 'Necessary means needed or required.', 'A helmet is necessary for safety.', ['necessary']],
+  ['i4', 'Years 5-6', 'Rhythm is a regular pattern of sounds, beats or movements.', 'The drummer kept a steady rhythm.', ['rhythm']],
+  ['i5', 'Years 3-4', 'An occasion is a particular time when something happens, often something special.', 'The party was a special occasion.', ['occasion', 'occasionally']],
+  ['i6', 'Years 5-6', 'To accommodate means to provide space for someone or something, or to fit in with needs.', 'This hotel can accommodate fifty guests.', ['accommodate']],
+  ['i7', 'Years 5-6', 'Mischievous means playful in a naughty or troublesome way.', 'The mischievous cat stole a biscuit.', ['mischievous']],
+  ['i8', 'Years 5-6', 'Your conscience is the inner sense that helps you know right from wrong.', 'His conscience told him to return the lost wallet.', ['conscience']],
+].map(([runtimeItemId, yearLabel, explanation, sentence, familyWords]) => [
+  runtimeItemId,
+  {
+    runtimeItemId,
+    yearLabel,
+    explanation,
+    sentencePrompts: [{ sentenceId: 'sentence-1', text: sentence }],
+    familyWords,
+  },
+]));
+
 const MONSTERS = [
   { rewardTrackId: 'r1', packId: 'ks2-core', monsterId: 'inklet', thresholds: [1, 10, 30, 60, 100], branch: 'b1', secureCount: 34, caught: true, derivedStage: 3, earnedStageHighWater: 3 },
   { rewardTrackId: 'r2', packId: 'ks2-core', monsterId: 'glimmerbug', thresholds: [1, 10, 30, 60, 100], branch: 'b1', secureCount: 12, caught: true, derivedStage: 2, earnedStageHighWater: 2 },
@@ -378,6 +402,23 @@ function makeServices(query) {
       ...learning,
       async selectLearner() { learning.set({ screen: 'profiles' }); },
       showScreen(screen) { learning.set({ screen }); },
+      wordMaterial(runtimeItemId) {
+        return WORD_MATERIAL[runtimeItemId] ?? null;
+      },
+      async practiseWord() {
+        learning.set({
+          screen: 'practice',
+          practice: {
+            ...card(0, 'single', { progress: { total: 1, done: 0, checked: 0, wrongCount: 0 } }),
+            label: 'Word bank practice',
+          },
+          roundBaseline: {
+            sessionId: 'session-demo',
+            monsters: rosterBeforeRound,
+            camp: null,
+          },
+        });
+      },
       async startRound(options) {
         learning.set({
           screen: 'practice',

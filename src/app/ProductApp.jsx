@@ -13,7 +13,7 @@ import { artUrl, regionArt } from './mastery-art.js';
 import { autoAdvanceDelayMs } from './practice-feel.js';
 import { downloadActionLabel } from './parent-commerce-controller.js';
 import { milestoneLadder } from './records-model.js';
-import { buildWordBank } from './word-bank-model.js';
+import { buildWordBank, buildWordDetail, hearWordRequest } from './word-bank-model.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import {
   achievementCelebration,
@@ -1615,10 +1615,158 @@ const FILTER_DOTS = Object.freeze({
   secure: 'var(--good)',
 });
 
-function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {
+// The word bank's own scene dressing, shared with the word a learner opens
+// from it so the detail reads as the same place rather than a new one.
+const BANK_PLATE_Y = '30%';
+const BANK_VEIL =
+  'linear-gradient(180deg,rgba(246,245,241,.44),rgba(246,245,241,.9) 42%,#f8f5ec 62%)';
+
+function WordDetailScreen({
+  detail,
+  audioState,
+  audio,
+  voiceId,
+  busy,
+  onBack,
+  onScreen,
+  onPractise,
+  onPlaybackFailure,
+}) {
+  const [localError, setLocalError] = useState('');
+  const listening = audioState.status === 'ready';
+
+  async function hearIt() {
+    try {
+      await audio.play(hearWordRequest({
+        runtimeItemId: detail.runtimeItemId,
+        version: audioState.activeVersion,
+        voiceId: voiceId ?? PACKAGED_VOICE,
+      }));
+      setLocalError('');
+    } catch (error) {
+      if (error?.name === 'NotAllowedError') {
+        setLocalError('Tap Hear it again to listen.');
+        return;
+      }
+      setLocalError('That word would not play. Check the listening pack and try again.');
+      onPlaybackFailure?.();
+    }
+  }
+
+  return (
+    <main className="product-app" aria-labelledby="word-title">
+      <Scene
+        className="word-scene"
+        waypoints
+        waypointScreen="progress"
+        onScreen={onScreen}
+        plate={regionArt(REGION, 'a1')}
+        plateY={BANK_PLATE_Y}
+        veil={BANK_VEIL}
+      >
+        <div className="scene-body">
+          <div className="word-chrome">
+            <button
+              type="button"
+              className="icon-button press-soft press"
+              onClick={onBack}
+            >
+              <IconBack size={21} />
+              <span className="visually-hidden">Back to your words</span>
+            </button>
+            <span>Word bank</span>
+            <span className="icon-button" aria-hidden="true" />
+          </div>
+
+          <div className="scene-scroll">
+            <article className="word-card vellum" data-status={detail.status}>
+              <p className="product-kicker">{detail.yearLabel}</p>
+              <h1 id="word-title">{detail.word}</h1>
+
+              <p className="word-progress">
+                <span className="bank-rungs" aria-hidden="true">
+                  {detail.rungs.map((lit, index) => (
+                    // eslint-disable-next-line react/no-array-index-key
+                    <span key={index} data-lit={lit ? 'true' : 'false'} />
+                  ))}
+                </span>
+                {detail.note}
+              </p>
+
+              <button
+                type="button"
+                className="word-listen press"
+                disabled={!listening}
+                onClick={() => void hearIt()}
+              >
+                <IconSpeaker size={21} />
+                Hear it
+              </button>
+
+              {localError && (
+                <p className="inline-error" role="alert">{localError}</p>
+              )}
+
+              <h2 className="product-kicker">What it means</h2>
+              <p className="body-copy">{detail.explanation}</p>
+
+              <h2 className="product-kicker">Used like this</h2>
+              <p className="word-sentence">{detail.sentence}</p>
+
+              {detail.familyWords.length > 0 && (
+                <>
+                  <h2 className="product-kicker">Word family</h2>
+                  <ul className="word-family">
+                    {detail.familyWords.map((relative) => (
+                      <li key={relative}>{relative}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </article>
+
+            <div className="word-actions">
+              <button
+                type="button"
+                className="button-primary press"
+                disabled={busy}
+                onClick={() => {
+                  void onPractise(detail.runtimeItemId).catch(() => {
+                    setLocalError('That practice could not start. Please try again.');
+                  });
+                }}
+              >
+                Practise this word
+                <IconForward size={19} />
+              </button>
+              <p className="word-actions-note">
+                One word on its own. Your trail keeps its place.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Scene>
+    </main>
+  );
+}
+
+function WordBankScreen({
+  progress,
+  vocabularySets,
+  onScreen,
+  onStart,
+  wordMaterial,
+  onPractise,
+  audio,
+  audioState,
+  voiceId,
+  busy,
+  onPlaybackFailure,
+}) {
   const [filter, setFilter] = useState('all');
   const [vocabSet, setVocabSet] = useState('core');
   const [query, setQuery] = useState('');
+  const [openWordId, setOpenWordId] = useState(null);
   const bank = useMemo(
     () => buildWordBank({
       progress,
@@ -1629,6 +1777,30 @@ function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {
     }),
     [progress, filter, vocabSet, vocabularySets, query],
   );
+  const detail = useMemo(
+    () => (openWordId === null ? null : buildWordDetail({
+      material: wordMaterial(openWordId),
+      row: bank.rows.find(({ runtimeItemId }) => runtimeItemId === openWordId)
+        ?? null,
+    })),
+    [openWordId, bank.rows, wordMaterial],
+  );
+
+  if (detail) {
+    return (
+      <WordDetailScreen
+        detail={detail}
+        audioState={audioState}
+        audio={audio}
+        voiceId={voiceId}
+        busy={busy}
+        onBack={() => setOpenWordId(null)}
+        onScreen={onScreen}
+        onPractise={onPractise}
+        onPlaybackFailure={onPlaybackFailure}
+      />
+    );
+  }
 
   return (
     <main className="product-app" aria-labelledby="bank-title">
@@ -1638,8 +1810,8 @@ function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {
         waypointScreen="progress"
         onScreen={onScreen}
         plate={regionArt(REGION, 'a1')}
-        plateY="30%"
-        veil="linear-gradient(180deg,rgba(246,245,241,.44),rgba(246,245,241,.9) 42%,#f8f5ec 62%)"
+        plateY={BANK_PLATE_Y}
+        veil={BANK_VEIL}
       >
         <div className="scene-body">
           <div className="bank-head">
@@ -1725,21 +1897,25 @@ function WordBankScreen({ progress, vocabularySets, onScreen, onStart }) {
           <div className="scene-scroll">
             <ul className="bank-list">
               {bank.rows.map((row) => (
-                <li
-                  key={row.runtimeItemId}
-                  className="bank-row"
-                  data-status={row.status}
-                  data-due={row.due ? 'true' : 'false'}
-                >
-                  <span className="bank-row-bar" aria-hidden="true" />
-                  <strong>{row.word}</strong>
-                  <small>{row.note}</small>
-                  <span className="bank-rungs" aria-hidden="true">
-                    {row.rungs.map((lit, index) => (
-                      // eslint-disable-next-line react/no-array-index-key
-                      <span key={index} data-lit={lit ? 'true' : 'false'} />
-                    ))}
-                  </span>
+                <li key={row.runtimeItemId}>
+                  <button
+                    type="button"
+                    className="bank-row press-soft press"
+                    data-status={row.status}
+                    data-due={row.due ? 'true' : 'false'}
+                    onClick={() => setOpenWordId(row.runtimeItemId)}
+                  >
+                    <span className="bank-row-bar" aria-hidden="true" />
+                    <strong>{row.word}</strong>
+                    <small>{row.note}</small>
+                    <span className="bank-rungs" aria-hidden="true">
+                      {row.rungs.map((lit, index) => (
+                        // eslint-disable-next-line react/no-array-index-key
+                        <span key={index} data-lit={lit ? 'true' : 'false'} />
+                      ))}
+                    </span>
+                    <IconChevron size={18} className="bank-row-open" />
+                  </button>
                 </li>
               ))}
               {bank.empty && (
@@ -3262,7 +3438,7 @@ function ResultsScreen({
 // Named so the record can be rendered on its own in tests. The declaration
 // itself stays a plain function: the round contract reads this file as text
 // and finds the round by the two function headings around it.
-export { ResultsScreen };
+export { ResultsScreen, WordBankScreen, WordDetailScreen };
 
 export default function ProductApp({ services }) {
   const [profileState, setProfileState] = useState(() =>
@@ -3554,6 +3730,15 @@ export default function ProductApp({ services }) {
         vocabularySets={learningState.vocabularySets}
         onScreen={showScreen}
         onStart={() => showScreen('setup')}
+        wordMaterial={services.learning.wordMaterial}
+        onPractise={(runtimeItemId) =>
+          services.learning.practiseWord(runtimeItemId)}
+        audio={services.audio}
+        audioState={audioState}
+        voiceId={learningState.prefs?.voiceId}
+        busy={learningState.status === 'saving'}
+        onPlaybackFailure={() =>
+          services.audioAvailability.reportPlaybackFailure()}
       />
     );
   }

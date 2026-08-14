@@ -3331,6 +3331,11 @@ export default function ProductApp({ services }) {
               <p className="product-kicker">Local data</p>
               <h1 id="product-data-title">Your saved learning could not open</h1>
               <p className="body-copy">Your local data has not been replaced.</p>
+              {profileState.startupFailureDetail ? (
+                <p className="body-copy">
+                  <code>{profileState.startupFailureDetail}</code>
+                </p>
+              ) : null}
               <button
                 type="button"
                 className="button-primary press"

@@ -403,6 +403,19 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(failureHtml, /Your saved learning could not open/);
   assert.match(failureHtml, /Your local data has not been replaced/);
   assert.match(failureHtml, /Try opening again/);
+  assert.doesNotMatch(failureHtml, /<code>/);
+
+  const detailedFailureHtml = renderToStaticMarkup(
+    React.createElement(App, {
+      services: createProductFailureServices({
+        cause: new Error('sqlite_profile_catalogue_alignment_failed'),
+      }),
+    }),
+  );
+  assert.match(
+    detailedFailureHtml,
+    /<code>sqlite_profile_catalogue_alignment_failed<\/code>/,
+  );
 
   assert.match(html, /Who is practising\?/);
   assert.match(html, /Ada/);
@@ -1446,7 +1459,7 @@ test('main selects compile-time product and proof compositions without a web SQL
   assert.match(main, /createSelectedAppServices/);
   assert.match(main, /buildMode:\s*import\.meta\.env\.MODE/);
   assert.match(main, /composition\.serviceMode === 'product'/);
-  assert.match(main, /createProductFailureServices\(\)/);
+  assert.match(main, /createProductFailureServices\(\{ cause: error \}\)/);
   assert.match(
     main,
     /\?\? failureServices\('Native platform required'\)/,

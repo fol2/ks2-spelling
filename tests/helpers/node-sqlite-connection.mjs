@@ -54,11 +54,24 @@ export function createNodeSqliteConnection(
           database.exec(sql);
           return createWriteResult(totalChanges() - before);
         }
+        // Report the total_changes() delta rather than StatementSync's
+        // sqlite3_changes-based count: the Capacitor iOS plugin derives its
+        // changes from sqlite3_total_changes, which counts rows removed by
+        // ON DELETE CASCADE, so tests must see the same cascade-inclusive
+        // numbers the device sees.
         const statement = database.prepare(sql);
         statement.setReadBigInts(true);
-        return createWriteResult(
-          requireNodeChanges(statement.run(...values), 'StatementSync run result'),
+        const before = totalChanges();
+        const reported = requireNodeChanges(
+          statement.run(...values),
+          'StatementSync run result',
         );
+        if (reported > BigInt(Number.MAX_SAFE_INTEGER)) {
+          throw new TypeError(
+            'StatementSync run result must contain a safe non-negative integer.',
+          );
+        }
+        return createWriteResult(totalChanges() - before);
       },
       async query(sql, values = []) {
         return database.prepare(sql).all(...values).map((row) => ({ ...row }));

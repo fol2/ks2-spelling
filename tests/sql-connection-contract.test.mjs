@@ -180,6 +180,10 @@ test('Node SQLite test adapter rejects unsafe or malformed StatementSync changes
       prepare() {
         return {
           setReadBigInts() {},
+          get() {
+            // Serves the adapter's total_changes() bracketing reads.
+            return { changes: 0n };
+          },
           run() {
             return { changes };
           },

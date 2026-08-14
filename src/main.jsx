@@ -51,8 +51,9 @@ async function createServices() {
           isNativePlatform: true,
           platform: Capacitor.getPlatform(),
         });
-      } catch {
-        return createProductFailureServices();
+      } catch (error) {
+        console.error('product_startup_failed', error);
+        return createProductFailureServices({ cause: error });
       }
     }
     if (

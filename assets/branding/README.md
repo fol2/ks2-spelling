@@ -20,3 +20,8 @@ companion and region art the application renders lives in `content/mastery-art/`
 and comes from the frozen upstream authority `fol2/ks2-mastery`; its origin and
 per-file hashes are recorded in `provenance/ks2-mastery-art.json` and its
 licence position in `docs/legal/third-party-licence-notice.md`.
+
+The Full KS2 in-app purchase promotional image is
+`iap-full-ks2-phaeton.png`: a 1024×1024 RGB icon-style reinterpretation of
+Phaeton stage 1, in a new pose, not a copy of the in-game sprite. Listing
+copy lives in `docs/product/store-listing.md`.

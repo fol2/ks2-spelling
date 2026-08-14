@@ -3404,6 +3404,15 @@ select {
   font-size: 1.2rem;
 }
 
+.parent-card h3 {
+  font-size: 1.05rem;
+}
+
+.privacy-notice-section {
+  display: grid;
+  gap: 0.6rem;
+}
+
 .parent-card p,
 .parent-card li {
   color: var(--ink-soft);

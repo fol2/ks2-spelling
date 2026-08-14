@@ -32,8 +32,8 @@ const TEMP_COPY_EXCLUDED_COMPONENTS = new Set([
 
 const EXPECTED = Object.freeze({
   repository: 'https://github.com/fol2/ks2-mastery.git',
-  commit: '5c9fdd043faeeecda5390cd24085e99e2dd2256c',
-  tree: '5227787a684a5c4815d3c1082647f748edcb4643',
+  commit: '97c73783406914b271b98ad208091794d1f91ca3',
+  tree: '8f2b581efeaa12ad30395b75714e9178f5379379',
   manifestSha256:
     'b5aedfb6ecd8df7276a9515bc13c9ad5b9602c6cea8822c7eedd14000b026d38',
   runtimeEntry: 'shared/spelling/mobile/a3/index.js',
@@ -51,7 +51,7 @@ const EXPECTED_A3_PRODUCER_TESTS = Object.freeze({
   'tests/spelling-mobile-a3-command-planner.test.js': '5d26781a4fc32e84290215f25016927eb3a500ad433c6e90a782ea87fdf12cda',
   'tests/spelling-mobile-a3-command-repository.test.js': 'efabf2976cbe696cb5986491c4fc0ba8acf57fd5ee356124a92061d7c9cc0fbd',
   'tests/spelling-mobile-a3-atomicity.test.js': 'aa43b0e113397d544b9d0d1cd900f01744673e8e150cc852594b7edef14357b2',
-  'tests/spelling-mobile-a3-monster-projection.test.js': 'c995de43c6ab5c3741c2c3ea7904240aebb82e930eeec6a521b1da1a29f4d1ec',
+  'tests/spelling-mobile-a3-monster-projection.test.js': 'a2f3979a566e69415a40aca2ec8e9e0f4846161189c08b8d8176e41d09e51f12',
   'tests/spelling-mobile-a3-camp-projection.test.js': '741190527be9a76ffcd8d4d33180981844700f16318e7aa72dc16bdb6bc1bae7',
   'tests/spelling-mobile-a3-revision-projection.test.js': '996c5708d7a0b0167ed9f178f972f9d39f7e4d90bf66c9dd9ded09600141f8ce',
   'tests/spelling-mobile-a3-parent-projection.test.js': '7cb95867ee9762fdf6088bc4191a8ae0362677e8d849559e649c41838d3a9d86',

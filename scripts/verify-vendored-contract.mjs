@@ -11,8 +11,8 @@ const EXPECTED_PROVENANCE = Object.freeze({
   schemaVersion: 1,
   upstream: {
     repository: 'https://github.com/fol2/ks2-mastery.git',
-    commit: '5c9fdd043faeeecda5390cd24085e99e2dd2256c',
-    tree: '5227787a684a5c4815d3c1082647f748edcb4643',
+    commit: '97c73783406914b271b98ad208091794d1f91ca3',
+    tree: '8f2b581efeaa12ad30395b75714e9178f5379379',
   },
   evidence: {
     a1Manifest: {
@@ -71,7 +71,7 @@ const EXPECTED_PROVENANCE = Object.freeze({
       'tests/spelling-mobile-a3-atomicity.test.js':
         'aa43b0e113397d544b9d0d1cd900f01744673e8e150cc852594b7edef14357b2',
       'tests/spelling-mobile-a3-monster-projection.test.js':
-        'c995de43c6ab5c3741c2c3ea7904240aebb82e930eeec6a521b1da1a29f4d1ec',
+        'a2f3979a566e69415a40aca2ec8e9e0f4846161189c08b8d8176e41d09e51f12',
       'tests/spelling-mobile-a3-camp-projection.test.js':
         '741190527be9a76ffcd8d4d33180981844700f16318e7aa72dc16bdb6bc1bae7',
       'tests/spelling-mobile-a3-revision-projection.test.js':

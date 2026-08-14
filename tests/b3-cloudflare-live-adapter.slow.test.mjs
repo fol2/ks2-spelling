@@ -185,6 +185,7 @@ test('derived config closes exact deployment and remote PACKS authority without 
     rules: [{ type: 'Data', globs: [APPROVED_DER_NAME], fallthrough: false }],
     r2_buckets: [{ binding: 'PACKS', bucket_name: BUCKET_NAME, remote: true }],
     version_metadata: { binding: 'WORKER_VERSION_METADATA' },
+    observability: { enabled: true, logs: { enabled: true, invocation_logs: false } },
     ratelimits: [{ name: 'GATEWAY_RATE_LIMIT', namespace_id: '1001', simple: { limit: 600, period: 60 } }],
   });
   assert.doesNotMatch(JSON.stringify(config), /secret|token|\.env|vars/i);

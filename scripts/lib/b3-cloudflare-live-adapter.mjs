@@ -91,6 +91,9 @@ export function buildB3DerivedWranglerConfig({ accountId, mainModulePath, baseDi
     rules: [{ type: 'Data', globs: [APPROVED_DER_MODULE.name], fallthrough: false }],
     r2_buckets: [{ binding: 'PACKS', bucket_name: BUCKET_NAME, remote: true }],
     version_metadata: { binding: 'WORKER_VERSION_METADATA' },
+    // Mirrors the tracked config: platform invocation logs (full URLs, so the
+    // signed capability token) stay off; redacted application logs stay on.
+    observability: { enabled: true, logs: { enabled: true, invocation_logs: false } },
     // E2.7: a full Full-KS2 install is ~462 requests (15 authorises plus one
     // ranged GET per 1 MiB chunk) through this one global counter. This bound
     // moves with gateway/wrangler.jsonc and the oauth-child validator.
@@ -200,6 +203,12 @@ async function validateTrackedWranglerConfig(root) {
     workers_dev: false,
     r2_buckets: [{ binding: 'PACKS', bucket_name: BUCKET_NAME }],
     version_metadata: { binding: 'WORKER_VERSION_METADATA' },
+    // Invocation logs record the full request URL — on the download route that
+    // is the signed `?cap=` capability token — into a 3–7 day store, which is
+    // the only retention anywhere in the system and would void the App Privacy
+    // "Data Not Collected" declaration (#158). Application logs stay on:
+    // createRedactedLogger emits four value-constrained fields and no URLs.
+    observability: { enabled: true, logs: { enabled: true, invocation_logs: false } },
     ratelimits: [{ name: 'GATEWAY_RATE_LIMIT', namespace_id: '1001', simple: { limit: 600, period: 60 } }],
   };
   if (!isDeepStrictEqual(actual, expected)) throw liveAdapterError('tracked Wrangler config has drifted');

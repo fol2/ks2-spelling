@@ -56,6 +56,7 @@ android {
         }
         sandbox {
             initWith release
+            matchingFallbacks = ['release']
             buildConfigField "String", "KS2_RELEASE_CHANNEL", '"sandbox"'
         }
     }

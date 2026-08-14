@@ -2,6 +2,14 @@
 
 Shared domain vocabulary for this project — entities, named processes, and status concepts with project-specific meaning. Seeded with core domain vocabulary, then accretes as ce-compound and ce-compound-refresh process learnings; direct edits are fine. Glossary only, not a spec or catch-all.
 
+## Product identity
+
+### Product display name
+
+The name shown on the App Store listing and the Home Screen: Spelling Camp.
+`ks2-spelling` remains the code name and bundle identity
+(`uk.eugnel.ks2spelling`).
+
 ## Package governance
 
 ### Package transition authority

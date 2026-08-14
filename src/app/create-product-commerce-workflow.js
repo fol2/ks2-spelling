@@ -157,6 +157,7 @@ export function createProductCommerceWorkflow(options = {}) {
   const commandGate = options.commandGate;
   const rawPackRepository = options.packRepository;
   const packTransfer = options.packTransfer;
+  const packTrustEnvironment = options.packTrustEnvironment ?? 'sandbox';
   const clock = options.clock ?? Date.now;
   const idFactory = options.idFactory ??
     (() => globalThis.crypto.randomUUID().toLowerCase());
@@ -164,6 +165,9 @@ export function createProductCommerceWorkflow(options = {}) {
   requireMethod(commandGate, 'run', 'commandGate');
   requireMethod(rawPackRepository, 'listDownloadJobs', 'packRepository');
   requireMethod(packTransfer, 'inventoryInstalledVersions', 'packTransfer');
+  if (!['sandbox', 'production'].includes(packTrustEnvironment)) {
+    throw new TypeError('Product pack trust environment is invalid.');
+  }
   if (typeof clock !== 'function' || typeof idFactory !== 'function') {
     throw new TypeError('Product commerce functions are invalid.');
   }
@@ -247,6 +251,7 @@ export function createProductCommerceWorkflow(options = {}) {
       packRepository,
       manifestVerifier,
       keyring: packKeyring,
+      environment: packTrustEnvironment,
       activeEntitlementProjection: activeEntitlement,
       entitlementRepository: commerceRepository,
       currentAppVersion: '0.3.0-b3',
@@ -261,7 +266,7 @@ export function createProductCommerceWorkflow(options = {}) {
     packRepository,
     manifestVerifier,
     keyring: packKeyring,
-    environment: 'sandbox',
+    environment: packTrustEnvironment,
     clock: () => safeTimestamp(clock),
   });
   let syncFailed = false;

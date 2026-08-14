@@ -138,7 +138,7 @@ export function classifyAndroidDistribution(component) {
     const recognised = scope.buildscript
       ? scope.configuration === 'classpath'
       : scope.configuration.startsWith('_internal-') ||
-        /^(?:debug|release)(?:AndroidTest|UnitTest)?(?:Compile|Runtime)Classpath$/.test(
+        /^(?:debug|release|sandbox)(?:AndroidTest|UnitTest)?(?:Compile|Runtime)Classpath$/.test(
           scope.configuration,
         );
     if (!recognised) {

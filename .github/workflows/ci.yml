@@ -192,6 +192,12 @@ jobs:
       - name: Compile and test Android debug plus unsigned release application
         if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run test:android
+      - name: Compile the paired Android sandbox channel
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          npm run build -- --mode sandbox
+          npx --no-install cap sync
+          ./android/gradlew -p android :app:assembleSandbox --no-daemon
       - name: Compile the installed B4 Android test seam
         if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
@@ -288,6 +294,20 @@ jobs:
       - name: Compile unsigned iOS Simulator application
         if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run test:ios
+      - name: Compile the paired iOS sandbox channel
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          npm run build -- --mode sandbox
+          npx --no-install cap sync
+          xcodebuild \
+            -quiet \
+            -project ios/App/App.xcodeproj \
+            -scheme Sandbox \
+            -configuration Sandbox \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .native-build/sandbox-ci \
+            CODE_SIGNING_ALLOWED=NO \
+            build
       - name: Compile the installed B4 iOS test seam and verify committed evidence
         if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |

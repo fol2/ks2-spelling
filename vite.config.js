@@ -7,13 +7,32 @@ import { fileURLToPath } from 'node:url';
 export const B4_BUILD_MARKER = 'B4Development';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
+function isProductReleaseChannel(mode) {
+  return mode === 'sandbox' || mode === 'production';
+}
+
 export function resolveAppComposition(mode) {
   return resolve(
     ROOT,
-    mode === 'production'
+    isProductReleaseChannel(mode)
       ? 'src/app/create-production-app-services.js'
       : 'src/app/create-app-services.js',
   );
+}
+
+export function createReleaseChannelAuthority(mode) {
+  const releaseChannel = mode === 'B3SandboxProof' ? 'sandbox' : mode;
+  if (!isProductReleaseChannel(releaseChannel)) return null;
+  return {
+    name: 'release-channel-authority',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'release-channel.json',
+        source: `${JSON.stringify({ releaseChannel })}\n`,
+      });
+    },
+  };
 }
 
 export function createB4OfflineBoundary(mode) {
@@ -44,7 +63,7 @@ export function createB4OfflineBoundary(mode) {
 // full set is entitlement-gated and delivered by download (E2.6), never
 // packaged in the binary.
 export function createBundledStarterAssets(mode) {
-  if (mode !== 'production') return null;
+  if (!isProductReleaseChannel(mode)) return null;
   return {
     name: 'bundled-starter-assets',
     async writeBundle(outputOptions) {
@@ -65,7 +84,7 @@ export function createBundledStarterAssets(mode) {
 }
 
 export function createBundledArtAssets(mode) {
-  if (mode !== 'production') return null;
+  if (!isProductReleaseChannel(mode)) return null;
   return {
     name: 'bundled-art-assets',
     async writeBundle(outputOptions) {
@@ -89,6 +108,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     createB4OfflineBoundary(mode),
+    createReleaseChannelAuthority(mode),
     createBundledStarterAssets(mode),
     createBundledArtAssets(mode),
   ].filter(Boolean),
@@ -97,7 +117,7 @@ export default defineConfig(({ mode }) => ({
       '@ks2/app-composition': resolveAppComposition(mode),
       '@ks2/app-root': resolve(
         ROOT,
-        mode === 'production'
+        isProductReleaseChannel(mode)
           ? 'src/app/ProductRoot.jsx'
           : 'src/app/App.jsx',
       ),

@@ -42,10 +42,11 @@ function requireDependencies(value) {
     'clock', 'chunkSize', 'packAuthority',
   ];
   const ownKeys = value && typeof value === 'object' ? Reflect.ownKeys(value) : [];
+  const allowed = ownKeys.includes('environment') ? [...expected, 'environment'] : expected;
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Object.prototype ||
-      ownKeys.length !== expected.length ||
-      ownKeys.some((key) => !expected.includes(key))) {
+      ownKeys.length !== allowed.length ||
+      ownKeys.some((key) => !allowed.includes(key))) {
     throw new TypeError('Download coordinator dependencies are invalid.');
   }
   const requiredMethods = [
@@ -67,7 +68,9 @@ function requireDependencies(value) {
   if (typeof value.manifestVerifier !== 'function' ||
       typeof value.activeEntitlementProjection !== 'function' ||
       typeof value.clock !== 'function' || value.chunkSize !== B3_DOWNLOAD_CHUNK_BYTES ||
-      value.currentAppVersion !== '0.3.0-b3' || value.currentSchemaVersion !== 2) {
+      value.currentAppVersion !== '0.3.0-b3' || value.currentSchemaVersion !== 2 ||
+      (value.environment !== undefined &&
+        !['sandbox', 'production'].includes(value.environment))) {
     throw new TypeError('Download coordinator authority is invalid.');
   }
   return value;
@@ -155,6 +158,7 @@ export function createDownloadCoordinator(rawDependencies) {
     gateway, packTransfer, packRepository, manifestVerifier, keyring,
     activeEntitlementProjection, entitlementRepository,
     currentAppVersion, currentSchemaVersion, clock, chunkSize,
+    environment = 'sandbox',
   } = dependencies;
   // A present-but-undefined packAuthority must fail, never fall back: a missed
   // registry lookup upstream would otherwise silently bind to the wrong pack.
@@ -230,7 +234,7 @@ export function createDownloadCoordinator(rawDependencies) {
     const verifiedManifest = await manifestVerifier({
       envelopeBytes,
       keyring,
-      environment: 'sandbox',
+      environment,
       clock: () => new Date(verificationMilliseconds),
     });
     const authority = contract.createVerifiedDownloadAuthority({

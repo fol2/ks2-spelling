@@ -13,6 +13,7 @@ android {
         buildConfigField "String", "B3_TESTED_APPLICATION_COMMIT", '""'
         buildConfigField "String", "B3_APPLICATION_FINGERPRINT", '""'
         buildConfigField "boolean", "B3_SANDBOX_PROOF", "false"
+        buildConfigField "String", "KS2_RELEASE_CHANNEL", '"production"'
         buildConfigField "String", "B3_MODE", '""'
         buildConfigField "String", "B3_PROOF_KIND", '""'
         buildConfigField "String", "B3_PLATFORM", '""'
@@ -38,6 +39,7 @@ android {
                 buildConfigField "String", "B3_TESTED_APPLICATION_COMMIT", "\"${project.property('b3TestedApplicationCommit')}\""
                 buildConfigField "String", "B3_APPLICATION_FINGERPRINT", "\"${project.property('b3ApplicationFingerprint')}\""
                 buildConfigField "boolean", "B3_SANDBOX_PROOF", "true"
+                buildConfigField "String", "KS2_RELEASE_CHANNEL", '"sandbox"'
                 buildConfigField "String", "B3_MODE", '"B3SandboxProof"'
                 buildConfigField "String", "B3_PROOF_KIND", '"physical-live"'
                 buildConfigField "String", "B3_PLATFORM", '"android"'
@@ -52,7 +54,28 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+        sandbox {
+            initWith release
+            matchingFallbacks = ['release']
+            buildConfigField "String", "KS2_RELEASE_CHANNEL", '"sandbox"'
+        }
     }
+}
+
+android.applicationVariants.all { variant ->
+    def releaseChannel = variant.buildType.name == "sandbox" ||
+        variant.productFlavors.any { it.name == "b3SandboxProof" }
+        ? "sandbox"
+        : "production"
+    def verificationTask = tasks.register(
+        "verify${variant.name.capitalize()}ReleaseChannelPair",
+        Exec
+    ) {
+        workingDir rootProject.projectDir
+        commandLine "node", "../scripts/verify-release-channel-pair.mjs",
+            releaseChannel, "app/src/main/assets/public"
+    }
+    variant.preBuildProvider.configure { dependsOn verificationTask }
 }
 
 repositories {

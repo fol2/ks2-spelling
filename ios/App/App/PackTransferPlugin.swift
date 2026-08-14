@@ -29,11 +29,9 @@ public final class PackTransferPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private static let packEnvironment: String = {
-#if B3_SANDBOX_PROOF
-        "sandbox"
-#else
-        "production"
-#endif
+        guard let value = Bundle.main.object(forInfoDictionaryKey: "KS2ReleaseChannel") as? String,
+              ["sandbox", "production"].contains(value) else { return "" }
+        return value
     }()
 
     public let identifier = "PackTransferPlugin"

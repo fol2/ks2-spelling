@@ -47,8 +47,8 @@ test('the committed iOS project freezes the unsigned B1 identity', async () => {
   );
   assert.equal(
     [...project.matchAll(/MARKETING_VERSION = 0\.5\.0;/g)].length,
-    2,
-    'App Debug and Release must freeze marketing version 0.5.0',
+    3,
+    'App Debug, Release and Sandbox must freeze marketing version 0.5.0',
   );
   assert.match(
     infoPlist,

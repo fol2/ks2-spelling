@@ -48,6 +48,11 @@ function createFakeNativeDependencies({ native = true, results = {} } = {}) {
       calls.push(['manager.constructor', plugin]);
     }
 
+    async checkConnectionsConsistency(...args) {
+      calls.push(['manager.checkConnectionsConsistency', ...args]);
+      return resultFor('checkConnectionsConsistency', { result: true });
+    }
+
     async createConnection(...args) {
       calls.push(['manager.createConnection', ...args]);
       return database;
@@ -115,6 +120,10 @@ test('Capacitor SQLite adapter uses exact connection and statement arguments', a
 
   assert.deepEqual(fake.calls, [
     ['manager.constructor', fake.dependencies.CapacitorSQLite],
+    // Before creating, the adapter reconciles native connections orphaned by a
+    // webview reload; without this a soft reload bricks startup with
+    // "Connection ks2-spelling already exists".
+    ['manager.checkConnectionsConsistency'],
     ['manager.createConnection', 'ks2-spelling', false, 'no-encryption', 1, false],
     ['database.open'],
     ['database.execute', 'PRAGMA foreign_keys = ON', false],
@@ -126,6 +135,25 @@ test('Capacitor SQLite adapter uses exact connection and statement arguments', a
     ['database.commitTransaction'],
     ['database.beginTransaction'],
     ['database.rollbackTransaction'],
+  ]);
+});
+
+test('a failing consistency check does not block connection creation', async () => {
+  // Cold launches can reject the reconciliation call (nothing to reconcile);
+  // the loud path for genuine orphans is createConnection itself.
+  const { createCapacitorSqliteConnection } = await import(
+    '../src/platform/database/capacitor-sqlite-connection.js'
+  );
+  const fake = createFakeNativeDependencies({
+    results: { checkConnectionsConsistency: Promise.reject(new Error('no connections')) },
+  });
+  fake.calls.length = 0;
+  const connection = await createCapacitorSqliteConnection(fake.dependencies);
+  await connection.open();
+  assert.deepEqual(fake.calls.slice(1), [
+    ['manager.checkConnectionsConsistency'],
+    ['manager.createConnection', 'ks2-spelling', false, 'no-encryption', 1, false],
+    ['database.open'],
   ]);
 });
 

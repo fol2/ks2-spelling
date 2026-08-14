@@ -45,6 +45,7 @@ test('Parent commerce preserves verified access and installed data through exter
     packState: 'installed',
     action: null,
     actionError: null,
+    actionErrorDetail: null,
     downloadProgress: null,
   });
 
@@ -56,6 +57,7 @@ test('Parent commerce preserves verified access and installed data through exter
     packState: 'installed',
     action: null,
     actionError: null,
+    actionErrorDetail: null,
     downloadProgress: null,
   });
 
@@ -67,6 +69,7 @@ test('Parent commerce preserves verified access and installed data through exter
     packState: 'locked',
     action: null,
     actionError: null,
+    actionErrorDetail: null,
     downloadProgress: null,
   });
   await controller.dispose();
@@ -203,6 +206,7 @@ test('a download that fails leaves no shard count behind it', async () => {
     packState: 'queued',
     action: null,
     actionError: 'parent_commerce_action_failed',
+    actionErrorDetail: 'shard 7 failed',
     downloadProgress: null,
   });
   await controller.dispose();
@@ -242,6 +246,7 @@ test('the Parent card really renders that download button, enabled and wired', a
     entitlementState: 'active',
     packState,
     actionError: null,
+    actionErrorDetail: null,
   });
   const props = (packState, onDownload) => ({
     state: commerceState(packState),
@@ -319,6 +324,7 @@ test('an installed pack that this session did not compose offers the restart its
       packState: 'installed',
       action: null,
       actionError: null,
+      actionErrorDetail: null,
       downloadProgress: null,
     }),
     fullCatalogueActive,
@@ -395,6 +401,7 @@ test('an install in flight shows the shard it is on, never the resume copy', asy
         entitlementState: 'active',
         packState: 'downloading',
         actionError: null,
+        actionErrorDetail: null,
         downloadProgress: null,
         ...state,
       }),

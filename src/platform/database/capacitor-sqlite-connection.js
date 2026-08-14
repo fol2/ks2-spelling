@@ -149,6 +149,17 @@ export async function createCapacitorSqliteConnection(options = {}) {
   }
 
   const manager = new SQLiteConnection(CapacitorSQLite);
+  // A webview reload rebuilds this JS module while the native plugin still
+  // holds the previous page's connection, so createConnection would fail with
+  // "Connection ks2-spelling already exists". The consistency check closes
+  // those native orphans first. Its own failure is deliberately absorbed: on a
+  // cold launch there is nothing to reconcile, and if genuine orphans survive
+  // it, the createConnection below is the loud path that reports them.
+  try {
+    await manager.checkConnectionsConsistency();
+  } catch {
+    // absorbed — see above.
+  }
   const database = await manager.createConnection(
     DATABASE_NAME,
     false,

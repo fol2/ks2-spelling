@@ -53,16 +53,41 @@ const EXPECTED_PRIVACY_MANIFEST = `<?xml version="1.0" encoding="UTF-8"?>
 `;
 
 const LINK_OUT_PATTERNS = Object.freeze([
-  { name: 'anchor href', pattern: /<a\b[^>]*\bhref\s*=/iu },
-  { name: 'window.open', pattern: /\bwindow\s*\.\s*open\s*\(/u },
+  {
+    name: 'anchor href',
+    pattern: /<a\b[^>]*\bhref\s*=/iu,
+    example: '<a href="/privacy">Privacy</a>',
+  },
+  {
+    name: 'window.open',
+    pattern: /\bwindow\s*\.\s*open\s*\(/u,
+    example: 'window.open(destination)',
+  },
   {
     name: 'location navigation',
     pattern: /\b(?:window\s*\.\s*)?location\s*\.\s*(?:href|assign|replace)\b/u,
+    example: 'location.href = destination',
   },
-  { name: 'mailto scheme', pattern: /\bmailto:/iu },
-  { name: 'telephone scheme', pattern: /\btel:/iu },
-  { name: 'URL scheme', pattern: /\b[a-z][a-z0-9+.-]*:\/\//iu },
-  { name: 'Capacitor App openUrl', pattern: /\bopenUrl\s*\(/u },
+  {
+    name: 'mailto scheme',
+    pattern: /\bmailto:/iu,
+    example: 'mailto:parent@example.invalid',
+  },
+  {
+    name: 'telephone scheme',
+    pattern: /\btel:/iu,
+    example: 'tel:00000000000',
+  },
+  {
+    name: 'URL scheme',
+    pattern: /\b[a-z][a-z0-9+.-]*:\/\//iu,
+    example: 'https://example.invalid',
+  },
+  {
+    name: 'Capacitor App openUrl',
+    pattern: /\bopenUrl\s*\(/u,
+    example: 'openUrl({ url: destination })',
+  },
 ]);
 
 async function listSourceFiles(directory) {
@@ -94,6 +119,12 @@ function resourcesPhase(project, id) {
   assert.notEqual(end, -1, `unterminated Resources build phase ${id}`);
   return project.slice(start, end + 5);
 }
+
+test('the link-out detector rejects every prohibited source primitive', () => {
+  for (const { name, pattern, example } of LINK_OUT_PATTERNS) {
+    assert.match(example, pattern, `${name} must be detectable`);
+  }
+});
 
 test('the Android submission build cannot auto-enable Firebase from a local file', async () => {
   const buildGradle = await readFile(join(ROOT, 'android/app/build.gradle'), 'utf8');

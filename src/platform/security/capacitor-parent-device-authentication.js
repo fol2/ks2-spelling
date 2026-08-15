@@ -1,15 +1,6 @@
-import {
-  createCapacitorParentDeviceAuthentication,
-} from './capacitor-parent-device-authentication.js';
-
-const BIOMETRIC_TYPES = new Set([
-  'face',
-  'fingerprint',
-  'biometric',
-  'none',
-]);
-
-function biometricError(code = 'parent_biometrics_failed') {
+function deviceAuthenticationError(
+  code = 'parent_device_authentication_failed',
+) {
   const error = new Error(code);
   error.code = code;
   return error;
@@ -24,7 +15,7 @@ function requireClosedRecord(value, keys, label) {
     Reflect.ownKeys(value).length !== keys.length ||
     keys.some((key) => !Object.hasOwn(value, key))
   ) {
-    throw new TypeError(`${label} is invalid biometric data.`);
+    throw new TypeError(`${label} is invalid device authentication data.`);
   }
   return value;
 }
@@ -41,16 +32,16 @@ function nativeMethods(value) {
     throw new TypeError('ParentAccess plugin must be an object.');
   }
   const required = new Set([
-    'getBiometricAvailability',
-    'authenticateBiometric',
-  ]);
-  // Capacitor exposes a keyless runtime proxy. Closed test doubles may expose
-  // the two biometric methods plus the two device-owner methods used by the
-  // sibling sub-port, but no unrelated native surface.
-  const supported = new Set([
-    ...required,
     'getDeviceOwnerAuthenticationAvailability',
     'authenticateDeviceOwner',
+  ]);
+  // The device-owner and biometric ports intentionally share one native
+  // ParentAccess plugin. Capacitor exposes a keyless proxy; closed test doubles
+  // may expose the complete four-method surface, but no unrelated operation.
+  const supported = new Set([
+    ...required,
+    'getBiometricAvailability',
+    'authenticateBiometric',
   ]);
   const ownKeys = Reflect.ownKeys(value);
   if (
@@ -72,8 +63,7 @@ function nativeMethods(value) {
     if (typeof method !== 'function') {
       throw new TypeError(`ParentAccess.${name} must be a function.`);
     }
-    methods[name] = (request) =>
-      Reflect.apply(method, value, [request]);
+    methods[name] = (request) => Reflect.apply(method, value, [request]);
   }
   return Object.freeze(methods);
 }
@@ -81,48 +71,45 @@ function nativeMethods(value) {
 function availabilityResult(value) {
   const result = requireClosedRecord(
     value,
-    ['available', 'type'],
-    'Parent biometric availability',
+    ['available'],
+    'Parent device authentication availability',
   );
-  if (
-    typeof result.available !== 'boolean' ||
-    !BIOMETRIC_TYPES.has(result.type) ||
-    (result.available ? result.type === 'none' : result.type !== 'none')
-  ) {
-    throw new TypeError('Parent biometric availability is invalid.');
+  if (typeof result.available !== 'boolean') {
+    throw new TypeError(
+      'Parent device authentication availability is invalid.',
+    );
   }
-  return Object.freeze({
-    available: result.available,
-    type: result.type,
-  });
+  return Object.freeze({ available: result.available });
 }
 
 function authenticationRequest(value) {
   const request = requireClosedRecord(
     value,
     ['reason'],
-    'Parent biometric request',
+    'Parent device authentication request',
   );
   const bytes = typeof request.reason === 'string'
     ? new TextEncoder().encode(request.reason).length
     : 0;
   if (bytes < 1 || bytes > 120) {
-    throw new TypeError('Parent biometric reason is invalid.');
+    throw new TypeError('Parent device authentication reason is invalid.');
   }
   return Object.freeze({ reason: request.reason });
 }
 
-export function createCapacitorParentBiometrics({ ParentAccess } = {}) {
+export function createCapacitorParentDeviceAuthentication({ ParentAccess } = {}) {
   const methods = nativeMethods(ParentAccess);
-  const deviceAuthentication =
-    createCapacitorParentDeviceAuthentication({ ParentAccess });
   return Object.freeze({
     async getAvailability() {
       let result;
       try {
-        result = await requirePromise(methods.getBiometricAvailability({}));
+        result = await requirePromise(
+          methods.getDeviceOwnerAuthenticationAvailability({}),
+        );
       } catch {
-        throw biometricError('parent_biometrics_unavailable');
+        throw deviceAuthenticationError(
+          'parent_device_authentication_unavailable',
+        );
       }
       return availabilityResult(result);
     },
@@ -132,25 +119,25 @@ export function createCapacitorParentBiometrics({ ParentAccess } = {}) {
         let result;
         try {
           result = await requirePromise(
-            methods.authenticateBiometric(request),
+            methods.authenticateDeviceOwner(request),
           );
         } catch {
-          throw biometricError('parent_biometrics_rejected');
+          throw deviceAuthenticationError(
+            'parent_device_authentication_rejected',
+          );
         }
         const value = requireClosedRecord(
           result,
           ['authenticated'],
-          'Parent biometric result',
+          'Parent device authentication result',
         );
         if (value.authenticated !== true) {
-          throw biometricError('parent_biometrics_rejected');
+          throw deviceAuthenticationError(
+            'parent_device_authentication_rejected',
+          );
         }
         return Object.freeze({ authenticated: true });
       })();
     },
-    // This remains a separate closed authority object. The production
-    // composition carries both through the same native ParentAccess plugin
-    // without teaching application code about Capacitor.
-    deviceAuthentication,
   });
 }

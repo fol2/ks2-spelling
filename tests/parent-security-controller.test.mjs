@@ -28,10 +28,15 @@ function createHarness({
     available: true,
     type: 'face',
   }),
+  deviceAuthenticationAvailable = true,
 } = {}) {
   let record = initialRecord;
+  let ownerAvailable = deviceAuthenticationAvailable;
+  let ownerOutcome = 'success';
   const writes = [];
   const biometricCalls = [];
+  const deviceAuthenticationCalls = [];
+  const deviceAvailabilityCalls = [];
   const repository = Object.freeze({
     async read() {
       return record === null ? null : structuredClone(record);
@@ -48,6 +53,24 @@ function createHarness({
     },
     async authenticate(request) {
       biometricCalls.push(structuredClone(request));
+      return Object.freeze({ authenticated: true });
+    },
+  });
+  const deviceAuthentication = Object.freeze({
+    async getAvailability() {
+      deviceAvailabilityCalls.push({});
+      return Object.freeze({ available: ownerAvailable });
+    },
+    async authenticate(request) {
+      deviceAuthenticationCalls.push(structuredClone(request));
+      if (ownerOutcome === 'reject') {
+        const error = new Error('parent_device_authentication_rejected');
+        error.code = 'parent_device_authentication_rejected';
+        throw error;
+      }
+      if (ownerOutcome === 'malformed') {
+        return Object.freeze({ authenticated: false });
+      }
       return Object.freeze({ authenticated: true });
     },
   });
@@ -71,33 +94,55 @@ function createHarness({
   return {
     repository,
     biometrics,
+    deviceAuthentication,
     pinCrypto,
     lifecycle,
     writes,
     biometricCalls,
-    getRecord: () => structuredClone(record),
+    deviceAuthenticationCalls,
+    deviceAvailabilityCalls,
+    getRecord: () => (record === null ? null : structuredClone(record)),
     now: () => now,
     advance(milliseconds) {
       now += milliseconds;
     },
+    setDeviceAuthenticationAvailable(available) {
+      ownerAvailable = available;
+    },
+    setDeviceAuthenticationOutcome(outcome) {
+      ownerOutcome = outcome;
+    },
   };
 }
 
-test('Parent security requires PIN setup and locks immediately on app pause', async () => {
+const expectedSetupState = Object.freeze({
+  status: 'setup-required',
+  biometric: Object.freeze({
+    available: true,
+    type: 'face',
+    enabled: false,
+  }),
+  attemptsRemaining: 5,
+  lockedUntil: 0,
+  actionError: null,
+});
+
+test('Parent security requires an owner challenge before setup and locks on pause', async () => {
   const harness = createHarness();
   const controller = await createParentSecurityController(harness);
 
-  assert.deepEqual(controller.getState(), {
-    status: 'setup-required',
-    biometric: {
-      available: true,
-      type: 'face',
-      enabled: false,
-    },
-    attemptsRemaining: 5,
-    lockedUntil: 0,
-    actionError: null,
-  });
+  assert.deepEqual(controller.getState(), expectedSetupState);
+  assert.deepEqual(Object.keys(controller), [
+    'getState',
+    'subscribe',
+    'setPin',
+    'unlockWithPin',
+    'unlockWithBiometrics',
+    'setBiometricsEnabled',
+    'lock',
+    'dispose',
+  ]);
+  assert.equal(typeof controller.resetPin, 'function');
 
   await controller.setPin({ pin: '739251', confirmation: '739251' });
   assert.equal(controller.getState().status, 'unlocked');
@@ -105,13 +150,64 @@ test('Parent security requires PIN setup and locks immediately on app pause', as
     harness.getRecord().verifierBase64,
     Buffer.from('739251'.padEnd(32, '.')).toString('base64'),
   );
+  assert.deepEqual(harness.deviceAuthenticationCalls, [{
+    reason: 'Confirm the device owner to save the Parent PIN',
+  }]);
+  assert.equal(Reflect.ownKeys(harness.deviceAuthenticationCalls[0]).length, 1);
 
   harness.lifecycle.pause();
   assert.equal(controller.getState().status, 'locked');
   await controller.dispose();
 });
 
-test('Parent security does not unlock when initial PIN setup finishes after app pause', async () => {
+test('Rejected or unavailable owner authentication writes no first PIN', async () => {
+  for (const mode of ['reject', 'unavailable', 'malformed']) {
+    const harness = createHarness({
+      deviceAuthenticationAvailable: mode !== 'unavailable',
+    });
+    harness.setDeviceAuthenticationOutcome(mode);
+    const controller = await createParentSecurityController(harness);
+
+    await assert.rejects(
+      controller.setPin({ pin: '739251', confirmation: '739251' }),
+      (error) => error?.code === (
+        mode === 'unavailable'
+          ? 'parent_device_authentication_unavailable'
+          : 'parent_device_authentication_rejected'
+      ),
+    );
+    assert.equal(controller.getState().status, 'setup-required');
+    assert.equal(
+      controller.getState().actionError,
+      mode === 'unavailable'
+        ? 'parent_device_authentication_unavailable'
+        : 'parent_device_authentication_rejected',
+    );
+    assert.equal(harness.getRecord(), null);
+    assert.deepEqual(harness.writes, []);
+    await controller.dispose();
+  }
+});
+
+test('Parent setup rechecks owner availability after device settings change', async () => {
+  const harness = createHarness({ deviceAuthenticationAvailable: false });
+  const controller = await createParentSecurityController(harness);
+
+  await assert.rejects(
+    controller.setPin({ pin: '739251', confirmation: '739251' }),
+    (error) => error?.code === 'parent_device_authentication_unavailable',
+  );
+  assert.equal(harness.deviceAvailabilityCalls.length, 1);
+  assert.equal(harness.getRecord(), null);
+
+  harness.setDeviceAuthenticationAvailable(true);
+  await controller.setPin({ pin: '739251', confirmation: '739251' });
+  assert.equal(controller.getState().status, 'unlocked');
+  assert.equal(harness.deviceAvailabilityCalls.length, 2);
+  await controller.dispose();
+});
+
+test('Parent security does not unlock when guarded PIN setup finishes after app pause', async () => {
   const harness = createHarness();
   let finishCreate;
   harness.pinCrypto = Object.freeze({
@@ -127,7 +223,7 @@ test('Parent security does not unlock when initial PIN setup finishes after app 
     pin: '739251',
     confirmation: '739251',
   });
-  await Promise.resolve();
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(typeof finishCreate, 'function');
 
   harness.lifecycle.pause();
@@ -140,6 +236,7 @@ test('Parent security does not unlock when initial PIN setup finishes after app 
   await settingPin;
 
   assert.equal(controller.getState().status, 'locked');
+  assert.notEqual(harness.getRecord(), null);
   await controller.dispose();
 });
 
@@ -174,6 +271,85 @@ test('Parent security persists bounded failures and accepts the PIN after lock e
   await controller.dispose();
 });
 
+test('Owner-authenticated recovery replaces only the PIN credential and lock counters', async () => {
+  const harness = createHarness({
+    biometricAvailability: Object.freeze({
+      available: true,
+      type: 'biometric',
+    }),
+  });
+  const controller = await createParentSecurityController(harness);
+  await controller.setPin({ pin: '739251', confirmation: '739251' });
+  await controller.setBiometricsEnabled(true);
+  controller.lock();
+  await assert.rejects(
+    controller.unlockWithPin('852963'),
+    (error) => error?.code === 'parent_pin_incorrect',
+  );
+  const oldVerifier = harness.getRecord().verifierBase64;
+
+  await controller.resetPin({ pin: '274913', confirmation: '274913' });
+  const recovered = harness.getRecord();
+  assert.notEqual(recovered.verifierBase64, oldVerifier);
+  assert.equal(recovered.failedAttempts, 0);
+  assert.equal(recovered.lockedUntil, 0);
+  assert.equal(recovered.biometricEnabled, true);
+  assert.equal(controller.getState().status, 'unlocked');
+  assert.deepEqual(harness.deviceAuthenticationCalls.at(-1), {
+    reason: 'Confirm the device owner to reset the Parent PIN',
+  });
+
+  controller.lock();
+  await assert.rejects(
+    controller.unlockWithPin('739251'),
+    (error) => error?.code === 'parent_pin_incorrect',
+  );
+  await controller.unlockWithPin('274913');
+  assert.equal(controller.getState().status, 'unlocked');
+  await controller.dispose();
+});
+
+test('Rejected PIN recovery preserves the exact credential and lock state', async () => {
+  const harness = createHarness();
+  const controller = await createParentSecurityController(harness);
+  await controller.setPin({ pin: '739251', confirmation: '739251' });
+  controller.lock();
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await assert.rejects(controller.unlockWithPin('852963'));
+  }
+  const before = harness.getRecord();
+  const writesBefore = harness.writes.length;
+  harness.setDeviceAuthenticationOutcome('reject');
+
+  await assert.rejects(
+    controller.resetPin({ pin: '274913', confirmation: '274913' }),
+    (error) => error?.code === 'parent_device_authentication_rejected',
+  );
+  assert.deepEqual(harness.getRecord(), before);
+  assert.equal(harness.writes.length, writesBefore);
+  assert.equal(controller.getState().status, 'locked');
+  assert.equal(
+    controller.getState().actionError,
+    'parent_device_authentication_rejected',
+  );
+  await controller.dispose();
+});
+
+test('The setup method cannot overwrite an existing Parent credential', async () => {
+  const harness = createHarness();
+  const controller = await createParentSecurityController(harness);
+  await controller.setPin({ pin: '739251', confirmation: '739251' });
+  const before = harness.getRecord();
+
+  await assert.rejects(
+    controller.setPin({ pin: '274913', confirmation: '274913' }),
+    (error) => error?.code === 'parent_pin_already_configured',
+  );
+  assert.deepEqual(harness.getRecord(), before);
+  assert.equal(harness.deviceAuthenticationCalls.length, 1);
+  await controller.dispose();
+});
+
 test('Biometrics are opt-in from an unlocked Parent session and never bypass setup', async () => {
   const harness = createHarness({
     biometricAvailability: Object.freeze({
@@ -202,7 +378,7 @@ test('Biometrics are opt-in from an unlocked Parent session and never bypass set
   await controller.dispose();
 });
 
-test('Parent PIN validation rejects weak or mismatched values before persistence', async () => {
+test('Parent PIN validation rejects weak or mismatched values before native authentication', async () => {
   const harness = createHarness();
   const controller = await createParentSecurityController(harness);
 
@@ -211,9 +387,17 @@ test('Parent PIN validation rejects weak or mismatched values before persistence
     { pin: '111111', confirmation: '111111' },
     { pin: '73925', confirmation: '73925' },
     { pin: '739251', confirmation: '739252' },
+    { pin: '739251', confirmation: '739251', intent: 'setup' },
+    {
+      pin: '739251',
+      confirmation: '739251',
+      intent: 'recovery',
+      learnerId: 'learner-a',
+    },
   ]) {
     assert.throws(() => controller.setPin(candidate), /PIN|pin|confirmation/u);
   }
+  assert.deepEqual(harness.deviceAuthenticationCalls, []);
   assert.deepEqual(harness.writes, []);
   await controller.dispose();
 });

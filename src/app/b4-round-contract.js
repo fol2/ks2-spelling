@@ -171,7 +171,7 @@ export function randomAtB4Command(index, { randomFrom: createRandom = randomFrom
   return random;
 }
 
-function initialSnapshot(catalogue) {
+export function createB4LearnerSnapshot({ autoSpeak = false } = {}) {
   return validateSpellingCommandSnapshotV1({
     schemaVersion: 1,
     learnerId: 'learner-a',
@@ -182,7 +182,7 @@ function initialSnapshot(catalogue) {
     subjectState: {
       ui: {},
       data: {
-        prefs: { autoSpeak: false },
+        prefs: { autoSpeak },
         progress: {},
         guardianMap: {},
         pattern: { wobblingByRuntimeItemId: {} },
@@ -195,10 +195,11 @@ function initialSnapshot(catalogue) {
     eventLog: [],
     monsterStateByRewardTrackId: {},
     campStateByPackId: {},
-  }, catalogue);
+  }, loadB4SpellingCatalogue());
 }
 
-function committedSnapshot(snapshot, plan, catalogue) {
+export function commitB4CommandPlan(snapshot, plan) {
+  const catalogue = loadB4SpellingCatalogue();
   return validateSpellingCommandSnapshotV1({
     ...structuredClone(snapshot),
     revision: plan.nextRevision,
@@ -212,7 +213,7 @@ function committedSnapshot(snapshot, plan, catalogue) {
 
 export function characteriseB4Round({ randomFrom: createRandom = randomFrom } = {}) {
   const catalogue = loadB4SpellingCatalogue();
-  let snapshot = initialSnapshot(catalogue);
+  let snapshot = createB4LearnerSnapshot();
   const commands = [];
   const sentencePrompts = [];
   while (snapshot.subjectState.ui.phase !== 'summary') {
@@ -250,7 +251,7 @@ export function characteriseB4Round({ randomFrom: createRandom = randomFrom } = 
         sentencePrompts.push(candidate);
       }
     }
-    snapshot = committedSnapshot(snapshot, plan, catalogue);
+    snapshot = commitB4CommandPlan(snapshot, plan);
   }
   return Object.freeze({
     commandTrace: commands,

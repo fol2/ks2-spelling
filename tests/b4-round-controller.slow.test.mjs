@@ -5,9 +5,6 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import {
-  validateSpellingCommandSnapshotV1,
-} from '../src/domain/spelling/index.js';
-import {
   B4_AUDIO_AUTHORITY,
   B4_COMMAND_TRACE,
   B4_PRODUCT_IDENTIFIER,
@@ -17,7 +14,9 @@ import {
   B4_SENTENCE_PROMPTS,
   B4_SUMMARY,
   characteriseB4Round,
+  commitB4CommandPlan,
   createB4AudioInventory,
+  createB4LearnerSnapshot,
   loadB4SpellingCatalogue,
 } from '../src/app/b4-round-contract.js';
 import { createB4AppServices } from '../src/app/create-b4-app-services.js';
@@ -42,42 +41,11 @@ function createLifecycle() {
 }
 
 function freshSnapshot(autoSpeak) {
-  return validateSpellingCommandSnapshotV1({
-    schemaVersion: 1,
-    learnerId: 'learner-a',
-    revision: 0,
-    packId: 'ks2-core',
-    catalogueId: 'ks2-core:starter',
-    grantedEntitlementIds: [],
-    subjectState: {
-      ui: {},
-      data: {
-        prefs: { autoSpeak },
-        progress: {},
-        guardianMap: {},
-        pattern: { wobblingByRuntimeItemId: {} },
-        postMega: null,
-        achievements: {},
-        persistenceWarning: null,
-      },
-    },
-    practiceSession: null,
-    eventLog: [],
-    monsterStateByRewardTrackId: {},
-    campStateByPackId: {},
-  }, loadB4SpellingCatalogue());
+  return createB4LearnerSnapshot({ autoSpeak });
 }
 
 function commit(snapshot, plan) {
-  return validateSpellingCommandSnapshotV1({
-    ...structuredClone(snapshot),
-    revision: plan.nextRevision,
-    subjectState: plan.nextSubjectState,
-    practiceSession: plan.nextPracticeSession,
-    eventLog: plan.nextEventLog,
-    monsterStateByRewardTrackId: plan.nextMonsterStateByRewardTrackId,
-    campStateByPackId: plan.nextCampStateByPackId,
-  }, loadB4SpellingCatalogue());
+  return commitB4CommandPlan(snapshot, plan);
 }
 
 function placeholderManifest() {

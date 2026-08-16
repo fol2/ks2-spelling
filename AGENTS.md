@@ -60,3 +60,19 @@
   documented area.
 - `CONCEPTS.md` holds shared domain vocabulary for the project. Relevant when
   orienting to the codebase or discussing domain concepts.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `fol2/ks2-spelling`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical triage roles map 1:1 onto tracker labels (`needs-triage`, `needs-info`,
+`ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: glossary in `CONCEPTS.md`, ADRs in `docs/adr/` when they exist.
+See `docs/agents/domain.md`. Do not create a parallel `CONTEXT.md`.

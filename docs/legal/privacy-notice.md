@@ -1,6 +1,6 @@
 # KS2 Spelling privacy notice
 
-Effective date: 14 August 2026
+Effective date: 17 August 2026
 
 KS2 Spelling is a local-first learning application for children, with a
 separate Parent-controlled area.
@@ -31,16 +31,11 @@ An IP address necessarily reaches the entitlement gateway to service a
 purchase-verification or download request. It is used only for that purpose
 and is not retained or used to contact or profile anyone.
 
-A Parent may explicitly export a learning backup through the system share
-sheet or document picker. The exported copy is then controlled by the Parent
-and by the chosen destination.
-
 ## Retention and control
 
 A Parent can reset one learner's learning or delete that learner in the Parent
 area. Nothing is retained off the device. Deleting the application removes
-its remaining application-controlled local data. It does not remove backup
-copies previously exported elsewhere.
+its remaining application-controlled local data.
 
 ## Publication contact
 

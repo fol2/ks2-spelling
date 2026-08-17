@@ -10,9 +10,16 @@ function env(overrides = {}) {
     GATEWAY_RATE_LIMIT: { limit: async () => ({ success: true }) },
     ENTITLEMENT_HANDLE_KEY_CURRENT: CURRENT,
     ENTITLEMENT_HANDLE_KEY_PREVIOUS: PREVIOUS,
+    GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: '{"declared":true}',
     WORKER_VERSION_METADATA: { id: 'worker-version-test' },
     ...overrides,
   };
+}
+
+function productionEnv(overrides = {}) {
+  const value = env(overrides);
+  delete value.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
+  return value;
 }
 
 function request(path, body, headers = {}) {
@@ -399,3 +406,61 @@ test('gateway accepts the headers a real device and the Cloudflare route add', a
   assert.equal(rejected.status, 403);
   assert.deepEqual(await rejected.json(), { code: 'REQUEST_INVALID', retryable: false });
 });
+
+test('a production-shaped Worker rejects google verify as REQUEST_INVALID before constructing a verifier', async () => {
+  const { createGatewayHandler } = await import('../gateway/src/handler.js');
+  let constructed = 0;
+  const handler = createGatewayHandler({
+    ...dependencies(),
+    createStoreVerifier: () => {
+      constructed += 1;
+      throw new Error('must not construct a store verifier');
+    },
+  });
+  const response = await handler.fetch(request('/v1/entitlements/verify', {
+    store: 'google', environment: 'sandbox', productId: 'full_ks2', opaqueProof: 'opaque-token',
+  }), productionEnv());
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { code: 'REQUEST_INVALID', retryable: false });
+  assert.equal(constructed, 0);
+});
+
+test('a Worker that declares Google still fails closed as STORE_UNAVAILABLE when the Play secret cannot be parsed', async () => {
+  const { createGatewayHandler } = await import('../gateway/src/handler.js');
+  const handler = createGatewayHandler();
+  const response = await handler.fetch(request('/v1/entitlements/verify', {
+    store: 'google', environment: 'sandbox', productId: 'full_ks2', opaqueProof: 'opaque-token',
+  }), env({ GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: 'not-json' }));
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { code: 'STORE_UNAVAILABLE', retryable: true });
+});
+
+test('a production-shaped Worker does not open a Google-sealed refresh handle', async () => {
+  const { createGatewayHandler } = await import('../gateway/src/handler.js');
+  const { parseRefreshHandleKeyring, sealRefreshHandle } = await import('../gateway/src/refresh-handle.js');
+  const sealed = await sealRefreshHandle({
+    store: 'google', productId: 'full_ks2', environment: 'sandbox',
+    applicationId: 'uk.eugnel.ks2spelling',
+    storeTransactionId: 'GPA.1234-5678-9012-34567',
+    opaqueProof: 'opaque-token', issuedAt: Math.floor(1_782_865_800_000 / 1000),
+  }, {
+    keyring: parseRefreshHandleKeyring({ current: CURRENT, previous: PREVIOUS }),
+    randomBytes: (length) => crypto.getRandomValues(new Uint8Array(length)),
+  });
+  let constructed = 0;
+  const handler = createGatewayHandler({
+    ...dependencies(),
+    createStoreVerifier: () => {
+      constructed += 1;
+      throw new Error('must not construct a store verifier');
+    },
+  });
+  const response = await handler.fetch(
+    request('/v1/entitlements/refresh', { sealedRefreshHandle: sealed }),
+    productionEnv(),
+  );
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { code: 'HANDLE_INVALID', retryable: false });
+  assert.equal(constructed, 0);
+});
+

@@ -133,7 +133,6 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
       'app-owned-pack-transfer-bridge',
       'app-owned-parent-access-bridge',
       'app-owned-installed-audio-bridge',
-      'app-owned-learning-backup-file-bridge',
       'app-owned-local-data-protection-bridge',
     ],
   );

@@ -87,7 +87,7 @@ An approved bundled voice identity that binds the word and sentence sources, pro
 
 The exhaustive set containing one natural word recording per playback profile plus normal and slow dictation recordings for every sentence prompt and playback profile in a spelling catalogue.
 
-## Learner state and backup
+## Learner state
 
 ### Learner snapshot
 
@@ -98,14 +98,15 @@ It is stored and restored as a single unit under an exact-key contract, so the
 app may not add fields to it; app-side state that needs persisting lives
 outside the snapshot.
 
-### Learning backup
+### iCloud learning replica
 
-The transferable file carrying every local learner's profile and learner
-snapshot together with which learner was selected.
+The CloudKit private-database copy of learner profiles and learner snapshots
+on the family's Apple account, applied with per-item merge.
 
-Importing one replaces the entire local learner store rather than merging into
-it, so a partial or selective restore is not expressible; the file's bytes are
-checked against their recorded digest before any part of it is applied.
+It is post-listing, not part of v1. Selected learner, Parent PIN, store
+entitlements and pack-install stay device-local. On apply, catalogue and
+entitlement are derived from this device's store entitlement so a replica
+cannot raise the word list past what this device has purchased.
 
 ### Post-commit epilogue
 

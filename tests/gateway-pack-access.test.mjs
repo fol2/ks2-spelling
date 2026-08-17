@@ -85,6 +85,7 @@ function environment(bucket, overrides = {}) {
     GATEWAY_RATE_LIMIT: { limit: async () => ({ success: true }) },
     ENTITLEMENT_HANDLE_KEY_CURRENT: CURRENT,
     ENTITLEMENT_HANDLE_KEY_PREVIOUS: PREVIOUS,
+    GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: '{"declared":true}',
     R2_CAPABILITY_HMAC_KEY: CAPABILITY_SECRET,
     WORKER_VERSION_METADATA: { id: 'worker-version-test' },
     PACKS: bucket,

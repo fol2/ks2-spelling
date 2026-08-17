@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { runPinnedSystemGit } from './lib/pinned-system-git.mjs';
 import { parseJsonWithoutDuplicateMembers } from '../src/domain/packs/signed-manifest-contract.js';
+import { B3_SANDBOX_REQUIRED_SECRET_NAMES } from './lib/gateway-required-secret-names.mjs';
 
 const DEFAULT_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const CLOUDFLARE_GATES = Object.freeze([
@@ -60,15 +61,7 @@ const REQUIRED_BINDING_TYPES = Object.freeze({
   WORKER_VERSION_METADATA: 'version_metadata',
 });
 
-const REQUIRED_SECRET_NAMES = Object.freeze([
-  'APPLE_IAP_ISSUER_ID',
-  'APPLE_IAP_KEY_ID',
-  'APPLE_IAP_PRIVATE_KEY',
-  'ENTITLEMENT_HANDLE_KEY_CURRENT',
-  'ENTITLEMENT_HANDLE_KEY_PREVIOUS',
-  'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON',
-  'R2_CAPABILITY_HMAC_KEY',
-]);
+const REQUIRED_SECRET_NAMES = B3_SANDBOX_REQUIRED_SECRET_NAMES;
 
 const IDENTIFIER_GATES = new Set([
   'appleAgreements',

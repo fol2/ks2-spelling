@@ -6,6 +6,7 @@ import {
   createB3ObservationChainAuthoritySha256,
   createB3TransitionGatewayProjectionSha256,
 } from '../../scripts/lib/b3-evidence.mjs';
+import { B3_SANDBOX_REQUIRED_SECRET_NAMES } from '../../scripts/lib/gateway-required-secret-names.mjs';
 
 export const B3_TEST_HASH = 'a'.repeat(64);
 export const B3_TEST_COMMIT = 'b'.repeat(40);
@@ -38,7 +39,7 @@ export function cloudflareEvidence() {
       scriptAuthoritySha256: B3_TEST_HASH, compatibilityDate: '2026-07-12',
       compatibilityFlags: ['nodejs_compat'],
       bindings: { r2: 'PACKS', rateLimit: 'GATEWAY_RATE_LIMIT', versionMetadata: 'WORKER_VERSION_METADATA' },
-      requiredSecretNames: ['APPLE_IAP_ISSUER_ID', 'APPLE_IAP_KEY_ID', 'APPLE_IAP_PRIVATE_KEY', 'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', 'ENTITLEMENT_HANDLE_KEY_CURRENT', 'ENTITLEMENT_HANDLE_KEY_PREVIOUS', 'R2_CAPABILITY_HMAC_KEY'],
+      requiredSecretNames: [...B3_SANDBOX_REQUIRED_SECRET_NAMES],
       remoteSecretNamesVerified: true,
     },
     bucket: { approvedIdentifier: 'ks2-spelling-b3-sandbox-packs', private: true, r2DevPublicAccess: false, customDomains: [] },

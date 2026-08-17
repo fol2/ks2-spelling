@@ -30,6 +30,7 @@ import {
   validateB3ApprovalFilePolicy,
   validateB3LocalMutationAuthority,
 } from '../scripts/check-b3-external-prerequisites.mjs';
+import { B3_SANDBOX_REQUIRED_SECRET_NAMES } from '../scripts/lib/gateway-required-secret-names.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const TOKEN = 'ab'.repeat(32);
@@ -332,7 +333,7 @@ test('external checker accepts durable approvals, current run token and matching
     workerName: 'ks2-spelling-b3-sandbox',
     privateR2BucketName: 'ks2-spelling-b3-sandbox-packs',
     bindingNames: CLOUDFLARE_BINDINGS,
-    secretNames: CLOUDFLARE_SECRET_NAMES,
+    secretNames: B3_SANDBOX_REQUIRED_SECRET_NAMES,
   });
   assert.equal(JSON.stringify(inspectionRequest).includes('secretValue'), false);
 });

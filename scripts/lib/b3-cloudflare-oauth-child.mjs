@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { parseJsonWithoutDuplicateMembers } from '../../src/domain/packs/signed-manifest-contract.js';
 import { B3_ARCHIVE_KEY, B3_MANIFEST_KEY } from './b3-cloudflare-evidence.mjs';
+import { B3_SANDBOX_REQUIRED_SECRET_NAMES } from './gateway-required-secret-names.mjs';
 
 const ACCOUNT_ID = '6d00cb4a0396c17ad6ba617bcbcaa45d';
 const WORKER_NAME = 'ks2-spelling-b3-sandbox';
@@ -22,11 +23,7 @@ const APPROVED_DER_MODULE = Object.freeze({
 });
 const VERSIONED_CONTENT_SOURCE_CONTRACT =
   '/accounts/${accountId}/workers/scripts/${scriptName}/content/v2?version=${versionId}';
-const REQUIRED_SECRET_NAMES = Object.freeze([
-  'APPLE_IAP_ISSUER_ID', 'APPLE_IAP_KEY_ID', 'APPLE_IAP_PRIVATE_KEY',
-  'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', 'ENTITLEMENT_HANDLE_KEY_CURRENT',
-  'ENTITLEMENT_HANDLE_KEY_PREVIOUS', 'R2_CAPABILITY_HMAC_KEY',
-]);
+const REQUIRED_SECRET_NAMES = B3_SANDBOX_REQUIRED_SECRET_NAMES;
 
 function adapterError(message) {
   const error = new Error(message);

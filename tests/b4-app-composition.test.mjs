@@ -3,12 +3,22 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  applySpellingCommand,
+  loadStarterSpellingCatalogue,
+  validateSpellingCommandSnapshotV1,
+} from '../src/domain/spelling/index.js';
+import {
   B4_PRODUCT_IDENTIFIER,
   B4_AUDIO_AUTHORITY,
   B4_RUNTIME_ITEM_IDS,
   B4_SENTENCE_PROMPTS,
+  B4_START_COMMAND,
+  B4_START_TIMESTAMP,
+  commitB4CommandPlan,
   createB4AudioInventory,
+  createB4LearnerSnapshot,
   loadB4SpellingCatalogue,
+  randomAtB4Command,
   validateB4AudioManifest,
 } from '../src/app/b4-round-contract.js';
 import {
@@ -135,4 +145,56 @@ test('B4 content exposes only sentence prompts covered by its local audio manife
   // prompts) plus bicycle grafted back from Full for the frozen B4 five.
   // 2 profiles x (5 x (1 + 2x2) + 16 x (1 + 2x10)) = 722.
   assert.equal(catalogue.audio.requiredAssetCount, 722);
+});
+
+test('the frozen B4 round cannot be committed against the published Starter catalogue', () => {
+  const starter = loadStarterSpellingCatalogue();
+  assert.equal(
+    starter.items.some((item) => item.runtimeItemId === 'ks2-core:bicycle'),
+    false,
+  );
+  const snapshot = createB4LearnerSnapshot();
+  const plan = applySpellingCommand({
+    snapshot,
+    command: B4_START_COMMAND,
+    contentSnapshot: loadB4SpellingCatalogue(),
+    now: () => B4_START_TIMESTAMP,
+    random: randomAtB4Command(0),
+  });
+  assert.throws(
+    () => validateSpellingCommandSnapshotV1({
+      ...structuredClone(snapshot),
+      revision: plan.nextRevision,
+      subjectState: plan.nextSubjectState,
+      practiceSession: plan.nextPracticeSession,
+      eventLog: plan.nextEventLog,
+      monsterStateByRewardTrackId: plan.nextMonsterStateByRewardTrackId,
+      campStateByPackId: plan.nextCampStateByPackId,
+    }, starter),
+    { message: 'Unknown legacy slug or runtime item identity: ks2-core:bicycle.' },
+  );
+});
+
+test('B4 snapshot helpers commit the frozen start-session including bicycle', () => {
+  const snapshot = createB4LearnerSnapshot();
+  const plan = applySpellingCommand({
+    snapshot,
+    command: B4_START_COMMAND,
+    contentSnapshot: loadB4SpellingCatalogue(),
+    now: () => B4_START_TIMESTAMP,
+    random: randomAtB4Command(0),
+  });
+  const committed = commitB4CommandPlan(snapshot, plan);
+  assert.equal(committed.revision, 1);
+  assert.equal(committed.subjectState.ui.session.currentRuntimeItemId, 'ks2-core:arrive');
+});
+
+test('desktop B4 harness validates snapshots against the B4 catalogue', async () => {
+  const source = await readFile(
+    new URL('../src/dev/b4-harness-main.jsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /createB4LearnerSnapshot\(/u);
+  assert.match(source, /commitB4CommandPlan\(/u);
+  assert.doesNotMatch(source, /loadStarterSpellingCatalogue/u);
 });

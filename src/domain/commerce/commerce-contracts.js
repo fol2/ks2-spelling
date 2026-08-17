@@ -77,7 +77,7 @@ const KEBAB_IDENTITY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const APPLE_PRODUCT_ID = /^[a-z0-9]+(?:\.[a-z0-9]+)+$/u;
 const GOOGLE_PRODUCT_ID = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/u;
 
-const EXPECTED_SIGNING_KEY = Object.freeze({
+const EXPECTED_SANDBOX_SIGNING_KEY = Object.freeze({
   keyId: 'b3-test-p256-2026-07',
   algorithm: 'ECDSA_P256_SHA256_DER',
   publicKeySpkiDerBase64:
@@ -90,6 +90,36 @@ const EXPECTED_SIGNING_KEY = Object.freeze({
   allowedEnvironments: Object.freeze(['test', 'sandbox']),
   allowedPackIds: Object.freeze([
     'b3-sandbox-proof',
+    'full-ks2-shard-01',
+    'full-ks2-shard-02',
+    'full-ks2-shard-03',
+    'full-ks2-shard-04',
+    'full-ks2-shard-05',
+    'full-ks2-shard-06',
+    'full-ks2-shard-07',
+    'full-ks2-shard-08',
+    'full-ks2-shard-09',
+    'full-ks2-shard-10',
+    'full-ks2-shard-11',
+    'full-ks2-shard-12',
+    'full-ks2-shard-13',
+    'full-ks2-shard-14',
+    'full-ks2-shard-15',
+  ]),
+});
+
+const EXPECTED_PRODUCTION_SIGNING_KEY = Object.freeze({
+  keyId: 'production-ks2-p256-2026-08',
+  algorithm: 'ECDSA_P256_SHA256_DER',
+  publicKeySpkiDerBase64:
+    'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEU06jemaXTUtazmoYXARLD7xfXpTpsxAMbgwRqgOAQIWvmL7yQgn/GQ4T4MTiQ98rq4C+K4Q7t0LxrpaIgdDvfg==',
+  publicKeySpkiSha256:
+    '5e0a462087cd86f1a67bd4d6ebdd2a60909fc963400d2b55475c618b2ebe10bb',
+  testOnly: false,
+  notBefore: '2026-08-17T00:00:00Z',
+  notAfter: '2036-08-16T00:00:00Z',
+  allowedEnvironments: Object.freeze(['production']),
+  allowedPackIds: Object.freeze([
     'full-ks2-shard-01',
     'full-ks2-shard-02',
     'full-ks2-shard-03',
@@ -323,8 +353,17 @@ export function assertPackKeyring(value) {
   if (value.schemaVersion !== 1) {
     fail(label, 'must contain the one approved schema V1 key');
   }
-  const [key] = readClosedArray(value.keys, 1, label);
-  assertExactRecord(key, EXPECTED_SIGNING_KEY, SIGNING_KEY_KEYS, label);
+  const keys = readOpenArray(value.keys, label);
+  if (keys.length !== 2) {
+    fail(label, 'must contain exactly two signing keys (sandbox and production)');
+  }
+  
+  // Verify the sandbox test key is present
+  assertExactRecord(keys[0], EXPECTED_SANDBOX_SIGNING_KEY, SIGNING_KEY_KEYS, label);
+  
+  // Verify the production key is present
+  assertExactRecord(keys[1], EXPECTED_PRODUCTION_SIGNING_KEY, SIGNING_KEY_KEYS, label);
+  
   return value;
 }
 

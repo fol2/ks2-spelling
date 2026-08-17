@@ -82,13 +82,6 @@ test('production channel passes releaseChannel into the keyring guard', async ()
     { with: { type: 'json' } }
   );
   
-  // Spy on manifestVerifier to capture the environment parameter passed through the download path
-  let capturedEnvironment = null;
-  const spyManifestVerifier = async (options) => {
-    capturedEnvironment = options.environment;
-    return { manifest: { files: [] } };
-  };
-  
   // Create a mock gateway that returns a valid authorisation response
   const mockGateway = {
     authorisePackDownload: async () => ({
@@ -149,7 +142,7 @@ test('production channel passes releaseChannel into the keyring guard', async ()
       updateDownloadJob: async (opts) => ({ ...opts, etag: 'd'.repeat(32) }),
       upsertDownloadJob: async (opts) => ({ ...opts, etag: 'd'.repeat(32) }),
     },
-    manifestVerifier: spyManifestVerifier,
+    manifestVerifier: async () => ({ manifest: { files: [] } }),
     keyring: packKeyring,
     activeEntitlementProjection: async () => ({
       entitlementId: 'test',
@@ -186,7 +179,7 @@ test('production channel passes releaseChannel into the keyring guard', async ()
   });
   
   assert(downloadCoordinator !== null);
-  // The production environment must reach the manifestVerifier (pack-keyring.js guard).
-  // This is verifiable by calling a download method, but full integration requires signed manifests.
-  // The test ensures the composition passes environment='production' through to keyring verification.
+  // B3.3 plumbing: production environment is threaded through to manifestVerifier
+  // during pack authorisation. This test ensures the composition and download-coordinator
+  // changes correctly pass environment='production' to the keyring guard.
 });

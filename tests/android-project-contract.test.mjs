@@ -44,8 +44,8 @@ test('the committed Android project freezes the B1 identity and toolchain', asyn
 
   assert.match(appBuild, /namespace = "uk\.eugnel\.ks2spelling"/);
   assert.match(appBuild, /applicationId "uk\.eugnel\.ks2spelling"/);
-  assert.match(strings, /<string name="app_name">KS2 Spelling<\/string>/);
-  assert.match(strings, /<string name="title_activity_main">KS2 Spelling<\/string>/);
+  assert.match(strings, /<string name="app_name">Spelling Camp<\/string>/);
+  assert.match(strings, /<string name="title_activity_main">Spelling Camp<\/string>/);
   assert.match(strings, /<string name="package_name">uk\.eugnel\.ks2spelling<\/string>/);
   assert.match(strings, /<string name="custom_url_scheme">uk\.eugnel\.ks2spelling<\/string>/);
 

@@ -129,6 +129,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if !isOfflineB4Bundle() {
             bridgeViewController.bridge?.registerPluginInstance(ParentAccessPlugin())
             bridgeViewController.bridge?.registerPluginInstance(LocalDataProtectionPlugin())
+            bridgeViewController.bridge?.registerPluginInstance(ICloudLearningReplicaPlugin())
             bridgeViewController.bridge?.registerPluginInstance(InstalledAudioPlugin())
             bridgeViewController.bridge?.registerPluginInstance(PackTransferPlugin())
             bridgeViewController.bridge?.registerPluginInstance(CommercePlugin())

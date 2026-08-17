@@ -229,10 +229,9 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
     ),
     'CapacitorCordova SPM must supply its privacy manifest',
   );
-  assert.equal(
+  assert.ok(
     existsSync(join(IOS_ROOT, 'App/PrivacyInfo.xcprivacy')),
-    false,
-    'B1 app code must not fabricate a privacy manifest',
+    'the app target must own its first-party Required Reason API privacy manifest',
   );
 });
 

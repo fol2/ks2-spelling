@@ -52,7 +52,7 @@ test('the committed iOS project freezes the unsigned B1 identity', async () => {
   );
   assert.match(
     infoPlist,
-    /<key>CFBundleDisplayName<\/key>\s*<string>KS2 Spelling<\/string>/,
+    /<key>CFBundleDisplayName<\/key>\s*<string>Spelling Camp<\/string>/,
   );
   assert.match(scheme, /BuildableName = "App\.app"/);
   assert.match(scheme, /BlueprintName = "App"/);
@@ -195,7 +195,7 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
 
   assert.deepEqual(capacitorConfig, {
     appId: 'uk.eugnel.ks2spelling',
-    appName: 'KS2 Spelling',
+    appName: 'Spelling Camp',
     webDir: 'dist',
     loggingBehavior: 'none',
     plugins: {

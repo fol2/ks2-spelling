@@ -1464,7 +1464,7 @@ test('Capacitor and the built shell remain local-only', async () => {
   );
   assert.deepEqual(capacitorConfig, {
     appId: 'uk.eugnel.ks2spelling',
-    appName: 'KS2 Spelling',
+    appName: 'Spelling Camp',
     webDir: 'dist',
     loggingBehavior: 'none',
     plugins: {

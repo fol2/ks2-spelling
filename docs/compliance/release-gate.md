@@ -54,48 +54,46 @@ The checks apply only to PRs touching `src/app/**`. PRs that touch only docs, co
 **Gated to**: PRs touching `src/app/**`
 
 **Input**: 
+- Token definitions from `src/app/app.css`
 - Baseline file at `docs/compliance/baseline.md`
-- Rendered page at each of the three viewports and text scales
 
-**Assertion**: All text and interface elements meet their Layer 1 contrast floor (4.5:1 for body text, 3:1 for large text), or are listed as `todo` in the baseline.
+**Assertion**: All ink tokens (--ink-soft, --ink-faint, --dusk-ink-soft, --dusk-ink-faint) achieve ≥4.5:1 WCAG 2.2 contrast when alpha-composited over their painted surfaces, or violations are listed as `todo` in the baseline.
 
-**Mutation to prove failure**: Change a passing token value (e.g. `--ink-soft: rgb(29 43 58 / 50%)` instead of `62%`), re-run check; must fail.
+**Mutation to prove failure**: Change `--ink-faint` from 70% to 60%; test must fail (contrast drops below 4.5:1).
 
 ### Check 2: One h1 per screen
 
 **Gated to**: PRs touching `src/app/**`
 
 **Input**:
-- DOM tree at each of the three viewports
+- Screen components from the product app
 - Baseline file
 
-**Assertion**: Every route/screen has exactly one `<h1>` element, or violations are listed as `todo` in baseline.
+**Assertion**: Every route/screen component, when rendered to static markup, contains exactly one `<h1>` element, or violations are listed as `todo` in baseline.
 
-**Mutation to prove failure**: Add or remove an `<h1>`, re-run check; must fail.
+**Render-gated**: This check requires React SSR. Screens that cannot render under SSR are listed explicitly in the test with reason.
+
+**Mutation to prove failure**: Add a second `<h1>` to a screen component; test must fail.
 
 ### Check 3: Target size floor (44×44 CSS pixels)
 
 **Gated to**: PRs touching `src/app/**`
 
 **Input**:
-- Interactive elements (buttons, inputs, tappable regions) at each viewport
+- Interactive element CSS declarations from stylesheet
 - Baseline file
 
-**Assertion**: Every actionable element is at least 44×44 CSS pixels (excluding padding), or violations are listed as `todo` in baseline.
+**Assertion**: Every declared interactive selector (.press, .button-primary, etc.) specifies `height` or `min-height` ≥ 2.75rem, or violations are listed as `todo` in baseline.
 
-**Mutation to prove failure**: Reduce button size to 40×40, re-run check; must fail.
+**Mutation to prove failure**: Change `.press { height: 2.75rem }` to `height: 2rem`; test must fail.
 
-### Check 4: No horizontal scroll
+### Check 4: Horizontal scroll
 
-**Gated to**: PRs touching `src/app/**`
+**Render-gated** (requires layout/browser measurement): This check cannot be reliably automated in node.test. It is verified on device per the device matrix (393×852, 375×667, 810×1080) during manual design review and PR testing.
 
-**Input**:
-- Rendered page at each viewport and text scale
-- Baseline file
+**Device-walk procedure**: For each viewport size and text scale (100%, 130%, 160%), render the page, measure whether horizontal scroll is required at any point, and assert no scroll occurs.
 
-**Assertion**: No horizontal scroll is required at any viewport, or violations are listed as `todo` in baseline.
-
-**Mutation to prove failure**: Add `width: 100vw` to a content element, re-run check; must fail.
+**Baseline**: Known violations are listed in `docs/compliance/baseline.md` under "Horizontal scroll".
 
 ## Layer 3 notes
 

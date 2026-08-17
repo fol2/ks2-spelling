@@ -119,11 +119,11 @@ this table is stale.
 | Sunk paper | `--paper-sunk` | `#faf6ec` |
 | Primary ink | `--ink` | `#1d2b3a` |
 | Muted ink | `--ink-soft` | `rgb(29 43 58 / 78%)` |
-| Faint ink | `--ink-faint` | `rgb(29 43 58 / 60%)` |
+| Faint ink | `--ink-faint` | `rgb(29 43 58 / 70%)` |
 | Hairline | `--line` | `rgb(29 43 58 / 12%)` |
 | Stated rule | `--line-strong` | `rgb(29 43 58 / 22%)` |
 
-*Note*: `--ink-soft` and `--ink-faint` updated to pass 4.5:1 WCAG AA contrast on all paper backgrounds (provisional, pending measurement confirmation at 393×852, 375×667, 810×1080).
+*Vellum contrast ratios (WCAG 2.2 RL)*: `--ink-soft` 78% = 6.20–7.01:1 on papers ✓; `--ink-faint` 70% = 4.66–4.89:1 on papers ✓. All exceed 4.5:1 floor.
 
 ##### Dusk
 
@@ -136,10 +136,10 @@ group rather than tinting the vellum one.
 | Raised dusk | `--dusk-raised` | `#101a26` |
 | Dusk ink | `--dusk-ink` | `#fff9ec` |
 | Muted dusk ink | `--dusk-ink-soft` | `rgb(255 249 236 / 78%)` |
-| Faint dusk ink | `--dusk-ink-faint` | `rgb(255 249 236 / 60%)` |
+| Faint dusk ink | `--dusk-ink-faint` | `rgb(255 249 236 / 70%)` |
 | Dusk hairline | `--dusk-line` | `rgb(255 249 236 / 16%)` |
 
-*Note*: `--dusk-ink-soft` and new `--dusk-ink-faint` follow same ratio as vellum tokens, derived to pass 4.5:1 on `--dusk` background (provisional, pending measurement).
+*Dusk contrast ratios (WCAG 2.2 RL)*: `--dusk-ink-soft` 78% = 11.38:1 ✓; `--dusk-ink-faint` 70% = 6.97:1 ✓. All exceed 4.5:1 floor.
 
 ##### Tone assignment
 

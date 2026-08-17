@@ -66,14 +66,14 @@ The checks apply only to PRs touching `src/app/**`. PRs that touch only docs, co
 **Gated to**: PRs touching `src/app/**`
 
 **Input**:
-- Screen components from the product app
+- Screen components SSR-rendered with minimal fixtures
 - Baseline file
 
-**Assertion**: Every route/screen component, when rendered to static markup, contains exactly one `<h1>` element, or violations are listed as `todo` in baseline.
+**Assertion**: Every screen component, when SSR-rendered, contains exactly one `<h1>` element, or violations are listed as `todo` in baseline.
 
-**Render-gated**: This check requires React SSR. Screens that cannot render under SSR are listed explicitly in the test with reason.
+**Screens tested**: ParentArea, ResultsScreen, WordBankScreen, WordDetailScreen, plus standalone screens if renderable. Known violations (LearnerSwitchSheet, FirstRunScene per #113) are baseline-aware: expected to fail, new violations beyond baseline fail the check.
 
-**Mutation to prove failure**: Add a second `<h1>` to a screen component; test must fail.
+**Mutation to prove failure**: Add a second `<h1>` to a passing screen component; test must fail.
 
 ### Check 3: Target size floor (44×44 CSS pixels)
 

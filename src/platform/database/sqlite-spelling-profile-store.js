@@ -659,6 +659,50 @@ export function createSQLiteSpellingProfileStore({
         return target;
       }));
     },
+    async applyReplicaResult({ working, preserved } = {}) {
+      if (!working || typeof working !== 'object' || Array.isArray(working)) {
+        throw new TypeError('Replica apply requires a working snapshot.');
+      }
+      const learnerId = requireLearnerId(working.learnerId);
+      if (
+        preserved != null
+        && (
+          typeof preserved !== 'object'
+          || Array.isArray(preserved)
+          || preserved.learnerId !== learnerId
+        )
+      ) {
+        throw new TypeError('Replica preserved snapshot must belong to the working learner.');
+      }
+      const sampledAt = sampleTimestamp(now);
+      return gate.run(() => runOwnedTransaction(connection, async () => {
+        if ((await queryProfile(connection, learnerId)) === null) {
+          throw storeError('sqlite_profile_missing');
+        }
+        if (preserved) {
+          requireChanged(
+            await connection.execute(
+              'INSERT INTO app_metadata (key, value_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at',
+              [
+                preservedFullLearningKey(learnerId),
+                canonicalJson(preserved),
+                sampledAt,
+              ],
+            ),
+            'sqlite_preserved_full_learning_write_failed',
+          );
+        }
+        const removed = await connection.execute(
+          'DELETE FROM spelling_aggregates WHERE learner_id = ?',
+          [learnerId],
+        );
+        if (removed.changes < 1) {
+          throw storeError('sqlite_profile_learning_reset_failed');
+        }
+        await insertLearningSnapshot(connection, working, sampledAt);
+        return working.catalogueId;
+      }));
+    },
   });
 
   return Object.freeze({ profiles, selection, administration });

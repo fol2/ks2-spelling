@@ -563,6 +563,13 @@
       "version": "C2B",
       "status": "C2B local capability; final physical proof deferred",
       "source": "App-owned Swift and Java local storage policy enforcement"
+    },
+    {
+      "capability": "ICloudLearningReplica",
+      "packageName": "app-owned-icloud-learning-replica-bridge",
+      "version": "E6",
+      "status": "E6 compiled capability; physical two-device proof is owner-gated",
+      "source": "App-owned Swift CloudKit private-database replica and Android no-op"
     }
   ],
   "candidatePlugins": [

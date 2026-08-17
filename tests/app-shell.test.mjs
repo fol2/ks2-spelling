@@ -496,7 +496,8 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(unlockedParentHtml, /Restore purchases/);
   assert.match(unlockedParentHtml, /KS2 Spelling privacy notice/);
   assert.match(unlockedParentHtml, /no advertising, analytics or tracking/);
-  assert.match(unlockedParentHtml, /Nothing is retained off the device/);
+  assert.match(unlockedParentHtml, /The family&#x27;s iCloud holds the replica of learner|The family's iCloud holds the replica of learner/);
+  assert.match(unlockedParentHtml, /does not delete iCloud copies/);
   assert.match(unlockedParentHtml, /An IP address necessarily reaches the entitlement gateway/);
   assert.match(unlockedParentHtml, /Third-party notices/);
   assert.doesNotMatch(unlockedParentHtml, /href\s*=/i);

@@ -630,18 +630,32 @@ async function verifyRuntimeBoundary(packageJson) {
   const entitlements = iosAppFiles
     .filter((path) => path.endsWith('.entitlements'))
     .map((path) => path.slice(`${ROOT}/`.length));
+  const allowedEntitlements = ['ios/App/App/App.entitlements'];
   const infoPlist = await readFile(resolve(ROOT, 'ios/App/App/Info.plist'), 'utf8');
   const usageDescriptionKeys = [
     ...infoPlist.matchAll(/<key>([^<]*UsageDescription)<\/key>/g),
   ].map(([, key]) => key);
   if (
-    entitlements.length ||
+    JSON.stringify(entitlements) !== JSON.stringify(allowedEntitlements) ||
     JSON.stringify(usageDescriptionKeys) !==
       JSON.stringify(['NSFaceIDUsageDescription'])
   ) {
     throw policyError(
       'ios_permission_surface_declared',
       `iOS permission surface found: ${[...entitlements, ...usageDescriptionKeys].join(', ')}`,
+    );
+  }
+  const entitlementsSource = await readFile(resolve(ROOT, allowedEntitlements[0]), 'utf8');
+  if (
+    !entitlementsSource.includes('iCloud.uk.eugnel.ks2spelling') ||
+    !entitlementsSource.includes('CloudKit') ||
+    /icloud-documents|ubiquity-kvstore|aps-environment|keychain-access-groups/u.test(
+      entitlementsSource,
+    )
+  ) {
+    throw policyError(
+      'ios_permission_surface_declared',
+      'iOS entitlements must be the CloudKit private container only',
     );
   }
   const capacitorAndroid = await readFile(

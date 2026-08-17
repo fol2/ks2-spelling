@@ -171,16 +171,22 @@ Where the hosted copy lives is decided at
 the constraint that the hosted page must be generated from the same source file,
 so the two cannot drift.
 
-### App Privacy label: Data Not Collected — conditional on Gap 2
+### App Privacy label: Data Not Collected — private CloudKit plus Gap 2
 
 App Store Connect defines "collect" as "transmitting data off the device in a
 way that allows you and/or your third-party partners to access it for a period
 longer than what is necessary to service the transmitted request in real time".
 
-With Cloudflare platform logging disabled, nothing is retained past servicing
-and **Data Not Collected** is accurate. With it at its current default, it is
-not. The ordering is therefore load-bearing: the Gap 2 fix must merge before the
-declaration is made in App Store Connect.
+The iCloud learning replica writes learner profiles and learner snapshots only
+to the family's CloudKit **private** database. The publisher cannot read those
+customer private records. Apple's App Privacy guidance says you do not disclose
+data Apple collects. Learner fields never enter the CloudKit public database or
+the entitlement gateway.
+
+With Cloudflare platform logging disabled, nothing is retained by us past
+servicing and **Data Not Collected** remains accurate. With it at its current
+default, it is not. The ordering is therefore load-bearing: the Gap 2 fix must
+merge before the declaration is made in App Store Connect.
 
 ## Obligation map
 
@@ -215,7 +221,7 @@ COPPA applies. This is the difference from a general-audience app.
 | § 312.5(c)(7) internal-operations exception | Available as a fallback framing for the transiting IP. Its price is the § 312.4(d)(3) disclosure, which lands as a sentence in the privacy notice. |
 | § 312.5(b)(2) methods of verifiable parental consent | None used, none needed. The PIN gate is not consent and is never described as such. |
 | § 312.8(b) written security program | Not produced. See [Decisions taken](#written-compliance-artifacts-none-beyond-this-document). |
-| § 312.10 written retention policy | Retention is zero once Gap 2 is closed. Stated in the privacy notice, not as a separate document. |
+| § 312.10 written retention policy | We retain nothing. The family's iCloud holds the replica of learner profiles and learner snapshots under Apple's terms. Stated in the privacy notice, not as a separate document. |
 
 ### UK Age Appropriate Design Code
 
@@ -342,21 +348,22 @@ it.
 
 ### Gap 5 — unsigned backup import can write an entitlement-shaped field
 
-**The import path is deleted.** v1 ships neither the share-sheet export/import
-nor the iCloud learning replica
+**The file-path import is deleted.** v1 ships neither the share-sheet
+export/import nor an unsigned JSON apply
 ([E4 — Remove learning backup from v1](https://github.com/fol2/ks2-spelling/issues/198)).
 The unsigned JSON file is gone, so it cannot grant the full catalogue.
 
-The governing rule remains a constraint on the replica slice
-([iCloud learning replica — CloudKit private database, post-listing](https://github.com/fol2/ks2-spelling/issues/199)):
+Replica apply is gated
+([iCloud learning replica — CloudKit private database](https://github.com/fol2/ks2-spelling/issues/199)).
+A never-entitled device that receives a Full snapshot stays on Starter and parks
+the Full payload under `preserved-full-learning-v1:{learnerId}`. The working
+grant is always derived from this device's store entitlement.
 
 > The preservation exemption covers state a device **earned**, never state it
-> **imported**.
+> **imported** as a working Full catalogue.
 
-A replica applying onto a never-entitled device must not raise the word list
-past that device's store entitlement. That slice carries its own revert-goes-red
-test. Until it ships, Gap 5's original vector is closed by absence of the file
-path.
+`tests/apply-learning-replica.test.mjs` is the revert-goes-red guard: deleting
+the park-full branch fails that test.
 
 ## App Store Connect
 

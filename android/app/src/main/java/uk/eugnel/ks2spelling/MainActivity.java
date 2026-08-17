@@ -14,6 +14,7 @@ public class MainActivity extends BridgeActivity {
         if (!isOfflineB4Bundle()) {
             registerPlugin(ParentAccessPlugin.class);
             registerPlugin(LocalDataProtectionPlugin.class);
+            registerPlugin(ICloudLearningReplicaPlugin.class);
             registerPlugin(InstalledAudioPlugin.class);
             registerPlugin(PackTransferPlugin.class);
             registerPlugin(CommercePlugin.class);

@@ -181,7 +181,7 @@ test('Design authority: 44×44 target size floor (render-gated)', async () => {
     '.button-brand': 3.25, // 3.25rem declared
   };
   
-  for (const [selector, minRem] of Object.entries(shouldDeclareHeight)) {
+  for (const [selector, _minRem] of Object.entries(shouldDeclareHeight)) {
     const escapedSelector = selector.replace(/\./g, '\\.');
     const heightRegex = new RegExp(`${escapedSelector}\\s*\\{[^}]*?min-height:\\s*([0-9.]+)rem`, 'u');
     const match = css.match(heightRegex);

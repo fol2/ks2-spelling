@@ -79,6 +79,11 @@ jobs:
           npm --prefix gateway test
           npm --prefix gateway run lint
           npm --prefix gateway run deploy:dry-run
+          # deploy:dry-run compiles the tracked, build-shaped config only. The
+          # real deploy uses the runtime-derived config — a check that never
+          # runs on the thing that ships is an absent check wearing a green
+          # tick (#156), so compile the deploy-shaped config here too.
+          node scripts/rehearse-b3-deploy-config.mjs
           npm --prefix gateway audit --audit-level=high
       - name: Regenerate deterministic B3 proof
         run: npm run prove:b3:deterministic

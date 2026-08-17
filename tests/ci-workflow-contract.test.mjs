@@ -84,6 +84,7 @@ test('Domain/Web proves host-neutral and gateway contracts without claiming nati
     'npm --prefix gateway test',
     'npm --prefix gateway run lint',
     'npm --prefix gateway run deploy:dry-run',
+    'node scripts/rehearse-b3-deploy-config.mjs',
     'npm --prefix gateway audit --audit-level=high',
     'npm run prove:b3:deterministic',
     'npm run lint',
@@ -97,6 +98,13 @@ test('Domain/Web proves host-neutral and gateway contracts without claiming nati
   assert.ok(
     domain.indexOf('npm run native:sync:check') < domain.indexOf('--test-skip-pattern='),
     'native bundle inputs must exist before the host-neutral suite',
+  );
+  // #156: the deploy-shaped derived config must be compiled by CI, not only
+  // the tracked build-shaped one, and only after the pinned wrangler exists.
+  assert.ok(
+    domain.indexOf('npm --prefix gateway ci') <
+      domain.indexOf('node scripts/rehearse-b3-deploy-config.mjs'),
+    'the deploy-shaped rehearsal needs the pinned gateway wrangler installed first',
   );
   assert.doesNotMatch(
     domain,

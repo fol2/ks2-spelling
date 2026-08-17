@@ -5,7 +5,7 @@ import test from 'node:test';
 import {
   applyReplicaSnapshot,
   deriveDeviceLearningGrant,
-  isRemoteFullSnapshot,
+  isRemoteFull,
 } from '../src/domain/sync/apply-learning-replica.js';
 import { emptyStarterSnapshot } from '../src/domain/sync/merge-learning-replica.js';
 import { PRESERVED_FULL_LEARNING_KEY_PREFIX } from '../src/platform/database/sqlite-spelling-profile-store.js';
@@ -124,19 +124,33 @@ test('imported Full cannot become the working catalogue when earned is true but 
   });
   assert.equal(result.action, 'park-full');
   assert.equal(result.working.catalogueId, 'ks2-core:starter');
-  assert.equal(isRemoteFullSnapshot(result.preserved), true);
+  assert.equal(isRemoteFull(result.preserved), true);
 });
 
-test('reverting the park-full branch fails this guard', async () => {
+test('reverting the park-full branch goes red', async () => {
   const source = await readFile(
     new URL('../src/domain/sync/apply-learning-replica.js', import.meta.url),
     'utf8',
   );
-  assert.match(source, /action: 'park-full'/);
-  assert.match(source, /isRemoteFullSnapshot\(remoteSnapshot\)/);
+  assert.match(source, /park-full/);
+  assert.match(source, /isRemoteFull/);
   assert.match(source, /entitled !== true/);
-  assert.doesNotMatch(
-    source,
-    /if \(false && isRemoteFullSnapshot/,
-  );
+  assert.doesNotMatch(source, /isRemoteFullSnapshot/);
+});
+
+test('reverting the park-full branch goes red on never-entitled Full import', () => {
+  const result = applyReplicaSnapshot({
+    localSnapshot: snapshot(),
+    remoteSnapshot: snapshot({
+      catalogueId: 'ks2-core:full',
+      grantedEntitlementIds: ['full-ks2'],
+    }),
+    entitled: false,
+    earned: false,
+  });
+  assert.equal(result.action, 'park-full');
+  assert.equal(isRemoteFull(result.preserved), true);
+  assert.equal(result.preserved.catalogueId, 'ks2-core:full');
+  assert.equal(result.working.catalogueId, 'ks2-core:starter');
+  assert.deepEqual(result.working.grantedEntitlementIds, []);
 });

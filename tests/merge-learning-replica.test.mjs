@@ -203,3 +203,49 @@ test('mergeSnapshots throws when learnerId does not match', () => {
     /learnerId must match/,
   );
 });
+
+test('mergeProfiles with a null local returns a clone of remote', () => {
+  const remote = profile({ nickname: 'Ida', updatedAt: 300 });
+  const merged = mergeProfiles(null, remote);
+  assert.equal(merged.nickname, 'Ida');
+  assert.equal(merged.learnerId, remote.learnerId);
+  assert.notEqual(merged, remote);
+});
+
+test('mergeSnapshots does not mutate frozen local or remote inputs', () => {
+  const local = Object.freeze(snapshot({
+    progress: Object.freeze({
+      'ks2-core:because': Object.freeze(progress({ stage: 4 })),
+    }),
+  }));
+  const remote = Object.freeze(snapshot({
+    revision: 2,
+    progress: Object.freeze({
+      'ks2-core:circle': Object.freeze(progress({ stage: 1 })),
+    }),
+  }));
+  const localProgressKeys = Object.keys(local.subjectState.data.progress);
+  mergeSnapshots(local, remote);
+  assert.deepEqual(Object.keys(local.subjectState.data.progress), localProgressKeys);
+  assert.equal(local.subjectState.data.progress['ks2-core:circle'], undefined);
+});
+
+test('null local snapshot clones remote progress but keeps starter catalogue placeholders', () => {
+  const remote = snapshot({
+    revision: 7,
+    schemaVersion: 3,
+    packId: 'should-not-win',
+    catalogueId: 'ks2-core:full',
+    grantedEntitlementIds: ['full-ks2'],
+    progress: {
+      'ks2-core:circle': progress({ stage: 4 }),
+    },
+  });
+  const merged = mergeSnapshots(null, remote);
+  assert.equal(merged.subjectState.data.progress['ks2-core:circle'].stage, 4);
+  assert.equal(merged.packId, 'ks2-core');
+  assert.equal(merged.catalogueId, 'ks2-core:starter');
+  assert.deepEqual(merged.grantedEntitlementIds, []);
+  assert.equal(merged.revision, 7);
+  assert.equal(merged.schemaVersion, 3);
+});

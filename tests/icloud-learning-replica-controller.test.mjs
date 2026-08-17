@@ -132,3 +132,23 @@ test('controller does not write selected learner or PIN into the replica envelop
     assert.equal(Object.hasOwn(envelope, 'parentPin'), false);
   }
 });
+
+test('getStatus throw stays local-only and start does not reject', async () => {
+  const published = [];
+  const replica = {
+    async getStatus() { throw new Error('CloudKit unavailable'); },
+    async publish(envelope) { published.push(envelope); return { accepted: 0 }; },
+    async pull() { return { profiles: [], snapshots: [] }; },
+  };
+  const handle = await startICloudLearningReplica({
+    replica,
+    listProfiles: async () => [localProfile()],
+    readSnapshot: async () => emptyStarterSnapshot('learner-a'),
+    writeProfile: async () => { throw new Error('must not write'); },
+    applyIncoming: async () => { throw new Error('must not apply'); },
+    entitled: false,
+    earned: false,
+  });
+  await handle.publishLearner('learner-a');
+  assert.deepEqual(published, []);
+});

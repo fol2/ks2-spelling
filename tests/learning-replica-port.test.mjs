@@ -87,3 +87,53 @@ test('unavailable replica status stays local-only', async () => {
   assert.equal(status.account, 'noAccount');
   assert.equal(status.container, LEARNING_REPLICA_CONTAINER);
 });
+
+test('validatePublishRequest and validatePullResult return frozen closed records', () => {
+  const published = validatePublishRequest({ profiles: [profile], snapshots: [snapshot] });
+  const pulled = validatePullResult({ profiles: [profile], snapshots: [snapshot] });
+  assert.equal(Object.isFrozen(published), true);
+  assert.equal(Object.isFrozen(pulled), true);
+  assert.deepEqual(Object.keys(published).sort(), ['profiles', 'snapshots']);
+});
+
+test('profiles must be the seven-key spelling profile not a payload wrapper', () => {
+  const accepted = validatePublishRequest({
+    profiles: [profile],
+    snapshots: [snapshot],
+  });
+  assert.deepEqual(Object.keys(accepted.profiles[0]).sort(), [
+    'colour', 'createdAt', 'goal', 'learnerId', 'nickname', 'updatedAt', 'yearGroup',
+  ].sort());
+  assert.throws(
+    () => validatePublishRequest({
+      profiles: [{ learnerId: 'learner-a', payload: {} }],
+      snapshots: [snapshot],
+    }),
+    /must contain exactly the approved fields/,
+  );
+});
+
+test('publish rejects PIN selectedLearner app_entitlements and storeEntitlements at the envelope top level', () => {
+  const base = { profiles: [profile], snapshots: [snapshot] };
+  assert.throws(() => validatePublishRequest({ ...base, PIN: '1234' }), /PIN|approved fields/);
+  assert.throws(() => validatePublishRequest({ ...base, selectedLearner: 'learner-a' }), /selectedLearner|approved fields/);
+  assert.throws(() => validatePublishRequest({ ...base, app_entitlements: [] }), /app_entitlements|approved fields/);
+  assert.throws(() => validatePublishRequest({ ...base, storeEntitlements: [] }), /storeEntitlements|approved fields/);
+});
+
+test('snapshots may contain grantedEntitlementIds inside payload', () => {
+  assert.doesNotThrow(() => validatePublishRequest({
+    profiles: [profile],
+    snapshots: [{
+      learnerId: 'learner-a',
+      payload: {
+        schemaVersion: 1,
+        learnerId: 'learner-a',
+        revision: 1,
+        packId: 'ks2-core',
+        catalogueId: 'ks2-core:full',
+        grantedEntitlementIds: ['full-ks2'],
+      },
+    }],
+  }));
+});

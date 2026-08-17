@@ -185,11 +185,11 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
     private func decodeSnapshot(_ record: CKRecord) throws -> [String: Any] {
         guard let asset = record["payload"] as? CKAsset,
               let fileURL = asset.fileURL,
-              let data = try? Data(contentsOf: fileURL),
-              let payload = try JSONSerialization.jsonObject(with: data)
+              let data = try? Data(contentsOf: fileURL)
         else {
             throw ReplicaError.invalid
         }
+        let payload = try JSONSerialization.jsonObject(with: data)
         let learnerId = record.recordID.recordName.replacingOccurrences(
             of: "snapshot:",
             with: ""

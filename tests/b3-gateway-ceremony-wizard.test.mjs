@@ -53,6 +53,13 @@ function fakeWrangler({ secretListNames = [...PRODUCTION_IOS_REQUIRED_SECRET_NAM
         stderr: '',
       };
     }
+    if (body[0] === 'r2' && body[1] === 'bucket' && body[2] === 'create') {
+      return {
+        exitCode: 0,
+        stdout: `Creating bucket: ${body[3]}\n`,
+        stderr: '',
+      };
+    }
     if (body[0] === 'r2' && body[2] === 'dev-url') {
       return {
         exitCode: 0,
@@ -350,14 +357,12 @@ test('sitting 2 validates ceremony outputs, uploads, and enforces the six-name s
   assert.equal(evidence.uploadedObjects, 2);
   assert.equal(evidence.secretListGate, 'passed');
   const bodies = fakes.interactives.map((args) => args.slice(0, -2));
-  assert.deepEqual(bodies[0], ['r2', 'bucket', 'create', 'ks2-spelling-production-packs']);
-  assert.deepEqual(bodies[1], [
+  assert.deepEqual(bodies[0], [
     'r2', 'object', 'put',
     `ks2-spelling-production-packs/packs/${pack.packId}/${pack.version}/${pack.archiveName}`,
     '--file', join(ceremonyDir, `packs/${pack.packId}/${pack.version}/${pack.archiveName}`),
     '--content-type', 'application/zip',
   ]);
-  assert.equal(bodies[2][3], `ks2-spelling-production-packs/packs/${pack.packId}/${pack.version}/signed-manifest.json`);
   const secretPuts = bodies.filter((body) => body[0] === 'secret' && body[1] === 'put');
   assert.deepEqual(
     secretPuts.map((body) => body[2]),
@@ -367,6 +372,30 @@ test('sitting 2 validates ceremony outputs, uploads, and enforces the six-name s
     secretPuts.some((body) => body[2] === GOOGLE_PLAY_SERVICE_ACCOUNT_SECRET_NAME),
     false,
   );
+});
+
+test('sitting 2 bucket create is missing when bucket already exists', async (t) => {
+  const { root, ceremonyDir } = await productionFixture(t);
+  const fakes = fakeWrangler();
+  let createCalls = 0;
+  const captureRunInteractive = async (bin, args, options) => {
+    const body = args.slice(0, -2);
+    if (body[0] === 'r2' && body[1] === 'bucket' && body[2] === 'create') {
+      createCalls += 1;
+    }
+    return fakes.runInteractive(bin, args, options);
+  };
+  const evidence = await runGatewayCeremonyWizard({
+    channel: PRODUCTION_CHANNEL,
+    ceremonyDir,
+    ...executeOptions(root, {
+      ...fakes,
+      runInteractive: captureRunInteractive,
+    }),
+  });
+  assert.equal(evidence.ok, true);
+  assert.equal(createCalls, 0);
+  assert.equal(evidence.uploadedObjects, 2);
 });
 
 test('the sitting 2 secret gate fails when the Play secret is present on the Worker', async (t) => {
@@ -448,4 +477,138 @@ test('CLI plumbing: ceremony dir flag forms and exit-code mapping', () => {
   assert.equal(ceremonyExitCode({ code: 'gateway_ceremony_precondition_failed' }), 5);
   assert.equal(ceremonyExitCode({ code: 'gateway_ceremony_secret_gate_failed' }), 5);
   assert.equal(ceremonyExitCode(new Error('unknown')), 4);
+});
+
+test('wizard child env is sterile: pinned CI, NO_COLOR, WRANGLER_HIDE_BANNER', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'ks2-gateway-wizard-env-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const fakes = fakeWrangler();
+  let capturedEnv;
+  const captureRunInteractive = async (bin, args, options) => {
+    if (!capturedEnv) capturedEnv = options?.env;
+    return fakes.runInteractive(bin, args, options);
+  };
+  await runGatewayCeremonyWizard({
+    channel: SANDBOX_CHANNEL,
+    ...executeOptions(root, { ...fakes, runInteractive: captureRunInteractive }),
+  });
+  assert.ok(capturedEnv, 'interactive was called');
+  assert.equal(capturedEnv.CI, '1');
+  assert.equal(capturedEnv.NO_COLOR, '1');
+  assert.equal(capturedEnv.WRANGLER_HIDE_BANNER, 'true');
+  assert.equal(capturedEnv.CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_ACCOUNT_ID);
+  assert.equal(capturedEnv.WRANGLER_SEND_METRICS, 'false');
+});
+
+test('sitting 2 bucket create is re-entrant: probes existence and skips if present', async (t) => {
+  const { root, ceremonyDir } = await productionFixture(t);
+  const fakes = fakeWrangler();
+  let devUrlCalls = 0;
+  let createAttempts = 0;
+  const captureRunCaptured = async (bin, args) => {
+    const body = args.slice(0, -2);
+    if (body[0] === 'r2' && body[1] === 'bucket' && body[2] === 'dev-url') {
+      devUrlCalls += 1;
+      return {
+        exitCode: 0,
+        stdout: 'Public access via the r2.dev URL is disabled.\n',
+        stderr: '',
+      };
+    }
+    return fakes.runCaptured(bin, args);
+  };
+  const captureRunInteractive = async (bin, args, options) => {
+    const body = args.slice(0, -2);
+    if (body[0] === 'r2' && body[1] === 'bucket' && body[2] === 'create') {
+      createAttempts += 1;
+    }
+    return fakes.runInteractive(bin, args, options);
+  };
+  const evidence = await runGatewayCeremonyWizard({
+    channel: PRODUCTION_CHANNEL,
+    ceremonyDir,
+    ...executeOptions(root, {
+      ...fakes,
+      runCaptured: captureRunCaptured,
+      runInteractive: captureRunInteractive,
+    }),
+  });
+  assert.equal(evidence.ok, true);
+  assert.equal(devUrlCalls, 2);
+  assert.equal(createAttempts, 0);
+  assert.equal(evidence.uploadedObjects, 2);
+});
+
+test('sitting 2 bucket create probes absence and creates if missing', async (t) => {
+  const { root, ceremonyDir } = await productionFixture(t);
+  const fakes = fakeWrangler();
+  let devUrlCalls = 0;
+  let createAttempts = 0;
+  const captureRunCaptured = async (bin, args) => {
+    const body = args.slice(0, -2);
+    if (body[0] === 'r2' && body[1] === 'bucket' && body[2] === 'dev-url') {
+      devUrlCalls += 1;
+      if (devUrlCalls === 1) {
+        return {
+          exitCode: 1,
+          stdout: '',
+          stderr: 'The bucket does not exist.',
+        };
+      }
+      return {
+        exitCode: 0,
+        stdout: 'Public access via the r2.dev URL is disabled.\n',
+        stderr: '',
+      };
+    }
+    return fakes.runCaptured(bin, args);
+  };
+  const captureRunInteractive = async (bin, args, options) => {
+    const body = args.slice(0, -2);
+    if (body[0] === 'r2' && body[1] === 'bucket' && body[2] === 'create') {
+      createAttempts += 1;
+    }
+    return fakes.runInteractive(bin, args, options);
+  };
+  const evidence = await runGatewayCeremonyWizard({
+    channel: PRODUCTION_CHANNEL,
+    ceremonyDir,
+    ...executeOptions(root, {
+      ...fakes,
+      runCaptured: captureRunCaptured,
+      runInteractive: captureRunInteractive,
+    }),
+  });
+  assert.equal(evidence.ok, true);
+  assert.equal(devUrlCalls, 2);
+  assert.equal(createAttempts, 1);
+  assert.equal(evidence.uploadedObjects, 2);
+});
+
+test('sitting 2 bucket create fails if probe shows privacy violation', async (t) => {
+  const { root, ceremonyDir } = await productionFixture(t);
+  const fakes = fakeWrangler();
+  const captureRunCaptured = async (bin, args) => {
+    const body = args.slice(0, -2);
+    if (body[0] === 'r2' && body[1] === 'bucket' && body[2] === 'dev-url') {
+      return {
+        exitCode: 0,
+        stdout: 'Public access is enabled at https://pub.example.r2.dev.\n',
+        stderr: '',
+      };
+    }
+    return fakes.runCaptured(bin, args);
+  };
+  await assert.rejects(
+    runGatewayCeremonyWizard({
+      channel: PRODUCTION_CHANNEL,
+      ceremonyDir,
+      ...executeOptions(root, {
+        ...fakes,
+        runCaptured: captureRunCaptured,
+      }),
+    }),
+    ({ code, message }) =>
+      code === 'gateway_ceremony_precondition_failed' && message.includes('r2.dev'),
+  );
 });

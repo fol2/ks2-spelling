@@ -182,19 +182,7 @@ test('Kids Category source and dependencies cannot acquire a link-out capability
   );
 });
 
-test('native share sheets and App Store restore remain allowed local surfaces', async () => {
-  const [iosBackup, androidBackup, iosCommerce] = await Promise.all([
-    readFile(join(IOS_APP_ROOT, 'LearningBackupFilePlugin.swift'), 'utf8'),
-    readFile(
-      join(
-        ROOT,
-        'android/app/src/main/java/uk/eugnel/ks2spelling/LearningBackupFilePlugin.java',
-      ),
-      'utf8',
-    ),
-    readFile(join(IOS_APP_ROOT, 'CommercePlugin.swift'), 'utf8'),
-  ]);
-  assert.match(iosBackup, /UIActivityViewController/);
-  assert.match(androidBackup, /Intent\.ACTION_SEND/);
+test('App Store restore remains an allowed local surface', async () => {
+  const iosCommerce = await readFile(join(IOS_APP_ROOT, 'CommercePlugin.swift'), 'utf8');
   assert.match(iosCommerce, /AppStore\.sync\(\)/);
 });

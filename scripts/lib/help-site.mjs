@@ -4,6 +4,7 @@ import {
   PRIVACY_NOTICE_RELATIVE_PATH,
   parsePrivacyNotice,
 } from '../../src/app/privacy-notice-document.js';
+import { resolveExecutable, runCommand } from './run-command.mjs';
 
 export const HELP_SITE_HOST = 'help.eugnel.uk';
 export const HELP_SUPPORT_EMAIL = 'support@eugnel.uk';
@@ -329,11 +330,48 @@ export function assertHelpSiteExecuteAllowed(env = process.env) {
   );
 }
 
+async function spawnPinnedWrangler({
+  bin,
+  args,
+  cwd,
+  env,
+  wranglerVersion,
+  resolveBin,
+  run,
+}) {
+  const resolved = await resolveBin(bin, env);
+  if (!resolved) {
+    throw helpSiteError(
+      'help_site_wrangler_missing',
+      `Install gateway dependencies to use the pinned wrangler ${wranglerVersion} at ${bin}.`,
+    );
+  }
+  const result = await run(resolved, args, { cwd, env });
+  if (result.spawnError || result.exitCode !== 0) {
+    throw helpSiteError(
+      'help_site_wrangler_failed',
+      result.stderr?.trim() || result.spawnError?.message || 'wrangler deploy failed.',
+    );
+  }
+  return result;
+}
+
+function assertWranglerDeploySucceeded(deploy) {
+  if (deploy?.spawnError || (Number.isInteger(deploy?.exitCode) && deploy.exitCode !== 0)) {
+    throw helpSiteError(
+      'help_site_wrangler_failed',
+      deploy.stderr?.trim() || deploy.spawnError?.message || 'wrangler deploy failed.',
+    );
+  }
+}
+
 export async function runHelpSiteWizard({
   root,
   args = [],
   env = process.env,
   wranglerDeploy,
+  resolveBin = resolveExecutable,
+  run = runCommand,
 } = {}) {
   const execute = args.includes('--execute') && !args.includes('--dry-run');
   await assertHelpSiteCurrent(root);
@@ -343,17 +381,18 @@ export async function runHelpSiteWizard({
     return Object.freeze({ ok: true, mode: 'dry-run', plan });
   }
   assertHelpSiteExecuteAllowed(env);
-  if (typeof wranglerDeploy !== 'function') {
-    throw helpSiteError(
-      'help_site_wrangler_missing',
-      `Install gateway dependencies to use the pinned wrangler ${wranglerVersion} at ${wranglerBinPath(root)}.`,
-    );
-  }
-  const deploy = await wranglerDeploy({
+  const request = {
     bin: wranglerBinPath(root),
     args: ['deploy', '--config', join(root, HELP_WRANGLER_RELATIVE)],
     cwd: root,
-  });
+    env,
+  };
+  const deployFn =
+    typeof wranglerDeploy === 'function'
+      ? wranglerDeploy
+      : (next) => spawnPinnedWrangler({ ...next, wranglerVersion, resolveBin, run });
+  const deploy = await deployFn(request);
+  assertWranglerDeploySucceeded(deploy);
   return Object.freeze({
     ok: true,
     mode: 'execute',

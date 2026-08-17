@@ -158,9 +158,63 @@ test('execute with the owner gate deploys via the gateway-pinned wrangler and le
   assert.equal(calls.length, 1);
   assert.equal(calls[0].bin, wranglerBinPath(ROOT));
   assert.deepEqual(calls[0].args, ['deploy', '--config', join(ROOT, HELP_WRANGLER_RELATIVE)]);
+  assert.equal(calls[0].cwd, ROOT);
   assert.deepEqual(
     result.remaining.map((step) => step.id),
     ['email-routing', 'curl', 'test-mail', 'asc'],
+  );
+});
+
+test('the owner CLI execute path spawns the pinned wrangler without an injected deploy hook', async () => {
+  const calls = [];
+  const env = { [HELP_SITE_EXECUTE_ENV]: 'owner' };
+  const code = await deployHelpSite(['--execute'], {
+    root: ROOT,
+    env,
+    resolveBin: async (bin) => bin,
+    run: async (bin, args, options) => {
+      calls.push({ bin, args, cwd: options.cwd, env: options.env });
+      return { exitCode: 0, spawnError: null };
+    },
+  });
+  assert.equal(code, EXIT_CODES.success);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].bin, wranglerBinPath(ROOT));
+  assert.deepEqual(calls[0].args, ['deploy', '--config', join(ROOT, HELP_WRANGLER_RELATIVE)]);
+  assert.equal(calls[0].cwd, ROOT);
+  assert.equal(calls[0].env, env);
+});
+
+test('execute fails closed when the pinned wrangler binary is missing', async () => {
+  await assert.rejects(
+    () =>
+      runHelpSiteWizard({
+        root: ROOT,
+        args: ['--execute'],
+        env: { [HELP_SITE_EXECUTE_ENV]: 'owner' },
+        resolveBin: async () => null,
+      }),
+    { code: 'help_site_wrangler_missing' },
+  );
+  const code = await deployHelpSite(['--execute'], {
+    root: ROOT,
+    env: { [HELP_SITE_EXECUTE_ENV]: 'owner' },
+    resolveBin: async () => null,
+  });
+  assert.equal(code, EXIT_CODES.missingTool);
+});
+
+test('execute fails closed when wrangler returns a non-zero exit', async () => {
+  await assert.rejects(
+    () =>
+      runHelpSiteWizard({
+        root: ROOT,
+        args: ['--execute'],
+        env: { [HELP_SITE_EXECUTE_ENV]: 'owner' },
+        resolveBin: async (bin) => bin,
+        run: async () => ({ exitCode: 1, spawnError: null, stderr: 'deploy rejected' }),
+      }),
+    { code: 'help_site_wrangler_failed' },
   );
 });
 

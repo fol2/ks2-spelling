@@ -11,6 +11,8 @@ export async function main(args = process.argv.slice(2), options = {}) {
       args,
       env: options.env ?? process.env,
       wranglerDeploy: options.wranglerDeploy,
+      resolveBin: options.resolveBin,
+      run: options.run,
     });
     printJson(result);
     return EXIT_CODES.success;
@@ -25,6 +27,7 @@ export async function main(args = process.argv.slice(2), options = {}) {
     );
     if (error.code === 'help_site_stale') return EXIT_CODES.stateMismatch;
     if (error.code === 'help_site_execute_refused') return EXIT_CODES.usage;
+    if (error.code === 'help_site_wrangler_missing') return EXIT_CODES.missingTool;
     return EXIT_CODES.commandFailed;
   }
 }

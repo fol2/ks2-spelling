@@ -34,8 +34,10 @@ and is not retained or used to contact or profile anyone.
 ## Retention and control
 
 A Parent can reset one learner's learning or delete that learner in the Parent
-area. Nothing is retained off the device. Deleting the application removes
-its remaining application-controlled local data.
+area. We retain nothing. The family's iCloud holds the replica of learner
+profiles and learner snapshots under Apple's terms. Deleting the application
+removes its remaining application-controlled local data. Deleting the
+application does not delete iCloud copies.
 
 ## Publication contact
 

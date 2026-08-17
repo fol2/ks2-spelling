@@ -29,7 +29,33 @@ are not learner-owned and are therefore not removed by a learner reset or
 deletion.
 
 v1 does not export or import a learning file. Cross-device learning on Apple
-devices is the post-listing iCloud learning replica.
+devices is the iCloud learning replica.
+
+## iCloud learning replica
+
+Local SQLite remains the source of truth. On iOS, learner profiles and learner
+snapshots are also replicated to the family's CloudKit private database
+(`iCloud.uk.eugnel.ks2spelling`) through an app-owned plugin. Selected learner,
+Parent PIN, store entitlements and pack-install stay device-local.
+
+Apply is gated on this device's store entitlement. A never-entitled device that
+receives a Full snapshot stays on Starter and parks the Full history under
+`preserved-full-learning-v1:{learnerId}`. Conflicts merge progress, guardian,
+monster and camp per item; prefs and an in-flight practice session are
+last-writer-wins. No iCloud account means local-only, with no child-facing
+sign-in nag. Android stays local-only with a no-op port.
+
+### Owner two-device acceptance — open gate
+
+Physical proof is owner-gated and was not run in the implementation session.
+Accept on a paired iPhone and iPad signed into the same Apple ID:
+
+1. Entitled device A practises, then device B on the same account shows the
+   merged progress without raising a never-entitled device onto Full.
+2. A never-entitled device that receives a Full replica stays on Starter and
+   still has the parked Full history after a later purchase.
+3. Signing out of iCloud leaves the app usable locally and does not show a
+   child-facing sign-in nag.
 
 ## Device storage policy
 

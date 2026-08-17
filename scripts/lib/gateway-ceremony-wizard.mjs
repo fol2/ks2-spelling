@@ -58,6 +58,8 @@ export function ceremonyExitCode(error) {
     case 'gateway_ceremony_keyring_not_ready':
     case 'gateway_ceremony_dir_invalid':
     case 'gateway_ceremony_secret_gate_failed':
+    case 'gateway_ceremony_scope_missing':
+    case 'gateway_ceremony_secret_derivation_failed':
       return EXIT_CODES.stateMismatch;
     default:
       return EXIT_CODES.commandFailed;

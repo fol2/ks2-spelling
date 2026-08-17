@@ -209,7 +209,7 @@ test('sterile child environment removes unrelated credentials and process env in
     NO_COLOR: '1',
     CLOUDFLARE_ACCOUNT_ID: ACCOUNT_ID,
     CLOUDFLARE_AUTH_USE_KEYRING: 'false',
-    CLOUDFLARE_SEND_METRICS: 'false',
+    WRANGLER_SEND_METRICS: 'false',
     CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false',
     CLOUDFLARE_INCLUDE_PROCESS_ENV: 'false',
     WRANGLER_HIDE_BANNER: 'true',
@@ -1308,7 +1308,7 @@ test('default primitives use pinned dry-run, no-bundle deploy and closed child d
     childDocuments.push(structuredClone(document));
     assert.deepEqual(Object.keys(context.env).sort(), [
       'CI', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_AUTH_USE_KEYRING', 'CLOUDFLARE_INCLUDE_PROCESS_ENV',
-      'CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV', 'CLOUDFLARE_SEND_METRICS',
+      'CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV', 'WRANGLER_SEND_METRICS',
       'HOME', 'NO_COLOR', 'PATH', 'TMPDIR', 'WRANGLER_HIDE_BANNER',
     ].sort());
     assert.equal(context.env.CLOUDFLARE_AUTH_USE_KEYRING, 'false');

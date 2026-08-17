@@ -113,7 +113,9 @@ export function createB3SterileCloudflareEnvironment(parentEnv, { accountId }) {
     NO_COLOR: '1',
     CLOUDFLARE_ACCOUNT_ID: ACCOUNT_ID,
     CLOUDFLARE_AUTH_USE_KEYRING: 'false',
-    CLOUDFLARE_SEND_METRICS: 'false',
+    // Wrangler's documented telemetry opt-out; the CLOUDFLARE_SEND_METRICS
+    // name shipped here previously appears nowhere in the pinned bundle (#156).
+    WRANGLER_SEND_METRICS: 'false',
     CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false',
     CLOUDFLARE_INCLUDE_PROCESS_ENV: 'false',
     WRANGLER_HIDE_BANNER: 'true',

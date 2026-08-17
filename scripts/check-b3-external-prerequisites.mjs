@@ -877,7 +877,7 @@ export async function runOAuthSafeWrangler(
     TMPDIR: env.TMPDIR,
     CI: '1',
     NO_COLOR: '1',
-    CLOUDFLARE_SEND_METRICS: 'false',
+    WRANGLER_SEND_METRICS: 'false',
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1',
     CLOUDFLARE_AUTH_USE_KEYRING: 'false',
     CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false',

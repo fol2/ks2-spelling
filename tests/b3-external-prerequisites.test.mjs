@@ -1490,6 +1490,10 @@ test('OAuth-safe Wrangler spawn is local, non-interactive and strips token/value
   assert.equal(invocation.options.env.CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV, 'false');
   assert.equal(invocation.options.env.CLOUDFLARE_INCLUDE_PROCESS_ENV, 'false');
   assert.equal(invocation.options.env.WRANGLER_HIDE_BANNER, 'true');
+  // #156: WRANGLER_SEND_METRICS is the documented telemetry opt-out; the
+  // CLOUDFLARE_SEND_METRICS name appears nowhere in the pinned bundle.
+  assert.equal(invocation.options.env.WRANGLER_SEND_METRICS, 'false');
+  assert.equal(invocation.options.env.CLOUDFLARE_SEND_METRICS, undefined);
   assert.equal(
     invocation.options.env.CLOUDFLARE_ACCOUNT_ID,
     '1234567890abcdef1234567890abcdef',

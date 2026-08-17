@@ -266,6 +266,43 @@ final class C5ProductLayoutTests: XCTestCase {
         add(attachment)
     }
 
+    /// First activation after install-over must paint a product surface.
+    /// Terminate-and-relaunch hides the hang (issue 185), so this probe must
+    /// not terminate. It uses activate() against the already-installed app.
+    private func waitForFirstProductSurface(
+        in application: XCUIApplication,
+        timeout: TimeInterval = 12
+    ) -> Bool {
+        let predicate = NSPredicate { object, _ in
+            guard let app = object as? XCUIApplication else { return false }
+            return app.staticTexts["Getting ready"].exists
+                || app.staticTexts["Who is practising?"].exists
+                || app.buttons["Set off"].exists
+                || app.buttons["Add a learner"].exists
+        }
+        let expectation = XCTNSPredicateExpectation(
+            predicate: predicate,
+            object: application
+        )
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    func testProductFirstActivationPaintsContent() {
+        continueAfterFailure = false
+
+        let application = installedApplication()
+        application.activate()
+        XCTAssertTrue(
+            application.wait(for: .runningForeground, timeout: 15),
+            "The installed product did not reach the foreground."
+        )
+        XCTAssertTrue(
+            waitForFirstProductSurface(in: application),
+            "First activation painted no product surface — a black WKWebView is a hard stop."
+        )
+        attachScreenshot(name: "c5-product-first-activation")
+    }
+
     func testProductLargeTextProfilePicker() {
         continueAfterFailure = false
 

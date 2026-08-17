@@ -26,6 +26,7 @@ would be misleading.** The ratified extensions are:
 | `ios_text_input` | `integration-issues/dictation-software-keyboard-ios27-incident.md` | The nearest stock value is `frontend_stimulus`, which names a framework this project does not use and says nothing about native text input |
 | `database_adapter` | `integration-issues/capacitor-sqlite-value-less-dml-executes-as-a-no-op.md` | `database` cannot distinguish the platform adapter from the store and schema layers, and the adapter is precisely what the record is about |
 | `controller` | `logic-errors/test-doubles-that-accept-more-than-the-contract.md` | The record concerns two app-side controller modules; `service_object` blurs the layer |
+| `ios_webview` | `integration-issues/capacitor-uncommitted-webview-reload-paints-black.md` | The nearest stock value is `frontend_stimulus`; this record is the native WKWebView host, not a JavaScript controller |
 
 Two rules follow from that decision:
 

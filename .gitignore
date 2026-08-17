@@ -1,6 +1,8 @@
 # JavaScript outputs
 node_modules/
 gateway/.wrangler-dry-run/
+site/.wrangler/
+site/.wrangler-dry-run/
 dist/
 coverage/
 .vite/

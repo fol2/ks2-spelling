@@ -1,0 +1,16 @@
+{
+  "name": "ks2-spelling-help",
+  "compatibility_date": "2026-08-17",
+  "workers_dev": false,
+  "assets": {
+    "directory": "./public",
+    "html_handling": "drop-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    {
+      "pattern": "help.eugnel.uk",
+      "custom_domain": true
+    }
+  ]
+}

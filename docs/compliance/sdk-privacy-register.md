@@ -188,26 +188,13 @@ the in-process result as unobservable and does not promote the later host
 observation to a physical-device claim. The physical branch continues to
 require Complete protection.
 
-Parent-controlled learning backup is explicit rather than automatic. A backup
-is canonical JSON bounded to 5 MiB and 20 learners. It contains only learner
-profiles, the selected learner and validated spelling snapshots. It excludes
-the Parent credential record, commerce state, download jobs and installed
-packs. Import verifies the native file hash and complete application contract
-before one SQLite transaction replaces learner state; cancellation, invalid
-input or an interrupted write cannot partially replace it. The system document
-picker and share sheet are exposed by one bounded app-owned bridge. No
-third-party Capacitor filesystem package or storage permission is added.
-Exported copies are controlled by the Parent and are outside later in-app
-deletion.
-
 ## C5 product privacy transition
 
 The product Parent area now carries local privacy and retention copy. Learner
 nicknames, year groups, goals, answers, progress, active practice, Inklet and
 Camp state remain in the local SQLite authority. Parent PINs remain represented
 only by a salted verifier, and platform biometrics do not expose biometric data
-to the application. Parent-controlled backup is the only route by which
-learning data leaves the application's local storage.
+to the application. Learning data does not leave the device in v1.
 
 The product contains no configured advertising, analytics or tracking service
 and creates no child account. Learner or spelling data is not supplied to

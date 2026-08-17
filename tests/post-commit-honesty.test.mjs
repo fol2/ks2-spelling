@@ -83,7 +83,6 @@ async function createHarness(t) {
   const databasePath = join(directory, 'product.sqlite');
   const connections = createArmableConnectionFactory(databasePath);
   let learnerSequence = 0;
-  let backupImport = Object.freeze({ cancelled: true });
   const services = await createProductAppServices({
     connectionFactory: connections.createConnection,
     lifecycle: createLifecycle(),
@@ -101,19 +100,6 @@ async function createHarness(t) {
       },
       async authenticate() {
         throw new Error('Biometrics are unavailable in this test.');
-      },
-    }),
-    learningBackupFiles: Object.freeze({
-      async presentExport({ bytesBase64, sha256 }) {
-        backupImport = Object.freeze({
-          cancelled: false,
-          bytesBase64,
-          sha256,
-        });
-        return Object.freeze({ presented: true });
-      },
-      async pickImport() {
-        return backupImport;
       },
     }),
     localDataProtection: Object.freeze({
@@ -145,63 +131,6 @@ async function createHarness(t) {
     services,
   });
 }
-
-async function prepareImportReplacement(services) {
-  const imported = await services.controller.createProfile(
-    profileDraft('Imported'),
-  );
-  await services.parentBackup.exportBackup();
-  await services.controller.removeProfile(imported.learnerId);
-  await services.controller.createProfile(profileDraft('Before'));
-  await services.parentProgress.refresh();
-}
-
-test('an import stamps a post-commit epilogue failure without rolling back', async (t) => {
-  const harness = await createHarness(t);
-  await prepareImportReplacement(harness.services);
-  // The epilogue's first durable read is the catalogue alignment that follows
-  // every import: the imported aggregates may sit on the other side of the
-  // entitlement switch from the ones they replaced.
-  harness.failNextQueryMatching(
-    /^SELECT learner_id, catalogue_id FROM spelling_aggregates ORDER BY learner_id$/u,
-  );
-
-  await assert.rejects(
-    harness.services.parentBackup.importBackup(),
-    (error) => {
-      assert.equal(error.postCommit, true);
-      return true;
-    },
-  );
-  assert.deepEqual(
-    await queryDatabase(
-      harness.databasePath,
-      'SELECT nickname FROM learner_profiles ORDER BY nickname',
-    ),
-    [{ nickname: 'Imported' }],
-  );
-});
-
-test('an import failure before commit rolls back without a post-commit marker', async (t) => {
-  const harness = await createHarness(t);
-  await prepareImportReplacement(harness.services);
-  harness.failNextQueryMatching(/^INSERT INTO learner_profiles \(/u);
-
-  await assert.rejects(
-    harness.services.parentBackup.importBackup(),
-    (error) => {
-      assert.equal(error.postCommit, undefined);
-      return true;
-    },
-  );
-  assert.deepEqual(
-    await queryDatabase(
-      harness.databasePath,
-      'SELECT nickname FROM learner_profiles ORDER BY nickname',
-    ),
-    [{ nickname: 'Before' }],
-  );
-});
 
 test('a reset stamps a post-commit learner reload failure after resetting data', async (t) => {
   const harness = await createHarness(t);
@@ -331,9 +260,6 @@ test('the UI contains truthful post-commit failure copy', async () => {
     new URL('../src/app/ProductApp.jsx', import.meta.url),
     'utf8',
   );
-  assert.ok(source.includes(
-    'The backup was imported, but this screen could not refresh. Close and reopen the app.',
-  ));
   assert.ok(source.includes(
     'That learning was reset, but the app could not refresh the view. Close and reopen the app.',
   ));

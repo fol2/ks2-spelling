@@ -33,9 +33,6 @@ import {
   createSQLiteRoundBaselineStore,
 } from '../platform/database/sqlite-round-baseline-store.js';
 import {
-  createSQLiteLearningBackupRepository,
-} from '../platform/database/sqlite-learning-backup-repository.js';
-import {
   createSQLiteSoundPrefsStore,
 } from '../platform/database/sqlite-sound-prefs-store.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
@@ -52,12 +49,6 @@ import {
 import {
   LocalDataProtectionPlugin,
 } from '../platform/security/capacitor-local-data-protection-plugin.js';
-import {
-  createCapacitorLearningBackupFiles,
-} from '../platform/backup/capacitor-learning-backup-files.js';
-import {
-  LearningBackupFilePlugin,
-} from '../platform/backup/capacitor-learning-backup-file-plugin.js';
 import {
   createSqlitePackRepositories,
 } from '../platform/database/sqlite-pack-repositories.js';
@@ -88,7 +79,6 @@ import {
 // never buys. Move this module behind a dynamic import chunk if startup cost
 // ever shows up on the low-end device budget.
 import { createFullProductAudioPlayer } from './full-product-audio.js';
-import { createParentBackupService } from './parent-backup-service.js';
 import {
   createParentCommerceController,
 } from './parent-commerce-controller.js';
@@ -255,8 +245,8 @@ export async function createProductAppServices(options = {}) {
   const gate = createDatabaseCommandGate();
   // Starter is the floor, not the ceiling: an entitled device with all 15
   // shards installed practises the full KS2 catalogue (E2.7b), chosen below
-  // from the commerce snapshot. Both stay registered so stored aggregates and
-  // backups on either side of the switch can be decoded.
+  // from the commerce snapshot. Both stay registered so stored aggregates on
+  // either side of the switch can be decoded.
   const starterCatalogue = loadStarterSpellingCatalogue();
   const fullCatalogue = await loadFullSpellingCatalogue();
   const cataloguesById = Object.freeze({
@@ -275,7 +265,6 @@ export async function createProductAppServices(options = {}) {
   let audioAvailability = null;
   let sfx = null;
   let parent = null;
-  let parentBackup = null;
   let parentCommerce = null;
   let parentProgress = null;
   let dataPolicy = null;
@@ -369,7 +358,7 @@ export async function createProductAppServices(options = {}) {
       options.commerceStartTimeoutMs ?? COMMERCE_START_TIMEOUT_MS,
     );
     const commerceState = parentCommerce.getState();
-    const alignCatalogueLearning = (store, extras = {}) =>
+    const alignCatalogueLearning = (store) =>
       store.administration.alignCatalogueLearning({
         entitled: isFullProductEntitled(commerceState),
         earned: hasEarnedFullProduct(commerceState),
@@ -378,7 +367,6 @@ export async function createProductAppServices(options = {}) {
           cataloguesById,
         }),
         readSnapshot: (learnerId) => snapshotStore.read(learnerId),
-        ...extras,
       });
     // A profile store seeds newly created learners with its initialCatalogueId,
     // so the aligned catalogue must be known before the store the app keeps is
@@ -500,40 +488,6 @@ export async function createProductAppServices(options = {}) {
         return true;
       },
     });
-    const learningBackupRepository = createSQLiteLearningBackupRepository({
-      connection,
-      gate,
-      cataloguesById,
-      now,
-    });
-    const learningBackupFiles = options.learningBackupFiles ??
-      createCapacitorLearningBackupFiles({
-        LearningBackupFile: LearningBackupFilePlugin,
-      });
-    parentBackup = createParentBackupService({
-      repository: learningBackupRepository,
-      files: learningBackupFiles,
-      afterImport: async () => {
-        await runPostCommit(async () => {
-          // An import can replace every aggregate with one taken on the other
-          // side of the switch. The same alignment runs here, with imported
-          // full-catalogue state parked rather than composed unless this
-          // device has already earned the product (Gap 5).
-          const importedCatalogueId = await alignCatalogueLearning(profileStore, {
-            preserveUnentitledFull: true,
-          });
-          if (importedCatalogueId !== catalogue.catalogueId) {
-            throw new Error('product_catalogue_changed_by_import');
-          }
-          await controller.reload();
-        });
-        // The progress summary is auxiliary and carries its own notice when a
-        // refresh fails; a committed import must not be reported as failed
-        // because of it.
-        await parentProgress.refresh().catch(() => undefined);
-      },
-      now,
-    });
     const soundPrefsStore = createSQLiteSoundPrefsStore({
       connection,
       gate,
@@ -575,7 +529,6 @@ export async function createProductAppServices(options = {}) {
       parentProgress,
       parentCommerce,
       parentAdministration,
-      parentBackup,
       dispose() {
         disposePromise ??= disposeAll([
           () => parentCommerce.dispose(),

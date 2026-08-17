@@ -33,7 +33,7 @@ test('the committed privacy notice is the closed markdown subset the in-app rend
   const markdown = await readNotice();
   const notice = parsePrivacyNotice(markdown);
   assert.equal(notice.title, 'KS2 Spelling privacy notice');
-  assert.equal(notice.effectiveDate, '14 August 2026');
+  assert.equal(notice.effectiveDate, '17 August 2026');
   assert.equal(notice.sections.length, 4);
   assert.deepEqual(
     notice.sections.map((section) => section.heading),
@@ -55,6 +55,7 @@ test('COPPA 312.10 retention is stated: nothing off-device, and deleting the app
   const text = retention.paragraphs.join(' ');
   assert.match(text, /Nothing is retained off the device\./);
   assert.match(text, /Deleting the application removes\s+its remaining application-controlled\s+local data\./);
+  assert.doesNotMatch(text, /backup copies previously exported elsewhere/);
 });
 
 test('COPPA 312.4(d)(3) internal operations: the transiting IP is disclosed, purpose-limited, and not retained', async () => {
@@ -67,11 +68,13 @@ test('COPPA 312.4(d)(3) internal operations: the transiting IP is disclosed, pur
   assert.match(
     text,
     /An IP address necessarily reaches the entitlement gateway to service a purchase-verification or download request\./,
+    'the transiting IP must be disclosed',
   );
   assert.match(
     text,
     /It is used only for that purpose and is not retained or used to contact or profile anyone\./,
   );
+  assert.doesNotMatch(text, /A Parent may explicitly export a learning backup/);
 });
 
 test('the privacy-notice parser refuses links, HTML, lists and headings it cannot render', () => {

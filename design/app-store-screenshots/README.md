@@ -67,7 +67,7 @@ early companion stages:
 
 - `Learn from every try` — truthful positive and corrective spelling feedback.
 - `See every step forward` — internally consistent round results and returning words.
-- `Grown-ups stay in control` — local learner profiles, progress and backups.
+- `Grown-ups stay in control` — local learner profiles and progress.
 
 The approved source compositions remain in `third-set/concepts/` and
 `third-set/ipad-concepts/`. Exact duplicate exports were removed after the

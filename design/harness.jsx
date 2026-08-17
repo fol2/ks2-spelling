@@ -518,10 +518,6 @@ function makeServices(query) {
       async recover() {}, async dispose() {},
     },
     parentAdministration: { async resetLearning() {} },
-    parentBackup: {
-      async exportBackup() { return { presented: true }; },
-      async importBackup() { return { cancelled: true }; },
-    },
     audio: { async play() {} },
     haptics: {
       answerCorrect() {},

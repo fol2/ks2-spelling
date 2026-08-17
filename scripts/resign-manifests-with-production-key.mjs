@@ -137,7 +137,6 @@ async function signManifest(
  * alternative sourcing during the ceremony.
  */
 async function findArchive(archiveName, archiveSha256) {
-  const { execFileSync } = await import('node:child_process');
   const nativeBuildPath = resolve(ROOT, '.native-build/packs');
 
   // Try local first
@@ -148,8 +147,8 @@ async function findArchive(archiveName, archiveSha256) {
       fail(`local archive ${archiveName} has wrong SHA256: expected ${archiveSha256}, got ${sha}`);
     }
     return localBytes;
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
+  } catch (_error) {
+    // Archive not found locally; caller handles gracefully
   }
 
   // The shard archives are large (29-32 MB each) and stored only in production R2.
@@ -157,19 +156,10 @@ async function findArchive(archiveName, archiveSha256) {
   // production bucket, not the sandbox bucket. The ceremony directory must be
   // staged with archives provided separately (e.g., from prior production builds
   // or R2 production bucket download by the owner).
-  fail(`archive ${archiveName} not found in .native-build/packs/. `
-    + `The 15 shard archives (total ~450 MB) must be sourced separately and staged `
-    + `at ${resolve(ceremonyOutputDir, `packs/<packId>/${shard.version}/${archiveName}`)} `
-    + `before running validateCeremonyDirectory. They are available in the production R2 bucket.`);
+  throw new Error(`archive ${archiveName} not found in .native-build/packs/. `
+    + `The 15 shard archives (total ~450 MB) must be sourced separately and staged into the ceremony directory.`);
 }
 
-/**
- * Load downloadable pack authorities for archive verification.
- */
-async function loadPackAuthorities() {
-  const authPath = resolve(ROOT, 'config/downloadable-pack-authorities.json');
-  return readJson(authPath);
-}
 
 async function main() {
   const privateKeyPath = await ensureEnv('CEREMONY_PRIVATE_KEY_PATH');
@@ -182,9 +172,6 @@ async function main() {
   // Load shards to sign
   const shards = await loadShardsToSign();
   console.log(`✓ Loaded ${shards.length} shards to re-sign with key ${keyId}`);
-
-  // Load pack authorities for archive verification
-  const authorities = await loadPackAuthorities();
 
   // Create ceremony directory structure and sign manifests
   await mkdir(ceremonyOutputDir, { recursive: true });

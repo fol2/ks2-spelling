@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { parseJsonWithoutDuplicateMembers } from '../../src/domain/packs/signed-manifest-contract.js';
+import { B3_SANDBOX_REQUIRED_SECRET_NAMES } from './gateway-required-secret-names.mjs';
 
 export const B3_SCRIPT_AUTHORITY_PLACEHOLDER = '0'.repeat(64);
 export const B3_CLOUDFLARE_SCOPE = 'cloudflare-deploy';
@@ -31,11 +32,7 @@ const DEVICE_SMOKE_KEYS = Object.freeze([
   'schemaVersion', 'deploymentVersionId', 'scriptAuthoritySha256',
   'signedEnvelopeSha256', 'objects', 'capability', 'range',
 ]);
-const REQUIRED_SECRET_NAMES = Object.freeze([
-  'APPLE_IAP_ISSUER_ID', 'APPLE_IAP_KEY_ID', 'APPLE_IAP_PRIVATE_KEY',
-  'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', 'ENTITLEMENT_HANDLE_KEY_CURRENT',
-  'ENTITLEMENT_HANDLE_KEY_PREVIOUS', 'R2_CAPABILITY_HMAC_KEY',
-]);
+const REQUIRED_SECRET_NAMES = B3_SANDBOX_REQUIRED_SECRET_NAMES;
 
 function cloudflareError(message) {
   const error = new Error(message);
@@ -426,11 +423,7 @@ export async function orchestrateB3CloudflareDeployment({
     compatibilityDate: '2026-07-12',
     compatibilityFlags: ['nodejs_compat'],
     bindings: { r2: 'PACKS', rateLimit: 'GATEWAY_RATE_LIMIT', versionMetadata: 'WORKER_VERSION_METADATA' },
-    requiredSecretNames: [
-      'APPLE_IAP_ISSUER_ID', 'APPLE_IAP_KEY_ID', 'APPLE_IAP_PRIVATE_KEY',
-      'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', 'ENTITLEMENT_HANDLE_KEY_CURRENT',
-      'ENTITLEMENT_HANDLE_KEY_PREVIOUS', 'R2_CAPABILITY_HMAC_KEY',
-    ],
+    requiredSecretNames: [...REQUIRED_SECRET_NAMES],
     bucketPrivate: true,
     r2DevPublicAccess: false,
     customDomains: [],

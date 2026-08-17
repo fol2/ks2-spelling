@@ -86,6 +86,11 @@ cd ../ks2-spelling-<slice> && npm ci        # never symlink node_modules —
     config in `scripts/lib/b3-cloudflare-oauth-child.mjs`, and the pin in
     `tests/b3-cloudflare-live-adapter.slow.test.mjs` (found the hard way in
     PR #134);
+  - the gateway required-secret sets: sandbox B3 evidence keeps the historical
+    seven names (`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` included); the iOS
+    production Worker required set is exactly the six iOS names. Both live in
+    `scripts/lib/gateway-required-secret-names.mjs`. The four B3 sites plus the
+    production matcher move together;
   - registry/catalogue invariant: every packId in `config/store-products.json`
     must be inside an approved key's `allowedPackIds`, and every joined packId
     must resolve to a registry row bound to the same entitlement.

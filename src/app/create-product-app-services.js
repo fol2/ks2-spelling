@@ -87,6 +87,10 @@ import {
 } from './parent-progress-controller.js';
 import { createParentSecurityController } from './parent-security-controller.js';
 import { createProductAudioPlayer } from './product-audio-player.js';
+import { applyReplicaSnapshot } from '../domain/sync/apply-learning-replica.js';
+import { startICloudLearningReplica } from './icloud-learning-replica-controller.js';
+import { createCapacitorICloudLearningReplica } from '../platform/sync/capacitor-icloud-learning-replica.js';
+import { ICloudLearningReplicaPlugin } from '../platform/sync/capacitor-icloud-learning-replica-plugin.js';
 import { createProductLearningController } from './product-learning-controller.js';
 import { createProductProfileController } from './product-profile-controller.js';
 import {
@@ -182,11 +186,24 @@ async function runPostCommit(work) {
   }
 }
 
-function linkProfileAndLearningControllers(profileController, learningController) {
+function linkProfileAndLearningControllers(
+  profileController,
+  learningController,
+  afterLearnerWrite,
+) {
   async function alignSelectedLearner() {
     await learningController.selectLearner(
       profileController.getState().selectedLearnerId,
     );
+  }
+
+  async function publishWritten(profile) {
+    if (typeof afterLearnerWrite === 'function' && profile?.learnerId) {
+      const result = afterLearnerWrite(profile.learnerId);
+      if (result && typeof result.catch === 'function') {
+        await result.catch(() => undefined);
+      }
+    }
   }
 
   return Object.freeze({
@@ -196,9 +213,14 @@ function linkProfileAndLearningControllers(profileController, learningController
       const profile = await profileController.createProfile(draft);
       // The profile is committed, and creation does not change the selection.
       await alignSelectedLearner().catch(() => undefined);
+      await publishWritten(profile);
       return profile;
     },
-    editProfile: (draft) => profileController.editProfile(draft),
+    async editProfile(draft) {
+      const profile = await profileController.editProfile(draft);
+      await publishWritten(profile);
+      return profile;
+    },
     async selectProfile(learnerId) {
       const selected = await profileController.selectProfile(learnerId);
       // Swallowing would close the switch sheet on the wrong learner.
@@ -268,6 +290,8 @@ export async function createProductAppServices(options = {}) {
   let parentCommerce = null;
   let parentProgress = null;
   let dataPolicy = null;
+  let learningReplica = null;
+  const replicaHandle = { current: null };
 
   try {
     const initialDataProtection = await localDataProtection.applyPolicy({
@@ -420,6 +444,7 @@ export async function createProductAppServices(options = {}) {
     controller = linkProfileAndLearningControllers(
       profileController,
       learning,
+      (learnerId) => replicaHandle.current?.publishLearner(learnerId),
     );
     const parentRepository = createSQLiteParentSecurityRepository({
       connection,
@@ -476,6 +501,38 @@ export async function createProductAppServices(options = {}) {
       now,
     });
     void parentProgress.refresh().catch(() => undefined);
+    let replicaPort = options.learningReplica ?? null;
+    if (!replicaPort && options.runtime?.isNativePlatform === true) {
+      try {
+        replicaPort = createCapacitorICloudLearningReplica({
+          ICloudLearningReplica: ICloudLearningReplicaPlugin,
+        });
+      } catch {
+        replicaPort = null;
+      }
+    }
+    if (replicaPort) {
+      const entitled = isFullProductEntitled(commerceState);
+      const earned = hasEarnedFullProduct(commerceState);
+      learningReplica = await startICloudLearningReplica({
+        replica: replicaPort,
+        listProfiles: () => profileStore.profiles.listProfiles(),
+        readSnapshot: (learnerId) => snapshotStore.read(learnerId),
+        writeProfile: (profile) => profileStore.profiles.writeProfile(profile),
+        async applyIncoming({ localSnapshot, remoteSnapshot }) {
+          const result = applyReplicaSnapshot({
+            localSnapshot,
+            remoteSnapshot,
+            entitled,
+            earned,
+          });
+          await profileStore.administration.applyReplicaResult(result);
+        },
+        entitled,
+        earned,
+      });
+      replicaHandle.current = learningReplica;
+    }
     const parentAdministration = Object.freeze({
       async resetLearning(learnerId) {
         await profileStore.administration.resetLearning(learnerId);
@@ -539,6 +596,7 @@ export async function createProductAppServices(options = {}) {
           () => audioAvailability.dispose(),
           () => learning.dispose(),
           () => controller.dispose(),
+          learningReplica && (() => learningReplica.dispose()),
           () => coordinator.dispose(),
           () => lifecycle.dispose(),
           () => connection.close(),
@@ -557,6 +615,7 @@ export async function createProductAppServices(options = {}) {
         audioAvailability && (() => audioAvailability.dispose()),
         learning && (() => learning.dispose()),
         controller && (() => controller.dispose()),
+        learningReplica && (() => learningReplica.dispose()),
         coordinator && (() => coordinator.dispose()),
         lifecycle && (() => lifecycle.dispose()),
         () => connection.close(),

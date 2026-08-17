@@ -13,6 +13,8 @@
  *   ?empty                    empty learner / empty roster
  *   ?audio=…                  audioAvailability status
  *   ?parent=…                 parent lock status
+ *   ?open=parent              click For parents after mount (screenshot capture)
+ *   ?capture=parent-listing   hide admin/commerce cards for screenshot 9
  *   ?commerce=owned|installed Parent commerce: bought and waiting to download
  *                             (press Download pack to walk the 15-shard
  *                             install meter), or installed and offering the
@@ -555,6 +557,30 @@ function Harness() {
         pill?.click();
       };
       requestAnimationFrame(() => requestAnimationFrame(pickBand));
+    }
+    // Parent area is presentation state, not a learning screen, so the
+    // deep link clicks the same For parents control a grown-up uses.
+    if (query.get('open') === 'parent') {
+      const openParent = () => {
+        const button = [...document.querySelectorAll('button')]
+          .find((candidate) => candidate.textContent === 'For parents');
+        button?.click();
+      };
+      requestAnimationFrame(() => requestAnimationFrame(openParent));
+    }
+    // Listing screenshot 9: keep heading, progress and the privacy preamble.
+    // Hide admin/commerce cards so the capture cannot show a price or
+    // delete-learner controls.
+    if (query.get('capture') === 'parent-listing') {
+      const style = document.createElement('style');
+      style.textContent = `
+        [aria-labelledby="manage-learners-title"],
+        [aria-labelledby="parent-security-title"],
+        [aria-labelledby="parent-commerce-title"],
+        .privacy-notice-section,
+        .parent-card details { display: none !important; }
+      `;
+      document.head.appendChild(style);
     }
   }, [services]);
   return <ProductApp services={services} />;

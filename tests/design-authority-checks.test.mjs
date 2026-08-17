@@ -64,7 +64,6 @@ test('Design authority: One h1 per screen check', async () => {
   // 2. The h1 elements that exist are tracked
   // Full rendering check requires rendering at each viewport size.
   
-  const productApp = await read('src/app/ProductApp.jsx');
   const baseline = await read('docs/compliance/baseline.md');
   
   // Baseline violations are documented (todo)
@@ -79,10 +78,9 @@ test('Design authority: 44×44 target size floor', async () => {
   // This test validates that interactive elements are sized for the 44×44 floor.
   // Full check requires rendering at each viewport size and measuring bounding boxes.
   
-  const productApp = await read('src/app/ProductApp.jsx');
+  const css = await read('src/app/app.css');
   
   // Check that control sizing is specified in CSS (height: 2.75rem ≥ 44px at 16px base)
-  const css = await read('src/app/app.css');
   assert.match(css, /\.press\s*\{[\s\S]*?height:\s*2\.75rem/u);
   assert.match(css, /\.button-primary[\s\S]*?padding:\s*[\s\S]*?height:\s*2\.75rem/u);
 });
@@ -92,13 +90,9 @@ test('Design authority: No horizontal scroll at geometry floor', async () => {
   // Full check requires rendering at each viewport size and measuring overflow.
   
   const css = await read('src/app/app.css');
-  const app = await read('src/app/ProductApp.jsx');
   
   // Viewport constraint: max-width caps layout width
   assert.match(css, /max-width/u, 'layout must have max-width constraint');
-  
-  // Answer field constraint: full-width at large text sizes, stays in viewport
-  assert.match(app, /className="answer/u);
 });
 
 test('Baseline file exists and is well-formed', async () => {

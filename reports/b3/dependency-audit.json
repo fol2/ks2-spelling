@@ -5,14 +5,14 @@
     "packageLockSha256": "e81135d770dbfb088bd3b81a720146440ac8096ca22ed45c4150fb3349f85f30",
     "spmResolvedVersion": 3,
     "nativePluginBuildSha256": "a72e95958e287be21f34588a167f12fd59058ab003dfe3f559b3ba244988a6f9",
-    "webViewBundleEvidenceSha256": "ab54382f08669be7df1c0017759ce9f28e6c5ba9348b146aaf93b22542fdf4e4"
+    "webViewBundleEvidenceSha256": "a3249a0567a43d446489716d67fea61e1318d2310d66aa5cbad6ae979069f041"
   },
   "npm": {
     "lockfileVersion": 3,
     "lockPackageCount": 192,
     "webViewBundle": {
       "mode": "vite-rollup-write-false",
-      "moduleCount": 230,
+      "moduleCount": 231,
       "packageNames": [
         "@capacitor-community/sqlite",
         "@capacitor/app",
@@ -602,7 +602,7 @@
           "id": "src/app/ProductApp.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "1462311612d2882ff3548866a82b393ca77a2d334dad6d4485679963719621e8"
+          "sha256": "bb6c10fadec8941297c75f9381b3ff710818c5f04cb7dc363fc2ca3bdf762ecf"
         },
         {
           "id": "src/app/ProductRoot.jsx",
@@ -824,7 +824,7 @@
           "id": "src/app/parent-security-controller.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "b4b93a76a97842c0d4d6fc7afd77e35eabca083fd7a29d9e13aca691c8467f13"
+          "sha256": "4915d163159e4b96ff43f9c5a2326d01d4bb3b4348939b4f3103af59a75337c0"
         },
         {
           "id": "src/app/practice-feel.js",
@@ -1256,7 +1256,13 @@
           "id": "src/platform/security/capacitor-parent-biometrics.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "64eddc842e7942113e38e00066e12d275fbb712bf19ff6f59aa07a6cd3ee7fae"
+          "sha256": "8d4c05eacd326c51db75c3f39c71aa008c3c76fc68f001994cdb4cc766d90a3f"
+        },
+        {
+          "id": "src/platform/security/capacitor-parent-device-authentication.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "b5149aa436b56db25f487c253711c452044878ad277a9d201aca52d3e160d15c"
         },
         {
           "id": "vendor/ks2-mastery/content/spelling.mobile-runtime-full.json",
@@ -1417,14 +1423,14 @@
       ],
       "outputInventory": [
         {
-          "fileName": "assets/celebration-scene-Czc735UX.js",
+          "fileName": "assets/celebration-scene-CEYufdpS.js",
           "kind": "chunk",
-          "sha256": "e63ba3a83a7de7b67696b16987fc8399192256d7f83cf0a298bb3d04750f8607"
+          "sha256": "b80306da8f6a952db9b9f7884ab716812bf4bac27db237d162d920a961ed6498"
         },
         {
-          "fileName": "assets/CelebrationStage-BZBaGXSq.js",
+          "fileName": "assets/CelebrationStage-Cq27mRwd.js",
           "kind": "chunk",
-          "sha256": "ee4fcb2801218df1271aeb4335a0572a2b5d1e173d847b7e05065e95ad23795b"
+          "sha256": "b50cdbad3ce32f46f6683d8ea41bc78c545d50bf8da6e730a1b85e1ba4ea7ee3"
         },
         {
           "fileName": "assets/fraunces-latin-variable-BOz5zopO.woff2",
@@ -1482,9 +1488,9 @@
           "sha256": "483852f9bb8a4df54b3f20e2ee2389f817796c1431857d71750373bb755ae84c"
         },
         {
-          "fileName": "assets/index-ytl0ELtc.js",
+          "fileName": "assets/index-CjXuVEz4.js",
           "kind": "chunk",
-          "sha256": "58070e2d67f548e40c8ddcacf9849647843bcf821fa092ed0e96870efda080f4"
+          "sha256": "49970d6193e233f383bc18fccfac8f9a6aa4a63fed776cc9cc06f8a9ab997071"
         },
         {
           "fileName": "assets/index-z4ndOpMD.css",
@@ -1547,19 +1553,19 @@
           "sha256": "c940764593d0fe5d596be327ca7558855e018039fb78509aa21921fd3644c3e4"
         },
         {
-          "fileName": "assets/monster-scene-CRrbYJ59.js",
+          "fileName": "assets/monster-scene-CHeKPVt_.js",
           "kind": "chunk",
-          "sha256": "a3772b8e12745f22273004da5a02316e7099fd719706ccfe0488c38028a99476"
+          "sha256": "69b03223d928209ef6eb2ba109a507ca29b1b0fc0eb92fda97284da84ef92edc"
         },
         {
-          "fileName": "assets/monster-stage-model-BvtPwjXe.js",
+          "fileName": "assets/monster-stage-model-BPqC3skM.js",
           "kind": "chunk",
-          "sha256": "b7630c257099489b0397204757bc3977e114e69110f76b853b75d0874688a182"
+          "sha256": "c6639ea0b40757bbef6af98af4e918df65202cadc90691718a037a0c772c04bd"
         },
         {
-          "fileName": "assets/MonsterStage-Byn3dXar.js",
+          "fileName": "assets/MonsterStage-DlbTmqX2.js",
           "kind": "chunk",
-          "sha256": "f05475d14859addb524870266287065b69540a2572d83b109b145f15dc453100"
+          "sha256": "dc0d994cd919f42e965c595cb43214e4c867a3e524192b60e613406593d68351"
         },
         {
           "fileName": "assets/phaeton-b1-0.640-BP21E3Yf.webp",
@@ -1747,24 +1753,24 @@
           "sha256": "e491d55dfcd0c3754f7569551f39ed93ef50f68129898531a7ee56c23561583c"
         },
         {
-          "fileName": "assets/web-7X_aujBq.js",
+          "fileName": "assets/web-7OILwRnA.js",
           "kind": "chunk",
-          "sha256": "e1de72404a7e0917832b6f360fb72687b2b396dd9128bbe57dc0d2990ee4c567"
+          "sha256": "dfc1c31ae50f0af296e4df70581336dbfcacb13ff1ce5cba1ec92d44e3f54bf7"
         },
         {
-          "fileName": "assets/web-DxE2kjyX.js",
+          "fileName": "assets/web-CFRjrIlq.js",
           "kind": "chunk",
-          "sha256": "ccd016c5c585ae2f764a742502abf0b4cddd8e33ebd2ffaa66a0f99407f51f3a"
+          "sha256": "73dfc58a29f83422d3f8056c3ea283df246770d284da66ff131310e51215c134"
         },
         {
-          "fileName": "assets/web-IGb8HYPg.js",
+          "fileName": "assets/web-tr7gy6zV.js",
           "kind": "chunk",
-          "sha256": "e1b461875f534509ea4a7a3caa7c59e76acb62e2d0dec26fe679dfc0f36f2651"
+          "sha256": "a1acdb42eafe3721d80c525e1e9c811790c90a82237bdf5020d469fb01086093"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "7d11b41a5582f25f80935466712470ec7e9b2c6778e8b849748b70647d04bbc9"
+          "sha256": "3c42b66ba2e7ad82edc6b7d2ffba09314a738a444b3be57024310987041edb3f"
         },
         {
           "fileName": "release-channel.json",
@@ -1772,7 +1778,7 @@
           "sha256": "60f9f62b83ac92e42bac81274405e3acc630fe6ecf50e9404c85728c35761891"
         }
       ],
-      "evidenceSha256": "ab54382f08669be7df1c0017759ce9f28e6c5ba9348b146aaf93b22542fdf4e4"
+      "evidenceSha256": "a3249a0567a43d446489716d67fea61e1318d2310d66aa5cbad6ae979069f041"
     },
     "allPackages": [
       {

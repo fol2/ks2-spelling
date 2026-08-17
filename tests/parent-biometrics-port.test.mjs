@@ -17,10 +17,21 @@ test('Parent biometric port exposes bounded availability and authentication', as
         calls.push(['authenticate', structuredClone(request)]);
         return { authenticated: true };
       },
+      async getDeviceOwnerAuthenticationAvailability() {
+        return { available: true };
+      },
+      async authenticateDeviceOwner() {
+        return { authenticated: true };
+      },
     },
   });
 
   assert.deepEqual(Object.keys(biometrics), [
+    'getAvailability',
+    'authenticate',
+    'deviceAuthentication',
+  ]);
+  assert.deepEqual(Object.keys(biometrics.deviceAuthentication), [
     'getAvailability',
     'authenticate',
   ]);
@@ -50,6 +61,12 @@ test('Parent biometric port rejects malformed native data and arbitrary requests
       async authenticateBiometric() {
         calls += 1;
         return { authenticated: false };
+      },
+      async getDeviceOwnerAuthenticationAvailability() {
+        return { available: true };
+      },
+      async authenticateDeviceOwner() {
+        return { authenticated: true };
       },
     },
   });

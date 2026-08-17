@@ -9,6 +9,8 @@ import {
 const MAXIMUM_FAILED_ATTEMPTS = 5;
 const LOCK_MILLISECONDS = 300_000;
 const BIOMETRIC_REASON = 'Open the KS2 Spelling Parent area';
+const PIN_SETUP_REASON = 'Confirm the device owner to save the Parent PIN';
+const PIN_RESET_REASON = 'Confirm the device owner to reset the Parent PIN';
 
 function controllerError(code) {
   const error = new Error(code);
@@ -30,7 +32,7 @@ function sampleNow(now) {
   return value;
 }
 
-function requireAvailability(value) {
+function requireBiometricAvailability(value) {
   if (
     !value ||
     typeof value !== 'object' ||
@@ -48,9 +50,37 @@ function requireAvailability(value) {
   });
 }
 
+function requireDeviceAuthenticationAvailability(value) {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Reflect.ownKeys(value).length !== 1 ||
+    typeof value.available !== 'boolean'
+  ) {
+    throw new TypeError(
+      'Parent device authentication availability is invalid.',
+    );
+  }
+  return Object.freeze({ available: value.available });
+}
+
+function requireAuthenticated(value, code) {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Reflect.ownKeys(value).length !== 1 ||
+    value.authenticated !== true
+  ) {
+    throw controllerError(code);
+  }
+  return value;
+}
+
 function stateFrom({
   status,
-  availability,
+  biometricAvailability,
   record,
   now,
   actionError = null,
@@ -60,7 +90,7 @@ function stateFrom({
   return Object.freeze({
     status,
     biometric: Object.freeze({
-      ...availability,
+      ...biometricAvailability,
       enabled: record?.biometricEnabled === true,
     }),
     attemptsRemaining: MAXIMUM_FAILED_ATTEMPTS - failedAttempts,
@@ -69,14 +99,18 @@ function stateFrom({
   });
 }
 
-function requirePinSetup(value) {
+function requirePinChange(value) {
+  const recovery = Object.hasOwn(value ?? {}, 'intent');
+  const expectedKeys = recovery
+    ? ['pin', 'confirmation', 'intent']
+    : ['pin', 'confirmation'];
   if (
     !value ||
     typeof value !== 'object' ||
     Array.isArray(value) ||
-    Reflect.ownKeys(value).length !== 2 ||
-    !Object.hasOwn(value, 'pin') ||
-    !Object.hasOwn(value, 'confirmation')
+    Reflect.ownKeys(value).length !== expectedKeys.length ||
+    expectedKeys.some((key) => !Object.hasOwn(value, key)) ||
+    (recovery && value.intent !== 'recovery')
   ) {
     throw new TypeError('Parent PIN setup is invalid.');
   }
@@ -84,21 +118,40 @@ function requirePinSetup(value) {
   if (value.confirmation !== pin) {
     throw new TypeError('Parent PIN confirmation does not match.');
   }
-  return pin;
+  return Object.freeze({ pin, recovery });
 }
+
+const unavailableDeviceAuthentication = Object.freeze({
+  async getAvailability() {
+    return Object.freeze({ available: false });
+  },
+  async authenticate() {
+    throw controllerError('parent_device_authentication_unavailable');
+  },
+});
 
 export async function createParentSecurityController({
   repository,
   biometrics,
+  deviceAuthentication,
   lifecycle,
   pinCrypto = createParentPinCrypto(),
   now = Date.now,
 } = {}) {
+  const ownerAuthentication =
+    deviceAuthentication
+    ?? biometrics?.deviceAuthentication
+    ?? unavailableDeviceAuthentication;
   for (const method of ['read', 'write']) {
     requireMethod(repository, method, 'Parent security repository');
   }
   for (const method of ['getAvailability', 'authenticate']) {
     requireMethod(biometrics, method, 'Parent biometrics');
+    requireMethod(
+      ownerAuthentication,
+      method,
+      'Parent device authentication',
+    );
   }
   requireMethod(lifecycle, 'onPause', 'App lifecycle');
   for (const method of ['create', 'verify']) {
@@ -110,11 +163,13 @@ export async function createParentSecurityController({
 
   let record = await repository.read();
   if (record !== null) record = validateParentSecurityRecord(record);
-  let availability;
+  let biometricAvailability;
   try {
-    availability = requireAvailability(await biometrics.getAvailability());
+    biometricAvailability = requireBiometricAvailability(
+      await biometrics.getAvailability(),
+    );
   } catch {
-    availability = Object.freeze({ available: false, type: 'none' });
+    biometricAvailability = Object.freeze({ available: false, type: 'none' });
   }
   const listeners = new Set();
   let disposed = false;
@@ -122,7 +177,7 @@ export async function createParentSecurityController({
   let lockEpoch = 0;
   let state = stateFrom({
     status: record === null ? 'setup-required' : 'locked',
-    availability,
+    biometricAvailability,
     record,
     now: sampleNow(now),
   });
@@ -135,7 +190,7 @@ export async function createParentSecurityController({
   function publishFor(status, sampledAt, actionError = null) {
     publish(stateFrom({
       status,
-      availability,
+      biometricAvailability,
       record,
       now: sampledAt,
       actionError,
@@ -154,6 +209,135 @@ export async function createParentSecurityController({
     return operation;
   }
 
+  async function authenticateDeviceOwner(reason, failureStatus) {
+    let availability;
+    try {
+      availability = requireDeviceAuthenticationAvailability(
+        await ownerAuthentication.getAvailability(),
+      );
+    } catch {
+      availability = Object.freeze({ available: false });
+    }
+    if (!availability.available) {
+      const sampledAt = sampleNow(now);
+      publishFor(
+        failureStatus,
+        sampledAt,
+        'parent_device_authentication_unavailable',
+      );
+      throw controllerError('parent_device_authentication_unavailable');
+    }
+
+    try {
+      const result = await ownerAuthentication.authenticate({ reason });
+      requireAuthenticated(
+        result,
+        'parent_device_authentication_rejected',
+      );
+    } catch {
+      const sampledAt = sampleNow(now);
+      publishFor(
+        failureStatus,
+        sampledAt,
+        'parent_device_authentication_rejected',
+      );
+      throw controllerError('parent_device_authentication_rejected');
+    }
+  }
+
+  async function createFirstPin(pin) {
+    if (record !== null) {
+      const sampledAt = sampleNow(now);
+      publishFor(
+        state.status,
+        sampledAt,
+        'parent_pin_already_configured',
+      );
+      throw controllerError('parent_pin_already_configured');
+    }
+    const operationEpoch = lockEpoch;
+    await authenticateDeviceOwner(PIN_SETUP_REASON, 'setup-required');
+    const sampledAt = sampleNow(now);
+    try {
+      const credential = await pinCrypto.create(pin);
+      const nextRecord = validateParentSecurityRecord({
+        schemaVersion: 1,
+        ...credential,
+        failedAttempts: 0,
+        lockedUntil: 0,
+        biometricEnabled: false,
+        updatedAt: sampledAt,
+      });
+      record = validateParentSecurityRecord(
+        await repository.write(nextRecord),
+      );
+    } catch {
+      publishFor(
+        'setup-required',
+        sampleNow(now),
+        'parent_pin_setup_failed',
+      );
+      throw controllerError('parent_pin_setup_failed');
+    }
+    publishFor(
+      operationEpoch === lockEpoch ? 'unlocked' : 'locked',
+      sampledAt,
+    );
+  }
+
+  async function replacePin(pin) {
+    if (record === null) {
+      const sampledAt = sampleNow(now);
+      publishFor(
+        'setup-required',
+        sampledAt,
+        'parent_pin_not_configured',
+      );
+      throw controllerError('parent_pin_not_configured');
+    }
+    const operationEpoch = lockEpoch;
+    const previousRecord = record;
+    await authenticateDeviceOwner(PIN_RESET_REASON, 'locked');
+    const sampledAt = sampleNow(now);
+    try {
+      const credential = await pinCrypto.create(pin);
+      const nextRecord = validateParentSecurityRecord({
+        schemaVersion: 1,
+        ...credential,
+        failedAttempts: 0,
+        lockedUntil: 0,
+        biometricEnabled: previousRecord.biometricEnabled,
+        updatedAt: sampledAt,
+      });
+      record = validateParentSecurityRecord(
+        await repository.write(nextRecord),
+      );
+    } catch {
+      // Keep the exact in-memory credential and bounded lock state when a
+      // replacement cannot be durably written. A post-commit database failure
+      // is still fail-closed: relaunch reads whichever complete record the
+      // repository committed.
+      record = previousRecord;
+      publishFor(
+        'locked',
+        sampleNow(now),
+        'parent_pin_reset_failed',
+      );
+      throw controllerError('parent_pin_reset_failed');
+    }
+    publishFor(
+      operationEpoch === lockEpoch ? 'unlocked' : 'locked',
+      sampledAt,
+    );
+  }
+
+  function setPin(candidate) {
+    const change = requirePinChange(candidate);
+    return run(() => change.recovery
+      ? replacePin(change.pin)
+      : createFirstPin(change.pin));
+  }
+
   function lock() {
     if (disposed) return;
     lockEpoch += 1;
@@ -162,8 +346,7 @@ export async function createParentSecurityController({
   }
 
   const pauseHandle = lifecycle.onPause(lock);
-
-  return Object.freeze({
+  const api = {
     getState() {
       return state;
     },
@@ -185,27 +368,7 @@ export async function createParentSecurityController({
         },
       });
     },
-    setPin(candidate) {
-      const pin = requirePinSetup(candidate);
-      return run(async () => {
-        const operationEpoch = lockEpoch;
-        const sampledAt = sampleNow(now);
-        const credential = await pinCrypto.create(pin);
-        record = validateParentSecurityRecord({
-          schemaVersion: 1,
-          ...credential,
-          failedAttempts: 0,
-          lockedUntil: 0,
-          biometricEnabled: false,
-          updatedAt: sampledAt,
-        });
-        record = validateParentSecurityRecord(await repository.write(record));
-        publishFor(
-          operationEpoch === lockEpoch ? 'unlocked' : 'locked',
-          sampledAt,
-        );
-      });
-    },
+    setPin,
     unlockWithPin(candidate) {
       const pin = validateParentPin(candidate);
       return run(async () => {
@@ -266,7 +429,7 @@ export async function createParentSecurityController({
         if (
           record === null ||
           !record.biometricEnabled ||
-          !availability.available
+          !biometricAvailability.available
         ) {
           throw controllerError('parent_biometrics_not_enabled');
         }
@@ -274,15 +437,7 @@ export async function createParentSecurityController({
         const result = await biometrics.authenticate({
           reason: BIOMETRIC_REASON,
         });
-        if (
-          !result ||
-          typeof result !== 'object' ||
-          Array.isArray(result) ||
-          Reflect.ownKeys(result).length !== 1 ||
-          result.authenticated !== true
-        ) {
-          throw controllerError('parent_biometrics_rejected');
-        }
+        requireAuthenticated(result, 'parent_biometrics_rejected');
         publishFor(
           operationEpoch === lockEpoch ? 'unlocked' : 'locked',
           sampleNow(now),
@@ -297,7 +452,7 @@ export async function createParentSecurityController({
         if (state.status !== 'unlocked' || record === null) {
           throw controllerError('parent_session_locked');
         }
-        if (enabled && !availability.available) {
+        if (enabled && !biometricAvailability.available) {
           throw controllerError('parent_biometrics_unavailable');
         }
         const sampledAt = sampleNow(now);
@@ -318,5 +473,15 @@ export async function createParentSecurityController({
       await pauseHandle.remove();
       listeners.clear();
     },
+  };
+  // ProductApp already owns a named recovery callback. Keep that internal
+  // wiring working without widening the enumerable service contract that
+  // other consumers pin with Object.keys().
+  Object.defineProperty(api, 'resetPin', {
+    enumerable: false,
+    value(candidate) {
+      return setPin({ ...candidate, intent: 'recovery' });
+    },
   });
+  return Object.freeze(api);
 }

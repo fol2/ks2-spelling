@@ -299,6 +299,18 @@ function parentErrorCopy(state, localError) {
   if (state.actionError === 'parent_pin_temporarily_locked') {
     return 'Too many attempts. Wait five minutes, then try again.';
   }
+  if (state.actionError === 'parent_device_authentication_unavailable') {
+    return 'Set a screen lock on this device, then try again. Parent access remains locked.';
+  }
+  if (state.actionError === 'parent_device_authentication_rejected') {
+    return 'The device did not confirm its owner. Parent access remains locked.';
+  }
+  if (
+    state.actionError === 'parent_pin_setup_failed'
+    || state.actionError === 'parent_pin_reset_failed'
+  ) {
+    return 'The Parent PIN was not changed. Your saved learning and purchases stay unchanged.';
+  }
   return state.actionError
     ? 'Parent access needs attention. Please try again.'
     : '';
@@ -775,6 +787,7 @@ export function ParentArea({
   fullCatalogueActive = false,
   onClose,
   onSetPin,
+  onResetPin,
   onUnlockPin,
   onUnlockBiometrics,
   onSetBiometricsEnabled,
@@ -789,6 +802,7 @@ export function ParentArea({
 }) {
   const [pin, setPin] = useState('');
   const [confirmation, setConfirmation] = useState('');
+  const [resettingPin, setResettingPin] = useState(false);
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState('');
   const biometric = biometricName(state.biometric.type);
@@ -801,8 +815,11 @@ export function ParentArea({
       await action();
       setPin('');
       setConfirmation('');
-    } catch {
-      setLocalError('That did not work. Check the details and try again.');
+      setResettingPin(false);
+    } catch (error) {
+      if (typeof error?.code !== 'string' || !error.code.startsWith('parent_')) {
+        setLocalError('That did not work. Check the details and try again.');
+      }
     } finally {
       setBusy(false);
     }
@@ -901,6 +918,15 @@ export function ParentArea({
   }
 
   const settingUp = state.status === 'setup-required';
+  const choosingPin = settingUp || resettingPin;
+  const title = settingUp
+    ? 'Set a Parent PIN'
+    : resettingPin ? 'Reset Parent PIN' : 'Enter Parent PIN';
+  const instructions = settingUp
+    ? 'Choose six digits that are not repeated or in a simple sequence. Your device will confirm its owner before the PIN is saved.'
+    : resettingPin
+      ? 'Choose a new six-digit PIN. Your device will confirm its owner before replacing the old PIN. Learners and purchases stay unchanged.'
+      : 'Enter the six-digit Parent PIN to continue.';
   return (
     <main className="product-app product-page parent-page" aria-labelledby="parent-access-title">
       <ProductTopBar
@@ -913,25 +939,27 @@ export function ParentArea({
       />
       <section className="paper-card parent-gate-card">
         <p className="product-kicker">Grown-ups only</p>
-        <h1 id="parent-access-title">
-          {settingUp ? 'Set a Parent PIN' : 'Enter Parent PIN'}
-        </h1>
-        <p>
-          {settingUp
-            ? 'Choose six digits that are not repeated or in a simple sequence.'
-            : 'Enter the six-digit Parent PIN to continue.'}
-        </p>
+        <h1 id="parent-access-title">{title}</h1>
+        <p>{instructions}</p>
+        {choosingPin && state.deviceOwnerAuthenticationAvailable === false && (
+          <p className="parent-note">
+            A device screen lock is required. Set one in device settings, then
+            try again. Learning stays available while Parent access is locked.
+          </p>
+        )}
         <form
           className="parent-pin-form"
           onSubmit={(event) => {
             event.preventDefault();
             void run(() => settingUp
               ? onSetPin({ pin, confirmation })
-              : onUnlockPin(pin));
+              : resettingPin
+                ? onResetPin({ pin, confirmation })
+                : onUnlockPin(pin));
           }}
         >
           <label htmlFor="parent-pin">
-            {settingUp ? 'New Parent PIN' : 'Parent PIN'}
+            {choosingPin ? 'New Parent PIN' : 'Parent PIN'}
           </label>
           <input
             id="parent-pin"
@@ -940,12 +968,12 @@ export function ParentArea({
             inputMode="numeric"
             pattern="[0-9]{6}"
             maxLength="6"
-            autoComplete={settingUp ? 'new-password' : 'current-password'}
+            autoComplete={choosingPin ? 'new-password' : 'current-password'}
             value={pin}
             disabled={busy}
             onChange={(event) => setPin(event.target.value)}
           />
-          {settingUp && (
+          {choosingPin && (
             <>
               <label htmlFor="parent-pin-confirmation">Confirm Parent PIN</label>
               <input
@@ -968,14 +996,48 @@ export function ParentArea({
             disabled={
               busy ||
               pin.length !== 6 ||
-              (settingUp && confirmation.length !== 6)
+              (choosingPin && confirmation.length !== 6)
             }
           >
-            {busy ? 'Checking…' : settingUp ? 'Set Parent PIN' : 'Unlock'}
+            {busy
+              ? 'Checking…'
+              : settingUp
+                ? 'Confirm owner and set PIN'
+                : resettingPin ? 'Confirm owner and reset PIN' : 'Unlock'}
           </button>
         </form>
 
-        {!settingUp &&
+        {!settingUp && !resettingPin && (
+          <button
+            type="button"
+            className="button-quiet parent-biometric-button press-soft press"
+            disabled={busy}
+            onClick={() => {
+              setPin('');
+              setConfirmation('');
+              setLocalError('');
+              setResettingPin(true);
+            }}
+          >
+            Forgot Parent PIN?
+          </button>
+        )}
+        {resettingPin && (
+          <button
+            type="button"
+            className="button-quiet parent-biometric-button press-soft press"
+            disabled={busy}
+            onClick={() => {
+              setPin('');
+              setConfirmation('');
+              setLocalError('');
+              setResettingPin(false);
+            }}
+          >
+            Cancel PIN reset
+          </button>
+        )}
+        {!settingUp && !resettingPin &&
           state.biometric.available &&
           state.biometric.enabled && (
             <button
@@ -3462,6 +3524,7 @@ export default function ProductApp({ services }) {
         fullCatalogueActive={services.catalogueId === 'ks2-core:full'}
         onClose={closeParent}
         onSetPin={(candidate) => services.parent.setPin(candidate)}
+        onResetPin={(candidate) => services.parent.resetPin(candidate)}
         onUnlockPin={(candidate) => services.parent.unlockWithPin(candidate)}
         onUnlockBiometrics={() => services.parent.unlockWithBiometrics()}
         onSetBiometricsEnabled={(enabled) =>

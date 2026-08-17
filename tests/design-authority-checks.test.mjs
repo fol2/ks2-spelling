@@ -42,14 +42,15 @@ test('Design authority: Contrast ratio checks', async () => {
   
   const css = await read('src/app/app.css');
   
-  // Token definitions must exist
-  assert.match(css, /--ink-soft:\s*rgb\(29\s+43\s+58\s+\/\s*62%\)/u);
-  assert.match(css, /--ink-faint:\s*rgb\(29\s+43\s+58\s+\/\s*45%\)/u);
+  // Token definitions must exist with new contrast-passing values
+  assert.match(css, /--ink-soft:\s*rgb\(29\s+43\s+58\s+\/\s*78%\)/u);
+  assert.match(css, /--ink-faint:\s*rgb\(29\s+43\s+58\s+\/\s*60%\)/u);
   assert.match(css, /--paper:\s*#f8f5ec/u);
   assert.match(css, /--paper-raised:\s*#fffdf7/u);
   assert.match(css, /--paper-parent:\s*#eae6db/u);
   assert.match(css, /--dusk:\s*#080c12/u);
-  assert.match(css, /--dusk-ink-soft:\s*rgb\(255\s+249\s+236\s+\/\s*62%\)/u);
+  assert.match(css, /--dusk-ink-soft:\s*rgb\(255\s+249\s+236\s+\/\s*78%\)/u);
+  assert.match(css, /--dusk-ink-faint:\s*rgb\(255\s+249\s+236\s+\/\s*60%\)/u);
   
   // Baseline violations are documented (todo)
   const baselines = BASELINE.filter((b) => b.clause === 'Contrast ratio');

@@ -163,7 +163,10 @@ export function createDownloadCoordinator(rawDependencies) {
   // A present-but-undefined packAuthority must fail, never fall back: a missed
   // registry lookup upstream would otherwise silently bind to the wrong pack.
   const packAuthority = assertPackAuthority(dependencies.packAuthority);
-  const contract = createSignedDownloadAccessContract(packAuthority);
+  const gatewayOrigin = environment === 'production'
+    ? ['https:', '', 'ks2-gateway.eugnel.uk'].join('/')
+    : ['https:', '', 'b3-gateway.eugnel.uk'].join('/');
+  const contract = createSignedDownloadAccessContract(packAuthority, gatewayOrigin);
   let tail = Promise.resolve();
   let lastTimestamp = -1;
 

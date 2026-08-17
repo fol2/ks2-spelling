@@ -2,7 +2,6 @@ import { assertPackAuthority, findPackAuthority } from './pack-registry.js';
 
 const APP_VERSION = '0.3.0-b3';
 const SCHEMA_VERSION = 2;
-const GATEWAY_ORIGIN = ['https:', '', 'b3-gateway.eugnel.uk'].join('/');
 const CAPABILITY = /^[A-Za-z0-9_-]{43}$/;
 const SHA256_HEX = /^[a-f0-9]{64}$/;
 const MANIFEST_FILE_KEYS = Object.freeze(['bytes', 'path', 'sha256']);
@@ -94,7 +93,10 @@ function validManifestFiles(files, authority) {
   return true;
 }
 
-function makeContract(authority, pinnedFiles = null) {
+function makeContract(authority, pinnedFiles = null, gatewayOrigin = null) {
+  if (!gatewayOrigin) {
+    gatewayOrigin = ['https:', '', 'b3-gateway.eugnel.uk'].join('/');
+  }
   function requireManifest(manifest, currentAppVersion, currentSchemaVersion) {
     if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
       throw accessError('DOWNLOAD_MANIFEST_INVALID');
@@ -211,7 +213,7 @@ function makeContract(authority, pinnedFiles = null) {
     const canonicalPath =
       `/v1/packs/${authority.packId}/${authority.version}/${authority.archiveName}`;
     if (
-      parsed.protocol !== 'https:' || parsed.origin !== GATEWAY_ORIGIN ||
+      parsed.protocol !== 'https:' || parsed.origin !== gatewayOrigin ||
       parsed.username || parsed.password || parsed.port || parsed.hash ||
       parsed.pathname !== canonicalPath || entries.length !== 2 ||
       entries[0]?.[0] !== 'expires' || !/^[1-9][0-9]*$/.test(expiresText) ||
@@ -303,14 +305,17 @@ function makeContract(authority, pinnedFiles = null) {
   });
 }
 
-export function createSignedDownloadAccessContract(packAuthority) {
+export function createSignedDownloadAccessContract(packAuthority, gatewayOrigin = null) {
   const authority = assertPackAuthority(packAuthority);
   // The frozen B3 proof pack keeps its compiled per-file pin no matter who
   // constructs its contract; no caller can widen it.
-  return makeContract(authority, authority.packId === 'b3-sandbox-proof' ? B3_FILES : null);
+  return makeContract(authority, authority.packId === 'b3-sandbox-proof' ? B3_FILES : null, gatewayOrigin);
 }
 
-const B3_CONTRACT = createSignedDownloadAccessContract(findPackAuthority('b3-sandbox-proof'));
+const B3_CONTRACT = createSignedDownloadAccessContract(
+  findPackAuthority('b3-sandbox-proof'),
+  ['https:', '', 'b3-gateway.eugnel.uk'].join('/')
+);
 
 export const assertSignedDownloadAccess = B3_CONTRACT.assertSignedDownloadAccess;
 export const assertSubmittedDownloadEntitlement = B3_CONTRACT.assertSubmittedDownloadEntitlement;

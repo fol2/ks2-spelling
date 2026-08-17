@@ -25,8 +25,8 @@ public final class BuildAuthorityPlugin extends Plugin {
         value.put("proofKind", "physical-live");
         value.put("platform", "android");
         value.put("distribution", "play-internal");
-        value.put("publicSandboxOrigin", "https://b3-gateway.eugnel.uk");
-        value.put("workerName", "ks2-spelling-b3-sandbox");
+        value.put("publicSandboxOrigin", BuildConfig.B3_PUBLIC_SANDBOX_ORIGIN);
+        value.put("workerName", BuildConfig.B3_WORKER_NAME);
         value.put("bundleId", BuildConfig.APPLICATION_ID);
         value.put("testedApplicationCommit", BuildConfig.B3_TESTED_APPLICATION_COMMIT);
         value.put("applicationFingerprint", BuildConfig.B3_APPLICATION_FINGERPRINT);

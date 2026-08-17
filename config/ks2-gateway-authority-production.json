@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "environment": "production",
+  "cloudflareAccountId": "6d00cb4a0396c17ad6ba617bcbcaa45d",
+  "workerName": "ks2-spelling-production",
+  "privateR2BucketName": "ks2-spelling-production-packs",
+  "publicSandboxOrigin": "https://ks2-gateway.eugnel.uk",
+  "allowedOrigins": ["capacitor://localhost", "http://localhost"],
+  "distribution": {
+    "applicationId": "uk.eugnel.ks2spelling",
+    "iosKind": "release",
+    "androidTrack": "production"
+  }
+}

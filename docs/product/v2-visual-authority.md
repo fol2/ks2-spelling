@@ -375,7 +375,7 @@ Layer 3 rules govern composition without minting spacing tokens. These are not
 automated; they are the newest and most false-positive-prone layer. They are
 manually verified by design review before integration.
 
-**Proposed numbers — OWNER APPROVAL NEEDED** (measured at 393×852, 375×667, 810×1080):
+**Proposed numbers (UNMEASURED — awaiting device measurement at 393×852, 375×667, 810×1080; do NOT approve until measurements are confirmed)**:
 
 1. **Backdrop proportion**: A screen's unused backdrop may not exceed 30% of the
    viewport in single-column layout and 25% in expedition (two-column) layout.
@@ -408,6 +408,6 @@ manually verified by design review before integration.
    0.75 rem (~12px CSS pixels at 16px base) provides visual breathing room. Last
    item must not be clipped by tab bar at any viewport size or text scale.
 
-*Note*: These numbers are provisional and measured at fixed viewports and text
-scales (100%, 130%, 160%). Approval is required before integration. Layer 3 is
+*Note*: These numbers are provisional and await measurement at fixed viewports and text
+scales (100%, 130%, 160%). Planner will verify via device walk. Layer 3 is
 manually reviewed; no automated check exists.

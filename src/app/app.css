@@ -62,7 +62,7 @@ select {
   --paper-sunk: #faf6ec;
   --ink: #1d2b3a;
   --ink-soft: rgb(29 43 58 / 78%);
-  --ink-faint: rgb(29 43 58 / 60%);
+  --ink-faint: rgb(29 43 58 / 70%);
   --line: rgb(29 43 58 / 12%);
   --line-strong: rgb(29 43 58 / 22%);
 
@@ -71,7 +71,7 @@ select {
   --dusk-raised: #101a26;
   --dusk-ink: #fff9ec;
   --dusk-ink-soft: rgb(255 249 236 / 78%);
-  --dusk-ink-faint: rgb(255 249 236 / 60%);
+  --dusk-ink-faint: rgb(255 249 236 / 70%);
   --dusk-line: rgb(255 249 236 / 16%);
 
   /* Semantics */

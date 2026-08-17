@@ -55,7 +55,7 @@ public final class PackTransferPlugin extends Plugin {
     private static final Pattern SHA256 = Pattern.compile("^[0-9a-f]{64}$");
     private static final Pattern CAPABILITY_QUERY = Pattern.compile("^expires=([1-9][0-9]*)&cap=([A-Za-z0-9_-]{43})$");
     private static final Pattern CONTENT_RANGE = Pattern.compile("^bytes ([0-9]+)-([0-9]+)/([1-9][0-9]*)$");
-    private static final String GATEWAY_ORIGIN = "https://b3-gateway.eugnel.uk";
+    private static final String GATEWAY_ORIGIN = BuildConfig.KS2_GATEWAY_ORIGIN;
     private static final String SIGNING_DOMAIN = "ks2-spelling-pack-manifest-v1";
     private static final String FREE_STARTER_PACK_ID = "ks2-core";
     // A non-null requiredEntitlementId must be a kebab-case identity; the

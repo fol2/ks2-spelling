@@ -14,6 +14,7 @@ android {
         buildConfigField "String", "B3_APPLICATION_FINGERPRINT", '""'
         buildConfigField "boolean", "B3_SANDBOX_PROOF", "false"
         buildConfigField "String", "KS2_RELEASE_CHANNEL", '"production"'
+        buildConfigField "String", "KS2_GATEWAY_ORIGIN", '"https://ks2-gateway.eugnel.uk"'
         buildConfigField "String", "B3_MODE", '""'
         buildConfigField "String", "B3_PROOF_KIND", '""'
         buildConfigField "String", "B3_PLATFORM", '""'
@@ -40,6 +41,7 @@ android {
                 buildConfigField "String", "B3_APPLICATION_FINGERPRINT", "\"${project.property('b3ApplicationFingerprint')}\""
                 buildConfigField "boolean", "B3_SANDBOX_PROOF", "true"
                 buildConfigField "String", "KS2_RELEASE_CHANNEL", '"sandbox"'
+                buildConfigField "String", "KS2_GATEWAY_ORIGIN", '"https://b3-gateway.eugnel.uk"'
                 buildConfigField "String", "B3_MODE", '"B3SandboxProof"'
                 buildConfigField "String", "B3_PROOF_KIND", '"physical-live"'
                 buildConfigField "String", "B3_PLATFORM", '"android"'
@@ -58,6 +60,7 @@ android {
             initWith release
             matchingFallbacks = ['release']
             buildConfigField "String", "KS2_RELEASE_CHANNEL", '"sandbox"'
+            buildConfigField "String", "KS2_GATEWAY_ORIGIN", '"https://b3-gateway.eugnel.uk"'
         }
     }
 }

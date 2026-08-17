@@ -465,8 +465,11 @@ export async function runGatewayCeremonyWizard({
   }
   const wranglerEnv = {
     ...env,
+    CI: '1',
+    NO_COLOR: '1',
     CLOUDFLARE_ACCOUNT_ID,
     WRANGLER_SEND_METRICS: 'false',
+    WRANGLER_HIDE_BANNER: 'true',
   };
   const safeArgs = (list) => [...list, '--env-file', '/dev/null'];
   const captured = async (step, list) =>
@@ -562,7 +565,18 @@ export async function runGatewayCeremonyWizard({
 
   if (channel.sitting === 2) {
     await requireConfirmation(confirm, `Create private bucket ${channel.bucketName}?`);
-    await interactive('r2 bucket create', ['r2', 'bucket', 'create', channel.bucketName]);
+    let bucketExists = false;
+    try {
+      await captured('bucket exists probe', ['r2', 'bucket', 'dev-url', 'get', channel.bucketName]);
+      bucketExists = true;
+    } catch {
+      bucketExists = false;
+    }
+    if (!bucketExists) {
+      await interactive('r2 bucket create', ['r2', 'bucket', 'create', channel.bucketName]);
+    } else {
+      log(`Bucket ${channel.bucketName} already exists; skipping create.`);
+    }
     await assertBucketPrivate();
     await requireConfirmation(
       confirm,

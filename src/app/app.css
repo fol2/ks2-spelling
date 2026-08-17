@@ -61,8 +61,8 @@ select {
   --paper-raised: #fffdf7;
   --paper-sunk: #faf6ec;
   --ink: #1d2b3a;
-  --ink-soft: rgb(29 43 58 / 62%);
-  --ink-faint: rgb(29 43 58 / 45%);
+  --ink-soft: rgb(29 43 58 / 78%);
+  --ink-faint: rgb(29 43 58 / 70%);
   --line: rgb(29 43 58 / 12%);
   --line-strong: rgb(29 43 58 / 22%);
 
@@ -70,7 +70,8 @@ select {
   --dusk: #080c12;
   --dusk-raised: #101a26;
   --dusk-ink: #fff9ec;
-  --dusk-ink-soft: rgb(255 249 236 / 62%);
+  --dusk-ink-soft: rgb(255 249 236 / 78%);
+  --dusk-ink-faint: rgb(255 249 236 / 70%);
   --dusk-line: rgb(255 249 236 / 16%);
 
   /* Semantics */
@@ -3825,8 +3826,8 @@ select {
 
 @media (prefers-contrast: more) {
   .product-app {
-    --ink-soft: #25384a;
-    --ink-faint: #33475a;
+    --ink-soft: #1a2535;
+    --ink-faint: #232f40;
     --line: #526373;
     --line-strong: #3c4d5e;
   }

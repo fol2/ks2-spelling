@@ -28,7 +28,9 @@ test('Android PackTransfer is a registered six-method Java-only private bridge',
 
 test('Android validates and bounds capability transport before opening a connection', async () => {
   const source = await readFile(new URL('android/app/src/main/java/uk/eugnel/ks2spelling/PackTransferPlugin.java', ROOT), 'utf8');
-  assert.match(source, /https:\/\/b3-gateway\.eugnel\.uk/);
+  // Gateway origin is now channel-selected; check that it reads from BuildConfig (not hardcoded)
+  assert.match(source, /BuildConfig\.KS2_GATEWAY_ORIGIN/);
+  assert.doesNotMatch(source, /https:\/\/b3-gateway\.eugnel\.uk\s*[;]/);
   assert.match(source, /HttpURLConnection/);
   assert.ok(source.indexOf('validateCapability') < source.indexOf('openConnection'), 'validation must precede transport');
   assert.match(source, /setInstanceFollowRedirects\(false\)/);

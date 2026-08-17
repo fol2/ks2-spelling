@@ -5,6 +5,9 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import {
   IAP_IMAGE_RELATIVE_PATH,
+  LISTING_SCREENSHOT_SETS,
+  SCREENSHOT_DIR_RELATIVE_PATH,
+  SCREENSHOT_FILENAMES,
   STALE_SCREENSHOT_9_SHA256,
   parseSha256Sums,
   parseStoreListingCopy,
@@ -79,21 +82,47 @@ test('the Home Screen name matches the locked listing on iOS, Android and Capaci
   assert.equal(capacitorConfig.appId, 'uk.eugnel.ks2spelling');
 });
 
-test('screenshot 9 remains the stale backup-UI capture until recapture updates SHA256SUMS', async () => {
+test('screenshot 9 is a fresh RGB capture, not the stale backup-UI files', async () => {
   const sums = parseSha256Sums(
     await readUtf8('design/app-store-screenshots/final-v3/SHA256SUMS'),
   );
-  assert.equal(sums['iphone/09-grown-ups-stay-in-control.png'], STALE_SCREENSHOT_9_SHA256['iphone/09-grown-ups-stay-in-control.png']);
-  assert.equal(sums['ipad/09-grown-ups-stay-in-control.png'], STALE_SCREENSHOT_9_SHA256['ipad/09-grown-ups-stay-in-control.png']);
-  assert.equal(screenshotNineIsStale(sums), true);
+  assert.notEqual(
+    sums['iphone/09-grown-ups-stay-in-control.png'],
+    STALE_SCREENSHOT_9_SHA256['iphone/09-grown-ups-stay-in-control.png'],
+  );
+  assert.notEqual(
+    sums['ipad/09-grown-ups-stay-in-control.png'],
+    STALE_SCREENSHOT_9_SHA256['ipad/09-grown-ups-stay-in-control.png'],
+  );
+  assert.equal(screenshotNineIsStale(sums), false);
   assert.equal(
     screenshotNineIsStale({
       ...sums,
-      'iphone/09-grown-ups-stay-in-control.png': 'a'.repeat(64),
-      'ipad/09-grown-ups-stay-in-control.png': 'b'.repeat(64),
+      'iphone/09-grown-ups-stay-in-control.png':
+        STALE_SCREENSHOT_9_SHA256['iphone/09-grown-ups-stay-in-control.png'],
+      'ipad/09-grown-ups-stay-in-control.png':
+        STALE_SCREENSHOT_9_SHA256['ipad/09-grown-ups-stay-in-control.png'],
     }),
-    false,
+    true,
   );
+});
+
+test('screenshot 9 files are opaque RGB at the App Store sizes', async () => {
+  for (const set of LISTING_SCREENSHOT_SETS) {
+    const bytes = await readFile(
+      join(
+        ROOT,
+        SCREENSHOT_DIR_RELATIVE_PATH,
+        set.directory,
+        '09-grown-ups-stay-in-control.png',
+      ),
+    );
+    assert.equal(bytes.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+    assert.equal(bytes.readUInt32BE(16), set.width);
+    assert.equal(bytes.readUInt32BE(20), set.height);
+    assert.equal(bytes[25], 2);
+    assert.equal(SCREENSHOT_FILENAMES.at(-1), '09-grown-ups-stay-in-control.png');
+  }
 });
 
 test('listing copy that promises backups or a price is refused', () => {

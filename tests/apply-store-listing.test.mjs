@@ -32,7 +32,7 @@ function mockFetch(routes) {
     const method = options.method ?? 'GET';
     const parsed = new URL(url);
     const path = `${parsed.pathname}${parsed.search}`;
-    const body = options.body ? JSON.parse(options.body) : undefined;
+    const body = typeof options.body === 'string' ? JSON.parse(options.body) : undefined;
     calls.push({ method, path, body, authorization: options.headers.Authorization });
     const route = routes.find(
       (candidate) =>
@@ -137,13 +137,19 @@ test('missing App Store Connect private key fails closed without calling the API
 test('listing patches carry the locked URLs, description and IAP strings', () => {
   assert.deepEqual(buildAppInfoLocalizationPatch(COPY), {
     privacyPolicyUrl: 'https://help.eugnel.uk/privacy',
-    supportUrl: 'https://help.eugnel.uk/',
-    marketingUrl: null,
   });
   assert.deepEqual(buildVersionLocalizationPatch(COPY), {
     description: 'Grown-ups stay in control. Progress stays on this device.',
     keywords: 'Key Stage 2,SATs',
     promotionalText: 'Hear it, type it, master it.',
+    marketingUrl: null,
+    supportUrl: 'https://help.eugnel.uk/',
+  });
+  assert.deepEqual(buildVersionLocalizationPatch(COPY, { includeSupportUrl: false }), {
+    description: 'Grown-ups stay in control. Progress stays on this device.',
+    keywords: 'Key Stage 2,SATs',
+    promotionalText: 'Hear it, type it, master it.',
+    marketingUrl: null,
   });
   assert.deepEqual(buildIapLocalizationPatch(COPY), {
     name: 'Full KS2',
@@ -151,8 +157,8 @@ test('listing patches carry the locked URLs, description and IAP strings', () =>
   });
 });
 
-test('applyLockedListing patches metadata, deletes stale screenshot sets, and refuses screenshot 9', async () => {
-  const { fetchImpl, calls } = mockFetch([
+function listingRoutes() {
+  return [
     {
       method: 'GET',
       pathPrefix: '/v1/apps/6798866142/appInfos',
@@ -186,7 +192,17 @@ test('applyLockedListing patches metadata, deletes stale screenshot sets, and re
     {
       method: 'GET',
       pathPrefix: '/v1/appStoreVersions/version-1/appStoreVersionLocalizations',
-      json: { data: [{ id: 'version-loc-1', attributes: { locale: 'en-GB' } }] },
+      json: {
+        data: [
+          {
+            id: 'version-loc-1',
+            attributes: {
+              locale: 'en-GB',
+              whatsNew: 'Store purchases are not enabled.',
+            },
+          },
+        ],
+      },
     },
     {
       method: 'PATCH',
@@ -200,7 +216,7 @@ test('applyLockedListing patches metadata, deletes stale screenshot sets, and re
     },
     {
       method: 'GET',
-      pathPrefix: '/v1/inAppPurchasesV2/iap-1/inAppPurchaseLocalizations',
+      pathPrefix: '/v2/inAppPurchases/iap-1/inAppPurchaseLocalizations',
       json: { data: [{ id: 'iap-loc-1', attributes: { locale: 'en-GB' } }] },
     },
     {
@@ -225,7 +241,11 @@ test('applyLockedListing patches metadata, deletes stale screenshot sets, and re
       },
     },
     { method: 'DELETE', path: '/v1/appScreenshotSets/set-61', status: 204, json: undefined },
-  ]);
+  ];
+}
+
+test('applyLockedListing patches metadata, deletes stale screenshot sets, and refuses screenshot 9', async () => {
+  const { fetchImpl, calls } = mockFetch(listingRoutes());
   const request = ({ method, path, body }) =>
     appStoreConnectRequest({
       token: 'test-token',
@@ -245,10 +265,14 @@ test('applyLockedListing patches metadata, deletes stale screenshot sets, and re
   assert.equal(result.screenshots, 'blocked_stale_screenshot_9');
   assert.equal(result.staleScreenshotSets, 'deleted');
   assert.equal(result.iapLocalizationId, 'iap-loc-1');
+  assert.equal(result.iapPromotionalImage, 'not_attempted');
+  assert.equal(result.iapReviewScreenshot, 'not_attempted');
+  assert.equal(result.appInfoUrls, 'patched');
   const appInfoPatch = calls.find(
     (call) => call.method === 'PATCH' && call.path.endsWith('app-info-loc-1'),
   );
-  assert.equal(appInfoPatch.body.data.attributes.marketingUrl, null);
+  assert.equal(appInfoPatch.body.data.attributes.marketingUrl, undefined);
+  assert.equal(appInfoPatch.body.data.attributes.supportUrl, undefined);
   assert.equal(
     appInfoPatch.body.data.attributes.privacyPolicyUrl,
     'https://help.eugnel.uk/privacy',
@@ -257,6 +281,9 @@ test('applyLockedListing patches metadata, deletes stale screenshot sets, and re
     (call) => call.method === 'PATCH' && call.path.endsWith('version-loc-1'),
   );
   assert.doesNotMatch(versionPatch.body.data.attributes.description, /\bbackups\b/);
+  assert.equal(versionPatch.body.data.attributes.whatsNew, '');
+  assert.equal(versionPatch.body.data.attributes.marketingUrl, null);
+  assert.equal(versionPatch.body.data.attributes.supportUrl, 'https://help.eugnel.uk/');
   const deleted = calls.filter((call) => call.method === 'DELETE');
   assert.deepEqual(
     deleted.map((call) => call.path),
@@ -287,4 +314,279 @@ test('applyStoreListingFromRepo uses the repo listing and fails closed without a
   const markdown = await readFile(join(ROOT, 'docs/product/store-listing.md'), 'utf8');
   const copy = parseStoreListingCopy(markdown);
   assert.equal(copy.homeScreenName, 'Spelling Camp');
+});
+
+test('a down help host skips privacy and support URL patches', async () => {
+  const { fetchImpl, calls } = mockFetch(listingRoutes());
+  const request = ({ method, path, body }) =>
+    appStoreConnectRequest({
+      token: 'test-token',
+      method,
+      path,
+      body,
+      fetchImpl,
+    });
+  const result = await applyLockedListing({
+    request,
+    copy: COPY,
+    helpUrlsLive: false,
+    sha256Sums: {
+      'iphone/09-grown-ups-stay-in-control.png': 'a'.repeat(64),
+      'ipad/09-grown-ups-stay-in-control.png': 'b'.repeat(64),
+    },
+  });
+  assert.equal(result.appInfoUrls, 'skipped_help_host_down');
+  assert.equal(result.screenshots, 'not_attempted');
+  const appInfoPatch = calls.find(
+    (call) => call.method === 'PATCH' && call.path.endsWith('app-info-loc-1'),
+  );
+  assert.equal(appInfoPatch, undefined);
+  const versionPatch = calls.find(
+    (call) => call.method === 'PATCH' && call.path.endsWith('version-loc-1'),
+  );
+  assert.equal(versionPatch.body.data.attributes.privacyPolicyUrl, undefined);
+  assert.equal(versionPatch.body.data.attributes.supportUrl, undefined);
+  assert.equal(versionPatch.body.data.attributes.marketingUrl, null);
+});
+
+test('applyLockedListing can leave an already-filled IAP localization untouched', async () => {
+  const { fetchImpl, calls } = mockFetch(listingRoutes());
+  const request = ({ method, path, body }) =>
+    appStoreConnectRequest({
+      token: 'test-token',
+      method,
+      path,
+      body,
+      fetchImpl,
+    });
+  const result = await applyLockedListing({
+    request,
+    copy: COPY,
+    includeIapLocalization: false,
+    helpUrlsLive: false,
+    sha256Sums: {
+      'iphone/09-grown-ups-stay-in-control.png': 'a'.repeat(64),
+      'ipad/09-grown-ups-stay-in-control.png': 'b'.repeat(64),
+    },
+  });
+  assert.equal(result.iapLocalizationId, 'iap-loc-1');
+  assert.equal(result.iapPromotionalImage, 'not_attempted');
+  assert.equal(
+    calls.some((call) => call.method === 'PATCH' && call.path.includes('inAppPurchaseLocalizations')),
+    false,
+  );
+});
+
+test('applyLockedListing uploads the IAP image when bytes are provided', async () => {
+  const png = Buffer.from('png');
+  const { fetchImpl, calls } = mockFetch([
+    ...listingRoutes(),
+    {
+      method: 'GET',
+      pathPrefix: '/v2/inAppPurchases/iap-1/images',
+      json: { data: [] },
+    },
+    {
+      method: 'POST',
+      path: '/v1/inAppPurchaseImages',
+      json: {
+        data: {
+          id: 'iap-img-1',
+          attributes: {
+            uploadOperations: [
+              {
+                method: 'PUT',
+                url: 'https://upload.example/iap',
+                offset: 0,
+                length: png.length,
+                requestHeaders: [],
+              },
+            ],
+          },
+        },
+      },
+    },
+    { method: 'PUT', path: '/iap', status: 200, json: undefined },
+    {
+      method: 'PATCH',
+      path: '/v1/inAppPurchaseImages/iap-img-1',
+      json: { data: { id: 'iap-img-1' } },
+    },
+    {
+      method: 'GET',
+      pathPrefix: '/v1/inAppPurchaseImages/',
+      json: {
+        data: {
+          id: 'iap-img-1',
+          attributes: { state: 'UPLOAD_COMPLETE' },
+        },
+      },
+    },
+    {
+      method: 'GET',
+      pathPrefix: '/v2/inAppPurchases/iap-1/appStoreReviewScreenshot',
+      json: { data: null },
+    },
+    {
+      method: 'POST',
+      path: '/v1/inAppPurchaseAppStoreReviewScreenshots',
+      json: {
+        data: {
+          id: 'iap-review-1',
+          attributes: {
+            uploadOperations: [
+              {
+                method: 'PUT',
+                url: 'https://upload.example/review',
+                offset: 0,
+                length: png.length,
+                requestHeaders: [],
+              },
+            ],
+          },
+        },
+      },
+    },
+    { method: 'PUT', path: '/review', status: 200, json: undefined },
+    {
+      method: 'PATCH',
+      path: '/v1/inAppPurchaseAppStoreReviewScreenshots/iap-review-1',
+      json: { data: { id: 'iap-review-1' } },
+    },
+    {
+      method: 'GET',
+      pathPrefix: '/v1/inAppPurchaseAppStoreReviewScreenshots/',
+      json: {
+        data: {
+          id: 'iap-review-1',
+          attributes: { assetDeliveryState: { state: 'COMPLETE' } },
+        },
+      },
+    },
+  ]);
+  const request = ({ method, path, body }) =>
+    appStoreConnectRequest({
+      token: 'test-token',
+      method,
+      path,
+      body,
+      fetchImpl,
+    });
+  const result = await applyLockedListing({
+    request,
+    fetchImpl,
+    copy: COPY,
+    iapImage: { fileName: 'iap-full-ks2-phaeton.png', bytes: png },
+    sha256Sums: {
+      'iphone/09-grown-ups-stay-in-control.png': 'a'.repeat(64),
+      'ipad/09-grown-ups-stay-in-control.png': 'b'.repeat(64),
+    },
+  });
+  assert.equal(result.iapPromotionalImage, 'iap-img-1');
+  assert.equal(result.iapReviewScreenshot, 'iap-review-1');
+  const imageCreate = calls.find(
+    (call) => call.method === 'POST' && call.path === '/v1/inAppPurchaseImages',
+  );
+  assert.deepEqual(imageCreate.body.data.relationships.inAppPurchase.data, {
+    type: 'inAppPurchases',
+    id: 'iap-1',
+  });
+  assert.equal(
+    calls.some((call) => call.method === 'PUT' && call.path === '/iap'),
+    true,
+  );
+  assert.equal(
+    calls.some(
+      (call) =>
+        call.method === 'POST' &&
+        call.path === '/v1/inAppPurchaseAppStoreReviewScreenshots',
+    ),
+    true,
+  );
+});
+
+test('applyLockedListing replaces listing screenshots in locked order', async () => {
+  const shot = Buffer.from('shot');
+  const { fetchImpl, calls } = mockFetch([
+    ...listingRoutes(),
+    {
+      method: 'GET',
+      pathPrefix: '/v1/appScreenshotSets/set-67/appScreenshots',
+      json: { data: [{ id: 'old-shot' }] },
+    },
+    {
+      method: 'DELETE',
+      path: '/v1/appScreenshots/old-shot',
+      status: 204,
+      json: undefined,
+    },
+    {
+      method: 'POST',
+      path: '/v1/appScreenshots',
+      json: {
+        data: {
+          id: 'new-shot',
+          attributes: {
+            uploadOperations: [
+              {
+                method: 'PUT',
+                url: 'https://upload.example/shot',
+                offset: 0,
+                length: shot.length,
+                requestHeaders: [],
+              },
+            ],
+          },
+        },
+      },
+    },
+    { method: 'PUT', path: '/shot', status: 200, json: undefined },
+    {
+      method: 'PATCH',
+      path: '/v1/appScreenshots/new-shot',
+      json: { data: { id: 'new-shot' } },
+    },
+    {
+      method: 'GET',
+      pathPrefix: '/v1/appScreenshots/',
+      json: {
+        data: {
+          id: 'new-shot',
+          attributes: { assetDeliveryState: { state: 'COMPLETE' } },
+        },
+      },
+    },
+  ]);
+  const request = ({ method, path, body }) =>
+    appStoreConnectRequest({
+      token: 'test-token',
+      method,
+      path,
+      body,
+      fetchImpl,
+    });
+  const result = await applyLockedListing({
+    request,
+    fetchImpl,
+    copy: COPY,
+    screenshotSets: [
+      {
+        displayType: 'APP_IPHONE_67',
+        files: [{ fileName: '01-spell-with-confidence.png', bytes: shot }],
+      },
+    ],
+    sha256Sums: {
+      'iphone/09-grown-ups-stay-in-control.png': 'a'.repeat(64),
+      'ipad/09-grown-ups-stay-in-control.png': 'b'.repeat(64),
+    },
+  });
+  assert.deepEqual(result.screenshots, ['APP_IPHONE_67']);
+  assert.equal(
+    calls.some((call) => call.method === 'DELETE' && call.path.includes('old-shot')),
+    true,
+  );
+  const created = calls.find(
+    (call) => call.method === 'POST' && call.path === '/v1/appScreenshots',
+  );
+  assert.equal(created.body.data.attributes.fileName, '01-spell-with-confidence.png');
 });

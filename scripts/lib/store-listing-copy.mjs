@@ -5,6 +5,33 @@ export const STORE_LISTING_RELATIVE_PATH = 'docs/product/store-listing.md';
 export const SHA256SUMS_RELATIVE_PATH =
   'design/app-store-screenshots/final-v3/SHA256SUMS';
 export const IAP_IMAGE_RELATIVE_PATH = 'assets/branding/iap-full-ks2-phaeton.png';
+export const SCREENSHOT_DIR_RELATIVE_PATH =
+  'design/app-store-screenshots/final-v3';
+export const SCREENSHOT_FILENAMES = Object.freeze([
+  '01-spell-with-confidence.png',
+  '02-spell-words-grow-companions.png',
+  '03-master-spellings-discover-a-world.png',
+  '04-every-round-is-an-adventure.png',
+  '05-know-every-word.png',
+  '06-make-spellings-stick.png',
+  '07-learn-from-every-try.png',
+  '08-see-every-step-forward.png',
+  '09-grown-ups-stay-in-control.png',
+]);
+export const LISTING_SCREENSHOT_SETS = Object.freeze([
+  Object.freeze({
+    displayType: 'APP_IPHONE_67',
+    directory: 'iphone',
+    width: 1320,
+    height: 2868,
+  }),
+  Object.freeze({
+    displayType: 'APP_IPAD_PRO_3GEN_129',
+    directory: 'ipad',
+    width: 2064,
+    height: 2752,
+  }),
+]);
 
 export const STALE_SCREENSHOT_9_SHA256 = Object.freeze({
   'iphone/09-grown-ups-stay-in-control.png':

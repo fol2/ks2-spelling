@@ -56,6 +56,9 @@ const DISTRIBUTION_KEYS = Object.freeze([
 const EXPECTED_PUBLIC_SANDBOX_ORIGIN = Object.freeze(
   ['https:', '', 'b3-gateway.eugnel.uk'].join('/'),
 );
+const EXPECTED_PUBLIC_PRODUCTION_ORIGIN = Object.freeze(
+  ['https:', '', 'ks2-gateway.eugnel.uk'].join('/'),
+);
 const EXPECTED_ALLOWED_ORIGINS = Object.freeze([
   ['capacitor:', '', 'localhost'].join('/'),
   ['http:', '', 'localhost'].join('/'),
@@ -422,6 +425,52 @@ export function assertB3GatewayAuthority(value) {
       applicationId: 'uk.eugnel.ks2spelling',
       iosKind: 'development',
       androidTrack: 'internal',
+    },
+    DISTRIBUTION_KEYS,
+    label,
+  );
+
+  const publicOrigin = new URL(value.publicSandboxOrigin);
+  if (
+    publicOrigin.protocol !== 'https:' ||
+    publicOrigin.username ||
+    publicOrigin.password ||
+    publicOrigin.port ||
+    publicOrigin.pathname !== '/' ||
+    publicOrigin.search ||
+    publicOrigin.hash ||
+    publicOrigin.origin !== value.publicSandboxOrigin
+  ) {
+    fail(label, 'must use the exact credential-free HTTPS origin');
+  }
+  return value;
+}
+
+export function assertProductionGatewayAuthority(value) {
+  const label = 'Production gateway authority';
+  assertClosedRecord(value, GATEWAY_AUTHORITY_KEYS, label);
+  const expected = {
+    schemaVersion: 1,
+    environment: 'production',
+    cloudflareAccountId: '6d00cb4a0396c17ad6ba617bcbcaa45d',
+    workerName: 'ks2-spelling-production',
+    privateR2BucketName: 'ks2-spelling-production-packs',
+    publicSandboxOrigin: EXPECTED_PUBLIC_PRODUCTION_ORIGIN,
+    allowedOrigins: EXPECTED_ALLOWED_ORIGINS,
+  };
+  for (const [key, expectedValue] of Object.entries(expected)) {
+    if (Array.isArray(expectedValue)) {
+      assertExactArray(value[key], expectedValue, label);
+    } else if (value[key] !== expectedValue) {
+      fail(label, `has an unapproved ${key}`);
+    }
+  }
+  assertExactRecord(
+    value.distribution,
+    {
+      applicationId: 'uk.eugnel.ks2spelling',
+      iosKind: 'release',
+      androidTrack: 'production',
     },
     DISTRIBUTION_KEYS,
     label,

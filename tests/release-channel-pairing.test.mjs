@@ -72,3 +72,61 @@ test('sandbox is a named product channel paired with sandbox-trusting native art
   assert.match(ci, /:app:assembleSandbox/u);
   assert.match(ci, /-scheme Sandbox[\s\S]*-configuration Sandbox/u);
 });
+
+test("production environment reaches the keyring guard and rejects sandbox-signed manifests", async () => {
+  const { createDownloadCoordinator } = await import(join(ROOT, "src/app/download-coordinator.js"));
+  const { createHarness, HANDLE } = await import(join(ROOT, "tests/helpers/range-fixture-server.mjs"));
+
+  // The harness fixture envelope is signed with the sandbox test key, whose
+  // allowedEnvironments exclude production. If the coordinator threads
+  // environment=production through to the keyring guard, verification must
+  // fail closed; reverting the environment plumbing turns this test red.
+  const harness = createHarness();
+  const coordinator = createDownloadCoordinator({
+    ...harness.dependencies,
+    environment: "production",
+  });
+  await assert.rejects(
+    coordinator.queue({ sealedRefreshHandle: HANDLE }),
+    /Pack verification key is not approved for this environment/,
+  );
+});
+
+test("production environment pins capability URLs to the production gateway origin", async () => {
+  const { createDownloadCoordinator } = await import(join(ROOT, "src/app/download-coordinator.js"));
+  const {
+    authorisation, capabilityUrl, createHarness, realManifestVerifier, HANDLE,
+  } = await import(join(ROOT, "tests/helpers/range-fixture-server.mjs"));
+
+  // Verify the fixture envelope under sandbox keyring rules regardless of the
+  // coordinator environment, isolating the gateway-origin selection seam.
+  const sandboxVerifier = (input) =>
+    realManifestVerifier({ ...input, environment: "sandbox" });
+
+  // A sandbox-origin capability must be rejected by a production coordinator.
+  const rejected = createHarness({ manifestVerifier: sandboxVerifier });
+  await assert.rejects(
+    createDownloadCoordinator({ ...rejected.dependencies, environment: "production" })
+      .queue({ sealedRefreshHandle: HANDLE }),
+    { code: "DOWNLOAD_CAPABILITY_INVALID" },
+  );
+
+  // The identical capability re-issued on the production origin must pass the
+  // origin gate and complete; reverting the origin selection in
+  // download-coordinator.js turns this test red.
+  const productionAuthorisation = () => {
+    const value = authorisation();
+    value.archiveCapability.capabilityUrl = capabilityUrl()
+      .replace("b3-gateway.eugnel.uk", "ks2-gateway.eugnel.uk");
+    return value;
+  };
+  const accepted = createHarness({
+    manifestVerifier: sandboxVerifier,
+    authoriseOutcomes: [productionAuthorisation(), productionAuthorisation()],
+  });
+  const result = await createDownloadCoordinator({
+    ...accepted.dependencies,
+    environment: "production",
+  }).queue({ sealedRefreshHandle: HANDLE });
+  assert.equal(result.state, "downloaded");
+});

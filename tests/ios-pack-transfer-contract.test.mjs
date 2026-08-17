@@ -33,7 +33,11 @@ test('iOS validates capability authority before constructing a URLRequest', asyn
     new URL('ios/App/App/ZipCentralDirectoryInspector.swift', ROOT),
     'utf8',
   );
-  assert.match(inspector, /https:\/\/b3-gateway\.eugnel\.uk/);
+  // Gateway origin is now channel-selected; check that it reads from Info.plist
+  assert.match(inspector, /KS2ReleaseChannel/);
+  assert.match(inspector, /ks2-gateway\.eugnel\.uk/);
+  assert.match(inspector, /b3-gateway\.eugnel\.uk/);
+  assert.match(inspector, /gatewayOrigin/);
   assert.match(inspector, /URLComponents/);
   assert.match(inspector, /percentEncodedQuery/);
   assert.match(inspector, /expires=.*&cap=/s);

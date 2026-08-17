@@ -1,7 +1,9 @@
 import gatewayAuthorityJson from '../../config/b3-gateway-authority.json' with { type: 'json' };
+import productionGatewayAuthorityJson from '../../config/ks2-gateway-authority-production.json' with { type: 'json' };
 import packKeyring from '../../config/pack-signing-public-keys.json' with { type: 'json' };
 import {
   assertB3GatewayAuthority,
+  assertProductionGatewayAuthority,
   findStoreProductByEntitlementId,
 } from '../domain/commerce/commerce-contracts.js';
 import {
@@ -172,7 +174,9 @@ export function createProductCommerceWorkflow(options = {}) {
     throw new TypeError('Product commerce functions are invalid.');
   }
 
-  const authority = assertB3GatewayAuthority(gatewayAuthorityJson);
+  const authority = packTrustEnvironment === 'production'
+    ? assertProductionGatewayAuthority(productionGatewayAuthorityJson)
+    : assertB3GatewayAuthority(gatewayAuthorityJson);
   const store = options.store ??
     createCapacitorStore({ Commerce: CommercePlugin });
   const fetchImpl = options.fetchImpl ??

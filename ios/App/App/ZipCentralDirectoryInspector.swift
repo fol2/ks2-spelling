@@ -53,6 +53,14 @@ enum PackCapabilityValidator {
     private static let archiveName = try! NSRegularExpression(
         pattern: "^[a-z0-9][a-z0-9._-]{0,119}\\.zip$"
     )
+    
+    private static let gatewayOrigin: String = {
+        let releaseChannel = Bundle.main.infoDictionary?["KS2ReleaseChannel"] as? String ?? "sandbox"
+        if releaseChannel == "production" {
+            return "ks2-gateway.eugnel.uk"
+        }
+        return "b3-gateway.eugnel.uk"
+    }()
 
     static func validateIdentifier(_ value: String) throws {
         let range = NSRange(value.startIndex..<value.endIndex, in: value)
@@ -80,7 +88,7 @@ enum PackCapabilityValidator {
         guard capability.utf8.count <= 8_192,
               let components = URLComponents(string: capability),
               components.scheme == "https",
-              components.host == "b3-gateway.eugnel.uk",
+              components.host == gatewayOrigin,
               components.user == nil,
               components.password == nil,
               components.port == nil,
@@ -103,7 +111,7 @@ enum PackCapabilityValidator {
               expires > 0,
               let url = components.url,
               url.absoluteString == capability,
-              url.absoluteString == "https://b3-gateway.eugnel.uk\(expectedPath)?\(query)" else {
+              url.absoluteString == "https://\(gatewayOrigin)\(expectedPath)?\(query)" else {
             throw PackInspectionError.rejected
         }
         return url

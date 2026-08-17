@@ -32,7 +32,7 @@ export function redactText(value, env = process.env) {
   }
 
   return text.replace(
-    /((?:--)?[A-Za-z0-9_-]*(?:api[_-]?key|token|password|secret|credential|private[_-]?key|mobileprovision|provisioning[_-]?profile|code[_-]?sign[_-]?identity|signing[_-]?(?:certificate|identity))[A-Za-z0-9_-]*\s*[=:]\s*)(?:"[^"]*"|'[^']*'|[^\s]+)/gi,
+    /((?:--)?[A-Za-z0-9_-]*(?:api[_-]?key|token|password|secret|credential|private[_-]?key|mobileprovision|provisioning[_-]?profile|code[_-]?sign[_-]?identity|signing[_-]?(?:certificate|identity))[A-Za-z0-9_-]*\s*[=:]\s*)(?:"[^"]*"|'[^']*'|[^"\s]+)/gi,
     '$1[REDACTED]',
   );
 }

@@ -125,6 +125,57 @@ test('command results use stable exit codes and redact signing or environment se
   );
 });
 
+test('redactText must not corrupt structured JSON, even with secret-like scope names', async () => {
+  const { redactText } = await importScript('scripts/lib/run-command.mjs');
+
+  // Regression test for issue #219: wrangler whoami --json output with OAuth scopes
+  // including "secrets_store:write" must survive redaction as valid JSON. The primary
+  // concern is that the value matcher does not swallow the closing quote character.
+  const realisticWranglerOutput = {
+    account: {
+      id: 'a1234567890bcdef1234567890bcdef1',
+      name: 'example-account',
+    },
+    user: {
+      email: 'user@example.com',
+    },
+    scopes: [
+      'account:read',
+      'user:read',
+      'workers:write',
+      'workers_kv:write',
+      'workers_routes:write',
+      'workers_scripts:write',
+      'workers_tail:read',
+      'secrets_store:write',
+    ],
+  };
+
+  const jsonString = JSON.stringify(realisticWranglerOutput);
+  const redactedOutput = redactText(jsonString, {});
+
+  // The output must remain valid JSON (the bug was that the closing quote was consumed).
+  let parsed;
+  try {
+    parsed = JSON.parse(redactedOutput);
+  } catch (error) {
+    assert.fail(`redactText corrupted JSON: ${error.message}\nInput: ${jsonString}\nOutput: ${redactedOutput}`);
+  }
+
+  // Account and user metadata must survive the redaction round-trip.
+  assert.equal(parsed.account.id, realisticWranglerOutput.account.id);
+  assert.equal(parsed.account.name, realisticWranglerOutput.account.name);
+  assert.equal(parsed.user.email, realisticWranglerOutput.user.email);
+
+  // Scopes array must contain exactly the same number of entries, all non-empty strings.
+  assert.equal(parsed.scopes.length, realisticWranglerOutput.scopes.length,
+    'all scopes must be present');
+  parsed.scopes.forEach((scope) => {
+    assert.equal(typeof scope, 'string', 'scope must be a string');
+    assert.ok(scope.length > 0, 'scope must not be empty');
+  });
+});
+
 test('shared commands validate deadlines and terminate the complete owned process group', async () => {
   const { runCommand } = await importScript('scripts/lib/run-command.mjs');
   const timeoutMs = 500;

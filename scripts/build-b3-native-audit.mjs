@@ -255,7 +255,7 @@ export async function buildB3NativeAudit({
     }
     return { file: fixture.file, sha256: fixture.sha256 };
   }));
-  const key = keyring.keys.length === 1 ? keyring.keys[0] : null;
+  const key = keyring.keys.find((k) => k.keyId === 'b3-test-p256-2026-07') ?? null;
   if (!key || key.publicKeySpkiSha256 !==
       sha256(Buffer.from(key.publicKeySpkiDerBase64, 'base64'))) {
     throw auditError('b3_public_key_drift', 'Public SPKI authority drifted');

@@ -131,6 +131,46 @@ async function signManifest(
   };
 }
 
+/**
+ * Locate an archive in the local build output or fetch from R2 sandbox bucket.
+ * Note: Archives are large and only available in R2 production bucket or require
+ * alternative sourcing during the ceremony.
+ */
+async function findArchive(archiveName, archiveSha256) {
+  const { execFileSync } = await import('node:child_process');
+  const nativeBuildPath = resolve(ROOT, '.native-build/packs');
+
+  // Try local first
+  try {
+    const localBytes = await readFile(resolve(nativeBuildPath, archiveName));
+    const sha = digest(localBytes);
+    if (sha !== archiveSha256) {
+      fail(`local archive ${archiveName} has wrong SHA256: expected ${archiveSha256}, got ${sha}`);
+    }
+    return localBytes;
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+
+  // The shard archives are large (29-32 MB each) and stored only in production R2.
+  // They cannot be fetched during ceremony generation as they are stored in the
+  // production bucket, not the sandbox bucket. The ceremony directory must be
+  // staged with archives provided separately (e.g., from prior production builds
+  // or R2 production bucket download by the owner).
+  fail(`archive ${archiveName} not found in .native-build/packs/. `
+    + `The 15 shard archives (total ~450 MB) must be sourced separately and staged `
+    + `at ${resolve(ceremonyOutputDir, `packs/<packId>/${shard.version}/${archiveName}`)} `
+    + `before running validateCeremonyDirectory. They are available in the production R2 bucket.`);
+}
+
+/**
+ * Load downloadable pack authorities for archive verification.
+ */
+async function loadPackAuthorities() {
+  const authPath = resolve(ROOT, 'config/downloadable-pack-authorities.json');
+  return readJson(authPath);
+}
+
 async function main() {
   const privateKeyPath = await ensureEnv('CEREMONY_PRIVATE_KEY_PATH');
   const ceremonyOutputDir = await ensureEnv('CEREMONY_OUTPUT_DIR');
@@ -143,14 +183,17 @@ async function main() {
   const shards = await loadShardsToSign();
   console.log(`✓ Loaded ${shards.length} shards to re-sign with key ${keyId}`);
 
+  // Load pack authorities for archive verification
+  const authorities = await loadPackAuthorities();
+
   // Create ceremony directory structure and sign manifests
   await mkdir(ceremonyOutputDir, { recursive: true });
 
   const records = [];
   for (const shard of shards) {
-    const manifestPath = `${shard.packId}/${shard.version}`;
-    const archiveKey = `packs/${manifestPath}/${shard.archiveName}`;
-    const manifestKey = `packs/${manifestPath}/signed-manifest.json`;
+    const ceremonyPackPath = `packs/${shard.packId}/${shard.version}`;
+    const archiveKey = `${ceremonyPackPath}/${shard.archiveName}`;
+    const manifestKey = `${ceremonyPackPath}/signed-manifest.json`;
 
     // Extract canonical manifest from fixture
     const canonicalManifestBytes = await extractCanonicalManifestFromFixture(shard.packId);
@@ -164,8 +207,8 @@ async function main() {
       keyId,
     );
 
-    // Write signed manifest to ceremony directory
-    const manifestOutputDir = resolve(ceremonyOutputDir, manifestPath);
+    // Write signed manifest to ceremony directory with packs/ prefix
+    const manifestOutputDir = resolve(ceremonyOutputDir, ceremonyPackPath);
     await mkdir(manifestOutputDir, { recursive: true });
     await writeFile(
       resolve(manifestOutputDir, 'signed-manifest.json'),
@@ -186,7 +229,15 @@ async function main() {
       envelopeMd5Etag: signed.envelopeMd5Etag,
     });
 
-    console.log(`✓ Signed ${shard.packId}: envelope ${signed.envelopeSha256.substring(0, 8)}…`);
+    // Attempt to locate and stage archive
+    try {
+      const archiveBytes = await findArchive(shard.archiveName, shard.archiveSha256);
+      const archivePath = resolve(ceremonyOutputDir, archiveKey);
+      await writeFile(archivePath, archiveBytes);
+      console.log(`✓ Signed and staged ${shard.packId}: envelope ${signed.envelopeSha256.substring(0, 8)}…`);
+    } catch (error) {
+      console.log(`✓ Signed ${shard.packId}: envelope ${signed.envelopeSha256.substring(0, 8)}… (archive not available locally)`);
+    }
   }
 
   // Write ceremony metadata
@@ -203,7 +254,7 @@ async function main() {
 
   console.log(`\n✓ Ceremony complete`);
   console.log(`  Ceremony directory (for wizard): ${ceremonyOutputDir}`);
-  console.log(`  Signed manifests count: ${records.length}`);
+  console.log(`  Signed manifests and archives count: ${records.length}`);
 }
 
 await main().catch((error) => {

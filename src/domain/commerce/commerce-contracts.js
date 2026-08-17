@@ -357,13 +357,8 @@ export function assertPackKeyring(value) {
   if (keys.length !== 2) {
     fail(label, 'must contain exactly two signing keys (sandbox and production)');
   }
-  
-  // Verify the sandbox test key is present
   assertExactRecord(keys[0], EXPECTED_SANDBOX_SIGNING_KEY, SIGNING_KEY_KEYS, label);
-  
-  // Verify the production key is present
   assertExactRecord(keys[1], EXPECTED_PRODUCTION_SIGNING_KEY, SIGNING_KEY_KEYS, label);
-  
   return value;
 }
 

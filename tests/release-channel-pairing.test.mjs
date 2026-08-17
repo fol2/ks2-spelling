@@ -73,113 +73,60 @@ test('sandbox is a named product channel paired with sandbox-trusting native art
   assert.match(ci, /-scheme Sandbox[\s\S]*-configuration Sandbox/u);
 });
 
-test('production channel passes releaseChannel into the keyring guard', async () => {
-  const { createDownloadCoordinator } = await import(
-    join(ROOT, 'src/app/download-coordinator.js')
-  );
-  const packKeyring = await import(
-    join(ROOT, 'config/pack-signing-public-keys.json'),
-    { with: { type: 'json' } }
-  );
-  
-  // Create a mock gateway that returns a valid authorisation response
-  const mockGateway = {
-    authorisePackDownload: async () => ({
-      state: 'active',
-      entitlementId: 'test',
-      packId: 'test',
-      version: '1.0.0',
-      signedEnvelopeSha256: 'a'.repeat(64),
-      objects: [
-        {
-          objectKind: 'manifest',
-          sha256: 'a'.repeat(64),
-          size: 100,
-          etag: 'b'.repeat(32),
-        },
-        {
-          objectKind: 'archive',
-          sha256: 'c'.repeat(64),
-          size: 50,
-          etag: 'd'.repeat(32),
-        },
-      ],
-      archiveCapability: {
-        packId: 'test',
-        version: '1.0.0',
-        archiveName: 'test.zip',
-        sha256: 'c'.repeat(64),
-        compressedBytes: 50,
-        etag: 'd'.repeat(32),
-        capabilityUrl: 'https://ks2-gateway.eugnel.uk/v1/packs/test/1.0.0/test.zip?expires=1&cap=testcap',
-      },
-      sealedRefreshHandle: 'test-handle',
-      refreshHandleVersion: 1,
-      signedManifestEnvelopeBase64: Buffer.from('test').toString('base64'),
-    }),
-  };
-  
-  const downloadCoordinator = createDownloadCoordinator({
-    gateway: mockGateway,
-    packTransfer: {
-      getFreeBytes: async () => 1_000_000,
-      downloadRange: async () => ({}),
-      inspectAndExtract: async () => ({
-        archiveSha256: 'c'.repeat(64),
-        manifestSha256: 'a'.repeat(64),
-        extractedBytes: 200,
-        fileCount: 1,
-      }),
-      removeOwnedTemporaryState: async () => ({}),
-    },
-    packRepository: {
-      getDownloadJob: async () => null,
-      clearDownloadChunks: async () => ({}),
-      completeDownloadChunk: async () => ({}),
-      deleteDownloadJob: async () => ({}),
-      listDownloadChunks: async () => [],
-      replaceDownloadChunks: async () => ({}),
-      updateDownloadJob: async (opts) => ({ ...opts, etag: 'd'.repeat(32) }),
-      upsertDownloadJob: async (opts) => ({ ...opts, etag: 'd'.repeat(32) }),
-    },
-    manifestVerifier: async () => ({ manifest: { files: [] } }),
-    keyring: packKeyring,
-    activeEntitlementProjection: async () => ({
-      entitlementId: 'test',
-      state: 'active',
-      sealedRefreshHandle: 'test',
-      refreshedAt: Date.now(),
-    }),
-    entitlementRepository: { compareAndSwapSealedRefreshHandle: async () => ({
-      entitlementId: 'test',
-      state: 'active',
-      sealedRefreshHandle: 'test-handle',
-      refreshedAt: Date.now(),
-      refreshHandleVersion: 1,
-    }) },
-    currentAppVersion: '0.3.0-b3',
-    currentSchemaVersion: 2,
-    clock: () => Date.now(),
-    chunkSize: 1_048_576,
-    packAuthority: {
-      packId: 'test',
-      version: '1.0.0',
-      requiredEntitlementId: 'test',
-      archiveName: 'test.zip',
-      allowedExtensions: ['.txt'],
-      ceilings: { fileCount: 1, compressedBytes: 100, extractedBytes: 200 },
-      manifestSha256: 'a'.repeat(64),
-      manifestBytes: 100,
-      manifestEtag: 'b'.repeat(32),
-      archiveSha256: 'c'.repeat(64),
-      archiveBytes: 50,
-      archiveEtag: 'd'.repeat(32),
-    },
-    environment: 'production',
+test("production environment reaches the keyring guard and rejects sandbox-signed manifests", async () => {
+  const { createDownloadCoordinator } = await import(join(ROOT, "src/app/download-coordinator.js"));
+  const { createHarness, HANDLE } = await import(join(ROOT, "tests/helpers/range-fixture-server.mjs"));
+
+  // The harness fixture envelope is signed with the sandbox test key, whose
+  // allowedEnvironments exclude production. If the coordinator threads
+  // environment=production through to the keyring guard, verification must
+  // fail closed; reverting the environment plumbing turns this test red.
+  const harness = createHarness();
+  const coordinator = createDownloadCoordinator({
+    ...harness.dependencies,
+    environment: "production",
   });
-  
-  assert(downloadCoordinator !== null);
-  // B3.3 plumbing: production environment is threaded through to manifestVerifier
-  // during pack authorisation. This test ensures the composition and download-coordinator
-  // changes correctly pass environment='production' to the keyring guard.
+  await assert.rejects(
+    coordinator.queue({ sealedRefreshHandle: HANDLE }),
+    /Pack verification key is not approved for this environment/,
+  );
+});
+
+test("production environment pins capability URLs to the production gateway origin", async () => {
+  const { createDownloadCoordinator } = await import(join(ROOT, "src/app/download-coordinator.js"));
+  const {
+    authorisation, capabilityUrl, createHarness, realManifestVerifier, HANDLE,
+  } = await import(join(ROOT, "tests/helpers/range-fixture-server.mjs"));
+
+  // Verify the fixture envelope under sandbox keyring rules regardless of the
+  // coordinator environment, isolating the gateway-origin selection seam.
+  const sandboxVerifier = (input) =>
+    realManifestVerifier({ ...input, environment: "sandbox" });
+
+  // A sandbox-origin capability must be rejected by a production coordinator.
+  const rejected = createHarness({ manifestVerifier: sandboxVerifier });
+  await assert.rejects(
+    createDownloadCoordinator({ ...rejected.dependencies, environment: "production" })
+      .queue({ sealedRefreshHandle: HANDLE }),
+    { code: "DOWNLOAD_CAPABILITY_INVALID" },
+  );
+
+  // The identical capability re-issued on the production origin must pass the
+  // origin gate and complete; reverting the origin selection in
+  // download-coordinator.js turns this test red.
+  const productionAuthorisation = () => {
+    const value = authorisation();
+    value.archiveCapability.capabilityUrl = capabilityUrl()
+      .replace("b3-gateway.eugnel.uk", "ks2-gateway.eugnel.uk");
+    return value;
+  };
+  const accepted = createHarness({
+    manifestVerifier: sandboxVerifier,
+    authoriseOutcomes: [productionAuthorisation(), productionAuthorisation()],
+  });
+  const result = await createDownloadCoordinator({
+    ...accepted.dependencies,
+    environment: "production",
+  }).queue({ sealedRefreshHandle: HANDLE });
+  assert.equal(result.state, "downloaded");
 });

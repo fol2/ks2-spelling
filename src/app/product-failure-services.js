@@ -127,10 +127,6 @@ export function createProductFailureServices({ cause } = {}) {
     parentAdministration: Object.freeze({
       resetLearning: rejectedAction,
     }),
-    parentBackup: Object.freeze({
-      exportBackup: rejectedAction,
-      importBackup: rejectedAction,
-    }),
     audio: Object.freeze({
       play: rejectedAction,
     }),

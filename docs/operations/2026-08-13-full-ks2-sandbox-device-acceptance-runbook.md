@@ -119,9 +119,10 @@ On a device signed into a **sandbox** store account:
 5. **Non-entitled device**: on a device without the entitlement, confirm
    shard bytes are unreachable: no authorise (403), and a captured
    capability URL from the entitled device fails after expiry (600 s) and
-   never matches another shard's path. Importing a full-catalogue learning
-   backup onto this device must **not** raise the word list to 213 — that is
-   Gap 5 of the kids-category position.
+   never matches another shard's path. The learning-backup import path is
+   deleted; Gap 5's file-path vector is closed by absence. A later iCloud
+   replica apply must not raise the word list — that constraint lives on
+   [iCloud learning replica — CloudKit private database, post-listing](https://github.com/fol2/ks2-spelling/issues/199).
 6. **Legacy-state device**: on a device that previously ran the B3 proof
    app (carrying `b3-sandbox-proof` rows), the product app starts cleanly
    and reports the b3 job retired (deliberate retirement, not a crash).

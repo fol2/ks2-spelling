@@ -2,12 +2,11 @@
 module: parent-data
 tags:
   - retention
-  - backup
   - privacy
 problem_type: operating-policy
 ---
 
-# Parent data, retention and learning backup
+# Parent data and retention
 
 ## Local retention
 
@@ -29,28 +28,8 @@ The Parent security verifier and app-wide commerce or installed-pack authority
 are not learner-owned and are therefore not removed by a learner reset or
 deletion.
 
-## Explicit backup
-
-Export creates one canonical JSON learning backup through the system share
-sheet. The limit is 5 MiB and 20 learners. It includes:
-
-- each validated learner profile;
-- each validated spelling snapshot; and
-- the selected learner identifier.
-
-It excludes the Parent PIN verifier and lockout record, commerce and
-entitlement state, download jobs, installed packs, credentials and arbitrary
-files. The app writes only a short-lived, app-controlled native export file;
-the Parent chooses its destination. A copy saved elsewhere is controlled by
-the Parent and is not deleted by a later in-app reset or deletion.
-
-Import requires an unlocked Parent session and the exact confirmation word
-`REPLACE`. The native and application layers both enforce the 5 MiB bound. The
-application recomputes SHA-256, requires canonical UTF-8 JSON, validates every
-profile and spelling snapshot against the installed catalogue, then replaces
-all learner data in one SQLite transaction. Parent security, commerce and
-installed packs remain unchanged. Cancellation or any failure leaves existing
-learner data intact.
+v1 does not export or import a learning file. Cross-device learning on Apple
+devices is the post-listing iCloud learning replica.
 
 ## Device storage policy
 

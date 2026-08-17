@@ -781,8 +781,6 @@ export function ParentArea({
   onEditProfile,
   onRemoveProfile,
   onResetLearning,
-  onExportBackup,
-  onImportBackup,
   onRefreshProgress,
   onPurchase,
   onRestore,
@@ -793,11 +791,6 @@ export function ParentArea({
   const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState('');
-  const [backupBusy, setBackupBusy] = useState(false);
-  const [backupMessage, setBackupMessage] = useState('');
-  const [backupError, setBackupError] = useState('');
-  const [confirmingImport, setConfirmingImport] = useState(false);
-  const [importConfirmation, setImportConfirmation] = useState('');
   const biometric = biometricName(state.biometric.type);
 
   async function run(action) {
@@ -812,35 +805,6 @@ export function ParentArea({
       setLocalError('That did not work. Check the details and try again.');
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function runBackup(action, successMessage) {
-    if (backupBusy) return;
-    setBackupBusy(true);
-    setBackupMessage('');
-    setBackupError('');
-    try {
-      const result = await action();
-      setBackupMessage(
-        result?.cancelled === true
-          ? 'No backup was imported.'
-          : successMessage,
-      );
-      setConfirmingImport(false);
-      setImportConfirmation('');
-    } catch (error) {
-      if (error?.postCommit === true) {
-        // The import committed; only the in-app refresh failed. Reopening
-        // rebuilds every view from the imported data.
-        setBackupMessage('The backup was imported, but this screen could not refresh. Close and reopen the app.');
-        setConfirmingImport(false);
-        setImportConfirmation('');
-      } else {
-        setBackupError('The backup did not complete. No learning was replaced.');
-      }
-    } finally {
-      setBackupBusy(false);
     }
   }
 
@@ -929,101 +893,6 @@ export function ParentArea({
             onDownload={onDownload}
             onRecover={onRecoverCommerce}
           />
-
-          <section className="paper-card parent-card" aria-labelledby="parent-backup-title">
-            <p className="product-kicker">Move or recover learning</p>
-            <h2 id="parent-backup-title">Learning backup</h2>
-            <p>
-              Export saves learner profiles and learning to a file you control.
-              Deleting a learner here does not delete copies exported elsewhere.
-            </p>
-            {/* The caution stands above the control it is about. Printed
-                underneath, it was read after the tap, if at all — and the tap
-                it followed replaces every learner on the device. */}
-            <p className="parent-backup-warning">
-              Import replaces every learner and learning snapshot on this
-              device. The Parent PIN, purchases and installed packs stay
-              unchanged.
-            </p>
-            <div className="parent-backup-actions">
-              <button
-                type="button"
-                className="button-quiet press-soft press"
-                disabled={backupBusy}
-                onClick={() => void runBackup(
-                  onExportBackup,
-                  'The learning backup is ready to save.',
-                )}
-              >
-                Export learning backup
-              </button>
-              {!confirmingImport && (
-                <button
-                  type="button"
-                  className="button-warning press-soft press"
-                  disabled={backupBusy}
-                  onClick={() => {
-                    setBackupMessage('');
-                    setBackupError('');
-                    setConfirmingImport(true);
-                  }}
-                >
-                  Import learning backup
-                </button>
-              )}
-            </div>
-            {confirmingImport && (
-              <section
-                className="parent-import-confirmation"
-                aria-label="Confirm learning backup import"
-              >
-                <label htmlFor="parent-backup-confirmation">
-                  Type <strong>REPLACE</strong> to continue
-                </label>
-                <input
-                  id="parent-backup-confirmation"
-                  type="text"
-                  value={importConfirmation}
-                  autoComplete="off"
-                  disabled={backupBusy}
-                  onChange={(event) =>
-                    setImportConfirmation(event.target.value)}
-                />
-                <div className="parent-backup-actions">
-                  <button
-                    type="button"
-                    className="button-danger press"
-                    disabled={
-                      backupBusy || importConfirmation !== 'REPLACE'
-                    }
-                    onClick={() => void runBackup(
-                      onImportBackup,
-                      'The learning backup was imported.',
-                    )}
-                  >
-                    Choose backup and replace learners
-                  </button>
-                  <button
-                    type="button"
-                    className="button-quiet press-soft press"
-                    disabled={backupBusy}
-                    onClick={() => {
-                      setConfirmingImport(false);
-                      setImportConfirmation('');
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </section>
-            )}
-            {backupMessage && (
-              <p className="inline-status" role="status">{backupMessage}</p>
-            )}
-            {backupError && (
-              <p className="inline-error" role="alert">{backupError}</p>
-            )}
-          </section>
 
           <PrivacyNoticeCard />
         </div>
@@ -3606,8 +3475,6 @@ export default function ProductApp({ services }) {
         }}
         onResetLearning={(learnerId) =>
           services.parentAdministration.resetLearning(learnerId)}
-        onExportBackup={() => services.parentBackup.exportBackup()}
-        onImportBackup={() => services.parentBackup.importBackup()}
         onRefreshProgress={() => services.parentProgress.refresh()}
         onPurchase={() => services.parentCommerce.purchase()}
         onRestore={() => services.parentCommerce.restore()}

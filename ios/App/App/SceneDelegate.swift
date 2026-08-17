@@ -52,7 +52,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             bridgeViewController.bridge?.registerPluginInstance(ParentAccessPlugin())
             bridgeViewController.bridge?.registerPluginInstance(LocalDataProtectionPlugin())
             bridgeViewController.bridge?.registerPluginInstance(InstalledAudioPlugin())
-            bridgeViewController.bridge?.registerPluginInstance(LearningBackupFilePlugin())
             bridgeViewController.bridge?.registerPluginInstance(PackTransferPlugin())
             bridgeViewController.bridge?.registerPluginInstance(CommercePlugin())
         }

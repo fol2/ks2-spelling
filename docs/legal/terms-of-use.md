@@ -4,7 +4,7 @@ Effective date: 23 July 2026
 
 KS2 Spelling is an educational practice aid for children in Key Stage 2. A
 Parent or guardian is responsible for choosing whether and how a child uses
-the application and for protecting the Parent PIN and any exported backup.
+the application and for protecting the Parent PIN.
 
 The application is not a substitute for teaching, professional educational
 assessment or safeguarding supervision. Progress and reward displays describe

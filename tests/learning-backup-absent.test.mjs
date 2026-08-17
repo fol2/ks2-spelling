@@ -75,7 +75,9 @@ test('v1 must not ship the learning-backup file path, UI or native plugin', asyn
   assert.doesNotMatch(activity, /LearningBackupFilePlugin/);
   assert.doesNotMatch(project, /LearningBackupFilePlugin/);
   assert.doesNotMatch(manifest, /FileProvider|file_paths|learning.backups/);
-  assert.match(notice, /Nothing is retained off the device\./);
+  assert.match(notice, /The family's iCloud holds the replica of learner/);
+  assert.match(notice, /does not delete iCloud copies/);
+  assert.doesNotMatch(notice, /Nothing is retained off the device/);
   assert.doesNotMatch(notice, /A Parent may explicitly export a learning backup/);
   assert.doesNotMatch(notice, /backup copies previously exported elsewhere/);
   assert.doesNotMatch(listing, /\bbackups\b/);

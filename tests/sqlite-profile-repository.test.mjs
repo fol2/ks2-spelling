@@ -65,6 +65,7 @@ test('SQLite profile store exposes the frozen async profile contract and selects
   assert.deepEqual(Object.keys(store.administration), [
     'resetLearning',
     'alignCatalogueLearning',
+    'applyReplicaResult',
   ]);
   assert.deepEqual(await store.profiles.listProfiles(), []);
   assert.equal(await store.selection.readSelectedLearnerId(), null);

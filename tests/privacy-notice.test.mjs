@@ -46,16 +46,19 @@ test('the committed privacy notice is the closed markdown subset the in-app rend
   );
 });
 
-test('COPPA 312.10 retention is stated: nothing off-device, and deleting the app removes remaining local data', async () => {
+test('COPPA 312.10 retention is stated: we retain nothing, family iCloud holds the replica, and deleting the app does not delete iCloud copies', async () => {
   const markdown = await readNotice();
   const retention = parsePrivacyNotice(markdown).sections.find(
     (section) => section.heading === 'Retention and control',
   );
   assert.ok(retention, 'retention section must exist');
   const text = retention.paragraphs.join(' ');
-  assert.match(text, /Nothing is retained off the device\./);
+  assert.match(text, /We retain nothing\./);
+  assert.match(text, /The family's iCloud holds the replica of learner/);
+  assert.match(text, /does not delete iCloud copies/);
   assert.match(text, /Deleting the application removes\s+its remaining application-controlled\s+local data\./);
   assert.doesNotMatch(text, /backup copies previously exported elsewhere/);
+  assert.doesNotMatch(text, /Nothing is retained off the device/);
 });
 
 test('COPPA 312.4(d)(3) internal operations: the transiting IP is disclosed, purpose-limited, and not retained', async () => {

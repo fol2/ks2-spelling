@@ -134,6 +134,7 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
       'app-owned-parent-access-bridge',
       'app-owned-installed-audio-bridge',
       'app-owned-local-data-protection-bridge',
+      'app-owned-icloud-learning-replica-bridge',
     ],
   );
   assert.deepEqual(report.permissionEvidence.androidUsesPermissions, [
@@ -141,7 +142,9 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
     'android.permission.USE_BIOMETRIC',
   ]);
   assert.equal(report.permissionEvidence.androidPermissionRemovalMarkers.length, 3);
-  assert.deepEqual(report.permissionEvidence.iosEntitlements, []);
+  assert.deepEqual(report.permissionEvidence.iosEntitlements, [
+    'ios/App/App/App.entitlements',
+  ]);
   assert.deepEqual(
     report.permissionEvidence.iosUsageDescriptionKeys,
     ['NSFaceIDUsageDescription'],

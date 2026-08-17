@@ -13,54 +13,17 @@ import { createB4LocalAudioPlayer } from '../app/b4-local-audio.js';
 import {
   B4_PRODUCT_IDENTIFIER,
   B4_START_TIMESTAMP,
+  commitB4CommandPlan,
+  createB4LearnerSnapshot,
   loadB4SpellingCatalogue,
 } from '../app/b4-round-contract.js';
-import {
-  loadStarterSpellingCatalogue,
-  validateSpellingCommandSnapshotV1,
-} from '../domain/spelling/index.js';
 
 const bridgeMs = Number(new URLSearchParams(location.search).get('bridgeMs')) || 0;
 
-function freshSnapshot() {
-  return validateSpellingCommandSnapshotV1({
-    schemaVersion: 1,
-    learnerId: 'learner-a',
-    revision: 0,
-    packId: 'ks2-core',
-    catalogueId: 'ks2-core:starter',
-    grantedEntitlementIds: [],
-    subjectState: {
-      ui: {},
-      data: {
-        prefs: { autoSpeak: false },
-        progress: {},
-        guardianMap: {},
-        pattern: { wobblingByRuntimeItemId: {} },
-        postMega: null,
-        achievements: {},
-        persistenceWarning: null,
-      },
-    },
-    practiceSession: null,
-    eventLog: [],
-    monsterStateByRewardTrackId: {},
-    campStateByPackId: {},
-  }, loadStarterSpellingCatalogue());
-}
-
-let snapshot = freshSnapshot();
+let snapshot = createB4LearnerSnapshot();
 
 function commitPlan(plan) {
-  snapshot = validateSpellingCommandSnapshotV1({
-    ...structuredClone(snapshot),
-    revision: plan.nextRevision,
-    subjectState: plan.nextSubjectState,
-    practiceSession: plan.nextPracticeSession,
-    eventLog: plan.nextEventLog,
-    monsterStateByRewardTrackId: plan.nextMonsterStateByRewardTrackId,
-    campStateByPackId: plan.nextCampStateByPackId,
-  }, loadStarterSpellingCatalogue());
+  snapshot = commitB4CommandPlan(snapshot, plan);
 }
 
 const wait = (ms) => (ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : null);

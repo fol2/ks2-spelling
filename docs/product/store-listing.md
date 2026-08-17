@@ -63,7 +63,7 @@ Know every word in the Word Bank: see what is secure, learning or due, then open
 Make spellings stick with Camp and Guardian, returning at the right time.
 Learn from every try: clear feedback, and tricky words come back. See every step forward after each round.
 
-Grown-ups stay in control. Learner profiles, weekly goals, progress and backups stay on this device. Purchases live in the Parent area, not in front of the child. No advertising, analytics or tracking.
+Grown-ups stay in control. Learner profiles, weekly goals and progress stay on this device. Purchases live in the Parent area, not in front of the child. No advertising, analytics or tracking.
 ```
 
 The nine body beats follow the nine `final-v3` screenshot overlays in order.

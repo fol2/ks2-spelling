@@ -3574,23 +3574,20 @@ select {
 }
 
 .parent-learner-actions,
-.parent-commerce-actions,
-.parent-backup-actions {
+.parent-commerce-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
 
 .parent-learner-actions button,
-.parent-commerce-actions button,
-.parent-backup-actions button {
+.parent-commerce-actions button {
   flex: 1 1 8rem;
 }
 
 .parent-edit-form,
 .parent-reset-confirmation,
-.parent-delete-confirmation,
-.parent-import-confirmation {
+.parent-delete-confirmation {
   display: grid;
   gap: 0.6rem;
   border: 1px solid var(--line-strong);
@@ -3615,11 +3612,6 @@ select {
   border-radius: var(--r-s);
   padding: 0 0.8rem;
   background: var(--paper-raised);
-}
-
-.parent-backup-warning {
-  color: var(--brass-deep);
-  font-size: 0.8rem;
 }
 
 /* The commerce card's primary action owns its row. Sharing one with Restore

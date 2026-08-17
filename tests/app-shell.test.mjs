@@ -243,14 +243,6 @@ test('the production shell keeps Parent progress and commerce behind the local g
   const parentAdministration = Object.freeze({
     async resetLearning() {},
   });
-  const parentBackup = Object.freeze({
-    async exportBackup() {
-      return Object.freeze({ presented: true });
-    },
-    async importBackup() {
-      return Object.freeze({ cancelled: true });
-    },
-  });
   const parentProgressState = Object.freeze({
     status: 'ready',
     learners: Object.freeze([
@@ -373,7 +365,6 @@ test('the production shell keeps Parent progress and commerce behind the local g
     parentProgress,
     parentCommerce,
     parentAdministration,
-    parentBackup,
     audio: Object.freeze({ async play() {} }),
     haptics: Object.freeze({
       answerCorrect() {},
@@ -446,8 +437,6 @@ test('the production shell keeps Parent progress and commerce behind the local g
       async onEditProfile() {},
       async onRemoveProfile() {},
       async onResetLearning() {},
-      async onExportBackup() {},
-      async onImportBackup() {},
       async onRefreshProgress() {},
       async onPurchase() {},
       async onRestore() {},
@@ -480,8 +469,6 @@ test('the production shell keeps Parent progress and commerce behind the local g
       async onEditProfile() {},
       async onRemoveProfile() {},
       async onResetLearning() {},
-      async onExportBackup() {},
-      async onImportBackup() {},
       async onRefreshProgress() {},
       async onPurchase() {},
       async onRestore() {},
@@ -495,9 +482,7 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(unlockedParentHtml, /Edit Ada/);
   assert.match(unlockedParentHtml, /Delete learner/);
   assert.match(unlockedParentHtml, /Reset learning/);
-  assert.match(unlockedParentHtml, /Export learning backup/);
-  assert.match(unlockedParentHtml, /Import learning backup/);
-  assert.match(unlockedParentHtml, /replaces every learner/i);
+  assert.doesNotMatch(unlockedParentHtml, /Export learning backup|Import learning backup|Learning backup/);
   assert.match(unlockedParentHtml, /Face ID is on/);
   assert.match(unlockedParentHtml, /Spelling progress/);
   assert.match(unlockedParentHtml, /5 of 6 attempts correct/);

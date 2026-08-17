@@ -34,6 +34,14 @@ const WORKER_SCRIPT_AUTHORITY_SHA256 = '0'.repeat(64);
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'OPTIONS']);
 const DOWNLOAD_REQUEST_HEADERS = new Set(['range', 'if-none-match']);
 
+function googleStoreIsDeclared(env) {
+  return typeof env?.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON === 'string';
+}
+
+function declaredStores(env) {
+  return googleStoreIsDeclared(env) ? ['apple', 'google'] : ['apple'];
+}
+
 function defaultStoreVerifier(store, env, dependencies) {
   if (store === 'apple') {
     return createAppleStoreVerifier({
@@ -45,6 +53,7 @@ function defaultStoreVerifier(store, env, dependencies) {
     });
   }
   if (store === 'google') {
+    if (!googleStoreIsDeclared(env)) throw safeGatewayError('REQUEST_INVALID');
     let serviceAccount;
     try {
       serviceAccount = JSON.parse(env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON);
@@ -177,8 +186,8 @@ async function readJson(request) {
   }
 }
 
-function* handleContexts() {
-  for (const store of ['apple', 'google']) {
+function* handleContexts(env) {
+  for (const store of declaredStores(env)) {
     for (const productId of approvedProductIds(store)) {
       yield Object.freeze({
         store,
@@ -192,8 +201,8 @@ function* handleContexts() {
 
 // The refresh-handle AAD binds (store, productId), so an opaque handle is
 // opened by trying every catalogue context until one authenticates.
-async function openOpaqueHandle(handle, keyring) {
-  for (const context of handleContexts()) {
+async function openOpaqueHandle(handle, keyring, env) {
+  for (const context of handleContexts(env)) {
     try {
       return Object.freeze({ context, payload: await openRefreshHandle(handle, context, { keyring }) });
     } catch (error) {
@@ -248,6 +257,9 @@ export function createGatewayHandler(injected = {}) {
     const keyring = parseServerKeyring(env);
     if (operation === 'verify') {
       const submitted = assertVerifyRequest(requestBody);
+      if (submitted.store === 'google' && !googleStoreIsDeclared(env)) {
+        throw safeGatewayError('REQUEST_INVALID');
+      }
       const result = assertStoreResult(
         await (await verifier(submitted.store, env)).verify(submitted),
         submitted,
@@ -273,7 +285,7 @@ export function createGatewayHandler(injected = {}) {
     }
 
     const { sealedRefreshHandle } = assertHandleRequest(requestBody);
-    const opened = await openOpaqueHandle(sealedRefreshHandle, keyring);
+    const opened = await openOpaqueHandle(sealedRefreshHandle, keyring, env);
     const storeVerifier = await verifier(opened.context.store, env);
     const result = assertStoreResult(
       await storeVerifier[operation]({

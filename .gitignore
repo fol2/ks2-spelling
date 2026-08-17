@@ -36,3 +36,4 @@ ios/App/App/public/
 
 # Local agent configuration
 .claude/
+.wrangler/

@@ -220,8 +220,10 @@ if (digest(signedEnvelope) !== config.signedEnvelopeSha256) {
   fail('rejected a signed envelope whose frozen SHA-256 does not match config');
 }
 
+const sandboxKey = keyring.keys.find((k) => k.keyId === 'b3-test-p256-2026-07');
+if (!sandboxKey) fail('sandbox test key not found in keyring');
 const publicKey = createPublicKey({
-  key: Buffer.from(keyring.keys[0].publicKeySpkiDerBase64, 'base64'),
+  key: Buffer.from(sandboxKey.publicKeySpkiDerBase64, 'base64'),
   format: 'der',
   type: 'spki',
 });

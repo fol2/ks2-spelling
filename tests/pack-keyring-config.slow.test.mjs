@@ -26,7 +26,7 @@ function clone(value) {
   return structuredClone(value);
 }
 
-test('the runtime keyring contains only the exact sandbox public key', async () => {
+test('the runtime keyring contains sandbox and production public keys', async () => {
   const keyring = await readJson('config/pack-signing-public-keys.json');
 
   assert.equal(assertPackKeyring(keyring), keyring);
@@ -46,6 +46,35 @@ test('the runtime keyring contains only the exact sandbox public key', async () 
         allowedEnvironments: ['test', 'sandbox'],
         allowedPackIds: [
           'b3-sandbox-proof',
+          'full-ks2-shard-01',
+          'full-ks2-shard-02',
+          'full-ks2-shard-03',
+          'full-ks2-shard-04',
+          'full-ks2-shard-05',
+          'full-ks2-shard-06',
+          'full-ks2-shard-07',
+          'full-ks2-shard-08',
+          'full-ks2-shard-09',
+          'full-ks2-shard-10',
+          'full-ks2-shard-11',
+          'full-ks2-shard-12',
+          'full-ks2-shard-13',
+          'full-ks2-shard-14',
+          'full-ks2-shard-15',
+        ],
+      },
+      {
+        keyId: 'production-ks2-p256-2026-08',
+        algorithm: 'ECDSA_P256_SHA256_DER',
+        publicKeySpkiDerBase64:
+          'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEU06jemaXTUtazmoYXARLD7xfXpTpsxAMbgwRqgOAQIWvmL7yQgn/GQ4T4MTiQ98rq4C+K4Q7t0LxrpaIgdDvfg==',
+        publicKeySpkiSha256:
+          '5e0a462087cd86f1a67bd4d6ebdd2a60909fc963400d2b55475c618b2ebe10bb',
+        testOnly: false,
+        notBefore: '2026-08-17T00:00:00Z',
+        notAfter: '2036-08-16T00:00:00Z',
+        allowedEnvironments: ['production'],
+        allowedPackIds: [
           'full-ks2-shard-01',
           'full-ks2-shard-02',
           'full-ks2-shard-03',
@@ -563,6 +592,12 @@ test('the keyring rejects private material, production labels and shape drift', 
     (value) => { value.keys.push(clone(value.keys[0])); },
     (value) => { value.keys[0].publicKeySpkiDerBase64 = 'placeholder'; },
     (value) => { value.keys[0].publicKeySpkiSha256 = '0'.repeat(64); },
+    // Removing the production key should fail
+    (value) => { value.keys = value.keys.slice(0, 1); },
+    // Altering the production key should fail
+    (value) => { value.keys[1].testOnly = true; },
+    (value) => { value.keys[1].allowedEnvironments = ['sandbox']; },
+    (value) => { value.keys[1].publicKeySpkiDerBase64 = 'placeholder'; },
   ];
 
   for (const mutate of mutations) {

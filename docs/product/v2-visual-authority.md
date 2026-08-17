@@ -374,9 +374,35 @@ manually verified by design review before integration.
 
 1. **Backdrop proportion**: A screen's unused backdrop may not exceed 30% of the
    viewport in single-column layout and 25% in expedition (two-column) layout.
+
+   *Rationale*: Single-column screen height ~800px; 30% = ~240px unused (permissible
+   for bottom padding). Expedition layout accommodates wider practice surface;
+   lower threshold (25%) accommodates narrower auxiliary pane.
+
 2. **Label baseline**: Labels sharing a row share a baseline and a height.
+
+   *Rationale*: Ensures visual alignment in header rows, tabs, and rail items.
+   Misaligned labels reduce perceived quality and break perceived rhythm.
+
 3. **Tile consistency**: Peer tiles share one width and one internal layout
    regardless of label length.
+
+   *Rationale*: Roster tiles, quest cards, and chip rows must form a regular grid.
+   Text wrapping must not change width or internal structure.
+
 4. **Fact singularity**: A fact is stated once per card.
+
+   *Rationale*: Each result or record card states its content in one place (e.g.,
+   correction guidance in one region, not split between zones). Prevents redundant
+   or contradictory information.
+
 5. **Rail clearance**: Any rail or list keeps a minimum clearance of 0.75 rem
    from the tab bar and is never bisected by it.
+
+   *Rationale*: At 393×852 (iPhone SE 2nd gen), tab bar height is 50px (app pixels);
+   0.75 rem (~12px CSS pixels at 16px base) provides visual breathing room. Last
+   item must not be clipped by tab bar at any viewport size or text scale.
+
+*Note*: These numbers are provisional and measured at fixed viewports and text
+scales (100%, 130%, 160%). Approval is required before integration. Layer 3 is
+manually reviewed; no automated check exists.

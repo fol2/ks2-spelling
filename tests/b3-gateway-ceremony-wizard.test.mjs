@@ -361,8 +361,14 @@ test('sitting 2 validates ceremony outputs, uploads, and enforces the six-name s
     'r2', 'object', 'put',
     `ks2-spelling-production-packs/packs/${pack.packId}/${pack.version}/${pack.archiveName}`,
     '--file', join(ceremonyDir, `packs/${pack.packId}/${pack.version}/${pack.archiveName}`),
-    '--content-type', 'application/zip',
+    '--content-type', 'application/zip', '--remote',
   ]);
+  // Wrangler object commands default to local simulation (writes to .wrangler/state),
+  // so an upload without --remote is a silent no-op against the real bucket.
+  assert.ok(
+    bodies[0].includes('--remote'),
+    'r2 object put must include --remote to upload to the real Cloudflare R2 bucket, not local simulation',
+  );
   const secretPuts = bodies.filter((body) => body[0] === 'secret' && body[1] === 'put');
   assert.deepEqual(
     secretPuts.map((body) => body[2]),

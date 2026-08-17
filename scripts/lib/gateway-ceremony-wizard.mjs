@@ -585,7 +585,7 @@ export async function runGatewayCeremonyWizard({
     for (const object of uploads) {
       await interactive(`upload ${object.key}`, [
         'r2', 'object', 'put', `${channel.bucketName}/${object.key}`,
-        '--file', object.path, '--content-type', object.contentType,
+        '--file', object.path, '--content-type', object.contentType, '--remote',
       ]);
     }
     evidence.uploadedObjects = uploads.length;

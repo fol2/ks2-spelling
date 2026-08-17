@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { isDeepStrictEqual } from 'node:util';
 
 import { canonicaliseB3ProofValue } from '../../src/app/b3-live-proof-protocol.js';
+import { B3_SANDBOX_REQUIRED_SECRET_NAMES } from './gateway-required-secret-names.mjs';
 
 const HASH = /^[0-9a-f]{64}$/u;
 const COMMIT = /^[0-9a-f]{40}$/u;
@@ -38,15 +39,7 @@ export const B3_SYNTHETIC_LEARNER_DIGESTS = Object.freeze({
   }),
 });
 
-export const B3_REQUIRED_SECRET_NAMES = Object.freeze([
-  'APPLE_IAP_ISSUER_ID',
-  'APPLE_IAP_KEY_ID',
-  'APPLE_IAP_PRIVATE_KEY',
-  'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON',
-  'ENTITLEMENT_HANDLE_KEY_CURRENT',
-  'ENTITLEMENT_HANDLE_KEY_PREVIOUS',
-  'R2_CAPABILITY_HMAC_KEY',
-]);
+export const B3_REQUIRED_SECRET_NAMES = B3_SANDBOX_REQUIRED_SECRET_NAMES;
 
 function freezeGatewayCalls(value) {
   return Object.freeze(Object.fromEntries(Object.entries(value).map(([platform, scenarios]) => [

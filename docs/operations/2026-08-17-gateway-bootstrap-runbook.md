@@ -11,9 +11,12 @@ problem_type: operating-procedure
 
 Dated 2026-08-17, written by issue #156 against the decisions in #143 (sitting
 order), #145 (production identity), #149 (Cloudflare mechanics research) and
-#157/#197 (production secret set). Everything here is **owner-gated**: it
-mutates live Cloudflare state that agents must never touch. Agents deliver up
-to the boundary — scripts, dry-run plans and this document — and stop.
+#157/#197 (production secret set). Originally everything here was
+**owner-gated**; the owner grant of 2026-08-17 (recorded on the map, #136)
+delegates both sittings to agent execution on this machine's existing OAuth
+session via the autonomous driver below. The visible
+`GATEWAY_CEREMONY_EXECUTE=owner` gate and the reversible-first order are
+unchanged; secret values still never enter a transcript.
 
 The sandbox Worker `ks2-spelling-b3-sandbox` has **never been deployed**. The
 automated lane (`scripts/deploy-b3-sandbox-gateway.mjs`) fails closed until a
@@ -46,6 +49,36 @@ Prerequisites for both: `npm --prefix gateway ci` (the pinned wrangler 4.110.0)
 and a **wrangler OAuth session** on the product account (`wrangler login`).
 API tokens are rejected — the same gate as
 `scripts/check-b3-external-prerequisites.mjs`.
+
+## The autonomous driver (owner grant 2026-08-17)
+
+`scripts/autonomous-gateway-ceremony.mjs` composes the wizard with
+auto-confirmation and non-interactive secret provisioning. Derived values
+(`APPLE_IAP_*` from the ASC `.p8` on disk; `ENTITLEMENT_HANDLE_KEY_*` and
+`R2_CAPABILITY_HMAC_KEY` freshly minted; the sandbox Play secret from the file
+named by `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH`) travel to
+`wrangler secret put` on piped stdin only.
+
+```bash
+node scripts/autonomous-gateway-ceremony.mjs --channel sandbox --dry-run
+GATEWAY_CEREMONY_EXECUTE=owner node scripts/autonomous-gateway-ceremony.mjs \
+  --channel sandbox --execute
+GATEWAY_CEREMONY_EXECUTE=owner node scripts/autonomous-gateway-ceremony.mjs \
+  --channel production --execute --ceremony-dir <dir>
+```
+
+Before the first mutation the driver fails closed on two preflights:
+
+1. **OAuth scopes.** `wrangler whoami --json` must list `zone:read` and
+   `ssl_certs:write` (plus the workers scopes) — the two the 2026-08-17
+   measurement found missing, and what Custom-Domain attachment needs. A
+   browser `wrangler login` re-consent grants them (they are in wrangler's
+   default scope set). Note the pinned wrangler has **no r2 OAuth scope at
+   all** — `r2:write` appears nowhere in its scope catalogue, so "the token
+   lists no r2 scope" is the permanent state, not a gap a re-consent can
+   close. R2 access rides the OAuth session's account grant.
+2. **A read-only R2 probe** (`wrangler r2 bucket list`) proves that grant
+   behaviourally, since no scope name can.
 
 ## Sitting 1 — sandbox bootstrap, reversible-first order
 

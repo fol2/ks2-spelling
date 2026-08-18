@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   assertCompletedStoreKitTimeoutEvidence,
   assertStoreKitConfiguration,
+  assertStoreKitProcessTimeout,
   assertExecutedStoreKitEvidence,
   parseAvailableIosSimulators,
   parseExecutedStoreKitObservations,
@@ -31,10 +32,19 @@ test('the B3 StoreKit proof command is explicitly a non-live Xcode StoreKit Test
   assert.match(source, /-only-testing:AppTests\/B3StoreKitDelayedTests/);
   assert.match(source, /'-test-timeouts-enabled',\s*'YES'/);
   assert.match(source, /'-default-test-execution-time-allowance',\s*'30'/);
-  assert.match(source, /'-maximum-test-execution-time-allowance',\s*'45'/);
+  assert.match(source, /const STOREKIT_MAX_TEST_EXECUTION_S = 45/);
+  assert.match(source, /const STOREKIT_TEST_LAUNCH_HEADROOM_MS = 150_000/);
+  assert.match(
+    source,
+    /STOREKIT_TEST_TIMEOUT_MS = STOREKIT_TEST_LAUNCH_HEADROOM_MS\s*\+\s*STOREKIT_TEST_METHODS\.length \* STOREKIT_MAX_TEST_EXECUTION_S \* 1_000/,
+  );
+  assert.match(
+    source,
+    /'-maximum-test-execution-time-allowance',\s*String\(STOREKIT_MAX_TEST_EXECUTION_S\)/,
+  );
   assert.match(source, /const STOREKIT_BUILD_TIMEOUT_MS = 600_000/);
   assert.match(source, /const STOREKIT_SIMULATOR_TIMEOUT_MS = 300_000/);
-  assert.match(source, /const STOREKIT_TEST_TIMEOUT_MS = 90_000/);
+  assert.doesNotMatch(source, /STOREKIT_TEST_TIMEOUT_MS = 90_000/);
   assert.match(source, /\['simctl',\s*'bootstatus',\s*simulator\.udid,\s*'-b'\]/);
   assert.match(source, /'build-for-testing'/);
   assert.match(source, /'test-without-building'/);
@@ -46,7 +56,11 @@ test('the B3 StoreKit proof command is explicitly a non-live Xcode StoreKit Test
   assert.match(source, /buildResult\.timedOut[\s\S]*?'storekit_build_timeout'/);
   assert.match(
     source,
-    /result\.timedOut[\s\S]*?assertCompletedStoreKitTimeoutEvidence\(executionOutput, transcript\)/,
+    /result\.timedOut[\s\S]*?assertStoreKitProcessTimeout\(executionOutput, transcript\)/,
+  );
+  assert.doesNotMatch(
+    source,
+    /test-without-building[\s\S]{0,800}retry|for \(let attempt/,
   );
   assert.match(source, /completed-suite-before-xcode-process-timeout/);
   assert.doesNotMatch(source, /platform=iOS(?:,|$)(?! Simulator)/m);
@@ -161,6 +175,7 @@ test('the wrapper accepts only a fully completed StoreKit suite when Xcode linge
     await readFile(new URL('tests/fixtures/storekit-bridge-transcript.json', ROOT), 'utf8'),
   );
   const completed = [
+    "Test Suite 'B3StoreKitDelayedTests' started at 2026-07-18 22:01:26.497.",
     "Test Case '-[AppTests.B3StoreKitDelayedTests testDelayedApproveProducesVerifiedPurchasedObservation]' started.",
     `B3_STOREKIT_OBSERVATION case=delayed-approve productId=${transcript.productId} initial=pending final=purchased verifiedProof=true`,
     "Test Case '-[AppTests.B3StoreKitDelayedTests testDelayedApproveProducesVerifiedPurchasedObservation]' passed (9.702 seconds).",
@@ -196,4 +211,28 @@ test('the wrapper accepts only a fully completed StoreKit suite when Xcode linge
       ({ code }) => code === 'storekit_test_timeout',
     );
   }
+
+  assert.equal(assertStoreKitProcessTimeout(completed, transcript).length, 2);
+  assert.throws(
+    () => assertStoreKitProcessTimeout(
+      [
+        '** BUILD INTERRUPTED **',
+        'xcodebuild test-without-building',
+      ].join('\n'),
+      transcript,
+    ),
+    ({ code }) => code === 'storekit_test_start_timeout',
+  );
+  const startedButUnfinished = [
+    "Test Suite 'B3StoreKitDelayedTests' started at 2026-08-18 10:42:23.191.",
+    "Test Case '-[AppTests.B3StoreKitDelayedTests testDelayedApproveProducesVerifiedPurchasedObservation]' started.",
+    `B3_STOREKIT_OBSERVATION case=delayed-approve productId=${transcript.productId} initial=pending final=purchased verifiedProof=true`,
+    "Test Case '-[AppTests.B3StoreKitDelayedTests testDelayedApproveProducesVerifiedPurchasedObservation]' passed (23.614 seconds).",
+    "Test Case '-[AppTests.B3StoreKitDelayedTests testDelayedDeclineProducesNoPurchasedEntitlement]' started.",
+    '** BUILD INTERRUPTED **',
+  ].join('\n');
+  assert.throws(
+    () => assertStoreKitProcessTimeout(startedButUnfinished, transcript),
+    ({ code }) => code === 'storekit_test_timeout',
+  );
 });

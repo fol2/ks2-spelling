@@ -17,11 +17,16 @@ const DERIVED_DATA = resolve(ROOT, '.native-build/ios-storekit-test');
 const PRODUCTS_DIR = resolve(DERIVED_DATA, 'Build/Products');
 const STOREKIT_BUILD_TIMEOUT_MS = 600_000;
 const STOREKIT_SIMULATOR_TIMEOUT_MS = 300_000;
-const STOREKIT_TEST_TIMEOUT_MS = 90_000;
+const STOREKIT_MAX_TEST_EXECUTION_S = 45;
+const STOREKIT_TEST_LAUNCH_HEADROOM_MS = 150_000;
 const STOREKIT_TEST_METHODS = Object.freeze([
   'testDelayedApproveProducesVerifiedPurchasedObservation',
   'testDelayedDeclineProducesNoPurchasedEntitlement',
 ]);
+const STOREKIT_TEST_TIMEOUT_MS = STOREKIT_TEST_LAUNCH_HEADROOM_MS
+  + STOREKIT_TEST_METHODS.length * STOREKIT_MAX_TEST_EXECUTION_S * 1_000;
+const STOREKIT_SUITE_STARTED =
+  "Test Suite 'B3StoreKitDelayedTests' started at ";
 const OBSERVATION_PATTERN =
   /B3_STOREKIT_OBSERVATION case=(delayed-(?:approve|decline)) productId=([a-z][a-z0-9]*(?:[._][a-z0-9]+)+) initial=(pending) final=(purchased|cancelled) verifiedProof=(true|false)/g;
 
@@ -149,6 +154,16 @@ function assertExactStoreKitObservations(output, transcript, errorCode) {
     );
   }
   return observations;
+}
+
+export function assertStoreKitProcessTimeout(output, transcript) {
+  if (!output.includes(STOREKIT_SUITE_STARTED)) {
+    throw proofError(
+      'storekit_test_start_timeout',
+      'Xcode StoreKit execution timed out before the selected suite started',
+    );
+  }
+  return assertCompletedStoreKitTimeoutEvidence(output, transcript);
 }
 
 export function assertCompletedStoreKitTimeoutEvidence(output, transcript) {
@@ -322,7 +337,7 @@ export async function runB3IosStoreKitTest({ env = process.env, stream = true } 
       '-default-test-execution-time-allowance',
       '30',
       '-maximum-test-execution-time-allowance',
-      '45',
+      String(STOREKIT_MAX_TEST_EXECUTION_S),
       '-only-testing:AppTests/B3StoreKitDelayedTests',
       'test-without-building',
     ],
@@ -332,7 +347,7 @@ export async function runB3IosStoreKitTest({ env = process.env, stream = true } 
   let completionMode = 'normal-process-exit';
   let observations;
   if (result.timedOut) {
-    observations = assertCompletedStoreKitTimeoutEvidence(executionOutput, transcript);
+    observations = assertStoreKitProcessTimeout(executionOutput, transcript);
     completionMode = 'completed-suite-before-xcode-process-timeout';
   } else if (result.exitCode !== 0) {
     throw proofError('storekit_test_failed', `Xcode StoreKit Test exited ${result.exitCode}`);

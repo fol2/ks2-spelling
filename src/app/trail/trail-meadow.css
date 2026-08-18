@@ -279,30 +279,37 @@
   height: 100%;
   translate: 0 var(--trail-visual-y);
   object-fit: contain;
-  filter:
-    drop-shadow(0 14px 18px rgb(0 0 0 / 48%))
-    drop-shadow(0 3px 4px rgb(0 0 0 / 28%));
   user-select: none;
   -webkit-user-drag: none;
 }
 
-.trail-companion[data-stage='0'] .trail-companion-art {
-  filter:
-    drop-shadow(0 9px 11px rgb(0 0 0 / 42%))
-    drop-shadow(0 2px 3px rgb(0 0 0 / 30%));
-}
+/* No `filter` may sit on the sprite or any ancestor of it. Inside the app's
+   WKWebView — not Safari, not Chromium — creating a filter layer here can
+   rasterise a buffer clipped and filled to the border box, painting a grey
+   plate around the companion that no later paint clears (#109). The depth it
+   used to carry now lives entirely in `.trail-companion-shadow` below, which
+   is geometry rather than a filter and therefore cannot reproduce it. */
 
 .trail-companion-shadow {
   position: absolute;
   bottom: 5%;
   left: 50%;
   z-index: -1;
-  width: 62%;
-  height: 7%;
+  width: 68%;
+  height: 9%;
   translate: -50% 0;
   scale: var(--trail-shadow-scale) 1;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(3 10 11 / 82%), transparent);
+  /* Two stops, not one: a tight contact core plus a wider ambient falloff, so
+     the companion still reads as standing on the meadow now that the sprite
+     carries no drop-shadow of its own. Opacity stays on the custom properties
+     the air-lane keyframes animate — strengthening happens in the gradient. */
+  background: radial-gradient(
+    closest-side,
+    rgb(2 8 9 / 90%) 0%,
+    rgb(3 10 11 / 62%) 44%,
+    transparent 100%
+  );
   opacity: var(--trail-shadow-opacity);
   transform-origin: center;
 }

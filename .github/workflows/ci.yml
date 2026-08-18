@@ -164,7 +164,7 @@ jobs:
             echo "native=true" >> "$GITHUB_OUTPUT"
           elif [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git rev-parse "$base^{commit}" >/dev/null 2>&1; then
             echo "native=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "$base" HEAD | grep -qE '^(ios/|android/|capacitor\.config|package-lock\.json|config/dependency-policy\.json|config/maven-licence-policy\.json|android/gradle/verification-metadata\.xml|tests/fixtures/b3-hostile-zips/|scripts/(native-sync-check|certify-android-dependencies|test-ios-pack-inspector|prove-b3-ios-storekit-test))'; then
+          elif git diff --name-only "$base" HEAD | grep -qE '^(ios/|android/|capacitor\.config|package-lock\.json|config/dependency-policy\.json|config/maven-licence-policy\.json|android/gradle/verification-metadata\.xml|tests/fixtures/b3-hostile-zips/|scripts/(audit-dependencies|native-sync-check|certify-android-dependencies|test-ios-pack-inspector|prove-b3-ios-storekit-test))'; then
             echo "native=true" >> "$GITHUB_OUTPUT"
           else
             echo "native=false" >> "$GITHUB_OUTPUT"
@@ -278,7 +278,7 @@ jobs:
             echo "native=true" >> "$GITHUB_OUTPUT"
           elif [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git rev-parse "$base^{commit}" >/dev/null 2>&1; then
             echo "native=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "$base" HEAD | grep -qE '^(ios/|android/|capacitor\.config|package-lock\.json|config/dependency-policy\.json|config/maven-licence-policy\.json|android/gradle/verification-metadata\.xml|tests/fixtures/b3-hostile-zips/|scripts/(native-sync-check|certify-android-dependencies|test-ios-pack-inspector|prove-b3-ios-storekit-test))'; then
+          elif git diff --name-only "$base" HEAD | grep -qE '^(ios/|android/|capacitor\.config|package-lock\.json|config/dependency-policy\.json|config/maven-licence-policy\.json|android/gradle/verification-metadata\.xml|tests/fixtures/b3-hostile-zips/|scripts/(audit-dependencies|native-sync-check|certify-android-dependencies|test-ios-pack-inspector|prove-b3-ios-storekit-test))'; then
             echo "native=true" >> "$GITHUB_OUTPUT"
           else
             echo "native=false" >> "$GITHUB_OUTPUT"
@@ -299,6 +299,9 @@ jobs:
       - name: Compile unsigned iOS Simulator application
         if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run test:ios
+      - name: Audit packaged iOS privacy manifests against the built App.app
+        if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: node scripts/audit-dependencies.mjs --require-fresh-ios-privacy-manifests
       - name: Compile the paired iOS sandbox channel
         if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |

@@ -127,6 +127,7 @@ test('iOS runs normal and B3 unsigned builds, the pack inspector and StoreKit Te
     'xcodebuild',
     'npm run native:sync:check',
     'npm run test:ios',
+    'node scripts/audit-dependencies.mjs --require-fresh-ios-privacy-manifests',
     '-scheme B3SandboxProof',
     'node scripts/test-ios-pack-inspector.mjs',
     'npm run prove:b3:ios-storekit-test',
@@ -137,6 +138,12 @@ test('iOS runs normal and B3 unsigned builds, the pack inspector and StoreKit Te
   }
   assert.match(ios, /run: npm run native:sync:check/);
   assert.match(ios, /run: npm run test:ios/);
+  assert.match(ios, /node scripts\/audit-dependencies\.mjs --require-fresh-ios-privacy-manifests/);
+  assert.ok(
+    ios.indexOf('npm run test:ios') <
+      ios.indexOf('--require-fresh-ios-privacy-manifests'),
+    'the packaged-manifest audit must run against the App.app that test:ios just built',
+  );
   assert.match(ios, /-scheme B3SandboxProof/);
   assert.match(ios, /-configuration B3SandboxProof/);
   assert.match(ios, /CODE_SIGNING_ALLOWED=NO/);

@@ -370,8 +370,10 @@ it.
    the app bundle's Resources phase in **every** configuration. It is inert
    without a scheme reference, but shipping a StoreKit test configuration inside
    a Kids Category binary is an avoidable reviewer flag.
-3. No `PrivacyInfo.xcprivacy` exists for the app target. The three privacy
-   manifests in the audit all come from dependencies.
+3. **Closed.** The App target owns `ios/App/App/PrivacyInfo.xcprivacy`
+   ([#192](https://github.com/fol2/ks2-spelling/issues/192)). The live packaged
+   audit pins that app-root manifest alongside the four dependency manifests
+   ([Packaged iOS privacy-manifest audit omits the app's own manifest](https://github.com/fol2/ks2-spelling/issues/239)).
 4. No test guards the no-link-out claim. A single future commit adding an
    `<a href>` would ship without tripping anything.
 

@@ -14,7 +14,12 @@ const IOS_APP_PATH = resolve(
   ROOT,
   '.native-build/ios/Build/Products/Debug-iphonesimulator/App.app',
 );
-const EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS = Object.freeze([
+export const APP_OWNED_PACKAGED_PRIVACY_MANIFEST_PATH = 'PrivacyInfo.xcprivacy';
+export const APP_OWNED_SOURCE_PRIVACY_MANIFEST_PATH = 'ios/App/App/PrivacyInfo.xcprivacy';
+// Live packaged set: four dependency manifests plus the app-target manifest
+// added by submission hygiene. Frozen B2 reports keep the historical four
+// and are not rewritten here. Paths stay sorted as the App.app scanner emits them.
+export const EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS = Object.freeze([
   {
     path: 'Frameworks/Capacitor.framework/PrivacyInfo.xcprivacy',
     sha256: '1bac827f49b2b8a5358491b9698203bf191791a6f1ba3a3ace3b1285d52d2d17',
@@ -43,6 +48,17 @@ const EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS = Object.freeze([
         category: 'NSPrivacyAccessedAPICategoryFileTimestamp',
         reasons: ['3B52.1', 'C617.1'],
       },
+    ],
+  },
+  {
+    path: APP_OWNED_PACKAGED_PRIVACY_MANIFEST_PATH,
+    sha256: 'daa1c01e38c600bf70ef107c6eb5c95c0662ddfa34cab2941cf1f84edab2dd3f',
+    tracking: false,
+    collectedDataTypes: [],
+    trackingDomains: [],
+    requiredReasonApis: [
+      { category: 'NSPrivacyAccessedAPICategoryDiskSpace', reasons: ['E174.1'] },
+      { category: 'NSPrivacyAccessedAPICategoryFileTimestamp', reasons: ['C617.1'] },
     ],
   },
   {
@@ -102,6 +118,32 @@ export function assertIosPackagedPrivacyManifestEvidenceCurrent(actual, committe
       'Packaged iOS privacy manifest path, bytes or Required Reason API evidence drifted',
     );
   }
+}
+
+export function assertAppOwnedSourcePrivacyManifestCurrent(
+  sourceSha256,
+  expected = EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS,
+) {
+  const appEntry = expected.find(
+    (entry) => entry.path === APP_OWNED_PACKAGED_PRIVACY_MANIFEST_PATH,
+  );
+  if (!appEntry || sourceSha256 !== appEntry.sha256) {
+    throw policyError(
+      'ios_packaged_privacy_manifest_drift',
+      'App-target PrivacyInfo.xcprivacy bytes drifted from packaged privacy-manifest evidence',
+    );
+  }
+}
+
+async function readAppOwnedSourcePrivacyManifestSha256() {
+  const sourcePath = resolve(ROOT, APP_OWNED_SOURCE_PRIVACY_MANIFEST_PATH);
+  if (!existsSync(sourcePath)) {
+    throw policyError(
+      'ios_packaged_privacy_manifest_missing',
+      'App-target PrivacyInfo.xcprivacy is absent from the iOS app sources',
+    );
+  }
+  return sha256(await readFile(sourcePath));
 }
 
 function canonicalPrivacyManifestJson(raw, path) {
@@ -195,6 +237,9 @@ export async function resolveIosPackagedPrivacyManifestEvidence({
   committed,
   requireFresh = false,
 }) {
+  // Always pin the tracked app-target source. Host-neutral lanes never see
+  // App.app, so a source-only change must fail without a rebuild.
+  assertAppOwnedSourcePrivacyManifestCurrent(await readAppOwnedSourcePrivacyManifestSha256());
   if (existsSync(appPath)) {
     const actual = await scanIosPackagedPrivacyManifests(appPath);
     if (committed && !requireFresh) {
@@ -208,6 +253,7 @@ export async function resolveIosPackagedPrivacyManifestEvidence({
       'Packaged iOS privacy manifest evidence is absent and no built App.app is available',
     );
   }
+  // No App.app: this asserts committed expected evidence, not a packaged artefact.
   assertIosPackagedPrivacyManifestEvidenceCurrent(
     committed,
     EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS,
@@ -1250,10 +1296,10 @@ export async function buildDependencyArtifacts({
   assertDirectPolicy(lock.packages[''].devDependencies, policy.directBuildTools, 'lock build');
   const lockPackages = validateLock(policy, lock, noticeOverrides);
   const webViewBundle = await buildWebViewBundleEvidence(lock);
-  const committedPrivacyManifests = committedB2Report?.ios?.packagedPrivacyManifests;
+  // Live policy, not the frozen B2 snapshot (four dependency manifests).
   const iosPackagedPrivacyManifests =
     await resolveIosPackagedPrivacyManifestEvidence({
-      committed: committedPrivacyManifests,
+      committed: EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS,
       requireFresh: discoverAndroidSources,
     });
   const permissionEvidence = await verifyRuntimeBoundary(packageJson);
@@ -1674,6 +1720,14 @@ export async function main(args = process.argv.slice(2)) {
   const preBootstrap = args.includes('--pre-bootstrap');
   const write = args.includes('--write');
   try {
+    if (args.includes('--require-fresh-ios-privacy-manifests')) {
+      await resolveIosPackagedPrivacyManifestEvidence({
+        committed: EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS,
+        requireFresh: true,
+      });
+      printJson({ ok: true, evidence: 'packaged-ios-privacy-manifests' });
+      return EXIT_CODES.success;
+    }
     let currentPermissionEvidence = null;
     const appBuild = await readFile(resolve(ROOT, 'android/app/build.gradle'), 'utf8');
     const b3BillingActive = /com\.android\.billingclient:billing:9\.1\.0/.test(appBuild);

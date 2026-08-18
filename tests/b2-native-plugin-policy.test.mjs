@@ -211,10 +211,10 @@ test('active notices publish totals consistent with the active dependency report
   );
 });
 
-test('B2 audits the exact four packaged iOS privacy manifests and reasons', async () => {
+test('B2 frozen reports still record the four dependency privacy manifests', async () => {
   const audit = await readJson('reports/b2/dependency-audit.json');
   const plugin = await readJson('reports/b2/native-plugin-audit.json');
-  const expected = [
+  const frozenB2 = [
     {
       path: 'Frameworks/Capacitor.framework/PrivacyInfo.xcprivacy',
       sha256: '1bac827f49b2b8a5358491b9698203bf191791a6f1ba3a3ace3b1285d52d2d17',
@@ -262,20 +262,53 @@ test('B2 audits the exact four packaged iOS privacy manifests and reasons', asyn
       ],
     },
   ];
-  assert.deepEqual(audit.ios.packagedPrivacyManifests, expected);
-  assert.deepEqual(plugin.iosPackagedPrivacyManifests, expected);
+  assert.deepEqual(audit.ios.packagedPrivacyManifests, frozenB2);
+  assert.deepEqual(plugin.iosPackagedPrivacyManifests, frozenB2);
+});
+
+test('live packaged iOS privacy-manifest policy includes the app-target manifest', async () => {
   const {
+    APP_OWNED_PACKAGED_PRIVACY_MANIFEST_PATH,
+    APP_OWNED_SOURCE_PRIVACY_MANIFEST_PATH,
+    EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS: expected,
+    assertAppOwnedSourcePrivacyManifestCurrent,
     assertIosPackagedPrivacyManifestEvidenceCurrent,
     resolveIosPackagedPrivacyManifestEvidence,
   } = await importAudit();
+  const sourceSha256 = await sha256(APP_OWNED_SOURCE_PRIVACY_MANIFEST_PATH);
+  const appEntry = expected.find(
+    (entry) => entry.path === APP_OWNED_PACKAGED_PRIVACY_MANIFEST_PATH,
+  );
+
+  assert.equal(expected.length, 5);
+  assert.equal(appEntry?.sha256, sourceSha256);
+  assert.deepEqual(appEntry?.requiredReasonApis, [
+    { category: 'NSPrivacyAccessedAPICategoryDiskSpace', reasons: ['E174.1'] },
+    { category: 'NSPrivacyAccessedAPICategoryFileTimestamp', reasons: ['C617.1'] },
+  ]);
+  assert.doesNotThrow(() => assertAppOwnedSourcePrivacyManifestCurrent(sourceSha256));
+  assert.throws(
+    () => assertAppOwnedSourcePrivacyManifestCurrent('0'.repeat(64)),
+    ({ code }) => code === 'ios_packaged_privacy_manifest_drift',
+  );
+  assert.throws(
+    () =>
+      assertAppOwnedSourcePrivacyManifestCurrent(
+        sourceSha256,
+        expected.filter((entry) => entry.path !== APP_OWNED_PACKAGED_PRIVACY_MANIFEST_PATH),
+      ),
+    ({ code }) => code === 'ios_packaged_privacy_manifest_drift',
+  );
   assert.doesNotThrow(() =>
     assertIosPackagedPrivacyManifestEvidenceCurrent(expected, expected),
   );
   for (const tampered of [
     expected.slice(1),
     [...expected, { ...expected[0], path: 'Extra/PrivacyInfo.xcprivacy' }],
-    expected.map((entry, index) =>
-      index === 0 ? { ...entry, sha256: '0'.repeat(64) } : entry,
+    expected.map((entry) =>
+      entry.path === APP_OWNED_PACKAGED_PRIVACY_MANIFEST_PATH
+        ? { ...entry, sha256: '0'.repeat(64) }
+        : entry,
     ),
     expected.map((entry, index) =>
       index === 2
@@ -309,6 +342,7 @@ test('B2 audits the exact four packaged iOS privacy manifests and reasons', asyn
       committed: expected,
     }),
     expected,
+    'without App.app the check asserts committed expected evidence, not a packaged artefact',
   );
   await assert.rejects(
     () =>

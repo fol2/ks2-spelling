@@ -3236,7 +3236,7 @@ select {
   justify-content: space-between;
 }
 
-.switch-head p {
+.switch-head h1 {
   font-family: var(--serif);
   font-size: var(--fs-title);
   font-weight: 600;

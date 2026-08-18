@@ -229,8 +229,8 @@ test('Release-gate document exists and references four checks', async () => {
 });
 
 /* Token definitions passing 4.5:1 does not mean the text passes: a call site can
-   invent its own alpha and never touch a token. #108 found eight that did, in a
-   file whose token check was green. This scan reads every ink-alpha `color:`
+   invent its own alpha and never touch a token. #108 found sixteen that did, in
+   a file whose token check was green. This scan reads every ink-alpha `color:`
    declaration in the shipped stylesheets and holds it to the same floor.
 
    ponytail: holds every ink-alpha text run to 4.5:1, including the >=24px runs

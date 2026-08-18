@@ -12,14 +12,23 @@ import org.junit.Test;
 
 public final class PackTransferPluginTest {
     private static final String CAP = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-    private static final String VALID = "https://b3-gateway.eugnel.uk/v1/packs/"
+    // Read the host off the build rather than naming one. A literal here can only
+    // ever match one release channel, so it stops testing the channel the tests
+    // actually compile against the moment the origin moves -- which is how the
+    // production channel shipped a validator that rejected every capability.
+    private static final String HOST = BuildConfig.KS2_GATEWAY_ORIGIN.replaceFirst("^https://", "");
+    private static final String VALID = "https://" + HOST + "/v1/packs/"
         + "b3-sandbox-proof/1.0.0-b3.1/b3-sandbox-proof.zip"
         + "?expires=1783900800&cap=" + CAP;
 
     @Test public void rejectsCapabilityMutationsBeforeOpeningAConnection() throws Exception {
         List<String> mutations = Arrays.asList(
             VALID.replace("https:", "http:"),
-            VALID.replace("b3-gateway.eugnel.uk", "evil.example"),
+            VALID.replace(HOST, "evil.example"),
+            // The other channel's host is not a near-miss to be waved through:
+            // a sandbox capability must not open on a production build, or the
+            // channel split buys nothing.
+            VALID.replace(HOST, HOST.startsWith("ks2-") ? "b3-gateway.eugnel.uk" : "ks2-gateway.eugnel.uk"),
             VALID.replace("https://", "https://user:pass@"),
             VALID.replace(".uk/", ".uk:444/"),
             VALID + "#fragment",

@@ -56,6 +56,11 @@ public final class PackTransferPlugin extends Plugin {
     private static final Pattern CAPABILITY_QUERY = Pattern.compile("^expires=([1-9][0-9]*)&cap=([A-Za-z0-9_-]{43})$");
     private static final Pattern CONTENT_RANGE = Pattern.compile("^bytes ([0-9]+)-([0-9]+)/([1-9][0-9]*)$");
     private static final String GATEWAY_ORIGIN = BuildConfig.KS2_GATEWAY_ORIGIN;
+    // The host check and the whole-URL check below must read the same channel,
+    // or they contradict each other and no capability can ever pass both. Derived,
+    // never restated: a second literal is what left the production channel unable
+    // to open a download at all after the origin cutover.
+    private static final String GATEWAY_HOST = GATEWAY_ORIGIN.replaceFirst("^https://", "");
     private static final String SIGNING_DOMAIN = "ks2-spelling-pack-manifest-v1";
     private static final String FREE_STARTER_PACK_ID = "ks2-core";
     // A non-null requiredEntitlementId must be a kebab-case identity; the
@@ -316,7 +321,7 @@ public final class PackTransferPlugin extends Plugin {
         validateArchiveName(archiveName);
         require(value.getBytes(StandardCharsets.UTF_8).length <= 8192);
         URI uri = new URI(value);
-        require("https".equals(uri.getScheme()) && "b3-gateway.eugnel.uk".equals(uri.getHost()));
+        require("https".equals(uri.getScheme()) && GATEWAY_HOST.equals(uri.getHost()));
         require(uri.getRawUserInfo() == null && uri.getPort() == -1 && uri.getRawFragment() == null);
         String path = "/v1/packs/" + packId + "/" + version + "/" + archiveName;
         require(path.equals(uri.getRawPath()));

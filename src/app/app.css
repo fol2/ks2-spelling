@@ -403,18 +403,15 @@ select {
   transform: scale(0.986);
 }
 
+/* Control rows wrap; they never scroll. A hidden-scrollbar rail put five word
+   filters in a 361px container at 393px and hid the fifth entirely (#111) —
+   and a filter the child cannot see is a filter they cannot use. Wrapping is
+   the only fix that survives text scaling: at 320px/160% the same rail ran
+   671px wide, so no fitted width holds. */
 .rail {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.45rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.rail::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
 }
 
 .vellum {

@@ -640,7 +640,11 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(failedSetupHtml, />Core</);
   assert.match(failedSetupHtml, /Y3–4/);
   assert.doesNotMatch(failedSetupHtml, />All</);
-  assert.match(failedSetupHtml, />20 words</);
+  /* The set's size shows as a bare figure and names its noun to assistive tech.
+     Spelling "20 words" out on every pill ran the row 378px wide and sliced the
+     last set at every supported width (#111). */
+  assert.match(failedSetupHtml, />20</);
+  assert.match(failedSetupHtml, /aria-label="Core, 20 words"/);
   assert.match(failedSetupHtml, />Trouble</);
   assert.match(failedSetupHtml, />SATs</);
   assert.match(failedSetupHtml, /Sound effects/);

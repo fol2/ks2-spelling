@@ -292,3 +292,101 @@ test('Design authority: ink-alpha call sites reach 4.5:1', async () => {
     }
   }
 });
+
+/* Control rows wrap; they never scroll. #111 hid the fifth word filter behind
+   a hidden-scrollbar rail at 393px. The one `overflow: auto` / `overflow: scroll`
+   shorthand still allowed is `.app-boot-detail pre` — the boot-failure stack
+   trace, a diagnostic surface that is allowed to scroll and already wraps its
+   text (`white-space: pre-wrap`). Adding a second selector here is a conscious
+   act. */
+const OVERFLOW_SHORTHAND_ALLOWLIST = ['.app-boot-detail pre'];
+
+function stripCssComments(css) {
+  return css.replace(/\/\*[\s\S]*?\*\//gu, '');
+}
+
+function cssRuleBlocks(css) {
+  const stripped = stripCssComments(css);
+  const rules = [];
+  for (const match of stripped.matchAll(/([^{}]+)\{([^{}]*)\}/gu)) {
+    rules.push({
+      selector: match[1].replace(/\s+/gu, ' ').trim(),
+      body: match[2],
+    });
+  }
+  return rules;
+}
+
+test('Design authority: control rows wrap and no surface scrolls horizontally (#111)', async () => {
+  const css = await read('src/app/app.css');
+  const rules = cssRuleBlocks(css);
+  const rail = rules.find((rule) => rule.selector === '.rail');
+
+  assert.ok(rail, '.rail rule must exist');
+  assert.match(
+    rail.body,
+    /flex-wrap:\s*wrap\b/u,
+    '.rail must declare flex-wrap: wrap so control rows wrap instead of scrolling',
+  );
+  assert.doesNotMatch(
+    rail.body,
+    /overflow-x\s*:/u,
+    '.rail must not declare overflow-x — wrapping is the fix, not a hidden rail',
+  );
+
+  /* Anchored to a declaration boundary rather than a line start, so a rail
+     minified onto one line (`display: flex; overflow-x: auto;`) or written
+     without its trailing semicolon cannot slip past — the failure mode this
+     repository keeps re-learning is a check that never sees what it names.
+     `\b` after the value catches the two-value shorthand too: in
+     `overflow: auto hidden` the *first* value is the horizontal axis. */
+  const scrollsHorizontally = (body, property) =>
+    new RegExp(String.raw`(?:^|;)\s*${property}:\s*(?:auto|scroll)\b`, 'u').test(body);
+
+  assert.deepEqual(
+    rules.filter((rule) => scrollsHorizontally(rule.body, 'overflow-x')).map((rule) => rule.selector),
+    [],
+    'no rule may declare overflow-x: auto or overflow-x: scroll (overflow-x: hidden is allowed)',
+  );
+
+  /* A subset assertion, not an equality one. Pinning the allowlist exactly
+     would make the allowance un-retirable: if the boot-failure stack trace ever
+     stops scrolling, a check demanding it still scroll would forbid that. */
+  for (const rule of rules.filter((r) => scrollsHorizontally(r.body, 'overflow'))) {
+    assert.ok(
+      OVERFLOW_SHORTHAND_ALLOWLIST.includes(rule.selector),
+      `${rule.selector} declares a horizontally scrolling overflow shorthand; only `
+        + `${OVERFLOW_SHORTHAND_ALLOWLIST.join(', ')} may, and adding one is a conscious act`,
+    );
+  }
+});
+
+/* Wrapping alone does not settle the Practice setup rail. That screen is a
+   fixed-height composition whose hero is `flex: 1; min-height: 0` with a
+   flex-end clip, so every pixel the tray gains it takes off the TOP of the
+   hero — a second rail row there costs the "TODAY'S QUEST" kicker and 11px of
+   the h1 at 393x852. Spelling "words" out on all three set pills ran the row
+   378px wide; the bare count fits 288px, so the row never needs to wrap at any
+   supported width and the hero is untouched. The noun moves into the
+   accessible name, which is what a screen reader announces either way.
+
+   A source assertion, not a rendered one: this repository has no browser in
+   `node --test`, and the setup screen is not one of the exports the SSR h1
+   check can mount. It reads the shipped module, so it cannot go green against
+   an artefact that never ships. */
+test('Design authority: setup vocabulary pills show a bare count and name the noun to assistive tech (#111)', async () => {
+  const source = await read('src/app/ProductApp.jsx');
+  const rail = source.match(/<div className="rail setup-pools">[\s\S]*?<\/div>/u)?.[0];
+
+  assert.ok(rail, 'the setup-pools rail must still be a .rail — it is what wraps');
+  assert.match(
+    rail,
+    /<span>\{option\.count\}<\/span>/u,
+    'the visible count must carry no noun; spelling "words" out overflows the row at every supported width',
+  );
+  assert.match(
+    rail,
+    /aria-label=\{`\$\{option\.label\}, \$\{option\.count\} \$\{option\.count === 1 \? 'word' : 'words'\}`\}/u,
+    'the noun must survive in the accessible name, matching the Words filter pills',
+  );
+});

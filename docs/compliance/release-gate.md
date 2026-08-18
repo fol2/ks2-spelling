@@ -94,11 +94,44 @@ as low as 24%. A token check cannot see a declaration that never names a token.
 
 ### Check 4: Horizontal scroll
 
-**Render-gated** (requires layout/browser measurement): This check cannot be reliably automated in node.test. It is verified on device per the device matrix (393×852, 375×667, 810×1080) during manual design review and PR testing.
+**Gated to**: PRs touching `src/app/**`
+
+**Input**:
+- Stylesheet declarations from `src/app/app.css`
+- The setup vocabulary rail in `src/app/ProductApp.jsx`
+- Baseline file
+
+**Assertion**: The source-visible half is automated in two named assertions in
+`tests/design-authority-checks.test.mjs`.
+
+`Design authority: control rows wrap and no surface scrolls horizontally (#111)` —
+`src/app/app.css` may declare no `overflow-x: auto` or `overflow-x: scroll`, and
+`.rail` must declare `flex-wrap: wrap`. The `overflow` shorthand may name a
+horizontally scrolling value only on the one allowlisted diagnostic surface
+(`.app-boot-detail pre`). Declarations are matched at a `;` boundary, not a line
+start, so a rule written on one line or without its trailing semicolon cannot
+slip past; the two-value shorthand is matched on its first value, which is the
+horizontal axis.
+
+`Design authority: setup vocabulary pills show a bare count and name the noun to
+assistive tech (#111)` — Practice setup is a fixed-height composition whose hero
+is `flex: 1; min-height: 0` clipped at flex-end, so a second rail row there costs
+the hero's kicker and the top of its h1. That rail must therefore fit one row at
+every supported width: the visible count carries no noun, and the noun rides in
+the `aria-label`.
+
+**Mutation to prove failure**: Restore `overflow-x: auto` on `.rail`; test must
+fail. Also proven red: dropping `flex-wrap` from `.rail`; `overflow-x: auto`
+written mid-line or without a trailing semicolon on any other selector; a
+two-value `overflow: auto hidden`; restoring `words` to the setup pill's visible
+count; dropping that pill's `aria-label`; stripping `rail` off `setup-pools`. A
+control `overflow-y: auto` elsewhere must stay green.
+
+**Render half (device walk)**: A text-length that overflows a wrapped row still cannot be seen from source. It is verified on device per the device matrix (393×852, 375×667, 810×1080) during manual design review and PR testing.
 
 **Device-walk procedure**: For each viewport size and text scale (100%, 130%, 160%), render the page, measure whether horizontal scroll is required at any point, and assert no scroll occurs.
 
-**Baseline**: Known violations are listed in `docs/compliance/baseline.md` under "Horizontal scroll".
+**Baseline**: Known violations are listed in `docs/compliance/baseline.md` under "Rail clearance".
 
 ## Layer 3 notes
 

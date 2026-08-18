@@ -10,15 +10,18 @@ A violation is new if: (1) unlisted in this file, or (2) its location or clause 
 
 ### One h1 per screen
 
-- **Location**: `src/app/learner-switch/LearnerSwitchSheet.jsx` (no h1)
+- **Location**: `src/app/ProductApp.jsx` (`SwitchScreen`, no h1 — the picker's
+  question is a `<p>`)
 - **Clause**: Contract — Layer 2 — Accessibility contract — One h1 per screen
 - **Issue link**: #113
 - **Status**: `todo`
 
-- **Location**: `src/app/first-run/FirstRunScene.jsx` (no h1)
-- **Clause**: Contract — Layer 2 — Accessibility contract — One h1 per screen
-- **Issue link**: #113
-- **Status**: `todo`
+Both entries here were written against `src/app/learner-switch/LearnerSwitchSheet.jsx`
+and `src/app/first-run/FirstRunScene.jsx` — paths that have never existed on any
+branch, which the h1 check loaded inside a `try` and skipped on failure. Neither
+screen was measured. Corrected at #110, which also gave first run a welcome
+heading, so its entry is retired rather than relocated. Every other location in
+this file is still a path that does not exist; see #242.
 
 ## Layer 3: Design composition violations (manual review)
 
@@ -90,4 +93,7 @@ A violation is new if: (1) unlisted in this file, or (2) its location or clause 
 ### Out-of-scope (resolved by this slice)
 
 - #119 — Data-hero-tone falsehood: Fixed in v2-visual-authority.md; removed sentence, documented real tone mechanism and screen lists.
-- #110 — First run regions: Out of scope for this slice; deferred to E5.2 (per-surface polish).
+- #110 — First run regions: **fixed**. First run is its own composition with a
+  welcome region, an inline learner form and a local-data reassurance region;
+  the picker is no longer reused for it. Contract test:
+  `tests/first-run-composition.test.mjs`.

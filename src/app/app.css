@@ -3040,6 +3040,81 @@ select {
   font-weight: 800;
 }
 
+/* --- first run ------------------------------------------------------------
+   The one screen a reviewer and a new parent both meet first. It is a full
+   composition rather than the learner sheet, so the welcome, the setup and the
+   local-data reassurance each get their own region and the backdrop keeps only
+   the band of sky the veil hands back. */
+
+.first-run-column {
+  display: grid;
+  align-content: start;
+  gap: 1.1rem;
+  padding-bottom: 0.5rem;
+}
+
+.first-run-welcome {
+  display: grid;
+  gap: 0.35rem;
+  padding-top: 1.75rem;
+}
+
+.first-run-welcome .body-copy {
+  max-width: 27ch;
+}
+
+.first-run-setup {
+  display: grid;
+  gap: 0.15rem;
+}
+
+/* The form already carries its own top margin, so the card's heading pair sets
+   the only gap above it. */
+.first-run-setup .learner-form {
+  margin-top: 0.55rem;
+}
+
+.first-run-local {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.first-run-local h2 {
+  font-size: 1.05rem;
+}
+
+.first-run-local ul {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.first-run-local li {
+  display: grid;
+  align-items: start;
+  grid-template-columns: auto 1fr;
+  gap: 0.55rem;
+  color: var(--ink-soft);
+  font-size: var(--fs-body-s);
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.first-run-local-mark {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  place-items: center;
+  margin-top: 0.05rem;
+  border-radius: 50%;
+  background: rgb(47 158 106 / 18%);
+  color: var(--good);
+}
+
+.first-run-parent {
+  justify-self: start;
+}
+
 /* --- learner switch sheet ------------------------------------------------ */
 
 .switch-scene .scene-veil {

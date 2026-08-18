@@ -76,7 +76,7 @@ as low as 24%. A token check cannot see a declaration that never names a token.
 
 **Assertion**: Every screen component, when SSR-rendered, contains exactly one `<h1>` element, or violations are listed as `todo` in baseline.
 
-**Screens tested**: ParentArea, ResultsScreen, WordBankScreen, WordDetailScreen, plus standalone screens if renderable. Known violations (LearnerSwitchSheet, FirstRunScene per #113) are baseline-aware: expected to fail, new violations beyond baseline fail the check.
+**Screens tested**: ParentArea, ResultsScreen, WordBankScreen, WordDetailScreen, SwitchScreen, FirstRunScene — every one an export of `src/app/ProductApp.jsx`, and every one asserted to load. "Standalone screens if renderable" was the loophole that let two named screens go unmeasured because their paths did not exist (#110); a screen this check names must now resolve or the check fails. The one known violation (SwitchScreen, per #113) is baseline-aware: expected to fail, new violations beyond baseline fail the check.
 
 **Mutation to prove failure**: Add a second `<h1>` to a passing screen component; test must fail.
 

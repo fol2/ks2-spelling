@@ -17,10 +17,16 @@ import { loadStarterSpellingCatalogue } from '../src/domain/spelling/index.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
-/* Screens that are known to violate the h1 floor (per baseline.md) */
+/* Screens that are known to violate the h1 floor (per baseline.md).
+
+   These are component names in `src/app/ProductApp.jsx`, not files: every
+   product screen lives in that module. The two paths this check used to try —
+   `src/app/learner-switch/LearnerSwitchSheet.jsx` and
+   `src/app/first-run/FirstRunScene.jsx` — have never existed on any branch, so
+   both screens were silently skipped by the `catch` that loaded them and the
+   baseline recorded two violations nothing measured. */
 const KNOWN_VIOLATIONS = new Set([
-  'LearnerSwitchSheet',
-  'FirstRunScene',
+  'SwitchScreen',
 ]);
 
 function progressRow(runtimeItemId, overrides = {}) {
@@ -78,9 +84,41 @@ function createFixtures() {
   });
   const audio = Object.freeze({ async play() {} });
   const noop = () => {};
+  const emptyProfileState = Object.freeze({
+    status: 'ready',
+    profiles: Object.freeze([]),
+    selectedLearnerId: null,
+    actionError: null,
+  });
 
   return Object.freeze({
     profiles: Object.freeze([]),
+    switchScreen: Object.freeze({
+      profileState: Object.freeze({
+        ...emptyProfileState,
+        profiles: Object.freeze([Object.freeze({
+          learnerId: 'learner-a',
+          nickname: 'Ada',
+          yearGroup: 'Y4',
+          goal: 10,
+          colour: '#1f6f77',
+        })]),
+        selectedLearnerId: 'learner-a',
+      }),
+      audioState,
+      onChoose: noop,
+      onCreate: async () => {},
+      onOpenParent: noop,
+      onRecoverAudio: noop,
+      onDismiss: undefined,
+    }),
+    firstRunScene: Object.freeze({
+      profileState: emptyProfileState,
+      audioState,
+      onCreate: async () => {},
+      onOpenParent: noop,
+      onRecoverAudio: noop,
+    }),
     progressState: Object.freeze({
       status: 'ready',
       learners: Object.freeze([]),
@@ -189,57 +227,49 @@ test('Design authority: One h1 per screen (SSR)', async (t) => {
   let ResultsScreen;
   let WordBankScreen;
   let WordDetailScreen;
-  let LearnerSwitchSheet;
+  let SwitchScreen;
   let FirstRunScene;
-  
+
   try {
     const module = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
     ParentArea = module.ParentArea;
     ResultsScreen = module.ResultsScreen;
     WordBankScreen = module.WordBankScreen;
     WordDetailScreen = module.WordDetailScreen;
+    SwitchScreen = module.SwitchScreen;
+    FirstRunScene = module.FirstRunScene;
   } catch (error) {
     throw new Error(`Failed to load ProductApp: ${error.message}`);
   }
 
-  try {
-    const module = await vite.ssrLoadModule('/src/app/learner-switch/LearnerSwitchSheet.jsx');
-    LearnerSwitchSheet = module.default || module.LearnerSwitchSheet;
-  } catch {
-    // LearnerSwitchSheet may not exist or be SSR-renderable; skip it
-  }
-
-  try {
-    const module = await vite.ssrLoadModule('/src/app/first-run/FirstRunScene.jsx');
-    FirstRunScene = module.default || module.FirstRunScene;
-  } catch {
-    // FirstRunScene may not exist or be SSR-renderable; skip it
+  /* Every screen this check names must be reachable. A component that cannot
+     be loaded used to be skipped, which is how two entries sat in the baseline
+     for screens nothing rendered. */
+  for (const [name, component] of Object.entries({
+    ParentArea,
+    ResultsScreen,
+    WordBankScreen,
+    WordDetailScreen,
+    SwitchScreen,
+    FirstRunScene,
+  })) {
+    assert.equal(
+      typeof component,
+      'function',
+      `${name} must be exported from ProductApp.jsx for the h1 check to measure it`,
+    );
   }
 
   const fixtures = createFixtures();
-  
+
   const screensToTest = [
     { name: 'ParentArea', component: ParentArea, props: fixtures.parentArea },
     { name: 'ResultsScreen', component: ResultsScreen, props: fixtures.resultsScreen },
     { name: 'WordBankScreen', component: WordBankScreen, props: fixtures.wordBankScreen },
     { name: 'WordDetailScreen', component: WordDetailScreen, props: fixtures.wordDetailScreen },
+    { name: 'SwitchScreen', component: SwitchScreen, props: fixtures.switchScreen },
+    { name: 'FirstRunScene', component: FirstRunScene, props: fixtures.firstRunScene },
   ];
-
-  if (LearnerSwitchSheet) {
-    screensToTest.push({
-      name: 'LearnerSwitchSheet',
-      component: LearnerSwitchSheet,
-      props: { learners: [], onSelect() {}, onClose() {} },
-    });
-  }
-
-  if (FirstRunScene) {
-    screensToTest.push({
-      name: 'FirstRunScene',
-      component: FirstRunScene,
-      props: { onContinue() {} },
-    });
-  }
 
   for (const { name, component, props } of screensToTest) {
     let html;

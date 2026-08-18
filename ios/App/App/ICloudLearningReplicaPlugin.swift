@@ -1,6 +1,17 @@
 import Capacitor
 import CloudKit
 import Foundation
+import Security
+
+@_silgen_name("SecTaskCreateFromSelf")
+private func SecTaskCreateFromSelf(_ allocator: CFAllocator?) -> Unmanaged<CFTypeRef>?
+
+@_silgen_name("SecTaskCopyValueForEntitlement")
+private func SecTaskCopyValueForEntitlement(
+    _ task: CFTypeRef,
+    _ entitlement: CFString,
+    _ error: UnsafeMutablePointer<Unmanaged<CFError>?>?
+) -> Unmanaged<CFTypeRef>?
 
 @objc(ICloudLearningReplicaPlugin)
 public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -18,7 +29,7 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
     private static let snapshotRecordType = "LearnerSnapshot"
     private static let engineStateKey = "ks2.icloud.learning-replica.engine-state"
 
-    private let container = CKContainer(identifier: "iCloud.uk.eugnel.ks2spelling")
+    private var container: CKContainer?
     private let zoneID = CKRecordZone.ID(
         zoneName: ICloudLearningReplicaPlugin.zoneName,
         ownerName: CKCurrentUserDefaultName
@@ -27,6 +38,14 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc public func getStatus(_ call: CAPPluginCall) {
         guard requireKeys(call, exactly: []) else {
             reject(call)
+            return
+        }
+        guard let container = resolvedContainer() else {
+            call.resolve([
+                "available": false,
+                "account": "unsupported",
+                "container": Self.containerIdentifier,
+            ])
             return
         }
         container.accountStatus { [weak self] status, _ in
@@ -75,8 +94,8 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    private var privateDatabase: CKDatabase {
-        container.privateCloudDatabase
+    private func privateDatabase() throws -> CKDatabase {
+        try requireContainer().privateCloudDatabase
     }
 
     private func mapAccount(_ status: CKAccountStatus) -> String {
@@ -98,7 +117,7 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func ensurePrivateZone() async throws {
         let zone = CKRecordZone(zoneID: zoneID)
-        _ = try await privateDatabase.modifyRecordZones(saving: [zone], deleting: [])
+        _ = try await privateDatabase().modifyRecordZones(saving: [zone], deleting: [])
         if #available(iOS 17.0, *) {
             _ = try await syncEngine()
         }
@@ -114,7 +133,7 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
             try await engine.sendChanges()
             return
         }
-        _ = try await privateDatabase.modifyRecords(saving: records, deleting: [])
+        _ = try await privateDatabase().modifyRecords(saving: records, deleting: [])
     }
 
     private func fetchEnvelope() async throws -> [String: Any] {
@@ -133,7 +152,7 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
     private func queryRecords(_ recordType: String) async throws -> [CKRecord] {
         let query = CKQuery(recordType: recordType, predicate: NSPredicate(value: true))
         if #available(iOS 15.0, *) {
-            let result = try await privateDatabase.records(
+            let result = try await privateDatabase().records(
                 matching: query,
                 inZoneWith: zoneID
             )
@@ -226,10 +245,64 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @available(iOS 17.0, *)
     private func syncEngine() async throws -> CKSyncEngine {
-        try await ReplicaSyncEngineHolder.shared.engine(
-            database: privateDatabase,
+        let database = try privateDatabase()
+        return try await ReplicaSyncEngineHolder.shared.engine(
+            database: database,
             stateKey: Self.engineStateKey
         )
+    }
+
+    // iOS Security.framework exports these symbols without a public Swift overlay.
+    // Allocating a CloudKit container traps with EXC_BREAKPOINT when the
+    // identifier is not in the running process entitlements. Unsigned simulator
+    // builds embed none, so construction waits on that check and degrades to
+    // unavailable. If the entitlements blob cannot be read, a present code
+    // signature is the signed-build fallback so CloudKit behaviour stays put.
+    private static func isContainerEntitled() -> Bool {
+        guard let unmanagedTask = SecTaskCreateFromSelf(nil) else {
+            return hasEmbeddedCodeSignature()
+        }
+        let task = unmanagedTask.takeRetainedValue()
+        guard let unmanaged = SecTaskCopyValueForEntitlement(
+            task,
+            "com.apple.developer.icloud-container-identifiers" as CFString,
+            nil
+        ) else {
+            return hasEmbeddedCodeSignature()
+        }
+        let value = unmanaged.takeRetainedValue()
+        if let identifiers = value as? [String] {
+            return identifiers.contains(containerIdentifier)
+        }
+        if let identifier = value as? String {
+            return identifier == containerIdentifier
+        }
+        return false
+    }
+
+    private static func hasEmbeddedCodeSignature() -> Bool {
+        FileManager.default.fileExists(
+            atPath: Bundle.main.bundleURL.appendingPathComponent("_CodeSignature").path
+        )
+    }
+
+    private func resolvedContainer() -> CKContainer? {
+        if let container {
+            return container
+        }
+        guard Self.isContainerEntitled() else {
+            return nil
+        }
+        let created = CKContainer(identifier: Self.containerIdentifier)
+        container = created
+        return created
+    }
+
+    private func requireContainer() throws -> CKContainer {
+        guard let container = resolvedContainer() else {
+            throw ReplicaError.unavailable
+        }
+        return container
     }
 
     private func requireKeys(_ call: CAPPluginCall, exactly expected: Set<String>) -> Bool {
@@ -248,6 +321,7 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
 
 private enum ReplicaError: Error {
     case invalid
+    case unavailable
 }
 
 private final class ReplicaRecordCache: @unchecked Sendable {

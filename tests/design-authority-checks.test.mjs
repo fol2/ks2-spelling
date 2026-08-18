@@ -200,7 +200,9 @@ test('Baseline file exists and is well-formed', async () => {
      make that violation un-retirable: #108 was fixed, so its entry left the
      baseline, and an assertion demanding it stay would have forbidden the fix. */
   assert.match(baselineContent, /Layer 2/u);
-  assert.match(baselineContent, /#113/u);
+  /* Shape, not identity: pinning `#113` here was the very mistake the comment
+     above warns against, and it would have forbidden retiring that entry. */
+  assert.match(baselineContent, /- \*\*Issue link\*\*: #\d+/u);
 });
 
 test('Adding a baseline violation is a one-line edit (verify format)', async () => {

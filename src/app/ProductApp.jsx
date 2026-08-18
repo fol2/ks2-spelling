@@ -1426,7 +1426,7 @@ export function SwitchScreen({
               />
             )}
             <div className="switch-head">
-              <p id="switch-title">Who is practising?</p>
+              <h1 id="switch-title">Who is practising?</h1>
               <button
                 type="button"
                 className="topbar-action press-soft press"
@@ -3491,10 +3491,21 @@ function ResultsScreen({
   );
 }
 
-// Named so the record can be rendered on its own in tests. The declaration
-// itself stays a plain function: the round contract reads this file as text
-// and finds the round by the two function headings around it.
-export { ResultsScreen, WordBankScreen, WordDetailScreen };
+// Named so each screen can be rendered on its own in tests — the h1-per-screen
+// check measures one screen at a time, so every screen carrying an h1 has to be
+// reachable by name. The declarations themselves stay plain functions: the round
+// contract reads this file as text and finds the round by the two function
+// headings around it.
+export {
+  CampScreen,
+  CodexScreen,
+  ResultsScreen,
+  RoundScreen,
+  SetupScreen,
+  TrailScreen,
+  WordBankScreen,
+  WordDetailScreen,
+};
 
 export default function ProductApp({ services }) {
   const [profileState, setProfileState] = useState(() =>

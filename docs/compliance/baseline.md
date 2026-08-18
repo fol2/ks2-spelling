@@ -8,20 +8,20 @@ A violation is new if: (1) unlisted in this file, or (2) its location or clause 
 
 ## Layer 2: Machine-checkable violations
 
-### One h1 per screen
+### One h1 per screen — retired at #113
 
-- **Location**: `src/app/ProductApp.jsx` (`SwitchScreen`, no h1 — the picker's
-  question is a `<p>`)
-- **Clause**: Contract — Layer 2 — Accessibility contract — One h1 per screen
-- **Issue link**: #113
-- **Status**: `todo`
+No entry. The clause is clean, so `tests/design-authority-h1-per-screen.test.mjs`
+now gates it outright rather than measuring it against a baseline.
 
-Both entries here were written against `src/app/learner-switch/LearnerSwitchSheet.jsx`
-and `src/app/first-run/FirstRunScene.jsx` — paths that have never existed on any
+Both entries this section once held were written against
+`src/app/learner-switch/LearnerSwitchSheet.jsx` and
+`src/app/first-run/FirstRunScene.jsx` — paths that have never existed on any
 branch, which the h1 check loaded inside a `try` and skipped on failure. Neither
-screen was measured. Corrected at #110, which also gave first run a welcome
-heading, so its entry is retired rather than relocated. Every other location in
-this file is still a path that does not exist; see #242.
+screen was measured. Corrected at #110, which gave first run a welcome heading
+and retired its entry. #113 gave the learner switch its own `h1`, retiring the
+last one, and extended the check from six screens to every product screen — all
+seventeen `h1` sites in `src/app/ProductApp.jsx` now fail a mutation. Every other
+location in this file is still a path that does not exist; see #242.
 
 ## Layer 3: Design composition violations (manual review)
 

@@ -5,14 +5,14 @@
     "packageLockSha256": "e81135d770dbfb088bd3b81a720146440ac8096ca22ed45c4150fb3349f85f30",
     "spmResolvedVersion": 3,
     "nativePluginBuildSha256": "a72e95958e287be21f34588a167f12fd59058ab003dfe3f559b3ba244988a6f9",
-    "webViewBundleEvidenceSha256": "a3249a0567a43d446489716d67fea61e1318d2310d66aa5cbad6ae979069f041"
+    "webViewBundleEvidenceSha256": "4851c5714d1cd610b4edd45361c45847c8888b087ca46f886d3b054c0f61a6f4"
   },
   "npm": {
     "lockfileVersion": 3,
     "lockPackageCount": 192,
     "webViewBundle": {
       "mode": "vite-rollup-write-false",
-      "moduleCount": 231,
+      "moduleCount": 233,
       "packageNames": [
         "@capacitor-community/sqlite",
         "@capacitor/app",
@@ -101,10 +101,16 @@
           "sha256": "d11dfef62053d999c5d00973ec5b1bd63a20c5985155f8bfe15344fa3572730b"
         },
         {
+          "id": "config/ks2-gateway-authority-production.json",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "75d4d01213419a91b972747bd9c91150f58cccca12707b7378c05a13e46e9790"
+        },
+        {
           "id": "config/pack-signing-public-keys.json",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "5bc863f8a8b4a50a8564e94cd46f18e9a409947615755a39103801afbd09eeff"
+          "sha256": "f8dbea2120fcd89902a1624cb108839fe0522fdac778c4bd70fa9633959a7534"
         },
         {
           "id": "config/starter-audio-runtime.json",
@@ -602,7 +608,7 @@
           "id": "src/app/ProductApp.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "bb6c10fadec8941297c75f9381b3ff710818c5f04cb7dc363fc2ca3bdf762ecf"
+          "sha256": "62db8bf929552bb0bb1f49353ed006e26838fe83dc15c37940620e969e87f1ba"
         },
         {
           "id": "src/app/ProductRoot.jsx",
@@ -614,7 +620,7 @@
           "id": "src/app/app.css",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "6aba8cafa729e4a390b997f9c060dd6bc083ce0f32a51a41a6065be26f2628db"
+          "sha256": "9b253b1897252d62c08ca1832ea8e8c6397d12c24618492cb2e60bb581a8db8f"
         },
         {
           "id": "src/app/bundled-starter-audio.js",
@@ -692,13 +698,13 @@
           "id": "src/app/create-product-app-services.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "a412246cdbb6b330429654124cf4715c0d6ce710607ea56892b07cb6c96b95c5"
+          "sha256": "3309531ce7cf5e9f99c3a3e30c569544a47f463ce2d94c441ceb24ebd8780f0a"
         },
         {
           "id": "src/app/create-product-commerce-workflow.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "365e0432d1f08422f6514769b70d1ef854b221b15a7ef487e24e90c1a57356b3"
+          "sha256": "68e025afcb7c2dbca3eb8be75ead07d2d0a34e7c7addc949e2ff78e50e480521"
         },
         {
           "id": "src/app/create-production-app-services.js",
@@ -722,7 +728,7 @@
           "id": "src/app/download-coordinator.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "ef971d73d15bd205bcde4d160c5d9c046c23cad437f80a47bd6e1eee7919cf2e"
+          "sha256": "95f876216005c7753e9cebe473a3c279586dea3f2bfe6458e5dff0efaf53ff54"
         },
         {
           "id": "src/app/entitled-audio-switch.js",
@@ -735,6 +741,12 @@
           "kind": "file",
           "npmLocator": null,
           "sha256": "0cce69beba6180148e7fea5faefababd23aa92e61316c568cd768eb9210dc4f8"
+        },
+        {
+          "id": "src/app/icloud-learning-replica-controller.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "55615e54cd0b2719f5e68c77a78be978d3e90b2a55cba999c53f165972c62fe9"
         },
         {
           "id": "src/app/installed-shard-audio.js",
@@ -803,12 +815,6 @@
           "sha256": "aa926afb0147296487df580908141648428a1330152f8651b07082d8724e2b21"
         },
         {
-          "id": "src/app/parent-backup-service.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "cae4160b41bfff24490ccdf015679e173ef8b349656017910a79ffaddfd5bc50"
-        },
-        {
           "id": "src/app/parent-commerce-controller.js",
           "kind": "file",
           "npmLocator": null,
@@ -848,7 +854,7 @@
           "id": "src/app/product-failure-services.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "b55146a07f0b0b4383671ca615adbfc920d38956fdcd838966bac55171ca2606"
+          "sha256": "38884753c0df563c2db62e2ff1aaea54540a15904def25db4535b5b3a434af20"
         },
         {
           "id": "src/app/product-learning-controller.js",
@@ -938,7 +944,7 @@
           "id": "src/domain/commerce/commerce-contracts.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "908d8fb093ed22246db6ec3c9b1e463ed42ef15c5ad66f45d7e39d90b8ae98d7"
+          "sha256": "abf99c1b255a77da7e382a2875a10393999e978800bce8f7c4e1812f4b7e0eab"
         },
         {
           "id": "src/domain/commerce/entitlement-access-projection.js",
@@ -980,19 +986,13 @@
           "id": "src/domain/packs/signed-download-access-contract.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "6f9f9be0c7d74891087d0a5579ef58b130032c9d6e4546a55a962994160449bb"
+          "sha256": "fdae00425ad6f3e90fff2748fe503ad30533cb076bdf89b3ccb0a2b703dbcf10"
         },
         {
           "id": "src/domain/packs/signed-manifest-contract.js",
           "kind": "file",
           "npmLocator": null,
           "sha256": "0d6a522c43754ed48106c93df2fac92b42e28d27cf39572567951ccc1d789a95"
-        },
-        {
-          "id": "src/domain/security/learning-backup-contract.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "769fe48195a63541886e29bc4072501f09b46e873cef5f1e5c23176d51c18900"
         },
         {
           "id": "src/domain/security/parent-pin-contract.js",
@@ -1025,6 +1025,18 @@
           "sha256": "a2dd2198f8ff50326889848cd377f41b2923748ad0f0ef18da10e981491fc0cb"
         },
         {
+          "id": "src/domain/sync/apply-learning-replica.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "7602549b21eb9a702cdc7efb37f40bd9fe701da5d3bad3d14e087853d8e00563"
+        },
+        {
+          "id": "src/domain/sync/merge-learning-replica.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "1146aac22eb0317a9082659427c6764409c208e3ed080761f89f3ebf0e5b59b5"
+        },
+        {
           "id": "src/main.jsx",
           "kind": "file",
           "npmLocator": null,
@@ -1041,18 +1053,6 @@
           "kind": "file",
           "npmLocator": null,
           "sha256": "025bfff569344b8d692621356d24292839b27d413941bf068175010db1ab9da5"
-        },
-        {
-          "id": "src/platform/backup/capacitor-learning-backup-file-plugin.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "7afef67652dbddf918d3452d532f39a6b79408da2d1fe94d5a25a21108447996"
-        },
-        {
-          "id": "src/platform/backup/capacitor-learning-backup-files.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "b08a5e8aea553b0a0e4eec577848fe57db8c1d08ae1050110ec275b02c0ceb1c"
         },
         {
           "id": "src/platform/commerce/capacitor-commerce-plugin.js",
@@ -1127,12 +1127,6 @@
           "sha256": "332ed3c646398694c102082c72e3e2d1d0e51108d8576ec9d8c1cafc1463917e"
         },
         {
-          "id": "src/platform/database/sqlite-learning-backup-repository.js",
-          "kind": "file",
-          "npmLocator": null,
-          "sha256": "ff05d27ad010101234a2386b53289852802c6708c80b75910e85b72ca37636ee"
-        },
-        {
           "id": "src/platform/database/sqlite-pack-repositories.js",
           "kind": "file",
           "npmLocator": null,
@@ -1166,7 +1160,7 @@
           "id": "src/platform/database/sqlite-spelling-profile-store.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "b938be429c9f440af2c681df8613faeaf4d7e32e1e3eeb5b076b2cdc3abc9325"
+          "sha256": "513f9e1dd738de75e31d3e4c0531a1128eb59b8234127a0b56d072cccd5b0f8f"
         },
         {
           "id": "src/platform/database/sqlite-spelling-snapshot-store.js",
@@ -1263,6 +1257,24 @@
           "kind": "file",
           "npmLocator": null,
           "sha256": "b5149aa436b56db25f487c253711c452044878ad277a9d201aca52d3e160d15c"
+        },
+        {
+          "id": "src/platform/sync/capacitor-icloud-learning-replica-plugin.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "6cbc2d34e1a205a0901ca0c64788b092d5ee3f478eaa7f32d6c7155e0fefee11"
+        },
+        {
+          "id": "src/platform/sync/capacitor-icloud-learning-replica.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "ea6597d1a661a235b742283b267dc8a8def7755c60b1602423101175f5a1db99"
+        },
+        {
+          "id": "src/platform/sync/learning-replica-port.js",
+          "kind": "file",
+          "npmLocator": null,
+          "sha256": "0a4440c115f8c6878c65eef6a8584cfd9b9c85635a682e6c0be4da153fc0f39f"
         },
         {
           "id": "vendor/ks2-mastery/content/spelling.mobile-runtime-full.json",
@@ -1423,14 +1435,14 @@
       ],
       "outputInventory": [
         {
-          "fileName": "assets/celebration-scene-CEYufdpS.js",
+          "fileName": "assets/celebration-scene-6FHFlRlt.js",
           "kind": "chunk",
-          "sha256": "b80306da8f6a952db9b9f7884ab716812bf4bac27db237d162d920a961ed6498"
+          "sha256": "a932e06f3c4bc5c2378198e3665809588815cedb084dc47dd93fb3541df9d975"
         },
         {
-          "fileName": "assets/CelebrationStage-Cq27mRwd.js",
+          "fileName": "assets/CelebrationStage-C95ZbggB.js",
           "kind": "chunk",
-          "sha256": "b50cdbad3ce32f46f6683d8ea41bc78c545d50bf8da6e730a1b85e1ba4ea7ee3"
+          "sha256": "12f8e91ba2a5f4b4b28e525977a72a746fc5ad25b254724f264aad02f6df4885"
         },
         {
           "fileName": "assets/fraunces-latin-variable-BOz5zopO.woff2",
@@ -1488,14 +1500,14 @@
           "sha256": "483852f9bb8a4df54b3f20e2ee2389f817796c1431857d71750373bb755ae84c"
         },
         {
-          "fileName": "assets/index-CjXuVEz4.js",
+          "fileName": "assets/index-BcbJk60b.js",
           "kind": "chunk",
-          "sha256": "49970d6193e233f383bc18fccfac8f9a6aa4a63fed776cc9cc06f8a9ab997071"
+          "sha256": "ff4c4cc7eb43de45e5848c6b636db76daa1a38f9cabe8e87399473b69e8423b3"
         },
         {
-          "fileName": "assets/index-z4ndOpMD.css",
+          "fileName": "assets/index-Dgo-5-tV.css",
           "kind": "asset",
-          "sha256": "0a06942b7037c6aaeacfa9a6b21529c35daec0bac902da25988fc8d76fb14013"
+          "sha256": "5647ecf0d8bb08376d5fdca04b4cfe6e97bbee728560d613b703b398a1ba018c"
         },
         {
           "fileName": "assets/inklet-b1-0.640-GboaFYkc.webp",
@@ -1553,19 +1565,19 @@
           "sha256": "c940764593d0fe5d596be327ca7558855e018039fb78509aa21921fd3644c3e4"
         },
         {
-          "fileName": "assets/monster-scene-CHeKPVt_.js",
+          "fileName": "assets/monster-scene-A-17bOFZ.js",
           "kind": "chunk",
-          "sha256": "69b03223d928209ef6eb2ba109a507ca29b1b0fc0eb92fda97284da84ef92edc"
+          "sha256": "3ff1f34b06db70bc0996ea817277db7a912eaac39953eb261eb0088fd7cb2bca"
         },
         {
-          "fileName": "assets/monster-stage-model-BPqC3skM.js",
+          "fileName": "assets/monster-stage-model-CizzTHlY.js",
           "kind": "chunk",
-          "sha256": "c6639ea0b40757bbef6af98af4e918df65202cadc90691718a037a0c772c04bd"
+          "sha256": "358f9d6fd01dba35d91a4bdf94e68097b43f7b80a811eb73c173bca1033bf0c8"
         },
         {
-          "fileName": "assets/MonsterStage-DlbTmqX2.js",
+          "fileName": "assets/MonsterStage-BdmdFhBR.js",
           "kind": "chunk",
-          "sha256": "dc0d994cd919f42e965c595cb43214e4c867a3e524192b60e613406593d68351"
+          "sha256": "157baa607657ba6feaaf3f7430133ba9ce691e6067367b1adfad3f621c2f3759"
         },
         {
           "fileName": "assets/phaeton-b1-0.640-BP21E3Yf.webp",
@@ -1753,24 +1765,24 @@
           "sha256": "e491d55dfcd0c3754f7569551f39ed93ef50f68129898531a7ee56c23561583c"
         },
         {
-          "fileName": "assets/web-7OILwRnA.js",
+          "fileName": "assets/web-BwdH4KzX.js",
           "kind": "chunk",
-          "sha256": "dfc1c31ae50f0af296e4df70581336dbfcacb13ff1ce5cba1ec92d44e3f54bf7"
+          "sha256": "48329ce66336991328c12e5587080996034a8e95dd503cf00dd42bf3466624a4"
         },
         {
-          "fileName": "assets/web-CFRjrIlq.js",
+          "fileName": "assets/web-CgRDoDmj.js",
           "kind": "chunk",
-          "sha256": "73dfc58a29f83422d3f8056c3ea283df246770d284da66ff131310e51215c134"
+          "sha256": "166ef36fc7db9b9d3508e850f8aa049842a252ec7a056a6670b4d4b7c44144f6"
         },
         {
-          "fileName": "assets/web-tr7gy6zV.js",
+          "fileName": "assets/web-D3RjUCXg.js",
           "kind": "chunk",
-          "sha256": "a1acdb42eafe3721d80c525e1e9c811790c90a82237bdf5020d469fb01086093"
+          "sha256": "d8c0b984f550b1d1ce96bacb60a3129b2f07ff47f77f5f500963deba1e039ced"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "3c42b66ba2e7ad82edc6b7d2ffba09314a738a444b3be57024310987041edb3f"
+          "sha256": "c8fa1f5835e6b7d6c22745f653974d0e05e4e3194a001fb411cb309daf37503d"
         },
         {
           "fileName": "release-channel.json",
@@ -1778,7 +1790,7 @@
           "sha256": "60f9f62b83ac92e42bac81274405e3acc630fe6ecf50e9404c85728c35761891"
         }
       ],
-      "evidenceSha256": "a3249a0567a43d446489716d67fea61e1318d2310d66aa5cbad6ae979069f041"
+      "evidenceSha256": "4851c5714d1cd610b4edd45361c45847c8888b087ca46f886d3b054c0f61a6f4"
     },
     "allPackages": [
       {
@@ -6486,7 +6498,7 @@
       },
       {
         "path": "config/dependency-policy.json",
-        "sha256": "0e04fc00e39824917af03fbe2f9d607140897486d1eb867555d4db14f7e4980d"
+        "sha256": "4ac43c03ffa14503d62c8082967a61843e89d39e25d72e2145f1af112703badd"
       },
       {
         "path": "config/maven-licence-policy.json",
@@ -67154,7 +67166,7 @@
   "gradleInputs": [
     {
       "path": "android/app/build.gradle",
-      "sha256": "7c6a3e145e3e84428e197c086f9f12170ad6623a14919b9d55332f65624a3b6b"
+      "sha256": "45dd5392da2d1594af9aa5394006c63c56226cda23990d653d490389893adfe4"
     },
     {
       "path": "android/app/capacitor.build.gradle",
@@ -67417,18 +67429,18 @@
         "source": "App-owned bounded Swift and Java installed-pack readers"
       },
       {
-        "capability": "LearningBackupFile",
-        "packageName": "app-owned-learning-backup-file-bridge",
-        "version": "C2B",
-        "status": "C2B local capability; final physical proof deferred",
-        "source": "App-owned Swift and Java system document bridges"
-      },
-      {
         "capability": "LocalDataProtection",
         "packageName": "app-owned-local-data-protection-bridge",
         "version": "C2B",
         "status": "C2B local capability; final physical proof deferred",
         "source": "App-owned Swift and Java local storage policy enforcement"
+      },
+      {
+        "capability": "ICloudLearningReplica",
+        "packageName": "app-owned-icloud-learning-replica-bridge",
+        "version": "E6",
+        "status": "E6 compiled capability; physical two-device proof is owner-gated",
+        "source": "App-owned Swift CloudKit private-database replica and Android no-op"
       }
     ],
     "candidates": [
@@ -67459,7 +67471,9 @@
       "uses-permission:${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
       "uses-permission:android.permission.USE_FINGERPRINT"
     ],
-    "iosEntitlements": [],
+    "iosEntitlements": [
+      "ios/App/App/App.entitlements"
+    ],
     "iosUsageDescriptionKeys": [
       "NSFaceIDUsageDescription"
     ],
@@ -67497,7 +67511,9 @@
     "iosUsageDescriptionKeys": [
       "NSFaceIDUsageDescription"
     ],
-    "iosEntitlements": [],
+    "iosEntitlements": [
+      "ios/App/App/App.entitlements"
+    ],
     "localDatabase": true,
     "sqliteMode": "no-encryption",
     "sqlCipherPackaged": true,

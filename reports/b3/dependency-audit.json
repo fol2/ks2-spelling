@@ -6455,6 +6455,27 @@
         ]
       },
       {
+        "path": "PrivacyInfo.xcprivacy",
+        "sha256": "daa1c01e38c600bf70ef107c6eb5c95c0662ddfa34cab2941cf1f84edab2dd3f",
+        "tracking": false,
+        "collectedDataTypes": [],
+        "trackingDomains": [],
+        "requiredReasonApis": [
+          {
+            "category": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "reasons": [
+              "E174.1"
+            ]
+          },
+          {
+            "category": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "reasons": [
+              "C617.1"
+            ]
+          }
+        ]
+      },
+      {
         "path": "ZIPFoundation_ZIPFoundation.bundle/PrivacyInfo.xcprivacy",
         "sha256": "9a2f930cedb8d58309a581b9bf9bf3673685ec02ae2197d9f1c56828b718dffd",
         "tracking": false,

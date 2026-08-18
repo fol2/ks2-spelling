@@ -58,16 +58,23 @@ Resolution validation is kind-aware: these are semantic version plus revision pi
 
 ## Packaged iOS privacy manifests
 
-The built `App.app` contains exactly four privacy manifests. The audit binds the packaged relative path, byte hash and canonical Required Reason API declarations, and rejects a missing, additional or changed manifest.
+The B2 close recorded four dependency privacy manifests. The live packaged
+`App.app` contains five: those four plus the app-target manifest added by
+submission hygiene. Frozen B2 reports keep the historical four and are not
+rewritten. The live pin is `EXPECTED_IOS_PACKAGED_PRIVACY_MANIFESTS` in
+`scripts/audit-dependencies.mjs`. It binds packaged relative path, byte hash
+and canonical Required Reason API declarations, and rejects a missing,
+additional or changed manifest.
 
 | Packaged path | SHA-256 | Required Reason API declarations |
 |---|---|---|
 | `Frameworks/Capacitor.framework/PrivacyInfo.xcprivacy` | `1bac827f49b2b8a5358491b9698203bf191791a6f1ba3a3ace3b1285d52d2d17` | None |
 | `Frameworks/Cordova.framework/PrivacyInfo.xcprivacy` | `5a9b8fc0cddb10201bb47cc2804b3f004c7251476622d25bfc4eb54ed46e1084` | None |
 | `Frameworks/SQLCipher.framework/PrivacyInfo.xcprivacy` | `9362796ba800a7b4169834eff8bde990866f40114ff7baac002b8bae543e8dd1` | Disk Space `E174.1`; File Timestamp `C617.1`, `3B52.1` |
+| `PrivacyInfo.xcprivacy` | `daa1c01e38c600bf70ef107c6eb5c95c0662ddfa34cab2941cf1f84edab2dd3f` | Disk Space `E174.1`; File Timestamp `C617.1` |
 | `ZIPFoundation_ZIPFoundation.bundle/PrivacyInfo.xcprivacy` | `9a2f930cedb8d58309a581b9bf9bf3673685ec02ae2197d9f1c56828b718dffd` | File Timestamp `0A2A.1` |
 
-All four declare tracking false with empty collected-data and tracking-domain arrays. Required Reason API declarations do not imply child-data collection or transmission, but they must remain accurate for Apple review.
+All five declare tracking false with empty collected-data and tracking-domain arrays. Required Reason API declarations do not imply child-data collection or transmission, but they must remain accurate for Apple review. Host-neutral tests bind the tracked `ios/App/App/PrivacyInfo.xcprivacy` bytes to the app-root pin. The iOS compile lane scans a freshly built `App.app`.
 
 ## Resolved Android Maven graph
 
@@ -83,7 +90,7 @@ Twenty-five non-standard or reciprocal licence expressions remain restricted to 
 
 The merged Android manifest proves `android:allowBackup="false"`, names both backup-rule resources and contains no packaged permission. The legacy rules exclude `root`, `file`, `database`, `sharedpref` and `external`; both cloud-backup and device-transfer sections also exclude all five legacy domains and the four device-protected domains. B2 keeps backup and device transfer disabled until the C2 security design.
 
-The built iOS application adds no usage-description key and no app entitlement. Its four packaged privacy manifests are certified above. Parent PIN, biometrics, database-key management, production backup, store signing and final disclosure certification remain outside B2.
+The built iOS application adds no usage-description key and no app entitlement. Its four packaged privacy manifests are certified in the B2 table above; the live packaged set is five, including the app-target manifest. Parent PIN, biometrics, database-key management, production backup, store signing and final disclosure certification remain outside B2.
 
 The B2 proof uses only virtual devices. Physical-device privacy, accessibility
 and performance certification remain B4. The diagnostic proof shell is not the

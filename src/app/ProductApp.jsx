@@ -2710,10 +2710,16 @@ function SetupScreen({
                     className="pill press-soft press"
                     aria-pressed={effectiveYearFilter === option.id}
                     disabled={runQuest === 'test' && option.id !== 'core'}
+                    /* The noun rides in the accessible name only. Spelled out
+                       on all three pills the row ran 378px wide and sliced its
+                       last set at every supported width (#111); the bare count
+                       fits 320px, and "VOCABULARY SET" above already says what
+                       is being counted. Same shape as the Words filters. */
+                    aria-label={`${option.label}, ${option.count} ${option.count === 1 ? 'word' : 'words'}`}
                     onClick={() => setYearFilter(option.id)}
                   >
                     {option.label}
-                    <span>{option.count} words</span>
+                    <span>{option.count}</span>
                   </button>
                 ))}
               </div>

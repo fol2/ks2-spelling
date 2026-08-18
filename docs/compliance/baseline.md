@@ -44,6 +44,11 @@ this file is still a path that does not exist; see #242.
 - **Issue link**: #115
 - **Status**: `todo`
 
+- **Location**: `src/app/app.css` (`.setup-quest`: `flex: 1; min-height: 0` clipped at flex-end deletes the kicker, then the top of the h1 — 55.2px / 52.0px already gone at 320×568 and 100% text)
+- **Clause**: Contract — Layer 3 — Label baseline
+- **Issue link**: #245
+- **Status**: `todo`
+
 ### Tile consistency
 
 - **Location**: `src/app/codex/CodexRoster.jsx` (roster tiles unevenly sized)
@@ -53,15 +58,10 @@ this file is still a path that does not exist; see #242.
 
 ### Rail clearance
 
-- **Location**: `src/app/Setup.jsx:filter-rail` (rail clips last option, no affordance)
-- **Clause**: Contract — Layer 3 — Rail clearance
-- **Issue link**: #111
-- **Status**: `todo`
-
-- **Location**: `src/app/Setup.jsx:vocabulary-rail` (rail clips last option, no affordance)
-- **Clause**: Contract — Layer 3 — Rail clearance
-- **Issue link**: #111
-- **Status**: `todo`
+The two #111 entries named `src/app/Setup.jsx:filter-rail` and
+`src/app/Setup.jsx:vocabulary-rail` — a path that has never existed on any
+branch, and the filter rail is on the Words screen, not Setup — so both are
+retired rather than relocated, the same fictional-location family as #242.
 
 - **Location**: `src/app/codex/CodexRoster.jsx:lower-rails` (rails collide with tab bar)
 - **Clause**: Contract — Layer 3 — Rail clearance

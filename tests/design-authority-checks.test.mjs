@@ -107,7 +107,6 @@ function extractTokens(css) {
 
 test('Design authority: Contrast ratio (real computation)', async () => {
   const css = await read('src/app/app.css');
-  const baseline = await read('docs/compliance/baseline.md');
   const tokens = extractTokens(css);
 
   // Paper background colors
@@ -140,9 +139,6 @@ test('Design authority: Contrast ratio (real computation)', async () => {
       );
     }
   }
-
-  // Baseline must document contrast violations
-  assert.match(baseline, /Contrast ratio/u, 'Baseline must list contrast clause');
 });
 
 test('Design authority: Dusk ink tokens contrast', async () => {
@@ -200,10 +196,10 @@ test('Baseline file exists and is well-formed', async () => {
   const baselineContent = await read('docs/compliance/baseline.md');
   assert.ok(baselineContent, 'Baseline file must exist');
 
-  // Must list Layer 2 violations
-  assert.match(baselineContent, /Contrast ratio/u);
+  /* Only the file's *shape* is pinned here. Naming a specific violation would
+     make that violation un-retirable: #108 was fixed, so its entry left the
+     baseline, and an assertion demanding it stay would have forbidden the fix. */
   assert.match(baselineContent, /Layer 2/u);
-  assert.match(baselineContent, /#108/u);
   assert.match(baselineContent, /#113/u);
 });
 
@@ -230,4 +226,69 @@ test('Release-gate document exists and references four checks', async () => {
   assert.match(gateContent, /One h1 per screen/u);
   assert.match(gateContent, /44.*44/u);
   assert.match(gateContent, /horizontal.?scroll/u);
+});
+
+/* Token definitions passing 4.5:1 does not mean the text passes: a call site can
+   invent its own alpha and never touch a token. #108 found sixteen that did, in
+   a file whose token check was green. This scan reads every ink-alpha `color:`
+   declaration in the shipped stylesheets and holds it to the same floor.
+
+   ponytail: holds every ink-alpha text run to 4.5:1, including the >=24px runs
+   WCAG lets sit at 3:1. No such run exists today; add font-size parsing only
+   when a real design needs the large-text allowance. */
+const INK_ALPHA_SURFACES = [
+  {
+    path: 'src/app/app.css',
+    base: [255, 249, 236],
+    label: 'dusk ink',
+    /* Light ink loses contrast on the *lighter* of the two dusk grounds. */
+    backgrounds: { '--dusk': [8, 12, 18], '--dusk-raised': [16, 26, 38] },
+  },
+  {
+    path: 'src/app/app.css',
+    base: [29, 43, 58],
+    label: 'vellum ink',
+    /* Dark ink loses contrast on the *darker* papers; --paper-parent is worst. */
+    backgrounds: {
+      '--paper': [248, 245, 236],
+      '--paper-raised': [255, 253, 247],
+      '--paper-parent': [234, 230, 219],
+    },
+  },
+  {
+    path: 'site/public/styles.css',
+    base: [29, 43, 58],
+    label: 'policy-site ink',
+    /* The policy site paints muted text only through its own `--ink-soft`, so
+       the token declaration is the call site here. */
+    property: '(?:(?<![-\\w])color|--ink-soft|--ink-faint)',
+    backgrounds: { '--paper': [248, 245, 236] },
+  },
+];
+
+test('Design authority: ink-alpha call sites reach 4.5:1', async () => {
+  for (const surface of INK_ALPHA_SURFACES) {
+    const css = await read(surface.path);
+    const [r, g, b] = surface.base;
+    /* `(?<![-\w])` keeps `border-color` and `background-color` out; only the
+       text colour is a contrast surface. Token declarations (`--ink-soft: …`)
+       are excluded by the same lookbehind and covered by the checks above. */
+    const declaration = new RegExp(
+      `${surface.property ?? '(?<![-\\w])color'}:\\s*rgb\\(${r} ${g} ${b} / ([0-9.]+)%\\)`,
+      'gu',
+    );
+
+    for (const match of css.matchAll(declaration)) {
+      const alpha = Number(match[1]) / 100;
+      const line = css.slice(0, match.index).split('\n').length;
+
+      for (const [name, background] of Object.entries(surface.backgrounds)) {
+        const ratio = contrastRatio(composite(surface.base, background, alpha), background);
+        assert.ok(
+          ratio >= 4.5,
+          `${surface.path}:${line} — ${surface.label} at ${match[1]}% on ${name} must be ≥4.5:1 (measured: ${ratio.toFixed(2)}:1)`,
+        );
+      }
+    }
+  }
 });

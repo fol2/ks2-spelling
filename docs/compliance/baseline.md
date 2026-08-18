@@ -8,13 +8,6 @@ A violation is new if: (1) unlisted in this file, or (2) its location or clause 
 
 ## Layer 2: Machine-checkable violations
 
-### Contrast ratio
-
-- **Location**: `src/app/ProductApp.jsx:165,185,251,258,1455,1510,1739,2301,2492,2781,3034` (tab bar labels, word-bank subtitles, kicker, etc.)
-- **Clause**: Contract — Layer 2 — Accessibility contract — Contrast ratio
-- **Issue link**: #108
-- **Status**: `todo`
-
 ### One h1 per screen
 
 - **Location**: `src/app/learner-switch/LearnerSwitchSheet.jsx` (no h1)

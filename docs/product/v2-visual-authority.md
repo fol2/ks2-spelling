@@ -123,7 +123,7 @@ this table is stale.
 | Hairline | `--line` | `rgb(29 43 58 / 12%)` |
 | Stated rule | `--line-strong` | `rgb(29 43 58 / 22%)` |
 
-*Vellum contrast ratios (WCAG 2.2 RL)*: `--ink-soft` 78% = 6.20–7.01:1 on papers ✓; `--ink-faint` 70% = 4.66–4.89:1 on papers ✓. All exceed 4.5:1 floor.
+*Vellum contrast ratios (WCAG 2.2 RL, worst→best across `--paper-parent`, `--paper`, `--paper-raised`)*: `--ink-soft` 78% = 6.18–7.00:1 ✓; `--ink-faint` 70% = 4.90–5.41:1 ✓. All exceed the 4.5:1 floor.
 
 ##### Dusk
 
@@ -139,7 +139,15 @@ group rather than tinting the vellum one.
 | Faint dusk ink | `--dusk-ink-faint` | `rgb(255 249 236 / 70%)` |
 | Dusk hairline | `--dusk-line` | `rgb(255 249 236 / 16%)` |
 
-*Dusk contrast ratios (WCAG 2.2 RL)*: `--dusk-ink-soft` 78% = 11.38:1 ✓; `--dusk-ink-faint` 70% = 6.97:1 ✓. All exceed 4.5:1 floor.
+*Dusk contrast ratios (WCAG 2.2 RL, worst→best across `--dusk-raised`, `--dusk`)*: `--dusk-ink-soft` 78% = 10.47–11.36:1 ✓; `--dusk-ink-faint` 70% = 8.64–9.25:1 ✓. All exceed the 4.5:1 floor.
+
+Muted and faint text takes these tokens; a call site may not invent its own
+ink alpha. Passing tokens say nothing about a declaration that never reads
+one, which is how sixteen text runs in `src/app/app.css` — thirteen dusk,
+three on the boot shell — sat below the floor while the token check was
+green (#108). `tests/design-authority-checks.test.mjs` now reads
+every ink-alpha `color:` declaration in the shipped stylesheets and computes
+the ratio; the numbers above come from that computation, not from prose.
 
 ##### Tone assignment
 

@@ -64,8 +64,11 @@ final class C5ProductLayoutTests: XCTestCase {
     private func reachableNicknameField(
         in application: XCUIApplication
     ) -> XCUIElement {
+        // A clean install lands on first run (issue 110), which opens the
+        // learner form on arrival — so the field itself is the usual case and
+        // the wait must cover a cold launch, not just a rendered screen.
         let nickname = application.textFields["First name or nickname"]
-        if nickname.waitForExistence(timeout: 1) {
+        if nickname.waitForExistence(timeout: 8) {
             return reveal(
                 nickname,
                 in: application,
@@ -235,15 +238,30 @@ final class C5ProductLayoutTests: XCTestCase {
         )
     }
 
+    /// The learner-entry surface authors two different headings: the picker's
+    /// question on a device that already holds a learner, and the first-run
+    /// welcome on a clean install (issue 110). Both are that screen's h1-level
+    /// heading, so the layout proofs assert whichever one this device shows.
+    private func learnerEntryHeading(
+        in application: XCUIApplication
+    ) -> XCUIElement {
+        let picker = application.staticTexts["Who is practising?"]
+        if picker.waitForExistence(timeout: 4) {
+            return picker
+        }
+        let welcome = application.staticTexts["Spelling Camp"]
+        XCTAssertTrue(
+            welcome.waitForExistence(timeout: 10),
+            "Neither the profile picker nor the first-run welcome heading appeared."
+        )
+        return welcome
+    }
+
     private func assertProfilePicker(
         in application: XCUIApplication
     ) {
-        let heading = application.staticTexts["Who is practising?"]
+        let heading = learnerEntryHeading(in: application)
         let parentAction = application.buttons["For parents"]
-        XCTAssertTrue(
-            heading.waitForExistence(timeout: 10),
-            "The production profile picker heading did not appear."
-        )
         XCTAssertTrue(
             parentAction.waitForExistence(timeout: 10),
             "The production Parent action did not appear."
@@ -277,6 +295,7 @@ final class C5ProductLayoutTests: XCTestCase {
             guard let app = object as? XCUIApplication else { return false }
             return app.staticTexts["Getting ready"].exists
                 || app.staticTexts["Who is practising?"].exists
+                || app.staticTexts["Spelling Camp"].exists
                 || app.buttons["Set off"].exists
                 || app.buttons["Add a learner"].exists
         }

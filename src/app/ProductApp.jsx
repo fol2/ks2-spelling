@@ -1214,23 +1214,13 @@ function useSheetDrag(onDismiss, haptics, sfx) {
   };
 }
 
-function SwitchScreen({
-  profileState,
-  audioState,
-  onChoose,
-  onCreate,
-  onOpenParent,
-  onRecoverAudio,
-  onDismiss,
-  haptics,
-  sfx,
-}) {
-  const drag = useSheetDrag(onDismiss, haptics, sfx);
+/* The one place a learner is created. First run opens it inline, because
+   creating the first learner is that screen's whole purpose; the picker keeps
+   it behind a disclosure so the learners already there stay the subject. */
+function LearnerForm({ busy, onCreate, onSaved }) {
   const [nickname, setNickname] = useState('');
   const [yearGroup, setYearGroup] = useState('Y3');
   const [goal, setGoal] = useState(10);
-  const [adding, setAdding] = useState(false);
-  const busy = profileState.status === 'saving';
 
   function submit(event) {
     event.preventDefault();
@@ -1244,10 +1234,167 @@ function SwitchScreen({
     })
       .then(() => {
         setNickname('');
-        setAdding(false);
+        onSaved?.();
       })
       .catch(() => undefined);
   }
+
+  return (
+    <form className="learner-form" onSubmit={submit}>
+      <label htmlFor="profile-nickname">First name or nickname</label>
+      <input
+        id="profile-nickname"
+        name="nickname"
+        type="text"
+        value={nickname}
+        maxLength="40"
+        autoComplete="off"
+        disabled={busy}
+        onChange={(event) => setNickname(event.target.value)}
+      />
+      <div className="field-pair">
+        <label>
+          Year group
+          <select
+            name="yearGroup"
+            value={yearGroup}
+            disabled={busy}
+            onChange={(event) => setYearGroup(event.target.value)}
+          >
+            {['Y3', 'Y4', 'Y5', 'Y6'].map((year) => (
+              <option key={year} value={year}>{displayYearGroup(year)}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Weekly goal
+          <select
+            name="goal"
+            value={goal}
+            disabled={busy}
+            onChange={(event) => setGoal(Number(event.target.value))}
+          >
+            {[5, 10, 15, 20].map((value) => (
+              <option key={value} value={value}>{value} words</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <button
+        type="submit"
+        className="button-primary press"
+        disabled={busy || nickname.trim() === ''}
+      >
+        {busy ? 'Saving…' : 'Add learner'}
+      </button>
+    </form>
+  );
+}
+
+/* First run is its own composition, not the picker with the list missing. The
+   authority's reference layout asks for a welcome, a local-data reassurance
+   region and Add learner as the primary action; a bottom sheet whose subject is
+   "which of these learners" cannot carry any of the three when there are none.
+   The learner form is open on arrival, so the primary action is the filled
+   submit rather than a dashed disclosure in front of it. */
+export function FirstRunScene({
+  profileState,
+  audioState,
+  onCreate,
+  onOpenParent,
+  onRecoverAudio,
+}) {
+  const busy = profileState.status === 'saving';
+
+  return (
+    <main className="product-app" aria-labelledby="first-run-title">
+      <Scene
+        className="first-run-scene"
+        plate={regionArt(REGION, 'a1')}
+        plateY="26%"
+        // The gradient itself is in app.css beside the rest of the first-run
+        // rules; Scene only paints the veil layer when it is given one.
+        veil="var(--first-run-veil)"
+      >
+        <div className="scene-body">
+          <div className="scene-scroll first-run-column">
+            <section className="first-run-welcome">
+              <p className="product-kicker">Welcome</p>
+              <h1 id="first-run-title">Spelling Camp</h1>
+              <p className="body-copy">
+                Offline KS2 spelling practice for Years 3 to 6. Hear the word,
+                type it, and make it stick.
+              </p>
+            </section>
+
+            <section className="vellum first-run-setup" aria-labelledby="first-run-setup-title">
+              <p className="product-kicker">Set up on this device</p>
+              <h2 id="first-run-setup-title">Add the first learner</h2>
+              <LearnerForm busy={busy} onCreate={onCreate} />
+              {profileState.actionError && (
+                <p className="inline-error" role="alert">
+                  That change did not save. Please try again.
+                </p>
+              )}
+            </section>
+
+            <section
+              className="first-run-local"
+              aria-labelledby="first-run-local-title"
+            >
+              <h2 id="first-run-local-title">Everything stays on this device</h2>
+              <ul>
+                <li>
+                  <span className="first-run-local-mark"><IconTick size={13} /></span>
+                  Names, weekly goals and progress are saved here, not to an
+                  account.
+                </li>
+                <li>
+                  <span className="first-run-local-mark"><IconTick size={13} /></span>
+                  No advertising, no analytics, no tracking.
+                </li>
+                {audioState.status === 'ready' ? (
+                  <li>
+                    <span className="first-run-local-mark"><IconNote size={13} /></span>
+                    Listening pack ready · practice works offline.
+                  </li>
+                ) : null}
+              </ul>
+            </section>
+
+            {audioState.status === 'ready' ? null : (
+              <AudioStatus audioState={audioState} onRecover={onRecoverAudio} />
+            )}
+
+            <button
+              type="button"
+              className="button-quiet first-run-parent press-soft press"
+              onClick={onOpenParent}
+            >
+              <IconLock size={16} />
+              For parents
+            </button>
+          </div>
+        </div>
+      </Scene>
+    </main>
+  );
+}
+
+export function SwitchScreen({
+  profileState,
+  audioState,
+  onChoose,
+  onCreate,
+  onOpenParent,
+  onRecoverAudio,
+  onDismiss,
+  haptics,
+  sfx,
+}) {
+  const drag = useSheetDrag(onDismiss, haptics, sfx);
+  const [adding, setAdding] = useState(false);
+  const busy = profileState.status === 'saving';
 
   return (
     <main className="product-app" aria-labelledby="switch-title">
@@ -1329,54 +1476,11 @@ function SwitchScreen({
             )}
 
             {adding ? (
-              <form className="learner-form" onSubmit={submit}>
-                <label htmlFor="profile-nickname">First name or nickname</label>
-                <input
-                  id="profile-nickname"
-                  name="nickname"
-                  type="text"
-                  value={nickname}
-                  maxLength="40"
-                  autoComplete="off"
-                  disabled={busy}
-                  onChange={(event) => setNickname(event.target.value)}
-                />
-                <div className="field-pair">
-                  <label>
-                    Year group
-                    <select
-                      name="yearGroup"
-                      value={yearGroup}
-                      disabled={busy}
-                      onChange={(event) => setYearGroup(event.target.value)}
-                    >
-                      {['Y3', 'Y4', 'Y5', 'Y6'].map((year) => (
-                        <option key={year} value={year}>{displayYearGroup(year)}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Weekly goal
-                    <select
-                      name="goal"
-                      value={goal}
-                      disabled={busy}
-                      onChange={(event) => setGoal(Number(event.target.value))}
-                    >
-                      {[5, 10, 15, 20].map((value) => (
-                        <option key={value} value={value}>{value} words</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <button
-                  type="submit"
-                  className="button-primary press"
-                  disabled={busy || nickname.trim() === ''}
-                >
-                  {busy ? 'Saving…' : 'Add learner'}
-                </button>
-              </form>
+              <LearnerForm
+                busy={busy}
+                onCreate={onCreate}
+                onSaved={() => setAdding(false)}
+              />
             ) : (
               <button
                 type="button"
@@ -3548,6 +3652,19 @@ export default function ProductApp({ services }) {
   }
 
   if (switchOpen || learningState.screen === 'profiles' || !selectedProfile) {
+    // No learners means nothing to pick between, so first run is its own
+    // screen rather than the picker with an empty list (#110).
+    if (profileState.profiles.length === 0) {
+      return (
+        <FirstRunScene
+          profileState={profileState}
+          audioState={audioState}
+          onCreate={(draft) => services.controller.createProfile(draft)}
+          onOpenParent={() => setParentOpen(true)}
+          onRecoverAudio={recoverAudio}
+        />
+      );
+    }
     return (
       <SwitchScreen
         profileState={profileState}

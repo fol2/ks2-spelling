@@ -70,9 +70,16 @@ retired rather than relocated, the same fictional-location family as #242.
 
 ### Fact singularity & other composition
 
-- **Location**: `src/app/Feedback.jsx` (correction guidance rendered below primary action; learner's attempt discarded)
-- **Clause**: Contract — Layer 3 — Fact singularity
-- **Issue link**: #112
+The #112 entry named `src/app/Feedback.jsx` — a path that has never existed on
+any branch; the round card is `src/app/ProductApp.jsx` (`RoundScreen`). It is
+retired rather than relocated, the same fictional-location family as #242 and
+the two #111 rail entries, because the defect it named is fixed: correction
+guidance now renders above the primary action and the learner's attempt is shown
+beside the target. Contract test: `tests/round-feedback-order.test.mjs`.
+
+- **Location**: `src/app/app.css` (`.round-scene .scene-body`: a fixed non-scrolling column, so the quiet exit falls off the bottom — 16.4px of `.round-foot` already gone at 375×667 and 100% text, all 44px at 393×852 and 130%)
+- **Clause**: Contract — Layer 2 — Reference layouts (Practice — quiet exit)
+- **Issue link**: #249
 - **Status**: `todo`
 
 - **Location**: `src/app/Results.jsx:stat-trio` (stat trio wraps ragged; topline overlaps hero art)
@@ -93,6 +100,11 @@ retired rather than relocated, the same fictional-location family as #242.
 ### Out-of-scope (resolved by this slice)
 
 - #119 — Data-hero-tone falsehood: Fixed in v2-visual-authority.md; removed sentence, documented real tone mechanism and screen lists.
+- #112 — Round card feedback order: **fixed**. Correction guidance renders above
+  the primary action in the DOM, so reading and focus order reach the result
+  before Continue, and `feedback.attemptedAnswer` is shown beside the target in
+  one grid. It stays below the answer field, which never moves. Contract test:
+  `tests/round-feedback-order.test.mjs`.
 - #110 — First run regions: **fixed**. First run is its own composition with a
   welcome region, an inline learner form and a local-data reassurance region;
   the picker is no longer reused for it. Contract test:

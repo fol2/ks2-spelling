@@ -2389,8 +2389,12 @@ select {
   color: rgb(255 249 236 / 60%);
 }
 
+/* No `margin-top`: `.round-scene .scene-body` is a flex column with its own
+   0.9rem `gap`, so a margin here was a second copy of the same space. The same
+   doubling sat on `.round-foot`, and on a 667pt screen the round is a fixed
+   composition with nowhere to put the excess but off the bottom. */
 .round-attempts {
-  margin: 0.35rem 0 0;
+  margin: 0;
   color: rgb(255 249 236 / 62%);
   font-size: 0.72rem;
   letter-spacing: 0.02em;
@@ -2532,15 +2536,19 @@ select {
 }
 
 .round-card .button-brand {
-  margin-top: 1.35rem;
+  margin-top: 1.1rem;
 }
 
+/* Sits between the listening controls and the primary action: the result is
+   read before the way out (#112). `align-items: start` because the block now
+   carries the two spellings as well as the headline, and a mark centred against
+   four lines reads as unattached to any of them. */
 .round-feedback {
   display: grid;
-  align-items: center;
+  align-items: start;
   grid-template-columns: auto 1fr;
   gap: 0.75rem;
-  margin-top: 1rem;
+  margin-top: 0.85rem;
   border: 1px solid var(--fb-edge);
   border-radius: 1.25rem;
   padding: 0.8rem 0.95rem;
@@ -2588,13 +2596,41 @@ select {
   font-size: 0.82rem;
 }
 
+/* One grid, not two rows, so the attempt and the target share a left edge and
+   sit letter above letter — the comparison is the teaching. Both are set in the
+   answer field's face at the same size, so neither reads as the "real" one. */
+.round-feedback-spellings {
+  display: grid;
+  align-items: baseline;
+  grid-template-columns: auto 1fr;
+  gap: 0 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.round-feedback-spellings span {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+}
+
+.round-feedback-spellings strong {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.15;
+  /* The contract clamps a typed attempt at 80 characters; an 80-character run
+     with no space in it still has to stay inside the card. */
+  overflow-wrap: anywhere;
+}
+
+/* No `margin-top`, for the reason `.round-attempts` carries: the column's gap
+   was already there. 14px the quiet exit could not afford — this row is the
+   first thing a 667pt screen pushes off the bottom. */
 .round-foot {
   display: flex;
   flex: none;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-top: 0.9rem;
 }
 
 .round-foot p {

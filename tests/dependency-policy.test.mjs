@@ -154,6 +154,17 @@ test('pre-bootstrap audit classifies resolved npm and SPM truth without resolvin
   assert.equal(report.b3Truth.sqlCipherPackaged, true);
   assert.equal(report.b3Truth.applicationEncryptionAtRestProved, false);
   assert.equal(report.b3Truth.storeCommerce, true);
+  assert.deepEqual(report.b3Truth.appOwnedRuntimeNetworkEndpoints, [
+    'https://b3-gateway.eugnel.uk',
+    'https://ks2-gateway.eugnel.uk',
+  ]);
+  const committedB3 = JSON.parse(
+    await readFile(join(ROOT, 'reports/b3/dependency-audit.json'), 'utf8'),
+  );
+  assert.deepEqual(
+    committedB3.b3Truth.appOwnedRuntimeNetworkEndpoints,
+    report.b3Truth.appOwnedRuntimeNetworkEndpoints,
+  );
   assert.equal(report.b3Truth.appConfiguredAnalytics, false);
   assert.equal(report.b3Truth.appConfiguredAdvertising, false);
   assert.equal(

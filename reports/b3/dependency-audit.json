@@ -67498,7 +67498,8 @@
     "vendorRuntimeDataPracticeAssessment": "pending-before-store-release",
     "storeCommerce": true,
     "appOwnedRuntimeNetworkEndpoints": [
-      "https://b3-gateway.eugnel.uk"
+      "https://b3-gateway.eugnel.uk",
+      "https://ks2-gateway.eugnel.uk"
     ],
     "androidRequestedPermissions": [
       "android.permission.USE_BIOMETRIC",

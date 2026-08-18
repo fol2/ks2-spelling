@@ -3008,6 +3008,13 @@ function RoundScreen({
   const visibleCard = Math.min(total, done + 1);
   const { before, after } = clozeParts(practice.cloze);
   const feedbackKind = feedbackTone(practice.feedback?.kind);
+  // A Guardian wobble can trim to the target exactly, and a "You wrote" line
+  // repeating the correct spelling teaches nothing.
+  const correctSpelling = practice.feedback?.answer ?? '';
+  const attemptedAnswer = practice.feedback?.attemptedAnswer ?? '';
+  const shownAttempt = attemptedAnswer.toLowerCase() === correctSpelling.toLowerCase()
+    ? ''
+    : attemptedAnswer;
 
   async function submit(event) {
     event.preventDefault();
@@ -3161,41 +3168,74 @@ function RoundScreen({
                 </button>
               </div>
 
+              {/* Both of these are answers to the tap, so both belong in front
+                  of the control that made it — this one included, since "Type
+                  the spelling before checking it" read below the button the
+                  learner had just pressed. */}
+              {(localError || state.actionError) && (
+                <p className="inline-error" role="alert">
+                  {localError || 'That answer did not save. Please try again.'}
+                </p>
+              )}
+
+              {/* The result is read before the way out. Reference layouts make
+                  correction guidance the Feedback state's *primary* region and
+                  Continue its action, and reading order follows the DOM, not the
+                  stylesheet — so the region has to sit above the button rather
+                  than be moved there by `order`. It stays below the answer
+                  field, which the Input tier forbids moving: the listening
+                  controls and the action shift down, the field never does. */}
+              {practice.feedback && (
+                <div
+                  className="round-feedback"
+                  data-kind={feedbackKind}
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  <span className="round-feedback-mark" aria-hidden="true">
+                    {feedbackKind === 'success' ? <IconTick size={18} />
+                      : feedbackKind === 'notice' ? <IconWarning size={18} />
+                        : <IconReturn size={18} />}
+                  </span>
+                  <div>
+                    <h2>{practice.feedback.headline}</h2>
+                    {/* Submitting clears the field, so the misspelling is gone
+                        from the screen the moment it is judged; the certified
+                        contract still carries it, and one grid puts both
+                        spellings on a shared left edge so the difference is
+                        there to be seen.
+
+                        Keyed on the *target*, never on the attempt: the engine
+                        attaches the typed word to every wrong answer outside
+                        test mode, including the first miss — where it withholds
+                        the target on purpose ("No answer shown yet. Hear it
+                        again and try once more from memory."). A misspelling
+                        painted alone, with nothing beside it to correct it, is
+                        the one thing a spelling screen must not do. */}
+                    {correctSpelling && (
+                      <div className="round-feedback-spellings">
+                        {shownAttempt && (
+                          <>
+                            <span>You wrote</span>
+                            <strong>{shownAttempt}</strong>
+                          </>
+                        )}
+                        <span>Correct spelling</span>
+                        <strong>{correctSpelling}</strong>
+                      </div>
+                    )}
+                    {practice.feedback.body && <p>{practice.feedback.body}</p>}
+                    {practice.feedback.footer && <p>{practice.feedback.footer}</p>}
+                  </div>
+                </div>
+              )}
+
               <button type="submit" className="button-brand press" disabled={busy}>
                 {busy ? 'Saving…' : answered ? 'Continue' : 'Submit'}
                 <IconForward size={19} />
               </button>
             </form>
-
-            {(localError || state.actionError) && (
-              <p className="inline-error" role="alert">
-                {localError || 'That answer did not save. Please try again.'}
-              </p>
-            )}
-
-            {practice.feedback && (
-              <div
-                className="round-feedback"
-                data-kind={feedbackKind}
-                role="status"
-                aria-live="polite"
-                aria-atomic="true"
-              >
-                <span className="round-feedback-mark" aria-hidden="true">
-                  {feedbackKind === 'success' ? <IconTick size={18} />
-                    : feedbackKind === 'notice' ? <IconWarning size={18} />
-                      : <IconReturn size={18} />}
-                </span>
-                <div>
-                  <h2>{practice.feedback.headline}</h2>
-                  {practice.feedback.answer && (
-                    <p>Correct spelling: <strong>{practice.feedback.answer}</strong></p>
-                  )}
-                  {practice.feedback.body && <p>{practice.feedback.body}</p>}
-                  {practice.feedback.footer && <p>{practice.feedback.footer}</p>}
-                </div>
-              </div>
-            )}
           </section>
 
           <footer className="round-foot">

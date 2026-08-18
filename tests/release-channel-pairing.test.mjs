@@ -60,6 +60,17 @@ test('sandbox is a named product channel paired with sandbox-trusting native art
   assert.match(gradle, /sandbox\s*\{[\s\S]*KS2_RELEASE_CHANNEL[^\n]*sandbox/u);
   assert.match(gradle, /verify-release-channel-pair\.mjs/u);
   assert.match(java, /BuildConfig\.KS2_RELEASE_CHANNEL/u);
+  /* A gateway hostname written out beside the channel-selected origin is how the
+     production channel shipped a validator that could reject every capability:
+     `PackTransferPlugin.java` checked the host against a `b3-` literal and the
+     whole URL against `BuildConfig.KS2_GATEWAY_ORIGIN`, so on `production` the
+     two requirements excluded each other. Neither shipping transfer plugin may
+     name a host; both derive it. The one legitimate place to write the names down
+     is the selector itself, `ZipCentralDirectoryInspector.swift`, which is not
+     read here. */
+  const hostLiteral = /["']\w+-gateway\.eugnel\.uk["']/u;
+  assert.doesNotMatch(java, hostLiteral);
+  assert.doesNotMatch(swift, hostLiteral);
   assert.match(project, /name = Sandbox/u);
   assert.match(project, /KS2_RELEASE_CHANNEL = sandbox/u);
   assert.match(project, /verify-release-channel-pair\.mjs/u);

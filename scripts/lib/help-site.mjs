@@ -51,7 +51,7 @@ const ALLOWED_HREFS = Object.freeze([
 export const HELP_SITE_CSS = `:root {
   --paper: #f8f5ec;
   --ink: #1d2b3a;
-  --ink-soft: rgb(29 43 58 / 62%);
+  --ink-soft: rgb(29 43 58 / 78%);
 }
 
 html {

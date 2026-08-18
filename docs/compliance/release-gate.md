@@ -53,13 +53,18 @@ The checks apply only to PRs touching `src/app/**`. PRs that touch only docs, co
 
 **Gated to**: PRs touching `src/app/**`
 
-**Input**: 
+**Input**:
 - Token definitions from `src/app/app.css`
+- Every ink-alpha `color:` declaration in `src/app/app.css` and `site/public/styles.css`
 - Baseline file at `docs/compliance/baseline.md`
 
-**Assertion**: All ink tokens (--ink-soft, --ink-faint, --dusk-ink-soft, --dusk-ink-faint) achieve ≥4.5:1 WCAG 2.2 contrast when alpha-composited over their painted surfaces, or violations are listed as `todo` in the baseline.
+**Assertion**: All ink tokens (--ink-soft, --ink-faint, --dusk-ink-soft, --dusk-ink-faint) achieve ≥4.5:1 WCAG 2.2 contrast when alpha-composited over their painted surfaces, **and so does every declaration that spells an ink alpha out at the call site instead of reading a token** — or violations are listed as `todo` in the baseline.
 
-**Mutation to prove failure**: Change `--ink-faint` from 70% to 60%; test must fail (contrast drops below 4.5:1).
+The second half is what #108 needed: batch 0 raised the four tokens and the
+check went green while sixteen text runs kept their own hand-written alphas,
+as low as 24%. A token check cannot see a declaration that never names a token.
+
+**Mutation to prove failure**: Change `--ink-faint` from 70% to 60%; test must fail (contrast drops below 4.5:1). For the call-site half, restore any of #108's alphas — e.g. `.codex-growth span` to `rgb(255 249 236 / 24%)`.
 
 ### Check 2: One h1 per screen
 

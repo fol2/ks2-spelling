@@ -10,6 +10,23 @@ async function source(path) {
   return readFile(resolve(root, path), 'utf8');
 }
 
+function escapeForRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+/* Yield [selector, body] for every rule, ignoring at-rule preludes so nested
+   blocks inside @media are visited with their own selectors. */
+function* declarationBlocks(css) {
+  const withoutComments = css.replace(/\/\*[\s\S]*?\*\//gu, '');
+  const pattern = /([^{}]+)\{([^{}]*)\}/gu;
+  let match = pattern.exec(withoutComments);
+  while (match !== null) {
+    const selector = match[1];
+    if (!selector.trim().startsWith('@')) yield [selector, match[2]];
+    match = pattern.exec(withoutComments);
+  }
+}
+
 test('TrailScreen mounts TrailMeadow directly with codex-derived companions', async () => {
   const [rootSource, product] = await Promise.all([
     source('src/app/ProductRoot.jsx'),
@@ -75,4 +92,42 @@ test('Trail remains a DOM habitat and does not add a second canvas runtime', asy
   assert.match(model, /glimmerbug:\s*'fly-a'/u);
   assert.match(model, /phaeton:\s*'fly-b'/u);
   assert.match(model, /inklet:\s*'walk'/u);
+});
+
+test('no CSS filter reaches the companion sprite (#109)', async () => {
+  const [trailStyles, hardening] = await Promise.all([
+    source('src/app/trail/trail-meadow.css'),
+    source('src/app/trail/trail-meadow-hardening.css'),
+  ]);
+
+  /* Inside the app's WKWebView, creating a filter layer over the sprite can
+     rasterise a buffer clipped and filled to the border box, leaving a grey
+     plate that no later paint clears. It reproduces in roughly two of five
+     cold installs and never in Safari or Chromium, so no browser check and no
+     screenshot diff can catch a regression here — only this assertion can.
+
+     The rule is structural: the sprite and every element that wraps it must
+     stay filter-free. `.trail-meadow` decoration (blurred ground, path) is a
+     sibling of the companions, not an ancestor, so it is out of scope. */
+  const forbidden = [
+    '.trail-companion',
+    '.trail-companion-route',
+    '.trail-companion-facing',
+    '.trail-companion-gait',
+    '.trail-companion-art',
+  ];
+
+  for (const css of [trailStyles, hardening]) {
+    for (const [selector, body] of declarationBlocks(css)) {
+      const targetsSprite = forbidden.some((name) => (
+        new RegExp(`${escapeForRegExp(name)}(?![\\w-])`, 'u').test(selector)
+      ));
+      if (!targetsSprite) continue;
+      assert.doesNotMatch(
+        body,
+        /(?:^|[\s;])-?(?:webkit-)?filter\s*:/u,
+        `${selector.trim()} must not declare a filter — see #109`,
+      );
+    }
+  }
 });

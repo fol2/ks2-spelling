@@ -216,6 +216,7 @@ test('B3 native audit is rebuilt from closed fresh inputs without weakening B2',
     const dependencyReport = JSON.parse(first.dependencyAuditJson);
     assert.deepEqual(dependencyReport.b3Truth.appOwnedRuntimeNetworkEndpoints, [
       'https://b3-gateway.eugnel.uk',
+      'https://ks2-gateway.eugnel.uk',
     ]);
     assert.equal('runtimeNetworkEndpoints' in dependencyReport.b3Truth, false);
     const packagedAndroidComponents = dependencyReport.android.components.filter(

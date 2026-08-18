@@ -102,6 +102,35 @@ parent — and is produced only by a purchase the parent initiated. COPPA govern
 personal information collected *from a child*. Nothing child-originated reaches
 the gateway at all; this is verified, not asserted (see obligation map row 5c).
 
+### App-owned runtime network endpoints
+
+`b3Truth.appOwnedRuntimeNetworkEndpoints` is a **tree-level disclosure** of the
+first-party HTTP origins the compiled capability names, derived from both
+tracked gateway authority documents:
+
+- `https://b3-gateway.eugnel.uk` — sandbox channel
+- `https://ks2-gateway.eugnel.uk` — production channel
+
+It is not channel-selected. The report is one artefact for both coexisting
+channels, and a production Vite graph still physically includes both authority
+documents. Listing only the sandbox origin omitted the shipping endpoint — the
+dangerous direction for App Privacy and this position, which treat the
+entitlement gateway as this product's own infrastructure rather than a third
+party.
+
+The field does **not** include store APIs (those sit under `storeCommerce`),
+CloudKit (operating-system replica, not an app-owned HTTP origin), or
+`help.eugnel.uk` (listing and support URLs, not a runtime connect). Proof-lane
+B3 scripts remain sandbox-pinned on purpose and are not this field.
+
+The artefact still self-declares it is not a final store disclosure. The
+submitted binary's runtime channel is production; regenerate this list against
+the submission build before filing App Privacy.
+
+Decided at [#233](https://github.com/fol2/ks2-spelling/issues/233). The
+generator is `scripts/audit-dependencies.mjs`; do not treat a B3 proof pin as
+the shipping answer.
+
 ### Written compliance artifacts: none beyond this document
 
 - **COPPA § 312.8(b) written children's personal information security program** —

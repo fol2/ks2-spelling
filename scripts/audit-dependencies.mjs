@@ -1207,6 +1207,7 @@ export async function buildDependencyArtifacts({
     nativePluginBuild,
     noticeOverrides,
     gatewayAuthority,
+    productionGatewayAuthority,
   ] = await Promise.all([
     readJson(resolve(ROOT, 'config/dependency-policy.json')),
     readJson(resolve(ROOT, 'package.json')),
@@ -1221,6 +1222,7 @@ export async function buildDependencyArtifacts({
     readJson(NATIVE_PLUGIN_BUILD_PATH),
     readJson(resolve(ROOT, 'config/third-party-notices-overrides.json')),
     readJson(resolve(ROOT, 'config/b3-gateway-authority.json')),
+    readJson(resolve(ROOT, 'config/ks2-gateway-authority-production.json')),
   ]);
   const nativePluginBuildText = await readFile(NATIVE_PLUGIN_BUILD_PATH);
   const nativePluginBuildSha256 = createHash('sha256')
@@ -1459,7 +1461,14 @@ export async function buildDependencyArtifacts({
             appConfiguredAdvertising: false,
             vendorRuntimeDataPracticeAssessment: 'pending-before-store-release',
             storeCommerce: true,
-            appOwnedRuntimeNetworkEndpoints: [gatewayAuthority.publicSandboxOrigin],
+            // Tree-level disclosure of first-party origins the compiled
+            // capability names. Not channel-selected: this report is one
+            // artefact for both coexisting channels. Proof-lane B3 scripts
+            // stay sandbox-pinned and are not this field.
+            appOwnedRuntimeNetworkEndpoints: [...new Set([
+              gatewayAuthority.publicSandboxOrigin,
+              productionGatewayAuthority.publicSandboxOrigin,
+            ])],
             androidRequestedPermissions:
               permissionEvidence.packagedAndroid.requestedPermissions,
             androidDangerousPermissions: [],

@@ -77,6 +77,11 @@ the two #111 rail entries, because the defect it named is fixed: correction
 guidance now renders above the primary action and the learner's attempt is shown
 beside the target. Contract test: `tests/round-feedback-order.test.mjs`.
 
+- **Location**: `src/app/app.css` (`.round-scene .scene-body`: a fixed non-scrolling column, so the quiet exit falls off the bottom — 16.4px of `.round-foot` already gone at 375×667 and 100% text, all 44px at 393×852 and 130%)
+- **Clause**: Contract — Layer 2 — Reference layouts (Practice — quiet exit)
+- **Issue link**: #249
+- **Status**: `todo`
+
 - **Location**: `src/app/Results.jsx:stat-trio` (stat trio wraps ragged; topline overlaps hero art)
 - **Clause**: Contract — Layer 3 — Tile consistency / Label baseline
 - **Issue link**: #117

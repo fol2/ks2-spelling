@@ -3046,6 +3046,20 @@ select {
    local-data reassurance each get their own region and the backdrop keeps only
    the band of sky the veil hands back. */
 
+/* The plate keeps a band of sky at the top and hands the rest back to vellum,
+   so the welcome reads against paper rather than against art. Scene takes the
+   veil as a prop, so the value lives here and the prop names it. */
+.first-run-scene {
+  --first-run-veil:
+    linear-gradient(
+      180deg,
+      rgb(248 245 236 / 12%) 0%,
+      rgb(248 245 236 / 72%) 26%,
+      rgb(248 245 236 / 95%) 44%,
+      rgb(248 245 236) 60%
+    );
+}
+
 .first-run-column {
   display: grid;
   align-content: start;

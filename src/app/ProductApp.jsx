@@ -1312,10 +1312,9 @@ export function FirstRunScene({
         className="first-run-scene"
         plate={regionArt(REGION, 'a1')}
         plateY="26%"
-        veil={[
-          'linear-gradient(180deg,rgba(248,245,236,.12) 0%,rgba(248,245,236,.72) 26%,',
-          'rgba(248,245,236,.95) 44%,rgb(248 245 236) 60%)',
-        ].join('')}
+        // The gradient itself is in app.css beside the rest of the first-run
+        // rules; Scene only paints the veil layer when it is given one.
+        veil="var(--first-run-veil)"
       >
         <div className="scene-body">
           <div className="scene-scroll first-run-column">

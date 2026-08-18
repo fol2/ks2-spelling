@@ -43,6 +43,33 @@ test('ICloudLearningReplica is an owned private-database plugin with an Android 
   assert.doesNotMatch(ios, /publicCloudDatabase/u);
   assert.match(ios, /iCloud\.uk\.eugnel\.ks2spelling/u);
   assert.match(ios, /#available\(iOS 17\.0, \*\)[\s\S]*CKSyncEngine/u);
+  assert.match(ios, /import Security/u);
+  assert.match(ios, /@_silgen_name\("SecTaskCreateFromSelf"\)/u);
+  assert.match(ios, /@_silgen_name\("SecTaskCopyValueForEntitlement"\)/u);
+  assert.match(ios, /SecTaskCreateFromSelf/u);
+  assert.match(ios, /SecTaskCopyValueForEntitlement/u);
+  assert.match(ios, /_CodeSignature/u);
+  assert.match(ios, /com\.apple\.developer\.icloud-container-identifiers/u);
+  assert.match(
+    ios,
+    /guard Self\.isContainerEntitled\(\) else \{[\s\S]*?CKContainer\(identifier: Self\.containerIdentifier\)/u,
+    'CKContainer is constructed only after the running process lists the container entitlement',
+  );
+  assert.match(
+    ios,
+    /guard let container = resolvedContainer\(\) else \{[\s\S]*?"unsupported"[\s\S]*?container\.accountStatus/u,
+    'missing entitlement resolves the existing unavailable status instead of calling CloudKit',
+  );
+  assert.equal(
+    [...ios.matchAll(/CKContainer\(identifier:/gu)].length,
+    1,
+    'CKContainer is constructed in exactly one place',
+  );
+  assert.doesNotMatch(
+    ios,
+    /private let container = CKContainer\(identifier:/u,
+    'stored-property construction traps unsigned simulator launches before first paint',
+  );
   assert.match(ios, /learning-replica/u);
   assert.match(ios, /LearnerProfile/u);
   assert.match(ios, /LearnerSnapshot/u);
@@ -104,4 +131,23 @@ test('ICloudLearningReplica is an owned private-database plugin with an Android 
   assert.match(services, /startICloudLearningReplica/u);
   assert.match(services, /applyReplicaResult/u);
   assert.match(services, /learningReplica\.dispose/u);
+});
+
+test('reverting eager CKContainer construction leaves the replica contract red', async () => {
+  const ios = await readFile(
+    new URL('ios/App/App/ICloudLearningReplicaPlugin.swift', ROOT),
+    'utf8',
+  );
+  const eager = /private let container = CKContainer\(identifier:/u;
+  const reverted = ios.replace(
+    /private var container: CKContainer\?/u,
+    'private let container = CKContainer(identifier: "iCloud.uk.eugnel.ks2spelling")',
+  );
+
+  assert.doesNotMatch(ios, eager);
+  assert.match(
+    reverted,
+    eager,
+    'the contract is load-bearing only if restoring the stored property is a detectable revert',
+  );
 });

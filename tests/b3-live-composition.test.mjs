@@ -540,6 +540,38 @@ test('fresh process fails closed when a successful gateway call was never publis
   }), /unpublished|continuity|capture/i);
 });
 
+/* The session persists the gateway cursor and the smoke authority off the call
+   path: `publish()` awaits that write chain, but a crash-resume test must never
+   publish, so it has to wait for the rows itself.
+
+   Counting event-loop ticks is not a wait. The budget this replaced — twenty
+   `setImmediate` turns — drained before the writes landed on a loaded runner
+   and then **carried on silently**, so the failure surfaced later as
+   `B3 gateway continuity has unpublished successful calls.` from
+   `loadGatewayCursor`: the smoke row was still absent, which makes `allowPending`
+   false while the cursor already held the pending call. Main went red that way
+   at #247, whose only crime was adding a test file and so changing how the
+   suite's processes contend.
+
+   Wait against a clock, and say plainly when the rows never come. */
+async function waitForProofMetadata(connection, keys, { timeoutMs = 10_000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  const placeholders = keys.map(() => '?').join(', ');
+  for (;;) {
+    const rows = await connection.query(
+      `SELECT key FROM app_metadata WHERE key IN (${placeholders}) ORDER BY key`,
+      keys,
+    );
+    if (rows.length === keys.length) return;
+    assert.ok(
+      Date.now() < deadline,
+      `proof metadata never landed within ${timeoutMs}ms — expected ${keys.join(', ')}; `
+        + `saw ${rows.map((row) => row.key).join(', ') || 'none'}`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
 test('pack-install crash resume reuses persisted smoke without rerunning probe or gateway trace', async (t) => {
   const temporary = await mkdtemp(join(tmpdir(), 'ks2-b3-smoke-resume-'));
   t.after(() => rm(temporary, { recursive: true, force: true }));
@@ -620,13 +652,10 @@ test('pack-install crash resume reuses persisted smoke without rerunning probe o
     traceId: '018f1d7b-97e8-4a52-8cf2-000000000001',
   }));
   first.observeDownloadAuthorisation({ exact: 'closure-only-authorisation' });
-  for (let index = 0; index < 20; index += 1) {
-    const rows = await connection.query(
-      "SELECT key FROM app_metadata WHERE key IN ('b3-proof-gateway-cursor-v1', 'b3-proof-gateway-smoke-v1') ORDER BY key",
-    );
-    if (rows.length === 2) break;
-    await new Promise((resolve) => setImmediate(resolve));
-  }
+  await waitForProofMetadata(connection, [
+    'b3-proof-gateway-cursor-v1',
+    'b3-proof-gateway-smoke-v1',
+  ]);
   assert.equal(probeCalls, 1);
 
   const published = [];

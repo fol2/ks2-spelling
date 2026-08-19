@@ -2643,15 +2643,44 @@ select {
 .round-foot {
   display: flex;
   flex: none;
+
+  /* Control rows wrap; they never squeeze (#111). This row held a caption and
+     two pills on one line at every width, and the caption is the flexible item,
+     so it paid for the whole shortfall: 214.7px of copy into 126.8px at
+     393x852, and — because `.product-app` sets `overflow-wrap: anywhere` for
+     everyone — 12.4px at 160% text, one letter per line, 525px tall.
+
+     `wrap-reverse`, not `wrap`, because the caption is the first item and the
+     lines have to stack the other way round. Wrapping forwards puts the caption
+     on top and pushes the way out down: at 375x667 with the correction region
+     open the quiet exit falls from 64.1% visible to 5.0%, which is the
+     regression #112 refused to ship on that exact screen. Reversed, the pills
+     keep `main`'s position to the pixel on every screen measured and the
+     caption takes the new line below them — so nothing here can cost the child
+     the way out of a round, and what a squeezed screen sheds is the footnote.
+
+     Reading order is untouched: the caption is still first in the DOM. Moving
+     it there instead would have flipped the arrangement wherever the row does
+     fit on one line (pills left, caption right on a tablet), and this slice
+     changes nothing at 810x1080. */
+  flex-wrap: wrap-reverse;
   margin-top: auto;
   align-items: center;
-  justify-content: space-between;
   gap: 0.75rem;
 }
 
 .round-foot p {
   color: rgb(255 249 236 / 66%);
   font-size: 0.7rem;
+
+  /* The caption owns its line now, so it fits unwrapped at every measured
+     width and text scale, down to 320px at 160% (240.5px of copy, 268.8px of
+     room). Past that it does wrap, and the inherited `overflow-wrap: anywhere`
+     would shatter it again: 320px at 200% renders 25 fragments one letter wide
+     with this line deleted, and "AI-generated dictation" / "voice" with it.
+     Same reason `.record-growth-name strong` carries it — a name, or a required
+     disclosure, breaks between words or not at all. */
+  overflow-wrap: normal;
 }
 
 .round-foot .button-quiet {
@@ -2659,10 +2688,15 @@ select {
   color: rgb(255 249 236 / 82%);
 }
 
+/* `justify-content: space-between` on the foot could not survive the wrap: a
+   flex line holding one item puts it at the start, so the pills would jump to
+   the left edge the moment the row broke. An auto margin does the same job on a
+   shared line and the right job on a line of its own. */
 .round-foot-actions {
   display: flex;
   flex: none;
   flex-wrap: wrap;
+  margin-left: auto;
   align-items: center;
   justify-content: flex-end;
   gap: 0.45rem;

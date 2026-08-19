@@ -363,14 +363,12 @@ test('Design authority: control rows wrap and no surface scrolls horizontally (#
   }
 });
 
-/* Wrapping alone does not settle the Practice setup rail. That screen is a
-   fixed-height composition whose hero is `flex: 1; min-height: 0` with a
-   flex-end clip, so every pixel the tray gains it takes off the TOP of the
-   hero — a second rail row there costs the "TODAY'S QUEST" kicker and 11px of
-   the h1 at 393x852. Spelling "words" out on all three set pills ran the row
-   378px wide; the bare count fits 288px, so the row never needs to wrap at any
-   supported width and the hero is untouched. The noun moves into the
-   accessible name, which is what a screen reader announces either way.
+/* Wrapping alone does not settle the Practice setup rail. Spelling "words"
+   out on all three set pills ran the row 378px wide; the bare count fits
+   288px, so the row never needs to wrap at any supported width. The noun
+   moves into the accessible name, which is what a screen reader announces
+   either way. The hero no longer pays for a second rail row by clipping
+   its kicker — that defect is #245.
 
    A source assertion, not a rendered one: this repository has no browser in
    `node --test`, and the setup screen is not one of the exports the SSR h1
@@ -904,6 +902,205 @@ test('Design authority: the Field Record topline keeps its own band and the stat
     jsx.indexOf('className="results-actions"') > close,
     'the actions must sit outside the port as the scene\'s foot. Inside it they scroll away again, '
       + 'and the Celebration tier requires the way out to arrive with the screen',
+  );
+});
+
+/* Practice setup deleted its own kicker (#245).
+
+   `.setup-quest` was `flex: 1; min-height: 0; justify-content: flex-end` with
+   `overflow: visible clip` inside a 100dvh column. Clipping at flex-end takes
+   the TOP first, so any growth below the hero — a wrapped vocabulary rail, a
+   taller tray, Dynamic Type — was paid for by deleting "TODAY'S QUEST", then
+   the top of the h1. Already firing on `main` at 320×568 / 100% (kicker 55.2px
+   gone, h1 52.0px cut). 375×667 / 100% survived by 0.0px.
+
+   Scrolling only the quest copy is not enough: at 320×568 / 160% the hero was
+   allocated 0px, so a port inside it still could not show a complete h1. The
+   heading is therefore flex-none (kicker + h1 cannot shrink), slack is a
+   separate `flex: 1 1 0` spacer so the title still sits on the tiles where
+   there is room (#114), the brief and tiles scroll, and the tray shrinks
+   (`flex: 0 1 auto`) with Set off pinned below a controls port.
+
+   A source assertion, not a rendered one. `node --test` has no browser, so
+   this cannot see that the heading actually paints inside the viewport at
+   320×568 / 160%. Only a layout engine shows that. */
+test('Design authority: the Practice setup hero scrolls instead of clipping its kicker (#245)', async () => {
+  const css = await read('src/app/app.css');
+  const jsx = await read('src/app/ProductApp.jsx');
+  const rules = cssRuleBlocks(css);
+  const rule = (selector) => rules.find((r) => r.selector === selector);
+
+  const slack = rule('.setup-slack');
+  assert.ok(slack, '.setup-slack must exist — it is the painted sky, not a flex-end clip');
+  assert.match(
+    slack.body,
+    /(?:^|;)\s*flex:\s*1 1 0\b/u,
+    'slack must grow from a zero basis so it is the first thing to disappear under pressure',
+  );
+  assert.match(
+    slack.body,
+    /(?:^|;)\s*min-height:\s*0\b/u,
+    'slack must be allowed to vanish; a content minimum would steal height from the heading',
+  );
+
+  const heading = rule('.setup-heading');
+  assert.ok(heading, '.setup-heading must exist — it is what keeps the kicker and h1 on screen');
+  assert.match(
+    heading.body,
+    /(?:^|;)\s*flex:\s*none\b/u,
+    'the heading must not shrink: a flex-1 hero at 320×568 / 160% was allocated 0px',
+  );
+
+  const quest = rule('.setup-quest');
+  assert.ok(quest, '.setup-quest rule must exist — it is the brief-and-tiles scrollport content');
+  assert.match(quest.body, /(?:^|;)\s*min-height:\s*0\b/u, '.setup-quest must be allowed to shrink so the heading keeps its automatic minimum');
+  for (const candidate of rules.filter((r) => r.selector === '.setup-quest')) {
+    assert.doesNotMatch(
+      candidate.body,
+      /(?:^|;)\s*overflow:\s*visible\s+clip\b/u,
+      `${candidate.selector} must not restore the flex-end clip`,
+    );
+    assert.doesNotMatch(
+      candidate.body,
+      /(?:^|;)\s*justify-content:\s*flex-end\b/u,
+      `${candidate.selector} must not restore flex-end alignment`,
+    );
+  }
+
+  assert.match(
+    rule('.setup-scene .scene-body')?.body ?? '',
+    /(?:^|;)\s*flex:\s*none\b/u,
+    'setup\'s scene-body is chrome only; if it grows, it swallows the column and Set off leaves the screen',
+  );
+
+  const controls = rule('.setup-tray-controls');
+  assert.ok(controls, '.setup-tray-controls must exist — it is how the rails give visibly');
+  assert.match(
+    controls.body,
+    /(?:^|;)\s*flex:\s*0 1 auto\b/u,
+    'the rails must be allowed to shrink — at 320×568 / 160% they are 311px and will not give otherwise',
+  );
+  assert.match(
+    controls.body,
+    /(?:^|;)\s*overflow-y:\s*auto\b/u,
+    'the rails must scroll so Set off can stay pinned below them',
+  );
+  assert.match(
+    controls.body,
+    /(?:^|;)\s*min-height:\s*3\.25rem\b/u,
+    'a 0-height controls port is silent deletion; one row must remain reachable',
+  );
+
+  const go = rule('.setup-go');
+  assert.ok(go, '.setup-go must exist — it is the pinned Set off foot');
+  assert.match(
+    go.body,
+    /(?:^|;)\s*flex:\s*none\b/u,
+    'Set off must not shrink or scroll away',
+  );
+
+  assert.match(
+    rule('.scene-scroll')?.body ?? '',
+    /(?:^|;)\s*overflow-y:\s*auto\b/u,
+    'the shared scrollport is what the brief and tiles now lean on',
+  );
+
+  const hero = rule('.setup-hero');
+  assert.ok(hero, '.setup-hero must exist — it is the overlay parent that keeps the 1rem bleed');
+  assert.match(
+    hero.body,
+    /(?:^|;)\s*min-height:\s*0\b/u,
+    'the hero must shrink below the tiles; otherwise the heading\'s sibling slot cannot save Set off',
+  );
+  assert.match(
+    hero.body,
+    /(?:^|;)\s*padding-right:\s*1rem\b/u,
+    'the overlay\'s padding is the 1rem gutter bleed, so x can clip without `visible clip`',
+  );
+  assert.match(
+    hero.body,
+    /(?:^|;)\s*margin-right:\s*-1rem\b/u,
+    'negative margin spends that padding in the scene-body gutter rather than insetting the heading',
+  );
+  assert.match(
+    rule('.setup-hero img')?.body ?? '',
+    /(?:^|;)\s*right:\s*0\b/u,
+    'the sprite sits on the overlay padding edge, not at `right: -1rem` inside a hidden-x port',
+  );
+
+  assert.doesNotMatch(
+    css,
+    /clipping at flex-end takes the TOP/u,
+    'the `.setup-quest` comment must no longer describe the flex-end clip it replaced',
+  );
+
+  const headingOpen = jsx.indexOf('<div className="setup-heading">');
+  assert.ok(headingOpen >= 0, 'the kicker and h1 must live in a `setup-heading` that is flex-none');
+  const heroOpen = jsx.indexOf('<div className="setup-hero">');
+  const kickerAt = jsx.indexOf('Today&apos;s quest', headingOpen);
+  const titleAt = jsx.indexOf('id="setup-title"', headingOpen);
+  const portOpen = jsx.indexOf('<div className="scene-scroll setup-quest">');
+  assert.ok(
+    headingOpen < heroOpen,
+    'the heading must be a sibling of the hero, not a child — a nested heading cannot beat the hero\'s min-content size',
+  );
+  const bodyOpen = jsx.indexOf('<div className="scene-body">');
+  const slackAt = jsx.indexOf('className="setup-slack"');
+  assert.ok(
+    slackAt > bodyOpen && jsx.indexOf('className="setup-chrome"') > bodyOpen,
+    'chrome stays in scene-body for the top gutter',
+  );
+  assert.ok(
+    slackAt > jsx.indexOf('</div>', jsx.indexOf('setup-chrome')),
+    'slack, heading and hero must sit outside scene-body so the body cannot take the tiles as its minimum',
+  );
+  assert.ok(portOpen > headingOpen, 'the heading must sit above the scrollport, not inside it');
+  assert.ok(
+    kickerAt > headingOpen && kickerAt < portOpen,
+    'the kicker must sit in the heading — inside the port it is the first thing a short hero deletes',
+  );
+  assert.ok(
+    titleAt > headingOpen && titleAt < portOpen,
+    'the h1 must sit in the heading — a 0px hero cannot show a complete title from inside a port',
+  );
+
+  const tags = /<div\b[^>]*?(\/?)>|<\/div>/gu;
+  tags.lastIndex = portOpen;
+  let depth = 0;
+  let close = -1;
+  for (let match = tags.exec(jsx); match; match = tags.exec(jsx)) {
+    if (match[0].startsWith('</')) depth -= 1;
+    else if (match[1] !== '/') depth += 1;
+    if (depth === 0) {
+      close = match.index;
+      break;
+    }
+  }
+  assert.ok(close > portOpen, 'the setup-quest port must close');
+
+  const tilesAt = jsx.indexOf('className="quest-tiles"');
+  assert.ok(
+    tilesAt > portOpen && tilesAt < close,
+    'the quest tiles must sit inside the port so they can give visibly under the heading',
+  );
+
+  const controlsAt = jsx.indexOf('className="setup-tray-controls"');
+  const goAt = jsx.indexOf('className="setup-go"');
+  assert.ok(controlsAt > close, 'the rails must sit outside the quest port as a scene-column sibling');
+  assert.ok(
+    goAt > controlsAt,
+    'Set off must live in setup-go after the rails, so the rails can shrink without moving the button',
+  );
+  assert.doesNotMatch(
+    jsx,
+    /className="setup-tray"/u,
+    'do not wrap the rails and Set off in one box — display:contents did not promote the children into the scene flex',
+  );
+
+  const artAt = jsx.indexOf("className={companion.found ? undefined : 'companion-asleep'}");
+  assert.ok(
+    artAt >= 0 && artAt < portOpen,
+    'companion art must sit outside the quest port — `.scene-scroll` overflow-x: hidden clips the bleed',
   );
 });
 

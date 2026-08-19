@@ -2592,7 +2592,19 @@ function SetupScreen({
             <span className="icon-button" aria-hidden="true" />
           </div>
 
-          <div className="setup-quest">
+        </div>
+
+        {/* Slack, heading and hero are scene-column siblings, not scene-body
+            children. A wrapping body with `min-height: auto` takes the tiles
+            as its automatic minimum and pushes Set off off the screen. */}
+        <div className="setup-slack" aria-hidden="true" />
+        <div className="setup-heading">
+          <p className="product-kicker">
+            Today&apos;s quest<span aria-hidden="true" />
+          </p>
+          <h1 id="setup-title">{active.name}</h1>
+        </div>
+        <div className="setup-hero">
             {companion?.art && (
               <img
                 src={companion.art}
@@ -2603,55 +2615,51 @@ function SetupScreen({
             {companion && !companion.found && (
               <p className="setup-companion-hint">Secure spellings here to wake this companion.</p>
             )}
-            <p className="product-kicker">
-              Today&apos;s quest<span aria-hidden="true" />
-            </p>
-            <h1 id="setup-title">{active.name}</h1>
-            <p>
-              {quest === 'guardian'
-                ? guardianQuestLine(phase, {
-                  mission: revisionMission,
-                  megaWords,
-                  packSize,
-                })
-                : active.line}
-            </p>
-            {quest === 'guardian' ? (
-              <>
-                {phase === 'due' && (
-                  <p className="setup-guardian-due">
-                    {guardianDueLine(revisionMission)}
-                  </p>
-                )}
-                {/* The climb to Mega, drawn rather than counted again: the
-                    line above already says how far. */}
-                {phase === 'asleep' && packSize > 0 && (
-                  <div className="setup-guardian-meter" aria-hidden="true">
-                    <span
-                      style={{
-                        '--percent': `${Math.min(100, Math.round((megaWords / packSize) * 100))}%`,
-                      }}
-                    />
+            <div className="scene-scroll setup-quest">
+              <p>
+                {quest === 'guardian'
+                  ? guardianQuestLine(phase, {
+                    mission: revisionMission,
+                    megaWords,
+                    packSize,
+                  })
+                  : active.line}
+              </p>
+              {quest === 'guardian' ? (
+                <>
+                  {phase === 'due' && (
+                    <p className="setup-guardian-due">
+                      {guardianDueLine(revisionMission)}
+                    </p>
+                  )}
+                  {/* The climb to Mega, drawn rather than counted again: the
+                      line above already says how far. */}
+                  {phase === 'asleep' && packSize > 0 && (
+                    <div className="setup-guardian-meter" aria-hidden="true">
+                      <span
+                        style={{
+                          '--percent': `${Math.min(100, Math.round((megaWords / packSize) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="setup-tally">
+                  <div>
+                    <span className="figure">{dueCount}</span>
+                    <span className="label">due</span>
                   </div>
-                )}
-              </>
-            ) : (
-              <div className="setup-tally">
-                <div>
-                  <span className="figure">{dueCount}</span>
-                  <span className="label">due</span>
+                  <div>
+                    <span className="figure">{troubleCount}</span>
+                    <span className="label">trouble</span>
+                  </div>
+                  <div>
+                    <span className="figure">{bankTotal}</span>
+                    <span className="label">in bank</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="figure">{troubleCount}</span>
-                  <span className="label">trouble</span>
-                </div>
-                <div>
-                  <span className="figure">{bankTotal}</span>
-                  <span className="label">in bank</span>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
 
           <div className="quest-tiles" role="group" aria-label="Choose a quest">
             {QUESTS.map((option) => {
@@ -2695,15 +2703,16 @@ function SetupScreen({
             })}
           </div>
 
-          {phase === 'locked' && (
-            <p className="quest-note">
-              <IconLock size={13} />
-              Guardian · Not on this trail yet
-            </p>
-          )}
+              {phase === 'locked' && (
+                <p className="quest-note">
+                  <IconLock size={13} />
+                  Guardian · Not on this trail yet
+                </p>
+              )}
+            </div>
         </div>
 
-        <div className="setup-tray">
+        <div className="setup-tray-controls">
           {/* The engine publishes the sets it can actually draw a round from.
               Until it publishes any, there is no rail: a set picker that
               cannot change what a round contains is a control that lies.
@@ -2784,7 +2793,9 @@ function SetupScreen({
               {soundOn ? 'On' : 'Off'}
             </button>
           </div>
+        </div>
 
+        <div className="setup-go">
           <button
             type="button"
             className="button-primary press"

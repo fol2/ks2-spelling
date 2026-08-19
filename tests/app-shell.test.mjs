@@ -1299,9 +1299,12 @@ test('the product shell consumes native safe-area insets', async () => {
     productCss,
     /\.product-topbar\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/su,
   );
+  /* The title element is a `<p>` on most bars and the screen's own `<h1>` where
+     the bar is where that screen states its name (#118). Both forms must be
+     allowed to shrink, or a long title pushes the action off the row. */
   assert.match(
     productCss,
-    /\.product-topbar p\s*\{[^}]*min-width:\s*0;[^}]*flex:\s*1 1 8rem;/su,
+    /\.product-topbar :is\(p, h1\)\s*\{[^}]*min-width:\s*0;[^}]*flex:\s*1 1 8rem;/su,
   );
   assert.match(
     productCss,

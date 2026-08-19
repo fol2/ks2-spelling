@@ -40,8 +40,8 @@ from the bottom. The rule is now gated outright by
 `tests/design-authority-checks.test.mjs`, which also forbids the centred-card
 variant that satisfies the proportion by moving the answer field.
 
-The Parent entry below still carries a Backdrop-proportion clause under #118,
-at a location (`src/app/Parent.jsx`) that does not exist either.
+The Parent entry carried the same clause at `src/app/Parent.jsx`, a third
+address that does not exist; it is retired at #118 below.
 
 ### Label baseline — the dictation-disclosure entry retired at #115
 
@@ -180,15 +180,52 @@ Contract test: `tests/design-authority-checks.test.mjs` (topline band, stat trio
 and the exit) and `tests/product-celebrations.test.mjs` (fact singularity).
 Nineteen mutations of the fix were watched go red.
 
-- **Location**: `src/app/Parent.jsx` (dead band on entry; title stated twice)
-- **Clause**: Contract — Layer 3 — Backdrop proportion / Fact singularity
-- **Issue link**: #118
-- **Status**: `todo`
-
 - **Location**: `src/app/Trail.jsx:companion-plate` (iOS WebKit renders plate boundary)
 - **Clause**: Direction — Design principles (not a Contract gate)
 - **Issue link**: #109
 - **Status**: `accepted` (deferred to post-E5 native iOS hardening slice; approved James To 2026-08-17)
+
+### Parent area — the entry retired at #118
+
+The entry named `src/app/Parent.jsx`, a path that has never existed on any
+branch — the parent surface is `src/app/ProductApp.jsx` (`ParentArea`) and the
+bar is `.product-topbar` in `src/app/app.css`. Retired rather than relocated,
+the same fictional-location family as #242 and the #111, #112, #114, #115, #116
+and #117 entries above.
+
+**Both clauses were one defect.** A container and its first child each claimed
+the same safe-area inset: `.product-page` spent the top gutter, and
+`.product-topbar` — which is only ever that page's first child — spent it again,
+so the notch was counted twice. Measured at 393×852 against the iPhone 17 insets
+the harness sets, the title's first pixel sat **130px** down, of which 71px was
+unexplained. The horizontal half was never reported and is the same arithmetic:
+the bar's own `max(1rem, inset-left)` set the title at x=32 while every card it
+heads started at x=16.
+
+The fix deletes the bar's padding rather than tuning it, because the bar is
+never the surface that meets the screen edge — the rule `--gutter-*` already
+states. Its two other sites gain the same correction: the parent gate, and the
+startup-failure screen inside `.scene-body`. Title's first pixel **130px →
+84.2px**, dead band **71px → 12px**, title **x=32 → x=16**, first card
+**296.4px → 208.8px** — 10% of the screen returned.
+
+*The title is now stated once, by the bar, as the screen's `h1`.* Deleting the
+heading instead was not open: the h1-per-screen check has gated one `h1` per
+screen with no baseline since #113, so the name had to move rather than go.
+`<main aria-labelledby="parent-title">` already pointed at that name and still
+resolves, so the accessible name is unchanged. **The parent *gate* is left
+alone** — it was already the right shape and is the model this fix copies: its
+bar names the place ("Parent access") over an `h1` that names the task ("Enter
+Parent PIN"), which is two facts, not one stated twice.
+
+Held at 320×568 and 393×852 across 100/130/160% text: the title stays on one
+line, Done holds 44×44 or better (58×44, 75.4×57.2, 92.8×70.4), the two never
+overlap and nothing scrolls horizontally.
+
+Contract test: `tests/design-authority-checks.test.mjs`. Six mutations of the
+fix were watched go red. `tests/app-shell.test.mjs` pinned the literal
+`.product-topbar p` selector and had to be moved to the real one — widening it
+to a loose match would have left it green against anything.
 
 ### Out-of-scope (resolved by this slice)
 

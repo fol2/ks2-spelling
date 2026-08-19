@@ -2777,6 +2777,42 @@ select {
   gap: 0.45rem;
 }
 
+/* Tablet stage between the card and the quiet exit. It is a slack absorber,
+   never a pusher: `flex: 1; min-height: 0` takes whatever the column has left
+   after the card, and `.round-foot`'s `margin-top: auto` stays load-bearing
+   so that the same negative-free-space resolve that #112 and #115 turn on
+   still holds when the correction region grows the card.
+
+   Below 46rem the stage does not exist. `display: none` takes it out of flex
+   (so it cannot add a gap) and `background-image` is withheld from this rule
+   so a phone never fetches the art. An `<img>` with `display: none` still
+   downloads. The custom property is only consumed inside the tablet query.
+
+   Still and untouchable: no animation, no motion path, no hover. A child is
+   typing a spelling three inches away. `prefers-reduced-motion` is a no-op. */
+.round-stage {
+  display: none;
+  pointer-events: none;
+}
+
+@media (min-width: 46rem) {
+  .round-stage {
+    display: block;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    background-image: var(--round-stage-art, none);
+    background-repeat: no-repeat;
+    background-position: center bottom;
+    /* The band itself has no height ceiling — landscape only has ~340px of
+       slack where 12.9" portrait has ~896px, and a `min()` on the band would
+       leave empty sky the foot's auto margin would swallow. The sprite is
+       capped instead, so a tall band still stands a companion on the plate
+       rather than stretching it into a mural. */
+    background-size: auto min(24rem, 82%);
+  }
+}
+
 /* --- results ------------------------------------------------------------- */
 
 .results-scene .scene-body {

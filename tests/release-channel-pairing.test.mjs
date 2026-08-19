@@ -103,6 +103,25 @@ test("production environment reaches the keyring guard and rejects sandbox-signe
   );
 });
 
+test('product composition injects the pack-transfer origin from packTrustEnvironment', async () => {
+  const productServices = await readFile(
+    join(ROOT, 'src/app/create-product-app-services.js'),
+    'utf8',
+  );
+  assert.match(
+    productServices,
+    /\(options\.packTrustEnvironment \?\? 'sandbox'\) === 'production'/u,
+  );
+  assert.match(
+    productServices,
+    /\['https:', '', 'ks2-gateway\.eugnel\.uk'\]\.join\('\/'\)/u,
+  );
+  assert.match(
+    productServices,
+    /createCapacitorPackTransfer\(\{\s*PackTransfer: PackTransferPlugin,\s*gatewayOrigin\s*\}/u,
+  );
+});
+
 test("production environment pins capability URLs to the production gateway origin", async () => {
   const { createDownloadCoordinator } = await import(join(ROOT, "src/app/download-coordinator.js"));
   const {

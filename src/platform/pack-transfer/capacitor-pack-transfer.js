@@ -16,6 +16,7 @@ import {
   assertClosedRecord,
   assertExactPort,
   assertPromise,
+  assertString,
   fail,
 } from '../commerce/store-port.js';
 
@@ -72,7 +73,8 @@ async function invoke(plugin, method, request) {
 }
 
 export function createCapacitorPackTransfer(options) {
-  assertClosedRecord(options, ['PackTransfer'], 'Capacitor pack-transfer options');
+  assertClosedRecord(options, ['PackTransfer', 'gatewayOrigin'], 'Capacitor pack-transfer options');
+  const gatewayOrigin = assertString(options.gatewayOrigin, 'Pack gateway origin');
   const plugin = createNativeFacade(options.PackTransfer);
   return assertPackTransferPort(Object.freeze({
     async getFreeBytes() {
@@ -81,7 +83,7 @@ export function createCapacitorPackTransfer(options) {
       return validateFreeBytes(result.freeBytes);
     },
     async downloadRange(request) {
-      const input = validateDownloadRangeRequest(request);
+      const input = validateDownloadRangeRequest(request, gatewayOrigin);
       return validateDownloadRangeResult(await invoke(plugin, 'downloadRange', input));
     },
     async inspectAndExtract(request) {

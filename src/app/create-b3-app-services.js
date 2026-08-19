@@ -231,7 +231,10 @@ export async function createB3AppServices(options = {}) {
     startupSequence.push('database-migrated');
 
     const packTransfer = runtime.isNativePlatform
-      ? createCapacitorPackTransfer({ PackTransfer: PackTransferPlugin })
+      ? createCapacitorPackTransfer({
+          PackTransfer: PackTransferPlugin,
+          gatewayOrigin: ['https:', '', 'b3-gateway.eugnel.uk'].join('/'),
+        })
       : createB3FakePackTransfer(options.fakePackTransferOptions);
     const commerceRepository = createSqliteCommerceRepositories(connection);
     const packRepository = createSqlitePackRepositories(connection);

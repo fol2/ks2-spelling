@@ -101,6 +101,76 @@ test('a download that the device cannot hold fails before the first shard is aut
   assert.deepEqual(authorisations, []);
 });
 
+async function createLiveTransportWorkflow(t, packTrustEnvironment, fetchImpl) {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-product-commerce-origin-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const connection = createNodeSqliteConnection(join(directory, 'commerce.sqlite'));
+  await connection.open();
+  await configureAndMigrateDatabase(connection);
+  const workflow = createProductCommerceWorkflow({
+    runtime: Object.freeze({ isNativePlatform: true, platform: 'android' }),
+    connection,
+    commandGate: createDatabaseCommandGate(),
+    packRepository: createSqlitePackRepositories(connection),
+    packTransfer: createB3FakePackTransfer({
+      inventoryOutcomes: [[], []],
+    }),
+    store: createB3FakeStore({
+      purchaseOutcomes: [{
+        store: 'google',
+        environment: 'sandbox',
+        productId: 'full_ks2',
+        outcome: 'purchased',
+        transactionRef: 'native-purchased',
+        opaqueProof: 'purchased-proof',
+      }],
+    }),
+    packTrustEnvironment,
+    fetchImpl,
+    clock: () => 100,
+    idFactory: () => 'product-commerce-attempt',
+  });
+  t.after(async () => {
+    await workflow.dispose();
+    await connection.close();
+  });
+  return workflow;
+}
+
+test('product commerce on the production release channel posts entitlements to the production gateway origin', async (t) => {
+  const requestUrls = [];
+  const workflow = await createLiveTransportWorkflow(t, 'production', async (url) => {
+    requestUrls.push(url);
+    throw new TypeError('origin probe does not need a live worker');
+  });
+
+  await workflow.purchase();
+
+  assert.equal(requestUrls.length, 1);
+  assert.equal(
+    requestUrls[0],
+    'https://ks2-gateway.eugnel.uk/v1/entitlements/verify',
+  );
+  assert.ok(!requestUrls.some((url) => url.startsWith('https://b3-gateway.eugnel.uk/')));
+});
+
+test('product commerce on the sandbox release channel posts entitlements to the sandbox gateway origin', async (t) => {
+  const requestUrls = [];
+  const workflow = await createLiveTransportWorkflow(t, 'sandbox', async (url) => {
+    requestUrls.push(url);
+    throw new TypeError('origin probe does not need a live worker');
+  });
+
+  await workflow.purchase();
+
+  assert.equal(requestUrls.length, 1);
+  assert.equal(
+    requestUrls[0],
+    'https://b3-gateway.eugnel.uk/v1/entitlements/verify',
+  );
+  assert.ok(!requestUrls.some((url) => url.startsWith('https://ks2-gateway.eugnel.uk/')));
+});
+
 test('an install reports the shard it is starting, so the Parent card can say so', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'ks2-product-commerce-progress-'));
   t.after(() => rm(directory, { recursive: true, force: true }));

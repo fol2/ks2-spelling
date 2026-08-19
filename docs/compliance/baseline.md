@@ -25,17 +25,23 @@ location in this file is still a path that does not exist; see #242.
 
 ## Layer 3: Design composition violations (manual review)
 
-### Backdrop proportion
+### Backdrop proportion — the round and camp entries retired at #114
 
-- **Location**: `src/app/Round.jsx` (empty space below action region)
-- **Clause**: Contract — Layer 3 — Backdrop proportion
-- **Issue link**: #114
-- **Status**: `todo`
+Both entries were written against `src/app/Round.jsx` and `src/app/Camp.jsx`,
+paths that have never existed on any branch — the whole product surface is one
+file, `src/app/ProductApp.jsx`. Same family as the two h1 entries above and the
+rest of #242: the violation was real and the address was not, so nothing could
+ever have been checked at it.
 
-- **Location**: `src/app/Camp.jsx` (empty space below action region)
-- **Clause**: Contract — Layer 3 — Backdrop proportion
-- **Issue link**: #114
-- **Status**: `todo`
+Measured, and then fixed, at their real locations. The round's trailing
+backdrop fell from 36.5% of a 393x852 phone to 4.0%, and camp's from 19.1%
+(asleep) and 12.6% (awake) to 4.0%, by anchoring each scene's action region
+from the bottom. The rule is now gated outright by
+`tests/design-authority-checks.test.mjs`, which also forbids the centred-card
+variant that satisfies the proportion by moving the answer field.
+
+The Parent entry below still carries a Backdrop-proportion clause under #118,
+at a location (`src/app/Parent.jsx`) that does not exist either.
 
 ### Label baseline
 

@@ -1629,8 +1629,14 @@ select {
   animation: campEmber 3.9s ease-in-out -900ms infinite;
 }
 
+/* `margin-top`, not `margin-bottom`: the card carries the place's primary
+   action (Begin the patrol), which the Responsive-layout clause puts in a
+   bottom action region. Anchoring it from the bottom sent the slack under the
+   card instead, leaving stone floor between the action and the tab bar. Both
+   Camp shapes are covered — the ring shape has no other `auto` margin, so
+   deleting this one would have collected the slack at the bottom again. */
 .camp-scene .camp-card {
-  margin-bottom: auto;
+  margin-top: auto;
 }
 
 .camp-ring svg {
@@ -2622,12 +2628,22 @@ select {
   overflow-wrap: anywhere;
 }
 
-/* No `margin-top`, for the reason `.round-attempts` carries: the column's gap
-   was already there. 14px the quiet exit could not afford — this row is the
-   first thing a 667pt screen pushes off the bottom. */
+/* `margin-top: auto` bottom-anchors the quiet exit, and it is the only
+   rebalance the Input tier permits: slack put anywhere above `.round-card` is
+   spent as the card grows, so centring the card walks the answer field 62.9px
+   up the instant the correction region appears. Slack can only live below the
+   card, and this row is what sits at the bottom of it.
+
+   A *fixed* margin is still refused, for the reason `.round-attempts` carries:
+   the column's gap was already there, and 14px is the first thing a 667pt
+   screen pushes off the bottom. `auto` is a different animal — it resolves to 0
+   when free space is negative, so it spends only slack that exists and is
+   measurably a no-op under pressure. It also stops the exit jumping 125.9px
+   down the screen when the card grows. */
 .round-foot {
   display: flex;
   flex: none;
+  margin-top: auto;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;

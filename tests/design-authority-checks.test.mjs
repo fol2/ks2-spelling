@@ -392,3 +392,87 @@ test('Design authority: setup vocabulary pills show a bare count and name the no
     'the noun must survive in the accessible name, matching the Words filter pills',
   );
 });
+
+/* Slack can only live below the round card (#114).
+
+   The round left 311.1px — 36.5% of a 393x852 phone — as painted meadow below
+   its content, and the quiet exit floated in the middle of the screen instead
+   of sitting in the bottom action region the Responsive-layout clause names.
+
+   The obvious rebalance is to centre the card in the slack. It was built and
+   measured, and it fails the Input tier: an `auto` margin absorbs whatever free
+   space is *left*, so it re-resolves every time the content changes. When the
+   correction region grows the card 125.8px, a centred card's top climbs 62.9px
+   and takes the answer field with it — mid-answer, keyboard up. `main` measures
+   0px there and so does the shipped fix.
+
+   That constraint decides the composition rather than merely constraining it:
+   any slack above the card is spent as the card grows, so the only place
+   discretionary slack may sit is *below* it, and `.round-foot` is what sits at
+   the bottom of it. These assertions pin that reasoning, not just the two
+   declarations, because the centred-card variant is what the next person will
+   reach for.
+
+   What this cannot see: that `margin-top: auto` resolves to 0 under negative
+   free space, which is the property that keeps the fix a no-op on the screens
+   #249 and #245 are about (measured identical to `main` at 375x667 and 320x568
+   at every text scale, and at 393x852/160%). Only a layout engine shows that,
+   and this repository has no browser in `node --test`. */
+test('Design authority: the round and camp scenes anchor their action region, and slack stays below the card (#114)', async () => {
+  const rules = cssRuleBlocks(await read('src/app/app.css'));
+  const rule = (selector) => rules.find((r) => r.selector === selector);
+
+  const foot = rule('.round-foot');
+  assert.ok(foot, '.round-foot rule must exist');
+  assert.match(
+    foot.body,
+    /(?:^|;)\s*margin-top:\s*auto\b/u,
+    '.round-foot must declare margin-top: auto — it is what bottom-anchors the quiet exit',
+  );
+
+  const campCard = rule('.camp-scene .camp-card');
+  assert.ok(campCard, '.camp-scene .camp-card rule must exist');
+  assert.match(
+    campCard.body,
+    /(?:^|;)\s*margin-top:\s*auto\b/u,
+    "the camp card carries the place's primary action and must be anchored from the bottom",
+  );
+  assert.doesNotMatch(
+    campCard.body,
+    /(?:^|;)\s*margin-bottom:\s*auto\b/u,
+    'margin-bottom: auto puts the slack under the card again, which is the defect',
+  );
+
+  /* Every rule that names `.round-card`, not just the base one: a selector
+     group inside a media query can add a margin as easily as the base rule,
+     and the answer field moves either way. `margin: 0 auto` is left alone —
+     its first value is the top, so horizontal centring never lifts the card. */
+  const namesRoundCard = (selector) => selector
+    .split(',')
+    .some((part) => /(?:^|[\s>+~])\.round-card(?![\w-])/u.test(part.trim()));
+
+  for (const candidate of rules.filter((r) => namesRoundCard(r.selector))) {
+    assert.doesNotMatch(
+      candidate.body,
+      /(?:^|;)\s*(?:margin-top|margin-block|margin-block-start):[^;]*\bauto\b/u,
+      `${candidate.selector} must not give the round card an auto margin above it: `
+        + 'the card grows when the correction region appears, so the slack above it '
+        + 'shrinks and the answer field rises with it (measured 62.9px at 393x852)',
+    );
+    assert.doesNotMatch(
+      candidate.body,
+      /(?:^|;)\s*margin:\s*auto\b/u,
+      `${candidate.selector} must not open a margin shorthand with auto — the first value is the top`,
+    );
+  }
+
+  /* `justify-content` on the column is the other way to reach the same defect:
+     `space-between`, `center` and `end` all put free space above the card. */
+  const body = rule('.round-scene .scene-body');
+  assert.ok(body, '.round-scene .scene-body rule must exist');
+  assert.doesNotMatch(
+    body.body,
+    /(?:^|;)\s*justify-content:\s*(?:center|end|flex-end|space-between|space-around|space-evenly)\b/u,
+    'the round column must not redistribute free space above the card — same field movement, different property',
+  );
+});

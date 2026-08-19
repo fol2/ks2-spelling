@@ -270,8 +270,11 @@ test('celebration copy distinguishes progress, catch and final evolution', () =>
     [monster({ caught: true, secureCount: 9 })],
   )[0];
   // The meter states the count and the gain, so the label and the body do not
-  // repeat them (#117). The announcement is not on the card — it is the one
-  // sentence a screen reader hears — so it still carries both.
+  // repeat them (#117). The announcement is untouched: it is the sentence read
+  // instead of the card, and it carries the gain and what the next form costs.
+  // It never carried the standing count, on `main` either — `n / target` has
+  // only ever reached a screen reader through the meter, since the card's own
+  // `aria-label` overrides the stage label that used to duplicate it.
   assert.deepEqual(celebrationCopy(progress), {
     eyebrow: 'Companion progress',
     headline: 'Inklet grew stronger',

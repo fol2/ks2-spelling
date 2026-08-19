@@ -8,6 +8,7 @@
 */
 
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -217,6 +218,21 @@ test('Adding a baseline violation is a one-line edit (verify format)', async () 
   // Check that entries follow the pattern
   const entryPattern = /- \*\*Location\*\*:[^\n]+\n- \*\*Clause\*\*:[^\n]+\n- \*\*Issue link\*\*:[^\n]+\n- \*\*Status\*\*:/u;
   assert.match(baselineContent, entryPattern, 'Baseline entries must follow format (4 lines per entry)');
+});
+
+test('every baseline Location path exists in the tree', async () => {
+  const baselineContent = await read('docs/compliance/baseline.md');
+  /* Live entries only. Historical retired-at prose names fictional paths on
+     purpose; those notes are not `- **Location**:` lines and must not fail. */
+  const locationLine = /^- \*\*Location\*\*: `([^`]+)`/gmu;
+
+  for (const match of baselineContent.matchAll(locationLine)) {
+    const relativePath = match[1].split(':')[0];
+    assert.ok(
+      existsSync(join(ROOT, relativePath)),
+      `baseline Location path does not exist: ${relativePath}`,
+    );
+  }
 });
 
 test('Release-gate document exists and references four checks', async () => {

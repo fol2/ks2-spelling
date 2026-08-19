@@ -20,8 +20,9 @@ branch, which the h1 check loaded inside a `try` and skipped on failure. Neither
 screen was measured. Corrected at #110, which gave first run a welcome heading
 and retired its entry. #113 gave the learner switch its own `h1`, retiring the
 last one, and extended the check from six screens to every product screen — all
-seventeen `h1` sites in `src/app/ProductApp.jsx` now fail a mutation. Every other
-location in this file is still a path that does not exist; see #242.
+seventeen `h1` sites in `src/app/ProductApp.jsx` now fail a mutation. Live
+`- **Location**:` lines must resolve to a file that exists in the tree;
+`tests/design-authority-checks.test.mjs` now fails them if they do not.
 
 ## Layer 3: Design composition violations (manual review)
 
@@ -194,10 +195,21 @@ Contract test: `tests/design-authority-checks.test.mjs` (topline band, stat trio
 and the exit) and `tests/product-celebrations.test.mjs` (fact singularity).
 Nineteen mutations of the fix were watched go red.
 
-- **Location**: `src/app/Trail.jsx:companion-plate` (iOS WebKit renders plate boundary)
-- **Clause**: Direction — Design principles (not a Contract gate)
-- **Issue link**: #109
-- **Status**: `accepted` (deferred to post-E5 native iOS hardening slice; approved James To 2026-08-17)
+### Trail companion plate — the #109 entry retired at #242
+
+The entry named `src/app/Trail.jsx:companion-plate`, a path that has never
+existed on any branch — the Trail is `src/app/ProductApp.jsx` (`TrailScreen`)
+and the sprite is `.trail-companion-art` in `src/app/trail/trail-meadow.css`.
+Retired rather than relocated, the same fictional-location family as #242 and
+the #111, #112, #114, #115, #116, #117 and #118 entries.
+
+The defect it named is already fixed. The status was still `accepted`
+("deferred to post-E5 native iOS hardening slice") after PR #240 / `a967ac11`
+had already taken the filter off `.trail-companion-art` and moved the depth
+into `.trail-companion-shadow`. Relocating a stale waiver onto a real path
+would have re-licensed a defect the tree no longer has. Contract test:
+`tests/trail-meadow-contract.test.mjs` ("no CSS filter reaches the companion
+sprite").
 
 ### Parent area — the entry retired at #118
 

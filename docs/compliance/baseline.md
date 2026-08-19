@@ -43,12 +43,23 @@ variant that satisfies the proportion by moving the answer field.
 The Parent entry below still carries a Backdrop-proportion clause under #118,
 at a location (`src/app/Parent.jsx`) that does not exist either.
 
-### Label baseline
+### Label baseline — the dictation-disclosure entry retired at #115
 
-- **Location**: `src/app/Round.jsx:dictation-disclosure` (dictation disclosure wraps)
-- **Clause**: Contract — Layer 3 — Label baseline
-- **Issue link**: #115
-- **Status**: `todo`
+The entry named `src/app/Round.jsx:dictation-disclosure`, a path that has never
+existed on any branch — the round card is `src/app/ProductApp.jsx`
+(`RoundScreen`) and the row is `.round-foot` in `src/app/app.css`. Retired
+rather than relocated, the same fictional-location family as #242 and the #111,
+#112 and #114 entries above.
+
+The defect it named is fixed, and it was larger than the entry said. The foot
+never wrapped, so the caption — the only flexible item in a row whose pills are
+`flex: none` — absorbed the whole shortfall: 214.7px of copy into 126.8px at
+393×852, orphaning "voice"; and, under the product-wide `overflow-wrap:
+anywhere`, 12.4px at 160% text, one letter per line, 525px tall. The row now
+wraps *backwards*, so the caption takes a line below the pills and the pills
+hold `main`'s position to the pixel — a squeezed round sheds the footnote, never
+the way out. Contract test:
+`tests/design-authority-checks.test.mjs` ("the round foot wraps backwards").
 
 - **Location**: `src/app/app.css` (`.setup-quest`: `flex: 1; min-height: 0` clipped at flex-end deletes the kicker, then the top of the h1 — 55.2px / 52.0px already gone at 320×568 and 100% text)
 - **Clause**: Contract — Layer 3 — Label baseline

@@ -476,3 +476,85 @@ test('Design authority: the round and camp scenes anchor their action region, an
     'the round column must not redistribute free space above the card — same field movement, different property',
   );
 });
+
+/* The round's foot is a caption and two pills, and it never wrapped (#115).
+
+   `.round-foot-actions` is `flex: none`, so the caption was the only item that
+   could give, and it gave everything: 214.7px of copy squeezed into 126.8px at
+   393x852, orphaning "voice" on a line of its own below the pills. Worse under
+   Dynamic Type, because `.product-app` sets `overflow-wrap: anywhere` for the
+   whole product: at 130% the caption renders as six fragments ("AI-" / "gener"
+   / "ated" / …) and at 160% as twenty-five, one letter per line — a 12.4px
+   column 525px tall that pushed the whole foot 535.8px below the fold.
+
+   Control rows wrap; they never squeeze — the rule #111 settled. The direction
+   is the part worth pinning. Wrapping *forwards* puts the caption on the first
+   line and the pills on the second, which costs the way out on exactly the
+   screen this repository already watches: at 375x667 with the correction region
+   open, the quiet exit falls from 64.1% visible to 5.0%, the regression #112
+   refused to ship. `wrap-reverse` stacks the lines the other way, so the pills
+   hold `main`'s position to the pixel everywhere measured and the caption takes
+   the new line below them. Under vertical pressure a round now sheds the
+   footnote, never the exit.
+
+   Measured, `main` -> branch, at 100/130/160% text:
+
+     393x852   caption lines 2/6/25 -> 1/1/1, orphan gone, exit unmoved
+     375x667   2/9/25 -> 1/1/1, exit visibility 100/0/0 -> 100/2.7/0
+     320x568   5/25/25 -> 1/1/1, foot height unchanged at 70px at 100%
+     810x1080  identical in every cell — this slice is a no-op on a tablet
+
+   The answer field does not move in any cell, which is what the Input tier asks
+   and what a wrap could plausibly have broken.
+
+   A source assertion, because `node --test` has no browser. What it cannot see
+   is the direction's *consequence* — that the pills keep their position — so
+   the reasoning is pinned here and not only the declarations. */
+test('Design authority: the round foot wraps backwards, so a squeezed round sheds the caption and never the way out (#115)', async () => {
+  const css = await read('src/app/app.css');
+  const rules = cssRuleBlocks(css);
+  const rule = (selector) => rules.find((r) => r.selector === selector);
+
+  const foot = rule('.round-foot');
+  assert.ok(foot, '.round-foot rule must exist');
+  assert.match(
+    foot.body,
+    /(?:^|;)\s*flex-wrap:\s*wrap-reverse\b/u,
+    '.round-foot must wrap, and backwards: plain `wrap` puts the caption above the pills and '
+      + 'takes the quiet exit from 64.1% visible to 5.0% at 375x667 with the correction region open',
+  );
+  assert.doesNotMatch(
+    foot.body,
+    /(?:^|;)\s*justify-content:\s*space-between\b/u,
+    'space-between cannot survive the wrap — a flex line holding one item puts it at the start, '
+      + 'so the pills would jump to the left edge the moment the row broke',
+  );
+
+  const actions = rule('.round-foot-actions');
+  assert.ok(actions, '.round-foot-actions rule must exist');
+  assert.match(
+    actions.body,
+    /(?:^|;)\s*margin-left:\s*auto\b/u,
+    'the auto margin is what keeps the pills to the right, on a shared line and on one of their own',
+  );
+
+  /* `.product-app` sets `overflow-wrap: anywhere`, which is why the squeeze
+     produced letters rather than words. The caption owns its line now and fits
+     unwrapped at every measured width and scale, but the inherited value still
+     shatters it past those — 320px at 200% text renders 25 one-letter fragments
+     without this declaration and "AI-generated dictation" / "voice" with it. */
+  const caption = rule('.round-foot p');
+  assert.ok(caption, '.round-foot p rule must exist');
+  assert.match(
+    caption.body,
+    /(?:^|;)\s*overflow-wrap:\s*normal\b/u,
+    'a required disclosure breaks between words or not at all — the product-wide '
+      + '`overflow-wrap: anywhere` breaks it inside them',
+  );
+  assert.match(
+    rule('.product-app')?.body ?? '',
+    /(?:^|;)\s*overflow-wrap:\s*anywhere\b/u,
+    'the override above exists because the product-wide rule is `anywhere`; if that ever '
+      + 'changes, reconsider the override rather than deleting this assertion',
+  );
+});

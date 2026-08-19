@@ -558,3 +558,182 @@ test('Design authority: the round foot wraps backwards, so a squeezed round shed
       + 'changes, reconsider the override rather than deleting this assertion',
   );
 });
+
+/* The Codex was the one place screen that never took the shared scrollport, and
+   both of #116's defects come out of that (#116).
+
+   Measured on `main` at 100% text, `.codex-ladder`'s visible height:
+
+     393x852   24.8 of 24.8px — the whole rail, 23.4px above the bar
+     375x667    0.0 of 24.8px — 159.2px past the bar's top edge
+     320x568    0.0 of 24.8px — 271.7px past it
+
+   So the ticket named the mildest cell. On an iPhone SE the roster, the stats
+   trio and the rail were all off the bottom of a scene with `overflow: hidden`
+   and nothing to scroll: a child could not reach a companion tile to select it.
+   At 393x852 the rail kept 23.4px rather than the 34px gutter every other
+   screen holds, because it was already eating 10.6px of that gutter.
+
+   The raggedness has the same root. `flex: 1 1 5.25rem` shares the row where
+   there is slack, but under negative free space `flex-shrink` is floored by
+   each item's *automatic minimum size* — its own min-content width — so every
+   tile stopped at the width of its own label: 001 Inklet 46.8px beside 003
+   Undiscovered 90.2px at 320x568, a 43.4px spread, and 68.4px at 160% text.
+
+   Four equal tiles across cannot hold these names. "Undiscovered" needs 90.2px
+   with its padding, so a row of four needs 382.4px and a 393px phone offers
+   361px — a 21.4px shortfall at 100% text, before Dynamic Type touches it. The
+   choice was therefore truncation or wrapping, and the scrollport settles it:
+   with the vertical pressure gone height is cheap, so the row wraps and every
+   companion keeps its whole name. A percentage basis was built and rejected on
+   measurement — `calc(50% - 0.225rem)` fills the width at 100% and breaks
+   "Undiscovered" mid-word at 160%, the cell this ticket's fourth criterion is
+   about. A `rem` basis re-wraps the row instead.
+
+   Measured, `main` -> branch — tile-width spread, then rail clearance:
+
+     320x568   43.4 -> 0px; rail 0.0 -> 24.8px visible, 34.4px clear
+     375x667   33.2 -> 0px; rail 0.0 -> 24.8px visible, 34.0px clear
+     393x852   15.2 -> 0px; rail visible either way, 23.4 -> 33.7px clear
+     810x1080   0.0 -> 0px; rail visible either way, 34.0px clear
+
+   All fifteen cells (five viewports x 100/130/160%) measure a 0px spread, no
+   label clipped, no label wrapped, and 33.7-34.6px of clearance. Bottom
+   anchoring survives: where there is slack the stats and rail still sit flush at
+   the foot of the port (0px below the rail at 320x1024 and 810x1080) with the
+   slack above the stats — #114's rule, kept because `.codex-column` is a flex
+   column and `.codex-stats`' `margin-top: auto` still resolves inside it.
+
+   What this cannot see, `node --test` having no browser: that the look-closer
+   overlay still covers the scene and not the tab bar once the port is scrolled.
+   Measured at 393x852 scrolled to the end — the overlay spans 0-761px, exactly
+   `.scene-body`, and the bar's top edge is 761. The structural half of that *is*
+   checkable and is asserted below: the overlay sits outside the scrollport, or
+   it slides away from the scene it is supposed to cover. */
+test('Design authority: the Codex roster is one tile width and its lower rails clear the tab bar (#116)', async () => {
+  const rules = cssRuleBlocks(await read('src/app/app.css'));
+  const rule = (selector) => rules.find((r) => r.selector === selector);
+
+  /* --- one width for every tile ----------------------------------------- */
+
+  const roster = rule('.codex-roster');
+  assert.ok(roster, '.codex-roster rule must exist');
+  assert.match(
+    roster.body,
+    /(?:^|;)\s*flex-wrap:\s*wrap\b/u,
+    'a fixed tile basis that cannot wrap overflows the row instead — the tiles must be allowed a second line',
+  );
+  assert.doesNotMatch(
+    roster.body,
+    /(?:^|;)\s*justify-content:\s*space-between\b/u,
+    'space-between strands a lone tile on a wrapped line at the start edge rather than under its row',
+  );
+
+  /* Every rule that names the tile, not only the base one: a media query can
+     re-open `flex-grow` as easily as the base rule can, and a wrapped line
+     holding fewer tiles then grows them wider than the line above. */
+  const namesTile = (selector) => selector
+    .split(',')
+    .some((part) => /(?:^|[\s>+~])\.codex-roster\s+button(?![\w-])/u.test(part.trim()));
+
+  const tileRules = rules.filter((r) => namesTile(r.selector));
+  assert.ok(tileRules.length > 0, 'a .codex-roster button rule must exist');
+
+  const shorthands = tileRules
+    .map((r) => ({ selector: r.selector, match: r.body.match(/(?:^|;)\s*flex:\s*([^;]+)/u) }))
+    .filter((entry) => entry.match);
+  assert.equal(
+    shorthands.length,
+    1,
+    'exactly one rule may set the tile flex shorthand, or which one wins depends on source order',
+  );
+
+  const [grow, shrink, basis] = shorthands[0].match[1].trim().split(/\s+/u);
+  assert.equal(
+    grow,
+    '0',
+    'the tile must not grow: a wrapped line holding fewer tiles would make those tiles wider than '
+      + 'the line above it — the same raggedness this ticket is about, one axis over',
+  );
+  assert.equal(
+    shrink,
+    '0',
+    "the tile must not shrink: `flex-shrink` is floored by each item's own min-content width, so "
+      + 'shrinking sizes every tile to its own label — 46.8px beside 90.2px at 320x568',
+  );
+  assert.match(
+    basis ?? '',
+    /^[\d.]+(?:rem|em)$/u,
+    'the basis must be a font-relative length: a percentage fills the row at 100% text and breaks '
+      + '"Undiscovered" mid-word at 160%, where a rem basis re-wraps the row instead',
+  );
+
+  for (const candidate of tileRules) {
+    assert.doesNotMatch(
+      candidate.body,
+      /(?:^|;)\s*flex-(?:grow|shrink):\s*(?!0\b)/u,
+      `${candidate.selector} must not re-open grow or shrink as a longhand after the shorthand`,
+    );
+  }
+
+  /* --- the rails clear the tab bar -------------------------------------- */
+
+  const column = rule('.codex-column');
+  assert.ok(column, ".codex-column rule must exist — it is the Codex's scrollport content");
+  assert.match(column.body, /(?:^|;)\s*display:\s*flex\b/u, '.codex-column must be a flex container');
+  assert.match(
+    column.body,
+    /(?:^|;)\s*flex-direction:\s*column\b/u,
+    "a flex *column* is what keeps `.codex-stats`' `margin-top: auto` resolving, so the rails stay "
+      + 'bottom-anchored where there is slack (#114) instead of leaving trailing backdrop below them',
+  );
+
+  assert.match(
+    rule('.codex-stats')?.body ?? '',
+    /(?:^|;)\s*margin-top:\s*auto\b/u,
+    "the stats trio and the rail below it are the Codex's bottom-anchored region (#114)",
+  );
+
+  assert.match(
+    rule('.scene-scroll')?.body ?? '',
+    /(?:^|;)\s*overflow-y:\s*auto\b/u,
+    'the shared scrollport is what the Codex now leans on; if it stops scrolling, the rail goes '
+      + 'straight back off the bottom of an iPhone SE',
+  );
+
+  /* The structure: the roster, stats and rail scroll; the look-closer overlay
+     does not. `.codex-zoom` is `position: absolute; inset: 0` against
+     `.scene-body`, so inside the scrollport it would size to the scrollable area
+     and slide away from the scene the moment a child scrolled. */
+  const jsx = await read('src/app/ProductApp.jsx');
+  const open = jsx.indexOf('<div className="scene-scroll codex-column">');
+  assert.ok(open >= 0, 'the Codex content must sit in a `scene-scroll codex-column` wrapper');
+
+  const tags = /<div\b[^>]*?(\/?)>|<\/div>/gu;
+  tags.lastIndex = open;
+  let depth = 0;
+  let close = -1;
+  for (let match = tags.exec(jsx); match; match = tags.exec(jsx)) {
+    if (match[0].startsWith('</')) depth -= 1;
+    else if (match[1] !== '/') depth += 1;
+    if (depth === 0) {
+      close = match.index;
+      break;
+    }
+  }
+  assert.ok(close > open, 'the codex-column wrapper must close');
+
+  for (const inside of ['codex-roster', 'codex-stats', 'codex-ladder']) {
+    const at = jsx.indexOf(`className="${inside}`);
+    assert.ok(
+      at > open && at < close,
+      `.${inside} must render inside the scrollport — it is one of the regions that fell off the bottom`,
+    );
+  }
+
+  const zoomAt = jsx.indexOf('className="codex-zoom"');
+  assert.ok(
+    zoomAt > close,
+    'the look-closer overlay must sit outside the scrollport rather than scrolling with it',
+  );
+});

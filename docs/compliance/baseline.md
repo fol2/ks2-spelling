@@ -66,23 +66,47 @@ the way out. Contract test:
 - **Issue link**: #245
 - **Status**: `todo`
 
-### Tile consistency
+### Tile consistency — the Codex roster entry retired at #116
 
-- **Location**: `src/app/codex/CodexRoster.jsx` (roster tiles unevenly sized)
-- **Clause**: Contract — Layer 3 — Tile consistency
-- **Issue link**: #116
-- **Status**: `todo`
+The entry named `src/app/codex/CodexRoster.jsx`, a path that has never existed
+on any branch — there is no `src/app/codex/` directory, and the roster is
+`.codex-roster` in `src/app/app.css` rendered from `src/app/ProductApp.jsx`
+(`CodexScreen`). Retired rather than relocated, the same fictional-location
+family as #242 and the #111, #112, #114 and #115 entries.
 
-### Rail clearance
+The defect it named was real. `flex: 1 1 5.25rem` shares the row where there is
+slack, but under negative free space `flex-shrink` is floored by each item's
+automatic minimum size — its own min-content width — so every tile stopped at
+the width of its own label: 001 Inklet 46.8px beside 003 Undiscovered 90.2px at
+320×568, a 43.4px spread, rising to 68.4px at 160% text. The tiles now take one
+fixed `rem` basis and the row wraps, measuring a **0px spread in all fifteen
+cells** (320×568, 320×1024, 375×667, 393×852, 810×1080 × 100/130/160%) with no
+label clipped and none broken mid-word. Contract test:
+`tests/design-authority-checks.test.mjs` ("the Codex roster is one tile width").
+
+### Rail clearance — the Codex entry retired at #116
 
 The two #111 entries named `src/app/Setup.jsx:filter-rail` and
 `src/app/Setup.jsx:vocabulary-rail` — a path that has never existed on any
 branch, and the filter rail is on the Words screen, not Setup — so both are
 retired rather than relocated, the same fictional-location family as #242.
 
-- **Location**: `src/app/codex/CodexRoster.jsx:lower-rails` (rails collide with tab bar)
-- **Clause**: Contract — Layer 3 — Rail clearance
-- **Issue link**: #116
+The #116 entry named `src/app/codex/CodexRoster.jsx:lower-rails`, fictional for
+the same reason, and it understated the defect. The Codex was the one place
+screen that never took the shared scrollport, so at 100% text the threshold rail
+measured **0 of its 24.8px visible at both 375×667 and 320×568** — 159.2px and
+271.7px past the tab bar's top edge, on a scene with `overflow: hidden` and
+nothing to scroll, which also put the roster and the stats trio out of reach. A
+child on an iPhone SE could not select a companion. At 393×852 the rail kept
+23.4px rather than the 34px gutter, having already eaten 10.6px of it. The Codex
+now takes `.scene-scroll`, and clearance measures **33.7–34.6px in all fifteen
+cells** with the rail wholly visible in every one. Bottom anchoring survives
+(#114): where there is slack the stats and rail still sit flush at the foot of
+the port. Same contract test as above.
+
+- **Location**: `src/app/app.css` (`.codex-ladder .figure` breaks milestones mid-number now that the rail is reachable — `200` renders `2` / `0` / `0` at 320×568/160%, and 375×667 and 393×852 break figures at 160% too; `.codex-stats .label` renders `Highest stage` as `Highes` / `t` / `stage` at 320×568/160%)
+- **Clause**: Contract — Layer 3 — Label baseline
+- **Issue link**: #256
 - **Status**: `todo`
 
 ### Fact singularity & other composition

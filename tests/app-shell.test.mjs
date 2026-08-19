@@ -1310,21 +1310,16 @@ test('the product shell consumes native safe-area insets', async () => {
     productCss,
     /\.topbar-action\s*\{[^}]*max-width:\s*100%;[^}]*overflow-wrap:\s*anywhere;/su,
   );
-  // Setup quest clips upward overflow without hiding the right-edge art bleed.
-  assert.match(
-    productCss,
-    /\.setup-quest\s*\{[^}]*overflow:\s*visible clip;/su,
-  );
   // The Setup companion is the one place a learner meets art for a creature
   // they have not found, so it shares the Codex silhouette declaration rather
   // than carrying a weaker treatment of its own.
   assert.match(
     productCss,
-    /\.setup-quest img\.companion-asleep[^{]*\{[^}]*filter:\s*brightness\(0\)\s*invert\(1\)\s*opacity\(0\.15\);/su,
+    /\.setup-hero img\.companion-asleep[^{]*\{[^}]*filter:\s*brightness\(0\)\s*invert\(1\)\s*opacity\(0\.15\);/su,
   );
   assert.doesNotMatch(
     productCss,
-    /\.setup-quest img\.companion-asleep\s*\{[^}]*grayscale/su,
+    /\.setup-hero img\.companion-asleep\s*\{[^}]*grayscale/su,
   );
 });
 

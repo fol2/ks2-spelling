@@ -61,10 +61,24 @@ hold `main`'s position to the pixel — a squeezed round sheds the footnote, nev
 the way out. Contract test:
 `tests/design-authority-checks.test.mjs` ("the round foot wraps backwards").
 
-- **Location**: `src/app/app.css` (`.setup-quest`: `flex: 1; min-height: 0` clipped at flex-end deletes the kicker, then the top of the h1 — 55.2px / 52.0px already gone at 320×568 and 100% text)
-- **Clause**: Contract — Layer 3 — Label baseline
-- **Issue link**: #245
-- **Status**: `todo`
+### Practice setup hero — the #245 entry retired at #245
+
+The entry named `src/app/app.css` (`.setup-quest`: `flex: 1; min-height: 0`
+clipped at flex-end deletes the kicker, then the top of the h1). That path is
+real, unlike the fictional-path family at #242.
+
+The defect it named is fixed. Clipping at flex-end took the TOP of the block
+first, so any growth below the hero was paid for by deleting "TODAY'S QUEST",
+then the top of the h1 — **55.2px of kicker and 52.0px of title already gone at
+320×568 and 100% text**, and 375×667 survived by 0.0px. A port around only the
+quest copy is not enough: at 320×568 and 160% text that hero was allocated
+**0px**, so the kicker still could not show. The heading is now flex-none,
+slack is a `flex: 1 1 0` spacer so the title still sits on the tiles where
+there is room (#114), the brief and tiles scroll, and the tray shrinks with
+Set off pinned below a controls port. Companion art is a sibling of the quest
+port so its 1rem gutter bleed is not clipped by `overflow-x: hidden`. Contract
+test: `tests/design-authority-checks.test.mjs` ("the Practice setup hero
+scrolls instead of clipping its kicker").
 
 ### Tile consistency — the Codex roster entry retired at #116
 

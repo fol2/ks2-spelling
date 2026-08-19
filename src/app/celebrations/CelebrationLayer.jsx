@@ -15,6 +15,7 @@ import {
   celebrationPalette,
   celebrationProgressMeterCopy,
   celebrationStageDecision,
+  hasProgressMeter,
   monsterCelebrationArtUrl,
 } from './celebration-model.js';
 import './celebrations.css';
@@ -108,13 +109,7 @@ function CelebrationEffects({ finalEvolution, reducedMotion }) {
 }
 
 function ProgressMeter({ event }) {
-  if (
-    event?.kind !== 'progress'
-    || !Number.isFinite(event.target)
-    || event.target <= 0
-  ) {
-    return null;
-  }
+  if (!hasProgressMeter(event)) return null;
   const from = Math.max(0, Math.min(100, event.percentBefore ?? 0)) / 100;
   const to = Math.max(0, Math.min(100, event.percentAfter ?? 0)) / 100;
   return (

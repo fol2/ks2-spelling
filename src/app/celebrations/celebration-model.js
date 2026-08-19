@@ -224,6 +224,18 @@ function progressNextCopy(event) {
     : `${remaining} more secure spellings to ${nextName}.`;
 }
 
+/**
+ * Whether a celebration carries a progress meter. One predicate, read by the
+ * meter that renders the figure and by the copy that would otherwise repeat it:
+ * two copies of this condition is how the card came to state "34 / 100 secure"
+ * twice, and how it would come to state it nowhere.
+ */
+export function hasProgressMeter(event) {
+  return event?.kind === 'progress'
+    && Number.isFinite(event.target)
+    && event.target > 0;
+}
+
 export function celebrationProgressMeterCopy(event) {
   const count = nonNegativeInteger(event?.secureCount);
   const target = nonNegativeInteger(event?.target);
@@ -330,11 +342,20 @@ export function celebrationCopy(event) {
   if (event?.kind === 'progress') {
     const gain = secureGainCopy(event.secureGain);
     const next = progressNextCopy(event);
+    const meter = hasProgressMeter(event);
     return {
       eyebrow: 'Companion progress',
       headline: `${name} grew stronger`,
-      stageLabel: `${stageName} · ${celebrationProgressMeterCopy(event)}`,
-      body: `${gain}. ${next}`,
+      /* Each figure is stated once on the card. The meter carries both — the
+         round's gain as `+n`, the standing count as `n / target` — so where it
+         renders, the stage label drops the count and the body drops the gain,
+         leaving the sentence to say the one thing the meter cannot: what the
+         next form costs. Where there is no meter, both come back, because a
+         figure stated once still has to be stated. */
+      stageLabel: meter
+        ? stageName
+        : `${stageName} · ${celebrationProgressMeterCopy(event)}`,
+      body: meter ? next : `${gain}. ${next}`,
       announcement: `${name} gained ${nonNegativeInteger(event.secureGain)} secure ${event.secureGain === 1 ? 'spelling' : 'spellings'}. ${next}`,
     };
   }

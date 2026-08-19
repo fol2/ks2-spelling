@@ -332,6 +332,9 @@ export async function createProductAppServices(options = {}) {
     // unavailable workflow, which fails purchase/restore/download closed.
     // It composes before learning and playback because the commerce snapshot
     // is what tells both which catalogue this device is entitled to.
+    const gatewayOrigin = (options.packTrustEnvironment ?? 'sandbox') === 'production'
+      ? ['https:', '', 'ks2-gateway.eugnel.uk'].join('/')
+      : ['https:', '', 'b3-gateway.eugnel.uk'].join('/');
     const commerceWorkflow = options.commerceWorkflow ??
       (options.runtime?.isNativePlatform === true
         ? createProductCommerceWorkflow({
@@ -340,7 +343,7 @@ export async function createProductAppServices(options = {}) {
             commandGate: gate,
             packRepository: createSqlitePackRepositories(connection),
             packTransfer: options.packTransfer ??
-              createCapacitorPackTransfer({ PackTransfer: PackTransferPlugin }),
+              createCapacitorPackTransfer({ PackTransfer: PackTransferPlugin, gatewayOrigin }),
             packTrustEnvironment: options.packTrustEnvironment ?? 'sandbox',
             clock: now,
           })

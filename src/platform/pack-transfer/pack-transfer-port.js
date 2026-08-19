@@ -22,7 +22,6 @@ const ARCHIVE = /^[a-z0-9][a-z0-9._-]{0,119}\.zip$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const LOGICAL_TOKEN = /^[a-z0-9][a-z0-9/._-]{0,255}$/;
-const PACK_GATEWAY_ORIGIN = ['https:', '', 'b3-gateway.eugnel.uk'].join('/');
 
 function validateLogicalToken(value, label) {
   const token = assertString(value, label, { max: 256, pattern: LOGICAL_TOKEN });
@@ -47,7 +46,8 @@ function safeIdentity(value, keys, label) {
   };
 }
 
-export function validateDownloadRangeRequest(value) {
+export function validateDownloadRangeRequest(value, gatewayOrigin) {
+  const expectedOrigin = assertString(gatewayOrigin, 'Pack gateway origin');
   const identity = safeIdentity(
     value,
     [
@@ -85,7 +85,7 @@ export function validateDownloadRangeRequest(value) {
   const expires = Number(entries[0]?.[1]);
   if (
     parsed.protocol !== 'https:' ||
-    parsed.origin !== PACK_GATEWAY_ORIGIN ||
+    parsed.origin !== expectedOrigin ||
     parsed.username ||
     parsed.password ||
     parsed.port ||

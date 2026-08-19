@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 const SHA = 'a'.repeat(64);
+const SANDBOX_ORIGIN = ['https:', '', 'b3-gateway.eugnel.uk'].join('/');
 const CAPABILITY = `https://b3-gateway.eugnel.uk/v1/packs/b3-sandbox-proof/1.0.0-b3.1/b3-sandbox-proof.zip?expires=1783900800&cap=${'A'.repeat(43)}`;
 
 function nativePlugin(overrides = {}) {
@@ -51,6 +52,7 @@ test('Capacitor PackTransfer exposes the exact six-method port and validates nat
         };
       },
     }),
+    gatewayOrigin: SANDBOX_ORIGIN,
   });
   assert.deepEqual(Reflect.ownKeys(transfer), [
     'getFreeBytes',
@@ -92,6 +94,7 @@ test('Capacitor PackTransfer exposes the exact six-method port and validates nat
         etag: '"fixed-etag"',
       }),
     }),
+    gatewayOrigin: SANDBOX_ORIGIN,
   });
   assert.equal((await quoted.downloadRange(request)).etag, 'fixed-etag');
   assert.deepEqual(calls, [request]);
@@ -104,6 +107,7 @@ test('Capacitor PackTransfer validates every request before invoking native code
   let calls = 0;
   const transfer = createCapacitorPackTransfer({
     PackTransfer: nativePlugin({ downloadRange: async () => { calls += 1; } }),
+    gatewayOrigin: SANDBOX_ORIGIN,
   });
   for (const capabilityUrl of [
     CAPABILITY.replace('https:', 'http:'),
@@ -130,11 +134,13 @@ test('Capacitor PackTransfer closes native response shapes and redacts native er
   );
   const leaking = createCapacitorPackTransfer({
     PackTransfer: nativePlugin({ getFreeBytes: async () => ({ freeBytes: 1, path: '/private' }) }),
+    gatewayOrigin: SANDBOX_ORIGIN,
   });
   await assert.rejects(leaking.getFreeBytes(), /closed|fields/i);
 
   const failing = createCapacitorPackTransfer({
     PackTransfer: nativePlugin({ getFreeBytes: async () => { throw new Error('secret URL'); } }),
+    gatewayOrigin: SANDBOX_ORIGIN,
   });
   await assert.rejects(
     failing.getFreeBytes(),
@@ -162,6 +168,7 @@ test('Capacitor PackTransfer preserves only the two safe download recovery codes
           throw Object.assign(new Error('private native detail'), { code });
         },
       }),
+      gatewayOrigin: SANDBOX_ORIGIN,
     });
     await assert.rejects(
       transfer.downloadRange(request),
@@ -176,6 +183,7 @@ test('Capacitor PackTransfer preserves only the two safe download recovery codes
           throw Object.assign(new Error('secret capability URL'), { code });
         },
       }),
+      gatewayOrigin: SANDBOX_ORIGIN,
     });
     await assert.rejects(
       transfer.downloadRange(request),
@@ -183,4 +191,58 @@ test('Capacitor PackTransfer preserves only the two safe download recovery codes
         && !error.message.includes('secret capability URL'),
     );
   }
+});
+
+test('a production-injected pack-transfer port accepts a production-gateway capability and rejects the sandbox-gateway capability', async () => {
+  const { createCapacitorPackTransfer } = await import(
+    '../src/platform/pack-transfer/capacitor-pack-transfer.js'
+  );
+  const productionOrigin = 'https://ks2-gateway.eugnel.uk';
+  const productionCapability = `https://ks2-gateway.eugnel.uk/v1/packs/b3-sandbox-proof/1.0.0-b3.1/b3-sandbox-proof.zip?expires=1783900800&cap=${'A'.repeat(43)}`;
+  const sandboxOrigin = 'https://b3-gateway.eugnel.uk';
+  const rangeRequest = (capabilityUrl) => ({
+    capabilityUrl,
+    packId: 'b3-sandbox-proof',
+    version: '1.0.0-b3.1',
+    archiveName: 'b3-sandbox-proof.zip',
+    startByte: 0,
+    endByteExclusive: 100,
+    truncate: false,
+  });
+  const accepted = {
+    status: 206,
+    startByte: 0,
+    endByteExclusive: 100,
+    totalBytes: 1_324,
+    bytesWritten: 100,
+    etag: 'fixed-etag',
+  };
+
+  const production = createCapacitorPackTransfer({
+    PackTransfer: nativePlugin(),
+    gatewayOrigin: productionOrigin,
+  });
+  assert.deepEqual(
+    await production.downloadRange(rangeRequest(productionCapability)),
+    accepted,
+  );
+  await assert.rejects(
+    production.downloadRange(rangeRequest(CAPABILITY)),
+    /capability/i,
+  );
+  await assert.rejects(
+    production.downloadRange(rangeRequest(
+      productionCapability.replace('ks2-gateway.eugnel.uk', 'evil.example'),
+    )),
+    /capability/i,
+  );
+
+  const sandbox = createCapacitorPackTransfer({
+    PackTransfer: nativePlugin(),
+    gatewayOrigin: sandboxOrigin,
+  });
+  await assert.rejects(
+    sandbox.downloadRange(rangeRequest(productionCapability)),
+    /capability/i,
+  );
 });

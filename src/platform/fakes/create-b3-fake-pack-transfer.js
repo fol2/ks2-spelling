@@ -95,7 +95,10 @@ export function createB3FakePackTransfer(rawOptions) {
       return validateFreeBytes(take(freeBytes, 'getFreeBytes'));
     },
     async downloadRange(request) {
-      validateDownloadRangeRequest(request);
+      validateDownloadRangeRequest(
+        request,
+        ['https:', '', 'b3-gateway.eugnel.uk'].join('/'),
+      );
       return validateDownloadRangeResult(take(downloads, 'downloadRange'));
     },
     async inspectAndExtract(request) {

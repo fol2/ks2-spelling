@@ -46,6 +46,7 @@ function capacitorTransfer(downloadRange) {
       inventoryInstalledVersions: async () => ({ versions: [] }),
       removeOwnedTemporaryState: async () => ({ removed: true }),
     },
+    gatewayOrigin: ['https:', '', 'b3-gateway.eugnel.uk'].join('/'),
   });
 }
 

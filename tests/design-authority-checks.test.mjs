@@ -737,3 +737,172 @@ test('Design authority: the Codex roster is one tile width and its lower rails c
     'the look-closer overlay must sit outside the scrollport rather than scrolling with it',
   );
 });
+
+test('Design authority: the Field Record topline keeps its own band and the stat trio seats whole labels (#117)', async () => {
+  const css = await read('src/app/app.css');
+  const rules = cssRuleBlocks(css);
+  const rule = (selector) => rules.find((r) => r.selector === selector);
+  /* One rem is one root font size, and the root font size is what Dynamic Type
+     moves. Every length compared here is compared at 100% text, where the
+     px-valued animation it has to clear is also authored. */
+  const REM = 16;
+  const lengthPx = (value) => {
+    const match = /^([\d.]+)(rem|em|px)$/u.exec(value.trim());
+    if (!match) return null;
+    return match[2] === 'px' ? Number(match[1]) : Number(match[1]) * REM;
+  };
+
+  /* --- the topline's band ------------------------------------------------ */
+
+  const namesArt = (selector) => selector
+    .split(',')
+    .some((part) => /(?:^|[\s>+~])\.results-halo\s+img(?![\w-])/u.test(part.trim()));
+  const artRules = rules.filter((r) => namesArt(r.selector));
+  assert.ok(artRules.length > 0, 'a .results-halo img rule must exist');
+
+  const margins = artRules
+    .map((r) => ({ selector: r.selector, match: /(?:^|;)\s*margin-top:\s*([^;]+)/u.exec(r.body) }))
+    .filter((entry) => entry.match);
+  assert.equal(
+    margins.length,
+    1,
+    'exactly one rule may set the companion art margin-top, or which one wins depends on source '
+      + 'order — and the losing one is the band this ticket is about',
+  );
+
+  const band = lengthPx(margins[0].match[1]);
+  assert.ok(
+    band !== null && band > 0,
+    'the companion art must start below the topline, not tucked up under it: `-0.75rem` drew opaque '
+      + 'sprite over the letterforms of "Expedition logged" on every screen measured — 45.7 css px2 '
+      + 'at 393x852 and 100% text, 341.9 at 320x568 and 160%. A positive margin is the only form of '
+      + 'this that holds for a companion nobody has drawn yet, because ink cannot leave its own box',
+  );
+
+  /* The band has to survive the art's own idle animation, which is authored in
+     px and so does not grow with the text the way the band does. */
+  const floatFrames = /@keyframes\s+float\s*\{([\s\S]*?)\n\}/u.exec(stripCssComments(css));
+  assert.ok(floatFrames, '@keyframes float must exist — it is what the band has to clear');
+  const lifts = [...floatFrames[1].matchAll(/translateY\(\s*(-?[\d.]+)px\s*\)/gu)]
+    .map((match) => -Number(match[1]))
+    .filter((amount) => amount > 0);
+  const lift = Math.max(0, ...lifts);
+  assert.ok(
+    band >= lift,
+    `the band (${band}px at 100% text) must clear the ${lift}px the float animation lifts the art, `
+      + 'or the topline is overlapped once a cycle rather than never',
+  );
+
+  /* --- the stat trio ---------------------------------------------------- */
+
+  const tally = rule('.record-tally');
+  assert.ok(tally, '.record-tally rule must exist');
+
+  const columns = /(?:^|;)\s*grid-template-columns:\s*([^;]+)/u.exec(tally.body);
+  assert.ok(
+    columns && /(?:^|;)\s*display:\s*grid\b/u.test(tally.body),
+    'the trio must be a grid: a flex row equalises three cells on a zero basis regardless of what '
+      + 'they have to say, which is what wrapped "WORDS WALKED" onto a second line on every phone '
+      + 'while its neighbours sat half empty',
+  );
+
+  const track = /repeat\(\s*auto-fit\s*,\s*minmax\(\s*([\d.]+(?:rem|em|px))\s*,\s*1fr\s*\)\s*\)/u
+    .exec(columns[1]);
+  assert.ok(
+    track,
+    'the tracks must be `repeat(auto-fit, minmax(<floor>, 1fr))`. auto-fit is what drops the trio '
+      + 'to two tracks, then one, as the labels grow, and it collapses the tracks no cell lands in '
+      + `so a wide screen still shows three across. Found: ${columns[1].trim()}`,
+  );
+  assert.match(
+    track[1],
+    /(?:rem|em)$/u,
+    'the track floor must be font-relative: a px floor holds its width while the label inside it '
+      + 'grows with Dynamic Type, so the strip seats a column too many and the label wraps again',
+  );
+  assert.ok(
+    lengthPx(track[1]) >= 90,
+    'the track floor must be at least the 90px "WORDS WALKED" measures at 100% text — the longest '
+      + 'label the strip has to seat. Below it the grid keeps a column it cannot fill: at 5rem the '
+      + '320x568 strip holds two 107.5px tracks at 130% text and asks 117px of label to sit in one',
+  );
+
+  const cell = rule('.record-tally div');
+  assert.ok(cell, '.record-tally div rule must exist');
+  assert.match(
+    cell.body,
+    /(?:^|;)\s*flex-direction:\s*column\b/u,
+    'the figure must stack over its label, or the label gets the cell minus the figure and the '
+      + 'track floor has to be wider than any phone can give it',
+  );
+  assert.doesNotMatch(
+    cell.body,
+    /(?:^|;)\s*flex(?:-basis|-grow|-shrink)?:/u,
+    'a flex shorthand on a grid item is the equalisation that caused this: `flex: 1` gave all three '
+      + 'cells one width no matter what they had to say',
+  );
+
+  assert.equal(
+    rules.filter((r) => /\.record-tally\s+div\s*\+\s*div/u.test(r.selector)).length,
+    0,
+    'a `div + div` separator cannot know which cell begins a grid row, so it draws a rule down the '
+      + 'left edge of a wrapped line — the column gap carries the separation instead',
+  );
+
+  assert.match(
+    rule('.record-tally .label')?.body ?? '',
+    /(?:^|;)\s*overflow-wrap:\s*normal\b/u,
+    'a stat label breaks between its words or not at all, the rule `.round-foot p` already carries: '
+      + "left to the product's `overflow-wrap: anywhere`, a cell one pixel short of \"CORRECT\" "
+      + 'renders it a letter per line — 6, 6 and 11 lines at 320x568 and 160% text, 250.2px of strip',
+  );
+
+  /* --- the way out stays on the screen ---------------------------------- */
+
+  /* Seating whole labels costs height, and the results scene clips: on `main`
+     the record already pushed Walk again and Trail entirely off six of the nine
+     phone cells and left 0.5% of the primary at 320x568 and 100% text. The
+     growth has to land in a port, and the actions have to sit outside it. */
+  assert.match(
+    rule('.results-column')?.body ?? '',
+    /(?:^|;)\s*flex-direction:\s*column\b/u,
+    'the port must be a flex column, or `.results-halo`\'s `flex: 1` stops resolving and the '
+      + 'companion is no longer centred on a screen with room to spare',
+  );
+
+  const jsx = await read('src/app/ProductApp.jsx');
+  const open = jsx.indexOf('<div className="scene-scroll results-column">');
+  assert.ok(
+    open >= 0,
+    'the record must sit in a `scene-scroll results-column` port — `.product-scene` is '
+      + '`overflow: hidden`, so without one every pixel the record grows is taken off the exit',
+  );
+
+  const tags = /<div\b[^>]*?(\/?)>|<\/div>/gu;
+  tags.lastIndex = open;
+  let depth = 0;
+  let close = -1;
+  for (let match = tags.exec(jsx); match; match = tags.exec(jsx)) {
+    if (match[0].startsWith('</')) depth -= 1;
+    else if (match[1] !== '/') depth += 1;
+    if (depth === 0) {
+      close = match.index;
+      break;
+    }
+  }
+  assert.ok(close > open, 'the results-column port must close');
+
+  for (const inside of ['results-halo', 'field-record']) {
+    const at = jsx.indexOf(`className="${inside}"`);
+    assert.ok(
+      at > open && at < close,
+      `.${inside} must scroll inside the port — it is what grows when a stat label takes a track `
+        + 'of its own or a return roll runs long',
+    );
+  }
+  assert.ok(
+    jsx.indexOf('className="results-actions"') > close,
+    'the actions must sit outside the port as the scene\'s foot. Inside it they scroll away again, '
+      + 'and the Celebration tier requires the way out to arrive with the screen',
+  );
+});

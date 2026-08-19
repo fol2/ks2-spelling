@@ -14,6 +14,7 @@ import {
   celebrationProgressMeterCopy,
   celebrationStageDecision,
   diffMonsterCelebrations,
+  hasProgressMeter,
   milestoneCelebration,
   monsterCelebrationArtUrl,
   primaryProgressedRewardTrackId,
@@ -268,11 +269,17 @@ test('celebration copy distinguishes progress, catch and final evolution', () =>
     [monster({ caught: true, secureCount: 8 })],
     [monster({ caught: true, secureCount: 9 })],
   )[0];
+  // The meter states the count and the gain, so the label and the body do not
+  // repeat them (#117). The announcement is untouched: it is the sentence read
+  // instead of the card, and it carries the gain and what the next form costs.
+  // It never carried the standing count, on `main` either — `n / target` has
+  // only ever reached a screen reader through the meter, since the card's own
+  // `aria-label` overrides the stage label that used to duplicate it.
   assert.deepEqual(celebrationCopy(progress), {
     eyebrow: 'Companion progress',
     headline: 'Inklet grew stronger',
-    stageLabel: 'Inklet Egg · 9 / 100 secure',
-    body: '1 spelling became secure. 1 more secure spelling to Inklet.',
+    stageLabel: 'Inklet Egg',
+    body: '1 more secure spelling to Inklet.',
     announcement: 'Inklet gained 1 secure spelling. 1 more secure spelling to Inklet.',
   });
   assert.equal(celebrationProgressMeterCopy(progress), '9 / 100 secure');
@@ -396,10 +403,48 @@ test('fully evolved progress reports real secure count without an impossible fra
     celebrationProgressMeterCopy(event),
     '109 secure · fully evolved',
   );
-  assert.equal(
-    celebrationCopy(event).stageLabel,
-    'Mega Quillorn · 109 secure · fully evolved',
-  );
+  // Still stated, still once: the meter carries it and the label does not.
+  assert.equal(celebrationCopy(event).stageLabel, 'Mega Quillorn');
+});
+
+test('a progress card states each figure once, and states it even with no meter (#117)', () => {
+  const withMeter = {
+    kind: 'progress',
+    monsterId: 'inklet',
+    stage: 1,
+    secureGain: 5,
+    secureCount: 34,
+    target: 100,
+    nextThreshold: 100,
+  };
+  assert.equal(hasProgressMeter(withMeter), true);
+
+  const copy = celebrationCopy(withMeter);
+  const meter = celebrationProgressMeterCopy(withMeter);
+  // Everything the card renders, in one string — stage label, body and the two
+  // halves of the meter. The announcement is deliberately excluded: it is
+  // `visually-hidden` and read instead of the card, not alongside it.
+  const card = [
+    copy.eyebrow,
+    copy.headline,
+    copy.stageLabel,
+    copy.body,
+    `+${withMeter.secureGain}`,
+    meter,
+  ].join('\n');
+  const says = (needle) => card.split(needle).length - 1;
+
+  assert.equal(says('34 / 100'), 1, `standing count repeated on the card:\n${card}`);
+  assert.equal(says('5'), 1, `round gain repeated on the card:\n${card}`);
+
+  // Without a meter nothing else would carry the figures, so the label and the
+  // body take them back. A card that says a number no times is the failure this
+  // slice could otherwise have shipped.
+  const noMeter = { ...withMeter, target: 0 };
+  assert.equal(hasProgressMeter(noMeter), false);
+  const bare = celebrationCopy(noMeter);
+  assert.match(bare.stageLabel, /34 secure$/u);
+  assert.match(bare.body, /^5 spellings became secure\./u);
 });
 
 test('celebration event identity includes branch and progress payload', () => {

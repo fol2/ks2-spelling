@@ -3368,109 +3368,118 @@ function ResultsScreen({
           onDone={onCelebrationDone}
         />
         <div className="scene-body">
-          <div className="results-halo">
-            <p className="product-kicker">Expedition logged</p>
-            {companion?.art && (
-              <img src={companion.art} alt={companion.displayName ?? companion.name} />
-            )}
-            {secureGain > 0 && (
-              <p className="results-gain">
-                {secureGain === 1
-                  ? '1 word is now secure'
-                  : `${secureGain} words are now secure`}
-              </p>
-            )}
-          </div>
-
-          <div className="field-record">
-            <div className="field-record-sheet">
-              <div className="field-record-head">
-                <div>
-                  <p className="product-kicker">
-                    Field record<span aria-hidden="true" />
-                  </p>
-                  <h1 id="summary-title">{clean ? 'Clean sweep' : 'Well done'}</h1>
-                  <p>{summary?.message}</p>
-                </div>
-                <span className="record-stamp">
-                  <span className="figure">{accuracy}</span>
-                  <small>percent</small>
-                </span>
-              </div>
-
-              <div className="record-tally">
-                <div>
-                  <span className="figure figure-good">{correct}</span>
-                  <span className="label">correct</span>
-                </div>
-                <div>
-                  <span className="figure figure-retry">{mistakes.length}</span>
-                  <span className="label">return</span>
-                </div>
-                <div>
-                  <span className="figure figure-brass">{total}</span>
-                  <span className="label">words walked</span>
-                </div>
-              </div>
-
-              {campGain > 0 && (
-                <p className="record-camp">
-                  <IconGuardian size={17} />
-                  The camp fire rises — Camp level {camp?.campHighWater ?? 0}
+          {/* The record grows — a two-line stat cell, a long return roll, a
+              Guardian camp strip — and the scene clips at `overflow: hidden`,
+              so without a port the growth is spent on the way out: at 320x568
+              and 100% text `main` leaves 0.5% of Walk again on the screen, and
+              seating whole stat labels takes that last sliver. The port takes
+              the growth instead, and the actions stay outside it as the scene's
+              foot, so they are on screen at every size measured. */}
+          <div className="scene-scroll results-column">
+            <div className="results-halo">
+              <p className="product-kicker">Expedition logged</p>
+              {companion?.art && (
+                <img src={companion.art} alt={companion.displayName ?? companion.name} />
+              )}
+              {secureGain > 0 && (
+                <p className="results-gain">
+                  {secureGain === 1
+                    ? '1 word is now secure'
+                    : `${secureGain} words are now secure`}
                 </p>
               )}
+            </div>
 
-              {clean ? (
-                <p className="record-roll-clean body-copy">
-                  Every word held on the first try.
-                </p>
-              ) : (
-                <>
-                  <p className="product-kicker record-roll-kicker">
-                    {guardian ? 'Back tomorrow' : 'Coming back'}
-                    <span className="figure"> {mistakes.length}</span>
+            <div className="field-record">
+              <div className="field-record-sheet">
+                <div className="field-record-head">
+                  <div>
+                    <p className="product-kicker">
+                      Field record<span aria-hidden="true" />
+                    </p>
+                    <h1 id="summary-title">{clean ? 'Clean sweep' : 'Well done'}</h1>
+                    <p>{summary?.message}</p>
+                  </div>
+                  <span className="record-stamp">
+                    <span className="figure">{accuracy}</span>
+                    <small>percent</small>
+                  </span>
+                </div>
+
+                <div className="record-tally">
+                  <div>
+                    <span className="figure figure-good">{correct}</span>
+                    <span className="label">correct</span>
+                  </div>
+                  <div>
+                    <span className="figure figure-retry">{mistakes.length}</span>
+                    <span className="label">return</span>
+                  </div>
+                  <div>
+                    <span className="figure figure-brass">{total}</span>
+                    <span className="label">words walked</span>
+                  </div>
+                </div>
+
+                {campGain > 0 && (
+                  <p className="record-camp">
+                    <IconGuardian size={17} />
+                    The camp fire rises — Camp level {camp?.campHighWater ?? 0}
                   </p>
-                  <ul className="record-roll">
-                    {mistakes.map((word) => (
-                      <li key={word} data-ok="false">
-                        <strong>{word}</strong>
-                        <span className="record-roll-rule" aria-hidden="true" />
-                        <span className="record-roll-status">
-                          {guardian ? 'comes back tomorrow' : 'comes back'}
-                        </span>
-                        <span className="record-roll-mark" aria-hidden="true">
-                          <IconReturn size={12} />
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
+                )}
 
-              {companion && (
-                <div className="record-growth">
-                  <span>
-                    <span className="record-growth-name">
-                      <strong>{companion.displayName}</strong>
-                      <span>{companion.stageLabel}</span>
-                    </span>
-                    <span className="record-growth-bars" aria-hidden="true">
-                      {companion.pips.map((filled, index) => (
-                        <span
-                          // eslint-disable-next-line react/no-array-index-key
-                          key={index}
-                          data-filled={filled ? 'true' : 'false'}
-                          data-latest={filled && index === companion.stage ? 'true' : 'false'}
-                        />
+                {clean ? (
+                  <p className="record-roll-clean body-copy">
+                    Every word held on the first try.
+                  </p>
+                ) : (
+                  <>
+                    <p className="product-kicker record-roll-kicker">
+                      {guardian ? 'Back tomorrow' : 'Coming back'}
+                      <span className="figure"> {mistakes.length}</span>
+                    </p>
+                    <ul className="record-roll">
+                      {mistakes.map((word) => (
+                        <li key={word} data-ok="false">
+                          <strong>{word}</strong>
+                          <span className="record-roll-rule" aria-hidden="true" />
+                          <span className="record-roll-status">
+                            {guardian ? 'comes back tomorrow' : 'comes back'}
+                          </span>
+                          <span className="record-roll-mark" aria-hidden="true">
+                            <IconReturn size={12} />
+                          </span>
+                        </li>
                       ))}
+                    </ul>
+                  </>
+                )}
+
+                {companion && (
+                  <div className="record-growth">
+                    <span>
+                      <span className="record-growth-name">
+                        <strong>{companion.displayName}</strong>
+                        <span>{companion.stageLabel}</span>
+                      </span>
+                      <span className="record-growth-bars" aria-hidden="true">
+                        {companion.pips.map((filled, index) => (
+                          <span
+                            // eslint-disable-next-line react/no-array-index-key
+                            key={index}
+                            data-filled={filled ? 'true' : 'false'}
+                            data-latest={filled && index === companion.stage ? 'true' : 'false'}
+                          />
+                        ))}
+                      </span>
                     </span>
-                  </span>
-                  <span className="record-growth-secure">
-                    <span className="figure">{companion.secureCount}</span>
-                    <span className="label">words secure</span>
-                  </span>
-                </div>
-              )}
+                    <span className="record-growth-secure">
+                      <span className="figure">{companion.secureCount}</span>
+                      <span className="label">words secure</span>
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

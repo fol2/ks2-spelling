@@ -123,10 +123,62 @@ beside the target. Contract test: `tests/round-feedback-order.test.mjs`.
 - **Issue link**: #249
 - **Status**: `todo`
 
-- **Location**: `src/app/Results.jsx:stat-trio` (stat trio wraps ragged; topline overlaps hero art)
-- **Clause**: Contract — Layer 3 — Tile consistency / Label baseline
-- **Issue link**: #117
-- **Status**: `todo`
+### Field Record — the #117 entry retired at #117
+
+The entry named `src/app/Results.jsx:stat-trio`, a path that has never existed
+on any branch — the summary screen is `src/app/ProductApp.jsx`
+(`ResultsScreen`), the strip is `.record-tally` in `src/app/app.css` and the
+topline is `.results-halo`. Retired rather than relocated, the same fictional
+location family as #242 and the #111, #112, #114, #115 and #116 entries above.
+
+Of the three defects the ticket named, **two were real and one was not**.
+
+*The topline overlap is real, on every screen measured.* `.results-halo img`
+carried `margin-top: -0.75rem`, tucking the companion up under "Expedition
+logged" — opaque sprite crossed the letterforms in all twelve cells, 45.7 css
+px² at 393×852 and 100% text through 341.9 px² at 320×568 and 160%, before the
+`float` animation lifts the art a further 5px once a cycle. The margin is now
+positive, so the art's *box* starts below the label and ink cannot leave its
+box: clearance measures **10.2–17.8px in all twelve cells**, and it holds for a
+companion nobody has drawn yet, which is what the ticket's "every companion
+stage and every roster member" asks for.
+
+*The ragged trio is real; its stated mechanism is not.* The three cells never
+differed in height and the row's baseline never broke — `.record-tally` is a
+flex row, so `align-items: stretch` had already equalised them, and figures and
+labels shared a baseline to the pixel in every cell measured. What was true is
+worse than what was written: `flex: 1` on a zero basis gave all three cells one
+width regardless of what they had to say, so "WORDS WALKED" (90px) wrapped to
+two lines on every phone at 100% text while its neighbours sat half empty, and
+under Dynamic Type the product-wide `overflow-wrap: anywhere` shredded rather
+than wrapped — **6, 6 and 11 lines at 320×568 and 160%, a 250.2px strip**, a
+quarter of the phone spent on three numbers. The trio is now an `auto-fit` grid
+over a 5.75rem floor with the label stacked under its figure and
+`overflow-wrap: normal`: **every label sits on one line in all twelve cells**,
+three across where three fit and two, then one, where they do not, each cell
+keeping its track width on a wrapped row.
+
+*The triple statement is real, on the card above the sheet.* Not the Field
+Record: `celebrationProgressMeterCopy` was called twice into the same
+celebration card — once through the stage label, once through the meter copy —
+beside the bar that draws the same figure. One predicate now decides it, so the
+meter states the count and the gain and the prose states neither, and where
+there is no meter both come back rather than the card stating them nowhere.
+
+*Surfaced by the fix, and larger than the ticket:* the results scene has no
+scrollport, and `.product-scene` is `overflow: hidden`, so every pixel the
+record grows is taken off the way out. On `main` **Walk again and Trail are
+wholly off the screen in six of the nine phone cells** — 320×568 at 130% and
+160%, 375×667 at 130% and 160%, 393×852 at 160% — and at 320×568 and 100% text
+0.5% of the primary button is left. Seating whole stat labels would have taken
+that last sliver, so this slice gives the record the shared `.scene-scroll`
+port and keeps the actions outside it as the scene's foot: **100% visible in
+all twelve cells**, on both buttons. Same shape as the Codex at #116, and the
+same defect `#249` records for the round scene.
+
+Contract test: `tests/design-authority-checks.test.mjs` (topline band, stat trio
+and the exit) and `tests/product-celebrations.test.mjs` (fact singularity).
+Nineteen mutations of the fix were watched go red.
 
 - **Location**: `src/app/Parent.jsx` (dead band on entry; title stated twice)
 - **Clause**: Contract — Layer 3 — Backdrop proportion / Fact singularity

@@ -2725,6 +2725,15 @@ select {
   color: var(--dusk-ink);
 }
 
+/* The halo is `flex: 1` and spends the scene's slack, so the port it now sits
+   in has to be a flex column too — inside a plain block it would collapse to
+   its own content and the companion would stop being centred on a screen with
+   room to spare. */
+.results-column {
+  display: flex;
+  flex-direction: column;
+}
+
 .results-halo {
   position: relative;
   display: flex;
@@ -2762,11 +2771,24 @@ select {
   animation: riseSoft 400ms var(--ease) backwards;
 }
 
+/* The topline gets a band of its own, and the margin is what makes it one.
+   `-0.75rem` tucked the sprite up under "Expedition logged" and its opaque
+   pixels crossed the letterforms on every screen measured: 6.4px into the label
+   box at 393x852 and 100% text, 14.6px at 320x568 and 160%, 45.7 to 341.9 css
+   px2 of companion drawn over the words.
+
+   A positive margin is the only form of this fix that holds for a companion
+   nobody has drawn yet. Ink cannot leave its own box, so once the box starts
+   below the label the clearance is a fact about the layout rather than a
+   measurement of one sprite's transparent padding — which is what the ticket's
+   "every companion stage and every roster member" asks for. 0.35rem, not 0,
+   because `float` lifts the art 5px at the top of its cycle and a 0 margin
+   spends that on the label. */
 .results-halo img {
   position: relative;
   width: min(13rem, 54vw);
   height: min(13rem, 54vw);
-  margin-top: -0.75rem;
+  margin-top: 0.35rem;
   object-fit: contain;
   filter: drop-shadow(0 26px 30px rgb(0 0 0 / 70%));
   animation:
@@ -2900,24 +2922,55 @@ select {
   opacity: 0.85;
 }
 
+/* Control rows wrap; they never squeeze (#111, #115). This one did neither: the
+   cells were `flex: 1` on a zero basis, so all three took the same width no
+   matter what they had to say, and the one two-word label paid for it. "WORDS
+   WALKED" needs 90px and its share of a 393px phone is 99.7px of usable width
+   once the separator and its padding are taken, so it wrapped to two lines on
+   every phone at 100% text while its neighbours sat half empty — the ragged row
+   the ticket names. Under Dynamic Type the inherited `overflow-wrap: anywhere`
+   turned it into shredding rather than wrapping: at 320x568 and 160% the three
+   labels rendered 6, 6 and 11 lines and the strip stood 250.2px tall, a quarter
+   of the phone spent on three numbers.
+
+   Three cells 90px wide do not fit 252.4px of strip, so something has to give
+   and the only question is what. A track floor settles it: `auto-fit` fits as
+   many tracks as the strip holds and collapses the ones no cell lands in, so
+   the trio is three across wherever three fit and drops to two, then one, where
+   they do not — and a cell that falls to a new line keeps the track width its
+   siblings have, which a wrapped flex line does not give (a lone item there
+   takes the whole line, 252.4px beside its 119.4px neighbours). Stacking the
+   label under its figure is what makes the floor reachable: the label gets the
+   cell rather than the cell minus the figure.
+
+   5.75rem is the floor because "WORDS WALKED" is 5.625rem of tracked uppercase
+   — the longest label the strip has to seat. Set below it, the grid seats a
+   column too many and the label wraps again where it is 1.5rem short: at 5rem
+   the 320x568 strip keeps two 107.5px tracks at 130% text and asks 117px of
+   label to sit in one. `auto-fit` will not take `max-content` as its floor, so
+   the number is written down rather than derived, and it is written in rem so
+   it rises with the text it has to hold.
+
+   The vertical rules go with the flex row. `div + div` names every cell but the
+   first in the *source*, not the first on a *line*, so on a wrapped row it draws
+   a rule down the left edge of the strip and the frame reads as broken. The
+   column gap separates the cells and the rules top and bottom still bound
+   them. */
 .record-tally {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.75rem, 1fr));
   margin-top: 0.85rem;
   border-top: 1px solid rgb(29 43 58 / 14%);
   border-bottom: 1px solid rgb(29 43 58 / 14%);
+  column-gap: 0.85rem;
 }
 
 .record-tally div {
   display: flex;
-  flex: 1;
-  align-items: baseline;
-  gap: 0.45rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
   padding: 0.55rem 0;
-}
-
-.record-tally div + div {
-  border-left: 1px solid rgb(29 43 58 / 14%);
-  padding-left: 0.85rem;
 }
 
 .record-tally .figure {
@@ -2925,11 +2978,16 @@ select {
   line-height: 1;
 }
 
+/* A stat label breaks between its words or not at all — the rule
+   `.round-foot p` carries for the dictation disclosure. Left to the product's
+   `overflow-wrap: anywhere`, a cell one pixel short of "CORRECT" renders it a
+   letter per line rather than moving to a line of its own. */
 .record-tally .label {
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.11em;
   color: var(--ink-faint);
+  overflow-wrap: normal;
 }
 
 /* Camp only rises on a Guardian mission, so this strip appears on a handful of

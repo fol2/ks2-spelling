@@ -2004,145 +2004,150 @@ function CodexScreen({ monsters, progress, onScreen }) {
         veil="linear-gradient(180deg,rgba(9,15,23,.8) 0%,rgba(9,15,23,.5) 32%,rgba(9,15,23,.94) 100%)"
       >
         <div className="scene-body">
-          <div className="codex-head">
-            <div>
-              <p className="product-kicker">The Codex</p>
-              <h1 id="codex-title">Companions</h1>
+          {/* The Codex is a browse surface, so it takes the shared scrollport
+              rather than clipping its own roster and rails. `.codex-zoom` stays
+              outside it: a look-closer overlay must not scroll away. */}
+          <div className="scene-scroll codex-column">
+            <div className="codex-head">
+              <div>
+                <p className="product-kicker">The Codex</p>
+                <h1 id="codex-title">Companions</h1>
+              </div>
+              <span className="codex-count">
+                <span className="figure">{codex.foundCount}</span>
+                <span className="figure figure-total">/ {codex.rosterCount}</span>
+                <span className="label">Found</span>
+              </span>
             </div>
-            <span className="codex-count">
-              <span className="figure">{codex.foundCount}</span>
-              <span className="figure figure-total">/ {codex.rosterCount}</span>
-              <span className="label">Found</span>
-            </span>
-          </div>
 
-          {hero && (
-            <>
-              <section
-                className="codex-hero"
-                data-found={hero.found ? 'true' : 'false'}
-                data-near={hero.nearNextStage ? 'true' : 'false'}
-                style={{ '--accent': hero.accent }}
-              >
-                <span className="codex-hero-glow" aria-hidden="true" />
-                <span className="codex-hero-sheen" aria-hidden="true" />
-                {['tl', 'tr', 'bl', 'br'].map((corner) => (
-                  <span key={corner} className="codex-corner" data-corner={corner} aria-hidden="true" />
-                ))}
-                <span className="codex-no">NO. {hero.number}</span>
-                <span className="codex-band">{hero.band}</span>
-
-                {/* Unfound companion is withheld everywhere, so it gets no closer look. */}
-                {hero.found ? (
-                  <button
-                    type="button"
-                    className="codex-stage press"
-                    onClick={() => setZoomed(true)}
-                  >
-                    <span className="codex-stage-shadow" aria-hidden="true" />
-                    <img src={hero.art ?? undefined} alt="" />
-                    <span className="visually-hidden">Look closer at {hero.title}</span>
-                  </button>
-                ) : (
-                  <div className="codex-stage">
-                    <span className="codex-stage-shadow" aria-hidden="true" />
-                    <img src={hero.art ?? undefined} alt="" />
-                  </div>
-                )}
-
-                <div className="codex-hero-foot">
-                  <div className="codex-hero-title">
-                    <h2>{hero.title}</h2>
-                    <span>{hero.stageLabel}</span>
-                  </div>
-                  <p>{hero.blurb}</p>
-                  <div className="codex-meter">
-                    <span className="codex-meter-track">
-                      <span style={{ '--percent': `${hero.percent}%` }} />
-                    </span>
-                    <span className="figure">{hero.count}</span>
-                  </div>
-                  <p className="codex-next">{hero.next}</p>
-                </div>
-              </section>
-
-              <p className="codex-rule label">
-                Growth line<span aria-hidden="true" />
-              </p>
-              <ul className="codex-growth" style={{ '--accent': hero.accent }}>
-                {hero.growth.map((stage) => (
-                  <li
-                    key={stage.key}
-                    data-reached={stage.reached ? 'true' : 'false'}
-                    data-here={stage.here ? 'true' : 'false'}
-                  >
-                    <img src={stage.art ?? undefined} alt="" />
-                    <span>{stage.label}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-
-          <p className="codex-rule label">
-            Roster<span aria-hidden="true" />
-          </p>
-          <div className="codex-roster">
-            {codex.roster.map((companion) => (
-              <button
-                key={companion.rewardTrackId}
-                type="button"
-                className="press"
-                data-found={companion.found ? 'true' : 'false'}
-                aria-pressed={companion.rewardTrackId === hero?.rewardTrackId}
-                style={{ '--accent': companion.accent }}
-                onClick={() => {
-                  setSelected(companion.rewardTrackId);
-                  setZoomed(false);
-                }}
-              >
-                <span className="codex-roster-no">{companion.number}</span>
-                <img src={companion.art ?? undefined} alt="" />
-                <strong>{companion.name}</strong>
-                <span className="codex-pips" aria-hidden="true">
-                  {companion.pips.map((lit, index) => (
-                    // eslint-disable-next-line react/no-array-index-key
-                    <span key={index} data-lit={lit ? 'true' : 'false'} />
+            {hero && (
+              <>
+                <section
+                  className="codex-hero"
+                  data-found={hero.found ? 'true' : 'false'}
+                  data-near={hero.nearNextStage ? 'true' : 'false'}
+                  style={{ '--accent': hero.accent }}
+                >
+                  <span className="codex-hero-glow" aria-hidden="true" />
+                  <span className="codex-hero-sheen" aria-hidden="true" />
+                  {['tl', 'tr', 'bl', 'br'].map((corner) => (
+                    <span key={corner} className="codex-corner" data-corner={corner} aria-hidden="true" />
                   ))}
-                </span>
-              </button>
-            ))}
-          </div>
+                  <span className="codex-no">NO. {hero.number}</span>
+                  <span className="codex-band">{hero.band}</span>
 
-          <div className="codex-stats">
-            <div>
-              <span className="figure">{codex.secureWords}</span>
-              <span className="label">Secure words</span>
-            </div>
-            <div>
-              <span className="figure">{codex.highestStage}</span>
-              <span className="label">Highest stage</span>
-            </div>
-            <div>
-              <span className="figure">{codex.leftToFind}</span>
-              <span className="label">Left to find</span>
-            </div>
-          </div>
+                  {/* Unfound companion is withheld everywhere, so it gets no closer look. */}
+                  {hero.found ? (
+                    <button
+                      type="button"
+                      className="codex-stage press"
+                      onClick={() => setZoomed(true)}
+                    >
+                      <span className="codex-stage-shadow" aria-hidden="true" />
+                      <img src={hero.art ?? undefined} alt="" />
+                      <span className="visually-hidden">Look closer at {hero.title}</span>
+                    </button>
+                  ) : (
+                    <div className="codex-stage">
+                      <span className="codex-stage-shadow" aria-hidden="true" />
+                      <img src={hero.art ?? undefined} alt="" />
+                    </div>
+                  )}
 
-          {/* The engine's mastery milestones, read straight from the engine so
-              the Codex can never advertise a number it would not celebrate.
-              Lit rungs are behind the learner; the marked one is next. */}
-          <ol className="codex-ladder" aria-label="Spelling milestones">
-            {milestoneLadder(secureWordTotal).map((rung) => (
-              <li
-                key={rung.milestone}
-                data-reached={rung.reached ? 'true' : 'false'}
-                data-next={rung.next ? 'true' : 'false'}
-              >
-                <span className="figure">{rung.milestone}</span>
-              </li>
-            ))}
-          </ol>
+                  <div className="codex-hero-foot">
+                    <div className="codex-hero-title">
+                      <h2>{hero.title}</h2>
+                      <span>{hero.stageLabel}</span>
+                    </div>
+                    <p>{hero.blurb}</p>
+                    <div className="codex-meter">
+                      <span className="codex-meter-track">
+                        <span style={{ '--percent': `${hero.percent}%` }} />
+                      </span>
+                      <span className="figure">{hero.count}</span>
+                    </div>
+                    <p className="codex-next">{hero.next}</p>
+                  </div>
+                </section>
+
+                <p className="codex-rule label">
+                  Growth line<span aria-hidden="true" />
+                </p>
+                <ul className="codex-growth" style={{ '--accent': hero.accent }}>
+                  {hero.growth.map((stage) => (
+                    <li
+                      key={stage.key}
+                      data-reached={stage.reached ? 'true' : 'false'}
+                      data-here={stage.here ? 'true' : 'false'}
+                    >
+                      <img src={stage.art ?? undefined} alt="" />
+                      <span>{stage.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            <p className="codex-rule label">
+              Roster<span aria-hidden="true" />
+            </p>
+            <div className="codex-roster">
+              {codex.roster.map((companion) => (
+                <button
+                  key={companion.rewardTrackId}
+                  type="button"
+                  className="press"
+                  data-found={companion.found ? 'true' : 'false'}
+                  aria-pressed={companion.rewardTrackId === hero?.rewardTrackId}
+                  style={{ '--accent': companion.accent }}
+                  onClick={() => {
+                    setSelected(companion.rewardTrackId);
+                    setZoomed(false);
+                  }}
+                >
+                  <span className="codex-roster-no">{companion.number}</span>
+                  <img src={companion.art ?? undefined} alt="" />
+                  <strong>{companion.name}</strong>
+                  <span className="codex-pips" aria-hidden="true">
+                    {companion.pips.map((lit, index) => (
+                      // eslint-disable-next-line react/no-array-index-key
+                      <span key={index} data-lit={lit ? 'true' : 'false'} />
+                    ))}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="codex-stats">
+              <div>
+                <span className="figure">{codex.secureWords}</span>
+                <span className="label">Secure words</span>
+              </div>
+              <div>
+                <span className="figure">{codex.highestStage}</span>
+                <span className="label">Highest stage</span>
+              </div>
+              <div>
+                <span className="figure">{codex.leftToFind}</span>
+                <span className="label">Left to find</span>
+              </div>
+            </div>
+
+            {/* The engine's mastery milestones, read straight from the engine so
+                the Codex can never advertise a number it would not celebrate.
+                Lit rungs are behind the learner; the marked one is next. */}
+            <ol className="codex-ladder" aria-label="Spelling milestones">
+              {milestoneLadder(secureWordTotal).map((rung) => (
+                <li
+                  key={rung.milestone}
+                  data-reached={rung.reached ? 'true' : 'false'}
+                  data-next={rung.next ? 'true' : 'false'}
+                >
+                  <span className="figure">{rung.milestone}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
 
           {zoomed && hero?.found && (
             <button

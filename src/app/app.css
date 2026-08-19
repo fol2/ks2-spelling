@@ -980,6 +980,17 @@ select {
   color: var(--dusk-ink);
 }
 
+/* The Codex is the one place screen that never took the shared scrollport, so
+   its own roster and rails fell off the bottom edge with no way to reach them.
+   A flex column inside the scrollport keeps `.codex-stats`' `margin-top: auto`
+   bottom-anchoring intact where there is slack (the rule #114 set), and under
+   negative free space that `auto` resolves to 0 and the column scrolls instead
+   of clipping. */
+.codex-column {
+  display: flex;
+  flex-direction: column;
+}
+
 .codex-head {
   display: flex;
   flex: none;
@@ -1370,6 +1381,7 @@ select {
 .codex-roster {
   display: flex;
   flex: none;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 0.45rem;
 }
@@ -1377,9 +1389,14 @@ select {
 .codex-roster button {
   position: relative;
   display: grid;
-  /* Grow to share the row, but never stretch a short roster across it. */
-  flex: 1 1 5.25rem;
-  max-width: 8rem;
+  /* One fixed width for every tile, so a roster of equals reads as one. Sized
+     from the longest label rather than a share of the row: a shared basis with
+     `flex-shrink` floors each tile at its *own* min-content width, which is
+     what made 001 Inklet 46.8px beside 003 Undiscovered's 90.2px at 320px. The
+     basis is in `rem`, so it grows with the text and the row re-wraps instead
+     of breaking a companion's name mid-word; the count per row is whatever
+     fits, which is also why any future pack may lengthen the roster. */
+  flex: 0 0 8rem;
   place-items: center;
   gap: 0.2rem;
   border: 1px solid rgb(255 249 236 / 12%);

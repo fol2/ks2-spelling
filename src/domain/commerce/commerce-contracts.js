@@ -446,6 +446,12 @@ export function assertB3GatewayAuthority(value) {
   return value;
 }
 
+export function assertGatewayAuthority(value) {
+  return value?.environment === 'production'
+    ? assertProductionGatewayAuthority(value)
+    : assertB3GatewayAuthority(value);
+}
+
 export function assertProductionGatewayAuthority(value) {
   const label = 'Production gateway authority';
   assertClosedRecord(value, GATEWAY_AUTHORITY_KEYS, label);

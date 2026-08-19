@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { aggregatePackStates } from '../src/app/create-product-commerce-workflow.js';
+import { createSelectedAppServices } from '../src/app/create-production-app-services.js';
 import { createProductAppServices } from '../src/app/create-product-app-services.js';
 import { createUnavailableProductCommerceWorkflow } from '../src/app/unavailable-product-commerce-workflow.js';
 import { isFullProductEntitled, hasEarnedFullProduct } from '../src/app/entitled-audio-switch.js';
@@ -455,6 +456,23 @@ function countingPackTransfer() {
     }),
   };
 }
+
+test('the production release channel composes product services without rejecting the production gateway authority', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-production-channel-boot-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const { runtime: _applicationOwnedRuntime, ...productOptions } = compositionOptions({
+    databasePath: join(directory, 'production.sqlite'),
+    packTransfer: countingPackTransfer().port,
+  });
+  const services = await createSelectedAppServices({
+    buildMode: 'production',
+    isNativePlatform: true,
+    platform: 'ios',
+    productOptions,
+  });
+  t.after(() => services.dispose());
+  assert.equal(services.mode, 'product');
+});
 
 test('a native runtime composes the live commerce workflow, a web runtime the unavailable one', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'ks2-composition-live-'));

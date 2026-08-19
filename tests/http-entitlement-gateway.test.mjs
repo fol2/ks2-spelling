@@ -3,9 +3,17 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const AUTHORITY_URL = new URL('../config/b3-gateway-authority.json', import.meta.url);
+const PRODUCTION_AUTHORITY_URL = new URL(
+  '../config/ks2-gateway-authority-production.json',
+  import.meta.url,
+);
 
 async function authority() {
   return JSON.parse(await readFile(AUTHORITY_URL, 'utf8'));
+}
+
+async function productionAuthority() {
+  return JSON.parse(await readFile(PRODUCTION_AUTHORITY_URL, 'utf8'));
 }
 
 function verifiedResponse(extra = {}) {
@@ -134,6 +142,51 @@ test('HTTP gateway route mapping is fixed and never accepts a caller path', asyn
     '/v1/entitlements/refresh',
     '/v1/packs/authorise-download',
   ]);
+});
+
+test('HTTP gateway accepts the tracked production authority and posts to the production origin', async () => {
+  const { createHttpEntitlementGateway } = await import(
+    '../src/platform/gateway/http-entitlement-gateway.js'
+  );
+  const { assertProductionGatewayAuthority } = await import(
+    '../src/domain/commerce/commerce-contracts.js'
+  );
+  const calls = [];
+  const gateway = createHttpEntitlementGateway({
+    authority: assertProductionGatewayAuthority(await productionAuthority()),
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return jsonResponse(verifiedResponse());
+    },
+  });
+  const request = {
+    store: 'google',
+    environment: 'sandbox',
+    productId: 'full_ks2',
+    opaqueProof: 'opaque-test-token',
+  };
+  assert.deepEqual(await gateway.verifyTransaction(request), verifiedResponse());
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://ks2-gateway.eugnel.uk/v1/entitlements/verify');
+});
+
+test('HTTP gateway rejects production authority drift', async () => {
+  const { createHttpEntitlementGateway } = await import(
+    '../src/platform/gateway/http-entitlement-gateway.js'
+  );
+  const approved = await productionAuthority();
+  for (const mutate of [
+    (value) => { value.publicSandboxOrigin = 'https://example.com'; },
+    (value) => { value.publicSandboxOrigin = 'https://b3-gateway.eugnel.uk'; },
+    (value) => { value.extra = true; },
+  ]) {
+    const candidate = structuredClone(approved);
+    mutate(candidate);
+    assert.throws(
+      () => createHttpEntitlementGateway({ authority: candidate, fetchImpl: fetch }),
+      /gateway authority/i,
+    );
+  }
 });
 
 test('HTTP gateway authority freezes both native CORS origins and rejects drift', async () => {

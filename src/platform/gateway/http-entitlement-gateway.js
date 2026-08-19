@@ -1,4 +1,4 @@
-import { assertB3GatewayAuthority } from '../../domain/commerce/commerce-contracts.js';
+import { assertGatewayAuthority } from '../../domain/commerce/commerce-contracts.js';
 import {
   assertClosedRecord,
   assertExactPort,
@@ -70,7 +70,7 @@ function validateOptions(options) {
     fail('HTTP entitlement gateway options', 'must contain exactly the approved fields');
   }
   assertClosedRecord(options, expected, 'HTTP entitlement gateway options');
-  assertB3GatewayAuthority(options.authority);
+  assertGatewayAuthority(options.authority);
   if (typeof options.fetchImpl !== 'function') fail('Gateway fetch implementation');
   const timeoutMs = options.timeoutMs ?? 10_000;
   assertSafeInteger(timeoutMs, 'Gateway timeout', { min: 1, max: 10_000 });

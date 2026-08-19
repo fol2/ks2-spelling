@@ -906,3 +906,141 @@ test('Design authority: the Field Record topline keeps its own band and the stat
       + 'and the Celebration tier requires the way out to arrive with the screen',
   );
 });
+
+/* The parent area opened 130px down and said its own name twice (#118).
+
+   Both halves are one defect: a container and its first child each claiming the
+   same safe-area inset. `.product-page` pads the notch, and `.product-topbar` —
+   which is only ever that page's first child — padded it again, so the notch was
+   counted twice. Measured in the harness at 393x852 with the iPhone 17 insets
+   the harness sets (`--safe-area-inset-top: 59px`):
+
+     title's first pixel   130px -> 84.2px   (dead band 71px -> 12px)
+     title's left edge     x=32 -> x=16      (the cards below start at x=16)
+     first card's top      296.4px -> 208.8px
+
+   The horizontal half was never reported and is the same arithmetic: the bar's
+   own `max(1rem, inset-left)` set the title one gutter inside the cards it
+   heads. Both go away by deleting the bar's padding, not by tuning it — the bar
+   is never the surface that meets the screen edge, so it has no inset to spend.
+   Its two other sites gain the same correction: the parent gate, and the
+   startup-failure screen, whose `.scene-body` container pads `--gutter-top`.
+
+   The name is now stated once, by the bar, as the screen's `h1` —
+   `aria-labelledby` already pointed at that name, so the accessible name is
+   unchanged. Deleting the heading instead was not open: the h1-per-screen check
+   gates one `h1` per screen with no baseline since #113. The parent *gate* is
+   left alone, because it was already the right shape and is the model for this
+   fix — its bar names the place ("Parent access") over an `h1` that names the
+   task ("Enter Parent PIN"), which is two facts, not one stated twice.
+
+   Held at 320x568 and 393x852 across 100/130/160% text: the title stays on one
+   line, Done holds 44x44 or better (58x44, 75.4x57.2, 92.8x70.4), the two never
+   overlap, and nothing scrolls horizontally. */
+test('Design authority: the top bar spends no gutter of its own, and the parent area states its name once (#118)', async (t) => {
+  const rules = cssRuleBlocks(await read('src/app/app.css'));
+  const rule = (selector) => rules.find((r) => r.selector === selector);
+
+  const bar = rule('.product-topbar');
+  assert.ok(bar, '.product-topbar rule must exist');
+  assert.doesNotMatch(
+    bar.body,
+    /safe-area-inset/u,
+    '.product-topbar must claim no safe-area inset: every site renders it inside a container '
+      + 'that has already spent the gutter, so a second claim counts the notch twice (130px of '
+      + 'empty paper above the title at 393x852) and sets the title one gutter inside its cards',
+  );
+
+  /* The other way to reach the same screen: if the containers stopped padding,
+     the bar would sit under the notch instead of below a doubled one. */
+  for (const selector of ['.product-page', '.scene-body']) {
+    const container = rule(selector);
+    assert.ok(container, `${selector} rule must exist`);
+    assert.match(
+      container.body,
+      /padding:[^;]*(?:safe-area-inset-top|--gutter-top)/u,
+      `${selector} hosts .product-topbar and must be the one that spends the top gutter — `
+        + 'with neither of them padding, the bar renders under the notch',
+    );
+  }
+
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+
+  const { ParentArea } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
+  assert.equal(
+    typeof ParentArea,
+    'function',
+    'ParentArea must be exported from ProductApp.jsx for this check to measure it',
+  );
+
+  const noop = () => {};
+  const asyncNoop = async () => {};
+  const html = renderToStaticMarkup(React.createElement(ParentArea, {
+    state: {
+      status: 'unlocked',
+      biometric: { available: false, type: 'none', enabled: false },
+    },
+    profiles: [],
+    progressState: { status: 'ready', learners: [], actionError: null },
+    commerceState: {
+      status: 'ready',
+      displayPrice: '£9.99',
+      entitlementState: 'none',
+      packState: 'missing',
+      action: null,
+      actionError: null,
+    },
+    onClose: noop,
+    onSetPin: asyncNoop,
+    onResetPin: asyncNoop,
+    onUnlockPin: asyncNoop,
+    onUnlockBiometrics: asyncNoop,
+    onSetBiometricsEnabled: asyncNoop,
+    onEditProfile: asyncNoop,
+    onRemoveProfile: asyncNoop,
+    onResetLearning: asyncNoop,
+    onRefreshProgress: asyncNoop,
+    onPurchase: asyncNoop,
+    onRestore: asyncNoop,
+    onDownload: asyncNoop,
+    onRecoverCommerce: asyncNoop,
+  }));
+
+  /* Rendered text, not source: a JSX scan reads the two literals as two
+     statements even when only one of them reaches the screen. */
+  const statements = html.match(/>Parent area</gu) ?? [];
+  assert.equal(
+    statements.length,
+    1,
+    'the unlocked parent area must state its name exactly once — the sticky bar and the heading '
+      + `below it both read "Parent area" at #118 (found ${statements.length})`,
+  );
+
+  const heading = html.match(/<h1\b[^>]*>([^<]*)<\/h1>/u);
+  assert.ok(heading, 'the unlocked parent area must render an h1');
+  assert.equal(
+    heading[1],
+    'Parent area',
+    'the one statement of the name must be the h1, so removing the duplicate does not cost the '
+      + 'screen its heading',
+  );
+  assert.match(
+    heading[0],
+    /\bid="parent-title"/u,
+    'the h1 must keep id="parent-title" — <main aria-labelledby="parent-title"> resolves to it, '
+      + 'so the accessible name survives the move into the bar',
+  );
+  assert.match(
+    html,
+    /<header class="product-topbar"><h1\b/u,
+    'the surviving statement must be the bar\'s own title, first in document order',
+  );
+});

@@ -276,10 +276,15 @@ function AudioStatus({ audioState, onRecover, compact = false, dusk = false }) {
   );
 }
 
-function ProductTopBar({ title = 'KS2 Spelling', action }) {
+/* `titleId` promotes the bar's title to the screen's `h1`. A screen whose name
+   the bar already states has nowhere else to state it without saying it twice
+   (#118); a screen that names a task below the bar — the parent gate, whose bar
+   reads "Parent access" over an "Enter Parent PIN" heading — leaves this unset
+   and keeps its own heading. */
+function ProductTopBar({ title = 'KS2 Spelling', titleId, action }) {
   return (
     <header className="product-topbar">
-      <p>{title}</p>
+      {titleId ? <h1 id={titleId}>{title}</h1> : <p>{title}</p>}
       {action ?? <span />}
     </header>
   );
@@ -830,6 +835,7 @@ export function ParentArea({
       <main className="product-app product-page parent-page" aria-labelledby="parent-title">
         <ProductTopBar
           title="Parent area"
+          titleId="parent-title"
           action={(
             <button type="button" className="topbar-action press-soft press" onClick={onClose}>
               Done
@@ -838,7 +844,6 @@ export function ParentArea({
         />
         <section className="welcome-panel parent-heading">
           <p className="product-kicker">Grown-ups only</p>
-          <h1 id="parent-title">Parent area</h1>
           <p>Manage local learners and device security.</p>
         </section>
 

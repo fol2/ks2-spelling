@@ -249,14 +249,17 @@ select {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 0.75rem;
-  padding:
-    max(0.75rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
-    max(1rem, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)))
-    0.75rem
-    max(1rem, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+
+  /* No safe-area padding here. The bar is never the surface that meets the
+     screen edge: every site renders it as the first child of a container that
+     has already spent the gutter — `.product-page` above, `.scene-body` on the
+     startup-failure screen. Claiming the inset a second time counted the notch
+     twice, opening 130px of empty paper above the title at 393x852 and setting
+     the title 16px inside the cards it heads (#118). */
+  padding: 0.75rem 0;
 }
 
-.product-topbar p {
+.product-topbar :is(p, h1) {
   min-width: 0;
   flex: 1 1 8rem;
   font-family: var(--serif);

@@ -399,34 +399,16 @@ function minHeightIsZero(decls) {
 }
 
 /* The four tablet cells #253 re-measured on main, and the twelve phone cells
-   this slice must not move. Occupied band is the published card-to-foot slack
-   when `.round-stage` is a flex-1 min-height-0 sibling; zero when it is not.
-   That is a measurement of the outcome, not a check that a declaration exists. */
+   this slice must not move. This is a structural guard, not a layout
+   measurement: `node --test` has no browser, so it cannot resolve the band.
+   The published occupancies (609.6 / 339.6 / 895.6 / 553.6 px) live on #265
+   as harness-measured, unautomated numbers. Revert of the tablet stage rule
+   still makes every tablet cell fail this guard. */
 const TABLET_ROUND_CELLS = Object.freeze([
-  Object.freeze({
-    name: 'iPad 8 portrait 810×1080',
-    width: 810,
-    height: 1080,
-    publishedBandPx: 609.6,
-  }),
-  Object.freeze({
-    name: 'iPad 8 landscape 1080×810',
-    width: 1080,
-    height: 810,
-    publishedBandPx: 339.6,
-  }),
-  Object.freeze({
-    name: 'iPad Pro 12.9 portrait 1024×1366',
-    width: 1024,
-    height: 1366,
-    publishedBandPx: 895.6,
-  }),
-  Object.freeze({
-    name: 'iPad Pro 12.9 landscape 1366×1024',
-    width: 1366,
-    height: 1024,
-    publishedBandPx: 553.6,
-  }),
+  Object.freeze({ name: 'iPad 8 portrait 810×1080', width: 810 }),
+  Object.freeze({ name: 'iPad 8 landscape 1080×810', width: 1080 }),
+  Object.freeze({ name: 'iPad Pro 12.9 portrait 1024×1366', width: 1024 }),
+  Object.freeze({ name: 'iPad Pro 12.9 landscape 1366×1024', width: 1366 }),
 ]);
 
 const PHONE_ROUND_CELLS = Object.freeze(
@@ -439,14 +421,14 @@ const PHONE_ROUND_CELLS = Object.freeze(
   )),
 );
 
-function occupiedRoundBandPx(rules, cell, remPx = 16) {
+function roundStageIsStructurallyPresent(rules, cell, remPx = 16) {
   const stage = resolveSelector(rules, '.round-stage', cell.width, remPx);
   const display = stage.display ?? 'inline';
-  if (display === 'none') return 0;
-  if ((stage['max-height'] ?? 'none') !== 'none') return 0;
-  if (flexGrowOf(stage) < 1 || !minHeightIsZero(stage)) return 0;
-  if (!/var\(--round-stage-art\b/u.test(stage['background-image'] ?? '')) return 0;
-  return cell.publishedBandPx;
+  if (display === 'none') return false;
+  if ((stage['max-height'] ?? 'none') !== 'none') return false;
+  if (flexGrowOf(stage) < 1 || !minHeightIsZero(stage)) return false;
+  if (!/var\(--round-stage-art\b/u.test(stage['background-image'] ?? '')) return false;
+  return true;
 }
 
 
@@ -608,11 +590,13 @@ test('Design authority: the round and camp scenes anchor their action region, an
 
 /* The tablet round spent 56–66% of the scene on empty sky (#253, #265). The
    previous backdrop check was green because it only asserted that
-   `margin-top: auto` was *declared* on `.round-foot`. This check measures the
-   four tablet cells that canyon lives in: the stage must occupy the published
-   card-to-foot band, and must not exist below 46rem. A revert of the stage
-   rule makes every tablet occupancy 0 and this test red. */
-test('Design authority: the round tablet stage occupies the card-to-foot band on the four tablet cells and does not exist on phones (#265)', async () => {
+   `margin-top: auto` was *declared* on `.round-foot`. This check is still a
+   declaration parser — `node --test` has no browser — but it is named as
+   one. It asserts the stage is a flex-1 min-height-0 sibling with art
+   withheld until 46rem, and that a revert of the tablet rule makes every
+   tablet cell fail. The published band heights and the 0px field delta are
+   harness-measured on #265 and are not automated here. */
+test('Design authority: the round tablet stage is structurally present on the four tablet cells and does not exist on phones (#265)', async () => {
   const css = await read('src/app/app.css');
   const jsx = await read('src/app/ProductApp.jsx');
   const rules = cssRulesWithMedia(css);
@@ -621,24 +605,13 @@ test('Design authority: the round tablet stage occupies the card-to-foot band on
   assert.ok(roundStart >= 0 && roundEnd > roundStart, 'RoundScreen must exist');
   const roundScreen = jsx.slice(roundStart, roundEnd);
 
-  const occupancies = TABLET_ROUND_CELLS.map((cell) => ({
-    name: cell.name,
-    occupiedPx: occupiedRoundBandPx(rules, cell),
-    publishedBandPx: cell.publishedBandPx,
-  }));
-  assert.deepEqual(
-    occupancies.map(({ name, occupiedPx, publishedBandPx }) => ({
-      name,
-      occupiedPx,
-      publishedBandPx,
-    })),
-    TABLET_ROUND_CELLS.map((cell) => ({
-      name: cell.name,
-      occupiedPx: cell.publishedBandPx,
-      publishedBandPx: cell.publishedBandPx,
-    })),
-    'each tablet cell must occupy the published card-to-foot band, not merely declare a property',
-  );
+  for (const cell of TABLET_ROUND_CELLS) {
+    assert.equal(
+      roundStageIsStructurallyPresent(rules, cell),
+      true,
+      `${cell.name}: the stage must resolve as a flex-1 min-height-0 sibling with withheld-until-tablet art`,
+    );
+  }
 
   for (const cell of PHONE_ROUND_CELLS) {
     const stage = resolveSelector(rules, '.round-stage', cell.width, cell.remPx);
@@ -653,9 +626,9 @@ test('Design authority: the round tablet stage occupies the card-to-foot band on
       `${cell.name}: a phone must not resolve background-image — that is the fetch`,
     );
     assert.equal(
-      occupiedRoundBandPx(rules, { ...cell, publishedBandPx: 1 }, cell.remPx),
-      0,
-      `${cell.name}: occupied band must be 0px`,
+      roundStageIsStructurallyPresent(rules, cell, cell.remPx),
+      false,
+      `${cell.name}: the stage must not be structurally present`,
     );
   }
 
@@ -698,8 +671,8 @@ test('Design authority: the round tablet stage occupies the card-to-foot band on
   );
   assert.match(
     roundScreen,
-    /setupExpeditionCompanion\(/u,
-    'the round must choose its companion with the existing expedition selector',
+    /buildCodex\(\s*state\.monsters,\s*state\.roundBaseline\?\.companionRewardTrackId\s*\)\.selected/u,
+    'the round must look up the companion the expedition already chose, on the live roster',
   );
   assert.match(
     roundScreen,

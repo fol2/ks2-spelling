@@ -642,14 +642,11 @@ test('product learning captures a round baseline at startRound and persists it',
   assert.deepEqual(state.roundBaseline.achievementIds, []);
   assert.equal(writes.length, 1);
   assert.equal(writes[0].learnerId, 'learner-a');
-  assert.equal(state.practice.yearFilter, 'y5-6');
-  assert.equal(state.roundBaseline.yearFilter, 'y5-6');
   assert.deepEqual(writes[0].record, {
     schemaVersion: 1,
     learnerId: 'learner-a',
     sessionId: state.practice.sessionId,
     companionRewardTrackId: 'spelling-core-glimmerbug',
-    yearFilter: 'y5-6',
     achievementIds: [],
     monsters: state.monsters,
     camp: state.roundBaseline.camp,

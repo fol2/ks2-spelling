@@ -224,14 +224,6 @@ function campProjection(snapshot) {
   };
 }
 
-function withRoundYearFilter(practice, roundBaseline) {
-  if (!practice) return null;
-  return {
-    ...practice,
-    yearFilter: roundBaseline?.yearFilter ?? null,
-  };
-}
-
 function adoptRoundBaseline(candidate, snapshot) {
   if (
     !candidate ||
@@ -246,9 +238,6 @@ function adoptRoundBaseline(candidate, snapshot) {
       typeof candidate.companionRewardTrackId === 'string' && candidate.companionRewardTrackId.length > 0
         ? candidate.companionRewardTrackId
         : null,
-    yearFilter: typeof candidate.yearFilter === 'string' && candidate.yearFilter.length > 0
-      ? candidate.yearFilter
-      : null,
     achievementIds: Array.isArray(candidate.achievementIds)
       ? candidate.achievementIds.filter(
         (id) => typeof id === 'string' && id.length > 0,
@@ -280,10 +269,7 @@ function createState({
       status,
       screen,
       learnerId: snapshot?.learnerId ?? null,
-      practice: withRoundYearFilter(
-        practiceProjection(snapshot, catalogue),
-        roundBaseline,
-      ),
+      practice: practiceProjection(snapshot, catalogue),
       prefs: prefsProjection(snapshot),
       summary: summary ?? (ui?.summary ? structuredClone(ui.summary) : null),
       progress: progressProjection(snapshot, catalogue),
@@ -474,7 +460,6 @@ export function createProductLearningController({
               monsters,
               options.companionYearFilter ?? null,
             )?.rewardTrackId ?? null,
-            yearFilter: options.companionYearFilter ?? null,
             achievementIds: achievementChips(
               snapshot.subjectState?.data?.achievements ?? {},
             ).map((chip) => chip.id),

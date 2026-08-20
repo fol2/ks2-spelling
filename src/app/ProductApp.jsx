@@ -2902,18 +2902,8 @@ function RoundScreen({
   const busy = state.status === 'saving';
   const answered = Boolean(practice?.awaitingAdvance);
   const companion = useMemo(
-    () => setupExpeditionCompanion(
-      state.monsters,
-      practice?.mode === 'guardian'
-        ? null
-        : (practice?.yearFilter ?? state.roundBaseline?.yearFilter ?? null),
-    ),
-    [
-      state.monsters,
-      practice?.mode,
-      practice?.yearFilter,
-      state.roundBaseline?.yearFilter,
-    ],
+    () => buildCodex(state.monsters, state.roundBaseline?.companionRewardTrackId).selected,
+    [state.monsters, state.roundBaseline?.companionRewardTrackId],
   );
 
   const focusSpellingField = useCallback(() => {

@@ -2901,6 +2901,10 @@ function RoundScreen({
   const practice = state.practice;
   const busy = state.status === 'saving';
   const answered = Boolean(practice?.awaitingAdvance);
+  const companion = useMemo(
+    () => buildCodex(state.monsters, state.roundBaseline?.companionRewardTrackId).selected,
+    [state.monsters, state.roundBaseline?.companionRewardTrackId],
+  );
 
   const focusSpellingField = useCallback(() => {
     if (busy || answered) return;
@@ -3258,6 +3262,14 @@ function RoundScreen({
               </button>
             </form>
           </section>
+
+          {companion?.art ? (
+            <span
+              className="round-stage"
+              style={{ '--round-stage-art': artUrl(companion.art) }}
+              aria-hidden="true"
+            />
+          ) : null}
 
           <footer className="round-foot">
             <p>AI-generated dictation voice</p>

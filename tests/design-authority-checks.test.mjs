@@ -335,6 +335,119 @@ function cssRuleBlocks(css) {
   return rules;
 }
 
+
+function cssRulesWithMedia(css, media = null) {
+  const stripped = media === null ? stripCssComments(css) : css;
+  const rules = [];
+  let i = 0;
+  while (i < stripped.length) {
+    const open = stripped.indexOf('{', i);
+    if (open < 0) break;
+    const prelude = stripped.slice(i, open).trim();
+    let depth = 0;
+    let close = open;
+    for (; close < stripped.length; close += 1) {
+      if (stripped[close] === '{') depth += 1;
+      else if (stripped[close] === '}') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    const inner = stripped.slice(open + 1, close);
+    if (prelude.startsWith('@media')) {
+      rules.push(...cssRulesWithMedia(inner, prelude));
+    } else if (prelude && !prelude.startsWith('@')) {
+      rules.push({
+        selector: prelude.replace(/\s+/gu, ' '),
+        body: inner,
+        media,
+      });
+    }
+    i = close + 1;
+  }
+  return rules;
+}
+
+function mediaMinWidthPx(prelude, remPx = 16) {
+  if (!prelude) return 0;
+  const match = prelude.match(/min-width:\s*([0-9.]+)(rem|em|px)/u);
+  if (!match) return 0;
+  const value = Number(match[1]);
+  return match[2] === 'px' ? value : value * remPx;
+}
+
+function declarationMap(body) {
+  const decls = {};
+  for (const part of body.split(';')) {
+    const index = part.indexOf(':');
+    if (index < 0) continue;
+    const property = part.slice(0, index).trim();
+    const value = part.slice(index + 1).trim();
+    if (property) decls[property] = value;
+  }
+  return decls;
+}
+
+function resolveSelector(rules, selector, widthPx, remPx = 16) {
+  const decls = {};
+  for (const rule of rules) {
+    const names = rule.selector.split(',').map((part) => part.trim());
+    if (!names.includes(selector)) continue;
+    if (widthPx + 1e-9 >= mediaMinWidthPx(rule.media, remPx)) {
+      Object.assign(decls, declarationMap(rule.body));
+    }
+  }
+  return decls;
+}
+
+function flexGrowOf(decls) {
+  if (decls['flex-grow'] != null) return Number.parseFloat(decls['flex-grow']);
+  if (decls.flex == null) return 0;
+  const first = decls.flex.trim().split(/\s+/u)[0];
+  if (first === 'none' || first === 'auto') return first === 'auto' ? 1 : 0;
+  const value = Number.parseFloat(first);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function minHeightIsZero(decls) {
+  const value = decls['min-height'];
+  return value === '0' || value === '0px';
+}
+
+/* The four tablet cells #253 re-measured on main, and the twelve phone cells
+   this slice must not move. This is a structural guard, not a layout
+   measurement: `node --test` has no browser, so it cannot resolve the band.
+   The published occupancies (609.6 / 339.6 / 895.6 / 553.6 px) live on #265
+   as harness-measured, unautomated numbers. Revert of the tablet stage rule
+   still makes every tablet cell fail this guard. */
+const TABLET_ROUND_CELLS = Object.freeze([
+  Object.freeze({ name: 'iPad 8 portrait 810×1080', width: 810 }),
+  Object.freeze({ name: 'iPad 8 landscape 1080×810', width: 1080 }),
+  Object.freeze({ name: 'iPad Pro 12.9 portrait 1024×1366', width: 1024 }),
+  Object.freeze({ name: 'iPad Pro 12.9 landscape 1366×1024', width: 1366 }),
+]);
+
+const PHONE_ROUND_CELLS = Object.freeze(
+  [393, 375, 320].flatMap((width) => (
+    [100, 130, 160].map((scale) => Object.freeze({
+      name: `${width}× at ${scale}% text`,
+      width,
+      remPx: 16 * (scale / 100),
+    }))
+  )),
+);
+
+function roundStageIsStructurallyPresent(rules, cell, remPx = 16) {
+  const stage = resolveSelector(rules, '.round-stage', cell.width, remPx);
+  const display = stage.display ?? 'inline';
+  if (display === 'none') return false;
+  if ((stage['max-height'] ?? 'none') !== 'none') return false;
+  if (flexGrowOf(stage) < 1 || !minHeightIsZero(stage)) return false;
+  if (!/var\(--round-stage-art\b/u.test(stage['background-image'] ?? '')) return false;
+  return true;
+}
+
+
 test('Design authority: control rows wrap and no surface scrolls horizontally (#111)', async () => {
   const css = await read('src/app/app.css');
   const rules = cssRuleBlocks(css);
@@ -488,6 +601,99 @@ test('Design authority: the round and camp scenes anchor their action region, an
     body.body,
     /(?:^|;)\s*justify-content:\s*(?:center|end|flex-end|space-between|space-around|space-evenly)\b/u,
     'the round column must not redistribute free space above the card — same field movement, different property',
+  );
+});
+
+/* The tablet round spent 56–66% of the scene on empty sky (#253, #265). The
+   previous backdrop check was green because it only asserted that
+   `margin-top: auto` was *declared* on `.round-foot`. This check is still a
+   declaration parser — `node --test` has no browser — but it is named as
+   one. It asserts the stage is a flex-1 min-height-0 sibling with art
+   withheld until 46rem, and that a revert of the tablet rule makes every
+   tablet cell fail. The published band heights and the 0px field delta are
+   harness-measured on #265 and are not automated here. */
+test('Design authority: the round tablet stage is structurally present on the four tablet cells and does not exist on phones (#265)', async () => {
+  const css = await read('src/app/app.css');
+  const jsx = await read('src/app/ProductApp.jsx');
+  const rules = cssRulesWithMedia(css);
+  const roundStart = jsx.indexOf('function RoundScreen({');
+  const roundEnd = jsx.indexOf('\nfunction ', roundStart + 10);
+  assert.ok(roundStart >= 0 && roundEnd > roundStart, 'RoundScreen must exist');
+  const roundScreen = jsx.slice(roundStart, roundEnd);
+
+  for (const cell of TABLET_ROUND_CELLS) {
+    assert.equal(
+      roundStageIsStructurallyPresent(rules, cell),
+      true,
+      `${cell.name}: the stage must resolve as a flex-1 min-height-0 sibling with withheld-until-tablet art`,
+    );
+  }
+
+  for (const cell of PHONE_ROUND_CELLS) {
+    const stage = resolveSelector(rules, '.round-stage', cell.width, cell.remPx);
+    assert.equal(
+      stage.display,
+      'none',
+      `${cell.name}: the stage must not exist below 46rem`,
+    );
+    assert.equal(
+      stage['background-image'],
+      undefined,
+      `${cell.name}: a phone must not resolve background-image — that is the fetch`,
+    );
+    assert.equal(
+      roundStageIsStructurallyPresent(rules, cell, cell.remPx),
+      false,
+      `${cell.name}: the stage must not be structurally present`,
+    );
+  }
+
+  const foot = resolveSelector(rules, '.round-foot', 810);
+  assert.match(
+    foot['margin-top'] ?? '',
+    /^auto$/u,
+    '.round-foot must keep margin-top: auto — it is load-bearing under negative free space',
+  );
+
+  const stageSelectorRules = rules.filter((rule) => (
+    rule.selector.split(',').map((part) => part.trim()).includes('.round-stage')
+  ));
+  assert.ok(
+    stageSelectorRules.every((rule) => !/(?:^|;)\s*(?:animation|transition)\s*:/u.test(rule.body)),
+    '.round-stage must not animate or transition — a child is typing a spelling',
+  );
+
+  const insertion = roundScreen.match(
+    /<\/section>\s*\{companion\?\.art \? \([\s\S]*?<footer className="round-foot">/u,
+  )?.[0];
+  assert.ok(
+    insertion,
+    'the stage must sit in source order between the round card and the quiet exit',
+  );
+  assert.match(
+    insertion,
+    /className="round-stage"/u,
+    'the inserted sibling must be the round stage',
+  );
+  assert.doesNotMatch(
+    insertion,
+    /<img\b/u,
+    'the stage must not be an img — display:none on an img still fetches',
+  );
+  assert.match(
+    insertion,
+    /aria-hidden="true"/u,
+    'the stage is decorative and must not be announced',
+  );
+  assert.match(
+    roundScreen,
+    /buildCodex\(\s*state\.monsters,\s*state\.roundBaseline\?\.companionRewardTrackId\s*\)\.selected/u,
+    'the round must look up the companion the expedition already chose, on the live roster',
+  );
+  assert.match(
+    roundScreen,
+    /companion\?\.art \? \(/u,
+    'null from the selector must paint nothing — no placeholder, no error path',
   );
 });
 

@@ -368,12 +368,19 @@ function cssRulesWithMedia(css, media = null) {
   return rules;
 }
 
-function mediaMinWidthPx(prelude, remPx = 16) {
+/* In a media-query prelude, rem/em resolve against the *initial* font size,
+   not the root element's computed size. Browsers do not move
+   `(min-width: 46rem)` when text scales. Passing a cell's remPx here was the
+   #268 modelling bug: 810px at 160% was modelled as 1177.6px and the tablet
+   rule never applied. */
+const MEDIA_QUERY_INITIAL_FONT_PX = 16;
+
+function mediaMinWidthPx(prelude) {
   if (!prelude) return 0;
   const match = prelude.match(/min-width:\s*([0-9.]+)(rem|em|px)/u);
   if (!match) return 0;
   const value = Number(match[1]);
-  return match[2] === 'px' ? value : value * remPx;
+  return match[2] === 'px' ? value : value * MEDIA_QUERY_INITIAL_FONT_PX;
 }
 
 function declarationMap(body) {
@@ -388,12 +395,14 @@ function declarationMap(body) {
   return decls;
 }
 
-function resolveSelector(rules, selector, widthPx, remPx = 16) {
+function resolveSelector(rules, selector, widthPx, _remPx = 16) {
+  /* _remPx is kept for callers that reason about rem lengths *inside*
+     declarations. Media-query preludes do not use it — see mediaMinWidthPx. */
   const decls = {};
   for (const rule of rules) {
     const names = rule.selector.split(',').map((part) => part.trim());
     if (!names.includes(selector)) continue;
-    if (widthPx + 1e-9 >= mediaMinWidthPx(rule.media, remPx)) {
+    if (widthPx + 1e-9 >= mediaMinWidthPx(rule.media)) {
       Object.assign(decls, declarationMap(rule.body));
     }
   }
@@ -414,18 +423,45 @@ function minHeightIsZero(decls) {
   return value === '0' || value === '0px';
 }
 
-/* The four tablet cells #253 re-measured on main, and the twelve phone cells
-   this slice must not move. This is a structural guard, not a layout
-   measurement: `node --test` has no browser, so it cannot resolve the band.
-   The published occupancies (609.6 / 339.6 / 895.6 / 553.6 px) live on #265
-   as harness-measured, unautomated numbers. Revert of the tablet stage rule
-   still makes every tablet cell fail this guard. */
-const TABLET_ROUND_CELLS = Object.freeze([
-  Object.freeze({ name: 'iPad 8 portrait 810×1080', width: 810 }),
-  Object.freeze({ name: 'iPad 8 landscape 1080×810', width: 1080 }),
-  Object.freeze({ name: 'iPad Pro 12.9 portrait 1024×1366', width: 1024 }),
-  Object.freeze({ name: 'iPad Pro 12.9 landscape 1366×1024', width: 1366 }),
-]);
+function namesRoundCard(selector) {
+  return selector
+    .split(',')
+    .some((part) => /(?:^|[\s>+~])\.round-card(?![\w-])/u.test(part.trim()));
+}
+
+/* True when `.round-card` is the subject of some comma-separated part, not
+   merely an ancestor. `.round-card > .product-kicker { flex: 1 }` must not
+   trip the grower check: that declaration sizes the kicker, not the card. */
+function roundCardIsSelectorSubject(selector) {
+  return selector.split(',').some((part) => {
+    const compound = part.trim().split(/[\s>+~]/u).filter(Boolean).pop() ?? '';
+    return /\.round-card(?![\w-])/u.test(compound);
+  });
+}
+
+/* The four tablet widths #253 re-measured on main, each at 100/130/160% text,
+   and the twelve phone cells this slice must not move. This is a structural
+   / declaration guard, not a layout measurement: `node --test` has no browser,
+   so it cannot resolve the band. The published occupancies live on #265 as
+   harness-measured, unautomated numbers — do not copy them into assertions.
+
+   Media-query rem is the initial font size (#268). 810px at 160% text is the
+   discriminator: 46rem is 736px against that initial size, and browsers do
+   not move the breakpoint when root font-size scales. */
+const TABLET_ROUND_CELLS = Object.freeze(
+  [
+    { name: 'iPad 8 portrait 810×1080', width: 810 },
+    { name: 'iPad 8 landscape 1080×810', width: 1080 },
+    { name: 'iPad Pro 12.9 portrait 1024×1366', width: 1024 },
+    { name: 'iPad Pro 12.9 landscape 1366×1024', width: 1366 },
+  ].flatMap(({ name, width }) => (
+    [100, 130, 160].map((scale) => Object.freeze({
+      name: `${name} at ${scale}% text`,
+      width,
+      remPx: 16 * (scale / 100),
+    }))
+  )),
+);
 
 const PHONE_ROUND_CELLS = Object.freeze(
   [393, 375, 320].flatMap((width) => (
@@ -437,6 +473,16 @@ const PHONE_ROUND_CELLS = Object.freeze(
   )),
 );
 
+const ROUND_STAGE_BACKGROUND_SIZE = 'auto min(24rem, 82%)';
+const ROUND_SCENE_BODY_GAP = '0.9rem';
+const ROUND_SCENE_BODY_CHILDREN = Object.freeze([
+  'round-dots',
+  'round-attempts',
+  'round-card',
+  'round-stage',
+  'round-foot',
+]);
+
 function roundStageIsStructurallyPresent(rules, cell, remPx = 16) {
   const stage = resolveSelector(rules, '.round-stage', cell.width, remPx);
   const display = stage.display ?? 'inline';
@@ -447,6 +493,96 @@ function roundStageIsStructurallyPresent(rules, cell, remPx = 16) {
   return true;
 }
 
+function firstClassTokenFromTag(tag) {
+  const quoted = tag.match(/\bclassName="([^"]*)"/u);
+  if (quoted) return quoted[1].trim().split(/\s+/u)[0] || null;
+  const tick = tag.match(/\bclassName=\{`([^`]*?)`\}/u);
+  if (tick) return tick[1].trim().split(/\s+/u)[0] || null;
+  const quotedExpr = tag.match(/\bclassName=\{(['"])([^'"]*)\1\}/u);
+  if (quotedExpr) return quotedExpr[2].trim().split(/\s+/u)[0] || null;
+  return null;
+}
+
+function tagClosesAt(source, start) {
+  let i = start + 1;
+  let quote = null;
+  let braces = 0;
+  while (i < source.length) {
+    const ch = source[i];
+    if (quote) {
+      if (ch === '\\') {
+        i += 2;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      i += 1;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      quote = ch;
+      i += 1;
+      continue;
+    }
+    if (ch === '{') {
+      braces += 1;
+      i += 1;
+      continue;
+    }
+    if (ch === '}') {
+      braces -= 1;
+      i += 1;
+      continue;
+    }
+    if (ch === '>' && braces <= 0) return i;
+    i += 1;
+  }
+  return -1;
+}
+
+/* Direct children of RoundScreen's `.scene-body` only. Nested tags
+   (`round-flag`, card internals) sit at depth > 1. `{companion?.art ? (`
+   does not change tag depth; the stage still counts as a child slot. */
+function roundSceneBodyChildClasses(roundScreen) {
+  const open = '<div className="scene-body">';
+  const start = roundScreen.indexOf(open);
+  if (start < 0) return [];
+  let i = start + open.length;
+  let depth = 1;
+  const classes = [];
+
+  while (i < roundScreen.length && depth > 0) {
+    if (roundScreen.startsWith('{/*', i)) {
+      const end = roundScreen.indexOf('*/}', i + 3);
+      i = end < 0 ? roundScreen.length : end + 3;
+      continue;
+    }
+    if (roundScreen[i] !== '<') {
+      i += 1;
+      continue;
+    }
+    const next = roundScreen[i + 1];
+    if (next !== '/' && next !== '>' && !/[A-Za-z]/u.test(next)) {
+      i += 1;
+      continue;
+    }
+    const close = tagClosesAt(roundScreen, i);
+    if (close < 0) break;
+    const tag = roundScreen.slice(i, close + 1);
+    if (tag.startsWith('</')) {
+      depth -= 1;
+      i = close + 1;
+      continue;
+    }
+    const selfClosing = /\/\s*>$/u.test(tag);
+    if (depth === 1) {
+      const className = firstClassTokenFromTag(tag);
+      if (className) classes.push(className);
+    }
+    if (!selfClosing) depth += 1;
+    i = close + 1;
+  }
+  return classes;
+}
 
 test('Design authority: control rows wrap and no surface scrolls horizontally (#111)', async () => {
   const css = await read('src/app/app.css');
@@ -574,10 +710,6 @@ test('Design authority: the round and camp scenes anchor their action region, an
      group inside a media query can add a margin as easily as the base rule,
      and the answer field moves either way. `margin: 0 auto` is left alone —
      its first value is the top, so horizontal centring never lifts the card. */
-  const namesRoundCard = (selector) => selector
-    .split(',')
-    .some((part) => /(?:^|[\s>+~])\.round-card(?![\w-])/u.test(part.trim()));
-
   for (const candidate of rules.filter((r) => namesRoundCard(r.selector))) {
     assert.doesNotMatch(
       candidate.body,
@@ -607,12 +739,12 @@ test('Design authority: the round and camp scenes anchor their action region, an
 /* The tablet round spent 56–66% of the scene on empty sky (#253, #265). The
    previous backdrop check was green because it only asserted that
    `margin-top: auto` was *declared* on `.round-foot`. This check is still a
-   declaration parser — `node --test` has no browser — but it is named as
-   one. It asserts the stage is a flex-1 min-height-0 sibling with art
-   withheld until 46rem, and that a revert of the tablet rule makes every
-   tablet cell fail. The published band heights and the 0px field delta are
-   harness-measured on #265 and are not automated here. */
-test('Design authority: the round tablet stage is structurally present on the four tablet cells and does not exist on phones (#265)', async () => {
+   declaration parser — `node --test` has no browser — and must not claim to
+   measure a rendered outcome. It asserts the stage is a flex-1 min-height-0
+   sibling with art withheld until 46rem, pins the composition-carrying
+   declarations #268 named, and fails every tablet cell if the tablet rule
+   reverts. Band heights belong on #265 as harness-measured evidence. */
+test('Design authority: the round tablet stage holds the composition-carrying declarations on tablet cells and does not exist on phones (#265, #268)', async () => {
   const css = await read('src/app/app.css');
   const jsx = await read('src/app/ProductApp.jsx');
   const rules = cssRulesWithMedia(css);
@@ -621,11 +753,32 @@ test('Design authority: the round tablet stage is structurally present on the fo
   assert.ok(roundStart >= 0 && roundEnd > roundStart, 'RoundScreen must exist');
   const roundScreen = jsx.slice(roundStart, roundEnd);
 
+  const mediaQueryDiscriminator = TABLET_ROUND_CELLS.find(
+    (cell) => cell.width === 810 && cell.name.endsWith('160% text'),
+  );
+  assert.ok(mediaQueryDiscriminator, 'the 810px at 160% text tablet cell must exist');
+  assert.equal(
+    roundStageIsStructurallyPresent(
+      rules,
+      mediaQueryDiscriminator,
+      mediaQueryDiscriminator.remPx,
+    ),
+    true,
+    `${mediaQueryDiscriminator.name}: media-query rem must not scale with text — `
+      + '810px is already above 46rem against the initial font size, so the tablet rule applies',
+  );
+
   for (const cell of TABLET_ROUND_CELLS) {
+    const stage = resolveSelector(rules, '.round-stage', cell.width, cell.remPx);
     assert.equal(
-      roundStageIsStructurallyPresent(rules, cell),
+      roundStageIsStructurallyPresent(rules, cell, cell.remPx),
       true,
       `${cell.name}: the stage must resolve as a flex-1 min-height-0 sibling with withheld-until-tablet art`,
+    );
+    assert.equal(
+      stage['background-size'],
+      ROUND_STAGE_BACKGROUND_SIZE,
+      `${cell.name}: .round-stage must keep background-size: ${ROUND_STAGE_BACKGROUND_SIZE} — the declared sprite cap, not a measured pixel size`,
     );
   }
 
@@ -645,6 +798,31 @@ test('Design authority: the round tablet stage is structurally present on the fo
       roundStageIsStructurallyPresent(rules, cell, cell.remPx),
       false,
       `${cell.name}: the stage must not be structurally present`,
+    );
+  }
+
+  const sceneBody = resolveSelector(rules, '.round-scene .scene-body', 810, 16);
+  assert.equal(
+    sceneBody.gap,
+    ROUND_SCENE_BODY_GAP,
+    `.round-scene .scene-body must declare gap: ${ROUND_SCENE_BODY_GAP} — the tablet band on #265 was measured against this declaration, not a converted pixel value`,
+  );
+
+  assert.deepEqual(
+    roundSceneBodyChildClasses(roundScreen),
+    [...ROUND_SCENE_BODY_CHILDREN],
+    'RoundScreen .scene-body children must stay round-dots, round-attempts, round-card, round-stage, round-foot — a tripwire that forces a re-measure of the tablet band, not a layout rule',
+  );
+
+  /* Unheld (#268): a new element *inside* `.round-card` can still grow the
+     card's content height and collapse the stage band. Source cannot see
+     that without a layout engine; this check only holds that the card itself
+     must not become a flex grower. `flex: none` is grow 0. Descendant rules
+     that happen to mention `.round-card` are not the card. */
+  for (const candidate of rules.filter((r) => roundCardIsSelectorSubject(r.selector))) {
+    assert.ok(
+      flexGrowOf(declarationMap(candidate.body)) < 1,
+      `${candidate.selector} must not make .round-card a flex grower — a growing card collapses the stage band`,
     );
   }
 

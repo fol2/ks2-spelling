@@ -1759,7 +1759,7 @@ test('Design authority: the Starter-complete paper card pins vellum ink (#151)',
   }
 });
 
-test('Design authority: the Starter-complete CTAs stack with whole-word wrapping (#151)', async () => {
+test('Design authority: the Starter-complete CTAs stack with intact no-wrap labels (#151)', async () => {
   const rules = cssRuleBlocks(await read('src/app/app.css'));
   const actions = rules.find((r) => r.selector === '.starter-complete-moment > div > div:last-child');
   const buttons = rules.find((r) => r.selector === '.starter-complete-moment > div > div:last-child button');
@@ -1768,4 +1768,9 @@ test('Design authority: the Starter-complete CTAs stack with whole-word wrapping
   assert.match(actions.body, /(?:^|;)\s*display:\s*grid\b/u);
   assert.doesNotMatch(buttons.body, /(?:^|;)\s*flex:\s*1 1 8rem\b/u);
   assert.match(buttons.body, /(?:^|;)\s*overflow-wrap:\s*normal\b/u);
+  assert.match(
+    buttons.body,
+    /(?:^|;)\s*white-space:\s*nowrap\b/u,
+    'the stacked CTA source keeps each short label intact, including its existing hyphen',
+  );
 });

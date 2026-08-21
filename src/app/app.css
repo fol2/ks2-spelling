@@ -3746,6 +3746,8 @@ select {
 
 .starter-complete-moment > div > div:last-child button {
   overflow-wrap: normal;
+  /* Keep each short stacked label intact; overflow-wrap alone permits the existing hyphen to break. */
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {

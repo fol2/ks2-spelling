@@ -12,7 +12,9 @@ problem_type: operating-procedure
 
 Dated 2026-08-21. Written for
 [iCloud learning replica — CloudKit private database](https://github.com/fol2/ks2-spelling/issues/199).
-Owner decision on this work order: **#199 complete before
+Owner decision, durably recorded on
+[#199](https://github.com/fol2/ks2-spelling/issues/199#issuecomment-5364970037):
+**#199 complete before
 [#201](https://github.com/fol2/ks2-spelling/issues/201)**. This document is the checklist, not the walk evidence.
 
 Native iOS product composition already starts the private-CloudKit replica
@@ -64,11 +66,25 @@ Stop unless every identity token below is the same artefact:
 4. Store `uploadedDate` paired with the local archive path mtime (the
    14 August rule in the submission-day runbook). The paired record's
    ASC build id is the only id used from here on.
-5. Physical install is that TestFlight/App Store build after delete-and-
-   reinstall. `devicectl device info apps` is a label read, not this probe.
+5. Physical install is that **paired TestFlight signed RC** after
+   delete-and-reinstall. `devicectl device info apps` is a label read, not
+   this probe. A live App Store install is the wrong artefact for this walk.
 
-A new binary is a full re-walk. Sandbox-scheme, B4Development, and unsigned
-Simulator builds are the wrong artefact.
+A new binary is a full re-walk. Sandbox-scheme, B4Development, unsigned
+Simulator builds, and a live App Store production install are the wrong
+artefact.
+
+## Purchase and restore boundary
+
+The entire purchase and restore path on this walk is the paired TestFlight
+signed RC talking to a **TestFlight StoreKit Sandbox** / **no-charge tester**.
+Device A uses one Sandbox tester that already holds Full KS2. Device B uses a
+**separate never-entitled StoreKit account** — a different Sandbox tester that
+has never purchased and must not Restore for cells 1–2.
+
+Stop if the sheet or account is production or would charge money. A live App Store purchase is out of scope absent fresh owner authority. That bound is
+the owner sequencing comment on
+[#199](https://github.com/fol2/ks2-spelling/issues/199#issuecomment-5364970037).
 
 ## Cells
 
@@ -79,10 +95,10 @@ the build number you intended.
 ### Cell 1 — Same-iCloud-account two-device convergence
 
 **Setup.** Two physical Apple devices (an iPhone and an iPad is the intended
-pair) signed into the **same iCloud account**. Both run the signed RC.
-Device A holds the Full KS2 StoreKit entitlement and the installed pack.
-Device B may be entitled or not; this cell only cares that progress
-converges.
+pair) signed into the **same iCloud account**. Both run the paired TestFlight
+signed RC. Device A holds Full KS2 from a TestFlight StoreKit Sandbox /
+no-charge tester and the installed pack. Device B may be entitled or not;
+this cell only cares that progress converges.
 
 **Action.**
 
@@ -104,9 +120,10 @@ reappears.
 ### Cell 2 — StoreKit entitlement separate from iCloud identity
 
 **Setup.** Same iCloud account on A and B. Device A is StoreKit-entitled
-for `uk.eugnel.ks2spelling.fullks2`. Device B has **never** purchased and
-must **not** Restore purchases for this cell. iCloud identity and the
-StoreKit sandbox/store account are allowed to differ; that is the point.
+for `uk.eugnel.ks2spelling.fullks2` on a TestFlight StoreKit Sandbox /
+no-charge tester. Device B uses a separate never-entitled StoreKit account
+and must **not** Restore purchases for this cell. iCloud identity and the
+StoreKit Sandbox tester are allowed to differ; that is the point.
 
 **Action.** After cell 1 (or a Full-catalogue practise on A), relaunch B.
 Inspect B's word bank / pack size.
@@ -119,23 +136,29 @@ device-local; iCloud carries learner profiles and snapshots only.
 
 ### Cell 3 — Never-entitled device receiving Full history stays on Starter and parks preserved-full-learning-v1:{learnerId}
 
-**Setup.** Device A entitled, Full pack installed, at least one non-Starter
-word practised. Device B never entitled, same iCloud account, same learner.
+**Setup.** Device A entitled via TestFlight StoreKit Sandbox / no-charge
+tester, Full pack installed, at least one non-Starter word practised.
+Device B still uses the separate never-entitled StoreKit account, same
+iCloud account, same learner.
 
 **Action.**
 
 1. Relaunch B. Confirm the working catalogue is Starter.
-2. On B, purchase Full KS2, download the pack if offered, tap **Use the
-   full word list now**, relaunch.
-3. Confirm the Full word practised on A is still secured on B.
+2. On B, still on the paired TestFlight signed RC, buy Full KS2 with a
+   TestFlight StoreKit Sandbox / no-charge tester. Stop if the sheet or
+   account is production or would charge money. A live App Store purchase is out of scope absent fresh owner authority.
+3. Download the pack if offered, tap **Use the full word list now**,
+   relaunch.
+4. Confirm the Full word practised on A is still secured on B.
 
-**Pass.** Before purchase, B stays on Starter. After purchase, the parked
-Full history returns (same stages), which is the behavioural proof of
-`preserved-full-learning-v1:{learnerId}`. Do not inspect CloudKit records
-or the keychain to “see” the park key.
+**Pass.** Before purchase, B stays on Starter. After the no-charge Sandbox
+purchase, the parked Full history returns (same stages), which is the
+behavioural proof of `preserved-full-learning-v1:{learnerId}`. Do not
+inspect CloudKit records or the keychain to “see” the park key.
 
-**Stop if** B raised onto Full before purchase, or the Full history was
-gone after purchase (a reset, not a park).
+**Stop if** B raised onto Full before purchase, the Full history was gone
+after purchase (a reset, not a park), or any purchase/restore sheet was
+production or would charge money.
 
 ### Cell 4 — Two devices practise offline concurrently and reconnect without losing a secured word
 
@@ -278,7 +301,7 @@ The record's `## Evidence` section must contain every field:
 | Device A | Model, iOS version, device name or UDID suffix. |
 | Device B | Model, iOS version, device name or UDID suffix. |
 | same iCloud account | Yes/no. Do **not** write the Apple ID into the repository. |
-| StoreKit entitlement state | Which device holds `uk.eugnel.ks2spelling.fullks2`; confirm it did not travel with iCloud. |
+| StoreKit entitlement state | Which device holds `uk.eugnel.ks2spelling.fullks2` on a TestFlight StoreKit Sandbox / no-charge tester; confirm it did not travel with iCloud; confirm the sheet was not production. |
 | named-container entitlement | Paste the signed `codesign --display --entitlements` excerpt showing `iCloud.uk.eugnel.ks2spelling`. |
 | ASC App Privacy | Date of read-back; **Data Not Collected**; reader is the owner. |
 | Cells 1–8 | Each cell: PASS or FAIL, observations, timestamp. |

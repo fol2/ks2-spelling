@@ -66,12 +66,15 @@ check stops the day. It does not get worked around in a scratchpad.
 9. **#199 complete before #201.**
    ([#199](https://github.com/fol2/ks2-spelling/issues/199) before
    [#201](https://github.com/fol2/ks2-spelling/issues/201).) Owner decision
-   2026-08-21. Native runtime already composes the private-CloudKit replica
-   (PR #228 / #277). The 15 August line that treated the replica as
-   post-listing, with v1 shipping neither the backup file nor the replica, is
-   stale source. Physical and store evidence remains unrecorded: this gate
-   is red until the owner dated record exists, and source composition is
-   not that record.
+   2026-08-21, recorded at
+   [issuecomment-5364970037](https://github.com/fol2/ks2-spelling/issues/199#issuecomment-5364970037).
+   Native runtime already composes the private-CloudKit replica (PR #228 /
+   #277). The 15 August line that treated the replica as post-listing, with
+   v1 shipping neither the backup file nor the replica, is stale source.
+   Physical and store evidence remains unrecorded: this gate is red until
+   the owner dated record exists, and source composition is not that record.
+   Purchase-path proof on that walk is TestFlight StoreKit Sandbox /
+   no-charge only.
 
 ## Who moves
 

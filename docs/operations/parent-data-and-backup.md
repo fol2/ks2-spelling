@@ -10,9 +10,14 @@ problem_type: operating-policy
 
 ## Local retention
 
-KS2 Spelling has no analytics or remote learner-profile store. Learner
-profiles, spelling snapshots, practice sessions, progress, Monster state and
-Camp state remain in the local SQLite database until a Parent changes them.
+KS2 Spelling has no analytics and no publisher-operated remote learner-profile
+store. The publisher and its servers collect and retain none of the learner
+data. Learner profiles, spelling snapshots, practice sessions, progress,
+Monster state and Camp state remain in the local SQLite database until a
+Parent changes them. On iOS, learner profiles and learner snapshots may also
+replicate to the family's CloudKit private database under Apple's terms.
+Selected learner, Parent PIN, store entitlements and pack-install jobs stay
+device-local. The publisher cannot read those private iCloud records.
 
 - **Reset learning** permanently removes one learner's spelling state and
   recreates an empty spelling snapshot. The learner profile and current

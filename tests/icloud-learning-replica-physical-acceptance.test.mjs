@@ -15,6 +15,8 @@ const RECORDS_DIR = 'docs/records';
 const EVIDENCE_RECORD_SLUG = 'icloud-learning-replica-physical-acceptance';
 const ISSUE_199 = 'https://github.com/fol2/ks2-spelling/issues/199';
 const ISSUE_201 = 'https://github.com/fol2/ks2-spelling/issues/201';
+const OWNER_SEQUENCING_COMMENT =
+  'https://github.com/fol2/ks2-spelling/issues/199#issuecomment-5364970037';
 
 const ACCEPTANCE_CELLS = Object.freeze([
   'Same-iCloud-account two-device convergence',
@@ -203,28 +205,51 @@ test('the submission-day runbook source treats iCloud replica physical/store evi
   assert.match(runbook, /#199 complete before #201/);
 });
 
-test('parent-data and CONCEPTS source no longer call the composed replica post-listing v1 omission', async () => {
-  const [parentData, concepts, runbook] = await Promise.all([
-    readUtf8(PARENT_DATA_RELATIVE),
+test('CONCEPTS source keeps a timeless replica definition and omits release sequencing', async () => {
+  const [concepts, runbook, submission] = await Promise.all([
     readUtf8(CONCEPTS_RELATIVE),
     readUtf8(RUNBOOK_RELATIVE),
+    readUtf8(SUBMISSION_RELATIVE),
   ]);
 
   assert.match(concepts, /### iCloud learning replica/);
+  assert.match(concepts, /CloudKit private-database copy of learner profiles and learner snapshots/);
   assert.doesNotMatch(concepts, /It is post-listing, not part of v1/);
-  assert.match(
+  assert.doesNotMatch(concepts, /#199|#201|hard stop|post-listing/i);
+  assert.doesNotMatch(
     concepts,
     /Native iOS product composition already starts this replica/,
   );
-  assert.match(
-    concepts,
-    /physical two-device proof, signed-RC named-container evidence and the ASC Data\s+Not Collected read-back remain owner-gated/,
-  );
 
+  assert.match(runbook, new RegExp(OWNER_SEQUENCING_COMMENT.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')));
+  assert.match(submission, new RegExp(OWNER_SEQUENCING_COMMENT.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')));
+  assert.match(runbook, new RegExp(ISSUE_199.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')));
+  assert.match(runbook, new RegExp(ISSUE_201.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')));
+});
+
+test('the iCloud physical-acceptance runbook source confines purchase and restore to TestFlight StoreKit Sandbox with no charge', async () => {
+  const runbook = await readUtf8(RUNBOOK_RELATIVE);
+  assert.match(runbook, /TestFlight StoreKit Sandbox/);
+  assert.match(runbook, /no-charge tester/);
+  assert.match(runbook, /never-entitled StoreKit account/);
+  assert.match(
+    runbook,
+    /Stop if the sheet or account is production or would charge money/,
+  );
+  assert.match(
+    runbook,
+    /A live App Store purchase is out of scope absent fresh owner authority/,
+  );
+  assert.match(runbook, /paired TestFlight signed RC/);
+  assert.doesNotMatch(
+    runbook,
+    /Physical install is that TestFlight\/App Store build/,
+  );
+});
+
+test('parent-data source still points at the unrecorded physical-acceptance runbook', async () => {
+  const parentData = await readUtf8(PARENT_DATA_RELATIVE);
   assert.match(parentData, /2026-08-21-icloud-learning-replica-physical-acceptance-runbook/);
   assert.match(parentData, /Physical proof is owner-gated and unrecorded/);
   assert.doesNotMatch(parentData, /post-listing/);
-
-  assert.match(runbook, new RegExp(ISSUE_199.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')));
-  assert.match(runbook, new RegExp(ISSUE_201.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')));
 });

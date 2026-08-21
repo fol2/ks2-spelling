@@ -137,6 +137,11 @@ npm run verify:b3
 node scripts/build-b3-exit-report.mjs --check-ci
 ```
 
+`npm run verify:b3` is the local deterministic/native audit chain.
+verify:b3 does not run gateway Worker tests, lint, Wrangler dry-run or gateway audit;
+those run in the hosted Domain and web merge lane. See
+`docs/operations/merge-tier-gate.md`.
+
 Pending means that none of the six final B3 paths exists now or anywhere in the
 available Git history. One to five paths, or deleted earlier evidence, fail closed.
 Pending is the successful B3 Development Checkpoint state. After deferred Task 22

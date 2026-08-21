@@ -82,27 +82,28 @@ test('the release verifier command and CI wiring select both unsigned iOS applic
 });
 
 test('both native CI path filters select the listed native release gate inputs', async () => {
+  const {
+    NATIVE_CI_PATH_PREFIXES,
+    pathSelectsNativeCi,
+  } = await import('../scripts/lib/native-ci-path-filter.mjs');
   const workflow = await readFile(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
-  const filters = [...workflow.matchAll(/grep -qE '([^']+)'/gu)].map((match) => match[1]);
-  assert.equal(filters.length, 2);
+  assert.equal(
+    [...workflow.matchAll(/node scripts\/detect-native-ci-changes\.mjs/gu)].length,
+    2,
+  );
 
   const authorities = new Map([
-    [
-      'config/production/pack-signing-public-keys.json',
-      'config/production/pack-signing-public-keys\\.json|',
-    ],
-    ['scripts/select-pack-signing-keyring.mjs', '|select-pack-signing-keyring'],
-    ['scripts/verify-ios-release-artefacts.mjs', '|verify-ios-release-artefacts'],
+    ['config/production/pack-signing-public-keys.json', 'config/'],
+    ['scripts/select-pack-signing-keyring.mjs', 'scripts/'],
+    ['scripts/verify-ios-release-artefacts.mjs', 'scripts/'],
   ]);
-  for (const [path, filterEntry] of authorities) {
-    for (const filter of filters) {
-      assert.equal(new RegExp(filter, 'u').test(path), true, `${path} must select native CI`);
-      const reverted = filter.replace(filterEntry, '');
-      assert.equal(
-        new RegExp(reverted, 'u').test(path),
-        false,
-        `${path} must turn the contract red when its exact filter entry is reverted`,
-      );
-    }
+  for (const [path, prefix] of authorities) {
+    assert.equal(pathSelectsNativeCi(path), true, `${path} must select native CI`);
+    const reverted = NATIVE_CI_PATH_PREFIXES.filter((entry) => entry !== prefix);
+    assert.equal(
+      pathSelectsNativeCi(path, { prefixes: reverted }),
+      false,
+      `${path} must turn the contract red when its exact filter prefix is reverted`,
+    );
   }
 });

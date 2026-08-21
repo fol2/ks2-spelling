@@ -99,7 +99,11 @@ accepts a legitimate zero-file `pending` Development Checkpoint or the exact
 six-file `complete` pre-release evidence successor. It does not perform live
 Cloudflare, store or physical-device actions. A workflow definition or local
 pass is not presented as a hosted CI result; the exact branch run must be
-observed first.
+observed first. The event-to-tier mapping (fast pull-request lane versus the
+full merge-tier three-job gate) is documented in
+[`docs/operations/merge-tier-gate.md`](docs/operations/merge-tier-gate.md).
+That document is source/CI contract only: it does not prove live GitHub
+rulesets, branch protection or merge-queue settings.
 
 ## B2 evidence status
 

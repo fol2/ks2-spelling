@@ -139,15 +139,16 @@ group rather than tinting the vellum one.
 | Faint dusk ink | `--dusk-ink-faint` | `rgb(255 249 236 / 70%)` |
 | Dusk hairline | `--dusk-line` | `rgb(255 249 236 / 16%)` |
 
-*Dusk contrast ratios (WCAG 2.2 RL, worst→best across `--dusk-raised`, `--dusk`)*: `--dusk-ink-soft` 78% = 10.47–11.36:1 ✓; `--dusk-ink-faint` 70% = 8.64–9.25:1 ✓. All exceed the 4.5:1 floor.
+*Dusk contrast ratios (WCAG 2.2 RL, declared-ground floor, worst→best across `--dusk-raised`, `--dusk`)*: `--dusk-ink-soft` 78% = 10.47–11.36:1 ✓; `--dusk-ink-faint` 70% = 8.64–9.25:1 ✓. All exceed the 4.5:1 floor against those tokens. This is not painted-surface proof: dusk scenes paint art behind the ink, and Layer 2 Contrast ratio still requires 4.5:1 against the painted surface at 393×852, 375×667, and 810×1080.
 
 Muted and faint text takes these tokens; a call site may not invent its own
 ink alpha. Passing tokens say nothing about a declaration that never reads
 one, which is how sixteen text runs in `src/app/app.css` — thirteen dusk,
 three on the boot shell — sat below the floor while the token check was
 green (#108). `tests/design-authority-checks.test.mjs` now reads
-every ink-alpha `color:` declaration in the shipped stylesheets and computes
-the ratio; the numbers above come from that computation, not from prose.
+every ink-alpha `color:` declaration in the shipped stylesheets and holds
+it to the same declared-ground floor; the numbers above come from that
+computation, not from prose.
 
 ##### Tone assignment
 

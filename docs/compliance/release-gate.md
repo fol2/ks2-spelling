@@ -58,7 +58,7 @@ The checks apply only to PRs touching `src/app/**`. PRs that touch only docs, co
 - Every ink-alpha `color:` declaration in `src/app/app.css` and `site/public/styles.css`
 - Baseline file at `docs/compliance/baseline.md`
 
-**Assertion**: All ink tokens (--ink-soft, --ink-faint, --dusk-ink-soft, --dusk-ink-faint) achieve ≥4.5:1 WCAG 2.2 contrast when alpha-composited over their painted surfaces, **and so does every declaration that spells an ink alpha out at the call site instead of reading a token** — or violations are listed as `todo` in the baseline.
+**Assertion**: All ink tokens (--ink-soft, --ink-faint, --dusk-ink-soft, --dusk-ink-faint) achieve ≥4.5:1 WCAG 2.2 contrast when alpha-composited over their **declared grounds** (`--dusk` / `--dusk-raised` for dusk ink; `--paper` / `--paper-raised` / `--paper-parent` for vellum ink), **and so does every declaration that spells an ink alpha out at the call site instead of reading a token** — or violations are listed as `todo` in the baseline. That is a **declared-ground floor**, not a painted-surface proof. The Layer 2 painted-surface clause remains; evidence for it is harness-measured, not this CI check.
 
 The second half is what #108 needed: batch 0 raised the four tokens and the
 check went green while sixteen text runs kept their own hand-written alphas,

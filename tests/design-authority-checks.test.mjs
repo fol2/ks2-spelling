@@ -249,11 +249,14 @@ test('Release-gate document exists and references four checks', async () => {
 /* Token definitions passing 4.5:1 does not mean the text passes: a call site can
    invent its own alpha and never touch a token. #108 found sixteen that did, in
    a file whose token check was green. This scan reads every ink-alpha `color:`
-   declaration in the shipped stylesheets and holds it to the same floor.
+   declaration in the shipped stylesheets and holds it to a declared-ground
+   floor against `--dusk` / `--dusk-raised` (and the vellum papers). It is not
+   a painted-surface proof: dusk scenes paint art, and `.round-attempts` on
+   that art is #271.
 
-   ponytail: holds every ink-alpha text run to 4.5:1, including the >=24px runs
-   WCAG lets sit at 3:1. No such run exists today; add font-size parsing only
-   when a real design needs the large-text allowance. */
+   ponytail: holds every ink-alpha text run to 4.5:1 on those declared grounds,
+   including the >=24px runs WCAG lets sit at 3:1. No such run exists today;
+   add font-size parsing only when a real design needs the large-text allowance. */
 const INK_ALPHA_SURFACES = [
   {
     path: 'src/app/app.css',
@@ -872,6 +875,45 @@ test('Design authority: the round tablet stage holds the composition-carrying de
     roundScreen,
     /companion\?\.art \? \(/u,
     'null from the selector must paint nothing — no placeholder, no error path',
+  );
+});
+
+/* `.round-attempts` sits on sunset sky, not on `--dusk`. This check is a
+   structural guard: `node --test` has no browser, and this repository does
+   not add one. It asserts that the caption declares a dusk `background` of
+   `rgb(14 21 29 / N%)` with N > 0, and that the ink is still 62% cream. It
+   does not prove painted 4.5:1 — painted numbers are harness-measured and
+   unautomated by construction. Opacity of the band is measured, not locked;
+   expected values are the dusk RGB plus a positive alpha, and the 62%
+   literal, not a contrast table the test computed against itself (#242
+   family). `red`, `var(--paper)`, `initial`, and `rgb(14 21 29 / 0%)` are
+   not a dusk band. */
+const DUSK_BAND_BACKGROUND = /^rgb\(\s*14\s+21\s+29\s*\/\s*([0-9.]+)%\s*\)$/u;
+
+function duskBandAlphaPercent(value) {
+  const match = DUSK_BAND_BACKGROUND.exec((value ?? '').trim());
+  if (!match) return null;
+  const percent = Number(match[1]);
+  return Number.isFinite(percent) && percent > 0 ? percent : null;
+}
+
+test('Design authority: .round-attempts declares a dusk background and keeps 62% cream ink (#271)', async () => {
+  assert.equal(duskBandAlphaPercent('rgb(14 21 29 / 50%)'), 50);
+  assert.equal(duskBandAlphaPercent('red'), null);
+  assert.equal(duskBandAlphaPercent('rgb(14 21 29 / 0%)'), null);
+
+  const rules = cssRuleBlocks(await read('src/app/app.css'));
+  const attempts = rules.find((rule) => rule.selector === '.round-attempts');
+  assert.ok(attempts, '.round-attempts rule must exist');
+  const decls = declarationMap(attempts.body);
+  assert.ok(
+    duskBandAlphaPercent(decls.background) != null,
+    '.round-attempts must declare background: rgb(14 21 29 / N%) with N > 0 — opacity is not locked; red, paper, initial, and zero-alpha dusk are not a dusk band',
+  );
+  assert.equal(
+    decls.color,
+    'rgb(255 249 236 / 62%)',
+    '.round-attempts ink must stay color: rgb(255 249 236 / 62%) — do not raise the alpha to pay for contrast',
   );
 });
 

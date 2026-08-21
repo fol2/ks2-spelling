@@ -63,13 +63,25 @@ check stops the day. It does not get worked around in a scratchpad.
    walking this map's destination. The reviewer notes below describe the gate
    that actually ships; they are rewritten in one pass if #140 changes the
    first-run challenge.
+9. **#199 complete before #201.**
+   ([#199](https://github.com/fol2/ks2-spelling/issues/199) before
+   [#201](https://github.com/fol2/ks2-spelling/issues/201).) Owner decision
+   2026-08-21, recorded at
+   [issuecomment-5364970037](https://github.com/fol2/ks2-spelling/issues/199#issuecomment-5364970037).
+   Native runtime already composes the private-CloudKit replica (PR #228 /
+   #277). The 15 August line that treated the replica as post-listing, with
+   v1 shipping neither the backup file nor the replica, is stale source.
+   Physical and store evidence remains unrecorded: this gate is red until
+   the owner dated record exists, and source composition is not that record.
+   Purchase-path proof on that walk is TestFlight StoreKit Sandbox /
+   no-charge only.
 
 ## Who moves
 
 | Role | Moves |
 |---|---|
 | **Agent** | Every App Store Connect API step, the archive/upload script, identity pairing, reviewer-notes paste, IAP attach attempt, submit, rejection replies that are metadata. |
-| **Owner** | Sitting 2 (already done before this day). Export-compliance questionnaire. First-IAP web-UI attach if the API refuses. Device acceptance of the RC on a physical iPhone. Any hard-stop waiver, written on #171. |
+| **Owner** | Sitting 2 (already done before this day). Export-compliance questionnaire. First-IAP web-UI attach if the API refuses. Device acceptance of the RC on a physical iPhone. Two-device iCloud physical/store acceptance of the signed RC ([#199](https://github.com/fol2/ks2-spelling/issues/199)). Any hard-stop waiver, written on #171. |
 | **Never this document** | Minting keys, `wrangler deploy`, R2 writes, ad-hoc `xcodebuild` from a scratch plist, a Sandbox-scheme archive passed off as the RC. |
 
 ASC key already provisioned: `NA8CPX2ZL2`, issuer
@@ -98,6 +110,7 @@ button.
 | In-app privacy notice | [#159](https://github.com/fol2/ks2-spelling/issues/159) in the RC (PR #184 already merged; close the issue if it is still open). |
 | IAP ready | `uk.eugnel.ks2spelling.fullks2` is `READY_TO_SUBMIT`: en-GB localisation, review screenshot, availability, £9.99 GBR. |
 | Learning backup gone from the RC | [#198](https://github.com/fol2/ks2-spelling/issues/198) closed ([Progress lives in iCloud](https://github.com/fol2/ks2-spelling/issues/187)). Parent area has no Export / Import learning backup; both native backup plugins are unregistered. Gap 5's unsigned import path is closed by deletion. |
+| iCloud learning replica physical/store evidence | [#199](https://github.com/fol2/ks2-spelling/issues/199) is a hard stop for [#201](https://github.com/fol2/ks2-spelling/issues/201) until the owner records signed-RC physical/store evidence in `docs/records/<YYYY-MM-DD>-icloud-learning-replica-physical-acceptance.md` per [`docs/operations/2026-08-21-icloud-learning-replica-physical-acceptance-runbook.md`](./2026-08-21-icloud-learning-replica-physical-acceptance-runbook.md). Native runtime already composes the private-CloudKit replica. Unsigned Simulator compile is not this gate. Portal CloudKit container configuration is not this gate. Runtime convergence and the ASC Data Not Collected read-back remain unrecorded. |
 | Tree and CI | The RC SHA is on `main`, worktree clean, the three-job B4 workflow green on that SHA. |
 | Channel pairing | `scripts/testflight-upload.sh` still archives `SCHEME=KS2Spelling` / `CONFIGURATION=Release`. A Sandbox-scheme archive is the wrong artefact. |
 
@@ -114,16 +127,16 @@ for Phase D on this RC.
 - E0.3 Dependabot and E0.4 merge-queue ([#90](https://github.com/fol2/ks2-spelling/issues/90)):
   repository governance, not a store gate. Nightly-green is already covered
   by "three-job B4 green on the RC SHA".
-- [#199](https://github.com/fol2/ks2-spelling/issues/199) (iCloud learning replica):
-  post-listing. v1 ships neither the backup file nor the replica, so the
-  replica does not block 1.0.0.
 
 ## The walk
 
 ### Phase A — confirm the hard stops
 
 **A1. Agent.** Re-read the hard-stop table against live evidence (issue state,
-`dig` / `curl` of the two public hosts, `asc` IAP state, CI run URL). Paste
+`dig` / `curl` of the two public hosts, `asc` IAP state, CI run URL, and
+whether a dated `docs/records/<YYYY-MM-DD>-icloud-learning-replica-physical-acceptance.md`
+exists on this RC SHA). Unsigned Simulator compile, portal CloudKit
+container configuration and source composition are not that record. Paste
 the table into a comment on #171 with pass/fail per row.
 
 **Stop if** any hard stop is red.

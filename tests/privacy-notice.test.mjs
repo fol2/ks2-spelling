@@ -33,7 +33,7 @@ test('the committed privacy notice is the closed markdown subset the in-app rend
   const markdown = await readNotice();
   const notice = parsePrivacyNotice(markdown);
   assert.equal(notice.title, 'KS2 Spelling privacy notice');
-  assert.equal(notice.effectiveDate, '17 August 2026');
+  assert.equal(notice.effectiveDate, '21 August 2026');
   assert.equal(notice.sections.length, 4);
   assert.deepEqual(
     notice.sections.map((section) => section.heading),

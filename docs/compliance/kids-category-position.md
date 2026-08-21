@@ -26,10 +26,15 @@ unresolved judgement.
 
 ## Scope of the verification behind this document
 
-The negative claims in this document — "no analytics", "no learner data leaves
-the device", "no link out", "the gateway retains nothing" — were each put to an
-adversarial auditor instructed to refute them, with a second independent auditor
-re-checking any claim reported refuted. Five claims survived. One did not: see
+The negative claims in this document — "no analytics", "no link out", "the
+gateway retains nothing" — were each put to an adversarial auditor instructed
+to refute them, with a second independent auditor re-checking any claim
+reported refuted. The earlier local-only learner-data claim is superseded:
+learner profiles and learner snapshots may leave the device into the family's private iCloud
+under Apple's terms. The publisher cannot read those records
+and collects and retains none. Selected learner, Parent PIN, store
+entitlements and pack-install jobs stay on the device. Five remaining
+negative claims survived the original audit. One did not: see
 [Gap 1](#gap-1--the-parental-gate-is-trust-on-first-use).
 
 Two limits on that verification, stated so the document does not read as more
@@ -135,8 +140,8 @@ the shipping answer.
 
 - **COPPA § 312.8(b) written children's personal information security program** —
   not produced. The obligation governs "children's personal information"; with
-  no child-originated data collected and no durable retention, there is no
-  subject matter for the program to govern.
+  no child-originated data collected by the publisher and no durable publisher
+  retention, there is no subject matter for the program to govern.
 - **COPPA § 312.10 written data retention policy** — not produced as a separate
   document. The Rule requires the policy to be published *in* the § 312.4(d)
   notice. It lands as a sentence in `docs/legal/privacy-notice.md`.
@@ -255,9 +260,9 @@ COPPA applies. This is the difference from a general-audience app.
 ### UK Age Appropriate Design Code
 
 The code's scope is services "which involve the processing of personal data to
-which the GDPR applies". With zero retention, applicability is arguable in both
-directions; the position below is written as though it applies, which is the
-conservative reading.
+which the GDPR applies". With zero publisher retention, applicability is
+arguable in both directions; the position below is written as though it
+applies, which is the conservative reading.
 
 | Standard | Position |
 |---|---|
@@ -265,7 +270,7 @@ conservative reading.
 | 2 DPIA | Performed in substance by this document. |
 | 3 Age appropriate application | The ICO's own bands (6–9 "core primary school years", 10–12 "transition years") do not align with Apple's. KS2 straddles both. Content is age-appropriate across the full 7–11 range regardless of the declared Apple band. |
 | 4 Transparency | `docs/legal/privacy-notice.md`, once reachable in-app (Gap 3). |
-| 5 Detrimental use of data | No data is used for anything beyond providing the app on the device. |
+| 5 Detrimental use of data | The publisher uses no learner data beyond providing the app. Learner profiles and snapshots may replicate to the family's private iCloud under Apple's terms; the publisher cannot read those records. |
 | 7 Default settings | No sharing, no accounts, no discovery surfaces exist to default. |
 | 8 Data minimisation | Directly implicates Gap 2. Closing it is what makes this standard met rather than argued. |
 | 9 Data sharing | None. |

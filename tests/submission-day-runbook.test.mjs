@@ -39,25 +39,38 @@ test('the submission-day runbook is tracked and forbids a second ExportOptions.p
   assert.match(runbook, /scripts\/testflight-upload\.sh/);
 });
 
-test('the submission-day go/no-go table treats backup removal as a hard stop and the iCloud replica as not', async () => {
+test('the submission-day go/no-go table source treats backup removal and the iCloud replica physical/store evidence as hard stops', async () => {
   const runbook = await readFile(RUNBOOK_PATH, 'utf8');
   const hardStopRows = tableDataRows(headingBlock(runbook, '### Hard stops'));
   const backupRow = hardStopRows.find((row) => row[0] === 'Learning backup gone from the RC');
+  const replicaRow = hardStopRows.find((row) => /iCloud learning replica/i.test(row[0]));
   const notHardStop = headingBlock(runbook, '### Not a hard stop');
 
-  assert.ok(backupRow, 'hard-stop table must include the backup-removal gate');
+  assert.ok(backupRow, 'hard-stop table source must include the backup-removal gate');
   assert.match(backupRow[1], /https:\/\/github\.com\/fol2\/ks2-spelling\/issues\/198/);
   assert.match(backupRow[1], /https:\/\/github\.com\/fol2\/ks2-spelling\/issues\/187/);
-  assert.equal(
-    hardStopRows.some((row) => row.join(' ').includes('issues/199')),
-    false,
+
+  assert.ok(
+    replicaRow,
+    'hard-stop table source must include the iCloud replica physical/store gate',
+  );
+  assert.match(replicaRow[1], /https:\/\/github\.com\/fol2\/ks2-spelling\/issues\/199/);
+  assert.match(replicaRow[1], /https:\/\/github\.com\/fol2\/ks2-spelling\/issues\/201/);
+  assert.match(
+    replicaRow[1],
+    /2026-08-21-icloud-learning-replica-physical-acceptance-runbook/,
   );
 
-  assert.match(
-    notHardStop,
-    /^- \[#199\]\(https:\/\/github\.com\/fol2\/ks2-spelling\/issues\/199\)/m,
+  assert.equal(
+    /issues\/199/.test(notHardStop),
+    false,
+    'Not a hard stop source must not list #199',
   );
   assert.doesNotMatch(notHardStop, /issues\/198/);
   assert.doesNotMatch(notHardStop, /issues\/187/);
   assert.doesNotMatch(runbook, /notes adapt/i);
+  assert.doesNotMatch(
+    runbook,
+    /v1 ships neither the backup file nor the replica/,
+  );
 });

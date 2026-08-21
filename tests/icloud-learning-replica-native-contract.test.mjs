@@ -170,3 +170,42 @@ test('restoring private entitlement symbols or enabling CloudKit in the Simulato
   assert.throws(() => assertAppStoreSafeContainerGate(privateSymbolMutation));
   assert.throws(() => assertAppStoreSafeContainerGate(simulatorMutation));
 });
+
+test('CKSyncEngine saves retain server system fields and surface bounded conflicts', async () => {
+  const ios = await readFile(
+    new URL('ios/App/App/ICloudLearningReplicaPlugin.swift', ROOT),
+    'utf8',
+  );
+
+  assert.match(
+    ios,
+    /queryRecords[\s\S]*ReplicaRecordCache\.shared\.store\(records\)/u,
+    'queried records must retain their CloudKit system fields for later updates',
+  );
+  assert.match(
+    ios,
+    /case \.sentRecordZoneChanges\(let sent\):[\s\S]*sent\.savedRecords[\s\S]*failedRecordSaves[\s\S]*error\.serverRecord/u,
+    'sent saves must retain returned system fields and capture server conflicts',
+  );
+  assert.match(
+    ios,
+    /consumeFailures\(recordIDs\)[\s\S]*ReplicaError\.conflict/u,
+    'a failed record save must reject the publish so the domain can refresh and retry',
+  );
+  assert.match(
+    ios,
+    /context\.options\.scope\.contains\(\$0\)/u,
+    'record batches must respect the CKSyncEngine send scope',
+  );
+  assert.match(
+    ios,
+    /modifyRecords\([\s\S]*result\.saveResults[\s\S]*serverRecord/u,
+    'the iOS 15 and 16 fallback must retain saved records and surface conflicts',
+  );
+  assert.match(
+    ios,
+    /case \.accountChange:[\s\S]*ReplicaRecordCache\.shared\.clear\(\)/u,
+    'an iCloud account change must discard system fields owned by the previous account',
+  );
+  assert.doesNotMatch(ios, /publicCloudDatabase|import Security|@_silgen_name|SecTask/u);
+});

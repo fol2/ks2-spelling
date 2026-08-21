@@ -26,6 +26,16 @@ async function publishAll({ replica, listProfiles, readSnapshot }) {
   await replica.publish({ profiles, snapshots });
 }
 
+function profilesEqual(left, right) {
+  return left.learnerId === right.learnerId
+    && left.nickname === right.nickname
+    && left.yearGroup === right.yearGroup
+    && left.goal === right.goal
+    && left.colour === right.colour
+    && left.createdAt === right.createdAt
+    && left.updatedAt === right.updatedAt;
+}
+
 export function startICloudLearningReplica({
   replica,
   listProfiles,
@@ -49,16 +59,53 @@ export function startICloudLearningReplica({
 
   let available = false;
 
+  async function pullAndApply() {
+    const pulled = await replica.pull();
+    const locals = await listProfiles();
+    const localsById = new Map(locals.map((profile) => [profile.learnerId, profile]));
+    for (const remote of pulled.profiles) {
+      const local = localsById.get(remote.learnerId) ?? null;
+      const merged = mergeProfiles(local, remote);
+      if (local === null || !profilesEqual(local, merged)) {
+        await writeProfile(merged);
+        localsById.set(merged.learnerId, merged);
+      }
+    }
+    for (const item of pulled.snapshots) {
+      const localSnapshot = await readLocalSnapshot(readSnapshot, item.learnerId);
+      await applyIncoming({
+        localSnapshot,
+        remoteSnapshot: item.payload,
+        entitled,
+        earned,
+      });
+    }
+  }
+
+  async function publishWithRefresh(publish) {
+    try {
+      await publish();
+    } catch {
+      // CKSyncEngine reports serverRecordChanged to the native delegate. One
+      // fresh pull lets the domain merge that server value before a bounded
+      // retry; any second failure remains best-effort and local-only.
+      await pullAndApply();
+      await publish();
+    }
+  }
+
   async function publishLearner(learnerId) {
     if (available !== true) return;
     try {
-      const profiles = (await listProfiles()).filter(
-        (profile) => profile.learnerId === learnerId,
-      );
-      if (profiles.length === 0) return;
-      const payload = await readLocalSnapshot(readSnapshot, learnerId);
-      const snapshots = payload ? [{ learnerId, payload }] : [];
-      await replica.publish({ profiles, snapshots });
+      await publishWithRefresh(async () => {
+        const profiles = (await listProfiles()).filter(
+          (profile) => profile.learnerId === learnerId,
+        );
+        if (profiles.length === 0) return;
+        const payload = await readLocalSnapshot(readSnapshot, learnerId);
+        const snapshots = payload ? [{ learnerId, payload }] : [];
+        await replica.publish({ profiles, snapshots });
+      });
     } catch {
       // Best-effort replica publish; local SQLite remains the source of truth.
     }
@@ -76,23 +123,12 @@ export function startICloudLearningReplica({
     }
     available = true;
     try {
-      const pulled = await replica.pull();
-      const locals = await listProfiles();
-      const localsById = new Map(locals.map((profile) => [profile.learnerId, profile]));
-      for (const remote of pulled.profiles) {
-        const merged = mergeProfiles(localsById.get(remote.learnerId) ?? null, remote);
-        await writeProfile(merged);
-      }
-      for (const item of pulled.snapshots) {
-        const localSnapshot = await readLocalSnapshot(readSnapshot, item.learnerId);
-        await applyIncoming({
-          localSnapshot,
-          remoteSnapshot: item.payload,
-          entitled,
-          earned,
-        });
-      }
-      await publishAll({ replica, listProfiles, readSnapshot });
+      await pullAndApply();
+      await publishWithRefresh(() => publishAll({
+        replica,
+        listProfiles,
+        readSnapshot,
+      }));
     } catch {
       // Unavailable or a replica fault stays local-only. Never surface a
       // child-facing sign-in nag.

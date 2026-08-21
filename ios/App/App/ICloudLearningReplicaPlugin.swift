@@ -113,16 +113,44 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func save(_ records: [CKRecord]) async throws {
+        guard !records.isEmpty else { return }
         if #available(iOS 17.0, *) {
             let engine = try await syncEngine()
+            let recordIDs = records.map(\.recordID)
+            ReplicaRecordCache.shared.beginSend(recordIDs)
+            ReplicaRecordCache.shared.store(records)
             engine.state.add(pendingRecordZoneChanges: records.map {
                 .saveRecord($0.recordID)
             })
-            ReplicaRecordCache.shared.store(records)
             try await engine.sendChanges()
+            if ReplicaRecordCache.shared.consumeFailures(recordIDs) {
+                throw ReplicaError.conflict
+            }
             return
         }
-        _ = try await privateDatabase().modifyRecords(saving: records, deleting: [])
+        let result = try await privateDatabase().modifyRecords(
+            saving: records,
+            deleting: []
+        )
+        var savedRecords: [CKRecord] = []
+        var failed = false
+        for (recordID, saveResult) in result.saveResults {
+            switch saveResult {
+            case .success(let record):
+                savedRecords.append(record)
+            case .failure(let error):
+                let cloudError = error as? CKError
+                ReplicaRecordCache.shared.fail(
+                    recordID,
+                    serverRecord: cloudError?.serverRecord
+                )
+                failed = true
+            }
+        }
+        ReplicaRecordCache.shared.store(savedRecords)
+        if failed {
+            throw ReplicaError.conflict
+        }
     }
 
     private func fetchEnvelope() async throws -> [String: Any] {
@@ -145,9 +173,11 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
                 matching: query,
                 inZoneWith: zoneID
             )
-            return try result.matchResults.map { _, recordResult in
+            let records = try result.matchResults.map { _, recordResult in
                 try recordResult.get()
             }
+            ReplicaRecordCache.shared.store(records)
+            return records
         }
         return []
     }
@@ -159,9 +189,17 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
                 throw ReplicaError.invalid
             }
             let recordID = CKRecord.ID(recordName: learnerId, zoneID: zoneID)
-            let record = CKRecord(recordType: Self.profileRecordType, recordID: recordID)
-            record["payload"] = try encodeJSON(profile)
-            record["updatedAt"] = int64(profile["updatedAt"])
+            let payload = try encodeJSON(profile)
+            let updatedAt = int64(profile["updatedAt"])
+            if let cached = ReplicaRecordCache.shared.record(for: recordID),
+               jsonString(cached["payload"], containsJSONEqualTo: profile),
+               int64(cached["updatedAt"]) == updatedAt {
+                continue
+            }
+            let record = ReplicaRecordCache.shared.record(for: recordID)
+                ?? CKRecord(recordType: Self.profileRecordType, recordID: recordID)
+            record["payload"] = payload
+            record["updatedAt"] = updatedAt
             records.append(record)
         }
         for snapshot in snapshots {
@@ -172,9 +210,17 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
                 recordName: "snapshot:\(learnerId)",
                 zoneID: zoneID
             )
-            let record = CKRecord(recordType: Self.snapshotRecordType, recordID: recordID)
-            record["payload"] = try makeAsset(snapshot["payload"])
-            record["updatedAt"] = int64((snapshot["payload"] as? JSObject)?["revision"])
+            let payload = snapshot["payload"]
+            let updatedAt = int64((payload as? JSObject)?["revision"])
+            if let cached = ReplicaRecordCache.shared.record(for: recordID),
+               int64(cached["updatedAt"]) == updatedAt,
+               try asset(cached["payload"], containsJSONEqualTo: payload) {
+                continue
+            }
+            let record = ReplicaRecordCache.shared.record(for: recordID)
+                ?? CKRecord(recordType: Self.snapshotRecordType, recordID: recordID)
+            record["payload"] = try makeAsset(payload)
+            record["updatedAt"] = updatedAt
             records.append(record)
         }
         return records
@@ -224,6 +270,36 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
             .appendingPathExtension("json")
         try data.write(to: url, options: .atomic)
         return CKAsset(fileURL: url)
+    }
+
+    private func asset(_ candidate: Any?, containsJSONEqualTo value: Any?) throws -> Bool {
+        guard let asset = candidate as? CKAsset,
+              let fileURL = asset.fileURL,
+              let value,
+              let data = try? Data(contentsOf: fileURL),
+              let remote = try? JSONSerialization.jsonObject(
+                with: data
+              ) as? NSObject,
+              let local = try? JSONSerialization.jsonObject(
+                with: JSONSerialization.data(withJSONObject: value)
+              ) as? NSObject
+        else {
+            return false
+        }
+        return remote.isEqual(local)
+    }
+
+    private func jsonString(_ candidate: Any?, containsJSONEqualTo value: Any) -> Bool {
+        guard let candidate = candidate as? String,
+              let data = candidate.data(using: .utf8),
+              let remote = try? JSONSerialization.jsonObject(with: data) as? NSObject,
+              let local = try? JSONSerialization.jsonObject(
+                with: JSONSerialization.data(withJSONObject: value)
+              ) as? NSObject
+        else {
+            return false
+        }
+        return remote.isEqual(local)
     }
 
     private func int64(_ value: Any?) -> Int64 {
@@ -287,6 +363,7 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
 }
 
 private enum ReplicaError: Error {
+    case conflict
     case invalid
     case unavailable
 }
@@ -294,6 +371,7 @@ private enum ReplicaError: Error {
 private final class ReplicaRecordCache: @unchecked Sendable {
     static let shared = ReplicaRecordCache()
     private var records: [CKRecord.ID: CKRecord] = [:]
+    private var failedRecordIDs: Set<CKRecord.ID> = []
     private let lock = NSLock()
 
     func store(_ values: [CKRecord]) {
@@ -301,13 +379,57 @@ private final class ReplicaRecordCache: @unchecked Sendable {
         defer { lock.unlock() }
         for record in values {
             records[record.recordID] = record
+            failedRecordIDs.remove(record.recordID)
         }
+    }
+
+    func beginSend(_ ids: [CKRecord.ID]) {
+        lock.lock()
+        defer { lock.unlock() }
+        for id in ids {
+            failedRecordIDs.remove(id)
+        }
+    }
+
+    func fail(_ id: CKRecord.ID, serverRecord: CKRecord?) {
+        lock.lock()
+        defer { lock.unlock() }
+        if let serverRecord {
+            records[id] = serverRecord
+        }
+        failedRecordIDs.insert(id)
+    }
+
+    func consumeFailures(_ ids: [CKRecord.ID]) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        var failed = false
+        for id in ids where failedRecordIDs.remove(id) != nil {
+            failed = true
+        }
+        return failed
     }
 
     func record(for id: CKRecord.ID) -> CKRecord? {
         lock.lock()
         defer { lock.unlock() }
         return records[id]
+    }
+
+    func remove(_ ids: [CKRecord.ID]) {
+        lock.lock()
+        defer { lock.unlock() }
+        for id in ids {
+            records.removeValue(forKey: id)
+            failedRecordIDs.remove(id)
+        }
+    }
+
+    func clear() {
+        lock.lock()
+        defer { lock.unlock() }
+        records.removeAll()
+        failedRecordIDs.removeAll()
     }
 }
 
@@ -362,6 +484,23 @@ private final class ReplicaSyncDelegate: NSObject, CKSyncEngineDelegate {
             if let data = try? JSONEncoder().encode(update.stateSerialization) {
                 UserDefaults.standard.set(data, forKey: stateKey)
             }
+        case .accountChange:
+            ReplicaRecordCache.shared.clear()
+        case .fetchedRecordZoneChanges(let fetched):
+            ReplicaRecordCache.shared.store(
+                fetched.modifications.map(\.record)
+            )
+            ReplicaRecordCache.shared.remove(
+                fetched.deletions.map(\.recordID)
+            )
+        case .sentRecordZoneChanges(let sent):
+            ReplicaRecordCache.shared.store(sent.savedRecords)
+            for failure in sent.failedRecordSaves {
+                ReplicaRecordCache.shared.fail(
+                    failure.record.recordID,
+                    serverRecord: failure.error.serverRecord
+                )
+            }
         default:
             break
         }
@@ -371,9 +510,11 @@ private final class ReplicaSyncDelegate: NSObject, CKSyncEngineDelegate {
         _ context: CKSyncEngine.SendChangesContext,
         syncEngine: CKSyncEngine
     ) async -> CKSyncEngine.RecordZoneChangeBatch? {
-        _ = context
+        let changes = syncEngine.state.pendingRecordZoneChanges.filter {
+            context.options.scope.contains($0)
+        }
         return await CKSyncEngine.RecordZoneChangeBatch(
-            pendingChanges: syncEngine.state.pendingRecordZoneChanges
+            pendingChanges: changes
         ) { recordID in
             ReplicaRecordCache.shared.record(for: recordID)
         }

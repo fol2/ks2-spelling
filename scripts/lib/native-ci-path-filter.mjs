@@ -22,6 +22,7 @@ export const NATIVE_CI_PATH_FILES = Object.freeze([
   '.npmrc',
   '.nvmrc',
   'docs/legal/privacy-notice.md',
+  '.github/workflows/ci.yml',
 ]);
 
 function normalisePath(path) {

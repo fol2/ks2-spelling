@@ -35,6 +35,9 @@ Instances already seen in this repository:
 - a native path filter that omitted bundled `src/`, `public/` and `vite.config.js`,
   so `merge_group` native jobs passed without building the container that embeds
   the Vite payload;
+- the same filter omitting `.github/workflows/ci.yml`, so a workflow-only
+  candidate could resolve a non-empty diff, return `native=false`, and skip both
+  required native jobs;
 - a B4 evidence-successor gate switched off on `merge_group` and `main`, and
   otherwise diffing `HEAD^` so a buried evidence change took the "does not
   apply" branch;

@@ -32,6 +32,7 @@ test('bundled web payload and native release inputs select both native CI jobs',
     'scripts/verify-ios-release-artefacts.mjs',
     'ios/App/App/AppDelegate.swift',
     'android/app/build.gradle',
+    '.github/workflows/ci.yml',
   ];
   for (const path of mustSelect) {
     assert.equal(pathSelectsNativeCi(path), true, `${path} must select native CI`);
@@ -45,6 +46,9 @@ test('bundled web payload and native release inputs select both native CI jobs',
     'tests/ci-workflow-contract.test.mjs',
     'vite.design.config.js',
     'site/public/index.html',
+    '.github/workflows/certify.yml',
+    '.github/workflows/nightly-alert.yml',
+    '.github/dependabot.yml',
   ];
   for (const path of mustNotSelect) {
     assert.equal(pathSelectsNativeCi(path), false, `${path} must not force native CI`);
@@ -143,6 +147,53 @@ test('both native CI jobs call the shared detector instead of an inline grep', a
       /if: steps\.filter\.outputs\.native == 'true' \|\| github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'/,
     );
   }
+});
+
+test('the source path contract selects native CI for a ci.yml-only candidate', async () => {
+  const workflowOnly = ['.github/workflows/ci.yml'];
+  assert.deepEqual(
+    decideNativeCiSelection({
+      baseSha: '1111111111111111111111111111111111111111',
+      changedPaths: workflowOnly,
+    }),
+    { native: true, reason: 'native-input-changed' },
+  );
+
+  const decision = await detectNativeCiChanges({
+    env: {
+      MERGE_GROUP_BASE_SHA: '1111111111111111111111111111111111111111',
+      PUSH_BEFORE_SHA: '',
+      CERTIFICATION: '',
+    },
+    runGit: async (args) => {
+      if (args[0] === 'rev-parse') return { stdout: `${args.at(-1)}\n` };
+      if (args[0] === 'diff' && args[1] === '--name-only') {
+        return { stdout: '.github/workflows/ci.yml\n' };
+      }
+      throw new Error(`unexpected git ${args.join(' ')}`);
+    },
+  });
+  assert.deepEqual(decision, { native: true, reason: 'native-input-changed' });
+});
+
+test('removing the ci.yml path-filter entry turns a workflow-only candidate red', () => {
+  const withoutWorkflow = NATIVE_CI_PATH_FILES.filter(
+    (file) => file !== '.github/workflows/ci.yml',
+  );
+  assert.notEqual(withoutWorkflow.length, NATIVE_CI_PATH_FILES.length);
+  assert.equal(pathSelectsNativeCi('.github/workflows/ci.yml'), true);
+  assert.equal(
+    pathSelectsNativeCi('.github/workflows/ci.yml', { files: withoutWorkflow }),
+    false,
+  );
+  assert.deepEqual(
+    decideNativeCiSelection({
+      baseSha: '1111111111111111111111111111111111111111',
+      changedPaths: ['.github/workflows/ci.yml'],
+      files: withoutWorkflow,
+    }),
+    { native: false, reason: 'no-native-input-changed' },
+  );
 });
 
 test('native-release gate inputs still select native CI after a prefix mutation', () => {

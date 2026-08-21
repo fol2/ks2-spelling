@@ -38,7 +38,10 @@ selects both native jobs on those full-gate events. The shared detector is
 `scripts/detect-native-ci-changes.mjs`. Unresolved base, empty diff or a
 certification run fail closed and compile native. The filter can only ever make
 a merge slower; it must not let a changed Vite payload skip the container that
-ships.
+ships. The B4 workflow file `.github/workflows/ci.yml` is itself a native/full-merge input:
+it consumes the path filter that decides whether the required Android and iOS jobs compile.
+A candidate that changes only that workflow must still select both native jobs.
+This source contract does not prove a hosted merge_group executed those jobs.
 
 History-sensitive B4 evidence-successor checks inspect the truthful candidate
 range (merge-group base, pull-request base, push `before`, or `HEAD~1` as a

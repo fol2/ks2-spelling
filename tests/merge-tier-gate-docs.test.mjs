@@ -34,6 +34,14 @@ test('durable merge-tier documentation distinguishes source proof from live GitH
   assert.match(docs, /Domain and web/u);
   assert.match(docs, /issue #229/u);
   assert.match(docs, /A green exact-main push run is not a green nightly baseline/u);
+  assert.match(
+    docs,
+    /The B4 workflow file `\.github\/workflows\/ci\.yml` is itself a native\/full-merge input/u,
+  );
+  assert.match(
+    docs,
+    /This source contract does not prove a hosted merge_group executed those jobs/u,
+  );
 });
 
 test('verify:b3 does not claim gateway coverage it does not run', async () => {

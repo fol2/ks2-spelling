@@ -113,8 +113,9 @@ cd ../ks2-spelling-<slice> && npm ci        # never symlink node_modules —
 - Touched packs/commerce/proof surfaces ⇒ `npm run prove:b3:deterministic`
   must reproduce `reports/b3/deterministic-proof.json` byte-identically.
 - Any change the native path detector selects (bundled `src/`, `public/`,
-  `vite.config.js`, `ios/`, `android/`, and the other native-release inputs in
-  `scripts/lib/native-ci-path-filter.mjs`) is merge-gated on the native jobs.
+  `vite.config.js`, `.github/workflows/ci.yml`, `ios/`, `android/`, and the
+  other native-release inputs in `scripts/lib/native-ci-path-filter.mjs`) is
+  merge-gated on the native jobs.
   PR-lane CI alone is NOT a merge basis for those changes. If you touch `ios/`
   or `android/` directly, also trigger the full three-job run yourself and
   record the honest result:

@@ -2470,16 +2470,22 @@ select {
   color: rgb(255 249 236 / 60%);
 }
 
-/* No `margin-top`: `.round-scene .scene-body` is a flex column with its own
-   0.9rem `gap`, so a margin here was a second copy of the same space. The same
-   doubling sat on `.round-foot`, and on a 667pt screen the round is a fixed
-   composition with nowhere to put the excess but off the bottom. */
+/* No positive `margin-top`: `.round-scene .scene-body` is a flex column with
+   its own 0.9rem `gap`, so a margin here was a second copy of the same space.
+   The same doubling sat on `.round-foot`, and on a 667pt screen the round is a
+   fixed composition with nowhere to put the excess but off the bottom.
+
+   The dusk band bleeds the scene-body gutters and paints into that gap.
+   Negative margin equals the padding so the dots, flag and card stay put.
+   Opacity is harness-tuned, not a locked token. */
 .round-attempts {
-  margin: 0;
+  margin: -0.45rem calc(-1 * var(--gutter-right)) -0.45rem calc(-1 * var(--gutter-left));
+  padding: 0.45rem var(--gutter-right) 0.45rem var(--gutter-left);
   color: rgb(255 249 236 / 62%);
   font-size: 0.72rem;
   letter-spacing: 0.02em;
   text-align: center;
+  background: rgb(14 21 29 / 50%);
 }
 
 .round-card {

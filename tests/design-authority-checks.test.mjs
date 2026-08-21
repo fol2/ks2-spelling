@@ -249,11 +249,14 @@ test('Release-gate document exists and references four checks', async () => {
 /* Token definitions passing 4.5:1 does not mean the text passes: a call site can
    invent its own alpha and never touch a token. #108 found sixteen that did, in
    a file whose token check was green. This scan reads every ink-alpha `color:`
-   declaration in the shipped stylesheets and holds it to the same floor.
+   declaration in the shipped stylesheets and holds it to a declared-ground
+   floor against `--dusk` / `--dusk-raised` (and the vellum papers). It is not
+   a painted-surface proof: dusk scenes paint art, and `.round-attempts` on
+   that art is #271.
 
-   ponytail: holds every ink-alpha text run to 4.5:1, including the >=24px runs
-   WCAG lets sit at 3:1. No such run exists today; add font-size parsing only
-   when a real design needs the large-text allowance. */
+   ponytail: holds every ink-alpha text run to 4.5:1 on those declared grounds,
+   including the >=24px runs WCAG lets sit at 3:1. No such run exists today;
+   add font-size parsing only when a real design needs the large-text allowance. */
 const INK_ALPHA_SURFACES = [
   {
     path: 'src/app/app.css',
@@ -872,6 +875,31 @@ test('Design authority: the round tablet stage holds the composition-carrying de
     roundScreen,
     /companion\?\.art \? \(/u,
     'null from the selector must paint nothing — no placeholder, no error path',
+  );
+});
+
+/* `.round-attempts` sits on sunset sky, not on `--dusk`. This check is a
+   structural guard: `node --test` has no browser, and this repository does
+   not add one. It asserts that the caption declares a dusk `background`
+   (not `none` / `transparent`) and that the ink is still 62% cream. It does
+   not prove painted 4.5:1 — painted numbers are harness-measured and
+   unautomated by construction. Opacity of the band is measured, not locked;
+   expected values are the presence of a background and the 62% literal, not
+   a contrast table the test computed against itself (#242 family). */
+test('Design authority: .round-attempts declares a dusk background and keeps 62% cream ink (#271)', async () => {
+  const rules = cssRuleBlocks(await read('src/app/app.css'));
+  const attempts = rules.find((rule) => rule.selector === '.round-attempts');
+  assert.ok(attempts, '.round-attempts rule must exist');
+  const decls = declarationMap(attempts.body);
+  const background = decls.background ?? '';
+  assert.ok(
+    background !== '' && background !== 'none' && background !== 'transparent',
+    '.round-attempts must declare a dusk background that is not none or transparent',
+  );
+  assert.equal(
+    decls.color,
+    'rgb(255 249 236 / 62%)',
+    '.round-attempts ink must stay color: rgb(255 249 236 / 62%) — do not raise the alpha to pay for contrast',
   );
 });
 

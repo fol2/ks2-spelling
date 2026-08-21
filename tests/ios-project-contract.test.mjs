@@ -235,7 +235,7 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
   );
 });
 
-test('the iOS app target explicitly links the frozen ZIPFoundation extraction product', async () => {
+test('the iOS app target links ZIPFoundation and selects its keyring source by configuration', async () => {
   const project = await readFile(PROJECT, 'utf8');
   const sceneDelegate = await readFile(join(IOS_ROOT, 'App/SceneDelegate.swift'), 'utf8');
   assert.match(project, /XCRemoteSwiftPackageReference "ZIPFoundation"/);
@@ -250,11 +250,6 @@ test('the iOS app target explicitly links the frozen ZIPFoundation extraction pr
   assert.match(project, /pack-signing-public-keys\.json in Resources/u);
   assert.match(sceneDelegate, /PackTransferPlugin/);
   assert.match(sceneDelegate, /registerPluginInstance/);
-  assert.deepEqual(
-    JSON.parse(await readFile(join(IOS_ROOT, 'App/Resources/pack-signing-public-keys.json'))),
-    JSON.parse(await readFile(join(ROOT, 'config/pack-signing-public-keys.json'))),
-    'the native bundle must copy the tracked public verification keyring byte-for-byte in meaning',
-  );
   assert.match(project, /path = "\$\(KS2_KEYRING_DIRECTORY\)\/pack-signing-public-keys\.json"/u);
   assert.match(project, /KS2_KEYRING_DIRECTORY = "\.\.\/\.\.\/config\/production"/u);
   assert.match(project, /KS2_KEYRING_DIRECTORY = "\.\.\/\.\.\/config"/u);

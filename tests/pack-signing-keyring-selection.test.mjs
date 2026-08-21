@@ -49,14 +49,14 @@ test('the production pack-keyring module does not name sandbox-only identities',
   }
 });
 
-test('tracked native keyrings remain the byte-identical full two-key document', async () => {
+test('the tracked Android keyring remains the byte-identical full two-key document', async () => {
   const tracked = await readFile(
     new URL('../config/pack-signing-public-keys.json', import.meta.url),
   );
-  for (const relative of [
-    '../ios/App/App/Resources/pack-signing-public-keys.json',
-    '../android/app/src/main/assets/pack-signing-public-keys.json',
-  ]) {
-    assert.deepEqual(await readFile(new URL(relative, import.meta.url)), tracked);
-  }
+  assert.deepEqual(
+    await readFile(
+      new URL('../android/app/src/main/assets/pack-signing-public-keys.json', import.meta.url),
+    ),
+    tracked,
+  );
 });

@@ -62,7 +62,10 @@ test('a sandbox-selected production Release fails direct artefact inspection', a
   );
 });
 
-test('the exact-candidate workflow builds and inspects both unsigned iOS applications', async () => {
+test('the release verifier command and CI wiring select both unsigned iOS applications', async () => {
+  // Executing the npm command in CI is the proof that these commands produce
+  // and directly inspect the paired application bundles. This test locks the
+  // command construction and workflow wiring without claiming to build them.
   const commands = IOS_RELEASE_BUILD_STEPS.map(({ command, args }) => `${command} ${args.join(' ')}`);
   assert.equal(commands.length, 6);
   assert.match(commands[2], /-scheme Sandbox -configuration Sandbox/u);
@@ -76,4 +79,30 @@ test('the exact-candidate workflow builds and inspects both unsigned iOS applica
   ]);
   assert.match(packageJson, /"verify:ios-release-artefacts":\s*"node scripts\/verify-ios-release-artefacts\.mjs"/u);
   assert.match(workflow, /npm run verify:ios-release-artefacts/u);
+});
+
+test('both native CI path filters run for either release artefact authority file', async () => {
+  const workflow = await readFile(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  const filters = [...workflow.matchAll(/grep -qE '([^']+)'/gu)].map((match) => match[1]);
+  assert.equal(filters.length, 2);
+
+  for (const path of [
+    'config/production/pack-signing-public-keys.json',
+    'scripts/verify-ios-release-artefacts.mjs',
+  ]) {
+    for (const filter of filters) {
+      assert.equal(new RegExp(filter, 'u').test(path), true, `${path} must select native CI`);
+      const reverted = filter.replace(
+        path === 'config/production/pack-signing-public-keys.json'
+          ? 'config/production/pack-signing-public-keys\\.json|'
+          : '|verify-ios-release-artefacts',
+        '',
+      );
+      assert.equal(
+        new RegExp(reverted, 'u').test(path),
+        false,
+        `${path} must turn the contract red when its exact filter entry is reverted`,
+      );
+    }
+  }
 });

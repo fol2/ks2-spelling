@@ -75,10 +75,12 @@ cd ../ks2-spelling-<slice> && npm ci        # never symlink node_modules —
   graph — most commerce/gateway code — do not trip it.)
 - **Authority families move together, all sites in one commit:**
   - the four Android packaged-permission surface lists;
-  - the pack-signing keyring: `config/pack-signing-public-keys.json`, the iOS
-    and Android bundled asset copies (byte-identical trio) and
-    `EXPECTED_SIGNING_KEY` in `src/domain/commerce/commerce-contracts.js`,
-    plus the slow-test pin;
+  - the pack-signing keyrings: the full sandbox authority at
+    `config/pack-signing-public-keys.json`, its byte-identical Android bundled
+    asset, the production projection at
+    `config/production/pack-signing-public-keys.json`, the iOS per-configuration
+    PBX resource selection, and `EXPECTED_SIGNING_KEY` in
+    `src/domain/commerce/commerce-contracts.js`, plus the slow-test pin;
   - the gateway rate-limit bound: `gateway/wrangler.jsonc`, the derived deploy
     config and `validateTrackedWranglerConfig` in
     `scripts/lib/b3-cloudflare-live-adapter.mjs`, the expected remote-binding

@@ -7,23 +7,13 @@ import { createRoot } from 'react-dom/client';
 import App from '../app/App.jsx';
 import '../app/app.css';
 import '../app/b4-shell.css';
-import manifest from '../../config/b4-audio-manifest.json';
-import { createB4RoundController } from '../app/b4-round-controller.js';
 import { createB4LocalAudioPlayer } from '../app/b4-local-audio.js';
-import {
-  B4_PRODUCT_IDENTIFIER,
-  loadB4SpellingCatalogue,
-} from '../app/b4-round-contract.js';
-import { createB4HarnessRepository } from './b4-harness-repository.js';
+import { B4_PRODUCT_IDENTIFIER } from '../app/b4-round-contract.js';
+import { createB4DesktopHarness } from './create-b4-desktop-harness.js';
 
 const bridgeMs = Number(new URLSearchParams(location.search).get('bridgeMs')) || 0;
-const { repository, snapshotStore } = createB4HarnessRepository({ bridgeMs });
-
-const controller = createB4RoundController({
-  catalogue: loadB4SpellingCatalogue(),
-  repository,
-  snapshotStore,
-  audioManifest: manifest,
+const { controller, targetForCurrentCard } = createB4DesktopHarness({
+  bridgeMs,
   playAudio: createB4LocalAudioPlayer(),
 });
 
@@ -32,11 +22,7 @@ window.__b4Harness = Object.freeze({
   measures: () => performance.getEntriesByType('measure')
     .filter(({ name }) => name.startsWith('b4:'))
     .map(({ name, duration }) => ({ name, duration })),
-  targetForCurrentCard: () => {
-    const { currentRuntimeItemId } = controller.getState();
-    return loadB4SpellingCatalogue().items
-      .find(({ runtimeItemId }) => runtimeItemId === currentRuntimeItemId)?.target ?? null;
-  },
+  targetForCurrentCard,
 });
 
 createRoot(document.getElementById('root')).render(

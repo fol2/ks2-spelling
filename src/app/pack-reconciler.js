@@ -36,7 +36,11 @@ function validateDependencies(value) {
   // packIds is optional: the catalogue join stays the default pack set, and
   // only the frozen B3 proof lane pins itself to the registry's b3 row after
   // that pack left the sellable catalogue.
-  const expected = ownKeys.includes('packIds') ? [...keys, 'packIds'] : keys;
+  const expected = [
+    ...keys,
+    ...(ownKeys.includes('packIds') ? ['packIds'] : []),
+    ...(ownKeys.includes('registry') ? ['registry'] : []),
+  ];
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Object.prototype ||
       ownKeys.length !== expected.length ||
@@ -88,11 +92,12 @@ export function createPackReconciler(rawDependencies) {
   const {
     entitlementId, packTransfer, packRepository, activeEntitlementProjection, clock,
   } = dependencies;
+  const registry = dependencies.registry;
   // One reconciler per entitlement; the catalogue names which packs that
   // entitlement owns unless a composition pins an explicit registry-backed set.
   const ENTITLEMENT_ID = resolveCommerceProduct(entitlementId).entitlementId;
   const PACK_IDS = Object.hasOwn(dependencies, 'packIds')
-    ? resolvePackJobAuthorities({ entitlementId, packIds: dependencies.packIds })
+    ? resolvePackJobAuthorities({ entitlementId, packIds: dependencies.packIds }, registry)
       .map(({ packId }) => packId)
     : resolveCommerceProduct(entitlementId).packIds;
 
@@ -110,7 +115,7 @@ export function createPackReconciler(rawDependencies) {
   function isRetiredScope(packId) {
     if (PACK_IDS.includes(packId) || CATALOGUE_PACK_IDS.includes(packId)) return false;
     try {
-      return findPackAuthority(packId).requiredEntitlementId === ENTITLEMENT_ID;
+      return findPackAuthority(packId, registry).requiredEntitlementId === ENTITLEMENT_ID;
     } catch {
       return false;
     }

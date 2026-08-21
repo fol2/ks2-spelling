@@ -26,6 +26,7 @@
     "native:doctor": "node scripts/native-doctor.mjs",
     "native:sync:check": "node scripts/native-sync-check.mjs",
     "test:ios": "node scripts/test-ios.mjs",
+    "verify:ios-release-artefacts": "node scripts/verify-ios-release-artefacts.mjs",
     "test:android": "node scripts/test-android.mjs",
     "report:b2-native-plugins": "node scripts/build-b2-native-plugin-report.mjs",
     "report:b2-native-plugins:check": "node scripts/build-b2-native-plugin-report.mjs --check",

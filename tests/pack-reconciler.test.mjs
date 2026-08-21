@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { createPackReconciler } from '../src/app/pack-reconciler.js';
 import { projectActiveEntitlements } from '../src/domain/commerce/entitlement-access-projection.js';
+import { B3_PACK_REGISTRY } from '../src/domain/packs/b3-pack-registry.js';
 
 const NOW = Date.parse('2026-07-14T00:00:00.000Z');
 const PACK_ID = 'b3-sandbox-proof';
@@ -111,6 +112,7 @@ function reconcileHarness({
       // The mechanics under test predate the E2.7 join flip; the harness pins
       // the reconciler to the registry's b3 row exactly as the B3 proof lane does.
       packIds: [PACK_ID],
+      registry: B3_PACK_REGISTRY,
       packTransfer,
       packRepository,
       activeEntitlementProjection: async () => projectActiveEntitlements(entitled ? [{

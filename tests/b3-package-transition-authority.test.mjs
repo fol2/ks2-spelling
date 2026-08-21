@@ -57,6 +57,7 @@ const EXPECTED_C_SERIES_SCRIPT_NAMES = Object.freeze([
   'verify:starter-audio',
   'verify:starter-pack',
   'verify:art',
+  'verify:ios-release-artefacts',
 ]);
 
 const EXPECTED_PRODUCT_SFX_SCRIPT_NAMES = Object.freeze([

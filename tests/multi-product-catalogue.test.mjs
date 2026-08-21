@@ -15,12 +15,12 @@ import {
   resolvePackJobAuthorities,
 } from '../src/domain/commerce/purchase-state.js';
 
-// The only pack any approved signing key can verify today. A catalogue may not sell a
-// pack outside this set, so every synthetic product below delivers this one.
-const SIGNED_PACK_ID = 'b3-sandbox-proof';
 // The shipped catalogue join since the E2.7 flip: the 15 Full-KS2 shards.
 const FULL_KS2_SHARD_IDS = Array.from({ length: 15 }, (_, index) =>
   `full-ks2-shard-${String(index + 1).padStart(2, '0')}`);
+// A catalogue may sell only production-signable packs, so synthetic products
+// use the first shipped shard rather than the separate B3 proof row.
+const SIGNED_PACK_ID = FULL_KS2_SHARD_IDS[0];
 
 function product(overrides = {}) {
   return {

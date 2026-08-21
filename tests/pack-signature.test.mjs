@@ -9,6 +9,7 @@ import {
   PACK_SIGNING_DOMAIN_BYTES,
   createPackSigningInput,
 } from '../src/domain/packs/signed-manifest-contract.js';
+import { assertPackKeyring } from '../src/domain/commerce/commerce-contracts.js';
 import {
   parsePackKeyValidityBoundary,
   selectPackVerificationKey,
@@ -286,7 +287,7 @@ test('key selection rejects malformed or non-canonical P-256 SPKI DER', () => {
   );
 });
 
-test('runtime key selection requires the exact closed Task 2 keyring authority', () => {
+test('runtime key selection rejects a structurally open keyring', () => {
   const select = (candidate) => selectPackVerificationKey({
     keyring: candidate,
     keyId: 'b3-test-p256-2026-07',
@@ -294,11 +295,22 @@ test('runtime key selection requires the exact closed Task 2 keyring authority',
     environment: 'sandbox',
     clock: () => new Date(NOW),
   });
-  const invalidPoint = Buffer.from(keyring.keys[0].publicKeySpkiDerBase64, 'base64');
-  invalidPoint[invalidPoint.length - 1] ^= 0x01;
   const mutations = [
     (value) => { value.privateKey = 'forbidden'; },
     (value) => { value.keys[0].privateKeyPem = 'forbidden'; },
+  ];
+
+  for (const mutate of mutations) {
+    const candidate = structuredClone(keyring);
+    mutate(candidate);
+    assert.throws(() => select(candidate), /keyring|verification key/i);
+  }
+});
+
+test('the two-key authority pin refuses a rewritten sandbox key', () => {
+  const invalidPoint = Buffer.from(keyring.keys[0].publicKeySpkiDerBase64, 'base64');
+  invalidPoint[invalidPoint.length - 1] ^= 0x01;
+  const mutations = [
     (value) => { value.keys[0].testOnly = false; },
     (value) => { value.keys[0].allowedEnvironments.push('production'); },
     (value) => { value.keys[0].publicKeySpkiDerBase64 = invalidPoint.toString('base64'); },
@@ -308,6 +320,6 @@ test('runtime key selection requires the exact closed Task 2 keyring authority',
   for (const mutate of mutations) {
     const candidate = structuredClone(keyring);
     mutate(candidate);
-    assert.throws(() => select(candidate), /keyring|verification key/i);
+    assert.throws(() => assertPackKeyring(candidate), /Pack keyring/u);
   }
 });

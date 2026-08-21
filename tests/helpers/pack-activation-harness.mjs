@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 
+import { B3_PACK_REGISTRY } from '../../src/domain/packs/b3-pack-registry.js';
+
 import {
   ARCHIVE_ETAG,
   ARCHIVE_SHA,
@@ -146,6 +148,7 @@ export function activationHarness({
         },
       keyring,
       environment: 'sandbox',
+      registry: B3_PACK_REGISTRY,
       clock: () => new Date(NOW),
       crashInjector,
     },

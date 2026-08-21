@@ -38,7 +38,8 @@ let package = Package(
         .executableTarget(
             name: "PackInspectorHarness",
             dependencies: [.product(name: "ZIPFoundation", package: "ZIPFoundation")],
-            path: "Sources"
+            path: "Sources",
+            swiftSettings: [.define("KS2_SANDBOX_CHANNEL")]
         )
     ]
 )

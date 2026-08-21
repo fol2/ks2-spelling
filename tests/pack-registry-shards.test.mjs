@@ -5,6 +5,10 @@ import test from 'node:test';
 
 import downloadableTable from '../config/downloadable-pack-authorities.json' with { type: 'json' };
 import {
+  B3_PACK_REGISTRY,
+  findB3PackAuthority,
+} from '../src/domain/packs/b3-pack-registry.js';
+import {
   PACK_REGISTRY,
   findPackAuthority,
   readDownloadablePackRows,
@@ -31,8 +35,10 @@ const FIXTURE_ROW = Object.freeze({
   archiveEtag: 'd'.repeat(32),
 });
 
-test('the registry still resolves the b3 row and rejects unknown packs', () => {
-  assert.equal(findPackAuthority('b3-sandbox-proof').packId, 'b3-sandbox-proof');
+test('the B3 registry resolves the proof row while the production registry rejects it', () => {
+  assert.equal(findB3PackAuthority('b3-sandbox-proof').packId, 'b3-sandbox-proof');
+  assert.equal(B3_PACK_REGISTRY.length, PACK_REGISTRY.length + 1);
+  assert.throws(() => findPackAuthority('b3-sandbox-proof'), /is not registered/u);
   assert.throws(() => findPackAuthority('full-ks2-shard-99'), /is not registered/u);
 });
 
@@ -91,6 +97,6 @@ test('every tracked downloadable row matches its shard authoring facts', async (
   }
   assert.equal(
     PACK_REGISTRY.length,
-    1 + downloadableTable.packs.length,
+    downloadableTable.packs.length,
   );
 });

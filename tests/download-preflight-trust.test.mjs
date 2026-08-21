@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { createDownloadCoordinator } from '../src/app/download-coordinator.js';
-import { createVerifiedDownloadAuthority } from '../src/domain/packs/signed-download-access-contract.js';
+import { createVerifiedDownloadAuthority } from '../src/domain/packs/b3-pack-registry.js';
 import { configureAndMigrateDatabase } from '../src/platform/database/migrate-database.js';
 import { createSqliteCommerceRepositories } from '../src/platform/database/sqlite-commerce-repositories.js';
 import { createSqlitePackRepositories } from '../src/platform/database/sqlite-pack-repositories.js';

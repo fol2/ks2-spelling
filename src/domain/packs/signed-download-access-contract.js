@@ -1,26 +1,10 @@
-import { assertPackAuthority, findPackAuthority } from './pack-registry.js';
+import { assertPackAuthority } from './pack-registry.js';
 
 const APP_VERSION = '0.3.0-b3';
 const SCHEMA_VERSION = 2;
 const CAPABILITY = /^[A-Za-z0-9_-]{43}$/;
 const SHA256_HEX = /^[a-f0-9]{64}$/;
 const MANIFEST_FILE_KEYS = Object.freeze(['bytes', 'path', 'sha256']);
-
-// The frozen B3 proof pack predates the pack builder, so its per-file authority
-// is pinned here as defence in depth. Registry-built packs carry their file
-// authority in the signed manifest alone.
-const B3_FILES = Object.freeze([
-  Object.freeze({
-    bytes: 840,
-    path: 'audio/proof-word.m4a',
-    sha256: 'ef93d2c71f8490c7dd1b93929d8cba78b82c7c22c7c5da210e402be0f6b3f82f',
-  }),
-  Object.freeze({
-    bytes: 242,
-    path: 'catalogue.json',
-    sha256: 'ee99faa101efe4e18e6e864f4b9265eabc8f0106dd72465c7c4fc3c1b36feb3e',
-  }),
-]);
 
 function accessError(code) {
   return Object.assign(new Error(code), { code });
@@ -93,10 +77,7 @@ function validManifestFiles(files, authority) {
   return true;
 }
 
-function makeContract(authority, pinnedFiles = null, gatewayOrigin = null) {
-  if (!gatewayOrigin) {
-    gatewayOrigin = ['https:', '', 'b3-gateway.eugnel.uk'].join('/');
-  }
+function makeContract(authority, pinnedFiles, gatewayOrigin) {
   function requireManifest(manifest, currentAppVersion, currentSchemaVersion) {
     if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
       throw accessError('DOWNLOAD_MANIFEST_INVALID');
@@ -305,20 +286,16 @@ function makeContract(authority, pinnedFiles = null, gatewayOrigin = null) {
   });
 }
 
-export function createSignedDownloadAccessContract(packAuthority, gatewayOrigin = null) {
+export function createSignedDownloadAccessContract(
+  packAuthority,
+  gatewayOrigin,
+  pinnedFiles = null,
+) {
   const authority = assertPackAuthority(packAuthority);
-  // The frozen B3 proof pack keeps its compiled per-file pin no matter who
-  // constructs its contract; no caller can widen it.
-  return makeContract(authority, authority.packId === 'b3-sandbox-proof' ? B3_FILES : null, gatewayOrigin);
+  if (typeof gatewayOrigin !== 'string' || gatewayOrigin.length === 0) {
+    throw new TypeError('Download gateway origin is required.');
+  }
+  return makeContract(authority, pinnedFiles, gatewayOrigin);
 }
-
-const B3_CONTRACT = createSignedDownloadAccessContract(
-  findPackAuthority('b3-sandbox-proof'),
-  ['https:', '', 'b3-gateway.eugnel.uk'].join('/')
-);
-
-export const assertSignedDownloadAccess = B3_CONTRACT.assertSignedDownloadAccess;
-export const assertSubmittedDownloadEntitlement = B3_CONTRACT.assertSubmittedDownloadEntitlement;
-export const createVerifiedDownloadAuthority = B3_CONTRACT.createVerifiedDownloadAuthority;
 
 export const B3_DOWNLOAD_CHUNK_BYTES = 1_048_576;

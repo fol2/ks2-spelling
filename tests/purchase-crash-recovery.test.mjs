@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { B3_PACK_REGISTRY } from '../src/domain/packs/b3-pack-registry.js';
+
 const CHECKPOINTS = Object.freeze([
   'before:journal', 'after:journal',
   'before:verify', 'after:verify',
@@ -157,6 +159,7 @@ async function makeCoordinator(world, checkpoint) {
     // The mechanics under test predate the E2.7 join flip; the harness pins
     // the coordinator to the registry's b3 row exactly as the B3 proof lane does.
     packIds: ['b3-sandbox-proof'],
+    registry: B3_PACK_REGISTRY,
     store: world.store, gateway: world.gateway, commerceRepository: world.repository,
     attemptRepository: world.attemptRepository,
     downloadRepository: world.downloadRepository, clock: () => 10_000,

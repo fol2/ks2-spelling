@@ -448,7 +448,7 @@
   "gradleInputFiles": [
     {
       "path": "android/app/build.gradle",
-      "sha256": "45dd5392da2d1594af9aa5394006c63c56226cda23990d653d490389893adfe4"
+      "sha256": "58c1ae4906b1df7414fd9aec70b15e26bcbf3f09d9aaed8e3238f55491088673"
     },
     {
       "path": "android/app/capacitor.build.gradle",

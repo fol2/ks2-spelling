@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { B3_PACK_REGISTRY } from '../src/domain/packs/b3-pack-registry.js';
+
 const GOOGLE_PRODUCT_ID = 'full_ks2';
 const APPLE_PRODUCT_ID = 'uk.eugnel.ks2spelling.fullks2';
 const STORE_TRANSACTION_ID = 'GPA.1234-5678-9012-34567';
@@ -273,6 +275,7 @@ async function coordinator(harness, overrides = {}) {
     // The mechanics under test predate the E2.7 join flip; the harness pins
     // the coordinator to the registry's b3 row exactly as the B3 proof lane does.
     packIds: ['b3-sandbox-proof'],
+    registry: B3_PACK_REGISTRY,
     store: harness.store,
     gateway: harness.gateway,
     commerceRepository: harness.repository,

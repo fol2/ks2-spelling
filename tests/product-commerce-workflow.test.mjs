@@ -4,6 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import sandboxGatewayAuthority from '../config/b3-gateway-authority.json' with { type: 'json' };
+import productionGatewayAuthority from '../config/ks2-gateway-authority-production.json' with { type: 'json' };
+import packKeyring from '../config/pack-signing-public-keys.json' with { type: 'json' };
+import productionPackKeyring from '../config/production/pack-signing-public-keys.json' with { type: 'json' };
+
 import {
   createProductCommerceWorkflow,
 } from '../src/app/create-product-commerce-workflow.js';
@@ -21,6 +26,22 @@ import {
 } from '../src/platform/database/sqlite-pack-repositories.js';
 import { createNodeSqliteConnection } from './helpers/node-sqlite-connection.mjs';
 
+function channelAuthority(environment = 'sandbox') {
+  return environment === 'production'
+    ? {
+        packTrustEnvironment: environment,
+        gatewayAuthority: productionGatewayAuthority,
+        gatewayOrigin: 'https://ks2-gateway.eugnel.uk',
+        packKeyring: productionPackKeyring,
+      }
+    : {
+        packTrustEnvironment: environment,
+        gatewayAuthority: sandboxGatewayAuthority,
+        gatewayOrigin: 'https://b3-gateway.eugnel.uk',
+        packKeyring,
+      };
+}
+
 test('product commerce composes the existing durable engines behind one Parent snapshot', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'ks2-product-commerce-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -28,6 +49,7 @@ test('product commerce composes the existing durable engines behind one Parent s
   await connection.open();
   await configureAndMigrateDatabase(connection);
   const workflow = createProductCommerceWorkflow({
+    ...channelAuthority(),
     runtime: Object.freeze({
       isNativePlatform: true,
       platform: 'android',
@@ -77,6 +99,7 @@ test('a download that the device cannot hold fails before the first shard is aut
   // preflight would wave this through and fail hundreds of MiB later.
   const oneShard = findPackAuthority(packIds[0]);
   const workflow = createProductCommerceWorkflow({
+    ...channelAuthority(),
     runtime: Object.freeze({ isNativePlatform: true, platform: 'android' }),
     connection,
     commandGate: createDatabaseCommandGate(),
@@ -108,6 +131,7 @@ async function createLiveTransportWorkflow(t, packTrustEnvironment, fetchImpl) {
   await connection.open();
   await configureAndMigrateDatabase(connection);
   const workflow = createProductCommerceWorkflow({
+    ...channelAuthority(packTrustEnvironment),
     runtime: Object.freeze({ isNativePlatform: true, platform: 'android' }),
     connection,
     commandGate: createDatabaseCommandGate(),
@@ -125,7 +149,6 @@ async function createLiveTransportWorkflow(t, packTrustEnvironment, fetchImpl) {
         opaqueProof: 'purchased-proof',
       }],
     }),
-    packTrustEnvironment,
     fetchImpl,
     clock: () => 100,
     idFactory: () => 'product-commerce-attempt',
@@ -180,6 +203,7 @@ test('an install reports the shard it is starting, so the Parent card can say so
   const { resolveCommerceProduct } = await import('../src/domain/commerce/purchase-state.js');
   const shardCount = resolveCommerceProduct('full-ks2').packIds.length;
   const workflow = createProductCommerceWorkflow({
+    ...channelAuthority(),
     runtime: Object.freeze({ isNativePlatform: true, platform: 'android' }),
     connection,
     commandGate: createDatabaseCommandGate(),

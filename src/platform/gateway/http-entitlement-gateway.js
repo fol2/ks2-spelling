@@ -1,4 +1,3 @@
-import { assertGatewayAuthority } from '../../domain/commerce/commerce-contracts.js';
 import {
   assertClosedRecord,
   assertExactPort,
@@ -37,6 +36,16 @@ const ROUTES = Object.freeze({
   refreshEntitlement: '/v1/entitlements/refresh',
   authorisePackDownload: '/v1/packs/authorise-download',
 });
+const GATEWAY_AUTHORITY_FIELDS = Object.freeze([
+  'schemaVersion',
+  'environment',
+  'cloudflareAccountId',
+  'workerName',
+  'privateR2BucketName',
+  'publicSandboxOrigin',
+  'allowedOrigins',
+  'distribution',
+]);
 
 export class EntitlementGatewayError extends Error {
   constructor(code, status, retryable) {
@@ -61,6 +70,31 @@ function invalidResponse(status = null) {
   return gatewayError('GATEWAY_RESPONSE_INVALID', status, isTransientStatus(status));
 }
 
+function assertRuntimeGatewayAuthority(value) {
+  assertClosedRecord(value, GATEWAY_AUTHORITY_FIELDS, 'Gateway authority');
+  if (value.schemaVersion !== 1 ||
+      !['sandbox', 'production'].includes(value.environment) ||
+      !Array.isArray(value.allowedOrigins) ||
+      value.allowedOrigins.length !== 2 ||
+      value.allowedOrigins[0] !== ['capacitor:', '', 'localhost'].join('/') ||
+      value.allowedOrigins[1] !== ['http:', '', 'localhost'].join('/') ||
+      !value.distribution || typeof value.distribution !== 'object') {
+    fail('Gateway authority');
+  }
+  let origin;
+  try {
+    origin = new URL(value.publicSandboxOrigin);
+  } catch {
+    fail('Gateway authority');
+  }
+  if (origin.protocol !== 'https:' || origin.origin !== value.publicSandboxOrigin ||
+      origin.username || origin.password || origin.port || origin.pathname !== '/' ||
+      origin.search || origin.hash) {
+    fail('Gateway authority');
+  }
+  return value;
+}
+
 function validateOptions(options) {
   const keys = Reflect.ownKeys(options ?? {});
   const expected = options && Object.hasOwn(options, 'timeoutMs')
@@ -70,7 +104,7 @@ function validateOptions(options) {
     fail('HTTP entitlement gateway options', 'must contain exactly the approved fields');
   }
   assertClosedRecord(options, expected, 'HTTP entitlement gateway options');
-  assertGatewayAuthority(options.authority);
+  assertRuntimeGatewayAuthority(options.authority);
   if (typeof options.fetchImpl !== 'function') fail('Gateway fetch implementation');
   const timeoutMs = options.timeoutMs ?? 10_000;
   assertSafeInteger(timeoutMs, 'Gateway timeout', { min: 1, max: 10_000 });

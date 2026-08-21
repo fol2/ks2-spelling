@@ -67,7 +67,7 @@
 		F72900000000000000000011 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		A12000000000000000000011 /* PackTransferPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackTransferPlugin.swift; sourceTree = "<group>"; };
 		A12000000000000000000012 /* ZipCentralDirectoryInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipCentralDirectoryInspector.swift; sourceTree = "<group>"; };
-		A12000000000000000000013 /* pack-signing-public-keys.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "pack-signing-public-keys.json"; sourceTree = "<group>"; };
+		A12000000000000000000013 /* pack-signing-public-keys.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "pack-signing-public-keys.json"; path = "$(KS2_KEYRING_DIRECTORY)/pack-signing-public-keys.json"; sourceTree = SOURCE_ROOT; };
 		A12000000000000000000014 /* PackDownloadFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackDownloadFlow.swift; sourceTree = "<group>"; };
 		A12000000000000000000015 /* PackInstallSealer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackInstallSealer.swift; sourceTree = "<group>"; };
 		B31500000000000000000011 /* CommercePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommercePlugin.swift; sourceTree = "<group>"; };
@@ -603,6 +603,7 @@
 					"@executable_path/Frameworks",
 				);
 				KS2_RELEASE_CHANNEL = production;
+				KS2_KEYRING_DIRECTORY = "../../config/production";
 				MARKETING_VERSION = 0.5.0;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = uk.eugnel.ks2spelling;
@@ -628,6 +629,7 @@
 					"@executable_path/Frameworks",
 				);
 				KS2_RELEASE_CHANNEL = production;
+				KS2_KEYRING_DIRECTORY = "../../config/production";
 				MARKETING_VERSION = 0.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.eugnel.ks2spelling;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -652,10 +654,11 @@
 					"@executable_path/Frameworks",
 				);
 				KS2_RELEASE_CHANNEL = sandbox;
+				KS2_KEYRING_DIRECTORY = "../../config";
 				MARKETING_VERSION = 0.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.eugnel.ks2spelling;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = KS2_SANDBOX_CHANNEL;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -755,10 +758,11 @@
 					"@executable_path/Frameworks",
 				);
 				KS2_RELEASE_CHANNEL = sandbox;
+				KS2_KEYRING_DIRECTORY = "../../config";
 				MARKETING_VERSION = "$(B3_VERSION_NAME)";
 				PRODUCT_BUNDLE_IDENTIFIER = uk.eugnel.ks2spelling;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = B3_SANDBOX_PROOF;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "B3_SANDBOX_PROOF KS2_SANDBOX_CHANNEL";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

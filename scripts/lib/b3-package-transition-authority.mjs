@@ -63,6 +63,7 @@ export const C_SERIES_PLANNED_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
   'verify:starter-audio': 'node scripts/generate-starter-audio.mjs --check',
   'verify:starter-pack': 'node scripts/build-starter-pack.mjs',
   'verify:art': 'node scripts/verify-vendored-art.mjs',
+  'verify:ios-release-artefacts': 'node scripts/verify-ios-release-artefacts.mjs',
 });
 
 // Product SFX layer (offline synthesis + provenance verify). Developer/content

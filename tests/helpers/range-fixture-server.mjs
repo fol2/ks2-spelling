@@ -3,6 +3,10 @@ import { createHash, createPublicKey, verify } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import { verifySignedPackManifest } from '../../src/domain/packs/pack-signature-verifier.js';
+import {
+  createB3SignedDownloadAccessContract,
+  findB3PackAuthority,
+} from '../../src/domain/packs/b3-pack-registry.js';
 import { findPackAuthority } from '../../src/domain/packs/pack-registry.js';
 
 export const PACK_ID = 'b3-sandbox-proof';
@@ -201,6 +205,8 @@ export function createHarness({
       packRepository: memory.repository,
       manifestVerifier,
       keyring,
+      gatewayOrigin: ['https:', '', 'b3-gateway.eugnel.uk'].join('/'),
+      createDownloadAccessContract: createB3SignedDownloadAccessContract,
       activeEntitlementProjection: async () => structuredClone(projectedActive),
       entitlementRepository,
       currentAppVersion: '0.3.0-b3',
@@ -209,7 +215,7 @@ export function createHarness({
       chunkSize: 1_048_576,
       // Since the E2.7 join flip the coordinator has no default pack: the b3
       // proof harness binds explicitly to the registry's b3 row.
-      packAuthority: findPackAuthority(PACK_ID),
+      packAuthority: findB3PackAuthority(PACK_ID),
     },
     calls,
     memory,
@@ -318,6 +324,7 @@ export async function createShardHarness({
       packRepository: memory.repository,
       manifestVerifier: realManifestVerifier,
       keyring,
+      gatewayOrigin: ['https:', '', 'b3-gateway.eugnel.uk'].join('/'),
       activeEntitlementProjection: async () => structuredClone(projectedActive),
       entitlementRepository,
       currentAppVersion: '0.3.0-b3',

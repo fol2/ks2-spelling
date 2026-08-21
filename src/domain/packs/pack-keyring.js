@@ -2,12 +2,22 @@ import {
   decodeCanonicalBase64,
   PACK_SIGNING_ALGORITHM,
 } from './signed-manifest-contract.js';
-import { assertPackKeyring } from '../commerce/commerce-contracts.js';
 
 const P256_SPKI_PREFIX = Uint8Array.from([
   0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02,
   0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03,
   0x42, 0x00, 0x04,
+]);
+const KEY_FIELDS = Object.freeze([
+  'keyId',
+  'algorithm',
+  'publicKeySpkiDerBase64',
+  'publicKeySpkiSha256',
+  'testOnly',
+  'notBefore',
+  'notAfter',
+  'allowedEnvironments',
+  'allowedPackIds',
 ]);
 
 function fail(detail) {
@@ -56,8 +66,42 @@ function assertP256SpkiDer(bytes) {
   }
 }
 
+function assertRuntimePackKeyring(value) {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Reflect.ownKeys(value).length !== 2 ||
+    value.schemaVersion !== 1 ||
+    !Array.isArray(value.keys) ||
+    (value.keys.length !== 1 && value.keys.length !== 2)
+  ) {
+    fail('keyring is invalid');
+  }
+  const keyIds = new Set();
+  for (const key of value.keys) {
+    if (
+      !key ||
+      typeof key !== 'object' ||
+      Array.isArray(key) ||
+      Reflect.ownKeys(key).length !== KEY_FIELDS.length ||
+      KEY_FIELDS.some((field) => !Object.hasOwn(key, field)) ||
+      typeof key.keyId !== 'string' ||
+      key.keyId.length === 0 ||
+      typeof key.publicKeySpkiDerBase64 !== 'string' ||
+      typeof key.publicKeySpkiSha256 !== 'string' ||
+      typeof key.testOnly !== 'boolean' ||
+      keyIds.has(key.keyId)
+    ) {
+      fail('keyring is invalid');
+    }
+    keyIds.add(key.keyId);
+  }
+  return value;
+}
+
 function selectCandidate({ keyring, keyId, environment, clock }) {
-  assertPackKeyring(keyring);
+  assertRuntimePackKeyring(keyring);
   if (typeof keyId !== 'string' || keyId.length === 0) fail('keyId is required');
   if (typeof environment !== 'string' || environment.length === 0) {
     fail('environment is required');

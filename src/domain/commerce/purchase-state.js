@@ -5,22 +5,6 @@ import {
   mapStoreProductToEntitlement,
 } from './commerce-contracts.js';
 
-function packJobFacts(row) {
-  return Object.freeze({
-    packId: row.packId,
-    version: row.version,
-    archiveName: row.archiveName,
-    manifestSha256: row.manifestSha256,
-    manifestBytes: row.manifestBytes,
-    manifestEtag: row.manifestEtag,
-    archiveSha256: row.archiveSha256,
-    archiveBytes: row.archiveBytes,
-    archiveEtag: row.archiveEtag,
-  });
-}
-
-export const B3_PACK_JOB_AUTHORITY = packJobFacts(findPackAuthority('b3-sandbox-proof'));
-
 // The catalogue is the only place an entitlement's store products and packs are named.
 // Coordinators bind to one entitlementId and read everything else from here.
 export function resolveCommerceProduct(entitlementId) {

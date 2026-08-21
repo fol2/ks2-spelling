@@ -39,10 +39,16 @@ function requireDependencies(value) {
     'gateway', 'packTransfer', 'packRepository', 'manifestVerifier', 'keyring',
     'activeEntitlementProjection', 'entitlementRepository',
     'currentAppVersion', 'currentSchemaVersion',
-    'clock', 'chunkSize', 'packAuthority',
+    'clock', 'chunkSize', 'packAuthority', 'gatewayOrigin',
   ];
   const ownKeys = value && typeof value === 'object' ? Reflect.ownKeys(value) : [];
-  const allowed = ownKeys.includes('environment') ? [...expected, 'environment'] : expected;
+  const allowed = [
+    ...expected,
+    ...(ownKeys.includes('environment') ? ['environment'] : []),
+    ...(ownKeys.includes('createDownloadAccessContract')
+      ? ['createDownloadAccessContract']
+      : []),
+  ];
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Object.prototype ||
       ownKeys.length !== allowed.length ||
@@ -69,6 +75,9 @@ function requireDependencies(value) {
       typeof value.activeEntitlementProjection !== 'function' ||
       typeof value.clock !== 'function' || value.chunkSize !== B3_DOWNLOAD_CHUNK_BYTES ||
       value.currentAppVersion !== '0.3.0-b3' || value.currentSchemaVersion !== 2 ||
+      typeof value.gatewayOrigin !== 'string' || value.gatewayOrigin.length === 0 ||
+      (value.createDownloadAccessContract !== undefined &&
+        typeof value.createDownloadAccessContract !== 'function') ||
       (value.environment !== undefined &&
         !['sandbox', 'production'].includes(value.environment))) {
     throw new TypeError('Download coordinator authority is invalid.');
@@ -159,14 +168,14 @@ export function createDownloadCoordinator(rawDependencies) {
     activeEntitlementProjection, entitlementRepository,
     currentAppVersion, currentSchemaVersion, clock, chunkSize,
     environment = 'sandbox',
+    gatewayOrigin,
   } = dependencies;
   // A present-but-undefined packAuthority must fail, never fall back: a missed
   // registry lookup upstream would otherwise silently bind to the wrong pack.
   const packAuthority = assertPackAuthority(dependencies.packAuthority);
-  const gatewayOrigin = environment === 'production'
-    ? ['https:', '', 'ks2-gateway.eugnel.uk'].join('/')
-    : ['https:', '', 'b3-gateway.eugnel.uk'].join('/');
-  const contract = createSignedDownloadAccessContract(packAuthority, gatewayOrigin);
+  const contract = (
+    dependencies.createDownloadAccessContract ?? createSignedDownloadAccessContract
+  )(packAuthority, gatewayOrigin);
   let tail = Promise.resolve();
   let lastTimestamp = -1;
 

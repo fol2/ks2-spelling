@@ -4,6 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import gatewayAuthority from '../config/b3-gateway-authority.json' with { type: 'json' };
+import packKeyring from '../config/pack-signing-public-keys.json' with { type: 'json' };
+
 import { aggregatePackStates } from '../src/app/create-product-commerce-workflow.js';
 import { createSelectedAppServices } from '../src/app/create-production-app-services.js';
 import { createProductAppServices } from '../src/app/create-product-app-services.js';
@@ -43,6 +46,10 @@ test('production services persist profile CRUD and selected learner across a cle
       isNativePlatform: true,
       platform: 'ios',
     }),
+    packTrustEnvironment: 'sandbox',
+    gatewayAuthority,
+    gatewayOrigin: 'https://b3-gateway.eugnel.uk',
+    packKeyring,
     connectionFactory: async () => createNodeSqliteConnection(databasePath),
     lifecycle: createLifecycle(),
     // A native runtime composes the live commerce workflow, whose coordinators
@@ -398,6 +405,10 @@ test('production services persist profile CRUD and selected learner across a cle
 function compositionOptions({ databasePath, ...overrides }) {
   return {
     runtime: Object.freeze({ isNativePlatform: true, platform: 'ios' }),
+    packTrustEnvironment: 'sandbox',
+    gatewayAuthority,
+    gatewayOrigin: 'https://b3-gateway.eugnel.uk',
+    packKeyring,
     connectionFactory: async () => createNodeSqliteConnection(databasePath),
     lifecycle: createLifecycle(),
     bundledStarterAudio: Object.freeze({
@@ -461,7 +472,14 @@ function countingPackTransfer() {
 test('the production release channel composes product services without rejecting the production gateway authority', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'ks2-production-channel-boot-'));
   t.after(() => rm(directory, { force: true, recursive: true }));
-  const { runtime: _applicationOwnedRuntime, ...productOptions } = compositionOptions({
+  const {
+    runtime: _applicationOwnedRuntime,
+    packTrustEnvironment: _applicationOwnedEnvironment,
+    gatewayAuthority: _applicationOwnedGateway,
+    gatewayOrigin: _applicationOwnedOrigin,
+    packKeyring: _applicationOwnedKeyring,
+    ...productOptions
+  } = compositionOptions({
     databasePath: join(directory, 'production.sqlite'),
     packTransfer: countingPackTransfer().port,
   });

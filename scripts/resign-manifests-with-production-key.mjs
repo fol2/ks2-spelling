@@ -20,9 +20,11 @@ import {
   assertCanonicalP256Der,
   createPackSigningInput,
 } from '../src/domain/packs/signed-manifest-contract.js';
+import { isMain } from './lib/run-command.mjs';
 
 const ROOT = resolve(fileURLToPath(import.meta.url), '..', '..');
-const AUTHORING_REPORT_PATH = resolve(ROOT, 'config/packs/full-ks2-shards/authoring-report.json');
+export const CEREMONY_COMPLETE_TEXT = 'Ceremony complete';
+export const CEREMONY_READY_STATUS = 'ready';
 
 function fail(detail) {
   throw new Error(`Re-sign manifests ${detail}.`);
@@ -40,12 +42,12 @@ function jsonBytes(value) {
   return Buffer.from(`${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
-async function readJson(path) {
-  return JSON.parse(await readFile(path, 'utf8'));
+async function readJson(path, readFileImpl = readFile) {
+  return JSON.parse(await readFileImpl(path, 'utf8'));
 }
 
-async function ensureEnv(name) {
-  const value = process.env[name];
+async function ensureEnv(name, env = process.env) {
+  const value = env[name];
   if (!value) {
     fail(`requires environment variable ${name}`);
   }
@@ -55,13 +57,13 @@ async function ensureEnv(name) {
 /**
  * Extract canonical manifest from existing sandbox-signed envelope fixture.
  */
-async function extractCanonicalManifestFromFixture(packId) {
+async function extractCanonicalManifestFromFixture(root, packId, readFileImpl = readFile) {
   const fixturePath = resolve(
-    ROOT,
+    root,
     'tests/fixtures/packs/full-ks2-shards',
     `${packId}.signed-manifest.json`,
   );
-  const envelopeBytes = await readFile(fixturePath, 'utf8');
+  const envelopeBytes = await readFileImpl(fixturePath, 'utf8');
   const envelope = JSON.parse(envelopeBytes);
   const canonicalManifestBytes = Buffer.from(envelope.canonicalManifestBase64, 'base64');
   return canonicalManifestBytes;
@@ -70,8 +72,11 @@ async function extractCanonicalManifestFromFixture(packId) {
 /**
  * Load canonical manifest bytes and packId from authoring report.
  */
-async function loadShardsToSign() {
-  const report = await readJson(AUTHORING_REPORT_PATH);
+async function loadShardsToSign(root, readFileImpl = readFile) {
+  const report = await readJson(
+    resolve(root, 'config/packs/full-ks2-shards/authoring-report.json'),
+    readFileImpl,
+  );
   if (report.status !== 'pass') {
     fail('authoring report is not pass status');
   }
@@ -84,6 +89,50 @@ async function loadShardsToSign() {
     archiveBytes: shard.archiveBytes,
     archiveMd5Etag: shard.archiveMd5Etag,
   }));
+}
+
+export function nestedAuthoringArchiveCandidates(root, packId, archiveName) {
+  return Object.freeze([
+    resolve(root, '.native-build/packs', packId, 'dist-first', archiveName),
+    resolve(root, '.native-build/packs', packId, 'dist-second', archiveName),
+  ]);
+}
+
+export async function resolveNestedAuthoringArchiveBytes({
+  root,
+  packId,
+  archiveName,
+  archiveSha256,
+  readFileImpl = readFile,
+}) {
+  const candidates = nestedAuthoringArchiveCandidates(root, packId, archiveName);
+  const readable = [];
+  for (const path of candidates) {
+    try {
+      const bytes = await readFileImpl(path);
+      readable.push({ path, bytes: Buffer.from(bytes) });
+    } catch (error) {
+      if (error?.code === 'ENOENT') continue;
+      fail(`cannot read nested authoring archive ${path}: ${error.message}`);
+    }
+  }
+  if (readable.length === 0) {
+    fail(
+      `missing nested authoring archive for ${packId} at ` +
+        `${packId}/dist-first|dist-second/${archiveName}`,
+    );
+  }
+  const hashes = readable.map(({ bytes }) => digest(bytes));
+  if (new Set(hashes).size !== 1) {
+    fail(`ambiguous nested authoring archives for ${packId}: dist-first and dist-second differ`);
+  }
+  if (hashes[0] !== archiveSha256) {
+    fail(
+      `nested authoring archive hash mismatch for ${packId}: ` +
+        `expected ${archiveSha256}, got ${hashes[0]}`,
+    );
+  }
+  return readable[0].bytes;
 }
 
 /**
@@ -131,50 +180,24 @@ async function signManifest(
   };
 }
 
-/**
- * Locate an archive in the local build output or fetch from R2 sandbox bucket.
- * Note: Archives are large and only available in R2 production bucket or require
- * alternative sourcing during the ceremony.
- */
-async function findArchive(archiveName, archiveSha256) {
-  const nativeBuildPath = resolve(ROOT, '.native-build/packs');
+export async function main({
+  root = ROOT,
+  env = process.env,
+  readFileImpl = readFile,
+  writeFileImpl = writeFile,
+  mkdirImpl = mkdir,
+  log = (line) => console.log(line),
+  now = () => new Date(),
+} = {}) {
+  const privateKeyPath = await ensureEnv('CEREMONY_PRIVATE_KEY_PATH', env);
+  const ceremonyOutputDir = await ensureEnv('CEREMONY_OUTPUT_DIR', env);
+  const keyId = await ensureEnv('CEREMONY_KEY_ID', env);
 
-  // Try local first
-  try {
-    const localBytes = await readFile(resolve(nativeBuildPath, archiveName));
-    const sha = digest(localBytes);
-    if (sha !== archiveSha256) {
-      fail(`local archive ${archiveName} has wrong SHA256: expected ${archiveSha256}, got ${sha}`);
-    }
-    return localBytes;
-  } catch (_error) {
-    // Archive not found locally; caller handles gracefully
-  }
+  const privateKeyPem = await readFileImpl(privateKeyPath, 'utf8');
+  const shards = await loadShardsToSign(root, readFileImpl);
+  log(`✓ Loaded ${shards.length} shards to re-sign with key ${keyId}`);
 
-  // The shard archives are large (29-32 MB each) and stored only in production R2.
-  // They cannot be fetched during ceremony generation as they are stored in the
-  // production bucket, not the sandbox bucket. The ceremony directory must be
-  // staged with archives provided separately (e.g., from prior production builds
-  // or R2 production bucket download by the owner).
-  throw new Error(`archive ${archiveName} not found in .native-build/packs/. `
-    + `The 15 shard archives (total ~450 MB) must be sourced separately and staged into the ceremony directory.`);
-}
-
-
-async function main() {
-  const privateKeyPath = await ensureEnv('CEREMONY_PRIVATE_KEY_PATH');
-  const ceremonyOutputDir = await ensureEnv('CEREMONY_OUTPUT_DIR');
-  const keyId = await ensureEnv('CEREMONY_KEY_ID');
-
-  // Load private key for signing
-  const privateKeyPem = await readFile(privateKeyPath, 'utf8');
-
-  // Load shards to sign
-  const shards = await loadShardsToSign();
-  console.log(`✓ Loaded ${shards.length} shards to re-sign with key ${keyId}`);
-
-  // Create ceremony directory structure and sign manifests
-  await mkdir(ceremonyOutputDir, { recursive: true });
+  await mkdirImpl(ceremonyOutputDir, { recursive: true });
 
   const records = [];
   for (const shard of shards) {
@@ -182,10 +205,12 @@ async function main() {
     const archiveKey = `${ceremonyPackPath}/${shard.archiveName}`;
     const manifestKey = `${ceremonyPackPath}/signed-manifest.json`;
 
-    // Extract canonical manifest from fixture
-    const canonicalManifestBytes = await extractCanonicalManifestFromFixture(shard.packId);
+    const canonicalManifestBytes = await extractCanonicalManifestFromFixture(
+      root,
+      shard.packId,
+      readFileImpl,
+    );
 
-    // Sign the manifest
     const signed = await signManifest(
       canonicalManifestBytes,
       shard.canonicalManifestSha256,
@@ -194,13 +219,21 @@ async function main() {
       keyId,
     );
 
-    // Write signed manifest to ceremony directory with packs/ prefix
     const manifestOutputDir = resolve(ceremonyOutputDir, ceremonyPackPath);
-    await mkdir(manifestOutputDir, { recursive: true });
-    await writeFile(
+    await mkdirImpl(manifestOutputDir, { recursive: true });
+    await writeFileImpl(
       resolve(manifestOutputDir, 'signed-manifest.json'),
       signed.envelopeBytes,
     );
+
+    const archiveBytes = await resolveNestedAuthoringArchiveBytes({
+      root,
+      packId: shard.packId,
+      archiveName: shard.archiveName,
+      archiveSha256: shard.archiveSha256,
+      readFileImpl,
+    });
+    await writeFileImpl(resolve(ceremonyOutputDir, archiveKey), archiveBytes);
 
     records.push({
       packId: shard.packId,
@@ -216,35 +249,29 @@ async function main() {
       envelopeMd5Etag: signed.envelopeMd5Etag,
     });
 
-    // Attempt to locate and stage archive
-    try {
-      const archiveBytes = await findArchive(shard.archiveName, shard.archiveSha256);
-      const archivePath = resolve(ceremonyOutputDir, archiveKey);
-      await writeFile(archivePath, archiveBytes);
-      console.log(`✓ Signed and staged ${shard.packId}: envelope ${signed.envelopeSha256.substring(0, 8)}…`);
-    } catch (error) {
-      console.log(`✓ Signed ${shard.packId}: envelope ${signed.envelopeSha256.substring(0, 8)}… (archive not available locally)`);
-    }
+    log(`✓ Signed and staged ${shard.packId}: envelope ${signed.envelopeSha256.substring(0, 8)}…`);
   }
 
-  // Write ceremony metadata
   const ceremonyMetadata = {
     schemaVersion: 1,
-    status: 'ready',
+    status: CEREMONY_READY_STATUS,
     keyId,
-    producedAt: new Date().toISOString(),
+    producedAt: now().toISOString(),
     manifests: records,
   };
 
   const metadataPath = resolve(ceremonyOutputDir, 'ceremony-metadata.json');
-  await writeFile(metadataPath, jsonBytes(ceremonyMetadata));
+  await writeFileImpl(metadataPath, jsonBytes(ceremonyMetadata));
 
-  console.log(`\n✓ Ceremony complete`);
-  console.log(`  Ceremony directory (for wizard): ${ceremonyOutputDir}`);
-  console.log(`  Signed manifests and archives count: ${records.length}`);
+  log(`\n✓ ${CEREMONY_COMPLETE_TEXT}`);
+  log(`  Ceremony directory (for wizard): ${ceremonyOutputDir}`);
+  log(`  Signed manifests and archives count: ${records.length}`);
+  return ceremonyMetadata;
 }
 
-await main().catch((error) => {
-  console.error(`\n✗ ${error.message}`);
-  process.exit(1);
-});
+if (isMain(import.meta.url)) {
+  await main().catch((error) => {
+    console.error(`\n✗ ${error.message}`);
+    process.exit(1);
+  });
+}

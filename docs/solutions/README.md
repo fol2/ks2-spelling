@@ -30,12 +30,15 @@ would be misleading.** The ratified extensions are:
 
 Two rules follow from that decision:
 
-- The extension applies to `component` only. `problem_type`, `root_cause`,
-  `resolution_type` and `severity` use the stock enum values, because for those
-  fields the stock set has been able to say what each record means. A
-  `problem_type` outside the enum is worse than inconvenient — the schema reads
-  that field to decide whether a doc is bug-track or knowledge-track, so an
-  invented value leaves a record on neither track.
+- The extension applies to `component` only. Inside `docs/solutions/`,
+  `problem_type`, `root_cause`, `resolution_type` and `severity` use the stock
+  enum values, because for those fields the stock set has been able to say what
+  each record means. A `problem_type` outside the enum is worse than
+  inconvenient — the schema reads that field to decide whether a doc is
+  bug-track or knowledge-track, so an invented value leaves a record on neither
+  track. This stock-enum rule is scoped to `docs/solutions/` only.
+  `docs/operations/` already carries `operating-procedure` and
+  `operating-policy`, and `docs/records/` now adds `freeze-record`.
 - A new extension is a deliberate choice, not a default. Reach for it only when
   every stock value would misdescribe the record, and add a row above when you
   do.

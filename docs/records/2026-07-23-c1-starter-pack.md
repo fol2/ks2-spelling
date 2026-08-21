@@ -1,3 +1,12 @@
+---
+module: spelling-audio-authority
+tags:
+  - freeze-record
+  - c1
+  - starter-pack
+problem_type: freeze-record
+---
+
 # C1 Starter 20 integration checkpoint — 2026-07-23
 
 Status: development-GREEN at

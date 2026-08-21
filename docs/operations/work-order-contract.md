@@ -46,8 +46,7 @@ wins.
    `authoring-a-pack.md`; hosting/signing:
    `2026-08-13-full-ks2-shard-signing-and-hosting-runbook.md` including its
    execution-record corrections).
-4. Plan documents under `docs/superpowers/plans/` are **frozen**: never edit
-   them; new records go in new dated documents.
+4. Follow the document-mutability rule in `AGENTS.md` (Documented solutions).
 
 ## Setup
 
@@ -137,8 +136,8 @@ cd ../ks2-spelling-<slice> && npm ci        # never symlink node_modules —
 ## Where truth lives
 
 - Board: GitHub issues; epics #90–#96 carry the slice checklists.
-- Adopted plans and records: `docs/superpowers/plans/` (frozen) and dated
-  records/runbooks in `docs/operations/`.
+- Adopted plans and freeze records follow the document-mutability rule in
+  `AGENTS.md` (Documented solutions); live runbooks stay in `docs/operations/`.
 - The planner's session memory is private context, never an input you need:
   everything load-bearing is in the repo or on the issues. If you find that
   is not true for your slice, that is a bug in this document — say so in

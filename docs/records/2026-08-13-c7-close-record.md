@@ -1,9 +1,18 @@
+---
+module: product
+tags:
+  - freeze-record
+  - c7
+  - close-out
+problem_type: freeze-record
+---
+
 # C7 shipped-and-superseded record
 
 Record date: 13 August 2026
 
 Status: C7.1–C7.6 are closed as planning inputs. The original
-[C7 spelling feel-parity plan](plans/2026-07-24-c7-spelling-feel-parity.md)
+[C7 spelling feel-parity plan](../superpowers/plans/2026-07-24-c7-spelling-feel-parity.md)
 is frozen historical evidence and must not be edited. This record does not
 claim that C7.7 ran; the remaining work is listed under **Open residues**.
 

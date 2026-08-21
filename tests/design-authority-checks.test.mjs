@@ -1742,7 +1742,7 @@ test('Design authority: the top bar spends no gutter of its own, and the parent 
   );
 });
 
-/* Source only. Painted contrast and line-boxes are the Chromium matrix. */
+/* Source only. Computed-colour contrast and rendered line-boxes are the Chromium matrix. */
 test('Design authority: the Starter-complete paper card pins vellum ink (#151)', async () => {
   const rules = cssRuleBlocks(await read('src/app/app.css'));
   const card = rules.find((r) => r.selector === '.starter-complete-moment > div');

@@ -3717,6 +3717,11 @@ select {
   border-radius: 1.75rem;
   padding: 1.35rem;
   background: var(--paper-raised);
+  /* One vellum colour on the paper card. The overlay inherits dusk-ink from
+     .scene-dusk; descendants (headline, quiet Continue) inherit this instead.
+     Child colour rules belong here only if computed style proves inherit is
+     defeated. */
+  color: var(--ink);
   box-shadow: 0 30px 60px -26px rgb(0 0 0 / 70%);
 }
 
@@ -3733,14 +3738,14 @@ select {
 }
 
 .starter-complete-moment > div > div:last-child {
-  display: flex;
-  flex-wrap: wrap;
+  /* Stack the actions so text pressure cannot create a mixed-line shared row. */
+  display: grid;
   gap: 0.5rem;
   margin-top: 0.35rem;
 }
 
 .starter-complete-moment > div > div:last-child button {
-  flex: 1 1 8rem;
+  overflow-wrap: normal;
 }
 
 @media (prefers-reduced-motion: reduce) {

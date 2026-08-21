@@ -24,7 +24,12 @@ import {
   assertCanonicalP256Der,
   createPackSigningInput,
 } from '../src/domain/packs/signed-manifest-contract.js';
-import { CEREMONY_OPERATIONAL_METADATA_RELATIVE } from './lib/production-pack-object-authority.mjs';
+import {
+  CEREMONY_OPERATIONAL_METADATA_RELATIVE,
+  PRODUCTION_PACK_IDS,
+  PRODUCTION_PACK_VERSION,
+  archiveNameForPack,
+} from './lib/production-pack-object-authority.mjs';
 import { isMain } from './lib/run-command.mjs';
 
 const ROOT = resolve(fileURLToPath(import.meta.url), '..', '..');
@@ -77,6 +82,34 @@ async function extractCanonicalManifestFromFixture(root, packId, readFileImpl = 
 /**
  * Load canonical manifest bytes and packId from authoring report.
  */
+function assertCanonicalAuthoringShards(shards) {
+  if (!Array.isArray(shards) || shards.length !== PRODUCTION_PACK_IDS.length) {
+    fail(
+      `authoring report must list exactly ${PRODUCTION_PACK_IDS.length} canonical shards, ` +
+        `not ${Array.isArray(shards) ? shards.length : typeof shards}`,
+    );
+  }
+  PRODUCTION_PACK_IDS.forEach((packId, index) => {
+    const shard = shards[index];
+    const expectedArchive = archiveNameForPack(packId);
+    if (shard?.packId !== packId) {
+      fail(
+        `authoring report shard ${index} packId ${shard?.packId ?? 'missing'} does not match canonical ${packId}`,
+      );
+    }
+    if (shard.version !== PRODUCTION_PACK_VERSION) {
+      fail(
+        `authoring report shard ${packId} version ${shard.version} does not match ${PRODUCTION_PACK_VERSION}`,
+      );
+    }
+    if (shard.archiveName !== expectedArchive) {
+      fail(
+        `authoring report shard ${packId} archiveName ${shard.archiveName} does not match ${expectedArchive}`,
+      );
+    }
+  });
+}
+
 async function loadShardsToSign(root, readFileImpl = readFile) {
   const report = await readJson(
     resolve(root, 'config/packs/full-ks2-shards/authoring-report.json'),
@@ -85,6 +118,7 @@ async function loadShardsToSign(root, readFileImpl = readFile) {
   if (report.status !== 'pass') {
     fail('authoring report is not pass status');
   }
+  assertCanonicalAuthoringShards(report.shards);
   return report.shards.map((shard) => ({
     packId: shard.packId,
     version: shard.version,

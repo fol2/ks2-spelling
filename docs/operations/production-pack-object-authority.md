@@ -127,7 +127,10 @@ evidence lane. The production document is not imported from `src/` or
 
 Staging a ceremony directory from `scripts/author-full-shards.mjs` must resolve
 the nested outputs `.native-build/packs/<packId>/dist-first|dist-second/<archiveName>`.
-`scripts/resign-manifests-with-production-key.mjs` preflights every nested
-archive, removes stale `ceremony-metadata.json` and the `packs/` object tree
-before writing, then stages all thirty objects and writes `status: ready` last.
-A failed rerun must not leave a current ready marker or a complete object tree.
+`scripts/resign-manifests-with-production-key.mjs` requires the authoring
+report to list the exact fifteen canonical pack IDs, versions and archive
+names in order — a subset, duplicate, extra, reordered or substituted shard
+list is not ready. It preflights every nested archive, removes stale
+`ceremony-metadata.json` and the `packs/` object tree before writing, then
+stages all thirty objects and writes `status: ready` last. A failed rerun
+must not leave a current ready marker or a complete object tree.

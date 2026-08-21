@@ -125,6 +125,48 @@ function claimedReady(logs, writes) {
     ));
 }
 
+function canonicalShards(mutate) {
+  const shards = PRODUCTION_PACK_IDS.map((packId) => shardFixture(packId));
+  mutate?.(shards);
+  return shards;
+}
+
+async function resignAgainstShards(shards, {
+  outputPrefix = 'ks2-resign-',
+  readFileImpl,
+} = {}) {
+  const root = await writeSignerRoot(shards);
+  const output = await mkdtemp(join(tmpdir(), outputPrefix));
+  const keyPath = join(root, 'test-key.pem');
+  const logs = [];
+  const { writes, writeFileImpl } = collectWrites();
+  await writeFile(keyPath, generatePrivateKeyPem());
+  const run = () => resignManifests({
+    root,
+    env: {
+      CEREMONY_PRIVATE_KEY_PATH: keyPath,
+      CEREMONY_OUTPUT_DIR: output,
+      CEREMONY_KEY_ID: PRODUCTION_SIGNING_KEY_ID,
+    },
+    writeFileImpl,
+    readFileImpl,
+    log: (line) => logs.push(line),
+    now: () => new Date('2026-08-21T00:00:00.000Z'),
+  });
+  return { root, output, logs, writes, run };
+}
+
+async function assertResignRejectsWithoutReady(shards, pattern, options = {}) {
+  const { root, output, logs, writes, run } = await resignAgainstShards(shards, options);
+  try {
+    await assert.rejects(run(), pattern);
+    assert.equal(claimedReady(logs, writes), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(output, { recursive: true, force: true });
+  }
+}
+
 test('nested author-full-shards dist-first and dist-second archives with a matching hash resolve', async () => {
   const root = await writeSignerRoot([shardFixture('full-ks2-shard-01')]);
   try {
@@ -140,39 +182,23 @@ test('nested author-full-shards dist-first and dist-second archives with a match
   }
 });
 
-test('nested signer success stages dist-first|dist-second archives and writes ceremony ready', async () => {
-  const shards = [
-    shardFixture('full-ks2-shard-01'),
-    shardFixture('full-ks2-shard-02'),
-  ];
-  const root = await writeSignerRoot(shards);
-  const output = await mkdtemp(join(tmpdir(), 'ks2-resign-out-'));
-  const keyPath = join(root, 'test-key.pem');
-  const logs = [];
-  const { writes, writeFileImpl } = collectWrites();
+test('nested signer success stages all fifteen dist-first|dist-second archives and writes ceremony ready', async () => {
+  const { root, output, logs, writes, run } = await resignAgainstShards(canonicalShards(), {
+    outputPrefix: 'ks2-resign-out-',
+  });
   try {
-    await writeFile(keyPath, generatePrivateKeyPem());
-    const metadata = await resignManifests({
-      root,
-      env: {
-        CEREMONY_PRIVATE_KEY_PATH: keyPath,
-        CEREMONY_OUTPUT_DIR: output,
-        CEREMONY_KEY_ID: 'production-ks2-p256-2026-08',
-      },
-      writeFileImpl,
-      log: (line) => logs.push(line),
-      now: () => new Date('2026-08-21T00:00:00.000Z'),
-    });
+    const metadata = await run();
     assert.equal(metadata.status, CEREMONY_READY_STATUS);
+    assert.equal(metadata.manifests.length, 15);
     assert.equal(logs.some((line) => line.includes(CEREMONY_COMPLETE_TEXT)), true);
     const archive = await readFile(
       join(output, 'packs/full-ks2-shard-01/1.0.0/full-ks2-shard-01-1.0.0.zip'),
     );
     assert.equal(archive.toString(), 'archive:full-ks2-shard-01');
     const envelope = JSON.parse(
-      await readFile(join(output, 'packs/full-ks2-shard-01/1.0.0/signed-manifest.json'), 'utf8'),
+      await readFile(join(output, 'packs/full-ks2-shard-15/1.0.0/signed-manifest.json'), 'utf8'),
     );
-    assert.equal(envelope.keyId, 'production-ks2-p256-2026-08');
+    assert.equal(envelope.keyId, PRODUCTION_SIGNING_KEY_ID);
     assert.equal(writes.some((entry) => entry.path.endsWith('ceremony-metadata.json')), true);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -180,98 +206,90 @@ test('nested signer success stages dist-first|dist-second archives and writes ce
   }
 });
 
+test('a two-shard subset authoring report must not write ready or claim Ceremony complete', async () => {
+  await assertResignRejectsWithoutReady(
+    [shardFixture('full-ks2-shard-01'), shardFixture('full-ks2-shard-02')],
+    /exactly 15 shards|canonical/i,
+    { outputPrefix: 'ks2-resign-subset-' },
+  );
+});
+
+test('a duplicate canonical packId in the authoring report must not write ready', async () => {
+  await assertResignRejectsWithoutReady(
+    canonicalShards((shards) => {
+      shards[1] = shardFixture('full-ks2-shard-01');
+    }),
+    /duplicate|does not match|canonical/i,
+    { outputPrefix: 'ks2-resign-duplicate-' },
+  );
+});
+
+test('an extra non-canonical shard in the authoring report must not write ready', async () => {
+  await assertResignRejectsWithoutReady(
+    [...canonicalShards(), shardFixture('full-ks2-shard-16')],
+    /exactly 15 shards|extra|canonical/i,
+    { outputPrefix: 'ks2-resign-extra-' },
+  );
+});
+
+test('a reordered canonical shard list must not write ready', async () => {
+  const reordered = canonicalShards();
+  [reordered[0], reordered[1]] = [reordered[1], reordered[0]];
+  await assertResignRejectsWithoutReady(
+    reordered,
+    /does not match|order|canonical/i,
+    { outputPrefix: 'ks2-resign-reorder-' },
+  );
+});
+
+test('a substituted archive name for an otherwise fifteen-shard report must not write ready', async () => {
+  await assertResignRejectsWithoutReady(
+    canonicalShards((shards) => {
+      shards[1] = {
+        ...shards[1],
+        archiveName: 'full-ks2-shard-99-1.0.0.zip',
+      };
+    }),
+    /archiveName|does not match|canonical/i,
+    { outputPrefix: 'ks2-resign-substituted-' },
+  );
+});
+
 test('missing nested dist-first|dist-second archives fail and must not claim or write ready', async () => {
-  const shards = [shardFixture('full-ks2-shard-01', { distFirst: null, distSecond: null })];
-  const root = await writeSignerRoot(shards);
-  const output = await mkdtemp(join(tmpdir(), 'ks2-resign-missing-'));
-  const keyPath = join(root, 'test-key.pem');
-  const logs = [];
-  const { writes, writeFileImpl } = collectWrites();
-  try {
-    await writeFile(keyPath, generatePrivateKeyPem());
-    await assert.rejects(
-      resignManifests({
-        root,
-        env: {
-          CEREMONY_PRIVATE_KEY_PATH: keyPath,
-          CEREMONY_OUTPUT_DIR: output,
-          CEREMONY_KEY_ID: 'production-ks2-p256-2026-08',
-        },
-        writeFileImpl,
-        log: (line) => logs.push(line),
-      }),
-      /missing nested authoring archive/i,
-    );
-    assert.equal(claimedReady(logs, writes), false);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-    await rm(output, { recursive: true, force: true });
-  }
+  await assertResignRejectsWithoutReady(
+    canonicalShards((shards) => {
+      shards[14] = shardFixture('full-ks2-shard-15', { distFirst: null, distSecond: null });
+    }),
+    /missing nested authoring archive/i,
+    { outputPrefix: 'ks2-resign-missing-' },
+  );
 });
 
 test('ambiguous dist-first and dist-second nested archives fail and must not claim or write ready', async () => {
-  const shards = [shardFixture('full-ks2-shard-01', {
-    distFirst: Buffer.from('archive:full-ks2-shard-01'),
-    distSecond: Buffer.from('different-second-build'),
-  })];
-  const root = await writeSignerRoot(shards);
-  const output = await mkdtemp(join(tmpdir(), 'ks2-resign-ambiguous-'));
-  const keyPath = join(root, 'test-key.pem');
-  const logs = [];
-  const { writes, writeFileImpl } = collectWrites();
-  try {
-    await writeFile(keyPath, generatePrivateKeyPem());
-    await assert.rejects(
-      resignManifests({
-        root,
-        env: {
-          CEREMONY_PRIVATE_KEY_PATH: keyPath,
-          CEREMONY_OUTPUT_DIR: output,
-          CEREMONY_KEY_ID: 'production-ks2-p256-2026-08',
-        },
-        writeFileImpl,
-        log: (line) => logs.push(line),
-      }),
-      /ambiguous nested authoring archives/i,
-    );
-    assert.equal(claimedReady(logs, writes), false);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-    await rm(output, { recursive: true, force: true });
-  }
+  await assertResignRejectsWithoutReady(
+    canonicalShards((shards) => {
+      shards[0] = shardFixture('full-ks2-shard-01', {
+        distFirst: Buffer.from('archive:full-ks2-shard-01'),
+        distSecond: Buffer.from('different-second-build'),
+      });
+    }),
+    /ambiguous nested authoring archives/i,
+    { outputPrefix: 'ks2-resign-ambiguous-' },
+  );
 });
 
 test('nested authoring archive hash mismatch fails and must not claim or write ready', async () => {
-  const shards = [shardFixture('full-ks2-shard-01', {
-    archiveBytes: Buffer.from('expected-bytes'),
-    distFirst: Buffer.from('wrong-bytes'),
-    distSecond: Buffer.from('wrong-bytes'),
-  })];
-  const root = await writeSignerRoot(shards);
-  const output = await mkdtemp(join(tmpdir(), 'ks2-resign-hash-'));
-  const keyPath = join(root, 'test-key.pem');
-  const logs = [];
-  const { writes, writeFileImpl } = collectWrites();
-  try {
-    await writeFile(keyPath, generatePrivateKeyPem());
-    await assert.rejects(
-      resignManifests({
-        root,
-        env: {
-          CEREMONY_PRIVATE_KEY_PATH: keyPath,
-          CEREMONY_OUTPUT_DIR: output,
-          CEREMONY_KEY_ID: 'production-ks2-p256-2026-08',
-        },
-        writeFileImpl,
-        log: (line) => logs.push(line),
-      }),
-      /nested authoring archive hash mismatch/i,
-    );
-    assert.equal(claimedReady(logs, writes), false);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-    await rm(output, { recursive: true, force: true });
-  }
+  await assertResignRejectsWithoutReady(
+    canonicalShards((shards) => {
+      shards[0] = shardFixture('full-ks2-shard-01', {
+        archiveBytes: Buffer.from('expected-bytes'),
+        distFirst: Buffer.from('wrong-bytes'),
+        distSecond: Buffer.from('wrong-bytes'),
+      });
+    }),
+    /nested authoring archive hash mismatch/i,
+    { outputPrefix: 'ks2-resign-hash-' },
+  );
 });
 
 test('producer output is a complete ceremony that the object-tree reader and live verifier accept without deleting metadata', async () => {
@@ -398,22 +416,19 @@ test('a failed rerun removes stale ready metadata and is not accepted as a compl
 });
 
 test('an EACCES read of a nested authoring archive fails and is not mapped to ready', async () => {
-  const shards = [shardFixture('full-ks2-shard-01')];
-  const root = await writeSignerRoot(shards);
-  const output = await mkdtemp(join(tmpdir(), 'ks2-resign-eacces-'));
-  const keyPath = join(root, 'test-key.pem');
-  const logs = [];
-  const { writes, writeFileImpl } = collectWrites();
+  const shards = canonicalShards();
+  const { root, output, logs, writes } = await resignAgainstShards(shards, {
+    outputPrefix: 'ks2-resign-eacces-',
+  });
   const denied = resolve(root, '.native-build/packs/full-ks2-shard-01/dist-first/full-ks2-shard-01-1.0.0.zip');
   try {
-    await writeFile(keyPath, generatePrivateKeyPem());
     await assert.rejects(
       resignManifests({
         root,
         env: {
-          CEREMONY_PRIVATE_KEY_PATH: keyPath,
+          CEREMONY_PRIVATE_KEY_PATH: join(root, 'test-key.pem'),
           CEREMONY_OUTPUT_DIR: output,
-          CEREMONY_KEY_ID: 'production-ks2-p256-2026-08',
+          CEREMONY_KEY_ID: PRODUCTION_SIGNING_KEY_ID,
         },
         readFileImpl: async (path, encoding) => {
           if (path === denied) {
@@ -423,7 +438,10 @@ test('an EACCES read of a nested authoring archive fails and is not mapped to re
           }
           return readFile(path, encoding);
         },
-        writeFileImpl,
+        writeFileImpl: async (path, bytes) => {
+          writes.push({ path, text: Buffer.from(bytes).toString('utf8') });
+          return writeFile(path, bytes);
+        },
         log: (line) => logs.push(line),
       }),
       /cannot read nested authoring archive/i,

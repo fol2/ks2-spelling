@@ -539,32 +539,61 @@ export async function checkFloorDeviceMatrix({
   });
 }
 
+export function parsePhysicalProofArguments(args = []) {
+  if (args.length === 0) {
+    return Object.freeze({ mode: 'capture' });
+  }
+  if (!args.includes('--check-floor-matrix')) {
+    return Object.freeze({
+      mode: 'invalid',
+      message: 'Usage: node scripts/prove-b4-ios-physical.mjs [--check-floor-matrix [--reports-root DIR]]',
+    });
+  }
+  let reportsRoot = ROOT;
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === '--check-floor-matrix') continue;
+    if (argument === '--reports-root') {
+      const value = args[index + 1];
+      if (typeof value !== 'string' || value.length === 0 || value.startsWith('-')) {
+        return Object.freeze({
+          mode: 'invalid',
+          message: '--reports-root requires a directory.',
+        });
+      }
+      reportsRoot = resolve(value);
+      index += 1;
+      continue;
+    }
+    return Object.freeze({
+      mode: 'invalid',
+      message: 'Usage: node scripts/prove-b4-ios-physical.mjs [--check-floor-matrix [--reports-root DIR]]',
+    });
+  }
+  return Object.freeze({ mode: 'check-floor-matrix', reportsRoot });
+}
+
 export async function main(args = process.argv.slice(2), options = {}) {
   try {
-    if (args.includes('--check-floor-matrix')) {
-      const extra = args.filter((argument) => argument !== '--check-floor-matrix');
-      if (extra.length > 0) {
-        printJson({
-          ok: false,
-          code: 'usage',
-          message: 'Usage: node scripts/prove-b4-ios-physical.mjs --check-floor-matrix',
-        }, process.stderr);
-        return EXIT_CODES.usage;
-      }
-      const result = await checkFloorDeviceMatrix(options);
+    const parsed = parsePhysicalProofArguments(args);
+    if (parsed.mode === 'invalid') {
+      printJson({
+        ok: false,
+        code: 'usage',
+        message: parsed.message,
+      }, process.stderr);
+      return EXIT_CODES.usage;
+    }
+    if (parsed.mode === 'check-floor-matrix') {
+      const result = await checkFloorDeviceMatrix({
+        ...options,
+        root: options.root ?? parsed.reportsRoot,
+      });
       printJson({
         ok: result.complete,
         ...result,
       }, result.complete ? process.stdout : process.stderr);
       return result.complete ? EXIT_CODES.success : EXIT_CODES.stateMismatch;
-    }
-    if (args.some((argument) => argument.startsWith('-'))) {
-      printJson({
-        ok: false,
-        code: 'usage',
-        message: 'Usage: node scripts/prove-b4-ios-physical.mjs [--check-floor-matrix]',
-      }, process.stderr);
-      return EXIT_CODES.usage;
     }
     printJson(await proveB4IosPhysical());
     return EXIT_CODES.success;

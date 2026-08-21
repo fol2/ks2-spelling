@@ -289,10 +289,9 @@ export function evaluateFloorDeviceMatrix(reports) {
     && !checkpointMismatch
     && validReports.length === FLOOR_DEVICES.length;
   const green = complete
-    && validReports.every((report) => PHYSICAL_FLOOR_COMPARATOR_KINDS.every(
-      (kind) => report.comparators?.[kind]?.within === true,
-    )
-      && report.comparators.frameRate.questionCardDroppedFramesWithin === true);
+    && validReports.every((report) => scoredFloorComparatorsAreWithin(
+      scorePhysicalFloorComparatorsFromEvidence(report.comparators),
+    ));
   return Object.freeze({
     complete,
     green,
@@ -375,7 +374,51 @@ export function withOwnerForwardedAscAuthentication(args, env = {}) {
 }
 
 function finiteNonNegative(value) {
-  return Number.isFinite(value) && value >= 0;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function isCanonicalObservation(value) {
+  return value === null || finiteNonNegative(value);
+}
+
+const MS_COMPARATOR_CAPTURE_KEYS = Object.freeze({
+  coldLaunch: 'coldLaunchMs',
+  answerFeedback: 'answerFeedbackMs',
+  sqliteTransactionUpperBound: 'sqliteTransactionUpperBoundMs',
+  audioStart: 'audioStartMs',
+  timeToInteractive: 'timeToInteractiveMs',
+});
+
+function matchesCanonicalScalarComparator(comparator, spec, observedKey) {
+  return Boolean(
+    comparator
+    && typeof comparator === 'object'
+    && comparator.unit === spec.unit
+    && comparator.threshold === spec.threshold
+    && comparator.thresholdStatus === spec.thresholdStatus
+    && isCanonicalObservation(comparator[observedKey]),
+  );
+}
+
+function matchesCanonicalFrameRateComparator(comparator) {
+  const spec = PHYSICAL_FLOOR_COMPARATOR_SPECS.frameRate;
+  const surfaces = comparator?.riskSurfaces;
+  if (!comparator || typeof comparator !== 'object'
+      || comparator.unit !== spec.unit
+      || comparator.threshold !== spec.threshold
+      || comparator.thresholdStatus !== spec.thresholdStatus
+      || comparator.observedFps !== null
+      || !isCanonicalObservation(comparator.questionCardDroppedFrames)
+      || !surfaces || typeof surfaces !== 'object') {
+    return false;
+  }
+  const names = Object.keys(surfaces).sort();
+  if (names.join('|') !== [...FRAME_RATE_RISK_SURFACES].sort().join('|')) {
+    return false;
+  }
+  return FRAME_RATE_RISK_SURFACES.every(
+    (name) => isCanonicalObservation(surfaces[name]?.observedFps),
+  );
 }
 
 export function unmeasuredFrameRateCapture() {
@@ -536,16 +579,75 @@ export function evaluatePhysicalFloorComparators({
   return comparators;
 }
 
-export function hasRecordedFloorComparators(comparators) {
-  if (!comparators || typeof comparators !== 'object') return false;
-  for (const kind of PHYSICAL_FLOOR_COMPARATOR_KINDS) {
+export function extractPhysicalFloorComparatorEvidence(comparators) {
+  if (!comparators || typeof comparators !== 'object') return null;
+  const evidence = {};
+  for (const [kind, captureKey] of Object.entries(MS_COMPARATOR_CAPTURE_KEYS)) {
     const comparator = comparators[kind];
-    if (!comparator?.recorded) return false;
+    if (!matchesCanonicalScalarComparator(
+      comparator,
+      PHYSICAL_FLOOR_COMPARATOR_SPECS[kind],
+      'observedMs',
+    )) {
+      return null;
+    }
+    evidence[captureKey] = comparator.observedMs;
   }
-  const frameRate = comparators.frameRate;
-  if (!frameRate?.questionCardDroppedFramesRecorded) return false;
+  if (!matchesCanonicalScalarComparator(
+    comparators.memory,
+    PHYSICAL_FLOOR_COMPARATOR_SPECS.memory,
+    'observedBytes',
+  )) {
+    return null;
+  }
+  if (!matchesCanonicalFrameRateComparator(comparators.frameRate)) return null;
+  evidence.memory = Object.freeze({
+    peakBytes: comparators.memory.observedBytes,
+  });
+  evidence.frameRate = Object.freeze({
+    questionCardDroppedFrames: comparators.frameRate.questionCardDroppedFrames,
+    riskSurfaces: Object.freeze(Object.fromEntries(
+      FRAME_RATE_RISK_SURFACES.map((name) => [
+        name,
+        Object.freeze({
+          observedFps: comparators.frameRate.riskSurfaces[name].observedFps,
+        }),
+      ]),
+    )),
+  });
+  return Object.freeze(evidence);
+}
+
+export function scorePhysicalFloorComparatorsFromEvidence(comparators) {
+  const evidence = extractPhysicalFloorComparatorEvidence(comparators);
+  if (!evidence) return null;
+  return evaluatePhysicalFloorComparators(evidence);
+}
+
+export function scoredFloorComparatorsAreRecorded(scored) {
+  if (!scored) return false;
+  for (const kind of PHYSICAL_FLOOR_COMPARATOR_KINDS) {
+    if (scored[kind]?.recorded !== true) return false;
+  }
+  if (scored.frameRate.questionCardDroppedFramesRecorded !== true) return false;
   return FRAME_RATE_RISK_SURFACES.every(
-    (name) => frameRate.riskSurfaces?.[name]?.recorded === true,
+    (name) => scored.frameRate.riskSurfaces?.[name]?.recorded === true,
+  );
+}
+
+export function scoredFloorComparatorsAreWithin(scored) {
+  return Boolean(
+    scored
+    && PHYSICAL_FLOOR_COMPARATOR_KINDS.every((kind) => scored[kind]?.within === true)
+    && scored.frameRate.questionCardDroppedFramesWithin === true,
+  );
+}
+
+// Completeness and GREEN recompute from observations, units and specs.
+// Caller-supplied recorded/within booleans are ignored.
+export function hasRecordedFloorComparators(comparators) {
+  return scoredFloorComparatorsAreRecorded(
+    scorePhysicalFloorComparatorsFromEvidence(comparators),
   );
 }
 

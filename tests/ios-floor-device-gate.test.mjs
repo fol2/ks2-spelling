@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -29,6 +29,7 @@ import {
   evaluatePhysicalFloorComparators,
   floorDeviceModelNames,
   hasRecordedFloorComparators,
+  scorePhysicalFloorComparatorsFromEvidence,
   insertAllowProvisioningAuthenticationArguments,
   isHistoricalOwnerIphonePhysicalProof,
   matchFloorDevice,
@@ -40,10 +41,8 @@ import {
 } from '../scripts/lib/ios-floor-device-gate.mjs';
 import {
   assembleB4PhysicalReport,
-  checkFloorDeviceMatrix,
   createPhysicalXcodeBuildArguments,
   createPhysicalXcodeTestArguments,
-  main as physicalProofMain,
 } from '../scripts/prove-b4-ios-physical.mjs';
 import { EXIT_CODES } from '../scripts/lib/run-command.mjs';
 
@@ -126,6 +125,63 @@ function validFloorReport(deviceModel, checkpoint = FLOOR_CHECKPOINT_A, override
     },
     applicationCheckpoint: checkpoint,
     ...overrides,
+  });
+}
+
+function mutateComparators(report, mutate) {
+  const clone = structuredClone(report);
+  mutate(clone.comparators);
+  return clone;
+}
+
+function booleanOnlyFloorReport(deviceModel, checkpoint = FLOOR_CHECKPOINT_A) {
+  const booleanComparator = { recorded: true, within: true };
+  return {
+    schemaVersion: PHYSICAL_FLOOR_REPORT_SCHEMA_VERSION,
+    platform: 'ios-physical',
+    runner: {
+      hostOS: 'macOS 27.0 (26A5378n)',
+      xcodeVersion: '26.6 (17F109)',
+      sdk: 'iphoneos26.5',
+      deviceModel,
+      deviceOsVersion: '26.1',
+      buildConfiguration: 'Release',
+      reality: 'physical',
+    },
+    applicationCheckpoint: checkpoint,
+    comparators: {
+      answerFeedback: { ...booleanComparator },
+      audioStart: { ...booleanComparator },
+      coldLaunch: { ...booleanComparator },
+      frameRate: {
+        recorded: true,
+        within: true,
+        questionCardDroppedFramesRecorded: true,
+        questionCardDroppedFramesWithin: true,
+        riskSurfaces: {
+          codexZoomMonsterStage: { recorded: true },
+          celebrationTier: { recorded: true },
+          ambientBackdropPan: { recorded: true },
+        },
+      },
+      memory: { ...booleanComparator },
+      sqliteTransactionUpperBound: { ...booleanComparator },
+      timeToInteractive: { ...booleanComparator },
+    },
+  };
+}
+
+function withCallerGreenBooleans(report) {
+  return mutateComparators(report, (comparators) => {
+    for (const comparator of Object.values(comparators)) {
+      comparator.recorded = true;
+      comparator.within = true;
+    }
+    comparators.frameRate.questionCardDroppedFramesRecorded = true;
+    comparators.frameRate.questionCardDroppedFramesWithin = true;
+    for (const surface of Object.values(comparators.frameRate.riskSurfaces)) {
+      surface.recorded = true;
+    }
   });
 }
 
@@ -462,6 +518,70 @@ test('mixed applicationCheckpoint identities fail the two-device matrix', () => 
   assert.deepEqual(evaluation.missing, []);
 });
 
+test('canonical comparators recompute from observations rather than stored booleans', () => {
+  const se2 = validFloorReport('iPhone SE (2nd generation)');
+  assert.deepEqual(
+    scorePhysicalFloorComparatorsFromEvidence(se2.comparators),
+    se2.comparators,
+  );
+});
+
+test('boolean-only recorded/within comparators do not complete or GREEN the matrix', () => {
+  const se2 = booleanOnlyFloorReport('iPhone SE (2nd generation)');
+  const ipad8 = booleanOnlyFloorReport('iPad (8th generation)');
+  assert.equal(hasRecordedFloorComparators(se2.comparators), false);
+  assert.equal(hasRecordedFloorComparators(ipad8.comparators), false);
+  const evaluation = evaluateFloorDeviceMatrix([se2, ipad8]);
+  assert.equal(evaluation.complete, false);
+  assert.equal(evaluation.green, false);
+  assert.deepEqual(evaluation.invalid, [
+    'iPhone SE (2nd generation)',
+    'iPad (8th generation)',
+  ]);
+});
+
+test('NaN, wrong unit and caller-supplied GREEN booleans fail closed', () => {
+  const se2 = validFloorReport('iPhone SE (2nd generation)');
+  const ipad8 = validFloorReport('iPad (8th generation)');
+
+  const nanEvaluation = evaluateFloorDeviceMatrix([
+    mutateComparators(se2, (comparators) => {
+      comparators.coldLaunch.observedMs = Number.NaN;
+    }),
+    mutateComparators(ipad8, (comparators) => {
+      comparators.memory.observedBytes = Number.POSITIVE_INFINITY;
+    }),
+  ]);
+  assert.equal(nanEvaluation.complete, false);
+  assert.equal(nanEvaluation.green, false);
+  assert.deepEqual(nanEvaluation.invalid, [
+    'iPhone SE (2nd generation)',
+    'iPad (8th generation)',
+  ]);
+
+  const wrongUnitEvaluation = evaluateFloorDeviceMatrix([
+    mutateComparators(se2, (comparators) => {
+      comparators.coldLaunch.unit = 's';
+    }),
+    mutateComparators(ipad8, (comparators) => {
+      comparators.answerFeedback.observedMs = '40';
+    }),
+  ]);
+  assert.equal(wrongUnitEvaluation.complete, false);
+  assert.equal(wrongUnitEvaluation.green, false);
+  assert.deepEqual(wrongUnitEvaluation.invalid, [
+    'iPhone SE (2nd generation)',
+    'iPad (8th generation)',
+  ]);
+
+  const lying = evaluateFloorDeviceMatrix([
+    withCallerGreenBooleans(se2),
+    withCallerGreenBooleans(ipad8),
+  ]);
+  assert.equal(lying.complete, true);
+  assert.equal(lying.green, false);
+});
+
 test('physical proof source writes distinct floor reports and never the owner-iPhone artefact', async () => {
   const source = await readUtf8(PHYSICAL_SCRIPT_RELATIVE);
   assert.match(source, /physicalFloorReportRelative/);
@@ -484,11 +604,34 @@ test('physical proof source writes distinct floor reports and never the owner-iP
   assert.equal(physicalFloorReportRelative(OWNER_IPHONE_ARTEFACT_MODEL), null);
 });
 
-test('the floor-matrix check path fails closed on missing, null-comparator and mixed-checkpoint files', async (t) => {
+function runFloorMatrixCheckCli(reportsRoot) {
+  return spawnSync(
+    process.execPath,
+    [
+      join(ROOT, 'scripts/prove-b4-ios-physical.mjs'),
+      '--check-floor-matrix',
+      '--reports-root',
+      reportsRoot,
+    ],
+    { encoding: 'utf8', cwd: ROOT },
+  );
+}
+
+function parseFloorMatrixCliPayload(result) {
+  const text = `${result.stderr || ''}${result.stdout || ''}`;
+  const start = text.indexOf('{');
+  assert.notEqual(start, -1, `floor-matrix CLI emitted no JSON: ${text}`);
+  return JSON.parse(text.slice(start));
+}
+
+test('the floor-matrix CLI fails closed on missing, null-comparator and mixed-checkpoint files', async (t) => {
   const tempRoot = await mkdtemp(join(tmpdir(), 'ks2-floor-matrix-'));
   t.after(() => rm(tempRoot, { recursive: true, force: true }));
 
-  const missing = await checkFloorDeviceMatrix({ root: tempRoot });
+  const missingRun = runFloorMatrixCheckCli(tempRoot);
+  assert.equal(missingRun.status, EXIT_CODES.stateMismatch);
+  const missing = parseFloorMatrixCliPayload(missingRun);
+  assert.equal(missing.ok, false);
   assert.equal(missing.complete, false);
   assert.equal(missing.green, false);
   assert.equal(missing.code, 'b4_ios_floor_matrix_incomplete');
@@ -496,10 +639,6 @@ test('the floor-matrix check path fails closed on missing, null-comparator and m
     'reports/b4-physical/ios-floor-iphone-se-2.json',
     'reports/b4-physical/ios-floor-ipad-8.json',
   ]);
-  assert.equal(
-    await physicalProofMain(['--check-floor-matrix'], { root: tempRoot }),
-    EXIT_CODES.stateMismatch,
-  );
 
   await writeFloorFixtures(tempRoot, {
     'iphone-se-2': validFloorReport('iPhone SE (2nd generation)', FLOOR_CHECKPOINT_A, {
@@ -511,7 +650,9 @@ test('the floor-matrix check path fails closed on missing, null-comparator and m
       memory: unmeasuredMemoryCapture(),
     }),
   });
-  const unmeasured = await checkFloorDeviceMatrix({ root: tempRoot });
+  const unmeasuredRun = runFloorMatrixCheckCli(tempRoot);
+  assert.equal(unmeasuredRun.status, EXIT_CODES.stateMismatch);
+  const unmeasured = parseFloorMatrixCliPayload(unmeasuredRun);
   assert.equal(unmeasured.complete, false);
   assert.equal(unmeasured.green, false);
   assert.equal(unmeasured.missingFiles.length, 0);
@@ -524,33 +665,106 @@ test('the floor-matrix check path fails closed on missing, null-comparator and m
     'iphone-se-2': validFloorReport('iPhone SE (2nd generation)', FLOOR_CHECKPOINT_A),
     'ipad-8': validFloorReport('iPad (8th generation)', FLOOR_CHECKPOINT_B),
   });
-  const mixed = await checkFloorDeviceMatrix({ root: tempRoot });
+  const mixedRun = runFloorMatrixCheckCli(tempRoot);
+  assert.equal(mixedRun.status, EXIT_CODES.stateMismatch);
+  const mixed = parseFloorMatrixCliPayload(mixedRun);
   assert.equal(mixed.complete, false);
   assert.equal(mixed.green, false);
   assert.equal(mixed.checkpointMismatch, true);
   assert.equal(mixed.code, 'b4_ios_floor_matrix_incomplete');
-  assert.equal(
-    await physicalProofMain(['--check-floor-matrix'], { root: tempRoot }),
-    EXIT_CODES.stateMismatch,
-  );
 });
 
-test('the floor-matrix check path reads both files and stays not GREEN while thresholds are pending', async (t) => {
+test('the floor-matrix CLI reads both files and stays not GREEN while thresholds are pending', async (t) => {
   const tempRoot = await mkdtemp(join(tmpdir(), 'ks2-floor-matrix-complete-'));
   t.after(() => rm(tempRoot, { recursive: true, force: true }));
   await writeFloorFixtures(tempRoot, {
     'iphone-se-2': validFloorReport('iPhone SE (2nd generation)', FLOOR_CHECKPOINT_A),
     'ipad-8': validFloorReport('iPad (8th generation)', FLOOR_CHECKPOINT_A),
   });
-  const result = await checkFloorDeviceMatrix({ root: tempRoot });
+  const run = runFloorMatrixCheckCli(tempRoot);
+  assert.equal(run.status, EXIT_CODES.success);
+  const result = parseFloorMatrixCliPayload(run);
+  assert.equal(result.ok, true);
   assert.equal(result.complete, true);
   assert.equal(result.green, false);
   assert.equal(result.code, 'b4_ios_floor_matrix_complete_pending_thresholds');
   assert.equal(result.checkpointMismatch, false);
-  assert.equal(
-    await physicalProofMain(['--check-floor-matrix'], { root: tempRoot }),
-    EXIT_CODES.success,
-  );
+});
+
+test('the floor-matrix CLI fails closed on boolean-only, wrong-unit and non-finite JSON files', async (t) => {
+  const tempRoot = await mkdtemp(join(tmpdir(), 'ks2-floor-matrix-hostile-'));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
+
+  await writeFloorFixtures(tempRoot, {
+    'iphone-se-2': booleanOnlyFloorReport('iPhone SE (2nd generation)'),
+    'ipad-8': booleanOnlyFloorReport('iPad (8th generation)'),
+  });
+  const booleanRun = runFloorMatrixCheckCli(tempRoot);
+  assert.equal(booleanRun.status, EXIT_CODES.stateMismatch);
+  const booleanOnly = parseFloorMatrixCliPayload(booleanRun);
+  assert.equal(booleanOnly.ok, false);
+  assert.equal(booleanOnly.complete, false);
+  assert.equal(booleanOnly.green, false);
+  assert.equal(booleanOnly.code, 'b4_ios_floor_matrix_incomplete');
+  assert.deepEqual(booleanOnly.invalid, [
+    'iPhone SE (2nd generation)',
+    'iPad (8th generation)',
+  ]);
+
+  await writeFloorFixtures(tempRoot, {
+    'iphone-se-2': mutateComparators(
+      validFloorReport('iPhone SE (2nd generation)'),
+      (comparators) => {
+        comparators.coldLaunch.unit = 's';
+      },
+    ),
+    'ipad-8': mutateComparators(
+      validFloorReport('iPad (8th generation)'),
+      (comparators) => {
+        comparators.memory.unit = 'mb';
+      },
+    ),
+  });
+  const wrongUnitRun = runFloorMatrixCheckCli(tempRoot);
+  assert.equal(wrongUnitRun.status, EXIT_CODES.stateMismatch);
+  const wrongUnit = parseFloorMatrixCliPayload(wrongUnitRun);
+  assert.equal(wrongUnit.complete, false);
+  assert.equal(wrongUnit.green, false);
+  assert.deepEqual(wrongUnit.invalid, [
+    'iPhone SE (2nd generation)',
+    'iPad (8th generation)',
+  ]);
+
+  await writeFloorFixtures(tempRoot, {
+    'iphone-se-2': mutateComparators(
+      validFloorReport('iPhone SE (2nd generation)'),
+      (comparators) => {
+        comparators.timeToInteractive.observedMs = 'NaN';
+      },
+    ),
+    'ipad-8': mutateComparators(
+      validFloorReport('iPad (8th generation)'),
+      (comparators) => {
+        comparators.answerFeedback.observedMs = '40';
+      },
+    ),
+  });
+  const nonFiniteRun = runFloorMatrixCheckCli(tempRoot);
+  assert.equal(nonFiniteRun.status, EXIT_CODES.stateMismatch);
+  const nonFinite = parseFloorMatrixCliPayload(nonFiniteRun);
+  assert.equal(nonFinite.complete, false);
+  assert.equal(nonFinite.green, false);
+
+  await writeFloorFixtures(tempRoot, {
+    'iphone-se-2': withCallerGreenBooleans(validFloorReport('iPhone SE (2nd generation)')),
+    'ipad-8': withCallerGreenBooleans(validFloorReport('iPad (8th generation)')),
+  });
+  const lyingRun = runFloorMatrixCheckCli(tempRoot);
+  assert.equal(lyingRun.status, EXIT_CODES.success);
+  const lying = parseFloorMatrixCliPayload(lyingRun);
+  assert.equal(lying.complete, true);
+  assert.equal(lying.green, false);
+  assert.equal(lying.code, 'b4_ios_floor_matrix_complete_pending_thresholds');
 });
 
 test('the repository floor-matrix CLI fails closed without fabricating reports', () => {
@@ -781,6 +995,10 @@ test('release-gate, visual authority, runbook and concepts source pin the floor 
   assert.match(runbook, /ios-floor-iphone-se-2\.json/);
   assert.match(runbook, /ios-floor-ipad-8\.json/);
   assert.match(runbook, /node scripts\/prove-b4-ios-physical\.mjs --check-floor-matrix/);
+  assert.match(runbook, /--reports-root DIR/);
+  assert.match(runbook, /does not trust\s+caller-supplied `recorded` or `within`/);
+  assert.match(runbook, /boolean-only/);
+  assert.match(runbook, /wrong unit/);
   assert.doesNotMatch(runbook, /iPad\s+`[0-9A-Z]{10}`/);
   assert.doesNotMatch(runbook, /SE 2\s+`[0-9A-Z]{10}`/);
   assert.doesNotMatch(runbook, /Status:\s*GREEN/i);

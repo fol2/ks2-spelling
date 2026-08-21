@@ -92,11 +92,18 @@ After both files exist, the executable gate is:
 node scripts/prove-b4-ios-physical.mjs --check-floor-matrix
 ```
 
-That command reads those two fixed paths. It fails closed until both are
-valid schemaVersion 2 reports for the exact floor devices, share one
-`applicationCheckpoint` commit and tree, and carry recorded comparators.
-GREEN is a separate field: it stays false while time-to-interactive,
-frame-rate and memory thresholds remain `pending-owner-adjudication`.
+That command reads those two fixed paths under the repository root. It fails
+closed for a missing file, an unreadable file, a report whose required
+comparators are null/unmeasured, a synthetic boolean-only payload, a NaN or
+non-finite observation, a wrong unit, or a pair whose
+`applicationCheckpoint` commit and tree differ. The checker validates the
+full canonical comparator schema and recomputes recorded/within from
+observed values, units and threshold status. It does not trust
+caller-supplied `recorded` or `within` booleans. GREEN is a separate field:
+it stays false while time-to-interactive, frame-rate and memory thresholds
+remain `pending-owner-adjudication`. Isolated verification may pass
+`--reports-root DIR` so the same command can read a copy of those two
+relative paths; the owner gate is the command without that flag.
 
 Device UDIDs are pairing material and are never committed. Both owned floor
 devices are already registered to the account; the identifiers stay in the

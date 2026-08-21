@@ -8,10 +8,14 @@
  *   CEREMONY_OUTPUT_DIR=/path/to/ceremony \
  *   CEREMONY_KEY_ID=production-ks2-p256-2026-08 \
  *   node scripts/resign-manifests-with-production-key.mjs
+ *
+ * Writes the exact packs/ object tree plus operational ceremony-metadata.json
+ * beside it. Preflights nested dist-first|dist-second archives before writing
+ * objects. Removes stale ready metadata and packs/ at the start of a run.
  */
 
 import { createHash, createPrivateKey, sign } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, unlink, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,6 +24,7 @@ import {
   assertCanonicalP256Der,
   createPackSigningInput,
 } from '../src/domain/packs/signed-manifest-contract.js';
+import { CEREMONY_OPERATIONAL_METADATA_RELATIVE } from './lib/production-pack-object-authority.mjs';
 import { isMain } from './lib/run-command.mjs';
 
 const ROOT = resolve(fileURLToPath(import.meta.url), '..', '..');
@@ -180,12 +185,22 @@ async function signManifest(
   };
 }
 
+async function ignoreEnoent(operation) {
+  try {
+    await operation();
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+}
+
 export async function main({
   root = ROOT,
   env = process.env,
   readFileImpl = readFile,
   writeFileImpl = writeFile,
   mkdirImpl = mkdir,
+  unlinkImpl = unlink,
+  rmImpl = rm,
   log = (line) => console.log(line),
   now = () => new Date(),
 } = {}) {
@@ -198,18 +213,36 @@ export async function main({
   log(`✓ Loaded ${shards.length} shards to re-sign with key ${keyId}`);
 
   await mkdirImpl(ceremonyOutputDir, { recursive: true });
+  const metadataPath = resolve(ceremonyOutputDir, CEREMONY_OPERATIONAL_METADATA_RELATIVE);
+  await ignoreEnoent(() => unlinkImpl(metadataPath));
+  await ignoreEnoent(() => rmImpl(resolve(ceremonyOutputDir, 'packs'), { recursive: true, force: true }));
 
-  const records = [];
+  const staged = [];
   for (const shard of shards) {
-    const ceremonyPackPath = `packs/${shard.packId}/${shard.version}`;
-    const archiveKey = `${ceremonyPackPath}/${shard.archiveName}`;
-    const manifestKey = `${ceremonyPackPath}/signed-manifest.json`;
-
     const canonicalManifestBytes = await extractCanonicalManifestFromFixture(
       root,
       shard.packId,
       readFileImpl,
     );
+    const archiveBytes = await resolveNestedAuthoringArchiveBytes({
+      root,
+      packId: shard.packId,
+      archiveName: shard.archiveName,
+      archiveSha256: shard.archiveSha256,
+      readFileImpl,
+    });
+    staged.push({
+      shard,
+      canonicalManifestBytes,
+      archiveBytes,
+    });
+  }
+
+  const records = [];
+  for (const { shard, canonicalManifestBytes, archiveBytes } of staged) {
+    const ceremonyPackPath = `packs/${shard.packId}/${shard.version}`;
+    const archiveKey = `${ceremonyPackPath}/${shard.archiveName}`;
+    const manifestKey = `${ceremonyPackPath}/signed-manifest.json`;
 
     const signed = await signManifest(
       canonicalManifestBytes,
@@ -225,14 +258,6 @@ export async function main({
       resolve(manifestOutputDir, 'signed-manifest.json'),
       signed.envelopeBytes,
     );
-
-    const archiveBytes = await resolveNestedAuthoringArchiveBytes({
-      root,
-      packId: shard.packId,
-      archiveName: shard.archiveName,
-      archiveSha256: shard.archiveSha256,
-      readFileImpl,
-    });
     await writeFileImpl(resolve(ceremonyOutputDir, archiveKey), archiveBytes);
 
     records.push({
@@ -260,7 +285,6 @@ export async function main({
     manifests: records,
   };
 
-  const metadataPath = resolve(ceremonyOutputDir, 'ceremony-metadata.json');
   await writeFileImpl(metadataPath, jsonBytes(ceremonyMetadata));
 
   log(`\n✓ ${CEREMONY_COMPLETE_TEXT}`);

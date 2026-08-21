@@ -21,6 +21,7 @@ import {
   PRODUCTION_PACK_OBJECT_ROLES,
   PRODUCTION_PACK_VERSION,
   PRODUCTION_SIGNING_KEY_ID,
+  archiveNameForPack,
   assertDocumentsMatch,
   assertProductionPackObjectAuthority,
   assertProductionPackObjectAuthorityBytes,
@@ -68,8 +69,28 @@ function createSyntheticProductionSigner() {
       allowedPackIds: [...PRODUCTION_PACK_IDS],
     }],
   };
-  function signPack(packId, { keyId = PRODUCTION_SIGNING_KEY_ID } = {}) {
-    const canonical = canonicaliseRfc8785Bytes({ packId, version: PRODUCTION_PACK_VERSION });
+  function signPack(packId, {
+    keyId = PRODUCTION_SIGNING_KEY_ID,
+    version = PRODUCTION_PACK_VERSION,
+    archiveBytes = Buffer.from(`archive-bytes:${packId}`),
+    archiveName = archiveNameForPack(packId, version),
+    omitArchive = false,
+    archiveSha256,
+    archiveByteCount,
+  } = {}) {
+    const hashed = hashObjectBytes(archiveBytes);
+    const payload = omitArchive
+      ? { packId, version }
+      : {
+        packId,
+        version,
+        archive: {
+          bytes: archiveByteCount ?? hashed.bytes,
+          name: archiveName,
+          sha256: archiveSha256 ?? hashed.sha256,
+        },
+      };
+    const canonical = canonicaliseRfc8785Bytes(payload);
     const signatureDer = sign('sha256', createPackSigningInput(canonical), createPrivateKey(privateKey));
     assertCanonicalP256Der(signatureDer);
     return jsonBytes({
@@ -358,6 +379,38 @@ test('an unexpected extra ceremony file fails the complete synthetic tree contra
   }
 });
 
+test('operational ceremony-metadata.json at the ceremony root is outside the exact packs/ object tree', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-ceremony-metadata-root-'));
+  const objects = syntheticPackObjects();
+  try {
+    await writeCanonicalCeremony(directory, objects);
+    await writeFile(join(directory, 'ceremony-metadata.json'), jsonBytes({
+      schemaVersion: 1,
+      status: 'ready',
+    }));
+    const inventory = await readCompleteCeremonyDirectory({ ceremonyDir: directory });
+    assert.equal(inventory.size, 30);
+    assert.equal(inventory.has('ceremony-metadata.json'), false);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('ceremony-metadata.json inside packs/ is an extra object and fails closed', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-ceremony-metadata-packs-'));
+  const objects = syntheticPackObjects();
+  try {
+    await writeCanonicalCeremony(directory, objects);
+    await writeFile(join(directory, 'packs/ceremony-metadata.json'), jsonBytes({ status: 'ready' }));
+    await assert.rejects(
+      readCompleteCeremonyDirectory({ ceremonyDir: directory }),
+      /extra packs\/ceremony-metadata\.json/i,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('an unprefixed ceremony tree is not a complete canonical packs/ layout', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'ks2-ceremony-unprefixed-'));
   const objects = syntheticPackObjects();
@@ -454,14 +507,118 @@ test('a synthetic ceremony signed-manifest with a corrupt signature fails verify
 });
 
 test('verifySignedPackManifest against the committed production keyring rejects a synthetic envelope that was not signed by that key', async () => {
-  const envelope = SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[0]);
+  const archiveBytes = Buffer.from(`archive-bytes:${PRODUCTION_PACK_IDS[0]}`);
+  const hashed = hashObjectBytes(archiveBytes);
+  const envelope = SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[0], { archiveBytes });
   await assert.rejects(
     verifyProductionSignedManifestEnvelope({
       envelopeBytes: envelope,
       key: expectedObjectKey(PRODUCTION_PACK_IDS[0], 'signed-manifest'),
+      packId: PRODUCTION_PACK_IDS[0],
+      version: PRODUCTION_PACK_VERSION,
+      archiveName: archiveNameForPack(PRODUCTION_PACK_IDS[0]),
+      archiveBytes: hashed.bytes,
+      archiveSha256: hashed.sha256,
       keyring: productionKeyring,
     }),
     /verifySignedPackManifest|signature verification failed/i,
+  );
+});
+
+test('a valid production-signed minimal payload without archive identity is rejected', async () => {
+  const objects = syntheticPackObjects();
+  objects[1] = {
+    key: objects[1].key,
+    bytes: SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[0], { omitArchive: true }),
+  };
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(liveOptions(objects)),
+    /archive identity|archive/i,
+  );
+});
+
+test('a valid production-signed envelope for the wrong packId is rejected', async () => {
+  const objects = syntheticPackObjects();
+  objects[1] = {
+    key: objects[1].key,
+    bytes: SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[1], {
+      archiveBytes: objects[0].bytes,
+    }),
+  };
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(liveOptions(objects)),
+    /packId|full-ks2-shard-02|does not match/i,
+  );
+});
+
+test('a valid production-signed envelope with the wrong version is rejected', async () => {
+  const objects = syntheticPackObjects();
+  objects[1] = {
+    key: objects[1].key,
+    bytes: SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[0], {
+      version: '9.9.9',
+      archiveBytes: objects[0].bytes,
+    }),
+  };
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(liveOptions(objects)),
+    /version|9\.9\.9/i,
+  );
+});
+
+test('a valid production-signed envelope with the wrong archive name is rejected', async () => {
+  const objects = syntheticPackObjects();
+  objects[1] = {
+    key: objects[1].key,
+    bytes: SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[0], {
+      archiveBytes: objects[0].bytes,
+      archiveName: 'other-pack.zip',
+    }),
+  };
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(liveOptions(objects)),
+    /archive name|other-pack\.zip/i,
+  );
+});
+
+test('a valid production-signed envelope whose archive bytes or SHA-256 differ from the paired live GET is rejected', async () => {
+  const objects = syntheticPackObjects();
+  const other = Buffer.from('different-archive-bytes');
+  objects[1] = {
+    key: objects[1].key,
+    bytes: SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[0], {
+      archiveBytes: other,
+    }),
+  };
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(liveOptions(objects)),
+    /archive SHA-256|archive byte|paired live/i,
+  );
+  objects[1] = {
+    key: objects[1].key,
+    bytes: SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[0], {
+      archiveBytes: objects[0].bytes,
+      archiveByteCount: objects[0].bytes.length + 1,
+    }),
+  };
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(liveOptions(objects)),
+    /archive byte/i,
+  );
+});
+
+test('replacing shard-02 live envelope bytes with a valid production-signed shard-01 envelope is rejected', async () => {
+  const objects = syntheticPackObjects();
+  const shard01Manifest = objects.find((object) => (
+    object.key === expectedObjectKey('full-ks2-shard-01', 'signed-manifest')
+  ));
+  const shard02Index = objects.findIndex((object) => (
+    object.key === expectedObjectKey('full-ks2-shard-02', 'signed-manifest')
+  ));
+  objects[shard02Index] = { key: objects[shard02Index].key, bytes: shard01Manifest.bytes };
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(liveOptions(objects)),
+    /full-ks2-shard-01|packId|does not match/i,
   );
 });
 
@@ -490,7 +647,12 @@ test('two synthetic pack-object documents fail comparison when one hashed object
     ...syntheticReaders(objects),
   });
   const drifted = syntheticPackObjects();
-  drifted[0] = { key: drifted[0].key, bytes: Buffer.concat([drifted[0].bytes, Buffer.from('drift')]) };
+  const driftedArchive = Buffer.concat([drifted[0].bytes, Buffer.from('drift')]);
+  drifted[0] = { key: drifted[0].key, bytes: driftedArchive };
+  drifted[1] = {
+    key: drifted[1].key,
+    bytes: SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[0], { archiveBytes: driftedArchive }),
+  };
   const driftedDocument = await generateProductionPackObjectAuthority({
     root: ROOT,
     keyring: SYNTHETIC_SIGNER.keyring,

@@ -77,14 +77,21 @@ live GET bytes (and, with `--ceremony-dir`, the local bytes) to the committed
 facts; it does not re-sign live production envelopes. `--check` rebuilds from
 live GET and requires byte-identical committed serialisation.
 
-`--ceremony-dir <dir>` is fail-closed. The directory must be a complete exact
-ceremony for all 15 packs / 30 expected objects: exactly 15 archives and 15
-signed-manifest envelopes at the canonical paths
-`packs/<packId>/1.0.0/<archiveName>` and
-`packs/<packId>/1.0.0/signed-manifest.json`. Missing, extra, unreadable,
-malformed, byte/size/SHA/etag mismatch, wrong key, or invalid signature fails
-the command. Read errors are not mapped to skip. An unprefixed tree, a stale
-tree, or a locally re-signed envelope is not ceremony evidence.
+`--ceremony-dir <dir>` is fail-closed. The exact object tree is
+`packs/<packId>/1.0.0/…`: exactly 15 archives and 15 signed-manifest
+envelopes. Missing, extra, unreadable, malformed, byte/size/SHA/etag
+mismatch, wrong key, invalid signature, or a signed payload that does not
+bind packId, version, archive name, archive bytes and archive SHA-256 to the
+paired live GET fails the command. Read errors are not mapped to skip. An
+unprefixed tree, a stale tree, a cross-shard envelope, or a locally re-signed
+envelope is not ceremony evidence.
+
+`scripts/resign-manifests-with-production-key.mjs` writes that object tree
+under `CEREMONY_OUTPUT_DIR` and writes operational `ceremony-metadata.json`
+beside it, not inside `packs/`. Pass the producer output directory to
+`--ceremony-dir` as-is; do not delete the metadata file. The verifier ignores
+root `ceremony-metadata.json` and never treats `status: ready` as proof. Extra
+files other than that operational metadata still fail.
 
 Archive SHA-256s are expected to agree with
 `config/packs/full-ks2-shards/authoring-report.json` because the zips are
@@ -120,6 +127,7 @@ evidence lane. The production document is not imported from `src/` or
 
 Staging a ceremony directory from `scripts/author-full-shards.mjs` must resolve
 the nested outputs `.native-build/packs/<packId>/dist-first|dist-second/<archiveName>`.
-`scripts/resign-manifests-with-production-key.mjs` fails closed on missing,
-ambiguous or hash-mismatched nested archives and must not write `status: ready`
-or print `Ceremony complete` unless all fifteen archives are staged.
+`scripts/resign-manifests-with-production-key.mjs` preflights every nested
+archive, removes stale `ceremony-metadata.json` and the `packs/` object tree
+before writing, then stages all thirty objects and writes `status: ready` last.
+A failed rerun must not leave a current ready marker or a complete object tree.

@@ -14,6 +14,7 @@ export const PRODUCTION_PACK_OBJECT_BUCKET = 'ks2-spelling-production-packs';
 export const PRODUCTION_PACK_OBJECT_SCHEMA_VERSION = 1;
 export const PRODUCTION_PACK_VERSION = '1.0.0';
 export const PRODUCTION_SIGNING_KEY_ID = 'production-ks2-p256-2026-08';
+export const CEREMONY_OPERATIONAL_METADATA_RELATIVE = 'ceremony-metadata.json';
 export const PRODUCTION_PACK_OBJECT_ROLES = Object.freeze(['archive', 'signed-manifest']);
 export const PRODUCTION_PACK_IDS = Object.freeze(
   Array.from({ length: 15 }, (_, index) => `full-ks2-shard-${String(index + 1).padStart(2, '0')}`),
@@ -257,18 +258,33 @@ function parseSignedManifestEnvelopeOrFail(bytes, key) {
 export async function verifyProductionSignedManifestEnvelope({
   envelopeBytes,
   key,
+  packId,
+  version = PRODUCTION_PACK_VERSION,
+  archiveName,
+  archiveBytes,
+  archiveSha256,
   keyring,
   clock = () => new Date(PRODUCTION_VERIFICATION_INSTANT),
   verifyP256Der = verifyP256DerWithNodeCrypto,
 }) {
   if (!keyring) fail('production signing keyring is missing');
+  if (
+    typeof packId !== 'string' || packId.length === 0
+    || typeof version !== 'string' || version.length === 0
+    || typeof archiveName !== 'string' || archiveName.length === 0
+    || !Number.isSafeInteger(archiveBytes) || archiveBytes <= 0
+    || typeof archiveSha256 !== 'string' || !SHA256.test(archiveSha256)
+  ) {
+    fail('requires expected pack and paired archive identity');
+  }
   const label = key ?? 'signed-manifest';
   const envelope = parseSignedManifestEnvelopeOrFail(envelopeBytes, label);
   if (envelope?.keyId !== PRODUCTION_SIGNING_KEY_ID) {
     fail(`${label} is signed by ${envelope?.keyId ?? 'no key'}, not ${PRODUCTION_SIGNING_KEY_ID}`);
   }
+  let verified;
   try {
-    return await verifySignedPackManifest({
+    verified = await verifySignedPackManifest({
       envelopeBytes,
       keyring,
       environment: 'production',
@@ -278,6 +294,27 @@ export async function verifyProductionSignedManifestEnvelope({
   } catch (error) {
     fail(`${label} failed verifySignedPackManifest: ${error.message}`);
   }
+  const manifest = verified.manifest;
+  if (manifest.packId !== packId) {
+    fail(`${label} packId ${manifest.packId} does not match ${packId}`);
+  }
+  if (manifest.version !== version) {
+    fail(`${label} version ${manifest.version} does not match ${version}`);
+  }
+  const archive = manifest.archive;
+  if (!archive || typeof archive !== 'object' || Array.isArray(archive)) {
+    fail(`${label} canonical payload is missing archive identity`);
+  }
+  if (archive.name !== archiveName) {
+    fail(`${label} archive name ${archive.name} does not match ${archiveName}`);
+  }
+  if (archive.bytes !== archiveBytes) {
+    fail(`${label} archive byte count ${archive.bytes} differs from the paired live GET`);
+  }
+  if (archive.sha256 !== archiveSha256) {
+    fail(`${label} archive SHA-256 differs from the paired live GET`);
+  }
+  return verified;
 }
 
 export async function listCeremonyRelativeFiles(ceremonyDir, { readdirImpl = readdir } = {}) {
@@ -316,10 +353,11 @@ export async function readCompleteCeremonyDirectory({
   }
   const expectedKeys = expectedProductionObjectKeys();
   const actual = await listCeremonyRelativeFiles(ceremonyDir, { readdirImpl });
-  const actualSet = new Set(actual);
+  const objectFiles = actual.filter((rel) => rel !== CEREMONY_OPERATIONAL_METADATA_RELATIVE);
+  const actualSet = new Set(objectFiles);
   const expectedSet = new Set(expectedKeys);
   const missing = expectedKeys.filter((key) => !actualSet.has(key));
-  const extra = actual.filter((key) => !expectedSet.has(key));
+  const extra = objectFiles.filter((key) => !expectedSet.has(key));
   if (missing.length > 0 || extra.length > 0) {
     const details = [];
     if (missing.length > 0) details.push(`missing ${missing.join(', ')}`);
@@ -410,6 +448,7 @@ export async function buildProductionPackObjectAuthorityFromLive({
   const packs = [];
   for (const packId of PRODUCTION_PACK_IDS) {
     const objects = [];
+    let archiveHashed;
     for (const role of PRODUCTION_PACK_OBJECT_ROLES) {
       const key = expectedObjectKey(packId, role);
       const live = listingByKey.get(key);
@@ -428,10 +467,19 @@ export async function buildProductionPackObjectAuthorityFromLive({
           liveEtag: hashed.etag,
         });
       }
+      if (role === 'archive') {
+        archiveHashed = hashed;
+      }
       if (role === 'signed-manifest') {
+        if (!archiveHashed) fail(`paired live archive facts are missing for ${packId}`);
         await verifyProductionSignedManifestEnvelope({
           envelopeBytes: bytes,
           key,
+          packId,
+          version: PRODUCTION_PACK_VERSION,
+          archiveName: archiveNameForPack(packId),
+          archiveBytes: archiveHashed.bytes,
+          archiveSha256: archiveHashed.sha256,
           keyring,
           clock,
           verifyP256Der,

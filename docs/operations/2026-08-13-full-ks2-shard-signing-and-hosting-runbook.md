@@ -174,7 +174,9 @@ The live production bucket is a separate evidence document,
 `ks2-spelling-production-packs` and documented in
 `docs/operations/production-pack-object-authority.md`. Do not copy this
 sandbox execution record, its etags, or `b3-sandbox-proof` into that file.
-`--check --ceremony-dir` requires the complete canonical tree of 15 archives
-and 15 production-signed manifests; `scripts/resign-manifests-with-production-key.mjs`
-reads the nested author-full-shards outputs
+`--check --ceremony-dir <producer-output>` requires the complete canonical
+`packs/` tree of 15 archives and 15 production-signed manifests. Operational
+`ceremony-metadata.json` sits beside that tree in the producer output; do not
+delete it. `scripts/resign-manifests-with-production-key.mjs` reads the nested
+author-full-shards outputs
 `.native-build/packs/<packId>/dist-first|dist-second/<archiveName>`.

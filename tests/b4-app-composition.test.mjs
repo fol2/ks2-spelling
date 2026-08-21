@@ -187,6 +187,8 @@ test('B4 snapshot helpers commit the frozen start-session including bicycle', ()
   const committed = commitB4CommandPlan(snapshot, plan);
   assert.equal(committed.revision, 1);
   assert.equal(committed.subjectState.ui.session.currentRuntimeItemId, 'ks2-core:arrive');
+  assert.deepEqual(committed.subjectState.ui.session.uniqueItemIds, [...B4_RUNTIME_ITEM_IDS]);
+  assert.ok(committed.subjectState.ui.session.statusByRuntimeItemId['ks2-core:bicycle']);
 });
 
 test('desktop B4 harness validates snapshots against the B4 catalogue', async () => {

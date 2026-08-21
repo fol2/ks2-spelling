@@ -60,6 +60,18 @@
   documented area.
 - `CONCEPTS.md` holds shared domain vocabulary for the project. Relevant when
   orienting to the codebase or discussing domain concepts.
+- `docs/superpowers/**` and `docs/records/**` are frozen: write-once, never
+  edited. A correction is a new dated document that names what it corrects.
+  Everything else under `docs/` is kept true and must be edited when it goes
+  stale. Kind is carried in ce-compound frontmatter, not by the directory.
+- New freeze records, gate verdicts, owner GOs, measurement runs, close-outs
+  and QA verdicts go in `docs/records/<YYYY-MM-DD>-<slug>.md`. A freeze record
+  follows the shape of `docs/records/2026-07-23-c1-starter-pack.md`:
+  `Status: <state> at <SHA>`, `## Evidence`, `## Remaining gates`, and an
+  explicit closing statement of what authority the record does not grant.
+- `docs/superpowers/` is a closed historical archive: nothing new is added to
+  it. The name is a 2026-07 tooling residue with no workflow meaning, retained
+  because CI evidence pins the path.
 
 ## Agent skills
 

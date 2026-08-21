@@ -1,3 +1,12 @@
+---
+module: branding
+tags:
+  - freeze-record
+  - app-icon
+  - design-qa
+problem_type: freeze-record
+---
+
 # App icon design QA
 
 **Comparison target**

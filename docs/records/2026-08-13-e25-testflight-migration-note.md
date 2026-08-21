@@ -1,3 +1,12 @@
+---
+module: commerce
+tags:
+  - freeze-record
+  - e2-5
+  - testflight
+problem_type: freeze-record
+---
+
 # E2.5 migration note — TestFlight installs that bundled the full audio
 
 Dated 2026-08-13. Companion record for slice E2.5 (issue #122, epic #92).

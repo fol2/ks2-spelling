@@ -19,6 +19,7 @@ final class B4DevelopmentTests: XCTestCase {
     private struct JourneyObservations: Encodable {
         let schemaVersion = 1
         let coldLaunchMs: Double
+        let timeToInteractiveMs: Double
         let answerFeedbackMs: [Double]
         let audioStartMs: [Double]
         let minimumControlHeightPoints: Double
@@ -223,6 +224,7 @@ final class B4DevelopmentTests: XCTestCase {
             waitUntilPresent(referenceText),
             "The text-scale reference label did not become ready."
         )
+        let timeToInteractiveMs = elapsedMilliseconds(since: coldLaunchStart)
 
         let minimumControlHeightPoints = [input, replay, slowReplay, submit]
             .map(\.frame.height)
@@ -342,6 +344,7 @@ final class B4DevelopmentTests: XCTestCase {
         try attachJSON(
             JourneyObservations(
                 coldLaunchMs: coldLaunchMs,
+                timeToInteractiveMs: timeToInteractiveMs,
                 answerFeedbackMs: answerFeedbackMs,
                 audioStartMs: audioStartMs,
                 minimumControlHeightPoints: minimumControlHeightPoints,

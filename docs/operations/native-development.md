@@ -185,6 +185,12 @@ The iOS gate builds scheme `KS2Spelling` for the Simulator with
 `CODE_SIGNING_ALLOWED=NO`. It does not read certificates, provisioning profiles,
 the login keychain or an Apple signing identity.
 
+Physical floor-device proof is a different lane. The owner-gated checklist
+is `docs/operations/2026-08-21-floor-device-gate-runbook.md`. Unsigned
+Simulator compile, the committed owner-iPhone `ios-physical-proof.json`, and
+optional `KS2_ASC_*` forwarding in `scripts/prove-b4-ios-physical.mjs` are
+not a walk on iPhone SE (2nd generation) or iPad (8th generation).
+
 The Android gate builds and installs the local debug variant. It does not use a
 release keystore, Play App Signing or production credentials. Neither local nor
 CI verification deploys an application or mutates a store record.

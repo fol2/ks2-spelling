@@ -2,7 +2,6 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { B4_RISK_OBSERVATION_SPECS } from '../src/app/b4-development-report.js';
 import { run as runIsolatedSqlite } from './investigate-b4-performance.mjs';
 import {
   createInvestigationRunner,
@@ -10,6 +9,14 @@ import {
   investigationError,
   roundMs,
 } from './lib/investigation.mjs';
+import {
+  PHYSICAL_FLOOR_COMPARATOR_KINDS,
+  PHYSICAL_FLOOR_REPORT_SCHEMA_VERSION,
+  evaluatePhysicalFloorComparators,
+  unmeasuredFrameRateCapture,
+  unmeasuredMemoryCapture,
+  withOwnerForwardedAscAuthentication,
+} from './lib/ios-floor-device-gate.mjs';
 import { movePath } from './lib/move-path.mjs';
 import { EXIT_CODES, isMain, printJson } from './lib/run-command.mjs';
 
@@ -28,13 +35,7 @@ const SDK = 'iphoneos26.5';
 export const B4_PHYSICAL_LIMITATIONS = Object.freeze([
   'Development-signed install only; this is not distribution, App Store or production signing evidence.',
   'Comparator values are specific to this physical device and must not be treated as transferable across devices or platforms.',
-]);
-
-const COMPARATOR_KINDS = Object.freeze([
-  'coldLaunch',
-  'answerFeedback',
-  'sqliteTransactionUpperBound',
-  'audioStart',
+  'timeToInteractive, frameRate and memory are required floor-device comparators. #141/#152 name them but do not publish numeric thresholds, so those three stay pending-owner-adjudication and cannot score GREEN. Unmeasured frame-rate or memory values are not floor-device performance evidence. The committed schemaVersion 1 owner-iPhone artefact is not rewritten.',
 ]);
 
 const { execute, checked } = createInvestigationRunner({
@@ -78,8 +79,35 @@ function maxOf(values) {
   return roundMs(Math.max(...values));
 }
 
-function createPhysicalXcodeTestArguments({ udid, resultPath, testMethod, keychain }) {
-  return Object.freeze([
+export function createPhysicalXcodeBuildArguments({ keychain, env = process.env }) {
+  return withOwnerForwardedAscAuthentication([
+    '-quiet',
+    '-project',
+    'ios/App/App.xcodeproj',
+    '-scheme',
+    'KS2Spelling',
+    '-configuration',
+    'Release',
+    '-sdk',
+    'iphoneos',
+    '-destination',
+    'generic/platform=iOS',
+    '-derivedDataPath',
+    DERIVED_DATA,
+    '-allowProvisioningUpdates',
+    `OTHER_CODE_SIGN_FLAGS=--keychain=${keychain}`,
+    'build',
+  ], env);
+}
+
+export function createPhysicalXcodeTestArguments({
+  udid,
+  resultPath,
+  testMethod,
+  keychain,
+  env = process.env,
+}) {
+  return withOwnerForwardedAscAuthentication([
     '-quiet',
     '-project',
     'ios/App/App.xcodeproj',
@@ -97,29 +125,15 @@ function createPhysicalXcodeTestArguments({ udid, resultPath, testMethod, keycha
     '-allowProvisioningUpdates',
     `OTHER_CODE_SIGN_FLAGS=--keychain=${keychain}`,
     'test',
-  ]);
-}
-
-function evaluateComparator(kind, observedMs) {
-  const spec = B4_RISK_OBSERVATION_SPECS[kind];
-  if (!spec) {
-    throw investigationError(
-      'b4_ios_physical_comparator_unknown',
-      `Unknown B4 physical comparator kind: ${kind}.`,
-    );
-  }
-  const observed = roundMs(observedMs);
-  return Object.freeze({
-    observedMs: observed,
-    thresholdMs: spec.threshold,
-    within: observed <= spec.threshold,
-  });
+  ], env);
 }
 
 export function assembleB4PhysicalReport({
   journeyObservations,
   splitCapture,
   isolatedSqliteMaxMs,
+  frameRate = unmeasuredFrameRateCapture(),
+  memory = unmeasuredMemoryCapture(),
   runner,
   applicationCheckpoint,
 }) {
@@ -137,10 +151,16 @@ export function assembleB4PhysicalReport({
       );
     }
     if (!Number.isFinite(journey.coldLaunchMs) || journey.coldLaunchMs < 0
+        || !Number.isFinite(journey.timeToInteractiveMs) || journey.timeToInteractiveMs < 0
         || !Array.isArray(journey.answerFeedbackMs) || journey.answerFeedbackMs.length !== 10
         || !Array.isArray(journey.audioStartMs) || journey.audioStartMs.length !== 2) {
       throw investigationError(
-        'b4_ios_physical_journey_invalid',
+        journey && Number.isFinite(journey.coldLaunchMs)
+          && Array.isArray(journey.answerFeedbackMs)
+          && Array.isArray(journey.audioStartMs)
+          && !Number.isFinite(journey.timeToInteractiveMs)
+          ? 'b4_ios_physical_time_to_interactive_unmeasured'
+          : 'b4_ios_physical_journey_invalid',
         `Physical journey run ${index + 1} is missing required timing series.`,
       );
     }
@@ -181,31 +201,29 @@ export function assembleB4PhysicalReport({
   }
 
   const coldLaunchSeriesMs = journeyObservations.map((journey) => roundMs(journey.coldLaunchMs));
+  const timeToInteractiveSeriesMs = journeyObservations.map(
+    (journey) => roundMs(journey.timeToInteractiveMs),
+  );
   const defaultJourney = journeyObservations[0];
-  const comparators = Object.freeze({
-    coldLaunch: evaluateComparator('coldLaunch', maxOf(coldLaunchSeriesMs)),
-    answerFeedback: evaluateComparator(
-      'answerFeedback',
-      maxOf(journeyObservations.flatMap((journey) => journey.answerFeedbackMs)),
-    ),
-    sqliteTransactionUpperBound: evaluateComparator(
-      'sqliteTransactionUpperBound',
-      isolatedSqliteMaxMs,
-    ),
-    audioStart: evaluateComparator(
-      'audioStart',
-      maxOf(journeyObservations.flatMap((journey) => journey.audioStartMs)),
-    ),
+  const comparators = evaluatePhysicalFloorComparators({
+    coldLaunchMs: maxOf(coldLaunchSeriesMs),
+    answerFeedbackMs: maxOf(journeyObservations.flatMap((journey) => journey.answerFeedbackMs)),
+    sqliteTransactionUpperBoundMs: isolatedSqliteMaxMs,
+    audioStartMs: maxOf(journeyObservations.flatMap((journey) => journey.audioStartMs)),
+    timeToInteractiveMs: maxOf(timeToInteractiveSeriesMs),
+    frameRate,
+    memory,
   });
-  if (Object.keys(comparators).sort().join('|') !== COMPARATOR_KINDS.toSorted().join('|')) {
+  if (Object.keys(comparators).sort().join('|')
+      !== [...PHYSICAL_FLOOR_COMPARATOR_KINDS].sort().join('|')) {
     throw investigationError(
       'b4_ios_physical_comparator_set_invalid',
-      'The physical comparator set drifted from the frozen four-kind contract.',
+      'The physical comparator set drifted from the seven-kind floor contract.',
     );
   }
 
   return Object.freeze({
-    schemaVersion: 1,
+    schemaVersion: PHYSICAL_FLOOR_REPORT_SCHEMA_VERSION,
     platform: 'ios-physical',
     runner: Object.freeze({ ...runner }),
     limitations: B4_PHYSICAL_LIMITATIONS,
@@ -216,6 +234,7 @@ export function assembleB4PhysicalReport({
       journeyObservations.slice(1).map((journey) => structuredClone(journey)),
     ),
     coldLaunchSeriesMs: Object.freeze([...coldLaunchSeriesMs]),
+    timeToInteractiveSeriesMs: Object.freeze([...timeToInteractiveSeriesMs]),
     splitTimings: structuredClone(splitCapture),
     isolatedSqlite: Object.freeze({
       maxTransactionMs: roundMs(isolatedSqliteMaxMs),
@@ -263,18 +282,9 @@ async function requirePhysicalDevice(udid) {
 
 async function buildOfflineApplication(keychain) {
   await checked('npm', ['run', 'sync:b4-development'], { stream: true });
-  await checked('xcodebuild', [
-    '-quiet',
-    '-project', 'ios/App/App.xcodeproj',
-    '-scheme', 'KS2Spelling',
-    '-configuration', 'Release',
-    '-sdk', 'iphoneos',
-    '-destination', 'generic/platform=iOS',
-    '-derivedDataPath', DERIVED_DATA,
-    '-allowProvisioningUpdates',
-    `OTHER_CODE_SIGN_FLAGS=--keychain=${keychain}`,
-    'build',
-  ], { stream: true });
+  await checked('xcodebuild', createPhysicalXcodeBuildArguments({ keychain }), {
+    stream: true,
+  });
   const index = await readFile(join(APP_PATH, 'public/index.html'), 'utf8');
   if (!index.includes('name="ks2-spelling-build-mode" content="B4Development"')
       || !/connect-src (?:&#39;|')none(?:&#39;|')/u.test(index)) {
@@ -439,6 +449,8 @@ async function proveB4IosPhysical() {
       journeyObservations,
       splitCapture: split.payload,
       isolatedSqliteMaxMs: sqlite.maxMs,
+      frameRate: unmeasuredFrameRateCapture(),
+      memory: unmeasuredMemoryCapture(),
       runner: {
         hostOS: await hostDescription(),
         xcodeVersion: await xcodeVersionLabel(),

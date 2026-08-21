@@ -1178,6 +1178,64 @@ test('Design authority: the Codex roster is one tile width and its lower rails c
   );
 });
 
+/* This source-level check holds the declarations selected after the #256
+   design-harness run: four columns below 46rem, eight from 46rem, no return to
+   the squeezed flex-item declarations, and whole-label wrapping overrides.
+   It does not render line boxes or prove clipping, overflow, scrolling,
+   reachability or tab-bar clearance; that runtime evidence belongs in the
+   dated measurement record. */
+test('Design authority: the Codex source declares compact and tablet milestone grids with whole-label wrapping (#256)', async () => {
+  const rules = cssRulesWithMedia(await read('src/app/app.css'));
+  const compactWidths = [320, 375, 393, 735];
+
+  for (const width of compactWidths) {
+    const ladder = resolveSelector(rules, '.codex-ladder', width);
+    assert.equal(ladder.display, 'grid', `${width}px: the milestone rail must use a grid`);
+    assert.equal(
+      ladder.width,
+      '100%',
+      `${width}px: the compact-grid source declaration must span the Codex column`,
+    );
+    assert.equal(
+      ladder['grid-template-columns'],
+      'repeat(4, minmax(0, 1fr))',
+      `${width}px: eight milestones need four full-width columns and two rows below 46rem`,
+    );
+  }
+
+  for (const width of [736, 810]) {
+    const tablet = resolveSelector(rules, '.codex-ladder', width);
+    assert.equal(
+      tablet['grid-template-columns'],
+      'repeat(8, minmax(0, 1fr))',
+      `${width}px: at and above 46rem the source must declare eight milestone columns`,
+    );
+  }
+
+  const rung = resolveSelector(rules, '.codex-ladder li', 320);
+  assert.equal(
+    rung.flex,
+    undefined,
+    'a grid rung must not reinstate flex: 1 and squeeze below the figure width',
+  );
+  assert.equal(
+    rung['min-width'],
+    undefined,
+    'a grid rung must not reinstate min-width: 0 and squeeze below the figure width',
+  );
+
+  assert.equal(
+    resolveSelector(rules, '.codex-ladder .figure', 320)['overflow-wrap'],
+    'normal',
+    'milestone figures are numbers and must never inherit overflow-wrap: anywhere',
+  );
+  assert.equal(
+    resolveSelector(rules, '.codex-stats .label', 320)['overflow-wrap'],
+    'normal',
+    'Codex stat labels may wrap between words but never inside one',
+  );
+});
+
 test('Design authority: the Field Record topline keeps its own band and the stat trio seats whole labels (#117)', async () => {
   const css = await read('src/app/app.css');
   const rules = cssRuleBlocks(css);

@@ -1,12 +1,15 @@
-import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { createHash, createPublicKey, verify } from 'node:crypto';
+import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parseJsonWithoutDuplicateMembers } from '../../src/domain/packs/signed-manifest-contract.js';
+import { verifySignedPackManifest } from '../../src/domain/packs/pack-signature-verifier.js';
 
 export const PRODUCTION_PACK_OBJECT_AUTHORITY_RELATIVE =
   'config/ks2-pack-object-authority-production.json';
 export const PRODUCTION_GATEWAY_AUTHORITY_RELATIVE =
   'config/ks2-gateway-authority-production.json';
+export const PRODUCTION_PACK_SIGNING_KEYRING_RELATIVE =
+  'config/production/pack-signing-public-keys.json';
 export const PRODUCTION_PACK_OBJECT_BUCKET = 'ks2-spelling-production-packs';
 export const PRODUCTION_PACK_OBJECT_SCHEMA_VERSION = 1;
 export const PRODUCTION_PACK_VERSION = '1.0.0';
@@ -221,24 +224,125 @@ function normaliseListingObject(entry) {
   return Object.freeze({ key, size, etag, metadata: Object.freeze({}) });
 }
 
-function assertManifestIdentity(bytes, key) {
-  let envelope;
+export const PRODUCTION_VERIFICATION_INSTANT = new Date('2026-08-21T00:00:00.000Z');
+
+export function canonicalCeremonyObjectPath(ceremonyDir, key) {
+  return join(ceremonyDir, key);
+}
+
+export function verifyP256DerWithNodeCrypto({ publicKeySpkiDer, signatureDer, signingInput }) {
+  return verify(
+    'sha256',
+    signingInput,
+    createPublicKey({ key: publicKeySpkiDer, format: 'der', type: 'spki' }),
+    signatureDer,
+  );
+}
+
+export async function readProductionPackSigningKeyring(root, readFileImpl = readFile) {
+  return parseJsonWithoutDuplicateMembers(
+    await readFileImpl(resolve(root, PRODUCTION_PACK_SIGNING_KEYRING_RELATIVE)),
+    'production pack-signing public keys',
+  );
+}
+
+function parseSignedManifestEnvelopeOrFail(bytes, key) {
   try {
-    envelope = parseJsonWithoutDuplicateMembers(bytes, `live ${key}`);
+    return parseJsonWithoutDuplicateMembers(bytes, key);
   } catch {
     fail(`${key} is not a closed signed-manifest envelope`);
   }
+}
+
+export async function verifyProductionSignedManifestEnvelope({
+  envelopeBytes,
+  key,
+  keyring,
+  clock = () => new Date(PRODUCTION_VERIFICATION_INSTANT),
+  verifyP256Der = verifyP256DerWithNodeCrypto,
+}) {
+  if (!keyring) fail('production signing keyring is missing');
+  const label = key ?? 'signed-manifest';
+  const envelope = parseSignedManifestEnvelopeOrFail(envelopeBytes, label);
   if (envelope?.keyId !== PRODUCTION_SIGNING_KEY_ID) {
-    fail(`${key} is signed by ${envelope?.keyId ?? 'no key'}, not ${PRODUCTION_SIGNING_KEY_ID}`);
+    fail(`${label} is signed by ${envelope?.keyId ?? 'no key'}, not ${PRODUCTION_SIGNING_KEY_ID}`);
+  }
+  try {
+    return await verifySignedPackManifest({
+      envelopeBytes,
+      keyring,
+      environment: 'production',
+      clock,
+      verifyP256Der,
+    });
+  } catch (error) {
+    fail(`${label} failed verifySignedPackManifest: ${error.message}`);
   }
 }
 
-export function resolveCeremonyPath(ceremonyDir, key) {
-  if (typeof ceremonyDir !== 'string' || ceremonyDir.length === 0) return [];
-  return Object.freeze([
-    join(ceremonyDir, key),
-    join(ceremonyDir, key.replace(/^packs\//u, '')),
-  ]);
+export async function listCeremonyRelativeFiles(ceremonyDir, { readdirImpl = readdir } = {}) {
+  const files = [];
+  async function walk(current, relative) {
+    let entries;
+    try {
+      entries = await readdirImpl(current, { withFileTypes: true });
+    } catch (error) {
+      fail(`cannot read ceremony directory ${relative || '.'}: ${error.message}`);
+    }
+    for (const entry of entries) {
+      const rel = relative ? `${relative}/${entry.name}` : entry.name;
+      const path = join(current, entry.name);
+      if (entry.isSymbolicLink()) fail(`must not contain symlink ${rel}`);
+      if (entry.isDirectory()) {
+        await walk(path, rel);
+      } else if (entry.isFile()) {
+        files.push(rel);
+      } else {
+        fail(`must not contain unexpected entry ${rel}`);
+      }
+    }
+  }
+  await walk(ceremonyDir, '');
+  return files.sort();
+}
+
+export async function readCompleteCeremonyDirectory({
+  ceremonyDir,
+  readFileImpl = readFile,
+  readdirImpl = readdir,
+}) {
+  if (typeof ceremonyDir !== 'string' || ceremonyDir.length === 0) {
+    fail('requires a complete ceremony directory');
+  }
+  const expectedKeys = expectedProductionObjectKeys();
+  const actual = await listCeremonyRelativeFiles(ceremonyDir, { readdirImpl });
+  const actualSet = new Set(actual);
+  const expectedSet = new Set(expectedKeys);
+  const missing = expectedKeys.filter((key) => !actualSet.has(key));
+  const extra = actual.filter((key) => !expectedSet.has(key));
+  if (missing.length > 0 || extra.length > 0) {
+    const details = [];
+    if (missing.length > 0) details.push(`missing ${missing.join(', ')}`);
+    if (extra.length > 0) details.push(`extra ${extra.join(', ')}`);
+    fail(
+      'ceremony directory must contain exactly 15 archives and 15 signed-manifest envelopes ' +
+        `in the canonical packs/<packId>/<version>/ layout (${details.join('; ')})`,
+    );
+  }
+  const bytesByKey = new Map();
+  for (const key of expectedKeys) {
+    try {
+      const bytes = await readFileImpl(canonicalCeremonyObjectPath(ceremonyDir, key));
+      if (bytes == null) fail(`cannot read ceremony object ${key}: reader returned no bytes`);
+      bytesByKey.set(key, Buffer.from(bytes));
+    } catch (error) {
+      if (error instanceof TypeError && String(error.message).startsWith('Production pack-object authority')) {
+        throw error;
+      }
+      fail(`cannot read ceremony object ${key}: ${error.message}`);
+    }
+  }
+  return bytesByKey;
 }
 
 export function crossCheckLocalCeremonyBytes({
@@ -248,7 +352,7 @@ export function crossCheckLocalCeremonyBytes({
   liveSha256,
   liveEtag,
 }) {
-  if (localBytes == null) return true;
+  if (localBytes == null) fail(`ceremony is missing ${key}`);
   const local = hashObjectBytes(localBytes);
   if (local.etag !== liveEtag) {
     fail(`local ceremony MD5 for ${key} differs from the live single-part etag`);
@@ -259,14 +363,36 @@ export function crossCheckLocalCeremonyBytes({
   return true;
 }
 
+function assertCompleteCeremonyInventory(ceremonyBytesByKey, expectedKeys) {
+  if (ceremonyBytesByKey == null) return;
+  if (!(ceremonyBytesByKey instanceof Map)) {
+    fail('ceremony inventory must be a complete key map');
+  }
+  for (const key of expectedKeys) {
+    if (!ceremonyBytesByKey.has(key) || ceremonyBytesByKey.get(key) == null) {
+      fail(`ceremony is missing ${key}`);
+    }
+  }
+  for (const key of ceremonyBytesByKey.keys()) {
+    if (!expectedKeys.includes(key)) fail(`ceremony contains unexpected object ${key}`);
+  }
+  if (ceremonyBytesByKey.size !== expectedKeys.length) {
+    fail(`ceremony must contain exactly ${expectedKeys.length} objects`);
+  }
+}
+
 export async function buildProductionPackObjectAuthorityFromLive({
   listObjects,
   getObject,
-  readCeremonyObject,
+  ceremonyBytesByKey,
+  keyring,
+  clock = () => new Date(PRODUCTION_VERIFICATION_INSTANT),
+  verifyP256Der = verifyP256DerWithNodeCrypto,
 }) {
   if (typeof listObjects !== 'function' || typeof getObject !== 'function') {
     fail('live object reader is missing');
   }
+  if (!keyring) fail('production signing keyring is missing');
   const listing = (await listObjects()).map(normaliseListingObject);
   const listingByKey = new Map(listing.map((entry) => [entry.key, entry]));
   const expectedKeys = expectedProductionObjectKeys();
@@ -279,6 +405,7 @@ export async function buildProductionPackObjectAuthorityFromLive({
   for (const key of listingByKey.keys()) {
     if (!expectedKeys.includes(key)) fail(`live bucket contains unexpected object ${key}`);
   }
+  assertCompleteCeremonyInventory(ceremonyBytesByKey, expectedKeys);
 
   const packs = [];
   for (const packId of PRODUCTION_PACK_IDS) {
@@ -292,18 +419,23 @@ export async function buildProductionPackObjectAuthorityFromLive({
       if (hashed.etag !== live.etag) {
         fail(`live GET MD5 for ${key} differs from the single-part listing etag`);
       }
-      if (role === 'signed-manifest') assertManifestIdentity(bytes, key);
-      if (typeof readCeremonyObject === 'function') {
-        const localBytes = await readCeremonyObject(key);
-        if (localBytes != null) {
-          crossCheckLocalCeremonyBytes({
-            key,
-            localBytes,
-            liveBytes: hashed.bytes,
-            liveSha256: hashed.sha256,
-            liveEtag: hashed.etag,
-          });
-        }
+      if (ceremonyBytesByKey) {
+        crossCheckLocalCeremonyBytes({
+          key,
+          localBytes: ceremonyBytesByKey.get(key),
+          liveBytes: hashed.bytes,
+          liveSha256: hashed.sha256,
+          liveEtag: hashed.etag,
+        });
+      }
+      if (role === 'signed-manifest') {
+        await verifyProductionSignedManifestEnvelope({
+          envelopeBytes: bytes,
+          key,
+          keyring,
+          clock,
+          verifyP256Der,
+        });
       }
       objects.push({
         role,

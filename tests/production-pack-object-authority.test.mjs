@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { createHash, createPrivateKey, generateKeyPairSync, sign } from 'node:crypto';
+import { mkdir, mkdtemp, readFile, readdir, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import test from 'node:test';
 
 import downloadableTable from '../config/downloadable-pack-authorities.json' with { type: 'json' };
+import productionKeyring from '../config/production/pack-signing-public-keys.json' with { type: 'json' };
+import { canonicaliseRfc8785Bytes } from '../src/domain/packs/rfc8785.js';
+import {
+  PACK_SIGNING_ALGORITHM,
+  assertCanonicalP256Der,
+  createPackSigningInput,
+} from '../src/domain/packs/signed-manifest-contract.js';
 import {
   PRODUCTION_PACK_IDS,
   PRODUCTION_PACK_OBJECT_AUTHORITY_RELATIVE,
@@ -23,43 +31,94 @@ import {
   expectedObjectKey,
   expectedProductionObjectKeys,
   hashObjectBytes,
+  readCompleteCeremonyDirectory,
   serialiseProductionPackObjectAuthority,
+  verifyProductionSignedManifestEnvelope,
 } from '../scripts/lib/production-pack-object-authority.mjs';
 import {
-  createCeremonyReader,
   generateProductionPackObjectAuthority,
+  main as generateProductionPackObjectAuthorityMain,
   readCloudflareAccessToken,
 } from '../scripts/generate-production-pack-object-authority.mjs';
+import { EXIT_CODES } from '../scripts/lib/run-command.mjs';
 
 const ROOT = join(import.meta.dirname, '..');
 
-function envelopeBytes(packId) {
-  return Buffer.from(`${JSON.stringify({
-    schemaVersion: 1,
-    algorithm: 'ECDSA_P256_SHA256_DER',
-    keyId: PRODUCTION_SIGNING_KEY_ID,
-    payloadEncoding: 'RFC8785_UTF8',
-    domain: 'ks2-spelling-pack-manifest-v1',
-    canonicalManifestBase64: Buffer.from(packId).toString('base64'),
-    signatureDerBase64: Buffer.from(packId).toString('base64'),
-  }, null, 2)}\n`, 'utf8');
+function jsonBytes(value) {
+  return Buffer.from(`${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
-function syntheticPackObjects() {
+function createSyntheticProductionSigner() {
+  const { publicKey, privateKey } = generateKeyPairSync('ec', {
+    namedCurve: 'prime256v1',
+    publicKeyEncoding: { type: 'spki', format: 'der' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+  });
+  const keyring = {
+    schemaVersion: 1,
+    keys: [{
+      keyId: PRODUCTION_SIGNING_KEY_ID,
+      algorithm: PACK_SIGNING_ALGORITHM,
+      publicKeySpkiDerBase64: publicKey.toString('base64'),
+      publicKeySpkiSha256: createHash('sha256').update(publicKey).digest('hex'),
+      testOnly: false,
+      notBefore: '2026-08-17T00:00:00Z',
+      notAfter: '2036-08-16T00:00:00Z',
+      allowedEnvironments: ['production'],
+      allowedPackIds: [...PRODUCTION_PACK_IDS],
+    }],
+  };
+  function signPack(packId, { keyId = PRODUCTION_SIGNING_KEY_ID } = {}) {
+    const canonical = canonicaliseRfc8785Bytes({ packId, version: PRODUCTION_PACK_VERSION });
+    const signatureDer = sign('sha256', createPackSigningInput(canonical), createPrivateKey(privateKey));
+    assertCanonicalP256Der(signatureDer);
+    return jsonBytes({
+      schemaVersion: 1,
+      algorithm: PACK_SIGNING_ALGORITHM,
+      keyId,
+      payloadEncoding: 'RFC8785_UTF8',
+      domain: 'ks2-spelling-pack-manifest-v1',
+      canonicalManifestBase64: Buffer.from(canonical).toString('base64'),
+      signatureDerBase64: Buffer.from(signatureDer).toString('base64'),
+    });
+  }
+  return { keyring, signPack, privateKeyPem: privateKey };
+}
+
+const SYNTHETIC_SIGNER = createSyntheticProductionSigner();
+
+function syntheticPackObjects(signer = SYNTHETIC_SIGNER) {
   const objects = [];
   for (const packId of PRODUCTION_PACK_IDS) {
-    const archive = Buffer.from(`archive-bytes:${packId}`);
-    const manifest = envelopeBytes(packId);
     objects.push({
       key: expectedObjectKey(packId, 'archive'),
-      bytes: archive,
+      bytes: Buffer.from(`archive-bytes:${packId}`),
     });
     objects.push({
       key: expectedObjectKey(packId, 'signed-manifest'),
-      bytes: manifest,
+      bytes: signer.signPack(packId),
     });
   }
   return objects;
+}
+
+async function writeCanonicalCeremony(directory, objects) {
+  for (const object of objects) {
+    await mkdir(join(directory, dirname(object.key)), { recursive: true });
+    await writeFile(join(directory, object.key), object.bytes);
+  }
+}
+
+function ceremonyMap(objects) {
+  return new Map(objects.map((object) => [object.key, object.bytes]));
+}
+
+function liveOptions(objects, extra = {}) {
+  return {
+    ...syntheticReaders(objects),
+    ceremonyBytesByKey: extra.ceremonyBytesByKey,
+    keyring: extra.keyring ?? SYNTHETIC_SIGNER.keyring,
+  };
 }
 
 function listingFromObjects(objects, mutate) {
@@ -91,7 +150,7 @@ function syntheticReaders(objects, {
 }
 
 async function validDocument() {
-  return buildProductionPackObjectAuthorityFromLive(syntheticReaders(syntheticPackObjects()));
+  return buildProductionPackObjectAuthorityFromLive(liveOptions(syntheticPackObjects()));
 }
 
 async function sourceFiles(relativeDir) {
@@ -174,125 +233,267 @@ test('validator mutations of pack count, object coverage, identities and metadat
 test('synthetic listing drift in count, extra keys, missing keys or etag mismatch fails closed', async () => {
   const objects = syntheticPackObjects();
   await assert.rejects(
-    buildProductionPackObjectAuthorityFromLive(syntheticReaders(objects.slice(0, 29))),
+    buildProductionPackObjectAuthorityFromLive(liveOptions(objects.slice(0, 29))),
     /exactly 30 objects/i,
   );
   await assert.rejects(
-    buildProductionPackObjectAuthorityFromLive(syntheticReaders([
+    buildProductionPackObjectAuthorityFromLive(liveOptions([
       ...objects,
       { key: 'packs/extra/1.0.0/extra.zip', bytes: Buffer.from('extra') },
     ])),
     /exactly 30 objects/i,
   );
   await assert.rejects(
-    buildProductionPackObjectAuthorityFromLive(syntheticReaders(objects, {
-      listingMutate: (entry) => {
-        if (entry.key.endsWith('signed-manifest.json')) entry.etag = 'a'.repeat(32);
-      },
-    })),
+    buildProductionPackObjectAuthorityFromLive({
+      ...liveOptions(objects),
+      ...syntheticReaders(objects, {
+        listingMutate: (entry) => {
+          if (entry.key.endsWith('signed-manifest.json')) entry.etag = 'a'.repeat(32);
+        },
+      }),
+    }),
     /differs from the single-part listing etag/i,
   );
   await assert.rejects(
-    buildProductionPackObjectAuthorityFromLive(syntheticReaders(objects, {
-      getMutate: (key, bytes) => (key.includes('shard-01') && key.endsWith('.zip')
-        ? Buffer.concat([bytes, Buffer.from('x')])
-        : bytes),
-    })),
+    buildProductionPackObjectAuthorityFromLive({
+      ...liveOptions(objects),
+      ...syntheticReaders(objects, {
+        getMutate: (key, bytes) => (key.includes('shard-01') && key.endsWith('.zip')
+          ? Buffer.concat([bytes, Buffer.from('x')])
+          : bytes),
+      }),
+    }),
     /differs from the listing/i,
   );
 });
 
 test('a synthetic signed-manifest that names the sandbox test key is rejected', async () => {
   const objects = syntheticPackObjects();
-  const hostile = Buffer.from(`${JSON.stringify({
-    schemaVersion: 1,
-    algorithm: 'ECDSA_P256_SHA256_DER',
-    keyId: 'b3-test-p256-2026-07',
-    payloadEncoding: 'RFC8785_UTF8',
-    domain: 'ks2-spelling-pack-manifest-v1',
-    canonicalManifestBase64: 'Zg==',
-    signatureDerBase64: 'Zg==',
-  }, null, 2)}\n`);
-  objects[1] = { key: objects[1].key, bytes: hostile };
+  objects[1] = {
+    key: objects[1].key,
+    bytes: SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[0], { keyId: 'b3-test-p256-2026-07' }),
+  };
   await assert.rejects(
-    buildProductionPackObjectAuthorityFromLive(syntheticReaders(objects)),
+    buildProductionPackObjectAuthorityFromLive(liveOptions(objects)),
     /b3-test-p256-2026-07|must not contain sandbox identity/i,
   );
 });
 
-test('local ceremony MD5 must match the declared single-part etag when a ceremony file is present', async () => {
+test('a synthetic complete canonical ceremony directory matching live bytes is accepted', async () => {
   const objects = syntheticPackObjects();
-  const archive = objects[0];
-  const hashed = hashObjectBytes(archive.bytes);
+  const hashed = hashObjectBytes(objects[0].bytes);
   assert.equal(
     crossCheckLocalCeremonyBytes({
-      key: archive.key,
-      localBytes: archive.bytes,
+      key: objects[0].key,
+      localBytes: objects[0].bytes,
       liveBytes: hashed.bytes,
       liveSha256: hashed.sha256,
       liveEtag: hashed.etag,
     }),
     true,
   );
+  const document = await buildProductionPackObjectAuthorityFromLive(
+    liveOptions(objects, { ceremonyBytesByKey: ceremonyMap(objects) }),
+  );
+  assert.equal(document.packs[0].objects[0].etag, hashed.etag);
+});
+
+test('crossCheckLocalCeremonyBytes fails closed when local bytes are null rather than skipping', () => {
+  const objects = syntheticPackObjects();
+  const hashed = hashObjectBytes(objects[0].bytes);
   assert.throws(
     () => crossCheckLocalCeremonyBytes({
-      key: archive.key,
-      localBytes: Buffer.concat([archive.bytes, Buffer.from('nope')]),
+      key: objects[0].key,
+      localBytes: null,
       liveBytes: hashed.bytes,
       liveSha256: hashed.sha256,
       liveEtag: hashed.etag,
     }),
-    /local ceremony MD5/i,
-  );
-  const document = await buildProductionPackObjectAuthorityFromLive({
-    ...syntheticReaders(objects),
-    readCeremonyObject: async (key) => (
-      key === archive.key ? archive.bytes : null
-    ),
-  });
-  assert.equal(document.packs[0].objects[0].etag, hashed.etag);
-  await assert.rejects(
-    buildProductionPackObjectAuthorityFromLive({
-      ...syntheticReaders(objects),
-      readCeremonyObject: async (key) => (
-        key === archive.key ? Buffer.from('stale-ceremony') : null
-      ),
-    }),
-    /local ceremony MD5/i,
+    /ceremony is missing/i,
   );
 });
 
-test('the ceremony reader accepts both the wizard packs/ layout and the unprefixed tree', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'ks2-ceremony-'));
+test('deleting one ceremony archive from an otherwise complete synthetic tree fails closed', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-ceremony-missing-archive-'));
   const objects = syntheticPackObjects();
-  const archive = objects[0];
   try {
-    await mkdir(join(directory, dirname(archive.key)), { recursive: true });
-    await writeFile(join(directory, archive.key), archive.bytes);
-    const prefixed = createCeremonyReader(directory);
-    assert.deepEqual(await prefixed(archive.key), archive.bytes);
-    const unprefixedRoot = await mkdtemp(join(tmpdir(), 'ks2-ceremony-flat-'));
-    const relativeKey = archive.key.replace(/^packs\//u, '');
-    await mkdir(join(unprefixedRoot, dirname(relativeKey)), { recursive: true });
-    await writeFile(join(unprefixedRoot, relativeKey), archive.bytes);
-    const unprefixed = createCeremonyReader(unprefixedRoot);
-    assert.deepEqual(await unprefixed(archive.key), archive.bytes);
-    await rm(unprefixedRoot, { recursive: true, force: true });
+    await writeCanonicalCeremony(directory, objects);
+    await unlink(join(directory, objects[0].key));
+    await assert.rejects(
+      readCompleteCeremonyDirectory({ ceremonyDir: directory }),
+      /missing packs\/full-ks2-shard-01\/1\.0\.0\/full-ks2-shard-01-1\.0\.0\.zip/i,
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test('deleting one ceremony signed-manifest from an otherwise complete synthetic tree fails closed', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-ceremony-missing-manifest-'));
+  const objects = syntheticPackObjects();
+  try {
+    await writeCanonicalCeremony(directory, objects);
+    await unlink(join(directory, objects[1].key));
+    await assert.rejects(
+      readCompleteCeremonyDirectory({ ceremonyDir: directory }),
+      /missing packs\/full-ks2-shard-01\/1\.0\.0\/signed-manifest\.json/i,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('an unexpected extra ceremony file fails the complete synthetic tree contract', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-ceremony-extra-'));
+  const objects = syntheticPackObjects();
+  try {
+    await writeCanonicalCeremony(directory, objects);
+    await writeFile(join(directory, 'unexpected.txt'), 'nope');
+    await assert.rejects(
+      readCompleteCeremonyDirectory({ ceremonyDir: directory }),
+      /extra unexpected\.txt/i,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('an unprefixed ceremony tree is not a complete canonical packs/ layout', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-ceremony-unprefixed-'));
+  const objects = syntheticPackObjects();
+  try {
+    for (const object of objects) {
+      const relativeKey = object.key.replace(/^packs\//u, '');
+      await mkdir(join(directory, dirname(relativeKey)), { recursive: true });
+      await writeFile(join(directory, relativeKey), object.bytes);
+    }
+    await assert.rejects(
+      readCompleteCeremonyDirectory({ ceremonyDir: directory }),
+      /canonical packs\/<packId>\/<version>\/ layout/i,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a ceremony object whose injected readFile rejects with EACCES fails closed and is not mapped to skip', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-ceremony-unreadable-'));
+  const objects = syntheticPackObjects();
+  try {
+    await writeCanonicalCeremony(directory, objects);
+    const denied = join(directory, objects[0].key);
+    await assert.rejects(
+      readCompleteCeremonyDirectory({
+        ceremonyDir: directory,
+        readFileImpl: async (path, encoding) => {
+          if (path === denied) {
+            const error = new Error('EACCES: permission denied');
+            error.code = 'EACCES';
+            throw error;
+          }
+          return readFile(path, encoding);
+        },
+      }),
+      /cannot read ceremony object packs\/full-ks2-shard-01\/1\.0\.0\/full-ks2-shard-01-1\.0\.0\.zip/i,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a synthetic ceremony archive whose bytes differ from the live GET fails closed', async () => {
+  const objects = syntheticPackObjects();
+  const drifted = objects.map((object, index) => (
+    index === 0
+      ? { key: object.key, bytes: Buffer.concat([object.bytes, Buffer.from('x')]) }
+      : object
+  ));
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(
+      liveOptions(objects, { ceremonyBytesByKey: ceremonyMap(drifted) }),
+    ),
+    /local ceremony MD5|local ceremony bytes/i,
+  );
+});
+
+test('a synthetic ceremony signed-manifest whose hash differs from live GET bytes fails closed', async () => {
+  const objects = syntheticPackObjects();
+  const drifted = objects.map((object, index) => (
+    index === 1
+      ? { key: object.key, bytes: Buffer.concat([object.bytes, Buffer.from('\n')]) }
+      : object
+  ));
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(
+      liveOptions(objects, { ceremonyBytesByKey: ceremonyMap(drifted) }),
+    ),
+    /local ceremony MD5|local ceremony bytes/i,
+  );
+});
+
+test('a synthetic live signed-manifest that is not valid JSON fails closed as a malformed envelope', async () => {
+  const objects = syntheticPackObjects();
+  objects[1] = { key: objects[1].key, bytes: Buffer.from('{not-json') };
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(liveOptions(objects)),
+    /closed signed-manifest envelope|malformed|JSON/i,
+  );
+});
+
+test('a synthetic ceremony signed-manifest with a corrupt signature fails verifySignedPackManifest', async () => {
+  const objects = syntheticPackObjects();
+  const envelope = JSON.parse(objects[1].bytes.toString('utf8'));
+  const signature = Buffer.from(envelope.signatureDerBase64, 'base64');
+  signature[signature.length - 1] ^= 0xff;
+  envelope.signatureDerBase64 = signature.toString('base64');
+  objects[1] = { key: objects[1].key, bytes: jsonBytes(envelope) };
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(liveOptions(objects)),
+    /verifySignedPackManifest|signature verification failed/i,
+  );
+});
+
+test('verifySignedPackManifest against the committed production keyring rejects a synthetic envelope that was not signed by that key', async () => {
+  const envelope = SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[0]);
+  await assert.rejects(
+    verifyProductionSignedManifestEnvelope({
+      envelopeBytes: envelope,
+      key: expectedObjectKey(PRODUCTION_PACK_IDS[0], 'signed-manifest'),
+      keyring: productionKeyring,
+    }),
+    /verifySignedPackManifest|signature verification failed/i,
+  );
+});
+
+test('a locally re-signed synthetic envelope is not accepted in place of the live production bytes', async () => {
+  const objects = syntheticPackObjects();
+  const resigned = SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[0]);
+  if (resigned.equals(objects[1].bytes)) {
+    resigned[resigned.length - 2] ^= 0x01;
+  }
+  const ceremony = objects.map((object, index) => (
+    index === 1 ? { key: object.key, bytes: resigned } : object
+  ));
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(
+      liveOptions(objects, { ceremonyBytesByKey: ceremonyMap(ceremony) }),
+    ),
+    /local ceremony MD5|local ceremony bytes/i,
+  );
 });
 
 test('two synthetic pack-object documents fail comparison when one hashed object drifts', async () => {
   const objects = syntheticPackObjects();
   const document = await generateProductionPackObjectAuthority({
     root: ROOT,
+    keyring: SYNTHETIC_SIGNER.keyring,
     ...syntheticReaders(objects),
   });
   const drifted = syntheticPackObjects();
   drifted[0] = { key: drifted[0].key, bytes: Buffer.concat([drifted[0].bytes, Buffer.from('drift')]) };
   const driftedDocument = await generateProductionPackObjectAuthority({
     root: ROOT,
+    keyring: SYNTHETIC_SIGNER.keyring,
     ...syntheticReaders(drifted),
   });
   assert.throws(
@@ -400,4 +601,106 @@ test('a missing Cloudflare OAuth session fails as a visible re-consent gate and 
     }),
     /Re-consent with a browser `wrangler login`/i,
   );
+});
+
+function fakeR2Fetch(objects) {
+  const byKey = new Map(objects.map((object) => [object.key, object.bytes]));
+  const listing = listingFromObjects(objects);
+  return async (url) => {
+    const parsed = typeof url === 'string' ? new URL(url) : url;
+    const marker = '/objects/';
+    const objectsIndex = parsed.pathname.indexOf(marker);
+    if (objectsIndex !== -1 && objectsIndex + marker.length < parsed.pathname.length) {
+      const key = decodeURIComponent(parsed.pathname.slice(objectsIndex + marker.length));
+      const bytes = byKey.get(key);
+      if (!bytes) {
+        return {
+          ok: false,
+          status: 404,
+          text: async () => '',
+          arrayBuffer: async () => new ArrayBuffer(0),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        text: async () => '',
+        arrayBuffer: async () => bytes,
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ success: true, result: listing, result_info: {} }),
+      arrayBuffer: async () => new ArrayBuffer(0),
+    };
+  };
+}
+
+async function writeSyntheticCheckRoot(objects, keyring) {
+  const root = await mkdtemp(join(tmpdir(), 'ks2-pack-object-root-'));
+  const document = await generateProductionPackObjectAuthority({
+    root: ROOT,
+    keyring,
+    ...syntheticReaders(objects),
+  });
+  await mkdir(join(root, 'config/production'), { recursive: true });
+  await writeFile(
+    join(root, 'config/ks2-pack-object-authority-production.json'),
+    serialiseProductionPackObjectAuthority(document),
+  );
+  await writeFile(
+    join(root, 'config/ks2-gateway-authority-production.json'),
+    jsonBytes({ privateR2BucketName: PRODUCTION_PACK_OBJECT_BUCKET }),
+  );
+  await writeFile(
+    join(root, 'config/production/pack-signing-public-keys.json'),
+    jsonBytes(keyring),
+  );
+  return { root, document };
+}
+
+test('generator --check --ceremony-dir against a complete synthetic tree matching injected live GET succeeds', async () => {
+  const objects = syntheticPackObjects();
+  const { root } = await writeSyntheticCheckRoot(objects, SYNTHETIC_SIGNER.keyring);
+  const ceremonyDir = await mkdtemp(join(tmpdir(), 'ks2-ceremony-complete-'));
+  try {
+    await writeCanonicalCeremony(ceremonyDir, objects);
+    const code = await generateProductionPackObjectAuthorityMain(
+      ['--check', '--ceremony-dir', ceremonyDir],
+      {
+        root,
+        env: { CLOUDFLARE_API_TOKEN: 'synthetic-test-token' },
+        fetchImpl: fakeR2Fetch(objects),
+        log: () => {},
+      },
+    );
+    assert.equal(code, EXIT_CODES.success);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(ceremonyDir, { recursive: true, force: true });
+  }
+});
+
+test('generator --check --ceremony-dir fails closed when one synthetic archive is deleted', async () => {
+  const objects = syntheticPackObjects();
+  const { root } = await writeSyntheticCheckRoot(objects, SYNTHETIC_SIGNER.keyring);
+  const ceremonyDir = await mkdtemp(join(tmpdir(), 'ks2-ceremony-cli-missing-'));
+  try {
+    await writeCanonicalCeremony(ceremonyDir, objects);
+    await unlink(join(ceremonyDir, objects[0].key));
+    const code = await generateProductionPackObjectAuthorityMain(
+      ['--check', '--ceremony-dir', ceremonyDir],
+      {
+        root,
+        env: { CLOUDFLARE_API_TOKEN: 'synthetic-test-token' },
+        fetchImpl: fakeR2Fetch(objects),
+        log: () => {},
+      },
+    );
+    assert.equal(code, EXIT_CODES.commandFailed);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(ceremonyDir, { recursive: true, force: true });
+  }
 });

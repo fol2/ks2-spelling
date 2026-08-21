@@ -11,7 +11,7 @@
  *   node scripts/generate-production-pack-object-authority.mjs --check --ceremony-dir <dir>
  */
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { EXIT_CODES, isMain } from './lib/run-command.mjs';
@@ -22,7 +22,9 @@ import {
   assertProductionPackObjectAuthorityBytes,
   assertProductionPackObjectAuthorityMatchesGateway,
   buildProductionPackObjectAuthorityFromLive,
-  resolveCeremonyPath,
+  hashObjectBytes,
+  readCompleteCeremonyDirectory,
+  readProductionPackSigningKeyring,
   serialiseProductionPackObjectAuthority,
 } from './lib/production-pack-object-authority.mjs';
 import { parseJsonWithoutDuplicateMembers } from '../src/domain/packs/signed-manifest-contract.js';
@@ -169,30 +171,24 @@ export async function getProductionR2Object({
   return Buffer.from(await response.arrayBuffer());
 }
 
-export function createCeremonyReader(ceremonyDir, readFileImpl = readFile) {
-  if (typeof ceremonyDir !== 'string' || ceremonyDir.length === 0) return undefined;
-  return async (key) => {
-    for (const path of resolveCeremonyPath(ceremonyDir, key)) {
-      try {
-        return await readFileImpl(path);
-      } catch {
-        // Try the next layout (wizard `packs/` prefix, or the unprefixed ceremony tree).
-      }
-    }
-    return null;
-  };
-}
-
 export async function generateProductionPackObjectAuthority({
   root = ROOT,
   listObjects,
   getObject,
-  readCeremonyObject,
+  ceremonyBytesByKey,
+  keyring,
+  clock,
+  verifyP256Der,
+  readFileImpl = readFile,
 } = {}) {
+  const resolvedKeyring = keyring ?? await readProductionPackSigningKeyring(root, readFileImpl);
   const document = await buildProductionPackObjectAuthorityFromLive({
     listObjects,
     getObject,
-    readCeremonyObject,
+    ceremonyBytesByKey,
+    keyring: resolvedKeyring,
+    clock,
+    verifyP256Der,
   });
   await assertProductionPackObjectAuthorityMatchesGateway(root, document);
   return document;
@@ -211,6 +207,23 @@ export async function createLiveProductionObjectReader({
   };
 }
 
+function assertCeremonyMatchesAuthorityFacts(ceremonyBytesByKey, document) {
+  for (const pack of document.packs) {
+    for (const object of pack.objects) {
+      const local = hashObjectBytes(ceremonyBytesByKey.get(object.key));
+      if (
+        local.sha256 !== object.sha256
+        || local.etag !== object.etag
+        || local.bytes !== object.bytes
+      ) {
+        throw new TypeError(
+          `Production pack-object authority ceremony ${object.key} differs from live/committed facts.`,
+        );
+      }
+    }
+  }
+}
+
 export async function main(args = process.argv.slice(2), options = {}) {
   const {
     root = ROOT,
@@ -218,11 +231,19 @@ export async function main(args = process.argv.slice(2), options = {}) {
     home = homedir(),
     fetchImpl = fetch,
     readFileImpl = readFile,
+    readdirImpl = readdir,
     writeFileImpl = writeFile,
     log = (line) => process.stderr.write(`${line}\n`),
   } = options;
   try {
     const parsed = parseArgs(args);
+    const ceremonyBytesByKey = parsed.ceremonyDir
+      ? await readCompleteCeremonyDirectory({
+        ceremonyDir: parsed.ceremonyDir,
+        readFileImpl,
+        readdirImpl,
+      })
+      : undefined;
     const live = await createLiveProductionObjectReader({ env, home, fetchImpl, readFileImpl });
     const document = await generateProductionPackObjectAuthority({
       root,
@@ -235,7 +256,8 @@ export async function main(args = process.argv.slice(2), options = {}) {
         log(`GET ${key}`);
         return live.getObject(key);
       },
-      readCeremonyObject: createCeremonyReader(parsed.ceremonyDir, readFileImpl),
+      ceremonyBytesByKey,
+      readFileImpl,
     });
     const serialised = serialiseProductionPackObjectAuthority(document);
     const path = resolve(root, PRODUCTION_PACK_OBJECT_AUTHORITY_RELATIVE);
@@ -251,6 +273,9 @@ export async function main(args = process.argv.slice(2), options = {}) {
         'live bucket differs from the committed production pack-object authority',
       );
       log(`Checked ${PRODUCTION_PACK_OBJECT_AUTHORITY_RELATIVE} against live ${PRODUCTION_PACK_OBJECT_BUCKET}.`);
+    }
+    if (ceremonyBytesByKey) {
+      assertCeremonyMatchesAuthorityFacts(ceremonyBytesByKey, document);
     }
     log(
       `${document.packs.length} packs / ${document.packs.reduce((count, pack) => count + pack.objects.length, 0)} objects.`,

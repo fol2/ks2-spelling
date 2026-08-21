@@ -70,15 +70,21 @@ node scripts/generate-production-pack-object-authority.mjs --check --ceremony-di
 
 `--write` lists the live bucket, GETs each of the thirty objects, records the
 listing etag and byte count, hashes the GET bytes (SHA-256 and MD5), and
-refuses to write unless MD5 equals the single-part listing etag. Manifest GET
-bytes must name `production-ks2-p256-2026-08`; that is a live-bytes identity
-check, not a signature verification. `--check` rebuilds from live GET and
-requires byte-identical committed serialisation.
+refuses to write unless MD5 equals the single-part listing etag. Each signed
+manifest is verified with `verifySignedPackManifest` against
+`config/production/pack-signing-public-keys.json`. The verifier compares the
+live GET bytes (and, with `--ceremony-dir`, the local bytes) to the committed
+facts; it does not re-sign live production envelopes. `--check` rebuilds from
+live GET and requires byte-identical committed serialisation.
 
-`--ceremony-dir` is optional. When a local file exists for an object key, its
-MD5 must equal the live etag and its SHA-256 and byte count must equal the
-live GET. A stale ceremony tree fails closed; it is never used as a substitute
-for the live read.
+`--ceremony-dir <dir>` is fail-closed. The directory must be a complete exact
+ceremony for all 15 packs / 30 expected objects: exactly 15 archives and 15
+signed-manifest envelopes at the canonical paths
+`packs/<packId>/1.0.0/<archiveName>` and
+`packs/<packId>/1.0.0/signed-manifest.json`. Missing, extra, unreadable,
+malformed, byte/size/SHA/etag mismatch, wrong key, or invalid signature fails
+the command. Read errors are not mapped to skip. An unprefixed tree, a stale
+tree, or a locally re-signed envelope is not ceremony evidence.
 
 Archive SHA-256s are expected to agree with
 `config/packs/full-ks2-shards/authoring-report.json` because the zips are
@@ -103,12 +109,17 @@ evidence lane. The production document is not imported from `src/` or
 `gateway/src/`.
 
 - Fresh independent live R2 `--check` after a visible browser `wrangler login`
-  re-consent. Source tests and hosted CI do not prove a live bucket match.
-- Complete matching ceremony-directory cross-check, once a directory holds
-  all fifteen archives and the fifteen production-signed manifests whose MD5
-  equals the live single-part etags. An incomplete or mismatched local tree
-  is not ceremony evidence.
-- Signature verification of the fifteen live envelopes against the production
-  public key as a separate proof, beyond the key-id identity check.
+  re-consent. That live pass now includes `verifySignedPackManifest` against
+  the committed production public keys. Source tests and hosted CI do not
+  prove a live bucket match.
+- A complete matching ceremony directory: exactly the thirty canonical
+  objects, byte-identical to the live GET facts. An incomplete, extra,
+  unreadable or mismatched local tree is not ceremony evidence.
 - Any R2 write, Worker deploy, DNS change, or secret rotation — out of scope
   for this evidence lane.
+
+Staging a ceremony directory from `scripts/author-full-shards.mjs` must resolve
+the nested outputs `.native-build/packs/<packId>/dist-first|dist-second/<archiveName>`.
+`scripts/resign-manifests-with-production-key.mjs` fails closed on missing,
+ambiguous or hash-mismatched nested archives and must not write `status: ready`
+or print `Ceremony complete` unless all fifteen archives are staged.

@@ -81,7 +81,7 @@ test('the release verifier command and CI wiring select both unsigned iOS applic
   assert.match(workflow, /npm run verify:ios-release-artefacts/u);
 });
 
-test('both native CI path filters run for every packaged keyring authority file', async () => {
+test('both native CI path filters select the listed native release gate inputs', async () => {
   const workflow = await readFile(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
   const filters = [...workflow.matchAll(/grep -qE '([^']+)'/gu)].map((match) => match[1]);
   assert.equal(filters.length, 2);

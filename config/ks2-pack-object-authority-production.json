@@ -1,0 +1,336 @@
+{
+  "schemaVersion": 1,
+  "bucketName": "ks2-spelling-production-packs",
+  "packs": [
+    {
+      "packId": "full-ks2-shard-01",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-01/1.0.0/full-ks2-shard-01-1.0.0.zip",
+          "bytes": 29903190,
+          "sha256": "1debf2909614037df7d5c6b2109192c18508e915e82202e2990b0a03f57713dc",
+          "etag": "e5ddd0bfe55d70a1c2e61f452bcadae2",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-01/1.0.0/signed-manifest.json",
+          "bytes": 106074,
+          "sha256": "43c4fd875729955f0d885f79eb2a85905aa0359576b0d935648aa51b7e3c45d2",
+          "etag": "69ad9bd4ed54cbae3b0369708947fb73",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-02",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-02/1.0.0/full-ks2-shard-02-1.0.0.zip",
+          "bytes": 30516248,
+          "sha256": "4ed73ed23b05e32a85747f1e2ffcb4ca67ea0706786677d039f42a9b88a5e3ee",
+          "etag": "4104062069f49fb99b872d287502f20a",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-02/1.0.0/signed-manifest.json",
+          "bytes": 114214,
+          "sha256": "2d9424658c612bad4655326b5789350dadc9f3a25bb1de5811c9e6c5ff087286",
+          "etag": "31ab970dbfd030e2d4f9cbba4e08787d",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-03",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-03/1.0.0/full-ks2-shard-03-1.0.0.zip",
+          "bytes": 30540965,
+          "sha256": "25f7034b3eaca66a54d23b8bf3e53959c4c7291f5a9cd3589f76c7d6c11407ff",
+          "etag": "dbea51162d3220f8437f076515ff8cc6",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-03/1.0.0/signed-manifest.json",
+          "bytes": 114438,
+          "sha256": "de4005d5eaa847a2774c86e72372b46d61bf5a15d9ca6df39ab929d5a0043651",
+          "etag": "ed0d726739d804a2e0f67e24c269586f",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-04",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-04/1.0.0/full-ks2-shard-04-1.0.0.zip",
+          "bytes": 31482320,
+          "sha256": "0217dd45763b542c98c5b87004a745a12afdafa92dec3a5518d0bec5c48fd984",
+          "etag": "85784350d026c949528aca9018dbe638",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-04/1.0.0/signed-manifest.json",
+          "bytes": 121790,
+          "sha256": "d049253ed05a09c472921b86737498e7ea10e37860155a49b01e6bdeda00be88",
+          "etag": "5386801b80000e705c68e88d3a6758a2",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-05",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-05/1.0.0/full-ks2-shard-05-1.0.0.zip",
+          "bytes": 30708118,
+          "sha256": "99654ca962228e95f51da10a2793fb12b59fba6ed62c4a15c6e4d43725d73aef",
+          "etag": "f02789eb9886569a343b0141973afa54",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-05/1.0.0/signed-manifest.json",
+          "bytes": 122350,
+          "sha256": "824e4a0a8aadae9c93c0072645a1f43d9de119388af4abccf0bc13b1560c68b2",
+          "etag": "f8cb4ece5e6f94f0c09ffbdd12472d50",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-06",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-06/1.0.0/full-ks2-shard-06-1.0.0.zip",
+          "bytes": 31518849,
+          "sha256": "8a4b5c98e4242757983dababdd1e49515a7b6f5847778d9829ec9a9c5e1cc763",
+          "etag": "ae325951eee3db100348746a0a52bd2d",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-06/1.0.0/signed-manifest.json",
+          "bytes": 123022,
+          "sha256": "e06b41473b3d5edaee4fba2f6b075c0998800269e53e13cac0ab257fcc6b29eb",
+          "etag": "386d0d44978872e3c34eb5c11b4decd2",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-07",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-07/1.0.0/full-ks2-shard-07-1.0.0.zip",
+          "bytes": 31603401,
+          "sha256": "857144af6f065230147bcaee48d3f7518ef3a4308a5569ad71f2fee91bd41077",
+          "etag": "b9354bc379723b002e6a2ef2816e5545",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-07/1.0.0/signed-manifest.json",
+          "bytes": 122574,
+          "sha256": "645132ef6b8819d75ff38704affd7b5bf5281a8e2b48df44966a4906c0ac8338",
+          "etag": "4a8449a3e897b01fe73f0f599f71bccb",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-08",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-08/1.0.0/full-ks2-shard-08-1.0.0.zip",
+          "bytes": 31670056,
+          "sha256": "705f8a4f0b05598b66f08b20187c366c762751ff669fb2f13c89d9e1c0f342c5",
+          "etag": "06743359d7123b0595bf340b715a243c",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-08/1.0.0/signed-manifest.json",
+          "bytes": 122574,
+          "sha256": "05d5ee5e20ca932929a936867aee0185e84e663ff14e197305fbbd65b853c1f1",
+          "etag": "0961b5ad9edc85af8d0a31979d0a62c8",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-09",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-09/1.0.0/full-ks2-shard-09-1.0.0.zip",
+          "bytes": 29345941,
+          "sha256": "cfeea4bea6f1ab682083693c6dc217c72a1e8e1b5c336fd53482c79c8d719400",
+          "etag": "b0a5ea3280276d8059f32dd5d4fc0071",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-09/1.0.0/signed-manifest.json",
+          "bytes": 115278,
+          "sha256": "165e1ef55c169b899e43f13c8123632edfce5d616d1482567a96731bb499c7a8",
+          "etag": "f6dfdc458b8136d9de8a4d32c9cf96ea",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-10",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-10/1.0.0/full-ks2-shard-10-1.0.0.zip",
+          "bytes": 30777415,
+          "sha256": "42c4971d3c91fedcc780da97923a81cb9d87f11f6a70d6aea185dfff52cc343e",
+          "etag": "56fe10a89ae908b7f03276bb7c83c467",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-10/1.0.0/signed-manifest.json",
+          "bytes": 116062,
+          "sha256": "8d6cbc123688dd3a06573ae0083f5f5dc8145453e08f368345aa11d8982a710f",
+          "etag": "72114d9feca0cac084e11955526b16cc",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-11",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-11/1.0.0/full-ks2-shard-11-1.0.0.zip",
+          "bytes": 30989155,
+          "sha256": "4ac56724085d9f96d5659ec1dd14af7db03aad5c3cd38689a67cd3aadbf7133e",
+          "etag": "899857fa96bce3974adb0d984aef1cb7",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-11/1.0.0/signed-manifest.json",
+          "bytes": 115502,
+          "sha256": "d0c949d43bf55261813fe961c88ffd4488b6bef159ab16869808bb9a358f5724",
+          "etag": "de5f395c0079f63d957885de73f1bc89",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-12",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-12/1.0.0/full-ks2-shard-12-1.0.0.zip",
+          "bytes": 30463493,
+          "sha256": "c00bf92a8619c191eb1b29b025e302b3e10e34d89e3798077f4842fe2d04c68f",
+          "etag": "ac4ed5a4b3e80efc1dc85bfd48f806ea",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-12/1.0.0/signed-manifest.json",
+          "bytes": 115670,
+          "sha256": "923f3823a3c353e78cbee919e89fe8478548c059fbebb5549134a866438a9a9a",
+          "etag": "1803f6fe785a43e532911fd16e2aaa54",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-13",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-13/1.0.0/full-ks2-shard-13-1.0.0.zip",
+          "bytes": 30518034,
+          "sha256": "df2281f3cbbd77cd10ee88606de4287684ae858cc38ecdb9f1739abd458355e1",
+          "etag": "a35b7da57f14e4c9d6389a0542f0cc2c",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-13/1.0.0/signed-manifest.json",
+          "bytes": 115222,
+          "sha256": "3a2c893fdec2be88fe9921a673b0d144ce99cab6ea940498cfdd4eaa5e80eaca",
+          "etag": "855dc9aafe1136a3b1a2b399f5bcb7b8",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-14",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-14/1.0.0/full-ks2-shard-14-1.0.0.zip",
+          "bytes": 30198014,
+          "sha256": "4a91867758bc18cc8a1359a41b10ac9a56af4e5a5ba4d1822658a9f66a291f55",
+          "etag": "eaeb28c91d01f5382cf22fa0d0eddc70",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-14/1.0.0/signed-manifest.json",
+          "bytes": 115166,
+          "sha256": "33bcc834da74f124d74002b6ab9869ec9dffaee8c75731423ba995b8059b6971",
+          "etag": "590b3906012a170b2aca5c89b05a7cc7",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "packId": "full-ks2-shard-15",
+      "version": "1.0.0",
+      "objects": [
+        {
+          "role": "archive",
+          "key": "packs/full-ks2-shard-15/1.0.0/full-ks2-shard-15-1.0.0.zip",
+          "bytes": 27291512,
+          "sha256": "2a2ea513044d61976068cb87e7039349effab336d7334de2591a05b4aa4db6a3",
+          "etag": "0a3b982d288957d463999b6221324dd4",
+          "metadata": {}
+        },
+        {
+          "role": "signed-manifest",
+          "key": "packs/full-ks2-shard-15/1.0.0/signed-manifest.json",
+          "bytes": 106410,
+          "sha256": "ac814d2bca97e8428d775ddc9a65f66d9dfd6172a81c3431e5d49e1581e234a8",
+          "etag": "5c25660403dc0ccfad2a605b8a7c3baa",
+          "metadata": {}
+        }
+      ]
+    }
+  ]
+}

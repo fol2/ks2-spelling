@@ -146,6 +146,18 @@ rejects anything but the exact four keys rather than ignoring the extras, so
 passing the whole record is not a tolerated shortcut but a hard failure, and it
 surfaces as a validator error rather than as a wrong-PIN result.
 
+## Packs and hosting
+
+### Pack-object authority
+
+The reviewed record of the exact private-R2 objects for one release channel:
+each object's key, byte count, SHA-256, single-part ETag and custom metadata.
+
+Sandbox keeps a single-pack document for the B3 proof pack. Production keeps
+one multi-pack document covering the fifteen Full-KS2 shard packs in the live
+production bucket. The document is bucket evidence, not a signature proof and
+not a substitute for the downloadable-pack registry.
+
 ## Native packaging
 
 ### Application composition

@@ -166,3 +166,11 @@ only). Corrections to the steps above, learned in execution:
    `b3-test-p256-2026-07`; every envelope was verified with the repository's
    own contract primitives (closed envelope, canonical low-S DER, RFC 8785
    recanonicalisation) before upload.
+
+## Production object authority (2026-08-21)
+
+The live production bucket is a separate evidence document,
+`config/ks2-pack-object-authority-production.json`, derived from
+`ks2-spelling-production-packs` and documented in
+`docs/operations/production-pack-object-authority.md`. Do not copy this
+sandbox execution record, its etags, or `b3-sandbox-proof` into that file.

@@ -9,9 +9,11 @@
  *   CEREMONY_KEY_ID=production-ks2-p256-2026-08 \
  *   node scripts/resign-manifests-with-production-key.mjs
  *
- * Writes the exact packs/ object tree plus operational ceremony-metadata.json
- * beside it. Preflights nested dist-first|dist-second archives before writing
- * objects. Removes stale ready metadata and packs/ at the start of a run.
+ * Writes the exact object tree at CEREMONY_OUTPUT_DIR/objects/packs/... and
+ * operational ceremony-metadata.json beside that subdirectory. Pass
+ * --ceremony-dir "$CEREMONY_OUTPUT_DIR/objects". Preflights nested
+ * dist-first|dist-second archives before writing objects. Removes stale ready
+ * metadata and the objects/ tree at the start of a run.
  */
 
 import { createHash, createPrivateKey, sign } from 'node:crypto';
@@ -25,6 +27,7 @@ import {
   createPackSigningInput,
 } from '../src/domain/packs/signed-manifest-contract.js';
 import {
+  CEREMONY_OBJECT_DIRECTORY_RELATIVE,
   CEREMONY_OPERATIONAL_METADATA_RELATIVE,
   PRODUCTION_PACK_IDS,
   PRODUCTION_PACK_VERSION,
@@ -247,9 +250,10 @@ export async function main({
   log(`✓ Loaded ${shards.length} shards to re-sign with key ${keyId}`);
 
   await mkdirImpl(ceremonyOutputDir, { recursive: true });
+  const objectDirectory = resolve(ceremonyOutputDir, CEREMONY_OBJECT_DIRECTORY_RELATIVE);
   const metadataPath = resolve(ceremonyOutputDir, CEREMONY_OPERATIONAL_METADATA_RELATIVE);
   await ignoreEnoent(() => unlinkImpl(metadataPath));
-  await ignoreEnoent(() => rmImpl(resolve(ceremonyOutputDir, 'packs'), { recursive: true, force: true }));
+  await ignoreEnoent(() => rmImpl(objectDirectory, { recursive: true, force: true }));
 
   const staged = [];
   for (const shard of shards) {
@@ -286,13 +290,13 @@ export async function main({
       keyId,
     );
 
-    const manifestOutputDir = resolve(ceremonyOutputDir, ceremonyPackPath);
+    const manifestOutputDir = resolve(objectDirectory, ceremonyPackPath);
     await mkdirImpl(manifestOutputDir, { recursive: true });
     await writeFileImpl(
       resolve(manifestOutputDir, 'signed-manifest.json'),
       signed.envelopeBytes,
     );
-    await writeFileImpl(resolve(ceremonyOutputDir, archiveKey), archiveBytes);
+    await writeFileImpl(resolve(objectDirectory, archiveKey), archiveBytes);
 
     records.push({
       packId: shard.packId,
@@ -316,13 +320,14 @@ export async function main({
     status: CEREMONY_READY_STATUS,
     keyId,
     producedAt: now().toISOString(),
+    objectDirectory,
     manifests: records,
   };
 
   await writeFileImpl(metadataPath, jsonBytes(ceremonyMetadata));
 
   log(`\n✓ ${CEREMONY_COMPLETE_TEXT}`);
-  log(`  Ceremony directory (for wizard): ${ceremonyOutputDir}`);
+  log(`  Exact object directory (--ceremony-dir): ${objectDirectory}`);
   log(`  Signed manifests and archives count: ${records.length}`);
   return ceremonyMetadata;
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync } from 'node:crypto';
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -193,12 +193,16 @@ test('nested signer success stages all fifteen dist-first|dist-second archives a
     assert.equal(metadata.status, CEREMONY_READY_STATUS);
     assert.equal(metadata.manifests.length, 15);
     assert.equal(logs.some((line) => line.includes(CEREMONY_COMPLETE_TEXT)), true);
+    assert.equal(metadata.objectDirectory, resolve(output, 'objects'));
     const archive = await readFile(
-      join(output, 'packs/full-ks2-shard-01/1.0.0/full-ks2-shard-01-1.0.0.zip'),
+      join(metadata.objectDirectory, 'packs/full-ks2-shard-01/1.0.0/full-ks2-shard-01-1.0.0.zip'),
     );
     assert.equal(archive.toString(), 'archive:full-ks2-shard-01');
     const envelope = JSON.parse(
-      await readFile(join(output, 'packs/full-ks2-shard-15/1.0.0/signed-manifest.json'), 'utf8'),
+      await readFile(
+        join(metadata.objectDirectory, 'packs/full-ks2-shard-15/1.0.0/signed-manifest.json'),
+        'utf8',
+      ),
     );
     assert.equal(envelope.keyId, PRODUCTION_SIGNING_KEY_ID);
     assert.equal(writes.some((entry) => entry.path.endsWith('ceremony-metadata.json')), true);
@@ -334,7 +338,7 @@ test('producer output is a complete ceremony that the object-tree reader and liv
   const keyPath = join(root, 'test-key.pem');
   try {
     await writeFile(keyPath, pair.privateKey);
-    await resignManifests({
+    const metadata = await resignManifests({
       root,
       env: {
         CEREMONY_PRIVATE_KEY_PATH: keyPath,
@@ -345,8 +349,18 @@ test('producer output is a complete ceremony that the object-tree reader and liv
       now: () => new Date('2026-08-21T00:00:00.000Z'),
     });
     await access(join(output, 'ceremony-metadata.json'));
-    const inventory = await readCompleteCeremonyDirectory({ ceremonyDir: output });
+    const objectDirectory = metadata.objectDirectory;
+    assert.equal(objectDirectory, resolve(output, 'objects'));
+    const inventory = await readCompleteCeremonyDirectory({ ceremonyDir: objectDirectory });
     assert.equal(inventory.size, 30);
+    await writeFile(join(objectDirectory, 'unexpected.txt'), 'nope');
+    await assert.rejects(
+      readCompleteCeremonyDirectory({ ceremonyDir: objectDirectory }),
+      /extra unexpected\.txt/i,
+    );
+    await unlink(join(objectDirectory, 'unexpected.txt'));
+    const inventoryAfter = await readCompleteCeremonyDirectory({ ceremonyDir: objectDirectory });
+    assert.equal(inventoryAfter.size, 30);
     const objects = [];
     for (const packId of PRODUCTION_PACK_IDS) {
       objects.push({
@@ -422,8 +436,8 @@ test('a failed rerun removes stale ready metadata and is not accepted as a compl
     );
     await assert.rejects(access(join(output, 'ceremony-metadata.json')));
     await assert.rejects(
-      readCompleteCeremonyDirectory({ ceremonyDir: output }),
-      /missing|exactly 15 archives/i,
+      readCompleteCeremonyDirectory({ ceremonyDir: resolve(output, 'objects') }),
+      /missing|exactly 15 archives|cannot read ceremony directory/i,
     );
   } finally {
     await rm(root, { recursive: true, force: true });

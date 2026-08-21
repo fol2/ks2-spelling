@@ -435,8 +435,8 @@ test('an unexpected extra ceremony file fails the complete synthetic tree contra
   }
 });
 
-test('operational ceremony-metadata.json at the ceremony root is outside the exact packs/ object tree', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'ks2-ceremony-metadata-root-'));
+test('ceremony-metadata.json inside the supplied object directory is an extra file and fails closed', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-ceremony-metadata-in-objects-'));
   const objects = syntheticPackObjects();
   try {
     await writeCanonicalCeremony(directory, objects);
@@ -444,9 +444,10 @@ test('operational ceremony-metadata.json at the ceremony root is outside the exa
       schemaVersion: 1,
       status: 'ready',
     }));
-    const inventory = await readCompleteCeremonyDirectory({ ceremonyDir: directory });
-    assert.equal(inventory.size, 30);
-    assert.equal(inventory.has('ceremony-metadata.json'), false);
+    await assert.rejects(
+      readCompleteCeremonyDirectory({ ceremonyDir: directory }),
+      /extra ceremony-metadata\.json/i,
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

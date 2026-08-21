@@ -83,21 +83,21 @@ the local bytes) to the committed facts; it does not re-sign live production
 envelopes. `--check` rebuilds from live GET and requires byte-identical
 committed serialisation.
 
-`--ceremony-dir <dir>` is fail-closed. The exact object tree is
-`packs/<packId>/1.0.0/…`: exactly 15 archives and 15 signed-manifest
-envelopes. Missing, extra, unreadable, malformed, byte/size/SHA/etag
-mismatch, wrong key, invalid signature, or a signed payload that does not
-bind packId, version, archive name, archive bytes and archive SHA-256 to the
-paired live GET fails the command. Read errors are not mapped to skip. An
-unprefixed tree, a stale tree, a cross-shard envelope, or a locally re-signed
-envelope is not ceremony evidence.
+`--ceremony-dir <dir>` is fail-closed. The supplied directory is the exact
+object tree: `packs/<packId>/1.0.0/…` with exactly 15 archives and 15
+signed-manifest envelopes and no other files. Missing, extra, unreadable,
+malformed, byte/size/SHA/etag mismatch, wrong key, invalid signature, or a
+signed payload that does not bind packId, version, archive name, archive
+bytes and archive SHA-256 to the paired live GET fails the command. Read
+errors are not mapped to skip. An unprefixed tree, a stale tree, a
+cross-shard envelope, or a locally re-signed envelope is not ceremony
+evidence. `ceremony-metadata.json` inside that directory is extra and fails.
 
-`scripts/resign-manifests-with-production-key.mjs` writes that object tree
-under `CEREMONY_OUTPUT_DIR` and writes operational `ceremony-metadata.json`
-beside it, not inside `packs/`. Pass the producer output directory to
-`--ceremony-dir` as-is; do not delete the metadata file. The verifier ignores
-root `ceremony-metadata.json` and never treats `status: ready` as proof. Extra
-files other than that operational metadata still fail.
+`scripts/resign-manifests-with-production-key.mjs` writes the object tree at
+`CEREMONY_OUTPUT_DIR/objects/packs/…` and operational
+`ceremony-metadata.json` beside that subdirectory. Pass
+`--ceremony-dir "$CEREMONY_OUTPUT_DIR/objects"`. The verifier never treats
+`status: ready` as proof.
 
 Archive SHA-256s are expected to agree with
 `config/packs/full-ks2-shards/authoring-report.json` because the zips are
@@ -137,6 +137,6 @@ the nested outputs `.native-build/packs/<packId>/dist-first|dist-second/<archive
 report to list the exact fifteen canonical pack IDs, versions and archive
 names in order — a subset, duplicate, extra, reordered or substituted shard
 list is not ready. It preflights every nested archive, removes stale
-`ceremony-metadata.json` and the `packs/` object tree before writing, then
-stages all thirty objects and writes `status: ready` last. A failed rerun
-must not leave a current ready marker or a complete object tree.
+`ceremony-metadata.json` and the `objects/` tree before writing, then stages
+all thirty objects under `objects/` and writes `status: ready` last. A failed
+rerun must not leave a current ready marker or a complete object tree.

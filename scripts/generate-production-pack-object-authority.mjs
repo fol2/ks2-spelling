@@ -8,7 +8,7 @@
  *
  *   node scripts/generate-production-pack-object-authority.mjs --check
  *   node scripts/generate-production-pack-object-authority.mjs --write
- *   node scripts/generate-production-pack-object-authority.mjs --check --ceremony-dir <dir>
+ *   node scripts/generate-production-pack-object-authority.mjs --check --ceremony-dir "$CEREMONY_OUTPUT_DIR/objects"
  */
 
 import { readdir, readFile, writeFile } from 'node:fs/promises';

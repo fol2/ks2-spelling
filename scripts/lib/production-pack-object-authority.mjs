@@ -17,6 +17,7 @@ export const PRODUCTION_SIGNING_KEY_ID = 'production-ks2-p256-2026-08';
 export const PRODUCTION_REQUIRED_ENTITLEMENT_ID = 'full-ks2';
 export const PRODUCTION_ALLOWED_EXTENSIONS = Object.freeze(['.json', '.m4a']);
 export const CEREMONY_OPERATIONAL_METADATA_RELATIVE = 'ceremony-metadata.json';
+export const CEREMONY_OBJECT_DIRECTORY_RELATIVE = 'objects';
 export const PRODUCTION_VERIFICATION_INSTANT = new Date('2026-08-21T00:00:00.000Z');
 export const PRODUCTION_PACK_OBJECT_ROLES = Object.freeze(['archive', 'signed-manifest']);
 export const PRODUCTION_PACK_IDS = Object.freeze(
@@ -481,11 +482,10 @@ export async function readCompleteCeremonyDirectory({
   }
   const expectedKeys = expectedProductionObjectKeys();
   const actual = await listCeremonyRelativeFiles(ceremonyDir, { readdirImpl });
-  const objectFiles = actual.filter((rel) => rel !== CEREMONY_OPERATIONAL_METADATA_RELATIVE);
-  const actualSet = new Set(objectFiles);
+  const actualSet = new Set(actual);
   const expectedSet = new Set(expectedKeys);
   const missing = expectedKeys.filter((key) => !actualSet.has(key));
-  const extra = objectFiles.filter((key) => !expectedSet.has(key));
+  const extra = actual.filter((key) => !expectedSet.has(key));
   if (missing.length > 0 || extra.length > 0) {
     const details = [];
     if (missing.length > 0) details.push(`missing ${missing.join(', ')}`);

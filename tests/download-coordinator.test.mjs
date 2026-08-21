@@ -240,7 +240,7 @@ test('a composition that forgets packAuthority cannot construct a coordinator', 
   const harness = createHarness();
   const elevenKeys = { ...harness.dependencies };
   delete elevenKeys.packAuthority;
-  assert.equal(Object.keys(elevenKeys).length, 11);
+  assert.equal(Object.keys(elevenKeys).length, 13);
   // No default pack since the join flip: an unnamed pack would silently bind
   // every download to catalogue entry zero.
   assert.throws(

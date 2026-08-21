@@ -68,6 +68,9 @@ test('the committed Android project freezes the B1 identity and toolchain', asyn
     await readFile(join(ROOT, 'node_modules/@capacitor/android/package.json'), 'utf8'),
   );
   assert.equal(capacitorAndroidPackage.version, '8.4.1');
+  assert.match(appBuild, /variant\.mergeAssetsProvider\.configure/u);
+  assert.match(appBuild, /select-pack-signing-keyring\.mjs/u);
+  assert.match(appBuild, /releaseChannel, packagedKeyring\.absolutePath/u);
 });
 
 test('the Android app allows only normal INTERNET and biometric plus removals and disables backup', async () => {

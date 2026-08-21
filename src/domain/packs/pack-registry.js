@@ -1,5 +1,3 @@
-import b3PackObjectAuthority from '../../../config/b3-pack-object-authority.json' with { type: 'json' };
-import b3ProofPack from '../../../config/b3-proof-pack.json' with { type: 'json' };
 import downloadablePackAuthorities from '../../../config/downloadable-pack-authorities.json' with { type: 'json' };
 
 // The registry is the config-driven table of every pack the download path may
@@ -126,48 +124,6 @@ export function assertPackAuthority(value) {
   });
 }
 
-// The b3 row joins the two frozen configs: config/b3-proof-pack.json names the
-// pack identity/ceilings, config/b3-pack-object-authority.json the R2 object
-// facts. Both files are byte-frozen evidence (hashed into the committed
-// deterministic proof report), so the registry reads them rather than moving them.
-function readB3Row() {
-  const archive = b3PackObjectAuthority?.objects?.find?.((entry) => entry?.role === 'archive');
-  const manifest = b3PackObjectAuthority?.objects?.find?.(
-    (entry) => entry?.role === 'signed-manifest',
-  );
-  if (
-    b3ProofPack?.schemaVersion !== 1 ||
-    b3PackObjectAuthority?.schemaVersion !== 1 ||
-    b3ProofPack.packId !== b3PackObjectAuthority.packId ||
-    b3ProofPack.version !== b3PackObjectAuthority.version ||
-    !Array.isArray(b3PackObjectAuthority.objects) ||
-    b3PackObjectAuthority.objects.length !== 2 ||
-    !archive ||
-    !manifest ||
-    archive.key !==
-      `packs/${b3ProofPack.packId}/${b3ProofPack.version}/${b3ProofPack.archiveName}` ||
-    manifest.key !==
-      `packs/${b3ProofPack.packId}/${b3ProofPack.version}/signed-manifest.json` ||
-    manifest.sha256 !== b3ProofPack.signedEnvelopeSha256
-  ) {
-    fail('configuration is inconsistent');
-  }
-  return assertPackAuthority({
-    packId: b3ProofPack.packId,
-    version: b3ProofPack.version,
-    requiredEntitlementId: b3ProofPack.requiredEntitlementId,
-    archiveName: b3ProofPack.archiveName,
-    allowedExtensions: b3ProofPack.allowedExtensions,
-    ceilings: b3ProofPack.ceilings,
-    manifestSha256: manifest.sha256,
-    manifestBytes: manifest.bytes,
-    manifestEtag: manifest.etag,
-    archiveSha256: archive.sha256,
-    archiveBytes: archive.bytes,
-    archiveEtag: archive.etag,
-  });
-}
-
 // Downloadable shard rows are config-only: after the owner signing ceremony
 // and R2 upload, each shard's object facts (signed-envelope sha/bytes/etag and
 // archive sha/bytes/etag from the tracked authoring report) are appended to
@@ -180,10 +136,7 @@ export function readDownloadablePackRows(table = downloadablePackAuthorities) {
   return table.packs.map((row) => assertPackAuthority(row));
 }
 
-export const PACK_REGISTRY = Object.freeze([
-  readB3Row(),
-  ...readDownloadablePackRows(),
-]);
+export const PACK_REGISTRY = Object.freeze(readDownloadablePackRows());
 
 if (
   new Set(PACK_REGISTRY.map(({ packId }) => packId)).size !== PACK_REGISTRY.length

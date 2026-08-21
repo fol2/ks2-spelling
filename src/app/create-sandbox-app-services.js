@@ -1,21 +1,14 @@
-import gatewayAuthorityJson from '../../config/ks2-gateway-authority-production.json' with { type: 'json' };
-import packKeyringJson from '../../config/production/pack-signing-public-keys.json' with { type: 'json' };
+import gatewayAuthorityJson from '../../config/b3-gateway-authority.json' with { type: 'json' };
+import packKeyringJson from '../../config/pack-signing-public-keys.json' with { type: 'json' };
 import {
-  assertProductionGatewayAuthority,
-  assertProductionPackKeyring,
+  assertB3GatewayAuthority,
+  assertPackKeyring,
 } from '../domain/commerce/commerce-contracts.js';
 import { createProductAppServices } from './create-product-app-services.js';
 
-const GATEWAY_ORIGIN = ['https:', '', 'ks2-gateway.eugnel.uk'].join('/');
-const GATEWAY_AUTHORITY = assertProductionGatewayAuthority(gatewayAuthorityJson);
-const PACK_KEYRING = assertProductionPackKeyring(packKeyringJson);
-
-function requireProductReleaseChannel(buildMode) {
-  if (buildMode !== 'production') {
-    throw new TypeError('Production composition requires the production release channel.');
-  }
-  return buildMode;
-}
+const GATEWAY_ORIGIN = ['https:', '', 'b3-gateway.eugnel.uk'].join('/');
+const GATEWAY_AUTHORITY = assertB3GatewayAuthority(gatewayAuthorityJson);
+const PACK_KEYRING = assertPackKeyring(packKeyringJson);
 
 function requireProductPlatform(platform) {
   if (platform !== 'ios' && platform !== 'android') {
@@ -25,15 +18,16 @@ function requireProductPlatform(platform) {
 }
 
 export function selectNativeAppComposition({ buildMode, platform }) {
-  const releaseChannel = requireProductReleaseChannel(buildMode);
-  const approvedPlatform = requireProductPlatform(platform);
+  if (buildMode !== 'sandbox') {
+    throw new TypeError('Sandbox composition requires the sandbox release channel.');
+  }
   return Object.freeze({
     serviceMode: 'product',
     productIdentifier: 'ks2-spelling-product',
-    releaseChannel,
+    releaseChannel: 'sandbox',
     runtime: Object.freeze({
       isNativePlatform: true,
-      platform: approvedPlatform,
+      platform: requireProductPlatform(platform),
     }),
   });
 }
@@ -44,7 +38,9 @@ export async function createSelectedAppServices({
   platform,
   productOptions = {},
 }) {
-  requireProductReleaseChannel(buildMode);
+  if (buildMode !== 'sandbox') {
+    throw new TypeError('Sandbox composition requires the sandbox release channel.');
+  }
   if (isNativePlatform !== true) return null;
   for (const owned of [
     'runtime',
@@ -61,7 +57,7 @@ export async function createSelectedAppServices({
   return createProductAppServices({
     ...productOptions,
     runtime: composition.runtime,
-    packTrustEnvironment: 'production',
+    packTrustEnvironment: 'sandbox',
     gatewayAuthority: GATEWAY_AUTHORITY,
     gatewayOrigin: GATEWAY_ORIGIN,
     packKeyring: PACK_KEYRING,

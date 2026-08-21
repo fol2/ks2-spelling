@@ -171,8 +171,8 @@ test('HTTP gateway accepts the tracked production authority and posts to the pro
 });
 
 test('HTTP gateway rejects production authority drift', async () => {
-  const { createHttpEntitlementGateway } = await import(
-    '../src/platform/gateway/http-entitlement-gateway.js'
+  const { assertProductionGatewayAuthority } = await import(
+    '../src/domain/commerce/commerce-contracts.js'
   );
   const approved = await productionAuthority();
   for (const mutate of [
@@ -183,15 +183,15 @@ test('HTTP gateway rejects production authority drift', async () => {
     const candidate = structuredClone(approved);
     mutate(candidate);
     assert.throws(
-      () => createHttpEntitlementGateway({ authority: candidate, fetchImpl: fetch }),
+      () => assertProductionGatewayAuthority(candidate),
       /gateway authority/i,
     );
   }
 });
 
 test('HTTP gateway authority freezes both native CORS origins and rejects drift', async () => {
-  const { createHttpEntitlementGateway } = await import(
-    '../src/platform/gateway/http-entitlement-gateway.js'
+  const { assertB3GatewayAuthority } = await import(
+    '../src/domain/commerce/commerce-contracts.js'
   );
   const approved = await authority();
   assert.deepEqual(approved.allowedOrigins, ['capacitor://localhost', 'http://localhost']);
@@ -203,7 +203,7 @@ test('HTTP gateway authority freezes both native CORS origins and rejects drift'
     const candidate = structuredClone(approved);
     mutate(candidate);
     assert.throws(
-      () => createHttpEntitlementGateway({ authority: candidate, fetchImpl: fetch }),
+      () => assertB3GatewayAuthority(candidate),
       /gateway authority/i,
     );
   }

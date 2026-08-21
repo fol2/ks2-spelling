@@ -54,13 +54,11 @@ enum PackCapabilityValidator {
         pattern: "^[a-z0-9][a-z0-9._-]{0,119}\\.zip$"
     )
     
-    private static let gatewayOrigin: String = {
-        let releaseChannel = Bundle.main.infoDictionary?["KS2ReleaseChannel"] as? String ?? "sandbox"
-        if releaseChannel == "production" {
-            return "ks2-gateway.eugnel.uk"
-        }
-        return "b3-gateway.eugnel.uk"
-    }()
+    #if KS2_SANDBOX_CHANNEL
+    private static let gatewayOrigin = "b3-gateway.eugnel.uk"
+    #else
+    private static let gatewayOrigin = "ks2-gateway.eugnel.uk"
+    #endif
 
     static func validateIdentifier(_ value: String) throws {
         let range = NSRange(value.startIndex..<value.endIndex, in: value)

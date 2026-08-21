@@ -15,9 +15,11 @@ function isProductReleaseChannel(mode) {
 export function resolveAppComposition(mode) {
   return resolve(
     ROOT,
-    isProductReleaseChannel(mode)
+    mode === 'production'
       ? 'src/app/create-production-app-services.js'
-      : 'src/app/create-app-services.js',
+      : mode === 'sandbox'
+        ? 'src/app/create-sandbox-app-services.js'
+        : 'src/app/create-app-services.js',
   );
 }
 

@@ -33,8 +33,10 @@ test('iOS validates capability authority before constructing a URLRequest', asyn
     new URL('ios/App/App/ZipCentralDirectoryInspector.swift', ROOT),
     'utf8',
   );
-  // Gateway origin is now channel-selected; check that it reads from Info.plist
-  assert.match(inspector, /KS2ReleaseChannel/);
+  // The gateway origin is selected at compile time so a production executable
+  // is structurally incapable of retaining the sandbox origin.
+  assert.match(inspector, /#if KS2_SANDBOX_CHANNEL/);
+  assert.doesNotMatch(inspector, /KS2ReleaseChannel/);
   assert.match(inspector, /ks2-gateway\.eugnel\.uk/);
   assert.match(inspector, /b3-gateway\.eugnel\.uk/);
   assert.match(inspector, /gatewayOrigin/);

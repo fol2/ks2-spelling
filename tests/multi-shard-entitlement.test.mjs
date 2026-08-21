@@ -159,6 +159,7 @@ function shardDependencies(shard, { packRepository, commerceRepository, clock = 
       packRepository,
       manifestVerifier: async () => Object.freeze({ manifest: shard.manifest }),
       keyring,
+      gatewayOrigin: 'https://b3-gateway.eugnel.uk',
       activeEntitlementProjection: async () =>
         (await commerceRepository.listEntitlements())[0] ?? null,
       entitlementRepository: commerceRepository,
@@ -255,7 +256,6 @@ test('the registry resolves N shard packs per entitlement and fails closed other
   // Fixture shards are registry-only: the config registry never resolves them.
   assert.throws(() => findPackAuthority('e2-shard-alpha'), /not registered/);
   assert.deepEqual(PACK_REGISTRY.map((row) => row.packId), [
-    'b3-sandbox-proof',
     'full-ks2-shard-01',
     'full-ks2-shard-02',
     'full-ks2-shard-03',
@@ -296,6 +296,7 @@ test('a download coordinator rejects a present-but-undefined pack authority', ()
     ]),
     manifestVerifier: async () => undefined,
     keyring,
+    gatewayOrigin: 'https://b3-gateway.eugnel.uk',
     activeEntitlementProjection: async () => null,
     entitlementRepository: stub(['compareAndSwapSealedRefreshHandle']),
     currentAppVersion: '0.3.0-b3',

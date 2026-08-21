@@ -79,6 +79,19 @@ android.applicationVariants.all { variant ->
             releaseChannel, "app/src/main/assets/public"
     }
     variant.preBuildProvider.configure { dependsOn verificationTask }
+    variant.mergeAssetsProvider.configure { mergeTask ->
+        doLast {
+            def packagedKeyring = new File(
+                mergeTask.outputDir.get().asFile,
+                "pack-signing-public-keys.json"
+            )
+            project.exec {
+                workingDir rootProject.projectDir
+                commandLine "node", "../scripts/select-pack-signing-keyring.mjs",
+                    releaseChannel, packagedKeyring.absolutePath
+            }
+        }
+    }
 }
 
 repositories {

@@ -7,9 +7,9 @@ const FREE_STARTER_PACK_ID = 'ks2-core';
 // The pack registry is the only pack → entitlement authority for downloaded
 // packs; a pack the registry does not track has no required entitlement and
 // fails the manifest authority check below.
-function registryRequiredEntitlementId(packId) {
+function registryRequiredEntitlementId(packId, registry) {
   try {
-    return findPackAuthority(packId).requiredEntitlementId;
+    return findPackAuthority(packId, registry).requiredEntitlementId;
   } catch {
     return undefined;
   }
@@ -64,7 +64,7 @@ function validateDependencies(value) {
     'packTransfer', 'packRepository', 'manifestVerifier', 'keyring',
     'environment', 'clock',
   ];
-  const allowed = [...required, 'crashInjector'];
+  const allowed = [...required, 'crashInjector', 'registry'];
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
       Object.getPrototypeOf(value) !== Object.prototype ||
       required.some((key) => !Object.hasOwn(value, key)) ||
@@ -102,13 +102,13 @@ function readTimestamp(clock, floor) {
   return value;
 }
 
-function requireVerifiedManifest(result, packId, version) {
+function requireVerifiedManifest(result, packId, version, registry) {
   const manifest = result?.manifest;
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest) ||
       manifest.packId !== packId || manifest.version !== version ||
       (manifest.requiredEntitlementId === null
         ? manifest.packId !== FREE_STARTER_PACK_ID
-        : manifest.requiredEntitlementId !== registryRequiredEntitlementId(packId)) ||
+        : manifest.requiredEntitlementId !== registryRequiredEntitlementId(packId, registry)) ||
       !manifest.archive || typeof manifest.archive.name !== 'string' ||
       typeof manifest.archive.sha256 !== 'string' ||
       !Number.isSafeInteger(manifest.archive.bytes) || manifest.archive.bytes <= 0 ||
@@ -181,7 +181,12 @@ export function createPackActivationCoordinator(rawDependencies) {
         environment,
         clock: () => new Date(verificationMilliseconds),
       });
-      const authority = requireVerifiedManifest(verified, packId, version);
+      const authority = requireVerifiedManifest(
+        verified,
+        packId,
+        version,
+        dependencies.registry,
+      );
       const manifestSha256 = await sha256Hex(envelopeBytes);
       await checkpoint('afterManifestVerification');
 

@@ -59,7 +59,11 @@ function requireFactoryInput(value) {
   // only the frozen B3 proof lane pins itself to the registry's b3 row after
   // that pack left the sellable catalogue. Every override entry still resolves
   // through the registry bound to this coordinator's entitlement.
-  const expected = ownKeys.includes('packIds') ? [...keys, 'packIds'] : keys;
+  const expected = [
+    ...keys,
+    ...(ownKeys.includes('packIds') ? ['packIds'] : []),
+    ...(ownKeys.includes('registry') ? ['registry'] : []),
+  ];
   if (
     !value ||
     typeof value !== 'object' ||
@@ -149,7 +153,10 @@ export function createPurchaseCoordinator(rawDependencies) {
   // journal identities all derive from that binding rather than from a baked-in product.
   const product = resolveCommerceProduct(entitlementId);
   const packs = Object.hasOwn(dependencies, 'packIds')
-    ? resolvePackJobAuthorities({ entitlementId, packIds: dependencies.packIds })
+    ? resolvePackJobAuthorities(
+        { entitlementId, packIds: dependencies.packIds },
+        dependencies.registry,
+      )
     : resolvePackJobAuthorities(product);
   // The native application composition owns one coordinator and one reconciler per
   // database connection. This queue is therefore the single proof-processing lane.
@@ -347,7 +354,7 @@ export function createPurchaseCoordinator(rawDependencies) {
   }
 
   async function ensurePackDownloadJob(pack, jobs, authority, sealedRefreshHandle) {
-    const packObject = findPackAuthority(pack.packId);
+    const packObject = findPackAuthority(pack.packId, dependencies.registry);
     const existing = jobs.find((job) => job.jobId === pack.jobId);
     if (existing) {
       const safeStates = new Set([

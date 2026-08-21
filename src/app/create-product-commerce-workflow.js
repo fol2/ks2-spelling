@@ -1,9 +1,4 @@
-import gatewayAuthorityJson from '../../config/b3-gateway-authority.json' with { type: 'json' };
-import productionGatewayAuthorityJson from '../../config/ks2-gateway-authority-production.json' with { type: 'json' };
-import packKeyring from '../../config/pack-signing-public-keys.json' with { type: 'json' };
 import {
-  assertB3GatewayAuthority,
-  assertProductionGatewayAuthority,
   findStoreProductByEntitlementId,
 } from '../domain/commerce/commerce-contracts.js';
 import {
@@ -160,6 +155,9 @@ export function createProductCommerceWorkflow(options = {}) {
   const rawPackRepository = options.packRepository;
   const packTransfer = options.packTransfer;
   const packTrustEnvironment = options.packTrustEnvironment ?? 'sandbox';
+  const authority = options.gatewayAuthority;
+  const gatewayOrigin = options.gatewayOrigin;
+  const packKeyring = options.packKeyring;
   const clock = options.clock ?? Date.now;
   const idFactory = options.idFactory ??
     (() => globalThis.crypto.randomUUID().toLowerCase());
@@ -170,13 +168,17 @@ export function createProductCommerceWorkflow(options = {}) {
   if (!['sandbox', 'production'].includes(packTrustEnvironment)) {
     throw new TypeError('Product pack trust environment is invalid.');
   }
+  if (!authority || typeof authority !== 'object' ||
+      !packKeyring || typeof packKeyring !== 'object' ||
+      typeof gatewayOrigin !== 'string' ||
+      authority.publicSandboxOrigin !== gatewayOrigin ||
+      authority.environment !== packTrustEnvironment) {
+    throw new TypeError('Product release authority is invalid.');
+  }
   if (typeof clock !== 'function' || typeof idFactory !== 'function') {
     throw new TypeError('Product commerce functions are invalid.');
   }
 
-  const authority = packTrustEnvironment === 'production'
-    ? assertProductionGatewayAuthority(productionGatewayAuthorityJson)
-    : assertB3GatewayAuthority(gatewayAuthorityJson);
   const store = options.store ??
     createCapacitorStore({ Commerce: CommercePlugin });
   const fetchImpl = options.fetchImpl ??
@@ -256,6 +258,7 @@ export function createProductCommerceWorkflow(options = {}) {
       manifestVerifier,
       keyring: packKeyring,
       environment: packTrustEnvironment,
+      gatewayOrigin,
       activeEntitlementProjection: activeEntitlement,
       entitlementRepository: commerceRepository,
       currentAppVersion: '0.3.0-b3',

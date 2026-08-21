@@ -8,8 +8,10 @@ import {
 } from '../domain/commerce/commerce-contracts.js';
 import {
   B3_PACK_JOB_AUTHORITY,
-} from '../domain/commerce/purchase-state.js';
-import { findPackAuthority } from '../domain/packs/pack-registry.js';
+  B3_PACK_REGISTRY,
+  createB3SignedDownloadAccessContract,
+  findB3PackAuthority,
+} from '../domain/packs/b3-pack-registry.js';
 import { B3_DOWNLOAD_CHUNK_BYTES } from '../domain/packs/signed-download-access-contract.js';
 import { createCapacitorStore } from '../platform/commerce/capacitor-store.js';
 import {
@@ -57,7 +59,7 @@ const SHA256 = /^[a-f0-9]{64}$/;
 // The B3 proof lane is pinned to the registry's b3 row. Since the E2.7 join
 // flip the sellable catalogue delivers the 15 Full-KS2 shards, so this lane
 // binds its coordinators explicitly instead of reading the catalogue join.
-const B3_PACK = findPackAuthority('b3-sandbox-proof');
+const B3_PACK = findB3PackAuthority('b3-sandbox-proof');
 
 function defaultRuntime() {
   return Object.freeze({
@@ -244,6 +246,7 @@ export async function createB3AppServices(options = {}) {
     const packReconciler = createPackReconciler({
       entitlementId: B3_PACK.requiredEntitlementId,
       packIds: [B3_PACK.packId],
+      registry: B3_PACK_REGISTRY,
       packTransfer,
       packRepository,
       activeEntitlementProjection: activeEntitlementSet,
@@ -300,6 +303,7 @@ export async function createB3AppServices(options = {}) {
     const purchaseCoordinator = createPurchaseCoordinator({
       entitlementId: B3_PACK.requiredEntitlementId,
       packIds: [B3_PACK.packId],
+      registry: B3_PACK_REGISTRY,
       store,
       gateway,
       commerceRepository,
@@ -346,6 +350,8 @@ export async function createB3AppServices(options = {}) {
       packRepository,
       manifestVerifier,
       keyring: packKeyring,
+      gatewayOrigin: ['https:', '', 'b3-gateway.eugnel.uk'].join('/'),
+      createDownloadAccessContract: createB3SignedDownloadAccessContract,
       activeEntitlementProjection: activeEntitlement,
       entitlementRepository: commerceRepository,
       currentAppVersion: '0.3.0-b3',
@@ -360,6 +366,7 @@ export async function createB3AppServices(options = {}) {
       manifestVerifier,
       keyring: packKeyring,
       environment: 'sandbox',
+      registry: B3_PACK_REGISTRY,
       clock: () => safeTimestampClock(clock),
     });
 

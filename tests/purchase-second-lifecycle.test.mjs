@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import { B3_PACK_REGISTRY } from '../src/domain/packs/b3-pack-registry.js';
+
 import { createPurchaseCoordinator } from '../src/app/purchase-coordinator.js';
 import { configureAndMigrateDatabase } from '../src/platform/database/migrate-database.js';
 import { createSqliteCommerceAttemptRepository } from '../src/platform/database/sqlite-commerce-attempt-repository.js';
@@ -177,6 +179,7 @@ async function withWorld(run) {
         // The mechanics under test predate the E2.7 join flip; the harness pins
         // the coordinator to the registry's b3 row exactly as the B3 proof lane does.
         packIds: ['b3-sandbox-proof'],
+        registry: B3_PACK_REGISTRY,
         store,
         gateway,
         commerceRepository,

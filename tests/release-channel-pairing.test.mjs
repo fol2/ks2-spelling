@@ -32,7 +32,11 @@ test('sandbox is a named product channel paired with sandbox-trusting native art
     build: { outDir: outputDirectory, emptyOutDir: true },
   });
 
-  assert.match(await readBuiltJavaScript(outputDirectory), /ks2-spelling-product/u);
+  const sandboxJavaScript = await readBuiltJavaScript(outputDirectory);
+  assert.match(sandboxJavaScript, /ks2-spelling-product/u);
+  assert.match(sandboxJavaScript, /b3-gateway\.eugnel\.uk/u);
+  assert.match(sandboxJavaScript, /b3-test-p256-2026-07/u);
+  assert.match(sandboxJavaScript, /b3-sandbox-proof/u);
   assert.deepEqual(
     await verifyReleaseChannelPair({ releaseChannel: 'sandbox', webDirectory: outputDirectory }),
     { releaseChannel: 'sandbox' },
@@ -42,7 +46,9 @@ test('sandbox is a named product channel paired with sandbox-trusting native art
     /release channel mismatch/i,
   );
 
-  const [gradle, java, project, swift, scheme, composition, commerceWorkflow, download, ci] =
+  const [gradle, java, project, swift, scheme, productionComposition,
+    sandboxComposition, productServices, commerceWorkflow, download, ci,
+    iosReleaseVerifier] =
     await Promise.all([
       readFile(join(ROOT, 'android/app/build.gradle'), 'utf8'),
       readFile(
@@ -53,9 +59,12 @@ test('sandbox is a named product channel paired with sandbox-trusting native art
       readFile(join(ROOT, 'ios/App/App/PackTransferPlugin.swift'), 'utf8'),
       readFile(join(ROOT, 'ios/App/App.xcodeproj/xcshareddata/xcschemes/Sandbox.xcscheme'), 'utf8'),
       readFile(join(ROOT, 'src/app/create-production-app-services.js'), 'utf8'),
+      readFile(join(ROOT, 'src/app/create-sandbox-app-services.js'), 'utf8'),
+      readFile(join(ROOT, 'src/app/create-product-app-services.js'), 'utf8'),
       readFile(join(ROOT, 'src/app/create-product-commerce-workflow.js'), 'utf8'),
       readFile(join(ROOT, 'src/app/download-coordinator.js'), 'utf8'),
       readFile(join(ROOT, '.github/workflows/ci.yml'), 'utf8'),
+      readFile(join(ROOT, 'scripts/verify-ios-release-artefacts.mjs'), 'utf8'),
     ]);
   assert.match(gradle, /sandbox\s*\{[\s\S]*KS2_RELEASE_CHANNEL[^\n]*sandbox/u);
   assert.match(gradle, /verify-release-channel-pair\.mjs/u);
@@ -77,11 +86,22 @@ test('sandbox is a named product channel paired with sandbox-trusting native art
   assert.match(swift, /KS2ReleaseChannel/u);
   assert.doesNotMatch(swift, /#if B3_SANDBOX_PROOF[\s\S]*packEnvironment/u);
   assert.match(scheme, /buildConfiguration = "Sandbox"/u);
-  assert.match(composition, /packTrustEnvironment: releaseChannel/u);
-  assert.match(commerceWorkflow, /environment: packTrustEnvironment/u);
-  assert.match(download, /environment,\s*clock:/u);
+  assert.match(productionComposition, /packTrustEnvironment: 'production'/u);
+  assert.match(productionComposition, /ks2-gateway\.eugnel\.uk/u);
+  assert.match(sandboxComposition, /packTrustEnvironment: 'sandbox'/u);
+  assert.match(sandboxComposition, /b3-gateway\.eugnel\.uk/u);
+  assert.doesNotMatch(productServices, /(?:b3|ks2)-gateway\.eugnel\.uk/u);
+  assert.doesNotMatch(commerceWorkflow, /(?:b3|ks2)-gateway\.eugnel\.uk/u);
+  assert.doesNotMatch(download, /(?:b3|ks2)-gateway\.eugnel\.uk/u);
+  assert.match(commerceWorkflow, /gatewayOrigin/u);
+  assert.match(
+    download,
+    /dependencies\.createDownloadAccessContract \?\? createSignedDownloadAccessContract/u,
+  );
+  assert.match(download, /\)\(packAuthority, gatewayOrigin\)/u);
   assert.match(ci, /:app:assembleSandbox/u);
-  assert.match(ci, /-scheme Sandbox[\s\S]*-configuration Sandbox/u);
+  assert.match(ci, /npm run verify:ios-release-artefacts/u);
+  assert.match(iosReleaseVerifier, /'-scheme', 'Sandbox',[\s\S]*'-configuration', 'Sandbox'/u);
 });
 
 test("production environment reaches the keyring guard and rejects sandbox-signed manifests", async () => {
@@ -96,6 +116,7 @@ test("production environment reaches the keyring guard and rejects sandbox-signe
   const coordinator = createDownloadCoordinator({
     ...harness.dependencies,
     environment: "production",
+    gatewayOrigin: "https://ks2-gateway.eugnel.uk",
   });
   await assert.rejects(
     coordinator.queue({ sealedRefreshHandle: HANDLE }),
@@ -103,19 +124,15 @@ test("production environment reaches the keyring guard and rejects sandbox-signe
   );
 });
 
-test('product composition injects the pack-transfer origin from packTrustEnvironment', async () => {
-  const productServices = await readFile(
-    join(ROOT, 'src/app/create-product-app-services.js'),
-    'utf8',
-  );
-  assert.match(
-    productServices,
-    /\(options\.packTrustEnvironment \?\? 'sandbox'\) === 'production'/u,
-  );
-  assert.match(
-    productServices,
-    /\['https:', '', 'ks2-gateway\.eugnel\.uk'\]\.join\('\/'\)/u,
-  );
+test('channel wrappers inject their build-selected pack-transfer origins', async () => {
+  const [productServices, production, sandbox] = await Promise.all([
+    readFile(join(ROOT, 'src/app/create-product-app-services.js'), 'utf8'),
+    readFile(join(ROOT, 'src/app/create-production-app-services.js'), 'utf8'),
+    readFile(join(ROOT, 'src/app/create-sandbox-app-services.js'), 'utf8'),
+  ]);
+  assert.doesNotMatch(productServices, /(?:b3|ks2)-gateway\.eugnel\.uk/u);
+  assert.match(production, /ks2-gateway\.eugnel\.uk/u);
+  assert.match(sandbox, /b3-gateway\.eugnel\.uk/u);
   assert.match(
     productServices,
     /createCapacitorPackTransfer\(\{\s*PackTransfer: PackTransferPlugin,\s*gatewayOrigin\s*\}/u,
@@ -136,7 +153,11 @@ test("production environment pins capability URLs to the production gateway orig
   // A sandbox-origin capability must be rejected by a production coordinator.
   const rejected = createHarness({ manifestVerifier: sandboxVerifier });
   await assert.rejects(
-    createDownloadCoordinator({ ...rejected.dependencies, environment: "production" })
+    createDownloadCoordinator({
+      ...rejected.dependencies,
+      environment: "production",
+      gatewayOrigin: "https://ks2-gateway.eugnel.uk",
+    })
       .queue({ sealedRefreshHandle: HANDLE }),
     { code: "DOWNLOAD_CAPABILITY_INVALID" },
   );
@@ -157,6 +178,7 @@ test("production environment pins capability URLs to the production gateway orig
   const result = await createDownloadCoordinator({
     ...accepted.dependencies,
     environment: "production",
+    gatewayOrigin: "https://ks2-gateway.eugnel.uk",
   }).queue({ sealedRefreshHandle: HANDLE });
   assert.equal(result.state, "downloaded");
 });

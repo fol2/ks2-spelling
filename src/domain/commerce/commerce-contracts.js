@@ -1,4 +1,4 @@
-import packSigningKeyring from '../../../config/pack-signing-public-keys.json' with { type: 'json' };
+import productionPackSigningKeyring from '../../../config/production/pack-signing-public-keys.json' with { type: 'json' };
 import storeProductCatalogue from '../../../config/store-products.json' with { type: 'json' };
 
 const STORE_CATALOGUE_KEYS = Object.freeze(['schemaVersion', 'products']);
@@ -53,9 +53,6 @@ const DISTRIBUTION_KEYS = Object.freeze([
   'iosKind',
   'androidTrack',
 ]);
-const EXPECTED_PUBLIC_SANDBOX_ORIGIN = Object.freeze(
-  ['https:', '', 'b3-gateway.eugnel.uk'].join('/'),
-);
 const EXPECTED_PUBLIC_PRODUCTION_ORIGIN = Object.freeze(
   ['https:', '', 'ks2-gateway.eugnel.uk'].join('/'),
 );
@@ -80,36 +77,38 @@ const KEBAB_IDENTITY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const APPLE_PRODUCT_ID = /^[a-z0-9]+(?:\.[a-z0-9]+)+$/u;
 const GOOGLE_PRODUCT_ID = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/u;
 
-const EXPECTED_SANDBOX_SIGNING_KEY = Object.freeze({
-  keyId: 'b3-test-p256-2026-07',
-  algorithm: 'ECDSA_P256_SHA256_DER',
-  publicKeySpkiDerBase64:
-    'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEYP7UuiVanTHJYet0xjVtaMBJuJI7Yfps5mliLmDyn7Z5A/4QCLi8maQa6elWKLxk8vGyDC1+n1F3o8KU1EYimQ==',
-  publicKeySpkiSha256:
-    '5a7a78cca4a0f420d9bc62bb669c3c2759e39f723d3ae10dcbe0f0815a07ecd4',
-  testOnly: true,
-  notBefore: '2026-07-01T00:00:00Z',
-  notAfter: '2027-07-01T00:00:00Z',
-  allowedEnvironments: Object.freeze(['test', 'sandbox']),
-  allowedPackIds: Object.freeze([
-    'b3-sandbox-proof',
-    'full-ks2-shard-01',
-    'full-ks2-shard-02',
-    'full-ks2-shard-03',
-    'full-ks2-shard-04',
-    'full-ks2-shard-05',
-    'full-ks2-shard-06',
-    'full-ks2-shard-07',
-    'full-ks2-shard-08',
-    'full-ks2-shard-09',
-    'full-ks2-shard-10',
-    'full-ks2-shard-11',
-    'full-ks2-shard-12',
-    'full-ks2-shard-13',
-    'full-ks2-shard-14',
-    'full-ks2-shard-15',
-  ]),
-});
+function expectedSandboxSigningKey() {
+  return Object.freeze({
+    keyId: 'b3-test-p256-2026-07',
+    algorithm: 'ECDSA_P256_SHA256_DER',
+    publicKeySpkiDerBase64:
+      'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEYP7UuiVanTHJYet0xjVtaMBJuJI7Yfps5mliLmDyn7Z5A/4QCLi8maQa6elWKLxk8vGyDC1+n1F3o8KU1EYimQ==',
+    publicKeySpkiSha256:
+      '5a7a78cca4a0f420d9bc62bb669c3c2759e39f723d3ae10dcbe0f0815a07ecd4',
+    testOnly: true,
+    notBefore: '2026-07-01T00:00:00Z',
+    notAfter: '2027-07-01T00:00:00Z',
+    allowedEnvironments: Object.freeze(['test', 'sandbox']),
+    allowedPackIds: Object.freeze([
+      'b3-sandbox-proof',
+      'full-ks2-shard-01',
+      'full-ks2-shard-02',
+      'full-ks2-shard-03',
+      'full-ks2-shard-04',
+      'full-ks2-shard-05',
+      'full-ks2-shard-06',
+      'full-ks2-shard-07',
+      'full-ks2-shard-08',
+      'full-ks2-shard-09',
+      'full-ks2-shard-10',
+      'full-ks2-shard-11',
+      'full-ks2-shard-12',
+      'full-ks2-shard-13',
+      'full-ks2-shard-14',
+      'full-ks2-shard-15',
+    ]),
+  });
+}
 
 const EXPECTED_PRODUCTION_SIGNING_KEY = Object.freeze({
   keyId: 'production-ks2-p256-2026-08',
@@ -256,9 +255,9 @@ let signablePackIdCache = null;
 // packId would be a product the device can pay for and then never trust on arrival.
 function signablePackIds() {
   if (signablePackIdCache === null) {
-    assertPackKeyring(packSigningKeyring);
+    assertProductionPackKeyring(productionPackSigningKeyring);
     signablePackIdCache = new Set(
-      packSigningKeyring.keys.flatMap((key) => [...key.allowedPackIds]),
+      productionPackSigningKeyring.keys.flatMap((key) => [...key.allowedPackIds]),
     );
   }
   return signablePackIdCache;
@@ -360,8 +359,22 @@ export function assertPackKeyring(value) {
   if (keys.length !== 2) {
     fail(label, 'must contain exactly two signing keys (sandbox and production)');
   }
-  assertExactRecord(keys[0], EXPECTED_SANDBOX_SIGNING_KEY, SIGNING_KEY_KEYS, label);
+  assertExactRecord(keys[0], expectedSandboxSigningKey(), SIGNING_KEY_KEYS, label);
   assertExactRecord(keys[1], EXPECTED_PRODUCTION_SIGNING_KEY, SIGNING_KEY_KEYS, label);
+  return value;
+}
+
+export function assertProductionPackKeyring(value) {
+  const label = 'Production pack keyring';
+  assertClosedRecord(value, KEYRING_KEYS, label);
+  if (value.schemaVersion !== 1) {
+    fail(label, 'must contain the approved schema V1 production key');
+  }
+  const keys = readOpenArray(value.keys, label);
+  if (keys.length !== 1) {
+    fail(label, 'must contain exactly one production signing key');
+  }
+  assertExactRecord(keys[0], EXPECTED_PRODUCTION_SIGNING_KEY, SIGNING_KEY_KEYS, label);
   return value;
 }
 
@@ -409,7 +422,7 @@ export function assertB3GatewayAuthority(value) {
     cloudflareAccountId: '6d00cb4a0396c17ad6ba617bcbcaa45d',
     workerName: 'ks2-spelling-b3-sandbox',
     privateR2BucketName: 'ks2-spelling-b3-sandbox-packs',
-    publicSandboxOrigin: EXPECTED_PUBLIC_SANDBOX_ORIGIN,
+    publicSandboxOrigin: ['https:', '', 'b3-gateway.eugnel.uk'].join('/'),
     allowedOrigins: EXPECTED_ALLOWED_ORIGINS,
   };
   for (const [key, expectedValue] of Object.entries(expected)) {

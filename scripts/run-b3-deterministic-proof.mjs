@@ -3,12 +3,14 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import b3GatewayAuthority from '../config/b3-gateway-authority.json' with { type: 'json' };
 import { createB3AppServices } from '../src/app/create-b3-app-services.js';
 import { createDownloadCoordinator } from '../src/app/download-coordinator.js';
 import { createPackActivationCoordinator } from '../src/app/pack-activation-coordinator.js';
 import { createPackReconciler } from '../src/app/pack-reconciler.js';
 import { createProductCommerceWorkflow } from '../src/app/create-product-commerce-workflow.js';
 import { FULL_KS2_PACKS } from '../src/domain/commerce/purchase-state.js';
+import { B3_PACK_REGISTRY } from '../src/domain/packs/b3-pack-registry.js';
 import { findPackAuthority } from '../src/domain/packs/pack-registry.js';
 import {
   B3_DOWNLOAD_CHUNK_BYTES,
@@ -30,6 +32,7 @@ import {
   authorisation,
   createHarness,
   realManifestVerifier,
+  keyring,
 } from '../tests/helpers/range-fixture-server.mjs';
 import { activationHarness } from '../tests/helpers/pack-activation-harness.mjs';
 import { createNodeSqliteConnection } from '../tests/helpers/node-sqlite-connection.mjs';
@@ -682,6 +685,7 @@ async function runActivationScenario(scenario) {
       // The b3 proof lane pins itself to the registry's b3 row now that the
       // catalogue join delivers the 15 shards.
       packIds: ['b3-sandbox-proof'],
+      registry: B3_PACK_REGISTRY,
       packTransfer: transfer,
       packRepository: repository,
       activeEntitlementProjection: async () => readonlyEntitlementSet('full-ks2'),
@@ -861,6 +865,10 @@ async function withShardComposition(context, {
   const packRepository = wrapRepository(createSqlitePackRepositories(connection));
   let attemptSequence = 0;
   const workflow = createProductCommerceWorkflow({
+    packTrustEnvironment: 'sandbox',
+    gatewayAuthority: b3GatewayAuthority,
+    gatewayOrigin: b3GatewayAuthority.publicSandboxOrigin,
+    packKeyring: keyring,
     runtime: Object.freeze({ isNativePlatform: true, platform: 'android' }),
     connection,
     commandGate: createDatabaseCommandGate(),

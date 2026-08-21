@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createDownloadCoordinator } from '../src/app/download-coordinator.js';
-import { assertSignedDownloadAccess } from '../src/domain/packs/signed-download-access-contract.js';
+import { assertSignedDownloadAccess } from '../src/domain/packs/b3-pack-registry.js';
 import { createCapacitorPackTransfer } from
   '../src/platform/pack-transfer/capacitor-pack-transfer.js';
 import {

@@ -247,7 +247,7 @@ test('the iOS app target explicitly links the frozen ZIPFoundation extraction pr
   assert.match(project, /PackDownloadFlow\.swift in Sources/);
   assert.match(project, /PackInstallSealer\.swift in Sources/);
   assert.match(project, /ZipCentralDirectoryInspector\.swift in Sources/);
-  assert.match(project, /pack-signing-public-keys\.json in Resources/);
+  assert.match(project, /pack-signing-public-keys\.json in Resources/u);
   assert.match(sceneDelegate, /PackTransferPlugin/);
   assert.match(sceneDelegate, /registerPluginInstance/);
   assert.deepEqual(
@@ -255,6 +255,37 @@ test('the iOS app target explicitly links the frozen ZIPFoundation extraction pr
     JSON.parse(await readFile(join(ROOT, 'config/pack-signing-public-keys.json'))),
     'the native bundle must copy the tracked public verification keyring byte-for-byte in meaning',
   );
+  assert.match(project, /path = "\$\(KS2_KEYRING_DIRECTORY\)\/pack-signing-public-keys\.json"/u);
+  assert.match(project, /KS2_KEYRING_DIRECTORY = "\.\.\/\.\.\/config\/production"/u);
+  assert.match(project, /KS2_KEYRING_DIRECTORY = "\.\.\/\.\.\/config"/u);
+  assert.equal((project.match(/KS2_KEYRING_DIRECTORY = /gu) ?? []).length, 4);
+  assert.match(project, /SWIFT_ACTIVE_COMPILATION_CONDITIONS = KS2_SANDBOX_CHANNEL/u);
+  assert.match(
+    project,
+    /SWIFT_ACTIVE_COMPILATION_CONDITIONS = "B3_SANDBOX_PROOF KS2_SANDBOX_CHANNEL"/u,
+  );
+  assert.match(
+    await readFile(join(IOS_ROOT, 'App/ZipCentralDirectoryInspector.swift'), 'utf8'),
+    /#if KS2_SANDBOX_CHANNEL[\s\S]*b3-gateway\.eugnel\.uk[\s\S]*#else[\s\S]*ks2-gateway\.eugnel\.uk/u,
+  );
+});
+
+test('the iOS App Debug and Release configurations exclude sandbox identities', async () => {
+  const project = await readFile(PROJECT, 'utf8');
+  const appConfigurations = [...project.matchAll(
+    /\/\* (Debug|Release) \*\/ = \{\s*isa = XCBuildConfiguration;[\s\S]*?buildSettings = \{([\s\S]*?)\n\s*\};\s*name = \1;\s*\};/gu,
+  )].filter(([, , settings]) =>
+    settings.includes('PRODUCT_BUNDLE_IDENTIFIER = uk.eugnel.ks2spelling;'));
+  assert.equal(appConfigurations.length, 2);
+  for (const [, name, settings] of appConfigurations) {
+    for (const forbidden of [
+      'b3-gateway.eugnel.uk',
+      'b3-test-p256-2026-07',
+      'b3-sandbox-proof',
+    ]) {
+      assert.equal(settings.includes(forbidden), false, `${name} must exclude ${forbidden}`);
+    }
+  }
 });
 
 test('the iOS project owns a hosted StoreKit Test target and exact B3 product configuration', async () => {

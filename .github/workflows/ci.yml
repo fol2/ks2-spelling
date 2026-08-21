@@ -97,23 +97,16 @@ jobs:
         run: |
           npm run build:b4-development
           npm run report:b4-development:check
-      # The evidence-only-successor contract is now self-gating: it enforces only
-      # for commits that actually change the B4 development report, so ordinary
-      # code changes are no longer taxed. Evidence commits stay fully verified.
+      # History-sensitive: inspect the merge candidate range, not HEAD^ alone,
+      # and run on every event including merge_group and main. Ordinary commits
+      # still skip the subset contract after that range has been inspected.
       - name: Prove B4 evidence commits are evidence-only successors
-        if: github.event_name != 'merge_group' && github.ref != 'refs/heads/main'
-        run: |
-          if git diff --name-only HEAD^ HEAD | grep -qx "reports/b4/b4-development-report.json"; then
-            checkpoint="$(node -e "const fs=require('node:fs'); process.stdout.write(JSON.parse(fs.readFileSync('reports/b4/b4-development-report.json')).applicationCheckpoint.commit)")"
-            test "$(git rev-parse HEAD^)" = "$checkpoint"
-            node --input-type=module -e "import { B4_EVIDENCE_PATHS } from './scripts/collect-b4-development-evidence.mjs'; process.stdout.write(B4_EVIDENCE_PATHS.toSorted().join('\\n') + '\\n')" > /tmp/b4-expected-paths
-            git diff --name-only "$checkpoint"..HEAD > /tmp/b4-actual-paths
-            test -s /tmp/b4-actual-paths
-            grep -qx "reports/b4/b4-development-report.json" /tmp/b4-actual-paths
-            test -z "$(comm -13 /tmp/b4-expected-paths <(sort /tmp/b4-actual-paths))"
-          else
-            echo "No B4 evidence change in this commit; the evidence-only-successor contract does not apply."
-          fi
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: node scripts/prove-b4-evidence-successor.mjs
       - name: Validate B3 pending or complete evidence topology
         run: node scripts/build-b3-exit-report.mjs --check-ci
       - name: Package the verified domain and web build bytes
@@ -152,23 +145,16 @@ jobs:
           cache: npm
       - name: Validate B3 pending or complete evidence topology
         run: node scripts/build-b3-exit-report.mjs --check-ci
-      # Fail-SAFE native path filter: defaults to running native on any doubt
-      # (unresolved base, empty diff, non-push/merge event). It can only ever
-      # make a merge slower, never let a native change skip its compile.
+      # Fail-closed native path filter: bundled web payload inputs and native
+      # release inputs select both native jobs. Unresolved base, empty diff or
+      # certification always compile. It can only ever make a merge slower.
       - name: Detect native-affecting changes
         id: filter
-        run: |
-          base="${{ github.event.merge_group.base_sha }}"
-          [ -z "$base" ] && base="${{ github.event.before }}"
-          if [ "${{ inputs.certification }}" = "true" ]; then
-            echo "native=true" >> "$GITHUB_OUTPUT"
-          elif [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git rev-parse "$base^{commit}" >/dev/null 2>&1; then
-            echo "native=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "$base" HEAD | grep -qE '^(ios/|android/|capacitor\.config|package-lock\.json|config/dependency-policy\.json|config/maven-licence-policy\.json|config/production/pack-signing-public-keys\.json|android/gradle/verification-metadata\.xml|tests/fixtures/b3-hostile-zips/|scripts/(audit-dependencies|native-sync-check|certify-android-dependencies|test-ios-pack-inspector|prove-b3-ios-storekit-test|select-pack-signing-keyring|verify-ios-release-artefacts))'; then
-            echo "native=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "native=false" >> "$GITHUB_OUTPUT"
-          fi
+        env:
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          CERTIFICATION: ${{ inputs.certification }}
+        run: node scripts/detect-native-ci-changes.mjs
       - name: Set up Temurin 21 for CI only
         if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
@@ -271,18 +257,11 @@ jobs:
         run: node scripts/build-b3-exit-report.mjs --check-ci
       - name: Detect native-affecting changes
         id: filter
-        run: |
-          base="${{ github.event.merge_group.base_sha }}"
-          [ -z "$base" ] && base="${{ github.event.before }}"
-          if [ "${{ inputs.certification }}" = "true" ]; then
-            echo "native=true" >> "$GITHUB_OUTPUT"
-          elif [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git rev-parse "$base^{commit}" >/dev/null 2>&1; then
-            echo "native=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "$base" HEAD | grep -qE '^(ios/|android/|capacitor\.config|package-lock\.json|config/dependency-policy\.json|config/maven-licence-policy\.json|config/production/pack-signing-public-keys\.json|android/gradle/verification-metadata\.xml|tests/fixtures/b3-hostile-zips/|scripts/(audit-dependencies|native-sync-check|certify-android-dependencies|test-ios-pack-inspector|prove-b3-ios-storekit-test|select-pack-signing-keyring|verify-ios-release-artefacts))'; then
-            echo "native=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "native=false" >> "$GITHUB_OUTPUT"
-          fi
+        env:
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          CERTIFICATION: ${{ inputs.certification }}
+        run: node scripts/detect-native-ci-changes.mjs
       - name: Require Xcode 26 or newer
         if: steps.filter.outputs.native == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |

@@ -112,10 +112,15 @@ cd ../ks2-spelling-<slice> && npm ci        # never symlink node_modules —
   does not exercise is worse than no test.
 - Touched packs/commerce/proof surfaces ⇒ `npm run prove:b3:deterministic`
   must reproduce `reports/b3/deterministic-proof.json` byte-identically.
-- Any change under `ios/` or `android/` ⇒ trigger the full three-job run
-  yourself and record the honest result:
+- Any change the native path detector selects (bundled `src/`, `public/`,
+  `vite.config.js`, `ios/`, `android/`, and the other native-release inputs in
+  `scripts/lib/native-ci-path-filter.mjs`) is merge-gated on the native jobs.
+  PR-lane CI alone is NOT a merge basis for those changes. If you touch `ios/`
+  or `android/` directly, also trigger the full three-job run yourself and
+  record the honest result:
   `gh workflow run "B4 continuous integration" --ref <branch>`.
-  PR-lane CI alone is NOT a merge basis for native changes.
+  See `docs/operations/merge-tier-gate.md`. Source and a green PR run do not
+  prove live GitHub rulesets or merge-queue settings.
 - Audio `--check` on the legacy Starter/Full lanes only reproduces under
   ffmpeg 8.1.2 (9+ diverges at AAC frame trimming); new lanes are pinned to
   the ffmpeg that authored them. State your ffmpeg version in any audio

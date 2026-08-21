@@ -151,31 +151,25 @@ test('iOS runs normal and B3 unsigned builds, the pack inspector and StoreKit Te
   assert.match(ios, /npm run prove:b3:ios-storekit-test/);
 });
 
-test('branch evidence contract self-gates to evidence commits and stays a non-empty subset', async () => {
+test('branch evidence contract inspects the candidate range on every merge path', async () => {
   const domain = extractJob(await readWorkflow(), 'domain-web');
   const step = domain.slice(
     domain.indexOf('Prove B4 evidence commits are evidence-only successors'),
   );
-  // The contract no longer taxes ordinary commits: it enforces only when the
-  // commit actually changes the B4 development report (self-gating), and it
-  // does not run inside the merge queue.
-  assert.match(
-    step,
-    /if: github\.event_name != 'merge_group' && github\.ref != 'refs\/heads\/main'/,
+  assert.match(step, /run: node scripts\/prove-b4-evidence-successor\.mjs/);
+  assert.match(step, /EVENT_NAME: \$\{\{ github\.event_name \}\}/);
+  assert.match(step, /MERGE_GROUP_BASE_SHA: \$\{\{ github\.event\.merge_group\.base_sha \}\}/);
+  assert.match(step, /PULL_REQUEST_BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/);
+  assert.match(step, /PUSH_BEFORE_SHA: \$\{\{ github\.event\.before \}\}/);
+  assert.doesNotMatch(
+    domain,
+    /github\.event_name != 'merge_group' && github\.ref != 'refs\/heads\/main'/,
   );
-  assert.match(
-    step,
-    /if git diff --name-only HEAD\^ HEAD \| grep -qx "reports\/b4\/b4-development-report\.json"; then/,
+  assert.doesNotMatch(
+    step.slice(0, step.indexOf('node scripts/prove-b4-evidence-successor.mjs')),
+    /\bif:/,
   );
-  // When it does apply, the full subset contract is unchanged.
-  assert.match(step, /test "\$\(git rev-parse HEAD\^\)" = "\$checkpoint"/);
-  assert.match(step, /test -s \/tmp\/b4-actual-paths/);
-  assert.match(step, /grep -qx "reports\/b4\/b4-development-report\.json" \/tmp\/b4-actual-paths/);
-  assert.match(
-    step,
-    /test -z "\$\(comm -13 \/tmp\/b4-expected-paths <\(sort \/tmp\/b4-actual-paths\)\)"/,
-  );
-  assert.doesNotMatch(step, /diff -u \/tmp\/b4-expected-paths/);
+  assert.doesNotMatch(step, /HEAD\^/);
 });
 
 test('CI is tiered: pull requests run only the fast lane, native compiles are merge-gated', async () => {

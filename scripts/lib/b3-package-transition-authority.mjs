@@ -103,8 +103,7 @@ export const SDLC_DAILY_LOOP_PACKAGE_SCRIPT_ADDITIONS = Object.freeze({
     "node --test $(find tests -maxdepth 1 -name '*.test.mjs' ! -name '*.slow.test.mjs' ! -name 'native-wrapper-contract.test.mjs' ! -name 'b3-store-backed-live-capture.test.mjs' ! -name 'gateway-workerd-runtime.test.mjs')",
   'test:watch':
     "node --test --watch $(find tests -maxdepth 1 -name '*.test.mjs' ! -name '*.slow.test.mjs' ! -name 'native-wrapper-contract.test.mjs' ! -name 'b3-store-backed-live-capture.test.mjs' ! -name 'gateway-workerd-runtime.test.mjs')",
-  'test:changed':
-    `files=$(git diff --name-only --diff-filter=ACMR HEAD -- 'tests/*.test.mjs'); [ -n "$files" ] && node --test $files || echo 'no changed tests'`,
+  'test:changed': 'node scripts/run-changed-tests.mjs',
   'hooks:install': 'git config core.hooksPath scripts/git-hooks',
 });
 

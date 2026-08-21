@@ -63,6 +63,7 @@ test('SQLite profile store exposes the frozen async profile contract and selects
     'selectLearner',
   ]);
   assert.deepEqual(Object.keys(store.administration), [
+    'applyReplicaProfile',
     'resetLearning',
     'alignCatalogueLearning',
     'applyReplicaResult',
@@ -96,6 +97,57 @@ test('SQLite profile store exposes the frozen async profile contract and selects
       state_json: '{"data":{"achievements":{},"guardianMap":{},"pattern":{"wobblingByRuntimeItemId":{}},"persistenceWarning":null,"postMega":null,"prefs":{"autoSpeak":false},"progress":{}},"ui":{}}',
     }],
   );
+});
+
+test('replica profile apply preserves authority timestamps and is idempotent', async (t) => {
+  let clockSamples = 0;
+  const { connection, store } = await createHarness(t, {
+    now() {
+      clockSamples += 1;
+      return 999;
+    },
+  });
+  const incoming = profile('learner-a', {
+    nickname: 'Remote Ada',
+    createdAt: 100,
+    updatedAt: 200,
+  });
+
+  assert.deepEqual(
+    await store.administration.applyReplicaProfile(incoming),
+    incoming,
+  );
+  assert.equal(clockSamples, 0);
+  assert.deepEqual(
+    await store.administration.applyReplicaProfile(incoming),
+    incoming,
+  );
+  assert.equal(clockSamples, 0);
+  assert.deepEqual(
+    await connection.query(
+      'SELECT nickname, created_at, updated_at FROM learner_profiles WHERE learner_id = ?',
+      ['learner-a'],
+    ),
+    [{ nickname: 'Remote Ada', created_at: 100, updated_at: 200 }],
+  );
+
+  assert.deepEqual(
+    await store.administration.applyReplicaProfile({
+      ...incoming,
+      nickname: 'Stale Ada',
+      updatedAt: 150,
+    }),
+    incoming,
+  );
+  assert.deepEqual(
+    await store.administration.applyReplicaProfile({
+      ...incoming,
+      nickname: 'New Ada',
+      updatedAt: 300,
+    }),
+    { ...incoming, nickname: 'New Ada', updatedAt: 300 },
+  );
+  assert.equal(clockSamples, 0);
 });
 
 test('Full catalogue initialisation and reset remain scoped to the configured product store', async (t) => {

@@ -543,7 +543,8 @@ export async function createProductAppServices(options = {}) {
         replica: replicaPort,
         listProfiles: () => profileStore.profiles.listProfiles(),
         readSnapshot: (learnerId) => snapshotStore.read(learnerId),
-        writeProfile: (profile) => profileStore.profiles.writeProfile(profile),
+        writeProfile: (profile) =>
+          profileStore.administration.applyReplicaProfile(profile),
         async applyIncoming({ localSnapshot, remoteSnapshot, entitled, earned }) {
           const result = applyReplicaSnapshot({
             localSnapshot,

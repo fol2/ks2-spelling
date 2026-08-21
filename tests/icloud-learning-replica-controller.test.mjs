@@ -81,6 +81,7 @@ test('available replica pulls, merges profiles and publishes local learning', as
     readSnapshot: async () => emptyStarterSnapshot('learner-a'),
     writeProfile: async (profile) => {
       written.push(profile);
+      locals[0] = profile;
     },
     applyIncoming: async (input) => {
       applied.push(input);
@@ -90,10 +91,98 @@ test('available replica pulls, merges profiles and publishes local learning', as
   });
   assert.equal(written.length, 1);
   assert.equal(written[0].nickname, 'Ada');
+  assert.equal(written[0].updatedAt, 200);
   assert.equal(applied.length, 1);
   assert.equal(applied[0].remoteSnapshot.catalogueId, 'ks2-core:full');
   assert.equal(published.length, 1);
   assert.deepEqual(Object.keys(published[0]).sort(), ['profiles', 'snapshots']);
+});
+
+test('an identical pulled profile is not rewritten or timestamped again', async () => {
+  const seed = createFakeLearningReplica();
+  await seed.publish({ profiles: [remoteProfile], snapshots: [] });
+  let writes = 0;
+  await startICloudLearningReplica({
+    replica: seed,
+    listProfiles: async () => [remoteProfile],
+    readSnapshot: async () => emptyStarterSnapshot('learner-a'),
+    writeProfile: async () => { writes += 1; },
+    applyIncoming: async () => {},
+    entitled: false,
+    earned: false,
+  });
+  assert.equal(writes, 0);
+});
+
+test('a failed publish refreshes and retries once with merged learning', async () => {
+  const published = [];
+  let pulls = 0;
+  const replica = {
+    async getStatus() {
+      return {
+        available: true,
+        account: 'available',
+        container: 'iCloud.uk.eugnel.ks2spelling',
+      };
+    },
+    async pull() {
+      pulls += 1;
+      return { profiles: [remoteProfile], snapshots: [] };
+    },
+    async publish(envelope) {
+      published.push(envelope);
+      if (published.length === 1) throw new Error('serverRecordChanged');
+      return { accepted: envelope.profiles.length + envelope.snapshots.length };
+    },
+  };
+  const locals = [localProfile()];
+  await startICloudLearningReplica({
+    replica,
+    listProfiles: async () => locals,
+    readSnapshot: async () => emptyStarterSnapshot('learner-a'),
+    writeProfile: async (profile) => {
+      locals[0] = profile;
+    },
+    applyIncoming: async () => {},
+    entitled: false,
+    earned: false,
+  });
+  assert.equal(pulls, 2);
+  assert.equal(published.length, 2);
+  assert.equal(published[1].profiles[0].nickname, 'Ada');
+});
+
+test('a repeated publish failure is bounded and stays local-only', async () => {
+  let pulls = 0;
+  let publishes = 0;
+  const replica = {
+    async getStatus() {
+      return {
+        available: true,
+        account: 'available',
+        container: 'iCloud.uk.eugnel.ks2spelling',
+      };
+    },
+    async pull() {
+      pulls += 1;
+      return { profiles: [], snapshots: [] };
+    },
+    async publish() {
+      publishes += 1;
+      throw new Error('still conflicting');
+    },
+  };
+  await startICloudLearningReplica({
+    replica,
+    listProfiles: async () => [remoteProfile],
+    readSnapshot: async () => emptyStarterSnapshot('learner-a'),
+    writeProfile: async () => {},
+    applyIncoming: async () => {},
+    entitled: false,
+    earned: false,
+  });
+  assert.equal(pulls, 2);
+  assert.equal(publishes, 2);
 });
 
 test('controller does not write selected learner or PIN into the replica envelope', async () => {

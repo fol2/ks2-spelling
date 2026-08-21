@@ -93,6 +93,16 @@ function profileFromRow(row) {
   });
 }
 
+function profilesHaveSameValues(left, right) {
+  return left.learnerId === right.learnerId
+    && left.nickname === right.nickname
+    && left.yearGroup === right.yearGroup
+    && left.goal === right.goal
+    && left.colour === right.colour
+    && left.createdAt === right.createdAt
+    && left.updatedAt === right.updatedAt;
+}
+
 async function queryProfile(connection, learnerId) {
   const rows = await connection.query(
     'SELECT learner_id, nickname, year_group, goal, colour, created_at, updated_at FROM learner_profiles WHERE learner_id = ?',
@@ -537,6 +547,63 @@ export function createSQLiteSpellingProfileStore({
   });
 
   const administration = Object.freeze({
+    async applyReplicaProfile(candidate) {
+      const supplied = validateSpellingProfile(candidate);
+      return gate.run(() => runOwnedTransaction(connection, async () => {
+        const existing = await queryProfile(connection, supplied.learnerId);
+        if (existing !== null && supplied.updatedAt < existing.updatedAt) {
+          return structuredClone(existing);
+        }
+        const profile = validateSpellingProfile({
+          ...supplied,
+          createdAt: existing?.createdAt ?? supplied.createdAt,
+        });
+        if (existing !== null && profilesHaveSameValues(existing, profile)) {
+          return structuredClone(existing);
+        }
+        const result = existing === null
+          ? await connection.execute(
+            'INSERT INTO learner_profiles (learner_id, nickname, year_group, goal, colour, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [
+              profile.learnerId,
+              profile.nickname,
+              profile.yearGroup,
+              profile.goal,
+              profile.colour,
+              profile.createdAt,
+              profile.updatedAt,
+            ],
+          )
+          : await connection.execute(
+            'UPDATE learner_profiles SET nickname = ?, year_group = ?, goal = ?, colour = ?, updated_at = ? WHERE learner_id = ?',
+            [
+              profile.nickname,
+              profile.yearGroup,
+              profile.goal,
+              profile.colour,
+              profile.updatedAt,
+              profile.learnerId,
+            ],
+          );
+        if (result.changes !== 1) throw storeError('sqlite_profile_write_failed');
+        if (existing === null) {
+          await insertInitialSnapshot(
+            connection,
+            profile.learnerId,
+            profile.updatedAt,
+            initialCatalogue,
+          );
+        }
+        if ((await readSelectedLearnerIdUnchecked(connection)) === null) {
+          await writeSelectedLearner(
+            connection,
+            profile.learnerId,
+            profile.updatedAt,
+          );
+        }
+        return structuredClone(profile);
+      }));
+    },
     async resetLearning(learnerId) {
       requireLearnerId(learnerId);
       const sampledAt = sampleTimestamp(now);

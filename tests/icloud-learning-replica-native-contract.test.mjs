@@ -4,6 +4,20 @@ import test from 'node:test';
 
 const ROOT = new URL('../', import.meta.url);
 
+function assertAppStoreSafeContainerGate(ios) {
+  assert.doesNotMatch(ios, /import Security|@_silgen_name|SecTask/u);
+  assert.match(
+    ios,
+    /private static func isCloudKitRuntimeSupported\(\) -> Bool \{\s*#if targetEnvironment\(simulator\)\s*return false\s*#else\s*return true\s*#endif\s*\}/u,
+    'the Simulator degrades without constructing an unentitled CloudKit container',
+  );
+  assert.match(
+    ios,
+    /guard Self\.isCloudKitRuntimeSupported\(\) else \{[\s\S]*?CKContainer\(identifier: Self\.containerIdentifier\)/u,
+    'physical signed builds construct the configured CloudKit container after the Simulator gate',
+  );
+}
+
 test('ICloudLearningReplica is an owned private-database plugin with an Android no-op', async () => {
   const [ios, android, scene, activity, project, entitlements, pluginJs, services] =
     await Promise.all([
@@ -43,18 +57,7 @@ test('ICloudLearningReplica is an owned private-database plugin with an Android 
   assert.doesNotMatch(ios, /publicCloudDatabase/u);
   assert.match(ios, /iCloud\.uk\.eugnel\.ks2spelling/u);
   assert.match(ios, /#available\(iOS 17\.0, \*\)[\s\S]*CKSyncEngine/u);
-  assert.match(ios, /import Security/u);
-  assert.match(ios, /@_silgen_name\("SecTaskCreateFromSelf"\)/u);
-  assert.match(ios, /@_silgen_name\("SecTaskCopyValueForEntitlement"\)/u);
-  assert.match(ios, /SecTaskCreateFromSelf/u);
-  assert.match(ios, /SecTaskCopyValueForEntitlement/u);
-  assert.match(ios, /_CodeSignature/u);
-  assert.match(ios, /com\.apple\.developer\.icloud-container-identifiers/u);
-  assert.match(
-    ios,
-    /guard Self\.isContainerEntitled\(\) else \{[\s\S]*?CKContainer\(identifier: Self\.containerIdentifier\)/u,
-    'CKContainer is constructed only after the running process lists the container entitlement',
-  );
+  assertAppStoreSafeContainerGate(ios);
   assert.match(
     ios,
     /guard let container = resolvedContainer\(\) else \{[\s\S]*?"unsupported"[\s\S]*?container\.accountStatus/u,
@@ -151,4 +154,58 @@ test('reverting eager CKContainer construction leaves the replica contract red',
     eager,
     'the contract is load-bearing only if restoring the stored property is a detectable revert',
   );
+});
+
+test('restoring private entitlement symbols or enabling CloudKit in the Simulator leaves the native contract red', async () => {
+  const ios = await readFile(
+    new URL('ios/App/App/ICloudLearningReplicaPlugin.swift', ROOT),
+    'utf8',
+  );
+  const privateSymbolMutation = `${ios}\n@_silgen_name("SecTaskCreateFromSelf")`;
+  const simulatorMutation = ios.replace(
+    /#if targetEnvironment\(simulator\)\s*return false\s*#else\s*return true\s*#endif/u,
+    'return true',
+  );
+
+  assert.throws(() => assertAppStoreSafeContainerGate(privateSymbolMutation));
+  assert.throws(() => assertAppStoreSafeContainerGate(simulatorMutation));
+});
+
+test('CKSyncEngine saves retain server system fields and surface bounded conflicts', async () => {
+  const ios = await readFile(
+    new URL('ios/App/App/ICloudLearningReplicaPlugin.swift', ROOT),
+    'utf8',
+  );
+
+  assert.match(
+    ios,
+    /queryRecords[\s\S]*ReplicaRecordCache\.shared\.store\(records\)/u,
+    'queried records must retain their CloudKit system fields for later updates',
+  );
+  assert.match(
+    ios,
+    /case \.sentRecordZoneChanges\(let sent\):[\s\S]*sent\.savedRecords[\s\S]*failedRecordSaves[\s\S]*error\.serverRecord/u,
+    'sent saves must retain returned system fields and capture server conflicts',
+  );
+  assert.match(
+    ios,
+    /consumeFailures\(recordIDs\)[\s\S]*ReplicaError\.conflict/u,
+    'a failed record save must reject the publish so the domain can refresh and retry',
+  );
+  assert.match(
+    ios,
+    /context\.options\.scope\.contains\(\$0\)/u,
+    'record batches must respect the CKSyncEngine send scope',
+  );
+  assert.match(
+    ios,
+    /modifyRecords\([\s\S]*result\.saveResults[\s\S]*serverRecord/u,
+    'the iOS 15 and 16 fallback must retain saved records and surface conflicts',
+  );
+  assert.match(
+    ios,
+    /case \.accountChange:[\s\S]*ReplicaRecordCache\.shared\.clear\(\)/u,
+    'an iCloud account change must discard system fields owned by the previous account',
+  );
+  assert.doesNotMatch(ios, /publicCloudDatabase|import Security|@_silgen_name|SecTask/u);
 });

@@ -1178,15 +1178,13 @@ test('Design authority: the Codex roster is one tile width and its lower rails c
   );
 });
 
-/* Eight three-digit milestones cannot share one phone row at increased text
-   sizes. The rail therefore spends the vertical room the shared scrollport
-   made available: four equal columns below 46rem, and the original eight on a
-   tablet. Range-derived character boxes in the design harness measured one
-   line-box top for every figure and every word in the stats labels at
-   320x568, 375x667, 393x852 and 810x1080 with 16/20.8/25.6px root type. The
-   rail remained fully reachable, horizontal overflow stayed at 0px, and its
-   tab-bar clearance measured 33.58-34.67px across all twelve cells. */
-test('Design authority: the Codex milestone rail re-composes before figures split under text pressure (#256)', async () => {
+/* This source-level check holds the declarations selected after the #256
+   design-harness run: four columns below 46rem, eight from 46rem, no return to
+   the squeezed flex-item declarations, and whole-label wrapping overrides.
+   It does not render line boxes or prove clipping, overflow, scrolling,
+   reachability or tab-bar clearance; that runtime evidence belongs in the
+   dated measurement record. */
+test('Design authority: the Codex source declares compact and tablet milestone grids with whole-label wrapping (#256)', async () => {
   const rules = cssRulesWithMedia(await read('src/app/app.css'));
   const compactWidths = [320, 375, 393, 735];
 
@@ -1196,7 +1194,7 @@ test('Design authority: the Codex milestone rail re-composes before figures spli
     assert.equal(
       ladder.width,
       '100%',
-      `${width}px: the two-row milestone rail must still span the Codex column`,
+      `${width}px: the compact-grid source declaration must span the Codex column`,
     );
     assert.equal(
       ladder['grid-template-columns'],
@@ -1210,7 +1208,7 @@ test('Design authority: the Codex milestone rail re-composes before figures spli
     assert.equal(
       tablet['grid-template-columns'],
       'repeat(8, minmax(0, 1fr))',
-      `${width}px: at and above 46rem the measured tablet composition keeps all eight milestones on one row`,
+      `${width}px: at and above 46rem the source must declare eight milestone columns`,
     );
   }
 

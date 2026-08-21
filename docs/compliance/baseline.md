@@ -124,13 +124,10 @@ full-width four-column, two-row grid below 46rem and retain eight columns on a
 tablet; the squeezed `flex: 1; min-width: 0` composition is gone. Both the
 milestone figures and the stats labels override the product-wide
 `overflow-wrap: anywhere` with `normal`, so labels wrap only at word boundaries.
-Range-derived character boxes measured one line-box top for every milestone
-figure and every word at 320×568, 375×667, 393×852 and 810×1080 with
-16/20.8/25.6px root type. Across all twelve cells horizontal overflow remained
-0px, the rail was fully reachable, and tab-bar clearance remained
-**33.58–34.67px**. Contract test: `tests/design-authority-checks.test.mjs`
-("the Codex milestone rail re-composes before figures split under text
-pressure").
+The runtime evidence is recorded in
+`docs/records/2026-08-21-codex-rail-text-pressure.md`. Structural contract test:
+`tests/design-authority-checks.test.mjs` ("the Codex source declares compact and
+tablet milestone grids with whole-label wrapping").
 
 ### Fact singularity & other composition
 

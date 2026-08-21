@@ -163,6 +163,11 @@ async function assertResignRejectsWithoutReady(shards, pattern, options = {}) {
   try {
     await assert.rejects(run(), pattern);
     assert.equal(claimedReady(logs, writes), false);
+    await assert.rejects(access(join(output, 'ceremony-metadata.json')));
+    await assert.rejects(
+      readCompleteCeremonyDirectory({ ceremonyDir: resolve(output, 'objects') }),
+      /missing|exactly 15 archives|cannot read ceremony directory/i,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(output, { recursive: true, force: true });
@@ -261,6 +266,29 @@ test('a substituted archive name for an otherwise fifteen-shard report must not 
   );
 });
 
+test('a wrong shard version in an otherwise fifteen-shard report must not write ready', async () => {
+  await assertResignRejectsWithoutReady(
+    canonicalShards((shards) => {
+      shards[3] = {
+        ...shards[3],
+        version: '9.9.9',
+      };
+    }),
+    /version|does not match|canonical/i,
+    { outputPrefix: 'ks2-resign-version-' },
+  );
+});
+
+test('a wrong packId in an otherwise fifteen-shard report must not write ready', async () => {
+  await assertResignRejectsWithoutReady(
+    canonicalShards((shards) => {
+      shards[2] = shardFixture('full-ks2-shard-99');
+    }),
+    /packId|does not match|canonical/i,
+    { outputPrefix: 'ks2-resign-wrong-id-' },
+  );
+});
+
 test('missing nested dist-first|dist-second archives fail and must not claim or write ready', async () => {
   await assertResignRejectsWithoutReady(
     canonicalShards((shards) => {
@@ -353,12 +381,18 @@ test('producer output is a complete ceremony that the object-tree reader and liv
     assert.equal(objectDirectory, resolve(output, 'objects'));
     const inventory = await readCompleteCeremonyDirectory({ ceremonyDir: objectDirectory });
     assert.equal(inventory.size, 30);
-    await writeFile(join(objectDirectory, 'unexpected.txt'), 'nope');
+    await writeFile(join(objectDirectory, 'ceremony-metadata.json'), jsonBytes({ status: 'ready' }));
     await assert.rejects(
       readCompleteCeremonyDirectory({ ceremonyDir: objectDirectory }),
-      /extra unexpected\.txt/i,
+      /extra ceremony-metadata\.json/i,
     );
-    await unlink(join(objectDirectory, 'unexpected.txt'));
+    await unlink(join(objectDirectory, 'ceremony-metadata.json'));
+    await writeFile(join(objectDirectory, 'packs/ceremony-metadata.json'), jsonBytes({ status: 'ready' }));
+    await assert.rejects(
+      readCompleteCeremonyDirectory({ ceremonyDir: objectDirectory }),
+      /extra packs\/ceremony-metadata\.json/i,
+    );
+    await unlink(join(objectDirectory, 'packs/ceremony-metadata.json'));
     const inventoryAfter = await readCompleteCeremonyDirectory({ ceremonyDir: objectDirectory });
     assert.equal(inventoryAfter.size, 30);
     const objects = [];
@@ -398,6 +432,45 @@ test('producer output is a complete ceremony that the object-tree reader and liv
       clock: () => new Date(PRODUCTION_VERIFICATION_INSTANT),
     });
     assert.equal(document.packs.length, 15);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(output, { recursive: true, force: true });
+  }
+});
+
+test('a subset authoring report after a previous success does not leave ready or an accepted object tree', async () => {
+  const { root, output, run } = await resignAgainstShards(canonicalShards(), {
+    outputPrefix: 'ks2-resign-subset-after-success-',
+  });
+  try {
+    await run();
+    await access(join(output, 'ceremony-metadata.json'));
+    await readCompleteCeremonyDirectory({ ceremonyDir: resolve(output, 'objects') });
+    await writeFile(
+      join(root, 'config/packs/full-ks2-shards/authoring-report.json'),
+      jsonBytes({
+        schemaVersion: 1,
+        status: 'pass',
+        shards: [
+          shardFixture('full-ks2-shard-01'),
+          shardFixture('full-ks2-shard-02'),
+        ].map((shard) => ({
+          packId: shard.packId,
+          version: shard.version,
+          archiveName: shard.archiveName,
+          canonicalManifestSha256: sha256(shard.canonicalManifestBytes),
+          archiveSha256: sha256(shard.archiveBytes),
+          archiveBytes: shard.archiveBytes.length,
+          archiveMd5Etag: md5(shard.archiveBytes),
+        })),
+      }),
+    );
+    await assert.rejects(run(), /exactly 15 shards|canonical/i);
+    await assert.rejects(access(join(output, 'ceremony-metadata.json')));
+    await assert.rejects(
+      readCompleteCeremonyDirectory({ ceremonyDir: resolve(output, 'objects') }),
+      /missing|exactly 15 archives|cannot read ceremony directory/i,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(output, { recursive: true, force: true });

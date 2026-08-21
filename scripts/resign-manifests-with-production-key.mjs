@@ -241,19 +241,19 @@ export async function main({
   log = (line) => console.log(line),
   now = () => new Date(),
 } = {}) {
-  const privateKeyPath = await ensureEnv('CEREMONY_PRIVATE_KEY_PATH', env);
   const ceremonyOutputDir = await ensureEnv('CEREMONY_OUTPUT_DIR', env);
+  const privateKeyPath = await ensureEnv('CEREMONY_PRIVATE_KEY_PATH', env);
   const keyId = await ensureEnv('CEREMONY_KEY_ID', env);
-
-  const privateKeyPem = await readFileImpl(privateKeyPath, 'utf8');
-  const shards = await loadShardsToSign(root, readFileImpl);
-  log(`✓ Loaded ${shards.length} shards to re-sign with key ${keyId}`);
 
   await mkdirImpl(ceremonyOutputDir, { recursive: true });
   const objectDirectory = resolve(ceremonyOutputDir, CEREMONY_OBJECT_DIRECTORY_RELATIVE);
   const metadataPath = resolve(ceremonyOutputDir, CEREMONY_OPERATIONAL_METADATA_RELATIVE);
   await ignoreEnoent(() => unlinkImpl(metadataPath));
   await ignoreEnoent(() => rmImpl(objectDirectory, { recursive: true, force: true }));
+
+  const privateKeyPem = await readFileImpl(privateKeyPath, 'utf8');
+  const shards = await loadShardsToSign(root, readFileImpl);
+  log(`✓ Loaded ${shards.length} shards to re-sign with key ${keyId}`);
 
   const staged = [];
   for (const shard of shards) {

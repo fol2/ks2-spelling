@@ -65,7 +65,7 @@ authorised Cloudflare OAuth session:
 ```bash
 node scripts/generate-production-pack-object-authority.mjs --check
 node scripts/generate-production-pack-object-authority.mjs --write
-node scripts/generate-production-pack-object-authority.mjs --check --ceremony-dir <dir>
+node scripts/generate-production-pack-object-authority.mjs --check --ceremony-dir "$CEREMONY_OUTPUT_DIR/objects"
 ```
 
 `--write` lists the live bucket, GETs each of the thirty objects, records the
@@ -136,7 +136,7 @@ the nested outputs `.native-build/packs/<packId>/dist-first|dist-second/<archive
 `scripts/resign-manifests-with-production-key.mjs` requires the authoring
 report to list the exact fifteen canonical pack IDs, versions and archive
 names in order — a subset, duplicate, extra, reordered or substituted shard
-list is not ready. It preflights every nested archive, removes stale
-`ceremony-metadata.json` and the `objects/` tree before writing, then stages
-all thirty objects under `objects/` and writes `status: ready` last. A failed
-rerun must not leave a current ready marker or a complete object tree.
+list is not ready. It removes stale `ceremony-metadata.json` and the `objects/` tree before
+validating the authoring report, then preflights every nested archive, stages
+all thirty objects under `objects/`, and writes `status: ready` last. A failed
+run must not leave a current ready marker or a complete object tree.

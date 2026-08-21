@@ -179,7 +179,10 @@ Kids Category is built around:
   13's nudge language is confined to data.
 
 Execution and the trigger's domain definition are
-[#163](https://github.com/fol2/ks2-spelling/issues/163).
+[#163](https://github.com/fol2/ks2-spelling/issues/163). The child-facing
+surface is `src/app/StarterCompleteMoment.jsx`; the predicate lives in
+`src/app/starter-complete-moment.js` and the presented flag in
+`src/platform/database/sqlite-starter-complete-moment-store.js`.
 
 ### Price
 

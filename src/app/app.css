@@ -3693,6 +3693,62 @@ select {
   flex: 1 1 8rem;
 }
 
+/* --- starter-complete signpost ------------------------------------------- */
+
+.starter-complete-moment {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding:
+    max(1.25rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+    max(1.25rem, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)))
+    max(1.25rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))
+    max(1.25rem, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+  background: rgb(6 10 16 / 72%);
+}
+
+.starter-complete-moment > div {
+  display: grid;
+  width: min(24rem, 100%);
+  gap: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 1.75rem;
+  padding: 1.35rem;
+  background: var(--paper-raised);
+  box-shadow: 0 30px 60px -26px rgb(0 0 0 / 70%);
+}
+
+.starter-complete-moment p {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.starter-complete-moment h2 {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.2;
+}
+
+.starter-complete-moment > div > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.starter-complete-moment > div > div:last-child button {
+  flex: 1 1 8rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starter-complete-moment {
+    background: rgb(6 10 16 / 82%);
+  }
+}
+
 /* --- parent gate and area ------------------------------------------------ */
 
 .parent-scene {

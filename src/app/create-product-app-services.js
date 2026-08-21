@@ -33,8 +33,17 @@ import {
   createSQLiteRoundBaselineStore,
 } from '../platform/database/sqlite-round-baseline-store.js';
 import {
+  createSQLiteStarterCompleteMomentStore,
+  deleteStarterCompleteMomentInTransaction,
+} from '../platform/database/sqlite-starter-complete-moment-store.js';
+import {
   createSQLiteSoundPrefsStore,
 } from '../platform/database/sqlite-sound-prefs-store.js';
+import {
+  monstersFromSnapshot,
+  readAndConsumeStarterCompleteMoment,
+  remainingStarterWordCount,
+} from './starter-complete-moment.js';
 import { createCapacitorAppLifecycle } from '../platform/lifecycle/capacitor-app-lifecycle.js';
 import { createSfxEngine } from './sfx/sfx-engine.js';
 import {
@@ -390,6 +399,7 @@ export async function createProductAppServices(options = {}) {
       gate,
       now,
       initialCatalogueId: activeCatalogueId,
+      onRemoveLearnerMetadata: deleteStarterCompleteMomentInTransaction,
     });
     const [initialProfiles, initialSelectedLearnerId] = await Promise.all([
       profileStore.profiles.listProfiles(),
@@ -403,11 +413,31 @@ export async function createProductAppServices(options = {}) {
       gate,
       now,
     });
+    const starterCompleteMomentStore = createSQLiteStarterCompleteMomentStore({
+      connection,
+      gate,
+      now,
+    });
+    const remainingWordCount = remainingStarterWordCount({
+      starterCatalogue,
+      fullCatalogue,
+    });
     let initialRoundBaseline = null;
     if (initialSnapshot?.subjectState?.ui?.phase === 'session') {
       initialRoundBaseline = await roundBaselineStore
         .read(initialSelectedLearnerId)
         .catch(() => null);
+    }
+    let initialStarterCompleteMomentPresented = false;
+    if (initialSnapshot) {
+      initialStarterCompleteMomentPresented = await readAndConsumeStarterCompleteMoment({
+        store: starterCompleteMomentStore,
+        learnerId: initialSnapshot.learnerId,
+        monsters: monstersFromSnapshot(initialSnapshot),
+        starterCatalogue,
+        remainingWordCount,
+        source: 'restart',
+      }).catch(() => false);
     }
     learning = createProductLearningController({
       repository: commandRepository,
@@ -416,6 +446,8 @@ export async function createProductAppServices(options = {}) {
       initialSnapshot,
       roundBaselineStore,
       initialRoundBaseline,
+      starterCompleteMomentStore,
+      initialStarterCompleteMomentPresented,
       onCommandCommitted: (learnerId) =>
         replicaHandle.publishLearner(learnerId),
       random,
@@ -520,6 +552,18 @@ export async function createProductAppServices(options = {}) {
             earned,
           });
           await profileStore.administration.applyReplicaResult(result);
+          await readAndConsumeStarterCompleteMoment({
+            store: starterCompleteMomentStore,
+            learnerId: result.working.learnerId,
+            monsters: monstersFromSnapshot(result.working),
+            starterCatalogue,
+            remainingWordCount,
+            entitled: entitled === true,
+            source: 'replica',
+          }).catch(() => undefined);
+          if (learning.getState().learnerId === result.working.learnerId) {
+            await learning.selectLearner(result.working.learnerId).catch(() => undefined);
+          }
         },
         entitled,
         earned,
@@ -567,6 +611,7 @@ export async function createProductAppServices(options = {}) {
       // honestly whether a finished install is already live or needs a
       // relaunch, because the switch is startup-only.
       catalogueId: catalogue.catalogueId,
+      remainingWordCount,
       dataPolicy,
       controller,
       learning,

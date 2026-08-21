@@ -155,6 +155,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
       canEarnToday: false,
     },
     roundBaseline: null,
+    starterCompleteMomentPresented: false,
     achievements: [],
     records: { milestones: [] },
     actionError: null,
@@ -973,5 +974,87 @@ test('the free Starter publishes both year bands and practises Years 5-6 (#168)'
     '5-6',
   );
 
+  await controller.dispose();
+});
+
+test('selectLearner consumes an already-secure Starter band without a later round show', async () => {
+  const writes = [];
+  const store = {
+    async read() {
+      return null;
+    },
+    async write(learnerId, record) {
+      writes.push({ learnerId, record: structuredClone(record) });
+      return structuredClone(record);
+    },
+  };
+  const snapshot = structuredClone(expectedB2Snapshot('learner-a'));
+  snapshot.monsterStateByRewardTrackId = {
+    'spelling-core-inklet': {
+      rewardTrackId: 'spelling-core-inklet',
+      packId: 'ks2-core',
+      monsterId: 'inklet',
+      branch: 'b1',
+      secureCount: 10,
+      caught: true,
+      derivedStage: 1,
+      earnedStageHighWater: 1,
+    },
+  };
+  const world = createLearningWorld([snapshot]);
+  const controller = world.createController(null, {
+    starterCompleteMomentStore: store,
+  });
+  await controller.selectLearner('learner-a');
+  assert.equal(controller.getState().starterCompleteMomentPresented, true);
+  assert.deepEqual(writes, [{
+    learnerId: 'learner-a',
+    record: { presented: true },
+  }]);
+  await controller.dispose();
+});
+
+test('markStarterCompleteMomentPresented persists the one-time flag', async () => {
+  const writes = [];
+  const store = {
+    async read() {
+      return null;
+    },
+    async write(learnerId, record) {
+      writes.push({ learnerId, record: structuredClone(record) });
+      return structuredClone(record);
+    },
+  };
+  const world = createLearningWorld();
+  const controller = world.createController(undefined, {
+    starterCompleteMomentStore: store,
+  });
+  await controller.markStarterCompleteMomentPresented();
+  assert.equal(controller.getState().starterCompleteMomentPresented, true);
+  assert.deepEqual(writes, [{
+    learnerId: 'learner-a',
+    record: { presented: true },
+  }]);
+  await controller.dispose();
+});
+
+test('markStarterCompleteMomentPresented leaves the flag unset when write fails', async () => {
+  const store = {
+    async read() {
+      return null;
+    },
+    async write() {
+      throw new Error('disk_full');
+    },
+  };
+  const world = createLearningWorld();
+  const controller = world.createController(undefined, {
+    starterCompleteMomentStore: store,
+  });
+  await assert.rejects(
+    controller.markStarterCompleteMomentPresented(),
+    /disk_full/,
+  );
+  assert.equal(controller.getState().starterCompleteMomentPresented, false);
   await controller.dispose();
 });

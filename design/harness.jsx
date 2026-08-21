@@ -23,10 +23,19 @@
  *   ?unfound-companion=true   Setup: band companion asleep (silhouette + hint).
  *                             Selects the Y3–4 set so Inklet paints unfound;
  *                             vocabulary set rail stays visible.
+ *   ?starter-complete=true    Results: the one-time Starter-complete signpost
+ *                             after a Y3–4 band crossing (celebration first).
  */
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import ProductApp from '../src/app/ProductApp.jsx';
+import {
+  remainingStarterWordCount,
+} from '../src/app/starter-complete-moment.js';
+import {
+  loadFullSpellingCatalogue,
+  loadStarterSpellingCatalogue,
+} from '../src/domain/spelling/index.js';
 import AppErrorBoundary from '../src/app/AppErrorBoundary.jsx';
 import AppLoadingShell from '../src/app/AppLoadingShell.jsx';
 import '../src/app/app.css';
@@ -74,6 +83,36 @@ const WORD_MATERIAL = Object.fromEntries([
     familyWords,
   },
 ]));
+
+const REMAINING_STARTER_WORDS = remainingStarterWordCount({
+  starterCatalogue: loadStarterSpellingCatalogue(),
+  fullCatalogue: loadFullSpellingCatalogue(),
+});
+
+const STARTER_COMPLETE_MONSTERS = [
+  {
+    rewardTrackId: 'spelling-core-inklet',
+    packId: 'ks2-core',
+    monsterId: 'inklet',
+    thresholds: [1, 10, 30, 60, 100],
+    branch: 'b1',
+    secureCount: 10,
+    caught: true,
+    derivedStage: 1,
+    earnedStageHighWater: 1,
+  },
+  {
+    rewardTrackId: 'spelling-core-glimmerbug',
+    packId: 'ks2-core',
+    monsterId: 'glimmerbug',
+    thresholds: [1, 10, 30, 60, 100],
+    branch: 'b1',
+    secureCount: 0,
+    caught: false,
+    derivedStage: 0,
+    earnedStageHighWater: 0,
+  },
+];
 
 const MONSTERS = [
   { rewardTrackId: 'r1', packId: 'ks2-core', monsterId: 'inklet', thresholds: [1, 10, 30, 60, 100], branch: 'b1', secureCount: 34, caught: true, derivedStage: 3, earnedStageHighWater: 3 },
@@ -269,6 +308,7 @@ function makeServices(query) {
   ];
   const empty = query.has('empty');
   const unfoundCompanion = query.get('unfound-companion') === 'true';
+  const starterComplete = query.get('starter-complete') === 'true';
   const controller = store({
     status: 'ready',
     profiles: empty ? [] : profiles,
@@ -285,17 +325,25 @@ function makeServices(query) {
   // best found creature, so both band tracks are unmarked when the flag is on.
   const harnessMonsters = empty
     ? []
-    : (unfoundCompanion
-      ? MONSTERS.map((monster) => (
-        monster.monsterId === 'inklet' || monster.monsterId === 'glimmerbug'
-          ? { ...monster, caught: false, secureCount: 0, derivedStage: 0, earnedStageHighWater: 0 }
-          : monster
-      ))
-      : MONSTERS);
-  const rosterBeforeRound = harnessMonsters.map((monster) => ({
-    ...monster,
-    secureCount: Math.max(0, (monster.secureCount ?? 0) - 5),
-  }));
+    : (starterComplete
+      ? STARTER_COMPLETE_MONSTERS
+      : (unfoundCompanion
+        ? MONSTERS.map((monster) => (
+          monster.monsterId === 'inklet' || monster.monsterId === 'glimmerbug'
+            ? { ...monster, caught: false, secureCount: 0, derivedStage: 0, earnedStageHighWater: 0 }
+            : monster
+        ))
+        : MONSTERS));
+  const rosterBeforeRound = starterComplete
+    ? STARTER_COMPLETE_MONSTERS.map((monster) => (
+      monster.monsterId === 'inklet'
+        ? { ...monster, secureCount: 9, derivedStage: 0, earnedStageHighWater: 0 }
+        : monster
+    ))
+    : harnessMonsters.map((monster) => ({
+      ...monster,
+      secureCount: Math.max(0, (monster.secureCount ?? 0) - 5),
+    }));
   const guardian = GUARDIAN_STATES[query.get('guardian')] ?? null;
   const mode = query.get('mode') ?? (guardian ? 'guardian' : 'smart');
   const campHighWater = guardian?.campHighWater ?? 3;
@@ -338,6 +386,7 @@ function makeServices(query) {
         : null,
       canEarnToday: guardian?.mission.canStartRewardBearing ?? false,
     },
+    starterCompleteMomentPresented: false,
     actionError: null,
   });
   const parent = store({
@@ -477,6 +526,9 @@ function makeServices(query) {
           summary: { ...SUMMARY, endedEarly: true },
         });
       },
+      async markStarterCompleteMomentPresented() {
+        learning.set({ starterCompleteMomentPresented: true });
+      },
       async dispose() {},
     },
     audioAvailability: {
@@ -519,6 +571,8 @@ function makeServices(query) {
       },
       async recover() {}, async dispose() {},
     },
+    remainingWordCount: REMAINING_STARTER_WORDS,
+    catalogueId: 'ks2-core:starter',
     parentAdministration: { async resetLearning() {} },
     audio: { async play() {} },
     haptics: {

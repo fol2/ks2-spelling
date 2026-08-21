@@ -1,6 +1,7 @@
 import {
   applySpellingCommand,
   canonicalGuardianDay,
+  loadStarterSpellingCatalogue,
   projectSpellingRevisionMission,
   validateCatalogueV1,
   validateSpellingCommandSnapshotV1,
@@ -8,6 +9,9 @@ import {
 import { setupExpeditionCompanion } from './codex-model.js';
 import { earlyRoundSummary, spellingOnly } from './practice-feel.js';
 import { achievementChips } from './records-model.js';
+import {
+  readAndConsumeStarterCompleteMoment,
+} from './starter-complete-moment.js';
 
 const LEARNER_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 // The vendored contract's own buffered-voice identifiers; the bundled
@@ -259,6 +263,7 @@ function createState({
   revisionMission = null,
   achievements = [],
   records = EMPTY_RECORDS,
+  starterCompleteMomentPresented = false,
 }) {
   const ui = snapshot?.subjectState?.ui;
   const camp = campProjection(snapshot);
@@ -285,6 +290,7 @@ function createState({
         canEarnToday: revisionMission?.canStartRewardBearing ?? false,
       },
       roundBaseline,
+      starterCompleteMomentPresented,
       actionError,
     }),
     achievements,
@@ -304,6 +310,8 @@ export function createProductLearningController({
   initialSnapshot = null,
   roundBaselineStore = null,
   initialRoundBaseline = null,
+  starterCompleteMomentStore = null,
+  initialStarterCompleteMomentPresented = false,
   onCommandCommitted = null,
   random,
   now = Date.now,
@@ -327,8 +335,18 @@ export function createProductLearningController({
   ) {
     throw new TypeError('roundBaselineStore must expose read() and write().');
   }
+  if (
+    starterCompleteMomentStore !== null &&
+    (typeof starterCompleteMomentStore !== 'object' ||
+      typeof starterCompleteMomentStore.read !== 'function' ||
+      typeof starterCompleteMomentStore.write !== 'function')
+  ) {
+    throw new TypeError('starterCompleteMomentStore must expose read() and write().');
+  }
   const catalogue = validateCatalogueV1(candidateCatalogue);
+  const starterCatalogueForMoment = loadStarterSpellingCatalogue();
   let snapshot = validateInitialSnapshot(initialSnapshot, catalogue);
+  let starterCompleteMomentPresented = initialStarterCompleteMomentPresented === true;
   let revisionMissionCache = null;
   let achievementsCache = null;
   let recordsCache = null;
@@ -396,6 +414,7 @@ export function createProductLearningController({
     revisionMission: revisionMissionProjection(),
     achievements: achievementsProjection(),
     records: recordsProjection(),
+    starterCompleteMomentPresented,
   });
   let queue = Promise.resolve();
   let disposed = false;
@@ -415,7 +434,19 @@ export function createProductLearningController({
       revisionMission: revisionMissionProjection(),
       achievements: achievementsProjection(),
       records: recordsProjection(),
+      starterCompleteMomentPresented,
     }));
+  }
+
+  async function consumeStarterCompleteMoment(source) {
+    if (!starterCompleteMomentStore || !snapshot) return;
+    starterCompleteMomentPresented = await readAndConsumeStarterCompleteMoment({
+      store: starterCompleteMomentStore,
+      learnerId: snapshot.learnerId,
+      monsters: monsterProjection(snapshot, catalogue),
+      starterCatalogue: starterCatalogueForMoment,
+      source,
+    }).catch(() => starterCompleteMomentPresented);
   }
 
   function enqueue(operation) {
@@ -541,6 +572,7 @@ export function createProductLearningController({
           achievementsCache = null;
           recordsCache = null;
           roundBaseline = null;
+          starterCompleteMomentPresented = false;
           publishFromSnapshot({ screen: 'profiles' });
           return null;
         }
@@ -558,6 +590,7 @@ export function createProductLearningController({
           achievementsCache = null;
           recordsCache = null;
           roundBaseline = null;
+          starterCompleteMomentPresented = false;
           if (
             roundBaselineStore &&
             snapshot.subjectState?.ui?.phase === 'session'
@@ -567,6 +600,7 @@ export function createProductLearningController({
             );
             roundBaseline = adoptRoundBaseline(stored, snapshot);
           }
+          await consumeStarterCompleteMoment('restart');
           publishFromSnapshot({ screen: initialScreen(snapshot) });
           return learnerId;
         } catch (error) {
@@ -767,6 +801,20 @@ export function createProductLearningController({
         { type: 'end-session', payload: {} },
         summary ? { summary } : {},
       );
+    },
+    markStarterCompleteMomentPresented() {
+      return enqueue(async () => {
+        if (!snapshot) {
+          throw controllerError('product_learning_learner_required');
+        }
+        if (starterCompleteMomentStore) {
+          await starterCompleteMomentStore.write(snapshot.learnerId, {
+            presented: true,
+          });
+        }
+        starterCompleteMomentPresented = true;
+        publishFromSnapshot({ screen: state.screen });
+      });
     },
     async dispose() {
       if (disposed) return;

@@ -283,7 +283,7 @@ test('the ceremony reader accepts both the wizard packs/ layout and the unprefix
   }
 });
 
-test('check mode fails when a synthetic snapshot drifts from the committed document', async () => {
+test('two synthetic pack-object documents fail comparison when one hashed object drifts', async () => {
   const objects = syntheticPackObjects();
   const document = await generateProductionPackObjectAuthority({
     root: ROOT,
@@ -299,9 +299,9 @@ test('check mode fails when a synthetic snapshot drifts from the committed docum
     () => assertDocumentsMatch(
       driftedDocument,
       document,
-      'live bucket differs from the committed production pack-object authority',
+      'synthetic pack-object documents differ',
     ),
-    /live bucket differs/i,
+    /synthetic pack-object documents differ/i,
   );
 });
 

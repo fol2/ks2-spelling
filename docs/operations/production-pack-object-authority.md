@@ -91,6 +91,11 @@ Do not hand-edit the committed document. Do not copy
 `audit-dependencies --write`: this document is not imported from `src/`, so it
 does not enter the WebView bundle inventory.
 
+The 2026-08-21 original live read, and the later blocked independent
+recheck, are recorded in
+`docs/records/2026-08-21-production-pack-object-authority.md`. That record
+is not GREEN and is not ceremony proof.
+
 ## Remaining gates
 
 Runtime serving and Worker channel-selection are out of scope for this

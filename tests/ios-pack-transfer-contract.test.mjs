@@ -66,7 +66,7 @@ test('iOS validates capability authority before constructing a URLRequest', asyn
   assert.doesNotMatch(source, /withIntermediateDirectories:\s*true/);
 });
 
-test('the B3 iOS inspector harness compiles with the sandbox gateway condition', async () => {
+test('the B3 iOS inspector harness script supplies the sandbox gateway condition', async () => {
   const script = await readFile(
     new URL('scripts/test-ios-pack-inspector.mjs', ROOT),
     'utf8',

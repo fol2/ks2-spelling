@@ -605,7 +605,7 @@ async function seedLearner(services) {
   return 'learner-composition';
 }
 
-test('a committed learning command publishes its durable updated snapshot to the live iCloud replica', async (t) => {
+test('a committed learning command publishes its durable updated snapshot through the composed iCloud replica port', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'ks2-learning-replica-publish-'));
   t.after(() => rm(directory, { force: true, recursive: true }));
   const databasePath = join(directory, 'replica.sqlite');

@@ -12,42 +12,17 @@ import { createB4RoundController } from '../app/b4-round-controller.js';
 import { createB4LocalAudioPlayer } from '../app/b4-local-audio.js';
 import {
   B4_PRODUCT_IDENTIFIER,
-  B4_START_TIMESTAMP,
-  commitB4CommandPlan,
-  createB4LearnerSnapshot,
   loadB4SpellingCatalogue,
 } from '../app/b4-round-contract.js';
+import { createB4HarnessRepository } from './b4-harness-repository.js';
 
 const bridgeMs = Number(new URLSearchParams(location.search).get('bridgeMs')) || 0;
-
-let snapshot = createB4LearnerSnapshot();
-
-function commitPlan(plan) {
-  snapshot = commitB4CommandPlan(snapshot, plan);
-}
-
-const wait = (ms) => (ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : null);
-
-const repository = {
-  async runCommandTransaction(_learnerId, planner) {
-    await wait(bridgeMs);
-    const plan = planner(structuredClone(snapshot), {
-      nowMs: B4_START_TIMESTAMP + snapshot.revision,
-    });
-    commitPlan(plan);
-    return plan;
-  },
-};
+const { repository, snapshotStore } = createB4HarnessRepository({ bridgeMs });
 
 const controller = createB4RoundController({
   catalogue: loadB4SpellingCatalogue(),
   repository,
-  snapshotStore: {
-    async read() {
-      await wait(bridgeMs);
-      return structuredClone(snapshot);
-    },
-  },
+  snapshotStore,
   audioManifest: manifest,
   playAudio: createB4LocalAudioPlayer(),
 });

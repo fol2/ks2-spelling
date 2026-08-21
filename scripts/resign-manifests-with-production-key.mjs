@@ -11,9 +11,10 @@
  *
  * Writes the exact object tree at CEREMONY_OUTPUT_DIR/objects/packs/... and
  * operational ceremony-metadata.json beside that subdirectory. Pass
- * --ceremony-dir "$CEREMONY_OUTPUT_DIR/objects". Preflights nested
- * dist-first|dist-second archives before writing objects. Removes stale ready
- * metadata and the objects/ tree at the start of a run.
+ * --ceremony-dir "$CEREMONY_OUTPUT_DIR/objects". Removes stale ready metadata
+ * and the objects/ tree as soon as CEREMONY_OUTPUT_DIR identifies that bounded
+ * cleanup target, then validates remaining environment and authoring input.
+ * Preflights nested dist-first|dist-second archives before writing objects.
  */
 
 import { createHash, createPrivateKey, sign } from 'node:crypto';
@@ -242,14 +243,15 @@ export async function main({
   now = () => new Date(),
 } = {}) {
   const ceremonyOutputDir = await ensureEnv('CEREMONY_OUTPUT_DIR', env);
-  const privateKeyPath = await ensureEnv('CEREMONY_PRIVATE_KEY_PATH', env);
-  const keyId = await ensureEnv('CEREMONY_KEY_ID', env);
-
-  await mkdirImpl(ceremonyOutputDir, { recursive: true });
   const objectDirectory = resolve(ceremonyOutputDir, CEREMONY_OBJECT_DIRECTORY_RELATIVE);
   const metadataPath = resolve(ceremonyOutputDir, CEREMONY_OPERATIONAL_METADATA_RELATIVE);
   await ignoreEnoent(() => unlinkImpl(metadataPath));
   await ignoreEnoent(() => rmImpl(objectDirectory, { recursive: true, force: true }));
+
+  const privateKeyPath = await ensureEnv('CEREMONY_PRIVATE_KEY_PATH', env);
+  const keyId = await ensureEnv('CEREMONY_KEY_ID', env);
+
+  await mkdirImpl(ceremonyOutputDir, { recursive: true });
 
   const privateKeyPem = await readFileImpl(privateKeyPath, 'utf8');
   const shards = await loadShardsToSign(root, readFileImpl);

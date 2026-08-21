@@ -518,6 +518,43 @@ test('a failed rerun removes stale ready metadata and is not accepted as a compl
   }
 });
 
+async function assertMissingCredentialRerunClearsReady(missingName) {
+  const { root, output, run } = await resignAgainstShards(canonicalShards(), {
+    outputPrefix: `ks2-resign-missing-${missingName.toLowerCase()}-`,
+  });
+  try {
+    await run();
+    await access(join(output, 'ceremony-metadata.json'));
+    await readCompleteCeremonyDirectory({ ceremonyDir: resolve(output, 'objects') });
+    const env = {
+      CEREMONY_PRIVATE_KEY_PATH: join(root, 'test-key.pem'),
+      CEREMONY_OUTPUT_DIR: output,
+      CEREMONY_KEY_ID: PRODUCTION_SIGNING_KEY_ID,
+    };
+    delete env[missingName];
+    await assert.rejects(
+      () => resignManifests({ root, env, log: () => {} }),
+      new RegExp(`requires environment variable ${missingName}`),
+    );
+    await assert.rejects(access(join(output, 'ceremony-metadata.json')));
+    await assert.rejects(
+      readCompleteCeremonyDirectory({ ceremonyDir: resolve(output, 'objects') }),
+      /missing|exactly 15 archives|cannot read ceremony directory/i,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(output, { recursive: true, force: true });
+  }
+}
+
+test('a rerun missing CEREMONY_PRIVATE_KEY_PATH after success leaves neither ready metadata nor an accepted object tree', async () => {
+  await assertMissingCredentialRerunClearsReady('CEREMONY_PRIVATE_KEY_PATH');
+});
+
+test('a rerun missing CEREMONY_KEY_ID after success leaves neither ready metadata nor an accepted object tree', async () => {
+  await assertMissingCredentialRerunClearsReady('CEREMONY_KEY_ID');
+});
+
 test('an EACCES read of a nested authoring archive fails and is not mapped to ready', async () => {
   const shards = canonicalShards();
   const { root, output, logs, writes } = await resignAgainstShards(shards, {

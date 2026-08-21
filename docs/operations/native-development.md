@@ -202,12 +202,17 @@ CI verification deploys an application or mutates a store record.
 
 ## Dependency and privacy review
 
-Dependabot proposals are weekly and manual-review only. An npm, SwiftPM, Gradle,
-Capacitor or GitHub Actions update is not a routine version bump: rerun the full
-gate and regenerate the deterministic dependency evidence and third-party
-notices where applicable. Native dependency changes also require review of
-`docs/compliance/sdk-privacy-register.md`, permission evidence, licence terms and
-store-disclosure assumptions.
+Dependabot proposes reviewable updates only. Frozen identities are never
+auto-merged. GitHub Actions and npm stay on a weekly discovery cadence; Android
+and Gradle proposals are monthly and one-at-a-time. Bot pull requests are
+discovery inputs, not merge candidates, whenever reviewed identities are frozen.
+The durable maintainer contract is `docs/operations/dependabot-policy.md`.
+
+An npm, SwiftPM, Gradle, Capacitor or GitHub Actions update is not a routine
+version bump: rerun the full gate and regenerate the deterministic dependency
+evidence and third-party notices where applicable. Native dependency changes
+also require review of `docs/compliance/sdk-privacy-register.md`, permission
+evidence, licence terms and store-disclosure assumptions.
 
 ## B2 plugin-approval boundary
 

@@ -1,6 +1,12 @@
 version: 2
 
-# Dependabot proposes reviewable updates only. This repository does not auto-merge them.
+# Dependabot proposes reviewable updates only. Frozen identities are never
+# auto-merged. Bot pull requests are discovery inputs, not merge candidates.
+# The durable maintainer contract is docs/operations/dependabot-policy.md.
+#
+# Labels are per ecosystem, not per package. npm therefore cannot mark only
+# Capacitor packages with native-dependency-review; that compensation lives in
+# .github/workflows/dependabot-native-labels.yml.
 updates:
   - package-ecosystem: npm
     directory: /
@@ -16,14 +22,16 @@ updates:
     commit-message:
       prefix: deps
 
+  # Monthly and one-at-a-time. Do not add groups: wrapper, AGP, UIAutomator and
+  # Google Services migrations must never share a pull request. Do not add
+  # ignore: no dependency is ignored forever.
   - package-ecosystem: gradle
     directory: /android
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
       time: "06:15"
       timezone: Europe/London
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
     labels:
       - dependencies
       - native-dependency-review

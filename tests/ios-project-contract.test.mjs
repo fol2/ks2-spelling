@@ -50,6 +50,11 @@ test('the committed iOS project freezes the unsigned B1 identity', async () => {
     3,
     'App Debug, Release and Sandbox must freeze marketing version 0.5.0',
   );
+  assert.equal(
+    [...project.matchAll(/CURRENT_PROJECT_VERSION = 9;/g)].length,
+    3,
+    'App Debug, Release and Sandbox must freeze the #199 RC build number',
+  );
   assert.match(
     infoPlist,
     /<key>CFBundleDisplayName<\/key>\s*<string>Spelling Camp<\/string>/,

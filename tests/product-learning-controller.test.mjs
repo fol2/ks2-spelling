@@ -196,6 +196,46 @@ test('product learning starts a durable Smart Review and restores an interrupted
   await restored.dispose();
 });
 
+test('product learning publishes no post-commit notification when its transaction fails', async () => {
+  const world = createLearningWorld();
+  const notifications = [];
+  const controller = world.createController(undefined, {
+    repository: Object.freeze({
+      async runCommandTransaction() {
+        throw new Error('transaction failed');
+      },
+    }),
+    async onCommandCommitted(learnerId) {
+      notifications.push(learnerId);
+    },
+  });
+
+  await assert.rejects(
+    controller.startRound({ mode: 'smart', length: 5, yearFilter: 'core' }),
+    /transaction failed/,
+  );
+  assert.deepEqual(notifications, []);
+  await controller.dispose();
+});
+
+test('product learning keeps a committed local command successful when its post-commit notification fails', async () => {
+  const world = createLearningWorld();
+  const notifications = [];
+  const controller = world.createController(undefined, {
+    async onCommandCommitted(learnerId) {
+      notifications.push(learnerId);
+      throw new Error('replica unavailable');
+    },
+  });
+
+  await controller.startRound({ mode: 'smart', length: 5, yearFilter: 'core' });
+  assert.deepEqual(notifications, ['learner-a']);
+  assert.equal(world.snapshots.get('learner-a').revision, 1);
+  assert.equal(controller.getState().screen, 'practice');
+  assert.equal(controller.getState().actionError, null);
+  await controller.dispose();
+});
+
 test('product learning requires a clock function', () => {
   const world = createLearningWorld();
   assert.throws(

@@ -15,6 +15,7 @@ import {
 } from '../src/domain/spelling/index.js';
 import { configureAndMigrateDatabase } from '../src/platform/database/migrate-database.js';
 import { createSQLiteSpellingSnapshotStore } from '../src/platform/database/sqlite-spelling-snapshot-store.js';
+import { createFakeLearningReplica } from '../src/platform/fakes/create-fake-learning-replica.js';
 import { createNodeSqliteConnection } from './helpers/node-sqlite-connection.mjs';
 
 function createLifecycle() {
@@ -603,6 +604,51 @@ async function seedLearner(services) {
   await services.learning.submitAnswer('definitely wrong');
   return 'learner-composition';
 }
+
+test('a committed learning command publishes its durable updated snapshot through the composed iCloud replica port', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-learning-replica-publish-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const databasePath = join(directory, 'replica.sqlite');
+  const backingReplica = createFakeLearningReplica();
+  const published = [];
+  const learningReplica = Object.freeze({
+    ...backingReplica,
+    async publish(envelope) {
+      published.push(structuredClone(envelope));
+      return backingReplica.publish(envelope);
+    },
+  });
+  const services = await createProductAppServices(compositionOptions({
+    databasePath,
+    learningReplica,
+  }));
+  t.after(() => services.dispose());
+
+  await services.controller.createProfile({
+    nickname: 'Ada',
+    yearGroup: 'Y5',
+    goal: 10,
+    colour: '#2E7D8A',
+  });
+  published.length = 0;
+
+  await services.learning.startRound({
+    length: 5,
+    mode: 'smart',
+    yearFilter: 'core',
+  });
+
+  assert.equal(published.length, 1);
+  assert.deepEqual(published[0].profiles.map(({ learnerId }) => learnerId), [
+    'learner-composition',
+  ]);
+  assert.equal(published[0].snapshots.length, 1);
+  assert.deepEqual(
+    published[0].snapshots[0].payload,
+    await readStoredSnapshot(databasePath, 'learner-composition'),
+  );
+  assert.equal(published[0].snapshots[0].payload.revision, 1);
+});
 
 test('the full catalogue publishes exactly the grant the re-tag writes', async () => {
   // The alignment writes '["full-ks2"]' into the aggregate; the Guardian and

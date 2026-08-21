@@ -20,7 +20,9 @@ import {
   PRODUCTION_PACK_OBJECT_FORBIDDEN_SUBSTRINGS,
   PRODUCTION_PACK_OBJECT_ROLES,
   PRODUCTION_PACK_VERSION,
+  PRODUCTION_REQUIRED_ENTITLEMENT_ID,
   PRODUCTION_SIGNING_KEY_ID,
+  PRODUCTION_VERIFICATION_INSTANT,
   archiveNameForPack,
   assertDocumentsMatch,
   assertProductionPackObjectAuthority,
@@ -49,7 +51,44 @@ function jsonBytes(value) {
   return Buffer.from(`${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
-function createSyntheticProductionSigner() {
+function closedProductionManifest({
+  packId,
+  version = PRODUCTION_PACK_VERSION,
+  archiveBytes,
+  archiveName = archiveNameForPack(packId, version),
+  archiveSha256,
+  archiveByteCount,
+  requiredEntitlementId = PRODUCTION_REQUIRED_ENTITLEMENT_ID,
+}) {
+  const hashed = hashObjectBytes(archiveBytes);
+  return {
+    allowedExtensions: ['.json', '.m4a'],
+    archive: {
+      bytes: archiveByteCount ?? hashed.bytes,
+      name: archiveName,
+      sha256: archiveSha256 ?? hashed.sha256,
+    },
+    ceilings: {
+      compressedBytes: 33_554_432,
+      extractedBytes: 33_554_432,
+      fileCount: 1_024,
+    },
+    files: [{
+      bytes: 1,
+      path: 'catalogue.json',
+      sha256: 'a'.repeat(64),
+    }],
+    packId,
+    requiredEntitlementId,
+    schemaVersion: 1,
+    version,
+  };
+}
+
+function createSyntheticProductionSigner({
+  notBefore = '2026-08-17T00:00:00Z',
+  notAfter = '2036-08-16T00:00:00Z',
+} = {}) {
   const { publicKey, privateKey } = generateKeyPairSync('ec', {
     namedCurve: 'prime256v1',
     publicKeyEncoding: { type: 'spki', format: 'der' },
@@ -63,8 +102,8 @@ function createSyntheticProductionSigner() {
       publicKeySpkiDerBase64: publicKey.toString('base64'),
       publicKeySpkiSha256: createHash('sha256').update(publicKey).digest('hex'),
       testOnly: false,
-      notBefore: '2026-08-17T00:00:00Z',
-      notAfter: '2036-08-16T00:00:00Z',
+      notBefore,
+      notAfter,
       allowedEnvironments: ['production'],
       allowedPackIds: [...PRODUCTION_PACK_IDS],
     }],
@@ -75,13 +114,18 @@ function createSyntheticProductionSigner() {
     archiveBytes = Buffer.from(`archive-bytes:${packId}`),
     archiveName = archiveNameForPack(packId, version),
     omitArchive = false,
+    incompleteArchiveOnly = false,
     archiveSha256,
     archiveByteCount,
+    requiredEntitlementId,
+    payload,
   } = {}) {
     const hashed = hashObjectBytes(archiveBytes);
-    const payload = omitArchive
-      ? { packId, version }
-      : {
+    let body = payload;
+    if (!body && omitArchive) {
+      body = { packId, version };
+    } else if (!body && incompleteArchiveOnly) {
+      body = {
         packId,
         version,
         archive: {
@@ -90,7 +134,18 @@ function createSyntheticProductionSigner() {
           sha256: archiveSha256 ?? hashed.sha256,
         },
       };
-    const canonical = canonicaliseRfc8785Bytes(payload);
+    } else if (!body) {
+      body = closedProductionManifest({
+        packId,
+        version,
+        archiveBytes,
+        archiveName,
+        archiveSha256,
+        archiveByteCount,
+        requiredEntitlementId,
+      });
+    }
+    const canonical = canonicaliseRfc8785Bytes(body);
     const signatureDer = sign('sha256', createPackSigningInput(canonical), createPrivateKey(privateKey));
     assertCanonicalP256Der(signatureDer);
     return jsonBytes({
@@ -139,6 +194,7 @@ function liveOptions(objects, extra = {}) {
     ...syntheticReaders(objects),
     ceremonyBytesByKey: extra.ceremonyBytesByKey,
     keyring: extra.keyring ?? SYNTHETIC_SIGNER.keyring,
+    clock: extra.clock ?? (() => new Date(PRODUCTION_VERIFICATION_INSTANT)),
   };
 }
 
@@ -525,7 +581,7 @@ test('verifySignedPackManifest against the committed production keyring rejects 
   );
 });
 
-test('a valid production-signed minimal payload without archive identity is rejected', async () => {
+test('a valid production-signed minimal payload {packId,version} is rejected as an incomplete production manifest', async () => {
   const objects = syntheticPackObjects();
   objects[1] = {
     key: objects[1].key,
@@ -533,7 +589,37 @@ test('a valid production-signed minimal payload without archive identity is reje
   };
   await assert.rejects(
     buildProductionPackObjectAuthorityFromLive(liveOptions(objects)),
-    /archive identity|archive/i,
+    /closed production manifest fields|archive identity/i,
+  );
+});
+
+test('a signed-but-incomplete {packId,version,archive} payload is rejected as an incomplete production manifest', async () => {
+  const objects = syntheticPackObjects();
+  objects[1] = {
+    key: objects[1].key,
+    bytes: SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[0], {
+      incompleteArchiveOnly: true,
+      archiveBytes: objects[0].bytes,
+    }),
+  };
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(liveOptions(objects)),
+    /closed production manifest fields/i,
+  );
+});
+
+test('a valid production-signed envelope with a non-production entitlement is rejected', async () => {
+  const objects = syntheticPackObjects();
+  objects[1] = {
+    key: objects[1].key,
+    bytes: SYNTHETIC_SIGNER.signPack(PRODUCTION_PACK_IDS[0], {
+      archiveBytes: objects[0].bytes,
+      requiredEntitlementId: 'b3-sandbox-proof',
+    }),
+  };
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(liveOptions(objects)),
+    /requiredEntitlementId|full-ks2|b3-sandbox-proof/i,
   );
 });
 
@@ -639,11 +725,51 @@ test('a locally re-signed synthetic envelope is not accepted in place of the liv
   );
 });
 
+test('default and injected-current clocks reject a production key that is expired or not yet valid', async () => {
+  const expiredAtInstant = createSyntheticProductionSigner({
+    notBefore: '2026-08-21T00:00:00Z',
+    notAfter: '2026-08-21T00:00:00Z',
+  });
+  const expiredObjects = syntheticPackObjects(expiredAtInstant);
+  await buildProductionPackObjectAuthorityFromLive(liveOptions(expiredObjects, {
+    keyring: expiredAtInstant.keyring,
+    clock: () => new Date(PRODUCTION_VERIFICATION_INSTANT),
+  }));
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive({
+      ...syntheticReaders(expiredObjects),
+      keyring: expiredAtInstant.keyring,
+    }),
+    /expired|validity window/i,
+  );
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive({
+      ...syntheticReaders(expiredObjects),
+      keyring: expiredAtInstant.keyring,
+      clock: () => new Date(),
+    }),
+    /expired|validity window/i,
+  );
+  const notYetValid = createSyntheticProductionSigner({
+    notBefore: '2030-01-01T00:00:00Z',
+    notAfter: '2036-01-01T00:00:00Z',
+  });
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive({
+      ...syntheticReaders(syntheticPackObjects(notYetValid)),
+      keyring: notYetValid.keyring,
+      clock: () => new Date(),
+    }),
+    /not yet valid|validity window/i,
+  );
+});
+
 test('two synthetic pack-object documents fail comparison when one hashed object drifts', async () => {
   const objects = syntheticPackObjects();
   const document = await generateProductionPackObjectAuthority({
     root: ROOT,
     keyring: SYNTHETIC_SIGNER.keyring,
+    clock: () => new Date(PRODUCTION_VERIFICATION_INSTANT),
     ...syntheticReaders(objects),
   });
   const drifted = syntheticPackObjects();
@@ -656,6 +782,7 @@ test('two synthetic pack-object documents fail comparison when one hashed object
   const driftedDocument = await generateProductionPackObjectAuthority({
     root: ROOT,
     keyring: SYNTHETIC_SIGNER.keyring,
+    clock: () => new Date(PRODUCTION_VERIFICATION_INSTANT),
     ...syntheticReaders(drifted),
   });
   assert.throws(
@@ -804,6 +931,7 @@ async function writeSyntheticCheckRoot(objects, keyring) {
   const document = await generateProductionPackObjectAuthority({
     root: ROOT,
     keyring,
+    clock: () => new Date(PRODUCTION_VERIFICATION_INSTANT),
     ...syntheticReaders(objects),
   });
   await mkdir(join(root, 'config/production'), { recursive: true });

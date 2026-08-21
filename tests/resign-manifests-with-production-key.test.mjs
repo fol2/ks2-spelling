@@ -10,7 +10,9 @@ import { PACK_SIGNING_ALGORITHM } from '../src/domain/packs/signed-manifest-cont
 import {
   PRODUCTION_PACK_IDS,
   PRODUCTION_PACK_VERSION,
+  PRODUCTION_REQUIRED_ENTITLEMENT_ID,
   PRODUCTION_SIGNING_KEY_ID,
+  PRODUCTION_VERIFICATION_INSTANT,
   archiveNameForPack,
   buildProductionPackObjectAuthorityFromLive,
   hashObjectBytes,
@@ -304,13 +306,26 @@ test('producer output is a complete ceremony that the object-tree reader and liv
     return shardFixture(packId, {
       archiveBytes,
       canonicalManifestBytes: Buffer.from(canonicaliseRfc8785Bytes({
-        packId,
-        version: PRODUCTION_PACK_VERSION,
+        allowedExtensions: ['.json', '.m4a'],
         archive: {
           bytes: hashed.bytes,
           name: archiveNameForPack(packId),
           sha256: hashed.sha256,
         },
+        ceilings: {
+          compressedBytes: 33_554_432,
+          extractedBytes: 33_554_432,
+          fileCount: 1_024,
+        },
+        files: [{
+          bytes: 1,
+          path: 'catalogue.json',
+          sha256: 'a'.repeat(64),
+        }],
+        packId,
+        requiredEntitlementId: PRODUCTION_REQUIRED_ENTITLEMENT_ID,
+        schemaVersion: 1,
+        version: PRODUCTION_PACK_VERSION,
       })),
     });
   });
@@ -366,6 +381,7 @@ test('producer output is a complete ceremony that the object-tree reader and liv
       getObject: async (key) => byKey.get(key),
       ceremonyBytesByKey: inventory,
       keyring,
+      clock: () => new Date(PRODUCTION_VERIFICATION_INSTANT),
     });
     assert.equal(document.packs.length, 15);
   } finally {

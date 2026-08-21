@@ -14,7 +14,10 @@ export const PRODUCTION_PACK_OBJECT_BUCKET = 'ks2-spelling-production-packs';
 export const PRODUCTION_PACK_OBJECT_SCHEMA_VERSION = 1;
 export const PRODUCTION_PACK_VERSION = '1.0.0';
 export const PRODUCTION_SIGNING_KEY_ID = 'production-ks2-p256-2026-08';
+export const PRODUCTION_REQUIRED_ENTITLEMENT_ID = 'full-ks2';
+export const PRODUCTION_ALLOWED_EXTENSIONS = Object.freeze(['.json', '.m4a']);
 export const CEREMONY_OPERATIONAL_METADATA_RELATIVE = 'ceremony-metadata.json';
+export const PRODUCTION_VERIFICATION_INSTANT = new Date('2026-08-21T00:00:00.000Z');
 export const PRODUCTION_PACK_OBJECT_ROLES = Object.freeze(['archive', 'signed-manifest']);
 export const PRODUCTION_PACK_IDS = Object.freeze(
   Array.from({ length: 15 }, (_, index) => `full-ks2-shard-${String(index + 1).padStart(2, '0')}`),
@@ -33,6 +36,23 @@ export const PRODUCTION_PACK_OBJECT_FORBIDDEN_SUBSTRINGS = Object.freeze([
 const DOCUMENT_KEYS = Object.freeze(['schemaVersion', 'bucketName', 'packs']);
 const PACK_KEYS = Object.freeze(['packId', 'version', 'objects']);
 const OBJECT_KEYS = Object.freeze(['role', 'key', 'bytes', 'sha256', 'etag', 'metadata']);
+const PRODUCTION_MANIFEST_REQUIRED_KEYS = Object.freeze([
+  'allowedExtensions',
+  'archive',
+  'ceilings',
+  'files',
+  'packId',
+  'requiredEntitlementId',
+  'schemaVersion',
+  'version',
+]);
+const PRODUCTION_MANIFEST_OPTIONAL_KEYS = Object.freeze([
+  'minimumAppVersion',
+  'minimumSchemaVersion',
+]);
+const PRODUCTION_ARCHIVE_KEYS = Object.freeze(['bytes', 'name', 'sha256']);
+const PRODUCTION_CEILING_KEYS = Object.freeze(['compressedBytes', 'extractedBytes', 'fileCount']);
+const PRODUCTION_FILE_KEYS = Object.freeze(['bytes', 'path', 'sha256']);
 const SHA256 = /^[a-f0-9]{64}$/u;
 const ETAG = /^[a-f0-9]{32}$/u;
 const IDENTITY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
@@ -225,8 +245,6 @@ function normaliseListingObject(entry) {
   return Object.freeze({ key, size, etag, metadata: Object.freeze({}) });
 }
 
-export const PRODUCTION_VERIFICATION_INSTANT = new Date('2026-08-21T00:00:00.000Z');
-
 export function canonicalCeremonyObjectPath(ceremonyDir, key) {
   return join(ceremonyDir, key);
 }
@@ -255,6 +273,126 @@ function parseSignedManifestEnvelopeOrFail(bytes, key) {
   }
 }
 
+function assertApprovedProductionManifestShape(manifest, label) {
+  if (
+    !manifest ||
+    typeof manifest !== 'object' ||
+    Array.isArray(manifest)
+  ) {
+    fail(`${label} canonical payload must be a closed production manifest`);
+  }
+  const allowed = new Set([
+    ...PRODUCTION_MANIFEST_REQUIRED_KEYS,
+    ...PRODUCTION_MANIFEST_OPTIONAL_KEYS,
+  ]);
+  const actualKeys = Reflect.ownKeys(manifest);
+  if (
+    actualKeys.length < PRODUCTION_MANIFEST_REQUIRED_KEYS.length ||
+    actualKeys.length > PRODUCTION_MANIFEST_REQUIRED_KEYS.length + PRODUCTION_MANIFEST_OPTIONAL_KEYS.length ||
+    actualKeys.some((key) => typeof key !== 'string' || !allowed.has(key)) ||
+    PRODUCTION_MANIFEST_REQUIRED_KEYS.some((key) => !actualKeys.includes(key))
+  ) {
+    fail(`${label} canonical payload must contain the closed production manifest fields`);
+  }
+  if (manifest.schemaVersion !== 1) {
+    fail(`${label} schemaVersion must be 1`);
+  }
+  if (manifest.requiredEntitlementId !== PRODUCTION_REQUIRED_ENTITLEMENT_ID) {
+    fail(
+      `${label} requiredEntitlementId ${manifest.requiredEntitlementId} is not ${PRODUCTION_REQUIRED_ENTITLEMENT_ID}`,
+    );
+  }
+  if (
+    !Array.isArray(manifest.allowedExtensions) ||
+    manifest.allowedExtensions.length !== PRODUCTION_ALLOWED_EXTENSIONS.length ||
+    manifest.allowedExtensions.some(
+      (extension, index) => extension !== PRODUCTION_ALLOWED_EXTENSIONS[index],
+    )
+  ) {
+    fail(`${label} allowedExtensions must be the production data-only set`);
+  }
+  requireClosedRecord(manifest.ceilings, PRODUCTION_CEILING_KEYS, `${label} ceilings must be a closed record`);
+  for (const key of PRODUCTION_CEILING_KEYS) {
+    if (!Number.isSafeInteger(manifest.ceilings[key]) || manifest.ceilings[key] <= 0) {
+      fail(`${label} ceilings.${key} must be a positive safe integer`);
+    }
+  }
+  if (!Array.isArray(manifest.files) || manifest.files.length === 0) {
+    fail(`${label} files must be a non-empty array`);
+  }
+  if (manifest.files.length > manifest.ceilings.fileCount) {
+    fail(`${label} files exceed the fileCount ceiling`);
+  }
+  const paths = new Set();
+  let extractedBytes = 0;
+  for (const file of manifest.files) {
+    requireClosedRecord(file, PRODUCTION_FILE_KEYS, `${label} file must be a closed record`);
+    if (!Number.isSafeInteger(file.bytes) || file.bytes < 0) {
+      fail(`${label} file bytes must be a non-negative safe integer`);
+    }
+    if (typeof file.sha256 !== 'string' || !SHA256.test(file.sha256)) {
+      fail(`${label} file SHA-256 is invalid`);
+    }
+    if (
+      typeof file.path !== 'string' ||
+      file.path.length === 0 ||
+      file.path.length > 256 ||
+      !/^[a-z0-9][a-z0-9/._-]*$/u.test(file.path) ||
+      file.path.split('/').some((segment) => segment === '' || segment === '.' || segment === '..')
+    ) {
+      fail(`${label} file path is not approved`);
+    }
+    if (!PRODUCTION_ALLOWED_EXTENSIONS.some((extension) => file.path.endsWith(extension))) {
+      fail(`${label} file path is not an approved extension`);
+    }
+    if (paths.has(file.path)) fail(`${label} files contain a duplicate path`);
+    paths.add(file.path);
+    extractedBytes += file.bytes;
+  }
+  if (!Number.isSafeInteger(extractedBytes) || extractedBytes > manifest.ceilings.extractedBytes) {
+    fail(`${label} extracted bytes exceed the ceiling`);
+  }
+  if (Object.hasOwn(manifest, 'minimumAppVersion')) {
+    if (typeof manifest.minimumAppVersion !== 'string' || !VERSION.test(manifest.minimumAppVersion)) {
+      fail(`${label} minimumAppVersion is not an approved version`);
+    }
+  }
+  if (Object.hasOwn(manifest, 'minimumSchemaVersion')) {
+    if (!Number.isSafeInteger(manifest.minimumSchemaVersion) || manifest.minimumSchemaVersion < 1) {
+      fail(`${label} minimumSchemaVersion is not an approved schema version`);
+    }
+  }
+}
+
+function assertManifestMatchesPairedArchive(manifest, {
+  packId,
+  version,
+  archiveName,
+  archiveBytes,
+  archiveSha256,
+  label,
+}) {
+  if (manifest.packId !== packId) {
+    fail(`${label} packId ${manifest.packId} does not match ${packId}`);
+  }
+  if (manifest.version !== version) {
+    fail(`${label} version ${manifest.version} does not match ${version}`);
+  }
+  requireClosedRecord(manifest.archive, PRODUCTION_ARCHIVE_KEYS, `${label} archive must be a closed record`);
+  if (manifest.archive.name !== archiveName) {
+    fail(`${label} archive name ${manifest.archive.name} does not match ${archiveName}`);
+  }
+  if (manifest.archive.bytes !== archiveBytes) {
+    fail(`${label} archive byte count ${manifest.archive.bytes} differs from the paired live GET`);
+  }
+  if (manifest.archive.sha256 !== archiveSha256) {
+    fail(`${label} archive SHA-256 differs from the paired live GET`);
+  }
+  if (manifest.ceilings.compressedBytes < archiveBytes) {
+    fail(`${label} archive exceeds the compressed ceiling`);
+  }
+}
+
 export async function verifyProductionSignedManifestEnvelope({
   envelopeBytes,
   key,
@@ -264,7 +402,7 @@ export async function verifyProductionSignedManifestEnvelope({
   archiveBytes,
   archiveSha256,
   keyring,
-  clock = () => new Date(PRODUCTION_VERIFICATION_INSTANT),
+  clock = () => new Date(),
   verifyP256Der = verifyP256DerWithNodeCrypto,
 }) {
   if (!keyring) fail('production signing keyring is missing');
@@ -295,25 +433,15 @@ export async function verifyProductionSignedManifestEnvelope({
     fail(`${label} failed verifySignedPackManifest: ${error.message}`);
   }
   const manifest = verified.manifest;
-  if (manifest.packId !== packId) {
-    fail(`${label} packId ${manifest.packId} does not match ${packId}`);
-  }
-  if (manifest.version !== version) {
-    fail(`${label} version ${manifest.version} does not match ${version}`);
-  }
-  const archive = manifest.archive;
-  if (!archive || typeof archive !== 'object' || Array.isArray(archive)) {
-    fail(`${label} canonical payload is missing archive identity`);
-  }
-  if (archive.name !== archiveName) {
-    fail(`${label} archive name ${archive.name} does not match ${archiveName}`);
-  }
-  if (archive.bytes !== archiveBytes) {
-    fail(`${label} archive byte count ${archive.bytes} differs from the paired live GET`);
-  }
-  if (archive.sha256 !== archiveSha256) {
-    fail(`${label} archive SHA-256 differs from the paired live GET`);
-  }
+  assertApprovedProductionManifestShape(manifest, label);
+  assertManifestMatchesPairedArchive(manifest, {
+    packId,
+    version,
+    archiveName,
+    archiveBytes,
+    archiveSha256,
+    label,
+  });
   return verified;
 }
 
@@ -424,7 +552,7 @@ export async function buildProductionPackObjectAuthorityFromLive({
   getObject,
   ceremonyBytesByKey,
   keyring,
-  clock = () => new Date(PRODUCTION_VERIFICATION_INSTANT),
+  clock = () => new Date(),
   verifyP256Der = verifyP256DerWithNodeCrypto,
 }) {
   if (typeof listObjects !== 'function' || typeof getObject !== 'function') {

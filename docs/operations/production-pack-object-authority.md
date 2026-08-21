@@ -72,10 +72,16 @@ node scripts/generate-production-pack-object-authority.mjs --check --ceremony-di
 listing etag and byte count, hashes the GET bytes (SHA-256 and MD5), and
 refuses to write unless MD5 equals the single-part listing etag. Each signed
 manifest is verified with `verifySignedPackManifest` against
-`config/production/pack-signing-public-keys.json`. The verifier compares the
-live GET bytes (and, with `--ceremony-dir`, the local bytes) to the committed
-facts; it does not re-sign live production envelopes. `--check` rebuilds from
-live GET and requires byte-identical committed serialisation.
+`config/production/pack-signing-public-keys.json` using the current clock
+(`() => new Date()`). Tests may inject a fixed clock; production/live paths
+must not. The canonical payload must be a closed production manifest
+(`schemaVersion`, `requiredEntitlementId` `full-ks2`, `archive`, `ceilings`,
+`allowedExtensions`, `files`, `packId`, `version`, with optional
+`minimumAppVersion` / `minimumSchemaVersion` only) bound to the paired live
+GET archive. The verifier compares live GET bytes (and, with `--ceremony-dir`,
+the local bytes) to the committed facts; it does not re-sign live production
+envelopes. `--check` rebuilds from live GET and requires byte-identical
+committed serialisation.
 
 `--ceremony-dir <dir>` is fail-closed. The exact object tree is
 `packs/<packId>/1.0.0/…`: exactly 15 archives and 15 signed-manifest

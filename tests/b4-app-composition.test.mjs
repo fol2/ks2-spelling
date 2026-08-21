@@ -24,6 +24,17 @@ import {
 import {
   selectNativeAppComposition,
 } from '../src/app/create-app-services.js';
+import { createB4DesktopHarness } from '../src/dev/create-b4-desktop-harness.js';
+
+function silentPlayer(calls = []) {
+  const play = async (path) => {
+    calls.push(path);
+    return { status: 'playing', path };
+  };
+  play.stop = () => calls.push('stop');
+  play.dispose = () => calls.push('dispose');
+  return play;
+}
 
 test('B4Development selects the bounded Starter product on both native platforms', () => {
   for (const platform of ['ios', 'android']) {
@@ -191,12 +202,17 @@ test('B4 snapshot helpers commit the frozen start-session including bicycle', ()
   assert.ok(committed.subjectState.ui.session.statusByRuntimeItemId['ks2-core:bicycle']);
 });
 
-test('desktop B4 harness validates snapshots against the B4 catalogue', async () => {
+test('desktop B4 harness start-session reaches ks2-core:arrive against the grafted catalogue', async (t) => {
   const source = await readFile(
     new URL('../src/dev/b4-harness-main.jsx', import.meta.url),
     'utf8',
   );
-  assert.match(source, /createB4LearnerSnapshot\(/u);
-  assert.match(source, /commitB4CommandPlan\(/u);
+  assert.match(source, /createB4DesktopHarness\(/u);
+  assert.doesNotMatch(source, /createB4RoundController/u);
   assert.doesNotMatch(source, /loadStarterSpellingCatalogue/u);
+
+  const { controller } = createB4DesktopHarness({ playAudio: silentPlayer() });
+  t.after(() => controller.dispose());
+  const state = await controller.start();
+  assert.equal(state.currentRuntimeItemId, 'ks2-core:arrive');
 });

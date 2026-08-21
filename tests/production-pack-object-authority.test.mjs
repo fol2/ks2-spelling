@@ -307,18 +307,18 @@ test('validator mutations of pack count, object coverage, identities and metadat
   }
 });
 
-test('synthetic listing drift in count, extra keys, missing keys or etag mismatch fails closed', async () => {
+test('synthetic listing drift in unique count, extra keys or etag mismatch fails closed', async () => {
   const objects = syntheticPackObjects();
   await assert.rejects(
     buildProductionPackObjectAuthorityFromLive(liveOptions(objects.slice(0, 29))),
-    /exactly 30 objects/i,
+    /exactly 30 objects, not 29/i,
   );
   await assert.rejects(
     buildProductionPackObjectAuthorityFromLive(liveOptions([
       ...objects,
       { key: 'packs/extra/1.0.0/extra.zip', bytes: Buffer.from('extra') },
     ])),
-    /exactly 30 objects/i,
+    /exactly 30 objects, not 31/i,
   );
   await assert.rejects(
     buildProductionPackObjectAuthorityFromLive({
@@ -341,6 +341,19 @@ test('synthetic listing drift in count, extra keys, missing keys or etag mismatc
       }),
     }),
     /differs from the listing/i,
+  );
+});
+
+test('a synthetic listing that duplicates one canonical key fails closed', async () => {
+  const objects = syntheticPackObjects();
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(liveOptions([...objects, objects[0]])),
+    /exactly 30 objects, not 31|duplicate object packs\/full-ks2-shard-01\//i,
+  );
+  const duplicatedThirty = objects.map((object, index) => (index === objects.length - 1 ? objects[0] : object));
+  await assert.rejects(
+    buildProductionPackObjectAuthorityFromLive(liveOptions(duplicatedThirty)),
+    /duplicate object packs\/full-ks2-shard-01\//i,
   );
 });
 

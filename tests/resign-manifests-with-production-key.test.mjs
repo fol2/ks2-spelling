@@ -547,6 +547,44 @@ async function assertMissingCredentialRerunClearsReady(missingName) {
   }
 }
 
+test('a final ceremony-metadata write failure after objects are staged leaves neither ready metadata nor an accepted object tree', async () => {
+  const { root, output, logs, writes } = await resignAgainstShards(canonicalShards(), {
+    outputPrefix: 'ks2-resign-metadata-write-',
+  });
+  try {
+    await assert.rejects(
+      resignManifests({
+        root,
+        env: {
+          CEREMONY_PRIVATE_KEY_PATH: join(root, 'test-key.pem'),
+          CEREMONY_OUTPUT_DIR: output,
+          CEREMONY_KEY_ID: PRODUCTION_SIGNING_KEY_ID,
+        },
+        writeFileImpl: async (path, bytes) => {
+          if (String(path).endsWith('ceremony-metadata.json')) {
+            const error = new Error('EIO: injected metadata write failure');
+            error.code = 'EIO';
+            throw error;
+          }
+          writes.push({ path, text: Buffer.from(bytes).toString('utf8') });
+          return writeFile(path, bytes);
+        },
+        log: (line) => logs.push(line),
+      }),
+      /injected metadata write failure/i,
+    );
+    assert.equal(claimedReady(logs, writes), false);
+    await assert.rejects(access(join(output, 'ceremony-metadata.json')));
+    await assert.rejects(
+      readCompleteCeremonyDirectory({ ceremonyDir: resolve(output, 'objects') }),
+      /missing|exactly 15 archives|cannot read ceremony directory/i,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(output, { recursive: true, force: true });
+  }
+});
+
 test('a rerun missing CEREMONY_PRIVATE_KEY_PATH after success leaves neither ready metadata nor an accepted object tree', async () => {
   await assertMissingCredentialRerunClearsReady('CEREMONY_PRIVATE_KEY_PATH');
 });

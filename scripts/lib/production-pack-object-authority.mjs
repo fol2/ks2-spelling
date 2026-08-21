@@ -560,8 +560,15 @@ export async function buildProductionPackObjectAuthorityFromLive({
   }
   if (!keyring) fail('production signing keyring is missing');
   const listing = (await listObjects()).map(normaliseListingObject);
-  const listingByKey = new Map(listing.map((entry) => [entry.key, entry]));
   const expectedKeys = expectedProductionObjectKeys();
+  if (listing.length !== expectedKeys.length) {
+    fail(`live bucket must contain exactly ${expectedKeys.length} objects, not ${listing.length}`);
+  }
+  const listingByKey = new Map();
+  for (const entry of listing) {
+    if (listingByKey.has(entry.key)) fail(`live bucket lists duplicate object ${entry.key}`);
+    listingByKey.set(entry.key, entry);
+  }
   if (listingByKey.size !== expectedKeys.length) {
     fail(`live bucket must contain exactly ${expectedKeys.length} objects, not ${listingByKey.size}`);
   }

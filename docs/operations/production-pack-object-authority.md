@@ -68,7 +68,8 @@ node scripts/generate-production-pack-object-authority.mjs --write
 node scripts/generate-production-pack-object-authority.mjs --check --ceremony-dir "$CEREMONY_OUTPUT_DIR/objects"
 ```
 
-`--write` lists the live bucket, GETs each of the thirty objects, records the
+`--write` lists the live bucket, requires exactly thirty raw listing entries
+with no duplicate keys, GETs each of the thirty objects, records the
 listing etag and byte count, hashes the GET bytes (SHA-256 and MD5), and
 refuses to write unless MD5 equals the single-part listing etag. Each signed
 manifest is verified with `verifySignedPackManifest` against
@@ -136,10 +137,11 @@ the nested outputs `.native-build/packs/<packId>/dist-first|dist-second/<archive
 `scripts/resign-manifests-with-production-key.mjs` requires the authoring
 report to list the exact fifteen canonical pack IDs, versions and archive
 names in order — a subset, duplicate, extra, reordered or substituted shard
-list is not ready. It removes stale `ceremony-metadata.json` and the `objects/`
-tree as soon as `CEREMONY_OUTPUT_DIR` identifies that bounded cleanup target,
+list is not ready. It removes stale `ceremony-metadata.json`, the `objects/`
+tree and any leftover staging tree as soon as `CEREMONY_OUTPUT_DIR` identifies that bounded cleanup target,
 before remaining environment variables or the authoring report are validated,
-then preflights every nested archive, stages all thirty objects under
-`objects/`, and writes `status: ready` last. A failed run, including a rerun
-with missing credential environment, must not leave a current ready marker or
-a complete object tree.
+then preflights every nested archive, writes the thirty objects to a staging
+tree, writes `status: ready` last, and only then promotes the staging tree to
+`objects/`. A failed run, including a rerun with missing credential
+environment or a final metadata write failure, must not leave a current ready
+marker or a complete object tree.

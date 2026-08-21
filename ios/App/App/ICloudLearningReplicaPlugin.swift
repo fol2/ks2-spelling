@@ -1,17 +1,6 @@
 import Capacitor
 import CloudKit
 import Foundation
-import Security
-
-@_silgen_name("SecTaskCreateFromSelf")
-private func SecTaskCreateFromSelf(_ allocator: CFAllocator?) -> Unmanaged<CFTypeRef>?
-
-@_silgen_name("SecTaskCopyValueForEntitlement")
-private func SecTaskCopyValueForEntitlement(
-    _ task: CFTypeRef,
-    _ entitlement: CFString,
-    _ error: UnsafeMutablePointer<Unmanaged<CFError>?>?
-) -> Unmanaged<CFTypeRef>?
 
 @objc(ICloudLearningReplicaPlugin)
 public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -252,45 +241,23 @@ public final class ICloudLearningReplicaPlugin: CAPPlugin, CAPBridgedPlugin {
         )
     }
 
-    // iOS Security.framework exports these symbols without a public Swift overlay.
-    // Allocating a CloudKit container traps with EXC_BREAKPOINT when the
-    // identifier is not in the running process entitlements. Unsigned simulator
-    // builds embed none, so construction waits on that check and degrades to
-    // unavailable. If the entitlements blob cannot be read, a present code
-    // signature is the signed-build fallback so CloudKit behaviour stays put.
-    private static func isContainerEntitled() -> Bool {
-        guard let unmanagedTask = SecTaskCreateFromSelf(nil) else {
-            return hasEmbeddedCodeSignature()
-        }
-        let task = unmanagedTask.takeRetainedValue()
-        guard let unmanaged = SecTaskCopyValueForEntitlement(
-            task,
-            "com.apple.developer.icloud-container-identifiers" as CFString,
-            nil
-        ) else {
-            return hasEmbeddedCodeSignature()
-        }
-        let value = unmanaged.takeRetainedValue()
-        if let identifiers = value as? [String] {
-            return identifiers.contains(containerIdentifier)
-        }
-        if let identifier = value as? String {
-            return identifier == containerIdentifier
-        }
+    // Simulator builds carry no usable CloudKit container entitlement and
+    // constructing the named container there traps before first paint. Every
+    // installable device build is signed against App/App.entitlements; archive
+    // and export fail if the selected profile cannot grant that container.
+    private static func isCloudKitRuntimeSupported() -> Bool {
+        #if targetEnvironment(simulator)
         return false
-    }
-
-    private static func hasEmbeddedCodeSignature() -> Bool {
-        FileManager.default.fileExists(
-            atPath: Bundle.main.bundleURL.appendingPathComponent("_CodeSignature").path
-        )
+        #else
+        return true
+        #endif
     }
 
     private func resolvedContainer() -> CKContainer? {
         if let container {
             return container
         }
-        guard Self.isContainerEntitled() else {
+        guard Self.isCloudKitRuntimeSupported() else {
             return nil
         }
         let created = CKContainer(identifier: Self.containerIdentifier)

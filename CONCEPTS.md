@@ -103,10 +103,13 @@ outside the snapshot.
 The CloudKit private-database copy of learner profiles and learner snapshots
 on the family's Apple account, applied with per-item merge.
 
-It is post-listing, not part of v1. Selected learner, Parent PIN, store
-entitlements and pack-install stay device-local. On apply, catalogue and
-entitlement are derived from this device's store entitlement so a replica
-cannot raise the word list past what this device has purchased.
+Native iOS product composition already starts this replica. Selected learner,
+Parent PIN, store entitlements and pack-install stay device-local. On apply,
+catalogue and entitlement are derived from this device's store entitlement so
+a replica cannot raise the word list past what this device has purchased. The
+physical two-device proof, signed-RC named-container evidence and the ASC Data
+Not Collected read-back remain owner-gated release hard stops on #199 before
+#201.
 
 ### Post-commit epilogue
 

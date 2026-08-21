@@ -122,7 +122,7 @@ On a device signed into a **sandbox** store account:
    never matches another shard's path. The learning-backup import path is
    deleted; Gap 5's file-path vector is closed by absence. A later iCloud
    replica apply must not raise the word list — that constraint lives on
-   [iCloud learning replica — CloudKit private database, post-listing](https://github.com/fol2/ks2-spelling/issues/199).
+   [iCloud learning replica — CloudKit private database](https://github.com/fol2/ks2-spelling/issues/199).
 6. **Legacy-state device**: on a device that previously ran the B3 proof
    app (carrying `b3-sandbox-proof` rows), the product app starts cleanly
    and reports the b3 job retired (deliberate retirement, not a crash).

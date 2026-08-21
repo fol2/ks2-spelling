@@ -47,15 +47,12 @@ sign-in nag. Android stays local-only with a no-op port.
 
 ### Owner two-device acceptance — open gate
 
-Physical proof is owner-gated and was not run in the implementation session.
-Accept on a paired iPhone and iPad signed into the same Apple ID:
-
-1. Entitled device A practises, then device B on the same account shows the
-   merged progress without raising a never-entitled device onto Full.
-2. A never-entitled device that receives a Full replica stays on Starter and
-   still has the parked Full history after a later purchase.
-3. Signing out of iCloud leaves the app usable locally and does not show a
-   child-facing sign-in nag.
+Physical proof is owner-gated and unrecorded. Source composition of the
+private-CloudKit replica is not that proof. The executable signed-RC
+checklist, evidence-record fields and lane distinctions live in
+[`docs/operations/2026-08-21-icloud-learning-replica-physical-acceptance-runbook.md`](./2026-08-21-icloud-learning-replica-physical-acceptance-runbook.md).
+Do not treat an unsigned Simulator compile, portal container configuration,
+or the privacy markdown as a pass.
 
 ## Device storage policy
 

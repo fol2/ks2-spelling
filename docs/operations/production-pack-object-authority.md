@@ -32,12 +32,11 @@ same per-object record as the sandbox document (`role`, `key`, `bytes`,
 gateway's pack table, and would still not be imported from `src/`.
 
 The production document is **not** imported from `src/` or `gateway/src/` in
-this slice. Wiring it into the shared Worker source would mix sandbox and
-production identities unless the Worker is channel-selected; that remains a
-later production-Worker gate. The downloadable-pack registry remains the
-runtime shard table until then. Archive payload hashes in that registry may
-agree with production (same zip bytes); its manifest envelopes are
-sandbox-signed and must not be treated as production object facts.
+this slice. Runtime serving and Worker channel-selection are out of scope
+here. The downloadable-pack registry remains the runtime shard table.
+Archive payload hashes in that registry may agree with production (same zip
+bytes); its manifest envelopes are sandbox-signed and must not be treated as
+production object facts.
 
 ## Document
 
@@ -94,8 +93,16 @@ does not enter the WebView bundle inventory.
 
 ## Remaining gates
 
-- Channel-selecting the production Worker so its pack table is this document
-  rather than the B3 row plus the sandbox-signed registry.
+Runtime serving and Worker channel-selection are out of scope for this
+evidence lane. The production document is not imported from `src/` or
+`gateway/src/`.
+
+- Fresh independent live R2 `--check` after a visible browser `wrangler login`
+  re-consent. Source tests and hosted CI do not prove a live bucket match.
+- Complete matching ceremony-directory cross-check, once a directory holds
+  all fifteen archives and the fifteen production-signed manifests whose MD5
+  equals the live single-part etags. An incomplete or mismatched local tree
+  is not ceremony evidence.
 - Signature verification of the fifteen live envelopes against the production
   public key as a separate proof, beyond the key-id identity check.
 - Any R2 write, Worker deploy, DNS change, or secret rotation — out of scope

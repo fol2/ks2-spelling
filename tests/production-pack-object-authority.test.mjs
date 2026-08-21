@@ -45,7 +45,7 @@ function envelopeBytes(packId) {
   }, null, 2)}\n`, 'utf8');
 }
 
-function fakeLiveObjects() {
+function syntheticPackObjects() {
   const objects = [];
   for (const packId of PRODUCTION_PACK_IDS) {
     const archive = Buffer.from(`archive-bytes:${packId}`);
@@ -76,7 +76,7 @@ function listingFromObjects(objects, mutate) {
   });
 }
 
-function liveReaders(objects, {
+function syntheticReaders(objects, {
   listingMutate,
   getMutate,
 } = {}) {
@@ -91,7 +91,7 @@ function liveReaders(objects, {
 }
 
 async function validDocument() {
-  return buildProductionPackObjectAuthorityFromLive(liveReaders(fakeLiveObjects()));
+  return buildProductionPackObjectAuthorityFromLive(syntheticReaders(syntheticPackObjects()));
 }
 
 async function sourceFiles(relativeDir) {
@@ -127,7 +127,7 @@ test('the production layout pins fifteen Full-KS2 shard ids, versions and thirty
   assert.equal(keys[29], 'packs/full-ks2-shard-15/1.0.0/signed-manifest.json');
 });
 
-test('a live fifteen-pack snapshot builds a closed multi-pack production document', async () => {
+test('a synthetic fifteen-pack snapshot builds a closed multi-pack production document', async () => {
   const document = await validDocument();
   assert.equal(document.bucketName, PRODUCTION_PACK_OBJECT_BUCKET);
   assert.equal(document.packs.length, 15);
@@ -171,21 +171,21 @@ test('validator mutations of pack count, object coverage, identities and metadat
   }
 });
 
-test('live listing drift in count, extra keys, missing keys or etag mismatch fails closed', async () => {
-  const objects = fakeLiveObjects();
+test('synthetic listing drift in count, extra keys, missing keys or etag mismatch fails closed', async () => {
+  const objects = syntheticPackObjects();
   await assert.rejects(
-    buildProductionPackObjectAuthorityFromLive(liveReaders(objects.slice(0, 29))),
+    buildProductionPackObjectAuthorityFromLive(syntheticReaders(objects.slice(0, 29))),
     /exactly 30 objects/i,
   );
   await assert.rejects(
-    buildProductionPackObjectAuthorityFromLive(liveReaders([
+    buildProductionPackObjectAuthorityFromLive(syntheticReaders([
       ...objects,
       { key: 'packs/extra/1.0.0/extra.zip', bytes: Buffer.from('extra') },
     ])),
     /exactly 30 objects/i,
   );
   await assert.rejects(
-    buildProductionPackObjectAuthorityFromLive(liveReaders(objects, {
+    buildProductionPackObjectAuthorityFromLive(syntheticReaders(objects, {
       listingMutate: (entry) => {
         if (entry.key.endsWith('signed-manifest.json')) entry.etag = 'a'.repeat(32);
       },
@@ -193,7 +193,7 @@ test('live listing drift in count, extra keys, missing keys or etag mismatch fai
     /differs from the single-part listing etag/i,
   );
   await assert.rejects(
-    buildProductionPackObjectAuthorityFromLive(liveReaders(objects, {
+    buildProductionPackObjectAuthorityFromLive(syntheticReaders(objects, {
       getMutate: (key, bytes) => (key.includes('shard-01') && key.endsWith('.zip')
         ? Buffer.concat([bytes, Buffer.from('x')])
         : bytes),
@@ -202,8 +202,8 @@ test('live listing drift in count, extra keys, missing keys or etag mismatch fai
   );
 });
 
-test('a live signed-manifest that names the sandbox test key is rejected', async () => {
-  const objects = fakeLiveObjects();
+test('a synthetic signed-manifest that names the sandbox test key is rejected', async () => {
+  const objects = syntheticPackObjects();
   const hostile = Buffer.from(`${JSON.stringify({
     schemaVersion: 1,
     algorithm: 'ECDSA_P256_SHA256_DER',
@@ -215,13 +215,13 @@ test('a live signed-manifest that names the sandbox test key is rejected', async
   }, null, 2)}\n`);
   objects[1] = { key: objects[1].key, bytes: hostile };
   await assert.rejects(
-    buildProductionPackObjectAuthorityFromLive(liveReaders(objects)),
+    buildProductionPackObjectAuthorityFromLive(syntheticReaders(objects)),
     /b3-test-p256-2026-07|must not contain sandbox identity/i,
   );
 });
 
-test('local ceremony MD5 must match the live single-part etag when a ceremony file is present', async () => {
-  const objects = fakeLiveObjects();
+test('local ceremony MD5 must match the declared single-part etag when a ceremony file is present', async () => {
+  const objects = syntheticPackObjects();
   const archive = objects[0];
   const hashed = hashObjectBytes(archive.bytes);
   assert.equal(
@@ -245,7 +245,7 @@ test('local ceremony MD5 must match the live single-part etag when a ceremony fi
     /local ceremony MD5/i,
   );
   const document = await buildProductionPackObjectAuthorityFromLive({
-    ...liveReaders(objects),
+    ...syntheticReaders(objects),
     readCeremonyObject: async (key) => (
       key === archive.key ? archive.bytes : null
     ),
@@ -253,7 +253,7 @@ test('local ceremony MD5 must match the live single-part etag when a ceremony fi
   assert.equal(document.packs[0].objects[0].etag, hashed.etag);
   await assert.rejects(
     buildProductionPackObjectAuthorityFromLive({
-      ...liveReaders(objects),
+      ...syntheticReaders(objects),
       readCeremonyObject: async (key) => (
         key === archive.key ? Buffer.from('stale-ceremony') : null
       ),
@@ -264,7 +264,7 @@ test('local ceremony MD5 must match the live single-part etag when a ceremony fi
 
 test('the ceremony reader accepts both the wizard packs/ layout and the unprefixed tree', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'ks2-ceremony-'));
-  const objects = fakeLiveObjects();
+  const objects = syntheticPackObjects();
   const archive = objects[0];
   try {
     await mkdir(join(directory, dirname(archive.key)), { recursive: true });
@@ -283,20 +283,24 @@ test('the ceremony reader accepts both the wizard packs/ layout and the unprefix
   }
 });
 
-test('check mode fails when the live snapshot drifts from the committed document', async () => {
-  const objects = fakeLiveObjects();
+test('check mode fails when a synthetic snapshot drifts from the committed document', async () => {
+  const objects = syntheticPackObjects();
   const document = await generateProductionPackObjectAuthority({
     root: ROOT,
-    ...liveReaders(objects),
+    ...syntheticReaders(objects),
   });
-  const drifted = fakeLiveObjects();
+  const drifted = syntheticPackObjects();
   drifted[0] = { key: drifted[0].key, bytes: Buffer.concat([drifted[0].bytes, Buffer.from('drift')]) };
-  const live = await generateProductionPackObjectAuthority({
+  const driftedDocument = await generateProductionPackObjectAuthority({
     root: ROOT,
-    ...liveReaders(drifted),
+    ...syntheticReaders(drifted),
   });
   assert.throws(
-    () => assertDocumentsMatch(live, document, 'live bucket differs from the committed production pack-object authority'),
+    () => assertDocumentsMatch(
+      driftedDocument,
+      document,
+      'live bucket differs from the committed production pack-object authority',
+    ),
     /live bucket differs/i,
   );
 });
@@ -315,7 +319,7 @@ test('src and gateway runtime modules do not import the production pack-object d
   assert.deepEqual(hits, []);
 });
 
-test('the committed production document is a live-shaped fifteen-pack authority with production-only identities', async () => {
+test('the committed production document covers fifteen packs with production-only identities', async () => {
   const bytes = await readFile(join(ROOT, PRODUCTION_PACK_OBJECT_AUTHORITY_RELATIVE));
   const document = assertProductionPackObjectAuthorityBytes(bytes);
   await assertProductionPackObjectAuthorityMatchesGateway(ROOT, document);
@@ -370,7 +374,7 @@ test('committed manifest object facts are not the sandbox-signed downloadable-pa
   }
 });
 
-test('mutating the committed production document off the live shape fails the byte and identity contracts', async () => {
+test('mutating the committed production document off the closed fifteen-pack shape fails the byte and identity contracts', async () => {
   const bytes = await readFile(join(ROOT, PRODUCTION_PACK_OBJECT_AUTHORITY_RELATIVE));
   const dropped = JSON.parse(bytes.toString('utf8'));
   dropped.packs.pop();

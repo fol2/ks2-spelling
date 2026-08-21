@@ -4,19 +4,63 @@ This document specifies how visual authority compliance (v2-visual-authority.md)
 
 ## Device matrix
 
-Tested at viewport dimensions (CSS pixels, 1x base) and physical device text scales:
+Three floors, kept distinct:
+
+| Floor | Definition | Value |
+| --- | --- | --- |
+| Geometry floor | Narrowest / shortest viewport the app must survive | **320pt** (iPad Slide Over; `Info.plist` has no `UIRequiresFullScreen`) |
+| Performance floor | Oldest silicon supported | **iPad (8th generation)** (A12) and **iPhone SE (2nd generation)** (A13) |
+| Aesthetics judge | The panel that decides whether it looks right | A current device, **not** the floor machine |
+
+Visual-authority viewports (CSS pixels, 1x base) and physical-device text
+scales:
 
 | Viewport | Class | Target |
 | --- | --- | --- |
-| 393×852 | Phone single-column | iPhone 13 mini |
-| 375×667 | Phone single-column | iPhone SE (2nd gen) |
-| 810×1080 | Tablet two-column | iPad (7th gen, landscape) |
+| 393×852 | Phone single-column | iPhone 13 mini (aesthetics judge) |
+| 375×667 | Phone single-column | iPhone SE (2nd generation) |
+| 810×1080 | Tablet two-column | iPad (8th generation) portrait |
 
 Tested at viewport text-size scaling: 100% (base), 130% (`-webkit-text-size-adjust: 130%`), 160%.
 
+The committed `reports/b4-physical/ios-physical-proof.json` is the
+owner-iPhone artefact (`iPhone 16 Pro Max` / iOS 27). It is not
+floor-device evidence. Floor-device walks remain owner-gated; see
+`docs/operations/2026-08-21-floor-device-gate-runbook.md`.
+
+## Deployment target
+
+`IPHONEOS_DEPLOYMENT_TARGET = 26.0` (iOS 26 / iPadOS 26), per
+[#150](https://github.com/fol2/ks2-spelling/issues/150). The two
+device-family floors agree. Reach cost at Apple's 2026-06-07 App Store
+measurement: **21% of active iPhones and 32% of active iPads excluded**
+(79% / 68% on 26). The trade-off was accepted at #141: a large reach cut
+in a market where hand-me-down devices are common, taken deliberately, and
+**reversible** — lowering the target later costs only the `color-mix()` /
+`text-wrap: balance` fallbacks. Those features are unguarded in product CSS
+(re-counted **38** and **4** uses); iOS 26 removes the Safari 16.2 / 17.5
+exposure, so no fallback work remains after the raise.
+
+This source slice does not fabricate floor-device, signed-archive,
+TestFlight or App Store Connect evidence.
+
+Floor-device performance comparators required by #152, in addition to the
+section-18 four, are **time-to-interactive**, **frame rate** and **memory**.
+#141/#152 name them but do not publish numeric thresholds, so those three
+stay `pending-owner-adjudication` and cannot score GREEN. Frame-rate risk
+surfaces are the Phaser Monster Stage behind the Codex zoom, the celebration
+tier, and the ambient backdrop pan; nothing may drop frames during a
+question card. The current UITest records time-to-interactive; frame-rate
+and memory stay required, fail-closed, unmeasured fields until the owner
+instruments them. The committed schemaVersion 1 owner-iPhone proof is not
+rewritten.
+
 ## Matrix freeze date
 
-Device matrix locked on **2026-08-17**. No new device classes may be added without a separate E5-phase approval slice.
+Viewport classes locked on **2026-08-17**. The performance-floor devices
+and deployment target were corrected on **2026-08-21** to match #150 / #152
+(iPad 8th generation, not 7th; `26.0`, not `15.0`). No new device classes
+may be added without a separate E5-phase approval slice.
 
 ## Baseline file format
 

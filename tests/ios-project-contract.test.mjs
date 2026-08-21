@@ -38,8 +38,8 @@ test('the committed iOS project freezes the unsigned B1 identity', async () => {
     'bundle identifier must be frozen for Debug and Release',
   );
   assert.ok(
-    [...project.matchAll(/IPHONEOS_DEPLOYMENT_TARGET = 15\.0;/g)].length >= 2,
-    'iOS 15.0 must be the project deployment floor',
+    [...project.matchAll(/IPHONEOS_DEPLOYMENT_TARGET = 26\.0;/g)].length >= 2,
+    'iOS 26.0 must be the project deployment floor',
   );
   assert.ok(
     [...project.matchAll(/DEVELOPMENT_TEAM = V45S7U2LZB;/g)].length >= 2,
@@ -139,6 +139,8 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
   );
 
   assert.equal(capacitorIosPackage.version, '8.4.1');
+  assert.match(packageSwift, /swift-tools-version: 6\.2/);
+  assert.match(packageSwift, /platforms: \[\.iOS\(\.v26\)\]/);
   assert.match(
     packageSwift,
     /\.package\(url: "https:\/\/github\.com\/ionic-team\/capacitor-swift-pm\.git", exact: "8\.4\.1"\)/,
@@ -205,6 +207,13 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
         iosBiometric: { biometricAuth: false },
         androidIsEncryption: false,
         androidBiometric: { biometricAuth: false },
+      },
+    },
+    experimental: {
+      ios: {
+        spm: {
+          swiftToolsVersion: '6.2',
+        },
       },
     },
   });

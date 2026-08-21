@@ -2,7 +2,6 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { B4_RISK_OBSERVATION_SPECS } from '../src/app/b4-development-report.js';
 import { run as runIsolatedSqlite } from './investigate-b4-performance.mjs';
 import {
   createInvestigationRunner,
@@ -10,6 +9,19 @@ import {
   investigationError,
   roundMs,
 } from './lib/investigation.mjs';
+import {
+  COMMITTED_PHYSICAL_PROOF_RELATIVE,
+  FLOOR_DEVICES,
+  FLOOR_DEVICE_REPORT_RELATIVES,
+  PHYSICAL_FLOOR_COMPARATOR_KINDS,
+  PHYSICAL_FLOOR_REPORT_SCHEMA_VERSION,
+  evaluateFloorDeviceMatrix,
+  evaluatePhysicalFloorComparators,
+  physicalFloorReportRelative,
+  unmeasuredFrameRateCapture,
+  unmeasuredMemoryCapture,
+  withOwnerForwardedAscAuthentication,
+} from './lib/ios-floor-device-gate.mjs';
 import { movePath } from './lib/move-path.mjs';
 import { EXIT_CODES, isMain, printJson } from './lib/run-command.mjs';
 
@@ -21,20 +33,14 @@ const APP_PATH = join(
   DERIVED_DATA,
   'Build/Products/Release-iphoneos/App.app',
 );
-const OUTPUT_PATH = join(ROOT, 'reports/b4-physical/ios-physical-proof.json');
 const COMMAND_TIMEOUT_MS = 15 * 60 * 1_000;
 const SDK = 'iphoneos26.5';
 
 export const B4_PHYSICAL_LIMITATIONS = Object.freeze([
   'Development-signed install only; this is not distribution, App Store or production signing evidence.',
   'Comparator values are specific to this physical device and must not be treated as transferable across devices or platforms.',
-]);
-
-const COMPARATOR_KINDS = Object.freeze([
-  'coldLaunch',
-  'answerFeedback',
-  'sqliteTransactionUpperBound',
-  'audioStart',
+  'timeToInteractive, frameRate and memory are required floor-device comparators. #141/#152 name them but do not publish numeric thresholds, so those three stay pending-owner-adjudication and cannot score GREEN. Unmeasured frame-rate or memory values are not floor-device performance evidence. The committed schemaVersion 1 owner-iPhone artefact is not rewritten.',
+  'Floor-device proof writes one schemaVersion 2 report per exact floor device. Sequential SE 2 and iPad 8 runs must not overwrite one another or the owner-iPhone artefact.',
 ]);
 
 const { execute, checked } = createInvestigationRunner({
@@ -78,8 +84,35 @@ function maxOf(values) {
   return roundMs(Math.max(...values));
 }
 
-function createPhysicalXcodeTestArguments({ udid, resultPath, testMethod, keychain }) {
-  return Object.freeze([
+export function createPhysicalXcodeBuildArguments({ keychain, env = process.env }) {
+  return withOwnerForwardedAscAuthentication([
+    '-quiet',
+    '-project',
+    'ios/App/App.xcodeproj',
+    '-scheme',
+    'KS2Spelling',
+    '-configuration',
+    'Release',
+    '-sdk',
+    'iphoneos',
+    '-destination',
+    'generic/platform=iOS',
+    '-derivedDataPath',
+    DERIVED_DATA,
+    '-allowProvisioningUpdates',
+    `OTHER_CODE_SIGN_FLAGS=--keychain=${keychain}`,
+    'build',
+  ], env);
+}
+
+export function createPhysicalXcodeTestArguments({
+  udid,
+  resultPath,
+  testMethod,
+  keychain,
+  env = process.env,
+}) {
+  return withOwnerForwardedAscAuthentication([
     '-quiet',
     '-project',
     'ios/App/App.xcodeproj',
@@ -97,29 +130,15 @@ function createPhysicalXcodeTestArguments({ udid, resultPath, testMethod, keycha
     '-allowProvisioningUpdates',
     `OTHER_CODE_SIGN_FLAGS=--keychain=${keychain}`,
     'test',
-  ]);
-}
-
-function evaluateComparator(kind, observedMs) {
-  const spec = B4_RISK_OBSERVATION_SPECS[kind];
-  if (!spec) {
-    throw investigationError(
-      'b4_ios_physical_comparator_unknown',
-      `Unknown B4 physical comparator kind: ${kind}.`,
-    );
-  }
-  const observed = roundMs(observedMs);
-  return Object.freeze({
-    observedMs: observed,
-    thresholdMs: spec.threshold,
-    within: observed <= spec.threshold,
-  });
+  ], env);
 }
 
 export function assembleB4PhysicalReport({
   journeyObservations,
   splitCapture,
   isolatedSqliteMaxMs,
+  frameRate = unmeasuredFrameRateCapture(),
+  memory = unmeasuredMemoryCapture(),
   runner,
   applicationCheckpoint,
 }) {
@@ -137,10 +156,16 @@ export function assembleB4PhysicalReport({
       );
     }
     if (!Number.isFinite(journey.coldLaunchMs) || journey.coldLaunchMs < 0
+        || !Number.isFinite(journey.timeToInteractiveMs) || journey.timeToInteractiveMs < 0
         || !Array.isArray(journey.answerFeedbackMs) || journey.answerFeedbackMs.length !== 10
         || !Array.isArray(journey.audioStartMs) || journey.audioStartMs.length !== 2) {
       throw investigationError(
-        'b4_ios_physical_journey_invalid',
+        journey && Number.isFinite(journey.coldLaunchMs)
+          && Array.isArray(journey.answerFeedbackMs)
+          && Array.isArray(journey.audioStartMs)
+          && !Number.isFinite(journey.timeToInteractiveMs)
+          ? 'b4_ios_physical_time_to_interactive_unmeasured'
+          : 'b4_ios_physical_journey_invalid',
         `Physical journey run ${index + 1} is missing required timing series.`,
       );
     }
@@ -181,31 +206,29 @@ export function assembleB4PhysicalReport({
   }
 
   const coldLaunchSeriesMs = journeyObservations.map((journey) => roundMs(journey.coldLaunchMs));
+  const timeToInteractiveSeriesMs = journeyObservations.map(
+    (journey) => roundMs(journey.timeToInteractiveMs),
+  );
   const defaultJourney = journeyObservations[0];
-  const comparators = Object.freeze({
-    coldLaunch: evaluateComparator('coldLaunch', maxOf(coldLaunchSeriesMs)),
-    answerFeedback: evaluateComparator(
-      'answerFeedback',
-      maxOf(journeyObservations.flatMap((journey) => journey.answerFeedbackMs)),
-    ),
-    sqliteTransactionUpperBound: evaluateComparator(
-      'sqliteTransactionUpperBound',
-      isolatedSqliteMaxMs,
-    ),
-    audioStart: evaluateComparator(
-      'audioStart',
-      maxOf(journeyObservations.flatMap((journey) => journey.audioStartMs)),
-    ),
+  const comparators = evaluatePhysicalFloorComparators({
+    coldLaunchMs: maxOf(coldLaunchSeriesMs),
+    answerFeedbackMs: maxOf(journeyObservations.flatMap((journey) => journey.answerFeedbackMs)),
+    sqliteTransactionUpperBoundMs: isolatedSqliteMaxMs,
+    audioStartMs: maxOf(journeyObservations.flatMap((journey) => journey.audioStartMs)),
+    timeToInteractiveMs: maxOf(timeToInteractiveSeriesMs),
+    frameRate,
+    memory,
   });
-  if (Object.keys(comparators).sort().join('|') !== COMPARATOR_KINDS.toSorted().join('|')) {
+  if (Object.keys(comparators).sort().join('|')
+      !== [...PHYSICAL_FLOOR_COMPARATOR_KINDS].sort().join('|')) {
     throw investigationError(
       'b4_ios_physical_comparator_set_invalid',
-      'The physical comparator set drifted from the frozen four-kind contract.',
+      'The physical comparator set drifted from the seven-kind floor contract.',
     );
   }
 
   return Object.freeze({
-    schemaVersion: 1,
+    schemaVersion: PHYSICAL_FLOOR_REPORT_SCHEMA_VERSION,
     platform: 'ios-physical',
     runner: Object.freeze({ ...runner }),
     limitations: B4_PHYSICAL_LIMITATIONS,
@@ -216,6 +239,7 @@ export function assembleB4PhysicalReport({
       journeyObservations.slice(1).map((journey) => structuredClone(journey)),
     ),
     coldLaunchSeriesMs: Object.freeze([...coldLaunchSeriesMs]),
+    timeToInteractiveSeriesMs: Object.freeze([...timeToInteractiveSeriesMs]),
     splitTimings: structuredClone(splitCapture),
     isolatedSqlite: Object.freeze({
       maxTransactionMs: roundMs(isolatedSqliteMaxMs),
@@ -263,18 +287,9 @@ async function requirePhysicalDevice(udid) {
 
 async function buildOfflineApplication(keychain) {
   await checked('npm', ['run', 'sync:b4-development'], { stream: true });
-  await checked('xcodebuild', [
-    '-quiet',
-    '-project', 'ios/App/App.xcodeproj',
-    '-scheme', 'KS2Spelling',
-    '-configuration', 'Release',
-    '-sdk', 'iphoneos',
-    '-destination', 'generic/platform=iOS',
-    '-derivedDataPath', DERIVED_DATA,
-    '-allowProvisioningUpdates',
-    `OTHER_CODE_SIGN_FLAGS=--keychain=${keychain}`,
-    'build',
-  ], { stream: true });
+  await checked('xcodebuild', createPhysicalXcodeBuildArguments({ keychain }), {
+    stream: true,
+  });
   const index = await readFile(join(APP_PATH, 'public/index.html'), 'utf8');
   if (!index.includes('name="ks2-spelling-build-mode" content="B4Development"')
       || !/connect-src (?:&#39;|')none(?:&#39;|')/u.test(index)) {
@@ -435,10 +450,20 @@ async function proveB4IosPhysical() {
       );
     }
 
+    const outputRelative = physicalFloorReportRelative(deviceModel);
+    if (!outputRelative || outputRelative === COMMITTED_PHYSICAL_PROOF_RELATIVE) {
+      throw investigationError(
+        'b4_ios_physical_floor_device_unrecognised',
+        `Physical floor proof writes only iPhone SE (2nd generation) and iPad (8th generation) reports. ${deviceModel} is not a floor device and must not overwrite ${COMMITTED_PHYSICAL_PROOF_RELATIVE}.`,
+      );
+    }
+
     const report = assembleB4PhysicalReport({
       journeyObservations,
       splitCapture: split.payload,
       isolatedSqliteMaxMs: sqlite.maxMs,
+      frameRate: unmeasuredFrameRateCapture(),
+      memory: unmeasuredMemoryCapture(),
       runner: {
         hostOS: await hostDescription(),
         xcodeVersion: await xcodeVersionLabel(),
@@ -452,21 +477,124 @@ async function proveB4IosPhysical() {
     });
 
     await mkdir(join(ROOT, 'reports/b4-physical'), { recursive: true });
-    await writeFile(OUTPUT_PATH, prettySortedJson(report));
+    await writeFile(join(ROOT, outputRelative), prettySortedJson(report));
+    const matrix = await checkFloorDeviceMatrix({ root: ROOT });
     return Object.freeze({
       ok: true,
       platform: report.platform,
-      outputPath: 'reports/b4-physical/ios-physical-proof.json',
+      outputPath: outputRelative,
       coldLaunchSeriesMs: report.coldLaunchSeriesMs,
       comparators: report.comparators,
+      matrixComplete: matrix.complete,
+      matrixGreen: matrix.green,
+      matrixCode: matrix.code,
+      matrixMissing: matrix.missing,
     });
   } finally {
     await rm(workDirectory, { recursive: true, force: true });
   }
 }
 
-export async function main() {
+export async function checkFloorDeviceMatrix({
+  root = ROOT,
+  readFileImpl = readFile,
+} = {}) {
+  const reports = [];
+  const missingFiles = [];
+  const unreadableFiles = [];
+  for (const device of FLOOR_DEVICES) {
+    const relative = FLOOR_DEVICE_REPORT_RELATIVES[device.id];
+    let text;
+    try {
+      text = await readFileImpl(join(root, relative), 'utf8');
+    } catch {
+      missingFiles.push(relative);
+      continue;
+    }
+    try {
+      reports.push(JSON.parse(text));
+    } catch {
+      unreadableFiles.push(relative);
+    }
+  }
+  const evaluation = evaluateFloorDeviceMatrix(reports);
+  const complete = evaluation.complete === true
+    && missingFiles.length === 0
+    && unreadableFiles.length === 0;
+  const green = complete && evaluation.green === true;
+  return Object.freeze({
+    complete,
+    green,
+    code: complete
+      ? (green
+        ? 'b4_ios_floor_matrix_green'
+        : 'b4_ios_floor_matrix_complete_pending_thresholds')
+      : 'b4_ios_floor_matrix_incomplete',
+    missingFiles: Object.freeze(missingFiles),
+    unreadableFiles: Object.freeze(unreadableFiles),
+    checkpointMismatch: evaluation.checkpointMismatch,
+    matchedIds: evaluation.matchedIds,
+    missing: evaluation.missing,
+    invalid: evaluation.invalid,
+  });
+}
+
+export function parsePhysicalProofArguments(args = []) {
+  if (args.length === 0) {
+    return Object.freeze({ mode: 'capture' });
+  }
+  if (!args.includes('--check-floor-matrix')) {
+    return Object.freeze({
+      mode: 'invalid',
+      message: 'Usage: node scripts/prove-b4-ios-physical.mjs [--check-floor-matrix [--reports-root DIR]]',
+    });
+  }
+  let reportsRoot = ROOT;
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === '--check-floor-matrix') continue;
+    if (argument === '--reports-root') {
+      const value = args[index + 1];
+      if (typeof value !== 'string' || value.length === 0 || value.startsWith('-')) {
+        return Object.freeze({
+          mode: 'invalid',
+          message: '--reports-root requires a directory.',
+        });
+      }
+      reportsRoot = resolve(value);
+      index += 1;
+      continue;
+    }
+    return Object.freeze({
+      mode: 'invalid',
+      message: 'Usage: node scripts/prove-b4-ios-physical.mjs [--check-floor-matrix [--reports-root DIR]]',
+    });
+  }
+  return Object.freeze({ mode: 'check-floor-matrix', reportsRoot });
+}
+
+export async function main(args = process.argv.slice(2), options = {}) {
   try {
+    const parsed = parsePhysicalProofArguments(args);
+    if (parsed.mode === 'invalid') {
+      printJson({
+        ok: false,
+        code: 'usage',
+        message: parsed.message,
+      }, process.stderr);
+      return EXIT_CODES.usage;
+    }
+    if (parsed.mode === 'check-floor-matrix') {
+      const result = await checkFloorDeviceMatrix({
+        ...options,
+        root: options.root ?? parsed.reportsRoot,
+      });
+      printJson({
+        ok: result.complete,
+        ...result,
+      }, result.complete ? process.stdout : process.stderr);
+      return result.complete ? EXIT_CODES.success : EXIT_CODES.stateMismatch;
+    }
     printJson(await proveB4IosPhysical());
     return EXIT_CODES.success;
   } catch (error) {

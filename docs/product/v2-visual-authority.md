@@ -99,6 +99,12 @@ Surfaces in Layer 2 are automatically verified in baseline mode on PRs touching
   scroll at any supported viewport or text size.
 - **Target size**: Every actionable element must be at least 44×44 CSS pixels
   (excluding spacing).
+- **sRGB readability**: No meaning may depend on wide gamut or fine tonal
+  separation; it must read on sRGB. This extends correctness-never-by-colour-alone
+  from hue to gamut, so the design is not tuned down to suit the floor panel
+  while nothing meaningful disappears on it. "Playable is enough" applies to
+  **panel quality only**. Composition, layout and performance meet the full bar
+  on the floor machine.
 
 #### Semantic tokens
 
@@ -162,7 +168,8 @@ Tone assignment is per-scene, driven by the `dusk` boolean prop threaded through
 Correctness colours and the focus ring remain fixed across tone groups.
 Correctness is never conveyed by colour alone. Every state includes a heading,
 plain-language explanation and, where useful, an icon with hidden decorative
-semantics.
+semantics. No meaning may depend on wide gamut or fine tonal separation; it
+must read on sRGB.
 
 ##### Semantics
 

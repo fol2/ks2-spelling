@@ -155,6 +155,22 @@ composition: the composition says which experience is packaged, the channel
 says whose content that experience will accept. Proof and development
 compositions have no channel — only a product build has one.
 
+### Geometry floor
+
+The narrowest and shortest viewport the product must survive: 320pt, from
+iPad Slide Over. The Info.plist carries no `UIRequiresFullScreen`, so iPad
+multitasking is mandatory.
+
+### Performance floor
+
+The oldest silicon the product declares: iPhone SE (2nd generation) (A13)
+and iPad (8th generation) (A12), with `IPHONEOS_DEPLOYMENT_TARGET = 26.0`.
+
+### Aesthetics judge
+
+The current-device panel used to decide whether the product looks right. It
+is not the performance-floor machine.
+
 ### Native build identity
 
 The complete evidence tuple identifying what will be installed: source revision, application composition, native project and scheme, configuration, destination, bundle identifier, and packaged-content checks.

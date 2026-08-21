@@ -109,7 +109,8 @@ test('ICloudLearningReplica is an owned private-database plugin with an Android 
 
   assert.match(project, /ICloudLearningReplicaPlugin\.swift in Sources/u);
   assert.match(project, /CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements;/u);
-  assert.match(project, /IPHONEOS_DEPLOYMENT_TARGET = 15\.0;/u);
+  assert.match(project, /IPHONEOS_DEPLOYMENT_TARGET = 26\.0;/u);
+  assert.doesNotMatch(project, /IPHONEOS_DEPLOYMENT_TARGET = 15\.0;/u);
   assert.doesNotMatch(project, /IPHONEOS_DEPLOYMENT_TARGET = 1[67]/u);
 
   const entitlementKeys = [...entitlements.matchAll(/<key>([^<]+)<\/key>/gu)].map(

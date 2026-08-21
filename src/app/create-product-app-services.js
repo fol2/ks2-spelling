@@ -415,6 +415,8 @@ export async function createProductAppServices(options = {}) {
       initialSnapshot,
       roundBaselineStore,
       initialRoundBaseline,
+      onCommandCommitted: (learnerId) =>
+        replicaHandle.publishLearner(learnerId),
       random,
       now,
     });

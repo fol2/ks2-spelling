@@ -304,6 +304,7 @@ export function createProductLearningController({
   initialSnapshot = null,
   roundBaselineStore = null,
   initialRoundBaseline = null,
+  onCommandCommitted = null,
   random,
   now = Date.now,
 } = {}) {
@@ -314,6 +315,9 @@ export function createProductLearningController({
   }
   if (typeof now !== 'function') {
     throw new TypeError('Product learning controller now must be a function.');
+  }
+  if (onCommandCommitted !== null && typeof onCommandCommitted !== 'function') {
+    throw new TypeError('onCommandCommitted must be a function or null.');
   }
   if (
     roundBaselineStore !== null &&
@@ -484,6 +488,12 @@ export function createProductLearningController({
               : phase === 'session' ? 'practice' : 'home',
           summary: options.summary ?? null,
         });
+        try {
+          await onCommandCommitted?.(snapshot.learnerId);
+        } catch {
+          // Replication is post-commit and best-effort. Local SQLite remains
+          // the source of truth, so its successful command stays successful.
+        }
         return plan;
       } catch (error) {
         publishFromSnapshot({

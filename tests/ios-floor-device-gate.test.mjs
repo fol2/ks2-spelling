@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readdir, readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
@@ -8,14 +10,18 @@ import test from 'node:test';
 import {
   ASC_AUTH_ENV_NAMES,
   ASC_XCODEBUILD_FLAGS,
+  CAPACITOR_SWIFT_TOOLS_VERSION,
   COMMITTED_PHYSICAL_PROOF_RELATIVE,
   EXPECTED_IPHONEOS_DEPLOYMENT_TARGET_COUNT,
   FLOOR_DEVICES,
+  FLOOR_DEVICE_REPORT_RELATIVES,
   FRAME_RATE_RISK_SURFACES,
   IPHONEOS_DEPLOYMENT_TARGET,
   OWNER_IPHONE_ARTEFACT_MODEL,
   PHYSICAL_FLOOR_COMPARATOR_SPECS,
+  PHYSICAL_FLOOR_REPORT_SCHEMA_VERSION,
   assertIphoneosDeploymentTargetFloor,
+  assertSwiftPmFloorContract,
   classifyPhysicalDeviceReport,
   collectIphoneosDeploymentTargets,
   countProductCssFeatureUses,
@@ -26,15 +32,20 @@ import {
   insertAllowProvisioningAuthenticationArguments,
   isHistoricalOwnerIphonePhysicalProof,
   matchFloorDevice,
+  physicalFloorReportRelative,
   resolveAscAuthenticationArguments,
   unmeasuredFrameRateCapture,
   unmeasuredMemoryCapture,
   withOwnerForwardedAscAuthentication,
 } from '../scripts/lib/ios-floor-device-gate.mjs';
 import {
+  assembleB4PhysicalReport,
+  checkFloorDeviceMatrix,
   createPhysicalXcodeBuildArguments,
   createPhysicalXcodeTestArguments,
+  main as physicalProofMain,
 } from '../scripts/prove-b4-ios-physical.mjs';
+import { EXIT_CODES } from '../scripts/lib/run-command.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const PBX_RELATIVE = 'ios/App/App.xcodeproj/project.pbxproj';
@@ -47,6 +58,85 @@ const NATIVE_DEV_RELATIVE = 'docs/operations/native-development.md';
 const CONCEPTS_RELATIVE = 'CONCEPTS.md';
 const SWIFT_UITEST_RELATIVE = 'ios/App/B3ProofUITests/B4DevelopmentTests.swift';
 const PRODUCT_APP_RELATIVE = 'src/app/ProductApp.jsx';
+const CAPACITOR_CONFIG_RELATIVE = 'capacitor.config.json';
+const PACKAGE_SWIFT_RELATIVE = 'ios/App/CapApp-SPM/Package.swift';
+
+const FLOOR_CHECKPOINT_A = Object.freeze({
+  commit: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  tree: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+});
+const FLOOR_CHECKPOINT_B = Object.freeze({
+  commit: 'cccccccccccccccccccccccccccccccccccccccc',
+  tree: 'dddddddddddddddddddddddddddddddddddddddd',
+});
+
+function recordedFrameRateCapture() {
+  return {
+    questionCardDroppedFrames: 0,
+    riskSurfaces: {
+      codexZoomMonsterStage: { observedFps: 60 },
+      celebrationTier: { observedFps: 60 },
+      ambientBackdropPan: { observedFps: 60 },
+    },
+  };
+}
+
+function validFloorReport(deviceModel, checkpoint = FLOOR_CHECKPOINT_A, overrides = {}) {
+  const journey = (coldLaunchMs) => ({
+    schemaVersion: 1,
+    coldLaunchMs,
+    timeToInteractiveMs: coldLaunchMs,
+    answerFeedbackMs: Array(10).fill(40),
+    audioStartMs: [200, 180],
+    minimumControlHeightPoints: 49,
+    referenceTextHeightPoints: 23,
+    softwareKeyboardObserved: true,
+    enterSubmitted: true,
+    backgroundAudioStoppedCount: 2,
+    resumeProgressBefore: 'Card 2 of 5',
+    resumeProgressAfter: 'Card 2 of 5',
+    completed: true,
+  });
+  return assembleB4PhysicalReport({
+    journeyObservations: [journey(1_500), journey(1_600), journey(1_550)],
+    splitCapture: {
+      schemaVersion: 1,
+      clock: 'Unix epoch milliseconds',
+      observations: Array.from({ length: 10 }, (_, index) => ({
+        answerIndex: index + 1,
+        expectedRevision: 2 + (index * 2),
+        submitEpochMs: 1_000 + index,
+        audioPlayingVisibleEpochMs: -1,
+        feedbackVisibleEpochMs: 1_100 + index,
+        replayToAudioPlayingVisibleMs: 300 + index,
+      })),
+      completed: true,
+    },
+    isolatedSqliteMaxMs: 29.454,
+    frameRate: recordedFrameRateCapture(),
+    memory: { peakBytes: 80 * 1024 * 1024 },
+    runner: {
+      hostOS: 'macOS 27.0 (26A5378n)',
+      xcodeVersion: '26.6 (17F109)',
+      sdk: 'iphoneos26.5',
+      deviceModel,
+      deviceOsVersion: '26.1',
+      buildConfiguration: 'Release',
+      reality: 'physical',
+    },
+    applicationCheckpoint: checkpoint,
+    ...overrides,
+  });
+}
+
+async function writeFloorFixtures(root, reportsById) {
+  for (const [id, report] of Object.entries(reportsById)) {
+    const relative = FLOOR_DEVICE_REPORT_RELATIVES[id];
+    const path = join(root, relative);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, `${JSON.stringify(report, null, 2)}\n`);
+  }
+}
 
 const COMPLETE_ASC_ENV = Object.freeze({
   KS2_ASC_KEY_ID: 'TESTKEYID1',
@@ -93,9 +183,9 @@ async function collectProductCss() {
 
 test('every PBX IPHONEOS_DEPLOYMENT_TARGET is 26.0 and the count is exact', async () => {
   assertTracked(PBX_RELATIVE);
-  assertTracked('ios/App/CapApp-SPM/Package.swift');
-  const packageSwift = await readUtf8('ios/App/CapApp-SPM/Package.swift');
-  assert.match(packageSwift, /swift-tools-version: 5\.9/);
+  assertTracked(PACKAGE_SWIFT_RELATIVE);
+  const packageSwift = await readUtf8(PACKAGE_SWIFT_RELATIVE);
+  assert.match(packageSwift, /swift-tools-version: 6\.2/);
   assert.match(packageSwift, /platforms: \[\.iOS\(\.v26\)\]/);
   assert.doesNotMatch(packageSwift, /\.iOS\(\.v15\)/);
   const project = await readUtf8(PBX_RELATIVE);
@@ -111,6 +201,53 @@ test('every PBX IPHONEOS_DEPLOYMENT_TARGET is 26.0 and the count is exact', asyn
     { count: EXPECTED_IPHONEOS_DEPLOYMENT_TARGET_COUNT, value: '26.0' },
   );
   assert.equal(project.includes('IPHONEOS_DEPLOYMENT_TARGET = 15.0;'), false);
+});
+
+test('Capacitor SSOT pins SwiftPM tools 6.2 and generated Package.swift follows it', async () => {
+  assertTracked(CAPACITOR_CONFIG_RELATIVE);
+  assertTracked(PACKAGE_SWIFT_RELATIVE);
+  assertTracked(PBX_RELATIVE);
+  const [capacitorConfig, packageSwift, pbxprojText] = await Promise.all([
+    readUtf8(CAPACITOR_CONFIG_RELATIVE).then((text) => JSON.parse(text)),
+    readUtf8(PACKAGE_SWIFT_RELATIVE),
+    readUtf8(PBX_RELATIVE),
+  ]);
+  assert.deepEqual(
+    assertSwiftPmFloorContract({ capacitorConfig, packageSwift, pbxprojText }),
+    { swiftToolsVersion: CAPACITOR_SWIFT_TOOLS_VERSION, iosVersion: '26' },
+  );
+  assert.equal(Object.hasOwn(capacitorConfig, 'server'), false);
+  assert.equal(capacitorConfig.experimental.ios.spm.swiftToolsVersion, '6.2');
+
+  const driftedConfig = structuredClone(capacitorConfig);
+  driftedConfig.experimental.ios.spm.swiftToolsVersion = '5.9';
+  assert.throws(
+    () => assertSwiftPmFloorContract({
+      capacitorConfig: driftedConfig,
+      packageSwift,
+      pbxprojText,
+    }),
+    (error) => error?.code === 'ios_swift_tools_version_invalid',
+  );
+  assert.throws(
+    () => assertSwiftPmFloorContract({
+      capacitorConfig,
+      packageSwift: packageSwift.replace(
+        'swift-tools-version: 6.2',
+        'swift-tools-version: 5.9',
+      ),
+      pbxprojText,
+    }),
+    (error) => error?.code === 'ios_swiftpm_tools_version_drift',
+  );
+  assert.throws(
+    () => assertSwiftPmFloorContract({
+      capacitorConfig,
+      packageSwift: packageSwift.replace('.iOS(.v26)', '.iOS(.v15)'),
+      pbxprojText,
+    }),
+    (error) => error?.code === 'ios_swiftpm_platform_drift',
+  );
 });
 
 test('a single reverted PBX deployment target fails the floor assertion', async () => {
@@ -158,9 +295,15 @@ test('the committed physical proof is the owner-iPhone artefact and not the floo
   assert.equal(classification.ownerIphoneArtefact, true);
   assert.deepEqual(evaluateFloorDeviceMatrix([report]), {
     complete: false,
+    green: false,
+    checkpointMismatch: false,
     matchedIds: [],
     missing: ['iPhone SE (2nd generation)', 'iPad (8th generation)'],
+    invalid: [],
   });
+  for (const relative of Object.values(FLOOR_DEVICE_REPORT_RELATIVES)) {
+    assert.equal(existsSync(join(ROOT, relative)), false);
+  }
 });
 
 test('rewriting the committed proof model to one floor device still leaves the matrix incomplete', async () => {
@@ -170,10 +313,14 @@ test('rewriting the committed proof model to one floor device still leaves the m
     runner: { ...report.runner, deviceModel: 'iPhone SE (2nd generation)' },
   };
   assert.equal(classifyPhysicalDeviceReport(fakeSe2).kind, 'floor-device');
-  assert.deepEqual(evaluateFloorDeviceMatrix([fakeSe2]).missing, [
+  const evaluation = evaluateFloorDeviceMatrix([fakeSe2]);
+  assert.equal(evaluation.complete, false);
+  assert.equal(evaluation.green, false);
+  assert.deepEqual(evaluation.missing, [
+    'iPhone SE (2nd generation)',
     'iPad (8th generation)',
   ]);
-  assert.equal(evaluateFloorDeviceMatrix([fakeSe2]).complete, false);
+  assert.deepEqual(evaluation.invalid, ['iPhone SE (2nd generation)']);
 });
 
 test('floor-device TTI, frame-rate and memory specs stay unnamed by #141/#152 thresholds', () => {
@@ -240,7 +387,7 @@ test('question-card source keeps canvas and celebration stages off the answer pa
   );
 });
 
-test('only both exact floor devices complete the matrix, and iPhone 16 Pro Max never counts', () => {
+test('two minimal floor runners do not complete the matrix', () => {
   const se2 = {
     runner: { reality: 'physical', deviceModel: 'iPhone SE (2nd generation)' },
   };
@@ -250,17 +397,185 @@ test('only both exact floor devices complete the matrix, and iPhone 16 Pro Max n
   const ownerPhone = {
     runner: { reality: 'physical', deviceModel: OWNER_IPHONE_ARTEFACT_MODEL },
   };
-  assert.deepEqual(evaluateFloorDeviceMatrix([se2, ipad8]), {
-    complete: true,
-    matchedIds: ['iphone-se-2', 'ipad-8'],
-    missing: [],
-  });
+  const evaluation = evaluateFloorDeviceMatrix([se2, ipad8]);
+  assert.equal(evaluation.complete, false);
+  assert.equal(evaluation.green, false);
+  assert.deepEqual(evaluation.matchedIds, []);
+  assert.deepEqual(evaluation.missing, [
+    'iPhone SE (2nd generation)',
+    'iPad (8th generation)',
+  ]);
+  assert.deepEqual(evaluation.invalid, [
+    'iPhone SE (2nd generation)',
+    'iPad (8th generation)',
+  ]);
   assert.equal(evaluateFloorDeviceMatrix([se2, ownerPhone]).complete, false);
   assert.equal(evaluateFloorDeviceMatrix([ipad8, ownerPhone]).complete, false);
   assert.equal(
     classifyPhysicalDeviceReport({ runner: { reality: 'simulator', deviceModel: 'iPhone SE (2nd generation)' } }).kind,
     'not-physical',
   );
+});
+
+test('schema-v2 floor reports with unmeasured fps and memory stay incomplete', () => {
+  const se2 = validFloorReport('iPhone SE (2nd generation)', FLOOR_CHECKPOINT_A, {
+    frameRate: unmeasuredFrameRateCapture(),
+    memory: unmeasuredMemoryCapture(),
+  });
+  const ipad8 = validFloorReport('iPad (8th generation)', FLOOR_CHECKPOINT_A, {
+    frameRate: unmeasuredFrameRateCapture(),
+    memory: unmeasuredMemoryCapture(),
+  });
+  const evaluation = evaluateFloorDeviceMatrix([se2, ipad8]);
+  assert.equal(se2.schemaVersion, PHYSICAL_FLOOR_REPORT_SCHEMA_VERSION);
+  assert.equal(evaluation.complete, false);
+  assert.equal(evaluation.green, false);
+  assert.deepEqual(evaluation.invalid, [
+    'iPhone SE (2nd generation)',
+    'iPad (8th generation)',
+  ]);
+});
+
+test('same-checkpoint recorded floor reports complete the matrix but stay not GREEN', () => {
+  const se2 = validFloorReport('iPhone SE (2nd generation)', FLOOR_CHECKPOINT_A);
+  const ipad8 = validFloorReport('iPad (8th generation)', FLOOR_CHECKPOINT_A);
+  const evaluation = evaluateFloorDeviceMatrix([se2, ipad8]);
+  assert.equal(evaluation.complete, true);
+  assert.equal(evaluation.green, false);
+  assert.equal(evaluation.checkpointMismatch, false);
+  assert.deepEqual(evaluation.matchedIds, ['iphone-se-2', 'ipad-8']);
+  assert.deepEqual(evaluation.missing, []);
+  assert.deepEqual(evaluation.invalid, []);
+});
+
+test('mixed applicationCheckpoint identities fail the two-device matrix', () => {
+  const se2 = validFloorReport('iPhone SE (2nd generation)', FLOOR_CHECKPOINT_A);
+  const ipad8 = validFloorReport('iPad (8th generation)', FLOOR_CHECKPOINT_B);
+  const evaluation = evaluateFloorDeviceMatrix([se2, ipad8]);
+  assert.equal(hasRecordedFloorComparators(se2.comparators), true);
+  assert.equal(hasRecordedFloorComparators(ipad8.comparators), true);
+  assert.notEqual(se2.applicationCheckpoint.commit, ipad8.applicationCheckpoint.commit);
+  assert.equal(evaluation.complete, false);
+  assert.equal(evaluation.green, false);
+  assert.equal(evaluation.checkpointMismatch, true);
+  assert.deepEqual(evaluation.matchedIds, ['iphone-se-2', 'ipad-8']);
+  assert.deepEqual(evaluation.missing, []);
+});
+
+test('physical proof source writes distinct floor reports and never the owner-iPhone artefact', async () => {
+  const source = await readUtf8(PHYSICAL_SCRIPT_RELATIVE);
+  assert.match(source, /physicalFloorReportRelative/);
+  assert.match(source, /b4_ios_physical_floor_device_unrecognised/);
+  assert.match(source, /checkFloorDeviceMatrix/);
+  assert.match(source, /matrixComplete: matrix\.complete/);
+  assert.doesNotMatch(source, /matrixComplete:\s*true/);
+  assert.doesNotMatch(
+    source,
+    /writeFile\(OUTPUT_PATH|writeFile\(join\(ROOT, COMMITTED_PHYSICAL_PROOF_RELATIVE\)/,
+  );
+  assert.equal(
+    physicalFloorReportRelative('iPhone SE (2nd generation)'),
+    'reports/b4-physical/ios-floor-iphone-se-2.json',
+  );
+  assert.equal(
+    physicalFloorReportRelative('iPad (8th generation)'),
+    'reports/b4-physical/ios-floor-ipad-8.json',
+  );
+  assert.equal(physicalFloorReportRelative(OWNER_IPHONE_ARTEFACT_MODEL), null);
+});
+
+test('the floor-matrix check path fails closed on missing, null-comparator and mixed-checkpoint files', async (t) => {
+  const tempRoot = await mkdtemp(join(tmpdir(), 'ks2-floor-matrix-'));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
+
+  const missing = await checkFloorDeviceMatrix({ root: tempRoot });
+  assert.equal(missing.complete, false);
+  assert.equal(missing.green, false);
+  assert.equal(missing.code, 'b4_ios_floor_matrix_incomplete');
+  assert.deepEqual(missing.missingFiles, [
+    'reports/b4-physical/ios-floor-iphone-se-2.json',
+    'reports/b4-physical/ios-floor-ipad-8.json',
+  ]);
+  assert.equal(
+    await physicalProofMain(['--check-floor-matrix'], { root: tempRoot }),
+    EXIT_CODES.stateMismatch,
+  );
+
+  await writeFloorFixtures(tempRoot, {
+    'iphone-se-2': validFloorReport('iPhone SE (2nd generation)', FLOOR_CHECKPOINT_A, {
+      frameRate: unmeasuredFrameRateCapture(),
+      memory: unmeasuredMemoryCapture(),
+    }),
+    'ipad-8': validFloorReport('iPad (8th generation)', FLOOR_CHECKPOINT_A, {
+      frameRate: unmeasuredFrameRateCapture(),
+      memory: unmeasuredMemoryCapture(),
+    }),
+  });
+  const unmeasured = await checkFloorDeviceMatrix({ root: tempRoot });
+  assert.equal(unmeasured.complete, false);
+  assert.equal(unmeasured.green, false);
+  assert.equal(unmeasured.missingFiles.length, 0);
+  assert.deepEqual(unmeasured.invalid, [
+    'iPhone SE (2nd generation)',
+    'iPad (8th generation)',
+  ]);
+
+  await writeFloorFixtures(tempRoot, {
+    'iphone-se-2': validFloorReport('iPhone SE (2nd generation)', FLOOR_CHECKPOINT_A),
+    'ipad-8': validFloorReport('iPad (8th generation)', FLOOR_CHECKPOINT_B),
+  });
+  const mixed = await checkFloorDeviceMatrix({ root: tempRoot });
+  assert.equal(mixed.complete, false);
+  assert.equal(mixed.green, false);
+  assert.equal(mixed.checkpointMismatch, true);
+  assert.equal(mixed.code, 'b4_ios_floor_matrix_incomplete');
+  assert.equal(
+    await physicalProofMain(['--check-floor-matrix'], { root: tempRoot }),
+    EXIT_CODES.stateMismatch,
+  );
+});
+
+test('the floor-matrix check path reads both files and stays not GREEN while thresholds are pending', async (t) => {
+  const tempRoot = await mkdtemp(join(tmpdir(), 'ks2-floor-matrix-complete-'));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
+  await writeFloorFixtures(tempRoot, {
+    'iphone-se-2': validFloorReport('iPhone SE (2nd generation)', FLOOR_CHECKPOINT_A),
+    'ipad-8': validFloorReport('iPad (8th generation)', FLOOR_CHECKPOINT_A),
+  });
+  const result = await checkFloorDeviceMatrix({ root: tempRoot });
+  assert.equal(result.complete, true);
+  assert.equal(result.green, false);
+  assert.equal(result.code, 'b4_ios_floor_matrix_complete_pending_thresholds');
+  assert.equal(result.checkpointMismatch, false);
+  assert.equal(
+    await physicalProofMain(['--check-floor-matrix'], { root: tempRoot }),
+    EXIT_CODES.success,
+  );
+});
+
+test('the repository floor-matrix CLI fails closed without fabricating reports', () => {
+  assert.throws(
+    () => execFileSync(
+      process.execPath,
+      [join(ROOT, 'scripts/prove-b4-ios-physical.mjs'), '--check-floor-matrix'],
+      { encoding: 'utf8', cwd: ROOT },
+    ),
+    (error) => {
+      assert.equal(error.status, EXIT_CODES.stateMismatch);
+      const payload = JSON.parse(error.stderr);
+      assert.equal(payload.ok, false);
+      assert.equal(payload.complete, false);
+      assert.equal(payload.green, false);
+      assert.equal(payload.code, 'b4_ios_floor_matrix_incomplete');
+      assert.deepEqual(payload.missingFiles, [
+        'reports/b4-physical/ios-floor-iphone-se-2.json',
+        'reports/b4-physical/ios-floor-ipad-8.json',
+      ]);
+      return true;
+    },
+  );
+  assert.equal(existsSync(join(ROOT, FLOOR_DEVICE_REPORT_RELATIVES['iphone-se-2'])), false);
+  assert.equal(existsSync(join(ROOT, FLOOR_DEVICE_REPORT_RELATIVES['ipad-8'])), false);
 });
 
 test('owner-controlled ASC auth is forwarded as xcodebuild flags or omitted, never completed from a hidden source', () => {
@@ -461,8 +776,11 @@ test('release-gate, visual authority, runbook and concepts source pin the floor 
   assert.match(runbook, /time-to-interactive/);
   assert.match(runbook, /nothing may drop them during a question card/);
   assert.match(runbook, /identifiers stay in the\s+#152 issue comment/);
-  assert.match(runbook, /PackageDescription 6\.2/);
   assert.match(runbook, /experimental\.ios\.spm\.swiftToolsVersion/);
+  assert.match(runbook, /swift-tools-version: 6\.2/);
+  assert.match(runbook, /ios-floor-iphone-se-2\.json/);
+  assert.match(runbook, /ios-floor-ipad-8\.json/);
+  assert.match(runbook, /node scripts\/prove-b4-ios-physical\.mjs --check-floor-matrix/);
   assert.doesNotMatch(runbook, /iPad\s+`[0-9A-Z]{10}`/);
   assert.doesNotMatch(runbook, /SE 2\s+`[0-9A-Z]{10}`/);
   assert.doesNotMatch(runbook, /Status:\s*GREEN/i);

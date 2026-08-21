@@ -107,7 +107,7 @@ test('synthetic physical input produces the ios-physical evidence schema', () =>
   assert.deepEqual(report.timeToInteractiveSeriesMs, [1_500.4, 1_800.6, 1_700.2]);
   assert.deepEqual(Object.keys(report.comparators).sort(), [...PHYSICAL_FLOOR_COMPARATOR_KINDS].sort());
   assert.deepEqual(report.limitations, B4_PHYSICAL_LIMITATIONS);
-  assert.equal(report.limitations.length, 3);
+  assert.equal(report.limitations.length, 4);
   assert.equal(report.comparators.timeToInteractive.recorded, true);
   assert.equal(report.comparators.timeToInteractive.within, false);
   assert.equal(report.comparators.timeToInteractive.thresholdStatus, 'pending-owner-adjudication');

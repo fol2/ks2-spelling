@@ -44,7 +44,7 @@ another.
 
 | Lane | What it can prove | What it cannot prove |
 |---|---|---|
-| unsigned Simulator build | Scheme `KS2Spelling` with `CODE_SIGNING_ALLOWED=NO`. This slice attempted that compile. Capacitor `cap sync` writes `CapApp-SPM/Package.swift` as `swift-tools-version: 5.9` and `platforms: [.iOS(.v26)]`. `.v26` needs PackageDescription 6.2, so package resolution fails until an owner unseals `capacitor.config.json` `experimental.ios.spm.swiftToolsVersion` (outside this slice). | Physical floor silicon; signed install; TestFlight |
+| unsigned Simulator build | Scheme `KS2Spelling` with `CODE_SIGNING_ALLOWED=NO`. Root `capacitor.config.json` pins `experimental.ios.spm.swiftToolsVersion` to `6.2` so Capacitor `cap sync` generates `CapApp-SPM/Package.swift` as `swift-tools-version: 6.2` plus `platforms: [.iOS(.v26)]`. That generated file is an output, not the authority. | Physical floor silicon; signed install; TestFlight |
 | source / PBX contract | Every `IPHONEOS_DEPLOYMENT_TARGET` is `26.0`; the floor matrix is SE 2 and iPad 8 | That those devices were walked |
 | committed owner-iPhone proof | Historical B4 physical capture on `iPhone 16 Pro Max` / iOS 27 | The performance floor |
 | signed physical RC | A `KS2Spelling` / `Release` archive installed on hardware | Floor-matrix completeness unless both owned floor devices are the destination |
@@ -81,6 +81,23 @@ export KS2_PHYSICAL_DEVICE_UDID='…'
 node scripts/prove-b4-ios-physical.mjs
 ```
 
+A single-device capture may write one of
+`reports/b4-physical/ios-floor-iphone-se-2.json` or
+`reports/b4-physical/ios-floor-ipad-8.json` and must report the matrix as
+incomplete. It must not claim the pair is complete.
+
+After both files exist, the executable gate is:
+
+```sh
+node scripts/prove-b4-ios-physical.mjs --check-floor-matrix
+```
+
+That command reads those two fixed paths. It fails closed until both are
+valid schemaVersion 2 reports for the exact floor devices, share one
+`applicationCheckpoint` commit and tree, and carry recorded comparators.
+GREEN is a separate field: it stays false while time-to-interactive,
+frame-rate and memory thresholds remain `pending-owner-adjudication`.
+
 Device UDIDs are pairing material and are never committed. Both owned floor
 devices are already registered to the account; the identifiers stay in the
 #152 issue comment and are not copied into source.
@@ -102,7 +119,10 @@ product pass.
 3. Verify the 320pt geometry floor at Slide Over and Split View on the iPad.
 4. Score the existing physical comparators **and** the required
    time-to-interactive, frame-rate and memory comparators on both floor
-   machines from a fresh measurement. Do not retitle the committed
+   machines from a fresh measurement, writing
+   `reports/b4-physical/ios-floor-iphone-se-2.json` and
+   `reports/b4-physical/ios-floor-ipad-8.json`. Both reports must share the
+   same `applicationCheckpoint` commit and tree. Do not retitle the committed
    owner-iPhone JSON as that evidence.
 5. Frame-rate risk surfaces to measure: Phaser Monster Stage behind the
    Codex zoom, the celebration tier, and the ambient backdrop pan. Whatever

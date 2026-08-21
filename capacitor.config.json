@@ -11,5 +11,12 @@
       "androidIsEncryption": false,
       "androidBiometric": { "biometricAuth": false }
     }
+  },
+  "experimental": {
+    "ios": {
+      "spm": {
+        "swiftToolsVersion": "6.2"
+      }
+    }
   }
 }

@@ -10,9 +10,14 @@ import {
   roundMs,
 } from './lib/investigation.mjs';
 import {
+  COMMITTED_PHYSICAL_PROOF_RELATIVE,
+  FLOOR_DEVICES,
+  FLOOR_DEVICE_REPORT_RELATIVES,
   PHYSICAL_FLOOR_COMPARATOR_KINDS,
   PHYSICAL_FLOOR_REPORT_SCHEMA_VERSION,
+  evaluateFloorDeviceMatrix,
   evaluatePhysicalFloorComparators,
+  physicalFloorReportRelative,
   unmeasuredFrameRateCapture,
   unmeasuredMemoryCapture,
   withOwnerForwardedAscAuthentication,
@@ -28,7 +33,6 @@ const APP_PATH = join(
   DERIVED_DATA,
   'Build/Products/Release-iphoneos/App.app',
 );
-const OUTPUT_PATH = join(ROOT, 'reports/b4-physical/ios-physical-proof.json');
 const COMMAND_TIMEOUT_MS = 15 * 60 * 1_000;
 const SDK = 'iphoneos26.5';
 
@@ -36,6 +40,7 @@ export const B4_PHYSICAL_LIMITATIONS = Object.freeze([
   'Development-signed install only; this is not distribution, App Store or production signing evidence.',
   'Comparator values are specific to this physical device and must not be treated as transferable across devices or platforms.',
   'timeToInteractive, frameRate and memory are required floor-device comparators. #141/#152 name them but do not publish numeric thresholds, so those three stay pending-owner-adjudication and cannot score GREEN. Unmeasured frame-rate or memory values are not floor-device performance evidence. The committed schemaVersion 1 owner-iPhone artefact is not rewritten.',
+  'Floor-device proof writes one schemaVersion 2 report per exact floor device. Sequential SE 2 and iPad 8 runs must not overwrite one another or the owner-iPhone artefact.',
 ]);
 
 const { execute, checked } = createInvestigationRunner({
@@ -445,6 +450,14 @@ async function proveB4IosPhysical() {
       );
     }
 
+    const outputRelative = physicalFloorReportRelative(deviceModel);
+    if (!outputRelative || outputRelative === COMMITTED_PHYSICAL_PROOF_RELATIVE) {
+      throw investigationError(
+        'b4_ios_physical_floor_device_unrecognised',
+        `Physical floor proof writes only iPhone SE (2nd generation) and iPad (8th generation) reports. ${deviceModel} is not a floor device and must not overwrite ${COMMITTED_PHYSICAL_PROOF_RELATIVE}.`,
+      );
+    }
+
     const report = assembleB4PhysicalReport({
       journeyObservations,
       splitCapture: split.payload,
@@ -464,21 +477,95 @@ async function proveB4IosPhysical() {
     });
 
     await mkdir(join(ROOT, 'reports/b4-physical'), { recursive: true });
-    await writeFile(OUTPUT_PATH, prettySortedJson(report));
+    await writeFile(join(ROOT, outputRelative), prettySortedJson(report));
+    const matrix = await checkFloorDeviceMatrix({ root: ROOT });
     return Object.freeze({
       ok: true,
       platform: report.platform,
-      outputPath: 'reports/b4-physical/ios-physical-proof.json',
+      outputPath: outputRelative,
       coldLaunchSeriesMs: report.coldLaunchSeriesMs,
       comparators: report.comparators,
+      matrixComplete: matrix.complete,
+      matrixGreen: matrix.green,
+      matrixCode: matrix.code,
+      matrixMissing: matrix.missing,
     });
   } finally {
     await rm(workDirectory, { recursive: true, force: true });
   }
 }
 
-export async function main() {
+export async function checkFloorDeviceMatrix({
+  root = ROOT,
+  readFileImpl = readFile,
+} = {}) {
+  const reports = [];
+  const missingFiles = [];
+  const unreadableFiles = [];
+  for (const device of FLOOR_DEVICES) {
+    const relative = FLOOR_DEVICE_REPORT_RELATIVES[device.id];
+    let text;
+    try {
+      text = await readFileImpl(join(root, relative), 'utf8');
+    } catch {
+      missingFiles.push(relative);
+      continue;
+    }
+    try {
+      reports.push(JSON.parse(text));
+    } catch {
+      unreadableFiles.push(relative);
+    }
+  }
+  const evaluation = evaluateFloorDeviceMatrix(reports);
+  const complete = evaluation.complete === true
+    && missingFiles.length === 0
+    && unreadableFiles.length === 0;
+  const green = complete && evaluation.green === true;
+  return Object.freeze({
+    complete,
+    green,
+    code: complete
+      ? (green
+        ? 'b4_ios_floor_matrix_green'
+        : 'b4_ios_floor_matrix_complete_pending_thresholds')
+      : 'b4_ios_floor_matrix_incomplete',
+    missingFiles: Object.freeze(missingFiles),
+    unreadableFiles: Object.freeze(unreadableFiles),
+    checkpointMismatch: evaluation.checkpointMismatch,
+    matchedIds: evaluation.matchedIds,
+    missing: evaluation.missing,
+    invalid: evaluation.invalid,
+  });
+}
+
+export async function main(args = process.argv.slice(2), options = {}) {
   try {
+    if (args.includes('--check-floor-matrix')) {
+      const extra = args.filter((argument) => argument !== '--check-floor-matrix');
+      if (extra.length > 0) {
+        printJson({
+          ok: false,
+          code: 'usage',
+          message: 'Usage: node scripts/prove-b4-ios-physical.mjs --check-floor-matrix',
+        }, process.stderr);
+        return EXIT_CODES.usage;
+      }
+      const result = await checkFloorDeviceMatrix(options);
+      printJson({
+        ok: result.complete,
+        ...result,
+      }, result.complete ? process.stdout : process.stderr);
+      return result.complete ? EXIT_CODES.success : EXIT_CODES.stateMismatch;
+    }
+    if (args.some((argument) => argument.startsWith('-'))) {
+      printJson({
+        ok: false,
+        code: 'usage',
+        message: 'Usage: node scripts/prove-b4-ios-physical.mjs [--check-floor-matrix]',
+      }, process.stderr);
+      return EXIT_CODES.usage;
+    }
     printJson(await proveB4IosPhysical());
     return EXIT_CODES.success;
   } catch (error) {

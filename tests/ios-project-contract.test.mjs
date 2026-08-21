@@ -139,6 +139,7 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
   );
 
   assert.equal(capacitorIosPackage.version, '8.4.1');
+  assert.match(packageSwift, /swift-tools-version: 6\.2/);
   assert.match(packageSwift, /platforms: \[\.iOS\(\.v26\)\]/);
   assert.match(
     packageSwift,
@@ -206,6 +207,13 @@ test('the iOS project uses exact Capacitor SPM with no CocoaPods or live URL', a
         iosBiometric: { biometricAuth: false },
         androidIsEncryption: false,
         androidBiometric: { biometricAuth: false },
+      },
+    },
+    experimental: {
+      ios: {
+        spm: {
+          swiftToolsVersion: '6.2',
+        },
       },
     },
   });

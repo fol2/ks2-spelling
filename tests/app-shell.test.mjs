@@ -1479,6 +1479,13 @@ test('Capacitor and the built shell remain local-only', async () => {
         androidBiometric: { biometricAuth: false },
       },
     },
+    experimental: {
+      ios: {
+        spm: {
+          swiftToolsVersion: '6.2',
+        },
+      },
+    },
   });
   assert.equal(Object.hasOwn(capacitorConfig, 'server'), false);
 

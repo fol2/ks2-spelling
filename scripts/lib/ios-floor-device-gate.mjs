@@ -46,6 +46,16 @@ export const FLOOR_DEVICES = Object.freeze([
 export const OWNER_IPHONE_ARTEFACT_MODEL = 'iPhone 16 Pro Max';
 export const PHYSICAL_FLOOR_REPORT_SCHEMA_VERSION = 2;
 export const HISTORICAL_OWNER_IPHONE_REPORT_SCHEMA_VERSION = 1;
+export const CAPACITOR_SWIFT_TOOLS_VERSION = '6.2';
+export const SWIFTPM_IOS_VERSION = '26';
+export const FLOOR_DEVICE_REPORT_RELATIVES = Object.freeze(
+  Object.fromEntries(
+    FLOOR_DEVICES.map((device) => [
+      device.id,
+      `reports/b4-physical/ios-floor-${device.id}.json`,
+    ]),
+  ),
+);
 
 export const FRAME_RATE_RISK_SURFACES = Object.freeze([
   'codexZoomMonsterStage',
@@ -184,22 +194,112 @@ export function classifyPhysicalDeviceReport(report) {
   });
 }
 
+export function capacitorSwiftToolsVersion(config) {
+  const version = config?.experimental?.ios?.spm?.swiftToolsVersion;
+  return typeof version === 'string' ? version : '';
+}
+
+export function assertSwiftPmFloorContract({
+  capacitorConfig,
+  packageSwift,
+  pbxprojText,
+}) {
+  assertIphoneosDeploymentTargetFloor(pbxprojText);
+  if (Object.hasOwn(capacitorConfig ?? {}, 'server')) {
+    throw gateError(
+      'ios_capacitor_server_forbidden',
+      'Root capacitor.config.json must not declare server.url or any server key.',
+    );
+  }
+  if (capacitorSwiftToolsVersion(capacitorConfig) !== CAPACITOR_SWIFT_TOOLS_VERSION) {
+    throw gateError(
+      'ios_swift_tools_version_invalid',
+      `Root capacitor.config.json experimental.ios.spm.swiftToolsVersion must be ${CAPACITOR_SWIFT_TOOLS_VERSION}.`,
+    );
+  }
+  const toolsLine = `// swift-tools-version: ${CAPACITOR_SWIFT_TOOLS_VERSION}`;
+  if (!packageSwift?.includes(toolsLine)) {
+    throw gateError(
+      'ios_swiftpm_tools_version_drift',
+      `CapApp-SPM/Package.swift must be generated with ${toolsLine}.`,
+    );
+  }
+  const platform = `platforms: [.iOS(.v${SWIFTPM_IOS_VERSION})]`;
+  if (!packageSwift.includes(platform)) {
+    throw gateError(
+      'ios_swiftpm_platform_drift',
+      `CapApp-SPM/Package.swift must be generated with ${platform}.`,
+    );
+  }
+  return Object.freeze({
+    swiftToolsVersion: CAPACITOR_SWIFT_TOOLS_VERSION,
+    iosVersion: SWIFTPM_IOS_VERSION,
+  });
+}
+
+export function physicalFloorReportRelative(deviceModel) {
+  const device = matchFloorDevice(deviceModel);
+  return device ? FLOOR_DEVICE_REPORT_RELATIVES[device.id] : null;
+}
+
+export function hasFloorDeviceCheckpointIdentity(report) {
+  const checkpoint = report?.applicationCheckpoint;
+  return Boolean(
+    checkpoint
+    && /^[a-f0-9]{40}$/u.test(checkpoint.commit ?? '')
+    && /^[a-f0-9]{40}$/u.test(checkpoint.tree ?? ''),
+  );
+}
+
+export function isValidFloorDeviceReport(report) {
+  const classification = classifyPhysicalDeviceReport(report);
+  return classification.kind === 'floor-device'
+    && report?.schemaVersion === PHYSICAL_FLOOR_REPORT_SCHEMA_VERSION
+    && report?.platform === 'ios-physical'
+    && report?.runner?.buildConfiguration === 'Release'
+    && report?.runner?.reality === 'physical'
+    && hasFloorDeviceCheckpointIdentity(report)
+    && hasRecordedFloorComparators(report.comparators);
+}
+
 export function evaluateFloorDeviceMatrix(reports) {
   const list = Array.isArray(reports) ? reports : [];
   const matched = new Map();
+  const invalid = [];
   for (const report of list) {
     const classification = classifyPhysicalDeviceReport(report);
-    if (classification.kind === 'floor-device') {
-      matched.set(classification.floorDevice.id, classification.floorDevice);
+    if (classification.kind !== 'floor-device') continue;
+    if (!isValidFloorDeviceReport(report)) {
+      invalid.push(classification.floorDevice.modelName);
+      continue;
     }
+    matched.set(classification.floorDevice.id, report);
   }
   const missing = FLOOR_DEVICES
     .filter((device) => !matched.has(device.id))
     .map((device) => device.modelName);
+  const validReports = [...matched.values()];
+  const checkpointKeys = validReports.map((report) => (
+    `${report.applicationCheckpoint.commit}:${report.applicationCheckpoint.tree}`
+  ));
+  const checkpointMismatch = validReports.length >= 2
+    && new Set(checkpointKeys).size !== 1;
+  const complete = missing.length === 0
+    && invalid.length === 0
+    && !checkpointMismatch
+    && validReports.length === FLOOR_DEVICES.length;
+  const green = complete
+    && validReports.every((report) => PHYSICAL_FLOOR_COMPARATOR_KINDS.every(
+      (kind) => report.comparators?.[kind]?.within === true,
+    )
+      && report.comparators.frameRate.questionCardDroppedFramesWithin === true);
   return Object.freeze({
-    complete: missing.length === 0,
+    complete,
+    green,
+    checkpointMismatch,
     matchedIds: Object.freeze([...matched.keys()]),
     missing: Object.freeze(missing),
+    invalid: Object.freeze(invalid),
   });
 }
 

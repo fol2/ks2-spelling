@@ -81,23 +81,23 @@ test('the release verifier command and CI wiring select both unsigned iOS applic
   assert.match(workflow, /npm run verify:ios-release-artefacts/u);
 });
 
-test('both native CI path filters run for either release artefact authority file', async () => {
+test('both native CI path filters run for every packaged keyring authority file', async () => {
   const workflow = await readFile(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
   const filters = [...workflow.matchAll(/grep -qE '([^']+)'/gu)].map((match) => match[1]);
   assert.equal(filters.length, 2);
 
-  for (const path of [
-    'config/production/pack-signing-public-keys.json',
-    'scripts/verify-ios-release-artefacts.mjs',
-  ]) {
+  const authorities = new Map([
+    [
+      'config/production/pack-signing-public-keys.json',
+      'config/production/pack-signing-public-keys\\.json|',
+    ],
+    ['scripts/select-pack-signing-keyring.mjs', '|select-pack-signing-keyring'],
+    ['scripts/verify-ios-release-artefacts.mjs', '|verify-ios-release-artefacts'],
+  ]);
+  for (const [path, filterEntry] of authorities) {
     for (const filter of filters) {
       assert.equal(new RegExp(filter, 'u').test(path), true, `${path} must select native CI`);
-      const reverted = filter.replace(
-        path === 'config/production/pack-signing-public-keys.json'
-          ? 'config/production/pack-signing-public-keys\\.json|'
-          : '|verify-ios-release-artefacts',
-        '',
-      );
+      const reverted = filter.replace(filterEntry, '');
       assert.equal(
         new RegExp(reverted, 'u').test(path),
         false,

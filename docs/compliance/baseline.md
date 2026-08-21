@@ -119,10 +119,18 @@ cells** with the rail wholly visible in every one. Bottom anchoring survives
 (#114): where there is slack the stats and rail still sit flush at the foot of
 the port. Same contract test as above.
 
-- **Location**: `src/app/app.css` (`.codex-ladder .figure` breaks milestones mid-number now that the rail is reachable — `200` renders `2` / `0` / `0` at 320×568/160%, and 375×667 and 393×852 break figures at 160% too; `.codex-stats .label` renders `Highest stage` as `Highes` / `t` / `stage` at 320×568/160%)
-- **Clause**: Contract — Layer 3 — Label baseline
-- **Issue link**: #256
-- **Status**: `todo`
+The remaining #256 label-baseline entry is retired. Eight milestones now use a
+full-width four-column, two-row grid below 46rem and retain eight columns on a
+tablet; the squeezed `flex: 1; min-width: 0` composition is gone. Both the
+milestone figures and the stats labels override the product-wide
+`overflow-wrap: anywhere` with `normal`, so labels wrap only at word boundaries.
+Range-derived character boxes measured one line-box top for every milestone
+figure and every word at 320×568, 375×667, 393×852 and 810×1080 with
+16/20.8/25.6px root type. Across all twelve cells horizontal overflow remained
+0px, the rail was fully reachable, and tab-bar clearance remained
+**33.58–34.67px**. Contract test: `tests/design-authority-checks.test.mjs`
+("the Codex milestone rail re-composes before figures split under text
+pressure").
 
 ### Fact singularity & other composition
 

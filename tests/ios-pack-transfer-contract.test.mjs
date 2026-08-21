@@ -66,6 +66,20 @@ test('iOS validates capability authority before constructing a URLRequest', asyn
   assert.doesNotMatch(source, /withIntermediateDirectories:\s*true/);
 });
 
+test('the B3 iOS inspector harness compiles with the sandbox gateway condition', async () => {
+  const script = await readFile(
+    new URL('scripts/test-ios-pack-inspector.mjs', ROOT),
+    'utf8',
+  );
+  const sandboxBuildCondition = /swiftSettings:\s*\[\.define\("KS2_SANDBOX_CHANNEL"\)\]/u;
+  assert.match(script, sandboxBuildCondition);
+  assert.doesNotMatch(
+    script.replace('.define("KS2_SANDBOX_CHANNEL")', '.define("REVERTED_CHANNEL")'),
+    sandboxBuildCondition,
+    'removing the sandbox compile condition must turn the harness contract red',
+  );
+});
+
 test('iOS bounds the range guard on chunk width, not absolute offset', async () => {
   // Shards are downloaded as sequential 1 MiB chunks; every chunk after the
   // first starts beyond 1 MiB, so an absolute-offset bound rejects the whole

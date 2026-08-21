@@ -1209,12 +1209,17 @@ test('Results credits Camp only against the round-start baseline', async () => {
     join(ROOT, 'src/app/ProductApp.jsx'),
     'utf8',
   );
+  const runtimeSource = await readFile(
+    join(ROOT, 'src/app/starter-complete-moment-runtime.js'),
+    'utf8',
+  );
   // The camp gain is a difference, measured once on the way into the summary
   // against the camp the round started on, exactly as the monster roster is.
   assert.match(
-    productSource,
-    /setCampGain\(\s*\(next\.camp\?\.campHighWater \?\? 0\)\s*-\s*\(next\.roundBaseline\?\.camp\?\.campHighWater\s*\?\? next\.camp\?\.campHighWater\s*\?\? 0\),\s*\);/u,
+    runtimeSource,
+    /\(next\.camp\?\.campHighWater \?\? 0\)\s*-\s*\(next\.roundBaseline\?\.camp\?\.campHighWater\s*\?\? next\.camp\?\.campHighWater\s*\?\? 0\)/u,
   );
+  assert.match(productSource, /setCampGain\(plan\.campGain\)/u);
   assert.match(productSource, /campGain=\{campGain\}/u);
   assert.match(productSource, /The camp fire rises — Camp level \{camp\?\.campHighWater \?\? 0\}/u);
 });

@@ -398,11 +398,18 @@ export function createSQLiteSpellingProfileStore({
   gate,
   now,
   initialCatalogueId = STARTER_CATALOGUE_ID,
+  onRemoveLearnerMetadata = null,
 } = {}) {
   assertSqlConnection(connection);
   requireGate(gate);
   if (typeof now !== 'function') {
     throw new TypeError('Profile store requires an injected now() clock.');
+  }
+  if (
+    onRemoveLearnerMetadata !== null
+    && typeof onRemoveLearnerMetadata !== 'function'
+  ) {
+    throw new TypeError('onRemoveLearnerMetadata must be a function or null.');
   }
   const initialCatalogue = requireCatalogueId(initialCatalogueId);
 
@@ -479,8 +486,12 @@ export function createSQLiteSpellingProfileStore({
         // removing a learner with history reports every cascaded row, so any
         // changes >= 1 means the profile row itself was removed.
         const removedProfile = result.changes >= 1;
-        if (!removedProfile || selectedLearnerId !== learnerId) {
-          return removedProfile;
+        if (!removedProfile) return false;
+        if (onRemoveLearnerMetadata) {
+          await onRemoveLearnerMetadata(connection, learnerId);
+        }
+        if (selectedLearnerId !== learnerId) {
+          return true;
         }
         const remaining = await connection.query(
           'SELECT learner_id FROM learner_profiles ORDER BY learner_id LIMIT 1',

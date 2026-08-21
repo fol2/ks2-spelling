@@ -15,16 +15,16 @@ import { downloadActionLabel } from './parent-commerce-controller.js';
 import { milestoneLadder } from './records-model.js';
 import { buildWordBank, buildWordDetail, hearWordRequest } from './word-bank-model.js';
 import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
-import {
-  achievementCelebration,
-  campLevelCelebration,
-  diffMonsterCelebrations,
-  milestoneCelebration,
-  primaryProgressedRewardTrackId,
-  secureWordDelta,
-} from './celebrations/celebration-model.js';
 import { TrailMeadow } from './trail/TrailMeadow.jsx';
 import { PrivacyNoticeCard } from './PrivacyNoticeCard.jsx';
+import { StarterCompleteMoment } from './StarterCompleteMoment.jsx';
+import {
+  acknowledgeStarterCompleteMoment,
+  createStarterCompleteAskGrownUpHandler,
+  planSummaryRewards,
+  revealStarterCompleteAfterCelebrations,
+} from './starter-complete-moment-runtime.js';
+import { loadStarterSpellingCatalogue } from '../domain/spelling/index.js';
 
 // Phaser + the living Monster Stage load only when a caught codex entry is
 // opened for a closer look.
@@ -35,6 +35,7 @@ const REGION = 'the-scribe-downs';
 // The dictation voice a round falls back to. It is not a choice a learner
 // makes any more, so this is the whole of the app's opinion about it.
 const PACKAGED_VOICE = 'Iapetus';
+const STARTER_CATALOGUE_FOR_MOMENT = loadStarterSpellingCatalogue();
 
 function prefersReducedMotion() {
   return (
@@ -3343,6 +3344,9 @@ function ResultsScreen({
   sfx,
   onCelebrationDone,
   preferredRewardTrackId = null,
+  starterCompleteMoment = null,
+  onStarterCompleteContinue,
+  onStarterCompleteAskGrownUp,
 }) {
   // Field Record prefers the companion this round progressed, then mirrors
   // Trail: only a caught or evolved companion is painted — no phantom egg.
@@ -3395,6 +3399,13 @@ function ResultsScreen({
           sfx={sfx}
           onDone={onCelebrationDone}
         />
+        {starterCompleteMoment && (
+          <StarterCompleteMoment
+            remainingWordCount={starterCompleteMoment.remainingWordCount}
+            onContinue={onStarterCompleteContinue}
+            onAskGrownUp={onStarterCompleteAskGrownUp}
+          />
+        )}
         <div className="scene-body">
           {/* The record grows — a two-line stat cell, a long return roll, a
               Guardian camp strip — and the scene clips at `overflow: hidden`,
@@ -3583,52 +3594,42 @@ export default function ProductApp({ services }) {
   // camp is the only honest thing to compare the ending camp with.
   const [campGain, setCampGain] = useState(0);
   const [preferredTrack, setPreferredTrack] = useState(null);
+  const [starterCompleteOpen, setStarterCompleteOpen] = useState(false);
+  const pendingStarterComplete = useRef(null);
+  const starterCompleteAckInFlight = useRef(false);
   const learningScreenRef = useRef(learningState.screen);
-  const clearCelebrations = useCallback(() => setCelebrationEvents([]), []);
+  const clearCelebrations = useCallback(() => {
+    setCelebrationEvents([]);
+    if (revealStarterCompleteAfterCelebrations(pendingStarterComplete.current)) {
+      setStarterCompleteOpen(true);
+    }
+  }, []);
 
   useEffect(() => {
     const profileSubscription = services.controller.subscribe(setProfileState);
     const learningSubscription = services.learning.subscribe((next) => {
       const previousScreen = learningScreenRef.current;
-      if (previousScreen !== 'summary' && next.screen === 'summary') {
-        const before = next.roundBaseline?.monsters ?? [];
-        const monsterEvents = diffMonsterCelebrations(before, next.monsters);
-        const raisedCamp =
-          (next.camp?.campHighWater ?? 0)
-          - (next.roundBaseline?.camp?.campHighWater
-            ?? next.camp?.campHighWater
-            ?? 0);
-        const roundSessionId = next.roundBaseline?.sessionId ?? null;
-        const milestoneCards = roundSessionId
-          ? (next.records?.milestones ?? [])
-            .filter((record) => record.sessionId === roundSessionId)
-            .map(milestoneCelebration)
-          : [];
-        const baselineAchievementIds = next.roundBaseline?.achievementIds ?? [];
-        const achievementCards = (next.achievements ?? [])
-          .filter((chip) => !baselineAchievementIds.includes(chip.id))
-          .map(achievementCelebration);
-        const events = [
-          ...monsterEvents,
-          ...milestoneCards,
-          ...achievementCards,
-          ...(raisedCamp > 0 ? [campLevelCelebration(next.camp?.campHighWater)] : []),
-        ];
-        setCelebrationEvents(events);
-        setSecureGain(secureWordDelta(before, next.monsters));
-        setCampGain(
-          (next.camp?.campHighWater ?? 0)
-          - (next.roundBaseline?.camp?.campHighWater
-            ?? next.camp?.campHighWater
-            ?? 0),
-        );
-        setPreferredTrack(
-          primaryProgressedRewardTrackId(monsterEvents, next.monsters)
-            ?? next.roundBaseline?.companionRewardTrackId
-            ?? null,
-        );
-        // Warm the Phaser chunk before CelebrationLayer lazy-mounts it.
-        if (events.some((event) => event.kind === 'caught' || event.kind === 'evolve')) {
+      const commerce = services.parentCommerce.getState();
+      const plan = planSummaryRewards({
+        previousScreen,
+        next,
+        remainingWordCount: services.remainingWordCount,
+        entitled: services.catalogueId === 'ks2-core:full'
+          || commerce?.entitlementState === 'active',
+        starterCatalogue: STARTER_CATALOGUE_FOR_MOMENT,
+      });
+      if (plan.leaveSummary) {
+        setStarterCompleteOpen(false);
+        pendingStarterComplete.current = null;
+      }
+      if (plan.celebrationEvents) {
+        pendingStarterComplete.current = plan.pendingMoment;
+        setStarterCompleteOpen(plan.openMoment);
+        setCelebrationEvents(plan.celebrationEvents);
+        setSecureGain(plan.secureGain);
+        setCampGain(plan.campGain);
+        setPreferredTrack(plan.preferredTrack);
+        if (plan.warmCelebrationStage) {
           void import('./celebrations/CelebrationStage.jsx');
         }
       }
@@ -3712,6 +3713,22 @@ export default function ProductApp({ services }) {
     services.parent.lock();
     setParentOpen(false);
   };
+  const acknowledgeStarterComplete = () => acknowledgeStarterCompleteMoment({
+    inFlight: starterCompleteAckInFlight,
+    persist() {
+      const persist = services.learning.markStarterCompleteMomentPresented;
+      if (typeof persist !== 'function') {
+        return Promise.reject(
+          new TypeError('Starter complete persist is unavailable.'),
+        );
+      }
+      return persist();
+    },
+    dismiss() {
+      setStarterCompleteOpen(false);
+      pendingStarterComplete.current = null;
+    },
+  });
   const filterCount = (id) =>
     bank.filters.find((option) => option.id === id)?.count ?? 0;
   const startGuardian = (options) =>
@@ -3841,6 +3858,16 @@ export default function ProductApp({ services }) {
         haptics={services.haptics}
         sfx={services.sfx}
         onCelebrationDone={clearCelebrations}
+        starterCompleteMoment={
+          starterCompleteOpen && pendingStarterComplete.current
+            ? pendingStarterComplete.current
+            : null
+        }
+        onStarterCompleteContinue={acknowledgeStarterComplete}
+        onStarterCompleteAskGrownUp={createStarterCompleteAskGrownUpHandler({
+          persist: acknowledgeStarterComplete,
+          openParent: () => setParentOpen(true),
+        })}
       />
     );
   }

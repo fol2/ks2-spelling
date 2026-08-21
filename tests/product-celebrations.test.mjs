@@ -599,15 +599,23 @@ test('ProductApp wires CelebrationLayer into the summary screen', async () => {
     'SummaryScreen must render CelebrationLayer',
   );
   assert.ok(
-    source.includes('diffMonsterCelebrations'),
-    'ProductApp must diff monsters at summary entry',
+    source.includes('planSummaryRewards'),
+    'ProductApp must plan summary celebrations through the shared runtime',
+  );
+  const runtime = await readFile(
+    resolve(import.meta.dirname, '../src/app/starter-complete-moment-runtime.js'),
+    'utf8',
   );
   assert.ok(
-    source.includes('campLevelCelebration'),
-    'ProductApp must append a camp-level celebration when the fire rises',
+    runtime.includes('diffMonsterCelebrations'),
+    'summary planning must diff monsters at summary entry',
+  );
+  assert.ok(
+    runtime.includes('campLevelCelebration'),
+    'summary planning must append a camp-level celebration when the fire rises',
   );
   assert.match(
-    source,
+    runtime,
     /\[\s*\.\.\.monsterEvents,\s*\.\.\.milestoneCards,\s*\.\.\.achievementCards,/u,
     'summary cards must keep monsters before milestones and achievements',
   );

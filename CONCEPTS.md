@@ -89,6 +89,16 @@ The exhaustive set containing one natural word recording per playback profile pl
 
 ## Learner state
 
+### Starter complete moment
+
+The one child-facing celebration that fires when either Starter year band's
+items become secure. The threshold is the Starter catalogue's own count for
+that band, read from the existing monster/reward-track projection rather than
+from a parallel counter. The remaining-word figure is Full core minus Starter
+core. The presented flag is app-side state outside the learner snapshot, so
+restart, reset, snapshot apply and replica apply cannot show it again. The
+transaction stays behind the Parent gate.
+
 ### Learner snapshot
 
 The complete saved state of one learner's progress through a spelling

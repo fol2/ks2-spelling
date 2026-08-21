@@ -57,6 +57,7 @@ const NATIVE_DEV_RELATIVE = 'docs/operations/native-development.md';
 const CONCEPTS_RELATIVE = 'CONCEPTS.md';
 const SWIFT_UITEST_RELATIVE = 'ios/App/B3ProofUITests/B4DevelopmentTests.swift';
 const PRODUCT_APP_RELATIVE = 'src/app/ProductApp.jsx';
+const STARTER_COMPLETE_RUNTIME_RELATIVE = 'src/app/starter-complete-moment-runtime.js';
 const CAPACITOR_CONFIG_RELATIVE = 'capacitor.config.json';
 const PACKAGE_SWIFT_RELATIVE = 'ios/App/CapApp-SPM/Package.swift';
 
@@ -419,13 +420,11 @@ test('the UITest records time-to-interactive and does not fabricate frame-rate o
   assert.doesNotMatch(swift, /observedFps/);
 });
 
-test('question-card source keeps canvas and celebration stages off the answer path', async () => {
-  assertTracked(PRODUCT_APP_RELATIVE);
-  assertTracked(VISUAL_AUTHORITY_RELATIVE);
-  const [productApp, visualAuthority] = await Promise.all([
-    readUtf8(PRODUCT_APP_RELATIVE),
-    readUtf8(VISUAL_AUTHORITY_RELATIVE),
-  ]);
+function assertResultsEntryStagingSourceContract({
+  productApp,
+  runtime,
+  visualAuthority,
+}) {
   assert.match(visualAuthority, /A canvas never appears during a question card/);
   assert.match(visualAuthority, /Celebrations never\s+appear during a question card/);
   assert.match(
@@ -435,11 +434,70 @@ test('question-card source keeps canvas and celebration stages off the answer pa
   assert.match(productApp, /\{zoomed && hero\?\.found && \(/);
   assert.match(
     productApp,
-    /if \(previousScreen !== 'summary' && next\.screen === 'summary'\)/,
+    /const plan = planSummaryRewards\(\{\s*previousScreen,\s*next,/u,
   );
+  assert.match(productApp, /if \(plan\.leaveSummary\)/);
+  assert.match(productApp, /if \(plan\.celebrationEvents\)/);
+  assert.match(productApp, /if \(plan\.warmCelebrationStage\)/);
   assert.match(
     productApp,
     /void import\('\.\/celebrations\/CelebrationStage\.jsx'\)/,
+  );
+  // ProductApp must not re-host the Results-entry predicate; the planner owns it.
+  assert.doesNotMatch(
+    productApp,
+    /if \(previousScreen !== 'summary' && next\.screen === 'summary'\)/,
+  );
+  // Results-entry staging semantics: celebration work is planned only when
+  // previousScreen !== 'summary' && next.screen === 'summary'. The runtime
+  // writes that as this complementary early-return.
+  assert.match(
+    runtime,
+    /if \(previousScreen === 'summary' \|\| next\?\.screen !== 'summary'\)/,
+  );
+  assert.match(
+    runtime,
+    /warmCelebrationStage: celebrationEvents\.some\(\s*\(event\) => event\.kind === 'caught' \|\| event\.kind === 'evolve',/,
+  );
+}
+
+test('source contract: celebration-stage work is planned only on Results entry, never on a question card', async () => {
+  assertTracked(PRODUCT_APP_RELATIVE);
+  assertTracked(STARTER_COMPLETE_RUNTIME_RELATIVE);
+  assertTracked(VISUAL_AUTHORITY_RELATIVE);
+  const [productApp, runtime, visualAuthority] = await Promise.all([
+    readUtf8(PRODUCT_APP_RELATIVE),
+    readUtf8(STARTER_COMPLETE_RUNTIME_RELATIVE),
+    readUtf8(VISUAL_AUTHORITY_RELATIVE),
+  ]);
+  assertResultsEntryStagingSourceContract({ productApp, runtime, visualAuthority });
+
+  const revertedRuntime = runtime.replace(
+    "if (previousScreen === 'summary' || next?.screen !== 'summary')",
+    'if (false)',
+  );
+  assert.notEqual(revertedRuntime, runtime);
+  assert.throws(
+    () => assertResultsEntryStagingSourceContract({
+      productApp,
+      runtime: revertedRuntime,
+      visualAuthority,
+    }),
+    ({ name }) => name === 'AssertionError',
+  );
+
+  const revertedProductApp = productApp.replace(
+    /const plan = planSummaryRewards\(\{\s*previousScreen,\s*next,/u,
+    'const plan = ({',
+  );
+  assert.notEqual(revertedProductApp, productApp);
+  assert.throws(
+    () => assertResultsEntryStagingSourceContract({
+      productApp: revertedProductApp,
+      runtime,
+      visualAuthority,
+    }),
+    ({ name }) => name === 'AssertionError',
   );
 });
 

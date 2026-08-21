@@ -11,6 +11,7 @@ import { aggregatePackStates } from '../src/app/create-product-commerce-workflow
 import { createSelectedAppServices } from '../src/app/create-production-app-services.js';
 import { createProductAppServices } from '../src/app/create-product-app-services.js';
 import { createUnavailableProductCommerceWorkflow } from '../src/app/unavailable-product-commerce-workflow.js';
+import { remainingStarterWordCount } from '../src/app/starter-complete-moment.js';
 import { isFullProductEntitled, hasEarnedFullProduct } from '../src/app/entitled-audio-switch.js';
 import {
   loadFullSpellingCatalogue,
@@ -146,6 +147,7 @@ test('production services persist profile CRUD and selected learner across a cle
     'skipWord',
     'savePrefs',
     'endRound',
+    'markStarterCompleteMomentPresented',
     'dispose',
   ]);
   assert.deepEqual(Object.keys(first.audio), ['play', 'dispose']);
@@ -947,5 +949,12 @@ test('a store bridge whose start never settles cannot stop the app opening: comp
   assert.equal(startCalls, 1);
   // And it completed on the safe side of the switch, not merely completed.
   assert.equal(services.catalogueId, 'ks2-core:starter');
+  assert.equal(
+    services.remainingWordCount,
+    remainingStarterWordCount({
+      starterCatalogue: loadStarterSpellingCatalogue(),
+      fullCatalogue: await loadFullSpellingCatalogue(),
+    }),
+  );
   assert.equal(services.parentCommerce.getState().entitlementState, 'none');
 });

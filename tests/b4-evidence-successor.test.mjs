@@ -99,7 +99,16 @@ test('candidate-range resolution prefers merge_group and pull_request bases over
   );
 });
 
-test('an evidence-only successor of the merge-base passes the candidate-range contract', async (t) => {
+async function commitPath(root, relativePath, contents, message) {
+  const dest = join(root, relativePath);
+  await mkdir(dirname(dest), { recursive: true });
+  await writeFile(dest, contents);
+  await git(root, ['add', relativePath]);
+  await git(root, ['commit', '-qm', message]);
+  return (await git(root, ['rev-parse', 'HEAD'])).stdout.trim();
+}
+
+test('an evidence-only successor of the merge-base still passes the candidate-range contract', async (t) => {
   const { root, checkpoint } = await initRepo();
   t.after(() => rm(root, { force: true, recursive: true }));
   await writeReport(root, checkpoint);
@@ -116,7 +125,100 @@ test('an evidence-only successor of the merge-base passes the candidate-range co
   assert.deepEqual(result.paths, [REPORT]);
 });
 
-test('a buried evidence change is still enforced against the truthful candidate range', async (t) => {
+test('a source checkpoint then one evidence-only successor passes against the PR merge-base', async (t) => {
+  const { root, checkpoint: mergeBase } = await initRepo();
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const sourceSha = await commitPath(root, 'app.js', 'const version = 2;\n', 'source');
+  await writeReport(root, sourceSha);
+  await git(root, ['add', REPORT]);
+  await git(root, ['commit', '-qm', 'evidence']);
+
+  const result = await proveB4EvidenceSuccessor({
+    root,
+    baseSha: mergeBase,
+    runGit: (args) => git(root, args),
+  });
+  assert.equal(result.applied, true);
+  assert.equal(result.base, mergeBase);
+  assert.equal(result.checkpoint, sourceSha);
+  assert.notEqual(result.checkpoint, mergeBase);
+  assert.deepEqual(result.paths, [REPORT]);
+});
+
+test('a checkpoint before the candidate merge-base is rejected as outside the PR range', async (t) => {
+  const { root, checkpoint: parent } = await initRepo();
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const mergeBase = await commitPath(root, 'app.js', 'const version = 1.1;\n', 'main');
+  await writeReport(root, parent);
+  await git(root, ['add', REPORT]);
+  await git(root, ['commit', '-qm', 'evidence']);
+
+  await assert.rejects(
+    () =>
+      proveB4EvidenceSuccessor({
+        root,
+        baseSha: mergeBase,
+        runGit: (args) => git(root, args),
+      }),
+    (error) => {
+      assert.equal(error.code, 'b4_evidence_successor_invalid');
+      assert.match(error.message, /outside the candidate range/u);
+      return true;
+    },
+  );
+});
+
+test('a checkpoint that is not a reachable ancestor of HEAD is rejected', async (t) => {
+  const { root, checkpoint: mergeBase } = await initRepo();
+  t.after(() => rm(root, { force: true, recursive: true }));
+  await git(root, ['branch', '-M', 'main']);
+  await git(root, ['checkout', '-qb', 'side']);
+  const sideSha = await commitPath(root, 'side.js', 'side\n', 'side');
+  await git(root, ['checkout', '-q', 'main']);
+  await writeReport(root, sideSha);
+  await git(root, ['add', REPORT]);
+  await git(root, ['commit', '-qm', 'evidence']);
+
+  await assert.rejects(
+    () =>
+      proveB4EvidenceSuccessor({
+        root,
+        baseSha: mergeBase,
+        runGit: (args) => git(root, args),
+      }),
+    (error) => {
+      assert.equal(error.code, 'b4_evidence_successor_invalid');
+      assert.match(error.message, /not a reachable ancestor of HEAD/u);
+      return true;
+    },
+  );
+});
+
+test('code committed after the evidence report is rejected as a non-evidence successor', async (t) => {
+  const { root, checkpoint: mergeBase } = await initRepo();
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const sourceSha = await commitPath(root, 'app.js', 'const version = 2;\n', 'source');
+  await writeReport(root, sourceSha);
+  await git(root, ['add', REPORT]);
+  await git(root, ['commit', '-qm', 'evidence']);
+  await commitPath(root, 'app.js', 'const version = 3;\n', 'later code');
+
+  await assert.rejects(
+    () =>
+      proveB4EvidenceSuccessor({
+        root,
+        baseSha: mergeBase,
+        runGit: (args) => git(root, args),
+      }),
+    (error) => {
+      assert.equal(error.code, 'b4_evidence_successor_invalid');
+      assert.match(error.message, /non-evidence paths: app\.js/u);
+      return true;
+    },
+  );
+});
+
+test('a buried evidence report is still enforced against the truthful PR merge-base', async (t) => {
   const { root, checkpoint } = await initRepo();
   t.after(() => rm(root, { force: true, recursive: true }));
   await writeReport(root, checkpoint);
@@ -144,6 +246,98 @@ test('a buried evidence change is still enforced against the truthful candidate 
     /non-evidence paths: app\.js/u,
   );
 });
+
+test('a symbolic applicationCheckpoint.commit fails closed before Git ancestry', async (t) => {
+  const { root, checkpoint: mergeBase } = await initRepo();
+  t.after(() => rm(root, { force: true, recursive: true }));
+  await commitPath(root, 'app.js', 'const version = 2;\n', 'source');
+  await writeReport(root, 'HEAD~1');
+  await git(root, ['add', REPORT]);
+  await git(root, ['commit', '-qm', 'evidence']);
+
+  const gitCalls = [];
+  await assert.rejects(
+    () =>
+      proveB4EvidenceSuccessor({
+        root,
+        baseSha: mergeBase,
+        runGit: async (args) => {
+          gitCalls.push(args);
+          return git(root, args);
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, 'b4_evidence_successor_invalid');
+      assert.match(error.message, /exactly 40 lowercase hex characters/u);
+      return true;
+    },
+  );
+  assert.equal(
+    gitCalls.some((args) => args.some((arg) => String(arg).includes('HEAD~1'))),
+    false,
+    'Git must not receive the symbolic checkpoint',
+  );
+  assert.equal(
+    gitCalls.some((args) => args[0] === 'merge-base' && args[1] === '--is-ancestor'),
+    false,
+    'ancestry must not run for a symbolic checkpoint',
+  );
+});
+
+test('an unresolvable applicationCheckpoint.commit fails closed', async (t) => {
+  const { root, checkpoint } = await initRepo();
+  t.after(() => rm(root, { force: true, recursive: true }));
+  await writeReport(root, 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef');
+  await git(root, ['add', REPORT]);
+  await git(root, ['commit', '-qm', 'evidence']);
+
+  await assert.rejects(
+    () =>
+      proveB4EvidenceSuccessor({
+        root,
+        baseSha: checkpoint,
+        runGit: (args) => git(root, args),
+      }),
+    (error) => {
+      assert.equal(error.code, 'b4_evidence_successor_invalid');
+      assert.match(error.message, /cannot be resolved/u);
+      return true;
+    },
+  );
+});
+
+test('a missing or malformed B4 development report fails closed', async (t) => {
+  const { root, checkpoint } = await initRepo();
+  t.after(() => rm(root, { force: true, recursive: true }));
+  await mkdir(join(root, 'reports/b4'), { recursive: true });
+  await writeFile(join(root, REPORT), '{not json\n');
+  await git(root, ['add', REPORT]);
+  await git(root, ['commit', '-qm', 'malformed evidence']);
+
+  await assert.rejects(
+    () =>
+      proveB4EvidenceSuccessor({
+        root,
+        baseSha: checkpoint,
+        runGit: (args) => git(root, args),
+      }),
+    { code: 'b4_evidence_successor_invalid' },
+  );
+
+  await writeFile(join(root, REPORT), `${JSON.stringify({})}\n`);
+  await git(root, ['add', REPORT]);
+  await git(root, ['commit', '-qm', 'empty checkpoint']);
+  await assert.rejects(
+    () =>
+      proveB4EvidenceSuccessor({
+        root,
+        baseSha: checkpoint,
+        runGit: (args) => git(root, args),
+      }),
+    /missing applicationCheckpoint\.commit/u,
+  );
+});
+
 
 test('code-only candidate ranges report that the contract does not apply after inspecting the range', async (t) => {
   const { root, checkpoint } = await initRepo();

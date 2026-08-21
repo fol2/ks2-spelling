@@ -48,7 +48,13 @@ range (merge-group base, pull-request base, push `before`, or `HEAD~1` as a
 last-resort first parent). They run on every relevant merge path, including
 `merge_group` and `main`. They do not self-disable with a false-green skip.
 Ordinary commits still skip the evidence-only subset contract, but only after
-that candidate range has been inspected.
+that candidate range has been inspected. The candidate merge-base defines the
+PR range. The report's `applicationCheckpoint.commit` must be exactly 40
+lowercase hex characters, sit in that range, and be a reachable ancestor of
+HEAD. Only `checkpoint..HEAD` is allow-listed as evidence-only, so a source
+checkpoint followed by one evidence successor is valid, while code after the
+report is not. A symbolic or option-like checkpoint such as `HEAD~1` fails
+closed before Git ancestry.
 
 ## What source cannot prove
 
@@ -89,9 +95,11 @@ Do not cite `verify:b3` as proof that the gateway Worker was exercised.
 
 - Pull-request CI alone is not a merge basis for bundled `src/`, `public/`,
   `vite.config.js`, native projects, or any other path the detector selects.
-- Evidence commits must remain evidence-only successors of the application
-  checkpoint named in `reports/b4/b4-development-report.json` across the whole
-  candidate, not only in the final commit.
+- The candidate merge-base defines the PR range. The named
+  `applicationCheckpoint.commit` in `reports/b4/b4-development-report.json`
+  must be in that range and a reachable ancestor of HEAD; only
+  `checkpoint..HEAD` may contain B4 evidence paths. A buried report still
+  applies the contract against the truthful merge-base.
 - `npm run test:changed` must fail when it selected tests that fail. An empty
   selection is the only path that prints `no changed tests`.
 - Nightly alerting (issue #69) is the post-merge last line of defence. An open

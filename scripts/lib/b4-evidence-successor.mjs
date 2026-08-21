@@ -5,6 +5,7 @@ import { B4_EVIDENCE_PATHS } from '../collect-b4-development-evidence.mjs';
 import { presentSha } from './native-ci-path-filter.mjs';
 
 export const B4_DEVELOPMENT_REPORT_PATH = 'reports/b4/b4-development-report.json';
+const APPLICATION_CHECKPOINT_COMMIT = /^[a-f0-9]{40}$/u;
 
 function successorError(code, message) {
   const error = new Error(message);
@@ -33,6 +34,19 @@ function splitPaths(stdout) {
 async function gitText(runGit, args) {
   const result = await runGit(args);
   return String(result.stdout ?? '').trim();
+}
+
+async function isAncestor(runGit, ancestor, descendant) {
+  try {
+    await runGit(['merge-base', '--is-ancestor', ancestor, descendant]);
+    return true;
+  } catch (error) {
+    if (error?.code === 1) return false;
+    throw successorError(
+      'b4_evidence_successor_invalid',
+      `B4 evidence-successor checks cannot test ancestry ${ancestor}..${descendant}.`,
+    );
+  }
 }
 
 export async function proveB4EvidenceSuccessor({
@@ -105,12 +119,33 @@ export async function proveB4EvidenceSuccessor({
       'B4 development report is missing applicationCheckpoint.commit.',
     );
   }
-
-  const checkpointSha = await gitText(runGit, ['rev-parse', '--verify', checkpoint]);
-  if (checkpointSha !== mergeBase) {
+  if (!APPLICATION_CHECKPOINT_COMMIT.test(checkpoint)) {
     throw successorError(
       'b4_evidence_successor_invalid',
-      `B4 evidence checkpoint ${checkpointSha} is not the candidate merge-base ${mergeBase}.`,
+      'B4 development report applicationCheckpoint.commit must be exactly 40 lowercase hex characters.',
+    );
+  }
+
+  let checkpointSha;
+  try {
+    checkpointSha = await gitText(runGit, ['rev-parse', '--verify', `${checkpoint}^{commit}`]);
+  } catch {
+    throw successorError(
+      'b4_evidence_successor_invalid',
+      `B4 evidence checkpoint ${checkpoint} cannot be resolved.`,
+    );
+  }
+
+  if (!(await isAncestor(runGit, checkpointSha, headSha))) {
+    throw successorError(
+      'b4_evidence_successor_invalid',
+      `B4 evidence checkpoint ${checkpointSha} is not a reachable ancestor of HEAD ${headSha}.`,
+    );
+  }
+  if (!(await isAncestor(runGit, mergeBase, checkpointSha))) {
+    throw successorError(
+      'b4_evidence_successor_invalid',
+      `B4 evidence checkpoint ${checkpointSha} is outside the candidate range ${mergeBase}..${headSha}.`,
     );
   }
 

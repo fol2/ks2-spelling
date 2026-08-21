@@ -42,6 +42,14 @@ test('durable merge-tier documentation distinguishes source proof from live GitH
     docs,
     /This source contract does not prove a hosted merge_group executed those jobs/u,
   );
+  assert.match(
+    docs,
+    /Only `checkpoint\.\.HEAD` is allow-listed as evidence-only/u,
+  );
+  assert.match(
+    docs,
+    /must be exactly 40\nlowercase hex characters/u,
+  );
 });
 
 test('verify:b3 does not claim gateway coverage it does not run', async () => {

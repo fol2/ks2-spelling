@@ -4051,13 +4051,13 @@
     },
     {
       "assetPath": "audio/iapetus/famous/sentence-06-normal.m4a",
-      "sha256": "db401a82b411702484aea3ca8fadfc0569900bbd3762763b5448a04b064a8899",
-      "byteSize": 61629
+      "sha256": "26044639696df4607fa4c5f70f39f757c63b9162558b0c74d77b6c4dd445c7fa",
+      "byteSize": 48356
     },
     {
       "assetPath": "audio/iapetus/famous/sentence-06-slow.m4a",
-      "sha256": "92e101fb2f52d802d829c0eed9d313c20597b1bb1ccaec4f56dabf067d96904e",
-      "byteSize": 78449
+      "sha256": "91d63fe7e583a43ee1d11e956d2c5b80e4d18e831ae1f2e792a1c1d58a830c80",
+      "byteSize": 70906
     },
     {
       "assetPath": "audio/iapetus/famous/sentence-07-normal.m4a",
@@ -26416,13 +26416,13 @@
     },
     {
       "assetPath": "audio/sulafat/famous/sentence-06-normal.m4a",
-      "sha256": "7ce11656b89c262d323e5f2ee80b20d9e2372e05c469e6e12e324351bd243f8e",
-      "byteSize": 53931
+      "sha256": "108352998ac2e9f0b9e3661fddf9995dbd9eb9b972be9330c3b1c8aa75126008",
+      "byteSize": 51126
     },
     {
       "assetPath": "audio/sulafat/famous/sentence-06-slow.m4a",
-      "sha256": "6e3304db04b3a52eeb19dccfad7ff3aa6aa3a090a7204f202cf0bdbc9965c016",
-      "byteSize": 64275
+      "sha256": "94d8bb2274589ed5671983814a9591c45408257ef0e2d671a9e396e23e0a7710",
+      "byteSize": 63764
     },
     {
       "assetPath": "audio/sulafat/famous/sentence-07-normal.m4a",

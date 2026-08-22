@@ -3,7 +3,7 @@
   "catalogueId": "ks2-core:full",
   "requiredEntitlementId": "full-ks2",
   "audioEvidenceSource": "reports/c2/full-audio-evidence.json",
-  "audioEvidenceSha256": "8919c93afb9113c07519740be15567510f012652463c8a5fee133655a536da60",
+  "audioEvidenceSha256": "87525e5b0d1baa7cfbd27957c6b8d0eceec0a1a236a29ecd42db4effea1926ce",
   "algorithm": "catalogue-order greedy item fill; a shard closes when the next item would exceed the payload budget",
   "payloadBudgetBytes": 31457280,
   "nativeCeilings": {
@@ -13,7 +13,7 @@
   },
   "shardCount": 15,
   "assetCount": 8946,
-  "payloadBytes": 454394593,
+  "payloadBytes": 454370461,
   "shards": [
     {
       "packId": "full-ks2-shard-01",
@@ -68,7 +68,7 @@
       "archiveName": "full-ks2-shard-03-1.0.0.zip",
       "fileCount": 589,
       "assetCount": 588,
-      "payloadBytes": 30335903,
+      "payloadBytes": 30311771,
       "items": [
         "difficult",
         "disappear",

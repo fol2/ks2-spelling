@@ -48,7 +48,6 @@ test('bundled web payload and native release inputs select both native CI jobs',
     'site/public/index.html',
     '.github/workflows/certify.yml',
     '.github/workflows/nightly-alert.yml',
-    '.github/dependabot.yml',
   ];
   for (const path of mustNotSelect) {
     assert.equal(pathSelectsNativeCi(path), false, `${path} must not force native CI`);

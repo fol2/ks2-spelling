@@ -6,7 +6,7 @@
   "requiredEntitlementId": "full-ks2",
   "provenance": {
     "audioEvidenceSource": "reports/c2/full-audio-evidence.json",
-    "audioEvidenceSha256": "8919c93afb9113c07519740be15567510f012652463c8a5fee133655a536da60",
+    "audioEvidenceSha256": "87525e5b0d1baa7cfbd27957c6b8d0eceec0a1a236a29ecd42db4effea1926ce",
     "payloadTransform": "none; payload members are bit-exact copies of the tracked content/full-pack sources",
     "encoder": "none; no re-encode was performed",
     "hostFfmpeg": "not invoked (host has ffmpeg 9.0.1; the C2 evidence was authored under the pinned 8.1.2)"
@@ -41,10 +41,10 @@
       "version": "1.0.0",
       "archiveName": "full-ks2-shard-03-1.0.0.zip",
       "fileCount": 589,
-      "archiveSha256": "25f7034b3eaca66a54d23b8bf3e53959c4c7291f5a9cd3589f76c7d6c11407ff",
-      "archiveBytes": 30540965,
-      "archiveMd5Etag": "dbea51162d3220f8437f076515ff8cc6",
-      "canonicalManifestSha256": "f572baa513358529de9bf8288afc290c54a7c93f84066b0d662111865d857138",
+      "archiveSha256": "ba64b50226b676d5b09988d3e96a0b32038c502c59fd77c75d3d70b7f880089e",
+      "archiveBytes": 30516833,
+      "archiveMd5Etag": "650889ef9526f232c33ebe9b8c4a1116",
+      "canonicalManifestSha256": "f6926b0ec57ca2c5a90fec95cf402f79cbf698bb8fe2548b3ed682efcf088ac2",
       "canonicalManifestBytes": 85569
     },
     {

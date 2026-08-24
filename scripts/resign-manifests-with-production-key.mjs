@@ -14,10 +14,10 @@
  * --ceremony-dir "$CEREMONY_OUTPUT_DIR/objects". Removes stale ready metadata
  * and the objects/ tree as soon as CEREMONY_OUTPUT_DIR identifies that bounded
  * cleanup target, then validates remaining environment and authoring input.
- * Preflights nested dist-first|dist-second archives, writes objects to a
- * staging tree, writes ready metadata, then promotes the staging tree. Any
- * failure after that clear, including a final metadata write failure, removes
- * ready metadata and both the staging and accepted object trees.
+ * Preflights nested dist-first|dist-second archives and canonical manifests,
+ * writes objects to a staging tree, writes ready metadata, then promotes the
+ * staging tree. Any failure after that clear, including a final metadata write
+ * failure, removes ready metadata and both staging and accepted object trees.
  */
 
 import { createHash, createPrivateKey, sign } from 'node:crypto';
@@ -72,21 +72,6 @@ async function ensureEnv(name, env = process.env) {
 }
 
 /**
- * Extract canonical manifest from existing sandbox-signed envelope fixture.
- */
-async function extractCanonicalManifestFromFixture(root, packId, readFileImpl = readFile) {
-  const fixturePath = resolve(
-    root,
-    'tests/fixtures/packs/full-ks2-shards',
-    `${packId}.signed-manifest.json`,
-  );
-  const envelopeBytes = await readFileImpl(fixturePath, 'utf8');
-  const envelope = JSON.parse(envelopeBytes);
-  const canonicalManifestBytes = Buffer.from(envelope.canonicalManifestBase64, 'base64');
-  return canonicalManifestBytes;
-}
-
-/**
  * Load canonical manifest bytes and packId from authoring report.
  */
 function assertCanonicalAuthoringShards(shards) {
@@ -131,6 +116,7 @@ async function loadShardsToSign(root, readFileImpl = readFile) {
     version: shard.version,
     archiveName: shard.archiveName,
     canonicalManifestSha256: shard.canonicalManifestSha256,
+    canonicalManifestBytes: shard.canonicalManifestBytes,
     archiveSha256: shard.archiveSha256,
     archiveBytes: shard.archiveBytes,
     archiveMd5Etag: shard.archiveMd5Etag,
@@ -142,6 +128,56 @@ export function nestedAuthoringArchiveCandidates(root, packId, archiveName) {
     resolve(root, '.native-build/packs', packId, 'dist-first', archiveName),
     resolve(root, '.native-build/packs', packId, 'dist-second', archiveName),
   ]);
+}
+
+export function nestedAuthoringCanonicalManifestCandidates(root, packId) {
+  return Object.freeze([
+    resolve(root, '.native-build/packs', packId, 'dist-first', 'unsigned-canonical-manifest.json'),
+    resolve(root, '.native-build/packs', packId, 'dist-second', 'unsigned-canonical-manifest.json'),
+  ]);
+}
+
+export async function resolveNestedAuthoringCanonicalManifestBytes({
+  root,
+  packId,
+  canonicalManifestSha256,
+  canonicalManifestBytes,
+  readFileImpl = readFile,
+}) {
+  const candidates = nestedAuthoringCanonicalManifestCandidates(root, packId);
+  const readable = [];
+  for (const path of candidates) {
+    try {
+      const bytes = await readFileImpl(path);
+      readable.push({ path, bytes: Buffer.from(bytes) });
+    } catch (error) {
+      if (error?.code === 'ENOENT') continue;
+      fail(`cannot read nested authoring canonical manifest ${path}: ${error.message}`);
+    }
+  }
+  if (readable.length === 0) {
+    fail(
+      `missing nested authoring canonical manifest for ${packId} at ` +
+        `${packId}/dist-first|dist-second/unsigned-canonical-manifest.json`,
+    );
+  }
+  const hashes = readable.map(({ bytes }) => digest(bytes));
+  if (new Set(hashes).size !== 1) {
+    fail(`ambiguous nested authoring canonical manifests for ${packId}: dist-first and dist-second differ`);
+  }
+  if (hashes[0] !== canonicalManifestSha256) {
+    fail(
+      `nested authoring canonical manifest hash mismatch for ${packId}: ` +
+        `expected ${canonicalManifestSha256}, got ${hashes[0]}`,
+    );
+  }
+  if (readable[0].bytes.length !== canonicalManifestBytes) {
+    fail(
+      `nested authoring canonical manifest byte count mismatch for ${packId}: ` +
+        `expected ${canonicalManifestBytes}, got ${readable[0].bytes.length}`,
+    );
+  }
+  return readable[0].bytes;
 }
 
 export async function resolveNestedAuthoringArchiveBytes({
@@ -272,16 +308,18 @@ export async function main({
 
     const staged = [];
     for (const shard of shards) {
-      const canonicalManifestBytes = await extractCanonicalManifestFromFixture(
-        root,
-        shard.packId,
-        readFileImpl,
-      );
       const archiveBytes = await resolveNestedAuthoringArchiveBytes({
         root,
         packId: shard.packId,
         archiveName: shard.archiveName,
         archiveSha256: shard.archiveSha256,
+        readFileImpl,
+      });
+      const canonicalManifestBytes = await resolveNestedAuthoringCanonicalManifestBytes({
+        root,
+        packId: shard.packId,
+        canonicalManifestSha256: shard.canonicalManifestSha256,
+        canonicalManifestBytes: shard.canonicalManifestBytes,
         readFileImpl,
       });
       staged.push({

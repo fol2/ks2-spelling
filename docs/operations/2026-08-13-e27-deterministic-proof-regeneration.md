@@ -76,7 +76,8 @@ four changes, all applied here and re-reproduced:
    authority set its scenarios exercise: any drift in a sha256, byte count,
    etag, version or ordering fails the proof instead of quietly changing what
    was proved. `tests/b3-deterministic-proof.test.mjs` pins the literal
-   `9556f0b2aacf849788c3c7f82958f85354fc2936a0c14b02e895e2a24ea00dba`.
+   `d3def5fa77475d48bcbfcb87505041bca1747c2989483baab611b83b03d8ebdf`
+   after issue #91 replaced shard 03's archive and signed-manifest authority.
 4. **`shardChunkCount` imports `B3_DOWNLOAD_CHUNK_BYTES`** instead of
    repeating `1_048_576`.
 

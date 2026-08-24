@@ -57,12 +57,12 @@
         "compressedBytes": 33554432,
         "extractedBytes": 33554432
       },
-      "manifestSha256": "39fb960abc6992f5e96c196cb30b9dd4946eb695ece63d0617b0cd2fa8c00a0a",
+      "manifestSha256": "305c8a213126d6fd6099e8ab116eacb5f677fc357ec5354df22923a842eaf471",
       "manifestBytes": 114431,
-      "manifestEtag": "688e9a2b97d14a302c59fc4c69226663",
-      "archiveSha256": "25f7034b3eaca66a54d23b8bf3e53959c4c7291f5a9cd3589f76c7d6c11407ff",
-      "archiveBytes": 30540965,
-      "archiveEtag": "dbea51162d3220f8437f076515ff8cc6"
+      "manifestEtag": "37ffa4d6dc7b446a5217510c16b6eb5f",
+      "archiveSha256": "ba64b50226b676d5b09988d3e96a0b32038c502c59fd77c75d3d70b7f880089e",
+      "archiveBytes": 30516833,
+      "archiveEtag": "650889ef9526f232c33ebe9b8c4a1116"
     },
     {
       "packId": "full-ks2-shard-04",

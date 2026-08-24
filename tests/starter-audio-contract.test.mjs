@@ -132,16 +132,39 @@ test('Starter authoring stays local and does not fetch TTS', async () => {
   assert.doesNotMatch(generator, /\buvx\b|\bfetch\s*\(/iu);
 });
 
-test('a Starter sibilant sentence is the reviewed Full M4A bytes', async () => {
-  const assetPath = 'audio/iapetus/circle/sentence-01-normal.m4a';
-  const [starter, full] = await Promise.all([
-    readFile(new URL(`../content/starter-pack/${assetPath}`, import.meta.url)),
-    readFile(new URL(`../content/full-pack/${assetPath}`, import.meta.url)),
-  ]);
-  assert.equal(starter.equals(full), true);
-  const asset = createStarterAudioInventory(loadStarterSpellingCatalogue())
-    .find((item) => item.assetPath === assetPath);
-  assert.equal(asset?.generationSpec.outputFormat, 'm4a-aac-lc-mono-22050hz-48kbps');
+test('Starter copy-only lane copies sentences and skips encode and the host ffmpeg pin', async () => {
+  const generator = await readFile(
+    new URL('../scripts/generate-starter-audio.mjs', import.meta.url),
+    'utf8',
+  );
+  assert.match(generator, /function isTrackedFullM4aCopyLane\(/u);
+  assert.match(
+    generator,
+    /if \(copyOnly \|\| asset\.sourceKind === 'word'\) \{\s*await copyAsset/u,
+  );
+  assert.match(generator, /if \(copyOnly\) return tempoFactors;/u);
+  assert.match(
+    generator,
+    /if \(!isTrackedFullM4aCopyLane\(authority\)\) \{\s*await assertFfmpegAuthority\(authority\);/u,
+  );
+  assert.match(generator, /copiedAnalysisFromFullRecord/u);
+});
+
+test('every Starter payload M4A is the reviewed Full bytes', async () => {
+  const inventory = createStarterAudioInventory(loadStarterSpellingCatalogue());
+  assert.equal(inventory.length, 840);
+  for (const asset of inventory) {
+    const [starter, full] = await Promise.all([
+      readFile(new URL(`../content/starter-pack/${asset.assetPath}`, import.meta.url)),
+      readFile(new URL(`../content/full-pack/${asset.assetPath}`, import.meta.url)),
+    ]);
+    assert.equal(starter.equals(full), true, asset.assetPath);
+    assert.equal(
+      asset.generationSpec.outputFormat,
+      'm4a-aac-lc-mono-22050hz-48kbps',
+      asset.assetPath,
+    );
+  }
 });
 
 test('Starter audio authority distinguishes interim Piper words from Gemini sentences', () => {

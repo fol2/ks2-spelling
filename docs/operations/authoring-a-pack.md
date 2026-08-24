@@ -61,8 +61,10 @@ the same committed manifest document — an exact
 `config/packs/full-ks2-shards/`.
 
 The reviewed partition is `config/full-ks2-shard-partition.json`
-(item-granular, catalogue order, greedy fill under the native 32 MiB /
-1 024-file ceilings), and the whole lane is driven by one command:
+(item-granular, catalogue order, greedy fill under the 32 MiB /
+1 024-file shard ceilings). The ZIP inspector's outer bound is 48 MiB so
+it can also inspect the attested Starter archive; Full shards still fill
+under 32 MiB. The whole lane is driven by one command:
 
 ```bash
 node scripts/author-full-shards.mjs --check   # verify → stage → build ×2 → re-verify
@@ -77,9 +79,12 @@ hosting stay owner-gated; see
 
 Three steps, in order.
 
-**One — generate and verify the audio.** This encodes the payload, measures
-every asset and writes the pack's evidence report. It is create-only and
-refuses to overwrite an existing payload or report.
+**One — generate and verify the audio.** For an externally sourced lane this
+encodes the payload, measures every asset and writes the pack's evidence
+report. The tracked Starter lane copies the reviewed Full M4A subset
+byte-for-byte and reuses the matching Full evidence analysis; it does not
+run the encoder. Both paths are create-only and refuse to overwrite an
+existing payload or report.
 
 ```bash
 node scripts/generate-starter-audio.mjs \
@@ -92,8 +97,10 @@ externally sourced sentence corpus, meaning its sentence source has no
 in-repository `assetRoot`. A pack whose sources are tracked in this repository,
 such as Starter, omits it and uses its reviewed tracked source.
 
-**Two — re-verify the tracked evidence.** This re-measures the payload and
-fails unless it reproduces the tracked report byte for byte.
+**Two — re-verify the tracked evidence.** This rebuilds the evidence report
+from the current payload and fails unless it reproduces the tracked report
+byte for byte. Full still re-decodes AAC to PCM under FFmpeg 8.1.2. Copy-only
+Starter checks hashes and format, then reuses the matching Full analysis.
 
 ```bash
 node scripts/generate-starter-audio.mjs \
@@ -116,9 +123,14 @@ manifest from already-verified evidence with `--runtime-manifest-only`.
 
 ## The FFmpeg pin
 
-Every audio authority pins FFmpeg to exactly `8.1.2`, and step one asserts the
-running version before it encodes anything. A host without that exact build
-must not amend the authority to match whatever it has.
+Every audio authority pins FFmpeg to exactly `8.1.2` as the author of the
+reviewed AAC bytes. A host without that exact build must not amend the
+authority to match whatever it has.
+
+The copy-only Starter lane copies those already-reviewed Full M4As and does
+not invoke the encoder, so it does not require the host binary to be 8.1.2.
+Full encode, and any `--check` that re-decodes AAC to PCM, still require
+8.1.2. Do not loosen the pin on Full.
 
 The pin is not bureaucratic. FFmpeg 8.1.2 decodes AAC to whole 1024-sample
 frames, while later releases trim to the container-declared duration instead.

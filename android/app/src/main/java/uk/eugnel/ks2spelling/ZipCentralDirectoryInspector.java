@@ -24,8 +24,8 @@ import java.util.zip.ZipInputStream;
 /** Owns every ZIP metadata decision before platform extraction is allowed. */
 public final class ZipCentralDirectoryInspector {
     static final int MAXIMUM_FILE_COUNT = 1_024;
-    static final int MAXIMUM_COMPRESSED_BYTES = 32 * 1_024 * 1_024;
-    static final int MAXIMUM_EXTRACTED_BYTES = 32 * 1_024 * 1_024;
+    static final int MAXIMUM_COMPRESSED_BYTES = 48 * 1_024 * 1_024;
+    static final int MAXIMUM_EXTRACTED_BYTES = 48 * 1_024 * 1_024;
 
     private static final long END_SIGNATURE = 0x06054b50L;
     private static final long CENTRAL_SIGNATURE = 0x02014b50L;

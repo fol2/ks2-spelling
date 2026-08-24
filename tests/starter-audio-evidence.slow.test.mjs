@@ -34,19 +34,15 @@ function validEvidence() {
       sourceKind: asset.sourceKind,
       sourceKey: createAudioSourceKey(asset),
       sourcePath: asset.sourcePath,
-      sourceByteSize: asset.sourceKind === 'word'
-        ? 1_000 + asset.sequence
-        : 2_000 + asset.sequence,
-      sourceSha256: digest(Buffer.from(
-        `${asset.sourceKind === 'word' ? 'audio' : 'source'}-${asset.sequence}`,
-      )),
+      sourceByteSize: 1_000 + asset.sequence,
+      sourceSha256: digest(Buffer.from(`audio-${asset.sequence}`)),
       tempoFactor: 1,
       inputSha256: digest(Buffer.from(asset.input)),
       generationSpecSha256: digest(Buffer.from(JSON.stringify(asset.generationSpec))),
       byteSize: 1_000 + asset.sequence,
       sha256: digest(Buffer.from(`audio-${asset.sequence}`)),
       codec: 'aac',
-      sampleRateHz: asset.sourceKind === 'word' ? 22050 : 16000,
+      sampleRateHz: 22050,
       channels: 1,
       durationMs:
         asset.audioKind === 'word-natural' ? 800
@@ -102,5 +98,18 @@ test('Starter evidence fails closed on one representative asset substitution', (
       catalogue: loadStarterSpellingCatalogue(),
     }),
     /Starter audio evidence/u,
+  );
+});
+
+test('Starter evidence requires byte-identity for tracked sentence copies', () => {
+  const evidence = validEvidence();
+  const sentence = evidence.assets.find((asset) => asset.sourceKind === 'sentence');
+  sentence.sourceByteSize = sentence.byteSize + 1;
+  sentence.sourceSha256 = digest(Buffer.from('transcoded-sentence'));
+  assert.throws(
+    () => validateStarterAudioEvidence(evidence, {
+      catalogue: loadStarterSpellingCatalogue(),
+    }),
+    /sentence bytes differ from the pinned Full source/u,
   );
 });

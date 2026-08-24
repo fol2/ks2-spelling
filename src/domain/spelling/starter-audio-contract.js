@@ -110,7 +110,7 @@ export function validateAudioAuthority(value, { catalogueId, assetCount }) {
       ? value.sources.sentence.revision !== STARTER_SENTENCE_SOURCE_REVISION ||
         value.sources.sentence.assetRoot !== 'content/full-pack' ||
         value.sources.sentence.distribution !==
-          'complete reviewed Full-pack M4A set re-encoded for the Starter payload; no provider access at runtime'
+          'complete reviewed Full-pack M4A subset copied byte-for-byte; no provider access at runtime'
       : value.sources.sentence.distribution !==
         'pre-generated source audio only; no provider SDK, credentials or network access at runtime')
   ) {
@@ -164,12 +164,10 @@ export function validateAudioAuthority(value, { catalogueId, assetCount }) {
     value.encoding.version !== '8.1.2' ||
     value.encoding.distribution !==
       'authoring tool only; never shipped or linked in the client' ||
-    value.encoding.format !== (starter
-      ? 'm4a-aac-lc-mono'
-      : 'm4a-aac-lc-mono-22050hz-48kbps') ||
-    value.encoding.sampleRateHz !== (starter ? 16000 : 22050) ||
+    value.encoding.format !== 'm4a-aac-lc-mono-22050hz-48kbps' ||
+    value.encoding.sampleRateHz !== 22050 ||
     value.encoding.channels !== 1 ||
-    value.encoding.bitrateKbps !== (starter ? 18 : 48)
+    value.encoding.bitrateKbps !== 48
   ) {
     fail('encoding authority drifted');
   }

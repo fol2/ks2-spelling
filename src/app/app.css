@@ -467,7 +467,8 @@ select {
 }
 
 .scene-plate,
-.scene-veil {
+.scene-veil,
+.scene-ambient {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -479,6 +480,87 @@ select {
   background-size: cover;
   opacity: var(--plate-opacity, 1);
   animation: pan 64s ease-in-out infinite alternate;
+}
+
+/* Setup and dusk practice: a calmer-but-perceptible Ken Burns. Other scenes
+   keep the 64s pan — that travel is ~0.3px/s and reads as still. Transform
+   only: a filter on the plate is the #109 grey-plate bug. */
+.setup-scene .scene-plate,
+.round-scene .scene-plate {
+  animation: sceneDrift 36s ease-in-out infinite alternate;
+}
+
+html[data-ambient='motes'] .setup-scene .scene-plate,
+html[data-ambient='motes'] .round-scene .scene-plate {
+  animation: pan 64s ease-in-out infinite alternate;
+}
+
+/* Between plate and veil. All three layers stay z-index:auto so they stack in
+   DOM order and cannot cover setup's in-flow hero, tray or Set off — those
+   siblings sit at auto too. Opacity-0 rest is the reduced-motion frame: the
+   kill list stops the animation; display:none here would leave a hole. Cream,
+   not gold: gold reads as reward. */
+.scene-ambient {
+  overflow: hidden;
+}
+
+.scene-ambient::before {
+  position: absolute;
+  inset: 0 0 58% 0;
+  pointer-events: none;
+  background: radial-gradient(120% 85% at 50% 0%, rgb(255 249 236 / 14%), transparent 72%);
+  opacity: 0;
+  content: '';
+}
+
+.setup-scene .scene-ambient::before,
+.round-scene .scene-ambient::before {
+  animation: sceneHaze 11s ease-in-out infinite alternate;
+}
+
+html[data-ambient='motes'] .setup-scene .scene-ambient::before,
+html[data-ambient='motes'] .round-scene .scene-ambient::before {
+  animation: none;
+}
+
+.scene-ambient-mote {
+  position: absolute;
+  width: 0.22rem;
+  height: 0.22rem;
+  border-radius: 50%;
+  background: rgb(255 249 236 / 72%);
+  box-shadow: 0 0 6px rgb(255 249 236 / 55%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scene-ambient-mote:nth-child(1) { top: 8%; left: 12%; }
+.scene-ambient-mote:nth-child(2) { top: 15%; left: 70%; }
+.scene-ambient-mote:nth-child(3) { top: 22%; left: 85%; }
+
+html[data-ambient='motes'] .setup-scene .scene-ambient-mote:nth-child(1),
+html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(1) {
+  animation: sceneMote 7s ease-in-out 400ms infinite;
+}
+
+html[data-ambient='motes'] .setup-scene .scene-ambient-mote:nth-child(2),
+html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(2) {
+  animation: sceneMote 9.5s ease-in-out 1.2s infinite;
+}
+
+html[data-ambient='motes'] .setup-scene .scene-ambient-mote:nth-child(3),
+html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
+  animation: sceneMote 12s ease-in-out 2.1s infinite;
+}
+
+/* Pause, do not cancel: resume continues the same iteration. !important
+   beats the animation shorthand on html[data-ambient] plate/mote overrides,
+   whose specificity otherwise leaves play-state running. */
+.product-scene[data-ambient-paused='true'] .scene-plate,
+.product-scene[data-ambient-paused='true'] .scene-ambient,
+.product-scene[data-ambient-paused='true'] .scene-ambient::before,
+.product-scene[data-ambient-paused='true'] .scene-ambient-mote {
+  animation-play-state: paused !important;
 }
 
 .scene-veil {
@@ -4114,6 +4196,24 @@ select {
   to { transform: scale(1.18) translate3d(2.2%, -1.1%, 0); }
 }
 
+@keyframes sceneDrift {
+  from { transform: scale(1.14) translate3d(-3%, 1.4%, 0); }
+  to { transform: scale(1.14) translate3d(3%, -1.4%, 0); }
+}
+
+@keyframes sceneHaze {
+  from { opacity: 0.04; transform: translate3d(-0.8%, 0.4%, 0); }
+  to { opacity: 0.16; transform: translate3d(0.8%, -0.4%, 0); }
+}
+
+/* Camp-ember shape, cream not brass, sky-band only. No bounce, no crossing. */
+@keyframes sceneMote {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.7); }
+  28% { opacity: 0.42; }
+  62% { opacity: 0.3; transform: translate3d(0.12rem, -0.55rem, 0); }
+  100% { opacity: 0; transform: translate3d(-0.08rem, -1rem, 0) scale(1); }
+}
+
 @keyframes sheen {
   0% { transform: translateX(-170%) skewX(-16deg); }
   58%, 100% { transform: translateX(340%) skewX(-16deg); }
@@ -4195,6 +4295,7 @@ select {
 
   .scene-plate,
   .scene-veil,
+  .scene-ambient,
   .codex-hero-glow,
   .codex-hero-sheen,
   .codex-hero[data-near='true'] .codex-next::before,

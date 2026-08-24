@@ -9,8 +9,8 @@
   "allowedExtensions": [".json", ".m4a"],
   "ceilings": {
     "fileCount": 841,
-    "compressedBytes": 16777216,
-    "extractedBytes": 16777216
+    "compressedBytes": 50331648,
+    "extractedBytes": 50331648
   },
   "catalogueSource": "vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json",
   "audioSourceRoot": "content/starter-pack",

@@ -25,11 +25,11 @@ test('native pack inspection keeps per-manifest ceilings inside the reviewed pro
   ]);
 
   assert.match(iosInspector, /maximumFileCount\s*=\s*1_024/);
-  assert.match(iosInspector, /maximumCompressedBytes\s*=\s*32 \* 1_024 \* 1_024/);
-  assert.match(iosInspector, /maximumExtractedBytes\s*=\s*32 \* 1_024 \* 1_024/);
+  assert.match(iosInspector, /maximumCompressedBytes\s*=\s*48 \* 1_024 \* 1_024/);
+  assert.match(iosInspector, /maximumExtractedBytes\s*=\s*48 \* 1_024 \* 1_024/);
   assert.match(androidInspector, /MAXIMUM_FILE_COUNT\s*=\s*1_024/);
-  assert.match(androidInspector, /MAXIMUM_COMPRESSED_BYTES\s*=\s*32 \* 1_024 \* 1_024/);
-  assert.match(androidInspector, /MAXIMUM_EXTRACTED_BYTES\s*=\s*32 \* 1_024 \* 1_024/);
+  assert.match(androidInspector, /MAXIMUM_COMPRESSED_BYTES\s*=\s*48 \* 1_024 \* 1_024/);
+  assert.match(androidInspector, /MAXIMUM_EXTRACTED_BYTES\s*=\s*48 \* 1_024 \* 1_024/);
   assert.match(iosInspector, /requiredEntitlementId:\s*String\?/);
   assert.match(iosPlugin, /requiredEntitlementId == nil/);
   assert.match(androidPlugin, /JSONObject\.NULL/);

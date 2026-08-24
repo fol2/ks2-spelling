@@ -109,7 +109,7 @@ test('Starter audio derives the complete frozen 840-asset matrix', () => {
   );
   assert.equal(
     inventory[1].generationSpec.outputFormat,
-    'm4a-aac-lc-mono',
+    'm4a-aac-lc-mono-22050hz-48kbps',
   );
   assert.equal(
     inventory.at(-1).audioKey,
@@ -121,7 +121,7 @@ test('Starter audio derives the complete frozen 840-asset matrix', () => {
   );
 });
 
-test('Starter authoring copies interim words and encodes Gemini sentences', async () => {
+test('Starter authoring stays local and does not fetch TTS', async () => {
   const generator = await readFile(
     new URL('../scripts/generate-starter-audio.mjs', import.meta.url),
     'utf8',
@@ -132,14 +132,42 @@ test('Starter authoring copies interim words and encodes Gemini sentences', asyn
   assert.doesNotMatch(generator, /\buvx\b|\bfetch\s*\(/iu);
 });
 
+test('a Starter sibilant sentence is the reviewed Full M4A bytes', async () => {
+  const assetPath = 'audio/iapetus/circle/sentence-01-normal.m4a';
+  const [starter, full] = await Promise.all([
+    readFile(new URL(`../content/starter-pack/${assetPath}`, import.meta.url)),
+    readFile(new URL(`../content/full-pack/${assetPath}`, import.meta.url)),
+  ]);
+  assert.equal(starter.equals(full), true);
+  const asset = createStarterAudioInventory(loadStarterSpellingCatalogue())
+    .find((item) => item.assetPath === assetPath);
+  assert.equal(asset?.generationSpec.outputFormat, 'm4a-aac-lc-mono-22050hz-48kbps');
+});
+
 test('Starter audio authority distinguishes interim Piper words from Gemini sentences', () => {
   assert.equal(STARTER_AUDIO_AUTHORITY.schemaVersion, 1);
   assert.equal(STARTER_AUDIO_AUTHORITY.assetCount, 840);
   assert.equal(STARTER_AUDIO_AUTHORITY.runtimeGeneration, false);
   assert.equal(STARTER_AUDIO_AUTHORITY.runtimeProviderAccess, false);
   assert.equal(STARTER_AUDIO_AUTHORITY.runtimeFallback, null);
-  assert.equal(STARTER_AUDIO_AUTHORITY.encoding.sampleRateHz, 16000);
-  assert.equal(STARTER_AUDIO_AUTHORITY.encoding.bitrateKbps, 18);
+  assert.equal(STARTER_AUDIO_AUTHORITY.encoding.sampleRateHz, 22050);
+  assert.equal(STARTER_AUDIO_AUTHORITY.encoding.bitrateKbps, 48);
+  assert.equal(
+    STARTER_AUDIO_AUTHORITY.encoding.format,
+    'm4a-aac-lc-mono-22050hz-48kbps',
+  );
+  assert.equal(
+    STARTER_AUDIO_AUTHORITY.encoding.sampleRateHz,
+    FULL_AUDIO_AUTHORITY.encoding.sampleRateHz,
+  );
+  assert.equal(
+    STARTER_AUDIO_AUTHORITY.encoding.bitrateKbps,
+    FULL_AUDIO_AUTHORITY.encoding.bitrateKbps,
+  );
+  assert.equal(
+    STARTER_AUDIO_AUTHORITY.encoding.format,
+    FULL_AUDIO_AUTHORITY.encoding.format,
+  );
   assert.equal(FULL_AUDIO_AUTHORITY.encoding.bitrateKbps, 48);
   assert.equal(
     STARTER_AUDIO_AUTHORITY.sources.word.id,

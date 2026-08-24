@@ -62,9 +62,10 @@ export function createB4OfflineBoundary(mode) {
   };
 }
 
-// E2.5: the production bundle preloads only the 16 MB Starter audio. The
-// full set is entitlement-gated and delivered by download (E2.6), never
-// packaged in the binary.
+// E2.5: the production bundle preloads the Starter audio subset copied from
+// Full (about 40 MiB extracted, 48 MiB pack ceiling). The remaining Full set
+// is entitlement-gated and delivered by download (E2.6), never packaged in
+// the binary.
 export function createBundledStarterAssets(mode) {
   if (!isProductReleaseChannel(mode)) return null;
   return {

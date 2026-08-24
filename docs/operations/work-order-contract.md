@@ -122,10 +122,11 @@ cd ../ks2-spelling-<slice> && npm ci        # never symlink node_modules —
   `gh workflow run "B4 continuous integration" --ref <branch>`.
   See `docs/operations/merge-tier-gate.md`. Source and a green PR run do not
   prove live GitHub rulesets or merge-queue settings.
-- Audio `--check` on the legacy Starter/Full lanes only reproduces under
-  ffmpeg 8.1.2 (9+ diverges at AAC frame trimming); new lanes are pinned to
-  the ffmpeg that authored them. State your ffmpeg version in any audio
-  evidence.
+- Audio `--check` that re-decodes AAC to PCM (the Full encode lane)
+  only reproduces under ffmpeg 8.1.2 (9+ diverges at AAC frame trimming).
+  Copy-only Starter `--check` reuses the matching Full analysis and does
+  not require that host binary. New encode lanes are pinned to the ffmpeg
+  that authored them. State your ffmpeg version in any audio evidence.
 - Simulator hygiene: sweep booted simulators before proof runs and shut down
   everything you booted.
 

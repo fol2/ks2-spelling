@@ -184,8 +184,8 @@ enum PackRangeResponseValidator {
 
 enum ZipCentralDirectoryInspector {
     static let maximumFileCount = 1_024
-    static let maximumCompressedBytes = 32 * 1_024 * 1_024
-    static let maximumExtractedBytes = 32 * 1_024 * 1_024
+    static let maximumCompressedBytes = 48 * 1_024 * 1_024
+    static let maximumExtractedBytes = 48 * 1_024 * 1_024
 
     private static let endSignature: UInt32 = 0x06054b50
     private static let centralSignature: UInt32 = 0x02014b50

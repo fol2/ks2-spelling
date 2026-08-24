@@ -14,27 +14,27 @@
     },
     "audioEvidence": {
       "path": "reports/c1/starter-audio-evidence.json",
-      "sha256": "2664d972f46cf969bdbf3229d16366cfda0d4f551e6537f9729ed28e9a52d030",
-      "bytes": 908466,
+      "sha256": "0256062dee81b6273477e852b2f483ac75b22f3354e43fc894313d7d9598fdb1",
+      "bytes": 912607,
       "assetCount": 840
     }
   },
   "archive": {
     "file": "ks2-core-starter-1.0.0.zip",
-    "sha256": "6627273386eb85354ac9fb31ab2f5b5543d8eeb2d657d78c9fb2475a1a25a4e2",
-    "bytes": 15353021,
+    "sha256": "dd188d3af3f1fb09bfc64593e65cb9b77396dd305f76cb1a2d2cf6d4dd79fdd4",
+    "bytes": 41832631,
     "fileCount": 841,
-    "extractedBytes": 15219367
+    "extractedBytes": 41698977
   },
   "canonicalManifest": {
     "file": "unsigned-canonical-manifest.json",
-    "sha256": "c350d09dc62c7d347b7fbfeb612c96ec60a625e91d3521484e1f1cd3f4993881",
+    "sha256": "98b5d3633ff496f7625a845515ee21d0ddf46ec7de85578fd5926d9fa164b229",
     "bytes": 120956,
     "requiredEntitlementId": null
   },
   "ceilings": {
     "fileCount": 841,
-    "compressedBytes": 16777216,
-    "extractedBytes": 16777216
+    "compressedBytes": 50331648,
+    "extractedBytes": 50331648
   }
 }

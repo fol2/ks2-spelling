@@ -134,11 +134,14 @@ reviewed 48 kbps Full-pack M4As already tracked in this repository at the
 pinned restoration revision. This keeps Starter regeneration independent of a
 discarded external cache while retaining a byte-addressed source.
 
-Word M4As are still copied byte-for-byte. Starter sentence assets are re-encoded
-to 16 kHz, 18 kbps AAC at authoring time; Full sentence assets remain 48 kbps.
-The authoring authorities are deliberately separate so reducing the bundled
-Starter payload cannot silently change the Full audio contract. No path makes
-a new TTS request.
+Word M4As are still copied byte-for-byte. [#292](https://github.com/fol2/ks2-spelling/issues/292)
+superseded the later 16 kHz / 18 kbps Starter sentence encode: Starter now
+copies the reviewed Full M4A subset at the same 22.05 kHz / 48 kbps listening
+floor, and does not apply `silenceremove`, `volume=+2dB`, resample or the
+18 kbps pass. Full sentence assets remain the 48 kbps originals and are not
+re-encoded. The authoring authorities stay separate so a Starter packaging
+change cannot silently alter the Full audio contract. No path makes a new TTS
+request.
 
 ### 4. Bind evidence to source and output bytes
 
@@ -147,14 +150,16 @@ valid source and output hashes, and match recomputed input and generation-spec
 hashes
 (`scripts/lib/starter-audio-evidence.mjs:260`,
 `scripts/lib/starter-audio-evidence.mjs:265`,
-`scripts/lib/starter-audio-evidence.mjs:276`). Word clips additionally require
-the source and output byte sizes and hashes to be identical
-(`scripts/lib/starter-audio-evidence.mjs:299`).
+`scripts/lib/starter-audio-evidence.mjs:276`). Any asset whose generation spec
+names a tracked in-repository path — Starter words and, after #292, Starter
+sentences — requires the source and output byte sizes and hashes to be
+identical (`scripts/lib/starter-audio-evidence.mjs:318`). Full sentences keep
+distinct MP3 source hashes.
 
 Starter sentence source keys now bind the restoration commit and tracked
 Full-pack path. Full sentence source keys continue to bind the frozen Gemini
 model, voice, speed, word slug and source index. The final stored Starter ZIP is
-also checked against the unchanged 16 MiB extracted and archive ceilings.
+also checked against the attested 48 MiB extracted and archive ceilings.
 
 Inventory construction rejects incomplete or duplicate audio keys and output
 paths (`src/domain/spelling/starter-audio-contract.js:355`). The Full contract
@@ -198,9 +203,12 @@ has already been replaced.
   output paths, source paths and source keys.
 - Preserve the runtime boundary: no runtime generation, provider access,
   speech synthesiser or network fallback.
-- Keep Starter sentence encoding at its separately reviewed 16 kHz, 18 kbps
-  setting and keep Full at 48 kbps. `npm run build:starter-pack` must remain
-  below both unchanged 16 MiB ceilings before native evidence can pass.
+- Keep Starter and Full on the same child-listening floor: AAC-LC mono,
+  22.05 kHz, 48 kbps. Starter sentences are a byte-for-byte copy of the
+  reviewed Full M4A subset. Do not reintroduce a 16 kHz / 18 kbps Starter
+  transcode to recover bundle size. `npm run build:starter-pack` must remain
+  below both attested 48 MiB ceilings (50,331,648 bytes) before native
+  evidence can pass.
 - Replace word-only clips atomically. When genuine Gemini word clips are
   integrated, replace all 426 Full clips and the corresponding 40 Starter
   clips, update the source authority, and regenerate evidence and manifests.

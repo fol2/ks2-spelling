@@ -22,10 +22,23 @@ import {
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_AUTHORITY = 'config/packs/ks2-core.audio.json';
+const FULL_EVIDENCE_PATH = resolve(ROOT, 'reports/c2/full-audio-evidence.json');
 const MAX_AUDIO_BYTES = 2 * 1_024 * 1_024;
+const MAX_EVIDENCE_BYTES = 16 * 1_024 * 1_024;
 const MAX_RUNTIME_MANIFEST_BYTES = 4 * 1_024 * 1_024;
 const PROCESS_ERROR_BYTES = 64 * 1_024;
 const ENCODE_CONCURRENCY = 8;
+const COPIED_ANALYSIS_KEYS = Object.freeze([
+  'durationMs',
+  'meanDbfs',
+  'peakDbfs',
+  'leadingSilenceMs',
+  'trailingSilenceMs',
+]);
+
+function isTrackedFullM4aCopyLane(authority) {
+  return Object.hasOwn(authority.sources.sentence, 'assetRoot');
+}
 
 function generationError(detail, options) {
   return new Error(`Spelling audio generation ${detail}.`, options);
@@ -172,10 +185,9 @@ async function mapConcurrent(values, concurrency, operation) {
 }
 
 async function encodeAsset(asset, sourceRoot, target, authority, tempoFactor = 1) {
-  // Externally sourced inputs already carry -8 dB; +2 dB preserves the level a
-  // tracked in-repository source (Starter) was reviewed at.
-  const volumeDb =
-    Object.hasOwn(authority.sources.sentence, 'assetRoot') ? 2 : -8;
+  // Starter is a byte-for-byte copy of reviewed Full M4As, so this encoder
+  // runs only on externally sourced inputs that already carry -8 dB.
+  const volumeDb = -8;
   const filter = [
     'silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.08:stop_periods=-1:stop_threshold=-50dB:stop_silence=0.12',
     `volume=${volumeDb}dB`,
@@ -222,17 +234,51 @@ async function decodedDurationMs(path, authority) {
   return (decoded.stdout.byteLength / 2 / authority.encoding.sampleRateHz) * 1_000;
 }
 
+async function loadFullEvidenceByAssetPath() {
+  const bytes = await readBoundedRegular(FULL_EVIDENCE_PATH, MAX_EVIDENCE_BYTES);
+  let report;
+  try {
+    report = JSON.parse(bytes.toString('utf8'));
+  } catch (cause) {
+    fail('could not parse the reviewed Full audio evidence', { cause });
+  }
+  if (!Array.isArray(report?.assets)) {
+    fail('reviewed Full audio evidence is missing its asset list');
+  }
+  return new Map(report.assets.map((record) => [record.assetPath, record]));
+}
+
+function copiedAnalysisFromFullRecord(fullRecord, sha256) {
+  if (!fullRecord || fullRecord.sha256 !== sha256) {
+    fail('copied Starter asset is missing from Full evidence or differs in sha256');
+  }
+  const analysis = {};
+  for (const key of COPIED_ANALYSIS_KEYS) {
+    if (typeof fullRecord[key] !== 'number' || !Number.isFinite(fullRecord[key])) {
+      fail('reviewed Full evidence is missing a copied analysis field');
+    }
+    analysis[key] = fullRecord[key];
+  }
+  return analysis;
+}
+
+async function copyAsset(asset, sourceRoot, target) {
+  await mkdir(dirname(target), { recursive: true });
+  await copyFile(resolve(sourceRoot, asset.sourcePath), target);
+}
+
 async function encodeAssets(inventory, sourceRoot, outputRoot, authority) {
+  const copyOnly = isTrackedFullM4aCopyLane(authority);
   await mapConcurrent(inventory, ENCODE_CONCURRENCY, async (asset) => {
     const target = resolve(outputRoot, asset.assetPath);
-    if (asset.sourceKind === 'word') {
-      await mkdir(dirname(target), { recursive: true });
-      await copyFile(resolve(sourceRoot, asset.sourcePath), target);
+    if (copyOnly || asset.sourceKind === 'word') {
+      await copyAsset(asset, sourceRoot, target);
     } else {
       await encodeAsset(asset, sourceRoot, target, authority);
     }
   });
   const tempoFactors = new Map(inventory.map(({ audioKey }) => [audioKey, 1]));
+  if (copyOnly) return tempoFactors;
   const normalByPrompt = new Map(
     inventory
       .filter(({ audioKind }) => audioKind === 'dictation-normal')
@@ -312,6 +358,7 @@ async function inspectAsset(
   authority,
   label,
   provenance,
+  fullEvidenceByAssetPath = null,
 ) {
   const path = resolve(sourceRoot, asset.assetPath);
   const bytes = await readBoundedRegular(path, MAX_AUDIO_BYTES);
@@ -345,29 +392,38 @@ async function inspectAsset(
   ) {
     fail('audio format drifted from the reviewed M4A authority');
   }
-  const decoded = await runProcess('ffmpeg', [
-    '-hide_banner',
-    '-loglevel',
-    'error',
-    '-nostdin',
-    '-i',
-    path,
-    '-f',
-    's16le',
-    '-acodec',
-    'pcm_s16le',
-    '-ac',
-    String(outputEncoding.channels),
-    '-ar',
-    String(outputEncoding.sampleRateHz),
-    '-',
-  ], {
-    maximumOutputBytes: 2 * MAX_AUDIO_BYTES,
-  });
-  const analysis = analysePcm16le(decoded.stdout, {
-    label,
-    sampleRateHz: outputEncoding.sampleRateHz,
-  });
+  const sha256 = digest(bytes);
+  let analysis;
+  if (fullEvidenceByAssetPath) {
+    analysis = copiedAnalysisFromFullRecord(
+      fullEvidenceByAssetPath.get(asset.assetPath),
+      sha256,
+    );
+  } else {
+    const decoded = await runProcess('ffmpeg', [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-nostdin',
+      '-i',
+      path,
+      '-f',
+      's16le',
+      '-acodec',
+      'pcm_s16le',
+      '-ac',
+      String(outputEncoding.channels),
+      '-ar',
+      String(outputEncoding.sampleRateHz),
+      '-',
+    ], {
+      maximumOutputBytes: 2 * MAX_AUDIO_BYTES,
+    });
+    analysis = analysePcm16le(decoded.stdout, {
+      label,
+      sampleRateHz: outputEncoding.sampleRateHz,
+    });
+  }
   return {
     sequence: asset.sequence,
     audioKey: asset.audioKey,
@@ -383,7 +439,7 @@ async function inspectAsset(
       Buffer.from(JSON.stringify(asset.generationSpec)),
     ),
     byteSize: bytes.byteLength,
-    sha256: digest(bytes),
+    sha256,
     codec: 'aac',
     sampleRateHz: outputEncoding.sampleRateHz,
     channels: outputEncoding.channels,
@@ -488,6 +544,9 @@ async function createEvidence(
   ) {
     fail('source provenance is incomplete');
   }
+  const fullEvidenceByAssetPath = isTrackedFullM4aCopyLane(authority)
+    ? await loadFullEvidenceByAssetPath()
+    : null;
   const assets = await mapConcurrent(
     inventory,
     ENCODE_CONCURRENCY,
@@ -497,6 +556,7 @@ async function createEvidence(
       authority,
       label,
       provenanceAssets?.[index],
+      fullEvidenceByAssetPath,
     ),
   );
   const candidate = {
@@ -532,7 +592,9 @@ async function generate(configuration) {
   ) {
     fail('is create-only; use --check for an existing candidate');
   }
-  await assertFfmpegAuthority(authority);
+  if (!isTrackedFullM4aCopyLane(authority)) {
+    await assertFfmpegAuthority(authority);
+  }
   await mkdir(nativeRoot, { recursive: true });
   const temporaryRoot = await mkdtemp(
     resolve(nativeRoot, 'generation-'),

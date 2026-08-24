@@ -315,13 +315,16 @@ function validateAudioEvidence(
         label,
       );
     }
+    const trackedFullCopy = expected.generationSpec.sourceTrackedPath !== null;
     if (
-      expected.sourceKind === 'word' &&
+      trackedFullCopy &&
       (record.sourceByteSize !== record.byteSize ||
         record.sourceSha256 !== record.sha256)
     ) {
       fail(
-        `asset ${index + 1} word bytes differ from the pinned interim source`,
+        expected.sourceKind === 'word'
+          ? `asset ${index + 1} word bytes differ from the pinned interim source`
+          : `asset ${index + 1} sentence bytes differ from the pinned Full source`,
         label,
       );
     }

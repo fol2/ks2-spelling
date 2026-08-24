@@ -23,6 +23,7 @@ import {
   CEREMONY_READY_STATUS,
   main as resignManifests,
   resolveNestedAuthoringArchiveBytes,
+  resolveNestedAuthoringCanonicalManifestBytes,
 } from '../scripts/resign-manifests-with-production-key.mjs';
 
 function jsonBytes(value) {
@@ -51,6 +52,8 @@ function shardFixture(packId, {
   distFirst,
   distSecond,
   canonicalManifestBytes,
+  manifestFirst,
+  manifestSecond,
 } = {}) {
   const archiveName = `${packId}-1.0.0.zip`;
   const bytes = archiveBytes ?? Buffer.from(`archive:${packId}`);
@@ -62,6 +65,8 @@ function shardFixture(packId, {
     canonicalManifestBytes: canonicalManifestBytes ?? Buffer.from(`{"packId":"${packId}"}`),
     writeDistFirst: distFirst === undefined ? bytes : distFirst,
     writeDistSecond: distSecond === undefined ? bytes : distSecond,
+    writeManifestFirst: manifestFirst,
+    writeManifestSecond: manifestSecond,
   };
 }
 
@@ -75,6 +80,7 @@ async function writeSignerRoot(shards) {
       version: shard.version,
       archiveName: shard.archiveName,
       canonicalManifestSha256: sha256(shard.canonicalManifestBytes),
+      canonicalManifestBytes: shard.canonicalManifestBytes.length,
       archiveSha256: sha256(shard.archiveBytes),
       archiveBytes: shard.archiveBytes.length,
       archiveMd5Etag: md5(shard.archiveBytes),
@@ -86,23 +92,23 @@ async function writeSignerRoot(shards) {
     jsonBytes(report),
   );
   for (const shard of shards) {
-    const fixtureDir = join(root, 'tests/fixtures/packs/full-ks2-shards');
-    await mkdir(fixtureDir, { recursive: true });
-    await writeFile(
-      join(fixtureDir, `${shard.packId}.signed-manifest.json`),
-      jsonBytes({
-        canonicalManifestBase64: shard.canonicalManifestBytes.toString('base64'),
-      }),
-    );
     if (shard.writeDistFirst) {
       const distFirst = join(root, '.native-build/packs', shard.packId, 'dist-first');
       await mkdir(distFirst, { recursive: true });
       await writeFile(join(distFirst, shard.archiveName), shard.writeDistFirst);
+      await writeFile(
+        join(distFirst, 'unsigned-canonical-manifest.json'),
+        shard.writeManifestFirst ?? shard.canonicalManifestBytes,
+      );
     }
     if (shard.writeDistSecond) {
       const distSecond = join(root, '.native-build/packs', shard.packId, 'dist-second');
       await mkdir(distSecond, { recursive: true });
       await writeFile(join(distSecond, shard.archiveName), shard.writeDistSecond);
+      await writeFile(
+        join(distSecond, 'unsigned-canonical-manifest.json'),
+        shard.writeManifestSecond ?? shard.canonicalManifestBytes,
+      );
     }
   }
   return root;
@@ -184,6 +190,22 @@ test('nested author-full-shards dist-first and dist-second archives with a match
       archiveSha256: sha256(Buffer.from('archive:full-ks2-shard-01')),
     });
     assert.equal(bytes.toString(), 'archive:full-ks2-shard-01');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('nested author-full-shards canonical manifests with a matching hash resolve', async () => {
+  const shard = shardFixture('full-ks2-shard-01');
+  const root = await writeSignerRoot([shard]);
+  try {
+    const bytes = await resolveNestedAuthoringCanonicalManifestBytes({
+      root,
+      packId: shard.packId,
+      canonicalManifestSha256: sha256(shard.canonicalManifestBytes),
+      canonicalManifestBytes: shard.canonicalManifestBytes.length,
+    });
+    assert.deepEqual(bytes, shard.canonicalManifestBytes);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -323,6 +345,32 @@ test('nested authoring archive hash mismatch fails and must not claim or write r
     }),
     /nested authoring archive hash mismatch/i,
     { outputPrefix: 'ks2-resign-hash-' },
+  );
+});
+
+test('ambiguous nested canonical manifests fail and must not claim or write ready', async () => {
+  await assertResignRejectsWithoutReady(
+    canonicalShards((shards) => {
+      shards[0] = shardFixture('full-ks2-shard-01', {
+        manifestSecond: Buffer.from('{"different":true}'),
+      });
+    }),
+    /ambiguous nested authoring canonical manifests/i,
+    { outputPrefix: 'ks2-resign-manifest-ambiguous-' },
+  );
+});
+
+test('nested canonical manifest hash mismatch fails and must not claim or write ready', async () => {
+  await assertResignRejectsWithoutReady(
+    canonicalShards((shards) => {
+      shards[0] = shardFixture('full-ks2-shard-01', {
+        canonicalManifestBytes: Buffer.from('{"expected":true}'),
+        manifestFirst: Buffer.from('{"wrong":true}'),
+        manifestSecond: Buffer.from('{"wrong":true}'),
+      });
+    }),
+    /nested authoring canonical manifest hash mismatch/i,
+    { outputPrefix: 'ks2-resign-manifest-hash-' },
   );
 });
 

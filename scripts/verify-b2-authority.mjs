@@ -38,7 +38,7 @@ const FROZEN_AUTHORITY = Object.freeze({
 // values below are the one authorised destination the current Gate A
 // provenance may name — anything else still fails closed.
 const AMENDED_GATE_A = Object.freeze({
-  commit: 'bf1462acebba950b80b2e8901589e8143422cc79',
+  commit: 'c39b07bb5a339ca1329407274d7972c7f66f6c59',
   a2ContractManifestSha256:
     '3d6e00e60fa76d0c826a72b8da13ef7e81f7b74d1e39ea04257c6f29fa8d6805',
 });

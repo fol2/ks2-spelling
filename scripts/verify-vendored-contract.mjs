@@ -11,8 +11,8 @@ const EXPECTED_PROVENANCE = Object.freeze({
   schemaVersion: 1,
   upstream: {
     repository: 'https://github.com/fol2/ks2-mastery.git',
-    commit: 'bf1462acebba950b80b2e8901589e8143422cc79',
-    tree: '67e0283a2a1496fedc15726e137cb4f8bd15bca6',
+    commit: 'c39b07bb5a339ca1329407274d7972c7f66f6c59',
+    tree: '7adf8b5224c6a88879c6088850a65d4911125ed5',
   },
   evidence: {
     a1Manifest: {

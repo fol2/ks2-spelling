@@ -121,7 +121,7 @@ test('B3 deterministic proof runs the closed fake matrix twice byte-identically'
     // this and fails the proof.
     assert.equal(
       report.syntheticDigests.shardAuthoritySha256,
-      '9556f0b2aacf849788c3c7f82958f85354fc2936a0c14b02e895e2a24ea00dba',
+      'd3def5fa77475d48bcbfcb87505041bca1747c2989483baab611b83b03d8ebdf',
     );
     assert.doesNotMatch(first.reportJson, PROHIBITED);
     assert.equal(

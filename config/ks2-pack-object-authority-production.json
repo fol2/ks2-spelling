@@ -18,8 +18,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-01/1.0.0/signed-manifest.json",
           "bytes": 106074,
-          "sha256": "43c4fd875729955f0d885f79eb2a85905aa0359576b0d935648aa51b7e3c45d2",
-          "etag": "69ad9bd4ed54cbae3b0369708947fb73",
+          "sha256": "7521063b309b744c7671d9eaa2578e70cbb5fa24710b583f56d3208bfaf05f41",
+          "etag": "a273308fd07fd9b37700d2c479c0531c",
           "metadata": {}
         }
       ]
@@ -40,8 +40,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-02/1.0.0/signed-manifest.json",
           "bytes": 114214,
-          "sha256": "2d9424658c612bad4655326b5789350dadc9f3a25bb1de5811c9e6c5ff087286",
-          "etag": "31ab970dbfd030e2d4f9cbba4e08787d",
+          "sha256": "755834d26de826a76234351f52a84efab647bddf837edc998ae66d5975b103b5",
+          "etag": "27ae763ae0ff40c0595485aa82a30ada",
           "metadata": {}
         }
       ]
@@ -53,17 +53,17 @@
         {
           "role": "archive",
           "key": "packs/full-ks2-shard-03/1.0.0/full-ks2-shard-03-1.0.0.zip",
-          "bytes": 30540965,
-          "sha256": "25f7034b3eaca66a54d23b8bf3e53959c4c7291f5a9cd3589f76c7d6c11407ff",
-          "etag": "dbea51162d3220f8437f076515ff8cc6",
+          "bytes": 30516833,
+          "sha256": "ba64b50226b676d5b09988d3e96a0b32038c502c59fd77c75d3d70b7f880089e",
+          "etag": "650889ef9526f232c33ebe9b8c4a1116",
           "metadata": {}
         },
         {
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-03/1.0.0/signed-manifest.json",
           "bytes": 114438,
-          "sha256": "de4005d5eaa847a2774c86e72372b46d61bf5a15d9ca6df39ab929d5a0043651",
-          "etag": "ed0d726739d804a2e0f67e24c269586f",
+          "sha256": "614d5343af41ac4a39cc330117b18bec8105ecdbe0febc087c7f2a6bfa8b6319",
+          "etag": "925d43673c75e0bce12cd8a5c02124d6",
           "metadata": {}
         }
       ]
@@ -84,8 +84,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-04/1.0.0/signed-manifest.json",
           "bytes": 121790,
-          "sha256": "d049253ed05a09c472921b86737498e7ea10e37860155a49b01e6bdeda00be88",
-          "etag": "5386801b80000e705c68e88d3a6758a2",
+          "sha256": "73f3ecdb1266d4b41e118c4004cfdd972799cbc68883c213295c01f3daf0863e",
+          "etag": "38022845f23fdf608c64a50f272f53b4",
           "metadata": {}
         }
       ]
@@ -106,8 +106,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-05/1.0.0/signed-manifest.json",
           "bytes": 122350,
-          "sha256": "824e4a0a8aadae9c93c0072645a1f43d9de119388af4abccf0bc13b1560c68b2",
-          "etag": "f8cb4ece5e6f94f0c09ffbdd12472d50",
+          "sha256": "4dc04163b098ab0eac36bd27e85eb3c7ed6a4497b3f9607b36eb55d981d9d60c",
+          "etag": "675fbad46ce9ecda3ffd4e56ac34d4c4",
           "metadata": {}
         }
       ]
@@ -128,8 +128,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-06/1.0.0/signed-manifest.json",
           "bytes": 123022,
-          "sha256": "e06b41473b3d5edaee4fba2f6b075c0998800269e53e13cac0ab257fcc6b29eb",
-          "etag": "386d0d44978872e3c34eb5c11b4decd2",
+          "sha256": "cd35ac457d4433112333ba3f27e9c45fa71847661dc04c61e27810db47c88aa2",
+          "etag": "3569b40a1f2b8ccce8fc6e445dab44a7",
           "metadata": {}
         }
       ]
@@ -150,8 +150,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-07/1.0.0/signed-manifest.json",
           "bytes": 122574,
-          "sha256": "645132ef6b8819d75ff38704affd7b5bf5281a8e2b48df44966a4906c0ac8338",
-          "etag": "4a8449a3e897b01fe73f0f599f71bccb",
+          "sha256": "037115c79016a5c3a14eda534c86888e23f040b403f2e8d9d80084c4c5d24d74",
+          "etag": "c5be5509acdf1b5cb00ca9281ee299db",
           "metadata": {}
         }
       ]
@@ -172,8 +172,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-08/1.0.0/signed-manifest.json",
           "bytes": 122574,
-          "sha256": "05d5ee5e20ca932929a936867aee0185e84e663ff14e197305fbbd65b853c1f1",
-          "etag": "0961b5ad9edc85af8d0a31979d0a62c8",
+          "sha256": "ed2dad963f6228a0208f14faf26175a81d4ee8b574415a88439cce9e70d65dad",
+          "etag": "afbc9d5662bea0643dbf10672750c12b",
           "metadata": {}
         }
       ]
@@ -194,8 +194,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-09/1.0.0/signed-manifest.json",
           "bytes": 115278,
-          "sha256": "165e1ef55c169b899e43f13c8123632edfce5d616d1482567a96731bb499c7a8",
-          "etag": "f6dfdc458b8136d9de8a4d32c9cf96ea",
+          "sha256": "710162e774a5543ebdbd193cb8e5259038eccddebfcfffc7ddfee7bc4f012750",
+          "etag": "27661b0aa94c0ad1129214fc4c4a5c99",
           "metadata": {}
         }
       ]
@@ -216,8 +216,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-10/1.0.0/signed-manifest.json",
           "bytes": 116062,
-          "sha256": "8d6cbc123688dd3a06573ae0083f5f5dc8145453e08f368345aa11d8982a710f",
-          "etag": "72114d9feca0cac084e11955526b16cc",
+          "sha256": "09f33a02627fc7e7e5a75163041623ba1b9b02f2ea757966970953e1eeb4f885",
+          "etag": "359a69b74c4acf2ed2a5e73b6b33392e",
           "metadata": {}
         }
       ]
@@ -238,8 +238,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-11/1.0.0/signed-manifest.json",
           "bytes": 115502,
-          "sha256": "d0c949d43bf55261813fe961c88ffd4488b6bef159ab16869808bb9a358f5724",
-          "etag": "de5f395c0079f63d957885de73f1bc89",
+          "sha256": "b5e033427c08b84f618043003364468019713e9f88a8807aea8eb54f0673c1f0",
+          "etag": "be3cf5e657251eab553f6949afe0c619",
           "metadata": {}
         }
       ]
@@ -260,8 +260,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-12/1.0.0/signed-manifest.json",
           "bytes": 115670,
-          "sha256": "923f3823a3c353e78cbee919e89fe8478548c059fbebb5549134a866438a9a9a",
-          "etag": "1803f6fe785a43e532911fd16e2aaa54",
+          "sha256": "03601b7e03cd0600746a00ca5bf28a7b5a34c0000f4f5273c83feb8eb5f4273a",
+          "etag": "0d9bcbf33f07e7263fcf769028e57461",
           "metadata": {}
         }
       ]
@@ -282,8 +282,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-13/1.0.0/signed-manifest.json",
           "bytes": 115222,
-          "sha256": "3a2c893fdec2be88fe9921a673b0d144ce99cab6ea940498cfdd4eaa5e80eaca",
-          "etag": "855dc9aafe1136a3b1a2b399f5bcb7b8",
+          "sha256": "705467ad28f33b6e802373ec36a3fed8597e30966e9697cc2c0b36b3ed4d5aa2",
+          "etag": "dd2cafe7f789cf53aa21381622c7d238",
           "metadata": {}
         }
       ]
@@ -304,8 +304,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-14/1.0.0/signed-manifest.json",
           "bytes": 115166,
-          "sha256": "33bcc834da74f124d74002b6ab9869ec9dffaee8c75731423ba995b8059b6971",
-          "etag": "590b3906012a170b2aca5c89b05a7cc7",
+          "sha256": "1b02d3a0dec75626490c087c3ada9174185d37da758920947ee235db63bce683",
+          "etag": "3c419ad1825d693e0a58f7120c0baaca",
           "metadata": {}
         }
       ]
@@ -326,8 +326,8 @@
           "role": "signed-manifest",
           "key": "packs/full-ks2-shard-15/1.0.0/signed-manifest.json",
           "bytes": 106410,
-          "sha256": "ac814d2bca97e8428d775ddc9a65f66d9dfd6172a81c3431e5d49e1581e234a8",
-          "etag": "5c25660403dc0ccfad2a605b8a7c3baa",
+          "sha256": "79c3f978473fc6c853801fe6e0474ddfad9db431d7cf048b887bd3f19342bc24",
+          "etag": "48cc71447f57a1a3ca4f184994d2face",
           "metadata": {}
         }
       ]

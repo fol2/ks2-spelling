@@ -133,7 +133,9 @@ evidence lane. The production document is not imported from `src/` or
   for this evidence lane.
 
 Staging a ceremony directory from `scripts/author-full-shards.mjs` must resolve
-the nested outputs `.native-build/packs/<packId>/dist-first|dist-second/<archiveName>`.
+the nested archive and canonical-manifest outputs under
+`.native-build/packs/<packId>/dist-first|dist-second/`. Sandbox-signed fixture
+envelopes are not production-signing input.
 `scripts/resign-manifests-with-production-key.mjs` requires the authoring
 report to list the exact fifteen canonical pack IDs, versions and archive
 names in order — a subset, duplicate, extra, reordered or substituted shard

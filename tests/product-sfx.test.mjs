@@ -11,7 +11,9 @@ import {
   sfxGateDecision,
 } from '../src/app/sfx/sfx-model.js';
 import {
-  PRODUCT_SFX_SPECS,
+  PRODUCT_SFX_AUTHORED_SOURCES,
+  isAuthoredProductSfx,
+  loadAuthoredProductSfxBytes,
   renderProductSfxBytes,
   sha256Hex,
 } from '../scripts/lib/product-sfx-synthesis.mjs';
@@ -298,40 +300,27 @@ test('sfx-engine and sfx-model source contracts forbid HTMLAudio and focus paths
   }
 });
 
-test('correct-cue synthesis is the warm paper chord, not the 392/588 ding', () => {
-  const spec = PRODUCT_SFX_SPECS.correct;
+test('correct and retry are authored quiz-show cues, not the 392/588 ding', async () => {
+  assert.equal(isAuthoredProductSfx('correct'), true);
+  assert.equal(isAuthoredProductSfx('retry'), true);
+  assert.equal(isAuthoredProductSfx('catch'), false);
+  assert.equal(PRODUCT_SFX_AUTHORED_SOURCES.correct, 'assets/sfx/authored/correct.wav');
+  assert.equal(PRODUCT_SFX_AUTHORED_SOURCES.retry, 'assets/sfx/authored/retry.wav');
 
-  assert.equal(spec.durationMs, 420);
-  assert.deepEqual(spec.partials, [
-    { kind: 'sine', hz: 185, amp: 0.11, attackMs: 32, decayMs: 380 },
-    { kind: 'sine', hz: 247, amp: 0.22, attackMs: 24, decayMs: 350 },
-    { kind: 'sine', hz: 311, amp: 0.13, attackMs: 40, decayMs: 300, delayMs: 80 },
-  ]);
-  assert.deepEqual(spec.noise, {
-    amp: 0.014,
-    attackMs: 22,
-    decayMs: 240,
-    delayMs: 0,
-    colour: 'pinkish',
-  });
+  const authored = await loadAuthoredProductSfxBytes(ROOT);
+  const { files } = renderProductSfxBytes(authored);
 
-  for (const partial of spec.partials) {
-    assert.equal(partial.kind, 'sine', 'correct must not use a triangle partial');
-    assert.notEqual(partial.hz, 392);
-    assert.notEqual(partial.hz, 588);
-  }
-});
+  assert.equal(sha256Hex(files.correct), PRODUCT_SFX_MANIFEST.correct.sha256);
+  assert.equal(files.correct.byteLength, PRODUCT_SFX_MANIFEST.correct.byteSize);
+  assert.equal(sha256Hex(files.retry), PRODUCT_SFX_MANIFEST.retry.sha256);
+  assert.equal(files.retry.byteLength, PRODUCT_SFX_MANIFEST.retry.byteSize);
 
-test('correct-cue duration stays shorter than catch, evolve and flourish', () => {
-  const spec = PRODUCT_SFX_SPECS.correct;
-  assert.ok(spec.durationMs < PRODUCT_SFX_SPECS.catch.durationMs);
-  assert.ok(spec.durationMs < PRODUCT_SFX_SPECS.evolve.durationMs);
-  assert.ok(spec.durationMs < PRODUCT_SFX_SPECS.flourish.durationMs);
-});
+  const oldDing = 'a361b62a75ce9d8c90300286f7b069225095a5a6341e74f19171842c0e5a86a7';
+  const synthPaper = '74db88b68c73a79635738fd44831e891d02ec4e7ae342260628c3c655942d784';
+  assert.notEqual(PRODUCT_SFX_MANIFEST.correct.sha256, oldDing);
+  assert.notEqual(PRODUCT_SFX_MANIFEST.correct.sha256, synthPaper);
 
-test('re-synthesis of correct matches PRODUCT_SFX_MANIFEST hash and byteSize', () => {
-  const { files } = renderProductSfxBytes();
-  const bytes = files.correct;
-  assert.equal(bytes.byteLength, PRODUCT_SFX_MANIFEST.correct.byteSize);
-  assert.equal(sha256Hex(bytes), PRODUCT_SFX_MANIFEST.correct.sha256);
+  const pcmBytes = PRODUCT_SFX_MANIFEST.correct.byteSize - 44;
+  const durationMs = (pcmBytes / 2 / 24_000) * 1000;
+  assert.ok(durationMs > 1000, `TV-quiz correct must last more than 1s, got ${durationMs}`);
 });

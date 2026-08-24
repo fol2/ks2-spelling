@@ -1,0 +1,25 @@
+{
+  "source": "elevenlabs-text-to-sound-v2",
+  "generatedOn": "2026-08-24",
+  "outputFormat": "pcm_24000_canonical_wav",
+  "files": [
+    {
+      "name": "correct",
+      "listeningCandidate": "J-correct-dingdingding",
+      "path": "assets/sfx/authored/correct.wav",
+      "sha256": "e601e787863d75c2fb92b5e3c0b1a4b84fafa3d7bd476adccaeee7ced619c027",
+      "byteSize": 65324,
+      "durationSeconds": 1.4,
+      "prompt": "Classic British TV quiz-show correct answer: three bright cheerful ding-ding-ding bells going up, like a family game show when the answer is right. Clear, happy, a bit longer, studio trivia machine. Completely original. No copyrighted TV theme, no coin arcade pickup, no phone notification."
+    },
+    {
+      "name": "retry",
+      "listeningCandidate": "M-wrong-buzzer",
+      "path": "assets/sfx/authored/retry.wav",
+      "sha256": "277477645884d8726e791911fe68fc2038a120298bf4741c5048326473c4bed5",
+      "byteSize": 51884,
+      "durationSeconds": 1.1,
+      "prompt": "Classic TV quiz-show wrong answer buzzer: two-tone \"errnt\" game-show buzzer, descending, obvious miss, used on family trivia TV. Not painfully loud, not a scream, suitable sitting-room volume. Completely original. No copyrighted Family Fortunes sample, no air-horn, no alarm."
+    }
+  ]
+}

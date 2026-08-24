@@ -17,6 +17,7 @@ import {
   PRODUCT_SFX_NAMES,
   PRODUCT_SFX_SAMPLE_RATE_HZ,
   buildProductSfxProvenance,
+  loadAuthoredProductSfxBytes,
   renderProductSfxBytes,
   sha256Hex,
 } from './lib/product-sfx-synthesis.mjs';
@@ -124,7 +125,8 @@ function validateProvenanceShape(provenance, issues) {
 
 async function verifyProductSfx() {
   const issues = [];
-  const rendered = renderProductSfxBytes();
+  const authoredBytes = await loadAuthoredProductSfxBytes(repoRoot);
+  const rendered = renderProductSfxBytes(authoredBytes);
   const expectedProvenance = buildProductSfxProvenance(rendered);
 
   const provenanceBytes = await readRegularFile(provenancePath, 'provenance', issues);

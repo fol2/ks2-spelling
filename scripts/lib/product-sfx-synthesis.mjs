@@ -5,16 +5,22 @@
  */
 
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
-export const PRODUCT_SFX_GENERATOR_VERSION = '1';
+export const PRODUCT_SFX_GENERATOR_VERSION = '2';
 export const PRODUCT_SFX_SAMPLE_RATE_HZ = 24_000;
-export const PRODUCT_SFX_MAX_FILE_BYTES = 48 * 1024;
+export const PRODUCT_SFX_MAX_FILE_BYTES = 80 * 1024;
 export const PRODUCT_SFX_MAX_TOTAL_BYTES = 300 * 1024;
 
-/** Fixed LCG seed per sound name — never Math.random. */
+/** Repo-relative PCM 16-bit 24 kHz mono WAV sources for feedback cues. */
+export const PRODUCT_SFX_AUTHORED_SOURCES = Object.freeze({
+  correct: 'assets/sfx/authored/correct.wav',
+  retry: 'assets/sfx/authored/retry.wav',
+});
+
+/** Fixed LCG seed per synthesised sound name — never Math.random. */
 const NOISE_SEEDS = Object.freeze({
-  correct: 0xc0ffee01,
-  retry: 0xc0ffee02,
   catch: 0xc0ffee03,
   evolve: 0xc0ffee04,
   flourish: 0xc0ffee05,
@@ -28,24 +34,6 @@ const NOISE_SEEDS = Object.freeze({
  * amplitudes are peak linear gains before soft limiting.
  */
 export const PRODUCT_SFX_SPECS = Object.freeze({
-  // Warm B-major paper chord (F#3–B3–D#4 bloom), not a coin fifth.
-  correct: Object.freeze({
-    durationMs: 420,
-    partials: Object.freeze([
-      Object.freeze({ kind: 'sine', hz: 185, amp: 0.11, attackMs: 32, decayMs: 380 }),
-      Object.freeze({ kind: 'sine', hz: 247, amp: 0.22, attackMs: 24, decayMs: 350 }),
-      Object.freeze({ kind: 'sine', hz: 311, amp: 0.13, attackMs: 40, decayMs: 300, delayMs: 80 }),
-    ]),
-    noise: Object.freeze({ amp: 0.014, attackMs: 22, decayMs: 240, delayMs: 0, colour: 'pinkish' }),
-  }),
-  retry: Object.freeze({
-    durationMs: 300,
-    partials: Object.freeze([
-      Object.freeze({ kind: 'sine', hz: 196, amp: 0.22, attackMs: 10, decayMs: 240 }),
-      Object.freeze({ kind: 'sine', hz: 147, amp: 0.18, attackMs: 40, decayMs: 220 }),
-    ]),
-    noise: null,
-  }),
   catch: Object.freeze({
     durationMs: 700,
     partials: Object.freeze([
@@ -102,7 +90,21 @@ export const PRODUCT_SFX_SPECS = Object.freeze({
   }),
 });
 
-export const PRODUCT_SFX_NAMES = Object.freeze(Object.keys(PRODUCT_SFX_SPECS).sort());
+export const PRODUCT_SFX_NAMES = Object.freeze(
+  [...Object.keys(PRODUCT_SFX_SPECS), ...Object.keys(PRODUCT_SFX_AUTHORED_SOURCES)].sort(),
+);
+
+export function isAuthoredProductSfx(name) {
+  return Object.hasOwn(PRODUCT_SFX_AUTHORED_SOURCES, name);
+}
+
+export async function loadAuthoredProductSfxBytes(repoRoot) {
+  const authored = Object.create(null);
+  for (const [name, rel] of Object.entries(PRODUCT_SFX_AUTHORED_SOURCES)) {
+    authored[name] = await readFile(join(repoRoot, rel));
+  }
+  return authored;
+}
 
 function createLcg(seed) {
   let state = seed >>> 0;
@@ -246,24 +248,38 @@ export function sha256Hex(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-/** Stable digest of the synthesis-parameter table (not the rendered audio). */
-export function synthesisParameterDigest() {
+/** Stable digest of synth parameters plus authored source hashes. */
+export function synthesisParameterDigest(authoredBytes = {}) {
+  const authoredSha256 = Object.create(null);
+  for (const name of Object.keys(PRODUCT_SFX_AUTHORED_SOURCES).sort()) {
+    const bytes = authoredBytes[name];
+    authoredSha256[name] = bytes ? sha256Hex(bytes) : null;
+  }
   const payload = JSON.stringify({
     generatorVersion: PRODUCT_SFX_GENERATOR_VERSION,
     sampleRateHz: PRODUCT_SFX_SAMPLE_RATE_HZ,
     noiseSeeds: NOISE_SEEDS,
     specs: PRODUCT_SFX_SPECS,
+    authoredSources: PRODUCT_SFX_AUTHORED_SOURCES,
+    authoredSha256,
   });
   return sha256Hex(Buffer.from(payload, 'utf8'));
 }
 
-export function renderProductSfxBytes() {
+export function renderProductSfxBytes(authoredBytes = {}) {
   const files = Object.create(null);
   let totalBytes = 0;
 
   for (const name of PRODUCT_SFX_NAMES) {
-    const samples = renderSpec(name, PRODUCT_SFX_SPECS[name]);
-    const wav = encodeWavPcm16Mono(samples);
+    let wav;
+    if (isAuthoredProductSfx(name)) {
+      wav = authoredBytes[name];
+      if (!wav) {
+        throw new Error(`Product SFX ${name} is authored and requires source bytes.`);
+      }
+    } else {
+      wav = encodeWavPcm16Mono(renderSpec(name, PRODUCT_SFX_SPECS[name]));
+    }
     if (wav.byteLength > PRODUCT_SFX_MAX_FILE_BYTES) {
       throw new Error(`Product SFX ${name} exceeds ${PRODUCT_SFX_MAX_FILE_BYTES} bytes.`);
     }
@@ -275,7 +291,11 @@ export function renderProductSfxBytes() {
     throw new Error(`Product SFX set exceeds ${PRODUCT_SFX_MAX_TOTAL_BYTES} bytes.`);
   }
 
-  return { files, totalBytes, synthesisParameterDigest: synthesisParameterDigest() };
+  return {
+    files,
+    totalBytes,
+    synthesisParameterDigest: synthesisParameterDigest(authoredBytes),
+  };
 }
 
 export function buildProductSfxProvenance(rendered = renderProductSfxBytes()) {

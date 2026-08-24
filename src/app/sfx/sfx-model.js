@@ -9,15 +9,15 @@ export const SFX_SPEECH_DUCK_GAIN = 10 ** (-10 / 20);
 export const PRODUCT_SFX_MANIFEST = Object.freeze({
   correct: Object.freeze({
     path: '/sfx/correct.wav',
-    sha256: '74db88b68c73a79635738fd44831e891d02ec4e7ae342260628c3c655942d784',
-    byteSize: 20204,
+    sha256: 'e601e787863d75c2fb92b5e3c0b1a4b84fafa3d7bd476adccaeee7ced619c027',
+    byteSize: 65324,
     gain: 0.35,
     tier: 'feedback',
   }),
   retry: Object.freeze({
     path: '/sfx/retry.wav',
-    sha256: '912b5e9d79e72a0bfde076f0927c0754f83ea8272d5a9169ab895c5688f2dec4',
-    byteSize: 14444,
+    sha256: '277477645884d8726e791911fe68fc2038a120298bf4741c5048326473c4bed5',
+    byteSize: 51884,
     gain: 0.28,
     tier: 'feedback',
   }),

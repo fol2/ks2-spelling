@@ -98,3 +98,23 @@ test('play() notes speech before dictation audio.play', async () => {
     'noteSpeechStarted must run before audio.play so speech ducking is armed',
   );
 });
+
+test('Practice marks answer submission and the first feedback paint at their UI seams', async () => {
+  const productApp = await productAppSource();
+  const roundScreen = roundScreenSource(productApp);
+
+  assert.match(
+    productApp,
+    /import \{ markB4 \} from '\.\/b4-performance-marks\.js';/u,
+  );
+  assert.match(
+    roundScreen,
+    /if \(answered\) \{[\s\S]*?return;[\s\S]*?if \(answer\.trim\(\) === ''\) \{[\s\S]*?return;[\s\S]*?markB4\('product:submit-tap'\);\s*await onSubmit\(answer\)/u,
+    'only a non-empty answer check should receive the submit-tap mark',
+  );
+  assert.match(
+    roundScreen,
+    /if \(!practice\?\.feedback \|\| typeof requestAnimationFrame !== 'function'\)[\s\S]*?requestAnimationFrame\(\(\) => \{\s*markB4\('product:feedback-painted'\);\s*\}\)/u,
+    'feedback paint must be marked from requestAnimationFrame rather than the save promise',
+  );
+});

@@ -237,6 +237,76 @@ test('product learning keeps a committed local command successful when its post-
   await controller.dispose();
 });
 
+test('product learning leaves Saving and shows feedback while replica publication is still pending', async () => {
+  const world = createLearningWorld();
+  const controller = world.createController(undefined, {
+    onCommandCommitted() {
+      return new Promise(() => {});
+    },
+  });
+
+  const settlesWithin = async (promise) => {
+    let timer;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error('learning command remained inside Saving')),
+            2_000,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  await settlesWithin(
+    controller.startRound({ mode: 'smart', length: 5, yearFilter: 'core' }),
+  );
+  await settlesWithin(
+    controller.submitAnswer(targetFor(controller, world.catalogue)),
+  );
+
+  const state = controller.getState();
+  assert.equal(state.status, 'ready');
+  assert.equal(state.screen, 'practice');
+  assert.equal(state.practice.awaitingAdvance, true);
+  assert.ok(state.practice.feedback);
+  assert.equal(state.actionError, null);
+  await controller.dispose();
+});
+
+test('product learning marks local commit before publishing answer feedback', async (t) => {
+  performance.clearMarks('product:local-commit');
+  performance.clearMarks('product:feedback-published');
+  t.after(() => {
+    performance.clearMarks('product:local-commit');
+    performance.clearMarks('product:feedback-published');
+  });
+  const world = createLearningWorld();
+  const controller = world.createController();
+  await controller.startRound({ mode: 'smart', length: 5, yearFilter: 'core' });
+  performance.clearMarks('product:local-commit');
+  performance.clearMarks('product:feedback-published');
+
+  await controller.submitAnswer(targetFor(controller, world.catalogue));
+
+  const committed = performance.getEntriesByName('product:local-commit');
+  const feedback = performance.getEntriesByName('product:feedback-published');
+  assert.equal(committed.length, 1);
+  assert.equal(feedback.length, 1);
+  assert.ok(committed[0].startTime <= feedback[0].startTime);
+  assert.deepEqual(
+    performance.getEntriesByType('mark')
+      .filter(({ name }) => name.startsWith('product:'))
+      .map(({ name }) => name),
+    ['product:local-commit', 'product:feedback-published'],
+  );
+  await controller.dispose();
+});
+
 test('product learning requires a clock function', () => {
   const world = createLearningWorld();
   assert.throws(

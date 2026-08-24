@@ -25,6 +25,7 @@ import {
   revealStarterCompleteAfterCelebrations,
 } from './starter-complete-moment-runtime.js';
 import { loadStarterSpellingCatalogue } from '../domain/spelling/index.js';
+import { markB4 } from './b4-performance-marks.js';
 
 // Phaser + the living Monster Stage load only when a caught codex entry is
 // opened for a closer look.
@@ -3001,6 +3002,16 @@ function RoundScreen({
   }, [practice?.runtimeItemId, practice?.feedback?.kind, haptics, sfx]);
 
   useEffect(() => {
+    if (!practice?.feedback || typeof requestAnimationFrame !== 'function') {
+      return undefined;
+    }
+    const frame = requestAnimationFrame(() => {
+      markB4('product:feedback-painted');
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [practice?.feedback]);
+
+  useEffect(() => {
     if (advanceTimerRef.current != null) {
       clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = null;
@@ -3059,6 +3070,7 @@ function RoundScreen({
         setLocalError('Type the spelling before checking it.');
         return;
       }
+      markB4('product:submit-tap');
       await onSubmit(answer);
       setAnswer('');
       setLocalError('');

@@ -20,7 +20,8 @@ const AUTHORING_REPORT_TARGET = `${SHARD_DOCUMENT_ROOT}/authoring-report.json`;
 const CATALOGUE_ID = 'ks2-core:full';
 const ENTITLEMENT_ID = 'full-ks2';
 const SHARD_VERSION = '1.0.0';
-// Native pack ceilings are 32 MiB / 1024 files (CI-attested). The payload
+// Shard fill stays 32 MiB / 1024 files. The ZIP inspector outer bound is
+// 48 MiB so it can also inspect the attested Starter archive. The payload
 // budget leaves headroom for the shard manifest member and ZIP headers.
 const NATIVE_CEILING_BYTES = 33_554_432;
 const NATIVE_CEILING_FILES = 1_024;

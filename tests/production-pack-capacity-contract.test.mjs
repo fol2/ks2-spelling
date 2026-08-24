@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const ROOT = new URL('../', import.meta.url);
 
-test('native pack inspection keeps per-manifest ceilings inside the reviewed production bounds', async () => {
+test('native ZIP inspector outer bound is 48 MiB so the attested Starter archive can be inspected', async () => {
   const [iosInspector, iosPlugin, androidInspector, androidPlugin] = await Promise.all([
     readFile(new URL('ios/App/App/ZipCentralDirectoryInspector.swift', ROOT), 'utf8'),
     readFile(new URL('ios/App/App/PackTransferPlugin.swift', ROOT), 'utf8'),
@@ -76,4 +76,13 @@ test('native pack inspection keeps per-manifest ceilings inside the reviewed pro
       androidPlugin.indexOf('readRegularFile(archive, verified.archiveBytes)'),
     'Android must reject an oversized signed manifest before reading its archive',
   );
+});
+
+test('hosted Full shards still fill under the 32 MiB production pack-object bound', async () => {
+  const [hosted, shards] = await Promise.all([
+    readFile(new URL('scripts/lib/production-pack-object-authority.mjs', ROOT), 'utf8'),
+    readFile(new URL('scripts/author-full-shards.mjs', ROOT), 'utf8'),
+  ]);
+  assert.match(hosted, /MAX_ARCHIVE_BYTES = 32 \* 1024 \* 1024/);
+  assert.match(shards, /NATIVE_CEILING_BYTES = 33_554_432/);
 });

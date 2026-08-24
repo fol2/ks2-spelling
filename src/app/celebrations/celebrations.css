@@ -128,6 +128,12 @@
   transform-origin: 50% 84%;
 }
 
+.celebration-stage[data-live-art='ready'] .celebration-art,
+.celebration-stage:has(.celebration-canvas[data-ready='true']) .celebration-art,
+.celebration-art[data-static-art='hidden'] {
+  visibility: hidden;
+}
+
 .celebration-progress .celebration-stage {
   min-height: 10rem;
 }

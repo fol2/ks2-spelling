@@ -23,9 +23,14 @@ export default function CelebrationStage({
   reducedMotion = false,
   visible = true,
   onReady,
+  onContextLost,
 }) {
   const containerRef = useRef(null);
   const gameRef = useRef(null);
+  const onReadyRef = useRef(onReady);
+  const onContextLostRef = useRef(onContextLost);
+  onReadyRef.current = onReady;
+  onContextLostRef.current = onContextLost;
   const [contextLost, setContextLost] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -69,7 +74,7 @@ export default function CelebrationStage({
         onReady: () => {
           if (!cancelled) {
             setReady(true);
-            onReady?.();
+            onReadyRef.current?.();
           }
         },
       });
@@ -86,7 +91,10 @@ export default function CelebrationStage({
 
       onLost = (event) => {
         event?.preventDefault?.();
-        if (!cancelled) setContextLost(true);
+        if (!cancelled) {
+          setContextLost(true);
+          onContextLostRef.current?.();
+        }
       };
       game.events.on('contextlost', onLost);
       game.events.once('ready', () => {
@@ -113,7 +121,6 @@ export default function CelebrationStage({
     secondary,
     eventKey,
     durationMs,
-    onReady,
   ]);
 
   // Tear down when the decision flips to static (background / reduced motion /
@@ -126,6 +133,7 @@ export default function CelebrationStage({
       gameRef.current = null;
     }
     setReady(false);
+    onReadyRef.current?.(false);
     return undefined;
   }, [live]);
 

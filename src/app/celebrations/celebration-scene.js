@@ -64,8 +64,12 @@ export function createCelebrationScene(Phaser, props) {
       this.palette = [accent, secondary, 0xffffff];
 
       this.groundY = height * 0.9;
+      if (!this.textures.exists(TEXTURE_KEY)) return;
+
       this.sprite = this.add.image(width / 2, this.groundY, TEXTURE_KEY)
         .setOrigin(0.5, 1);
+      if (!(this.sprite.width > 0 && this.sprite.height > 0)) return;
+
       const fit = Math.min(
         (width * 0.72) / this.sprite.width,
         (height * 0.78) / this.sprite.height,
@@ -133,38 +137,31 @@ export function createCelebrationScene(Phaser, props) {
 
     playCaught() {
       const scale = this.baseScale;
-      const riseFrom = this.groundY + this.scale.height * 0.22;
-      this.sprite.setPosition(this.sprite.x, riseFrom).setAlpha(0).setScale(scale * 0.92);
-
-      this.tweens.add({
-        targets: this.sprite,
-        y: this.groundY,
-        alpha: 1,
-        scaleX: scale,
-        scaleY: scale,
-        duration: 780,
-        ease: 'Cubic.Out',
-        onComplete: () => {
-          const centreY = this.groundY - this.sprite.displayHeight * 0.45;
-          this.softRadialBurst(this.sprite.x, centreY, this.palette[0]);
-          spawnBurst(this, {
-            x: this.sprite.x,
-            y: centreY,
-            count: 10,
-            colours: this.palette,
-            rng: () => this.rng(),
-            driftY: 36,
-          });
-          this.startBreathing();
-        },
+      // Cover the static img on the first painted frame; do not rise from
+      // below a second time after the DOM art hands off.
+      this.sprite.setPosition(this.sprite.x, this.groundY).setAlpha(1).setScale(scale);
+      this.startBreathing();
+      const beats = celebrationBeats('caught');
+      this.time.delayedCall(beats.burst, () => {
+        if (!this.sprite?.active) return;
+        const centreY = this.groundY - this.sprite.displayHeight * 0.45;
+        this.softRadialBurst(this.sprite.x, centreY, this.palette[0]);
+        spawnBurst(this, {
+          x: this.sprite.x,
+          y: centreY,
+          count: 10,
+          colours: this.palette,
+          rng: () => this.rng(),
+          driftY: 36,
+        });
       });
     }
 
     /**
-     * The live evolution runs the same beats as the card: the sprite opens as a
-     * black silhouette, the shockwave breaks over it, and the light climbs back
-     * into the form at the reveal. Offsets come from celebrationBeats('evolve')
-     * so the stylesheet and the canvas cannot drift apart.
+     * First painted frame covers the static img in full colour (alpha 1) so
+     * the handoff cannot flash a hole. The silhouette/reveal then runs on
+     * celebrationBeats('evolve') after React has had a frame to hide the DOM
+     * art — opening at alpha 0 would show two offset copies, one of them empty.
      */
     playEvolve() {
       const scale = this.baseScale;
@@ -173,16 +170,11 @@ export function createCelebrationScene(Phaser, props) {
       const beats = celebrationBeats('evolve');
       const stage = clampCompanionStage(this.props.stage);
 
-      this.sprite.setScale(scale * 0.62).setAlpha(0).setTint(0x000000);
+      this.sprite.setScale(scale).setAlpha(1);
 
-      this.tweens.add({
-        targets: this.sprite,
-        alpha: 1,
-        scaleX: scale * 0.96,
-        scaleY: scale * 0.96,
-        duration: 340,
-        delay: beats.silhouette,
-        ease: 'Cubic.Out',
+      this.time.delayedCall(beats.silhouette, () => {
+        if (!this.sprite?.active) return;
+        this.sprite.setTint(0x000000);
       });
 
       this.time.delayedCall(beats.shockwave, () => {

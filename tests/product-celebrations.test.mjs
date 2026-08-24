@@ -769,3 +769,73 @@ test('camp-level celebration layer renders the shield mark without monster art',
   assert.doesNotMatch(html, /<img\b/u);
   assert.doesNotMatch(html, /celebration-art/u);
 });
+
+test('caught first paint keeps the static celebration-art img and progress never mounts a live canvas', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: resolve(import.meta.dirname, '../vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { CelebrationLayer } = await vite.ssrLoadModule(
+    '/src/app/celebrations/CelebrationLayer.jsx',
+  );
+
+  const caughtHtml = renderToStaticMarkup(
+    React.createElement(CelebrationLayer, {
+      events: [{
+        kind: 'caught',
+        monsterId: 'inklet',
+        branch: 'b1',
+        stage: 0,
+        rewardTrackId: 'spelling-core-inklet',
+      }],
+      haptics: { celebrationStart() {} },
+      sfx: { play() {} },
+      onDone() {},
+    }),
+  );
+  assert.match(caughtHtml, /class="celebration-art"/u);
+  assert.match(caughtHtml, /data-live-art="loading"/u);
+  assert.match(caughtHtml, /data-static-art="visible"/u);
+  assert.doesNotMatch(caughtHtml, /celebration-canvas/u);
+
+  const progressHtml = renderToStaticMarkup(
+    React.createElement(CelebrationLayer, {
+      events: [{
+        kind: 'progress',
+        monsterId: 'inklet',
+        branch: 'b1',
+        stage: 0,
+        rewardTrackId: 'spelling-core-inklet',
+        secureGain: 2,
+        secureCount: 4,
+        target: 100,
+        nextThreshold: 10,
+        percentBefore: 2,
+        percentAfter: 4,
+      }],
+      haptics: { celebrationStart() {} },
+      sfx: { play() {} },
+      onDone() {},
+    }),
+  );
+  assert.match(progressHtml, /class="celebration-art"/u);
+  assert.match(progressHtml, /data-live-art="static"/u);
+  assert.match(progressHtml, /data-static-art="visible"/u);
+  assert.doesNotMatch(progressHtml, /celebration-canvas/u);
+
+  const campHtml = renderToStaticMarkup(
+    React.createElement(CelebrationLayer, {
+      events: [campLevelCelebration(3)],
+      haptics: { celebrationStart() {} },
+      sfx: { play() {} },
+      onDone() {},
+    }),
+  );
+  assert.doesNotMatch(campHtml, /celebration-art/u);
+  assert.doesNotMatch(campHtml, /celebration-canvas/u);
+});

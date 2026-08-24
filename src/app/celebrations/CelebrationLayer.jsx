@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import {
+  celebrationArtPresentation,
   celebrationCopy,
   celebrationDurationMs,
   celebrationEventKey,
@@ -145,6 +146,8 @@ export function CelebrationLayer({ events, haptics, sfx, onDone }) {
   const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion);
   const [visible, setVisible] = useState(pageIsVisible);
   const [interactionPaused, setInteractionPaused] = useState(false);
+  const [readyKey, setReadyKey] = useState('');
+  const [lostKey, setLostKey] = useState('');
   const dialogRef = useRef(null);
   const cardRef = useRef(null);
   const lastHapticKey = useRef('');
@@ -179,6 +182,35 @@ export function CelebrationLayer({ events, haptics, sfx, onDone }) {
   const copy = useMemo(() => celebrationCopy(event), [event]);
   const palette = useMemo(() => celebrationPalette(event), [event]);
   const finalEvolution = event?.kind === 'evolve' && event?.stage >= 4;
+
+  const contextLost = lostKey === eventKey;
+  const stageMode = celebrationStageDecision({
+    kind: event?.kind,
+    reducedMotion,
+    contextLost,
+    backgrounded: !visible,
+  });
+  // Compare against eventKey so a queued caught→evolve card cannot inherit
+  // the previous canvas's ready flag for one paint (that hides the new <img>
+  // before the new sprite exists). Clear the stored key while not live so a
+  // foreground resume cannot hide the fallback before Phaser remounts.
+  if (stageMode !== 'live' && readyKey !== '') {
+    setReadyKey('');
+  }
+  const liveStageReady = readyKey === eventKey && stageMode === 'live';
+  const art = celebrationArtPresentation({ stageMode, liveStageReady });
+
+  const handleLiveStageReady = useCallback((isReady = true) => {
+    if (isReady) {
+      setReadyKey(eventKey);
+      return;
+    }
+    setReadyKey((current) => (current === eventKey ? '' : current));
+  }, [eventKey]);
+
+  const handleContextLost = useCallback(() => {
+    setLostKey(eventKey);
+  }, [eventKey]);
 
   const advance = useCallback(() => {
     if (!event) return;
@@ -257,12 +289,11 @@ export function CelebrationLayer({ events, haptics, sfx, onDone }) {
     event.branch,
     event.stage,
   );
-  const stageMode = celebrationStageDecision({
-    kind: event.kind,
-    reducedMotion,
-    contextLost: false,
-    backgrounded: !visible,
-  });
+  const liveArtAttr = art.liveCanvas === 'visible'
+    ? 'ready'
+    : art.liveCanvas === 'loading'
+      ? 'loading'
+      : 'static';
 
   return (
     <section
@@ -292,7 +323,11 @@ export function CelebrationLayer({ events, haptics, sfx, onDone }) {
           onBlur={() => setInteractionPaused(false)}
           aria-label={`Continue after ${copy.headline}`}
         >
-          <span className="celebration-stage" aria-hidden="true">
+          <span
+            className="celebration-stage"
+            aria-hidden="true"
+            data-live-art={liveArtAttr}
+          >
             <CelebrationEffects
               finalEvolution={finalEvolution}
               reducedMotion={reducedMotion}
@@ -309,6 +344,7 @@ export function CelebrationLayer({ events, haptics, sfx, onDone }) {
                 width={640}
                 height={640}
                 decoding="async"
+                data-static-art={art.staticArt}
               />
             )}
             {stageMode === 'live' && artUrl && (
@@ -325,6 +361,8 @@ export function CelebrationLayer({ events, haptics, sfx, onDone }) {
                   durationMs={duration}
                   reducedMotion={reducedMotion}
                   visible={visible}
+                  onReady={handleLiveStageReady}
+                  onContextLost={handleContextLost}
                 />
               </Suspense>
             )}

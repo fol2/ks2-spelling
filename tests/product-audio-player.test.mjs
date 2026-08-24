@@ -15,6 +15,7 @@ function createAudioHarness() {
     },
   });
   const audioFactory = () => {
+    const listeners = new Map();
     const player = {
       preload: '',
       src: '',
@@ -34,6 +35,15 @@ function createAudioHarness() {
       },
       async play() {
         this.played += 1;
+      },
+      addEventListener(name, listener) {
+        listeners.set(name, listener);
+      },
+      removeEventListener(name, listener) {
+        if (listeners.get(name) === listener) listeners.delete(name);
+      },
+      emit(name) {
+        listeners.get(name)?.();
       },
     };
     players.push(player);
@@ -154,4 +164,43 @@ test('product audio rejects requests outside the Starter authority before native
   assert.deepEqual(harness.reads, []);
   assert.deepEqual(harness.players, []);
   await harness.player.dispose();
+});
+
+test('product audio marks speech when playback starts and when it ends or is stopped', async (t) => {
+  performance.clearMarks('product:speech-start');
+  performance.clearMarks('product:speech-end');
+  t.after(() => {
+    performance.clearMarks('product:speech-start');
+    performance.clearMarks('product:speech-end');
+  });
+  const harness = createAudioHarness();
+  const request = {
+    version: '1.0.0',
+    runtimeItemId: 'ks2-core:answer',
+    sentence: 'I knew the answer at once.',
+    voiceId: 'Iapetus',
+    kind: 'word',
+  };
+
+  await harness.player.play(request);
+  assert.equal(performance.getEntriesByName('product:speech-start').length, 1);
+  assert.equal(performance.getEntriesByName('product:speech-end').length, 0);
+  harness.players[0].emit('ended');
+  assert.equal(performance.getEntriesByName('product:speech-end').length, 1);
+
+  await harness.player.play(request);
+  await harness.player.dispose();
+  assert.equal(performance.getEntriesByName('product:speech-start').length, 2);
+  assert.equal(performance.getEntriesByName('product:speech-end').length, 2);
+  assert.deepEqual(
+    performance.getEntriesByType('mark')
+      .filter(({ name }) => name.startsWith('product:speech-'))
+      .map(({ name }) => name),
+    [
+      'product:speech-start',
+      'product:speech-end',
+      'product:speech-start',
+      'product:speech-end',
+    ],
+  );
 });

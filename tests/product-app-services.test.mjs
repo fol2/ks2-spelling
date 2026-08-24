@@ -436,6 +436,68 @@ function compositionOptions({ databasePath, ...overrides }) {
   };
 }
 
+async function waitFor(predicate) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.fail('condition did not settle');
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((resolvePromise) => { resolve = resolvePromise; });
+  return { promise, resolve };
+}
+
+function createControlledLearningReplica() {
+  const backing = createFakeLearningReplica();
+  const published = [];
+  let mode = 'ready';
+  let gate = null;
+  return Object.freeze({
+    port: Object.freeze({
+      ...backing,
+      async publish(envelope) {
+        published.push(structuredClone(envelope));
+        if (mode === 'failing') {
+          throw Object.assign(new Error('replica unavailable'), { code: 'offline' });
+        }
+        if (mode === 'hanging') await gate.promise;
+        return backing.publish(envelope);
+      },
+    }),
+    published,
+    clear() { published.length = 0; },
+    fail() { mode = 'failing'; },
+    armHang() {
+      mode = 'hanging';
+      gate = deferred();
+    },
+    release() {
+      mode = 'ready';
+      gate?.resolve();
+    },
+  });
+}
+
+async function settlesWithin(promise, milliseconds = 2_000) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('operation did not settle outside replica publication')),
+          milliseconds,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function workflowFor(snapshot) {
   const frozen = Object.freeze({
     displayPrice: '£4.99',
@@ -658,6 +720,7 @@ test('a committed learning command publishes its durable updated snapshot throug
     yearFilter: 'core',
   });
 
+  await waitFor(() => published.length === 1);
   assert.equal(published.length, 1);
   assert.deepEqual(published[0].profiles.map(({ learnerId }) => learnerId), [
     'learner-composition',
@@ -668,6 +731,206 @@ test('a committed learning command publishes its durable updated snapshot throug
     await readStoredSnapshot(databasePath, 'learner-composition'),
   );
   assert.equal(published[0].snapshots[0].payload.revision, 1);
+});
+
+test('a hanging iCloud publish does not hold child learning in Saving', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-learning-replica-hang-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const controlled = createControlledLearningReplica();
+  const services = await createProductAppServices(compositionOptions({
+    databasePath: join(directory, 'replica.sqlite'),
+    learningReplica: controlled.port,
+  }));
+  t.after(async () => {
+    controlled.release();
+    await services.dispose();
+  });
+  await services.controller.createProfile({
+    nickname: 'Ada',
+    yearGroup: 'Y5',
+    goal: 10,
+    colour: '#2E7D8A',
+  });
+  controlled.clear();
+  controlled.armHang();
+
+  await settlesWithin(services.learning.startRound({
+    length: 5,
+    mode: 'smart',
+    yearFilter: 'core',
+  }));
+  const target = loadStarterSpellingCatalogue().items.find(
+    ({ runtimeItemId }) => runtimeItemId === services.learning.getState().practice.runtimeItemId,
+  ).target;
+  await settlesWithin(services.learning.submitAnswer(target));
+
+  const state = services.learning.getState();
+  assert.equal(state.status, 'ready');
+  assert.equal(state.screen, 'practice');
+  assert.equal(state.practice.awaitingAdvance, true);
+  assert.ok(state.practice.feedback);
+  assert.equal(state.actionError, null);
+  await waitFor(() => controlled.published.length === 1);
+});
+
+test('replica failure leaves the locally committed learning command successful', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-learning-replica-failure-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const databasePath = join(directory, 'replica.sqlite');
+  const controlled = createControlledLearningReplica();
+  const services = await createProductAppServices(compositionOptions({
+    databasePath,
+    learningReplica: controlled.port,
+  }));
+  t.after(() => services.dispose());
+  await services.controller.createProfile({
+    nickname: 'Ada',
+    yearGroup: 'Y5',
+    goal: 10,
+    colour: '#2E7D8A',
+  });
+  controlled.clear();
+  controlled.fail();
+
+  await services.learning.startRound({
+    length: 5,
+    mode: 'smart',
+    yearFilter: 'core',
+  });
+  await services.learning.submitAnswer('definitely wrong');
+  await waitFor(() => controlled.published.length >= 2);
+
+  assert.equal(services.learning.getState().status, 'ready');
+  assert.equal(services.learning.getState().actionError, null);
+  assert.equal(
+    (await readStoredSnapshot(databasePath, 'learner-composition')).revision,
+    2,
+  );
+});
+
+test('rapid learning commands publish at most one latest follow-up per learner', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-learning-replica-coalesce-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const databasePath = join(directory, 'replica.sqlite');
+  const controlled = createControlledLearningReplica();
+  let timestamp = 1_000;
+  const services = await createProductAppServices(compositionOptions({
+    databasePath,
+    learningReplica: controlled.port,
+    now: () => (timestamp += 1),
+  }));
+  t.after(async () => {
+    controlled.release();
+    await services.dispose();
+  });
+  await services.controller.createProfile({
+    nickname: 'Ada',
+    yearGroup: 'Y5',
+    goal: 10,
+    colour: '#2E7D8A',
+  });
+  controlled.clear();
+  controlled.armHang();
+
+  await services.learning.startRound({
+    length: 5,
+    mode: 'smart',
+    yearFilter: 'core',
+  });
+  const catalogue = loadStarterSpellingCatalogue();
+  const currentTarget = () => catalogue.items.find(
+    ({ runtimeItemId }) => runtimeItemId === services.learning.getState().practice.runtimeItemId,
+  ).target;
+  await services.learning.submitAnswer(currentTarget());
+  await services.learning.continueRound();
+  await services.learning.submitAnswer(currentTarget());
+  await waitFor(() => controlled.published.length === 1);
+
+  controlled.release();
+  await waitFor(() => controlled.published.length === 2);
+  await new Promise((resolve) => setImmediate(resolve));
+  const stored = await readStoredSnapshot(databasePath, 'learner-composition');
+
+  assert.equal(controlled.published.length, 2);
+  assert.equal(controlled.published[1].snapshots[0].payload.revision, stored.revision);
+  assert.deepEqual(controlled.published[1].snapshots[0].payload, stored);
+});
+
+test('parent profile creation still waits for replica publication', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-profile-replica-wait-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const controlled = createControlledLearningReplica();
+  const services = await createProductAppServices(compositionOptions({
+    databasePath: join(directory, 'replica.sqlite'),
+    learningReplica: controlled.port,
+  }));
+  t.after(async () => {
+    controlled.release();
+    await services.dispose();
+  });
+  controlled.clear();
+  controlled.armHang();
+  let settled = false;
+
+  const creating = services.controller.createProfile({
+    nickname: 'Ada',
+    yearGroup: 'Y5',
+    goal: 10,
+    colour: '#2E7D8A',
+  }).then((profile) => {
+    settled = true;
+    return profile;
+  });
+  await waitFor(() => controlled.published.length === 1);
+  assert.equal(settled, false);
+
+  controlled.release();
+  const profile = await creating;
+  assert.equal(profile.learnerId, 'learner-composition');
+  assert.equal(settled, true);
+});
+
+test('pending speech does not delay a learning save or get stopped by it', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-learning-audio-independent-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const speech = deferred();
+  let stopCalls = 0;
+  const audio = Object.freeze({
+    play() { return speech.promise; },
+    stop() { stopCalls += 1; },
+    async dispose() {},
+  });
+  const services = await createProductAppServices(compositionOptions({
+    audio,
+    databasePath: join(directory, 'product.sqlite'),
+  }));
+  t.after(async () => {
+    speech.resolve();
+    await services.dispose();
+  });
+  await services.controller.createProfile({
+    nickname: 'Ada',
+    yearGroup: 'Y5',
+    goal: 10,
+    colour: '#2E7D8A',
+  });
+  await services.learning.startRound({
+    length: 5,
+    mode: 'smart',
+    yearFilter: 'core',
+  });
+  const pendingSpeech = services.audio.play();
+  const target = loadStarterSpellingCatalogue().items.find(
+    ({ runtimeItemId }) => runtimeItemId === services.learning.getState().practice.runtimeItemId,
+  ).target;
+
+  await settlesWithin(services.learning.submitAnswer(target));
+
+  assert.equal(services.learning.getState().status, 'ready');
+  assert.equal(services.learning.getState().practice.awaitingAdvance, true);
+  assert.equal(stopCalls, 0);
+  speech.resolve();
+  await pendingSpeech;
 });
 
 test('the full catalogue publishes exactly the grant the re-tag writes', async () => {

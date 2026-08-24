@@ -7,6 +7,7 @@ import {
   validateSpellingCommandSnapshotV1,
 } from '../domain/spelling/index.js';
 import { setupExpeditionCompanion } from './codex-model.js';
+import { markB4 } from './b4-performance-marks.js';
 import { earlyRoundSummary, spellingOnly } from './practice-feel.js';
 import { achievementChips } from './records-model.js';
 import {
@@ -482,12 +483,7 @@ export function createProductLearningController({
             random,
           }),
         );
-        try {
-          await onCommandCommitted?.(snapshot.learnerId);
-        } catch {
-          // Replication is post-commit and best-effort. Local SQLite remains
-          // the source of truth, so its successful command stays successful.
-        }
+        markB4('product:local-commit');
         snapshot = validateSpellingCommandSnapshotV1(
           nextSnapshot(snapshot, plan),
           catalogue,
@@ -525,6 +521,16 @@ export function createProductLearningController({
               : phase === 'session' ? 'practice' : 'home',
           summary: options.summary ?? null,
         });
+        if (state.practice?.feedback) {
+          markB4('product:feedback-published');
+        }
+        try {
+          void Promise.resolve(onCommandCommitted?.(snapshot.learnerId))
+            .catch(() => undefined);
+        } catch {
+          // Replication is post-commit and best-effort. Local SQLite remains
+          // the source of truth, so its successful command stays successful.
+        }
         return plan;
       } catch (error) {
         publishFromSnapshot({

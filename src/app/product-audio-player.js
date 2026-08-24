@@ -6,6 +6,7 @@ import {
   createAudioKeyV1,
   validateCatalogueV1,
 } from '../domain/spelling/index.js';
+import { markB4 } from './b4-performance-marks.js';
 
 const REQUEST_KEYS = Object.freeze([
   'version',
@@ -180,8 +181,29 @@ export function createProductAudioPlayer({
     ]),
   );
   let activePlayer = null;
+  let activeEndedListener = null;
+  let activeSpeechStarted = false;
   let generation = 0;
   let disposed = false;
+
+  function finishActiveSpeech() {
+    if (
+      activePlayer &&
+      activeEndedListener &&
+      typeof activePlayer.removeEventListener === 'function'
+    ) {
+      activePlayer.removeEventListener('ended', activeEndedListener);
+    }
+    activeEndedListener = null;
+    if (!activeSpeechStarted) return;
+    activeSpeechStarted = false;
+    markB4('product:speech-end');
+  }
+
+  function stopActivePlayer() {
+    finishActiveSpeech();
+    stopPlayer(activePlayer);
+  }
 
   return Object.freeze({
     async play(candidate) {
@@ -207,7 +229,7 @@ export function createProductAudioPlayer({
           audioKey: asset.audioKey,
         });
       }
-      stopPlayer(activePlayer);
+      stopActivePlayer();
       const player = audioFactory();
       if (
         !player ||
@@ -220,6 +242,12 @@ export function createProductAudioPlayer({
       player.preload = 'auto';
       player.src = `data:audio/mp4;base64,${base64}`;
       activePlayer = player;
+      if (typeof player.addEventListener === 'function') {
+        activeEndedListener = () => {
+          if (activePlayer === player) finishActiveSpeech();
+        };
+        player.addEventListener('ended', activeEndedListener);
+      }
       try {
         await player.play();
       } catch (error) {
@@ -233,6 +261,14 @@ export function createProductAudioPlayer({
           audioKey: asset.audioKey,
         });
       }
+      if (disposed || ownGeneration !== generation) {
+        return Object.freeze({
+          status: 'superseded',
+          audioKey: asset.audioKey,
+        });
+      }
+      activeSpeechStarted = true;
+      markB4('product:speech-start');
       return Object.freeze({
         status: 'playing',
         audioKey: asset.audioKey,
@@ -242,7 +278,7 @@ export function createProductAudioPlayer({
       if (disposed) return;
       disposed = true;
       generation += 1;
-      stopPlayer(activePlayer);
+      stopActivePlayer();
       activePlayer = null;
     },
   });

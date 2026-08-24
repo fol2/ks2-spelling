@@ -102,6 +102,7 @@ import { createCapacitorICloudLearningReplica } from '../platform/sync/capacitor
 import { ICloudLearningReplicaPlugin } from '../platform/sync/capacitor-icloud-learning-replica-plugin.js';
 import { createProductLearningController } from './product-learning-controller.js';
 import { createProductProfileController } from './product-profile-controller.js';
+import { createReplicaPublishScheduler } from './replica-publish-scheduler.js';
 import {
   createStarterPackAvailabilityController,
 } from './starter-pack-availability-controller.js';
@@ -282,6 +283,7 @@ export async function createProductAppServices(options = {}) {
   let dataPolicy = null;
   let learningReplica = null;
   let replicaHandle = Object.freeze({ async publishLearner() {}, dispose() {} });
+  let replicaScheduler = null;
 
   try {
     const initialDataProtection = await localDataProtection.applyPolicy({
@@ -439,6 +441,10 @@ export async function createProductAppServices(options = {}) {
         source: 'restart',
       }).catch(() => false);
     }
+    replicaScheduler = createReplicaPublishScheduler({
+      publishLearner: (learnerId) => replicaHandle.publishLearner(learnerId),
+      lifecycle,
+    });
     learning = createProductLearningController({
       repository: commandRepository,
       snapshotStore,
@@ -448,8 +454,7 @@ export async function createProductAppServices(options = {}) {
       initialRoundBaseline,
       starterCompleteMomentStore,
       initialStarterCompleteMomentPresented,
-      onCommandCommitted: (learnerId) =>
-        replicaHandle.publishLearner(learnerId),
+      onCommandCommitted: (learnerId) => replicaScheduler.schedule(learnerId),
       random,
       now,
     });
@@ -459,6 +464,8 @@ export async function createProductAppServices(options = {}) {
       removeProfile: (...a) => profileStore.profiles.removeProfile(...a),
       async writeProfile(draft) {
         const written = await profileStore.profiles.writeProfile(draft);
+        // Parent-facing profile writes may wait; child command publication is
+        // scheduled out of band and must not extend Saving.
         await replicaHandle.publishLearner(written.learnerId);
         return written;
       },
@@ -635,6 +642,7 @@ export async function createProductAppServices(options = {}) {
           () => audioAvailability.dispose(),
           () => learning.dispose(),
           () => controller.dispose(),
+          () => replicaScheduler.dispose(),
           () => replicaHandle.dispose(),
           learningReplica && (() => learningReplica.dispose()),
           () => coordinator.dispose(),
@@ -655,6 +663,7 @@ export async function createProductAppServices(options = {}) {
         audioAvailability && (() => audioAvailability.dispose()),
         learning && (() => learning.dispose()),
         controller && (() => controller.dispose()),
+        replicaScheduler && (() => replicaScheduler.dispose()),
         () => replicaHandle.dispose(),
         learningReplica && (() => learningReplica.dispose()),
         coordinator && (() => coordinator.dispose()),

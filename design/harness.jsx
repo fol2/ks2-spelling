@@ -25,6 +25,8 @@
  *                             vocabulary set rail stays visible.
  *   ?starter-complete=true    Results: the one-time Starter-complete signpost
  *                             after a Y3–4 band crossing (celebration first).
+ *   ?ambient=drift|motes      Setup / round plate motion. Omit for the product
+ *                             default (drift). Comparison only — no chrome.
  */
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -661,7 +663,14 @@ function BootFailure() {
 }
 
 function Root() {
-  const screen = new URLSearchParams(globalThis.location.search).get('screen');
+  const query = new URLSearchParams(globalThis.location.search);
+  const ambient = query.get('ambient');
+  if (ambient === 'drift' || ambient === 'motes') {
+    document.documentElement.dataset.ambient = ambient;
+  } else {
+    delete document.documentElement.dataset.ambient;
+  }
+  const screen = query.get('screen');
   if (screen === 'boot-loading') return <AppLoadingShell />;
   if (screen === 'boot-error') {
     return (

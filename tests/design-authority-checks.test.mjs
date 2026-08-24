@@ -844,6 +844,21 @@ test('Design authority: the round tablet stage holds the composition-carrying de
     '.round-stage must not animate or transition — a child is typing a spelling',
   );
 
+  /* Ambient motion (#296) is a Scene sibling of `.scene-body`, never a
+     property of the card, stage or quiet exit. Selector-subject check matches
+     the stage stillness guard: descendant rules that merely mention these
+     class names are not the subject. */
+  const ambientMotionName = /(?:^|;)\s*animation(?:-name)?:\s*[^;]*\b(?:sceneDrift|sceneHaze|sceneMote)\b/u;
+  for (const still of ['.round-stage', '.round-card', '.round-foot']) {
+    const subjectRules = rules.filter((rule) => (
+      rule.selector.split(',').map((part) => part.trim()).includes(still)
+    ));
+    assert.ok(
+      subjectRules.every((rule) => !ambientMotionName.test(rule.body)),
+      `${still} must not declare ambient scene motion`,
+    );
+  }
+
   const insertion = roundScreen.match(
     /<\/section>\s*\{companion\?\.art \? \([\s\S]*?<footer className="round-foot">/u,
   )?.[0];

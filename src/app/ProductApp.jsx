@@ -177,6 +177,18 @@ function Scene({
   children,
   ...rest
 }) {
+  const [hidden, setHidden] = useState(
+    () => typeof document !== 'undefined' && document.hidden,
+  );
+  // Pause ambient CSS while hidden so resume continues the same iteration.
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const sync = () => setHidden(document.hidden);
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    return () => document.removeEventListener('visibilitychange', sync);
+  }, []);
+
   const style = {};
   if (plate) style['--plate'] = artUrl(plate);
   if (plateY) style['--plate-y'] = plateY;
@@ -192,9 +204,17 @@ function Scene({
       ].filter(Boolean).join(' ')}
       style={style}
       {...rest}
+      data-ambient-paused={hidden ? 'true' : undefined}
     >
-      {plate && <span className="scene-plate" />}
-      {veil && <span className="scene-veil" />}
+      {plate && <span className="scene-plate" aria-hidden="true" />}
+      {plate && (
+        <span className="scene-ambient" aria-hidden="true">
+          <span className="scene-ambient-mote" />
+          <span className="scene-ambient-mote" />
+          <span className="scene-ambient-mote" />
+        </span>
+      )}
+      {veil && <span className="scene-veil" aria-hidden="true" />}
       {children}
       {waypoints && (
         <WaypointBar screen={waypointScreen} onScreen={onScreen} />

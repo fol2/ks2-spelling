@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,12 +10,13 @@ import {
   SFX_SPEECH_DUCK_GAIN,
   sfxGateDecision,
 } from '../src/app/sfx/sfx-model.js';
+import {
+  PRODUCT_SFX_SPECS,
+  renderProductSfxBytes,
+  sha256Hex,
+} from '../scripts/lib/product-sfx-synthesis.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-
-function sha256Hex(bytes) {
-  return createHash('sha256').update(bytes).digest('hex');
-}
 
 test('sfxGateDecision truth table covers enablement, lock, tiers and ducking', () => {
   const base = {
@@ -296,4 +296,42 @@ test('sfx-engine and sfx-model source contracts forbid HTMLAudio and focus paths
     assert.equal(pattern.test(engineSource), false, `sfx-engine.js must not match ${pattern}`);
     assert.equal(pattern.test(modelSource), false, `sfx-model.js must not match ${pattern}`);
   }
+});
+
+test('correct-cue synthesis is the warm paper chord, not the 392/588 ding', () => {
+  const spec = PRODUCT_SFX_SPECS.correct;
+
+  assert.equal(spec.durationMs, 420);
+  assert.deepEqual(spec.partials, [
+    { kind: 'sine', hz: 185, amp: 0.11, attackMs: 32, decayMs: 380 },
+    { kind: 'sine', hz: 247, amp: 0.22, attackMs: 24, decayMs: 350 },
+    { kind: 'sine', hz: 311, amp: 0.13, attackMs: 40, decayMs: 300, delayMs: 80 },
+  ]);
+  assert.deepEqual(spec.noise, {
+    amp: 0.014,
+    attackMs: 22,
+    decayMs: 240,
+    delayMs: 0,
+    colour: 'pinkish',
+  });
+
+  for (const partial of spec.partials) {
+    assert.equal(partial.kind, 'sine', 'correct must not use a triangle partial');
+    assert.notEqual(partial.hz, 392);
+    assert.notEqual(partial.hz, 588);
+  }
+});
+
+test('correct-cue duration stays shorter than catch, evolve and flourish', () => {
+  const spec = PRODUCT_SFX_SPECS.correct;
+  assert.ok(spec.durationMs < PRODUCT_SFX_SPECS.catch.durationMs);
+  assert.ok(spec.durationMs < PRODUCT_SFX_SPECS.evolve.durationMs);
+  assert.ok(spec.durationMs < PRODUCT_SFX_SPECS.flourish.durationMs);
+});
+
+test('re-synthesis of correct matches PRODUCT_SFX_MANIFEST hash and byteSize', () => {
+  const { files } = renderProductSfxBytes();
+  const bytes = files.correct;
+  assert.equal(bytes.byteLength, PRODUCT_SFX_MANIFEST.correct.byteSize);
+  assert.equal(sha256Hex(bytes), PRODUCT_SFX_MANIFEST.correct.sha256);
 });

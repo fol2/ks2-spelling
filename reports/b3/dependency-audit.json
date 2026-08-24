@@ -5,7 +5,7 @@
     "packageLockSha256": "e81135d770dbfb088bd3b81a720146440ac8096ca22ed45c4150fb3349f85f30",
     "spmResolvedVersion": 3,
     "nativePluginBuildSha256": "a72e95958e287be21f34588a167f12fd59058ab003dfe3f559b3ba244988a6f9",
-    "webViewBundleEvidenceSha256": "16e1b62ecc0340ef9b73ed07d3e069df2730f0788f6233d4752b55f8f710429e"
+    "webViewBundleEvidenceSha256": "6c4b1df2c0b5e3855649bb1b6d618d073f9bb924a44e16afa78e0535e1f24fcd"
   },
   "npm": {
     "lockfileVersion": 3,
@@ -98,7 +98,7 @@
           "id": "config/starter-audio-runtime.json",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "db9f083be4908834456b35b8613adeda8893dd8502e1708bc559798862a1b6b8"
+          "sha256": "2ed3a52e5d38ddfed4ab1128966dd03ce1449463329cd1d57818648e5e99575b"
         },
         {
           "id": "config/store-products.json",
@@ -566,7 +566,7 @@
           "id": "reports/c1/starter-audio-evidence.json",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "2664d972f46cf969bdbf3229d16366cfda0d4f551e6537f9729ed28e9a52d030"
+          "sha256": "0256062dee81b6273477e852b2f483ac75b22f3354e43fc894313d7d9598fdb1"
         },
         {
           "id": "src/app/AppErrorBoundary.jsx",
@@ -590,7 +590,7 @@
           "id": "src/app/ProductApp.jsx",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "04d81e911cbefe4bf0b2d95a8eeabd87bf59182946be4f802209337f86ad1670"
+          "sha256": "742404cda0b2165596070536172f19d6ebc5863711450d9c5f6ad90bd0b48d60"
         },
         {
           "id": "src/app/ProductRoot.jsx",
@@ -608,7 +608,7 @@
           "id": "src/app/app.css",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "876c1b72f166f0525d6061ca3293f0ab2745920e66762f588e2ea6d6b92be902"
+          "sha256": "8e3b731a2e61e211438be6c3dcc26ae26db871c6a4719fda80b1c4e7c35185e5"
         },
         {
           "id": "src/app/b4-performance-marks.js",
@@ -890,7 +890,7 @@
           "id": "src/app/sfx/sfx-model.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "4babaa8d26c1766aab2c20be33430f923d945c795d5cd04e032a45c8e2963bba"
+          "sha256": "4d9d84f7ca94e252f680a53338aa539dd0019ab2791a28337a5fae6190d270a2"
         },
         {
           "id": "src/app/starter-complete-moment-runtime.js",
@@ -1034,7 +1034,7 @@
           "id": "src/domain/spelling/starter-audio-contract.js",
           "kind": "file",
           "npmLocator": null,
-          "sha256": "a2dd2198f8ff50326889848cd377f41b2923748ad0f0ef18da10e981491fc0cb"
+          "sha256": "4d0586e89ba0d3816c3b506091a2f7ef085a0e80648ffa59957f3fab73a84214"
         },
         {
           "id": "src/domain/sync/apply-learning-replica.js",
@@ -1453,14 +1453,14 @@
       ],
       "outputInventory": [
         {
-          "fileName": "assets/celebration-scene-CKt-UaDO.js",
+          "fileName": "assets/celebration-scene-Co4Yv20g.js",
           "kind": "chunk",
-          "sha256": "d174c09483b48e431d335605ef6ce8ec336ff946faedb1768d8e1b3de9ab86c6"
+          "sha256": "e3dcbb1508eebabe52f0f728fe40484937e10d27c8823e4138a40d08082a4498"
         },
         {
-          "fileName": "assets/CelebrationStage-BFo3T9vn.js",
+          "fileName": "assets/CelebrationStage-zEud1_-b.js",
           "kind": "chunk",
-          "sha256": "085bd98d97da35db79895f377b7a6b14c05f6dbbd1470277113317bbe2ee6085"
+          "sha256": "df50d2b6ecffe16d5ad6de3fc543d11b17d260802be0752b80f86912374136c9"
         },
         {
           "fileName": "assets/fraunces-latin-variable-BOz5zopO.woff2",
@@ -1518,14 +1518,14 @@
           "sha256": "483852f9bb8a4df54b3f20e2ee2389f817796c1431857d71750373bb755ae84c"
         },
         {
-          "fileName": "assets/index-BLuUqlSG.js",
+          "fileName": "assets/index-CZv-ebEK.js",
           "kind": "chunk",
-          "sha256": "f259937dd535aa441d7e695476acf64e7b86c9a5860f30587542fc191b52f0f3"
+          "sha256": "48197a962cf5ca56ef1c2409b79aa4e65d55120e30f4ce6751bf4e7ca75bf8e3"
         },
         {
-          "fileName": "assets/index-BoKA0fOC.css",
+          "fileName": "assets/index-DsiJfCaH.css",
           "kind": "asset",
-          "sha256": "7d4891a6f17209b24fa5c30ebeb1f383c02415708056ba7e3b07a5a8ff59a58c"
+          "sha256": "7164870401b49bc31cc76b4bfceb8fc392b0eb76580e983d8c7fbd142ad9e463"
         },
         {
           "fileName": "assets/inklet-b1-0.640-GboaFYkc.webp",
@@ -1583,19 +1583,19 @@
           "sha256": "c940764593d0fe5d596be327ca7558855e018039fb78509aa21921fd3644c3e4"
         },
         {
-          "fileName": "assets/monster-scene-5GShAGVF.js",
+          "fileName": "assets/monster-scene-Bh87n6Ud.js",
           "kind": "chunk",
-          "sha256": "589d2370f3edd9d6b5c2819f58647e7ec79144776d56f59680a865a1b70bfb2d"
+          "sha256": "73188e0148ba9cfccec5a5d1ef6deb7975350246a3b9df44e095de6333f2bbed"
         },
         {
-          "fileName": "assets/monster-stage-model-DQY0ZH0F.js",
+          "fileName": "assets/monster-stage-model-ihE8T_np.js",
           "kind": "chunk",
-          "sha256": "d1d7f701def2fa5aff882c0838137d17041d0402b667abedae3ca24eed5d3edf"
+          "sha256": "3b9fb86b99999d0b149c52ed7c85b6ce1648541fd462c073d120b6127e4174ac"
         },
         {
-          "fileName": "assets/MonsterStage-BGu4MAze.js",
+          "fileName": "assets/MonsterStage-C50WLAP6.js",
           "kind": "chunk",
-          "sha256": "456170e52d33a5ae38933eed5c78294638c4c66eb6f3bb5c31fcd54cab47c214"
+          "sha256": "2a659b180f83c09f11bd3d5fc71ec99af16b7e3d7a56d0fbcd61753300313b18"
         },
         {
           "fileName": "assets/phaeton-b1-0.640-BP21E3Yf.webp",
@@ -1783,24 +1783,24 @@
           "sha256": "e491d55dfcd0c3754f7569551f39ed93ef50f68129898531a7ee56c23561583c"
         },
         {
-          "fileName": "assets/web-BGk0YyHW.js",
+          "fileName": "assets/web-BdVcDFI6.js",
           "kind": "chunk",
-          "sha256": "da8d7bba1e84bfb2c59743eede2edfa137f7ac7d38ec26b414f6aa4f12539b33"
+          "sha256": "519a06289a50456d8fad7255db2d8c55fccce9f77791fe1c52a0313482d39a83"
         },
         {
-          "fileName": "assets/web-CuQKmtTY.js",
+          "fileName": "assets/web-BSclaAR4.js",
           "kind": "chunk",
-          "sha256": "a2e90eba228d2fb0624324a5927b855b8abcee16b0d601625fe5f467640f303a"
+          "sha256": "e83bbc47a8cb3a9bc753d40823cd28e0e21d04c243102a1b416b476019633507"
         },
         {
-          "fileName": "assets/web-hqaxN_D3.js",
+          "fileName": "assets/web-CPg7Zv4V.js",
           "kind": "chunk",
-          "sha256": "90e0d624e728fab558aa396c03c8c57f913e8ddda202c9293f6257920d0a43c4"
+          "sha256": "75eb44ab91f2855f37232f5803fd36a5897404afba28b35a0b8f844d03f4fbc4"
         },
         {
           "fileName": "index.html",
           "kind": "asset",
-          "sha256": "972c921afbf7394e0003c8258c5f4e17402459db39a7c91db7754847c5fe64e3"
+          "sha256": "8d8dc7287706b829ea44d8b3ad70a1e28de28abe9b6b099b81207c0393c3992d"
         },
         {
           "fileName": "release-channel.json",
@@ -1808,7 +1808,7 @@
           "sha256": "60f9f62b83ac92e42bac81274405e3acc630fe6ecf50e9404c85728c35761891"
         }
       ],
-      "evidenceSha256": "16e1b62ecc0340ef9b73ed07d3e069df2730f0788f6233d4752b55f8f710429e"
+      "evidenceSha256": "6c4b1df2c0b5e3855649bb1b6d618d073f9bb924a44e16afa78e0535e1f24fcd"
     },
     "allPackages": [
       {

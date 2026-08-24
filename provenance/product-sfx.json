@@ -1,8 +1,8 @@
 {
   "generatorVersion": "1",
   "sampleRateHz": 24000,
-  "synthesisParameterDigest": "f65632727d4140cfb8858edab580b7a2c100aa2ee0df014918f43f0345040243",
-  "totalBytes": 168832,
+  "synthesisParameterDigest": "2e6e4bd7f53aa51e37684035845868a377dd41f5ee7968b71fe7a304702f1246",
+  "totalBytes": 172192,
   "files": [
     {
       "name": "catch",
@@ -13,8 +13,8 @@
     {
       "name": "correct",
       "path": "public/sfx/correct.wav",
-      "sha256": "a361b62a75ce9d8c90300286f7b069225095a5a6341e74f19171842c0e5a86a7",
-      "byteSize": 16844
+      "sha256": "74db88b68c73a79635738fd44831e891d02ec4e7ae342260628c3c655942d784",
+      "byteSize": 20204
     },
     {
       "name": "evolve",

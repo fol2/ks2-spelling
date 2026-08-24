@@ -28,13 +28,15 @@ const NOISE_SEEDS = Object.freeze({
  * amplitudes are peak linear gains before soft limiting.
  */
 export const PRODUCT_SFX_SPECS = Object.freeze({
+  // Warm B-major paper chord (F#3–B3–D#4 bloom), not a coin fifth.
   correct: Object.freeze({
-    durationMs: 350,
+    durationMs: 420,
     partials: Object.freeze([
-      Object.freeze({ kind: 'sine', hz: 392, amp: 0.28, attackMs: 8, decayMs: 280 }),
-      Object.freeze({ kind: 'triangle', hz: 588, amp: 0.16, attackMs: 12, decayMs: 320 }),
+      Object.freeze({ kind: 'sine', hz: 185, amp: 0.11, attackMs: 32, decayMs: 380 }),
+      Object.freeze({ kind: 'sine', hz: 247, amp: 0.22, attackMs: 24, decayMs: 350 }),
+      Object.freeze({ kind: 'sine', hz: 311, amp: 0.13, attackMs: 40, decayMs: 300, delayMs: 80 }),
     ]),
-    noise: null,
+    noise: Object.freeze({ amp: 0.014, attackMs: 22, decayMs: 240, delayMs: 0, colour: 'pinkish' }),
   }),
   retry: Object.freeze({
     durationMs: 300,

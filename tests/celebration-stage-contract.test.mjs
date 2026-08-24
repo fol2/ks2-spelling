@@ -4,7 +4,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { celebrationStageDecision } from '../src/app/celebrations/celebration-model.js';
+import {
+  celebrationArtPresentation,
+  celebrationStageDecision,
+} from '../src/app/celebrations/celebration-model.js';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -85,6 +88,67 @@ test('celebrationStageDecision is live only for caught/evolve with all guards cl
     }),
     'static',
   );
+});
+
+test('celebrationArtPresentation keeps static art visible until the live canvas is ready', () => {
+  assert.deepEqual(
+    celebrationArtPresentation({ stageMode: 'static', liveStageReady: false }),
+    { staticArt: 'visible', liveCanvas: 'absent' },
+  );
+  assert.deepEqual(
+    celebrationArtPresentation({ stageMode: 'live', liveStageReady: false }),
+    { staticArt: 'visible', liveCanvas: 'loading' },
+  );
+  assert.deepEqual(
+    celebrationArtPresentation({ stageMode: 'live', liveStageReady: true }),
+    { staticArt: 'hidden', liveCanvas: 'visible' },
+  );
+});
+
+test('celebrationArtPresentation ignores a ready live stage when the mode is not live', () => {
+  assert.deepEqual(
+    celebrationArtPresentation({ stageMode: 'static', liveStageReady: true }),
+    { staticArt: 'visible', liveCanvas: 'absent' },
+  );
+});
+
+test('static and live celebration art are never both visible', () => {
+  const inputs = [
+    { stageMode: 'static', liveStageReady: false },
+    { stageMode: 'static', liveStageReady: true },
+    { stageMode: 'live', liveStageReady: false },
+    { stageMode: 'live', liveStageReady: true },
+  ];
+  for (const input of inputs) {
+    const art = celebrationArtPresentation(input);
+    assert.notEqual(
+      `${art.staticArt}+${art.liveCanvas}`,
+      'visible+visible',
+      `both art layers visible for ${JSON.stringify(input)} → ${JSON.stringify(art)}`,
+    );
+  }
+});
+
+test('progress, reduced-motion, backgrounded and context-lost celebrations keep static art only', () => {
+  const fallbackModes = [
+    celebrationStageDecision({ kind: 'progress' }),
+    celebrationStageDecision({ kind: 'camp-level' }),
+    celebrationStageDecision({ kind: 'caught', reducedMotion: true }),
+    celebrationStageDecision({ kind: 'evolve', reducedMotion: true }),
+    celebrationStageDecision({ kind: 'caught', backgrounded: true }),
+    celebrationStageDecision({ kind: 'evolve', backgrounded: true }),
+    celebrationStageDecision({ kind: 'caught', contextLost: true }),
+    celebrationStageDecision({ kind: 'evolve', contextLost: true }),
+  ];
+  for (const stageMode of fallbackModes) {
+    assert.equal(stageMode, 'static');
+    for (const liveStageReady of [false, true]) {
+      assert.deepEqual(
+        celebrationArtPresentation({ stageMode, liveStageReady }),
+        { staticArt: 'visible', liveCanvas: 'absent' },
+      );
+    }
+  }
 });
 
 test('CelebrationLayer splits CelebrationStage behind React.lazy', async () => {
@@ -197,4 +261,163 @@ test('stage-fx is shared by celebration-scene and monster-scene', async () => {
   assert.match(monster, /from ['"]\.\/stage-fx\.js['"]/u);
   assert.match(celebration, /spawnBurst\(/u);
   assert.match(monster, /spawnBurst\(/u);
+});
+
+test('CelebrationLayer calls celebrationArtPresentation and hands off through data-live-art', async () => {
+  const source = await readFile(
+    join(ROOT, 'src/app/celebrations/CelebrationLayer.jsx'),
+    'utf8',
+  );
+  assert.match(source, /celebrationArtPresentation\(/u);
+  assert.match(
+    source,
+    /<span\s+className="celebration-stage"[^>]*data-live-art=\{/u,
+  );
+  assert.match(source, /onReady=/u);
+  assert.match(source, /onContextLost=/u);
+  assert.match(
+    source,
+    /celebrationStageDecision\(\{[\s\S]*?contextLost,/u,
+    'context loss must flow into celebrationStageDecision, not a hardcoded false',
+  );
+  assert.doesNotMatch(
+    source,
+    /celebrationStageDecision\(\{[\s\S]*?contextLost:\s*false/u,
+  );
+  assert.match(
+    source,
+    /\{artUrl && \(/u,
+    'the static img must stay mounted whenever artUrl exists',
+  );
+  assert.match(source, /stageMode === 'live' && artUrl/u);
+  assert.match(
+    source,
+    /readyKey === eventKey/u,
+    'live ready must be keyed to the current card so a queue advance cannot hide the new img for a frame',
+  );
+  assert.match(source, /lostKey === eventKey/u);
+  assert.match(source, /data-static-art=\{art\.staticArt\}/u);
+  assert.doesNotMatch(
+    source,
+    /setLiveStageReady\(false\)/u,
+    'do not reset live ready in an effect after paint — that leaves a blank frame on caught→evolve',
+  );
+});
+
+test('CelebrationLayer does not play SFX or haptics inside the live-stage ready callback', async () => {
+  const source = await readFile(
+    join(ROOT, 'src/app/celebrations/CelebrationLayer.jsx'),
+    'utf8',
+  );
+  const readyProp = source.match(/onReady=\{([^\n}]+)\}/u);
+  assert.ok(readyProp, 'CelebrationStage must receive onReady');
+  assert.doesNotMatch(readyProp[1], /sfx|haptics|play\(/u);
+
+  const sfxEffect = source.match(
+    /useEffect\(\(\) => \{[\s\S]*?sfx\?\.play\([\s\S]*?\}, \[([^\]]*)\]\)/u,
+  );
+  assert.ok(sfxEffect, 'SFX must stay on the existing event-key effect');
+  assert.doesNotMatch(sfxEffect[1], /liveStageReady|onReady/u);
+  assert.match(sfxEffect[1], /eventKey/u);
+
+  const name = readyProp[1].trim();
+  if (/^[A-Za-z_][\w]*$/u.test(name)) {
+    const start = source.search(new RegExp(
+      String.raw`(?:const ${name}\s*=|function ${name}\s*\()`,
+      'u',
+    ));
+    assert.ok(start >= 0, `${name} must be defined in the layer`);
+    assert.doesNotMatch(source.slice(start, start + 500), /sfx|haptics/u);
+  }
+});
+
+test('CSS hides static celebration art only after the live canvas is ready, without collapsing layout', async () => {
+  const styles = await readFile(
+    join(ROOT, 'src/app/celebrations/celebrations.css'),
+    'utf8',
+  );
+  const hideAt = styles.search(
+    /\.celebration-stage\[data-live-art=['"]ready['"]\]/u,
+  );
+  assert.ok(
+    hideAt >= 0,
+    'ready live art must hide .celebration-art via a data-live-art rule',
+  );
+  const hide = styles.slice(hideAt, styles.indexOf('}', hideAt) + 1);
+  assert.match(hide, /visibility:\s*hidden/u);
+  assert.doesNotMatch(hide, /display:\s*none/u);
+  assert.match(
+    styles,
+    /\.celebration-stage:has\(\.celebration-canvas\[data-ready=['"]true['"]\]\)\s+\.celebration-art/u,
+    'canvas data-ready must hide the static img in the same paint as the sprite',
+  );
+  assert.match(
+    styles,
+    /\.celebration-art\[data-static-art=['"]hidden['"]\]/u,
+    'the presentation staticArt flag must also hide the img',
+  );
+});
+
+test('CelebrationStage reports ready and context loss through refs so Phaser does not reboot', async () => {
+  const source = await readFile(
+    join(ROOT, 'src/app/celebrations/CelebrationStage.jsx'),
+    'utf8',
+  );
+  assert.match(source, /onReadyRef/u);
+  assert.match(source, /onContextLostRef/u);
+  assert.match(source, /onReadyRef\.current/u);
+  assert.match(source, /onContextLostRef\.current/u);
+
+  const boot = source.match(
+    /useEffect\(\(\) => \{[\s\S]*?new Phaser\.Game\([\s\S]*?\}, \[([\s\S]*?)\]\)/u,
+  );
+  assert.ok(boot, 'must find the Phaser boot effect');
+  assert.doesNotMatch(
+    boot[1],
+    /\bonReady\b/u,
+    'onReady must not be a Phaser boot dependency — a new lambda would destroy the game every render',
+  );
+  assert.doesNotMatch(boot[1], /\bonContextLost\b/u);
+});
+
+test('the first painted celebration sprite covers the static art instead of rising from below at alpha 0', async () => {
+  const source = await readFile(
+    join(ROOT, 'src/app/celebrations/celebration-scene.js'),
+    'utf8',
+  );
+  const playCaught = source.match(/playCaught\(\) \{([\s\S]*?)\n    \}/u);
+  assert.ok(playCaught, 'playCaught must exist');
+  assert.doesNotMatch(
+    playCaught[1],
+    /setAlpha\(\s*0\s*\)/u,
+    'playCaught must not hide the covering frame at alpha 0',
+  );
+  assert.doesNotMatch(
+    playCaught[1],
+    /riseFrom/u,
+    'playCaught must not replay a rise-from-below after the static img hands off',
+  );
+
+  const evolveAt = source.indexOf('playEvolve() {');
+  assert.ok(evolveAt >= 0, 'playEvolve must exist');
+  const playEvolve = source.slice(evolveAt, source.indexOf('startShimmer() {', evolveAt));
+  assert.doesNotMatch(
+    playEvolve,
+    /setAlpha\(\s*0\s*\)/u,
+    'playEvolve must not open the covering frame at alpha 0',
+  );
+  assert.match(
+    playEvolve,
+    /beats\.silhouette/u,
+    'the live evolve must still run the silhouette beat after the covering frame',
+  );
+  assert.match(
+    playEvolve,
+    /setTint\(\s*0x000000\s*\)/u,
+    'the live evolve must still blacken the covering sprite on the silhouette beat',
+  );
+  assert.match(playEvolve, /clearTint\(/u);
+  assert.match(source, /textures\.exists\(/u);
+  assert.match(source, /this\.sprite\.width/u);
+  assert.match(source, /this\.sprite\.height/u);
 });

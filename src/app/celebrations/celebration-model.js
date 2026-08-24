@@ -478,3 +478,21 @@ export function celebrationStageDecision({
   if (reducedMotion || contextLost || backgrounded) return 'static';
   return 'live';
 }
+
+/**
+ * Ownership of the primary egg/companion image. Takes the live-vs-static
+ * decision as an input so this cannot invent a second tree; the layer hides
+ * the static <img> only after the live canvas has a covering frame.
+ */
+export function celebrationArtPresentation({
+  stageMode,
+  liveStageReady = false,
+} = {}) {
+  if (stageMode !== 'live') {
+    return { staticArt: 'visible', liveCanvas: 'absent' };
+  }
+  if (!liveStageReady) {
+    return { staticArt: 'visible', liveCanvas: 'loading' };
+  }
+  return { staticArt: 'hidden', liveCanvas: 'visible' };
+}

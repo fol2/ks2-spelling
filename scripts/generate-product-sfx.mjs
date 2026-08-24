@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import {
   PRODUCT_SFX_NAMES,
   buildProductSfxProvenance,
+  loadAuthoredProductSfxBytes,
   renderProductSfxBytes,
 } from './lib/product-sfx-synthesis.mjs';
 
@@ -20,7 +21,8 @@ const sfxDir = join(repoRoot, 'public', 'sfx');
 const provenancePath = join(repoRoot, 'provenance', 'product-sfx.json');
 
 async function main() {
-  const rendered = renderProductSfxBytes();
+  const authoredBytes = await loadAuthoredProductSfxBytes(repoRoot);
+  const rendered = renderProductSfxBytes(authoredBytes);
   const provenance = buildProductSfxProvenance(rendered);
 
   await mkdir(sfxDir, { recursive: true });

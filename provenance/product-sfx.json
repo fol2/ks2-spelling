@@ -1,8 +1,8 @@
 {
-  "generatorVersion": "1",
+  "generatorVersion": "2",
   "sampleRateHz": 24000,
-  "synthesisParameterDigest": "2e6e4bd7f53aa51e37684035845868a377dd41f5ee7968b71fe7a304702f1246",
-  "totalBytes": 172192,
+  "synthesisParameterDigest": "a1caebef5b49e9bf4aed7ae04252aaf05769a29d27534d9c8e8097b87258aab8",
+  "totalBytes": 254752,
   "files": [
     {
       "name": "catch",
@@ -13,8 +13,8 @@
     {
       "name": "correct",
       "path": "public/sfx/correct.wav",
-      "sha256": "74db88b68c73a79635738fd44831e891d02ec4e7ae342260628c3c655942d784",
-      "byteSize": 20204
+      "sha256": "e601e787863d75c2fb92b5e3c0b1a4b84fafa3d7bd476adccaeee7ced619c027",
+      "byteSize": 65324
     },
     {
       "name": "evolve",
@@ -31,8 +31,8 @@
     {
       "name": "retry",
       "path": "public/sfx/retry.wav",
-      "sha256": "912b5e9d79e72a0bfde076f0927c0754f83ea8272d5a9169ab895c5688f2dec4",
-      "byteSize": 14444
+      "sha256": "277477645884d8726e791911fe68fc2038a120298bf4741c5048326473c4bed5",
+      "byteSize": 51884
     },
     {
       "name": "sheet",

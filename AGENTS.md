@@ -1,90 +1,122 @@
-# AGENTS.md
+# KS2 Spelling Agent Contract
+
+KS2 Spelling is a local-first Capacitor mobile application. This file is the
+small, always-loaded execution kernel. Load deeper material only when the task
+needs it. [`docs/agents/ai-sdlc.md`](docs/agents/ai-sdlc.md) is the development-
+process single source of truth.
 
 ## Communication
 
-- Address the user as James.
-- Communicate with James in Hong Kong Cantonese.
-- Keep key technical terms bilingual where helpful.
+- Address the user as James and communicate in Hong Kong Cantonese.
+- Keep useful technical terms bilingual where that improves precision.
 - Use UK English for code comments, documentation, commit messages and product
   copy.
 
-## Engineering standards
+## Authority and context
 
-- Keep changes SOLID, DRY and YAGNI.
-- Prefer existing repository patterns over new abstractions.
-- Treat remote synchronisation, learner state, spelling content, native
-  projects, billing, downloads, signing and store release as
-  production-sensitive.
-- Preserve the local-first architecture and the no-remote-code boundary.
-  Production builds must not use `server.url`, live reload, remote HTML or
-  remote JavaScript.
-- Do not claim SQLite, commerce, downloads, production readiness or production
-  native plugins until their later approval and verification gates are closed.
+Use this precedence for current work:
 
-## Credentials and external mutations
+1. James's direct instruction or the active issue acceptance and non-goals;
+2. active product invariants, architecture authorities and compatibility
+   contracts for the affected surface;
+3. this file and the nearest relevant solution or runbook;
+4. the AI-SDLC SSOT and executable CI selectors.
 
-- Never request or accept a secret through a hidden terminal prompt.
-- Do not access the login keychain, certificates, provisioning profiles,
-  signing keys or store credentials. If credential input becomes necessary,
-  stop at a visible, user-controlled gate.
-- Do not create or mutate a remote repository, signing identity, store record,
-  deployment or release without James's explicit authority.
-- Do not accept SDK or store licence terms on James's behalf.
+Historical plans, reports, reviews and evidence remain truthful records of their
+own time. They are not current default instructions unless the active task binds
+them. `docs/superpowers/**` and `docs/records/**` are frozen and never edited.
 
-## Verification
+Start with the smallest sufficient context: inspect the changed surface, search
+before opening long documents, and read only matching sections of `CONCEPTS.md`,
+ADRs, solutions and runbooks. Keep one task capsule containing the goal,
+non-goals, constraints, acceptance, current head/diff/evidence, decisions and
+next action. Do not replay the whole repository or conversation.
 
-- Base native verification claims on fresh command output and retain the exact
-  target, configuration and device evidence.
-- Distinguish an iOS Simulator from a physical iOS device, an Android Emulator
-  from a physical Android device, and an unsigned or local-debug build from a
-  signed release build.
-- Treat project configuration, successful compilation, successful launch,
-  signing readiness and store readiness as separate gates.
-- Do not describe a native capability or production gate as complete when the
-  evidence proves only a narrower state.
+## AI-SDLC operating rule
 
-## Repository boundaries
+Maximise relevant decision quality and delivery speed while minimising wall
+time, model context, compute and duplicated work. No compromise means every
+material claim receives the cheapest decisive evidence that can falsify it; it
+does not mean running every unrelated check.
 
+- **Discovery and research:** define the question, immutable inputs, cheapest
+  discriminating experiment, budget, success/stop rule and decision. Keep trials
+  outside production truth. Do not create a ticket, branch, PR or CI run for
+  every experiment; promote only the selected result.
+- **Delivery:** one owner, one independently mergeable outcome, one branch and
+  one ordinary PR. Plan acceptance and proof once, implement the smallest
+  complete change, batch findings, and avoid unrelated cleanup.
+- **Concurrency:** parallelise only independent work with separate branches and
+  no shared mutable files or evidence. Never let several agents or machines
+  mutate the same branch or worktree.
+- **Human position:** James stays above the loop by setting intent, acceptance
+  and irreversible decisions. Agents own orienting, implementation, tests,
+  review, PR and authorised merge. Ask for human input only for unresolved
+  ambiguity, credentials, regulated or irreversible effects, or an explicit
+  owner decision.
+- **Automation:** use deterministic scripts for discovery, classification,
+  mechanical checks and evidence capture. Use model judgement for design,
+  trade-offs, review and perceptual decisions.
+
+## Validation and evidence
+
+`scripts/detect-pr-focus-gate.mjs` is the executable ordinary-PR selector. A
+strictly allow-listed documentation-only diff receives F0 integrity checks
+without a dependency bootstrap. Unknown, malformed, mixed, product, CI,
+evidence, legal, native or release input fails closed onto the existing product
+lane. The full merge-group, main, scheduled and certification gates remain the
+integration authority.
+
+During implementation, run the narrow deterministic check that answers the
+current question. On the coherent final candidate, run the complete relevant
+local gate once plus only affected specialist checks. Do not rerun an unchanged
+check, replace a relevant red gate with an unrelated green one, weaken a test,
+or edit evidence merely to pass.
+
+For presentation, animation, audio, input, lifecycle or device behaviour, inspect
+the running result at the affected reference shape. Distinguish iOS Simulator
+from physical iOS, Android Emulator from physical Android, and unsigned/local
+debug from signed release. Configuration, compile, launch, physical-device
+behaviour, signing readiness and store readiness are separate claims.
+
+## Product and repository invariants
+
+- Preserve the local-first architecture and no-remote-code boundary. Production
+  builds must not use `server.url`, live reload, remote HTML or remote JavaScript.
+- Treat learner state, spelling content, SQLite, commerce, downloads, native
+  projects, signing, evidence and store release as production-sensitive.
 - This repository must build and test without a sibling `ks2-mastery` checkout.
-- Imported upstream source must be copied from its frozen Git authority with
-  hash evidence; do not use symlinks, workspace links or an unpublished shared
+  Imported upstream source is copied from frozen Git authority with hash
+  evidence; never use symlinks, workspace links or an unpublished shared
   package.
-- Keep generated outputs, local machine settings and secrets out of version
+- Do not claim commerce, downloads, production native plugins, signing, store
+  readiness or release beyond the exact closed gate and observed artefact.
+- Keep generated outputs, local-machine settings and secrets out of version
   control.
 
-## Documented solutions
+## Credentials and external effects
 
-- `docs/solutions/` holds solutions to past problems (bugs, conventions,
-  workflow patterns), organised by category with YAML frontmatter (`module`,
-  `tags`, `problem_type`). Relevant when implementing or debugging in a
-  documented area.
-- `CONCEPTS.md` holds shared domain vocabulary for the project. Relevant when
-  orienting to the codebase or discussing domain concepts.
-- `docs/superpowers/**` and `docs/records/**` are frozen: write-once, never
-  edited. A correction is a new dated document that names what it corrects.
-  Everything else under `docs/` is kept true and must be edited when it goes
-  stale. Kind is carried in ce-compound frontmatter, not by the directory.
-- New freeze records, gate verdicts, owner GOs, measurement runs, close-outs
-  and QA verdicts go in `docs/records/<YYYY-MM-DD>-<slug>.md`. A freeze record
-  follows the shape of `docs/records/2026-07-23-c1-starter-pack.md`:
-  `Status: <state> at <SHA>`, `## Evidence`, `## Remaining gates`, and an
-  explicit closing statement of what authority the record does not grant.
-- `docs/superpowers/` is a closed historical archive: nothing new is added to
-  it. The name is a 2026-07 tooling residue with no workflow meaning, retained
-  because CI evidence pins the path.
+Never request or accept a secret through a hidden prompt. Do not access the
+login keychain, certificates, provisioning profiles, signing keys or store
+credentials. Do not accept licence terms or create/mutate signing identities,
+store records, deployments or releases without James's explicit authority.
+Stop at a visible owner-controlled gate when credentials or an irreversible
+external effect becomes necessary.
 
-## Agent skills
+## Documentation map
 
-### Issue tracker
+- AI-SDLC, focus gates, research promotion, evidence and metrics:
+  `docs/agents/ai-sdlc.md`
+- Domain vocabulary and ADR discovery: `docs/agents/domain.md`
+- Issue ownership and research/delivery tracking:
+  `docs/agents/issue-tracker.md`
+- Canonical triage labels: `docs/agents/triage-labels.md`
+- Solved bugs, conventions and workflow patterns: `docs/solutions/`
+- Native and device procedures: `docs/operations/native-development.md`
+- Merge-tier source versus live-governance boundary:
+  `docs/operations/merge-tier-gate.md`
 
-Issues live in GitHub Issues for `fol2/ks2-spelling`. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Canonical triage roles map 1:1 onto tracker labels (`needs-triage`, `needs-info`,
-`ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: glossary in `CONCEPTS.md`, ADRs in `docs/adr/` when they exist.
-See `docs/agents/domain.md`. Do not create a parallel `CONTEXT.md`.
+Stop and report a concrete blocker rather than weakening acceptance when a
+relevant gate is unavailable, an active authority contradicts the task, the
+work needs credentials or unapproved external mutation, or the requested claim
+cannot be proved at the stated environment.

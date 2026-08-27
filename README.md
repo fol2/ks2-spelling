@@ -87,6 +87,20 @@ The B3 sandbox commerce, signed-pack and clean-checkpoint boundary is recorded i
 
 ## Development and verification
 
+Development follows the
+[KS2 Spelling AI-Native SDLC](docs/agents/ai-sdlc.md): one coherent outcome,
+smallest sufficient context, progressive F0-F4 evidence, one ordinary PR and
+one full integration boundary. James sets intent and irreversible decisions;
+agents own the normal orient, implement, prove, review and authorised-merge
+loop.
+
+A strictly allow-listed documentation-only PR takes the F0-only documentation
+route: exact diff and documentation/CI contracts run with zero project
+dependency bootstrap. Every mixed, product, test, script, workflow, legal,
+evidence, native, release, unknown or unresolved diff fails closed onto the
+existing product lane. Merge-group, main, schedule and certification retain the
+complete integration/native gate.
+
 Install the exact lockfile with `npm ci`, then verify the local native toolchain
 with `npm run native:doctor -- --strict`. The complete local gate, virtual-device
 lifecycle, disk requirements and unsigned-build boundary are documented in
@@ -99,7 +113,7 @@ accepts a legitimate zero-file `pending` Development Checkpoint or the exact
 six-file `complete` pre-release evidence successor. It does not perform live
 Cloudflare, store or physical-device actions. A workflow definition or local
 pass is not presented as a hosted CI result; the exact branch run must be
-observed first. The event-to-tier mapping (fast pull-request lane versus the
+observed first. The event-to-tier mapping (focused pull-request lane versus the
 full merge-tier three-job gate) is documented in
 [`docs/operations/merge-tier-gate.md`](docs/operations/merge-tier-gate.md).
 That document is source/CI contract only: it does not prove live GitHub

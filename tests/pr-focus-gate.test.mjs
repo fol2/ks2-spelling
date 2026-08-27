@@ -149,7 +149,7 @@ test('all non-pull-request events use the full integration route', () => {
   }
 });
 
-test('the detector reads the exact merge-base-to-head path set', async () => {
+test('the detector reads the exact merge-base-to-head path set without collapsing renames', async () => {
   const calls = [];
   const decision = await detectPrFocusGate({
     env: {
@@ -174,7 +174,13 @@ test('the detector reads the exact merge-base-to-head path set', async () => {
   });
   assert.deepEqual(calls, [
     ['rev-parse', '--verify', `${BASE}^{commit}`],
-    ['diff', '--name-only', '--diff-filter=ACDMRTUXB', `${BASE}...HEAD`],
+    [
+      'diff',
+      '--name-only',
+      '--no-renames',
+      '--diff-filter=ACDMRTUXB',
+      `${BASE}...HEAD`,
+    ],
   ]);
 });
 

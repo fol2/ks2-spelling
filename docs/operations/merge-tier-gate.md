@@ -73,7 +73,8 @@ product source, content, vendor, gateway and native projects. Those surfaces may
 have dedicated executable contracts and therefore keep the product route.
 
 A mixed diff takes the product route. Deletion and rename paths are classified
-from the complete base-to-head set. The selector's focused hostile fixtures are
+from the complete base-to-head set; the detector disables rename collapsing so
+both sides of a rename remain visible. The selector's focused hostile fixtures are
 `tests/pr-focus-gate.test.mjs`; the repository contract is additionally pinned
 by `tests/ai-sdlc-contract.test.mjs`.
 

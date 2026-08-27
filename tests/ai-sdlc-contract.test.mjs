@@ -42,6 +42,31 @@ test('the full SSOT binds Anthropic principles to KS2-specific evidence', async 
   assert.match(sdlc, /Token minimisation is not thought minimisation/u);
 });
 
+
+test('every F0 guidance dependency remains present and structurally governed', async () => {
+  const [domain, triage] = await Promise.all([
+    read('docs/agents/domain.md'),
+    read('docs/agents/triage-labels.md'),
+  ]);
+
+  assert.match(domain, /^# Domain Docs$/mu);
+  assert.match(domain, /CONCEPTS\.md/u);
+  assert.match(domain, /docs\/solutions\//u);
+  assert.match(triage, /^# Triage Labels$/mu);
+  for (const label of [
+    'needs-triage',
+    'needs-info',
+    'ready-for-agent',
+    'ready-for-human',
+    'wontfix',
+  ]) {
+    assert.ok(
+      triage.includes('`' + label + '`'),
+      `missing triage label: ${label}`,
+    );
+  }
+});
+
 test('the PR template captures exact state, selected proof and non-effects', async () => {
   const template = await read('.github/pull_request_template.md');
   for (const section of [

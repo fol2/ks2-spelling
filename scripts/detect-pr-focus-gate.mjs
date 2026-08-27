@@ -43,6 +43,7 @@ export async function detectPrFocusGate({
       const diff = await git([
         'diff',
         '--name-only',
+        '--no-renames',
         '--diff-filter=ACDMRTUXB',
         `${baseSha}...HEAD`,
       ]);

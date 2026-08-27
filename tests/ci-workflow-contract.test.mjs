@@ -44,10 +44,9 @@ test('B4 CI keeps exactly three jobs on Node 24.18.0 and preserves native bounda
   assert.equal((workflow.match(/^  [a-z][a-z-]+:\n    name:/gm) ?? []).length, 3);
   assert.equal((workflow.match(/node-version: "24\.18\.0"/g) ?? []).length, 3);
   assert.doesNotMatch(workflow, /node-version-file:/);
-  assert.match(
-    workflow,
-    /branches:\n\s+- main\n\s+- jamesto\/mobile-b3-billing-download\n\s+- jamesto\/mobile-b4-vertical-slice/,
-  );
+  assert.match(workflow, /^  push:\n    branches:\n      - main$/m);
+  assert.doesNotMatch(workflow, /jamesto\/mobile-b3-billing-download/);
+  assert.doesNotMatch(workflow, /jamesto\/mobile-b4-vertical-slice/);
   assert.match(workflow, /group: b4-ci-/);
   assert.match(workflow, /xcode_major.*-ge 26/);
   assert.match(workflow, /"platforms;android-36" "build-tools;36\.0\.0"/);
@@ -99,8 +98,6 @@ test('Domain/Web proves host-neutral and gateway contracts without claiming nati
     domain.indexOf('npm run native:sync:check') < domain.indexOf('--test-skip-pattern='),
     'native bundle inputs must exist before the host-neutral suite',
   );
-  // #156: the deploy-shaped derived config must be compiled by CI, not only
-  // the tracked build-shaped one, and only after the pinned wrangler exists.
   assert.ok(
     domain.indexOf('npm --prefix gateway ci') <
       domain.indexOf('node scripts/rehearse-b3-deploy-config.mjs'),
@@ -151,12 +148,13 @@ test('iOS runs normal and B3 unsigned builds, the pack inspector and StoreKit Te
   assert.match(ios, /npm run prove:b3:ios-storekit-test/);
 });
 
-test('branch evidence contract inspects the candidate range on every merge path', async () => {
+test('branch evidence contract inspects the candidate range on every product merge path', async () => {
   const domain = extractJob(await readWorkflow(), 'domain-web');
   const step = domain.slice(
     domain.indexOf('Prove B4 evidence commits are evidence-only successors'),
   );
   assert.match(step, /run: node scripts\/prove-b4-evidence-successor\.mjs/);
+  assert.match(step, /if: steps\.focus\.outputs\.product == 'true'/);
   assert.match(step, /EVENT_NAME: \$\{\{ github\.event_name \}\}/);
   assert.match(step, /MERGE_GROUP_BASE_SHA: \$\{\{ github\.event\.merge_group\.base_sha \}\}/);
   assert.match(step, /PULL_REQUEST_BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/);
@@ -165,34 +163,34 @@ test('branch evidence contract inspects the candidate range on every merge path'
     domain,
     /github\.event_name != 'merge_group' && github\.ref != 'refs\/heads\/main'/,
   );
-  assert.doesNotMatch(
-    step.slice(0, step.indexOf('node scripts/prove-b4-evidence-successor.mjs')),
-    /\bif:/,
-  );
   assert.doesNotMatch(step, /HEAD\^/);
 });
 
-test('CI is tiered: pull requests run only the fast lane, native compiles are merge-gated', async () => {
+test('CI is focus-tiered on PRs and keeps native compiles merge-gated', async () => {
   const workflow = await readWorkflow();
-  // New triggers: the merge queue is the heavy gate, plus a nightly cold sweep.
   assert.match(workflow, /^  merge_group:$/m);
   assert.match(workflow, /^  schedule:\n\s+- cron: "0 6 \* \* \*"$/m);
-  // Both native jobs are skipped entirely on a pull request (keeps PR < 1m),
-  // and run as a fail-closed gate on merge_group / push / schedule.
   const android = extractJob(workflow, 'android-compile');
   const ios = extractJob(workflow, 'ios-compile');
   assert.match(android, /^    if: github\.event_name != 'pull_request'$/m);
   assert.match(ios, /^    if: github\.event_name != 'pull_request'$/m);
-  // The native compile steps are behind a fail-safe path filter that always
-  // runs on the nightly schedule.
   assert.match(
     android,
     /if: steps\.filter\.outputs\.native == 'true' \|\| github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'/,
   );
   assert.match(ios, /id: filter/);
-  // domain-web splits the fast PR lane from the full merge lane.
+
   const domain = extractJob(workflow, 'domain-web');
-  assert.match(domain, /if: github\.event_name == 'pull_request'\n\s+run: npm run test:fast/);
+  assert.match(domain, /id: focus/);
+  assert.match(domain, /node scripts\/detect-pr-focus-gate\.mjs/);
+  assert.match(
+    domain,
+    /if: github\.event_name == 'pull_request' && steps\.focus\.outputs\.product == 'true'\n\s+run: npm run test:fast/,
+  );
+  assert.match(
+    domain,
+    /if: steps\.focus\.outputs\.product == 'false'\n\s+run: >-\n\s+node --test/,
+  );
   assert.match(
     domain,
     /if: github\.event_name != 'pull_request'\n\s+run: >-\n\s+node --test/,

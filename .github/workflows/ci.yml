@@ -12,8 +12,6 @@ on:
   push:
     branches:
       - main
-      - jamesto/mobile-b3-billing-download
-      - jamesto/mobile-b4-vertical-slice
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
@@ -45,20 +43,60 @@ jobs:
         with:
           node-version: "24.18.0"
           cache: npm
+      - name: Route through the smallest sufficient focus gate
+        id: focus
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/detect-pr-focus-gate.mjs
+      - name: Check exact F0 change integrity
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          base=""
+          case "$EVENT_NAME" in
+            pull_request) base="$PULL_REQUEST_BASE_SHA" ;;
+            merge_group) base="$MERGE_GROUP_BASE_SHA" ;;
+            push) base="$PUSH_BEFORE_SHA" ;;
+          esac
+          if [[ -z "$base" || "$base" == "0000000000000000000000000000000000000000" ]]; then
+            base="$(git rev-parse HEAD^ 2>/dev/null || true)"
+          fi
+          if [[ -n "$base" ]]; then
+            if [[ "$EVENT_NAME" == "pull_request" ]]; then
+              git diff --check "${base}...HEAD"
+            else
+              git diff --check "$base" HEAD
+            fi
+          else
+            git show --check --format= HEAD
+          fi
+      - name: Prove the F0-only documentation route
+        if: steps.focus.outputs.product == 'false'
+        run: >-
+          node --test
+          tests/pr-focus-gate.test.mjs
+          tests/ai-sdlc-contract.test.mjs
       - name: Install exact root dependencies
+        if: steps.focus.outputs.product == 'true'
         run: npm ci
       - name: Verify frozen B2, vendored and A3 authorities
+        if: steps.focus.outputs.product == 'true'
         run: |
           npm run verify:b2-authority
           npm run verify:vendor
           npm run test:upstream:a3
       - name: Materialise deterministic proof-pack inputs
+        if: steps.focus.outputs.product == 'true'
         run: npm run build:b3-proof-pack
-      # Tier 1 (pull_request): the seconds-fast blocking lane. Pure invariants
-      # above run on every event; the full suite, native drift and builds are
-      # relocated to the merge tier below so a PR stays under a minute.
+      # Tier 1 (pull_request): the seconds-fast blocking product lane. F0-only
+      # documentation stops above; all governed or unknown inputs fail closed
+      # into this lane. Full native drift and builds remain at merge/main.
       - name: Run the fast pull-request test lane
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.focus.outputs.product == 'true'
         run: npm run test:fast
       # Tier 2 (merge_group / push / schedule): the full, fail-closed gate that
       # proves the post-merge tree before anything lands on a tracked branch.
@@ -86,8 +124,10 @@ jobs:
           node scripts/rehearse-b3-deploy-config.mjs
           npm --prefix gateway audit --audit-level=high
       - name: Regenerate deterministic B3 proof
+        if: steps.focus.outputs.product == 'true'
         run: npm run prove:b3:deterministic
       - name: Lint source and verification code
+        if: steps.focus.outputs.product == 'true'
         run: npm run lint
       - name: Build bundled web application
         if: github.event_name != 'pull_request'
@@ -98,9 +138,10 @@ jobs:
           npm run build:b4-development
           npm run report:b4-development:check
       # History-sensitive: inspect the merge candidate range, not HEAD^ alone,
-      # and run on every event including merge_group and main. Ordinary commits
-      # still skip the subset contract after that range has been inspected.
+      # and run on every product/integration event. An F0-only documentation PR
+      # does not need to rebuild or reinterpret frozen B4 evidence.
       - name: Prove B4 evidence commits are evidence-only successors
+        if: steps.focus.outputs.product == 'true'
         env:
           EVENT_NAME: ${{ github.event_name }}
           MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
@@ -108,6 +149,7 @@ jobs:
           PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: node scripts/prove-b4-evidence-successor.mjs
       - name: Validate B3 pending or complete evidence topology
+        if: steps.focus.outputs.product == 'true'
         run: node scripts/build-b3-exit-report.mjs --check-ci
       - name: Package the verified domain and web build bytes
         if: inputs.certification == true

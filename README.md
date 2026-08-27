@@ -85,6 +85,21 @@ The B2 transaction, lifecycle and evidence authority is recorded in
 The B3 sandbox commerce, signed-pack and clean-checkpoint boundary is recorded in
 [`docs/architecture/b3-commerce-pack-authority.md`](docs/architecture/b3-commerce-pack-authority.md).
 
+## AI-native development
+
+[`AGENTS.md`](AGENTS.md) is the small execution kernel and
+[`docs/agents/ai-sdlc.md`](docs/agents/ai-sdlc.md) is the development-process
+single source of truth. The operating rules are: AI-native traceability,
+minimum wall time, minimum token/context consumption and no loss of relevant
+assurance. Humans set intent and authority above the loop; agents own the
+reversible delivery loop beneath those boundaries.
+
+One outcome normally uses one owner, one branch and one ordinary PR. Discovery
+and research remain bounded and isolated until a result is selected for
+delivery. Evidence is routed through F0 change integrity, F1 direct behaviour,
+F2 affected contracts, conditional F3 actual-runtime/service proof and explicit
+F4 irreversible/external authority.
+
 ## Development and verification
 
 Install the exact lockfile with `npm ci`, then verify the local native toolchain
@@ -92,18 +107,27 @@ with `npm run native:doctor -- --strict`. The complete local gate, virtual-devic
 lifecycle, disk requirements and unsigned-build boundary are documented in
 [`docs/operations/native-development.md`](docs/operations/native-development.md).
 
-CI has separate Ubuntu 24.04 domain/web and Android compile lanes plus an
-unsigned iOS Simulator compile lane on macOS 26. All use Node.js `24.18.0`,
-retain full Git history and pin third-party Actions to full commit SHAs. B3 CI
-accepts a legitimate zero-file `pending` Development Checkpoint or the exact
-six-file `complete` pre-release evidence successor. It does not perform live
-Cloudflare, store or physical-device actions. A workflow definition or local
-pass is not presented as a hosted CI result; the exact branch run must be
-observed first. The event-to-tier mapping (fast pull-request lane versus the
-full merge-tier three-job gate) is documented in
+Pull requests use one `Domain and web` job. Explicit safe documentation-only
+diffs run the F0 contract without installing product dependencies; product,
+test, script, workflow, legal/privacy, evidence, native and unknown changes fail
+closed into the existing fast product lane. Feature-branch pushes do not create
+a duplicate CI run.
+
+Merge-group candidates, `main`, scheduled runs and manual integration runs keep
+the complete maintained boundary: Ubuntu 24.04 domain/web, Android unsigned
+debug/release compile and unsigned iOS Simulator compile on macOS 26. All use
+Node.js `24.18.0`, retain full Git history and pin third-party Actions to full
+commit SHAs. The shared native selector fails closed for unresolved or governed
+inputs. Physical-device, live-service, signing, store and release claims remain
+separate authority/evidence gates.
+
+B3 CI accepts a legitimate zero-file `pending` Development Checkpoint or the
+exact six-file `complete` pre-release evidence successor. It does not perform
+live Cloudflare, store or physical-device actions. A workflow definition or
+local pass is not presented as a hosted CI result; the exact candidate run must
+be observed first. The event-to-tier mapping and its source-versus-live
+boundary are documented in
 [`docs/operations/merge-tier-gate.md`](docs/operations/merge-tier-gate.md).
-That document is source/CI contract only: it does not prove live GitHub
-rulesets, branch protection or merge-queue settings.
 
 ## B2 evidence status
 

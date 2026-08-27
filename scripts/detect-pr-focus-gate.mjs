@@ -31,20 +31,33 @@ export async function detectPrFocusGate({
           timeout: 10_000,
           maxBuffer: 1024 * 1024,
         }));
+
+    let baseResolved = false;
     try {
       await git(['rev-parse', '--verify', `${baseSha}^{commit}`]);
-      const diff = await git([
-        'diff',
-        '--name-only',
-        '--no-renames',
-        '-z',
-        baseSha,
-        'HEAD',
-        '--',
-      ]);
-      changedPaths = splitPaths(diff.stdout);
+      baseResolved = true;
     } catch {
-      changedPaths = null;
+      baseResolved = false;
+    }
+
+    if (baseResolved) {
+      const range = `${baseSha}...HEAD`;
+      // Change integrity is part of F0. Do not turn a whitespace/error finding
+      // into a conservative product route; fail the exact PR candidate instead.
+      await git(['diff', '--check', range, '--']);
+      try {
+        const diff = await git([
+          'diff',
+          '--name-only',
+          '--no-renames',
+          '-z',
+          range,
+          '--',
+        ]);
+        changedPaths = splitPaths(diff.stdout);
+      } catch {
+        changedPaths = null;
+      }
     }
   }
 
@@ -68,7 +81,7 @@ export async function main({ env = process.env, root = ROOT, runGit } = {}) {
   }
   if (env.GITHUB_STEP_SUMMARY) {
     const trigger = decision.triggerPath
-      ? `\n- Trigger path: \`${decision.triggerPath}\``
+      ? `\n- Trigger path: ${JSON.stringify(decision.triggerPath)}`
       : '';
     await appendFile(
       env.GITHUB_STEP_SUMMARY,

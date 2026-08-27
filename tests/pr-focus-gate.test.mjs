@@ -27,7 +27,7 @@ function extractJob(workflow, jobName) {
     : workflow.slice(start, start + marker.length + next);
 }
 
-test('the F0 allow-list contains only explicit Markdown documentation surfaces', () => {
+test('the F0 allow-list contains only explicit canonical Markdown documentation surfaces', () => {
   for (const path of [
     'AGENTS.md',
     'CONCEPTS.md',
@@ -56,12 +56,17 @@ test('the F0 allow-list contains only explicit Markdown documentation surfaces',
     'reports/b4/b4-development-report.json',
     'docs/operations/runbook.sh',
     '../README.md',
+    './README.md',
     'docs\\agents\\ai-sdlc.md',
     'README.md\nAGENTS.md',
+    'docs/agents/foo\tbar.md',
+    'docs/agents/foo\rbar.md',
+    'docs/agents/foo\u0085bar.md',
+    'docs/agents/foo\u2028bar.md',
     ' README.md',
     'README.md ',
   ]) {
-    assert.equal(pathIsSafeDocumentation(path), false, `${path} must fail closed`);
+    assert.equal(pathIsSafeDocumentation(path), false, `${JSON.stringify(path)} must fail closed`);
   }
 
   assert.ok(SAFE_DOCUMENTATION_FILES.length > 0);
@@ -132,7 +137,7 @@ test('the selector fails closed on unresolved input and every integration event'
   }
 });
 
-test('the detector compares the exact PR base without rename hiding', async () => {
+test('the detector checks and classifies the exact pull-request merge-base range', async () => {
   const calls = [];
   const decision = await detectPrFocusGate({
     env: {
@@ -142,7 +147,8 @@ test('the detector compares the exact PR base without rename hiding', async () =
     runGit: async (args) => {
       calls.push(args);
       if (args[0] === 'rev-parse') return { stdout: `${BASE}\n` };
-      if (args[0] === 'diff') {
+      if (args[0] === 'diff' && args[1] === '--check') return { stdout: '' };
+      if (args[0] === 'diff' && args[1] === '--name-only') {
         return { stdout: 'README.md\0docs/agents/ai-sdlc.md\0' };
       }
       throw new Error(`unexpected git ${args.join(' ')}`);
@@ -156,11 +162,31 @@ test('the detector compares the exact PR base without rename hiding', async () =
   });
   assert.deepEqual(calls, [
     ['rev-parse', '--verify', `${BASE}^{commit}`],
-    ['diff', '--name-only', '--no-renames', '-z', BASE, 'HEAD', '--'],
+    ['diff', '--check', `${BASE}...HEAD`, '--'],
+    ['diff', '--name-only', '--no-renames', '-z', `${BASE}...HEAD`, '--'],
   ]);
 });
 
-test('a detector failure cannot grant the F0-only route', async () => {
+test('an exact-range change-integrity failure is not downgraded to a product route', async () => {
+  await assert.rejects(
+    detectPrFocusGate({
+      env: {
+        EVENT_NAME: 'pull_request',
+        PULL_REQUEST_BASE_SHA: BASE,
+      },
+      runGit: async (args) => {
+        if (args[0] === 'rev-parse') return { stdout: `${BASE}\n` };
+        if (args[0] === 'diff' && args[1] === '--check') {
+          throw new Error('whitespace error');
+        }
+        throw new Error(`unexpected git ${args.join(' ')}`);
+      },
+    }),
+    /whitespace error/u,
+  );
+});
+
+test('an unresolved base cannot grant the F0-only route', async () => {
   const decision = await detectPrFocusGate({
     env: {
       EVENT_NAME: 'pull_request',
@@ -185,20 +211,20 @@ test('the Domain and web lane trusts F0 only after the classifier contract', asy
     (domain.match(/node scripts\/detect-pr-focus-gate\.mjs/gu) ?? []).length,
     1,
   );
-  assert.match(domain, /id: focus/);
-  assert.match(domain, /EVENT_NAME: \$\{\{ github\.event_name \}\}/);
+  assert.match(domain, /id: focus/u);
+  assert.match(domain, /EVENT_NAME: \$\{\{ github\.event_name \}\}/u);
   assert.match(
     domain,
-    /PULL_REQUEST_BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/,
+    /PULL_REQUEST_BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/u,
   );
-  assert.match(domain, /- name: Check exact change integrity\n\s+run: git diff --check/);
+  assert.match(domain, /- name: Check exact change integrity\n\s+run: git diff --check/u);
   assert.match(
     domain,
-    /- name: Run F0 documentation and CI contracts\n\s+if: steps\.focus\.outputs\.product == 'false'/,
+    /- name: Run F0 documentation and CI contracts\n\s+if: steps\.focus\.outputs\.product == 'false'/u,
   );
   assert.match(
     domain,
-    /- name: Install exact root dependencies\n\s+if: steps\.focus\.outputs\.product == 'true'\n\s+run: npm ci/,
+    /- name: Install exact root dependencies\n\s+if: steps\.focus\.outputs\.product == 'true'\n\s+run: npm ci/u,
   );
   for (const name of [
     'Verify frozen B2, vendored and A3 authorities',
@@ -207,14 +233,14 @@ test('the Domain and web lane trusts F0 only after the classifier contract', asy
     'Lint source and verification code',
   ]) {
     const step = domain.slice(domain.indexOf(`- name: ${name}`));
-    assert.match(step, /if: steps\.focus\.outputs\.product == 'true'/);
+    assert.match(step, /if: steps\.focus\.outputs\.product == 'true'/u);
   }
   assert.match(
     domain,
-    /if: github\.event_name == 'pull_request' && steps\.focus\.outputs\.product == 'true'\n\s+run: npm run test:fast/,
+    /if: github\.event_name == 'pull_request' && steps\.focus\.outputs\.product == 'true'\n\s+run: npm run test:fast/u,
   );
   assert.match(
     domain,
-    /if: github\.event_name != 'pull_request'\n\s+run: >-\n\s+node --test/,
+    /if: github\.event_name != 'pull_request'\n\s+run: >-\n\s+node --test/u,
   );
 });

@@ -19,14 +19,19 @@ function normalisePath(path) {
   if (typeof path !== 'string') return '';
   if (path !== path.trim()) return '';
   const raw = path;
-  if (raw.includes('\\') || raw.includes('\0')) return '';
-  const candidate = raw.replace(/^\.\/+/, '');
-  if (!candidate || candidate.startsWith('/')) return '';
-  const segments = candidate.split('/');
+  if (
+    raw.includes('\\') ||
+    raw.startsWith('/') ||
+    raw.startsWith('./') ||
+    /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u.test(raw)
+  ) {
+    return '';
+  }
+  const segments = raw.split('/');
   if (segments.some((segment) => !segment || segment === '.' || segment === '..')) {
     return '';
   }
-  return candidate;
+  return raw;
 }
 
 export function presentSha(value) {

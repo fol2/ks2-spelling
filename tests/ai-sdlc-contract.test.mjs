@@ -17,7 +17,7 @@ test('the root agent kernel progressively discloses the complete AI-SDLC', async
   assert.match(agents, /smallest sufficient context/u);
   assert.match(agents, /Human position/u);
   assert.match(agents, /James stays above the loop/u);
-  assert.match(agents, /one branch and\none ordinary PR/u);
+  assert.match(agents, /one branch and\s+one ordinary PR/u);
   assert.match(agents, /no-remote-code boundary/u);
   assert.match(agents, /scripts\/detect-pr-focus-gate\.mjs/u);
   assert.match(agents, /docs\/superpowers\/\*\*.*docs\/records\/\*\* are frozen/u);
@@ -42,12 +42,12 @@ test('the full SSOT binds all four rules, F0-F4 and KS2-specific proof', async (
   for (const gate of ['F0', 'F1', 'F2', 'F3', 'F4']) {
     assert.ok(sdlc.includes(`**${gate}`), `missing ${gate} gate`);
   }
-  assert.match(sdlc, /physical-device semantics/u);
+  assert.match(sdlc, /physical-device\s+semantics/iu);
   assert.match(sdlc, /SQLite transaction/u);
   assert.match(sdlc, /StoreKit sandbox/u);
   assert.match(sdlc, /server\.url/u);
   assert.match(sdlc, /zero `npm ci` dependency bootstrap/u);
-  assert.match(sdlc, /escaped-defect evidence does not\nworsen/u);
+  assert.match(sdlc, /escaped-defect evidence does not\s+worsen/u);
 });
 
 test('the PR template records evidence, review and external non-effects without ceremony', async () => {
@@ -69,7 +69,7 @@ test('README, issue tracking and merge-tier docs expose one coherent operating m
     source('docs/operations/merge-tier-gate.md'),
   ]);
   assert.match(readme, /docs\/agents\/ai-sdlc\.md/u);
-  assert.match(readme, /F0-only documentation route/u);
+  assert.match(readme, /F0-only\s+documentation\s+route/u);
   assert.match(tracker, /one independently mergeable outcome/u);
   assert.match(tracker, /one branch and one ordinary PR/u);
   assert.match(tracker, /Research does not need an issue, branch or PR per experiment/u);

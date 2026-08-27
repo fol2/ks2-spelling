@@ -116,8 +116,14 @@ observed risk. Do not broaden merely because a larger suite exists.
 The executable ordinary-PR router is deliberately conservative:
 
 - `scripts/detect-pr-focus-gate.mjs` grants F0-only CI solely when every changed
-  path is an allow-listed Markdown instruction, architecture, operations,
-  solution or root documentation file;
+  path is one of five process-contract files with direct focused coverage:
+  `.github/pull_request_template.md`, `AGENTS.md`,
+  `docs/agents/ai-sdlc.md`, `docs/agents/issue-tracker.md`, or
+  `docs/operations/merge-tier-gate.md`;
+- no directory receives a blanket documentation exemption. README, vocabulary,
+  ADR, architecture, other operations and solution documents remain on the
+  product lane unless a later change adds both a matching contract test and an
+  explicit selector fixture;
 - mixed, malformed, empty, unresolved, unknown, product, test, script, workflow,
   legal, evidence, frozen-record, native and release changes select the existing
   product lane;
@@ -172,9 +178,10 @@ visual, audio, input, lifecycle, commerce or release work adds only its affected
 specialist proof. The merge-group/main gate owns complete integration and native
 compilation once.
 
-For F0-only documentation, run the lightweight documentation and CI contract
-checks without installing project dependencies. Product tests cannot falsify a
-pure prose correction; contract consistency and review can.
+For an explicitly allow-listed F0 process-document change, run the lightweight
+documentation and CI contract checks without installing project dependencies.
+Every other documentation change remains product-lane work until its actual
+contract dependencies have an executable focused mapping.
 
 ### Review and integrate
 
@@ -241,9 +248,9 @@ blocker instead of substituting an unrelated check.
 
 The ordinary feedback and integration boundaries are:
 
-- **pull request, safe docs only:** F0 route; Node setup, exact diff integrity,
-  focused documentation/CI contracts and existing history-sensitive topology
-  checks; zero `npm ci` dependency bootstrap;
+- **pull request, explicitly covered process docs only:** F0 route; Node setup,
+  exact diff integrity, focused documentation/CI contracts and existing
+  history-sensitive topology checks; zero `npm ci` dependency bootstrap;
 - **pull request, everything else:** existing product fast lane, with frozen
   authorities, proof inputs, direct/fast tests, deterministic proof and lint;
 - **merge group / main push:** full domain/web, gateway and path-selected native
@@ -307,8 +314,11 @@ reachable risk, narrow its trigger with the same discipline.
 
 ## 12. Examples
 
-**README or agent-doc correction:** F0; no dependency install, but diff,
-contract links and review must pass.
+**Allow-listed process-doc correction:** F0; no dependency install, but exact
+diff, matching contract tests, links and review must pass.
+
+**README or other documentation:** product lane unless that exact path has been
+added with a focused contract test and selector fixture.
 
 **React/controller defect:** F0+F1+F2; exact reproduction, nearest model/UI tests,
 fast product lane, then merge integration.

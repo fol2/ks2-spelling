@@ -3,17 +3,14 @@ const ZERO_SHA = '0'.repeat(40);
 export const SAFE_DOCUMENTATION_FILES = Object.freeze([
   '.github/pull_request_template.md',
   'AGENTS.md',
-  'CONCEPTS.md',
-  'README.md',
+  'docs/agents/ai-sdlc.md',
+  'docs/agents/issue-tracker.md',
+  'docs/operations/merge-tier-gate.md',
 ]);
 
-export const SAFE_DOCUMENTATION_PREFIXES = Object.freeze([
-  'docs/adr/',
-  'docs/agents/',
-  'docs/architecture/',
-  'docs/operations/',
-  'docs/solutions/',
-]);
+// Directory-wide documentation shortcuts are intentionally absent. A new path
+// joins the zero-bootstrap route only with a direct contract test and fixture.
+export const SAFE_DOCUMENTATION_PREFIXES = Object.freeze([]);
 
 function normalisePath(path) {
   if (typeof path !== 'string') return '';

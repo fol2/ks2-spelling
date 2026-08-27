@@ -27,9 +27,9 @@ The workflow definition maps events to tiers:
 - A safe documentation-only PR enters the Domain and web job but receives only
   F0 change-integrity and documentation/CI contract checks. It performs zero
   project-dependency bootstrap. `scripts/detect-pr-focus-gate.mjs` grants this
-  route only when every changed path is an explicitly allow-listed Markdown
-  documentation surface. Unknown, mixed or unresolved input fails closed onto
-  the product lane.
+  route only when every changed path is an explicitly allow-listed process
+  document with direct focused coverage. Unknown, mixed or unresolved input
+  fails closed onto the product lane.
 - `pull_request` runs only the fast Domain and web lane. A product PR runs the
   frozen-authority checks, proof input materialisation, `npm run test:fast`,
   deterministic B3 proof and lint. Native jobs are skipped. This is developer
@@ -40,13 +40,17 @@ The workflow definition maps events to tiers:
   filter would otherwise be quiet. Certification (`workflow_call` with
   `certification: true`) does the same.
 
-The F0 selector is not a general dependency graph. Its allow-list is deliberately
-small: root/project instructions, the PR template, and Markdown under governed
-agent, ADR, architecture, operations and solution directories. Workflows,
-scripts, tests, package inputs, product sources, legal/privacy material, frozen
-records, reports/evidence, native projects, release surfaces and unknown paths
-remain product work. Changing the selector or CI therefore cannot use that same
-change to skip the product lane.
+The F0 selector is not a general dependency graph. Its allow-list contains
+exactly `.github/pull_request_template.md`, `AGENTS.md`,
+`docs/agents/ai-sdlc.md`, `docs/agents/issue-tracker.md`, and
+`docs/operations/merge-tier-gate.md`. There is no directory-wide documentation
+shortcut. README, vocabulary, ADR, architecture, other operations and solution
+documents remain product work because existing tests may consume their
+contracts. A new path joins F0 only together with a direct focused contract test
+and selector fixture. Workflows, scripts, tests, package inputs, product sources,
+legal/privacy material, frozen records, reports/evidence, native projects,
+release surfaces and unknown paths remain product work. Changing the selector or
+CI therefore cannot use that same change to skip the product lane.
 
 A bundled-source or native release input that can change an APK or iOS app
 selects both native jobs on full-gate events. The shared detector is
@@ -110,9 +114,9 @@ Do not cite `verify:b3` as proof that the gateway Worker was exercised.
 
 ## Maintainer consequences
 
-- F0-only is valid only for a complete allow-listed documentation diff. A mixed
-  change is product work; do not split inseparable code and docs merely to gain
-  the cheaper route.
+- F0-only is valid only for a complete allow-listed process-document diff. A
+  mixed change is product work; do not split inseparable code and docs merely to
+  gain the cheaper route. Do not infer safety from a directory name.
 - Pull-request CI alone is not a merge basis for bundled `src/`, `public/`,
   `vite.config.js`, native projects, or any other path the detector selects.
 - The candidate merge-base defines the PR range. The named

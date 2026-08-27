@@ -27,22 +27,29 @@ function extractJob(workflow, jobName) {
     : workflow.slice(start, start + marker.length + next);
 }
 
-test('the F0 allow-list contains only explicit canonical Markdown documentation surfaces', () => {
-  for (const path of [
-    'AGENTS.md',
-    'CONCEPTS.md',
-    'README.md',
+test('the F0 allow-list contains only process files with direct contract coverage', () => {
+  assert.deepEqual(SAFE_DOCUMENTATION_FILES, [
     '.github/pull_request_template.md',
+    'AGENTS.md',
     'docs/agents/ai-sdlc.md',
-    'docs/adr/0001-local-first.md',
-    'docs/architecture/b3-commerce-pack-authority.md',
+    'docs/agents/issue-tracker.md',
     'docs/operations/merge-tier-gate.md',
-    'docs/solutions/workflow-issues/example.md',
-  ]) {
+  ]);
+  assert.deepEqual(SAFE_DOCUMENTATION_PREFIXES, []);
+
+  for (const path of SAFE_DOCUMENTATION_FILES) {
     assert.equal(pathIsSafeDocumentation(path), true, `${path} should remain F0-safe`);
   }
 
   for (const path of [
+    'README.md',
+    'CONCEPTS.md',
+    'docs/agents/domain.md',
+    'docs/agents/triage-labels.md',
+    'docs/adr/0001-local-first.md',
+    'docs/architecture/b3-commerce-pack-authority.md',
+    'docs/operations/native-development.md',
+    'docs/solutions/workflow-issues/example.md',
     '.github/workflows/ci.yml',
     'scripts/detect-pr-focus-gate.mjs',
     'tests/pr-focus-gate.test.mjs',
@@ -55,38 +62,37 @@ test('the F0 allow-list contains only explicit canonical Markdown documentation 
     'docs/superpowers/plans/old-plan.md',
     'reports/b4/b4-development-report.json',
     'docs/operations/runbook.sh',
-    '../README.md',
-    './README.md',
+    '../AGENTS.md',
+    './AGENTS.md',
     'docs\\agents\\ai-sdlc.md',
-    'README.md\nAGENTS.md',
+    'AGENTS.md\nREADME.md',
     'docs/agents/foo\tbar.md',
     'docs/agents/foo\rbar.md',
     'docs/agents/foo\u0085bar.md',
     'docs/agents/foo\u2028bar.md',
-    ' README.md',
-    'README.md ',
+    ' AGENTS.md',
+    'AGENTS.md ',
   ]) {
     assert.equal(pathIsSafeDocumentation(path), false, `${JSON.stringify(path)} must fail closed`);
   }
-
-  assert.ok(SAFE_DOCUMENTATION_FILES.length > 0);
-  assert.ok(SAFE_DOCUMENTATION_PREFIXES.length > 0);
 });
 
-test('a pure allow-listed documentation PR selects only F0', () => {
+test('a pure explicitly covered process-document PR selects only F0', () => {
   assert.deepEqual(
     decidePrFocusGate({
       eventName: 'pull_request',
       baseSha: BASE,
-      changedPaths: ['README.md', 'docs/agents/ai-sdlc.md'],
+      changedPaths: ['AGENTS.md', 'docs/agents/ai-sdlc.md'],
     }),
     { product: false, focus: 'F0', reason: 'safe-documentation-only' },
   );
 });
 
-test('mixed, product and CI diffs select the product lane', () => {
+test('mixed, ordinary documentation, product and CI diffs select the product lane', () => {
   for (const changedPaths of [
-    ['README.md', 'src/main.jsx'],
+    ['AGENTS.md', 'src/main.jsx'],
+    ['README.md'],
+    ['docs/operations/native-development.md'],
     ['.github/workflows/ci.yml'],
     ['tests/pr-focus-gate.test.mjs'],
     ['docs/legal/privacy-notice.md'],
@@ -108,7 +114,7 @@ test('the selector fails closed on unresolved input and every integration event'
     decidePrFocusGate({
       eventName: 'pull_request',
       baseSha: null,
-      changedPaths: ['README.md'],
+      changedPaths: ['AGENTS.md'],
     }),
     { product: true, focus: 'F0,F1,F2', reason: 'unresolved-base' },
   );
@@ -149,7 +155,7 @@ test('the detector checks and classifies the exact pull-request merge-base range
       if (args[0] === 'rev-parse') return { stdout: `${BASE}\n` };
       if (args[0] === 'diff' && args[1] === '--check') return { stdout: '' };
       if (args[0] === 'diff' && args[1] === '--name-only') {
-        return { stdout: 'README.md\0docs/agents/ai-sdlc.md\0' };
+        return { stdout: 'AGENTS.md\0docs/agents/ai-sdlc.md\0' };
       }
       throw new Error(`unexpected git ${args.join(' ')}`);
     },

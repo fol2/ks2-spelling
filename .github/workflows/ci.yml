@@ -45,20 +45,40 @@ jobs:
         with:
           node-version: "24.18.0"
           cache: npm
+      - name: Detect the AI-SDLC Focus Gate
+        id: focus
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/detect-pr-focus-gate.mjs
+      - name: Check exact change integrity
+        run: git diff --check
+      - name: Run F0 documentation and CI contracts
+        if: steps.focus.outputs.product == 'false'
+        run: >-
+          node --test
+          tests/ai-sdlc-contract.test.mjs
+          tests/ci-workflow-contract.test.mjs
+          tests/merge-tier-gate-docs.test.mjs
+          tests/native-ci-path-filter.test.mjs
+          tests/pr-focus-gate.test.mjs
       - name: Install exact root dependencies
+        if: steps.focus.outputs.product == 'true'
         run: npm ci
       - name: Verify frozen B2, vendored and A3 authorities
+        if: steps.focus.outputs.product == 'true'
         run: |
           npm run verify:b2-authority
           npm run verify:vendor
           npm run test:upstream:a3
       - name: Materialise deterministic proof-pack inputs
+        if: steps.focus.outputs.product == 'true'
         run: npm run build:b3-proof-pack
-      # Tier 1 (pull_request): the seconds-fast blocking lane. Pure invariants
-      # above run on every event; the full suite, native drift and builds are
-      # relocated to the merge tier below so a PR stays under a minute.
+      # Tier 1 (pull_request): the seconds-fast blocking lane. F0-only
+      # documentation stops at the contract gate above; product PRs keep the
+      # existing fast test lane. Full native drift and builds remain at merge.
       - name: Run the fast pull-request test lane
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.focus.outputs.product == 'true'
         run: npm run test:fast
       # Tier 2 (merge_group / push / schedule): the full, fail-closed gate that
       # proves the post-merge tree before anything lands on a tracked branch.
@@ -86,8 +106,10 @@ jobs:
           node scripts/rehearse-b3-deploy-config.mjs
           npm --prefix gateway audit --audit-level=high
       - name: Regenerate deterministic B3 proof
+        if: steps.focus.outputs.product == 'true'
         run: npm run prove:b3:deterministic
       - name: Lint source and verification code
+        if: steps.focus.outputs.product == 'true'
         run: npm run lint
       - name: Build bundled web application
         if: github.event_name != 'pull_request'

@@ -9,7 +9,7 @@ problem_type: operating-procedure
 
 # Merge-tier gate: source contract versus live GitHub governance
 
-Dated 2026-08-21. This is the durable maintainer document for the event-to-tier
+Dated 2026-08-27. This is the durable maintainer document for the event-to-tier
 mapping in `.github/workflows/ci.yml` and for the source-level merge-blocking
 contract. It does not prove live GitHub rulesets, branch protection or merge-queue settings.
 Inspect live settings; a source file cannot certify them.
@@ -24,8 +24,15 @@ document.
 
 The workflow definition maps events to tiers:
 
-- `pull_request` runs only the fast Domain and web lane (`npm run test:fast`
-  plus the cheap invariants). Native jobs are skipped. This is developer
+- A safe documentation-only PR enters the Domain and web job but receives only
+  F0 change-integrity and documentation/CI contract checks. It performs zero
+  project-dependency bootstrap. `scripts/detect-pr-focus-gate.mjs` grants this
+  route only when every changed path is an explicitly allow-listed process
+  document with direct focused coverage. Unknown, mixed or unresolved input
+  fails closed onto the product lane.
+- `pull_request` runs only the fast Domain and web lane. A product PR runs the
+  frozen-authority checks, proof input materialisation, `npm run test:fast`,
+  deterministic B3 proof and lint. Native jobs are skipped. This is developer
   feedback, not a merge basis.
 - `merge_group`, `push`, `schedule` and `workflow_dispatch` run the full three-job gate:
   Domain and web, Android unsigned debug and release compile, and iOS unsigned Simulator compile.
@@ -33,8 +40,20 @@ The workflow definition maps events to tiers:
   filter would otherwise be quiet. Certification (`workflow_call` with
   `certification: true`) does the same.
 
+The F0 selector is not a general dependency graph. Its allow-list contains
+exactly `.github/pull_request_template.md`, `AGENTS.md`,
+`docs/agents/ai-sdlc.md`, `docs/agents/issue-tracker.md`, and
+`docs/operations/merge-tier-gate.md`. There is no directory-wide documentation
+shortcut. README, vocabulary, ADR, architecture, other operations and solution
+documents remain product work because existing tests may consume their
+contracts. A new path joins F0 only together with a direct focused contract test
+and selector fixture. Workflows, scripts, tests, package inputs, product sources,
+legal/privacy material, frozen records, reports/evidence, native projects,
+release surfaces and unknown paths remain product work. Changing the selector or
+CI therefore cannot use that same change to skip the product lane.
+
 A bundled-source or native release input that can change an APK or iOS app
-selects both native jobs on those full-gate events. The shared detector is
+selects both native jobs on full-gate events. The shared detector is
 `scripts/detect-native-ci-changes.mjs`. Unresolved base, empty diff or a
 certification run fail closed and compile native. The filter can only ever make
 a merge slower; it must not let a changed Vite payload skip the container that
@@ -46,10 +65,12 @@ This source contract does not prove a hosted merge_group executed those jobs.
 History-sensitive B4 evidence-successor checks inspect the truthful candidate
 range (merge-group base, pull-request base, push `before`, or `HEAD~1` as a
 last-resort first parent). They run on every relevant merge path, including
-`merge_group` and `main`. They do not self-disable with a false-green skip.
-Ordinary commits still skip the evidence-only subset contract, but only after
-that candidate range has been inspected. The candidate merge-base defines the
-PR range. The report's `applicationCheckpoint.commit` must be exactly 40
+`merge_group` and `main`, and also on `pull_request` even for an F0-only PR.
+They do not
+self-disable with a false-green skip. Ordinary commits still skip the evidence-
+only subset contract, but only after that candidate range has been inspected.
+The candidate merge-base defines the PR range. The report's
+`applicationCheckpoint.commit` must be exactly 40
 lowercase hex characters, sit in that range, and be a reachable ancestor of
 HEAD. Only `checkpoint..HEAD` is allow-listed as evidence-only, so a source
 checkpoint followed by one evidence successor is valid, while code after the
@@ -93,6 +114,9 @@ Do not cite `verify:b3` as proof that the gateway Worker was exercised.
 
 ## Maintainer consequences
 
+- F0-only is valid only for a complete allow-listed process-document diff. A
+  mixed change is product work; do not split inseparable code and docs merely to
+  gain the cheaper route. Do not infer safety from a directory name.
 - Pull-request CI alone is not a merge basis for bundled `src/`, `public/`,
   `vite.config.js`, native projects, or any other path the detector selects.
 - The candidate merge-base defines the PR range. The named

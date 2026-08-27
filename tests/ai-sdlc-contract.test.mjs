@@ -75,6 +75,6 @@ test('README, issue tracking and merge-tier docs expose one coherent operating m
   assert.match(tracker, /one branch and\s+one\s+ordinary PR/iu);
   assert.match(tracker, /Research does not need an issue, branch or PR per experiment/u);
   assert.match(mergeTier, /safe documentation-only PR/u);
-  assert.match(mergeTier, /zero project-dependency bootstrap/u);
+  assert.match(mergeTier, /zero\s+project-dependency bootstrap/u);
   assert.match(mergeTier, /Unknown, mixed or unresolved input\s+fails closed/u);
 });

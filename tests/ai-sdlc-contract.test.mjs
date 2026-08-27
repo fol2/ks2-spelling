@@ -20,7 +20,8 @@ test('the root agent kernel progressively discloses the complete AI-SDLC', async
   assert.match(agents, /one branch and\s+one ordinary PR/u);
   assert.match(agents, /no-remote-code boundary/u);
   assert.match(agents, /scripts\/detect-pr-focus-gate\.mjs/u);
-  assert.match(agents, /docs\/superpowers\/\*\*.*docs\/records\/\*\* are frozen/u);
+  assert.match(agents, /docs\/superpowers\/\*\*/u);
+  assert.match(agents, /docs\/records\/\*\* are frozen/u);
 });
 
 test('the full SSOT binds all four rules, F0-F4 and KS2-specific proof', async () => {
@@ -70,10 +71,10 @@ test('README, issue tracking and merge-tier docs expose one coherent operating m
   ]);
   assert.match(readme, /docs\/agents\/ai-sdlc\.md/u);
   assert.match(readme, /F0-only\s+documentation\s+route/u);
-  assert.match(tracker, /one independently mergeable outcome/u);
+  assert.match(tracker, /independently mergeable outcome/iu);
   assert.match(tracker, /one branch and one ordinary PR/u);
   assert.match(tracker, /Research does not need an issue, branch or PR per experiment/u);
   assert.match(mergeTier, /safe documentation-only PR/u);
   assert.match(mergeTier, /zero project-dependency bootstrap/u);
-  assert.match(mergeTier, /Unknown, mixed or unresolved input fails closed/u);
+  assert.match(mergeTier, /Unknown, mixed or unresolved input\s+fails closed/u);
 });

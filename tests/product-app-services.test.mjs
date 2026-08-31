@@ -105,22 +105,26 @@ test('production services persist profile CRUD and selected learner across a cle
   };
   const starterCatalogue = loadStarterSpellingCatalogue();
   const fullCatalogue = await loadFullSpellingCatalogue();
-  const publishedCore = fullCatalogue.items.filter(
+  const starterCore = starterCatalogue.items.filter(
     ({ coverageTier }) => coverageTier == null || coverageTier === 'statutory-core',
   );
-  const publishedVocabularySets = [
-    { id: 'core', label: 'Core', count: publishedCore.length },
+  const drawableVocabularySets = [
+    { id: 'core', label: 'Core', count: starterCore.length },
     {
       id: 'y3-4',
       label: 'Y3–4',
-      count: publishedCore.filter(({ yearBand }) => yearBand === '3-4').length,
+      count: starterCore.filter(({ yearBand }) => yearBand === '3-4').length,
     },
     {
       id: 'y5-6',
       label: 'Y5–6',
-      count: publishedCore.filter(({ yearBand }) => yearBand === '5-6').length,
+      count: starterCore.filter(({ yearBand }) => yearBand === '5-6').length,
     },
   ];
+  const publishedCore = fullCatalogue.items.filter(
+    ({ coverageTier }) => coverageTier == null || coverageTier === 'statutory-core',
+  );
+  assert.ok(publishedCore.length > starterCore.length);
 
   const first = await createProductAppServices(options);
   assert.equal(first.mode, 'product');
@@ -267,7 +271,8 @@ test('production services persist profile CRUD and selected learner across a cle
     actionError: null,
   });
   assert.equal(first.learning.getState().learnerId, ben.learnerId);
-  assert.deepEqual(first.learning.getState().vocabularySets, publishedVocabularySets);
+  assert.equal(first.learning.getState().packSize, PUBLISHED_PACK_SIZE);
+  assert.deepEqual(first.learning.getState().vocabularySets, drawableVocabularySets);
   await first.learning.startRound({
     length: 5,
     mode: 'smart',
@@ -328,7 +333,7 @@ test('production services persist profile CRUD and selected learner across a cle
         attempts === 0 && dueDay === null && lastResult === null,
     ),
   );
-  assert.deepEqual(second.learning.getState().vocabularySets, publishedVocabularySets);
+  assert.deepEqual(second.learning.getState().vocabularySets, drawableVocabularySets);
   assert.equal(protectionCalls.length, 4);
 
   // Rebuild real learning progress so the migration below has something to

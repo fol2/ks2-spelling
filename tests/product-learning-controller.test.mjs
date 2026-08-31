@@ -351,6 +351,57 @@ test('product learning publishes only non-empty catalogue pools and draws from t
   await controller.dispose();
 });
 
+test('trial Setup vocabulary sets stay on the installed catalogue when Full is only the destination', async () => {
+  const starter = loadStarterSpellingCatalogue();
+  const published = loadFullSpellingCatalogue();
+  const starterCore = starter.items.filter(
+    ({ coverageTier }) => coverageTier == null || coverageTier === 'statutory-core',
+  );
+  const publishedCore = published.items.filter(
+    ({ coverageTier }) => coverageTier == null || coverageTier === 'statutory-core',
+  );
+  assert.ok(publishedCore.length > starterCore.length);
+
+  const world = createLearningWorld(
+    [expectedB2Snapshot('learner-a')],
+    starter,
+  );
+  const controller = world.createController(undefined, {
+    publishedCatalogue: published,
+  });
+  const state = controller.getState();
+
+  assert.equal(state.packSize, published.items.length);
+  assert.equal(state.progress.length, published.items.length);
+  assert.deepEqual(state.vocabularySets, [
+    { id: 'core', label: 'Core', count: starterCore.length },
+    {
+      id: 'y3-4',
+      label: 'Y3–4',
+      count: starterCore.filter(({ yearBand }) => yearBand === '3-4').length,
+    },
+    {
+      id: 'y5-6',
+      label: 'Y5–6',
+      count: starterCore.filter(({ yearBand }) => yearBand === '5-6').length,
+    },
+  ]);
+  assert.notEqual(state.vocabularySets[0].count, publishedCore.length);
+
+  await controller.startRound({
+    mode: 'smart',
+    length: 5,
+    yearFilter: 'y5-6',
+  });
+  const runtimeItemId = controller.getState().practice.runtimeItemId;
+  assert.equal(
+    starter.items.find((item) => item.runtimeItemId === runtimeItemId)?.yearBand,
+    '5-6',
+  );
+
+  await controller.dispose();
+});
+
 test('product learning publishes legacy catalogue rows as core vocabulary metadata', async () => {
   const catalogue = structuredClone(loadStarterSpellingCatalogue());
   for (const item of catalogue.items) delete item.coverageTier;

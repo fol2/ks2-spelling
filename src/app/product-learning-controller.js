@@ -168,6 +168,8 @@ function progressProjection(snapshot, catalogue, publishedCatalogue = catalogue)
 }
 
 function vocabularySetsProjection(catalogue) {
+  // Drawable round pools. Setup pills count these; Word Bank chips use the ids
+  // and count from the published progress rows instead.
   const core = catalogue.items.filter(
     ({ coverageTier }) =>
       coverageTier == null || coverageTier === 'statutory-core',
@@ -282,10 +284,10 @@ function createState({
       prefs: prefsProjection(snapshot),
       summary: summary ?? (ui?.summary ? structuredClone(ui.summary) : null),
       progress: progressProjection(snapshot, catalogue, displayCatalogue),
-      // Published KS2 destination, including words this trail has not bought.
-      // Hatch evidence still counts only the installed catalogue.
+      // Camp / Word Bank destination: live published KS2, including locked words.
       packSize: displayCatalogue.items.length,
-      vocabularySets: vocabularySetsProjection(displayCatalogue),
+      // Setup drawable sets: the installed catalogue rounds can actually draw.
+      vocabularySets: vocabularySetsProjection(catalogue),
       monsters: monsterProjection(snapshot, catalogue),
       revisionMission,
       camp: camp === null ? null : {

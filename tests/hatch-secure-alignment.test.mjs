@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -25,6 +26,25 @@ function withTrackThresholds(monsters, catalogue) {
       thresholds: [...(track?.thresholds ?? monster.thresholds ?? [])],
     };
   });
+}
+
+function expectedVocabularySets(catalogue) {
+  const core = catalogue.items.filter(
+    ({ coverageTier }) => coverageTier == null || coverageTier === 'statutory-core',
+  );
+  return [
+    { id: 'core', label: 'Core', count: core.length },
+    {
+      id: 'y3-4',
+      label: 'Y3–4',
+      count: core.filter(({ yearBand }) => yearBand === '3-4').length,
+    },
+    {
+      id: 'y5-6',
+      label: 'Y5–6',
+      count: core.filter(({ yearBand }) => yearBand === '5-6').length,
+    },
+  ].filter(({ count }) => count > 0);
 }
 
 function controllerFor(snapshot, catalogue, publishedCatalogue) {
@@ -280,6 +300,12 @@ test('trial Camp and word bank use the published full catalogue as the destinati
   const state = controllerFor(snapshot, starter, published).getState();
   assert.equal(state.packSize, published.items.length);
   assert.equal(state.progress.length, published.items.length);
+  assert.deepEqual(state.vocabularySets, expectedVocabularySets(starter));
+  assert.notDeepEqual(
+    state.vocabularySets,
+    expectedVocabularySets(published),
+    'Setup must not advertise Full pools that a trial round cannot draw',
+  );
   assert.equal(
     state.progress.filter((row) => row.locked === true).length,
     published.items.length - starter.items.length,
@@ -314,5 +340,17 @@ test('trial Camp and word bank use the published full catalogue as the destinati
     state.monsters.some((monster) => monster.monsterId === 'phaeton'),
     false,
     'Phaeton stays out of Starter',
+  );
+});
+
+test('Setup vocabulary sets project the installed catalogue, not the published destination', async () => {
+  const source = await readFile(
+    new URL('../src/app/product-learning-controller.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /vocabularySets: vocabularySetsProjection\(catalogue\)/);
+  assert.doesNotMatch(
+    source,
+    /vocabularySets: vocabularySetsProjection\(displayCatalogue\)/,
   );
 });

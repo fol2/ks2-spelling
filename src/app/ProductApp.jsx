@@ -24,6 +24,11 @@ import {
   planSummaryRewards,
   revealStarterCompleteAfterCelebrations,
 } from './starter-complete-moment-runtime.js';
+import {
+  hatchedCompanionAsksGrownUp,
+  starterCompleteLearnerIsEntitled,
+  starterCompleteMomentCopy,
+} from './starter-complete-moment.js';
 import { loadStarterSpellingCatalogue } from '../domain/spelling/index.js';
 import { markB4 } from './b4-performance-marks.js';
 
@@ -37,6 +42,7 @@ const REGION = 'the-scribe-downs';
 // makes any more, so this is the whole of the app's opinion about it.
 const PACKAGED_VOICE = 'Iapetus';
 const STARTER_CATALOGUE_FOR_MOMENT = loadStarterSpellingCatalogue();
+const ASK_GROWN_UP_ACTION = starterCompleteMomentCopy(0).grownUpAction;
 
 function prefersReducedMotion() {
   return (
@@ -1935,24 +1941,46 @@ function WordBankScreen({
             <ul className="bank-list">
               {bank.rows.map((row) => (
                 <li key={row.runtimeItemId}>
-                  <button
-                    type="button"
-                    className="bank-row press-soft press"
-                    data-status={row.status}
-                    data-due={row.due ? 'true' : 'false'}
-                    onClick={() => setOpenWordId(row.runtimeItemId)}
-                  >
-                    <span className="bank-row-bar" aria-hidden="true" />
-                    <strong>{row.word}</strong>
-                    <small>{row.note}</small>
-                    <span className="bank-rungs" aria-hidden="true">
-                      {row.rungs.map((lit, index) => (
-                        // eslint-disable-next-line react/no-array-index-key
-                        <span key={index} data-lit={lit ? 'true' : 'false'} />
-                      ))}
-                    </span>
-                    <IconChevron size={18} className="bank-row-open" />
-                  </button>
+                  {row.locked ? (
+                    <div
+                      className="bank-row"
+                      data-status="locked"
+                      data-locked="true"
+                    >
+                      <span className="bank-row-bar" aria-hidden="true" />
+                      <strong aria-hidden="true">{row.word}</strong>
+                      <small>{row.note}</small>
+                      <span className="bank-rungs" aria-hidden="true">
+                        {row.rungs.map((lit, index) => (
+                          // eslint-disable-next-line react/no-array-index-key
+                          <span key={index} data-lit={lit ? 'true' : 'false'} />
+                        ))}
+                      </span>
+                      <IconLock size={18} className="bank-row-open" />
+                      <span className="visually-hidden">
+                        Locked word. {row.note}
+                      </span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="bank-row press-soft press"
+                      data-status={row.status}
+                      data-due={row.due ? 'true' : 'false'}
+                      onClick={() => setOpenWordId(row.runtimeItemId)}
+                    >
+                      <span className="bank-row-bar" aria-hidden="true" />
+                      <strong>{row.word}</strong>
+                      <small>{row.note}</small>
+                      <span className="bank-rungs" aria-hidden="true">
+                        {row.rungs.map((lit, index) => (
+                          // eslint-disable-next-line react/no-array-index-key
+                          <span key={index} data-lit={lit ? 'true' : 'false'} />
+                        ))}
+                      </span>
+                      <IconChevron size={18} className="bank-row-open" />
+                    </button>
+                  )}
                 </li>
               ))}
               {bank.empty && (
@@ -1997,7 +2025,13 @@ function WordBankScreen({
   );
 }
 
-function CodexScreen({ monsters, progress, onScreen }) {
+function CodexScreen({
+  monsters,
+  progress,
+  onScreen,
+  entitled = true,
+  onAskGrownUp,
+}) {
   const [selected, setSelected] = useState(null);
   const [zoomed, setZoomed] = useState(false);
   const codex = useMemo(
@@ -2092,6 +2126,20 @@ function CodexScreen({ monsters, progress, onScreen }) {
                       <span className="figure">{hero.count}</span>
                     </div>
                     <p className="codex-next">{hero.next}</p>
+                    {hatchedCompanionAsksGrownUp({
+                      stage: hero.stage,
+                      entitled,
+                    }) && typeof onAskGrownUp === 'function' && (
+                      <button
+                        type="button"
+                        className="ask-grown-up-badge press-soft press"
+                        data-ask-grown-up="true"
+                        onClick={onAskGrownUp}
+                      >
+                        <IconLock size={15} />
+                        {ASK_GROWN_UP_ACTION}
+                      </button>
+                    )}
                   </div>
                 </section>
 
@@ -2549,6 +2597,8 @@ function SetupScreen({
   megaWords = 0,
   packSize = 0,
   onStartGuardian,
+  entitled = true,
+  onAskGrownUp,
 }) {
   const [length, setLength] = useState(5);
   // Guardian is the day's errand on the days it is waiting, and this screen
@@ -2634,6 +2684,22 @@ function SetupScreen({
             )}
             {companion && !companion.found && (
               <p className="setup-companion-hint">Secure spellings here to wake this companion.</p>
+            )}
+            {companion
+              && hatchedCompanionAsksGrownUp({
+                stage: companion.stage,
+                entitled,
+              })
+              && typeof onAskGrownUp === 'function' && (
+                <button
+                  type="button"
+                  className="ask-grown-up-badge press-soft press"
+                  data-ask-grown-up="true"
+                  onClick={onAskGrownUp}
+                >
+                  <IconLock size={15} />
+                  {ASK_GROWN_UP_ACTION}
+                </button>
             )}
             <div className="scene-scroll setup-quest">
               <p>
@@ -3645,8 +3711,10 @@ export default function ProductApp({ services }) {
         previousScreen,
         next,
         remainingWordCount: services.remainingWordCount,
-        entitled: services.catalogueId === 'ks2-core:full'
-          || commerce?.entitlementState === 'active',
+        entitled: starterCompleteLearnerIsEntitled({
+          catalogueId: services.catalogueId,
+          entitlementState: commerce?.entitlementState,
+        }),
         starterCatalogue: STARTER_CATALOGUE_FOR_MOMENT,
       });
       if (plan.leaveSummary) {
@@ -3698,6 +3766,10 @@ export default function ProductApp({ services }) {
     () => countMegaWords(learningState.progress),
     [learningState.progress],
   );
+  const entitled = starterCompleteLearnerIsEntitled({
+    catalogueId: services.catalogueId,
+    entitlementState: parentCommerceState?.entitlementState,
+  });
 
   if (profileState.status === 'failed') {
     return (
@@ -3854,6 +3926,8 @@ export default function ProductApp({ services }) {
         megaWords={megaWords}
         packSize={learningState.packSize ?? 0}
         onStartGuardian={startGuardian}
+        entitled={entitled}
+        onAskGrownUp={() => setParentOpen(true)}
       />
     );
   }
@@ -3927,6 +4001,8 @@ export default function ProductApp({ services }) {
         monsters={learningState.monsters}
         progress={learningState.progress}
         onScreen={showScreen}
+        entitled={entitled}
+        onAskGrownUp={() => setParentOpen(true)}
       />
     );
   }

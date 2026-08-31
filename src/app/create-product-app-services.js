@@ -449,6 +449,7 @@ export async function createProductAppServices(options = {}) {
       repository: commandRepository,
       snapshotStore,
       catalogue,
+      publishedCatalogue: fullCatalogue,
       initialSnapshot,
       roundBaselineStore,
       initialRoundBaseline,

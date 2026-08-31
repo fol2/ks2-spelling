@@ -26,6 +26,14 @@ const VOCAB_SET_BY_ID = new Map(
 // Secure, due and trouble follow the frozen a3 parent projection so the word
 // bank and the Parent area can never disagree about a word.
 function classify(item, todayDay) {
+  if (item?.locked === true) {
+    return {
+      secure: false,
+      due: false,
+      trouble: false,
+      locked: true,
+    };
+  }
   const secure = wordIsSecure(item.stage);
   const dueDay = Number.isSafeInteger(item.dueDay) ? item.dueDay : null;
   const dueToday = dueDay !== null && dueDay <= todayDay;
@@ -34,16 +42,19 @@ function classify(item, todayDay) {
     due: item.attempts > 0 && dueToday && !secure,
     trouble: item.wrong > 0
       && (item.wrong >= item.correct || dueToday),
+    locked: false,
   };
 }
 
 function statusOf(marks) {
+  if (marks.locked) return 'locked';
   if (marks.trouble) return 'trouble';
   if (marks.secure) return 'secure';
   return 'learning';
 }
 
 function noteFor(item, marks) {
+  if (marks.locked) return 'Not on this trail yet';
   if (item.attempts === 0) return 'Not met yet';
   const revisits = item.wrong === 1 ? '1 to revisit' : `${item.wrong} to revisit`;
   const correct = item.correct === 1 ? '1 correct' : `${item.correct} correct`;
@@ -52,6 +63,7 @@ function noteFor(item, marks) {
 }
 
 function matchesFilter(filterId, marks, status) {
+  if (marks.locked) return filterId === 'all';
   if (filterId === 'all') return true;
   if (filterId === 'due') return marks.due;
   if (filterId === 'trouble') return marks.trouble;
@@ -229,6 +241,7 @@ export function buildWordBank({
       coverageTier: item.coverageTier ?? null,
       status,
       due: marks.due,
+      locked: marks.locked === true,
       note: noteFor(item, marks),
       rungs: Array.from({ length: HIGHEST_RUNG }, (_, index) => index < item.stage),
       marks,

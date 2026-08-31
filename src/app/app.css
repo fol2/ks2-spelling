@@ -942,6 +942,25 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   --row-note: var(--brass-deep);
 }
 
+.bank-row[data-status='locked'] {
+  --row-edge: rgb(29 43 58 / 16%);
+  --row-fill: rgb(29 43 58 / 6%);
+  --row-bar: var(--ink-faint);
+  --row-note: var(--ink-faint);
+}
+
+/* Same silhouette contract as unfound companion art, kept off that img group
+   so press/callout proofs for Codex Setup stay img-only. */
+.bank-row[data-status='locked'] strong {
+  filter: brightness(0) invert(1) opacity(0.15);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .bank-empty {
   display: grid;
   justify-items: start;
@@ -1365,6 +1384,20 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   font-weight: 800;
   letter-spacing: 0.11em;
   text-transform: uppercase;
+}
+
+.ask-grown-up-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.7rem;
+  border: 1px solid rgb(255 249 236 / 28%);
+  border-radius: var(--r-pill);
+  padding: 0.4rem 0.75rem;
+  background: rgb(255 249 236 / 12%);
+  color: rgb(255 249 236 / 92%);
+  font-size: var(--fs-note);
+  font-weight: 700;
 }
 
 .codex-hero[data-found='false'] .codex-next {
@@ -2087,6 +2120,14 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   text-align: right;
   text-wrap: balance;
   color: var(--dusk-ink-soft);
+}
+
+.setup-hero .ask-grown-up-badge {
+  position: absolute;
+  z-index: 1;
+  right: 1rem;
+  bottom: 0.6rem;
+  margin-top: 0;
 }
 
 /* The sleeping companion lifts to leave its caption room underneath. */

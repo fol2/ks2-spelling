@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -27,7 +28,26 @@ function withTrackThresholds(monsters, catalogue) {
   });
 }
 
-function controllerFor(snapshot, catalogue) {
+function expectedVocabularySets(catalogue) {
+  const core = catalogue.items.filter(
+    ({ coverageTier }) => coverageTier == null || coverageTier === 'statutory-core',
+  );
+  return [
+    { id: 'core', label: 'Core', count: core.length },
+    {
+      id: 'y3-4',
+      label: 'Y3–4',
+      count: core.filter(({ yearBand }) => yearBand === '3-4').length,
+    },
+    {
+      id: 'y5-6',
+      label: 'Y5–6',
+      count: core.filter(({ yearBand }) => yearBand === '5-6').length,
+    },
+  ].filter(({ count }) => count > 0);
+}
+
+function controllerFor(snapshot, catalogue, publishedCatalogue) {
   const snapshots = new Map([
     [snapshot.learnerId, structuredClone(snapshot)],
   ]);
@@ -43,6 +63,7 @@ function controllerFor(snapshot, catalogue) {
       },
     }),
     catalogue,
+    ...(publishedCatalogue ? { publishedCatalogue } : {}),
     initialSnapshot: snapshot,
     random: () => 0.25,
     now: () => NOW_MS,
@@ -120,8 +141,8 @@ test('hatch remaining matches the word list when every hatch-counting word is se
   assert.equal(hero.secureCount, 10, 'hatch evidence must match the all-secure list');
   assert.equal(hero.found, true);
   assert.equal(hero.stage, 1, 'Starter band threshold 10 is met, so Inklet hatches');
-  assert.equal(hero.count, '10 of 10');
-  assert.doesNotMatch(hero.count, /of 100/);
+  assert.equal(hero.count, '10 of 100');
+  assert.match(hero.next, /20 more to Scribbla/);
   assert.doesNotMatch(
     hero.next,
     /more to Inklet/,
@@ -129,7 +150,7 @@ test('hatch remaining matches the word list when every hatch-counting word is se
   );
 });
 
-test('Starter trial: twenty secured words hatch Inklet and Glimmerbug on Starter thresholds, not of 100', () => {
+test('Starter trial: twenty secured words hatch Inklet and Glimmerbug against the published 100-word climb', () => {
   const catalogue = loadStarterSpellingCatalogue();
   const y34 = catalogue.items.filter((item) => item.yearBand === '3-4');
   const y56 = catalogue.items.filter((item) => item.yearBand === '5-6');
@@ -230,11 +251,12 @@ test('Starter trial: twenty secured words hatch Inklet and Glimmerbug on Starter
   const glimmer = codex.roster.find((entry) => entry.monsterId === 'glimmerbug');
   assert.equal(inklet.stage, 1);
   assert.equal(inklet.title, 'Inklet');
-  assert.equal(inklet.count, '10 of 10');
+  assert.equal(inklet.count, '10 of 100');
   assert.doesNotMatch(inklet.next, /more to Inklet/i);
+  assert.match(inklet.next, /20 more to Scribbla/);
   assert.equal(glimmer.stage, 1);
   assert.equal(glimmer.title, 'Glimmerbug');
-  assert.equal(glimmer.count, '10 of 10');
+  assert.equal(glimmer.count, '10 of 100');
   assert.doesNotMatch(glimmer.next, /more to Glimmerbug/i);
 });
 
@@ -257,4 +279,78 @@ test('Full catalogue Inklet still uses the published 100-word growth line', () =
   assert.equal(hero.stage, 1);
   assert.equal(hero.count, '10 of 100');
   assert.match(hero.next, /20 more to Scribbla/);
+});
+
+test('trial Camp and word bank use the published full catalogue as the destination', () => {
+  const starter = loadStarterSpellingCatalogue();
+  const published = loadFullSpellingCatalogue();
+  const publishedCoreCount = published.items.filter((item) => (
+    item.coverageTier == null || item.coverageTier === 'statutory-core'
+  )).length;
+  assert.ok(publishedCoreCount > starter.items.length);
+
+  const y34 = starter.items.filter((item) => item.yearBand === '3-4');
+  const progress = Object.fromEntries(y34.map((item) => [
+    item.runtimeItemId,
+    { stage: 5 },
+  ]));
+  const snapshot = structuredClone(expectedB2Snapshot('learner-a'));
+  snapshot.subjectState.data.progress = progress;
+
+  const state = controllerFor(snapshot, starter, published).getState();
+  assert.equal(state.packSize, published.items.length);
+  assert.equal(state.progress.length, published.items.length);
+  assert.deepEqual(state.vocabularySets, expectedVocabularySets(starter));
+  assert.notDeepEqual(
+    state.vocabularySets,
+    expectedVocabularySets(published),
+    'Setup must not advertise Full pools that a trial round cannot draw',
+  );
+  assert.equal(
+    state.progress.filter((row) => row.locked === true).length,
+    published.items.length - starter.items.length,
+  );
+  assert.ok(state.progress.every((row) => (
+    starter.items.some((item) => item.runtimeItemId === row.runtimeItemId)
+      ? row.locked !== true
+      : row.locked === true
+  )));
+
+  const bank = buildWordBank({
+    progress: state.progress,
+    vocabularySets: state.vocabularySets,
+    vocabSet: 'core',
+  });
+  assert.equal(bank.total, publishedCoreCount);
+  assert.equal(bank.setTotal, publishedCoreCount);
+  assert.ok(
+    bank.rows.some((row) => row.locked === true),
+    'unpurchased words stay in the list as locked rows',
+  );
+  assert.ok(
+    bank.rows.every((row) => row.locked !== true || row.status === 'locked'),
+  );
+
+  const inklet = state.monsters.find((monster) => monster.monsterId === 'inklet');
+  assert.equal(inklet.secureCount, 10);
+  assert.equal(inklet.derivedStage, 1);
+  assert.deepEqual(inklet.thresholds, [1, 10, 30, 60, 100]);
+  assert.equal(buildCodex([inklet]).hero.count, '10 of 100');
+  assert.equal(
+    state.monsters.some((monster) => monster.monsterId === 'phaeton'),
+    false,
+    'Phaeton stays out of Starter',
+  );
+});
+
+test('Setup vocabulary sets project the installed catalogue, not the published destination', async () => {
+  const source = await readFile(
+    new URL('../src/app/product-learning-controller.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /vocabularySets: vocabularySetsProjection\(catalogue\)/);
+  assert.doesNotMatch(
+    source,
+    /vocabularySets: vocabularySetsProjection\(displayCatalogue\)/,
+  );
 });

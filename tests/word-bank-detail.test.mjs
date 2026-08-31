@@ -145,6 +145,36 @@ test('every word bank entry is a button that opens the word', async (t) => {
   assert.doesNotMatch(html, /<li class="bank-row/u);
 });
 
+test('unpurchased word-bank rows stay listed as locked silhouettes', async (t) => {
+  const html = await renderProduct(t, 'WordBankScreen', {
+    progress: [
+      progressRow('ks2-core:busy', { stage: 4, attempts: 5, correct: 5 }),
+      {
+        ...progressRow('ks2-core:answer'),
+        runtimeItemId: 'ks2-core:vehicle',
+        target: 'vehicle',
+        locked: true,
+      },
+    ],
+    vocabularySets: [{ id: 'core', label: 'Core', count: 2 }],
+    onScreen() {},
+    onStart() {},
+    wordMaterial: () => null,
+    onPractise: async () => {},
+    audio: { async play() {} },
+    audioState: { status: 'ready', activeVersion: '1.0.0', actionError: null },
+    voiceId: 'Iapetus',
+    busy: false,
+    onPlaybackFailure() {},
+  });
+
+  assert.match(html, /data-locked="true"/);
+  assert.match(html, /Locked word/);
+  assert.match(html, /Not on this trail yet/);
+  const buttons = html.match(/<button type="button" class="bank-row press-soft press"/gu) ?? [];
+  assert.equal(buttons.length, 1, 'a locked word must not open as a bank button');
+});
+
 test('Hear it plays the verified word recording through the round audio player', async () => {
   const reads = [];
   const player = createProductAudioPlayer({

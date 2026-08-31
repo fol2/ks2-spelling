@@ -94,6 +94,7 @@ function unseenProgress(catalogue) {
     wrong: 0,
     dueDay: null,
     lastResult: null,
+    locked: false,
   }));
 }
 
@@ -109,7 +110,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
     prefs: { voiceId: 'Iapetus', showCloze: true, autoSpeak: true },
     summary: null,
     progress: unseenProgress(world.catalogue),
-    // The active pack's size, so the setup panel can report what is unseen.
+    // Without publishedCatalogue the installed starter is the destination.
     packSize: 20,
     vocabularySets: [
       { id: 'core', label: 'Core', count: 20 },
@@ -120,7 +121,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
       rewardTrackId: 'spelling-core-inklet',
       packId: 'ks2-core',
       monsterId: 'inklet',
-      thresholds: [1, 10],
+      thresholds: [1, 10, 30, 60, 100],
       branch: null,
       secureCount: 0,
       caught: false,
@@ -130,7 +131,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
       rewardTrackId: 'spelling-core-glimmerbug',
       packId: 'ks2-core',
       monsterId: 'glimmerbug',
-      thresholds: [1, 10],
+      thresholds: [1, 10, 30, 60, 100],
       branch: null,
       secureCount: 0,
       caught: false,
@@ -344,6 +345,57 @@ test('product learning publishes only non-empty catalogue pools and draws from t
   const runtimeItemId = controller.getState().practice.runtimeItemId;
   assert.equal(
     catalogue.items.find((item) => item.runtimeItemId === runtimeItemId)?.yearBand,
+    '5-6',
+  );
+
+  await controller.dispose();
+});
+
+test('trial Setup vocabulary sets stay on the installed catalogue when Full is only the destination', async () => {
+  const starter = loadStarterSpellingCatalogue();
+  const published = loadFullSpellingCatalogue();
+  const starterCore = starter.items.filter(
+    ({ coverageTier }) => coverageTier == null || coverageTier === 'statutory-core',
+  );
+  const publishedCore = published.items.filter(
+    ({ coverageTier }) => coverageTier == null || coverageTier === 'statutory-core',
+  );
+  assert.ok(publishedCore.length > starterCore.length);
+
+  const world = createLearningWorld(
+    [expectedB2Snapshot('learner-a')],
+    starter,
+  );
+  const controller = world.createController(undefined, {
+    publishedCatalogue: published,
+  });
+  const state = controller.getState();
+
+  assert.equal(state.packSize, published.items.length);
+  assert.equal(state.progress.length, published.items.length);
+  assert.deepEqual(state.vocabularySets, [
+    { id: 'core', label: 'Core', count: starterCore.length },
+    {
+      id: 'y3-4',
+      label: 'Y3–4',
+      count: starterCore.filter(({ yearBand }) => yearBand === '3-4').length,
+    },
+    {
+      id: 'y5-6',
+      label: 'Y5–6',
+      count: starterCore.filter(({ yearBand }) => yearBand === '5-6').length,
+    },
+  ]);
+  assert.notEqual(state.vocabularySets[0].count, publishedCore.length);
+
+  await controller.startRound({
+    mode: 'smart',
+    length: 5,
+    yearFilter: 'y5-6',
+  });
+  const runtimeItemId = controller.getState().practice.runtimeItemId;
+  assert.equal(
+    starter.items.find((item) => item.runtimeItemId === runtimeItemId)?.yearBand,
     '5-6',
   );
 

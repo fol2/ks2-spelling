@@ -133,6 +133,23 @@ export function starterCompleteMomentCopy(remainingWordCount) {
   });
 }
 
+/**
+ * Paid Full access for child paywall surfaces. The installed session is
+ * `ks2-core:full`. Commerce `active` covers the purchased-but-not-yet-installed
+ * window (queued / downloading / failed) while catalogueId is still Starter.
+ */
+export function starterCompleteLearnerIsEntitled({
+  catalogueId,
+  entitlementState,
+} = {}) {
+  return catalogueId === 'ks2-core:full' || entitlementState === 'active';
+}
+
+/** Persistent Codex / Setup entry after hatch; the overlay remains one-shot. */
+export function hatchedCompanionAsksGrownUp({ stage, entitled } = {}) {
+  return entitled !== true && nonNegativeInteger(stage) >= 1;
+}
+
 export async function readAndConsumeStarterCompleteMoment({
   store,
   learnerId,

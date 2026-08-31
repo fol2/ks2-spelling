@@ -99,6 +99,12 @@ test('ProductApp source still keeps Buy Full KS2 behind status === unlocked Pare
     product,
     /status === 'unlocked'[\s\S]*ParentCommerceCard/u,
   );
+  assert.match(product, /starterCompleteLearnerIsEntitled/);
+  assert.doesNotMatch(
+    product,
+    /entitled=\{services\.catalogueId === 'ks2-core:full'\}/u,
+    'badge entitled must not be catalogueId-only; active-but-uninstalled is entitled',
+  );
 });
 
 test('SSR of ResultsScreen with a provided signpost omits purchase language', async (t) => {
@@ -149,6 +155,214 @@ test('SSR of ResultsScreen with a provided signpost omits purchase language', as
   assert.match(html, new RegExp(`There are ${remaining} more words waiting\\.`));
   assert.match(html, /Ask a grown-up/);
   assert.doesNotMatch(html, PURCHASE_LANGUAGE);
+});
+
+test('Codex keeps a re-openable Ask-a-grown-up badge after a trial hatch', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { CodexScreen } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
+  const hatched = Object.freeze({
+    rewardTrackId: 'spelling-core-inklet',
+    packId: 'ks2-core',
+    monsterId: 'inklet',
+    thresholds: Object.freeze([1, 10, 30, 60, 100]),
+    branch: 'b1',
+    secureCount: 10,
+    caught: true,
+    derivedStage: 1,
+    earnedStageHighWater: 1,
+  });
+  const html = renderToStaticMarkup(
+    React.createElement(CodexScreen, {
+      monsters: [hatched],
+      progress: [],
+      onScreen() {},
+      entitled: false,
+      onAskGrownUp() {},
+    }),
+  );
+  assert.match(html, /data-ask-grown-up="true"/);
+  assert.match(html, /Ask a grown-up/);
+  assert.match(html, /10 of 100/);
+  assert.doesNotMatch(html, PURCHASE_LANGUAGE);
+
+  const entitledHtml = renderToStaticMarkup(
+    React.createElement(CodexScreen, {
+      monsters: [hatched],
+      progress: [],
+      onScreen() {},
+      entitled: true,
+      onAskGrownUp() {},
+    }),
+  );
+  assert.doesNotMatch(entitledHtml, /data-ask-grown-up="true"/);
+
+  const eggHtml = renderToStaticMarkup(
+    React.createElement(CodexScreen, {
+      monsters: [{
+        ...hatched,
+        secureCount: 0,
+        caught: false,
+        derivedStage: 0,
+        earnedStageHighWater: 0,
+      }],
+      progress: [],
+      onScreen() {},
+      entitled: false,
+      onAskGrownUp() {},
+    }),
+  );
+  assert.doesNotMatch(eggHtml, /data-ask-grown-up="true"/);
+});
+
+function store(state) {
+  return Object.freeze({
+    getState: () => state,
+    subscribe: () => Object.freeze({ remove() {} }),
+  });
+}
+
+const HATCHED_INKLET = Object.freeze({
+  rewardTrackId: 'spelling-core-inklet',
+  packId: 'ks2-core',
+  monsterId: 'inklet',
+  thresholds: Object.freeze([1, 10, 30, 60, 100]),
+  branch: 'b1',
+  secureCount: 10,
+  caught: true,
+  derivedStage: 1,
+  earnedStageHighWater: 1,
+});
+
+function productAppServices({
+  catalogueId = 'ks2-core:starter',
+  entitlementState = 'none',
+  packState = 'missing',
+} = {}) {
+  const profileState = Object.freeze({
+    status: 'ready',
+    profiles: Object.freeze([{
+      learnerId: 'learner-a',
+      nickname: 'Ada',
+      yearGroup: 'Y4',
+      goal: 10,
+      colour: '#1f6f77',
+      createdAt: 1,
+      updatedAt: 1,
+    }]),
+    selectedLearnerId: 'learner-a',
+    actionError: null,
+  });
+  const learningState = Object.freeze({
+    status: 'ready',
+    screen: 'monster',
+    learnerId: 'learner-a',
+    practice: null,
+    prefs: Object.freeze({ voiceId: 'Iapetus', showCloze: true, autoSpeak: true }),
+    summary: null,
+    progress: Object.freeze([]),
+    vocabularySets: Object.freeze([]),
+    monsters: Object.freeze([HATCHED_INKLET]),
+    packSize: 213,
+    revisionMission: null,
+    camp: Object.freeze({
+      packId: 'ks2-core',
+      campHighWater: 0,
+      lastCreditedGuardianDay: null,
+      canEarnToday: false,
+    }),
+    actionError: null,
+  });
+  return Object.freeze({
+    mode: 'product',
+    catalogueId,
+    remainingWordCount: 193,
+    controller: store(profileState),
+    learning: Object.freeze({
+      ...store(learningState),
+      showScreen() {},
+    }),
+    audioAvailability: Object.freeze({
+      ...store(Object.freeze({
+        status: 'ready',
+        activeVersion: '1.0.0',
+        actionError: null,
+      })),
+      async recover() {},
+    }),
+    parent: store(Object.freeze({
+      status: 'locked',
+      biometric: Object.freeze({ available: false, type: 'none', enabled: false }),
+      attemptsRemaining: 5,
+      lockedUntil: 0,
+      actionError: null,
+    })),
+    parentProgress: Object.freeze({
+      ...store(Object.freeze({
+        status: 'ready',
+        learners: Object.freeze([]),
+        actionError: null,
+      })),
+      async refresh() {},
+    }),
+    parentCommerce: Object.freeze({
+      ...store(Object.freeze({
+        status: 'ready',
+        displayPrice: '£9.99',
+        entitlementState,
+        packState,
+        action: null,
+        actionError: null,
+        downloadProgress: null,
+      })),
+      async recover() {},
+    }),
+    parentAdministration: Object.freeze({ async resetLearning() {} }),
+    audio: Object.freeze({ async play() {} }),
+    haptics: Object.freeze({ uiTick() {} }),
+    sfx: Object.freeze({ play() {}, isEnabled: () => true }),
+  });
+}
+
+test('ProductApp hides the Ask-a-grown-up badge while Full access is active but the pack is not installed', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { default: ProductApp } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
+  const render = (services) => renderToStaticMarkup(
+    React.createElement(ProductApp, { services }),
+  );
+
+  const trial = render(productAppServices());
+  assert.match(trial, /data-ask-grown-up="true"/);
+  assert.match(trial, /10 of 100/);
+  assert.doesNotMatch(trial, PURCHASE_LANGUAGE);
+
+  for (const packState of ['queued', 'downloading', 'failed']) {
+    const html = render(productAppServices({
+      catalogueId: 'ks2-core:starter',
+      entitlementState: 'active',
+      packState,
+    }));
+    assert.equal(
+      html.includes('data-ask-grown-up="true"'),
+      false,
+      `active/${packState} must not show the child Ask-a-grown-up badge`,
+    );
+    assert.match(html, /10 of 100/);
+    assert.doesNotMatch(html, PURCHASE_LANGUAGE);
+  }
 });
 
 test('locked ParentArea SSR markup has no Buy control after the Ask handler factory runs', async (t) => {

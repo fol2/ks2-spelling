@@ -86,6 +86,52 @@ export function derivedMonsterStage(secureCount, thresholds) {
   return 0;
 }
 
+function publishedThresholds(track) {
+  return Array.isArray(track?.thresholds)
+    ? track.thresholds.filter((value) => Number.isSafeInteger(value) && value > 0)
+    : [];
+}
+
+function sourceYearBands(track, tracks) {
+  const sources = Array.isArray(track?.sourceRewardTrackIds)
+    ? track.sourceRewardTrackIds.filter((value) => typeof value === 'string' && value)
+    : [];
+  if (sources.length === 0) {
+    return typeof track?.yearBand === 'string' && track.yearBand
+      ? [track.yearBand]
+      : [];
+  }
+  const trackById = new Map(
+    (Array.isArray(tracks) ? tracks : []).map((entry) => [entry.rewardTrackId, entry]),
+  );
+  return sources
+    .map((sourceId) => trackById.get(sourceId)?.yearBand)
+    .filter((yearBand) => typeof yearBand === 'string' && yearBand);
+}
+
+/** How many catalogue items this reward track can actually count. */
+export function catalogueTrackPoolSize(track, items = [], tracks = []) {
+  const bands = new Set(sourceYearBands(track, tracks));
+  if (bands.size === 0) return 0;
+  return (Array.isArray(items) ? items : []).filter(
+    (item) => bands.has(item?.yearBand),
+  ).length;
+}
+
+/**
+ * Drop published stage thresholds this catalogue cannot fund. Starter copies
+ * Full's [1, 10, 30, 60, 100] even though each year band has ten words, so
+ * Codex would keep saying "N of 100" / "10 more to hatch" after the trial
+ * list is already secure. Catch/hatch stay the reachable prefix.
+ */
+export function catalogueReachableThresholds(track, items = [], tracks = []) {
+  const published = publishedThresholds(track);
+  const poolSize = catalogueTrackPoolSize(track, items, tracks);
+  if (published.length === 0 || poolSize <= 0) return published;
+  const reachable = published.filter((value) => value <= poolSize);
+  return reachable.length > 0 ? reachable : published;
+}
+
 /**
  * Rebuild companion hatch evidence from the same per-word secure floor the
  * list uses. Branch identity still comes from the saved A3 state.
@@ -132,20 +178,22 @@ export function projectMonstersFromWordSecurity({
 
   return tracks.map((track) => {
     const current = saved[track.rewardTrackId];
+    const thresholds = catalogueReachableThresholds(track, catalogueItems, tracks);
     const secureCount = evidenceFor(track.rewardTrackId).size;
-    const derivedStage = derivedMonsterStage(secureCount, track.thresholds);
+    const derivedStage = derivedMonsterStage(secureCount, thresholds);
     const earnedStageHighWater = Math.max(
       derivedStage,
       nonNegativeInteger(current?.earnedStageHighWater),
     );
+    const catchThreshold = monsterCatchThreshold({ thresholds });
     return {
       rewardTrackId: track.rewardTrackId,
       packId: track.packId,
       monsterId: track.monsterId,
-      thresholds: structuredClone(track.thresholds),
+      thresholds: [...thresholds],
       branch: current?.branch ?? null,
       secureCount,
-      caught: secureCount >= monsterCatchThreshold(track)
+      caught: secureCount >= catchThreshold
         || current?.caught === true
         || earnedStageHighWater > 0,
       derivedStage,

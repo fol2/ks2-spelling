@@ -87,7 +87,7 @@ function buildEntry(monster, index) {
     count: target > 0 ? `${secureCount} of ${target}` : `${secureCount} secure`,
     next: found
       ? (remaining === null
-        ? 'Fully grown'
+        ? (stage >= HIGHEST_MONSTER_STAGE ? 'Fully grown' : '')
         : `${remaining} more to ${facts.stages[stage + 1]}`)
       : undiscoveredHint(monster, facts, aggregate),
     // Leaning forward is only honest while a found companion is still growing:

@@ -399,6 +399,12 @@ select {
 
 .press:active:not(:disabled) {
   transform: scale(0.972);
+}
+
+/* A filter here is an ancestor filter over any child sprite. Unfound roster
+   tiles keep their silhouette on the img (#109); parent brightness() would
+   flatten it and show the colour art. Scale still applies. */
+.press:active:not(:disabled):not([data-found='false']) {
   filter: brightness(0.96);
 }
 
@@ -1263,12 +1269,19 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 }
 
 /* Unfound art is a silhouette everywhere it appears, so nothing spoils a
-   creature before it is found. */
+   creature before it is found. The img is not a long-press or drag target;
+   roster clicks still hit the wrapping button. */
 .codex-hero[data-found='false'] .codex-stage img,
 .codex-growth li[data-reached='false'] img,
 .codex-roster button[data-found='false'] img,
 .setup-hero img.companion-asleep {
   filter: brightness(0) invert(1) opacity(0.15);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .codex-stage-shadow {

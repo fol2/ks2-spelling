@@ -1328,6 +1328,82 @@ test('the product shell consumes native safe-area insets', async () => {
   );
 });
 
+/* Yield [selector, body] for every rule, ignoring at-rule preludes so nested
+   blocks inside @media are visited with their own selectors. */
+function* cssDeclarationBlocks(css) {
+  const withoutComments = css.replace(/\/\*[\s\S]*?\*\//gu, '');
+  const pattern = /([^{}]+)\{([^{}]*)\}/gu;
+  let match = pattern.exec(withoutComments);
+  while (match !== null) {
+    const selector = match[1];
+    if (!selector.trim().startsWith('@')) yield [selector, match[2]];
+    match = pattern.exec(withoutComments);
+  }
+}
+
+function cssSetsFilter(body) {
+  return /(?:^|[\s;])-?(?:webkit-)?filter\s*:/u.test(body);
+}
+
+function pressActiveSelectorReachesUnfound(selector) {
+  return selector.split(',').some((part) => {
+    if (!/\.press:active\b/u.test(part)) return false;
+    if (/:not\(\s*\[data-found=(['"])false\1\]\s*\)/u.test(part)) return false;
+    if (/\[data-found=(['"])true\1\]/u.test(part)) return false;
+    return true;
+  });
+}
+
+test('unfound companion art stays a silhouette under press and callout', async () => {
+  const productCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
+  const blocks = [...cssDeclarationBlocks(productCss)];
+
+  const silhouette = blocks.find(([selector]) => (
+    selector.includes(".codex-hero[data-found='false'] .codex-stage img")
+    && selector.includes(".codex-growth li[data-reached='false'] img")
+    && selector.includes(".codex-roster button[data-found='false'] img")
+    && selector.includes('.setup-hero img.companion-asleep')
+  ));
+  assert.ok(
+    silhouette,
+    'hero, growth, roster and Setup asleep art must share one silhouette rule',
+  );
+
+  const [silhouetteSelector, silhouetteBody] = silhouette;
+  for (const part of silhouetteSelector.split(',')) {
+    const subject = part.trim().split(/[\s>+~]/u).filter(Boolean).pop();
+    assert.match(
+      subject,
+      /^img\b/u,
+      `${part.trim()} must keep the silhouette filter on the img, not an ancestor`,
+    );
+  }
+  assert.match(
+    silhouetteBody,
+    /filter:\s*brightness\(0\)\s*invert\(1\)\s*opacity\(0\.15\);/u,
+  );
+  assert.match(silhouetteBody, /(?:^|[\s;])pointer-events:\s*none;/u);
+  assert.match(silhouetteBody, /(?:^|[\s;])-webkit-touch-callout:\s*none;/u);
+
+  assert.ok(
+    blocks.some(([selector, body]) => (
+      /\.press:active\b/u.test(selector)
+      && /:not\(\s*\[data-found=(['"])false\1\]\s*\)/u.test(selector)
+      && /filter:\s*brightness\(0\.96\)/u.test(body)
+    )),
+    'found press controls must keep the brightness press filter',
+  );
+
+  for (const [selector, body] of blocks) {
+    if (!cssSetsFilter(body)) continue;
+    assert.equal(
+      pressActiveSelectorReachesUnfound(selector),
+      false,
+      `${selector.trim()} must not set filter on .press:active when data-found is false`,
+    );
+  }
+});
+
 test('the product shell keeps the waypoint foot on the viewport while Words scroll', async () => {
   const productCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
 

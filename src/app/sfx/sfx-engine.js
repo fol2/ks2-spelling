@@ -57,6 +57,7 @@ export function createSfxEngine({
 
   let enabled = initiallyEnabled === true;
   let unlocked = false;
+  let speaking = false;
   let speechUntil = 0;
   let context = null;
   let disposed = false;
@@ -176,6 +177,7 @@ export function createSfxEngine({
         enabled,
         unlocked,
         speechUntil,
+        speaking,
         now: now(),
       });
       if (!decision.play) return;
@@ -203,8 +205,20 @@ export function createSfxEngine({
 
     noteSpeechStarted(holdMs) {
       if (disposed) return;
+      if (holdMs === undefined) {
+        speaking = true;
+        speechUntil = 0;
+        return;
+      }
+      speaking = false;
       const hold = typeof holdMs === 'number' && Number.isFinite(holdMs) ? holdMs : 0;
       speechUntil = now() + Math.max(0, hold);
+    },
+
+    noteSpeechEnded() {
+      if (disposed) return;
+      speaking = false;
+      speechUntil = 0;
     },
 
     setEnabled(value) {
@@ -219,6 +233,7 @@ export function createSfxEngine({
       if (disposed) return;
       disposed = true;
       unlocked = false;
+      speaking = false;
       clearUnlockListeners();
       if (typeof lifecycleUnsubscribe === 'function') {
         try {

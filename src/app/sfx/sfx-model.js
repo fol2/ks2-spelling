@@ -9,9 +9,9 @@ export const SFX_SPEECH_DUCK_GAIN = 10 ** (-10 / 20);
 export const PRODUCT_SFX_MANIFEST = Object.freeze({
   correct: Object.freeze({
     path: '/sfx/correct.wav',
-    sha256: 'e601e787863d75c2fb92b5e3c0b1a4b84fafa3d7bd476adccaeee7ced619c027',
-    byteSize: 65324,
-    gain: 0.35,
+    sha256: 'decff56f4d78099f7334f4e2923d62aa397f5a1d97fb239ae2ec92919bfb7db5',
+    byteSize: 57644,
+    gain: 0.38,
     tier: 'feedback',
   }),
   retry: Object.freeze({
@@ -75,20 +75,30 @@ export const PRODUCT_SFX_MANIFEST = Object.freeze({
  *   unlocked: boolean,
  *   speechUntil: number,
  *   now: number,
+ *   speaking?: boolean,
  * }} input
  * @returns {{ play: boolean, gainAdjust?: number }}
  */
-export function sfxGateDecision({ name: _name, tier, enabled, unlocked, speechUntil, now }) {
+export function sfxGateDecision({
+  name: _name,
+  tier,
+  enabled,
+  unlocked,
+  speechUntil,
+  now,
+  speaking = false,
+}) {
   if (!enabled || !unlocked) {
     return { play: false };
   }
 
-  const inSpeechWindow =
+  const timedSpeech =
     typeof speechUntil === 'number' &&
     Number.isFinite(speechUntil) &&
     typeof now === 'number' &&
     Number.isFinite(now) &&
     now < speechUntil;
+  const inSpeechWindow = speaking === true || timedSpeech;
 
   if (inSpeechWindow) {
     if (tier === 'ui') {

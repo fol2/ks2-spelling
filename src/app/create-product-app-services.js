@@ -495,6 +495,29 @@ export async function createProductAppServices(options = {}) {
       options.bundledAudio ??
       options.bundledStarterAudio ??
       createBundledStarterAudio({ evidence: starterAudioEvidence });
+    const soundPrefsStore = createSQLiteSoundPrefsStore({
+      connection,
+      gate,
+      now,
+    });
+    const soundPrefs = await soundPrefsStore.read().catch(() => null);
+    sfx = options.sfx ?? createSfxEngine({
+      createContext: () => new AudioContext(),
+      lifecycle,
+      initiallyEnabled: soundPrefs?.sfxEnabled !== false,
+      now,
+    });
+    if (typeof document !== 'undefined') {
+      sfx.attachGestureUnlock(document);
+    }
+    const speechDuck = Object.freeze({
+      onSpeechStarted: () => {
+        sfx.noteSpeechStarted?.();
+      },
+      onSpeechEnded: () => {
+        sfx.noteSpeechEnded?.();
+      },
+    });
     if (options.audio) {
       audio = options.audio;
     } else {
@@ -504,6 +527,7 @@ export async function createProductAppServices(options = {}) {
         catalogue: starterCatalogue,
         installedAudio: bundledAudioSource,
         audioEvidence: starterAudioEvidence,
+        ...speechDuck,
       });
       // Shard playback needs the native installed-audio reader; a runtime
       // without one (web, tests) can only ever serve Starter, so no switch is
@@ -514,7 +538,10 @@ export async function createProductAppServices(options = {}) {
           : null);
       audio = shardInstalledAudio === null ? starterPlayer : createEntitledAudioSwitch({
         starter: starterPlayer,
-        full: createFullProductAudioPlayer({ installedAudio: shardInstalledAudio }),
+        full: createFullProductAudioPlayer({
+          installedAudio: shardInstalledAudio,
+          ...speechDuck,
+        }),
         observe: (listener) => parentCommerce.subscribe(listener),
       });
     }
@@ -590,21 +617,6 @@ export async function createProductAppServices(options = {}) {
         return true;
       },
     });
-    const soundPrefsStore = createSQLiteSoundPrefsStore({
-      connection,
-      gate,
-      now,
-    });
-    const soundPrefs = await soundPrefsStore.read().catch(() => null);
-    sfx = options.sfx ?? createSfxEngine({
-      createContext: () => new AudioContext(),
-      lifecycle,
-      initiallyEnabled: soundPrefs?.sfxEnabled !== false,
-      now,
-    });
-    if (typeof document !== 'undefined') {
-      sfx.attachGestureUnlock(document);
-    }
     const setSfxEnabled = (value) => {
       const enabled = value === true;
       sfx.setEnabled(enabled);

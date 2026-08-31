@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { createSfxEngine } from '../src/app/sfx/sfx-engine.js';
+import { autoAdvanceDelayMs } from '../src/app/practice-feel.js';
 import {
   PRODUCT_SFX_MANIFEST,
   SFX_SPEECH_DUCK_GAIN,
@@ -12,6 +13,7 @@ import {
 } from '../src/app/sfx/sfx-model.js';
 import {
   PRODUCT_SFX_AUTHORED_SOURCES,
+  PRODUCT_SFX_SPECS,
   isAuthoredProductSfx,
   loadAuthoredProductSfxBytes,
   renderProductSfxBytes,
@@ -65,6 +67,25 @@ test('sfxGateDecision truth table covers enablement, lock, tiers and ducking', (
   });
   assert.equal(duckedCelebration.play, true);
   assert.equal(duckedCelebration.gainAdjust, SFX_SPEECH_DUCK_GAIN);
+
+  const speakingFeedback = sfxGateDecision({
+    ...base,
+    speaking: true,
+    speechUntil: 0,
+    now: 10_000,
+  });
+  assert.equal(speakingFeedback.play, true);
+  assert.equal(speakingFeedback.gainAdjust, SFX_SPEECH_DUCK_GAIN);
+
+  assert.deepEqual(
+    sfxGateDecision({
+      ...base,
+      speaking: false,
+      speechUntil: 0,
+      now: 10_000,
+    }),
+    { play: true },
+  );
 
   assert.deepEqual(
     sfxGateDecision({
@@ -281,6 +302,67 @@ test('sfx engine ducks feedback during speech and suppresses ui', async () => {
     Math.abs(ctx.__gains[0].gain.value - PRODUCT_SFX_MANIFEST.correct.gain * SFX_SPEECH_DUCK_GAIN) < 1e-12,
   );
 
+  engine.noteSpeechEnded();
+  ctx.__started.length = 0;
+  ctx.__gains.length = 0;
+  engine.play('correct');
+  assert.equal(ctx.__started.length, 1, 'correct plays after speech end');
+  assert.equal(
+    ctx.__gains[0].gain.value,
+    PRODUCT_SFX_MANIFEST.correct.gain,
+    'success sting returns to full feedback gain once dictation has ended',
+  );
+
+  engine.dispose();
+});
+
+test('sfx engine open-ended speech duck releases only on noteSpeechEnded', async () => {
+  const fileBytes = await loadPublicSfxBytes();
+  const ctx = createFakeContext({ initialState: 'running' });
+  const listeners = [];
+  const target = {
+    addEventListener(type, handler) {
+      listeners.push({ type, handler });
+    },
+    removeEventListener(type, handler) {
+      const index = listeners.findIndex((entry) => entry.type === type && entry.handler === handler);
+      if (index >= 0) listeners.splice(index, 1);
+    },
+  };
+  let clock = 1000;
+  const engine = createSfxEngine({
+    manifest: PRODUCT_SFX_MANIFEST,
+    fetchImpl: createFetchImpl(fileBytes),
+    createContext: () => ctx,
+    initiallyEnabled: true,
+    now: () => clock,
+  });
+
+  engine.attachGestureUnlock(target);
+  listeners[0].handler();
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    engine.play('correct');
+    if (ctx.__started.length > 0) break;
+  }
+  ctx.__started.length = 0;
+  ctx.__gains.length = 0;
+
+  engine.noteSpeechStarted();
+  clock = 8000;
+  engine.play('correct');
+  assert.equal(ctx.__started.length, 1);
+  assert.ok(
+    Math.abs(ctx.__gains[0].gain.value - PRODUCT_SFX_MANIFEST.correct.gain * SFX_SPEECH_DUCK_GAIN) < 1e-12,
+    'open-ended speech duck must still apply after 6s',
+  );
+
+  engine.noteSpeechEnded();
+  ctx.__started.length = 0;
+  ctx.__gains.length = 0;
+  engine.play('correct');
+  assert.equal(ctx.__gains[0].gain.value, PRODUCT_SFX_MANIFEST.correct.gain);
+
   engine.dispose();
 });
 
@@ -300,12 +382,33 @@ test('sfx-engine and sfx-model source contracts forbid HTMLAudio and focus paths
   }
 });
 
-test('correct and retry are authored quiz-show cues, not the 392/588 ding', async () => {
-  assert.equal(isAuthoredProductSfx('correct'), true);
+test('correct is a one-shot synthesised winning sting; retry stays authored', async () => {
+  assert.equal(isAuthoredProductSfx('correct'), false);
   assert.equal(isAuthoredProductSfx('retry'), true);
   assert.equal(isAuthoredProductSfx('catch'), false);
-  assert.equal(PRODUCT_SFX_AUTHORED_SOURCES.correct, 'assets/sfx/authored/correct.wav');
   assert.equal(PRODUCT_SFX_AUTHORED_SOURCES.retry, 'assets/sfx/authored/retry.wav');
+  assert.equal(Object.hasOwn(PRODUCT_SFX_AUTHORED_SOURCES, 'correct'), false);
+
+  const spec = PRODUCT_SFX_SPECS.correct;
+  assert.ok(spec, 'correct must be synthesised from PRODUCT_SFX_SPECS');
+  assert.ok(spec.durationMs >= 1000, `winning sting must last at least 1s, got ${spec.durationMs}`);
+  assert.ok(spec.durationMs <= 1500, `winning sting must stay inside 1.5s, got ${spec.durationMs}`);
+  assert.ok(
+    spec.durationMs <= autoAdvanceDelayMs(),
+    'sting must finish before the next card autoplays',
+  );
+  assert.equal(spec.noise, null);
+  assert.ok(spec.partials.length >= 4, 'winning sting needs a musical arpeggio, not a single ping');
+  const pitches = spec.partials.map((partial) => partial.hz);
+  assert.equal(
+    pitches.join(','),
+    [...pitches].sort((left, right) => left - right).join(','),
+    'correct arpeggio must rise so the cue reads as a win',
+  );
+
+  assert.ok(PRODUCT_SFX_MANIFEST.correct.gain < PRODUCT_SFX_MANIFEST.flourish.gain);
+  assert.ok(PRODUCT_SFX_MANIFEST.correct.gain < PRODUCT_SFX_MANIFEST.evolve.gain);
+  assert.equal(PRODUCT_SFX_MANIFEST.correct.tier, 'feedback');
 
   const authored = await loadAuthoredProductSfxBytes(ROOT);
   const { files } = renderProductSfxBytes(authored);
@@ -317,10 +420,27 @@ test('correct and retry are authored quiz-show cues, not the 392/588 ding', asyn
 
   const oldDing = 'a361b62a75ce9d8c90300286f7b069225095a5a6341e74f19171842c0e5a86a7';
   const synthPaper = '74db88b68c73a79635738fd44831e891d02ec4e7ae342260628c3c655942d784';
+  const quizShow = 'e601e787863d75c2fb92b5e3c0b1a4b84fafa3d7bd476adccaeee7ced619c027';
   assert.notEqual(PRODUCT_SFX_MANIFEST.correct.sha256, oldDing);
   assert.notEqual(PRODUCT_SFX_MANIFEST.correct.sha256, synthPaper);
+  assert.notEqual(PRODUCT_SFX_MANIFEST.correct.sha256, quizShow);
 
   const pcmBytes = PRODUCT_SFX_MANIFEST.correct.byteSize - 44;
   const durationMs = (pcmBytes / 2 / 24_000) * 1000;
-  assert.ok(durationMs > 1000, `TV-quiz correct must last more than 1s, got ${durationMs}`);
+  assert.ok(durationMs >= 1000 && durationMs <= 1500, `public correct.wav duration ${durationMs}`);
+});
+
+test('product audio and app services arm SFX duck from speech start/end, not a timer', async () => {
+  const [playerSource, servicesSource, fullSource] = await Promise.all([
+    readFile(join(ROOT, 'src/app/product-audio-player.js'), 'utf8'),
+    readFile(join(ROOT, 'src/app/create-product-app-services.js'), 'utf8'),
+    readFile(join(ROOT, 'src/app/full-product-audio.js'), 'utf8'),
+  ]);
+  assert.match(playerSource, /onSpeechStarted/);
+  assert.match(playerSource, /onSpeechEnded/);
+  assert.match(servicesSource, /onSpeechStarted:\s*\(\)\s*=>\s*\{?\s*sfx\.noteSpeechStarted/);
+  assert.match(servicesSource, /onSpeechEnded:\s*\(\)\s*=>\s*\{?\s*sfx\.noteSpeechEnded/);
+  assert.match(fullSource, /onSpeechStarted/);
+  assert.match(fullSource, /onSpeechEnded/);
+  assert.doesNotMatch(servicesSource, /noteSpeechStarted\(6000\)/);
 });

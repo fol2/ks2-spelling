@@ -12,6 +12,8 @@ export function createFullProductAudioPlayer({
   installedAudio,
   audioFactory,
   partition,
+  onSpeechStarted,
+  onSpeechEnded,
 } = {}) {
   const shardAudio = createInstalledShardAudio({
     installedAudio,
@@ -21,6 +23,8 @@ export function createFullProductAudioPlayer({
     catalogue: loadFullSpellingCatalogue(),
     installedAudio: shardAudio,
     ...(audioFactory ? { audioFactory } : {}),
+    ...(typeof onSpeechStarted === 'function' ? { onSpeechStarted } : {}),
+    ...(typeof onSpeechEnded === 'function' ? { onSpeechEnded } : {}),
     audioEvidence: fullAudioManifest,
   });
   return Object.freeze({

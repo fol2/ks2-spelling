@@ -9,6 +9,7 @@ import {
   coreItemCount,
   remainingStarterWordCount,
   starterBandItemCount,
+  hatchedCompanionAsksGrownUp,
   starterCompleteMomentCopy,
   starterCompleteMomentCrossed,
   starterCompleteMomentDecision,
@@ -259,6 +260,12 @@ test('copy states the derived remaining count and names a grown-up, not a transa
     starterCompleteMomentCopy(1).body,
     'There is 1 more word waiting.',
   );
+});
+
+test('a hatched trial companion keeps a re-openable Ask-a-grown-up entry', () => {
+  assert.equal(hatchedCompanionAsksGrownUp({ stage: 1, entitled: false }), true);
+  assert.equal(hatchedCompanionAsksGrownUp({ stage: 0, entitled: false }), false);
+  assert.equal(hatchedCompanionAsksGrownUp({ stage: 1, entitled: true }), false);
 });
 
 test('snapshot monster rows feed the same year-band predicate', () => {

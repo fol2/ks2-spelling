@@ -94,6 +94,7 @@ function unseenProgress(catalogue) {
     wrong: 0,
     dueDay: null,
     lastResult: null,
+    locked: false,
   }));
 }
 
@@ -109,7 +110,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
     prefs: { voiceId: 'Iapetus', showCloze: true, autoSpeak: true },
     summary: null,
     progress: unseenProgress(world.catalogue),
-    // The active pack's size, so the setup panel can report what is unseen.
+    // Without publishedCatalogue the installed starter is the destination.
     packSize: 20,
     vocabularySets: [
       { id: 'core', label: 'Core', count: 20 },
@@ -120,7 +121,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
       rewardTrackId: 'spelling-core-inklet',
       packId: 'ks2-core',
       monsterId: 'inklet',
-      thresholds: [1, 10],
+      thresholds: [1, 10, 30, 60, 100],
       branch: null,
       secureCount: 0,
       caught: false,
@@ -130,7 +131,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
       rewardTrackId: 'spelling-core-glimmerbug',
       packId: 'ks2-core',
       monsterId: 'glimmerbug',
-      thresholds: [1, 10],
+      thresholds: [1, 10, 30, 60, 100],
       branch: null,
       secureCount: 0,
       caught: false,

@@ -415,6 +415,49 @@ test('a word the bank is not listing has no detail to open', () => {
   );
 });
 
+test('locked catalogue words stay in the count and out of learning filters', () => {
+  const bank = buildWordBank({
+    progress: [
+      word(),
+      word({
+        runtimeItemId: 'ks2-core:vehicle',
+        target: 'vehicle',
+        yearBand: '3-4',
+        locked: true,
+      }),
+    ],
+    vocabSet: 'core',
+    now: 0,
+  });
+
+  assert.equal(bank.total, 2);
+  assert.equal(bank.setTotal, 2);
+  assert.equal(bank.countLabel, '2 words');
+  assert.equal(bank.rows.length, 2);
+  const locked = bank.rows.find((row) => row.runtimeItemId === 'ks2-core:vehicle');
+  assert.equal(locked.status, 'locked');
+  assert.equal(locked.locked, true);
+  assert.equal(locked.note, 'Not on this trail yet');
+  assert.equal(bank.filters.find(({ id }) => id === 'learning').count, 1);
+  assert.equal(bank.filters.find(({ id }) => id === 'secure').count, 0);
+
+  const learningOnly = buildWordBank({
+    progress: [
+      word(),
+      word({
+        runtimeItemId: 'ks2-core:vehicle',
+        target: 'vehicle',
+        yearBand: '3-4',
+        locked: true,
+      }),
+    ],
+    filter: 'learning',
+    now: 0,
+  });
+  assert.deepEqual(learningOnly.rows.map((row) => row.word), ['accident']);
+  assert.equal(learningOnly.countLabel, '1 of 2 words');
+});
+
 test('hearing a word asks the round audio port for the word recording', () => {
   assert.deepEqual(
     hearWordRequest({

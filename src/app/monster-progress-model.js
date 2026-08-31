@@ -119,10 +119,9 @@ export function catalogueTrackPoolSize(track, items = [], tracks = []) {
 }
 
 /**
- * Drop published stage thresholds this catalogue cannot fund. Starter copies
- * Full's [1, 10, 30, 60, 100] even though each year band has ten words, so
- * Codex would keep saying "N of 100" / "10 more to hatch" after the trial
- * list is already secure. Catch/hatch stay the reachable prefix.
+ * Hatch and catch use only the published thresholds this catalogue can fund.
+ * Starter copies Full's [1, 10, 30, 60, 100] with ten words per year band, so
+ * the reachable prefix is [1, 10]: Inklet still hatches at ten secure words.
  */
 export function catalogueReachableThresholds(track, items = [], tracks = []) {
   const published = publishedThresholds(track);
@@ -130,6 +129,11 @@ export function catalogueReachableThresholds(track, items = [], tracks = []) {
   if (published.length === 0 || poolSize <= 0) return published;
   const reachable = published.filter((value) => value <= poolSize);
   return reachable.length > 0 ? reachable : published;
+}
+
+/** Companion-max / Mega climb copy always uses the published growth line. */
+export function catalogueDisplayThresholds(track) {
+  return publishedThresholds(track);
 }
 
 /**
@@ -178,19 +182,24 @@ export function projectMonstersFromWordSecurity({
 
   return tracks.map((track) => {
     const current = saved[track.rewardTrackId];
-    const thresholds = catalogueReachableThresholds(track, catalogueItems, tracks);
+    const hatchThresholds = catalogueReachableThresholds(
+      track,
+      catalogueItems,
+      tracks,
+    );
+    const displayThresholds = catalogueDisplayThresholds(track);
     const secureCount = evidenceFor(track.rewardTrackId).size;
-    const derivedStage = derivedMonsterStage(secureCount, thresholds);
+    const derivedStage = derivedMonsterStage(secureCount, hatchThresholds);
     const earnedStageHighWater = Math.max(
       derivedStage,
       nonNegativeInteger(current?.earnedStageHighWater),
     );
-    const catchThreshold = monsterCatchThreshold({ thresholds });
+    const catchThreshold = monsterCatchThreshold({ thresholds: hatchThresholds });
     return {
       rewardTrackId: track.rewardTrackId,
       packId: track.packId,
       monsterId: track.monsterId,
-      thresholds: [...thresholds],
+      thresholds: [...displayThresholds],
       branch: current?.branch ?? null,
       secureCount,
       caught: secureCount >= catchThreshold

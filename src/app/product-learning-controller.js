@@ -138,9 +138,17 @@ function practiceProjection(snapshot, catalogue) {
   };
 }
 
-function progressProjection(snapshot, catalogue) {
+function progressProjection(snapshot, catalogue, publishedCatalogue = catalogue) {
   const saved = snapshot?.subjectState?.data?.progress ?? {};
-  return catalogue.items
+  const installed = new Set(
+    (Array.isArray(catalogue?.items) ? catalogue.items : []).map(
+      (item) => item.runtimeItemId,
+    ),
+  );
+  const displayItems = Array.isArray(publishedCatalogue?.items)
+    ? publishedCatalogue.items
+    : [];
+  return displayItems
     .map(({ runtimeItemId, target, yearBand, coverageTier }) => {
       const progress = saved[runtimeItemId];
       return {
@@ -154,6 +162,7 @@ function progressProjection(snapshot, catalogue) {
         wrong: progress?.wrong ?? 0,
         dueDay: progress?.dueDay ?? null,
         lastResult: progress?.lastResult ?? null,
+        locked: !installed.has(runtimeItemId),
       };
     });
 }
@@ -248,6 +257,7 @@ function adoptRoundBaseline(candidate, snapshot) {
 function createState({
   snapshot,
   catalogue,
+  publishedCatalogue,
   status = 'ready',
   screen = initialScreen(snapshot),
   actionError = null,
@@ -260,6 +270,7 @@ function createState({
 }) {
   const ui = snapshot?.subjectState?.ui;
   const camp = campProjection(snapshot);
+  const displayCatalogue = publishedCatalogue ?? catalogue;
   // Achievements and records stay outside cloneFrozen so same-revision
   // publishes keep the memoised identities their views and tests rely on.
   return Object.freeze({
@@ -270,12 +281,11 @@ function createState({
       practice: practiceProjection(snapshot, catalogue),
       prefs: prefsProjection(snapshot),
       summary: summary ?? (ui?.summary ? structuredClone(ui.summary) : null),
-      progress: progressProjection(snapshot, catalogue),
-      // How many words the active pack holds, so the setup panel can say how
-      // much of it the learner has still to meet. The controller owns the
-      // catalogue; the view should not have to reach for it.
-      packSize: catalogue.items.length,
-      vocabularySets: vocabularySetsProjection(catalogue),
+      progress: progressProjection(snapshot, catalogue, displayCatalogue),
+      // Published KS2 destination, including words this trail has not bought.
+      // Hatch evidence still counts only the installed catalogue.
+      packSize: displayCatalogue.items.length,
+      vocabularySets: vocabularySetsProjection(displayCatalogue),
       monsters: monsterProjection(snapshot, catalogue),
       revisionMission,
       camp: camp === null ? null : {
@@ -300,6 +310,7 @@ export function createProductLearningController({
   repository,
   snapshotStore,
   catalogue: candidateCatalogue,
+  publishedCatalogue: candidatePublishedCatalogue,
   initialSnapshot = null,
   roundBaselineStore = null,
   initialRoundBaseline = null,
@@ -337,6 +348,9 @@ export function createProductLearningController({
     throw new TypeError('starterCompleteMomentStore must expose read() and write().');
   }
   const catalogue = validateCatalogueV1(candidateCatalogue);
+  const publishedCatalogue = candidatePublishedCatalogue
+    ? validateCatalogueV1(candidatePublishedCatalogue)
+    : catalogue;
   const starterCatalogueForMoment = loadStarterSpellingCatalogue();
   let snapshot = validateInitialSnapshot(initialSnapshot, catalogue);
   let starterCompleteMomentPresented = initialStarterCompleteMomentPresented === true;
@@ -403,6 +417,7 @@ export function createProductLearningController({
   let state = createState({
     snapshot,
     catalogue,
+    publishedCatalogue,
     roundBaseline,
     revisionMission: revisionMissionProjection(),
     achievements: achievementsProjection(),
@@ -422,6 +437,7 @@ export function createProductLearningController({
     publish(createState({
       snapshot,
       catalogue,
+      publishedCatalogue,
       ...options,
       roundBaseline,
       revisionMission: revisionMissionProjection(),

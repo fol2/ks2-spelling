@@ -151,6 +151,70 @@ test('SSR of ResultsScreen with a provided signpost omits purchase language', as
   assert.doesNotMatch(html, PURCHASE_LANGUAGE);
 });
 
+test('Codex keeps a re-openable Ask-a-grown-up badge after a trial hatch', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { CodexScreen } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
+  const hatched = Object.freeze({
+    rewardTrackId: 'spelling-core-inklet',
+    packId: 'ks2-core',
+    monsterId: 'inklet',
+    thresholds: Object.freeze([1, 10, 30, 60, 100]),
+    branch: 'b1',
+    secureCount: 10,
+    caught: true,
+    derivedStage: 1,
+    earnedStageHighWater: 1,
+  });
+  const html = renderToStaticMarkup(
+    React.createElement(CodexScreen, {
+      monsters: [hatched],
+      progress: [],
+      onScreen() {},
+      entitled: false,
+      onAskGrownUp() {},
+    }),
+  );
+  assert.match(html, /data-ask-grown-up="true"/);
+  assert.match(html, /Ask a grown-up/);
+  assert.match(html, /10 of 100/);
+  assert.doesNotMatch(html, PURCHASE_LANGUAGE);
+
+  const entitledHtml = renderToStaticMarkup(
+    React.createElement(CodexScreen, {
+      monsters: [hatched],
+      progress: [],
+      onScreen() {},
+      entitled: true,
+      onAskGrownUp() {},
+    }),
+  );
+  assert.doesNotMatch(entitledHtml, /data-ask-grown-up="true"/);
+
+  const eggHtml = renderToStaticMarkup(
+    React.createElement(CodexScreen, {
+      monsters: [{
+        ...hatched,
+        secureCount: 0,
+        caught: false,
+        derivedStage: 0,
+        earnedStageHighWater: 0,
+      }],
+      progress: [],
+      onScreen() {},
+      entitled: false,
+      onAskGrownUp() {},
+    }),
+  );
+  assert.doesNotMatch(eggHtml, /data-ask-grown-up="true"/);
+});
+
 test('locked ParentArea SSR markup has no Buy control after the Ask handler factory runs', async (t) => {
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');

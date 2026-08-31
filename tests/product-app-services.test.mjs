@@ -22,6 +22,8 @@ import { createSQLiteSpellingSnapshotStore } from '../src/platform/database/sqli
 import { createFakeLearningReplica } from '../src/platform/fakes/create-fake-learning-replica.js';
 import { createNodeSqliteConnection } from './helpers/node-sqlite-connection.mjs';
 
+const PUBLISHED_PACK_SIZE = loadFullSpellingCatalogue().items.length;
+
 function createLifecycle() {
   return Object.freeze({
     onPause: () => Object.freeze({ async remove() {} }),
@@ -103,6 +105,22 @@ test('production services persist profile CRUD and selected learner across a cle
   };
   const starterCatalogue = loadStarterSpellingCatalogue();
   const fullCatalogue = await loadFullSpellingCatalogue();
+  const publishedCore = fullCatalogue.items.filter(
+    ({ coverageTier }) => coverageTier == null || coverageTier === 'statutory-core',
+  );
+  const publishedVocabularySets = [
+    { id: 'core', label: 'Core', count: publishedCore.length },
+    {
+      id: 'y3-4',
+      label: 'Y3–4',
+      count: publishedCore.filter(({ yearBand }) => yearBand === '3-4').length,
+    },
+    {
+      id: 'y5-6',
+      label: 'Y5–6',
+      count: publishedCore.filter(({ yearBand }) => yearBand === '5-6').length,
+    },
+  ];
 
   const first = await createProductAppServices(options);
   assert.equal(first.mode, 'product');
@@ -249,11 +267,7 @@ test('production services persist profile CRUD and selected learner across a cle
     actionError: null,
   });
   assert.equal(first.learning.getState().learnerId, ben.learnerId);
-  assert.deepEqual(first.learning.getState().vocabularySets, [
-    { id: 'core', label: 'Core', count: 20 },
-    { id: 'y3-4', label: 'Y3–4', count: 10 },
-    { id: 'y5-6', label: 'Y5–6', count: 10 },
-  ]);
+  assert.deepEqual(first.learning.getState().vocabularySets, publishedVocabularySets);
   await first.learning.startRound({
     length: 5,
     mode: 'smart',
@@ -307,18 +321,14 @@ test('production services persist profile CRUD and selected learner across a cle
   await second.parentAdministration.resetLearning(ben.learnerId);
   assert.equal(second.learning.getState().screen, 'home');
   assert.equal(second.learning.getState().practice, null);
-  assert.equal(second.learning.getState().progress.length, 20);
+  assert.equal(second.learning.getState().progress.length, fullCatalogue.items.length);
   assert.ok(
     second.learning.getState().progress.every(
       ({ attempts, dueDay, lastResult }) =>
         attempts === 0 && dueDay === null && lastResult === null,
     ),
   );
-  assert.deepEqual(second.learning.getState().vocabularySets, [
-    { id: 'core', label: 'Core', count: 20 },
-    { id: 'y3-4', label: 'Y3–4', count: 10 },
-    { id: 'y5-6', label: 'Y5–6', count: 10 },
-  ]);
+  assert.deepEqual(second.learning.getState().vocabularySets, publishedVocabularySets);
   assert.equal(protectionCalls.length, 4);
 
   // Rebuild real learning progress so the migration below has something to
@@ -373,7 +383,7 @@ test('production services persist profile CRUD and selected learner across a cle
   const assertRealignedToStarterKeepingProgress = (services) => {
     assert.equal(services.catalogueId, 'ks2-core:starter');
     assert.equal(services.learning.getState().learnerId, ben.learnerId);
-    assert.equal(services.learning.getState().progress.length, 20);
+    assert.equal(services.learning.getState().progress.length, fullCatalogue.items.length);
     assert.equal(services.learning.getState().screen, 'practice');
     assert.equal(
       services.learning.getState().practice.sessionId,
@@ -956,13 +966,15 @@ test('an entitled device with every shard installed practises the full KS2 catal
     options({ entitlementState: 'none', packState: 'missing' }),
   );
   assert.equal(unentitled.catalogueId, 'ks2-core:starter');
-  assert.equal(unentitled.learning.getState().packSize, 20);
+  assert.equal(unentitled.learning.getState().packSize, PUBLISHED_PACK_SIZE);
   const learnerId = await seedLearner(unentitled);
-  assert.ok(
-    !unentitled.learning.getState().progress.some(
-      ({ runtimeItemId }) => runtimeItemId === VEHICLE,
-    ),
-    'a Starter device must not publish a shard-15 word',
+  const vehicleRow = unentitled.learning.getState().progress.find(
+    ({ runtimeItemId }) => runtimeItemId === VEHICLE,
+  );
+  assert.equal(vehicleRow?.locked, true, 'a Starter device lists shard-15 words as locked');
+  await assert.rejects(
+    () => unentitled.learning.practiseWord(VEHICLE),
+    (error) => error instanceof TypeError,
   );
   const unentitledMission = unentitled.learning.getState().revisionMission;
   await unentitled.dispose();
@@ -975,7 +987,7 @@ test('an entitled device with every shard installed practises the full KS2 catal
   t.after(() => entitled.dispose());
   // The purchase delivers the words, not just the audio.
   assert.equal(entitled.catalogueId, 'ks2-core:full');
-  assert.equal(entitled.learning.getState().packSize, 213);
+  assert.equal(entitled.learning.getState().packSize, PUBLISHED_PACK_SIZE);
   assert.ok(
     entitled.learning.getState().progress.some(
       ({ runtimeItemId }) => runtimeItemId === VEHICLE,
@@ -1030,7 +1042,7 @@ test('a partial install, a revocation and a device that never bought all keep th
       'ks2-core:starter',
       `${snapshot.entitlementState}/${snapshot.packState} must stay on Starter`,
     );
-    assert.equal(services.learning.getState().packSize, 20);
+    assert.equal(services.learning.getState().packSize, PUBLISHED_PACK_SIZE);
   }
 });
 
@@ -1104,7 +1116,7 @@ test('revocation parks full-catalogue learning behind Starter, and restoring the
   // Acceptance criterion 1: revoked composes Starter. The paid history is
   // parked, not destroyed, so a later restore can put it back.
   assert.equal(revoked.catalogueId, 'ks2-core:starter');
-  assert.equal(revoked.learning.getState().packSize, 20);
+  assert.equal(revoked.learning.getState().packSize, PUBLISHED_PACK_SIZE);
   const parkedWorkingCopy = await readStoredSnapshot(databasePath, learnerId);
   assert.equal(parkedWorkingCopy.catalogueId, 'ks2-core:starter');
   await revoked.dispose();
@@ -1114,7 +1126,7 @@ test('revocation parks full-catalogue learning behind Starter, and restoring the
   );
   t.after(() => restored.dispose());
   assert.equal(restored.catalogueId, 'ks2-core:full');
-  assert.equal(restored.learning.getState().packSize, 213);
+  assert.equal(restored.learning.getState().packSize, PUBLISHED_PACK_SIZE);
   assert.deepEqual(await readStoredSnapshot(databasePath, learnerId), earned);
 });
 
@@ -1155,7 +1167,7 @@ test('a genuine pre-E2.5 full-catalogue aggregate on a device that never bought 
   );
   t.after(() => repaired.dispose());
   assert.equal(repaired.catalogueId, 'ks2-core:starter');
-  assert.equal(repaired.learning.getState().packSize, 20);
+  assert.equal(repaired.learning.getState().packSize, PUBLISHED_PACK_SIZE);
   const afterRepair = await readStoredSnapshot(databasePath, learnerId);
   assert.equal(afterRepair.catalogueId, 'ks2-core:starter');
   assert.equal(afterRepair.revision, 0);

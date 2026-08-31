@@ -2005,11 +2005,9 @@ function CodexScreen({ monsters, progress, onScreen }) {
     [monsters, selected],
   );
   // The ladder advertises the engine's mastery milestones, so it must count
-  // the way the engine does: every word at the secure stage or beyond. The
-  // companion evidence beneath the hero card deliberately counts only words
-  // sitting exactly at the secure stage, and a word promoted past it would
-  // otherwise un-light a milestone the learner has already been celebrated
-  // for.
+  // every word at the secure stage or beyond. Companion hatch copy reads the
+  // same floor from the product monster projection, not a second exact-stage
+  // counter.
   const secureWordTotal = useMemo(
     () => (Array.isArray(progress)
       ? progress.filter((row) => row.stage >= 4).length

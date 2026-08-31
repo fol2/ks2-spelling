@@ -7,6 +7,7 @@ import {
   validateSpellingCommandSnapshotV1,
 } from '../domain/spelling/index.js';
 import { setupExpeditionCompanion } from './codex-model.js';
+import { projectMonstersFromWordSecurity } from './monster-progress-model.js';
 import { markB4 } from './b4-performance-marks.js';
 import { earlyRoundSummary, spellingOnly } from './practice-feel.js';
 import { achievementChips } from './records-model.js';
@@ -178,20 +179,11 @@ function vocabularySetsProjection(catalogue) {
 }
 
 function monsterProjection(snapshot, catalogue) {
-  const saved = snapshot?.monsterStateByRewardTrackId ?? {};
-  return catalogue.rewardTracks.map((track) => {
-    const state = saved[track.rewardTrackId];
-    return {
-      rewardTrackId: track.rewardTrackId,
-      packId: track.packId,
-      monsterId: track.monsterId,
-      thresholds: structuredClone(track.thresholds),
-      branch: state?.branch ?? null,
-      secureCount: state?.secureCount ?? 0,
-      caught: state?.caught ?? false,
-      derivedStage: state?.derivedStage ?? 0,
-      earnedStageHighWater: state?.earnedStageHighWater ?? 0,
-    };
+  return projectMonstersFromWordSecurity({
+    rewardTracks: catalogue.rewardTracks,
+    items: catalogue.items,
+    progress: snapshot?.subjectState?.data?.progress ?? {},
+    currentState: snapshot?.monsterStateByRewardTrackId ?? {},
   });
 }
 

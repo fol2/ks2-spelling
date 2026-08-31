@@ -26,6 +26,7 @@ import {
 } from './starter-complete-moment-runtime.js';
 import {
   hatchedCompanionAsksGrownUp,
+  starterCompleteLearnerIsEntitled,
   starterCompleteMomentCopy,
 } from './starter-complete-moment.js';
 import { loadStarterSpellingCatalogue } from '../domain/spelling/index.js';
@@ -3710,8 +3711,10 @@ export default function ProductApp({ services }) {
         previousScreen,
         next,
         remainingWordCount: services.remainingWordCount,
-        entitled: services.catalogueId === 'ks2-core:full'
-          || commerce?.entitlementState === 'active',
+        entitled: starterCompleteLearnerIsEntitled({
+          catalogueId: services.catalogueId,
+          entitlementState: commerce?.entitlementState,
+        }),
         starterCatalogue: STARTER_CATALOGUE_FOR_MOMENT,
       });
       if (plan.leaveSummary) {
@@ -3763,6 +3766,10 @@ export default function ProductApp({ services }) {
     () => countMegaWords(learningState.progress),
     [learningState.progress],
   );
+  const entitled = starterCompleteLearnerIsEntitled({
+    catalogueId: services.catalogueId,
+    entitlementState: parentCommerceState?.entitlementState,
+  });
 
   if (profileState.status === 'failed') {
     return (
@@ -3919,7 +3926,7 @@ export default function ProductApp({ services }) {
         megaWords={megaWords}
         packSize={learningState.packSize ?? 0}
         onStartGuardian={startGuardian}
-        entitled={services.catalogueId === 'ks2-core:full'}
+        entitled={entitled}
         onAskGrownUp={() => setParentOpen(true)}
       />
     );
@@ -3994,7 +4001,7 @@ export default function ProductApp({ services }) {
         monsters={learningState.monsters}
         progress={learningState.progress}
         onScreen={showScreen}
-        entitled={services.catalogueId === 'ks2-core:full'}
+        entitled={entitled}
         onAskGrownUp={() => setParentOpen(true)}
       />
     );

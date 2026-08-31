@@ -10,6 +10,7 @@ import {
   remainingStarterWordCount,
   starterBandItemCount,
   hatchedCompanionAsksGrownUp,
+  starterCompleteLearnerIsEntitled,
   starterCompleteMomentCopy,
   starterCompleteMomentCrossed,
   starterCompleteMomentDecision,
@@ -266,6 +267,37 @@ test('a hatched trial companion keeps a re-openable Ask-a-grown-up entry', () =>
   assert.equal(hatchedCompanionAsksGrownUp({ stage: 1, entitled: false }), true);
   assert.equal(hatchedCompanionAsksGrownUp({ stage: 0, entitled: false }), false);
   assert.equal(hatchedCompanionAsksGrownUp({ stage: 1, entitled: true }), false);
+});
+
+test('child paywall entitled matches overlay: Full session or active commerce', () => {
+  assert.equal(
+    starterCompleteLearnerIsEntitled({
+      catalogueId: 'ks2-core:starter',
+      entitlementState: 'none',
+    }),
+    false,
+  );
+  assert.equal(
+    starterCompleteLearnerIsEntitled({
+      catalogueId: 'ks2-core:starter',
+      entitlementState: 'active',
+    }),
+    true,
+  );
+  assert.equal(
+    starterCompleteLearnerIsEntitled({
+      catalogueId: 'ks2-core:full',
+      entitlementState: 'none',
+    }),
+    true,
+  );
+  assert.equal(
+    starterCompleteLearnerIsEntitled({
+      catalogueId: 'ks2-core:starter',
+      entitlementState: 'revoked',
+    }),
+    false,
+  );
 });
 
 test('snapshot monster rows feed the same year-band predicate', () => {

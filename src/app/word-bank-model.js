@@ -1,6 +1,6 @@
 import { canonicalGuardianDay } from '../domain/spelling/index.js';
+import { wordIsSecure } from './monster-progress-model.js';
 
-const SECURE_STAGE = 4;
 const HIGHEST_RUNG = 5;
 const MAXIMUM_QUERY_LENGTH = 64;
 const CORE_COVERAGE_TIER = 'statutory-core';
@@ -26,7 +26,7 @@ const VOCAB_SET_BY_ID = new Map(
 // Secure, due and trouble follow the frozen a3 parent projection so the word
 // bank and the Parent area can never disagree about a word.
 function classify(item, todayDay) {
-  const secure = item.stage >= SECURE_STAGE;
+  const secure = wordIsSecure(item.stage);
   const dueDay = Number.isSafeInteger(item.dueDay) ? item.dueDay : null;
   const dueToday = dueDay !== null && dueDay <= todayDay;
   return {

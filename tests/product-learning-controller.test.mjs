@@ -120,7 +120,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
       rewardTrackId: 'spelling-core-inklet',
       packId: 'ks2-core',
       monsterId: 'inklet',
-      thresholds: [1, 10, 30, 60, 100],
+      thresholds: [1, 10],
       branch: null,
       secureCount: 0,
       caught: false,
@@ -130,7 +130,7 @@ test('product learning starts a durable Smart Review and restores an interrupted
       rewardTrackId: 'spelling-core-glimmerbug',
       packId: 'ks2-core',
       monsterId: 'glimmerbug',
-      thresholds: [1, 10, 30, 60, 100],
+      thresholds: [1, 10],
       branch: null,
       secureCount: 0,
       caught: false,
@@ -1059,6 +1059,12 @@ test('selectLearner consumes an already-secure Starter band without a later roun
     },
   };
   const snapshot = structuredClone(expectedB2Snapshot('learner-a'));
+  const starter = loadStarterSpellingCatalogue();
+  snapshot.subjectState.data.progress = Object.fromEntries(
+    starter.items
+      .filter((item) => item.yearBand === '3-4')
+      .map((item) => [item.runtimeItemId, { stage: 5 }]),
+  );
   snapshot.monsterStateByRewardTrackId = {
     'spelling-core-inklet': {
       rewardTrackId: 'spelling-core-inklet',

@@ -597,9 +597,9 @@ test('the production shell keeps Parent progress and commerce behind the local g
   // The milestone ladder is about secure words, so it renders beside the stats
   // whether or not a companion is on the card.
   assert.match(codexHtml, /class="codex-ladder"/);
-  // The ladder counts the engine's way — secure stage or beyond — so the
-  // stage-5 word above still lights its first rung even though the companion
-  // evidence (exactly at the secure stage) holds none.
+  // The ladder counts every word at the secure stage or beyond. This fixture
+  // injects companion state separately, so a stage-5 word still lights the
+  // first rung even when the injected card has not been rebuilt from progress.
   assert.match(codexHtml, /data-reached="true"/);
   // One secure word of the ten this companion's next stage wants: the hero card
   // is a long way from leaning forward.

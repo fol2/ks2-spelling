@@ -2960,7 +2960,6 @@ function RoundScreen({
       if (!audio || typeof audio.play !== 'function') {
         throw new Error('product_audio_player_unavailable');
       }
-      sfx?.noteSpeechStarted(6000);
       await audio.play({ ...audioRequest, kind });
       setLocalError('');
     } catch (error) {
@@ -3013,6 +3012,8 @@ function RoundScreen({
     if (lastCueKeyRef.current === cueKey) return;
     lastCueKeyRef.current = cueKey;
     const tone = feedbackTone(kind);
+    // In-round success uses the `correct` sting. Results celebrations keep
+    // flourish / catch / evolve on CelebrationLayer (issue #294).
     if (tone === 'success') {
       haptics?.answerCorrect?.();
       sfx?.play('correct');

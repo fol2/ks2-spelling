@@ -5,7 +5,7 @@ import evidence from '../reports/c1/starter-audio-evidence.json' with { type: 'j
 import { createProductAudioPlayer } from '../src/app/product-audio-player.js';
 import { loadStarterSpellingCatalogue } from '../src/domain/spelling/index.js';
 
-function createAudioHarness() {
+function createAudioHarness(extra = {}) {
   const reads = [];
   const players = [];
   const installedAudio = Object.freeze({
@@ -57,6 +57,7 @@ function createAudioHarness() {
       installedAudio,
       audioFactory,
       audioEvidence: evidence,
+      ...extra,
     }),
   });
 }
@@ -203,4 +204,29 @@ test('product audio marks speech when playback starts and when it ends or is sto
       'product:speech-end',
     ],
   );
+});
+
+test('product audio notifies SFX duck listeners on speech start, end and stop', async () => {
+  const events = [];
+  const harness = createAudioHarness({
+    onSpeechStarted: () => events.push('start'),
+    onSpeechEnded: () => events.push('end'),
+  });
+  const request = {
+    version: '1.0.0',
+    runtimeItemId: 'ks2-core:answer',
+    sentence: 'I knew the answer at once.',
+    voiceId: 'Iapetus',
+    kind: 'word',
+  };
+
+  await harness.player.play(request);
+  assert.deepEqual(events, ['start']);
+  harness.players[0].emit('ended');
+  assert.deepEqual(events, ['start', 'end']);
+
+  await harness.player.play(request);
+  assert.deepEqual(events, ['start', 'end', 'start']);
+  await harness.player.dispose();
+  assert.deepEqual(events, ['start', 'end', 'start', 'end']);
 });

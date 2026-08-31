@@ -15,7 +15,6 @@ export const PRODUCT_SFX_MAX_TOTAL_BYTES = 300 * 1024;
 
 /** Repo-relative PCM 16-bit 24 kHz mono WAV sources for feedback cues. */
 export const PRODUCT_SFX_AUTHORED_SOURCES = Object.freeze({
-  correct: 'assets/sfx/authored/correct.wav',
   retry: 'assets/sfx/authored/retry.wav',
 });
 
@@ -27,6 +26,7 @@ const NOISE_SEEDS = Object.freeze({
   tick: 0xc0ffee06,
   sheet: 0xc0ffee07,
   stamp: 0xc0ffee08,
+  correct: 0xc0ffee09,
 });
 
 /**
@@ -34,6 +34,18 @@ const NOISE_SEEDS = Object.freeze({
  * amplitudes are peak linear gains before soft limiting.
  */
 export const PRODUCT_SFX_SPECS = Object.freeze({
+  correct: Object.freeze({
+    // One-shot winning sting for in-round success. Quieter and simpler than
+    // Results celebration cues; 1.2s so it finishes inside the 2s auto-advance.
+    durationMs: 1200,
+    partials: Object.freeze([
+      Object.freeze({ kind: 'sine', hz: 523, amp: 0.22, attackMs: 10, decayMs: 280, delayMs: 0 }),
+      Object.freeze({ kind: 'triangle', hz: 659, amp: 0.2, attackMs: 10, decayMs: 300, delayMs: 140 }),
+      Object.freeze({ kind: 'sine', hz: 784, amp: 0.18, attackMs: 12, decayMs: 340, delayMs: 280 }),
+      Object.freeze({ kind: 'sine', hz: 1047, amp: 0.16, attackMs: 14, decayMs: 420, delayMs: 420 }),
+    ]),
+    noise: null,
+  }),
   catch: Object.freeze({
     durationMs: 700,
     partials: Object.freeze([

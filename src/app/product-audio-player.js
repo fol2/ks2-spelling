@@ -157,6 +157,8 @@ export function createProductAudioPlayer({
   installedAudio,
   audioFactory = defaultAudioFactory,
   audioEvidence,
+  onSpeechStarted,
+  onSpeechEnded,
 } = {}) {
   requireMethod(installedAudio, 'readInstalledAudio', 'installedAudio');
   if (typeof audioFactory !== 'function') {
@@ -186,6 +188,15 @@ export function createProductAudioPlayer({
   let generation = 0;
   let disposed = false;
 
+  function notifySpeech(listener) {
+    if (typeof listener !== 'function') return;
+    try {
+      listener();
+    } catch {
+      // SFX ducking must never fail or interrupt dictation.
+    }
+  }
+
   function finishActiveSpeech() {
     if (
       activePlayer &&
@@ -198,6 +209,7 @@ export function createProductAudioPlayer({
     if (!activeSpeechStarted) return;
     activeSpeechStarted = false;
     markB4('product:speech-end');
+    notifySpeech(onSpeechEnded);
   }
 
   function stopActivePlayer() {
@@ -269,6 +281,7 @@ export function createProductAudioPlayer({
       }
       activeSpeechStarted = true;
       markB4('product:speech-start');
+      notifySpeech(onSpeechStarted);
       return Object.freeze({
         status: 'playing',
         audioKey: asset.audioKey,

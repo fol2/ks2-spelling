@@ -36,6 +36,12 @@ test('RoundScreen maps success and info to correct, error to retry', async () =>
     "correct plays in the success branch; retry plays 'retry'",
   );
 
+  assert.doesNotMatch(
+    source,
+    /tone === 'success'[\s\S]{0,200}sfx\?\.play\('(?:flourish|catch|evolve)'\)/u,
+    'in-round success must not reuse Results celebration cues',
+  );
+
   assert.match(
     source,
     /`success` and `info` both mean[\s\S]*so both must read as a win/u,

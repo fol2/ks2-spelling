@@ -87,15 +87,20 @@ test('feedback cue effect guards with lastCueKey and haptics only on success ton
   );
 });
 
-test('play() notes speech before dictation audio.play', async () => {
-  const tryBlock = playTryBlock(roundScreenSource(await productAppSource()));
-  const noteAt = tryBlock.indexOf("sfx?.noteSpeechStarted(6000)");
+test('round play() does not hold a blind 6s SFX duck', async () => {
+  const productApp = await productAppSource();
+  const tryBlock = playTryBlock(roundScreenSource(productApp));
   const playAt = tryBlock.indexOf('await audio.play');
-  assert.ok(noteAt >= 0, 'play() must call noteSpeechStarted');
   assert.ok(playAt >= 0, 'play() must still await audio.play');
-  assert.ok(
-    noteAt < playAt,
-    'noteSpeechStarted must run before audio.play so speech ducking is armed',
+  assert.equal(
+    tryBlock.includes('noteSpeechStarted(6000)'),
+    false,
+    'RoundScreen must not arm a 6s duck that outlives dictation',
+  );
+  assert.equal(
+    productApp.includes('noteSpeechStarted(6000)'),
+    false,
+    'no 6s SFX duck remains in ProductApp',
   );
 });
 

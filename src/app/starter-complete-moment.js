@@ -1,4 +1,4 @@
-import { isAggregateMonster } from './monster-progress-model.js';
+import { isAggregateMonster, monsterDisplayStage } from './monster-progress-model.js';
 
 const CORE_COVERAGE_TIER = 'statutory-core';
 const ROUND_SOURCE = 'round';
@@ -145,9 +145,20 @@ export function starterCompleteLearnerIsEntitled({
   return catalogueId === 'ks2-core:full' || entitlementState === 'active';
 }
 
-/** Persistent Codex / Setup entry after hatch; the overlay remains one-shot. */
-export function hatchedCompanionAsksGrownUp({ stage, entitled } = {}) {
-  return entitled !== true && nonNegativeInteger(stage) >= 1;
+/**
+ * Persistent Codex / Word Bank entry after any companion hatch.
+ * Learner-level and monotonic: selecting a stage-0 card cannot hide it.
+ * The overlay remains a separate one-shot signpost.
+ */
+export function askGrownUpIsAvailable({
+  monsters,
+  entitled,
+  remainingWordCount,
+} = {}) {
+  return entitled !== true
+    && nonNegativeInteger(remainingWordCount) > 0
+    && Array.isArray(monsters)
+    && monsters.some((monster) => monsterDisplayStage(monster) >= 1);
 }
 
 export async function readAndConsumeStarterCompleteMoment({

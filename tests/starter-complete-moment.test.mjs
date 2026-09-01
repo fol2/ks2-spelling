@@ -9,7 +9,7 @@ import {
   coreItemCount,
   remainingStarterWordCount,
   starterBandItemCount,
-  hatchedCompanionAsksGrownUp,
+  askGrownUpIsAvailable,
   starterCompleteLearnerIsEntitled,
   starterCompleteMomentCopy,
   starterCompleteMomentCrossed,
@@ -263,10 +263,53 @@ test('copy states the derived remaining count and names a grown-up, not a transa
   );
 });
 
-test('a hatched trial companion keeps a re-openable Ask-a-grown-up entry', () => {
-  assert.equal(hatchedCompanionAsksGrownUp({ stage: 1, entitled: false }), true);
-  assert.equal(hatchedCompanionAsksGrownUp({ stage: 0, entitled: false }), false);
-  assert.equal(hatchedCompanionAsksGrownUp({ stage: 1, entitled: true }), false);
+test('Ask-a-grown-up is available once any companion has hatched', () => {
+  const inkletHatched = monster({
+    caught: true,
+    secureCount: 10,
+    derivedStage: 1,
+    earnedStageHighWater: 1,
+  });
+  const egg = monster({
+    rewardTrackId: 'spelling-core-glimmerbug',
+    monsterId: 'glimmerbug',
+  });
+  const available = {
+    entitled: false,
+    remainingWordCount: 193,
+  };
+  assert.equal(askGrownUpIsAvailable({ ...available, monsters: [egg] }), false);
+  assert.equal(
+    askGrownUpIsAvailable({ ...available, monsters: [inkletHatched] }),
+    true,
+  );
+  assert.equal(
+    askGrownUpIsAvailable({ ...available, monsters: [inkletHatched, egg] }),
+    true,
+  );
+  assert.equal(
+    askGrownUpIsAvailable({
+      ...available,
+      monsters: [inkletHatched],
+      entitled: true,
+    }),
+    false,
+  );
+  assert.equal(
+    askGrownUpIsAvailable({
+      ...available,
+      monsters: [inkletHatched],
+      remainingWordCount: 0,
+    }),
+    false,
+  );
+  assert.equal(
+    askGrownUpIsAvailable({
+      ...available,
+      monsters: [monster({ derivedStage: 0, earnedStageHighWater: 1 })],
+    }),
+    true,
+  );
 });
 
 test('child paywall entitled matches overlay: Full session or active commerce', () => {

@@ -18,6 +18,9 @@ import { CelebrationLayer } from './celebrations/CelebrationLayer.jsx';
 import { TrailMeadow } from './trail/TrailMeadow.jsx';
 import { PrivacyNoticeCard } from './PrivacyNoticeCard.jsx';
 import { StarterCompleteMoment } from './StarterCompleteMoment.jsx';
+import { EggChoiceMoment } from './EggChoiceMoment.jsx';
+import { eggChoiceShouldShow } from './egg-choice-moment.js';
+import { pendingEggChoice } from './monster-progress-model.js';
 import {
   acknowledgeStarterCompleteMoment,
   createStarterCompleteAskGrownUpHandler,
@@ -2058,6 +2061,16 @@ function WordBankScreen({
   );
 }
 
+function withEggChoiceOverlay(node, overlay) {
+  if (!overlay) return node;
+  return (
+    <>
+      <div aria-hidden="true" inert>{node}</div>
+      {overlay}
+    </>
+  );
+}
+
 function CodexScreen({
   monsters,
   progress,
@@ -2066,6 +2079,7 @@ function CodexScreen({
   remainingWordCount = 0,
   selectedRewardTrackId = null,
   onAskGrownUp,
+  onSwitchBranch,
 }) {
   const [selected, setSelected] = useState(selectedRewardTrackId);
   const [zoomed, setZoomed] = useState(false);
@@ -2132,15 +2146,28 @@ function CodexScreen({
 
                   {/* Unfound companion is withheld everywhere, so it gets no closer look. */}
                   {hero.found ? (
-                    <button
-                      type="button"
-                      className="codex-stage press"
-                      onClick={() => setZoomed(true)}
-                    >
-                      <span className="codex-stage-shadow" aria-hidden="true" />
-                      <img src={hero.art ?? undefined} alt="" />
-                      <span className="visually-hidden">Look closer at {hero.title}</span>
-                    </button>
+                    <div className="codex-stage-row">
+                      <button
+                        type="button"
+                        className="codex-stage press"
+                        onClick={() => setZoomed(true)}
+                      >
+                        <span className="codex-stage-shadow" aria-hidden="true" />
+                        <img src={hero.art ?? undefined} alt="" />
+                        <span className="visually-hidden">Look closer at {hero.title}</span>
+                      </button>
+                      {hero.canSwitch && typeof onSwitchBranch === 'function' && (
+                        <button
+                          type="button"
+                          className="codex-other-egg press"
+                          data-codex-other-egg="true"
+                          onClick={() => onSwitchBranch(hero.rewardTrackId, hero.otherBranch)}
+                        >
+                          <img src={hero.otherEggArt ?? undefined} alt="" />
+                          <span className="visually-hidden">Choose the other egg</span>
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <div className="codex-stage">
                       <span className="codex-stage-shadow" aria-hidden="true" />
@@ -3845,6 +3872,30 @@ export default function ProductApp({ services }) {
       pendingStarterComplete.current = null;
     },
   });
+  const chooseEgg = (branch) => {
+    const pending = pendingEggChoice(learningState.monsters);
+    const choose = services.learning.chooseCompanionBranch;
+    if (!pending || typeof choose !== 'function') return;
+    void choose({
+      rewardTrackId: pending.rewardTrackId,
+      branch,
+    }).then(() => {
+      if (revealStarterCompleteAfterCelebrations(pendingStarterComplete.current)) {
+        setStarterCompleteOpen(true);
+      }
+    }).catch(() => undefined);
+  };
+  const eggChoiceOverlay = eggChoiceShouldShow({
+    monsters: learningState.monsters,
+    screen: learningState.screen,
+    parentOpen,
+    switchOpen,
+  }) ? (
+    <EggChoiceMoment
+      monster={pendingEggChoice(learningState.monsters)}
+      onChoose={chooseEgg}
+    />
+  ) : null;
   const filterCount = (id) =>
     bank.filters.find((option) => option.id === id)?.count ?? 0;
   const startGuardian = (options) =>
@@ -3919,7 +3970,7 @@ export default function ProductApp({ services }) {
   }
 
   if (learningState.screen === 'setup') {
-    return (
+    return withEggChoiceOverlay((
       <SetupScreen
         audioState={audioState}
         actionError={learningState.actionError}
@@ -3940,7 +3991,7 @@ export default function ProductApp({ services }) {
         packSize={learningState.packSize ?? 0}
         onStartGuardian={startGuardian}
       />
-    );
+    ), eggChoiceOverlay);
   }
   if (learningState.screen === 'practice') {
     return (
@@ -3961,7 +4012,7 @@ export default function ProductApp({ services }) {
     );
   }
   if (learningState.screen === 'summary') {
-    return (
+    return withEggChoiceOverlay((
       <ResultsScreen
         summary={learningState.summary}
         monsters={learningState.monsters}
@@ -3975,7 +4026,7 @@ export default function ProductApp({ services }) {
         sfx={services.sfx}
         onCelebrationDone={clearCelebrations}
         starterCompleteMoment={
-          starterCompleteOpen && pendingStarterComplete.current
+          starterCompleteOpen && pendingStarterComplete.current && !eggChoiceOverlay
             ? pendingStarterComplete.current
             : null
         }
@@ -3985,10 +4036,10 @@ export default function ProductApp({ services }) {
           openParent: () => setParentOpen(true),
         })}
       />
-    );
+    ), eggChoiceOverlay);
   }
   if (learningState.screen === 'progress') {
-    return (
+    return withEggChoiceOverlay((
       <WordBankScreen
         progress={learningState.progress}
         vocabularySets={learningState.vocabularySets}
@@ -4008,10 +4059,10 @@ export default function ProductApp({ services }) {
         remainingWordCount={services.remainingWordCount}
         onAskGrownUp={() => setParentOpen(true)}
       />
-    );
+    ), eggChoiceOverlay);
   }
   if (learningState.screen === 'monster') {
-    return (
+    return withEggChoiceOverlay((
       <CodexScreen
         monsters={learningState.monsters}
         progress={learningState.progress}
@@ -4019,11 +4070,16 @@ export default function ProductApp({ services }) {
         entitled={entitled}
         remainingWordCount={services.remainingWordCount}
         onAskGrownUp={() => setParentOpen(true)}
+        onSwitchBranch={(rewardTrackId, branch) => {
+          const choose = services.learning.chooseCompanionBranch;
+          if (typeof choose !== 'function') return;
+          void choose({ rewardTrackId, branch }).catch(() => undefined);
+        }}
       />
-    );
+    ), eggChoiceOverlay);
   }
   if (learningState.screen === 'camp') {
-    return (
+    return withEggChoiceOverlay((
       <CampScreen
         camp={learningState.camp}
         revisionMission={learningState.revisionMission}
@@ -4036,9 +4092,9 @@ export default function ProductApp({ services }) {
         onStartGuardian={startGuardian}
         onRecoverAudio={recoverAudio}
       />
-    );
+    ), eggChoiceOverlay);
   }
-  return (
+  return withEggChoiceOverlay((
     <TrailScreen
       profile={selectedProfile}
       learningState={learningState}
@@ -4049,5 +4105,5 @@ export default function ProductApp({ services }) {
       onOpenParent={() => setParentOpen(true)}
       onRecoverAudio={recoverAudio}
     />
-  );
+  ), eggChoiceOverlay);
 }

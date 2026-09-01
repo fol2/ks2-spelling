@@ -1,5 +1,4 @@
 import {
-  applySpellingCommand,
   canonicalGuardianDay,
   loadStarterSpellingCatalogue,
   projectSpellingRevisionMission,
@@ -8,9 +7,10 @@ import {
 } from '../domain/spelling/index.js';
 import { setupExpeditionCompanion } from './codex-model.js';
 import {
-  pinNewAggregateCompanionBranches,
-  projectMonstersFromWordSecurity,
-} from './monster-progress-model.js';
+  applyProductSpellingCommand,
+  planChooseCompanionBranch,
+} from './companion-branch-command.js';
+import { projectMonstersFromWordSecurity } from './monster-progress-model.js';
 import { markB4 } from './b4-performance-marks.js';
 import { earlyRoundSummary, spellingOnly } from './practice-feel.js';
 import { achievementChips } from './records-model.js';
@@ -490,16 +490,13 @@ export function createProductLearningController({
       try {
         const plan = await repository.runCommandTransaction(
           snapshot.learnerId,
-          (fresh, context) => {
-            const plan = applySpellingCommand({
-              snapshot: fresh,
-              command,
-              contentSnapshot: catalogue,
-              now: () => context.nowMs,
-              random,
-            });
-            return pinNewAggregateCompanionBranches(plan, fresh, catalogue);
-          },
+          (fresh, context) => applyProductSpellingCommand({
+            snapshot: fresh,
+            command,
+            contentSnapshot: catalogue,
+            now: () => context.nowMs,
+            random,
+          }),
         );
         markB4('product:local-commit');
         snapshot = validateSpellingCommandSnapshotV1(
@@ -838,6 +835,48 @@ export function createProductLearningController({
         }
         starterCompleteMomentPresented = true;
         publishFromSnapshot({ screen: state.screen });
+      });
+    },
+    chooseCompanionBranch({ rewardTrackId, branch } = {}) {
+      return enqueue(async () => {
+        if (!snapshot) {
+          throw controllerError('product_learning_learner_required');
+        }
+        const previousScreen = state.screen;
+        publishFromSnapshot({
+          status: 'saving',
+          screen: previousScreen,
+        });
+        try {
+          const plan = await repository.runCommandTransaction(
+            snapshot.learnerId,
+            (fresh, context) => planChooseCompanionBranch({
+              snapshot: fresh,
+              catalogue,
+              rewardTrackId,
+              branch,
+              nowMs: context.nowMs,
+            }),
+          );
+          snapshot = validateSpellingCommandSnapshotV1(
+            nextSnapshot(snapshot, plan),
+            catalogue,
+          );
+          publishFromSnapshot({ screen: previousScreen });
+          try {
+            void Promise.resolve(onCommandCommitted?.(snapshot.learnerId))
+              .catch(() => undefined);
+          } catch {
+            // Replication is post-commit and best-effort.
+          }
+          return plan;
+        } catch (error) {
+          publishFromSnapshot({
+            screen: previousScreen,
+            actionError: 'learning_action_failed',
+          });
+          throw error;
+        }
       });
     },
     async dispose() {

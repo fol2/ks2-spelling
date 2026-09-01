@@ -6,6 +6,7 @@ import {
   primaryProgressedRewardTrackId,
   secureWordDelta,
 } from './celebrations/celebration-model.js';
+import { pendingEggChoice } from './monster-progress-model.js';
 import { starterCompleteMomentDecision } from './starter-complete-moment.js';
 
 function remainingWordCountOf(value) {
@@ -81,11 +82,18 @@ export function planSummaryRewards({
     source: 'round',
   });
   const pendingMoment = decision.show ? { remainingWordCount: remaining } : null;
+  const eggChoice = pendingEggChoice(next.monsters);
   return Object.freeze({
     leaveSummary: false,
     celebrationEvents,
     pendingMoment,
-    openMoment: decision.show && celebrationEvents.length === 0,
+    openMoment: decision.show && celebrationEvents.length === 0 && eggChoice == null,
+    eggChoice: eggChoice
+      ? Object.freeze({
+        rewardTrackId: eggChoice.rewardTrackId,
+        monsterId: eggChoice.monsterId,
+      })
+      : null,
     secureGain: secureWordDelta(before, next.monsters),
     campGain: raisedCamp,
     preferredTrack: primaryProgressedRewardTrackId(monsterEvents, next.monsters)

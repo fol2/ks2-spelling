@@ -137,6 +137,7 @@ export function diffMonsterCelebrations(before, after) {
 
     const monsterId = afterMonster.monsterId;
     const branch = afterMonster.branch ?? beforeMonster.branch ?? null;
+    if (branch !== 'b1' && branch !== 'b2') continue;
     const stage = monsterDisplayStage(afterMonster);
     const beforeStage = monsterDisplayStage(beforeMonster);
     const caughtNow = !monsterIsFound(beforeMonster) && monsterIsFound(afterMonster);

@@ -273,16 +273,13 @@ test('Starter trial: twenty secured words hatch Inklet and Glimmerbug against th
   assert.equal(phaeton.secureCount, 20);
   assert.equal(phaeton.derivedStage, 0, 'twenty Starter words cannot reach Aetherwisp');
   assert.deepEqual(phaeton.thresholds, [3, 25, 95, 145, 213]);
-  assert.equal(
-    phaeton.branch,
-    'b1',
-    'trial Codex must pin Stardrop Egg to the stable teaser branch',
-  );
-  assert.equal(phaetonEntry.branch, 'b1');
+  assert.equal(phaeton.branch, null);
+  assert.equal(phaetonEntry.branch, null);
+  assert.equal(phaetonEntry.found, false);
+  assert.equal(phaetonEntry.discovered, true);
+  assert.match(phaetonEntry.art, /phaeton-b1-0\.640\.webp/);
   assert.equal(phaetonEntry.stage, 0);
-  assert.equal(phaetonEntry.title, 'Stardrop Egg');
-  assert.equal(phaetonEntry.count, '20 of 213');
-  assert.match(phaetonEntry.next, /5 more to Aetherwisp/);
+  assert.equal(phaetonEntry.title, '???');
 });
 
 test('Full catalogue Inklet still uses the published 100-word growth line', () => {

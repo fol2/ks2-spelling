@@ -10,7 +10,7 @@ import {
 } from '../src/domain/spelling/index.js';
 import { monsterCelebrationArtUrl } from '../src/app/celebrations/celebration-model.js';
 import { createProductLearningController } from '../src/app/product-learning-controller.js';
-import { setupExpeditionCompanion } from '../src/app/codex-model.js';
+import { buildCodex, setupExpeditionCompanion } from '../src/app/codex-model.js';
 import {
   expectedB2Snapshot,
   snapshotAfterPlan,
@@ -547,8 +547,10 @@ test('trial-shown Phaeton art identity survives Full install and the first comma
   const trialPhaeton = trial.getState().monsters.find(
     (monster) => monster.monsterId === 'phaeton',
   );
-  assert.equal(trialPhaeton.branch, 'b1');
-  const trialArt = monsterCelebrationArtUrl('phaeton', trialPhaeton.branch, 0);
+  assert.equal(trialPhaeton.branch, null);
+  const trialArt = buildCodex(trial.getState().monsters).roster.find(
+    (entry) => entry.monsterId === 'phaeton',
+  ).art;
   const flippedArt = monsterCelebrationArtUrl('phaeton', 'b2', 0);
   assert.equal(
     trialArt,
@@ -595,15 +597,18 @@ test('trial-shown Phaeton art identity survives Full install and the first comma
   const after = controller.getState().monsters.find(
     (monster) => monster.monsterId === 'phaeton',
   );
-  assert.equal(after.branch, 'b1');
+  assert.equal(after.branch, null);
   assert.equal(
-    monsterCelebrationArtUrl('phaeton', after.branch, 0),
+    buildCodex(controller.getState().monsters).roster.find(
+      (entry) => entry.monsterId === 'phaeton',
+    ).art,
     trialArt,
   );
   assert.equal(
     fullWorld.snapshots.get('learner-a')
-      .monsterStateByRewardTrackId['spelling-core-phaeton'].branch,
-    'b1',
+      .monsterStateByRewardTrackId['spelling-core-phaeton'],
+    undefined,
+    'egg-choice holds the RNG roll until the child taps',
   );
 
   await trial.dispose();
@@ -623,7 +628,7 @@ test('Full-install identical prefs save must not fail and keeps the trial Phaeto
   const trialBranch = trial.getState().monsters.find(
     (monster) => monster.monsterId === 'phaeton',
   ).branch;
-  assert.equal(trialBranch, 'b1');
+  assert.equal(trialBranch, null);
   await trial.savePrefs({
     voiceId: 'Iapetus',
     showCloze: true,
@@ -682,8 +687,8 @@ test('Full-install identical prefs save must not fail and keeps the trial Phaeto
   );
   assert.equal(
     fullWorld.snapshots.get('learner-a')
-      .monsterStateByRewardTrackId['spelling-core-phaeton'].branch,
-    trialBranch,
+      .monsterStateByRewardTrackId['spelling-core-phaeton'],
+    undefined,
   );
 
   await trial.dispose();
@@ -1029,7 +1034,7 @@ test('product learning projects saved progress, Monster and Camp views without c
 
   controller.showScreen('monster');
   assert.equal(controller.getState().monsters[0].monsterId, 'inklet');
-  assert.equal(controller.getState().monsters[0].branch, 'b1');
+  assert.equal(controller.getState().monsters[0].branch, null);
   controller.showScreen('camp');
   assert.equal(controller.getState().camp.packId, 'ks2-core');
   controller.showScreen('home');

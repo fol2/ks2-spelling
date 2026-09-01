@@ -3942,6 +3942,132 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   }
 }
 
+/* --- found egg choice ---------------------------------------------------- */
+
+.egg-choice-moment {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  padding:
+    max(1.25rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))
+    max(1.25rem, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)))
+    max(1.25rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))
+    max(1.25rem, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+  background: rgb(6 10 16 / 72%);
+}
+
+.egg-choice-moment > div {
+  display: grid;
+  width: min(24rem, 100%);
+  gap: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 1.75rem;
+  padding: 1.35rem;
+  background: var(--paper-raised);
+  color: var(--ink);
+  box-shadow: 0 30px 60px -26px rgb(0 0 0 / 70%);
+}
+
+.egg-choice-moment h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.45rem;
+  line-height: 1.2;
+}
+
+.egg-choice-moment p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.egg-choice-eggs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  justify-items: center;
+  margin-top: 0.35rem;
+}
+
+.egg-choice-egg {
+  display: grid;
+  place-items: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  width: min(10rem, 100%);
+  aspect-ratio: 1;
+  padding: 0.35rem;
+  border: 0;
+  background: transparent;
+}
+
+.egg-choice-egg img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.egg-choice-egg:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+@media (min-width: 24.5625rem) {
+  .egg-choice-eggs {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .egg-choice-moment {
+    background: rgb(6 10 16 / 82%);
+  }
+
+  .egg-choice-egg img,
+  .codex-other-egg img {
+    animation: none;
+  }
+}
+
+.codex-stage-row {
+  position: relative;
+  display: grid;
+  width: 100%;
+}
+
+.codex-other-egg {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 1.35rem;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  width: 2.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0.42;
+}
+
+.codex-other-egg img {
+  width: 2.75rem;
+  height: 2.75rem;
+  object-fit: contain;
+  animation: none;
+}
+
+.codex-other-egg:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
 /* --- parent gate and area ------------------------------------------------ */
 
 .parent-scene {

@@ -362,16 +362,31 @@ test('Full-catalogue answer Saving stays in the same league as Starter and does 
     return { submitMs, continueMs };
   }
 
-  const starter = await timeSubmit(loadStarterSpellingCatalogue());
-  const full = await timeSubmit(loadFullSpellingCatalogue(), () => new Promise(() => {}));
+  function median(values) {
+    const sorted = [...values].sort((left, right) => left - right);
+    return sorted[Math.floor(sorted.length / 2)];
+  }
+
+  const starterSamples = [];
+  const fullSamples = [];
+  for (let sample = 0; sample < 3; sample += 1) {
+    starterSamples.push(await timeSubmit(loadStarterSpellingCatalogue()));
+    fullSamples.push(
+      await timeSubmit(loadFullSpellingCatalogue(), () => new Promise(() => {})),
+    );
+  }
+  const starterSubmit = median(starterSamples.map(({ submitMs }) => submitMs));
+  const starterContinue = median(starterSamples.map(({ continueMs }) => continueMs));
+  const fullSubmit = median(fullSamples.map(({ submitMs }) => submitMs));
+  const fullContinue = median(fullSamples.map(({ continueMs }) => continueMs));
   const ceiling = (starterMs) => Math.max(80, starterMs * 4);
   assert.ok(
-    full.submitMs <= ceiling(starter.submitMs),
-    `Full submit Saving lasted ${full.submitMs.toFixed(1)}ms vs Starter ${starter.submitMs.toFixed(1)}ms`,
+    fullSubmit <= ceiling(starterSubmit),
+    `Full submit Saving lasted ${fullSubmit.toFixed(1)}ms vs Starter ${starterSubmit.toFixed(1)}ms`,
   );
   assert.ok(
-    full.continueMs <= ceiling(starter.continueMs),
-    `Full continue Saving lasted ${full.continueMs.toFixed(1)}ms vs Starter ${starter.continueMs.toFixed(1)}ms`,
+    fullContinue <= ceiling(starterContinue),
+    `Full continue Saving lasted ${fullContinue.toFixed(1)}ms vs Starter ${starterContinue.toFixed(1)}ms`,
   );
 });
 

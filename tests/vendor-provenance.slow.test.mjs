@@ -35,7 +35,7 @@ const EXPECTED = Object.freeze({
   commit: 'c39b07bb5a339ca1329407274d7972c7f66f6c59',
   tree: '7adf8b5224c6a88879c6088850a65d4911125ed5',
   manifestSha256:
-    'd34876de4a9e011272de2454e891997cff527edf60759d225b2a11e238fc150a',
+    '23a2cca861e9bf11905dd92e99669b8ff46d98ef4b5b486a22e7a8a42e329eb2',
   runtimeEntry: 'shared/spelling/mobile/a3/index.js',
   runtimeFileCount: 24,
   starterSha256:

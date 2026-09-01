@@ -25,3 +25,20 @@ test('a mutated unfrozen draft still fails catalogue validation', () => {
   draft.schemaVersion = 2;
   assert.throws(() => validateCatalogueV1(draft), /schema version/i);
 });
+
+test('a shallow-frozen catalogue with a mutable nest is not served from cache', () => {
+  const draft = structuredClone(loadStarterSpellingCatalogue());
+  Object.freeze(draft);
+  assert.equal(Object.isFrozen(draft), true);
+  assert.equal(Object.isFrozen(draft.items), false);
+
+  const first = validateCatalogueV1(draft);
+  assert.notEqual(first, draft);
+  assert.equal(first.items[0].packId, draft.items[0].packId);
+
+  draft.items[0].packId = 'not-the-pack';
+  assert.throws(
+    () => validateCatalogueV1(draft),
+    /pack namespace/i,
+  );
+});

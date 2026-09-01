@@ -29,6 +29,30 @@ enum WebViewFirstPaintPolicy {
     }
 }
 
+/// Native long-press policy for the product WKWebView.
+///
+/// CSS `user-select` / `-webkit-user-drag` on a narrow subtree does not stop
+/// iOS lifting `<img>` into a drag preview or selecting learner chrome. The
+/// product shell CSS covers selection; this turns off link preview and native
+/// drag/drop on the existing Capacitor host. It does not add a plugin, change
+/// keyboard first-responder policy, or strip `UILongPressGestureRecognizer`
+/// (that would break caret and magnifier in real fields).
+enum WebViewNativeLongPressPolicy {
+    static func apply(to webView: WKWebView) {
+        webView.allowsLinkPreview = false
+        stripNativeDragAndDrop(from: webView)
+    }
+
+    static func stripNativeDragAndDrop(from view: UIView) {
+        view.interactions.removeAll { interaction in
+            interaction is UIDragInteraction || interaction is UIDropInteraction
+        }
+        for subview in view.subviews {
+            stripNativeDragAndDrop(from: subview)
+        }
+    }
+}
+
 final class ProductBridgeViewController: CAPBridgeViewController {
     private var uncommittedFirstPaintRecoveryScheduled = false
 
@@ -45,13 +69,15 @@ final class ProductBridgeViewController: CAPBridgeViewController {
         with frame: CGRect,
         configuration: WKWebViewConfiguration
     ) -> WKWebView {
-        WKWebView(
+        let webView = WKWebView(
             frame: WebViewFirstPaintPolicy.initialFrame(
                 requested: frame,
                 screenBounds: UIScreen.main.bounds
             ),
             configuration: configuration
         )
+        WebViewNativeLongPressPolicy.apply(to: webView)
+        return webView
     }
 
     override func capacitorDidLoad() {
@@ -62,6 +88,9 @@ final class ProductBridgeViewController: CAPBridgeViewController {
         // via hasInitialFocus = false above — that was the iOS 27 breakage, not
         // this per-focus flag.
         webView?.capacitor.setKeyboardShouldRequireUserInteraction(false)
+        if let webView {
+            WebViewNativeLongPressPolicy.apply(to: webView)
+        }
     }
 
     override func viewDidLoad() {
@@ -73,7 +102,18 @@ final class ProductBridgeViewController: CAPBridgeViewController {
         webView?.isOpaque = true
         webView?.backgroundColor = .systemBackground
         webView?.scrollView.backgroundColor = .systemBackground
+        if let webView {
+            WebViewNativeLongPressPolicy.apply(to: webView)
+        }
         scheduleUncommittedFirstPaintRecovery()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // WKContentView may attach drag interactions after first layout.
+        if let webView {
+            WebViewNativeLongPressPolicy.apply(to: webView)
+        }
     }
 
     private func scheduleUncommittedFirstPaintRecovery() {

@@ -150,6 +150,8 @@ test('reverting the resume restore leaves the viewport contract red', async () =
   const sceneDelegate = await source('ios/App/App/SceneDelegate.swift');
   const reverted = sceneDelegate
     .replace(/\nenum WebViewViewportResumePolicy \{[\s\S]*?\n\}\n/u, '\n')
+    .replace(/\n    override func viewWillTransition\([\s\S]*?\n    \}\n/u, '\n')
+    .replace(/\n    @objc private func restoreViewportAfterKeyboardHide\(\) \{[\s\S]*?\n    \}\n/u, '\n')
     .replace(/\n    func restoreViewportAfterHostChange\(\) \{[\s\S]*?\n    \}\n/u, '\n')
     .replace(/\n    func sceneDidBecomeActive\(_ scene: UIScene\) \{[\s\S]*?\n    \}\n/u, '\n')
     .replace(/\n    func sceneWillEnterForeground\(_ scene: UIScene\) \{[\s\S]*?\n    \}\n/u, '\n');

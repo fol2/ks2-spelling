@@ -23,11 +23,8 @@ export function readViewportSnapshot(env = globalThis) {
 
 export function viewportNeedsReset(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return false;
-  if (Math.abs(numberOr(snapshot.scale, 1) - 1) > SCALE_EPSILON) return true;
+  if (viewportNeedsScaleReset(snapshot)) return true;
   if (Math.abs(numberOr(snapshot.offsetTop, 0)) > OFFSET_EPSILON) return true;
-  if (Math.abs(numberOr(snapshot.offsetLeft, 0)) > OFFSET_EPSILON) return true;
-  if (Math.abs(numberOr(snapshot.scrollX, 0)) > OFFSET_EPSILON) return true;
-  if (Math.abs(numberOr(snapshot.scrollY, 0)) > OFFSET_EPSILON) return true;
   const visualHeight = numberOr(snapshot.visualHeight, 0);
   const layoutHeight = numberOr(snapshot.layoutHeight, 0);
   if (visualHeight <= 0 || layoutHeight <= 0) return false;
@@ -35,7 +32,15 @@ export function viewportNeedsReset(snapshot) {
   return layoutHeight - covered > HEIGHT_GAP_PX;
 }
 
-function restoreAuthoredViewportMeta(document) {
+export function viewportNeedsScaleReset(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return false;
+  if (Math.abs(numberOr(snapshot.scale, 1) - 1) > SCALE_EPSILON) return true;
+  if (Math.abs(numberOr(snapshot.offsetLeft, 0)) > OFFSET_EPSILON) return true;
+  if (Math.abs(numberOr(snapshot.scrollX, 0)) > OFFSET_EPSILON) return true;
+  return Math.abs(numberOr(snapshot.scrollY, 0)) > OFFSET_EPSILON;
+}
+
+function restoreAuthoredViewportMeta(document, env) {
   const meta = document?.querySelector?.('meta[name="viewport"]');
   if (!meta || typeof meta.getAttribute !== 'function' || typeof meta.setAttribute !== 'function') {
     return;
@@ -46,19 +51,25 @@ function restoreAuthoredViewportMeta(document) {
     .replace(/,?\s*maximum-scale\s*=\s*[^,]+/gi, '')
     .replace(/,\s*,/g, ',')
     .replace(/^\s*,\s*|\s*,\s*$/g, '');
-  meta.setAttribute('content', `${withoutMax}, maximum-scale=1.0`);
-  meta.setAttribute('content', original);
+  const pinned = `${withoutMax}, maximum-scale=1.0`;
+  meta.setAttribute('content', pinned);
+  const restore = () => {
+    meta.setAttribute('content', original);
+  };
+  if (typeof env.requestAnimationFrame === 'function') {
+    env.requestAnimationFrame(() => {
+      env.requestAnimationFrame(restore);
+    });
+    return;
+  }
+  restore();
 }
 
-export function resetProductViewport(env = globalThis) {
+export function resetProductViewport(env = globalThis, options = {}) {
   const document = env.document;
-  if (document?.visibilityState === 'hidden') return;
-  const active = document?.activeElement;
+  if (!options.force && document?.visibilityState === 'hidden') return;
   if (typeof env.scrollTo === 'function') env.scrollTo(0, 0);
-  restoreAuthoredViewportMeta(document);
-  if (active && active !== document?.body && typeof active.focus === 'function') {
-    active.focus({ preventScroll: true });
-  }
+  restoreAuthoredViewportMeta(document, env);
 }
 
 export function installViewportResume(env = globalThis) {
@@ -66,13 +77,17 @@ export function installViewportResume(env = globalThis) {
     return env.__ks2ResetProductViewport;
   }
   const run = (force) => {
-    if (!force && !viewportNeedsReset(readViewportSnapshot(env))) return;
+    if (force) {
+      resetProductViewport(env, { force: true });
+      return;
+    }
+    if (!viewportNeedsScaleReset(readViewportSnapshot(env))) return;
     resetProductViewport(env);
   };
   env.__ks2ViewportResumeInstalled = true;
   env.__ks2ResetProductViewport = () => run(true);
   env.document?.addEventListener?.('visibilitychange', () => {
-    if (env.document?.visibilityState === 'visible') run(true);
+    if (env.document?.visibilityState === 'visible') run(false);
   });
   env.addEventListener?.('pageshow', (event) => {
     run(event?.persisted === true);

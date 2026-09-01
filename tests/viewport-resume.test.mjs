@@ -9,6 +9,7 @@ import {
   readViewportSnapshot,
   resetProductViewport,
   viewportNeedsReset,
+  viewportNeedsScaleReset,
 } from '../src/app/viewport-resume.js';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -78,6 +79,12 @@ function createEnv(overrides = {}) {
   return Object.assign(env, overrides);
 }
 
+function flushAnimationFrames(env) {
+  const queue = env.__raf ?? [];
+  env.__raf = [];
+  for (const callback of queue) callback();
+}
+
 test('a 1:1 product viewport does not need a resume reset', () => {
   assert.equal(
     viewportNeedsReset({
@@ -91,10 +98,23 @@ test('a 1:1 product viewport does not need a resume reset', () => {
     }),
     false,
   );
+  assert.equal(
+    viewportNeedsScaleReset({
+      scale: 1,
+      offsetTop: 340,
+      scrollX: 0,
+      scrollY: 0,
+      visualHeight: 720,
+      layoutHeight: 1200,
+    }),
+    false,
+    'a live keyboard height gap is not a scale leftover',
+  );
 });
 
 test('leftover visual-viewport scale, keyboard offset or height gap need a reset', () => {
   assert.equal(viewportNeedsReset({ scale: 1.25, visualHeight: 800, layoutHeight: 800 }), true);
+  assert.equal(viewportNeedsScaleReset({ scale: 1.25, visualHeight: 800, layoutHeight: 800 }), true);
   assert.equal(
     viewportNeedsReset({
       scale: 1,
@@ -141,14 +161,13 @@ test('resetProductViewport restores 1:1 scale then puts the authored viewport me
   const env = createEnv();
   env.visualViewport.scale = 1.4;
   env.scrollY = 80;
-  const focused = {
+  let focused = false;
+  env.document.activeElement = {
     tagName: 'INPUT',
-    preventScroll: false,
-    focus(options) {
-      this.preventScroll = options?.preventScroll === true;
+    focus() {
+      focused = true;
     },
   };
-  env.document.activeElement = focused;
 
   resetProductViewport(env);
 
@@ -159,11 +178,11 @@ test('resetProductViewport restores 1:1 scale then puts the authored viewport me
     env.meta.content,
     'width=device-width, initial-scale=1.0, viewport-fit=cover',
   );
-  assert.equal(focused.preventScroll, true);
+  assert.equal(focused, false, 'reset must not programmatic-focus a field and raise keys');
   assert.doesNotMatch(env.meta.content, /user-scalable\s*=\s*no/u);
 });
 
-test('resetProductViewport stays idle while the document is hidden', () => {
+test('resetProductViewport stays idle while the document is hidden unless forced', () => {
   const env = createEnv();
   env.document.visibilityState = 'hidden';
   env.visualViewport.scale = 2;
@@ -171,9 +190,13 @@ test('resetProductViewport stays idle while the document is hidden', () => {
   resetProductViewport(env);
   assert.equal(env.scrollY, 40);
   assert.equal(env.contentWrites.length, 0);
+
+  resetProductViewport(env, { force: true });
+  assert.equal(env.scrollY, 0);
+  assert.ok(env.contentWrites.length > 0);
 });
 
-test('installViewportResume resets on becoming visible and on persisted pageshow', () => {
+test('installViewportResume resets leftover scale on visible, not a live keyboard height gap', () => {
   const env = createEnv();
   env.visualViewport.scale = 1.3;
   const run = installViewportResume(env);
@@ -188,10 +211,13 @@ test('installViewportResume resets on becoming visible and on persisted pageshow
     'width=device-width, initial-scale=1.0, viewport-fit=cover',
   );
 
-  env.visualViewport.scale = 1.2;
-  env.scrollY = 24;
-  env.dispatch('window', 'pageshow', { persisted: true });
-  assert.equal(env.scrollY, 0);
+  env.visualViewport.scale = 1;
+  env.visualViewport.height = 720;
+  env.innerHeight = 1200;
+  env.scrollY = 0;
+  env.contentWrites.length = 0;
+  env.dispatch('document', 'visibilitychange');
+  assert.equal(env.contentWrites.length, 0, 'Control Centre with keys up is not a scale leftover');
 });
 
 test('a first pageshow of an already 1:1 viewport does not toggle the meta', () => {
@@ -199,6 +225,34 @@ test('a first pageshow of an already 1:1 viewport does not toggle the meta', () 
   installViewportResume(env);
   env.dispatch('window', 'pageshow', { persisted: false });
   assert.equal(env.contentWrites.length, 0);
+});
+
+test('persisted pageshow and native force restore even when the snapshot looks 1:1', () => {
+  const env = createEnv();
+  const run = installViewportResume(env);
+  env.dispatch('window', 'pageshow', { persisted: true });
+  assert.ok(env.contentWrites.length > 0);
+  env.contentWrites.length = 0;
+  run();
+  assert.ok(env.contentWrites.length > 0);
+});
+
+test('requestAnimationFrame separates the temporary maximum-scale pin from the restore', () => {
+  const env = createEnv();
+  env.__raf = [];
+  env.requestAnimationFrame = (callback) => {
+    env.__raf.push(callback);
+    return env.__raf.length;
+  };
+  resetProductViewport(env);
+  assert.ok(env.contentWrites.some((value) => /maximum-scale\s*=\s*1(?:\.0)?\b/u.test(value)));
+  assert.match(env.meta.content, /maximum-scale\s*=\s*1(?:\.0)?\b/u);
+  flushAnimationFrames(env);
+  flushAnimationFrames(env);
+  assert.equal(
+    env.meta.content,
+    'width=device-width, initial-scale=1.0, viewport-fit=cover',
+  );
 });
 
 test('the product entry installs viewport resume without a second keyboard owner', async () => {
@@ -212,7 +266,7 @@ test('the product entry installs viewport resume without a second keyboard owner
   assert.match(main, /installViewportResume\(\)/u);
   assert.match(main, /from '\.\/app\/viewport-resume\.js'/u);
   assert.doesNotMatch(productApp, /visualViewport|installViewportResume|viewport-resume/u);
-  assert.doesNotMatch(moduleSource, /@capacitor\/keyboard|--keyboard-inset/u);
+  assert.doesNotMatch(moduleSource, /@capacitor\/keyboard|--keyboard-inset|\.focus\(/u);
   assert.match(
     indexHtml,
     /content="width=device-width, initial-scale=1\.0, viewport-fit=cover"/u,

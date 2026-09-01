@@ -57,9 +57,15 @@ enum WebViewNativeLongPressPolicy {
 ///
 /// Backgrounding with a focused field, then returning, can leave WKWebView
 /// zoomed or inset for a keyboard that is no longer there. The shell then
-/// paints enlarged with the waypoint foot off-screen. Reset zoom, insets and
-/// the visual viewport on the existing host; do not add a keyboard plugin,
-/// change first-responder policy, or pin `user-scalable=no`.
+/// paints enlarged with the waypoint foot off-screen.
+///
+/// Triggers are split so a live software keyboard is not cancelled:
+/// - host zoom only: Control Centre / brief inactive, size class change
+/// - geometry (zoom + insets): keyboardDidHide
+/// - full restore (geometry + JS visual-viewport): true background resume
+///
+/// Do not add a keyboard plugin, change first-responder policy, or pin
+/// `user-scalable=no`.
 enum WebViewViewportResumePolicy {
     static let identityZoomScale: CGFloat = 1
     static let identityPageZoom: CGFloat = 1
@@ -72,24 +78,21 @@ enum WebViewViewportResumePolicy {
               return;
             }
             var doc = document;
-            if (!doc || doc.visibilityState === 'hidden') return;
-            var active = doc.activeElement;
             if (typeof scrollTo === 'function') scrollTo(0, 0);
-            var meta = doc.querySelector('meta[name="viewport"]');
+            var meta = doc && doc.querySelector('meta[name="viewport"]');
             if (meta) {
               var original = meta.getAttribute('content') || '';
               var withoutMax = original.replace(/,?\s*maximum-scale\s*=\s*[^,]+/gi, '').replace(/^\s*,\s*|\s*,\s*$/g, '');
               meta.setAttribute('content', withoutMax + ', maximum-scale=1.0');
-              meta.setAttribute('content', original);
-            }
-            if (active && active !== doc.body && typeof active.focus === 'function') {
-              active.focus({ preventScroll: true });
+              setTimeout(function() {
+                meta.setAttribute('content', original);
+              }, 0);
             }
           } catch (e) {}
         })();
         """#
 
-    static func apply(to webView: WKWebView) {
+    static func applyHostZoom(to webView: WKWebView) {
         if webView.transform != .identity {
             webView.transform = .identity
         }
@@ -99,10 +102,19 @@ enum WebViewViewportResumePolicy {
         }
         scrollView.setZoomScale(identityZoomScale, animated: false)
         webView.pageZoom = identityPageZoom
+    }
+
+    static func applyGeometry(to webView: WKWebView) {
+        applyHostZoom(to: webView)
+        let scrollView = webView.scrollView
         scrollView.contentInset = .zero
         scrollView.verticalScrollIndicatorInsets = .zero
         scrollView.horizontalScrollIndicatorInsets = .zero
         scrollView.setContentOffset(.zero, animated: false)
+    }
+
+    static func apply(to webView: WKWebView) {
+        applyGeometry(to: webView)
         webView.evaluateJavaScript(resetScript, completionHandler: nil)
     }
 }
@@ -182,12 +194,15 @@ final class ProductBridgeViewController: CAPBridgeViewController {
     ) {
         super.viewWillTransition(to: size, with: coordinator)
         coordinator.animate(alongsideTransition: nil) { [weak self] _ in
-            self?.restoreViewportAfterHostChange()
+            guard let webView = self?.webView else { return }
+            WebViewViewportResumePolicy.applyHostZoom(to: webView)
         }
     }
 
     @objc private func restoreViewportAfterKeyboardHide() {
-        restoreViewportAfterHostChange()
+        additionalSafeAreaInsets = .zero
+        guard let webView else { return }
+        WebViewViewportResumePolicy.applyGeometry(to: webView)
     }
 
     func restoreViewportAfterHostChange() {
@@ -267,7 +282,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
-        productBridgeController()?.restoreViewportAfterHostChange()
+        if let webView = productBridgeController()?.webView {
+            WebViewViewportResumePolicy.applyHostZoom(to: webView)
+        }
     }
 
     func sceneWillEnterForeground(_ scene: UIScene) {

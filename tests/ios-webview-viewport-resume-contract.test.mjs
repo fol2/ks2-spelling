@@ -18,7 +18,7 @@ function productBridge(sceneDelegate) {
   return match[0];
 }
 
-test('the product host restores a 1:1 WKWebView viewport after background, keyboard hide and scene size change', async () => {
+test('the product host restores a 1:1 WKWebView viewport after background without fighting live keys', async () => {
   const sceneDelegate = await source('ios/App/App/SceneDelegate.swift');
   const bridge = productBridge(sceneDelegate);
 
@@ -30,6 +30,14 @@ test('the product host restores a 1:1 WKWebView viewport after background, keybo
   assert.match(
     sceneDelegate,
     /static let identityPageZoom: CGFloat = 1/u,
+  );
+  assert.match(
+    sceneDelegate,
+    /static func applyHostZoom\(to webView: WKWebView\)/u,
+  );
+  assert.match(
+    sceneDelegate,
+    /static func applyGeometry\(to webView: WKWebView\)/u,
   );
   assert.match(
     sceneDelegate,
@@ -51,13 +59,30 @@ test('the product host restores a 1:1 WKWebView viewport after background, keybo
   assert.match(
     bridge,
     /override func viewDidLoad\(\) \{[\s\S]*keyboardDidHideNotification/u,
-    'keyboard hide must reuse the same resume restore, not a second inset owner',
+    'keyboard hide must clear leftover native inset, not own a second keyboard plugin',
   );
+  const keyboardHide = bridge.match(
+    /func restoreViewportAfterKeyboardHide\(\) \{[\s\S]*?\n    \}/u,
+  )?.[0];
+  assert.ok(keyboardHide, 'keyboard hide must be a closed method');
+  assert.match(keyboardHide, /applyGeometry\(to: webView\)/u);
+  assert.doesNotMatch(
+    keyboardHide,
+    /evaluateJavaScript|restoreViewportAfterHostChange|apply\(to: webView\)/u,
+    'hiding keys must not toggle the viewport meta or programmatic-focus a field',
+  );
+
   assert.match(
     bridge,
     /override func viewWillTransition\(\s*to size: CGSize,\s*with coordinator: UIViewControllerTransitionCoordinator\s*\)/u,
   );
-  assert.match(bridge, /restoreViewportAfterHostChange\(\)/u);
+  const sizeChange = bridge.match(
+    /override func viewWillTransition\([\s\S]*?\n    \}/u,
+  )?.[0];
+  assert.ok(sizeChange, 'scene size change must be a closed override');
+  assert.match(sizeChange, /applyHostZoom\(to: webView\)/u);
+  assert.doesNotMatch(sizeChange, /applyGeometry|evaluateJavaScript/u);
+
   assert.match(
     bridge,
     /descriptor\.hasInitialFocus = false/u,
@@ -76,9 +101,15 @@ test('the product host restores a 1:1 WKWebView viewport after background, keybo
     sceneDelegate,
     /func sceneWillEnterForeground\(_ scene: UIScene\)/u,
   );
-  assert.match(
-    sceneDelegate,
-    /sceneDidBecomeActive[\s\S]*restoreViewportAfterHostChange\(\)/u,
+  const becomeActive = sceneDelegate.match(
+    /func sceneDidBecomeActive\(_ scene: UIScene\) \{[\s\S]*?\n    \}/u,
+  )?.[0];
+  assert.ok(becomeActive, 'sceneDidBecomeActive must be a closed method');
+  assert.match(becomeActive, /applyHostZoom\(to: webView\)/u);
+  assert.doesNotMatch(
+    becomeActive,
+    /restoreViewportAfterHostChange|applyGeometry|evaluateJavaScript/u,
+    'Control Centre / app-switcher peek must not zero keyboard insets',
   );
   assert.match(
     sceneDelegate,
@@ -89,6 +120,7 @@ test('the product host restores a 1:1 WKWebView viewport after background, keybo
     /func restoreViewportAfterHostChange\(\) \{[\s\S]*?\n    \}/u,
   )?.[0];
   assert.ok(restore, 'the resume restore must be a closed method');
+  assert.match(restore, /WebViewViewportResumePolicy\.apply\(to: webView\)/u);
   assert.doesNotMatch(
     restore,
     /loadWebView\(\)|becomeFirstResponder|hasInitialFocus = true/u,
@@ -107,7 +139,9 @@ test('the native resume script only briefly pins maximum-scale, then restores vi
   assert.match(script, /maximum-scale=1\.0/u);
   assert.match(script, /setAttribute\('content', original\)/u);
   assert.match(script, /scrollTo\(0, 0\)/u);
-  assert.match(script, /preventScroll:\s*true/u);
+  assert.match(script, /setTimeout/u);
+  assert.doesNotMatch(script, /\.focus\(/u);
+  assert.doesNotMatch(script, /preventScroll/u);
   assert.doesNotMatch(script, /user-scalable=no/u);
   assert.doesNotMatch(script, /Keyboard\.(?:show|hide)|--keyboard-inset/u);
 });
@@ -121,13 +155,13 @@ test('reverting the resume restore leaves the viewport contract red', async () =
     .replace(/\n    func sceneWillEnterForeground\(_ scene: UIScene\) \{[\s\S]*?\n    \}\n/u, '\n');
 
   assert.match(sceneDelegate, /WebViewViewportResumePolicy\.apply/u);
-  assert.match(sceneDelegate, /sceneDidBecomeActive/u);
+  assert.match(sceneDelegate, /sceneWillEnterForeground/u);
   assert.doesNotMatch(
     reverted,
     /WebViewViewportResumePolicy/u,
     'the contract is load-bearing only if removing the policy drops its name',
   );
-  assert.doesNotMatch(reverted, /sceneDidBecomeActive/u);
+  assert.doesNotMatch(reverted, /sceneWillEnterForeground/u);
   assert.match(
     reverted,
     /enum WebViewFirstPaintPolicy/u,

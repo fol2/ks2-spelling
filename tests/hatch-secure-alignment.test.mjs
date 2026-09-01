@@ -290,6 +290,18 @@ test('Full catalogue Inklet still uses the published 100-word growth line', () =
   snapshot.catalogueId = catalogue.catalogueId;
   snapshot.grantedEntitlementIds = [...catalogue.entitlementIds];
   snapshot.subjectState.data.progress = progress;
+  snapshot.monsterStateByRewardTrackId = {
+    'spelling-core-inklet': {
+      rewardTrackId: 'spelling-core-inklet',
+      packId: 'ks2-core',
+      monsterId: 'inklet',
+      branch: 'b1',
+      secureCount: 10,
+      caught: true,
+      derivedStage: 1,
+      earnedStageHighWater: 1,
+    },
+  };
 
   const inklet = controllerFor(snapshot, catalogue)
     .getState()

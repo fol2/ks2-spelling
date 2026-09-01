@@ -280,7 +280,63 @@ export function validatePackManifestV1(value) {
   return structuredClone({ ...manifest, itemInventory, rewardTracks, monsterDefinitions, archives, audioAssets });
 }
 
+// Full-catalogue command hops nest many validateCatalogueV1 calls. Each call
+// previously cloned all 213 items, which held child Saving on the local
+// commit path. Cache already-validated results, and cache an input identity
+// only when it is frozen plain data (own properties are data fields, no
+// getters or setters). Shallow-frozen or accessor-backed nests re-validate
+// so a later mutation cannot reuse a pass. Bundled JSON catalogues stay
+// cheap after the first fill.
+const VALIDATED_CATALOGUE_CACHE = new WeakMap();
+
+function freezeValidatedCatalogue(value) {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    if (Array.isArray(value)) {
+      for (const entry of value) freezeValidatedCatalogue(entry);
+    } else {
+      for (const child of Object.values(value)) freezeValidatedCatalogue(child);
+    }
+    Object.freeze(value);
+  }
+  return value;
+}
+
+function isFrozenPlainData(value) {
+  const seen = new WeakSet();
+  const walk = (node) => {
+    if (node === null || typeof node !== 'object') return true;
+    if (seen.has(node)) return true;
+    if (!Object.isFrozen(node)) return false;
+    seen.add(node);
+    for (const key of Reflect.ownKeys(node)) {
+      const descriptor = Object.getOwnPropertyDescriptor(node, key);
+      if (
+        !descriptor
+        || !Object.hasOwn(descriptor, 'value')
+        || Object.hasOwn(descriptor, 'get')
+        || Object.hasOwn(descriptor, 'set')
+      ) {
+        return false;
+      }
+      if (descriptor.enumerable === true && !walk(descriptor.value)) return false;
+    }
+    return true;
+  };
+  return walk(value);
+}
+
+function rememberValidatedCatalogue(input, validated) {
+  freezeValidatedCatalogue(validated);
+  VALIDATED_CATALOGUE_CACHE.set(validated, validated);
+  if (input !== validated && isFrozenPlainData(input)) {
+    VALIDATED_CATALOGUE_CACHE.set(input, validated);
+  }
+  return validated;
+}
+
 export function validateCatalogueV1(value) {
+  const cached = VALIDATED_CATALOGUE_CACHE.get(value);
+  if (cached !== undefined) return cached;
   const catalogue = object(value, 'Catalogue');
   exactKeys(catalogue, CATALOGUE_KEYS, 'catalogue');
   if (catalogue.schemaVersion !== 1) throw new TypeError('Unsupported catalogue schema version.');
@@ -351,7 +407,10 @@ export function validateCatalogueV1(value) {
     throw new TypeError(`Catalogue audio requires exactly ${expectedAudioAssetCount} assets.`);
   }
   assertNoDuplicateActiveTargets([{ ...catalogue, items }]);
-  return structuredClone({ ...catalogue, rewardTracks, audio, items });
+  return rememberValidatedCatalogue(
+    value,
+    structuredClone({ ...catalogue, rewardTracks, audio, items }),
+  );
 }
 
 export function assertNoDuplicateActiveTargets(catalogues) {

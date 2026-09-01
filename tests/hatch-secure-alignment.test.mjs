@@ -152,14 +152,24 @@ test('hatch remaining matches the word list when every hatch-counting word is se
 
 test('Starter trial: twenty secured words hatch Inklet and Glimmerbug against the published 100-word climb', () => {
   const catalogue = loadStarterSpellingCatalogue();
+  const published = loadFullSpellingCatalogue();
   const y34 = catalogue.items.filter((item) => item.yearBand === '3-4');
   const y56 = catalogue.items.filter((item) => item.yearBand === '5-6');
   assert.equal(y34.length, 10);
   assert.equal(y56.length, 10);
+  assert.equal(catalogue.items.length, 20);
   assert.equal(
     catalogue.rewardTracks.some((track) => track.monsterId === 'phaeton'),
     false,
-    'Phaeton stays out of Starter',
+    'Starter pack JSON still omits Phaeton as a hatch track',
+  );
+  const phaetonTrack = published.rewardTracks.find(
+    (track) => track.monsterId === 'phaeton',
+  );
+  assert.deepEqual(phaetonTrack.thresholds, [3, 25, 95, 145, 213]);
+  assert.ok(
+    catalogue.items.length < phaetonTrack.thresholds[1],
+    'Starter 20 cannot fund Aetherwisp at 25',
   );
 
   // Live iPad split: Years 3–4 all Mega (stage 5), Years 5–6 mixed 4/5.
@@ -236,7 +246,7 @@ test('Starter trial: twenty secured words hatch Inklet and Glimmerbug against th
   assert.equal(a3Glimmer.count, '4 of 100');
   assert.match(a3Glimmer.next, /6 more to Glimmerbug/i);
 
-  const state = controllerFor(snapshot, catalogue).getState();
+  const state = controllerFor(snapshot, catalogue, published).getState();
   assert.equal(state.revisionMission.missionState, 'locked');
   assert.equal(state.revisionMission.campCreditState, 'unavailable');
   assert.ok(
@@ -245,10 +255,12 @@ test('Starter trial: twenty secured words hatch Inklet and Glimmerbug against th
   );
 
   const codex = buildCodex(state.monsters);
-  assert.equal(codex.roster.length, 2);
+  assert.equal(codex.roster.length, 3);
   assert.equal(codex.secureWords, 20);
   const inklet = codex.roster.find((entry) => entry.monsterId === 'inklet');
   const glimmer = codex.roster.find((entry) => entry.monsterId === 'glimmerbug');
+  const phaeton = state.monsters.find((monster) => monster.monsterId === 'phaeton');
+  const phaetonEntry = codex.roster.find((entry) => entry.monsterId === 'phaeton');
   assert.equal(inklet.stage, 1);
   assert.equal(inklet.title, 'Inklet');
   assert.equal(inklet.count, '10 of 100');
@@ -258,6 +270,13 @@ test('Starter trial: twenty secured words hatch Inklet and Glimmerbug against th
   assert.equal(glimmer.title, 'Glimmerbug');
   assert.equal(glimmer.count, '10 of 100');
   assert.doesNotMatch(glimmer.next, /more to Glimmerbug/i);
+  assert.equal(phaeton.secureCount, 20);
+  assert.equal(phaeton.derivedStage, 0, 'twenty Starter words cannot reach Aetherwisp');
+  assert.deepEqual(phaeton.thresholds, [3, 25, 95, 145, 213]);
+  assert.equal(phaetonEntry.stage, 0);
+  assert.equal(phaetonEntry.title, 'Stardrop Egg');
+  assert.equal(phaetonEntry.count, '20 of 213');
+  assert.match(phaetonEntry.next, /5 more to Aetherwisp/);
 });
 
 test('Full catalogue Inklet still uses the published 100-word growth line', () => {
@@ -336,11 +355,15 @@ test('trial Camp and word bank use the published full catalogue as the destinati
   assert.equal(inklet.derivedStage, 1);
   assert.deepEqual(inklet.thresholds, [1, 10, 30, 60, 100]);
   assert.equal(buildCodex([inklet]).hero.count, '10 of 100');
-  assert.equal(
-    state.monsters.some((monster) => monster.monsterId === 'phaeton'),
-    false,
-    'Phaeton stays out of Starter',
-  );
+  const phaeton = state.monsters.find((monster) => monster.monsterId === 'phaeton');
+  assert.equal(phaeton.monsterId, 'phaeton');
+  assert.equal(phaeton.secureCount, 10);
+  assert.equal(phaeton.derivedStage, 0);
+  assert.deepEqual(phaeton.thresholds, [3, 25, 95, 145, 213]);
+  const phaetonEntry = buildCodex(state.monsters, 'spelling-core-phaeton').hero;
+  assert.equal(phaetonEntry.found, true);
+  assert.equal(phaetonEntry.stage, 0);
+  assert.equal(phaetonEntry.title, 'Stardrop Egg');
 });
 
 test('Setup vocabulary sets project the installed catalogue, not the published destination', async () => {
@@ -352,5 +375,10 @@ test('Setup vocabulary sets project the installed catalogue, not the published d
   assert.doesNotMatch(
     source,
     /vocabularySets: vocabularySetsProjection\(displayCatalogue\)/,
+  );
+  assert.match(source, /monsters: monsterProjection\(snapshot, displayCatalogue\)/);
+  assert.doesNotMatch(
+    source,
+    /monsters: monsterProjection\(snapshot, catalogue\)/,
   );
 });

@@ -498,6 +498,15 @@ test('trial Setup vocabulary sets stay on the installed catalogue when Full is o
     },
   ]);
   assert.notEqual(state.vocabularySets[0].count, publishedCore.length);
+  assert.deepEqual(
+    state.monsters.map(({ monsterId }) => monsterId),
+    ['inklet', 'glimmerbug', 'phaeton'],
+  );
+  assert.equal(
+    state.monsters.find((monster) => monster.monsterId === 'phaeton').derivedStage,
+    0,
+  );
+  assert.equal(state.revisionMission.missionState, 'locked');
 
   await controller.startRound({
     mode: 'smart',

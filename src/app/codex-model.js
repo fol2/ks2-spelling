@@ -108,8 +108,9 @@ function buildEntry(monster, index) {
 
 /**
  * Build the Codex view model from the learner's saved reward tracks. The roster
- * only ever contains companions this learner's content actually publishes, so
- * the screen never advertises a creature that cannot be reached.
+ * lists companions the published destination catalogue owns, so a Starter trial
+ * still sees the legendary aggregate even though that track cannot hatch on 20
+ * words.
  */
 export function buildCodex(monsters = [], selectedRewardTrackId = null) {
   const roster = monsters.map(buildEntry);

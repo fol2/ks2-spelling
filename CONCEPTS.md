@@ -99,6 +99,14 @@ core. The presented flag is app-side state outside the learner snapshot, so
 restart, reset, snapshot apply and replica apply cannot show it again. The
 transaction stays behind the Parent gate.
 
+### Companion roster
+
+Camp Companions (Codex) lists every reward track the published spelling
+catalogue owns. The Starter trial therefore shows the legendary aggregate
+alongside Inklet and Glimmerbug even though that track is absent from the
+Starter pack JSON. Hatch still follows each track's published thresholds, so
+stage 1 of the legendary line stays unreachable on the Starter 20.
+
 ### Learner snapshot
 
 The complete saved state of one learner's progress through a spelling

@@ -221,6 +221,68 @@ test('Codex keeps a re-openable Ask-a-grown-up badge after a trial hatch', async
   assert.doesNotMatch(eggHtml, /data-ask-grown-up="true"/);
 });
 
+test('trial Codex roster shows the unhatched Phaeton track without a hatch paywall badge', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { CodexScreen } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
+  const track = ({
+    monsterId,
+    rewardTrackId,
+    thresholds,
+    secureCount = 0,
+    derivedStage = 0,
+    caught = false,
+  }) => Object.freeze({
+    rewardTrackId,
+    packId: 'ks2-core',
+    monsterId,
+    thresholds: Object.freeze(thresholds),
+    branch: 'b1',
+    secureCount,
+    caught,
+    derivedStage,
+    earnedStageHighWater: derivedStage,
+  });
+  const html = renderToStaticMarkup(
+    React.createElement(CodexScreen, {
+      monsters: [
+        track({
+          monsterId: 'inklet',
+          rewardTrackId: 'spelling-core-inklet',
+          thresholds: [1, 10, 30, 60, 100],
+        }),
+        track({
+          monsterId: 'glimmerbug',
+          rewardTrackId: 'spelling-core-glimmerbug',
+          thresholds: [1, 10, 30, 60, 100],
+        }),
+        track({
+          monsterId: 'phaeton',
+          rewardTrackId: 'spelling-core-phaeton',
+          thresholds: [3, 25, 95, 145, 213],
+          secureCount: 20,
+          caught: true,
+        }),
+      ],
+      progress: [],
+      onScreen() {},
+      entitled: false,
+      onAskGrownUp() {},
+    }),
+  );
+  assert.match(html, /Stardrop Egg/);
+  assert.match(html, /20 of 213/);
+  assert.match(html, /5 more to Aetherwisp/);
+  assert.doesNotMatch(html, />Aetherwisp</);
+  assert.doesNotMatch(html, /data-ask-grown-up="true"/);
+});
+
 function store(state) {
   return Object.freeze({
     getState: () => state,

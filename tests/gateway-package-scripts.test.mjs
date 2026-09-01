@@ -11,6 +11,7 @@ const EXPECTED_GATEWAY_TESTS = [
   'gateway-pack-access.test.mjs',
   'gateway-package-scripts.test.mjs',
   'gateway-privacy-boundary.test.mjs',
+  'gateway-production-pack-access.test.mjs',
   'gateway-r2-capability.test.mjs',
   'gateway-refresh-handle.test.mjs',
   'gateway-required-secret-names.test.mjs',

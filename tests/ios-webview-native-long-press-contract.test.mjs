@@ -32,7 +32,7 @@ test('the product web view turns off native image drag and link preview', async 
   assert.match(sceneDelegate, /interaction is UIDropInteraction/u);
   assert.doesNotMatch(
     sceneDelegate,
-    /UILongPressGestureRecognizer/u,
+    /is UILongPressGestureRecognizer|gestureRecognizers\.remove/u,
     'stripping long-press recognisers would break caret and magnifier in real fields',
   );
 

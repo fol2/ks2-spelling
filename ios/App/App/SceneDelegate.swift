@@ -110,7 +110,7 @@ final class ProductBridgeViewController: CAPBridgeViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        // WKContentView may attach drag interactions after first layout.
+        // Native drag interactions may attach after first layout.
         if let webView {
             WebViewNativeLongPressPolicy.apply(to: webView)
         }

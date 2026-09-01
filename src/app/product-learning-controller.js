@@ -7,7 +7,10 @@ import {
   validateSpellingCommandSnapshotV1,
 } from '../domain/spelling/index.js';
 import { setupExpeditionCompanion } from './codex-model.js';
-import { projectMonstersFromWordSecurity } from './monster-progress-model.js';
+import {
+  projectMonstersFromWordSecurity,
+  seedMissingCompanionBranches,
+} from './monster-progress-model.js';
 import { markB4 } from './b4-performance-marks.js';
 import { earlyRoundSummary, spellingOnly } from './practice-feel.js';
 import { achievementChips } from './records-model.js';
@@ -488,7 +491,7 @@ export function createProductLearningController({
         const plan = await repository.runCommandTransaction(
           snapshot.learnerId,
           (fresh, context) => applySpellingCommand({
-            snapshot: fresh,
+            snapshot: seedMissingCompanionBranches(fresh, catalogue),
             command,
             contentSnapshot: catalogue,
             now: () => context.nowMs,

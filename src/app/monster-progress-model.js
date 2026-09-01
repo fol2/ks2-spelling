@@ -6,6 +6,10 @@ const DEFAULT_CATCH_THRESHOLD = 1;
 // that would otherwise vanish from hatch evidence while the list still reads
 // Secure.
 export const WORD_SECURE_STAGE = 4;
+// Codex teaser identity when A3 has not yet persisted a branch. Starter JSON
+// cannot store Phaeton, so the trial egg is this branch until Full's first
+// command carries the same value into the snapshot.
+export const STABLE_COMPANION_TEASER_BRANCH = 'b1';
 
 // The extracted KS2 core catalogue currently has one aggregate reward track:
 // Phaeton. Older product projections did not carry sourceRewardTrackIds, so keep
@@ -66,7 +70,50 @@ export function directSecureWordTotal(monsters = []) {
 }
 
 export function monsterBranch(monster) {
-  return monster?.branch === 'b2' ? 'b2' : 'b1';
+  return monster?.branch === 'b2' ? 'b2' : STABLE_COMPANION_TEASER_BRANCH;
+}
+
+/**
+ * Give catalogue tracks that A3 would otherwise RNG a branch the same identity
+ * the trial teaser already showed. Only aggregate tracks are seeded: direct
+ * companions still roll on first appearance. Existing entries are left alone.
+ */
+export function seedMissingCompanionBranches(
+  snapshot,
+  catalogue,
+  branch = STABLE_COMPANION_TEASER_BRANCH,
+) {
+  const tracks = catalogue?.rewardTracks;
+  if (!snapshot || !Array.isArray(tracks)) return snapshot;
+  const existing = snapshot.monsterStateByRewardTrackId;
+  if (!existing || typeof existing !== 'object' || Array.isArray(existing)) {
+    return snapshot;
+  }
+  let changed = false;
+  const next = { ...existing };
+  for (const track of tracks) {
+    if (
+      !track
+      || typeof track.rewardTrackId !== 'string'
+      || !isAggregateMonster(track)
+      || next[track.rewardTrackId]
+    ) {
+      continue;
+    }
+    next[track.rewardTrackId] = {
+      rewardTrackId: track.rewardTrackId,
+      packId: track.packId,
+      monsterId: track.monsterId,
+      branch,
+      secureCount: 0,
+      caught: false,
+      derivedStage: 0,
+      earnedStageHighWater: 0,
+    };
+    changed = true;
+  }
+  if (!changed) return snapshot;
+  return { ...snapshot, monsterStateByRewardTrackId: next };
 }
 
 export function wordIsSecure(stage) {
@@ -200,7 +247,8 @@ export function projectMonstersFromWordSecurity({
       packId: track.packId,
       monsterId: track.monsterId,
       thresholds: [...displayThresholds],
-      branch: current?.branch ?? null,
+      branch: current?.branch
+        ?? (isAggregateMonster(track) ? STABLE_COMPANION_TEASER_BRANCH : null),
       secureCount,
       caught: secureCount >= catchThreshold
         || current?.caught === true

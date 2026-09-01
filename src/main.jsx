@@ -14,6 +14,9 @@ import {
   createProductFailureServices,
 } from './app/product-failure-services.js';
 import { mountApp } from './app/mount-app.js';
+import { installViewportResume } from './app/viewport-resume.js';
+
+installViewportResume();
 
 const root = document.getElementById('root');
 

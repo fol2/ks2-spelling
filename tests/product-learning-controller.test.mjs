@@ -279,6 +279,102 @@ test('product learning leaves Saving and shows feedback while replica publicatio
   await controller.dispose();
 });
 
+test('product learning leaves Saving on the Full catalogue while replica publication is still pending', async () => {
+  const catalogue = loadFullSpellingCatalogue();
+  const world = createLearningWorld(
+    [snapshotForCatalogue(catalogue)],
+    catalogue,
+  );
+  const controller = world.createController(undefined, {
+    publishedCatalogue: catalogue,
+    onCommandCommitted() {
+      return new Promise(() => {});
+    },
+  });
+
+  const settlesWithin = async (promise) => {
+    let timer;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error('Full-catalogue learning command remained inside Saving')),
+            2_000,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  await settlesWithin(
+    controller.startRound({ mode: 'smart', length: 5, yearFilter: 'core' }),
+  );
+  await settlesWithin(
+    controller.submitAnswer(targetFor(controller, catalogue)),
+  );
+  await settlesWithin(controller.continueRound());
+
+  const state = controller.getState();
+  assert.equal(state.status, 'ready');
+  assert.equal(state.screen, 'practice');
+  assert.equal(state.packSize, 213);
+  assert.equal(state.actionError, null);
+  await controller.dispose();
+});
+
+function savingSpanMs(controller, operation) {
+  let entered = null;
+  const unsubscribe = controller.subscribe((state) => {
+    if (state.status === 'saving' && entered === null) entered = performance.now();
+  });
+  return operation().then(() => {
+    unsubscribe.remove();
+    const state = controller.getState();
+    assert.equal(state.status, 'ready');
+    assert.notEqual(entered, null);
+    return performance.now() - entered;
+  });
+}
+
+test('Full-catalogue answer Saving stays in the same league as Starter and does not wait for iCloud', async () => {
+  async function timeSubmit(catalogue, onCommandCommitted = null) {
+    const world = createLearningWorld(
+      [snapshotForCatalogue(catalogue)],
+      catalogue,
+    );
+    const controller = world.createController(undefined, {
+      publishedCatalogue: catalogue,
+      onCommandCommitted,
+    });
+    await controller.startRound({ mode: 'smart', length: 5, yearFilter: 'core' });
+    const submitMs = await savingSpanMs(
+      controller,
+      () => controller.submitAnswer(targetFor(controller, catalogue)),
+    );
+    const continueMs = await savingSpanMs(
+      controller,
+      () => controller.continueRound(),
+    );
+    await controller.dispose();
+    return { submitMs, continueMs };
+  }
+
+  const starter = await timeSubmit(loadStarterSpellingCatalogue());
+  const full = await timeSubmit(loadFullSpellingCatalogue(), () => new Promise(() => {}));
+  const ceiling = (starterMs) => Math.max(80, starterMs * 4);
+  assert.ok(
+    full.submitMs <= ceiling(starter.submitMs),
+    `Full submit Saving lasted ${full.submitMs.toFixed(1)}ms vs Starter ${starter.submitMs.toFixed(1)}ms`,
+  );
+  assert.ok(
+    full.continueMs <= ceiling(starter.continueMs),
+    `Full continue Saving lasted ${full.continueMs.toFixed(1)}ms vs Starter ${starter.continueMs.toFixed(1)}ms`,
+  );
+});
+
 test('product learning marks local commit before publishing answer feedback', async (t) => {
   performance.clearMarks('product:local-commit');
   performance.clearMarks('product:feedback-published');

@@ -25,7 +25,7 @@ const EXPECTED_PROVENANCE = Object.freeze({
     },
     a3Manifest: {
       path: 'content/spelling.mobile-a3-contract-manifest.json',
-      sha256: '7f5fc21a98c4f660160ac59bda64303074b240d008cb141c4551cafdc2295ca3',
+      sha256: 'd34876de4a9e011272de2454e891997cff527edf60759d225b2a11e238fc150a',
     },
   },
   runtime: {

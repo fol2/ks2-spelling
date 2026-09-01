@@ -788,6 +788,53 @@ test('a hanging iCloud publish does not hold child learning in Saving', async (t
   await waitFor(() => controlled.published.length === 1);
 });
 
+test('a hanging iCloud publish does not hold Full-catalogue child learning in Saving', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'ks2-learning-replica-full-hang-'));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const controlled = createControlledLearningReplica();
+  let clock = 1_000;
+  const services = await createProductAppServices(compositionOptions({
+    databasePath: join(directory, 'replica.sqlite'),
+    learningReplica: controlled.port,
+    now: () => (clock += 1),
+    commerceWorkflow: workflowFor({
+      entitlementState: 'active',
+      packState: 'installed',
+    }),
+  }));
+  t.after(async () => {
+    controlled.release();
+    await services.dispose();
+  });
+  await services.controller.createProfile({
+    nickname: 'Ada',
+    yearGroup: 'Y5',
+    goal: 10,
+    colour: '#2E7D8A',
+  });
+  assert.equal(services.catalogueId, loadFullSpellingCatalogue().catalogueId);
+  controlled.clear();
+  controlled.armHang();
+
+  await settlesWithin(services.learning.startRound({
+    length: 5,
+    mode: 'smart',
+    yearFilter: 'core',
+  }));
+  const target = loadFullSpellingCatalogue().items.find(
+    ({ runtimeItemId }) => runtimeItemId === services.learning.getState().practice.runtimeItemId,
+  ).target;
+  await settlesWithin(services.learning.submitAnswer(target));
+  await settlesWithin(services.learning.continueRound());
+
+  const state = services.learning.getState();
+  assert.equal(state.status, 'ready');
+  assert.equal(state.screen, 'practice');
+  assert.equal(state.packSize, PUBLISHED_PACK_SIZE);
+  assert.equal(state.actionError, null);
+  await waitFor(() => controlled.published.length === 1);
+});
+
 test('replica failure leaves the locally committed learning command successful', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'ks2-learning-replica-failure-'));
   t.after(() => rm(directory, { force: true, recursive: true }));

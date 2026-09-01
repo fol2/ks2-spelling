@@ -90,7 +90,12 @@ export function buildCeremonyWranglerConfig(channel, { root }) {
   return Object.freeze({
     name: channel.workerName,
     account_id: CLOUDFLARE_ACCOUNT_ID,
-    main: resolve(root, 'gateway/src/handler.js'),
+    main: resolve(
+      root,
+      channel.releaseChannel === 'production'
+        ? 'gateway/src/handler-production.js'
+        : 'gateway/src/handler.js',
+    ),
     compatibility_date: '2026-07-12',
     compatibility_flags: ['nodejs_compat'],
     workers_dev: false,

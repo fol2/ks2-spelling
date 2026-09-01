@@ -657,7 +657,7 @@ const installingShard = ({ completedShards, totalShards }) =>
 // while the app is open leaves the child on the 20 Starter words until the
 // next launch. Saying "installed" and nothing else would be a lie the family
 // could not act on.
-function commerceMessage(state, fullCatalogueActive) {
+export function commerceMessage(state, fullCatalogueActive) {
   // A running download owns the message. `packState` still reads whatever the
   // last snapshot said — 'downloading' for an interrupted install — so without
   // this branch an install in progress reads as an install that stopped.
@@ -668,9 +668,12 @@ function commerceMessage(state, fullCatalogueActive) {
       : 'Starting the word pack download.';
   }
   if (state.status === 'offline') {
-    return state.entitlementState === 'active'
+    if (state.entitlementState !== 'active') {
+      return 'The store is unavailable. No local purchase has been changed.';
+    }
+    return state.packState === 'installed'
       ? 'The store is unavailable. Last verified access and installed data remain unchanged.'
-      : 'The store is unavailable. No local purchase has been changed.';
+      : 'Access is verified. The pack download service is unavailable. Last verified access and installed data remain unchanged.';
   }
   if (state.status === 'failed') {
     return 'Purchase status could not be checked. Local access and installed data were not changed.';

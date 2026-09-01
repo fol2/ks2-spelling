@@ -177,7 +177,7 @@ test('channel authorities keep the two identity families apart', () => {
   );
 });
 
-test('the generated wrangler configs differ only in the identity family', () => {
+test('the generated wrangler configs differ in identity family and production entry', () => {
   const root = '/repo';
   const sandbox = buildCeremonyWranglerConfig(SANDBOX_CHANNEL, { root });
   const production = buildCeremonyWranglerConfig(PRODUCTION_CHANNEL, { root });
@@ -192,10 +192,13 @@ test('the generated wrangler configs differ only in the identity family', () => 
   assert.equal(production.ratelimits[0].namespace_id, '2001');
   assert.deepEqual(production.ratelimits[0].simple, sandbox.ratelimits[0].simple);
   const identityFree = (config) => {
-    const { name: _n, routes: _r, r2_buckets: _b, ratelimits: _l, ...rest } = config;
+    const { name: _n, routes: _r, r2_buckets: _b, ratelimits: _l, main: _m, ...rest } = config;
     return rest;
   };
   assert.deepEqual(identityFree(production), identityFree(sandbox));
+  assert.match(sandbox.main, /gateway\/src\/handler\.js$/u);
+  assert.match(production.main, /gateway\/src\/handler-production\.js$/u);
+  assert.notEqual(sandbox.main, production.main);
 });
 
 test('the production plan collects exactly the six iOS names and never the Play secret', () => {

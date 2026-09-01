@@ -1,14 +1,14 @@
 import objectAuthorityDocument from '../../config/b3-pack-object-authority.json' with { type: 'json' };
 import packAuthorityDocument from '../../config/b3-proof-pack.json' with { type: 'json' };
-import gatewayAuthorityDocument from '../../config/b3-gateway-authority.json' with { type: 'json' };
-import downloadablePackAuthorities from '../../config/downloadable-pack-authorities.json' with { type: 'json' };
+import sandboxGatewayAuthority from '../../config/b3-gateway-authority.json' with { type: 'json' };
+import productionGatewayAuthority from '../../config/ks2-gateway-authority-production.json' with { type: 'json' };
+import { PACK_REGISTRY } from '../../src/domain/packs/pack-registry.js';
+import { PRODUCTION_PACK_REGISTRY } from '../../src/domain/packs/production-pack-registry.js';
 import { issueR2Capability, parseR2CapabilitySecret, verifyR2Capability } from './r2-capability.js';
 import { gatewayJsonByteLength, MAX_AUTHORISE_RESPONSE_BYTES } from '../../src/platform/gateway/gateway-payload-limits.js';
 import { safeGatewayError } from './store-verifier-port.js';
 
 const AUTHORISE_KEYS = Object.freeze(['sealedRefreshHandle', 'packId', 'version']);
-const PUBLIC_ORIGIN = gatewayAuthorityDocument.publicSandboxOrigin;
-const EXPECTED_BUCKET = gatewayAuthorityDocument.privateR2BucketName;
 const CAPABILITY_TTL_SECONDS = 600;
 const SHA256_HEX = /^[a-f0-9]{64}$/;
 const ETAG_HEX = /^[a-f0-9]{32}$/;
@@ -51,11 +51,11 @@ function packRow({ packId, version, archiveName, requiredEntitlementId, manifest
 
 // The b3 row keeps its frozen object authority verbatim, custom b3-* metadata
 // included: the two tracked b3 config documents are byte-frozen evidence.
-function readB3Row() {
+function readB3Row(expectedBucket) {
   const manifest = authorityByRole('signed-manifest');
   const archive = authorityByRole('archive');
   if (
-    objectAuthorityDocument.bucketName !== EXPECTED_BUCKET ||
+    objectAuthorityDocument.bucketName !== expectedBucket ||
     objectAuthorityDocument.packId !== packAuthorityDocument.packId ||
     objectAuthorityDocument.version !== packAuthorityDocument.version ||
     manifest.sha256 !== packAuthorityDocument.signedEnvelopeSha256 ||
@@ -72,19 +72,16 @@ function readB3Row() {
   });
 }
 
-// Shard rows are derived from the tracked downloadable-pack registry, never a
-// second hand-maintained object table: keys follow the packs/<packId>/<version>
-// layout and the object facts are the registry's signed-envelope and archive
+// Shard rows are derived from the channel pack registry, never a second
+// hand-maintained object table: keys follow the packs/<packId>/<version>
+// layout and the object facts are that registry's signed-envelope and archive
 // pins. Shard objects deliberately declare EMPTY custom metadata (owner
 // decision, 2026-08-13 hosting runbook): the load-bearing pins are the
 // config-declared sha256/bytes/etag asserted per object plus device-side
 // signature verification; b3-* labels remain a b3-pack-only convention.
-function readShardRows() {
-  if (downloadablePackAuthorities?.schemaVersion !== 1 ||
-      !Array.isArray(downloadablePackAuthorities.packs)) {
-    throw safeGatewayError();
-  }
-  return downloadablePackAuthorities.packs.map((row) => packRow({
+function readShardRows(registry) {
+  if (!Array.isArray(registry) || registry.length === 0) throw safeGatewayError();
+  return registry.map((row) => packRow({
     packId: row.packId,
     version: row.version,
     archiveName: row.archiveName,
@@ -106,8 +103,7 @@ function readShardRows() {
   }));
 }
 
-function buildPackTable() {
-  const rows = [readB3Row(), ...readShardRows()];
+function buildPackTable(rows) {
   const byPackId = new Map();
   const byArchivePath = new Map();
   for (const row of rows) {
@@ -118,6 +114,23 @@ function buildPackTable() {
     byArchivePath.set(row.archivePath, row);
   }
   return Object.freeze({ byPackId, byArchivePath });
+}
+
+function resolveReleaseChannel(releaseChannel) {
+  if (releaseChannel === 'production') {
+    if (productionGatewayAuthority.privateR2BucketName !== 'ks2-spelling-production-packs') {
+      throw safeGatewayError();
+    }
+    return Object.freeze({
+      publicOrigin: productionGatewayAuthority.publicSandboxOrigin,
+      rows: readShardRows(PRODUCTION_PACK_REGISTRY),
+    });
+  }
+  if (releaseChannel !== 'sandbox') throw safeGatewayError();
+  return Object.freeze({
+    publicOrigin: sandboxGatewayAuthority.publicSandboxOrigin,
+    rows: [readB3Row(sandboxGatewayAuthority.privateR2BucketName), ...readShardRows(PACK_REGISTRY)],
+  });
 }
 
 function assertExactMetadata(object, authority, { range } = {}) {
@@ -240,8 +253,10 @@ function downloadRequest(url, packTable) {
   return Object.freeze({ row, expiresAt: match[1], capability: match[2] });
 }
 
-export function createPackAccessService({ clock = Date.now } = {}) {
-  const packTable = buildPackTable();
+export function createPackAccessService({ clock = Date.now, releaseChannel = 'sandbox' } = {}) {
+  const channel = resolveReleaseChannel(releaseChannel);
+  const packTable = buildPackTable(channel.rows);
+  const publicOrigin = channel.publicOrigin;
 
   return Object.freeze({
     assertAuthoriseRequest(value) {
@@ -305,7 +320,7 @@ export function createPackAccessService({ clock = Date.now } = {}) {
           sha256: row.archive.sha256,
           compressedBytes: row.archive.bytes,
           etag: row.archive.etag,
-          capabilityUrl: `${PUBLIC_ORIGIN}${row.archivePath}?expires=${expiresAt}&cap=${capability}`,
+          capabilityUrl: `${publicOrigin}${row.archivePath}?expires=${expiresAt}&cap=${capability}`,
         }),
       });
       if (gatewayJsonByteLength(result) > MAX_AUTHORISE_RESPONSE_BYTES) throw safeGatewayError();

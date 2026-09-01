@@ -46,6 +46,7 @@ test('application fingerprint excludes evidence, dependencies, secrets and gener
 
 test('application fingerprint has fail-closed anchors for gateway, proof fixtures and native inputs', () => {
   assert.ok(B3_FINGERPRINT_REQUIRED_INPUTS.includes('gateway/wrangler.jsonc'));
+  assert.ok(B3_FINGERPRINT_REQUIRED_INPUTS.includes('gateway/src/handler-production.js'));
   assert.ok(B3_FINGERPRINT_REQUIRED_INPUTS.includes('tests/fixtures/b3-signed-manifest.json'));
   assert.ok(B3_FINGERPRINT_REQUIRED_INPUTS.includes('tests/fixtures/keys/b3-sandbox-proof-manifest-signature.der'));
   assert.ok(B3_FINGERPRINT_REQUIRED_INPUTS.includes('tests/helpers/hostile-zip-builder.mjs'));

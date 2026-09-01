@@ -94,6 +94,7 @@ test('sandbox is a named product channel paired with sandbox-trusting native art
   assert.doesNotMatch(commerceWorkflow, /(?:b3|ks2)-gateway\.eugnel\.uk/u);
   assert.doesNotMatch(download, /(?:b3|ks2)-gateway\.eugnel\.uk/u);
   assert.match(commerceWorkflow, /gatewayOrigin/u);
+  assert.match(commerceWorkflow, /packRegistryForEnvironment/u);
   assert.match(
     download,
     /dependencies\.createDownloadAccessContract \?\? createSignedDownloadAccessContract/u,

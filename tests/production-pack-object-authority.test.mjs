@@ -809,7 +809,7 @@ test('two synthetic pack-object documents fail comparison when one hashed object
   );
 });
 
-test('src and gateway runtime modules do not import the production pack-object document', async () => {
+test('the production pack-object document is imported only by the production serving overlay', async () => {
   const needle = 'ks2-pack-object-authority-production';
   const files = [
     ...(await sourceFiles('src')),
@@ -820,7 +820,7 @@ test('src and gateway runtime modules do not import the production pack-object d
     const text = await readFile(path, 'utf8');
     if (text.includes(needle)) hits.push(relative(ROOT, path));
   }
-  assert.deepEqual(hits, []);
+  assert.deepEqual(hits, ['src/domain/packs/production-pack-registry.js']);
 });
 
 test('the committed production document covers fifteen packs with production-only identities', async () => {

@@ -152,12 +152,12 @@ export function createPurchaseCoordinator(rawDependencies) {
   // This coordinator serves exactly one entitlement; its store products, packs and
   // journal identities all derive from that binding rather than from a baked-in product.
   const product = resolveCommerceProduct(entitlementId);
-  const packs = Object.hasOwn(dependencies, 'packIds')
-    ? resolvePackJobAuthorities(
-        { entitlementId, packIds: dependencies.packIds },
-        dependencies.registry,
-      )
-    : resolvePackJobAuthorities(product);
+  const packs = resolvePackJobAuthorities(
+    Object.hasOwn(dependencies, 'packIds')
+      ? { entitlementId, packIds: dependencies.packIds }
+      : product,
+    dependencies.registry,
+  );
   // The native application composition owns one coordinator and one reconciler per
   // database connection. This queue is therefore the single proof-processing lane.
   let tail = Promise.resolve();

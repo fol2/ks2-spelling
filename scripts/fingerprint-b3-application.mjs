@@ -76,6 +76,7 @@ export const B3_FINGERPRINT_REQUIRED_INPUTS = Object.freeze([
   'gateway/package-lock.json',
   'gateway/wrangler.jsonc',
   'gateway/src/handler.js',
+  'gateway/src/handler-production.js',
   'config/b3-pack-object-authority.json',
   'config/b3-synthetic-learners.json',
   'scripts/build-b3-proof-pack.mjs',

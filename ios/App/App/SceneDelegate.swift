@@ -53,6 +53,72 @@ enum WebViewNativeLongPressPolicy {
     }
 }
 
+/// Resume policy for the product WKWebView.
+///
+/// Backgrounding with a focused field, then returning, can leave WKWebView
+/// zoomed or inset for a keyboard that is no longer there. The shell then
+/// paints enlarged with the waypoint foot off-screen.
+///
+/// Triggers are split so a live software keyboard is not cancelled:
+/// - host zoom only: Control Centre / brief inactive, size class change
+/// - geometry (zoom + insets): keyboardDidHide
+/// - full restore (geometry + JS visual-viewport): true background resume
+///
+/// Do not add a keyboard plugin, change first-responder policy, or pin
+/// `user-scalable=no`.
+enum WebViewViewportResumePolicy {
+    static let identityZoomScale: CGFloat = 1
+    static let identityPageZoom: CGFloat = 1
+
+    static let resetScript = #"""
+        (function() {
+          try {
+            if (typeof globalThis.__ks2ResetProductViewport === 'function') {
+              globalThis.__ks2ResetProductViewport();
+              return;
+            }
+            var doc = document;
+            if (typeof scrollTo === 'function') scrollTo(0, 0);
+            var meta = doc && doc.querySelector('meta[name="viewport"]');
+            if (meta) {
+              var original = meta.getAttribute('content') || '';
+              var withoutMax = original.replace(/,?\s*maximum-scale\s*=\s*[^,]+/gi, '').replace(/^\s*,\s*|\s*,\s*$/g, '');
+              meta.setAttribute('content', withoutMax + ', maximum-scale=1.0');
+              setTimeout(function() {
+                meta.setAttribute('content', original);
+              }, 0);
+            }
+          } catch (e) {}
+        })();
+        """#
+
+    static func applyHostZoom(to webView: WKWebView) {
+        if webView.transform != .identity {
+            webView.transform = .identity
+        }
+        let scrollView = webView.scrollView
+        if scrollView.transform != .identity {
+            scrollView.transform = .identity
+        }
+        scrollView.setZoomScale(identityZoomScale, animated: false)
+        webView.pageZoom = identityPageZoom
+    }
+
+    static func applyGeometry(to webView: WKWebView) {
+        applyHostZoom(to: webView)
+        let scrollView = webView.scrollView
+        scrollView.contentInset = .zero
+        scrollView.verticalScrollIndicatorInsets = .zero
+        scrollView.horizontalScrollIndicatorInsets = .zero
+        scrollView.setContentOffset(.zero, animated: false)
+    }
+
+    static func apply(to webView: WKWebView) {
+        applyGeometry(to: webView)
+        webView.evaluateJavaScript(resetScript, completionHandler: nil)
+    }
+}
+
 final class ProductBridgeViewController: CAPBridgeViewController {
     private var uncommittedFirstPaintRecoveryScheduled = false
 
@@ -106,6 +172,12 @@ final class ProductBridgeViewController: CAPBridgeViewController {
             WebViewNativeLongPressPolicy.apply(to: webView)
         }
         scheduleUncommittedFirstPaintRecovery()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(restoreViewportAfterKeyboardHide),
+            name: UIResponder.keyboardDidHideNotification,
+            object: nil
+        )
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -114,6 +186,31 @@ final class ProductBridgeViewController: CAPBridgeViewController {
         if let webView {
             WebViewNativeLongPressPolicy.apply(to: webView)
         }
+    }
+
+    override func viewWillTransition(
+        to size: CGSize,
+        with coordinator: UIViewControllerTransitionCoordinator
+    ) {
+        super.viewWillTransition(to: size, with: coordinator)
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            guard let webView = self?.webView else { return }
+            WebViewViewportResumePolicy.applyHostZoom(to: webView)
+        }
+    }
+
+    @objc private func restoreViewportAfterKeyboardHide() {
+        additionalSafeAreaInsets = .zero
+        guard let webView else { return }
+        WebViewViewportResumePolicy.applyGeometry(to: webView)
+    }
+
+    func restoreViewportAfterHostChange() {
+        additionalSafeAreaInsets = .zero
+        guard let webView else {
+            return
+        }
+        WebViewViewportResumePolicy.apply(to: webView)
     }
 
     private func scheduleUncommittedFirstPaintRecovery() {
@@ -178,5 +275,19 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         bridgeViewController.bridge?.registerPluginInstance(BuildAuthorityPlugin())
         bridgeViewController.bridge?.registerPluginInstance(B3ProofObservationPlugin())
         #endif
+    }
+
+    private func productBridgeController() -> ProductBridgeViewController? {
+        window?.rootViewController as? ProductBridgeViewController
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        if let webView = productBridgeController()?.webView {
+            WebViewViewportResumePolicy.applyHostZoom(to: webView)
+        }
+    }
+
+    func sceneWillEnterForeground(_ scene: UIScene) {
+        productBridgeController()?.restoreViewportAfterHostChange()
     }
 }

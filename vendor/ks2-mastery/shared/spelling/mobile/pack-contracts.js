@@ -282,9 +282,11 @@ export function validatePackManifestV1(value) {
 
 // Full-catalogue command hops nest many validateCatalogueV1 calls. Each call
 // previously cloned all 213 items, which held child Saving on the local
-// commit path. Cache already-validated results and only those inputs that are
-// immutable at every nested object. A shallow-frozen shell with mutable nests
-// must re-validate so a later mutation cannot reuse a pass.
+// commit path. Cache already-validated results, and cache an input identity
+// only when it is frozen plain data (own properties are data fields, no
+// getters or setters). Shallow-frozen or accessor-backed nests re-validate
+// so a later mutation cannot reuse a pass. Bundled JSON catalogues stay
+// cheap after the first fill.
 const VALIDATED_CATALOGUE_CACHE = new WeakMap();
 
 function freezeValidatedCatalogue(value) {
@@ -299,21 +301,24 @@ function freezeValidatedCatalogue(value) {
   return value;
 }
 
-function isDeepFrozen(value) {
+function isFrozenPlainData(value) {
   const seen = new WeakSet();
   const walk = (node) => {
     if (node === null || typeof node !== 'object') return true;
     if (seen.has(node)) return true;
     if (!Object.isFrozen(node)) return false;
     seen.add(node);
-    if (Array.isArray(node)) {
-      for (const entry of node) {
-        if (!walk(entry)) return false;
+    for (const key of Reflect.ownKeys(node)) {
+      const descriptor = Object.getOwnPropertyDescriptor(node, key);
+      if (
+        !descriptor
+        || !Object.hasOwn(descriptor, 'value')
+        || Object.hasOwn(descriptor, 'get')
+        || Object.hasOwn(descriptor, 'set')
+      ) {
+        return false;
       }
-      return true;
-    }
-    for (const child of Object.values(node)) {
-      if (!walk(child)) return false;
+      if (descriptor.enumerable === true && !walk(descriptor.value)) return false;
     }
     return true;
   };
@@ -323,7 +328,7 @@ function isDeepFrozen(value) {
 function rememberValidatedCatalogue(input, validated) {
   freezeValidatedCatalogue(validated);
   VALIDATED_CATALOGUE_CACHE.set(validated, validated);
-  if (input !== validated && isDeepFrozen(input)) {
+  if (input !== validated && isFrozenPlainData(input)) {
     VALIDATED_CATALOGUE_CACHE.set(input, validated);
   }
   return validated;

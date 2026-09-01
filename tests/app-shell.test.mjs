@@ -1404,6 +1404,51 @@ test('unfound companion art stays a silhouette under press and callout', async (
   }
 });
 
+test('learner chrome suppresses native long-press drag and text selection', async () => {
+  const productCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
+  const blocks = [...cssDeclarationBlocks(productCss)];
+
+  const chrome = blocks.find(([selector]) => {
+    const parts = selector.split(',').map((part) => part.trim());
+    return parts.includes('.product-app')
+      && parts.includes('.product-app *')
+      && parts.includes('.product-app *::before')
+      && parts.includes('.product-app *::after');
+  });
+  assert.ok(chrome, 'learner chrome must share one native long-press suppression rule');
+  const [, chromeBody] = chrome;
+  assert.match(chromeBody, /(?:^|[\s;])-webkit-user-select:\s*none;/u);
+  assert.match(chromeBody, /(?:^|[\s;])user-select:\s*none;/u);
+  assert.match(chromeBody, /(?:^|[\s;])-webkit-touch-callout:\s*none;/u);
+  assert.match(chromeBody, /(?:^|[\s;])-webkit-user-drag:\s*none;/u);
+  assert.doesNotMatch(chromeBody, /(?:^|[\s;])-?(?:webkit-)?filter\s*:/u);
+
+  const pictures = blocks.find(([selector]) => selector.trim() === '.product-app img');
+  assert.ok(pictures, 'every learner img must opt out of native drag and callout');
+  const [, pictureBody] = pictures;
+  assert.match(pictureBody, /(?:^|[\s;])pointer-events:\s*none;/u);
+  assert.match(pictureBody, /(?:^|[\s;])-webkit-user-drag:\s*none;/u);
+  assert.match(pictureBody, /(?:^|[\s;])-webkit-touch-callout:\s*none;/u);
+  assert.doesNotMatch(pictureBody, /(?:^|[\s;])-?(?:webkit-)?filter\s*:/u);
+
+  const fields = blocks.find(([selector]) => {
+    const normalised = selector.replace(/\s+/gu, ' ').trim();
+    return normalised === '.product-app :is(input, textarea)';
+  });
+  assert.ok(fields, 'genuine text fields must keep caret and selection');
+  const [, fieldBody] = fields;
+  assert.match(fieldBody, /(?:^|[\s;])-webkit-user-select:\s*text;/u);
+  assert.match(fieldBody, /(?:^|[\s;])user-select:\s*text;/u);
+  assert.match(fieldBody, /(?:^|[\s;])-webkit-touch-callout:\s*default;/u);
+  assert.doesNotMatch(fieldBody, /(?:^|[\s;])user-select:\s*none;/u);
+
+  assert.match(
+    productCss,
+    /\.bank-search\s+input\s*\{[^}]*-webkit-user-select:\s*text;[^}]*user-select:\s*text;/su,
+    'Word Bank search must stay an explicit selectable field',
+  );
+});
+
 test('the product shell keeps the waypoint foot on the viewport while Words scroll', async () => {
   const productCss = await readFile(join(ROOT, 'src/app/app.css'), 'utf8');
 

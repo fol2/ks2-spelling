@@ -9,6 +9,7 @@ import {
   projectActiveEntitlements,
 } from '../domain/commerce/entitlement-access-projection.js';
 import { findPackAuthority } from '../domain/packs/pack-registry.js';
+import { packRegistryForEnvironment } from '../domain/packs/production-pack-registry.js';
 import {
   B3_DOWNLOAD_CHUNK_BYTES,
 } from '../domain/packs/signed-download-access-contract.js';
@@ -54,7 +55,6 @@ const SHA256 = /^[a-f0-9]{64}$/u;
 // entitlement delivers resolves here, in catalogue order. Since the E2.7 join
 // flip this is the 15 Full-KS2 shard set.
 const PRODUCT = resolveCommerceProduct('full-ks2');
-const PACKS = resolvePackJobAuthorities(PRODUCT);
 
 function requireMethod(value, method, label) {
   if (!value || typeof value !== 'object' || typeof value[method] !== 'function') {
@@ -178,6 +178,8 @@ export function createProductCommerceWorkflow(options = {}) {
   if (typeof clock !== 'function' || typeof idFactory !== 'function') {
     throw new TypeError('Product commerce functions are invalid.');
   }
+  const registry = packRegistryForEnvironment(packTrustEnvironment);
+  const packs = resolvePackJobAuthorities(PRODUCT, registry);
 
   const store = options.store ??
     createCapacitorStore({ Commerce: CommercePlugin });
@@ -219,6 +221,7 @@ export function createProductCommerceWorkflow(options = {}) {
     packRepository,
     activeEntitlementProjection,
     clock: () => safeTimestamp(clock),
+    registry,
   });
 
   // Envelope capture is keyed per pack: a single-slot recorder would activate
@@ -242,6 +245,7 @@ export function createProductCommerceWorkflow(options = {}) {
     clock: () => safeTimestamp(clock),
     idFactory,
     failureInjector: async () => undefined,
+    registry,
   });
   const activeEntitlement = async () => {
     const entitlements = await commerceRepository.listEntitlements();
@@ -249,7 +253,7 @@ export function createProductCommerceWorkflow(options = {}) {
       entry.entitlementId === PRODUCT.entitlementId &&
       entry.state === 'active') ?? null;
   };
-  const downloadCoordinators = new Map(PACKS.map((pack) => [
+  const downloadCoordinators = new Map(packs.map((pack) => [
     pack.packId,
     createDownloadCoordinator({
       gateway: recordedGateway,
@@ -265,7 +269,7 @@ export function createProductCommerceWorkflow(options = {}) {
       currentSchemaVersion: 2,
       clock: () => safeTimestamp(clock),
       chunkSize: B3_DOWNLOAD_CHUNK_BYTES,
-      packAuthority: findPackAuthority(pack.packId),
+      packAuthority: findPackAuthority(pack.packId, registry),
     }),
   ]));
   const activationCoordinator = createPackActivationCoordinator({
@@ -275,6 +279,7 @@ export function createProductCommerceWorkflow(options = {}) {
     keyring: packKeyring,
     environment: packTrustEnvironment,
     clock: () => safeTimestamp(clock),
+    registry,
   });
   let syncFailed = false;
   const commerceReconciler = createCommerceReconciler({
@@ -322,7 +327,7 @@ export function createProductCommerceWorkflow(options = {}) {
       entry.entitlementId === PRODUCT.entitlementId) ?? null;
     const entitlementState = entitlement?.state ?? 'none';
     const packStates = [];
-    for (const pack of PACKS) {
+    for (const pack of packs) {
       const [activePack, installed] = await Promise.all([
         packRepository.getActiveVersion({ packId: pack.packId }),
         packRepository.listInstalledVersions({ packId: pack.packId }),
@@ -408,10 +413,10 @@ export function createProductCommerceWorkflow(options = {}) {
   // are already on disk and counted by getFreeBytes().
   async function assertAggregateStorage() {
     const pending = [];
-    for (const pack of PACKS) {
+    for (const pack of packs) {
       const active = await packRepository.getActiveVersion({ packId: pack.packId });
       if (active?.version === pack.version) continue;
-      pending.push(findPackAuthority(pack.packId));
+      pending.push(findPackAuthority(pack.packId, registry));
     }
     if (pending.length === 0) return;
     // Archive sizes are exact in the registry; extracted sizes are only exact
@@ -446,8 +451,8 @@ export function createProductCommerceWorkflow(options = {}) {
   // steps is what the Parent card can honestly draw.
   async function install(onProgress) {
     await assertAggregateStorage();
-    for (const [index, pack] of PACKS.entries()) {
-      onProgress?.({ completedShards: index, totalShards: PACKS.length });
+    for (const [index, pack] of packs.entries()) {
+      onProgress?.({ completedShards: index, totalShards: packs.length });
       const entitlement = await activeEntitlement();
       if (!entitlement) {
         throw Object.assign(new Error('Full KS2 entitlement is not active.'), {
@@ -480,7 +485,7 @@ export function createProductCommerceWorkflow(options = {}) {
         );
       }
     }
-    onProgress?.({ completedShards: PACKS.length, totalShards: PACKS.length });
+    onProgress?.({ completedShards: packs.length, totalShards: packs.length });
   }
 
   const workflow = {

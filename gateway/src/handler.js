@@ -244,7 +244,10 @@ export function createGatewayHandler(injected = {}) {
     logger: injected.logger ?? createRedactedLogger(),
     createStoreVerifier: injected.createStoreVerifier,
   });
-  const packAccess = createPackAccessService({ clock: dependencies.clock });
+  const packAccess = createPackAccessService({
+    clock: dependencies.clock,
+    releaseChannel: injected.releaseChannel ?? 'sandbox',
+  });
 
   async function verifier(store, env) {
     const candidate = dependencies.createStoreVerifier

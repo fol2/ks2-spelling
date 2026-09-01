@@ -439,3 +439,42 @@ test('an install in flight shows the shard it is on, never the resume copy', asy
   assert.match(interrupted, /did not finish\. Resume it to install the rest/u);
   assert.doesNotMatch(interrupted, /data-state=|Installing/u);
 });
+
+test('verified access with a failed pack download does not pretend IAP is the offline hop', async (t) => {
+  const { createServer } = await import('vite');
+  const vite = await createServer({
+    configFile: new URL('../vite.config.js', import.meta.url).pathname,
+    server: { middlewareMode: true, hmr: false },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const { commerceMessage } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
+
+  const offline = (packState) => Object.freeze({
+    status: 'offline',
+    displayPrice: '',
+    entitlementState: 'active',
+    packState,
+    action: null,
+    actionError: null,
+    actionErrorDetail: null,
+    downloadProgress: null,
+  });
+
+  assert.equal(
+    commerceMessage(offline('missing'), false),
+    'Access is verified. The pack download service is unavailable. Last verified access and installed data remain unchanged.',
+  );
+  assert.equal(
+    commerceMessage(offline('installed'), true),
+    'The store is unavailable. Last verified access and installed data remain unchanged.',
+  );
+  assert.equal(
+    commerceMessage({
+      ...offline('missing'),
+      entitlementState: 'none',
+      packState: 'missing',
+    }, false),
+    'The store is unavailable. No local purchase has been changed.',
+  );
+});

@@ -9,8 +9,9 @@ import {
   validateSpellingCommandSnapshotV1,
 } from '../src/domain/spelling/index.js';
 import { monsterCelebrationArtUrl } from '../src/app/celebrations/celebration-model.js';
+import { setupExpeditionCompanion } from '../src/app/codex-model.js';
 import { createProductLearningController } from '../src/app/product-learning-controller.js';
-import { buildCodex, setupExpeditionCompanion } from '../src/app/codex-model.js';
+import { STABLE_COMPANION_TEASER_BRANCH } from '../src/app/monster-progress-model.js';
 import {
   expectedB2Snapshot,
   snapshotAfterPlan,
@@ -548,9 +549,11 @@ test('trial-shown Phaeton art identity survives Full install and the first comma
     (monster) => monster.monsterId === 'phaeton',
   );
   assert.equal(trialPhaeton.branch, null);
-  const trialArt = buildCodex(trial.getState().monsters).roster.find(
-    (entry) => entry.monsterId === 'phaeton',
-  ).art;
+  const trialArt = monsterCelebrationArtUrl(
+    'phaeton',
+    STABLE_COMPANION_TEASER_BRANCH,
+    0,
+  );
   const flippedArt = monsterCelebrationArtUrl('phaeton', 'b2', 0);
   assert.equal(
     trialArt,
@@ -599,9 +602,7 @@ test('trial-shown Phaeton art identity survives Full install and the first comma
   );
   assert.equal(after.branch, null);
   assert.equal(
-    buildCodex(controller.getState().monsters).roster.find(
-      (entry) => entry.monsterId === 'phaeton',
-    ).art,
+    monsterCelebrationArtUrl('phaeton', STABLE_COMPANION_TEASER_BRANCH, 0),
     trialArt,
   );
   assert.equal(

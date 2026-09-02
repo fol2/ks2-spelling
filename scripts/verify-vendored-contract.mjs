@@ -562,12 +562,18 @@ export async function verifyVendoredContract({ rootDir = DEFAULT_ROOT } = {}) {
   const facadeBytes = await readBytes(facadePath, 'application spelling façade', issues);
   if (facadeBytes) {
     const facadeSpecifiers = specifiersFromSource(facadeBytes.toString('utf8')).sort();
+    // Pin the exact import graph, including duplicates. A3 appears twice because
+    // the façade both imports wrapped planners and re-exports the remaining
+    // runtime. Recency is the app-side companion choice sidecar; vendor hashes
+    // stay frozen.
     const expectedFacadeSpecifiers = [
       '../../../vendor/ks2-mastery/content/spelling.mobile-runtime-full.json',
       '../../../vendor/ks2-mastery/content/spelling.mobile-runtime-starter.json',
       '../../../vendor/ks2-mastery/shared/spelling/core/achievements.js',
       '../../../vendor/ks2-mastery/shared/spelling/core/events.js',
       '../../../vendor/ks2-mastery/shared/spelling/mobile/a3/index.js',
+      '../../../vendor/ks2-mastery/shared/spelling/mobile/a3/index.js',
+      '../sync/monster-choice-recency.js',
     ].sort();
     if (!isDeepStrictEqual(facadeSpecifiers, expectedFacadeSpecifiers)) {
       recordIssue(

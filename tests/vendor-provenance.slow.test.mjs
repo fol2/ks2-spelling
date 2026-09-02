@@ -171,7 +171,8 @@ test('the app-owned façade exposes only the certified runtime and read-only cat
     ...a3Manifest.runtime.publicExports,
     // Certified core re-exports the product façade adds for the Camp records
     // surface and the Codex milestone ladder; verify-vendored-contract pins the
-    // matching import specifiers.
+    // matching import specifiers, including the app-side companion choice
+    // recency sidecar which is not a certified runtime export.
     'ACHIEVEMENT_DEFINITIONS',
     'ACHIEVEMENT_IDS',
     'SPELLING_MASTERY_MILESTONES',

@@ -19,7 +19,13 @@ import { TrailMeadow } from './trail/TrailMeadow.jsx';
 import { PrivacyNoticeCard } from './PrivacyNoticeCard.jsx';
 import { StarterCompleteMoment } from './StarterCompleteMoment.jsx';
 import { EggChoiceMoment } from './EggChoiceMoment.jsx';
-import { eggChoiceShouldShow, nextSkippedEggChoiceTrackIds, planEggChoiceDismiss } from './egg-choice-moment.js';
+import {
+  eggChoiceCopy,
+  eggChoiceSaveFailedVisible,
+  eggChoiceShouldShow,
+  nextSkippedEggChoiceTrackIds,
+  planEggChoiceDismiss,
+} from './egg-choice-moment.js';
 import { pendingEggChoice } from './monster-progress-model.js';
 import {
   acknowledgeStarterCompleteMoment,
@@ -2062,10 +2068,11 @@ function WordBankScreen({
 }
 
 function withEggChoiceOverlay(node, overlay) {
-  if (!overlay) return node;
+  // Always the same fragment shape so opening the overlay cannot remount the
+  // learning tree. The dialog is a sibling layer; it is already position:fixed.
   return (
     <>
-      <div aria-hidden="true" inert>{node}</div>
+      {node}
       {overlay}
     </>
   );
@@ -2083,6 +2090,7 @@ function CodexScreen({
 }) {
   const [selected, setSelected] = useState(selectedRewardTrackId);
   const [zoomed, setZoomed] = useState(false);
+  const [switchFailedTrackId, setSwitchFailedTrackId] = useState(null);
   const codex = useMemo(
     () => buildCodex(monsters, selected),
     [monsters, selected],
@@ -2098,6 +2106,27 @@ function CodexScreen({
     [progress],
   );
   const hero = codex.hero;
+  const copy = eggChoiceCopy();
+  const switchSaveFailed = eggChoiceSaveFailedVisible(
+    switchFailedTrackId,
+    hero?.rewardTrackId ?? null,
+  );
+
+  const switchBranch = (rewardTrackId, branch) => {
+    try {
+      const result = onSwitchBranch?.(rewardTrackId, branch);
+      if (result && typeof result.then === 'function') {
+        void result.then(
+          () => setSwitchFailedTrackId(null),
+          () => setSwitchFailedTrackId(rewardTrackId),
+        );
+        return;
+      }
+      setSwitchFailedTrackId(null);
+    } catch {
+      setSwitchFailedTrackId(rewardTrackId);
+    }
+  };
 
   return (
     <main className="product-app" aria-labelledby="codex-title">
@@ -2161,7 +2190,7 @@ function CodexScreen({
                           type="button"
                           className="codex-other-egg press"
                           data-codex-other-egg="true"
-                          onClick={() => onSwitchBranch(hero.rewardTrackId, hero.otherBranch)}
+                          onClick={() => switchBranch(hero.rewardTrackId, hero.otherBranch)}
                         >
                           <img src={hero.otherEggArt ?? undefined} alt="" />
                           <span className="visually-hidden">Choose the other egg</span>
@@ -2188,6 +2217,21 @@ function CodexScreen({
                       <span className="figure">{hero.count}</span>
                     </div>
                     <p className="codex-next">{hero.next}</p>
+                    {switchSaveFailed ? (
+                      <div
+                        className="codex-switch-save-failed"
+                        data-codex-switch-save-failed="true"
+                      >
+                        <p role="alert">{copy.saveFailed}</p>
+                        <button
+                          type="button"
+                          className="button-quiet press"
+                          onClick={() => setSwitchFailedTrackId(null)}
+                        >
+                          {copy.close}
+                        </button>
+                      </div>
+                    ) : null}
                     {askGrownUpIsAvailable({
                       monsters,
                       entitled,
@@ -4133,11 +4177,15 @@ export default function ProductApp({ services }) {
         onAskGrownUp={() => setParentOpen(true)}
         onSwitchBranch={(rewardTrackId, branch) => {
           const choose = services.learning.chooseCompanionBranch;
-          if (typeof choose !== 'function') return;
-          void choose({ rewardTrackId, branch }).then(
-            () => setSkippedEggChoiceTrackIds([]),
-            () => undefined,
-          );
+          if (typeof choose !== 'function') {
+            return Promise.reject(
+              new TypeError('Companion branch choice is unavailable.'),
+            );
+          }
+          return choose({ rewardTrackId, branch }).then((result) => {
+            setSkippedEggChoiceTrackIds([]);
+            return result;
+          });
         }}
       />
     ), eggChoiceOverlay);

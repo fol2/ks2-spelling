@@ -1789,3 +1789,24 @@ test('Design authority: the Starter-complete CTAs stack with intact no-wrap labe
     'the stacked CTA source keeps each short label intact, including its existing hyphen',
   );
 });
+
+/* Source only. 320pt, short landscape, and 375×667 at 160% text all need the
+   found-egg card to shrink inside the overlay grid and scroll, so both painted
+   eggs (44px floor) and the h1 stay reachable without clipping. */
+test('Design authority: the egg-choice paper card scrolls inside the overlay', async () => {
+  const rules = cssRuleBlocks(await read('src/app/app.css'));
+  const card = rules.find((r) => r.selector === '.egg-choice-moment > div');
+  assert.ok(card);
+  const decls = declarationMap(card.body);
+  assert.equal(decls['max-height'], '100%');
+  assert.equal(decls['min-height'], '0');
+  assert.equal(decls['overflow-y'], 'auto');
+  const heading = rules.find((r) => r.selector === '.egg-choice-moment h1');
+  assert.ok(heading);
+  assert.notEqual(declarationMap(heading.body).overflow, 'hidden');
+  const egg = rules.find((r) => r.selector === '.egg-choice-egg');
+  assert.ok(egg);
+  const eggDecls = declarationMap(egg.body);
+  assert.equal(eggDecls['min-height'], '2.75rem');
+  assert.equal(eggDecls['min-width'], '2.75rem');
+});

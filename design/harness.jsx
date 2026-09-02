@@ -531,6 +531,14 @@ function makeServices(query) {
       async markStarterCompleteMomentPresented() {
         learning.set({ starterCompleteMomentPresented: true });
       },
+      async chooseCompanionBranch({ rewardTrackId, branch } = {}) {
+        const monsters = learning.getState().monsters.map((monster) => (
+          monster.rewardTrackId === rewardTrackId
+            ? { ...monster, branch }
+            : monster
+        ));
+        learning.set({ monsters });
+      },
       async dispose() {},
     },
     audioAvailability: {

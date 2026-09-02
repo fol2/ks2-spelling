@@ -111,6 +111,33 @@ function unseenProgress(catalogue) {
   }));
 }
 
+const LEARNING_PUBLIC_KEYS = Object.freeze([
+  'getState',
+  'subscribe',
+  'selectLearner',
+  'showScreen',
+  'wordMaterial',
+  'practiseWord',
+  'startRound',
+  'startGuardianMission',
+  'submitAnswer',
+  'continueRound',
+  'skipWord',
+  'savePrefs',
+  'endRound',
+  'markStarterCompleteMomentPresented',
+  'chooseCompanionBranch',
+  'dispose',
+]);
+
+test('product learning public contract includes chooseCompanionBranch', async () => {
+  const world = createLearningWorld();
+  const controller = world.createController();
+  assert.deepEqual(Object.keys(controller), [...LEARNING_PUBLIC_KEYS]);
+  assert.equal(typeof controller.chooseCompanionBranch, 'function');
+  await controller.dispose();
+});
+
 test('product learning starts a durable Smart Review and restores an interrupted round', async () => {
   const world = createLearningWorld();
   const first = world.createController();

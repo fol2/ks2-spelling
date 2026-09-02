@@ -170,6 +170,7 @@ test('production services persist profile CRUD and selected learner across a cle
     'savePrefs',
     'endRound',
     'markStarterCompleteMomentPresented',
+    'chooseCompanionBranch',
     'dispose',
   ]);
   assert.deepEqual(Object.keys(first.audio), ['play', 'dispose']);

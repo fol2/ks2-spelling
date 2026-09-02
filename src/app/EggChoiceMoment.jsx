@@ -27,6 +27,9 @@ export function EggChoiceMoment({ monster, onChoose, onDismiss }) {
 
   useEffect(() => {
     const previousFocus = document.activeElement;
+    const background = document.querySelector('main.product-app');
+    background?.setAttribute('inert', '');
+    background?.setAttribute('aria-hidden', 'true');
     const handleKeyDown = (event) => {
       const result = eggChoiceMomentKeyDown(event, {
         firstEl: firstEgg.current,
@@ -44,6 +47,8 @@ export function EggChoiceMoment({ monster, onChoose, onDismiss }) {
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      background?.removeAttribute('inert');
+      background?.removeAttribute('aria-hidden');
       eggChoiceMomentRestoreFocus(previousFocus);
     };
   }, [onDismiss, saveFailed]);

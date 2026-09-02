@@ -16,7 +16,7 @@ function tabCycle(firstEl, secondEl, closeEl) {
 
 export function eggChoiceMomentKeyDown(
   event,
-  { firstEl, secondEl, closeEl, active } = {},
+  { firstEl, secondEl, closeEl, dialogEl, active } = {},
 ) {
   const current = active
     ?? (typeof document !== 'undefined' ? document.activeElement : null);
@@ -35,15 +35,14 @@ export function eggChoiceMomentKeyDown(
   }
   if (key !== 'Tab') return null;
   const cycle = tabCycle(firstEl, secondEl, closeEl);
+  const fallback = cycle[0] ?? dialogEl ?? null;
+  if (!fallback) return null;
+  event.preventDefault?.();
+  if (cycle.length <= 1) return { focus: fallback };
   const index = cycle.indexOf(current);
-  if (cycle.length < 2 || index === -1) return null;
-  if (event.shiftKey && index === 0) {
-    event.preventDefault?.();
-    return { focus: cycle.at(-1) };
+  if (index === -1) return { focus: fallback };
+  if (event.shiftKey) {
+    return { focus: cycle[(index - 1 + cycle.length) % cycle.length] };
   }
-  if (!event.shiftKey && index === cycle.length - 1) {
-    event.preventDefault?.();
-    return { focus: cycle[0] };
-  }
-  return null;
+  return { focus: cycle[(index + 1) % cycle.length] };
 }

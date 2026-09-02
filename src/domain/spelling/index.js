@@ -11,6 +11,7 @@ import {
 } from '../../../vendor/ks2-mastery/shared/spelling/mobile/a3/index.js';
 import {
   combineMonsterChoiceRecency,
+  recencyForCommittedMonsters,
   restoreMonsterChoiceRecency,
   stripMonsterChoiceRecency,
   takeMonsterChoiceRecency,
@@ -129,13 +130,37 @@ export function applySpellingCommand(input) {
 export { validateSpellingCommandRepository };
 
 export function createInMemorySpellingCommandRepository(options) {
-  const inner = createInMemorySpellingCommandRepositoryExact(options);
+  const recencyByLearnerId = new Map();
+  const snapshots = Array.isArray(options?.snapshots)
+    ? options.snapshots.map((snapshot) => {
+      const recency = takeMonsterChoiceRecency(snapshot);
+      if (typeof snapshot?.learnerId === 'string' && recency.size > 0) {
+        recencyByLearnerId.set(snapshot.learnerId, recency);
+      }
+      return stripMonsterChoiceRecency(snapshot);
+    })
+    : options?.snapshots;
+  const inner = createInMemorySpellingCommandRepositoryExact({
+    ...options,
+    snapshots,
+  });
   return validateSpellingCommandRepository({
     runCommandTransaction(learnerId, planner) {
       return inner.runCommandTransaction(learnerId, async (fresh, context) => {
-        const plan = await planner(fresh, context);
+        const restored = restoreMonsterChoiceRecency(
+          fresh,
+          recencyByLearnerId.get(learnerId) ?? new Map(),
+        );
+        const plan = await planner(restored, context);
+        recencyByLearnerId.set(
+          learnerId,
+          recencyForCommittedMonsters(plan, recencyByLearnerId.get(learnerId)),
+        );
         return stripMonsterChoiceRecency(plan);
-      });
+      }).then((committed) => restoreMonsterChoiceRecency(
+        committed,
+        recencyByLearnerId.get(learnerId) ?? new Map(),
+      ));
     },
   });
 }

@@ -451,6 +451,63 @@ test('in-memory A3 repository accepts a choose-branch plan', async () => {
   );
 });
 
+test('in-memory A3 repository keeps companion choice recency on save and load', async () => {
+  const catalogue = loadStarterSpellingCatalogue();
+  const y34 = catalogue.items.filter((item) => item.yearBand === '3-4').slice(0, 1);
+  const found = snapshotWithProgress(catalogue, y34);
+  const chosen = snapshotAfterPlan(found, planChooseCompanionBranch({
+    snapshot: found,
+    catalogue,
+    rewardTrackId: 'spelling-core-inklet',
+    branch: 'b2',
+    nowMs: NOW_MS,
+  }));
+  const stamp = chosen.monsterStateByRewardTrackId['spelling-core-inklet'].branchRevision;
+  assert.equal(typeof stamp, 'number');
+
+  const repo = createInMemorySpellingCommandRepository({
+    snapshots: [chosen],
+    cataloguesById: { [catalogue.catalogueId]: catalogue },
+    now: () => NOW_MS + 1_000,
+  });
+  const saved = await repo.runCommandTransaction('learner-a', (fresh, context) => {
+    assert.equal(
+      fresh.monsterStateByRewardTrackId['spelling-core-inklet'].branchRevision,
+      stamp,
+    );
+    return applyProductSpellingCommand({
+      snapshot: fresh,
+      command: { type: 'save-prefs', payload: { prefs: { autoSpeak: true } } },
+      contentSnapshot: catalogue,
+      now: () => context.nowMs,
+      random: () => {
+        throw new Error('save-prefs must not draw randomness');
+      },
+    });
+  });
+  assert.equal(
+    saved.nextMonsterStateByRewardTrackId['spelling-core-inklet'].branchRevision,
+    stamp,
+  );
+
+  await repo.runCommandTransaction('learner-a', (fresh) => {
+    assert.equal(fresh.monsterStateByRewardTrackId['spelling-core-inklet'].branch, 'b2');
+    assert.equal(
+      fresh.monsterStateByRewardTrackId['spelling-core-inklet'].branchRevision,
+      stamp,
+    );
+    return applyProductSpellingCommand({
+      snapshot: fresh,
+      command: { type: 'acknowledge-persistence-warning', payload: {} },
+      contentSnapshot: catalogue,
+      now: () => NOW_MS + 2_000,
+      random: () => {
+        throw new Error('no-op acknowledge must not draw randomness');
+      },
+    });
+  });
+});
+
 test('product controller start-session then choose-branch writes only that track', async () => {
   const catalogue = loadStarterSpellingCatalogue();
   const y34 = catalogue.items.filter((item) => item.yearBand === '3-4').slice(0, 1);
@@ -693,6 +750,40 @@ test('keyboard helper moves between the two eggs', () => {
     }),
     null,
   );
+});
+
+test('in-flight Tab stays inside the overlay when only one egg is enabled', () => {
+  const first = { id: 'first' };
+  const second = { id: 'second', disabled: true };
+  const dialog = { id: 'dialog' };
+  let prevented = false;
+  const result = eggChoiceMomentKeyDown({
+    key: 'Tab',
+    preventDefault() {
+      prevented = true;
+    },
+  }, {
+    firstEl: first,
+    secondEl: second,
+    closeEl: null,
+    dialogEl: dialog,
+    active: first,
+  });
+  assert.equal(prevented, true);
+  assert.equal(result.focus, first);
+
+  const bothDisabled = eggChoiceMomentKeyDown({
+    key: 'Tab',
+    shiftKey: true,
+    preventDefault() {},
+  }, {
+    firstEl: { id: 'b1', disabled: true },
+    secondEl: { id: 'b2', disabled: true },
+    closeEl: null,
+    dialogEl: dialog,
+    active: second,
+  });
+  assert.equal(bothDisabled.focus, dialog);
 });
 
 test('egg-choice copy has no purchase language', () => {
@@ -966,6 +1057,71 @@ test('failed-save Close skips only that overlay attempt, not later eggs, Codex, 
     nextSkippedEggChoiceTrackIds(skipped, { persistenceRecovered: true }),
     [],
   );
+});
+
+test('failed-save Close skip list survives showScreen without persist', async () => {
+  const catalogue = loadStarterSpellingCatalogue();
+  const y34 = catalogue.items.filter((item) => item.yearBand === '3-4').slice(0, 1);
+  const snapshot = snapshotWithProgress(catalogue, y34);
+  const controller = createProductLearningController({
+    repository: Object.freeze({
+      async runCommandTransaction() {
+        throw new Error('save failed');
+      },
+    }),
+    snapshotStore: Object.freeze({
+      async read() {
+        return structuredClone(snapshot);
+      },
+    }),
+    catalogue,
+    initialSnapshot: snapshot,
+    random: () => 0.75,
+    now: () => NOW_MS,
+  });
+  await assert.rejects(
+    () => controller.chooseCompanionBranch({
+      rewardTrackId: 'spelling-core-inklet',
+      branch: 'b2',
+    }),
+    /save failed/,
+  );
+  assert.equal(controller.getState().actionError, 'learning_action_failed');
+
+  const monsters = controller.getState().monsters;
+  const choosable = controller.getState().choosableRewardTrackIds;
+  const dismissed = planEggChoiceDismiss({
+    monsters,
+    choosableRewardTrackIds: choosable,
+    dismissedTrackId: 'spelling-core-inklet',
+  });
+  assert.deepEqual(dismissed.skippedRewardTrackIds, ['spelling-core-inklet']);
+
+  const previousActionError = controller.getState().actionError;
+  controller.showScreen('home');
+  const persistenceRecovered = previousActionError != null
+    && controller.getState().actionError == null;
+  const skipped = nextSkippedEggChoiceTrackIds(dismissed.skippedRewardTrackIds, {
+    persistenceRecovered,
+    monsters: controller.getState().monsters,
+  });
+  assert.equal(
+    controller.getState().actionError,
+    'learning_action_failed',
+    'showScreen with no persist must not clear the failed-save error',
+  );
+  assert.deepEqual(skipped, ['spelling-core-inklet']);
+  assert.equal(
+    eggChoiceShouldShow({
+      monsters: controller.getState().monsters,
+      screen: controller.getState().screen,
+      choosableRewardTrackIds: controller.getState().choosableRewardTrackIds,
+      skippedRewardTrackIds: skipped,
+    }),
+    false,
+    'overlay must not bounce back after a screen publish with no persist',
+  );
+  await controller.dispose();
 });
 
 test('assigned Full Inklet still hatches on the 10th in-band secure when A3 skips projection', () => {

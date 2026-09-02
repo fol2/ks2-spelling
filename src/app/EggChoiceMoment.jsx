@@ -14,6 +14,7 @@ import { monsterArt } from './mastery-art.js';
  * cannot trap the child.
  */
 export function EggChoiceMoment({ monster, onChoose, onDismiss }) {
+  const dialog = useRef(null);
   const firstEgg = useRef(null);
   const secondEgg = useRef(null);
   const closeBtn = useRef(null);
@@ -39,6 +40,7 @@ export function EggChoiceMoment({ monster, onChoose, onDismiss }) {
         firstEl: firstEgg.current,
         secondEl: secondEgg.current,
         closeEl: saveFailed ? closeBtn.current : null,
+        dialogEl: dialog.current,
         active: document.activeElement,
       });
       if (result?.action === 'dismiss') {
@@ -82,6 +84,8 @@ export function EggChoiceMoment({ monster, onChoose, onDismiss }) {
 
   return (
     <section
+      ref={dialog}
+      tabIndex={-1}
       className="product-app egg-choice-moment"
       data-egg-choice-moment="true"
       role="dialog"

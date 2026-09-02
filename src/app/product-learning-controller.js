@@ -448,6 +448,7 @@ export function createProductLearningController({
       snapshot,
       catalogue,
       publishedCatalogue,
+      actionError: state.actionError,
       ...options,
       roundBaseline,
       revisionMission: revisionMissionProjection(),
@@ -538,6 +539,7 @@ export function createProductLearningController({
               ? 'summary'
               : phase === 'session' ? 'practice' : 'home',
           summary: options.summary ?? null,
+          actionError: null,
         });
         if (state.practice?.feedback) {
           markB4('product:feedback-published');
@@ -597,7 +599,7 @@ export function createProductLearningController({
           recordsCache = null;
           roundBaseline = null;
           starterCompleteMomentPresented = false;
-          publishFromSnapshot({ screen: 'profiles' });
+          publishFromSnapshot({ screen: 'profiles', actionError: null });
           return null;
         }
         const previousScreen = state.screen;
@@ -625,7 +627,7 @@ export function createProductLearningController({
             roundBaseline = adoptRoundBaseline(stored, snapshot);
           }
           await consumeStarterCompleteMoment('restart');
-          publishFromSnapshot({ screen: initialScreen(snapshot) });
+          publishFromSnapshot({ screen: initialScreen(snapshot), actionError: null });
           return learnerId;
         } catch (error) {
           publishFromSnapshot({
@@ -865,7 +867,7 @@ export function createProductLearningController({
             nextSnapshot(snapshot, plan),
             catalogue,
           );
-          publishFromSnapshot({ screen: previousScreen });
+          publishFromSnapshot({ screen: previousScreen, actionError: null });
           try {
             void Promise.resolve(onCommandCommitted?.(snapshot.learnerId))
               .catch(() => undefined);

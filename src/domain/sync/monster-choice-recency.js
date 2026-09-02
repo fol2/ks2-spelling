@@ -114,3 +114,19 @@ export function restoreMonsterChoiceRecency(value, recency) {
   }
   return next;
 }
+
+export function recencyForCommittedMonsters(plan, previous = new Map()) {
+  const monsters = isPlainRecord(plan?.nextMonsterStateByRewardTrackId)
+    ? plan.nextMonsterStateByRewardTrackId
+    : isPlainRecord(plan?.monsterStateByRewardTrackId)
+      ? plan.monsterStateByRewardTrackId
+      : null;
+  if (!monsters) return new Map();
+  const taken = takeMonsterChoiceRecency(plan);
+  const next = new Map();
+  for (const rewardTrackId of Object.keys(monsters)) {
+    const stamp = taken.get(rewardTrackId) ?? previous.get(rewardTrackId) ?? null;
+    if (stamp != null) next.set(rewardTrackId, stamp);
+  }
+  return next;
+}

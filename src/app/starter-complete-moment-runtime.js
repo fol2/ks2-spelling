@@ -24,6 +24,7 @@ export function planSummaryRewards({
   remainingWordCount,
   entitled,
   starterCatalogue,
+  skippedRewardTrackIds = [],
 } = {}) {
   if (previousScreen === 'summary' && next?.screen !== 'summary') {
     return Object.freeze({
@@ -86,6 +87,7 @@ export function planSummaryRewards({
   const eggChoice = pendingEggChoice(
     next.monsters,
     next.choosableRewardTrackIds,
+    skippedRewardTrackIds,
   );
   return Object.freeze({
     leaveSummary: false,

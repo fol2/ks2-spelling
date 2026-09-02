@@ -120,6 +120,10 @@ test('ProductApp still plans starter-complete through the untouched runtime', as
     read('src/app/StarterCompleteMoment.jsx'),
   ]);
   assert.match(product, /planSummaryRewards/);
+  assert.match(
+    product,
+    /const plan = planSummaryRewards\(\{\s*previousScreen,\s*next,\s*skippedRewardTrackIds:/u,
+  );
   assert.match(product, /StarterCompleteMoment/);
   assert.match(product, /celebrationEvents,/);
   assert.match(product, /eggChoicePending:/);

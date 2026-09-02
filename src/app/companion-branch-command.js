@@ -62,6 +62,9 @@ function durableMonsterEntry({ track, overlay, branch, current }) {
  * deferred the whole roster for missing RNG samples.
  */
 export function holdUnassignedMonsterBranches(plan, snapshot, catalogue) {
+  // A changed:false plan must keep every durable next value byte-for-byte.
+  // Overlay counts that ran ahead of the stored roster cannot rewrite a no-op.
+  if (plan?.changed !== true) return plan;
   const previous = snapshot?.monsterStateByRewardTrackId ?? {};
   const overlayById = new Map(
     projectMonstersFromWordSecurity({

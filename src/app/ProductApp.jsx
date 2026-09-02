@@ -3778,6 +3778,8 @@ export default function ProductApp({ services }) {
   const [starterCompleteOpen, setStarterCompleteOpen] = useState(false);
   // Failed-save Close skips that overlay attempt for that track only.
   const [skippedEggChoiceTrackIds, setSkippedEggChoiceTrackIds] = useState([]);
+  const skippedEggChoiceTrackIdsRef = useRef(skippedEggChoiceTrackIds);
+  skippedEggChoiceTrackIdsRef.current = skippedEggChoiceTrackIds;
   const pendingStarterComplete = useRef(null);
   const starterCompleteAckInFlight = useRef(false);
   const learningScreenRef = useRef(learningState.screen);
@@ -3833,6 +3835,7 @@ export default function ProductApp({ services }) {
       const plan = planSummaryRewards({
         previousScreen,
         next,
+        skippedRewardTrackIds: skippedEggChoiceTrackIdsRef.current,
         remainingWordCount: services.remainingWordCount,
         entitled: starterCompleteLearnerIsEntitled({
           catalogueId: services.catalogueId,

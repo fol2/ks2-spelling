@@ -331,6 +331,45 @@ test('choosing an egg keeps an unacknowledged persistence warning', () => {
   );
 });
 
+test('no-op acknowledge keeps assigned monster bytes when overlay count is ahead', () => {
+  const catalogue = loadStarterSpellingCatalogue();
+  const y34 = catalogue.items.filter((item) => item.yearBand === '3-4').slice(0, 2);
+  const base = snapshotWithProgress(catalogue, y34);
+  const stored = {
+    rewardTrackId: 'spelling-core-inklet',
+    packId: 'ks2-core',
+    monsterId: 'inklet',
+    branch: 'b1',
+    secureCount: 1,
+    caught: true,
+    derivedStage: 0,
+    earnedStageHighWater: 0,
+  };
+  const snapshot = validateSpellingCommandSnapshotV1({
+    ...base,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': stored,
+    },
+  }, catalogue);
+  const projected = overlay(catalogue, snapshot).find((row) => row.monsterId === 'inklet');
+  assert.ok(projected.secureCount > stored.secureCount);
+
+  const plan = applyProductSpellingCommand({
+    snapshot,
+    command: { type: 'acknowledge-persistence-warning', payload: {} },
+    contentSnapshot: catalogue,
+    now: () => NOW_MS,
+    random: () => {
+      throw new Error('no-op acknowledge must not draw randomness');
+    },
+  });
+  assert.equal(plan.changed, false);
+  assert.equal(
+    JSON.stringify(plan.nextMonsterStateByRewardTrackId),
+    JSON.stringify(snapshot.monsterStateByRewardTrackId),
+  );
+});
+
 test('in-memory A3 repository accepts a choose-branch plan', async () => {
   const catalogue = loadStarterSpellingCatalogue();
   const y34 = catalogue.items.filter((item) => item.yearBand === '3-4').slice(0, 1);
@@ -1049,4 +1088,51 @@ test('last-egg Close reveals queued starter-complete; restart still consumes wit
     }).show,
     false,
   );
+});
+
+test('failed-save skip list does not eat a later live starter-complete crossing', () => {
+  const starter = loadStarterSpellingCatalogue();
+  const lastEgg = {
+    rewardTrackId: 'spelling-core-inklet',
+    monsterId: 'inklet',
+    thresholds: [1, 10, 30, 60, 100],
+    branch: null,
+    secureCount: 10,
+    caught: true,
+    derivedStage: 1,
+    earnedStageHighWater: 1,
+  };
+  const choosable = [lastEgg.rewardTrackId];
+  const dismissed = planEggChoiceDismiss({
+    pendingMoment: null,
+    monsters: [lastEgg],
+    choosableRewardTrackIds: choosable,
+    dismissedTrackId: lastEgg.rewardTrackId,
+  });
+  assert.equal(dismissed.openStarterComplete, false);
+  assert.deepEqual(dismissed.skippedRewardTrackIds, [lastEgg.rewardTrackId]);
+  assert.equal(
+    pendingEggChoice([lastEgg], choosable, dismissed.skippedRewardTrackIds),
+    null,
+  );
+
+  const plan = planSummaryRewards({
+    previousScreen: 'practice',
+    next: {
+      screen: 'summary',
+      monsters: [lastEgg],
+      choosableRewardTrackIds: choosable,
+      roundBaseline: { monsters: [], sessionId: 's1', achievementIds: [] },
+      records: { milestones: [] },
+      achievements: [],
+      starterCompleteMomentPresented: false,
+    },
+    remainingWordCount: 193,
+    entitled: false,
+    starterCatalogue: starter,
+    skippedRewardTrackIds: dismissed.skippedRewardTrackIds,
+  });
+  assert.equal(plan.eggChoice, null);
+  assert.equal(plan.openMoment, true);
+  assert.deepEqual(plan.pendingMoment, { remainingWordCount: 193 });
 });

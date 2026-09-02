@@ -1795,6 +1795,9 @@ test('Design authority: the Starter-complete CTAs stack with intact no-wrap labe
    eggs (44px floor) and the h1 stay reachable without clipping. */
 test('Design authority: the egg-choice paper card scrolls inside the overlay', async () => {
   const rules = cssRuleBlocks(await read('src/app/app.css'));
+  const overlay = rules.find((r) => r.selector === '.egg-choice-moment');
+  assert.ok(overlay);
+  assert.match(overlay.body, /(?:^|;)\s*grid-template-rows:\s*minmax\(0,\s*1fr\)/u);
   const card = rules.find((r) => r.selector === '.egg-choice-moment > div');
   assert.ok(card);
   const decls = declarationMap(card.body);

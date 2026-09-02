@@ -39,6 +39,7 @@ test('egg-choice CSS declares 44px targets and a visible focus ring', async () =
 
 test('egg-choice paper card scrolls inside the overlay on short viewports', async () => {
   const css = await read('src/app/app.css');
+  assert.match(css, /\.egg-choice-moment\s*\{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)/u);
   const card = css.match(/\.egg-choice-moment\s*>\s*div\s*\{([^}]*)\}/u);
   assert.ok(card, 'expected .egg-choice-moment > div paper card');
   assert.match(card[1], /max-height:\s*100%/u);

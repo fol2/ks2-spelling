@@ -3949,6 +3949,7 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   inset: 0;
   z-index: 95;
   display: grid;
+  grid-template-rows: minmax(0, 1fr);
   place-items: center;
   padding:
     max(1.25rem, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)))

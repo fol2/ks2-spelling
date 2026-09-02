@@ -112,7 +112,8 @@ teaser art uses branch b1 so the egg cannot flip before the child chooses.
 
 When a companion is found and its painted branch is still unassigned, the child
 taps one of the two eggs; that branch persists on the learner snapshot and
-locks at hatch.
+locks at hatch. Only reward tracks in the installed catalogue are choosable, so
+the trial legendary teaser stays pinned without a choice modal.
 
 ### Learner snapshot
 

@@ -4017,6 +4017,19 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   outline-offset: 3px;
 }
 
+.egg-choice-dismiss {
+  justify-self: stretch;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  margin-top: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 1rem;
+}
+
 @media (min-width: 24.5625rem) {
   .egg-choice-eggs {
     grid-template-columns: 1fr 1fr;

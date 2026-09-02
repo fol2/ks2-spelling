@@ -3732,17 +3732,24 @@ export default function ProductApp({ services }) {
   const [campGain, setCampGain] = useState(0);
   const [preferredTrack, setPreferredTrack] = useState(null);
   const [starterCompleteOpen, setStarterCompleteOpen] = useState(false);
+  const [eggChoiceDismissedTrackId, setEggChoiceDismissedTrackId] = useState(null);
   const pendingStarterComplete = useRef(null);
   const starterCompleteAckInFlight = useRef(false);
   const learningScreenRef = useRef(learningState.screen);
+  const pendingEgg = pendingEggChoice(
+    learningState.monsters,
+    learningState.choosableRewardTrackIds,
+  );
+  const eggChoicePending = pendingEgg != null
+    && pendingEgg.rewardTrackId !== eggChoiceDismissedTrackId;
   const clearCelebrations = useCallback(() => {
     setCelebrationEvents([]);
     if (revealStarterCompleteAfterCelebrations(pendingStarterComplete.current, {
-      eggChoicePending: pendingEggChoice(learningState.monsters) != null,
+      eggChoicePending,
     })) {
       setStarterCompleteOpen(true);
     }
-  }, [learningState.monsters]);
+  }, [eggChoicePending]);
 
   useEffect(() => {
     const profileSubscription = services.controller.subscribe(setProfileState);
@@ -3875,11 +3882,12 @@ export default function ProductApp({ services }) {
     },
   });
   const chooseEgg = (branch) => {
-    const pending = pendingEggChoice(learningState.monsters);
     const choose = services.learning.chooseCompanionBranch;
-    if (!pending || typeof choose !== 'function') return;
-    void choose({
-      rewardTrackId: pending.rewardTrackId,
+    if (!pendingEgg || typeof choose !== 'function') {
+      return Promise.reject(new TypeError('Companion branch choice is unavailable.'));
+    }
+    return choose({
+      rewardTrackId: pendingEgg.rewardTrackId,
       branch,
     }).then(() => {
       if (revealStarterCompleteAfterCelebrations(pendingStarterComplete.current, {
@@ -3887,7 +3895,7 @@ export default function ProductApp({ services }) {
       })) {
         setStarterCompleteOpen(true);
       }
-    }).catch(() => undefined);
+    });
   };
   const eggChoiceOverlay = eggChoiceShouldShow({
     monsters: learningState.monsters,
@@ -3895,10 +3903,12 @@ export default function ProductApp({ services }) {
     parentOpen,
     switchOpen,
     celebrationEvents,
-  }) ? (
+    choosableRewardTrackIds: learningState.choosableRewardTrackIds,
+  }) && eggChoicePending ? (
     <EggChoiceMoment
-      monster={pendingEggChoice(learningState.monsters)}
+      monster={pendingEgg}
       onChoose={chooseEgg}
+      onDismiss={() => setEggChoiceDismissedTrackId(pendingEgg.rewardTrackId)}
     />
   ) : null;
   const filterCount = (id) =>

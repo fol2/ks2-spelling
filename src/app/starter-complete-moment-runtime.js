@@ -83,7 +83,10 @@ export function planSummaryRewards({
     source: 'round',
   });
   const pendingMoment = decision.show ? { remainingWordCount: remaining } : null;
-  const eggChoice = pendingEggChoice(next.monsters);
+  const eggChoice = pendingEggChoice(
+    next.monsters,
+    next.choosableRewardTrackIds,
+  );
   return Object.freeze({
     leaveSummary: false,
     celebrationEvents,

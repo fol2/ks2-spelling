@@ -151,6 +151,10 @@ test('product learning starts a durable Smart Review and restores an interrupted
       derivedStage: 0,
       earnedStageHighWater: 0,
     }],
+    choosableRewardTrackIds: [
+      'spelling-core-inklet',
+      'spelling-core-glimmerbug',
+    ],
     revisionMission: {
       missionState: 'locked',
       eligibleMissionKind: null,

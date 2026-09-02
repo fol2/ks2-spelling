@@ -87,11 +87,27 @@ export function companionCanSwitchBranch(monster) {
 }
 
 /** First found track that still has no chosen branch, in roster order. */
-export function pendingEggChoice(monsters = []) {
+export function pendingEggChoice(monsters = [], choosableRewardTrackIds) {
   if (!Array.isArray(monsters)) return null;
+  const allowed = choosableRewardTrackIds == null
+    ? null
+    : new Set(
+      (Array.isArray(choosableRewardTrackIds) ? choosableRewardTrackIds : [])
+        .filter((id) => typeof id === 'string' && id.length > 0),
+    );
   return monsters.find((monster) => (
-    monsterIsFound(monster) && assignedMonsterBranch(monster) === null
+    monsterIsFound(monster)
+    && assignedMonsterBranch(monster) === null
+    && (allowed === null || allowed.has(monster.rewardTrackId))
   )) ?? null;
+}
+
+/** Tracks the installed catalogue can persist. Published teasers are omitted. */
+export function choosableRewardTrackIdsFromCatalogue(catalogue) {
+  if (!Array.isArray(catalogue?.rewardTracks)) return [];
+  return catalogue.rewardTracks
+    .map((track) => track.rewardTrackId)
+    .filter((id) => typeof id === 'string' && id.length > 0);
 }
 
 export function wordIsSecure(stage) {

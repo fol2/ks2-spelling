@@ -294,6 +294,9 @@ function createState({
       // Codex roster: live published tracks, including the legendary aggregate
       // Starter JSON omits. Hatch still uses each track's published thresholds.
       monsters: monsterProjection(snapshot, displayCatalogue),
+      choosableRewardTrackIds: catalogue.rewardTracks
+        .map((track) => track.rewardTrackId)
+        .filter((id) => typeof id === 'string' && id.length > 0),
       revisionMission,
       camp: camp === null ? null : {
         ...camp,

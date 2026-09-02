@@ -24,8 +24,10 @@ import {
 } from '../src/app/egg-choice-moment-runtime.js';
 import {
   assignedMonsterBranch,
+  choosableRewardTrackIdsFromCatalogue,
   companionCanSwitchBranch,
   companionIsPainted,
+  monsterIsFound,
   pendingEggChoice,
   projectMonstersFromWordSecurity,
 } from '../src/app/monster-progress-model.js';
@@ -531,6 +533,31 @@ test('keyboard helper moves between the two eggs', () => {
     },
   });
   assert.deepEqual(focused, [{ preventScroll: true }]);
+  const close = { id: 'close' };
+  assert.equal(
+    eggChoiceMomentKeyDown({ key: 'Tab', preventDefault() {} }, {
+      firstEl: first,
+      secondEl: second,
+      closeEl: close,
+      active: close,
+    }).focus,
+    first,
+  );
+  assert.equal(
+    eggChoiceMomentKeyDown({ key: 'Escape', preventDefault() {} }, {
+      firstEl: first,
+      secondEl: second,
+      closeEl: close,
+    }).action,
+    'dismiss',
+  );
+  assert.equal(
+    eggChoiceMomentKeyDown({ key: 'Escape', preventDefault() {} }, {
+      firstEl: first,
+      secondEl: second,
+    }),
+    null,
+  );
 });
 
 test('egg-choice copy has no purchase language', () => {
@@ -538,9 +565,11 @@ test('egg-choice copy has no purchase language', () => {
   assert.equal(copy.headline, 'Which egg is yours?');
   assert.equal(copy.body, 'Tap one.');
   assert.doesNotMatch(
-    `${copy.headline} ${copy.body} ${copy.announcement}`,
+    `${copy.headline} ${copy.body} ${copy.announcement} ${copy.saveFailed} ${copy.close}`,
     /£|GBP|USD|\$\d|\bBuy\b|\bupgrade\b|\bpurchase\b|\bStoreKit\b|\bunlock\b/iu,
   );
+  assert.equal(copy.saveFailed, 'Could not save. Try again.');
+  assert.equal(copy.close, 'Close');
 });
 
 test('Full Phaeton found threshold stays three union words', () => {
@@ -556,4 +585,168 @@ test('Full Phaeton found threshold stays three union words', () => {
   assert.equal(phaeton.thresholds[0], 3);
   assert.equal(phaeton.thresholds[1], 25);
   assert.equal(pendingEggChoice(overlay(catalogue, snapshot)).monsterId, 'inklet');
+});
+
+test('trial found Phaeton does not open an undismissable egg overlay', async () => {
+  const starter = loadStarterSpellingCatalogue();
+  const full = loadFullSpellingCatalogue();
+  assert.equal(
+    starter.rewardTracks.some((track) => track.monsterId === 'phaeton'),
+    false,
+    'Starter pack JSON must not grow a Phaeton hatch track',
+  );
+  const y34 = starter.items.filter((item) => item.yearBand === '3-4');
+  const snapshot = snapshotWithProgress(starter, y34);
+  snapshot.monsterStateByRewardTrackId = {
+    'spelling-core-inklet': {
+      rewardTrackId: 'spelling-core-inklet',
+      packId: 'ks2-core',
+      monsterId: 'inklet',
+      branch: 'b1',
+      secureCount: y34.length,
+      caught: true,
+      derivedStage: 1,
+      earnedStageHighWater: 1,
+    },
+  };
+  const snapshots = new Map([[snapshot.learnerId, structuredClone(snapshot)]]);
+  const controller = createProductLearningController({
+    repository: Object.freeze({
+      async runCommandTransaction() {
+        throw new Error('unused');
+      },
+    }),
+    snapshotStore: Object.freeze({
+      async read(learnerId) {
+        return structuredClone(snapshots.get(learnerId));
+      },
+    }),
+    catalogue: starter,
+    publishedCatalogue: full,
+    initialSnapshot: snapshot,
+    random: () => 0.25,
+    now: () => NOW_MS,
+  });
+  const state = controller.getState();
+  const phaeton = state.monsters.find((row) => row.monsterId === 'phaeton');
+  assert.equal(monsterIsFound(phaeton), true);
+  assert.equal(assignedMonsterBranch(phaeton), null);
+  assert.equal(
+    state.choosableRewardTrackIds.includes('spelling-core-phaeton'),
+    false,
+  );
+  assert.equal(
+    pendingEggChoice(state.monsters, state.choosableRewardTrackIds),
+    null,
+  );
+  assert.equal(
+    eggChoiceShouldShow({
+      monsters: state.monsters,
+      screen: 'monster',
+      choosableRewardTrackIds: state.choosableRewardTrackIds,
+    }),
+    false,
+  );
+  assert.throws(
+    () => planChooseCompanionBranch({
+      snapshot,
+      catalogue: starter,
+      rewardTrackId: 'spelling-core-phaeton',
+      branch: 'b2',
+      nowMs: NOW_MS,
+    }),
+    /catalogue reward track/,
+  );
+  await controller.dispose();
+});
+
+test('trial Inklet egg-choice still commits while Phaeton stays a teaser', () => {
+  const starter = loadStarterSpellingCatalogue();
+  const full = loadFullSpellingCatalogue();
+  const y34 = starter.items.filter((item) => item.yearBand === '3-4').slice(0, 1);
+  const snapshot = snapshotWithProgress(starter, y34);
+  const monsters = projectMonstersFromWordSecurity({
+    rewardTracks: full.rewardTracks,
+    items: full.items,
+    progress: snapshot.subjectState.data.progress,
+    currentState: snapshot.monsterStateByRewardTrackId,
+  });
+  const choosable = choosableRewardTrackIdsFromCatalogue(starter);
+  assert.equal(pendingEggChoice(monsters, choosable).monsterId, 'inklet');
+  assert.equal(
+    monsters.find((row) => row.monsterId === 'phaeton').caught,
+    false,
+  );
+  const plan = planChooseCompanionBranch({
+    snapshot,
+    catalogue: starter,
+    rewardTrackId: 'spelling-core-inklet',
+    branch: 'b2',
+    nowMs: NOW_MS,
+  });
+  assert.equal(plan.changed, true);
+  assert.equal(
+    plan.nextMonsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+  );
+  assert.equal(
+    plan.nextMonsterStateByRewardTrackId['spelling-core-phaeton'],
+    undefined,
+  );
+});
+
+test('Full found Phaeton with a null branch opens and commits', () => {
+  const catalogue = loadFullSpellingCatalogue();
+  const y34 = catalogue.items.filter((item) => item.yearBand === '3-4').slice(0, 2);
+  const y56 = catalogue.items.filter((item) => item.yearBand === '5-6').slice(0, 1);
+  const snapshot = snapshotWithProgress(catalogue, [...y34, ...y56]);
+  snapshot.monsterStateByRewardTrackId = {
+    'spelling-core-inklet': {
+      rewardTrackId: 'spelling-core-inklet',
+      packId: 'ks2-core',
+      monsterId: 'inklet',
+      branch: 'b1',
+      secureCount: 2,
+      caught: true,
+      derivedStage: 0,
+      earnedStageHighWater: 0,
+    },
+    'spelling-core-glimmerbug': {
+      rewardTrackId: 'spelling-core-glimmerbug',
+      packId: 'ks2-core',
+      monsterId: 'glimmerbug',
+      branch: 'b1',
+      secureCount: 1,
+      caught: true,
+      derivedStage: 0,
+      earnedStageHighWater: 0,
+    },
+  };
+  const monsters = overlay(catalogue, snapshot);
+  const choosable = choosableRewardTrackIdsFromCatalogue(catalogue);
+  assert.equal(pendingEggChoice(monsters, choosable).monsterId, 'phaeton');
+  assert.equal(
+    eggChoiceShouldShow({
+      monsters,
+      screen: 'monster',
+      choosableRewardTrackIds: choosable,
+    }),
+    true,
+  );
+  const plan = planChooseCompanionBranch({
+    snapshot,
+    catalogue,
+    rewardTrackId: 'spelling-core-phaeton',
+    branch: 'b2',
+    nowMs: NOW_MS,
+  });
+  assert.equal(plan.changed, true);
+  assert.equal(
+    plan.nextMonsterStateByRewardTrackId['spelling-core-phaeton'].branch,
+    'b2',
+  );
+  assert.equal(
+    plan.nextMonsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b1',
+  );
 });

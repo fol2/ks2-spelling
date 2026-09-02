@@ -32,6 +32,7 @@ test('egg-choice CSS declares 44px targets and a visible focus ring', async () =
   assert.match(css, /\.egg-choice-egg\s*\{[^}]*min-height:\s*2\.75rem/u);
   assert.match(css, /\.egg-choice-egg\s*\{[^}]*min-width:\s*2\.75rem/u);
   assert.match(css, /\.egg-choice-egg:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--focus\)/u);
+  assert.match(css, /\.egg-choice-dismiss\s*\{[^}]*min-height:\s*2\.75rem/u);
   assert.match(css, /\.codex-other-egg\s*\{[^}]*min-height:\s*2\.75rem/u);
   assert.match(css, /@media \(min-width: 24\.5625rem\)/u);
 });
@@ -80,6 +81,8 @@ test('ProductApp still plans starter-complete through the untouched runtime', as
   assert.match(product, /StarterCompleteMoment/);
   assert.match(product, /celebrationEvents,/);
   assert.match(product, /eggChoicePending:/);
+  assert.match(product, /choosableRewardTrackIds:/);
+  assert.match(product, /setEggChoiceDismissedTrackId/);
   assert.match(runtime, /starterCompleteMomentDecision/);
   assert.match(overlay, /data-starter-complete-moment="true"/);
 });

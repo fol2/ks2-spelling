@@ -164,7 +164,7 @@ function assignedCompanionBranch(record) {
   return record?.branch === 'b1' || record?.branch === 'b2' ? record.branch : null;
 }
 
-function mergeMonsterRecord(local, remote) {
+function mergeMonsterRecord(local, remote, localRevision, remoteRevision) {
   const left = asRecord(local);
   const right = asRecord(remote);
   const progressKeys = [
@@ -172,10 +172,14 @@ function mergeMonsterRecord(local, remote) {
   ];
   const leftProgress = numericProgress(left, progressKeys);
   const rightProgress = numericProgress(right, progressKeys);
+  const leftRevision = maxNumber(localRevision, 0);
+  const rightRevision = maxNumber(remoteRevision, 0);
   let preferred;
   if (rightProgress > leftProgress) preferred = right;
   else if (leftProgress > rightProgress) preferred = left;
-  else preferred = assignedCompanionBranch(left) ? left : right;
+  else if (rightRevision > leftRevision) preferred = right;
+  else if (leftRevision > rightRevision) preferred = left;
+  else preferred = right;
   const merged = {
     ...cloneJson(preferred),
     ...mergeNumericOwnKeys(left, right),
@@ -183,7 +187,13 @@ function mergeMonsterRecord(local, remote) {
   if (left.caught === true || right.caught === true) merged.caught = true;
   const branch = rightProgress > leftProgress
     ? assignedCompanionBranch(right) ?? assignedCompanionBranch(left)
-    : assignedCompanionBranch(left) ?? assignedCompanionBranch(right);
+    : leftProgress > rightProgress
+      ? assignedCompanionBranch(left) ?? assignedCompanionBranch(right)
+      : rightRevision > leftRevision
+        ? assignedCompanionBranch(right) ?? assignedCompanionBranch(left)
+        : leftRevision > rightRevision
+          ? assignedCompanionBranch(left) ?? assignedCompanionBranch(right)
+          : assignedCompanionBranch(right) ?? assignedCompanionBranch(left);
   if (branch) merged.branch = branch;
   return merged;
 }
@@ -305,7 +315,7 @@ export function mergeSnapshots(local, remote) {
     monsterStateByRewardTrackId: mergeKeyedRecords(
       local.monsterStateByRewardTrackId,
       remote.monsterStateByRewardTrackId,
-      mergeMonsterRecord,
+      (left, right) => mergeMonsterRecord(left, right, localRevision, remoteRevision),
     ),
     campStateByPackId: mergeKeyedRecords(
       local.campStateByPackId,

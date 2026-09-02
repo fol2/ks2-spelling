@@ -261,7 +261,7 @@ test('stale replica does not revert a local Codex egg switch on numeric tie', ()
   assert.equal(
     merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
     'b2',
-    'local acknowledged branch must win when secure counts tie',
+    'newer local revision wins the branch when secure counts tie',
   );
   assert.equal(merged.revision, 6);
 });
@@ -292,6 +292,28 @@ test('remote companion progress still wins the branch when it is strictly ahead'
     merged.monsterStateByRewardTrackId['spelling-core-inklet'].secureCount,
     10,
   );
+});
+
+test('newer remote egg switch beats a stale local branch on numeric tie', () => {
+  const local = snapshot({
+    revision: 5,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b1'),
+    },
+  });
+  const remote = snapshot({
+    revision: 6,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b2'),
+    },
+  });
+  const merged = mergeSnapshots(local, remote);
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+    'newer remote revision wins the branch when secure counts tie',
+  );
+  assert.equal(merged.revision, 6);
 });
 
 test('null local snapshot clones remote progress but keeps starter catalogue placeholders', () => {

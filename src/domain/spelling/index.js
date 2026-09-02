@@ -146,21 +146,27 @@ export function createInMemorySpellingCommandRepository(options) {
   });
   return validateSpellingCommandRepository({
     runCommandTransaction(learnerId, planner) {
+      let pendingRecency;
       return inner.runCommandTransaction(learnerId, async (fresh, context) => {
         const restored = restoreMonsterChoiceRecency(
           fresh,
           recencyByLearnerId.get(learnerId) ?? new Map(),
         );
         const plan = await planner(restored, context);
-        recencyByLearnerId.set(
-          learnerId,
-          recencyForCommittedMonsters(plan, recencyByLearnerId.get(learnerId)),
+        pendingRecency = recencyForCommittedMonsters(
+          plan,
+          recencyByLearnerId.get(learnerId),
         );
         return stripMonsterChoiceRecency(plan);
-      }).then((committed) => restoreMonsterChoiceRecency(
-        committed,
-        recencyByLearnerId.get(learnerId) ?? new Map(),
-      ));
+      }).then((committed) => {
+        if (pendingRecency !== undefined) {
+          recencyByLearnerId.set(learnerId, pendingRecency);
+        }
+        return restoreMonsterChoiceRecency(
+          committed,
+          recencyByLearnerId.get(learnerId) ?? new Map(),
+        );
+      });
     },
   });
 }

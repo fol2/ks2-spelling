@@ -451,6 +451,86 @@ test('in-memory A3 repository accepts a choose-branch plan', async () => {
   );
 });
 
+test('in-memory A3 repository does not leak rejected companion choice recency onto the next fresh snapshot', async () => {
+  const catalogue = loadStarterSpellingCatalogue();
+  const y34 = catalogue.items.filter((item) => item.yearBand === '3-4').slice(0, 1);
+  const found = snapshotWithProgress(catalogue, y34);
+  const chosen = snapshotAfterPlan(found, planChooseCompanionBranch({
+    snapshot: found,
+    catalogue,
+    rewardTrackId: 'spelling-core-inklet',
+    branch: 'b2',
+    nowMs: NOW_MS,
+  }));
+  const originalStamp =
+    chosen.monsterStateByRewardTrackId['spelling-core-inklet'].branchRevision;
+  assert.ok(Number.isInteger(originalStamp));
+  assert.notEqual(originalStamp, 999);
+
+  const repo = createInMemorySpellingCommandRepository({
+    snapshots: [chosen],
+    cataloguesById: { [catalogue.catalogueId]: catalogue },
+    now: () => NOW_MS + 1_000,
+    failureInjector() {
+      throw new Error('rejected');
+    },
+  });
+  await assert.rejects(
+    () => repo.runCommandTransaction('learner-a', (fresh, context) => {
+      const switched = planChooseCompanionBranch({
+        snapshot: fresh,
+        catalogue,
+        rewardTrackId: 'spelling-core-inklet',
+        branch: 'b1',
+        nowMs: context.nowMs,
+      });
+      return {
+        ...switched,
+        nextMonsterStateByRewardTrackId: {
+          ...switched.nextMonsterStateByRewardTrackId,
+          'spelling-core-inklet': {
+            ...switched.nextMonsterStateByRewardTrackId['spelling-core-inklet'],
+            branchRevision: 999,
+          },
+        },
+        projections: {
+          ...switched.projections,
+          monsters: switched.projections.monsters.map((monster) => (
+            monster.rewardTrackId === 'spelling-core-inklet'
+              ? { ...monster, branchRevision: 999 }
+              : monster
+          )),
+        },
+      };
+    }),
+    /rejected/,
+  );
+
+  await repo.runCommandTransaction('learner-a', (fresh) => {
+    assert.notEqual(
+      fresh.monsterStateByRewardTrackId['spelling-core-inklet'].branchRevision,
+      999,
+    );
+    assert.equal(
+      fresh.monsterStateByRewardTrackId['spelling-core-inklet'].branchRevision,
+      originalStamp,
+    );
+    assert.equal(
+      fresh.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+      'b2',
+    );
+    return applyProductSpellingCommand({
+      snapshot: fresh,
+      command: { type: 'acknowledge-persistence-warning', payload: {} },
+      contentSnapshot: catalogue,
+      now: () => NOW_MS + 2_000,
+      random: () => {
+        throw new Error('no-op acknowledge must not draw randomness');
+      },
+    });
+  });
+});
+
 test('in-memory A3 repository keeps companion choice recency on save and load', async () => {
   const catalogue = loadStarterSpellingCatalogue();
   const y34 = catalogue.items.filter((item) => item.yearBand === '3-4').slice(0, 1);

@@ -19,7 +19,7 @@ import { TrailMeadow } from './trail/TrailMeadow.jsx';
 import { PrivacyNoticeCard } from './PrivacyNoticeCard.jsx';
 import { StarterCompleteMoment } from './StarterCompleteMoment.jsx';
 import { EggChoiceMoment } from './EggChoiceMoment.jsx';
-import { eggChoiceShouldShow } from './egg-choice-moment.js';
+import { eggChoiceShouldShow, nextSkippedEggChoiceTrackIds } from './egg-choice-moment.js';
 import { pendingEggChoice } from './monster-progress-model.js';
 import {
   acknowledgeStarterCompleteMoment,
@@ -3732,16 +3732,19 @@ export default function ProductApp({ services }) {
   const [campGain, setCampGain] = useState(0);
   const [preferredTrack, setPreferredTrack] = useState(null);
   const [starterCompleteOpen, setStarterCompleteOpen] = useState(false);
-  const [eggChoiceDismissedTrackId, setEggChoiceDismissedTrackId] = useState(null);
+  // Failed-save Close skips that overlay attempt for that track only.
+  const [skippedEggChoiceTrackIds, setSkippedEggChoiceTrackIds] = useState([]);
   const pendingStarterComplete = useRef(null);
   const starterCompleteAckInFlight = useRef(false);
   const learningScreenRef = useRef(learningState.screen);
+  const eggChoiceLearnerIdRef = useRef(learningState.learnerId);
+  const eggChoiceActionErrorRef = useRef(learningState.actionError);
   const pendingEgg = pendingEggChoice(
     learningState.monsters,
     learningState.choosableRewardTrackIds,
+    skippedEggChoiceTrackIds,
   );
-  const eggChoicePending = pendingEgg != null
-    && pendingEgg.rewardTrackId !== eggChoiceDismissedTrackId;
+  const eggChoicePending = pendingEgg != null;
   const clearCelebrations = useCallback(() => {
     setCelebrationEvents([]);
     if (revealStarterCompleteAfterCelebrations(pendingStarterComplete.current, {
@@ -3750,6 +3753,33 @@ export default function ProductApp({ services }) {
       setStarterCompleteOpen(true);
     }
   }, [eggChoicePending]);
+
+  useEffect(() => {
+    const learnerChanged = eggChoiceLearnerIdRef.current !== learningState.learnerId;
+    const persistenceRecovered = eggChoiceActionErrorRef.current != null
+      && learningState.actionError == null;
+    eggChoiceLearnerIdRef.current = learningState.learnerId;
+    eggChoiceActionErrorRef.current = learningState.actionError;
+    setSkippedEggChoiceTrackIds((current) => {
+      const next = nextSkippedEggChoiceTrackIds(current, {
+        learnerChanged,
+        persistenceRecovered,
+        companionSwitchAllowed: true,
+        monsters: learningState.monsters,
+      });
+      if (
+        next.length === current.length
+        && next.every((id, index) => id === current[index])
+      ) {
+        return current;
+      }
+      return next;
+    });
+  }, [
+    learningState.learnerId,
+    learningState.actionError,
+    learningState.monsters,
+  ]);
 
   useEffect(() => {
     const profileSubscription = services.controller.subscribe(setProfileState);
@@ -3890,6 +3920,7 @@ export default function ProductApp({ services }) {
       rewardTrackId: pendingEgg.rewardTrackId,
       branch,
     }).then(() => {
+      setSkippedEggChoiceTrackIds([]);
       if (revealStarterCompleteAfterCelebrations(pendingStarterComplete.current, {
         eggChoicePending: false,
       })) {
@@ -3904,11 +3935,19 @@ export default function ProductApp({ services }) {
     switchOpen,
     celebrationEvents,
     choosableRewardTrackIds: learningState.choosableRewardTrackIds,
-  }) && eggChoicePending ? (
+    skippedRewardTrackIds: skippedEggChoiceTrackIds,
+  }) ? (
     <EggChoiceMoment
       monster={pendingEgg}
       onChoose={chooseEgg}
-      onDismiss={() => setEggChoiceDismissedTrackId(pendingEgg.rewardTrackId)}
+      onDismiss={() => {
+        const trackId = pendingEgg?.rewardTrackId;
+        if (typeof trackId !== 'string' || trackId.length === 0) return;
+        setSkippedEggChoiceTrackIds((current) => nextSkippedEggChoiceTrackIds(current, {
+          dismissedTrackId: trackId,
+          monsters: learningState.monsters,
+        }));
+      }}
     />
   ) : null;
   const filterCount = (id) =>
@@ -4088,7 +4127,10 @@ export default function ProductApp({ services }) {
         onSwitchBranch={(rewardTrackId, branch) => {
           const choose = services.learning.chooseCompanionBranch;
           if (typeof choose !== 'function') return;
-          void choose({ rewardTrackId, branch }).catch(() => undefined);
+          void choose({ rewardTrackId, branch }).then(
+            () => setSkippedEggChoiceTrackIds([]),
+            () => undefined,
+          );
         }}
       />
     ), eggChoiceOverlay);

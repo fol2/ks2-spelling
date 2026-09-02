@@ -82,7 +82,9 @@ test('ProductApp still plans starter-complete through the untouched runtime', as
   assert.match(product, /celebrationEvents,/);
   assert.match(product, /eggChoicePending:/);
   assert.match(product, /choosableRewardTrackIds:/);
-  assert.match(product, /setEggChoiceDismissedTrackId/);
+  assert.match(product, /skippedEggChoiceTrackIds/);
+  assert.match(product, /nextSkippedEggChoiceTrackIds/);
+  assert.doesNotMatch(product, /eggChoiceDismissedTrackId/);
   assert.match(runtime, /starterCompleteMomentDecision/);
   assert.match(overlay, /data-starter-complete-moment="true"/);
 });

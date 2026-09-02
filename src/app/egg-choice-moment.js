@@ -1,4 +1,9 @@
-import { pendingEggChoice } from './monster-progress-model.js';
+import {
+  assignedMonsterBranch,
+  companionCanSwitchBranch,
+  monsterIsFound,
+  pendingEggChoice,
+} from './monster-progress-model.js';
 
 export const EGG_CHOICE_COPY = Object.freeze({
   headline: 'Which egg is yours?',
@@ -12,6 +17,59 @@ export function eggChoiceCopy() {
   return EGG_CHOICE_COPY;
 }
 
+function stringIds(value) {
+  return (Array.isArray(value) ? value : []).filter(
+    (id) => typeof id === 'string' && id.length > 0,
+  );
+}
+
+/**
+ * Failed-save Close skips retrying that overlay for that track, not every
+ * later egg, Codex switch, or learner. The skip list is dropped when the
+ * learner changes or persistence recovers, and painted stage-0 tracks are
+ * never kept suppressed so Codex can still switch.
+ */
+export function nextSkippedEggChoiceTrackIds(
+  skippedRewardTrackIds = [],
+  {
+    dismissedTrackId = null,
+    learnerChanged = false,
+    persistenceRecovered = false,
+    companionSwitchAllowed = false,
+    monsters,
+  } = {},
+) {
+  if (learnerChanged === true || persistenceRecovered === true) return [];
+
+  const seen = new Set();
+  const next = [];
+  for (const id of stringIds(skippedRewardTrackIds)) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    next.push(id);
+  }
+  if (typeof dismissedTrackId === 'string' && dismissedTrackId.length > 0
+    && !seen.has(dismissedTrackId)) {
+    next.push(dismissedTrackId);
+  }
+  if (!Array.isArray(monsters)) return next;
+
+  const stillChoosable = new Set();
+  const switchable = new Set();
+  for (const monster of monsters) {
+    const id = monster?.rewardTrackId;
+    if (typeof id !== 'string' || id.length === 0) continue;
+    if (companionCanSwitchBranch(monster)) switchable.add(id);
+    if (monsterIsFound(monster) && assignedMonsterBranch(monster) === null) {
+      stillChoosable.add(id);
+    }
+  }
+  return next.filter((id) => {
+    if (companionSwitchAllowed === true && switchable.has(id)) return false;
+    return stillChoosable.has(id);
+  });
+}
+
 export function eggChoiceShouldShow({
   monsters,
   screen,
@@ -19,9 +77,14 @@ export function eggChoiceShouldShow({
   switchOpen = false,
   celebrationEvents = [],
   choosableRewardTrackIds,
+  skippedRewardTrackIds = [],
 } = {}) {
   if (parentOpen === true || switchOpen === true) return false;
   if (screen === 'practice') return false;
   if (Array.isArray(celebrationEvents) && celebrationEvents.length > 0) return false;
-  return pendingEggChoice(monsters, choosableRewardTrackIds) !== null;
+  return pendingEggChoice(
+    monsters,
+    choosableRewardTrackIds,
+    skippedRewardTrackIds,
+  ) !== null;
 }

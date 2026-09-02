@@ -87,7 +87,11 @@ export function companionCanSwitchBranch(monster) {
 }
 
 /** First found track that still has no chosen branch, in roster order. */
-export function pendingEggChoice(monsters = [], choosableRewardTrackIds) {
+export function pendingEggChoice(
+  monsters = [],
+  choosableRewardTrackIds,
+  skippedRewardTrackIds = [],
+) {
   if (!Array.isArray(monsters)) return null;
   const allowed = choosableRewardTrackIds == null
     ? null
@@ -95,10 +99,15 @@ export function pendingEggChoice(monsters = [], choosableRewardTrackIds) {
       (Array.isArray(choosableRewardTrackIds) ? choosableRewardTrackIds : [])
         .filter((id) => typeof id === 'string' && id.length > 0),
     );
+  const skipped = new Set(
+    (Array.isArray(skippedRewardTrackIds) ? skippedRewardTrackIds : [])
+      .filter((id) => typeof id === 'string' && id.length > 0),
+  );
   return monsters.find((monster) => (
     monsterIsFound(monster)
     && assignedMonsterBranch(monster) === null
     && (allowed === null || allowed.has(monster.rewardTrackId))
+    && !skipped.has(monster.rewardTrackId)
   )) ?? null;
 }
 

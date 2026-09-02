@@ -13,7 +13,11 @@ import {
   planChooseCompanionBranch,
 } from '../src/app/companion-branch-command.js';
 import { buildCodex, setupExpeditionCompanion, trailMeadowCompanions } from '../src/app/codex-model.js';
-import { eggChoiceCopy, eggChoiceShouldShow } from '../src/app/egg-choice-moment.js';
+import {
+  eggChoiceCopy,
+  eggChoiceShouldShow,
+  nextSkippedEggChoiceTrackIds,
+} from '../src/app/egg-choice-moment.js';
 import {
   planSummaryRewards,
   revealStarterCompleteAfterCelebrations,
@@ -748,5 +752,83 @@ test('Full found Phaeton with a null branch opens and commits', () => {
   assert.equal(
     plan.nextMonsterStateByRewardTrackId['spelling-core-inklet'].branch,
     'b1',
+  );
+});
+
+test('failed-save Close skips only that overlay attempt, not later eggs, Codex, or another learner', () => {
+  const inklet = {
+    rewardTrackId: 'spelling-core-inklet',
+    monsterId: 'inklet',
+    thresholds: [1, 10, 30, 60, 100],
+    branch: null,
+    secureCount: 1,
+    caught: true,
+    derivedStage: 0,
+    earnedStageHighWater: 0,
+  };
+  const glimmerbug = {
+    rewardTrackId: 'spelling-core-glimmerbug',
+    monsterId: 'glimmerbug',
+    thresholds: [1, 10, 30, 60, 100],
+    branch: null,
+    secureCount: 1,
+    caught: true,
+    derivedStage: 0,
+    earnedStageHighWater: 0,
+  };
+  const phaeton = {
+    rewardTrackId: 'spelling-core-phaeton',
+    monsterId: 'phaeton',
+    thresholds: [3, 25, 60, 90, 130],
+    branch: 'b1',
+    secureCount: 3,
+    caught: true,
+    derivedStage: 0,
+    earnedStageHighWater: 0,
+  };
+  const choosable = [
+    'spelling-core-inklet',
+    'spelling-core-glimmerbug',
+    'spelling-core-phaeton',
+  ];
+
+  const skipped = nextSkippedEggChoiceTrackIds([], {
+    dismissedTrackId: inklet.rewardTrackId,
+  });
+  assert.deepEqual(skipped, [inklet.rewardTrackId]);
+
+  // Track B found still opens the overlay; a session-global dismissed id
+  // would keep pending on Inklet and hide Glimmerbug until remount.
+  assert.equal(
+    pendingEggChoice([inklet, glimmerbug, phaeton], choosable, skipped)?.monsterId,
+    'glimmerbug',
+  );
+  assert.equal(
+    eggChoiceShouldShow({
+      monsters: [inklet, glimmerbug, phaeton],
+      screen: 'monster',
+      choosableRewardTrackIds: choosable,
+      skippedRewardTrackIds: skipped,
+    }),
+    true,
+  );
+
+  // Assigned stage-0 Codex switch is independent of the failed-save skip list.
+  assert.equal(companionCanSwitchBranch(phaeton), true);
+  assert.deepEqual(
+    nextSkippedEggChoiceTrackIds(
+      [inklet.rewardTrackId, phaeton.rewardTrackId],
+      { companionSwitchAllowed: true, monsters: [inklet, glimmerbug, phaeton] },
+    ),
+    [inklet.rewardTrackId],
+  );
+
+  assert.deepEqual(
+    nextSkippedEggChoiceTrackIds(skipped, { learnerChanged: true }),
+    [],
+  );
+  assert.deepEqual(
+    nextSkippedEggChoiceTrackIds(skipped, { persistenceRecovered: true }),
+    [],
   );
 });

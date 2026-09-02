@@ -1,5 +1,4 @@
 import {
-  applySpellingCommand,
   canonicalGuardianDay,
   loadStarterSpellingCatalogue,
   projectSpellingRevisionMission,
@@ -8,9 +7,10 @@ import {
 } from '../domain/spelling/index.js';
 import { setupExpeditionCompanion } from './codex-model.js';
 import {
-  pinNewAggregateCompanionBranches,
-  projectMonstersFromWordSecurity,
-} from './monster-progress-model.js';
+  applyProductSpellingCommand,
+  planChooseCompanionBranch,
+} from './companion-branch-command.js';
+import { projectMonstersFromWordSecurity } from './monster-progress-model.js';
 import { markB4 } from './b4-performance-marks.js';
 import { earlyRoundSummary, spellingOnly } from './practice-feel.js';
 import { achievementChips } from './records-model.js';
@@ -294,6 +294,9 @@ function createState({
       // Codex roster: live published tracks, including the legendary aggregate
       // Starter JSON omits. Hatch still uses each track's published thresholds.
       monsters: monsterProjection(snapshot, displayCatalogue),
+      choosableRewardTrackIds: catalogue.rewardTracks
+        .map((track) => track.rewardTrackId)
+        .filter((id) => typeof id === 'string' && id.length > 0),
       revisionMission,
       camp: camp === null ? null : {
         ...camp,
@@ -445,6 +448,7 @@ export function createProductLearningController({
       snapshot,
       catalogue,
       publishedCatalogue,
+      actionError: state.actionError,
       ...options,
       roundBaseline,
       revisionMission: revisionMissionProjection(),
@@ -490,16 +494,13 @@ export function createProductLearningController({
       try {
         const plan = await repository.runCommandTransaction(
           snapshot.learnerId,
-          (fresh, context) => {
-            const plan = applySpellingCommand({
-              snapshot: fresh,
-              command,
-              contentSnapshot: catalogue,
-              now: () => context.nowMs,
-              random,
-            });
-            return pinNewAggregateCompanionBranches(plan, fresh, catalogue);
-          },
+          (fresh, context) => applyProductSpellingCommand({
+            snapshot: fresh,
+            command,
+            contentSnapshot: catalogue,
+            now: () => context.nowMs,
+            random,
+          }),
         );
         markB4('product:local-commit');
         snapshot = validateSpellingCommandSnapshotV1(
@@ -538,6 +539,7 @@ export function createProductLearningController({
               ? 'summary'
               : phase === 'session' ? 'practice' : 'home',
           summary: options.summary ?? null,
+          actionError: null,
         });
         if (state.practice?.feedback) {
           markB4('product:feedback-published');
@@ -597,7 +599,7 @@ export function createProductLearningController({
           recordsCache = null;
           roundBaseline = null;
           starterCompleteMomentPresented = false;
-          publishFromSnapshot({ screen: 'profiles' });
+          publishFromSnapshot({ screen: 'profiles', actionError: null });
           return null;
         }
         const previousScreen = state.screen;
@@ -625,7 +627,7 @@ export function createProductLearningController({
             roundBaseline = adoptRoundBaseline(stored, snapshot);
           }
           await consumeStarterCompleteMoment('restart');
-          publishFromSnapshot({ screen: initialScreen(snapshot) });
+          publishFromSnapshot({ screen: initialScreen(snapshot), actionError: null });
           return learnerId;
         } catch (error) {
           publishFromSnapshot({
@@ -838,6 +840,48 @@ export function createProductLearningController({
         }
         starterCompleteMomentPresented = true;
         publishFromSnapshot({ screen: state.screen });
+      });
+    },
+    chooseCompanionBranch({ rewardTrackId, branch } = {}) {
+      return enqueue(async () => {
+        if (!snapshot) {
+          throw controllerError('product_learning_learner_required');
+        }
+        const previousScreen = state.screen;
+        publishFromSnapshot({
+          status: 'saving',
+          screen: previousScreen,
+        });
+        try {
+          const plan = await repository.runCommandTransaction(
+            snapshot.learnerId,
+            (fresh, context) => planChooseCompanionBranch({
+              snapshot: fresh,
+              catalogue,
+              rewardTrackId,
+              branch,
+              nowMs: context.nowMs,
+            }),
+          );
+          snapshot = validateSpellingCommandSnapshotV1(
+            nextSnapshot(snapshot, plan),
+            catalogue,
+          );
+          publishFromSnapshot({ screen: previousScreen, actionError: null });
+          try {
+            void Promise.resolve(onCommandCommitted?.(snapshot.learnerId))
+              .catch(() => undefined);
+          } catch {
+            // Replication is post-commit and best-effort.
+          }
+          return plan;
+        } catch (error) {
+          publishFromSnapshot({
+            screen: previousScreen,
+            actionError: 'learning_action_failed',
+          });
+          throw error;
+        }
       });
     },
     async dispose() {

@@ -230,6 +230,166 @@ test('mergeSnapshots does not mutate frozen local or remote inputs', () => {
   assert.equal(local.subjectState.data.progress['ks2-core:circle'], undefined);
 });
 
+function monsterRecord(branch, overrides = {}) {
+  return {
+    rewardTrackId: 'spelling-core-inklet',
+    packId: 'ks2-core',
+    monsterId: 'inklet',
+    branch,
+    secureCount: 1,
+    caught: true,
+    derivedStage: 0,
+    earnedStageHighWater: 0,
+    ...overrides,
+  };
+}
+
+test('newer explicit branch survives a stale replica with a higher secureCount', () => {
+  const local = snapshot({
+    revision: 6,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b2', { secureCount: 1 }),
+    },
+  });
+  const remote = snapshot({
+    revision: 5,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b1', { secureCount: 2 }),
+    },
+  });
+  const merged = mergeSnapshots(local, remote);
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+    'branch follows the newer snapshot, not the higher secureCount',
+  );
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].secureCount,
+    2,
+    'word progress still takes the numeric max',
+  );
+  assert.equal(merged.revision, 6);
+});
+
+test('newer remote explicit branch survives a stale local with a higher secureCount', () => {
+  const local = snapshot({
+    revision: 5,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b1', { secureCount: 2 }),
+    },
+  });
+  const remote = snapshot({
+    revision: 6,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b2', { secureCount: 1 }),
+    },
+  });
+  const merged = mergeSnapshots(local, remote);
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+  );
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].secureCount,
+    2,
+  );
+  assert.equal(merged.revision, 6);
+});
+
+test('stale replica does not revert a local Codex egg switch on numeric tie', () => {
+  const local = snapshot({
+    revision: 6,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b2'),
+    },
+  });
+  const remote = snapshot({
+    revision: 5,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b1'),
+    },
+  });
+  const merged = mergeSnapshots(local, remote);
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+    'newer local revision wins the branch when secure counts tie',
+  );
+  assert.equal(merged.revision, 6);
+});
+
+test('remote companion progress still wins the branch when it is strictly ahead', () => {
+  const local = snapshot({
+    revision: 6,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b2', { secureCount: 1 }),
+    },
+  });
+  const remote = snapshot({
+    revision: 7,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b1', {
+        secureCount: 10,
+        derivedStage: 1,
+        earnedStageHighWater: 1,
+      }),
+    },
+  });
+  const merged = mergeSnapshots(local, remote);
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b1',
+  );
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].secureCount,
+    10,
+  );
+});
+
+test('saved egg branch survives a replica whose later snapshot revision still has the older branch', () => {
+  const local = snapshot({
+    revision: 12,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b2', { branchRevision: 8 }),
+    },
+  });
+  const remote = snapshot({
+    revision: 20,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b1'),
+    },
+  });
+  const merged = mergeSnapshots(local, remote);
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+    'choice recency belongs to the monster, not later unrelated snapshot revision',
+  );
+  assert.equal(merged.revision, 20);
+});
+
+test('newer remote egg switch beats a stale local branch on numeric tie', () => {
+  const local = snapshot({
+    revision: 5,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b1'),
+    },
+  });
+  const remote = snapshot({
+    revision: 6,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b2'),
+    },
+  });
+  const merged = mergeSnapshots(local, remote);
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+    'newer remote revision wins the branch when secure counts tie',
+  );
+  assert.equal(merged.revision, 6);
+});
+
 test('null local snapshot clones remote progress but keeps starter catalogue placeholders', () => {
   const remote = snapshot({
     revision: 7,

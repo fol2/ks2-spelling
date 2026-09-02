@@ -1,3 +1,5 @@
+import { monsterChoiceStamp } from './monster-choice-recency.js';
+
 const STARTER_CATALOGUE_ID = 'ks2-core:starter';
 const STARTER_PACK_ID = 'ks2-core';
 
@@ -160,19 +162,61 @@ function mergeGuardianRecord(local, remote) {
   };
 }
 
-function mergeMonsterRecord(local, remote) {
+function assignedCompanionBranch(record) {
+  return record?.branch === 'b1' || record?.branch === 'b2' ? record.branch : null;
+}
+
+function pickMonsterChoice(left, right, leftRevision, rightRevision) {
+  const leftStamp = monsterChoiceStamp(left);
+  const rightStamp = monsterChoiceStamp(right);
+  const stamped = leftStamp != null || rightStamp != null;
+  const leftScore = stamped ? (leftStamp ?? -1) : leftRevision;
+  const rightScore = stamped ? (rightStamp ?? -1) : rightRevision;
+  if (rightScore > leftScore) {
+    return {
+      branch: assignedCompanionBranch(right) ?? assignedCompanionBranch(left),
+      branchRevision: rightStamp,
+    };
+  }
+  if (leftScore > rightScore) {
+    return {
+      branch: assignedCompanionBranch(left) ?? assignedCompanionBranch(right),
+      branchRevision: leftStamp,
+    };
+  }
+  return {
+    branch: assignedCompanionBranch(right) ?? assignedCompanionBranch(left),
+    branchRevision: rightStamp ?? leftStamp,
+  };
+}
+
+function mergeMonsterRecord(local, remote, localRevision, remoteRevision) {
   const left = asRecord(local);
   const right = asRecord(remote);
-  const preferred = numericProgress(right, [
+  const progressKeys = [
     'secureCount', 'derivedStage', 'earnedStageHighWater', 'stage', 'level', 'xp', 'stars',
-  ]) >= numericProgress(left, [
-    'secureCount', 'derivedStage', 'earnedStageHighWater', 'stage', 'level', 'xp', 'stars',
-  ]) ? right : left;
+  ];
+  const leftProgress = numericProgress(left, progressKeys);
+  const rightProgress = numericProgress(right, progressKeys);
+  const leftRev = maxNumber(localRevision, 0);
+  const rightRev = maxNumber(remoteRevision, 0);
+  let preferred;
+  if (rightProgress > leftProgress) preferred = right;
+  else if (leftProgress > rightProgress) preferred = left;
+  else if (rightRev > leftRev) preferred = right;
+  else if (leftRev > rightRev) preferred = left;
+  else preferred = right;
   const merged = {
     ...cloneJson(preferred),
     ...mergeNumericOwnKeys(left, right),
   };
   if (left.caught === true || right.caught === true) merged.caught = true;
+  // Painted-egg identity follows choice recency on the monster. Unstamped
+  // replicas still fall back to whole-snapshot revision.
+  const picked = pickMonsterChoice(left, right, leftRev, rightRev);
+  if (picked.branch) merged.branch = picked.branch;
+  if (picked.branchRevision != null) merged.branchRevision = picked.branchRevision;
+  else delete merged.branchRevision;
   return merged;
 }
 
@@ -293,7 +337,7 @@ export function mergeSnapshots(local, remote) {
     monsterStateByRewardTrackId: mergeKeyedRecords(
       local.monsterStateByRewardTrackId,
       remote.monsterStateByRewardTrackId,
-      mergeMonsterRecord,
+      (left, right) => mergeMonsterRecord(left, right, localRevision, remoteRevision),
     ),
     campStateByPackId: mergeKeyedRecords(
       local.campStateByPackId,

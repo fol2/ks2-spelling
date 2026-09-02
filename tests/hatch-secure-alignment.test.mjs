@@ -9,6 +9,7 @@ import {
 } from '../src/domain/spelling/index.js';
 import { buildCodex } from '../src/app/codex-model.js';
 import { createProductLearningController } from '../src/app/product-learning-controller.js';
+import { monsterBranch } from '../src/app/monster-progress-model.js';
 import { starterYearBandIsSecure } from '../src/app/starter-complete-moment.js';
 import { buildWordBank } from '../src/app/word-bank-model.js';
 import { expectedB2Snapshot } from './helpers/b2-database-harness.mjs';
@@ -273,16 +274,13 @@ test('Starter trial: twenty secured words hatch Inklet and Glimmerbug against th
   assert.equal(phaeton.secureCount, 20);
   assert.equal(phaeton.derivedStage, 0, 'twenty Starter words cannot reach Aetherwisp');
   assert.deepEqual(phaeton.thresholds, [3, 25, 95, 145, 213]);
-  assert.equal(
-    phaeton.branch,
-    'b1',
-    'trial Codex must pin Stardrop Egg to the stable teaser branch',
-  );
-  assert.equal(phaetonEntry.branch, 'b1');
+  assert.equal(phaeton.branch, null);
+  assert.equal(monsterBranch(phaeton), 'b1');
+  assert.equal(phaetonEntry.branch, null);
+  assert.equal(phaetonEntry.found, false);
+  assert.equal(phaetonEntry.discovered, true);
   assert.equal(phaetonEntry.stage, 0);
-  assert.equal(phaetonEntry.title, 'Stardrop Egg');
-  assert.equal(phaetonEntry.count, '20 of 213');
-  assert.match(phaetonEntry.next, /5 more to Aetherwisp/);
+  assert.equal(phaetonEntry.title, '???');
 });
 
 test('Full catalogue Inklet still uses the published 100-word growth line', () => {
@@ -293,6 +291,18 @@ test('Full catalogue Inklet still uses the published 100-word growth line', () =
   snapshot.catalogueId = catalogue.catalogueId;
   snapshot.grantedEntitlementIds = [...catalogue.entitlementIds];
   snapshot.subjectState.data.progress = progress;
+  snapshot.monsterStateByRewardTrackId = {
+    'spelling-core-inklet': {
+      rewardTrackId: 'spelling-core-inklet',
+      packId: 'ks2-core',
+      monsterId: 'inklet',
+      branch: 'b1',
+      secureCount: 10,
+      caught: true,
+      derivedStage: 1,
+      earnedStageHighWater: 1,
+    },
+  };
 
   const inklet = controllerFor(snapshot, catalogue)
     .getState()
@@ -367,9 +377,11 @@ test('trial Camp and word bank use the published full catalogue as the destinati
   assert.equal(phaeton.derivedStage, 0);
   assert.deepEqual(phaeton.thresholds, [3, 25, 95, 145, 213]);
   const phaetonEntry = buildCodex(state.monsters, 'spelling-core-phaeton').hero;
-  assert.equal(phaetonEntry.found, true);
+  assert.equal(phaetonEntry.found, false);
+  assert.equal(phaetonEntry.discovered, true);
   assert.equal(phaetonEntry.stage, 0);
-  assert.equal(phaetonEntry.title, 'Stardrop Egg');
+  assert.equal(phaetonEntry.title, '???');
+  assert.equal(monsterBranch(phaeton), 'b1');
 });
 
 test('Setup vocabulary sets project the installed catalogue, not the published destination', async () => {

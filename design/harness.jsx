@@ -25,6 +25,9 @@
  *                             vocabulary set rail stays visible.
  *   ?starter-complete=true    Results: the one-time Starter-complete signpost
  *                             after a Y3–4 band crossing (celebration first).
+ *   ?egg-choice=true          found Inklet with a null branch, so the overlay
+ *                            is up on Trail (short-viewport layout checks).
+ *   ?text=130|160             root font-size as a percent (V2 text-scale cells).
  *   ?ambient=drift|motes      Setup / round plate motion. Omit for the product
  *                             default (drift). Comparison only — no chrome.
  */
@@ -109,6 +112,31 @@ const STARTER_COMPLETE_MONSTERS = [
     monsterId: 'glimmerbug',
     thresholds: [1, 10, 30, 60, 100],
     branch: 'b1',
+    secureCount: 0,
+    caught: false,
+    derivedStage: 0,
+    earnedStageHighWater: 0,
+  },
+];
+
+const EGG_CHOICE_MONSTERS = [
+  {
+    rewardTrackId: 'spelling-core-inklet',
+    packId: 'ks2-core',
+    monsterId: 'inklet',
+    thresholds: [1, 10, 30, 60, 100],
+    branch: null,
+    secureCount: 1,
+    caught: true,
+    derivedStage: 0,
+    earnedStageHighWater: 0,
+  },
+  {
+    rewardTrackId: 'spelling-core-glimmerbug',
+    packId: 'ks2-core',
+    monsterId: 'glimmerbug',
+    thresholds: [1, 10, 30, 60, 100],
+    branch: null,
     secureCount: 0,
     caught: false,
     derivedStage: 0,
@@ -311,6 +339,7 @@ function makeServices(query) {
   const empty = query.has('empty');
   const unfoundCompanion = query.get('unfound-companion') === 'true';
   const starterComplete = query.get('starter-complete') === 'true';
+  const eggChoice = query.get('egg-choice') === 'true';
   const controller = store({
     status: 'ready',
     profiles: empty ? [] : profiles,
@@ -327,15 +356,17 @@ function makeServices(query) {
   // best found creature, so both band tracks are unmarked when the flag is on.
   const harnessMonsters = empty
     ? []
-    : (starterComplete
-      ? STARTER_COMPLETE_MONSTERS
-      : (unfoundCompanion
-        ? MONSTERS.map((monster) => (
-          monster.monsterId === 'inklet' || monster.monsterId === 'glimmerbug'
-            ? { ...monster, caught: false, secureCount: 0, derivedStage: 0, earnedStageHighWater: 0 }
-            : monster
-        ))
-        : MONSTERS));
+    : (eggChoice
+      ? EGG_CHOICE_MONSTERS
+      : (starterComplete
+        ? STARTER_COMPLETE_MONSTERS
+        : (unfoundCompanion
+          ? MONSTERS.map((monster) => (
+            monster.monsterId === 'inklet' || monster.monsterId === 'glimmerbug'
+              ? { ...monster, caught: false, secureCount: 0, derivedStage: 0, earnedStageHighWater: 0 }
+              : monster
+          ))
+          : MONSTERS)));
   const rosterBeforeRound = starterComplete
     ? STARTER_COMPLETE_MONSTERS.map((monster) => (
       monster.monsterId === 'inklet'
@@ -531,6 +562,14 @@ function makeServices(query) {
       async markStarterCompleteMomentPresented() {
         learning.set({ starterCompleteMomentPresented: true });
       },
+      async chooseCompanionBranch({ rewardTrackId, branch } = {}) {
+        const monsters = learning.getState().monsters.map((monster) => (
+          monster.rewardTrackId === rewardTrackId
+            ? { ...monster, branch }
+            : monster
+        ));
+        learning.set({ monsters });
+      },
       async dispose() {},
     },
     audioAvailability: {
@@ -600,6 +639,24 @@ function Harness() {
   );
   useEffect(() => {
     const query = new URLSearchParams(globalThis.location.search);
+    const text = query.get('text');
+    if (text === '130' || text === '160') {
+      document.documentElement.style.fontSize = `${text}%`;
+    }
+    if (query.get('egg-choice') === 'true') {
+      const measure = () => {
+        const card = document.querySelector('.egg-choice-moment > div');
+        if (!card) return;
+        if (query.get('scroll') === 'end') {
+          card.scrollTop = card.scrollHeight;
+        }
+        card.setAttribute(
+          'data-egg-choice-scroll',
+          `${card.scrollHeight}:${card.clientHeight}:${Math.round(card.scrollTop)}`,
+        );
+      };
+      requestAnimationFrame(() => requestAnimationFrame(measure));
+    }
     if (query.get('screen') === 'summary') {
       services.learning.set({ screen: 'summary', practice: null });
     }

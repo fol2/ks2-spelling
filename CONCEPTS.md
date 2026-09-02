@@ -105,9 +105,15 @@ Camp Companions (Codex) lists every reward track the published spelling
 catalogue owns. The Starter trial therefore shows the legendary aggregate
 alongside Inklet and Glimmerbug even though that track is absent from the
 Starter pack JSON. Hatch still follows each track's published thresholds, so
-stage 1 of the legendary line stays unreachable on the Starter 20. The trial
-egg is pinned to branch b1 in the product projection. The first command that
-A3 persists companion state writes that same branch so the art cannot flip.
+stage 1 of the legendary line stays unreachable on the Starter 20. Unfound
+teaser art uses branch b1 so the egg cannot flip before the child chooses.
+
+### Companion egg choice
+
+When a companion is found and its painted branch is still unassigned, the child
+taps one of the two eggs; that branch persists on the learner snapshot and
+locks at hatch. Only reward tracks in the installed catalogue are choosable, so
+the trial legendary teaser stays pinned without a choice modal.
 
 ### Learner snapshot
 

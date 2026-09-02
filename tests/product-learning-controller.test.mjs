@@ -9,8 +9,9 @@ import {
   validateSpellingCommandSnapshotV1,
 } from '../src/domain/spelling/index.js';
 import { monsterCelebrationArtUrl } from '../src/app/celebrations/celebration-model.js';
-import { createProductLearningController } from '../src/app/product-learning-controller.js';
 import { setupExpeditionCompanion } from '../src/app/codex-model.js';
+import { createProductLearningController } from '../src/app/product-learning-controller.js';
+import { STABLE_COMPANION_TEASER_BRANCH } from '../src/app/monster-progress-model.js';
 import {
   expectedB2Snapshot,
   snapshotAfterPlan,
@@ -110,6 +111,33 @@ function unseenProgress(catalogue) {
   }));
 }
 
+const LEARNING_PUBLIC_KEYS = Object.freeze([
+  'getState',
+  'subscribe',
+  'selectLearner',
+  'showScreen',
+  'wordMaterial',
+  'practiseWord',
+  'startRound',
+  'startGuardianMission',
+  'submitAnswer',
+  'continueRound',
+  'skipWord',
+  'savePrefs',
+  'endRound',
+  'markStarterCompleteMomentPresented',
+  'chooseCompanionBranch',
+  'dispose',
+]);
+
+test('product learning public contract includes chooseCompanionBranch', async () => {
+  const world = createLearningWorld();
+  const controller = world.createController();
+  assert.deepEqual(Object.keys(controller), [...LEARNING_PUBLIC_KEYS]);
+  assert.equal(typeof controller.chooseCompanionBranch, 'function');
+  await controller.dispose();
+});
+
 test('product learning starts a durable Smart Review and restores an interrupted round', async () => {
   const world = createLearningWorld();
   const first = world.createController();
@@ -150,6 +178,10 @@ test('product learning starts a durable Smart Review and restores an interrupted
       derivedStage: 0,
       earnedStageHighWater: 0,
     }],
+    choosableRewardTrackIds: [
+      'spelling-core-inklet',
+      'spelling-core-glimmerbug',
+    ],
     revisionMission: {
       missionState: 'locked',
       eligibleMissionKind: null,
@@ -547,8 +579,12 @@ test('trial-shown Phaeton art identity survives Full install and the first comma
   const trialPhaeton = trial.getState().monsters.find(
     (monster) => monster.monsterId === 'phaeton',
   );
-  assert.equal(trialPhaeton.branch, 'b1');
-  const trialArt = monsterCelebrationArtUrl('phaeton', trialPhaeton.branch, 0);
+  assert.equal(trialPhaeton.branch, null);
+  const trialArt = monsterCelebrationArtUrl(
+    'phaeton',
+    STABLE_COMPANION_TEASER_BRANCH,
+    0,
+  );
   const flippedArt = monsterCelebrationArtUrl('phaeton', 'b2', 0);
   assert.equal(
     trialArt,
@@ -595,15 +631,16 @@ test('trial-shown Phaeton art identity survives Full install and the first comma
   const after = controller.getState().monsters.find(
     (monster) => monster.monsterId === 'phaeton',
   );
-  assert.equal(after.branch, 'b1');
+  assert.equal(after.branch, null);
   assert.equal(
-    monsterCelebrationArtUrl('phaeton', after.branch, 0),
+    monsterCelebrationArtUrl('phaeton', STABLE_COMPANION_TEASER_BRANCH, 0),
     trialArt,
   );
   assert.equal(
     fullWorld.snapshots.get('learner-a')
-      .monsterStateByRewardTrackId['spelling-core-phaeton'].branch,
-    'b1',
+      .monsterStateByRewardTrackId['spelling-core-phaeton'],
+    undefined,
+    'egg-choice holds the RNG roll until the child taps',
   );
 
   await trial.dispose();
@@ -623,7 +660,7 @@ test('Full-install identical prefs save must not fail and keeps the trial Phaeto
   const trialBranch = trial.getState().monsters.find(
     (monster) => monster.monsterId === 'phaeton',
   ).branch;
-  assert.equal(trialBranch, 'b1');
+  assert.equal(trialBranch, null);
   await trial.savePrefs({
     voiceId: 'Iapetus',
     showCloze: true,
@@ -682,8 +719,8 @@ test('Full-install identical prefs save must not fail and keeps the trial Phaeto
   );
   assert.equal(
     fullWorld.snapshots.get('learner-a')
-      .monsterStateByRewardTrackId['spelling-core-phaeton'].branch,
-    trialBranch,
+      .monsterStateByRewardTrackId['spelling-core-phaeton'],
+    undefined,
   );
 
   await trial.dispose();
@@ -1029,7 +1066,7 @@ test('product learning projects saved progress, Monster and Camp views without c
 
   controller.showScreen('monster');
   assert.equal(controller.getState().monsters[0].monsterId, 'inklet');
-  assert.equal(controller.getState().monsters[0].branch, 'b1');
+  assert.equal(controller.getState().monsters[0].branch, null);
   controller.showScreen('camp');
   assert.equal(controller.getState().camp.packId, 'ks2-core');
   controller.showScreen('home');

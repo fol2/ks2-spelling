@@ -1,13 +1,16 @@
 import { companionPresentation } from './companion-presentation.js';
 import { HIGHEST_MONSTER_STAGE, monsterArt } from './mastery-art.js';
 import {
+  assignedMonsterBranch,
+  companionCanSwitchBranch,
+  companionIsPainted,
   directSecureWordTotal,
   isAggregateMonster,
-  monsterBranch,
   monsterCatchThreshold,
   monsterDisplayStage,
   monsterIsFound,
   monsterSourceRewardTrackIds,
+  STABLE_COMPANION_TEASER_BRANCH,
 } from './monster-progress-model.js';
 
 function catalogueNumber(index) {
@@ -51,9 +54,13 @@ function undiscoveredHint(monster, facts, aggregate) {
 function buildEntry(monster, index) {
   const facts = companionPresentation(monster.monsterId);
   const stage = stageOf(monster);
-  const found = monsterIsFound(monster);
+  const discovered = monsterIsFound(monster);
+  const painted = companionIsPainted(monster);
+  const found = painted;
   const aggregate = isAggregateMonster(monster);
-  const branch = monsterBranch(monster);
+  const branch = assignedMonsterBranch(monster);
+  const otherBranch = branch === 'b1' ? 'b2' : branch === 'b2' ? 'b1' : null;
+  const canSwitch = companionCanSwitchBranch(monster);
   const secureCount = secureCountOf(monster);
   const target = fullyGrownAt(monster.thresholds);
   const remaining = wordsToNextStage(monster, stage);
@@ -66,7 +73,12 @@ function buildEntry(monster, index) {
     accent: facts.accent,
     aggregate,
     branch,
+    discovered,
     found,
+    painted,
+    canSwitch,
+    otherBranch,
+    otherEggArt: canSwitch ? monsterArt(monster.monsterId, 0, otherBranch) : null,
     stage,
     secureCount,
     target,
@@ -80,7 +92,11 @@ function buildEntry(monster, index) {
     stageLabel: found
       ? `Stage ${stage} of ${HIGHEST_MONSTER_STAGE}`
       : 'Not yet found',
-    art: monsterArt(monster.monsterId, found ? stage : 0, branch),
+    art: monsterArt(
+      monster.monsterId,
+      found ? stage : 0,
+      found ? branch : STABLE_COMPANION_TEASER_BRANCH,
+    ),
     percent: target === 0
       ? 0
       : Math.round(Math.min(1, secureCount / target) * 100),
@@ -96,7 +112,11 @@ function buildEntry(monster, index) {
     growth: facts.stages.map((label, position) => ({
       key: `${monster.rewardTrackId}-${position}`,
       label: found && position <= stage ? label : '???',
-      art: monsterArt(monster.monsterId, position, branch),
+      art: monsterArt(
+        monster.monsterId,
+        position,
+        found ? branch : STABLE_COMPANION_TEASER_BRANCH,
+      ),
       reached: found && position <= stage,
       here: found && position === stage,
     })),
@@ -159,7 +179,8 @@ export function setupExpeditionCompanion(monsters = [], yearFilter = null) {
     (yearFilter === 'y3-4' && monsterId === 'inklet')
     || (yearFilter === 'y5-6' && monsterId === 'glimmerbug')
   ));
-  if (bandCompanion) return bandCompanion;
+  if (bandCompanion?.painted) return bandCompanion;
+  if (bandCompanion && !bandCompanion.discovered) return bandCompanion;
   const found = roster.filter((entry) => entry.found);
   if (found.length === 0) return null;
   return found.reduce((best, entry) => (

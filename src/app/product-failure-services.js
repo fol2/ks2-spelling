@@ -95,6 +95,7 @@ export function createProductFailureServices({ cause } = {}) {
       submitAnswer: rejectedAction,
       continueRound: rejectedAction,
       endRound: rejectedAction,
+      chooseCompanionBranch: rejectedAction,
       async dispose() {},
     }),
     parent: Object.freeze({

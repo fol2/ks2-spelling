@@ -6,6 +6,7 @@ import {
   primaryProgressedRewardTrackId,
   secureWordDelta,
 } from './celebrations/celebration-model.js';
+import { pendingEggChoice } from './monster-progress-model.js';
 import { starterCompleteMomentDecision } from './starter-complete-moment.js';
 
 function remainingWordCountOf(value) {
@@ -13,8 +14,9 @@ function remainingWordCountOf(value) {
 }
 
 /**
- * Results-entry plan: celebration queue first, then the one-time Starter
- * signpost. A live crossing with no celebration events opens immediately.
+ * Results-entry plan: celebration queue first, then found-egg choice, then
+ * the one-time Starter signpost. A live crossing with no celebration events
+ * and no pending egg opens immediately.
  */
 export function planSummaryRewards({
   previousScreen,
@@ -22,6 +24,7 @@ export function planSummaryRewards({
   remainingWordCount,
   entitled,
   starterCatalogue,
+  skippedRewardTrackIds = [],
 } = {}) {
   if (previousScreen === 'summary' && next?.screen !== 'summary') {
     return Object.freeze({
@@ -81,11 +84,22 @@ export function planSummaryRewards({
     source: 'round',
   });
   const pendingMoment = decision.show ? { remainingWordCount: remaining } : null;
+  const eggChoice = pendingEggChoice(
+    next.monsters,
+    next.choosableRewardTrackIds,
+    skippedRewardTrackIds,
+  );
   return Object.freeze({
     leaveSummary: false,
     celebrationEvents,
     pendingMoment,
-    openMoment: decision.show && celebrationEvents.length === 0,
+    openMoment: decision.show && celebrationEvents.length === 0 && eggChoice == null,
+    eggChoice: eggChoice
+      ? Object.freeze({
+        rewardTrackId: eggChoice.rewardTrackId,
+        monsterId: eggChoice.monsterId,
+      })
+      : null,
     secureGain: secureWordDelta(before, next.monsters),
     campGain: raisedCamp,
     preferredTrack: primaryProgressedRewardTrackId(monsterEvents, next.monsters)
@@ -97,8 +111,11 @@ export function planSummaryRewards({
   });
 }
 
-export function revealStarterCompleteAfterCelebrations(pendingMoment) {
-  return pendingMoment != null;
+export function revealStarterCompleteAfterCelebrations(
+  pendingMoment,
+  { eggChoicePending = false } = {},
+) {
+  return pendingMoment != null && eggChoicePending !== true;
 }
 
 /**

@@ -6,9 +6,9 @@ const DEFAULT_CATCH_THRESHOLD = 1;
 // that would otherwise vanish from hatch evidence while the list still reads
 // Secure.
 export const WORD_SECURE_STAGE = 4;
-// Codex teaser identity when A3 has not yet persisted a branch. Starter JSON
-// cannot store Phaeton, so the trial egg is this branch until a later command
-// that A3 already treats as changed writes the same identity into the snapshot.
+// Codex teaser identity when the child has not yet chosen a branch. Starter
+// JSON cannot store Phaeton, so undiscovered roster art uses this branch until
+// the found overlay persists the tap.
 export const STABLE_COMPANION_TEASER_BRANCH = 'b1';
 
 // The extracted KS2 core catalogue currently has one aggregate reward track:
@@ -69,63 +69,54 @@ export function directSecureWordTotal(monsters = []) {
   ), 0);
 }
 
-export function monsterBranch(monster) {
-  return monster?.branch === 'b2' ? 'b2' : STABLE_COMPANION_TEASER_BRANCH;
+export function assignedMonsterBranch(monster) {
+  return monster?.branch === 'b1' || monster?.branch === 'b2' ? monster.branch : null;
 }
 
-/**
- * When A3 first persists an aggregate that the trial teaser already showed,
- * keep that teaser branch. Do not seed the input snapshot: a changed-false
- * plan must stay byte-for-byte identical to the stored learner state.
- * Existing replica entries are left alone.
- */
-export function pinNewAggregateCompanionBranches(
-  plan,
-  previousSnapshot,
-  catalogue,
-  branch = STABLE_COMPANION_TEASER_BRANCH,
+/** Paint fallback for undiscovered silhouettes. Null is not a chosen branch. */
+export function monsterBranch(monster) {
+  return assignedMonsterBranch(monster) ?? STABLE_COMPANION_TEASER_BRANCH;
+}
+
+export function companionIsPainted(monster) {
+  return monsterIsFound(monster) && assignedMonsterBranch(monster) !== null;
+}
+
+export function companionCanSwitchBranch(monster) {
+  return companionIsPainted(monster) && monsterDisplayStage(monster) === 0;
+}
+
+/** First found track that still has no chosen branch, in roster order. */
+export function pendingEggChoice(
+  monsters = [],
+  choosableRewardTrackIds,
+  skippedRewardTrackIds = [],
 ) {
-  if (!plan?.changed) return plan;
-  const tracks = catalogue?.rewardTracks;
-  const nextState = plan.nextMonsterStateByRewardTrackId;
-  if (!Array.isArray(tracks) || !nextState || typeof nextState !== 'object') {
-    return plan;
-  }
-  const previous = previousSnapshot?.monsterStateByRewardTrackId;
-  const previousMap = previous && typeof previous === 'object' && !Array.isArray(previous)
-    ? previous
-    : {};
-  let pinned = false;
-  const next = { ...nextState };
-  for (const track of tracks) {
-    if (
-      !track
-      || typeof track.rewardTrackId !== 'string'
-      || !isAggregateMonster(track)
-    ) {
-      continue;
-    }
-    const id = track.rewardTrackId;
-    const entry = next[id];
-    if (!entry || previousMap[id] || entry.branch === branch) continue;
-    next[id] = { ...entry, branch };
-    pinned = true;
-  }
-  if (!pinned) return plan;
-  const projected = Array.isArray(plan.projections?.monsters)
-    ? plan.projections.monsters.map((entry) => (
-        entry?.rewardTrackId && next[entry.rewardTrackId]
-          ? { ...next[entry.rewardTrackId] }
-          : entry
-      ))
-    : plan.projections?.monsters;
-  return {
-    ...plan,
-    nextMonsterStateByRewardTrackId: next,
-    projections: plan.projections
-      ? { ...plan.projections, monsters: projected }
-      : plan.projections,
-  };
+  if (!Array.isArray(monsters)) return null;
+  const allowed = choosableRewardTrackIds == null
+    ? null
+    : new Set(
+      (Array.isArray(choosableRewardTrackIds) ? choosableRewardTrackIds : [])
+        .filter((id) => typeof id === 'string' && id.length > 0),
+    );
+  const skipped = new Set(
+    (Array.isArray(skippedRewardTrackIds) ? skippedRewardTrackIds : [])
+      .filter((id) => typeof id === 'string' && id.length > 0),
+  );
+  return monsters.find((monster) => (
+    monsterIsFound(monster)
+    && assignedMonsterBranch(monster) === null
+    && (allowed === null || allowed.has(monster.rewardTrackId))
+    && !skipped.has(monster.rewardTrackId)
+  )) ?? null;
+}
+
+/** Tracks the installed catalogue can persist. Published teasers are omitted. */
+export function choosableRewardTrackIdsFromCatalogue(catalogue) {
+  if (!Array.isArray(catalogue?.rewardTracks)) return [];
+  return catalogue.rewardTracks
+    .map((track) => track.rewardTrackId)
+    .filter((id) => typeof id === 'string' && id.length > 0);
 }
 
 export function wordIsSecure(stage) {
@@ -259,8 +250,7 @@ export function projectMonstersFromWordSecurity({
       packId: track.packId,
       monsterId: track.monsterId,
       thresholds: [...displayThresholds],
-      branch: current?.branch
-        ?? (isAggregateMonster(track) ? STABLE_COMPANION_TEASER_BRANCH : null),
+      branch: current?.branch ?? null,
       secureCount,
       caught: secureCount >= catchThreshold
         || current?.caught === true

@@ -14,8 +14,9 @@ function remainingWordCountOf(value) {
 }
 
 /**
- * Results-entry plan: celebration queue first, then the one-time Starter
- * signpost. A live crossing with no celebration events opens immediately.
+ * Results-entry plan: celebration queue first, then found-egg choice, then
+ * the one-time Starter signpost. A live crossing with no celebration events
+ * and no pending egg opens immediately.
  */
 export function planSummaryRewards({
   previousScreen,
@@ -105,8 +106,11 @@ export function planSummaryRewards({
   });
 }
 
-export function revealStarterCompleteAfterCelebrations(pendingMoment) {
-  return pendingMoment != null;
+export function revealStarterCompleteAfterCelebrations(
+  pendingMoment,
+  { eggChoicePending = false } = {},
+) {
+  return pendingMoment != null && eggChoicePending !== true;
 }
 
 /**

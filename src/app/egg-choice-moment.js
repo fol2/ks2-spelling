@@ -15,8 +15,10 @@ export function eggChoiceShouldShow({
   screen,
   parentOpen = false,
   switchOpen = false,
+  celebrationEvents = [],
 } = {}) {
   if (parentOpen === true || switchOpen === true) return false;
   if (screen === 'practice') return false;
+  if (Array.isArray(celebrationEvents) && celebrationEvents.length > 0) return false;
   return pendingEggChoice(monsters) !== null;
 }

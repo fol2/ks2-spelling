@@ -15,6 +15,10 @@ import {
 import { buildCodex, setupExpeditionCompanion, trailMeadowCompanions } from '../src/app/codex-model.js';
 import { eggChoiceCopy, eggChoiceShouldShow } from '../src/app/egg-choice-moment.js';
 import {
+  planSummaryRewards,
+  revealStarterCompleteAfterCelebrations,
+} from '../src/app/starter-complete-moment-runtime.js';
+import {
   eggChoiceMomentKeyDown,
   eggChoiceMomentMountFocus,
 } from '../src/app/egg-choice-moment-runtime.js';
@@ -27,7 +31,6 @@ import {
 } from '../src/app/monster-progress-model.js';
 import { createProductLearningController } from '../src/app/product-learning-controller.js';
 import { diffMonsterCelebrations } from '../src/app/celebrations/celebration-model.js';
-import { planSummaryRewards } from '../src/app/starter-complete-moment-runtime.js';
 import { expectedB2Snapshot, snapshotAfterPlan } from './helpers/b2-database-harness.mjs';
 
 const NOW_MS = 1_768_478_400_000;
@@ -286,6 +289,34 @@ test('switch before hatch replaces the persisted branch', () => {
   );
 });
 
+test('choosing an egg keeps an unacknowledged persistence warning', () => {
+  const catalogue = loadStarterSpellingCatalogue();
+  const y34 = catalogue.items.filter((item) => item.yearBand === '3-4').slice(0, 1);
+  const found = snapshotWithProgress(catalogue, y34);
+  found.subjectState.data.persistenceWarning = {
+    reason: 'storage-save-failed',
+    occurredAt: NOW_MS,
+    acknowledged: false,
+  };
+  const plan = planChooseCompanionBranch({
+    snapshot: found,
+    catalogue,
+    rewardTrackId: 'spelling-core-inklet',
+    branch: 'b2',
+    nowMs: NOW_MS,
+  });
+  assert.equal(plan.changed, true);
+  assert.equal(
+    plan.nextMonsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+  );
+  assert.equal(plan.nextSubjectState.data.persistenceWarning.acknowledged, false);
+  assert.equal(
+    plan.nextSubjectState.data.persistenceWarning.reason,
+    'storage-save-failed',
+  );
+});
+
 test('in-memory A3 repository accepts a choose-branch plan', async () => {
   const catalogue = loadStarterSpellingCatalogue();
   const y34 = catalogue.items.filter((item) => item.yearBand === '3-4').slice(0, 1);
@@ -430,6 +461,50 @@ test('egg-choice queues ahead of starter-complete when the branch is still null'
   assert.equal(plan.eggChoice.monsterId, 'inklet');
   assert.equal(plan.openMoment, false);
   assert.deepEqual(plan.pendingMoment, { remainingWordCount: 193 });
+});
+
+test('egg-choice waits until celebration cards dismiss', () => {
+  const found = {
+    rewardTrackId: 'spelling-core-inklet',
+    monsterId: 'inklet',
+    thresholds: [1, 10, 30, 60, 100],
+    branch: null,
+    secureCount: 1,
+    caught: true,
+    derivedStage: 0,
+    earnedStageHighWater: 0,
+  };
+  const celebrations = [{ kind: 'milestone', id: 'words-secure-10' }];
+  assert.equal(
+    eggChoiceShouldShow({
+      monsters: [found],
+      screen: 'summary',
+      celebrationEvents: celebrations,
+    }),
+    false,
+  );
+  assert.equal(
+    eggChoiceShouldShow({
+      monsters: [found],
+      screen: 'summary',
+      celebrationEvents: [],
+    }),
+    true,
+  );
+  assert.equal(
+    revealStarterCompleteAfterCelebrations(
+      { remainingWordCount: 193 },
+      { eggChoicePending: true },
+    ),
+    false,
+  );
+  assert.equal(
+    revealStarterCompleteAfterCelebrations(
+      { remainingWordCount: 193 },
+      { eggChoicePending: false },
+    ),
+    true,
+  );
 });
 
 test('keyboard helper moves between the two eggs', () => {

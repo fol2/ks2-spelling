@@ -230,6 +230,70 @@ test('mergeSnapshots does not mutate frozen local or remote inputs', () => {
   assert.equal(local.subjectState.data.progress['ks2-core:circle'], undefined);
 });
 
+function monsterRecord(branch, overrides = {}) {
+  return {
+    rewardTrackId: 'spelling-core-inklet',
+    packId: 'ks2-core',
+    monsterId: 'inklet',
+    branch,
+    secureCount: 1,
+    caught: true,
+    derivedStage: 0,
+    earnedStageHighWater: 0,
+    ...overrides,
+  };
+}
+
+test('stale replica does not revert a local Codex egg switch on numeric tie', () => {
+  const local = snapshot({
+    revision: 6,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b2'),
+    },
+  });
+  const remote = snapshot({
+    revision: 5,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b1'),
+    },
+  });
+  const merged = mergeSnapshots(local, remote);
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+    'local acknowledged branch must win when secure counts tie',
+  );
+  assert.equal(merged.revision, 6);
+});
+
+test('remote companion progress still wins the branch when it is strictly ahead', () => {
+  const local = snapshot({
+    revision: 6,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b2', { secureCount: 1 }),
+    },
+  });
+  const remote = snapshot({
+    revision: 7,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b1', {
+        secureCount: 10,
+        derivedStage: 1,
+        earnedStageHighWater: 1,
+      }),
+    },
+  });
+  const merged = mergeSnapshots(local, remote);
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b1',
+  );
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].secureCount,
+    10,
+  );
+});
+
 test('null local snapshot clones remote progress but keeps starter catalogue placeholders', () => {
   const remote = snapshot({
     revision: 7,

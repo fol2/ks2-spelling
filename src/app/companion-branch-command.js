@@ -98,8 +98,22 @@ export function applyProductSpellingCommand(args) {
 }
 
 function projectionBaseline(snapshot, catalogue, nowMs) {
+  const warning = snapshot.subjectState?.data?.persistenceWarning;
+  const acknowledged = warning == null || warning.acknowledged === true;
+  const planningSnapshot = acknowledged
+    ? snapshot
+    : {
+      ...snapshot,
+      subjectState: {
+        ...snapshot.subjectState,
+        data: {
+          ...snapshot.subjectState.data,
+          persistenceWarning: { ...warning, acknowledged: true },
+        },
+      },
+    };
   const baseline = applySpellingCommand({
-    snapshot,
+    snapshot: planningSnapshot,
     command: { type: 'acknowledge-persistence-warning', payload: {} },
     contentSnapshot: catalogue,
     now: () => nowMs,
@@ -112,7 +126,11 @@ function projectionBaseline(snapshot, catalogue, nowMs) {
       'Companion branch choice cannot run while a persistence warning is pending.',
     );
   }
-  return baseline;
+  if (acknowledged) return baseline;
+  return {
+    ...baseline,
+    nextSubjectState: clone(snapshot.subjectState),
+  };
 }
 
 /**

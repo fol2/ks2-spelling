@@ -160,19 +160,31 @@ function mergeGuardianRecord(local, remote) {
   };
 }
 
+function assignedCompanionBranch(record) {
+  return record?.branch === 'b1' || record?.branch === 'b2' ? record.branch : null;
+}
+
 function mergeMonsterRecord(local, remote) {
   const left = asRecord(local);
   const right = asRecord(remote);
-  const preferred = numericProgress(right, [
+  const progressKeys = [
     'secureCount', 'derivedStage', 'earnedStageHighWater', 'stage', 'level', 'xp', 'stars',
-  ]) >= numericProgress(left, [
-    'secureCount', 'derivedStage', 'earnedStageHighWater', 'stage', 'level', 'xp', 'stars',
-  ]) ? right : left;
+  ];
+  const leftProgress = numericProgress(left, progressKeys);
+  const rightProgress = numericProgress(right, progressKeys);
+  let preferred;
+  if (rightProgress > leftProgress) preferred = right;
+  else if (leftProgress > rightProgress) preferred = left;
+  else preferred = assignedCompanionBranch(left) ? left : right;
   const merged = {
     ...cloneJson(preferred),
     ...mergeNumericOwnKeys(left, right),
   };
   if (left.caught === true || right.caught === true) merged.caught = true;
+  const branch = rightProgress > leftProgress
+    ? assignedCompanionBranch(right) ?? assignedCompanionBranch(left)
+    : assignedCompanionBranch(left) ?? assignedCompanionBranch(right);
+  if (branch) merged.branch = branch;
   return merged;
 }
 

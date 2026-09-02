@@ -3737,10 +3737,12 @@ export default function ProductApp({ services }) {
   const learningScreenRef = useRef(learningState.screen);
   const clearCelebrations = useCallback(() => {
     setCelebrationEvents([]);
-    if (revealStarterCompleteAfterCelebrations(pendingStarterComplete.current)) {
+    if (revealStarterCompleteAfterCelebrations(pendingStarterComplete.current, {
+      eggChoicePending: pendingEggChoice(learningState.monsters) != null,
+    })) {
       setStarterCompleteOpen(true);
     }
-  }, []);
+  }, [learningState.monsters]);
 
   useEffect(() => {
     const profileSubscription = services.controller.subscribe(setProfileState);
@@ -3880,7 +3882,9 @@ export default function ProductApp({ services }) {
       rewardTrackId: pending.rewardTrackId,
       branch,
     }).then(() => {
-      if (revealStarterCompleteAfterCelebrations(pendingStarterComplete.current)) {
+      if (revealStarterCompleteAfterCelebrations(pendingStarterComplete.current, {
+        eggChoicePending: false,
+      })) {
         setStarterCompleteOpen(true);
       }
     }).catch(() => undefined);
@@ -3890,6 +3894,7 @@ export default function ProductApp({ services }) {
     screen: learningState.screen,
     parentOpen,
     switchOpen,
+    celebrationEvents,
   }) ? (
     <EggChoiceMoment
       monster={pendingEggChoice(learningState.monsters)}

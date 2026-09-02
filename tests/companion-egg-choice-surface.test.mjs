@@ -84,7 +84,10 @@ test('ProductApp still plans starter-complete through the untouched runtime', as
   assert.match(product, /choosableRewardTrackIds:/);
   assert.match(product, /skippedEggChoiceTrackIds/);
   assert.match(product, /nextSkippedEggChoiceTrackIds/);
+  assert.match(product, /planEggChoiceDismiss/);
   assert.doesNotMatch(product, /eggChoiceDismissedTrackId/);
+  const overlayMoment = await read('src/app/EggChoiceMoment.jsx');
+  assert.match(overlayMoment, /eggChoiceSaveFailedVisible/);
   assert.match(runtime, /starterCompleteMomentDecision/);
   assert.match(overlay, /data-starter-complete-moment="true"/);
 });

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { eggChoiceCopy } from './egg-choice-moment.js';
+import { eggChoiceCopy, eggChoiceSaveFailedVisible } from './egg-choice-moment.js';
 import {
   eggChoiceMomentKeyDown,
   eggChoiceMomentMountFocus,
@@ -17,9 +17,11 @@ export function EggChoiceMoment({ monster, onChoose, onDismiss }) {
   const firstEgg = useRef(null);
   const secondEgg = useRef(null);
   const closeBtn = useRef(null);
-  const [saveFailed, setSaveFailed] = useState(false);
+  const [failedTrackId, setFailedTrackId] = useState(null);
   const copy = eggChoiceCopy();
   const monsterId = monster?.monsterId;
+  const trackId = monster?.rewardTrackId ?? null;
+  const saveFailed = eggChoiceSaveFailedVisible(failedTrackId, trackId);
   const b1Art = monsterArt(monsterId, 0, 'b1');
   const b2Art = monsterArt(monsterId, 0, 'b2');
 
@@ -51,12 +53,12 @@ export function EggChoiceMoment({ monster, onChoose, onDismiss }) {
       const result = onChoose(branch);
       if (result && typeof result.then === 'function') {
         void result.then(
-          () => setSaveFailed(false),
-          () => setSaveFailed(true),
+          () => setFailedTrackId(null),
+          () => setFailedTrackId(trackId),
         );
       }
     } catch {
-      setSaveFailed(true);
+      setFailedTrackId(trackId);
     }
   };
 

@@ -57,33 +57,60 @@ function durableMonsterEntry({ track, overlay, branch, current }) {
 /**
  * Gate A still RNG-assigns missing tracks in memory. Product snapshots must
  * not keep those rolls: persist a track only after the child has chosen.
+ * Assigned tracks still reproject from the next word-security overlay so a
+ * real hatch crossing cannot stay stuck on a stale high-water when A3
+ * deferred the whole roster for missing RNG samples.
  */
-export function holdUnassignedMonsterBranches(plan, snapshot) {
+export function holdUnassignedMonsterBranches(plan, snapshot, catalogue) {
   const previous = snapshot?.monsterStateByRewardTrackId ?? {};
+  const overlayById = new Map(
+    projectMonstersFromWordSecurity({
+      rewardTracks: catalogue?.rewardTracks ?? [],
+      items: catalogue?.items ?? [],
+      progress: plan.nextSubjectState?.data?.progress ?? {},
+      currentState: previous,
+    }).map((entry) => [entry.rewardTrackId, entry]),
+  );
   const next = {};
-  for (const [rewardTrackId, entry] of Object.entries(
-    plan.nextMonsterStateByRewardTrackId ?? {},
-  )) {
-    if (assignedBranchState(previous[rewardTrackId])) next[rewardTrackId] = entry;
+  for (const [rewardTrackId, current] of Object.entries(previous)) {
+    if (!assignedBranchState(current)) continue;
+    const track = (catalogue?.rewardTracks ?? []).find(
+      (entry) => entry.rewardTrackId === rewardTrackId,
+    );
+    const overlay = overlayById.get(rewardTrackId);
+    next[rewardTrackId] = track && overlay
+      ? durableMonsterEntry({
+        track,
+        overlay,
+        branch: assignedBranchState(current),
+        current,
+      })
+      : clone(current);
   }
-  const engineIds = Object.keys(plan.nextMonsterStateByRewardTrackId ?? {});
-  const keptIds = Object.keys(next);
-  if (engineIds.length === keptIds.length) return plan;
+  if (monsterMapsMatch(plan.nextMonsterStateByRewardTrackId, next)) return plan;
   return {
     ...plan,
     nextMonsterStateByRewardTrackId: next,
     projections: {
       ...plan.projections,
-      monsters: (plan.projections?.monsters ?? []).filter(
-        (entry) => Object.hasOwn(next, entry.rewardTrackId),
-      ),
+      monsters: Object.values(next),
     },
   };
 }
 
+function monsterMapsMatch(left, right) {
+  const leftKeys = Object.keys(left ?? {});
+  const rightKeys = Object.keys(right ?? {});
+  if (leftKeys.length !== rightKeys.length) return false;
+  return rightKeys.every((key) => (
+    Object.hasOwn(left, key)
+    && JSON.stringify(left[key]) === JSON.stringify(right[key])
+  ));
+}
+
 export function applyProductSpellingCommand(args) {
   const plan = applySpellingCommand(args);
-  const held = holdUnassignedMonsterBranches(plan, args.snapshot);
+  const held = holdUnassignedMonsterBranches(plan, args.snapshot, args.contentSnapshot);
   if (held === plan) return plan;
   const expectedNowMs = held.appendedEvents[0]?.createdAt
     ?? held.nextPracticeSession?.updatedAt

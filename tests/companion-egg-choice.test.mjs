@@ -15,13 +15,16 @@ import {
 import { buildCodex, setupExpeditionCompanion, trailMeadowCompanions } from '../src/app/codex-model.js';
 import {
   eggChoiceCopy,
+  eggChoiceSaveFailedVisible,
   eggChoiceShouldShow,
   nextSkippedEggChoiceTrackIds,
+  planEggChoiceDismiss,
 } from '../src/app/egg-choice-moment.js';
 import {
   planSummaryRewards,
   revealStarterCompleteAfterCelebrations,
 } from '../src/app/starter-complete-moment-runtime.js';
+import { starterCompleteMomentDecision } from '../src/app/starter-complete-moment.js';
 import {
   eggChoiceMomentKeyDown,
   eggChoiceMomentMountFocus,
@@ -31,6 +34,7 @@ import {
   choosableRewardTrackIdsFromCatalogue,
   companionCanSwitchBranch,
   companionIsPainted,
+  monsterDisplayStage,
   monsterIsFound,
   pendingEggChoice,
   projectMonstersFromWordSecurity,
@@ -830,5 +834,184 @@ test('failed-save Close skips only that overlay attempt, not later eggs, Codex, 
   assert.deepEqual(
     nextSkippedEggChoiceTrackIds(skipped, { persistenceRecovered: true }),
     [],
+  );
+});
+
+test('assigned Full Inklet still hatches on the 10th in-band secure when A3 skips projection', () => {
+  const catalogue = loadFullSpellingCatalogue();
+  const y34 = catalogue.items.filter((item) => item.yearBand === '3-4');
+  const firstNine = y34.slice(0, 9);
+  const tenth = y34[9];
+  const today = Math.floor(NOW_MS / 86_400_000);
+  let snapshot = structuredClone(expectedB2Snapshot('learner-a'));
+  snapshot.catalogueId = catalogue.catalogueId;
+  snapshot.grantedEntitlementIds = [...catalogue.entitlementIds];
+  snapshot.subjectState.data.progress = {
+    ...Object.fromEntries(firstNine.map((item) => [item.runtimeItemId, {
+      stage: 4,
+      attempts: 4,
+      correct: 4,
+      wrong: 0,
+      dueDay: today,
+      lastDay: today - 1,
+      lastResult: 'correct',
+    }])),
+    [tenth.runtimeItemId]: {
+      stage: 3,
+      attempts: 3,
+      correct: 3,
+      wrong: 0,
+      dueDay: today,
+      lastDay: today - 1,
+      lastResult: 'correct',
+    },
+  };
+  snapshot.monsterStateByRewardTrackId = {
+    'spelling-core-inklet': {
+      rewardTrackId: 'spelling-core-inklet',
+      packId: 'ks2-core',
+      monsterId: 'inklet',
+      branch: 'b1',
+      secureCount: 9,
+      caught: true,
+      derivedStage: 0,
+      earnedStageHighWater: 0,
+    },
+  };
+  snapshot = validateSpellingCommandSnapshotV1(snapshot, catalogue);
+
+  const started = applyProductSpellingCommand({
+    snapshot,
+    command: {
+      type: 'start-session',
+      payload: {
+        mode: 'smart',
+        yearFilter: 'y3-4',
+        length: 1,
+        practiceOnly: false,
+        words: [tenth.runtimeItemId],
+      },
+    },
+    contentSnapshot: catalogue,
+    now: () => NOW_MS,
+    random: () => 0.25,
+  });
+  const session = snapshotAfterPlan(snapshot, started);
+  const currentId = session.subjectState.ui.session.currentRuntimeItemId;
+  const answer = catalogue.items.find((item) => item.runtimeItemId === currentId).target;
+
+  let samples = 0;
+  const engine = applySpellingCommand({
+    snapshot: session,
+    command: { type: 'submit-answer', payload: { typed: answer } },
+    contentSnapshot: catalogue,
+    now: () => NOW_MS,
+    random: () => {
+      samples += 1;
+      return 0.25;
+    },
+  });
+  assert.equal(samples, 1);
+  assert.equal(engine.nextSubjectState.data.progress[tenth.runtimeItemId].stage, 4);
+  assert.equal(
+    engine.nextMonsterStateByRewardTrackId['spelling-core-inklet'].earnedStageHighWater,
+    0,
+  );
+
+  const product = applyProductSpellingCommand({
+    snapshot: session,
+    command: { type: 'submit-answer', payload: { typed: answer } },
+    contentSnapshot: catalogue,
+    now: () => NOW_MS,
+    random: () => 0.25,
+  });
+  const inklet = product.nextMonsterStateByRewardTrackId['spelling-core-inklet'];
+  assert.equal(inklet.branch, 'b1');
+  assert.ok(inklet.earnedStageHighWater >= 1);
+  assert.ok(inklet.derivedStage >= 1);
+  assert.equal(product.nextMonsterStateByRewardTrackId['spelling-core-glimmerbug'], undefined);
+
+  const after = snapshotAfterPlan(session, product);
+  after.subjectState.data.progress[firstNine[0].runtimeItemId] = { stage: 3 };
+  const wobbled = overlay(catalogue, after).find((row) => row.monsterId === 'inklet');
+  assert.ok(wobbled.earnedStageHighWater >= 1);
+  assert.ok(monsterDisplayStage(wobbled) >= 1);
+});
+
+test('egg-choice error UI does not carry onto the next overlay track', () => {
+  assert.equal(
+    eggChoiceSaveFailedVisible('spelling-core-inklet', 'spelling-core-inklet'),
+    true,
+  );
+  assert.equal(
+    eggChoiceSaveFailedVisible('spelling-core-inklet', 'spelling-core-glimmerbug'),
+    false,
+  );
+});
+
+test('last-egg Close reveals queued starter-complete; restart still consumes without showing', () => {
+  const starter = loadStarterSpellingCatalogue();
+  const inklet = {
+    rewardTrackId: 'spelling-core-inklet',
+    monsterId: 'inklet',
+    thresholds: [1, 10, 30, 60, 100],
+    branch: null,
+    secureCount: 10,
+    caught: true,
+    derivedStage: 1,
+    earnedStageHighWater: 1,
+  };
+  const glimmerbug = {
+    rewardTrackId: 'spelling-core-glimmerbug',
+    monsterId: 'glimmerbug',
+    thresholds: [1, 10, 30, 60, 100],
+    branch: null,
+    secureCount: 1,
+    caught: true,
+    derivedStage: 0,
+    earnedStageHighWater: 0,
+  };
+  const pendingMoment = { remainingWordCount: 193 };
+  const choosable = [inklet.rewardTrackId, glimmerbug.rewardTrackId];
+
+  const first = planEggChoiceDismiss({
+    pendingMoment,
+    monsters: [inklet, glimmerbug],
+    choosableRewardTrackIds: choosable,
+    dismissedTrackId: inklet.rewardTrackId,
+  });
+  assert.equal(first.openStarterComplete, false);
+  assert.equal(
+    pendingEggChoice([inklet, glimmerbug], choosable, first.skippedRewardTrackIds)?.monsterId,
+    'glimmerbug',
+  );
+
+  const last = planEggChoiceDismiss({
+    pendingMoment,
+    monsters: [inklet, glimmerbug],
+    choosableRewardTrackIds: choosable,
+    skippedRewardTrackIds: first.skippedRewardTrackIds,
+    dismissedTrackId: glimmerbug.rewardTrackId,
+  });
+  assert.equal(last.openStarterComplete, true);
+  assert.equal(
+    pendingEggChoice([inklet, glimmerbug], choosable, last.skippedRewardTrackIds),
+    null,
+  );
+  assert.equal(
+    revealStarterCompleteAfterCelebrations(pendingMoment, { eggChoicePending: true }),
+    false,
+  );
+  assert.equal(
+    starterCompleteMomentDecision({
+      beforeMonsters: [inklet],
+      afterMonsters: [inklet],
+      starterCatalogue: starter,
+      presented: false,
+      entitled: false,
+      remainingWordCount: 193,
+      source: 'restart',
+    }).show,
+    false,
   );
 });

@@ -19,7 +19,7 @@ import { TrailMeadow } from './trail/TrailMeadow.jsx';
 import { PrivacyNoticeCard } from './PrivacyNoticeCard.jsx';
 import { StarterCompleteMoment } from './StarterCompleteMoment.jsx';
 import { EggChoiceMoment } from './EggChoiceMoment.jsx';
-import { eggChoiceShouldShow, nextSkippedEggChoiceTrackIds } from './egg-choice-moment.js';
+import { eggChoiceShouldShow, nextSkippedEggChoiceTrackIds, planEggChoiceDismiss } from './egg-choice-moment.js';
 import { pendingEggChoice } from './monster-progress-model.js';
 import {
   acknowledgeStarterCompleteMoment,
@@ -3943,10 +3943,17 @@ export default function ProductApp({ services }) {
       onDismiss={() => {
         const trackId = pendingEgg?.rewardTrackId;
         if (typeof trackId !== 'string' || trackId.length === 0) return;
-        setSkippedEggChoiceTrackIds((current) => nextSkippedEggChoiceTrackIds(current, {
-          dismissedTrackId: trackId,
+        const dismissed = planEggChoiceDismiss({
+          pendingMoment: pendingStarterComplete.current,
           monsters: learningState.monsters,
-        }));
+          choosableRewardTrackIds: learningState.choosableRewardTrackIds,
+          skippedRewardTrackIds: skippedEggChoiceTrackIds,
+          dismissedTrackId: trackId,
+        });
+        setSkippedEggChoiceTrackIds(dismissed.skippedRewardTrackIds);
+        if (dismissed.openStarterComplete) {
+          setStarterCompleteOpen(true);
+        }
       }}
     />
   ) : null;

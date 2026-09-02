@@ -4,6 +4,7 @@ import {
   monsterIsFound,
   pendingEggChoice,
 } from './monster-progress-model.js';
+import { revealStarterCompleteAfterCelebrations } from './starter-complete-moment-runtime.js';
 
 export const EGG_CHOICE_COPY = Object.freeze({
   headline: 'Which egg is yours?',
@@ -15,6 +16,12 @@ export const EGG_CHOICE_COPY = Object.freeze({
 
 export function eggChoiceCopy() {
   return EGG_CHOICE_COPY;
+}
+
+export function eggChoiceSaveFailedVisible(failedTrackId, currentTrackId) {
+  return failedTrackId === currentTrackId
+    && typeof currentTrackId === 'string'
+    && currentTrackId.length > 0;
 }
 
 function stringIds(value) {
@@ -87,4 +94,27 @@ export function eggChoiceShouldShow({
     choosableRewardTrackIds,
     skippedRewardTrackIds,
   ) !== null;
+}
+
+export function planEggChoiceDismiss({
+  pendingMoment = null,
+  monsters,
+  choosableRewardTrackIds,
+  skippedRewardTrackIds = [],
+  dismissedTrackId = null,
+} = {}) {
+  const skipped = nextSkippedEggChoiceTrackIds(skippedRewardTrackIds, {
+    dismissedTrackId,
+    monsters,
+  });
+  return Object.freeze({
+    skippedRewardTrackIds: skipped,
+    openStarterComplete: revealStarterCompleteAfterCelebrations(pendingMoment, {
+      eggChoicePending: pendingEggChoice(
+        monsters,
+        choosableRewardTrackIds,
+        skipped,
+      ) != null,
+    }),
+  });
 }

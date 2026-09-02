@@ -868,6 +868,21 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   padding-bottom: 1.5rem;
 }
 
+.bank-scene .ask-grown-up {
+  margin-top: 0.25rem;
+  padding-bottom: 1.5rem;
+}
+
+.bank-scene .ask-grown-up-caption {
+  color: var(--ink-soft);
+}
+
+.bank-scene .ask-grown-up-badge {
+  border-color: var(--line-strong);
+  background: var(--paper-sunk);
+  color: var(--ink);
+}
+
 .bank-row {
   display: grid;
   /* Every row opens its word, so the row itself is the control: full width,
@@ -1411,11 +1426,29 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   text-transform: uppercase;
 }
 
+.ask-grown-up {
+  display: grid;
+  justify-items: start;
+  gap: 0.4rem;
+  margin-top: 0.7rem;
+}
+
+.ask-grown-up-caption {
+  margin: 0;
+  font-size: var(--fs-body-s);
+  line-height: 1.4;
+}
+
+.codex-hero-foot .ask-grown-up-caption {
+  color: rgb(255 249 236 / 82%);
+}
+
 .ask-grown-up-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
-  margin-top: 0.7rem;
+  min-height: 2.75rem;
   border: 1px solid rgb(255 249 236 / 28%);
   border-radius: var(--r-pill);
   padding: 0.4rem 0.75rem;
@@ -2145,14 +2178,6 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   text-align: right;
   text-wrap: balance;
   color: var(--dusk-ink-soft);
-}
-
-.setup-hero .ask-grown-up-badge {
-  position: absolute;
-  z-index: 1;
-  right: 1rem;
-  bottom: 0.6rem;
-  margin-top: 0;
 }
 
 /* The sleeping companion lifts to leave its caption room underneath. */

@@ -9,7 +9,10 @@ import {
   loadFullSpellingCatalogue,
   loadStarterSpellingCatalogue,
 } from '../src/domain/spelling/index.js';
-import { remainingStarterWordCount } from '../src/app/starter-complete-moment.js';
+import {
+  remainingStarterWordCount,
+  starterCompleteMomentCopy,
+} from '../src/app/starter-complete-moment.js';
 import { createStarterCompleteAskGrownUpHandler } from '../src/app/starter-complete-moment-runtime.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -100,6 +103,8 @@ test('ProductApp source still keeps Buy Full KS2 behind status === unlocked Pare
     /status === 'unlocked'[\s\S]*ParentCommerceCard/u,
   );
   assert.match(product, /starterCompleteLearnerIsEntitled/);
+  assert.match(product, /askGrownUpIsAvailable/);
+  assert.doesNotMatch(product, /hatchedCompanionAsksGrownUp/);
   assert.doesNotMatch(
     product,
     /entitled=\{services\.catalogueId === 'ks2-core:full'\}/u,
@@ -178,16 +183,21 @@ test('Codex keeps a re-openable Ask-a-grown-up badge after a trial hatch', async
     derivedStage: 1,
     earnedStageHighWater: 1,
   });
+  const remainingWordCount = 193;
+  const copy = starterCompleteMomentCopy(remainingWordCount);
   const html = renderToStaticMarkup(
     React.createElement(CodexScreen, {
       monsters: [hatched],
       progress: [],
       onScreen() {},
       entitled: false,
+      remainingWordCount,
       onAskGrownUp() {},
     }),
   );
   assert.match(html, /data-ask-grown-up="true"/);
+  assert.equal((html.match(/data-ask-grown-up="true"/g) ?? []).length, 1);
+  assert.equal(html.includes(copy.body), true);
   assert.match(html, /Ask a grown-up/);
   assert.match(html, /10 of 100/);
   assert.doesNotMatch(html, PURCHASE_LANGUAGE);
@@ -198,6 +208,7 @@ test('Codex keeps a re-openable Ask-a-grown-up badge after a trial hatch', async
       progress: [],
       onScreen() {},
       entitled: true,
+      remainingWordCount,
       onAskGrownUp() {},
     }),
   );
@@ -215,6 +226,7 @@ test('Codex keeps a re-openable Ask-a-grown-up badge after a trial hatch', async
       progress: [],
       onScreen() {},
       entitled: false,
+      remainingWordCount,
       onAskGrownUp() {},
     }),
   );
@@ -244,6 +256,11 @@ function productAppServices({
   catalogueId = 'ks2-core:starter',
   entitlementState = 'none',
   packState = 'missing',
+  screen = 'monster',
+  remainingWordCount = 193,
+  monsters = [HATCHED_INKLET],
+  practice = null,
+  summary = null,
 } = {}) {
   const profileState = Object.freeze({
     status: 'ready',
@@ -261,14 +278,14 @@ function productAppServices({
   });
   const learningState = Object.freeze({
     status: 'ready',
-    screen: 'monster',
+    screen,
     learnerId: 'learner-a',
-    practice: null,
+    practice,
     prefs: Object.freeze({ voiceId: 'Iapetus', showCloze: true, autoSpeak: true }),
-    summary: null,
+    summary,
     progress: Object.freeze([]),
     vocabularySets: Object.freeze([]),
-    monsters: Object.freeze([HATCHED_INKLET]),
+    monsters: Object.freeze(monsters),
     packSize: 213,
     revisionMission: null,
     camp: Object.freeze({
@@ -282,7 +299,7 @@ function productAppServices({
   return Object.freeze({
     mode: 'product',
     catalogueId,
-    remainingWordCount: 193,
+    remainingWordCount,
     controller: store(profileState),
     learning: Object.freeze({
       ...store(learningState),
@@ -363,6 +380,29 @@ test('ProductApp hides the Ask-a-grown-up badge while Full access is active but 
     assert.match(html, /10 of 100/);
     assert.doesNotMatch(html, PURCHASE_LANGUAGE);
   }
+
+  const installed = render(productAppServices({
+    catalogueId: 'ks2-core:full',
+    entitlementState: 'active',
+    packState: 'installed',
+  }));
+  assert.equal(installed.includes('data-ask-grown-up="true"'), false);
+  assert.doesNotMatch(installed, PURCHASE_LANGUAGE);
+
+  for (const packState of ['queued', 'downloading', 'failed', 'installed']) {
+    const html = render(productAppServices({
+      catalogueId: packState === 'installed' ? 'ks2-core:full' : 'ks2-core:starter',
+      entitlementState: 'active',
+      packState,
+      screen: 'progress',
+    }));
+    assert.equal(
+      html.includes('data-ask-grown-up="true"'),
+      false,
+      `Word Bank active/${packState} must not show Ask-a-grown-up`,
+    );
+    assert.doesNotMatch(html, PURCHASE_LANGUAGE);
+  }
 });
 
 test('locked ParentArea SSR markup has no Buy control after the Ask handler factory runs', async (t) => {
@@ -432,4 +472,361 @@ test('locked ParentArea SSR markup has no Buy control after the Ask handler fact
   assert.match(html, /Enter Parent PIN/);
   assert.match(html, /Grown-ups only/);
   assert.doesNotMatch(html, /Buy Full KS2|Restore purchases/i);
+});
+
+const EGG_GLIMMERBUG = Object.freeze({
+  rewardTrackId: 'spelling-core-glimmerbug',
+  packId: 'ks2-core',
+  monsterId: 'glimmerbug',
+  thresholds: Object.freeze([1, 10, 30, 60, 100]),
+  branch: 'b1',
+  secureCount: 0,
+  caught: false,
+  derivedStage: 0,
+  earnedStageHighWater: 0,
+});
+
+const EGG_INKLET = Object.freeze({
+  ...HATCHED_INKLET,
+  secureCount: 0,
+  caught: false,
+  derivedStage: 0,
+  earnedStageHighWater: 0,
+});
+
+const HIGH_WATER_INKLET = Object.freeze({
+  ...HATCHED_INKLET,
+  derivedStage: 0,
+  earnedStageHighWater: 1,
+});
+
+const PRACTICE = Object.freeze({
+  sessionId: 'session-a',
+  label: 'Smart review',
+  phase: 'question',
+  runtimeItemId: 'ks2-core:build',
+  sentence: 'I build model cars with my brother.',
+  cloze: 'I _____ model cars with my brother.',
+  explanation: 'To build means to make something.',
+  progress: Object.freeze({
+    total: 5,
+    checked: 0,
+    done: 0,
+    wrongCount: 0,
+  }),
+  awaitingAdvance: false,
+  feedback: null,
+});
+
+const SUMMARY = Object.freeze({
+  mode: 'smart',
+  label: 'Smart review',
+  message: 'Excellent work.',
+  totalWords: 5,
+  correct: 5,
+  accuracy: 100,
+  mistakes: Object.freeze([]),
+});
+
+function askCount(html) {
+  return (html.match(/data-ask-grown-up="true"/g) ?? []).length;
+}
+
+function askBlock(html) {
+  return html.match(/<div class="ask-grown-up">[\s\S]*?<\/div>/u)?.[0] ?? '';
+}
+
+function askButtonHtml(html) {
+  return html.match(
+    /<button[^>]*data-ask-grown-up="true"[^>]*>[\s\S]*?<\/button>/u,
+  )?.[0] ?? '';
+}
+
+test('learner-level Ask-a-grown-up is one Codex gauge and one Word Bank caption', async (t) => {
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const vite = await createServer({
+    configFile: join(ROOT, 'vite.config.js'),
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  t.after(() => vite.close());
+  const {
+    CodexScreen,
+    WordBankScreen,
+    TrailScreen,
+    SetupScreen,
+    RoundScreen,
+    ResultsScreen,
+    CampScreen,
+    default: ProductApp,
+  } = await vite.ssrLoadModule('/src/app/ProductApp.jsx');
+
+  const remainingWordCount = 193;
+  const copy = starterCompleteMomentCopy(remainingWordCount);
+  const audioState = Object.freeze({
+    status: 'ready',
+    activeVersion: '1.0.0',
+    actionError: null,
+  });
+  const renderApp = (options) => renderToStaticMarkup(
+    React.createElement(ProductApp, { services: productAppServices(options) }),
+  );
+  const bankProps = {
+    progress: Object.freeze([{
+      runtimeItemId: 'ks2-core:museum',
+      target: 'museum',
+      yearBand: '3-4',
+      stage: 5,
+      attempts: 9,
+      correct: 9,
+      wrong: 0,
+      dueDay: 99_999,
+      lastResult: 'correct',
+    }]),
+    vocabularySets: Object.freeze([{ id: 'core', label: 'Core', count: 1 }]),
+    onScreen() {},
+    onStart() {},
+    wordMaterial() { return null; },
+    onPractise() {},
+    audio: Object.freeze({ async play() {} }),
+    audioState,
+    voiceId: 'Iapetus',
+    busy: false,
+    onPlaybackFailure() {},
+  };
+
+  await t.test('all stage 0 shows no ask and no overlay', () => {
+    const eggs = [EGG_INKLET, EGG_GLIMMERBUG];
+    const screens = [
+      renderApp({ monsters: eggs, screen: 'monster' }),
+      renderApp({ monsters: eggs, screen: 'progress' }),
+      renderApp({ monsters: eggs, screen: 'home' }),
+      renderApp({ monsters: eggs, screen: 'setup' }),
+      renderApp({ monsters: eggs, screen: 'practice', practice: PRACTICE }),
+      renderApp({ monsters: eggs, screen: 'summary', summary: SUMMARY }),
+      renderApp({ monsters: eggs, screen: 'camp' }),
+    ];
+    for (const html of screens) {
+      assert.equal(askCount(html), 0);
+      assert.doesNotMatch(html, /data-starter-complete-moment="true"/);
+      assert.doesNotMatch(html, PURCHASE_LANGUAGE);
+    }
+  });
+
+  await t.test('Inklet stage 1 is one ask on Codex and Word Bank only', () => {
+    const hatched = [HATCHED_INKLET];
+    const codex = renderApp({ monsters: hatched, screen: 'monster' });
+    const bank = renderToStaticMarkup(React.createElement(WordBankScreen, {
+      ...bankProps,
+      monsters: hatched,
+      entitled: false,
+      remainingWordCount,
+      onAskGrownUp() {},
+    }));
+    const trail = renderApp({ monsters: hatched, screen: 'home' });
+    const setup = renderApp({ monsters: hatched, screen: 'setup' });
+    const round = renderApp({
+      monsters: hatched,
+      screen: 'practice',
+      practice: PRACTICE,
+    });
+    const results = renderApp({
+      monsters: hatched,
+      screen: 'summary',
+      summary: SUMMARY,
+    });
+    const camp = renderToStaticMarkup(React.createElement(CampScreen, {
+      camp: Object.freeze({
+        packId: 'ks2-core',
+        campHighWater: 0,
+        lastCreditedGuardianDay: null,
+        canEarnToday: false,
+      }),
+      audioState,
+      onScreen() {},
+      onStartGuardian() {},
+      onRecoverAudio() {},
+    }));
+    const trailDirect = renderToStaticMarkup(React.createElement(TrailScreen, {
+      profile: Object.freeze({
+        learnerId: 'learner-a',
+        nickname: 'Ada',
+        yearGroup: 'Y4',
+        colour: '#1f6f77',
+      }),
+      learningState: Object.freeze({
+        learnerId: 'learner-a',
+        screen: 'home',
+        monsters: hatched,
+      }),
+      audioState,
+      dueCount: 0,
+      onScreen() {},
+      onSwitchLearner() {},
+      onOpenParent() {},
+      onRecoverAudio() {},
+    }));
+    const setupDirect = renderToStaticMarkup(React.createElement(SetupScreen, {
+      audioState,
+      actionError: null,
+      onStart() {},
+      onBack() {},
+      onScreen() {},
+      onRecoverAudio() {},
+      busy: false,
+      dueCount: 0,
+      troubleCount: 0,
+      bankTotal: 1,
+      monsters: hatched,
+      entitled: false,
+      remainingWordCount,
+      onAskGrownUp() {},
+    }));
+    const roundDirect = renderToStaticMarkup(React.createElement(RoundScreen, {
+      state: Object.freeze({
+        status: 'ready',
+        actionError: null,
+        prefs: Object.freeze({ voiceId: 'Iapetus' }),
+        monsters: hatched,
+        practice: PRACTICE,
+      }),
+      audioState,
+      audio: Object.freeze({ async play() {} }),
+      onSubmit() {},
+      onContinue() {},
+      onSkip() {},
+      onEnd() {},
+      onPlaybackFailure() {},
+      entitlementState: 'none',
+    }));
+    const resultsDirect = renderToStaticMarkup(React.createElement(ResultsScreen, {
+      summary: SUMMARY,
+      monsters: hatched,
+      onScreen() {},
+    }));
+
+    assert.equal(askCount(codex), 1);
+    assert.equal(askCount(bank), 1);
+    assert.equal(askCount(trail), 0);
+    assert.equal(askCount(setup), 0);
+    assert.equal(askCount(round), 0);
+    assert.equal(askCount(results), 0);
+    assert.equal(askCount(camp), 0);
+    assert.equal(askCount(trailDirect), 0);
+    assert.equal(askCount(setupDirect), 0);
+    assert.equal(askCount(roundDirect), 0);
+    assert.equal(askCount(resultsDirect), 0);
+    assert.doesNotMatch(results, /data-starter-complete-moment="true"/);
+    assert.doesNotMatch(resultsDirect, /data-starter-complete-moment="true"/);
+    for (const html of [codex, bank, trail, setup, round, results, camp]) {
+      assert.doesNotMatch(html, PURCHASE_LANGUAGE);
+    }
+
+    const bankBlock = askBlock(bank);
+    assert.equal(bankBlock.includes(copy.body), true, 'Word Bank caption uses copy.body');
+    assert.equal(askButtonHtml(bank).includes(copy.grownUpAction), true);
+    assert.doesNotMatch(askButtonHtml(bank), /M8\.2 10\.5V7\.8/);
+    assert.doesNotMatch(bank, /There is 1 more word waiting\./);
+    const codexBlock = askBlock(codex);
+    assert.equal(codexBlock.includes(copy.body), true);
+    assert.equal(askButtonHtml(codex).includes(copy.grownUpAction), true);
+    assert.doesNotMatch(askButtonHtml(codex), /M8\.2 10\.5V7\.8/);
+  });
+
+  await t.test('Codex keeps the ask when a stage-0 companion is selected', () => {
+    const html = renderToStaticMarkup(React.createElement(CodexScreen, {
+      monsters: [HATCHED_INKLET, EGG_GLIMMERBUG],
+      progress: [],
+      onScreen() {},
+      entitled: false,
+      remainingWordCount,
+      selectedRewardTrackId: EGG_GLIMMERBUG.rewardTrackId,
+      onAskGrownUp() {},
+    }));
+    assert.equal(askCount(html), 1);
+    assert.match(html, /data-found="false"/);
+    assert.doesNotMatch(html, PURCHASE_LANGUAGE);
+    assert.equal(askBlock(html).includes(copy.body), true);
+    assert.equal(askButtonHtml(html).includes(copy.grownUpAction), true);
+  });
+
+  await t.test('earnedStageHighWater of 1 still shows the ask', () => {
+    const html = renderToStaticMarkup(React.createElement(CodexScreen, {
+      monsters: [HIGH_WATER_INKLET],
+      progress: [],
+      onScreen() {},
+      entitled: false,
+      remainingWordCount,
+      onAskGrownUp() {},
+    }));
+    assert.equal(askCount(html), 1);
+    assert.doesNotMatch(html, PURCHASE_LANGUAGE);
+  });
+
+  await t.test('remainingWordCount 0 hides the ask everywhere', () => {
+    const screens = [
+      renderApp({ remainingWordCount: 0, screen: 'monster' }),
+      renderApp({ remainingWordCount: 0, screen: 'progress' }),
+      renderApp({ remainingWordCount: 0, screen: 'home' }),
+      renderApp({ remainingWordCount: 0, screen: 'setup' }),
+      renderApp({ remainingWordCount: 0, screen: 'practice', practice: PRACTICE }),
+      renderApp({ remainingWordCount: 0, screen: 'summary', summary: SUMMARY }),
+      renderToStaticMarkup(React.createElement(WordBankScreen, {
+        ...bankProps,
+        monsters: [HATCHED_INKLET],
+        entitled: false,
+        remainingWordCount: 0,
+        onAskGrownUp() {},
+      })),
+      renderToStaticMarkup(React.createElement(CodexScreen, {
+        monsters: [HATCHED_INKLET],
+        progress: [],
+        onScreen() {},
+        entitled: false,
+        remainingWordCount: 0,
+        onAskGrownUp() {},
+      })),
+    ];
+    for (const html of screens) {
+      assert.equal(askCount(html), 0);
+      assert.doesNotMatch(html, /data-starter-complete-moment="true"/);
+      assert.doesNotMatch(html, PURCHASE_LANGUAGE);
+    }
+  });
+
+  await t.test('Codex re-render keeps the ask and Results never returns the overlay', () => {
+    const first = renderToStaticMarkup(React.createElement(CodexScreen, {
+      monsters: [HATCHED_INKLET],
+      progress: [],
+      onScreen() {},
+      entitled: false,
+      remainingWordCount,
+      onAskGrownUp() {},
+    }));
+    const second = renderToStaticMarkup(React.createElement(CodexScreen, {
+      monsters: [HATCHED_INKLET],
+      progress: [],
+      onScreen() {},
+      entitled: false,
+      remainingWordCount,
+      onAskGrownUp() {},
+    }));
+    assert.equal(askCount(first), 1);
+    assert.equal(askCount(second), 1);
+    const results = renderToStaticMarkup(React.createElement(ResultsScreen, {
+      summary: SUMMARY,
+      monsters: [HATCHED_INKLET],
+      onScreen() {},
+    }));
+    const resultsAgain = renderToStaticMarkup(React.createElement(ResultsScreen, {
+      summary: SUMMARY,
+      monsters: [HATCHED_INKLET],
+      onScreen() {},
+    }));
+    assert.doesNotMatch(results, /data-starter-complete-moment="true"/);
+    assert.doesNotMatch(resultsAgain, /data-starter-complete-moment="true"/);
+    assert.equal(askCount(results), 0);
+    assert.equal(askCount(resultsAgain), 0);
+  });
 });

@@ -25,7 +25,7 @@ import {
   revealStarterCompleteAfterCelebrations,
 } from './starter-complete-moment-runtime.js';
 import {
-  hatchedCompanionAsksGrownUp,
+  askGrownUpIsAvailable,
   starterCompleteLearnerIsEntitled,
   starterCompleteMomentCopy,
 } from './starter-complete-moment.js';
@@ -42,7 +42,23 @@ const REGION = 'the-scribe-downs';
 // makes any more, so this is the whole of the app's opinion about it.
 const PACKAGED_VOICE = 'Iapetus';
 const STARTER_CATALOGUE_FOR_MOMENT = loadStarterSpellingCatalogue();
-const ASK_GROWN_UP_ACTION = starterCompleteMomentCopy(0).grownUpAction;
+
+function AskGrownUpAffordance({ remainingWordCount, onAskGrownUp }) {
+  const copy = starterCompleteMomentCopy(remainingWordCount);
+  return (
+    <div className="ask-grown-up">
+      <p className="ask-grown-up-caption">{copy.body}</p>
+      <button
+        type="button"
+        className="ask-grown-up-badge press-soft press"
+        data-ask-grown-up="true"
+        onClick={onAskGrownUp}
+      >
+        {copy.grownUpAction}
+      </button>
+    </div>
+  );
+}
 
 function prefersReducedMotion() {
   return (
@@ -1808,6 +1824,10 @@ function WordBankScreen({
   voiceId,
   busy,
   onPlaybackFailure,
+  monsters = [],
+  entitled = true,
+  remainingWordCount = 0,
+  onAskGrownUp,
 }) {
   const [filter, setFilter] = useState('all');
   const [vocabSet, setVocabSet] = useState('core');
@@ -2021,6 +2041,16 @@ function WordBankScreen({
                 </li>
               )}
             </ul>
+            {askGrownUpIsAvailable({
+              monsters,
+              entitled,
+              remainingWordCount,
+            }) && typeof onAskGrownUp === 'function' && (
+              <AskGrownUpAffordance
+                remainingWordCount={remainingWordCount}
+                onAskGrownUp={onAskGrownUp}
+              />
+            )}
           </div>
         </div>
       </Scene>
@@ -2033,9 +2063,11 @@ function CodexScreen({
   progress,
   onScreen,
   entitled = true,
+  remainingWordCount = 0,
+  selectedRewardTrackId = null,
   onAskGrownUp,
 }) {
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(selectedRewardTrackId);
   const [zoomed, setZoomed] = useState(false);
   const codex = useMemo(
     () => buildCodex(monsters, selected),
@@ -2129,19 +2161,15 @@ function CodexScreen({
                       <span className="figure">{hero.count}</span>
                     </div>
                     <p className="codex-next">{hero.next}</p>
-                    {hatchedCompanionAsksGrownUp({
-                      stage: hero.stage,
+                    {askGrownUpIsAvailable({
+                      monsters,
                       entitled,
+                      remainingWordCount,
                     }) && typeof onAskGrownUp === 'function' && (
-                      <button
-                        type="button"
-                        className="ask-grown-up-badge press-soft press"
-                        data-ask-grown-up="true"
-                        onClick={onAskGrownUp}
-                      >
-                        <IconLock size={15} />
-                        {ASK_GROWN_UP_ACTION}
-                      </button>
+                      <AskGrownUpAffordance
+                        remainingWordCount={remainingWordCount}
+                        onAskGrownUp={onAskGrownUp}
+                      />
                     )}
                   </div>
                 </section>
@@ -2600,8 +2628,6 @@ function SetupScreen({
   megaWords = 0,
   packSize = 0,
   onStartGuardian,
-  entitled = true,
-  onAskGrownUp,
 }) {
   const [length, setLength] = useState(5);
   // Guardian is the day's errand on the days it is waiting, and this screen
@@ -2687,22 +2713,6 @@ function SetupScreen({
             )}
             {companion && !companion.found && (
               <p className="setup-companion-hint">Secure spellings here to wake this companion.</p>
-            )}
-            {companion
-              && hatchedCompanionAsksGrownUp({
-                stage: companion.stage,
-                entitled,
-              })
-              && typeof onAskGrownUp === 'function' && (
-                <button
-                  type="button"
-                  className="ask-grown-up-badge press-soft press"
-                  data-ask-grown-up="true"
-                  onClick={onAskGrownUp}
-                >
-                  <IconLock size={15} />
-                  {ASK_GROWN_UP_ACTION}
-                </button>
             )}
             <div className="scene-scroll setup-quest">
               <p>
@@ -3929,8 +3939,6 @@ export default function ProductApp({ services }) {
         megaWords={megaWords}
         packSize={learningState.packSize ?? 0}
         onStartGuardian={startGuardian}
-        entitled={entitled}
-        onAskGrownUp={() => setParentOpen(true)}
       />
     );
   }
@@ -3995,6 +4003,10 @@ export default function ProductApp({ services }) {
         busy={learningState.status === 'saving'}
         onPlaybackFailure={() =>
           services.audioAvailability.reportPlaybackFailure()}
+        monsters={learningState.monsters}
+        entitled={entitled}
+        remainingWordCount={services.remainingWordCount}
+        onAskGrownUp={() => setParentOpen(true)}
       />
     );
   }
@@ -4005,6 +4017,7 @@ export default function ProductApp({ services }) {
         progress={learningState.progress}
         onScreen={showScreen}
         entitled={entitled}
+        remainingWordCount={services.remainingWordCount}
         onAskGrownUp={() => setParentOpen(true)}
       />
     );

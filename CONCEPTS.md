@@ -106,8 +106,8 @@ catalogue owns. The Starter trial therefore shows the legendary aggregate
 alongside Inklet and Glimmerbug even though that track is absent from the
 Starter pack JSON. Hatch still follows each track's published thresholds, so
 stage 1 of the legendary line stays unreachable on the Starter 20. The trial
-egg is pinned to branch b1 in the product projection; the first Full command
-writes that same branch into the A3 snapshot so the art cannot flip.
+egg is pinned to branch b1 in the product projection. The first command that
+A3 persists companion state writes that same branch so the art cannot flip.
 
 ### Learner snapshot
 

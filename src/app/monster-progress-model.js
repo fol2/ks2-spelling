@@ -7,8 +7,8 @@ const DEFAULT_CATCH_THRESHOLD = 1;
 // Secure.
 export const WORD_SECURE_STAGE = 4;
 // Codex teaser identity when A3 has not yet persisted a branch. Starter JSON
-// cannot store Phaeton, so the trial egg is this branch until Full's first
-// command carries the same value into the snapshot.
+// cannot store Phaeton, so the trial egg is this branch until a later command
+// that A3 already treats as changed writes the same identity into the snapshot.
 export const STABLE_COMPANION_TEASER_BRANCH = 'b1';
 
 // The extracted KS2 core catalogue currently has one aggregate reward track:
@@ -74,46 +74,58 @@ export function monsterBranch(monster) {
 }
 
 /**
- * Give catalogue tracks that A3 would otherwise RNG a branch the same identity
- * the trial teaser already showed. Only aggregate tracks are seeded: direct
- * companions still roll on first appearance. Existing entries are left alone.
+ * When A3 first persists an aggregate that the trial teaser already showed,
+ * keep that teaser branch. Do not seed the input snapshot: a changed-false
+ * plan must stay byte-for-byte identical to the stored learner state.
+ * Existing replica entries are left alone.
  */
-export function seedMissingCompanionBranches(
-  snapshot,
+export function pinNewAggregateCompanionBranches(
+  plan,
+  previousSnapshot,
   catalogue,
   branch = STABLE_COMPANION_TEASER_BRANCH,
 ) {
+  if (!plan?.changed) return plan;
   const tracks = catalogue?.rewardTracks;
-  if (!snapshot || !Array.isArray(tracks)) return snapshot;
-  const existing = snapshot.monsterStateByRewardTrackId;
-  if (!existing || typeof existing !== 'object' || Array.isArray(existing)) {
-    return snapshot;
+  const nextState = plan.nextMonsterStateByRewardTrackId;
+  if (!Array.isArray(tracks) || !nextState || typeof nextState !== 'object') {
+    return plan;
   }
-  let changed = false;
-  const next = { ...existing };
+  const previous = previousSnapshot?.monsterStateByRewardTrackId;
+  const previousMap = previous && typeof previous === 'object' && !Array.isArray(previous)
+    ? previous
+    : {};
+  let pinned = false;
+  const next = { ...nextState };
   for (const track of tracks) {
     if (
       !track
       || typeof track.rewardTrackId !== 'string'
       || !isAggregateMonster(track)
-      || next[track.rewardTrackId]
     ) {
       continue;
     }
-    next[track.rewardTrackId] = {
-      rewardTrackId: track.rewardTrackId,
-      packId: track.packId,
-      monsterId: track.monsterId,
-      branch,
-      secureCount: 0,
-      caught: false,
-      derivedStage: 0,
-      earnedStageHighWater: 0,
-    };
-    changed = true;
+    const id = track.rewardTrackId;
+    const entry = next[id];
+    if (!entry || previousMap[id] || entry.branch === branch) continue;
+    next[id] = { ...entry, branch };
+    pinned = true;
   }
-  if (!changed) return snapshot;
-  return { ...snapshot, monsterStateByRewardTrackId: next };
+  if (!pinned) return plan;
+  const projected = Array.isArray(plan.projections?.monsters)
+    ? plan.projections.monsters.map((entry) => (
+        entry?.rewardTrackId && next[entry.rewardTrackId]
+          ? { ...next[entry.rewardTrackId] }
+          : entry
+      ))
+    : plan.projections?.monsters;
+  return {
+    ...plan,
+    nextMonsterStateByRewardTrackId: next,
+    projections: plan.projections
+      ? { ...plan.projections, monsters: projected }
+      : plan.projections,
+  };
 }
 
 export function wordIsSecure(stage) {

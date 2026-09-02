@@ -8,8 +8,8 @@ import {
 } from '../domain/spelling/index.js';
 import { setupExpeditionCompanion } from './codex-model.js';
 import {
+  pinNewAggregateCompanionBranches,
   projectMonstersFromWordSecurity,
-  seedMissingCompanionBranches,
 } from './monster-progress-model.js';
 import { markB4 } from './b4-performance-marks.js';
 import { earlyRoundSummary, spellingOnly } from './practice-feel.js';
@@ -490,13 +490,16 @@ export function createProductLearningController({
       try {
         const plan = await repository.runCommandTransaction(
           snapshot.learnerId,
-          (fresh, context) => applySpellingCommand({
-            snapshot: seedMissingCompanionBranches(fresh, catalogue),
-            command,
-            contentSnapshot: catalogue,
-            now: () => context.nowMs,
-            random,
-          }),
+          (fresh, context) => {
+            const plan = applySpellingCommand({
+              snapshot: fresh,
+              command,
+              contentSnapshot: catalogue,
+              now: () => context.nowMs,
+              random,
+            });
+            return pinNewAggregateCompanionBranches(plan, fresh, catalogue);
+          },
         );
         markB4('product:local-commit');
         snapshot = validateSpellingCommandSnapshotV1(

@@ -4,8 +4,11 @@ import test from 'node:test';
 import {
   loadFullSpellingCatalogue,
   loadStarterSpellingCatalogue,
+  projectSpellingMonsters,
+  validateSpellingCommandPlanV1,
   validateSpellingCommandSnapshotV1,
 } from '../src/domain/spelling/index.js';
+import { monsterCelebrationArtUrl } from '../src/app/celebrations/celebration-model.js';
 import { createProductLearningController } from '../src/app/product-learning-controller.js';
 import { setupExpeditionCompanion } from '../src/app/codex-model.js';
 import {
@@ -19,6 +22,7 @@ const NOW_MS = 1_768_478_400_000;
 function createLearningWorld(
   initialSnapshots = [expectedB2Snapshot('learner-a')],
   catalogue = loadStarterSpellingCatalogue(),
+  { validatePlans = false } = {},
 ) {
   const snapshots = new Map(
     initialSnapshots.map((snapshot) => [
@@ -40,10 +44,18 @@ function createLearningWorld(
       if (!snapshot) throw new Error('unknown_test_learner');
       const nowMs = NOW_MS + tick;
       tick += 1;
-      const plan = await planner(
-        structuredClone(snapshot),
+      const fresh = structuredClone(snapshot);
+      const candidatePlan = await planner(
+        structuredClone(fresh),
         Object.freeze({ nowMs, todayGuardianDay: 20_468 }),
       );
+      // Production SQLite re-validates the plan against the unseeded stored
+      // snapshot, not the clone the planner may have mutated.
+      const plan = validatePlans
+        ? validateSpellingCommandPlanV1(candidatePlan, catalogue, fresh, {
+            expectedNowMs: nowMs,
+          })
+        : candidatePlan;
       snapshots.set(learnerId, snapshotAfterPlan(snapshot, plan));
       return structuredClone(plan);
     },
@@ -498,6 +510,15 @@ test('trial Setup vocabulary sets stay on the installed catalogue when Full is o
     },
   ]);
   assert.notEqual(state.vocabularySets[0].count, publishedCore.length);
+  assert.deepEqual(
+    state.monsters.map(({ monsterId }) => monsterId),
+    ['inklet', 'glimmerbug', 'phaeton'],
+  );
+  assert.equal(
+    state.monsters.find((monster) => monster.monsterId === 'phaeton').derivedStage,
+    0,
+  );
+  assert.equal(state.revisionMission.missionState, 'locked');
 
   await controller.startRound({
     mode: 'smart',
@@ -510,6 +531,162 @@ test('trial Setup vocabulary sets stay on the installed catalogue when Full is o
     '5-6',
   );
 
+  await controller.dispose();
+});
+
+test('trial-shown Phaeton art identity survives Full install and the first command', async () => {
+  const starter = loadStarterSpellingCatalogue();
+  const full = loadFullSpellingCatalogue();
+  const trialWorld = createLearningWorld(
+    [expectedB2Snapshot('learner-a')],
+    starter,
+  );
+  const trial = trialWorld.createController(undefined, {
+    publishedCatalogue: full,
+  });
+  const trialPhaeton = trial.getState().monsters.find(
+    (monster) => monster.monsterId === 'phaeton',
+  );
+  assert.equal(trialPhaeton.branch, 'b1');
+  const trialArt = monsterCelebrationArtUrl('phaeton', trialPhaeton.branch, 0);
+  const flippedArt = monsterCelebrationArtUrl('phaeton', 'b2', 0);
+  assert.equal(
+    trialArt,
+    '/mastery-art/monsters/phaeton/b1/phaeton-b1-0.640.webp',
+  );
+  assert.notEqual(trialArt, flippedArt);
+
+  const wouldFlip = projectSpellingMonsters({
+    learnerId: 'learner-a',
+    progress: {},
+    rewardTracks: full.rewardTracks,
+    items: full.items,
+    currentState: {},
+    random: () => 0.75,
+  }).find((monster) => monster.monsterId === 'phaeton');
+  assert.equal(
+    wouldFlip.branch,
+    'b2',
+    'A3 still RNGs b2 when Phaeton has no persisted branch',
+  );
+
+  const installed = structuredClone(trialWorld.snapshots.get('learner-a'));
+  installed.catalogueId = full.catalogueId;
+  installed.grantedEntitlementIds = [...full.entitlementIds];
+  assert.equal(
+    installed.monsterStateByRewardTrackId['spelling-core-phaeton'],
+    undefined,
+    'Starter JSON cannot persist a Phaeton branch',
+  );
+
+  const fullWorld = createLearningWorld([installed], full, {
+    validatePlans: true,
+  });
+  const controller = fullWorld.createController(undefined, {
+    publishedCatalogue: full,
+    random: () => 0.75,
+  });
+  await controller.startRound({
+    mode: 'smart',
+    length: 5,
+    yearFilter: 'core',
+  });
+
+  const after = controller.getState().monsters.find(
+    (monster) => monster.monsterId === 'phaeton',
+  );
+  assert.equal(after.branch, 'b1');
+  assert.equal(
+    monsterCelebrationArtUrl('phaeton', after.branch, 0),
+    trialArt,
+  );
+  assert.equal(
+    fullWorld.snapshots.get('learner-a')
+      .monsterStateByRewardTrackId['spelling-core-phaeton'].branch,
+    'b1',
+  );
+
+  await trial.dispose();
+  await controller.dispose();
+});
+
+test('Full-install identical prefs save must not fail and keeps the trial Phaeton branch', async () => {
+  const starter = loadStarterSpellingCatalogue();
+  const full = loadFullSpellingCatalogue();
+  const trialWorld = createLearningWorld(
+    [expectedB2Snapshot('learner-a')],
+    starter,
+  );
+  const trial = trialWorld.createController(undefined, {
+    publishedCatalogue: full,
+  });
+  const trialBranch = trial.getState().monsters.find(
+    (monster) => monster.monsterId === 'phaeton',
+  ).branch;
+  assert.equal(trialBranch, 'b1');
+  await trial.savePrefs({
+    voiceId: 'Iapetus',
+    showCloze: true,
+    autoSpeak: true,
+  });
+
+  const installed = structuredClone(trialWorld.snapshots.get('learner-a'));
+  installed.catalogueId = full.catalogueId;
+  installed.grantedEntitlementIds = [...full.entitlementIds];
+  assert.equal(
+    installed.monsterStateByRewardTrackId['spelling-core-phaeton'],
+    undefined,
+  );
+
+  const fullWorld = createLearningWorld([installed], full, {
+    validatePlans: true,
+  });
+  const controller = fullWorld.createController(undefined, {
+    publishedCatalogue: full,
+    random: () => 0.75,
+  });
+  const revisionBefore = fullWorld.snapshots.get('learner-a').revision;
+
+  await controller.savePrefs({
+    voiceId: 'Iapetus',
+    showCloze: true,
+    autoSpeak: true,
+  });
+
+  assert.equal(controller.getState().actionError, null);
+  assert.equal(
+    fullWorld.snapshots.get('learner-a').revision,
+    revisionBefore,
+    'identical prefs must remain a no-op after Full install',
+  );
+  const afterNoOp = controller.getState().monsters.find(
+    (monster) => monster.monsterId === 'phaeton',
+  );
+  assert.equal(afterNoOp.branch, trialBranch);
+  assert.equal(
+    fullWorld.snapshots.get('learner-a')
+      .monsterStateByRewardTrackId['spelling-core-phaeton'],
+    undefined,
+    'a no-op must not invent Phaeton state the plan did not acknowledge',
+  );
+
+  await controller.startRound({
+    mode: 'smart',
+    length: 5,
+    yearFilter: 'core',
+  });
+  assert.equal(
+    controller.getState().monsters.find((monster) => monster.monsterId === 'phaeton')
+      .branch,
+    trialBranch,
+  );
+  assert.equal(
+    fullWorld.snapshots.get('learner-a')
+      .monsterStateByRewardTrackId['spelling-core-phaeton'].branch,
+    trialBranch,
+  );
+
+  await trial.dispose();
   await controller.dispose();
 });
 

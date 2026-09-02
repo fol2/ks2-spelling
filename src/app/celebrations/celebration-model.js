@@ -6,9 +6,11 @@ import {
 } from '../companion-presentation.js';
 import { clampCompanionStage } from '../companion-stage-contract.js';
 import {
+  derivedMonsterStage,
   isAggregateMonster,
   monsterDisplayStage,
   monsterIsFound,
+  monsterSourceRewardTrackIds,
 } from '../monster-progress-model.js';
 
 /** Pure diff and copy helpers for summary-only monster celebration events. */
@@ -72,11 +74,51 @@ function progressEvent(beforeMonster, afterMonster) {
   };
 }
 
+function aggregateSourceIds(afterMonster, beforeTracks) {
+  const named = monsterSourceRewardTrackIds(afterMonster);
+  if (named && named.length > 0) return named;
+  if (!isAggregateMonster(afterMonster)) return [];
+  return beforeTracks
+    .filter((track) => !isAggregateMonster(track) && typeof track.rewardTrackId === 'string')
+    .map((track) => track.rewardTrackId);
+}
+
+/**
+ * Older round baselines can omit an aggregate that the live catalogue now
+ * publishes. Rebuild that before-state from the source companions so a round
+ * that crosses catch still celebrates found, without inventing a hatch.
+ */
+function standInBeforeForMissingAggregate(before, afterMonster) {
+  const beforeTracks = Array.isArray(before) ? before : [];
+  const sourceIds = aggregateSourceIds(afterMonster, beforeTracks);
+  if (sourceIds.length === 0) return null;
+  const sourceSet = new Set(sourceIds);
+  const sources = beforeTracks.filter((track) => sourceSet.has(track.rewardTrackId));
+  if (sources.length === 0) return null;
+  const count = sources.reduce((total, track) => total + secureCount(track), 0);
+  const derivedStage = derivedMonsterStage(count, afterMonster.thresholds);
+  const standIn = {
+    rewardTrackId: afterMonster.rewardTrackId,
+    packId: afterMonster.packId,
+    monsterId: afterMonster.monsterId,
+    thresholds: afterMonster.thresholds,
+    branch: afterMonster.branch,
+    secureCount: count,
+    derivedStage,
+    earnedStageHighWater: derivedStage,
+    caught: false,
+  };
+  standIn.caught = monsterIsFound(standIn);
+  return standIn;
+}
+
 /**
  * Diff two monster projection arrays into ordered celebration events.
- * Missing tracks on either side are ignored. When both caught and evolve fire
- * on the same transition, the egg reveal comes first and the evolved form
- * follows. Stage jumps emit one evolution moment at the final earned stage.
+ * Missing direct tracks on either side are ignored. An aggregate that appears
+ * only after the round is reconstructed from its source companions so a live
+ * app-update still celebrates found. When both caught and evolve fire on the
+ * same transition, the egg reveal comes first and the evolved form follows.
+ * Stage jumps emit one evolution moment at the final earned stage.
  *
  * A direct companion that gained secure evidence without crossing a milestone
  * receives one compact progress moment. Aggregate tracks such as Phaeton reuse
@@ -89,7 +131,8 @@ export function diffMonsterCelebrations(before, after) {
   const events = [];
 
   for (const [rewardTrackId, afterMonster] of afterByTrack) {
-    const beforeMonster = beforeByTrack.get(rewardTrackId);
+    const beforeMonster = beforeByTrack.get(rewardTrackId)
+      ?? standInBeforeForMissingAggregate(before, afterMonster);
     if (!beforeMonster) continue;
 
     const monsterId = afterMonster.monsterId;

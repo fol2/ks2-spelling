@@ -7,7 +7,10 @@ import {
   validateSpellingCommandSnapshotV1,
 } from '../domain/spelling/index.js';
 import { setupExpeditionCompanion } from './codex-model.js';
-import { projectMonstersFromWordSecurity } from './monster-progress-model.js';
+import {
+  pinNewAggregateCompanionBranches,
+  projectMonstersFromWordSecurity,
+} from './monster-progress-model.js';
 import { markB4 } from './b4-performance-marks.js';
 import { earlyRoundSummary, spellingOnly } from './practice-feel.js';
 import { achievementChips } from './records-model.js';
@@ -288,7 +291,9 @@ function createState({
       packSize: displayCatalogue.items.length,
       // Setup drawable sets: the installed catalogue rounds can actually draw.
       vocabularySets: vocabularySetsProjection(catalogue),
-      monsters: monsterProjection(snapshot, catalogue),
+      // Codex roster: live published tracks, including the legendary aggregate
+      // Starter JSON omits. Hatch still uses each track's published thresholds.
+      monsters: monsterProjection(snapshot, displayCatalogue),
       revisionMission,
       camp: camp === null ? null : {
         ...camp,
@@ -454,7 +459,7 @@ export function createProductLearningController({
     starterCompleteMomentPresented = await readAndConsumeStarterCompleteMoment({
       store: starterCompleteMomentStore,
       learnerId: snapshot.learnerId,
-      monsters: monsterProjection(snapshot, catalogue),
+      monsters: monsterProjection(snapshot, publishedCatalogue),
       starterCatalogue: starterCatalogueForMoment,
       source,
     }).catch(() => starterCompleteMomentPresented);
@@ -485,13 +490,16 @@ export function createProductLearningController({
       try {
         const plan = await repository.runCommandTransaction(
           snapshot.learnerId,
-          (fresh, context) => applySpellingCommand({
-            snapshot: fresh,
-            command,
-            contentSnapshot: catalogue,
-            now: () => context.nowMs,
-            random,
-          }),
+          (fresh, context) => {
+            const plan = applySpellingCommand({
+              snapshot: fresh,
+              command,
+              contentSnapshot: catalogue,
+              now: () => context.nowMs,
+              random,
+            });
+            return pinNewAggregateCompanionBranches(plan, fresh, catalogue);
+          },
         );
         markB4('product:local-commit');
         snapshot = validateSpellingCommandSnapshotV1(
@@ -500,7 +508,7 @@ export function createProductLearningController({
         );
         const phase = plan.result.state?.phase;
         if (options.captureBaseline === true && phase === 'session') {
-          const monsters = monsterProjection(snapshot, catalogue);
+          const monsters = monsterProjection(snapshot, publishedCatalogue);
           roundBaseline = {
             sessionId: snapshot.subjectState.ui.session.id,
             companionRewardTrackId: setupExpeditionCompanion(

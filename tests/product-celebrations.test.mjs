@@ -175,7 +175,7 @@ test('diffMonsterCelebrations ignores tracks missing on either side', () => {
       [monster()],
       [monster({
         rewardTrackId: 'other-track',
-        monsterId: 'phaeton',
+        monsterId: 'inklet',
         caught: true,
         derivedStage: 2,
       })],
@@ -188,6 +188,66 @@ test('diffMonsterCelebrations ignores tracks missing on either side', () => {
       [monster({ caught: true, derivedStage: 1 })],
     ),
     [],
+  );
+});
+
+test('diffMonsterCelebrations still finds Phaeton when the round baseline omitted it', () => {
+  const inklet = monster({ secureCount: 2, caught: true });
+  const glimmerbug = monster({
+    rewardTrackId: 'spelling-core-glimmerbug',
+    monsterId: 'glimmerbug',
+    secureCount: 0,
+    caught: false,
+  });
+  const phaetonFound = monster({
+    rewardTrackId: 'spelling-core-phaeton',
+    monsterId: 'phaeton',
+    thresholds: [3, 25, 95, 145, 213],
+    secureCount: 3,
+    caught: true,
+    derivedStage: 0,
+    earnedStageHighWater: 0,
+  });
+
+  assert.deepEqual(
+    diffMonsterCelebrations(
+      [inklet, glimmerbug],
+      [inklet, glimmerbug, phaetonFound],
+    ),
+    [{
+      kind: 'caught',
+      monsterId: 'phaeton',
+      branch: 'b1',
+      stage: 0,
+      rewardTrackId: 'spelling-core-phaeton',
+    }],
+  );
+
+  const alreadyCaught = diffMonsterCelebrations(
+    [
+      monster({ secureCount: 2, caught: true }),
+      monster({
+        rewardTrackId: 'spelling-core-glimmerbug',
+        monsterId: 'glimmerbug',
+        secureCount: 1,
+        caught: true,
+      }),
+    ],
+    [
+      monster({ secureCount: 2, caught: true }),
+      monster({
+        rewardTrackId: 'spelling-core-glimmerbug',
+        monsterId: 'glimmerbug',
+        secureCount: 1,
+        caught: true,
+      }),
+      phaetonFound,
+    ],
+  );
+  assert.deepEqual(alreadyCaught, []);
+  assert.ok(
+    !alreadyCaught.some((event) => event.kind === 'evolve'),
+    'catch at 3 must not invent a hatch celebration',
   );
 });
 

@@ -346,6 +346,28 @@ test('remote companion progress still wins the branch when it is strictly ahead'
   );
 });
 
+test('saved egg branch survives a replica whose later snapshot revision still has the older branch', () => {
+  const local = snapshot({
+    revision: 12,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b2', { branchRevision: 8 }),
+    },
+  });
+  const remote = snapshot({
+    revision: 20,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b1'),
+    },
+  });
+  const merged = mergeSnapshots(local, remote);
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+    'choice recency belongs to the monster, not later unrelated snapshot revision',
+  );
+  assert.equal(merged.revision, 20);
+});
+
 test('newer remote egg switch beats a stale local branch on numeric tie', () => {
   const local = snapshot({
     revision: 5,

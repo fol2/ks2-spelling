@@ -12,6 +12,7 @@ import {
   applyProductSpellingCommand,
   planChooseCompanionBranch,
 } from '../src/app/companion-branch-command.js';
+import { mergeSnapshots } from '../src/domain/sync/merge-learning-replica.js';
 import { buildCodex, setupExpeditionCompanion, trailMeadowCompanions } from '../src/app/codex-model.js';
 import {
   eggChoiceCopy,
@@ -245,6 +246,62 @@ test('save-prefs still does not consume RNG after the product hold', () => {
   });
   assert.equal(calls, 0);
   assert.deepEqual(plan.nextMonsterStateByRewardTrackId, {});
+});
+
+test('saved b2 survives later unrelated commands then a replica that still has b1', () => {
+  const catalogue = loadStarterSpellingCatalogue();
+  const y34 = catalogue.items.filter((item) => item.yearBand === '3-4').slice(0, 1);
+  const found = snapshotWithProgress(catalogue, y34);
+  const chosen = snapshotAfterPlan(found, planChooseCompanionBranch({
+    snapshot: found,
+    catalogue,
+    rewardTrackId: 'spelling-core-inklet',
+    branch: 'b2',
+    nowMs: NOW_MS,
+  }));
+  assert.equal(
+    chosen.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+  );
+
+  const afterUnrelated = snapshotAfterPlan(chosen, applyProductSpellingCommand({
+    snapshot: chosen,
+    command: { type: 'save-prefs', payload: { prefs: { autoSpeak: true } } },
+    contentSnapshot: catalogue,
+    now: () => NOW_MS + 1_000,
+    random: () => {
+      throw new Error('unrelated save-prefs must not draw randomness');
+    },
+  }));
+  assert.equal(
+    afterUnrelated.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+  );
+  assert.ok(afterUnrelated.revision > chosen.revision);
+
+  const localInklet = afterUnrelated.monsterStateByRewardTrackId['spelling-core-inklet'];
+  const replica = structuredClone(afterUnrelated);
+  replica.revision = afterUnrelated.revision + 9;
+  replica.monsterStateByRewardTrackId = {
+    'spelling-core-inklet': {
+      rewardTrackId: localInklet.rewardTrackId,
+      packId: localInklet.packId,
+      monsterId: localInklet.monsterId,
+      branch: 'b1',
+      secureCount: localInklet.secureCount,
+      caught: localInklet.caught,
+      derivedStage: localInklet.derivedStage,
+      earnedStageHighWater: localInklet.earnedStageHighWater,
+    },
+  };
+
+  const merged = mergeSnapshots(afterUnrelated, replica);
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+    'later unrelated snapshot revision must not revert a saved egg branch',
+  );
+  assert.equal(merged.revision, replica.revision);
 });
 
 test('tap b2 persists b2 and later overlay art stays on b2', () => {

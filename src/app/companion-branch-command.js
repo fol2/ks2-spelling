@@ -1,3 +1,4 @@
+import { monsterChoiceStamp } from '../domain/sync/monster-choice-recency.js';
 import {
   applySpellingCommand,
   validateSpellingCommandPlanV1,
@@ -33,14 +34,14 @@ function overlayMonsters(snapshot, catalogue) {
   });
 }
 
-function durableMonsterEntry({ track, overlay, branch, current }) {
+function durableMonsterEntry({ track, overlay, branch, current, choiceRevision }) {
   const secureCount = nonNegativeInteger(overlay?.secureCount);
   const derivedStage = derivedMonsterStage(secureCount, track.thresholds);
   const earnedStageHighWater = Math.max(
     derivedStage,
     nonNegativeInteger(current?.earnedStageHighWater),
   );
-  return {
+  const next = {
     rewardTrackId: track.rewardTrackId,
     packId: track.packId,
     monsterId: track.monsterId,
@@ -52,6 +53,13 @@ function durableMonsterEntry({ track, overlay, branch, current }) {
     derivedStage,
     earnedStageHighWater,
   };
+  if (Number.isSafeInteger(choiceRevision) && choiceRevision >= 0) {
+    next.branchRevision = choiceRevision;
+  } else {
+    const existing = monsterChoiceStamp(current);
+    if (existing != null) next.branchRevision = existing;
+  }
+  return next;
 }
 
 /**
@@ -212,6 +220,7 @@ export function planChooseCompanionBranch({
       overlay,
       branch,
       current,
+      choiceRevision: snapshot.revision + 1,
     }),
   };
   return validateSpellingCommandPlanV1({

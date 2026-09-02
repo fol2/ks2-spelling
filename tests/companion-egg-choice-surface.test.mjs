@@ -105,7 +105,10 @@ test('SSR of EggChoiceMoment is a dialog with two egg actions', async (t) => {
   assert.match(html, /data-branch="b2"/);
   assert.match(html, /inklet-b1-0\.640\.webp/);
   assert.match(html, /inklet-b2-0\.640\.webp/);
-  assert.equal((html.match(/This egg/g) ?? []).length, 2);
+  assert.match(html, />Egg 1</);
+  assert.match(html, />Egg 2</);
+  assert.doesNotMatch(html, /This egg/);
+  assert.doesNotMatch(html, /visually-hidden">[^<]*\bb[12]\b/u);
   assert.doesNotMatch(html, PURCHASE_LANGUAGE);
   assert.doesNotMatch(html, /Confirm|Skip|Buy|unlock/i);
 });
@@ -127,6 +130,10 @@ test('ProductApp still plans starter-complete through the untouched runtime', as
   assert.doesNotMatch(product, /eggChoiceDismissedTrackId/);
   const overlayMoment = await read('src/app/EggChoiceMoment.jsx');
   assert.match(overlayMoment, /eggChoiceSaveFailedVisible/);
+  assert.match(overlayMoment, /beginEggChoicePick/);
+  assert.match(overlayMoment, /eggChoiceEggIsDisabled/);
+  assert.match(overlayMoment, /role="alert"/);
+  assert.match(overlayMoment, /data-egg-choice-save-failed="true"/);
   assert.match(runtime, /starterCompleteMomentDecision/);
   assert.match(overlay, /data-starter-complete-moment="true"/);
 });

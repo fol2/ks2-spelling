@@ -19,6 +19,10 @@ import {
   eggChoiceShouldShow,
   nextSkippedEggChoiceTrackIds,
   planEggChoiceDismiss,
+  beginEggChoicePick,
+  endEggChoicePick,
+  eggChoiceEggIsDisabled,
+  eggChoiceMayPick,
 } from '../src/app/egg-choice-moment.js';
 import {
   planSummaryRewards,
@@ -517,6 +521,33 @@ test('egg-choice waits until celebration cards dismiss', () => {
   );
 });
 
+test('keyboard helper skips a disabled egg', () => {
+  const first = { id: 'first' };
+  const second = { id: 'second', disabled: true };
+  assert.equal(
+    eggChoiceMomentKeyDown({ key: 'ArrowRight', preventDefault() {} }, {
+      firstEl: first,
+      secondEl: second,
+    }).focus,
+    first,
+  );
+});
+
+test('overlay accepts only one in-flight egg pick', () => {
+  const slot = { current: null };
+  assert.equal(eggChoiceMayPick(slot.current), true);
+  assert.equal(beginEggChoicePick(slot, 'b1'), true);
+  assert.equal(slot.current, 'b1');
+  assert.equal(eggChoiceMayPick(slot.current), false);
+  assert.equal(beginEggChoicePick(slot, 'b2'), false);
+  assert.equal(slot.current, 'b1');
+  assert.equal(eggChoiceEggIsDisabled(slot.current, 'b1'), false);
+  assert.equal(eggChoiceEggIsDisabled(slot.current, 'b2'), true);
+  endEggChoicePick(slot);
+  assert.equal(slot.current, null);
+  assert.equal(beginEggChoicePick(slot, 'b2'), true);
+});
+
 test('keyboard helper moves between the two eggs', () => {
   const first = { id: 'first' };
   const second = { id: 'second' };
@@ -573,11 +604,15 @@ test('egg-choice copy has no purchase language', () => {
   assert.equal(copy.headline, 'Which egg is yours?');
   assert.equal(copy.body, 'Tap one.');
   assert.doesNotMatch(
-    `${copy.headline} ${copy.body} ${copy.announcement} ${copy.saveFailed} ${copy.close}`,
+    `${copy.headline} ${copy.body} ${copy.announcement} ${copy.saveFailed} ${copy.close} ${copy.firstEgg} ${copy.secondEgg}`,
     /£|GBP|USD|\$\d|\bBuy\b|\bupgrade\b|\bpurchase\b|\bStoreKit\b|\bunlock\b/iu,
   );
   assert.equal(copy.saveFailed, 'Could not save. Try again.');
   assert.equal(copy.close, 'Close');
+  assert.equal(copy.firstEgg, 'Egg 1');
+  assert.equal(copy.secondEgg, 'Egg 2');
+  assert.notEqual(copy.firstEgg, copy.secondEgg);
+  assert.doesNotMatch(`${copy.firstEgg} ${copy.secondEgg}`, /\bb1\b|\bb2\b/u);
 });
 
 test('Full Phaeton found threshold stays three union words', () => {

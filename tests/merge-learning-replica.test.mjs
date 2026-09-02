@@ -244,6 +244,58 @@ function monsterRecord(branch, overrides = {}) {
   };
 }
 
+test('newer explicit branch survives a stale replica with a higher secureCount', () => {
+  const local = snapshot({
+    revision: 6,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b2', { secureCount: 1 }),
+    },
+  });
+  const remote = snapshot({
+    revision: 5,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b1', { secureCount: 2 }),
+    },
+  });
+  const merged = mergeSnapshots(local, remote);
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+    'branch follows the newer snapshot, not the higher secureCount',
+  );
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].secureCount,
+    2,
+    'word progress still takes the numeric max',
+  );
+  assert.equal(merged.revision, 6);
+});
+
+test('newer remote explicit branch survives a stale local with a higher secureCount', () => {
+  const local = snapshot({
+    revision: 5,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b1', { secureCount: 2 }),
+    },
+  });
+  const remote = snapshot({
+    revision: 6,
+    monsterStateByRewardTrackId: {
+      'spelling-core-inklet': monsterRecord('b2', { secureCount: 1 }),
+    },
+  });
+  const merged = mergeSnapshots(local, remote);
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].branch,
+    'b2',
+  );
+  assert.equal(
+    merged.monsterStateByRewardTrackId['spelling-core-inklet'].secureCount,
+    2,
+  );
+  assert.equal(merged.revision, 6);
+});
+
 test('stale replica does not revert a local Codex egg switch on numeric tie', () => {
   const local = snapshot({
     revision: 6,

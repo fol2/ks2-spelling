@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { eggChoiceCopy, eggChoiceSaveFailedVisible } from './egg-choice-moment.js';
+import { eggChoiceCopy, eggChoiceEggIsDisabled, beginEggChoicePick, endEggChoicePick, eggChoiceSaveFailedVisible } from './egg-choice-moment.js';
 import {
   eggChoiceMomentKeyDown,
   eggChoiceMomentMountFocus,
@@ -18,12 +18,16 @@ export function EggChoiceMoment({ monster, onChoose, onDismiss }) {
   const secondEgg = useRef(null);
   const closeBtn = useRef(null);
   const [failedTrackId, setFailedTrackId] = useState(null);
+  const [inFlightBranch, setInFlightBranch] = useState(null);
+  const inFlightRef = useRef(null);
   const copy = eggChoiceCopy();
   const monsterId = monster?.monsterId;
   const trackId = monster?.rewardTrackId ?? null;
   const saveFailed = eggChoiceSaveFailedVisible(failedTrackId, trackId);
   const b1Art = monsterArt(monsterId, 0, 'b1');
   const b2Art = monsterArt(monsterId, 0, 'b2');
+  const firstDisabled = eggChoiceEggIsDisabled(inFlightBranch, 'b1');
+  const secondDisabled = eggChoiceEggIsDisabled(inFlightBranch, 'b2');
 
   useEffect(() => {
     const previousFocus = document.activeElement;
@@ -54,16 +58,25 @@ export function EggChoiceMoment({ monster, onChoose, onDismiss }) {
   }, [onDismiss, saveFailed]);
 
   const pick = (branch) => {
+    if (!beginEggChoicePick(inFlightRef, branch)) return;
+    setInFlightBranch(branch);
+    const settle = (failed) => {
+      endEggChoicePick(inFlightRef);
+      setInFlightBranch(null);
+      setFailedTrackId(failed ? trackId : null);
+    };
     try {
       const result = onChoose(branch);
       if (result && typeof result.then === 'function') {
         void result.then(
-          () => setFailedTrackId(null),
-          () => setFailedTrackId(trackId),
+          () => settle(false),
+          () => settle(true),
         );
+        return;
       }
+      settle(false);
     } catch {
-      setFailedTrackId(trackId);
+      settle(true);
     }
   };
 
@@ -85,25 +98,29 @@ export function EggChoiceMoment({ monster, onChoose, onDismiss }) {
             type="button"
             className="egg-choice-egg press"
             data-branch="b1"
+            disabled={firstDisabled}
+            aria-busy={inFlightBranch === 'b1' ? 'true' : undefined}
             onClick={() => pick('b1')}
           >
             <img src={b1Art ?? undefined} alt="" />
-            <span className="visually-hidden">This egg</span>
+            <span className="visually-hidden">{copy.firstEgg}</span>
           </button>
           <button
             ref={secondEgg}
             type="button"
             className="egg-choice-egg press"
             data-branch="b2"
+            disabled={secondDisabled}
+            aria-busy={inFlightBranch === 'b2' ? 'true' : undefined}
             onClick={() => pick('b2')}
           >
             <img src={b2Art ?? undefined} alt="" />
-            <span className="visually-hidden">This egg</span>
+            <span className="visually-hidden">{copy.secondEgg}</span>
           </button>
         </div>
         {saveFailed ? (
           <>
-            <p data-egg-choice-save-failed="true">{copy.saveFailed}</p>
+            <p role="alert" data-egg-choice-save-failed="true">{copy.saveFailed}</p>
             {typeof onDismiss === 'function' ? (
               <button
                 ref={closeBtn}

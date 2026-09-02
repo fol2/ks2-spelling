@@ -185,15 +185,13 @@ function mergeMonsterRecord(local, remote, localRevision, remoteRevision) {
     ...mergeNumericOwnKeys(left, right),
   };
   if (left.caught === true || right.caught === true) merged.caught = true;
-  const branch = rightProgress > leftProgress
+  // Painted-egg identity follows snapshot revision, not secureCount. A stale
+  // replica with more words must not overwrite a newer explicit choice.
+  const branch = rightRevision > leftRevision
     ? assignedCompanionBranch(right) ?? assignedCompanionBranch(left)
-    : leftProgress > rightProgress
+    : leftRevision > rightRevision
       ? assignedCompanionBranch(left) ?? assignedCompanionBranch(right)
-      : rightRevision > leftRevision
-        ? assignedCompanionBranch(right) ?? assignedCompanionBranch(left)
-        : leftRevision > rightRevision
-          ? assignedCompanionBranch(left) ?? assignedCompanionBranch(right)
-          : assignedCompanionBranch(right) ?? assignedCompanionBranch(left);
+      : assignedCompanionBranch(right) ?? assignedCompanionBranch(left);
   if (branch) merged.branch = branch;
   return merged;
 }

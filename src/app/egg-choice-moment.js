@@ -12,6 +12,8 @@ export const EGG_CHOICE_COPY = Object.freeze({
   announcement: 'Which egg is yours? Tap one.',
   saveFailed: 'Could not save. Try again.',
   close: 'Close',
+  firstEgg: 'Egg 1',
+  secondEgg: 'Egg 2',
 });
 
 export function eggChoiceCopy() {
@@ -22,6 +24,29 @@ export function eggChoiceSaveFailedVisible(failedTrackId, currentTrackId) {
   return failedTrackId === currentTrackId
     && typeof currentTrackId === 'string'
     && currentTrackId.length > 0;
+}
+
+export function eggChoiceCommitInFlight(inFlightBranch) {
+  return inFlightBranch === 'b1' || inFlightBranch === 'b2';
+}
+
+export function eggChoiceMayPick(inFlightBranch) {
+  return !eggChoiceCommitInFlight(inFlightBranch);
+}
+
+export function beginEggChoicePick(inFlightRef, branch) {
+  if (!inFlightRef || !eggChoiceMayPick(inFlightRef.current)) return false;
+  if (branch !== 'b1' && branch !== 'b2') return false;
+  inFlightRef.current = branch;
+  return true;
+}
+
+export function endEggChoicePick(inFlightRef) {
+  if (inFlightRef) inFlightRef.current = null;
+}
+
+export function eggChoiceEggIsDisabled(inFlightBranch, eggBranch) {
+  return eggChoiceCommitInFlight(inFlightBranch) && inFlightBranch !== eggBranch;
 }
 
 function stringIds(value) {

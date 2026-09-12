@@ -2850,9 +2850,9 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   font-size: 0.82rem;
 }
 
-/* One grid, not two rows, so the attempt and the target share a left edge and
-   sit letter above letter — the comparison is the teaching. Both are set in the
-   answer field's face at the same size, so neither reads as the "real" one. */
+/* One grid, so when both spellings are present they share a left edge.
+   A first miss still uses this grid with only the attempt — the letters are
+   the fact, not the result tint. */
 .round-feedback-spellings {
   display: grid;
   align-items: baseline;
@@ -2867,6 +2867,7 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 }
 
 .round-feedback-spellings strong {
+  color: var(--ink);
   font-family: var(--serif);
   font-size: 1.05rem;
   font-weight: 600;

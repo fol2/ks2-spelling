@@ -259,20 +259,28 @@ test('the learner sees what they wrote beside the correct spelling (#112)', asyn
   );
 });
 
-test('a misspelling is never painted without the correction beside it (#112)', async (t) => {
+test('the learner still sees what they wrote when the target is withheld', async (t) => {
   const render = await renderer(t);
 
-  /* First miss: the engine withholds the target on purpose. Showing the child's
-     wrong spelling alone would put the only spelling on screen in the wrong
-     form. */
+  /* First miss: the engine withholds the target on purpose so the next try is
+     from memory. The submitted string still has to stay on screen — kids
+     otherwise argue they typed it correctly once the field is cleared. */
   const firstMiss = render(FIRST_MISS);
   assert.match(firstMiss, /No answer shown yet/u, 'the first-miss body still renders');
-  assert.doesNotMatch(
-    firstMiss,
-    /nesessary/u,
-    'with no target to compare against, the attempt must not be painted',
+  const spellings = firstMiss.match(
+    /<div class="round-feedback-spellings">[\s\S]*?<\/div>/u,
+  )?.[0];
+  assert.ok(spellings, 'the attempt must still sit in the spellings grid');
+  assert.match(
+    spellings,
+    /<span>You wrote<\/span><strong>nesessary<\/strong>/u,
+    'the certified attempt must remain readable as text, not only as colour',
   );
-  assert.doesNotMatch(firstMiss, /round-feedback-spellings/u);
+  assert.doesNotMatch(
+    spellings,
+    /Correct spelling/u,
+    'the target stays withheld until a later miss',
+  );
 
   /* A correct answer has no attempt to show. */
   const secured = render(SECURED);
@@ -298,4 +306,10 @@ test('the stylesheet cannot put the action back above the guidance (#112)', asyn
       `${selector} must not reorder the form: visual order has to match the DOM`,
     );
   }
+
+  assert.match(
+    stripped,
+    /\.round-feedback-spellings strong\s*\{[^}]*color\s*:\s*var\(--ink\)/u,
+    'the judged spelling is ink, not only the success/retry tint',
+  );
 });

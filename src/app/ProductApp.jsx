@@ -3382,20 +3382,11 @@ function RoundScreen({
                   </span>
                   <div>
                     <h2>{practice.feedback.headline}</h2>
-                    {/* Submitting clears the field, so the misspelling is gone
-                        from the screen the moment it is judged; the certified
-                        contract still carries it, and one grid puts both
-                        spellings on a shared left edge so the difference is
-                        there to be seen.
-
-                        Keyed on the *target*, never on the attempt: the engine
-                        attaches the typed word to every wrong answer outside
-                        test mode, including the first miss — where it withholds
-                        the target on purpose ("No answer shown yet. Hear it
-                        again and try once more from memory."). A misspelling
-                        painted alone, with nothing beside it to correct it, is
-                        the one thing a spelling screen must not do. */}
-                    {correctSpelling && (
+                    {/* Submitting clears the field, so the judged string has to
+                        be painted here or it vanishes. The engine still withholds
+                        the target on a first miss; the attempt is shown on its
+                        own so the learner can see what they actually typed. */}
+                    {(shownAttempt || correctSpelling) && (
                       <div className="round-feedback-spellings">
                         {shownAttempt && (
                           <>
@@ -3403,8 +3394,12 @@ function RoundScreen({
                             <strong>{shownAttempt}</strong>
                           </>
                         )}
-                        <span>Correct spelling</span>
-                        <strong>{correctSpelling}</strong>
+                        {correctSpelling && (
+                          <>
+                            <span>Correct spelling</span>
+                            <strong>{correctSpelling}</strong>
+                          </>
+                        )}
                       </div>
                     )}
                     {practice.feedback.body && <p>{practice.feedback.body}</p>}

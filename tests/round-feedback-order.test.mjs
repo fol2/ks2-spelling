@@ -281,6 +281,11 @@ test('the learner still sees what they wrote when the target is withheld', async
     /Correct spelling/u,
     'the target stays withheld until a later miss',
   );
+  assert.doesNotMatch(
+    firstMiss,
+    /Buy Full|£9\.99|Restore purchases/u,
+    'Kids Category: the round card must not carry purchase language',
+  );
 
   /* A correct answer has no attempt to show. */
   const secured = render(SECURED);

@@ -2546,27 +2546,6 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   flex: 1;
 }
 
-.setup-sfx {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.85rem;
-  color: rgb(255 249 236 / 78%);
-  font-size: 0.82rem;
-}
-
-.setup-sfx .pill {
-  min-width: 3.5rem;
-  justify-content: center;
-}
-
-.setup-sfx .pill[aria-checked='true'] {
-  border-color: rgb(230 203 142 / 50%);
-  background: linear-gradient(180deg, var(--cream), var(--cream-deep));
-  color: var(--cream-ink);
-}
-
 .length-choice {
   display: flex;
   gap: 0.4rem;
@@ -4746,10 +4725,6 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   .setup-guardian-note {
     margin-bottom: 0.5rem;
   }
-
-  .setup-sfx {
-    margin-bottom: 0.55rem;
-  }
 }
 
 /* Very short phones (~560px). Guardian-active still needs another type step
@@ -4818,10 +4793,6 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
     overflow: hidden;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
-  }
-
-  .setup-sfx {
-    margin-bottom: 0.45rem;
   }
 }
 

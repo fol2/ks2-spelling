@@ -2693,8 +2693,6 @@ function SetupScreen({
   bankTotal,
   vocabularySets = [],
   monsters = [],
-  sfxEnabled = true,
-  onSetSfxEnabled,
   revisionMission = null,
   megaWords = 0,
   packSize = 0,
@@ -2712,7 +2710,6 @@ function SetupScreen({
   // become a button that cannot go anywhere.
   const [practiceQuest, setPracticeQuest] = useState('smart');
   const [yearFilter, setYearFilter] = useState(vocabularySets[0]?.id ?? 'core');
-  const [soundOn, setSoundOn] = useState(sfxEnabled === true);
   const phase = guardianPhase(revisionMission);
   const active = QUESTS.find(({ id }) => id === quest) ?? QUESTS[0];
   // What Set off actually starts. Only a Guardian with a mission waiting takes
@@ -2728,10 +2725,6 @@ function SetupScreen({
     () => setupExpeditionCompanion(monsters, guardianRuns ? null : effectiveYearFilter),
     [monsters, guardianRuns, effectiveYearFilter],
   );
-
-  useEffect(() => {
-    setSoundOn(sfxEnabled === true);
-  }, [sfxEnabled]);
 
   return (
     <main className="product-app" aria-labelledby="setup-title">
@@ -2945,24 +2938,6 @@ function SetupScreen({
           {audioState.status !== 'ready' && (
             <AudioStatus audioState={audioState} onRecover={onRecoverAudio} dusk />
           )}
-
-          <div className="setup-sfx">
-            <span id="setup-sfx-label">Sound effects</span>
-            <button
-              type="button"
-              role="switch"
-              className="pill press-soft press"
-              aria-checked={soundOn}
-              aria-labelledby="setup-sfx-label"
-              onClick={() => {
-                const next = !soundOn;
-                setSoundOn(next);
-                onSetSfxEnabled?.(next);
-              }}
-            >
-              {soundOn ? 'On' : 'Off'}
-            </button>
-          </div>
         </div>
 
         <div className="setup-go">
@@ -4092,8 +4067,6 @@ export default function ProductApp({ services }) {
         bankTotal={bank.total}
         vocabularySets={learningState.vocabularySets}
         monsters={learningState.monsters}
-        sfxEnabled={services.sfx?.isEnabled?.() !== false}
-        onSetSfxEnabled={(enabled) => services.setSfxEnabled?.(enabled)}
         revisionMission={learningState.revisionMission}
         megaWords={megaWords}
         packSize={learningState.packSize ?? 0}

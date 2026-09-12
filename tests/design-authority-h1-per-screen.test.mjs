@@ -142,8 +142,6 @@ function createFixtures() {
         Object.freeze({ id: 'core', label: 'Core', count: 20 }),
       ]),
       monsters,
-      sfxEnabled: true,
-      onSetSfxEnabled: noop,
       revisionMission: null,
       megaWords: 4,
       packSize: 20,

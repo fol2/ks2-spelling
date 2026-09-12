@@ -501,11 +501,12 @@ export async function createProductAppServices(options = {}) {
       gate,
       now,
     });
-    const soundPrefs = await soundPrefsStore.read().catch(() => null);
     sfx = options.sfx ?? createSfxEngine({
       createContext: () => new AudioContext(),
       lifecycle,
-      initiallyEnabled: soundPrefs?.sfxEnabled !== false,
+      // Dictation practice has no child mute. A stored Off must not silence
+      // the round; parent surfaces may still call setSfxEnabled later.
+      initiallyEnabled: true,
       now,
     });
     if (typeof document !== 'undefined') {

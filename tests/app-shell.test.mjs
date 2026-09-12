@@ -647,8 +647,8 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(failedSetupHtml, /aria-label="Core, 20 words"/);
   assert.match(failedSetupHtml, />Trouble</);
   assert.match(failedSetupHtml, />SATs</);
-  assert.match(failedSetupHtml, /Sound effects/);
-  assert.match(failedSetupHtml, /role="switch"/);
+  assert.doesNotMatch(failedSetupHtml, /Sound effects/);
+  assert.doesNotMatch(failedSetupHtml, /role="switch"/);
   assert.match(failedSetupHtml, /aria-label="Places on the trail"/);
   for (const waypoint of ['Trail', 'Words', 'Codex', 'Camp']) {
     assert.match(failedSetupHtml, new RegExp(`<span>${waypoint}</span>`));
@@ -756,6 +756,9 @@ test('the production shell keeps Parent progress and commerce behind the local g
   )?.[1] ?? '';
   assert.equal((listeningControls.match(/<button\b/gu) ?? []).length, 2);
   assert.doesNotMatch(listeningControls, />Sentence<|Slow sentence/);
+  assert.doesNotMatch(practiceHtml, /Sound effects/);
+  assert.doesNotMatch(practiceHtml, /role="switch"/);
+  assert.doesNotMatch(practiceHtml, /aria-label="Mute"/i);
   // The cloze keeps the sentence either side of a ruled blank, never the word.
   assert.match(practiceHtml, /<span>I<\/span>/);
   assert.match(practiceHtml, /<span>model cars with my brother\.<\/span>/);

@@ -33,7 +33,11 @@ test('Skip for now reclaims focus before skipWord and never disables with answer
 
   assert.match(
     roundScreen,
-    /\{!answered && \(\s*<button[\s\S]*?Skip for now/u,
+    /skipAvailable && \(\s*<button[\s\S]*?Skip for now/u,
+  );
+  assert.match(
+    roundScreen,
+    /const skipAvailable = !answered\s*&& practice\?\.phase === 'question'\s*&& practice\?\.mode !== 'test';/u,
   );
   assert.match(
     roundScreen,

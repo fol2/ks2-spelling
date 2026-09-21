@@ -984,6 +984,39 @@ test('product learning skips a word and ends an untouched round without a summar
   await controller.dispose();
 });
 
+test('product learning refuses skip on SATs Test and during retry', async () => {
+  const testWorld = createLearningWorld();
+  const sats = testWorld.createController();
+  await sats.startRound({
+    mode: 'test',
+    length: 20,
+    yearFilter: 'core',
+  });
+  await assert.rejects(
+    sats.skipWord(),
+    (error) => error?.code === 'product_skip_unavailable',
+  );
+  assert.equal(sats.getState().practice.mode, 'test');
+  assert.equal(sats.getState().practice.phase, 'question');
+  await sats.dispose();
+
+  const retryWorld = createLearningWorld();
+  const retry = retryWorld.createController();
+  await retry.startRound({
+    mode: 'smart',
+    length: 5,
+    yearFilter: 'core',
+  });
+  await retry.submitAnswer('zzzzzz');
+  assert.equal(retry.getState().practice.phase, 'retry');
+  await assert.rejects(
+    retry.skipWord(),
+    (error) => error?.code === 'product_skip_unavailable',
+  );
+  assert.equal(retry.getState().practice.phase, 'retry');
+  await retry.dispose();
+});
+
 test('product learning persists round preferences in the A3 prefs bag', async () => {
   const world = createLearningWorld();
   const controller = world.createController();

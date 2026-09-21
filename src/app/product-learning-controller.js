@@ -775,6 +775,31 @@ export function createProductLearningController({
       });
     },
     skipWord() {
+      const practice = state.practice;
+      // Skip is not a legal SATs command, and retry/correction must finish
+      // first. The vendored skip-fail path otherwise persists undefined
+      // Pattern Quest keys and the planner rejects the snapshot.
+      if (practice?.mode === 'test') {
+        return Promise.reject(
+          controllerError(
+            'product_skip_unavailable',
+            'This word cannot be skipped right now.',
+          ),
+        );
+      }
+      if (
+        practice
+        && practice.mode !== 'guardian'
+        && practice.phase
+        && practice.phase !== 'question'
+      ) {
+        return Promise.reject(
+          controllerError(
+            'product_skip_unavailable',
+            'Finish the retry or correction step first.',
+          ),
+        );
+      }
       return runCommand({
         type: 'skip-word',
         payload: {},

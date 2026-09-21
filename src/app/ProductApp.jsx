@@ -3046,6 +3046,12 @@ function RoundScreen({
   const practice = state.practice;
   const busy = state.status === 'saving';
   const answered = Boolean(practice?.awaitingAdvance);
+  // SATs Test is one attempt per word. Retry/correction must be finished
+  // before a skip can move the card. Offering Skip there used to throw
+  // inside the command planner.
+  const skipAvailable = !answered
+    && practice?.phase === 'question'
+    && practice?.mode !== 'test';
   const companion = useMemo(
     () => buildCodex(state.monsters, state.roundBaseline?.companionRewardTrackId).selected,
     [state.monsters, state.roundBaseline?.companionRewardTrackId],
@@ -3088,13 +3094,14 @@ function RoundScreen({
     } catch (error) {
       if (error?.name === 'NotAllowedError') {
         setLocalError('Tap Hear it again to listen.');
-      // A revoked purchase removed the shards, so telling that family to check
-      // the listening pack is advice they cannot act on. The branch below is
-      // asserted by tests/product-audio-policy-refusal.test.mjs as source text,
-      // so a comment inside it breaks that match — it lives out here instead.
+      // A revoked Full entitlement removed the shards, so telling that family
+      // to check the listening pack is advice they cannot act on. The branch
+      // below is asserted by tests/product-audio-policy-refusal.test.mjs as
+      // source text, so a comment inside it breaks that match — it lives out
+      // here instead. Child copy stays on Ask-a-grown-up, never store wording.
       } else {
         if (entitlementState === 'revoked') {
-          setLocalError('The full word list needs the purchase to be restored.');
+          setLocalError('Ask a grown-up to restore the full word list.');
         } else {
           setLocalError('Audio needs attention. Check the listening pack and try again.');
         }
@@ -3426,7 +3433,7 @@ function RoundScreen({
           <footer className="round-foot">
             <p>AI-generated dictation voice</p>
             <div className="round-foot-actions">
-              {!answered && (
+              {skipAvailable && (
                 <button
                   type="button"
                   className="button-quiet press-soft press"

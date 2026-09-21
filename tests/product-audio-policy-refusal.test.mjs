@@ -25,15 +25,14 @@ test('autoplay policy refusal does not mark the listening pack corrupt', async (
   );
   assert.match(
     catchBlock,
-    /\} else \{\s*if \(entitlementState === 'revoked'\) \{\s*setLocalError\('The full word list needs the purchase to be restored\.'\);\s*\} else \{\s*setLocalError\('Audio needs attention\. Check the listening pack and try again\.'\);\s*\}\s*onPlaybackFailure\(\);\s*\}\s*$/u,
+    /\} else \{\s*if \(entitlementState === 'revoked'\) \{\s*setLocalError\('Ask a grown-up to restore the full word list\.'\);\s*\} else \{\s*setLocalError\('Audio needs attention\. Check the listening pack and try again\.'\);\s*\}\s*onPlaybackFailure\(\);\s*\}\s*$/u,
   );
 });
 
-test('revoked learners see purchase restoration message instead of pack check message', async () => {
+test('revoked learners see Ask-a-grown-up copy instead of pack check or purchase language', async () => {
   const productApp = await readFile(join(root, 'src/app/ProductApp.jsx'), 'utf8');
   const catchBlock = roundPlayCatch(productApp);
 
-  // Verify the error block contains both the revoked message and the standard pack message
   assert.match(
     catchBlock,
     /if \(entitlementState === 'revoked'\)/u,
@@ -41,8 +40,13 @@ test('revoked learners see purchase restoration message instead of pack check me
   );
   assert.match(
     catchBlock,
-    /The full word list needs the purchase to be restored\./u,
-    'must show purchase restoration message for revoked learners',
+    /Ask a grown-up to restore the full word list\./u,
+    'must show Ask-a-grown-up restoration copy for revoked learners',
+  );
+  assert.doesNotMatch(
+    catchBlock,
+    /£|GBP|USD|\$\d|\bBuy\b|\bupgrade\b|\bpurchase\b|\bStoreKit\b|\bunlock\b/iu,
+    'Kids Category: the round catch path must not use purchase vocabulary',
   );
   // Verify the pack message is in the else clause (for non-revoked failures)
   assert.match(

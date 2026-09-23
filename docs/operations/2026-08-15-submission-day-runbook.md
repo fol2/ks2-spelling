@@ -160,7 +160,7 @@ script's `verify_project_version` greps. Do not pass the number as an
 scripts/testflight-upload.sh --version 1.0.0 --build <N> --wait-for-valid
 ```
 
-Honour `DEVELOPER_DIR` (the script pins Xcode 26.6 RC; Apple rejects beta
+Honour `DEVELOPER_DIR` (the script pins Xcode 27; Apple rejects beta
 SDKs). The script: refuses a dirty tree; generates the plist with
 `manageAppVersionAndBuildNumber: false`; builds product web assets in a
 detached worktree; archives `KS2Spelling` / `Release`; uploads.

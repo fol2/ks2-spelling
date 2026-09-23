@@ -10,9 +10,9 @@ set +o xtrace 2>/dev/null || true
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
-# Tested-working App Store Connect toolchain (DTXcode 2660 / Build 17F109 / iphoneos26.5).
+# Tested-working App Store Connect toolchain (Xcode 27).
 # Beta Xcode paths are rejected by Apple at export ("Unsupported SDK or Xcode version").
-PINNED_DEVELOPER_DIR="/Applications/Xcode-26.6.0-release.candidate.app/Contents/Developer"
+PINNED_DEVELOPER_DIR="/Applications/Xcode-27.0.0.app/Contents/Developer"
 DEFAULT_ASC_KEY_ID="NA8CPX2ZL2"
 DEFAULT_ASC_ISSUER_ID="86050c03-0021-426c-8c9a-70965f016e81"
 
@@ -34,7 +34,7 @@ Options:
 
 Environment:
   DEVELOPER_DIR                Optional. Honoured when set; otherwise pinned to the
-                               tested Xcode 26.6 RC toolchain (Apple rejects beta SDKs).
+                               tested Xcode 27 toolchain (Apple rejects beta SDKs).
   ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY_PATH.
 USAGE
 }
@@ -100,7 +100,7 @@ resolve_developer_dir() {
     fail "DEVELOPER_DIR resolves to a beta toolchain ($resolved); Apple rejects beta-built submissions. Fix: export DEVELOPER_DIR=$PINNED_DEVELOPER_DIR (or omit it to use the pin). Installed: ${installed:-none}"
   fi
   if [[ ! -d "$resolved" ]]; then
-    fail "DEVELOPER_DIR does not exist ($resolved); expected the pinned RC at $PINNED_DEVELOPER_DIR. Fix: install that Xcode or export DEVELOPER_DIR to a non-beta toolchain. Installed: ${installed:-none}"
+    fail "DEVELOPER_DIR does not exist ($resolved); expected the pinned Xcode at $PINNED_DEVELOPER_DIR. Fix: install that Xcode or export DEVELOPER_DIR to a non-beta toolchain. Installed: ${installed:-none}"
   fi
   log "DEVELOPER_DIR=$resolved"
 }

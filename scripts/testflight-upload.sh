@@ -10,9 +10,8 @@ set +o xtrace 2>/dev/null || true
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
-# Owner toolchain is the installed Xcode 27. The app bundle name contains "beta";
-# that pinned path is accepted. Any other beta toolchain is still rejected.
-PINNED_DEVELOPER_DIR="/Applications/Xcode-27.0-beta.app/Contents/Developer"
+# App Store Xcode 27 release (27A266a). Beta toolchains are rejected at upload.
+PINNED_DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
 DEFAULT_ASC_KEY_ID="NA8CPX2ZL2"
 DEFAULT_ASC_ISSUER_ID="86050c03-0021-426c-8c9a-70965f016e81"
 
@@ -106,7 +105,7 @@ resolve_developer_dir() {
   local installed
   installed="$(/bin/ls -d /Applications/Xcode*.app 2>/dev/null || true)"
   if [[ "$resolved" == *[Bb]eta* && "$resolved" != "$pinned" ]]; then
-    fail "DEVELOPER_DIR resolves to a beta toolchain ($resolved) other than the pinned Xcode 27. Fix: unset DEVELOPER_DIR to use $PINNED_DEVELOPER_DIR. Installed: ${installed:-none}"
+    fail "DEVELOPER_DIR resolves to a beta toolchain ($resolved). Apple rejects beta-built uploads. Fix: unset DEVELOPER_DIR to use $PINNED_DEVELOPER_DIR. Installed: ${installed:-none}"
   fi
   if [[ ! -d "$resolved" ]]; then
     fail "DEVELOPER_DIR does not exist ($resolved); expected the pinned Xcode 27 at $PINNED_DEVELOPER_DIR. Installed: ${installed:-none}"

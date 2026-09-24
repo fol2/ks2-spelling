@@ -63,6 +63,22 @@ test('the committed iOS project freezes the unsigned B1 identity', async () => {
   assert.match(scheme, /BlueprintName = "App"/);
 });
 
+test('the iOS Info.plist locks the App target to portrait orientations', async () => {
+  const infoPlist = await readFile(INFO_PLIST, 'utf8');
+
+  assert.match(
+    infoPlist,
+    /<key>UISupportedInterfaceOrientations<\/key>\s*<array>\s*<string>UIInterfaceOrientationPortrait<\/string>\s*<\/array>/,
+  );
+  assert.match(
+    infoPlist,
+    /<key>UISupportedInterfaceOrientations~ipad<\/key>\s*<array>\s*<string>UIInterfaceOrientationPortrait<\/string>\s*<string>UIInterfaceOrientationPortraitUpsideDown<\/string>\s*<\/array>/,
+  );
+  assert.match(infoPlist, /<key>UIRequiresFullScreen<\/key>\s*<true\/>/);
+  assert.doesNotMatch(infoPlist, /UIInterfaceOrientationLandscapeLeft/);
+  assert.doesNotMatch(infoPlist, /UIInterfaceOrientationLandscapeRight/);
+});
+
 test('the iOS release lane leaves export compliance unresolved', async () => {
   const sources = await Promise.all(
     [PROJECT, INFO_PLIST, TESTFLIGHT_UPLOAD].map((path) => readFile(path, 'utf8')),

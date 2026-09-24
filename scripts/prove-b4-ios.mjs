@@ -481,7 +481,7 @@ async function proveB4Ios() {
         testMethod: 'testTabletLayoutScreenshots',
       });
       const portraitFile = exactAttachment(tabletResult.manifest, 'b4-ios-layout-portrait_');
-      const landscapeFile = exactAttachment(tabletResult.manifest, 'b4-ios-layout-landscape_');
+      const landscapeFile = exactAttachment(tabletResult.manifest, 'b4-ios-layout-rotation-locked_');
       const portraitPath = join(tabletResult.attachmentsDirectory, portraitFile);
       const landscapeFramebufferPath = join(tabletResult.attachmentsDirectory, landscapeFile);
       const landscapePath = join(workDirectory, 'ios-tablet-landscape-normalised.png');

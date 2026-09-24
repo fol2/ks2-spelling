@@ -480,11 +480,11 @@ final class C5ProductLayoutTests: XCTestCase {
         XCUIDevice.shared.orientation = .landscapeLeft
         application.launch()
         XCTAssertTrue(
-            waitForOrientation(application, landscape: true),
-            "The production tablet application did not settle in landscape."
+            waitForOrientation(application, landscape: false),
+            "The production tablet application did not stay in portrait."
         )
         assertProfilePicker(in: application)
-        attachScreenshot(name: "c5-product-tablet-landscape")
+        attachScreenshot(name: "c5-product-tablet-rotation-locked")
         XCUIDevice.shared.orientation = .portrait
     }
 }

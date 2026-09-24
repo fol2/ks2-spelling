@@ -46,14 +46,14 @@ test('the committed iOS project freezes the unsigned B1 identity', async () => {
     'the non-secret Apple team metadata must be stable',
   );
   assert.equal(
-    [...project.matchAll(/MARKETING_VERSION = 0\.5\.1;/g)].length,
+    [...project.matchAll(/MARKETING_VERSION = 1\.0\.0;/g)].length,
     3,
-    'App Debug, Release and Sandbox must freeze marketing version 0.5.1',
+    'App Debug, Release and Sandbox must freeze marketing version 1.0.0',
   );
   assert.equal(
-    [...project.matchAll(/CURRENT_PROJECT_VERSION = 19;/g)].length,
+    [...project.matchAll(/CURRENT_PROJECT_VERSION = 1;[\s\S]*?MARKETING_VERSION = 1\.0\.0;/g)].length,
     3,
-    'App Debug, Release and Sandbox must freeze TestFlight build 19',
+    'App Debug, Release and Sandbox must freeze TestFlight build 1',
   );
   assert.match(
     infoPlist,

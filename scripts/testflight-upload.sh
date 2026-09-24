@@ -244,7 +244,9 @@ for item in data.get("data", []):
 }
 
 verify_release_environment() {
-  local probe_dir probe_bin codesign_identity avail_gib manager_name
+  local probe_dir probe_bin codesign_identity avail_gib codesign_stderr
+  local sign_keychain="${HOME}/Library/Keychains/octomiser-agent.keychain-db"
+  local unlock_hint="security unlock-keychain \"${sign_keychain}\" && security set-key-partition-list -S apple-tool:,apple:,codesign: -s \"${sign_keychain}\""
 
   probe_dir="$(mktemp -d "${TMPDIR:-/tmp}/ks2-spelling-keychain-probe.XXXXXX")" \
     || fail "could not create a temporary directory for the keychain signing probe"
@@ -254,21 +256,22 @@ verify_release_environment() {
       rm -rf "$probe_dir"
       fail "could not stage the keychain signing probe binary"
     }
+  # The display name is shared by two keychains. The hash selects one certificate.
   codesign_identity="$(
-    /usr/bin/security find-identity -v -p codesigning 2>/dev/null \
-      | /usr/bin/sed -n 's/^ *[0-9][0-9]*) [^ ]* "\(Apple Development: .*\)"$/\1/p' \
+    /usr/bin/security find-identity -v -p codesigning "$sign_keychain" 2>/dev/null \
+      | /usr/bin/sed -n 's/^ *[0-9][0-9]*) \([0-9A-F][0-9A-F]*\) "Apple Development: .*"$/\1/p' \
       | /usr/bin/head -n 1
   )"
   [[ -n "$codesign_identity" ]] \
     || {
       rm -rf "$probe_dir"
-      fail "no Apple Development codesigning identity available in the login keychain"
+      fail "no Apple Development identity in ${sign_keychain}. In this same terminal run: ${unlock_hint}"
     }
-  if ! /usr/bin/codesign --force -s "$codesign_identity" "$probe_bin" \
-      >/dev/null 2>&1; then
+  if ! codesign_stderr="$(
+    /usr/bin/codesign --force --keychain "$sign_keychain" -s "$codesign_identity" "$probe_bin" 2>&1
+  )"; then
     rm -rf "$probe_dir"
-    manager_name="$(/bin/launchctl managername 2>/dev/null || printf 'unknown')"
-    fail "login keychain appears locked or the Apple Development signing identity is unavailable (launchctl managername=${manager_name}); unlock the login keychain in this process tree before retrying"
+    fail "codesign failed for ${codesign_identity} (${sign_keychain}): ${codesign_stderr}. In this same terminal run: ${unlock_hint}"
   fi
   rm -rf "$probe_dir"
   log "PASS env keychain-signing"

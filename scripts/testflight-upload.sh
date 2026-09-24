@@ -74,7 +74,12 @@ write_export_options() {
   <key>method</key>
   <string>app-store-connect</string>
   <key>signingStyle</key>
-  <string>automatic</string>
+  <string>manual</string>
+  <key>provisioningProfiles</key>
+  <dict>
+    <key>uk.eugnel.ks2spelling</key>
+    <string>KS2 Spelling App Store 1.0.0</string>
+  </dict>
   <key>stripSwiftSymbols</key>
   <true/>
   <key>teamID</key>
@@ -421,6 +426,10 @@ set +e
     -destination "$DESTINATION" \
     -archivePath "$ARCHIVE_PATH" \
     -allowProvisioningUpdates \
+    CODE_SIGN_STYLE=Manual \
+    "CODE_SIGN_IDENTITY=Apple Distribution: James TO (V45S7U2LZB)" \
+    "PROVISIONING_PROFILE_SPECIFIER=KS2 Spelling App Store 1.0.0" \
+    "OTHER_CODE_SIGN_FLAGS=--keychain ${HOME}/Library/Keychains/login.keychain-db" \
     "${AUTH_ARGS[@]}"
 ) 2>&1 | tee "$ARCHIVE_LOG"
 archive_status=${PIPESTATUS[0]}

@@ -426,10 +426,6 @@ set +e
     -destination "$DESTINATION" \
     -archivePath "$ARCHIVE_PATH" \
     -allowProvisioningUpdates \
-    "CODE_SIGN_IDENTITY=Apple Distribution: James TO (V45S7U2LZB)" \
-    "App/CODE_SIGN_STYLE=Manual" \
-    "App/PROVISIONING_PROFILE_SPECIFIER=KS2 Spelling App Store 1.0.0" \
-    "App/CODE_SIGN_IDENTITY=Apple Distribution: James TO (V45S7U2LZB)" \
     "OTHER_CODE_SIGN_FLAGS=--keychain ${HOME}/Library/Keychains/login.keychain-db" \
     "${AUTH_ARGS[@]}"
 ) 2>&1 | tee "$ARCHIVE_LOG"

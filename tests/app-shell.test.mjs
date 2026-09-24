@@ -510,7 +510,9 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(homeHtml, /Ada&#x27;s spelling trail/);
   assert.match(homeHtml, /The Scribe Downs/);
   assert.match(homeHtml, /Set off/);
-  assert.match(homeHtml, /words due today/);
+  assert.match(homeHtml, /Nothing due today/);
+  assert.match(homeHtml, /class="trail-due-clear"/);
+  assert.doesNotMatch(homeHtml, /words due today/);
   assert.match(homeHtml, /Listening pack needs setup/);
   for (const waypoint of ['Trail', 'Words', 'Codex', 'Camp']) {
     assert.match(homeHtml, new RegExp(`<span>${waypoint}</span>`));
@@ -524,6 +526,31 @@ test('the production shell keeps Parent progress and commerce behind the local g
   assert.match(homeHtml, /Secure a spelling to wake your first companion\./);
   assert.doesNotMatch(homeHtml, /class="trail-companion /);
   assert.doesNotMatch(homeHtml, /Inklet/);
+
+  const homeProgress = learningState.progress;
+  learningState = Object.freeze({
+    ...learningState,
+    progress: Object.freeze([Object.freeze({
+      runtimeItemId: 'ks2-core:accident',
+      target: 'accident',
+      yearBand: '3-4',
+      coverageTier: 'statutory-core',
+      stage: 1,
+      attempts: 2,
+      correct: 1,
+      wrong: 1,
+      dueDay: 0,
+      lastResult: 'wrong',
+    })]),
+  });
+  const homeDueHtml = render();
+  assert.match(homeDueHtml, /class="figure">1</);
+  assert.match(homeDueHtml, /word due today/);
+  assert.doesNotMatch(homeDueHtml, /Nothing due today/);
+  learningState = Object.freeze({
+    ...learningState,
+    progress: homeProgress,
+  });
 
   learningState = Object.freeze({
     ...learningState,

@@ -988,7 +988,7 @@ test('unguarded color-mix and text-wrap: balance remain, and iOS 26.0 is the fal
   const cssText = (await Promise.all(cssFiles.map((path) => readFile(path, 'utf8')))).join('\n');
   const counts = countProductCssFeatureUses(cssText);
   assert.equal(counts.colorMix, 38);
-  assert.equal(counts.textWrapBalance, 4);
+  assert.equal(counts.textWrapBalance, 5);
   assert.equal(counts.supportsBlocks, 1);
   const supportsBlocks = extractAtSupportsBlocks(cssText);
   assert.equal(supportsBlocks.length, 1);

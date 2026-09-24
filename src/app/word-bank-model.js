@@ -253,9 +253,15 @@ export function buildWordBank({
     ?? availableVocabSets[0];
   const inSet = words.filter((entry) => matchesVocabSet(activeVocab.id, entry));
   const searched = inSet.filter((entry) => matchesQuery(entry.word, needle));
-  const rows = searched.filter((entry) => (
+  const filtered = searched.filter((entry) => (
     matchesFilter(activeFilter.id, entry.marks, entry.status)
   ));
+  // Unlocked rows stay ahead of locked Starter words; each group keeps its
+  // existing relative order so filters never reshuffle playable spellings.
+  const rows = [
+    ...filtered.filter((entry) => !entry.locked),
+    ...filtered.filter((entry) => entry.locked),
+  ];
   const unfilteredSelection = activeFilter.id === 'all' && !needle;
 
   return {

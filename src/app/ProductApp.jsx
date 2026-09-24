@@ -1657,8 +1657,19 @@ function TrailScreen({
           )}
 
           <p className="trail-due">
-            <span className="figure">{dueCount}</span>
-            {dueLabel}
+            {dueCount === 0 ? (
+              <>
+                <span className="trail-due-clear" aria-hidden="true">
+                  <IconTick />
+                </span>
+                Nothing due today
+              </>
+            ) : (
+              <>
+                <span className="figure">{dueCount}</span>
+                {dueLabel}
+              </>
+            )}
           </p>
 
           <div className="trail-launch">
@@ -1959,11 +1970,13 @@ function WordBankScreen({
                 aria-label={`${option.label}, ${option.count} ${option.count === 1 ? 'word' : 'words'}`}
                 onClick={() => setFilter(option.id)}
               >
-                <span
-                  className="bank-dot"
-                  style={{ '--dot': FILTER_DOTS[option.id] }}
-                  aria-hidden="true"
-                />
+                {option.id !== 'all' && (
+                  <span
+                    className="bank-dot"
+                    style={{ '--dot': FILTER_DOTS[option.id] }}
+                    aria-hidden="true"
+                  />
+                )}
                 {option.label}
               </button>
             ))}

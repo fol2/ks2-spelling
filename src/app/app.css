@@ -2181,12 +2181,13 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 
 /* The wake hint explains the silhouette, so it sits with the art rather than
    in the text column. Out of flow it costs the column nothing, and as a
-   sibling of the scrollport it is not clipped when the hero scrolls. */
+   sibling of the scrollport it is not clipped when the hero scrolls. Anchored
+   under the quest row so the two-line caption clears the tile boxes. */
 .setup-hero .setup-companion-hint {
   position: absolute;
   z-index: 0;
   right: 1rem;
-  bottom: 0.6rem;
+  bottom: 0;
   width: min(11rem, 45%);
   margin: 0;
   font-family: var(--sans);
@@ -2774,6 +2775,7 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 
 .listen-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 0.4rem;
   margin-top: 1.25rem;
@@ -4760,6 +4762,12 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 
   .quest-tile[aria-pressed='true'] > span {
     translate: 0 -0.25rem;
+  }
+
+  /* Short phones leave less room under the tiles than two note-sized lines. */
+  .setup-hero .setup-companion-hint {
+    font-size: 0.62rem;
+    line-height: 1.2;
   }
 
   .setup-tray-controls {

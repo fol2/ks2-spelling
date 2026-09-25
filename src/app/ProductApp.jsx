@@ -1656,7 +1656,7 @@ function TrailScreen({
             />
           )}
 
-          <p className="trail-due">
+          <p className={dueCount === 0 ? 'trail-due trail-due-quiet' : 'trail-due'}>
             {dueCount === 0 ? (
               <>
                 <span className="trail-due-clear" aria-hidden="true">

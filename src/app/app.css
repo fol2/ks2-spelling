@@ -779,9 +779,13 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   letter-spacing: -0.03em;
 }
 
+/* The tick has no text baseline, so a quiet day centres the pair instead. */
+.trail-due-quiet {
+  align-items: center;
+}
+
 .trail-due .trail-due-clear {
   display: inline-flex;
-  align-self: center;
   color: var(--gold);
   font-size: 1.6rem;
   line-height: 1;

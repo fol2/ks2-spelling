@@ -89,6 +89,20 @@ test('the iOS release lane leaves export compliance unresolved', async () => {
   }
 });
 
+test('the TestFlight readiness gate fails the upload and pins the engine Node', async () => {
+  const upload = await readFile(TESTFLIGHT_UPLOAD, 'utf8');
+  const readiness = upload.match(/^run_lean_readiness\(\) \{\n([\s\S]*?)\n\}/mu);
+  assert.ok(readiness, 'run_lean_readiness must exist');
+  const body = readiness[1];
+
+  // The caller runs readiness with errexit off; without these a failing test
+  // run fell through to "PASS lean readiness" (TestFlight 1.0.0 (2)).
+  assert.match(body, /\(\n\s+set -e\n/u);
+  assert.match(body, /\n\s+\) \|\| return\n\s+log "PASS lean readiness"/u);
+  assert.match(body, /engines\.node/u);
+  assert.match(body, /\[\[ "\$\(node -v\)" == "\$engine" \]\]/u);
+});
+
 test('the iOS host adopts one storyboard-backed UIScene without losing app-owned plugins', async () => {
   const [project, infoPlist, appDelegate, sceneDelegate, storyboard] = await Promise.all([
     readFile(PROJECT, 'utf8'),

@@ -170,15 +170,23 @@ assert_product_composition() {
 run_lean_readiness() {
   local worktree="$1"
   log "Running lean TestFlight readiness in detached worktree"
+  # The caller runs this with errexit off to capture the tee'd status, so the
+  # subshell turns it back on and its status is returned: a failing step must
+  # stop the upload, not fall through to PASS.
   (
+    set -e
     cd "$worktree"
+    local engine
+    engine="v$(node -p "require('./package.json').engines.node")"
+    [[ "$(node -v)" == "$engine" ]] \
+      || fail "node $(node -v) does not match engines.node ${engine}; put Node ${engine#v} first on PATH"
     npm ci
     npm run build
     npx cap sync ios
     assert_product_composition "$worktree"
     node --test tests/ios-project-contract.test.mjs
     npm run test:fast
-  )
+  ) || return
   log "PASS lean readiness"
 }
 

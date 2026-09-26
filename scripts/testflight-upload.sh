@@ -10,9 +10,8 @@ set +o xtrace 2>/dev/null || true
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
-# Tested-working App Store Connect toolchain (DTXcode 2660 / Build 17F109 / iphoneos26.5).
-# Beta Xcode paths are rejected by Apple at export ("Unsupported SDK or Xcode version").
-PINNED_DEVELOPER_DIR="/Applications/Xcode-26.6.0-release.candidate.app/Contents/Developer"
+# App Store Xcode 27 release (27A266a). Beta toolchains are rejected at upload.
+PINNED_DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
 DEFAULT_ASC_KEY_ID="NA8CPX2ZL2"
 DEFAULT_ASC_ISSUER_ID="86050c03-0021-426c-8c9a-70965f016e81"
 
@@ -34,7 +33,7 @@ Options:
 
 Environment:
   DEVELOPER_DIR                Optional. Honoured when set; otherwise pinned to the
-                               tested Xcode 26.6 RC toolchain (Apple rejects beta SDKs).
+                               installed Xcode 27 toolchain.
   ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY_PATH.
 USAGE
 }
@@ -74,7 +73,12 @@ write_export_options() {
   <key>method</key>
   <string>app-store-connect</string>
   <key>signingStyle</key>
-  <string>automatic</string>
+  <string>manual</string>
+  <key>provisioningProfiles</key>
+  <dict>
+    <key>uk.eugnel.ks2spelling</key>
+    <string>KS2 Spelling App Store 1.0.0</string>
+  </dict>
   <key>stripSwiftSymbols</key>
   <true/>
   <key>teamID</key>
@@ -94,13 +98,17 @@ resolve_developer_dir() {
   if [[ -e "$DEVELOPER_DIR" ]]; then
     resolved="$(cd "$DEVELOPER_DIR" 2>/dev/null && pwd -P)" || resolved="$DEVELOPER_DIR"
   fi
+  local pinned="$PINNED_DEVELOPER_DIR"
+  if [[ -e "$PINNED_DEVELOPER_DIR" ]]; then
+    pinned="$(cd "$PINNED_DEVELOPER_DIR" 2>/dev/null && pwd -P)" || pinned="$PINNED_DEVELOPER_DIR"
+  fi
   local installed
   installed="$(/bin/ls -d /Applications/Xcode*.app 2>/dev/null || true)"
-  if [[ "$resolved" == *[Bb]eta* ]]; then
-    fail "DEVELOPER_DIR resolves to a beta toolchain ($resolved); Apple rejects beta-built submissions. Fix: export DEVELOPER_DIR=$PINNED_DEVELOPER_DIR (or omit it to use the pin). Installed: ${installed:-none}"
+  if [[ "$resolved" == *[Bb]eta* && "$resolved" != "$pinned" ]]; then
+    fail "DEVELOPER_DIR resolves to a beta toolchain ($resolved). Apple rejects beta-built uploads. Fix: unset DEVELOPER_DIR to use $PINNED_DEVELOPER_DIR. Installed: ${installed:-none}"
   fi
   if [[ ! -d "$resolved" ]]; then
-    fail "DEVELOPER_DIR does not exist ($resolved); expected the pinned RC at $PINNED_DEVELOPER_DIR. Fix: install that Xcode or export DEVELOPER_DIR to a non-beta toolchain. Installed: ${installed:-none}"
+    fail "DEVELOPER_DIR does not exist ($resolved); expected the pinned Xcode 27 at $PINNED_DEVELOPER_DIR. Installed: ${installed:-none}"
   fi
   log "DEVELOPER_DIR=$resolved"
 }
@@ -162,15 +170,23 @@ assert_product_composition() {
 run_lean_readiness() {
   local worktree="$1"
   log "Running lean TestFlight readiness in detached worktree"
+  # The caller runs this with errexit off to capture the tee'd status, so the
+  # subshell turns it back on and its status is returned: a failing step must
+  # stop the upload, not fall through to PASS.
   (
+    set -e
     cd "$worktree"
+    local engine
+    engine="v$(node -p "require('./package.json').engines.node")"
+    [[ "$(node -v)" == "$engine" ]] \
+      || fail "node $(node -v) does not match engines.node ${engine}; put Node ${engine#v} first on PATH"
     npm ci
     npm run build
     npx cap sync ios
     assert_product_composition "$worktree"
     node --test tests/ios-project-contract.test.mjs
     npm run test:fast
-  )
+  ) || return
   log "PASS lean readiness"
 }
 
@@ -240,7 +256,9 @@ for item in data.get("data", []):
 }
 
 verify_release_environment() {
-  local probe_dir probe_bin codesign_identity avail_gib manager_name
+  local probe_dir probe_bin codesign_identity avail_gib codesign_stderr
+  local sign_keychain="${HOME}/Library/Keychains/login.keychain-db"
+  local unlock_hint="security set-key-partition-list -S apple-tool:,apple:,codesign: -s \"${sign_keychain}\""
 
   probe_dir="$(mktemp -d "${TMPDIR:-/tmp}/ks2-spelling-keychain-probe.XXXXXX")" \
     || fail "could not create a temporary directory for the keychain signing probe"
@@ -250,21 +268,22 @@ verify_release_environment() {
       rm -rf "$probe_dir"
       fail "could not stage the keychain signing probe binary"
     }
+  # Login keychain holds the Apple Distribution identity used for TestFlight.
   codesign_identity="$(
-    /usr/bin/security find-identity -v -p codesigning 2>/dev/null \
-      | /usr/bin/sed -n 's/^ *[0-9][0-9]*) [^ ]* "\(Apple Development: .*\)"$/\1/p' \
+    /usr/bin/security find-identity -v -p codesigning "$sign_keychain" 2>/dev/null \
+      | /usr/bin/sed -n 's/^ *[0-9][0-9]*) \([0-9A-F][0-9A-F]*\) "Apple Distribution: .*"$/\1/p' \
       | /usr/bin/head -n 1
   )"
   [[ -n "$codesign_identity" ]] \
     || {
       rm -rf "$probe_dir"
-      fail "no Apple Development codesigning identity available in the login keychain"
+      fail "no Apple Distribution identity in ${sign_keychain}. In this same terminal run: ${unlock_hint}"
     }
-  if ! /usr/bin/codesign --force -s "$codesign_identity" "$probe_bin" \
-      >/dev/null 2>&1; then
+  if ! codesign_stderr="$(
+    /usr/bin/codesign --force --keychain "$sign_keychain" -s "$codesign_identity" "$probe_bin" 2>&1
+  )"; then
     rm -rf "$probe_dir"
-    manager_name="$(/bin/launchctl managername 2>/dev/null || printf 'unknown')"
-    fail "login keychain appears locked or the Apple Development signing identity is unavailable (launchctl managername=${manager_name}); unlock the login keychain in this process tree before retrying"
+    fail "codesign failed for ${codesign_identity} (${sign_keychain}): ${codesign_stderr}. In this same terminal run: ${unlock_hint}"
   fi
   rm -rf "$probe_dir"
   log "PASS env keychain-signing"
@@ -414,6 +433,7 @@ set +e
     -destination "$DESTINATION" \
     -archivePath "$ARCHIVE_PATH" \
     -allowProvisioningUpdates \
+    "OTHER_CODE_SIGN_FLAGS=--keychain ${HOME}/Library/Keychains/login.keychain-db" \
     "${AUTH_ARGS[@]}"
 ) 2>&1 | tee "$ARCHIVE_LOG"
 archive_status=${PIPESTATUS[0]}

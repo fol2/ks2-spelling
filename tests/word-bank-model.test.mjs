@@ -458,6 +458,43 @@ test('locked catalogue words stay in the count and out of learning filters', () 
   assert.equal(learningOnly.countLabel, '1 of 2 words');
 });
 
+test('unlocked words stay ahead of locked words with stable relative order', () => {
+  const bank = buildWordBank({
+    progress: [
+      word({
+        runtimeItemId: 'ks2-core:zebra',
+        target: 'zebra',
+        locked: true,
+      }),
+      word({
+        runtimeItemId: 'ks2-core:answer',
+        target: 'answer',
+      }),
+      word({
+        runtimeItemId: 'ks2-core:bicycle',
+        target: 'bicycle',
+        locked: true,
+      }),
+      word({
+        runtimeItemId: 'ks2-core:accident',
+        target: 'accident',
+      }),
+    ],
+    vocabSet: 'core',
+    now: 0,
+  });
+
+  assert.deepEqual(
+    bank.rows.map((row) => ({ word: row.word, locked: row.locked })),
+    [
+      { word: 'answer', locked: false },
+      { word: 'accident', locked: false },
+      { word: 'zebra', locked: true },
+      { word: 'bicycle', locked: true },
+    ],
+  );
+});
+
 test('hearing a word asks the round audio port for the word recording', () => {
   assert.deepEqual(
     hearWordRequest({

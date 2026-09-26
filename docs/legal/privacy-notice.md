@@ -26,10 +26,11 @@ KS2 Spelling contains no advertising, analytics or tracking service and does
 not create child accounts. Learner profiles, spelling answers, progress,
 Inklet and Camp state are not sent to the commerce or download service.
 
-When release commerce is enabled, the application may send a store purchase
-proof to the entitlement service and contact the relevant app store to buy,
-restore or verify a purchase. It may then download signed spelling-pack data.
-Those operations use purchase and pack authority only, not learner data.
+When a Parent buys or restores Full KS2 spelling, the application may send a
+store purchase proof to the entitlement service and contact the relevant app
+store to buy, restore or verify a purchase. It may then download signed
+spelling-pack data. Those operations use purchase and pack authority only, not
+learner data.
 
 An IP address necessarily reaches the entitlement gateway to service a
 purchase-verification or download request. It is used only for that purpose
@@ -45,7 +46,5 @@ application does not delete iCloud copies.
 
 ## Publication contact
 
-Support and data enquiries use the developer contact published with the
-application's store listing. The final store URL, publisher identity and
-store-disclosure answers are publication metadata and must be verified during
-the final release proof; they are not inferred by this notice.
+For support or data questions, use the developer contact shown on the KS2
+Spelling App Store page.

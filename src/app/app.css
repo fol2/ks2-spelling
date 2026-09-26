@@ -779,6 +779,23 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   letter-spacing: -0.03em;
 }
 
+/* The tick has no text baseline, so a quiet day centres the pair instead. */
+.trail-due-quiet {
+  align-items: center;
+}
+
+.trail-due .trail-due-clear {
+  display: inline-flex;
+  color: var(--gold);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.trail-due .trail-due-clear svg {
+  width: 1em;
+  height: 1em;
+}
+
 .trail-launch {
   flex: none;
   /* Set off is the answer path's front door: it must be on screen and
@@ -840,6 +857,7 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 
 .bank-filters {
   flex: none;
+  gap: 0.3rem;
   margin-top: 0.55rem;
   padding-bottom: 0.15rem;
 }
@@ -849,6 +867,7 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 }
 
 .bank-filters .pill {
+  padding: 0 0.55rem;
   font-size: 0.75rem;
 }
 
@@ -1424,6 +1443,7 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   font-weight: 800;
   letter-spacing: 0.11em;
   text-transform: uppercase;
+  text-wrap: balance;
 }
 
 .ask-grown-up {
@@ -2154,6 +2174,7 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 
 .setup-quest > p {
   position: relative;
+  flex: none;
   max-width: 15rem;
   margin-top: 0.5rem;
   color: rgb(255 249 236 / 70%);
@@ -2164,12 +2185,13 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 
 /* The wake hint explains the silhouette, so it sits with the art rather than
    in the text column. Out of flow it costs the column nothing, and as a
-   sibling of the scrollport it is not clipped when the hero scrolls. */
+   sibling of the scrollport it is not clipped when the hero scrolls. Anchored
+   under the quest row so the two-line caption clears the tile boxes. */
 .setup-hero .setup-companion-hint {
   position: absolute;
   z-index: 0;
   right: 1rem;
-  bottom: 0.6rem;
+  bottom: 0;
   width: min(11rem, 45%);
   margin: 0;
   font-family: var(--sans);
@@ -2324,6 +2346,7 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 
 .quest-tile[aria-pressed='true'] .quest-tile-tag {
   color: var(--gold);
+  text-shadow: 0 1px 6px rgb(0 0 0 / 70%);
 }
 
 .quest-tile-name {
@@ -2749,12 +2772,14 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 }
 
 .answer-line input:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 4px;
+  outline: none;
+  border-radius: 0.85rem 0.85rem 0.3rem 0.3rem;
+  background: rgb(62 111 168 / 7%);
 }
 
 .listen-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 0.4rem;
   margin-top: 1.25rem;
@@ -3100,6 +3125,7 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 
 .field-record-sheet {
   position: relative;
+  z-index: 1;
   border: 1px solid rgb(158 106 25 / 32%);
   border-radius: 1.45rem;
   padding: 0.95rem 1.05rem 0.9rem;
@@ -4112,7 +4138,7 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 
 .parent-biometric-button {
   display: flex;
-  width: 100%;
+  width: min(20rem, 100%);
   min-height: 3rem;
   align-items: center;
   justify-content: center;
@@ -4299,6 +4325,7 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 }
 
 .parent-learner-summary strong {
+  color: var(--ink);
   font-family: var(--serif);
   font-size: 1.2rem;
   font-weight: 500;
@@ -4350,6 +4377,24 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   border-radius: var(--r-s);
   padding: 0 0.8rem;
   background: var(--paper-raised);
+}
+
+/* iOS WebKit ignores min-height on an appearance:auto menulist and drew these
+   selects 20pt tall. Dropping the native appearance keeps them on the shared
+   3rem floor; two gradient triangles draw the chevron the native control lost. */
+.learner-form select,
+.parent-edit-form select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2.4rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%),
+    linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+  background-repeat: no-repeat;
+  background-position:
+    calc(100% - 1.26rem) 52%,
+    calc(100% - 0.94rem) 52%;
+  background-size: 0.32rem 0.32rem;
 }
 
 /* The commerce card's primary action owns its row. Sharing one with Restore
@@ -4611,6 +4656,11 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
   .product-app select:focus-visible {
     outline-width: 4px;
   }
+
+  .answer-line input:focus-visible {
+    outline: 4px solid var(--focus);
+    outline-offset: 4px;
+  }
 }
 
 @media (max-width: 22rem) {
@@ -4716,6 +4766,12 @@ html[data-ambient='motes'] .round-scene .scene-ambient-mote:nth-child(3) {
 
   .quest-tile[aria-pressed='true'] > span {
     translate: 0 -0.25rem;
+  }
+
+  /* Short phones leave less room under the tiles than two note-sized lines. */
+  .setup-hero .setup-companion-hint {
+    font-size: 0.62rem;
+    line-height: 1.2;
   }
 
   .setup-tray-controls {

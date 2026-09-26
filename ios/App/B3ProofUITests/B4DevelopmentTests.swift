@@ -465,15 +465,15 @@ final class B4DevelopmentTests: XCTestCase {
         XCUIDevice.shared.orientation = .landscapeLeft
         application.launch()
         XCTAssertTrue(
-            waitForWindowOrientation(application, landscape: true),
-            "The tablet application window did not settle in landscape."
+            waitForWindowOrientation(application, landscape: false),
+            "The tablet application window did not stay in portrait."
         )
-        XCTAssertTrue(waitUntilPresent(heading), "The tablet landscape surface did not remain visible.")
+        XCTAssertTrue(waitUntilPresent(heading), "The tablet rotated surface did not remain visible.")
         for control in [input, replay, slowReplay, submit] {
-            XCTAssertTrue(waitUntilEnabled(control), "A tablet landscape control was unreachable.")
-            XCTAssertTrue(control.isHittable, "A tablet landscape control was not hittable.")
+            XCTAssertTrue(waitUntilEnabled(control), "A tablet rotated control was unreachable.")
+            XCTAssertTrue(control.isHittable, "A tablet rotated control was not hittable.")
         }
-        attachScreenshot(name: "b4-ios-layout-landscape")
+        attachScreenshot(name: "b4-ios-layout-rotation-locked")
         XCUIDevice.shared.orientation = .portrait
     }
 }

@@ -46,14 +46,14 @@ test('the committed iOS project freezes the unsigned B1 identity', async () => {
     'the non-secret Apple team metadata must be stable',
   );
   assert.equal(
-    [...project.matchAll(/MARKETING_VERSION = 0\.5\.1;/g)].length,
+    [...project.matchAll(/MARKETING_VERSION = 1\.0\.0;/g)].length,
     3,
-    'App Debug, Release and Sandbox must freeze marketing version 0.5.1',
+    'App Debug, Release and Sandbox must freeze marketing version 1.0.0',
   );
   assert.equal(
-    [...project.matchAll(/CURRENT_PROJECT_VERSION = 19;/g)].length,
+    [...project.matchAll(/CURRENT_PROJECT_VERSION = 2;[\s\S]*?MARKETING_VERSION = 1\.0\.0;/g)].length,
     3,
-    'App Debug, Release and Sandbox must freeze TestFlight build 19',
+    'App Debug, Release and Sandbox must freeze TestFlight build 2',
   );
   assert.match(
     infoPlist,
@@ -61,6 +61,22 @@ test('the committed iOS project freezes the unsigned B1 identity', async () => {
   );
   assert.match(scheme, /BuildableName = "App\.app"/);
   assert.match(scheme, /BlueprintName = "App"/);
+});
+
+test('the iOS Info.plist locks the App target to portrait orientations', async () => {
+  const infoPlist = await readFile(INFO_PLIST, 'utf8');
+
+  assert.match(
+    infoPlist,
+    /<key>UISupportedInterfaceOrientations<\/key>\s*<array>\s*<string>UIInterfaceOrientationPortrait<\/string>\s*<\/array>/,
+  );
+  assert.match(
+    infoPlist,
+    /<key>UISupportedInterfaceOrientations~ipad<\/key>\s*<array>\s*<string>UIInterfaceOrientationPortrait<\/string>\s*<string>UIInterfaceOrientationPortraitUpsideDown<\/string>\s*<\/array>/,
+  );
+  assert.match(infoPlist, /<key>UIRequiresFullScreen<\/key>\s*<true\/>/);
+  assert.doesNotMatch(infoPlist, /UIInterfaceOrientationLandscapeLeft/);
+  assert.doesNotMatch(infoPlist, /UIInterfaceOrientationLandscapeRight/);
 });
 
 test('the iOS release lane leaves export compliance unresolved', async () => {
@@ -71,6 +87,20 @@ test('the iOS release lane leaves export compliance unresolved', async () => {
   for (const source of sources) {
     assert.doesNotMatch(source, /ITSAppUsesNonExemptEncryption/);
   }
+});
+
+test('the TestFlight readiness gate fails the upload and pins the engine Node', async () => {
+  const upload = await readFile(TESTFLIGHT_UPLOAD, 'utf8');
+  const readiness = upload.match(/^run_lean_readiness\(\) \{\n([\s\S]*?)\n\}/mu);
+  assert.ok(readiness, 'run_lean_readiness must exist');
+  const body = readiness[1];
+
+  // The caller runs readiness with errexit off; without these a failing test
+  // run fell through to "PASS lean readiness" (TestFlight 1.0.0 (2)).
+  assert.match(body, /\(\n\s+set -e\n/u);
+  assert.match(body, /\n\s+\) \|\| return\n\s+log "PASS lean readiness"/u);
+  assert.match(body, /engines\.node/u);
+  assert.match(body, /\[\[ "\$\(node -v\)" == "\$engine" \]\]/u);
 });
 
 test('the iOS host adopts one storyboard-backed UIScene without losing app-owned plugins', async () => {
